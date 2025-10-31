@@ -13,6 +13,7 @@ import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STA
 import { ColorSwap } from "../../../../services/datacontracts/bones/color-swap";
 import { events } from "../../helpers/events";
 import { WarpBase } from "../Effects/Warp/warp-base";
+import { Sting } from "../Effects/Sting/sting";
 
 export class Hero extends Character {
   isAttacking = false;
@@ -124,6 +125,13 @@ export class Hero extends Character {
               this.body?.animations?.play("attackRight");
             }
             this.playAttackSound();
+            if (this.type === "magi") {
+              const sting = new Sting(neighbour?.x ?? this.position.x, neighbour?.y ?? this.position.y);
+              this.addChild(sting);
+              setTimeout(() => {
+                sting.destroy();
+              }, 2000);
+            }
           }
         } catch (e) {
           console.log("error checking npc", e);
