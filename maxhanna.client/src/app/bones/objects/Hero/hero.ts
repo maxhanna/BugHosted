@@ -119,8 +119,7 @@ export class Hero extends Character {
         const neighbour = this.position.toNeighbour ? this.position.toNeighbour(this.facingDirection) : null;
         const objInFront = neighbour ? objectAtLocation(this.parent, neighbour, true) : null;
         const isNpcInFront = objInFront && (objInFront instanceof Npc || objInFront.constructor?.name?.toLowerCase().endsWith('npc'));
-        if (!isNpcInFront) { 
-          console.log("playing attack");
+        if (!isNpcInFront) {  
           if (this.facingDirection == "DOWN") {
             this.body?.animations?.play("attackDown");
             if (this.currentSkill) {
@@ -145,23 +144,17 @@ export class Hero extends Character {
           this.playAttackSound(); 
         }
         
-        // After the attack animation finishes, allow another attack to be queued if the user is still holding
-        // the attack input (space / controller A). We'll wait for the visual animation to finish (400ms)
-        // then, if the input is held, trigger another SPACEBAR_PRESSED respecting the attackSpeed cooldown.
         setTimeout(() => {
-          this.isAttacking = false;
-          // try to locate the input instance by walking parents
+          this.isAttacking = false; 
           const inputInstance = this.findInputInstance();
           
           const holding = !!(inputInstance && (inputInstance.keys?.['Space'] || inputInstance.keys?.['KeyA']));
-          if (holding) {
-            // don't queue follow-up if the hero started moving
+          if (holding) { 
             const isMovingNow = (this.position.x !== this.destinationPosition.x) || (this.position.y !== this.destinationPosition.y);
             if (isMovingNow) {
               return;
             }
-            const elapsed = Date.now() - this.lastAttackAt;
-            // wait until both cooldown and animation complete to trigger next attack
+            const elapsed = Date.now() - this.lastAttackAt; 
             const cooldownRemaining = Math.max(0, (this.attackSpeed ?? 400) - elapsed);
             const requiredWait = Math.max(cooldownRemaining, (this.attackSpeed ?? 400) + 50);
             setTimeout(() => { 
