@@ -604,6 +604,7 @@ body {
   font-family: owreKynge;
   color: var(--secondary-font-color);
   font-size: large;
+  text-align: center;
 }
 
 .changeCharacterPanel {

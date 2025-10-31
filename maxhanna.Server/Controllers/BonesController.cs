@@ -26,18 +26,17 @@ namespace maxhanna.Server.Controllers
 		private static readonly Dictionary<int, DateTime> _encounterTargetLockTimes = new();
 		// Track recent positions to prevent back-and-forth oscillation: maps encounter hero_id -> (lastX,lastY,wasLastMoveReversalCount)
 		private static readonly Dictionary<int, (int lastX, int lastY, int reversalCount)> _encounterRecentPositions = new();
-		private static readonly Dictionary<SkillType, SkillType> TypeEffectiveness = new()
-		{
-				{ SkillType.SPEED, SkillType.ARMOR },
-				{ SkillType.STRENGTH, SkillType.STEALTH },
-				{ SkillType.ARMOR, SkillType.RANGED },
-				{ SkillType.RANGED, SkillType.INTELLIGENCE },
-				{ SkillType.STEALTH, SkillType.SPEED },
-				{ SkillType.INTELLIGENCE, SkillType.STRENGTH }
+		private static string[] orderedMaps = new[] {
+			"HeroRoom",
+			"RoadToCitadelOfVesper",
+			"CitadelOfVesper",
+			"RoadToRiftedBastion",
+			"RiftedBastion",
+			"RoadToFortPenumbra",
+			"FortPenumbra",
+			"RoadToGatesOfHell",
+			"GatesOfHell"
 		};
-
-		private enum SkillType { NORMAL = 0, SPEED = 1, STRENGTH = 2, ARMOR = 3, RANGED = 4, STEALTH = 5, INTELLIGENCE = 6 }
-
 		public BonesController(Log log, IConfiguration config)
 		{
 			_log = log;
@@ -1045,8 +1044,31 @@ ORDER BY p.created DESC;";
 					spawnX = 0; spawnY = 0;
 				}
 
-				string updateSql = @"UPDATE maxhanna.bones_hero SET coordsX = @X, coordsY = @Y, hp = 100, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
-				var parameters = new Dictionary<string, object?>() { { "@HeroId", heroId }, { "@X", spawnX }, { "@Y", spawnY } };
+				// Determine the town that precedes the hero's current map using orderedMaps.
+				var townSet = new HashSet<string>(new[] { "HeroRoom", "CitadelOfVesper", "RiftedBastion", "FortPenumbra", "GatesOfHell" });
+				string currentMapRaw = map ?? string.Empty;
+				string NormalizeMap(string s) {
+					if (string.IsNullOrEmpty(s)) return string.Empty;
+					var sb = new System.Text.StringBuilder();
+					foreach (var ch in s.ToUpperInvariant()) { if (char.IsLetterOrDigit(ch)) sb.Append(ch); }
+					return sb.ToString();
+				}
+				string normCurrent = NormalizeMap(currentMapRaw);
+				int idx = -1;
+				for (int i = 0; i < orderedMaps.Length; i++) {
+					if (NormalizeMap(orderedMaps[i]) == normCurrent) { idx = i; break; }
+				}
+				string targetMap = "HeroRoom";
+				if (idx == -1) {
+					targetMap = "HeroRoom";
+				} else {
+					for (int i = idx - 1; i >= 0; i--) {
+						if (townSet.Contains(orderedMaps[i])) { targetMap = orderedMaps[i]; break; }
+					}
+				}
+
+				string updateSql = @"UPDATE maxhanna.bones_hero SET coordsX = @X, coordsY = @Y, map = @Map, hp = 100, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
+				var parameters = new Dictionary<string, object?>() { { "@HeroId", heroId }, { "@X", spawnX }, { "@Y", spawnY }, { "@Map", targetMap } };
 				await ExecuteInsertOrUpdateOrDeleteAsync(updateSql, parameters, connection, transaction);
 				// Return updated MetaHero using existing helper
 				var hero = await GetHeroData(0, heroId, connection, transaction);
@@ -1940,17 +1962,7 @@ ORDER BY p.created DESC;";
 						insertTownCmd.Parameters.AddWithValue("@CreatorHeroId", heroId);
 						// Determine paired town map as the previous town relative to the hero's current map.
 						// Use an ordered list and walk backwards to find the preceding town.
-						string[] orderedMaps = new[] {
-							"HeroRoom",
-							"RoadToCitadelOfVesper",
-							"CitadelOfVesper",
-							"RoadToRiftedBastion",
-							"RiftedBastion",
-							"RoadToFortPenumbra",
-							"FortPenumbra",
-							"RoadToGatesOfHell",
-							"GatesOfHell"
-						};
+					
 						var townSet = new HashSet<string>(new[] { "HeroRoom", "CitadelOfVesper", "RiftedBastion", "FortPenumbra", "GatesOfHell" });
 						string currentMapRaw = map ?? string.Empty;
 						string NormalizeMap(string s) {
