@@ -1455,7 +1455,7 @@ ORDER BY p.created DESC;";
 				selRdr.Close();
 
 				// 2) Read the current bones_hero for this user (if any)
-				string curSql = @"SELECT id, name, `type`, coordsX, coordsY, map, speed, color, mask, level, exp, attack_speed FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1;";
+				string curSql = @"SELECT id, name, `type`, coordsX, coordsY, map, speed, color, mask, level, exp, attack_speed, attack_dmg, crit_rate, crit_dmg, health, regen FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1;";
 				using var curCmd = new MySqlCommand(curSql, connection, transaction);
 				curCmd.Parameters.AddWithValue("@UserId", userId);
 				using var curRdr = await curCmd.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow);
@@ -1482,11 +1482,17 @@ ORDER BY p.created DESC;";
 					curLevel = curRdr.IsDBNull(9) ? 0 : curRdr.GetInt32(9);
 					curExp = curRdr.IsDBNull(10) ? 0 : curRdr.GetInt32(10);
 					curAttackSpeed = curRdr.IsDBNull(11) ? 400 : curRdr.GetInt32(11);
+					var curAttackDmgObj = curRdr.IsDBNull(curRdr.GetOrdinal("attack_dmg")) ? null : curRdr.GetValue(curRdr.GetOrdinal("attack_dmg"));
+					int curAttackDmg = curAttackDmgObj == null ? 1 : Convert.ToInt32(Convert.ToDouble(curAttackDmgObj));
+					double curCritRate = curRdr.IsDBNull(curRdr.GetOrdinal("crit_rate")) ? 0.0 : curRdr.GetDouble(curRdr.GetOrdinal("crit_rate"));
+					double curCritDmg = curRdr.IsDBNull(curRdr.GetOrdinal("crit_dmg")) ? 2.0 : curRdr.GetDouble(curRdr.GetOrdinal("crit_dmg"));
+					int curHealth = curRdr.IsDBNull(curRdr.GetOrdinal("health")) ? 100 : curRdr.GetInt32(curRdr.GetOrdinal("health"));
+					double curRegen = curRdr.IsDBNull(curRdr.GetOrdinal("regen")) ? 0.0 : curRdr.GetDouble(curRdr.GetOrdinal("regen"));
 					curRdr.Close();
 
 					// 3) Store current bones_hero into bones_hero_selection: update if a selection references this hero_id, otherwise insert
 					// When storing the current bones_hero into a selection, match by user + name to avoid hero id mismatches
-					string updateSelSql = @"UPDATE maxhanna.bones_hero_selection SET name = @Name, data = JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed, 'type', @Type), created = UTC_TIMESTAMP() WHERE user_id = @UserId AND name = @Name LIMIT 1;";
+					string updateSelSql = @"UPDATE maxhanna.bones_hero_selection SET name = @Name, data = JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed, 'attack_dmg', @AttackDmg, 'crit_rate', @CritRate, 'crit_dmg', @CritDmg, 'health', @Health, 'regen', @Regen, 'type', @Type), created = UTC_TIMESTAMP() WHERE user_id = @UserId AND name = @Name LIMIT 1;";
 					using var updateSelCmd = new MySqlCommand(updateSelSql, connection, transaction);
 					updateSelCmd.Parameters.AddWithValue("@Name", currentName);
 					updateSelCmd.Parameters.AddWithValue("@CoordsX", curCoordsX);
@@ -1498,13 +1504,18 @@ ORDER BY p.created DESC;";
 					updateSelCmd.Parameters.AddWithValue("@Level", curLevel);
 					updateSelCmd.Parameters.AddWithValue("@Exp", curExp);
 					updateSelCmd.Parameters.AddWithValue("@AttackSpeed", curAttackSpeed);
+					updateSelCmd.Parameters.AddWithValue("@AttackDmg", curAttackDmg);
+					updateSelCmd.Parameters.AddWithValue("@CritRate", curCritRate);
+					updateSelCmd.Parameters.AddWithValue("@CritDmg", curCritDmg);
+					updateSelCmd.Parameters.AddWithValue("@Health", curHealth);
+					updateSelCmd.Parameters.AddWithValue("@Regen", curRegen);
 					updateSelCmd.Parameters.AddWithValue("@Type", curType ?? string.Empty);
 					updateSelCmd.Parameters.AddWithValue("@UserId", userId);
 					updateSelCmd.Parameters.AddWithValue("@HeroId", currentHeroId);
 					int updatedRows = await updateSelCmd.ExecuteNonQueryAsync();
 					if (updatedRows == 0)
 					{
-						string insertSelSql = @"INSERT INTO maxhanna.bones_hero_selection (user_id, bones_hero_id, name, data, created) VALUES (@UserId, @HeroId, @Name, JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed, 'type', @Type), UTC_TIMESTAMP());";
+						string insertSelSql = @"INSERT INTO maxhanna.bones_hero_selection (user_id, bones_hero_id, name, data, created) VALUES (@UserId, @HeroId, @Name, JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed, 'attack_dmg', @AttackDmg, 'crit_rate', @CritRate, 'crit_dmg', @CritDmg, 'health', @Health, 'regen', @Regen, 'type', @Type), UTC_TIMESTAMP());";
 						using var inSelCmd = new MySqlCommand(insertSelSql, connection, transaction);
 						inSelCmd.Parameters.AddWithValue("@UserId", userId);
 						inSelCmd.Parameters.AddWithValue("@HeroId", currentHeroId);
@@ -1518,6 +1529,11 @@ ORDER BY p.created DESC;";
 						inSelCmd.Parameters.AddWithValue("@Level", curLevel);
 						inSelCmd.Parameters.AddWithValue("@Exp", curExp);
 						inSelCmd.Parameters.AddWithValue("@AttackSpeed", curAttackSpeed);
+						inSelCmd.Parameters.AddWithValue("@AttackDmg", curAttackDmg);
+						inSelCmd.Parameters.AddWithValue("@CritRate", curCritRate);
+						inSelCmd.Parameters.AddWithValue("@CritDmg", curCritDmg);
+						inSelCmd.Parameters.AddWithValue("@Health", curHealth);
+						inSelCmd.Parameters.AddWithValue("@Regen", curRegen);
 						inSelCmd.Parameters.AddWithValue("@Type", curType ?? string.Empty);
 						await inSelCmd.ExecuteNonQueryAsync();
 					}
