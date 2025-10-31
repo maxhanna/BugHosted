@@ -37,11 +37,9 @@ export class Arrow extends GameObject {
     });
     this.addChild(this.body);
     this.facingDirection = facingDirection;
-    if (facingDirection === RIGHT) { 
-      this.body.animations?.play("arrowRightAnimation");
-    } else { 
-      this.body.animations?.play("arrowLeftAnimation");
-    }
+    
+    this.body.animations?.play("arrowLeftAnimation");
+     
   }
 
   override destroy(): void { 
