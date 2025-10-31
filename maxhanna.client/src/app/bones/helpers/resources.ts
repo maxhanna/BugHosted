@@ -36,7 +36,7 @@ export class Resources {
       heroSelectRoguePick: `${this.dir}HeroSelect-Ranger-Pick.png`,
       knight: `${this.dir}knightspritesheet.png`,
       magi: `${this.dir}magispritesheet.png`,
-      rogue: `${this.dir}roguespritesheet.png`,
+      rogue: `${this.dir}rangerspritesheet.png`,
       pointer: `${this.dir}pointer.png`,
       portraits: `${this.dir}portraits-sheet.png`,
       referee: `${this.dir}referee-spritesheet.png`,
