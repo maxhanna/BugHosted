@@ -2,7 +2,7 @@ import { Vector2 } from "../../../services/datacontracts/bones/vector2";
 import { gridCells } from "../helpers/grid-cells";
 import { events } from "../helpers/events";
 import { Input } from "../helpers/input";
-import { storyFlags, Scenario, CHARACTER_CREATE_STORY_TEXT_2, CHARACTER_CREATE_STORY_TEXT_4, CHARACTER_CREATE_STORY_TEXT_5, CHARACTER_CREATE_STORY_TEXT_6, CHARACTER_CREATE_STORY_TEXT_7 } from "../helpers/story-flags";
+import { storyFlags, Scenario, CHARACTER_CREATE_STORY_TEXT_2, CHARACTER_CREATE_STORY_TEXT_4, CHARACTER_CREATE_STORY_TEXT_5, CHARACTER_CREATE_STORY_TEXT_6, CHARACTER_CREATE_STORY_TEXT_7, CHARACTER_CREATE_STORY_TEXT_1 } from "../helpers/story-flags";
 import { Level } from "../objects/Level/level"; 
 import { HeroRoomLevel } from "./hero-room";
 import { SpriteTextStringWithBackdrop } from "../objects/SpriteTextString/sprite-text-string-with-backdrop";
@@ -150,6 +150,22 @@ export class CharacterCreate extends Level {
         const selectedType = this.selectionIndex === 0 ? 'magi' : 'knight';
         events.emit("CHARACTER_NAME_CREATED", { name: this.characterName, type: selectedType });
         this.characterNameEmitted = true;
+        storyFlags.add(CHARACTER_CREATE_STORY_TEXT_1);
+        let resourceKey = "heroSelectKnightPick";
+        if (selectedType === "magi") {
+         resourceKey = "heroSelectMagiPick";
+        }
+        const pickSprite = new Sprite({ 
+          objectId: 0,
+          resource: resources.images[resourceKey],
+          frameSize: new Vector2(320, 220) 
+        }); 
+        this.addChild(pickSprite);
+      }
+    });
+    events.on("SPACEBAR_PRESSED", this, () => { 
+      const currentTime = new Date();
+      if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_1)) {
         setTimeout(() => {
           // pick a random spawn within a 10x10 grid centered area
           const randX = Math.floor(Math.random() * 10) + 2; // 2..11
@@ -162,10 +178,7 @@ export class CharacterCreate extends Level {
         }, 100);
         return;
       }
-    });
-    events.on("SPACEBAR_PRESSED", this, () => { 
-      const currentTime = new Date();
-      if (currentTime.getTime() - this.inputKeyPressedDate.getTime() > 1000) {
+      else if (currentTime.getTime() - this.inputKeyPressedDate.getTime() > 1000) {
         this.inputKeyPressedDate = new Date(); 
         const sts = new SpriteTextString(  
           `Enter your name in the chat input, then press ${!this.onMobile() ? 'Enter or ' : ''}the A Button to confirm`, new Vector2(10, 10)

@@ -29,6 +29,8 @@ export class Resources {
       heroSelectMagi: `${this.dir}HeroSelect-Magi.png`,
       heroSelectKnight2: `${this.dir}HeroSelect-Knight2.png`,
       heroSelectMagi2: `${this.dir}HeroSelect-Magi2.png`,
+      heroSelectKnightPick: `${this.dir}HeroSelect-Knight-Pick.png`,
+      heroSelectMagiPick: `${this.dir}HeroSelect-Magi-Pick.png`,
       knight: `${this.dir}knightspritesheet.png`,
       magi: `${this.dir}magispritesheet.png`,
       pointer: `${this.dir}pointer.png`,
