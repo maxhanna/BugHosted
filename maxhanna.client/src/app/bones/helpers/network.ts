@@ -940,7 +940,28 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
       const x = (it.coordsX !== undefined && it.coordsX !== null) ? Number(it.coordsX) : (it.position && it.position.x ? Number(it.position.x) : undefined);
       const y = (it.coordsY !== undefined && it.coordsY !== null) ? Number(it.coordsY) : (it.position && it.position.y ? Number(it.position.y) : undefined);
       if (x === undefined || y === undefined || isNaN(x) || isNaN(y)) return undefined;
-      const portalMarker = new TownPortal({ position: new Vector2(x, y), label: 'Town Portal', preventDestroyTimeout: true });
+      // Compute a friendly label. If server provided creator hero id/name, show "Name's\nPortal" on two lines.
+      let label = 'Town Portal';
+      try {
+        const creatorId = Number(it.creatorHeroId ?? it.creator_hero_id ?? it.heroId ?? it.creator ?? it.creatorId ?? it.ownerId ?? it.createdBy ?? it.hero_id ?? undefined);
+        if (!isNaN(creatorId) && creatorId > 0 && object.otherHeroes) {
+          const owner = object.otherHeroes.find((h: any) => Number(h.id) === creatorId);
+          if (owner && owner.name) {
+            // e.g., "Max's\nPortal"
+            const shortName = String(owner.name).split(' ')[0] || owner.name;
+            label = `${shortName}'s\nPortal`;
+          }
+        } else if (it.creatorName || it.creator_name || it.createdByName) {
+          const cn = it.creatorName ?? it.creator_name ?? it.createdByName;
+          const shortName = String(cn).split(' ')[0];
+          label = `${shortName}'s\nPortal`;
+        } else if (object.metaHero && object.metaHero.name) {
+          // Fallback: if this is the local player's portal, show local name
+          const me = object.metaHero.name;
+          label = `${String(me).split(' ')[0]}'s\nPortal`;
+        }
+      } catch { }
+      const portalMarker = new TownPortal({ position: new Vector2(x, y), label: label, preventDestroyTimeout: true });
       try { (portalMarker as any).serverPortalId = id; } catch { }
       // Parse server data
       let dataObj: any = undefined;

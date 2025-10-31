@@ -186,30 +186,40 @@ export class GameObject {
 
   drawName(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     if (this.name) {
+      // Support multi-line names separated by '\n'
+      const lines = String(this.name).split('\n');
       // Set the font style and size for the name
       ctx.font = "7px fontRetroGaming"; // Font and size
       ctx.fillStyle = "chartreuse"; // Text color
       ctx.textAlign = "center"; // Center the text
 
-
-      // Measure the width of the text
-      const textWidth = ctx.measureText(this.name).width;
+      // Measure the widest line
+      let maxWidth = 0;
+      for (const ln of lines) {
+        const w = ctx.measureText(ln).width;
+        if (w > maxWidth) maxWidth = w;
+      }
 
       // Set box properties for name
       const boxPadding = 2; // Padding around the text
-      const boxWidth = textWidth + boxPadding * 2; // Box width
-      const boxHeight = 8; // Box height (fixed height)
-      const boxX = drawPosX - (boxWidth / 2) + 7; // Center the box horizontally
+      const lineHeight = 8; // per-line height
+      const boxWidth = maxWidth + boxPadding * 2; // Box width
+      const boxHeight = lines.length * lineHeight + boxPadding * 2; // Box height
+      const boxX = drawPosX - (boxWidth / 2) + 7; // Center the box horizontally (matching previous offset behavior)
       const boxY = drawPosY + 23; // Position the box below the player
-
 
       // Draw the dark background box for the name
       ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; // Semi-transparent black for the box
       ctx.fillRect(boxX, boxY, boxWidth, boxHeight); // Draw the box
 
-      // Draw the name text on top of the box
+      // Draw each line of the name text on top of the box
       ctx.fillStyle = "chartreuse";
-      ctx.fillText(this.name, drawPosX + 7, boxY + boxHeight - 1);
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const textX = drawPosX + 7;
+        const textY = boxY + boxPadding + (i + 1) * lineHeight - 1; // baseline adjustment
+        ctx.fillText(line, textX, textY);
+      }
     }
   }
 

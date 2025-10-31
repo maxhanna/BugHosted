@@ -15,11 +15,13 @@ export class TownPortal extends GameObject {
   preventDestroyTimeout = false;
   serverPortalId?: number;
   constructor(params: { position: Vector2, label?: string, preventDestroyTimeout?: boolean }) {
+    // label may include owner name and newline; default to 'Town Portal' when not provided
+    const label = params.label ?? "Town Portal";
     super({
       position: new Vector2(snapToGrid(params.position.x), snapToGrid(params.position.y)),
-      name: params.label ?? "Town Portal",
-      forceDrawName: false,
-      preventDrawName: true,
+      name: label,
+      forceDrawName: true,
+      preventDrawName: false,
       drawLayer: FLOOR,
     });
 
