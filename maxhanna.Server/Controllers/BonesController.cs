@@ -2007,10 +2007,18 @@ ORDER BY p.created DESC;";
 		}
 
 		private async Task<MetaHero> UpdateHeroInDB(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
-		{
+		{ 
 			try
 			{
-				string sql = @"UPDATE maxhanna.bones_hero SET coordsX = @CoordsX, coordsY = @CoordsY, mask = @Mask, map = @Map, speed = @Speed, updated = UTC_TIMESTAMP() WHERE id = @HeroId";
+				string sql = @"
+				UPDATE maxhanna.bones_hero h
+				SET h.hp = LEAST(100, h.hp + GREATEST(FLOOR(h.regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))),0)),
+					h.last_regen = UTC_TIMESTAMP(),
+					h.updated = UTC_TIMESTAMP()
+				WHERE h.hp > 0 AND h.regen > 0 AND h.hp < 100
+					AND (h.last_regen IS NULL OR h.last_regen < UTC_TIMESTAMP() - INTERVAL 1 SECOND);
+
+				UPDATE maxhanna.bones_hero SET coordsX = @CoordsX, coordsY = @CoordsY, mask = @Mask, map = @Map, speed = @Speed, updated = UTC_TIMESTAMP() WHERE id = @HeroId;";
 				Dictionary<string, object?> parameters = new() {
 					{ "@CoordsX", hero.Position.x },
 					 { "@CoordsY", hero.Position.y },
@@ -2346,28 +2354,7 @@ ORDER BY p.created DESC;";
 						heroes.Add((id, hx, hy));
 						heroById[id] = (hx, hy);
 					}
-				}
-
-					// Regen processing: increase hero HP based on their regen stat, once per elapsed second since last_regen.
-					try
-					{
-						// Single-statement regen: for heroes with regen>0 and last_regen older than 1 second (or NULL),
-						// compute seconds = FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))
-						// heal = FLOOR(regen * seconds)
-						// new hp = LEAST(100, hp + heal)
-						string regenUpdateSql = @"
-							UPDATE maxhanna.bones_hero h
-							SET h.hp = LEAST(100, h.hp + GREATEST(FLOOR(h.regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))),0)),
-								h.last_regen = UTC_TIMESTAMP(),
-								h.updated = UTC_TIMESTAMP()
-							WHERE h.hp > 0 AND h.regen > 0 AND h.hp < 100
-								AND (h.last_regen IS NULL OR h.last_regen <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 SECOND));";
-						await ExecuteInsertOrUpdateOrDeleteAsync(regenUpdateSql, new Dictionary<string, object?>(), connection, transaction);
-					}
-					catch (Exception exRegen)
-					{
-						await _log.Db("Regen update failed: " + exRegen.Message, null, "BONES", true);
-					}
+				} 
 
 				if (heroes.Count == 0) return; // no targets
 				var updateBuilder = new StringBuilder();
