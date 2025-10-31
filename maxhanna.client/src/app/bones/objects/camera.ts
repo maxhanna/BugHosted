@@ -40,7 +40,7 @@ export class Camera extends GameObject {
     super.destroy();
   }
   centerPositionOnTarget(pos: Vector2) {
-    const personHalf = 8;
+    const personHalf = 20;
     const canvasWidth = 320;
     const canvasHeight = 220;
     const halfWidth = -personHalf + (canvasWidth / 2);
