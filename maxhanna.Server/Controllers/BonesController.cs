@@ -516,6 +516,9 @@ ORDER BY p.created DESC;";
 								}
 							}
 
+							// Prepare shared variables for damage application. 'rows' reused by multiple branches.
+							int rows = 0;
+
 							// Decide whether this is an AoE attack or a regular single-target attack.
 							// If aoeHalf is <= GRIDCELL and the client did not explicitly provide a length extension,
 							// treat it as a regular attack and limit damage to a single encounter (LIMIT 1).
@@ -523,8 +526,8 @@ ORDER BY p.created DESC;";
 							bool isRegularSingleTarget = aoeHalf <= GRIDCELL && !(normalized.ContainsKey("length") && normalized["length"] != null);
 							if (isRegularSingleTarget) limitClause = " LIMIT 1";
 
+
 							// For regular single-target attacks prefer the encounter in the player's facing direction
-							int rows = 0;
 							if (isRegularSingleTarget)
 							{
 								// Attempt to parse facing from the normalized payload; if missing/invalid we fallback to a LIMIT 1 UPDATE

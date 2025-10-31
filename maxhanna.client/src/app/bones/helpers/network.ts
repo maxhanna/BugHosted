@@ -404,11 +404,31 @@ export function subscribeToMainGameEvents(object: any) {
         return;
       }
       lastAttackTimestamps.set(object.metaHero.id, now);
-      const attack = {
+      const attack: any = {
         timestamp: new Date().toISOString(),
         skill: (skill && (typeof (skill as any).name === 'string')) ? (skill as any).name : (typeof skill === 'string' ? skill : undefined),
-        heroId: object.metaHero.id
+        heroId: object.metaHero.id,
+        sourceHeroId: object.metaHero.id
       };
+
+      // Attempt to include facing and projectile length for ranged/magi attacks so the server
+      // can apply damage along the projectile path. Prefer scene object facing, fall back to metaHero.
+      try {
+        const srcObj = object.mainScene?.level?.children?.find((x: any) => x.id === object.metaHero.id);
+        const facingRaw = (srcObj && srcObj.facingDirection) ? srcObj.facingDirection : (object.metaHero && (object.metaHero as any).facingDirection ? (object.metaHero as any).facingDirection : undefined);
+        if (facingRaw) {
+          // normalize to lowercase string (server accepts numeric or string values)
+          attack.facing = String(facingRaw).toLowerCase();
+        }
+
+        const isMagi = (object.metaHero && (object.metaHero as any).type === 'magi') || (srcObj && (srcObj as any).type === 'magi');
+        if (isMagi) {
+          // length in pixels the magi projectile travels (client visual uses ~200px)
+          attack.length = 200;
+        }
+      } catch (ex) {
+        // non-fatal: leave attack without facing/length if inspection fails
+      }
       pendingAttacks.push(attack);
       startAttackBatch(object, attackSpeed);
     }
