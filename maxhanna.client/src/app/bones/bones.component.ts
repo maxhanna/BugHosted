@@ -209,7 +209,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           try { if (m && m.heroId) this.pendingInvites.delete(m.heroId); } catch { }
         }
         // Update party members locally and refresh inventory/scene wiring
-        this.partyMembers = Array.isArray(partyArr) ? partyArr.map(p => ({ heroId: p.heroId, name: p.name, color: p.color })) : [];
+        this.partyMembers = Array.isArray(partyArr) ? partyArr.map(p => ({ heroId: p.heroId, name: p.name, color: p.color, type: p.type })) : [];
         try {
           if (this.mainScene && this.mainScene.inventory) {
             this.mainScene.inventory.partyMembers = this.partyMembers;
