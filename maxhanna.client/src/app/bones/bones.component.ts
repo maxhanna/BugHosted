@@ -809,6 +809,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       speed: rz.speed,
       type: rz.type,
       mask: rz.mask ? new Mask(getMaskNameById(rz.mask)) : undefined,
+      attackSpeed: rz.attackSpeed
     });
     this.metaHero = new MetaHero(
       this.hero.id,

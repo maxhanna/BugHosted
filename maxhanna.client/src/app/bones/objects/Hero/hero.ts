@@ -24,7 +24,7 @@ export class Hero extends Character {
   public attackSpeed: number = 400;
   constructor(params: {
     position: Vector2, id?: number, name?: string, type?: string, metabots?: MetaBot[], colorSwap?: ColorSwap,
-    isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2,
+    isUserControlled?: boolean, speed?: number, attackSpeed?: number, mask?: Mask, scale?: Vector2,
     forceDrawName?: boolean, preventDrawName?: boolean,
   }) {
     super({
@@ -75,6 +75,7 @@ export class Hero extends Character {
     this.type = params.type ?? "knight";
     this.itemPickupTime = 0;
     this.isOmittable = false;
+    this.attackSpeed = params.attackSpeed ?? 400;
     this.scale = params.scale ?? new Vector2(1, 1);
     if (this.type === "magi") {
       this.currentSkill = "sting"; 
