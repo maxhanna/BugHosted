@@ -597,7 +597,7 @@ ORDER BY p.created DESC;";
 									if (chosenEncId.HasValue)
 									{
 										// Update the chosen encounter only
-										string updateChosenSql = @"UPDATE maxhanna.bones_encounter e SET e.hp = GREATEST(e.hp - @AttackerLevel, 0), e.target_hero_id = @HeroId, e.last_killed = CASE WHEN (e.hp - @AttackerLevel) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END WHERE e.hero_id = @EncId LIMIT 1;";
+										string updateChosenSql = @"UPDATE maxhanna.bones_encounter e SET e.hp = GREATEST(e.hp - @AttackerLevel, 0), e.target_hero_id = CASE WHEN (e.target_hero_id IS NULL OR e.target_hero_id = 0) THEN @HeroId ELSE e.target_hero_id END, e.last_killed = CASE WHEN (e.hp - @AttackerLevel) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END WHERE e.hero_id = @EncId LIMIT 1;";
 										var chosenParams = new Dictionary<string, object?>() {
 											{"@AttackerLevel", attackerLevel},
 											{"@HeroId", sourceHeroId},
@@ -612,7 +612,7 @@ ORDER BY p.created DESC;";
 									string updateHpSql = $@"
 									UPDATE maxhanna.bones_encounter e
 									SET e.hp = GREATEST(e.hp - @AttackerLevel, 0),
-										e.target_hero_id = @HeroId,
+										e.target_hero_id = CASE WHEN (e.target_hero_id IS NULL OR e.target_hero_id = 0) THEN @HeroId ELSE e.target_hero_id END,
 										e.last_killed = CASE WHEN (e.hp - @AttackerLevel) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END
 									WHERE e.map = @Map
 										AND e.hp > 0
@@ -636,7 +636,7 @@ ORDER BY p.created DESC;";
 								string updateHpSql = $@"
 								UPDATE maxhanna.bones_encounter e
 								SET e.hp = GREATEST(e.hp - @AttackerLevel, 0),
-									e.target_hero_id = @HeroId,
+									e.target_hero_id = CASE WHEN (e.target_hero_id IS NULL OR e.target_hero_id = 0) THEN @HeroId ELSE e.target_hero_id END,
 									e.last_killed = CASE WHEN (e.hp - @AttackerLevel) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END
 								WHERE e.map = @Map
 									AND e.hp > 0
