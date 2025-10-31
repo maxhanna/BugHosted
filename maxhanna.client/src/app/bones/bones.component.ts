@@ -686,6 +686,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const tmpHero = new Hero({
       id: hero.id,
       name: hero.name ?? "Anon",
+      type: hero.type ?? "knight",
       position: new Vector2(hero.id == this.metaHero.id ? this.metaHero.position.x : hero.position.x, hero.id == this.metaHero.id ? this.metaHero.position.y : hero.position.y),
       colorSwap: (hero.color ? new ColorSwap([0, 160, 200], hexToRgb(hero.color)) : undefined),
       speed: hero.speed,
