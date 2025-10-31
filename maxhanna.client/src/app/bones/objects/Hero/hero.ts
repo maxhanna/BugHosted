@@ -117,21 +117,46 @@ export class Hero extends Character {
             console.log("playing attack");
             if (this.facingDirection == "DOWN") {
               this.body?.animations?.play("attackDown");
+              if (this.type === "magi") {
+                const sting = new Sting( this.position.x,  this.position.y);
+                this.addChild(sting);
+                sting.moveTo(this.position.x, this.position.y +100, 1);
+                setTimeout(() => {
+                  sting.destroy();
+                }, 2000);
+              }
             } else if (this.facingDirection == "UP") {
               this.body?.animations?.play("attackUp");
+               if (this.type === "magi") {
+                const sting = new Sting( this.position.x,  this.position.y);
+                this.addChild(sting);
+                sting.moveTo(this.position.x, this.position.y -100, 1);
+                setTimeout(() => {
+                  sting.destroy();
+                }, 2000);
+              }
             } else if (this.facingDirection == "LEFT") {
               this.body?.animations?.play("attackLeft");
+              if (this.type === "magi") {
+                const sting = new Sting( this.position.x,  this.position.y);
+                this.addChild(sting);
+                sting.moveTo(this.position.x -100, this.position.y, 1);
+                setTimeout(() => {
+                  sting.destroy();
+                }, 2000);
+              }
             } else if (this.facingDirection == "RIGHT") {
               this.body?.animations?.play("attackRight");
+              if (this.type === "magi") {
+                const sting = new Sting( this.position.x,  this.position.y);
+                this.addChild(sting);
+                sting.moveTo(this.position.x +100, this.position.y, 1);
+                setTimeout(() => {
+                  sting.destroy();
+                }, 2000);
+              }
             }
-            this.playAttackSound();
-            if (this.type === "magi") {
-              const sting = new Sting( this.position.x,  this.position.y);
-              this.addChild(sting);
-              setTimeout(() => {
-                sting.destroy();
-              }, 2000);
-            }
+            this.playAttackSound(); 
           }
         } catch (e) {
           console.log("error checking npc", e);
