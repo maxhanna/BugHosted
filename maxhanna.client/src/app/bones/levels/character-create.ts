@@ -94,7 +94,7 @@ export class CharacterCreate extends Level {
     this.hideChatInput();
 
     this.instructionString = new SpriteTextString(
-      `Press the Arrow ${!this.onMobile() ? 'keys' : ''} And A Button to Select a Hero.`,
+      `Press the Arrow ${!this.onMobile() ? 'keys' : ''} And A Button to Select.`,
        new Vector2(10, 10),
        "White",
     );
