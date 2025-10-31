@@ -70,7 +70,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   metaHero: MetaHero;
   hero?: Hero;
   otherHeroes: MetaHero[] = [];
-  partyMembers: { heroId: number, name: string, color?: string }[] = [];
+  partyMembers: { heroId: number, name: string, color?: string, type?: string }[] = [];
   chat: MetaChat[] = [];
   events: MetaEvent[] = [];
   // Death UI/state
@@ -1039,7 +1039,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.isPartyPanelOpen = false;
     this.isChangeSkillsOpen = false;
     this.isChangeStatsOpen = false;
-    
+
     this.parentRef?.showOverlay();
     const level = this.metaHero?.level ?? 1;
     const base = 1;

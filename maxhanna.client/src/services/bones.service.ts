@@ -43,7 +43,7 @@ export class BonesService {
   async getHero(userId: number): Promise<MetaHero | undefined> {
     return this.fetchData('/bones', userId);
   }
-  async getPartyMembers(heroId: number): Promise<{ heroId: number, name: string, color?: string }[] | undefined> {
+  async getPartyMembers(heroId: number): Promise<{ heroId: number, name: string, color?: string, type?: string }[] | undefined> {
     return this.fetchData('/bones/getpartymembers', heroId);
   }
   async inviteToParty(heroId: number, targetHeroId: number) {

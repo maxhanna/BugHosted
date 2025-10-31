@@ -1092,11 +1092,11 @@ ORDER BY p.created DESC;";
 				string sql;
 				if (partyId.HasValue)
 				{
-					sql = "SELECT h.id, h.name, h.color FROM bones_hero_party p JOIN bones_hero h ON h.id = p.hero_id WHERE p.party_id = @PartyId";
+					sql = "SELECT h.id, h.name, h.color, h.type FROM bones_hero_party p JOIN bones_hero h ON h.id = p.hero_id WHERE p.party_id = @PartyId";
 				}
 				else
 				{
-					sql = "SELECT h.id, h.name, h.color FROM bones_hero h WHERE h.id = @HeroId"; // only self
+					sql = "SELECT h.id, h.name, h.color, h.type FROM bones_hero h WHERE h.id = @HeroId"; // only self
 				}
 				using var command = new MySqlCommand(sql, connection);
 				if (partyId.HasValue)
@@ -1114,12 +1114,14 @@ ORDER BY p.created DESC;";
 					int idOrdinal = reader.GetOrdinal("id");
 					int nameOrdinal = reader.GetOrdinal("name");
 					int colorOrdinal = reader.GetOrdinal("color");
+					int typeOrdinal = reader.GetOrdinal("type");
 					partyMembers.Add(
 						new
 						{
 							heroId = reader.GetInt32(idOrdinal),
 							name = reader.IsDBNull(nameOrdinal) ? null : reader.GetString(nameOrdinal),
-							color = reader.IsDBNull(colorOrdinal) ? null : reader.GetString(colorOrdinal)
+							color = reader.IsDBNull(colorOrdinal) ? null : reader.GetString(colorOrdinal),
+							type = reader.IsDBNull(typeOrdinal) ? null : reader.GetString(typeOrdinal)
 						});
 				}
 				return Ok(partyMembers);
