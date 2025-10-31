@@ -93,12 +93,12 @@ export class CharacterCreate extends Level {
   
     this.hideChatInput();
 
-    const sts = new SpriteTextString(
+    this.instructionString = new SpriteTextString(
       `Press the Arrow ${!this.onMobile() ? 'keys' : ''} And A Button to Select a Hero.`,
        new Vector2(10, 10),
        "White",
     );
-    this.addChild(sts);
+    this.addChild(this.instructionString);
 
     this.walls = new Set<string>();
   }
@@ -140,6 +140,7 @@ export class CharacterCreate extends Level {
     events.on("SPACEBAR_PRESSED", this, () => { 
       const currentTime = new Date();
       if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_1)) {
+        this.instructionString?.destroy();
         setTimeout(() => {
           // pick a random spawn within a 10x10 grid centered area
           const randX = Math.floor(Math.random() * 10) + 2; // 2..11
@@ -153,11 +154,12 @@ export class CharacterCreate extends Level {
         return;
       }
       else if (currentTime.getTime() - this.inputKeyPressedDate.getTime() > 1000) {
+        this.instructionString?.destroy();
         this.inputKeyPressedDate = new Date(); 
-        const sts = new SpriteTextString(  
+        this.instructionString = new SpriteTextString(  
           `Enter your name in the chat input, then press ${!this.onMobile() ? 'Enter or ' : ''}the A Button to confirm`, new Vector2(10, 10)
         );
-        this.addChild(sts);
+        this.addChild(this.instructionString);
         this.createNameChatInput(); 
       }
     })
