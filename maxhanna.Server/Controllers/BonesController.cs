@@ -719,9 +719,13 @@ ORDER BY p.created DESC;";
 								}
 								selR.Close();
 
-								// Compute attacker damage once: prefer DB attack_dmg if >0, otherwise fallback to attackerLevel
-								int baseDamage = dbAttackDmg > 0 ? dbAttackDmg : attackerLevel;
-								double critRate = dbCritRate;
+								// Compute attacker damage once: baseDamage now equals attack_dmg + attacker level
+								// Normalize critRate to a 0..1 probability (support values stored as percentages >1)
+								int baseDamage = dbAttackDmg + attackerLevel;
+								double critRate = dbCritRate > 1.0 ? (dbCritRate / 100.0) : dbCritRate;
+								// Clamp critRate between 0 and 1 defensively
+								if (critRate < 0.0) critRate = 0.0;
+								if (critRate > 1.0) critRate = 1.0;
 								double critMultiplier = dbCritDmg;
 								foreach (var victimId in victims)
 								{
@@ -3105,12 +3109,32 @@ ORDER BY p.created DESC;";
 		private async Task ApplyDamageToHero(int targetHeroId, int attackerId, string attackerType, int baseDamage, double critRate, double critMultiplier, string map, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			if (targetHeroId <= 0) return;
-			// Compute final damage
+			// Compute final damage (before target's health reduction)
 			var (damage, wasCrit) = ComputeDamage(baseDamage, critRate, critMultiplier);
 			try
 			{
+				// Read target hero 'health' stat which represents percentage damage reduction (0..100)
+				int targetHealthPercent = 100;
+				try
+				{
+					string selHealth = "SELECT health FROM maxhanna.bones_hero WHERE id = @TargetHeroId LIMIT 1;";
+					using var hCmd = new MySqlCommand(selHealth, connection, transaction);
+					hCmd.Parameters.AddWithValue("@TargetHeroId", targetHeroId);
+					var hObj = await hCmd.ExecuteScalarAsync();
+					if (hObj != null && int.TryParse(hObj.ToString(), out var parsedH)) targetHealthPercent = parsedH;
+				}
+				catch { /* non-fatal: default to 100% (no extra reduction beyond cap handling below) */ }
+
+				// Clamp health percent and compute reduction factor
+				if (targetHealthPercent < 0) targetHealthPercent = 0;
+				if (targetHealthPercent > 100) targetHealthPercent = 100;
+				double factor = 1.0 - (targetHealthPercent / 100.0);
+				// Apply reduction and round to integer damage
+				int finalDamage = (int)Math.Round(damage * factor);
+				if (finalDamage < 0) finalDamage = 0;
+
 				string upd = "UPDATE maxhanna.bones_hero SET hp = GREATEST(hp - @Damage, 0), updated = UTC_TIMESTAMP() WHERE id = @TargetHeroId AND hp > 0 LIMIT 1;";
-				var parameters = new Dictionary<string, object?>() { { "@Damage", damage }, { "@TargetHeroId", targetHeroId } };
+				var parameters = new Dictionary<string, object?>() { { "@Damage", finalDamage }, { "@TargetHeroId", targetHeroId } };
 				int affected = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(upd, parameters, connection, transaction));
 				if (affected > 0)
 				{
@@ -3363,8 +3387,9 @@ ORDER BY p.created DESC;";
 			}
 			catch (Exception ex)
 			{
-				//await _log.Db("ExecuteInsertOrUpdateOrDeleteAsync ERROR: " + ex.Message + "\n" + ex.StackTrace, null, "BONES", true);
-				//await _log.Db(cmdText, null, "BONES", true);
+				// Log the error and parameters for debugging
+				await _log.Db("ExecuteInsertOrUpdateOrDeleteAsync ERROR: " + ex.Message + "\n" + ex.StackTrace, null, "BONES", true);
+				await _log.Db(cmdText, null, "BONES", true);
 				foreach (var param in parameters) await _log.Db("Param: " + param.Key + ": " + param.Value, null, "BONES", true);
 				throw;
 			}
