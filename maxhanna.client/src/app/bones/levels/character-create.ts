@@ -87,7 +87,7 @@ export class CharacterCreate extends Level {
     });
     this.addChild(this.rogueSprite);
 
-    // selection: 0 = magi, 1 = knight
+    // selection: 0 = magi, 1 = knight, 2 == rogue
     this.selectionIndex = 0;
     this.applySelectionSkins();
   
@@ -196,8 +196,7 @@ export class CharacterCreate extends Level {
       }
       if (input.getActionJustPressed('ArrowRight') || input.heldDirections.includes('RIGHT')) {
         console.log('CharacterCreate: ArrowRight pressed/held', this.selectionIndex );
-        // move selection right
-        this.selectionIndex = Math.min(1, this.selectionIndex + 1);
+        this.selectionIndex = Math.min(2, this.selectionIndex + 1);
         this.applySelectionSkins();
         console.log('CharacterCreate: selectionIndex', this.selectionIndex);
       }
