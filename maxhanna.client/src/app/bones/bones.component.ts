@@ -1322,8 +1322,21 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const sHealth = cached.health !== undefined ? cached.health : (mhAny.health !== undefined ? mhAny.health : 100);
     const sRegen = cached.regen !== undefined ? cached.regen : (mhAny.regen !== undefined ? mhAny.regen : 0.0);
 
-    // Basic points allocation: keep previous behaviour (level - 1) as available points for now
-    const pointsAvailable = Math.max(0, level - 1);
+    // Compute points available = totalPoints - alreadySpent
+    const totalPoints = Math.max(0, level - 1);
+    const baseAttackDmg = 1;
+    const baseAttackSpeed = 400;
+    const baseCritRate = 0.0;
+    const baseCritDmg = 2.0;
+    const baseHealth = 100;
+    const baseRegen = 0.0;
+    const spent = Math.max(0, Number(sAttackDmg) - baseAttackDmg)
+      + Math.max(0, Number(sAttackSpeed) - baseAttackSpeed)
+      + Math.max(0, Number(sCritRate) - baseCritRate)
+      + Math.max(0, Number(sCritDmg) - baseCritDmg)
+      + Math.max(0, Number(sHealth) - baseHealth)
+      + Math.max(0, Number(sRegen) - baseRegen);
+    const pointsAvailable = Math.max(0, totalPoints - spent);
 
     this.editableStats = {
       attackDmg: Number(sAttackDmg ?? 1),
@@ -1366,7 +1379,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const allocated = (sA ?? 0) + (sB ?? 0) + (sC ?? 0);
     const pointsAvailable = Math.max(0, points - allocated);
     this.editableSkills = { skillA: Math.max(0, sA ?? base), skillB: Math.max(0, sB ?? base), skillC: Math.max(0, sC ?? base), pointsAvailable };
-    setTimeout(() => { this.isChangeSkillsOpen = true; }, 100);
     console.log('opened change skills with', this.editableSkills);
   }
 

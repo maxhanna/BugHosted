@@ -5,7 +5,7 @@ import { Sprite } from "../sprite";
 import { Mask } from "../Wardrobe/mask";
 import { DOWN, gridCells, isSpaceFree, LEFT, RIGHT, UP } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
-import { bodyAtSpace, isObjectNearby, objectAtLocation } from "../../helpers/move-towards";
+import { isObjectNearby, objectAtLocation } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { Npc } from "../Npc/npc";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
