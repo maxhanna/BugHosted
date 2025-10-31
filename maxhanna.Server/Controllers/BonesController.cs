@@ -1516,7 +1516,22 @@ ORDER BY p.created DESC;";
 				insCmd.Parameters.AddWithValue("@Name", selName ?? "Anon");
 				await insCmd.ExecuteNonQueryAsync();
 
-				await transaction.CommitAsync();
+				// After inserting the promoted hero, remove any town portals created by this user's heroes
+			try
+			{
+				// Delete portals where creator_hero_id belongs to any hero owned by this user
+				string delPortalsSql = @"DELETE p FROM maxhanna.bones_town_portal p WHERE p.creator_hero_id IN (SELECT id FROM maxhanna.bones_hero WHERE user_id = @UserId)";
+				using var delPortalsCmd = new MySqlCommand(delPortalsSql, connection, transaction);
+				delPortalsCmd.Parameters.AddWithValue("@UserId", userId);
+				await delPortalsCmd.ExecuteNonQueryAsync();
+			}
+			catch (Exception exDel)
+			{
+				// Non-fatal: log and continue promotion
+				await _log.Db("Failed to delete town portals on PromoteHeroSelection: " + exDel.Message, userId, "BONES", true);
+			}
+
+			await transaction.CommitAsync();
 				return Ok();
 			}
 			catch (Exception ex)
