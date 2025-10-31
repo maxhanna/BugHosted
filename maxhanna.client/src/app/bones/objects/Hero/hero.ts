@@ -281,12 +281,29 @@ export class Hero extends Character {
 
   private spawnStingTo(targetX: number, targetY: number) {
     try {
-      const x = this.position.duplicate().x;
-      const y = this.position.duplicate().y;
-      const sting = new Sting(x, y);
-      console.log("spawning sting to ", this.position);
-      this.addChild(sting);
-      sting.moveTo(targetX, targetY, 1000);
+      // Compute rendered anchor point for this hero's sprite so the effect appears at the same place
+      const bodyPosX = (this.body?.position?.x ?? 0);
+      const bodyPosY = (this.body?.position?.y ?? 0);
+      const bodyOffsetX = (this.body?.offsetX ?? 0);
+      const bodyOffsetY = (this.body?.offsetY ?? 0);
+      const frameW = (this.body?.frameSize?.x ?? gridCells(2));
+      const frameH = (this.body?.frameSize?.y ?? gridCells(2));
+      const scaleX = (this.body?.scale?.x ?? 1);
+      const scaleY = (this.body?.scale?.y ?? 1);
+
+      const startX = this.position.x + bodyPosX + bodyOffsetX + (frameW * scaleX) / 2;
+      const startY = this.position.y + bodyPosY + bodyOffsetY + (frameH * scaleY) / 2;
+
+      // Convert target world position to rendered anchor using the same offsets so the sting moves to the visual target
+      const targetAnchorX = targetX + bodyPosX + bodyOffsetX + (frameW * scaleX) / 2;
+      const targetAnchorY = targetY + bodyPosY + bodyOffsetY + (frameH * scaleY) / 2;
+
+      const sting = new Sting(startX, startY);
+      // Place the sting on the same parent that renders the hero (usually the level)
+      // so the world coordinates used above align with the sting's local coordinates.
+      const host = (this.parent as any) ?? this;
+      host.addChild(sting);
+      sting.moveTo(targetAnchorX, targetAnchorY, 1000);
       setTimeout(() => {
         try { sting.destroy(); } catch { }
       }, 2000);
