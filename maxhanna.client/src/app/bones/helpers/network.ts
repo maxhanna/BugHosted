@@ -422,12 +422,11 @@ export function subscribeToMainGameEvents(object: any) {
         }
 
         const isMagi = (object.metaHero && (object.metaHero as any).type === 'magi') || (srcObj && (srcObj as any).type === 'magi');
-        if (isMagi) {
-          // length in pixels the magi projectile travels (client visual uses ~200px)
+        if (isMagi) { 
           attack.length = 200;
         }
       } catch (ex) {
-        // non-fatal: leave attack without facing/length if inspection fails
+        console.log("Failed to extract facing/length for attack:", ex);
       }
       pendingAttacks.push(attack);
       startAttackBatch(object, attackSpeed);
