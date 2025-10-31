@@ -978,9 +978,6 @@ ORDER BY p.created DESC;";
 			using var transaction = connection.BeginTransaction();
 			try
 			{
-				// Determine a safe respawn location. Prefer (0,0) but if another hero occupies
-				// that area on the same map, search nearby grid-aligned tiles (multiples of GRIDCELL)
-				// and pick the first candidate such that for every other hero on the map either
 				// |dx| >= GRIDCELL OR |dy| >= GRIDCELL (i.e. not overlapping within a GRIDCELL box).
 				int spawnX = 0;
 				int spawnY = 0;
