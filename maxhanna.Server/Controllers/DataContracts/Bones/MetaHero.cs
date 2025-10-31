@@ -23,9 +23,25 @@ namespace maxhanna.Server.Controllers.DataContracts.Bones
 		public int Exp { get; set; }
 
 		// Basic stats stored per hero
-		public int Str { get; set; } = 0;
-		public int Dex { get; set; } = 0;
-		public int Int { get; set; } = 0;
+		// Legacy stats removed: use AttackDmg, CritRate, CritDmg, Health, Regen instead.
+
+		// New stats for revamped system
+		[JsonPropertyName("attackDmg")]
+		public int AttackDmg { get; set; } = 1;
+
+		// attack speed already present as AttackSpeed (ms)
+
+		[JsonPropertyName("critRate")]
+		public double CritRate { get; set; } = 0.0; // fraction 0.0 - 1.0
+
+		[JsonPropertyName("critDmg")]
+		public double CritDmg { get; set; } = 2.0; // multiplier (e.g., 2.0 = 200%)
+
+		[JsonPropertyName("health")]
+		public int Health { get; set; } = 100;
+
+		[JsonPropertyName("regen")]
+		public double Regen { get; set; } = 0.0; // health per second
 		public string Map { get; set; } = "";
 		public string Color { get; set; } = "";
 		public int? Mask { get; set; } = null;

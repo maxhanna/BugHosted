@@ -270,27 +270,51 @@
       </div>
       <div style="display:flex; flex-direction:column; gap:8px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div>STR</div>
+          <div>Attack DMG</div>
           <div>
-            <button (click)="adjustStat('str', -1)" [disabled]="editableStats.str <= 1">-</button>
-            <span style="margin:0 8px">{{editableStats.str}}</span>
-            <button (click)="adjustStat('str', 1)" [disabled]="editableStats.pointsAvailable <= 0">+</button>
+            <button (click)="adjustStat('attackDmg', -1)" [disabled]="editableStats.attackDmg <= 0">-</button>
+            <span style="margin:0 8px">{{editableStats.attackDmg}}</span>
+            <button (click)="adjustStat('attackDmg', 1)" [disabled]="editableStats.pointsAvailable <= 0">+</button>
           </div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div>DEX</div>
+          <div>Atk Speed (ms)</div>
           <div>
-            <button (click)="adjustStat('dex', -1)" [disabled]="editableStats.dex <= 1">-</button>
-            <span style="margin:0 8px">{{editableStats.dex}}</span>
-            <button (click)="adjustStat('dex', 1)" [disabled]="editableStats.pointsAvailable <= 0">+</button>
+            <button (click)="adjustStat('attackSpeed', -25)" [disabled]="editableStats.attackSpeed <= 50">-</button>
+            <span style="margin:0 8px">{{editableStats.attackSpeed}}</span>
+            <button (click)="adjustStat('attackSpeed', 25)" [disabled]="editableStats.pointsAvailable <= 0">+</button>
           </div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div>INT</div>
+          <div>Crit Rate (%)</div>
           <div>
-            <button (click)="adjustStat('int', -1)" [disabled]="editableStats.int <= 1">-</button>
-            <span style="margin:0 8px">{{editableStats.int}}</span>
-            <button (click)="adjustStat('int', 1)" [disabled]="editableStats.pointsAvailable <= 0">+</button>
+            <button (click)="adjustStat('critRate', -1)" [disabled]="editableStats.critRate <= 0">-</button>
+            <span style="margin:0 8px">{{editableStats.critRate}}</span>
+            <button (click)="adjustStat('critRate', 1)" [disabled]="editableStats.pointsAvailable <= 0">+</button>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>Crit DMG (mult)</div>
+          <div>
+            <button (click)="adjustStat('critDmg', -0.1)" [disabled]="editableStats.critDmg <= 1">-</button>
+            <span style="margin:0 8px">{{editableStats.critDmg}}</span>
+            <button (click)="adjustStat('critDmg', 0.1)" [disabled]="editableStats.pointsAvailable <= 0">+</button>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>Health</div>
+          <div>
+            <button (click)="adjustStat('health', -5)" [disabled]="editableStats.health <= 1">-</button>
+            <span style="margin:0 8px">{{editableStats.health}}</span>
+            <button (click)="adjustStat('health', 5)" [disabled]="editableStats.pointsAvailable <= 0">+</button>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>Regen</div>
+          <div>
+            <button (click)="adjustStat('regen', -0.1)" [disabled]="editableStats.regen <= 0">-</button>
+            <span style="margin:0 8px">{{editableStats.regen}}</span>
+            <button (click)="adjustStat('regen', 0.1)" [disabled]="editableStats.pointsAvailable <= 0">+</button>
           </div>
         </div>
       </div>

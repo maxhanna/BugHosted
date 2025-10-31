@@ -112,14 +112,14 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   // filter: 'all' | 'party' | 'nearby'
   partyFilter: 'all' | 'party' | 'nearby' = 'all';
   showLeaveConfirm: boolean = false;
-  // Stats editing model (simple local model until backend exists)
-  editableStats: { str: number; dex: number; int: number; pointsAvailable: number } = { str: 1, dex: 1, int: 1, pointsAvailable: 0 };
+  // Stats editing model: new stat names (attackDmg, attackSpeed, critRate, critDmg, health, regen)
+  editableStats: { attackDmg: number; attackSpeed: number; critRate: number; critDmg: number; health: number; regen: number; pointsAvailable: number } = { attackDmg: 1, attackSpeed: 400, critRate: 0.0, critDmg: 2.0, health: 100, regen: 0.0, pointsAvailable: 0 };
   // Skills editing model (example: three generic skills). Adjust fields as your game defines.
   editableSkills: { skillA: number; skillB: number; skillC: number; pointsAvailable: number } = { skillA: 0, skillB: 0, skillC: 0, pointsAvailable: 0 };
   // Keep a copy of the original stats for change detection while the panel is open
-  private statsOriginal?: { str: number; dex: number; int: number } = undefined;
+  private statsOriginal?: { attackDmg: number; attackSpeed: number; critRate: number; critDmg: number; health: number; regen: number } = undefined;
   // Cached stats to preserve values when server fetches omit per-hero stats
-  cachedStats?: { str: number; dex: number; int: number } = undefined;
+  cachedStats?: { attackDmg: number; attackSpeed: number; critRate: number; critDmg: number; health: number; regen: number } = undefined;
   // Cached skills to preserve values when server fetches omit them
   cachedSkills?: { skillA: number; skillB: number; skillC: number } = undefined;
   // Change character popup state
@@ -638,9 +638,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.metaHero.hp = heroMeta.hp ?? this.metaHero.hp;
         this.metaHero.level = heroMeta.level ?? this.metaHero.level;
         this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp;
-        this.metaHero.str = (heroMeta as any).str ?? ((heroMeta as any).stats ? (heroMeta as any).stats.str : this.metaHero.str);
-        this.metaHero.dex = (heroMeta as any).dex ?? ((heroMeta as any).stats ? (heroMeta as any).stats.dex : this.metaHero.dex);
-        this.metaHero.int = (heroMeta as any).int ?? ((heroMeta as any).stats ? (heroMeta as any).stats.int : this.metaHero.int);
+  // Legacy stats removed; rely on new stat fields only
         if (this.hero) {
           const incomingHp = heroMeta.hp ?? this.hero.hp ?? 0;
           const prevHp = typeof previousLocalHp === 'number' ? previousLocalHp : (this.hero.hp ?? incomingHp);
@@ -829,17 +827,24 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     try {
       const statsAny: any = (rz as any).stats ?? rz;
       if (statsAny) {
-        if (statsAny.str !== undefined) this.metaHero.str = Number(statsAny.str);
-        if (statsAny.dex !== undefined) this.metaHero.dex = Number(statsAny.dex);
-        if (statsAny.int !== undefined) this.metaHero.int = Number(statsAny.int);
+  if (statsAny.attackDmg !== undefined) this.metaHero.attackDmg = Number(statsAny.attackDmg);
+        if (statsAny.attackSpeed !== undefined) this.metaHero.attackSpeed = Number(statsAny.attackSpeed);
+        if (statsAny.critRate !== undefined) this.metaHero.critRate = Number(statsAny.critRate);
+        if (statsAny.critDmg !== undefined) this.metaHero.critDmg = Number(statsAny.critDmg);
+        if (statsAny.health !== undefined) this.metaHero.health = Number(statsAny.health);
+        if (statsAny.regen !== undefined) this.metaHero.regen = Number(statsAny.regen);
+  // No legacy fallbacks: prefer explicit new-stat fields or cachedStats
       }
     } catch { }
     // If server didn't provide stats, but we have cachedStats, apply those so UI remains consistent
     try {
-      if ((this.metaHero.str === undefined || this.metaHero.dex === undefined || this.metaHero.int === undefined) && this.cachedStats) {
-        this.metaHero.str = this.metaHero.str ?? this.cachedStats.str;
-        this.metaHero.dex = this.metaHero.dex ?? this.cachedStats.dex;
-        this.metaHero.int = this.metaHero.int ?? this.cachedStats.int;
+      if ((this.metaHero.attackDmg === undefined || this.metaHero.health === undefined) && this.cachedStats) {
+        this.metaHero.attackDmg = this.metaHero.attackDmg ?? this.cachedStats.attackDmg;
+        this.metaHero.attackSpeed = this.metaHero.attackSpeed ?? this.cachedStats.attackSpeed;
+        this.metaHero.critRate = this.metaHero.critRate ?? this.cachedStats.critRate;
+        this.metaHero.critDmg = this.metaHero.critDmg ?? this.cachedStats.critDmg;
+        this.metaHero.health = this.metaHero.health ?? this.cachedStats.health;
+        this.metaHero.regen = this.metaHero.regen ?? this.cachedStats.regen;
       }
     } catch { }
     // propagate attackSpeed to client Hero so attack cooldowns match server-provided value
@@ -1044,18 +1049,16 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
     this.parentRef?.showOverlay();
     const level = this.metaHero?.level ?? 1;
-    const base = 1;
     const points = Math.max(0, level - 1);
-    this.editableStats = { str: base, dex: base, int: base, pointsAvailable: points };
+    // initialize editableStats from metaHero or defaults
     const mhAny: any = this.metaHero as any;
-    if (mhAny.stats) {
-      this.editableStats.str = mhAny.stats.str ?? this.editableStats.str;
-      this.editableStats.dex = mhAny.stats.dex ?? this.editableStats.dex;
-      this.editableStats.int = mhAny.stats.int ?? this.editableStats.int;
-      // recalc pointsAvailable conservatively
-      const spent = (this.editableStats.str + this.editableStats.dex + this.editableStats.int) - 3;
-      this.editableStats.pointsAvailable = Math.max(0, points - spent);
-    }
+  const attackDmg = mhAny.attackDmg ?? 1;
+    const attackSpeed = mhAny.attackSpeed ?? 400;
+    const critRate = mhAny.critRate ?? 0.0;
+    const critDmg = mhAny.critDmg ?? (mhAny.regen ? (mhAny.regen * 2.0) : 2.0);
+  const health = mhAny.health ?? 100;
+    const regen = mhAny.regen ?? 0.0;
+    this.editableStats = { attackDmg: Number(attackDmg), attackSpeed: Number(attackSpeed), critRate: Number(critRate), critDmg: Number(critDmg), health: Number(health), regen: Number(regen), pointsAvailable: points };
   }
 
   closeStartMenu() {
@@ -1304,19 +1307,42 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   openChangeStats() {
     this.isPartyPanelOpen = false;
     this.isChangeSkillsOpen = false;
-    const mh: MetaHero = this.metaHero || {};
+    // Prefer cached stats, then metaHero fields, then sensible defaults
+    const mhAny: any = this.metaHero || {};
     const cached = this.cachedStats ?? {} as any;
-    const str = (cached.str !== undefined) ? cached.str : ((mh.str !== undefined && mh.str !== null) ? mh.str : undefined);
-    const dex = (cached.dex !== undefined) ? cached.dex : ((mh.dex !== undefined && mh.dex !== null) ? mh.dex : undefined);
-    const intl = (cached.int !== undefined) ? cached.int : ((mh.int !== undefined && mh.int !== null) ? mh.int : undefined);
-    const level = mh.level ?? 1;
-    const allocated = (str ?? 0) + (dex ?? 0) + (intl ?? 0);
-    const pointsAvailable = Math.max(0, level - allocated);
-    this.editableStats = { str: Math.max(1, str ?? 1), dex: Math.max(1, dex ?? 1), int: Math.max(1, intl ?? 1), pointsAvailable };
+    const level = mhAny.level ?? 1;
+
+    const sAttackDmg = cached.attackDmg !== undefined ? cached.attackDmg : (mhAny.attackDmg !== undefined ? mhAny.attackDmg : 1);
+    const sAttackSpeed = cached.attackSpeed !== undefined ? cached.attackSpeed : (mhAny.attackSpeed !== undefined ? mhAny.attackSpeed : 400);
+    const sCritRate = cached.critRate !== undefined ? cached.critRate : (mhAny.critRate !== undefined ? mhAny.critRate : 0.0);
+    const sCritDmg = cached.critDmg !== undefined ? cached.critDmg : (mhAny.critDmg !== undefined ? mhAny.critDmg : (mhAny.regen ? (Number(mhAny.regen) * 2.0) : 2.0));
+    const sHealth = cached.health !== undefined ? cached.health : (mhAny.health !== undefined ? mhAny.health : 100);
+    const sRegen = cached.regen !== undefined ? cached.regen : (mhAny.regen !== undefined ? mhAny.regen : 0.0);
+
+    // Basic points allocation: keep previous behaviour (level - 1) as available points for now
+    const pointsAvailable = Math.max(0, level - 1);
+
+    this.editableStats = {
+      attackDmg: Number(sAttackDmg ?? 1),
+      attackSpeed: Number(sAttackSpeed ?? 400),
+      critRate: Number(sCritRate ?? 0.0),
+      critDmg: Number(sCritDmg ?? 2.0),
+      health: Number(sHealth ?? 100),
+      regen: Number(sRegen ?? 0.0),
+      pointsAvailable: pointsAvailable
+    };
+
     setTimeout(() => { this.isChangeStatsOpen = true; }, 100);
     // capture original for change detection
     try {
-      this.statsOriginal = { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int };
+      this.statsOriginal = {
+        attackDmg: this.editableStats.attackDmg,
+        attackSpeed: this.editableStats.attackSpeed,
+        critRate: this.editableStats.critRate,
+        critDmg: this.editableStats.critDmg,
+        health: this.editableStats.health,
+        regen: this.editableStats.regen
+      };
     } catch {
       this.statsOriginal = undefined;
     }
@@ -1391,12 +1417,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.parentRef?.closeOverlay();
   }
 
-  adjustStat(stat: 'str' | 'dex' | 'int', delta: number) {
+  adjustStat(stat: 'attackDmg' | 'attackSpeed' | 'critRate' | 'critDmg' | 'health' | 'regen', delta: number) {
     if (!this.editableStats) return;
-    // Defensive checks: ensure we don't go below 1 and don't overspend points
     const current = (this.editableStats as any)[stat] as number;
     const next = current + delta;
-    if (next < 1) return;
+    // Prevent negative values for any stat
+    if (next < 0) return;
+    // Points bookkeeping: if increasing, require available points
     if (delta > 0 && this.editableStats.pointsAvailable <= 0) return;
     (this.editableStats as any)[stat] = next;
     if (delta > 0) this.editableStats.pointsAvailable -= delta; else this.editableStats.pointsAvailable += Math.abs(delta);
@@ -1405,42 +1432,70 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   // Simple helper to detect if the editable stats differ from the original capture
   get statsChanged(): boolean {
     if (!this.statsOriginal) return false;
-    return this.editableStats.str !== this.statsOriginal.str || this.editableStats.dex !== this.statsOriginal.dex || this.editableStats.int !== this.statsOriginal.int;
+    return this.editableStats.attackDmg !== this.statsOriginal.attackDmg
+      || this.editableStats.attackSpeed !== this.statsOriginal.attackSpeed
+      || this.editableStats.critRate !== this.statsOriginal.critRate
+      || this.editableStats.critDmg !== this.statsOriginal.critDmg
+      || this.editableStats.health !== this.statsOriginal.health
+      || this.editableStats.regen !== this.statsOriginal.regen;
   }
 
   async applyStats() {
-    // send to server if API exists
-    await this.bonesService.updateHeroStats(
-      this.metaHero.id,
-      { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int },
-      this.parentRef?.user?.id
-    );
-    // Update local metaHero so UI reflects the new stats immediately
-    if (this.metaHero) {
-      this.metaHero.str = this.editableStats.str;
-      this.metaHero.dex = this.editableStats.dex;
-      this.metaHero.int = this.editableStats.int;
-    }
-    // If in-game hero object exists, you may want to apply derived changes here
-    if (this.hero) {
-      (this.hero as any).str = this.editableStats.str;
-      (this.hero as any).dex = this.editableStats.dex;
-      (this.hero as any).int = this.editableStats.int;
-    }
+    try {
+      // Build payload of new stat keys to send to server
+      const payload: any = {
+        attackDmg: this.editableStats.attackDmg,
+        attackSpeed: this.editableStats.attackSpeed,
+        critRate: this.editableStats.critRate,
+        critDmg: this.editableStats.critDmg,
+        health: this.editableStats.health,
+        regen: this.editableStats.regen
+      };
+      await this.bonesService.updateHeroStats(
+        this.metaHero.id,
+        payload,
+        this.parentRef?.user?.id
+      );
 
-    this.statsUpdatedVisible = true;
-    // Clear any existing timer
-    if (this.statsUpdatedTimer) {
-      clearTimeout(this.statsUpdatedTimer);
-    }
-    this.statsUpdatedTimer = setTimeout(() => {
-      this.statsUpdatedVisible = false;
-      this.closeStartMenu();
-    }, 3000);
+      // Update local metaHero so UI reflects the new stats immediately
+      if (this.metaHero) {
+        this.metaHero.attackDmg = this.editableStats.attackDmg;
+        this.metaHero.attackSpeed = this.editableStats.attackSpeed;
+        this.metaHero.critRate = this.editableStats.critRate;
+        this.metaHero.critDmg = this.editableStats.critDmg;
+        this.metaHero.health = this.editableStats.health;
+        this.metaHero.regen = this.editableStats.regen;
+      }
+      // If in-game hero object exists, apply derived/visible changes
+      if (this.hero) {
+        try { (this.hero as any).attackDmg = this.editableStats.attackDmg; } catch { }
+        try { (this.hero as any).attackSpeed = this.editableStats.attackSpeed; } catch { }
+        try { (this.hero as any).critRate = this.editableStats.critRate; } catch { }
+        try { (this.hero as any).critDmg = this.editableStats.critDmg; } catch { }
+        try { (this.hero as any).health = this.editableStats.health; } catch { }
+        try { (this.hero as any).regen = this.editableStats.regen; } catch { }
+      }
 
-    // Persist to cachedStats so future fetches that omit stats keep these values
-    this.cachedStats = { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int };
+      this.statsUpdatedVisible = true;
+      // Clear any existing timer
+      if (this.statsUpdatedTimer) {
+        clearTimeout(this.statsUpdatedTimer);
+      }
+      this.statsUpdatedTimer = setTimeout(() => {
+        this.statsUpdatedVisible = false;
+        this.closeStartMenu();
+      }, 3000);
 
+      // Persist to cachedStats so future fetches that omit stats keep these values
+      this.cachedStats = {
+        attackDmg: this.editableStats.attackDmg,
+        attackSpeed: this.editableStats.attackSpeed,
+        critRate: this.editableStats.critRate,
+        critDmg: this.editableStats.critDmg,
+        health: this.editableStats.health,
+        regen: this.editableStats.regen
+      };
+    } catch (ex) { console.error('applyStats failed', ex); }
   }
 
   async openTownPortal() {
@@ -1690,26 +1745,31 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   private copyStatsFromMetaHero(rz: MetaHero) {
-    const prevMeta = { str: this.metaHero?.str, dex: this.metaHero?.dex, int: this.metaHero?.int };
-
-    // copy into metaHero and persist to cachedStats so later fetches that omit stats don't wipe them
-    this.metaHero.dex = rz.dex;
-    this.metaHero.str = rz.str;
-    this.metaHero.int = rz.int;
+    // Copy new stats into metaHero and persist to cachedStats so later fetches that omit stats don't wipe them
     this.metaHero.type = rz.type;
+    this.metaHero.attackDmg = rz.attackDmg ?? this.metaHero.attackDmg;
+    this.metaHero.attackSpeed = rz.attackSpeed ?? this.metaHero.attackSpeed;
+    this.metaHero.critRate = rz.critRate ?? this.metaHero.critRate;
+    this.metaHero.critDmg = rz.critDmg ?? this.metaHero.critDmg;
+    this.metaHero.health = rz.health ?? this.metaHero.health;
+    this.metaHero.regen = rz.regen ?? this.metaHero.regen;
 
-    const sstr = (rz as any)?.str ?? (rz as any)?.stats?.str;
-    const sdex = (rz as any)?.dex ?? (rz as any)?.stats?.dex;
-    const sint = (rz as any)?.int ?? (rz as any)?.stats?.int;
-
-    const beforeCache = this.cachedStats ? { ...this.cachedStats } : undefined;
+    const sAttackDmg = (rz as any)?.attackDmg ?? (rz as any)?.stats?.attackDmg ?? (rz as any)?.str;
+    const sAttackSpeed = (rz as any)?.attackSpeed ?? (rz as any)?.stats?.attackSpeed;
+    const sCritRate = (rz as any)?.critRate ?? (rz as any)?.stats?.critRate;
+    const sCritDmg = (rz as any)?.critDmg ?? (rz as any)?.stats?.critDmg ?? ((rz as any)?.regen ? (Number((rz as any).regen) * 2.0) : undefined);
+    const sHealth = (rz as any)?.health ?? (rz as any)?.stats?.health ?? ((rz as any)?.int ? Number((rz as any).int) * 10 : undefined);
+    const sRegen = (rz as any)?.regen ?? (rz as any)?.stats?.regen;
 
     // Only set cachedStats when we have at least one defined value to avoid overwriting good cache with undefined
-    if (sstr !== undefined || sdex !== undefined || sint !== undefined) {
+    if (sAttackDmg !== undefined || sAttackSpeed !== undefined || sCritRate !== undefined || sCritDmg !== undefined || sHealth !== undefined || sRegen !== undefined) {
       this.cachedStats = {
-        str: (sstr !== undefined ? Number(sstr) : (this.cachedStats?.str ?? 1)),
-        dex: (sdex !== undefined ? Number(sdex) : (this.cachedStats?.dex ?? 1)),
-        int: (sint !== undefined ? Number(sint) : (this.cachedStats?.int ?? 1)),
+        attackDmg: (sAttackDmg !== undefined ? Number(sAttackDmg) : (this.cachedStats?.attackDmg ?? 1)),
+        attackSpeed: (sAttackSpeed !== undefined ? Number(sAttackSpeed) : (this.cachedStats?.attackSpeed ?? 400)),
+        critRate: (sCritRate !== undefined ? Number(sCritRate) : (this.cachedStats?.critRate ?? 0.0)),
+        critDmg: (sCritDmg !== undefined ? Number(sCritDmg) : (this.cachedStats?.critDmg ?? 2.0)),
+        health: (sHealth !== undefined ? Number(sHealth) : (this.cachedStats?.health ?? 100)),
+        regen: (sRegen !== undefined ? Number(sRegen) : (this.cachedStats?.regen ?? 0.0)),
       };
     }
   }

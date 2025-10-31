@@ -10,9 +10,13 @@ export class MetaHero {
   speed: number;
   attackSpeed?: number;  // attackSpeed in milliseconds (minimum time between attacks)
   hp?: number;
-  str?: number;
-  dex?: number;
-  int?: number;
+  // legacy stats removed
+  // New stats
+  attackDmg?: number;
+  critRate?: number; // 0.0 - 1.0
+  critDmg?: number; // multiplier
+  health?: number;
+  regen?: number; // hp per second
   level?: number;
   exp?: number;
   userId?: number;
@@ -36,9 +40,7 @@ export class MetaHero {
     this.map = map;
     this.color = color;
     this.mask = mask;
-    this.str = str ?? 0;
-    this.dex = dex ?? 0;
-    this.int = int ?? 0;
+  // legacy fields removed
     this.updated = updated;
   } 
 }

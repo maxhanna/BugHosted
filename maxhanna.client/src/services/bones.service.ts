@@ -55,7 +55,8 @@ export class BonesService {
   async removePartyMember(heroId: number, memberHeroId: number, userId?: number) {
     return this.fetchData('/bones/removepartymember', { HeroId: heroId, MemberHeroId: memberHeroId, UserId: userId });
   }
-  async updateHeroStats(heroId: number, stats: { str: number; dex: number; int: number }, userId?: number) {
+  // Accept a generic stats object so we can send new stat keys (attackDmg, critRate, critDmg, health, regen, attackSpeed, etc.)
+  async updateHeroStats(heroId: number, stats: { [key: string]: number | undefined } | any, userId?: number) {
     return this.fetchData('/bones/updateherostats', { HeroId: heroId, Stats: stats, UserId: userId });
   }
   async townPortal(heroId: number, userId?: number) {
