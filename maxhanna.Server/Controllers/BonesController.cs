@@ -3363,8 +3363,8 @@ ORDER BY p.created DESC;";
 			}
 			catch (Exception ex)
 			{
-				await _log.Db("ExecuteInsertOrUpdateOrDeleteAsync ERROR: " + ex.Message + "\n" + ex.StackTrace, null, "BONES", true);
-				await _log.Db(cmdText, null, "BONES", true);
+				//await _log.Db("ExecuteInsertOrUpdateOrDeleteAsync ERROR: " + ex.Message + "\n" + ex.StackTrace, null, "BONES", true);
+				//await _log.Db(cmdText, null, "BONES", true);
 				foreach (var param in parameters) await _log.Db("Param: " + param.Key + ": " + param.Value, null, "BONES", true);
 				throw;
 			}
