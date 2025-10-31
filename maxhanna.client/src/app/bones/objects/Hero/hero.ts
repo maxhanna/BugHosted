@@ -281,10 +281,26 @@ export class Hero extends Character {
 
   private spawnStingTo(targetX: number, targetY: number) {
     try {
-      const sting = new Sting(this.position.x, this.position.y);
-      console.log("spawning sting to ", this.position);
+      // Compute rendered anchor point for this hero's sprite so the effect appears at the same place
+      const bodyPosX = (this.body?.position?.x ?? 0);
+      const bodyPosY = (this.body?.position?.y ?? 0);
+      const bodyOffsetX = (this.body?.offsetX ?? 0);
+      const bodyOffsetY = (this.body?.offsetY ?? 0);
+      const frameW = (this.body?.frameSize?.x ?? gridCells(2));
+      const frameH = (this.body?.frameSize?.y ?? gridCells(2));
+      const scaleX = (this.body?.scale?.x ?? 1);
+      const scaleY = (this.body?.scale?.y ?? 1);
+
+      const startX = this.position.x + bodyPosX + bodyOffsetX + (frameW * scaleX) / 2;
+      const startY = this.position.y + bodyPosY + bodyOffsetY + (frameH * scaleY) / 2;
+
+      // Convert target world position to rendered anchor using the same offsets so the sting moves to the visual target
+      const targetAnchorX = targetX + bodyPosX + bodyOffsetX + (frameW * scaleX) / 2;
+      const targetAnchorY = targetY + bodyPosY + bodyOffsetY + (frameH * scaleY) / 2;
+
+      const sting = new Sting(startX, startY);
       this.addChild(sting);
-      sting.moveTo(targetX, targetY, 1000);
+      sting.moveTo(targetAnchorX, targetAnchorY, 1000);
       setTimeout(() => {
         try { sting.destroy(); } catch { }
       }, 2000);
