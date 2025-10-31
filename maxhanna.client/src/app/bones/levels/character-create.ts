@@ -2,67 +2,36 @@ import { Vector2 } from "../../../services/datacontracts/bones/vector2";
 import { gridCells } from "../helpers/grid-cells";
 import { events } from "../helpers/events";
 import { Input } from "../helpers/input";
-import { storyFlags, Scenario, CHARACTER_CREATE_STORY_TEXT_2, CHARACTER_CREATE_STORY_TEXT_4, CHARACTER_CREATE_STORY_TEXT_5, CHARACTER_CREATE_STORY_TEXT_6, CHARACTER_CREATE_STORY_TEXT_7, CHARACTER_CREATE_STORY_TEXT_1 } from "../helpers/story-flags";
+import { storyFlags, CHARACTER_CREATE_STORY_TEXT_4, CHARACTER_CREATE_STORY_TEXT_6, CHARACTER_CREATE_STORY_TEXT_7, CHARACTER_CREATE_STORY_TEXT_1 } from "../helpers/story-flags";
 import { Level } from "../objects/Level/level"; 
 import { HeroRoomLevel } from "./hero-room";
 import { SpriteTextStringWithBackdrop } from "../objects/SpriteTextString/sprite-text-string-with-backdrop";
 import { SpriteTextString } from "../objects/SpriteTextString/sprite-text-string";
-import { Bones } from "../objects/Npc/Bones/bones";
 import { resources } from "../helpers/resources";
 import { Sprite } from "../objects/sprite";
 
 export class CharacterCreate extends Level { 
+  // Condensed profanity list: base stems rather than exhaustive variants.
+  // verifyCharacterName uses substring matching, so stems like 'cyberfuck' will match 'cyberfucker' or 'cyberfucked'.
+  profanity = [
+    'fuck', 'shit', 'ass', 'arse', 'bitch', 'cunt', 'dick', 'cock', 'cum', 'piss', 'porn', 'whore', 'slut',
+    'nigg', 'fag', 'motherfuck', 'cyberfuck', 'masturbat', 'anal', 'blowjob', 'orgasm', 'tit', 'vagina',
+    'wank', 'penis', 'testicle', 'retard', 'shemale', 'gay', 'horny'
+  ];
+  override defaultHeroPosition = new Vector2(gridCells(1), gridCells(1));
+  defaultColor: string | undefined = undefined;
+  heroNames: string[] | undefined = undefined;
+  instructionString?: SpriteTextString | undefined;
   textBox = new SpriteTextStringWithBackdrop({});
   inputKeyPressedDate = new Date();
   characterNameEmitted = false;
   changeLevelEmitted = false;
   characterName = "";
-  // Optional default name provided from persisted user settings
   defaultName: string | undefined = undefined; 
   magiSprite?: Sprite;
-  knightSprite?: Sprite;
-  // selection index: 0 = magi, 1 = knight
-  selectionIndex: number = 0;
-  profanity = ["4r5e", "5h1t", "5hit", "a55", "anal", "anus", "ar5e", "arrse", "arse", "ass", "ass-fucker", "asses",
-    "assfucker", "assfukka", "asshole", "assholes", "asswhole", "a_s_s", "b!tch", "b00bs", "b17ch", "b1tch", "ballbag", "balls",
-    "ballsack", "bastard", "beastial", "beastiality", "bellend", "bestial", "bestiality", "bi+ch", "biatch", "bitch", "bitcher",
-    "bitchers", "bitches", "bitchin", "bitching", "bloody", "blow job", "blowjob", "blowjobs", "boiolas", "bollock", "bollok",
-    "boner", "boob", "boobs", "booobs", "boooobs", "booooobs", "booooooobs", "breasts", "buceta", "bugger", "bum", "bunny fucker",
-    "butt", "butthole", "buttmuch", "buttplug", "c0ck", "c0cksucker", "carpet muncher", "cawk", "chink", "cipa", "cl1t", "clit",
-    "clitoris", "clits", "cnut", "cock", "cock-sucker", "cockface", "cockhead", "cockmunch", "cockmuncher", "cocks", "cocksuck",
-    "cocksucked", "cocksucker", "cocksucking", "cocksucks", "cocksuka", "cocksukka", "cok", "coke", "cokmuncher", "coksucka", "condom", "coon", "cox",
-    "crap", "cum", "cummer", "cumming", "cums", "cumshot", "cunilingus", "cunillingus", "cunnilingus", "cunt", "cuntlick", "cuntlicker",
-    "cuntlicking", "cunts", "cyalis", "cyberfuc", "cyberfuck", "cyberfucked", "cyberfucker", "cyberfuckers", "cyberfucking", "d1ck", "damn",
-    "dick", "dickhead", "dildo", "dildos", "dink", "dinks", "dirsa", "dlck", "dog-fucker", "doggin", "dogging", "donkeyribber", "doosh",
-    "duche", "dyke", "ejaculate", "ejaculated", "ejaculates", "ejaculating", "ejaculatings", "ejaculation", "ejakulate", "f u c k",
-    "f u c k e r", "f4nny", "fag", "fagging", "faggitt", "faggot", "faggs", "fagot", "fagots", "fags", "fanny", "fannyflaps", "fannyfucker",
-    "fanyy", "fatass", "fcuk", "fcuker", "fcuking", "feck", "fecker", "felching", "fellate", "fellatio", "fingerfuck", "fingerfucked", "fingerfucker",
-    "fingerfuckers", "fingerfucking", "fingerfucks", "fistfuck", "fistfucked", "fistfucker", "fistfuckers", "fistfucking", "fistfuckings",
-    "fistfucks", "flange", "fook", "fooker", "fuck", "fucka", "fucked", "fucker", "fuckers", "fuckhead", "fuckheads", "fuckin", "fucking",
-    "fuckings", "fuckingshitmotherfucker", "fuckme", "fucks", "fuckwhit", "fuckwit", "fudge packer", "fudgepacker", "fuk", "fuker", "fukker",
-    "fukkin", "fuks", "fukwhit", "fukwit", "fux", "fux0r", "f_u_c_k", "gangbang", "gangbanged", "gangbangs", "gay", "gaylord", "gaysex", "goatse",
-    "god-dam", "god-damned", "goddamn", "goddamned", "hardcoresex", "hell", "heshe", "hoar", "hoare", "hoer", "homo", "hore", "horniest",
-    "horny", "hotsex", "jack-off", "jackoff", "jap", "jerk-off", "jism", "jiz", "jizm", "jizz", "kawk", "knob", "knobead", "knobed", "knobend",
-    "knobhead", "knobjocky", "knobjokey", "kock", "kondum", "kondums", "kum", "kummer", "kumming", "kums", "kunilingus", "l3i+ch", "l3itch",
-    "labia", "lmfao", "lust", "lusting", "m0f0", "m0fo", "m45terbate", "ma5terb8", "ma5terbate", "masochist", "master-bate", "masterb8", "masterbat*",
-    "masterbat3", "masterbate", "masterbation", "masterbations", "masturbate", "mo-fo", "mof0", "mofo", "mothafuck", "mothafucka", "mothafuckas",
-    "mothafuckaz", "mothafucked", "mothafucker", "mothafuckers", "mothafuckin", "mothafucking", "mothafuckings", "mothafucks", "mother fucker",
-    "motherfuck", "motherfucked", "motherfucker", "motherfuckers", "motherfuckin", "motherfucking", "motherfuckings", "motherfuckka", "motherfucks",
-    "muff", "mutha", "muthafecker", "muthafuckker", "muther", "mutherfucker", "n1gga", "n1gger", "nazi", "nigg", "niggha", "nigg3r", "nigg4h", "nigga", "niggah",
-    "niggas", "niggaz", "nigger", "niggers", "nob", "nob jokey", "nobhead", "nobjocky", "nobjokey", "numbnuts", "nutsack", "orgasim", "orgasims",
-    "orgasm", "orgasms", "p0rn", "pawn", "pecker", "penis", "penisfucker", "phonesex", "phuck", "phuk", "phuked", "phuking", "phukked", "phukking",
-    "phuks", "phuq", "pigfucker", "pimpis", "piss", "pissed", "pisser", "pissers", "pisses", "pissflaps", "pissin", "pissing", "pissoff", "poop",
-    "porn", "porno", "pornography", "pornos", "prick", "pricks", "pron", "pube", "pusse", "pussi", "pussies", "pussy", "pussys", "rectum",
-    "retard", "rimjaw", "rimming", "s hit", "s.o.b.", "sadist", "schlong", "screwing", "scroat", "scrote", "scrotum", "semen", "sex",
-    "sh!+", "sh!t", "sh1t", "shag", "shagger", "shaggin", "shagging", "shemale", "shi+", "shit", "shitdick", "shite", "shited", "shitey",
-    "shitfuck", "shitfull", "shithead", "shiting", "shitings", "shits", "shitted", "shitter", "shitters", "shitting", "shittings", "shitty",
-    "skank", "slut", "sluts", "smegma", "smut", "snatch", "son-of-a-bitch", "spac", "spunk", "s_h_i_t", "t1tt1e5", "t1tties", "teets", "teez",
-    "testical", "fuuk", "testicle", "tit", "titfuck", "tits", "titt", "tittie5", "tittiefucker", "titties", "tittyfuck", "tittywank", "titwank",
-    "tosser", "turd", "tw4t", "twat", "twathead", "twatty", "twunt", "twunter", "v14gra", "v1gra", "vagina", "viagra", "vulva", "w00se",
-    "wang", "wank", "wanker", "wanky", "whoar", "whore", "willies", "xrated", "xxx", "suck"];
-  override defaultHeroPosition = new Vector2(gridCells(1), gridCells(1));
-  defaultColor: string | undefined = undefined;
-  heroNames: string[] | undefined = undefined;
+  knightSprite?: Sprite; 
+  rogueSprite?: Sprite;
+  selectionIndex: number = 0; // selection index: 0 = magi, 1 = knight
   constructor(params: { 
     heroPosition?: Vector2, 
     defaultName?: string, 
@@ -109,6 +78,14 @@ export class CharacterCreate extends Level {
       frameSize: new Vector2(320, 220),
     });
     this.addChild(this.knightSprite);
+ 
+    this.rogueSprite = new Sprite({
+      objectId: 0,
+      resource: resources.images["heroSelectRogue"],
+      name: "Rogue",
+      frameSize: new Vector2(320, 220),
+    });
+    this.addChild(this.rogueSprite);
 
     // selection: 0 = magi, 1 = knight
     this.selectionIndex = 0;
@@ -141,20 +118,17 @@ export class CharacterCreate extends Level {
         nameToUse = trimmedChat; // may be empty
       }
       this.characterName = nameToUse;
-      if (!this.verifyCharacterName(this.characterName) || storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6)) { return; } 
+      if (!this.verifyCharacterName(this.characterName)) { return; } 
       this.returnChatInputToNormal();
       
       console.log("emitting char name");
       if (!this.characterNameEmitted) {
         // Emit a structured payload so listeners know which hero type was selected
-        const selectedType = this.selectionIndex === 0 ? 'magi' : 'knight';
+        const selectedType = this.selectionIndex === 0 ? 'magi' : this.selectionIndex === 1 ? 'knight' : 'rogue';
         events.emit("CHARACTER_NAME_CREATED", { name: this.characterName, type: selectedType });
         this.characterNameEmitted = true;
         storyFlags.add(CHARACTER_CREATE_STORY_TEXT_1);
-        let resourceKey = "heroSelectKnightPick";
-        if (selectedType === "magi") {
-         resourceKey = "heroSelectMagiPick";
-        }
+        const resourceKey = `heroSelect${selectedType.charAt(0).toUpperCase() + selectedType.slice(1)}Pick`;
         const pickSprite = new Sprite({ 
           objectId: 0,
           resource: resources.images[resourceKey],
@@ -257,6 +231,8 @@ export class CharacterCreate extends Level {
         // knight selected
         this.magiSprite = replaceSprite(this.magiSprite, "heroSelectMagi", "Magi");
         this.knightSprite = replaceSprite(this.knightSprite, "heroSelectKnight2", "Knight");
+      } else {
+        th
       }
     } catch (ex) {
       try { console.warn('applySelectionSkins failed', ex); } catch { }

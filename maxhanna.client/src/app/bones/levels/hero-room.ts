@@ -36,7 +36,7 @@ export class HeroRoomLevel extends Level {
     const roomWidth = 20; // tiles horizontally
     const roomHeight = 3; // tiles vertically
     // tileWidth=64, tileHeight=96 match original layout
-    this.tileFloor(new Vector2(gridCells(0), gridCells(-1)), roomWidth, roomHeight, 64, 96, resources.images["floorbigtile"], { drawLayer: BASE, startObjectId: -1000 });
+    this.tileFloor(new Vector2(gridCells(0), gridCells(-1)), roomWidth, roomHeight, 64, 96, resources.images["floortileiso"], { drawLayer: BASE, startObjectId: -1000 });
   
     const bones = new Bones({
       position: new Vector2(gridCells(5), gridCells(8)),
