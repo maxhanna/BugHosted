@@ -298,7 +298,7 @@
           <div>Crit DMG (mult)</div>
           <div>
             <button (click)="adjustStat('critDmg', -0.1)" [disabled]="editableStats.critDmg <= 1">-</button>
-            <span style="margin:0 8px">{{editableStats.critDmg}}</span>
+            <span style="margin:0 8px">{{editableStats.critDmg | number:'1.2-2'}}</span>
             <button (click)="adjustStat('critDmg', 0.1)" [disabled]="editableStats.pointsAvailable <= 0">+</button>
           </div>
         </div>
