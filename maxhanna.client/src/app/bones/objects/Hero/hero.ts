@@ -279,10 +279,10 @@ export class Hero extends Character {
     });
   }
 
-  // Helper to spawn a Sting effect at the hero's position and move it toward (targetX, targetY).
   private spawnStingTo(targetX: number, targetY: number) {
     try {
       const sting = new Sting(this.position.x, this.position.y);
+      console.log("spawning sting to ", this.position);
       this.addChild(sting);
       sting.moveTo(targetX, targetY, 1000);
       setTimeout(() => {
