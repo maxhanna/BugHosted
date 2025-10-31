@@ -195,14 +195,12 @@
     <button id="closeOverlay" (click)="closeStartMenu()" class="buttonDisplayNone"></button>
   </div>
   <div *ngIf="!isPartyPanelOpen && !isChangeStatsOpen" class="startGrid">
-  <button class="bigActionButton" (click)="openPartyPanel()" aria-label="Party">Party</button>
-  <button class="bigActionButton" (click)="openChangeCharacter()" aria-label="Change Hero">Change Hero</button>
-  <button class="bigActionButton" (click)="openChangeStats()" aria-label="Change Stats">Change Stats</button>
-  <button class="bigActionButton" (click)="openChangeSkills()" aria-label="Change Skills">Change Skills</button>
-    <button class="bigActionButton" (click)="openTownPortal()" aria-label="Town Portal">Town Portal</button>
-    <button class="bigActionButton" (click)="closeStartMenu()" aria-label="Close">Close ❌</button>
+    <button class="bigActionButton" (click)="openPartyPanel()" aria-label="Party">Party</button>
+    <button class="bigActionButton" (click)="openChangeCharacter()" aria-label="Change Hero">Change Hero</button>
     <button class="bigActionButton" (click)="openChangeStats()" aria-label="Change Stats">Change Stats</button>
-    <div></div>
+    <button class="bigActionButton" (click)="openChangeSkills()" aria-label="Change Skills">Change Skills</button>
+    <button class="bigActionButton" (click)="openTownPortal()" aria-label="Town Portal">Town Portal</button>
+    <button class="bigActionButton" (click)="closeStartMenu()" aria-label="Close">Close ❌</button>  
   </div>
 
   <!-- Party subpanel -->
