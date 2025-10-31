@@ -158,7 +158,7 @@ namespace maxhanna.Server.Controllers
 				int xMax = hero.Position.x + radiusTiles * tile;
 				int yMin = hero.Position.y - radiusTiles * tile;
 				int yMax = hero.Position.y + radiusTiles * tile;
-				string selSql = @"SELECT p.id, p.creator_hero_id, p.map, p.coordsX, p.coordsY, p.radius, p.data, p.created,
+				string selSql = @"SELECT p.id, p.creator_hero_id, p.map, p.coordsX, p.coordsY, p.data, p.created,
   (SELECT o.id FROM maxhanna.bones_town_portal o WHERE o.creator_hero_id = p.creator_hero_id AND o.id <> p.id ORDER BY o.created DESC LIMIT 1) AS otherId,
   (SELECT o.map FROM maxhanna.bones_town_portal o WHERE o.creator_hero_id = p.creator_hero_id AND o.id <> p.id ORDER BY o.created DESC LIMIT 1) AS otherMap,
   (SELECT o.coordsX FROM maxhanna.bones_town_portal o WHERE o.creator_hero_id = p.creator_hero_id AND o.id <> p.id ORDER BY o.created DESC LIMIT 1) AS otherCx,
@@ -180,17 +180,16 @@ ORDER BY p.created DESC;";
 					int creatorId = rdr.IsDBNull(1) ? 0 : rdr.GetInt32(1);
 					string map = rdr.IsDBNull(2) ? string.Empty : rdr.GetString(2);
 					int cx = rdr.IsDBNull(3) ? 0 : rdr.GetInt32(3);
-					int cy = rdr.IsDBNull(4) ? 0 : rdr.GetInt32(4);
-					int? radius = rdr.IsDBNull(5) ? (int?)null : rdr.GetInt32(5);
-					string dataJson = rdr.IsDBNull(6) ? "{}" : rdr.GetString(6);
-					DateTime created = rdr.IsDBNull(7) ? DateTime.UtcNow : rdr.GetDateTime(7);
+					int cy = rdr.IsDBNull(4) ? 0 : rdr.GetInt32(4); 
+					string dataJson = rdr.IsDBNull(5) ? "{}" : rdr.GetString(5);
+					DateTime created = rdr.IsDBNull(6) ? DateTime.UtcNow : rdr.GetDateTime(6);
 
 					// paired columns (from correlated subselects)
-					int otherId = rdr.IsDBNull(8) ? 0 : rdr.GetInt32(8);
-					string otherMap = rdr.IsDBNull(9) ? string.Empty : rdr.GetString(9);
-					int otherCx = rdr.IsDBNull(10) ? 0 : rdr.GetInt32(10);
-					int otherCy = rdr.IsDBNull(11) ? 0 : rdr.GetInt32(11);
-					int otherCreator = rdr.IsDBNull(12) ? 0 : rdr.GetInt32(12);
+					int otherId = rdr.IsDBNull(7) ? 0 : rdr.GetInt32(7);
+					string otherMap = rdr.IsDBNull(8) ? string.Empty : rdr.GetString(8);
+					int otherCx = rdr.IsDBNull(9) ? 0 : rdr.GetInt32(9);
+					int otherCy = rdr.IsDBNull(10) ? 0 : rdr.GetInt32(10);
+					int otherCreator = rdr.IsDBNull(11) ? 0 : rdr.GetInt32(11);
 
 					var dataDict = new Dictionary<string, string>();
 					if (!string.IsNullOrEmpty(dataJson))
@@ -223,11 +222,11 @@ ORDER BY p.created DESC;";
 							{ "map", otherMap },
 							{ "creatorHeroId", otherCreator.ToString() }
 						};
-						portals.Add(new { id = id, creatorHeroId = creatorId, map = map, coordsX = cx, coordsY = cy, radius = radius, data = pairedData, created = created });
+						portals.Add(new { id = id, creatorHeroId = creatorId, map = map, coordsX = cx, coordsY = cy, data = pairedData, created = created });
 					}
 					else
 					{
-						portals.Add(new { id = id, creatorHeroId = creatorId, map = map, coordsX = cx, coordsY = cy, radius = radius, data = dataDict, created = created });
+						portals.Add(new { id = id, creatorHeroId = creatorId, map = map, coordsX = cx, coordsY = cy, data = dataDict, created = created });
 					}
 				}
 				rdr.Close();
@@ -1862,13 +1861,12 @@ ORDER BY p.created DESC;";
 						}
 					}
 
-					string insertPortalSql = @"INSERT INTO maxhanna.bones_town_portal (creator_hero_id, map, coordsX, coordsY, radius, data, created) VALUES (@CreatorHeroId, @Map, @X, @Y, @Radius, @Data, UTC_TIMESTAMP()); SELECT LAST_INSERT_ID();";
+					string insertPortalSql = @"INSERT INTO maxhanna.bones_town_portal (creator_hero_id, map, coordsX, coordsY, data, created) VALUES (@CreatorHeroId, @Map, @X, @Y, @Data, UTC_TIMESTAMP()); SELECT LAST_INSERT_ID();";
 					using var insertCmd = new MySqlCommand(insertPortalSql, connection, transaction);
 					insertCmd.Parameters.AddWithValue("@CreatorHeroId", heroId);
 					insertCmd.Parameters.AddWithValue("@Map", map ?? string.Empty);
 					insertCmd.Parameters.AddWithValue("@X", x);
 					insertCmd.Parameters.AddWithValue("@Y", y);
-					insertCmd.Parameters.AddWithValue("@Radius", request.Radius.HasValue ? (object?)request.Radius.Value : DBNull.Value);
 					insertCmd.Parameters.AddWithValue("@Data", Newtonsoft.Json.JsonConvert.SerializeObject(data));
 					var insertedObj = await insertCmd.ExecuteScalarAsync();
 					int insertedId = 0;
@@ -1892,7 +1890,7 @@ ORDER BY p.created DESC;";
 						townData["originX"] = x.ToString();
 						townData["originY"] = y.ToString();
 						// Reference the canonical portalId (insertedId). We'll insert the town-side portal and then add both ids to events.
-						string insertTownSql = @"INSERT INTO maxhanna.bones_town_portal (creator_hero_id, map, coordsX, coordsY, radius, data, created) VALUES (@CreatorHeroId, @Map, @X, @Y, @Radius, @Data, UTC_TIMESTAMP()); SELECT LAST_INSERT_ID();";
+						string insertTownSql = @"INSERT INTO maxhanna.bones_town_portal (creator_hero_id, map, coordsX, coordsY, data, created) VALUES (@CreatorHeroId, @Map, @X, @Y, @Data, UTC_TIMESTAMP()); SELECT LAST_INSERT_ID();";
 						using var insertTownCmd = new MySqlCommand(insertTownSql, connection, transaction);
 						insertTownCmd.Parameters.AddWithValue("@CreatorHeroId", heroId);
 						// Determine paired town map as the previous town relative to the hero's current map.
@@ -1932,7 +1930,6 @@ ORDER BY p.created DESC;";
 						insertTownCmd.Parameters.AddWithValue("@Map", targetMap ?? "HeroRoom");
 						insertTownCmd.Parameters.AddWithValue("@X", tx);
 						insertTownCmd.Parameters.AddWithValue("@Y", ty);
-						insertTownCmd.Parameters.AddWithValue("@Radius", DBNull.Value);
 						insertTownCmd.Parameters.AddWithValue("@Data", Newtonsoft.Json.JsonConvert.SerializeObject(townData));
 						var townInsertedObj = await insertTownCmd.ExecuteScalarAsync();
 						int townInsertedId = 0;
