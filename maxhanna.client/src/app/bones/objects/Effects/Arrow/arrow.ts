@@ -1,11 +1,11 @@
-import { Vector2 } from "../../../../../services/datacontracts/meta/vector2"; 
+import { Vector2 } from "../../../../../services/datacontracts/meta/vector2";
 import { Sprite } from "../../sprite";
 import { resources } from "../../../helpers/resources";
 import { GameObject, HUD } from "../../game-object";
 import { Animations } from "../../../helpers/animations";
 import { FrameIndexPattern } from "../../../helpers/frame-index-pattern";
-import { ARROW_LEFT_ANIMATION, ARROW_RIGHT_ANIMATION, HIT_LEFT_ANIMATION, HIT_RIGHT_ANIMATION } from "./arrow-animations"; 
-import { RIGHT } from "../../../helpers/grid-cells"; 
+import { ARROW_LEFT_ANIMATION, ARROW_RIGHT_ANIMATION, HIT_LEFT_ANIMATION, HIT_RIGHT_ANIMATION } from "./arrow-animations";
+import { RIGHT } from "../../../helpers/grid-cells";
 
 export class Arrow extends GameObject {
   body?: Sprite;
@@ -29,28 +29,22 @@ export class Arrow extends GameObject {
       hFrames: 4,
       offsetY: -20,
       animations: new Animations({
-        arrowRightAnimation: new FrameIndexPattern(ARROW_RIGHT_ANIMATION),
-        hitRightAnimation: new FrameIndexPattern(HIT_RIGHT_ANIMATION),
         arrowLeftAnimation: new FrameIndexPattern(ARROW_LEFT_ANIMATION),
         hitLeftAnimation: new FrameIndexPattern(HIT_LEFT_ANIMATION),
-      }), 
+      }),
     });
     this.addChild(this.body);
     this.facingDirection = facingDirection;
-    
+
     this.body.animations?.play("arrowLeftAnimation");
-     
+
   }
 
-  override destroy(): void { 
-    if (this.facingDirection === RIGHT) { 
-      this.body?.animations?.play("hitRightAnimation");
-    } else { 
-      this.body?.animations?.play("hitLeftAnimation");
-    }
+  override destroy(): void {
+    this.body?.animations?.play("hitLeftAnimation");
     setTimeout(() => {
       super.destroy();
-    }, 1000); 
+    }, 1000);
   }
 
   moveTo(targetX: number, targetY: number, speed: number) {
