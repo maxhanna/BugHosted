@@ -2351,37 +2351,20 @@ ORDER BY p.created DESC;";
 					// Regen processing: increase hero HP based on their regen stat, once per elapsed second since last_regen.
 					try
 					{
-						string selRegenSql = "SELECT id, hp, regen, last_regen FROM maxhanna.bones_hero WHERE map = @Map AND hp > 0";
-						using var regenCmd = new MySqlCommand(selRegenSql, connection, transaction);
-						regenCmd.Parameters.AddWithValue("@Map", map);
-						using var regenRdr = await regenCmd.ExecuteReaderAsync();
-						var regenNow = DateTime.UtcNow;
-						var updates = new List<(int id, int newHp)>();
-						while (await regenRdr.ReadAsync())
-						{
-							int id = regenRdr.GetInt32(0);
-							int hp = regenRdr.IsDBNull(1) ? 0 : regenRdr.GetInt32(1);
-							double regen = regenRdr.IsDBNull(2) ? 0.0 : regenRdr.GetDouble(2);
-							DateTime? last = regenRdr.IsDBNull(3) ? (DateTime?)null : regenRdr.GetDateTime(3);
-
-							double elapsedSec = last.HasValue ? (regenNow - last.Value).TotalSeconds : 1.0;
-							if (elapsedSec < 1.0 || regen <= 0.0) continue;
-							int ticks = (int)Math.Floor(elapsedSec);
-							double healD = regen * ticks;
-							int heal = (int)Math.Floor(healD);
-							if (heal <= 0) continue;
-							int newHp = Math.Min(100, hp + heal);
-							// Update immediately within the same transaction
-							string updSql = "UPDATE maxhanna.bones_hero SET hp = @NewHp, last_regen = UTC_TIMESTAMP(), updated = UTC_TIMESTAMP() WHERE id = @Id LIMIT 1;";
-							var updParams = new Dictionary<string, object?>() { { "@NewHp", newHp }, { "@Id", id } };
-							await ExecuteInsertOrUpdateOrDeleteAsync(updSql, updParams, connection, transaction);
-						}
-						regenRdr.Close();
+						// Single-statement regen: for heroes with regen>0 and last_regen older than 1 second (or NULL),
+						// compute seconds = FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))
+						// heal = FLOOR(regen * seconds)
+						// new hp = LEAST(100, hp + heal)
+						string regenUpdateSql = @"UPDATE maxhanna.bones_hero h
+							SET h.hp = LEAST(100, h.hp + GREATEST(FLOOR(h.regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))),0)),
+								h.last_regen = UTC_TIMESTAMP(),
+								h.updated = UTC_TIMESTAMP()
+							WHERE h.hp > 0 AND h.regen > 0 AND (h.last_regen IS NULL OR h.last_regen <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 SECOND));";
+						await ExecuteInsertOrUpdateOrDeleteAsync(regenUpdateSql, new Dictionary<string, object?>(), connection, transaction);
 					}
 					catch (Exception exRegen)
 					{
-						// Non-fatal: log and continue AI processing
-						await _log.Db("Regen processing failed: " + exRegen.Message, null, "BONES", true);
+						await _log.Db("Regen update failed: " + exRegen.Message, null, "BONES", true);
 					}
 
 				if (heroes.Count == 0) return; // no targets
