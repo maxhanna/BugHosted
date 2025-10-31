@@ -1623,13 +1623,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const key = (levelName || '').toUpperCase();
     // CharacterCreate should play two ambiance tracks
     if (key === 'CHARACTERCREATE') {
-      resources.playSound('ambiance_wind', { volume: 0.35, loop: true, allowOverlap: false });
-      resources.playSound('ambiance_campfire', { volume: 0.25, loop: true, allowOverlap: false });
+      resources.playSound('ambiance_wind', { volume: this.currentVolume, loop: true, allowOverlap: false });
+      resources.playSound('ambiance_campfire', { volume: this.currentVolume, loop: true, allowOverlap: false });
       return;
     }
 
     // Default: shadowsUnleashed
-    try { resources.playSound('shadowsUnleashed', { volume: 0.4, loop: true, allowOverlap: false }); } catch { }
+    try { resources.playSound('shadowsUnleashed', { volume: this.currentVolume, loop: true, allowOverlap: false }); } catch { }
   }
 
   toggleSfx() {
