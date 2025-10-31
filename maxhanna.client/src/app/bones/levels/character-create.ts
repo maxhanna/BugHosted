@@ -129,6 +129,7 @@ export class CharacterCreate extends Level {
         events.emit("CHARACTER_NAME_CREATED", { name: this.characterName, type: selectedType });
         this.characterNameEmitted = true;
         storyFlags.add(CHARACTER_CREATE_STORY_TEXT_1);
+        this.instructionString?.destroy();
         const resourceKey = `heroSelect${selectedType.charAt(0).toUpperCase() + selectedType.slice(1)}Pick`;
         const pickSprite = new Sprite({ 
           objectId: 0,
