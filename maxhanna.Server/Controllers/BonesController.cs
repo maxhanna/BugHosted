@@ -779,7 +779,25 @@ ORDER BY p.created DESC;";
 										// Placeholder hook: spawn a dropped item for this defeated encounter
 										try
 										{
-											await SpawnDroppedItemPlaceholder(d.encId, d.encLevel, targetX, targetY, hero?.Map ?? string.Empty, connection, transaction);
+											// Determine drop coordinates from the defeated encounter (prefer encounter coords over attacker target coords)
+											int dropX = targetX;
+											int dropY = targetY;
+											try
+											{
+												string selEncCoords = "SELECT coordsX, coordsY FROM maxhanna.bones_encounter WHERE hero_id = @EncId LIMIT 1;";
+												using var coordCmd = new MySqlCommand(selEncCoords, connection, transaction);
+												coordCmd.Parameters.AddWithValue("@EncId", d.encId);
+												using var coordR = await coordCmd.ExecuteReaderAsync();
+												if (await coordR.ReadAsync())
+												{
+													dropX = coordR.IsDBNull(0) ? dropX : coordR.GetInt32(0);
+													dropY = coordR.IsDBNull(1) ? dropY : coordR.GetInt32(1);
+												}
+												coordR.Close();
+											}
+											catch { /* non-fatal: use fallback targetX/targetY */ }
+
+											await SpawnDroppedItem(d.encId, d.encLevel, dropX, dropY, hero?.Map ?? string.Empty, connection, transaction);
 										}
 										catch (Exception exSpawn)
 										{
@@ -3023,11 +3041,8 @@ ORDER BY p.created DESC;";
 		}
 
 		// Placeholder hook called when an encounter dies so dropped item logic can be added here later.
-	private async Task SpawnDroppedItemPlaceholder(int encounterId, int encounterLevel, int x, int y, string map, MySqlConnection connection, MySqlTransaction transaction)
-		{
-			// Create a dropped item row in bones_items_dropped and prune older entries (>2 minutes)
-			try
-			{
+		private async Task SpawnDroppedItem(int encounterId, int encounterLevel, int x, int y, string map, MySqlConnection connection, MySqlTransaction transaction)
+		{ 
 				// Construct a simple data payload; include a random power relative to the encounterLevel
 				int heroLevel = Math.Max(1, encounterLevel);
 				var rng = new Random();
@@ -3037,22 +3052,55 @@ ORDER BY p.created DESC;";
 
 				var itemData = new Dictionary<string, object?>() { { "power", power }, { "sourceEncounterId", encounterId } };
 
-				string insertSql = @"DELETE FROM maxhanna.bones_items_dropped WHERE created < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 MINUTE); INSERT INTO maxhanna.bones_items_dropped (map, coordsX, coordsY, data, created) VALUES (@Map, @X, @Y, @Data, UTC_TIMESTAMP());";
+			// Choose drop coordinates: prefer the encounter location but probe nearby tiles (multiples of GRIDCELL)
+			int chosenX = x;
+			int chosenY = y;
+			var offsets = new List<(int dx, int dy)>() {
+				(0,0), (GRIDCELL,0), (-GRIDCELL,0), (0,GRIDCELL), (0,-GRIDCELL),
+				(GRIDCELL,GRIDCELL), (-GRIDCELL,GRIDCELL), (GRIDCELL,-GRIDCELL), (-GRIDCELL,-GRIDCELL),
+				(2*GRIDCELL,0), (-2*GRIDCELL,0), (0,2*GRIDCELL), (0,-2*GRIDCELL)
+			};
+
+			// Randomize probing order so drops spread naturally, but keep coordinates grid-aligned
+			var rnd = new Random();
+			offsets = offsets.OrderBy(_ => rnd.Next()).ToList();
+
+			// Try atomic guarded insert per candidate: DELETE old rows then INSERT ... SELECT ... WHERE NOT EXISTS
+			bool inserted = false;
+			string guardedSql = @"DELETE FROM maxhanna.bones_items_dropped WHERE created < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 MINUTE); INSERT INTO maxhanna.bones_items_dropped (map, coordsX, coordsY, data, created) SELECT @Map, @X, @Y, @Data, UTC_TIMESTAMP() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM maxhanna.bones_items_dropped WHERE map = @Map AND coordsX = @X AND coordsY = @Y AND created >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 MINUTE));";
+			foreach (var off in offsets)
+			{
+				int tryX = x + off.dx;
+				int tryY = y + off.dy;
 				var parameters = new Dictionary<string, object?>()
+				{
+					{"@Map", map ?? string.Empty},
+					{"@X", tryX},
+					{"@Y", tryY},
+					{"@Data", Newtonsoft.Json.JsonConvert.SerializeObject(itemData)}
+				}; 
+				var res = await ExecuteInsertOrUpdateOrDeleteAsync(guardedSql, parameters, connection, transaction);
+				int rows = 0;
+				if (res != null) rows = Convert.ToInt32(res);
+				if (rows > 0)
+				{
+					await _log.Db($"SpawnDroppedItem created dropped item at=({tryX},{tryY}) power={power}", null, "BONES", true);
+					inserted = true;
+					break;
+				} 
+			}
+
+			if (!inserted)
+			{
+				// Fallback: attempt an unconditional insert at the original location to ensure a drop exists
+				string fallbackSql = @"DELETE FROM maxhanna.bones_items_dropped WHERE created < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 MINUTE); INSERT INTO maxhanna.bones_items_dropped (map, coordsX, coordsY, data, created) VALUES (@Map, @X, @Y, @Data, UTC_TIMESTAMP());";
+				var fallbackParams = new Dictionary<string, object?>()
 				{
 					{"@Map", map ?? string.Empty},
 					{"@X", x},
 					{"@Y", y},
 					{"@Data", Newtonsoft.Json.JsonConvert.SerializeObject(itemData)}
-				};
-				// Attempt insert (non-fatal). Use ExecuteInsertOrUpdateOrDeleteAsync to respect transaction
-				await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, parameters, connection, transaction);
-				await _log.Db($"SpawnDroppedItemPlaceholder created dropped item at=({x},{y}) power={power}", null, "BONES", true);
-			}
-			catch (Exception ex)
-			{
-				await _log.Db("SpawnDroppedItemPlaceholder failed: " + ex.Message, null, "BONES", true);
-			}
+				}; 
 			return;
 		}
 
