@@ -194,8 +194,7 @@ namespace maxhanna.Server.Controllers
 					) recent_nexus
 				) AS lastActivity
 				FROM maxhanna.users u
-				GROUP BY u.id
-				GROUP BY u.id
+				GROUP BY u.id 
 				ORDER BY lastActivity DESC
 				LIMIT 200;";
 
