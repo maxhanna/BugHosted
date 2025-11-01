@@ -2,3 +2,13 @@
 .currently-playing ul { list-style: none; padding: 0; }
 .currently-playing li { margin: 6px 0; }
 .currently-playing .game { margin-left: 8px; color: #666; }
+.currentlyPlayingTitle {
+    display: flex;
+    align-items: center;
+    padding: .5rem 0;
+    font-weight: 600;
+    border-bottom: 1px solid var(--main-border-color);
+    margin-bottom: 1rem;
+    cursor: pointer;
+    text-decoration: underline;
+}
