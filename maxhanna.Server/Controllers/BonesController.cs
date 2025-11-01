@@ -2133,6 +2133,8 @@ ORDER BY p.created DESC;";
 				WHERE {(heroId == null ? "h.user_id = @UserId" : "h.id = @UserId")};";
 				MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@UserId", heroId != null ? heroId : userId);
 				MetaHero? hero = null;
+				// Read the hero row(s) into memory first. Do not execute other commands on the same connection
+				// while a DataReader is active because MySqlConnector disallows concurrent command usage.
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
 					while (reader.Read())
@@ -2163,20 +2165,23 @@ ORDER BY p.created DESC;";
 								Health = reader.IsDBNull(reader.GetOrdinal("hero_health")) ? 1 : reader.GetInt32(reader.GetOrdinal("hero_health")),
 								Regen = reader.IsDBNull(reader.GetOrdinal("hero_regen")) ? 0.0 : reader.GetDouble(reader.GetOrdinal("hero_regen")),
 							};
-
-							if (userId != 0 && hero != null)
-							{
-								using var colorCmd = new MySqlCommand("SELECT last_character_color FROM maxhanna.user_settings WHERE user_id = @UserId LIMIT 1", conn, transaction);
-								colorCmd.Parameters.AddWithValue("@UserId", userId);
-								var colorObj = await colorCmd.ExecuteScalarAsync();
-								if (colorObj != null && colorObj != DBNull.Value)
-								{
-									var colorStr = colorObj.ToString();
-									if (!string.IsNullOrEmpty(colorStr)) hero.Color = colorStr;
-								}
-							} 
 						}
 					}
+				}
+
+				// After the reader is closed, it's safe to execute additional commands on the same connection.
+				if (userId != 0 && hero != null)
+				{
+					 
+						using var colorCmd = new MySqlCommand("SELECT last_character_color FROM maxhanna.user_settings WHERE user_id = @UserId LIMIT 1", conn, transaction);
+						colorCmd.Parameters.AddWithValue("@UserId", userId);
+						var colorObj = await colorCmd.ExecuteScalarAsync();
+						if (colorObj != null && colorObj != DBNull.Value)
+						{
+							var colorStr = colorObj.ToString();
+							if (!string.IsNullOrEmpty(colorStr)) hero.Color = colorStr;
+						}
+				 
 				}
 				return hero;
 			}
