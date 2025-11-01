@@ -3,9 +3,15 @@
   <div *ngIf="loading">Loading...</div>
   <ul *ngIf="!loading && gamers.length > 0">
     <li *ngFor="let g of gamers">
-      <strong>{{g.username}}</strong>
-      <span class="game">{{g.game}}</span>
-      <small *ngIf="g.lastActivityUtc">{{g.lastActivityUtc | date:'short'}}</small>
+        <strong>{{g.username}}</strong>
+        <span class="game">
+          <!-- Render as an app-menu-item when we can map the game to a known component -->
+          <ng-container *ngIf="mapGameToMenuTitle(g.game) as menuTitle">
+            <app-menu-item *ngIf="menuTitle" [type]="menuTitle" [parentRef]="parentRef" [label]="menuTitle"></app-menu-item>
+            <span *ngIf="!menuTitle">{{g.game}}</span>
+          </ng-container>
+        </span>
+        <small *ngIf="g.lastActivityUtc">{{g.lastActivityUtc | date:'short'}}</small>
     </li>
   </ul>
   <div *ngIf="!loading && gamers.length === 0">No players are currently active.</div>
