@@ -1,5 +1,5 @@
 <div class="currently-playing">
-  <h3>Currently Playing</h3>
+  <h3 *ngIf="gamers.length > 0">Currently Playing</h3>
   <div *ngIf="loading">Loading...</div>
   <ul *ngIf="!loading && gamers.length > 0">
     <li *ngFor="let g of gamers">
