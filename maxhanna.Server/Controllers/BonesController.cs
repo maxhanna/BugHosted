@@ -44,33 +44,6 @@ namespace maxhanna.Server.Controllers
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 		}
 
-		/// <summary>
-		/// Apply damage to an encounter (monster) row, update HP and set last_killed/target_hero_id when appropriate.
-		/// Returns number of rows affected.
-		/// </summary>
-		private async Task<long> ApplyDamageToEncounter(int encounterHeroId, int damage, int attackerHeroId, MySqlConnection connection, MySqlTransaction transaction)
-		{
-			long rows = 0;
-			try
-			{
-				string upd = @"UPDATE maxhanna.bones_encounter e
-					SET e.hp = GREATEST(e.hp - @Damage, 0),
-						e.target_hero_id = CASE WHEN (e.target_hero_id IS NULL OR e.target_hero_id = 0) THEN @HeroId ELSE e.target_hero_id END,
-						e.last_killed = CASE WHEN (e.hp - @Damage) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END
-					WHERE e.hero_id = @EncId LIMIT 1;";
-				var parameters = new Dictionary<string, object?>() {
-					{"@Damage", damage},
-					{"@HeroId", attackerHeroId},
-					{"@EncId", encounterHeroId}
-				};
-				rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(upd, parameters, connection, transaction));
-			}
-			catch (Exception ex)
-			{
-				await _log.Db("ApplyDamageToEncounter failed: " + ex.Message, attackerHeroId, "BONES", true);
-			}
-			return rows;
-		}
 
 		[HttpPost("/Bones", Name = "Bones_GetHero")]
 		public async Task<IActionResult> GetHero([FromBody] int userId)
@@ -635,6 +608,7 @@ ORDER BY p.created DESC;";
 								// Update the chosen encounter only (centralized helper)
 								try
 								{
+									Console.WriteLine($"Facing attack: attacker={sourceHeroId}, attackerLevel={attackerLevel}, chosenEnc={chosenEncId.Value}");
 									rows = Convert.ToInt32(await ApplyDamageToEncounter(chosenEncId.Value, attackerLevel, sourceHeroId, connection, transaction));
 								}
 								catch (Exception exUpd)
@@ -719,6 +693,7 @@ ORDER BY p.created DESC;";
 					if (critRate < 0.0) critRate = 0.0;
 					if (critRate > 1.0) critRate = 1.0;
 					double critMultiplier = dbCritDmg;
+					Console.WriteLine($"Applying hero->hero damage: attacker={sourceHeroId}, baseDamage={baseDamage}, critRate={critRate}, critMultiplier={critMultiplier}, victims={string.Join(',', victims)}");
 					foreach (var victimId in victims)
 					{
 						try
@@ -3105,6 +3080,36 @@ ORDER BY p.created DESC;";
 			return (dmg, isCrit);
 		}
 
+		/// <summary>
+		/// Apply damage to an encounter (monster) row, update HP and set last_killed/target_hero_id when appropriate.
+		/// Returns number of rows affected.
+		/// </summary>
+		private async Task<long> ApplyDamageToEncounter(int encounterHeroId, int damage, int attackerHeroId, MySqlConnection connection, MySqlTransaction transaction)
+		{
+			long rows = 0;
+			try
+			{
+				Console.WriteLine($"ApplyDamageToEncounter called: enc={encounterHeroId}, damage={damage}, attacker={attackerHeroId}");
+				string upd = @"UPDATE maxhanna.bones_encounter e
+					SET e.hp = GREATEST(e.hp - @Damage, 0),
+						e.target_hero_id = CASE WHEN (e.target_hero_id IS NULL OR e.target_hero_id = 0) THEN @HeroId ELSE e.target_hero_id END,
+						e.last_killed = CASE WHEN (e.hp - @Damage) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END
+					WHERE e.hero_id = @EncId LIMIT 1;";
+				var parameters = new Dictionary<string, object?>() {
+					{"@Damage", damage},
+					{"@HeroId", attackerHeroId},
+					{"@EncId", encounterHeroId}
+				};
+				rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(upd, parameters, connection, transaction));
+				Console.WriteLine($"ApplyDamageToEncounter result: enc={encounterHeroId}, damage={damage}, attacker={attackerHeroId}, rowsAffected={rows}");
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"ApplyDamageToEncounter exception: enc={encounterHeroId}, attacker={attackerHeroId}, ex={ex.Message}");
+				await _log.Db("ApplyDamageToEncounter failed: " + ex.Message, attackerHeroId, "BONES", true);
+			}
+			return rows;
+		}
 		/// <summary>
 		/// Apply damage to a hero row, update HP and emit death handling if HP reaches 0.
 		/// Uses an UPDATE followed by SELECT to determine new hp, and then calls HandleHeroDeath when needed.
