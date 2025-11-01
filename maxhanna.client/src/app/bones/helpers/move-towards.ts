@@ -43,7 +43,7 @@ export function isSprite(obj: any): boolean {
 
 export function bodyAtSpace(parent: GameObject, position: Vector2, solid?: boolean) {
 	return parent.children.find((c: any) => {
-		return (solid ? c.isSolid : true) && c.position.x == position.x
+		return (solid ? c.isSolid : true) && c.discoverable && c.position.x == position.x
 			&& c.position.y == position.y;
 	});
 }

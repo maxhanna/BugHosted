@@ -44,6 +44,7 @@ export class Sprite extends GameObject {
     preventDraw?: boolean,
     preventDrawName?: boolean,
     forceDrawName?: boolean,
+    discoverable?: boolean,
   }) {
     super({
       position: params.position ?? new Vector2(0, 0),
@@ -70,6 +71,7 @@ export class Sprite extends GameObject {
     this.rotation = params.rotation ?? 0;
     this.offsetX = params.offsetX ?? 0;
     this.offsetY = params.offsetY ?? 0;
+    this.discoverable = params.discoverable ?? true;
     this.buildFrameMap(); 
      
 

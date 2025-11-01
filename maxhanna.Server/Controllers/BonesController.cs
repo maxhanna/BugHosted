@@ -207,7 +207,7 @@ ORDER BY p.created DESC;";
 					int creatorId = rdr.IsDBNull(1) ? 0 : rdr.GetInt32(1);
 					string map = rdr.IsDBNull(2) ? string.Empty : rdr.GetString(2);
 					int cx = rdr.IsDBNull(3) ? 0 : rdr.GetInt32(3);
-					int cy = rdr.IsDBNull(4) ? 0 : rdr.GetInt32(4); 
+					int cy = rdr.IsDBNull(4) ? 0 : rdr.GetInt32(4);
 					string dataJson = rdr.IsDBNull(5) ? "{}" : rdr.GetString(5);
 					DateTime created = rdr.IsDBNull(6) ? DateTime.UtcNow : rdr.GetDateTime(6);
 
@@ -267,14 +267,14 @@ ORDER BY p.created DESC;";
 		}
 
 		[HttpPost("/Bones/DeleteTownPortal", Name = "Bones_DeleteTownPortal")]
-			public async Task<IActionResult> DeleteTownPortal([FromBody] DeleteTownPortalRequest req)
+		public async Task<IActionResult> DeleteTownPortal([FromBody] DeleteTownPortalRequest req)
 		{
 			try
 			{
-					int portalId = req?.PortalId ?? 0;
-					int heroId = req?.HeroId ?? 0;
+				int portalId = req?.PortalId ?? 0;
+				int heroId = req?.HeroId ?? 0;
 
-					if (portalId <= 0 && heroId <= 0) return BadRequest("Invalid hero id or portal id");
+				if (portalId <= 0 && heroId <= 0) return BadRequest("Invalid hero id or portal id");
 
 				using var connection = new MySqlConnection(_connectionString);
 				await connection.OpenAsync();
@@ -378,305 +378,276 @@ ORDER BY p.created DESC;";
 			// If client provided recentAttacks, persist them as short-lived ATTACK events so other players can pick them up in this fetch-response.
 			if (request?.RecentAttacks != null && request.RecentAttacks.Count > 0)
 			{
-				try
+				foreach (var attack in request.RecentAttacks)
 				{
-					foreach (var attack in request.RecentAttacks)
+					string insertSql = "INSERT INTO maxhanna.bones_event (hero_id, event, map, data, timestamp) VALUES (@HeroId, @Event, @Map, @Data, UTC_TIMESTAMP());";
+					// Normalize attack dictionary values: handle System.Text.Json.JsonElement and JToken values
+					var normalized = new Dictionary<string, object?>();
+					foreach (var kv in attack)
 					{
-						string insertSql = "INSERT INTO maxhanna.bones_event (hero_id, event, map, data, timestamp) VALUES (@HeroId, @Event, @Map, @Data, UTC_TIMESTAMP());";
-						// Normalize attack dictionary values: handle System.Text.Json.JsonElement and JToken values
-						var normalized = new Dictionary<string, object?>();
-						foreach (var kv in attack)
-						{
-							object? v = kv.Value;
-							try
-							{
-								if (v is System.Text.Json.JsonElement je)
-								{
-									switch (je.ValueKind)
-									{
-										case System.Text.Json.JsonValueKind.String:
-											normalized[kv.Key] = je.GetString();
-											break;
-										case System.Text.Json.JsonValueKind.Number:
-											if (je.TryGetInt64(out long l)) normalized[kv.Key] = l;
-											else if (je.TryGetDouble(out double d)) normalized[kv.Key] = d;
-											else normalized[kv.Key] = je.GetRawText();
-											break;
-										case System.Text.Json.JsonValueKind.True:
-										case System.Text.Json.JsonValueKind.False:
-											normalized[kv.Key] = je.GetBoolean();
-											break;
-										case System.Text.Json.JsonValueKind.Null:
-											normalized[kv.Key] = null;
-											break;
-										default:
-											// Object/Array -> raw JSON text
-											normalized[kv.Key] = je.GetRawText();
-											break;
-									}
-								}
-								else if (v is Newtonsoft.Json.Linq.JToken jt)
-								{
-									// convert to primitive where possible, otherwise string
-									if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Integer) normalized[kv.Key] = jt.ToObject<long>();
-									else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Float) normalized[kv.Key] = jt.ToObject<double>();
-									else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Boolean) normalized[kv.Key] = jt.ToObject<bool>();
-									else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.String) normalized[kv.Key] = jt.ToObject<string?>() ?? string.Empty;
-									else normalized[kv.Key] = jt.ToString(Newtonsoft.Json.Formatting.None);
-								}
-								else
-								{
-									normalized[kv.Key] = v;
-								}
-							}
-							catch
-							{
-								// Fallback: stringify
-								try { normalized[kv.Key] = v?.ToString(); } catch { normalized[kv.Key] = null; }
-							}
-						}
-
-						var parameters = new Dictionary<string, object?>()
-							{
-								{ "@HeroId", normalized.ContainsKey("sourceHeroId") ? normalized["sourceHeroId"] ?? (hero?.Id ?? 0) : (hero?.Id ?? 0) },
-								{ "@Event", "ATTACK" },
-								{ "@Map", hero?.Map ?? string.Empty },
-								{ "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(normalized) }
-							};
-						await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, parameters, connection, transaction);
-
-						// Additional behaviour: if this attack includes a facing, decrement the bones_encounter.hp
+						object? v = kv.Value;
 						try
 						{
-							// Determine source hero id and facing
-							int sourceHeroId = normalized.ContainsKey("sourceHeroId") && normalized["sourceHeroId"] != null ? Convert.ToInt32(normalized["sourceHeroId"]) : (hero?.Id ?? 0);
-							int sourceX = hero?.Position.x ?? 0;
-							int sourceY = hero?.Position.y ?? 0;
-							int targetX = sourceX;
-							int targetY = sourceY;
-
-							if (normalized.ContainsKey("facing") && normalized["facing"] != null)
+							if (v is System.Text.Json.JsonElement je)
 							{
-								// facing can be an int (0=up,1=right,2=down,3=left) or a string
-								var fVal = normalized["facing"]?.ToString();
-								if (int.TryParse(fVal, out int f))
+								switch (je.ValueKind)
 								{
-									switch (f)
-									{
-										case 0: targetY = sourceY - GRIDCELL; break; // up
-										case 1: targetX = sourceX + GRIDCELL; break; // right
-										case 2: targetY = sourceY + GRIDCELL; break; // down
-										case 3: targetX = sourceX - GRIDCELL; break; // left
-										default: break;
-									}
-								}
-								else
-								{
-									// try common string values
-									var s = fVal?.ToLower() ?? string.Empty;
-									if (s == "up" || s == "north") targetY = sourceY - 1;
-									else if (s == "right" || s == "east") targetX = sourceX + GRIDCELL;
-									else if (s == "down" || s == "south") targetY = sourceY + GRIDCELL;
-									else if (s == "left" || s == "west") targetX = sourceX - GRIDCELL;
-								}
-							}
-
-							// Prefetch attacker level/stats to avoid JOIN+LIMIT MySQL restriction
-							int attackerLevel = 1;
-							int dbAttackDmg = 0;
-							double dbCritRate = 0.0;
-							double dbCritDmg = 2.0;
-							try
-							{
-								using var lvlCmd = new MySqlCommand("SELECT COALESCE(level,1) AS lvl, COALESCE(attack_dmg,0) AS attack_dmg, COALESCE(crit_rate,0) AS crit_rate, COALESCE(crit_dmg,2.0) AS crit_dmg FROM maxhanna.bones_hero WHERE id=@HeroId", connection, transaction);
-								lvlCmd.Parameters.AddWithValue("@HeroId", sourceHeroId);
-								using var rdrStats = await lvlCmd.ExecuteReaderAsync();
-								if (await rdrStats.ReadAsync())
-								{
-									// Read numeric columns defensively: underlying DB type may be DOUBLE or INT.
-									var lvlObj = rdrStats.IsDBNull(rdrStats.GetOrdinal("lvl")) ? null : rdrStats.GetValue(rdrStats.GetOrdinal("lvl"));
-									attackerLevel = lvlObj == null ? 1 : Convert.ToInt32(Convert.ToDouble(lvlObj));
-
-									var dmgObj = rdrStats.IsDBNull(rdrStats.GetOrdinal("attack_dmg")) ? null : rdrStats.GetValue(rdrStats.GetOrdinal("attack_dmg"));
-									dbAttackDmg = dmgObj == null ? 0 : Convert.ToInt32(Convert.ToDouble(dmgObj));
-
-									dbCritRate = rdrStats.IsDBNull(rdrStats.GetOrdinal("crit_rate")) ? 0.0 : rdrStats.GetDouble(rdrStats.GetOrdinal("crit_rate"));
-									dbCritDmg = rdrStats.IsDBNull(rdrStats.GetOrdinal("crit_dmg")) ? 2.0 : rdrStats.GetDouble(rdrStats.GetOrdinal("crit_dmg"));
-								}
-								rdrStats.Close();
-							}
-							catch { attackerLevel = 1; dbAttackDmg = 0; dbCritRate = 0.0; dbCritDmg = 2.0; }
-
-							// Determine AoE half-size: allow client to send 'aoe', 'radius', 'width', or 'threshold'. Fallback to HITBOX_HALF for single-tile tolerance.
-							int aoeHalf = GRIDCELL; // default tolerance radius
-							string[] aoeKeys = new[] { "aoe", "radius", "width", "threshold" };
-							foreach (var k in aoeKeys)
-							{
-								if (normalized.ContainsKey(k) && normalized[k] != null)
-								{
-									var sVal = normalized[k]?.ToString();
-									if (int.TryParse(sVal, out int parsed) && parsed > 0)
-									{
-										// Interpret parsed as full width if key is 'width'; convert to half-size
-										if (k == "width" && parsed > 1) aoeHalf = parsed / 2; else aoeHalf = parsed;
+									case System.Text.Json.JsonValueKind.String:
+										normalized[kv.Key] = je.GetString();
 										break;
-									}
+									case System.Text.Json.JsonValueKind.Number:
+										if (je.TryGetInt64(out long l)) normalized[kv.Key] = l;
+										else if (je.TryGetDouble(out double d)) normalized[kv.Key] = d;
+										else normalized[kv.Key] = je.GetRawText();
+										break;
+									case System.Text.Json.JsonValueKind.True:
+									case System.Text.Json.JsonValueKind.False:
+										normalized[kv.Key] = je.GetBoolean();
+										break;
+									case System.Text.Json.JsonValueKind.Null:
+										normalized[kv.Key] = null;
+										break;
+									default:
+										// Object/Array -> raw JSON text
+										normalized[kv.Key] = je.GetRawText();
+										break;
 								}
 							}
-							// Prevent absurd huge AoE (sanity cap)
-							aoeHalf = Math.Min(aoeHalf, 512);
-
-							int xMin = targetX - aoeHalf;
-							int xMax = targetX + aoeHalf;
-							int yMin = targetY - aoeHalf;
-							int yMax = targetY + aoeHalf;
-
-							// If facing provided, optionally elongate AoE in facing direction if client supplies 'length'
-							if (normalized.ContainsKey("length") && normalized["length"] != null && int.TryParse(normalized["length"]?.ToString(), out int length) && length > 0)
+							else if (v is Newtonsoft.Json.Linq.JToken jt)
 							{
-								// Extend rectangle in facing direction by length (convert to pixels already assumed)
-								int extend = length;
-								if (normalized.ContainsKey("facing") && normalized["facing"] != null)
-								{
-									var fVal = normalized["facing"]?.ToString();
-									if (int.TryParse(fVal, out int f))
-									{
-										if (f == 0) yMin = targetY - extend; // up
-										else if (f == 1) xMax = targetX + extend; // right
-										else if (f == 2) yMax = targetY + extend; // down
-										else if (f == 3) xMin = targetX - extend; // left
-									}
-									else
-									{
-										var sF = fVal?.ToLower() ?? string.Empty;
-										if (sF.Contains("up") || sF.Contains("north")) yMin = targetY - extend;
-										else if (sF.Contains("right") || sF.Contains("east")) xMax = targetX + extend;
-										else if (sF.Contains("down") || sF.Contains("south")) yMax = targetY + extend;
-										else if (sF.Contains("left") || sF.Contains("west")) xMin = targetX - extend;
-									}
-								}
-							}
-
-							// Prepare shared variables for damage application. 'rows' reused by multiple branches.
-							int rows = 0;
-
-							// Decide whether this is an AoE attack or a regular single-target attack.
-							// If aoeHalf is <= GRIDCELL and the client did not explicitly provide a length extension,
-							// treat it as a regular attack and limit damage to a single encounter (LIMIT 1).
-							string limitClause = "";
-							bool isRegularSingleTarget = aoeHalf <= GRIDCELL && !(normalized.ContainsKey("length") && normalized["length"] != null);
-							if (isRegularSingleTarget) limitClause = " LIMIT 1";
-
-
-							// For regular single-target attacks prefer the encounter in the player's facing direction
-							if (isRegularSingleTarget)
-							{
-								// Attempt to parse facing from the normalized payload; if missing/invalid we fallback to a LIMIT 1 UPDATE
-								int? facingInt = null;
-								try
-								{
-									if (normalized.ContainsKey("facing") && normalized["facing"] != null)
-									{
-										var fVal = normalized["facing"]?.ToString();
-										if (int.TryParse(fVal, out int fParsed)) facingInt = fParsed;
-									}
-								}
-								catch { facingInt = null; }
-
-								if (facingInt.HasValue)
-								{
-									// Read candidate encounters in the AoE and prefer those that lie in the facing direction
-									string selEncSql = @"SELECT hero_id, coordsX, coordsY FROM maxhanna.bones_encounter WHERE map = @Map AND hp > 0 AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax;";
-									using var selEncCmd = new MySqlCommand(selEncSql, connection, transaction);
-									selEncCmd.Parameters.AddWithValue("@Map", hero?.Map ?? string.Empty);
-									selEncCmd.Parameters.AddWithValue("@XMin", xMin);
-									selEncCmd.Parameters.AddWithValue("@XMax", xMax);
-									selEncCmd.Parameters.AddWithValue("@YMin", yMin);
-									selEncCmd.Parameters.AddWithValue("@YMax", yMax);
-									using var encRdr = await selEncCmd.ExecuteReaderAsync();
-									int? chosenEncId = null;
-									int bestDist = int.MaxValue;
-									var candidatesInFacing = new List<(int id, int x, int y)>();
-									while (await encRdr.ReadAsync())
-									{
-										int eid = encRdr.GetInt32(0);
-										int ex = encRdr.IsDBNull(1) ? 0 : encRdr.GetInt32(1);
-										int ey = encRdr.IsDBNull(2) ? 0 : encRdr.GetInt32(2);
-										candidatesInFacing.Add((eid, ex, ey));
-									}
-									encRdr.Close();
-
-									// Filter by facing
-									foreach (var c in candidatesInFacing)
-									{
-										int dxEnc = c.x - sourceX;
-										int dyEnc = c.y - sourceY;
-										bool inFacing = false;
-										switch (facingInt.Value)
-										{
-											case 0: // up
-												inFacing = dyEnc < 0; break;
-											case 1: // right
-												inFacing = dxEnc > 0; break;
-											case 2: // down
-												inFacing = dyEnc > 0; break;
-											case 3: // left
-												inFacing = dxEnc < 0; break;
-											default: inFacing = false; break;
-										}
-										if (inFacing)
-										{
-											int dist = Math.Abs(dxEnc) + Math.Abs(dyEnc);
-											if (dist < bestDist)
-											{
-												bestDist = dist;
-												chosenEncId = c.id;
-											}
-										}
-									}
-
-									if (chosenEncId.HasValue)
-									{
-										// Update the chosen encounter only (centralized helper)
-										try
-										{
-											rows = Convert.ToInt32(await ApplyDamageToEncounter(chosenEncId.Value, attackerLevel, sourceHeroId, connection, transaction));
-										}
-										catch (Exception exUpd)
-										{
-											await _log.Db("ApplyDamageToEncounter failed: " + exUpd.Message, hero?.Id ?? 0, "BONES", true);
-											rows = 0;
-										}
-									}
-								}
-								// If no rows were updated by facing-specific logic (either no facing or no matching encounter), fallback
-								if (rows == 0)
-								{
-									string updateHpSql = $@"
-									UPDATE maxhanna.bones_encounter e
-									SET e.hp = GREATEST(e.hp - @AttackerLevel, 0),
-										e.target_hero_id = CASE WHEN (e.target_hero_id IS NULL OR e.target_hero_id = 0) THEN @HeroId ELSE e.target_hero_id END,
-										e.last_killed = CASE WHEN (e.hp - @AttackerLevel) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END
-									WHERE e.map = @Map
-										AND e.hp > 0
-										AND e.coordsX BETWEEN @XMin AND @XMax
-										AND e.coordsY BETWEEN @YMin AND @YMax{limitClause};";
-									var updateParams = new Dictionary<string, object?>() {
-										{ "@Map", hero?.Map ?? string.Empty },
-										{ "@HeroId", sourceHeroId },
-										{ "@AttackerLevel", attackerLevel },
-										{ "@XMin", xMin },
-										{ "@XMax", xMax },
-										{ "@YMin", yMin },
-										{ "@YMax", yMax }
-									};
-									rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(updateHpSql, updateParams, connection, transaction));
-								}
+								// convert to primitive where possible, otherwise string
+								if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Integer) normalized[kv.Key] = jt.ToObject<long>();
+								else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Float) normalized[kv.Key] = jt.ToObject<double>();
+								else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Boolean) normalized[kv.Key] = jt.ToObject<bool>();
+								else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.String) normalized[kv.Key] = jt.ToObject<string?>() ?? string.Empty;
+								else normalized[kv.Key] = jt.ToString(Newtonsoft.Json.Formatting.None);
 							}
 							else
 							{
-								// Non-regular AoE: keep previous behaviour (may update multiple rows)
-								string updateHpSql = $@"
+								normalized[kv.Key] = v;
+							}
+						}
+						catch
+						{
+							// Fallback: stringify
+							try { normalized[kv.Key] = v?.ToString(); } catch { normalized[kv.Key] = null; }
+						}
+					}
+
+					var parameters = new Dictionary<string, object?>()
+						{
+							{ "@HeroId", normalized.ContainsKey("sourceHeroId") ? normalized["sourceHeroId"] ?? (hero?.Id ?? 0) : (hero?.Id ?? 0) },
+							{ "@Event", "ATTACK" },
+							{ "@Map", hero?.Map ?? string.Empty },
+							{ "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(normalized) }
+						};
+					await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, parameters, connection, transaction);
+
+					// Determine source hero id and facing
+					int sourceHeroId = normalized.ContainsKey("sourceHeroId") && normalized["sourceHeroId"] != null ? Convert.ToInt32(normalized["sourceHeroId"]) : (hero?.Id ?? 0);
+					int sourceX = hero?.Position.x ?? 0;
+					int sourceY = hero?.Position.y ?? 0;
+					int targetX = sourceX;
+					int targetY = sourceY;
+
+					if (normalized.ContainsKey("facing") && normalized["facing"] != null)
+					{
+						// facing can be an int (0=up,1=right,2=down,3=left) or a string
+						var fVal = normalized["facing"]?.ToString();
+						if (int.TryParse(fVal, out int f))
+						{
+							switch (f)
+							{
+								case 0: targetY = sourceY - GRIDCELL; break; // up
+								case 1: targetX = sourceX + GRIDCELL; break; // right
+								case 2: targetY = sourceY + GRIDCELL; break; // down
+								case 3: targetX = sourceX - GRIDCELL; break; // left
+								default: break;
+							}
+						}
+						else
+						{
+							// try common string values
+							var s = fVal?.ToLower() ?? string.Empty;
+							if (s == "up" || s == "north") targetY = sourceY - 1;
+							else if (s == "right" || s == "east") targetX = sourceX + GRIDCELL;
+							else if (s == "down" || s == "south") targetY = sourceY + GRIDCELL;
+							else if (s == "left" || s == "west") targetX = sourceX - GRIDCELL;
+						}
+					}
+
+					// Prefetch attacker level/stats to avoid JOIN+LIMIT MySQL restriction
+					int attackerLevel = 1;
+					int dbAttackDmg = 0;
+					double dbCritRate = 0.0;
+					double dbCritDmg = 2.0;
+					try
+					{
+						using var lvlCmd = new MySqlCommand("SELECT COALESCE(level,1) AS lvl, COALESCE(attack_dmg,0) AS attack_dmg, COALESCE(crit_rate,0) AS crit_rate, COALESCE(crit_dmg,2.0) AS crit_dmg FROM maxhanna.bones_hero WHERE id=@HeroId", connection, transaction);
+						lvlCmd.Parameters.AddWithValue("@HeroId", sourceHeroId);
+						using var rdrStats = await lvlCmd.ExecuteReaderAsync();
+						if (await rdrStats.ReadAsync())
+						{
+							// Read numeric columns defensively: underlying DB type may be DOUBLE or INT.
+							var lvlObj = rdrStats.IsDBNull(rdrStats.GetOrdinal("lvl")) ? null : rdrStats.GetValue(rdrStats.GetOrdinal("lvl"));
+							attackerLevel = lvlObj == null ? 1 : Convert.ToInt32(Convert.ToDouble(lvlObj));
+
+							var dmgObj = rdrStats.IsDBNull(rdrStats.GetOrdinal("attack_dmg")) ? null : rdrStats.GetValue(rdrStats.GetOrdinal("attack_dmg"));
+							dbAttackDmg = dmgObj == null ? 0 : Convert.ToInt32(Convert.ToDouble(dmgObj));
+
+							dbCritRate = rdrStats.IsDBNull(rdrStats.GetOrdinal("crit_rate")) ? 0.0 : rdrStats.GetDouble(rdrStats.GetOrdinal("crit_rate"));
+							dbCritDmg = rdrStats.IsDBNull(rdrStats.GetOrdinal("crit_dmg")) ? 2.0 : rdrStats.GetDouble(rdrStats.GetOrdinal("crit_dmg"));
+						}
+						rdrStats.Close();
+					}
+					catch { attackerLevel = 1; dbAttackDmg = 0; dbCritRate = 0.0; dbCritDmg = 2.0; }
+
+					// Determine AoE half-size: allow client to send 'aoe', 'radius', 'width', or 'threshold'. Fallback to HITBOX_HALF for single-tile tolerance.
+					int aoeHalf = GRIDCELL; // default tolerance radius
+					string[] aoeKeys = new[] { "aoe", "radius", "width", "threshold" };
+					foreach (var k in aoeKeys)
+					{
+						if (normalized.ContainsKey(k) && normalized[k] != null)
+						{
+							var sVal = normalized[k]?.ToString();
+							if (int.TryParse(sVal, out int parsed) && parsed > 0)
+							{
+								// Interpret parsed as full width if key is 'width'; convert to half-size
+								if (k == "width" && parsed > 1) aoeHalf = parsed / 2; else aoeHalf = parsed;
+								break;
+							}
+						}
+					}
+					// Prevent absurd huge AoE (sanity cap)
+					aoeHalf = Math.Min(aoeHalf, 512);
+
+					int xMin = targetX - aoeHalf;
+					int xMax = targetX + aoeHalf;
+					int yMin = targetY - aoeHalf;
+					int yMax = targetY + aoeHalf;
+
+					// If facing provided, optionally elongate AoE in facing direction if client supplies 'length'
+					if (normalized.ContainsKey("length") && normalized["length"] != null && int.TryParse(normalized["length"]?.ToString(), out int length) && length > 0)
+					{
+						// Extend rectangle in facing direction by length (convert to pixels already assumed)
+						int extend = length;
+						if (normalized.ContainsKey("facing") && normalized["facing"] != null)
+						{
+							var fVal = normalized["facing"]?.ToString();
+							if (int.TryParse(fVal, out int f))
+							{
+								if (f == 0) yMin = targetY - extend; // up
+								else if (f == 1) xMax = targetX + extend; // right
+								else if (f == 2) yMax = targetY + extend; // down
+								else if (f == 3) xMin = targetX - extend; // left
+							}
+							else
+							{
+								var sF = fVal?.ToLower() ?? string.Empty;
+								if (sF.Contains("up") || sF.Contains("north")) yMin = targetY - extend;
+								else if (sF.Contains("right") || sF.Contains("east")) xMax = targetX + extend;
+								else if (sF.Contains("down") || sF.Contains("south")) yMax = targetY + extend;
+								else if (sF.Contains("left") || sF.Contains("west")) xMin = targetX - extend;
+							}
+						}
+					}
+
+					// Prepare shared variables for damage application. 'rows' reused by multiple branches.
+					int rows = 0;
+
+					// Decide whether this is an AoE attack or a regular single-target attack.
+					// If aoeHalf is <= GRIDCELL and the client did not explicitly provide a length extension,
+					// treat it as a regular attack and limit damage to a single encounter (LIMIT 1).
+					string limitClause = "";
+					bool isRegularSingleTarget = aoeHalf <= GRIDCELL && !(normalized.ContainsKey("length") && normalized["length"] != null);
+					if (isRegularSingleTarget) limitClause = " LIMIT 1";
+
+
+					// For regular single-target attacks prefer the encounter in the player's facing direction
+					if (isRegularSingleTarget)
+					{
+						// Attempt to parse facing from the normalized payload; if missing/invalid we fallback to a LIMIT 1 UPDATE
+						int? facingInt = null;
+						try
+						{
+							if (normalized.ContainsKey("facing") && normalized["facing"] != null)
+							{
+								var fVal = normalized["facing"]?.ToString();
+								if (int.TryParse(fVal, out int fParsed)) facingInt = fParsed;
+							}
+						}
+						catch { facingInt = null; }
+
+						if (facingInt.HasValue)
+						{
+							// Read candidate encounters in the AoE and prefer those that lie in the facing direction
+							string selEncSql = @"SELECT hero_id, coordsX, coordsY FROM maxhanna.bones_encounter WHERE map = @Map AND hp > 0 AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax;";
+							using var selEncCmd = new MySqlCommand(selEncSql, connection, transaction);
+							selEncCmd.Parameters.AddWithValue("@Map", hero?.Map ?? string.Empty);
+							selEncCmd.Parameters.AddWithValue("@XMin", xMin);
+							selEncCmd.Parameters.AddWithValue("@XMax", xMax);
+							selEncCmd.Parameters.AddWithValue("@YMin", yMin);
+							selEncCmd.Parameters.AddWithValue("@YMax", yMax);
+							using var encRdr = await selEncCmd.ExecuteReaderAsync();
+							int? chosenEncId = null;
+							int bestDist = int.MaxValue;
+							var candidatesInFacing = new List<(int id, int x, int y)>();
+							while (await encRdr.ReadAsync())
+							{
+								int eid = encRdr.GetInt32(0);
+								int ex = encRdr.IsDBNull(1) ? 0 : encRdr.GetInt32(1);
+								int ey = encRdr.IsDBNull(2) ? 0 : encRdr.GetInt32(2);
+								candidatesInFacing.Add((eid, ex, ey));
+							}
+							encRdr.Close();
+
+							// Filter by facing
+							foreach (var c in candidatesInFacing)
+							{
+								int dxEnc = c.x - sourceX;
+								int dyEnc = c.y - sourceY;
+								bool inFacing = false;
+								switch (facingInt.Value)
+								{
+									case 0: // up
+										inFacing = dyEnc < 0; break;
+									case 1: // right
+										inFacing = dxEnc > 0; break;
+									case 2: // down
+										inFacing = dyEnc > 0; break;
+									case 3: // left
+										inFacing = dxEnc < 0; break;
+									default: inFacing = false; break;
+								}
+								if (inFacing)
+								{
+									int dist = Math.Abs(dxEnc) + Math.Abs(dyEnc);
+									if (dist < bestDist)
+									{
+										bestDist = dist;
+										chosenEncId = c.id;
+									}
+								}
+							}
+
+							if (chosenEncId.HasValue)
+							{
+								// Update the chosen encounter only (centralized helper)
+								try
+								{
+									rows = Convert.ToInt32(await ApplyDamageToEncounter(chosenEncId.Value, attackerLevel, sourceHeroId, connection, transaction));
+								}
+								catch (Exception exUpd)
+								{
+									await _log.Db("ApplyDamageToEncounter failed: " + exUpd.Message, hero?.Id ?? 0, "BONES", true);
+									rows = 0;
+								}
+							}
+						}
+						// If no rows were updated by facing-specific logic (either no facing or no matching encounter), fallback
+						if (rows == 0)
+						{
+							string updateHpSql = $@"
 								UPDATE maxhanna.bones_encounter e
 								SET e.hp = GREATEST(e.hp - @AttackerLevel, 0),
 									e.target_hero_id = CASE WHEN (e.target_hero_id IS NULL OR e.target_hero_id = 0) THEN @HeroId ELSE e.target_hero_id END,
@@ -684,9 +655,9 @@ ORDER BY p.created DESC;";
 								WHERE e.map = @Map
 									AND e.hp > 0
 									AND e.coordsX BETWEEN @XMin AND @XMax
-									AND e.coordsY BETWEEN @YMin AND @YMax;";
-									var updateParams = new Dictionary<string, object?>() {
-										{ "@Map", hero?.Map ?? string.Empty },
+									AND e.coordsY BETWEEN @YMin AND @YMax{limitClause};";
+							var updateParams = new Dictionary<string, object?>() {
+									{ "@Map", hero?.Map ?? string.Empty },
 									{ "@HeroId", sourceHeroId },
 									{ "@AttackerLevel", attackerLevel },
 									{ "@XMin", xMin },
@@ -694,145 +665,124 @@ ORDER BY p.created DESC;";
 									{ "@YMin", yMin },
 									{ "@YMax", yMax }
 								};
-								rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(updateHpSql, updateParams, connection, transaction));
-							}
-
-							// Additionally, apply damage to any bones_hero rows within the AoE. Damage is at least attackerLevel.
-							try
-							{
-								// Select victims within AoE (respect party exclusion) and apply damage per-victim using centralized helper
-								string selectHeroesSql = $@"SELECT id FROM maxhanna.bones_hero h WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax AND h.id <> @AttackerId AND NOT EXISTS (
-									SELECT 1 FROM maxhanna.bones_hero_party ap JOIN maxhanna.bones_hero_party tp ON tp.hero_id = h.id WHERE ap.hero_id = @AttackerId AND tp.party_id = ap.party_id
-								){(isRegularSingleTarget ? " LIMIT 1" : "")};";
-								using var selCmd = new MySqlCommand(selectHeroesSql, connection, transaction);
-								selCmd.Parameters.AddWithValue("@Map", hero?.Map ?? string.Empty);
-								selCmd.Parameters.AddWithValue("@XMin", xMin);
-								selCmd.Parameters.AddWithValue("@XMax", xMax);
-								selCmd.Parameters.AddWithValue("@YMin", yMin);
-								selCmd.Parameters.AddWithValue("@YMax", yMax);
-								selCmd.Parameters.AddWithValue("@AttackerId", sourceHeroId);
-								using var selR = await selCmd.ExecuteReaderAsync();
-								var victims = new List<int>();
-								while (await selR.ReadAsync())
-								{
-									victims.Add(selR.GetInt32(0));
-								}
-								selR.Close();
-
-								// Compute attacker damage once: baseDamage now equals attack_dmg + attacker level
-								// Normalize critRate to a 0..1 probability (support values stored as percentages >1)
-								int baseDamage = dbAttackDmg + attackerLevel;
-								double critRate = dbCritRate > 1.0 ? (dbCritRate / 100.0) : dbCritRate;
-								// Clamp critRate between 0 and 1 defensively
-								if (critRate < 0.0) critRate = 0.0;
-								if (critRate > 1.0) critRate = 1.0;
-								double critMultiplier = dbCritDmg;
-								foreach (var victimId in victims)
-								{
-									try
-									{
-										await ApplyDamageToHero(victimId, sourceHeroId, "hero", baseDamage, critRate, critMultiplier, hero?.Map ?? string.Empty, connection, transaction);
-									}
-									catch (Exception exVict)
-									{
-										await _log.Db("ApplyDamageToHero failed for victim " + victimId + ": " + exVict.Message, victimId, "BONES", true);
-									}
-								}
-							}
-							catch (Exception exHd)
-							{
-								await _log.Db("Failed to apply hero damage in PersistNewAttacks: " + exHd.Message, hero?.Id ?? 0, "BONES", true);
-							}
-
-
-
-							if (rows > 0)
-							{
-
-								// Check if any encounters died (hp reached 0) and award EXP in same transaction
-
-								// Only consider encounters that were killed recently and have not yet been awarded.
-								// Rely on an 'awarded' boolean to atomically prevent double-awarding.
-								string selectDeadSql = @"SELECT hero_id, `level`, hp FROM maxhanna.bones_encounter WHERE map = @Map AND hp = 0 AND (awarded IS NULL OR awarded = 0) AND last_killed IS NOT NULL AND last_killed >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND) AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax;";
-								using var deadCmd = new MySqlCommand(selectDeadSql, connection, transaction);
-								deadCmd.Parameters.AddWithValue("@Map", hero?.Map ?? string.Empty);
-								deadCmd.Parameters.AddWithValue("@XMin", xMin);
-								deadCmd.Parameters.AddWithValue("@XMax", xMax);
-								deadCmd.Parameters.AddWithValue("@YMin", yMin);
-								deadCmd.Parameters.AddWithValue("@YMax", yMax);
-								using var deadRdr = await deadCmd.ExecuteReaderAsync();
-								var deadEncounters = new List<(int encId, int encLevel)>();
-								while (await deadRdr.ReadAsync())
-								{
-									int encLevel = deadRdr.IsDBNull(deadRdr.GetOrdinal("level")) ? 0 : deadRdr.GetInt32(deadRdr.GetOrdinal("level"));
-									int encId = deadRdr.GetInt32(deadRdr.GetOrdinal("hero_id"));
-									deadEncounters.Add((encId, encLevel));
-								}
-								deadRdr.Close();
-								// Now award EXP after the reader is closed to avoid using the same connection with an open reader
-								var awarded = new HashSet<int>();
-								foreach (var d in deadEncounters)
-								{
-									if (!awarded.Contains(d.encId))
-									{
-										await AwardEncounterKillExp(sourceHeroId, d.encLevel, connection, transaction);
-										// Placeholder hook: spawn a dropped item for this defeated encounter
-										try
-										{
-											// Determine drop coordinates from the defeated encounter (prefer encounter coords over attacker target coords)
-											int dropX = targetX;
-											int dropY = targetY;
-											try
-											{
-												string selEncCoords = "SELECT coordsX, coordsY FROM maxhanna.bones_encounter WHERE hero_id = @EncId LIMIT 1;";
-												using var coordCmd = new MySqlCommand(selEncCoords, connection, transaction);
-												coordCmd.Parameters.AddWithValue("@EncId", d.encId);
-												using var coordR = await coordCmd.ExecuteReaderAsync();
-												if (await coordR.ReadAsync())
-												{
-													dropX = coordR.IsDBNull(0) ? dropX : coordR.GetInt32(0);
-													dropY = coordR.IsDBNull(1) ? dropY : coordR.GetInt32(1);
-												}
-												coordR.Close();
-											}
-											catch { /* non-fatal: use fallback targetX/targetY */ }
-
-											await SpawnDroppedItem(d.encId, d.encLevel, dropX, dropY, hero?.Map ?? string.Empty, connection, transaction);
-										}
-										catch (Exception exSpawn)
-										{
-											// Log but do not fail the entire attack processing flow
-											await _log.Db("SpawnDroppedItemPlaceholder failed: " + exSpawn.Message, hero?.Id ?? 0, "BONES", true);
-										}
-
-										// Atomically mark encounter as awarded and move it off-map and clear its target to prevent re-awarding.
-										try
-										{
-											string finalizeSql = @"UPDATE maxhanna.bones_encounter SET awarded = 1, coordsX = -1000, coordsY = -1000, target_hero_id = 0 WHERE hero_id = @EncId LIMIT 1;";
-											var finalizeParams = new Dictionary<string, object?>() { { "@EncId", d.encId } };
-											await ExecuteInsertOrUpdateOrDeleteAsync(finalizeSql, finalizeParams, connection, transaction);
-										}
-										catch (Exception exFinalize)
-										{
-											await _log.Db("Failed to finalize dead encounter (award/move): " + exFinalize.Message, hero?.Id ?? 0, "BONES", true);
-										}
-
-										awarded.Add(d.encId);
-									}
-								}
-
-							}
-						}
-						catch (Exception ex)
-						{
-							await _log.Db("Failed to apply encounter damage from PersistNewAttacks: " + ex.Message, hero?.Id ?? 0, "BONES", true);
+							rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(updateHpSql, updateParams, connection, transaction));
 						}
 					}
+					else
+					{
+						// Non-regular AoE: keep previous behaviour (may update multiple rows)
+						string updateHpSql = $@"
+							UPDATE maxhanna.bones_encounter e
+							SET e.hp = GREATEST(e.hp - @AttackerLevel, 0),
+								e.target_hero_id = CASE WHEN (e.target_hero_id IS NULL OR e.target_hero_id = 0) THEN @HeroId ELSE e.target_hero_id END,
+								e.last_killed = CASE WHEN (e.hp - @AttackerLevel) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END
+							WHERE e.map = @Map
+								AND e.hp > 0
+								AND e.coordsX BETWEEN @XMin AND @XMax
+								AND e.coordsY BETWEEN @YMin AND @YMax;";
+						var updateParams = new Dictionary<string, object?>() {
+									{ "@Map", hero?.Map ?? string.Empty },
+								{ "@HeroId", sourceHeroId },
+								{ "@AttackerLevel", attackerLevel },
+								{ "@XMin", xMin },
+								{ "@XMax", xMax },
+								{ "@YMin", yMin },
+								{ "@YMax", yMax }
+							};
+						rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(updateHpSql, updateParams, connection, transaction));
+					}
+
+					// Select victims within AoE (respect party exclusion) and apply damage per-victim using centralized helper
+					string selectHeroesSql = $@"SELECT id FROM maxhanna.bones_hero h WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax AND h.id <> @AttackerId AND NOT EXISTS (
+							SELECT 1 FROM maxhanna.bones_hero_party ap JOIN maxhanna.bones_hero_party tp ON tp.hero_id = h.id WHERE ap.hero_id = @AttackerId AND tp.party_id = ap.party_id
+						){(isRegularSingleTarget ? " LIMIT 1" : "")};";
+					using var selCmd = new MySqlCommand(selectHeroesSql, connection, transaction);
+					selCmd.Parameters.AddWithValue("@Map", hero?.Map ?? string.Empty);
+					selCmd.Parameters.AddWithValue("@XMin", xMin);
+					selCmd.Parameters.AddWithValue("@XMax", xMax);
+					selCmd.Parameters.AddWithValue("@YMin", yMin);
+					selCmd.Parameters.AddWithValue("@YMax", yMax);
+					selCmd.Parameters.AddWithValue("@AttackerId", sourceHeroId);
+					using var selR = await selCmd.ExecuteReaderAsync();
+					var victims = new List<int>();
+					while (await selR.ReadAsync())
+					{
+						victims.Add(selR.GetInt32(0));
+					}
+					selR.Close();
+
+					// Compute attacker damage once: baseDamage now equals attack_dmg + attacker level
+					// Normalize critRate to a 0..1 probability (support values stored as percentages >1)
+					int baseDamage = dbAttackDmg + attackerLevel;
+					double critRate = dbCritRate > 1.0 ? (dbCritRate / 100.0) : dbCritRate;
+					// Clamp critRate between 0 and 1 defensively
+					if (critRate < 0.0) critRate = 0.0;
+					if (critRate > 1.0) critRate = 1.0;
+					double critMultiplier = dbCritDmg;
+					foreach (var victimId in victims)
+					{
+						try
+						{
+							await ApplyDamageToHero(victimId, sourceHeroId, "hero", baseDamage, critRate, critMultiplier, hero?.Map ?? string.Empty, connection, transaction);
+						}
+						catch (Exception exVict)
+						{
+							await _log.Db("ApplyDamageToHero failed for victim " + victimId + ": " + exVict.Message, victimId, "BONES", true);
+						}
+					}
+
+					if (rows > 0)
+					{
+						string selectDeadSql = @"SELECT hero_id, `level`, hp FROM maxhanna.bones_encounter WHERE map = @Map AND hp = 0 AND (awarded IS NULL OR awarded = 0) AND last_killed IS NOT NULL AND last_killed >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND) AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax;";
+						using var deadCmd = new MySqlCommand(selectDeadSql, connection, transaction);
+						deadCmd.Parameters.AddWithValue("@Map", hero?.Map ?? string.Empty);
+						deadCmd.Parameters.AddWithValue("@XMin", xMin);
+						deadCmd.Parameters.AddWithValue("@XMax", xMax);
+						deadCmd.Parameters.AddWithValue("@YMin", yMin);
+						deadCmd.Parameters.AddWithValue("@YMax", yMax);
+						using var deadRdr = await deadCmd.ExecuteReaderAsync();
+						var deadEncounters = new List<(int encId, int encLevel)>();
+						while (await deadRdr.ReadAsync())
+						{
+							int encLevel = deadRdr.IsDBNull(deadRdr.GetOrdinal("level")) ? 0 : deadRdr.GetInt32(deadRdr.GetOrdinal("level"));
+							int encId = deadRdr.GetInt32(deadRdr.GetOrdinal("hero_id"));
+							deadEncounters.Add((encId, encLevel));
+						}
+						deadRdr.Close();
+						// Now award EXP after the reader is closed to avoid using the same connection with an open reader
+						var awarded = new HashSet<int>();
+						foreach (var d in deadEncounters)
+						{
+							if (!awarded.Contains(d.encId))
+							{
+								await AwardEncounterKillExp(sourceHeroId, d.encLevel, connection, transaction);
+
+								int dropX = targetX;
+								int dropY = targetY;
+								string selEncCoords = "SELECT coordsX, coordsY FROM maxhanna.bones_encounter WHERE hero_id = @EncId LIMIT 1;";
+								using var coordCmd = new MySqlCommand(selEncCoords, connection, transaction);
+								coordCmd.Parameters.AddWithValue("@EncId", d.encId);
+								using var coordR = await coordCmd.ExecuteReaderAsync();
+								if (await coordR.ReadAsync())
+								{
+									dropX = coordR.IsDBNull(0) ? dropX : coordR.GetInt32(0);
+									dropY = coordR.IsDBNull(1) ? dropY : coordR.GetInt32(1);
+								}
+								coordR.Close();
+
+								await SpawnDroppedItem(d.encId, d.encLevel, dropX, dropY, hero?.Map ?? string.Empty, connection, transaction);
+
+								string finalizeSql = @"UPDATE maxhanna.bones_encounter SET awarded = 1, coordsX = -1000, coordsY = -1000, target_hero_id = 0 WHERE hero_id = @EncId LIMIT 1;";
+								var finalizeParams = new Dictionary<string, object?>() { { "@EncId", d.encId } };
+								await ExecuteInsertOrUpdateOrDeleteAsync(finalizeSql, finalizeParams, connection, transaction);
+
+								awarded.Add(d.encId);
+							}
+						}
+
+					}
 				}
-				catch (Exception ex)
-				{
-					await _log.Db("Failed to persist recentAttacks: " + ex.Message, hero.Id, "BONES", true);
-				}
+
 			}
 		}
 
@@ -1064,7 +1014,8 @@ ORDER BY p.created DESC;";
 				// Determine the town that precedes the hero's current map using orderedMaps.
 				var townSet = new HashSet<string>(new[] { "HeroRoom", "CitadelOfVesper", "RiftedBastion", "FortPenumbra", "GatesOfHell" });
 				string currentMapRaw = map ?? string.Empty;
-				string NormalizeMap(string s) {
+				string NormalizeMap(string s)
+				{
 					if (string.IsNullOrEmpty(s)) return string.Empty;
 					var sb = new System.Text.StringBuilder();
 					foreach (var ch in s.ToUpperInvariant()) { if (char.IsLetterOrDigit(ch)) sb.Append(ch); }
@@ -1072,14 +1023,19 @@ ORDER BY p.created DESC;";
 				}
 				string normCurrent = NormalizeMap(currentMapRaw);
 				int idx = -1;
-				for (int i = 0; i < orderedMaps.Length; i++) {
+				for (int i = 0; i < orderedMaps.Length; i++)
+				{
 					if (NormalizeMap(orderedMaps[i]) == normCurrent) { idx = i; break; }
 				}
 				string targetMap = "HeroRoom";
-				if (idx == -1) {
+				if (idx == -1)
+				{
 					targetMap = "HeroRoom";
-				} else {
-					for (int i = idx - 1; i >= 0; i--) {
+				}
+				else
+				{
+					for (int i = idx - 1; i >= 0; i--)
+					{
 						if (townSet.Contains(orderedMaps[i])) { targetMap = orderedMaps[i]; break; }
 					}
 				}
@@ -1599,21 +1555,21 @@ ORDER BY p.created DESC;";
 				await insCmd.ExecuteNonQueryAsync();
 
 				// After inserting the promoted hero, remove any town portals created by this user's heroes
-			try
-			{
-				// Delete portals where creator_hero_id belongs to any hero owned by this user
-				string delPortalsSql = @"DELETE p FROM maxhanna.bones_town_portal p WHERE p.creator_hero_id IN (SELECT id FROM maxhanna.bones_hero WHERE user_id = @UserId)";
-				using var delPortalsCmd = new MySqlCommand(delPortalsSql, connection, transaction);
-				delPortalsCmd.Parameters.AddWithValue("@UserId", userId);
-				await delPortalsCmd.ExecuteNonQueryAsync();
-			}
-			catch (Exception exDel)
-			{
-				// Non-fatal: log and continue promotion
-				await _log.Db("Failed to delete town portals on PromoteHeroSelection: " + exDel.Message, userId, "BONES", true);
-			}
+				try
+				{
+					// Delete portals where creator_hero_id belongs to any hero owned by this user
+					string delPortalsSql = @"DELETE p FROM maxhanna.bones_town_portal p WHERE p.creator_hero_id IN (SELECT id FROM maxhanna.bones_hero WHERE user_id = @UserId)";
+					using var delPortalsCmd = new MySqlCommand(delPortalsSql, connection, transaction);
+					delPortalsCmd.Parameters.AddWithValue("@UserId", userId);
+					await delPortalsCmd.ExecuteNonQueryAsync();
+				}
+				catch (Exception exDel)
+				{
+					// Non-fatal: log and continue promotion
+					await _log.Db("Failed to delete town portals on PromoteHeroSelection: " + exDel.Message, userId, "BONES", true);
+				}
 
-			await transaction.CommitAsync();
+				await transaction.CommitAsync();
 				return Ok();
 			}
 			catch (Exception ex)
@@ -1979,10 +1935,11 @@ ORDER BY p.created DESC;";
 						insertTownCmd.Parameters.AddWithValue("@CreatorHeroId", heroId);
 						// Determine paired town map as the previous town relative to the hero's current map.
 						// Use an ordered list and walk backwards to find the preceding town.
-					
+
 						var townSet = new HashSet<string>(new[] { "HeroRoom", "CitadelOfVesper", "RiftedBastion", "FortPenumbra", "GatesOfHell" });
 						string currentMapRaw = map ?? string.Empty;
-						string NormalizeMap(string s) {
+						string NormalizeMap(string s)
+						{
 							if (string.IsNullOrEmpty(s)) return string.Empty;
 							var sb = new System.Text.StringBuilder();
 							foreach (var ch in s.ToUpperInvariant()) { if (char.IsLetterOrDigit(ch)) sb.Append(ch); }
@@ -1990,14 +1947,19 @@ ORDER BY p.created DESC;";
 						}
 						string normCurrent = NormalizeMap(currentMapRaw);
 						int idx = -1;
-						for (int i = 0; i < orderedMaps.Length; i++) {
+						for (int i = 0; i < orderedMaps.Length; i++)
+						{
 							if (NormalizeMap(orderedMaps[i]) == normCurrent) { idx = i; break; }
 						}
 						string targetMap = "HeroRoom";
-						if (idx == -1) {
+						if (idx == -1)
+						{
 							targetMap = "HeroRoom";
-						} else {
-							for (int i = idx - 1; i >= 0; i--) {
+						}
+						else
+						{
+							for (int i = idx - 1; i >= 0; i--)
+							{
 								if (townSet.Contains(orderedMaps[i])) { targetMap = orderedMaps[i]; break; }
 							}
 						}
@@ -2036,7 +1998,7 @@ ORDER BY p.created DESC;";
 		}
 
 		private async Task<MetaHero> UpdateHeroInDB(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
-		{ 
+		{
 			try
 			{
 				string sql = @"
@@ -2148,9 +2110,7 @@ ORDER BY p.created DESC;";
 				if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync();
 				if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
 				if (userId == 0 && heroId == null) return null;
-				// bones_bot_part table removed — don't join or select part columns
-				// include attack_speed and hp if present
-				// Include optional stat columns (str,dex,int) aliased to hero_str/hero_dex/hero_int if present in schema
+				
 				string sql = $@"
 				SELECT 
 					h.id as hero_id, 
@@ -2163,8 +2123,7 @@ ORDER BY p.created DESC;";
 					h.level as hero_level,
 					h.exp as hero_exp, 
 					h.hp as hero_hp, 
-					h.attack_speed as attack_speed, 
-
+					h.attack_speed as attack_speed,  
 					h.attack_dmg AS hero_attack_dmg,
 					h.crit_rate AS hero_crit_rate,
 					h.crit_dmg AS hero_crit_dmg,
@@ -2205,22 +2164,17 @@ ORDER BY p.created DESC;";
 								Regen = reader.IsDBNull(reader.GetOrdinal("hero_regen")) ? 0.0 : reader.GetDouble(reader.GetOrdinal("hero_regen")),
 							};
 
-							// If a user-level default color is set in user_settings, prefer it over stored hero color
-							try
+							if (userId != 0 && hero != null)
 							{
-								if (userId != 0 && hero != null)
+								using var colorCmd = new MySqlCommand("SELECT last_character_color FROM maxhanna.user_settings WHERE user_id = @UserId LIMIT 1", conn, transaction);
+								colorCmd.Parameters.AddWithValue("@UserId", userId);
+								var colorObj = await colorCmd.ExecuteScalarAsync();
+								if (colorObj != null && colorObj != DBNull.Value)
 								{
-									using var colorCmd = new MySqlCommand("SELECT last_character_color FROM maxhanna.user_settings WHERE user_id = @UserId LIMIT 1", conn, transaction);
-									colorCmd.Parameters.AddWithValue("@UserId", userId);
-									var colorObj = await colorCmd.ExecuteScalarAsync();
-									if (colorObj != null && colorObj != DBNull.Value)
-									{
-										var colorStr = colorObj.ToString();
-										if (!string.IsNullOrEmpty(colorStr)) hero.Color = colorStr;
-									}
+									var colorStr = colorObj.ToString();
+									if (!string.IsNullOrEmpty(colorStr)) hero.Color = colorStr;
 								}
-							}
-							catch { /* non-fatal: ignore user_settings lookup failures */ }
+							} 
 						}
 					}
 				}
@@ -2274,14 +2228,7 @@ ORDER BY p.created DESC;";
 				throw;
 			}
 		}
-
-		/// <summary>
-		/// Processes encounter AI for a given map: 
-		/// 1. Respawns dead encounters (hp=0 & last_killed older than 2 minutes) to 100 hp.
-		/// 2. For living encounters with aggro > 0, finds closest hero within aggro * 16 (Manhattan in tiles) and moves towards them.
-		///    Movement rate: up to `speed` grid cells, but only one cell per second since last_moved.
-		///    Movement is axis-aligned, prioritizing the axis with greatest distance.
-		/// </summary>
+ 
 		private async Task ProcessEncounterAI(string map, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			// Early rate-limit: avoid entering expensive AI processing more than once per second per map.
@@ -2383,7 +2330,7 @@ ORDER BY p.created DESC;";
 						heroes.Add((id, hx, hy));
 						heroById[id] = (hx, hy);
 					}
-				} 
+				}
 
 				if (heroes.Count == 0) return; // no targets
 				var updateBuilder = new StringBuilder();
@@ -3041,7 +2988,7 @@ ORDER BY p.created DESC;";
 		}
 
 		// Placeholder hook called when an encounter dies so dropped item logic can be added here later.
-	private async Task SpawnDroppedItem(int encounterId, int encounterLevel, int x, int y, string map, MySqlConnection connection, MySqlTransaction transaction)
+		private async Task SpawnDroppedItem(int encounterId, int encounterLevel, int x, int y, string map, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			// Create a dropped item row in bones_items_dropped and prune older entries (>2 minutes)
 			try
@@ -3055,50 +3002,50 @@ ORDER BY p.created DESC;";
 
 				var itemData = new Dictionary<string, object?>() { { "power", power }, { "sourceEncounterId", encounterId } };
 
-			// Choose drop coordinates: prefer the encounter location but probe nearby tiles (multiples of GRIDCELL)
-			int chosenX = x;
-			int chosenY = y;
-			var offsets = new List<(int dx, int dy)>() {
+				// Choose drop coordinates: prefer the encounter location but probe nearby tiles (multiples of GRIDCELL)
+				int chosenX = x;
+				int chosenY = y;
+				var offsets = new List<(int dx, int dy)>() {
 				(0,0), (GRIDCELL,0), (-GRIDCELL,0), (0,GRIDCELL), (0,-GRIDCELL),
 				(GRIDCELL,GRIDCELL), (-GRIDCELL,GRIDCELL), (GRIDCELL,-GRIDCELL), (-GRIDCELL,-GRIDCELL),
 				(2*GRIDCELL,0), (-2*GRIDCELL,0), (0,2*GRIDCELL), (0,-2*GRIDCELL)
 			};
 
-			try
-			{
-				foreach (var off in offsets)
+				try
 				{
-					int tryX = x + off.dx;
-					int tryY = y + off.dy;
-					string selOcc = "SELECT COUNT(1) FROM maxhanna.bones_items_dropped WHERE map = @Map AND coordsX = @X AND coordsY = @Y AND created >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 MINUTE);";
-					using var occCmd = new MySqlCommand(selOcc, connection, transaction);
-					occCmd.Parameters.AddWithValue("@Map", map ?? string.Empty);
-					occCmd.Parameters.AddWithValue("@X", tryX);
-					occCmd.Parameters.AddWithValue("@Y", tryY);
-					var occObj = await occCmd.ExecuteScalarAsync();
-					int occCount = 0;
-					if (occObj != null && int.TryParse(occObj.ToString(), out var tmp)) occCount = tmp;
-					if (occCount == 0)
+					foreach (var off in offsets)
 					{
-						chosenX = tryX;
-						chosenY = tryY;
-						break;
+						int tryX = x + off.dx;
+						int tryY = y + off.dy;
+						string selOcc = "SELECT COUNT(1) FROM maxhanna.bones_items_dropped WHERE map = @Map AND coordsX = @X AND coordsY = @Y AND created >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 MINUTE);";
+						using var occCmd = new MySqlCommand(selOcc, connection, transaction);
+						occCmd.Parameters.AddWithValue("@Map", map ?? string.Empty);
+						occCmd.Parameters.AddWithValue("@X", tryX);
+						occCmd.Parameters.AddWithValue("@Y", tryY);
+						var occObj = await occCmd.ExecuteScalarAsync();
+						int occCount = 0;
+						if (occObj != null && int.TryParse(occObj.ToString(), out var tmp)) occCount = tmp;
+						if (occCount == 0)
+						{
+							chosenX = tryX;
+							chosenY = tryY;
+							break;
+						}
 					}
 				}
-			}
-			catch { /* non-fatal: fall back to provided x/y */ }
+				catch { /* non-fatal: fall back to provided x/y */ }
 
-			string insertSql = @"DELETE FROM maxhanna.bones_items_dropped WHERE created < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 MINUTE); INSERT INTO maxhanna.bones_items_dropped (map, coordsX, coordsY, data, created) VALUES (@Map, @X, @Y, @Data, UTC_TIMESTAMP());";
-			var parameters = new Dictionary<string, object?>()
+				string insertSql = @"DELETE FROM maxhanna.bones_items_dropped WHERE created < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 MINUTE); INSERT INTO maxhanna.bones_items_dropped (map, coordsX, coordsY, data, created) VALUES (@Map, @X, @Y, @Data, UTC_TIMESTAMP());";
+				var parameters = new Dictionary<string, object?>()
 			{
 				{"@Map", map ?? string.Empty},
 				{"@X", chosenX},
 				{"@Y", chosenY},
 				{"@Data", Newtonsoft.Json.JsonConvert.SerializeObject(itemData)}
 			};
-			// Attempt insert (non-fatal). Use ExecuteInsertOrUpdateOrDeleteAsync to respect transaction
-			await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, parameters, connection, transaction);
-			await _log.Db($"SpawnDroppedItemPlaceholder created dropped item at=({chosenX},{chosenY}) power={power}", null, "BONES", true);
+				// Attempt insert (non-fatal). Use ExecuteInsertOrUpdateOrDeleteAsync to respect transaction
+				await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, parameters, connection, transaction);
+				await _log.Db($"SpawnDroppedItemPlaceholder created dropped item at=({chosenX},{chosenY}) power={power}", null, "BONES", true);
 			}
 			catch (Exception ex)
 			{

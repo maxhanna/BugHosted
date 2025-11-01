@@ -25,8 +25,8 @@ export class GameObject {
   forceDrawName = false;
   name?: string;
   isOmittable = true;
-  beforePreventDrawDistance = false;
-
+  discoverable = true;
+  beforePreventDrawDistance = false; 
   drawingForever = false;
   distanceToHero = new Vector2(0,0);
   heroLocation = new Vector2(0,0);

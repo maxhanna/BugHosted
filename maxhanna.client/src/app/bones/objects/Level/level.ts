@@ -51,6 +51,7 @@ export class Level extends GameObject {
         const tile = new Sprite({
           objectId: nextId--,
           resource: resource,
+          discoverable: false,
           position: new Vector2(tileStart.x + tileWidth * rx, tileStart.y + tileHeight * ry),
           frameSize: new Vector2(tileWidth, tileHeight),
           drawLayer: drawLayer as any,
