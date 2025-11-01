@@ -98,6 +98,7 @@ import { DailyMusicComponent } from './daily-music/daily-music.component';
 import { ProfileWidgetsComponent } from './profile-widgets/profile-widgets.component';
 import { BonesHighScoresComponent } from './bones-high-scores/bones-high-scores.component';
 import { NewUsersComponent } from './new-users/new-users.component';
+import { CurrentlyPlayingComponent } from './currently-playing/currently-playing.component';
 
 @NgModule({
   declarations: [
@@ -191,6 +192,7 @@ import { NewUsersComponent } from './new-users/new-users.component';
     TimeSincePipe,
     FileSizePipe,
     AppRoutingModule,
+    CurrentlyPlayingComponent,
     CryptoFearAndGreedComponent,
     CurrencySymbolPipe,
     DecodeHtmlPipe,

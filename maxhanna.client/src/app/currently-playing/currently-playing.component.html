@@ -1,0 +1,12 @@
+<div class="currently-playing">
+  <h3>Currently Playing</h3>
+  <div *ngIf="loading">Loading...</div>
+  <ul *ngIf="!loading && gamers.length > 0">
+    <li *ngFor="let g of gamers">
+      <strong>{{g.username}}</strong>
+      <span class="game">{{g.game}}</span>
+      <small *ngIf="g.lastActivityUtc">{{g.lastActivityUtc | date:'short'}}</small>
+    </li>
+  </ul>
+  <div *ngIf="!loading && gamers.length === 0">No players are currently active.</div>
+</div>

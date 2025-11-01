@@ -105,6 +105,123 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpGet("/User/ActiveGamers", Name = "GetActiveGamers")]
+		public async Task<IActionResult> GetActiveGamers()
+		{
+			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+				// Consider recent activity in each game. Use updated/last_seen columns where available.
+				string sql = @"
+				SELECT u.id AS userId, u.username AS username, 'bones' AS game, MAX(h.updated) AS lastActivity
+				FROM maxhanna.users u
+				JOIN maxhanna.bones_hero h ON h.user_id = u.id
+				GROUP BY u.id
+				UNION
+				SELECT u.id AS userId, u.username AS username, 'ender' AS game, MAX(e.updated) AS lastActivity
+				FROM maxhanna.users u
+				JOIN maxhanna.ender_hero e ON e.user_id = u.id
+				GROUP BY u.id
+				UNION
+				SELECT u.id AS userId, u.username AS username, 'array' AS game, MAX(ac.updated_at) AS lastActivity
+				FROM maxhanna.users u
+				JOIN maxhanna.array_characters ac ON ac.user_id = u.id
+				GROUP BY u.id
+				UNION
+				SELECT u.id AS userId, u.username AS username, 'wordler' AS game, MAX(wg.date) AS lastActivity
+				FROM maxhanna.users u
+				JOIN maxhanna.wordler_guess wg ON wg.user_id = u.id
+				GROUP BY u.id
+				UNION
+				SELECT u.id AS userId, u.username AS username, 'mastermind' AS game, MAX(mg.guess_time_utc) AS lastActivity
+				FROM maxhanna.users u
+				JOIN maxhanna.mastermind_games mg_g ON mg_g.user_id = u.id
+				JOIN maxhanna.mastermind_guesses mg ON mg.game_id = mg_g.id
+				GROUP BY u.id
+				UNION
+				SELECT u.id AS userId, u.username AS username, 'meta' AS game, MAX(p.last_used) AS lastActivity
+				FROM maxhanna.users u
+				JOIN maxhanna.meta_hero mh ON mh.user_id = u.id
+				JOIN maxhanna.meta_bot_part p ON p.hero_id = mh.id
+				GROUP BY u.id
+				UNION
+				-- Emulation (ROM) activity: consider play-time records and .sav file uploads/last_access
+				SELECT u.id AS userId, u.username AS username, 'emulation' AS game,
+				(
+					SELECT MAX(lastActivity) FROM (
+						SELECT ept.save_time AS lastActivity FROM maxhanna.emulation_play_time ept WHERE ept.user_id = u.id AND ept.save_time IS NOT NULL
+						UNION ALL
+						SELECT ept.start_time AS lastActivity FROM maxhanna.emulation_play_time ept WHERE ept.user_id = u.id AND ept.start_time IS NOT NULL
+						UNION ALL
+						SELECT fu.upload_date AS lastActivity FROM maxhanna.file_uploads fu WHERE fu.user_id = u.id AND (fu.file_type = 'sav' OR fu.file_name LIKE '%.sav') AND fu.upload_date IS NOT NULL
+						UNION ALL
+						SELECT fu.last_access AS lastActivity FROM maxhanna.file_uploads fu WHERE fu.user_id = u.id AND (fu.file_type = 'sav' OR fu.file_name LIKE '%.sav') AND fu.last_access IS NOT NULL
+					) recent_emulation
+				) AS lastActivity
+				FROM maxhanna.users u
+				GROUP BY u.id
+				UNION
+				-- Nexus activity: attacks/defences, purchases, upgrades and base upgrades mapped to user via nexus_bases
+				SELECT u.id AS userId, u.username AS username, 'nexus' AS game,
+				(
+					SELECT MAX(lastActivity) FROM (
+						SELECT nas.timestamp AS lastActivity FROM maxhanna.nexus_attacks_sent nas WHERE nas.origin_user_id = u.id AND nas.timestamp IS NOT NULL
+						UNION ALL
+						SELECT nas.timestamp AS lastActivity FROM maxhanna.nexus_attacks_sent nas WHERE nas.destination_user_id = u.id AND nas.timestamp IS NOT NULL
+						UNION ALL
+						SELECT nds.timestamp AS lastActivity FROM maxhanna.nexus_defences_sent nds WHERE nds.origin_user_id = u.id AND nds.timestamp IS NOT NULL
+						UNION ALL
+						SELECT nds.timestamp AS lastActivity FROM maxhanna.nexus_defences_sent nds WHERE nds.destination_user_id = u.id AND nds.timestamp IS NOT NULL
+						UNION ALL
+						SELECT p.timestamp AS lastActivity FROM maxhanna.nexus_unit_purchases p JOIN maxhanna.nexus_bases nb ON nb.coords_x = p.coords_x AND nb.coords_y = p.coords_y WHERE nb.user_id = u.id AND p.timestamp IS NOT NULL
+						UNION ALL
+						SELECT u2.timestamp AS lastActivity FROM maxhanna.nexus_unit_upgrades u2 JOIN maxhanna.nexus_bases nb2 ON nb2.coords_x = u2.coords_x AND nb2.coords_y = u2.coords_y WHERE nb2.user_id = u.id AND u2.timestamp IS NOT NULL
+						UNION ALL
+						SELECT bu.command_center_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.command_center_upgraded IS NOT NULL
+						UNION ALL
+						SELECT bu.mines_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.mines_upgraded IS NOT NULL
+						UNION ALL
+						SELECT bu.supply_depot_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.supply_depot_upgraded IS NOT NULL
+						UNION ALL
+						SELECT bu.factory_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.factory_upgraded IS NOT NULL
+						UNION ALL
+						SELECT bu.starport_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.starport_upgraded IS NOT NULL
+						UNION ALL
+						SELECT bu.warehouse_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.warehouse_upgraded IS NOT NULL
+						UNION ALL
+						SELECT bu.engineering_bay_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.engineering_bay_upgraded IS NOT NULL
+					) recent_nexus
+				) AS lastActivity
+				FROM maxhanna.users u
+				GROUP BY u.id
+				GROUP BY u.id
+				ORDER BY lastActivity DESC
+				LIMIT 200;";
+
+				using var cmd = new MySqlCommand(sql, conn);
+				using var rdr = await cmd.ExecuteReaderAsync();
+				var list = new List<maxhanna.Server.Controllers.DataContracts.Users.ActiveGamer>();
+				while (await rdr.ReadAsync())
+				{
+					var ag = new maxhanna.Server.Controllers.DataContracts.Users.ActiveGamer
+					{
+						UserId = rdr.IsDBNull(rdr.GetOrdinal("userId")) ? 0 : rdr.GetInt32("userId"),
+						Username = rdr.IsDBNull(rdr.GetOrdinal("username")) ? null : rdr.GetString("username"),
+						Game = rdr.IsDBNull(rdr.GetOrdinal("game")) ? null : rdr.GetString("game"),
+						LastActivityUtc = rdr.IsDBNull(rdr.GetOrdinal("lastActivity")) ? (DateTime?)null : rdr.GetDateTime("lastActivity")
+					};
+					list.Add(ag);
+				}
+				return Ok(list);
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("GetActiveGamers failed: " + ex.Message, null, "USER", true);
+				return StatusCode(500, "Failed to fetch active gamers");
+			}
+		}
+
 		[HttpPost(Name = "LogIn")]
 		public async Task<IActionResult> LogIn([FromBody] Dictionary<string, string> body)
 		{

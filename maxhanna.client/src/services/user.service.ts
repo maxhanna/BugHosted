@@ -12,6 +12,13 @@ export interface StreakInfo {
   longestStreak: number;
 }
 
+export interface ActiveGamer {
+  userId: number;
+  username?: string;
+  game?: string;
+  lastActivityUtc?: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -670,6 +677,22 @@ export class UserService {
       return await response.json();
     } catch (error) {
       return 'error';
+    }
+  }
+  
+  // Fetch a list of currently active gamers across games
+  async getActiveGamers(): Promise<ActiveGamer[]> {
+    try {
+      const response = await fetch('/user/activegamers', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) return [];
+      return await response.json() as ActiveGamer[];
+    } catch (error) {
+      console.error('Error fetching active gamers', error);
+      return [];
     }
   }
 }
