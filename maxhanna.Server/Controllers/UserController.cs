@@ -120,9 +120,13 @@ namespace maxhanna.Server.Controllers
 				GROUP BY u.id
 				UNION
 				-- Ender activity: use bike wall events (created_at) as the authoritative recent-activity source
-				SELECT u.id AS userId, u.username AS username, 'ender' AS game, MAX(ebw.created_at) AS lastActivity
+				SELECT u.id AS userId, u.username AS username, 'ender' AS game,
+				(
+					SELECT MAX(ebw.created_at) FROM maxhanna.ender_bike_wall ebw
+					JOIN maxhanna.bones_hero bh ON bh.id = ebw.hero_id
+					WHERE bh.user_id = u.id
+				) AS lastActivity
 				FROM maxhanna.users u
-				JOIN maxhanna.ender_bike_wall ebw ON ebw.user_id = u.id
 				GROUP BY u.id
 				UNION
 				SELECT u.id AS userId, u.username AS username, 'array' AS game, MAX(ac.updated_at) AS lastActivity
