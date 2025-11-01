@@ -246,6 +246,30 @@ export class Hero extends Character {
           else if (this.facingDirection == "UP") this.body?.animations?.play("attackUp");
           else if (this.facingDirection == "LEFT") this.body?.animations?.play("attackLeft");
           else if (this.facingDirection == "RIGHT") this.body?.animations?.play("attackRight");
+
+          // Spawn remote visual effects for other heroes' attacks.
+          try {
+            // Prefer explicit target coordinates sent with the payload
+            let tx = typeof payload?.targetX === 'number' ? payload.targetX : undefined;
+            let ty = typeof payload?.targetY === 'number' ? payload.targetY : undefined;
+            // If no explicit target coordinates, compute a short-range target based on facing
+            if (tx === undefined || ty === undefined) {
+              const step = gridCells(2) || 40;
+              if (this.facingDirection == DOWN) { tx = this.position.x; ty = this.position.y + step; }
+              else if (this.facingDirection == UP) { tx = this.position.x; ty = this.position.y - step; }
+              else if (this.facingDirection == LEFT) { tx = this.position.x - step; ty = this.position.y; }
+              else if (this.facingDirection == RIGHT) { tx = this.position.x + step; ty = this.position.y; }
+            }
+
+            const skillType = (payload?.currentSkill as string) ?? this.currentSkill ?? (this.type === 'rogue' ? 'arrow' : (this.type === 'magi' ? 'sting' : undefined));
+            if (skillType === 'arrow' || this.type === 'rogue') {
+              // spawn arrow effect towards tx,ty
+              if (tx !== undefined && ty !== undefined) this.spawnSkillTo(tx, ty, 'arrow');
+            } else if (skillType === 'sting' || this.type === 'magi') {
+              // spawn sting effect towards tx,ty
+              if (tx !== undefined && ty !== undefined) this.spawnSkillTo(tx, ty, 'sting');
+            }
+          } catch (ex) { console.warn('Failed to spawn remote attack visual', ex); }
           // Determine animation timeout: prefer payload.attack_speed (ms) then default 400
           const attackSpeed = (typeof payload?.attack_speed === 'number') ? payload.attack_speed : (typeof payload?.attackSpeed === 'number' ? payload.attackSpeed : 400);
           setTimeout(() => {
