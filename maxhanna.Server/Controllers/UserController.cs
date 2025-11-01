@@ -114,6 +114,7 @@ namespace maxhanna.Server.Controllers
 				await conn.OpenAsync();
 				// Consider recent activity in each game. Use updated/last_seen columns where available.
 				string sql = @"
+				SELECT * FROM (
 				SELECT u.id AS userId, u.username AS username, 'bones' AS game, MAX(h.updated) AS lastActivity
 				FROM maxhanna.users u
 				JOIN maxhanna.bones_hero h ON h.user_id = u.id
@@ -208,7 +209,9 @@ namespace maxhanna.Server.Controllers
 				) AS lastActivity
 				FROM maxhanna.users u
 				GROUP BY u.id 
-				ORDER BY lastActivity DESC
+				) t
+				WHERE t.lastActivity >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)
+				ORDER BY t.lastActivity DESC
 				LIMIT 200;";
 
 				using var cmd = new MySqlCommand(sql, conn);
