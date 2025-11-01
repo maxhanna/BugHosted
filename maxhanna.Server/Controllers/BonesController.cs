@@ -608,8 +608,10 @@ ORDER BY p.created DESC;";
 								// Update the chosen encounter only (centralized helper)
 								try
 								{
-									Console.WriteLine($"Facing attack: attacker={sourceHeroId}, attackerLevel={attackerLevel}, chosenEnc={chosenEncId.Value}");
-									rows = Convert.ToInt32(await ApplyDamageToEncounter(chosenEncId.Value, attackerLevel, sourceHeroId, connection, transaction));
+									// Compute and log the damage that will be applied to the encounter
+									int potentialEncounterDamage = attackerLevel; // current rule: attackerLevel applied to encounters
+									Console.WriteLine($"Facing attack -> encDamageCalc: attacker={sourceHeroId}, attackerLevel={attackerLevel}, dbAttackDmg={dbAttackDmg}, potentialEncounterDamage={potentialEncounterDamage}, chosenEnc={chosenEncId.Value}");
+									rows = Convert.ToInt32(await ApplyDamageToEncounter(chosenEncId.Value, potentialEncounterDamage, sourceHeroId, connection, transaction));
 								}
 								catch (Exception exUpd)
 								{
@@ -621,6 +623,9 @@ ORDER BY p.created DESC;";
 						// If no rows were updated by facing-specific logic (either no facing or no matching encounter), fallback
 						if (rows == 0)
 						{
+							// Fallback update to apply damage to any encounter in the AoE. Log intended damage and DB params.
+							int fallbackDamage = attackerLevel;
+							Console.WriteLine($"Fallback encounter UPDATE: attacker={sourceHeroId}, fallbackDamage={fallbackDamage}, attackerLevel={attackerLevel}, xRange={xMin}-{xMax}, yRange={yMin}-{yMax}, map={hero?.Map}");
 							string updateHpSql = $@"
 								UPDATE maxhanna.bones_encounter e
 								SET e.hp = GREATEST(e.hp - @AttackerLevel, 0),
@@ -633,7 +638,7 @@ ORDER BY p.created DESC;";
 							var updateParams = new Dictionary<string, object?>() {
 									{ "@Map", hero?.Map ?? string.Empty },
 									{ "@HeroId", sourceHeroId },
-									{ "@AttackerLevel", attackerLevel },
+									{ "@AttackerLevel", fallbackDamage },
 									{ "@XMin", xMin },
 									{ "@XMax", xMax },
 									{ "@YMin", yMin },
@@ -645,19 +650,21 @@ ORDER BY p.created DESC;";
 					else
 					{
 						// Non-regular AoE: keep previous behaviour (may update multiple rows)
+						int aoeDamage = attackerLevel;
+						Console.WriteLine($"AoE attack UPDATE: attacker={sourceHeroId}, aoeDamage={aoeDamage}, xRange={xMin}-{xMax}, yRange={yMin}-{yMax}, map={hero?.Map}");
 						string updateHpSql = $@"
-							UPDATE maxhanna.bones_encounter e
-							SET e.hp = GREATEST(e.hp - @AttackerLevel, 0),
-								e.target_hero_id = CASE WHEN (e.target_hero_id IS NULL OR e.target_hero_id = 0) THEN @HeroId ELSE e.target_hero_id END,
-								e.last_killed = CASE WHEN (e.hp - @AttackerLevel) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END
-							WHERE e.map = @Map
-								AND e.hp > 0
-								AND e.coordsX BETWEEN @XMin AND @XMax
-								AND e.coordsY BETWEEN @YMin AND @YMax;";
+								UPDATE maxhanna.bones_encounter e
+								SET e.hp = GREATEST(e.hp - @AttackerLevel, 0),
+									e.target_hero_id = CASE WHEN (e.target_hero_id IS NULL OR e.target_hero_id = 0) THEN @HeroId ELSE e.target_hero_id END,
+									e.last_killed = CASE WHEN (e.hp - @AttackerLevel) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END
+								WHERE e.map = @Map
+									AND e.hp > 0
+									AND e.coordsX BETWEEN @XMin AND @XMax
+									AND e.coordsY BETWEEN @YMin AND @YMax;";
 						var updateParams = new Dictionary<string, object?>() {
 									{ "@Map", hero?.Map ?? string.Empty },
 								{ "@HeroId", sourceHeroId },
-								{ "@AttackerLevel", attackerLevel },
+								{ "@AttackerLevel", aoeDamage },
 								{ "@XMin", xMin },
 								{ "@XMax", xMax },
 								{ "@YMin", yMin },
