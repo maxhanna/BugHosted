@@ -20,6 +20,7 @@ export class ProfileWidgetsComponent implements AfterViewInit {
   availabilityWordler: boolean = false;
   availabilityMusic: boolean = false;
   availabilityNewUsers: boolean = false;
+  availabilityCurrentlyPlaying: boolean = false;
   @ViewChildren(MastermindScoresComponent) mastermindComponents!: QueryList<MastermindScoresComponent>;
   @ViewChildren(EnderHighScoresComponent) enderComponents!: QueryList<EnderHighScoresComponent>;
   @ViewChildren(WordlerHighScoresComponent) wordlerComponents!: QueryList<WordlerHighScoresComponent>;
@@ -40,6 +41,7 @@ export class ProfileWidgetsComponent implements AfterViewInit {
       case 'mastermind': this.availabilityMastermind = has; break;
       case 'ender': this.availabilityEnder = has; break;
       case 'wordler': this.availabilityWordler = has; break;
+      case 'currently-playing': this.availabilityCurrentlyPlaying = has; break;
       case 'music': this.availabilityMusic = has; break;
       case 'newusers': this.availabilityNewUsers = has; break;
     }
