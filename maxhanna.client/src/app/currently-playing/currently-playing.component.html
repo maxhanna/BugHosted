@@ -1,5 +1,5 @@
 <div class="currently-playing">
-  <div class="currentlyPlayingTitle popupPanelTitle" *ngIf="gamers.length > 0">Currently Playing:</div>
+  <div class="currentlyPlayingTitle popupPanelTitle" *ngIf="showEmptyMessage">Currently Playing:</div>
   <div *ngIf="loading">Loading...</div>
   <ul *ngIf="!loading && gamers.length > 0">
     <li *ngFor="let g of gamers">
@@ -14,5 +14,5 @@
         <small *ngIf="g.lastActivityUtc">{{g.lastActivityUtc | date:'short'}}</small>
     </li>
   </ul>
-  <div *ngIf="!loading && gamers.length === 0">No players are currently active.</div>
+  <div *ngIf="showEmptyMessage && !loading && gamers.length === 0">No players are currently active.</div>
 </div>

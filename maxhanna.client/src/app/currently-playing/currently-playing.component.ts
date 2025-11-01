@@ -12,6 +12,7 @@ import { AppMenuItemComponent } from '../app-menu-item/app-menu-item.component';
 })
 export class CurrentlyPlayingComponent implements OnInit {
   @Input() parentRef?: any;
+  @Input() showEmptyMessage? = false;
   public gamers: ActiveGamer[] = [];
   public loading = false;
   constructor(private userService: UserService) { }
