@@ -172,3 +172,8 @@
     align-items: baseline;
     flex-direction: row-reverse; 
 }
+
+.selectedArticleContent {
+    max-height: 65vh;
+    overflow: auto;
+}
