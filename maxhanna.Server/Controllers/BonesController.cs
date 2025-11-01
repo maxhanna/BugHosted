@@ -1244,14 +1244,22 @@ ORDER BY p.created DESC;";
 			await connection.OpenAsync();
 			try
 			{
-				string sql = @"SELECT id, bones_hero_id, name, created FROM maxhanna.bones_hero_selection WHERE user_id = @UserId ORDER BY created DESC;";
+				// Extract 'type' from the JSON 'data' column so client can see hero class (e.g., 'rogue', 'magi')
+				string sql = @"SELECT id, bones_hero_id, name, created, JSON_UNQUOTE(JSON_EXTRACT(data, '$.type')) AS type FROM maxhanna.bones_hero_selection WHERE user_id = @UserId ORDER BY created DESC;";
 				using var cmd = new MySqlCommand(sql, connection);
 				cmd.Parameters.AddWithValue("@UserId", userId);
 				using var rdr = await cmd.ExecuteReaderAsync();
 				var list = new List<object>();
 				while (await rdr.ReadAsync())
 				{
-					list.Add(new { id = rdr.GetInt32(0), bonesHeroId = rdr.IsDBNull(1) ? (int?)null : rdr.GetInt32(1), name = rdr.IsDBNull(2) ? null : rdr.GetString(2), created = rdr.IsDBNull(3) ? (DateTime?)null : rdr.GetDateTime(3) });
+					list.Add(new
+					{
+						id = rdr.GetInt32(0),
+						bonesHeroId = rdr.IsDBNull(1) ? (int?)null : rdr.GetInt32(1),
+						name = rdr.IsDBNull(2) ? null : rdr.GetString(2),
+						created = rdr.IsDBNull(3) ? (DateTime?)null : rdr.GetDateTime(3),
+						type = rdr.IsDBNull(rdr.GetOrdinal("type")) ? null : rdr.GetString(rdr.GetOrdinal("type"))
+					});
 				}
 				return Ok(list);
 			}
