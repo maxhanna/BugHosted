@@ -2160,7 +2160,7 @@ ORDER BY p.created DESC;";
 								AttackDmg = reader.IsDBNull(reader.GetOrdinal("hero_attack_dmg")) ? 1 : Convert.ToInt32(Convert.ToDouble(reader.GetValue(reader.GetOrdinal("hero_attack_dmg")))),
 								CritRate = reader.IsDBNull(reader.GetOrdinal("hero_crit_rate")) ? 0.0 : reader.GetDouble(reader.GetOrdinal("hero_crit_rate")),
 								CritDmg = reader.IsDBNull(reader.GetOrdinal("hero_crit_dmg")) ? 2.0 : reader.GetDouble(reader.GetOrdinal("hero_crit_dmg")),
-								Health = reader.IsDBNull(reader.GetOrdinal("hero_health")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_health")),
+								Health = reader.IsDBNull(reader.GetOrdinal("hero_health")) ? 1 : reader.GetInt32(reader.GetOrdinal("hero_health")),
 								Regen = reader.IsDBNull(reader.GetOrdinal("hero_regen")) ? 0.0 : reader.GetDouble(reader.GetOrdinal("hero_regen")),
 							};
 
@@ -3112,17 +3112,16 @@ ORDER BY p.created DESC;";
 			try
 			{
 				// Read target hero 'health' stat which represents percentage damage reduction (0..100)
-				int targetHealthPercent = 100;
-				try
+				int targetHealthPercent = 1; 
+				string selHealth = "SELECT health FROM maxhanna.bones_hero WHERE id = @TargetHeroId LIMIT 1;";
+				using var hCmd = new MySqlCommand(selHealth, connection, transaction);
+				hCmd.Parameters.AddWithValue("@TargetHeroId", targetHeroId);
+				var hObj = await hCmd.ExecuteScalarAsync();
+				if (hObj != null && int.TryParse(hObj.ToString(), out var parsedH))
 				{
-					string selHealth = "SELECT health FROM maxhanna.bones_hero WHERE id = @TargetHeroId LIMIT 1;";
-					using var hCmd = new MySqlCommand(selHealth, connection, transaction);
-					hCmd.Parameters.AddWithValue("@TargetHeroId", targetHeroId);
-					var hObj = await hCmd.ExecuteScalarAsync();
-					if (hObj != null && int.TryParse(hObj.ToString(), out var parsedH)) targetHealthPercent = parsedH;
+					targetHealthPercent = parsedH;
 				}
-				catch { /* non-fatal: default to 100% (no extra reduction beyond cap handling below) */ }
-
+				 
 				// Clamp health percent and compute reduction factor
 				if (targetHealthPercent < 0) targetHealthPercent = 0;
 				if (targetHealthPercent > 100) targetHealthPercent = 100;
