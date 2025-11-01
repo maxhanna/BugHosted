@@ -2033,7 +2033,9 @@ ORDER BY p.created DESC;";
 				if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
 				// New party membership: gather all hero_ids sharing the same party_id
 				var partyMemberIds = await GetPartyMemberIds(heroId, connection, transaction);
-				string sql = @"DELETE FROM maxhanna.bones_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 10 SECOND; SELECT * FROM maxhanna.bones_event WHERE map = @Map OR (event = 'CHAT' AND hero_id IN (" + string.Join(",", partyMemberIds) + "));";
+				string sql = @"
+				DELETE FROM maxhanna.bones_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 10 SECOND; 
+				SELECT * FROM maxhanna.bones_event WHERE event != 'ATTACK' AND (map = @Map OR (event = 'CHAT' AND hero_id IN (" + string.Join(",", partyMemberIds) + ")));";
 				MySqlCommand cmd = new(sql, connection, transaction); cmd.Parameters.AddWithValue("@Map", map);
 				List<MetaEvent> events = new();
 				using (var reader = await cmd.ExecuteReaderAsync())
@@ -3110,7 +3112,7 @@ ORDER BY p.created DESC;";
 			}
 			return rows;
 		}
-		
+
 		/// <summary>
 		/// Apply damage to a hero row, update HP and emit death handling if HP reaches 0.
 		/// Uses an UPDATE followed by SELECT to determine new hp, and then calls HandleHeroDeath when needed.
