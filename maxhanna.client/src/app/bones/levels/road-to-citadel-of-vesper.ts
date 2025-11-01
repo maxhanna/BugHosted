@@ -25,12 +25,10 @@ export class RoadToCitadelOfVesper extends Level {
 
     this.addBackgroundLayer(resources.images["townbg"], /*parallax=*/0, new Vector2(0, 0), /*repeat=*/false, /*scale=*/1, /*direction=*/'LEFT');
     this.addBackgroundLayer(resources.images["townbg2"], /*parallax=*/0.4, new Vector2(-400, 16), /*repeat=*/false, /*scale=*/1, /*direction=*/'RIGHT');
-
-    // Create a tiled floor and perimeter walls using Level helper
+ 
     const roomWidth = 20; // tiles horizontally
-    const roomHeight = 3; // tiles vertically
-    // tileWidth=64, tileHeight=96 match original layout
-    this.tileFloor(new Vector2(gridCells(0), gridCells(-1)), roomWidth, roomHeight, 100, 100, resources.images["brickstile"], { drawLayer: BASE, startObjectId: -1000 });
+    const roomHeight = 6; // tiles vertically 
+    this.tileFloor(new Vector2(gridCells(0), gridCells(-1)), roomWidth, roomHeight, 40, 40, resources.images["brickstile"], { drawLayer: BASE, startObjectId: -1000 });
 
     // Explicitly declare each encounter so they always appear (no loop)
     const encA = new Encounter({ id: -999997, position: new Vector2(gridCells(3), gridCells(4)), possibleEnemies: ["skeleton"], moveLeftRight: 0, moveUpDown: 0 });
