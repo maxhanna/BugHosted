@@ -254,7 +254,7 @@ export class Hero extends Character {
             let ty = typeof payload?.targetY === 'number' ? payload.targetY : undefined;
             // If no explicit target coordinates, compute a short-range target based on facing
             if (tx === undefined || ty === undefined) {
-              const step = gridCells(2) || 40;
+              const step = 200;
               if (this.facingDirection == DOWN) { tx = this.position.x; ty = this.position.y + step; }
               else if (this.facingDirection == UP) { tx = this.position.x; ty = this.position.y - step; }
               else if (this.facingDirection == LEFT) { tx = this.position.x - step; ty = this.position.y; }
