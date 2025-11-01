@@ -4,6 +4,9 @@
   <div class="widget" id="mastermind" [attr.data-order]="(availabilityMastermind ? 0 : 1)">
     <app-mastermind-scores (hasData)="onChildHasData('mastermind',$event)" [showBestScores]="false" [showBestScoresToday]="true" [showUserHeader]="true" [parentRef]="parentRef"></app-mastermind-scores>
   </div>
+  <div class="widget" id="currently-playing" [attr.data-order]="(availabilityCurrentlyPlaying ? 0 : 1)">
+    <app-currently-playing (hasData)="onChildHasData('currently-playing',$event)" [parentRef]="parentRef"></app-currently-playing>
+  </div>
   <div class="widget" id="ender" [attr.data-order]="(availabilityEnder ? 0 : 1)">
     <app-ender-high-scores (hasData)="onChildHasData('ender',$event)" [parentRef]="parentRef" [limit]="10" [showUserHeader]="true" [showHeaderTitles]="true" [headerClickable]="true" [mode]="'today'" [headerClickTarget]="'Ender'"></app-ender-high-scores>
   </div>
