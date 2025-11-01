@@ -2,7 +2,7 @@
   <!-- We render children in a stable order but allow the parent to show those with data first via CSS ordering.
        Each child emits hasData with a unique key so the parent can reorder logically. --> 
   <div class="widget" id="currently-playing" [attr.data-order]="(availabilityCurrentlyPlaying ? 0 : 1)">
-    <app-currently-playing></app-currently-playing>
+    <app-currently-playing [parentRef]="parentRef"></app-currently-playing>
   </div>
   <div class="widget" id="mastermind" [attr.data-order]="(availabilityMastermind ? 0 : 1)">
     <app-mastermind-scores (hasData)="onChildHasData('mastermind',$event)" [showBestScores]="false" [showBestScoresToday]="true" [showUserHeader]="true" [parentRef]="parentRef"></app-mastermind-scores>
