@@ -129,9 +129,17 @@ namespace maxhanna.Server.Controllers
 				FROM maxhanna.users u
 				GROUP BY u.id
 				UNION
-				SELECT u.id AS userId, u.username AS username, 'array' AS game, MAX(ac.updated_at) AS lastActivity
+				-- Array activity: graveyard timestamps used as a safe fallback if array_characters.updated_at is not present
+				SELECT u.id AS userId, u.username AS username, 'array' AS game,
+				(
+					SELECT MAX(lastActivity) FROM (
+						SELECT g.timestamp AS lastActivity FROM maxhanna.array_characters_graveyard g WHERE g.user_id = u.id AND g.timestamp IS NOT NULL
+						UNION ALL
+						SELECT NULL
+					) recent_array
+				) AS lastActivity
 				FROM maxhanna.users u
-				JOIN maxhanna.array_characters ac ON ac.user_id = u.id
+				LEFT JOIN maxhanna.array_characters ac ON ac.user_id = u.id
 				GROUP BY u.id
 				UNION
 				SELECT u.id AS userId, u.username AS username, 'wordler' AS game, MAX(wg.date) AS lastActivity
