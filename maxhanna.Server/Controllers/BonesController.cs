@@ -3110,6 +3110,7 @@ ORDER BY p.created DESC;";
 			}
 			return rows;
 		}
+		
 		/// <summary>
 		/// Apply damage to a hero row, update HP and emit death handling if HP reaches 0.
 		/// Uses an UPDATE followed by SELECT to determine new hp, and then calls HandleHeroDeath when needed.
