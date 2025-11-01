@@ -1159,7 +1159,19 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   // Remove pending invites that are expired or that are now present in partyMembers
   private reconcilePendingInvites() {
     const now = Date.now();
-    const partySet = new Set((this.partyMembers || []).map(p => p.heroId));
+    const partySet = new Set<number>(); 
+    if (Array.isArray(this.partyMembers)) {
+      for (const p of this.partyMembers) {
+        if (p && typeof p === 'object' && (p as any).heroId !== undefined) partySet.add(Number((p as any).heroId));
+      }
+    } else if (this.partyMembers && typeof this.partyMembers === 'object') {
+      // support map-like or keyed object: extract values and look for heroId
+      for (const key of Object.keys(this.partyMembers)) {
+        const p = (this.partyMembers as any)[key];
+        if (p && typeof p === 'object' && p.heroId !== undefined) partySet.add(Number(p.heroId));
+      }
+    }
+    
     for (const [heroId, expiry] of Array.from(this.pendingInvites.entries())) {
       if (expiry <= now) {
         // expired — animate clear
