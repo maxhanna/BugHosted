@@ -282,7 +282,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
     // Play attenuated impact SFX when other heroes attack
     events.on("OTHER_HERO_ATTACK", this, (payload: any) => {
-      console.log("got other hero attack event", payload);
+      //console.log("got other hero attack event", payload);
       const sourceHeroId = payload?.sourceHeroId;
       const targetHeroId = payload?.attack?.targetHeroId;
       if (!sourceHeroId) return;
@@ -301,7 +301,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       const dy = attackerPos.y - myPos.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (sourceHeroId != this.metaHero.id || targetHeroId == this.metaHero.id) {
-        console.log("hti sound playing", sourceHeroId, targetHeroId);
+       // console.log("hti sound playing", sourceHeroId, targetHeroId);
         const maxAudible = 800; // pixels: distance a`t which sound is near-silent
         let vol = 1 - (dist / maxAudible);
         vol = Math.max(0.05, Math.min(1, vol)); // clamp to [0.05, 1]
