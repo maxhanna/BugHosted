@@ -3176,7 +3176,7 @@ ORDER BY p.created DESC;";
 			if (targetHeroId <= 0) return;
 			// Compute final damage (before target's health reduction)
 			var (damage, wasCrit) = ComputeDamage(baseDamage, critRate, critMultiplier);
-			System.Console.WriteLine($"ApplyDamageToHero START target={targetHeroId} attacker={attackerId} attackerType={attackerType} baseDamage={baseDamage} damageComputed={damage} wasCrit={wasCrit} map={map}");
+			//Console.WriteLine($"ApplyDamageToHero START target={targetHeroId} attacker={attackerId} attackerType={attackerType} baseDamage={baseDamage} damageComputed={damage} wasCrit={wasCrit} map={map}");
 			try
 			{
 				// Read target hero 'health' stat which represents percentage damage reduction (0..100)
@@ -3189,7 +3189,7 @@ ORDER BY p.created DESC;";
 				{
 					targetHealthPercent = parsedH;
 				}
-				System.Console.WriteLine($"ApplyDamageToHero: targetHealthPercent={targetHealthPercent}");
+				//Console.WriteLine($"ApplyDamageToHero: targetHealthPercent={targetHealthPercent}");
 				 
 				// Clamp health percent and compute reduction factor
 				if (targetHealthPercent < 0) targetHealthPercent = 0;
@@ -3198,7 +3198,7 @@ ORDER BY p.created DESC;";
 				// Apply reduction and round to integer damage
 				int finalDamage = (int)Math.Round(damage * factor);
 				if (finalDamage < 0) finalDamage = 0;
-				System.Console.WriteLine($"ApplyDamageToHero: computed finalDamage={finalDamage} (factor={factor})");
+				//Console.WriteLine($"ApplyDamageToHero: computed finalDamage={finalDamage} (factor={factor})");
 
 				// Read current HP for debugging so we can see before/after values
 				string selHpBefore = "SELECT hp FROM maxhanna.bones_hero WHERE id = @TargetHeroId LIMIT 1;";
@@ -3208,7 +3208,7 @@ ORDER BY p.created DESC;";
 					var hpObjBefore = await hpCmd.ExecuteScalarAsync();
 					int oldHp = 0;
 					if (hpObjBefore != null && int.TryParse(hpObjBefore.ToString(), out var parsedHp)) oldHp = parsedHp;
-					System.Console.WriteLine($"ApplyDamageToHero: oldHp={oldHp}");
+					//Console.WriteLine($"ApplyDamageToHero: oldHp={oldHp}");
 				}
 
 				// Perform UPDATE then SELECT in sequence to reliably read the updated HP
@@ -3226,10 +3226,10 @@ ORDER BY p.created DESC;";
 					var obj = await selCmd.ExecuteScalarAsync();
 					if (obj != null && int.TryParse(obj.ToString(), out var parsed))
 					{
-						Console.WriteLine("ApplyDamageToHero: newHp read from SELECT=" + parsed);
+						//WriteLine("ApplyDamageToHero: newHp read from SELECT=" + parsed);
 						newHp = parsed;
 					}
-					System.Console.WriteLine($"ApplyDamageToHero: DB update affected={affected}, newHp={newHp}");
+					//Console.WriteLine($"ApplyDamageToHero: DB update affected={affected}, newHp={newHp}");
 					if (affected > 0 && newHp <= 0)
 					{
 						await HandleHeroDeath(targetHeroId, attackerId, attackerType, map, connection, transaction);
@@ -3238,7 +3238,7 @@ ORDER BY p.created DESC;";
 			}
 			catch (Exception ex)
 			{
-				System.Console.WriteLine($"ApplyDamageToHero EXCEPTION target={targetHeroId} error={ex.Message} \n{ex.StackTrace}");
+				//Console.WriteLine($"ApplyDamageToHero EXCEPTION target={targetHeroId} error={ex.Message} \n{ex.StackTrace}");
 				await _log.Db("ApplyDamageToHero failed: " + ex.Message, targetHeroId, "BONES", true);
 			}
 		}
