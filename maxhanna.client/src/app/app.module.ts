@@ -201,6 +201,7 @@ import { CurrentlyPlayingComponent } from './currently-playing/currently-playing
     CryptoGlobalStatsComponent],
   exports: [
     InViewDirective,
+    CurrentlyPlayingComponent,
     TimeFormatPipe,
     TimeSincePipe,
     PascalCasePipe,
