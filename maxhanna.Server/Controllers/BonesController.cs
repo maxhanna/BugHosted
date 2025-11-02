@@ -3187,26 +3187,39 @@ ORDER BY p.created DESC;";
 				 
 				// Clamp health percent and compute reduction factor
 				if (targetHealthPercent < 0) targetHealthPercent = 0;
-				if (targetHealthPercent > 100) targetHealthPercent = 100;
+				if (targetHealthPercent >= 100) targetHealthPercent = 99; // never allow 100% reduction
 				double factor = 1.0 - (targetHealthPercent / 100.0);
 				// Apply reduction and round to integer damage
 				int finalDamage = (int)Math.Round(damage * factor);
 				if (finalDamage < 0) finalDamage = 0;
 				System.Console.WriteLine($"ApplyDamageToHero: computed finalDamage={finalDamage} (factor={factor})");
 
-				string upd = "UPDATE maxhanna.bones_hero SET hp = GREATEST(hp - @Damage, 0), updated = UTC_TIMESTAMP() WHERE id = @TargetHeroId AND hp > 0 LIMIT 1;";
-				var parameters = new Dictionary<string, object?>() { { "@Damage", finalDamage }, { "@TargetHeroId", targetHeroId } };
-				int affected = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(upd, parameters, connection, transaction));
+				// Combine UPDATE and SELECT in a single command to reduce round-trips
+				string updAndSel = @"UPDATE maxhanna.bones_hero SET hp = GREATEST(hp - @Damage, 0), updated = UTC_TIMESTAMP() 
+					WHERE id = @TargetHeroId AND hp > 0 LIMIT 1; 
+				SELECT hp FROM maxhanna.bones_hero WHERE id = @TargetHeroId LIMIT 1;";
+				using var cmd = new MySqlCommand(updAndSel, connection, transaction);
+				cmd.Parameters.AddWithValue("@Damage", finalDamage);
+				cmd.Parameters.AddWithValue("@TargetHeroId", targetHeroId);
+				using var rdr = await cmd.ExecuteReaderAsync();
+				int newHp = 0; 
+				if (await rdr.NextResultAsync())
+				{
+					if (await rdr.ReadAsync())
+					{
+						if (!rdr.IsDBNull(0))
+						{
+							var val = rdr.GetValue(0);
+							if (val != null && int.TryParse(val.ToString(), out var parsed)) {
+								newHp = parsed;
+							}
+						}
+					}
+				}
+				int affected = rdr.RecordsAffected;
+				System.Console.WriteLine($"ApplyDamageToHero: DB update affected={affected}, newHp={newHp}");
 				if (affected > 0)
 				{
-					// read new hp
-					string sel = "SELECT hp FROM maxhanna.bones_hero WHERE id = @TargetHeroId LIMIT 1;";
-					using var selCmd = new MySqlCommand(sel, connection, transaction);
-					selCmd.Parameters.AddWithValue("@TargetHeroId", targetHeroId);
-					var obj = await selCmd.ExecuteScalarAsync();
-					int newHp = 0;
-					if (obj != null && int.TryParse(obj.ToString(), out var parsed)) newHp = parsed;
-					System.Console.WriteLine($"ApplyDamageToHero: DB update affected={affected}, newHp={newHp}");
 					if (newHp <= 0)
 					{
 						await HandleHeroDeath(targetHeroId, attackerId, attackerType, map, connection, transaction);
