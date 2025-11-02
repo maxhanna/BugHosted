@@ -449,10 +449,10 @@ export function subscribeToMainGameEvents(object: any) {
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DROPPED", object.metaHero.map, { "location": safeStringify(params.location), "item": safeStringify(params.part) })
     object.bonesService.updateEvents(metaEvent);
   });
- 
+
   events.on("CHARACTER_PICKS_UP_ITEM", object, (data: { position: Vector2, id?: number, imageName?: string, hero?: any, item?: any }) => {
-    setActionBlocker(500); 
-    resources.playSound('itemdrop', { volume: 0.8, allowOverlap: true }); 
+    setActionBlocker(500);
+    resources.playSound('itemdrop', { volume: 0.8, allowOverlap: true });
     const payload: any = {
       position: safeStringify(data.position)
     };
@@ -465,8 +465,8 @@ export function subscribeToMainGameEvents(object: any) {
       payload.item = safeStringify(data.item);
     }
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DESTROYED", object.metaHero.map, payload);
-    object.bonesService.updateEvents(metaEvent).catch((err: any) => { 
-      console.warn('Failed to send ITEM_DESTROYED', err); 
+    object.bonesService.updateEvents(metaEvent).catch((err: any) => {
+      console.warn('Failed to send ITEM_DESTROYED', err);
     });
   });
 
@@ -509,7 +509,7 @@ export function subscribeToMainGameEvents(object: any) {
       item: any,
       stats: any,
     }) => {
-    if (!actionBlocker) {  
+    if (!actionBlocker) {
       const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DESTROYED", object.metaHero.map,
         {
           "position": `${safeStringify(data.position)}`,
@@ -519,7 +519,7 @@ export function subscribeToMainGameEvents(object: any) {
         });
       object.bonesService.updateEvents(metaEvent);
     }
-    setActionBlocker(500); 
+    setActionBlocker(500);
   });
 
 
@@ -552,7 +552,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
   }
 
   for (let event of metaEvents) {
-   
+
     // If this is an ATTACK or ATTACK_BATCH event, emit OTHER_HERO_ATTACK once per attack
     if (event && (event.eventType === "ATTACK" || event.eventType === "ATTACK_BATCH")) {
       const attackId = event.id ? String(event.id) : `${event.heroId}:${event.eventType}:${event.timestamp}:${JSON.stringify(event.data)}`;
@@ -562,166 +562,164 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
         events.emit("OTHER_HERO_ATTACK", { sourceHeroId: event.heroId, attack: event.data ?? {} });
       }
     }
-   
 
-     
-      // Only handle events we haven't seen before
-      const existingEvent = currentEvents.find((e: MetaEvent) => e && e.id == event.id);
-      if (!existingEvent) {
-        //do something with object fresh event.
-        if (event.eventType === "PARTY_UP" && event.data && event.data["hero_id"] == `${object.metaHero.id}` && !object.isDecidingOnParty) {
-          actionPartyUpEvent(object, event);
-        }
-        else if (event.eventType === "UNPARTY" && event.data && event.data["hero_id"]) {
-          try {
-            console.log("got unparty event", event);
-            const idStr = event.data["hero_id"];
-            const removedId = parseInt(idStr);
-            if (isNaN(removedId)) {
-              console.log("UNPARTY event has invalid hero_id:", idStr);
+
+
+    // Only handle events we haven't seen before
+    const existingEvent = currentEvents.find((e: MetaEvent) => e && e.id == event.id);
+    if (!existingEvent) {
+      //do something with object fresh event.
+      if (event.eventType === "PARTY_UP" && event.data && event.data["hero_id"] == `${object.metaHero.id}` && !object.isDecidingOnParty) {
+        actionPartyUpEvent(object, event);
+      }
+      else if (event.eventType === "UNPARTY" && event.data && event.data["hero_id"]) {
+        try {
+          console.log("got unparty event", event);
+          const idStr = event.data["hero_id"];
+          const removedId = parseInt(idStr);
+          if (isNaN(removedId)) {
+            console.log("UNPARTY event has invalid hero_id:", idStr);
+          } else {
+            const partyList = Array.isArray(object.partyMembers) ? object.partyMembers : [];
+            const isMember = partyList.some((x: any) => x && x.heroId === removedId);
+            if (!isMember) {
+              console.log("UNPARTY ignored; hero not in local party:", removedId);
             } else {
-              const partyList = Array.isArray(object.partyMembers) ? object.partyMembers : [];
-              const isMember = partyList.some((x: any) => x && x.heroId === removedId);
-              if (!isMember) {
-                console.log("UNPARTY ignored; hero not in local party:", removedId);
-              } else {
-                // Remove the departed member and avoid removing other members unintentionally
-                object.partyMembers = partyList.filter((x: any) => x.heroId !== removedId && x.heroId !== event.heroId);
-                object.reinitializeInventoryData();
-                console.log("processed UNPARTY for hero id", removedId);
+              // Remove the departed member and avoid removing other members unintentionally
+              object.partyMembers = partyList.filter((x: any) => x.heroId !== removedId && x.heroId !== event.heroId);
+              object.reinitializeInventoryData();
+              console.log("processed UNPARTY for hero id", removedId);
+            }
+          }
+        } catch (ex) {
+          console.error('Failed processing UNPARTY event', ex);
+        }
+      }
+      else if (event.eventType === "PARTY_INVITE_ACCEPTED" && event.heroId != object.metaHero.id) {
+        actionPartyInviteAcceptedEvent(object, event);
+      }
+      else if (event.eventType === "PARTY_INVITED" && event.data && event.data["hero_id"]) {
+        try {
+          // PARTY_INVITED is a server-persisted meta-event that should target a specific hero id
+          const targetId = parseInt(event.data["hero_id"]);
+          if (!isNaN(targetId) && targetId === object.metaHero.id) {
+            const inviterId = event.heroId;
+            const inviter = object.otherHeroes.find((h: any) => h.id === inviterId);
+            const inviterName = inviter ? inviter.name : (`Hero ${inviterId}`);
+            // Emit a normalized local event so components can show a popup and respond
+            events.emit("PARTY_INVITED", { inviterId: inviterId, inviterName: inviterName, map: event.map });
+          }
+        } catch (ex) {
+          console.error('Failed handling PARTY_INVITED event', ex);
+        }
+      }
+      else if (event.eventType === "ITEM_DESTROYED") {
+        if (event.data) {
+          const dmgMod = event.data["damage"];
+          const position = JSON.parse(event.data["position"]) as Vector2;
+          const skillName = event.data["skill"];
+          const maxRadius = gridCells(6);
+          const possiblePositions: Vector2[] = [];
+          for (let dx = -maxRadius; dx <= maxRadius; dx += gridCells(1)) {
+            for (let dy = -maxRadius; dy <= maxRadius; dy += gridCells(1)) {
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              if (distance <= maxRadius) {
+                possiblePositions.push(new Vector2(position.x + dx, position.y + dy));
               }
             }
-          } catch (ex) {
-            console.error('Failed processing UNPARTY event', ex);
           }
-        }
-        else if (event.eventType === "PARTY_INVITE_ACCEPTED" && event.heroId != object.metaHero.id) {
-          actionPartyInviteAcceptedEvent(object, event);
-        }
-        else if (event.eventType === "PARTY_INVITED" && event.data && event.data["hero_id"]) {
-          try {
-            // PARTY_INVITED is a server-persisted meta-event that should target a specific hero id
-            const targetId = parseInt(event.data["hero_id"]);
-            if (!isNaN(targetId) && targetId === object.metaHero.id) {
-              const inviterId = event.heroId;
-              const inviter = object.otherHeroes.find((h: any) => h.id === inviterId);
-              const inviterName = inviter ? inviter.name : (`Hero ${inviterId}`);
-              // Emit a normalized local event so components can show a popup and respond
-              events.emit("PARTY_INVITED", { inviterId: inviterId, inviterName: inviterName, map: event.map });
-            }
-          } catch (ex) {
-            console.error('Failed handling PARTY_INVITED event', ex);
-          }
-        }
-        else if (event.eventType === "ITEM_DESTROYED") {
-          if (event.data) {
-            const dmgMod = event.data["damage"];
-            const position = JSON.parse(event.data["position"]) as Vector2;
-            const skillName = event.data["skill"];
-            const maxRadius = gridCells(6);
-            const possiblePositions: Vector2[] = [];
-            for (let dx = -maxRadius; dx <= maxRadius; dx += gridCells(1)) {
-              for (let dy = -maxRadius; dy <= maxRadius; dy += gridCells(1)) {
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                if (distance <= maxRadius) {
-                  possiblePositions.push(new Vector2(position.x + dx, position.y + dy));
-                }
-              }
-            }
-            const tgtObject = object.mainScene.level?.children.find((x: any) => {
-              const isMatchingLabel = x.itemLabel === `${dmgMod ?? 1} ${skillName ?? 1}`;
-              const isNearby = possiblePositions.some(pos => x.position.x === pos.x && x.position.y === pos.y);
-              return isMatchingLabel && isNearby;
-            });
-            if (tgtObject) { tgtObject.destroy(); }
-          }
-        }
-        else if (event.eventType === "BUY_ITEM") {
-          if (event.heroId === object.metaHero.id) {
-            events.emit("BUY_ITEM_CONFIRMED", { heroId: event.heroId, item: (event.data ? event.data["item"] : "") })
-            object.bonesService.deleteEvent(event.id);
-          }
-        }
-        else if (event.eventType === "ITEM_DROPPED") {
-          if (event.data) {
-            const tmpMetabotPart = JSON.parse(event.data["item"]) as HeroInventoryItem;
-            const location = JSON.parse(event.data["location"]) as Vector2;
-            object.addItemToScene(tmpMetabotPart, location);
-          }
-        }
-        else if (event.eventType === "ATTACK_BATCH" && event.data && event.data["attacks"]) {
-          try {
-            const attacks = JSON.parse(event.data["attacks"] as string) as any[];
-            for (let atk of attacks) {
-              if (event.heroId === object.metaHero.id) continue;
-              events.emit("REMOTE_ATTACK", { attack: atk, sourceHeroId: event.heroId });
-            }
-          } catch (ex) { console.error("Failed to process ATTACK_BATCH event", ex); }
-        }
-        else if (event.eventType === "OTHER_HERO_ATTACK") { 
-            const payload = { sourceHeroId: event.heroId, data: event.data };
-            events.emit("OTHER_HERO_ATTACK", payload);
-        }
-        else if (event.eventType === "CHAT" && event.data) {
-          const content = event.data["content"] ?? '';
-          const name = event.data["sender"] ?? "Anon";
-          const eventTs = event.timestamp ? new Date(event.timestamp).getTime() : Date.now();
-          const metachat = { hero: name, content: content, timestamp: event.timestamp ? new Date(event.timestamp) : new Date() } as MetaChat;
-          const isDuplicate = object.chat && object.chat.some((m: MetaChat) => {
-            try {
-              if (!m || !m.hero) return false;
-              if (m.hero !== name) return false;
-              if ((m.content ?? '') !== (content ?? '')) return false;
-              const mts = m.timestamp ? new Date(m.timestamp).getTime() : 0;
-              return Math.abs(mts - eventTs) < 2000;
-            } catch { return false; }
+          const tgtObject = object.mainScene.level?.children.find((x: any) => {
+            const isMatchingLabel = x.itemLabel === `${dmgMod ?? 1} ${skillName ?? 1}`;
+            const isNearby = possiblePositions.some(pos => x.position.x === pos.x && x.position.y === pos.y);
+            return isMatchingLabel && isNearby;
           });
-          if (!isDuplicate) { object.chat.unshift(metachat); }
-          trimChatToLimit(object, 10);
-          object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name));
-          object.displayChatMessage();
-          events.emit("CHAT_MESSAGE_RECEIVED");
+          if (tgtObject) { tgtObject.destroy(); }
         }
-        else if (event.eventType === "WHISPER" && event.data) {
-          let breakOut = false;
-          const content = event.data["content"] ?? '';
-          const senderName = event.data["sender"] ?? "Anon";
-          const receiverName = event.data["receiver"] ?? "Anon";
-          if (receiverName != object.metaHero.name && senderName != object.metaHero.name) { breakOut = true; }
-          if (!breakOut) {
-            if (senderName === object.metaHero.name || receiverName == object.metaHero.name) {
-              object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === senderName));
-              const chatM = { hero: senderName, content: content, timestamp: new Date() } as MetaChat;
-              object.displayChatMessage(chatM);
-            }
+      }
+      else if (event.eventType === "BUY_ITEM") {
+        if (event.heroId === object.metaHero.id) {
+          events.emit("BUY_ITEM_CONFIRMED", { heroId: event.heroId, item: (event.data ? event.data["item"] : "") })
+          object.bonesService.deleteEvent(event.id);
+        }
+      }
+      else if (event.eventType === "ITEM_DROPPED") {
+        if (event.data) {
+          const tmpMetabotPart = JSON.parse(event.data["item"]) as HeroInventoryItem;
+          const location = JSON.parse(event.data["location"]) as Vector2;
+          object.addItemToScene(tmpMetabotPart, location);
+        }
+      }
+      else if (event.eventType === "ATTACK_BATCH" && event.data && event.data["attacks"]) {
+        try {
+          const attacks = JSON.parse(event.data["attacks"] as string) as any[];
+          for (let atk of attacks) {
+            if (event.heroId === object.metaHero.id) continue;
+            events.emit("REMOTE_ATTACK", { attack: atk, sourceHeroId: event.heroId });
+          }
+        } catch (ex) { console.error("Failed to process ATTACK_BATCH event", ex); }
+      }
+      else if (event.eventType === "OTHER_HERO_ATTACK") {
+        const payload = { sourceHeroId: event.heroId, data: event.data };
+        events.emit("OTHER_HERO_ATTACK", payload);
+      }
+      else if (event.eventType === "CHAT" && event.data) {
+        const content = event.data["content"] ?? '';
+        const name = event.data["sender"] ?? "Anon";
+        const eventTs = event.timestamp ? new Date(event.timestamp).getTime() : Date.now();
+        const metachat = { hero: name, content: content, timestamp: event.timestamp ? new Date(event.timestamp) : new Date() } as MetaChat;
+        const isDuplicate = object.chat && object.chat.some((m: MetaChat) => {
+          try {
+            if (!m || !m.hero) return false;
+            if (m.hero !== name) return false;
+            if ((m.content ?? '') !== (content ?? '')) return false;
+            const mts = m.timestamp ? new Date(m.timestamp).getTime() : 0;
+            return Math.abs(mts - eventTs) < 2000;
+          } catch { return false; }
+        });
+        if (!isDuplicate) { object.chat.unshift(metachat); }
+        trimChatToLimit(object, 10);
+        object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name));
+        object.displayChatMessage();
+        events.emit("CHAT_MESSAGE_RECEIVED");
+      }
+      else if (event.eventType === "WHISPER" && event.data) {
+        let breakOut = false;
+        const content = event.data["content"] ?? '';
+        const senderName = event.data["sender"] ?? "Anon";
+        const receiverName = event.data["receiver"] ?? "Anon";
+        if (receiverName != object.metaHero.name && senderName != object.metaHero.name) { breakOut = true; }
+        if (!breakOut) {
+          if (senderName === object.metaHero.name || receiverName == object.metaHero.name) {
+            object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === senderName));
+            const chatM = { hero: senderName, content: content, timestamp: new Date() } as MetaChat;
+            object.displayChatMessage(chatM);
           }
         }
-        else if (event.eventType === "HERO_DIED") {
-          
-            // event.data may contain killerId/killerType; emit a normalized HERO_DIED locally
-            const payload: any = {};
-            if (event.data) {
-              payload.killerId = event.data["killerId"] ?? event.data["killer_id"] ?? undefined;
-              payload.killerType = event.data["killerType"] ?? event.data["killer_type"] ?? undefined;
-              payload.cause = event.data["cause"] ?? undefined;
-            }
-            // If the death concerns our hero, emit HERO_DIED so UI can handle respawn
-            if (event.heroId === object.metaHero.id) {
-              events.emit("HERO_DIED", payload);
-              setTimeout(() => {
-                object.bonesService.deleteEvent(event.id);
-              }, 1000);
-            } else {
-              // For other remote heroes, try to find their scene object and destroy it
-               
-                const remote = object.mainScene?.level?.children?.find((x: any) => x.id === event.heroId);
-                if (remote && typeof remote.destroy === 'function') {
-                  remote.destroy();
-                }
-               
-            } 
+      }
+      else if (event.eventType === "HERO_DIED") {
+        console.log("processing HERO_DIED event", event);
+        // event.data may contain killerId/killerType; emit a normalized HERO_DIED locally
+        const payload: any = {};
+        if (event.data) {
+          payload.killerId = event.data["killerId"] ?? event.data["killer_id"] ?? undefined;
+          payload.killerType = event.data["killerType"] ?? event.data["killer_type"] ?? undefined;
+          payload.cause = event.data["cause"] ?? undefined;
         }
-      } 
+        // If the death concerns our hero, emit HERO_DIED so UI can handle respawn
+        if (event.heroId === object.metaHero.id) {
+          events.emit("HERO_DIED", payload);
+          setTimeout(() => {
+            object.bonesService.deleteEvent(event.id);
+          }, 1000);
+        } else {
+          const remote = object.mainScene?.level?.children?.find((x: any) => x.id === event.heroId);
+          if (remote && typeof remote.destroy === 'function') {
+            remote.destroy();
+          }
+
+        }
+      }
+    }
   }
   object.events = metaEvents;
 }
@@ -819,7 +817,7 @@ export function actionPartyUpEvent(object: any, event: MetaEvent) {
     }
   }
 }
- 
+
 export function reconcileDroppedItemsFromFetch(object: any, res: any) {
   if (!res) return;
   const map = res.map ?? object.metaHero?.map;
@@ -873,13 +871,13 @@ export function reconcileDroppedItemsFromFetch(object: any, res: any) {
       }
       const skin = item && item.image ? item.image : (itemData && (itemData as any).image ? (itemData as any).image : undefined);
 
-  // Use local constructors if available via object, otherwise expect globals/imports to exist in runtime
-      const dropped =  new DroppedItem({ position: new Vector2(x, y), item: item, itemLabel: label, itemSkin: skin, preventDestroyTimeout: true });
+      // Use local constructors if available via object, otherwise expect globals/imports to exist in runtime
+      const dropped = new DroppedItem({ position: new Vector2(x, y), item: item, itemLabel: label, itemSkin: skin, preventDestroyTimeout: true });
       // Attach server id so pickup forwards droppedItemId when available
       try { (dropped as any).serverDroppedId = id; } catch { }
       // Add to scene and tracking map
       try { object.mainScene.level.addChild(dropped); } catch (ex) { console.warn('Failed adding dropped to scene', ex); }
-  (object as any)._droppedItemsMap.set(id, dropped);
+      (object as any)._droppedItemsMap.set(id, dropped);
       // Play item drop sound with distance-based attenuation from the player's hero
       try {
         const heroPos = object?.metaHero?.position;
@@ -932,7 +930,7 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
   try { (object as any)._lastPortalsMap = map; } catch { }
 
   const serverPortals = Array.isArray(res.townPortals) ? res.townPortals : (Array.isArray(res.TownPortals) ? res.TownPortals : []);
-  
+
   const createPortalFromServer = (it: any): any | undefined => {
     try {
       const id = Number(it.id ?? it.portalId ?? it.id);
@@ -972,27 +970,27 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
       if (!dataObj && it.data && (it.coordsX !== undefined || it.coordsY !== undefined || it.map !== undefined)) {
         dataObj = { coordsX: it.coordsX, coordsY: it.coordsY, map: it.map };
       }
-       
-        if (dataObj && typeof dataObj === 'object') {
-          let coerced = false;
-          const pickFirst = (v: any) => Array.isArray(v) ? (v.length > 0 ? v[0] : undefined) : v;
-          if (dataObj.map !== undefined) {
-            const raw = pickFirst(dataObj.map);
-            if (raw !== dataObj.map) { dataObj.map = raw; coerced = true; }
+
+      if (dataObj && typeof dataObj === 'object') {
+        let coerced = false;
+        const pickFirst = (v: any) => Array.isArray(v) ? (v.length > 0 ? v[0] : undefined) : v;
+        if (dataObj.map !== undefined) {
+          const raw = pickFirst(dataObj.map);
+          if (raw !== dataObj.map) { dataObj.map = raw; coerced = true; }
+        }
+        if (dataObj.originMap !== undefined) {
+          const raw = pickFirst(dataObj.originMap);
+          if (raw !== dataObj.originMap) { dataObj.originMap = raw; coerced = true; }
+        }
+        // Coerce coordinate-like fields
+        const coordKeys = ['originX', 'originY', 'coordsX', 'coordsY', 'x', 'y'];
+        for (const k of coordKeys) {
+          if (dataObj[k] !== undefined && Array.isArray(dataObj[k])) {
+            dataObj[k] = dataObj[k].length > 0 ? dataObj[k][0] : 0;
+            coerced = true;
           }
-          if (dataObj.originMap !== undefined) {
-            const raw = pickFirst(dataObj.originMap);
-            if (raw !== dataObj.originMap) { dataObj.originMap = raw; coerced = true; }
-          }
-          // Coerce coordinate-like fields
-          const coordKeys = ['originX','originY','coordsX','coordsY','x','y'];
-          for (const k of coordKeys) {
-            if (dataObj[k] !== undefined && Array.isArray(dataObj[k])) {
-              dataObj[k] = dataObj[k].length > 0 ? dataObj[k][0] : 0;
-              coerced = true;
-            }
-          } 
-        } 
+        }
+      }
       try { (portalMarker as any).serverData = dataObj; } catch { }
       try { (portalMarker as any).serverCreatorHeroId = Number(it.creatorHeroId ?? it.creator_hero_id ?? it.heroId ?? it.creator ?? it.creatorId ?? it.ownerId ?? it.createdBy ?? it.hero_id ?? undefined); } catch { }
       return { id, portalMarker };
