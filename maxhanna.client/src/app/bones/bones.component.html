@@ -301,7 +301,7 @@
           <div>Crit DMG (mult)</div>
           <div>
             <button (click)="adjustStat('critDmg', -1)" [disabled]="editableStats.critDmg <= 1" aria-label="Decrease Crit DMG">-</button>
-            <span style="margin:0 8px">{{editableStats.critDmg | number:'1.2-2'}}</span>
+            <span style="margin:0 8px">{{editableStats.critDmg}}</span>
             <button (click)="adjustStat('critDmg', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Crit DMG">+</button>
           </div>
         </div>
