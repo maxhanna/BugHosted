@@ -205,6 +205,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   stopNotifications() {
+    console.log("stopping notifcs")
     clearInterval(this.notificationInfoInterval);
     clearInterval(this.cryptoHubInterval);
     clearInterval(this.calendarInfoInterval);
