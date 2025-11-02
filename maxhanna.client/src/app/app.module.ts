@@ -184,6 +184,7 @@ import { CurrentlyPlayingComponent } from './currently-playing/currently-playing
     DailyMusicComponent,
   ProfileWidgetsComponent,
     NewUsersComponent,
+    CurrentlyPlayingComponent,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,
