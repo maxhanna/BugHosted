@@ -974,3 +974,9 @@ html body .popupPanel * {
   color: #331a00;
   box-shadow: 0 6px 20px rgba(246, 184, 90, 0.18), inset 0 -6px 16px rgba(255, 255, 255, 0.06) !important;
 }
+
+.deathKillerName {
+  color: var(--third-font-color);
+  font-size: x-large;
+  padding: 4px 0px 14px 0px;
+}
