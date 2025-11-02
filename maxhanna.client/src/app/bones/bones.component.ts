@@ -823,31 +823,26 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       rz.hp ?? 100,
       rz.level ?? 1,
       rz.exp ?? 0,
-      rz.attackSpeed ?? 400);
-    // Restore persisted stats from server response if present
-    try {
-      const statsAny: any = (rz as any).stats ?? rz;
-      if (statsAny) {
-  if (statsAny.attackDmg !== undefined) this.metaHero.attackDmg = Number(statsAny.attackDmg);
-        if (statsAny.attackSpeed !== undefined) this.metaHero.attackSpeed = Number(statsAny.attackSpeed);
-        if (statsAny.critRate !== undefined) this.metaHero.critRate = Number(statsAny.critRate);
-        if (statsAny.critDmg !== undefined) this.metaHero.critDmg = Number(statsAny.critDmg);
-        if (statsAny.health !== undefined) this.metaHero.health = Number(statsAny.health);
-        if (statsAny.regen !== undefined) this.metaHero.regen = Number(statsAny.regen);
-  // No legacy fallbacks: prefer explicit new-stat fields or cachedStats
-      }
-    } catch { }
-    // If server didn't provide stats, but we have cachedStats, apply those so UI remains consistent
-    try {
-      if ((this.metaHero.attackDmg === undefined || this.metaHero.health === undefined) && this.cachedStats) {
-        this.metaHero.attackDmg = this.metaHero.attackDmg ?? this.cachedStats.attackDmg;
-        this.metaHero.attackSpeed = this.metaHero.attackSpeed ?? this.cachedStats.attackSpeed;
-        this.metaHero.critRate = this.metaHero.critRate ?? this.cachedStats.critRate;
-        this.metaHero.critDmg = this.metaHero.critDmg ?? this.cachedStats.critDmg;
-        this.metaHero.health = this.metaHero.health ?? this.cachedStats.health;
-        this.metaHero.regen = this.metaHero.regen ?? this.cachedStats.regen;
-      }
-    } catch { }
+      rz.attackSpeed ?? 400); 
+
+    const statsAny: any = (rz as any).stats ?? rz;
+    if (statsAny) {
+      if (statsAny.attackDmg !== undefined) this.metaHero.attackDmg = Number(statsAny.attackDmg);
+      if (statsAny.attackSpeed !== undefined) this.metaHero.attackSpeed = Number(statsAny.attackSpeed);
+      if (statsAny.critRate !== undefined) this.metaHero.critRate = Number(statsAny.critRate);
+      if (statsAny.critDmg !== undefined) this.metaHero.critDmg = Number(statsAny.critDmg);
+      if (statsAny.health !== undefined) this.metaHero.health = Number(statsAny.health);
+      if (statsAny.regen !== undefined) this.metaHero.regen = Number(statsAny.regen);
+    }
+      
+    if ((this.metaHero.attackDmg === undefined || this.metaHero.health === undefined) && this.cachedStats) {
+      this.metaHero.attackDmg = this.metaHero.attackDmg ?? this.cachedStats.attackDmg;
+      this.metaHero.attackSpeed = this.metaHero.attackSpeed ?? this.cachedStats.attackSpeed;
+      this.metaHero.critRate = this.metaHero.critRate ?? this.cachedStats.critRate;
+      this.metaHero.critDmg = this.metaHero.critDmg ?? this.cachedStats.critDmg;
+      this.metaHero.health = this.metaHero.health ?? this.cachedStats.health;
+      this.metaHero.regen = this.metaHero.regen ?? this.cachedStats.regen;
+    } 
     // propagate attackSpeed to client Hero so attack cooldowns match server-provided value
     if (this.hero) {
       this.hero.attackSpeed = rz.attackSpeed ?? 400;
@@ -871,17 +866,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       this.mainScene.setLevel(level);
     }
 
-    this.mainScene.camera.centerPositionOnTarget(this.metaHero.position);
-    // play music appropriate for this level
-    try { this.playLevelMusic(this.metaHero.map ?? ''); } catch { }
-
-    // If the server returned a dead hero (hp <= 0), present the death panel so user can respawn
-    try {
-      if ((rz.hp ?? 100) <= 0) {
-        // Use existing handler to show death UI and pause polling
-        this.handleHeroDeath({ killerId: null, killerUserId: undefined, cause: "spawned_dead" });
-      }
-    } catch { }
+    this.mainScene.camera.centerPositionOnTarget(this.metaHero.position); 
+    this.playLevelMusic(this.metaHero.map ?? '');  
+    if ((rz.hp ?? 100) <= 0) {
+      this.handleHeroDeath({ killerId: null, killerUserId: undefined, cause: "spawned_dead" });
+    } 
   }
 
   private async reinitializeInventoryData(skipParty = false) {
@@ -1778,15 +1767,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   private async handleHeroDeath(params: { killerId?: string | number | null, killerUserId?: number | null, cause?: string | null }) {
-    // Debug: log method entry and incoming params (safe stringify)
-    try {
-      console.debug('handleHeroDeath ENTRY', JSON.parse(JSON.stringify(params)));
-    } catch (ex) {
-      try { console.debug('handleHeroDeath ENTRY (raw)', params); } catch { }
-    }
-
+     
+    console.debug('handleHeroDeath ENTRY', JSON.parse(JSON.stringify(params))); 
     let killerId = Number(params.killerId);
-    let killerUserId = Number(params.killerUserId);
     let cause = params.cause;
 
     if (cause != "spawned_dead") {
