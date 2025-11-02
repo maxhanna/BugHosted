@@ -6,8 +6,6 @@ import { UserTagComponent } from '../user-tag/user-tag.component';
 
 @Component({
   selector: 'app-currently-playing',
-  standalone: true,
-  imports: [CommonModule, AppMenuItemComponent, UserTagComponent],
   templateUrl: './currently-playing.component.html',
   styleUrls: ['./currently-playing.component.css']
 })
