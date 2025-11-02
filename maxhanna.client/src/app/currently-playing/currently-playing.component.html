@@ -1,17 +1,24 @@
 <div class="currentlyPlayingTitle popupPanelTitle" *ngIf="showEmptyMessage">Currently Playing:</div>
 <div *ngIf="loading">Loading...</div>
 <ul *ngIf="!loading && gamers.length > 0">
-<li *ngFor="let g of gamers">
-    <strong>{{g.username}}</strong>
-    <span class="game">
-        <!-- Render as an app-menu-item when we can map the game to a known component -->
-        <ng-container *ngIf="mapGameToMenuTitle(g.game) as menuTitle">
-        <app-menu-item *ngIf="menuTitle" [type]="menuTitle" [parentRef]="parentRef" [label]="menuTitle"></app-menu-item>
-        <span *ngIf="!menuTitle">{{g.game}}</span>
-        </ng-container>
-    </span>
+<div *ngFor="let g of gamers">
+            <td>
+                <ng-container *ngIf="g.user; else usernameOnly">
+                    <app-user-tag [user]="g.user" [displayMiniTag]="true" [displayHoverPicture]="true" [inputtedParentRef]="parentRef"></app-user-tag>
+                </ng-container>
+                <ng-template #usernameOnly>
+                    <strong>{{g.username}}</strong>
+                </ng-template>
+            </td>
+            <td class="game">
+                <!-- Render as an app-menu-item when we can map the game to a known component -->
+                <ng-container *ngIf="mapGameToMenuTitle(g.game) as menuTitle">
+                    <app-menu-item *ngIf="menuTitle" [type]="menuTitle" [parentRef]="parentRef" [label]="menuTitle"></app-menu-item>
+                    <span *ngIf="!menuTitle">{{g.game}}</span>
+                </ng-container>
+            </td>
     <small *ngIf="g.lastActivityUtc">{{g.lastActivityUtc | date:'short'}}</small>
-</li>
+</div>
 </ul>
 <div *ngIf="showEmptyMessage && !loading && gamers.length === 0">No players are currently active.</div>
 

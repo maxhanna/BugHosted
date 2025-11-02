@@ -6,5 +6,6 @@ namespace maxhanna.Server.Controllers.DataContracts.Users
         public string? Username { get; set; }
         public string? Game { get; set; }
         public DateTime? LastActivityUtc { get; set; }
+        public User? User { get; set; }
     }
 }

@@ -112,104 +112,109 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				await conn.OpenAsync();
-				// Consider recent activity in each game. Use updated/last_seen columns where available.
+				// Combine the union of activity sources with user/profile info in one query to avoid per-row lookups
 				string sql = @"
-				SELECT * FROM (
-				SELECT u.id AS userId, u.username AS username, 'bones' AS game, MAX(h.updated) AS lastActivity
-				FROM maxhanna.users u
-				JOIN maxhanna.bones_hero h ON h.user_id = u.id
-				GROUP BY u.id
-				UNION
-				-- Ender activity: use bike wall events (created_at) as the authoritative recent-activity source
-				SELECT u.id AS userId, u.username AS username, 'ender' AS game,
-				(
-					SELECT MAX(ebw.created_at) FROM maxhanna.ender_bike_wall ebw
-					JOIN maxhanna.bones_hero bh ON bh.id = ebw.hero_id
-					WHERE bh.user_id = u.id
-				) AS lastActivity
-				FROM maxhanna.users u
-				GROUP BY u.id
-				UNION
-				-- Array activity: graveyard timestamps used as a safe fallback if array_characters.updated_at is not present
-				SELECT u.id AS userId, u.username AS username, 'array' AS game,
-				(
-					SELECT MAX(lastActivity) FROM (
-						SELECT g.timestamp AS lastActivity FROM maxhanna.array_characters_graveyard g WHERE g.user_id = u.id AND g.timestamp IS NOT NULL
-						UNION ALL
-						SELECT NULL
-					) recent_array
-				) AS lastActivity
-				FROM maxhanna.users u
-				LEFT JOIN maxhanna.array_characters ac ON ac.user_id = u.id
-				GROUP BY u.id
-				UNION
-				SELECT u.id AS userId, u.username AS username, 'wordler' AS game, MAX(wg.date) AS lastActivity
-				FROM maxhanna.users u
-				JOIN maxhanna.wordler_guess wg ON wg.user_id = u.id
-				GROUP BY u.id
-				UNION
-				SELECT u.id AS userId, u.username AS username, 'mastermind' AS game, MAX(mg.guess_time_utc) AS lastActivity
-				FROM maxhanna.users u
-				JOIN maxhanna.mastermind_games mg_g ON mg_g.user_id = u.id
-				JOIN maxhanna.mastermind_guesses mg ON mg.game_id = mg_g.id
-				GROUP BY u.id
-				UNION
-				SELECT u.id AS userId, u.username AS username, 'meta' AS game, MAX(p.last_used) AS lastActivity
-				FROM maxhanna.users u
-				JOIN maxhanna.meta_hero mh ON mh.user_id = u.id
-				JOIN maxhanna.meta_bot_part p ON p.hero_id = mh.id
-				GROUP BY u.id
-				UNION
-				-- Emulation (ROM) activity: consider play-time records and .sav file uploads/last_access
-				SELECT u.id AS userId, u.username AS username, 'emulation' AS game,
-				(
-					SELECT MAX(lastActivity) FROM (
-						SELECT ept.save_time AS lastActivity FROM maxhanna.emulation_play_time ept WHERE ept.user_id = u.id AND ept.save_time IS NOT NULL
-						UNION ALL
-						SELECT ept.start_time AS lastActivity FROM maxhanna.emulation_play_time ept WHERE ept.user_id = u.id AND ept.start_time IS NOT NULL
-						UNION ALL
-						SELECT fu.upload_date AS lastActivity FROM maxhanna.file_uploads fu WHERE fu.user_id = u.id AND (fu.file_type = 'sav' OR fu.file_name LIKE '%.sav') AND fu.upload_date IS NOT NULL
-						UNION ALL
-						SELECT fu.last_access AS lastActivity FROM maxhanna.file_uploads fu WHERE fu.user_id = u.id AND (fu.file_type = 'sav' OR fu.file_name LIKE '%.sav') AND fu.last_access IS NOT NULL
-					) recent_emulation
-				) AS lastActivity
-				FROM maxhanna.users u
-				GROUP BY u.id
-				UNION
-				-- Nexus activity: attacks/defences, purchases, upgrades and base upgrades mapped to user via nexus_bases
-				SELECT u.id AS userId, u.username AS username, 'nexus' AS game,
-				(
-					SELECT MAX(lastActivity) FROM (
-						SELECT nas.timestamp AS lastActivity FROM maxhanna.nexus_attacks_sent nas WHERE nas.origin_user_id = u.id AND nas.timestamp IS NOT NULL
-						UNION ALL
-						SELECT nas.timestamp AS lastActivity FROM maxhanna.nexus_attacks_sent nas WHERE nas.destination_user_id = u.id AND nas.timestamp IS NOT NULL
-						UNION ALL
-						SELECT nds.timestamp AS lastActivity FROM maxhanna.nexus_defences_sent nds WHERE nds.origin_user_id = u.id AND nds.timestamp IS NOT NULL
-						UNION ALL
-						SELECT nds.timestamp AS lastActivity FROM maxhanna.nexus_defences_sent nds WHERE nds.destination_user_id = u.id AND nds.timestamp IS NOT NULL
-						UNION ALL
-						SELECT p.timestamp AS lastActivity FROM maxhanna.nexus_unit_purchases p JOIN maxhanna.nexus_bases nb ON nb.coords_x = p.coords_x AND nb.coords_y = p.coords_y WHERE nb.user_id = u.id AND p.timestamp IS NOT NULL
-						UNION ALL
-						SELECT u2.timestamp AS lastActivity FROM maxhanna.nexus_unit_upgrades u2 JOIN maxhanna.nexus_bases nb2 ON nb2.coords_x = u2.coords_x AND nb2.coords_y = u2.coords_y WHERE nb2.user_id = u.id AND u2.timestamp IS NOT NULL
-						UNION ALL
-						SELECT bu.command_center_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.command_center_upgraded IS NOT NULL
-						UNION ALL
-						SELECT bu.mines_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.mines_upgraded IS NOT NULL
-						UNION ALL
-						SELECT bu.supply_depot_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.supply_depot_upgraded IS NOT NULL
-						UNION ALL
-						SELECT bu.factory_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.factory_upgraded IS NOT NULL
-						UNION ALL
-						SELECT bu.starport_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.starport_upgraded IS NOT NULL
-						UNION ALL
-						SELECT bu.warehouse_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.warehouse_upgraded IS NOT NULL
-						UNION ALL
-						SELECT bu.engineering_bay_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.engineering_bay_upgraded IS NOT NULL
-					) recent_nexus
-				) AS lastActivity
-				FROM maxhanna.users u
-				GROUP BY u.id 
+				SELECT t.userId, t.username, t.game, t.lastActivity,
+					   u.created, u.last_seen,
+					   dp.file_id AS latest_file_id, dp.tag_background_file_id AS tag_background_file_id,
+					   dpf.file_name, dpf.folder_path,
+					   ua.description, ua.phone, ua.email, ua.birthday, ua.currency, ua.is_email_public
+				FROM (
+					SELECT u.id AS userId, u.username AS username, 'bones' AS game, MAX(h.updated) AS lastActivity
+					FROM maxhanna.users u
+					JOIN maxhanna.bones_hero h ON h.user_id = u.id
+					GROUP BY u.id
+					UNION
+					SELECT u.id AS userId, u.username AS username, 'ender' AS game,
+					(
+						SELECT MAX(ebw.created_at) FROM maxhanna.ender_bike_wall ebw
+						JOIN maxhanna.bones_hero bh ON bh.id = ebw.hero_id
+						WHERE bh.user_id = u.id
+					) AS lastActivity
+					FROM maxhanna.users u
+					GROUP BY u.id
+					UNION
+					SELECT u.id AS userId, u.username AS username, 'array' AS game,
+					(
+						SELECT MAX(lastActivity) FROM (
+							SELECT g.timestamp AS lastActivity FROM maxhanna.array_characters_graveyard g WHERE g.user_id = u.id AND g.timestamp IS NOT NULL
+							UNION ALL
+							SELECT NULL
+						) recent_array
+					) AS lastActivity
+					FROM maxhanna.users u
+					LEFT JOIN maxhanna.array_characters ac ON ac.user_id = u.id
+					GROUP BY u.id
+					UNION
+					SELECT u.id AS userId, u.username AS username, 'wordler' AS game, MAX(wg.date) AS lastActivity
+					FROM maxhanna.users u
+					JOIN maxhanna.wordler_guess wg ON wg.user_id = u.id
+					GROUP BY u.id
+					UNION
+					SELECT u.id AS userId, u.username AS username, 'mastermind' AS game, MAX(mg.guess_time_utc) AS lastActivity
+					FROM maxhanna.users u
+					JOIN maxhanna.mastermind_games mg_g ON mg_g.user_id = u.id
+					JOIN maxhanna.mastermind_guesses mg ON mg.game_id = mg_g.id
+					GROUP BY u.id
+					UNION
+					SELECT u.id AS userId, u.username AS username, 'meta' AS game, MAX(p.last_used) AS lastActivity
+					FROM maxhanna.users u
+					JOIN maxhanna.meta_hero mh ON mh.user_id = u.id
+					JOIN maxhanna.meta_bot_part p ON p.hero_id = mh.id
+					GROUP BY u.id
+					UNION
+					SELECT u.id AS userId, u.username AS username, 'emulation' AS game,
+					(
+						SELECT MAX(lastActivity) FROM (
+							SELECT ept.save_time AS lastActivity FROM maxhanna.emulation_play_time ept WHERE ept.user_id = u.id AND ept.save_time IS NOT NULL
+							UNION ALL
+							SELECT ept.start_time AS lastActivity FROM maxhanna.emulation_play_time ept WHERE ept.user_id = u.id AND ept.start_time IS NOT NULL
+							UNION ALL
+							SELECT fu.upload_date AS lastActivity FROM maxhanna.file_uploads fu WHERE fu.user_id = u.id AND (fu.file_type = 'sav' OR fu.file_name LIKE '%.sav') AND fu.upload_date IS NOT NULL
+							UNION ALL
+							SELECT fu.last_access AS lastActivity FROM maxhanna.file_uploads fu WHERE fu.user_id = u.id AND (fu.file_type = 'sav' OR fu.file_name LIKE '%.sav') AND fu.last_access IS NOT NULL
+						) recent_emulation
+					) AS lastActivity
+					FROM maxhanna.users u
+					GROUP BY u.id
+					UNION
+					SELECT u.id AS userId, u.username AS username, 'nexus' AS game,
+					(
+						SELECT MAX(lastActivity) FROM (
+							SELECT nas.timestamp AS lastActivity FROM maxhanna.nexus_attacks_sent nas WHERE nas.origin_user_id = u.id AND nas.timestamp IS NOT NULL
+							UNION ALL
+							SELECT nas.timestamp AS lastActivity FROM maxhanna.nexus_attacks_sent nas WHERE nas.destination_user_id = u.id AND nas.timestamp IS NOT NULL
+							UNION ALL
+							SELECT nds.timestamp AS lastActivity FROM maxhanna.nexus_defences_sent nds WHERE nds.origin_user_id = u.id AND nds.timestamp IS NOT NULL
+							UNION ALL
+							SELECT nds.timestamp AS lastActivity FROM maxhanna.nexus_defences_sent nds WHERE nds.destination_user_id = u.id AND nds.timestamp IS NOT NULL
+							UNION ALL
+							SELECT p.timestamp AS lastActivity FROM maxhanna.nexus_unit_purchases p JOIN maxhanna.nexus_bases nb ON nb.coords_x = p.coords_x AND nb.coords_y = p.coords_y WHERE nb.user_id = u.id AND p.timestamp IS NOT NULL
+							UNION ALL
+							SELECT u2.timestamp AS lastActivity FROM maxhanna.nexus_unit_upgrades u2 JOIN maxhanna.nexus_bases nb2 ON nb2.coords_x = u2.coords_x AND nb2.coords_y = u2.coords_y WHERE nb2.user_id = u.id AND u2.timestamp IS NOT NULL
+							UNION ALL
+							SELECT bu.command_center_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.command_center_upgraded IS NOT NULL
+							UNION ALL
+							SELECT bu.mines_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.mines_upgraded IS NOT NULL
+							UNION ALL
+							SELECT bu.supply_depot_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.supply_depot_upgraded IS NOT NULL
+							UNION ALL
+							SELECT bu.factory_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.factory_upgraded IS NOT NULL
+							UNION ALL
+							SELECT bu.starport_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.starport_upgraded IS NOT NULL
+							UNION ALL
+							SELECT bu.warehouse_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.warehouse_upgraded IS NOT NULL
+							UNION ALL
+							SELECT bu.engineering_bay_upgraded AS lastActivity FROM maxhanna.nexus_base_upgrades bu JOIN maxhanna.nexus_bases nb3 ON nb3.coords_x = bu.coords_x AND nb3.coords_y = bu.coords_y WHERE nb3.user_id = u.id AND bu.engineering_bay_upgraded IS NOT NULL
+						) recent_nexus
+					) AS lastActivity
+					FROM maxhanna.users u
+					GROUP BY u.id
 				) t
+				LEFT JOIN maxhanna.users u ON u.id = t.userId
+				LEFT JOIN maxhanna.user_display_pictures dp ON dp.user_id = u.id
+				LEFT JOIN maxhanna.user_about ua ON ua.user_id = u.id
+				LEFT JOIN maxhanna.file_uploads dpf ON dpf.id = dp.file_id
 				WHERE t.lastActivity >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)
 				ORDER BY t.lastActivity DESC
 				LIMIT 200;";
@@ -219,12 +224,48 @@ namespace maxhanna.Server.Controllers
 				var list = new List<maxhanna.Server.Controllers.DataContracts.Users.ActiveGamer>();
 				while (await rdr.ReadAsync())
 				{
+					var userId = rdr.IsDBNull(rdr.GetOrdinal("userId")) ? 0 : rdr.GetInt32("userId");
+
+					var displayPicId = rdr.IsDBNull(rdr.GetOrdinal("latest_file_id")) ? 0 : rdr.GetInt32("latest_file_id");
+					var displayPic = new FileEntry()
+					{
+						Id = displayPicId,
+						FileName = rdr.IsDBNull(rdr.GetOrdinal("file_name")) ? string.Empty : rdr.GetString("file_name"),
+						Directory = rdr.IsDBNull(rdr.GetOrdinal("folder_path")) ? string.Empty : rdr.GetString("folder_path")
+					};
+
+					var bgPicId = rdr.IsDBNull(rdr.GetOrdinal("tag_background_file_id")) ? 0 : rdr.GetInt32("tag_background_file_id");
+					var bgPic = new FileEntry() { Id = bgPicId };
+
+					var about = new UserAbout()
+					{
+						UserId = userId,
+						Description = rdr.IsDBNull(rdr.GetOrdinal("description")) ? string.Empty : rdr.GetString("description"),
+						Phone = rdr.IsDBNull(rdr.GetOrdinal("phone")) ? string.Empty : rdr.GetString("phone"),
+						Email = rdr.IsDBNull(rdr.GetOrdinal("email")) ? string.Empty : rdr.GetString("email"),
+						Birthday = rdr.IsDBNull(rdr.GetOrdinal("birthday")) ? (DateTime?)null : rdr.GetDateTime("birthday"),
+						Currency = rdr.IsDBNull(rdr.GetOrdinal("currency")) ? null : rdr.GetString("currency"),
+						IsEmailPublic = rdr.IsDBNull(rdr.GetOrdinal("is_email_public")) ? true : rdr.GetBoolean("is_email_public")
+					};
+
+					var fullUser = new maxhanna.Server.Controllers.DataContracts.Users.User()
+					{
+						Id = userId,
+						Username = rdr.IsDBNull(rdr.GetOrdinal("username")) ? "Anonymous" : rdr.GetString("username"),
+						Created = rdr.IsDBNull(rdr.GetOrdinal("created")) ? (DateTime?)null : rdr.GetDateTime("created"),
+						LastSeen = rdr.IsDBNull(rdr.GetOrdinal("last_seen")) ? (DateTime?)null : rdr.GetDateTime("last_seen"),
+						DisplayPictureFile = (displayPic != null && displayPic.Id != 0) ? displayPic : null,
+						ProfileBackgroundPictureFile = (bgPic != null && bgPic.Id != 0) ? bgPic : null,
+						About = about
+					};
+
 					var ag = new maxhanna.Server.Controllers.DataContracts.Users.ActiveGamer
 					{
-						UserId = rdr.IsDBNull(rdr.GetOrdinal("userId")) ? 0 : rdr.GetInt32("userId"),
+						UserId = userId,
 						Username = rdr.IsDBNull(rdr.GetOrdinal("username")) ? null : rdr.GetString("username"),
 						Game = rdr.IsDBNull(rdr.GetOrdinal("game")) ? null : rdr.GetString("game"),
-						LastActivityUtc = rdr.IsDBNull(rdr.GetOrdinal("lastActivity")) ? (DateTime?)null : rdr.GetDateTime("lastActivity")
+						LastActivityUtc = rdr.IsDBNull(rdr.GetOrdinal("lastActivity")) ? (DateTime?)null : rdr.GetDateTime("lastActivity"),
+						User = fullUser
 					};
 					list.Add(ag);
 				}
