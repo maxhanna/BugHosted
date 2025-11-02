@@ -639,10 +639,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.metaHero.level = heroMeta.level ?? this.metaHero.level;
         this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp;
         if (this.metaHero.map !== res.map) {
+          console.log("map change detected from server:", this.metaHero.map, "->", res.map);
           forceChangeMap = true;
         }
-        this.metaHero.map = res.map ?? this.metaHero.map;
-  // Legacy stats removed; rely on new stat fields only
+        this.metaHero.map = res.map ?? this.metaHero.map; 
         if (this.hero) {
           const incomingHp = heroMeta.hp ?? this.hero.hp ?? 0;
           const prevHp = typeof previousLocalHp === 'number' ? previousLocalHp : (this.hero.hp ?? incomingHp);
@@ -655,14 +655,14 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           this.hero.maxHp = 100;
         }
       }
-      if (existingHero) {
-        (existingHero as any).partyMembers =
-          (Array.isArray(this.partyMembers)
-            && this.partyMembers.length > 0
-            && this.partyMembers.some((x: any) => x.heroId == (existingHero as any).heroId))
-            ? this.partyMembers
-            : undefined;
-      }
+      // if (existingHero) {
+      //   (existingHero as any).partyMembers =
+      //     (Array.isArray(this.partyMembers)
+      //       && this.partyMembers.length > 0
+      //       && this.partyMembers.some((x: any) => x.heroId == (existingHero as any).heroId))
+      //       ? this.partyMembers
+      //       : undefined;
+      // }
 
 
       // Chat bubble / latest message
