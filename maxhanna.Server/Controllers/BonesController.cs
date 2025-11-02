@@ -661,7 +661,7 @@ ORDER BY p.created DESC;";
 						}
 						// Non-regular AoE: keep previous behaviour (may update multiple rows)
 						int aoeDamage = Math.Max(1, attackerLevel);
-						Console.WriteLine($"AoE attack UPDATE: attacker={sourceHeroId}, aoeDamage={aoeDamage}, xRange={xMin}-{xMax}, yRange={yMin}-{yMax}, map={hero?.Map}");
+						Console.WriteLine($"AoE attack UPDATE: attacker={sourceHeroId}, aoeDamage={aoeDamage}, xRange={xMin}-{xMax}, yRange={yMin}-{yMax}, map={hero?.Map}, currentSkill={currentSkill}");
 						string updateHpSql = $@"
 								UPDATE maxhanna.bones_encounter e
 								SET e.hp = GREATEST(e.hp - @AttackerLevel, 0),
