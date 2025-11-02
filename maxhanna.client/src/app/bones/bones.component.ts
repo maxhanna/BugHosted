@@ -1342,12 +1342,19 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const baseCritDmg = 2.0;
     const baseHealth = 100;
     const baseRegen = 0.0;
+    // Regen is represented as a fractional stat (e.g. 0.1 per UI step) but should
+    // consume whole available stat points. Define the regen step and cost so that
+    // each regen "step" consumes one stat point (e.g. 0.1 regen == 1 point).
+    const regenStep = 0.1;
+    const regenCostPerStep = 1; // each regenStep costs 1 point
+    const regenSpent = Math.max(0, Math.round(((Number(sRegen) - baseRegen) + 1e-9) / regenStep)) * regenCostPerStep;
+
     const spent = Math.max(0, Number(sAttackDmg) - baseAttackDmg)
       + Math.max(0, Number(sAttackSpeed) - baseAttackSpeed)
       + Math.max(0, Number(sCritRate) - baseCritRate)
       + Math.max(0, Number(sCritDmg) - baseCritDmg)
       + Math.max(0, Number(sHealth) - baseHealth)
-      + Math.max(0, Number(sRegen) - baseRegen);
+      + regenSpent;
     const pointsAvailable = Math.max(0, totalPoints - spent);
 
     this.editableStats = {
@@ -1450,15 +1457,26 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const next = current + delta;
     // Prevent negative values for any stat
     if (next < 0) return;
-    // Points bookkeeping: if increasing, require available points
-    if (delta > 0 && this.editableStats.pointsAvailable <= 0) return;
-    // If this is regen or critDmg, clamp to 2 decimal places to avoid long floats
-    if (stat === 'regen' || stat === 'critDmg') {
+    // Points bookkeeping: for most stats delta is the cost. For regen, UI uses
+    // fractional steps (e.g. 0.1) that should cost whole stat points. Treat
+    // regen specially: each regenStep consumes regenCostPerStep points.
+    const regenStep = 0.1;
+    const regenCostPerStep = 1;
+
+    if (stat === 'regen') {
+      // Require at least one full point to increase regen by one step
+      if (delta > 0 && this.editableStats.pointsAvailable < regenCostPerStep) return;
+      // Clamp regen to 2 decimal places
       (this.editableStats as any)[stat] = Math.round(next * 100) / 100;
+      // Adjust pointsAvailable by whole units per regen step
+      if (delta > 0) this.editableStats.pointsAvailable -= regenCostPerStep;
+      else this.editableStats.pointsAvailable += regenCostPerStep * Math.abs(Math.round(delta / regenStep));
     } else {
+      // Non-regen stats: delta corresponds directly to spent points
+      if (delta > 0 && this.editableStats.pointsAvailable <= 0) return;
       (this.editableStats as any)[stat] = next;
+      if (delta > 0) this.editableStats.pointsAvailable -= delta; else this.editableStats.pointsAvailable += Math.abs(delta);
     }
-    if (delta > 0) this.editableStats.pointsAvailable -= delta; else this.editableStats.pointsAvailable += Math.abs(delta);
   }
 
   // Simple helper to detect if the editable stats differ from the original capture
