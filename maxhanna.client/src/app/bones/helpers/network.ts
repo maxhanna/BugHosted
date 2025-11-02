@@ -953,8 +953,8 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
       const y = (it.coordsY !== undefined && it.coordsY !== null) ? Number(it.coordsY) : (it.position && it.position.y ? Number(it.position.y) : undefined);
       if (x === undefined || y === undefined || isNaN(x) || isNaN(y)) return undefined;
       // Compute a friendly label. If server provided creator hero id/name, show "Name's\nPortal" on two lines.
-      let label = 'Town Portal';
-      try {
+      let label = '';
+      if (object.metaHero && object.metaHero.map && !object.metaHero.map.toLowerCase().includes('road')) {
         const creatorId = Number(it.creatorHeroId ?? it.creator_hero_id ?? it.heroId ?? it.creator ?? it.creatorId ?? it.ownerId ?? it.createdBy ?? it.hero_id ?? undefined);
         if (!isNaN(creatorId) && creatorId > 0 && object.otherHeroes) {
           const owner = object.otherHeroes.find((h: any) => Number(h.id) === creatorId);
@@ -971,8 +971,9 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
           // Fallback: if this is the local player's portal, show local name
           const me = object.metaHero.name;
           label = `${String(me).split(' ')[0]}'s\nPortal`;
-        }
-      } catch { }
+        } 
+      }
+
       const portalMarker = new TownPortal({ position: new Vector2(x, y), label: label });
       try { (portalMarker as any).serverPortalId = id; } catch { }
       // Parse server data

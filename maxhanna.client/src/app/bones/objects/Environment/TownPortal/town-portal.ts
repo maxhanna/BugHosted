@@ -14,7 +14,7 @@ export class TownPortal extends GameObject {
   objectId = Math.floor(Math.random() * 55000) + 10000; 
   serverPortalId?: number;
   constructor(params: { position: Vector2, label?: string }) {
-    const label = params.label ?? "Town Portal";
+    const label = params.label ?? ""; 
     super({
       position: new Vector2(snapToGrid(params.position.x), snapToGrid(params.position.y)),
       name: label,
