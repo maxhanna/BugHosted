@@ -3232,7 +3232,7 @@ ORDER BY p.created DESC;";
 				if (targetHealthPercent >= 100) targetHealthPercent = 99; // never allow 100% reduction
 				double factor = 1.0 - (targetHealthPercent / 100.0);
 				// Apply reduction and round to integer damage
-				int finalDamage = (int)Math.Round(damage * factor);
+				int finalDamage = (int)Math.Round(baseDamage * factor);
 				if (finalDamage < 0) finalDamage = 0;
 				//Console.WriteLine($"ApplyDamageToHero: computed finalDamage={finalDamage} (factor={factor})");
 
