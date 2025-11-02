@@ -3211,41 +3211,29 @@ ORDER BY p.created DESC;";
 					System.Console.WriteLine($"ApplyDamageToHero: oldHp={oldHp}");
 				}
 
-				// Combine UPDATE and SELECT in a single command to reduce round-trips
-				string updAndSel = @"
-				UPDATE maxhanna.bones_hero 
-				SET hp = GREATEST(hp - @Damage, 0), 
-					updated = UTC_TIMESTAMP() 
-				WHERE id = @TargetHeroId 
-				AND hp > 0 
-				LIMIT 1; 
-				SELECT hp FROM maxhanna.bones_hero WHERE id = @TargetHeroId LIMIT 1;";
-				using var cmd = new MySqlCommand(updAndSel, connection, transaction);
-				cmd.Parameters.AddWithValue("@Damage", finalDamage);
-				cmd.Parameters.AddWithValue("@TargetHeroId", targetHeroId);
-				using var rdr = await cmd.ExecuteReaderAsync();
-				int newHp = 0; 
-				if (await rdr.NextResultAsync())
+				// Perform UPDATE then SELECT in sequence to reliably read the updated HP
+				int newHp = 0;
+				string upd = "UPDATE maxhanna.bones_hero SET hp = GREATEST(hp - @Damage, 0), updated = UTC_TIMESTAMP() WHERE id = @TargetHeroId AND hp > 0 LIMIT 1;";
+				using (var updCmd = new MySqlCommand(upd, connection, transaction))
 				{
-					if (await rdr.ReadAsync())
+					updCmd.Parameters.AddWithValue("@Damage", finalDamage);
+					updCmd.Parameters.AddWithValue("@TargetHeroId", targetHeroId);
+					int affected = Convert.ToInt32(await updCmd.ExecuteNonQueryAsync());
+					// Now read the new HP
+					string sel = "SELECT hp FROM maxhanna.bones_hero WHERE id = @TargetHeroId LIMIT 1;";
+					using var selCmd = new MySqlCommand(sel, connection, transaction);
+					selCmd.Parameters.AddWithValue("@TargetHeroId", targetHeroId);
+					var obj = await selCmd.ExecuteScalarAsync();
+					if (obj != null && int.TryParse(obj.ToString(), out var parsed))
 					{
-						if (!rdr.IsDBNull(0))
-						{
-							var val = rdr.GetValue(0);
-							if (val != null && int.TryParse(val.ToString(), out var parsed)) {
-								Console.WriteLine("ApplyDamageToHero: newHp read from SELECT=" + parsed);
-								newHp = parsed;
-							}
-						}
+						Console.WriteLine("ApplyDamageToHero: newHp read from SELECT=" + parsed);
+						newHp = parsed;
 					}
-				}
-				int affected = rdr.RecordsAffected;
-				System.Console.WriteLine($"ApplyDamageToHero: DB update affected={affected}, newHp={newHp}");
-				// Ensure the reader is closed before running any further commands on the same connection
-				rdr.Close();
-				if (affected > 0 && newHp <= 0)
-				{ 
-					await HandleHeroDeath(targetHeroId, attackerId, attackerType, map, connection, transaction);
+					System.Console.WriteLine($"ApplyDamageToHero: DB update affected={affected}, newHp={newHp}");
+					if (affected > 0 && newHp <= 0)
+					{
+						await HandleHeroDeath(targetHeroId, attackerId, attackerType, map, connection, transaction);
+					}
 				}
 			}
 			catch (Exception ex)
