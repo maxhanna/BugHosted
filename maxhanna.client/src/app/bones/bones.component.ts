@@ -589,7 +589,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     }
   }
 
-  private updateHeroesFromFetchedData(res: { map: number; position: Vector2; heroes: MetaHero[]; }) {
+  private updateHeroesFromFetchedData(res: { map: string; position: Vector2; heroes: MetaHero[]; }) {
     if (!res || !res.heroes) {
       this.otherHeroes = [];
       return;
@@ -615,7 +615,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         existingHero.hp = heroMeta.hp ?? existingHero.hp;
         existingHero.level = heroMeta.level ?? existingHero.level;
         existingHero.exp = heroMeta.exp ?? existingHero.exp;
-
         // Mask handling: if mask state changed, recreate character
         try {
           if (heroMeta.mask === 0 && existingHero.mask) {
@@ -638,6 +637,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.metaHero.hp = heroMeta.hp ?? this.metaHero.hp;
         this.metaHero.level = heroMeta.level ?? this.metaHero.level;
         this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp;
+        this.metaHero.map = res.map ?? this.metaHero.map;
   // Legacy stats removed; rely on new stat fields only
         if (this.hero) {
           const incomingHp = heroMeta.hp ?? this.hero.hp ?? 0;
