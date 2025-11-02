@@ -616,8 +616,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         existingHero.hp = heroMeta.hp ?? existingHero.hp;
         existingHero.level = heroMeta.level ?? existingHero.level;
         existingHero.exp = heroMeta.exp ?? existingHero.exp;
-        // Mask handling: if mask state changed, recreate character
-        try {
+        if (existingHero.hp > 0) { 
           if (heroMeta.mask === 0 && existingHero.mask) {
             existingHero.destroy();
             existingHero = this.addHeroToScene(heroMeta);
@@ -627,8 +626,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           } else if (heroMeta.mask && heroMeta.mask != 0 && existingHero.mask && getMaskNameById(heroMeta.mask).toLowerCase() != existingHero.mask.name?.toLowerCase()) {
             existingHero.destroy();
             existingHero = this.addHeroToScene(heroMeta);
-          }
-        } catch (ex) { /* ignore mask errors */ }
+          } 
+        }
       } else {
         existingHero = this.addHeroToScene(heroMeta);
       }
@@ -653,6 +652,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           this.hero.level = heroMeta.level ?? 1;
           this.hero.exp = heroMeta.exp ?? 0;
           this.hero.maxHp = 100;
+          if ((this.hero.hp ?? 0) <= 0 && !this.isDead) {
+            this.isDead = true;
+            events.emit("HERO_DIED", { heroId: this.hero.id });
         }
       }
       // if (existingHero) {
