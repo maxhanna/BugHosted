@@ -3051,14 +3051,47 @@ ORDER BY p.created DESC;";
 			return;
 		}
 
-		// Handle hero death: reset coordinates to (0,0) on the same map and emit a HERO_DIED meta-event with killer info.
+		// Handle hero death: move the hero to the previous town in orderedMaps (a safe-place city)
+		// and emit a HERO_DIED meta-event with killer info.
 		private async Task HandleHeroDeath(int victimHeroId, int killerId, string killerType, string map, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			try
 			{
-				// Reset hero position to origin (0,0) and update timestamp
-				string updSql = "UPDATE maxhanna.bones_hero SET coordsX = 0, coordsY = 0, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
-				var updParams = new Dictionary<string, object?>() { { "@HeroId", victimHeroId } };
+				// Determine the town that precedes the hero's current map using orderedMaps.
+				var townSet = new HashSet<string>(new[] { "HeroRoom", "CitadelOfVesper", "RiftedBastion", "FortPenumbra", "GatesOfHell" });
+				string currentMapRaw = map ?? string.Empty;
+				string NormalizeMap(string s)
+				{
+					if (string.IsNullOrEmpty(s)) return string.Empty;
+					var sb = new System.Text.StringBuilder();
+					foreach (var ch in s.ToUpperInvariant()) { if (char.IsLetterOrDigit(ch)) sb.Append(ch); }
+					return sb.ToString();
+				}
+				string normCurrent = NormalizeMap(currentMapRaw);
+				int idx = -1;
+				for (int i = 0; i < orderedMaps.Length; i++)
+				{
+					if (NormalizeMap(orderedMaps[i]) == normCurrent) { idx = i; break; }
+				}
+				string targetMap = "HeroRoom";
+				if (idx == -1)
+				{
+					targetMap = "HeroRoom";
+				}
+				else
+				{
+					for (int i = idx - 1; i >= 0; i--)
+					{
+						if (townSet.Contains(orderedMaps[i])) { targetMap = orderedMaps[i]; break; }
+					}
+				}
+
+				// Place the dead hero at a safe origin point in the target map
+				int targetX = GRIDCELL;
+				int targetY = GRIDCELL;
+
+				string updSql = "UPDATE maxhanna.bones_hero SET coordsX = @X, coordsY = @Y, map = @Map, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
+				var updParams = new Dictionary<string, object?>() { { "@HeroId", victimHeroId }, { "@X", targetX }, { "@Y", targetY }, { "@Map", targetMap } };
 				await ExecuteInsertOrUpdateOrDeleteAsync(updSql, updParams, connection, transaction);
 
 				// Emit HERO_DIED event targeted at the victim so client will display death UI and can react.
@@ -3066,7 +3099,7 @@ ORDER BY p.created DESC;";
 					{ "killerId", killerId.ToString() },
 					{ "killerType", killerType }
 				};
-				var deathEvent = new MetaEvent(0, victimHeroId, DateTime.UtcNow, "HERO_DIED", map ?? string.Empty, data);
+				var deathEvent = new MetaEvent(0, victimHeroId, DateTime.UtcNow, "HERO_DIED", targetMap ?? string.Empty, data);
 				await UpdateEventsInDB(deathEvent, connection, transaction);
 			}
 			catch (Exception ex)
