@@ -412,8 +412,90 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.mainScene.drawObjects(this.ctx);
     this.ctx.restore(); //Restore to original state 
     this.mainScene.drawForeground(this.ctx); //Draw anything above the game world
+    // Draw HUD for local player (health orb and experience bar)
+    try {
+      this.drawHudForLocalHero(this.ctx);
+    } catch { }
   }
   gameLoop = new GameLoop(this.update, this.render);
+
+  // Draw health orb (bottom-left) and experience bar (bottom) for the user-controlled hero
+  drawHudForLocalHero(ctx: CanvasRenderingContext2D) {
+    try {
+      const hero = this.hero;
+      if (!hero || !hero.isUserControlled) return;
+      // Health orb parameters
+      const orbRadius = Math.max(32, Math.floor(Math.min(this.canvas.width, this.canvas.height) * 0.06));
+      const padding = 12;
+      const orbX = padding + orbRadius;
+      const orbY = this.canvas.height - padding - orbRadius;
+
+      // Draw orb background
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(orbX, orbY, orbRadius, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fill();
+      ctx.closePath();
+
+      // HP fill (radial slice)
+      const hp = Math.max(0, Math.min(100, (hero.hp ?? 0)));
+      const hpRatio = hp / 100;
+      // Draw filled arc representing HP
+      ctx.beginPath();
+      ctx.moveTo(orbX, orbY);
+      ctx.fillStyle = 'rgba(200,30,30,0.95)';
+      ctx.arc(orbX, orbY, orbRadius - 4, -Math.PI/2, -Math.PI/2 + Math.PI * 2 * hpRatio, false);
+      ctx.lineTo(orbX, orbY);
+      ctx.fill();
+      ctx.closePath();
+
+      // Inner circle to create border effect
+      ctx.beginPath();
+      ctx.arc(orbX, orbY, orbRadius - 8, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.fill();
+      ctx.closePath();
+
+      // HP text inside orb
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 14px fontRetroGaming';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(Math.round(hp)), orbX, orbY);
+
+      // Experience bar along bottom
+      const barHeight = 12;
+      const barPadding = 8;
+      const barWidth = this.canvas.width - (orbRadius * 2 + padding * 4);
+      const barX = orbX + orbRadius + padding * 2;
+      const barY = this.canvas.height - barHeight - barPadding;
+      const exp = (hero.exp ?? 0);
+      const expForNext = (hero.expForNextLevel && hero.expForNextLevel > 0) ? hero.expForNextLevel : Math.max(1, (hero.level ?? 1) * 15);
+      const expRatio = Math.max(0, Math.min(1, exp / expForNext));
+
+      // Bar background
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(barX, barY, barWidth, barHeight);
+      ctx.closePath();
+
+      // Filled exp
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(220,200,30,0.95)';
+      ctx.fillRect(barX + 2, barY + 2, Math.max(0, (barWidth - 4) * expRatio), barHeight - 4);
+      ctx.closePath();
+
+      // Level text on left of bar
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 12px fontRetroGaming';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Lvl ' + (hero.level ?? 1), barX + 6, barY + barHeight / 2);
+
+      ctx.restore();
+    } catch (ex) { console.warn('drawHudForLocalHero failed', ex); }
+  }
 
   async pollForChanges() {
     if (!this.hero?.id && this.parentRef?.user?.id) {
