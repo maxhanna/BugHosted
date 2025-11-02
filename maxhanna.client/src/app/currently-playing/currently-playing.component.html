@@ -1,6 +1,5 @@
 <div class="currentlyPlayingTitle popupPanelTitle" *ngIf="showEmptyMessage || gamers.length > 0">Currently Playing:</div>
-<div *ngIf="loading">Loading...</div>
-<ul *ngIf="!loading && gamers.length > 0">
+<div *ngIf="loading">Loading...</div> 
 <div *ngFor="let g of gamers"> 
     <ng-container *ngIf="g.user; else usernameOnly">
         <app-user-tag [user]="g.user" [displayMiniTag]="true" [displayHoverPicture]="true" [inputtedParentRef]="parentRef"></app-user-tag>
@@ -15,6 +14,6 @@
     </ng-container> 
     <small *ngIf="g.lastActivityUtc">{{g.lastActivityUtc | timeSince}}</small>
 </div>
-</ul>
+ 
 <div *ngIf="showEmptyMessage && !loading && gamers.length === 0">No players are currently active.</div>
 
