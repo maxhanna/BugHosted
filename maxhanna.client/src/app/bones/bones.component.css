@@ -815,13 +815,16 @@ body {
   /* transform: scale(0.01); */
 }
 
+.changeStatPanel {
+  height: 45vh;
+}
+
 .changeStatsPanel {
   margin-top: 8px;
   text-align: left;
-  max-height: 240px;
   overflow: auto;
   min-width: 300px;
-  font-size: large;
+  font-size: x-large;
 }
 
 .popupPanel {

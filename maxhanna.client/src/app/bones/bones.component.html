@@ -186,7 +186,10 @@
 
 
 <!-- Start Menu Popup -->
-<div class="popupPanel startPopupPanel" *ngIf="isStartMenuOpened" [style.maxWidth]="!isPartyPanelOpen && !isChangeStatsOpen && !isChangeSkillsOpen ? '360px' : ''" style="text-align:center;">
+<div [class]="'popupPanel startPopupPanel' + (isChangeStatsOpen ? ' changeStatPanel' : '')"
+   *ngIf="isStartMenuOpened" 
+   [style.maxWidth]="!isPartyPanelOpen && !isChangeStatsOpen && !isChangeSkillsOpen ? '360px' : ''"
+   style="text-align:center;">
   <div style="display:flex; align-items:center; justify-content:center; position:relative;">
     <div class="popupPanelTitle mainPopupTitle">
       {{isChangeStatsOpen ? 'Change Stats'
@@ -265,7 +268,7 @@
     <!-- When statsUpdatedVisible is true, show a transient message and hide normal form contents -->
     <div *ngIf="statsUpdatedVisible" style="padding:12px; font-weight:700; text-align:center;">Stats updated</div>
     <ng-container *ngIf="!statsUpdatedVisible">
-      <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px; font-size: large;">
         <div>Points:</div>
         <div style="font-weight:700;">{{editableStats.pointsAvailable}}</div>
       </div>
