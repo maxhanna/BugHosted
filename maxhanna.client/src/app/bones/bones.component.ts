@@ -461,6 +461,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         heroId: typeof a.heroId === 'number' ? a.heroId : this.metaHero?.id ?? a.heroId,
         timestamp: typeof a.timestamp === 'string' ? a.timestamp : (a.timestamp ? String(a.timestamp) : new Date().toISOString()),
         skill: a.skill && typeof a.skill === 'string' ? a.skill : (a.skill && (a.skill as any).name ? (a.skill as any).name : undefined),
+        currentSkill: a.currentSkill && typeof a.currentSkill === 'string' ? a.currentSkill : (this.hero && (this.hero as any).currentSkill ? (this.hero as any).currentSkill : (a.skill && typeof a.skill === 'string' ? a.skill : (a.skill && (a.skill as any).name ? (a.skill as any).name : undefined))),
         facing: a.facingDirection ? a.facingDirection : (this.hero && (this.hero as any).facingDirection !== undefined ? (this.hero as any).facingDirection : undefined),
         length: a.length ? a.length : undefined,
       }));

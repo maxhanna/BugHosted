@@ -435,6 +435,8 @@ export function subscribeToMainGameEvents(object: any) {
         // Normalize type checks to be robust against casing, missing fields, or server shape differences
         try {
           const metaHeroType = String((object.metaHero as any)?.type ?? '').toLowerCase();
+          const heroCurrentSkill = String((object.hero as any)?.currentSkill ?? '').toLowerCase();
+          attack.currentSkill = heroCurrentSkill;
           const srcObjType = String((srcObj as any)?.type ?? '').toLowerCase();
           // Debug: show types when debugging magi detection (kept minimal)
           console.debug(`attack type check: metaHero.type='${metaHeroType}', srcObj.type='${srcObjType}'`);
@@ -443,6 +445,7 @@ export function subscribeToMainGameEvents(object: any) {
           if (isMagi || isRogue) {
             attack.length = 200;
           }
+
         } catch (innerEx) {
           // If anything goes wrong here, don't block the attack; fall back to no length
           console.warn('Failed to determine hero type for magi length', innerEx);
