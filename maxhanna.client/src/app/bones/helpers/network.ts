@@ -961,10 +961,6 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
         if (serverCreatorName) {
           const shortName = String(serverCreatorName).split(' ')[0] || serverCreatorName;
           label = `${shortName}'s\nPortal`;
-        } else if (object.metaHero && object.metaHero.name) {
-          // Fallback: if this is the local player's portal, show local name
-          const me = object.metaHero.name;
-          label = `${String(me).split(' ')[0]}'s\nPortal`;
         }
       }
 
