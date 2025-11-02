@@ -1,4 +1,4 @@
-<div class="currentlyPlayingTitle popupPanelTitle" *ngIf="showEmptyMessage">Currently Playing:</div>
+<div class="currentlyPlayingTitle popupPanelTitle" *ngIf="showEmptyMessage || gamers.length > 0">Currently Playing:</div>
 <div *ngIf="loading">Loading...</div>
 <ul *ngIf="!loading && gamers.length > 0">
 <div *ngFor="let g of gamers">
