@@ -3200,9 +3200,25 @@ ORDER BY p.created DESC;";
 				if (finalDamage < 0) finalDamage = 0;
 				System.Console.WriteLine($"ApplyDamageToHero: computed finalDamage={finalDamage} (factor={factor})");
 
+				// Read current HP for debugging so we can see before/after values
+				string selHpBefore = "SELECT hp FROM maxhanna.bones_hero WHERE id = @TargetHeroId LIMIT 1;";
+				using (var hpCmd = new MySqlCommand(selHpBefore, connection, transaction))
+				{
+					hpCmd.Parameters.AddWithValue("@TargetHeroId", targetHeroId);
+					var hpObjBefore = await hpCmd.ExecuteScalarAsync();
+					int oldHp = 0;
+					if (hpObjBefore != null && int.TryParse(hpObjBefore.ToString(), out var parsedHp)) oldHp = parsedHp;
+					System.Console.WriteLine($"ApplyDamageToHero: oldHp={oldHp}");
+				}
+
 				// Combine UPDATE and SELECT in a single command to reduce round-trips
-				string updAndSel = @"UPDATE maxhanna.bones_hero SET hp = GREATEST(hp - @Damage, 0), updated = UTC_TIMESTAMP() 
-					WHERE id = @TargetHeroId AND hp > 0 LIMIT 1; 
+				string updAndSel = @"
+				UPDATE maxhanna.bones_hero 
+				SET hp = GREATEST(hp - @Damage, 0), 
+					updated = UTC_TIMESTAMP() 
+				WHERE id = @TargetHeroId 
+				AND hp > 0 
+				LIMIT 1; 
 				SELECT hp FROM maxhanna.bones_hero WHERE id = @TargetHeroId LIMIT 1;";
 				using var cmd = new MySqlCommand(updAndSel, connection, transaction);
 				cmd.Parameters.AddWithValue("@Damage", finalDamage);
@@ -3217,6 +3233,7 @@ ORDER BY p.created DESC;";
 						{
 							var val = rdr.GetValue(0);
 							if (val != null && int.TryParse(val.ToString(), out var parsed)) {
+								Console.WriteLine("ApplyDamageToHero: newHp read from SELECT=" + parsed);
 								newHp = parsed;
 							}
 						}
