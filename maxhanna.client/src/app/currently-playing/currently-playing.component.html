@@ -17,7 +17,7 @@
                     <span *ngIf="!menuTitle">{{g.game}}</span>
                 </ng-container>
             </td>
-    <small *ngIf="g.lastActivityUtc">{{g.lastActivityUtc | date:'short'}}</small>
+    <small *ngIf="g.lastActivityUtc">{{g.lastActivityUtc | timeSince}}</small>
 </div>
 </ul>
 <div *ngIf="showEmptyMessage && !loading && gamers.length === 0">No players are currently active.</div>
