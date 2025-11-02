@@ -1,6 +1,8 @@
-.currently-playing ul { list-style: none; padding: 0; }
-.currently-playing li { margin: 6px 0; }
-.currently-playing .game { margin-left: 8px; color: #666; }
+.currently-playing .game {
+    margin-left: 8px;
+    color: #666;
+}
+
 .currentlyPlayingTitle {
     display: flex;
     align-items: center;
@@ -10,4 +12,10 @@
     margin-bottom: 1rem;
     cursor: pointer;
     text-decoration: underline;
+}
+
+.gamer {
+    display: flex;
+    gap: 5px;
+    align-items: flex-end;
 }
