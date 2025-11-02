@@ -6,7 +6,10 @@ export class Input {
   displayChat? = true;
   heldDirections: string[] = [];
   keys: Record<string, boolean> = {};
+  // semantic action buttons (distinct from physical key codes)
+  actionButtons: Record<string, boolean> = {};
   lastKeys: Record<string, boolean> = {};
+  lastActionButtons: Record<string, boolean> = {};
   inputKeyPressedTimeout = 140;
   chatSelected = false;
   private _chatInput: HTMLInputElement | null = null;
@@ -39,6 +42,7 @@ export class Input {
 
   update() {
     this.lastKeys = { ... this.keys };
+    this.lastActionButtons = { ...this.actionButtons };
   }
 
   getActionJustPressed(keyCode: string) {
@@ -47,6 +51,19 @@ export class Input {
       justPressed = true;
     }
     return justPressed;
+  }
+
+  // semantic action query (e.g. 'A', 'SPACE')
+  getSemanticActionJustPressed(actionName: string) {
+    let justPressed = false;
+    if (this.actionButtons[actionName] && !this.lastActionButtons[actionName]) {
+      justPressed = true;
+    }
+    return justPressed;
+  }
+
+  isSemanticActionDown(actionName: string) {
+    return !!this.actionButtons[actionName];
   }
 
   onArrowPressed(direction: string) {
@@ -194,8 +211,10 @@ export class Input {
     else {
       // legacy short-click behaviour: emit one attack and mark KeyA briefly
       events.emit("SPACEBAR_PRESSED");
+      this.actionButtons["A"] = true;
       this.keys["KeyA"] = true;
       setTimeout(() => {
+        this.actionButtons["A"] = false;
         this.keys["KeyA"] = false;
       }, 100);
     }
@@ -207,10 +226,12 @@ export class Input {
       return;
     }
     events.emit("SPACEBAR_PRESSED");
+    this.actionButtons["A"] = true;
     this.keys["KeyA"] = true;
   }
   // call when A-button is released (keyup/mouseup)
   pressAEnd() {
+    this.actionButtons["A"] = false;
     this.keys["KeyA"] = false;
   }
   pressB() {
@@ -230,11 +251,13 @@ export class Input {
   pressSpaceStart() {
     if (document.activeElement != this.chatInput) {
       this.emitDebounced('SPACEBAR_PRESSED');
+      this.actionButtons["SPACE"] = true;
       this.keys["Space"] = true;
     }
   }
   // end of space press (keyup)
   pressSpaceEnd() {
+    this.actionButtons["SPACE"] = false;
     this.keys["Space"] = false;
   }
   pressStart(sendChat: boolean = true) { 

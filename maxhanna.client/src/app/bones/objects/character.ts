@@ -224,7 +224,7 @@ export class Character extends GameObject {
     }
     
     
-    if (input && typeof (input as any).getActionJustPressed === 'function' && ((input as any).getActionJustPressed("Space") || (input as any).getActionJustPressed("KeyA")) && this.isUserControlled && !this.isBackgroundSelectionLocked) {
+  if (input && typeof (input as any).getSemanticActionJustPressed === 'function' && ((input as any).getSemanticActionJustPressed("SPACE") || (input as any).getSemanticActionJustPressed("A")) && this.isUserControlled && !this.isBackgroundSelectionLocked) {
       const objectAtPosition = isObjectNearby(this);
       if (objectAtPosition) {
         events.emit("HERO_REQUESTS_ACTION", { hero: this, objectAtPosition: objectAtPosition });
