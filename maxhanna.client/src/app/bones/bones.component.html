@@ -186,7 +186,7 @@
 
 
 <!-- Start Menu Popup -->
-<div [class]="'popupPanel startPopupPanel' + (isChangeStatsOpen ? ' changeStatPanel' : '')"
+<div [class]="'popupPanel startPopupPanel' + ((isChangeStatsOpen && !statsUpdatedVisible) ? ' changeStatPanel' : '')"
    *ngIf="isStartMenuOpened" 
    [style.maxWidth]="!isPartyPanelOpen && !isChangeStatsOpen && !isChangeSkillsOpen ? '360px' : ''"
    style="text-align:center;">
