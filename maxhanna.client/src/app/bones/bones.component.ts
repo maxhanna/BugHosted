@@ -655,6 +655,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           if ((this.hero.hp ?? 0) <= 0 && !this.isDead) {
             this.isDead = true;
             events.emit("HERO_DIED", { heroId: this.hero.id });
+          }
         }
       }
       // if (existingHero) {
