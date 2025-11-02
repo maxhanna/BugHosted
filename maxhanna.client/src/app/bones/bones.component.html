@@ -284,9 +284,9 @@
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>Atk Speed (ms)</div>
           <div>
-            <button (click)="adjustStat('attackSpeed', -25)" [disabled]="editableStats.attackSpeed <= 50">-</button>
+            <button (click)="adjustStat('attackSpeed', -1)" [disabled]="editableStats.attackSpeed <= 0" aria-label="Decrease Attack Speed Points">-</button>
             <span style="margin:0 8px">{{editableStats.attackSpeed}}</span>
-            <button (click)="adjustStat('attackSpeed', 25)" [disabled]="editableStats.pointsAvailable <= 0">+</button>
+            <button (click)="adjustStat('attackSpeed', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Attack Speed Points">+</button>
           </div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
