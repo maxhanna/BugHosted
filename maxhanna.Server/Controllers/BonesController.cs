@@ -3092,7 +3092,12 @@ ORDER BY p.created DESC;";
 				int targetY = GRIDCELL;
 
 				string updSql = "UPDATE maxhanna.bones_hero SET coordsX = @X, coordsY = @Y, map = @Map, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
-				var updParams = new Dictionary<string, object?>() { { "@HeroId", victimHeroId }, { "@X", targetX }, { "@Y", targetY }, { "@Map", targetMap } };
+				var updParams = new Dictionary<string, object?>() {
+					{ "@HeroId", victimHeroId },
+					{ "@X", targetX },
+					{ "@Y", targetY },
+					{ "@Map", targetMap } 
+				};
 				await ExecuteInsertOrUpdateOrDeleteAsync(updSql, updParams, connection, transaction);
 				Console.WriteLine($"HandleHeroDeath: moved hero {victimHeroId} to ({targetX},{targetY}) in map {targetMap}");
 				// Emit HERO_DIED event targeted at the victim so client will display death UI and can react.
