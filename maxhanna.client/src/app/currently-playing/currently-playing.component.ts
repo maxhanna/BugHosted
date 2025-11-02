@@ -2,11 +2,12 @@ import { Component, OnInit, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { UserService, ActiveGamer } from '../../services/user.service';
 import { AppMenuItemComponent } from '../app-menu-item/app-menu-item.component';
+import { UserTagComponent } from '../user-tag/user-tag.component';
 
 @Component({
   selector: 'app-currently-playing',
   standalone: true,
-  imports: [CommonModule, AppMenuItemComponent],
+  imports: [CommonModule, AppMenuItemComponent, UserTagComponent],
   templateUrl: './currently-playing.component.html',
   styleUrls: ['./currently-playing.component.css']
 })

@@ -17,6 +17,7 @@ export interface ActiveGamer {
   username?: string;
   game?: string;
   lastActivityUtc?: string;
+  user?: User;
 }
 
 @Injectable({
