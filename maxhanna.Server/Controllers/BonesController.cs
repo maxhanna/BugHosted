@@ -451,12 +451,13 @@ ORDER BY p.created DESC;";
 					// Prefetch attacker level/stats to avoid JOIN+LIMIT MySQL restriction
 					int attackerLevel = 1;
 					int dbAttackDmg = 0;
+					int power = 0;
 					double dbCritRate = 0.0;
-					double dbCritDmg = 2.0; 
+					double dbCritDmg = 2.0;
 					string currentSkill = normalizedParameters.ContainsKey("currentSkill") && normalizedParameters["currentSkill"] != null ? normalizedParameters["currentSkill"]?.ToString() ?? string.Empty : string.Empty;
 					try
 					{
-						using var lvlCmd = new MySqlCommand("SELECT COALESCE(level,1) AS lvl, COALESCE(attack_dmg,0) AS attack_dmg, COALESCE(crit_rate,0) AS crit_rate, COALESCE(crit_dmg,2.0) AS crit_dmg FROM maxhanna.bones_hero WHERE id=@HeroId", connection, transaction);
+						using var lvlCmd = new MySqlCommand("SELECT COALESCE(level,1) AS lvl, COALESCE(attack_dmg,0) AS attack_dmg, COALESCE(crit_rate,0) AS crit_rate, COALESCE(crit_dmg,2.0) AS crit_dmg, power FROM maxhanna.bones_hero WHERE id=@HeroId", connection, transaction);
 						lvlCmd.Parameters.AddWithValue("@HeroId", sourceHeroId);
 						using var rdrStats = await lvlCmd.ExecuteReaderAsync();
 						if (await rdrStats.ReadAsync())
@@ -470,13 +471,15 @@ ORDER BY p.created DESC;";
 
 							dbCritRate = rdrStats.IsDBNull(rdrStats.GetOrdinal("crit_rate")) ? 0.0 : rdrStats.GetDouble(rdrStats.GetOrdinal("crit_rate"));
 							dbCritDmg = rdrStats.IsDBNull(rdrStats.GetOrdinal("crit_dmg")) ? 2.0 : rdrStats.GetDouble(rdrStats.GetOrdinal("crit_dmg"));
+
+							power = rdrStats.IsDBNull(rdrStats.GetOrdinal("power")) ? 0 : Convert.ToInt32(rdrStats.GetValue(rdrStats.GetOrdinal("power")));
 						}
 						rdrStats.Close();
 					}
 					catch { attackerLevel = 1; dbAttackDmg = 0; dbCritRate = 0.0; dbCritDmg = 2.0; }
 					int baseDamage = dbAttackDmg + attackerLevel;
 					var (damage, wasCrit) = ComputeDamage(baseDamage, dbCritRate, dbCritDmg);
-					damage = Math.Max(1, damage);
+					damage = Math.Max(1, damage) + power;
 					dbCritDmg = dbCritDmg + 2.0;
 					// Determine AoE half-size: allow client to send 'aoe', 'radius', 'width', or 'threshold'. Fallback to HITBOX_HALF for single-tile tolerance.
 					int aoeHalf = GRIDCELL; // default tolerance radius
