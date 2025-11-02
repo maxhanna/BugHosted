@@ -3055,6 +3055,7 @@ ORDER BY p.created DESC;";
 		// and emit a HERO_DIED meta-event with killer info.
 		private async Task HandleHeroDeath(int victimHeroId, int killerId, string killerType, string map, MySqlConnection connection, MySqlTransaction transaction)
 		{
+			Console.WriteLine("HandleHeroDeath called: victim=" + victimHeroId + ", killer=" + killerId + ", killerType=" + killerType + ", map=" + map);
 			try
 			{
 				// Determine the town that precedes the hero's current map using orderedMaps.
@@ -3093,7 +3094,7 @@ ORDER BY p.created DESC;";
 				string updSql = "UPDATE maxhanna.bones_hero SET coordsX = @X, coordsY = @Y, map = @Map, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
 				var updParams = new Dictionary<string, object?>() { { "@HeroId", victimHeroId }, { "@X", targetX }, { "@Y", targetY }, { "@Map", targetMap } };
 				await ExecuteInsertOrUpdateOrDeleteAsync(updSql, updParams, connection, transaction);
-
+				Console.WriteLine($"HandleHeroDeath: moved hero {victimHeroId} to ({targetX},{targetY}) in map {targetMap}");
 				// Emit HERO_DIED event targeted at the victim so client will display death UI and can react.
 				var data = new Dictionary<string, string>() {
 					{ "killerId", killerId.ToString() },
@@ -3220,12 +3221,9 @@ ORDER BY p.created DESC;";
 				System.Console.WriteLine($"ApplyDamageToHero: DB update affected={affected}, newHp={newHp}");
 				// Ensure the reader is closed before running any further commands on the same connection
 				rdr.Close();
-				if (affected > 0)
-				{
-					if (newHp <= 0)
-					{
-						await HandleHeroDeath(targetHeroId, attackerId, attackerType, map, connection, transaction);
-					}
+				if (affected > 0 && newHp <= 0)
+				{ 
+					await HandleHeroDeath(targetHeroId, attackerId, attackerType, map, connection, transaction);
 				}
 			}
 			catch (Exception ex)
