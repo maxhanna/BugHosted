@@ -1952,8 +1952,7 @@ ORDER BY p.created DESC;";
 						townData["originMap"] = map ?? string.Empty;
 						townData["originX"] = x.ToString();
 						townData["originY"] = y.ToString();
-						// include creator name on the town-side portal as well
-						try { townData["creatorHeroName"] = creatorName ?? string.Empty; } catch { }
+						townData["creatorName"] = creatorName ?? string.Empty;  
 						// Reference the canonical portalId (insertedId). We'll insert the town-side portal and then add both ids to events.
 						string insertTownSql = @"INSERT INTO maxhanna.bones_town_portal (creator_hero_id, map, coordsX, coordsY, data, created) VALUES (@CreatorHeroId, @Map, @X, @Y, @Data, UTC_TIMESTAMP()); SELECT LAST_INSERT_ID();";
 						using var insertTownCmd = new MySqlCommand(insertTownSql, connection, transaction);
