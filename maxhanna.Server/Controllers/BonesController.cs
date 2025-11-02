@@ -476,7 +476,7 @@ ORDER BY p.created DESC;";
 					catch { attackerLevel = 1; dbAttackDmg = 0; dbCritRate = 0.0; dbCritDmg = 2.0; }
 					int baseDamage = dbAttackDmg + attackerLevel;
 					var (damage, wasCrit) = ComputeDamage(baseDamage, dbCritRate, dbCritDmg);
- 
+					damage = Math.Max(1, damage);
 					// Determine AoE half-size: allow client to send 'aoe', 'radius', 'width', or 'threshold'. Fallback to HITBOX_HALF for single-tile tolerance.
 					int aoeHalf = GRIDCELL; // default tolerance radius
 					string[] aoeKeys = new[] { "aoe", "radius", "width", "threshold" };
