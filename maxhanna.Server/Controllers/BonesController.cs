@@ -3129,7 +3129,14 @@ ORDER BY p.created DESC;";
 				int targetX = GRIDCELL;
 				int targetY = GRIDCELL;
 
-				string updSql = "UPDATE maxhanna.bones_hero SET coordsX = @X, coordsY = @Y, map = @Map, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
+				string updSql = @"
+					UPDATE maxhanna.bones_hero 
+					SET coordsX = @X, 
+						coordsY = @Y, 
+						map = @Map, 
+						updated = UTC_TIMESTAMP() 
+					WHERE id = @HeroId 
+					LIMIT 1;";
 				var updParams = new Dictionary<string, object?>() {
 					{ "@HeroId", victimHeroId },
 					{ "@X", targetX },
