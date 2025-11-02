@@ -308,9 +308,9 @@
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>Health</div>
           <div>
-            <button (click)="adjustStat('health', -5)" [disabled]="editableStats.health <= 1">-</button>
+            <button (click)="adjustStat('health', -1)" [disabled]="editableStats.health <= 0" aria-label="Decrease Health Points">-</button>
             <span style="margin:0 8px">{{editableStats.health}}</span>
-            <button (click)="adjustStat('health', 5)" [disabled]="editableStats.pointsAvailable <= 0">+</button>
+            <button (click)="adjustStat('health', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Health Points">+</button>
           </div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">

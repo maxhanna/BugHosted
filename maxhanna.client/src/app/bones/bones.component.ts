@@ -115,10 +115,14 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   // Stats editing model: new stat names (attackDmg, attackSpeed, critRate, critDmg, health, regen)
   // Note: `attackSpeed` stored here is the UI-facing "points" value (0..n).
   // Internal/saved attack speed (ms) = baseAttackSpeedMs + attackSpeed * attackSpeedStepMs
-  editableStats: { attackDmg: number; attackSpeed: number; critRate: number; critDmg: number; health: number; regen: number; pointsAvailable: number } = { attackDmg: 1, attackSpeed: 0, critRate: 0.0, critDmg: 2.0, health: 100, regen: 0.0, pointsAvailable: 0 };
+  editableStats: { attackDmg: number; attackSpeed: number; critRate: number; critDmg: number; health: number; regen: number; pointsAvailable: number } = { attackDmg: 1, attackSpeed: 0, critRate: 0.0, critDmg: 2.0, health: 0, regen: 0.0, pointsAvailable: 0 };
   // Attack speed conversion constants
   private readonly attackSpeedBaseMs: number = 400; // base ms represented by 0 UI points
   private readonly attackSpeedStepMs: number = 1;   // ms per UI point
+  // Health conversion constants
+  // Internal health base corresponding to 0 UI points. Set to 0 so UI points directly map to health.
+  private readonly healthBase: number = 0;
+  private readonly healthStep: number = 1;   // health per UI point
   // Skills editing model (example: three generic skills). Adjust fields as your game defines.
   editableSkills: { skillA: number; skillB: number; skillC: number; pointsAvailable: number } = { skillA: 0, skillB: 0, skillC: 0, pointsAvailable: 0 };
   // Keep a copy of the original stats for change detection while the panel is open
@@ -1064,11 +1068,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const attackSpeed = mhAny.attackSpeed ?? 400; // ms
     const critRate = mhAny.critRate ?? 0.0;
     const critDmg = mhAny.critDmg ?? (mhAny.regen ? (mhAny.regen * 2.0) : 2.0);
-  const health = mhAny.health ?? 100;
+  const health = mhAny.health ?? this.healthBase;
     const regen = mhAny.regen ?? 0.0;
   // Convert ms -> UI points (each UI point == attackSpeedStepMs ms, base attackSpeedBaseMs => 0 points)
   const attackSpeedPoints = Math.max(0, Math.round((Number(attackSpeed) - this.attackSpeedBaseMs) / this.attackSpeedStepMs));
-    this.editableStats = { attackDmg: Number(attackDmg), attackSpeed: attackSpeedPoints, critRate: Number(critRate), critDmg: Number(critDmg), health: Number(health), regen: Number(regen), pointsAvailable: points };
+  // Convert internal health -> UI points (0 == healthBase)
+  const healthPoints = Math.max(0, Math.round((Number(health) - this.healthBase) / this.healthStep));
+  this.editableStats = { attackDmg: Number(attackDmg), attackSpeed: attackSpeedPoints, critRate: Number(critRate), critDmg: Number(critDmg), health: Number(healthPoints), regen: Number(regen), pointsAvailable: points };
   }
 
   closeStartMenu() {
@@ -1340,7 +1346,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   const sAttackSpeed = Math.max(0, Math.round((Number(rawAttackSpeedMs) - this.attackSpeedBaseMs) / this.attackSpeedStepMs));
     const sCritRate = cached.critRate !== undefined ? cached.critRate : (mhAny.critRate !== undefined ? mhAny.critRate : 0.0);
     const sCritDmg = cached.critDmg !== undefined ? cached.critDmg : (mhAny.critDmg !== undefined ? mhAny.critDmg : (mhAny.regen ? (Number(mhAny.regen) * 2.0) : 2.0));
-    const sHealth = cached.health !== undefined ? cached.health : (mhAny.health !== undefined ? mhAny.health : 100);
+  const sHealth = cached.health !== undefined ? cached.health : (mhAny.health !== undefined ? mhAny.health : this.healthBase);
     const sRegen = cached.regen !== undefined ? cached.regen : (mhAny.regen !== undefined ? mhAny.regen : 0.0);
 
     // Compute points available = totalPoints - alreadySpent
@@ -1350,7 +1356,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   const baseAttackSpeed = 0;
     const baseCritRate = 0.0;
     const baseCritDmg = 2.0;
-    const baseHealth = 100;
+  // baseHealth in UI points (0 UI points = healthBase internal)
+  const baseHealth = 0;
     const baseRegen = 0.0;
     // Regen is represented as a fractional stat (e.g. 0.1 per UI step) but should
     // consume whole available stat points. Define the regen step and cost so that
@@ -1364,7 +1371,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       + Math.max(0, Number(sAttackSpeed) - baseAttackSpeed)
       + Math.max(0, Number(sCritRate) - baseCritRate)
       + Math.max(0, Number(sCritDmg) - baseCritDmg)
-      + Math.max(0, Number(sHealth) - baseHealth)
+  // sHealth is currently in internal units (health); convert to UI points first
+  + Math.max(0, Math.round((Number(sHealth) - this.healthBase) / this.healthStep) - baseHealth)
       + regenSpent;
     const pointsAvailable = Math.max(0, totalPoints - spent);
 
@@ -1374,7 +1382,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       attackSpeed: Number(sAttackSpeed ?? 0),
       critRate: Number(sCritRate ?? 0.0),
       critDmg: Number(sCritDmg ?? 2.0),
-      health: Number(sHealth ?? 100),
+  // store health as UI points
+      health: Number(Math.max(0, Math.round((Number(sHealth ?? this.healthBase) - this.healthBase) / this.healthStep))),
       regen: Number(sRegen ?? 0.0),
       pointsAvailable: pointsAvailable
     };
@@ -1518,7 +1527,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         attackSpeed: (this.attackSpeedBaseMs + (Number(this.editableStats.attackSpeed) * this.attackSpeedStepMs)),
         critRate: this.editableStats.critRate,
         critDmg: this.editableStats.critDmg,
-        health: this.editableStats.health,
+        // Convert UI health points -> internal health
+        health: (this.healthBase + (Number(this.editableStats.health) * this.healthStep)),
         regen: this.editableStats.regen
       };
       await this.bonesService.updateHeroStats(
@@ -1533,7 +1543,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.metaHero.attackSpeed = (this.attackSpeedBaseMs + (Number(this.editableStats.attackSpeed) * this.attackSpeedStepMs));
         this.metaHero.critRate = this.editableStats.critRate;
         this.metaHero.critDmg = this.editableStats.critDmg;
-        this.metaHero.health = this.editableStats.health;
+  this.metaHero.health = (this.healthBase + (Number(this.editableStats.health) * this.healthStep));
         this.metaHero.regen = this.editableStats.regen;
       }
       // If in-game hero object exists, apply derived/visible changes
@@ -1542,7 +1552,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         try { (this.hero as any).attackSpeed = (this.attackSpeedBaseMs + (Number(this.editableStats.attackSpeed) * this.attackSpeedStepMs)); } catch { }
         try { (this.hero as any).critRate = this.editableStats.critRate; } catch { }
         try { (this.hero as any).critDmg = this.editableStats.critDmg; } catch { }
-        try { (this.hero as any).health = this.editableStats.health; } catch { }
+  try { (this.hero as any).health = (this.healthBase + (Number(this.editableStats.health) * this.healthStep)); } catch { }
         try { (this.hero as any).regen = this.editableStats.regen; } catch { }
       }
 
@@ -1562,7 +1572,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         attackSpeed: (this.attackSpeedBaseMs + (Number(this.editableStats.attackSpeed) * this.attackSpeedStepMs)),
         critRate: this.editableStats.critRate,
         critDmg: this.editableStats.critDmg,
-        health: this.editableStats.health,
+  // store health as internal value
+  health: (this.healthBase + (Number(this.editableStats.health) * this.healthStep)),
         regen: this.editableStats.regen
       };
     } catch (ex) { console.error('applyStats failed', ex); }
