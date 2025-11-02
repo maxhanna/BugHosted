@@ -3218,6 +3218,8 @@ ORDER BY p.created DESC;";
 				}
 				int affected = rdr.RecordsAffected;
 				System.Console.WriteLine($"ApplyDamageToHero: DB update affected={affected}, newHp={newHp}");
+				// Ensure the reader is closed before running any further commands on the same connection
+				rdr.Close();
 				if (affected > 0)
 				{
 					if (newHp <= 0)
