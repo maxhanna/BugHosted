@@ -355,7 +355,7 @@ ORDER BY p.created DESC;";
 				{
 					string insertSql = "INSERT INTO maxhanna.bones_event (hero_id, event, map, data, timestamp) VALUES (@HeroId, @Event, @Map, @Data, UTC_TIMESTAMP());";
 					// Normalize attack dictionary values: handle System.Text.Json.JsonElement and JToken values
-					var normalized = new Dictionary<string, object?>();
+					var normalizedParameters = new Dictionary<string, object?>();
 					foreach (var kv in attack)
 					{
 						object? v = kv.Value;
@@ -366,67 +366,67 @@ ORDER BY p.created DESC;";
 								switch (je.ValueKind)
 								{
 									case System.Text.Json.JsonValueKind.String:
-										normalized[kv.Key] = je.GetString();
+										normalizedParameters[kv.Key] = je.GetString();
 										break;
 									case System.Text.Json.JsonValueKind.Number:
-										if (je.TryGetInt64(out long l)) normalized[kv.Key] = l;
-										else if (je.TryGetDouble(out double d)) normalized[kv.Key] = d;
-										else normalized[kv.Key] = je.GetRawText();
+										if (je.TryGetInt64(out long l)) normalizedParameters[kv.Key] = l;
+										else if (je.TryGetDouble(out double d)) normalizedParameters[kv.Key] = d;
+										else normalizedParameters[kv.Key] = je.GetRawText();
 										break;
 									case System.Text.Json.JsonValueKind.True:
 									case System.Text.Json.JsonValueKind.False:
-										normalized[kv.Key] = je.GetBoolean();
+										normalizedParameters[kv.Key] = je.GetBoolean();
 										break;
 									case System.Text.Json.JsonValueKind.Null:
-										normalized[kv.Key] = null;
+										normalizedParameters[kv.Key] = null;
 										break;
 									default:
 										// Object/Array -> raw JSON text
-										normalized[kv.Key] = je.GetRawText();
+										normalizedParameters[kv.Key] = je.GetRawText();
 										break;
 								}
 							}
 							else if (v is Newtonsoft.Json.Linq.JToken jt)
 							{
 								// convert to primitive where possible, otherwise string
-								if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Integer) normalized[kv.Key] = jt.ToObject<long>();
-								else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Float) normalized[kv.Key] = jt.ToObject<double>();
-								else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Boolean) normalized[kv.Key] = jt.ToObject<bool>();
-								else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.String) normalized[kv.Key] = jt.ToObject<string?>() ?? string.Empty;
-								else normalized[kv.Key] = jt.ToString(Newtonsoft.Json.Formatting.None);
+								if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Integer) normalizedParameters[kv.Key] = jt.ToObject<long>();
+								else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Float) normalizedParameters[kv.Key] = jt.ToObject<double>();
+								else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Boolean) normalizedParameters[kv.Key] = jt.ToObject<bool>();
+								else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.String) normalizedParameters[kv.Key] = jt.ToObject<string?>() ?? string.Empty;
+								else normalizedParameters[kv.Key] = jt.ToString(Newtonsoft.Json.Formatting.None);
 							}
 							else
 							{
-								normalized[kv.Key] = v;
+								normalizedParameters[kv.Key] = v;
 							}
 						}
 						catch
 						{
 							// Fallback: stringify
-							try { normalized[kv.Key] = v?.ToString(); } catch { normalized[kv.Key] = null; }
+							try { normalizedParameters[kv.Key] = v?.ToString(); } catch { normalizedParameters[kv.Key] = null; }
 						}
 					}
 
 					var parameters = new Dictionary<string, object?>()
 						{
-							{ "@HeroId", normalized.ContainsKey("sourceHeroId") ? normalized["sourceHeroId"] ?? (hero?.Id ?? 0) : (hero?.Id ?? 0) },
+							{ "@HeroId", normalizedParameters.ContainsKey("sourceHeroId") ? normalizedParameters["sourceHeroId"] ?? (hero?.Id ?? 0) : (hero?.Id ?? 0) },
 							{ "@Event", "ATTACK" },
 							{ "@Map", hero?.Map ?? string.Empty },
-							{ "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(normalized) }
+							{ "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(normalizedParameters) }
 						};
 					await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, parameters, connection, transaction);
 
 					// Determine source hero id and facing
-					int sourceHeroId = normalized.ContainsKey("sourceHeroId") && normalized["sourceHeroId"] != null ? Convert.ToInt32(normalized["sourceHeroId"]) : (hero?.Id ?? 0);
+					int sourceHeroId = normalizedParameters.ContainsKey("sourceHeroId") && normalizedParameters["sourceHeroId"] != null ? Convert.ToInt32(normalizedParameters["sourceHeroId"]) : (hero?.Id ?? 0);
 					int sourceX = hero?.Position.x ?? 0;
 					int sourceY = hero?.Position.y ?? 0;
 					int targetX = sourceX;
 					int targetY = sourceY;
 
-					if (normalized.ContainsKey("facing") && normalized["facing"] != null)
+					if (normalizedParameters.ContainsKey("facing") && normalizedParameters["facing"] != null)
 					{
 						// facing can be an int (0=up,1=right,2=down,3=left) or a string
-						var fVal = normalized["facing"]?.ToString();
+						var fVal = normalizedParameters["facing"]?.ToString();
 						if (int.TryParse(fVal, out int f))
 						{
 							switch (f)
@@ -480,9 +480,9 @@ ORDER BY p.created DESC;";
 					string[] aoeKeys = new[] { "aoe", "radius", "width", "threshold" };
 					foreach (var k in aoeKeys)
 					{
-						if (normalized.ContainsKey(k) && normalized[k] != null)
+						if (normalizedParameters.ContainsKey(k) && normalizedParameters[k] != null)
 						{
-							var sVal = normalized[k]?.ToString();
+							var sVal = normalizedParameters[k]?.ToString();
 							if (int.TryParse(sVal, out int parsed) && parsed > 0)
 							{
 								// Interpret parsed as full width if key is 'width'; convert to half-size
@@ -500,13 +500,13 @@ ORDER BY p.created DESC;";
 					int yMax = targetY + aoeHalf;
 
 					// If facing provided, optionally elongate AoE in facing direction if client supplies 'length'
-					if (normalized.ContainsKey("length") && normalized["length"] != null && int.TryParse(normalized["length"]?.ToString(), out int length) && length > 0)
+					if (normalizedParameters.ContainsKey("length") && normalizedParameters["length"] != null && int.TryParse(normalizedParameters["length"]?.ToString(), out int length) && length > 0)
 					{
 						// Extend rectangle in facing direction by length (convert to pixels already assumed)
 						int extend = length;
-						if (normalized.ContainsKey("facing") && normalized["facing"] != null)
+						if (normalizedParameters.ContainsKey("facing") && normalizedParameters["facing"] != null)
 						{
-							var fVal = normalized["facing"]?.ToString();
+							var fVal = normalizedParameters["facing"]?.ToString();
 							if (int.TryParse(fVal, out int f))
 							{
 								if (f == 0) yMin = targetY - extend; // up
@@ -532,20 +532,18 @@ ORDER BY p.created DESC;";
 					// If aoeHalf is <= GRIDCELL and the client did not explicitly provide a length extension,
 					// treat it as a regular attack and limit damage to a single encounter (LIMIT 1).
 					string limitClause = "";
-					bool isRegularSingleTarget = aoeHalf <= GRIDCELL && !(normalized.ContainsKey("length") && normalized["length"] != null);
-					if (isRegularSingleTarget) limitClause = " LIMIT 1";
-
-
-					// For regular single-target attacks prefer the encounter in the player's facing direction
+					bool isRegularSingleTarget = aoeHalf <= GRIDCELL && !(normalizedParameters.ContainsKey("length") && normalizedParameters["length"] != null);
+ 					// For regular single-target attacks prefer the encounter in the player's facing direction
 					if (isRegularSingleTarget)
 					{
+						limitClause = " LIMIT 1";
 						// Attempt to parse facing from the normalized payload; if missing/invalid we fallback to a LIMIT 1 UPDATE
 						int? facingInt = null;
 						try
 						{
-							if (normalized.ContainsKey("facing") && normalized["facing"] != null)
+							if (normalizedParameters.ContainsKey("facing") && normalizedParameters["facing"] != null)
 							{
-								var fVal = normalized["facing"]?.ToString();
+								var fVal = normalizedParameters["facing"]?.ToString();
 								if (int.TryParse(fVal, out int fParsed)) facingInt = fParsed;
 							}
 						}
@@ -700,7 +698,7 @@ ORDER BY p.created DESC;";
 					if (critRate < 0.0) critRate = 0.0;
 					if (critRate > 1.0) critRate = 1.0;
 					double critMultiplier = dbCritDmg;
-					Console.WriteLine($"Applying hero->hero damage: attacker={sourceHeroId}, baseDamage={baseDamage}, critRate={critRate}, critMultiplier={critMultiplier}, victims={string.Join(',', victims)}");
+					//Console.WriteLine($"Applying hero->hero damage: attacker={sourceHeroId}, baseDamage={baseDamage}, critRate={critRate}, critMultiplier={critMultiplier}, victims={string.Join(',', victims)}");
 					foreach (var victimId in victims)
 					{
 						try
@@ -2802,6 +2800,34 @@ ORDER BY p.created DESC;";
 
 		private async Task PerformEventChecks(MetaEvent metaEvent, MySqlConnection connection, MySqlTransaction transaction)
 		{
+			// Handle batched attacks sent from clients: parse payload and reuse PersistNewAttacks
+			if (metaEvent != null && metaEvent.Data != null && string.Equals(metaEvent.EventType, "ATTACK_BATCH", StringComparison.OrdinalIgnoreCase))
+			{
+				try
+				{
+					if (metaEvent.Data.TryGetValue("attacks", out var attacksJson) && !string.IsNullOrEmpty(attacksJson) && metaEvent.HeroId > 0)
+					{
+						// Parse attacks JSON into a list of dictionaries and call PersistNewAttacks to centralize insertion/processing
+						try
+						{
+							var jarr = Newtonsoft.Json.Linq.JArray.Parse(attacksJson);
+							var parsed = jarr.Select(x => x.ToObject<Dictionary<string, object>>() ?? new Dictionary<string, object>()).ToList();
+							// Fetch hero info to provide map/position context used by PersistNewAttacks
+							var hero = await GetHeroData(0, metaEvent.HeroId, connection, transaction);
+							var req = new FetchGameDataRequest { Hero = hero, RecentAttacks = parsed };
+							await _log.Db($"PerformEventChecks: ATTACK_BATCH received hero={metaEvent.HeroId} attacks={parsed.Count}", metaEvent.HeroId, "BONES", false);
+							await PersistNewAttacks(req, hero ?? new MetaHero(), connection, transaction);
+						}
+						catch (Newtonsoft.Json.JsonException) { /* ignore malformed attacks payload */ }
+					}
+				}
+				catch (Exception ex)
+				{
+					await _log.Db("ATTACK_BATCH handling failed: " + ex.Message, metaEvent.HeroId, "BONES", true);
+				}
+				return; // we've handled the batch; nothing more to do for this metaEvent
+			}
+
 			if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "UNPARTY")
 			{
 				int heroId = metaEvent.HeroId; await Unparty(heroId, connection, transaction);
