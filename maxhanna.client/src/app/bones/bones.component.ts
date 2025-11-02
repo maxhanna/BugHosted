@@ -435,17 +435,41 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       ctx.fill();
       ctx.closePath();
 
-      // HP fill (radial slice)
+      // HP fill (vial-style vertical liquid)
       const hp = Math.max(0, Math.min(100, (hero.hp ?? 0)));
       const hpRatio = hp / 100;
-      // Draw filled arc representing HP
-      ctx.beginPath();
-      ctx.moveTo(orbX, orbY);
-      ctx.fillStyle = 'rgba(200,30,30,0.95)';
-      ctx.arc(orbX, orbY, orbRadius - 4, -Math.PI/2, -Math.PI/2 + Math.PI * 2 * hpRatio, false);
-      ctx.lineTo(orbX, orbY);
-      ctx.fill();
-      ctx.closePath();
+      try {
+        // Clip to orb circle so liquid stays within container
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(orbX, orbY, orbRadius - 4, 0, Math.PI * 2);
+        ctx.clip();
+
+        // Compute liquid rectangle (fill from bottom up)
+        const innerRadius = orbRadius - 6; // padding inside container
+        const liquidHeight = Math.max(0, innerRadius * 2 * hpRatio);
+        const liquidTop = orbY + innerRadius - liquidHeight;
+        const liquidLeft = orbX - innerRadius;
+        const liquidWidth = innerRadius * 2;
+
+        // Simple vertical gradient for depth
+        const grad = ctx.createLinearGradient(0, liquidTop, 0, orbY + innerRadius);
+        grad.addColorStop(0, 'rgba(255,120,120,0.95)');
+        grad.addColorStop(1, 'rgba(180,20,20,0.95)');
+
+        ctx.fillStyle = grad;
+        ctx.fillRect(liquidLeft, liquidTop, liquidWidth, liquidHeight);
+
+        // subtle sheen / highlight at top of liquid
+        if (liquidHeight > 6) {
+          ctx.globalAlpha = 0.25;
+          ctx.fillStyle = 'rgba(255,255,255,0.9)';
+          ctx.fillRect(liquidLeft, liquidTop, liquidWidth, Math.min(6, liquidHeight));
+          ctx.globalAlpha = 1.0;
+        }
+
+        ctx.restore();
+      } catch (e) { console.warn('liquid fill failed', e); }
 
       // Inner circle to create border effect
       ctx.beginPath();
