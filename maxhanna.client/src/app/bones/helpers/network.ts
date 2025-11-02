@@ -961,7 +961,7 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
           label = `${String(me).split(' ')[0]}'s\nPortal`;
         }
       } catch { }
-      const portalMarker = new TownPortal({ position: new Vector2(x, y), label: label, preventDestroyTimeout: true });
+      const portalMarker = new TownPortal({ position: new Vector2(x, y), label: label });
       try { (portalMarker as any).serverPortalId = id; } catch { }
       // Parse server data
       let dataObj: any = undefined;
