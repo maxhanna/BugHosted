@@ -12,17 +12,14 @@ export class Input {
   private _chatInput: HTMLInputElement | null = null;
   constructor() {
     document.addEventListener("keydown", (e) => {
-      if (e.code != " ") {
-        this.keys[e.code] = true;
-        this.handleKeydown(e);
-      }
+      // store by event.code so other systems can check e.g. "KeyA" / "Space"
+      this.keys[e.code] = true;
+      this.handleKeydown(e);
     });
     document.addEventListener("keyup", (e) => {
-      if (e.code != " ") {
-        this.keys[e.code] = false;
-        this.handleKeyup(e);
-      }
-    }); 
+      this.keys[e.code] = false;
+      this.handleKeyup(e);
+    });
   }
   destroy() {
     document.removeEventListener('keydown', this.handleKeydown.bind(this));
@@ -109,26 +106,22 @@ export class Input {
     if (this.chatSelected) {
       return;
     }
-    const key = event.key;
-    switch (key) {
+    const code = event.code;
+    switch (code) {
       case 'ArrowUp':
-      case 'w':
-      case 'W':
+      case 'KeyW':
         this.onArrowPressed(UP);
         break;
       case 'ArrowDown':
-      case 's':
-      case 'S':
+      case 'KeyS':
         this.onArrowPressed(DOWN);
         break;
       case 'ArrowLeft':
-      case 'a':
-      case 'A':
+      case 'KeyA':
         this.onArrowPressed(LEFT);
         break;
       case 'ArrowRight':
-      case 'd':
-      case 'D':
+      case 'KeyD':
         this.onArrowPressed(RIGHT);
         break;
       case 'Enter':
@@ -138,12 +131,11 @@ export class Input {
       case 'Backspace':
         this.pressBackspace();
         break;
-      case 'e':
-      case 'E':
+      case 'KeyE':
         // start A-button attack when key is pressed
         this.pressAStart(false);
         break;
-      case ' ':
+      case 'Space':
         // start space attack on keydown so holding registers
         this.pressSpaceStart();
         break;
@@ -151,30 +143,25 @@ export class Input {
   }
 
   handleKeyup(event: KeyboardEvent) {
-    const key = event.key; 
-    switch (key) {
+    const code = event.code;
+    switch (code) {
       case 'ArrowUp':
-      case 'w':
-      case 'W':
+      case 'KeyW':
         this.onArrowReleased(UP);
         break;
       case 'ArrowDown':
-      case 's':
-      case 'S':
+      case 'KeyS':
         this.onArrowReleased(DOWN);
         break;
       case 'ArrowLeft':
-      case 'a':
-      case 'A':
+      case 'KeyA':
         this.onArrowReleased(LEFT);
         break;
       case 'ArrowRight':
-      case 'd':
-      case 'D':
+      case 'KeyD':
         this.onArrowReleased(RIGHT);
         break; 
-      case 'e':
-      case 'E': 
+      case 'KeyE':
         // end A-button short-press behavior: treat as releasing the A button
         this.pressAEnd();
         break;
@@ -188,11 +175,10 @@ export class Input {
       case 'Escape':
         this.pressEscape();
         break;
-      case 'q':
-      case 'Q':
+      case 'KeyQ':
         this.pressB();
         break; 
-      case ' ':
+      case 'Space':
         // end space press when released
         this.pressSpaceEnd();
         break;
