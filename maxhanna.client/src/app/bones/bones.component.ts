@@ -1477,34 +1477,20 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const current = (this.editableStats as any)[stat] as number;
     const next = current + delta;
     // Prevent negative values for any stat
-    if (next < 0) return;
-    // Points bookkeeping: for most stats delta is the cost. For regen, UI uses
-    // fractional steps (e.g. 0.1) that should cost whole stat points. Treat
-    // regen specially: each regenStep consumes regenCostPerStep points.
-    const regenStep = 0.1;
-    const regenCostPerStep = 1;
-
-    if (stat === 'regen') {
-      // Require at least one full point to increase regen by one step
-      if (delta > 0 && this.editableStats.pointsAvailable < regenCostPerStep) return;
-      // Clamp regen to 2 decimal places
-      (this.editableStats as any)[stat] = Math.round(next * 100) / 100;
-      // Adjust pointsAvailable by whole units per regen step
-      if (delta > 0) this.editableStats.pointsAvailable -= regenCostPerStep;
-      else this.editableStats.pointsAvailable += regenCostPerStep * Math.abs(Math.round(delta / regenStep));
+    if (next < 0) return; 
+    
+    if (stat === 'attackSpeed') {
+      // attackSpeed in editableStats is UI points (1 point per +25ms). delta is in points.
+      if (delta > 0 && this.editableStats.pointsAvailable <= 0) return;
+      (this.editableStats as any)[stat] = next;
+      if (delta > 0) {this.editableStats.pointsAvailable -= delta;} 
+      else {this.editableStats.pointsAvailable += Math.abs(delta);}
     } else {
-      if (stat === 'attackSpeed') {
-        // attackSpeed in editableStats is UI points (1 point per +25ms). delta is in points.
-        if (delta > 0 && this.editableStats.pointsAvailable <= 0) return;
-        (this.editableStats as any)[stat] = next;
-        if (delta > 0) this.editableStats.pointsAvailable -= delta; else this.editableStats.pointsAvailable += Math.abs(delta);
-      } else {
-        // Other non-regen stats: delta corresponds directly to spent points
-        if (delta > 0 && this.editableStats.pointsAvailable <= 0) return;
-        (this.editableStats as any)[stat] = next;
-        if (delta > 0) this.editableStats.pointsAvailable -= delta; else this.editableStats.pointsAvailable += Math.abs(delta);
-      }
-    }
+      // Other non-regen stats: delta corresponds directly to spent points
+      if (delta > 0 && this.editableStats.pointsAvailable <= 0) return;
+      (this.editableStats as any)[stat] = next;
+      if (delta > 0) this.editableStats.pointsAvailable -= delta; else this.editableStats.pointsAvailable += Math.abs(delta);
+    } 
   }
 
   // Simple helper to detect if the editable stats differ from the original capture
