@@ -3099,13 +3099,13 @@ ORDER BY p.created DESC;";
 					{ "@Map", targetMap } 
 				};
 				await ExecuteInsertOrUpdateOrDeleteAsync(updSql, updParams, connection, transaction);
-				Console.WriteLine($"HandleHeroDeath: moved hero {victimHeroId} to ({targetX},{targetY}) in map {targetMap}");
+				Console.WriteLine($"HandleHeroDeath: moved hero {victimHeroId} to ({targetX},{targetY}) in map {targetMap} from map {normCurrent}");
 				// Emit HERO_DIED event targeted at the victim so client will display death UI and can react.
 				var data = new Dictionary<string, string>() {
 					{ "killerId", killerId.ToString() },
 					{ "killerType", killerType }
 				};
-				var deathEvent = new MetaEvent(0, victimHeroId, DateTime.UtcNow, "HERO_DIED", targetMap ?? string.Empty, data);
+				var deathEvent = new MetaEvent(0, victimHeroId, DateTime.UtcNow, "HERO_DIED", normCurrent, data);
 				await UpdateEventsInDB(deathEvent, connection, transaction);
 			}
 			catch (Exception ex)
