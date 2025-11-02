@@ -215,6 +215,8 @@ ORDER BY p.created DESC;";
 						}
 					}
 
+					dataDict["creatorName"] = creatorName ?? string.Empty;  
+
 					if (!string.IsNullOrEmpty(otherMap) || otherId != 0)
 					{
 						var pairedData = new Dictionary<string, string>
@@ -222,7 +224,8 @@ ORDER BY p.created DESC;";
 							{ "x", otherCx.ToString() },
 							{ "y", otherCy.ToString() },
 							{ "map", otherMap },
-							{ "creatorHeroId", otherCreator.ToString() }
+							{ "creatorHeroId", otherCreator.ToString() },
+							{ "creatorName", creatorName?? string.Empty }
 						};
 						portals.Add(new { id = id, creatorHeroId = creatorId, creatorName = creatorName, map = map, coordsX = cx, coordsY = cy, data = pairedData, created = created });
 					}
@@ -1874,6 +1877,7 @@ ORDER BY p.created DESC;";
 				data["creatorHeroId"] = heroId.ToString();
 				data["map"] = map ?? string.Empty;
 				data["x"] = x.ToString();
+				data["y"] = y.ToString();
 				data["y"] = y.ToString();
 				// optional radius or metadata
 				if (request.Radius.HasValue) try { data["radius"] = request.Radius.Value.ToString(); } catch { }

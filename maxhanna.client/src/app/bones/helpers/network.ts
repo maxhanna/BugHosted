@@ -956,23 +956,16 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
       let label = '';
       if (object.metaHero && object.metaHero.map && !object.metaHero.map.toLowerCase().includes('road')) {
         label = `Town Portal`;
-        const creatorId = Number(it.creatorHeroId ?? it.creator_hero_id ?? it.heroId ?? it.creator ?? it.creatorId ?? it.ownerId ?? it.createdBy ?? it.hero_id ?? undefined);
-        if (!isNaN(creatorId) && creatorId > 0 && res.heroes) {
-          const owner = res.heroes.find((h: any) => Number(h.id) === creatorId || h.heroId === creatorId);
-          if (owner && owner.name) {
-            // e.g., "Max's\nPortal"
-            const shortName = String(owner.name).split(' ')[0] || owner.name;
-            label = `${shortName}'s\nPortal`;
-          }
-        } else if (it.creatorName || it.creator_name || it.createdByName) {
-          const cn = it.creatorName ?? it.creator_name ?? it.createdByName;
-          const shortName = String(cn).split(' ')[0];
+        // Prefer explicit creatorName returned by the server (or embedded in data) to avoid scanning heroes array
+        const serverCreatorName = (it.creatorName ?? it.creator_name ?? it.createdByName) || (it.data && (it.data.creatorName ?? it.data.creator_name));
+        if (serverCreatorName) {
+          const shortName = String(serverCreatorName).split(' ')[0] || serverCreatorName;
           label = `${shortName}'s\nPortal`;
         } else if (object.metaHero && object.metaHero.name) {
           // Fallback: if this is the local player's portal, show local name
           const me = object.metaHero.name;
           label = `${String(me).split(' ')[0]}'s\nPortal`;
-        } 
+        }
       }
 
       const portalMarker = new TownPortal({ position: new Vector2(x, y), label: label });
