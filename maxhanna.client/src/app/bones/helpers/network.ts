@@ -955,6 +955,7 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
       // Compute a friendly label. If server provided creator hero id/name, show "Name's\nPortal" on two lines.
       let label = '';
       if (object.metaHero && object.metaHero.map && !object.metaHero.map.toLowerCase().includes('road')) {
+        label = `Town Portal`;
         const creatorId = Number(it.creatorHeroId ?? it.creator_hero_id ?? it.heroId ?? it.creator ?? it.creatorId ?? it.ownerId ?? it.createdBy ?? it.hero_id ?? undefined);
         if (!isNaN(creatorId) && creatorId > 0 && object.otherHeroes) {
           const owner = object.otherHeroes.find((h: any) => Number(h.id) === creatorId || h.heroId === creatorId);
