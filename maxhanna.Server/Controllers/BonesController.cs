@@ -452,7 +452,7 @@ ORDER BY p.created DESC;";
 					int attackerLevel = 1;
 					int dbAttackDmg = 0;
 					double dbCritRate = 0.0;
-					double dbCritDmg = 2.0;
+					double dbCritDmg = 2.0; 
 					string currentSkill = normalizedParameters.ContainsKey("currentSkill") && normalizedParameters["currentSkill"] != null ? normalizedParameters["currentSkill"]?.ToString() ?? string.Empty : string.Empty;
 					try
 					{
@@ -474,7 +474,9 @@ ORDER BY p.created DESC;";
 						rdrStats.Close();
 					}
 					catch { attackerLevel = 1; dbAttackDmg = 0; dbCritRate = 0.0; dbCritDmg = 2.0; }
-
+					int baseDamage = dbAttackDmg + attackerLevel;
+					var (damage, wasCrit) = ComputeDamage(baseDamage, dbCritRate, dbCritDmg);
+ 
 					// Determine AoE half-size: allow client to send 'aoe', 'radius', 'width', or 'threshold'. Fallback to HITBOX_HALF for single-tile tolerance.
 					int aoeHalf = GRIDCELL; // default tolerance radius
 					string[] aoeKeys = new[] { "aoe", "radius", "width", "threshold" };
@@ -608,9 +610,8 @@ ORDER BY p.created DESC;";
 								try
 								{
 									// Compute and log the damage that will be applied to the encounter
-									int potentialEncounterDamage = attackerLevel; // current rule: attackerLevel applied to encounters
-									Console.WriteLine($"Facing attack -> encDamageCalc: attacker={sourceHeroId}, attackerLevel={attackerLevel}, dbAttackDmg={dbAttackDmg}, potentialEncounterDamage={potentialEncounterDamage}, chosenEnc={chosenEncId.Value}");
-									rows = Convert.ToInt32(await ApplyDamageToEncounter(chosenEncId.Value, potentialEncounterDamage, sourceHeroId, connection, transaction));
+ 									Console.WriteLine($"Facing attack -> encDamageCalc: attacker={sourceHeroId}, attackerLevel={attackerLevel}, dbAttackDmg={dbAttackDmg}, EncounterDamage={damage}, chosenEnc={chosenEncId.Value}");
+									rows = Convert.ToInt32(await ApplyDamageToEncounter(chosenEncId.Value, damage, sourceHeroId, connection, transaction));
 								}
 								catch (Exception exUpd)
 								{
@@ -624,13 +625,12 @@ ORDER BY p.created DESC;";
 						if (rows == 0)
 						{
 							// Fallback update to apply damage to any encounter in the AoE. Log intended damage and DB params.
-							int fallbackDamage = attackerLevel;
-							Console.WriteLine($"Fallback encounter UPDATE: attacker={sourceHeroId}, fallbackDamage={fallbackDamage}, attackerLevel={attackerLevel}, xRange={xMin}-{xMax}, yRange={yMin}-{yMax}, map={hero?.Map}");
+ 							Console.WriteLine($"Fallback encounter UPDATE: attacker={sourceHeroId}, fallbackDamage={damage}, attackerLevel={attackerLevel}, xRange={xMin}-{xMax}, yRange={yMin}-{yMax}, map={hero?.Map}");
 							string updateHpSql = $@"
 								UPDATE maxhanna.bones_encounter e
-								SET e.hp = GREATEST(e.hp - @AttackerLevel, 0),
+								SET e.hp = GREATEST(e.hp - @Damage, 0),
 									e.target_hero_id = CASE WHEN (e.target_hero_id IS NULL OR e.target_hero_id = 0) THEN @HeroId ELSE e.target_hero_id END,
-									e.last_killed = CASE WHEN (e.hp - @AttackerLevel) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END
+									e.last_killed = CASE WHEN (e.hp - @Damage) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END
 								WHERE e.map = @Map
 									AND e.hp > 0
 									AND e.coordsX BETWEEN @XMin AND @XMax
@@ -639,7 +639,7 @@ ORDER BY p.created DESC;";
 							var updateParams = new Dictionary<string, object?>() {
 									{ "@Map", hero?.Map ?? string.Empty },
 									{ "@HeroId", sourceHeroId },
-									{ "@AttackerLevel", fallbackDamage },
+									{ "@Damage", damage },
 									{ "@XMin", xMin },
 									{ "@XMax", xMax },
 									{ "@YMin", yMin },
@@ -659,23 +659,22 @@ ORDER BY p.created DESC;";
 							limitClause = " LIMIT 1";
 							isRegularSingleTarget = true;
 						}
-						// Non-regular AoE: keep previous behaviour (may update multiple rows)
-						int aoeDamage = Math.Max(1, attackerLevel);
-						Console.WriteLine($"AoE attack UPDATE: attacker={sourceHeroId}, aoeDamage={aoeDamage}, xRange={xMin}-{xMax}, yRange={yMin}-{yMax}, map={hero?.Map}, currentSkill={currentSkill}");
+						// Non-regular AoE: keep previous behaviour (may update multiple rows) 
+						Console.WriteLine($"AoE attack UPDATE: attacker={sourceHeroId}, aoeDamage={damage}, xRange={xMin}-{xMax}, yRange={yMin}-{yMax}, map={hero?.Map}, currentSkill={currentSkill}");
 						string updateHpSql = $@"
 								UPDATE maxhanna.bones_encounter e
-								SET e.hp = GREATEST(e.hp - @AttackerLevel, 0),
+								SET e.hp = GREATEST(e.hp - @Damage, 0),
 									e.target_hero_id = CASE WHEN (e.target_hero_id IS NULL OR e.target_hero_id = 0) THEN @HeroId ELSE e.target_hero_id END,
-									e.last_killed = CASE WHEN (e.hp - @AttackerLevel) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END
+									e.last_killed = CASE WHEN (e.hp - @Damage) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END
 								WHERE e.map = @Map
 									AND e.hp > 0
 									AND e.coordsX BETWEEN @XMin AND @XMax
 									AND e.coordsY BETWEEN @YMin AND @YMax
 								{limitClause};";
 						var updateParams = new Dictionary<string, object?>() {
-									{ "@Map", hero?.Map ?? string.Empty },
+								{ "@Map", hero?.Map ?? string.Empty },
 								{ "@HeroId", sourceHeroId },
-								{ "@AttackerLevel", aoeDamage },
+								{ "@Damage", damage },
 								{ "@XMin", xMin },
 								{ "@XMax", xMax },
 								{ "@YMin", yMin },
@@ -710,18 +709,12 @@ ORDER BY p.created DESC;";
 
 						// Compute attacker damage once: baseDamage now equals attack_dmg + attacker level
 						// Normalize critRate to a 0..1 probability (support values stored as percentages >1)
-						int baseDamage = dbAttackDmg + attackerLevel;
-						double critRate = dbCritRate > 1.0 ? (dbCritRate / 100.0) : dbCritRate;
-						// Clamp critRate between 0 and 1 defensively
-						if (critRate < 0.0) critRate = 0.0;
-						if (critRate > 1.0) critRate = 1.0;
-						double critMultiplier = dbCritDmg;
-						//Console.WriteLine($"Applying hero->hero damage: attacker={sourceHeroId}, baseDamage={baseDamage}, critRate={critRate}, critMultiplier={critMultiplier}, victims={string.Join(',', victims)}");
-						foreach (var victimId in victims)
+						 
+ 						foreach (var victimId in victims)
 						{
 							try
 							{
-								await ApplyDamageToHero(victimId, sourceHeroId, "hero", baseDamage, critRate, critMultiplier, hero?.Map ?? string.Empty, connection, transaction);
+								await ApplyDamageToHero(victimId, sourceHeroId, "hero", damage, hero?.Map ?? string.Empty, connection, transaction);
 							}
 							catch (Exception exVict)
 							{
@@ -2614,7 +2607,7 @@ ORDER BY p.created DESC;";
 										int attackerLevel = e.level <= 0 ? 1 : e.level; // use encounter level from query
 										int tgtHeroId = closest.Value.heroId;
 										// Use ApplyDamageToHero so crits and death handling are centralized
-										await ApplyDamageToHero(tgtHeroId, e.heroId, "encounter", attackerLevel, 0.0, 1.0, map, connection, transaction);
+										await ApplyDamageToHero(tgtHeroId, e.heroId, "encounter", attackerLevel, map, connection, transaction);
 									}
 									catch (Exception exApply)
 									{
@@ -3216,11 +3209,9 @@ ORDER BY p.created DESC;";
 		/// Apply damage to a hero row, update HP and emit death handling if HP reaches 0.
 		/// Uses an UPDATE followed by SELECT to determine new hp, and then calls HandleHeroDeath when needed.
 		/// </summary>
-		private async Task ApplyDamageToHero(int targetHeroId, int attackerId, string attackerType, int baseDamage, double critRate, double critMultiplier, string map, MySqlConnection connection, MySqlTransaction transaction)
+		private async Task ApplyDamageToHero(int targetHeroId, int attackerId, string attackerType, int baseDamage, string map, MySqlConnection connection, MySqlTransaction transaction)
 		{
-			if (targetHeroId <= 0) return;
-			// Compute final damage (before target's health reduction)
-			var (damage, wasCrit) = ComputeDamage(baseDamage, critRate, critMultiplier);
+			if (targetHeroId <= 0) return; 
 			//Console.WriteLine($"ApplyDamageToHero START target={targetHeroId} attacker={attackerId} attackerType={attackerType} baseDamage={baseDamage} damageComputed={damage} wasCrit={wasCrit} map={map}");
 			try
 			{
