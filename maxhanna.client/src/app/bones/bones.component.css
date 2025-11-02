@@ -777,8 +777,7 @@ body {
     transform: scale(0.7) translateY(-18px) rotate(-7deg);
   }
 }
-
-/* ===== Diablo-esque theme overlay (appended overrides) ===== */
+ 
 :root {
   --diablo-bg-1: #0b0b0d;
   /* deepest */
