@@ -594,6 +594,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       this.otherHeroes = [];
       return;
     }
+    let forceChangeMap = false;
 
     // Keep reference to previous local HP to detect HP drops
     const previousLocalHp = this.metaHero?.hp ?? undefined;
@@ -637,6 +638,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.metaHero.hp = heroMeta.hp ?? this.metaHero.hp;
         this.metaHero.level = heroMeta.level ?? this.metaHero.level;
         this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp;
+        if (this.metaHero.map !== res.map) {
+          forceChangeMap = true;
+        }
         this.metaHero.map = res.map ?? this.metaHero.map;
   // Legacy stats removed; rely on new stat fields only
         if (this.hero) {
@@ -666,9 +670,12 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
       ids.push(heroMeta.id);
     }
-
-    // Remove any old hero sprites no longer present
-    this.destroyExtraChildren(ids);
+    if (forceChangeMap) {
+      events.emit("CHANGE_LEVEL", this.getLevelFromLevelName(this.metaHero.map ?? "HEROROOM"));
+    } else { 
+      // Remove any old hero sprites no longer present
+      this.destroyExtraChildren(ids);
+    } 
   }
 
   private destroyExtraChildren(ids: number[]) {
