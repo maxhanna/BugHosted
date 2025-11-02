@@ -1873,8 +1873,21 @@ ORDER BY p.created DESC;";
 					int ownerId = ownerObj != null && int.TryParse(ownerObj.ToString(), out var tmp) ? tmp : 0;
 					if (ownerId != userId.Value) return StatusCode(403, "You do not own this hero");
 				}
+				// Fetch the hero's name so we can include it in the portal data returned to clients
+				string creatorName = string.Empty;
+				try
+				{
+					string nameSql = "SELECT name FROM maxhanna.bones_hero WHERE id = @HeroId LIMIT 1";
+					using var nameCmd = new MySqlCommand(nameSql, connection, transaction);
+					nameCmd.Parameters.AddWithValue("@HeroId", heroId);
+					var nameObj = await nameCmd.ExecuteScalarAsync();
+					creatorName = nameObj != null ? nameObj.ToString() ?? string.Empty : string.Empty;
+				}
+				catch { /* ignore */ }
+
 				var data = new Dictionary<string, string>();
 				data["creatorHeroId"] = heroId.ToString();
+				data["creatorName"] = creatorName ?? string.Empty;
 				data["map"] = map ?? string.Empty;
 				data["x"] = x.ToString();
 				data["y"] = y.ToString();
@@ -1939,6 +1952,8 @@ ORDER BY p.created DESC;";
 						townData["originMap"] = map ?? string.Empty;
 						townData["originX"] = x.ToString();
 						townData["originY"] = y.ToString();
+						// include creator name on the town-side portal as well
+						try { townData["creatorHeroName"] = creatorName ?? string.Empty; } catch { }
 						// Reference the canonical portalId (insertedId). We'll insert the town-side portal and then add both ids to events.
 						string insertTownSql = @"INSERT INTO maxhanna.bones_town_portal (creator_hero_id, map, coordsX, coordsY, data, created) VALUES (@CreatorHeroId, @Map, @X, @Y, @Data, UTC_TIMESTAMP()); SELECT LAST_INSERT_ID();";
 						using var insertTownCmd = new MySqlCommand(insertTownSql, connection, transaction);
