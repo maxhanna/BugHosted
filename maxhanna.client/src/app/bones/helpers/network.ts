@@ -957,8 +957,8 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
       if (object.metaHero && object.metaHero.map && !object.metaHero.map.toLowerCase().includes('road')) {
         label = `Town Portal`;
         const creatorId = Number(it.creatorHeroId ?? it.creator_hero_id ?? it.heroId ?? it.creator ?? it.creatorId ?? it.ownerId ?? it.createdBy ?? it.hero_id ?? undefined);
-        if (!isNaN(creatorId) && creatorId > 0 && object.otherHeroes) {
-          const owner = object.otherHeroes.find((h: any) => Number(h.id) === creatorId || h.heroId === creatorId);
+        if (!isNaN(creatorId) && creatorId > 0 && res.heroes) {
+          const owner = res.heroes.find((h: any) => Number(h.id) === creatorId || h.heroId === creatorId);
           if (owner && owner.name) {
             // e.g., "Max's\nPortal"
             const shortName = String(owner.name).split(' ')[0] || owner.name;
@@ -987,23 +987,21 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
         dataObj = { coordsX: it.coordsX, coordsY: it.coordsY, map: it.map };
       }
 
-      if (dataObj && typeof dataObj === 'object') {
-        let coerced = false;
+      if (dataObj && typeof dataObj === 'object') { 
         const pickFirst = (v: any) => Array.isArray(v) ? (v.length > 0 ? v[0] : undefined) : v;
         if (dataObj.map !== undefined) {
           const raw = pickFirst(dataObj.map);
-          if (raw !== dataObj.map) { dataObj.map = raw; coerced = true; }
+          if (raw !== dataObj.map) { dataObj.map = raw; }
         }
         if (dataObj.originMap !== undefined) {
           const raw = pickFirst(dataObj.originMap);
-          if (raw !== dataObj.originMap) { dataObj.originMap = raw; coerced = true; }
+          if (raw !== dataObj.originMap) { dataObj.originMap = raw; }
         }
         // Coerce coordinate-like fields
         const coordKeys = ['originX', 'originY', 'coordsX', 'coordsY', 'x', 'y'];
         for (const k of coordKeys) {
           if (dataObj[k] !== undefined && Array.isArray(dataObj[k])) {
             dataObj[k] = dataObj[k].length > 0 ? dataObj[k][0] : 0;
-            coerced = true;
           }
         }
       }
