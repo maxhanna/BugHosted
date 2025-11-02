@@ -384,6 +384,9 @@ export class Hero extends Character {
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     // call base sprite draw
     super.drawImage(ctx, drawPosX, drawPosY);
+    if (this.isUserControlled) {
+      return;
+    }
     // Draw HP & EXP bars and level above hero (similar style to Bot)
     const barWidth = 34;
     const barHeight = 4;

@@ -411,11 +411,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     }
     this.mainScene.drawObjects(this.ctx);
     this.ctx.restore(); //Restore to original state 
-    this.mainScene.drawForeground(this.ctx); //Draw anything above the game world
-    // Draw HUD for local player (health orb and experience bar)
-    try {
-      this.drawHudForLocalHero(this.ctx);
-    } catch { }
+    this.mainScene.drawForeground(this.ctx); //Draw anything above the game world 
+    this.drawHudForLocalHero(this.ctx); 
   }
   gameLoop = new GameLoop(this.update, this.render);
 
