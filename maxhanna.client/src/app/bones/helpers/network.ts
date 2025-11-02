@@ -957,7 +957,7 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
       if (object.metaHero && object.metaHero.map && !object.metaHero.map.toLowerCase().includes('road')) {
         const creatorId = Number(it.creatorHeroId ?? it.creator_hero_id ?? it.heroId ?? it.creator ?? it.creatorId ?? it.ownerId ?? it.createdBy ?? it.hero_id ?? undefined);
         if (!isNaN(creatorId) && creatorId > 0 && object.otherHeroes) {
-          const owner = object.otherHeroes.find((h: any) => Number(h.id) === creatorId);
+          const owner = object.otherHeroes.find((h: any) => Number(h.id) === creatorId || h.heroId === creatorId);
           if (owner && owner.name) {
             // e.g., "Max's\nPortal"
             const shortName = String(owner.name).split(' ')[0] || owner.name;
