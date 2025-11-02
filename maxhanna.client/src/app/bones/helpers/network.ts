@@ -76,13 +76,24 @@ export function stopAttackBatch() {
 function sendAttackBatchToBackend(attacks: any[], object: any) {
   if (!attacks || attacks.length === 0) return;
 
+  // Ensure each attack includes the hero's currentSkill so the server can process/projectile visuals
+  const heroCurrentSkill = (object && object.metaHero && (object.metaHero as any).currentSkill) || (object && object.hero && (object.hero as any).currentSkill) || undefined;
+  const attacksWithSkill = attacks.map(a => {
+    try {
+      if (!a) return a;
+      // Do not overwrite if attack already provides a currentSkill or skill
+      if (a.currentSkill || a.skill) return { ...a, currentSkill: a.currentSkill ?? a.skill };
+      return { ...a, currentSkill: heroCurrentSkill ?? a.currentSkill ?? a.skill };
+    } catch (ex) { return a; }
+  });
+
   const metaEvent = new MetaEvent(
     0,
     object.metaHero.id,
     new Date(),
     "ATTACK_BATCH",
     object.metaHero.map,
-    { "attacks": safeStringify(attacks) }
+    { "attacks": safeStringify(attacksWithSkill) }
   );
 
   object.bonesService.updateEvents(metaEvent).catch((error: any) => {
