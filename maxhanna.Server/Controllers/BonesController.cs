@@ -407,13 +407,12 @@ ORDER BY p.created DESC;";
 						}
 					}
 
-					var parameters = new Dictionary<string, object?>()
-						{
-							{ "@HeroId", normalizedParameters.ContainsKey("sourceHeroId") ? normalizedParameters["sourceHeroId"] ?? (hero?.Id ?? 0) : (hero?.Id ?? 0) },
-							{ "@Event", "ATTACK" },
-							{ "@Map", hero?.Map ?? string.Empty },
-							{ "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(normalizedParameters) }
-						};
+					var parameters = new Dictionary<string, object?>() {
+						{ "@HeroId", normalizedParameters.ContainsKey("sourceHeroId") ? normalizedParameters["sourceHeroId"] ?? (hero?.Id ?? 0) : (hero?.Id ?? 0) },
+						{ "@Event", "ATTACK" },
+						{ "@Map", hero?.Map ?? string.Empty },
+						{ "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(normalizedParameters) }
+					};
 					await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, parameters, connection, transaction);
 
 					// Determine source hero id and facing
@@ -454,6 +453,7 @@ ORDER BY p.created DESC;";
 					int dbAttackDmg = 0;
 					double dbCritRate = 0.0;
 					double dbCritDmg = 2.0;
+					string currentSkill = normalizedParameters.ContainsKey("currentSkill") && normalizedParameters["currentSkill"] != null ? normalizedParameters["currentSkill"]?.ToString() ?? string.Empty : string.Empty;
 					try
 					{
 						using var lvlCmd = new MySqlCommand("SELECT COALESCE(level,1) AS lvl, COALESCE(attack_dmg,0) AS attack_dmg, COALESCE(crit_rate,0) AS crit_rate, COALESCE(crit_dmg,2.0) AS crit_dmg FROM maxhanna.bones_hero WHERE id=@HeroId", connection, transaction);
@@ -531,9 +531,10 @@ ORDER BY p.created DESC;";
 					// Decide whether this is an AoE attack or a regular single-target attack.
 					// If aoeHalf is <= GRIDCELL and the client did not explicitly provide a length extension,
 					// treat it as a regular attack and limit damage to a single encounter (LIMIT 1).
-					string limitClause = "";
+					string limitClause = string.Empty;
+					bool hasHit = false;
 					bool isRegularSingleTarget = aoeHalf <= GRIDCELL && !(normalizedParameters.ContainsKey("length") && normalizedParameters["length"] != null);
- 					// For regular single-target attacks prefer the encounter in the player's facing direction
+					// For regular single-target attacks prefer the encounter in the player's facing direction
 					if (isRegularSingleTarget)
 					{
 						limitClause = " LIMIT 1";
@@ -616,6 +617,7 @@ ORDER BY p.created DESC;";
 									await _log.Db("ApplyDamageToEncounter failed: " + exUpd.Message, hero?.Id ?? 0, "BONES", true);
 									rows = 0;
 								}
+								hasHit = true;
 							}
 						}
 						// If no rows were updated by facing-specific logic (either no facing or no matching encounter), fallback
@@ -632,7 +634,8 @@ ORDER BY p.created DESC;";
 								WHERE e.map = @Map
 									AND e.hp > 0
 									AND e.coordsX BETWEEN @XMin AND @XMax
-									AND e.coordsY BETWEEN @YMin AND @YMax{limitClause};";
+									AND e.coordsY BETWEEN @YMin AND @YMax
+								{limitClause};";
 							var updateParams = new Dictionary<string, object?>() {
 									{ "@Map", hero?.Map ?? string.Empty },
 									{ "@HeroId", sourceHeroId },
@@ -643,10 +646,19 @@ ORDER BY p.created DESC;";
 									{ "@YMax", yMax }
 								};
 							rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(updateHpSql, updateParams, connection, transaction));
+							if (rows > 0)
+							{
+								hasHit = true;
+							}
 						}
 					}
 					else
 					{
+						if (currentSkill == "arrow")
+						{
+							limitClause = " LIMIT 1";
+							isRegularSingleTarget = true;
+						}
 						// Non-regular AoE: keep previous behaviour (may update multiple rows)
 						int aoeDamage = Math.Max(1, attackerLevel);
 						Console.WriteLine($"AoE attack UPDATE: attacker={sourceHeroId}, aoeDamage={aoeDamage}, xRange={xMin}-{xMax}, yRange={yMin}-{yMax}, map={hero?.Map}");
@@ -658,7 +670,8 @@ ORDER BY p.created DESC;";
 								WHERE e.map = @Map
 									AND e.hp > 0
 									AND e.coordsX BETWEEN @XMin AND @XMax
-									AND e.coordsY BETWEEN @YMin AND @YMax;";
+									AND e.coordsY BETWEEN @YMin AND @YMax
+								{limitClause};";
 						var updateParams = new Dictionary<string, object?>() {
 									{ "@Map", hero?.Map ?? string.Empty },
 								{ "@HeroId", sourceHeroId },
@@ -669,97 +682,103 @@ ORDER BY p.created DESC;";
 								{ "@YMax", yMax }
 							};
 						rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(updateHpSql, updateParams, connection, transaction));
+						if (rows > 0)
+						{
+							hasHit = true;
+						}
 					}
-
-					// Select victims within AoE (respect party exclusion) and apply damage per-victim using centralized helper
-					string selectHeroesSql = $@"SELECT id FROM maxhanna.bones_hero h WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax AND h.id <> @AttackerId AND NOT EXISTS (
+					if (!(isRegularSingleTarget && hasHit))
+					{
+						// Select victims within AoE (respect party exclusion) and apply damage per-victim using centralized helper
+						string selectHeroesSql = $@"SELECT id FROM maxhanna.bones_hero h WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax AND h.id <> @AttackerId AND NOT EXISTS (
 							SELECT 1 FROM maxhanna.bones_hero_party ap JOIN maxhanna.bones_hero_party tp ON tp.hero_id = h.id WHERE ap.hero_id = @AttackerId AND tp.party_id = ap.party_id
 						){(isRegularSingleTarget ? " LIMIT 1" : "")};";
-					using var selCmd = new MySqlCommand(selectHeroesSql, connection, transaction);
-					selCmd.Parameters.AddWithValue("@Map", hero?.Map ?? string.Empty);
-					selCmd.Parameters.AddWithValue("@XMin", xMin);
-					selCmd.Parameters.AddWithValue("@XMax", xMax);
-					selCmd.Parameters.AddWithValue("@YMin", yMin);
-					selCmd.Parameters.AddWithValue("@YMax", yMax);
-					selCmd.Parameters.AddWithValue("@AttackerId", sourceHeroId);
-					using var selR = await selCmd.ExecuteReaderAsync();
-					var victims = new List<int>();
-					while (await selR.ReadAsync())
-					{
-						victims.Add(selR.GetInt32(0));
-					}
-					selR.Close();
+						using var selCmd = new MySqlCommand(selectHeroesSql, connection, transaction);
+						selCmd.Parameters.AddWithValue("@Map", hero?.Map ?? string.Empty);
+						selCmd.Parameters.AddWithValue("@XMin", xMin);
+						selCmd.Parameters.AddWithValue("@XMax", xMax);
+						selCmd.Parameters.AddWithValue("@YMin", yMin);
+						selCmd.Parameters.AddWithValue("@YMax", yMax);
+						selCmd.Parameters.AddWithValue("@AttackerId", sourceHeroId);
+						using var selR = await selCmd.ExecuteReaderAsync();
+						var victims = new List<int>();
+						while (await selR.ReadAsync())
+						{
+							victims.Add(selR.GetInt32(0));
+						}
+						selR.Close();
 
-					// Compute attacker damage once: baseDamage now equals attack_dmg + attacker level
-					// Normalize critRate to a 0..1 probability (support values stored as percentages >1)
-					int baseDamage = dbAttackDmg + attackerLevel;
-					double critRate = dbCritRate > 1.0 ? (dbCritRate / 100.0) : dbCritRate;
-					// Clamp critRate between 0 and 1 defensively
-					if (critRate < 0.0) critRate = 0.0;
-					if (critRate > 1.0) critRate = 1.0;
-					double critMultiplier = dbCritDmg;
-					//Console.WriteLine($"Applying hero->hero damage: attacker={sourceHeroId}, baseDamage={baseDamage}, critRate={critRate}, critMultiplier={critMultiplier}, victims={string.Join(',', victims)}");
-					foreach (var victimId in victims)
-					{
-						try
+						// Compute attacker damage once: baseDamage now equals attack_dmg + attacker level
+						// Normalize critRate to a 0..1 probability (support values stored as percentages >1)
+						int baseDamage = dbAttackDmg + attackerLevel;
+						double critRate = dbCritRate > 1.0 ? (dbCritRate / 100.0) : dbCritRate;
+						// Clamp critRate between 0 and 1 defensively
+						if (critRate < 0.0) critRate = 0.0;
+						if (critRate > 1.0) critRate = 1.0;
+						double critMultiplier = dbCritDmg;
+						//Console.WriteLine($"Applying hero->hero damage: attacker={sourceHeroId}, baseDamage={baseDamage}, critRate={critRate}, critMultiplier={critMultiplier}, victims={string.Join(',', victims)}");
+						foreach (var victimId in victims)
 						{
-							await ApplyDamageToHero(victimId, sourceHeroId, "hero", baseDamage, critRate, critMultiplier, hero?.Map ?? string.Empty, connection, transaction);
-						}
-						catch (Exception exVict)
-						{
-							await _log.Db("ApplyDamageToHero failed for victim " + victimId + ": " + exVict.Message, victimId, "BONES", true);
-						}
-					}
-
-					if (rows > 0)
-					{
-						string selectDeadSql = @"SELECT hero_id, `level`, hp FROM maxhanna.bones_encounter WHERE map = @Map AND hp = 0 AND (awarded IS NULL OR awarded = 0) AND last_killed IS NOT NULL AND last_killed >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND) AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax;";
-						using var deadCmd = new MySqlCommand(selectDeadSql, connection, transaction);
-						deadCmd.Parameters.AddWithValue("@Map", hero?.Map ?? string.Empty);
-						deadCmd.Parameters.AddWithValue("@XMin", xMin);
-						deadCmd.Parameters.AddWithValue("@XMax", xMax);
-						deadCmd.Parameters.AddWithValue("@YMin", yMin);
-						deadCmd.Parameters.AddWithValue("@YMax", yMax);
-						using var deadRdr = await deadCmd.ExecuteReaderAsync();
-						var deadEncounters = new List<(int encId, int encLevel)>();
-						while (await deadRdr.ReadAsync())
-						{
-							int encLevel = deadRdr.IsDBNull(deadRdr.GetOrdinal("level")) ? 0 : deadRdr.GetInt32(deadRdr.GetOrdinal("level"));
-							int encId = deadRdr.GetInt32(deadRdr.GetOrdinal("hero_id"));
-							deadEncounters.Add((encId, encLevel));
-						}
-						deadRdr.Close();
-						// Now award EXP after the reader is closed to avoid using the same connection with an open reader
-						var awarded = new HashSet<int>();
-						foreach (var d in deadEncounters)
-						{
-							if (!awarded.Contains(d.encId))
+							try
 							{
-								await AwardEncounterKillExp(sourceHeroId, d.encLevel, connection, transaction);
-
-								int dropX = targetX;
-								int dropY = targetY;
-								string selEncCoords = "SELECT coordsX, coordsY FROM maxhanna.bones_encounter WHERE hero_id = @EncId LIMIT 1;";
-								using var coordCmd = new MySqlCommand(selEncCoords, connection, transaction);
-								coordCmd.Parameters.AddWithValue("@EncId", d.encId);
-								using var coordR = await coordCmd.ExecuteReaderAsync();
-								if (await coordR.ReadAsync())
-								{
-									dropX = coordR.IsDBNull(0) ? dropX : coordR.GetInt32(0);
-									dropY = coordR.IsDBNull(1) ? dropY : coordR.GetInt32(1);
-								}
-								coordR.Close();
-
-								await SpawnDroppedItem(d.encId, d.encLevel, dropX, dropY, hero?.Map ?? string.Empty, connection, transaction);
-
-								string finalizeSql = @"UPDATE maxhanna.bones_encounter SET awarded = 1, coordsX = -1000, coordsY = -1000, target_hero_id = 0 WHERE hero_id = @EncId LIMIT 1;";
-								var finalizeParams = new Dictionary<string, object?>() { { "@EncId", d.encId } };
-								await ExecuteInsertOrUpdateOrDeleteAsync(finalizeSql, finalizeParams, connection, transaction);
-
-								awarded.Add(d.encId);
+								await ApplyDamageToHero(victimId, sourceHeroId, "hero", baseDamage, critRate, critMultiplier, hero?.Map ?? string.Empty, connection, transaction);
+							}
+							catch (Exception exVict)
+							{
+								await _log.Db("ApplyDamageToHero failed for victim " + victimId + ": " + exVict.Message, victimId, "BONES", true);
 							}
 						}
 
+						if (rows > 0)
+						{
+							string selectDeadSql = @"SELECT hero_id, `level`, hp FROM maxhanna.bones_encounter WHERE map = @Map AND hp = 0 AND (awarded IS NULL OR awarded = 0) AND last_killed IS NOT NULL AND last_killed >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND) AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax;";
+							using var deadCmd = new MySqlCommand(selectDeadSql, connection, transaction);
+							deadCmd.Parameters.AddWithValue("@Map", hero?.Map ?? string.Empty);
+							deadCmd.Parameters.AddWithValue("@XMin", xMin);
+							deadCmd.Parameters.AddWithValue("@XMax", xMax);
+							deadCmd.Parameters.AddWithValue("@YMin", yMin);
+							deadCmd.Parameters.AddWithValue("@YMax", yMax);
+							using var deadRdr = await deadCmd.ExecuteReaderAsync();
+							var deadEncounters = new List<(int encId, int encLevel)>();
+							while (await deadRdr.ReadAsync())
+							{
+								int encLevel = deadRdr.IsDBNull(deadRdr.GetOrdinal("level")) ? 0 : deadRdr.GetInt32(deadRdr.GetOrdinal("level"));
+								int encId = deadRdr.GetInt32(deadRdr.GetOrdinal("hero_id"));
+								deadEncounters.Add((encId, encLevel));
+							}
+							deadRdr.Close();
+							// Now award EXP after the reader is closed to avoid using the same connection with an open reader
+							var awarded = new HashSet<int>();
+							foreach (var d in deadEncounters)
+							{
+								if (!awarded.Contains(d.encId))
+								{
+									await AwardEncounterKillExp(sourceHeroId, d.encLevel, connection, transaction);
+
+									int dropX = targetX;
+									int dropY = targetY;
+									string selEncCoords = "SELECT coordsX, coordsY FROM maxhanna.bones_encounter WHERE hero_id = @EncId LIMIT 1;";
+									using var coordCmd = new MySqlCommand(selEncCoords, connection, transaction);
+									coordCmd.Parameters.AddWithValue("@EncId", d.encId);
+									using var coordR = await coordCmd.ExecuteReaderAsync();
+									if (await coordR.ReadAsync())
+									{
+										dropX = coordR.IsDBNull(0) ? dropX : coordR.GetInt32(0);
+										dropY = coordR.IsDBNull(1) ? dropY : coordR.GetInt32(1);
+									}
+									coordR.Close();
+
+									await SpawnDroppedItem(d.encId, d.encLevel, dropX, dropY, hero?.Map ?? string.Empty, connection, transaction);
+
+									string finalizeSql = @"UPDATE maxhanna.bones_encounter SET awarded = 1, coordsX = -1000, coordsY = -1000, target_hero_id = 0 WHERE hero_id = @EncId LIMIT 1;";
+									var finalizeParams = new Dictionary<string, object?>() { { "@EncId", d.encId } };
+									await ExecuteInsertOrUpdateOrDeleteAsync(finalizeSql, finalizeParams, connection, transaction);
+
+									awarded.Add(d.encId);
+								}
+							}
+
+						}
 					}
 				}
 
@@ -2100,7 +2119,7 @@ ORDER BY p.created DESC;";
 				if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync();
 				if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
 				if (userId == 0 && heroId == null) return null;
-				
+
 				string sql = $@"
 				SELECT 
 					h.id as hero_id, 
@@ -2162,16 +2181,16 @@ ORDER BY p.created DESC;";
 				// After the reader is closed, it's safe to execute additional commands on the same connection.
 				if (userId != 0 && hero != null)
 				{
-					 
-						using var colorCmd = new MySqlCommand("SELECT last_character_color FROM maxhanna.user_settings WHERE user_id = @UserId LIMIT 1", conn, transaction);
-						colorCmd.Parameters.AddWithValue("@UserId", userId);
-						var colorObj = await colorCmd.ExecuteScalarAsync();
-						if (colorObj != null && colorObj != DBNull.Value)
-						{
-							var colorStr = colorObj.ToString();
-							if (!string.IsNullOrEmpty(colorStr)) hero.Color = colorStr;
-						}
-				 
+
+					using var colorCmd = new MySqlCommand("SELECT last_character_color FROM maxhanna.user_settings WHERE user_id = @UserId LIMIT 1", conn, transaction);
+					colorCmd.Parameters.AddWithValue("@UserId", userId);
+					var colorObj = await colorCmd.ExecuteScalarAsync();
+					if (colorObj != null && colorObj != DBNull.Value)
+					{
+						var colorStr = colorObj.ToString();
+						if (!string.IsNullOrEmpty(colorStr)) hero.Color = colorStr;
+					}
+
 				}
 				return hero;
 			}
@@ -2223,7 +2242,7 @@ ORDER BY p.created DESC;";
 				throw;
 			}
 		}
- 
+
 		private async Task ProcessEncounterAI(string map, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			// Early rate-limit: avoid entering expensive AI processing more than once per second per map.
@@ -3122,7 +3141,7 @@ ORDER BY p.created DESC;";
 					{ "@HeroId", victimHeroId },
 					{ "@X", targetX },
 					{ "@Y", targetY },
-					{ "@Map", targetMap } 
+					{ "@Map", targetMap }
 				};
 				await ExecuteInsertOrUpdateOrDeleteAsync(updSql, updParams, connection, transaction);
 				Console.WriteLine($"HandleHeroDeath: moved hero {victimHeroId} to ({targetX},{targetY}) in map {targetMap} from map {normCurrent}");
@@ -3206,7 +3225,7 @@ ORDER BY p.created DESC;";
 			try
 			{
 				// Read target hero 'health' stat which represents percentage damage reduction (0..100)
-				int targetHealthPercent = 1; 
+				int targetHealthPercent = 1;
 				string selHealth = "SELECT health FROM maxhanna.bones_hero WHERE id = @TargetHeroId LIMIT 1;";
 				using var hCmd = new MySqlCommand(selHealth, connection, transaction);
 				hCmd.Parameters.AddWithValue("@TargetHeroId", targetHeroId);
@@ -3216,7 +3235,7 @@ ORDER BY p.created DESC;";
 					targetHealthPercent = parsedH;
 				}
 				//Console.WriteLine($"ApplyDamageToHero: targetHealthPercent={targetHealthPercent}");
-				 
+
 				// Clamp health percent and compute reduction factor
 				if (targetHealthPercent < 0) targetHealthPercent = 0;
 				if (targetHealthPercent >= 100) targetHealthPercent = 99; // never allow 100% reduction
