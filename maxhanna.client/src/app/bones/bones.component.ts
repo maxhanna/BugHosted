@@ -1767,7 +1767,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   private async handleHeroDeath(params: { killerId?: string | number | null, killerUserId?: number | null, cause?: string | null }) {
-     
     console.debug('handleHeroDeath ENTRY', JSON.parse(JSON.stringify(params))); 
     let killerId = Number(params.killerId);
     let cause = params.cause;

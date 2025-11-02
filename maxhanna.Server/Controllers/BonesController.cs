@@ -3170,6 +3170,7 @@ ORDER BY p.created DESC;";
 			if (targetHeroId <= 0) return;
 			// Compute final damage (before target's health reduction)
 			var (damage, wasCrit) = ComputeDamage(baseDamage, critRate, critMultiplier);
+			System.Console.WriteLine($"ApplyDamageToHero START target={targetHeroId} attacker={attackerId} attackerType={attackerType} baseDamage={baseDamage} damageComputed={damage} wasCrit={wasCrit} map={map}");
 			try
 			{
 				// Read target hero 'health' stat which represents percentage damage reduction (0..100)
@@ -3182,6 +3183,7 @@ ORDER BY p.created DESC;";
 				{
 					targetHealthPercent = parsedH;
 				}
+				System.Console.WriteLine($"ApplyDamageToHero: targetHealthPercent={targetHealthPercent}");
 				 
 				// Clamp health percent and compute reduction factor
 				if (targetHealthPercent < 0) targetHealthPercent = 0;
@@ -3190,6 +3192,7 @@ ORDER BY p.created DESC;";
 				// Apply reduction and round to integer damage
 				int finalDamage = (int)Math.Round(damage * factor);
 				if (finalDamage < 0) finalDamage = 0;
+				System.Console.WriteLine($"ApplyDamageToHero: computed finalDamage={finalDamage} (factor={factor})");
 
 				string upd = "UPDATE maxhanna.bones_hero SET hp = GREATEST(hp - @Damage, 0), updated = UTC_TIMESTAMP() WHERE id = @TargetHeroId AND hp > 0 LIMIT 1;";
 				var parameters = new Dictionary<string, object?>() { { "@Damage", finalDamage }, { "@TargetHeroId", targetHeroId } };
@@ -3203,6 +3206,7 @@ ORDER BY p.created DESC;";
 					var obj = await selCmd.ExecuteScalarAsync();
 					int newHp = 0;
 					if (obj != null && int.TryParse(obj.ToString(), out var parsed)) newHp = parsed;
+					System.Console.WriteLine($"ApplyDamageToHero: DB update affected={affected}, newHp={newHp}");
 					if (newHp <= 0)
 					{
 						await HandleHeroDeath(targetHeroId, attackerId, attackerType, map, connection, transaction);
@@ -3211,6 +3215,7 @@ ORDER BY p.created DESC;";
 			}
 			catch (Exception ex)
 			{
+				System.Console.WriteLine($"ApplyDamageToHero EXCEPTION target={targetHeroId} error={ex.Message} \n{ex.StackTrace}");
 				await _log.Db("ApplyDamageToHero failed: " + ex.Message, targetHeroId, "BONES", true);
 			}
 		}
