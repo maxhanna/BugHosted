@@ -2796,12 +2796,13 @@ ORDER BY p.created DESC;";
 					m.hp as hero_hp,
 					m.updated as hero_updated,
 					m.created as hero_created,
-					m.attack_speed as hero_attack_speed 
-				m.mana as hero_mana 
+					m.attack_speed as hero_attack_speed,
+					m.mana as hero_mana 
 				FROM maxhanna.bones_hero m 
 				WHERE m.map = @HeroMapId 
 				ORDER BY m.coordsY ASC;";
-				MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@HeroMapId", hero.Map);
+				MySqlCommand cmd = new(sql, conn, transaction); 
+				cmd.Parameters.AddWithValue("@HeroMapId", hero.Map);
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
 					// read ordinals and values inline with DBNull checks (one-line assignments)
