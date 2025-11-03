@@ -34,6 +34,16 @@ export class Input {
 
   setChatInput(input: HTMLInputElement) {
     this._chatInput = input;
+    // keep chatSelected in sync with actual focus state of the input
+    // (mobile keyboards and other focus flows may not toggle chatSelected)
+    input.addEventListener('focus', () => {
+      this.chatSelected = true;
+      events.emit("STARTED_TYPING");
+    });
+    input.addEventListener('blur', () => {
+      this.chatSelected = false;
+      events.emit("HERO_MOVEMENT_UNLOCK");
+    });
   }
 
   get chatInput() {
@@ -120,10 +130,24 @@ export class Input {
   }
 
   handleKeydown(event: KeyboardEvent) {
-    if (this.chatSelected) {
+    // Normalize code for mobile where event.code may be undefined or 'Unidentified'
+    let code = event.code;
+    if (!code || code === 'Unidentified') {
+      const k = event.key;
+      if (k && k.length === 1) {
+        code = 'Key' + k.toUpperCase();
+      } else if (k === ' ') {
+        code = 'Space';
+      } else {
+        code = k || '';
+      }
+    }
+
+    // If chat is selected allow Enter through so pressing Enter in the chat still triggers send/toggle
+    if (this.chatSelected && code !== 'Enter' && code !== 'NumpadEnter') {
       return;
     }
-    const code = event.code;
+
     switch (code) {
       case 'ArrowUp':
       case 'KeyW':
@@ -160,7 +184,19 @@ export class Input {
   }
 
   handleKeyup(event: KeyboardEvent) {
-    const code = event.code;
+    // Normalize code for mobile where event.code may be undefined or 'Unidentified'
+    let code = event.code;
+    if (!code || code === 'Unidentified') {
+      const k = event.key;
+      if (k && k.length === 1) {
+        code = 'Key' + k.toUpperCase();
+      } else if (k === ' ') {
+        code = 'Space';
+      } else {
+        code = k || '';
+      }
+    }
+
     switch (code) {
       case 'ArrowUp':
       case 'KeyW':
