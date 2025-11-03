@@ -21,7 +21,7 @@ export class TownPortal extends GameObject {
       name: label,
       forceDrawName: true,
       preventDrawName: false,
-      drawLayer: FLOOR,
+      drawLayer: HUD,
       colorSwap: params.colorSwap,
     }); 
 
