@@ -2192,6 +2192,7 @@ ORDER BY p.created DESC;";
 					h.level as hero_level,
 					h.exp as hero_exp, 
 					h.hp as hero_hp, 
+					h.mana,
 					h.attack_speed as attack_speed,  
 					h.attack_dmg AS hero_attack_dmg,
 					h.crit_rate AS hero_crit_rate,
@@ -2233,7 +2234,7 @@ ORDER BY p.created DESC;";
 								CritDmg = reader.IsDBNull(reader.GetOrdinal("hero_crit_dmg")) ? 2.0 : reader.GetDouble(reader.GetOrdinal("hero_crit_dmg")),
 								Health = reader.IsDBNull(reader.GetOrdinal("hero_health")) ? 1 : reader.GetInt32(reader.GetOrdinal("hero_health")),
 								Regen = reader.IsDBNull(reader.GetOrdinal("hero_regen")) ? 0.0 : reader.GetDouble(reader.GetOrdinal("hero_regen")),
-								Mana = reader.IsDBNull(reader.GetOrdinal("mana")) ? 100 : reader.GetInt32(reader.GetOrdinal("mana")),
+								Mana = reader.IsDBNull(reader.GetOrdinal("mana")) ? 0 : reader.GetInt32(reader.GetOrdinal("mana")),
 							};
 						}
 					}
