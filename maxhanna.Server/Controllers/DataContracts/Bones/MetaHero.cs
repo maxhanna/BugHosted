@@ -45,6 +45,12 @@ namespace maxhanna.Server.Controllers.DataContracts.Bones
 
 		[JsonPropertyName("mana")]
 		public int Mana { get; set; } = 0;
+
+		[JsonPropertyName("mp")]
+		public int Mp { get; set; } = 100;
+
+		[JsonPropertyName("mana_regen")]
+		public double ManaRegen { get; set; } = 0.0;
 		public string Map { get; set; } = "";
 		public string Color { get; set; } = "";
 		public int? Mask { get; set; } = null;

@@ -1078,7 +1078,7 @@ ORDER BY p.created DESC;";
 					}
 				}
 
-				string updateSql = @"UPDATE maxhanna.bones_hero SET coordsX = @X, coordsY = @Y, map = @Map, hp = 100, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
+				string updateSql = @"UPDATE maxhanna.bones_hero SET coordsX = @X, coordsY = @Y, map = @Map, hp = 100, mp = 100, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
 				var parameters = new Dictionary<string, object?>() { { "@HeroId", heroId }, { "@X", spawnX }, { "@Y", spawnY }, { "@Map", targetMap } };
 				await ExecuteInsertOrUpdateOrDeleteAsync(updateSql, parameters, connection, transaction);
 				// Return updated MetaHero using existing helper
@@ -1103,7 +1103,7 @@ ORDER BY p.created DESC;";
 			using var transaction = connection.BeginTransaction();
 			try
 			{
-				string sql = "UPDATE maxhanna.bones_hero SET hp = 100, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
+				string sql = "UPDATE maxhanna.bones_hero SET hp = 100, mp = 100, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
 				var parameters = new Dictionary<string, object?>() { { "@HeroId", heroId } };
 				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 				var hero = await GetHeroData(0, heroId, connection, transaction);
@@ -1371,7 +1371,7 @@ ORDER BY p.created DESC;";
 			using var transaction = await connection.BeginTransactionAsync();
 			try
 			{
-				string findHeroSql = @"SELECT id, name, `type`, coordsX, coordsY, map, speed, color, mask, level, exp, attack_speed, attack_dmg, crit_rate, crit_dmg, health, regen, mana FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1;";
+				string findHeroSql = @"SELECT id, name, `type`, coordsX, coordsY, map, speed, color, mask, level, exp, attack_speed, attack_dmg, crit_rate, crit_dmg, health, regen, mp, mana_regen, mana FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1;";
 				using var findCmd = new MySqlCommand(findHeroSql, connection, transaction);
 				findCmd.Parameters.AddWithValue("@UserId", userId);
 				using var heroRdr = await findCmd.ExecuteReaderAsync();
@@ -1400,11 +1400,13 @@ ORDER BY p.created DESC;";
 				double crit_dmg = heroRdr.IsDBNull(heroRdr.GetOrdinal("crit_dmg")) ? 2.0 : heroRdr.GetDouble(heroRdr.GetOrdinal("crit_dmg"));
 				int health = heroRdr.IsDBNull(heroRdr.GetOrdinal("health")) ? 100 : heroRdr.GetInt32(heroRdr.GetOrdinal("health"));
 				double regen = heroRdr.IsDBNull(heroRdr.GetOrdinal("regen")) ? 0.0 : heroRdr.GetDouble(heroRdr.GetOrdinal("regen"));
-                int mana = heroRdr.IsDBNull(heroRdr.GetOrdinal("mana")) ? 100 : heroRdr.GetInt32(heroRdr.GetOrdinal("mana"));
+				int mp = heroRdr.IsDBNull(heroRdr.GetOrdinal("mp")) ? 100 : heroRdr.GetInt32(heroRdr.GetOrdinal("mp"));
+				double mana_regen = heroRdr.IsDBNull(heroRdr.GetOrdinal("mana_regen")) ? 0.0 : heroRdr.GetDouble(heroRdr.GetOrdinal("mana_regen"));
+				int mana = heroRdr.IsDBNull(heroRdr.GetOrdinal("mana")) ? 100 : heroRdr.GetInt32(heroRdr.GetOrdinal("mana"));
 				await heroRdr.CloseAsync();
 
 				// Match existing selections by user + name (hero name) rather than bones_hero_id because IDs may differ
-					string updateSql = @"UPDATE maxhanna.bones_hero_selection SET name = @Name, data = JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed, 'attack_dmg', @AttackDmg, 'crit_rate', @CritRate, 'crit_dmg', @CritDmg, 'health', @Health, 'regen', @Regen, 'mana', @Mana, 'type', @Type), created = UTC_TIMESTAMP() WHERE user_id = @UserId AND name = @Name LIMIT 1;";
+					string updateSql = @"UPDATE maxhanna.bones_hero_selection SET name = @Name, data = JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed, 'attack_dmg', @AttackDmg, 'crit_rate', @CritRate, 'crit_dmg', @CritDmg, 'health', @Health, 'regen', @Regen, 'mp', @Mp, 'mana_regen', @ManaRegen, 'mana', @Mana, 'type', @Type), created = UTC_TIMESTAMP() WHERE user_id = @UserId AND name = @Name LIMIT 1;";
 				using var upCmd = new MySqlCommand(updateSql, connection, transaction);
 				upCmd.Parameters.AddWithValue("@UserId", userId);
 				upCmd.Parameters.AddWithValue("@HeroId", heroId);
@@ -1423,12 +1425,14 @@ ORDER BY p.created DESC;";
 				upCmd.Parameters.AddWithValue("@CritDmg", crit_dmg);
 				upCmd.Parameters.AddWithValue("@Health", health);
 				upCmd.Parameters.AddWithValue("@Regen", regen);
+				upCmd.Parameters.AddWithValue("@Mp", mp);
+				upCmd.Parameters.AddWithValue("@ManaRegen", mana_regen);
 				upCmd.Parameters.AddWithValue("@Mana", mana);
 				upCmd.Parameters.AddWithValue("@Type", heroType ?? string.Empty);
 				int rows = await upCmd.ExecuteNonQueryAsync();
 				if (rows == 0)
 				{
-					string insertSql = @"INSERT INTO maxhanna.bones_hero_selection (user_id, bones_hero_id, name, data, created) VALUES (@UserId, @HeroId, @Name, JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed, 'attack_dmg', @AttackDmg, 'crit_rate', @CritRate, 'crit_dmg', @CritDmg, 'health', @Health, 'regen', @Regen, 'mana', @Mana, 'type', @Type), UTC_TIMESTAMP());";
+					string insertSql = @"INSERT INTO maxhanna.bones_hero_selection (user_id, bones_hero_id, name, data, created) VALUES (@UserId, @HeroId, @Name, JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed, 'attack_dmg', @AttackDmg, 'crit_rate', @CritRate, 'crit_dmg', @CritDmg, 'health', @Health, 'regen', @Regen, 'mp', @Mp, 'mana_regen', @ManaRegen, 'mana', @Mana, 'type', @Type), UTC_TIMESTAMP());";
 					using var inCmd = new MySqlCommand(insertSql, connection, transaction);
 					inCmd.Parameters.AddWithValue("@UserId", userId);
 					inCmd.Parameters.AddWithValue("@HeroId", heroId);
@@ -1447,6 +1451,8 @@ ORDER BY p.created DESC;";
 					inCmd.Parameters.AddWithValue("@CritDmg", crit_dmg);
 					inCmd.Parameters.AddWithValue("@Health", health);
 					inCmd.Parameters.AddWithValue("@Regen", regen);
+					inCmd.Parameters.AddWithValue("@Mp", mp);
+					inCmd.Parameters.AddWithValue("@ManaRegen", mana_regen);
 					inCmd.Parameters.AddWithValue("@Mana", mana);
 					inCmd.Parameters.AddWithValue("@Type", heroType ?? string.Empty);
 					rows = await inCmd.ExecuteNonQueryAsync();
@@ -1499,7 +1505,7 @@ ORDER BY p.created DESC;";
 				selRdr.Close();
 
 				// 2) Read the current bones_hero for this user (if any)
-				string curSql = @"SELECT id, name, `type`, coordsX, coordsY, map, speed, color, mask, level, exp, attack_speed, attack_dmg, crit_rate, crit_dmg, health, regen, mana FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1;";
+				string curSql = @"SELECT id, name, `type`, coordsX, coordsY, map, speed, color, mask, level, exp, attack_speed, attack_dmg, crit_rate, crit_dmg, health, regen, mp, mana_regen, mana FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1;";
 				using var curCmd = new MySqlCommand(curSql, connection, transaction);
 				curCmd.Parameters.AddWithValue("@UserId", userId);
 				using var curRdr = await curCmd.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow);
@@ -1532,7 +1538,9 @@ ORDER BY p.created DESC;";
 					double curCritDmg = curRdr.IsDBNull(curRdr.GetOrdinal("crit_dmg")) ? 2.0 : curRdr.GetDouble(curRdr.GetOrdinal("crit_dmg"));
 					int curHealth = curRdr.IsDBNull(curRdr.GetOrdinal("health")) ? 100 : curRdr.GetInt32(curRdr.GetOrdinal("health"));
 					double curRegen = curRdr.IsDBNull(curRdr.GetOrdinal("regen")) ? 0.0 : curRdr.GetDouble(curRdr.GetOrdinal("regen"));
-	                    int curMana = curRdr.IsDBNull(curRdr.GetOrdinal("mana")) ? 100 : curRdr.GetInt32(curRdr.GetOrdinal("mana"));
+					int curMp = curRdr.IsDBNull(curRdr.GetOrdinal("mp")) ? 100 : curRdr.GetInt32(curRdr.GetOrdinal("mp"));
+					double curManaRegen = curRdr.IsDBNull(curRdr.GetOrdinal("mana_regen")) ? 0.0 : curRdr.GetDouble(curRdr.GetOrdinal("mana_regen"));
+					int curMana = curRdr.IsDBNull(curRdr.GetOrdinal("mana")) ? 100 : curRdr.GetInt32(curRdr.GetOrdinal("mana"));
 					curRdr.Close();
 
 					// 3) Store current bones_hero into bones_hero_selection: update if a selection references this hero_id, otherwise insert
@@ -1554,6 +1562,8 @@ ORDER BY p.created DESC;";
 					updateSelCmd.Parameters.AddWithValue("@CritDmg", curCritDmg);
 					updateSelCmd.Parameters.AddWithValue("@Health", curHealth);
 					updateSelCmd.Parameters.AddWithValue("@Regen", curRegen);
+					updateSelCmd.Parameters.AddWithValue("@Mp", curMp);
+					updateSelCmd.Parameters.AddWithValue("@ManaRegen", curManaRegen);
 					updateSelCmd.Parameters.AddWithValue("@Mana", curMana);
 					updateSelCmd.Parameters.AddWithValue("@Type", curType ?? string.Empty);
 					updateSelCmd.Parameters.AddWithValue("@UserId", userId);
@@ -1561,7 +1571,7 @@ ORDER BY p.created DESC;";
 					int updatedRows = await updateSelCmd.ExecuteNonQueryAsync();
 					if (updatedRows == 0)
 					{
-						string insertSelSql = @"INSERT INTO maxhanna.bones_hero_selection (user_id, bones_hero_id, name, data, created) VALUES (@UserId, @HeroId, @Name, JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed, 'attack_dmg', @AttackDmg, 'crit_rate', @CritRate, 'crit_dmg', @CritDmg, 'health', @Health, 'regen', @Regen, 'type', @Type), UTC_TIMESTAMP());";
+						string insertSelSql = @"INSERT INTO maxhanna.bones_hero_selection (user_id, bones_hero_id, name, data, created) VALUES (@UserId, @HeroId, @Name, JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed, 'attack_dmg', @AttackDmg, 'crit_rate', @CritRate, 'crit_dmg', @CritDmg, 'health', @Health, 'regen', @Regen, 'mp', @Mp, 'mana_regen', @ManaRegen, 'mana', @Mana, 'type', @Type), UTC_TIMESTAMP());";
 						using var inSelCmd = new MySqlCommand(insertSelSql, connection, transaction);
 						inSelCmd.Parameters.AddWithValue("@UserId", userId);
 						inSelCmd.Parameters.AddWithValue("@HeroId", currentHeroId);
@@ -1580,6 +1590,8 @@ ORDER BY p.created DESC;";
 						inSelCmd.Parameters.AddWithValue("@CritDmg", curCritDmg);
 						inSelCmd.Parameters.AddWithValue("@Health", curHealth);
 						inSelCmd.Parameters.AddWithValue("@Regen", curRegen);
+						inSelCmd.Parameters.AddWithValue("@Mp", curMp);
+						inSelCmd.Parameters.AddWithValue("@ManaRegen", curManaRegen);
 						inSelCmd.Parameters.AddWithValue("@Mana", curMana);
 						inSelCmd.Parameters.AddWithValue("@Type", curType ?? string.Empty);
 						await inSelCmd.ExecuteNonQueryAsync();
@@ -1598,7 +1610,7 @@ ORDER BY p.created DESC;";
 				}
 
 				// 5) Insert the selected snapshot into bones_hero (guard numeric JSON parsing)
-				string insertSql = @"INSERT INTO maxhanna.bones_hero (user_id, coordsX, coordsY, map, speed, name, color, mask, level, exp, created, attack_speed, attack_dmg, crit_rate, crit_dmg, health, regen, mana, type)
+				string insertSql = @"INSERT INTO maxhanna.bones_hero (user_id, coordsX, coordsY, map, speed, name, color, mask, level, exp, created, attack_speed, attack_dmg, crit_rate, crit_dmg, health, regen, mp, mana_regen, mana, type)
 					VALUES (@UserId, COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY')),'null')+0, 0), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed')),'null')+0, 0), @Name, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp')),'null')+0, 0), UTC_TIMESTAMP(), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed')),'null')+0, 400), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_dmg')),'null')+0, 1), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.crit_rate')),'null')+0, 0.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.crit_dmg')),'null')+0, 2.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.health')),'null')+0, 100), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.regen')),'null')+0, 0.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mana')),'null')+0, 100), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.type')),'null'), 'knight') );";
 				using var insCmd = new MySqlCommand(insertSql, connection, transaction);
 				insCmd.Parameters.AddWithValue("@Data", selDataJson ?? "{}");
@@ -2206,6 +2218,8 @@ ORDER BY p.created DESC;";
 					h.level as hero_level,
 					h.exp as hero_exp, 
 					h.hp as hero_hp, 
+					h.mp,
+					h.mana_regen,
 					h.mana,
 					h.attack_speed as attack_speed,  
 					h.attack_dmg AS hero_attack_dmg,
@@ -2248,6 +2262,8 @@ ORDER BY p.created DESC;";
 								CritDmg = reader.IsDBNull(reader.GetOrdinal("hero_crit_dmg")) ? 2.0 : reader.GetDouble(reader.GetOrdinal("hero_crit_dmg")),
 								Health = reader.IsDBNull(reader.GetOrdinal("hero_health")) ? 1 : reader.GetInt32(reader.GetOrdinal("hero_health")),
 								Regen = reader.IsDBNull(reader.GetOrdinal("hero_regen")) ? 0.0 : reader.GetDouble(reader.GetOrdinal("hero_regen")),
+								Mp = reader.IsDBNull(reader.GetOrdinal("mp")) ? 100 : reader.GetInt32(reader.GetOrdinal("mp")),
+								ManaRegen = reader.IsDBNull(reader.GetOrdinal("mana_regen")) ? 0.0 : reader.GetDouble(reader.GetOrdinal("mana_regen")),
 								Mana = reader.IsDBNull(reader.GetOrdinal("mana")) ? 0 : reader.GetInt32(reader.GetOrdinal("mana")),
 							};
 						}
@@ -2811,6 +2827,8 @@ ORDER BY p.created DESC;";
 					m.updated as hero_updated,
 					m.created as hero_created,
 					m.attack_speed as hero_attack_speed,
+					m.mp as hero_mp,
+					m.mana_regen as hero_mana_regen,
 					m.mana as hero_mana 
 				FROM maxhanna.bones_hero m 
 				WHERE m.map = @HeroMapId 
@@ -2853,6 +2871,8 @@ ORDER BY p.created DESC;";
 								Position = new Vector2(coordsX, coordsY),
 								Speed = speed,
 								AttackSpeed = attackSpeed,
+								Mp = reader.IsDBNull(reader.GetOrdinal("hero_mp")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_mp")),
+								ManaRegen = reader.IsDBNull(reader.GetOrdinal("hero_mana_regen")) ? 0.0 : reader.GetDouble(reader.GetOrdinal("hero_mana_regen")),
 								Mana = reader.IsDBNull(reader.GetOrdinal("hero_mana")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_mana")),
 								Updated = updated,
 								Created = created,

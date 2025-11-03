@@ -398,6 +398,24 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   update = async (delta: number) => {
     this.mainScene.stepEntry(delta, this.mainScene);
     this.mainScene.input?.update();
+    // Mana regeneration: accumulate ms and add 1 unit per 1000ms
+    try {
+      const hero = this.hero as any;
+      if (hero && typeof hero.currentManaUnits === 'number') {
+        // store accumulator on component instance
+        if ((this as any)._manaRegenAccum === undefined) (this as any)._manaRegenAccum = 0;
+        (this as any)._manaRegenAccum += delta;
+        while ((this as any)._manaRegenAccum >= 1000) {
+          (this as any)._manaRegenAccum -= 1000;
+          const cap = Math.max(0, (hero.getManaCapacity ? hero.getManaCapacity() : ((hero.maxMana ?? 0) * 100)) || 0);
+          if (cap > 0) {
+            hero.currentManaUnits = Math.min(cap, (hero.currentManaUnits ?? 0) + 1);
+            // update legacy percent for visual compatibility
+            try { hero.mana = Math.round(((hero.currentManaUnits ?? 0) / Math.max(1, cap)) * 100); } catch { }
+          }
+        }
+      }
+    } catch { }
   }
   render = () => {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -413,7 +431,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
   gameLoop = new GameLoop(this.update, this.render);
 
-  // Draw health orb (bottom-left) and experience bar (bottom) for the user-controlled hero
+  // Draw health orb (bottom-left), experience bar (bottom), mana orb (bottom-right)
   drawHudForLocalHero(ctx: CanvasRenderingContext2D) {
     try {
       const hero = this.hero;
@@ -523,31 +541,47 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   ctx.fill();
   ctx.closePath();
 
-  // Mana fill (vertical vial-style)
-  const mana = Math.max(0, Math.min(100, (hero.mana ?? 100)));
-  const manaRatio = mana / 100;
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(manaOrbX, manaOrbY, manaOrbRadius - 4, 0, Math.PI * 2);
-  ctx.clip();
-  const manaTop = manaOrbY + manaOrbRadius - 4 - (manaRatio * ((manaOrbRadius - 4) * 2));
-  ctx.fillStyle = 'rgba(60,140,240,0.95)';
-  ctx.fillRect(manaOrbX - (manaOrbRadius - 4), manaTop, (manaOrbRadius - 4) * 2, (manaOrbRadius - 4) * 2);
-  ctx.restore();
+  // Mana fill (vertical vial-style) using currentManaUnits (1 stat point == 100 units)
+  try {
+    const heroAny: any = hero as any;
+    const capUnits = (heroAny.getManaCapacity && typeof heroAny.getManaCapacity === 'function') ? heroAny.getManaCapacity() : Math.max(0, (heroAny.maxMana ?? 0) * 100);
+    // If capUnits is zero, fall back to legacy percent rendering
+    let manaRatio = 0;
+    let manaText = '0';
+    if (capUnits > 0) {
+      const current = Math.max(0, Math.min(capUnits, (heroAny.currentManaUnits ?? Math.round((heroAny.mana ?? 100) / 100 * capUnits))));
+      manaRatio = current / capUnits;
+      // show remaining stat points to one decimal (e.g., 3.0)
+      const pointsLeft = (current / 100);
+      manaText = String(Math.round(pointsLeft * 10) / 10);
+    } else {
+      const manaPct = Math.max(0, Math.min(100, (hero.mana ?? 100)));
+      manaRatio = manaPct / 100;
+      manaText = String(Math.round(manaPct));
+    }
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(manaOrbX, manaOrbY, manaOrbRadius - 4, 0, Math.PI * 2);
+    ctx.clip();
+    const manaTop = manaOrbY + manaOrbRadius - 4 - (manaRatio * ((manaOrbRadius - 4) * 2));
+    ctx.fillStyle = 'rgba(60,140,240,0.95)';
+    ctx.fillRect(manaOrbX - (manaOrbRadius - 4), manaTop, (manaOrbRadius - 4) * 2, (manaOrbRadius - 4) * 2);
+    ctx.restore();
 
-  // Mana inner border
-  ctx.beginPath();
-  ctx.arc(manaOrbX, manaOrbY, manaOrbRadius - 8, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(0,0,0,0.25)';
-  ctx.fill();
-  ctx.closePath();
+    // Mana inner border
+    ctx.beginPath();
+    ctx.arc(manaOrbX, manaOrbY, manaOrbRadius - 8, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fill();
+    ctx.closePath();
 
-  // Mana text
-  ctx.fillStyle = 'white';
-  ctx.font = 'bold 12px fontRetroGaming';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(String(Math.round(mana)), manaOrbX, manaOrbY);
+    // Mana text (show stat points left)
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 12px fontRetroGaming';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(manaText, manaOrbX, manaOrbY);
+  } catch (e) { console.warn('mana draw failed', e); }
       ctx.restore();
     } catch (ex) { console.warn('drawHudForLocalHero failed', ex); }
   }
@@ -1014,7 +1048,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       this.hero.attackSpeed = rz.attackSpeed ?? 400;
       this.hero.level = rz.level ?? 1;
       this.hero.hp = rz.hp ?? 100;
-      this.hero.mana = (rz as any).mana ?? 0;
+      // rz.mana is allocation points (e.g., 0,1,2). Initialize hero.maxMana and currentManaUnits
+      try { (this.hero as any).maxMana = (rz as any).mana ?? 0; } catch { }
+      try { (this.hero as any).currentManaUnits = Math.max(0, ((this.hero as any).maxMana ?? 0) * 100); } catch { }
+      try { this.hero.mana = (rz as any).mana ?? 0; } catch { }
       this.hero.exp = rz.exp ?? 0;
     }
     this.hero.isLocked = this.isStartMenuOpened || this.isShopMenuOpened;

@@ -20,8 +20,12 @@ export class Hero extends Character {
   isAttacking = false;
   type: string = "knight";
   // Mana for spellcasting/abilities (0..100)
+  // mana: legacy percent value (0..100) kept for compatibility
   public mana: number = 100;
+  // maxMana: number of mana stat points allocated (e.g., 0,1,2...)
   public maxMana?: number = 100;
+  // currentManaUnits: visual units where 1 stat point == 100 units. This is the consumable resource that regenerates.
+  public currentManaUnits: number = 0; // initialize later to maxMana * 100 if available
   currentSkill?: string = undefined;
   private lastAttackAt: number = 0;
   public attackSpeed: number = 400;
@@ -85,6 +89,20 @@ export class Hero extends Character {
     } else if (this.type === "rogue") {
       this.currentSkill = "arrow";
     }
+    // Initialize currentManaUnits to full if maxMana provided via params
+    try {
+      const mm = (params as any).maxMana ?? (params as any).mana ?? undefined;
+      if (typeof mm === 'number') {
+        this.maxMana = mm;
+        this.currentManaUnits = Math.max(0, (this.maxMana ?? 0) * 100);
+        // Maintain legacy percent field for compatibility
+        this.mana = Math.max(0, Math.min(100, Math.round(((this.currentManaUnits || 0) / Math.max(1, (this.maxMana ?? 1) * 100)) * 100)));
+      } else {
+        // default to 1 point (100 units) to avoid divide-by-zero visuals
+        this.maxMana = this.maxMana ?? 1;
+        this.currentManaUnits = this.currentManaUnits || (this.maxMana * 100);
+      }
+    } catch { }
     const shadow = new Sprite({
       resource: resources.images["shadow"],
       offsetY: 10,
@@ -95,6 +113,18 @@ export class Hero extends Character {
     });
     shadow.drawLayer = "FLOOR";
     this.addChild(shadow);
+  }
+
+  // Return the mana cost (in stat points) for a given skill name. Defaults to 1.
+  getSkillManaCost(skill?: string): number {
+    try {
+      if (!skill) return 1;
+      const s = skill.toLowerCase();
+      if (s === 'sting') return 1;
+      if (s === 'arrow') return 1;
+      // Future: map other skills to different costs
+      return 1;
+    } catch { return 1; }
   }
 
 
@@ -127,22 +157,37 @@ export class Hero extends Character {
           if (this.facingDirection == "DOWN") {
             this.body?.animations?.play("attackDown");
             if (this.currentSkill) {
-                this.spawnSkillTo(this.position.x, this.position.y + 200, this.currentSkill);
+                const cost = this.getSkillManaCost(this.currentSkill);
+                if (this.tryConsumeMana(cost)) {
+                  this.spawnSkillTo(this.position.x, this.position.y + 200, this.currentSkill);
+                } else {
+                  // Insufficient mana: play a dull sound or feedback
+                  try { resources.playSound('buzzer', { volume: 0.7, allowOverlap: false }); } catch { }
+                }
             }
           } else if (this.facingDirection == "UP") {
             this.body?.animations?.play("attackUp");
             if (this.currentSkill) {
-              this.spawnSkillTo(this.position.x, this.position.y - 200, this.currentSkill);
+              const cost = this.getSkillManaCost(this.currentSkill);
+              if (this.tryConsumeMana(cost)) {
+                this.spawnSkillTo(this.position.x, this.position.y - 200, this.currentSkill);
+              } else { try { resources.playSound('buzzer', { volume: 0.7, allowOverlap: false }); } catch { } }
             } 
           } else if (this.facingDirection == "LEFT") {
             this.body?.animations?.play("attackLeft");
             if (this.currentSkill) {
-              this.spawnSkillTo(this.position.x - 200, this.position.y, this.currentSkill);
+              const cost = this.getSkillManaCost(this.currentSkill);
+              if (this.tryConsumeMana(cost)) {
+                this.spawnSkillTo(this.position.x - 200, this.position.y, this.currentSkill);
+              } else { try { resources.playSound('buzzer', { volume: 0.7, allowOverlap: false }); } catch { } }
             }
           } else if (this.facingDirection == "RIGHT") {
             this.body?.animations?.play("attackRight");
             if (this.currentSkill) {
-              this.spawnSkillTo(this.position.x + 200, this.position.y, this.currentSkill);
+              const cost = this.getSkillManaCost(this.currentSkill);
+              if (this.tryConsumeMana(cost)) {
+                this.spawnSkillTo(this.position.x + 200, this.position.y, this.currentSkill);
+              } else { try { resources.playSound('buzzer', { volume: 0.7, allowOverlap: false }); } catch { } }
             } 
           }
           this.playAttackSound(); 
@@ -371,6 +416,26 @@ export class Hero extends Character {
         events.emit("HERO_MOVED", { id: this.id, x: this.position.x, y: this.position.y });
       }
     }
+  }
+
+  // Returns the visual capacity in units (1 stat point == 100 units)
+  getManaCapacity(): number {
+    return Math.max(0, (this.maxMana ?? 0) * 100);
+  }
+
+  // Attempt to consume 'points' mana (integer stat points). Returns true if enough resource and consumed.
+  tryConsumeMana(points: number): boolean {
+    try {
+      const requiredUnits = Math.max(0, Math.round(points * 100));
+      if ((this.currentManaUnits ?? 0) >= requiredUnits) {
+        this.currentManaUnits = Math.max(0, (this.currentManaUnits ?? 0) - requiredUnits);
+        // update legacy percent for compatibility
+        const cap = this.getManaCapacity() || 1;
+        this.mana = Math.round((this.currentManaUnits / cap) * 100);
+        return true;
+      }
+      return false;
+    } catch { return false; }
   }
 
 
