@@ -26,6 +26,10 @@ namespace maxhanna.Server.Controllers
 		private static readonly Dictionary<int, DateTime> _encounterTargetLockTimes = new();
 		// Track recent positions to prevent back-and-forth oscillation: maps encounter hero_id -> (lastX,lastY,wasLastMoveReversalCount)
 		private static readonly Dictionary<int, (int lastX, int lastY, int reversalCount)> _encounterRecentPositions = new();
+
+		// Rate limiting for periodic cleanup of old town portals: allow once every 5 minutes
+		private static DateTime _lastPortalCleanup = DateTime.MinValue;
+		private static readonly object _portalCleanupLock = new object();
 		private static string[] orderedMaps = new[] {
 			"HeroRoom",
 			"RoadToCitadelOfVesper",
@@ -152,6 +156,8 @@ namespace maxhanna.Server.Controllers
 			List<object> portals = new();
 			try
 			{
+				await DeleteOldTownPortals(connection, transaction);
+
 				int radiusTiles = 8;
 				int tile = GRIDCELL;
 				int xMin = hero.Position.x - radiusTiles * tile;
@@ -247,6 +253,32 @@ ORDER BY p.created DESC;";
 			}
 
 			return portals;
+		}
+
+		private async Task DeleteOldTownPortals(MySqlConnection connection, MySqlTransaction transaction)
+		{
+			// Rate-limit cleanup to once every 5 minutes across all requests
+			try
+			{
+				lock (_portalCleanupLock)
+				{
+					var now = DateTime.UtcNow;
+					if ((now - _lastPortalCleanup).TotalMinutes < 5)
+					{
+						// recently cleaned up; skip
+						return;
+					}
+					_lastPortalCleanup = now;
+				}
+
+				string delSql = "DELETE FROM maxhanna.bones_town_portal WHERE created < UTC_TIMESTAMP() - INTERVAL 8 HOUR;";
+				using var delCmd = new MySqlCommand(delSql, connection, transaction);
+				await delCmd.ExecuteNonQueryAsync();
+			}
+			catch (Exception ex)
+			{
+				await _log.Db("Failed to delete old town portals: " + ex.Message, null, "BONES", true);
+			}
 		}
 
 		[HttpPost("/Bones/DeleteTownPortal", Name = "Bones_DeleteTownPortal")]
