@@ -1,7 +1,7 @@
 import { Vector2 } from "../../../../../services/datacontracts/bones/vector2";
 import { Sprite } from "../../sprite";
 import { resources } from "../../../helpers/resources";
-import { FLOOR, GameObject } from "../../game-object";
+import { FLOOR, GameObject, HUD } from "../../game-object";
 import { snapToGrid } from "../../../helpers/grid-cells";
 import { events } from "../../../helpers/events";
 import { FrameIndexPattern } from "../../../helpers/frame-index-pattern";
@@ -34,7 +34,7 @@ export class TownPortal extends GameObject {
         hFrames: 4,
         offsetX: -15,
         offsetY: -55,
-        drawLayer: FLOOR,
+        drawLayer: HUD,
         colorSwap: params.colorSwap,
         animations: new Animations({
             portalAnimation: new FrameIndexPattern(PORTAL_ANIMATION),
