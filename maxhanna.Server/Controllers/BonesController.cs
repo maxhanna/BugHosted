@@ -2259,12 +2259,12 @@ ORDER BY p.created DESC;";
 								Hp = reader.IsDBNull(reader.GetOrdinal("hero_hp")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_hp")),
 								// Legacy stats removed; not included in MetaHero mapping
 								AttackDmg = reader.IsDBNull(reader.GetOrdinal("hero_attack_dmg")) ? 1 : Convert.ToInt32(Convert.ToDouble(reader.GetValue(reader.GetOrdinal("hero_attack_dmg")))),
-								CritRate = reader.IsDBNull(reader.GetOrdinal("hero_crit_rate")) ? 0.0 : reader.GetDouble(reader.GetOrdinal("hero_crit_rate")),
-								CritDmg = reader.IsDBNull(reader.GetOrdinal("hero_crit_dmg")) ? 2.0 : reader.GetDouble(reader.GetOrdinal("hero_crit_dmg")),
+								CritRate = reader.IsDBNull(reader.GetOrdinal("hero_crit_rate")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_crit_rate")),
+								CritDmg = reader.IsDBNull(reader.GetOrdinal("hero_crit_dmg")) ? 2 : reader.GetInt32(reader.GetOrdinal("hero_crit_dmg")),
 								Health = reader.IsDBNull(reader.GetOrdinal("hero_health")) ? 1 : reader.GetInt32(reader.GetOrdinal("hero_health")),
-								Regen = reader.IsDBNull(reader.GetOrdinal("hero_regen")) ? 0.0 : reader.GetDouble(reader.GetOrdinal("hero_regen")),
+								Regen = reader.IsDBNull(reader.GetOrdinal("hero_regen")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_regen")),
 								Mp = reader.IsDBNull(reader.GetOrdinal("mp")) ? 100 : reader.GetInt32(reader.GetOrdinal("mp")),
-								ManaRegen = reader.IsDBNull(reader.GetOrdinal("mana_regen")) ? 0.0 : reader.GetDouble(reader.GetOrdinal("mana_regen")),
+								ManaRegen = reader.IsDBNull(reader.GetOrdinal("mana_regen")) ? 0 : reader.GetInt32(reader.GetOrdinal("mana_regen")),
 								Mana = reader.IsDBNull(reader.GetOrdinal("mana")) ? 0 : reader.GetInt32(reader.GetOrdinal("mana")),
 							};
 						}
@@ -2873,7 +2873,7 @@ ORDER BY p.created DESC;";
 								Speed = speed,
 								AttackSpeed = attackSpeed,
 								Mp = reader.IsDBNull(reader.GetOrdinal("hero_mp")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_mp")),
-								ManaRegen = reader.IsDBNull(reader.GetOrdinal("hero_mana_regen")) ? 0.0 : reader.GetDouble(reader.GetOrdinal("hero_mana_regen")),
+								ManaRegen = reader.IsDBNull(reader.GetOrdinal("hero_mana_regen")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_mana_regen")),
 								Mana = reader.IsDBNull(reader.GetOrdinal("hero_mana")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_mana")),
 								Updated = updated,
 								Created = created,

@@ -32,16 +32,16 @@ namespace maxhanna.Server.Controllers.DataContracts.Bones
 		// attack speed already present as AttackSpeed (ms)
 
 		[JsonPropertyName("critRate")]
-		public double CritRate { get; set; } = 0.0; // fraction 0.0 - 1.0
+		public int CritRate { get; set; } = 0; // fraction 0 - 100
 
 		[JsonPropertyName("critDmg")]
-		public double CritDmg { get; set; } = 2.0; // multiplier (e.g., 2.0 = 200%)
+		public int CritDmg { get; set; } = 2; // multiplier (e.g., 2.0 = 200%)
 
 		[JsonPropertyName("health")]
 		public int Health { get; set; } = 100;
 
 		[JsonPropertyName("regen")]
-		public double Regen { get; set; } = 0.0; // health per second
+		public int Regen { get; set; } = 0; // health per second
 
 		[JsonPropertyName("mana")]
 		public int Mana { get; set; } = 0;
@@ -50,7 +50,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Bones
 		public int Mp { get; set; } = 100;
 
 		[JsonPropertyName("mana_regen")]
-		public double ManaRegen { get; set; } = 0.0;
+		public int ManaRegen { get; set; } = 0;
 		public string Map { get; set; } = "";
 		public string Color { get; set; } = "";
 		public int? Mask { get; set; } = null;
