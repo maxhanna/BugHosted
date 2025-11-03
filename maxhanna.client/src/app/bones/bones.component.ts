@@ -313,6 +313,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         const minAudible = 0.05 * globalVol;
         vol = Math.max(minAudible, Math.min(globalVol, vol));
         resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true });
+        const tgtHero = this.mainScene.level?.children?.find((x: any) => x.id === targetHeroId);
+        if (tgtHero && tgtHero.activeSkills && tgtHero.activeSkills.length > 0) {
+          tgtHero.activeSkills.pop().destroy();
+        }
       }
     });
 

@@ -27,6 +27,8 @@ export class Hero extends Character {
   // currentManaUnits: visual units where 1 stat point == 100 units. This is the consumable resource that regenerates.
   public currentManaUnits: number = 0; // initialize later to maxMana * 100 if available
   currentSkill?: string = undefined;
+  // Track active skill effects spawned by this hero (not yet destroyed)
+  public activeSkills: any[] = [];
   private lastAttackAt: number = 0;
   public attackSpeed: number = 400;
   constructor(params: {
@@ -359,6 +361,7 @@ export class Hero extends Character {
       // so the world coordinates used above align with the sting's local coordinates.
       const host = (this.parent as any) ?? this;
       host.addChild(skillType);
+      this.activeSkills.push(skillType);
       skillType.moveTo(targetAnchorX, targetAnchorY, 1000);
       setTimeout(() => {
         try { skillType.destroy(); } catch { }
