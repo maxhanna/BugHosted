@@ -2874,13 +2874,12 @@ ORDER BY p.created DESC;";
 								AttackSpeed = attackSpeed,
 								Mp = reader.IsDBNull(reader.GetOrdinal("hero_mp")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_mp")),
 								ManaRegen = reader.IsDBNull(reader.GetOrdinal("hero_mana_regen")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_mana_regen")),
-								Mana = reader.IsDBNull(reader.GetOrdinal("hero_mana")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_mana")),
+								Mana = reader.IsDBNull(reader.GetOrdinal("hero_mana")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_mana")),
 								Updated = updated,
 								Created = created,
 							};
 							heroesDict[heroId] = tmpHero;
 						}
-						// Note: metabot data removed; GetNearbyPlayers only returns hero info. Client constructs encounters from bones_encounter.
 					}
 				}
 				return heroesDict.Values.ToArray();
