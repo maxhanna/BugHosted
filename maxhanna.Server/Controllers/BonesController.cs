@@ -511,8 +511,8 @@ ORDER BY p.created DESC;";
 							var dmgObj = rdrStats.IsDBNull(rdrStats.GetOrdinal("attack_dmg")) ? null : rdrStats.GetValue(rdrStats.GetOrdinal("attack_dmg"));
 							dbAttackDmg = dmgObj == null ? 0 : Convert.ToInt32(Convert.ToDouble(dmgObj));
 
-							dbCritRate = rdrStats.IsDBNull(rdrStats.GetOrdinal("crit_rate")) ? 0.0 : rdrStats.GetDouble(rdrStats.GetOrdinal("crit_rate"));
-							dbCritDmg = rdrStats.IsDBNull(rdrStats.GetOrdinal("crit_dmg")) ? 2.0 : rdrStats.GetDouble(rdrStats.GetOrdinal("crit_dmg"));
+							dbCritRate = rdrStats.IsDBNull(rdrStats.GetOrdinal("crit_rate")) ? 0.0 : rdrStats.GetInt32(rdrStats.GetOrdinal("crit_rate"));
+							dbCritDmg = rdrStats.IsDBNull(rdrStats.GetOrdinal("crit_dmg")) ? 2.0 : rdrStats.GetInt32(rdrStats.GetOrdinal("crit_dmg"));
 
 							power = rdrStats.IsDBNull(rdrStats.GetOrdinal("power")) ? 0 : Convert.ToInt32(rdrStats.GetValue(rdrStats.GetOrdinal("power")));
 						}
@@ -1396,12 +1396,12 @@ ORDER BY p.created DESC;";
 				int attack_speed = heroRdr.IsDBNull(heroRdr.GetOrdinal("attack_speed")) ? 400 : heroRdr.GetInt32(heroRdr.GetOrdinal("attack_speed"));
 				var attackDmgObj = heroRdr.IsDBNull(heroRdr.GetOrdinal("attack_dmg")) ? null : heroRdr.GetValue(heroRdr.GetOrdinal("attack_dmg"));
 				int attack_dmg = attackDmgObj == null ? 1 : Convert.ToInt32(Convert.ToDouble(attackDmgObj));
-				double crit_rate = heroRdr.IsDBNull(heroRdr.GetOrdinal("crit_rate")) ? 0.0 : heroRdr.GetDouble(heroRdr.GetOrdinal("crit_rate"));
-				double crit_dmg = heroRdr.IsDBNull(heroRdr.GetOrdinal("crit_dmg")) ? 2.0 : heroRdr.GetDouble(heroRdr.GetOrdinal("crit_dmg"));
+				double crit_rate = heroRdr.IsDBNull(heroRdr.GetOrdinal("crit_rate")) ? 0.0 : heroRdr.GetInt32(heroRdr.GetOrdinal("crit_rate"));
+				double crit_dmg = heroRdr.IsDBNull(heroRdr.GetOrdinal("crit_dmg")) ? 2.0 : heroRdr.GetInt32(heroRdr.GetOrdinal("crit_dmg"));
 				int health = heroRdr.IsDBNull(heroRdr.GetOrdinal("health")) ? 100 : heroRdr.GetInt32(heroRdr.GetOrdinal("health"));
-				double regen = heroRdr.IsDBNull(heroRdr.GetOrdinal("regen")) ? 0.0 : heroRdr.GetDouble(heroRdr.GetOrdinal("regen"));
+				double regen = heroRdr.IsDBNull(heroRdr.GetOrdinal("regen")) ? 0.0 : heroRdr.GetInt32(heroRdr.GetOrdinal("regen"));
 				int mp = heroRdr.IsDBNull(heroRdr.GetOrdinal("mp")) ? 100 : heroRdr.GetInt32(heroRdr.GetOrdinal("mp"));
-				double mana_regen = heroRdr.IsDBNull(heroRdr.GetOrdinal("mana_regen")) ? 0.0 : heroRdr.GetDouble(heroRdr.GetOrdinal("mana_regen"));
+				double mana_regen = heroRdr.IsDBNull(heroRdr.GetOrdinal("mana_regen")) ? 0.0 : heroRdr.GetInt32(heroRdr.GetOrdinal("mana_regen"));
 				int mana = heroRdr.IsDBNull(heroRdr.GetOrdinal("mana")) ? 100 : heroRdr.GetInt32(heroRdr.GetOrdinal("mana"));
 				await heroRdr.CloseAsync();
 
@@ -1534,12 +1534,12 @@ ORDER BY p.created DESC;";
 					curAttackSpeed = curRdr.IsDBNull(11) ? 400 : curRdr.GetInt32(11);
 					var curAttackDmgObj = curRdr.IsDBNull(curRdr.GetOrdinal("attack_dmg")) ? null : curRdr.GetValue(curRdr.GetOrdinal("attack_dmg"));
 					int curAttackDmg = curAttackDmgObj == null ? 1 : Convert.ToInt32(Convert.ToDouble(curAttackDmgObj));
-					double curCritRate = curRdr.IsDBNull(curRdr.GetOrdinal("crit_rate")) ? 0.0 : curRdr.GetDouble(curRdr.GetOrdinal("crit_rate"));
-					double curCritDmg = curRdr.IsDBNull(curRdr.GetOrdinal("crit_dmg")) ? 2.0 : curRdr.GetDouble(curRdr.GetOrdinal("crit_dmg"));
+					double curCritRate = curRdr.IsDBNull(curRdr.GetOrdinal("crit_rate")) ? 0.0 : curRdr.GetInt32(curRdr.GetOrdinal("crit_rate"));
+					double curCritDmg = curRdr.IsDBNull(curRdr.GetOrdinal("crit_dmg")) ? 2.0 : curRdr.GetInt32(curRdr.GetOrdinal("crit_dmg"));
 					int curHealth = curRdr.IsDBNull(curRdr.GetOrdinal("health")) ? 100 : curRdr.GetInt32(curRdr.GetOrdinal("health"));
-					double curRegen = curRdr.IsDBNull(curRdr.GetOrdinal("regen")) ? 0.0 : curRdr.GetDouble(curRdr.GetOrdinal("regen"));
+					double curRegen = curRdr.IsDBNull(curRdr.GetOrdinal("regen")) ? 0.0 : curRdr.GetInt32(curRdr.GetOrdinal("regen"));
 					int curMp = curRdr.IsDBNull(curRdr.GetOrdinal("mp")) ? 100 : curRdr.GetInt32(curRdr.GetOrdinal("mp"));
-					double curManaRegen = curRdr.IsDBNull(curRdr.GetOrdinal("mana_regen")) ? 0.0 : curRdr.GetDouble(curRdr.GetOrdinal("mana_regen"));
+					double curManaRegen = curRdr.IsDBNull(curRdr.GetOrdinal("mana_regen")) ? 0.0 : curRdr.GetInt32(curRdr.GetOrdinal("mana_regen"));
 					int curMana = curRdr.IsDBNull(curRdr.GetOrdinal("mana")) ? 100 : curRdr.GetInt32(curRdr.GetOrdinal("mana"));
 					curRdr.Close();
 
