@@ -1597,7 +1597,10 @@ ORDER BY p.created DESC;";
 					}
 
 					// 4) Delete the current bones_hero for this user
-					string delSql = @"DELETE FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1;";
+					string delSql = @"
+					DELETE FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1;
+					DELETE FROM maxhanna.bones_town_portal WHERE creator_hero_id = (SELECT id FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1);
+					";
 					using var delCmd = new MySqlCommand(delSql, connection, transaction);
 					delCmd.Parameters.AddWithValue("@UserId", userId);
 					await delCmd.ExecuteNonQueryAsync();
