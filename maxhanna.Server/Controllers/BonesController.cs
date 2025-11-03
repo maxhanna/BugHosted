@@ -1531,16 +1531,15 @@ ORDER BY p.created DESC;";
 					curMask = curRdr.IsDBNull(8) ? 0 : curRdr.GetInt32(8);
 					curLevel = curRdr.IsDBNull(9) ? 0 : curRdr.GetInt32(9);
 					curExp = curRdr.IsDBNull(10) ? 0 : curRdr.GetInt32(10);
-					curAttackSpeed = curRdr.IsDBNull(11) ? 400 : curRdr.GetInt32(11);
-					var curAttackDmgObj = curRdr.IsDBNull(curRdr.GetOrdinal("attack_dmg")) ? null : curRdr.GetValue(curRdr.GetOrdinal("attack_dmg"));
-					int curAttackDmg = curAttackDmgObj == null ? 1 : Convert.ToInt32(Convert.ToDouble(curAttackDmgObj));
-					double curCritRate = curRdr.IsDBNull(curRdr.GetOrdinal("crit_rate")) ? 0.0 : curRdr.GetInt32(curRdr.GetOrdinal("crit_rate"));
-					double curCritDmg = curRdr.IsDBNull(curRdr.GetOrdinal("crit_dmg")) ? 2.0 : curRdr.GetInt32(curRdr.GetOrdinal("crit_dmg"));
+					curAttackSpeed = curRdr.IsDBNull(11) ? 400 : curRdr.GetInt32(11); 
+					int curAttackDmg = curRdr.IsDBNull(curRdr.GetOrdinal("attack_dmg")) ? 0 : curRdr.GetInt32(curRdr.GetOrdinal("attack_dmg"));
+					int curCritRate = curRdr.IsDBNull(curRdr.GetOrdinal("crit_rate")) ? 0 : curRdr.GetInt32(curRdr.GetOrdinal("crit_rate"));
+					int curCritDmg = curRdr.IsDBNull(curRdr.GetOrdinal("crit_dmg")) ? 2 : curRdr.GetInt32(curRdr.GetOrdinal("crit_dmg"));
 					int curHealth = curRdr.IsDBNull(curRdr.GetOrdinal("health")) ? 100 : curRdr.GetInt32(curRdr.GetOrdinal("health"));
-					double curRegen = curRdr.IsDBNull(curRdr.GetOrdinal("regen")) ? 0.0 : curRdr.GetInt32(curRdr.GetOrdinal("regen"));
+					int curRegen = curRdr.IsDBNull(curRdr.GetOrdinal("regen")) ? 0 : curRdr.GetInt32(curRdr.GetOrdinal("regen"));
 					int curMp = curRdr.IsDBNull(curRdr.GetOrdinal("mp")) ? 100 : curRdr.GetInt32(curRdr.GetOrdinal("mp"));
-					double curManaRegen = curRdr.IsDBNull(curRdr.GetOrdinal("mana_regen")) ? 0.0 : curRdr.GetInt32(curRdr.GetOrdinal("mana_regen"));
-					int curMana = curRdr.IsDBNull(curRdr.GetOrdinal("mana")) ? 100 : curRdr.GetInt32(curRdr.GetOrdinal("mana"));
+					int curManaRegen = curRdr.IsDBNull(curRdr.GetOrdinal("mana_regen")) ? 0 : curRdr.GetInt32(curRdr.GetOrdinal("mana_regen"));
+					int curMana = curRdr.IsDBNull(curRdr.GetOrdinal("mana")) ? 0 : curRdr.GetInt32(curRdr.GetOrdinal("mana"));
 					curRdr.Close();
 
 					// 3) Store current bones_hero into bones_hero_selection: update if a selection references this hero_id, otherwise insert
@@ -1611,7 +1610,7 @@ ORDER BY p.created DESC;";
 
 				// 5) Insert the selected snapshot into bones_hero (guard numeric JSON parsing)
 				string insertSql = @"INSERT INTO maxhanna.bones_hero (user_id, coordsX, coordsY, map, speed, name, color, mask, level, exp, created, attack_speed, attack_dmg, crit_rate, crit_dmg, health, regen, mp, mana_regen, mana, type)
-					VALUES (@UserId, COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY')),'null')+0, 0), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed')),'null')+0, 0), @Name, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp')),'null')+0, 0), UTC_TIMESTAMP(), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed')),'null')+0, 400), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_dmg')),'null')+0, 1), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.crit_rate')),'null')+0, 0.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.crit_dmg')),'null')+0, 2.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.health')),'null')+0, 100), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.regen')),'null')+0, 0.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mana')),'null')+0, 100), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.type')),'null'), 'knight') );";
+					VALUES (@UserId, COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY')),'null')+0, 0), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed')),'null')+0, 0), @Name, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp')),'null')+0, 0), UTC_TIMESTAMP(), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed')),'null')+0, 400), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_dmg')),'null')+0, 1), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.crit_rate')),'null')+0, 0.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.crit_dmg')),'null')+0, 2.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.health')),'null')+0, 100), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.regen')),'null')+0, 0.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mp')),'null')+0, 100), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mana_regen')),'null')+0, 0.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mana')),'null')+0, 100), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.type')),'null'), 'knight') );";
 				using var insCmd = new MySqlCommand(insertSql, connection, transaction);
 				insCmd.Parameters.AddWithValue("@Data", selDataJson ?? "{}");
 				insCmd.Parameters.AddWithValue("@UserId", userId);
