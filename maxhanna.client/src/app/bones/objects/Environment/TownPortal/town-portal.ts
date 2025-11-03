@@ -32,8 +32,8 @@ export class TownPortal extends GameObject {
         frameSize: new Vector2(40, 95),
         vFrames: 1,
         hFrames: 4,
-        offsetX: -20,
-        offsetY: -47.5,
+        offsetX: -15,
+        offsetY: -55,
         drawLayer: FLOOR,
         colorSwap: params.colorSwap,
         animations: new Animations({
