@@ -440,7 +440,7 @@ export function subscribeToMainGameEvents(object: any) {
           attack.currentSkill = heroCurrentSkill;
           const srcObjType = String((srcObj as any)?.type ?? '').toLowerCase();
           // Debug: show types when debugging magi detection (kept minimal)
-          console.debug(`attack type check: metaHero.type='${metaHeroType}', srcObj.type='${srcObjType}'`);
+          //console.debug(`attack type check: metaHero.type='${metaHeroType}', srcObj.type='${srcObjType}'`);
           const isMagi = (metaHeroType === 'magi') || (srcObjType === 'magi');
           const isRogue = (metaHeroType === 'rogue') || (srcObjType === 'rogue');
           if (isMagi || isRogue) {
