@@ -1,4 +1,4 @@
-<div class="componentMain {{ user ? 'componentMainFullHeight' : ''}}">
+<div class="componentMain {{ user ? 'componentMainFullHeight' : ''}}" [style.paddingTop.px]="loginOnly ? '15px' : ''">
   <div class="closeButton" (click)="remove_me('UserComponent');"
     *ngIf="canClose || (!loginOnly && (parentRef?.user || user))"></div>
   <div class="menuButton" (click)="showMenuPanel();" *ngIf="parentRef?.user || user"></div>
