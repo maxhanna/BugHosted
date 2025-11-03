@@ -844,7 +844,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       id: hero.id,
       name: hero.name ?? "Anon",
       type: hero.type ?? "knight",
-      position: new Vector2(hero.id == this.metaHero.id ? this.metaHero.position.x : hero.position.x, hero.id == this.metaHero.id ? this.metaHero.position.y : hero.position.y),
+      // Use safe fallbacks for position in case server payload omits it
+      position: new Vector2(
+        hero.id == this.metaHero.id ? (this.metaHero.position?.x ?? 0) : (hero.position?.x ?? 0),
+        hero.id == this.metaHero.id ? (this.metaHero.position?.y ?? 0) : (hero.position?.y ?? 0)
+      ),
       colorSwap: (hero.color ? new ColorSwap([0, 160, 200], hexToRgb(hero.color)) : undefined),
       speed: hero.speed,
       mask: hero.mask ? new Mask(getMaskNameById(hero.mask)) : undefined,
@@ -961,9 +965,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   private async reinitializeHero(rz: MetaHero, skipDataFetch?: boolean) {
+    // Ensure rz.position exists
+    const rzPos = (rz && (rz as any).position) ? (rz as any).position : { x: 0, y: 0 };
     this.hero = new Hero({
       id: rz.id, name: rz.name ?? "Anon",
-      position: new Vector2(snapToGrid(rz.position.x, gridCells(1)), snapToGrid(rz.position.y, gridCells(1))),
+      position: new Vector2(snapToGrid(rzPos.x ?? 0, gridCells(1)), snapToGrid(rzPos.y ?? 0, gridCells(1))),
       isUserControlled: true,
       speed: rz.speed,
       type: rz.type,
@@ -982,7 +988,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       rz.hp ?? 100,
       rz.level ?? 1,
       rz.exp ?? 0,
-      rz.attackSpeed ?? 400); 
+      rz.attackSpeed ?? 400);
 
     const statsAny: any = (rz as any).stats ?? rz;
     if (statsAny) {
