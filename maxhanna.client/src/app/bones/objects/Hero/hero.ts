@@ -154,40 +154,26 @@ export class Hero extends Character {
         const objInFront = neighbour ? objectAtLocation(this.parent, neighbour, true) : null;
         const isNpcInFront = objInFront && (objInFront instanceof Npc || objInFront.constructor?.name?.toLowerCase().endsWith('npc'));
         if (!isNpcInFront) {  
-          if (this.facingDirection == "DOWN") {
+            if (this.facingDirection == "DOWN") {
             this.body?.animations?.play("attackDown");
             if (this.currentSkill) {
-                const cost = this.getSkillManaCost(this.currentSkill);
-                if (this.tryConsumeMana(cost)) {
-                  this.spawnSkillTo(this.position.x, this.position.y + 200, this.currentSkill);
-                } else {
-                  // Insufficient mana: play a dull sound or feedback
-                  try { resources.playSound('buzzer', { volume: 0.7, allowOverlap: false }); } catch { }
-                }
-            }
+        // spawnSkillTo will compute and consume the mana cost internally and play the 'arcadeUi' fail sound if insufficient
+        this.spawnSkillTo(this.position.x, this.position.y + 200, this.currentSkill);
+      }
           } else if (this.facingDirection == "UP") {
             this.body?.animations?.play("attackUp");
             if (this.currentSkill) {
-              const cost = this.getSkillManaCost(this.currentSkill);
-              if (this.tryConsumeMana(cost)) {
-                this.spawnSkillTo(this.position.x, this.position.y - 200, this.currentSkill);
-              } else { try { resources.playSound('buzzer', { volume: 0.7, allowOverlap: false }); } catch { } }
+              this.spawnSkillTo(this.position.x, this.position.y - 200, this.currentSkill);
             } 
           } else if (this.facingDirection == "LEFT") {
             this.body?.animations?.play("attackLeft");
             if (this.currentSkill) {
-              const cost = this.getSkillManaCost(this.currentSkill);
-              if (this.tryConsumeMana(cost)) {
-                this.spawnSkillTo(this.position.x - 200, this.position.y, this.currentSkill);
-              } else { try { resources.playSound('buzzer', { volume: 0.7, allowOverlap: false }); } catch { } }
+              this.spawnSkillTo(this.position.x - 200, this.position.y, this.currentSkill);
             }
           } else if (this.facingDirection == "RIGHT") {
             this.body?.animations?.play("attackRight");
             if (this.currentSkill) {
-              const cost = this.getSkillManaCost(this.currentSkill);
-              if (this.tryConsumeMana(cost)) {
-                this.spawnSkillTo(this.position.x + 200, this.position.y, this.currentSkill);
-              } else { try { resources.playSound('buzzer', { volume: 0.7, allowOverlap: false }); } catch { } }
+              this.spawnSkillTo(this.position.x + 200, this.position.y, this.currentSkill);
             } 
           }
           this.playAttackSound(); 
@@ -334,8 +320,18 @@ export class Hero extends Character {
     });
   } 
   
+  // spawnSkillTo: spawn a visual skill effect from this hero to target coordinates.
+  // The function computes the mana cost internally (via getSkillManaCost).
+  // If the computed cost > 0 the function will attempt to consume mana; if consumption fails it will play the default 'arcadeUi' sound and not spawn.
   private spawnSkillTo(targetX: number, targetY: number, type: string) {
-    try {
+    try { 
+      const cost = this.getSkillManaCost(type);
+      if ((cost || 0) > 0) {
+        if (!this.tryConsumeMana(cost)) {  
+          resources.playSound('arcadeUi', { volume: 0.7, allowOverlap: false }); 
+          return;  
+        }
+      }
       // Compute rendered anchor point for this hero's sprite so the effect appears at the same place
       const bodyPosX = (this.body?.position?.x ?? 0);
       const bodyPosY = (this.body?.position?.y ?? 0);
@@ -369,7 +365,7 @@ export class Hero extends Character {
         try { skillType.destroy(); } catch { }
       }, 2000);
     } catch (ex) {
-      console.warn('spawnStingTo failed', ex);
+      console.warn('spawnSkillTo failed', ex);
     }
   }
 
@@ -392,6 +388,7 @@ export class Hero extends Character {
     }
 
     if (shouldPlaySound) {
+      console.log("playing attack sound, nearby:", nearby);
       resources.playSound('punchOrImpact', { volume: 1.0, allowOverlap: true });
     }
   }
