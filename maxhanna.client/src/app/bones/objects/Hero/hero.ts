@@ -120,9 +120,8 @@ export class Hero extends Character {
     try {
       if (!skill) return 1;
       const s = skill.toLowerCase();
-      if (s === 'sting') return 1;
-      if (s === 'arrow') return 1;
-      // Future: map other skills to different costs
+      if (s === 'sting') return 0;
+      if (s === 'arrow') return 0; 
       return 1;
     } catch { return 1; }
   }
