@@ -7,13 +7,14 @@ import { events } from "../../../helpers/events";
 import { FrameIndexPattern } from "../../../helpers/frame-index-pattern";
 import { Animations } from "../../../helpers/animations"; 
 import { PORTAL_ANIMATION } from "./town-portal-animations";
+import { ColorSwap } from "../../../../../services/datacontracts/meta/color-swap";
   
 
 export class TownPortal extends GameObject {
   id = Math.floor(Math.random() * 55000) + 10000;
   objectId = Math.floor(Math.random() * 55000) + 10000; 
   serverPortalId?: number;
-  constructor(params: { position: Vector2, label?: string }) {
+  constructor(params: { position: Vector2, label?: string, colorSwap?: ColorSwap }) {
     const label = params.label ?? ""; 
     super({
       position: new Vector2(snapToGrid(params.position.x), snapToGrid(params.position.y)),
@@ -21,6 +22,7 @@ export class TownPortal extends GameObject {
       forceDrawName: true,
       preventDrawName: false,
       drawLayer: FLOOR,
+      colorSwap: params.colorSwap,
     }); 
 
     const body = new Sprite({
@@ -31,6 +33,7 @@ export class TownPortal extends GameObject {
         vFrames: 1,
         hFrames: 4,
         drawLayer: FLOOR,
+        colorSwap: params.colorSwap,
         animations: new Animations({
             portalAnimation: new FrameIndexPattern(PORTAL_ANIMATION),
         }),

@@ -158,12 +158,12 @@ namespace maxhanna.Server.Controllers
 				int xMax = hero.Position.x + radiusTiles * tile;
 				int yMin = hero.Position.y - radiusTiles * tile;
 				int yMax = hero.Position.y + radiusTiles * tile;
-								string selSql = @"SELECT p.id, p.creator_hero_id, COALESCE(h.name, '') AS creatorName, p.map, p.coordsX, p.coordsY, p.data, p.created,
+												string selSql = @"SELECT p.id, p.creator_hero_id, COALESCE(h.name, '') AS creatorName, COALESCE(h.color, '') AS creatorColor, p.map, p.coordsX, p.coordsY, p.data, p.created,
   (SELECT o.id FROM maxhanna.bones_town_portal o WHERE o.creator_hero_id = p.creator_hero_id AND o.id <> p.id ORDER BY o.created DESC LIMIT 1) AS otherId,
   (SELECT o.map FROM maxhanna.bones_town_portal o WHERE o.creator_hero_id = p.creator_hero_id AND o.id <> p.id ORDER BY o.created DESC LIMIT 1) AS otherMap,
   (SELECT o.coordsX FROM maxhanna.bones_town_portal o WHERE o.creator_hero_id = p.creator_hero_id AND o.id <> p.id ORDER BY o.created DESC LIMIT 1) AS otherCx,
   (SELECT o.coordsY FROM maxhanna.bones_town_portal o WHERE o.creator_hero_id = p.creator_hero_id AND o.id <> p.id ORDER BY o.created DESC LIMIT 1) AS otherCy,
-  (SELECT o.creator_hero_id FROM maxhanna.bones_town_portal o WHERE o.creator_hero_id = p.creator_hero_id AND o.id <> p.id ORDER BY o.created DESC LIMIT 1) AS otherCreator
+					(SELECT o.creator_hero_id FROM maxhanna.bones_town_portal o WHERE o.creator_hero_id = p.creator_hero_id AND o.id <> p.id ORDER BY o.created DESC LIMIT 1) AS otherCreator
 FROM maxhanna.bones_town_portal p
 LEFT JOIN maxhanna.bones_hero h ON h.id = p.creator_hero_id
 WHERE p.map = @Map AND p.coordsX BETWEEN @XMin AND @XMax AND p.coordsY BETWEEN @YMin AND @YMax
@@ -180,18 +180,19 @@ ORDER BY p.created DESC;";
 					int id = rdr.GetInt32(0);
 					int creatorId = rdr.IsDBNull(1) ? 0 : rdr.GetInt32(1);
 					string creatorName = rdr.IsDBNull(2) ? string.Empty : rdr.GetString(2);
-					string map = rdr.IsDBNull(3) ? string.Empty : rdr.GetString(3);
-					int cx = rdr.IsDBNull(4) ? 0 : rdr.GetInt32(4);
-					int cy = rdr.IsDBNull(5) ? 0 : rdr.GetInt32(5);
-					string dataJson = rdr.IsDBNull(6) ? "{}" : rdr.GetString(6);
-					DateTime created = rdr.IsDBNull(7) ? DateTime.UtcNow : rdr.GetDateTime(7);
+					string creatorColor = rdr.IsDBNull(3) ? string.Empty : rdr.GetString(3);
+					string map = rdr.IsDBNull(4) ? string.Empty : rdr.GetString(4);
+					int cx = rdr.IsDBNull(5) ? 0 : rdr.GetInt32(5);
+					int cy = rdr.IsDBNull(6) ? 0 : rdr.GetInt32(6);
+					string dataJson = rdr.IsDBNull(7) ? "{}" : rdr.GetString(7);
+					DateTime created = rdr.IsDBNull(8) ? DateTime.UtcNow : rdr.GetDateTime(8);
 
 					// paired columns (from correlated subselects)
-					int otherId = rdr.IsDBNull(8) ? 0 : rdr.GetInt32(8);
-					string otherMap = rdr.IsDBNull(9) ? string.Empty : rdr.GetString(9);
-					int otherCx = rdr.IsDBNull(10) ? 0 : rdr.GetInt32(10);
-					int otherCy = rdr.IsDBNull(11) ? 0 : rdr.GetInt32(11);
-					int otherCreator = rdr.IsDBNull(12) ? 0 : rdr.GetInt32(12);
+					int otherId = rdr.IsDBNull(9) ? 0 : rdr.GetInt32(9);
+					string otherMap = rdr.IsDBNull(10) ? string.Empty : rdr.GetString(10);
+					int otherCx = rdr.IsDBNull(11) ? 0 : rdr.GetInt32(11);
+					int otherCy = rdr.IsDBNull(12) ? 0 : rdr.GetInt32(12);
+					int otherCreator = rdr.IsDBNull(13) ? 0 : rdr.GetInt32(13);
 
 					var dataDict = new Dictionary<string, string>();
 					if (!string.IsNullOrEmpty(dataJson))
@@ -216,6 +217,8 @@ ORDER BY p.created DESC;";
 					}
 
 					dataDict["creatorName"] = creatorName ?? string.Empty;  
+					dataDict["creatorHeroName"] = creatorName ?? string.Empty;
+					dataDict["color"] = creatorColor ?? string.Empty;
 
 					if (!string.IsNullOrEmpty(otherMap) || otherId != 0)
 					{
@@ -225,13 +228,15 @@ ORDER BY p.created DESC;";
 							{ "y", otherCy.ToString() },
 							{ "map", otherMap },
 							{ "creatorHeroId", otherCreator.ToString() },
-							{ "creatorName", creatorName?? string.Empty }
+							{ "creatorName", creatorName ?? string.Empty },
+							{ "creatorHeroName", creatorName ?? string.Empty },
+							{ "color", creatorColor ?? string.Empty }
 						};
-						portals.Add(new { id = id, creatorHeroId = creatorId, creatorName = creatorName, map = map, coordsX = cx, coordsY = cy, data = pairedData, created = created });
+						portals.Add(new { id = id, creatorHeroId = creatorId, creatorName = creatorName, color = creatorColor, map = map, coordsX = cx, coordsY = cy, data = pairedData, created = created });
 					}
 					else
 					{
-						portals.Add(new { id = id, creatorHeroId = creatorId, creatorName = creatorName, map = map, coordsX = cx, coordsY = cy, data = dataDict, created = created });
+						portals.Add(new { id = id, creatorHeroId = creatorId, creatorName = creatorName, color = creatorColor, map = map, coordsX = cx, coordsY = cy, data = dataDict, created = created });
 					}
 				}
 				rdr.Close();

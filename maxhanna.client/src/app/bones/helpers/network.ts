@@ -14,7 +14,8 @@ import { Character } from "../objects/character";
 import { HeroInventoryItem } from "../../../services/datacontracts/bones/hero-inventory-item";
 import { DroppedItem } from "../objects/Environment/DroppedItem/dropped-item";
 import { TownPortal } from "../objects/Environment/TownPortal/town-portal";
-import { resources } from "./resources";
+import { hexToRgb, resources } from "./resources";
+import { ColorSwap } from "../../../services/datacontracts/bones/color-swap";
 
 
 export class Network {
@@ -951,6 +952,7 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
       if (isNaN(id)) return undefined;
       const x = (it.coordsX !== undefined && it.coordsX !== null) ? Number(it.coordsX) : (it.position && it.position.x ? Number(it.position.x) : undefined);
       const y = (it.coordsY !== undefined && it.coordsY !== null) ? Number(it.coordsY) : (it.position && it.position.y ? Number(it.position.y) : undefined);
+      const ptcolor = (it.color !== undefined && it.color !== null) ? String(it.color) : undefined;
       if (x === undefined || y === undefined || isNaN(x) || isNaN(y)) return undefined;
       // Compute a friendly label. If server provided creator hero id/name, show "Name's\nPortal" on two lines.
       let label = '';
@@ -963,8 +965,8 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
           label = `${shortName}'s\nPortal`;
         }
       }
-
-      const portalMarker = new TownPortal({ position: new Vector2(x, y), label: label });
+      const color = ptcolor ? new ColorSwap([0, 160, 200], hexToRgb(ptcolor)) : undefined;
+      const portalMarker = new TownPortal({ position: new Vector2(x, y), label: label, colorSwap: color });
       try { (portalMarker as any).serverPortalId = id; } catch { }
       // Parse server data
       let dataObj: any = undefined;
