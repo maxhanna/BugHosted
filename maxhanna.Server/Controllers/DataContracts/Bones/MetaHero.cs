@@ -42,6 +42,9 @@ namespace maxhanna.Server.Controllers.DataContracts.Bones
 
 		[JsonPropertyName("regen")]
 		public double Regen { get; set; } = 0.0; // health per second
+
+		[JsonPropertyName("mana")]
+		public int Mana { get; set; } = 0;
 		public string Map { get; set; } = "";
 		public string Color { get; set; } = "";
 		public int? Mask { get; set; } = null;

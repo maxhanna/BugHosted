@@ -112,10 +112,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   // filter: 'all' | 'party' | 'nearby'
   partyFilter: 'all' | 'party' | 'nearby' = 'all';
   showLeaveConfirm: boolean = false;
-  // Stats editing model: new stat names (attackDmg, attackSpeed, critRate, critDmg, health, regen)
-  // Note: `attackSpeed` stored here is the UI-facing "points" value (0..n).
-  // Internal/saved attack speed (ms) = baseAttackSpeedMs + attackSpeed * attackSpeedStepMs
-  editableStats: { attackDmg: number; attackSpeed: number; critRate: number; critDmg: number; health: number; regen: number; pointsAvailable: number } = { attackDmg: 1, attackSpeed: 0, critRate: 0.0, critDmg: 2.0, health: 0, regen: 0.0, pointsAvailable: 0 };
+  editableStats: { attackDmg: number; attackSpeed: number; critRate: number; critDmg: number; health: number; regen: number; mana: number; pointsAvailable: number } = { attackDmg: 1, attackSpeed: 0, critRate: 0.0, critDmg: 2.0, health: 0, regen: 0.0, mana: 0, pointsAvailable: 0 };
   // Attack speed conversion constants
   private readonly attackSpeedBaseMs: number = 400; // base ms represented by 0 UI points
   private readonly attackSpeedStepMs: number = 1;   // ms per UI point
@@ -126,9 +123,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   // Skills editing model (example: three generic skills). Adjust fields as your game defines.
   editableSkills: { skillA: number; skillB: number; skillC: number; pointsAvailable: number } = { skillA: 0, skillB: 0, skillC: 0, pointsAvailable: 0 };
   // Keep a copy of the original stats for change detection while the panel is open
-  private statsOriginal?: { attackDmg: number; attackSpeed: number; critRate: number; critDmg: number; health: number; regen: number } = undefined;
+  private statsOriginal?: { attackDmg: number; attackSpeed: number; critRate: number; critDmg: number; health: number; regen: number; mana: number } = undefined;
   // Cached stats to preserve values when server fetches omit per-hero stats
-  cachedStats?: { attackDmg: number; attackSpeed: number; critRate: number; critDmg: number; health: number; regen: number } = undefined;
+  cachedStats?: { attackDmg: number; attackSpeed: number; critRate: number; critDmg: number; health: number; regen: number; mana?: number } = undefined;
   // Cached skills to preserve values when server fetches omit them
   cachedSkills?: { skillA: number; skillB: number; skillC: number } = undefined;
   // Change character popup state
@@ -488,7 +485,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       // Experience bar along bottom
       const barHeight = 12;
       const barPadding = 8;
-      const barWidth = this.canvas.width - (orbRadius * 2 + padding * 4);
+  // Reserve space on the far-right of the bar for the mana orb
+  const manaOrbRadius = orbRadius; // same sizing as health orb
+  const reservedForMana = manaOrbRadius * 2 + padding;
+  const barWidth = this.canvas.width - (orbRadius * 2 + padding * 4) - reservedForMana;
       const barX = orbX + orbRadius + padding * 2;
       const barY = this.canvas.height - barHeight - barPadding;
       const exp = (hero.exp ?? 0);
@@ -514,6 +514,40 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       ctx.textBaseline = 'middle';
       ctx.fillText('Lvl ' + (hero.level ?? 1), barX + 6, barY + barHeight / 2);
 
+  // Mana orb on the right side of the exp bar
+  const manaOrbX = barX + barWidth + reservedForMana - manaOrbRadius; // place near the right edge
+  const manaOrbY = this.canvas.height - padding - manaOrbRadius;
+  ctx.beginPath();
+  ctx.arc(manaOrbX, manaOrbY, manaOrbRadius, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fill();
+  ctx.closePath();
+
+  // Mana fill (vertical vial-style)
+  const mana = Math.max(0, Math.min(100, (hero.mana ?? 100)));
+  const manaRatio = mana / 100;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(manaOrbX, manaOrbY, manaOrbRadius - 4, 0, Math.PI * 2);
+  ctx.clip();
+  const manaTop = manaOrbY + manaOrbRadius - 4 - (manaRatio * ((manaOrbRadius - 4) * 2));
+  ctx.fillStyle = 'rgba(60,140,240,0.95)';
+  ctx.fillRect(manaOrbX - (manaOrbRadius - 4), manaTop, (manaOrbRadius - 4) * 2, (manaOrbRadius - 4) * 2);
+  ctx.restore();
+
+  // Mana inner border
+  ctx.beginPath();
+  ctx.arc(manaOrbX, manaOrbY, manaOrbRadius - 8, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.fill();
+  ctx.closePath();
+
+  // Mana text
+  ctx.fillStyle = 'white';
+  ctx.font = 'bold 12px fontRetroGaming';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(Math.round(mana)), manaOrbX, manaOrbY);
       ctx.restore();
     } catch (ex) { console.warn('drawHudForLocalHero failed', ex); }
   }
@@ -829,6 +863,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     try { if (hero.hp !== undefined && hero.hp !== null) (tmpHero as any).hp = hero.hp; } catch { }
     try { if (hero.level !== undefined && hero.level !== null) (tmpHero as any).level = hero.level; } catch { }
     try { if (hero.exp !== undefined && hero.exp !== null) (tmpHero as any).exp = hero.exp; } catch { }
+  try { if (hero.mana !== undefined && hero.mana !== null) (tmpHero as any).mana = hero.mana; } catch { }
+  try { if ((tmpHero as any).maxMana === undefined) (tmpHero as any).maxMana = hero.mana ?? 0; } catch { }
     try { if ((tmpHero as any).maxHp === undefined) (tmpHero as any).maxHp = hero.hp ?? 100; } catch { }
     this.mainScene.level?.addChild(tmpHero);
     return tmpHero;
@@ -956,6 +992,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       if (statsAny.critDmg !== undefined) this.metaHero.critDmg = Number(statsAny.critDmg);
       if (statsAny.health !== undefined) this.metaHero.health = Number(statsAny.health);
       if (statsAny.regen !== undefined) this.metaHero.regen = Number(statsAny.regen);
+      if (statsAny.mana !== undefined) this.metaHero.mana = Number(statsAny.mana);
     }
       
     if ((this.metaHero.attackDmg === undefined || this.metaHero.health === undefined) && this.cachedStats) {
@@ -971,6 +1008,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       this.hero.attackSpeed = rz.attackSpeed ?? 400;
       this.hero.level = rz.level ?? 1;
       this.hero.hp = rz.hp ?? 100;
+      this.hero.mana = (rz as any).mana ?? 0;
       this.hero.exp = rz.exp ?? 0;
     }
     this.hero.isLocked = this.isStartMenuOpened || this.isShopMenuOpened;
@@ -1173,11 +1211,12 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const critDmg = mhAny.critDmg ?? (mhAny.regen ? (mhAny.regen * 2.0) : 2.0);
   const health = mhAny.health ?? this.healthBase;
     const regen = mhAny.regen ?? 0.0;
+    const mana = (mhAny as any)?.mana ?? 0;
   // Convert ms -> UI points (each UI point == attackSpeedStepMs ms, base attackSpeedBaseMs => 0 points)
   const attackSpeedPoints = Math.max(0, Math.round((Number(attackSpeed) - this.attackSpeedBaseMs) / this.attackSpeedStepMs));
   // Convert internal health -> UI points (0 == healthBase)
   const healthPoints = Math.max(0, Math.round((Number(health) - this.healthBase) / this.healthStep));
-  this.editableStats = { attackDmg: Number(attackDmg), attackSpeed: attackSpeedPoints, critRate: Number(critRate), critDmg: Number(critDmg), health: Number(healthPoints), regen: Number(regen), pointsAvailable: points };
+  this.editableStats = { attackDmg: Number(attackDmg), attackSpeed: attackSpeedPoints, critRate: Number(critRate), critDmg: Number(critDmg), health: Number(healthPoints), regen: Number(regen), mana: Number(mana), pointsAvailable: points };
   }
 
   closeStartMenu() {
@@ -1450,7 +1489,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const sCritRate = cached.critRate !== undefined ? cached.critRate : (mhAny.critRate !== undefined ? mhAny.critRate : 0.0);
     const sCritDmg = cached.critDmg !== undefined ? cached.critDmg : (mhAny.critDmg !== undefined ? mhAny.critDmg : (mhAny.regen ? (Number(mhAny.regen) * 2.0) : 2.0));
   const sHealth = cached.health !== undefined ? cached.health : (mhAny.health !== undefined ? mhAny.health : this.healthBase);
-    const sRegen = cached.regen !== undefined ? cached.regen : (mhAny.regen !== undefined ? mhAny.regen : 0.0);
+  const sRegen = cached.regen !== undefined ? cached.regen : (mhAny.regen !== undefined ? mhAny.regen : 0.0);
+  // Mana: cached or metaHero.mana (represents current mana or allocated max depending on server semantics). Default to 0 points.
+  const sMana = (this.cachedStats as any)?.mana !== undefined ? (this.cachedStats as any).mana : ((mhAny as any)?.mana ?? 0);
 
     // Compute points available = totalPoints - alreadySpent
     const totalPoints = Math.max(0, level - 1);
@@ -1488,6 +1529,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   // store health as UI points
       health: Number(Math.max(0, Math.round((Number(sHealth ?? this.healthBase) - this.healthBase) / this.healthStep))),
       regen: Number(sRegen ?? 0.0),
+      mana: Number(sMana ?? 0),
       pointsAvailable: pointsAvailable
     };
 
@@ -1500,7 +1542,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         critRate: this.editableStats.critRate,
         critDmg: this.editableStats.critDmg,
         health: this.editableStats.health,
-        regen: this.editableStats.regen
+        regen: this.editableStats.regen,
+        mana: this.editableStats.mana
       };
     } catch {
       this.statsOriginal = undefined;
@@ -1575,7 +1618,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.parentRef?.closeOverlay();
   }
 
-  adjustStat(stat: 'attackDmg' | 'attackSpeed' | 'critRate' | 'critDmg' | 'health' | 'regen', delta: number) {
+  adjustStat(stat: 'attackDmg' | 'attackSpeed' | 'critRate' | 'critDmg' | 'health' | 'regen' | 'mana', delta: number) {
     if (!this.editableStats) return;
     const current = (this.editableStats as any)[stat] as number;
     const next = current + delta;
@@ -1605,8 +1648,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       || this.editableStats.critRate !== this.statsOriginal.critRate
       || this.editableStats.critDmg !== this.statsOriginal.critDmg
       || this.editableStats.health !== this.statsOriginal.health
-      || this.editableStats.regen !== this.statsOriginal.regen;
+      || this.editableStats.regen !== this.statsOriginal.regen
+      || this.editableStats.mana !== this.statsOriginal.mana;
   }
+
 
   async applyStats() {
     try {
@@ -1618,7 +1663,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         critDmg: this.editableStats.critDmg,
         // Convert UI health points -> internal health
         health: (this.healthBase + (Number(this.editableStats.health) * this.healthStep)),
-        regen: this.editableStats.regen
+        regen: this.editableStats.regen,
+        // Mana expressed as UI points (0-based)
+        mana: this.editableStats.mana
       };
       await this.bonesService.updateHeroStats(
         this.metaHero.id,
@@ -1634,6 +1681,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.metaHero.critDmg = this.editableStats.critDmg;
   this.metaHero.health = (this.healthBase + (Number(this.editableStats.health) * this.healthStep));
         this.metaHero.regen = this.editableStats.regen;
+        // metaHero.mana represents allocated mana points (server convention)
+        (this.metaHero as any).mana = this.editableStats.mana;
       }
       // If in-game hero object exists, apply derived/visible changes
       if (this.hero) {
@@ -1643,6 +1692,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         try { (this.hero as any).critDmg = this.editableStats.critDmg; } catch { }
   try { (this.hero as any).health = (this.healthBase + (Number(this.editableStats.health) * this.healthStep)); } catch { }
         try { (this.hero as any).regen = this.editableStats.regen; } catch { }
+        try { (this.hero as any).maxMana = this.editableStats.mana; } catch { }
       }
 
       this.statsUpdatedVisible = true;
@@ -1663,7 +1713,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         critDmg: this.editableStats.critDmg,
   // store health as internal value
   health: (this.healthBase + (Number(this.editableStats.health) * this.healthStep)),
-        regen: this.editableStats.regen
+        regen: this.editableStats.regen,
+        mana: this.editableStats.mana
       };
     } catch (ex) { console.error('applyStats failed', ex); }
   }
@@ -1954,7 +2005,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const sRegen = (rz as any)?.regen ?? (rz as any)?.stats?.regen;
 
     // Only set cachedStats when we have at least one defined value to avoid overwriting good cache with undefined
-    if (sAttackDmg !== undefined || sAttackSpeed !== undefined || sCritRate !== undefined || sCritDmg !== undefined || sHealth !== undefined || sRegen !== undefined) {
+    if (sAttackDmg !== undefined || sAttackSpeed !== undefined || sCritRate !== undefined || sCritDmg !== undefined || sHealth !== undefined || sRegen !== undefined || (rz as any)?.mana !== undefined) {
       this.cachedStats = {
         attackDmg: (sAttackDmg !== undefined ? Number(sAttackDmg) : (this.cachedStats?.attackDmg ?? 1)),
         attackSpeed: (sAttackSpeed !== undefined ? Number(sAttackSpeed) : (this.cachedStats?.attackSpeed ?? 400)),
@@ -1962,6 +2013,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         critDmg: (sCritDmg !== undefined ? Number(sCritDmg) : (this.cachedStats?.critDmg ?? 2.0)),
         health: (sHealth !== undefined ? Number(sHealth) : (this.cachedStats?.health ?? 100)),
         regen: (sRegen !== undefined ? Number(sRegen) : (this.cachedStats?.regen ?? 0.0)),
+        mana: ((rz as any)?.mana !== undefined ? Number((rz as any).mana) : (this.cachedStats?.mana ?? 0))
       };
     }
   }

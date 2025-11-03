@@ -314,6 +314,14 @@
           </div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>Mana</div>
+          <div>
+            <button (click)="adjustStat('mana', -1)" [disabled]="editableStats.mana <= 0" aria-label="Decrease Mana Points">-</button>
+            <span style="margin:0 8px">{{editableStats.mana}}</span>
+            <button (click)="adjustStat('mana', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Mana Points">+</button>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>Regen</div>
           <div>
             <button (click)="adjustStat('regen', -1)" [disabled]="editableStats.regen <= 0" aria-label="Decrease Regen Points">-</button>

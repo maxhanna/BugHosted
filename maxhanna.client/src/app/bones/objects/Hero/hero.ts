@@ -19,6 +19,9 @@ import { Arrow } from "../Effects/Arrow/arrow";
 export class Hero extends Character {
   isAttacking = false;
   type: string = "knight";
+  // Mana for spellcasting/abilities (0..100)
+  public mana: number = 100;
+  public maxMana?: number = 100;
   currentSkill?: string = undefined;
   private lastAttackAt: number = 0;
   public attackSpeed: number = 400;

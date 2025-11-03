@@ -17,6 +17,11 @@ export class MetaHero {
   critDmg?: number; // multiplier
   health?: number;
   regen?: number; // hp per second
+  mana?: number;
+  // Number of mana points allocated (UI-facing 'points' into Mana). Starts at 0.
+  maxMana?: number;
+  // Current mana spent/consumed (0..maxMana). This value can be decreased by mana regeneration or items.
+  manaSpent?: number;
   level?: number;
   exp?: number;
   userId?: number;
@@ -37,6 +42,9 @@ export class MetaHero {
     this.exp = exp ?? 0;
     this.attackSpeed = attackSpeed ?? 400; // default 400ms
     this.userId = userId;
+  this.mana = 0;
+  this.maxMana = 0;
+  this.manaSpent = 0;
     this.map = map;
     this.color = color;
     this.mask = mask;
