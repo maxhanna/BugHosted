@@ -1996,10 +1996,11 @@ ORDER BY p.created DESC;";
 						}
 					}
 
-					string insertPortalSql = @"INSERT INTO maxhanna.bones_town_portal (creator_hero_id, map, coordsX, coordsY, data, created) VALUES (@CreatorHeroId, @Map, @X, @Y, @Data, UTC_TIMESTAMP()); SELECT LAST_INSERT_ID();";
+					string insertPortalSql = @"INSERT INTO maxhanna.bones_town_portal (creator_hero_id, user_id, map, coordsX, coordsY, data, created) VALUES (@CreatorHeroId, @UserId, @Map, @X, @Y, @Data, UTC_TIMESTAMP()); SELECT LAST_INSERT_ID();";
 					using var insertCmd = new MySqlCommand(insertPortalSql, connection, transaction);
 					insertCmd.Parameters.AddWithValue("@CreatorHeroId", heroId);
 					insertCmd.Parameters.AddWithValue("@Map", map ?? string.Empty);
+					insertCmd.Parameters.AddWithValue("@UserId", userId);
 					insertCmd.Parameters.AddWithValue("@X", x);
 					insertCmd.Parameters.AddWithValue("@Y", y);
 					insertCmd.Parameters.AddWithValue("@Data", Newtonsoft.Json.JsonConvert.SerializeObject(data));
@@ -2026,9 +2027,10 @@ ORDER BY p.created DESC;";
 						townData["originY"] = y.ToString();
 						townData["creatorName"] = creatorName ?? string.Empty;  
 						// Reference the canonical portalId (insertedId). We'll insert the town-side portal and then add both ids to events.
-						string insertTownSql = @"INSERT INTO maxhanna.bones_town_portal (creator_hero_id, map, coordsX, coordsY, data, created) VALUES (@CreatorHeroId, @Map, @X, @Y, @Data, UTC_TIMESTAMP()); SELECT LAST_INSERT_ID();";
+						string insertTownSql = @"INSERT INTO maxhanna.bones_town_portal (creator_hero_id, user_id, map, coordsX, coordsY, data, created) VALUES (@CreatorHeroId, @UserId, @Map, @X, @Y, @Data, UTC_TIMESTAMP()); SELECT LAST_INSERT_ID();";
 						using var insertTownCmd = new MySqlCommand(insertTownSql, connection, transaction);
 						insertTownCmd.Parameters.AddWithValue("@CreatorHeroId", heroId);
+						insertTownCmd.Parameters.AddWithValue("@UserId", userId);
 						// Determine paired town map as the previous town relative to the hero's current map.
 						// Use an ordered list and walk backwards to find the preceding town.
 
