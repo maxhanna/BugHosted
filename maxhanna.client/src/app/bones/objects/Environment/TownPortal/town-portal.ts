@@ -5,8 +5,8 @@ import { FLOOR, GameObject } from "../../game-object";
 import { snapToGrid } from "../../../helpers/grid-cells";
 import { events } from "../../../helpers/events";
 import { FrameIndexPattern } from "../../../helpers/frame-index-pattern";
-import { Animations } from "../../../helpers/animations";
-import { WARP_BASE_ANIMATION } from "../../Effects/Warp/warp-base-animations";
+import { Animations } from "../../../helpers/animations"; 
+import { PORTAL_ANIMATION } from "./town-portal-animations";
   
 
 export class TownPortal extends GameObject {
@@ -25,14 +25,14 @@ export class TownPortal extends GameObject {
 
     const body = new Sprite({
         objectId: Math.floor(Math.random() * (9999)) * -1,
-        resource: resources.images['warpbase'],
+        resource: resources.images['portal'],
         name: this.name ?? "Portal", 
-        frameSize: new Vector2(32, 32),
+        frameSize: new Vector2(40, 95),
         vFrames: 1,
-        hFrames: 8,
+        hFrames: 4,
         drawLayer: FLOOR,
         animations: new Animations({
-            warpBaseAnimation: new FrameIndexPattern(WARP_BASE_ANIMATION),
+            portalAnimation: new FrameIndexPattern(PORTAL_ANIMATION),
         }),
     });
     this.addChild(body);
@@ -41,6 +41,7 @@ export class TownPortal extends GameObject {
       drawLayer: FLOOR
     });
     this.addChild(shadow);
+    body?.animations?.play("portalAnimation");
   }
 
   override ready() {  

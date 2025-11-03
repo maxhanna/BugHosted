@@ -40,6 +40,7 @@ export class Resources {
       magi: `${this.dir}magispritesheet.png`,
       rogue: `${this.dir}rangerspritesheet.png`,
       pointer: `${this.dir}pointer.png`,
+      portal: `${this.dir}portal.png`,
       portraits: `${this.dir}portraits-sheet.png`,
       referee: `${this.dir}referee-spritesheet.png`,
       shadow: `${this.dir}shadow.png`,
