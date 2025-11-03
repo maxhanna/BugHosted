@@ -322,6 +322,14 @@
           </div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>Mana Regen</div>
+          <div>
+            <button (click)="adjustStat('manaRegen', -1)" [disabled]="editableStats.manaRegen <= 0" aria-label="Decrease Mana Regen Points">-</button>
+            <span style="margin:0 8px">{{editableStats.manaRegen}}</span>
+            <button (click)="adjustStat('manaRegen', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Mana Regen Points">+</button>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>Regen</div>
           <div>
             <button (click)="adjustStat('regen', -1)" [disabled]="editableStats.regen <= 0" aria-label="Decrease Regen Points">-</button>

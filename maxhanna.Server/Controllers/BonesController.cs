@@ -1848,6 +1848,7 @@ ORDER BY p.created DESC;";
 					if (req.Stats.ContainsKey("health")) { setParts.Add("health = @health"); updParams["@health"] = req.Stats["health"]; }
 					if (req.Stats.ContainsKey("regen")) { setParts.Add("regen = @regen"); updParams["@regen"] = req.Stats["regen"]; }
 					if (req.Stats.ContainsKey("mana")) { setParts.Add("mana = @mana"); updParams["@mana"] = req.Stats["mana"]; }
+					if (req.Stats.ContainsKey("manaRegen")) { setParts.Add("mana_regen = @manaRegen"); updParams["@manaRegen"] = req.Stats["manaRegen"]; }
 
 					if (setParts.Count > 0)
 					{
