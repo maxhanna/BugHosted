@@ -1797,13 +1797,20 @@ ORDER BY p.created DESC;";
 			try
 			{
 				// Ownership check: require UserId provided and matches bones_hero.user_id
-				if (!req.UserId.HasValue) return BadRequest("UserId required for stat changes");
+				if (!req.UserId.HasValue) {
+					return BadRequest("UserId required for stat changes"); 
+				}
 				string ownerSql2 = "SELECT user_id FROM maxhanna.bones_hero WHERE id = @HeroId LIMIT 1";
 				using var ownerCmd2 = new MySqlCommand(ownerSql2, connection, transaction);
 				ownerCmd2.Parameters.AddWithValue("@HeroId", req.HeroId);
 				var ownerObj2 = await ownerCmd2.ExecuteScalarAsync();
-				int ownerId2 = ownerObj2 != null && int.TryParse(ownerObj2.ToString(), out var tmp2) ? tmp2 : 0;
-				if (ownerId2 != req.UserId.Value) return StatusCode(403, "You do not own this hero");
+				int ownerId2 =
+					ownerObj2 != null && int.TryParse(ownerObj2.ToString(), out var tmp2) 
+					? tmp2 
+					: 0;
+				if (ownerId2 != req.UserId.Value) {
+					return StatusCode(403, "You do not own this hero"); 
+				}
 				// Fetch hero map to attach to the event
 				string mapSql = "SELECT map FROM maxhanna.bones_hero WHERE id = @HeroId LIMIT 1";
 				using var mapCmd = new MySqlCommand(mapSql, connection, transaction);
@@ -1813,7 +1820,9 @@ ORDER BY p.created DESC;";
 
 				// Build string dictionary for event payload and persist only new stat keys
 				var dataDict = new Dictionary<string, string>();
-				foreach (var kv in req.Stats) dataDict[kv.Key] = kv.Value?.ToString() ?? string.Empty;
+				foreach (var kv in req.Stats) {
+					dataDict[kv.Key] = kv.Value?.ToString() ?? string.Empty; 
+				}
 
 				// Persist new stat fields only. Legacy fields removed from schema and codebase.
 				try
@@ -1826,12 +1835,17 @@ ORDER BY p.created DESC;";
 					if (req.Stats.ContainsKey("critDmg")) { setParts.Add("crit_dmg = @critDmg"); updParams["@critDmg"] = req.Stats["critDmg"]; }
 					if (req.Stats.ContainsKey("health")) { setParts.Add("health = @health"); updParams["@health"] = req.Stats["health"]; }
 					if (req.Stats.ContainsKey("regen")) { setParts.Add("regen = @regen"); updParams["@regen"] = req.Stats["regen"]; }
+					if (req.Stats.ContainsKey("mana")) { setParts.Add("mana = @mana"); updParams["@mana"] = req.Stats["mana"]; }
 
 					if (setParts.Count > 0)
 					{
 						string updSql = $"UPDATE maxhanna.bones_hero SET {string.Join(", ", setParts)}, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1";
-						var parameters = new Dictionary<string, object?>() { { "@HeroId", req.HeroId } };
-						foreach (var kv in updParams) parameters[kv.Key] = kv.Value;
+						var parameters = new Dictionary<string, object?>() {
+							{ "@HeroId", req.HeroId } 
+						};
+						foreach (var kv in updParams) {
+							parameters[kv.Key] = kv.Value; 
+						}
 						await ExecuteInsertOrUpdateOrDeleteAsync(updSql, parameters, connection, transaction);
 					}
 				}
