@@ -308,7 +308,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         if (mh && mh.position) attackerPos = mh.position;
       }
       const myPos = (this.hero && this.hero.position) ? this.hero.position : (this.metaHero && this.metaHero.position) ? this.metaHero.position : undefined;
-      if (!attackerPos || !myPos) return;
+      if (!attackerPos || !myPos || !targetHeroId) return;
       const dx = attackerPos.x - myPos.x;
       const dy = attackerPos.y - myPos.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
