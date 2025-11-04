@@ -604,6 +604,39 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           }
         }
 
+        // Draw HP bubbles inside the clipped liquid so they brighten the liquid instead of overlaying it
+        try {
+          const nowB = Date.now();
+          for (let i = this._hpBubbles.length - 1; i >= 0; i--) {
+            const b = this._hpBubbles[i];
+            if (!b._init) {
+              b.x = orbX + (Math.random() - 0.5) * innerRadius * 0.8;
+              b.y = orbY + innerRadius - (Math.random() * 8);
+              b._init = true;
+            }
+            const t = nowB - b.born;
+            const lifeFrac = Math.max(0, Math.min(1, t / b.life));
+            b.x += b.vx;
+            b.y -= b.vy * (1 + lifeFrac * 0.6);
+            b.a = 1 - lifeFrac;
+            ctx.save();
+            try {
+              ctx.globalCompositeOperation = 'lighter';
+              ctx.globalAlpha = Math.max(0, Math.min(1, b.a * 0.85));
+              const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
+              grad.addColorStop(0, 'rgba(255,255,255,0.45)');
+              grad.addColorStop(0.6, 'rgba(255,255,255,0.12)');
+              grad.addColorStop(1, 'rgba(255,255,255,0.0)');
+              ctx.fillStyle = grad;
+              ctx.beginPath();
+              ctx.arc(b.x, b.y, Math.max(0.6, b.r * (1 - lifeFrac * 0.6)), 0, Math.PI * 2);
+              ctx.fill();
+              ctx.closePath();
+            } finally { ctx.restore(); }
+            if (t >= b.life) this._hpBubbles.splice(i, 1);
+          }
+        } catch (e) { console.warn('hp bubbles (in-clip) draw failed', e); }
+
         ctx.restore();
       } catch (e) { console.warn('liquid fill failed', e); }
 
@@ -621,48 +654,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       ctx.textBaseline = 'middle';
       ctx.fillText(String(Math.round(hp)), orbX, orbY);
 
-      // Draw and advance HP bubbles
-      try {
-        const now = Date.now();
-        for (let i = this._hpBubbles.length - 1; i >= 0; i--) {
-          const b = this._hpBubbles[i];
-          // initialize position near orb if unset
-          if (!b._init) {
-            b.x = orbX + (Math.random() - 0.5) * orbRadius * 0.6;
-            const hpInner = orbRadius - 6;
-            b.y = orbY + hpInner - (Math.random() * 8);
-            b._init = true;
-          }
-          const t = now - b.born;
-          const lifeFrac = Math.max(0, Math.min(1, t / b.life));
-          // advance
-          b.x += b.vx;
-          b.y -= b.vy * (1 + lifeFrac * 0.6);
-          b.a = 1 - lifeFrac;
-          // draw (additive lighten so bubbles brighten liquid instead of covering it)
-          ctx.save();
-          try {
-            ctx.globalCompositeOperation = 'lighter';
-            ctx.globalAlpha = Math.max(0, Math.min(1, b.a));
-            const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
-            // softer center and fully transparent edges to avoid occluding the orb color
-            grad.addColorStop(0, 'rgba(255,255,255,0.55)');
-            grad.addColorStop(0.5, 'rgba(255,255,255,0.18)');
-            grad.addColorStop(1, 'rgba(255,255,255,0.0)');
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.arc(b.x, b.y, Math.max(0.6, b.r * (1 - lifeFrac * 0.6)), 0, Math.PI * 2);
-            ctx.fill();
-            ctx.closePath();
-          } finally {
-            ctx.restore();
-          }
-          // remove if finished
-          if (t >= b.life) {
-            this._hpBubbles.splice(i, 1);
-          }
-        }
-      } catch (e) { console.warn('hp bubbles draw failed', e); }
+      
 
       // Experience bar along bottom
       const barHeight = 12;
@@ -718,7 +710,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         if (capUnits > 0) {
           const current = Math.max(0, Math.min(capUnits, (heroAny.currentManaUnits ?? Math.round((heroAny.mana ?? 100) / 100 * capUnits))));
           manaRatio = current / capUnits;
-          // show remaining stat points to one decimal (e.g., 3.0)
           const pointsLeft = (current / 100);
           manaText = String(Math.round(pointsLeft * 10) / 10);
         } else {
@@ -730,6 +721,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         ctx.beginPath();
         ctx.arc(manaOrbX, manaOrbY, manaOrbRadius - 4, 0, Math.PI * 2);
         ctx.clip();
+
         const manaTop = manaOrbY + manaOrbRadius - 4 - (manaRatio * ((manaOrbRadius - 4) * 2));
         const manaBottom = manaOrbY + manaOrbRadius - 4;
         // vertical gradient: pale blue at top -> darker blue at bottom
@@ -742,8 +734,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         // subtle curved sheen at top of liquid
         const liquidHeight = manaBottom - manaTop;
         if (liquidHeight > 4) {
-          ctx.save();
-          // compute chord intersection for mana orb
           const yTop = manaTop;
           const dy = yTop - manaOrbY;
           const r = manaOrbRadius - 4;
@@ -765,8 +755,42 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           sheenGrad.addColorStop(1, 'rgba(255,255,255,0.05)');
           ctx.fillStyle = sheenGrad;
           ctx.fill();
-          ctx.restore();
+          ctx.globalAlpha = 1;
         }
+
+        // Draw mana bubbles inside the clipped liquid so they brighten the liquid instead of overlaying it
+        try {
+          const nowM = Date.now();
+          const rInner = manaOrbRadius - 4;
+          for (let i = this._manaBubbles.length - 1; i >= 0; i--) {
+            const b = this._manaBubbles[i];
+            if (!b._init) {
+              b.x = manaOrbX + (Math.random() - 0.5) * rInner * 0.8;
+              b.y = manaOrbY + (Math.random() * 8) - (rInner * 0.2);
+              b._init = true;
+            }
+            const t = nowM - b.born;
+            const lifeFrac = Math.max(0, Math.min(1, t / b.life));
+            b.x += b.vx;
+            b.y -= b.vy * (1 + lifeFrac * 0.6);
+            b.a = 1 - lifeFrac;
+            ctx.save();
+            try {
+              ctx.globalCompositeOperation = 'lighter';
+              ctx.globalAlpha = Math.max(0, Math.min(1, b.a * 0.85));
+              const mgRad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, Math.max(1, b.r));
+              mgRad.addColorStop(0, 'rgba(220,250,255,0.45)');
+              mgRad.addColorStop(0.6, 'rgba(180,230,255,0.12)');
+              mgRad.addColorStop(1, 'rgba(180,230,255,0.0)');
+              ctx.fillStyle = mgRad;
+              ctx.beginPath();
+              ctx.arc(b.x, b.y, Math.max(0.6, b.r * (1 - lifeFrac * 0.6)), 0, Math.PI * 2);
+              ctx.fill();
+              ctx.closePath();
+            } finally { ctx.restore(); }
+            if (t >= b.life) this._manaBubbles.splice(i, 1);
+          }
+        } catch (e) { console.warn('mana bubbles (in-clip) draw failed', e); }
 
         ctx.restore();
 
@@ -784,44 +808,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         ctx.textBaseline = 'middle';
         ctx.fillText(manaText, manaOrbX, manaOrbY);
       } catch (e) { console.warn('mana draw failed', e); }
-      // Draw and advance Mana bubbles
-      try {
-        const now = Date.now();
-        for (let i = this._manaBubbles.length - 1; i >= 0; i--) {
-          const b = this._manaBubbles[i];
-          if (!b._init) {
-            b.x = manaOrbX + (Math.random() - 0.5) * manaOrbRadius * 0.6;
-            b.y = manaOrbY + (Math.random() * 8) - (manaOrbRadius * 0.2);
-            b._init = true;
-          }
-          const t = now - b.born;
-          const lifeFrac = Math.max(0, Math.min(1, t / b.life));
-          b.x += b.vx;
-          b.y -= b.vy * (1 + lifeFrac * 0.6);
-          b.a = 1 - lifeFrac;
-          // draw additive, bluish bubble that brightens the mana liquid beneath
-          ctx.save();
-          try {
-            ctx.globalCompositeOperation = 'lighter';
-            ctx.globalAlpha = Math.max(0, Math.min(1, b.a));
-            const mg = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, Math.max(1, b.r));
-            mg.addColorStop(0, 'rgba(220,250,255,0.55)');
-            mg.addColorStop(0.5, 'rgba(180,230,255,0.18)');
-            mg.addColorStop(1, 'rgba(180,230,255,0.0)');
-            ctx.fillStyle = mg;
-            ctx.beginPath();
-            ctx.arc(b.x, b.y, Math.max(0.6, b.r * (1 - lifeFrac * 0.6)), 0, Math.PI * 2);
-            ctx.fill();
-            ctx.closePath();
-          } finally {
-            ctx.restore();
-          }
-          if (t >= b.life) {
-            this._manaBubbles.splice(i, 1);
-          }
-        }
-      } catch (e) { console.warn('mana bubbles draw failed', e); }
-      ctx.restore();
     } catch (ex) { console.warn('drawHudForLocalHero failed', ex); }
   }
 
