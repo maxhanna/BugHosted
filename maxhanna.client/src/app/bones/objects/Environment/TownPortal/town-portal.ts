@@ -47,7 +47,7 @@ export class TownPortal extends GameObject {
     });
     this.addChild(shadow);
     body?.animations?.play("portalAnimation");
-    resources.playSound('portalNoise', { volume: 1.0, allowOverlap: false });
+    resources.playSound('portalNoise', { allowOverlap: false });
   }
 
   override ready() {  
