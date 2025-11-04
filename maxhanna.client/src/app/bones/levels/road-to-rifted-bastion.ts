@@ -69,12 +69,14 @@ export class RoadToRiftedBastion extends Level {
   }
 
   override ready() {
-    events.on("CHARACTER_EXITS", this, (targetMap?: string) => {
-      // targetMap is provided by the Exit object; choose destination accordingly
+    events.on("CHARACTER_EXITS", this, (payload?: any) => {
+      const targetMap = payload?.targetMap ?? undefined;
       if (!targetMap || targetMap === 'RiftedBastion') {
-        events.emit("CHANGE_LEVEL", new RiftedBastion({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+        // Hardcoded entrance: RiftedBastion's back-exit to RoadToRiftedBastion is at (1,1)
+        events.emit("CHANGE_LEVEL", new RiftedBastion({ heroPosition: new Vector2(gridCells(1), gridCells(1)), itemsFound: this.itemsFound }));
       } else if (targetMap === 'CitadelOfVesper') {
-        events.emit("CHANGE_LEVEL", new CitadelOfVesper({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+        // Hardcoded entrance: CitadelOfVesper's forward exit that connects to the road is at (18,1)
+        events.emit("CHANGE_LEVEL", new CitadelOfVesper({ heroPosition: new Vector2(gridCells(18), gridCells(1)), itemsFound: this.itemsFound }));
       }
     });
   }

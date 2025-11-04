@@ -56,9 +56,9 @@ export class GatesOfHell extends Level {
   }
 
   override ready() {
-    events.on("CHARACTER_EXITS", this, (targetMap?: string) => {
-      // Both exits will target the road by convention
-      events.emit("CHANGE_LEVEL", new RoadToGatesOfHell({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+    events.on("CHARACTER_EXITS", this, (payload?: any) => {
+      // Road to Gates of Hell's back-exit into the road is at (1,1); entering the road should put hero at that tile
+      events.emit("CHANGE_LEVEL", new RoadToGatesOfHell({ heroPosition: new Vector2(gridCells(1), gridCells(1)), itemsFound: this.itemsFound }));
     });
   }
 }

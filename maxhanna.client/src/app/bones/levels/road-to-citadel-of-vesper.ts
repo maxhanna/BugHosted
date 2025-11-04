@@ -59,10 +59,13 @@ export class RoadToCitadelOfVesper extends Level {
   }
 
   override ready() {
-    events.on("CHARACTER_EXITS", this, (targetMap?: string) => {
+    events.on("CHARACTER_EXITS", this, (payload?: any) => { 
+      const targetMap = payload?.targetMap ?? undefined;
       if (!targetMap || targetMap === 'CitadelOfVesper') {
-        events.emit("CHANGE_LEVEL", new CitadelOfVesper({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+        // Entering CitadelOfVesper from the road should place hero at the citadel's forward exit (18,1)
+        events.emit("CHANGE_LEVEL", new CitadelOfVesper({ heroPosition: new Vector2(gridCells(18), gridCells(1)), itemsFound: this.itemsFound }));
       } else if (targetMap === 'HeroRoom') {
+        // Entering HeroRoom from this road should land at (2,2)
         events.emit("CHANGE_LEVEL", new HeroRoomLevel({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
       }
     });

@@ -59,11 +59,14 @@ export class CitadelOfVesper extends Level {
   }
 
   override ready() {
-    events.on("CHARACTER_EXITS", this, (targetMap?: string) => {
+    events.on("CHARACTER_EXITS", this, (payload?: any) => { 
+      const targetMap = payload?.targetMap ?? undefined;
       if (!targetMap || targetMap === 'RoadToRiftedBastion') {
-        events.emit("CHANGE_LEVEL", new RoadToRiftedBastion({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+        // RoadToRiftedBastion's back-exit into CitadelOfVesper is at (1,1)
+        events.emit("CHANGE_LEVEL", new RoadToRiftedBastion({ heroPosition: new Vector2(gridCells(1), gridCells(1)), itemsFound: this.itemsFound }));
       } else if (targetMap === 'RoadToCitadelOfVesper') {
-        events.emit("CHANGE_LEVEL", new RoadToCitadelOfVesper({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+        // RoadToCitadelOfVesper's forward exit that connects to the citadel is at (18,1)
+        events.emit("CHANGE_LEVEL", new RoadToCitadelOfVesper({ heroPosition: new Vector2(gridCells(18), gridCells(1)), itemsFound: this.itemsFound }));
       }
     });
   }

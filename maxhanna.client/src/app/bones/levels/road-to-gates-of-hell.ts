@@ -71,7 +71,7 @@ const encounterPositions: { x: number; y: number }[] = [
   override ready() {
     events.on("CHARACTER_EXITS", this, (targetMap?: string) => {
       if (!targetMap || targetMap === 'GatesOfHell') {
-        events.emit("CHANGE_LEVEL", new GatesOfHell({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+        events.emit("CHANGE_LEVEL", new GatesOfHell({ heroPosition: new Vector2(gridCells(18), gridCells(1)), itemsFound: this.itemsFound }));
       } else if (targetMap === 'CitadelOfVesper') {
         events.emit("CHANGE_LEVEL", new CitadelOfVesper({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
       }

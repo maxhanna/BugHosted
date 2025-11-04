@@ -59,7 +59,8 @@ export class HeroRoomLevel extends Level {
   }
 
   override ready() {
-    events.on("CHARACTER_EXITS", this, () => {
+    events.on("CHARACTER_EXITS", this, (payload?: any) => {
+      // HeroRoom -> RoadToCitadelOfVesper should place the hero at the road's forward exit location (2,2 used historically)
       events.emit("CHANGE_LEVEL", new RoadToCitadelOfVesper({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
     });
   }

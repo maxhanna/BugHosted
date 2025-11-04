@@ -313,6 +313,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         const minAudible = 0.05 * globalVol;
         vol = Math.max(minAudible, Math.min(globalVol, vol));
         resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true });
+        console.log("playing impact sound", vol);
         const tgtHero = this.mainScene.level?.children?.find((x: any) => x.id === targetHeroId);
         if (tgtHero && tgtHero.activeSkills && tgtHero.activeSkills.length > 0) {
           tgtHero.activeSkills.pop().destroy();
@@ -412,23 +413,22 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.mainScene.stepEntry(delta, this.mainScene);
     this.mainScene.input?.update();
     // Mana regeneration: accumulate ms and add 1 unit per 1000ms
-    try {
-      const hero = this.hero as any;
-      if (hero && typeof hero.currentManaUnits === 'number') {
-        // store accumulator on component instance
-        if ((this as any)._manaRegenAccum === undefined) (this as any)._manaRegenAccum = 0;
-        (this as any)._manaRegenAccum += delta;
-        while ((this as any)._manaRegenAccum >= 1000) {
-          (this as any)._manaRegenAccum -= 1000;
-          const cap = Math.max(0, (hero.getManaCapacity ? hero.getManaCapacity() : ((hero.maxMana ?? 0) * 100)) || 0);
-          if (cap > 0) {
-            hero.currentManaUnits = Math.min(cap, (hero.currentManaUnits ?? 0) + 1);
-            // update legacy percent for visual compatibility
-            try { hero.mana = Math.round(((hero.currentManaUnits ?? 0) / Math.max(1, cap)) * 100); } catch { }
-          }
+   
+    const hero = this.hero as any;
+    if (hero && typeof hero.currentManaUnits === 'number') {
+      // store accumulator on component instance
+      if ((this as any)._manaRegenAccum === undefined) (this as any)._manaRegenAccum = 0;
+      (this as any)._manaRegenAccum += delta;
+      while ((this as any)._manaRegenAccum >= 1000) {
+        (this as any)._manaRegenAccum -= 1000;
+        const cap = Math.max(0, (hero.getManaCapacity ? hero.getManaCapacity() : ((hero.maxMana ?? 0) * 100)) || 0);
+        if (cap > 0) {
+          hero.currentManaUnits = Math.min(cap, (hero.currentManaUnits ?? 0) + 1);
+          // update legacy percent for visual compatibility
+          try { hero.mana = Math.round(((hero.currentManaUnits ?? 0) / Math.max(1, cap)) * 100); } catch { }
         }
       }
-    } catch { }
+    } 
   }
   render = () => {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -452,8 +452,12 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       // Health orb parameters
       const orbRadius = Math.max(32, Math.floor(Math.min(this.canvas.width, this.canvas.height) * 0.06));
       const padding = 12;
-      const orbX = padding + orbRadius;
-      const orbY = this.canvas.height - padding - orbRadius;
+  let orbX = padding + orbRadius;
+  let orbY = this.canvas.height - padding - orbRadius;
+  // Ensure orb is fully inside canvas (avoid clipping on very small viewports)
+  const edgePad = 2; // extra pixel padding to prevent 1px anti-alias clipping
+  orbX = Math.max(orbRadius + edgePad, Math.min(this.canvas.width - orbRadius - edgePad, orbX));
+  orbY = Math.max(orbRadius + edgePad, Math.min(this.canvas.height - orbRadius - edgePad, orbY));
 
       // Draw orb background
       ctx.save();
@@ -546,8 +550,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       ctx.fillText('Lvl ' + (hero.level ?? 1), barX + 6, barY + barHeight / 2);
 
       // Mana orb on the right side of the exp bar
-      const manaOrbX = barX + barWidth + reservedForMana - manaOrbRadius; // place near the right edge
-      const manaOrbY = this.canvas.height - padding - manaOrbRadius;
+  let manaOrbX = barX + barWidth + reservedForMana - manaOrbRadius; // place near the right edge
+  let manaOrbY = this.canvas.height - padding - manaOrbRadius;
+  // Clamp mana orb so it doesn't overflow off the right/bottom edges
+  manaOrbX = Math.max(manaOrbRadius + edgePad, Math.min(this.canvas.width - manaOrbRadius - edgePad, manaOrbX));
+  manaOrbY = Math.max(manaOrbRadius + edgePad, Math.min(this.canvas.height - manaOrbRadius - edgePad, manaOrbY));
       ctx.beginPath();
       ctx.arc(manaOrbX, manaOrbY, manaOrbRadius, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(0,0,0,0.6)';
@@ -577,8 +584,23 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         ctx.arc(manaOrbX, manaOrbY, manaOrbRadius - 4, 0, Math.PI * 2);
         ctx.clip();
         const manaTop = manaOrbY + manaOrbRadius - 4 - (manaRatio * ((manaOrbRadius - 4) * 2));
-        ctx.fillStyle = 'rgba(60,140,240,0.95)';
+        const manaBottom = manaOrbY + manaOrbRadius - 4;
+        // vertical gradient: pale blue at top -> darker blue at bottom
+        const mg = ctx.createLinearGradient(0, manaTop, 0, manaBottom);
+        mg.addColorStop(0, 'rgba(174,233,255,0.95)'); // pale top
+        mg.addColorStop(1, 'rgba(60,140,240,0.95)'); // darker bottom
+        ctx.fillStyle = mg;
         ctx.fillRect(manaOrbX - (manaOrbRadius - 4), manaTop, (manaOrbRadius - 4) * 2, (manaOrbRadius - 4) * 2);
+
+        // subtle sheen at top of liquid when there's enough height
+        const liquidHeight = manaBottom - manaTop;
+        if (liquidHeight > 6) {
+          ctx.globalAlpha = 0.22;
+          ctx.fillStyle = 'rgba(255,255,255,0.9)';
+          ctx.fillRect(manaOrbX - (manaOrbRadius - 4), manaTop, (manaOrbRadius - 4) * 2, Math.min(6, liquidHeight));
+          ctx.globalAlpha = 1.0;
+        }
+
         ctx.restore();
 
         // Mana inner border

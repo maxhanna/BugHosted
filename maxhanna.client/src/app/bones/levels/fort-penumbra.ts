@@ -59,11 +59,14 @@ export class FortPenumbra extends Level {
   }
 
   override ready() {
-    events.on("CHARACTER_EXITS", this, (targetMap?: string) => {
+    events.on("CHARACTER_EXITS", this, (payload?: any) => { 
+      const targetMap = payload?.targetMap ?? undefined;
       if (!targetMap || targetMap === 'RoadToGatesOfHell') {
-        events.emit("CHANGE_LEVEL", new RoadToGatesOfHell({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+        // RoadToGatesOfHell's forward exit that connects to GatesOfHell sits at (18,1) on that road; when going to the road, place hero at (18,1)
+        events.emit("CHANGE_LEVEL", new RoadToGatesOfHell({ heroPosition: new Vector2(gridCells(18), gridCells(1)), itemsFound: this.itemsFound }));
       } else if (targetMap === 'RoadToFortPenumbra') {
-        events.emit("CHANGE_LEVEL", new RoadToFortPenumbra({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+        // RoadToFortPenumbra's back exit to FortPenumbra is at (1,1)
+        events.emit("CHANGE_LEVEL", new RoadToFortPenumbra({ heroPosition: new Vector2(gridCells(1), gridCells(1)), itemsFound: this.itemsFound }));
       }
     });
   }

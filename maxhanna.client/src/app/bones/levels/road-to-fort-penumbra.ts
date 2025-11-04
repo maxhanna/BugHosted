@@ -70,11 +70,14 @@ export class RoadToFortPenumbra extends Level {
   }
 
   override ready() {
-    events.on("CHARACTER_EXITS", this, (targetMap?: string) => {
+    events.on("CHARACTER_EXITS", this, (payload?: any) => { 
+      const targetMap = payload?.targetMap ?? undefined;
       if (!targetMap || targetMap === 'FortPenumbra') {
-        events.emit("CHANGE_LEVEL", new FortPenumbra({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+        // Enter FortPenumbra from the road at the fort's forward exit position (18,1)
+        events.emit("CHANGE_LEVEL", new FortPenumbra({ heroPosition: new Vector2(gridCells(18), gridCells(1)), itemsFound: this.itemsFound }));
       } else if (targetMap === 'RiftedBastion') {
-        events.emit("CHANGE_LEVEL", new RiftedBastion({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+        // Enter RiftedBastion from this road at its forward/back exit (1,1)
+        events.emit("CHANGE_LEVEL", new RiftedBastion({ heroPosition: new Vector2(gridCells(1), gridCells(1)), itemsFound: this.itemsFound }));
       }
     });
   }
