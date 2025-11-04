@@ -36,7 +36,7 @@ export class ChatSpriteTextString extends GameObject {
     objectSubject?: any;
   }) {
     super({
-      position: new Vector2(config.objectSubject.position.x, config.objectSubject.position.y + 20),
+      position: new Vector2(config.objectSubject.position.x, config.objectSubject.position.y + 40),
       drawLayer: HUD, // Ensured high-priority layer
       name: "CHATSPRITETEXTSTRING"
     });
@@ -53,8 +53,8 @@ export class ChatSpriteTextString extends GameObject {
       if (this.objectSubject && data.id === this.objectSubject.id) {
         this.objectSubject.position.x = data.x;
         this.objectSubject.position.y = data.y;
-        this.position.x = data.x - 120;
-        this.position.y = data.y + 20;
+        this.position.x = data.x;
+        this.position.y = data.y + 40;
       }
     });
   }
