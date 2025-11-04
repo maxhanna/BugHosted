@@ -639,17 +639,24 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           b.x += b.vx;
           b.y -= b.vy * (1 + lifeFrac * 0.6);
           b.a = 1 - lifeFrac;
-          // draw
-          ctx.beginPath();
-          ctx.globalAlpha = Math.max(0, Math.min(1, b.a));
-          const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
-          grad.addColorStop(0, 'rgba(255,255,255,0.9)');
-          grad.addColorStop(1, 'rgba(255,255,255,0.05)');
-          ctx.fillStyle = grad;
-          ctx.arc(b.x, b.y, Math.max(0.6, b.r * (1 - lifeFrac * 0.6)), 0, Math.PI * 2);
-          ctx.fill();
-          ctx.closePath();
-          ctx.globalAlpha = 1;
+          // draw (additive lighten so bubbles brighten liquid instead of covering it)
+          ctx.save();
+          try {
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = Math.max(0, Math.min(1, b.a));
+            const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
+            // softer center and fully transparent edges to avoid occluding the orb color
+            grad.addColorStop(0, 'rgba(255,255,255,0.55)');
+            grad.addColorStop(0.5, 'rgba(255,255,255,0.18)');
+            grad.addColorStop(1, 'rgba(255,255,255,0.0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, Math.max(0.6, b.r * (1 - lifeFrac * 0.6)), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.closePath();
+          } finally {
+            ctx.restore();
+          }
           // remove if finished
           if (t >= b.life) {
             this._hpBubbles.splice(i, 1);
@@ -792,16 +799,23 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           b.x += b.vx;
           b.y -= b.vy * (1 + lifeFrac * 0.6);
           b.a = 1 - lifeFrac;
-          ctx.beginPath();
-          ctx.globalAlpha = Math.max(0, Math.min(1, b.a));
-          const mg = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, Math.max(1, b.r));
-          mg.addColorStop(0, 'rgba(200,240,255,0.95)');
-          mg.addColorStop(1, 'rgba(100,160,220,0.05)');
-          ctx.fillStyle = mg;
-          ctx.arc(b.x, b.y, Math.max(0.6, b.r * (1 - lifeFrac * 0.6)), 0, Math.PI * 2);
-          ctx.fill();
-          ctx.closePath();
-          ctx.globalAlpha = 1;
+          // draw additive, bluish bubble that brightens the mana liquid beneath
+          ctx.save();
+          try {
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = Math.max(0, Math.min(1, b.a));
+            const mg = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, Math.max(1, b.r));
+            mg.addColorStop(0, 'rgba(220,250,255,0.55)');
+            mg.addColorStop(0.5, 'rgba(180,230,255,0.18)');
+            mg.addColorStop(1, 'rgba(180,230,255,0.0)');
+            ctx.fillStyle = mg;
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, Math.max(0.6, b.r * (1 - lifeFrac * 0.6)), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.closePath();
+          } finally {
+            ctx.restore();
+          }
           if (t >= b.life) {
             this._manaBubbles.splice(i, 1);
           }
