@@ -32,31 +32,27 @@ export class RoadToRiftedBastion extends Level {
     // tileWidth=64, tileHeight=96 match original layout
     this.tileFloor(new Vector2(gridCells(0), gridCells(-1)), roomWidth, roomHeight, 64, 96, resources.images["floortileiso"], { drawLayer: BASE, startObjectId: -1000 });
 
-    const encounterPositions: { x: number; y: number }[] = [
-      { x: 3, y: 4 },
-      { x: 6, y: 8 },
-      { x: 5, y: 3 },
-      { x: 8, y: 5 },
-      { x: 10, y: 4 },
-      { x: 12, y: 7 },
-      { x: 14, y: 3 },
-      { x: 16, y: 6 },
-      { x: 18, y: 4 },
-      { x: 20, y: 8 }
-    ];
-
-    let curId = -999989;
-    for (const pos of encounterPositions) {
-      const enc = new Encounter({
-        id: curId,
-        position: new Vector2(gridCells(pos.x), gridCells(pos.y)),
-        possibleEnemies: ["skeleton"],
-        moveLeftRight: 0,
-        moveUpDown: 0
-      });
-      this.addChild(enc);
-      curId--;
-    }
+    // Explicitly declare each encounter so they always appear (no loop)
+    const encA = new Encounter({ id: -999989, position: new Vector2(gridCells(3), gridCells(4)), possibleEnemies: ["skeleton"], moveLeftRight: 0, moveUpDown: 0 });
+    this.addChild(encA);
+    const encB = new Encounter({ id: -999988, position: new Vector2(gridCells(6), gridCells(8)), possibleEnemies: ["skeleton"], moveLeftRight: 0, moveUpDown: 0 });
+    this.addChild(encB);
+    const encC = new Encounter({ id: -999987, position: new Vector2(gridCells(5), gridCells(3)), possibleEnemies: ["skeleton"], moveLeftRight: 0, moveUpDown: 0 });
+    this.addChild(encC);
+    const encD = new Encounter({ id: -999986, position: new Vector2(gridCells(8), gridCells(5)), possibleEnemies: ["skeleton"], moveLeftRight: 0, moveUpDown: 0 });
+    this.addChild(encD);
+    const encE = new Encounter({ id: -999985, position: new Vector2(gridCells(10), gridCells(4)), possibleEnemies: ["skeleton"], moveLeftRight: 0, moveUpDown: 0 });
+    this.addChild(encE);
+    const encF = new Encounter({ id: -999984, position: new Vector2(gridCells(12), gridCells(7)), possibleEnemies: ["skeleton"], moveLeftRight: 0, moveUpDown: 0 });
+    this.addChild(encF);
+    const encG = new Encounter({ id: -999983, position: new Vector2(gridCells(14), gridCells(3)), possibleEnemies: ["skeleton"], moveLeftRight: 0, moveUpDown: 0 });
+    this.addChild(encG);
+    const encH = new Encounter({ id: -999982, position: new Vector2(gridCells(16), gridCells(6)), possibleEnemies: ["skeleton"], moveLeftRight: 0, moveUpDown: 0 });
+    this.addChild(encH); 
+    const encI = new Encounter({ id: -999981, position: new Vector2(gridCells(18), gridCells(3)), possibleEnemies: ["skeleton"], moveLeftRight: 0, moveUpDown: 0 });
+    this.addChild(encI);
+    const encJ = new Encounter({ id: -999980, position: new Vector2(gridCells(20), gridCells(8)), possibleEnemies: ["skeleton"], moveLeftRight: 0, moveUpDown: 0 });
+    this.addChild(encJ); 
   
     const exit = new Exit({
       position: new Vector2(gridCells(18), gridCells(1)), showSprite: true, targetMap: 'RiftedBastion'
