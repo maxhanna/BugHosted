@@ -43,8 +43,8 @@ export class Hero extends Character {
       name: params.name ?? "Anon",
       mask: params.mask,
       isUserControlled: params.isUserControlled,
-      forceDrawName: params.forceDrawName ?? true,
-      preventDrawName: params.preventDrawName ?? false,
+      forceDrawName: false,
+      preventDrawName: true,
       isSolid: false,
       body: new Sprite({
         objectId: params.id ?? 0,
@@ -482,6 +482,22 @@ export class Hero extends Character {
     const hpRatio = Math.max(0, Math.min(1, hp / (maxHp || 1)));
     ctx.fillStyle = "#d22";
     ctx.fillRect(x + 1, topY + 1, (barWidth - 2) * hpRatio, barHeight - 2);
+
+    // Draw the hero's name centered under the health bar (only for non-user-controlled heroes)
+   
+    if (!this.isUserControlled) {
+      const displayName = this.name ?? "Anon";
+      ctx.font = "10px monospace";
+      ctx.textAlign = "center";
+      // Position the name just below the HP bar so it appears on top of the player
+      const nameX = x + barWidth / 2;
+      const nameY = topY + barHeight + 10; // 10px below top of bar
+      // subtle shadow for readability
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.fillText(displayName, Math.round(nameX) + 1, Math.round(nameY) + 1);
+      ctx.fillStyle = "#fff";
+      ctx.fillText(displayName, Math.round(nameX), Math.round(nameY));
+    } 
 
   // EXP bar intentionally hidden for heroes (rendered elsewhere for local player)
 
