@@ -8,10 +8,10 @@ export class ChatSpriteTextString extends GameObject {
   backgroundAlpha = 0.75;
   PADDING_LEFT = 10;
   PADDING_TOP = 9;
-  LINE_WIDTH_MAX = 180;
+  LINE_WIDTH_MAX = 160;
   // Minimum and safe margins to avoid overlapping HUD elements (health/mana orbs on the right)
-  LINE_WIDTH_MIN = 160;
-  SAFE_RIGHT_MARGIN = 150;
+  LINE_WIDTH_MIN = 140;
+  SAFE_RIGHT_MARGIN = 130;
   // Increased from 14 to 16 for more readable chat line spacing
   LINE_VERTICAL_WIDTH = 16;
   TIME_UNTIL_DESTROY = 8000;
