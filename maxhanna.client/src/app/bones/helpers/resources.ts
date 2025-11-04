@@ -107,15 +107,18 @@ export class Resources {
 
   // audio categories help decide which mute flag applies
   private audioCategories: { [key: string]: 'music' | 'sfx' } = {
-    shadowsUnleashed: 'music',
-    wilhelmScream: 'sfx',
     arcadeUi: 'sfx',
     ambiance_campfire: 'sfx',
     ambiance_wind: 'sfx',
     bonescracking: 'sfx',
+    bowstring: 'sfx',
     itemdrop: 'sfx',
     maleDeathScream: 'sfx',
+    magicBurst: 'sfx',
+    portalNoise: 'sfx',
     punchOrImpact: 'sfx',
+    wilhelmScream: 'sfx',
+    shadowsUnleashed: 'music',
   };
 
 

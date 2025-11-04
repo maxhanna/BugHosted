@@ -32,7 +32,8 @@ export class Sting extends GameObject {
       scale: new Vector2(0.6, 0.6),
     });
     this.addChild(this.body);
-    this.body.animations?.play("stingAnimation");
+    this.body.animations?.play("stingAnimation"); 
+    resources.playSound('magicBurst', { volume: 1.0, allowOverlap: true }); 
   }
 
   moveTo(targetX: number, targetY: number, speed: number) {
