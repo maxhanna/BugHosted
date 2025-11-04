@@ -43,6 +43,14 @@ export class Toast extends GameObject {
     );
   }
 
+  override step(delta: number, root: GameObject) { 
+    this.timeUntilNextShow -= delta;
+    if (this.timeUntilNextShow <= 0) {
+      this.showingIndex += 3;
+      this.timeUntilNextShow = this.textSpeed;
+    }
+  }
+
   override destroy() {
 
     if (this.backdrop) {
