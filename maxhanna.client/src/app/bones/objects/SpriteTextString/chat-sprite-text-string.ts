@@ -9,8 +9,11 @@ export class ChatSpriteTextString extends GameObject {
   PADDING_LEFT = 27;
   PADDING_TOP = 9;
   LINE_WIDTH_MAX = 200;
-  // Increased from 14 to 20 for more readable chat line spacing
-  LINE_VERTICAL_WIDTH = 20;
+  // Minimum and safe margins to avoid overlapping HUD elements (health/mana orbs on the right)
+  LINE_WIDTH_MIN = 100;
+  SAFE_RIGHT_MARGIN = 160;
+  // Increased from 14 to 16 for more readable chat line spacing
+  LINE_VERTICAL_WIDTH = 16;
   TIME_UNTIL_DESTROY = 8000;
  
   objectSubject: any;
@@ -26,6 +29,7 @@ export class ChatSpriteTextString extends GameObject {
   private cachedLineCount: number = 0;
   private cachedTotalHeight: number = 0;
   private needsRecalculation: boolean = true;
+  private lastComputedLineWidth: number = 0;
   constructor(config: {
     string?: string[];
     portraitFrame?: number;
@@ -56,13 +60,21 @@ export class ChatSpriteTextString extends GameObject {
   }
 
   private calculateDimensions() {
+    // Backwards-compatible convenience: calculate using the static max
+    this.calculateDimensionsForWidth(this.LINE_WIDTH_MAX);
+  }
+
+  // Calculate dimensions for a given available line width (excludes padding)
+  private calculateDimensionsForWidth(lineWidthMax: number) {
+    // Avoid recalculation when possible
+    if (!this.needsRecalculation && this.lastComputedLineWidth === lineWidthMax) return;
+
     let lineCount = 0;
     let cursorX = this.PADDING_LEFT;
 
-    // Calculate line count
     for (const words of this.cachedWords) {
       for (const word of words) {
-        const spaceRemaining = this.LINE_WIDTH_MAX - cursorX;
+        const spaceRemaining = lineWidthMax - cursorX;
         if (spaceRemaining < word.wordWidth) {
           cursorX = this.PADDING_LEFT;
           lineCount++;
@@ -76,6 +88,7 @@ export class ChatSpriteTextString extends GameObject {
     this.cachedLineCount = lineCount;
     this.cachedTotalHeight = (lineCount * this.LINE_VERTICAL_WIDTH) + (this.PADDING_TOP * 2);
     this.needsRecalculation = false;
+    this.lastComputedLineWidth = lineWidthMax;
   }
   private cacheWords() {
     const textContent = this.content;
@@ -108,14 +121,20 @@ export class ChatSpriteTextString extends GameObject {
 
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     // Draw text box background
-    if (this.needsRecalculation) {
-      this.calculateDimensions();
+    // Determine effective max line width based on canvas size to avoid overlapping HUD on the right
+    const canvasWidth = ctx.canvas ? ctx.canvas.width : (this.LINE_WIDTH_MAX + this.SAFE_RIGHT_MARGIN + this.PADDING_LEFT * 2);
+    const maxAllowedWidth = Math.max(this.LINE_WIDTH_MIN, canvasWidth - drawPosX - this.SAFE_RIGHT_MARGIN - this.PADDING_LEFT * 2);
+    const effectiveLineWidth = Math.min(this.LINE_WIDTH_MAX, maxAllowedWidth);
+
+    if (this.needsRecalculation || this.lastComputedLineWidth !== effectiveLineWidth) {
+      this.calculateDimensionsForWidth(effectiveLineWidth);
     }
+
     ctx.fillStyle = `rgba(0, 0, 0, ${this.backgroundAlpha})`;
     ctx.fillRect(
       drawPosX,
       drawPosY,
-      this.LINE_WIDTH_MAX + this.PADDING_LEFT * 2,
+      effectiveLineWidth + this.PADDING_LEFT * 2,
       this.cachedTotalHeight
     );
 
@@ -131,7 +150,7 @@ export class ChatSpriteTextString extends GameObject {
     for (let x = 0; x < this.cachedWords.length; x++) {
       const words = this.cachedWords[x];
       for (const word of words) {
-        const spaceRemaining = drawPosX + this.LINE_WIDTH_MAX - cursorX;
+        const spaceRemaining = drawPosX + effectiveLineWidth - cursorX;
         if (spaceRemaining < word.wordWidth) {
           cursorX = drawPosX + this.PADDING_LEFT;
           cursorY += this.LINE_VERTICAL_WIDTH;
@@ -148,9 +167,9 @@ export class ChatSpriteTextString extends GameObject {
         }
         cursorX += 3;
       }
-  cursorX = drawPosX + this.PADDING_LEFT;
-  // Add extra spacing between paragraphs/lines for readability
-  cursorY += this.LINE_VERTICAL_WIDTH + 2;
+      cursorX = drawPosX + this.PADDING_LEFT;
+      // Add extra spacing between paragraphs/lines for readability
+      cursorY += this.LINE_VERTICAL_WIDTH + 2;
     }
   }
   updateContent(newContent: string[]) {
