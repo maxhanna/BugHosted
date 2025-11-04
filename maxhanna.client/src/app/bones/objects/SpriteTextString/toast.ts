@@ -13,6 +13,8 @@ export class Toast extends GameObject {
   portrait?: Sprite;  
   content: string[] = [];
   cachedWords: { wordWidth: number; chars: { width: number; sprite: Sprite }[] }[][] = [];
+  // Per-line scale multipliers (1 = normal, <1 = smaller)
+  lineScales: number[] = [];
   showingIndex = 0;
   finalIndex = 0;
   textSpeed = 80;
@@ -33,9 +35,27 @@ export class Toast extends GameObject {
 
   // Method to calculate and cache words for all text content
   private cacheWords() {
-    const textContent = this.content;
+    // If any incoming string contains 'RoadTo' split it into two lines:
+    // first line = 'RoadTo' (rendered slightly smaller), second line = rest of the text
+    const processedLines: string[] = [];
+    this.lineScales = [];
 
-    this.cachedWords = textContent.map((text) =>
+    for (const text of this.content) {
+      if (text.includes("RoadTo")) {
+        const rest = text.replace("RoadTo", "").trim();
+        processedLines.push("RoadTo");
+        this.lineScales.push(0.9); // slightly smaller font for the 'RoadTo' line
+        if (rest.length) {
+          processedLines.push(rest);
+          this.lineScales.push(1);
+        }
+      } else {
+        processedLines.push(text);
+        this.lineScales.push(1);
+      }
+    }
+
+    this.cachedWords = processedLines.map((text) =>
       calculateWords({ content: text, color: "White" })
     );
 
@@ -85,13 +105,15 @@ export class Toast extends GameObject {
     for (let lineIndex = 0; lineIndex < this.cachedWords.length; lineIndex++) {
       const words = this.cachedWords[lineIndex];
 
-      // compute line width by summing character widths + spacing
+      // compute line width by summing character widths + spacing, taking per-line scale into account
+      const lineScale = this.lineScales[lineIndex] ?? 1;
       let lineWidth = 0;
       for (let wi = 0; wi < words.length; wi++) {
         const w = words[wi];
         let charsWidth = 0;
         for (const ch of w.chars) {
-          charsWidth += ch.width + 1; // char width + 1px spacing
+          // account for scale when measuring
+          charsWidth += Math.floor((ch.width * lineScale)) + 1; // char width + 1px spacing
         }
         lineWidth += charsWidth;
         if (wi < words.length - 1) lineWidth += 3; // gap between words
@@ -103,8 +125,14 @@ export class Toast extends GameObject {
       for (const word of words) {
         for (const char of word.chars) {
           if (currentShowingIndex > this.showingIndex) break;
+          // temporarily adjust sprite scale for this line, then draw and restore
+          const prevScale = { x: char.sprite.scale.x, y: char.sprite.scale.y };
+          char.sprite.scale = { x: prevScale.x * (this.lineScales[lineIndex] ?? 1), y: prevScale.y * (this.lineScales[lineIndex] ?? 1) } as any;
           char.sprite.draw(ctx, cursorX - 5, cursorY);
-          cursorX += char.width + 1;
+          // increment by scaled width
+          cursorX += Math.floor((char.width * (this.lineScales[lineIndex] ?? 1))) + 1;
+          // restore
+          char.sprite.scale = prevScale as any;
           currentShowingIndex++;
         }
         cursorX += 3;
