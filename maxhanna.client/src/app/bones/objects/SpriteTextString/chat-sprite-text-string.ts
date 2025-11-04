@@ -121,25 +121,41 @@ export class ChatSpriteTextString extends GameObject {
 
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     // Draw text box background
-    // Determine effective max line width based on canvas size to avoid overlapping HUD on the right
+    // Determine effective max line width based on canvas size.
+    // Compute both right-side and left-side available widths and pick the placement that yields the larger effective width.
     const canvasWidth = ctx.canvas ? ctx.canvas.width : (this.LINE_WIDTH_MAX + this.SAFE_RIGHT_MARGIN + this.PADDING_LEFT * 2);
-    const maxAllowedWidth = Math.max(this.LINE_WIDTH_MIN, canvasWidth - drawPosX - this.SAFE_RIGHT_MARGIN - this.PADDING_LEFT * 2);
-    const effectiveLineWidth = Math.min(this.LINE_WIDTH_MAX, maxAllowedWidth);
+
+    // Available width if we place the box to the right of drawPosX
+    const availableRight = canvasWidth - drawPosX - this.SAFE_RIGHT_MARGIN - this.PADDING_LEFT * 2;
+    const effectiveRight = Math.min(this.LINE_WIDTH_MAX, Math.max(this.LINE_WIDTH_MIN, availableRight));
+
+    // Available width if we place the box to the left of drawPosX (use drawPosX as available space)
+    const availableLeft = drawPosX - this.SAFE_RIGHT_MARGIN - this.PADDING_LEFT * 2;
+    const effectiveLeft = Math.min(this.LINE_WIDTH_MAX, Math.max(this.LINE_WIDTH_MIN, availableLeft));
+
+    // Choose the side that yields the larger effective width. Default to right if equal.
+    const placeLeft = effectiveLeft > effectiveRight;
+    const effectiveLineWidth = placeLeft ? effectiveLeft : effectiveRight;
 
     if (this.needsRecalculation || this.lastComputedLineWidth !== effectiveLineWidth) {
       this.calculateDimensionsForWidth(effectiveLineWidth);
     }
 
+    // Determine actual drawing X coordinate for the background box
+    const drawBoxX = placeLeft
+      ? Math.max(0, drawPosX - (effectiveLineWidth + this.PADDING_LEFT * 2))
+      : drawPosX;
+
     ctx.fillStyle = `rgba(0, 0, 0, ${this.backgroundAlpha})`;
     ctx.fillRect(
-      drawPosX,
+      drawBoxX,
       drawPosY,
       effectiveLineWidth + this.PADDING_LEFT * 2,
       this.cachedTotalHeight
     );
 
     // Draw text
-    let cursorX = drawPosX + this.PADDING_LEFT;
+  let cursorX = drawBoxX + this.PADDING_LEFT;
     let cursorY = drawPosY - 10 + this.PADDING_TOP;
     let currentShowingIndex = 0;
 
