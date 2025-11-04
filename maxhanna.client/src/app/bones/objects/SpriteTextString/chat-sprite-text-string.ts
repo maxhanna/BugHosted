@@ -15,7 +15,7 @@ export class ChatSpriteTextString extends GameObject {
   // Increased from 14 to 16 for more readable chat line spacing
   LINE_VERTICAL_WIDTH = 16;
   TIME_UNTIL_DESTROY = 8000;
- 
+  chatWindowOffset = new Vector2(0, 40);
   objectSubject: any;
   content: string[] = [];
   // Cache for words
@@ -53,8 +53,8 @@ export class ChatSpriteTextString extends GameObject {
       if (this.objectSubject && data.id === this.objectSubject.id) {
         this.objectSubject.position.x = data.x;
         this.objectSubject.position.y = data.y;
-        this.position.x = data.x;
-        this.position.y = data.y + 40;
+        this.position.x = data.x + this.chatWindowOffset.x;
+        this.position.y = data.y + this.chatWindowOffset.y;
       }
     });
   }
@@ -104,8 +104,8 @@ export class ChatSpriteTextString extends GameObject {
 
   override step(delta: number) {
     if (this.objectSubject && this.objectSubject.position) {
-      this.position.x = this.objectSubject.position.x - 120;
-      this.position.y = this.objectSubject.position.y + 20;
+      this.position.x = this.objectSubject.position.x + this.chatWindowOffset.x;
+      this.position.y = this.objectSubject.position.y + this.chatWindowOffset.y;
     }
     if (this.showingIndex >= this.finalIndex) {
       setTimeout(() => { this.destroy(); }, this.TIME_UNTIL_DESTROY);
