@@ -1476,7 +1476,12 @@ ORDER BY p.created DESC;";
 		public async Task<IActionResult> PromoteHeroSelection([FromBody] int selectionId)
 		{
 			Console.WriteLine("BonesPromoteHeroSelection for bonesheroid: " + selectionId);
-			if (selectionId <= 0) return BadRequest("Invalid selection id");
+			if (selectionId <= 0)
+			{
+				return BadRequest("Invalid selection id");
+			}
+			
+			
 			using var connection = new MySqlConnection(_connectionString);
 			await connection.OpenAsync();
 			using var transaction = await connection.BeginTransactionAsync();
@@ -1613,6 +1618,10 @@ ORDER BY p.created DESC;";
 						await inSelCmd.ExecuteNonQueryAsync();
 					}
 
+					LeavePartyRequest leavePartyRequest = new LeavePartyRequest();
+					leavePartyRequest.HeroId = selectionId;
+					leavePartyRequest.UserId = userId;
+					await LeaveParty(leavePartyRequest);
 					// 4) Delete the current bones_hero for this user
 					string delSql = @"
 					DELETE FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1;

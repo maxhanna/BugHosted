@@ -512,6 +512,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     try {
       const hero = this.hero;
       if (!hero || !hero.isUserControlled) return;
+      // Ensure canvas is in a known default state: normal composite and full alpha.
+      // Some draw code (particles, children's draw routines) may change these and
+      // forget to restore; force defaults here so HUD elements render solidly.
+      try { ctx.globalCompositeOperation = 'source-over'; } catch { }
+      try { ctx.globalAlpha = 1; } catch { }
       // Health orb parameters
       const orbRadius = Math.max(32, Math.floor(Math.min(this.canvas.width, this.canvas.height) * 0.06));
       const padding = 12;
