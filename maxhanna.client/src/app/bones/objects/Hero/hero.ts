@@ -350,7 +350,7 @@ export class Hero extends Character {
       let lateralOffset = Math.round((frameW * scaleX) / 3); 
       let verticalOffset = 0;
       if (this.facingDirection === LEFT) {
-        lateralOffset = 0;
+        lateralOffset = -20;
         verticalOffset = 0; // slightly up for left-facing
       } else if (this.facingDirection === RIGHT) {
         lateralOffset = Math.abs(lateralOffset / 3);
