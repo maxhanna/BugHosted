@@ -17,6 +17,8 @@ export class Toast extends GameObject {
   finalIndex = 0;
   textSpeed = 80;
   timeUntilNextShow = this.textSpeed; 
+  private _createdTs: number = Date.now();
+  private _destroyTimer: any | null = null;
 
   constructor(config: {
     string?: string[];
@@ -27,6 +29,10 @@ export class Toast extends GameObject {
       this.content = config.string;
       this.cacheWords();
     } 
+    // schedule automatic destruction after 8 seconds
+    try {
+      this._destroyTimer = setTimeout(() => { try { this.destroy(); } catch { } }, 8000);
+    } catch { }
   }
 
   // Method to calculate and cache words for all text content
@@ -56,6 +62,7 @@ export class Toast extends GameObject {
     if (this.backdrop) {
       this.backdrop.destroy();
     }
+    try { if (this._destroyTimer) { clearTimeout(this._destroyTimer); this._destroyTimer = null; } } catch { }
     // Clean up cached sprites
     this.cachedWords.forEach((words) =>
       words.forEach((word) => word.chars.forEach((char) => char.sprite.destroy()))
@@ -66,12 +73,30 @@ export class Toast extends GameObject {
 
 
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
+    const BOX_W = this.backdrop.frameSize.x;
+    const BOX_H = this.backdrop.frameSize.y;
+
+    // Opening animation: scale from 0 -> 1 over first 3000ms using ease-out
+    const elapsed = Date.now() - (this._createdTs || Date.now());
+    const openDuration = 3000;
+    let scale = 1;
+    if (elapsed < openDuration) {
+      const t = Math.max(0, Math.min(1, elapsed / openDuration));
+      scale = Math.sin((t * Math.PI) / 2); // ease-out
+    }
+
+    // Apply scale transform centered on the toast box
+    const cx = drawPosX + BOX_W / 2;
+    const cy = drawPosY + BOX_H / 2;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+    ctx.translate(-cx, -cy);
+
     this.backdrop.drawImage(ctx, drawPosX, drawPosY);
     this.portrait?.drawImage(ctx, drawPosX + 6, drawPosY + 6);
 
-    const LINE_VERTICAL_WIDTH = 14;
-    const BOX_W = this.backdrop.frameSize.x;
-    const BOX_H = this.backdrop.frameSize.y;
+  const LINE_VERTICAL_WIDTH = 14;
 
     // Determine total height and starting Y to vertically center the text block
     const lineCount = Math.max(0, this.cachedWords.length);
@@ -111,5 +136,6 @@ export class Toast extends GameObject {
 
       cursorY += LINE_VERTICAL_WIDTH;
     }
+    ctx.restore();
   }
 }
