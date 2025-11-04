@@ -359,8 +359,12 @@ export class Hero extends Character {
         lateralOffset = Math.round(lateralOffset / 2);
       }
       // For upward facing, lift the spawn point slightly; for downward, lower it slightly
-      if (this.facingDirection === UP) verticalOffset = -Math.round(frameH * scaleY * 0.15);
-      else if (this.facingDirection === DOWN) verticalOffset = Math.round(frameH * scaleY * 0.05);
+      if (this.facingDirection === UP) {
+        verticalOffset = -Math.round(frameH * scaleY * 0.15);
+      } else if (this.facingDirection === DOWN) {
+        verticalOffset = Math.round(frameH * scaleY * 0.05); 
+        lateralOffset = -Math.abs(lateralOffset / 2);
+      }
 
       const startX = baseCenterX + lateralOffset;
       const startY = baseCenterY + verticalOffset;
