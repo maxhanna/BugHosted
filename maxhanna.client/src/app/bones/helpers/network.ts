@@ -30,6 +30,7 @@ export let pendingAttacks: any[] = [];
 // track last attack timestamp per hero id (ms since epoch)
 export const lastAttackTimestamps: Map<number, number> = new Map();
 export let attackBatchInterval: any;
+export let attackBatchIntervalMs: number | undefined;
 export const processedAttacks: Map<string, number> = new Map();
 
 export function startBatchUpdates(object: any, batchIntervalMs = 1000) {
@@ -53,11 +54,16 @@ export function stopBatchUpdates() {
 }
 
 export function startAttackBatch(object: any, batchIntervalMs = 1000) {
-  // If an interval is already running with a different ms, restart it so timing matches attackSpeed
+  // If an interval is already running with the same ms, keep it so subsequent attacks
+  // within the window are aggregated into the same batch. Only restart if ms differs.
   if (attackBatchInterval) {
+    if (attackBatchIntervalMs === batchIntervalMs) {
+      return; // already running with desired interval
+    }
     clearInterval(attackBatchInterval);
     attackBatchInterval = undefined;
   }
+  attackBatchIntervalMs = batchIntervalMs;
   attackBatchInterval = setInterval(() => {
     if (pendingAttacks.length > 0) {
       sendAttackBatchToBackend(pendingAttacks, object);
@@ -455,7 +461,8 @@ export function subscribeToMainGameEvents(object: any) {
         console.log("Failed to extract facing/length for attack:", ex);
       }
       pendingAttacks.push(attack);
-      startAttackBatch(object, attackSpeed);
+      // Use the default batching window so multiple rapid attacks are grouped into one batch
+      startAttackBatch(object);
     }
   });
 

@@ -952,28 +952,49 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const enemies = res.enemyBots as MetaBot[];
     if (enemies) {
       enemies.forEach(enemy => {
-        //look for enemy on the map, if he doesnt exist, create him.
         const tgtEnemy: Bot = this.mainScene.level.children.find((x: Bot) => x.heroId == enemy.heroId);
         if (tgtEnemy) {
-          // console.log("found enemy", enemy, tgtEnemy);
-          // Diagnostic: log the incoming position so we can confirm server provided it
-          // console.log("enemy.position (incoming):", (enemy && (enemy as any).position) ? JSON.stringify(enemy.position) : enemy.position, " typeof:", typeof enemy.position);
-          tgtEnemy.hp = enemy.hp;
-          if (enemy && enemy.position) {
+          // Save previous HP to detect hits
+          const prevHp = (typeof tgtEnemy.hp === 'number') ? tgtEnemy.hp : undefined;
+          const newHp = (enemy && typeof enemy.hp === 'number') ? enemy.hp : (typeof prevHp === 'number' ? prevHp : 0);
+          // Apply the new HP (ensure numeric)
+          tgtEnemy.hp = Number(newHp || 0);
 
+          if (enemy && enemy.position) {
             const newPos = new Vector2(enemy.position.x, enemy.position.y);
             if (newPos) {
               tgtEnemy.destinationPosition = newPos.duplicate();
             }
+          }
 
+          // If HP decreased, play impact/hit sound attenuated by distance
+          try {
+            if (prevHp !== undefined && newHp !== undefined && newHp < prevHp) {
+              // attacker position prefer server-provided enemy.position, otherwise use target's position
+              const attackerPos = (enemy && enemy.position && typeof enemy.position.x === 'number' && typeof enemy.position.y === 'number') ? new Vector2(enemy.position.x, enemy.position.y) : tgtEnemy.position;
+              const myPos = (this.hero && this.hero.position) ? this.hero.position : (this.metaHero && this.metaHero.position) ? this.metaHero.position : undefined;
+              // attenuation parameters
+              const maxHear = 800; // pixels
+              const globalVol = (this.currentVolume ?? 1);
+              let vol = globalVol;
+              if (attackerPos && myPos) {
+                const dx = attackerPos.x - myPos.x;
+                const dy = attackerPos.y - myPos.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const base = 1 - (dist / maxHear);
+                const clampedBase = Math.max(0, Math.min(1, base));
+                vol = Math.max(0.05 * globalVol, Math.min(globalVol, clampedBase * globalVol));
+              }
+              resources.playSound('hitOrImpact', { volume: vol, allowOverlap: true });
+            }
+          } catch (err) {
+            console.warn('Failed playing hit sound for enemy update', err);
           }
 
           if (tgtEnemy && tgtEnemy.heroId && (tgtEnemy.hp ?? 0) <= 0) {
-
             if (typeof tgtEnemy.destroy === 'function') {
               tgtEnemy.destroy();
             }
-
             this._lastServerDestinations.delete(tgtEnemy.heroId);
             return; // skip further processing for this bot
           }
