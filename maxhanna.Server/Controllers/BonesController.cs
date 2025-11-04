@@ -1800,15 +1800,12 @@ ORDER BY p.created DESC;";
 				try
 				{
 					// Attempt to fetch the hero's current map for context (non-fatal)
-					string map = string.Empty;
-					try
-					{
-						using var mapCmd = new MySqlCommand("SELECT map FROM maxhanna.bones_hero WHERE id = @HeroId LIMIT 1", connection, transaction);
-						mapCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
-						var mapObj = await mapCmd.ExecuteScalarAsync();
-						map = mapObj != null ? mapObj.ToString() ?? string.Empty : string.Empty;
-					}
-					catch { /* ignore map lookup failures */ }
+					string map = string.Empty; 
+					using var mapCmd = new MySqlCommand("SELECT map FROM maxhanna.bones_hero WHERE id = @HeroId LIMIT 1", connection, transaction);
+					mapCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
+					var mapObj = await mapCmd.ExecuteScalarAsync();
+					map = mapObj != null ? mapObj.ToString() ?? string.Empty : string.Empty;
+					
 
 					var data = new Dictionary<string, string>();
 					data["hero_id"] = req.HeroId.ToString();
@@ -2193,7 +2190,7 @@ ORDER BY p.created DESC;";
 				var partyMemberIds = await GetPartyMemberIds(heroId, connection, transaction);
 				string sql = @"
 				DELETE FROM maxhanna.bones_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 10 SECOND; 
-				SELECT * FROM maxhanna.bones_event WHERE event != 'ATTACK' AND (map = @Map OR event = 'CHAT');";
+				SELECT * FROM maxhanna.bones_event WHERE event != 'ATTACK' AND (map = @Map OR event = 'CHAT' OR event = 'UNPARTY');";
 				MySqlCommand cmd = new(sql, connection, transaction); cmd.Parameters.AddWithValue("@Map", map);
 				List<MetaEvent> events = new();
 				using (var reader = await cmd.ExecuteReaderAsync())
