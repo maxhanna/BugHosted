@@ -34,12 +34,7 @@ export class RiftedBastion extends Level {
       position: new Vector2(gridCells(5), gridCells(8)),
       moveUpDown: 5,
       moveLeftRight: 1
-    });
-    bones.textContent = [
-      {
-        string: ["Two sides of the same ruin - one frozen, one burning."],
-      } as Scenario
-    ];
+    }); 
     this.addChild(bones);
 
     // Create a tiled floor and perimeter walls using Level helper

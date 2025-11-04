@@ -33,12 +33,7 @@ export class GatesOfHell extends Level {
       position: new Vector2(gridCells(5), gridCells(8)),
       moveUpDown: 5,
       moveLeftRight: 1
-    });
-    bones.textContent = [
-      {
-        string: ["This is where the world ends and another starts."],
-      } as Scenario
-    ];
+    }); 
     this.addChild(bones);
 
     // Create a tiled floor and perimeter walls using Level helper

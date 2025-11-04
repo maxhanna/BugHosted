@@ -34,12 +34,7 @@ export class CitadelOfVesper extends Level {
       position: new Vector2(gridCells(5), gridCells(8)),
       moveUpDown: 5,
       moveLeftRight: 1
-    });
-    bones.textContent = [
-      {
-        string: ["The Citadel of Vesper, this was a monastary once."],
-      } as Scenario
-    ];
+    }); 
     this.addChild(bones);
 
     // Create a tiled floor and perimeter walls using Level helper

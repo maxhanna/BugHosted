@@ -10,6 +10,24 @@ import { Npc } from "../../Npc/npc";
 
 export class Bones extends Npc {
   directionIndex = 0;
+  // Per-level dialogue blurbs centralized here instead of scattered across level files
+  private static DIALOGUES: Record<string, string[]> = {
+    HeroRoom: [
+      "Stay a while and listen!"
+    ],
+    FortPenumbra: [
+      "Down here, even the light is tired."
+    ],
+    CitadelOfVesper: [
+      "The Citadel of Vesper, this was a monastary once."
+    ],
+    GatesOfHell: [
+      "This is where the world ends and another starts."
+    ],
+    RiftedBastion: [
+      "Two sides of the same ruin - one frozen, one burning."
+    ]
+  };
 
   constructor(params: { position: Vector2, partners?: Npc[], moveUpDown?:number, moveLeftRight?: number, }) {
     super({
@@ -59,11 +77,25 @@ export class Bones extends Npc {
 
   override ready() {
     events.on("HERO_REQUESTS_ACTION", this, (params: { hero: any, objectAtPosition: any }) => {
-      if (params.objectAtPosition.id === this.id) {
-        this.facePlayer(params); 
-        if (params.hero.isUserControlled) {
-          events.emit("HEAL_USER");
-        }
+      if (params.objectAtPosition.id !== this.id) return;
+
+      // Face the player as before
+      this.facePlayer(params);
+
+      // Determine dialogue list from parent level name, with simple fallback
+      const parentName = this.parent && (this.parent as any).name ? String((this.parent as any).name) : "";
+      const list = Bones.DIALOGUES[parentName] || Bones.DIALOGUES[parentName.replace(/\s+/g, "")] || null;
+      const blurb = list && list.length ? list[Math.floor(Math.random() * list.length)] : "Hello there.";
+
+      // Show as a floating latestMessage (like Salesman) and clear after 5s
+      (this as any).latestMessage = blurb;
+      setTimeout(() => {
+        if ((this as any).latestMessage === blurb) (this as any).latestMessage = null;
+      }, 5000);
+
+      // Preserve previous behavior: heal the local hero when they interact.
+      if (params.hero.isUserControlled) {
+        events.emit("HEAL_USER");
       }
     });
   }
