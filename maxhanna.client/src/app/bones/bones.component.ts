@@ -191,7 +191,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     window.addEventListener("resize", this.adjustCanvasSize);
     this.adjustCanvasSize(); 
     events.on("CHANGE_LEVEL", this, (level: any) => { 
-      const lvlName = this.mainScene.level.name ?? "Hero Room";
+      const lvlName = level.name ?? this.mainScene.level.name ?? "Hero Room";
       const t = new Toast({ string: [`${lvlName}`] });
       if (this.mainScene) { 
         this.mainScene.addChild(t); 
