@@ -15,7 +15,6 @@ export class ChatSpriteTextString extends GameObject {
   // Increased from 14 to 16 for more readable chat line spacing
   LINE_VERTICAL_WIDTH = 16;
   TIME_UNTIL_DESTROY = 8000;
-  private readonly chatWindowOffset = new Vector2(0, 40);
   objectSubject: any;
   content: string[] = [];
   // Cache for words
@@ -30,13 +29,14 @@ export class ChatSpriteTextString extends GameObject {
   private cachedTotalHeight: number = 0;
   private needsRecalculation: boolean = true;
   private lastComputedLineWidth: number = 0;
+  private readonly chatWindowOffset = new Vector2(-40, 40);
   constructor(config: {
     string?: string[];
     portraitFrame?: number;
     objectSubject?: any;
   }) {
     super({
-      position: new Vector2(config.objectSubject.position.x + 0, config.objectSubject.position.y + 40),
+      position: new Vector2(config.objectSubject.position.x - 40, config.objectSubject.position.y + 40),
       drawLayer: HUD, // Ensured high-priority layer
       name: "CHATSPRITETEXTSTRING"
     });
