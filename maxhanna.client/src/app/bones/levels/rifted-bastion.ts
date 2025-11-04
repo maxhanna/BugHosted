@@ -49,12 +49,17 @@ export class RiftedBastion extends Level {
     this.tileFloor(new Vector2(gridCells(0), gridCells(-1)), roomWidth, roomHeight, 64, 96, resources.images["floortileiso"], { drawLayer: BASE, startObjectId: -1000 });
    
     const exit = new Exit({
-      position: new Vector2(gridCells(18), gridCells(1)), showSprite: true
+      position: new Vector2(gridCells(18), gridCells(1)),
+      showSprite: true,
+      targetMap: "RoadToFortPenumbra"
     });
     this.addChild(exit);
 
     // Backward exit to the preceding road level
-    const backExit = new Exit({ position: new Vector2(gridCells(1), gridCells(1)), showSprite: true, targetMap: 'RoadToRiftedBastion' });
+    const backExit = new Exit({ 
+      position: new Vector2(gridCells(1), gridCells(1)), 
+      showSprite: true, 
+      targetMap: 'RoadToRiftedBastion' });
     this.addChild(backExit);
   }
 
