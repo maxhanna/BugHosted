@@ -26,8 +26,7 @@ export class Arrow extends GameObject {
       name: "ArrowB",
       frameSize: new Vector2(40, 40),
       vFrames: 3,
-      hFrames: 4,
-      offsetY: -20,
+      hFrames: 4, 
       animations: new Animations({
         arrowLeftAnimation: new FrameIndexPattern(ARROW_LEFT_ANIMATION),
         hitLeftAnimation: new FrameIndexPattern(HIT_LEFT_ANIMATION),
