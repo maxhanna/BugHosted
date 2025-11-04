@@ -25,6 +25,7 @@ export class TownPortal extends GameObject {
       colorSwap: params.colorSwap,
     }); 
 
+    console.log("new town portal");
     const body = new Sprite({
         objectId: Math.floor(Math.random() * (9999)) * -1,
         resource: resources.images['portal'],
@@ -52,9 +53,8 @@ export class TownPortal extends GameObject {
     resources.playSound('portalNoise', { allowOverlap: false, loop: false });
     
     setTimeout(() => {
-      try { resources.stopSound('portalNoise'); } catch { }
-    }, 5000);
-    
+      resources.stopSound('portalNoise');  
+    }, 5000); 
   }
 
   override ready() {  
