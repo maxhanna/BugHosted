@@ -21,7 +21,7 @@ export class Toast extends GameObject {
   constructor(config: {
     string?: string[];
   }) {
-    super({ position: new Vector2(129, 2), drawLayer: HUD });
+    super({ position: new Vector2(64, 2), drawLayer: HUD });
  
     if (config.string) {
       this.content = config.string;
