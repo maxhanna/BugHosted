@@ -150,7 +150,7 @@ export class ChatSpriteTextString extends GameObject {
       }
   cursorX = drawPosX + this.PADDING_LEFT;
   // Add extra spacing between paragraphs/lines for readability
-  cursorY += this.LINE_VERTICAL_WIDTH + 4;
+  cursorY += this.LINE_VERTICAL_WIDTH + 2;
     }
   }
   updateContent(newContent: string[]) {
