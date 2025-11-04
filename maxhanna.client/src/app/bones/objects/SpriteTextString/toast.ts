@@ -27,6 +27,8 @@ export class Toast extends GameObject {
       this.content = config.string;
       this.cacheWords();
     } 
+
+    setTimeout(() => { this.destroy(); }, 3000);
   }
 
   // Method to calculate and cache words for all text content
@@ -51,8 +53,7 @@ export class Toast extends GameObject {
     }
   }
 
-  override destroy() {
-
+  override destroy() { 
     if (this.backdrop) {
       this.backdrop.destroy();
     }
