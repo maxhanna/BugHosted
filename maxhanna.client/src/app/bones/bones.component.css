@@ -815,7 +815,7 @@ body {
 }
 
 .changeStatPanel {
-  height: 425px;
+  height: 475px;
 }
 
 .changeStatsPanel {
@@ -951,4 +951,9 @@ body .componentMain.startPopupPanel,
   color: var(--third-font-color);
   font-size: x-large;
   padding: 4px 0px 14px 0px;
+}
+
+.mainPopupTitle {
+  font-size: x-large;
+  font-family: 'owreKynge';
 }
