@@ -6,7 +6,7 @@ import { events } from "../../helpers/events";
 
 export class ChatSpriteTextString extends GameObject {
   backgroundAlpha = 0.75;
-  PADDING_LEFT = 27;
+  PADDING_LEFT = 10;
   PADDING_TOP = 9;
   LINE_WIDTH_MAX = 200;
   // Minimum and safe margins to avoid overlapping HUD elements (health/mana orbs on the right)
