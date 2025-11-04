@@ -81,9 +81,8 @@ export class Toast extends GameObject {
         }
 
         word.chars.forEach((char) => {
-          if (currentShowingIndex > this.showingIndex) return;
-          // Slightly larger vertical offset for title line (first line)
-          const yOff = (x === 0 && this.title) ? (cursorY - 6) : cursorY;
+          if (currentShowingIndex > this.showingIndex) return; 
+          const yOff =  cursorY;
           char.sprite.draw(ctx, cursorX - 5, yOff);
           cursorX += char.width + 1;
           currentShowingIndex++;
