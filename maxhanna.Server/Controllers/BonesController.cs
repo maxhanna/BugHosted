@@ -1504,6 +1504,27 @@ ORDER BY p.created DESC;";
 				string? selDataJson = selRdr.IsDBNull(4) ? null : selRdr.GetString(4);
 				selRdr.Close();
 
+				// If the selection references an existing bones_hero id, read its coords now
+				// (must be done before we DELETE/UPDATE the bones_hero table to avoid MySQL "can't specify target table for update in FROM clause").
+				int? selCoordsX = null;
+				int? selCoordsY = null;
+				if (selBonesHeroId.HasValue)
+				{
+					try
+					{
+						using var coordsCmd = new MySqlCommand("SELECT coordsX, coordsY FROM maxhanna.bones_hero WHERE id = @SelBonesHeroId LIMIT 1", connection, transaction);
+						coordsCmd.Parameters.AddWithValue("@SelBonesHeroId", selBonesHeroId.Value);
+						using var coordsR = await coordsCmd.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow);
+						if (await coordsR.ReadAsync())
+						{
+							selCoordsX = coordsR.IsDBNull(0) ? 0 : coordsR.GetInt32(0);
+							selCoordsY = coordsR.IsDBNull(1) ? 0 : coordsR.GetInt32(1);
+						}
+						coordsR.Close();
+					}
+					catch { /* non-fatal: fall back to JSON coords below */ }
+				}
+
 				// 2) Read the current bones_hero for this user (if any)
 				string curSql = @"SELECT id, name, `type`, coordsX, coordsY, map, speed, color, mask, level, exp, attack_speed, attack_dmg, crit_rate, crit_dmg, health, regen, mp, mana_regen, mana FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1;";
 				using var curCmd = new MySqlCommand(curSql, connection, transaction);
@@ -1614,15 +1635,15 @@ ORDER BY p.created DESC;";
 				// 5) Insert the selected snapshot into bones_hero (guard numeric JSON parsing)
 				string insertSql = @"INSERT INTO maxhanna.bones_hero (user_id, coordsX, coordsY, map, speed, name, color, mask, level, exp, created, attack_speed, attack_dmg, crit_rate, crit_dmg, health, regen, mp, mana_regen, mana, type)
 					VALUES (@UserId,
-						COALESCE((SELECT coordsX FROM maxhanna.bones_hero WHERE id = @SelBonesHeroId LIMIT 1), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX')),'null')+0, 0)),
-						COALESCE((SELECT coordsY FROM maxhanna.bones_hero WHERE id = @SelBonesHeroId LIMIT 1), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY')),'null')+0, 0)),
+						COALESCE(@SelCoordsX, COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX')),'null')+0, 0)),
+						COALESCE(@SelCoordsY, COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY')),'null')+0, 0)),
 						JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed')),'null')+0, 0), @Name, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp')),'null')+0, 0), UTC_TIMESTAMP(), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed')),'null')+0, 400), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_dmg')),'null')+0, 1), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.crit_rate')),'null')+0, 0.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.crit_dmg')),'null')+0, 2.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.health')),'null')+0, 100), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.regen')),'null')+0, 0.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mp')),'null')+0, 100), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mana_regen')),'null')+0, 0.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mana')),'null')+0, 100), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.type')),'null'), 'knight') );";
 				using var insCmd = new MySqlCommand(insertSql, connection, transaction);
 				insCmd.Parameters.AddWithValue("@Data", selDataJson ?? "{}");
 				insCmd.Parameters.AddWithValue("@UserId", userId);
 				insCmd.Parameters.AddWithValue("@Name", selName ?? "Anon");
-				// prefer coordinates from the referenced bones_hero (if selection references one), otherwise fall back to JSON coords
-				insCmd.Parameters.AddWithValue("@SelBonesHeroId", selBonesHeroId.HasValue ? (object)selBonesHeroId.Value : DBNull.Value);
+				insCmd.Parameters.AddWithValue("@SelCoordsX", selCoordsX.HasValue ? (object)selCoordsX.Value : DBNull.Value);
+				insCmd.Parameters.AddWithValue("@SelCoordsY", selCoordsY.HasValue ? (object)selCoordsY.Value : DBNull.Value);
 				await insCmd.ExecuteNonQueryAsync();
 
 				// After inserting the promoted hero, remove any town portals created by this user's heroes
