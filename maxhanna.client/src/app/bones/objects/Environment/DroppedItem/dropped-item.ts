@@ -16,8 +16,8 @@ export class DroppedItem extends GameObject {
     super({ 
       position: new Vector2(snapToGrid(params.position.x), snapToGrid(params.position.y)),
       name: params.itemLabel ?? `${params.item?.damageMod} ${params.item?.skill?.name}`,
-      forceDrawName: true,
-      preventDrawName: false,
+        forceDrawName: false,
+        preventDrawName: true,
       drawLayer: FLOOR,
     })
     this.item = params.item;
@@ -63,4 +63,33 @@ export class DroppedItem extends GameObject {
       }
     }); 
   } 
+
+  // Override draw to render custom label under the sprite
+  override draw(ctx: CanvasRenderingContext2D, x: number, y: number) {
+    // call base draw so children (sprite, shadow) render as usual
+    try {
+      super.draw(ctx, x, y);
+    } catch (e) {
+      // If for any reason base draw fails, proceed to attempt label drawing
+      console.warn('DroppedItem: super.draw failed', e);
+    }
+
+    try {
+      // compute center position of this object in world coords
+      const drawPosX = x + this.position.x;
+      const drawPosY = y + this.position.y;
+      // small offset to render text underneath sprite
+      const textY = drawPosY + 20;
+      ctx.save();
+      ctx.font = '8px fontRetroGaming';
+      ctx.fillStyle = 'white';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      // render itemLabel
+      if (this.itemLabel) ctx.fillText(this.itemLabel, drawPosX + 7, textY);
+      ctx.restore();
+    } catch (e) {
+      console.warn('DroppedItem: label draw failed', e);
+    }
+  }
  }

@@ -17,6 +17,7 @@ namespace maxhanna.Server.Controllers
 		private const int ATTACK_BUFFER_MS = 50;
 		private const int HITBOX_HALF = 16;
 		private const int GRIDCELL = 20;
+		private const int VIEW_DISTANCE = 400;
 		private readonly Log _log;
 		private readonly IConfiguration _config;
 		private readonly string _connectionString;
@@ -114,13 +115,11 @@ namespace maxhanna.Server.Controllers
 		{
 			List<object> droppedItems = new();
 			try
-			{
-				int radiusTiles = 8;
-				int tile = GRIDCELL;
-				int xMin = hero.Position.x - radiusTiles * tile;
-				int xMax = hero.Position.x + radiusTiles * tile;
-				int yMin = hero.Position.y - radiusTiles * tile;
-				int yMax = hero.Position.y + radiusTiles * tile;
+			{   
+				int xMin = hero.Position.x - VIEW_DISTANCE;
+				int xMax = hero.Position.x + VIEW_DISTANCE;
+				int yMin = hero.Position.y - VIEW_DISTANCE;
+				int yMax = hero.Position.y + VIEW_DISTANCE;
 				string selSql = "SELECT id, map, coordsX, coordsY, data, created FROM maxhanna.bones_items_dropped WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax ORDER BY created DESC;";
 				using var selCmd = new MySqlCommand(selSql, connection, transaction);
 				selCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
@@ -156,15 +155,12 @@ namespace maxhanna.Server.Controllers
 			List<object> portals = new();
 			try
 			{
-				await DeleteOldTownPortals(connection, transaction);
-
-				int radiusTiles = 8;
-				int tile = GRIDCELL;
-				int xMin = hero.Position.x - radiusTiles * tile;
-				int xMax = hero.Position.x + radiusTiles * tile;
-				int yMin = hero.Position.y - radiusTiles * tile;
-				int yMax = hero.Position.y + radiusTiles * tile;
-												string selSql = @"SELECT p.id, p.creator_hero_id, COALESCE(h.name, '') AS creatorName, COALESCE(h.color, '') AS creatorColor, p.map, p.coordsX, p.coordsY, p.data, p.created,
+				await DeleteOldTownPortals(connection, transaction); 
+				int xMin = hero.Position.x - VIEW_DISTANCE;
+				int xMax = hero.Position.x + VIEW_DISTANCE;
+				int yMin = hero.Position.y - VIEW_DISTANCE;
+				int yMax = hero.Position.y + VIEW_DISTANCE;
+				string selSql = @"SELECT p.id, p.creator_hero_id, COALESCE(h.name, '') AS creatorName, COALESCE(h.color, '') AS creatorColor, p.map, p.coordsX, p.coordsY, p.data, p.created,
   (SELECT o.id FROM maxhanna.bones_town_portal o WHERE o.creator_hero_id = p.creator_hero_id AND o.id <> p.id ORDER BY o.created DESC LIMIT 1) AS otherId,
   (SELECT o.map FROM maxhanna.bones_town_portal o WHERE o.creator_hero_id = p.creator_hero_id AND o.id <> p.id ORDER BY o.created DESC LIMIT 1) AS otherMap,
   (SELECT o.coordsX FROM maxhanna.bones_town_portal o WHERE o.creator_hero_id = p.creator_hero_id AND o.id <> p.id ORDER BY o.created DESC LIMIT 1) AS otherCx,
