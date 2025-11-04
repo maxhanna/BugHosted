@@ -21,7 +21,7 @@ export class Toast extends GameObject {
   constructor(config: {
     string?: string[];
   }) {
-    super({ position: new Vector2(70, 2), drawLayer: HUD });
+    super({ position: new Vector2(80, 2), drawLayer: HUD });
  
     if (config.string) {
       this.content = config.string;
@@ -61,35 +61,46 @@ export class Toast extends GameObject {
     this.backdrop.drawImage(ctx, drawPosX, drawPosY);
     this.portrait?.drawImage(ctx, drawPosX + 6, drawPosY + 6);
 
-    const PADDING_LEFT = 27;
-  const PADDING_TOP = 12;
-  const LINE_WIDTH_MAX = 240;
-  const LINE_VERTICAL_WIDTH = 14;
- 
-  let cursorX = drawPosX + PADDING_LEFT;
-  let cursorY = drawPosY - 10 + PADDING_TOP;
+    const LINE_VERTICAL_WIDTH = 14;
+    const BOX_W = this.backdrop.frameSize.x;
+    const BOX_H = this.backdrop.frameSize.y;
+
+    // Determine total height and starting Y to vertically center the text block
+    const lineCount = Math.max(0, this.cachedWords.length);
+    const totalTextHeight = lineCount * LINE_VERTICAL_WIDTH;
+    let cursorY = drawPosY + Math.floor((BOX_H - totalTextHeight) / 2) + Math.floor(LINE_VERTICAL_WIDTH / 2) - 2;
+
     let currentShowingIndex = 0;
- 
 
-    for (let x = 0; x < this.cachedWords.length; x++) {
-      const words = this.cachedWords[x];
-      words.forEach((word) => {
-        const spaceRemaining = drawPosX + LINE_WIDTH_MAX - cursorX;
-        if (spaceRemaining < word.wordWidth) {
-          cursorX = drawPosX + PADDING_LEFT;
-          cursorY += LINE_VERTICAL_WIDTH;
+    // Draw each cached line centered horizontally inside the 164px backdrop
+    for (let lineIndex = 0; lineIndex < this.cachedWords.length; lineIndex++) {
+      const words = this.cachedWords[lineIndex];
+
+      // compute line width by summing character widths + spacing
+      let lineWidth = 0;
+      for (let wi = 0; wi < words.length; wi++) {
+        const w = words[wi];
+        let charsWidth = 0;
+        for (const ch of w.chars) {
+          charsWidth += ch.width + 1; // char width + 1px spacing
         }
+        lineWidth += charsWidth;
+        if (wi < words.length - 1) lineWidth += 3; // gap between words
+      }
 
-        word.chars.forEach((char) => {
-          if (currentShowingIndex > this.showingIndex) return; 
-          const yOff =  cursorY;
-          char.sprite.draw(ctx, cursorX - 5, yOff);
+      // center horizontally inside the box
+      let cursorX = drawPosX + Math.floor((BOX_W - lineWidth) / 2);
+
+      for (const word of words) {
+        for (const char of word.chars) {
+          if (currentShowingIndex > this.showingIndex) break;
+          char.sprite.draw(ctx, cursorX - 5, cursorY);
           cursorX += char.width + 1;
           currentShowingIndex++;
-        });
+        }
         cursorX += 3;
-      });
-      cursorX = drawPosX + PADDING_LEFT;
+      }
+
       cursorY += LINE_VERTICAL_WIDTH;
     }
   }
