@@ -128,7 +128,7 @@ export class Toast extends GameObject {
     this.backdrop.drawImage(ctx, drawPosX, drawPosY);
     this.portrait?.drawImage(ctx, drawPosX + 6, drawPosY + 6);
 
-    const LINE_VERTICAL_WIDTH = 14;
+    const LINE_VERTICAL_WIDTH = 7;
     const BOX_W = this.backdrop.frameSize.x;
     const BOX_H = this.backdrop.frameSize.y;
 
