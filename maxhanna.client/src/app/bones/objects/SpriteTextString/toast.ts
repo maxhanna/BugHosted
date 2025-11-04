@@ -135,7 +135,7 @@ export class Toast extends GameObject {
     // Determine total height and starting Y to vertically center the text block
     const lineCount = Math.max(0, this.cachedWords.length);
     const totalTextHeight = lineCount * LINE_VERTICAL_WIDTH;
-    let cursorY = drawPosY + Math.floor((BOX_H - totalTextHeight) / 2) + Math.floor(LINE_VERTICAL_WIDTH / 2) - 2;
+    let cursorY = drawPosY + Math.floor((BOX_H - totalTextHeight) / 2) + Math.floor(LINE_VERTICAL_WIDTH / 2) - 4;
 
     let currentShowingIndex = 0;
 
