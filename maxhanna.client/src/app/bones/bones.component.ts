@@ -484,10 +484,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         const liquidLeft = orbX - innerRadius;
         const liquidWidth = innerRadius * 2;
 
-        // Simple vertical gradient for depth
-        const grad = ctx.createLinearGradient(0, liquidTop, 0, orbY + innerRadius);
-        grad.addColorStop(0, 'rgba(255,120,120,0.95)');
-        grad.addColorStop(1, 'rgba(180,20,20,0.95)');
+        // Vertical gradient for the health liquid (pale red at top -> darker red at bottom)
+        const healthBottom = orbY + innerRadius;
+        const grad = ctx.createLinearGradient(0, liquidTop, 0, healthBottom);
+        grad.addColorStop(0, 'rgba(255,180,180,0.95)'); // pale top
+        grad.addColorStop(1, 'rgba(180,20,20,0.95)'); // darker bottom
 
         ctx.fillStyle = grad;
         ctx.fillRect(liquidLeft, liquidTop, liquidWidth, liquidHeight);
