@@ -347,7 +347,7 @@ export class Hero extends Character {
       const baseCenterX = this.position.x + bodyPosX + bodyOffsetX + (frameW * scaleX) / 2;
       const baseCenterY = this.position.y + bodyPosY + bodyOffsetY + (frameH * scaleY) / 2;
       // lateralOffset moves the spawn point left/right relative to facing to avoid spawning on the wrong side
-      let lateralOffset = 0; // approx one third of sprite width
+      let lateralOffset = Math.round((frameW * scaleX) / 3); 
       let verticalOffset = 0;
       if (this.facingDirection === LEFT) {
         lateralOffset = -Math.abs(lateralOffset);
