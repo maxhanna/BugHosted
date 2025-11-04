@@ -985,7 +985,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
                 const clampedBase = Math.max(0, Math.min(1, base));
                 vol = Math.max(0.05 * globalVol, Math.min(globalVol, clampedBase * globalVol));
               }
-              resources.playSound('hitOrImpact', { volume: vol, allowOverlap: true });
+              console.log("lay hit sound");
+              resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true });
             }
           } catch (err) {
             console.warn('Failed playing hit sound for enemy update', err);
