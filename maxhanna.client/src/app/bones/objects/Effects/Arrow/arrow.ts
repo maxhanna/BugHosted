@@ -36,7 +36,7 @@ export class Arrow extends GameObject {
     this.facingDirection = facingDirection;
 
     this.body.animations?.play("arrowLeftAnimation");
-    resources.playSound('bowstring', { allowOverlap: true }); 
+    resources.playSound('bowstring', { allowOverlap: true, loop: false }); 
   }
 
   override destroy(): void {

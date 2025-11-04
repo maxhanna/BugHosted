@@ -33,7 +33,7 @@ export class Sting extends GameObject {
     });
     this.addChild(this.body);
     this.body.animations?.play("stingAnimation"); 
-    resources.playSound('magicBurst', { allowOverlap: true }); 
+    resources.playSound('magicBurst', { allowOverlap: true, loop: false }); 
   }
 
   moveTo(targetX: number, targetY: number, speed: number) {
