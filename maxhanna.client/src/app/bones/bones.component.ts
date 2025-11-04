@@ -621,11 +621,12 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
             b.a = 1 - lifeFrac;
             ctx.save();
             try {
-              ctx.globalCompositeOperation = 'lighter';
-              ctx.globalAlpha = Math.max(0, Math.min(1, b.a * 0.85));
+              // Use normal drawing to avoid washing out underlying orb color
+              ctx.globalCompositeOperation = 'source-over';
+              ctx.globalAlpha = Math.max(0, Math.min(1, b.a * 0.6));
               const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
-              grad.addColorStop(0, 'rgba(255,255,255,0.45)');
-              grad.addColorStop(0.6, 'rgba(255,255,255,0.12)');
+              grad.addColorStop(0, 'rgba(255,255,255,0.35)');
+              grad.addColorStop(0.6, 'rgba(255,255,255,0.08)');
               grad.addColorStop(1, 'rgba(255,255,255,0.0)');
               ctx.fillStyle = grad;
               ctx.beginPath();
@@ -776,11 +777,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
             b.a = 1 - lifeFrac;
             ctx.save();
             try {
-              ctx.globalCompositeOperation = 'lighter';
-              ctx.globalAlpha = Math.max(0, Math.min(1, b.a * 0.85));
+              ctx.globalCompositeOperation = 'source-over';
+              ctx.globalAlpha = Math.max(0, Math.min(1, b.a * 0.6));
               const mgRad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, Math.max(1, b.r));
-              mgRad.addColorStop(0, 'rgba(220,250,255,0.45)');
-              mgRad.addColorStop(0.6, 'rgba(180,230,255,0.12)');
+              mgRad.addColorStop(0, 'rgba(220,250,255,0.35)');
+              mgRad.addColorStop(0.6, 'rgba(180,230,255,0.08)');
               mgRad.addColorStop(1, 'rgba(180,230,255,0.0)');
               ctx.fillStyle = mgRad;
               ctx.beginPath();
