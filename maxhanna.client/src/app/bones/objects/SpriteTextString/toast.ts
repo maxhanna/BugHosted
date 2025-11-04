@@ -7,7 +7,7 @@ import { Vector2 } from "../../../../services/datacontracts/bones/vector2";
 export class Toast extends GameObject {
   backdrop = new Sprite({
     resource: resources.images["toast"],
-    frameSize: new Vector2(258, 60)
+    frameSize: new Vector2(164, 60)
   });
 
   portrait?: Sprite;  
@@ -21,7 +21,7 @@ export class Toast extends GameObject {
   constructor(config: {
     string?: string[];
   }) {
-    super({ position: new Vector2(2, 2), drawLayer: HUD });
+    super({ position: new Vector2(129, 2), drawLayer: HUD });
  
     if (config.string) {
       this.content = config.string;
