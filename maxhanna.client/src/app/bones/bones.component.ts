@@ -313,27 +313,24 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       const dy = attackerPos.y - myPos.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       // Play sound if attacker is not the local hero, OR if attacker is local but not adjacent
-      // Determine adjacency in pixels: treat 1 grid cell as ~32 pixels (snapToGrid used elsewhere)
-      const isLocalAttacker = (sourceHeroId === this.metaHero.id);
-      const isAdjacent = dist <= gridCells(1);
-      if (!isLocalAttacker || (isLocalAttacker && !isAdjacent) || targetHeroId == this.metaHero.id) {
-        const maxAudible = 800; // pixels: distance at which sound is near-silent
-        // base attenuation (0..1) based on distance
-        const base = 1 - (dist / maxAudible);
-        const clampedBase = Math.max(0, Math.min(1, base));
-        const globalVol = (this.currentVolume ?? 1);
-        // apply global volume and ensure final volume does not exceed it
-        let vol = clampedBase * globalVol;
-        // keep a small audible floor relative to global volume so lowering master volume actually reduces loudness
-        const minAudible = 0.05 * globalVol;
-        vol = Math.max(minAudible, Math.min(globalVol, vol));
-        resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true });
-        console.log("playing impact sound", vol);
-        const tgtHero = this.mainScene.level?.children?.find((x: any) => x.id === targetHeroId);
-        if (tgtHero && tgtHero.activeSkills && tgtHero.activeSkills.length > 0) {
-          tgtHero.activeSkills.pop().destroy();
-        }
+      // Determine adjacency in pixels: treat 1 grid cell as ~32 pixels (snapToGrid used elsewhere)        
+      const maxAudible = 800; // pixels: distance at which sound is near-silent
+      // base attenuation (0..1) based on distance
+      const base = 1 - (dist / maxAudible);
+      const clampedBase = Math.max(0, Math.min(1, base));
+      const globalVol = (this.currentVolume ?? 1);
+      // apply global volume and ensure final volume does not exceed it
+      let vol = clampedBase * globalVol;
+      // keep a small audible floor relative to global volume so lowering master volume actually reduces loudness
+      const minAudible = 0.05 * globalVol;
+      vol = Math.max(minAudible, Math.min(globalVol, vol));
+      resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true });
+      console.log("playing impact sound", vol);
+      const tgtHero = this.mainScene.level?.children?.find((x: any) => x.id === targetHeroId);
+      if (tgtHero && tgtHero.activeSkills && tgtHero.activeSkills.length > 0) {
+        tgtHero.activeSkills.pop().destroy();
       }
+       
     });
 
     // When the player interacts with an NPC that emits HEAL_USER (e.g., Bones NPC),
