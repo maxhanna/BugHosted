@@ -73,35 +73,37 @@ export class Toast extends GameObject {
 
 
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
-    const BOX_W = this.backdrop.frameSize.x;
+    const BOX_W_FULL = this.backdrop.frameSize.x;
     const BOX_H = this.backdrop.frameSize.y;
 
-    // Opening animation: scale from 0 -> 1 over first 3000ms using ease-out
+    // Opening animation: animate frameSize.x from 0 -> BOX_W_FULL over first 3000ms
     const elapsed = Date.now() - (this._createdTs || Date.now());
     const openDuration = 3000;
-    let scale = 1;
+    let currentWidth = BOX_W_FULL;
     if (elapsed < openDuration) {
       const t = Math.max(0, Math.min(1, elapsed / openDuration));
-      scale = Math.sin((t * Math.PI) / 2); // ease-out
+      currentWidth = Math.floor(BOX_W_FULL * t);
     }
 
-    // Apply scale transform centered on the toast box
-    const cx = drawPosX + BOX_W / 2;
-    const cy = drawPosY + BOX_H / 2;
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.scale(scale, scale);
-    ctx.translate(-cx, -cy);
-
-    this.backdrop.drawImage(ctx, drawPosX, drawPosY);
-    this.portrait?.drawImage(ctx, drawPosX + 6, drawPosY + 6);
+    // Temporarily set the backdrop frame width to simulate the opening animation
+    const prevFrameW = this.backdrop.frameSize.x;
+    try {
+      this.backdrop.frameSize.x = currentWidth;
+      this.backdrop.drawImage(ctx, drawPosX, drawPosY);
+    } finally {
+      this.backdrop.frameSize.x = prevFrameW;
+    }
+    // draw portrait if there's space (optional)
+    if (currentWidth > 20) this.portrait?.drawImage(ctx, drawPosX + 6, drawPosY + 6);
 
   const LINE_VERTICAL_WIDTH = 14;
 
-    // Determine total height and starting Y to vertically center the text block
-    const lineCount = Math.max(0, this.cachedWords.length);
-    const totalTextHeight = lineCount * LINE_VERTICAL_WIDTH;
-    let cursorY = drawPosY + Math.floor((BOX_H - totalTextHeight) / 2) + Math.floor(LINE_VERTICAL_WIDTH / 2) - 2;
+  // Determine total height and starting Y to vertically center the text block
+  const lineCount = Math.max(0, this.cachedWords.length);
+  const totalTextHeight = lineCount * LINE_VERTICAL_WIDTH;
+  // Use currentWidth as effective box width for centering while animating
+  const effectiveBoxW = currentWidth;
+  let cursorY = drawPosY + Math.floor((BOX_H - totalTextHeight) / 2) + Math.floor(LINE_VERTICAL_WIDTH / 2) - 2;
 
     let currentShowingIndex = 0;
 
@@ -122,7 +124,7 @@ export class Toast extends GameObject {
       }
 
       // center horizontally inside the box
-      let cursorX = drawPosX + Math.floor((BOX_W - lineWidth) / 2);
+  let cursorX = drawPosX + Math.floor((effectiveBoxW - lineWidth) / 2);
 
       for (const word of words) {
         for (const char of word.chars) {
@@ -136,6 +138,6 @@ export class Toast extends GameObject {
 
       cursorY += LINE_VERTICAL_WIDTH;
     }
-    ctx.restore();
+    // no transform restore needed for frameSize approach
   }
 }
