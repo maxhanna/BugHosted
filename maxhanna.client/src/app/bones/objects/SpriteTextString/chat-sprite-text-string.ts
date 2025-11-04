@@ -9,7 +9,8 @@ export class ChatSpriteTextString extends GameObject {
   PADDING_LEFT = 27;
   PADDING_TOP = 9;
   LINE_WIDTH_MAX = 200;
-  LINE_VERTICAL_WIDTH = 14;
+  // Increased from 14 to 20 for more readable chat line spacing
+  LINE_VERTICAL_WIDTH = 20;
   TIME_UNTIL_DESTROY = 8000;
  
   objectSubject: any;
@@ -147,8 +148,9 @@ export class ChatSpriteTextString extends GameObject {
         }
         cursorX += 3;
       }
-      cursorX = drawPosX + this.PADDING_LEFT;
-      cursorY += this.PADDING_TOP;
+  cursorX = drawPosX + this.PADDING_LEFT;
+  // Add extra spacing between paragraphs/lines for readability
+  cursorY += this.LINE_VERTICAL_WIDTH + 4;
     }
   }
   updateContent(newContent: string[]) {
