@@ -353,7 +353,7 @@ export class Hero extends Character {
         lateralOffset = -Math.abs(lateralOffset);
         verticalOffset = -Math.abs(lateralOffset); // slightly up for left-facing
       } else if (this.facingDirection === RIGHT) {
-        lateralOffset = Math.abs(lateralOffset / 2);
+        lateralOffset = Math.abs(lateralOffset / 3);
       } else {
         // when facing up/down reduce lateral offset slightly
         lateralOffset = Math.round(lateralOffset / 2);
@@ -363,7 +363,7 @@ export class Hero extends Character {
         verticalOffset = -Math.round(frameH * scaleY * 0.15);
       } else if (this.facingDirection === DOWN) {
         verticalOffset = Math.round(frameH * scaleY * 0.05); 
-        lateralOffset = -Math.abs(lateralOffset / 2);
+        lateralOffset = -Math.abs(lateralOffset);
       }
 
       const startX = baseCenterX + lateralOffset;
