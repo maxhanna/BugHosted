@@ -343,8 +343,26 @@ export class Hero extends Character {
       const scaleX = (this.body?.scale?.x ?? 1);
       const scaleY = (this.body?.scale?.y ?? 1);
 
-      const startX = this.position.x + bodyPosX + bodyOffsetX + (frameW * scaleX) / 2;
-      const startY = this.position.y + bodyPosY + bodyOffsetY + (frameH * scaleY) / 2;
+      // Compute a facing-based offset so projectiles spawn from the visually-correct side
+      const baseCenterX = this.position.x + bodyPosX + bodyOffsetX + (frameW * scaleX) / 2;
+      const baseCenterY = this.position.y + bodyPosY + bodyOffsetY + (frameH * scaleY) / 2;
+      // lateralOffset moves the spawn point left/right relative to facing to avoid spawning on the wrong side
+      let lateralOffset = Math.round((frameW * scaleX) / 3); // approx one third of sprite width
+      let verticalOffset = 0;
+      if (this.facingDirection === LEFT) {
+        lateralOffset = -Math.abs(lateralOffset);
+      } else if (this.facingDirection === RIGHT) {
+        lateralOffset = Math.abs(lateralOffset);
+      } else {
+        // when facing up/down reduce lateral offset slightly
+        lateralOffset = Math.round(lateralOffset / 2);
+      }
+      // For upward facing, lift the spawn point slightly; for downward, lower it slightly
+      if (this.facingDirection === UP) verticalOffset = -Math.round(frameH * scaleY * 0.15);
+      else if (this.facingDirection === DOWN) verticalOffset = Math.round(frameH * scaleY * 0.05);
+
+      const startX = baseCenterX + lateralOffset;
+      const startY = baseCenterY + verticalOffset;
 
       // Convert target world position to rendered anchor using the same offsets so the sting moves to the visual target
       const targetAnchorX = targetX + bodyPosX + bodyOffsetX + (frameW * scaleX) / 2;
@@ -353,6 +371,7 @@ export class Hero extends Character {
       if (type === "sting") {
         skillType = new Sting(startX, startY);
       } else if (type === "arrow") {
+        // For arrows, slightly bias the initial rotation/placement by facing
         skillType = new Arrow(startX, startY, this.facingDirection);
       } else {
         skillType = new Arrow(startX, startY, this.facingDirection);
