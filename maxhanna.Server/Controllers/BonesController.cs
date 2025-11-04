@@ -1544,7 +1544,7 @@ ORDER BY p.created DESC;";
 
 					// 3) Store current bones_hero into bones_hero_selection: update if a selection references this hero_id, otherwise insert
 					// When storing the current bones_hero into a selection, match by user + name to avoid hero id mismatches
-						string updateSelSql = @"UPDATE maxhanna.bones_hero_selection SET name = @Name, data = JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed, 'attack_dmg', @AttackDmg, 'crit_rate', @CritRate, 'crit_dmg', @CritDmg, 'health', @Health, 'regen', @Regen, 'mana', @Mana, 'type', @Type), created = UTC_TIMESTAMP() WHERE user_id = @UserId AND name = @Name LIMIT 1;";
+					string updateSelSql = @"UPDATE maxhanna.bones_hero_selection SET name = @Name, data = JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed, 'attack_dmg', @AttackDmg, 'crit_rate', @CritRate, 'crit_dmg', @CritDmg, 'health', @Health, 'regen', @Regen, 'mana', @Mana, 'type', @Type), created = UTC_TIMESTAMP() WHERE user_id = @UserId AND name = @Name LIMIT 1;";
 					using var updateSelCmd = new MySqlCommand(updateSelSql, connection, transaction);
 					updateSelCmd.Parameters.AddWithValue("@Name", currentName);
 					updateSelCmd.Parameters.AddWithValue("@CoordsX", curCoordsX);
@@ -1613,11 +1613,16 @@ ORDER BY p.created DESC;";
 
 				// 5) Insert the selected snapshot into bones_hero (guard numeric JSON parsing)
 				string insertSql = @"INSERT INTO maxhanna.bones_hero (user_id, coordsX, coordsY, map, speed, name, color, mask, level, exp, created, attack_speed, attack_dmg, crit_rate, crit_dmg, health, regen, mp, mana_regen, mana, type)
-					VALUES (@UserId, COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY')),'null')+0, 0), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed')),'null')+0, 0), @Name, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp')),'null')+0, 0), UTC_TIMESTAMP(), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed')),'null')+0, 400), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_dmg')),'null')+0, 1), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.crit_rate')),'null')+0, 0.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.crit_dmg')),'null')+0, 2.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.health')),'null')+0, 100), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.regen')),'null')+0, 0.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mp')),'null')+0, 100), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mana_regen')),'null')+0, 0.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mana')),'null')+0, 100), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.type')),'null'), 'knight') );";
+					VALUES (@UserId,
+						COALESCE((SELECT coordsX FROM maxhanna.bones_hero WHERE id = @SelBonesHeroId LIMIT 1), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX')),'null')+0, 0)),
+						COALESCE((SELECT coordsY FROM maxhanna.bones_hero WHERE id = @SelBonesHeroId LIMIT 1), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY')),'null')+0, 0)),
+						JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed')),'null')+0, 0), @Name, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp')),'null')+0, 0), UTC_TIMESTAMP(), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed')),'null')+0, 400), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_dmg')),'null')+0, 1), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.crit_rate')),'null')+0, 0.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.crit_dmg')),'null')+0, 2.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.health')),'null')+0, 100), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.regen')),'null')+0, 0.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mp')),'null')+0, 100), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mana_regen')),'null')+0, 0.0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mana')),'null')+0, 100), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.type')),'null'), 'knight') );";
 				using var insCmd = new MySqlCommand(insertSql, connection, transaction);
 				insCmd.Parameters.AddWithValue("@Data", selDataJson ?? "{}");
 				insCmd.Parameters.AddWithValue("@UserId", userId);
 				insCmd.Parameters.AddWithValue("@Name", selName ?? "Anon");
+				// prefer coordinates from the referenced bones_hero (if selection references one), otherwise fall back to JSON coords
+				insCmd.Parameters.AddWithValue("@SelBonesHeroId", selBonesHeroId.HasValue ? (object)selBonesHeroId.Value : DBNull.Value);
 				await insCmd.ExecuteNonQueryAsync();
 
 				// After inserting the promoted hero, remove any town portals created by this user's heroes
@@ -1963,9 +1968,11 @@ ORDER BY p.created DESC;";
 				data["map"] = map ?? string.Empty;
 				data["x"] = x.ToString();
 				data["y"] = y.ToString();
-				data["y"] = y.ToString();
 				// optional radius or metadata
-				if (request.Radius.HasValue) try { data["radius"] = request.Radius.Value.ToString(); } catch { }
+				if (request.Radius.HasValue)
+				{
+					data["radius"] = request.Radius.Value.ToString();
+				}
 				// Ensure the hero only has one portal: remove any existing portals created by this hero, and emit delete events
 				try
 				{
@@ -2008,8 +2015,10 @@ ORDER BY p.created DESC;";
 					int insertedId = 0;
 					if (insertedObj != null && int.TryParse(insertedObj.ToString(), out var tmpId)) insertedId = tmpId;
 					// include portal id in event data so clients can reference it
-					if (insertedId > 0) data["portalId"] = insertedId.ToString();
-
+					if (insertedId > 0)
+					{
+						data["portalId"] = insertedId.ToString();
+					}
 					// Also create a paired portal in Town so other players can enter the town portal and be sent back.
 					// Compute a deterministic position on a circle around (GRIDCELL*4, GRIDCELL*4)
 					try
