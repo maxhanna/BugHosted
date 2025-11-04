@@ -581,7 +581,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           ctx.moveTo(rightX, yTop);
           const startAngle = Math.atan2(yTop - orbY, rightX - orbX);
           const endAngle = Math.atan2(yTop - orbY, leftX - orbX);
-          ctx.arc(orbX, orbY, innerRadius, startAngle, endAngle, true);
+          // draw the bottom arc (clockwise) so the filled region is the liquid area;
+          // using `false` ensures we take the shorter/inner arc across the bottom
+          ctx.arc(orbX, orbY, innerRadius, startAngle, endAngle, false);
           ctx.closePath();
           ctx.fill();
 

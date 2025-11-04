@@ -1,5 +1,5 @@
 import { Vector2 } from "../../../../../services/datacontracts/meta/vector2";
-import { GameObject } from "../../game-object";
+import { BASE, GameObject } from "../../game-object";
 import { Sprite } from "../../sprite";
 import { resources } from "../../../helpers/resources";
 import { events } from "../../../helpers/events";
@@ -11,7 +11,8 @@ export class Exit extends GameObject {
   targetMap: string;
   constructor(params: { position: Vector2, showSprite?: boolean, rotation?: number, sprite?: string, targetMap?: string, colorSwap?: ColorSwap }) {
     super({
-      position: params.position
+      position: params.position,
+      drawLayer: BASE,
     });
     const sprite = params.sprite ?? "exit2";
     this.targetMap = params.targetMap ?? "HeroRoom";
@@ -24,7 +25,8 @@ export class Exit extends GameObject {
         frameSize: sprite === "exit2" ? new Vector2(42, 45) : sprite === "white" ? new Vector2(2, 2) : new Vector2(32, 32),
         colorSwap: params.colorSwap,
         name: "exit",
-        rotation: params.rotation
+        rotation: params.rotation,
+        drawLayer: BASE,
       });
       this.addChild(exitSprite);
     } 
