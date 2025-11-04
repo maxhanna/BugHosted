@@ -59,10 +59,13 @@ export class Resources {
       ambiance_campfire: `${this.dir}ambiance_campfire.mp4`,
       ambiance_wind: `${this.dir}ambiance_wind.mp4`,
       bonescracking: `${this.dir}bonescracking.mp4`,
+      bowstring: `${this.dir}bowstring.mp4`,
       itemdrop: `${this.dir}itemdrop.mp4`,
-      shadowsUnleashed: `${this.dir}shadows_unleashed.mp4`,
       maleDeathScream: `${this.dir}male_death_voice.mp4`,
+      magicBurst: `${this.dir}magicburst.mp4`,
+      portalNoise: `${this.dir}portalnoise.mp4`,
       punchOrImpact: `${this.dir}punch_or_impact.mp4`,
+      shadowsUnleashed: `${this.dir}shadows_unleashed.mp4`,
       wilhelmScream: `${this.dir}wilhelm_scream.mp3`,
     };
     this.waitForCanvas();
