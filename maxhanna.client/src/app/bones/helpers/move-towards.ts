@@ -34,10 +34,10 @@ export function moveTowards(player: Character, destinationPosition: Vector2, spe
 }
 
 export function isEncounter(obj: any): boolean {
-		return obj?.constructor?.name === 'Encounter';
+		return obj?.constructor?.name.includes('Encounter');
 }
 export function isSprite(obj: any): boolean {
-		return obj?.constructor?.name === 'Sprite';
+		return obj?.constructor?.name?.includes('Sprite');
 }
 
 
