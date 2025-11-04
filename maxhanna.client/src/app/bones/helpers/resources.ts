@@ -45,7 +45,7 @@ export class Resources {
       referee: `${this.dir}referee-spritesheet.png`,
       shadow: `${this.dir}shadow.png`,
       shipsprite: `${this.dir}shipsprite.png`,
-      skeleton: `${this.dir}skeletonspritesheet.png`, 
+      skeleton: `${this.dir}skeletonspritesheet.png`,
       skill_sting: `${this.dir}skill_sting.png`,
       stars: `${this.dir}stars.png`,
       textBox: `${this.dir}sprite-text-background.png`,
@@ -129,10 +129,10 @@ export class Resources {
     const entry = this.audios[key];
     if (!entry) return;
     const base = entry.audio;
-  // Apply per-play volume and global multiplier, clamped to [0,1]
-  const requested = opts?.volume ?? 1;
-  let volume = requested * (this.volumeMultiplier ?? 1);
-  volume = Math.max(0, Math.min(1, volume));
+    // Apply per-play volume and global multiplier, clamped to [0,1]
+    const requested = opts?.volume ?? 1;
+    let volume = requested * (this.volumeMultiplier ?? 1);
+    volume = Math.max(0, Math.min(1, volume));
     const loop = opts?.loop ?? false;
     const allowOverlap = opts?.allowOverlap ?? true;
     if (allowOverlap) {
