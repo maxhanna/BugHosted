@@ -7,7 +7,7 @@ import { Vector2 } from "../../../../services/datacontracts/bones/vector2";
 export class Toast extends GameObject {
   backdrop = new Sprite({
     resource: resources.images["toast"],
-    frameSize: new Vector2(164, 60)
+    frameSize: new Vector2(258, 60)
   });
 
   portrait?: Sprite;  
