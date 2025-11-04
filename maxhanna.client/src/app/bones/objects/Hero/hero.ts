@@ -109,7 +109,7 @@ export class Hero extends Character {
       resource: resources.images["shadow"],
       offsetY: 10,
       name: "shadow",
-      position: new Vector2(-10, -10),
+      position: new Vector2(-15, -10),
       scale: new Vector2(1.25, 1),
       frameSize: new Vector2(32, 32),
     });
