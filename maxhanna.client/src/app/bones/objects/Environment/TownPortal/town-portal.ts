@@ -46,8 +46,15 @@ export class TownPortal extends GameObject {
       drawLayer: FLOOR
     });
     this.addChild(shadow);
-    body?.animations?.play("portalAnimation"); 
+    body?.animations?.play("portalAnimation");
+    // Play portal sound once; include a safeguard stop in case the audio element loops or stalls
+    
     resources.playSound('portalNoise', { allowOverlap: false, loop: false });
+    
+    setTimeout(() => {
+      try { resources.stopSound('portalNoise'); } catch { }
+    }, 5000);
+    
   }
 
   override ready() {  
