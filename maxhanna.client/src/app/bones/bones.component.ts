@@ -36,6 +36,7 @@ import { RoadToFortPenumbra } from './levels/road-to-fort-penumbra';
 import { GatesOfHell } from './levels/gates-of-hell';
 import { RiftedBastion } from './levels/rifted-bastion';
 import { RoadToRiftedBastion } from './levels/road-to-rifted-bastion';
+import { Toast } from './objects/SpriteTextString/toast';
 
 @Component({
   selector: 'app-bones',
@@ -188,7 +189,14 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     window.addEventListener("resize", this.adjustCanvasSize);
-    this.adjustCanvasSize();
+    this.adjustCanvasSize(); 
+    events.on("CHANGE_LEVEL", this, (level: any) => { 
+      const lvlName = this.mainScene.level.name ?? "Hero Room";
+      const t = new Toast({ string: [`${lvlName}`] });
+      if (this.mainScene) { 
+        this.mainScene.addChild(t); 
+      }
+    });
   }
 
   ngOnDestroy() {

@@ -49,6 +49,7 @@ export class Resources {
       skill_sting: `${this.dir}skill_sting.png`,
       stars: `${this.dir}stars.png`,
       textBox: `${this.dir}sprite-text-background.png`,
+      toast: `${this.dir}toast.png`,
       townbg: `${this.dir}townbg.png`,
       townbg2: `${this.dir}townbg2.png`,
       warpbase: `${this.dir}warpBase.png`,
