@@ -87,7 +87,7 @@ export class Hero extends Character {
     this.attackSpeed = params.attackSpeed ?? 400;
     this.scale = params.scale ?? new Vector2(1, 1);
     if (this.type === "magi") {
-      this.currentSkill = "sting"; 
+      this.currentSkill = "sting";
     } else if (this.type === "rogue") {
       this.currentSkill = "arrow";
     }
@@ -123,7 +123,7 @@ export class Hero extends Character {
       if (!skill) return 1;
       const s = skill.toLowerCase();
       if (s === 'sting') return 0;
-      if (s === 'arrow') return 0; 
+      if (s === 'arrow') return 0;
       return 1;
     } catch { return 1; }
   }
@@ -150,22 +150,22 @@ export class Hero extends Character {
         this.lastAttackAt = now;
         this.isAttacking = true;
         // this.isLocked = true;
-      
+
         const neighbour = this.position.toNeighbour ? this.position.toNeighbour(this.facingDirection) : null;
         const objInFront = neighbour ? objectAtLocation(this.parent, neighbour, true) : null;
         const isNpcInFront = objInFront && (objInFront instanceof Npc || objInFront.constructor?.name?.toLowerCase().endsWith('npc'));
-        if (!isNpcInFront) {  
-            if (this.facingDirection == "DOWN") {
+        if (!isNpcInFront) {
+          if (this.facingDirection == "DOWN") {
             this.body?.animations?.play("attackDown");
             if (this.currentSkill) {
-        // spawnSkillTo will compute and consume the mana cost internally and play the 'arcadeUi' fail sound if insufficient
-        this.spawnSkillTo(this.position.x, this.position.y + 200, this.currentSkill);
-      }
+              // spawnSkillTo will compute and consume the mana cost internally and play the 'arcadeUi' fail sound if insufficient
+              this.spawnSkillTo(this.position.x, this.position.y + 200, this.currentSkill);
+            }
           } else if (this.facingDirection == "UP") {
             this.body?.animations?.play("attackUp");
             if (this.currentSkill) {
               this.spawnSkillTo(this.position.x, this.position.y - 200, this.currentSkill);
-            } 
+            }
           } else if (this.facingDirection == "LEFT") {
             this.body?.animations?.play("attackLeft");
             if (this.currentSkill) {
@@ -175,35 +175,35 @@ export class Hero extends Character {
             this.body?.animations?.play("attackRight");
             if (this.currentSkill) {
               this.spawnSkillTo(this.position.x + 200, this.position.y, this.currentSkill);
-            } 
+            }
           }
-          this.playAttackSound(); 
+          this.playAttackSound();
         }
-        
+
         setTimeout(() => {
-          this.isAttacking = false; 
+          this.isAttacking = false;
           const inputInstance = this.findInputInstance();
-          
+
           const holding = !!(inputInstance && (inputInstance.keys?.['Space'] || inputInstance.keys?.['KeyA']));
-          if (holding) { 
+          if (holding) {
             const isMovingNow = (this.position.x !== this.destinationPosition.x) || (this.position.y !== this.destinationPosition.y);
             if (isMovingNow) {
               return;
             }
-            const elapsed = Date.now() - this.lastAttackAt; 
+            const elapsed = Date.now() - this.lastAttackAt;
             const cooldownRemaining = Math.max(0, (this.attackSpeed ?? 400) - elapsed);
             const requiredWait = Math.max(cooldownRemaining, (this.attackSpeed ?? 400) + 50);
-            setTimeout(() => { 
+            setTimeout(() => {
               const inputNow = this.findInputInstance();
               const stillHolding = !!(inputNow && (inputNow.keys?.['Space'] || inputNow.keys?.['KeyA']));
               const stillMoving = (this.position.x !== this.destinationPosition.x) || (this.position.y !== this.destinationPosition.y);
               if (stillHolding && !stillMoving) {
                 events.emit('SPACEBAR_PRESSED');
                 console.log("reemitting spacebar pressed");
-              } 
+              }
             }, requiredWait);
           }
-          
+
           //  this.isLocked = false;
         }, 400);
       });
@@ -319,18 +319,18 @@ export class Hero extends Character {
         }
       } catch (ex) { console.error('OTHER_HERO_ATTACK handler error', ex); }
     });
-  } 
-  
+  }
+
   // spawnSkillTo: spawn a visual skill effect from this hero to target coordinates.
   // The function computes the mana cost internally (via getSkillManaCost).
   // If the computed cost > 0 the function will attempt to consume mana; if consumption fails it will play the default 'arcadeUi' sound and not spawn.
   private spawnSkillTo(targetX: number, targetY: number, type: string) {
-    try { 
+    try {
       const cost = this.getSkillManaCost(type);
       if ((cost || 0) > 0) {
-        if (!this.tryConsumeMana(cost)) {  
-          resources.playSound('arcadeUi', { volume: 0.7, allowOverlap: false }); 
-          return;  
+        if (!this.tryConsumeMana(cost)) {
+          resources.playSound('arcadeUi', { volume: 0.7, allowOverlap: false });
+          return;
         }
       }
       // Compute rendered anchor point for this hero's sprite so the effect appears at the same place
@@ -354,15 +354,11 @@ export class Hero extends Character {
         verticalOffset = -Math.abs(lateralOffset); // slightly up for left-facing
       } else if (this.facingDirection === RIGHT) {
         lateralOffset = Math.abs(lateralOffset / 3);
-      } else {
-        // when facing up/down reduce lateral offset slightly
-        lateralOffset = Math.round(lateralOffset / 2);
-      }
-      // For upward facing, lift the spawn point slightly; for downward, lower it slightly
-      if (this.facingDirection === UP) {
+      } else if (this.facingDirection === UP) {
         verticalOffset = -Math.round(frameH * scaleY * 0.15);
+        lateralOffset = Math.round(lateralOffset / 2);
       } else if (this.facingDirection === DOWN) {
-        verticalOffset = Math.round(frameH * scaleY * 0.05); 
+        verticalOffset = Math.round(frameH * scaleY * 0.05);
         lateralOffset = -Math.abs(lateralOffset);
       }
 
@@ -508,7 +504,7 @@ export class Hero extends Character {
     ctx.fillRect(x + 1, topY + 1, (barWidth - 2) * hpRatio, barHeight - 2);
 
     // Draw the hero's name centered under the health bar (only for non-user-controlled heroes)
-   
+
     if (!this.isUserControlled) {
       const displayName = this.name ?? "Anon";
       ctx.font = "10px monospace";
@@ -521,9 +517,9 @@ export class Hero extends Character {
       ctx.fillText(displayName, Math.round(nameX) + 1, Math.round(nameY) + 1);
       ctx.fillStyle = "#fff";
       ctx.fillText(displayName, Math.round(nameX), Math.round(nameY));
-    } 
+    }
 
-  // EXP bar intentionally hidden for heroes (rendered elsewhere for local player)
+    // EXP bar intentionally hidden for heroes (rendered elsewhere for local player)
 
     // Level text centered
     ctx.fillStyle = "#fff";
