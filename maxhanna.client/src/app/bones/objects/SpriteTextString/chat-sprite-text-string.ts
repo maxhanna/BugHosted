@@ -29,14 +29,14 @@ export class ChatSpriteTextString extends GameObject {
   private cachedTotalHeight: number = 0;
   private needsRecalculation: boolean = true;
   private lastComputedLineWidth: number = 0;
-  private readonly chatWindowOffset = new Vector2(-40, 40);
+  private readonly chatWindowOffset = new Vector2(-50, 40);
   constructor(config: {
     string?: string[];
     portraitFrame?: number;
     objectSubject?: any;
   }) {
     super({
-      position: new Vector2(config.objectSubject.position.x - 40, config.objectSubject.position.y + 40),
+      position: new Vector2(config.objectSubject.position.x - 50, config.objectSubject.position.y + 40),
       drawLayer: HUD, // Ensured high-priority layer
       name: "CHATSPRITETEXTSTRING"
     });
