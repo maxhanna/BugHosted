@@ -55,9 +55,47 @@ export class Toast extends GameObject {
       }
     }
 
-    this.cachedWords = processedLines.map((text) =>
-      calculateWords({ content: text, color: "White" })
-    );
+    // Now calculate words and wrap lines so they don't exceed the backdrop width
+    const maxContentWidth = Math.max(0, (this.backdrop.frameSize.x ?? 164) - 12); // padding of 6px each side
+    const wrappedLines: { wordWidth: number; chars: { width: number; sprite: Sprite }[] }[][] = [];
+    const wrappedScales: number[] = [];
+
+    for (let i = 0; i < processedLines.length; i++) {
+      const text = processedLines[i];
+      const scale = this.lineScales[i] ?? 1;
+      const words = calculateWords({ content: text, color: "White" });
+
+      let currentLine: typeof words = [];
+      let currentWidth = 0;
+
+      for (let wi = 0; wi < words.length; wi++) {
+        const w = words[wi];
+        // approximate scaled width: scaled characters plus 1px spacing per char
+        const wScaled = Math.floor(w.wordWidth * scale) + (w.chars.length * 1);
+        const gap = currentLine.length > 0 ? 3 : 0;
+        const newWidth = currentLine.length === 0 ? wScaled : currentWidth + gap + wScaled;
+
+        if (newWidth <= maxContentWidth || currentLine.length === 0) {
+          // append to current line
+          currentLine.push(w);
+          currentWidth = newWidth;
+        } else {
+          // push current line and start a new one
+          wrappedLines.push(currentLine);
+          wrappedScales.push(scale);
+          currentLine = [w];
+          currentWidth = wScaled;
+        }
+      }
+
+      if (currentLine.length > 0) {
+        wrappedLines.push(currentLine);
+        wrappedScales.push(scale);
+      }
+    }
+
+    this.cachedWords = wrappedLines;
+    this.lineScales = wrappedScales;
 
     this.finalIndex = this.cachedWords.reduce(
       (total, words) => total + words.reduce((sum, word) => sum + word.chars.length, 0),
