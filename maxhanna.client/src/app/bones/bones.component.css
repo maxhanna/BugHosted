@@ -668,6 +668,8 @@ body {
 .startGrid .bigActionButton {
   aspect-ratio: 1 / 1;
   width: 100%;
+  font-size: x-large;
+  font-family: 'owreKynge';
 }
 
 /* Pending invite badge styles and clearing animation */

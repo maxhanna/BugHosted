@@ -144,6 +144,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   // Current global volume (0.0 - 1.0) bound to the UI slider
   currentVolume: number = 1.0;
 
+  // HUD bubble/ripple animations for HP and Mana changes
+  private _hpBubbles: any[] = [];
+  private _manaBubbles: any[] = [];
+  private _lastShownHp?: number = undefined;
+  private _lastShownManaUnits?: number = undefined;
+  private _lastHudRenderTs: number = Date.now();
+
   // Incoming invite popup state
   pendingInvitePopup: { inviterId: number, inviterName: string, expiresAt: number } | null = null;
   // countdown in seconds for UI binding
@@ -429,6 +436,62 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         }
       }
     } 
+    // Detect HP / Mana changes for HUD bubble effects
+    try {
+      const now = Date.now();
+      // HP
+      if (this.hero) {
+        const curHp = Math.max(0, Math.min(100, (this.hero.hp ?? 0)));
+        if (this._lastShownHp === undefined) this._lastShownHp = curHp;
+        if (curHp !== this._lastShownHp) {
+          // spawn a few bubbles near the orb; magnitude based on delta
+          const diff = curHp - (this._lastShownHp ?? curHp);
+          const dir = diff > 0 ? -1 : 1; // if hp decreased, bubbles rise up (dir=1), if increased they sink slightly (dir=-1)
+          const count = Math.min(6, Math.max(1, Math.floor(Math.abs(diff) / 6) + 1));
+          for (let i = 0; i < count; i++) {
+            this._hpBubbles.push({
+              x: 0, y: 0, // will be set when drawing based on orb position
+              vx: (Math.random() - 0.5) * 0.6,
+              vy: (Math.random() * 0.6 + 0.2) * dir,
+              r: Math.random() * 4 + 2,
+              a: 1.0,
+              life: 700 + Math.random() * 300,
+              born: now
+            });
+          }
+          this._lastShownHp = curHp;
+        }
+      }
+      // Mana (track units if available, else percent)
+      if (this.hero) {
+        const heroAny: any = this.hero as any;
+        const capUnits = (heroAny.getManaCapacity && typeof heroAny.getManaCapacity === 'function') ? heroAny.getManaCapacity() : Math.max(0, (heroAny.maxMana ?? 0) * 100);
+        let curManaUnits = undefined as number | undefined;
+        if (capUnits > 0) {
+          curManaUnits = Math.max(0, Math.min(capUnits, (heroAny.currentManaUnits ?? Math.round((heroAny.mana ?? 100) / 100 * capUnits))));
+        } else {
+          curManaUnits = Math.round((heroAny.mana ?? 100) / 100 * 100); // 0..100 percent mapped to units
+        }
+        if (this._lastShownManaUnits === undefined) this._lastShownManaUnits = curManaUnits;
+        if (curManaUnits !== this._lastShownManaUnits) {
+          const diff = curManaUnits - (this._lastShownManaUnits ?? curManaUnits);
+          const dir = diff > 0 ? -1 : 1;
+          const count = Math.min(6, Math.max(1, Math.floor(Math.abs(diff) / Math.max(1, Math.round(Math.max(1, Math.abs(diff)) / 12))) + 1));
+          for (let i = 0; i < count; i++) {
+            this._manaBubbles.push({
+              x: 0, y: 0,
+              vx: (Math.random() - 0.5) * 0.6,
+              vy: (Math.random() * 0.6 + 0.2) * dir,
+              r: Math.random() * 3 + 1.5,
+              a: 1.0,
+              life: 700 + Math.random() * 300,
+              born: now
+            });
+          }
+          this._lastShownManaUnits = curManaUnits;
+        }
+      }
+    } catch (e) { console.warn('hud bubble spawn failed', e); }
   }
   render = () => {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -491,14 +554,54 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         grad.addColorStop(1, 'rgba(180,20,20,0.95)'); // darker bottom
 
         ctx.fillStyle = grad;
-        ctx.fillRect(liquidLeft, liquidTop, liquidWidth, liquidHeight);
+        // Draw as circular segment for smooth rounded edges at any liquid height
+        if (liquidHeight <= 0) {
+          // nothing
+        } else if (liquidHeight >= innerRadius * 2 - 0.001) {
+          // full circle
+          ctx.beginPath();
+          ctx.arc(orbX, orbY, innerRadius, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          const yTop = liquidTop;
+          // vertical distance from center to the horizontal top line
+          const dy = yTop - orbY;
+          // half-width at this y along the circle
+          const dx = Math.sqrt(Math.max(0, innerRadius * innerRadius - dy * dy));
+          const leftX = orbX - dx;
+          const rightX = orbX + dx;
 
-        // subtle sheen / highlight at top of liquid
-        if (liquidHeight > 6) {
-          ctx.globalAlpha = 0.25;
-          ctx.fillStyle = 'rgba(255,255,255,0.9)';
-          ctx.fillRect(liquidLeft, liquidTop, liquidWidth, Math.min(6, liquidHeight));
-          ctx.globalAlpha = 1.0;
+          ctx.beginPath();
+          // start at the top-right intersection, draw the circular arc across the bottom to top-left
+          ctx.moveTo(rightX, yTop);
+          const startAngle = Math.atan2(yTop - orbY, rightX - orbX);
+          const endAngle = Math.atan2(yTop - orbY, leftX - orbX);
+          ctx.arc(orbX, orbY, innerRadius, startAngle, endAngle, true);
+          ctx.closePath();
+          ctx.fill();
+
+          // subtle sheen / highlight at top of liquid
+          if (liquidHeight > 4) {
+            // curved sheen: draw a thin arc band along the liquid surface
+            ctx.save();
+            ctx.beginPath();
+            const sheenInnerR = innerRadius - 1;
+            const sheenOuterR = Math.min(innerRadius, innerRadius - 1 + Math.min(6, liquidHeight));
+            // create path for outer arc
+            const sStart = Math.atan2(yTop - orbY, rightX - orbX);
+            const sEnd = Math.atan2(yTop - orbY, leftX - orbX);
+            ctx.arc(orbX, orbY, sheenOuterR, sStart, sEnd, true);
+            // line to inner arc
+            ctx.arc(orbX, orbY, sheenInnerR, sEnd, sStart, false);
+            ctx.closePath();
+            ctx.globalAlpha = 0.28;
+            const sheenGrad = ctx.createLinearGradient(0, yTop, 0, yTop + (sheenOuterR - sheenInnerR));
+            sheenGrad.addColorStop(0, 'rgba(255,255,255,0.95)');
+            sheenGrad.addColorStop(1, 'rgba(255,255,255,0.05)');
+            ctx.fillStyle = sheenGrad;
+            ctx.fill();
+            ctx.restore();
+          }
         }
 
         ctx.restore();
@@ -517,6 +620,42 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(String(Math.round(hp)), orbX, orbY);
+
+      // Draw and advance HP bubbles
+      try {
+        const now = Date.now();
+        for (let i = this._hpBubbles.length - 1; i >= 0; i--) {
+          const b = this._hpBubbles[i];
+          // initialize position near orb if unset
+          if (!b._init) {
+            b.x = orbX + (Math.random() - 0.5) * orbRadius * 0.6;
+            const hpInner = orbRadius - 6;
+            b.y = orbY + hpInner - (Math.random() * 8);
+            b._init = true;
+          }
+          const t = now - b.born;
+          const lifeFrac = Math.max(0, Math.min(1, t / b.life));
+          // advance
+          b.x += b.vx;
+          b.y -= b.vy * (1 + lifeFrac * 0.6);
+          b.a = 1 - lifeFrac;
+          // draw
+          ctx.beginPath();
+          ctx.globalAlpha = Math.max(0, Math.min(1, b.a));
+          const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
+          grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+          grad.addColorStop(1, 'rgba(255,255,255,0.05)');
+          ctx.fillStyle = grad;
+          ctx.arc(b.x, b.y, Math.max(0.6, b.r * (1 - lifeFrac * 0.6)), 0, Math.PI * 2);
+          ctx.fill();
+          ctx.closePath();
+          ctx.globalAlpha = 1;
+          // remove if finished
+          if (t >= b.life) {
+            this._hpBubbles.splice(i, 1);
+          }
+        }
+      } catch (e) { console.warn('hp bubbles draw failed', e); }
 
       // Experience bar along bottom
       const barHeight = 12;
@@ -593,13 +732,33 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         ctx.fillStyle = mg;
         ctx.fillRect(manaOrbX - (manaOrbRadius - 4), manaTop, (manaOrbRadius - 4) * 2, (manaOrbRadius - 4) * 2);
 
-        // subtle sheen at top of liquid when there's enough height
+        // subtle curved sheen at top of liquid
         const liquidHeight = manaBottom - manaTop;
-        if (liquidHeight > 6) {
+        if (liquidHeight > 4) {
+          ctx.save();
+          // compute chord intersection for mana orb
+          const yTop = manaTop;
+          const dy = yTop - manaOrbY;
+          const r = manaOrbRadius - 4;
+          const dx = Math.sqrt(Math.max(0, r * r - dy * dy));
+          const leftX = manaOrbX - dx;
+          const rightX = manaOrbX + dx;
+
+          const sheenInnerR = r - 1;
+          const sheenOuterR = Math.min(r, r - 1 + Math.min(6, liquidHeight));
+          const sStart = Math.atan2(yTop - manaOrbY, rightX - manaOrbX);
+          const sEnd = Math.atan2(yTop - manaOrbY, leftX - manaOrbX);
+          ctx.beginPath();
+          ctx.arc(manaOrbX, manaOrbY, sheenOuterR, sStart, sEnd, true);
+          ctx.arc(manaOrbX, manaOrbY, sheenInnerR, sEnd, sStart, false);
+          ctx.closePath();
           ctx.globalAlpha = 0.22;
-          ctx.fillStyle = 'rgba(255,255,255,0.9)';
-          ctx.fillRect(manaOrbX - (manaOrbRadius - 4), manaTop, (manaOrbRadius - 4) * 2, Math.min(6, liquidHeight));
-          ctx.globalAlpha = 1.0;
+          const sheenGrad = ctx.createLinearGradient(0, yTop, 0, yTop + (sheenOuterR - sheenInnerR));
+          sheenGrad.addColorStop(0, 'rgba(255,255,255,0.95)');
+          sheenGrad.addColorStop(1, 'rgba(255,255,255,0.05)');
+          ctx.fillStyle = sheenGrad;
+          ctx.fill();
+          ctx.restore();
         }
 
         ctx.restore();
@@ -618,6 +777,36 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         ctx.textBaseline = 'middle';
         ctx.fillText(manaText, manaOrbX, manaOrbY);
       } catch (e) { console.warn('mana draw failed', e); }
+      // Draw and advance Mana bubbles
+      try {
+        const now = Date.now();
+        for (let i = this._manaBubbles.length - 1; i >= 0; i--) {
+          const b = this._manaBubbles[i];
+          if (!b._init) {
+            b.x = manaOrbX + (Math.random() - 0.5) * manaOrbRadius * 0.6;
+            b.y = manaOrbY + (Math.random() * 8) - (manaOrbRadius * 0.2);
+            b._init = true;
+          }
+          const t = now - b.born;
+          const lifeFrac = Math.max(0, Math.min(1, t / b.life));
+          b.x += b.vx;
+          b.y -= b.vy * (1 + lifeFrac * 0.6);
+          b.a = 1 - lifeFrac;
+          ctx.beginPath();
+          ctx.globalAlpha = Math.max(0, Math.min(1, b.a));
+          const mg = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, Math.max(1, b.r));
+          mg.addColorStop(0, 'rgba(200,240,255,0.95)');
+          mg.addColorStop(1, 'rgba(100,160,220,0.05)');
+          ctx.fillStyle = mg;
+          ctx.arc(b.x, b.y, Math.max(0.6, b.r * (1 - lifeFrac * 0.6)), 0, Math.PI * 2);
+          ctx.fill();
+          ctx.closePath();
+          ctx.globalAlpha = 1;
+          if (t >= b.life) {
+            this._manaBubbles.splice(i, 1);
+          }
+        }
+      } catch (e) { console.warn('mana bubbles draw failed', e); }
       ctx.restore();
     } catch (ex) { console.warn('drawHudForLocalHero failed', ex); }
   }
