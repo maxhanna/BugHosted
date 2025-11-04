@@ -195,7 +195,7 @@
       {{isChangeStatsOpen ? 'Change Stats'
         : isChangeSkillsOpen ? 'Change Skills' 
         : isPartyPanelOpen ? 'Nearby Heroes / Party'
-        : 'Menu'}}
+        : hero?.name ?? 'Menu' }}
     </div>
     <button id="closeOverlay" (click)="closeStartMenu()" class="buttonDisplayNone"></button>
   </div>
