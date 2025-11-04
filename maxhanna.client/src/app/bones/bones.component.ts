@@ -420,7 +420,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.mainScene.stepEntry(delta, this.mainScene);
     this.mainScene.input?.update();
     // Mana regeneration: accumulate ms and add 1 unit per 1000ms
-   
+
     const hero = this.hero as any;
     if (hero && typeof hero.currentManaUnits === 'number') {
       // store accumulator on component instance
@@ -435,7 +435,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           try { hero.mana = Math.round(((hero.currentManaUnits ?? 0) / Math.max(1, cap)) * 100); } catch { }
         }
       }
-    } 
+    }
     // Detect HP / Mana changes for HUD bubble effects
     try {
       const now = Date.now();
@@ -520,12 +520,12 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       // Health orb parameters
       const orbRadius = Math.max(32, Math.floor(Math.min(this.canvas.width, this.canvas.height) * 0.06));
       const padding = 12;
-  let orbX = padding + orbRadius;
-  let orbY = this.canvas.height - padding - orbRadius;
-  // Ensure orb is fully inside canvas (avoid clipping on very small viewports)
-  const edgePad = 2; // extra pixel padding to prevent 1px anti-alias clipping
-  orbX = Math.max(orbRadius + edgePad, Math.min(this.canvas.width - orbRadius - edgePad, orbX));
-  orbY = Math.max(orbRadius + edgePad, Math.min(this.canvas.height - orbRadius - edgePad, orbY));
+      let orbX = padding + orbRadius;
+      let orbY = this.canvas.height - padding - orbRadius;
+      // Ensure orb is fully inside canvas (avoid clipping on very small viewports)
+      const edgePad = 2; // extra pixel padding to prevent 1px anti-alias clipping
+      orbX = Math.max(orbRadius + edgePad, Math.min(this.canvas.width - orbRadius - edgePad, orbX));
+      orbY = Math.max(orbRadius + edgePad, Math.min(this.canvas.height - orbRadius - edgePad, orbY));
 
       // Draw orb background
       ctx.save();
@@ -538,115 +538,114 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       // HP fill (vial-style vertical liquid)
       const hp = Math.max(0, Math.min(100, (hero.hp ?? 0)));
       const hpRatio = hp / 100;
-      try {
-        // Clip to orb circle so liquid stays within container
-        ctx.save();
+      // Clip to orb circle so liquid stays within container
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(orbX, orbY, orbRadius - 4, 0, Math.PI * 2);
+      ctx.clip();
+
+      // Compute liquid rectangle (fill from bottom up)
+      const innerRadius = orbRadius - 6; // padding inside container
+      const liquidHeight = Math.max(0, innerRadius * 2 * hpRatio);
+      const liquidTop = orbY + innerRadius - liquidHeight;
+      const liquidLeft = orbX - innerRadius;
+      const liquidWidth = innerRadius * 2;
+
+      // Vertical gradient for the health liquid (pale red at top -> darker red at bottom)
+      const healthBottom = orbY + innerRadius;
+      const grad = ctx.createLinearGradient(0, liquidTop, 0, healthBottom);
+      grad.addColorStop(0, 'rgba(255,180,180,0.95)'); // pale top
+      grad.addColorStop(1, 'rgba(180,20,20,0.95)'); // darker bottom
+
+      ctx.fillStyle = grad;
+      // Draw as circular segment for smooth rounded edges at any liquid height
+      if (liquidHeight <= 0) {
+        // nothing
+      } else if (liquidHeight >= innerRadius * 2 - 0.001) {
+        // full circle
         ctx.beginPath();
-        ctx.arc(orbX, orbY, orbRadius - 4, 0, Math.PI * 2);
-        ctx.clip();
+        ctx.arc(orbX, orbY, innerRadius, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        const yTop = liquidTop;
+        // vertical distance from center to the horizontal top line
+        const dy = yTop - orbY;
+        // half-width at this y along the circle
+        const dx = Math.sqrt(Math.max(0, innerRadius * innerRadius - dy * dy));
+        const leftX = orbX - dx;
+        const rightX = orbX + dx;
 
-        // Compute liquid rectangle (fill from bottom up)
-        const innerRadius = orbRadius - 6; // padding inside container
-        const liquidHeight = Math.max(0, innerRadius * 2 * hpRatio);
-        const liquidTop = orbY + innerRadius - liquidHeight;
-        const liquidLeft = orbX - innerRadius;
-        const liquidWidth = innerRadius * 2;
+        ctx.beginPath();
+        // start at the top-right intersection, draw the circular arc across the bottom to top-left
+        ctx.moveTo(rightX, yTop);
+        const startAngle = Math.atan2(yTop - orbY, rightX - orbX);
+        const endAngle = Math.atan2(yTop - orbY, leftX - orbX);
+        // draw the bottom arc (clockwise) so the filled region is the liquid area;
+        // using `false` ensures we take the shorter/inner arc across the bottom
+        ctx.arc(orbX, orbY, innerRadius, startAngle, endAngle, false);
+        ctx.closePath();
+        ctx.fill();
 
-        // Vertical gradient for the health liquid (pale red at top -> darker red at bottom)
-        const healthBottom = orbY + innerRadius;
-        const grad = ctx.createLinearGradient(0, liquidTop, 0, healthBottom);
-        grad.addColorStop(0, 'rgba(255,180,180,0.95)'); // pale top
-        grad.addColorStop(1, 'rgba(180,20,20,0.95)'); // darker bottom
-
-        ctx.fillStyle = grad;
-        // Draw as circular segment for smooth rounded edges at any liquid height
-        if (liquidHeight <= 0) {
-          // nothing
-        } else if (liquidHeight >= innerRadius * 2 - 0.001) {
-          // full circle
+        // subtle sheen / highlight at top of liquid
+        if (liquidHeight > 4) {
+          // curved sheen: draw a thin arc band along the liquid surface
+          ctx.save();
           ctx.beginPath();
-          ctx.arc(orbX, orbY, innerRadius, 0, Math.PI * 2);
-          ctx.fill();
-        } else {
-          const yTop = liquidTop;
-          // vertical distance from center to the horizontal top line
-          const dy = yTop - orbY;
-          // half-width at this y along the circle
-          const dx = Math.sqrt(Math.max(0, innerRadius * innerRadius - dy * dy));
-          const leftX = orbX - dx;
-          const rightX = orbX + dx;
-
-          ctx.beginPath();
-          // start at the top-right intersection, draw the circular arc across the bottom to top-left
-          ctx.moveTo(rightX, yTop);
-          const startAngle = Math.atan2(yTop - orbY, rightX - orbX);
-          const endAngle = Math.atan2(yTop - orbY, leftX - orbX);
-          // draw the bottom arc (clockwise) so the filled region is the liquid area;
-          // using `false` ensures we take the shorter/inner arc across the bottom
-          ctx.arc(orbX, orbY, innerRadius, startAngle, endAngle, false);
+          const sheenInnerR = innerRadius - 1;
+          const sheenOuterR = Math.min(innerRadius, innerRadius - 1 + Math.min(6, liquidHeight));
+          // create path for outer arc
+          const sStart = Math.atan2(yTop - orbY, rightX - orbX);
+          const sEnd = Math.atan2(yTop - orbY, leftX - orbX);
+          ctx.arc(orbX, orbY, sheenOuterR, sStart, sEnd, true);
+          // line to inner arc
+          ctx.arc(orbX, orbY, sheenInnerR, sEnd, sStart, false);
           ctx.closePath();
+          ctx.globalAlpha = 0.28;
+          const sheenGrad = ctx.createLinearGradient(0, yTop, 0, yTop + (sheenOuterR - sheenInnerR));
+          sheenGrad.addColorStop(0, 'rgba(255,255,255,0.95)');
+          sheenGrad.addColorStop(1, 'rgba(255,255,255,0.05)');
+          ctx.fillStyle = sheenGrad;
           ctx.fill();
-
-          // subtle sheen / highlight at top of liquid
-          if (liquidHeight > 4) {
-            // curved sheen: draw a thin arc band along the liquid surface
-            ctx.save();
-            ctx.beginPath();
-            const sheenInnerR = innerRadius - 1;
-            const sheenOuterR = Math.min(innerRadius, innerRadius - 1 + Math.min(6, liquidHeight));
-            // create path for outer arc
-            const sStart = Math.atan2(yTop - orbY, rightX - orbX);
-            const sEnd = Math.atan2(yTop - orbY, leftX - orbX);
-            ctx.arc(orbX, orbY, sheenOuterR, sStart, sEnd, true);
-            // line to inner arc
-            ctx.arc(orbX, orbY, sheenInnerR, sEnd, sStart, false);
-            ctx.closePath();
-            ctx.globalAlpha = 0.28;
-            const sheenGrad = ctx.createLinearGradient(0, yTop, 0, yTop + (sheenOuterR - sheenInnerR));
-            sheenGrad.addColorStop(0, 'rgba(255,255,255,0.95)');
-            sheenGrad.addColorStop(1, 'rgba(255,255,255,0.05)');
-            ctx.fillStyle = sheenGrad;
-            ctx.fill();
-            ctx.restore();
-          }
+          ctx.restore();
         }
+      }
 
-        // Draw HP bubbles inside the clipped liquid so they brighten the liquid instead of overlaying it
-        try {
-          const nowB = Date.now();
-          for (let i = this._hpBubbles.length - 1; i >= 0; i--) {
-            const b = this._hpBubbles[i];
-            if (!b._init) {
-              b.x = orbX + (Math.random() - 0.5) * innerRadius * 0.8;
-              b.y = orbY + innerRadius - (Math.random() * 8);
-              b._init = true;
-            }
-            const t = nowB - b.born;
-            const lifeFrac = Math.max(0, Math.min(1, t / b.life));
-            b.x += b.vx;
-            b.y -= b.vy * (1 + lifeFrac * 0.6);
-            b.a = 1 - lifeFrac;
-            ctx.save();
-            try {
-              // Use normal drawing to avoid washing out underlying orb color
-              ctx.globalCompositeOperation = 'source-over';
-              ctx.globalAlpha = Math.max(0, Math.min(1, b.a * 0.6));
-              const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
-              grad.addColorStop(0, 'rgba(255,255,255,0.35)');
-              grad.addColorStop(0.6, 'rgba(255,255,255,0.08)');
-              grad.addColorStop(1, 'rgba(255,255,255,0.0)');
-              ctx.fillStyle = grad;
-              ctx.beginPath();
-              ctx.arc(b.x, b.y, Math.max(0.6, b.r * (1 - lifeFrac * 0.6)), 0, Math.PI * 2);
-              ctx.fill();
-              ctx.closePath();
-            } finally { ctx.restore(); }
-            if (t >= b.life) this._hpBubbles.splice(i, 1);
-          }
-        } catch (e) { console.warn('hp bubbles (in-clip) draw failed', e); }
+      // Draw HP bubbles inside the clipped liquid so they brighten the liquid instead of overlaying it
 
-        ctx.restore();
-      } catch (e) { console.warn('liquid fill failed', e); }
+      const nowB = Date.now();
+      for (let i = this._hpBubbles.length - 1; i >= 0; i--) {
+        const b = this._hpBubbles[i];
+        if (!b._init) {
+          b.x = orbX + (Math.random() - 0.5) * innerRadius * 0.8;
+          b.y = orbY + innerRadius - (Math.random() * 8);
+          b._init = true;
+        }
+        const t = nowB - b.born;
+        const lifeFrac = Math.max(0, Math.min(1, t / b.life));
+        b.x += b.vx;
+        b.y -= b.vy * (1 + lifeFrac * 0.6);
+        b.a = 1 - lifeFrac;
+        ctx.save();
+
+        // Use normal drawing to avoid washing out underlying orb color
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = Math.max(0, Math.min(1, b.a * 0.6));
+        const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
+        grad.addColorStop(0, 'rgba(255,255,255,0.35)');
+        grad.addColorStop(0.6, 'rgba(255,255,255,0.08)');
+        grad.addColorStop(1, 'rgba(255,255,255,0.0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, Math.max(0.6, b.r * (1 - lifeFrac * 0.6)), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.closePath();
+        if (t >= b.life) {
+          this._hpBubbles.splice(i, 1);
+        }
+      }
+
+      ctx.restore();
+
 
       // Inner circle to create border effect
       ctx.beginPath();
@@ -662,7 +661,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       ctx.textBaseline = 'middle';
       ctx.fillText(String(Math.round(hp)), orbX, orbY);
 
-      
+
 
       // Experience bar along bottom
       const barHeight = 12;
@@ -697,11 +696,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       ctx.fillText('Lvl ' + (hero.level ?? 1), barX + 6, barY + barHeight / 2);
 
       // Mana orb on the right side of the exp bar
-  let manaOrbX = barX + barWidth + reservedForMana - manaOrbRadius; // place near the right edge
-  let manaOrbY = this.canvas.height - padding - manaOrbRadius;
-  // Clamp mana orb so it doesn't overflow off the right/bottom edges
-  manaOrbX = Math.max(manaOrbRadius + edgePad, Math.min(this.canvas.width - manaOrbRadius - edgePad, manaOrbX));
-  manaOrbY = Math.max(manaOrbRadius + edgePad, Math.min(this.canvas.height - manaOrbRadius - edgePad, manaOrbY));
+      let manaOrbX = barX + barWidth + reservedForMana - manaOrbRadius; // place near the right edge
+      let manaOrbY = this.canvas.height - padding - manaOrbRadius;
+      // Clamp mana orb so it doesn't overflow off the right/bottom edges
+      manaOrbX = Math.max(manaOrbRadius + edgePad, Math.min(this.canvas.width - manaOrbRadius - edgePad, manaOrbX));
+      manaOrbY = Math.max(manaOrbRadius + edgePad, Math.min(this.canvas.height - manaOrbRadius - edgePad, manaOrbY));
       ctx.beginPath();
       ctx.arc(manaOrbX, manaOrbY, manaOrbRadius, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(0,0,0,0.6)';
