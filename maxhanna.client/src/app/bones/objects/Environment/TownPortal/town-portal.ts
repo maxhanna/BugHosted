@@ -8,6 +8,7 @@ import { FrameIndexPattern } from "../../../helpers/frame-index-pattern";
 import { Animations } from "../../../helpers/animations"; 
 import { PORTAL_ANIMATION } from "./town-portal-animations";
 import { ColorSwap } from "../../../../../services/datacontracts/meta/color-swap";
+import { Hero } from "../../Hero/hero";
   
 
 export class TownPortal extends GameObject {
@@ -54,9 +55,10 @@ export class TownPortal extends GameObject {
   }
 
   override ready() {  
-    events.on("HERO_REQUESTS_ACTION", this, (params: { hero: any, objectAtPosition: any }) => {
+    events.on("HERO_REQUESTS_ACTION", this, (params: { hero: Hero, objectAtPosition: any }) => {
       console.log('HERO_REQUESTS_ACTION received in TownPortal', params);  
-      if (!this.heroLocation || !this.heroLocation.matches(this.position)) {
+      const heroLoc = params.hero.position;
+      if (!heroLoc || !heroLoc.matches(this.position)) {
         return
       }
         const data: any = (this as any).serverData ?? (this as any).data ?? undefined;
