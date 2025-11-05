@@ -88,6 +88,39 @@ export class Level extends GameObject {
   }
 
   /**
+   * Place a repeating top border along the top edge of a tiled floor area.
+   * The border will be centered horizontally at `center`, span `tilesX` tiles,
+   * and each border tile uses `borderResource` with width `tileWidth` and height `borderHeight`.
+   * Returns created Sprite instances.
+   */
+  tileFloorTopBorder(center: Vector2, tilesX: number, tileWidth: number, borderHeight: number, borderResource: Resource, opts?: { drawLayer?: typeof BASE | string, startObjectId?: number }) : Sprite[] {
+    const drawLayer = opts?.drawLayer ?? BASE;
+    let nextId = opts?.startObjectId ?? Math.floor(Math.random() * 10000) * -1;
+
+    const centerTileX = Math.round(center.x / gridCells(1));
+    const startTileX = centerTileX - Math.floor(tilesX / 2);
+    const tileStartX = gridCells(startTileX);
+
+    const created: Sprite[] = [];
+    for (let rx = 0; rx < tilesX; rx++) {
+      const xPos = tileStartX + tileWidth * rx;
+      const yPos = center.y - borderHeight / 2 - (gridCells(1) * 0); // place at top edge relative to center; caller can adjust center.y as needed
+      const borderTile = new Sprite({
+        objectId: nextId--,
+        resource: borderResource,
+        discoverable: false,
+        position: new Vector2(xPos, yPos),
+        frameSize: new Vector2(tileWidth, borderHeight),
+        drawLayer: drawLayer as any,
+      });
+      created.push(borderTile);
+      this.addChild(borderTile);
+    }
+
+    return created;
+  }
+
+  /**
    * Add a background layer.
    * @param image any drawable (Image, HTMLCanvasElement, etc.)
    * @param parallax 0..1 (0 = static, 1 = moves with camera). Values >1 produce foreground-like motion.
