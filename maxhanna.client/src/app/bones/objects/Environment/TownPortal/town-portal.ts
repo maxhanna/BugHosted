@@ -57,7 +57,7 @@ export class TownPortal extends GameObject {
   override ready() {  
     events.on("HERO_REQUESTS_ACTION", this, (params: { hero: Hero, objectAtPosition: any }) => {
       console.log('HERO_REQUESTS_ACTION received in TownPortal', params);  
-      let heroLoc = params.hero.position; 
+      let heroLoc = params.hero.position.duplicate(); 
       heroLoc.x = snapToGrid(heroLoc.x, gridCells(1));
       heroLoc.y = snapToGrid(heroLoc.y, gridCells(1));
       let tmpPosition = this.position.duplicate();
