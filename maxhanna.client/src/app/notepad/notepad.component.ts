@@ -32,6 +32,12 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   splitNoteOwnershipUsers: User[] = [];
   // Polling timer id for shared note refresh
   private sharedNotePollTimer?: any;
+  // Auto-sync timer id for periodic sync prompting
+  private autoSyncTimer?: any;
+  // Auto-sync interval (1 minute)
+  private readonly AUTOSYNC_INTERVAL_MS = 60 * 1000;
+  // Whether the auto-sync prompt panel is visible
+  showAutoSyncPrompt: boolean = false;
   // Poll interval in ms
   private readonly SHARED_NOTE_POLL_INTERVAL = 5000;
   // Timestamp when the selected note was last auto-synced from server
@@ -46,10 +52,12 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
       this.search();
     }
     this.clearInputs();
+    this.startAutoSync();
   }
   ngOnDestroy() { 
     // stop polling when component is destroyed
     this.stopSharedNotePolling();
+    this.stopAutoSync();
     this.parentRef?.removeResizeListener();
   }
   clearInputs() {
@@ -267,5 +275,68 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
 
   private setLastSynced(d: Date) {
     this.lastSyncedAt = d; 
+  }
+
+  // Auto-sync helpers
+  private startAutoSync() {
+    try {
+      this.stopAutoSync();
+      this.autoSyncTimer = setInterval(() => {
+        this.attemptAutoSync();
+      }, this.AUTOSYNC_INTERVAL_MS);
+    } catch { }
+  }
+
+  private stopAutoSync() {
+    try {
+      if (this.autoSyncTimer) {
+        clearInterval(this.autoSyncTimer);
+        this.autoSyncTimer = undefined;
+      }
+    } catch { }
+  }
+
+  private async attemptAutoSync() {
+    try {
+      if (!this.selectedNote || !this.noteInput || !this.parentRef?.user?.id) return;
+      // If input differs from last-synced server note, prompt the user to save
+      const localText = (this.noteInput.nativeElement.value ?? '').toString();
+      const serverText = (this.selectedNote.note ?? '').toString();
+      if (localText.trim() !== serverText.trim()) {
+        // show panel offering to save before syncing
+        try { this.showAutoSyncPrompt = true; this.parentRef?.showOverlay(); } catch { this.showAutoSyncPrompt = true; }
+      } else {
+        // no local changes, safe to fetch latest silently
+        await this.fetchLatestSelectedNote();
+        this.setLastSynced(new Date());
+      }
+    } catch (err) { console.error('Auto-sync attempt failed', err); }
+  }
+
+  // User chose to save before auto-sync
+  async autoSyncSaveNow() {
+    try {
+      // Save current note (addNote handles create vs update)
+      await this.addNote();
+      // After save, refresh selected note from server to ensure canonical state
+      await this.fetchLatestSelectedNote();
+      this.setLastSynced(new Date());
+    } catch (err) { console.error('Auto-sync save failed', err); }
+    this.dismissAutoSyncPrompt();
+  }
+
+  // User chose to skip saving and let server overwrite local content
+  async autoSyncDontSave() {
+    try {
+      await this.fetchLatestSelectedNote();
+      this.setLastSynced(new Date());
+    } catch (err) { console.error('Auto-sync fetch failed', err); }
+    this.dismissAutoSyncPrompt();
+  }
+
+  // User cancelled the auto-sync prompt (do nothing now)
+  dismissAutoSyncPrompt() {
+    try { this.showAutoSyncPrompt = false; } catch { this.showAutoSyncPrompt = false; }
+    try { this.parentRef?.closeOverlay(); } catch { }
   }
 }

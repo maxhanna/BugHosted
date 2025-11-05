@@ -22,6 +22,19 @@
     </app-user-list>
   </div>
 
+  <!-- Auto-sync prompt: offer to save before the automatic sync runs -->
+  <div class="popupPanel" *ngIf="showAutoSyncPrompt">
+    <div class="popupPanelTitle">Auto-sync</div>
+    <div style="padding:12px;">
+      Your current note has unsaved changes. Would you like to save before syncing with the server?
+    </div>
+    <div style="display:flex; gap:8px; padding:12px; justify-content:flex-end;">
+      <button (click)="autoSyncSaveNow()">Save & Sync</button>
+      <button (click)="autoSyncDontSave()">Don't Save (Sync)</button>
+      <button (click)="dismissAutoSyncPrompt()">Cancel</button>
+    </div>
+  </div>
+
 
   <textarea #noteInput class="noteInputTextArea" (input)="handleNoteInputChange()" required></textarea>
   <fieldset class="buttonFields">
