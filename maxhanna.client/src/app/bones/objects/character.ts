@@ -226,6 +226,7 @@ export class Character extends GameObject {
     
   if (input && typeof (input as any).getSemanticActionJustPressed === 'function' && ((input as any).getSemanticActionJustPressed("SPACE") || (input as any).getSemanticActionJustPressed("A")) && this.isUserControlled && !this.isBackgroundSelectionLocked) {
       const objectAtPosition = isObjectNearby(this);
+      console.log(objectAtPosition);
       if (objectAtPosition) {
         events.emit("HERO_REQUESTS_ACTION", { hero: this, objectAtPosition: objectAtPosition });
       }
