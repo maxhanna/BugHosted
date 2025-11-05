@@ -50,11 +50,7 @@ export class TownPortal extends GameObject {
     body?.animations?.play("portalAnimation");
     // Play portal sound once; include a safeguard stop in case the audio element loops or stalls
     
-    resources.playSound('portalNoise', { allowOverlap: false, loop: false });
-    
-    setTimeout(() => {
-      resources.stopSound('portalNoise');  
-    }, 5000); 
+    resources.playSound('portalNoise', { allowOverlap: false, loop: false }); 
   }
 
   override ready() {  
