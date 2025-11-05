@@ -407,7 +407,7 @@ export function isObjectNearby(playerOrObject: any) {
 			child.position.y <= neighborPosition.y + discrepancy;
 
 		return (
-			((!isEncounter(child)) || child.textContent) &&
+			// ((!isSprite(child) && !isEncounter(child)) || child.textContent) &&
 			(isAtBasePosition || isAtNeighborPosition)
 		);
 	}) ?? [];
