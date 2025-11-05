@@ -389,7 +389,7 @@ export function isObjectNearby(playerOrObject: any) {
 			: basePosition;
 
 	// Define the discrepancy value
-	const discrepancy = 0;
+	const discrepancy = 40;
 
 	// Get nearby objects - check both base position and neighbor position
 	const possibilities = playerOrObject.parent?.children?.filter((child: GameObject) => {
