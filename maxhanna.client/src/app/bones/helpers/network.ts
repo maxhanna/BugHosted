@@ -973,6 +973,23 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
         }
       }
       const color = ptcolor ? new ColorSwap([0, 160, 200], hexToRgb(ptcolor)) : undefined;
+      // Reuse existing portal marker if present to avoid recreation on each fetch
+      try { if (!(object as any)._townPortalsMap) (object as any)._townPortalsMap = new Map<number, any>(); } catch { }
+      const townMap = (object as any)._townPortalsMap as Map<number, any> | undefined;
+      if (townMap && townMap.has(id)) {
+        const existing = townMap.get(id);
+        try {
+          // Update server data and creator id if changed
+          try { (existing as any).serverData = typeof it.data === 'object' ? it.data : ((it.data && typeof it.data === 'string') ? JSON.parse(it.data) : (it.data ?? {})); } catch { }
+          try { (existing as any).serverCreatorHeroId = Number(it.creatorHeroId ?? it.creator_hero_id ?? it.heroId ?? it.creator ?? it.creatorId ?? it.ownerId ?? it.createdBy ?? it.hero_id ?? undefined); } catch { }
+          // Update position if changed
+          try { if (existing.position && typeof existing.position.x === 'number') { existing.position.x = Number(x); existing.position.y = Number(y); existing.destinationPosition = existing.position.duplicate ? existing.position.duplicate() : existing.position; } } catch { }
+          // Update name/label if different
+          try { if (existing.name !== label) { existing.name = label; existing.forceDrawName = true; } } catch { }
+        } catch { }
+        return { id, portalMarker: existing };
+      }
+
       const portalMarker = new TownPortal({ position: new Vector2(x, y), label: label, colorSwap: color });
       try { (portalMarker as any).serverPortalId = id; } catch { }
       // Parse server data
