@@ -2,7 +2,7 @@ import { Vector2 } from "../../../../../services/datacontracts/bones/vector2";
 import { Sprite } from "../../sprite";
 import { resources } from "../../../helpers/resources";
 import { FLOOR, GameObject, HUD } from "../../game-object";
-import { snapToGrid } from "../../../helpers/grid-cells";
+import { gridCells, snapToGrid } from "../../../helpers/grid-cells";
 import { events } from "../../../helpers/events";
 import { FrameIndexPattern } from "../../../helpers/frame-index-pattern";
 import { Animations } from "../../../helpers/animations"; 
@@ -57,8 +57,13 @@ export class TownPortal extends GameObject {
   override ready() {  
     events.on("HERO_REQUESTS_ACTION", this, (params: { hero: Hero, objectAtPosition: any }) => {
       console.log('HERO_REQUESTS_ACTION received in TownPortal', params);  
-      const heroLoc = params.hero.position; 
-      if (!heroLoc || !heroLoc.matches(this.position)) {
+      let heroLoc = params.hero.position; 
+      heroLoc.x = snapToGrid(heroLoc.x, gridCells(1));
+      heroLoc.y = snapToGrid(heroLoc.y, gridCells(1));
+      let tmpPosition = this.position.duplicate();
+      tmpPosition.x = snapToGrid(tmpPosition.x, gridCells(1));
+      tmpPosition.y = snapToGrid(tmpPosition.y, gridCells(1));
+      if (!heroLoc || !heroLoc.matches(tmpPosition)) {
         return
       }
         const data: any = (this as any).serverData ?? (this as any).data ?? undefined;
