@@ -23,12 +23,11 @@ export class RoadToCitadelOfVesper extends Level {
       this.itemsFound = params.itemsFound;
     }
 
-    this.addBackgroundLayer(resources.images["ruinsBgFar"], /*parallax=*/0.5, new Vector2(-200, gridCells(4)), /*repeat=*/true, /*scale=*/1, /*direction=*/'LEFT');
-    this.addBackgroundLayer(resources.images["ruinsBgMedium"], /*parallax=*/0.4, new Vector2(-400, gridCells(2)), /*repeat=*/true, /*scale=*/1, /*direction=*/'RIGHT');
-    this.addBackgroundLayer(resources.images["ruinsBgClose"], /*parallax=*/0.4, new Vector2(-400, gridCells(2)), /*repeat=*/true, /*scale=*/1, /*direction=*/'RIGHT');
- 
-    const roomWidth = 50; // tiles horizontally
-    const roomHeight = 11; // tiles vertically 
+    this.addBackgroundLayer(resources.images["ruinsBgFar"], /*parallax=*/0.25, new Vector2(-200, gridCells(2)), /*repeat=*/false, /*scale=*/1, /*direction=*/'RIGHT');
+    this.addBackgroundLayer(resources.images["ruinsBgMedium"], /*parallax=*/0.5, new Vector2(-200, gridCells(2)), /*repeat=*/false, /*scale=*/1, /*direction=*/'RIGHT');
+    this.addBackgroundLayer(resources.images["ruinsBgClose"], /*parallax=*/1, new Vector2(-200, gridCells(2)), /*repeat=*/false, /*scale=*/1, /*direction=*/'RIGHT');
+    const roomWidth = 30; // tiles horizontally
+    const roomHeight = 2; // tiles vertically 
     this.tileFloor(new Vector2(gridCells(0), gridCells(-1)), roomWidth, roomHeight, 80, 80, resources.images["ruinsFloorTile"], { drawLayer: BASE, startObjectId: -1000 });
     this.tileFloorTopBorder(new Vector2(gridCells(0), gridCells(-4)), roomWidth, 80, 20, resources.images["ruinsFloorBorder"], { drawLayer: BASE, startObjectId: -1000 });
     for (let x = 0; x < roomWidth; x++) {
