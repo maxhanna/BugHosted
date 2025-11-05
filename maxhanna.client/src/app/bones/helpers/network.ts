@@ -978,7 +978,7 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
       const townMap = (object as any)._townPortalsMap as Map<number, any> | undefined;
       if (townMap && townMap.has(id)) {
         const existing = townMap.get(id);
-        try {
+        
           // Update server data and creator id if changed
           try { (existing as any).serverData = typeof it.data === 'object' ? it.data : ((it.data && typeof it.data === 'string') ? JSON.parse(it.data) : (it.data ?? {})); } catch { }
           try { (existing as any).serverCreatorHeroId = Number(it.creatorHeroId ?? it.creator_hero_id ?? it.heroId ?? it.creator ?? it.creatorId ?? it.ownerId ?? it.createdBy ?? it.hero_id ?? undefined); } catch { }
@@ -986,7 +986,7 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
           try { if (existing.position && typeof existing.position.x === 'number') { existing.position.x = Number(x); existing.position.y = Number(y); existing.destinationPosition = existing.position.duplicate ? existing.position.duplicate() : existing.position; } } catch { }
           // Update name/label if different
           try { if (existing.name !== label) { existing.name = label; existing.forceDrawName = true; } } catch { }
-        } catch { }
+       
         return { id, portalMarker: existing };
       }
 
