@@ -23,12 +23,13 @@ export class RoadToCitadelOfVesper extends Level {
       this.itemsFound = params.itemsFound;
     }
 
-    this.addBackgroundLayer(resources.images["townbg"], /*parallax=*/0, new Vector2(0, 0), /*repeat=*/false, /*scale=*/1, /*direction=*/'LEFT');
-    this.addBackgroundLayer(resources.images["townbg2"], /*parallax=*/0.4, new Vector2(-400, 16), /*repeat=*/false, /*scale=*/1, /*direction=*/'RIGHT');
+    this.addBackgroundLayer(resources.images["ruinsBgFar"], /*parallax=*/0, new Vector2(0, 0), /*repeat=*/false, /*scale=*/1, /*direction=*/'RIGHT');
+    this.addBackgroundLayer(resources.images["ruinsBgMedium"], /*parallax=*/0.4, new Vector2(-400, 16), /*repeat=*/true, /*scale=*/1, /*direction=*/'LEFT');
+    this.addBackgroundLayer(resources.images["ruinsBgClose"], /*parallax=*/0.4, new Vector2(-400, 16), /*repeat=*/true, /*scale=*/1, /*direction=*/'LEFT');
  
     const roomWidth = 50; // tiles horizontally
     const roomHeight = 11; // tiles vertically 
-    this.tileFloor(new Vector2(gridCells(0), gridCells(-1)), roomWidth, roomHeight, 40, 40, resources.images["brickstile"], { drawLayer: BASE, startObjectId: -1000 });
+    this.tileFloor(new Vector2(gridCells(0), gridCells(-1)), roomWidth, roomHeight, 80, 80, resources.images["ruinsFloorTile"], { drawLayer: BASE, startObjectId: -1000 });
 
     // Explicitly declare each encounter so they always appear (no loop)
     const encA = new Encounter({ id: -999997, position: new Vector2(gridCells(3), gridCells(4)), possibleEnemies: ["skeleton"], moveLeftRight: 0, moveUpDown: 0 });
@@ -63,7 +64,7 @@ export class RoadToCitadelOfVesper extends Level {
       const targetMap = payload?.targetMap ?? undefined;
       if (!targetMap || targetMap === 'CitadelOfVesper') {
         // Entering CitadelOfVesper from the road should place hero at the citadel's forward exit (18,1)
-        events.emit("CHANGE_LEVEL", new CitadelOfVesper({ heroPosition: new Vector2(gridCells(18), gridCells(1)), itemsFound: this.itemsFound }));
+        events.emit("CHANGE_LEVEL", new CitadelOfVesper({ heroPosition: new Vector2(gridCells(2), gridCells(1)), itemsFound: this.itemsFound }));
       } else if (targetMap === 'HeroRoom') {
         // Entering HeroRoom from this road should land at (2,2)
         events.emit("CHANGE_LEVEL", new HeroRoomLevel({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
