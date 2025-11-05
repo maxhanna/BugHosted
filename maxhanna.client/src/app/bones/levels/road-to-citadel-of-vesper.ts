@@ -23,9 +23,9 @@ export class RoadToCitadelOfVesper extends Level {
       this.itemsFound = params.itemsFound;
     }
 
-    this.addBackgroundLayer(resources.images["ruinsBgFar"], /*parallax=*/0, new Vector2(0, 0), /*repeat=*/false, /*scale=*/1, /*direction=*/'RIGHT');
-    this.addBackgroundLayer(resources.images["ruinsBgMedium"], /*parallax=*/0.4, new Vector2(-400, gridCells(2)), /*repeat=*/true, /*scale=*/1, /*direction=*/'LEFT');
-    this.addBackgroundLayer(resources.images["ruinsBgClose"], /*parallax=*/0.4, new Vector2(-400, gridCells(2)), /*repeat=*/true, /*scale=*/1, /*direction=*/'LEFT');
+    this.addBackgroundLayer(resources.images["ruinsBgFar"], /*parallax=*/0.5, new Vector2(0, 0), /*repeat=*/false, /*scale=*/1, /*direction=*/'LEFT');
+    this.addBackgroundLayer(resources.images["ruinsBgMedium"], /*parallax=*/0.4, new Vector2(-400, gridCells(2)), /*repeat=*/true, /*scale=*/1, /*direction=*/'RIGHT');
+    this.addBackgroundLayer(resources.images["ruinsBgClose"], /*parallax=*/0.4, new Vector2(-400, gridCells(2)), /*repeat=*/true, /*scale=*/1, /*direction=*/'RIGHT');
  
     const roomWidth = 50; // tiles horizontally
     const roomHeight = 11; // tiles vertically 
