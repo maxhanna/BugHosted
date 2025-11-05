@@ -55,21 +55,10 @@ export class TownPortal extends GameObject {
 
   override ready() {  
     events.on("HERO_REQUESTS_ACTION", this, (params: { hero: any, objectAtPosition: any }) => {
-      console.log('HERO_REQUESTS_ACTION received in TownPortal', params);
-      try {
-        if (!params || !params.objectAtPosition) {
-          return;
-        } 
-        const targetId = params.objectAtPosition.id ?? params.objectAtPosition.objectId ?? params.objectAtPosition?.id;
-        if (targetId === undefined || targetId === null) return;
-        if (Number(targetId) !== Number(this.id)) {
-          return;
-        } 
-        const currentMap = this.parent?.name ?? undefined;
-        if (!currentMap) {
-          return;
-        }
-
+      console.log('HERO_REQUESTS_ACTION received in TownPortal', params);  
+      if (!this.heroLocation || !this.heroLocation.matches(this.position)) {
+        return
+      }
         const data: any = (this as any).serverData ?? (this as any).data ?? undefined;
         let originMapRaw: any = data ? (data.originMap ?? data.map) : undefined;
         if (Array.isArray(originMapRaw)) {
@@ -90,9 +79,7 @@ export class TownPortal extends GameObject {
           portalId: ((this as any).serverPortalId !== undefined && (this as any).serverPortalId !== null) ? Number((this as any).serverPortalId) : undefined,
         };
         events.emit("ENTER_TOWN_PORTAL", payload);
-      } catch (ex) {
-        console.warn('HERO_REQUESTS_ACTION handler failed for TownPortal', ex);
-      }
+      
     });
   }
 }
