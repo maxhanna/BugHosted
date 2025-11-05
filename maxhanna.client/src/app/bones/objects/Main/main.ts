@@ -41,8 +41,8 @@ export class Main extends GameObject {
 
 		//LAUNCH TEXT BOX HANDLER
 		events.on("HERO_REQUESTS_ACTION", this, (params: { hero: any, objectAtPosition: any }) => {
-			if (typeof params.objectAtPosition.getContent === "function") {
-				const content = params.objectAtPosition.getContent();
+			if (typeof params.objectAtPosition?.getContent === "function") {
+				const content = params.objectAtPosition?.getContent();
 				if (!content) {
 					return;
 				}

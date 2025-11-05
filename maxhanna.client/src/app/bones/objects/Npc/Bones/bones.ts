@@ -77,7 +77,7 @@ export class Bones extends Npc {
 
   override ready() {
     events.on("HERO_REQUESTS_ACTION", this, (params: { hero: any, objectAtPosition: any }) => {
-      if (params.objectAtPosition.id !== this.id) return;
+      if (params.objectAtPosition?.id !== this.id) return;
 
       // Face the player as before
       this.facePlayer(params);

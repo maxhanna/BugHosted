@@ -46,7 +46,7 @@ export class DroppedItem extends GameObject {
       }, 60000);
     }
     events.on("HERO_REQUESTS_ACTION", this, (params: { hero: any, objectAtPosition: any }) => {
-      if (params.objectAtPosition.id === this.id && params.objectAtPosition.item) {   
+      if (params.objectAtPosition?.id === this.id && params.objectAtPosition?.item) {   
         if (this.item && this.item.category) {
           console.log(this.item);
           events.emit("ITEM_PURCHASED", this.item);
