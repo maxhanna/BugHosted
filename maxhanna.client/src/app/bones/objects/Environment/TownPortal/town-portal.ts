@@ -57,7 +57,7 @@ export class TownPortal extends GameObject {
   override ready() {  
     events.on("HERO_REQUESTS_ACTION", this, (params: { hero: Hero, objectAtPosition: any }) => {
       console.log('HERO_REQUESTS_ACTION received in TownPortal', params);  
-      const heroLoc = params.hero.position;
+      const heroLoc = params.hero.position; 
       if (!heroLoc || !heroLoc.matches(this.position)) {
         return
       }
