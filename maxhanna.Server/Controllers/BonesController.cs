@@ -3123,7 +3123,7 @@ ORDER BY p.created DESC;";
 				var partyIds = await GetPartyMemberIds(killerHeroId, connection, transaction);
 				if (partyIds.Count == 0) partyIds.Add(killerHeroId);
 				// Debug: log who will receive EXP and how much
-				//await _log.Db($"AwardEncounterKillExp: killer={killerHeroId} encounterLevel={encounterLevel} party=[{string.Join(',', partyIds)}]", killerHeroId, "BONES", true);
+				await _log.Db($"AwardEncounterKillExp: killer={killerHeroId} encounterLevel={encounterLevel} party=[{string.Join(',', partyIds)}]", killerHeroId, "BONES", true);
 				string idsCsv = string.Join(',', partyIds);
 				string updateSql = $"UPDATE maxhanna.bones_hero SET exp = exp + @Exp WHERE id IN ({idsCsv})";
 				using (var upCmd = new MySqlCommand(updateSql, connection, transaction))
