@@ -728,7 +728,7 @@ ORDER BY p.created DESC;";
 							hasHit = true;
 						}
 					}
-					if (!(isRegularSingleTarget && hasHit))
+					if ((isRegularSingleTarget && !hasHit) || !isRegularSingleTarget)
 					{
 						// Select victims within AoE (respect party exclusion) and apply damage per-victim using centralized helper
 						string selectHeroesSql = $@"SELECT id FROM maxhanna.bones_hero h WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax AND h.id <> @AttackerId AND NOT EXISTS (
@@ -751,8 +751,8 @@ ORDER BY p.created DESC;";
 
 						// Compute attacker damage once: baseDamage now equals attack_dmg + attacker level
 						// Normalize critRate to a 0..1 probability (support values stored as percentages >1)
-						 
- 						foreach (var victimId in victims)
+
+						foreach (var victimId in victims)
 						{
 							try
 							{
@@ -762,58 +762,59 @@ ORDER BY p.created DESC;";
 							{
 								await _log.Db("ApplyDamageToHero failed for victim " + victimId + ": " + exVict.Message, victimId, "BONES", true);
 							}
+							hasHit = true;
 						}
-
-						if (rows > 0)
+					}
+					
+					if (hasHit)
+					{
+						string selectDeadSql = @"SELECT hero_id, `level`, hp FROM maxhanna.bones_encounter WHERE map = @Map AND hp = 0 AND (awarded IS NULL OR awarded = 0) AND last_killed IS NOT NULL AND last_killed >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND) AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax;";
+						using var deadCmd = new MySqlCommand(selectDeadSql, connection, transaction);
+						deadCmd.Parameters.AddWithValue("@Map", hero?.Map ?? string.Empty);
+						deadCmd.Parameters.AddWithValue("@XMin", xMin);
+						deadCmd.Parameters.AddWithValue("@XMax", xMax);
+						deadCmd.Parameters.AddWithValue("@YMin", yMin);
+						deadCmd.Parameters.AddWithValue("@YMax", yMax);
+						using var deadRdr = await deadCmd.ExecuteReaderAsync();
+						var deadEncounters = new List<(int encId, int encLevel)>();
+						while (await deadRdr.ReadAsync())
 						{
-							string selectDeadSql = @"SELECT hero_id, `level`, hp FROM maxhanna.bones_encounter WHERE map = @Map AND hp = 0 AND (awarded IS NULL OR awarded = 0) AND last_killed IS NOT NULL AND last_killed >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND) AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax;";
-							using var deadCmd = new MySqlCommand(selectDeadSql, connection, transaction);
-							deadCmd.Parameters.AddWithValue("@Map", hero?.Map ?? string.Empty);
-							deadCmd.Parameters.AddWithValue("@XMin", xMin);
-							deadCmd.Parameters.AddWithValue("@XMax", xMax);
-							deadCmd.Parameters.AddWithValue("@YMin", yMin);
-							deadCmd.Parameters.AddWithValue("@YMax", yMax);
-							using var deadRdr = await deadCmd.ExecuteReaderAsync();
-							var deadEncounters = new List<(int encId, int encLevel)>();
-							while (await deadRdr.ReadAsync())
-							{
-								int encLevel = deadRdr.IsDBNull(deadRdr.GetOrdinal("level")) ? 0 : deadRdr.GetInt32(deadRdr.GetOrdinal("level"));
-								int encId = deadRdr.GetInt32(deadRdr.GetOrdinal("hero_id"));
-								deadEncounters.Add((encId, encLevel));
-							}
-							deadRdr.Close();
-							// Now award EXP after the reader is closed to avoid using the same connection with an open reader
-							var awarded = new HashSet<int>();
-							foreach (var d in deadEncounters)
-							{
-								if (!awarded.Contains(d.encId))
-								{
-									await AwardEncounterKillExp(sourceHeroId, d.encLevel, connection, transaction);
-
-									int dropX = targetX;
-									int dropY = targetY;
-									string selEncCoords = "SELECT coordsX, coordsY FROM maxhanna.bones_encounter WHERE hero_id = @EncId LIMIT 1;";
-									using var coordCmd = new MySqlCommand(selEncCoords, connection, transaction);
-									coordCmd.Parameters.AddWithValue("@EncId", d.encId);
-									using var coordR = await coordCmd.ExecuteReaderAsync();
-									if (await coordR.ReadAsync())
-									{
-										dropX = coordR.IsDBNull(0) ? dropX : coordR.GetInt32(0);
-										dropY = coordR.IsDBNull(1) ? dropY : coordR.GetInt32(1);
-									}
-									coordR.Close();
-
-									await SpawnDroppedItem(d.encId, d.encLevel, dropX, dropY, hero?.Map ?? string.Empty, connection, transaction);
-
-									string finalizeSql = @"UPDATE maxhanna.bones_encounter SET awarded = 1, coordsX = -1000, coordsY = -1000, target_hero_id = 0 WHERE hero_id = @EncId LIMIT 1;";
-									var finalizeParams = new Dictionary<string, object?>() { { "@EncId", d.encId } };
-									await ExecuteInsertOrUpdateOrDeleteAsync(finalizeSql, finalizeParams, connection, transaction);
-
-									awarded.Add(d.encId);
-								}
-							}
-
+							int encLevel = deadRdr.IsDBNull(deadRdr.GetOrdinal("level")) ? 0 : deadRdr.GetInt32(deadRdr.GetOrdinal("level"));
+							int encId = deadRdr.GetInt32(deadRdr.GetOrdinal("hero_id"));
+							deadEncounters.Add((encId, encLevel));
 						}
+						deadRdr.Close();
+						// Now award EXP after the reader is closed to avoid using the same connection with an open reader
+						var awarded = new HashSet<int>();
+						foreach (var d in deadEncounters)
+						{
+							if (!awarded.Contains(d.encId))
+							{
+								await AwardEncounterKillExp(sourceHeroId, d.encLevel, connection, transaction);
+
+								int dropX = targetX;
+								int dropY = targetY;
+								string selEncCoords = "SELECT coordsX, coordsY FROM maxhanna.bones_encounter WHERE hero_id = @EncId LIMIT 1;";
+								using var coordCmd = new MySqlCommand(selEncCoords, connection, transaction);
+								coordCmd.Parameters.AddWithValue("@EncId", d.encId);
+								using var coordR = await coordCmd.ExecuteReaderAsync();
+								if (await coordR.ReadAsync())
+								{
+									dropX = coordR.IsDBNull(0) ? dropX : coordR.GetInt32(0);
+									dropY = coordR.IsDBNull(1) ? dropY : coordR.GetInt32(1);
+								}
+								coordR.Close();
+
+								await SpawnDroppedItem(d.encId, d.encLevel, dropX, dropY, hero?.Map ?? string.Empty, connection, transaction);
+
+								string finalizeSql = @"UPDATE maxhanna.bones_encounter SET awarded = 1, coordsX = -1000, coordsY = -1000, target_hero_id = 0 WHERE hero_id = @EncId LIMIT 1;";
+								var finalizeParams = new Dictionary<string, object?>() { { "@EncId", d.encId } };
+								await ExecuteInsertOrUpdateOrDeleteAsync(finalizeSql, finalizeParams, connection, transaction);
+
+								awarded.Add(d.encId);
+							}
+						}
+
 					}
 				}
 
