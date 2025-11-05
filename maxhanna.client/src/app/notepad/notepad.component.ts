@@ -38,6 +38,8 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   private readonly AUTOSYNC_INTERVAL_MS = 60 * 1000;
   // Whether the auto-sync prompt panel is visible
   showAutoSyncPrompt: boolean = false;
+  // Whether the user has unsaved edits in the current textarea
+  private noteDirty: boolean = false;
   // Poll interval in ms
   private readonly SHARED_NOTE_POLL_INTERVAL = 5000;
   // Timestamp when the selected note was last auto-synced from server
@@ -69,10 +71,12 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     this.deleteNoteButton.nativeElement.style.display = "none";
     // stop any polling when inputs are cleared
     this.stopSharedNotePolling();
+    this.noteDirty = false;
   }
   handleNoteInputChange() {
     this.noteAddButton.nativeElement.disabled = false;
     this.noteInputValue = this.noteInput.nativeElement.value.trim();
+    this.noteDirty = true;
   }
   async getUsers() {
     this.users = await this.userService.getAllUsers(this.parentRef?.user?.id);
@@ -143,6 +147,7 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
       }
       this.isPanelExpanded = false;
       this.selectedNote = res;
+  this.noteDirty = false;
       this.splitNoteOwnership();  
       this.newNoteButton.nativeElement.style.display = "inline-block";
       this.shareNoteButton.nativeElement.style.display = "inline-block";
@@ -194,6 +199,7 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
       console.error(e);
     }
     this.parentRef?.showNotification(`Note saved.`);
+    this.noteDirty = false;
     this.getNotepad();
   }
   async deleteNote() {
@@ -299,11 +305,8 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   private async attemptAutoSync() {
     try {
       if (!this.selectedNote || !this.noteInput || !this.parentRef?.user?.id) return;
-      // If input differs from last-synced server note, prompt the user to save
-      const localText = (this.noteInput.nativeElement.value ?? '').toString();
-      const serverText = (this.selectedNote.note ?? '').toString();
-      if (localText.trim() !== serverText.trim()) {
-        // show panel offering to save before syncing
+      // Only show the prompt if the user actually made local changes
+      if (this.noteDirty) {
         try { this.showAutoSyncPrompt = true; this.parentRef?.showOverlay(); } catch { this.showAutoSyncPrompt = true; }
       } else {
         // no local changes, safe to fetch latest silently
