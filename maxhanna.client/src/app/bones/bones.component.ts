@@ -71,6 +71,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   metaHero: MetaHero;
   hero?: Hero;
   otherHeroes: MetaHero[] = [];
+  // Track last-known HP per hero id so we can detect HP drops and play impact SFX
+  private _lastKnownHeroHp: Map<number, number> = new Map<number, number>();
   partyMembers: { heroId: number, name: string, color?: string, type?: string }[] = [];
   chat: MetaChat[] = [];
   events: MetaEvent[] = [];
@@ -1053,7 +1055,31 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.setUpdatedHeroPosition(existingHero, heroMeta);
 
         // Visual attributes from server meta
-        existingHero.hp = heroMeta.hp ?? existingHero.hp;
+        // Detect HP drops for non-local heroes and play attenuated impact sound
+        const prevHpForThis = this._lastKnownHeroHp.get(heroMeta.id);
+        const newHpVal = (heroMeta.hp !== undefined && heroMeta.hp !== null) ? Number(heroMeta.hp) : existingHero.hp;
+        if (prevHpForThis !== undefined && typeof prevHpForThis === 'number' && typeof newHpVal === 'number' && newHpVal < prevHpForThis) {
+          try {
+            // Determine positions for attenuation
+            const attackerPos = (heroMeta.position && typeof heroMeta.position.x === 'number' && typeof heroMeta.position.y === 'number') ? new Vector2(heroMeta.position.x, heroMeta.position.y) : existingHero.position;
+            const myPos = (this.hero && this.hero.position) ? this.hero.position : (this.metaHero && this.metaHero.position) ? this.metaHero.position : undefined;
+            const maxAudible = 800;
+            const globalVol = (this.currentVolume ?? 1);
+            let vol = globalVol;
+            if (attackerPos && myPos) {
+              const dx = attackerPos.x - myPos.x;
+              const dy = attackerPos.y - myPos.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              const t = Math.max(0, Math.min(1, dist / maxAudible));
+              vol = Math.max(0.05 * globalVol, globalVol * (1 - t));
+            }
+            resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true });
+          } catch (err) { console.warn('Failed playing hero impact sound', err); }
+        }
+
+        // store new HP on sprite and for tracking
+        existingHero.hp = newHpVal ?? existingHero.hp;
+        try { this._lastKnownHeroHp.set(heroMeta.id, Number(existingHero.hp ?? 0)); } catch { }
         existingHero.level = heroMeta.level ?? existingHero.level;
         existingHero.exp = heroMeta.exp ?? existingHero.exp;
         if (existingHero.hp > 0) {
@@ -1113,7 +1139,15 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
       ids.push(heroMeta.id);
     }
-    if (forceChangeMap) {
+      // Remove any tracked HP entries for heroes no longer present
+      try {
+        const currentIds = new Set<number>(ids);
+        for (const k of Array.from(this._lastKnownHeroHp.keys())) {
+          if (!currentIds.has(k)) this._lastKnownHeroHp.delete(k);
+        }
+      } catch { }
+
+      if (forceChangeMap) {
       events.emit("CHANGE_LEVEL", this.getLevelFromLevelName(this.metaHero.map ?? "HEROROOM"));
     } else {
       // Remove any old hero sprites no longer present
