@@ -1642,6 +1642,27 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpGet("/Social/GetStoryById/{id}", Name = "GetStoryById")]
+		public async Task<IActionResult> GetStoryById(int id)
+		{
+			try
+			{
+				// Call internal helper with UserId = 0 so server-side user-based blocking filters are not applied
+				var request = new GetStoryRequest { UserId = 0, StoryId = id };
+				var stories = await GetStoriesAsync(request, null, null, 1, 1, false, ShowPostsFrom.All);
+				if (stories?.Stories != null && stories.Stories.Count > 0)
+				{
+					return Ok(stories.Stories[0]);
+				}
+				return NotFound();
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while fetching story by id." + ex.Message, id, "SOCIAL", true);
+				return StatusCode(500, "An error occurred while fetching story.");
+			}
+		}
+
 		[HttpPost("/Social/SetMetadata")]
 		public async Task<IActionResult> SetMetadata([FromBody] MetadataRequest request, int? storyId)
 		{

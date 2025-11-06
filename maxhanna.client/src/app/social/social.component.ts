@@ -131,16 +131,55 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
  
     const tmpStoryId = this.storyId;
     const tmpCommentId = this.commentId;
-    await this.getStories().then(() => {
-      if (tmpStoryId) {
-        const tgtStory = this.storyResponse?.stories?.find((story) => story.id == tmpStoryId);
-        if (tgtStory) { 
-          this.scrollToStory(tgtStory.id);
+
+    // If a deep-linked storyId is present, fetch that single story directly (server will not apply per-user blocking when called this way)
+    if (tmpStoryId) {
+      try {
+        const single = await this.socialService.getStoryById(tmpStoryId);
+        if (single) {
+          // Decrypt story text client-side to match normal flow
+          try {
+            single.storyText = this.encryptionService.decryptContent(single.storyText ?? '', single.user?.id + '');
+          } catch (ex) {
+            console.error('Failed to decrypt deep-linked story text', ex);
+          }
+          // Wrap into storyResponse so the templates and downstream logic work
+          this.storyResponse = { stories: [single], totalCount: 1, pageCount: 1, currentPage: 1 } as StoryResponse;
+
+          // If the current user has blocked the author, show placeholder locally
+          try {
+            const currentUserId = this.parentRef?.user?.id ?? this.parent?.user?.id;
+            if (currentUserId && single.user && single.user.id) {
+              const blockedRes: any = await this.userService.isUserBlocked(currentUserId, single.user.id);
+              const isBlocked = (blockedRes && (blockedRes.isBlocked === true || blockedRes.IsBlocked === true || blockedRes.IsBlocked === 1 || blockedRes.isBlocked === 1));
+              if (isBlocked) {
+                const blockedName = single.user.username ?? (`User ${single.user.id}`);
+                const placeholder = `You have blocked ${blockedName}. Unblock to view this post.`;
+                try { single.storyText = placeholder; } catch { }
+                try { single.storyFiles = []; } catch { }
+                try { single.metadata = []; } catch { }
+                try { single.storyComments = []; } catch { }
+              }
+            }
+          } catch (ex) {
+            console.warn('Failed checking blocked status for story author', ex);
+          }
+
+          this.scrollToStory(single.id);
           this.scrollToInputtedCommentId(tmpCommentId);
-          this.changePageTitleAndDescription(tgtStory);
+          this.changePageTitleAndDescription(single);
+          // we're done with deep-linked story handling
+        } else {
+          // fallback to normal getStories if single story not found
+          await this.getStories();
         }
+      } catch (ex) {
+        console.warn('Error fetching deep-linked story by id, falling back to getStories', ex);
+        await this.getStories();
       }
-    });
+    } else {
+      await this.getStories();
+    }
    
 
     this.parentRef?.getLocation().then(res => {

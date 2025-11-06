@@ -221,6 +221,26 @@ export class SocialService {
     }
   }
 
+  async getStoryById(id: number) {
+    try {
+      const res = await fetch(`/social/getstorybyid/${id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!res.ok) {
+        if (res.status === 404) return null;
+        throw new Error('Failed to fetch story');
+      }
+      return await res.json() as Story;
+    } catch (error) {
+      console.error('Error fetching story by id:', error);
+      return null;
+    }
+  }
+
   async getTotalPosts() {
     try {
       const res = await fetch('/social/totalposts', {
