@@ -15,6 +15,13 @@ export class TownPortal extends GameObject {
   id = Math.floor(Math.random() * 55000) + 10000;
   objectId = Math.floor(Math.random() * 55000) + 10000; 
   serverPortalId?: number;
+  private bodySprite: any;
+  private _revealStart: number = Date.now();
+  private _revealDurationMs: number = 1000; // 1 second
+  private isDestroying: boolean = false;
+  private _destroyStartMs: number = 0;
+  private _destroyDurationMs: number = 1000;
+  private _destroyInitialScale: number = 1;
   constructor(params: { position: Vector2, label?: string, colorSwap?: ColorSwap }) {
     const label = params.label ?? ""; 
     super({
@@ -27,7 +34,7 @@ export class TownPortal extends GameObject {
     }); 
 
     console.log("new town portal");
-    const body = new Sprite({
+  const body = new Sprite({
         objectId: Math.floor(Math.random() * (9999)) * -1,
         resource: resources.images['portal'],
         name: this.name ?? "Portal", 
@@ -42,7 +49,10 @@ export class TownPortal extends GameObject {
             portalAnimation: new FrameIndexPattern(PORTAL_ANIMATION),
         }),
     });
-    this.addChild(body);
+  // Start scaled down so it "reveals" itself; final frameSize is 40x95 and we'll scale from 0->1 over 1s
+  body.scale = new Vector2(0, 0);
+  this.bodySprite = body;
+  this.addChild(body);
     const shadow = new Sprite({
       resource: resources.images["shadow"],
       drawLayer: FLOOR
@@ -52,6 +62,53 @@ export class TownPortal extends GameObject {
     // Play portal sound once; include a safeguard stop in case the audio element loops or stalls
     
     resources.playSound('portalNoise', { allowOverlap: false, loop: false }); 
+  }
+
+  override step(delta: number, root: any) {
+    // Handle reveal and destroy animations
+    try {
+      const now = Date.now();
+
+      if (this.isDestroying) {
+        const elapsed = now - this._destroyStartMs;
+        const t = Math.min(1, elapsed / this._destroyDurationMs);
+        const ease = 1 - Math.pow(1 - t, 3);
+        const remaining = Math.max(0, this._destroyInitialScale * (1 - ease));
+        if (this.bodySprite) {
+          this.bodySprite.scale.x = remaining;
+          this.bodySprite.scale.y = remaining;
+        }
+        if (t >= 1) {
+          // Once the shrink animation finishes, remove the object
+          super.destroy();
+          return;
+        }
+      } else {
+        const elapsed = now - this._revealStart;
+        const t = Math.min(1, elapsed / this._revealDurationMs);
+        if (this.bodySprite) {
+          // ease-out cubic for a nicer reveal
+          const ease = 1 - Math.pow(1 - t, 3);
+          this.bodySprite.scale.x = ease;
+          this.bodySprite.scale.y = ease;
+        }
+      }
+    } catch (ex) {
+      // swallow animation errors to avoid breaking main loop
+      console.warn('TownPortal animation error', ex);
+    }
+
+    // call children/animations stepping
+    super.step(delta, root);
+  }
+
+  override destroy() {
+    // Start a shrink animation instead of destroying immediately
+    if (this.isDestroying) return; // already in progress
+    this.isDestroying = true;
+    this._destroyStartMs = Date.now();
+    this._destroyInitialScale = this.bodySprite?.scale?.x ?? 1;
+    // Do not call super.destroy() now; step() will call it when animation completes
   }
 
   override ready() {  
