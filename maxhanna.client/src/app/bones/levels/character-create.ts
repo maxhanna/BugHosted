@@ -188,7 +188,7 @@ export class CharacterCreate extends Level {
       } 
       // Toggle selection when left/right just pressed (throttle rapid switching)
       if (input.getActionJustPressed('ArrowLeft') || input.heldDirections.includes('LEFT')) {
-        if (!actionBlocker) {
+        if (!actionBlocker && !this.characterNameEmitted) {
           console.log('CharacterCreate: ArrowLeft pressed/held', this.selectionIndex );
           // move selection left
           this.selectionIndex = Math.max(0, this.selectionIndex - 1);
@@ -199,7 +199,7 @@ export class CharacterCreate extends Level {
         }
       }
       if (input.getActionJustPressed('ArrowRight') || input.heldDirections.includes('RIGHT')) {
-        if (!actionBlocker) {
+        if (!actionBlocker && !this.characterNameEmitted) {
           console.log('CharacterCreate: ArrowRight pressed/held', this.selectionIndex );
           this.selectionIndex = Math.min(2, this.selectionIndex + 1);
           this.applySelectionSkins();
