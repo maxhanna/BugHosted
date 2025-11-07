@@ -921,8 +921,10 @@ ORDER BY p.created DESC;";
 						AND NOT EXISTS (
 							SELECT 1 FROM maxhanna.bones_hero_selection WHERE user_id = @UserId AND name = @Name
 							);";
-				int posX = GRIDCELL;
-				int posY = 11 * GRIDCELL;
+				// Choose a free spawn position near the default center. Grow outward from center to avoid stacking.
+				var spawn = await FindFreeSpawnAsync("HeroRoom", GRIDCELL, 11 * GRIDCELL, connection, transaction);
+				int posX = spawn.x;
+				int posY = spawn.y;
 				Dictionary<string, object?> parameters = new()
 				{
 					{ "@CoordsX", posX },
@@ -1297,8 +1299,7 @@ ORDER BY p.created DESC;";
 			await connection.OpenAsync();
 			try
 			{
-				// Extract 'type' from the JSON 'data' column so client can see hero class (e.g., 'rogue', 'magi')
-				string sql = @"SELECT id, bones_hero_id, name, created, JSON_UNQUOTE(JSON_EXTRACT(data, '$.type')) AS type FROM maxhanna.bones_hero_selection WHERE user_id = @UserId ORDER BY created DESC;";
+				string sql = @"SELECT id, bones_hero_id, name, created, JSON_UNQUOTE(JSON_EXTRACT(data, '$.type')) AS type, CAST(JSON_UNQUOTE(JSON_EXTRACT(data, '$.level')) AS UNSIGNED) AS level FROM maxhanna.bones_hero_selection WHERE user_id = @UserId ORDER BY created DESC;";
 				using var cmd = new MySqlCommand(sql, connection);
 				cmd.Parameters.AddWithValue("@UserId", userId);
 				using var rdr = await cmd.ExecuteReaderAsync();
@@ -1311,7 +1312,8 @@ ORDER BY p.created DESC;";
 						bonesHeroId = rdr.IsDBNull(1) ? (int?)null : rdr.GetInt32(1),
 						name = rdr.IsDBNull(2) ? null : rdr.GetString(2),
 						created = rdr.IsDBNull(3) ? (DateTime?)null : rdr.GetDateTime(3),
-						type = rdr.IsDBNull(rdr.GetOrdinal("type")) ? null : rdr.GetString(rdr.GetOrdinal("type"))
+						type = rdr.IsDBNull(rdr.GetOrdinal("type")) ? null : rdr.GetString(rdr.GetOrdinal("type")),
+						level = rdr.IsDBNull(rdr.GetOrdinal("level")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("level"))
 					});
 				}
 				return Ok(list);
@@ -3268,9 +3270,10 @@ ORDER BY p.created DESC;";
 					}
 				}
 
-				// Place the dead hero at a safe origin point in the target map
-				int targetX = GRIDCELL;
-				int targetY = GRIDCELL;
+				// Place the dead hero at a safe origin point in the target map (find nearest free tile around center)
+				var deadSpawn = await FindFreeSpawnAsync(targetMap, GRIDCELL, GRIDCELL, connection, transaction, victimHeroId);
+				int targetX = deadSpawn.x;
+				int targetY = deadSpawn.y;
 
 				string updSql = @"
 					UPDATE maxhanna.bones_hero 
@@ -3299,6 +3302,62 @@ ORDER BY p.created DESC;";
 			catch (Exception ex)
 			{
 				await _log.Db("HandleHeroDeath failed: " + ex.Message, victimHeroId, "BONES", true);
+			}
+		}
+
+		// Find a free spawn point on the given map near centerX/centerY. Ensures no hero is within GRIDCELL both axes
+		// and grows outward in rings from the center.
+		private async Task<(int x, int y)> FindFreeSpawnAsync(string map, int centerX, int centerY, MySqlConnection connection, MySqlTransaction transaction, int excludeHeroId = 0)
+		{
+			try
+			{
+				var others = new List<(int x, int y)>();
+				using (var selCmd = new MySqlCommand("SELECT id, coordsX, coordsY FROM maxhanna.bones_hero WHERE map = @Map AND (@ExcludeId = 0 OR id <> @ExcludeId)", connection, transaction))
+				{
+					selCmd.Parameters.AddWithValue("@Map", map ?? string.Empty);
+					selCmd.Parameters.AddWithValue("@ExcludeId", excludeHeroId);
+					using var rdr = await selCmd.ExecuteReaderAsync();
+					while (await rdr.ReadAsync())
+					{
+						if (rdr.IsDBNull(1) || rdr.IsDBNull(2)) continue;
+						int ox = rdr.GetInt32(1);
+						int oy = rdr.GetInt32(2);
+						others.Add((ox, oy));
+					}
+				}
+
+				int maxRadius = 40; // search radius in tiles
+				for (int r = 0; r <= maxRadius; r++)
+				{
+					for (int dx = -r; dx <= r; dx++)
+					{
+						for (int dy = -r; dy <= r; dy++)
+						{
+							if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != r) continue; // only perimeter
+							int candidateX = centerX + dx * GRIDCELL;
+							int candidateY = centerY + dy * GRIDCELL;
+							bool conflict = false;
+							foreach (var o in others)
+							{
+								int diffX = Math.Abs(candidateX - o.x);
+								int diffY = Math.Abs(candidateY - o.y);
+								// conflict if both x and y are within a GRIDCELL (i.e., too close)
+								if (diffX < GRIDCELL && diffY < GRIDCELL) { conflict = true; break; }
+							}
+							if (!conflict)
+							{
+								return (candidateX, candidateY);
+							}
+						}
+					}
+				}
+				// fallback to center
+				return (centerX, centerY);
+			}
+			catch (Exception ex)
+			{
+				await _log.Db("FindFreeSpawnAsync failed: " + ex.Message, null, "BONES", true);
+				return (centerX, centerY);
 			}
 		}
 

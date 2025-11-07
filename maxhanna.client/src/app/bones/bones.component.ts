@@ -2110,6 +2110,29 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     return null;
   }
 
+  // Helper to extract saved selection level (may be top-level or inside JSON data)
+  getSelectionLevel(s: any): number | null {
+    try {
+      if (!s) return null;
+      if (typeof s.level === 'number') return s.level;
+      if (s.level) {
+        const n = Number(s.level);
+        if (!isNaN(n)) return n;
+      }
+      if (s.data) {
+        const parsed = (typeof s.data === 'string') ? JSON.parse(s.data) : s.data;
+        if (parsed) {
+          if (typeof parsed.level === 'number') return parsed.level;
+          if (parsed.level) {
+            const n2 = Number(parsed.level);
+            if (!isNaN(n2)) return n2;
+          }
+        }
+      }
+    } catch (ex) { /* ignore parse errors */ }
+    return null;
+  }
+
   get filteredHeroSelections() {
     try {
       const name = this.metaHero?.name ?? null;
