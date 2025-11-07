@@ -92,7 +92,7 @@ export class Bones extends Npc {
       setTimeout(() => {
         if ((this as any).latestMessage === blurb) (this as any).latestMessage = null;
       }, 5000);
-
+      resources.playSound('healing', { allowOverlap: true });
       // Preserve previous behavior: heal the local hero when they interact.
       if (params.hero.isUserControlled) {
         events.emit("HEAL_USER");
