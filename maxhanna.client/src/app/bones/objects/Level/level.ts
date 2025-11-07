@@ -112,7 +112,7 @@ export class Level extends GameObject {
         position: new Vector2(xPos, yPos),
         frameSize: new Vector2(tileWidth, borderHeight),
         drawLayer: drawLayer as any,
-        isSolid: true
+        isSolid: false
       });
       created.push(borderTile);
       this.addChild(borderTile);

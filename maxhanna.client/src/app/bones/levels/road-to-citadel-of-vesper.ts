@@ -25,7 +25,7 @@ export class RoadToCitadelOfVesper extends Level {
 
     this.addBackgroundLayer(resources.images["ruinsBgFar"], /*parallax=*/0.25, new Vector2(-200, gridCells(2)), /*repeat=*/false, /*scale=*/1, /*direction=*/'RIGHT');
     this.addBackgroundLayer(resources.images["ruinsBgMedium"], /*parallax=*/0.5, new Vector2(-200, gridCells(2)), /*repeat=*/false, /*scale=*/1, /*direction=*/'RIGHT');
-    this.addBackgroundLayer(resources.images["ruinsBgClose"], /*parallax=*/1, new Vector2(-200, gridCells(2)), /*repeat=*/false, /*scale=*/1, /*direction=*/'RIGHT');
+    this.addBackgroundLayer(resources.images["ruinsBgClose"], /*parallax=*/1, new Vector2(-200, gridCells(0)), /*repeat=*/false, /*scale=*/1, /*direction=*/'RIGHT');
     const roomWidth = 30; // tiles horizontally
     const roomHeight = 2; // tiles vertically 
     this.tileFloor(new Vector2(gridCells(0), gridCells(-1)), roomWidth, roomHeight, 80, 80, resources.images["ruinsFloorTile"], { drawLayer: BASE, startObjectId: -1000 });
