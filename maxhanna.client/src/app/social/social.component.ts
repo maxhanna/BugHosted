@@ -144,7 +144,12 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
             console.error('Failed to decrypt deep-linked story text', ex);
           }
           // Wrap into storyResponse so the templates and downstream logic work
-          this.storyResponse = { stories: [single], totalCount: 1, pageCount: 1, currentPage: 1 } as StoryResponse;
+          this.storyResponse = { 
+            stories: [single], 
+            totalCount: 1, 
+            pageCount: 1, 
+            currentPage: 1 
+          } as StoryResponse;
 
           // If the current user has blocked the author, show placeholder locally
           try {
