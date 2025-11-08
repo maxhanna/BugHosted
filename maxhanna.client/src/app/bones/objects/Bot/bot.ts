@@ -1,14 +1,20 @@
 import { Vector2 } from "../../../../services/datacontracts/bones/vector2";
 import { Sprite } from "../sprite";
+// Fire removed: play die animation instead of spawning fire on death
 import { SkillType } from "../../helpers/skill-types";
-import { DOWN, UP, LEFT, RIGHT } from "../../helpers/grid-cells";
+import { DOWN, UP, LEFT, RIGHT, gridCells } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
+import { getBotsInRange } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { events } from "../../helpers/events";
+import { attack, findTargets, untarget } from "../../helpers/fight";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, DIE, ATTACK_DOWN, ATTACK_LEFT, ATTACK_RIGHT, ATTACK_UP } from "../Npc/Skeleton/skeleton-animations";
+import { HeroInventoryItem } from "../../../../services/datacontracts/bones/hero-inventory-item";
 import { ColorSwap } from "../../../../services/datacontracts/bones/color-swap";
 import { Character } from "../character";
+import { Hero } from "../Hero/hero";
+import { Scenario } from "../../helpers/story-flags";
 
 export class Bot extends Character {
   heroId?: number;
@@ -28,6 +34,7 @@ export class Bot extends Character {
   preventDestroyAnimation = false;
   canAttack = true; 
   partyMembers?: { heroId: number, name: string }[]; 
+  chaseCancelBlock = new Date();
 
   private targetingInterval?: any;
   // Track the last observed gap (in pixels) to ensure following gap doesn't increase
@@ -139,9 +146,9 @@ export class Bot extends Character {
     if (!this.preventDestroyAnimation) {
       this.isLocked = true;
       if (this.body?.resource == resources.images["skeleton"]) {
-        resources.playSound('bonescracking', {  loop: false, allowOverlap: true });
+        resources.playSound('bonescracking', { volume: 0.9, loop: false, allowOverlap: true });
       } else {
-        resources.playSound('maleDeathScream', {  loop: false, allowOverlap: true });
+        resources.playSound('maleDeathScream', { volume: 0.9, loop: false, allowOverlap: true });
       }
       this.body?.animations?.play("die");
 
@@ -154,11 +161,30 @@ export class Bot extends Character {
     } 
   }
 
-  override ready() {   
+  override ready() {
+    this.targetingInterval = setInterval(() => {
+      findTargets(this); 
+      this.chaseAfter();
+    }, 1000);
+    // Follow either the owner hero (heroId) or a specified targetHeroId
+    events.on("CHARACTER_POSITION", this, (hero: any) => {
+      if (!hero || hero.id === undefined) return;
+      if (hero.id === this.heroId) {
+        this.followHero(hero);
+        return;
+      }
+      if (this.targetHeroId != null && hero.id === this.targetHeroId) {
+        this.followHero(hero);
+        return;
+      }
+    });
+    events.emit("BOT_CREATED");  
+    // Play attack animations when an OTHER_HERO_ATTACK event is received for this bot
     events.on("OTHER_HERO_ATTACK", this, (payload: any) => {
       try {
         const sourceHeroId = payload?.sourceHeroId;
         if (!sourceHeroId) return;
+        // If this bot represents the source of the attack (encounter id / heroId), animate
         if (this.id === sourceHeroId || this.heroId === sourceHeroId) {
           this.isAttacking = true;
           // Prefer numeric facing provided by server (0=down,1=left,2=right,3=up) but accept string fallbacks
@@ -214,10 +240,26 @@ export class Bot extends Character {
       } catch (ex) { console.error('BOT OTHER_HERO_ATTACK handler error', ex); }
     });
   }
-  
+ 
+
+  private chaseAfter() { 
+  }
 
   override getContent() { 
-    return undefined; 
+    return undefined;
+    // if (this.textContent) {
+    //   return this.textContent[0];
+    // } else { 
+    //   const owner = this.parent.children.find((child: any) => child.id == this.heroId);
+    //   const isHero = (owner instanceof Hero);
+    //   let scenario = {
+    //     portraitFrame: 0,
+    //     string: [isHero ? "Monitoring... No threat detected." : "Threat detected. Step away!", `HP: ${this.hp}`, `Owner: ${owner.name}`],
+    //     addsFlag: undefined,
+    //     canSelectItems: false
+    //   } as Scenario
+    //   return  scenario;
+    // } 
   }
    
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
@@ -230,5 +272,66 @@ export class Bot extends Character {
       this.drawLatestMessage(ctx, drawPosX, drawPosY);
       setTimeout(() => { this.latestMessage = ""; }, 5000);
     }
+  }
+
+  override step(delta: number, root: any) {
+    super.step(delta, root);
+
+    if (this.targeting && this.lastAttack.getTime() + 1000 < new Date().getTime()) {  
+       
+      this.lastAttack = new Date();
+
+      const botsInRange = getBotsInRange(this, this.partyMembers);
+      if (botsInRange.some((x: Bot) => x.id == this.targeting?.id)) {  
+        attack(this, this.targeting);
+      } else {
+        untarget(this, this.targeting); 
+      } 
+    } 
+  } 
+
+  private followHero(hero: Character) {
+    // if (this.hp <= 0) return;
+    // const distanceFromHero = gridCells(2);
+    // // Desired target position next to hero (to the right)
+    // const desiredPos = hero.position.duplicate();
+    // desiredPos.x += distanceFromHero;
+
+    // // Current gap between bot and hero (euclidean)
+    // const dxNow = (this.position.x ?? 0) - hero.position.x;
+    // const dyNow = (this.position.y ?? 0) - hero.position.y;
+    // const currentGap = Math.sqrt(dxNow * dxNow + dyNow * dyNow);
+
+    // // Desired gap if we teleport to desiredPos
+    // const dxDesired = desiredPos.x - hero.position.x;
+    // const dyDesired = desiredPos.y - hero.position.y;
+    // const desiredGap = Math.sqrt(dxDesired * dxDesired + dyDesired * dyDesired);
+
+    // // If following would increase the gap beyond the last observed gap, clamp movement to close the gap
+    // let finalTarget = desiredPos.duplicate();
+    // if (this.lastFollowGap !== Number.POSITIVE_INFINITY && desiredGap > this.lastFollowGap) {
+    //   // Move the destination toward the hero so gap doesn't increase: interpolate between desiredPos and hero.position
+    //   const excess = desiredGap - this.lastFollowGap;
+    //   const dirX = desiredPos.x - hero.position.x;
+    //   const dirY = desiredPos.y - hero.position.y;
+    //   const len = Math.sqrt(dirX * dirX + dirY * dirY) || 1;
+    //   // Reduce the separation by 'excess' but don't move past hero
+    //   const reduce = Math.min(excess, len - 1);
+    //   finalTarget.x = desiredPos.x - (dirX / len) * reduce;
+    //   finalTarget.y = desiredPos.y - (dirY / len) * reduce;
+    // }
+
+    // // Only update destination if it changed meaningfully
+    // if (!this.destinationPosition?.duplicate().matches(finalTarget)) {
+    //   this.facingDirection = hero.facingDirection;
+    //   this.destinationPosition = finalTarget.duplicate();
+    //   this.previousHeroPosition = hero.position.duplicate();
+    // }
+
+    // // Update lastFollowGap to the smaller of current observed or desired gap so it will never grow
+    // this.lastFollowGap = Math.min(this.lastFollowGap, desiredGap, currentGap);
+    // if ((hero.distanceLeftToTravel ?? 0) > 35 && this.isDeployed) {
+    //   console.log("bot should warp to hero");
+    // }
   } 
 }  
