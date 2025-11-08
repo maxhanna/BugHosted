@@ -966,31 +966,27 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
               tgtEnemy.destinationPosition = newPos.duplicate();
             }
           }
-
-          // If HP decreased, play impact/hit sound attenuated by distance
-          try {
-            if (prevHp !== undefined && newHp !== undefined && newHp < prevHp) {
-              // attacker position prefer server-provided enemy.position, otherwise use target's position
-              const attackerPos = (enemy && enemy.position && typeof enemy.position.x === 'number' && typeof enemy.position.y === 'number') ? new Vector2(enemy.position.x, enemy.position.y) : tgtEnemy.position;
-              const myPos = (this.hero && this.hero.position) ? this.hero.position : (this.metaHero && this.metaHero.position) ? this.metaHero.position : undefined;
-              // attenuation parameters
-              const maxHear = 800; // pixels
-              const globalVol = (this.currentVolume ?? 1);
-              let vol = globalVol;
-              if (attackerPos && myPos) {
-                const dx = attackerPos.x - myPos.x;
-                const dy = attackerPos.y - myPos.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                const base = 1 - (dist / maxHear);
-                const clampedBase = Math.max(0, Math.min(1, base));
-                vol = Math.max(0.05 * globalVol, Math.min(globalVol, clampedBase * globalVol));
-              }
-              console.log("lay hit sound");
-              resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true });
+ 
+          if (prevHp !== undefined && newHp !== undefined && newHp < prevHp) {
+            // attacker position prefer server-provided enemy.position, otherwise use target's position
+            const attackerPos = (enemy && enemy.position && typeof enemy.position.x === 'number' && typeof enemy.position.y === 'number') ? new Vector2(enemy.position.x, enemy.position.y) : tgtEnemy.position;
+            const myPos = (this.hero && this.hero.position) ? this.hero.position : (this.metaHero && this.metaHero.position) ? this.metaHero.position : undefined;
+            // attenuation parameters
+            const maxHear = 800; // pixels
+            const globalVol = (this.currentVolume ?? 1);
+            let vol = globalVol;
+            if (attackerPos && myPos) {
+              const dx = attackerPos.x - myPos.x;
+              const dy = attackerPos.y - myPos.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              const base = 1 - (dist / maxHear);
+              const clampedBase = Math.max(0, Math.min(1, base));
+              vol = Math.max(0.05 * globalVol, Math.min(globalVol, clampedBase * globalVol));
             }
-          } catch (err) {
-            console.warn('Failed playing hit sound for enemy update', err);
+            console.log("lay hit sound");
+            resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true });
           }
+          
 
           if (tgtEnemy && tgtEnemy.heroId && (tgtEnemy.hp ?? 0) <= 0) {
             if (typeof tgtEnemy.destroy === 'function') {
