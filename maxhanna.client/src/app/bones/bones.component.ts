@@ -27,7 +27,6 @@ import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 import { Bot } from './objects/Bot/bot';
 import { Character } from './objects/character';
 import { ChatSpriteTextString } from './objects/SpriteTextString/chat-sprite-text-string';
-import { target } from './helpers/fight';
 import { RoadToGatesOfHell } from './levels/road-to-gates-of-hell';
 import { CitadelOfVesper } from './levels/citadel-of-vesper';
 import { RoadToCitadelOfVesper } from './levels/road-to-citadel-of-vesper';
