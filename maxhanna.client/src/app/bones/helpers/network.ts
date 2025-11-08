@@ -739,8 +739,8 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           const remote = object.mainScene?.level?.children?.find((x: any) => x.id === event.heroId);
           if (remote && typeof remote.destroy === 'function') {
             remote.destroy();
+            resources.playSound('maleDeathScream', { allowOverlap: true }); 
           }
-
         }
       }
     }
