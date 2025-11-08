@@ -1061,17 +1061,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     });
     this.getStories();
   }
-  setCompactness(event: Event) {
-    const raw = (event.target as HTMLSelectElement).value;
-    // Only accept values that are valid ShowPostsFrom (reuse the same allowed set used elsewhere)
-    const allowed = ['subscribed','local','popular','all','oldest'];
-    if (!allowed.includes(raw)) {
-      // ignore invalid values and optionally notify
-      console.warn(`Ignored invalid compactness value: ${raw}`);
-      return;
-    }
-
-    this.compactness = raw;
+  setCompactness(event: Event) { 
+    this.compactness = (event.target as HTMLSelectElement).value;
     // updateCompactness expects a show-posts-from-like value on server; ensure typing is safe
     this.userService.updateCompactness(this.parentRef?.user?.id ?? 0, this.compactness as any).then(res => {
       if (res) {
