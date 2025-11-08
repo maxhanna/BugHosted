@@ -27,6 +27,7 @@ import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 import { Bot } from './objects/Bot/bot';
 import { Character } from './objects/character';
 import { ChatSpriteTextString } from './objects/SpriteTextString/chat-sprite-text-string';
+import { target } from './helpers/fight';
 import { RoadToGatesOfHell } from './levels/road-to-gates-of-hell';
 import { CitadelOfVesper } from './levels/citadel-of-vesper';
 import { RoadToCitadelOfVesper } from './levels/road-to-citadel-of-vesper';
@@ -968,34 +969,38 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
             }
           }
 
-          if (prevHp !== undefined && newHp !== undefined && newHp < prevHp) {
-            // attacker position prefer server-provided enemy.position, otherwise use target's position
-            const attackerPos = (enemy && enemy.position && typeof enemy.position.x === 'number' && typeof enemy.position.y === 'number') ? new Vector2(enemy.position.x, enemy.position.y) : tgtEnemy.position;
-            const myPos = (this.hero && this.hero.position) ? this.hero.position : (this.metaHero && this.metaHero.position) ? this.metaHero.position : undefined;
-            // attenuation parameters
-            const maxHear = 800; // pixels
-            const globalVol = (this.currentVolume ?? 1);
-            let vol = globalVol;
-            if (attackerPos && myPos) {
-              const dx = attackerPos.x - myPos.x;
-              const dy = attackerPos.y - myPos.y;
-              const dist = Math.sqrt(dx * dx + dy * dy);
-              const base = 1 - (dist / maxHear);
-              const clampedBase = Math.max(0, Math.min(1, base));
-              vol = Math.max(0.05 * globalVol, Math.min(globalVol, clampedBase * globalVol));
+          // If HP decreased, play impact/hit sound attenuated by distance
+          try {
+            if (prevHp !== undefined && newHp !== undefined && newHp < prevHp) {
+              // attacker position prefer server-provided enemy.position, otherwise use target's position
+              const attackerPos = (enemy && enemy.position && typeof enemy.position.x === 'number' && typeof enemy.position.y === 'number') ? new Vector2(enemy.position.x, enemy.position.y) : tgtEnemy.position;
+              const myPos = (this.hero && this.hero.position) ? this.hero.position : (this.metaHero && this.metaHero.position) ? this.metaHero.position : undefined;
+              // attenuation parameters
+              const maxHear = 800; // pixels
+              const globalVol = (this.currentVolume ?? 1);
+              let vol = globalVol;
+              if (attackerPos && myPos) {
+                const dx = attackerPos.x - myPos.x;
+                const dy = attackerPos.y - myPos.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const base = 1 - (dist / maxHear);
+                const clampedBase = Math.max(0, Math.min(1, base));
+                vol = Math.max(0.05 * globalVol, Math.min(globalVol, clampedBase * globalVol));
+              }
+              console.log("lay hit sound");
+              resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true });
             }
-            console.log("lay hit sound");
-            resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true });
+          } catch (err) {
+            console.warn('Failed playing hit sound for enemy update', err);
           }
-        }
-        
 
-        if (tgtEnemy && tgtEnemy.heroId && (tgtEnemy.hp ?? 0) <= 0) {
-          if (typeof tgtEnemy.destroy === 'function') {
-            tgtEnemy.destroy();
+          if (tgtEnemy && tgtEnemy.heroId && (tgtEnemy.hp ?? 0) <= 0) {
+            if (typeof tgtEnemy.destroy === 'function') {
+              tgtEnemy.destroy();
+            }
+            this._lastServerDestinations.delete(tgtEnemy.heroId);
+            return; // skip further processing for this bot
           }
-          this._lastServerDestinations.delete(tgtEnemy.heroId);
-          return; // skip further processing for this bot
         } else if (enemy.hp) {
           const tgtEncounter = this.mainScene.level.children.find((x: Character) => x.id == enemy.heroId);
           if (tgtEncounter) {
