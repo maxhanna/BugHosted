@@ -1,19 +1,14 @@
 import { Vector2 } from "../../../../services/datacontracts/bones/vector2";
 import { Sprite } from "../sprite";
-// Fire removed: play die animation instead of spawning fire on death
 import { SkillType } from "../../helpers/skill-types";
-import { DOWN, UP, LEFT, RIGHT, gridCells } from "../../helpers/grid-cells";
+import { DOWN, UP, LEFT, RIGHT } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
-import { getBotsInRange } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { events } from "../../helpers/events";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, DIE, ATTACK_DOWN, ATTACK_LEFT, ATTACK_RIGHT, ATTACK_UP } from "../Npc/Skeleton/skeleton-animations";
-import { HeroInventoryItem } from "../../../../services/datacontracts/bones/hero-inventory-item";
 import { ColorSwap } from "../../../../services/datacontracts/bones/color-swap";
 import { Character } from "../character";
-import { Hero } from "../Hero/hero";
-import { Scenario } from "../../helpers/story-flags";
 
 export class Bot extends Character {
   heroId?: number;
