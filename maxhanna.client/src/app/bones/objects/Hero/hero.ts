@@ -128,6 +128,10 @@ export class Hero extends Character {
     } catch { return 1; }
   }
 
+  override destroy() {
+    resources.playSound('maleDeathScream', { allowOverlap: true });
+    setTimeout(() => { super.destroy(); }, 160);
+  }
 
   override ready() {
     if (this.isUserControlled) {
@@ -329,7 +333,7 @@ export class Hero extends Character {
       const cost = this.getSkillManaCost(type);
       if ((cost || 0) > 0) {
         if (!this.tryConsumeMana(cost)) {
-          resources.playSound('arcadeUi', { volume: 0.7, allowOverlap: false });
+          //resources.playSound('arcadeUi', { volume: 0.7, allowOverlap: false });
           return;
         }
       }
