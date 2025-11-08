@@ -34,8 +34,6 @@ export class Bot extends Character {
   preventDestroyAnimation = false;
   canAttack = true; 
   partyMembers?: { heroId: number, name: string }[]; 
-  private chaseDebounceTimer: any;
-  chaseCancelBlock = new Date();
 
   private targetingInterval?: any;
   // Track the last observed gap (in pixels) to ensure following gap doesn't increase
@@ -147,9 +145,9 @@ export class Bot extends Character {
     if (!this.preventDestroyAnimation) {
       this.isLocked = true;
       if (this.body?.resource == resources.images["skeleton"]) {
-        resources.playSound('bonescracking', { volume: 0.9, loop: false, allowOverlap: true });
+        resources.playSound('bonescracking', {  loop: false, allowOverlap: true });
       } else {
-        resources.playSound('maleDeathScream', { volume: 0.9, loop: false, allowOverlap: true });
+        resources.playSound('maleDeathScream', {  loop: false, allowOverlap: true });
       }
       this.body?.animations?.play("die");
 
