@@ -729,17 +729,16 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           payload.killerType = event.data["killerType"] ?? event.data["killer_type"] ?? undefined;
           payload.cause = event.data["cause"] ?? undefined;
         }
-        // If the death concerns our hero, emit HERO_DIED so UI can handle respawn
+        resources.playSound('maleDeathScream', { allowOverlap: true }); 
         if (event.heroId === object.metaHero.id) {
           events.emit("HERO_DIED", payload);
-          setTimeout(() => {
-            object.bonesService.deleteEvent(event.id);
-          }, 1000);
+          // setTimeout(() => {
+          //   object.bonesService.deleteEvent(event.id);
+          // }, 1000);
         } else {
           const remote = object.mainScene?.level?.children?.find((x: any) => x.id === event.heroId);
           if (remote && typeof remote.destroy === 'function') {
             remote.destroy();
-            resources.playSound('maleDeathScream', { allowOverlap: true }); 
           }
         }
       }
