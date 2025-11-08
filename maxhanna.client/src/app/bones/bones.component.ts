@@ -966,7 +966,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
               tgtEnemy.destinationPosition = newPos.duplicate();
             }
           }
- 
+          
+          let hasPlayedHitSound = false;
           if (prevHp !== undefined && newHp !== undefined && newHp < prevHp) {
             // attacker position prefer server-provided enemy.position, otherwise use target's position
             const attackerPos = (enemy && enemy.position && typeof enemy.position.x === 'number' && typeof enemy.position.y === 'number') ? new Vector2(enemy.position.x, enemy.position.y) : tgtEnemy.position;
@@ -985,12 +986,17 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
             }
             console.log("lay hit sound");
             resources.playSound('punchOrImpact', { volume: 1, allowOverlap: true });
+            hasPlayedHitSound = true;
           }
           
 
           if (tgtEnemy && tgtEnemy.heroId && (tgtEnemy.hp ?? 0) <= 0) {
             if (typeof tgtEnemy.destroy === 'function') {
-              tgtEnemy.destroy();
+              if (hasPlayedHitSound) {
+                setTimeout(() => { tgtEnemy.destroy(); }, 160);
+              } else {
+                tgtEnemy.destroy();
+              }
             }
             this._lastServerDestinations.delete(tgtEnemy.heroId);
             return; // skip further processing for this bot
