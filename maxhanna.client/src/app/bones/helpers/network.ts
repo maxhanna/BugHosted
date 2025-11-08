@@ -216,6 +216,8 @@ export function subscribeToMainGameEvents(object: any) {
       if (!levelObj) return;
 
       console.log("changing levels");
+      // Suppress death SFX for existing hero when level teardown destroys it
+      try { if (object.hero && typeof object.hero._suppressDeathSfx === 'boolean') { object.hero._suppressDeathSfx = true; } } catch {}
       object.otherHeroes = [];
       if (!object.hero?.id) object.pollForChanges();
 

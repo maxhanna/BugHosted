@@ -31,6 +31,10 @@ export class Hero extends Character {
   public activeSkills: any[] = [];
   private lastAttackAt: number = 0;
   public attackSpeed: number = 400;
+  // Suppress playing death SFX when hero is destroyed due to level transitions
+  public _suppressDeathSfx: boolean = false;
+  // Track whether this hero actually died (server emitted HERO_DIED for this id)
+  private _wasKilled: boolean = false;
   constructor(params: {
     position: Vector2, id?: number, name?: string, type?: string, metabots?: MetaBot[], colorSwap?: ColorSwap,
     isUserControlled?: boolean, speed?: number, attackSpeed?: number, mask?: Mask, scale?: Vector2,
@@ -129,7 +133,12 @@ export class Hero extends Character {
   }
 
   override destroy() {
-    resources.playSound('maleDeathScream', { allowOverlap: true });
+    // Only play death sound if hero was killed (HERO_DIED) and not suppressed (e.g. level change)
+    try {
+      if (!this._suppressDeathSfx && this._wasKilled) {
+        resources.playSound('maleDeathScream', { allowOverlap: true });
+      }
+    } catch { }
     setTimeout(() => { super.destroy(); }, 160);
   }
 
@@ -287,6 +296,15 @@ export class Hero extends Character {
           else if (this.facingDirection == "RIGHT") this.body?.animations?.play("attackRight");
 
           // Spawn remote visual effects for other heroes' attacks.
+    // Listen for HERO_DIED events to mark this hero as actually killed so destroy() can decide
+    events.on("HERO_DIED", this, (payload: any) => {
+      try {
+        const victimId = payload?.victimHeroId ?? payload?.heroId ?? payload?.id ?? undefined;
+        if (typeof victimId === 'number' && victimId === this.id) {
+          this._wasKilled = true;
+        }
+      } catch { }
+    });
           try {
             // Prefer explicit target coordinates sent with the payload
             let tx = typeof payload?.targetX === 'number' ? payload.targetX : undefined;
