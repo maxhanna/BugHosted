@@ -304,12 +304,29 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
 
   private async attemptAutoSync() {
     try {
-      if (!this.selectedNote || !this.noteInput || !this.parentRef?.user?.id) return;
-      // Only show the prompt if the user actually made local changes
-      if (this.noteDirty) {
+      if (!this.noteInput || !this.parentRef?.user?.id) { return; }
+      const currentVal = this.noteInput.nativeElement.value ?? '';
+
+      // If no selected note yet (new unsaved note scenario): treat non-empty content as dirty and prompt
+      if (!this.selectedNote) {
+        const newDirty = currentVal.trim().length > 0;
+        this.noteDirty = newDirty;
+        if (newDirty) {
+          try { this.showAutoSyncPrompt = true; this.parentRef?.showOverlay(); } catch { this.showAutoSyncPrompt = true; }
+        }
+        return; // nothing to sync from server yet
+      }
+
+      // Re-compute dirty status by comparing textarea to last known server note text
+      const serverVal = this.selectedNote.note ?? '';
+      const isDirty = currentVal.trim() !== serverVal.trim();
+      this.noteDirty = isDirty;
+
+      if (isDirty) {
+        // User has unsaved edits – prompt before auto-sync overwrites
         try { this.showAutoSyncPrompt = true; this.parentRef?.showOverlay(); } catch { this.showAutoSyncPrompt = true; }
       } else {
-        // no local changes, safe to fetch latest silently
+        // No local changes; fetch latest silently (in case remote edits happened) and update timestamp
         await this.fetchLatestSelectedNote();
         this.setLastSynced(new Date());
       }

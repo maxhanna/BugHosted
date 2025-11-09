@@ -34,6 +34,9 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   // Polling for shared columns updates
   private sharedPollIntervalMs = 15000; // 15s
   private sharedPollTimer: any = null;
+  // Countdown (in seconds) until next shared list resynchronisation
+  resyncCountdown: number = 0;
+  private resyncTickTimer: any = null;
 
   @ViewChild('todoInput') todoInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
@@ -136,11 +139,23 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
         });
         if (isShared) {
           await this.getTodoInfo();
+          // Reset countdown after a resync fetch
+          this.resyncCountdown = Math.floor(this.sharedPollIntervalMs / 1000);
+          this.ensureResyncTicking();
+        } else {
+          // No shared polling needed, hide countdown
+          this.resyncCountdown = 0;
         }
       } catch (err) {
         // swallow polling errors
       }
     }, this.sharedPollIntervalMs);
+    // Initialize countdown immediately if there is any shared column active
+    const hasAnyShared = this.sharedColumns.some(sc => (sc.sharedWith ?? sc.SharedWith ?? sc.shared_with ?? '').toString().trim() !== '');
+    if (hasAnyShared) {
+      this.resyncCountdown = Math.floor(this.sharedPollIntervalMs / 1000);
+      this.ensureResyncTicking();
+    }
   }
 
   private stopSharedPolling() {
@@ -148,6 +163,11 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       clearInterval(this.sharedPollTimer);
       this.sharedPollTimer = null;
     }
+    if (this.resyncTickTimer) {
+      clearInterval(this.resyncTickTimer);
+      this.resyncTickTimer = null;
+    }
+    this.resyncCountdown = 0;
   }
   ngAfterViewInit() {
     this.setTodoDropdownPlaceholder();
@@ -543,5 +563,21 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   expandedEditFile(value : boolean) {
     console.log("expandedEditFile", value);
     this.isExpandedEditFile = value;
+  }
+
+  // Ensure per-second countdown ticking
+  private ensureResyncTicking() {
+    if (this.resyncTickTimer) return; // already ticking
+    this.resyncTickTimer = setInterval(() => {
+      if (this.resyncCountdown > 0) {
+        this.resyncCountdown--;
+      } else {
+        // Stop ticking if countdown finished and will be reset by sharedPollTimer
+        if (this.resyncTickTimer) {
+          clearInterval(this.resyncTickTimer);
+          this.resyncTickTimer = null;
+        }
+      }
+    }, 1000);
   }
 }
