@@ -16,7 +16,7 @@
         (selectFileEvent)="selectFile($event)"></app-media-selector>
     <button (click)="showPostOptionsPanel()" *ngIf="showPostInput">
         ⚙️{{ (!showPostInput && (!onMobile() || (mediaSelector && !mediaSelector.selectedFiles.length)) && (!onMobile()
-        || !attachedTopics.length)) ? 'Options' : onMobile() ? '' : 'Options'}}
+        || !attachedTopics.length)) ? 'Options' : (onMobile() || messageId) ? '' : 'Options'}}
         <span class="xxSmallFont" *ngIf="getOptionsCount() > 0">
             ({{getOptionsCount()}})
         </span>
@@ -24,7 +24,7 @@
     <button class="mainTopicSelectionsHeaderButton" [class.highlight]="highlightTopicsButton"
         (click)="showTopicsPanel(); highlightTopicsButton = false" *ngIf="type == 'Social'">
         🗂️{{ (!showPostInput && (!onMobile() || (mediaSelector && !mediaSelector.selectedFiles.length)) && (!onMobile()
-        || !attachedTopics.length)) ? 'Topics' : onMobile() ? '' : 'Topics'}}
+        || !attachedTopics.length)) ? 'Topics' : (onMobile() || messageId) ? '' : 'Topics'}}
         <span class="matchingTopicsInsideButtonWrapper" *ngIf="attachedTopics && attachedTopics.length > 0">
             (
             <span *ngFor="let topic of attachedTopics; let i = index" class="matchingTopic"
