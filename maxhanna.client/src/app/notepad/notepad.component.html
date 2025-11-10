@@ -26,7 +26,8 @@
   <div class="popupPanel" *ngIf="showAutoSyncPrompt">
     <div class="popupPanelTitle">Auto-sync</div>
     <div style="padding:12px;">
-      Your current note has unsaved changes. Would you like to save before syncing with the server?
+      <div>Your current note has unsaved changes.</div>
+      <div>Would you like to save your changes before syncing with the server?</div>
     </div>
     <div style="display:flex; gap:8px; padding:12px; justify-content:flex-end;">
       <button (click)="autoSyncSaveNow()">Save & Sync</button>
