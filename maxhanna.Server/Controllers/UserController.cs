@@ -1304,7 +1304,7 @@ namespace maxhanna.Server.Controllers
 
 					MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
 					updateCmd.Parameters.AddWithValue("@userId", request.UserId);
-					updateCmd.Parameters.AddWithValue("@compactness", request.Compactness);
+					updateCmd.Parameters.AddWithValue("@compactness", request.Compactness.ToString());
 
 					await updateCmd.ExecuteNonQueryAsync();
 
