@@ -1304,7 +1304,7 @@ namespace maxhanna.Server.Controllers
 
 					MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
 					updateCmd.Parameters.AddWithValue("@userId", request.UserId);
-					updateCmd.Parameters.AddWithValue("@compactness", request.ShowPostsFrom);
+					updateCmd.Parameters.AddWithValue("@compactness", request.Compactness);
 
 					await updateCmd.ExecuteNonQueryAsync();
 
@@ -1323,7 +1323,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/User/UpdateShowPostsFrom", Name = "UpdateShowPostsFrom")]
-		public async Task<IActionResult> UpdateShowPostsFrom([FromBody] UpdateCompactnessRequest request)
+		public async Task<IActionResult> UpdateShowPostsFrom([FromBody] UpdateShowPostsFromRequest request)
 		{
 			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 			{

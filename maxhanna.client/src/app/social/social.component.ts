@@ -1,5 +1,5 @@
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { ShowPostsFrom } from '../../services/datacontracts/user/show-posts-from';
+import { Compactness, ShowPostsFrom } from '../../services/datacontracts/user/show-posts-from';
 import { ChildComponent } from '../child.component';
 import { MetaData, Story } from '../../services/datacontracts/social/story';
 import { SocialService } from '../../services/social.service';
@@ -68,7 +68,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     hidden: this.showHiddenFiles ? 'yes' : 'no',
   };
   showPostsFromFilter: ShowPostsFrom = "all";
-  compactness = "yes";
+  compactness: Compactness= "yes";
   private storyUpdateInterval: any;
   private overflowCache: Record<string, boolean> = {};
   canLoad = false; 
@@ -122,7 +122,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       await this.userService.getUserSettings(user.id).then(res => {
         if (res) {
           this.isDisplayingNSFW = res.nsfwEnabled ?? false;
-          this.compactness = res.compactness ?? "no";
+          this.compactness = (res.compactness ?? "no") as Compactness;
           const candidate = res.showPostsFrom ?? "all";
           this.showPostsFromFilter = (['subscribed','local','popular','all','oldest'].includes(candidate) ? candidate as ShowPostsFrom : 'all');
         }
@@ -1062,9 +1062,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.getStories();
   }
   setCompactness(event: Event) { 
-    this.compactness = (event.target as HTMLSelectElement).value;
-    // updateCompactness expects a show-posts-from-like value on server; ensure typing is safe
-    this.userService.updateCompactness(this.parentRef?.user?.id ?? 0, this.compactness as any).then(res => {
+    this.compactness = (event.target as HTMLSelectElement).value as Compactness;
+    this.userService.updateCompactness(this.parentRef?.user?.id ?? 0, this.compactness).then(res => {
       if (res) {
         this.parentRef?.showNotification(res.message);
         this.overflowCache = {}; // Reset overflow cache

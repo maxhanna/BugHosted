@@ -3,23 +3,21 @@ namespace maxhanna.Server.Controllers.DataContracts.Users
 	public class UpdateCompactnessRequest
 	{
 		public int UserId { get; set; }
-		public ShowPostsFrom ShowPostsFrom { get; set; }
+		public Compactness Compactness { get; set; }
 
-		public UpdateCompactnessRequest(int userId, ShowPostsFrom showPostsFrom)
+		public UpdateCompactnessRequest(int userId, Compactness compactness)
 		{
 			UserId = userId;
-			ShowPostsFrom = showPostsFrom;
+			Compactness = compactness;
 		}
 	}
 
 	
 		[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
-		public enum ShowPostsFrom
+		public enum Compactness
 		{
-			Subscribed,
-			Local,
-			Popular,
-			All,
-			Oldest
+			no,
+			yes,
+			yess
 		} 
 }
