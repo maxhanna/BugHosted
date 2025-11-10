@@ -70,6 +70,15 @@ input {
 .mainFileUploaderAndTopicSelectorDiv ::ng-deep button {
     cursor: pointer;
     height: 23px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mainFileUploaderAndTopicSelectorDiv > button {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .mainTopicSelectionsHeaderButton {

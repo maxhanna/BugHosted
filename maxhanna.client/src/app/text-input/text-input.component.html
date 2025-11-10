@@ -16,8 +16,7 @@
         (selectFileEvent)="selectFile($event)"></app-media-selector>
     <button (click)="showPostOptionsPanel()" *ngIf="showPostInput">
         ⚙️{{ (!showPostInput && (!onMobile() || (mediaSelector && !mediaSelector.selectedFiles.length)) && (!onMobile()
-        ||
-        !attachedTopics.length)) ? 'Options' : onMobile() ? '' : 'Options'}}
+        || !attachedTopics.length)) ? 'Options' : onMobile() ? '' : 'Options'}}
         <span class="xxSmallFont" *ngIf="getOptionsCount() > 0">
             ({{getOptionsCount()}})
         </span>
