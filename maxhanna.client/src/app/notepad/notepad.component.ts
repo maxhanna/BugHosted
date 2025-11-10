@@ -31,15 +31,10 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   selectedNote?: Note;
   splitNoteOwnershipUsers: User[] = [];
   // Polling timer id for shared note refresh
-  private sharedNotePollTimer?: any;
-  // Auto-sync timer id for periodic sync prompting
-  private autoSyncTimer?: any;
-  // Auto-sync interval (1 minute)
-  private readonly AUTOSYNC_INTERVAL_MS = 60 * 1000;
+  private sharedNotePollTimer?: any; 
   // Whether the auto-sync prompt panel is visible
-  showAutoSyncPrompt: boolean = false;
-  // Whether the user has unsaved edits in the current textarea
-  private noteDirty: boolean = false;
+  showAutoSyncPrompt: boolean = false; 
+  private loadedNote?: string;
   // Poll interval in ms
   private readonly SHARED_NOTE_POLL_INTERVAL = 5000;
   // Timestamp when the selected note was last auto-synced from server
@@ -54,12 +49,9 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
       this.search();
     }
     this.clearInputs();
-    this.startAutoSync();
   }
-  ngOnDestroy() { 
-    // stop polling when component is destroyed
-    this.stopSharedNotePolling();
-    this.stopAutoSync();
+  ngOnDestroy() {  
+    this.stopSharedNotePolling(); 
     this.parentRef?.removeResizeListener();
   }
   clearInputs() {
@@ -68,15 +60,12 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     this.noteId.nativeElement.value = "";
     this.newNoteButton.nativeElement.style.display = "none";
     this.shareNoteButton.nativeElement.style.display = "none";
-    this.deleteNoteButton.nativeElement.style.display = "none";
-    // stop any polling when inputs are cleared
-    this.stopSharedNotePolling();
-    this.noteDirty = false;
+    this.deleteNoteButton.nativeElement.style.display = "none"; 
+    this.stopSharedNotePolling(); 
   }
   handleNoteInputChange() {
     this.noteAddButton.nativeElement.disabled = false;
-    this.noteInputValue = this.noteInput.nativeElement.value.trim();
-    this.noteDirty = true;
+    this.noteInputValue = this.noteInput.nativeElement.value.trim(); 
   }
   async getUsers() {
     this.users = await this.userService.getAllUsers(this.parentRef?.user?.id);
@@ -146,9 +135,8 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
         this.noteId.nativeElement.value = id + "";
       }
       this.isPanelExpanded = false;
-      this.selectedNote = res;
-  this.noteDirty = false;
-      this.splitNoteOwnership();  
+      this.selectedNote = res; 
+      this.splitNoteOwnership(); 
       this.newNoteButton.nativeElement.style.display = "inline-block";
       this.shareNoteButton.nativeElement.style.display = "inline-block";
       this.deleteNoteButton.nativeElement.style.display = "inline-block";
@@ -157,6 +145,7 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
       const ownership = this.selectedNote?.ownership ?? '';
       if (ownership.includes(",")) {
         this.startSharedNotePolling();
+        this.loadedNote = res.note;
       } 
     } catch (error) {
       console.error(`Error fetching notepad entry (${id}): ${error}`);
@@ -198,8 +187,7 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     } catch (e) {
       console.error(e);
     }
-    this.parentRef?.showNotification(`Note saved.`);
-    this.noteDirty = false;
+    this.parentRef?.showNotification(`Note saved.`); 
     this.getNotepad();
   }
   async deleteNote() {
@@ -249,13 +237,11 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
       this.parentRef?.showNotification('Failed to unshare note.');
     }
   }
-
-  // Polling helpers for shared notes
-  private startSharedNotePolling() {
-    // ensure any existing timer is cleared first
+ 
+  private startSharedNotePolling() { 
     this.stopSharedNotePolling();
     this.sharedNotePollTimer = setInterval(async () => {
-      await this.fetchLatestSelectedNote();
+      await this.attemptFetchLatestSelectedNote();
     }, this.SHARED_NOTE_POLL_INTERVAL);
   }
 
@@ -265,13 +251,22 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
       this.sharedNotePollTimer = undefined;
     }
   }
-
-  private async fetchLatestSelectedNote() {
+  private async attemptFetchLatestSelectedNote() {
+    const currentText = this.noteInput?.nativeElement?.value ?? '';
+    if (this.loadedNote != currentText) {
+      this.showAutoSyncPrompt = true;
+      this.parentRef?.showOverlay();  
+    } else {
+      await this.fetchLatestSelectedNote();
+    }
+  }
+  private async fetchLatestSelectedNote() { 
     try {
       if (!this.selectedNote || !this.parentRef?.user?.id) { return; } 
       const res = await this.notepadService.getNote(this.parentRef?.user.id, this.selectedNote.id!);
       if (this.noteInput) {
         this.noteInput.nativeElement.value = res.note!;
+        this.loadedNote = res.note;
       }
       this.setLastSynced(new Date());
     } catch (error) {
@@ -282,58 +277,8 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   private setLastSynced(d: Date) {
     this.lastSyncedAt = d; 
   }
-
-  // Auto-sync helpers
-  private startAutoSync() {
-    try {
-      this.stopAutoSync();
-      this.autoSyncTimer = setInterval(() => {
-        this.attemptAutoSync();
-      }, this.AUTOSYNC_INTERVAL_MS);
-    } catch { }
-  }
-
-  private stopAutoSync() {
-    try {
-      if (this.autoSyncTimer) {
-        clearInterval(this.autoSyncTimer);
-        this.autoSyncTimer = undefined;
-      }
-    } catch { }
-  }
-
-  private async attemptAutoSync() {
-    try {
-      if (!this.noteInput || !this.parentRef?.user?.id) { return; }
-      const currentVal = this.noteInput.nativeElement.value ?? '';
-
-      // If no selected note yet (new unsaved note scenario): treat non-empty content as dirty and prompt
-      if (!this.selectedNote) {
-        const newDirty = currentVal.trim().length > 0;
-        this.noteDirty = newDirty;
-        if (newDirty) {
-          try { this.showAutoSyncPrompt = true; this.parentRef?.showOverlay(); } catch { this.showAutoSyncPrompt = true; }
-        }
-        return; // nothing to sync from server yet
-      }
-
-      // Re-compute dirty status by comparing textarea to last known server note text
-      const serverVal = this.selectedNote.note ?? '';
-      const isDirty = currentVal.trim() !== serverVal.trim();
-      this.noteDirty = isDirty;
-
-      if (isDirty) {
-        // User has unsaved edits – prompt before auto-sync overwrites
-        try { this.showAutoSyncPrompt = true; this.parentRef?.showOverlay(); } catch { this.showAutoSyncPrompt = true; }
-      } else {
-        // No local changes; fetch latest silently (in case remote edits happened) and update timestamp
-        await this.fetchLatestSelectedNote();
-        this.setLastSynced(new Date());
-      }
-    } catch (err) { console.error('Auto-sync attempt failed', err); }
-  }
-
-  // User chose to save before auto-sync
+ 
+  
   async autoSyncSaveNow() {
     try {
       // Save current note (addNote handles create vs update)
