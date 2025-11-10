@@ -29,16 +29,12 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   isCarouselPopped: boolean = false;
   users: User[] = [];
   selectedNote?: Note;
-  splitNoteOwnershipUsers: User[] = [];
-  // Polling timer id for shared note refresh
-  private sharedNotePollTimer?: any; 
-  // Whether the auto-sync prompt panel is visible
+  splitNoteOwnershipUsers: User[] = []; 
   showAutoSyncPrompt: boolean = false; 
-  private loadedNote?: string;
-  // Poll interval in ms
-  private readonly SHARED_NOTE_POLL_INTERVAL = 5000;
-  // Timestamp when the selected note was last auto-synced from server
   lastSyncedAt?: Date; 
+  private sharedNotePollTimer?: any;  
+  private loadedNote?: string; 
+  private readonly SHARED_NOTE_POLL_INTERVAL = 60000; 
   constructor(private notepadService: NotepadService, private userService: UserService, private notificationService: NotificationService) {
     super();
   }
