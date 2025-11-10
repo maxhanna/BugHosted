@@ -118,7 +118,6 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     }
 
     this.clearInputs();
-    this.startSharedPolling();
     this.stopLoading();
   }
   ngOnDestroy() {
@@ -128,34 +127,22 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
 
   private startSharedPolling() {
     this.stopSharedPolling();
-    this.sharedPollTimer = setInterval(async () => {
-      if (!this.parentRef?.user?.id) return;
-      try {
-        const type = this.selectedType?.nativeElement.value || this.todoTypes[0];
-        const isShared = this.sharedColumns.some(sc => {
-          const colName = sc.columnName ?? sc.column_name ?? sc.ColumnName;
-          const sharedWith = sc.sharedWith ?? sc.SharedWith ?? sc.shared_with ?? '';
-          return colName === type && sharedWith && sharedWith.toString().trim() !== '';
-        });
-        if (isShared) {
-          await this.getTodoInfo();
-          // Reset countdown after a resync fetch
-          this.resyncCountdown = Math.floor(this.sharedPollIntervalMs / 1000);
-          this.ensureResyncTicking();
-        } else {
-          // No shared polling needed, hide countdown
-          this.resyncCountdown = 0;
-        }
-      } catch (err) {
-        // swallow polling errors
-      }
-    }, this.sharedPollIntervalMs);
-    // Initialize countdown immediately if there is any shared column active
-    const hasAnyShared = this.sharedColumns.some(sc => (sc.sharedWith ?? sc.SharedWith ?? sc.shared_with ?? '').toString().trim() !== '');
-    if (hasAnyShared) {
+    const type = this.selectedType?.nativeElement.value || this.todoTypes[0];
+    const isShared = this.sharedColumns.some(sc => {
+      const colName = sc.columnName ?? sc.column_name ?? sc.ColumnName;
+      const sharedWith = sc.sharedWith ?? sc.SharedWith ?? sc.shared_with ?? '';
+      return colName === type && sharedWith && sharedWith.toString().trim() !== '';
+    });
+    if (isShared) {
       this.resyncCountdown = Math.floor(this.sharedPollIntervalMs / 1000);
+      this.sharedPollTimer = setInterval(async () => {
+        if (!this.parentRef?.user?.id) return; 
+        await this.getTodoInfo();  
+      }, this.sharedPollIntervalMs); 
       this.ensureResyncTicking();
-    }
+    } else { 
+      this.resyncCountdown = 0;
+    }  
   }
 
   private stopSharedPolling() {
@@ -187,13 +174,13 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     try {
       this.startLoading();
       const terms = this.searchInput ? this.searchInput.nativeElement.value : "";
-      const search = (!terms || terms.trim() == "") ? undefined : terms;
-
+      const search = (!terms || terms.trim() == "") ? undefined : terms; 
       const type = this.selectedType?.nativeElement.value || this.todoTypes[0];
       const res = await this.todoService.getTodo(this.parentRef.user.id, type, search);
       this.todos = res;
       this.todoCount = this.todos?.length;
-      this.stopLoading();
+      this.stopLoading(); 
+      this.startSharedPolling();
     } catch (error) {
       console.error("Error fetching calendar entries:", error);
     }
