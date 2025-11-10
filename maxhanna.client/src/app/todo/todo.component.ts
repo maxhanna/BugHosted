@@ -128,11 +128,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   private startSharedPolling() {
     this.stopSharedPolling();
     const type = this.selectedType?.nativeElement.value || this.todoTypes[0];
-    const isShared = this.sharedColumns.some(sc => {
-      const colName = sc.columnName ?? sc.column_name ?? sc.ColumnName;
-      const sharedWith = sc.sharedWith ?? sc.SharedWith ?? sc.shared_with ?? '';
-      return colName === type && sharedWith && sharedWith.toString().trim() !== '';
-    });
+    const isShared = this.getIsShared(type);
     if (isShared) {
       this.resyncCountdown = Math.floor(this.sharedPollIntervalMs / 1000);
       this.sharedPollTimer = setInterval(async () => {
@@ -143,6 +139,14 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     } else { 
       this.resyncCountdown = 0;
     }  
+  }
+
+  private getIsShared(type: string) {
+    return this.sharedColumns.some(sc => {
+      const colName = sc.columnName ?? sc.column_name ?? sc.ColumnName;
+      const sharedWith = sc.sharedWith ?? sc.SharedWith ?? sc.shared_with ?? '';
+      return colName === type && sharedWith && sharedWith.toString().trim() !== '';
+    });
   }
 
   private stopSharedPolling() {
@@ -173,14 +177,18 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     if (!this.parentRef?.user?.id) return;
     try {
       this.startLoading();
-      const terms = this.searchInput ? this.searchInput.nativeElement.value : "";
-      const search = (!terms || terms.trim() == "") ? undefined : terms; 
-      const type = this.selectedType?.nativeElement.value || this.todoTypes[0];
-      const res = await this.todoService.getTodo(this.parentRef.user.id, type, search);
-      this.todos = res;
-      this.todoCount = this.todos?.length;
-      this.stopLoading(); 
-      this.startSharedPolling();
+
+      if (!this.isEditing?.length) {
+        const terms = this.searchInput ? this.searchInput.nativeElement.value : "";
+        const search = (!terms || terms.trim() == "") ? undefined : terms; 
+        const type = this.selectedType?.nativeElement.value || this.todoTypes[0];
+        const res = await this.todoService.getTodo(this.parentRef.user.id, type, search);
+        this.todos = res;
+        this.todoCount = this.todos?.length;
+        this.stopLoading(); 
+        this.startSharedPolling();
+      }
+      
     } catch (error) {
       console.error("Error fetching calendar entries:", error);
     }
@@ -528,6 +536,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
           this.todos[todoIndex].fileId = fileId;
         }
         this.isEditing = this.isEditing.filter(x => x.id !== id);
+        this.startSharedPolling();
       } catch (error) {
         console.error("Error updating todo:", error);
         this.parentRef?.showNotification("Failed to update todo");
