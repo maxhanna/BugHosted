@@ -5,7 +5,7 @@ export interface RadioStation {
   stationuuid: string;
   name: string;
   url_resolved: string;
-  favicon: string;
+  favicon: string | null;
   country: string;
   language: string;
   tags: string;
