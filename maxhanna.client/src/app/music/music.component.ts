@@ -38,12 +38,25 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   itemsPerPage = 50;
   totalPages = 1;
   isSongListCollapsed = false;
-  selectedType: 'youtube' | 'file' = 'youtube';
+  selectedType: 'youtube' | 'file' | 'radio' = 'youtube';
   isEditing: number[] = [];
   showHelpPopup = false;
   isFullscreen = false;
   isShowingYoutubeSearch = false;
   hasEditedSong = false;
+  
+  // Radio properties
+  radioStations: any[] = [];
+  radioCountries: any[] = [];
+  radioLanguages: any[] = [];
+  radioTags: any[] = [];
+  isLoadingRadio = false;
+  radioFilters = {
+    country: '',
+    language: '',
+    tag: ''
+  };
+  currentRadioStation?: any;
 
   @Input() user?: User;
   @Input() smallPlayer = false;
@@ -190,10 +203,14 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.closeEditPopup(false);
   }
 
-  selectType(type: 'youtube' | 'file') { 
+  selectType(type: 'youtube' | 'file' | 'radio') { 
     this.selectedType = type;
-    this.songs = type === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
-    this.fileIdPlaylist = type === 'file' ? this.fileSongs.map(song => song.fileId!).filter(id => id !== undefined) : undefined;
+    if (type === 'radio') {
+      this.loadRadioData();
+    } else {
+      this.songs = type === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
+      this.fileIdPlaylist = type === 'file' ? this.fileSongs.map(song => song.fileId!).filter(id => id !== undefined) : undefined;
+    }
     this.currentPage = 1;
     this.updatePaginatedSongs();
     this.reorderTable(undefined, this.orderSelect?.nativeElement.value || 'Newest');
@@ -488,5 +505,144 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
 
   get isVisible(): boolean {
     return !!(this.songs && this.songs.length > 0 && this.isMusicPlaying);
+  }
+
+  // Radio Browser API methods
+  async loadRadioData() {
+    this.isLoadingRadio = true;
+    try {
+      // Load countries, languages, and tags
+      await Promise.all([
+        this.fetchRadioCountries(),
+        this.fetchRadioLanguages(),
+        this.fetchRadioTags()
+      ]);
+      // Load default stations
+      await this.fetchRadioStations();
+    } catch (error) {
+      console.error('Error loading radio data:', error);
+    } finally {
+      this.isLoadingRadio = false;
+    }
+  }
+
+  async fetchRadioCountries() {
+    try {
+      const response = await fetch('https://de1.api.radio-browser.info/json/countries');
+      const data = await response.json();
+      this.radioCountries = data
+        .filter((c: any) => c.stationcount > 0)
+        .sort((a: any, b: any) => b.stationcount - a.stationcount)
+        .slice(0, 50);
+    } catch (error) {
+      console.error('Error fetching radio countries:', error);
+      this.radioCountries = [];
+    }
+  }
+
+  async fetchRadioLanguages() {
+    try {
+      const response = await fetch('https://de1.api.radio-browser.info/json/languages');
+      const data = await response.json();
+      this.radioLanguages = data
+        .filter((l: any) => l.stationcount > 0)
+        .sort((a: any, b: any) => b.stationcount - a.stationcount)
+        .slice(0, 50);
+    } catch (error) {
+      console.error('Error fetching radio languages:', error);
+      this.radioLanguages = [];
+    }
+  }
+
+  async fetchRadioTags() {
+    try {
+      const response = await fetch('https://de1.api.radio-browser.info/json/tags');
+      const data = await response.json();
+      this.radioTags = data
+        .filter((t: any) => t.stationcount > 0)
+        .sort((a: any, b: any) => b.stationcount - a.stationcount)
+        .slice(0, 50);
+    } catch (error) {
+      console.error('Error fetching radio tags:', error);
+      this.radioTags = [];
+    }
+  }
+
+  async fetchRadioStations() {
+    this.isLoadingRadio = true;
+    try {
+      let url = 'https://de1.api.radio-browser.info/json/stations/search';
+      const params = new URLSearchParams();
+      
+      if (this.radioFilters.country) {
+        params.append('country', this.radioFilters.country);
+      }
+      if (this.radioFilters.language) {
+        params.append('language', this.radioFilters.language);
+      }
+      if (this.radioFilters.tag) {
+        params.append('tag', this.radioFilters.tag);
+      }
+      
+      params.append('limit', '100');
+      params.append('order', 'votes');
+      params.append('reverse', 'true');
+      
+      if (params.toString()) {
+        url += '?' + params.toString();
+      }
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      this.radioStations = data.filter((station: any) => station.url_resolved);
+    } catch (error) {
+      console.error('Error fetching radio stations:', error);
+      this.radioStations = [];
+    } finally {
+      this.isLoadingRadio = false;
+    }
+  }
+
+  onRadioFilterChange(filterType: 'country' | 'language' | 'tag', event: Event) {
+    const value = (event.target as HTMLSelectElement).value;
+    this.radioFilters[filterType] = value;
+    this.fetchRadioStations();
+  }
+
+  playRadioStation(station: any) {
+    if (!station || !station.url_resolved) {
+      alert('Invalid radio station URL');
+      return;
+    }
+    
+    this.currentRadioStation = station;
+    this.isMusicPlaying = true;
+    
+    // Create an audio element to play the radio stream
+    const audioPlayer = document.createElement('audio');
+    audioPlayer.src = station.url_resolved;
+    audioPlayer.autoplay = true;
+    audioPlayer.controls = true;
+    audioPlayer.style.width = '100%';
+    audioPlayer.style.marginTop = '10px';
+    
+    // Clear existing content and add the audio player
+    const iframeDiv = document.getElementById('iframeDiv');
+    if (iframeDiv) {
+      // Remove any existing audio players
+      const existingAudio = iframeDiv.querySelector('audio');
+      if (existingAudio) {
+        existingAudio.remove();
+      }
+      iframeDiv.appendChild(audioPlayer);
+    }
+    
+    // Register click for popularity tracking
+    if (station.stationuuid) {
+      fetch(`https://de1.api.radio-browser.info/json/url/${station.stationuuid}`)
+        .catch(err => console.warn('Failed to register radio click:', err));
+    }
+    
+    this.isMusicControlsDisplayed(true);
   }
 }

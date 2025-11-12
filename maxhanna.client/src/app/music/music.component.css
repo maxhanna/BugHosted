@@ -264,3 +264,97 @@ input[type="submit"] {
   display: flex;
   gap: 5px;
 }
+
+.radioStationsContainer {
+  width: 100%;
+  padding: 10px;
+}
+
+.radioFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 15px;
+  justify-content: center;
+}
+
+.radioFilterSelect {
+  padding: 5px 10px;
+  border: var(--main-border);
+  border-radius: 3px;
+  background-color: var(--component-background-color);
+  color: var(--main-font-color);
+  cursor: pointer;
+  min-width: 150px;
+}
+
+.radioStationsList {
+  max-height: CALC(var(--vh, 1vh) * 100 - 300px);
+  overflow-y: auto;
+  border: var(--main-border);
+  border-radius: 5px;
+  padding: 5px;
+}
+
+.radioStationItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: var(--main-border);
+  border-radius: 4px;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.2s;
+}
+
+.radioStationItem:hover {
+  transform: scale(1.01);
+  background-color: var(--main-highlight-color);
+}
+
+.radioStationIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: var(--main-border);
+  flex-shrink: 0;
+}
+
+.radioStationInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.radioStationName {
+  font-weight: bold;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.radioStationDetails {
+  font-size: 0.85em;
+  color: var(--third-font-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.radioPlayButton {
+  padding: 8px 15px;
+  border: var(--main-border);
+  border-radius: 3px;
+  background-color: var(--component-background-color);
+  color: var(--main-font-color);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.2s;
+}
+
+.radioPlayButton:hover {
+  background-color: var(--main-highlight-color);
+}
