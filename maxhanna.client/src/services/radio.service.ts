@@ -38,18 +38,13 @@ export interface RadioFilters {
   providedIn: 'root'
 })
 export class RadioService {
-  private readonly API_BASE_URL = 'https://at1.api.radio-browser.info/json';
-  private readonly USER_AGENT = 'MaxHanna Music Player/1.0';
+  private readonly API_BASE_URL = 'https://de1.api.radio-browser.info/json';
 
   constructor(private http: HttpClient) { }
 
   async fetchCountries(): Promise<RadioCountry[]> {
     try {
-      const data: any = await this.http.get(`${this.API_BASE_URL}/countries`, {
-        headers: {
-          'User-Agent': this.USER_AGENT
-        }
-      }).toPromise();
+      const data: any = await this.http.get(`${this.API_BASE_URL}/countries`).toPromise();
       return data
         .filter((c: any) => c.stationcount > 0)
         .sort((a: any, b: any) => b.stationcount - a.stationcount)
@@ -62,11 +57,7 @@ export class RadioService {
 
   async fetchLanguages(): Promise<RadioLanguage[]> {
     try {
-      const data: any = await this.http.get(`${this.API_BASE_URL}/languages`, {
-        headers: {
-          'User-Agent': this.USER_AGENT
-        }
-      }).toPromise();
+      const data: any = await this.http.get(`${this.API_BASE_URL}/languages`).toPromise();
       return data
         .filter((l: any) => l.stationcount > 0)
         .sort((a: any, b: any) => b.stationcount - a.stationcount)
@@ -79,11 +70,7 @@ export class RadioService {
 
   async fetchTags(): Promise<RadioTag[]> {
     try {
-      const data: any = await this.http.get(`${this.API_BASE_URL}/tags`, {
-        headers: {
-          'User-Agent': this.USER_AGENT
-        }
-      }).toPromise();
+      const data: any = await this.http.get(`${this.API_BASE_URL}/tags`).toPromise();
       return data
         .filter((t: any) => t.stationcount > 0)
         .sort((a: any, b: any) => b.stationcount - a.stationcount)
@@ -117,11 +104,7 @@ export class RadioService {
         url += '?' + params.toString();
       }
       
-      const data: any = await this.http.get(url, {
-        headers: {
-          'User-Agent': this.USER_AGENT
-        }
-      }).toPromise();
+      const data: any = await this.http.get(url).toPromise();
       return data.filter((station: any) => station.url_resolved);
     } catch (error) {
       console.error('Error fetching radio stations:', error);
@@ -131,11 +114,7 @@ export class RadioService {
 
   async registerStationClick(stationuuid: string): Promise<void> {
     try {
-      await this.http.get(`${this.API_BASE_URL}/url/${stationuuid}`, {
-        headers: {
-          'User-Agent': this.USER_AGENT
-        }
-      }).toPromise();
+      await this.http.get(`${this.API_BASE_URL}/url/${stationuuid}`).toPromise();
     } catch (error) {
       console.warn('Failed to register radio click:', error);
     }
