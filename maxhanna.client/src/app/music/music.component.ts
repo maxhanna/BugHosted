@@ -3,6 +3,7 @@ import { Location } from '@angular/common';
 import { ChildComponent } from '../child.component';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
+import { RadioService, RadioCountry, RadioLanguage, RadioTag, RadioStation } from '../../services/radio.service';
 import { User } from '../../services/datacontracts/user/user';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
@@ -46,24 +47,24 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   hasEditedSong = false;
   
   // Radio properties
-  radioStations: any[] = [];
-  radioCountries: any[] = [];
-  radioLanguages: any[] = [];
-  radioTags: any[] = [];
+  radioStations: RadioStation[] = [];
+  radioCountries: RadioCountry[] = [];
+  radioLanguages: RadioLanguage[] = [];
+  radioTags: RadioTag[] = [];
   isLoadingRadio = false;
   radioFilters = {
     country: '',
     language: '',
     tag: ''
   };
-  currentRadioStation?: any;
+  currentRadioStation?: RadioStation;
 
   @Input() user?: User;
   @Input() smallPlayer = false;
   @Input() inputtedParentRef?: AppComponent;
   @Output() gotPlaylistEvent = new EventEmitter<Array<Todo>>();
 
-  constructor(private todoService: TodoService, private location: Location) {
+  constructor(private todoService: TodoService, private location: Location, private radioService: RadioService) {
     super();
     this.location.subscribe(() => {
       if (this.isFullscreen) {
@@ -527,77 +528,21 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   }
 
   async fetchRadioCountries() {
-    try {
-      const response = await fetch('https://de1.api.radio-browser.info/json/countries');
-      const data = await response.json();
-      this.radioCountries = data
-        .filter((c: any) => c.stationcount > 0)
-        .sort((a: any, b: any) => b.stationcount - a.stationcount)
-        .slice(0, 50);
-    } catch (error) {
-      console.error('Error fetching radio countries:', error);
-      this.radioCountries = [];
-    }
+    this.radioCountries = await this.radioService.fetchCountries();
   }
 
   async fetchRadioLanguages() {
-    try {
-      const response = await fetch('https://de1.api.radio-browser.info/json/languages');
-      const data = await response.json();
-      this.radioLanguages = data
-        .filter((l: any) => l.stationcount > 0)
-        .sort((a: any, b: any) => b.stationcount - a.stationcount)
-        .slice(0, 50);
-    } catch (error) {
-      console.error('Error fetching radio languages:', error);
-      this.radioLanguages = [];
-    }
+    this.radioLanguages = await this.radioService.fetchLanguages();
   }
 
   async fetchRadioTags() {
-    try {
-      const response = await fetch('https://de1.api.radio-browser.info/json/tags');
-      const data = await response.json();
-      this.radioTags = data
-        .filter((t: any) => t.stationcount > 0)
-        .sort((a: any, b: any) => b.stationcount - a.stationcount)
-        .slice(0, 50);
-    } catch (error) {
-      console.error('Error fetching radio tags:', error);
-      this.radioTags = [];
-    }
+    this.radioTags = await this.radioService.fetchTags();
   }
 
   async fetchRadioStations() {
     this.isLoadingRadio = true;
     try {
-      let url = 'https://de1.api.radio-browser.info/json/stations/search';
-      const params = new URLSearchParams();
-      
-      if (this.radioFilters.country) {
-        params.append('country', this.radioFilters.country);
-      }
-      if (this.radioFilters.language) {
-        params.append('language', this.radioFilters.language);
-      }
-      if (this.radioFilters.tag) {
-        params.append('tag', this.radioFilters.tag);
-      }
-      
-      params.append('limit', '100');
-      params.append('order', 'votes');
-      params.append('reverse', 'true');
-      
-      if (params.toString()) {
-        url += '?' + params.toString();
-      }
-      
-      const response = await fetch(url);
-      const data = await response.json();
-      this.radioStations = data.filter((station: any) => station.url_resolved);
-    } catch (error) {
-      console.error('Error fetching radio stations:', error);
-      this.radioStations = [];
+      this.radioStations = await this.radioService.fetchStations(this.radioFilters);
     } finally {
       this.isLoadingRadio = false;
     }
@@ -609,7 +554,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.fetchRadioStations();
   }
 
-  playRadioStation(station: any) {
+  playRadioStation(station: RadioStation) {
     if (!station || !station.url_resolved) {
       alert('Invalid radio station URL');
       return;
@@ -639,8 +584,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     
     // Register click for popularity tracking
     if (station.stationuuid) {
-      fetch(`https://de1.api.radio-browser.info/json/url/${station.stationuuid}`)
-        .catch(err => console.warn('Failed to register radio click:', err));
+      this.radioService.registerStationClick(station.stationuuid);
     }
     
     this.isMusicControlsDisplayed(true);

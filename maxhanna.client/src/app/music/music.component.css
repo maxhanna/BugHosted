@@ -264,7 +264,7 @@ input[type="submit"] {
   display: flex;
   gap: 5px;
 }
-
+/* 
 .radioStationsContainer {
   width: 100%;
   padding: 10px;
@@ -357,4 +357,4 @@ input[type="submit"] {
 
 .radioPlayButton:hover {
   background-color: var(--main-highlight-color);
-}
+} */
