@@ -1,6 +1,7 @@
 using maxhanna.Server.Controllers.DataContracts.Bones;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Files;
+using maxhanna.Server.Controllers.DataContracts; // PartyMemberDto
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Text;
@@ -1181,17 +1182,6 @@ ORDER BY p.created DESC;";
 			}
 		}
 
-		private class PartyMemberDto
-		{
-			public int HeroId { get; set; }
-			public string? Name { get; set; }
-			public string? Color { get; set; }
-			public string Type { get; set; } = "knight"; // NOT NULL in schema, but keep safe default
-			public int Level { get; set; }
-			public int Hp { get; set; }
-			public string? Map { get; set; }
-			public int Exp { get; set; }
-		}
 
 		[HttpPost("/Bones/ActivePlayers", Name = "Bones_GetActivePlayers")]
 		public async Task<IActionResult> GetBonesActivePlayers([FromBody] int? minutes)
