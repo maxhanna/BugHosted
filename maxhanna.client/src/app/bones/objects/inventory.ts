@@ -12,6 +12,8 @@ import { Exit } from "./Environment/Exit/exit";
 import { SpriteTextString } from "./SpriteTextString/sprite-text-string";
 import { ColorSwap } from "../../../services/datacontracts/bones/color-swap"; 
 import { PartyMember } from "../../../services/datacontracts/bones/party-member";
+import { LevelBadge } from "./InventoryItem/level-badge";
+
 export class Inventory extends GameObject {
   nextId: number = parseInt((Math.random() * 19999).toFixed(0));
   items: InventoryItem[] = [];
@@ -197,17 +199,30 @@ export class Inventory extends GameObject {
       });
       this.addChild(sprite);
 
-      // Create text using SpriteTextString
-      const levelSuffix = (pm && typeof pm.level === 'number' && pm.level > 0) ? ` (Lv ${pm.level})` : '';
-      const displayName = (item.name ?? "Player") + levelSuffix;
+      // Draw level badge overlapping bottom-right corner of portrait
+      if (pm && typeof pm.level === 'number' && pm.level > 0) {
+        // Position badge at bottom-right of portrait (16x16), with slight overlap
+        // Badge radius is 5px, so position center at portrait_right - 3px, portrait_bottom - 3px
+        const badgeX = PORTRAIT_X + PORTRAIT_SIZE - 8; // 16 - 8 = 8px from left (slight overlap)
+        const badgeY = START_Y + (count * ROW_HEIGHT) + PORTRAIT_SIZE - 8; // bottom - 8px (slight overlap)
+        const levelBadge = new LevelBadge(pm.level, new Vector2(badgeX, badgeY));
+        this.addChild(levelBadge);
+      }
+
+      // Create name text
+      const displayName = item.name ?? "Player";
+      const yPos = START_Y + (count * ROW_HEIGHT) - 6;
+      const xOffset = TEXT_X;
+      
+      // Draw name
       const txtsprite = new SpriteTextString(
         displayName,
-        new Vector2(TEXT_X, START_Y + (count * ROW_HEIGHT) - 6),
+        new Vector2(xOffset, yPos),
         "White"
       );
       const txtsprite2 = new SpriteTextString(
         displayName,
-        new Vector2(TEXT_X + 1, START_Y + 1 + (count * ROW_HEIGHT) - 6),
+        new Vector2(xOffset + 1, yPos + 1),
         "Black"
       );
       count++;
