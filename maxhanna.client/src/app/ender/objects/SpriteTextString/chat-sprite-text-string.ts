@@ -112,14 +112,17 @@ export class ChatSpriteTextString extends GameObject {
   }
 
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
-    // Removed opaque chat background (previous black box) for cleaner overlay.
-    // Keep dimension calculation for line wrapping logic only.
+    // Draw text box background
     if (this.needsRecalculation) {
       this.calculateDimensions();
     }
-    // Optional subtle backdrop: commented out. Uncomment if slight contrast is needed.
-    // ctx.fillStyle = 'rgba(0,0,0,0.25)';
-    // ctx.roundRect(drawPosX, drawPosY, this.LINE_WIDTH_MAX + this.PADDING_LEFT * 2, this.cachedTotalHeight, 6).fill();
+    ctx.fillStyle = `rgba(0, 0, 0, ${this.backgroundAlpha})`;
+    ctx.fillRect(
+      drawPosX,
+      drawPosY,
+      this.LINE_WIDTH_MAX + this.PADDING_LEFT * 2,
+      this.cachedTotalHeight
+    );
 
     // Draw text
     let cursorX = drawPosX + this.PADDING_LEFT;
@@ -144,14 +147,7 @@ export class ChatSpriteTextString extends GameObject {
             continue;
           }
           const withCharOffset = cursorX - 5;
-          // Add light shadow for readability without background
-          ctx.save();
-          ctx.shadowColor = 'rgba(0,0,0,0.6)';
-          ctx.shadowBlur = 2;
-          ctx.shadowOffsetX = 1;
-          ctx.shadowOffsetY = 1;
           char.sprite.draw(ctx, withCharOffset, cursorY);
-          ctx.restore();
           cursorX += char.width + 1;
           currentShowingIndex++;
         }

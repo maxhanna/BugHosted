@@ -146,13 +146,10 @@ export class ChatSpriteTextString extends GameObject {
       ? Math.max(0, drawPosX - (effectiveLineWidth + this.PADDING_LEFT * 2))
       : drawPosX;
 
-    ctx.fillStyle = `rgba(0, 0, 0, ${this.backgroundAlpha})`;
-    ctx.fillRect(
-      drawBoxX,
-      drawPosY,
-      effectiveLineWidth + this.PADDING_LEFT * 2,
-      this.cachedTotalHeight
-    );
+    // Removed opaque chat background (previous black box) for cleaner overlay.
+    // Optional subtle backdrop: commented out. Uncomment if slight contrast is needed.
+    // ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    // ctx.fillRect(drawBoxX, drawPosY, effectiveLineWidth + this.PADDING_LEFT * 2, this.cachedTotalHeight);
 
     // Draw text
   let cursorX = drawBoxX + this.PADDING_LEFT;
@@ -177,7 +174,14 @@ export class ChatSpriteTextString extends GameObject {
             continue;
           }
           const withCharOffset = cursorX - 5;
+          // Add light shadow for readability without background
+          ctx.save();
+          ctx.shadowColor = 'rgba(0,0,0,0.6)';
+          ctx.shadowBlur = 2;
+          ctx.shadowOffsetX = 1;
+          ctx.shadowOffsetY = 1;
           char.sprite.draw(ctx, withCharOffset, cursorY);
+          ctx.restore();
           cursorX += char.width + 1;
           currentShowingIndex++;
         }
