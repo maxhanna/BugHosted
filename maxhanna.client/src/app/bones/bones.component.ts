@@ -9,7 +9,7 @@ import { UserService } from '../../services/user.service';
 import { MetaChat } from '../../services/datacontracts/bones/meta-chat';
 import { gridCells, snapToGrid } from './helpers/grid-cells';
 import { GameLoop } from './helpers/game-loop';
-import { hexToRgb, resources } from './helpers/resources';
+import { defaultRGB, hexToRgb, rawHEX, resources } from './helpers/resources';
 import { events } from './helpers/events';
 import { storyFlags } from './helpers/story-flags';
 import { actionMultiplayerEvents, subscribeToMainGameEvents, pendingAttacks, processedAttacks, reconcileDroppedItemsFromFetch, reconcileTownPortalsFromFetch } from './helpers/network';
@@ -1018,7 +1018,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
               botType: enemy.type,
               name: enemy.name ?? "botFrame",
               spriteName: enemy.name ?? "botFrame",
-              colorSwap: (tgtEncounter.color ? new ColorSwap([0, 160, 200], hexToRgb(tgtEncounter.color)) : undefined),
+              colorSwap: (tgtEncounter.color ? new ColorSwap(defaultRGB, hexToRgb(tgtEncounter.color)) : undefined),
               isDeployed: true,
               isEnemy: true,
               position: (enemy.position !== undefined && enemy.position.x != -1 && enemy.position.y != -1) ? new Vector2(enemy.position.x, enemy.position.y) : new Vector2(tgtEncounter.position?.x ?? 0, tgtEncounter.position?.y ?? 0),
@@ -1187,7 +1187,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         hero.id == this.metaHero.id ? (this.metaHero.position?.x ?? 0) : (hero.position?.x ?? 0),
         hero.id == this.metaHero.id ? (this.metaHero.position?.y ?? 0) : (hero.position?.y ?? 0)
       ),
-      colorSwap: (hero.color ? new ColorSwap([0, 160, 200], hexToRgb(hero.color)) : undefined),
+      colorSwap: (hero.color ? new ColorSwap(defaultRGB, hexToRgb(hero.color)) : undefined),
       speed: hero.speed,
       mask: hero.mask ? new Mask(getMaskNameById(hero.mask)) : undefined,
       forceDrawName: true,
@@ -1473,14 +1473,14 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
     if (!normalizeHex(raw)) {
       // fallback to cached/default if input invalid
-      raw = this.cachedDefaultColor ?? this.metaHero?.color ?? '#444444';
+      raw = this.cachedDefaultColor ?? this.metaHero?.color ?? rawHEX;
       this.colorInput.nativeElement.value = raw;
     }
 
-    const chosenColor = normalizeHex(raw) ?? this.cachedDefaultColor ?? this.metaHero?.color ?? '#444444';
+    const chosenColor = normalizeHex(raw) ?? this.cachedDefaultColor ?? this.metaHero?.color ?? rawHEX;
 
     this.metaHero.color = chosenColor;
-    if (this.hero) this.hero.colorSwap = new ColorSwap([0, 160, 200], hexToRgb(chosenColor));
+    if (this.hero) this.hero.colorSwap = new ColorSwap(defaultRGB, hexToRgb(chosenColor));
 
     const userId = this.parentRef?.user?.id ?? 0;
     if (userId && userId > 0) {
@@ -1490,7 +1490,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
     // propagate to scene and reinitialize if not on character creation
     if (this.metaHero && this.metaHero.id && chosenColor) {
-      if (this.hero) this.hero.colorSwap = new ColorSwap([0, 160, 200], hexToRgb(chosenColor));
+      if (this.hero) this.hero.colorSwap = new ColorSwap(defaultRGB, hexToRgb(chosenColor));
     }
 
     if (this.mainScene?.level?.name != 'CharacterCreate') {

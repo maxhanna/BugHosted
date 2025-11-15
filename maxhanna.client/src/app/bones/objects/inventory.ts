@@ -1,6 +1,6 @@
 import { GameObject, HUD } from "./game-object";
 import { Sprite } from "./sprite";
-import { hexToRgb, resources } from "../helpers/resources";
+import { defaultRGB, hexToRgb, resources } from "../helpers/resources";
 import { events } from "../helpers/events";
 import { Vector2 } from "../../../services/datacontracts/bones/vector2";
 import { MetaHero } from "../../../services/datacontracts/bones/meta-hero";
@@ -43,7 +43,12 @@ export class Inventory extends GameObject {
 
     if (this.partyMembers.length === 0) {
       if (this.parent?.hero?.id) {
-        this.partyMembers.push({ heroId: this.parent.hero.id, name: this.parent.hero.name, color: this.parent.hero.color, type: (this.parent?.hero?.type ?? 'knight') });
+        this.partyMembers.push({
+          heroId: this.parent.hero.id,
+          name: this.parent.hero.name,
+          color: this.parent.hero.color,
+          type: (this.parent.hero.type ?? 'knight')
+        } as PartyMember);
       }
       console.log(this.parent?.hero?.id, this.parentCharacter, this.root.level);
     }
@@ -58,7 +63,7 @@ export class Inventory extends GameObject {
         id: member.heroId,
         image: "portraits", // use string key to avoid type mismatch
         name: member.name,
-        colorSwap: (member.color ? hexToRgb(member.color) : undefined),
+        colorSwap: (member.color ? hexToRgb(member.color) : new ColorSwap(defaultRGB, defaultRGB)),
         category: "partyMember"
       } as InventoryItem;
       console.log("pushing item data: ", itemData);
@@ -89,14 +94,19 @@ export class Inventory extends GameObject {
       this.items.push(itemData);
     });
 
-    events.on("PARTY_INVITE_ACCEPTED", this, (data: { playerId: number, party: { heroId: number, name: string, color?: string }[] }) => {
+    events.on("PARTY_INVITE_ACCEPTED", this, (data: { playerId: number, party: PartyMember[] }) => {
       if (data.party) {
         for (let member of data.party) {
           // ensure partyMembers array is kept in sync and includes type
           const existing = this.partyMembers?.find(x => x.heroId === member.heroId);
           if (!existing) {
-            const inferredType = (this.parentCharacter && this.parentCharacter.id === member.heroId) ? (this.parentCharacter as any).type : 'knight';
-            (this.partyMembers as any).push({ heroId: member.heroId, name: member.name, color: member.color, type: inferredType });
+            // Use type from party data, fallback to parentCharacter, then knight
+            const memberType = member.type ?? ((this.parentCharacter && this.parentCharacter.id === member.heroId) ? (this.parentCharacter as any).type : 'knight');
+            (this.partyMembers as any).push({ heroId: member.heroId, name: member.name, color: member.color, type: memberType });
+          } else {
+            // Update existing member with latest type and color from party data
+            existing.type = member.type ?? existing.type;
+            existing.color = member.color ?? existing.color;
           }
           const itemData = {
             id: member.heroId,
@@ -171,11 +181,11 @@ export class Inventory extends GameObject {
       const color = this.partyMembers?.find(x => x.heroId == item.id)?.color as any;
       let tmpColor = color == undefined ? undefined
         : color instanceof ColorSwap ? color
-          : new ColorSwap([0, 160, 200], hexToRgb(color));
+          : new ColorSwap(defaultRGB, hexToRgb(color));
       console.log("creating portrait with color: ", color, item, this.parentCharacter);
       // Create portrait sprite
-  // Determine portrait frame by hero type: rogue=0, knight=1, magi=2
-  let frameIndex = 1; // default to knight
+      // Determine portrait frame by hero type: rogue=0, knight=1, magi=2
+      let frameIndex = 1; // default to knight
       try {
         const pm = this.partyMembers?.find(x => x.heroId == item.id) as any | undefined;
         const typeFromMember = pm?.type ?? undefined;

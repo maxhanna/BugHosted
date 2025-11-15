@@ -249,6 +249,8 @@ export class Resources {
   }
 }
 export const resources = new Resources();
+export const defaultRGB = [0, 160, 200];
+export const rawHEX = "#00A0C8";
 export function hexToRgb(hex: string) {
   // Remove the leading '#' if present
   hex = hex.replace(/^#/, '');

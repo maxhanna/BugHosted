@@ -14,7 +14,7 @@ import { Character } from "../objects/character";
 import { HeroInventoryItem } from "../../../services/datacontracts/bones/hero-inventory-item";
 import { DroppedItem } from "../objects/Environment/DroppedItem/dropped-item";
 import { TownPortal } from "../objects/Environment/TownPortal/town-portal";
-import { hexToRgb, resources } from "./resources";
+import { defaultRGB, hexToRgb, resources } from "./resources";
 import { ColorSwap } from "../../../services/datacontracts/bones/color-swap";
 import { PartyMember } from "../../services/datacontracts/bones/party-member";
 
@@ -218,7 +218,7 @@ export function subscribeToMainGameEvents(object: any) {
 
       console.log("changing levels");
       // Suppress death SFX for existing hero when level teardown destroys it
-      try { if (object.hero && typeof object.hero._suppressDeathSfx === 'boolean') { object.hero._suppressDeathSfx = true; } } catch {}
+      try { if (object.hero && typeof object.hero._suppressDeathSfx === 'boolean') { object.hero._suppressDeathSfx = true; } } catch { }
       object.otherHeroes = [];
       if (!object.hero?.id) object.pollForChanges();
 
@@ -721,7 +721,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
         trimChatToLimit(object, 10);
         object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name));
         object.displayChatMessage();
-        resources.playSound('arcadeUi', { volume: 0.5, allowOverlap: true });  
+        resources.playSound('arcadeUi', { volume: 0.5, allowOverlap: true });
         events.emit("CHAT_MESSAGE_RECEIVED");
       }
       else if (event.eventType === "WHISPER" && event.data) {
@@ -747,7 +747,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           payload.killerType = event.data["killerType"] ?? event.data["killer_type"] ?? undefined;
           payload.cause = event.data["cause"] ?? undefined;
         }
-        resources.playSound('maleDeathScream', { allowOverlap: true }); 
+        resources.playSound('maleDeathScream', { allowOverlap: true });
         if (event.heroId === object.metaHero.id) {
           events.emit("HERO_DIED", payload);
           // setTimeout(() => {
@@ -772,12 +772,12 @@ export function actionPartyInviteAcceptedEvent(object: any, event: MetaEvent) {
     console.log("received party member data : " + partyMembersData);
     if (partyMembersData) {
       let isMyParty = false;
-      let party: any[] = [];
+      let party: PartyMember[] = [];
       for (let memberId of partyMembersData) {
         if (!party.find(x => x.heroId === memberId)) {
           const otherPlayer = object.otherHeroes.find((hero: Character) => hero.id === memberId);
           console.log('Found otherPlayer for party:', { memberId, otherPlayer, type: otherPlayer?.type });
-          party.push({ heroId: memberId, name: otherPlayer.name, color: otherPlayer.color, type: otherPlayer.type });
+          party.push({ heroId: memberId, name: otherPlayer.name, color: otherPlayer.color, type: otherPlayer.type } as PartyMember);
           if (memberId === object.metaHero.id) {
             isMyParty = true;
           }
@@ -789,7 +789,13 @@ export function actionPartyInviteAcceptedEvent(object: any, event: MetaEvent) {
         const heroId = object.metaHero.id ?? 0;
         object.bonesService.getPartyMembers(heroId).then((resp: any) => {
           if (Array.isArray(resp)) {
-            object.partyMembers = resp.map((p: any) => ({ heroId: p.heroId ?? p.id ?? 0, name: p.name ?? '', color: p.color }));
+            object.partyMembers = resp.map((p: any) => (
+              {
+                heroId: p.heroId ?? p.id ?? 0,
+                name: p.name ?? '',
+                color: p.color,
+                type: p.type
+              }));
           } else {
             object.partyMembers = party; // fallback
           }
@@ -823,7 +829,7 @@ export function actionPartyUpEvent(object: any, event: MetaEvent) {
         const inviterId = parseInt(event.data["hero_id"]);
         if (!object.partyMembers.find((x: any) => event.data && x.heroId === inviterId)) {
           const member = object.otherHeroes.find((x: Character) => x.id === inviterId);
-          if (member) { 
+          if (member) {
             object.partyMembers.push({ heroId: member.id, name: member.name, color: member.color, type: member.type });
 
             console.log("pushing: ", { heroId: member.id, name: member.name, color: member.color, type: member.type });
@@ -993,21 +999,21 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
           label = `${shortName}'s\nPortal`;
         }
       }
-      const color = ptcolor ? new ColorSwap([0, 160, 200], hexToRgb(ptcolor)) : undefined;
+      const color = ptcolor ? new ColorSwap(defaultRGB, hexToRgb(ptcolor)) : undefined;
       // Reuse existing portal marker if present to avoid recreation on each fetch
       try { if (!(object as any)._townPortalsMap) (object as any)._townPortalsMap = new Map<number, any>(); } catch { }
       const townMap = (object as any)._townPortalsMap as Map<number, any> | undefined;
       if (townMap && townMap.has(id)) {
         const existing = townMap.get(id);
-        
-          // Update server data and creator id if changed
-          try { (existing as any).serverData = typeof it.data === 'object' ? it.data : ((it.data && typeof it.data === 'string') ? JSON.parse(it.data) : (it.data ?? {})); } catch { }
-          try { (existing as any).serverCreatorHeroId = Number(it.creatorHeroId ?? it.creator_hero_id ?? it.heroId ?? it.creator ?? it.creatorId ?? it.ownerId ?? it.createdBy ?? it.hero_id ?? undefined); } catch { }
-          // Update position if changed
-          try { if (existing.position && typeof existing.position.x === 'number') { existing.position.x = Number(x); existing.position.y = Number(y); existing.destinationPosition = existing.position.duplicate ? existing.position.duplicate() : existing.position; } } catch { }
-          // Update name/label if different
-          try { if (existing.name !== label) { existing.name = label; existing.forceDrawName = true; } } catch { }
-       
+
+        // Update server data and creator id if changed
+        try { (existing as any).serverData = typeof it.data === 'object' ? it.data : ((it.data && typeof it.data === 'string') ? JSON.parse(it.data) : (it.data ?? {})); } catch { }
+        try { (existing as any).serverCreatorHeroId = Number(it.creatorHeroId ?? it.creator_hero_id ?? it.heroId ?? it.creator ?? it.creatorId ?? it.ownerId ?? it.createdBy ?? it.hero_id ?? undefined); } catch { }
+        // Update position if changed
+        try { if (existing.position && typeof existing.position.x === 'number') { existing.position.x = Number(x); existing.position.y = Number(y); existing.destinationPosition = existing.position.duplicate ? existing.position.duplicate() : existing.position; } } catch { }
+        // Update name/label if different
+        try { if (existing.name !== label) { existing.name = label; existing.forceDrawName = true; } } catch { }
+
         return { id, portalMarker: existing };
       }
 
@@ -1023,7 +1029,7 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
         dataObj = { coordsX: it.coordsX, coordsY: it.coordsY, map: it.map };
       }
 
-      if (dataObj && typeof dataObj === 'object') { 
+      if (dataObj && typeof dataObj === 'object') {
         const pickFirst = (v: any) => Array.isArray(v) ? (v.length > 0 ? v[0] : undefined) : v;
         if (dataObj.map !== undefined) {
           const raw = pickFirst(dataObj.map);

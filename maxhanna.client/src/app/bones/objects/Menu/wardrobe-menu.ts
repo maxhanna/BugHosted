@@ -1,6 +1,6 @@
 import { GameObject, HUD } from "../game-object";
 import { Sprite } from "../sprite";
-import { hexToRgb, resources } from "../../helpers/resources";
+import { defaultRGB, hexToRgb, resources } from "../../helpers/resources";
 import { events } from "../../helpers/events";
 import { getAbbrTypeLabel } from "../../helpers/skill-types";
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
@@ -54,7 +54,7 @@ export class WardrobeMenu extends Level {
      
     this.heroSprite = new Hero({
       name: this.hero.name, position: new Vector2(70, 80),
-      colorSwap: this.hero.color ? new ColorSwap([0, 160, 200], hexToRgb(this.hero.color)) : undefined,
+      colorSwap: this.hero.color ? new ColorSwap(defaultRGB, hexToRgb(this.hero.color)) : undefined,
       mask: this.hero.mask ? new Mask(getMaskNameById(this.hero.mask)) : undefined
     });
    
