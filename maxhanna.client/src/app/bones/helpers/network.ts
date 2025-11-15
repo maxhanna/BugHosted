@@ -17,6 +17,7 @@ import { TownPortal } from "../objects/Environment/TownPortal/town-portal";
 import { defaultRGB, hexToRgb, resources } from "./resources";
 import { ColorSwap } from "../../../services/datacontracts/bones/color-swap";
 import { PartyMember } from "../../services/datacontracts/bones/party-member";
+import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
 
 
 export class Network {
@@ -498,11 +499,21 @@ export function subscribeToMainGameEvents(object: any) {
   events.on("PARTY_UP", object, (person: Hero) => {
     const foundInParty = object.partyMembers.find((x: PartyMember) => x.heroId === object.metaHero.id);
     if (!foundInParty) {
-      object.partyMembers.push({ heroId: object.metaHero.id, name: object.metaHero.name, color: object.metaHero.color, type: object.metaHero.type });
+      object.partyMembers.push({ 
+        heroId: object.metaHero.id, 
+        name: object.metaHero.name, 
+        color: object.metaHero.color, 
+        type: object.metaHero.type 
+      } as PartyMember);
     }
     const foundInParty2 = object.partyMembers.find((x: PartyMember) => x.heroId === person.id);
     if (!foundInParty2) {
-      object.partyMembers.push({ heroId: person.id, name: person.name, color: person.colorSwap, type: person.type } as PartyMember);
+      object.partyMembers.push({ 
+        heroId: person.id, 
+        name: person.name, 
+        color: person.colorSwap, 
+        type: person.type 
+      } as PartyMember);
     }
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "PARTY_UP", object.metaHero.map, { "hero_id": `${person.id}`, "party_members": safeStringify(object.partyMembers.map((x: any) => x.heroId)) })
     object.bonesService.updateEvents(metaEvent);
@@ -821,16 +832,26 @@ export function actionPartyUpEvent(object: any, event: MetaEvent) {
         const partyMemberIdsData = JSON.parse(event.data["party_members"]);
 
         for (let memberId of partyMemberIdsData) {
-          const member = object.otherHeroes.find((x: Character) => x.id === memberId);
+          const member = object.otherHeroes.find((x: MetaHero) => x.id === memberId);
           console.log('Adding party member:', { memberId, member, type: member?.type });
-          object.partyMembers.push({ heroId: memberId, name: member.name, color: member.color, type: member.type });
+          object.partyMembers.push({ 
+            heroId: memberId,
+            name: member.name, 
+            color: member.color, 
+            type: member.type 
+          } as PartyMember);
           console.log("pushing: ", { heroId: memberId, name: member.name, color: member.color, type: member.type });
         }
         const inviterId = parseInt(event.data["hero_id"]);
         if (!object.partyMembers.find((x: any) => event.data && x.heroId === inviterId)) {
-          const member = object.otherHeroes.find((x: Character) => x.id === inviterId);
+          const member = object.otherHeroes.find((x: MetaHero) => x.id === inviterId);
           if (member) {
-            object.partyMembers.push({ heroId: member.id, name: member.name, color: member.color, type: member.type });
+            object.partyMembers.push({ 
+              heroId: member.id, 
+              name: member.name, 
+              color: member.color, 
+              type: member.type 
+            } as PartyMember);
 
             console.log("pushing: ", { heroId: member.id, name: member.name, color: member.color, type: member.type });
           }
@@ -839,12 +860,18 @@ export function actionPartyUpEvent(object: any, event: MetaEvent) {
         object.bonesService.updateEvents(partyUpAcceptedEvent);
         // After server-side update, fetch canonical party members and emit
         try {
-          const userId = object.parentRef?.user?.id ?? 0;
-          if (userId) {
-            object.bonesService.getPartyMembers(userId).then((resp: any) => {
+          const heroId = object.metaHero?.id ?? 0;
+          if (heroId) {
+            object.bonesService.getPartyMembers(heroId).then((resp: any) => {
               if (Array.isArray(resp)) {
-                object.partyMembers = resp.map((p: any) => ({ heroId: p.heroId ?? p.id ?? 0, name: p.name ?? '', color: p.color, type: p.type }));
+                object.partyMembers = resp.map((p: any) => ({ 
+                  heroId: p.heroId ?? p.id ?? 0,
+                  name: p.name ?? '', 
+                  color: p.color, 
+                  type: p.type 
+                } as PartyMember));
               }
+              console.log('Party members after server fetch in actionPartyUpEvent:', object.partyMembers);
               events.emit("PARTY_INVITE_ACCEPTED", { playerId: object.metaHero.id, party: object.partyMembers });
             }).catch((err: any) => {
               console.warn('Failed to fetch canonical party members after accepting invite in actionPartyUpEvent', err);

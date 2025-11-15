@@ -55,9 +55,10 @@ export class Inventory extends GameObject {
     console.log("rendering party", this.items, this.partyMembers);
     for (let member of this.partyMembers) {
       // Ensure member has a type so render logic can determine portrait frame
-      if (typeof (member as any).type === 'undefined') {
-        const inferred = (this.parentCharacter && this.parentCharacter.id === member.heroId) ? (this.parentCharacter as any).type : undefined;
-        (member as any).type = inferred ?? 'knight';
+      if (!member.type) {
+        const inferred = (this.parentCharacter && this.parentCharacter.id === member.heroId) ? this.parentCharacter.type : undefined;
+        member.type = inferred ?? 'knight';
+        console.log(`Member ${member.name} had no type, inferred: ${member.type}`);
       }
       const itemData = {
         id: member.heroId,
@@ -66,7 +67,7 @@ export class Inventory extends GameObject {
         colorSwap: (member.color ? hexToRgb(member.color) : new ColorSwap(defaultRGB, defaultRGB)),
         category: "partyMember"
       } as InventoryItem;
-      console.log("pushing item data: ", itemData);
+      console.log("pushing item data: ", itemData, "member type:", member.type);
       this.items.push(itemData);
     }
 
