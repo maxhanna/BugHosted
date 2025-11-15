@@ -1,6 +1,7 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { MetaHero } from '../../services/datacontracts/bones/meta-hero';
+import { PartyMember } from '../services/datacontracts/bones/party-member';
 import { Vector2 } from '../../services/datacontracts/bones/vector2';
 import { User } from '../../services/datacontracts/user/user';
 import { BonesService } from '../../services/bones.service';
@@ -69,9 +70,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   metaHero: MetaHero;
   hero?: Hero;
   otherHeroes: MetaHero[] = [];
-  // Track last-known HP per hero id so we can detect HP drops and play impact SFX
   private _lastKnownHeroHp: Map<number, number> = new Map<number, number>();
-  partyMembers: { heroId: number, name: string, color?: string, type?: string }[] = [];
+  partyMembers: PartyMember[] = [];
   chat: MetaChat[] = [];
   events: MetaEvent[] = [];
   // Death UI/state
@@ -1667,11 +1667,12 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           partySet.add(p.heroId);
         }
       }
-    } else if (this.partyMembers && typeof this.partyMembers === 'object' ) {
-      // support map-like or keyed object: extract values and look for heroId
+    } else if (this.partyMembers && typeof this.partyMembers === 'object' ) { 
       for (const key of Object.keys(this.partyMembers)) {
-        const p = this.partyMembers[key] as;
-        if (p && typeof p === 'object' && p.heroId !== undefined) partySet.add(Number(p.heroId));
+        const p = this.partyMembers[key] as PartyMember;
+        if (p && p.heroId !== undefined) {
+          partySet.add(p.heroId);
+        }
       }
     }
 

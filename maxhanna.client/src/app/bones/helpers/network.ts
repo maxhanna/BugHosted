@@ -16,6 +16,7 @@ import { DroppedItem } from "../objects/Environment/DroppedItem/dropped-item";
 import { TownPortal } from "../objects/Environment/TownPortal/town-portal";
 import { hexToRgb, resources } from "./resources";
 import { ColorSwap } from "../../../services/datacontracts/bones/color-swap";
+import { PartyMember } from "../../services/datacontracts/bones/party-member";
 
 
 export class Network {
@@ -495,13 +496,13 @@ export function subscribeToMainGameEvents(object: any) {
   });
 
   events.on("PARTY_UP", object, (person: Hero) => {
-    const foundInParty = object.partyMembers.find((x: any) => x.heroId === object.metaHero.id);
+    const foundInParty = object.partyMembers.find((x: PartyMember) => x.heroId === object.metaHero.id);
     if (!foundInParty) {
       object.partyMembers.push({ heroId: object.metaHero.id, name: object.metaHero.name, color: object.metaHero.color, type: object.metaHero.type });
     }
-    const foundInParty2 = object.partyMembers.find((x: any) => x.heroId === person.id);
+    const foundInParty2 = object.partyMembers.find((x: PartyMember) => x.heroId === person.id);
     if (!foundInParty2) {
-      object.partyMembers.push({ heroId: person.id, name: person.name, color: person.colorSwap, type: person.type });
+      object.partyMembers.push({ heroId: person.id, name: person.name, color: person.colorSwap, type: person.type } as PartyMember);
     }
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "PARTY_UP", object.metaHero.map, { "hero_id": `${person.id}`, "party_members": safeStringify(object.partyMembers.map((x: any) => x.heroId)) })
     object.bonesService.updateEvents(metaEvent);

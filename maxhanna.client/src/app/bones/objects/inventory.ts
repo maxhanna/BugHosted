@@ -11,6 +11,7 @@ import { HeroInventoryItem } from "../../../services/datacontracts/bones/hero-in
 import { Exit } from "./Environment/Exit/exit";
 import { SpriteTextString } from "./SpriteTextString/sprite-text-string";
 import { ColorSwap } from "../../../services/datacontracts/bones/color-swap";
+import { PartyMember } from "../../services/datacontracts/bones/party-member";
 export class Inventory extends GameObject {
   nextId: number = parseInt((Math.random() * 19999).toFixed(0));
   items: InventoryItem[] = [];
@@ -18,9 +19,9 @@ export class Inventory extends GameObject {
   currentlySelectedId?: number = undefined;
   startMenu?: StartMenu;
   parentCharacter: MetaHero;
-  partyMembers?: { heroId: number, name: string, color?: string, type?: string }[] = [];
+  partyMembers?: PartyMember[] = [];
   inventoryRendered = false;
-  constructor(config: { character: MetaHero, partyMembers?: { heroId: number, name: string, color?: string, type?: string }[] }) {
+  constructor(config: { character: MetaHero, partyMembers?: PartyMember[] }) {
     super({ position: new Vector2(0, 0), drawLayer: HUD });
     this.items = [];
     this.parentCharacter = config.character;
