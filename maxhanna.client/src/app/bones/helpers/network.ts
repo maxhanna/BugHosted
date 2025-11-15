@@ -529,14 +529,7 @@ export function subscribeToMainGameEvents(object: any) {
     }
     // Remove the departed member from the local party list (keep other members and self)
     object.partyMembers = object.partyMembers.filter((x: any) => x.heroId !== toRemoveId);
-    // Re-enrich remaining party members with latest color/type from otherHeroes
-    object.partyMembers = object.partyMembers.map((pm: any) => {
-      const hero = object.otherHeroes.find((h: any) => h.id === pm.heroId);
-      if (hero) {
-        return { ...pm, color: hero.color, type: hero.type };
-      }
-      return pm;
-    });
+    
     console.log("removed party member id", toRemoveId, "remaining:", object.partyMembers);
     // If we removed ourselves, reinitialize inventory data as before
     if (toRemoveId === object.metaHero.id) {
@@ -631,14 +624,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             } else {
               // Remove the departed member and avoid removing other members unintentionally
               object.partyMembers = partyList.filter((x: any) => x.heroId !== removedId && x.heroId !== event.heroId);
-              // Re-enrich remaining party members with latest color/type from otherHeroes
-              object.partyMembers = object.partyMembers.map((pm: any) => {
-                const hero = object.otherHeroes.find((h: any) => h.id === pm.heroId);
-                if (hero) {
-                  return { ...pm, color: hero.color, type: hero.type };
-                }
-                return pm;
-              });
+              
               object.reinitializeInventoryData();
               console.log("processed UNPARTY for hero id", removedId);
             }

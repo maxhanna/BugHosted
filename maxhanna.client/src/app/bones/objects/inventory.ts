@@ -38,10 +38,8 @@ export class Inventory extends GameObject {
     if (!Array.isArray(this.partyMembers)) {
       this.partyMembers = [];
     }
-    console.log("renderParty - partyMembers before filter:", JSON.parse(JSON.stringify(this.partyMembers)));
     // Filter out any malformed entries that don't have a heroId
     this.partyMembers = this.partyMembers.filter((pm: any) => pm && (typeof pm.heroId !== 'undefined'));
-    console.log("renderParty - partyMembers after filter:", JSON.parse(JSON.stringify(this.partyMembers)));
 
     if (this.partyMembers.length === 0) {
       if (this.parent?.hero?.id) {
@@ -49,27 +47,23 @@ export class Inventory extends GameObject {
           heroId: this.parent.hero.id,
           name: this.parent.hero.name,
           color: this.parent.hero.color,
-          type: (this.parent.hero.type ?? 'knight')
+          type: (this.parent.hero.type ?? 'knight'),
+          level: this.parent.hero.level ?? 1,
+          hp: this.parent.hero.hp ?? 100,
+          map: this.parent.hero.map,
+          exp: this.parent.hero.exp ?? 0
         } as PartyMember);
       }
-      console.log(this.parent?.hero?.id, this.parentCharacter, this.root.level);
     }
-    console.log("rendering party", this.items, this.partyMembers);
+    
     for (let member of this.partyMembers) {
-      // Ensure member has a type so render logic can determine portrait frame
-      if (!member.type) {
-        const inferred = (this.parentCharacter && this.parentCharacter.id === member.heroId) ? this.parentCharacter.type : undefined;
-        member.type = inferred ?? 'knight';
-        console.log(`Member ${member.name} had no type, inferred: ${member.type}`);
-      }
       const itemData = {
         id: member.heroId,
-        image: "portraits", // use string key to avoid type mismatch
+        image: "portraits",
         name: member.name,
         colorSwap: (member.color ? hexToRgb(member.color) : new ColorSwap(defaultRGB, defaultRGB)),
         category: "partyMember"
       } as InventoryItem;
-      console.log("pushing item data: ", itemData, "member type:", member.type);
       this.items.push(itemData);
     }
 
@@ -100,20 +94,16 @@ export class Inventory extends GameObject {
     events.on("PARTY_INVITE_ACCEPTED", this, (data: { playerId: number, party: PartyMember[] }) => {
       if (data.party) {
         for (let member of data.party) {
-          // ensure partyMembers array is kept in sync and includes type
           const existing = this.partyMembers?.find(x => x.heroId === member.heroId);
           if (!existing) {
-            // Use type from party data, fallback to parentCharacter, then knight
-            const memberType = member.type ?? ((this.parentCharacter && this.parentCharacter.id === member.heroId) ? (this.parentCharacter as any).type : 'knight');
-            (this.partyMembers as any).push({ heroId: member.heroId, name: member.name, color: member.color, type: memberType });
+            (this.partyMembers as any).push(member);
           } else {
-            // Update existing member with latest type and color from party data
-            existing.type = member.type ?? existing.type;
-            existing.color = member.color ?? existing.color;
+            // Update existing member with latest data from party
+            Object.assign(existing, member);
           }
           const itemData = {
             id: member.heroId,
-            image: "portraits", // use string key to avoid type mismatch
+            image: "portraits",
             name: member.name,
             colorSwap: (member.color ? hexToRgb(member.color) : undefined),
             category: "partyMember"
@@ -181,32 +171,23 @@ export class Inventory extends GameObject {
     let count = 0;
     this.items.forEach((item, index) => {
       if (item.category !== "partyMember") return;
-      const color = this.partyMembers?.find(x => x.heroId == item.id)?.color as any;
+      const pm = this.partyMembers?.find(x => x.heroId == item.id);
+      const color = pm?.color as any;
       let tmpColor = color == undefined ? undefined
         : color instanceof ColorSwap ? color
           : new ColorSwap(defaultRGB, hexToRgb(color));
-      console.log("creating portrait with color: ", color, item, this.parentCharacter);
-      // Create portrait sprite
+      
       // Determine portrait frame by hero type: rogue=0, knight=1, magi=2
       let frameIndex = 1; // default to knight
-      try {
-        const pm = this.partyMembers?.find(x => x.heroId == item.id) as any | undefined;
-        const typeFromMember = pm?.type ?? undefined;
-        const typeFromParent = (this.parentCharacter && this.parentCharacter.id === item.id) ? (this.parentCharacter as any).type : undefined;
-        const heroType = (typeFromMember ?? typeFromParent ?? '').toString().toLowerCase();
-        if (heroType === 'rogue') frameIndex = 0;
-        else if (heroType === 'knight') frameIndex = 1;
-        else if (heroType === 'magi') frameIndex = 2;
-      } catch { frameIndex = 1; }
-
-      // Ensure frameIndex is within expected bounds
-      frameIndex = Math.max(0, Math.min(2, frameIndex));
+      const heroType = (pm?.type ?? 'knight').toLowerCase();
+      if (heroType === 'rogue') frameIndex = 0;
+      else if (heroType === 'knight') frameIndex = 1;
+      else if (heroType === 'magi') frameIndex = 2;
 
       const sprite = new Sprite({
         objectId: item.id,
         resource: resources.images["portraits"],
         vFrames: 1,
-        // portraits image contains 3 horizontal frames: rogue, knight, magi
         hFrames: 3,
         frame: frameIndex,
         drawLayer: HUD,
@@ -217,7 +198,8 @@ export class Inventory extends GameObject {
       this.addChild(sprite);
 
       // Create text using SpriteTextString
-      const displayName = item.name ?? "Player";
+      const levelSuffix = (pm && typeof pm.level === 'number' && pm.level > 0) ? ` (Lv ${pm.level})` : '';
+      const displayName = (item.name ?? "Player") + levelSuffix;
       const txtsprite = new SpriteTextString(
         displayName,
         new Vector2(TEXT_X, START_Y + (count * ROW_HEIGHT) - 6),
