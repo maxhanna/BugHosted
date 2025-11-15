@@ -705,7 +705,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
         trimChatToLimit(object, 10);
         object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name));
         object.displayChatMessage();
-        resources.playSound('arcadeUi', { allowOverlap: true });  
+        resources.playSound('arcadeUi', { volume: 0.5, allowOverlap: true });  
         events.emit("CHAT_MESSAGE_RECEIVED");
       }
       else if (event.eventType === "WHISPER" && event.data) {
