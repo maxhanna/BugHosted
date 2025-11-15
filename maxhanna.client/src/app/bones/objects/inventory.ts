@@ -38,8 +38,10 @@ export class Inventory extends GameObject {
     if (!Array.isArray(this.partyMembers)) {
       this.partyMembers = [];
     }
+    console.log("renderParty - partyMembers before filter:", JSON.parse(JSON.stringify(this.partyMembers)));
     // Filter out any malformed entries that don't have a heroId
     this.partyMembers = this.partyMembers.filter((pm: any) => pm && (typeof pm.heroId !== 'undefined'));
+    console.log("renderParty - partyMembers after filter:", JSON.parse(JSON.stringify(this.partyMembers)));
 
     if (this.partyMembers.length === 0) {
       if (this.parent?.hero?.id) {

@@ -1582,9 +1582,12 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     // ensure party members list is up to date
     if (this.metaHero && this.metaHero.id) {
       this.bonesService.getPartyMembers(this.metaHero.id).then(pm => {
+        console.log('getPartyMembers response:', pm);
         this.partyMembers = pm ?? [];
+        console.log('this.partyMembers after assignment:', this.partyMembers);
         if (this.mainScene && this.mainScene.inventory) {
           this.mainScene.inventory.partyMembers = this.partyMembers;
+          console.log('inventory.partyMembers before renderParty:', this.mainScene.inventory.partyMembers);
           this.mainScene.inventory.renderParty();
         }
         // reconcile optimistic invites
