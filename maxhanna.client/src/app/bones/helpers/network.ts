@@ -759,7 +759,7 @@ export function actionPartyInviteAcceptedEvent(object: any, event: MetaEvent) {
       for (let memberId of partyMembersData) {
         if (!party.find(x => x.heroId === memberId)) {
           const otherPlayer = object.otherHeroes.find((hero: Character) => hero.id === memberId);
-          party.push({ heroId: memberId, name: otherPlayer.name, color: otherPlayer.color });
+          party.push({ heroId: memberId, name: otherPlayer.name, color: otherPlayer.color, type: otherPlayer.type });
           if (memberId === object.metaHero.id) {
             isMyParty = true;
           }
@@ -798,16 +798,16 @@ export function actionPartyUpEvent(object: any, event: MetaEvent) {
 
         for (let memberId of partyMemberIdsData) {
           const member = object.otherHeroes.find((x: Character) => x.id === memberId);
-          object.partyMembers.push({ heroId: memberId, name: member.name, color: member.color });
-          console.log("pushing: ", { heroId: memberId, name: member.name, color: member.color });
+          object.partyMembers.push({ heroId: memberId, name: member.name, color: member.color, type: member.type });
+          console.log("pushing: ", { heroId: memberId, name: member.name, color: member.color, type: member.type });
         }
         const inviterId = parseInt(event.data["hero_id"]);
         if (!object.partyMembers.find((x: any) => event.data && x.heroId === inviterId)) {
           const member = object.otherHeroes.find((x: Character) => x.id === inviterId);
-          if (member) {
-            object.partyMembers.push({ heroId: member.id, name: member.name, color: member.color });
+          if (member) { 
+            object.partyMembers.push({ heroId: member.id, name: member.name, color: member.color, type: member.type });
 
-            console.log("pushing: ", { heroId: member.id, name: member.name, color: member.color });
+            console.log("pushing: ", { heroId: member.id, name: member.name, color: member.color, type: member.type });
           }
         }
         const partyUpAcceptedEvent = new MetaEvent(0, object.metaHero.id, new Date(), "PARTY_INVITE_ACCEPTED", object.metaHero.map, { "party_members": safeStringify(object.partyMembers.map((x: any) => x.heroId)) });
@@ -815,10 +815,10 @@ export function actionPartyUpEvent(object: any, event: MetaEvent) {
         // After server-side update, fetch canonical party members and emit
         try {
           const userId = object.parentRef?.user?.id ?? 0;
-          if (userId && object.bonesService && typeof object.bonesService.getPartyMembers === 'function') {
+          if (userId) {
             object.bonesService.getPartyMembers(userId).then((resp: any) => {
               if (Array.isArray(resp)) {
-                object.partyMembers = resp.map((p: any) => ({ heroId: p.heroId ?? p.id ?? 0, name: p.name ?? '', color: p.color }));
+                object.partyMembers = resp.map((p: any) => ({ heroId: p.heroId ?? p.id ?? 0, name: p.name ?? '', color: p.color, type: p.type }));
               }
               events.emit("PARTY_INVITE_ACCEPTED", { playerId: object.metaHero.id, party: object.partyMembers });
             }).catch((err: any) => {

@@ -226,7 +226,16 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       try {
         if (!payload || !payload.party) return;
         // payload.party expected to be array of { heroId, name, color }
-        const partyArr = payload.party as any[];
+        const partyArr = (payload.party as any[]).map(m => {
+          if (m && typeof m.type === 'undefined') {
+            // attempt to enrich with type from otherHeroes list
+            const heroObj = this.otherHeroes.find(h => h.id === m.heroId);
+            if (heroObj && heroObj.type) {
+              return { ...m, type: heroObj.type };
+            }
+          }
+          return m;
+        });
         for (const m of partyArr) {
           try { if (m && m.heroId) this.pendingInvites.delete(m.heroId); } catch { }
         }
@@ -1654,12 +1663,14 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const partySet = new Set<number>();
     if (Array.isArray(this.partyMembers)) {
       for (const p of this.partyMembers) {
-        if (p && typeof p === 'object' && (p as any).heroId !== undefined) partySet.add(Number((p as any).heroId));
+        if (p && p.heroId !== undefined) { 
+          partySet.add(p.heroId);
+        }
       }
-    } else if (this.partyMembers && typeof this.partyMembers === 'object') {
+    } else if (this.partyMembers && typeof this.partyMembers === 'object' ) {
       // support map-like or keyed object: extract values and look for heroId
       for (const key of Object.keys(this.partyMembers)) {
-        const p = (this.partyMembers as any)[key];
+        const p = this.partyMembers[key] as;
         if (p && typeof p === 'object' && p.heroId !== undefined) partySet.add(Number(p.heroId));
       }
     }
