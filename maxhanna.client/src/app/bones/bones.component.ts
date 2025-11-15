@@ -1,7 +1,6 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { MetaHero } from '../../services/datacontracts/bones/meta-hero';
-import { PartyMember } from '../services/datacontracts/bones/party-member';
+import { MetaHero } from '../../services/datacontracts/bones/meta-hero'; 
 import { Vector2 } from '../../services/datacontracts/bones/vector2';
 import { User } from '../../services/datacontracts/user/user';
 import { BonesService } from '../../services/bones.service';
@@ -36,6 +35,7 @@ import { GatesOfHell } from './levels/gates-of-hell';
 import { RiftedBastion } from './levels/rifted-bastion';
 import { RoadToRiftedBastion } from './levels/road-to-rifted-bastion';
 import { Toast } from './objects/SpriteTextString/toast';
+import { PartyMember } from '../../services/datacontracts/bones/party-member';
 
 @Component({
   selector: 'app-bones',
@@ -240,7 +240,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           try { if (m && m.heroId) this.pendingInvites.delete(m.heroId); } catch { }
         }
         // Update party members locally and refresh inventory/scene wiring
-        this.partyMembers = Array.isArray(partyArr) ? partyArr.map(p => ({ heroId: p.heroId, name: p.name, color: p.color, type: p.type })) : [];
+        this.partyMembers = Array.isArray(partyArr) ? partyArr.map(p => ({ heroId: p.heroId, name: p.name, color: p.color, type: p.type } as PartyMember)) : [];
         try {
           if (this.mainScene && this.mainScene.inventory) {
             this.mainScene.inventory.partyMembers = this.partyMembers;
@@ -2327,15 +2327,19 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       this.partyMembers = union.map(id => {
         const other: MetaHero | undefined = this.otherHeroes.find(h => h.id === id);
         const nameStr = other ? (other.name ?? `Hero ${id}`) : (id === this.metaHero.id ? (this.metaHero.name ?? `You`) : `Hero ${id}`);
-        return { heroId: id, name: nameStr, color: other ? other.color : undefined, type: other ? other.type : 'knight' };
+        return { heroId: id, name: nameStr, color: other ? other.color : undefined, type: other ? other.type : 'knight' } as PartyMember;
       });
       // Clear any optimistic pending invites for these heroes
       for (const id of union) { this.pendingInvites.delete(id); }
 
       const resp: any = await this.bonesService.getPartyMembers(this.metaHero.id);
-      if (Array.isArray(resp)) {
-        // resp items are { heroId, name, color }
-        this.partyMembers = resp.map((p: any) => ({ heroId: p.heroId ?? p.id ?? 0, name: p.name ?? '', color: p.color }));
+      if (Array.isArray(resp)) { 
+        this.partyMembers = resp.map((p: any) => ({ 
+          heroId: p.heroId ?? p.id ?? 0,
+          name: p.name ?? '', 
+          color: p.color, 
+          type: p.type ?? 'knight' 
+        } as PartyMember));
       }
       if (this.mainScene && this.mainScene.inventory) {
         this.mainScene.inventory.partyMembers = this.partyMembers;

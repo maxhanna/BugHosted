@@ -15,9 +15,9 @@ import { HeroInventoryItem } from "../../../services/datacontracts/bones/hero-in
 import { DroppedItem } from "../objects/Environment/DroppedItem/dropped-item";
 import { TownPortal } from "../objects/Environment/TownPortal/town-portal";
 import { defaultRGB, hexToRgb, resources } from "./resources";
-import { ColorSwap } from "../../../services/datacontracts/bones/color-swap";
-import { PartyMember } from "../../services/datacontracts/bones/party-member";
+import { ColorSwap } from "../../../services/datacontracts/bones/color-swap"; 
 import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
+import { PartyMember } from "../../../services/datacontracts/bones/party-member";
 
 
 export class Network {

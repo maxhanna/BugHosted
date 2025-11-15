@@ -9,6 +9,7 @@ import { Level } from "../Level/level";
 import { SpriteTextStringWithBackdrop } from "../SpriteTextString/sprite-text-string-with-backdrop";
 import { MetaHero } from "../../../../services/datacontracts/bones/meta-hero";
 import { Character } from "../character";
+import { PartyMember } from "../../../../services/datacontracts/bones/party-member";
 
 export class Main extends GameObject {
 	level?: Level = undefined;
@@ -18,9 +19,9 @@ export class Main extends GameObject {
 	heroId?: number;
 	metaHero?: MetaHero;
 	hero: Character;
-	partyMembers?: { heroId: number, name: string, color?: string }[] = [];
+	partyMembers?: PartyMember[] = [];
 
-	constructor(config: { position: Vector2, heroId: number, metaHero: MetaHero, hero: Character, partyMembers?: { heroId: number, name: string, color?: string }[] }) {
+	constructor(config: { position: Vector2, heroId: number, metaHero: MetaHero, hero: Character, partyMembers?: PartyMember[] }) {
 		super({ position: config.position });
 		this.heroId = config.heroId;
 		this.metaHero = config.metaHero;

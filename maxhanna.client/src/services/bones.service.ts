@@ -8,6 +8,7 @@ import { InventoryItem } from '../app/bones/objects/InventoryItem/inventory-item
 import { MetaBot } from './datacontracts/bones/meta-bot';
 import { HeroInventoryItem } from './datacontracts/bones/hero-inventory-item';
 import { CreateTownPortalRequest } from './datacontracts/bones/create-town-portal-request';
+import { PartyMember } from './datacontracts/bones/party-member';
 
 @Injectable({
   providedIn: 'root'
@@ -43,8 +44,21 @@ export class BonesService {
   async getHero(userId: number): Promise<MetaHero | undefined> {
     return this.fetchData('/bones', userId);
   }
-  async getPartyMembers(heroId: number): Promise<{ heroId: number, name: string, color?: string, type?: string }[] | undefined> {
-    return this.fetchData('/bones/getpartymembers', heroId);
+  async getPartyMembers(heroId: number): Promise<PartyMember[] | undefined> {
+    const raw = await this.fetchData('/bones/getpartymembers', heroId);
+    if (!Array.isArray(raw)) return undefined;
+    // Map both legacy camelCase (old anonymous object) and new PascalCase (PartyMemberDto) to unified camelCase interface
+    const mapped: PartyMember[] = raw.map((pm: any) => ({
+      heroId: pm.heroId ?? pm.HeroId,
+      name: pm.name ?? pm.Name,
+      color: pm.color ?? pm.Color,
+      type: pm.type ?? pm.Type ?? 'knight',
+      level: pm.level ?? pm.Level ?? 0,
+      hp: pm.hp ?? pm.Hp ?? 0,
+      map: pm.map ?? pm.Map,
+      exp: pm.exp ?? pm.Exp ?? 0
+    }));
+    return mapped;
   }
   async inviteToParty(heroId: number, targetHeroId: number) {
     return this.fetchData('/bones/invitetoparty', { HeroId: heroId, TargetHeroId: targetHeroId });

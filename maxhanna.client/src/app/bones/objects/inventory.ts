@@ -10,8 +10,8 @@ import { StartMenu } from "./Menu/start-menu";
 import { HeroInventoryItem } from "../../../services/datacontracts/bones/hero-inventory-item";
 import { Exit } from "./Environment/Exit/exit";
 import { SpriteTextString } from "./SpriteTextString/sprite-text-string";
-import { ColorSwap } from "../../../services/datacontracts/bones/color-swap";
-import { PartyMember } from "../../services/datacontracts/bones/party-member";
+import { ColorSwap } from "../../../services/datacontracts/bones/color-swap"; 
+import { PartyMember } from "../../../services/datacontracts/bones/party-member";
 export class Inventory extends GameObject {
   nextId: number = parseInt((Math.random() * 19999).toFixed(0));
   items: InventoryItem[] = [];
