@@ -217,7 +217,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   ngAfterViewInit() {
     this.mainScene.input.setChatInput(this.chatInput.nativeElement);
     events.on("HERO_DIED", this, (payload: any) => {
-      resources.playSound('punchOrImpact', { allowOverlap: true }); 
+      resources.playSound('maleDeathScream', { allowOverlap: true }); 
       this.handleHeroDeath(payload);
     });
     // When a party invite is accepted (server or remote client confirmed),
