@@ -760,6 +760,7 @@ export function actionPartyInviteAcceptedEvent(object: any, event: MetaEvent) {
       for (let memberId of partyMembersData) {
         if (!party.find(x => x.heroId === memberId)) {
           const otherPlayer = object.otherHeroes.find((hero: Character) => hero.id === memberId);
+          console.log('Found otherPlayer for party:', { memberId, otherPlayer, type: otherPlayer?.type });
           party.push({ heroId: memberId, name: otherPlayer.name, color: otherPlayer.color, type: otherPlayer.type });
           if (memberId === object.metaHero.id) {
             isMyParty = true;
@@ -799,6 +800,7 @@ export function actionPartyUpEvent(object: any, event: MetaEvent) {
 
         for (let memberId of partyMemberIdsData) {
           const member = object.otherHeroes.find((x: Character) => x.id === memberId);
+          console.log('Adding party member:', { memberId, member, type: member?.type });
           object.partyMembers.push({ heroId: memberId, name: member.name, color: member.color, type: member.type });
           console.log("pushing: ", { heroId: memberId, name: member.name, color: member.color, type: member.type });
         }
