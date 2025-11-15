@@ -757,6 +757,44 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           }
         }
       }
+      else if (event.eventType === "LEVEL_UP" && event.data) {
+        console.log("processing LEVEL_UP event", event);
+        try {
+          const leveledHeroId = parseInt(event.data["heroId"] ?? "0");
+          const newLevel = parseInt(event.data["newLevel"] ?? "1");
+          const heroName = event.data["heroName"] ?? "Hero";
+          const exp = parseInt(event.data["exp"] ?? "0");
+          const map = event.data["map"] ?? "";
+          const color = event.data["color"] ?? "";
+          const type = event.data["type"] ?? "knight";
+
+          // Update map hero if on same map
+          if (map === object.metaHero.map) {
+            const mapHero = object.otherHeroes.find((h: any) => h.id === leveledHeroId);
+            if (mapHero) {
+              mapHero.level = newLevel;
+              mapHero.exp = exp;
+              console.log(`Updated map hero ${heroName} to level ${newLevel}`);
+            }
+          }
+
+          // Update party member if in current party
+          if (object.partyMembers && Array.isArray(object.partyMembers)) {
+            const partyMember = object.partyMembers.find((pm: any) => pm.heroId === leveledHeroId);
+            if (partyMember) {
+              partyMember.level = newLevel;
+              partyMember.exp = exp;
+              // Refresh the party panel inventory display if open
+              if (object.mainScene?.inventory) {
+                object.mainScene.inventory.renderParty();
+              }
+              console.log(`Updated party member ${heroName} to level ${newLevel}`);
+            }
+          } 
+        } catch (ex) {
+          console.error('Failed processing LEVEL_UP event', ex);
+        }
+      }
     }
   }
   object.events = metaEvents;

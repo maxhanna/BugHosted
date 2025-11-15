@@ -1052,7 +1052,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const previousLocalHp = this.metaHero?.hp ?? undefined;
 
     this.otherHeroes = res.heroes;
-    console.log('otherHeroes updated:', this.otherHeroes.map(h => ({ id: h.id, name: h.name, type: h.type })));
+    //console.log('otherHeroes updated:', this.otherHeroes.map(h => ({ id: h.id, name: h.name, type: h.type })));
     const ids: number[] = [];
 
     for (let i = 0; i < this.otherHeroes.length; i++) {

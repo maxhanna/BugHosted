@@ -3162,6 +3162,54 @@ ORDER BY p.created DESC;";
 					int leveled = await lvlCmd.ExecuteNonQueryAsync();
 					//	await _log.Db($"AwardEncounterKillExp: level UPDATE rowsAffected={leveled} for ids=[{idsCsv}]", killerHeroId, "BONES", true);
 				}
+
+				// If any heroes leveled up, create LEVEL_UP events for other players
+				try
+				{
+					string selectLeveledSql = $"SELECT id, name, level, exp, map, color, type FROM maxhanna.bones_hero WHERE id IN ({idsCsv})";
+					using var leveledCmd = new MySqlCommand(selectLeveledSql, connection, transaction);
+					using var leveledRdr = await leveledCmd.ExecuteReaderAsync();
+					var leveledHeroes = new List<(int id, string name, int level, int exp, string map, string? color, string? type)>();
+					while (await leveledRdr.ReadAsync())
+					{
+						int id = leveledRdr.GetInt32(0);
+						string name = SafeGetString(leveledRdr, "name") ?? "Hero";
+						int level = leveledRdr.IsDBNull(2) ? 1 : leveledRdr.GetInt32(2);
+						int exp = leveledRdr.IsDBNull(3) ? 0 : leveledRdr.GetInt32(3);
+						string map = SafeGetString(leveledRdr, "map") ?? string.Empty;
+						string? color = SafeGetString(leveledRdr, "color");
+						string? type = SafeGetString(leveledRdr, "type");
+						leveledHeroes.Add((id, name, level, exp, map, color, type));
+					}
+					leveledRdr.Close();
+
+					// Create LEVEL_UP events for each hero that leveled
+					foreach (var hero in leveledHeroes)
+					{
+						string insertEventSql = @"
+							INSERT INTO maxhanna.bones_event (hero_id, timestamp, event, map, data) 
+							VALUES (@HeroId, UTC_TIMESTAMP(), 'LEVEL_UP', @Map, @Data)";
+						using var evtCmd = new MySqlCommand(insertEventSql, connection, transaction);
+						evtCmd.Parameters.AddWithValue("@HeroId", hero.id);
+						evtCmd.Parameters.AddWithValue("@Map", hero.map);
+						var eventData = new Dictionary<string, string>
+						{
+							{ "heroId", hero.id.ToString() },
+							{ "heroName", hero.name },
+							{ "newLevel", hero.level.ToString() },
+							{ "exp", hero.exp.ToString() },
+							{ "map", hero.map },
+							{ "color", hero.color ?? string.Empty },
+							{ "type", hero.type ?? "knight" }
+						};
+						evtCmd.Parameters.AddWithValue("@Data", Newtonsoft.Json.JsonConvert.SerializeObject(eventData));
+						await evtCmd.ExecuteNonQueryAsync();
+					}
+				}
+				catch (Exception exEvt)
+				{
+					await _log.Db("AwardEncounterKillExp: failed to create level-up events: " + exEvt.Message, killerHeroId, "BONES", true);
+				}
 			}
 			catch (Exception ex)
 			{
