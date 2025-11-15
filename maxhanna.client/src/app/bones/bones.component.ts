@@ -1910,7 +1910,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.isChangeStatsOpen = false;
     this.isChangeSkillsOpen = true;
     const mh: any = this.metaHero || {};
-    // Example default allocation: base 0 for skills, points based on level
     const level = mh.level ?? 1;
     const base = 0;
     const points = Math.max(0, level - 1);
