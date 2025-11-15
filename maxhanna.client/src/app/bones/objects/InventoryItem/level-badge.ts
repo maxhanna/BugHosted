@@ -14,20 +14,17 @@ export class LevelBadge extends GameObject {
     const centerX = drawPosX + radius;
     const centerY = drawPosY + radius;
     
-    // Draw circle background
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+  // Draw circle background
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+  ctx.fill();
     
     // Draw level number
-    ctx.font = '6px fontRetroGaming';
-    ctx.fillStyle = '#fff';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(this.level.toString(), centerX, centerY);
+  ctx.font = '6px fontRetroGaming';
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(this.level.toString(), centerX, centerY + 3);
   }
 }
