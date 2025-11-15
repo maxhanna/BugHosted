@@ -1135,11 +1135,11 @@ ORDER BY p.created DESC;";
 				string sql;
 				if (partyId.HasValue)
 				{
-					sql = "SELECT h.id, h.name, h.color, h.type FROM bones_hero_party p JOIN bones_hero h ON h.id = p.hero_id WHERE p.party_id = @PartyId";
+					sql = "SELECT h.id, h.name, h.color, h.type, h.level, h.hp, h.map, h.exp FROM bones_hero_party p JOIN bones_hero h ON h.id = p.hero_id WHERE p.party_id = @PartyId";
 				}
 				else
 				{
-					sql = "SELECT h.id, h.name, h.color, h.type FROM bones_hero h WHERE h.id = @HeroId"; // only self
+					sql = "SELECT h.id, h.name, h.color, h.type, h.level, h.hp, h.map, h.exp FROM bones_hero h WHERE h.id = @HeroId"; // only self
 				}
 				using var command = new MySqlCommand(sql, connection);
 				if (partyId.HasValue)
@@ -1150,30 +1150,22 @@ ORDER BY p.created DESC;";
 				{
 					command.Parameters.AddWithValue("@HeroId", heroId);
 				}
-				var partyMembers = new List<object>();
+				var partyMembers = new List<PartyMemberDto>();
 				using var reader = await command.ExecuteReaderAsync();
 				while (await reader.ReadAsync())
 				{
-					int idOrdinal = reader.GetOrdinal("id");
-					int nameOrdinal = reader.GetOrdinal("name");
-					int colorOrdinal = reader.GetOrdinal("color");
-					int typeOrdinal = reader.GetOrdinal("type");
-					
-					// Get type with fallback to 'knight' if null
-					string? typeValue = reader.IsDBNull(typeOrdinal) ? null : reader.GetString(typeOrdinal);
-					if (string.IsNullOrEmpty(typeValue))
+					var dto = new PartyMemberDto
 					{
-						typeValue = "knight"; // default to knight if type is null or empty
-					}
-					
-					partyMembers.Add(
-						new
-						{
-							heroId = reader.GetInt32(idOrdinal),
-							name = reader.IsDBNull(nameOrdinal) ? null : reader.GetString(nameOrdinal),
-							color = reader.IsDBNull(colorOrdinal) ? null : reader.GetString(colorOrdinal),
-							type = typeValue
-						});
+						HeroId = reader.GetInt32(reader.GetOrdinal("id")),
+						Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name")),
+						Color = reader.IsDBNull(reader.GetOrdinal("color")) ? null : reader.GetString(reader.GetOrdinal("color")),
+						Type = reader.IsDBNull(reader.GetOrdinal("type")) ? "knight" : reader.GetString(reader.GetOrdinal("type")),
+						Level = reader.IsDBNull(reader.GetOrdinal("level")) ? 0 : reader.GetInt32(reader.GetOrdinal("level")),
+						Hp = reader.IsDBNull(reader.GetOrdinal("hp")) ? 100 : reader.GetInt32(reader.GetOrdinal("hp")),
+						Map = reader.IsDBNull(reader.GetOrdinal("map")) ? null : reader.GetString(reader.GetOrdinal("map")),
+						Exp = reader.IsDBNull(reader.GetOrdinal("exp")) ? 0 : reader.GetInt32(reader.GetOrdinal("exp"))
+					};
+					partyMembers.Add(dto);
 				}
 				return Ok(partyMembers);
 			}
@@ -1187,6 +1179,18 @@ ORDER BY p.created DESC;";
 				await _log.Db($"Unexpected error in Bones_GetUserPartyMembers for heroId {heroId}: {ex.Message}", null, "BONES", true);
 				return StatusCode(500, $"Internal server error: {ex.Message}");
 			}
+		}
+
+		private class PartyMemberDto
+		{
+			public int HeroId { get; set; }
+			public string? Name { get; set; }
+			public string? Color { get; set; }
+			public string Type { get; set; } = "knight"; // NOT NULL in schema, but keep safe default
+			public int Level { get; set; }
+			public int Hp { get; set; }
+			public string? Map { get; set; }
+			public int Exp { get; set; }
 		}
 
 		[HttpPost("/Bones/ActivePlayers", Name = "Bones_GetActivePlayers")]
