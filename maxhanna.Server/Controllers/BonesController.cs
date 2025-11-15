@@ -1158,13 +1158,21 @@ ORDER BY p.created DESC;";
 					int nameOrdinal = reader.GetOrdinal("name");
 					int colorOrdinal = reader.GetOrdinal("color");
 					int typeOrdinal = reader.GetOrdinal("type");
+					
+					// Get type with fallback to 'knight' if null
+					string? typeValue = reader.IsDBNull(typeOrdinal) ? null : reader.GetString(typeOrdinal);
+					if (string.IsNullOrEmpty(typeValue))
+					{
+						typeValue = "knight"; // default to knight if type is null or empty
+					}
+					
 					partyMembers.Add(
 						new
 						{
 							heroId = reader.GetInt32(idOrdinal),
 							name = reader.IsDBNull(nameOrdinal) ? null : reader.GetString(nameOrdinal),
 							color = reader.IsDBNull(colorOrdinal) ? null : reader.GetString(colorOrdinal),
-							type = reader.IsDBNull(typeOrdinal) ? null : reader.GetString(typeOrdinal)
+							type = typeValue
 						});
 				}
 				return Ok(partyMembers);
