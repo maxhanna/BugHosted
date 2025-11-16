@@ -112,9 +112,13 @@ export class ChatSpriteTextString extends GameObject {
   }
 
   override step(delta: number) {
-    if (this.objectSubject && this.objectSubject.position) {
-      this.position.x = this.objectSubject.position.x + this.chatWindowOffset.x;
-      this.position.y = this.objectSubject.position.y + this.chatWindowOffset.y;
+    // Dynamically resolve subject position; fall back to root.hero if event updates stall past x>400.
+    let root: any = this as any;
+    while (root && root.parent) root = root.parent;
+    const heroPos = (this.objectSubject?.position) || (root?.hero?.position);
+    if (heroPos) {
+      this.position.x = heroPos.x + this.chatWindowOffset.x;
+      this.position.y = heroPos.y + this.chatWindowOffset.y;
     }
     if (this.showingIndex >= this.finalIndex) {
       setTimeout(() => { this.destroy(); }, this.TIME_UNTIL_DESTROY);
