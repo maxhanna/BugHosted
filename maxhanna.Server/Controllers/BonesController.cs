@@ -3125,8 +3125,11 @@ ORDER BY p.created DESC;";
 			if (encounterLevel <= 0) encounterLevel = 1;
 			try
 			{
-				var partyIds = await GetPartyMemberIds(killerHeroId, connection, transaction);
-				if (partyIds.Count == 0) partyIds.Add(killerHeroId);
+				// Only award EXP to party members on the same map as the killer
+				var partyIds = await GetPartyMemberIds(killerHeroId, connection, transaction, true);
+				if (partyIds.Count == 0) {
+					partyIds.Add(killerHeroId);
+				}
 				// Debug: log who will receive EXP and how much
 				await _log.Db($"AwardEncounterKillExp: killer={killerHeroId} encounterLevel={encounterLevel} party=[{string.Join(',', partyIds)}]", killerHeroId, "BONES", true);
 				string idsCsv = string.Join(',', partyIds);
@@ -3716,7 +3719,7 @@ ORDER BY p.created DESC;";
 				throw;
 			}
 		}
-		private async Task<List<int>> GetPartyMemberIds(int heroId, MySqlConnection connection, MySqlTransaction transaction)
+		private async Task<List<int>> GetPartyMemberIds(int heroId, MySqlConnection connection, MySqlTransaction transaction, bool sameMap = false)
 		{
 			var list = new List<int>();
 			try
@@ -3727,21 +3730,37 @@ ORDER BY p.created DESC;";
 					list.Add(heroId);
 					return list;
 				}
-				using var cmd = new MySqlCommand("SELECT hero_id FROM bones_hero_party WHERE party_id = @Pid", connection, transaction);
-				cmd.Parameters.AddWithValue("@Pid", partyId.Value);
-				using var rdr = await cmd.ExecuteReaderAsync();
-				while (await rdr.ReadAsync())
+				string? mapFilter = null;
+				if (sameMap)
 				{
-					var hid = rdr.GetInt32(0);
-					if (!list.Contains(hid))
+					using (var mapCmd = new MySqlCommand("SELECT map FROM bones_hero WHERE id = @H LIMIT 1", connection, transaction))
 					{
-						list.Add(hid);
+						mapCmd.Parameters.AddWithValue("@H", heroId);
+						var obj = await mapCmd.ExecuteScalarAsync();
+						if (obj != null && obj != DBNull.Value)
+						{
+							mapFilter = obj.ToString();
+						}
 					}
 				}
-				if (!list.Contains(heroId))
+				string sqlParty = sameMap
+					? @"SELECT p.hero_id FROM bones_hero_party p INNER JOIN bones_hero h ON p.hero_id = h.id WHERE p.party_id = @Pid AND h.map = @Map"
+					: @"SELECT hero_id FROM bones_hero_party WHERE party_id = @Pid";
+				using (var cmd = new MySqlCommand(sqlParty, connection, transaction))
 				{
-					list.Add(heroId);
+					cmd.Parameters.AddWithValue("@Pid", partyId.Value);
+					if (sameMap) cmd.Parameters.AddWithValue("@Map", mapFilter ?? string.Empty);
+					using var rdr = await cmd.ExecuteReaderAsync();
+					while (await rdr.ReadAsync())
+					{
+						var hid = rdr.GetInt32(0);
+						if (!list.Contains(hid))
+						{
+							list.Add(hid);
+						}
+					}
 				}
+				if (!list.Contains(heroId)) { list.Add(heroId); }
 				return list;
 			}
 			catch (Exception ex)
