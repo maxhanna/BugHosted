@@ -1,7 +1,7 @@
 import { ColorSwap } from "../../../services/datacontracts/bones/color-swap";
 import { Vector2 } from "../../../services/datacontracts/bones/vector2";
 import { events } from "../helpers/events";
-import { Scenario, storyFlags } from "../helpers/story-flags"; 
+import { Scenario, storyFlags } from "../helpers/story-flags";
 import { Character } from "./character";
 
 export const BASE = "BASE";
@@ -13,7 +13,7 @@ export class GameObject {
   parent?: any;
   root?: any;
   children: any = [];
-  position: Vector2; 
+  position: Vector2;
   hasReadyBeenCalled = false;
   isSolid = false;
   drawLayer?: typeof BASE | typeof GROUND | typeof FLOOR | typeof HUD;
@@ -26,14 +26,14 @@ export class GameObject {
   name?: string;
   isOmittable = true;
   discoverable = true;
-  beforePreventDrawDistance = false; 
+  beforePreventDrawDistance = false;
   drawingForever = false;
-  distanceToHero = new Vector2(0,0);
-  heroLocation = new Vector2(0,0);
+  distanceToHero = new Vector2(0, 0);
+  heroLocation = new Vector2(0, 0);
 
   tmpSortedChildren: any = [];
   lastSortTime: number = 0;
-  lastCharPosTime: number = 0;  
+  lastCharPosTime: number = 0;
 
   constructor(params: {
     position: Vector2,
@@ -46,7 +46,7 @@ export class GameObject {
     textContent?: Scenario[],
     textPortraitFrame?: number,
     isOmittable?: boolean,
-    name?: string, 
+    name?: string,
   }) {
     this.position = params.position ?? new Vector2(0, 0);
     this.colorSwap = params.colorSwap;
@@ -57,7 +57,7 @@ export class GameObject {
     this.isSolid = params.isSolid ?? false;
     this.textContent = params.textContent;
     this.textPortraitFrame = params.textPortraitFrame;
-    this.name = params.name; 
+    this.name = params.name;
     this.beforePreventDrawDistance = this.preventDraw;
     this.isOmittable = params.isOmittable ?? true;
     this.root = this;
@@ -65,25 +65,25 @@ export class GameObject {
       this.root = this.root.parent;
     }
 
-    events.on("CHARACTER_POSITION", this, (char: Character) => { 
+    events.on("CHARACTER_POSITION", this, (char: Character) => {
       if (char.isUserControlled && char.id != (this as any).id && Date.now() - this.lastCharPosTime > 50) {
-         
-      //  this.lastCharPosTime = Date.now();
-       // const parent = this.parent ?? this;
 
-        //this.distanceToHero = new Vector2(Math.abs(parent.position.x - char.lastPosition.x), Math.abs(parent.position.y - char.lastPosition.y));
-       // this.heroLocation = char.position;
+        this.lastCharPosTime = Date.now();
+        const parent = this.parent ?? this;
 
-        // if (!this.beforePreventDrawDistance && this.isOmittable && this.parent?.isOmittable) {
-        //   const thresh = 400;
-        //   const reDraw = this.distanceToHero.x < thresh && this.distanceToHero.y < thresh;
+        this.distanceToHero = new Vector2(Math.abs(parent.position.x - char.lastPosition.x), Math.abs(parent.position.y - char.lastPosition.y));
+        this.heroLocation = char.position;
 
-        //   if (reDraw) { 
-        //     this.preventDraw = this.beforePreventDrawDistance;
-        //   } else { 
-        //     this.preventDraw = true; 
-        //   }
-        // }
+        if (!this.beforePreventDrawDistance && this.isOmittable && this.parent?.isOmittable) {
+          const thresh = 400;
+          const reDraw = this.distanceToHero.x < thresh && this.distanceToHero.y < thresh;
+
+          if (reDraw) {
+            this.preventDraw = this.beforePreventDrawDistance;
+          } else {
+            this.preventDraw = true;
+          }
+        }
       }
     });
   }
@@ -94,7 +94,7 @@ export class GameObject {
     if (!this.hasReadyBeenCalled) {
       this.hasReadyBeenCalled = true;
       this.ready();
-    } 
+    }
     this.step(delta, root);
   }
 
@@ -110,16 +110,16 @@ export class GameObject {
     this.children.forEach((child: any) => {
       child.destroy();
     });
-    if (this.parent) { 
+    if (this.parent) {
       this.parent.removeChild(this);
     }
   }
 
-  draw(ctx: CanvasRenderingContext2D, x: number, y: number) { 
+  draw(ctx: CanvasRenderingContext2D, x: number, y: number) {
     if (this.preventDraw) return;
 
-    if (Date.now() - this.lastSortTime > 50) { 
-      this.sortChildren(); 
+    if (Date.now() - this.lastSortTime > 50) {
+      this.sortChildren();
       //if (this.name == 'Max') console.log("resorting");
       this.lastSortTime = Date.now();
     }
@@ -130,9 +130,9 @@ export class GameObject {
     this.drawImage(ctx, drawPosX, drawPosY);
     if (this.forceDrawName && !this.preventDrawName) {
       this.drawName(ctx, drawPosX, drawPosY);
-    } 
-    this.tmpSortedChildren.forEach((child: GameObject) => child.draw(ctx, drawPosX, drawPosY)); 
-  } 
+    }
+    this.tmpSortedChildren.forEach((child: GameObject) => child.draw(ctx, drawPosX, drawPosY));
+  }
   sortChildren() {
     this.tmpSortedChildren = [...this.children].sort((a: any, b: any) => {
       // Step 1: Prioritize by drawLayer order: BASE < GROUND < FLOOR < all others 
@@ -150,30 +150,30 @@ export class GameObject {
     });
   }
 
-  drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) { 
+  drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
   }
 
-  addChild(gameObject: GameObject) { 
+  addChild(gameObject: GameObject) {
     gameObject.parent = this;
-    this.children.push(gameObject); 
+    this.children.push(gameObject);
   }
 
   removeChild(gameObject: GameObject) {
     events.unsubscribe(gameObject);
 
-    this.children = this.children.filter((x:any) => {
+    this.children = this.children.filter((x: any) => {
       return gameObject !== x;
-    }); 
+    });
   }
-  getContent() { 
+  getContent() {
     if (!this.textContent) {
       return;
     }
     //Maybe expand with story flag logic, etc.
     const match = storyFlags.getRelevantScenario(this.textContent);
-    if (!match) { 
+    if (!match) {
       return undefined;
-    } 
+    }
     return {
       portraitFrame: this.textPortraitFrame,
       string: match.string,
