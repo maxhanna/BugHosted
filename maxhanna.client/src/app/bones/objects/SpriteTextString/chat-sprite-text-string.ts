@@ -41,8 +41,6 @@ export class ChatSpriteTextString extends GameObject {
       name: "CHATSPRITETEXTSTRING",
       isOmittable: false
     });
-    // Mark this HUD element as world-attached so it still follows camera translation
-    this.worldSpaceHud = true;
     if (config.string) {
       this.content = config.string;
       this.cacheWords();
@@ -56,14 +54,6 @@ export class ChatSpriteTextString extends GameObject {
       if (this.objectSubject && data.id === this.objectSubject.id) {
         this.objectSubject.position.x = data.x;
         this.objectSubject.position.y = data.y;
-      }
-    });
-    // Fallback: ensure position keeps updating if HERO_MOVED is throttled or suppressed.
-    events.on("CHARACTER_POSITION", this, (char: any) => {
-      if (!char) return;
-      if (this.objectSubject && char.id === this.objectSubject.id) {
-        this.objectSubject.position.x = char.position.x;
-        this.objectSubject.position.y = char.position.y;
       }
     });
   }
@@ -112,13 +102,9 @@ export class ChatSpriteTextString extends GameObject {
   }
 
   override step(delta: number) {
-    // Dynamically resolve subject position; fall back to root.hero if event updates stall past x>400.
-    let root: any = this as any;
-    while (root && root.parent) root = root.parent;
-    const heroPos = (this.objectSubject?.position) || (root?.hero?.position);
-    if (heroPos) {
-      this.position.x = heroPos.x + this.chatWindowOffset.x;
-      this.position.y = heroPos.y + this.chatWindowOffset.y;
+    if (this.objectSubject && this.objectSubject.position) {
+      this.position.x = this.objectSubject.position.x + this.chatWindowOffset.x;
+      this.position.y = this.objectSubject.position.y + this.chatWindowOffset.y;
     }
     if (this.showingIndex >= this.finalIndex) {
       setTimeout(() => { this.destroy(); }, this.TIME_UNTIL_DESTROY);

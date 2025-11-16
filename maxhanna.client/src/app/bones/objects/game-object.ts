@@ -30,9 +30,6 @@ export class GameObject {
   drawingForever = false;
   distanceToHero = new Vector2(0,0);
   heroLocation = new Vector2(0,0);
-  // When true and drawLayer===HUD, this object represents a world-attached HUD element
-  // that should still shift with the camera even though the HUD pass does not translate context.
-  worldSpaceHud: boolean = false;
 
   tmpSortedChildren: any = [];
   lastSortTime: number = 0;
@@ -77,7 +74,7 @@ export class GameObject {
         this.distanceToHero = new Vector2(Math.abs(parent.position.x - char.lastPosition.x), Math.abs(parent.position.y - char.lastPosition.y));
         this.heroLocation = char.position;
 
-        if (!this.beforePreventDrawDistance && this.isOmittable && this.parent?.isOmittable && this.drawLayer !== HUD) {
+        if (!this.beforePreventDrawDistance && this.isOmittable && this.parent?.isOmittable) {
           const thresh = 400;
           const reDraw = this.distanceToHero.x < thresh && this.distanceToHero.y < thresh;
 
@@ -127,20 +124,8 @@ export class GameObject {
       this.lastSortTime = Date.now();
     }
 
-    let drawPosX = x + this.position.x;
-    let drawPosY = y + this.position.y;
-
-    // Recompute root each draw in case this object was attached after construction.
-    let dynamicRoot: any = this as any;
-    while (dynamicRoot && dynamicRoot.parent) {
-      dynamicRoot = dynamicRoot.parent;
-    }
-
-    // Apply camera translation manually for world-attached HUD elements.
-    if (this.drawLayer === HUD && this.worldSpaceHud && dynamicRoot?.camera?.position) {
-      drawPosX += dynamicRoot.camera.position.x;
-      drawPosY += dynamicRoot.camera.position.y;
-    }
+    const drawPosX = x + this.position.x;
+    const drawPosY = y + this.position.y;
 
     this.drawImage(ctx, drawPosX, drawPosY);
     if (this.forceDrawName && !this.preventDrawName) {
