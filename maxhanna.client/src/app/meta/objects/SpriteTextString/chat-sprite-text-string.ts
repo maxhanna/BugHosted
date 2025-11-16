@@ -98,18 +98,9 @@ export class ChatSpriteTextString extends GameObject {
     // Prevent distance-based omission
     this.preventDraw = false;
     if (this.objectSubject && this.objectSubject.position) {
-      let top: any = this as any;
-      while (top?.parent) top = top.parent;
-      const cam = top?.camera;
-      const worldX = this.objectSubject.position.x - 120;
-      const worldY = this.objectSubject.position.y + 20;
-      if (cam && cam.position) {
-        this.position.x = worldX + cam.position.x;
-        this.position.y = worldY + cam.position.y;
-      } else {
-        this.position.x = worldX;
-        this.position.y = worldY;
-      }
+      // Restore following behavior using world coordinates.
+      this.position.x = this.objectSubject.position.x - 120;
+      this.position.y = this.objectSubject.position.y + 20;
     }
     if (this.showingIndex >= this.finalIndex) {
       setTimeout(() => { this.destroy(); }, this.TIME_UNTIL_DESTROY);

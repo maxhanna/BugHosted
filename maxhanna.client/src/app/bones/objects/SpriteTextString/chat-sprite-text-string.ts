@@ -108,21 +108,9 @@ export class ChatSpriteTextString extends GameObject {
     // Force visibility regardless of distance culling logic
     this.preventDraw = false;
     if (this.objectSubject && this.objectSubject.position) {
-      // Convert world position to screen position using camera translation.
-      // root was captured at construction time; walk parent chain each frame to find latest top-level for camera.
-      let top: any = this as any;
-      while (top?.parent) top = top.parent;
-      const cam = top?.camera;
-      const worldX = this.objectSubject.position.x + this.chatWindowOffset.x;
-      const worldY = this.objectSubject.position.y + this.chatWindowOffset.y;
-      if (cam && cam.position) {
-        // camera.position is already the screen translation (negative world + center offset); add it to world to get screen
-        this.position.x = worldX + cam.position.x;
-        this.position.y = worldY + cam.position.y;
-      } else {
-        this.position.x = worldX;
-        this.position.y = worldY;
-      }
+      // Use pure world coordinates so bubble tracks hero; camera centering logic operates elsewhere.
+      this.position.x = this.objectSubject.position.x + this.chatWindowOffset.x;
+      this.position.y = this.objectSubject.position.y + this.chatWindowOffset.y;
     }
     if (this.showingIndex >= this.finalIndex) {
       setTimeout(() => { this.destroy(); }, this.TIME_UNTIL_DESTROY);
