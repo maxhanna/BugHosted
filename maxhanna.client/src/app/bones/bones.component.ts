@@ -1325,6 +1325,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     if (existingHero === undefined) return;
     const latestMsg = this.latestMessagesMap.get(existingHero.name);
     if (latestMsg && latestMsg.content) {
+      const nowMs = Date.now();
+      const msgTsMs = latestMsg.timestamp ? new Date(latestMsg.timestamp).getTime() : NaN;
+      if (!isNaN(msgTsMs) && (nowMs - msgTsMs) > 10000) {
+        // Skip applying stale message; allow existing bubble to expire naturally
+        return;
+      }
+    
       const existingTimer = this.heroMessageExpiryTimers.get(existingHero.id);
       if (!existingTimer || existingTimer.msg !== latestMsg.content) {
         if (existingTimer) {
