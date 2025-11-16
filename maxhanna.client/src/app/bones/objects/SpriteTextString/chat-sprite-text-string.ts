@@ -58,6 +58,14 @@ export class ChatSpriteTextString extends GameObject {
         this.objectSubject.position.y = data.y;
       }
     });
+    // Fallback: ensure position keeps updating if HERO_MOVED is throttled or suppressed.
+    events.on("CHARACTER_POSITION", this, (char: any) => {
+      if (!char) return;
+      if (this.objectSubject && char.id === this.objectSubject.id) {
+        this.objectSubject.position.x = char.position.x;
+        this.objectSubject.position.y = char.position.y;
+      }
+    });
   }
 
   private calculateDimensions() {

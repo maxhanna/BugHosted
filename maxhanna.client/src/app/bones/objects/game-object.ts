@@ -130,10 +130,16 @@ export class GameObject {
     let drawPosX = x + this.position.x;
     let drawPosY = y + this.position.y;
 
+    // Recompute root each draw in case this object was attached after construction.
+    let dynamicRoot: any = this as any;
+    while (dynamicRoot && dynamicRoot.parent) {
+      dynamicRoot = dynamicRoot.parent;
+    }
+
     // Apply camera translation manually for world-attached HUD elements.
-    if (this.drawLayer === HUD && this.worldSpaceHud && this.root?.camera?.position) {
-      drawPosX += this.root.camera.position.x;
-      drawPosY += this.root.camera.position.y;
+    if (this.drawLayer === HUD && this.worldSpaceHud && dynamicRoot?.camera?.position) {
+      drawPosX += dynamicRoot.camera.position.x;
+      drawPosY += dynamicRoot.camera.position.y;
     }
 
     this.drawImage(ctx, drawPosX, drawPosY);
