@@ -238,7 +238,9 @@ export class Inventory extends GameObject {
           pmMap: memberMap,
           localHeroId: localHeroId,
           localMap: localMap,
-          isCurrentHero: isCurrentHero
+          isCurrentHero: isCurrentHero,
+          parentCharacter: this.parentCharacter,
+          parentHero: this.parent?.hero
         });
       }
       
