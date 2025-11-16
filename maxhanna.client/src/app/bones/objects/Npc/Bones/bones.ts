@@ -42,7 +42,7 @@ export class Bones extends Npc {
         objectId: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
         resource: resources.images["bones"],
         position: new Vector2(0, 0),
-        frameSize: new Vector2(32, 32),
+        frameSize: new Vector2(40, 40),
         hFrames: 4,
         vFrames: 5,
         offsetY: -10,
