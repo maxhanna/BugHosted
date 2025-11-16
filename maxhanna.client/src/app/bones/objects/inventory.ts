@@ -285,10 +285,8 @@ export class Inventory extends GameObject {
   }
 
   private createStaticText(content: string, position: Vector2, color: "White" | "Black") {
-    const txt = new SpriteTextString(content, position, color);
-    // Force full visibility immediately (skip typewriter effect)
-    (txt as any).showingIndex = (txt as any).finalIndex;
-    return txt;
+    // Pass skipAnimation=true to render all characters immediately.
+    return new SpriteTextString(content, position, color, undefined, true);
   }
 
   removeFromInventory(id: number) {
