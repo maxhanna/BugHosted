@@ -30,6 +30,8 @@ export class ChatSpriteTextString extends GameObject {
   private needsRecalculation: boolean = true;
   private lastComputedLineWidth: number = 0;
   private readonly chatWindowOffset = new Vector2(-60, 40);
+  // Debug: throttle logging to avoid flooding console
+  private lastDebugLogTime: number = 0;
   constructor(config: {
     string?: string[];
     portraitFrame?: number;
@@ -105,6 +107,24 @@ export class ChatSpriteTextString extends GameObject {
     if (this.objectSubject && this.objectSubject.position) {
       this.position.x = this.objectSubject.position.x + this.chatWindowOffset.x;
       this.position.y = this.objectSubject.position.y + this.chatWindowOffset.y;
+    }
+
+    // Debug instrumentation: investigate bubble shift after subject.x > 400.
+    // Logs start slightly before 400 to capture transition dynamics.
+    if (this.objectSubject?.position?.x !== undefined && this.objectSubject.position.x >= 380) {
+      const now = Date.now();
+      // Throttle to ~4 logs/sec
+      if (now - this.lastDebugLogTime > 250) {
+        const cam = (this.root as any)?.camera;
+        const camPos = cam ? cam.position : undefined;
+        console.log(
+          `[ChatDebug] subj.x=${this.objectSubject.position.x.toFixed(1)} subj.y=${this.objectSubject.position.y.toFixed(1)} ` +
+          `bubble.x=${this.position.x.toFixed(1)} bubble.y=${this.position.y.toFixed(1)} ` +
+          `camera.x=${camPos ? camPos.x.toFixed(1) : 'n/a'} camera.y=${camPos ? camPos.y.toFixed(1) : 'n/a'} ` +
+          `rootType=${this.root?.name || 'n/a'} worldSpaceHud=${(this as any).worldSpaceHud}`
+        );
+        this.lastDebugLogTime = now;
+      }
     }
     if (this.showingIndex >= this.finalIndex) {
       setTimeout(() => { this.destroy(); }, this.TIME_UNTIL_DESTROY);
