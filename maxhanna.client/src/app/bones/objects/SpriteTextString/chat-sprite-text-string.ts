@@ -38,7 +38,8 @@ export class ChatSpriteTextString extends GameObject {
     super({
       position: new Vector2(config.objectSubject.position.x - 60, config.objectSubject.position.y + 40),
       drawLayer: HUD, // Ensured high-priority layer
-      name: "CHATSPRITETEXTSTRING"
+      name: "CHATSPRITETEXTSTRING",
+      isOmittable: false
     });
     if (config.string) {
       this.content = config.string;

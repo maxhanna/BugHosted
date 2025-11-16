@@ -1,4 +1,5 @@
 import { resources } from "../../helpers/resources";  
+import { HUD } from "../game-object";
 import { Sprite } from "../sprite";
 /*export class SpriteFontMap extends*/
 //WIDTHS
@@ -57,7 +58,17 @@ export const calculateWords = ( params: {content: string, color: string}) => {
       // Preferred: use cached glyph canvas
       // Removed glyph canvas caching (rollback)
       // Fallback if canvas not yet buildable (image not loaded): temporary sprite instance
-      const sprite = new Sprite({ objectId, resource, position, scale, frame, frameSize, hFrames, vFrames, animations, name, isOmittable: false });
+      const sprite = new Sprite({ 
+        objectId,
+        resource,
+        position, 
+        scale, 
+        frame, frameSize, 
+        hFrames, vFrames, 
+        animations, name,
+        isOmittable: false, 
+        drawLayer: HUD
+      });
       return { width: charWidth, sprite } as any;
     });
 
