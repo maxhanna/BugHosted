@@ -224,6 +224,9 @@ export class Inventory extends GameObject {
       
       // Draw name. If party member is on a different map than the local hero, show only the black (shadow) text
       // to visually indicate they are elsewhere. Otherwise draw the white text with black shadow.
+      // Always show white text for the current hero regardless of map state.
+      const localHeroId = this.parent?.hero?.id ?? this.parentCharacter?.id ?? undefined;
+      const isCurrentHero = pm.heroId === localHeroId;
       const localMap = this.parent?.hero?.map ?? this.parentCharacter?.map ?? undefined;
       const memberMap = pm.map ?? undefined;
       // Treat undefined memberMap (or localMap) as remote; only same if both defined and equal (case-insensitive)
@@ -231,7 +234,7 @@ export class Inventory extends GameObject {
         ? (localMap.toUpperCase() === memberMap.toUpperCase())
         : false;
 
-      if (isSameMap) {
+      if (isCurrentHero || isSameMap) {
         const txtsprite = new SpriteTextString(
           displayName,
           new Vector2(xOffset, yPos),
