@@ -223,7 +223,6 @@
       </div>
       <div *ngFor="let p of getSortedHeroes()" class="heroRow">
         <div class="heroLeft">
-          <div class="heroAvatar"></div>
           <div class="heroInfo">
             <div class="heroNameRow">
               <div *ngIf="parentRef?.isUserOnline(p.updated | timeSince)" class="onlineButton" title="Online"></div>
