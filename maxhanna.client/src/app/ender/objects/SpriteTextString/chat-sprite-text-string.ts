@@ -104,7 +104,9 @@ export class ChatSpriteTextString extends GameObject {
     // Ensure chat never gets distance-culled
     this.preventDraw = false;
     if (this.objectSubject && this.objectSubject.position) {
-      const cam = (this.root as any)?.camera;
+      let top: any = this as any;
+      while (top?.parent) top = top.parent;
+      const cam = top?.camera;
       const worldX = this.objectSubject.position.x - 120;
       const worldY = this.objectSubject.position.y + 20;
       if (cam && cam.position) {

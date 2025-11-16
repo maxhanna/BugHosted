@@ -108,8 +108,11 @@ export class ChatSpriteTextString extends GameObject {
     // Force visibility regardless of distance culling logic
     this.preventDraw = false;
     if (this.objectSubject && this.objectSubject.position) {
-      // Convert world position to screen position using camera translation so bubbles stay visible when hero moves far right
-      const cam = (this.root as any)?.camera;
+      // Convert world position to screen position using camera translation.
+      // root was captured at construction time; walk parent chain each frame to find latest top-level for camera.
+      let top: any = this as any;
+      while (top?.parent) top = top.parent;
+      const cam = top?.camera;
       const worldX = this.objectSubject.position.x + this.chatWindowOffset.x;
       const worldY = this.objectSubject.position.y + this.chatWindowOffset.y;
       if (cam && cam.position) {
