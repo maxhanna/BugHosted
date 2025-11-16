@@ -4,7 +4,12 @@ import { Sprite } from "../sprite";
 //WIDTHS
 const DEFAULT_WIDTH = 5;
 const width = new Map();
-const spriteCache: Record<string, Sprite> = {};
+// NOTE: Caching sprites per char/color previously caused side-effects when multiple
+// SpriteTextString instances drew the same character simultaneously (shared Sprite
+// state like frame/drawLayer mutated mid-loop). Disabling cache to ensure each
+// usage has an isolated Sprite instance. If performance becomes a concern, we can
+// reintroduce caching guarded by an immutable draw implementation.
+const spriteCache: Record<string, Sprite> = {}; // retained for potential future opt-in but unused now.
 //Add overrides
 width.set("c", 4);
 width.set("e", 5);
@@ -52,13 +57,11 @@ export const calculateWords = ( params: {content: string, color: string}) => {
       const name = undefined;
       const animations = undefined;
 
-      let sprite = getCachedSprite(char, params.color);
-      if (!sprite) {
-        sprite = new Sprite(
-          { objectId, resource, position, scale, frame, frameSize, hFrames, vFrames, animations, name }
-        );
-        spriteCache[`${char}_${params.color}`] = sprite;
-      }
+      // Always create a fresh sprite instance to avoid shared object mutation issues
+      // (Observed missing 'n' and 'o' letters when map name HUD text was present.)
+      const sprite = new Sprite(
+        { objectId, resource, position, scale, frame, frameSize, hFrames, vFrames, animations, name }
+      );
       return {
         width: charWidth,
         sprite: sprite
@@ -86,6 +89,6 @@ export const getCharacterFrame = (char: string): number => {
   return frameMap.get(char) ?? 0;
 }
 function getCachedSprite(char: string, color: string): Sprite {
-  const key = `${char}_${color}`; 
-  return spriteCache[key];
+  // Deprecated: always returns undefined to force non-cached creation.
+  return undefined as any;
 }
