@@ -133,18 +133,14 @@ export class ChatSpriteTextString extends GameObject {
     // Force visibility regardless of distance culling logic
     this.preventDraw = false;
     if (this.objectSubject && this.objectSubject.position) {
-      const cam = this.findCamera();
+      // NOTE: The canvas context is already translated by camera.position before HUD objects draw.
+      // Adding camera.position again caused the chat bubble to appear static relative to the screen while
+      // the hero moved (double translation). For HUD layer objects we want only world position + offset.
+      // So we intentionally do NOT apply camera offset here.
       const worldX = this.objectSubject.position.x + this.chatWindowOffset.x;
       const worldY = this.objectSubject.position.y + this.chatWindowOffset.y;
-      // If we have a camera, translate world->screen for HUD space.
-      if (cam?.position) {
-        this.position.x = worldX + cam.position.x;
-        this.position.y = worldY + cam.position.y;
-      } else {
-        // Without camera, approximate raw world position (may drift off screen until camera discovered)
-        this.position.x = worldX;
-        this.position.y = worldY;
-      }
+      this.position.x = worldX;
+      this.position.y = worldY;
     }
     if (this.showingIndex >= this.finalIndex) {
       setTimeout(() => { this.destroy(); }, this.TIME_UNTIL_DESTROY);
