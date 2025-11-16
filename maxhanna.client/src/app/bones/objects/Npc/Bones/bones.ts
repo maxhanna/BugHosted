@@ -40,11 +40,11 @@ export class Bones extends Npc {
       moveLeftRight: params.moveLeftRight,
       body: new Sprite({
         objectId: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
-        resource: resources.images["referee"],
+        resource: resources.images["bones"],
         position: new Vector2(0, 0),
         frameSize: new Vector2(32, 32),
         hFrames: 4,
-        vFrames: 4,
+        vFrames: 5,
         offsetY: -10,
         offsetX: -8,
         name: "Bones",
