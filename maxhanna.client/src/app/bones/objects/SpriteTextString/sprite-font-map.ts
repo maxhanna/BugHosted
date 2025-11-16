@@ -4,13 +4,9 @@ import { Sprite } from "../sprite";
 //WIDTHS
 const DEFAULT_WIDTH = 5;
 const width = new Map();
-// Sprite-based cache (legacy) and new lightweight glyph canvas cache.
-// We observed intermittent missing characters when sharing Sprite instances across multiple
-// SpriteTextString objects. To retain memory benefits safely, we now cache a pre-rendered
-// canvas for each (char+color) instead of sharing Sprite state. This avoids any mutable
-// properties on Sprite influencing other draw calls while keeping allocation count low.
-const spriteCache: Record<string, Sprite> = {}; // still available (fallback) but not primary
-const glyphCanvasCache: Record<string, HTMLCanvasElement> = {};
+// Reverting to per-instance Sprite creation for reliability. Prior caching approaches
+// (shared Sprite or glyph canvas) introduced side-effects / errors (undefined scale).
+// If memory optimization is needed later, implement a safe immutable frame cache.
 //Add overrides
 width.set("c", 4);
 width.set("e", 5);
@@ -59,16 +55,9 @@ export const calculateWords = ( params: {content: string, color: string}) => {
       const animations = undefined;
 
       // Preferred: use cached glyph canvas
-      const canvas = getGlyphCanvas(char, params.color, frame, hFrames, vFrames, resource);
-      if (canvas) {
-        return { width: charWidth, spriteCanvas: canvas } as any;
-      }
+      // Removed glyph canvas caching (rollback)
       // Fallback if canvas not yet buildable (image not loaded): temporary sprite instance
-      let sprite = getCachedSprite(char, params.color);
-      if (!sprite) {
-        sprite = new Sprite({ objectId, resource, position, scale, frame, frameSize, hFrames, vFrames, animations, name });
-        spriteCache[`${char}_${params.color}`] = sprite;
-      }
+      const sprite = new Sprite({ objectId, resource, position, scale, frame, frameSize, hFrames, vFrames, animations, name });
       return { width: charWidth, sprite } as any;
     });
 
@@ -91,26 +80,4 @@ const frameMap = new Map();
 
 export const getCharacterFrame = (char: string): number => { 
   return frameMap.get(char) ?? 0;
-}
-function getCachedSprite(char: string, color: string): Sprite {
-  const key = `${char}_${color}`;
-  return spriteCache[key];
-}
-
-function getGlyphCanvas(char: string, color: string, frame: number, hFrames: number, vFrames: number, resource: { image: HTMLImageElement; isLoaded: boolean }) {
-  if (!resource?.isLoaded) return undefined;
-  const key = `${char}_${color}_glyph`;
-  let canvas = glyphCanvasCache[key];
-  if (canvas) return canvas;
-  // Derive frame coordinates directly
-  const frameX = (frame % hFrames) * 16; // assuming 16x16 font cells
-  const frameY = Math.floor(frame / hFrames) * 16;
-  canvas = document.createElement('canvas');
-  canvas.width = 16; // could refine with actual width for tighter blits
-  canvas.height = 16;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return undefined;
-  ctx.drawImage(resource.image, frameX, frameY, 16, 16, 0, 0, 16, 16);
-  glyphCanvasCache[key] = canvas;
-  return canvas;
 }

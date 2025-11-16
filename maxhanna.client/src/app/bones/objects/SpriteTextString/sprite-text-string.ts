@@ -77,17 +77,12 @@ export class SpriteTextString extends GameObject {
         cursorY += this.LINE_VERTICAL_WIDTH;
       }
 
-      word.chars.forEach((char: any) => {
+      word.chars.forEach((char: { width: number, sprite: Sprite }) => {
         if (currentShowingIndex > this.showingIndex) {
           return;
         }
-        if (char.spriteCanvas) {
-          // Draw pre-rendered glyph canvas directly.
-          ctx.drawImage(char.spriteCanvas, cursorX, cursorY);
-        } else if (char.sprite) {
-          char.sprite.drawLayer = "HUD";
-          char.sprite.draw(ctx, cursorX, cursorY);
-        }
+        char.sprite.drawLayer = "HUD";
+        char.sprite.draw(ctx, cursorX, cursorY);
         cursorX += char.width + 1; 
         currentShowingIndex++;
       });
