@@ -61,7 +61,7 @@ export class Bones extends Npc {
           })
       })
     }) 
-    this.type = "referee"; 
+    this.type = "bones"; 
     this.textPortraitFrame = 1;
     const shadow = new Sprite({
       resource: resources.images["shadow"],
