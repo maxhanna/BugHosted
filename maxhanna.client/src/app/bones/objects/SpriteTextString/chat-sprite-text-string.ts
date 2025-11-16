@@ -84,8 +84,6 @@ export class ChatSpriteTextString extends GameObject {
       lineCount++;
     }
 
-    this.cachedLineCount = lineCount;
-    this.cachedTotalHeight = (lineCount * this.LINE_VERTICAL_WIDTH) + (this.PADDING_TOP * 2);
     this.needsRecalculation = false;
     this.lastComputedLineWidth = lineWidthMax;
   }

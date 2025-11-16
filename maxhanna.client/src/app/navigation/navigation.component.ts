@@ -126,10 +126,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
   crawlerIndexCount: number | null = null;
   private crawlerInterval: any;
 
+  notificationsActive = true; // master flag to gate polling
+
   async ngOnInit() {
     this.navbarReady = true;
 
     setTimeout(() => {
+      if (!this.notificationsActive) return;
       this.getNotifications();
       this.getBonesPlayerInfo();
       this.displayAppSelectionHelp();
@@ -172,6 +175,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getNotifications() {
+    if (!this.notificationsActive) return;
     if (!this._parent || !this._parent.user || this._parent.user.id == 0) return;
     this.getCurrentWeatherInfo();
     this.getCalendarInfo();
@@ -189,23 +193,24 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.getCrawlerInfo();
     this.getThemeInfo();
 
-    this.notificationInfoInterval = setInterval(() => this.getNotificationInfo(), 20 * 1000); // every minute
-    this.cryptoHubInterval = setInterval(() => this.getCryptoHubInfo(), 20 * 60 * 1000); // every 20 minutes
-    this.calendarInfoInterval = setInterval(() => this.getCalendarInfo(), 20 * 60 * 1000); // every 20 minutes 
-    this.wordlerInfoInterval = setInterval(() => this.getWordlerStreakInfo(), 60 * 60 * 1000); // every hour
-    this.enderInterval = setInterval(() => this.getEnderPlayerInfo(), 60 * 1000); // every minute
-    this.bonesInterval = setInterval(() => this.getBonesPlayerInfo(), 60 * 1000); // every minute
-    this.nexusInterval = setInterval(() => this.getNexusPlayerInfo(), 60 * 1000); // every minute
-    this.metaInterval = setInterval(() => this.getMetaPlayerInfo(), 60 * 1000); // every minute
-    this.musicInterval = setInterval(() => this.getMusicInfo(), 60 * 60 * 1000); // every hour
-    this.arrayInterval = setInterval(() => this.getArrayPlayerInfo(), 60 * 1000); // every minute
-    this.emulationInterval = setInterval(() => this.getEmulationPlayerInfo(), 60 * 1000); // every minute
-    this.socialInterval = setInterval(() => this.getSocialInfo(), 5 * 60 * 1000); // every 5 minutes
-    this.crawlerInterval = setInterval(() => this.getCrawlerInfo(), 60 * 60 * 1000); // every hour
+    this.notificationInfoInterval = setInterval(() => { if (this.notificationsActive) this.getNotificationInfo(); }, 20 * 1000); // every minute
+    this.cryptoHubInterval = setInterval(() => { if (this.notificationsActive) this.getCryptoHubInfo(); }, 20 * 60 * 1000); // every 20 minutes
+    this.calendarInfoInterval = setInterval(() => { if (this.notificationsActive) this.getCalendarInfo(); }, 20 * 60 * 1000); // every 20 minutes 
+    this.wordlerInfoInterval = setInterval(() => { if (this.notificationsActive) this.getWordlerStreakInfo(); }, 60 * 60 * 1000); // every hour
+    this.enderInterval = setInterval(() => { if (this.notificationsActive) this.getEnderPlayerInfo(); }, 60 * 1000); // every minute
+    this.bonesInterval = setInterval(() => { if (this.notificationsActive) this.getBonesPlayerInfo(); }, 60 * 1000); // every minute
+    this.nexusInterval = setInterval(() => { if (this.notificationsActive) this.getNexusPlayerInfo(); }, 60 * 1000); // every minute
+    this.metaInterval = setInterval(() => { if (this.notificationsActive) this.getMetaPlayerInfo(); }, 60 * 1000); // every minute
+    this.musicInterval = setInterval(() => { if (this.notificationsActive) this.getMusicInfo(); }, 60 * 60 * 1000); // every hour
+    this.arrayInterval = setInterval(() => { if (this.notificationsActive) this.getArrayPlayerInfo(); }, 60 * 1000); // every minute
+    this.emulationInterval = setInterval(() => { if (this.notificationsActive) this.getEmulationPlayerInfo(); }, 60 * 1000); // every minute
+    this.socialInterval = setInterval(() => { if (this.notificationsActive) this.getSocialInfo(); }, 5 * 60 * 1000); // every 5 minutes
+    this.crawlerInterval = setInterval(() => { if (this.notificationsActive) this.getCrawlerInfo(); }, 60 * 60 * 1000); // every hour
   }
 
   stopNotifications() {
     console.log("stopping notifcs")
+    this.notificationsActive = false;
     clearInterval(this.notificationInfoInterval);
     clearInterval(this.cryptoHubInterval);
     clearInterval(this.calendarInfoInterval);
@@ -472,18 +477,22 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getEnderPlayerInfo() {
+    if (!this.notificationsActive) return;
     this.isLoadingEnder = true;
     try {
       const res: any = await this.enderService.getActivePlayers(2);
+      if (!this.notificationsActive) return; // abort update if stopped mid-fetch
       this.enderActivePlayers = res?.count ?? null;
     } catch (e) {
       this.enderActivePlayers = null;
     }
 
     try {
+      if (!this.notificationsActive) return;
       const userId = this._parent.user?.id ?? 0;
       if (userId) {
         const rankRes: any = await this.enderService.getUserRank(userId);
+        if (!this.notificationsActive) return;
         if (rankRes && rankRes.hasHero) {
           this.enderUserRank = { rank: rankRes.rank ?? null, score: rankRes.score ?? null, totalPlayers: rankRes.totalPlayers ?? null };
         } else {
@@ -493,17 +502,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
     } catch (e) {
       this.enderUserRank = null;
     }
-    // Update Ender nav item content like Crypto-Hub / Notifications (use item.content)
+    if (!this.notificationsActive) return;
     if (this._parent?.navigationItems) {
       const enderNav = this._parent.navigationItems.find(x => x.title === 'Ender');
       if (enderNav) {
         const parts: string[] = [];
-        if (this.enderActivePlayers != null) {
-          parts.push(this.enderActivePlayers.toString());
-        }
-        if (this.enderUserRank?.rank != null) {
-          parts.push(`#${this.enderUserRank.rank}`);
-        }
+        if (this.enderActivePlayers != null) parts.push(this.enderActivePlayers.toString());
+        if (this.enderUserRank?.rank != null) parts.push(`#${this.enderUserRank.rank}`);
         enderNav.content = parts.join('\n');
       }
     }
@@ -511,16 +516,20 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getNexusPlayerInfo() {
+    if (!this.notificationsActive) return;
     try {
       const res: any = await this.nexusService.getActivePlayers(2);
+      if (!this.notificationsActive) return;
       this.nexusActivePlayers = res?.count ?? null;
     } catch (e) {
       this.nexusActivePlayers = null;
     }
     try {
+      if (!this.notificationsActive) return;
       const userId = this._parent.user?.id ?? 0;
       if (userId) {
         const rankRes: any = await this.nexusService.getUserRank(userId);
+        if (!this.notificationsActive) return;
         if (rankRes && rankRes.hasBase) {
           this.nexusUserRank = { rank: rankRes.rank ?? null, baseCount: rankRes.baseCount ?? null, totalPlayers: rankRes.totalPlayers ?? null };
         } else {
@@ -530,7 +539,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     } catch (e) {
       this.nexusUserRank = null;
     }
-    // Update Bug-Wars nav item content similar to Ender
+    if (!this.notificationsActive) return;
     if (this._parent?.navigationItems) {
       const nexusNav = this._parent.navigationItems.find(x => x.title === 'Bug-Wars');
       if (nexusNav) {
@@ -543,18 +552,22 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getBonesPlayerInfo() {
+    if (!this.notificationsActive) return;
     this.isLoadingEnder = true; // reuse loading flag for shared UI state
     try {
       const res: any = await this.bonesService.getActivePlayers(2);
+      if (!this.notificationsActive) return;
       this.bonesActivePlayers = res?.count ?? null;
     } catch (e) {
       this.bonesActivePlayers = null;
     }
 
     try {
+      if (!this.notificationsActive) return;
       const userId = this._parent.user?.id ?? 0;
       if (userId) {
         const rankRes: any = await this.bonesService.getUserRank(userId);
+        if (!this.notificationsActive) return;
         if (rankRes && rankRes.hasHero) {
           this.bonesUserRank = { rank: rankRes.rank ?? null, level: rankRes.level ?? null, totalPlayers: rankRes.totalPlayers ?? null };
         } else {
@@ -565,6 +578,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       this.bonesUserRank = null;
     }
 
+    if (!this.notificationsActive) return;
     if (this._parent?.navigationItems) {
       const bonesNav = this._parent.navigationItems.find(x => x.title === 'Bones');
       if (bonesNav) {
