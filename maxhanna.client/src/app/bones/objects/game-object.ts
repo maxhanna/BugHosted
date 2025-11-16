@@ -68,10 +68,10 @@ export class GameObject {
     events.on("CHARACTER_POSITION", this, (char: Character) => { 
       if (char.isUserControlled && char.id != (this as any).id && Date.now() - this.lastCharPosTime > 50) {
          
-        this.lastCharPosTime = Date.now();
-        const parent = this.parent ?? this;
+      //  this.lastCharPosTime = Date.now();
+       // const parent = this.parent ?? this;
 
-        this.distanceToHero = new Vector2(Math.abs(parent.position.x - char.lastPosition.x), Math.abs(parent.position.y - char.lastPosition.y));
+        //this.distanceToHero = new Vector2(Math.abs(parent.position.x - char.lastPosition.x), Math.abs(parent.position.y - char.lastPosition.y));
        // this.heroLocation = char.position;
 
         // if (!this.beforePreventDrawDistance && this.isOmittable && this.parent?.isOmittable) {
