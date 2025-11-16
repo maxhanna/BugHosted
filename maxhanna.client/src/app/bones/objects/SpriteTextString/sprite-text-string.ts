@@ -69,8 +69,10 @@ export class SpriteTextString extends GameObject {
 
     this.words.forEach(word => {
       //Decide if we can fit this next word on this line
+      // Include per-character spacing (+1) in width estimation for wrap correctness
+      const effectiveWordWidth = word.wordWidth + word.chars.length; // account for +1 spacing between characters
       const spaceRemaining = maxCursorX - cursorX;
-      if (spaceRemaining < word.wordWidth) {
+      if (spaceRemaining < effectiveWordWidth) {
         cursorX = initialCursorX;
         cursorY += this.LINE_VERTICAL_WIDTH;
       }
@@ -80,7 +82,8 @@ export class SpriteTextString extends GameObject {
           return;
         }
         char.sprite.drawLayer = "HUD";
-        char.sprite.draw(ctx, cursorX - 5, cursorY); 
+        // Removed hardcoded -5 X offset to prevent overlapping/clipping causing missing glyphs under multi-string draws
+        char.sprite.draw(ctx, cursorX, cursorY); 
         cursorX += char.width + 1; 
         currentShowingIndex++;
       });
