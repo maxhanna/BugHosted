@@ -1164,6 +1164,40 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       // Remove any old hero sprites no longer present
       this.destroyExtraChildren(ids);
     }
+
+    // --- Party member presence reconciliation ---
+    // After processing fetched heroes, detect party members that were previously on our map but
+    // are no longer present in the fetched hero list. Use this as a cue to update their map info
+    // (so inventory styling shows them as remote) and trigger a party re-render.
+    try {
+      const fetchedIds = new Set<number>(this.otherHeroes.map(h => h.id));
+      const localMapName = this.metaHero?.map;
+      let missingPartyMemberDetected = false;
+      if (Array.isArray(this.partyMembers) && this.partyMembers.length > 0) {
+        for (const pm of this.partyMembers) {
+          if (!pm || pm.heroId === this.metaHero?.id) continue; // skip self
+          const isPresent = fetchedIds.has(pm.heroId);
+          if (isPresent) {
+            // Keep party member map updated from fetched meta (if available)
+            const fetchedHero = this.otherHeroes.find(h => h.id === pm.heroId);
+            if (fetchedHero && fetchedHero.map) {
+              pm.map = fetchedHero.map;
+            }
+          } else {
+            // Party member not in this map's fetched heroes; if we thought they were on our map, mark unknown
+            // so inventory treats them as remote. We can't know their real new map from this payload.
+            if (pm.map === localMapName) {
+              pm.map = undefined; // undefined => will not equal local map -> renders as remote (black text)
+              missingPartyMemberDetected = true;
+            }
+          }
+        }
+      }
+      if (missingPartyMemberDetected) {
+        // Emit a dedicated event instead of CHANGE_LEVEL (which is for local map changes)
+        events.emit("RENDER_PARTY");
+      }
+    } catch (ex) { console.warn('Party presence reconciliation failed', ex); }
   }
 
   private destroyExtraChildren(ids: number[]) {

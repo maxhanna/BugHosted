@@ -72,6 +72,21 @@ export class Inventory extends GameObject {
     this.renderInventory();
   }
   override ready() {
+    // Re-render party list whenever the player changes maps so name styling (same vs different map)
+    // and any updated level/hp/map data stays fresh.
+    events.on("CHANGE_LEVEL", this, () => {
+      try {
+        this.renderParty();
+      } catch (ex) { console.warn('Inventory CHANGE_LEVEL re-render failed', ex); }
+    });
+
+    // New: explicit party re-render trigger when backend detects a party member left the current map fetch set.
+    events.on("RENDER_PARTY", this, () => {
+      try {
+        this.renderParty();
+      } catch (ex) { console.warn('Inventory RENDER_PARTY re-render failed', ex); }
+    });
+
     events.on("CHARACTER_PICKS_UP_ITEM", this, (data: { imageName: string, position: Vector2, name: string, hero: any, category: string, stats?: any }) => {
       if (data.hero?.isUserControlled && data.category) {
         const itemData = { id: this.nextId++, image: data.imageName, name: data.name, category: data.category, stats: data.stats } as InventoryItem;
@@ -214,20 +229,35 @@ export class Inventory extends GameObject {
       const yPos = START_Y + (count * ROW_HEIGHT) - 6;
       const xOffset = TEXT_X;
       
-      // Draw name
-      const txtsprite = new SpriteTextString(
-        displayName,
-        new Vector2(xOffset, yPos),
-        "White"
-      );
-      const txtsprite2 = new SpriteTextString(
-        displayName,
-        new Vector2(xOffset + 1, yPos + 1),
-        "Black"
-      );
+      // Draw name. If party member is on a different map than the local hero, show only the black (shadow) text
+      // to visually indicate they are elsewhere. Otherwise draw the white text with black shadow.
+      const localMap = this.parent?.hero?.map ?? this.parentCharacter?.map ?? undefined;
+      const memberMap = pm?.map ?? undefined;
+      const isSameMap = !!localMap && !!memberMap ? localMap === memberMap : true;
+
+      if (isSameMap) {
+        const txtsprite = new SpriteTextString(
+          displayName,
+          new Vector2(xOffset, yPos),
+          "White"
+        );
+        const txtsprite2 = new SpriteTextString(
+          displayName,
+          new Vector2(xOffset + 1, yPos + 1),
+          "Black"
+        );
+        this.addChild(txtsprite);
+        this.addChild(txtsprite2);
+      } else {
+        // Different map: show only the black variant (use primary position to keep alignment consistent)
+        const txtspriteBlackOnly = new SpriteTextString(
+          displayName,
+          new Vector2(xOffset, yPos),
+          "Black"
+        );
+        this.addChild(txtspriteBlackOnly);
+      }
       count++;
-      this.addChild(txtsprite);
-      this.addChild(txtsprite2);
     });
 
     this.inventoryRendered = true;
