@@ -416,6 +416,25 @@ body {
   font-size: 13px;
 }
 
+/* Badge inline layout classes */
+.badge-nowrap {
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+}
+
+.badge-timer {
+  font-weight: 600;
+  font-size: 11px;
+  opacity: 0.95;
+}
+
+.inPartyPill .badge {
+  background: #8f8;
+  color: #063;
+  font-weight: 700;
+}
+
 .b {
   top: 15px;
   left: 55px;
@@ -633,6 +652,70 @@ body {
   overflow: auto;
   position: relative;
   padding: 8px 10px 12px 10px;
+}
+
+.partyPanel .filterButtons {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.partyPanel .leavePartyContainer {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.partyPanel .heroRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px;
+  border-bottom: 1px solid #222;
+}
+
+.partyPanel .heroLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.partyPanel .heroAvatar {
+  width: 28px;
+  height: 28px;
+  background: #333;
+  border-radius: 50%;
+}
+
+.partyPanel .heroInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.partyPanel .heroNameRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.partyPanel .offlineIndicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #666;
+  display: inline-block;
+}
+
+.partyPanel .heroTypeLevel {
+  font-size: 11px;
+  color: #aaa;
+  margin: 2px 0 0 2px;
+}
+
+.partyPanel .heroRemoteMap {
+  font-size: 11px;
+  color: #888;
+  margin: 2px 0 0 2px;
 }
 
 .partyPanel .closeButton {
