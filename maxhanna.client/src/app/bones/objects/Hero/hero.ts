@@ -248,9 +248,7 @@ export class Hero extends Character {
           events.emit("INVALID_WARP", this);
         }
       });
-    }
-    // All heroes (user-controlled and others) should respond to OTHER_HERO_ATTACK events so
-    // server-driven attacks animate correctly on every client instance.
+    } 
     events.on("OTHER_HERO_ATTACK", this, (payload: any) => {
       try {
         const sourceHeroId = payload?.sourceHeroId;
@@ -368,14 +366,11 @@ export class Hero extends Character {
       let skillType = undefined;
       if (type === "sting") {
         skillType = new Sting(startX, startY);
-      } else if (type === "arrow") {
-        // For arrows, slightly bias the initial rotation/placement by facing
+      } else if (type === "arrow") { 
         skillType = new Arrow(startX, startY, this.facingDirection);
       } else {
         skillType = new Arrow(startX, startY, this.facingDirection);
-      }
-      // Place the sting on the same parent that renders the hero (usually the level)
-      // so the world coordinates used above align with the sting's local coordinates.
+      } 
       const host = (this.parent as any) ?? this;
       host.addChild(skillType);
       this.activeSkills.push(skillType);
@@ -452,18 +447,7 @@ export class Hero extends Character {
       }
       return false;
     } catch { return false; }
-  }
-
-
-
-  // override getContent() {
-  // return {
-  //   portraitFrame: 0,
-  //   string: ["Party Up", "Whisper", "Wave", "Cancel"],
-  //   canSelectItems: true,
-  //   addsFlag: undefined
-  // }
-  // }
+  } 
 
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     // call base sprite draw
@@ -471,19 +455,12 @@ export class Hero extends Character {
     if (this.isUserControlled) {
       return;
     }
-    // Draw HP & EXP bars and level above hero (similar style to Bot)
+    // Draw HP & EXP bars and level above hero
     const barWidth = 34;
     const barHeight = 4;
-    // Compute horizontal center using sprite frame width when available so overlays sit above the
-    // visual sprite regardless of frameSize or scale. Fallback to previous offset when not present.
-    // Use rendered sprite width (frameSize * scale) and include the sprite offsetX so the
-    // overlay aligns with the visual sprite. Sprite.drawImage applies offsetX before centering.
     const spriteFrameWidth = (this.body?.frameSize?.x ?? gridCells(2));
     const spriteScaleX = (this.body?.scale?.x ?? 1);
-    const spriteWidth = spriteFrameWidth * spriteScaleX;
-    // Sprite.drawImage applies this.body.position.x and this.body.offsetX when drawing the frame
-    // and then centers the frame around that resulting x. To compute the visual center we need
-    // to include the body.position.x and any offsetX so the overlay aligns with the actual image.
+    const spriteWidth = spriteFrameWidth * spriteScaleX; 
     const bodyPosX = (this.body?.position?.x ?? 0);
     const bodyOffsetX = (this.body?.offsetX ?? 0);
     const anchorX = drawPosX + bodyPosX + bodyOffsetX + (spriteWidth / 2);
@@ -500,25 +477,19 @@ export class Hero extends Character {
     ctx.fillStyle = "#d22";
     ctx.fillRect(x + 1, topY + 1, (barWidth - 2) * hpRatio, barHeight - 2);
 
-    // Draw the hero's name centered under the health bar (only for non-user-controlled heroes)
-
-    if (!this.isUserControlled) {
-      const displayName = this.name ?? "Anon";
-      ctx.font = "10px monospace";
-      ctx.textAlign = "center";
-      // Position the name just below the HP bar so it appears on top of the player
-      const nameX = x + barWidth / 2;
-      const nameY = topY + barHeight + 10; // 10px below top of bar
-      // subtle shadow for readability
-      ctx.fillStyle = "rgba(0,0,0,0.6)";
-      ctx.fillText(displayName, Math.round(nameX) + 1, Math.round(nameY) + 1);
-      ctx.fillStyle = "#fff";
-      ctx.fillText(displayName, Math.round(nameX), Math.round(nameY));
-    }
-
-    // EXP bar intentionally hidden for heroes (rendered elsewhere for local player)
-
-    // Level text centered
+    // Draw the hero's name centered under the health bar
+    const displayName = this.name ?? "Anon";
+    ctx.font = "10px monospace";
+    ctx.textAlign = "center";
+    // Position the name just below the HP bar so it appears on top of the player
+    const nameX = x + barWidth / 2;
+    const nameY = topY + barHeight + 10; // 10px below top of bar
+    // subtle shadow for readability
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillText(displayName, Math.round(nameX) + 1, Math.round(nameY) + 1);
+    ctx.fillStyle = "#fff";
+    ctx.fillText(displayName, Math.round(nameX), Math.round(nameY));
+  
     ctx.fillStyle = "#fff";
     ctx.font = "10px monospace";
     ctx.textAlign = "center";
