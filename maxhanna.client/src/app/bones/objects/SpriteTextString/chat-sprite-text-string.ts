@@ -108,9 +108,20 @@ export class ChatSpriteTextString extends GameObject {
     // Force visibility regardless of distance culling logic
     this.preventDraw = false;
     if (this.objectSubject && this.objectSubject.position) {
-      // Use pure world coordinates so bubble tracks hero; camera centering logic operates elsewhere.
-      this.position.x = this.objectSubject.position.x + this.chatWindowOffset.x;
-      this.position.y = this.objectSubject.position.y + this.chatWindowOffset.y;
+      // Use camera-relative coordinates so bubble visually sticks to hero even as camera recenters.
+      let top: any = this as any;
+      while (top?.parent) top = top.parent;
+      const cam = top?.camera;
+      const worldX = this.objectSubject.position.x + this.chatWindowOffset.x;
+      const worldY = this.objectSubject.position.y + this.chatWindowOffset.y;
+      if (cam?.position) {
+        this.position.x = worldX + cam.position.x;
+        this.position.y = worldY + cam.position.y;
+      } else {
+        // Fallback: world coordinates if camera not yet available
+        this.position.x = worldX;
+        this.position.y = worldY;
+      }
     }
     if (this.showingIndex >= this.finalIndex) {
       setTimeout(() => { this.destroy(); }, this.TIME_UNTIL_DESTROY);
