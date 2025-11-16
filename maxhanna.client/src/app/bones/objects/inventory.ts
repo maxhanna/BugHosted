@@ -225,9 +225,9 @@ export class Inventory extends GameObject {
       // Draw name. If party member is on a different map than the local hero, show only the black (shadow) text
       // to visually indicate they are elsewhere. Otherwise draw the white text with black shadow.
       // Always show white text for the current hero regardless of map state.
-      const localHeroId = this.parent?.hero?.id ?? this.parentCharacter?.id ?? undefined;
+      const localHeroId = this.parentCharacter?.id ?? this.parent?.hero?.id ?? undefined;
       const isCurrentHero = pm.heroId === localHeroId;
-      const localMap = this.parent?.hero?.map ?? this.parentCharacter?.map ?? undefined;
+      const localMap = this.parentCharacter?.map ?? this.parent?.hero?.map ?? undefined;
       const memberMap = pm.map ?? undefined;
       
       // Debug logging to diagnose map comparison issues
