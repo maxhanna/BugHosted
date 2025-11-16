@@ -155,7 +155,8 @@ export class Inventory extends GameObject {
     // Clear existing children
     this.children.forEach((child: any) => child.destroy());
 
-    this.renderPartyMembers(); 
+    this.renderPartyMembers();
+    this.renderMapName();
     this.inventoryRendered = true;
   }
 
@@ -256,6 +257,33 @@ export class Inventory extends GameObject {
       }
       count++;
     });
+  }
+
+  private renderMapName() {
+    const mainParent = this.parent as any;
+    const mapName = mainParent?.metaHero?.map ?? mainParent?.hero?.map ?? "Unknown";
+    
+    // Position at top-right corner of screen (320x220 canvas)
+    // Approximate text width: each character is roughly 6px wide, so offset left by (length * 6) + padding
+    const approximateTextWidth = mapName.length * 6;
+    const xPos = 320 - approximateTextWidth - 4; // 4px padding from right edge
+    const yPos = 4; // 4px padding from top edge
+    
+    const mapNameText = new SpriteTextString(
+      mapName,
+      new Vector2(xPos, yPos),
+      "White"
+    );
+    
+    // Add shadow for better readability
+    const mapNameShadow = new SpriteTextString(
+      mapName,
+      new Vector2(xPos + 1, yPos + 1),
+      "Black"
+    );
+    
+    this.addChild(mapNameShadow);
+    this.addChild(mapNameText);
   }
 
   removeFromInventory(id: number) {
