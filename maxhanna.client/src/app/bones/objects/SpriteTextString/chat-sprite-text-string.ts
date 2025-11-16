@@ -152,7 +152,7 @@ export class ChatSpriteTextString extends GameObject {
     // ctx.fillRect(drawBoxX, drawPosY, effectiveLineWidth + this.PADDING_LEFT * 2, this.cachedTotalHeight);
 
     // Draw text
-  let cursorX = drawBoxX + this.PADDING_LEFT;
+    let cursorX = drawBoxX + this.PADDING_LEFT;
     let cursorY = drawPosY - 10 + this.PADDING_TOP;
     let currentShowingIndex = 0;
 
@@ -163,9 +163,13 @@ export class ChatSpriteTextString extends GameObject {
     for (let x = 0; x < this.cachedWords.length; x++) {
       const words = this.cachedWords[x];
       for (const word of words) {
-        const spaceRemaining = drawPosX + effectiveLineWidth - cursorX;
-        if (spaceRemaining < word.wordWidth) {
-          cursorX = drawPosX + this.PADDING_LEFT;
+        // Calculate right boundary of the chat box where text can render (excluding padding)
+        const rightBoundary = drawBoxX + this.PADDING_LEFT + effectiveLineWidth;
+        const spaceRemaining = rightBoundary - cursorX;
+        // Include the per-character spacing (+1 per char) like base SpriteTextString for more accurate wrap
+        const effectiveWordWidth = word.wordWidth + word.chars.length;
+        if (spaceRemaining < effectiveWordWidth) {
+          cursorX = drawBoxX + this.PADDING_LEFT;
           cursorY += this.LINE_VERTICAL_WIDTH;
         }
 
@@ -173,7 +177,8 @@ export class ChatSpriteTextString extends GameObject {
           if (currentShowingIndex > this.showingIndex) {
             continue;
           }
-          const withCharOffset = cursorX - 5;
+          // Removed magic -5 horizontal offset to keep alignment consistent across lines
+          const withCharOffset = cursorX;
           // Add light shadow for readability without background
           ctx.save();
           ctx.shadowColor = 'rgba(0,0,0,0.6)';
@@ -187,7 +192,7 @@ export class ChatSpriteTextString extends GameObject {
         }
         cursorX += 3;
       }
-      cursorX = drawPosX + this.PADDING_LEFT;
+      cursorX = drawBoxX + this.PADDING_LEFT;
       // Add extra spacing between paragraphs/lines for readability
       cursorY += this.LINE_VERTICAL_WIDTH + 2;
     }
