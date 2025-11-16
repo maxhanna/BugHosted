@@ -490,9 +490,9 @@ export class Hero extends Character {
     ctx.fillStyle = "#fff";
     ctx.fillText(displayName, Math.round(nameX), Math.round(nameY));
   
-    ctx.fillStyle = "#fff";
-    ctx.font = "10px monospace";
-    ctx.textAlign = "center";
-    ctx.fillText(`Lv${this.level ?? 1}`, x + barWidth / 2, topY - 2);
+    // ctx.fillStyle = "#fff";
+    // ctx.font = "10px monospace";
+    // ctx.textAlign = "center";
+    // ctx.fillText(`Lv${this.level ?? 1}`, x + barWidth / 2, topY - 2);
   }
 }
