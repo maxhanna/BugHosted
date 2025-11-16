@@ -1414,26 +1414,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   private async reinitializeInventoryData() {
     this.mainScene.inventory.partyMembers = this.partyMembers;
     this.mainScene.inventory.renderParty();
-
-    // if (this.mainScene?.inventory?.items) {
-    //   this.mainScene.inventory.items.forEach((item: any) => this.mainScene.inventory.removeFromInventory(item.id));
-    // }
-    // await this.bonesService.fetchInventoryData(this.metaHero.id).then((inventoryData: any) => {
-    //   if (inventoryData) {
-    //     const inventoryItems = inventoryData.inventory as InventoryItem[];
-    //     const heroInventoryItems = inventoryData.parts as HeroInventoryItem[]; 
-    //     this.mainScene.inventory.parts = inventoryItems;
-    //     for (let item of inventoryItems) {
-    //       let invItem = {
-    //         image: item.image,
-    //         name: item.name,
-    //         id: item.id,
-    //         category: item.category,
-    //       } as InventoryItem;
-    //       events.emit("INVENTORY_UPDATED", invItem);
-    //     }
-    //   } 
-    // });
   }
 
   private getLevelFromLevelName(key: string): Level {
