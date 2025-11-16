@@ -56,6 +56,16 @@ export class ChatSpriteTextString extends GameObject {
         // Position will be recalculated in step with camera awareness.
       }
     });
+    // Fallback: some movement/event pipelines may stop emitting HERO_MOVED past certain world X thresholds.
+    // CHARACTER_POSITION fires regularly for the user-controlled hero; mirror coordinates to ensure
+    // chat bubble keeps tracking beyond x > 400.
+    events.on("CHARACTER_POSITION", this, (char: any) => {
+      if (!char) return;
+      if (this.objectSubject && char.id === this.objectSubject.id) {
+        this.objectSubject.position.x = char.position.x;
+        this.objectSubject.position.y = char.position.y;
+      }
+    });
   }
 
   private cachedCamera: any = null;
