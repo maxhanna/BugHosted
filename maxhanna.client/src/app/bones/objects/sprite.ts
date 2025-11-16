@@ -45,6 +45,7 @@ export class Sprite extends GameObject {
     preventDrawName?: boolean,
     forceDrawName?: boolean,
     discoverable?: boolean,
+    isOmittable?: boolean,
   }) {
     super({
       position: params.position ?? new Vector2(0, 0),
@@ -53,7 +54,8 @@ export class Sprite extends GameObject {
       preventDrawName: params.preventDrawName ?? true,
       isSolid: !!params.isSolid,
       name: params.name,
-      colorSwap: params.colorSwap, 
+      colorSwap: params.colorSwap,
+      isOmittable: params.isOmittable,
     });
     this.objectId = params.objectId ?? Math.floor(Math.random() * (9999)) * -1;
     this.position = params.position ?? new Vector2(0, 0);
