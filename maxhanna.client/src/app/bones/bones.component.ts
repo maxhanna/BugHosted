@@ -1091,6 +1091,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       return;
     }
     let forceChangeMap = false;
+    // Track if any party member newly appeared on the local map this fetch so we can trigger a party re-render.
+    let newPartyMemberArrived = false;
 
     // Keep reference to previous local HP to detect HP drops
     const previousLocalHp = this.metaHero?.hp ?? undefined;
@@ -1103,6 +1105,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       const heroMeta = this.otherHeroes[i];
       // Scene object representing the hero (may be undefined if not added yet)
       let existingHero = this.mainScene.level?.children.find((x: any) => x.id === heroMeta.id) as Character | undefined;
+      const wasPresent = !!existingHero;
 
       // Update or create sprite
       if (existingHero) {
@@ -1151,6 +1154,16 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         }
       } else {
         existingHero = this.addHeroToScene(heroMeta);
+      }
+
+      // If this hero just appeared (was not present previously) and is a party member (other than self),
+      // update its partyMembers entry map (if applicable) and mark for re-render.
+      if (!wasPresent && heroMeta.id !== this.metaHero.id && Array.isArray(this.partyMembers)) {
+        const pm = this.partyMembers.find(p => p.heroId === heroMeta.id);
+        if (pm) {
+          pm.map = res.map; 
+          newPartyMemberArrived = true;
+        }
       }
 
       // If this is our metaHero, keep local metaHero and Hero instance in sync
@@ -1242,6 +1255,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         events.emit("RENDER_PARTY");
       }
     } catch (ex) { console.warn('Party presence reconciliation failed', ex); }
+
+    // Emit after reconciliation so inventory shows latest map & remote/local styling.
+    if (newPartyMemberArrived) {
+      events.emit("RENDER_PARTY");
+    }
   }
 
   private destroyExtraChildren(ids: number[]) {
