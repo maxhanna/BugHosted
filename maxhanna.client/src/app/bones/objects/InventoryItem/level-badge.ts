@@ -25,6 +25,6 @@ export class LevelBadge extends GameObject {
   ctx.fillStyle = '#fff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(this.level.toString(), centerX, centerY + 3);
+  ctx.fillText(this.level.toString(), centerX, centerY + 1.5);
   }
 }
