@@ -41,6 +41,8 @@ export class ChatSpriteTextString extends GameObject {
       name: "CHATSPRITETEXTSTRING",
       isOmittable: false
     });
+    // Mark this HUD element as world-attached so it still follows camera translation
+    this.worldSpaceHud = true;
     if (config.string) {
       this.content = config.string;
       this.cacheWords();

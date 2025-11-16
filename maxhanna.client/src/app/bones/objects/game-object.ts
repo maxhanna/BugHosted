@@ -30,6 +30,9 @@ export class GameObject {
   drawingForever = false;
   distanceToHero = new Vector2(0,0);
   heroLocation = new Vector2(0,0);
+  // When true and drawLayer===HUD, this object represents a world-attached HUD element
+  // that should still shift with the camera even though the HUD pass does not translate context.
+  worldSpaceHud: boolean = false;
 
   tmpSortedChildren: any = [];
   lastSortTime: number = 0;
@@ -124,8 +127,14 @@ export class GameObject {
       this.lastSortTime = Date.now();
     }
 
-    const drawPosX = x + this.position.x;
-    const drawPosY = y + this.position.y;
+    let drawPosX = x + this.position.x;
+    let drawPosY = y + this.position.y;
+
+    // Apply camera translation manually for world-attached HUD elements.
+    if (this.drawLayer === HUD && this.worldSpaceHud && this.root?.camera?.position) {
+      drawPosX += this.root.camera.position.x;
+      drawPosY += this.root.camera.position.y;
+    }
 
     this.drawImage(ctx, drawPosX, drawPosY);
     if (this.forceDrawName && !this.preventDrawName) {
