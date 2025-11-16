@@ -481,18 +481,15 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingEnder = true;
     try {
       const res: any = await this.enderService.getActivePlayers(2);
-      if (!this.notificationsActive) return; // abort update if stopped mid-fetch
       this.enderActivePlayers = res?.count ?? null;
     } catch (e) {
       this.enderActivePlayers = null;
     }
 
     try {
-      if (!this.notificationsActive) return;
       const userId = this._parent.user?.id ?? 0;
       if (userId) {
         const rankRes: any = await this.enderService.getUserRank(userId);
-        if (!this.notificationsActive) return;
         if (rankRes && rankRes.hasHero) {
           this.enderUserRank = { rank: rankRes.rank ?? null, score: rankRes.score ?? null, totalPlayers: rankRes.totalPlayers ?? null };
         } else {
@@ -502,7 +499,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
     } catch (e) {
       this.enderUserRank = null;
     }
-    if (!this.notificationsActive) return;
     if (this._parent?.navigationItems) {
       const enderNav = this._parent.navigationItems.find(x => x.title === 'Ender');
       if (enderNav) {
@@ -519,17 +515,14 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!this.notificationsActive) return;
     try {
       const res: any = await this.nexusService.getActivePlayers(2);
-      if (!this.notificationsActive) return;
       this.nexusActivePlayers = res?.count ?? null;
     } catch (e) {
       this.nexusActivePlayers = null;
     }
     try {
-      if (!this.notificationsActive) return;
       const userId = this._parent.user?.id ?? 0;
       if (userId) {
         const rankRes: any = await this.nexusService.getUserRank(userId);
-        if (!this.notificationsActive) return;
         if (rankRes && rankRes.hasBase) {
           this.nexusUserRank = { rank: rankRes.rank ?? null, baseCount: rankRes.baseCount ?? null, totalPlayers: rankRes.totalPlayers ?? null };
         } else {
@@ -539,7 +532,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
     } catch (e) {
       this.nexusUserRank = null;
     }
-    if (!this.notificationsActive) return;
     if (this._parent?.navigationItems) {
       const nexusNav = this._parent.navigationItems.find(x => x.title === 'Bug-Wars');
       if (nexusNav) {
@@ -553,21 +545,18 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   private async getBonesPlayerInfo() {
     if (!this.notificationsActive) return;
-    this.isLoadingEnder = true; // reuse loading flag for shared UI state
+    this.isLoadingEnder = true;
     try {
       const res: any = await this.bonesService.getActivePlayers(2);
-      if (!this.notificationsActive) return;
       this.bonesActivePlayers = res?.count ?? null;
     } catch (e) {
       this.bonesActivePlayers = null;
     }
 
     try {
-      if (!this.notificationsActive) return;
       const userId = this._parent.user?.id ?? 0;
       if (userId) {
         const rankRes: any = await this.bonesService.getUserRank(userId);
-        if (!this.notificationsActive) return;
         if (rankRes && rankRes.hasHero) {
           this.bonesUserRank = { rank: rankRes.rank ?? null, level: rankRes.level ?? null, totalPlayers: rankRes.totalPlayers ?? null };
         } else {
@@ -578,7 +567,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
       this.bonesUserRank = null;
     }
 
-    if (!this.notificationsActive) return;
     if (this._parent?.navigationItems) {
       const bonesNav = this._parent.navigationItems.find(x => x.title === 'Bones');
       if (bonesNav) {
@@ -592,6 +580,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getMetaPlayerInfo() {
+    if (!this.notificationsActive) return;
     try {
       const res: any = await this.metaService.getActivePlayers(2);
       this.metaActivePlayers = res?.count ?? null;
@@ -611,7 +600,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
     } catch (e) {
       this.metaUserRank = null;
     }
-    // Update Meta-Bots nav item content
     if (this._parent?.navigationItems) {
       const metaNav = this._parent.navigationItems.find(x => x.title === 'Meta-Bots');
       if (metaNav) {
@@ -624,6 +612,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getMusicInfo() {
+    if (!this.notificationsActive) return;
     if (!this._parent?.user?.id) return;
     try {
       const res: any = await this.todoService.getTodoCount(this._parent.user.id, 'Music');
@@ -640,6 +629,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getArrayPlayerInfo() {
+    if (!this.notificationsActive) return;
     try {
       const res: any = await this.arrayService.getActivePlayers(2);
       this.arrayActivePlayers = res?.count ?? null;
@@ -667,6 +657,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getEmulationPlayerInfo() {
+    if (!this.notificationsActive) return;
     try {
       const res: any = await this.romService.getActivePlayers(2);
       this.emulationActivePlayers = res?.count ?? null;
@@ -680,6 +671,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getSocialInfo() {
+    if (!this.notificationsActive) return;
     try {
       const res: any = await this.socialService.getTotalPosts();
       this.socialTotalPosts = res?.count ?? null;
@@ -693,6 +685,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getCrawlerInfo() {
+    if (!this.notificationsActive) return;
     try {
       const res: any = await this.crawlerService.indexCount();
       const parsed = parseInt(res, 10);
@@ -707,6 +700,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getWordlerStreakInfo() {
+    if (!this.notificationsActive) return;
     if (!this._parent.user?.id || !this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("wordler"))) { return; }
     this.isLoadingWordlerStreak = true;
     try {
