@@ -72,7 +72,7 @@ export class GameObject {
         const parent = this.parent ?? this;
 
         this.distanceToHero = new Vector2(Math.abs(parent.position.x - char.lastPosition.x), Math.abs(parent.position.y - char.lastPosition.y));
-        this.heroLocation = char.position;
+       // this.heroLocation = char.position;
 
         // if (!this.beforePreventDrawDistance && this.isOmittable && this.parent?.isOmittable) {
         //   const thresh = 400;
