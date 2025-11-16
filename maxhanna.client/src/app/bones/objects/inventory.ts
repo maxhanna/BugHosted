@@ -229,6 +229,19 @@ export class Inventory extends GameObject {
       const isCurrentHero = pm.heroId === localHeroId;
       const localMap = this.parent?.hero?.map ?? this.parentCharacter?.map ?? undefined;
       const memberMap = pm.map ?? undefined;
+      
+      // Debug logging to diagnose map comparison issues
+      if (count === 0) {
+        console.log('Party member rendering debug:', {
+          pmName: pm.name,
+          pmHeroId: pm.heroId,
+          pmMap: memberMap,
+          localHeroId: localHeroId,
+          localMap: localMap,
+          isCurrentHero: isCurrentHero
+        });
+      }
+      
       // Treat undefined memberMap (or localMap) as remote; only same if both defined and equal (case-insensitive)
       const isSameMap = (typeof localMap === 'string' && typeof memberMap === 'string')
         ? (localMap.toUpperCase() === memberMap.toUpperCase())
