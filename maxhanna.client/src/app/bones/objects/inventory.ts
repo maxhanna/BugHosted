@@ -13,6 +13,7 @@ import { SpriteTextString } from "./SpriteTextString/sprite-text-string";
 import { ColorSwap } from "../../../services/datacontracts/bones/color-swap"; 
 import { PartyMember } from "../../../services/datacontracts/bones/party-member";
 import { LevelBadge } from "./InventoryItem/level-badge";
+import { calculateWords } from "./SpriteTextString/sprite-font-map";
 
 export class Inventory extends GameObject {
   nextId: number = parseInt((Math.random() * 19999).toFixed(0));
@@ -263,13 +264,30 @@ export class Inventory extends GameObject {
     const mainParent = this.parent as any;
     const mapName = mainParent?.metaHero?.map ?? mainParent?.hero?.map ?? "Unknown";
     
-  // Position at top-right corner of screen (320x220 canvas)
-  // Calculate from right edge: each char is ~6px, plus SpriteTextString adds PADDING_LEFT (27px)
-  const SPRITE_TEXT_PADDING_LEFT = 27;
-  const CHAR_WIDTH = 6;
-  const approximateTextWidth = mapName.length * CHAR_WIDTH;
-  const xPos = 320 - approximateTextWidth - SPRITE_TEXT_PADDING_LEFT - 4; // 4px margin from edge
-  const yPos = 4;
+    // Compute actual pixel width using same logic as SpriteTextString rendering
+    const SPRITE_TEXT_PADDING_LEFT = 27; // internal left padding added by SpriteTextString
+    const INTER_WORD_SPACING = 3;        // added after each word (including last) in drawImage
+    const CHAR_EXTRA_SPACING = 1;        // added after each character
+
+    const wordsData = calculateWords({ content: mapName, color: "White" });
+    let textPixelWidth = 0;
+    wordsData.forEach((w, idx) => {
+      // word.chars: each has width; draw adds char.width + 1
+      w.chars.forEach(ch => {
+        textPixelWidth += ch.width + CHAR_EXTRA_SPACING;
+      });
+      // After each word drawImage adds +3; we'll mimic and later remove trailing
+      textPixelWidth += INTER_WORD_SPACING;
+    });
+    if (textPixelWidth > 0) {
+      textPixelWidth -= INTER_WORD_SPACING; // remove trailing spacing after last word
+    }
+
+    // Final x position from right edge (canvas width 320)
+    const CANVAS_WIDTH = 320;
+    const RIGHT_MARGIN = 4;
+    const xPos = CANVAS_WIDTH - SPRITE_TEXT_PADDING_LEFT - RIGHT_MARGIN - textPixelWidth;
+    const yPos = 4; // keep top margin; SpriteTextString will add its own top padding internally
     
     const mapNameText = new SpriteTextString(
       mapName,
