@@ -20,11 +20,9 @@ export class Hero extends Character {
   isAttacking = false;
   type: string = "knight";
   // Mana for spellcasting/abilities (0..100)
-  // mana: legacy percent value (0..100) kept for compatibility
   public mana: number = 100;
   // maxMana: number of mana stat points allocated (e.g., 0,1,2...)
   public maxMana?: number = 100;
-  // currentManaUnits: visual units where 1 stat point == 100 units. This is the consumable resource that regenerates.
   public currentManaUnits: number = 0; // initialize later to maxMana * 100 if available
   currentSkill?: string = undefined;
   // Track active skill effects spawned by this hero (not yet destroyed)
