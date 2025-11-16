@@ -226,7 +226,10 @@ export class Inventory extends GameObject {
       // to visually indicate they are elsewhere. Otherwise draw the white text with black shadow.
       const localMap = this.parent?.hero?.map ?? this.parentCharacter?.map ?? undefined;
       const memberMap = pm.map ?? undefined;
-      const isSameMap = !!localMap && !!memberMap ? localMap === memberMap : true;
+      // Treat undefined memberMap (or localMap) as remote; only same if both defined and equal (case-insensitive)
+      const isSameMap = (typeof localMap === 'string' && typeof memberMap === 'string')
+        ? (localMap.toUpperCase() === memberMap.toUpperCase())
+        : false;
 
       if (isSameMap) {
         const txtsprite = new SpriteTextString(
