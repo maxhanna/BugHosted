@@ -105,6 +105,8 @@ export class ChatSpriteTextString extends GameObject {
   }
 
   override step(delta: number) {
+    // Force visibility regardless of distance culling logic
+    this.preventDraw = false;
     if (this.objectSubject && this.objectSubject.position) {
       this.position.x = this.objectSubject.position.x + this.chatWindowOffset.x;
       this.position.y = this.objectSubject.position.y + this.chatWindowOffset.y;

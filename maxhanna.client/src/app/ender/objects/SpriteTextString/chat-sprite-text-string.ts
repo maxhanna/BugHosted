@@ -101,6 +101,8 @@ export class ChatSpriteTextString extends GameObject {
 
   override step(delta: number) {
     // Track the subject's position so the chat bubble follows the hero
+    // Ensure chat never gets distance-culled
+    this.preventDraw = false;
     if (this.objectSubject && this.objectSubject.position) {
       this.position.x = this.objectSubject.position.x - 120;
       this.position.y = this.objectSubject.position.y + 20;

@@ -95,6 +95,8 @@ export class ChatSpriteTextString extends GameObject {
   }
 
   override step(delta: number) {
+    // Prevent distance-based omission
+    this.preventDraw = false;
     if (this.objectSubject && this.objectSubject.position) {
       this.position.x = this.objectSubject.position.x - 120;
       this.position.y = this.objectSubject.position.y + 20;
