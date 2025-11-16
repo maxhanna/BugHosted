@@ -221,7 +221,7 @@ export class Inventory extends GameObject {
 
       // Create name text
       const displayName = pm.name ?? "Player";
-  const yPos = START_Y + (count * ROW_HEIGHT) - 6;
+      const yPos = START_Y + (count * ROW_HEIGHT) - 6;
       const xOffset = TEXT_X;
        
       const mainParent = this.parent as any;
@@ -236,24 +236,12 @@ export class Inventory extends GameObject {
         : false;
 
       if (isCurrentHero || isSameMap) {
-        const txtsprite = new SpriteTextString(
-          displayName,
-          new Vector2(xOffset, yPos),
-          "White"
-        );
-        const txtsprite2 = new SpriteTextString(
-          displayName,
-          new Vector2(xOffset + 1, yPos + 1),
-          "Black"
-        );
+        const txtsprite = this.createStaticText(displayName, new Vector2(xOffset, yPos), "White");
+        const txtsprite2 = this.createStaticText(displayName, new Vector2(xOffset + 1, yPos + 1), "Black");
         this.addChild(txtsprite);
         this.addChild(txtsprite2);
       } else {  // Different map: show only the black variant (use primary position to keep alignment consistent)
-        const txtspriteBlackOnly = new SpriteTextString(
-          displayName,
-          new Vector2(xOffset, yPos),
-          "Black"
-        );
+        const txtspriteBlackOnly = this.createStaticText(displayName, new Vector2(xOffset, yPos), "Black");
         this.addChild(txtspriteBlackOnly);
       }
       count++;
@@ -289,21 +277,18 @@ export class Inventory extends GameObject {
     const xPos = CANVAS_WIDTH - SPRITE_TEXT_PADDING_LEFT - RIGHT_MARGIN - textPixelWidth;
     const yPos = 4; // keep top margin; SpriteTextString will add its own top padding internally
     
-    const mapNameText = new SpriteTextString(
-      mapName,
-      new Vector2(xPos, yPos),
-      "White"
-    );
-    
-    // Add shadow for better readability
-    const mapNameShadow = new SpriteTextString(
-      mapName,
-      new Vector2(xPos + 1, yPos + 1),
-      "Black"
-    );
+    const mapNameText = this.createStaticText(mapName, new Vector2(xPos, yPos), "White");
+    const mapNameShadow = this.createStaticText(mapName, new Vector2(xPos + 1, yPos + 1), "Black");
     
     this.addChild(mapNameShadow);
     this.addChild(mapNameText);
+  }
+
+  private createStaticText(content: string, position: Vector2, color: "White" | "Black") {
+    const txt = new SpriteTextString(content, position, color);
+    // Force full visibility immediately (skip typewriter effect)
+    (txt as any).showingIndex = (txt as any).finalIndex;
+    return txt;
   }
 
   removeFromInventory(id: number) {
