@@ -32,6 +32,7 @@ export class ChatSpriteTextString extends GameObject {
     string?: string[];
     portraitFrame?: number;
     objectSubject?: any;
+    cameraRef?: any;
   }) {
     super({
       position: new Vector2(config.objectSubject.position.x - 60, config.objectSubject.position.y + 40),
@@ -52,10 +53,34 @@ export class ChatSpriteTextString extends GameObject {
       if (this.objectSubject && data.id === this.objectSubject.id) {
         this.objectSubject.position.x = data.x;
         this.objectSubject.position.y = data.y;
-        this.position.x = data.x + this.chatWindowOffset.x;
-        this.position.y = data.y + this.chatWindowOffset.y;
+        // Position will be recalculated in step with camera awareness.
       }
     });
+  }
+
+  private cachedCamera: any = null;
+  private findCamera(): any {
+    if (this.cachedCamera && this.cachedCamera.position) return this.cachedCamera;
+    let node: any = this as any;
+    const visited = new Set<any>();
+    while (node) {
+      if (node.camera && node.camera.position) {
+        this.cachedCamera = node.camera;
+        break;
+      }
+      visited.add(node);
+      // Search siblings for a camera property
+      if (Array.isArray(node.children)) {
+        for (const child of node.children) {
+          if (child && child.camera && child.camera.position) {
+            this.cachedCamera = child.camera;
+            return this.cachedCamera;
+          }
+        }
+      }
+      node = node.parent && !visited.has(node.parent) ? node.parent : null;
+    }
+    return this.cachedCamera;
   }
 
   private calculateDimensions() {
@@ -108,17 +133,15 @@ export class ChatSpriteTextString extends GameObject {
     // Force visibility regardless of distance culling logic
     this.preventDraw = false;
     if (this.objectSubject && this.objectSubject.position) {
-      // Use camera-relative coordinates so bubble visually sticks to hero even as camera recenters.
-      let top: any = this as any;
-      while (top?.parent) top = top.parent;
-      const cam = top?.camera;
+      const cam = this.findCamera();
       const worldX = this.objectSubject.position.x + this.chatWindowOffset.x;
       const worldY = this.objectSubject.position.y + this.chatWindowOffset.y;
+      // If we have a camera, translate world->screen for HUD space.
       if (cam?.position) {
         this.position.x = worldX + cam.position.x;
         this.position.y = worldY + cam.position.y;
       } else {
-        // Fallback: world coordinates if camera not yet available
+        // Without camera, approximate raw world position (may drift off screen until camera discovered)
         this.position.x = worldX;
         this.position.y = worldY;
       }
