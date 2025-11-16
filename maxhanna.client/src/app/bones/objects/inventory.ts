@@ -221,33 +221,12 @@ export class Inventory extends GameObject {
       const displayName = pm.name ?? "Player";
       const yPos = START_Y + (count * ROW_HEIGHT) - 6;
       const xOffset = TEXT_X;
-      
-      // Draw name. If party member is on a different map than the local hero, show only the black (shadow) text
-      // to visually indicate they are elsewhere. Otherwise draw the white text with black shadow.
-      // Always show white text for the current hero regardless of map state.
+       
       const mainParent = this.parent as any;
       const localHeroId = mainParent?.metaHero?.id ?? mainParent?.hero?.id ?? undefined;
       const isCurrentHero = pm.heroId === localHeroId;
       const localMap = mainParent?.metaHero?.map ?? mainParent?.hero?.map ?? undefined;
-      const memberMap = pm.map ?? undefined;
-      
-      // Debug logging to diagnose map comparison issues
-      if (count === 0) {
-        console.log('Party member rendering debug:', {
-          pmName: pm.name,
-          pmHeroId: pm.heroId,
-          pmMap: memberMap,
-          localHeroId: localHeroId,
-          localMap: localMap,
-          isCurrentHero: isCurrentHero,
-          mainParentMetaHero: mainParent?.metaHero,
-          mainParentMetaHeroId: mainParent?.metaHero?.id,
-          mainParentMetaHeroMap: mainParent?.metaHero?.map,
-          mainParentHero: mainParent?.hero,
-          mainParentHeroId: mainParent?.hero?.id,
-          mainParentHeroMap: mainParent?.hero?.map
-        });
-      }
+      const memberMap = pm.map ?? undefined; 
       
       // Treat undefined memberMap (or localMap) as remote; only same if both defined and equal (case-insensitive)
       const isSameMap = (typeof localMap === 'string' && typeof memberMap === 'string')
@@ -267,8 +246,7 @@ export class Inventory extends GameObject {
         );
         this.addChild(txtsprite);
         this.addChild(txtsprite2);
-      } else {
-        // Different map: show only the black variant (use primary position to keep alignment consistent)
+      } else {  // Different map: show only the black variant (use primary position to keep alignment consistent)
         const txtspriteBlackOnly = new SpriteTextString(
           displayName,
           new Vector2(xOffset, yPos),
