@@ -131,15 +131,7 @@ export class GameObject {
     if (this.forceDrawName && !this.preventDrawName) {
       this.drawName(ctx, drawPosX, drawPosY);
     } 
-    // HUD-layer children should not inherit parent world coordinates; they use screen-space positioning.
-    // Non-HUD children accumulate parent position for proper world-space rendering.
-    this.tmpSortedChildren.forEach((child: GameObject) => {
-      if (child.drawLayer === HUD) {
-        child.draw(ctx, 0, 0);
-      } else {
-        child.draw(ctx, drawPosX, drawPosY);
-      }
-    }); 
+    this.tmpSortedChildren.forEach((child: GameObject) => child.draw(ctx, drawPosX, drawPosY)); 
   } 
   sortChildren() {
     this.tmpSortedChildren = [...this.children].sort((a: any, b: any) => {
