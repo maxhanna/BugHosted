@@ -841,10 +841,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.partyMembers = await this.bonesService.getPartyMembers(rz.id) ?? [];
         this.mainScene.partyMembers = this.partyMembers;
         this.mainScene.inventory.partyMembers = this.partyMembers;
-        this.mainScene.inventory.renderParty();
         // reconcile any optimistic invites after initial party load
         this.reconcilePendingInvites();
-        await this.reinitializeHero(rz);
+        await this.reinitializeHero(rz); 
       } else {
         const heroNames = await this.bonesService.getHeroNames(this.parentRef.user.id);
         this.mainScene.setLevel(
@@ -1336,7 +1335,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.mainScene.level.addChild(this.currentChatTextbox);
   }
 
-  private async reinitializeHero(rz: MetaHero, skipDataFetch?: boolean) {
+  private async reinitializeHero(rz: MetaHero) {
     // Ensure rz.position exists
     const rzPos = (rz && (rz as any).position) ? (rz as any).position : { x: 0, y: 0 };
     this.hero = new Hero({
@@ -1397,19 +1396,16 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.mainScene.hero = this.hero;
     this.mainScene.metaHero = this.metaHero;
     storyFlags.flags = new Map<string, boolean>();
-
-    if (!!skipDataFetch == false) {
-      //console.log("initialize inv after reinitializeHero");
-      await this.reinitializeInventoryData(true);
-    }
-    const level = this.getLevelFromLevelName(rz.map);
-
+ 
+    const level = this.getLevelFromLevelName(rz.map); 
     if (level) {
       this.mainScene.setLevel(level);
     }
 
     this.mainScene.camera.centerPositionOnTarget(this.metaHero.position);
-    this.playLevelMusic(this.metaHero.map ?? '');
+    this.playLevelMusic(this.metaHero.map ?? ''); 
+    await this.reinitializeInventoryData(); 
+
     if ((rz.hp ?? 100) <= 0) {
       this.handleHeroDeath({ killerId: null, killerUserId: undefined, cause: "spawned_dead" });
     }

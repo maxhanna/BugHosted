@@ -241,7 +241,11 @@ export class Inventory extends GameObject {
           localMap: localMap,
           isCurrentHero: isCurrentHero,
           mainParentMetaHero: mainParent?.metaHero,
-          mainParentHero: mainParent?.hero
+          mainParentMetaHeroId: mainParent?.metaHero?.id,
+          mainParentMetaHeroMap: mainParent?.metaHero?.map,
+          mainParentHero: mainParent?.hero,
+          mainParentHeroId: mainParent?.hero?.id,
+          mainParentHeroMap: mainParent?.hero?.map
         });
       }
       
