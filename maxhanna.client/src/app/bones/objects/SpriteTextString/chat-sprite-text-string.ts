@@ -60,6 +60,31 @@ export class ChatSpriteTextString extends GameObject {
     });
   }
 
+  private cachedCamera: any = null;
+  private findCamera(): any {
+    if (this.cachedCamera && this.cachedCamera.position) return this.cachedCamera;
+    let node: any = this as any;
+    const visited = new Set<any>();
+    while (node) {
+      if (node.camera && node.camera.position) {
+        this.cachedCamera = node.camera;
+        break;
+      }
+      visited.add(node);
+      // Search siblings for a camera property
+      if (Array.isArray(node.children)) {
+        for (const child of node.children) {
+          if (child && child.camera && child.camera.position) {
+            this.cachedCamera = child.camera;
+            return this.cachedCamera;
+          }
+        }
+      }
+      node = node.parent && !visited.has(node.parent) ? node.parent : null;
+    }
+    return this.cachedCamera;
+  }
+
   private calculateDimensions() {
     // Backwards-compatible convenience: calculate using the static max
     this.calculateDimensionsForWidth(this.LINE_WIDTH_MAX);
@@ -105,8 +130,21 @@ export class ChatSpriteTextString extends GameObject {
 
   override step(delta: number) {
     if (this.objectSubject && this.objectSubject.position) {
-      this.position.x = this.objectSubject.position.x + this.chatWindowOffset.x;
-      this.position.y = this.objectSubject.position.y + this.chatWindowOffset.y;
+      // Since HUD objects receive (0,0) from parent and HUD is drawn without camera transform,
+      // we must manually apply camera translation to convert world position → screen position.
+      const cam = this.findCamera();
+      const worldX = this.objectSubject.position.x + this.chatWindowOffset.x;
+      const worldY = this.objectSubject.position.y + this.chatWindowOffset.y;
+      
+      if (cam?.position) {
+        // Screen position = world position + camera offset
+        this.position.x = worldX + cam.position.x;
+        this.position.y = worldY + cam.position.y;
+      } else {
+        // Fallback until camera discovered
+        this.position.x = worldX;
+        this.position.y = worldY;
+      }
     }
     if (this.showingIndex >= this.finalIndex) {
       setTimeout(() => { this.destroy(); }, this.TIME_UNTIL_DESTROY);
