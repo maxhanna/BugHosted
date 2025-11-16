@@ -74,16 +74,16 @@ export class GameObject {
         this.distanceToHero = new Vector2(Math.abs(parent.position.x - char.lastPosition.x), Math.abs(parent.position.y - char.lastPosition.y));
         this.heroLocation = char.position;
 
-        if (!this.beforePreventDrawDistance && this.isOmittable && this.parent?.isOmittable) {
-          const thresh = 400;
-          const reDraw = this.distanceToHero.x < thresh && this.distanceToHero.y < thresh;
+        // if (!this.beforePreventDrawDistance && this.isOmittable && this.parent?.isOmittable) {
+        //   const thresh = 400;
+        //   const reDraw = this.distanceToHero.x < thresh && this.distanceToHero.y < thresh;
 
-          if (reDraw) { 
-            this.preventDraw = this.beforePreventDrawDistance;
-          } else { 
-            this.preventDraw = true; 
-          }
-        }
+        //   if (reDraw) { 
+        //     this.preventDraw = this.beforePreventDrawDistance;
+        //   } else { 
+        //     this.preventDraw = true; 
+        //   }
+        // }
       }
     });
   }
