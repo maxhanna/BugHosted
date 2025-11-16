@@ -14,19 +14,30 @@ export class Input {
   chatSelected = false;
   private _chatInput: HTMLInputElement | null = null;
   constructor() {
-    document.addEventListener("keydown", (e) => {
-      // store by event.code so other systems can check e.g. "KeyA" / "Space"
+    this._onKeyDown = (e: KeyboardEvent) => {
       this.keys[e.code] = true;
       this.handleKeydown(e);
-    });
-    document.addEventListener("keyup", (e) => {
+    };
+    this._onKeyUp = (e: KeyboardEvent) => {
       this.keys[e.code] = false;
       this.handleKeyup(e);
-    });
+    };
+    document.addEventListener("keydown", this._onKeyDown);
+    document.addEventListener("keyup", this._onKeyUp);
+
+    // Clear all held input state when window loses focus or becomes hidden so keys don't stick.
+    this._onBlur = () => this.resetAllInputStates();
+    this._onVisibility = () => { if (document.hidden) this.resetAllInputStates(); };
+    window.addEventListener('blur', this._onBlur);
+    window.addEventListener('focus', this._onBlur); // also clear on regain to prevent stale movement
+    document.addEventListener('visibilitychange', this._onVisibility);
   }
   destroy() {
-    document.removeEventListener('keydown', this.handleKeydown.bind(this));
-    document.removeEventListener('keyup', this.handleKeyup.bind(this));
+    document.removeEventListener('keydown', this._onKeyDown);
+    document.removeEventListener('keyup', this._onKeyUp);
+    window.removeEventListener('blur', this._onBlur);
+    window.removeEventListener('focus', this._onBlur);
+    document.removeEventListener('visibilitychange', this._onVisibility);
   }
   get direction() {
     return this.heldDirections[0];
@@ -363,5 +374,21 @@ export class Input {
   private emitDebounced(eventName: string, data?: any) {
     if (!this.verifyCanPressKey()) return;
     events.emit(eventName, data);
+  }
+
+  // --- New helpers for focus/visibility resets ---
+  private _onKeyDown!: (e: KeyboardEvent) => void;
+  private _onKeyUp!: (e: KeyboardEvent) => void;
+  private _onBlur!: () => void;
+  private _onVisibility!: () => void;
+
+  private resetAllInputStates() {
+    // Release all arrow directions
+    this.heldDirections.splice(0, this.heldDirections.length);
+    // Clear key and action button maps
+    Object.keys(this.keys).forEach(k => this.keys[k] = false);
+    Object.keys(this.actionButtons).forEach(k => this.actionButtons[k] = false);
+    // Unlock movement if it was locked due to a stuck key
+    events.emit("HERO_MOVEMENT_UNLOCK");
   }
 }
