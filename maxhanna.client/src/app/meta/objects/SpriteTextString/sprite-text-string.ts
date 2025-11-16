@@ -76,6 +76,7 @@ export class SpriteTextString extends GameObject {
           return;
         }
         char.sprite.drawLayer = "HUD";
+        char.sprite.isOmittable = false;
         char.sprite.draw(ctx, cursorX - 5, cursorY); 
         cursorX += char.width + 1; 
         currentShowingIndex++;
