@@ -217,10 +217,6 @@
       <button (click)="isPartyPanelOpen = false">Close</button>
     </div>
   <div *ngIf="(otherHeroes && otherHeroes.length > 0) || (partyMembers && partyMembers.length > 0)">
-      <!-- Show a Leave Party button for the current player -->
-      <div *ngIf="partyMembers && partyMembers.length > 1" class="leavePartyContainer">
-        <button (click)="confirmLeaveParty()">Leave Party</button>
-      </div>
       <div *ngFor="let p of getSortedHeroes()" class="heroRow">
         <div class="heroLeft">
           <div class="heroInfo">
@@ -229,13 +225,12 @@
               <div *ngIf="!parentRef?.isUserOnline(p.updated | timeSince)" class="offlineIndicator" title="Offline"></div>
               <div>
                 {{p.name}}
-              </div>
-              <!-- Type / Level on separate line below the name -->
-              <div *ngIf="p.type || p.level" class="heroTypeLevel">
-                <span *ngIf="p.type">{{ p.type | titlecase }}</span>
-                <span *ngIf="p.type && p.level"> · </span>
-                <span *ngIf="p.level">Lv {{ p.level }}</span>
-              </div>
+              </div> 
+            </div> 
+            <div *ngIf="p.type || p.level" class="heroTypeLevel">
+              <span *ngIf="p.type">{{ p.type | titlecase }}</span>
+              <span *ngIf="p.type && p.level"> · </span>
+              <span *ngIf="p.level">Lv {{ p.level }}</span>
             </div>
             <!-- Remote map indicator: show map if party member is on a different map than local hero -->
             <div *ngIf="p.map && metaHero?.map && p.map.toLowerCase() !== metaHero.map.toLowerCase()" class="heroRemoteMap">
@@ -263,6 +258,10 @@
             </span>
           </span>
         </div>
+      </div>
+      <!-- Show a Leave Party button for the current player -->
+      <div *ngIf="partyMembers && partyMembers.length > 1" class="leavePartyContainer">
+        <button (click)="confirmLeaveParty()">Leave Party</button>
       </div>
     </div>
     <div *ngIf="(!otherHeroes || otherHeroes.length === 0) && (!partyMembers || partyMembers.length === 0)">No nearby
