@@ -24,7 +24,9 @@ export class ChatSpriteTextString extends GameObject {
   textSpeed = 80;
   timeUntilNextShow = this.textSpeed;
   canSelectItems = false;
-  selectionIndex = 0; 
+  selectionIndex = 0;
+  private cachedLineCount: number = 0;
+  private cachedTotalHeight: number = 0;
   private needsRecalculation: boolean = true;
   private lastComputedLineWidth: number = 0;
   private readonly chatWindowOffset = new Vector2(-60, 40);
@@ -32,13 +34,11 @@ export class ChatSpriteTextString extends GameObject {
     string?: string[];
     portraitFrame?: number;
     objectSubject?: any;
-    cameraRef?: any;
   }) {
     super({
       position: new Vector2(config.objectSubject.position.x - 60, config.objectSubject.position.y + 40),
       drawLayer: HUD, // Ensured high-priority layer
-      name: "CHATSPRITETEXTSTRING",
-      isOmittable: false
+      name: "CHATSPRITETEXTSTRING"
     });
     if (config.string) {
       this.content = config.string;
@@ -53,44 +53,10 @@ export class ChatSpriteTextString extends GameObject {
       if (this.objectSubject && data.id === this.objectSubject.id) {
         this.objectSubject.position.x = data.x;
         this.objectSubject.position.y = data.y;
-        // Position will be recalculated in step with camera awareness.
+        this.position.x = data.x + this.chatWindowOffset.x;
+        this.position.y = data.y + this.chatWindowOffset.y;
       }
     });
-    // Fallback: some movement/event pipelines may stop emitting HERO_MOVED past certain world X thresholds.
-    // CHARACTER_POSITION fires regularly for the user-controlled hero; mirror coordinates to ensure
-    // chat bubble keeps tracking beyond x > 400.
-    events.on("CHARACTER_POSITION", this, (char: any) => {
-      if (!char) return;
-      if (this.objectSubject && char.id === this.objectSubject.id) {
-        this.objectSubject.position.x = char.position.x;
-        this.objectSubject.position.y = char.position.y;
-      }
-    });
-  }
-
-  private cachedCamera: any = null;
-  private findCamera(): any {
-    if (this.cachedCamera && this.cachedCamera.position) return this.cachedCamera;
-    let node: any = this as any;
-    const visited = new Set<any>();
-    while (node) {
-      if (node.camera && node.camera.position) {
-        this.cachedCamera = node.camera;
-        break;
-      }
-      visited.add(node);
-      // Search siblings for a camera property
-      if (Array.isArray(node.children)) {
-        for (const child of node.children) {
-          if (child && child.camera && child.camera.position) {
-            this.cachedCamera = child.camera;
-            return this.cachedCamera;
-          }
-        }
-      }
-      node = node.parent && !visited.has(node.parent) ? node.parent : null;
-    }
-    return this.cachedCamera;
   }
 
   private calculateDimensions() {
@@ -119,6 +85,8 @@ export class ChatSpriteTextString extends GameObject {
       lineCount++;
     }
 
+    this.cachedLineCount = lineCount;
+    this.cachedTotalHeight = (lineCount * this.LINE_VERTICAL_WIDTH) + (this.PADDING_TOP * 2);
     this.needsRecalculation = false;
     this.lastComputedLineWidth = lineWidthMax;
   }
@@ -127,11 +95,6 @@ export class ChatSpriteTextString extends GameObject {
     this.cachedWords = textContent.map((text) =>
       calculateWords({ content: text, color: "White" })
     );
-    // Ensure every glyph sprite for chat text renders on HUD layer and is never omitted
-    this.cachedWords.forEach(words => words.forEach(word => word.chars.forEach(char => {
-      char.sprite.drawLayer = HUD;
-      char.sprite.isOmittable = false;
-    })));
     this.finalIndex = this.cachedWords.reduce(
       (acc, words) => acc + words.reduce((sum, word) => sum + word.chars.length, 0),
       0
@@ -140,25 +103,9 @@ export class ChatSpriteTextString extends GameObject {
   }
 
   override step(delta: number) {
-    // Force visibility regardless of distance culling logic
-    this.preventDraw = false;
     if (this.objectSubject && this.objectSubject.position) {
-      // HUD objects are drawn in drawForeground() WITHOUT camera translation (after ctx.restore()).
-      // game-object.ts now passes (0,0) to HUD children to prevent world-space accumulation.
-      // Since HUD context has no camera transform, we must manually translate world -> screen coordinates.
-      const cam = this.findCamera();
-      const worldX = this.objectSubject.position.x + this.chatWindowOffset.x;
-      const worldY = this.objectSubject.position.y + this.chatWindowOffset.y;
-      
-      if (cam?.position) {
-        // Convert world position to screen position by adding camera offset
-        this.position.x = worldX + cam.position.x;
-        this.position.y = worldY + cam.position.y;
-      } else {
-        // Fallback: use raw world coords until camera discovered
-        this.position.x = worldX;
-        this.position.y = worldY;
-      }
+      this.position.x = this.objectSubject.position.x + this.chatWindowOffset.x;
+      this.position.y = this.objectSubject.position.y + this.chatWindowOffset.y;
     }
     if (this.showingIndex >= this.finalIndex) {
       setTimeout(() => { this.destroy(); }, this.TIME_UNTIL_DESTROY);
