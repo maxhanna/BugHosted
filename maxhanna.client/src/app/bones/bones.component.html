@@ -232,9 +232,12 @@
               <div *ngIf="!parentRef?.isUserOnline(p.updated | timeSince)" style="width:10px; height:10px; border-radius:50%; background:#666; display:inline-block;" title="Offline"></div>
               <div>
                 {{p.name}}
-                <span *ngIf="p.type || p.level" style="font-size:11px; color:#aaa; margin-left:4px;">
-                  <span *ngIf="p.type">({{ p.type | titlecase }}</span><span *ngIf="p.type && p.level">, </span><span *ngIf="p.level">Lv {{ p.level }}</span><span *ngIf="p.type">)</span>
-                </span>
+              </div>
+              <!-- Type / Level on separate line below the name -->
+              <div *ngIf="p.type || p.level" style="font-size:11px; color:#aaa; margin:2px 0 0 2px;">
+                <span *ngIf="p.type">{{ p.type | titlecase }}</span>
+                <span *ngIf="p.type && p.level"> · </span>
+                <span *ngIf="p.level">Lv {{ p.level }}</span>
               </div>
             </div>
             <!-- Remote map indicator: show map if party member is on a different map than local hero -->
@@ -248,20 +251,17 @@
           <button *ngIf="!isInParty(p.id) && !isAlreadyInPartyStatus(p.id)" [disabled]="isInvitePending(p.id)"
             (click)="inviteToParty(p.id)">Invite</button>
           <span *ngIf="isInvitePending(p.id)" class="pendingBadgeWrapper" [class.clearing]="isPendingClearing(p.id)">
-            <span class="pendingBadge" aria-hidden="true">
-              Pending
-              <span style="font-weight:600; margin-left:8px; font-size:11px; opacity:0.95;">· {{ getPendingSeconds(p.id)
-                ?? '' }}s</span>
+            <span class="pendingBadge" aria-hidden="true" style="white-space:nowrap; display:inline-flex; align-items:center;">
+              Pending · <span style="font-weight:600; font-size:11px; opacity:0.95;">{{ getPendingSeconds(p.id) ?? '' }}s</span>
             </span>
           </span>
           <span *ngIf="isAlreadyInPartyStatus(p.id)" class="pendingBadgeWrapper alreadyInParty">
-            <span class="pendingBadge" aria-hidden="true">
-              Already in a party
-              <span style="font-weight:600; margin-left:8px; font-size:11px; opacity:0.95;">· {{ getAlreadyInPartySeconds(p.id) ?? '' }}s</span>
+            <span class="pendingBadge" aria-hidden="true" style="white-space:nowrap; display:inline-flex; align-items:center;">
+              Already in a party · <span style="font-weight:600; font-size:11px; opacity:0.95;">{{ getAlreadyInPartySeconds(p.id) ?? '' }}s</span>
             </span>
           </span>
           <span *ngIf="isInParty(p.id) && !isInvitePending(p.id)" class="pendingBadgeWrapper inPartyPill">
-            <span class="badge" aria-hidden="true" style="background:#8f8; color:#063; font-weight:700;">
+            <span class="badge" aria-hidden="true" style="background:#8f8; color:#063; font-weight:700; white-space:nowrap; display:inline-flex; align-items:center;">
               In Party
             </span>
           </span>
