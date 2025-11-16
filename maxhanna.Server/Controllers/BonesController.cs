@@ -2342,7 +2342,8 @@ ORDER BY p.created DESC;";
 				string sql = @"
 					SELECT hero_id, coordsX, coordsY, `level`, hp, `name`, last_killed, o_coordsX, o_coordsY, speed, aggro, last_moved, target_hero_id
 					FROM maxhanna.bones_encounter
-					WHERE map = @Map;";
+					WHERE map = @Map
+					AND hp > 0;";
 				using var cmd = new MySqlCommand(sql, conn, transaction);
 				cmd.Parameters.AddWithValue("@Map", map);
 				using var reader = await cmd.ExecuteReaderAsync();
