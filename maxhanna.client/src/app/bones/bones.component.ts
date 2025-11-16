@@ -73,6 +73,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   private _lastKnownHeroHp: Map<number, number> = new Map<number, number>();
   partyMembers: PartyMember[] = [];
   chat: MetaChat[] = [];
+  // Track encounter (enemy bot) IDs known to be alive on the CURRENT map. When the server
+  // stops sending an encounter (because it hit 0 HP and is now dead), we reconcile locally
+  // and destroy the lingering client object.
+  private _knownEncounterIds: Set<number> = new Set<number>();
+  private _encounterMap?: string; // last map used for encounter tracking (clear on map change)
   events: MetaEvent[] = [];
   // Death UI/state
   showDeathPanel: boolean = false;
@@ -959,6 +964,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   private updateEnemyEncounters(res: any) {
     const enemies = res.enemyBots as MetaBot[];
+    const currentMap: string | undefined = (res && typeof res.map === 'string') ? res.map : undefined;
+    if (currentMap && this._encounterMap !== currentMap) {
+      // Map changed; clear tracking so we don't erroneously destroy new map spawns.
+      this._encounterMap = currentMap;
+      this._knownEncounterIds.clear();
+    }
+    const incomingIds = new Set<number>();
     if (enemies) {
       enemies.forEach(enemy => {
         const tgtEnemy: Bot = this.mainScene.level.children.find((x: Bot) => x.heroId == enemy.heroId);
@@ -1008,6 +1020,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
               }
             }
             this._lastServerDestinations.delete(tgtEnemy.heroId);
+            this._knownEncounterIds.delete(tgtEnemy.heroId);
             return; // skip further processing for this bot
           }
         } else if (enemy.hp) {
@@ -1036,8 +1049,40 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
             }
           }
         }
+        // Track as alive (only if hp > 0) using heroId; fallback to id if heroId missing
+        try {
+          const liveId = (typeof enemy.heroId === 'number') ? enemy.heroId : (typeof enemy.id === 'number' ? enemy.id : undefined);
+          if (liveId !== undefined && typeof enemy.hp === 'number' && enemy.hp > 0) {
+            this._knownEncounterIds.add(liveId);
+            incomingIds.add(liveId);
+          }
+        } catch { /* ignore tracking errors */ }
       })
     }
+    // Reconciliation pass: any previously known encounter ID missing from incomingIds is presumed dead (hp <= 0 server-side).
+    try {
+      if (this.mainScene?.level?.children) {
+        const toRemove: Bot[] = [];
+        for (const child of this.mainScene.level.children) {
+          const bot = child as any;
+          if (bot && bot.isEnemy && (typeof bot.heroId === 'number')) {
+            const hid = bot.heroId as number;
+            if (this._knownEncounterIds.has(hid) && !incomingIds.has(hid)) {
+              toRemove.push(bot as Bot);
+            }
+          }
+        }
+        for (const dead of toRemove) {
+          try {
+            dead.destroy();
+            if (dead.heroId) {
+              this._knownEncounterIds.delete(dead.heroId);
+              this._lastServerDestinations.delete(dead.heroId);
+            }
+          } catch (err) { console.warn('Failed destroying missing encounter', err); }
+        }
+      }
+    } catch (err) { console.warn('Encounter reconciliation failed', err); }
   }
 
   private updateHeroesFromFetchedData(res: { map: string; position: Vector2; heroes: MetaHero[]; }) {

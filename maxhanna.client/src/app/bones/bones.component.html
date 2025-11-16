@@ -237,6 +237,10 @@
                 </span>
               </div>
             </div>
+            <!-- Remote map indicator: show map if party member is on a different map than local hero -->
+            <div *ngIf="p.map && metaHero?.map && p.map.toLowerCase() !== metaHero.map.toLowerCase()" style="font-size:11px; color:#888; margin:2px 0 0 2px;">
+              Map: {{ p.map }}
+            </div>
             <div class="xxSmallFont thirdFontColor" *ngIf="p.updated" [title]="p.updated">Updated: {{ p.updated | timeSince }}</div>
           </div>
         </div>
