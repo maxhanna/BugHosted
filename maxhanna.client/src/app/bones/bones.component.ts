@@ -1832,22 +1832,53 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   getSortedHeroes() {
-    if (!this.otherHeroes) return [] as MetaHero[];
-    let filtered = this.otherHeroes.filter(h => h.id !== this.metaHero?.id);
+    // Always include party members, even if they are on different maps and thus absent from otherHeroes.
+    const others = Array.isArray(this.otherHeroes) ? this.otherHeroes.slice() : [] as MetaHero[];
+    const party = Array.isArray(this.partyMembers) ? this.partyMembers.slice() : [] as PartyMember[];
+    const partyIdSet = new Set<number>(party.map(p => p.heroId));
+
+    // Build placeholder MetaHero objects for party members missing from others
+    const placeholders: MetaHero[] = [];
+    for (const pm of party) {
+      if (!others.some(h => h.id === pm.heroId) && pm.heroId !== this.metaHero?.id) {
+        placeholders.push(new MetaHero(
+          pm.heroId,
+          pm.name ?? `Hero ${pm.heroId}`,
+          pm.type ?? 'knight',
+          new Vector2(0, 0), // unknown position; remote or off-map
+          0, // speed unknown
+          pm.map ?? 'UNKNOWN',
+          pm.color,
+          undefined,
+          pm.hp ?? 100,
+          pm.level ?? 1,
+          pm.exp ?? 0,
+          400 // attackSpeed default
+        ));
+      }
+    }
+
+    // Merge lists, excluding local hero to avoid duplicate self entry
+    let merged: MetaHero[] = others.filter(h => h.id !== this.metaHero?.id).concat(placeholders);
+
+    // Apply filter selection
     if (this.partyFilter === 'party') {
-      const partySet = new Set((this.partyMembers || []).map(p => p.heroId));
-      filtered = filtered.filter(h => partySet.has(h.id));
+      merged = merged.filter(h => partyIdSet.has(h.id));
     } else if (this.partyFilter === 'nearby') {
       const myPos = this.metaHero?.position;
       if (myPos) {
-        filtered = filtered.filter(h => h.position && Math.hypot(h.position.x - myPos.x, h.position.y - myPos.y) <= 800);
+        merged = merged.filter(h => {
+          // Only consider distance for heroes with known position on same map; keep party members with unknown pos out of nearby
+          if (!h.position || !h.map || h.map !== this.metaHero?.map) return false;
+          return Math.hypot(h.position.x - myPos.x, h.position.y - myPos.y) <= 800;
+        });
       }
     }
-    const partySet = new Set((this.partyMembers || []).map(p => p.heroId));
+
     const myPos = this.metaHero?.position;
-    filtered.sort((a, b) => {
-      const aIn = partySet.has(a.id) ? 0 : 1;
-      const bIn = partySet.has(b.id) ? 0 : 1;
+    merged.sort((a, b) => {
+      const aIn = partyIdSet.has(a.id) ? 0 : 1;
+      const bIn = partyIdSet.has(b.id) ? 0 : 1;
       if (aIn !== bIn) return aIn - bIn; // party members first
       if (myPos && a.position && b.position) {
         const da = Math.hypot(a.position.x - myPos.x, a.position.y - myPos.y);
@@ -1856,7 +1887,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       }
       return (a.name ?? '').localeCompare(b.name ?? '');
     });
-    return filtered;
+    return merged;
   }
 
   openChangeStats() {
