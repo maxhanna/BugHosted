@@ -33,7 +33,8 @@ export class ChatSpriteTextString extends GameObject {
     super({
       position: new Vector2(config.objectSubject.position.x - 120, config.objectSubject.position.y + 20),
       drawLayer: HUD, // Ensured high-priority layer
-      name: "CHATSPRITETEXTSTRING"
+      name: "CHATSPRITETEXTSTRING",
+      isOmittable: false
     });
     if (config.string) {
       this.content = config.string;
@@ -86,6 +87,11 @@ export class ChatSpriteTextString extends GameObject {
     this.cachedWords = textContent.map((text) =>
       calculateWords({ content: text, color: "White" })
     );
+    // Force HUD layer + non-omittable for each glyph
+    this.cachedWords.forEach(words => words.forEach(word => word.chars.forEach(char => {
+      char.sprite.drawLayer = HUD;
+      char.sprite.isOmittable = false;
+    })));
     this.finalIndex = this.cachedWords.reduce(
       (acc, words) => acc + words.reduce((sum, word) => sum + word.chars.length, 0),
       0

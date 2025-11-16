@@ -92,6 +92,11 @@ export class ChatSpriteTextString extends GameObject {
     this.cachedWords = textContent.map((text) =>
       calculateWords({ content: text, color: "White" })
     );
+    // Ensure every glyph sprite for chat text renders on HUD layer and is never omitted
+    this.cachedWords.forEach(words => words.forEach(word => word.chars.forEach(char => {
+      char.sprite.drawLayer = HUD;
+      char.sprite.isOmittable = false;
+    })));
     this.finalIndex = this.cachedWords.reduce(
       (acc, words) => acc + words.reduce((sum, word) => sum + word.chars.length, 0),
       0
