@@ -164,7 +164,8 @@ export class Inventory extends GameObject {
     // Constants for layout
     const PORTRAIT_X = 4;
     const PORTRAIT_SIZE = 16;
-    const TEXT_X = PORTRAIT_X;
+    // Adjust TEXT_X to compensate for SpriteTextString's PADDING_LEFT (27px)
+    const TEXT_X = PORTRAIT_X - 27; // Offset by padding so text appears at intended position
     const ROW_HEIGHT = 20;
     const START_Y = 8;
     let count = 0;
@@ -220,7 +221,8 @@ export class Inventory extends GameObject {
 
       // Create name text
       const displayName = pm.name ?? "Player";
-      const yPos = START_Y + (count * ROW_HEIGHT) - 6;
+      // Adjust yPos to compensate for SpriteTextString's PADDING_TOP (9px)
+      const yPos = START_Y + (count * ROW_HEIGHT) - 6 - 9; // Subtract padding offset
       const xOffset = TEXT_X;
        
       const mainParent = this.parent as any;
@@ -264,10 +266,9 @@ export class Inventory extends GameObject {
     const mapName = mainParent?.metaHero?.map ?? mainParent?.hero?.map ?? "Unknown";
     
     // Position at top-right corner of screen (320x220 canvas)
-    // Approximate text width: each character is roughly 6px wide, so offset left by (length * 6) + padding
-    const approximateTextWidth = mapName.length * 6;
-    const xPos = 320 - approximateTextWidth - 4; // 4px padding from right edge
-    const yPos = 4; // 4px padding from top edge
+    // Compensate for SpriteTextString's PADDING_LEFT (27px) and PADDING_TOP (9px)
+    const xPos = 240 - 27; // Subtract PADDING_LEFT offset
+    const yPos = 4 - 9; // Subtract PADDING_TOP offset
     
     const mapNameText = new SpriteTextString(
       mapName,
