@@ -157,7 +157,6 @@ export class Hero extends Character {
           if (this.facingDirection == "DOWN") {
             this.body?.animations?.play("attackDown");
             if (this.currentSkill) {
-              // spawnSkillTo will compute and consume the mana cost internally and play the 'arcadeUi' fail sound if insufficient
               this.spawnSkillTo(this.position.x, this.position.y + 200, this.currentSkill);
             }
           } else if (this.facingDirection == "UP") {

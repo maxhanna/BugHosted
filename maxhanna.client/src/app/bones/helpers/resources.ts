@@ -59,16 +59,18 @@ export class Resources {
       townbg2: `${this.dir}townbg2.png`,
       warpbase: `${this.dir}warpBase.png`,
     };
-    this.audioToLoad = {
-      arcadeUi: `${this.dir}arcade-ui.mp4`,
+    this.audioToLoad = { 
       ambiance_campfire: `${this.dir}ambiance_campfire.mp4`,
       ambiance_wind: `${this.dir}ambiance_wind.mp4`,
       bonescracking: `${this.dir}bonescracking.mp4`,
       bowstring: `${this.dir}bowstring.mp4`,
       healing: `${this.dir}healing.mp4`,
+      hitrock: `${this.dir}hitrock.mp3`,
+  icant: `${this.dir}icant.mp3`,
       itemdrop: `${this.dir}itemdrop.mp4`,
       maleDeathScream: `${this.dir}male_death_voice.mp4`,
       magicBurst: `${this.dir}magicburst.mp4`,
+  no: `${this.dir}no.mp3`,
       portalNoise: `${this.dir}portalnoise.mp4`,
       punchOrImpact: `${this.dir}punch_or_impact.mp4`,
       shadowsUnleashed: `${this.dir}shadows_unleashed.mp4`,
@@ -113,15 +115,17 @@ export class Resources {
 
   // audio categories help decide which mute flag applies
   private audioCategories: { [key: string]: 'music' | 'sfx' } = {
-    arcadeUi: 'sfx',
     ambiance_campfire: 'sfx',
     ambiance_wind: 'sfx',
     bonescracking: 'sfx',
     bowstring: 'sfx',
-    healing: 'sfx',
+    healing: 'sfx', 
+    hitrock: 'sfx',
+  icant: 'sfx',
     itemdrop: 'sfx',
     maleDeathScream: 'sfx',
     magicBurst: 'sfx',
+  no: 'sfx',
     portalNoise: 'sfx',
     punchOrImpact: 'sfx',
     wilhelmScream: 'sfx',

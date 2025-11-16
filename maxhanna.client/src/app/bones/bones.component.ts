@@ -2081,6 +2081,14 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const userId = this.parentRef?.user?.id;
     const map = this.metaHero.map || 'Town';
     if (!map.toLowerCase().includes("road")) {
+      // Can't open town portal in a town - play appropriate sound based on hero type
+      const heroType = (this.metaHero.type ?? 'knight').toLowerCase();
+      if (heroType === 'rogue') {
+        resources.playSound('icant', { volume: 0.8 });
+      } else {
+        // knight or magi
+        resources.playSound('no', { volume: 0.8 });
+      }
       return;
     }
     const x = Math.floor((this.metaHero.position?.x ?? 0));
