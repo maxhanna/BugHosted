@@ -24,9 +24,7 @@ export class ChatSpriteTextString extends GameObject {
   textSpeed = 80;
   timeUntilNextShow = this.textSpeed;
   canSelectItems = false;
-  selectionIndex = 0;
-  private cachedLineCount: number = 0;
-  private cachedTotalHeight: number = 0;
+  selectionIndex = 0; 
   private needsRecalculation: boolean = true;
   private lastComputedLineWidth: number = 0;
   private readonly chatWindowOffset = new Vector2(-60, 40);
@@ -38,7 +36,8 @@ export class ChatSpriteTextString extends GameObject {
     super({
       position: new Vector2(config.objectSubject.position.x - 60, config.objectSubject.position.y + 40),
       drawLayer: HUD, // Ensured high-priority layer
-      name: "CHATSPRITETEXTSTRING"
+      name: "CHATSPRITETEXTSTRING",
+      isOmittable: false
     });
     if (config.string) {
       this.content = config.string;

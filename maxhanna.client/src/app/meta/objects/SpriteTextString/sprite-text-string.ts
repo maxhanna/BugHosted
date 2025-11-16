@@ -16,7 +16,7 @@ export class SpriteTextString extends GameObject {
   LINE_VERTICAL_WIDTH = 14;
   color: string = "White";
   constructor(wordToWrite: string, position: Vector2, color?: "White" | "Black", secondsToLive?: number) {
-    super({ position: position, drawLayer: HUD }); 
+    super({ position: position, drawLayer: HUD, isOmittable: false }); 
     if (color) { 
       this.color = color;
     } 
