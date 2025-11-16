@@ -77,13 +77,17 @@ export class SpriteTextString extends GameObject {
         cursorY += this.LINE_VERTICAL_WIDTH;
       }
 
-      word.chars.forEach((char: { width: number, sprite: Sprite }) => {
+      word.chars.forEach((char: any) => {
         if (currentShowingIndex > this.showingIndex) {
           return;
         }
-        char.sprite.drawLayer = "HUD";
-        // Removed hardcoded -5 X offset to prevent overlapping/clipping causing missing glyphs under multi-string draws
-        char.sprite.draw(ctx, cursorX, cursorY); 
+        if (char.spriteCanvas) {
+          // Draw pre-rendered glyph canvas directly.
+          ctx.drawImage(char.spriteCanvas, cursorX, cursorY);
+        } else if (char.sprite) {
+          char.sprite.drawLayer = "HUD";
+          char.sprite.draw(ctx, cursorX, cursorY);
+        }
         cursorX += char.width + 1; 
         currentShowingIndex++;
       });
