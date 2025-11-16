@@ -33,15 +33,10 @@ export class Inventory extends GameObject {
   }
 
   renderParty() {
-    // First remove any existing party member items
-    this.items = this.items.filter(item => item.category !== "partyMember");
-
     // Defensive: ensure partyMembers is an array and only contains valid entries
     if (!Array.isArray(this.partyMembers)) {
       this.partyMembers = [];
     }
-    // Filter out any malformed entries that don't have a heroId
-    this.partyMembers = this.partyMembers.filter((pm: any) => pm && (typeof pm.heroId !== 'undefined'));
 
     if (this.partyMembers.length === 0) {
       if (this.parent?.hero?.id) {
@@ -57,19 +52,8 @@ export class Inventory extends GameObject {
         } as PartyMember);
       }
     }
-    
-    for (let member of this.partyMembers) {
-      const itemData = {
-        id: member.heroId,
-        image: "portraits",
-        name: member.name,
-        colorSwap: (member.color ? hexToRgb(member.color) : new ColorSwap(defaultRGB, defaultRGB)),
-        category: "partyMember"
-      } as InventoryItem;
-      this.items.push(itemData);
-    }
 
-    this.renderInventory();
+    this.renderAll();
   }
   override ready() {
     // Re-render party list whenever the player changes maps so name styling (same vs different map)
@@ -118,18 +102,8 @@ export class Inventory extends GameObject {
             // Update existing member with latest data from party
             Object.assign(existing, member);
           }
-          const itemData = {
-            id: member.heroId,
-            image: "portraits",
-            name: member.name,
-            colorSwap: (member.color ? hexToRgb(member.color) : undefined),
-            category: "partyMember"
-          } as InventoryItem;
-          if (itemData.id != data.playerId && !this.items.find(x => x.id === itemData.id)) {
-            this.items.push(itemData);
-          }
         }
-        this.renderInventory();
+        this.renderAll();
       }
     });
 
@@ -175,10 +149,15 @@ export class Inventory extends GameObject {
     return this.items.find(x => x.id == this.currentlySelectedId)?.name ?? "";
   }
 
-  renderInventory() {
+  renderAll() {
     // Clear existing children
     this.children.forEach((child: any) => child.destroy());
 
+    this.renderPartyMembers(); 
+    this.inventoryRendered = true;
+  }
+
+  private renderPartyMembers() {
     // Constants for layout
     const PORTRAIT_X = 4;
     const PORTRAIT_SIZE = 16;
@@ -186,23 +165,35 @@ export class Inventory extends GameObject {
     const ROW_HEIGHT = 20;
     const START_Y = 8;
     let count = 0;
-    this.items.forEach((item, index) => {
-      if (item.category !== "partyMember") return;
-      const pm = this.partyMembers?.find(x => x.heroId == item.id);
-      const color = pm?.color as any;
+    
+    if (!this.partyMembers || this.partyMembers.length === 0) return;
+
+    this.partyMembers.forEach((pm, index) => {
+      const color = pm.color as any;
       let tmpColor = color == undefined ? undefined
         : color instanceof ColorSwap ? color
           : new ColorSwap(defaultRGB, hexToRgb(color));
       
       // Determine portrait frame by hero type: rogue=0, knight=1, magi=2
       let frameIndex = 1; // default to knight
-      const heroType = (pm?.type ?? 'knight').toLowerCase();
-      if (heroType === 'rogue') frameIndex = 0;
-      else if (heroType === 'knight') frameIndex = 1;
-      else if (heroType === 'magi') frameIndex = 2;
+      const heroType = (pm.type ?? 'knight').toLowerCase();
+      switch (heroType) {
+        case 'rogue':
+          frameIndex = 0;
+          break;
+        case 'knight':
+          frameIndex = 1;
+          break;
+        case 'magi':
+          frameIndex = 2;
+          break;
+        default:
+          frameIndex = 1;
+          break;
+      }
 
       const sprite = new Sprite({
-        objectId: item.id,
+        objectId: pm.heroId,
         resource: resources.images["portraits"],
         vFrames: 1,
         hFrames: 3,
@@ -215,7 +206,7 @@ export class Inventory extends GameObject {
       this.addChild(sprite);
 
       // Draw level badge overlapping bottom-right corner of portrait
-      if (pm && typeof pm.level === 'number' && pm.level > 0) {
+      if (typeof pm.level === 'number' && pm.level > 0) {
         // Position badge at bottom-right of portrait (16x16), with slight overlap
         // Badge radius is 5px, so position center at portrait_right - 3px, portrait_bottom - 3px
         const badgeX = PORTRAIT_X + PORTRAIT_SIZE - 8; // 16 - 8 = 8px from left (slight overlap)
@@ -225,14 +216,14 @@ export class Inventory extends GameObject {
       }
 
       // Create name text
-      const displayName = item.name ?? "Player";
+      const displayName = pm.name ?? "Player";
       const yPos = START_Y + (count * ROW_HEIGHT) - 6;
       const xOffset = TEXT_X;
       
       // Draw name. If party member is on a different map than the local hero, show only the black (shadow) text
       // to visually indicate they are elsewhere. Otherwise draw the white text with black shadow.
       const localMap = this.parent?.hero?.map ?? this.parentCharacter?.map ?? undefined;
-      const memberMap = pm?.map ?? undefined;
+      const memberMap = pm.map ?? undefined;
       const isSameMap = !!localMap && !!memberMap ? localMap === memberMap : true;
 
       if (isSameMap) {
@@ -259,8 +250,6 @@ export class Inventory extends GameObject {
       }
       count++;
     });
-
-    this.inventoryRendered = true;
   }
 
   removeFromInventory(id: number) {
