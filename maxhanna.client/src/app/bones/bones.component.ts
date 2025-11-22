@@ -1415,19 +1415,24 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
     this.latestMessagesMap.clear();
     let latestMessages: string[] = [];
-    const twentySecondsAgo = new Date(Date.now() - 10000); // match Ender 10s bubble TTL
+    const cutoffMs = 20000; // 20s TTL for chat bubbles
+    const cutoff = new Date(Date.now() - cutoffMs);
 
     this.chat.forEach((message: MetaChat) => {
       const timestampDate = message.timestamp ? new Date(message.timestamp) : undefined;
 
-      if (timestampDate && timestampDate > twentySecondsAgo) {
+      // Only include messages that are recent (within cutoff). If a message is older
+      // than the cutoff, ensure it's not present in the latestMessagesMap and skip it.
+      if (timestampDate && timestampDate > cutoff) {
         const existingMessage = this.latestMessagesMap.get(message.hero);
-
         if (!existingMessage || (existingMessage && existingMessage.timestamp && new Date(existingMessage.timestamp) < timestampDate)) {
           this.latestMessagesMap.set(message.hero, message);
         }
+        latestMessages.push(`${message.hero}: ${message.content}`);
+      } else {
+        // remove any stale entry for this hero
+        try { this.latestMessagesMap.delete(message.hero); } catch { }
       }
-      latestMessages.push(`${message.hero}: ${message.content}`);
     });
     this.currentChatTextbox = new ChatSpriteTextString({
       portraitFrame: 0,
@@ -1671,7 +1676,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const regen = mhAny.regen ?? 0.0;
     const mana = (mhAny as any)?.mana ?? 0;
     // Convert ms -> UI points (each UI point == attackSpeedStepMs ms, base attackSpeedBaseMs => 0 points)
-    const attackSpeedPoints = Math.max(0, Math.round((Number(attackSpeed) - this.attackSpeedBaseMs) / this.attackSpeedStepMs));
+  // Use floor when converting ms -> UI points so a fractional step on the
+  // server doesn't prematurely show an extra allocated point in the UI.
+  const attackSpeedPoints = Math.max(0, Math.floor((Number(attackSpeed) - this.attackSpeedBaseMs) / this.attackSpeedStepMs));
     // Convert internal health -> UI points (0 == healthBase)
     const healthPoints = Math.max(0, Math.round((Number(health) - this.healthBase) / this.healthStep));
     this.editableStats = { attackDmg: Number(attackDmg), attackSpeed: attackSpeedPoints, critRate: Number(critRate), critDmg: Number(critDmg), health: Number(healthPoints), regen: Number(regen), mana: Number(mana), manaRegen: Number((mhAny && (mhAny as any).mana_regen) ? (mhAny as any).mana_regen : (this.cachedStats?.manaRegen ?? 0)), pointsAvailable: points };
@@ -1991,7 +1998,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const sAttackDmg = cached.attackDmg !== undefined ? cached.attackDmg : (mhAny.attackDmg !== undefined ? mhAny.attackDmg : 1);
     // cached.attackSpeed and mhAny.attackSpeed are in ms; convert to UI points
     const rawAttackSpeedMs = cached.attackSpeed !== undefined ? cached.attackSpeed : (mhAny.attackSpeed !== undefined ? mhAny.attackSpeed : this.attackSpeedBaseMs);
-    const sAttackSpeed = Math.max(0, Math.round((Number(rawAttackSpeedMs) - this.attackSpeedBaseMs) / this.attackSpeedStepMs));
+  // Convert server ms -> UI points using floor to avoid rounding up from
+  // partial steps (keeps displayed points consistent with fully-earned steps).
+  const sAttackSpeed = Math.max(0, Math.floor((Number(rawAttackSpeedMs) - this.attackSpeedBaseMs) / this.attackSpeedStepMs));
     const sCritRate = cached.critRate !== undefined ? cached.critRate : (mhAny.critRate !== undefined ? mhAny.critRate : 0.0);
     const sCritDmg = cached.critDmg !== undefined ? cached.critDmg : (mhAny.critDmg !== undefined ? mhAny.critDmg : (mhAny.regen ? (Number(mhAny.regen) * 2.0) : 2.0));
     const sHealth = cached.health !== undefined ? cached.health : (mhAny.health !== undefined ? mhAny.health : this.healthBase);
