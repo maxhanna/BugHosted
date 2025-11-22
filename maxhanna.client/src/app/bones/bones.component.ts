@@ -70,6 +70,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   metaHero: MetaHero;
   hero?: Hero;
   otherHeroes: MetaHero[] = [];
+  // Active players across all maps (recently updated)
+  activePlayers: MetaHero[] = [];
   private _lastKnownHeroHp: Map<number, number> = new Map<number, number>();
   partyMembers: PartyMember[] = [];
   chat: MetaChat[] = [];
@@ -1700,6 +1702,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         // reconcile optimistic invites
         this.reconcilePendingInvites();
       }).catch(() => { });
+
+      // Fetch recent active players across all maps so the party panel can show online players
+      this.bonesService.getActivePlayersList(5).then(ap => {
+        try { this.activePlayers = Array.isArray(ap) ? ap as MetaHero[] : []; } catch { this.activePlayers = []; }
+      }).catch(() => { this.activePlayers = []; });
     }
   }
 
@@ -1909,6 +1916,14 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   getSortedHeroes() {
     // Always include party members, even if they are on different maps and thus absent from otherHeroes.
     const others = Array.isArray(this.otherHeroes) ? this.otherHeroes.slice() : [] as MetaHero[];
+    // Merge in known active players across maps (avoid duplicates and exclude local hero)
+    if (Array.isArray(this.activePlayers) && this.activePlayers.length > 0) {
+      for (const ap of this.activePlayers) {
+        if (ap && ap.id !== this.metaHero?.id && !others.some(h => h.id === ap.id)) {
+          others.push(ap);
+        }
+      }
+    }
     const party = Array.isArray(this.partyMembers) ? this.partyMembers.slice() : [] as PartyMember[];
     const partyIdSet = new Set<number>(party.map(p => p.heroId));
 

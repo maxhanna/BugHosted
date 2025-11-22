@@ -151,6 +151,10 @@ export class BonesService {
     return this.fetchData('/bones/activeplayers', minutes);
   }
 
+  async getActivePlayersList(minutes: number = 5) {
+    return this.fetchData('/bones/getactiveplayerslist', minutes);
+  }
+
   async getUserRank(userId: number) {
     return this.fetchData('/bones/getuserrank', userId);
   }
