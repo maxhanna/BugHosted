@@ -2288,6 +2288,19 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     return null;
   }
 
+  getSelectionMap(s: any): string | null {
+    try {
+      if (!s) return null;
+      if (s.type) return s.type;
+      if (s.data) {
+        // data may be JSON string or object
+        const parsed = (typeof s.data === 'string') ? JSON.parse(s.data) : s.data;
+        if (parsed && parsed.map) return parsed.map;
+      }
+    } catch (ex) { /* ignore parse errors */ }
+    return null;
+  }
+
   // Helper to extract saved selection level (may be top-level or inside JSON data)
   getSelectionLevel(s: any): number | null {
     try {
