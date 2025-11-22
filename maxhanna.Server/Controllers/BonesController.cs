@@ -1216,75 +1216,9 @@ ORDER BY p.created DESC;";
 				await using var conn = new MySqlConnection(_connectionString);
 				await conn.OpenAsync();
 				using var transaction = conn.BeginTransaction();
-				Dictionary<int, MetaHero> heroesDict = new();
-				string sql = $@"
-				SELECT m.id as hero_id, 
-					m.name as hero_name,
-					m.type as hero_type,
-					m.map as hero_map,
-					m.coordsX, 
-					m.coordsY,
-					m.speed, 
-					m.color, 
-					m.mask, 
-					m.level as hero_level,
-					m.exp as hero_exp,
-					m.hp as hero_hp,
-					m.updated as hero_updated,
-					m.created as hero_created,
-					m.attack_speed as hero_attack_speed,
-					m.mp as hero_mp,
-					m.mana_regen as hero_mana_regen,
-					m.mana as hero_mana 
-				FROM maxhanna.bones_hero m 
-				WHERE m.updated >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL {windowMinutes} MINUTE)
-				ORDER BY m.updated DESC;";
-				using var cmd = new MySqlCommand(sql, conn, transaction);
-				using var reader = await cmd.ExecuteReaderAsync();
-				while (await reader.ReadAsync())
-				{
-					if (reader.IsDBNull(reader.GetOrdinal("hero_id"))) continue;
-					int heroId = reader.GetInt32(reader.GetOrdinal("hero_id"));
-					if (!heroesDict.TryGetValue(heroId, out MetaHero? tmpHero))
-					{
-						var name = reader.IsDBNull(reader.GetOrdinal("hero_name")) ? null : reader.GetString(reader.GetOrdinal("hero_name"));
-						var type = reader.IsDBNull(reader.GetOrdinal("hero_type")) ? null : reader.GetString(reader.GetOrdinal("hero_type"));
-						var mapVal = reader.IsDBNull(reader.GetOrdinal("hero_map")) ? string.Empty : reader.GetString(reader.GetOrdinal("hero_map"));
-						var level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_level"));
-						var exp = reader.IsDBNull(reader.GetOrdinal("hero_exp")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_exp"));
-						var color = reader.IsDBNull(reader.GetOrdinal("color")) ? string.Empty : reader.GetString(reader.GetOrdinal("color"));
-						int? mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? (int?)null : reader.GetInt32(reader.GetOrdinal("mask"));
-						int coordsX = reader.IsDBNull(reader.GetOrdinal("coordsX")) ? 0 : reader.GetInt32(reader.GetOrdinal("coordsX"));
-						int coordsY = reader.IsDBNull(reader.GetOrdinal("coordsY")) ? 0 : reader.GetInt32(reader.GetOrdinal("coordsY"));
-						int speed = reader.IsDBNull(reader.GetOrdinal("speed")) ? 0 : reader.GetInt32(reader.GetOrdinal("speed"));
-						var updated = reader.IsDBNull(reader.GetOrdinal("hero_updated")) ? DateTime.UtcNow : reader.GetDateTime(reader.GetOrdinal("hero_updated"));
-						var created = reader.IsDBNull(reader.GetOrdinal("hero_created")) ? DateTime.UtcNow : reader.GetDateTime(reader.GetOrdinal("hero_created"));
-						int attackSpeed = reader.IsDBNull(reader.GetOrdinal("hero_attack_speed")) ? 400 : reader.GetInt32(reader.GetOrdinal("hero_attack_speed"));
-						tmpHero = new MetaHero
-						{
-							Id = heroId,
-							Name = name,
-							Type = type,
-							Map = mapVal,
-							Level = level,
-							Exp = exp,
-							Hp = reader.IsDBNull(reader.GetOrdinal("hero_hp")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_hp")),
-							Color = color,
-							Mask = mask,
-							Position = new Vector2(coordsX, coordsY),
-							Speed = speed,
-							AttackSpeed = attackSpeed,
-							Mp = reader.IsDBNull(reader.GetOrdinal("hero_mp")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_mp")),
-							ManaRegen = reader.IsDBNull(reader.GetOrdinal("hero_mana_regen")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_mana_regen")),
-							Mana = reader.IsDBNull(reader.GetOrdinal("hero_mana")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_mana")),
-							Updated = updated,
-							Created = created,
-						};
-						heroesDict[heroId] = tmpHero;
-					}
-				}
+				var result = await GetNearbyPlayers(null, conn, transaction, windowMinutes);
 				await transaction.CommitAsync();
-				return Ok(heroesDict.Values.ToArray());
+				return Ok(result);
 			}
 			catch (Exception ex)
 			{
@@ -2934,85 +2868,98 @@ ORDER BY p.created DESC;";
 				await _log.Db("ProcessEncounterAI error: " + ex.Message, null, "BONES", true);
 			}
 		}
-		private async Task<MetaHero[]?> GetNearbyPlayers(MetaHero hero, MySqlConnection conn, MySqlTransaction transaction)
+		private async Task<MetaHero[]?> GetNearbyPlayers(MetaHero? hero, MySqlConnection conn, MySqlTransaction transaction, int? activeWindowMinutes = null)
 		{
 			try
 			{
 				if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync();
 				if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
 				Dictionary<int, MetaHero> heroesDict = new();
-				// Return nearby hero records only; encounter bots are constructed client-side from bones_encounter.
-				// include attack_speed column if present
-				string sql = @"
-				SELECT m.id as hero_id, 
-					m.name as hero_name,
-					m.type as hero_type,
-					m.map as hero_map,
-					m.coordsX, 
-					m.coordsY,
-					m.speed, 
-					m.color, 
-					m.mask, 
-					m.level as hero_level,
-					m.exp as hero_exp,
-					m.hp as hero_hp,
-					m.updated as hero_updated,
-					m.created as hero_created,
-					m.attack_speed as hero_attack_speed,
-					m.mp as hero_mp,
-					m.mana_regen as hero_mana_regen,
-					m.mana as hero_mana 
-				FROM maxhanna.bones_hero m 
-				WHERE m.map = @HeroMapId 
-				ORDER BY m.coordsY ASC;";
-				MySqlCommand cmd = new(sql, conn, transaction); 
-				cmd.Parameters.AddWithValue("@HeroMapId", hero.Map);
-				using (var reader = await cmd.ExecuteReaderAsync())
+				string whereClause = string.Empty;
+				string sql = $@"
+					SELECT m.id as hero_id, 
+						m.name as hero_name,
+						m.type as hero_type,
+						m.map as hero_map,
+						m.coordsX, 
+						m.coordsY,
+						m.speed, 
+						m.color, 
+						m.mask, 
+						m.level as hero_level,
+						m.exp as hero_exp,
+						m.hp as hero_hp,
+						m.updated as hero_updated,
+						m.created as hero_created,
+						m.attack_speed as hero_attack_speed,
+						m.mp as hero_mp,
+						m.mana_regen as hero_mana_regen,
+						m.mana as hero_mana 
+					FROM maxhanna.bones_hero m ";
+
+				if (activeWindowMinutes.HasValue)
 				{
-					// read ordinals and values inline with DBNull checks (one-line assignments)
-					while (await reader.ReadAsync())
-					{
-						if (reader.IsDBNull(reader.GetOrdinal("hero_id"))) continue; // essential primary value
-						int heroId = reader.GetInt32(reader.GetOrdinal("hero_id"));
-						if (!heroesDict.TryGetValue(heroId, out MetaHero? tmpHero))
-						{
-							var name = reader.IsDBNull(reader.GetOrdinal("hero_name")) ? null : reader.GetString(reader.GetOrdinal("hero_name"));
-							var type = reader.IsDBNull(reader.GetOrdinal("hero_type")) ? null : reader.GetString(reader.GetOrdinal("hero_type"));
-							var mapVal = reader.IsDBNull(reader.GetOrdinal("hero_map")) ? string.Empty : reader.GetString(reader.GetOrdinal("hero_map"));
-							var level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_level"));
-							var exp = reader.IsDBNull(reader.GetOrdinal("hero_exp")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_exp"));
-							var color = reader.IsDBNull(reader.GetOrdinal("color")) ? string.Empty : reader.GetString(reader.GetOrdinal("color"));
-							int? mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? (int?)null : reader.GetInt32(reader.GetOrdinal("mask"));
-							int coordsX = reader.IsDBNull(reader.GetOrdinal("coordsX")) ? 0 : reader.GetInt32(reader.GetOrdinal("coordsX"));
-							int coordsY = reader.IsDBNull(reader.GetOrdinal("coordsY")) ? 0 : reader.GetInt32(reader.GetOrdinal("coordsY"));
-							int speed = reader.IsDBNull(reader.GetOrdinal("speed")) ? 0 : reader.GetInt32(reader.GetOrdinal("speed"));
-							var updated = reader.IsDBNull(reader.GetOrdinal("hero_updated")) ? DateTime.UtcNow : reader.GetDateTime(reader.GetOrdinal("hero_updated"));
-							var created = reader.IsDBNull(reader.GetOrdinal("hero_created")) ? DateTime.UtcNow : reader.GetDateTime(reader.GetOrdinal("hero_created"));
-							int attackSpeed = reader.IsDBNull(reader.GetOrdinal("hero_attack_speed")) ? 400 : reader.GetInt32(reader.GetOrdinal("hero_attack_speed"));
-							tmpHero = new MetaHero
-							{
-								Id = heroId,
-								Name = name,
-								Type = type,
-								Map = mapVal,
-								Level = level,
-								Exp = exp,
-								Hp = reader.IsDBNull(reader.GetOrdinal("hero_hp")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_hp")),
-								Color = color,
-								Mask = mask,
-								Position = new Vector2(coordsX, coordsY),
-								Speed = speed,
-								AttackSpeed = attackSpeed,
-								Mp = reader.IsDBNull(reader.GetOrdinal("hero_mp")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_mp")),
-								ManaRegen = reader.IsDBNull(reader.GetOrdinal("hero_mana_regen")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_mana_regen")),
-								Mana = reader.IsDBNull(reader.GetOrdinal("hero_mana")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_mana")),
-								Updated = updated,
-								Created = created,
-							};
-							heroesDict[heroId] = tmpHero;
-						}
-					}
+					// Fetch active players across all maps updated within the given window
+					whereClause = $@"
+						WHERE m.updated >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL {activeWindowMinutes.Value} MINUTE)
+						ORDER BY m.updated DESC;";
+					sql += whereClause;
 				}
+				else
+				{
+					whereClause = @"
+						WHERE m.map = @HeroMapId 
+						ORDER BY m.coordsY ASC;";
+					sql += whereClause;
+				}
+				MySqlCommand cmd = new(sql, conn, transaction);
+				if (!activeWindowMinutes.HasValue)
+				{
+					cmd.Parameters.AddWithValue("@HeroMapId", hero?.Map ?? string.Empty);
+				}
+				using var reader = await cmd.ExecuteReaderAsync();
+				while (await reader.ReadAsync())
+				{
+					if (reader.IsDBNull(reader.GetOrdinal("hero_id"))) continue;
+					int heroId = reader.GetInt32(reader.GetOrdinal("hero_id"));
+					if (!heroesDict.TryGetValue(heroId, out MetaHero? tmpHero))
+					{
+						var name = reader.IsDBNull(reader.GetOrdinal("hero_name")) ? null : reader.GetString(reader.GetOrdinal("hero_name"));
+						var type = reader.IsDBNull(reader.GetOrdinal("hero_type")) ? null : reader.GetString(reader.GetOrdinal("hero_type"));
+						var mapVal = reader.IsDBNull(reader.GetOrdinal("hero_map")) ? string.Empty : reader.GetString(reader.GetOrdinal("hero_map"));
+						var level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_level"));
+						var exp = reader.IsDBNull(reader.GetOrdinal("hero_exp")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_exp"));
+						var color = reader.IsDBNull(reader.GetOrdinal("color")) ? string.Empty : reader.GetString(reader.GetOrdinal("color"));
+						int? mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? (int?)null : reader.GetInt32(reader.GetOrdinal("mask"));
+						int coordsX = reader.IsDBNull(reader.GetOrdinal("coordsX")) ? 0 : reader.GetInt32(reader.GetOrdinal("coordsX"));
+						int coordsY = reader.IsDBNull(reader.GetOrdinal("coordsY")) ? 0 : reader.GetInt32(reader.GetOrdinal("coordsY"));
+						int speed = reader.IsDBNull(reader.GetOrdinal("speed")) ? 0 : reader.GetInt32(reader.GetOrdinal("speed"));
+						var updated = reader.IsDBNull(reader.GetOrdinal("hero_updated")) ? DateTime.UtcNow : reader.GetDateTime(reader.GetOrdinal("hero_updated"));
+						var created = reader.IsDBNull(reader.GetOrdinal("hero_created")) ? DateTime.UtcNow : reader.GetDateTime(reader.GetOrdinal("hero_created"));
+						int attackSpeed = reader.IsDBNull(reader.GetOrdinal("hero_attack_speed")) ? 400 : reader.GetInt32(reader.GetOrdinal("hero_attack_speed"));
+						tmpHero = new MetaHero
+						{
+							Id = heroId,
+							Name = name,
+							Type = type,
+							Map = mapVal,
+							Level = level,
+							Exp = exp,
+							Hp = reader.IsDBNull(reader.GetOrdinal("hero_hp")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_hp")),
+							Color = color,
+							Mask = mask,
+							Position = new Vector2(coordsX, coordsY),
+							Speed = speed,
+							AttackSpeed = attackSpeed,
+							Mp = reader.IsDBNull(reader.GetOrdinal("hero_mp")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_mp")),
+							ManaRegen = reader.IsDBNull(reader.GetOrdinal("hero_mana_regen")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_mana_regen")),
+							Mana = reader.IsDBNull(reader.GetOrdinal("hero_mana")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_mana")),
+							Updated = updated,
+							Created = created,
+						};
+						heroesDict[heroId] = tmpHero;
+					}
+				} 
 				return heroesDict.Values.ToArray();
 			}
 			catch (Exception ex)
