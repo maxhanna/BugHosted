@@ -50,6 +50,87 @@ namespace maxhanna.Server.Controllers
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 		}
 
+		// Helper to send a kill notification for a victim when killed by a killer (bones specific)
+		private async Task SendKillNotificationAsync(int victimId, int? killerId, MySqlConnection connection, MySqlTransaction transaction)
+		{
+			try
+			{
+				// If there's no killer specified, don't send notifications
+				if (!killerId.HasValue || killerId.Value == 0) return;
+
+				// Suicide: killer is the same hero as the victim. Send a single tailored notification instead of two.
+				if (killerId.Value == victimId)
+				{
+					string insertSuicideNotif = @"
+					INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
+					SELECT v.user_id AS user_id,
+					       COALESCE(kh.user_id, 0) AS from_user_id,
+					       COALESCE(kh.user_id, 0) AS user_profile_id,
+					       'You died.' AS text,
+					       UTC_TIMESTAMP()
+					FROM maxhanna.bones_hero v
+					LEFT JOIN maxhanna.bones_hero kh ON kh.id = @KillerHeroId
+					WHERE v.id = @VictimHeroId AND v.user_id IS NOT NULL AND v.user_id != 0
+					LIMIT 1;";
+
+					using (var notifCmd = new MySqlCommand(insertSuicideNotif, connection, transaction))
+					{
+						notifCmd.Parameters.AddWithValue("@VictimHeroId", victimId);
+						notifCmd.Parameters.AddWithValue("@KillerHeroId", killerId.Value);
+						await notifCmd.ExecuteNonQueryAsync();
+					}
+
+					return;
+				}
+
+				// Standard case: notify victim they were killed by someone
+				string insertNotif = @"
+					INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
+					SELECT v.user_id AS user_id,
+					       COALESCE(kh.user_id, 0) AS from_user_id,
+					       COALESCE(kh.user_id, 0) AS user_profile_id,
+					       CONCAT('You were slain by ', COALESCE(u.username, 'Unknown'), '.') AS text,
+					       UTC_TIMESTAMP()
+					FROM maxhanna.bones_hero v
+					LEFT JOIN maxhanna.bones_hero kh ON kh.id = @KillerHeroId
+					LEFT JOIN maxhanna.users u ON u.id = kh.user_id
+					WHERE v.id = @VictimHeroId AND v.user_id IS NOT NULL AND v.user_id != 0
+					LIMIT 1;";
+
+				using (var notifCmd = new MySqlCommand(insertNotif, connection, transaction))
+				{
+					notifCmd.Parameters.AddWithValue("@VictimHeroId", victimId);
+					notifCmd.Parameters.AddWithValue("@KillerHeroId", killerId.Value);
+					await notifCmd.ExecuteNonQueryAsync();
+				}
+
+				// Killer notification: let the killer know they scored a takedown
+				string insertNotifForKiller = @"
+					INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
+					SELECT COALESCE(kh.user_id, 0) AS user_id,
+					       COALESCE(v.user_id, 0) AS from_user_id,
+					       COALESCE(v.user_id, 0) AS user_profile_id,
+					       CONCAT('You killed ', COALESCE(uv.username, 'Unknown'), '!') AS text,
+					       UTC_TIMESTAMP()
+					FROM maxhanna.bones_hero kh
+					LEFT JOIN maxhanna.bones_hero v ON v.id = @VictimHeroId
+					LEFT JOIN maxhanna.users uv ON uv.id = v.user_id
+					WHERE kh.id = @KillerHeroId AND kh.user_id IS NOT NULL AND kh.user_id != 0
+					LIMIT 1;";
+
+				using (var killerNotifCmd = new MySqlCommand(insertNotifForKiller, connection, transaction))
+				{
+					killerNotifCmd.Parameters.AddWithValue("@VictimHeroId", victimId);
+					killerNotifCmd.Parameters.AddWithValue("@KillerHeroId", killerId.Value);
+					await killerNotifCmd.ExecuteNonQueryAsync();
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Failed to insert kill notification for victim hero {victimId}: {ex.Message}", victimId, "BONES", true);
+			}
+		}
+
 
 		[HttpPost("/Bones", Name = "Bones_GetHero")]
 		public async Task<IActionResult> GetHero([FromBody] int userId)
@@ -3416,6 +3497,13 @@ ORDER BY p.created DESC;";
 				};
 				var deathEvent = new MetaEvent(0, victimHeroId, DateTime.UtcNow, "HERO_DIED", normCurrent, data);
 				await UpdateEventsInDB(deathEvent, connection, transaction);
+
+				// Send kill notifications to victim/killer (if applicable)
+				try
+				{
+					await SendKillNotificationAsync(victimHeroId, killerId == 0 ? (int?)null : killerId, connection, transaction);
+				}
+				catch { /* non-fatal */ }
 			}
 			catch (Exception ex)
 			{
