@@ -1998,9 +1998,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const sAttackDmg = cached.attackDmg !== undefined ? cached.attackDmg : (mhAny.attackDmg !== undefined ? mhAny.attackDmg : 1);
     // cached.attackSpeed and mhAny.attackSpeed are in ms; convert to UI points
     const rawAttackSpeedMs = cached.attackSpeed !== undefined ? cached.attackSpeed : (mhAny.attackSpeed !== undefined ? mhAny.attackSpeed : this.attackSpeedBaseMs);
-  // Convert server ms -> UI points using floor to avoid rounding up from
-  // partial steps (keeps displayed points consistent with fully-earned steps).
-  const sAttackSpeed = Math.max(0, Math.floor((Number(rawAttackSpeedMs) - this.attackSpeedBaseMs) / this.attackSpeedStepMs));
+    // Convert server ms -> UI points using floor to avoid rounding up from
+    // partial steps (keeps displayed points consistent with fully-earned steps).
+    const sAttackSpeed = Math.max(0, Math.floor((Number(rawAttackSpeedMs) - this.attackSpeedBaseMs) / this.attackSpeedStepMs));
     const sCritRate = cached.critRate !== undefined ? cached.critRate : (mhAny.critRate !== undefined ? mhAny.critRate : 0.0);
     const sCritDmg = cached.critDmg !== undefined ? cached.critDmg : (mhAny.critDmg !== undefined ? mhAny.critDmg : (mhAny.regen ? (Number(mhAny.regen) * 2.0) : 2.0));
     const sHealth = cached.health !== undefined ? cached.health : (mhAny.health !== undefined ? mhAny.health : this.healthBase);
