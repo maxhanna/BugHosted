@@ -2148,6 +2148,48 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     }
   }
 
+  // Handler for direct numeric inputs in the Change Stats panel.
+  onStatInputChange(stat: 'attackDmg' | 'attackSpeed' | 'critRate' | 'critDmg' | 'health' | 'regen' | 'mana' | 'manaRegen', rawValue: any) {
+    if (!this.editableStats) return;
+    let newVal = Number(rawValue);
+    if (isNaN(newVal)) return;
+    // Prevent negative values
+    if (newVal < 0) newVal = 0;
+
+    // Original value (fallback 0)
+    const orig = this.statsOriginal ? ((this.statsOriginal as any)[stat] ?? 0) : 0;
+
+    // Handle fractional-step stats (regen, manaRegen) which consume whole points per step (0.1)
+    if (stat === 'regen' || stat === 'manaRegen') {
+      const step = 0.1;
+      // Quantize to step resolution
+      newVal = Math.round(newVal / step) * step;
+      // Compute points delta in whole points
+      const oldVal = (this.editableStats as any)[stat] as number;
+      const deltaPoints = Math.round((newVal - oldVal) / step);
+      const maxAllowed = orig + this.editableStats.pointsAvailable;
+      if (newVal > maxAllowed) {
+        newVal = maxAllowed;
+      }
+      (this.editableStats as any)[stat] = newVal;
+      this.editableStats.pointsAvailable = Math.max(0, this.editableStats.pointsAvailable - deltaPoints);
+      return;
+    }
+
+    // Integer-like stats: round to nearest integer
+    newVal = Math.round(newVal);
+    const old = (this.editableStats as any)[stat] as number;
+    let delta = newVal - old;
+    const maxAllowed = orig + this.editableStats.pointsAvailable;
+    if (newVal > maxAllowed) {
+      newVal = Math.round(maxAllowed);
+      delta = newVal - old;
+    }
+    (this.editableStats as any)[stat] = newVal;
+    // Update pointsAvailable (delta may be negative when lowering a stat)
+    this.editableStats.pointsAvailable = Math.max(0, Math.round(this.editableStats.pointsAvailable - delta));
+  }
+
   // Simple helper to detect if the editable stats differ from the original capture
   get statsChanged(): boolean {
     if (!this.statsOriginal) return false;

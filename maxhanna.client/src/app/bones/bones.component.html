@@ -282,65 +282,73 @@
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>Attack DMG</div>
           <div>
-            <button (click)="adjustStat('attackDmg', -1)" [disabled]="editableStats.attackDmg <= 0">-</button>
-            <span style="margin:0 8px">{{editableStats.attackDmg}}</span>
-            <button (click)="adjustStat('attackDmg', 1)" [disabled]="editableStats.pointsAvailable <= 0">+</button>
+            <input type="number" aria-label="Attack DMG" [min]="0"
+              [max]="(statsOriginal?.attackDmg ?? 0) + editableStats.pointsAvailable"
+              [value]="editableStats.attackDmg"
+              (input)="onStatInputChange('attackDmg',$event.target.value)" style="width:72px; text-align:center;" />
           </div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>Atk Speed (ms)</div>
           <div>
-            <button (click)="adjustStat('attackSpeed', -1)" [disabled]="editableStats.attackSpeed <= 0" aria-label="Decrease Attack Speed Points">-</button>
-            <span style="margin:0 8px">{{editableStats.attackSpeed}}</span>
-            <button (click)="adjustStat('attackSpeed', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Attack Speed Points">+</button>
+            <input type="number" aria-label="Attack Speed Points" [min]="0"
+              [max]="(statsOriginal?.attackSpeed ?? 0) + editableStats.pointsAvailable"
+              [value]="editableStats.attackSpeed"
+              (input)="onStatInputChange('attackSpeed',$event.target.value)" style="width:72px; text-align:center;" />
           </div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>Crit Rate (%)</div>
           <div>
-            <button (click)="adjustStat('critRate', -1)" [disabled]="editableStats.critRate <= 0">-</button>
-            <span style="margin:0 8px">{{editableStats.critRate}}</span>
-            <button (click)="adjustStat('critRate', 1)" [disabled]="editableStats.pointsAvailable <= 0">+</button>
+            <input type="number" aria-label="Crit Rate" [min]="0"
+              [max]="(statsOriginal?.critRate ?? 0) + editableStats.pointsAvailable"
+              [value]="editableStats.critRate"
+              (input)="onStatInputChange('critRate',$event.target.value)" style="width:72px; text-align:center;" />
           </div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>Crit DMG (mult)</div>
           <div>
-            <button (click)="adjustStat('critDmg', -1)" [disabled]="editableStats.critDmg <= 1" aria-label="Decrease Crit DMG">-</button>
-            <span style="margin:0 8px">{{editableStats.critDmg}}</span>
-            <button (click)="adjustStat('critDmg', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Crit DMG">+</button>
+            <input type="number" aria-label="Crit DMG" [min]="1"
+              [max]="(statsOriginal?.critDmg ?? 1) + editableStats.pointsAvailable"
+              [value]="editableStats.critDmg"
+              (input)="onStatInputChange('critDmg',$event.target.value)" style="width:72px; text-align:center;" />
           </div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>Health</div>
           <div>
-            <button (click)="adjustStat('health', -1)" [disabled]="editableStats.health <= 0" aria-label="Decrease Health Points">-</button>
-            <span style="margin:0 8px">{{editableStats.health}}</span>
-            <button (click)="adjustStat('health', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Health Points">+</button>
+            <input type="number" aria-label="Health points" [min]="0"
+              [max]="(statsOriginal?.health ?? 0) + editableStats.pointsAvailable"
+              [value]="editableStats.health"
+              (input)="onStatInputChange('health',$event.target.value)" style="width:72px; text-align:center;" />
           </div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>Mana</div>
           <div>
-            <button (click)="adjustStat('mana', -1)" [disabled]="editableStats.mana <= 0" aria-label="Decrease Mana Points">-</button>
-            <span style="margin:0 8px">{{editableStats.mana}}</span>
-            <button (click)="adjustStat('mana', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Mana Points">+</button>
+            <input type="number" aria-label="Mana points" [min]="0"
+              [max]="(statsOriginal?.mana ?? 0) + editableStats.pointsAvailable"
+              [value]="editableStats.mana"
+              (input)="onStatInputChange('mana',$event.target.value)" style="width:72px; text-align:center;" />
           </div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>Mana Regen</div>
           <div>
-            <button (click)="adjustStat('manaRegen', -1)" [disabled]="editableStats.manaRegen <= 0" aria-label="Decrease Mana Regen Points">-</button>
-            <span style="margin:0 8px">{{editableStats.manaRegen}}</span>
-            <button (click)="adjustStat('manaRegen', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Mana Regen Points">+</button>
+            <input type="number" aria-label="Mana Regen" [min]="0" step="0.1"
+              [max]="(statsOriginal?.manaRegen ?? 0) + editableStats.pointsAvailable"
+              [value]="editableStats.manaRegen"
+              (input)="onStatInputChange('manaRegen',$event.target.value)" style="width:72px; text-align:center;" />
           </div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>Regen</div>
           <div>
-            <button (click)="adjustStat('regen', -1)" [disabled]="editableStats.regen <= 0" aria-label="Decrease Regen Points">-</button>
-            <span style="margin:0 8px">{{editableStats.regen}}</span>
-            <button (click)="adjustStat('regen', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Regen Points">+</button>
+            <input type="number" aria-label="Regen" [min]="0" step="0.1"
+              [max]="(statsOriginal?.regen ?? 0) + editableStats.pointsAvailable"
+              [value]="editableStats.regen"
+              (input)="onStatInputChange('regen',$event.target.value)" style="width:72px; text-align:center;" />
           </div>
         </div>
       </div>
