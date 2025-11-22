@@ -336,7 +336,7 @@
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>Mana Regen</div>
           <div>
-            <input type="number" aria-label="Mana Regen" [min]="0" step="0.1"
+            <input type="number" aria-label="Mana Regen" [min]="0" step="1"
               [max]="(statsOriginal?.manaRegen ?? 0) + editableStats.pointsAvailable"
               [value]="editableStats.manaRegen"
               (input)="onStatInputChange('manaRegen',$any($event.target).value)" style="width:72px; text-align:center;" />
@@ -345,7 +345,7 @@
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>Regen</div>
           <div>
-            <input type="number" aria-label="Regen" [min]="0" step="0.1"
+            <input type="number" aria-label="Regen" [min]="0" step="1"
               [max]="(statsOriginal?.regen ?? 0) + editableStats.pointsAvailable"
               [value]="editableStats.regen"
               (input)="onStatInputChange('regen',$any($event.target).value)" style="width:72px; text-align:center;" />

@@ -2019,12 +2019,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     // baseHealth in UI points (0 UI points = healthBase internal)
     const baseHealth = 0;
     const baseRegen = 0.0;
-    // Regen is represented as a fractional stat (e.g. 0.1 per UI step) but should
-    // consume whole available stat points. Define the regen step and cost so that
-    // each regen "step" consumes one stat point (e.g. 0.1 regen == 1 point).
-    const regenStep = 0.1;
-    const regenCostPerStep = 1; // each regenStep costs 1 point
-    const regenSpent = Math.max(0, Math.round(((Number(sRegen) - baseRegen) + 1e-9) / regenStep)) * regenCostPerStep;
+  // Regen/manaRegen are treated as whole allocation points in the UI
+  // (1 UI point == 1 spent point). Interpret server-provided values as
+  // integers for initialization.
+  const regenSpent = Math.max(0, Math.round(Number(sRegen ?? 0)));
+  const manaRegenSpent = Math.max(0, Math.round(Number(sManaRegen ?? 0)));
 
     const spent = Math.max(0, Number(sAttackDmg) - baseAttackDmg)
       // sAttackSpeed already expressed in UI points, baseAttackSpeed==0
@@ -2044,9 +2043,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       critDmg: Number(sCritDmg ?? 2.0),
       // store health as UI points
       health: Number(Math.max(0, Math.round((Number(sHealth ?? this.healthBase) - this.healthBase) / this.healthStep))),
-      regen: Number(sRegen ?? 0.0),
+      // Present regen/manaRegen as whole allocation points (1 UI point == 1 spent point).
+      regen: Number(regenSpent),
       mana: Number(sMana ?? 0),
-      manaRegen: Number(sManaRegen ?? 0.0),
+      manaRegen: Number(manaRegenSpent),
       pointsAvailable: pointsAvailable
     };
 
@@ -2059,6 +2059,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         critRate: this.editableStats.critRate,
         critDmg: this.editableStats.critDmg,
         health: this.editableStats.health,
+        // Store original regen/manaRegen as UI allocation points (integers)
         regen: this.editableStats.regen,
         mana: this.editableStats.mana,
         manaRegen: this.editableStats.manaRegen
@@ -2168,18 +2169,18 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     // Original value (fallback 0)
     const orig = this.statsOriginal ? ((this.statsOriginal as any)[stat] ?? 0) : 0;
 
-    // Handle fractional-step stats (regen, manaRegen) which consume whole points per step (0.1)
+  // Handle allocation-point stats (regen, manaRegen) which are expressed as
+  // whole allocation points in the UI (1 point == 1 spent point)
     if (stat === 'regen' || stat === 'manaRegen') {
-      const step = 0.1;
-      // Quantize to step resolution
-      newVal = Math.round(newVal / step) * step;
-      // Compute points delta in whole points
+      // Treat regen/manaRegen as whole allocation points in the UI
+      newVal = Math.round(newVal);
+      if (newVal < 0) newVal = 0;
       const oldVal = (this.editableStats as any)[stat] as number;
-      const deltaPoints = Math.round((newVal - oldVal) / step);
-      const maxAllowed = orig + this.editableStats.pointsAvailable;
+      const maxAllowed = (orig ?? 0) + this.editableStats.pointsAvailable;
       if (newVal > maxAllowed) {
-        newVal = maxAllowed;
+        newVal = Math.round(maxAllowed);
       }
+      const deltaPoints = newVal - oldVal;
       (this.editableStats as any)[stat] = newVal;
       this.editableStats.pointsAvailable = Math.max(0, this.editableStats.pointsAvailable - deltaPoints);
       return;
@@ -2242,7 +2243,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.metaHero.critRate = this.editableStats.critRate;
         this.metaHero.critDmg = this.editableStats.critDmg;
         this.metaHero.health = (this.healthBase + (Number(this.editableStats.health) * this.healthStep));
-        this.metaHero.regen = this.editableStats.regen;
+  // metaHero.regen stored as integer allocation points in the new model
+  this.metaHero.regen = Number(this.editableStats.regen);
         // metaHero.mana represents allocated mana points (server convention)
         (this.metaHero as any).mana = this.editableStats.mana;
       }
@@ -2275,9 +2277,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         critDmg: this.editableStats.critDmg,
         // store health as internal value
         health: (this.healthBase + (Number(this.editableStats.health) * this.healthStep)),
-        regen: this.editableStats.regen,
+        // Persist regen/manaRegen as integer allocation points
+        regen: Number(this.editableStats.regen),
         mana: this.editableStats.mana,
-        manaRegen: this.editableStats.manaRegen
+        manaRegen: Number(this.editableStats.manaRegen)
       };
     } catch (ex) { console.error('applyStats failed', ex); }
   }
