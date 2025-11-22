@@ -399,6 +399,77 @@ body {
   right: -60%;
 }
 
+/* Stat panel styles added for Change Stats numeric inputs and +/- buttons */
+.stat-points {
+  font-family: owreKynge;
+  font-size: 16px;
+  margin-bottom: 8px;
+  color: var(--secondary-font-color);
+}
+
+.stat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stat-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-btn {
+  min-width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #2b2f36 0%, #1b1d20 100%);
+  color: var(--secondary-font-color);
+  border: var(--main-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-family: owreKynge;
+  font-size: 20px;
+}
+
+.stat-btn:active {
+  transform: translateY(1px);
+}
+
+.stat-input {
+  width: 72px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: var(--main-border);
+  background-color: rgba(0,0,0,0.5);
+  color: var(--secondary-font-color);
+  text-align: center;
+  font-family: owreKynge;
+  font-size: 16px;
+}
+
+.stat-name {
+  min-width: 120px;
+  font-family: owreKynge;
+}
+
+.stat-available {
+  font-family: owreKynge;
+  font-size: 14px;
+  color: #a8ff9a;
+}
+
+
 /* In-party pill styling to match pending badge visuals */
 .pendingBadgeWrapper.inPartyPill {
   display: inline-block;

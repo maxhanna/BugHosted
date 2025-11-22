@@ -274,81 +274,97 @@
     <!-- When statsUpdatedVisible is true, show a transient message and hide normal form contents -->
     <div *ngIf="statsUpdatedVisible" style="padding:12px; font-weight:700; text-align:center;">Stats updated</div>
     <ng-container *ngIf="!statsUpdatedVisible">
-      <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px; font-size: large;">
-        <div>Points:</div>
-        <div style="font-weight:700;">{{editableStats.pointsAvailable}}</div>
+      <div class="stat-points">
+        <div class="stat-points-label">Points:</div>
+        <div class="stat-points-value">{{editableStats.pointsAvailable}}</div>
       </div>
-      <div style="display:flex; flex-direction:column; gap:8px;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div>Attack DMG</div>
-          <div>
-            <input type="number" aria-label="Attack DMG" [min]="0"
+      <div class="stat-list">
+        <div class="stat-row">
+          <div class="stat-label">Attack DMG</div>
+          <div class="stat-controls">
+            <button class="stat-btn" (click)="adjustStat('attackDmg', -1)" [disabled]="(editableStats.attackDmg ?? 0) <= 0" aria-label="Decrease Attack DMG">-</button>
+            <input class="stat-input" type="number" aria-label="Attack DMG" [min]="0"
               [max]="(statsOriginal?.attackDmg ?? 0) + editableStats.pointsAvailable"
               [value]="editableStats.attackDmg"
-              (input)="onStatInputChange('attackDmg',$any($event.target).value)" style="width:72px; text-align:center;" />
+              (input)="onStatInputChange('attackDmg',$any($event.target).value)" />
+            <button class="stat-btn" (click)="adjustStat('attackDmg', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Attack DMG">+</button>
           </div>
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div>Atk Speed (ms)</div>
-          <div>
-            <input type="number" aria-label="Attack Speed Points" [min]="0"
+        <div class="stat-row">
+          <div class="stat-label">Atk Speed (ms)</div>
+          <div class="stat-controls">
+            <button class="stat-btn" (click)="adjustStat('attackSpeed', -1)" [disabled]="(editableStats.attackSpeed ?? 0) <= 0" aria-label="Decrease Attack Speed Points">-</button>
+            <input class="stat-input" type="number" aria-label="Attack Speed Points" [min]="0"
               [max]="(statsOriginal?.attackSpeed ?? 0) + editableStats.pointsAvailable"
               [value]="editableStats.attackSpeed"
-              (input)="onStatInputChange('attackSpeed',$any($event.target).value)" style="width:72px; text-align:center;" />
+              (input)="onStatInputChange('attackSpeed',$any($event.target).value)" />
+            <button class="stat-btn" (click)="adjustStat('attackSpeed', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Attack Speed Points">+</button>
           </div>
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div>Crit Rate (%)</div>
-          <div>
-            <input type="number" aria-label="Crit Rate" [min]="0"
+        <div class="stat-row">
+          <div class="stat-label">Crit Rate (%)</div>
+          <div class="stat-controls">
+            <button class="stat-btn" (click)="adjustStat('critRate', -1)" [disabled]="(editableStats.critRate ?? 0) <= 0" aria-label="Decrease Crit Rate">-</button>
+            <input class="stat-input" type="number" aria-label="Crit Rate" [min]="0"
               [max]="(statsOriginal?.critRate ?? 0) + editableStats.pointsAvailable"
               [value]="editableStats.critRate"
-              (input)="onStatInputChange('critRate',$any($event.target).value)" style="width:72px; text-align:center;" />
+              (input)="onStatInputChange('critRate',$any($event.target).value)" />
+            <button class="stat-btn" (click)="adjustStat('critRate', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Crit Rate">+</button>
           </div>
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div>Crit DMG (mult)</div>
-          <div>
-            <input type="number" aria-label="Crit DMG" [min]="1"
+        <div class="stat-row">
+          <div class="stat-label">Crit DMG (mult)</div>
+          <div class="stat-controls">
+            <button class="stat-btn" (click)="adjustStat('critDmg', -1)" [disabled]="(editableStats.critDmg ?? 1) <= 1" aria-label="Decrease Crit DMG">-</button>
+            <input class="stat-input" type="number" aria-label="Crit DMG" [min]="1"
               [max]="(statsOriginal?.critDmg ?? 1) + editableStats.pointsAvailable"
               [value]="editableStats.critDmg"
-              (input)="onStatInputChange('critDmg',$any($event.target).value)" style="width:72px; text-align:center;" />
+              (input)="onStatInputChange('critDmg',$any($event.target).value)" />
+            <button class="stat-btn" (click)="adjustStat('critDmg', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Crit DMG">+</button>
           </div>
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div>Health</div>
-          <div>
-            <input type="number" aria-label="Health points" [min]="0"
+        <div class="stat-row">
+          <div class="stat-label">Health</div>
+          <div class="stat-controls">
+            <button class="stat-btn" (click)="adjustStat('health', -1)" [disabled]="(editableStats.health ?? 0) <= 0" aria-label="Decrease Health">-</button>
+            <input class="stat-input" type="number" aria-label="Health points" [min]="0"
               [max]="(statsOriginal?.health ?? 0) + editableStats.pointsAvailable"
               [value]="editableStats.health"
-              (input)="onStatInputChange('health',$any($event.target).value)" style="width:72px; text-align:center;" />
+              (input)="onStatInputChange('health',$any($event.target).value)" />
+            <button class="stat-btn" (click)="adjustStat('health', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Health">+</button>
           </div>
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div>Mana</div>
-          <div>
-            <input type="number" aria-label="Mana points" [min]="0"
+        <div class="stat-row">
+          <div class="stat-label">Mana</div>
+          <div class="stat-controls">
+            <button class="stat-btn" (click)="adjustStat('mana', -1)" [disabled]="(editableStats.mana ?? 0) <= 0" aria-label="Decrease Mana">-</button>
+            <input class="stat-input" type="number" aria-label="Mana points" [min]="0"
               [max]="(statsOriginal?.mana ?? 0) + editableStats.pointsAvailable"
               [value]="editableStats.mana"
-              (input)="onStatInputChange('mana',$any($event.target).value)" style="width:72px; text-align:center;" />
+              (input)="onStatInputChange('mana',$any($event.target).value)" />
+            <button class="stat-btn" (click)="adjustStat('mana', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Mana">+</button>
           </div>
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div>Mana Regen</div>
-          <div>
-            <input type="number" aria-label="Mana Regen" [min]="0" step="1"
+        <div class="stat-row">
+          <div class="stat-label">Mana Regen</div>
+          <div class="stat-controls">
+            <button class="stat-btn" (click)="adjustStat('manaRegen', -1)" [disabled]="(editableStats.manaRegen ?? 0) <= 0" aria-label="Decrease Mana Regen">-</button>
+            <input class="stat-input" type="number" aria-label="Mana Regen" [min]="0" step="1"
               [max]="(statsOriginal?.manaRegen ?? 0) + editableStats.pointsAvailable"
               [value]="editableStats.manaRegen"
-              (input)="onStatInputChange('manaRegen',$any($event.target).value)" style="width:72px; text-align:center;" />
+              (input)="onStatInputChange('manaRegen',$any($event.target).value)" />
+            <button class="stat-btn" (click)="adjustStat('manaRegen', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Mana Regen">+</button>
           </div>
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div>Regen</div>
-          <div>
-            <input type="number" aria-label="Regen" [min]="0" step="1"
+        <div class="stat-row">
+          <div class="stat-label">Regen</div>
+          <div class="stat-controls">
+            <button class="stat-btn" (click)="adjustStat('regen', -1)" [disabled]="(editableStats.regen ?? 0) <= 0" aria-label="Decrease Regen">-</button>
+            <input class="stat-input" type="number" aria-label="Regen" [min]="0" step="1"
               [max]="(statsOriginal?.regen ?? 0) + editableStats.pointsAvailable"
               [value]="editableStats.regen"
-              (input)="onStatInputChange('regen',$any($event.target).value)" style="width:72px; text-align:center;" />
+              (input)="onStatInputChange('regen',$any($event.target).value)" />
+            <button class="stat-btn" (click)="adjustStat('regen', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Regen">+</button>
           </div>
         </div>
       </div>
