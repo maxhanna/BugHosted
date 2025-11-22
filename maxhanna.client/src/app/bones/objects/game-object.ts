@@ -155,16 +155,7 @@ export class GameObject {
 
   addChild(gameObject: GameObject) {
     gameObject.parent = this;
-    // Propagate root to the new child so it has access to scene-level properties (camera, etc.)
     gameObject.root = this.root ?? this;
-    // Recursively update descendants if any
-    const propagateRoot = (obj: any, root: any) => {
-      obj.root = root;
-      if (obj.children && obj.children.length) {
-        obj.children.forEach((c: any) => propagateRoot(c, root));
-      }
-    };
-    propagateRoot(gameObject, gameObject.root);
     this.children.push(gameObject);
   }
 
