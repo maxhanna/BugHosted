@@ -1012,16 +1012,35 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           
 
           if (tgtEnemy && tgtEnemy.heroId && (tgtEnemy.hp ?? 0) <= 0) {
-            if (typeof tgtEnemy.destroy === 'function') {
-              if (hasPlayedHitSound) {
-                setTimeout(() => { tgtEnemy.destroy(); }, 160);
-              } else {
-                tgtEnemy.destroy();
+            // Only destroy the client object when server explicitly reports a recent kill
+            // (last_killed within the last 10 seconds). This avoids destroying encounters
+            // that may be reported dead but are still being kept around by the server for a short time.
+            let shouldDestroy = false;
+            try {
+              const lk =  enemy.lastKilled ?? null;
+              if (lk) {
+                const lkMs = Date.parse(String(lk));
+                if (!isNaN(lkMs)) {
+                  shouldDestroy = (Date.now() - lkMs) <= (10 * 1000);
+                }
               }
+            } catch { /* ignore parse errors and keep shouldDestroy=false */ }
+
+            if (shouldDestroy) {
+              if (typeof tgtEnemy.destroy === 'function') {
+                if (hasPlayedHitSound) {
+                  setTimeout(() => { tgtEnemy.destroy(); }, 160);
+                } else {
+                  tgtEnemy.destroy();
+                }
+              }
+              this._lastServerDestinations.delete(tgtEnemy.heroId);
+              this._knownEncounterIds.delete(tgtEnemy.heroId);
+              return; // skip further processing for this bot
+            } else {
+              // Do not destroy yet; server will continue to include recently-killed rows (last_killed within 10s)
+              // and reconciliation logic below will take last_killed into account when removing missing encounters.
             }
-            this._lastServerDestinations.delete(tgtEnemy.heroId);
-            this._knownEncounterIds.delete(tgtEnemy.heroId);
-            return; // skip further processing for this bot
           }
         } else if (enemy.hp) {
           const tgtEncounter = this.mainScene.level.children.find((x: Character) => x.id == enemy.heroId);
@@ -1049,10 +1068,21 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
             }
           }
         }
-        // Track as alive (only if hp > 0) using heroId; fallback to id if heroId missing
+        // Track as alive if hp > 0 OR the server reports it was killed very recently
         try {
           const liveId = (typeof enemy.heroId === 'number') ? enemy.heroId : (typeof enemy.id === 'number' ? enemy.id : undefined);
-          if (liveId !== undefined && typeof enemy.hp === 'number' && enemy.hp > 0) {
+          let isRecentlyKilled = false;
+          try {
+            const lk = (enemy as any).last_killed ?? (enemy as any).lastKilled ?? (enemy as any).last_killed_at ?? null;
+            if (lk) {
+              const lkMs = Date.parse(String(lk));
+              if (!isNaN(lkMs)) {
+                isRecentlyKilled = (Date.now() - lkMs) <= (10 * 1000);
+              }
+            }
+          } catch { isRecentlyKilled = false; }
+
+          if (liveId !== undefined && ((typeof enemy.hp === 'number' && enemy.hp > 0) || isRecentlyKilled)) {
             this._knownEncounterIds.add(liveId);
             incomingIds.add(liveId);
           }

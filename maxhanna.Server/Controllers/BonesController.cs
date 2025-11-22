@@ -2343,7 +2343,7 @@ ORDER BY p.created DESC;";
 					SELECT hero_id, coordsX, coordsY, `level`, hp, `name`, last_killed, o_coordsX, o_coordsY, speed, aggro, last_moved, target_hero_id
 					FROM maxhanna.bones_encounter
 					WHERE map = @Map
-					AND hp > 0;";
+					AND (hp > 0 OR (last_killed IS NOT NULL AND last_killed >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 SECOND)));";
 				using var cmd = new MySqlCommand(sql, conn, transaction);
 				cmd.Parameters.AddWithValue("@Map", map);
 				using var reader = await cmd.ExecuteReaderAsync();
@@ -2365,7 +2365,8 @@ ORDER BY p.created DESC;";
 						Hp = hp,
 						Name = typeVal,
 						IsDeployed = false,
-						TargetHeroId = reader.IsDBNull(reader.GetOrdinal("target_hero_id")) ? (int?)null : reader.GetInt32(reader.GetOrdinal("target_hero_id"))
+						TargetHeroId = reader.IsDBNull(reader.GetOrdinal("target_hero_id")) ? (int?)null : reader.GetInt32(reader.GetOrdinal("target_hero_id")),
+						LastKilled = reader.IsDBNull(reader.GetOrdinal("last_killed")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("last_killed"))
 					};
 					bots.Add(mb);
 				}
