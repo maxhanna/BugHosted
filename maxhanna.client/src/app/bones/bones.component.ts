@@ -131,7 +131,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   // Skills editing model (example: three generic skills). Adjust fields as your game defines.
   editableSkills: { skillA: number; skillB: number; skillC: number; pointsAvailable: number } = { skillA: 0, skillB: 0, skillC: 0, pointsAvailable: 0 };
   // Keep a copy of the original stats for change detection while the panel is open
-  private statsOriginal?: { attackDmg: number; attackSpeed: number; critRate: number; critDmg: number; health: number; regen: number; mana: number; manaRegen?: number } = undefined;
+  statsOriginal?: { attackDmg: number; attackSpeed: number; critRate: number; critDmg: number; health: number; regen: number; mana: number; manaRegen?: number } = undefined;
   // Cached stats to preserve values when server fetches omit per-hero stats
   cachedStats?: { attackDmg: number; attackSpeed: number; critRate: number; critDmg: number; health: number; regen: number; mana?: number; manaRegen?: number } = undefined;
   // Cached skills to preserve values when server fetches omit them
