@@ -236,8 +236,8 @@ export class Inventory extends GameObject {
         : false;
 
       if (isCurrentHero || isSameMap) {
-        const txtsprite = this.createStaticText(displayName, new Vector2(xOffset, yPos), "White");
-        const txtsprite2 = this.createStaticText(displayName, new Vector2(xOffset + 1, yPos + 1), "Black");
+        const txtsprite = this.createStaticText(displayName, new Vector2(xOffset, yPos), "Black");
+        const txtsprite2 = this.createStaticText(displayName, new Vector2(xOffset + 1, yPos + 1), "White");
         this.addChild(txtsprite);
         this.addChild(txtsprite2);
       } else {  // Different map: show only the black variant (use primary position to keep alignment consistent)
@@ -277,8 +277,8 @@ export class Inventory extends GameObject {
     const xPos = CANVAS_WIDTH - SPRITE_TEXT_PADDING_LEFT - RIGHT_MARGIN - textPixelWidth;
     const yPos = 4; // keep top margin; SpriteTextString will add its own top padding internally
     
-    const mapNameText = this.createStaticText(mapName, new Vector2(xPos, yPos), "White");
-    const mapNameShadow = this.createStaticText(mapName, new Vector2(xPos + 1, yPos + 1), "Black");
+    const mapNameText = this.createStaticText(mapName, new Vector2(xPos, yPos), "Black");
+    const mapNameShadow = this.createStaticText(mapName, new Vector2(xPos + 1, yPos + 1), "White");
     
     this.addChild(mapNameShadow);
     this.addChild(mapNameText);
