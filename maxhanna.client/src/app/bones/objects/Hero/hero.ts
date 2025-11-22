@@ -374,10 +374,43 @@ export class Hero extends Character {
       const host = (this.parent as any) ?? this;
       host.addChild(skillType);
       this.activeSkills.push(skillType);
-      skillType.moveTo(targetAnchorX, targetAnchorY, 1000);
+
+      // Make projectile travel in a straight line across the screen instead of "drooping" toward the
+      // target Y axis. For horizontal facings keep Y constant; for vertical facings keep X constant.
+      // Also extend the target far out in the facing direction so the projectile traverses the screen.
+      let finalTargetX = targetAnchorX;
+      let finalTargetY = targetAnchorY;
+
+      const EXTEND_DISTANCE = 2000; // pixels to extend so projectile flies off-screen
+      if (type === 'arrow' || type === 'sting') {
+        if (this.facingDirection === LEFT) {
+          finalTargetY = startY; // keep same Y
+          finalTargetX = startX - EXTEND_DISTANCE;
+        } else if (this.facingDirection === RIGHT) {
+          finalTargetY = startY;
+          finalTargetX = startX + EXTEND_DISTANCE;
+        } else if (this.facingDirection === UP) {
+          finalTargetX = startX;
+          finalTargetY = startY - EXTEND_DISTANCE;
+        } else if (this.facingDirection === DOWN) {
+          finalTargetX = startX;
+          finalTargetY = startY + EXTEND_DISTANCE;
+        }
+      }
+
+      // Compute duration proportional to distance so speed feels consistent
+      const dx = finalTargetX - startX;
+      const dy = finalTargetY - startY;
+      const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+      const speedPxPerMs = 1.0; // 1 pixel per millisecond => 1000px/s
+      const duration = Math.max(200, Math.round(distance / speedPxPerMs));
+
+      skillType.moveTo(finalTargetX, finalTargetY, duration);
+
+      // Destroy slightly after it reaches the target
       setTimeout(() => {
         try { skillType.destroy(); } catch { }
-      }, 2000);
+      }, duration + 300);
     } catch (ex) {
       console.warn('spawnSkillTo failed', ex);
     }
