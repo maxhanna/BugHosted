@@ -3134,12 +3134,39 @@ ORDER BY p.created DESC;";
 				// Debug: log who will receive EXP and how much
 				await _log.Db($"AwardEncounterKillExp: killer={killerHeroId} encounterLevel={encounterLevel} party=[{string.Join(',', partyIds)}]", killerHeroId, "BONES", true);
 				string idsCsv = string.Join(',', partyIds);
-				string updateSql = $"UPDATE maxhanna.bones_hero SET exp = exp + @Exp WHERE id IN ({idsCsv})";
-				using (var upCmd = new MySqlCommand(updateSql, connection, transaction))
+
+				// Fetch current levels for each hero so we can scale awarded EXP per-player
+				var heroLevels = new Dictionary<int,int>();
+				string fetchLevelsSql = $"SELECT id, level FROM maxhanna.bones_hero WHERE id IN ({idsCsv})";
+				using (var lvlFetchCmd = new MySqlCommand(fetchLevelsSql, connection, transaction))
+				using (var lvlRdr = await lvlFetchCmd.ExecuteReaderAsync())
 				{
-					upCmd.Parameters.AddWithValue("@Exp", encounterLevel);
-					int rows = await upCmd.ExecuteNonQueryAsync();
-					//	await _log.Db($"AwardEncounterKillExp: exp UPDATE rowsAffected={rows} for ids=[{idsCsv}] (added {encounterLevel} exp)", killerHeroId, "BONES", true);
+					while (await lvlRdr.ReadAsync())
+					{
+						int id = lvlRdr.GetInt32(0);
+						int level = lvlRdr.IsDBNull(1) ? 1 : lvlRdr.GetInt32(1);
+						if (level <= 0) level = 1; // avoid divide-by-zero
+						heroLevels[id] = level;
+					}
+					lvlRdr.Close();
+				}
+
+				// Update each hero's exp by (encounterLevel / heroLevel), minimum 1
+				string perUpdateSql = "UPDATE maxhanna.bones_hero SET exp = exp + @Exp WHERE id = @Id";
+				using (var upCmd = new MySqlCommand(perUpdateSql, connection, transaction))
+				{
+					upCmd.Parameters.Add("@Exp", MySqlDbType.Int32);
+					upCmd.Parameters.Add("@Id", MySqlDbType.Int32);
+					foreach (var pid in partyIds)
+					{
+						int level = heroLevels.ContainsKey(pid) ? heroLevels[pid] : 1;
+						int addExp = encounterLevel / Math.Max(1, level);
+						if (addExp <= 0) addExp = 1; // ensure at least 1 EXP awarded
+						upCmd.Parameters["@Exp"].Value = addExp;
+						upCmd.Parameters["@Id"].Value = pid;
+						int rows = await upCmd.ExecuteNonQueryAsync();
+						//	await _log.Db($"AwardEncounterKillExp: exp UPDATE rowsAffected={rows} for hero={pid} (added {addExp} exp)", killerHeroId, "BONES", true);
+					}
 				}
 				// Read back the exp/level values for the party to verify the update took effect
 				try
