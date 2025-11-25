@@ -354,6 +354,9 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
         this.parentRef.navigationComponent.tradeNotifsCount--;
       }
     }
+    else if (notification?.text?.toLowerCase().includes('you were slain by') || notification?.text?.toLowerCase().includes('you died') || notification?.text?.toLowerCase().includes('you killed')) {
+      this.parentRef?.createComponent('Bones');
+    }
     if (notification.text?.toLowerCase().includes('captured') || notification.text?.includes('base at')) {
       this.parentRef?.createComponent('Bug-Wars');
     } else if (notification.text?.includes('BugWars')) {
@@ -503,6 +506,9 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
 
   getNotificationCategory(notification: UserNotification): string {
     const text = notification.text?.toLowerCase() || '';
+
+    // Bones notifications (from BonesController): these texts originate from Bones gameplay
+    if (text.includes('you were slain by') || text.includes('you died') || text.includes('you killed')) return 'Bones';
 
     if (text.includes('executed trade')) return 'Crypto-Hub';
     if (text.includes('chat')) return 'Chat';
