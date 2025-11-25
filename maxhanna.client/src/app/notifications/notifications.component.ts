@@ -4,11 +4,9 @@ import { ChildComponent } from '../child.component';
 import { UserNotification } from '../../services/datacontracts/notification/user-notification';
 import { Location } from '@angular/common';
 import { AppComponent } from '../app.component';
-import { User } from '../../services/datacontracts/user/user';
 import { initializeApp } from 'firebase/app';
-import { getMessaging, getToken, onMessage, Messaging } from "firebase/messaging";
+import { getMessaging, getToken } from "firebase/messaging";
 import { CommentService } from '../../services/comment.service';
-import { FileComment } from '../../services/datacontracts/file/file-comment';
 
 @Component({
   selector: 'app-notifications',
@@ -466,7 +464,10 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
 
   updateCategories(resetFilter: boolean = true) {
     if (!this.notifications) {
-      this.categories = [{ name: 'All', count: 0 }, { name: 'Unread', count: 0 }];
+      this.categories = [
+        { name: 'All', count: 0 }, 
+        { name: 'Unread', count: 0 }
+      ];
       if (resetFilter) this.filterCategory = 'All';
       return;
     }
@@ -507,9 +508,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   getNotificationCategory(notification: UserNotification): string {
     const text = notification.text?.toLowerCase() || '';
 
-    // Bones notifications (from BonesController): these texts originate from Bones gameplay
     if (text.includes('you were slain by') || text.includes('you died') || text.includes('you killed')) return 'Bones';
-
     if (text.includes('executed trade')) return 'Crypto-Hub';
     if (text.includes('chat')) return 'Chat';
     if (!text.includes('profile') && (text.includes('post') || text.includes('comment'))) return 'Social';
