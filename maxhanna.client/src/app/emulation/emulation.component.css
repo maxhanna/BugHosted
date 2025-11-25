@@ -272,6 +272,28 @@ canvas:-ms-fullscreen,
   z-index: 30;
 }
 
+/* Two-button mode: when only A and B are shown (non-SNES, non-Sega) make them larger
+   and offset the lower A button slightly left so it sits more separate from B above. */
+.face-buttons.two-button-mode {
+  grid-template-columns: 86px 86px;
+  grid-template-rows: 86px 86px;
+  gap: 12px;
+  right: 18px;
+}
+
+.face-buttons.two-button-mode .a,
+.face-buttons.two-button-mode .b {
+  width: 86px;
+  height: 86px;
+  line-height: 86px;
+  font-size: 36px;
+}
+
+.face-buttons.two-button-mode .a {
+  /* shift the bottom (A) slightly left to the side of the top B button */
+  transform: translateX(-10px);
+}
+
 .shoulder-buttons {
   position: absolute;
   display: flex;

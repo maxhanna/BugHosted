@@ -55,7 +55,7 @@
         <div class="a" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : 'visible'">A</div>
         <div class="b" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : 'visible'">B</div>
       </div>
-      <div class="face-buttons" *ngIf="!parentRef?.isShowingOverlay && !isSnesGame()">
+      <div [class]="'face-buttons' + ((!isSegaGame() && selectedRomName && showControls) ? ' two-button-mode' : '')" *ngIf="!parentRef?.isShowingOverlay && !isSnesGame()">
         <div class="b"
           [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' :  'visible'  ">
           B</div>
