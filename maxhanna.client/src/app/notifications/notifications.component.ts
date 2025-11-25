@@ -363,7 +363,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       this.parentRef?.createComponent('Ender');
     } else if (notification.text?.toLowerCase().includes('lightcycle')) {
       this.parentRef?.createComponent('Ender');
-    } else if (notification.text?.includes('Shared a note')) {
+    } else if (notification?.text?.toLowerCase().includes('shared a note') || notification?.text?.toLowerCase().includes('a note was shared') || notification?.text?.toLowerCase().includes('note was shared')) {
       this.parentRef?.createComponent('Notepad');
     } else if (notification.text?.includes('Executed Trade')) {
       this.goToCryptoHub(notification);
