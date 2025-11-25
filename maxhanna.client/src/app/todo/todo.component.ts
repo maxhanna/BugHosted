@@ -34,6 +34,8 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   // Polling for shared columns updates
   private sharedPollIntervalMs = 15000; // 15s
   private sharedPollTimer: any = null;
+  // Remember whether shared polling was active before opening an edit session
+  private wasSharedPollingActiveBeforeEdit: boolean = false;
   // Countdown (in seconds) until next shared list resynchronisation
   resyncCountdown: number = 0;
   private resyncTickTimer: any = null;
@@ -159,6 +161,23 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       this.resyncTickTimer = null;
     }
     this.resyncCountdown = 0;
+  }
+
+  private pauseSharedPollingForEdit() {
+    if (this.sharedPollTimer) {
+      this.wasSharedPollingActiveBeforeEdit = true;
+      this.stopSharedPolling();
+    } else {
+      this.wasSharedPollingActiveBeforeEdit = false;
+    }
+  }
+
+  private resumeSharedPollingIfNeeded() {
+    if ((this.isEditing?.length ?? 0) > 0) return;
+    if (this.wasSharedPollingActiveBeforeEdit) {
+      this.startSharedPolling();
+      this.wasSharedPollingActiveBeforeEdit = false;
+    }
   }
   ngAfterViewInit() {
     this.setTodoDropdownPlaceholder();
@@ -506,7 +525,8 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     const id = todo.id;
     if (!this.isEditing.find(x => x.id == todo.id)) {
       this.parentRef?.showOverlay();
-      this.isEditing.push(todo); 
+      this.isEditing.push(todo);
+      this.pauseSharedPollingForEdit();
       setTimeout(() => {
         if (todo.fileId) {
           const fileEntry = { id: todo.fileId } as FileEntry;
@@ -536,7 +556,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
           this.todos[todoIndex].fileId = fileId;
         }
         this.isEditing = this.isEditing.filter(x => x.id !== id);
-        this.startSharedPolling();
+        this.resumeSharedPollingIfNeeded();
       } catch (error) {
         console.error("Error updating todo:", error);
         this.parentRef?.showNotification("Failed to update todo");
@@ -552,7 +572,8 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       if (this.hasEditedTodo && shouldEdit) { 
         this.editTodo(this.isEditing[0]);
       } else {
-        this.isEditing = []; 
+        this.isEditing = [];
+        this.resumeSharedPollingIfNeeded();
       }
     }, 50); 
   }
