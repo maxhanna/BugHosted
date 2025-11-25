@@ -3479,7 +3479,6 @@ ORDER BY p.created DESC;";
 					SET coordsX = @X, 
 						coordsY = @Y, 
 						map = @Map, 
-						updated = UTC_TIMESTAMP() 
 					WHERE id = @HeroId 
 					LIMIT 1;";
 				var updParams = new Dictionary<string, object?>() {
@@ -3664,7 +3663,7 @@ ORDER BY p.created DESC;";
 
 				// Perform UPDATE then SELECT in sequence to reliably read the updated HP
 				int newHp = 0;
-				string upd = "UPDATE maxhanna.bones_hero SET hp = GREATEST(hp - @Damage, 0), updated = UTC_TIMESTAMP() WHERE id = @TargetHeroId AND hp > 0 LIMIT 1;";
+				string upd = "UPDATE maxhanna.bones_hero SET hp = GREATEST(hp - @Damage, 0) WHERE id = @TargetHeroId AND hp > 0 LIMIT 1;";
 				using (var updCmd = new MySqlCommand(upd, connection, transaction))
 				{
 					updCmd.Parameters.AddWithValue("@Damage", finalDamage);
