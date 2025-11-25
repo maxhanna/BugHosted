@@ -305,7 +305,7 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpPost("/Rom/GetRomFile/{filePath}", Name = "GetRomFile")]
-		public IActionResult GetRomFile([FromBody] int? userId, string filePath)
+		public async Task<IActionResult> GetRomFile([FromBody] int? userId, string filePath)
 		{
 			filePath = Path.Combine(_baseTarget, WebUtility.UrlDecode(filePath) ?? "").Replace("\\", "/"); 
 			string fileName = Path.GetFileName(filePath);
@@ -336,10 +336,25 @@ namespace maxhanna.Server.Controllers
 					//_ = _log.Db($"File path changed . New FilePath: " + filePath, userId, "ROM", true);
 				}
 				else if (userId == null && (filePath.Contains(".sav") || filePath.Contains(".srm")))
+                {
 					return BadRequest("Must be logged in to access save files!"); 
+				}
 
 				var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
 				string contentType = "application/octet-stream";
+
+				// Record user's selection/play start in emulation_play_time when logged in
+				if (userId != null)
+				{
+					try
+					{
+						await RecordRomSelectionAsync(userId.Value, fileName);
+					}
+					catch (Exception ex)
+					{
+						_ = _log.Db($"Error recording rom selection: {ex.Message}", userId, "ROM", true);
+					}
+				}
 
 				updateLastAccessForRom(fileName);
 				return File(fileStream, contentType, Path.GetFileName(filePath));
@@ -362,6 +377,34 @@ namespace maxhanna.Server.Controllers
 				command.Parameters.AddWithValue("@File_Name", fileName);
 
 				await command.ExecuteNonQueryAsync();
+			}
+		}
+
+		private async Task RecordRomSelectionAsync(int userId, string romFileName)
+		{
+			if (string.IsNullOrWhiteSpace(romFileName) || userId == 0) return;
+
+			try
+			{
+				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await connection.OpenAsync();
+					string upsertSql = @"
+					INSERT INTO maxhanna.emulation_play_time (user_id, rom_file_name, start_time, plays, created_at)
+					VALUES (@UserId, @RomFileName, UTC_TIMESTAMP(), 1, UTC_TIMESTAMP())
+					ON DUPLICATE KEY UPDATE
+						start_time = UTC_TIMESTAMP(),
+						plays = plays + 1;";
+
+					using var cmd = new MySqlCommand(upsertSql, connection);
+					cmd.Parameters.AddWithValue("@UserId", userId);
+					cmd.Parameters.AddWithValue("@RomFileName", romFileName);
+					await cmd.ExecuteNonQueryAsync();
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error in RecordRomSelectionAsync: {ex.Message}", userId, "ROM", true);
 			}
 		}
 	}

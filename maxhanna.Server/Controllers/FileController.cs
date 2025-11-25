@@ -1499,6 +1499,57 @@ LIMIT
 			}
 		}
 
+		[HttpPost("/File/RecordSelection", Name = "RecordSelection")]
+		public async Task<IActionResult> RecordSelection([FromBody] RecordSelectionRequest? request)
+		{
+			if (request == null || request.FileId == 0)
+			{
+				return BadRequest("FileId is required");
+			}
+
+			try
+			{
+				using (var connection = new MySqlConnection(_connectionString))
+				{
+					await connection.OpenAsync();
+					using (var transaction = await connection.BeginTransactionAsync())
+					{
+						// Update access stats
+						var updateCmd = new MySqlCommand(@"
+							UPDATE maxhanna.file_uploads
+							SET last_access = UTC_TIMESTAMP(),
+								access_count = access_count + 1
+							WHERE id = @fileId LIMIT 1;", connection, transaction);
+
+						updateCmd.Parameters.AddWithValue("@fileId", request.FileId);
+						await updateCmd.ExecuteNonQueryAsync();
+
+						// Record per-user access if provided
+						if (request.UserId.HasValue)
+						{
+							var insertCmd = new MySqlCommand(@"
+								INSERT INTO maxhanna.file_access (file_id, user_id)
+								VALUES (@fileId, @userId)
+								ON DUPLICATE KEY UPDATE file_id = VALUES(file_id);", connection, transaction);
+
+							insertCmd.Parameters.AddWithValue("@fileId", request.FileId);
+							insertCmd.Parameters.AddWithValue("@userId", request.UserId.Value);
+							await insertCmd.ExecuteNonQueryAsync();
+						}
+
+						await transaction.CommitAsync();
+					}
+				}
+
+				return Ok();
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error in RecordSelection: {ex.Message}", request?.UserId ?? 0, "FILE", true);
+				return StatusCode(500, "An error occurred while recording file selection.");
+			}
+		}
+
 		[HttpPost("/File/MakeDirectory", Name = "MakeDirectory")]
 		public async Task<IActionResult> MakeDirectory([FromBody] CreateDirectory request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{
@@ -3551,4 +3602,10 @@ public class DirectoryResult
 	public int Page { get; set; }
 	public int PageSize { get; set; }
 	public List<FileEntry> Data { get; set; } = new List<FileEntry>();
+}
+
+public class RecordSelectionRequest
+{
+    public int FileId { get; set; }
+    public int? UserId { get; set; }
 }
