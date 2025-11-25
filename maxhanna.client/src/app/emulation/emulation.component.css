@@ -288,10 +288,11 @@ canvas:-ms-fullscreen,
   line-height: 86px;
   font-size: 36px;
 }
-
 .face-buttons.two-button-mode .a {
-  /* shift the bottom (A) slightly left to the side of the top B button */
-  transform: translateX(-10px);
+  transform: translateX(-30px), translateY(-30px);
+}
+.face-buttons.two-button-mode .b {
+  transform: translateX(-10px), translateY(-30px);
 }
 
 .shoulder-buttons {
