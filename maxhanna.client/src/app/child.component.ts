@@ -144,14 +144,24 @@ export class ChildComponent {
       this.parentRef?.createComponent("User", { "userId": user.id, "previousComponent": previousComponent, "previousComponentParameters": previousComponentParameters });
     }
   }
-  sortTable(columnIndex: number, tableId: string): void { 
+  // New signature: accept the click event, derive column index and table id from the clicked header
+  sortTable(event: any): void {
     let isCustomSortPreventAsc = false;
-    const table = document.getElementById(tableId) as HTMLTableElement;
-    if (!table) return; 
+
+    // Prefer currentTarget (the <th>) to handle clicks on nested elements
+    const th = (event && event.currentTarget) as HTMLTableCellElement | undefined;
+    if (!th) return;
+
+    const columnIndex = typeof th.cellIndex === 'number' ? th.cellIndex : -1;
+    const table = th.closest('table') as HTMLTableElement | null;
+    if (!table || columnIndex < 0) return;
+
+    const tableId = table.id || '';
     const rowsArray = Array.from(table.rows).slice(1); // Skip the header row
 
     // Update sort direction tracking first
-    const isAscending = !this.asc.some(([tbl, col]) => tbl === tableId && col === columnIndex); 
+    const isAscending = !this.asc.some(([tbl, col]) => tbl === tableId && col === columnIndex);
+
     // Regular expression to detect common date formats (ISO 8601)
     const dateRegex = /^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?$/;
     const customDateRegex = /(\d+)([a-zA-Z]+)/g; // Matches custom dates like 10m, 16d, 8h, etc.
@@ -239,11 +249,11 @@ export class ChildComponent {
 
     // Update sort direction tracking AFTER sorting
     if (isAscending && !isCustomSortPreventAsc) {
-      this.asc.push([tableId, columnIndex]); 
+      this.asc.push([tableId, columnIndex]);
     } else if (!isCustomSortPreventAsc) {
-      this.asc = this.asc.filter(([tbl, col]) => !(tbl === tableId && col === columnIndex)); 
+      this.asc = this.asc.filter(([tbl, col]) => !(tbl === tableId && col === columnIndex));
     }
-  } 
+  }
   isElementInViewport(el: HTMLElement): boolean {
     const rect = el?.getBoundingClientRect();
     return (

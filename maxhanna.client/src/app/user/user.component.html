@@ -711,9 +711,9 @@
     <table *ngIf="emulationGameBreakdown && emulationGameBreakdown.length > 0" class="mainTable" id="emulationBreakdownTable">
       <thead>
         <tr>
-          <th (click)="sortTable(0, 'emulationBreakdownTable')">Game</th>
-          <th (click)="sortTable(1, 'emulationBreakdownTable')">Hours</th>
-          <th (click)="sortTable(2, 'emulationBreakdownTable')">Plays</th>
+          <th (click)="sortTable($event)">Game</th>
+          <th (click)="sortTable($event)">Hours</th>
+          <th (click)="sortTable($event)">Plays</th>
         </tr>
       </thead>
       <tbody>
