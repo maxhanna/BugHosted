@@ -1469,36 +1469,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       rz.attackSpeed ?? 400);
 
     // Fetch persisted skill allocations for this hero (if any) and apply locally
-    try {
-      if (this.metaHero && this.metaHero.id) {
-        const skills = await this.bonesService.getHeroSkills(this.metaHero.id).catch(() => undefined);
-        if (skills) {
-          // normalize and store on metaHero and cachedSkills
-          const sA = Number(skills.skillA || 0);
-          const sB = Number(skills.skillB || 0);
-          const sC = Number(skills.skillC || 0);
-          try { (this.metaHero as any).skills = { skillA: sA, skillB: sB, skillC: sC }; } catch { }
-          try { this.cachedSkills = { skillA: sA, skillB: sB, skillC: sC }; } catch { }
-
-          // apply to hero sprite if present
-          if (this.hero) {
-            try { (this.hero as any).skillA = sA; } catch { }
-            try { (this.hero as any).skillB = sB; } catch { }
-            try { (this.hero as any).skillC = sC; } catch { }
-          }
-
-          // Ensure the editableSkills view reflects the persisted allocations so the Change Skills pane
-          // shows the correct distribution immediately after reinitialize (or when opened later).
-          try {
-            const level = (this.metaHero && (this.metaHero as any).level) ? (this.metaHero as any).level : 1;
-            const totalPoints = Math.max(0, Number(level) - 1);
-            const allocated = (sA ?? 0) + (sB ?? 0) + (sC ?? 0);
-            const pointsAvailable = Math.max(0, totalPoints - allocated);
-            this.editableSkills = { skillA: Math.max(0, sA), skillB: Math.max(0, sB), skillC: Math.max(0, sC), pointsAvailable };
-          } catch { }
-        }
-      }
-    } catch (ex) { console.error('Failed to fetch hero skills on reinitialize', ex); }
+    await this.reinitializeSkills();
 
     const statsAny: any = (rz as any).stats ?? rz;
     if (statsAny) {
@@ -1548,6 +1519,35 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     if ((rz.hp ?? 100) <= 0) {
       this.handleHeroDeath({ killerId: null, killerUserId: undefined, cause: "spawned_dead" });
     }
+  }
+
+  private async reinitializeSkills() {
+    try {
+      if (this.metaHero && this.metaHero.id) {
+        const skills = await this.bonesService.getHeroSkills(this.metaHero.id).catch(() => undefined);
+        if (skills) {
+          // normalize and store on metaHero and cachedSkills
+          const sA = Number(skills.skillA || 0);
+          const sB = Number(skills.skillB || 0);
+          const sC = Number(skills.skillC || 0);
+          try { (this.metaHero as any).skills = { skillA: sA, skillB: sB, skillC: sC }; } catch { }
+          try { this.cachedSkills = { skillA: sA, skillB: sB, skillC: sC }; } catch { }
+
+          // apply to hero sprite if present
+          if (this.hero) {
+            this.hero.skillA = sA;  
+            this.hero.skillB = sB;  
+            this.hero.skillC = sC; 
+          }
+ 
+          const level = (this.metaHero && (this.metaHero as any).level) ? (this.metaHero as any).level : 1;
+          const totalPoints = Math.max(0, Number(level) - 1);
+          const allocated = (sA ?? 0) + (sB ?? 0) + (sC ?? 0);
+          const pointsAvailable = Math.max(0, totalPoints - allocated);
+          this.editableSkills = { skillA: Math.max(0, sA), skillB: Math.max(0, sB), skillC: Math.max(0, sC), pointsAvailable }; 
+        }
+      }
+    } catch (ex) { console.error('Failed to fetch hero skills on reinitialize', ex); }
   }
 
   private async reinitializeInventoryData() {

@@ -29,6 +29,9 @@ export class Hero extends Character {
   public activeSkills: any[] = [];
   private lastAttackAt: number = 0;
   public attackSpeed: number = 400;
+  skillA?: number = 0;
+  skillB?: number = 0;
+  skillC?: number = 0;
   constructor(params: {
     position: Vector2, id?: number, name?: string, type?: string, metabots?: MetaBot[], colorSwap?: ColorSwap,
     isUserControlled?: boolean, speed?: number, attackSpeed?: number, mask?: Mask, scale?: Vector2,

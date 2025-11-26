@@ -18,6 +18,8 @@ export class MetaHero {
   health?: number;
   regen?: number; // hp per second
   mana?: number;
+  // persisted skill allocations (optional)
+  skills?: { skillA: number; skillB: number; skillC: number };
   // Number of mana points allocated (UI-facing 'points' into Mana). Starts at 0.
   maxMana?: number;
   // Current mana spent/consumed (0..maxMana). This value can be decreased by mana regeneration or items.
@@ -42,13 +44,14 @@ export class MetaHero {
     this.exp = exp ?? 0;
     this.attackSpeed = attackSpeed ?? 400; // default 400ms
     this.userId = userId;
-  this.mana = 0;
-  this.maxMana = 0;
-  this.manaSpent = 0;
+    this.mana = 0;
+    this.maxMana = 0;
+    this.manaSpent = 0;
+    // initialize skill allocations to zero by default
+    this.skills = { skillA: 0, skillB: 0, skillC: 0 };
     this.map = map;
     this.color = color;
-    this.mask = mask;
-  // legacy fields removed
+    this.mask = mask; 
     this.updated = updated;
   } 
 }
