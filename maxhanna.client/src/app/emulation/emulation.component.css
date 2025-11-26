@@ -283,16 +283,16 @@ canvas:-ms-fullscreen,
 
 .face-buttons.two-button-mode .a,
 .face-buttons.two-button-mode .b {
-  width: 86px;
+  width: 126px;
   height: 86px;
   line-height: 86px;
   font-size: 36px;
 }
 .face-buttons.two-button-mode .a {
-  transform: translate(-30px, -30px);
+  transform: translate(-40px, 30px);
 }
 .face-buttons.two-button-mode .b {
-  transform: translate(-10px, -30px);
+  transform: translate(-10px, 30px);
 }
 
 .shoulder-buttons {
