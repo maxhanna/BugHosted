@@ -107,8 +107,7 @@
       {{wordToGuess}}: {{definition}}
     </div>
 
-    <!-- Reuse the Wordler High Scores component to show today's scoreboard and the current user's best scores -->
-    <app-wordler-high-scores [mode]="'today'" [userId]="parentRef?.user?.id"
+    <app-wordler-high-scores [mode]="'today'" [userId]="parentRef?.user?.id" #todayScores
       [inputtedParentRef]="parentRef" [headerClickable]="true"
       [showHeaderTitles]="true"></app-wordler-high-scores>
   </div>
