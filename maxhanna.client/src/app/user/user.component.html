@@ -708,12 +708,12 @@
   <div class="popupPanelTitle">🎮 Emulation Breakdown</div>
   <div class="optionsStatsBreakdown">
     <div *ngIf="!emulationGameBreakdown || emulationGameBreakdown.length === 0" class="xxSmallFont">No games found.</div>
-    <table *ngIf="emulationGameBreakdown && emulationGameBreakdown.length > 0" class="mainTable">
+    <table *ngIf="emulationGameBreakdown && emulationGameBreakdown.length > 0" class="mainTable" id="emulationBreakdownTable">
       <thead>
         <tr>
-          <th>Game</th>
-          <th>Hours</th>
-          <th>Plays</th>
+          <th (click)="sortTable(0, 'emulationBreakdownTable')">Game</th>
+          <th (click)="sortTable(1, 'emulationBreakdownTable')">Hours</th>
+          <th (click)="sortTable(2, 'emulationBreakdownTable')">Plays</th>
         </tr>
       </thead>
       <tbody>
