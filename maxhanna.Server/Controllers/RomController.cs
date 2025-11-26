@@ -383,6 +383,9 @@ namespace maxhanna.Server.Controllers
 		private async Task RecordRomSelectionAsync(int userId, string romFileName)
 		{
 			if (string.IsNullOrWhiteSpace(romFileName) || userId == 0) return;
+			var baseName = Path.GetFileNameWithoutExtension(romFileName);
+			if (string.IsNullOrWhiteSpace(baseName)) return;
+			romFileName = baseName + ".sav"; 
 
 			try
 			{
