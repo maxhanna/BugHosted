@@ -389,17 +389,27 @@ namespace maxhanna.Server.Controllers
 				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
 					await connection.OpenAsync();
-					string upsertSql = @"
-					INSERT INTO maxhanna.emulation_play_time (user_id, rom_file_name, start_time, plays, created_at)
-					VALUES (@UserId, @RomFileName, UTC_TIMESTAMP(), 1, UTC_TIMESTAMP())
-					ON DUPLICATE KEY UPDATE
-						start_time = UTC_TIMESTAMP(),
-						plays = plays + 1;";
+					// Try an update first so we don't rely on a specific unique key being present.
+					string updateSql = @"UPDATE maxhanna.emulation_play_time 
+					SET start_time = UTC_TIMESTAMP(), plays = plays + 1 
+					WHERE user_id = @UserId AND rom_file_name = @RomFileName LIMIT 1;";
 
-					using var cmd = new MySqlCommand(upsertSql, connection);
-					cmd.Parameters.AddWithValue("@UserId", userId);
-					cmd.Parameters.AddWithValue("@RomFileName", romFileName);
-					await cmd.ExecuteNonQueryAsync();
+					using (var upd = new MySqlCommand(updateSql, connection))
+					{
+						upd.Parameters.AddWithValue("@UserId", userId);
+						upd.Parameters.AddWithValue("@RomFileName", romFileName);
+						int rows = await upd.ExecuteNonQueryAsync();
+
+						if (rows == 0)
+						{
+							string insertSql = @"INSERT INTO maxhanna.emulation_play_time (user_id, rom_file_name, start_time, plays, created_at)
+							VALUES (@UserId, @RomFileName, UTC_TIMESTAMP(), 1, UTC_TIMESTAMP());";
+							using var ins = new MySqlCommand(insertSql, connection);
+							ins.Parameters.AddWithValue("@UserId", userId);
+							ins.Parameters.AddWithValue("@RomFileName", romFileName);
+							await ins.ExecuteNonQueryAsync();
+						}
+					}
 				}
 			}
 			catch (Exception ex)
