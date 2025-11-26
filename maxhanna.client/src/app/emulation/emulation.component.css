@@ -289,10 +289,10 @@ canvas:-ms-fullscreen,
   font-size: 36px;
 }
 .face-buttons.two-button-mode .a {
-  transform: translate(-40px, 30px);
+  transform: translate(-60px, 35px);
 }
 .face-buttons.two-button-mode .b {
-  transform: translate(-10px, 30px);
+  transform: translate(-30px, 35px);
 }
 
 .shoulder-buttons {
