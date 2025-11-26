@@ -189,7 +189,7 @@ namespace maxhanna.Server.Services
 					{
 						Directory.CreateDirectory(userDir);
 						try { System.IO.File.WriteAllText(Path.Combine(userDir, ".private"), "private"); } catch { }
-						_ = _log.Db($"Created physical user directory for '{u.Username}'.", u.Id, "SYSTEM");
+						_ = _log.Db($"Created physical user directory for '{u.Username}'.", u.Id, "SYSTEM", outputToConsole: true);
 					}
 
 					// Ensure virtual folder entry exists in file_uploads
@@ -217,7 +217,7 @@ namespace maxhanna.Server.Services
 								try
 								{
 									await insertCmd.ExecuteNonQueryAsync();
-									_ = _log.Db($"Inserted virtual folder entry for '{u.Username}'.", u.Id, "SYSTEM");
+									_ = _log.Db($"Inserted virtual folder entry for '{u.Username}'.", u.Id, "SYSTEM", outputToConsole: true);
 								}
 								catch (MySqlException mex)
 								{
