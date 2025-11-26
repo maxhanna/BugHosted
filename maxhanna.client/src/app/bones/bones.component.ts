@@ -1473,14 +1473,29 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       if (this.metaHero && this.metaHero.id) {
         const skills = await this.bonesService.getHeroSkills(this.metaHero.id).catch(() => undefined);
         if (skills) {
-          try { (this.metaHero as any).skills = { skillA: Number(skills.skillA || 0), skillB: Number(skills.skillB || 0), skillC: Number(skills.skillC || 0) }; } catch { }
-          try { this.cachedSkills = { skillA: Number(skills.skillA || 0), skillB: Number(skills.skillB || 0), skillC: Number(skills.skillC || 0) }; } catch { }
+          // normalize and store on metaHero and cachedSkills
+          const sA = Number(skills.skillA || 0);
+          const sB = Number(skills.skillB || 0);
+          const sC = Number(skills.skillC || 0);
+          try { (this.metaHero as any).skills = { skillA: sA, skillB: sB, skillC: sC }; } catch { }
+          try { this.cachedSkills = { skillA: sA, skillB: sB, skillC: sC }; } catch { }
+
           // apply to hero sprite if present
           if (this.hero) {
-            try { (this.hero as any).skillA = Number(skills.skillA || 0); } catch { }
-            try { (this.hero as any).skillB = Number(skills.skillB || 0); } catch { }
-            try { (this.hero as any).skillC = Number(skills.skillC || 0); } catch { }
+            try { (this.hero as any).skillA = sA; } catch { }
+            try { (this.hero as any).skillB = sB; } catch { }
+            try { (this.hero as any).skillC = sC; } catch { }
           }
+
+          // Ensure the editableSkills view reflects the persisted allocations so the Change Skills pane
+          // shows the correct distribution immediately after reinitialize (or when opened later).
+          try {
+            const level = (this.metaHero && (this.metaHero as any).level) ? (this.metaHero as any).level : 1;
+            const totalPoints = Math.max(0, Number(level) - 1);
+            const allocated = (sA ?? 0) + (sB ?? 0) + (sC ?? 0);
+            const pointsAvailable = Math.max(0, totalPoints - allocated);
+            this.editableSkills = { skillA: Math.max(0, sA), skillB: Math.max(0, sB), skillC: Math.max(0, sC), pointsAvailable };
+          } catch { }
         }
       }
     } catch (ex) { console.error('Failed to fetch hero skills on reinitialize', ex); }
