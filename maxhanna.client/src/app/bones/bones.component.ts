@@ -1468,6 +1468,23 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       rz.exp ?? 0,
       rz.attackSpeed ?? 400);
 
+    // Fetch persisted skill allocations for this hero (if any) and apply locally
+    try {
+      if (this.metaHero && this.metaHero.id) {
+        const skills = await this.bonesService.getHeroSkills(this.metaHero.id).catch(() => undefined);
+        if (skills) {
+          try { (this.metaHero as any).skills = { skillA: Number(skills.skillA || 0), skillB: Number(skills.skillB || 0), skillC: Number(skills.skillC || 0) }; } catch { }
+          try { this.cachedSkills = { skillA: Number(skills.skillA || 0), skillB: Number(skills.skillB || 0), skillC: Number(skills.skillC || 0) }; } catch { }
+          // apply to hero sprite if present
+          if (this.hero) {
+            try { (this.hero as any).skillA = Number(skills.skillA || 0); } catch { }
+            try { (this.hero as any).skillB = Number(skills.skillB || 0); } catch { }
+            try { (this.hero as any).skillC = Number(skills.skillC || 0); } catch { }
+          }
+        }
+      }
+    } catch (ex) { console.error('Failed to fetch hero skills on reinitialize', ex); }
+
     const statsAny: any = (rz as any).stats ?? rz;
     if (statsAny) {
       if (statsAny.attackDmg !== undefined) this.metaHero.attackDmg = Number(statsAny.attackDmg);
@@ -2114,6 +2131,15 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     try {
       // Update metaHero model (use a `skills` property to avoid colliding with other fields)
       (this.metaHero as any).skills = { skillA: this.editableSkills.skillA, skillB: this.editableSkills.skillB, skillC: this.editableSkills.skillC };
+      // Persist to server
+      try {
+        if (this.metaHero && this.metaHero.id) {
+          await this.bonesService.saveHeroSkills(this.metaHero.id, this.editableSkills.skillA, this.editableSkills.skillB, this.editableSkills.skillC);
+        }
+      } catch (apiErr) {
+        console.error('saveHeroSkills API failed', apiErr);
+        // optionally notify user, but continue optimistic UI
+      }
       // Apply to in-game hero object if relevant
       if (this.hero) {
         try { (this.hero as any).skillA = this.editableSkills.skillA; } catch { }

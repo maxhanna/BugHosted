@@ -152,6 +152,84 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+
+
+		[HttpPost("/Bones/SaveHeroSkills", Name = "Bones_SaveHeroSkills")]
+		public async Task<IActionResult> SaveHeroSkills([FromBody] SaveHeroSkillsRequest request)
+		{
+			if (request == null || request.HeroId <= 0) return BadRequest("Invalid request");
+			using var connection = new MySqlConnection(_connectionString);
+			await connection.OpenAsync();
+			using var transaction = connection.BeginTransaction();
+			try
+			{
+				string updateSql = @"UPDATE maxhanna.bones_hero_skills SET skill_a = @SkillA, skill_b = @SkillB, skill_c = @SkillC, updated = UTC_TIMESTAMP() WHERE hero_id = @HeroId LIMIT 1;";
+				using (var cmd = new MySqlCommand(updateSql, connection, transaction))
+				{
+					cmd.Parameters.AddWithValue("@SkillA", request.SkillA);
+					cmd.Parameters.AddWithValue("@SkillB", request.SkillB);
+					cmd.Parameters.AddWithValue("@SkillC", request.SkillC);
+					cmd.Parameters.AddWithValue("@HeroId", request.HeroId);
+					var affected = Convert.ToInt32(await cmd.ExecuteNonQueryAsync());
+					if (affected == 0)
+					{
+						string insertSql = @"INSERT INTO maxhanna.bones_hero_skills (hero_id, skill_a, skill_b, skill_c, updated) VALUES (@HeroId, @SkillA, @SkillB, @SkillC, UTC_TIMESTAMP());";
+						using (var ins = new MySqlCommand(insertSql, connection, transaction))
+						{
+							ins.Parameters.AddWithValue("@HeroId", request.HeroId);
+							ins.Parameters.AddWithValue("@SkillA", request.SkillA);
+							ins.Parameters.AddWithValue("@SkillB", request.SkillB);
+							ins.Parameters.AddWithValue("@SkillC", request.SkillC);
+							await ins.ExecuteNonQueryAsync();
+						}
+					}
+				}
+				await transaction.CommitAsync();
+				return Ok(new { success = true });
+			}
+			catch (Exception ex)
+			{
+				await transaction.RollbackAsync();
+				await _log.Db("SaveHeroSkills failed: " + ex.Message, request.HeroId, "BONES", true);
+				return StatusCode(500, "Internal server error: " + ex.Message);
+			}
+		}
+
+		[HttpPost("/Bones/GetHeroSkills", Name = "Bones_GetHeroSkills")]
+		public async Task<IActionResult> GetHeroSkills([FromBody] int heroId)
+		{
+			if (heroId <= 0) return BadRequest("Invalid hero id");
+			using var connection = new MySqlConnection(_connectionString);
+			await connection.OpenAsync();
+			using var transaction = connection.BeginTransaction();
+			try
+			{
+				string sel = @"SELECT skill_a, skill_b, skill_c FROM maxhanna.bones_hero_skills WHERE hero_id = @HeroId LIMIT 1;";
+				using (var cmd = new MySqlCommand(sel, connection, transaction))
+				{
+					cmd.Parameters.AddWithValue("@HeroId", heroId);
+					using var rdr = await cmd.ExecuteReaderAsync();
+					if (await rdr.ReadAsync())
+					{
+						var sA = rdr.IsDBNull(0) ? 0 : rdr.GetInt32(0);
+						var sB = rdr.IsDBNull(1) ? 0 : rdr.GetInt32(1);
+						var sC = rdr.IsDBNull(2) ? 0 : rdr.GetInt32(2);
+						await transaction.CommitAsync();
+						return Ok(new { skillA = sA, skillB = sB, skillC = sC });
+					}
+				}
+				await transaction.CommitAsync();
+				// no row -> return zeros
+				return Ok(new { skillA = 0, skillB = 0, skillC = 0 });
+			}
+			catch (Exception ex)
+			{
+				await transaction.RollbackAsync();
+				await _log.Db("GetHeroSkills failed: " + ex.Message, heroId, "BONES", true);
+				return StatusCode(500, "Internal server error: " + ex.Message);
+			}
+		}
+
 		[HttpPost("/Bones/FetchGameData", Name = "Bones_FetchGameData")]
 		public async Task<IActionResult> FetchGameData([FromBody] FetchGameDataRequest request)
 		{

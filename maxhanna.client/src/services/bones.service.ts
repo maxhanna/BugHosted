@@ -73,6 +73,15 @@ export class BonesService {
   async updateHeroStats(heroId: number, stats: { [key: string]: number | undefined } | any, userId?: number) {
     return this.fetchData('/bones/updateherostats', { HeroId: heroId, Stats: stats, UserId: userId });
   }
+  async saveHeroSkills(heroId: number, skillA: number, skillB: number, skillC: number) {
+    return this.fetchData('/bones/saveheroskills', { HeroId: heroId, SkillA: skillA, SkillB: skillB, SkillC: skillC });
+  }
+  async getHeroSkills(heroId: number): Promise<{ skillA: number, skillB: number, skillC: number } | undefined> {
+    const res: any = await this.fetchData('/bones/getheroskills', heroId);
+    if (!res) return undefined;
+    // Normalize response
+    return { skillA: Number(res.skillA ?? res.skill_a ?? 0), skillB: Number(res.skillB ?? res.skill_b ?? 0), skillC: Number(res.skillC ?? res.skill_c ?? 0) };
+  }
   async townPortal(heroId: number, userId?: number) {
     return this.fetchData('/bones/townportal', { HeroId: heroId, UserId: userId });
   }
