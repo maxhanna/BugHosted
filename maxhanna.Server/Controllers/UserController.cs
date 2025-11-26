@@ -714,6 +714,58 @@ namespace maxhanna.Server.Controllers
 							await AppendToSitemapAsync(userId);
 						}
 
+						// Ensure a user directory exists under Users/ and mark it private
+						try
+						{
+							string usersRoot = Path.Combine(_baseTarget, "Users");
+							string userDir = Path.Combine(usersRoot, user.Username ?? userId.ToString());
+							if (!Directory.Exists(userDir))
+							{
+								Directory.CreateDirectory(userDir);
+								// Create a marker file to indicate this folder is private (used by client/server logic)
+								string marker = Path.Combine(userDir, ".private");
+								try { System.IO.File.WriteAllText(marker, "private"); } catch { }
+							}
+						}
+						catch (Exception ex)
+						{
+							_ = _log.Db("Failed to create user directory: " + ex.Message, userId, "USER", false);
+						}
+
+						// Also create a virtual folder entry in the file_uploads table so the Users/username
+						// shows up in the client file browser (mirror of FileController.MakeDirectory behavior).
+						try
+						{
+							string usersRoot = Path.Combine(_baseTarget, "Users");
+							string userDir = Path.Combine(usersRoot, user.Username ?? userId.ToString());
+							string fileName = Path.GetFileName(userDir);
+							string directoryName = (Path.GetDirectoryName(userDir) ?? "").Replace("\\", "/");
+							if (!directoryName.EndsWith("/")) directoryName += "/";
+
+							string insertFolderSql = @"INSERT INTO maxhanna.file_uploads (user_id, upload_date, file_name, folder_path, is_public, is_folder) VALUES (@user_id, UTC_TIMESTAMP(), @fileName, @folderPath, @isPublic, @isFolder);";
+							using (var insertFolderCmd = new MySqlCommand(insertFolderSql, conn))
+							{
+								insertFolderCmd.Parameters.AddWithValue("@user_id", userId);
+								insertFolderCmd.Parameters.AddWithValue("@fileName", fileName);
+								insertFolderCmd.Parameters.AddWithValue("@folderPath", directoryName);
+								insertFolderCmd.Parameters.AddWithValue("@isPublic", 0);
+								insertFolderCmd.Parameters.AddWithValue("@isFolder", 1);
+								try
+								{
+									await insertFolderCmd.ExecuteNonQueryAsync();
+								}
+								catch (MySqlException mex)
+								{
+									// Ignore duplicate folder entry or other DB errors but log them
+									_ = _log.Db("Failed to insert virtual folder entry: " + mex.Message, userId, "FILE", true);
+								}
+							}
+						}
+						catch (Exception ex2)
+						{
+							_ = _log.Db("Failed to create virtual folder entry for user directory: " + ex2.Message, userId, "FILE", true);
+						}
+
 						_ = _log.Db($"User created successfully with ID: {userId}", userId, "USER", true);
 						return Ok(userId);
 					}
