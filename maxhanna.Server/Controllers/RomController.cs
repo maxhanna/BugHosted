@@ -259,27 +259,40 @@ namespace maxhanna.Server.Controllers
 								if (Request.Form.ContainsKey("saveTimeMs") && long.TryParse(Request.Form["saveTimeMs"], out var svm)) saveMs = svm;
 								if (Request.Form.ContainsKey("durationSeconds") && int.TryParse(Request.Form["durationSeconds"], out var ds)) durationSeconds = ds;
 
-								string upsertSql = @"
-								INSERT INTO maxhanna.emulation_play_time (user_id, rom_file_name, start_time, save_time, duration_seconds, plays, created_at)
-								VALUES (@UserId, @RomFileName, FROM_UNIXTIME(@StartMs/1000), FROM_UNIXTIME(@SaveMs/1000), @DurationSeconds, 1, UTC_TIMESTAMP())
-								ON DUPLICATE KEY UPDATE
-									start_time = VALUES(start_time),
-									save_time = VALUES(save_time),
-									duration_seconds = IFNULL(duration_seconds, 0) + VALUES(duration_seconds),
-									plays = plays + 1,
-									created_at = VALUES(created_at);";
-								var upsertCmd = new MySqlCommand(upsertSql, connection);
-								upsertCmd.Parameters.AddWithValue("@UserId", userId);
-								upsertCmd.Parameters.AddWithValue("@RomFileName", file.FileName);
-								upsertCmd.Parameters.AddWithValue("@StartMs", startMs);
-								upsertCmd.Parameters.AddWithValue("@SaveMs", saveMs);
-								upsertCmd.Parameters.AddWithValue("@DurationSeconds", durationSeconds);
+								// When a user uploads a .sav (save file), only update save_time and duration_seconds.
+								// Do NOT modify start_time or plays here — plays should be incremented when the user
+								// actually selects/starts the ROM for play (handled in RecordRomSelectionAsync).
 								try
 								{
-									await upsertCmd.ExecuteNonQueryAsync();
+									string updateSql = @"UPDATE maxhanna.emulation_play_time
+										SET save_time = FROM_UNIXTIME(@SaveMs/1000),
+											duration_seconds = IFNULL(duration_seconds, 0) + @DurationSeconds
+										WHERE user_id = @UserId AND rom_file_name = @RomFileName LIMIT 1;";
+
+									using (var upd = new MySqlCommand(updateSql, connection))
+									{
+										upd.Parameters.AddWithValue("@UserId", userId);
+										upd.Parameters.AddWithValue("@RomFileName", file.FileName);
+										upd.Parameters.AddWithValue("@SaveMs", saveMs);
+										upd.Parameters.AddWithValue("@DurationSeconds", durationSeconds);
+										int rows = await upd.ExecuteNonQueryAsync();
+
+										if (rows == 0)
+										{
+											// No existing row: insert a new record with plays = 0 (since user hasn't started a play session yet)
+											string insertSql = @"INSERT INTO maxhanna.emulation_play_time (user_id, rom_file_name, save_time, duration_seconds, plays, created_at)
+												VALUES (@UserId, @RomFileName, FROM_UNIXTIME(@SaveMs/1000), @DurationSeconds, 0, UTC_TIMESTAMP());";
+											using var ins = new MySqlCommand(insertSql, connection);
+											ins.Parameters.AddWithValue("@UserId", userId);
+											ins.Parameters.AddWithValue("@RomFileName", file.FileName);
+											ins.Parameters.AddWithValue("@SaveMs", saveMs);
+											ins.Parameters.AddWithValue("@DurationSeconds", durationSeconds);
+											await ins.ExecuteNonQueryAsync();
+										}
+									}
 								}
 								catch (MySqlException mex)
-								{ 
+								{
 									_ = _log.Db("Error recording playtime on upload (DB error): " + mex.Message, userId, "ROM", true);
 								}
 							}
