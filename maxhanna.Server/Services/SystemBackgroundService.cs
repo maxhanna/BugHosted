@@ -127,7 +127,6 @@ namespace maxhanna.Server.Services
 		}
 		private async Task RunFiveMinuteTasks()
 		{
-			await EnsureUserFoldersExistAsync();
 			await FetchAndStoreTopMarketCaps();
 			await UpdateLastBTCWalletInfo();
 			await FetchAndStoreCoinValues();
@@ -144,95 +143,7 @@ namespace maxhanna.Server.Services
 				_ = _log.Db("Skipping indicator update - already in progress", null, "TISVC", outputToConsole: true);
 			}
 		}
-
-
-		/// <summary>
-		/// Ensure that every user in the users table has a physical folder under {baseUploadPath}/Users/{username}
-		/// and a corresponding virtual folder entry in maxhanna.file_uploads (is_folder = 1).
-		/// This mirrors the behavior performed by FileController.MakeDirectory and UserController.CreateUser.
-		/// </summary>
-		private async Task EnsureUserFoldersExistAsync()
-		{
-			string baseTarget = _config.GetValue<string>("ConnectionStrings:baseUploadPath") ?? "";
-			if (string.IsNullOrWhiteSpace(baseTarget))
-			{
-				_ = _log.Db("baseUploadPath is not configured; skipping EnsureUserFoldersExistAsync.", null, "SYSTEM", true);
-				return;
-			}
-
-			string usersRoot = Path.Combine(baseTarget, "Users");
-			try { if (!Directory.Exists(usersRoot)) Directory.CreateDirectory(usersRoot); } catch (Exception ex) { _ = _log.Db("Failed to ensure Users root directory: " + ex.Message, null, "SYSTEM", true); }
-
-			await using var conn = new MySqlConnection(_connectionString);
-			await conn.OpenAsync();
-
-			// Fetch all users
-			var users = new List<(int Id, string Username)>();
-			string selectSql = "SELECT id, username FROM maxhanna.users;";
-			using (var cmd = new MySqlCommand(selectSql, conn))
-			using (var reader = await cmd.ExecuteReaderAsync())
-			{
-				while (await reader.ReadAsync())
-				{
-					int id = reader.IsDBNull(0) ? 0 : reader.GetInt32(0);
-					string username = reader.IsDBNull(1) ? id.ToString() : reader.GetString(1);
-					users.Add((id, username));
-				}
-			}
-
-			foreach (var u in users)
-			{
-				try
-				{
-					string userDir = Path.Combine(usersRoot, u.Username ?? u.Id.ToString());
-					if (!Directory.Exists(userDir))
-					{
-						Directory.CreateDirectory(userDir);
-						try { System.IO.File.WriteAllText(Path.Combine(userDir, ".private"), "private"); } catch { }
-						_ = _log.Db($"Created physical user directory for '{u.Username}'.", u.Id, "SYSTEM", outputToConsole: true);
-					}
-
-					// Ensure virtual folder entry exists in file_uploads
-					string fileName = Path.GetFileName(userDir);
-					string directoryName = (Path.GetDirectoryName(userDir) ?? "").Replace("\\", "/");
-					if (!directoryName.EndsWith("/")) directoryName += "/";
-
-					string checkSql = "SELECT COUNT(*) FROM maxhanna.file_uploads WHERE folder_path = @folderPath AND file_name = @fileName AND is_folder = 1 LIMIT 1;";
-					using (var checkCmd = new MySqlCommand(checkSql, conn))
-					{
-						checkCmd.Parameters.AddWithValue("@folderPath", directoryName);
-						checkCmd.Parameters.AddWithValue("@fileName", fileName);
-						var existsObj = await checkCmd.ExecuteScalarAsync();
-						int exists = existsObj == null || existsObj == DBNull.Value ? 0 : Convert.ToInt32(existsObj);
-						if (exists == 0)
-						{
-							string insertSql = @"INSERT INTO maxhanna.file_uploads (user_id, upload_date, file_name, folder_path, is_public, is_folder) VALUES (@user_id, UTC_TIMESTAMP(), @fileName, @folderPath, @isPublic, @isFolder);";
-							using (var insertCmd = new MySqlCommand(insertSql, conn))
-							{
-								insertCmd.Parameters.AddWithValue("@user_id", u.Id);
-								insertCmd.Parameters.AddWithValue("@fileName", fileName);
-								insertCmd.Parameters.AddWithValue("@folderPath", directoryName);
-								insertCmd.Parameters.AddWithValue("@isPublic", 0);
-								insertCmd.Parameters.AddWithValue("@isFolder", 1);
-								try
-								{
-									await insertCmd.ExecuteNonQueryAsync();
-									_ = _log.Db($"Inserted virtual folder entry for '{u.Username}'.", u.Id, "SYSTEM", outputToConsole: true);
-								}
-								catch (MySqlException mex)
-								{
-									_ = _log.Db("Failed to insert virtual folder entry: " + mex.Message, u.Id, "SYSTEM", true);
-								}
-							}
-						}
-					}
-				}
-				catch (Exception ex)
-				{
-					_ = _log.Db($"Error ensuring folder for user '{u.Username}': " + ex.Message, u.Id, "SYSTEM", true);
-				}
-			}
-		}
+ 
 		private async Task RunHourlyTasks()
 		{
 			await AssignTrophies();
