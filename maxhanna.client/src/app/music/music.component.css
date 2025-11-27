@@ -264,8 +264,56 @@ input[type="submit"] {
   display: flex;
   gap: 5px;
 }
-/* 
-.radioStationsContainer {
+
+.radioStationIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: var(--main-border);
+  flex-shrink: 0;
+}
+.radioStationInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.radioStationName {
+  font-weight: bold;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.radioStationDetails {
+  font-size: 0.85em;
+  color: var(--third-font-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.radioStationInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.radioStationName {
+  font-weight: bold;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.radioStationDetails {
+  font-size: 0.85em;
+  color: var(--third-font-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+} 
+/* .radioStationsContainer {
   width: 100%;
   padding: 10px;
 }
@@ -314,35 +362,6 @@ input[type="submit"] {
   background-color: var(--main-highlight-color);
 }
 
-.radioStationIcon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: var(--main-border);
-  flex-shrink: 0;
-}
-
-.radioStationInfo {
-  flex: 1;
-  min-width: 0;
-}
-
-.radioStationName {
-  font-weight: bold;
-  margin-bottom: 3px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.radioStationDetails {
-  font-size: 0.85em;
-  color: var(--third-font-color);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 .radioPlayButton {
   padding: 8px 15px;
@@ -357,4 +376,5 @@ input[type="submit"] {
 
 .radioPlayButton:hover {
   background-color: var(--main-highlight-color);
-} */
+}  */
+ 
