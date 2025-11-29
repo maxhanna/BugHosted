@@ -971,7 +971,7 @@ body {
 }
 
 .changeStatPanel {
-  height: 475px;
+  height: 500px;
 }
 
 .changeStatsPanel {
@@ -1112,4 +1112,51 @@ body .componentMain.startPopupPanel,
 .mainPopupTitle {
   font-size: x-large;
   font-family: 'owreKynge';
+}
+
+.editableSkillsLevel {
+  font-size: small;
+  color: #ccc;
+}
+
+.editableSkillPanelSkillName {
+  margin-top: 8px;
+  font-weight: 700;
+}
+
+.editableSkillsPanelIcon {
+  width: 44px;
+  height: 44px;
+  background: #555;
+  border-radius: 6px;
+}
+
+.editableSkillsPanelIconWrapper {
+  width: 84px;
+  height: 84px;
+  background: #222;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+.editableSkillsLargeBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 160px;
+  height: 140px;
+  background: #0f0f0f;
+  border: 1px solid #333;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.editableSkillsInputWrapper {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  justify-content: space-between;
 }

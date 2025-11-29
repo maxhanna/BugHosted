@@ -147,7 +147,8 @@
           style="display:flex; align-items:center; justify-content:space-between; padding:6px; border-bottom:1px solid #222;">
           <div>
             <div style="font-weight:600;" class="popupPanelTitle">{{s.name ?? ('Selection #' + s.id)}}</div>
-            <div style="font-size:12px; color:#aaa;">{{ getSelectionType(s) ?? 'Unknown' }} · {{ getSelectionLevel(s) ?? '—' }}</div>
+            <div style="font-size:12px; color:#aaa;">{{ getSelectionType(s) ?? 'Unknown' }} · {{ getSelectionLevel(s) ??
+              '—' }}</div>
             <div style="font-size:12px; color:#aaa;">Map: {{ getSelectionMap(s) ?? 'Unknown' }}</div>
             <div style="font-size:12px; color:#aaa;">Created: {{s.created | date:'short'}}</div>
           </div>
@@ -179,7 +180,7 @@
         <div *ngIf="!deathKillerUserId && deathKillerName" class="deathKillerName">
           {{ deathKillerName | pascalCase }}
         </div>
-      </div> 
+      </div>
     </div>
     <button id="closeOverlay" (click)="returnFromDeath()">Resurrect</button>
   </div>
@@ -188,15 +189,15 @@
 
 <!-- Start Menu Popup -->
 <div [class]="'popupPanel startPopupPanel' + ((isChangeStatsOpen && !statsUpdatedVisible) ? ' changeStatPanel' : '')"
-   *ngIf="isStartMenuOpened" 
-   [style.maxWidth]="!isPartyPanelOpen && !isChangeStatsOpen && !isChangeSkillsOpen ? '360px' : ''"
-   style="text-align:center;">
+  *ngIf="isStartMenuOpened"
+  [style.maxWidth]="!isPartyPanelOpen && !isChangeStatsOpen && !isChangeSkillsOpen ? '360px' : ''"
+  style="text-align:center;">
   <div style="display:flex; align-items:center; justify-content:center; position:relative;">
     <div class="popupPanelTitle mainPopupTitle">
       {{isChangeStatsOpen ? 'Change Stats'
-        : isChangeSkillsOpen ? 'Change Skills' 
-        : isPartyPanelOpen ? 'Nearby Heroes / Party'
-        : hero?.name ?? 'Menu' }}
+      : isChangeSkillsOpen ? 'Change Skills'
+      : isPartyPanelOpen ? 'Nearby Heroes / Party'
+      : hero?.name ?? 'Menu' }}
     </div>
     <button id="closeOverlay" (click)="closeStartMenu()" class="buttonDisplayNone"></button>
   </div>
@@ -206,7 +207,7 @@
     <button class="bigActionButton" (click)="openChangeSkills()" aria-label="Change Skills">Change Skills</button>
     <button class="bigActionButton" (click)="openPartyPanel()" aria-label="Party">Party</button>
     <button class="bigActionButton" (click)="openTownPortal()" aria-label="Town Portal">Town Portal</button>
-    <button class="bigActionButton" (click)="closeStartMenu()" aria-label="Close">❌</button>  
+    <button class="bigActionButton" (click)="closeStartMenu()" aria-label="Close">❌</button>
   </div>
 
   <!-- Party subpanel -->
@@ -217,27 +218,30 @@
       <button [disabled]="partyFilter==='nearby'" (click)="partyFilter='nearby'">Nearby</button>
       <button (click)="isPartyPanelOpen = false">Close</button>
     </div>
-  <div *ngIf="(otherHeroes && otherHeroes.length > 0) || (partyMembers && partyMembers.length > 0)">
+    <div *ngIf="(otherHeroes && otherHeroes.length > 0) || (partyMembers && partyMembers.length > 0)">
       <div *ngFor="let p of getSortedHeroes()" class="heroRow">
         <div class="heroLeft">
           <div class="heroInfo">
             <div class="heroNameRow">
               <div *ngIf="parentRef?.isUserOnline(p.updated | timeSince)" class="onlineButton" title="Online"></div>
-              <div *ngIf="!parentRef?.isUserOnline(p.updated | timeSince)" class="offlineIndicator" title="Offline"></div>
+              <div *ngIf="!parentRef?.isUserOnline(p.updated | timeSince)" class="offlineIndicator" title="Offline">
+              </div>
               <div>
                 {{p.name}}
-              </div> 
-            </div> 
+              </div>
+            </div>
             <div *ngIf="p.type || p.level" class="heroTypeLevel">
               <span *ngIf="p.type">{{ p.type | titlecase }}</span>
               <span *ngIf="p.type && p.level"> · </span>
               <span *ngIf="p.level">Lv {{ p.level }}</span>
             </div>
             <!-- Remote map indicator: show map if party member is on a different map than local hero -->
-            <div *ngIf="p.map && metaHero?.map && p.map.toLowerCase() !== metaHero.map.toLowerCase()" class="heroRemoteMap">
+            <div *ngIf="p.map && metaHero?.map && p.map.toLowerCase() !== metaHero.map.toLowerCase()"
+              class="heroRemoteMap">
               Map: {{ p.map }}
             </div>
-            <div class="xxSmallFont thirdFontColor" *ngIf="p.updated" [title]="p.updated">Updated: {{ p.updated | timeSince }}</div>
+            <div class="xxSmallFont thirdFontColor" *ngIf="p.updated" [title]="p.updated">Updated: {{ p.updated |
+              timeSince }}</div>
           </div>
         </div>
         <div>
@@ -270,101 +274,109 @@
   </div>
 
   <!-- Change Stats subpanel -->
-  <div *ngIf="isChangeStatsOpen" class="changeStatsPanel"> 
+  <div *ngIf="isChangeStatsOpen" class="changeStatsPanel">
     <!-- When statsUpdatedVisible is true, show a transient message and hide normal form contents -->
     <div *ngIf="statsUpdatedVisible" style="padding:12px; font-weight:700; text-align:center;">Stats updated</div>
     <ng-container *ngIf="!statsUpdatedVisible">
       <div class="stat-points">
-        <div class="stat-points-label">Points:</div>
-        <div class="stat-points-value">{{editableStats.pointsAvailable}}</div>
+        <div class="stat-points-label">Points: {{editableStats.pointsAvailable}}</div>
       </div>
       <div class="stat-list">
         <div class="stat-row">
           <div class="stat-label">Attack DMG</div>
           <div class="stat-controls">
-            <button class="stat-btn" (click)="adjustStat('attackDmg', -1)" [disabled]="editableStats.attackDmg <= 0" aria-label="Decrease Attack DMG">-</button>
+            <button class="stat-btn" (click)="adjustStat('attackDmg', -1)" [disabled]="editableStats.attackDmg <= 0"
+              aria-label="Decrease Attack DMG">-</button>
             <input class="stat-input" type="number" aria-label="Attack DMG" [min]="0"
-              [max]="(statsOriginal?.attackDmg ?? 0) + editableStats.pointsAvailable"
-              [value]="editableStats.attackDmg"
-              (input)="onStatInputChange('attackDmg',$any($event.target).value)" />
-            <button class="stat-btn" (click)="adjustStat('attackDmg', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Attack DMG">+</button>
+              [max]="(statsOriginal?.attackDmg ?? 0) + editableStats.pointsAvailable" [value]="editableStats.attackDmg"
+              (input)="onStatInputChange('attackDmg', $any($event.target).value)" />
+            <button class="stat-btn" (click)="adjustStat('attackDmg', 1)"
+              [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Attack DMG">+</button>
           </div>
         </div>
         <div class="stat-row">
           <div class="stat-label">Atk Speed (ms)</div>
           <div class="stat-controls">
-            <button class="stat-btn" (click)="adjustStat('attackSpeed', -1)" [disabled]="editableStats.attackSpeed <= 0" aria-label="Decrease Attack Speed Points">-</button>
+            <button class="stat-btn" (click)="adjustStat('attackSpeed', -1)" [disabled]="editableStats.attackSpeed <= 0"
+              aria-label="Decrease Attack Speed Points">-</button>
             <input class="stat-input" type="number" aria-label="Attack Speed Points" [min]="0"
               [max]="(statsOriginal?.attackSpeed ?? 0) + editableStats.pointsAvailable"
               [value]="editableStats.attackSpeed"
-              (input)="onStatInputChange('attackSpeed',$any($event.target).value)" />
-            <button class="stat-btn" (click)="adjustStat('attackSpeed', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Attack Speed Points">+</button>
+              (input)="onStatInputChange('attackSpeed', $any($event.target).value)" />
+            <button class="stat-btn" (click)="adjustStat('attackSpeed', 1)"
+              [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Attack Speed Points">+</button>
           </div>
         </div>
         <div class="stat-row">
           <div class="stat-label">Crit Rate (%)</div>
           <div class="stat-controls">
-            <button class="stat-btn" (click)="adjustStat('critRate', -1)" [disabled]="editableStats.critRate <= 0" aria-label="Decrease Crit Rate">-</button>
+            <button class="stat-btn" (click)="adjustStat('critRate', -1)" [disabled]="editableStats.critRate <= 0"
+              aria-label="Decrease Crit Rate">-</button>
             <input class="stat-input" type="number" aria-label="Crit Rate" [min]="0"
-              [max]="(statsOriginal?.critRate ?? 0) + editableStats.pointsAvailable"
-              [value]="editableStats.critRate"
-              (input)="onStatInputChange('critRate',$any($event.target).value)" />
-            <button class="stat-btn" (click)="adjustStat('critRate', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Crit Rate">+</button>
+              [max]="(statsOriginal?.critRate ?? 0) + editableStats.pointsAvailable" [value]="editableStats.critRate"
+              (input)="onStatInputChange('critRate', $any($event.target).value)" />
+            <button class="stat-btn" (click)="adjustStat('critRate', 1)" [disabled]="editableStats.pointsAvailable <= 0"
+              aria-label="Increase Crit Rate">+</button>
           </div>
         </div>
         <div class="stat-row">
           <div class="stat-label">Crit DMG (mult)</div>
           <div class="stat-controls">
-            <button class="stat-btn" (click)="adjustStat('critDmg', -1)" [disabled]="editableStats.critDmg <= 1" aria-label="Decrease Crit DMG">-</button>
+            <button class="stat-btn" (click)="adjustStat('critDmg', -1)" [disabled]="editableStats.critDmg <= 1"
+              aria-label="Decrease Crit DMG">-</button>
             <input class="stat-input" type="number" aria-label="Crit DMG" [min]="1"
-              [max]="(statsOriginal?.critDmg ?? 1) + editableStats.pointsAvailable"
-              [value]="editableStats.critDmg"
-              (input)="onStatInputChange('critDmg',$any($event.target).value)" />
-            <button class="stat-btn" (click)="adjustStat('critDmg', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Crit DMG">+</button>
+              [max]="(statsOriginal?.critDmg ?? 1) + editableStats.pointsAvailable" [value]="editableStats.critDmg"
+              (input)="onStatInputChange('critDmg', $any($event.target).value)" />
+            <button class="stat-btn" (click)="adjustStat('critDmg', 1)" [disabled]="editableStats.pointsAvailable <= 0"
+              aria-label="Increase Crit DMG">+</button>
           </div>
         </div>
         <div class="stat-row">
           <div class="stat-label">Health</div>
           <div class="stat-controls">
-            <button class="stat-btn" (click)="adjustStat('health', -1)" [disabled]="editableStats.health <= 0" aria-label="Decrease Health">-</button>
+            <button class="stat-btn" (click)="adjustStat('health', -1)" [disabled]="editableStats.health <= 0"
+              aria-label="Decrease Health">-</button>
             <input class="stat-input" type="number" aria-label="Health points" [min]="0"
-              [max]="(statsOriginal?.health ?? 0) + editableStats.pointsAvailable"
-              [value]="editableStats.health"
-              (input)="onStatInputChange('health',$any($event.target).value)" />
-            <button class="stat-btn" (click)="adjustStat('health', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Health">+</button>
+              [max]="(statsOriginal?.health ?? 0) + editableStats.pointsAvailable" [value]="editableStats.health"
+              (input)="onStatInputChange('health', $any($event.target).value)" />
+            <button class="stat-btn" (click)="adjustStat('health', 1)" [disabled]="editableStats.pointsAvailable <= 0"
+              aria-label="Increase Health">+</button>
           </div>
         </div>
         <div class="stat-row">
           <div class="stat-label">Mana</div>
           <div class="stat-controls">
-            <button class="stat-btn" (click)="adjustStat('mana', -1)" [disabled]="editableStats.mana <= 0" aria-label="Decrease Mana">-</button>
+            <button class="stat-btn" (click)="adjustStat('mana', -1)" [disabled]="editableStats.mana <= 0"
+              aria-label="Decrease Mana">-</button>
             <input class="stat-input" type="number" aria-label="Mana points" [min]="0"
-              [max]="(statsOriginal?.mana ?? 0) + editableStats.pointsAvailable"
-              [value]="editableStats.mana"
-              (input)="onStatInputChange('mana',$any($event.target).value)" />
-            <button class="stat-btn" (click)="adjustStat('mana', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Mana">+</button>
+              [max]="(statsOriginal?.mana ?? 0) + editableStats.pointsAvailable" [value]="editableStats.mana"
+              (input)="onStatInputChange('mana', $any($event.target).value)" />
+            <button class="stat-btn" (click)="adjustStat('mana', 1)" [disabled]="editableStats.pointsAvailable <= 0"
+              aria-label="Increase Mana">+</button>
           </div>
         </div>
         <div class="stat-row">
           <div class="stat-label">Mana Regen</div>
           <div class="stat-controls">
-            <button class="stat-btn" (click)="adjustStat('manaRegen', -1)" [disabled]="editableStats.manaRegen <= 0" aria-label="Decrease Mana Regen">-</button>
+            <button class="stat-btn" (click)="adjustStat('manaRegen', -1)" [disabled]="editableStats.manaRegen <= 0"
+              aria-label="Decrease Mana Regen">-</button>
             <input class="stat-input" type="number" aria-label="Mana Regen" [min]="0" step="1"
-              [max]="(statsOriginal?.manaRegen ?? 0) + editableStats.pointsAvailable"
-              [value]="editableStats.manaRegen"
-              (input)="onStatInputChange('manaRegen',$any($event.target).value)" />
-            <button class="stat-btn" (click)="adjustStat('manaRegen', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Mana Regen">+</button>
+              [max]="(statsOriginal?.manaRegen ?? 0) + editableStats.pointsAvailable" [value]="editableStats.manaRegen"
+              (input)="onStatInputChange('manaRegen', $any($event.target).value)" />
+            <button class="stat-btn" (click)="adjustStat('manaRegen', 1)"
+              [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Mana Regen">+</button>
           </div>
         </div>
         <div class="stat-row">
           <div class="stat-label">Regen</div>
           <div class="stat-controls">
-            <button class="stat-btn" (click)="adjustStat('regen', -1)" [disabled]="editableStats.regen <= 0" aria-label="Decrease Regen">-</button>
+            <button class="stat-btn" (click)="adjustStat('regen', -1)" [disabled]="editableStats.regen <= 0"
+              aria-label="Decrease Regen">-</button>
             <input class="stat-input" type="number" aria-label="Regen" [min]="0" step="1"
-              [max]="(statsOriginal?.regen ?? 0) + editableStats.pointsAvailable"
-              [value]="editableStats.regen"
-              (input)="onStatInputChange('regen',$any($event.target).value)" />
-            <button class="stat-btn" (click)="adjustStat('regen', 1)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Regen">+</button>
+              [max]="(statsOriginal?.regen ?? 0) + editableStats.pointsAvailable" [value]="editableStats.regen"
+              (input)="onStatInputChange('regen', $any($event.target).value)" />
+            <button class="stat-btn" (click)="adjustStat('regen', 1)" [disabled]="editableStats.pointsAvailable <= 0"
+              aria-label="Increase Regen">+</button>
           </div>
         </div>
       </div>
@@ -373,12 +385,12 @@
         <button (click)="closeStartMenu()">Cancel</button>
       </div>
     </ng-container>
-    
+
     <button (click)="closeStartMenu()" *ngIf="statsUpdatedVisible">Close</button>
   </div>
 
   <!-- Change Skills subpanel: 3-box layout (large center box + two stacked to the right) -->
-  <div *ngIf="isChangeSkillsOpen" class="changeStatsPanel"> 
+  <div *ngIf="isChangeSkillsOpen" class="changeStatsPanel">
     <div *ngIf="skillsUpdatedVisible" style="padding:12px; font-weight:700; text-align:center;">Skills updated</div>
     <ng-container *ngIf="!skillsUpdatedVisible">
       <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
@@ -386,50 +398,53 @@
         <div style="font-weight:700;">{{editableSkills.pointsAvailable}}</div>
       </div>
 
-  <!-- Skills row (wrapable) -->
-  <div style="display:flex; gap:12px; align-items:center; justify-content:center; flex-wrap:wrap;">
+      <!-- Skills row (wrapable) -->
+      <div style="display:flex; gap:12px; align-items:center; justify-content:center; flex-wrap:wrap;">
         <!-- Large center skill box (Skill A) -->
-        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:160px; height:140px; background:#0f0f0f; border:1px solid #333; padding:8px; border-radius:8px;">
-          <div style="display:flex; align-items:center; width:100%; justify-content:space-between;">
-            <button (click)="adjustSkill('skillA', -1)" [disabled]="editableSkills.skillA <= 0" aria-label="Decrease Skill A">-</button>
-            <div style="width:84px; height:84px; background:#222; display:flex; align-items:center; justify-content:center; border-radius:8px;">
-              <!-- placeholder large icon -->
-              <div style="width:44px; height:44px; background:#555; border-radius:6px;"></div>
+        <div class="editableSkillsLargeBox">
+          <div class="editableSkillsInputWrapper">
+            <button (click)="adjustSkill('skillA', -1)" [disabled]="editableSkills.skillA <= 0"
+              aria-label="Decrease Skill A">-</button>
+            <div class="editableSkillsPanelIconWrapper">
+              <div class="editableSkillsPanelIcon"></div>
             </div>
-            <button (click)="adjustSkill('skillA', 1)" [disabled]="editableSkills.pointsAvailable <= 0" aria-label="Increase Skill A">+</button>
+            <button (click)="adjustSkill('skillA', 1)" [disabled]="editableSkills.pointsAvailable <= 0"
+              aria-label="Increase Skill A">+</button>
           </div>
-          <div style="margin-top:8px; font-weight:700;">Skill A</div>
-          <div style="font-size:12px; color:#ccc;">{{editableSkills.skillA}}</div>
+          <div class="editableSkillPanelSkillName">Skill A</div>
+          <div class="editableSkillsLevel">{{editableSkills.skillA}}</div>
         </div>
 
         <!-- Right column: Skill B and C inline/wrap -->
         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:center;">
           <!-- Skill B large box (match Skill A appearance) -->
-          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:160px; height:140px; background:#0f0f0f; border:1px solid #333; padding:8px; border-radius:8px;">
-            <div style="display:flex; align-items:center; width:100%; justify-content:space-between;">
-              <button (click)="adjustSkill('skillB', -1)" [disabled]="editableSkills.skillB <= 0" aria-label="Decrease Skill B">-</button>
-              <div style="width:84px; height:84px; background:#222; display:flex; align-items:center; justify-content:center; border-radius:8px;">
-                <!-- placeholder large icon -->
-                <div style="width:44px; height:44px; background:#555; border-radius:6px;"></div>
+          <div class="editableSkillsLargeBox">
+            <div class="editableSkillsInputWrapper">
+              <button (click)="adjustSkill('skillB', -1)" [disabled]="editableSkills.skillB <= 0"
+                aria-label="Decrease Skill B">-</button>
+              <div class="editableSkillsPanelIconWrapper">
+                <div class="editableSkillsPanelIcon"></div>
               </div>
-              <button (click)="adjustSkill('skillB', 1)" [disabled]="editableSkills.pointsAvailable <= 0" aria-label="Increase Skill B">+</button>
+              <button (click)="adjustSkill('skillB', 1)" [disabled]="editableSkills.pointsAvailable <= 0"
+                aria-label="Increase Skill B">+</button>
             </div>
-            <div style="margin-top:8px; font-weight:700;">Skill B</div>
-            <div style="font-size:12px; color:#ccc;">{{editableSkills.skillB}}</div>
+            <div class="editableSkillPanelSkillName">Skill B</div>
+            <div class="editableSkillsLevel">{{editableSkills.skillB}}</div>
           </div>
 
           <!-- Skill C large box (match Skill A appearance) -->
-          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:160px; height:140px; background:#0f0f0f; border:1px solid #333; padding:8px; border-radius:8px;">
-            <div style="display:flex; align-items:center; width:100%; justify-content:space-between;">
-              <button (click)="adjustSkill('skillC', -1)" [disabled]="editableSkills.skillC <= 0" aria-label="Decrease Skill C">-</button>
-              <div style="width:84px; height:84px; background:#222; display:flex; align-items:center; justify-content:center; border-radius:8px;">
-                <!-- placeholder large icon -->
-                <div style="width:44px; height:44px; background:#555; border-radius:6px;"></div>
+          <div class="editableSkillsLargeBox">
+            <div class="editableSkillsInputWrapper">
+              <button (click)="adjustSkill('skillC', -1)" [disabled]="editableSkills.skillC <= 0"
+                aria-label="Decrease Skill C">-</button>
+              <div class="editableSkillsPanelIconWrapper">
+                <div class="editableSkillsPanelIcon"></div>
               </div>
-              <button (click)="adjustSkill('skillC', 1)" [disabled]="editableSkills.pointsAvailable <= 0" aria-label="Increase Skill C">+</button>
+              <button (click)="adjustSkill('skillC', 1)" [disabled]="editableSkills.pointsAvailable <= 0"
+                aria-label="Increase Skill C">+</button>
             </div>
-            <div style="margin-top:8px; font-weight:700;">Skill C</div>
-            <div style="font-size:12px; color:#ccc;">{{editableSkills.skillC}}</div>
+            <div class="editableSkillPanelSkillName">Skill C</div>
+            <div class="editableSkillsLevel">{{editableSkills.skillC}}</div>
           </div>
         </div>
       </div>
