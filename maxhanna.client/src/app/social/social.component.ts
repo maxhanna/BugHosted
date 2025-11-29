@@ -743,12 +743,12 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (comment.storyId) {
       // attempt to decrypt the incoming comment so replies appear decrypted immediately
       try {
-        if (comment.commentText && comment.user && comment.user.id) {
+        if (!comment.decrypted && comment.commentText && comment.user && comment.user.id) {
           comment.commentText = this.encryptionService.decryptContent(comment.commentText, String(comment.user.id));
           comment.decrypted = true;
         }
       } catch (ex) {
-        // ignore decryption failures and leave raw content
+        console.error('Failed to decrypt new comment', ex);
       }
       const targetStory = this.storyResponse?.stories?.find(x => x.id === comment.storyId);
       if (targetStory) {
