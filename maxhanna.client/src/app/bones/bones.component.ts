@@ -1144,6 +1144,28 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     // Fetch persisted skill allocations for this hero (if any) and apply locally
     await this.reinitializeSkills();
 
+    this.reinitializeStats(rz);
+    this.hero.isLocked = this.isStartMenuOpened || this.isShopMenuOpened;
+    this.mainScene.setHeroId(this.metaHero.id);
+    this.mainScene.hero = this.hero;
+    this.mainScene.metaHero = this.metaHero;
+    storyFlags.flags = new Map<string, boolean>();
+ 
+    const level = this.getLevelFromLevelName(rz.map); 
+    if (level) {
+      this.mainScene.setLevel(level);
+    }
+
+    this.mainScene.camera.centerPositionOnTarget(this.metaHero.position);
+    this.playLevelMusic(this.metaHero.map ?? ''); 
+    await this.reinitializeInventoryData(); 
+
+    if ((rz.hp ?? 100) <= 0) {
+      this.handleHeroDeath({ killerId: null, killerUserId: undefined, cause: "spawned_dead" });
+    }
+  }
+
+  private reinitializeStats(rz: MetaHero) {
     const statsAny: any = (rz as any).stats ?? rz;
     if (statsAny) {
       if (statsAny.attackDmg !== undefined) this.metaHero.attackDmg = Number(statsAny.attackDmg);
@@ -1173,24 +1195,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       try { (this.hero as any).currentManaUnits = Math.max(0, ((this.hero as any).maxMana ?? 0) * 100); } catch { }
       try { this.hero.mana = (rz as any).mana ?? 0; } catch { }
       this.hero.exp = rz.exp ?? 0;
-    }
-    this.hero.isLocked = this.isStartMenuOpened || this.isShopMenuOpened;
-    this.mainScene.setHeroId(this.metaHero.id);
-    this.mainScene.hero = this.hero;
-    this.mainScene.metaHero = this.metaHero;
-    storyFlags.flags = new Map<string, boolean>();
- 
-    const level = this.getLevelFromLevelName(rz.map); 
-    if (level) {
-      this.mainScene.setLevel(level);
-    }
-
-    this.mainScene.camera.centerPositionOnTarget(this.metaHero.position);
-    this.playLevelMusic(this.metaHero.map ?? ''); 
-    await this.reinitializeInventoryData(); 
-
-    if ((rz.hp ?? 100) <= 0) {
-      this.handleHeroDeath({ killerId: null, killerUserId: undefined, cause: "spawned_dead" });
     }
   }
 

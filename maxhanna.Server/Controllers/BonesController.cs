@@ -209,18 +209,20 @@ namespace maxhanna.Server.Controllers
 				{
 					cmd.Parameters.AddWithValue("@HeroId", heroId);
 					using var rdr = await cmd.ExecuteReaderAsync();
+					// Read values into locals first, then close the reader before committing
+					int sA = 0, sB = 0, sC = 0;
 					if (await rdr.ReadAsync())
 					{
-						var sA = rdr.IsDBNull(0) ? 0 : rdr.GetInt32(0);
-						var sB = rdr.IsDBNull(1) ? 0 : rdr.GetInt32(1);
-						var sC = rdr.IsDBNull(2) ? 0 : rdr.GetInt32(2);
-						await transaction.CommitAsync();
-						return Ok(new { skillA = sA, skillB = sB, skillC = sC });
+						sA = rdr.IsDBNull(0) ? 0 : rdr.GetInt32(0);
+						sB = rdr.IsDBNull(1) ? 0 : rdr.GetInt32(1);
+						sC = rdr.IsDBNull(2) ? 0 : rdr.GetInt32(2);
 					}
+					// Ensure the reader is closed before performing commit/other commands on the same connection
+					try { await rdr.CloseAsync(); } catch { }
+					await transaction.CommitAsync();
+					return Ok(new { skillA = sA, skillB = sB, skillC = sC });
 				}
-				await transaction.CommitAsync();
-				// no row -> return zeros
-				return Ok(new { skillA = 0, skillB = 0, skillC = 0 });
+
 			}
 			catch (Exception ex)
 			{
