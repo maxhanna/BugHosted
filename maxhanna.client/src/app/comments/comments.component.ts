@@ -451,7 +451,9 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   commentPosted(event: { results: any, content: any, originalContent: string }, parentComment?: FileComment) {
     const commentAdded = event.content.comment as FileComment;
     commentAdded.id = parseInt(event.results.split(" ")[0]);
-    commentAdded.commentText = this.encryptionService.decryptContent(commentAdded.commentText ?? "", commentAdded.user.id + "");
+    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    commentAdded.commentText = this.encryptionService.decryptContent(commentAdded.commentText ?? "", user?.id + "");
+    commentAdded.decrypted = true;
     if (!parentComment) {
       this.commentAddedEvent.emit(commentAdded);
     } else {
@@ -459,8 +461,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       parentComment.comments.push(commentAdded);
     }
     this.replyingToCommentId = undefined;
-    this.replyingToCommentEvent.emit(this.replyingToCommentId);
-    // After a new comment is added, try to update any polls in the DOM for this comment
+    this.replyingToCommentEvent.emit(this.replyingToCommentId); 
     this.scheduleCommentPollRender();
   }
 
