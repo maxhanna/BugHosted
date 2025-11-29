@@ -2188,12 +2188,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   onVolumeChange() {
-    try {
-      // Persist to localStorage for simple persistence across sessions
-      localStorage.setItem('bonesVolume', String(this.currentVolume));
-      // Ensure the persisted value is applied to any currently-playing audio
-      try { resources.setVolumeMultiplier(this.currentVolume); } catch { }
-    } catch { }
+    try { 
+      localStorage.setItem('bonesVolume', String(this.currentVolume)); 
+      resources.setVolumeMultiplier(this.currentVolume); 
+    } catch { console.error('Failed to persist volume setting'); }
   }
   private fetchUserSettings() {
     this.userService.getUserSettings(this.parentRef?.user?.id ?? 0).then(res => {
@@ -2223,7 +2221,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         document.addEventListener('pointerdown', startMusic, { once: true });
         document.addEventListener('keydown', startMusic, { once: true });
       }
-    }).catch(() => { });
+    }).catch(() => { console.error('Failed to fetch user settings'); } );
   }
 
   clearPendingInvitePopup() {
