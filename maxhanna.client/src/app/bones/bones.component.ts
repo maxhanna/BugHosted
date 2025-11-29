@@ -18,10 +18,8 @@ import { HeroRoomLevel } from './levels/hero-room';
 import { CharacterCreate } from './levels/character-create';
 import { Level } from './objects/Level/level';
 import { MetaEvent } from '../../services/datacontracts/bones/meta-event';
-import { InventoryItem } from './objects/InventoryItem/inventory-item';
 import { ColorSwap } from '../../services/datacontracts/bones/color-swap';
 import { MetaBot } from '../../services/datacontracts/bones/meta-bot';
-import { HeroInventoryItem } from '../../services/datacontracts/bones/hero-inventory-item';
 import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 import { Bot } from './objects/Bot/bot';
 import { Character } from './objects/character';
@@ -69,24 +67,18 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   mainScene?: any;
   metaHero: MetaHero;
   hero?: Hero;
-  otherHeroes: MetaHero[] = [];
-  // Active players across all maps (recently updated)
+  otherHeroes: MetaHero[] = []; 
   activePlayers: MetaHero[] = [];
   private _lastKnownHeroHp: Map<number, number> = new Map<number, number>();
   partyMembers: PartyMember[] = [];
-  chat: MetaChat[] = [];
-  // Track encounter (enemy bot) IDs known to be alive on the CURRENT map. When the server
-  // stops sending an encounter (because it hit 0 HP and is now dead), we reconcile locally
-  // and destroy the lingering client object.
+  chat: MetaChat[] = []; 
   private _knownEncounterIds: Set<number> = new Set<number>();
   private _encounterMap?: string; // last map used for encounter tracking (clear on map change)
-  events: MetaEvent[] = [];
-  // Death UI/state
+  events: MetaEvent[] = []; 
   showDeathPanel: boolean = false;
   deathKillerUserId?: number;
   deathKillerName?: string;
-  private isDead: boolean = false;
-  // cache of loaded User objects keyed by userId
+  private isDead: boolean = false; 
   public cachedUsers: Map<number, User> = new Map<number, User>();
   latestMessagesMap = new Map<string, MetaChat>();
   stopChatScroll = false;
@@ -95,8 +87,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   actionBlocker = false;
   blockOpenStartMenu = false;
   isShopMenuOpened = false;
-  hideStartButton = false;
-  // Start menu / panels
+  hideStartButton = false; 
   isStartMenuOpened = false;
   isPartyPanelOpen = false;
   isChangeStatsOpen = false;
@@ -117,7 +108,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   // track invites that are being cleared so we can play an animation before removing
   pendingClearing: Set<number> = new Set<number>();
   private pendingClearingTimers: Map<number, any> = new Map<number, any>();
-  // filter: 'all' | 'party' | 'nearby'
   partyFilter: 'all' | 'party' | 'nearby' = 'all';
   showLeaveConfirm: boolean = false;
   editableStats: { attackDmg: number; attackSpeed: number; critRate: number; critDmg: number; health: number; regen: number; mana: number; manaRegen: number; pointsAvailable: number } = { attackDmg: 1, attackSpeed: 0, critRate: 0.0, critDmg: 2.0, health: 0, regen: 0.0, mana: 0, manaRegen: 0, pointsAvailable: 0 };
@@ -149,35 +139,25 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   isMuted = false;
   isMusicMuted = false;
   isSfxMuted = false;
-  // Current global volume (0.0 - 1.0) bound to the UI slider
-  currentVolume: number = 1.0;
+  currentVolume: number = 1.0;  // Current global volume (0.0 - 1.0) bound to the UI slider
 
   // HUD bubble/ripple animations for HP and Mana changes
   private _hpBubbles: any[] = [];
   private _manaBubbles: any[] = [];
   private _lastShownHp?: number = undefined;
   private _lastShownManaUnits?: number = undefined;
-  private _lastHudRenderTs: number = Date.now();
 
   // Incoming invite popup state
-  pendingInvitePopup: { inviterId: number, inviterName: string, expiresAt: number } | null = null;
-  // countdown in seconds for UI binding
-  pendingInviteSecondsLeft: number | null = null;
+  pendingInvitePopup: { inviterId: number, inviterName: string, expiresAt: number } | null = null; 
+  pendingInviteSecondsLeft: number | null = null;  // countdown in seconds for UI binding
   private pendingInviteTimer?: any; // interval id
 
-
   private currentChatTextbox?: ChatSpriteTextString | undefined;
-  // Track last server-provided destination per encounter to avoid repeatedly reapplying identical targets
   private _lastServerDestinations: Map<number, Vector2> = new Map<number, Vector2>();
   private pollingInterval: any;
   private _processedCleanupInterval: any;
   private _pendingInvitesInterval: any;
-  // Per-hero message expiry timers keyed by hero id (mirrors Ender behavior)
   private heroMessageExpiryTimers: Map<number, { timer: any, msg: string }> = new Map();
-  // Map of server dropped-item id -> DroppedItem instance in the scene
-  private _droppedItemsMap: Map<number, any> = new Map<number, any>();
-  // Last map string/identifier fetched from server; when this changes we clear dropped items
-  private _lastDroppedMap?: string | number;
 
   async ngOnInit() {
     this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
@@ -525,320 +505,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     }
     this.mainScene.drawObjects(this.ctx);
     this.ctx.restore(); //Restore to original state 
-    this.drawHudForLocalHero(this.ctx);
+    this.mainScene.drawHudForLocalHero(this.ctx, this.hero, this.canvas, this._hpBubbles, this._manaBubbles);
     this.mainScene.drawForeground(this.ctx); //Draw anything above the game world 
   }
   gameLoop = new GameLoop(this.update, this.render);
 
   // Draw health orb (bottom-left), experience bar (bottom), mana orb (bottom-right)
-  drawHudForLocalHero(ctx: CanvasRenderingContext2D) {
-    try {
-      const hero = this.hero;
-      if (!hero || !hero.isUserControlled) return;
-      // Ensure canvas is in a known default state: normal composite and full alpha.
-      // Some draw code (particles, children's draw routines) may change these and
-      // forget to restore; force defaults here so HUD elements render solidly.
-      try { ctx.globalCompositeOperation = 'source-over'; } catch { }
-      try { ctx.globalAlpha = 1; } catch { }
-      // Health orb parameters
-      const orbRadius = Math.max(32, Math.floor(Math.min(this.canvas.width, this.canvas.height) * 0.06));
-      const padding = 12;
-      let orbX = padding + orbRadius;
-      let orbY = this.canvas.height - padding - orbRadius;
-      // Ensure orb is fully inside canvas (avoid clipping on very small viewports)
-      const edgePad = 2; // extra pixel padding to prevent 1px anti-alias clipping
-      orbX = Math.max(orbRadius + edgePad, Math.min(this.canvas.width - orbRadius - edgePad, orbX));
-      orbY = Math.max(orbRadius + edgePad, Math.min(this.canvas.height - orbRadius - edgePad, orbY));
-
-      // Draw orb background
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(orbX, orbY, orbRadius, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fill();
-      ctx.closePath();
-
-      // HP fill (vial-style vertical liquid)
-      const hp = Math.max(0, Math.min(100, (hero.hp ?? 0)));
-      const hpRatio = hp / 100; 
-        // Clip to orb circle so liquid stays within container
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(orbX, orbY, orbRadius - 4, 0, Math.PI * 2);
-        ctx.clip();
-
-        // Compute liquid rectangle (fill from bottom up)
-        const innerRadius = orbRadius - 6; // padding inside container
-        const liquidHeight = Math.max(0, innerRadius * 2 * hpRatio);
-        const liquidTop = orbY + innerRadius - liquidHeight;
-        const liquidLeft = orbX - innerRadius;
-        const liquidWidth = innerRadius * 2;
-
-        // Vertical gradient for the health liquid (pale red at top -> darker red at bottom)
-        const healthBottom = orbY + innerRadius;
-        const grad = ctx.createLinearGradient(0, liquidTop, 0, healthBottom);
-        grad.addColorStop(0, 'rgba(255,180,180,0.95)'); // pale top
-        grad.addColorStop(1, 'rgba(180,20,20,0.95)'); // darker bottom
-
-        ctx.fillStyle = grad;
-        // Draw as circular segment for smooth rounded edges at any liquid height
-        if (liquidHeight <= 0) {
-          // nothing
-        } else if (liquidHeight >= innerRadius * 2 - 0.001) {
-          // full circle
-          ctx.beginPath();
-          ctx.arc(orbX, orbY, innerRadius, 0, Math.PI * 2);
-          ctx.fill();
-        } else {
-          const yTop = liquidTop;
-          // vertical distance from center to the horizontal top line
-          const dy = yTop - orbY;
-          // half-width at this y along the circle
-          const dx = Math.sqrt(Math.max(0, innerRadius * innerRadius - dy * dy));
-          const leftX = orbX - dx;
-          const rightX = orbX + dx;
-
-          ctx.beginPath();
-          // start at the top-right intersection, draw the circular arc across the bottom to top-left
-          ctx.moveTo(rightX, yTop);
-          const startAngle = Math.atan2(yTop - orbY, rightX - orbX);
-          const endAngle = Math.atan2(yTop - orbY, leftX - orbX);
-          // draw the bottom arc (clockwise) so the filled region is the liquid area;
-          // using `false` ensures we take the shorter/inner arc across the bottom
-          ctx.arc(orbX, orbY, innerRadius, startAngle, endAngle, false);
-          ctx.closePath();
-          ctx.fill();
-
-          // subtle sheen / highlight at top of liquid
-          if (liquidHeight > 4) {
-            // curved sheen: draw a thin arc band along the liquid surface
-            ctx.save();
-            ctx.beginPath();
-            const sheenInnerR = innerRadius - 1;
-            const sheenOuterR = Math.min(innerRadius, innerRadius - 1 + Math.min(6, liquidHeight));
-            // create path for outer arc
-            const sStart = Math.atan2(yTop - orbY, rightX - orbX);
-            const sEnd = Math.atan2(yTop - orbY, leftX - orbX);
-            ctx.arc(orbX, orbY, sheenOuterR, sStart, sEnd, true);
-            // line to inner arc
-            ctx.arc(orbX, orbY, sheenInnerR, sEnd, sStart, false);
-            ctx.closePath();
-            ctx.globalAlpha = 0.28;
-            const sheenGrad = ctx.createLinearGradient(0, yTop, 0, yTop + (sheenOuterR - sheenInnerR));
-            sheenGrad.addColorStop(0, 'rgba(255,255,255,0.95)');
-            sheenGrad.addColorStop(1, 'rgba(255,255,255,0.05)');
-            ctx.fillStyle = sheenGrad;
-            ctx.fill();
-            ctx.restore();
-          }
-        }
-
-        // Draw HP bubbles inside the clipped liquid so they brighten the liquid instead of overlaying it
-         
-          const nowB = Date.now();
-          for (let i = this._hpBubbles.length - 1; i >= 0; i--) {
-            const b = this._hpBubbles[i];
-            if (!b._init) {
-              b.x = orbX + (Math.random() - 0.5) * innerRadius * 0.8;
-              b.y = orbY + innerRadius - (Math.random() * 8);
-              b._init = true;
-            }
-            const t = nowB - b.born;
-            const lifeFrac = Math.max(0, Math.min(1, t / b.life));
-            b.x += b.vx;
-            b.y -= b.vy * (1 + lifeFrac * 0.6);
-            b.a = 1 - lifeFrac;
-            ctx.save();
-            try {
-              // Use normal drawing to avoid washing out underlying orb color
-              ctx.globalCompositeOperation = 'source-over';
-              ctx.globalAlpha = Math.max(0, Math.min(1, b.a * 0.6));
-              const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
-              grad.addColorStop(0, 'rgba(255,255,255,0.35)');
-              grad.addColorStop(0.6, 'rgba(255,255,255,0.08)');
-              grad.addColorStop(1, 'rgba(255,255,255,0.0)');
-              ctx.fillStyle = grad;
-              ctx.beginPath();
-              ctx.arc(b.x, b.y, Math.max(0.6, b.r * (1 - lifeFrac * 0.6)), 0, Math.PI * 2);
-              ctx.fill();
-              ctx.closePath();
-            } finally { ctx.restore(); }
-            if (t >= b.life) this._hpBubbles.splice(i, 1);
-          } 
-
-        ctx.restore();
-     
-
-      // Inner circle to create border effect
-      ctx.beginPath();
-      ctx.arc(orbX, orbY, orbRadius - 8, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(0,0,0,0.25)';
-      ctx.fill();
-      ctx.closePath();
-
-      // HP text inside orb
-      ctx.fillStyle = 'white';
-      ctx.font = 'bold 14px fontRetroGaming';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(String(Math.round(hp)), orbX, orbY);
-
-
-
-      // Experience bar along bottom
-      const barHeight = 12;
-      const barPadding = 8;
-      // Reserve space on the far-right of the bar for the mana orb
-      const manaOrbRadius = orbRadius; // same sizing as health orb
-      const reservedForMana = manaOrbRadius * 2 + padding;
-      const barWidth = this.canvas.width - (orbRadius * 2 + padding * 4) - reservedForMana;
-      const barX = orbX + orbRadius + padding * 2;
-      const barY = this.canvas.height - barHeight - barPadding;
-      const exp = (hero.exp ?? 0);
-      const expForNext = (hero.expForNextLevel && hero.expForNextLevel > 0) ? hero.expForNextLevel : Math.max(1, (hero.level ?? 1) * 15);
-      const expRatio = Math.max(0, Math.min(1, exp / expForNext));
-
-      // Bar background
-      ctx.beginPath();
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fillRect(barX, barY, barWidth, barHeight);
-      ctx.closePath();
-
-      // Filled exp
-      ctx.beginPath();
-      ctx.fillStyle = 'rgba(220,200,30,0.95)';
-      ctx.fillRect(barX + 2, barY + 2, Math.max(0, (barWidth - 4) * expRatio), barHeight - 4);
-      ctx.closePath();
-
-      // Level text on left of bar
-      ctx.fillStyle = 'white';
-      ctx.font = 'bold 12px fontRetroGaming';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('Lvl ' + (hero.level ?? 1), barX + 6, barY + barHeight / 2);
-
-      // Mana orb on the right side of the exp bar
-      let manaOrbX = barX + barWidth + reservedForMana - manaOrbRadius; // place near the right edge
-      let manaOrbY = this.canvas.height - padding - manaOrbRadius;
-      // Clamp mana orb so it doesn't overflow off the right/bottom edges
-      manaOrbX = Math.max(manaOrbRadius + edgePad, Math.min(this.canvas.width - manaOrbRadius - edgePad, manaOrbX));
-      manaOrbY = Math.max(manaOrbRadius + edgePad, Math.min(this.canvas.height - manaOrbRadius - edgePad, manaOrbY));
-      ctx.beginPath();
-      ctx.arc(manaOrbX, manaOrbY, manaOrbRadius, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fill();
-      ctx.closePath();
-
-      // Mana fill (vertical vial-style) using currentManaUnits (1 stat point == 100 units)
-      try {
-        const heroAny: any = hero as any;
-        const capUnits = (heroAny.getManaCapacity && typeof heroAny.getManaCapacity === 'function') ? heroAny.getManaCapacity() : Math.max(0, (heroAny.maxMana ?? 0) * 100);
-        // If capUnits is zero, fall back to legacy percent rendering
-        let manaRatio = 0;
-        let manaText = '0';
-        if (capUnits > 0) {
-          const current = Math.max(0, Math.min(capUnits, (heroAny.currentManaUnits ?? Math.round((heroAny.mana ?? 100) / 100 * capUnits))));
-          manaRatio = current / capUnits;
-          const pointsLeft = (current / 100);
-          manaText = String(Math.round(pointsLeft * 10) / 10);
-        } else {
-          const manaPct = Math.max(0, Math.min(100, (hero.mana ?? 100)));
-          manaRatio = manaPct / 100;
-          manaText = String(Math.round(manaPct));
-        }
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(manaOrbX, manaOrbY, manaOrbRadius - 4, 0, Math.PI * 2);
-        ctx.clip();
-
-        const manaTop = manaOrbY + manaOrbRadius - 4 - (manaRatio * ((manaOrbRadius - 4) * 2));
-        const manaBottom = manaOrbY + manaOrbRadius - 4;
-        // vertical gradient: pale blue at top -> darker blue at bottom
-        const mg = ctx.createLinearGradient(0, manaTop, 0, manaBottom);
-        mg.addColorStop(0, 'rgba(174,233,255,0.95)'); // pale top
-        mg.addColorStop(1, 'rgba(60,140,240,0.95)'); // darker bottom
-        ctx.fillStyle = mg;
-        ctx.fillRect(manaOrbX - (manaOrbRadius - 4), manaTop, (manaOrbRadius - 4) * 2, (manaOrbRadius - 4) * 2);
-
-        // subtle curved sheen at top of liquid
-        const liquidHeight = manaBottom - manaTop;
-        if (liquidHeight > 4) {
-          const yTop = manaTop;
-          const dy = yTop - manaOrbY;
-          const r = manaOrbRadius - 4;
-          const dx = Math.sqrt(Math.max(0, r * r - dy * dy));
-          const leftX = manaOrbX - dx;
-          const rightX = manaOrbX + dx;
-
-          const sheenInnerR = r - 1;
-          const sheenOuterR = Math.min(r, r - 1 + Math.min(6, liquidHeight));
-          const sStart = Math.atan2(yTop - manaOrbY, rightX - manaOrbX);
-          const sEnd = Math.atan2(yTop - manaOrbY, leftX - manaOrbX);
-          ctx.beginPath();
-          ctx.arc(manaOrbX, manaOrbY, sheenOuterR, sStart, sEnd, true);
-          ctx.arc(manaOrbX, manaOrbY, sheenInnerR, sEnd, sStart, false);
-          ctx.closePath();
-          ctx.globalAlpha = 0.22;
-          const sheenGrad = ctx.createLinearGradient(0, yTop, 0, yTop + (sheenOuterR - sheenInnerR));
-          sheenGrad.addColorStop(0, 'rgba(255,255,255,0.95)');
-          sheenGrad.addColorStop(1, 'rgba(255,255,255,0.05)');
-          ctx.fillStyle = sheenGrad;
-          ctx.fill();
-          ctx.globalAlpha = 1;
-        }
-
-        // Draw mana bubbles inside the clipped liquid so they brighten the liquid instead of overlaying it
-        try {
-          const nowM = Date.now();
-          const rInner = manaOrbRadius - 4;
-          for (let i = this._manaBubbles.length - 1; i >= 0; i--) {
-            const b = this._manaBubbles[i];
-            if (!b._init) {
-              b.x = manaOrbX + (Math.random() - 0.5) * rInner * 0.8;
-              b.y = manaOrbY + (Math.random() * 8) - (rInner * 0.2);
-              b._init = true;
-            }
-            const t = nowM - b.born;
-            const lifeFrac = Math.max(0, Math.min(1, t / b.life));
-            b.x += b.vx;
-            b.y -= b.vy * (1 + lifeFrac * 0.6);
-            b.a = 1 - lifeFrac;
-            ctx.save();
-            try {
-              ctx.globalCompositeOperation = 'source-over';
-              ctx.globalAlpha = Math.max(0, Math.min(1, b.a * 0.6));
-              const mgRad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, Math.max(1, b.r));
-              mgRad.addColorStop(0, 'rgba(220,250,255,0.35)');
-              mgRad.addColorStop(0.6, 'rgba(180,230,255,0.08)');
-              mgRad.addColorStop(1, 'rgba(180,230,255,0.0)');
-              ctx.fillStyle = mgRad;
-              ctx.beginPath();
-              ctx.arc(b.x, b.y, Math.max(0.6, b.r * (1 - lifeFrac * 0.6)), 0, Math.PI * 2);
-              ctx.fill();
-              ctx.closePath();
-            } finally { ctx.restore(); }
-            if (t >= b.life) this._manaBubbles.splice(i, 1);
-          }
-        } catch (e) { console.warn('mana bubbles (in-clip) draw failed', e); }
-
-        ctx.restore();
-
-        // Mana inner border
-        ctx.beginPath();
-        ctx.arc(manaOrbX, manaOrbY, manaOrbRadius - 8, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0,0,0,0.25)';
-        ctx.fill();
-        ctx.closePath();
-
-        // Mana text (show stat points left)
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 12px fontRetroGaming';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(manaText, manaOrbX, manaOrbY);
-      } catch (e) { console.warn('mana draw failed', e); }
-    } catch (ex) { console.warn('drawHudForLocalHero failed', ex); }
-  }
+  
 
   async pollForChanges() {
     if (!this.hero?.id && this.parentRef?.user?.id) {
@@ -2050,7 +1723,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const baseCritDmg = 2.0;
     // baseHealth in UI points (0 UI points = healthBase internal)
     const baseHealth = 0;
-    const baseRegen = 0.0;
   // Regen/manaRegen are treated as whole allocation points in the UI
   // (1 UI point == 1 spent point). Interpret server-provided values as
   // integers for initialization.
@@ -2515,7 +2187,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     } catch { }
   }
 
-  onVolumeChange(e: Event) {
+  onVolumeChange() {
     try {
       // Persist to localStorage for simple persistence across sessions
       localStorage.setItem('bonesVolume', String(this.currentVolume));
