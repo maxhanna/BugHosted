@@ -1185,3 +1185,29 @@ body .componentMain.startPopupPanel,
   font-size: 12px;
   color: #fff;
 }
+
+/* Clickable slot icon wrapper styles */
+.editableSkillsPanelIconWrapper.clickable {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 84px;
+  height: 84px;
+  background: #161616;
+  border-radius: 8px;
+  border: 1px solid rgba(68,68,68,0.8);
+}
+.editableSkillsPanelIconWrapper.clickable img.slot-skill-img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+.editableSkillsPanelIconWrapper.clickable.selected {
+  transform: translateY(-4px);
+}
+.editableSkillsPanelIconWrapper.clickable.selected img.slot-skill-img {
+  box-shadow: 0 0 0 3px rgba(199,123,26,0.12), 0 6px 24px rgba(199,123,26,0.18), 0 0 18px rgba(199,123,26,0.22) !important;
+  border-color: rgba(199,123,26,0.9) !important;
+}

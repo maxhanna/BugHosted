@@ -449,18 +449,43 @@
         </div>
       </div>
 
-      <!-- Skill selection portraits: clicking selects currentSkill and closes the skills panel -->
+      <!-- Skill selection now embedded into Skill A/B/C boxes: show clickable portrait inside each icon wrapper -->
       <div style="margin-top:10px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
-        <div *ngFor="let s of getAvailableSkills()" class="skill-portrait" (click)="selectSkill(s)"
-          [class.selected]="hero?.currentSkill === s" title="Select {{s}}" style="cursor:pointer; display:flex; flex-direction:column; align-items:center;">
-          <ng-container *ngIf="getSkillImage(s); else textSkill">
-            <img [src]="getSkillImage(s)" [alt]="s" style="width:48px;height:48px;object-fit:contain;border-radius:6px;border:1px solid #444;background:#111;padding:6px;" />
-          </ng-container>
-          <ng-template #textSkill>
-            <div style="padding:6px 10px; border:1px solid #444; border-radius:6px; background:#111; color:#fff;">{{ s | titlecase }}</div>
-          </ng-template>
-          <div style="font-size:12px;color:#fff;margin-top:4px;text-align:center;">{{ s | titlecase }}</div>
-        </div>
+        <!-- Skill A -->
+        <ng-container *ngIf="getSkillForSlot('skillA') as slotA">
+          <div class="editableSkillsPanelIconWrapper clickable" [class.selected]="hero?.currentSkill === slotA" (click)="selectSkill(slotA)" title="Select {{slotA}}">
+            <ng-container *ngIf="getSkillImage(slotA); else slotAText">
+              <img class="slot-skill-img" [src]="getSkillImage(slotA)" [alt]="slotA" />
+            </ng-container>
+            <ng-template #slotAText>
+              <div class="editableSkillsPanelIcon">{{ slotA | titlecase }}</div>
+            </ng-template>
+          </div>
+        </ng-container>
+
+        <!-- Skill B -->
+        <ng-container *ngIf="getSkillForSlot('skillB') as slotB">
+          <div class="editableSkillsPanelIconWrapper clickable" [class.selected]="hero?.currentSkill === slotB" (click)="selectSkill(slotB)" title="Select {{slotB}}">
+            <ng-container *ngIf="getSkillImage(slotB); else slotBText">
+              <img class="slot-skill-img" [src]="getSkillImage(slotB)" [alt]="slotB" />
+            </ng-container>
+            <ng-template #slotBText>
+              <div class="editableSkillsPanelIcon">{{ slotB | titlecase }}</div>
+            </ng-template>
+          </div>
+        </ng-container>
+
+        <!-- Skill C -->
+        <ng-container *ngIf="getSkillForSlot('skillC') as slotC">
+          <div class="editableSkillsPanelIconWrapper clickable" [class.selected]="hero?.currentSkill === slotC" (click)="selectSkill(slotC)" title="Select {{slotC}}">
+            <ng-container *ngIf="getSkillImage(slotC); else slotCText">
+              <img class="slot-skill-img" [src]="getSkillImage(slotC)" [alt]="slotC" />
+            </ng-container>
+            <ng-template #slotCText>
+              <div class="editableSkillsPanelIcon">{{ slotC | titlecase }}</div>
+            </ng-template>
+          </div>
+        </ng-container>
       </div>
 
       <div style="margin-top:10px; display:flex; gap:8px; justify-content:center;">

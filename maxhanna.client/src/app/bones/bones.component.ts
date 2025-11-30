@@ -2381,6 +2381,16 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     } catch { return undefined; }
   }
 
+  // Map a skill slot name to an available skill for the current hero.
+  // Slot order: skillA -> index 0, skillB -> index 1, skillC -> index 2
+  getSkillForSlot(slot: 'skillA' | 'skillB' | 'skillC'): string | undefined {
+    try {
+      const list = this.getAvailableSkills() || [];
+      const idx = slot === 'skillA' ? 0 : slot === 'skillB' ? 1 : 2;
+      return list.length > idx ? list[idx] : undefined;
+    } catch { return undefined; }
+  }
+
   // Return available skills for the current hero type for the skills panel UI
   getAvailableSkills(): string[] {
     try {
