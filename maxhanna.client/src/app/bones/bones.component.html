@@ -405,9 +405,16 @@
           <div class="editableSkillsInputWrapper">
             <button (click)="adjustSkill('skillA', -1)" [disabled]="editableSkills.skillA <= 0"
               aria-label="Decrease Skill A">-</button>
-            <div class="editableSkillsPanelIconWrapper">
-              <div class="editableSkillsPanelIcon"></div>
-            </div>
+            <ng-container *ngIf="getSkillForSlot('skillA') as slotA">
+              <div class="editableSkillsPanelIconWrapper clickable" [class.selected]="hero?.currentSkill === slotA" (click)="selectSkill(slotA)" title="Select {{slotA}}">
+                <ng-container *ngIf="getSkillImage(slotA); else slotATextInner">
+                  <img class="slot-skill-img" [src]="getSkillImage(slotA)" [alt]="slotA" />
+                </ng-container>
+                <ng-template #slotATextInner>
+                  <div class="editableSkillsPanelIcon">{{ slotA | titlecase }}</div>
+                </ng-template>
+              </div>
+            </ng-container>
             <button (click)="adjustSkill('skillA', 1)" [disabled]="editableSkills.pointsAvailable <= 0"
               aria-label="Increase Skill A">+</button>
           </div>
@@ -422,9 +429,16 @@
             <div class="editableSkillsInputWrapper">
               <button (click)="adjustSkill('skillB', -1)" [disabled]="editableSkills.skillB <= 0"
                 aria-label="Decrease Skill B">-</button>
-              <div class="editableSkillsPanelIconWrapper">
-                <div class="editableSkillsPanelIcon"></div>
-              </div>
+              <ng-container *ngIf="getSkillForSlot('skillB') as slotB">
+                <div class="editableSkillsPanelIconWrapper clickable" [class.selected]="hero?.currentSkill === slotB" (click)="selectSkill(slotB)" title="Select {{slotB}}">
+                  <ng-container *ngIf="getSkillImage(slotB); else slotBTextInner">
+                    <img class="slot-skill-img" [src]="getSkillImage(slotB)" [alt]="slotB" />
+                  </ng-container>
+                  <ng-template #slotBTextInner>
+                    <div class="editableSkillsPanelIcon">{{ slotB | titlecase }}</div>
+                  </ng-template>
+                </div>
+              </ng-container>
               <button (click)="adjustSkill('skillB', 1)" [disabled]="editableSkills.pointsAvailable <= 0"
                 aria-label="Increase Skill B">+</button>
             </div>
@@ -437,9 +451,16 @@
             <div class="editableSkillsInputWrapper">
               <button (click)="adjustSkill('skillC', -1)" [disabled]="editableSkills.skillC <= 0"
                 aria-label="Decrease Skill C">-</button>
-              <div class="editableSkillsPanelIconWrapper">
-                <div class="editableSkillsPanelIcon"></div>
-              </div>
+              <ng-container *ngIf="getSkillForSlot('skillC') as slotC">
+                <div class="editableSkillsPanelIconWrapper clickable" [class.selected]="hero?.currentSkill === slotC" (click)="selectSkill(slotC)" title="Select {{slotC}}">
+                  <ng-container *ngIf="getSkillImage(slotC); else slotCTextInner">
+                    <img class="slot-skill-img" [src]="getSkillImage(slotC)" [alt]="slotC" />
+                  </ng-container>
+                  <ng-template #slotCTextInner>
+                    <div class="editableSkillsPanelIcon">{{ slotC | titlecase }}</div>
+                  </ng-template>
+                </div>
+              </ng-container>
               <button (click)="adjustSkill('skillC', 1)" [disabled]="editableSkills.pointsAvailable <= 0"
                 aria-label="Increase Skill C">+</button>
             </div>
@@ -449,44 +470,7 @@
         </div>
       </div>
 
-      <!-- Skill selection now embedded into Skill A/B/C boxes: show clickable portrait inside each icon wrapper -->
-      <div style="margin-top:10px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
-        <!-- Skill A -->
-        <ng-container *ngIf="getSkillForSlot('skillA') as slotA">
-          <div class="editableSkillsPanelIconWrapper clickable" [class.selected]="hero?.currentSkill === slotA" (click)="selectSkill(slotA)" title="Select {{slotA}}">
-            <ng-container *ngIf="getSkillImage(slotA); else slotAText">
-              <img class="slot-skill-img" [src]="getSkillImage(slotA)" [alt]="slotA" />
-            </ng-container>
-            <ng-template #slotAText>
-              <div class="editableSkillsPanelIcon">{{ slotA | titlecase }}</div>
-            </ng-template>
-          </div>
-        </ng-container>
-
-        <!-- Skill B -->
-        <ng-container *ngIf="getSkillForSlot('skillB') as slotB">
-          <div class="editableSkillsPanelIconWrapper clickable" [class.selected]="hero?.currentSkill === slotB" (click)="selectSkill(slotB)" title="Select {{slotB}}">
-            <ng-container *ngIf="getSkillImage(slotB); else slotBText">
-              <img class="slot-skill-img" [src]="getSkillImage(slotB)" [alt]="slotB" />
-            </ng-container>
-            <ng-template #slotBText>
-              <div class="editableSkillsPanelIcon">{{ slotB | titlecase }}</div>
-            </ng-template>
-          </div>
-        </ng-container>
-
-        <!-- Skill C -->
-        <ng-container *ngIf="getSkillForSlot('skillC') as slotC">
-          <div class="editableSkillsPanelIconWrapper clickable" [class.selected]="hero?.currentSkill === slotC" (click)="selectSkill(slotC)" title="Select {{slotC}}">
-            <ng-container *ngIf="getSkillImage(slotC); else slotCText">
-              <img class="slot-skill-img" [src]="getSkillImage(slotC)" [alt]="slotC" />
-            </ng-container>
-            <ng-template #slotCText>
-              <div class="editableSkillsPanelIcon">{{ slotC | titlecase }}</div>
-            </ng-template>
-          </div>
-        </ng-container>
-      </div>
+      <!-- (removed) duplicate selection row; selection is now handled in the Skill A/B/C boxes above -->
 
       <div style="margin-top:10px; display:flex; gap:8px; justify-content:center;">
         <button *ngIf="skillsChanged" (click)="applySkills()">Apply</button>
