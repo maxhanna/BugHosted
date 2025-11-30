@@ -50,6 +50,8 @@ export class Resources {
       shadow: `${this.dir}shadow.png`,
       skeleton: `${this.dir}skeletonspritesheet.png`,
       skill_sting: `${this.dir}skill_sting.png`,
+      skill_fireball: `${this.dir}SKILL_FIREBALL.png`,
+      skill_fireball_explode: `${this.dir}SKILL_FIREBALL_EXPLODE.png`,
       stars: `${this.dir}stars.png`,
       textBox: `${this.dir}sprite-text-background.png`,
       toast: `${this.dir}toast.png`,

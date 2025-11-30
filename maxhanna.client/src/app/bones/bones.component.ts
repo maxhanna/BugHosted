@@ -2351,4 +2351,48 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     // Delegate to centralized network helper
     try { reconcileDroppedItemsFromFetch(this, res); } catch (ex) { console.warn('reconcileDroppedItemsFromFetch delegation failed', ex); }
   }
+
+  // Select a skill from the UI to become the hero's active `currentSkill`.
+  // This closes the skills panel and the start menu so the player can act immediately.
+  selectSkill(skillName: string) {
+    try {
+      if (!skillName) return;
+      if (this.hero) {
+        try { (this.hero as any).currentSkill = skillName; } catch { }
+      }
+      // Close panels
+      this.isChangeSkillsOpen = false;
+      this.isStartMenuOpened = false;
+      // Ensure menus closed centrally
+      try { this.closeStartMenu(); } catch { }
+    } catch (e) {
+      console.warn('selectSkill failed', e);
+    }
+  }
+
+  // Return a loaded image src for the given skill name, or undefined if not available
+  getSkillImage(skill: string): string | undefined {
+    try {
+      if (!skill) return undefined;
+      const key = skill.toString().toLowerCase();
+      const entry = (resources as any).images ? (resources as any).images[key] : undefined;
+      if (entry && entry.image && entry.image.src) return entry.image.src;
+      return undefined;
+    } catch { return undefined; }
+  }
+
+  // Return available skills for the current hero type for the skills panel UI
+  getAvailableSkills(): string[] {
+    try {
+      const t = (this.hero && (this.hero as any).type) ? (this.hero as any).type.toLowerCase() : (this.metaHero?.type ?? '').toString().toLowerCase();
+      if (t === 'magi') {
+        return ['sting', 'skill_fireball'];
+      }
+      if (t === 'rogue' || t === 'ranger') {
+        return ['arrow'];
+      }
+      // default / knight: no special projectile skills
+      return [];
+    } catch { return []; }
+  }
 }

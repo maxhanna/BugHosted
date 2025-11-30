@@ -449,6 +449,20 @@
         </div>
       </div>
 
+      <!-- Skill selection portraits: clicking selects currentSkill and closes the skills panel -->
+      <div style="margin-top:10px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+        <div *ngFor="let s of getAvailableSkills()" class="skill-portrait" (click)="selectSkill(s)"
+          [class.selected]="hero?.currentSkill === s" title="Select {{s}}" style="cursor:pointer; display:flex; flex-direction:column; align-items:center;">
+          <ng-container *ngIf="getSkillImage(s); else textSkill">
+            <img [src]="getSkillImage(s)" [alt]="s" style="width:48px;height:48px;object-fit:contain;border-radius:6px;border:1px solid #444;background:#111;padding:6px;" />
+          </ng-container>
+          <ng-template #textSkill>
+            <div style="padding:6px 10px; border:1px solid #444; border-radius:6px; background:#111; color:#fff;">{{ s | titlecase }}</div>
+          </ng-template>
+          <div style="font-size:12px;color:#fff;margin-top:4px;text-align:center;">{{ s | titlecase }}</div>
+        </div>
+      </div>
+
       <div style="margin-top:10px; display:flex; gap:8px; justify-content:center;">
         <button *ngIf="skillsChanged" (click)="applySkills()">Apply</button>
         <button (click)="closeStartMenu()">Cancel</button>
