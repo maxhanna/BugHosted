@@ -15,6 +15,7 @@ import { events } from "../../helpers/events";
 import { WarpBase } from "../Effects/Warp/warp-base";
 import { Sting } from "../Effects/Sting/sting";
 import { Arrow } from "../Effects/Arrow/arrow";
+import { Fireball } from "../Effects/Fireball/fireball";
 
 export class Hero extends Character {
   isAttacking = false;
@@ -367,9 +368,11 @@ export class Hero extends Character {
       const targetAnchorX = targetX + bodyPosX + bodyOffsetX + (frameW * scaleX) / 2;
       const targetAnchorY = targetY + bodyPosY + bodyOffsetY + (frameH * scaleY) / 2;
       let skillType = undefined;
-      if (type === "sting") {
+      if (type === "sting" || type === "skill_sting") {
         skillType = new Sting(startX, startY);
-      } else if (type === "arrow") { 
+      } else if (type === "skill_fireball") {
+        skillType = new Fireball(startX, startY, this.facingDirection);
+      } else if (type === "arrow") {
         skillType = new Arrow(startX, startY, this.facingDirection);
       } else {
         skillType = new Arrow(startX, startY, this.facingDirection);
