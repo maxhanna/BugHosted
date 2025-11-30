@@ -2396,9 +2396,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     try {
       const t = (this.hero && (this.hero as any).type) ? (this.hero as any).type.toLowerCase() : (this.metaHero?.type ?? '').toString().toLowerCase();
       if (t === 'magi') {
-        return ['sting', 'skill_fireball'];
+        return ['skill_sting', 'skill_fireball'];
       }
-      if (t === 'rogue' || t === 'ranger') {
+      if (t === 'rogue') {
         return ['arrow'];
       }
       // default / knight: no special projectile skills
