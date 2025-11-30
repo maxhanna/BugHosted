@@ -40,7 +40,10 @@ export class Fireball extends GameObject {
   }
 
   override destroy(): void {
-    const fbDestroyed = new FireballDestroyed(this.position.x, this.position.y, this.facingDirection);
+    // Create the destroyed effect at local (0,0) so it's positioned relative to this Fireball.
+    // Passing the absolute coordinates caused the child to be drawn offset by parent+absolute,
+    // resulting in the explosion appearing vertically misaligned.
+    const fbDestroyed = new FireballDestroyed(0, 0, this.facingDirection);
     this.addChild(fbDestroyed);
     setTimeout(() => {
       fbDestroyed.destroy();
