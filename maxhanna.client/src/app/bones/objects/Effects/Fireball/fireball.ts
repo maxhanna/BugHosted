@@ -40,6 +40,7 @@ export class Fireball extends GameObject {
   }
 
   override destroy(): void {
+    this.body?.destroy();
     const fbDestroyed = new FireballDestroyed(0, 0, this.facingDirection);
     this.addChild(fbDestroyed);
     setTimeout(() => {

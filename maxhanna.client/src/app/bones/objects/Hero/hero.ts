@@ -408,15 +408,86 @@ export class Hero extends Character {
       const dx = finalTargetX - startX;
       const dy = finalTargetY - startY;
       const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-      const speedPxPerMs = 1.0; // 1 pixel per millisecond => 1000px/s
+      const speedPxPerMs = type === "skill_fireball" ? 2 : 1; // 1 pixel per millisecond => 1000px/s
       const duration = Math.max(200, Math.round(distance / speedPxPerMs));
 
       skillType.moveTo(finalTargetX, finalTargetY, duration);
 
-      // Destroy slightly after it reaches the target
-      setTimeout(() => {
+      // Auto-destroy slightly after it reaches the target (fallback if no hit)
+      let autoDestroyTimer: any = setTimeout(() => {
         try { skillType.destroy(); } catch { }
       }, duration + 300);
+
+      // Detect possible targets in the host container along the projectile path.
+      // If a hit is found and the skill is non-piercing (arrow/fireball), destroy
+      // the projectile at the computed hit time. Piercing skills (e.g., sting)
+      // are allowed to pass through targets.
+      try {
+        const container = (host as any) ?? this.parent ?? this;
+        const children = (container && (container.children ?? [])) as any[];
+        const hits: { obj: any; dist: number }[] = [];
+        const minX = Math.min(startX, finalTargetX);
+        const maxX = Math.max(startX, finalTargetX);
+        const minY = Math.min(startY, finalTargetY);
+        const maxY = Math.max(startY, finalTargetY);
+        const TOL = 24; // pixels tolerance for axis alignment
+
+        for (const c of children) {
+          if (!c || c === this || c === skillType) continue;
+          // Consider only actors/players/NPCs with an HP field
+          if (typeof (c as any).hp !== 'number') continue;
+          const cx = (c.position?.x ?? 0);
+          const cy = (c.position?.y ?? 0);
+
+          // Prefer axis-aligned checks for horizontal/vertical shots
+          if (Math.abs(startY - finalTargetY) < 1) {
+            // horizontal travel: check Y near startY and X between start and target
+            if (cy >= startY - TOL && cy <= startY + TOL && cx >= minX && cx <= maxX) {
+              hits.push({ obj: c, dist: Math.abs(cx - startX) });
+            }
+          } else if (Math.abs(startX - finalTargetX) < 1) {
+            // vertical travel: check X near startX and Y between start and target
+            if (cx >= startX - TOL && cx <= startX + TOL && cy >= minY && cy <= maxY) {
+              hits.push({ obj: c, dist: Math.abs(cy - startY) });
+            }
+          } else {
+            // Diagonal/general path: project point onto line segment and check distance
+            const dxl = finalTargetX - startX;
+            const dyl = finalTargetY - startY;
+            const px = cx - startX;
+            const py = cy - startY;
+            const denom = (dxl * dxl + dyl * dyl) || 1;
+            const proj = (px * dxl + py * dyl) / denom;
+            if (proj >= 0 && proj <= 1) {
+              const closestX = startX + proj * dxl;
+              const closestY = startY + proj * dyl;
+              const distToLine = Math.hypot(cx - closestX, cy - closestY);
+              if (distToLine <= TOL) {
+                const distAlong = Math.hypot(closestX - startX, closestY - startY);
+                hits.push({ obj: c, dist: distAlong });
+              }
+            }
+          }
+        }
+
+        if (hits.length > 0) {
+          hits.sort((a, b) => a.dist - b.dist);
+          const first = hits[0];
+          const distToHit = first.dist || 0;
+          // time to hit in ms using same speed used to compute duration
+          const timeToHitMs = Math.max(0, Math.round(distToHit / speedPxPerMs));
+
+          // Only destroy on hit if projectile is non-piercing (arrow or fireball)
+          if (type === 'arrow' || type === 'skill_fireball') {
+            setTimeout(() => {
+              try { skillType.destroy(); } catch { }
+              try { clearTimeout(autoDestroyTimer); } catch { }
+            }, timeToHitMs);
+          }
+        }
+      } catch (ex) {
+        console.warn('spawnSkillTo: hit-detection error', ex);
+      }
     } catch (ex) {
       console.warn('spawnSkillTo failed', ex);
     }

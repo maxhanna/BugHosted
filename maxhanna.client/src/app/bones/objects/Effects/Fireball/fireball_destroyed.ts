@@ -35,6 +35,6 @@ export class FireballDestroyed extends GameObject {
     this.facingDirection = facingDirection;
 
     this.body.animations?.play("fireballExplodeAnimation");
-    resources.playSound('magicBurst', { allowOverlap: true, loop: false }); 
+   // resources.playSound('magicBurst', { allowOverlap: true, loop: false }); 
   }
 }
