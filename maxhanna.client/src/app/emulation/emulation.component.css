@@ -163,6 +163,37 @@ canvas:-ms-fullscreen,
   z-index: 5;
 }
 
+/* Joystick styles */
+.joystick {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  z-index: 6;
+}
+.joystick-base {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+.joystick-knob {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.95);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+  transform: translate(0px, 0px);
+  transition: transform 0.05s linear;
+  touch-action: none;
+}
+
 .dpad>* {
   width: 33%;
   height: 33%;

@@ -119,9 +119,158 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   };
   waitingForKey: string | null = null;
   showControlBindings = false;
+  useJoystick = false;
+
+  // joystick runtime state
+  private joystickState: {
+    active: boolean;
+    pointerId?: number | null;
+    originX: number;
+    originY: number;
+    pressed: Set<string>;
+  } = { active: false, pointerId: null, originX: 0, originY: 0, pressed: new Set() };
+
+  private joystickListeners: Array<{ elem: EventTarget, type: string, fn: EventListenerOrEventListenerObject }> = [];
 
   constructor(private romService: RomService, private fileService: FileService, private userService: UserService) {
     super();
+  }
+
+  onToggleJoystick() {
+    this.useJoystick = !this.useJoystick;
+    // Rebind controls to apply change (teardown then setup)
+    this.controlsSet = false;
+    setTimeout(() => this.setHTMLControls(), 10);
+    this.closeMenuPanel();
+  }
+
+  private setupJoystick() {
+    try {
+      const base = document.getElementById('joystickBase');
+      const knob = document.getElementById('joystickKnob');
+      if (!base || !knob) return;
+
+      const rect = base.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+
+      // Wrap pointer handlers as generic EventListener to satisfy DOM types
+      const pointerDown: EventListener = (e: Event) => {
+        const ev = e as PointerEvent;
+        this.joystickPointerDown(ev, base, knob, centerX, centerY);
+      };
+      const pointerMove: EventListener = (e: Event) => {
+        const ev = e as PointerEvent;
+        this.joystickPointerMove(ev, base, knob, centerX, centerY);
+      };
+      const pointerUp: EventListener = (e: Event) => {
+        const ev = e as PointerEvent;
+        this.joystickPointerUp(ev, base, knob);
+      };
+
+      base.addEventListener('pointerdown', pointerDown);
+      document.addEventListener('pointermove', pointerMove);
+      document.addEventListener('pointerup', pointerUp);
+
+      this.joystickListeners.push({ elem: base, type: 'pointerdown', fn: pointerDown });
+      this.joystickListeners.push({ elem: document, type: 'pointermove', fn: pointerMove });
+      this.joystickListeners.push({ elem: document, type: 'pointerup', fn: pointerUp });
+    } catch (ex) {
+      console.warn('setupJoystick failed', ex);
+    }
+  }
+
+  private teardownJoystick() {
+    try {
+      for (const l of this.joystickListeners) {
+        l.elem.removeEventListener(l.type, l.fn as EventListener);
+      }
+      this.joystickListeners = [];
+      // reset knob position
+      const knob = document.getElementById('joystickKnob');
+      if (knob) knob.style.transform = 'translate(0px, 0px)';
+      // release any pressed directions
+      this.joystickState.pressed.forEach(dir => this.nostalgist?.pressUp(dir));
+      this.joystickState.pressed.clear();
+      this.joystickState.active = false;
+      this.joystickState.pointerId = null;
+    } catch (ex) { }
+  }
+
+  private joystickPointerDown(ev: PointerEvent, base: HTMLElement, knob: HTMLElement, cx: number, cy: number) {
+    try {
+      ev.preventDefault();
+      (ev.target as Element).setPointerCapture?.(ev.pointerId);
+      this.joystickState.active = true;
+      this.joystickState.pointerId = ev.pointerId;
+      const r = base.getBoundingClientRect();
+      const originX = r.left + r.width / 2;
+      const originY = r.top + r.height / 2;
+      this.joystickState.originX = originX;
+      this.joystickState.originY = originY;
+      this.processJoystickMove(ev.clientX, ev.clientY, knob, originX, originY);
+    } catch (ex) { }
+  }
+
+  private joystickPointerMove(ev: PointerEvent, base: HTMLElement | null, knob: HTMLElement | null, cx?: number, cy?: number) {
+    if (!this.joystickState.active || this.joystickState.pointerId !== ev.pointerId) return;
+    ev.preventDefault();
+    const knobEl = document.getElementById('joystickKnob');
+    const baseEl = document.getElementById('joystickBase');
+    if (!knobEl || !baseEl) return;
+    const r = baseEl.getBoundingClientRect();
+    const originX = r.left + r.width / 2;
+    const originY = r.top + r.height / 2;
+    this.processJoystickMove(ev.clientX, ev.clientY, knobEl, originX, originY);
+  }
+
+  private joystickPointerUp(ev: PointerEvent, base?: HTMLElement | null, knob?: HTMLElement | null) {
+    if (!this.joystickState.active || this.joystickState.pointerId !== ev.pointerId) return;
+    ev.preventDefault();
+    // release pressed directions
+    this.joystickState.pressed.forEach(dir => this.nostalgist?.pressUp(dir));
+    this.joystickState.pressed.clear();
+    this.joystickState.active = false;
+    this.joystickState.pointerId = null;
+    const knobEl = document.getElementById('joystickKnob');
+    if (knobEl) knobEl.style.transform = 'translate(0px, 0px)';
+  }
+
+  private processJoystickMove(clientX: number, clientY: number, knobEl: HTMLElement, originX: number, originY: number) {
+    const dx = clientX - originX;
+    const dy = clientY - originY;
+    // clamp to radius
+    const maxRadius = 60; // pixels
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const nx = dx / dist;
+    const ny = dy / dist;
+    const limitedDist = Math.min(dist, maxRadius);
+    const knobX = Math.round(nx * limitedDist);
+    const knobY = Math.round(ny * limitedDist);
+    knobEl.style.transform = `translate(${knobX}px, ${knobY}px)`;
+
+    // decide directions pressed with deadzone
+    const deadzone = 0.35; // fraction of maxRadius
+    const pressX = (Math.abs(dx) / maxRadius) > deadzone ? (dx > 0 ? 'right' : 'left') : null;
+    const pressY = (Math.abs(dy) / maxRadius) > deadzone ? (dy > 0 ? 'down' : 'up') : null;
+
+    const desired = new Set<string>();
+    if (pressX) desired.add(pressX);
+    if (pressY) desired.add(pressY);
+
+    // release any directions not desired and press any new ones
+    this.joystickState.pressed.forEach(dir => {
+      if (!desired.has(dir)) {
+        this.nostalgist?.pressUp(dir);
+        this.joystickState.pressed.delete(dir);
+      }
+    });
+    desired.forEach(dir => {
+      if (!this.joystickState.pressed.has(dir)) {
+        this.nostalgist?.pressDown(dir);
+        this.joystickState.pressed.add(dir);
+      }
+    });
   }
 
   // Millisecond timestamp when current play session started (set when emulator launched/load state/start new run)
@@ -469,10 +618,24 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     addPressReleaseEvents("down", "down");
     addPressReleaseEvents("left", "left");
     addPressReleaseEvents("right", "right");
-    this.addDirectionalListeners(document.getElementsByClassName('up-right')[0] as HTMLElement, "up", "right");
-    this.addDirectionalListeners(document.getElementsByClassName('up-left')[0] as HTMLElement, "up", "left");
-    this.addDirectionalListeners(document.getElementsByClassName('down-left')[0] as HTMLElement, "down", "left");
-    this.addDirectionalListeners(document.getElementsByClassName('down-right')[0] as HTMLElement, "down", "right");
+    // add diagonal directional listeners only if dpad elements exist (not using joystick)
+    const ur = document.getElementsByClassName('up-right')[0] as HTMLElement | undefined;
+    const ul = document.getElementsByClassName('up-left')[0] as HTMLElement | undefined;
+    const dl = document.getElementsByClassName('down-left')[0] as HTMLElement | undefined;
+    const dr = document.getElementsByClassName('down-right')[0] as HTMLElement | undefined;
+    if (!this.useJoystick) {
+      if (ur) this.addDirectionalListeners(ur, "up", "right");
+      if (ul) this.addDirectionalListeners(ul, "up", "left");
+      if (dl) this.addDirectionalListeners(dl, "down", "left");
+      if (dr) this.addDirectionalListeners(dr, "down", "right");
+    }
+
+    // If joystick mode is enabled, initialize joystick listeners
+    if (this.useJoystick) {
+      this.setupJoystick();
+    } else {
+      this.teardownJoystick();
+    }
   }
 
   addDirectionalListeners(element: HTMLElement, direction: string, secondaryDirection?: string) {
