@@ -275,60 +275,186 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         if (!sourceHeroId || !attack) return;
         const srcObj = this.mainScene?.level?.children?.find((x: any) => x.id === sourceHeroId);
         if (srcObj) {
-          // If the hero object exposes a playAttackAnimation method, use it.
-          if (typeof srcObj.playAttackAnimation === 'function') {
-            srcObj.playAttackAnimation(attack.skill);
-          } else {
-            // Fallback: temporarily set a flag that other rendering code can observe
-            srcObj._remoteAttack = attack;
-            setTimeout(() => { delete srcObj._remoteAttack; }, 500);
-          }
+          // Prefer `currentSkill` when provided (server/client may include both)
+          const skillName = (attack && (attack.currentSkill ?? attack.skill)) as string | undefined;
+          // Apply facing if present so projectile/animation goes the right direction
+          try { if (attack && attack.facing && typeof attack.facing === 'string') srcObj.facingDirection = attack.facing; } catch { }
+
+          // If the hero object exposes a playAttackAnimation method, use it and pass chosen skill
+            if (typeof srcObj.playAttackAnimation === 'function') {
+              try { srcObj.playAttackAnimation(skillName ?? attack.skill, attack.facing, attack.length); } catch { srcObj.playAttackAnimation(skillName ?? attack.skill); }
+            }
+
+            // Prefer using the sprite's spawnSkillTo method to ensure visuals, facing and hit-detection match
+            try {
+              const skillToUse = skillName ?? (srcObj.currentSkill as string) ?? (srcObj.type === 'rogue' ? 'arrow' : (srcObj.type === 'magi' ? 'sting' : undefined));
+              const rawLen = Number(attack && (attack.length ?? attack.lengthMs ?? 200));
+              const len = (isNaN(rawLen) || rawLen <= 0) ? 200 : rawLen;
+
+              // Determine facing (normalize number/string to direction constant if available on sprite)
+              let facingVal: any = attack?.facing ?? attack?.facingDirection ?? undefined;
+              // Map numeric facing (0..3) to string constants used by sprites if needed
+              if (typeof facingVal === 'number') {
+                if (facingVal === 0) facingVal = 'DOWN';
+                else if (facingVal === 1) facingVal = 'LEFT';
+                else if (facingVal === 2) facingVal = 'RIGHT';
+                else if (facingVal === 3) facingVal = 'UP';
+              }
+              if (typeof facingVal === 'string') {
+                try { srcObj.facingDirection = String(facingVal).toUpperCase(); } catch { }
+              }
+
+              // Compute target coordinates based on facing and length
+              let tx = (srcObj.position?.x ?? 0);
+              let ty = (srcObj.position?.y ?? 0);
+              const L = len;
+              try {
+                const fd = (srcObj.facingDirection ?? '').toString().toUpperCase();
+                if ((fd === 'DOWN' || String(attack?.facing).toLowerCase() === 'down')) {
+                  ty += L;
+                } else if ((fd === 'UP' || String(attack?.facing).toLowerCase() === 'up')) {
+                  ty -= L;
+                } else if ((fd === 'LEFT' || String(attack?.facing).toLowerCase() === 'left')) {
+                  tx -= L;
+                } else if ((fd === 'RIGHT' || String(attack?.facing).toLowerCase() === 'right')) {
+                  tx += L;
+                } else {
+                  // fallback: if attack provides explicit target coords, use them
+                  if (typeof attack?.targetX === 'number') tx = attack.targetX;
+                  if (typeof attack?.targetY === 'number') ty = attack.targetY;
+                }
+              } catch { }
+
+              if (skillToUse && typeof srcObj.spawnSkillTo === 'function') {
+                try { srcObj.spawnSkillTo(tx, ty, skillToUse); } catch (e) { /* ignore spawn failure */ }
+              } else {
+                // No spawn method: fallback to normalized remote attack payload so existing renderers can pick it up
+                const normalized = { ...attack, skill: skillToUse ?? attack.skill, currentSkill: skillToUse ?? attack.skill, targetX: tx, targetY: ty };
+                srcObj._remoteAttack = normalized;
+                setTimeout(() => { delete srcObj._remoteAttack; }, 500);
+              }
+            } catch (exSpawn) {
+              // Non-fatal; keep existing behavior
+              const normalized = { ...attack, skill: skillName ?? attack.skill, currentSkill: skillName ?? attack.skill };
+              srcObj._remoteAttack = normalized;
+              setTimeout(() => { delete srcObj._remoteAttack; }, 500);
+            }
         }
       } catch (ex) {
         console.error('Error handling REMOTE_ATTACK', ex);
       }
     });
 
-    // Play attenuated impact SFX when other heroes attack
+    // Play attenuated impact SFX and show attack visuals when other heroes attack
     events.on("OTHER_HERO_ATTACK", this, (payload: any) => {
-      //console.log("got other hero attack event", payload);
-      console.log("Got OTHER_HERO_ATTACK EVENT", payload);
-      const sourceHeroId = payload?.sourceHeroId;
-      const targetHeroId = payload?.attack?.targetHeroId;
-      if (!sourceHeroId) return;
-      // Try to find attacker in scene first, fallback to otherHeroes list
-      let attackerPos: Vector2 | undefined = undefined;
-      const attackerObj = this.mainScene?.level?.children?.find((x: any) => x.id === sourceHeroId);
-      if (attackerObj && attackerObj.position) {
-        attackerPos = attackerObj.position;
-      } else {
-        const mh = this.otherHeroes.find(h => h.id === sourceHeroId);
-        if (mh && mh.position) attackerPos = mh.position;
+      try {
+        console.log("Got OTHER_HERO_ATTACK EVENT", payload);
+        const sourceHeroId = payload?.sourceHeroId;
+        const attack = payload?.attack;
+        const targetHeroId = attack?.targetHeroId;
+        if (!sourceHeroId || !attack) return;
+
+        // Try to find attacker sprite in scene first, fallback to otherHeroes list for position
+        const srcObj = this.mainScene?.level?.children?.find((x: any) => x.id === sourceHeroId);
+        let attackerPos: Vector2 | undefined = srcObj?.position;
+        if (!attackerPos) {
+          const mh = this.otherHeroes.find(h => h.id === sourceHeroId);
+          if (mh && mh.position) attackerPos = mh.position;
+        }
+
+        const myPos = (this.hero && this.hero.position) ? this.hero.position : (this.metaHero && this.metaHero.position) ? this.metaHero.position : undefined;
+        // Play attenuated impact SFX if we can determine positions and target
+        if (attackerPos && myPos && targetHeroId) {
+          const dx = attackerPos.x - myPos.x;
+          const dy = attackerPos.y - myPos.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const maxAudible = 800;
+          const base = 1 - (dist / maxAudible);
+          const clampedBase = Math.max(0, Math.min(1, base));
+          const globalVol = (this.currentVolume ?? 1);
+          let vol = clampedBase * globalVol;
+          const minAudible = 0.05 * globalVol;
+          vol = Math.max(minAudible, Math.min(globalVol, vol));
+          resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true });
+          console.log("playing impact sound", vol);
+        }
+
+        // If target hero has activeSkills list, remove one (visual/cleanup)
+        try {
+          const tgtHero = this.mainScene.level?.children?.find((x: any) => x.id === targetHeroId);
+          if (tgtHero && tgtHero.activeSkills && tgtHero.activeSkills.length > 0) {
+            try { tgtHero.activeSkills.pop().destroy(); } catch { }
+          }
+        } catch { }
+
+        // Ensure attack visuals/facing/skill use the provided payload when possible
+        try {
+          const skillName = (attack && (attack.currentSkill ?? attack.skill)) as string | undefined;
+
+          // Apply facing if present so projectile/animation goes the right direction
+          try { if (attack && attack.facing && typeof attack.facing === 'string' && srcObj) srcObj.facingDirection = attack.facing; } catch { }
+
+          // If attacker sprite exposes a playAttackAnimation method, call it with chosen skill
+          if (srcObj && typeof srcObj.playAttackAnimation === 'function') {
+            try { srcObj.playAttackAnimation(skillName ?? attack.skill, attack.facing, attack.length); } catch { try { srcObj.playAttackAnimation(skillName ?? attack.skill); } catch { } }
+          }
+
+          // Prefer using the sprite's spawnSkillTo method to ensure visuals, facing and hit-detection match
+          if (srcObj) {
+            const skillToUse = skillName ?? (srcObj.currentSkill as string) ?? (srcObj.type === 'rogue' ? 'arrow' : (srcObj.type === 'magi' ? 'sting' : undefined));
+            const rawLen = Number(attack && (attack.length ?? attack.lengthMs ?? 200));
+            const len = (isNaN(rawLen) || rawLen <= 0) ? 200 : rawLen;
+
+            let facingVal: any = attack?.facing ?? attack?.facingDirection ?? undefined;
+            if (typeof facingVal === 'number') {
+              if (facingVal === 0) facingVal = 'DOWN';
+              else if (facingVal === 1) facingVal = 'LEFT';
+              else if (facingVal === 2) facingVal = 'RIGHT';
+              else if (facingVal === 3) facingVal = 'UP';
+            }
+            if (typeof facingVal === 'string') {
+              try { srcObj.facingDirection = String(facingVal).toUpperCase(); } catch { }
+            }
+
+            // Compute target coordinates based on facing and length
+            let tx = (srcObj.position?.x ?? 0);
+            let ty = (srcObj.position?.y ?? 0);
+            const L = len;
+            try {
+              const fd = (srcObj.facingDirection ?? '').toString().toUpperCase();
+              if ((fd === 'DOWN' || String(attack?.facing).toLowerCase() === 'down')) {
+                ty += L;
+              } else if ((fd === 'UP' || String(attack?.facing).toLowerCase() === 'up')) {
+                ty -= L;
+              } else if ((fd === 'LEFT' || String(attack?.facing).toLowerCase() === 'left')) {
+                tx -= L;
+              } else if ((fd === 'RIGHT' || String(attack?.facing).toLowerCase() === 'right')) {
+                tx += L;
+              } else {
+                if (typeof attack?.targetX === 'number') tx = attack.targetX;
+                if (typeof attack?.targetY === 'number') ty = attack.targetY;
+              }
+            } catch { }
+
+            if (skillToUse && typeof srcObj.spawnSkillTo === 'function') {
+              try { srcObj.spawnSkillTo(tx, ty, skillToUse); } catch (e) { /* ignore spawn failure */ }
+            } else {
+              const normalized = { ...attack, skill: skillToUse ?? attack.skill, currentSkill: skillToUse ?? attack.skill, targetX: tx, targetY: ty };
+              try { srcObj._remoteAttack = normalized; setTimeout(() => { try { delete srcObj._remoteAttack; } catch { } }, 500); } catch { }
+            }
+          }
+        } catch (exSpawn) {
+          // Non-fatal; keep existing behavior
+          try {
+            if (srcObj) {
+              const normalized = { ...attack, skill: (attack && (attack.currentSkill ?? attack.skill)) };
+              try { srcObj._remoteAttack = normalized; setTimeout(() => { try { delete srcObj._remoteAttack; } catch { } }, 500); } catch { }
+            }
+          } catch { }
+        }
+      } catch (ex) {
+        console.error('Error handling OTHER_HERO_ATTACK', ex);
       }
-      const myPos = (this.hero && this.hero.position) ? this.hero.position : (this.metaHero && this.metaHero.position) ? this.metaHero.position : undefined;
-      if (!attackerPos || !myPos || !targetHeroId) return;
-      const dx = attackerPos.x - myPos.x;
-      const dy = attackerPos.y - myPos.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      // Play sound if attacker is not the local hero, OR if attacker is local but not adjacent
-      // Determine adjacency in pixels: treat 1 grid cell as ~32 pixels (snapToGrid used elsewhere)        
-      const maxAudible = 800; // pixels: distance at which sound is near-silent
-      // base attenuation (0..1) based on distance
-      const base = 1 - (dist / maxAudible);
-      const clampedBase = Math.max(0, Math.min(1, base));
-      const globalVol = (this.currentVolume ?? 1);
-      // apply global volume and ensure final volume does not exceed it
-      let vol = clampedBase * globalVol;
-      // keep a small audible floor relative to global volume so lowering master volume actually reduces loudness
-      const minAudible = 0.05 * globalVol;
-      vol = Math.max(minAudible, Math.min(globalVol, vol));
-      resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true });
-      console.log("playing impact sound", vol);
-      const tgtHero = this.mainScene.level?.children?.find((x: any) => x.id === targetHeroId);
-      if (tgtHero && tgtHero.activeSkills && tgtHero.activeSkills.length > 0) {
-        tgtHero.activeSkills.pop().destroy();
-      }
-       
     });
 
     // When the player interacts with an NPC that emits HEAL_USER (e.g., Bones NPC),
