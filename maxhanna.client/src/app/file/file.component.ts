@@ -30,6 +30,7 @@ export class FileComponent extends ChildComponent implements OnInit, OnDestroy {
   currentDirectory = '';
   isUploadInitiate = false;
   isMenuPanelOpen = false;
+  massDeleteMode: boolean = false;
   uploadFileList: Array<File> = []; 
   isSharePanelExpanded = false;
   fileBeingShared = 0;
@@ -183,6 +184,33 @@ export class FileComponent extends ChildComponent implements OnInit, OnDestroy {
     if (this.parentRef) {
       this.parentRef.closeOverlay();
     }
+  }
+  enableMassDeleteMode() {
+    this.closeMenuPanel();
+    this.massDeleteMode = true;
+    try { this.fileSearchComponent?.clearSelection(); } catch {}
+  }
+
+  cancelMassDelete() {
+    this.massDeleteMode = false;
+    try { this.fileSearchComponent?.clearSelection(); } catch {}
+  }
+
+  async confirmMassDelete() {
+    const ids = this.fileSearchComponent?.getSelectedIds() ?? [];
+    if (!ids || ids.length === 0) {
+      return this.parentRef?.showNotification?.("No files selected for deletion.");
+    }
+    if (!confirm(`Are you sure you want to delete ${ids.length} selected item(s)? This cannot be undone.`)) return;
+    this.startLoading();
+    try {
+      const userId = this.parentRef?.user?.id ?? 0;
+      const res = await this.fileService.massDelete(userId, ids);
+      this.parentRef?.showNotification(res ?? "Deleted selected items.");
+      try { await this.fileSearchComponent?.getDirectory(); } catch {}
+      this.cancelMassDelete();
+    } catch (ex) { console.error(ex); this.parentRef?.showNotification("Mass delete failed."); }
+    this.stopLoading();
   }
   topTopicClicked(topic: TopicRank) {
     this.closeMenuPanel();

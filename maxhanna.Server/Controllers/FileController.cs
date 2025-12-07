@@ -1,4 +1,4 @@
-using FirebaseAdmin.Messaging;
+﻿using FirebaseAdmin.Messaging;
 using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Topics;
@@ -41,7 +41,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/File/GetDirectory/", Name = "GetDirectory")]
-		public async Task<DirectoryResult?> GetDirectory(
+		public async Task<DirectoryResults?> GetDirectory(
 		[FromBody] User? user,
 		[FromQuery] string? directory,
 		[FromQuery] string? visibility,
@@ -67,9 +67,10 @@ namespace maxhanna.Server.Controllers
 					directory += "/";
 				}
 			}
-			if (!ValidatePath(directory!)) {
-				_ = _log.Db($"Directory invalid : {directory}", null, "FILE", true); 
-				return null; 
+			if (!ValidatePath(directory!))
+			{
+				_ = _log.Db($"Directory invalid : {directory}", null, "FILE", true);
+				return null;
 			}
 
 			try
@@ -99,7 +100,7 @@ namespace maxhanna.Server.Controllers
 					var replaced = string.Join(",", sanitized);
 					fileTypeCondition = " AND LOWER(f.file_type) IN (" + replaced + ") ";
 				}
-				string fileIdCondition = fileId.HasValue ? " AND f.id = @fileId" : ""; 
+				string fileIdCondition = fileId.HasValue ? " AND f.id = @fileId" : "";
 				bool isRomSearch = DetermineIfRomSearch(normalizedFileTypes);
 				string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
 				string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
@@ -425,7 +426,7 @@ LIMIT
 
 					GetFileReactions(fileEntries, connection, fileIds, commentIds, fileIdsParameters, commentIdsParameters);
 					GetFileTopics(fileEntries, connection, fileIds);
-					DirectoryResult result = GetDirectoryResults(user, directory, search, page, pageSize, fileEntries, favouritesCondition, fileTypeCondition, visibilityCondition, ownershipCondition, hiddenCondition, connection, searchCondition, extraParameters);
+					DirectoryResults result = GetDirectoryResults(user, directory, search, page, pageSize, fileEntries, favouritesCondition, fileTypeCondition, visibilityCondition, ownershipCondition, hiddenCondition, connection, searchCondition, extraParameters);
 
 					return result;
 				}
@@ -633,14 +634,14 @@ LIMIT
 			}
 		}
 
-		private DirectoryResult GetDirectoryResults(User? user, string directory, string? search, int page, int pageSize, List<FileEntry> fileEntries, string favouritesCondition, string fileTypeCondition, string visibilityCondition, string ownershipCondition, string hiddenCondition, MySqlConnection connection, string searchCondition, List<MySqlParameter> extraParameters)
+		private DirectoryResults GetDirectoryResults(User? user, string directory, string? search, int page, int pageSize, List<FileEntry> fileEntries, string favouritesCondition, string fileTypeCondition, string visibilityCondition, string ownershipCondition, string hiddenCondition, MySqlConnection connection, string searchCondition, List<MySqlParameter> extraParameters)
 		{
 			// Get the total count of files for pagination
 			int totalCount = GetResultCount(user,
 				directory, search, favouritesCondition, fileTypeCondition, visibilityCondition,
 				ownershipCondition, hiddenCondition, connection, searchCondition,
 				extraParameters);
-			var result = new DirectoryResult
+			var result = new DirectoryResults
 			{
 				TotalCount = totalCount,
 				CurrentDirectory = directory.Replace(_baseTarget, ""),
@@ -1859,7 +1860,7 @@ LIMIT
 			{
 				User caller = new User(userId ?? 0);
 				// Call GetDirectory with fileId set; pageSize 1 to narrow results
-				DirectoryResult? dir = await GetDirectory(caller, null, null, null, null, 1, 1, fileId, null, false, "Latest", false);
+				DirectoryResults? dir = await GetDirectory(caller, null, null, null, null, 1, 1, fileId, null, false, "Latest", false);
 				if (dir != null && dir.Data != null && dir.Data.Count > 0)
 				{
 					return Ok(dir.Data[0]);
@@ -2922,6 +2923,35 @@ LIMIT
 		}
 
 
+		[HttpPost("/File/MassDelete/", Name = "MassDelete")]
+		public async Task<IActionResult> MassDelete([FromBody] MassDeleteRequest request)
+		{
+			var results = new List<object>();
+			foreach (var id in request.FileIds ?? new List<int>())
+			{
+				try
+				{
+					var delRes = await DeleteFileOrDirectory(new DeleteFileOrDirectory(request.UserId, new FileEntry { Id = id }));
+					if (delRes is ObjectResult obj)
+					{
+						results.Add(new { FileId = id, Status = obj.StatusCode ?? 200, Value = obj.Value?.ToString() });
+					}
+					else if (delRes is StatusCodeResult sc)
+					{
+						results.Add(new { FileId = id, Status = sc.StatusCode });
+					}
+					else
+					{
+						results.Add(new { FileId = id, Status = 200 });
+					}
+				}
+				catch (Exception ex)
+				{
+					results.Add(new { FileId = id, Status = 500, Error = ex.Message });
+				}
+			}
+			return Ok(results);
+		}
 		[HttpPost("/File/Move/", Name = "MoveFile")]
 		public async Task<IActionResult> MoveFile([FromBody] MoveFileRequest request)
 		{
@@ -3593,19 +3623,4 @@ LIMIT
 			}
 		}
 	}
-}
-
-public class DirectoryResult
-{
-	public int TotalCount { get; set; }
-	public string CurrentDirectory { get; set; } = string.Empty;
-	public int Page { get; set; }
-	public int PageSize { get; set; }
-	public List<FileEntry> Data { get; set; } = new List<FileEntry>();
-}
-
-public class RecordSelectionRequest
-{
-    public int FileId { get; set; }
-    public int? UserId { get; set; }
 }
