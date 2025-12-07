@@ -522,11 +522,11 @@ ORDER BY p.created DESC;";
 						// Build normalized parameters dictionary from DTO
 						var normalizedParameters = new Dictionary<string, object?>();
 						normalizedParameters["timestamp"] = attackTs.ToString("o");
-						if (!string.IsNullOrEmpty(attack.Skill)) normalizedParameters["skill"] = attack.Skill;
-						if (!string.IsNullOrEmpty(attack.CurrentSkill)) normalizedParameters["currentSkill"] = attack.CurrentSkill;
-						if (attack.HeroId.HasValue) normalizedParameters["heroId"] = attack.HeroId.Value;
-						if (attack.SourceHeroId.HasValue) normalizedParameters["sourceHeroId"] = attack.SourceHeroId.Value;
-						if (attack.Facing != null)
+						if (!string.IsNullOrEmpty(attack?.Skill)) normalizedParameters["skill"] = attack.Skill;
+						if (!string.IsNullOrEmpty(attack?.CurrentSkill)) normalizedParameters["currentSkill"] = attack.CurrentSkill;
+						if (attack != null && attack.HeroId.HasValue) normalizedParameters["heroId"] = attack.HeroId.Value;
+						if (attack != null && attack.SourceHeroId.HasValue) normalizedParameters["sourceHeroId"] = attack.SourceHeroId.Value;
+						if (attack != null && attack.Facing != null)
 						{
 							try
 							{
@@ -579,11 +579,11 @@ ORDER BY p.created DESC;";
 								try { normalizedParameters["facing"] = attack.Facing?.ToString(); } catch { }
 							}
 						}
-						if (attack.Length.HasValue) normalizedParameters["length"] = attack.Length.Value;
-						if (attack.TargetX.HasValue) normalizedParameters["targetX"] = attack.TargetX.Value;
-						if (attack.TargetY.HasValue) normalizedParameters["targetY"] = attack.TargetY.Value;
+						if (attack != null && attack.Length.HasValue) normalizedParameters["length"] = attack.Length.Value;
+						if (attack != null && attack.TargetX.HasValue) normalizedParameters["targetX"] = attack.TargetX.Value;
+						if (attack != null && attack.TargetY.HasValue) normalizedParameters["targetY"] = attack.TargetY.Value;
 						// copy extras if present
-						if (attack.Extras != null)
+						if (attack != null && attack.Extras != null)
 						{
 							foreach (var kv in attack.Extras)
 							{
@@ -592,7 +592,7 @@ ORDER BY p.created DESC;";
 						}
 
 						var parameters = new Dictionary<string, object?>() {
-							{ "@HeroId", attack.SourceHeroId.HasValue ? attack.SourceHeroId.Value : (hero?.Id ?? 0) },
+							{ "@HeroId", attack != null && attack.SourceHeroId.HasValue ? attack.SourceHeroId.Value : (hero?.Id ?? 0) },
 							{ "@Event", "ATTACK" },
 							{ "@Map", hero?.Map ?? string.Empty },
 							{ "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(normalizedParameters) },
@@ -601,14 +601,14 @@ ORDER BY p.created DESC;";
 						await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, parameters, connection, transaction);
 
 						// Continue with the rest of the per-attack logic (compute facing/targets and stat lookups)
-						int sourceHeroId = attack.SourceHeroId.HasValue ? attack.SourceHeroId.Value : (hero?.Id ?? 0);
+						int sourceHeroId = attack != null && attack.SourceHeroId.HasValue ? attack.SourceHeroId.Value : (hero?.Id ?? 0);
 						int sourceX = hero?.Position.x ?? 0;
 						int sourceY = hero?.Position.y ?? 0;
 						int targetX = sourceX;
 						int targetY = sourceY;
 
 						// facing handling
-						if (attack.Facing != null)
+						if (attack != null && attack.Facing != null)
 						{
 							var fVal = attack.Facing.ToString() ?? string.Empty;
 							if (int.TryParse(fVal, out int f))
@@ -638,7 +638,7 @@ ORDER BY p.created DESC;";
 						int power = 0;
 						double dbCritRate = 0.0;
 						double dbCritDmg = 2.0;
-						string currentSkill = attack.CurrentSkill ?? attack.Skill ?? string.Empty;
+						string currentSkill = attack?.CurrentSkill ?? attack?.Skill ?? string.Empty;
 						try
 						{
 							using var lvlCmd = new MySqlCommand("SELECT COALESCE(level,1) AS lvl, COALESCE(attack_dmg,0) AS attack_dmg, COALESCE(crit_rate,0) AS crit_rate, COALESCE(crit_dmg,2.0) AS crit_dmg, power FROM maxhanna.bones_hero WHERE id=@HeroId", connection, transaction);
@@ -965,7 +965,7 @@ ORDER BY p.created DESC;";
 					}
 					catch (Exception exAtt)
 					{
-						await _log.Db("Failed to persist recent attack: " + exAtt.Message, hero.Id, "BONES", true);
+						await _log.Db("Failed to persist recent attack: " + exAtt.Message, hero?.Id, "BONES", true);
 					}
 				}
 
@@ -2391,7 +2391,7 @@ ORDER BY p.created DESC;";
 								{
 									string key = prop.Name ?? string.Empty;
 									var token = prop.Value;
-									string normalized = token?.ToString() ?? string.Empty;
+									string? normalized = token?.ToString() ?? string.Empty;
 									// Normalize known attack-related keys for consistent client-side handling
 									switch (key.ToLowerInvariant())
 									{
@@ -2401,7 +2401,7 @@ ORDER BY p.created DESC;";
 											{
 												// If the stored token is a serialized JsonElement (e.g. "{ \"ValueKind\": 3 }")
 												// we can't recover the original semantic value reliably. Detect and sanitize.
-												if (token.Type == JTokenType.String && normalized != null && normalized.Contains("\"ValueKind\""))
+												if (token?.Type == JTokenType.String && normalized != null && normalized.Contains("\"ValueKind\""))
 												{
 													// drop the serialized JsonElement wrapper so clients don't receive the raw ValueKind text
 													normalized = string.Empty;
@@ -2409,7 +2409,7 @@ ORDER BY p.created DESC;";
 												else
 												{
 													int fv = int.MinValue;
-													if (token.Type == JTokenType.Integer)
+													if (token?.Type == JTokenType.Integer)
 													{
 														fv = token.Value<int>();
 													}
@@ -2422,7 +2422,7 @@ ORDER BY p.created DESC;";
 														string[] dirs = new[] { "up", "right", "down", "left" };
 														normalized = (fv >= 0 && fv < dirs.Length) ? dirs[fv] : normalized;
 													}
-													else if (token.Type == JTokenType.String)
+													else if (token?.Type == JTokenType.String)
 													{
 														normalized = token.Value<string>() ?? normalized;
 													}
@@ -2445,7 +2445,7 @@ ORDER BY p.created DESC;";
 										case "heroid":
 										case "sourceheroid":
 											// Ensure numeric-like fields use a plain numeric string
-											try { if (token.Type == JTokenType.Integer || token.Type == JTokenType.Float) normalized = token.ToString(); } catch { }
+											try { if (token?.Type == JTokenType.Integer || token?.Type == JTokenType.Float) normalized = token.ToString(); } catch { }
 											break;
 										default:
 											break;
@@ -3233,13 +3233,13 @@ ORDER BY p.created DESC;";
 								{
 									var json = Newtonsoft.Json.JsonConvert.SerializeObject(d);
 									var dto = Newtonsoft.Json.JsonConvert.DeserializeObject<RecentAttackDto>(json);
-									if (dto == null) dto = new RecentAttackDto { Extras = d.ToDictionary(kv => kv.Key, kv => kv.Value) };
+									if (dto == null) dto = new RecentAttackDto { Extras = d.ToDictionary(kv => kv.Key, kv => (object?)kv.Value) };
 									recentDtos.Add(dto);
 								}
 								catch
 								{
 									// Fallback: wrap raw dictionary into Extras
-									recentDtos.Add(new RecentAttackDto { Extras = d.ToDictionary(kv => kv.Key, kv => kv.Value) });
+									recentDtos.Add(new RecentAttackDto { Extras = d.ToDictionary(kv => kv.Key, kv => (object?)kv.Value) });
 								}
 							}
 							var req = new FetchGameDataRequest { Hero = hero, RecentAttacks = recentDtos };
