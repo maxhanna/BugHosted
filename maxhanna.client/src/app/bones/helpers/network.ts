@@ -105,8 +105,32 @@ function sendAttackBatchToBackend(attacks: any[], object: any) {
     try {
       if (!a) return a;
       // Do not overwrite if attack already provides a currentSkill or skill
-      if (a.currentSkill || a.skill) return { ...a, currentSkill: a.currentSkill ?? a.skill };
-      return { ...a, currentSkill: heroCurrentSkill ?? a.currentSkill ?? a.skill };
+      // normalize facing to a plain canonical string when possible
+      let facingOut: any = undefined;
+      try {
+        const f = a?.facing;
+        if (f !== undefined && f !== null) {
+          if (typeof f === 'number') {
+            const dirs = ['up', 'right', 'down', 'left'];
+            facingOut = (f >= 0 && f < dirs.length) ? dirs[f] : String(f);
+          } else if (typeof f === 'string') {
+            // strip JsonElement dumps if present and use raw direction
+            if (f.includes('"ValueKind"')) {
+              facingOut = undefined;
+            } else {
+              facingOut = f.toLowerCase();
+            }
+          } else {
+            // fallback to toString
+            try { facingOut = String(f).toLowerCase(); } catch { facingOut = undefined; }
+          }
+        }
+      } catch { facingOut = undefined; }
+
+      const base = { ...a, currentSkill: a.currentSkill ?? a.skill };
+      if (facingOut !== undefined) base.facing = facingOut;
+      if (a.currentSkill || a.skill) return base;
+      return { ...base, currentSkill: heroCurrentSkill ?? a.currentSkill ?? a.skill };
     } catch (ex) { return a; }
   });
 

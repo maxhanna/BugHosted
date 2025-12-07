@@ -526,7 +526,59 @@ ORDER BY p.created DESC;";
 						if (!string.IsNullOrEmpty(attack.CurrentSkill)) normalizedParameters["currentSkill"] = attack.CurrentSkill;
 						if (attack.HeroId.HasValue) normalizedParameters["heroId"] = attack.HeroId.Value;
 						if (attack.SourceHeroId.HasValue) normalizedParameters["sourceHeroId"] = attack.SourceHeroId.Value;
-						if (attack.Facing != null) normalizedParameters["facing"] = attack.Facing;
+						if (attack.Facing != null)
+						{
+							try
+							{
+								// Normalize facing into a plain string when possible to avoid serializing JsonElement/ValueKind blobs.
+								string? facingOut = null;
+								var fObj = attack.Facing;
+								// System.Text.Json.JsonElement handling
+								if (fObj is System.Text.Json.JsonElement je)
+								{
+									if (je.ValueKind == System.Text.Json.JsonValueKind.String)
+										facingOut = je.GetString();
+									else if (je.ValueKind == System.Text.Json.JsonValueKind.Number && je.TryGetInt32(out var ival))
+										facingOut = ival.ToString();
+								}
+								else
+								{
+									// Fallback: ToString() for primitives (string, int) or boxed types
+									facingOut = fObj?.ToString();
+								}
+
+								if (!string.IsNullOrEmpty(facingOut))
+								{
+									// canonicalize common direction names to lowercase
+									var s = facingOut.Trim();
+									var low = s.ToLowerInvariant();
+									if (low == "up" || low == "down" || low == "left" || low == "right")
+									{
+										normalizedParameters["facing"] = low;
+									}
+									else
+									{
+										// if it's numeric like "0".."3", map to canonical directions
+										if (int.TryParse(low, out var fv))
+										{
+											string[] dirs = new[] { "up", "right", "down", "left" };
+											if (fv >= 0 && fv < dirs.Length) normalizedParameters["facing"] = dirs[fv];
+											else normalizedParameters["facing"] = low;
+										}
+										else
+										{
+											// unknown value: store trimmed string
+											normalizedParameters["facing"] = s;
+										}
+									}
+								}
+							}
+							catch
+							{
+								// fallback to raw ToString() if anything unexpected
+								try { normalizedParameters["facing"] = attack.Facing?.ToString(); } catch { }
+							}
+						}
 						if (attack.Length.HasValue) normalizedParameters["length"] = attack.Length.Value;
 						if (attack.TargetX.HasValue) normalizedParameters["targetX"] = attack.TargetX.Value;
 						if (attack.TargetY.HasValue) normalizedParameters["targetY"] = attack.TargetY.Value;
@@ -2347,56 +2399,56 @@ ORDER BY p.created DESC;";
 											// Prefer string directions; map numeric facings 0..3 to up/right/down/left
 											try
 											{
-													// If the stored token is a serialized JsonElement (e.g. "{ \"ValueKind\": 3 }")
-													// we can't recover the original semantic value reliably. Detect and sanitize.
-													if (token.Type == JTokenType.String && normalized != null && normalized.Contains("\"ValueKind\""))
+												// If the stored token is a serialized JsonElement (e.g. "{ \"ValueKind\": 3 }")
+												// we can't recover the original semantic value reliably. Detect and sanitize.
+												if (token.Type == JTokenType.String && normalized != null && normalized.Contains("\"ValueKind\""))
+												{
+													// drop the serialized JsonElement wrapper so clients don't receive the raw ValueKind text
+													normalized = string.Empty;
+												}
+												else
+												{
+													int fv = int.MinValue;
+													if (token.Type == JTokenType.Integer)
 													{
-														// drop the serialized JsonElement wrapper so clients don't receive the raw ValueKind text
-														normalized = string.Empty;
+														fv = token.Value<int>();
 													}
 													else
 													{
-														int fv = int.MinValue;
-														if (token.Type == JTokenType.Integer)
-														{
-															fv = token.Value<int>();
-														}
-														else
-														{
-															if (int.TryParse(normalized, out var parsedInt)) fv = parsedInt;
-														}
-														if (fv != int.MinValue)
-														{
-															string[] dirs = new[] { "up", "right", "down", "left" };
-															normalized = (fv >= 0 && fv < dirs.Length) ? dirs[fv] : normalized;
-														}
-														else if (token.Type == JTokenType.String)
-														{
-															normalized = token.Value<string>() ?? normalized;
-														}
+														if (int.TryParse(normalized, out var parsedInt)) fv = parsedInt;
 													}
+													if (fv != int.MinValue)
+													{
+														string[] dirs = new[] { "up", "right", "down", "left" };
+														normalized = (fv >= 0 && fv < dirs.Length) ? dirs[fv] : normalized;
+													}
+													else if (token.Type == JTokenType.String)
+													{
+														normalized = token.Value<string>() ?? normalized;
+													}
+												}
 											}
 											catch { /* leave as-is if unexpected */ }
 											break;
-									case "timestamp":
-										// Normalize timestamps to ISO 8601 UTC where possible
-										try
-										{
-											DateTime dt;
-											if (DateTime.TryParse(normalized, out dt)) normalized = dt.ToUniversalTime().ToString("o");
-										}
-										catch { }
-										break;
-									case "length":
-									case "targetx":
-									case "targety":
-									case "heroid":
-									case "sourceheroid":
-										// Ensure numeric-like fields use a plain numeric string
-										try { if (token.Type == JTokenType.Integer || token.Type == JTokenType.Float) normalized = token.ToString(); } catch { }
-										break;
-									default:
-										break;
+										case "timestamp":
+											// Normalize timestamps to ISO 8601 UTC where possible
+											try
+											{
+												DateTime dt;
+												if (DateTime.TryParse(normalized, out dt)) normalized = dt.ToUniversalTime().ToString("o");
+											}
+											catch { }
+											break;
+										case "length":
+										case "targetx":
+										case "targety":
+										case "heroid":
+										case "sourceheroid":
+											// Ensure numeric-like fields use a plain numeric string
+											try { if (token.Type == JTokenType.Integer || token.Type == JTokenType.Float) normalized = token.ToString(); } catch { }
+											break;
+										default:
+											break;
 									}
 									dataDict[key] = normalized ?? string.Empty;
 								}
