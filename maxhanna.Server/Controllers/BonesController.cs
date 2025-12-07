@@ -2337,7 +2337,68 @@ ORDER BY p.created DESC;";
 								var jo = JObject.Parse(dataJson);
 								foreach (var prop in jo.Properties())
 								{
-									dataDict[prop.Name] = prop.Value?.ToString() ?? string.Empty;
+									string key = prop.Name ?? string.Empty;
+									var token = prop.Value;
+									string normalized = token?.ToString() ?? string.Empty;
+									// Normalize known attack-related keys for consistent client-side handling
+									switch (key.ToLowerInvariant())
+									{
+										case "facing":
+											// Prefer string directions; map numeric facings 0..3 to up/right/down/left
+											try
+											{
+													// If the stored token is a serialized JsonElement (e.g. "{ \"ValueKind\": 3 }")
+													// we can't recover the original semantic value reliably. Detect and sanitize.
+													if (token.Type == JTokenType.String && normalized != null && normalized.Contains("\"ValueKind\""))
+													{
+														// drop the serialized JsonElement wrapper so clients don't receive the raw ValueKind text
+														normalized = string.Empty;
+													}
+													else
+													{
+														int fv = int.MinValue;
+														if (token.Type == JTokenType.Integer)
+														{
+															fv = token.Value<int>();
+														}
+														else
+														{
+															if (int.TryParse(normalized, out var parsedInt)) fv = parsedInt;
+														}
+														if (fv != int.MinValue)
+														{
+															string[] dirs = new[] { "up", "right", "down", "left" };
+															normalized = (fv >= 0 && fv < dirs.Length) ? dirs[fv] : normalized;
+														}
+														else if (token.Type == JTokenType.String)
+														{
+															normalized = token.Value<string>() ?? normalized;
+														}
+													}
+											}
+											catch { /* leave as-is if unexpected */ }
+											break;
+									case "timestamp":
+										// Normalize timestamps to ISO 8601 UTC where possible
+										try
+										{
+											DateTime dt;
+											if (DateTime.TryParse(normalized, out dt)) normalized = dt.ToUniversalTime().ToString("o");
+										}
+										catch { }
+										break;
+									case "length":
+									case "targetx":
+									case "targety":
+									case "heroid":
+									case "sourceheroid":
+										// Ensure numeric-like fields use a plain numeric string
+										try { if (token.Type == JTokenType.Integer || token.Type == JTokenType.Float) normalized = token.ToString(); } catch { }
+										break;
+									default:
+										break;
+									}
+									dataDict[key] = normalized ?? string.Empty;
 								}
 							}
 							catch (Exception)
