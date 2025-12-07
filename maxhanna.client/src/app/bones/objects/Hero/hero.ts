@@ -295,13 +295,12 @@ export class Hero extends Character {
             }
 
             const skillType = (payload?.currentSkill as string) ?? this.currentSkill ?? (this.type === 'rogue' ? 'arrow' : (this.type === 'magi' ? 'sting' : undefined));
-            if (skillType === 'arrow' || this.type === 'rogue') {
-              // spawn arrow effect towards tx,ty
-              if (tx !== undefined && ty !== undefined) this.spawnSkillTo(tx, ty, 'arrow');
-            } else if (skillType === 'sting' || this.type === 'magi') {
-              // spawn sting effect towards tx,ty
-              if (tx !== undefined && ty !== undefined) this.spawnSkillTo(tx, ty, 'sting');
+          
+            if (tx !== undefined && ty !== undefined) {
+              this.spawnSkillTo(tx, ty, skillType);
             }
+          
+          
           } catch (ex) { console.warn('Failed to spawn remote attack visual', ex); }
           // Determine animation timeout: prefer payload.attack_speed (ms) then default 400
           const attackSpeed = (typeof payload?.attack_speed === 'number') ? payload.attack_speed : (typeof payload?.attackSpeed === 'number' ? payload.attackSpeed : 400);
