@@ -719,27 +719,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         if (this.chat) {
           this.getLatestMessages();
         }
-        // Filter out any attack-related events from fetch results. Recent/real-time
-        // attack handling should be driven by the recentAttacks/pendingAttacks flow,
-        // not via the generic events array. Drop events whose type contains
-        // 'ATTACK' (or equals 'ATTACK_BATCH').
         if (res.events) {
-          try {
-            const eventsForProcessing = (res.events || []).filter((ev: any) => {
-              try {
-                const t = String(ev?.eventType ?? '').toUpperCase();
-                if (!t) return true;
-                if (t.includes('ATTACK')) return false;
-                if (t === 'ATTACK_BATCH') return false;
-              } catch { }
-              return true;
-            });
-            if (eventsForProcessing && eventsForProcessing.length > 0) {
-              actionMultiplayerEvents(this, eventsForProcessing);
-            }
-          } catch (exEvents) {
-            console.warn('Failed filtering/processing events', exEvents);
-          }
+          actionMultiplayerEvents(this, res.events);
         }
       }
     }
