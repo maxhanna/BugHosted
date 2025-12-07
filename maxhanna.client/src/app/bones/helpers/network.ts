@@ -675,7 +675,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
               targetY: atk.targetY !== undefined ? Number(atk.targetY) : undefined,
               ...atk
             };
-
+            console.log('emitting OTHER_HERO_ATTACK', newAttack);
             events.emit("OTHER_HERO_ATTACK", { sourceHeroId: newAttack.sourceHeroId, attack: newAttack });
           } catch (inner) { console.warn('Failed processing attack item', inner, atk); }
         }

@@ -374,24 +374,16 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           vol = Math.max(minAudible, Math.min(globalVol, vol));
           resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true });
           console.log("playing impact sound", vol);
-        }
-
-        // If target hero has activeSkills list, remove one (visual/cleanup)
-        try {
-          const tgtHero = this.mainScene.level?.children?.find((x: any) => x.id === targetHeroId);
-          if (tgtHero && tgtHero.activeSkills && tgtHero.activeSkills.length > 0) {
-            try { tgtHero.activeSkills.pop().destroy(); } catch { }
-          }
-        } catch { }
+        } 
 
         // Ensure attack visuals/facing/skill use the provided payload when possible
         try {
           const skillName = (attack && (attack.currentSkill ?? attack.skill)) as string | undefined;
 
-          // Apply facing if present so projectile/animation goes the right direction
-          try { if (attack && attack.facing && typeof attack.facing === 'string' && srcObj) srcObj.facingDirection = attack.facing; } catch { }
-
-          // attack visuals handled via spawnSkillTo below
+          // Apply facing if present so projectile/animation goes the right direction 
+          if (attack && attack.facing && typeof attack.facing === 'string' && srcObj) {
+            srcObj.facingDirection = attack.facing; 
+          }  
 
           // Prefer using the sprite's spawnSkillTo method to ensure visuals, facing and hit-detection match
           if (srcObj) {
@@ -407,7 +399,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
               else if (facingVal === 3) facingVal = 'UP';
             }
             if (typeof facingVal === 'string') {
-              try { srcObj.facingDirection = String(facingVal).toUpperCase(); } catch { }
+              srcObj.facingDirection = String(facingVal).toUpperCase();  
             }
 
             // Compute target coordinates based on facing and length
@@ -425,16 +417,21 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
               } else if ((fd === 'RIGHT' || String(attack?.facing).toLowerCase() === 'right')) {
                 tx += L;
               } else {
-                if (typeof attack?.targetX === 'number') tx = attack.targetX;
-                if (typeof attack?.targetY === 'number') ty = attack.targetY;
+                if (typeof attack?.targetX === 'number') {
+                  tx = attack.targetX;
+                }
+                if (typeof attack?.targetY === 'number') {
+                  ty = attack.targetY;
+                }
               }
             } catch { }
 
             if (skillToUse && typeof srcObj.spawnSkillTo === 'function') {
-              try { srcObj.spawnSkillTo(tx, ty, skillToUse); } catch (e) { /* ignore spawn failure */ }
+               srcObj.spawnSkillTo(tx, ty, skillToUse); 
             } else {
               const normalized = { ...attack, skill: skillToUse ?? attack.skill, currentSkill: skillToUse ?? attack.skill, targetX: tx, targetY: ty };
-              try { srcObj._remoteAttack = normalized; setTimeout(() => { try { delete srcObj._remoteAttack; } catch { } }, 500); } catch { }
+              srcObj._remoteAttack = normalized; 
+              setTimeout(() => { delete srcObj._remoteAttack; }, 500);
             }
           }
         } catch (exSpawn) {
@@ -442,7 +439,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           try {
             if (srcObj) {
               const normalized = { ...attack, skill: (attack && (attack.currentSkill ?? attack.skill)) };
-              try { srcObj._remoteAttack = normalized; setTimeout(() => { try { delete srcObj._remoteAttack; } catch { } }, 500); } catch { }
+              srcObj._remoteAttack = normalized; setTimeout(() => { delete srcObj._remoteAttack; }, 500);  
             }
           } catch { }
         }
