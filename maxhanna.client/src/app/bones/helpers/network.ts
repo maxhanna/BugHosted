@@ -35,6 +35,20 @@ export let attackBatchInterval: any;
 export let attackBatchIntervalMs: number | undefined;
 export const processedAttacks: Map<string, number> = new Map();
 
+// Strongly-typed shape for processed attacks coming from the backend
+export interface ProcessedAttack {
+  timestamp?: string | number | Date;
+  skill?: string;
+  currentSkill?: string;
+  heroId?: number;
+  sourceHeroId?: number;
+  facing?: string | number;
+  length?: number;
+  targetX?: number;
+  targetY?: number;
+  [key: string]: any;
+}
+
 export function startBatchUpdates(object: any, batchIntervalMs = 1000) {
   batchInterval = setInterval(() => {
     if (encounterUpdates.length > 0) {
@@ -590,14 +604,62 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
 
   for (let event of metaEvents) {
 
-    // If this is an ATTACK or ATTACK_BATCH event, emit OTHER_HERO_ATTACK once per attack
+    // If this is an ATTACK or ATTACK_BATCH event, parse into strongly-typed attacks,
+    // omit attacks originating from the local player, and emit OTHER_HERO_ATTACK once per attack
     if (event && (event.eventType === "ATTACK" || event.eventType === "ATTACK_BATCH")) {
-      const attackId = event.id ? String(event.id) : `${event.heroId}:${event.eventType}:${event.timestamp}:${JSON.stringify(event.data)}`;
-      if (!processedAttacks.has(attackId)) {
-        processedAttacks.set(attackId, Date.now());
-        // Emit normalized payload (name and payload only) so handlers don't need object
-        events.emit("OTHER_HERO_ATTACK", { sourceHeroId: event.heroId, attack: event.data ?? {} });
+      try {
+        const attacksToProcess: ProcessedAttack[] = [];
+        if (event.eventType === "ATTACK") {
+          const raw = event.data ?? {};
+          attacksToProcess.push(raw as ProcessedAttack);
+        } else if (event.eventType === "ATTACK_BATCH") {
+          try {
+            const rawAttacks = event.data && event.data["attacks"] ? JSON.parse(String(event.data["attacks"])) : [];
+            if (Array.isArray(rawAttacks)) {
+              for (const a of rawAttacks) attacksToProcess.push(a as ProcessedAttack);
+            }
+          } catch (ex) {
+            console.warn('Failed to parse ATTACK_BATCH payload', ex, event.data);
+          }
+        }
+
+        for (const atk of attacksToProcess) {
+          try {
+            const srcId = (atk && (atk.sourceHeroId ?? atk.heroId)) ? Number(atk.sourceHeroId ?? atk.heroId) : Number(event.heroId ?? 0);
+            // Omit attacks sent by the current user
+            if (object && object.metaHero && Number(object.metaHero.id) === srcId) continue;
+
+            // Use explicit timestamp when present, else fallback to event.timestamp
+            const atkTsRaw = atk.timestamp ?? event.timestamp ?? new Date().toISOString();
+            const atkTsStr = (typeof atkTsRaw === 'string' || typeof atkTsRaw === 'number') ? String(atkTsRaw) : (atkTsRaw instanceof Date ? atkTsRaw.toISOString() : String(atkTsRaw));
+
+            // Build a stable attack id for deduplication
+            const attackId = event.id ? String(event.id) : `${srcId}:${atkTsStr}:${String(atk.skill ?? atk.currentSkill ?? '')}`;
+            if (processedAttacks.has(attackId)) continue;
+            processedAttacks.set(attackId, Date.now());
+
+            // Emit typed attack payload for handlers
+            const newAttack: ProcessedAttack = {
+              timestamp: atkTsStr,
+              skill: atk.skill,
+              currentSkill: atk.currentSkill,
+              heroId: atk.heroId ? Number(atk.heroId) : undefined,
+              sourceHeroId: atk.sourceHeroId ? Number(atk.sourceHeroId) : srcId,
+              facing: atk.facing,
+              length: atk.length !== undefined ? Number(atk.length) : undefined,
+              targetX: atk.targetX !== undefined ? Number(atk.targetX) : undefined,
+              targetY: atk.targetY !== undefined ? Number(atk.targetY) : undefined,
+              ...atk
+            };
+
+            events.emit("OTHER_HERO_ATTACK", { sourceHeroId: newAttack.sourceHeroId, attack: newAttack });
+          } catch (inner) { console.warn('Failed processing attack item', inner, atk); }
+        }
+      } catch (exAll) {
+        console.warn('Failed processing ATTACK/ATTACK_BATCH event', exAll, event);
       }
+      // continue to next event (don't fall through to duplicate OTHER_HERO_ATTACK handling below)
+      continue;
     }
 
 
