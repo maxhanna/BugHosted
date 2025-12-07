@@ -251,11 +251,7 @@ namespace maxhanna.Server.Controllers
 					await ProcessEncounterAI(hero.Map, connection, transaction);
 				}
 				MetaBot[]? enemyBots = await GetEncounters(connection, transaction, hero.Map);
-				List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
-				// Query recent ATTACK events (last 5 seconds) excluding attacks originating from this hero.
-				List<Dictionary<string, object>> recentAttacks = new();
-				await CreateAttackEvents(hero, connection, transaction, recentAttacks);
-				AddAttackEventsToEventsList(hero, events, recentAttacks);
+				List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction); 
 				List<object> droppedItems = await FetchDroppedItems(hero, connection, transaction);
 				List<object> townPortals = await FetchTownPortals(hero, connection, transaction);
 
@@ -267,8 +263,7 @@ namespace maxhanna.Server.Controllers
 				 Events = events, 
 				 EnemyBots = enemyBots,
 				 DroppedItems = droppedItems, 
-				 TownPortals = townPortals, 
-				 RecentAttacks = recentAttacks 
+				 TownPortals = townPortals
 				};
 				return Ok(resp);
 			}
@@ -507,79 +502,7 @@ ORDER BY p.created DESC;";
 			}
 		}
 
-		private static void AddAttackEventsToEventsList(MetaHero hero, List<MetaEvent> events, List<Dictionary<string, object>> recentAttacks)
-		{
-			foreach (var atk in recentAttacks)
-			{
-				// Prefer keys "heroId" or "sourceHeroId" for the attack origin
-				object? srcObj = null;
-				if (atk.ContainsKey("heroId")) srcObj = atk["heroId"];
-				else if (atk.ContainsKey("sourceHeroId")) srcObj = atk["sourceHeroId"];
-
-				int srcId = srcObj != null ? Convert.ToInt32(srcObj) : 0;
-				var dataDict = new Dictionary<string, string>();
-				DateTime eventTs = DateTime.UtcNow;
-				foreach (var kv in atk)
-				{
-					if (kv.Key == "timestamp")
-					{
-						try
-						{
-							if (kv.Value is DateTime dt) { eventTs = dt; dataDict[kv.Key] = dt.ToString("o"); }
-							else { dataDict[kv.Key] = kv.Value?.ToString() ?? string.Empty; if (DateTime.TryParse(dataDict[kv.Key], out var parsed)) eventTs = parsed; }
-						}
-						catch { dataDict[kv.Key] = kv.Value?.ToString() ?? string.Empty; }
-					}
-					else
-					{
-						dataDict[kv.Key] = kv.Value?.ToString() ?? string.Empty;
-					}
-				}
-				// Create a MetaEvent using the original attack timestamp so clients can correlate/deduplicate
-				var meleeEvent = new MetaEvent(0, srcId, eventTs, "OTHER_HERO_ATTACK", hero.Map ?? string.Empty, dataDict);
-				events.Add(meleeEvent);
-			}
-		}
-
-		private async Task CreateAttackEvents(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction, List<Dictionary<string, object>> recentAttacks)
-		{
-			try
-			{
-				string q = "SELECT data, timestamp FROM maxhanna.bones_event WHERE event = 'ATTACK' AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND) AND hero_id <> @HeroId ORDER BY timestamp DESC LIMIT 50;";
-				using var cmd = new MySqlCommand(q, connection, transaction);
-				cmd.Parameters.AddWithValue("@HeroId", hero.Id);
-				using var rdr = await cmd.ExecuteReaderAsync();
-				while (await rdr.ReadAsync())
-				{
-					var dataJson = rdr.IsDBNull(rdr.GetOrdinal("data")) ? null : rdr.GetString(rdr.GetOrdinal("data"));
-					DateTime rowTs = rdr.IsDBNull(rdr.GetOrdinal("timestamp")) ? DateTime.UtcNow : rdr.GetDateTime(rdr.GetOrdinal("timestamp"));
-					if (string.IsNullOrEmpty(dataJson)) continue;
-					try
-					{
-						var jo = JObject.Parse(dataJson);
-						var dict = new Dictionary<string, object>();
-						foreach (var prop in jo.Properties())
-						{
-							var token = prop.Value;
-							if (token.Type == JTokenType.Integer) dict[prop.Name] = token.ToObject<long>();
-							else if (token.Type == JTokenType.Float) dict[prop.Name] = token.ToObject<double>();
-							else if (token.Type == JTokenType.Boolean) dict[prop.Name] = token.ToObject<bool>();
-							else if (token.Type == JTokenType.String) dict[prop.Name] = token.ToObject<string?>() ?? string.Empty;
-							else dict[prop.Name] = token.ToString(Newtonsoft.Json.Formatting.None);
-						}
-						// include the original event timestamp so clients can deduplicate/ignore older attacks
-						dict["timestamp"] = rowTs;
-						recentAttacks.Add(dict);
-					}
-					catch { /* ignore malformed attack JSON */ }
-				}
-			}
-			catch (Exception ex)
-			{
-				await _log.Db("Failed to read recentAttacks: " + ex.Message, hero.Id, "BONES", true);
-			}
-		}
-
+		 
 		private async Task PersistNewAttacks(FetchGameDataRequest request, MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			// If client provided recentAttacks, persist them as short-lived ATTACK events so other players can pick them up in this fetch-response.
