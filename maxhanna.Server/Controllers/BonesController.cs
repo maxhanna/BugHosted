@@ -2319,7 +2319,7 @@ ORDER BY p.created DESC;";
 				var partyMemberIds = await GetPartyMemberIds(heroId, connection, transaction);
 				string sql = @"
 				DELETE FROM maxhanna.bones_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 10 SECOND; 
-				SELECT * FROM maxhanna.bones_event WHERE event != 'ATTACK' AND (map = @Map OR event = 'CHAT' OR event = 'UNPARTY');";
+				SELECT * FROM maxhanna.bones_event WHERE (map = @Map OR event = 'CHAT' OR event = 'UNPARTY');";
 				MySqlCommand cmd = new(sql, connection, transaction); cmd.Parameters.AddWithValue("@Map", map);
 				List<MetaEvent> events = new();
 				using (var reader = await cmd.ExecuteReaderAsync())
