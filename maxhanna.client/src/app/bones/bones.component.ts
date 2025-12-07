@@ -280,10 +280,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           // Apply facing if present so projectile/animation goes the right direction
           try { if (attack && attack.facing && typeof attack.facing === 'string') srcObj.facingDirection = attack.facing; } catch { }
 
-          // If the hero object exposes a playAttackAnimation method, use it and pass chosen skill
-            if (typeof srcObj.playAttackAnimation === 'function') {
-              try { srcObj.playAttackAnimation(skillName ?? attack.skill, attack.facing, attack.length); } catch { srcObj.playAttackAnimation(skillName ?? attack.skill); }
-            }
+          // attack visuals handled via spawnSkillTo below
 
             // Prefer using the sprite's spawnSkillTo method to ensure visuals, facing and hit-detection match
             try {
@@ -394,10 +391,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           // Apply facing if present so projectile/animation goes the right direction
           try { if (attack && attack.facing && typeof attack.facing === 'string' && srcObj) srcObj.facingDirection = attack.facing; } catch { }
 
-          // If attacker sprite exposes a playAttackAnimation method, call it with chosen skill
-          if (srcObj && typeof srcObj.playAttackAnimation === 'function') {
-            try { srcObj.playAttackAnimation(skillName ?? attack.skill, attack.facing, attack.length); } catch { try { srcObj.playAttackAnimation(skillName ?? attack.skill); } catch { } }
-          }
+          // attack visuals handled via spawnSkillTo below
 
           // Prefer using the sprite's spawnSkillTo method to ensure visuals, facing and hit-detection match
           if (srcObj) {
