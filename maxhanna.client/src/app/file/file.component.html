@@ -4,7 +4,7 @@
   <div class="componentTitle" *ngIf="!user">Filesystem</div>
 
   <div class="massDeleteControls" *ngIf="massDeleteMode" style="margin:8px 0;">
-    <button (click)="confirmMassDelete()" class="dangerButton"> Delete Selected ({{ fileSearchComponent?.selectedCount() || 0 }})</button>
+    <button (click)="confirmMassDelete()" class="dangerButton"> Delete Selected ({{ fileSearchComponent.selectedCount() || 0 }})</button>
     <button (click)="cancelMassDelete()">Cancel</button>
   </div>
 
