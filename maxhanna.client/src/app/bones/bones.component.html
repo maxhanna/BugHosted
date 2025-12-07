@@ -285,98 +285,138 @@
         <div class="stat-row">
           <div class="stat-label">Attack DMG</div>
           <div class="stat-controls">
-            <button class="stat-btn" (click)="adjustStat('attackDmg', -1)" [disabled]="editableStats.attackDmg <= 0"
+            <button class="stat-btn"
+              (mousedown)="startAdjustStat('attackDmg', -1)" (mouseup)="stopAdjustStat()" (mouseleave)="stopAdjustStat()"
+              (touchstart)="startAdjustStat('attackDmg', -1); $event.preventDefault()" (touchend)="stopAdjustStat()" (touchcancel)="stopAdjustStat()"
+              (click)="onStatButtonClick('attackDmg', -1, $event)" [disabled]="editableStats.attackDmg <= 0"
               aria-label="Decrease Attack DMG">-</button>
             <input class="stat-input" type="number" aria-label="Attack DMG" [min]="0"
               [max]="(statsOriginal?.attackDmg ?? 0) + editableStats.pointsAvailable" [value]="editableStats.attackDmg"
               (input)="onStatInputChange('attackDmg', $any($event.target).value)" />
-            <button class="stat-btn" (click)="adjustStat('attackDmg', 1)"
-              [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Attack DMG">+</button>
+            <button class="stat-btn"
+              (mousedown)="startAdjustStat('attackDmg', 1)" (mouseup)="stopAdjustStat()" (mouseleave)="stopAdjustStat()"
+              (touchstart)="startAdjustStat('attackDmg', 1); $event.preventDefault()" (touchend)="stopAdjustStat()" (touchcancel)="stopAdjustStat()"
+              (click)="onStatButtonClick('attackDmg', 1, $event)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Attack DMG">+</button>
           </div>
         </div>
         <div class="stat-row">
           <div class="stat-label">Atk Speed (ms)</div>
           <div class="stat-controls">
-            <button class="stat-btn" (click)="adjustStat('attackSpeed', -1)" [disabled]="editableStats.attackSpeed <= 0"
+            <button class="stat-btn"
+              (mousedown)="startAdjustStat('attackSpeed', -1)" (mouseup)="stopAdjustStat()" (mouseleave)="stopAdjustStat()"
+              (touchstart)="startAdjustStat('attackSpeed', -1); $event.preventDefault()" (touchend)="stopAdjustStat()" (touchcancel)="stopAdjustStat()"
+              (click)="onStatButtonClick('attackSpeed', -1, $event)" [disabled]="editableStats.attackSpeed <= 0"
               aria-label="Decrease Attack Speed Points">-</button>
             <input class="stat-input" type="number" aria-label="Attack Speed Points" [min]="0"
               [max]="(statsOriginal?.attackSpeed ?? 0) + editableStats.pointsAvailable"
               [value]="editableStats.attackSpeed"
               (input)="onStatInputChange('attackSpeed', $any($event.target).value)" />
-            <button class="stat-btn" (click)="adjustStat('attackSpeed', 1)"
-              [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Attack Speed Points">+</button>
+            <button class="stat-btn"
+              (mousedown)="startAdjustStat('attackSpeed', 1)" (mouseup)="stopAdjustStat()" (mouseleave)="stopAdjustStat()"
+              (touchstart)="startAdjustStat('attackSpeed', 1); $event.preventDefault()" (touchend)="stopAdjustStat()" (touchcancel)="stopAdjustStat()"
+              (click)="onStatButtonClick('attackSpeed', 1, $event)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Attack Speed Points">+</button>
           </div>
         </div>
         <div class="stat-row">
           <div class="stat-label">Crit Rate (%)</div>
           <div class="stat-controls">
-            <button class="stat-btn" (click)="adjustStat('critRate', -1)" [disabled]="editableStats.critRate <= 0"
+            <button class="stat-btn"
+              (mousedown)="startAdjustStat('critRate', -1)" (mouseup)="stopAdjustStat()" (mouseleave)="stopAdjustStat()"
+              (touchstart)="startAdjustStat('critRate', -1); $event.preventDefault()" (touchend)="stopAdjustStat()" (touchcancel)="stopAdjustStat()"
+              (click)="onStatButtonClick('critRate', -1, $event)" [disabled]="editableStats.critRate <= 0"
               aria-label="Decrease Crit Rate">-</button>
             <input class="stat-input" type="number" aria-label="Crit Rate" [min]="0"
               [max]="(statsOriginal?.critRate ?? 0) + editableStats.pointsAvailable" [value]="editableStats.critRate"
               (input)="onStatInputChange('critRate', $any($event.target).value)" />
-            <button class="stat-btn" (click)="adjustStat('critRate', 1)" [disabled]="editableStats.pointsAvailable <= 0"
-              aria-label="Increase Crit Rate">+</button>
+            <button class="stat-btn"
+              (mousedown)="startAdjustStat('critRate', 1)" (mouseup)="stopAdjustStat()" (mouseleave)="stopAdjustStat()"
+              (touchstart)="startAdjustStat('critRate', 1); $event.preventDefault()" (touchend)="stopAdjustStat()" (touchcancel)="stopAdjustStat()"
+              (click)="onStatButtonClick('critRate', 1, $event)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Crit Rate">+</button>
           </div>
         </div>
         <div class="stat-row">
           <div class="stat-label">Crit DMG (mult)</div>
           <div class="stat-controls">
-            <button class="stat-btn" (click)="adjustStat('critDmg', -1)" [disabled]="editableStats.critDmg <= 1"
+            <button class="stat-btn"
+              (mousedown)="startAdjustStat('critDmg', -1)" (mouseup)="stopAdjustStat()" (mouseleave)="stopAdjustStat()"
+              (touchstart)="startAdjustStat('critDmg', -1); $event.preventDefault()" (touchend)="stopAdjustStat()" (touchcancel)="stopAdjustStat()"
+              (click)="onStatButtonClick('critDmg', -1, $event)" [disabled]="editableStats.critDmg <= 1"
               aria-label="Decrease Crit DMG">-</button>
             <input class="stat-input" type="number" aria-label="Crit DMG" [min]="1"
               [max]="(statsOriginal?.critDmg ?? 1) + editableStats.pointsAvailable" [value]="editableStats.critDmg"
               (input)="onStatInputChange('critDmg', $any($event.target).value)" />
-            <button class="stat-btn" (click)="adjustStat('critDmg', 1)" [disabled]="editableStats.pointsAvailable <= 0"
-              aria-label="Increase Crit DMG">+</button>
+            <button class="stat-btn"
+              (mousedown)="startAdjustStat('critDmg', 1)" (mouseup)="stopAdjustStat()" (mouseleave)="stopAdjustStat()"
+              (touchstart)="startAdjustStat('critDmg', 1); $event.preventDefault()" (touchend)="stopAdjustStat()" (touchcancel)="stopAdjustStat()"
+              (click)="onStatButtonClick('critDmg', 1, $event)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Crit DMG">+</button>
           </div>
         </div>
         <div class="stat-row">
           <div class="stat-label">Health</div>
           <div class="stat-controls">
-            <button class="stat-btn" (click)="adjustStat('health', -1)" [disabled]="editableStats.health <= 0"
+            <button class="stat-btn"
+              (mousedown)="startAdjustStat('health', -1)" (mouseup)="stopAdjustStat()" (mouseleave)="stopAdjustStat()"
+              (touchstart)="startAdjustStat('health', -1); $event.preventDefault()" (touchend)="stopAdjustStat()" (touchcancel)="stopAdjustStat()"
+              (click)="onStatButtonClick('health', -1, $event)" [disabled]="editableStats.health <= 0"
               aria-label="Decrease Health">-</button>
             <input class="stat-input" type="number" aria-label="Health points" [min]="0"
               [max]="(statsOriginal?.health ?? 0) + editableStats.pointsAvailable" [value]="editableStats.health"
               (input)="onStatInputChange('health', $any($event.target).value)" />
-            <button class="stat-btn" (click)="adjustStat('health', 1)" [disabled]="editableStats.pointsAvailable <= 0"
-              aria-label="Increase Health">+</button>
+            <button class="stat-btn"
+              (mousedown)="startAdjustStat('health', 1)" (mouseup)="stopAdjustStat()" (mouseleave)="stopAdjustStat()"
+              (touchstart)="startAdjustStat('health', 1); $event.preventDefault()" (touchend)="stopAdjustStat()" (touchcancel)="stopAdjustStat()"
+              (click)="onStatButtonClick('health', 1, $event)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Health">+</button>
           </div>
         </div>
         <div class="stat-row">
           <div class="stat-label">Mana</div>
           <div class="stat-controls">
-            <button class="stat-btn" (click)="adjustStat('mana', -1)" [disabled]="editableStats.mana <= 0"
+            <button class="stat-btn"
+              (mousedown)="startAdjustStat('mana', -1)" (mouseup)="stopAdjustStat()" (mouseleave)="stopAdjustStat()"
+              (touchstart)="startAdjustStat('mana', -1); $event.preventDefault()" (touchend)="stopAdjustStat()" (touchcancel)="stopAdjustStat()"
+              (click)="onStatButtonClick('mana', -1, $event)" [disabled]="editableStats.mana <= 0"
               aria-label="Decrease Mana">-</button>
             <input class="stat-input" type="number" aria-label="Mana points" [min]="0"
               [max]="(statsOriginal?.mana ?? 0) + editableStats.pointsAvailable" [value]="editableStats.mana"
               (input)="onStatInputChange('mana', $any($event.target).value)" />
-            <button class="stat-btn" (click)="adjustStat('mana', 1)" [disabled]="editableStats.pointsAvailable <= 0"
-              aria-label="Increase Mana">+</button>
+            <button class="stat-btn"
+              (mousedown)="startAdjustStat('mana', 1)" (mouseup)="stopAdjustStat()" (mouseleave)="stopAdjustStat()"
+              (touchstart)="startAdjustStat('mana', 1); $event.preventDefault()" (touchend)="stopAdjustStat()" (touchcancel)="stopAdjustStat()"
+              (click)="onStatButtonClick('mana', 1, $event)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Mana">+</button>
           </div>
         </div>
         <div class="stat-row">
           <div class="stat-label">Mana Regen</div>
           <div class="stat-controls">
-            <button class="stat-btn" (click)="adjustStat('manaRegen', -1)" [disabled]="editableStats.manaRegen <= 0"
+            <button class="stat-btn"
+              (mousedown)="startAdjustStat('manaRegen', -1)" (mouseup)="stopAdjustStat()" (mouseleave)="stopAdjustStat()"
+              (touchstart)="startAdjustStat('manaRegen', -1); $event.preventDefault()" (touchend)="stopAdjustStat()" (touchcancel)="stopAdjustStat()"
+              (click)="onStatButtonClick('manaRegen', -1, $event)" [disabled]="editableStats.manaRegen <= 0"
               aria-label="Decrease Mana Regen">-</button>
             <input class="stat-input" type="number" aria-label="Mana Regen" [min]="0" step="1"
               [max]="(statsOriginal?.manaRegen ?? 0) + editableStats.pointsAvailable" [value]="editableStats.manaRegen"
               (input)="onStatInputChange('manaRegen', $any($event.target).value)" />
-            <button class="stat-btn" (click)="adjustStat('manaRegen', 1)"
-              [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Mana Regen">+</button>
+            <button class="stat-btn"
+              (mousedown)="startAdjustStat('manaRegen', 1)" (mouseup)="stopAdjustStat()" (mouseleave)="stopAdjustStat()"
+              (touchstart)="startAdjustStat('manaRegen', 1); $event.preventDefault()" (touchend)="stopAdjustStat()" (touchcancel)="stopAdjustStat()"
+              (click)="onStatButtonClick('manaRegen', 1, $event)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Mana Regen">+</button>
           </div>
         </div>
         <div class="stat-row">
           <div class="stat-label">Regen</div>
           <div class="stat-controls">
-            <button class="stat-btn" (click)="adjustStat('regen', -1)" [disabled]="editableStats.regen <= 0"
+            <button class="stat-btn"
+              (mousedown)="startAdjustStat('regen', -1)" (mouseup)="stopAdjustStat()" (mouseleave)="stopAdjustStat()"
+              (touchstart)="startAdjustStat('regen', -1); $event.preventDefault()" (touchend)="stopAdjustStat()" (touchcancel)="stopAdjustStat()"
+              (click)="onStatButtonClick('regen', -1, $event)" [disabled]="editableStats.regen <= 0"
               aria-label="Decrease Regen">-</button>
             <input class="stat-input" type="number" aria-label="Regen" [min]="0" step="1"
               [max]="(statsOriginal?.regen ?? 0) + editableStats.pointsAvailable" [value]="editableStats.regen"
               (input)="onStatInputChange('regen', $any($event.target).value)" />
-            <button class="stat-btn" (click)="adjustStat('regen', 1)" [disabled]="editableStats.pointsAvailable <= 0"
-              aria-label="Increase Regen">+</button>
+            <button class="stat-btn"
+              (mousedown)="startAdjustStat('regen', 1)" (mouseup)="stopAdjustStat()" (mouseleave)="stopAdjustStat()"
+              (touchstart)="startAdjustStat('regen', 1); $event.preventDefault()" (touchend)="stopAdjustStat()" (touchcancel)="stopAdjustStat()"
+              (click)="onStatButtonClick('regen', 1, $event)" [disabled]="editableStats.pointsAvailable <= 0" aria-label="Increase Regen">+</button>
           </div>
         </div>
       </div>

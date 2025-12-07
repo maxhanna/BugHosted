@@ -98,6 +98,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   // Transient UI: show 'Skills updated' message when present
   skillsUpdatedVisible: boolean = false;
   private skillsUpdatedTimer: any | undefined = undefined;
+  // Hold-to-repeat support for stat +/- buttons
+  private _statRepeatTimer: any | undefined = undefined;
+  private _statRepeatIntervalId: any | undefined = undefined;
+  private _lastStatHoldAt: number | undefined = undefined;
   // optimistic UI state for invites: map heroId -> expiry timestamp (ms)
   pendingInvites: Map<number, number> = new Map<number, number>();
   // per-hero cached seconds left for UI
@@ -2032,6 +2036,47 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     (this.editableStats as any)[stat] = newVal;
     // Update pointsAvailable (delta may be negative when lowering a stat)
     this.editableStats.pointsAvailable = Math.max(0, Math.round(this.editableStats.pointsAvailable - delta));
+  }
+
+  // Start a press-and-hold repeat for a stat button. Calls adjustStat immediately, then after a short
+  // delay begins repeating at a steady interval until stopAdjustStat() is called.
+  startAdjustStat(stat: 'attackDmg' | 'attackSpeed' | 'critRate' | 'critDmg' | 'health' | 'regen' | 'mana' | 'manaRegen', delta: number) {
+    try {
+      this.stopAdjustStat();
+      this.adjustStat(stat, delta);
+      // record that a hold started now; used to suppress the subsequent click event
+      this._lastStatHoldAt = Date.now();
+      // initial delay before repeating (ms)
+      const initialDelay = 350;
+      const repeatInterval = 120;
+      this._statRepeatTimer = setTimeout(() => {
+        this._statRepeatIntervalId = setInterval(() => {
+          try { this.adjustStat(stat, delta); } catch { }
+        }, repeatInterval);
+      }, initialDelay);
+    } catch (ex) { /* swallow */ }
+  }
+
+  // Stop any ongoing press-and-hold repeat and mark the last hold timestamp.
+  stopAdjustStat() {
+    try {
+      if (this._statRepeatTimer) { clearTimeout(this._statRepeatTimer); this._statRepeatTimer = undefined; }
+      if (this._statRepeatIntervalId) { clearInterval(this._statRepeatIntervalId); this._statRepeatIntervalId = undefined; }
+      this._lastStatHoldAt = Date.now();
+    } catch (ex) { /* swallow */ }
+  }
+
+  // Click handler wrapper to avoid double-counting when a click follows a touch/hold.
+  onStatButtonClick(stat: 'attackDmg' | 'attackSpeed' | 'critRate' | 'critDmg' | 'health' | 'regen' | 'mana' | 'manaRegen', delta: number, event?: any) {
+    try {
+      const now = Date.now();
+      if (this._lastStatHoldAt && (now - this._lastStatHoldAt) < 600) {
+        // Likely the click that follows a touchend/mouseup after a hold — ignore.
+        try { event?.stopPropagation?.(); event?.preventDefault?.(); } catch { }
+        return;
+      }
+      this.adjustStat(stat, delta);
+    } catch (ex) { /* swallow */ }
   }
 
   // Simple helper to detect if the editable stats differ from the original capture
