@@ -260,7 +260,16 @@ namespace maxhanna.Server.Controllers
 				List<object> townPortals = await FetchTownPortals(hero, connection, transaction);
 
 				await transaction.CommitAsync();
-				var resp = new FetchGameDataResponse { Map = hero.Map, Position = hero.Position, Heroes = heroes, Events = events, EnemyBots = enemyBots, DroppedItems = droppedItems, TownPortals = townPortals, RecentAttacks = recentAttacks };
+				var resp = new FetchGameDataResponse { 
+				 Map = hero.Map,
+				 Position = hero.Position, 
+				 Heroes = heroes, 
+				 Events = events, 
+				 EnemyBots = enemyBots,
+				 DroppedItems = droppedItems, 
+				 TownPortals = townPortals, 
+				 RecentAttacks = recentAttacks 
+				};
 				return Ok(resp);
 			}
 			catch (Exception ex)
@@ -275,6 +284,18 @@ namespace maxhanna.Server.Controllers
 			List<object> droppedItems = new();
 			try
 			{   
+				// Remove dropped items older than 2 minutes to keep the table small
+				try
+				{
+					string delOld = "DELETE FROM maxhanna.bones_items_dropped WHERE created < UTC_TIMESTAMP() - INTERVAL 2 MINUTE;";
+					using var delCmd = new MySqlCommand(delOld, connection, transaction);
+					await delCmd.ExecuteNonQueryAsync();
+				}
+				catch (Exception exDel)
+				{
+					await _log.Db("Failed to delete old dropped items: " + exDel.Message, hero.Id, "BONES", true);
+				}
+
 				int xMin = hero.Position.x - VIEW_DISTANCE;
 				int xMax = hero.Position.x + VIEW_DISTANCE;
 				int yMin = hero.Position.y - VIEW_DISTANCE;
@@ -497,12 +518,25 @@ ORDER BY p.created DESC;";
 
 				int srcId = srcObj != null ? Convert.ToInt32(srcObj) : 0;
 				var dataDict = new Dictionary<string, string>();
+				DateTime eventTs = DateTime.UtcNow;
 				foreach (var kv in atk)
 				{
-					dataDict[kv.Key] = kv.Value?.ToString() ?? string.Empty;
+					if (kv.Key == "timestamp")
+					{
+						try
+						{
+							if (kv.Value is DateTime dt) { eventTs = dt; dataDict[kv.Key] = dt.ToString("o"); }
+							else { dataDict[kv.Key] = kv.Value?.ToString() ?? string.Empty; if (DateTime.TryParse(dataDict[kv.Key], out var parsed)) eventTs = parsed; }
+						}
+						catch { dataDict[kv.Key] = kv.Value?.ToString() ?? string.Empty; }
+					}
+					else
+					{
+						dataDict[kv.Key] = kv.Value?.ToString() ?? string.Empty;
+					}
 				}
-				// Create a MetaEvent so client-side multiplayer event processing will handle it like other events
-				var meleeEvent = new MetaEvent(0, srcId, DateTime.UtcNow, "OTHER_HERO_ATTACK", hero.Map ?? string.Empty, dataDict);
+				// Create a MetaEvent using the original attack timestamp so clients can correlate/deduplicate
+				var meleeEvent = new MetaEvent(0, srcId, eventTs, "OTHER_HERO_ATTACK", hero.Map ?? string.Empty, dataDict);
 				events.Add(meleeEvent);
 			}
 		}
@@ -511,13 +545,14 @@ ORDER BY p.created DESC;";
 		{
 			try
 			{
-				string q = "SELECT data FROM maxhanna.bones_event WHERE event = 'ATTACK' AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND) AND hero_id <> @HeroId ORDER BY timestamp DESC LIMIT 50;";
+				string q = "SELECT data, timestamp FROM maxhanna.bones_event WHERE event = 'ATTACK' AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND) AND hero_id <> @HeroId ORDER BY timestamp DESC LIMIT 50;";
 				using var cmd = new MySqlCommand(q, connection, transaction);
 				cmd.Parameters.AddWithValue("@HeroId", hero.Id);
 				using var rdr = await cmd.ExecuteReaderAsync();
 				while (await rdr.ReadAsync())
 				{
 					var dataJson = rdr.IsDBNull(rdr.GetOrdinal("data")) ? null : rdr.GetString(rdr.GetOrdinal("data"));
+					DateTime rowTs = rdr.IsDBNull(rdr.GetOrdinal("timestamp")) ? DateTime.UtcNow : rdr.GetDateTime(rdr.GetOrdinal("timestamp"));
 					if (string.IsNullOrEmpty(dataJson)) continue;
 					try
 					{
@@ -532,6 +567,8 @@ ORDER BY p.created DESC;";
 							else if (token.Type == JTokenType.String) dict[prop.Name] = token.ToObject<string?>() ?? string.Empty;
 							else dict[prop.Name] = token.ToString(Newtonsoft.Json.Formatting.None);
 						}
+						// include the original event timestamp so clients can deduplicate/ignore older attacks
+						dict["timestamp"] = rowTs;
 						recentAttacks.Add(dict);
 					}
 					catch { /* ignore malformed attack JSON */ }
