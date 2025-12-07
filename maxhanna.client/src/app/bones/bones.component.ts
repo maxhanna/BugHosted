@@ -2365,6 +2365,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       this.isStartMenuOpened = false;
       // Ensure menus closed centrally
       try { this.closeStartMenu(); } catch { }
+      // Broadcast current skill selection so other clients can observe/use it
+      try {
+        const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "SKILL_SELECTED", this.metaHero.map, { "skill": String(skillName) });
+        this.bonesService.updateEvents(metaEvent).catch((err: any) => { console.warn('Failed to broadcast SKILL_SELECTED', err); });
+      } catch (ex) { console.warn('Failed preparing SKILL_SELECTED event', ex); }
     } catch (e) {
       console.warn('selectSkill failed', e);
     }

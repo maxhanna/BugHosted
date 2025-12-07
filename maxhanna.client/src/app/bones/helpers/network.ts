@@ -696,6 +696,38 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           }
         } catch (ex) { console.error("Failed to process ATTACK_BATCH event", ex); }
       }
+      else if (event.eventType === "SKILLS_CHANGED" && event.data && event.data["skills"]) {
+        try {
+          const skills = JSON.parse(event.data["skills"] as string || '{}');
+          const heroId = event.heroId;
+          // Update meta list
+          try { const mh = object.otherHeroes.find((h: any) => h.id === heroId); if (mh) (mh as any).skills = skills; } catch { }
+          // Update sprite if present
+          try {
+            const sprite = object.mainScene?.level?.children?.find((x: any) => x.id === heroId);
+            if (sprite) {
+              try { (sprite as any).skillA = Number(skills.skillA || 0); } catch { }
+              try { (sprite as any).skillB = Number(skills.skillB || 0); } catch { }
+              try { (sprite as any).skillC = Number(skills.skillC || 0); } catch { }
+            }
+          } catch { }
+        } catch (ex) { console.warn('Failed processing SKILLS_CHANGED', ex); }
+      }
+      else if (event.eventType === "SKILL_SELECTED" && event.data && event.data["skill"]) {
+        try {
+          const skill = event.data["skill"];
+          const heroId = event.heroId;
+          // Update meta list
+          try { const mh = object.otherHeroes.find((h: any) => h.id === heroId); if (mh) (mh as any).currentSkill = skill; } catch { }
+          // Update sprite so remote use shows immediately
+          try {
+            const sprite = object.mainScene?.level?.children?.find((x: any) => x.id === heroId);
+            if (sprite) {
+              try { (sprite as any).currentSkill = skill; } catch { }
+            }
+          } catch { }
+        } catch (ex) { console.warn('Failed processing SKILL_SELECTED', ex); }
+      }
       else if (event.eventType === "OTHER_HERO_ATTACK") {
         const payload = { sourceHeroId: event.heroId, data: event.data };
         events.emit("OTHER_HERO_ATTACK", payload);
