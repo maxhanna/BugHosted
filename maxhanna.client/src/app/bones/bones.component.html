@@ -443,7 +443,10 @@
         <!-- Large center skill box (Skill A) -->
         <div class="editableSkillsLargeBox">
           <div class="editableSkillsInputWrapper">
-            <button (click)="adjustSkill('skillA', -1)" [disabled]="editableSkills.skillA <= 0"
+            <button
+              (mousedown)="startAdjustSkill('skillA', -1)" (mouseup)="stopAdjustSkill()" (mouseleave)="stopAdjustSkill()"
+              (touchstart)="startAdjustSkill('skillA', -1); $event.preventDefault()" (touchend)="stopAdjustSkill()" (touchcancel)="stopAdjustSkill()"
+              (click)="onSkillButtonClick('skillA', -1, $event)" [disabled]="editableSkills.skillA <= 0"
               aria-label="Decrease Skill A">-</button>
             <ng-container *ngIf="getSkillForSlot('skillA') as slotA">
               <div class="editableSkillsPanelIconWrapper clickable" [class.selected]="hero?.currentSkill === slotA" (click)="selectSkill(slotA)" title="Select {{slotA}}">
@@ -455,7 +458,10 @@
                 </ng-template>
               </div>
             </ng-container>
-            <button (click)="adjustSkill('skillA', 1)" [disabled]="editableSkills.pointsAvailable <= 0"
+            <button
+              (mousedown)="startAdjustSkill('skillA', 1)" (mouseup)="stopAdjustSkill()" (mouseleave)="stopAdjustSkill()"
+              (touchstart)="startAdjustSkill('skillA', 1); $event.preventDefault()" (touchend)="stopAdjustSkill()" (touchcancel)="stopAdjustSkill()"
+              (click)="onSkillButtonClick('skillA', 1, $event)" [disabled]="editableSkills.pointsAvailable <= 0"
               aria-label="Increase Skill A">+</button>
           </div>
           <div class="editableSkillPanelSkillName">Skill A</div>
@@ -467,7 +473,10 @@
           <!-- Skill B large box (match Skill A appearance) -->
           <div class="editableSkillsLargeBox">
             <div class="editableSkillsInputWrapper">
-              <button (click)="adjustSkill('skillB', -1)" [disabled]="editableSkills.skillB <= 0"
+              <button
+                (mousedown)="startAdjustSkill('skillB', -1)" (mouseup)="stopAdjustSkill()" (mouseleave)="stopAdjustSkill()"
+                (touchstart)="startAdjustSkill('skillB', -1); $event.preventDefault()" (touchend)="stopAdjustSkill()" (touchcancel)="stopAdjustSkill()"
+                (click)="onSkillButtonClick('skillB', -1, $event)" [disabled]="editableSkills.skillB <= 0"
                 aria-label="Decrease Skill B">-</button>
               <ng-container *ngIf="getSkillForSlot('skillB') as slotB">
                 <div class="editableSkillsPanelIconWrapper clickable" [class.selected]="hero?.currentSkill === slotB" (click)="selectSkill(slotB)" title="Select {{slotB}}">
@@ -479,7 +488,10 @@
                   </ng-template>
                 </div>
               </ng-container>
-              <button (click)="adjustSkill('skillB', 1)" [disabled]="editableSkills.pointsAvailable <= 0"
+              <button
+                (mousedown)="startAdjustSkill('skillB', 1)" (mouseup)="stopAdjustSkill()" (mouseleave)="stopAdjustSkill()"
+                (touchstart)="startAdjustSkill('skillB', 1); $event.preventDefault()" (touchend)="stopAdjustSkill()" (touchcancel)="stopAdjustSkill()"
+                (click)="onSkillButtonClick('skillB', 1, $event)" [disabled]="editableSkills.pointsAvailable <= 0"
                 aria-label="Increase Skill B">+</button>
             </div>
             <div class="editableSkillPanelSkillName">Skill B</div>
@@ -489,7 +501,10 @@
           <!-- Skill C large box (match Skill A appearance) -->
           <div class="editableSkillsLargeBox">
             <div class="editableSkillsInputWrapper">
-              <button (click)="adjustSkill('skillC', -1)" [disabled]="editableSkills.skillC <= 0"
+              <button
+                (mousedown)="startAdjustSkill('skillC', -1)" (mouseup)="stopAdjustSkill()" (mouseleave)="stopAdjustSkill()"
+                (touchstart)="startAdjustSkill('skillC', -1); $event.preventDefault()" (touchend)="stopAdjustSkill()" (touchcancel)="stopAdjustSkill()"
+                (click)="onSkillButtonClick('skillC', -1, $event)" [disabled]="editableSkills.skillC <= 0"
                 aria-label="Decrease Skill C">-</button>
               <ng-container *ngIf="getSkillForSlot('skillC') as slotC">
                 <div class="editableSkillsPanelIconWrapper clickable" [class.selected]="hero?.currentSkill === slotC" (click)="selectSkill(slotC)" title="Select {{slotC}}">
@@ -501,7 +516,10 @@
                   </ng-template>
                 </div>
               </ng-container>
-              <button (click)="adjustSkill('skillC', 1)" [disabled]="editableSkills.pointsAvailable <= 0"
+              <button
+                (mousedown)="startAdjustSkill('skillC', 1)" (mouseup)="stopAdjustSkill()" (mouseleave)="stopAdjustSkill()"
+                (touchstart)="startAdjustSkill('skillC', 1); $event.preventDefault()" (touchend)="stopAdjustSkill()" (touchcancel)="stopAdjustSkill()"
+                (click)="onSkillButtonClick('skillC', 1, $event)" [disabled]="editableSkills.pointsAvailable <= 0"
                 aria-label="Increase Skill C">+</button>
             </div>
             <div class="editableSkillPanelSkillName">Skill C</div>

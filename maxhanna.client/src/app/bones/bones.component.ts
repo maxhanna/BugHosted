@@ -102,6 +102,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   private _statRepeatTimer: any | undefined = undefined;
   private _statRepeatIntervalId: any | undefined = undefined;
   private _lastStatHoldAt: number | undefined = undefined;
+  // Hold-to-repeat support for skill +/- buttons
+  private _skillRepeatTimer: any | undefined = undefined;
+  private _skillRepeatIntervalId: any | undefined = undefined;
+  private _lastSkillHoldAt: number | undefined = undefined;
   // optimistic UI state for invites: map heroId -> expiry timestamp (ms)
   pendingInvites: Map<number, number> = new Map<number, number>();
   // per-hero cached seconds left for UI
@@ -2077,6 +2081,41 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       }
       this.adjustStat(stat, delta);
     } catch (ex) { /* swallow */ }
+  }
+
+  // Skill press-and-hold: starts immediate adjustSkill and then repeats after a short delay
+  startAdjustSkill(skill: 'skillA' | 'skillB' | 'skillC', delta: number) {
+    try {
+      this.stopAdjustSkill();
+      this.adjustSkill(skill, delta);
+      this._lastSkillHoldAt = Date.now();
+      const initialDelay = 350;
+      const repeatInterval = 140;
+      this._skillRepeatTimer = setTimeout(() => {
+        this._skillRepeatIntervalId = setInterval(() => {
+          try { this.adjustSkill(skill, delta); } catch { }
+        }, repeatInterval);
+      }, initialDelay);
+    } catch { }
+  }
+
+  stopAdjustSkill() {
+    try {
+      if (this._skillRepeatTimer) { clearTimeout(this._skillRepeatTimer); this._skillRepeatTimer = undefined; }
+      if (this._skillRepeatIntervalId) { clearInterval(this._skillRepeatIntervalId); this._skillRepeatIntervalId = undefined; }
+      this._lastSkillHoldAt = Date.now();
+    } catch { }
+  }
+
+  onSkillButtonClick(skill: 'skillA' | 'skillB' | 'skillC', delta: number, event?: any) {
+    try {
+      const now = Date.now();
+      if (this._lastSkillHoldAt && (now - this._lastSkillHoldAt) < 600) {
+        try { event?.stopPropagation?.(); event?.preventDefault?.(); } catch { }
+        return;
+      }
+      this.adjustSkill(skill, delta);
+    } catch { }
   }
 
   // Simple helper to detect if the editable stats differ from the original capture
