@@ -2354,7 +2354,7 @@ ORDER BY p.created DESC;";
 				string sql = @"
 				UPDATE maxhanna.bones_hero h
 				SET h.hp = LEAST(100, h.hp + GREATEST(FLOOR(h.regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))),0)),
-					h.mana = LEAST(h.mp, h.mana + GREATEST(FLOOR(h.mana_regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))),0)),
+					h.mana = LEAST(@Mp, @Mp + GREATEST(FLOOR(h.mana_regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))),0)),
 					h.last_regen = UTC_TIMESTAMP(),
 					h.updated = UTC_TIMESTAMP()
 				WHERE ((h.hp > 0 AND h.regen > 0 AND h.hp < 100) OR (h.mana < h.mp AND h.mana_regen > 0))
@@ -2366,6 +2366,7 @@ ORDER BY p.created DESC;";
 					 { "@CoordsY", hero.Position.y },
 					 { "@Mask", hero.Mask },
 					 { "@Map", hero.Map },
+					 { "@Mp", hero.Mp },
 					 { "@Speed", hero.Speed },
 					 { "@HeroId", hero.Id } };
 				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
