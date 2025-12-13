@@ -546,24 +546,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   update = async (delta: number) => {
     this.mainScene.stepEntry(delta, this.mainScene);
-    this.mainScene.input?.update();
-    // Mana regeneration: accumulate ms and add 1 unit per 1000ms
-
-    const hero = this.hero as any;
-    if (hero && typeof hero.currentManaUnits === 'number') {
-      // store accumulator on component instance
-      if ((this as any)._manaRegenAccum === undefined) (this as any)._manaRegenAccum = 0;
-      (this as any)._manaRegenAccum += delta;
-      while ((this as any)._manaRegenAccum >= 1000) {
-        (this as any)._manaRegenAccum -= 1000;
-        const cap = Math.max(0, (hero.getManaCapacity ? hero.getManaCapacity() : ((hero.maxMana ?? 0) * 100)) || 0);
-        if (cap > 0) {
-          hero.currentManaUnits = Math.min(cap, (hero.currentManaUnits ?? 0) + 1);
-          // update legacy percent for visual compatibility
-          try { hero.mana = Math.round(((hero.currentManaUnits ?? 0) / Math.max(1, cap)) * 100); } catch { }
-        }
-      }
-    }
+    this.mainScene.input?.update(); 
     // Detect HP / Mana changes for HUD bubble effects
     try {
       const now = Date.now();
@@ -696,7 +679,45 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         facing: a.facingDirection ? a.facingDirection : (this.hero && (this.hero as any).facingDirection !== undefined ? (this.hero as any).facingDirection : undefined),
         length: a.length ? a.length : undefined,
       }));
-      this.metaHero.mp = Math.max(0, this.hero?.currentManaUnits ?? 0);
+      // Ensure we send the hero's max mana (mp) as base(100) + allocated points, not the internal unit count.
+      // `hero.currentManaUnits` is measured in units (points * 100) and was mistakenly being used
+      // as the `mp` value which produced values in the thousands. Use `hero.maxMana` (allocated points)
+      // to compute mp, and also keep metaHero.mana in sync with allocated points.
+      try {
+        const heroAny: any = this.hero as any;
+        // If we have internal unit tracking, use it to compute the current MP left.
+        // Units are internal (1 point == 100 units). getManaCapacity() should return capacity in units.
+        const capUnits = (heroAny && heroAny.getManaCapacity && typeof heroAny.getManaCapacity === 'function')
+          ? Number(heroAny.getManaCapacity())
+          : (typeof heroAny.maxMana === 'number' ? Math.max(0, (Number(heroAny.maxMana) + 100) * 100) : 0);
+
+        if (typeof heroAny.currentManaUnits === 'number' && capUnits > 0) {
+          const curUnits = Math.max(0, Math.min(capUnits, Number(heroAny.currentManaUnits)));
+          // metaHero.mp should reflect the MP left (not the maximum). Convert units -> MP value.
+          this.metaHero.mp = Math.round(curUnits / 100);
+        } else if (typeof heroAny.mana === 'number') {
+          // Fallback: if we only have `mana` on the hero object, it's likely the allocated points
+          // or a percent-like value. Try to map sensibly to a current-MP value.
+          const raw = Number(heroAny.mana);
+          if (raw >= 0 && raw <= 100) {
+            // treat as percent-ish / direct current value
+            this.metaHero.mp = Math.round(raw);
+          } else {
+            // treat as allocated points -> map to full MP (base 100 + allocated) as an approximation
+            this.metaHero.mp = Math.max(0, 100 + Math.round(raw));
+          }
+        } else {
+          // fallback to existing server value or a sane default
+          this.metaHero.mp = Math.max(0, this.metaHero.mp ?? 100);
+        }
+
+        // Keep metaHero.mana synced to allocated points (if available on the client hero)
+        if (typeof heroAny.maxMana === 'number') {
+          this.metaHero.mana = Number(heroAny.maxMana);
+        }
+      } catch {
+        this.metaHero.mp = Math.max(0, this.metaHero.mp ?? 100);
+      }
       this.metaHero.position = this.metaHero.position.duplicate();
       const res: any = await this.bonesService.fetchGameData(this.metaHero, snapshot);
       // On successful response, clear the attacks we just sent from the shared queue
