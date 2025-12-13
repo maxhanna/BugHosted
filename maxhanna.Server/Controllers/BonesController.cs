@@ -2363,12 +2363,13 @@ ORDER BY p.created DESC;";
 				UPDATE maxhanna.bones_hero SET coordsX = @CoordsX, coordsY = @CoordsY, mask = @Mask, map = @Map, speed = @Speed, updated = UTC_TIMESTAMP() WHERE id = @HeroId;";
 				Dictionary<string, object?> parameters = new() {
 					{ "@CoordsX", hero.Position.x },
-					 { "@CoordsY", hero.Position.y },
-					 { "@Mask", hero.Mask },
-					 { "@Map", hero.Map },
-					 { "@Mp", hero.Mp },
-					 { "@Speed", hero.Speed },
-					 { "@HeroId", hero.Id } };
+					{ "@CoordsY", hero.Position.y },
+					{ "@Mask", hero.Mask },
+					{ "@Map", hero.Map },
+					{ "@Mp", hero.Mp },
+					{ "@Speed", hero.Speed },
+					{ "@HeroId", hero.Id } 
+				};
 				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 				return hero;
 			}
