@@ -696,7 +696,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         facing: a.facingDirection ? a.facingDirection : (this.hero && (this.hero as any).facingDirection !== undefined ? (this.hero as any).facingDirection : undefined),
         length: a.length ? a.length : undefined,
       }));
-      this.metaHero.mp = this.hero?.mana ?? this.metaHero.mp;
+      this.metaHero.mp = Math.max(0, this.hero?.currentManaUnits ?? 0);
       this.metaHero.position = this.metaHero.position.duplicate();
       const res: any = await this.bonesService.fetchGameData(this.metaHero, snapshot);
       // On successful response, clear the attacks we just sent from the shared queue
