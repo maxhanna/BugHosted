@@ -968,7 +968,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         // Detect HP drops for non-local heroes and play attenuated impact sound
         const prevHpForThis = this._lastKnownHeroHp.get(heroMeta.id);
         const newHpVal = (heroMeta.hp !== undefined && heroMeta.hp !== null) ? Number(heroMeta.hp) : existingHero.hp;
-        const newMpVal = (heroMeta.mp !== undefined && heroMeta.hp !== null) ? Number(heroMeta.hp) : existingHero.hp;
+        const newMpVal = (heroMeta.mp !== undefined && heroMeta.mp !== null) ? Number(heroMeta.mp) : existingHero.mp;
         if (prevHpForThis !== undefined && typeof prevHpForThis === 'number' && typeof newHpVal === 'number' && newHpVal < prevHpForThis) {
           try {
             // Determine positions for attenuation
@@ -990,6 +990,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
         // store new HP on sprite and for tracking
         existingHero.hp = newHpVal ?? existingHero.hp;
+        (existingHero as Hero).currentManaUnits = newMpVal ?? 100;
+        existingHero.mp = newMpVal ?? existingHero.mp;
         try { this._lastKnownHeroHp.set(heroMeta.id, Number(existingHero.hp ?? 0)); } catch { }
         existingHero.level = heroMeta.level ?? existingHero.level;
         existingHero.exp = heroMeta.exp ?? existingHero.exp;
