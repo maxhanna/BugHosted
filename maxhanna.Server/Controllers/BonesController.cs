@@ -916,7 +916,7 @@ ORDER BY p.created DESC;";
 						if ((isRegularSingleTarget && !hasHit) || !isRegularSingleTarget)
 						{
 							// Select victims within AoE (respect party exclusion) and apply damage per-victim using centralized helper
-							string selectHeroesSql = $@"SELECT id FROM maxhanna.bones_hero h WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax AND h.id <> @AttackerId AND NOT EXISTS (
+							string selectHeroesSql = $@"SELECT id FROM maxhanna.bones_hero h WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax AND hp > 0 AND h.id <> @AttackerId AND NOT EXISTS (
 							SELECT 1 FROM maxhanna.bones_hero_party ap JOIN maxhanna.bones_hero_party tp ON tp.hero_id = h.id WHERE ap.hero_id = @AttackerId AND tp.party_id = ap.party_id
 						){(isRegularSingleTarget ? " LIMIT 1" : "")};";
 							using var selCmd = new MySqlCommand(selectHeroesSql, connection, transaction);
@@ -1266,7 +1266,7 @@ ORDER BY p.created DESC;";
 					}
 				}
 
-				string updateSql = @"UPDATE maxhanna.bones_hero SET coordsX = @X, coordsY = @Y, map = @Map, hp = 100, mp = 100, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
+				string updateSql = @"UPDATE maxhanna.bones_hero SET coordsX = @X, coordsY = @Y, map = @Map, hp = 100, mp = (100 + mana), updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
 				var parameters = new Dictionary<string, object?>() { { "@HeroId", heroId }, { "@X", spawnX }, { "@Y", spawnY }, { "@Map", targetMap } };
 				await ExecuteInsertOrUpdateOrDeleteAsync(updateSql, parameters, connection, transaction);
 				// Return updated MetaHero using existing helper
@@ -1614,7 +1614,7 @@ ORDER BY p.created DESC;";
 				double regen = heroRdr.IsDBNull(heroRdr.GetOrdinal("regen")) ? 0.0 : heroRdr.GetInt32(heroRdr.GetOrdinal("regen"));
 				int mp = heroRdr.IsDBNull(heroRdr.GetOrdinal("mp")) ? 100 : heroRdr.GetInt32(heroRdr.GetOrdinal("mp"));
 				double mana_regen = heroRdr.IsDBNull(heroRdr.GetOrdinal("mana_regen")) ? 0.0 : heroRdr.GetInt32(heroRdr.GetOrdinal("mana_regen"));
-				int mana = heroRdr.IsDBNull(heroRdr.GetOrdinal("mana")) ? 100 : heroRdr.GetInt32(heroRdr.GetOrdinal("mana"));
+				int mana = heroRdr.IsDBNull(heroRdr.GetOrdinal("mana")) ? 0 : heroRdr.GetInt32(heroRdr.GetOrdinal("mana"));
 				await heroRdr.CloseAsync();
 
 				// Match existing selections by user + name (hero name) rather than bones_hero_id because IDs may differ

@@ -1308,6 +1308,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       this.metaHero.critRate = this.metaHero.critRate ?? this.cachedStats.critRate;
       this.metaHero.critDmg = this.metaHero.critDmg ?? this.cachedStats.critDmg;
       this.metaHero.health = this.metaHero.health ?? this.cachedStats.health;
+      this.metaHero.mana = this.metaHero.mana ?? this.cachedStats.mana;
       this.metaHero.regen = this.metaHero.regen ?? this.cachedStats.regen;
     }
     // propagate attackSpeed to client Hero so attack cooldowns match server-provided value
@@ -1318,7 +1319,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       // rz.mana is allocation points (e.g., 0,1,2). Initialize hero.maxMana and currentManaUnits
       try { (this.hero as any).maxMana = (rz as any).mana ?? 0; } catch { }
       try { (this.hero as any).currentManaUnits = Math.max(0, ((this.hero as any).maxMana ?? 0) * 100); } catch { }
-      try { this.hero.mana = (rz as any).mana ?? 0; } catch { }
+      try { this.hero.mana = (rz as any).mp ?? 0; } catch { }
       this.hero.exp = rz.exp ?? 0;
     }
   }
@@ -1502,18 +1503,15 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const level = this.metaHero?.level ?? 1;
     const points = Math.max(0, level - 1);
     // initialize editableStats from metaHero or defaults
-    const mhAny: any = this.metaHero as any;
+    const mhAny: MetaHero = this.metaHero as MetaHero;
     const attackDmg = mhAny.attackDmg ?? 1;
     const attackSpeed = mhAny.attackSpeed ?? 400; // ms
     const critRate = mhAny.critRate ?? 0.0;
     const critDmg = mhAny.critDmg ?? (mhAny.regen ? (mhAny.regen * 2.0) : 2.0);
     const health = mhAny.health ?? this.healthBase;
-    const regen = mhAny.regen ?? 0.0;
+    const regen = mhAny.regen ?? 0.0; 
     const mana = (mhAny as any)?.mana ?? 0;
-    // Convert ms -> UI points (each UI point == attackSpeedStepMs ms, base attackSpeedBaseMs => 0 points)
-  // Use floor when converting ms -> UI points so a fractional step on the
-  // server doesn't prematurely show an extra allocated point in the UI.
-  const attackSpeedPoints = Math.max(0, Math.floor((Number(attackSpeed) - this.attackSpeedBaseMs) / this.attackSpeedStepMs));
+    const attackSpeedPoints = Math.max(0, Math.floor((Number(attackSpeed) - this.attackSpeedBaseMs) / this.attackSpeedStepMs));
     // Convert internal health -> UI points (0 == healthBase)
     const healthPoints = Math.max(0, Math.round((Number(health) - this.healthBase) / this.healthStep));
     this.editableStats = { attackDmg: Number(attackDmg), attackSpeed: attackSpeedPoints, critRate: Number(critRate), critDmg: Number(critDmg), health: Number(healthPoints), regen: Number(regen), mana: Number(mana), manaRegen: Number((mhAny && (mhAny as any).mana_regen) ? (mhAny as any).mana_regen : (this.cachedStats?.manaRegen ?? 0)), pointsAvailable: points };
@@ -2141,11 +2139,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         attackDmg: this.editableStats.attackDmg,
         attackSpeed: (this.attackSpeedBaseMs + (Number(this.editableStats.attackSpeed) * this.attackSpeedStepMs)),
         critRate: this.editableStats.critRate,
-        critDmg: this.editableStats.critDmg,
-        // Convert UI health points -> internal health
+        critDmg: this.editableStats.critDmg, 
         health: (this.healthBase + (Number(this.editableStats.health) * this.healthStep)),
-        regen: this.editableStats.regen,
-        // Mana expressed as UI points (0-based)
+        regen: this.editableStats.regen, 
         mana: this.editableStats.mana,
         manaRegen: this.editableStats.manaRegen
       };
@@ -2161,11 +2157,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.metaHero.attackSpeed = (this.attackSpeedBaseMs + (Number(this.editableStats.attackSpeed) * this.attackSpeedStepMs));
         this.metaHero.critRate = this.editableStats.critRate;
         this.metaHero.critDmg = this.editableStats.critDmg;
-        this.metaHero.health = (this.healthBase + (Number(this.editableStats.health) * this.healthStep));
-  // metaHero.regen stored as integer allocation points in the new model
-  this.metaHero.regen = Number(this.editableStats.regen);
-        // metaHero.mana represents allocated mana points (server convention)
-        (this.metaHero as any).mana = this.editableStats.mana;
+        this.metaHero.health = (this.healthBase + (Number(this.editableStats.health) * this.healthStep)); 
+        this.metaHero.regen = Number(this.editableStats.regen);
+        this.metaHero.mana = this.editableStats.mana;
       }
       // If in-game hero object exists, apply derived/visible changes
       if (this.hero) {
@@ -2175,7 +2169,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         try { (this.hero as any).critDmg = this.editableStats.critDmg; } catch { }
         try { (this.hero as any).health = (this.healthBase + (Number(this.editableStats.health) * this.healthStep)); } catch { }
         try { (this.hero as any).regen = this.editableStats.regen; } catch { }
-        try { (this.hero as any).maxMana = this.editableStats.mana; } catch { }
+        try { (this.hero as any).maxMana = 100 + this.editableStats.mana; } catch { }
       }
 
       this.statsUpdatedVisible = true;
