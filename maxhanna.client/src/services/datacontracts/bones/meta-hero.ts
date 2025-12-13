@@ -10,6 +10,7 @@ export class MetaHero {
   speed: number;
   attackSpeed?: number;  // attackSpeed in milliseconds (minimum time between attacks)
   hp?: number;
+  mp?: number;
   // legacy stats removed
   // New stats
   attackDmg?: number;
@@ -18,6 +19,7 @@ export class MetaHero {
   health?: number;
   regen?: number; // hp per second
   mana?: number;
+  mana_regen?: number;
   // persisted skill allocations (optional)
   skills?: { skillA: number; skillB: number; skillC: number };
   // Number of mana points allocated (UI-facing 'points' into Mana). Starts at 0.
@@ -32,14 +34,16 @@ export class MetaHero {
   mask?: number;
   updated?: Date;
   constructor(id: number, name: string, type: string, position: Vector2, speed: number, map: string, color?: string, 
-    mask?: number, hp?: number, level?: number, exp?: number, attackSpeed?: number, userId?: number, 
-    str?: number, dex?: number, int?: number, updated?: Date) {
+    mask?: number, hp?: number, mp?: number, regen?: number, mana_regen?: number, level?: number, exp?: number, attackSpeed?: number, userId?: number, updated?: Date) {
     this.id = id; 
     this.name = name;
     this.type = type;
     this.position = position; 
     this.speed = speed;
     this.hp = hp ?? 100;
+    this.mp = mp ?? 100;
+    this.regen = regen ?? 0;
+    this.mana_regen = mana_regen ?? 0;
     this.level = level ?? 1;
     this.exp = exp ?? 0;
     this.attackSpeed = attackSpeed ?? 400; // default 400ms

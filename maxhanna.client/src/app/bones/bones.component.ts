@@ -946,6 +946,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         // Detect HP drops for non-local heroes and play attenuated impact sound
         const prevHpForThis = this._lastKnownHeroHp.get(heroMeta.id);
         const newHpVal = (heroMeta.hp !== undefined && heroMeta.hp !== null) ? Number(heroMeta.hp) : existingHero.hp;
+        const newMpVal = (heroMeta.mp !== undefined && heroMeta.hp !== null) ? Number(heroMeta.hp) : existingHero.hp;
         if (prevHpForThis !== undefined && typeof prevHpForThis === 'number' && typeof newHpVal === 'number' && newHpVal < prevHpForThis) {
           try {
             // Determine positions for attenuation
@@ -1262,9 +1263,14 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       rz.color,
       rz.mask,
       rz.hp ?? 100,
+      rz.mp ?? 0,
+      rz.regen ?? 0,
+      rz.mana_regen ?? 0,
       rz.level ?? 1,
       rz.exp ?? 0,
-      rz.attackSpeed ?? 400);
+      rz.attackSpeed ?? 400,
+      this.parentRef?.user?.id ?? undefined,
+    );
 
     // Fetch persisted skill allocations for this hero (if any) and apply locally
     await this.reinitializeSkills();
@@ -1299,7 +1305,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       if (statsAny.critDmg !== undefined) this.metaHero.critDmg = Number(statsAny.critDmg);
       if (statsAny.health !== undefined) this.metaHero.health = Number(statsAny.health);
       if (statsAny.regen !== undefined) this.metaHero.regen = Number(statsAny.regen);
+      if (statsAny.mana_regen !== undefined) this.metaHero.mana_regen = Number(statsAny.mana_regen);
       if (statsAny.mana !== undefined) this.metaHero.mana = Number(statsAny.mana);
+      if (statsAny.mp !== undefined) this.metaHero.mp = Number(statsAny.mp);
     }
 
     if ((this.metaHero.attackDmg === undefined || this.metaHero.health === undefined) && this.cachedStats) {
@@ -1309,14 +1317,14 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       this.metaHero.critDmg = this.metaHero.critDmg ?? this.cachedStats.critDmg;
       this.metaHero.health = this.metaHero.health ?? this.cachedStats.health;
       this.metaHero.mana = this.metaHero.mana ?? this.cachedStats.mana;
+      this.metaHero.mana_regen = this.metaHero.mana_regen ?? this.cachedStats.manaRegen;
       this.metaHero.regen = this.metaHero.regen ?? this.cachedStats.regen;
     }
     // propagate attackSpeed to client Hero so attack cooldowns match server-provided value
     if (this.hero) {
       this.hero.attackSpeed = rz.attackSpeed ?? 400;
       this.hero.level = rz.level ?? 1;
-      this.hero.hp = rz.hp ?? 100;
-      // rz.mana is allocation points (e.g., 0,1,2). Initialize hero.maxMana and currentManaUnits
+      this.hero.hp = rz.hp ?? 100; 
       try { (this.hero as any).maxMana = (rz as any).mana ?? 0; } catch { }
       try { (this.hero as any).currentManaUnits = Math.max(0, ((this.hero as any).maxMana ?? 0) * 100); } catch { }
       try { this.hero.mana = (rz as any).mp ?? 0; } catch { }
