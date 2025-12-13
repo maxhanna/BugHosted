@@ -2354,7 +2354,7 @@ ORDER BY p.created DESC;";
 				string sql = @"
 				UPDATE maxhanna.bones_hero h
 				SET h.hp = LEAST(100, h.hp + GREATEST(FLOOR(h.regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))),0)),
-					h.mana = LEAST(@Mp, @Mp + GREATEST(FLOOR(h.mana_regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))),0)),
+					h.mp = @Mp + GREATEST(FLOOR(h.mana_regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))),0),
 					h.last_regen = UTC_TIMESTAMP(),
 					h.updated = UTC_TIMESTAMP()
 				WHERE ((h.hp > 0 AND h.regen > 0 AND h.hp < 100) OR (h.mana < h.mp AND h.mana_regen > 0))
@@ -3666,25 +3666,29 @@ ORDER BY p.created DESC;";
 				int targetX = deadSpawn.x;
 				int targetY = deadSpawn.y;
 
-				string updSql = @"
-					UPDATE maxhanna.bones_hero 
-					SET coordsX = @X, 
-						coordsY = @Y, 
-						map = @Map 
-					WHERE id = @HeroId 
-					LIMIT 1;";
-				var updParams = new Dictionary<string, object?>() {
-					{ "@HeroId", victimHeroId },
-					{ "@X", targetX },
-					{ "@Y", targetY },
-					{ "@Map", targetMap }
-				};
-				await ExecuteInsertOrUpdateOrDeleteAsync(updSql, updParams, connection, transaction);
-				Console.WriteLine($"HandleHeroDeath: moved hero {victimHeroId} to ({targetX},{targetY}) in map {targetMap} from map {normCurrent}");
-				// Emit HERO_DIED event targeted at the victim so client will display death UI and can react.
-				var data = new Dictionary<string, string>() {
-					{ "killerId", killerId.ToString() },
-					{ "killerType", killerType }
+				string sql = @"
+				UPDATE maxhanna.bones_hero h
+				SET h.hp = LEAST(100, h.hp + GREATEST(FLOOR(h.regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))),0)),
+					-- Persist passed-in max (mp) first
+					h.mp = @Mp,
+					-- Persist passed-in current mana (if provided) then apply regen and cap at the new mp
+					h.mana = LEAST(@Mp, COALESCE(@Mana, h.mana) + GREATEST(FLOOR(h.mana_regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))),0)),
+					h.last_regen = UTC_TIMESTAMP(),
+					h.updated = UTC_TIMESTAMP()
+				WHERE ((h.hp > 0 AND h.regen > 0 AND h.hp < 100) OR (h.mana < h.mp AND h.mana_regen > 0))
+					AND (h.last_regen IS NULL OR h.last_regen < UTC_TIMESTAMP() - INTERVAL 1 SECOND);
+
+				UPDATE maxhanna.bones_hero SET coordsX = @CoordsX, coordsY = @CoordsY, mask = @Mask, map = @Map, speed = @Speed, updated = UTC_TIMESTAMP() WHERE id = @HeroId;";
+
+				Dictionary<string, object?> parameters = new() {
+					{ "@CoordsX", hero.Position.x },
+					 { "@CoordsY", hero.Position.y },
+					 { "@Mask", hero.Mask },
+					 { "@Map", hero.Map },
+					 { "@Mp", hero.Mp },
+					 { "@Mana", hero.Mana },
+					 { "@Speed", hero.Speed },
+					 { "@HeroId", hero.Id } };
 				};
 				var deathEvent = new MetaEvent(0, victimHeroId, DateTime.UtcNow, "HERO_DIED", normCurrent, data);
 				await UpdateEventsInDB(deathEvent, connection, transaction);
