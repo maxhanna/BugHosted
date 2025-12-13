@@ -3669,7 +3669,7 @@ ORDER BY p.created DESC;";
 					UPDATE maxhanna.bones_hero 
 					SET coordsX = @X, 
 						coordsY = @Y, 
-						map = @Map, 
+						map = @Map 
 					WHERE id = @HeroId 
 					LIMIT 1;";
 				var updParams = new Dictionary<string, object?>() {
