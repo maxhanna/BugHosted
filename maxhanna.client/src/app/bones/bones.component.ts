@@ -1332,14 +1332,15 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           const sA = Number(skills.skillA || 0);
           const sB = Number(skills.skillB || 0);
           const sC = Number(skills.skillC || 0);
-          try { (this.metaHero as any).skills = { skillA: sA, skillB: sB, skillC: sC }; } catch { }
+          const currentSkill = skills.currentSkill ?? undefined;
+          try { (this.metaHero as any).skills = { skillA: sA, skillB: sB, skillC: sC }; } catch { } 
           try { this.cachedSkills = { skillA: sA, skillB: sB, skillC: sC }; } catch { }
 
-          // apply to hero sprite if present
           if (this.hero) {
             this.hero.skillA = sA;  
             this.hero.skillB = sB;  
             this.hero.skillC = sC; 
+            this.hero.currentSkill = currentSkill;
           }
  
           const level = (this.metaHero && (this.metaHero as any).level) ? (this.metaHero as any).level : 1;
@@ -2570,6 +2571,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       try {
         const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "SKILL_SELECTED", this.metaHero.map, { "skill": String(skillName) });
         this.bonesService.updateEvents(metaEvent).catch((err: any) => { console.warn('Failed to broadcast SKILL_SELECTED', err); });
+        this.bonesService.updateCurrentSkill(this.metaHero.id, skillName).catch((err: any) => { console.warn('Failed to update current skill', err); });
       } catch (ex) { console.warn('Failed preparing SKILL_SELECTED event', ex); }
     } catch (e) {
       console.warn('selectSkill failed', e);

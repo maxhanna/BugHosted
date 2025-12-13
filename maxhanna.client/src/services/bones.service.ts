@@ -73,14 +73,20 @@ export class BonesService {
   async updateHeroStats(heroId: number, stats: { [key: string]: number | undefined } | any, userId?: number) {
     return this.fetchData('/bones/updateherostats', { HeroId: heroId, Stats: stats, UserId: userId });
   }
+  async updateCurrentSkill(heroId: number, currentSkill: string) {
+    return this.fetchData('/bones/updatecurrentskill', { HeroId: heroId, CurrentSkill: currentSkill });
+  }
   async saveHeroSkills(heroId: number, skillA: number, skillB: number, skillC: number) {
     return this.fetchData('/bones/saveheroskills', { HeroId: heroId, SkillA: skillA, SkillB: skillB, SkillC: skillC });
   }
-  async getHeroSkills(heroId: number): Promise<{ skillA: number, skillB: number, skillC: number } | undefined> {
+  async getHeroSkills(heroId: number): Promise<{ skillA: number, skillB: number, skillC: number, currentSkill?: string } | undefined> {
     const res: any = await this.fetchData('/bones/getheroskills', heroId);
-    if (!res) return undefined;
-    // Normalize response
-    return { skillA: Number(res.skillA ?? res.skill_a ?? 0), skillB: Number(res.skillB ?? res.skill_b ?? 0), skillC: Number(res.skillC ?? res.skill_c ?? 0) };
+    if (!res) return undefined; 
+    const skillA = Number(res.skillA ?? res.skill_a ?? res.SkillA ?? res.Skill_a ?? 0);
+    const skillB = Number(res.skillB ?? res.skill_b ?? res.SkillB ?? res.Skill_b ?? 0);
+    const skillC = Number(res.skillC ?? res.skill_c ?? res.SkillC ?? res.Skill_c ?? 0);
+    const currentSkill = (res.currentSkill ?? res.current_skill ?? res.CurrentSkill ?? res.Current_Skill) as string | undefined;
+    return { skillA, skillB, skillC, currentSkill };
   }
   async townPortal(heroId: number, userId?: number) {
     return this.fetchData('/bones/townportal', { HeroId: heroId, UserId: userId });

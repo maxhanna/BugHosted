@@ -195,6 +195,43 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpPost("/Bones/UpdateCurrentSkill", Name = "Bones_UpdateCurrentSkill")]
+		public async Task<IActionResult> UpdateCurrentSkill([FromBody] UpdateCurrentSkillRequest request)
+		{
+			if (request == null || request.HeroId <= 0) return BadRequest("Invalid request");
+			using var connection = new MySqlConnection(_connectionString);
+			await connection.OpenAsync();
+			using var transaction = connection.BeginTransaction();
+			try
+			{
+				string updateSql = @"UPDATE maxhanna.bones_hero_skills SET current_skill = @CurrentSkill, updated = UTC_TIMESTAMP() WHERE hero_id = @HeroId LIMIT 1;";
+				using (var cmd = new MySqlCommand(updateSql, connection, transaction))
+				{
+					cmd.Parameters.AddWithValue("@CurrentSkill", (object?)request.CurrentSkill ?? DBNull.Value);
+					cmd.Parameters.AddWithValue("@HeroId", request.HeroId);
+					var affected = Convert.ToInt32(await cmd.ExecuteNonQueryAsync());
+					if (affected == 0)
+					{
+						string insertSql = @"INSERT INTO maxhanna.bones_hero_skills (hero_id, current_skill, updated) VALUES (@HeroId, @CurrentSkill, UTC_TIMESTAMP());";
+						using (var ins = new MySqlCommand(insertSql, connection, transaction))
+						{
+							ins.Parameters.AddWithValue("@HeroId", request.HeroId);
+							ins.Parameters.AddWithValue("@CurrentSkill", (object?)request.CurrentSkill ?? DBNull.Value);
+							await ins.ExecuteNonQueryAsync();
+						}
+					}
+				}
+				await transaction.CommitAsync();
+				return Ok(new { success = true });
+			}
+			catch (Exception ex)
+			{
+				await transaction.RollbackAsync();
+				await _log.Db("UpdateCurrentSkill failed: " + ex.Message, request.HeroId, "BONES", true);
+				return StatusCode(500, "Internal server error: " + ex.Message);
+			}
+		}
+
 		[HttpPost("/Bones/GetHeroSkills", Name = "Bones_GetHeroSkills")]
 		public async Task<IActionResult> GetHeroSkills([FromBody] int heroId)
 		{
@@ -204,21 +241,23 @@ namespace maxhanna.Server.Controllers
 			using var transaction = connection.BeginTransaction();
 			try
 			{
-				string sel = @"SELECT skill_a, skill_b, skill_c FROM maxhanna.bones_hero_skills WHERE hero_id = @HeroId LIMIT 1;";
+				string sel = @"SELECT skill_a, skill_b, skill_c, current_skill FROM maxhanna.bones_hero_skills WHERE hero_id = @HeroId LIMIT 1;";
 				using (var cmd = new MySqlCommand(sel, connection, transaction))
 				{
 					cmd.Parameters.AddWithValue("@HeroId", heroId);
 					using var rdr = await cmd.ExecuteReaderAsync();
 					int sA = 0, sB = 0, sC = 0;
+					string? current = null;
 					if (await rdr.ReadAsync())
 					{
 						sA = rdr.IsDBNull(0) ? 0 : rdr.GetInt32(0);
 						sB = rdr.IsDBNull(1) ? 0 : rdr.GetInt32(1);
 						sC = rdr.IsDBNull(2) ? 0 : rdr.GetInt32(2);
+						current = rdr.IsDBNull(3) ? null : rdr.GetString(3);
 					}
 					try { await rdr.CloseAsync(); } catch { }
 					await transaction.CommitAsync();
-					return Ok(new { skillA = sA, skillB = sB, skillC = sC });
+					return Ok(new { skillA = sA, skillB = sB, skillC = sC, currentSkill = current });
 				}
 			}
 			catch (Exception ex)
