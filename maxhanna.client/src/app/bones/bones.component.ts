@@ -719,6 +719,14 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.metaHero.mp = Math.max(0, this.metaHero.mp ?? 100);
       }
       this.metaHero.position = this.metaHero.position.duplicate();
+      // Defensive normalization: ensure `mp` is in points (not internal units).
+      // Some client code may accidentally set `metaHero.mp` to unit counts (1 point == 100 units).
+      // If we detect an implausibly large value, convert to points by dividing by 100.
+      try {
+        if (typeof this.metaHero.mp === 'number' && this.metaHero.mp > 1000) {
+          this.metaHero.mp = Math.round(this.metaHero.mp / 100);
+        }
+      } catch { }
       const res: any = await this.bonesService.fetchGameData(this.metaHero, snapshot);
       // On successful response, clear the attacks we just sent from the shared queue
       if (res && snapshot && snapshot.length > 0) {
@@ -990,9 +998,23 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
         // store new HP on sprite and for tracking
         existingHero.hp = newHpVal ?? existingHero.hp;
-        // Server `mp` is a point value (e.g., 100). Convert to internal units (1 point == 100 units).
-        try { (existingHero as Hero).currentManaUnits = Math.max(0, Math.round(Number(newMpVal ?? 0) * 100)); } catch { (existingHero as Hero).currentManaUnits = newMpVal ?? 100; }
-        existingHero.mp = (newMpVal !== undefined && newMpVal !== null) ? Number(newMpVal) : existingHero.mp;
+        // Server `mp` may be either points (e.g., 100) or internal units (e.g., 100*points).
+        // Detect implausibly large values and convert accordingly so the sprite's internal units are correct.
+        try {
+          const raw = Number(newMpVal ?? 0);
+          if (raw > 1000) {
+            // value already in units
+            (existingHero as Hero).currentManaUnits = Math.max(0, Math.round(raw));
+            existingHero.mp = Math.max(0, Math.round(raw / 100));
+          } else {
+            // value in points
+            (existingHero as Hero).currentManaUnits = Math.max(0, Math.round(raw * 100));
+            existingHero.mp = Math.max(0, Math.round(raw));
+          }
+        } catch {
+          try { (existingHero as Hero).currentManaUnits = Math.max(0, Math.round(Number(newMpVal ?? 0) * 100)); } catch { (existingHero as Hero).currentManaUnits = newMpVal ?? 100; }
+          existingHero.mp = (newMpVal !== undefined && newMpVal !== null) ? Number(newMpVal) : existingHero.mp;
+        }
         try { this._lastKnownHeroHp.set(heroMeta.id, Number(existingHero.hp ?? 0)); } catch { }
         existingHero.level = heroMeta.level ?? existingHero.level;
         existingHero.exp = heroMeta.exp ?? existingHero.exp;
@@ -1045,9 +1067,20 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           this.hero.exp = heroMeta.exp ?? 0;
           this.hero.maxHp = 100;
           // Sync current MP from server onto the local Hero instance so HUD and regen logic reflect it
-          const incomingMp = (heroMeta.mp !== undefined && heroMeta.mp !== null) ? Number(heroMeta.mp) : (this.hero.mp ?? this.metaHero.mp ?? 100);
-          this.hero.mp = incomingMp;
-          try { (this.hero as any).currentManaUnits = Math.max(0, Math.round(Number(incomingMp) * 100)); } catch { }
+          let incomingRaw = (heroMeta.mp !== undefined && heroMeta.mp !== null) ? Number(heroMeta.mp) : (this.hero.mp ?? this.metaHero.mp ?? 100);
+          try {
+            if (incomingRaw > 1000) {
+              // server sent units directly
+              (this.hero as any).currentManaUnits = Math.max(0, Math.round(incomingRaw));
+              this.hero.mp = Math.max(0, Math.round(incomingRaw / 100));
+            } else {
+              // server sent points
+              this.hero.mp = Math.max(0, Math.round(incomingRaw));
+              (this.hero as any).currentManaUnits = Math.max(0, Math.round(incomingRaw * 100));
+            }
+          } catch {
+            this.hero.mp = Math.max(0, this.hero.mp ?? this.metaHero.mp ?? 100);
+          }
           try { (this.hero as any).maxMana = (heroMeta.mana !== undefined && heroMeta.mana !== null) ? Number(heroMeta.mana) : ((this.hero as any).maxMana ?? 0); } catch { }
           if ((this.hero.hp ?? 0) <= 0 && !this.isDead) {
             this.isDead = true;
@@ -1356,10 +1389,26 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     if (this.hero) {
       this.hero.attackSpeed = rz.attackSpeed ?? 400;
       this.hero.level = rz.level ?? 1;
-      this.hero.hp = rz.hp ?? 100; 
+      this.hero.hp = rz.hp ?? 100;
+      // Initialize maxMana from persisted allocated stat
       try { (this.hero as any).maxMana = (rz as any).mana ?? 0; } catch { }
-      try { (this.hero as any).currentManaUnits = Math.max(0, ((this.hero as any).maxMana ?? 0) * 100); } catch { }
-      try { this.hero.mana = (rz as any).mp ?? 0; } catch { }
+      // Use server-provided mp (points) to set currentManaUnits. If server mistakenly sent units, detect and handle.
+      try {
+        const serverMpRaw = Number((rz as any).mp ?? this.metaHero.mp ?? 100);
+        if (serverMpRaw > 1000) {
+          // assume units
+          (this.hero as any).currentManaUnits = Math.max(0, Math.round(serverMpRaw));
+          this.hero.mp = Math.max(0, Math.round(serverMpRaw / 100));
+        } else {
+          (this.hero as any).currentManaUnits = Math.max(0, Math.round(serverMpRaw * 100));
+          this.hero.mp = Math.max(0, Math.round(serverMpRaw));
+        }
+      } catch { try { (this.hero as any).currentManaUnits = Math.max(0, ((this.hero as any).maxMana ?? 0) * 100); } catch { } }
+      // Keep legacy percent field in sync
+      try {
+        const cap = (this.hero as any).getManaCapacity ? (this.hero as any).getManaCapacity() : Math.max(1, ((this.hero as any).maxMana ?? 0) * 100);
+        (this.hero as any).mana = Math.round(((this.hero as any).currentManaUnits ?? 0) / cap * 100);
+      } catch { }
       this.hero.exp = rz.exp ?? 0;
     }
   }
