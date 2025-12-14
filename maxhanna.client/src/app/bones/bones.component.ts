@@ -990,8 +990,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
         // store new HP on sprite and for tracking
         existingHero.hp = newHpVal ?? existingHero.hp;
-        (existingHero as Hero).currentManaUnits = newMpVal ?? 100;
-        existingHero.mp = newMpVal ?? existingHero.mp;
+        // Server `mp` is a point value (e.g., 100). Convert to internal units (1 point == 100 units).
+        try { (existingHero as Hero).currentManaUnits = Math.max(0, Math.round(Number(newMpVal ?? 0) * 100)); } catch { (existingHero as Hero).currentManaUnits = newMpVal ?? 100; }
+        existingHero.mp = (newMpVal !== undefined && newMpVal !== null) ? Number(newMpVal) : existingHero.mp;
         try { this._lastKnownHeroHp.set(heroMeta.id, Number(existingHero.hp ?? 0)); } catch { }
         existingHero.level = heroMeta.level ?? existingHero.level;
         existingHero.exp = heroMeta.exp ?? existingHero.exp;
