@@ -1291,7 +1291,7 @@ ORDER BY p.created DESC;";
 			using var transaction = connection.BeginTransaction();
 			try
 			{
-				string sql = "UPDATE maxhanna.bones_hero SET hp = 100, mp = 100, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
+				string sql = "UPDATE maxhanna.bones_hero SET hp = 100, mp = (100 + mana), updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
 				var parameters = new Dictionary<string, object?>() { { "@HeroId", heroId } };
 				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 				var hero = await GetHeroData(0, heroId, connection, transaction);
@@ -2096,7 +2096,7 @@ ORDER BY p.created DESC;";
 					if (req.Stats.ContainsKey("critDmg")) { setParts.Add("crit_dmg = @critDmg"); updParams["@critDmg"] = req.Stats["critDmg"]; }
 					if (req.Stats.ContainsKey("health")) { setParts.Add("health = @health"); updParams["@health"] = req.Stats["health"]; }
 					if (req.Stats.ContainsKey("regen")) { setParts.Add("regen = @regen"); updParams["@regen"] = req.Stats["regen"]; }
-					if (req.Stats.ContainsKey("mana")) { setParts.Add("mana = @mana"); updParams["@mana"] = req.Stats["mana"]; }
+					if (req.Stats.ContainsKey("mana")) { setParts.Add("mana = @mana"); setParts.Add("mp = LEAST(100 + @mana, mp)"); updParams["@mana"] = req.Stats["mana"]; }
 					if (req.Stats.ContainsKey("manaRegen")) { setParts.Add("mana_regen = @manaRegen"); updParams["@manaRegen"] = req.Stats["manaRegen"]; }
 
 					if (setParts.Count > 0)
@@ -2362,8 +2362,8 @@ ORDER BY p.created DESC;";
 						)
 					),
 					h.mp = LEAST(
-						100 + h.mana, 
-						@Mp + GREATEST(
+						100 + COALESCE(h.mana, 0), 
+						COALESCE(h.mp, 0) + GREATEST(
 							FLOOR(h.mana_regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))), 
 							0
 						)
@@ -2374,7 +2374,7 @@ ORDER BY p.created DESC;";
 					(
 						(h.hp > 0 AND h.regen > 0 AND h.hp < 100) 
 						OR 
-						(h.mana < h.mp AND h.mana_regen > 0)
+						(h.mp < (100 + COALESCE(h.mana,0)) AND h.mana_regen > 0)
 					)
 					AND (h.last_regen IS NULL OR h.last_regen < UTC_TIMESTAMP() - INTERVAL 1 SECOND);
 
