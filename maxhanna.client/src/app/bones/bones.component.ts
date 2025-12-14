@@ -1368,7 +1368,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           // Normalize currentSkill: prefer server value when non-empty, otherwise keep existing hero value
           let currentSkill = undefined as string | undefined;
           try {
-            const raw = skills.currentSkill ?? skills.current_skill ?? skills.CurrentSkill ?? undefined;
+            const raw = skills.currentSkill ?? undefined;
             if (raw !== undefined && raw !== null && String(raw).trim() !== '') {
               currentSkill = String(raw);
             } else if (this.hero && (this.hero as any).currentSkill) {
