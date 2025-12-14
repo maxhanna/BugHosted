@@ -1365,7 +1365,20 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           const sA = Number(skills.skillA || 0);
           const sB = Number(skills.skillB || 0);
           const sC = Number(skills.skillC || 0);
-          const currentSkill = skills.currentSkill ?? undefined;
+          // Normalize currentSkill: prefer server value when non-empty, otherwise keep existing hero value
+          let currentSkill = undefined as string | undefined;
+          try {
+            const raw = skills.currentSkill ?? skills.current_skill ?? skills.CurrentSkill ?? undefined;
+            if (raw !== undefined && raw !== null && String(raw).trim() !== '') {
+              currentSkill = String(raw);
+            } else if (this.hero && (this.hero as any).currentSkill) {
+              currentSkill = (this.hero as any).currentSkill as string;
+            } else {
+              currentSkill = undefined;
+            }
+          } catch {
+            currentSkill = (this.hero && (this.hero as any).currentSkill) ? (this.hero as any).currentSkill : undefined;
+          }
           try { (this.metaHero as any).skills = { skillA: sA, skillB: sB, skillC: sC }; } catch { } 
           try { this.cachedSkills = { skillA: sA, skillB: sB, skillC: sC }; } catch { }
 
@@ -1373,8 +1386,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
             this.hero.skillA = sA;  
             this.hero.skillB = sB;  
             this.hero.skillC = sC; 
-            this.hero.currentSkill = currentSkill;
+            // Only assign if we have a concrete value (avoid wiping a previously-set skill with null/empty)
+            if (currentSkill !== undefined && currentSkill !== null && String(currentSkill).trim() !== '') {
+              this.hero.currentSkill = currentSkill;
+            }
           }
+          // Also reflect selection on metaHero for UI binding
+          try { if (currentSkill !== undefined && currentSkill !== null && String(currentSkill).trim() !== '') (this.metaHero as any).currentSkill = currentSkill; } catch { }
  
           const level = (this.metaHero && (this.metaHero as any).level) ? (this.metaHero as any).level : 1;
           const totalPoints = Math.max(0, Number(level) - 1);
