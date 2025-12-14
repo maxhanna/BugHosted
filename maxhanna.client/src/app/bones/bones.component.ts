@@ -723,8 +723,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       // Some client code may accidentally set `metaHero.mp` to unit counts (1 point == 100 units).
       // If we detect an implausibly large value, convert to points by dividing by 100.
       try {
-        if (typeof this.metaHero.mp === 'number' && this.metaHero.mp > 1000) {
-          this.metaHero.mp = Math.round(this.metaHero.mp / 100);
+        const rawMp = Number((this.metaHero as any).mp);
+        if (isFinite(rawMp) && rawMp > 1000) {
+          this.metaHero.mp = Math.round(rawMp / 100);
+        } else if (isFinite(rawMp)) {
+          this.metaHero.mp = Math.round(rawMp);
         }
       } catch { }
       const res: any = await this.bonesService.fetchGameData(this.metaHero, snapshot);
