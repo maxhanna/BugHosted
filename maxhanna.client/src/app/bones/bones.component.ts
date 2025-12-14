@@ -1026,6 +1026,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.metaHero.hp = heroMeta.hp ?? this.metaHero.hp;
         this.metaHero.level = heroMeta.level ?? this.metaHero.level;
         this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp;
+        this.metaHero.mp = (heroMeta.mp !== undefined && heroMeta.mp !== null) ? Number(heroMeta.mp) : this.metaHero.mp;
+        this.metaHero.mana = (heroMeta.mana !== undefined && heroMeta.mana !== null) ? Number(heroMeta.mana) : this.metaHero.mana;
         if (this.metaHero.map !== res.map) {
           console.log("map change detected from server:", this.metaHero.map, "->", res.map);
           forceChangeMap = true;
@@ -1041,6 +1043,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           this.hero.level = heroMeta.level ?? 1;
           this.hero.exp = heroMeta.exp ?? 0;
           this.hero.maxHp = 100;
+          // Sync current MP from server onto the local Hero instance so HUD and regen logic reflect it
+          const incomingMp = (heroMeta.mp !== undefined && heroMeta.mp !== null) ? Number(heroMeta.mp) : (this.hero.mp ?? this.metaHero.mp ?? 100);
+          this.hero.mp = incomingMp;
+          try { (this.hero as any).currentManaUnits = Math.max(0, Math.round(Number(incomingMp) * 100)); } catch { }
+          try { (this.hero as any).maxMana = (heroMeta.mana !== undefined && heroMeta.mana !== null) ? Number(heroMeta.mana) : ((this.hero as any).maxMana ?? 0); } catch { }
           if ((this.hero.hp ?? 0) <= 0 && !this.isDead) {
             this.isDead = true;
             // events.emit("HERO_DIED", { heroId: this.hero.id });
