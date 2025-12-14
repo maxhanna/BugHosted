@@ -2353,12 +2353,31 @@ ORDER BY p.created DESC;";
 			{
 				string sql = @"
 				UPDATE maxhanna.bones_hero h
-				SET h.hp = LEAST(100, h.hp + GREATEST(FLOOR(h.regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))),0)),
-					h.mp = @Mp + GREATEST(FLOOR(h.mana_regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))),0),
+				SET 
+					h.hp = LEAST(
+						100, 
+						h.hp + GREATEST(
+							FLOOR(h.regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))), 
+							0
+						)
+					),
+					h.mp = LEAST(
+						100 + h.mana, 
+						@Mp + GREATEST(
+							FLOOR(h.mana_regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))), 
+							0
+						)
+					),
 					h.last_regen = UTC_TIMESTAMP(),
 					h.updated = UTC_TIMESTAMP()
-				WHERE ((h.hp > 0 AND h.regen > 0 AND h.hp < 100) OR (h.mana < h.mp AND h.mana_regen > 0))
+				WHERE 
+					(
+						(h.hp > 0 AND h.regen > 0 AND h.hp < 100) 
+						OR 
+						(h.mana < h.mp AND h.mana_regen > 0)
+					)
 					AND (h.last_regen IS NULL OR h.last_regen < UTC_TIMESTAMP() - INTERVAL 1 SECOND);
+
 
 				UPDATE maxhanna.bones_hero SET coordsX = @CoordsX, coordsY = @CoordsY, mask = @Mask, map = @Map, speed = @Speed, updated = UTC_TIMESTAMP() WHERE id = @HeroId;";
 				Dictionary<string, object?> parameters = new() {
@@ -3671,6 +3690,8 @@ ORDER BY p.created DESC;";
 					UPDATE maxhanna.bones_hero 
 					SET coordsX = @X, 
 						coordsY = @Y, 
+						mp = 100 + mana,
+						hp = 100,
 						map = @Map 
 					WHERE id = @HeroId 
 					LIMIT 1;";
