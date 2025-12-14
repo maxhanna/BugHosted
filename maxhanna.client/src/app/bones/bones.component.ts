@@ -709,14 +709,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         } else {
           // fallback to existing server value or a sane default
           this.metaHero.mp = Math.max(0, this.metaHero.mp ?? 100);
-        }
-
-        // Keep metaHero.mana synced to allocated points (if available on the client hero)
-        if (typeof heroAny.maxMana === 'number') {
-          this.metaHero.mana = Number(heroAny.maxMana);
-        }
+        } 
       } catch {
-        this.metaHero.mp = Math.max(0, this.metaHero.mp ?? 100);
+      }
+      if (!this.metaHero.mp) {
+        this.metaHero.mp = 100;
       }
       this.metaHero.position = this.metaHero.position.duplicate();
       // Defensive normalization: ensure `mp` is in points (not internal units).
