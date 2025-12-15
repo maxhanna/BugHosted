@@ -723,11 +723,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       } else if (isFinite(rawMp)) {
         this.metaHero.mp = Math.round(rawMp);
       } 
-      if (!this.metaHero.mp) {
+      if (!this.metaHero.mp || this.metaHero.mp == null) {
         this.metaHero.mp = 100;
       }
-      // Ensure metaHero.mp is never null when sending to server
-      try { if (!this.metaHero) this.metaHero = {} as MetaHero; if (this.metaHero.mp === undefined || this.metaHero.mp === null) { this.metaHero.mp = 100; } else { this.metaHero.mp = Math.round(Number(this.metaHero.mp ?? 100)); } } catch { this.metaHero.mp = 100; }
       const res: any = await this.bonesService.fetchGameData(this.metaHero, snapshot);
       // On successful response, clear the attacks we just sent from the shared queue
       if (res && snapshot && snapshot.length > 0) {

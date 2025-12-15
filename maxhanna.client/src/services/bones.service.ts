@@ -1,4 +1,4 @@
-
+﻿
 import { Injectable } from '@angular/core'; 
 import { MetaHero } from './datacontracts/bones/meta-hero';
 import { MetaChat } from './datacontracts/bones/meta-chat';
@@ -113,9 +113,9 @@ export class BonesService {
     return this.fetchData('/bones/sellbotparts', { HeroId: heroId, PartIds: partIds });
   }
   async fetchGameData(hero: MetaHero, recentAttacks?: any[]): Promise<{ map: number, position: Vector2, heroes: MetaHero[], chat: MetaChat[], events: MetaEvent[] } | undefined> {
-    // Accept an optional recentAttacks array (caller is responsible for lifecycle of the queue).
     const body: any = { Hero: hero };
-    if (recentAttacks && recentAttacks.length > 0) body.RecentAttacks = recentAttacks;
+    if (recentAttacks && recentAttacks.length > 0) 
+      body.RecentAttacks = recentAttacks;
 
     return this.fetchData('/bones/fetchgamedata', body);
   }
