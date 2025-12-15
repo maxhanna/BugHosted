@@ -721,11 +721,12 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       } 
       const sendHero: any = { ...this.metaHero };
       try { console.log('updatePlayers: metaHero.mp (this.metaHero.mp)=', (this.metaHero as any)?.mp); } catch {}
-      if (sendHero.mp === undefined || sendHero.mp === null) {
-        sendHero.mp = 100;
-      } else {
-        sendHero.mp = Math.round(Number(sendHero.mp));
+      // Ensure we never send non-finite values (Infinity/NaN) to the server.
+      let mpNum = Number(sendHero.mp);
+      if (!isFinite(mpNum) || isNaN(mpNum)) {
+        mpNum = 100; // sane default
       }
+      sendHero.mp = Math.round(mpNum);
       const allocated = Number(sendHero.mana ?? sendHero.maxMana ?? 0);
       const maxAllowed = 100 + (isFinite(allocated) ? Math.max(0, allocated) : 0);
       if (isFinite(Number(sendHero.mp)) && Number(sendHero.mp) > maxAllowed) {
