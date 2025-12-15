@@ -712,21 +712,25 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         } 
       } catch {
       }
-      this.metaHero.position = this.metaHero.position.duplicate();
-      // Defensive normalization: ensure `mp` is in points (not internal units).
-      // Some client code may accidentally set `metaHero.mp` to unit counts (1 point == 100 units).
-      // If we detect an implausibly large value, convert to points by dividing by 100.
-       
+      this.metaHero.position = this.metaHero.position.duplicate(); 
       const rawMp = Number((this.metaHero as any).mp);
       if (isFinite(rawMp) && rawMp > 1000) {
         this.metaHero.mp = Math.round(rawMp / 100);
       } else if (isFinite(rawMp)) {
         this.metaHero.mp = Math.round(rawMp);
       } 
-      if (!this.metaHero.mp || this.metaHero.mp == null) {
-        this.metaHero.mp = 100;
+      const sendHero: any = { ...this.metaHero };
+      if (sendHero.mp === undefined || sendHero.mp === null) {
+        sendHero.mp = 100;
+      } else {
+        sendHero.mp = Math.round(Number(sendHero.mp));
       }
-      const res: any = await this.bonesService.fetchGameData(this.metaHero, snapshot);
+      const allocated = Number(sendHero.mana ?? sendHero.maxMana ?? 0);
+      const maxAllowed = 100 + (isFinite(allocated) ? Math.max(0, allocated) : 0);
+      if (isFinite(Number(sendHero.mp)) && Number(sendHero.mp) > maxAllowed) {
+        sendHero.mp = Math.round(maxAllowed);
+      }
+      const res: any = await this.bonesService.fetchGameData(sendHero, snapshot);
       // On successful response, clear the attacks we just sent from the shared queue
       if (res && snapshot && snapshot.length > 0) {
         pendingAttacks.splice(0, snapshot.length);
@@ -2714,4 +2718,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     } catch { return []; }
   }
 }
+
+
 
