@@ -720,7 +720,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.metaHero.mp = Math.round(rawMp);
       } 
       const sendHero: any = { ...this.metaHero };
-      try { console.debug('updatePlayers: metaHero.mp (this.metaHero.mp)=', (this.metaHero as any)?.mp); } catch {}
+      try { console.log('updatePlayers: metaHero.mp (this.metaHero.mp)=', (this.metaHero as any)?.mp); } catch {}
       if (sendHero.mp === undefined || sendHero.mp === null) {
         sendHero.mp = 100;
       } else {
@@ -2585,7 +2585,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   private async handleHeroDeath(params: { killerId?: string | number | null, killerUserId?: number | null, cause?: string | null }) {
-    console.debug('handleHeroDeath ENTRY', JSON.parse(JSON.stringify(params)));
+    console.log('handleHeroDeath ENTRY', JSON.parse(JSON.stringify(params)));
     let killerId = Number(params.killerId);
     let cause = params.cause;
 
@@ -2719,6 +2719,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     } catch { return []; }
   }
 }
+
 
 
 

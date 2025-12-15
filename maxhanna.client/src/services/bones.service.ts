@@ -113,12 +113,12 @@ export class BonesService {
     return this.fetchData('/bones/sellbotparts', { HeroId: heroId, PartIds: partIds });
   }
   async fetchGameData(hero: MetaHero, recentAttacks?: any[]): Promise<{ map: number, position: Vector2, heroes: MetaHero[], chat: MetaChat[], events: MetaEvent[] } | undefined> {
-    try { console.debug('fetchGameData called: hero.mp=', (hero as any)?.mp); } catch {} 
-    try { console.debug('fetchGameData called hero (partial):', JSON.stringify({ id: (hero as any)?.id, mp: (hero as any)?.mp, mana: (hero as any)?.mana, maxMana: (hero as any)?.maxMana })); } catch {} 
+    try { console.log('fetchGameData called: hero.mp=', (hero as any)?.mp); } catch {} 
+    try { console.log('fetchGameData called hero (partial):', JSON.stringify({ id: (hero as any)?.id, mp: (hero as any)?.mp, mana: (hero as any)?.mana, maxMana: (hero as any)?.maxMana })); } catch {} 
     const body: any = { hero: hero };
     if (recentAttacks && recentAttacks.length > 0)
       body.recentAttacks = recentAttacks;
-    try { console.debug('fetchGameData outgoing body:', JSON.stringify(body)); } catch {} 
+    try { console.log('fetchGameData outgoing body:', JSON.stringify(body)); } catch {} 
     return this.fetchData('/bones/fetchgamedata', body);
   }
   async fetchInventoryData(heroId: number): Promise<{ inventory: InventoryItem[], parts: HeroInventoryItem[] }> {
@@ -186,4 +186,5 @@ export class BonesService {
     return this.fetchData('/bones/deletetownportal',  { HeroId: heroId });
   }
 }
+
 
