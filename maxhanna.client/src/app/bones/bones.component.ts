@@ -720,6 +720,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.metaHero.mp = Math.round(rawMp);
       } 
       const sendHero: any = { ...this.metaHero };
+      try { console.debug('updatePlayers: metaHero.mp (this.metaHero.mp)=', (this.metaHero as any)?.mp); } catch {}
       if (sendHero.mp === undefined || sendHero.mp === null) {
         sendHero.mp = 100;
       } else {
@@ -2718,6 +2719,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     } catch { return []; }
   }
 }
+
 
 
 
