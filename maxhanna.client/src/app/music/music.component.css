@@ -276,6 +276,11 @@ input[type="submit"] {
   border: var(--main-border);
 }
 
+.radioStationItem:hover {
+  transform: scale(1.01);
+  background-color: var(--main-highlight-color);
+}
+
 .radioStationIcon {
   width: 40px;
   height: 40px;
