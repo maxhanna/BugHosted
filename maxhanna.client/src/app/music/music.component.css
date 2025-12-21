@@ -298,11 +298,14 @@ input[type="submit"] {
 }
 
 .radioStationDetails {
-  font-size: 0.85em;
+  font-size: .85em;
   color: var(--third-font-color);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  width: calc(100% - 100px);
+  display: block;
+  white-space: break-spaces;
 }
 .radioStationInfo {
   flex: 1;
