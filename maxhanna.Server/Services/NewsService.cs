@@ -669,7 +669,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 				SELECT t.id, t.todo, t.url, t.file_id, t.ownership, u.username
 				FROM todo t
 				LEFT JOIN users u ON u.id = t.ownership
-				WHERE t.type = 'music' AND DATE(t.date) = CURDATE()
+				WHERE t.type = 'music' AND DATE(t.date) = DATE(UTC_TIMESTAMP())
 				ORDER BY t.date DESC;";
 
 			using var cmd = new MySqlCommand(sql, conn, transaction);
