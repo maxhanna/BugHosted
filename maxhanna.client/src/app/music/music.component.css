@@ -265,6 +265,17 @@ input[type="submit"] {
   gap: 5px;
 }
 
+.radioStationItem {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.2s;
+  border: var(--main-border);
+}
+
 .radioStationIcon {
   width: 40px;
   height: 40px;
@@ -313,6 +324,12 @@ input[type="submit"] {
   overflow: hidden;
   text-overflow: ellipsis;
 } 
+
+.radioFilters {
+  text-align: center;
+  padding: 10px;
+}
+
 /* .radioStationsContainer {
   width: 100%;
   padding: 10px;
