@@ -215,9 +215,9 @@
             {{ tradeIndicators.volumeAbove20DayAverage ? 'Yes' : 'No' }}
           </div>
           <div class="bold smallFont" [class]="tradeIndicators.volumeAbove20DayAverage ? 'positive' : 'negative'">
-            {{ getConvertedCurrencyValueRespectToFiat(tradeIndicators.volume20DayAverageValue) |
+            {{ getConvertedCurrencyValueRespectToFiat(tradeIndicators.currentVolumeValue) |
             currencySymbol:(selectedCurrency):false }}
-            / {{ getConvertedCurrencyValueRespectToFiat(tradeIndicators.currentVolumeValue) |
+            / {{ getConvertedCurrencyValueRespectToFiat(tradeIndicators.volume20DayAverageValue) |
             currencySymbol:(selectedCurrency):false }}
           </div>
         </div>
