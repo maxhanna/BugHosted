@@ -130,6 +130,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     isMuted: boolean = false; // legacy single flag (keeps user settings compatibility)
     isMusicMuted: boolean = false;
     isSfxMuted: boolean = false;
+    allowEnderInactivityNotifications: boolean = true;
     // When true, the player is dead and run timer should not restart
     private isDead: boolean = false;
     // mark dead so timers won't restart while death panel is shown
@@ -150,6 +151,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 this.isMuted = !!res?.muteMusicEnder;
                 this.isMusicMuted = res?.muteMusicEnder ?? false;
                 this.isSfxMuted = res?.muteSfxEnder ?? false;
+                this.allowEnderInactivityNotifications = res?.allowEnderInactivityNotifications ?? true;
                 resources.setMusicMuted(this.isMusicMuted);
                 resources.setSfxMuted(this.isSfxMuted);
                  if (!this.isMusicMuted) {
@@ -976,7 +978,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
         return new HeroRoomLevel();
     }
-
     private getLatestMessages() { 
         this.latestMessagesMap.clear();
         const bubbleCutoff = new Date(Date.now() - 10000); // 10s TTL for chat bubble
@@ -991,6 +992,13 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     this.latestMessagesMap.set(message.hero, message);
                 }
             }
+        });
+    }
+
+    toggleEnderInactivityNotifications() {
+        this.allowEnderInactivityNotifications = !this.allowEnderInactivityNotifications;
+        this.userService.updateEnderInactivityNotifications(this.parentRef?.user?.id ?? 0, this.allowEnderInactivityNotifications).then(res => {
+            this.parentRef?.showNotification(res);
         });
     }
 

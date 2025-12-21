@@ -14,4 +14,5 @@ export class UserSettings {
   muteMusicEmulator?: boolean;
   muteMusicBones?: boolean;
   muteSfxBones?: boolean;
+  allowEnderInactivityNotifications?: boolean;
 }

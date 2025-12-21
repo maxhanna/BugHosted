@@ -1,4 +1,4 @@
-<div class="componentMain" #componentMain>
+﻿<div class="componentMain" #componentMain>
   <div class="closeButton" (click)="remove_me('EnderComponent');"></div>
   <div class="menuButton" (click)="showMenuPanel()"></div>
   <div class="componentTitle">Ender</div>
@@ -126,6 +126,13 @@
           {{ isMusicMuted ? 'Unmute Music' : 'Mute Music' }} 
         </button>
       </div>
+    </div>
+    <div style="margin-top:8px;">
+      <button class="musicButton" (click)="toggleEnderInactivityNotifications()"
+        [title]="allowEnderInactivityNotifications ? 'Disable inactivity notifications' : 'Enable inactivity notifications'"
+        aria-label="Ender inactivity notifications toggle">
+        {{ allowEnderInactivityNotifications ? 'Disable inactivity notifications' : 'Enable inactivity notifications' }}
+      </button>
     </div>
     <app-ender-high-scores [mode]="'all'" [parentRef]="parentRef" [headersCollapsed]="true"></app-ender-high-scores>
     <app-share-button [inputtedParentRef]="parentRef" [link]="'Ender'"></app-share-button>

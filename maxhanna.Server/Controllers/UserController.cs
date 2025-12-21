@@ -1547,7 +1547,8 @@ namespace maxhanna.Server.Controllers
 							IFNULL(mute_sfx_ender,0) AS mute_sfx_ender,
 							IFNULL(mute_music_emulator,0) AS mute_music_emulator, 
 							IFNULL(mute_music_bones,0) AS mute_music_bones, 
-							IFNULL(mute_sfx_bones,0) AS mute_sfx_bones
+							IFNULL(mute_sfx_bones,0) AS mute_sfx_bones, 
+							IFNULL(allow_ender_inactivity_notifications,0) AS allow_ender_inactivity_notifications
 						FROM maxhanna.user_settings 
 						WHERE user_id = @userId;";
 
@@ -1577,6 +1578,7 @@ namespace maxhanna.Server.Controllers
 							userSettings.MuteMusicEmulator = !reader.IsDBNull(reader.GetOrdinal("mute_music_emulator")) && reader.GetInt32("mute_music_emulator") == 1;
 							userSettings.MuteMusicBones = !reader.IsDBNull(reader.GetOrdinal("mute_music_bones")) && reader.GetInt32("mute_music_bones") == 1;
 							userSettings.MuteSfxBones = !reader.IsDBNull(reader.GetOrdinal("mute_sfx_bones")) && reader.GetInt32("mute_sfx_bones") == 1;
+							userSettings.AllowEnderInactivityNotifications = !reader.IsDBNull(reader.GetOrdinal("allow_ender_inactivity_notifications")) && reader.GetInt32("allow_ender_inactivity_notifications") == 1;
 						}
 						else
 						{
@@ -1721,6 +1723,32 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpPost("/User/UpdateEnderInactivityNotifications", Name = "UpdateEnderInactivityNotifications")]
+		public async Task<IActionResult> UpdateEnderInactivityNotifications([FromBody] UpdateNsfwRequest request)
+		{
+			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+			{
+				try
+				{
+					await conn.OpenAsync();
+					string updateSql = @"
+						INSERT INTO maxhanna.user_settings (user_id, allow_ender_inactivity_notifications)
+						VALUES (@userId, @value)
+						ON DUPLICATE KEY UPDATE allow_ender_inactivity_notifications = VALUES(allow_ender_inactivity_notifications);";
+					MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
+					updateCmd.Parameters.AddWithValue("@userId", request.UserId);
+					updateCmd.Parameters.AddWithValue("@value", request.IsAllowed ? 1 : 0); // IsAllowed = true => allow notifications
+					await updateCmd.ExecuteNonQueryAsync();
+					return Ok("Successfully updated allow_ender_inactivity_notifications setting.");
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db("An error occurred while processing UpdateEnderInactivityNotifications. " + ex.Message, request.UserId, "USER", true);
+					return StatusCode(500, "An error occurred while updating ender inactivity notification preference.");
+				}
+				finally { conn.Close(); }
+			}
+		}
 
 
 		[HttpPost("/User/Menu", Name = "GetUserMenu")]

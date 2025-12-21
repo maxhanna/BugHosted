@@ -342,6 +342,22 @@ export class UserService {
     }
   }
 
+  async updateEnderInactivityNotifications(userId: number, isAllowed: boolean) {
+    try {
+      const response = await fetch('/user/updateenderinactivitynotifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: userId, IsAllowed: isAllowed }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return "Error";
+    }
+  }
+
   async updateLastSeen(userId: number) {
     try {
       const response = await fetch('/user/updatelastseen', {
