@@ -1575,7 +1575,6 @@ namespace maxhanna.Server.Controllers
 							userSettings.MuteMusicEnder = !reader.IsDBNull(reader.GetOrdinal("mute_music_ender")) && reader.GetInt32("mute_music_ender") == 1;
 							userSettings.MuteSfxEnder = !reader.IsDBNull(reader.GetOrdinal("mute_sfx_ender")) && reader.GetInt32("mute_sfx_ender") == 1;
 							userSettings.MuteMusicEmulator = !reader.IsDBNull(reader.GetOrdinal("mute_music_emulator")) && reader.GetInt32("mute_music_emulator") == 1;
-							userSettings.MuteSfxEmulator = !reader.IsDBNull(reader.GetOrdinal("mute_sfx_emulator")) && reader.GetInt32("mute_sfx_emulator") == 1;
 							userSettings.MuteMusicBones = !reader.IsDBNull(reader.GetOrdinal("mute_music_bones")) && reader.GetInt32("mute_music_bones") == 1;
 							userSettings.MuteSfxBones = !reader.IsDBNull(reader.GetOrdinal("mute_sfx_bones")) && reader.GetInt32("mute_sfx_bones") == 1;
 						}
