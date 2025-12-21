@@ -1533,7 +1533,21 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 
 					string selectSql = @"
-						SELECT nsfw_enabled, ghost_read, compactness, show_posts_from, notifications_enabled, last_character_name, last_character_color, show_hidden_files, mute_sounds
+						SELECT 
+							nsfw_enabled, 
+							ghost_read, 
+							compactness, 
+							show_posts_from, 
+							notifications_enabled, 
+							last_character_name, 
+							last_character_color, 
+							show_hidden_files, 
+							mute_sounds,
+							IFNULL(mute_music_ender,0) AS mute_music_ender, 
+							IFNULL(mute_sfx_ender,0) AS mute_sfx_ender,
+							IFNULL(mute_music_emulator,0) AS mute_music_emulator, 
+							IFNULL(mute_music_bones,0) AS mute_music_bones, 
+							IFNULL(mute_sfx_bones,0) AS mute_sfx_bones
 						FROM maxhanna.user_settings 
 						WHERE user_id = @userId;";
 
@@ -1558,6 +1572,12 @@ namespace maxhanna.Server.Controllers
 							userSettings.LastCharacterColor = reader.IsDBNull(reader.GetOrdinal("last_character_color")) ? null : reader.GetString("last_character_color");
 							userSettings.ShowHiddenFiles = !reader.IsDBNull(reader.GetOrdinal("show_hidden_files")) && reader.GetInt32("show_hidden_files") == 1;
 							userSettings.MuteSounds = !reader.IsDBNull(reader.GetOrdinal("mute_sounds")) && reader.GetInt32("mute_sounds") == 1;
+							userSettings.MuteMusicEnder = !reader.IsDBNull(reader.GetOrdinal("mute_music_ender")) && reader.GetInt32("mute_music_ender") == 1;
+							userSettings.MuteSfxEnder = !reader.IsDBNull(reader.GetOrdinal("mute_sfx_ender")) && reader.GetInt32("mute_sfx_ender") == 1;
+							userSettings.MuteMusicEmulator = !reader.IsDBNull(reader.GetOrdinal("mute_music_emulator")) && reader.GetInt32("mute_music_emulator") == 1;
+							userSettings.MuteSfxEmulator = !reader.IsDBNull(reader.GetOrdinal("mute_sfx_emulator")) && reader.GetInt32("mute_sfx_emulator") == 1;
+							userSettings.MuteMusicBones = !reader.IsDBNull(reader.GetOrdinal("mute_music_bones")) && reader.GetInt32("mute_music_bones") == 1;
+							userSettings.MuteSfxBones = !reader.IsDBNull(reader.GetOrdinal("mute_sfx_bones")) && reader.GetInt32("mute_sfx_bones") == 1;
 						}
 						else
 						{
@@ -1647,6 +1667,53 @@ namespace maxhanna.Server.Controllers
 				{
 					_ = _log.Db("An error occurred while processing the update mute_sounds POST request. " + ex.Message, request.UserId, "USER", true);
 					return StatusCode(500, "An error occurred while processing the update mute_sounds request.");
+				}
+				finally
+				{
+					conn.Close();
+				}
+			}
+		}
+
+		[HttpPost("/User/UpdateComponentMute", Name = "UpdateComponentMute")]
+		public async Task<IActionResult> UpdateComponentMute([FromBody] UpdateComponentMuteRequest request)
+		{
+			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+			{
+				try
+				{
+					await conn.OpenAsync();
+
+					string? column = request?.Component?.ToLower() switch
+					{
+						"ender" => request.IsMusic ? "mute_music_ender" : "mute_sfx_ender",
+						"emulator" => request.IsMusic ? "mute_music_emulator" : "mute_sfx_emulator",
+						"bones" => request.IsMusic ? "mute_music_bones" : "mute_sfx_bones",
+						null => null,
+						_ => null
+					};
+
+					if (column == null) return BadRequest("Unknown component");
+
+					string updateSql = $@"
+					INSERT INTO maxhanna.user_settings (user_id, {column})
+					VALUES (@userId, @value)
+					ON DUPLICATE KEY UPDATE {column} = VALUES({column});";
+
+					MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
+					if (request != null)
+					{
+						updateCmd.Parameters.AddWithValue("@userId", request.UserId);
+						updateCmd.Parameters.AddWithValue("@value", request.IsAllowed ? 1 : 0);
+					}
+
+					await updateCmd.ExecuteNonQueryAsync();
+					return Ok("Successfully updated component mute setting.");
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db("An error occurred while processing UpdateComponentMute. " + ex.Message, request.UserId, "USER", true);
+					return StatusCode(500, "An error occurred while updating component mute setting.");
 				}
 				finally
 				{

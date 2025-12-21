@@ -484,6 +484,19 @@ export class UserService {
       return "Error";
     }
   }
+  async updateComponentMute(userId: number, component: 'ender' | 'emulator' | 'bones', isMusic: boolean, isAllowed: boolean) {
+    try {
+      const payload = { UserId: userId, Component: component, IsMusic: isMusic, IsAllowed: isAllowed };
+      const response = await fetch('/user/updatecomponentmute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      return await response.text();
+    } catch (error) {
+      return 'Error';
+    }
+  }
   async getUserMenu(userId?: number): Promise<Array<MenuItem>> {
     if (!userId) return [];
     try {

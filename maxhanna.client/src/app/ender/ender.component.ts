@@ -147,9 +147,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             this.userService.getUserSettings(this.parentRef.user?.id ?? 0).then(res => {
                 this.cachedDefaultName = res?.lastCharacterName ?? undefined;
                 this.cachedDefaultColor = res?.lastCharacterColor ?? undefined;
-                this.isMuted = !!res?.muteSounds;
-                this.isMusicMuted = this.isMuted;
-                this.isSfxMuted = false;  
+                this.isMuted = !!res?.muteMusicEnder;
+                this.isMusicMuted = res?.muteMusicEnder ?? false;
+                this.isSfxMuted = res?.muteSfxEnder ?? false;
                 resources.setMusicMuted(this.isMusicMuted);
                 resources.setSfxMuted(this.isSfxMuted);
                  if (!this.isMusicMuted) {
@@ -218,7 +218,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         }
         this.isMuted = this.isMusicMuted;
         if (this.parentRef?.user?.id) {
-            this.userService.updateMuteSounds(this.parentRef.user.id, this.isMuted).catch(() => { });
+            this.userService.updateComponentMute(this.parentRef.user.id, 'ender', true, this.isMusicMuted).catch(() => { console.log("failed to update ender music mute setting"); });
         }
     }
 
@@ -226,6 +226,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.isSfxMuted = !this.isSfxMuted;
         resources.setSfxMuted(this.isSfxMuted);
         this.isMuted = this.isMusicMuted && this.isSfxMuted;
+        if (this.parentRef?.user?.id) {
+            this.userService.updateComponentMute(this.parentRef.user.id, 'ender', false, this.isSfxMuted).catch(() => { console.log("failed to update ender sfx mute setting"); });
+        }
     }
 
     private async handleHeroDeath(params: { killerId?: string | number | null, killerUserId?: number | null, cause?: string | null } | string) {

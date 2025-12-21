@@ -2463,7 +2463,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     }
     this.isMuted = this.isMusicMuted;
     if (this.parentRef?.user?.id) {
-      this.userService.updateMuteSounds(this.parentRef.user.id, this.isMuted).catch(() => { });
+      this.userService.updateComponentMute(this.parentRef.user.id, 'bones', true, this.isMusicMuted).catch(() => { console.log("failed to update bones music mute setting"); });
     }
   }
 
@@ -2486,6 +2486,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.isSfxMuted = !this.isSfxMuted;
     resources.setSfxMuted(this.isSfxMuted);
     this.isMuted = this.isMusicMuted && this.isSfxMuted;
+    if (this.parentRef?.user?.id) {
+      this.userService.updateComponentMute(this.parentRef.user.id, 'bones', false, this.isSfxMuted).catch(() => { console.log("failed to update bones sfx mute setting"); });
+    }
   }
 
   onVolumeSliderInput(e: Event) {
@@ -2509,9 +2512,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.userService.getUserSettings(this.parentRef?.user?.id ?? 0).then(res => {
       this.cachedDefaultName = res?.lastCharacterName ?? undefined;
       this.cachedDefaultColor = res?.lastCharacterColor ?? undefined;
-      this.isMuted = !!res?.muteSounds;
+      this.isMuted = !!res?.muteMusicBones;
       this.isMusicMuted = this.isMuted;
-      this.isSfxMuted = false;
+      this.isSfxMuted = res?.muteSfxBones ?? false;
       resources.setMusicMuted(this.isMusicMuted);
       resources.setSfxMuted(this.isSfxMuted);
       // Initialize volume from localStorage if present 

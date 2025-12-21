@@ -292,8 +292,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     const uid = this.parentRef?.user?.id;
     if (uid) {
       this.userService.getUserSettings(uid).then(s => {
-        if (s && typeof s.muteSounds === 'boolean') {
-          this.soundOn = !s.muteSounds; // soundOn true means not muted
+        if (s && typeof s.muteMusicEmulator === 'boolean') {
+          this.soundOn = !s.muteMusicEmulator; // soundOn true means not muted
         }
       }).catch(()=>{});
     }
@@ -509,9 +509,9 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     // Emulator MUTE command toggles audio state internally
     this.nostalgist?.sendCommand("MUTE");
     this.soundOn = !this.soundOn; // flip local state
-    const muted = !this.soundOn; // mute_sounds value to persist
+    const muted = !this.soundOn; // mute_sounds value to persist 
     if (this.parentRef?.user?.id) {
-      this.userService.updateMuteSounds(this.parentRef.user.id, muted).catch(()=>{});
+      this.userService.updateComponentMute(this.parentRef.user.id, 'emulator', true, muted).catch(() => { console.log("failed to update emulator mute setting"); });
     }
     this.closeMenuPanel();
   }

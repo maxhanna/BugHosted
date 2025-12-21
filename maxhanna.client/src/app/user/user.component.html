@@ -398,7 +398,7 @@
                   [label]="'Emulation total time played:'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription cursorPointerUnderlined linkColor" (click)="toggleEmulationBreakdown()">
-                {{ emulationTotalTimeSeconds | timeSince:'hours'}} hours
+                {{ emulationTotalTimeSeconds/3600 }} hours
               </div>
             </div>
 
@@ -718,8 +718,8 @@
       </thead>
       <tbody>
         <tr *ngFor="let item of emulationGameBreakdown">
-          <td class="optionsStatsBreakdownName secondaryFontColor">{{ item.romFileName.replace('.sav','') }}</td>
-          <td class="optionsStatsBreakdownValue">{{ (item.totalSeconds) | timeSince:'hours' }}</td>
+          <td class="optionsStatsBreakdownName">{{ item.romFileName.replace('.sav','') }}</td>
+          <td class="optionsStatsBreakdownValue">{{ (item.totalSeconds/3600) | number:'1.2-2' }}</td>
           <td class="optionsStatsBreakdownValue">{{ item.plays || 0 }}</td>
         </tr>
       </tbody>
