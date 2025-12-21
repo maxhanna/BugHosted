@@ -561,3 +561,7 @@
   justify-content: flex-end;
   align-items: center;
 }
+
+.optionsStatsBreakdownValue {
+  padding: 5px;
+}
