@@ -77,6 +77,12 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
     this.parentRef.getSessionToken().then(sessionToken => {
       this.aiService.sendMessage(user.id ?? 0, false, this.userMessage + this.engineeredText + JSON.stringify(this.savedMessageHistory) + ")", sessionToken, this.responseLength, this.selectedFile?.id).then(
         (response) => {
+          // Handle plain "Access Denied" string response
+          if (typeof response === 'string' && response.toLowerCase().includes('access denied') && response.length <= 'access denied'.length + 5) {
+            this.parentRef?.showNotification('Access Denied');
+            this.stopLoading();
+            return;
+          }
           let reply = this.aiService.parseMessage(response.response ?? response.reply);
           this.savedMessageHistory.push((response.response ?? response.reply));
           this.pushMessage({ sender: this.hostName, message: reply });
@@ -90,7 +96,13 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
         },
         (error) => {
           console.error(error);
-          this.pushMessage({ sender: 'System', message: error.reply });
+          // Handle "Access Denied" in error response
+          const errorMsg = error?.reply ?? error?.message ?? (typeof error === 'string' ? error : '');
+          if (typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('access denied')) {
+            this.parentRef?.showNotification('Access Denied');
+          } else {
+            this.pushMessage({ sender: 'System', message: error.reply });
+          }
           this.chatInput.nativeElement.value = "";
           setTimeout(() => {
             this.chatInput.nativeElement.focus();
