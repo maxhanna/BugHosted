@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+﻿import { Injectable } from '@angular/core';
 import { HttpClient, HttpEvent, HttpRequest } from '@angular/common/http';
 import { Observable } from 'rxjs/internal/Observable';
 import { User } from './datacontracts/user/user';
@@ -594,6 +594,22 @@ export class FileService {
 		} catch (e) {
 			console.error('Failed to fetch trending', e);
 			return [];
+		}
+	}
+	async massDelete(userId: number, fileIds: number[]) {
+		try {
+			const response = await fetch(`/file/massdelete`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify(
+					{ UserId: userId, FileIds: fileIds }
+				),
+			});
+			return await response.text();
+		} catch (error) {
+			return null;
 		}
 	}
 	formatFileSize(bytes: number, decimalPoint: number = 2): string {

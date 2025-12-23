@@ -24,7 +24,6 @@ import { FavouriteService } from '../../services/favourite.service';
 import { ReactionService } from '../../services/reaction.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { TopService } from '../../services/top.service';
-import { target } from '../meta/helpers/fight';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { TradeService } from '../../services/trade.service';
 import { RomService } from '../../services/rom.service';
@@ -822,6 +821,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       if (tmpUser && tmpUser.username && this.parentRef) {
         tmpUser.pass = undefined;
         this.parentRef.user = tmpUser;
+        this.parentRef.navigationComponent.getThemeInfo(); 
         this.parentRef.resetUserCookie();
         this.parentRef?.showNotification(`Access granted. Welcome ${(fromUserCreation ? 'to BugHosted' : 'back')} ${this.parentRef!.user?.username}`);
         this.parentRef?.getLocation();

@@ -1,4 +1,4 @@
-
+﻿
 import { AfterViewInit, Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { FileService } from '../../services/file.service';
 import { DirectoryResults } from '../../services/datacontracts/file/directory-results';
@@ -49,11 +49,14 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() showTopics: boolean = true;
   @Input() captureNotifications: boolean = false;
   @Input() currentPage = this.defaultCurrentPage;
+  @Input() massDeleteMode: boolean = false;
+  @Output() selectedForDeleteChange = new EventEmitter<number[]>();
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
   @Output() userNotificationEvent = new EventEmitter<string>();
   @Output() expandClickedEvent = new EventEmitter<FileEntry>();
 
+  selectedForDelete: Set<number> = new Set<number>();
   showFavouritesOnly = false;
   trendingSearches: string[] = [];
   sortOption: string = 'Latest';
@@ -653,6 +656,28 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   async handleUploadedFiles(files: FileEntry[]) {
     await this.getDirectory();
   }
+  
+  toggleSelectForDelete(file: FileEntry, event?: Event) {
+    if (!file || !file.id) {
+      return;
+    }
+    if (this.selectedForDelete.has(file.id)) { 
+      this.selectedForDelete.delete(file.id); 
+    } else { 
+      this.selectedForDelete.add(file.id); 
+    }
+    this.selectedForDeleteChange.emit(Array.from(this.selectedForDelete));
+    if (event) { 
+      event.stopPropagation(); 
+    }
+  }
+
+  selectedCount(): number { return this.selectedForDelete.size; }
+
+  getSelectedIds(): number[] { return Array.from(this.selectedForDelete); }
+
+  clearSelection() { this.selectedForDelete.clear(); this.selectedForDeleteChange.emit([]); }
+
   reinitializePages() {
     this.currentPage = 1;
     this.maxResults = 50;
@@ -1175,3 +1200,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     try { this.onFiletypeFilterChange(); } catch { }
   }
 }
+
+
+
+

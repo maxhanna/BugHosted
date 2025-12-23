@@ -72,8 +72,8 @@
       </div>
 
        
-      <!-- SEARCH/UPLOAD buttons -->
-      <div class="searchUploadButtonChoiceDiv" *ngIf="!maxFilesReached">
+  <!-- SEARCH/UPLOAD buttons -->
+  <div class="searchUploadButtonChoiceDiv" *ngIf="!maxFilesReached && (viewMediaChoicesOpen || displaySearch)">
         <button id="closeOverlay" (click)="displaySearch ? closeSearchDiv($event) : displaySearchDiv()"  
           title="Search for files" class="cursorPointer" 
           [style]="displaySearch ? 'position:relative; top:-10px;' : ''">

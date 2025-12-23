@@ -22,6 +22,8 @@ namespace maxhanna.Server.Controllers
 		private readonly KrakenService _krakenService;
 		private readonly HttpClient _httpClient;
 		private static readonly SemaphoreSlim _analyzeLock = new SemaphoreSlim(1, 1); 
+		// Serialize heavy media-analysis calls to Ollama to avoid concurrent model runner crashes
+		private static readonly SemaphoreSlim _ollamaMediaLock = new SemaphoreSlim(1, 1);
 
 		public AiController(Log log, IConfiguration config, KrakenService krakenService)
 		{
@@ -723,7 +725,9 @@ namespace maxhanna.Server.Controllers
 					? BuildDetailedPrompt(base64Images.Count > 1)
 					: BuildConcisePrompt();
 
-				// Send to Ollama
+				// Send to Ollama. Acquire a media-specific lock so we don't overwhelm the model runner
+				// with concurrent image+video payloads. Use a retry loop with small exponential backoff
+				// for transient 5xx failures (model runner crashes or restarts).
 				var payload = new
 				{
 					model = "llava",
@@ -732,22 +736,70 @@ namespace maxhanna.Server.Controllers
 					images = base64Images.ToArray()
 				};
 
-				using var req = new HttpRequestMessage(HttpMethod.Post, "http://localhost:11434/api/generate")
+				const int maxAttempts = 3;
+				int attempt = 0;
+				string responseBody = null;
+				while (attempt < maxAttempts)
 				{
-					Content = new StringContent(JsonSerializer.Serialize(payload),
-						Encoding.UTF8, "application/json")
-				};
+					attempt++;
+					try
+					{
+						// Build request per-attempt so we don't reuse a disposed HttpRequestMessage
+						using var req = new HttpRequestMessage(HttpMethod.Post, "http://localhost:11434/api/generate")
+						{
+							Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+						};
 
-				var resp = await _httpClient.SendAsync(req);
-				if (!resp.IsSuccessStatusCode)
+						// Wait for the media lock (no timeout here; callers can control concurrency via JS/API)
+						await _ollamaMediaLock.WaitAsync();
+						HttpResponseMessage resp = null;
+						try
+						{
+							resp = await _httpClient.SendAsync(req);
+						}
+						finally
+						{
+							// Always release the lock as soon as the network call completes
+							try { _ollamaMediaLock.Release(); } catch { }
+						}
+
+						if (!resp.IsSuccessStatusCode)
+						{
+							var errBody = await resp.Content.ReadAsStringAsync();
+							_ = _log.Db($"Ollama media analysis error {(int)resp.StatusCode}: {errBody}", null, "AiController", true);
+							// Treat 5xx as transient and retry; other codes are fatal
+							if ((int)resp.StatusCode >= 500 && attempt < maxAttempts)
+							{
+								await Task.Delay(300 * attempt); // backoff
+								continue;
+							}
+							return string.Empty;
+						}
+
+						responseBody = await resp.Content.ReadAsStringAsync();
+						break; // success
+					}
+					catch (HttpRequestException hre)
+					{
+						_ = _log.Db($"Ollama request failed (attempt {attempt}): {hre.Message}", null, "AiController", true);
+						if (attempt < maxAttempts) await Task.Delay(300 * attempt);
+						else return string.Empty;
+					}
+					catch (Exception ex)
+					{
+						_ = _log.Db($"Unexpected error sending to Ollama (attempt {attempt}): {ex.Message}", null, "AiController", true);
+						if (attempt < maxAttempts) await Task.Delay(300 * attempt);
+						else return string.Empty;
+					}
+				}
+
+				if (string.IsNullOrEmpty(responseBody))
 				{
-					var errBody = await resp.Content.ReadAsStringAsync();
-					_ = _log.Db($"Ollama media analysis error {(int)resp.StatusCode}: {errBody}", null, "AiController", true);
+					_ = _log.Db("Ollama media analysis returned empty body after retries.", null, "AiController", true);
 					return string.Empty;
 				}
 
-				var body = await resp.Content.ReadAsStringAsync();
-				var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+				var parsed = JsonSerializer.Deserialize<JsonElement>(responseBody);
 				return RemoveMediaReferences(parsed.GetProperty("response").GetString()?.Trim() ?? string.Empty);
 			}
 			catch (Exception ex)

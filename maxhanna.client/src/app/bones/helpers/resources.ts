@@ -16,7 +16,6 @@ export class Resources {
   volumeMultiplier: number = 1.0;
   constructor() {
     this.imageToLoad = {
-      armobot: `${this.dir}armobot.png`,
       bones: `${this.dir}Bones_v1.png`,
       brickstile: `${this.dir}brickstile.png`,
       charcreatebg: `${this.dir}charcreatebg.png`,
@@ -49,9 +48,10 @@ export class Resources {
       ruinsFloorBorder: `${this.dir}Ruins-FloorBorder.png`,
       ruinsFloorTile: `${this.dir}Ruins-FloorTile.png`,
       shadow: `${this.dir}shadow.png`,
-      shipsprite: `${this.dir}shipsprite.png`,
       skeleton: `${this.dir}skeletonspritesheet.png`,
       skill_sting: `${this.dir}skill_sting.png`,
+      skill_fireball: `${this.dir}SKILL_FIREBALL.png`,
+      skill_fireball_explode: `${this.dir}SKILL_FIREBALL_EXPLODE.png`,
       stars: `${this.dir}stars.png`,
       textBox: `${this.dir}sprite-text-background.png`,
       toast: `${this.dir}toast.png`,

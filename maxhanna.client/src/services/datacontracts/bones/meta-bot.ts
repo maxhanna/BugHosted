@@ -15,6 +15,7 @@ export class MetaBot {
   spriteName?: string;
   isDeployed?: boolean = false;
   targetHeroId?: number | null = null;
+  lastKilled?: Date | null;
   position?: Vector2;
   colorSwap?: ColorSwap;
 
@@ -22,7 +23,7 @@ export class MetaBot {
   constructor(params: {
     id: number, heroId: number, type: number, name: string,
     position?: Vector2, hp?: number, level?: number, spriteName?: string, 
-    colorSwap?: ColorSwap, isDeployed?: boolean,
+    colorSwap?: ColorSwap, isDeployed?: boolean, lastKilled?: Date | null,
   targetHeroId?: number | null,
   }) {
     this.id = params.id;
@@ -36,5 +37,6 @@ export class MetaBot {
     this.targetHeroId = params.targetHeroId ?? null;
     this.colorSwap = params.colorSwap;
     this.isDeployed = params.isDeployed;
+    this.lastKilled = params.lastKilled;
   } 
 } 

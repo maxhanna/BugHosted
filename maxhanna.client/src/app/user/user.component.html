@@ -398,7 +398,7 @@
                   [label]="'Emulation total time played:'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription cursorPointerUnderlined linkColor" (click)="toggleEmulationBreakdown()">
-                {{ emulationTotalTimeSeconds }} seconds
+                {{ emulationTotalTimeSeconds/3600 }} hours
               </div>
             </div>
 
@@ -704,15 +704,26 @@
   <button id="closeOverlay" (click)="closeDisplayPicturePanel()">Close</button>
 </div>
 
-<!-- Emulation Breakdown Popup (moved from inline area) -->
 <div class="popupPanel" *ngIf="isEmulationBreakdownOpen" style="overflow: auto;">
   <div class="popupPanelTitle">🎮 Emulation Breakdown</div>
   <div class="optionsStatsBreakdown">
     <div *ngIf="!emulationGameBreakdown || emulationGameBreakdown.length === 0" class="xxSmallFont">No games found.</div>
-    <div *ngFor="let item of emulationGameBreakdown" class="optionsStatsBreakdownRow">
-      <div class="optionsStatsBreakdownName">{{ item.romFileName.replace('.sav','') }}</div>
-      <div class="optionsStatsBreakdownValue">{{ (item.totalSeconds/3600) | number:'1.2-2' }} hours <span *ngIf="item.plays">• Plays: {{item.plays}}</span></div>
-    </div>
+    <table *ngIf="emulationGameBreakdown && emulationGameBreakdown.length > 0" class="mainTable" id="emulationBreakdownTable">
+      <thead>
+        <tr>
+          <th (click)="sortTable($event)">Game</th>
+          <th (click)="sortTable($event)">Hours</th>
+          <th (click)="sortTable($event)">Plays</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of emulationGameBreakdown">
+          <td class="optionsStatsBreakdownName">{{ item.romFileName.replace('.sav','') }}</td>
+          <td class="optionsStatsBreakdownValue">{{ (item.totalSeconds/3600) | number:'1.2-2' }}</td>
+          <td class="optionsStatsBreakdownValue">{{ item.plays || 0 }}</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
   <button id="closeOverlay" (click)="closeEmulationBreakdownPopup()" class="closeButton">Close</button>
 </div>

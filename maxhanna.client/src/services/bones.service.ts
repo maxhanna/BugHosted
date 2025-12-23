@@ -1,4 +1,4 @@
-
+﻿
 import { Injectable } from '@angular/core'; 
 import { MetaHero } from './datacontracts/bones/meta-hero';
 import { MetaChat } from './datacontracts/bones/meta-chat';
@@ -73,6 +73,21 @@ export class BonesService {
   async updateHeroStats(heroId: number, stats: { [key: string]: number | undefined } | any, userId?: number) {
     return this.fetchData('/bones/updateherostats', { HeroId: heroId, Stats: stats, UserId: userId });
   }
+  async updateCurrentSkill(heroId: number, currentSkill: string) {
+    return this.fetchData('/bones/updatecurrentskill', { HeroId: heroId, CurrentSkill: currentSkill });
+  }
+  async saveHeroSkills(heroId: number, skillA: number, skillB: number, skillC: number) {
+    return this.fetchData('/bones/saveheroskills', { HeroId: heroId, SkillA: skillA, SkillB: skillB, SkillC: skillC });
+  }
+  async getHeroSkills(heroId: number): Promise<{ skillA: number, skillB: number, skillC: number, currentSkill?: string } | undefined> {
+    const res: any = await this.fetchData('/bones/getheroskills', heroId);
+    if (!res) return undefined; 
+    const skillA = Number(res.skillA ?? res.skill_a ?? res.SkillA ?? res.Skill_a ?? 0);
+    const skillB = Number(res.skillB ?? res.skill_b ?? res.SkillB ?? res.Skill_b ?? 0);
+    const skillC = Number(res.skillC ?? res.skill_c ?? res.SkillC ?? res.Skill_c ?? 0);
+    const currentSkill = (res.currentSkill ?? res.current_skill ?? res.CurrentSkill ?? res.Current_Skill) as string | undefined;
+    return { skillA, skillB, skillC, currentSkill };
+  }
   async townPortal(heroId: number, userId?: number) {
     return this.fetchData('/bones/townportal', { HeroId: heroId, UserId: userId });
   }
@@ -98,10 +113,12 @@ export class BonesService {
     return this.fetchData('/bones/sellbotparts', { HeroId: heroId, PartIds: partIds });
   }
   async fetchGameData(hero: MetaHero, recentAttacks?: any[]): Promise<{ map: number, position: Vector2, heroes: MetaHero[], chat: MetaChat[], events: MetaEvent[] } | undefined> {
-    // Accept an optional recentAttacks array (caller is responsible for lifecycle of the queue).
-    const body: any = { Hero: hero };
-    if (recentAttacks && recentAttacks.length > 0) body.RecentAttacks = recentAttacks;
-
+    try { console.log('fetchGameData called: hero.mp=', (hero as any)?.mp); } catch {} 
+    try { console.log('fetchGameData called hero (partial):', JSON.stringify({ id: (hero as any)?.id, mp: (hero as any)?.mp, mana: (hero as any)?.mana, maxMana: (hero as any)?.maxMana })); } catch {} 
+    const body: any = { hero: hero };
+    if (recentAttacks && recentAttacks.length > 0)
+      body.recentAttacks = recentAttacks;
+    try { console.log('fetchGameData outgoing body:', JSON.stringify(body)); } catch {} 
     return this.fetchData('/bones/fetchgamedata', body);
   }
   async fetchInventoryData(heroId: number): Promise<{ inventory: InventoryItem[], parts: HeroInventoryItem[] }> {
@@ -151,6 +168,10 @@ export class BonesService {
     return this.fetchData('/bones/activeplayers', minutes);
   }
 
+  async getActivePlayersList(minutes: number = 5) {
+    return this.fetchData('/bones/getactiveplayerslist', minutes);
+  }
+
   async getUserRank(userId: number) {
     return this.fetchData('/bones/getuserrank', userId);
   }
@@ -165,3 +186,5 @@ export class BonesService {
     return this.fetchData('/bones/deletetownportal',  { HeroId: heroId });
   }
 }
+
+

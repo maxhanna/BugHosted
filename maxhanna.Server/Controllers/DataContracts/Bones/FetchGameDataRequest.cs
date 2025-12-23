@@ -8,6 +8,6 @@ namespace maxhanna.Server.Controllers.DataContracts.Bones
         public MetaHero? Hero { get; set; }
 
         [JsonPropertyName("recentAttacks")]
-        public List<Dictionary<string, object>>? RecentAttacks { get; set; }
+        public List<RecentAttackDto>? RecentAttacks { get; set; }
     }
 }

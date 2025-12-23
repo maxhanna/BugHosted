@@ -2,8 +2,6 @@ import { AfterViewInit, Component, ElementRef, EventEmitter, HostListener, Input
 import { ChildComponent } from '../child.component';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
-import { User } from '../../services/datacontracts/user/user';
-import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { AppComponent } from '../app.component';
 
 @Component({

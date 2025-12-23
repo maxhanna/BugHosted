@@ -264,8 +264,81 @@ input[type="submit"] {
   display: flex;
   gap: 5px;
 }
-/* 
-.radioStationsContainer {
+
+.radioStationItem {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.2s;
+  border: var(--main-border);
+}
+
+.radioStationItem:hover {
+  transform: scale(1.01);
+  background-color: var(--main-highlight-color);
+}
+
+.radioStationIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: var(--main-border);
+  flex-shrink: 0;
+}
+.radioStationInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.radioStationName {
+  font-weight: bold;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.radioStationDetails {
+  font-size: .85em;
+  color: var(--third-font-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: calc(100% - 100px);
+  display: block;
+  white-space: break-spaces;
+}
+.radioStationInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.radioStationName {
+  font-weight: bold;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.radioStationDetails {
+  font-size: 0.85em;
+  color: var(--third-font-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+} 
+
+.radioFilters {
+  text-align: center;
+  padding: 10px;
+}
+
+/* .radioStationsContainer {
   width: 100%;
   padding: 10px;
 }
@@ -314,35 +387,6 @@ input[type="submit"] {
   background-color: var(--main-highlight-color);
 }
 
-.radioStationIcon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: var(--main-border);
-  flex-shrink: 0;
-}
-
-.radioStationInfo {
-  flex: 1;
-  min-width: 0;
-}
-
-.radioStationName {
-  font-weight: bold;
-  margin-bottom: 3px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.radioStationDetails {
-  font-size: 0.85em;
-  color: var(--third-font-color);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 .radioPlayButton {
   padding: 8px 15px;
@@ -357,4 +401,5 @@ input[type="submit"] {
 
 .radioPlayButton:hover {
   background-color: var(--main-highlight-color);
-} */
+}  */
+ 

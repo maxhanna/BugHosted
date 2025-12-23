@@ -29,7 +29,7 @@
             <button title="Clear" (click)="clearSearch()" class="smallClearButton">❌</button>
           </th> 
           <th></th>
-          <th (click)="sortTable(2, 'todoTable')" title="Created">📅</th>
+          <th (click)="sortTable($event)" title="Created">📅</th>
         </tr>
       </thead>
       <tbody *ngIf="todos.length > 0">

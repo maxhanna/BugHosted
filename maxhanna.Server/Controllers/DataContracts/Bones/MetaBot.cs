@@ -13,5 +13,6 @@ namespace maxhanna.Server.Controllers.DataContracts.Bones
 		public int Level { get; set; }
 		public bool IsDeployed { get; set; }
 		public Vector2? Position { get; set; }
+		public DateTime? LastKilled { get; set; }
 	}
 }

@@ -4,11 +4,9 @@ import { ChildComponent } from '../child.component';
 import { UserNotification } from '../../services/datacontracts/notification/user-notification';
 import { Location } from '@angular/common';
 import { AppComponent } from '../app.component';
-import { User } from '../../services/datacontracts/user/user';
 import { initializeApp } from 'firebase/app';
-import { getMessaging, getToken, onMessage, Messaging } from "firebase/messaging";
+import { getMessaging, getToken } from "firebase/messaging";
 import { CommentService } from '../../services/comment.service';
-import { FileComment } from '../../services/datacontracts/file/file-comment';
 
 @Component({
   selector: 'app-notifications',
@@ -354,6 +352,9 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
         this.parentRef.navigationComponent.tradeNotifsCount--;
       }
     }
+    else if (notification?.text?.toLowerCase().includes('you were slain by') || notification?.text?.toLowerCase().includes('you died') || notification?.text?.toLowerCase().includes('you killed')) {
+      this.parentRef?.createComponent('Bones');
+    }
     if (notification.text?.toLowerCase().includes('captured') || notification.text?.includes('base at')) {
       this.parentRef?.createComponent('Bug-Wars');
     } else if (notification.text?.includes('BugWars')) {
@@ -362,7 +363,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       this.parentRef?.createComponent('Ender');
     } else if (notification.text?.toLowerCase().includes('lightcycle')) {
       this.parentRef?.createComponent('Ender');
-    } else if (notification.text?.includes('Shared a note')) {
+    } else if (notification?.text?.toLowerCase().includes('shared a note') || notification?.text?.toLowerCase().includes('a note was shared') || notification?.text?.toLowerCase().includes('note was shared')) {
       this.parentRef?.createComponent('Notepad');
     } else if (notification.text?.includes('Executed Trade')) {
       this.goToCryptoHub(notification);
@@ -463,7 +464,10 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
 
   updateCategories(resetFilter: boolean = true) {
     if (!this.notifications) {
-      this.categories = [{ name: 'All', count: 0 }, { name: 'Unread', count: 0 }];
+      this.categories = [
+        { name: 'All', count: 0 }, 
+        { name: 'Unread', count: 0 }
+      ];
       if (resetFilter) this.filterCategory = 'All';
       return;
     }
@@ -504,6 +508,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   getNotificationCategory(notification: UserNotification): string {
     const text = notification.text?.toLowerCase() || '';
 
+    if (text.includes('you were slain by') || text.includes('you died') || text.includes('you killed')) return 'Bones';
     if (text.includes('executed trade')) return 'Crypto-Hub';
     if (text.includes('chat')) return 'Chat';
     if (!text.includes('profile') && (text.includes('post') || text.includes('comment'))) return 'Social';

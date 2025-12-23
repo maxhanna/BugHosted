@@ -2,6 +2,7 @@
 
 ## General Workflow
 - Before making any code change, ensure the code compiles and is free of errors.
+ - All edits must produce code that compiles successfully before being saved or committed. For server changes run `dotnet build` in `maxhanna.Server`; for client changes run `tsc` or your Angular build step. Fix any compile errors first.
 - Use the latest Angular standards and best practices for all frontend work.
 - Avoid deprecated or discouraged patterns (e.g., do not use `ngModel`).
 - Prefer `[value]` and `(input)` for input binding, and `[class]` for dynamic classes instead of `[ngClass]`.

@@ -38,14 +38,14 @@
     <table class="mainTable miningStatusTable" id="miningRigTable">
       <thead>
         <tr>
-          <th (click)="sortTable(0, 'miningRigTable')">Rig</th>
-          <th (click)="sortTable(1, 'miningRigTable')" title="Hottest Device Temperature">°C</th>
-          <th (click)="sortTable(2, 'miningRigTable')">State</th>
-          <th (click)="sortTable(3, 'miningRigTable')" title="Local Profitability" *ngIf="showLocal">{{null | currencySymbol:(currency):true}}{{rate != 1 ? currency : "BTC"}}</th>
-          <th (click)="sortTable(4, 'miningRigTable')" title="Actual Profitability" *ngIf="!showLocal">{{null | currencySymbol:(currency):true}}{{rate != 1 ? currency : "BTC"}}</th>
-          <th (click)="sortTable(5, 'miningRigTable')" title="Unpaid Amount">Unpaid</th>
-          <th (click)="sortTable(6, 'miningRigTable')" title="Speed Rejected">Rejected</th>
-          <th (click)="sortTable(7, 'miningRigTable')" title="Devices">Devices</th>
+          <th (click)="sortTable($event)">Rig</th>
+          <th (click)="sortTable($event)" title="Hottest Device Temperature">°C</th>
+          <th (click)="sortTable($event)">State</th>
+          <th (click)="sortTable($event)" title="Local Profitability" *ngIf="showLocal">{{null | currencySymbol:(currency):true}}{{rate != 1 ? currency : "BTC"}}</th>
+          <th (click)="sortTable($event)" title="Actual Profitability" *ngIf="!showLocal">{{null | currencySymbol:(currency):true}}{{rate != 1 ? currency : "BTC"}}</th>
+          <th (click)="sortTable($event)" title="Unpaid Amount">Unpaid</th>
+          <th (click)="sortTable($event)" title="Speed Rejected">Rejected</th>
+          <th (click)="sortTable($event)" title="Devices">Devices</th>
           <th></th>
         </tr>
       </thead>
@@ -73,18 +73,18 @@
     <table class="mainTable miningStatusTable" id="deviceRigTable">
       <thead>
         <tr>
-          <th (click)="sortTable(0, 'deviceRigTable')" title="Sort by Device Name">Device</th>
-          <th (click)="sortTable(1, 'deviceRigTable')" title="Sort by Temperature">°C</th>
-          <th (click)="sortTable(2, 'deviceRigTable')" title="Sort by State">State</th>
-          <th (click)="sortTable(3, 'deviceRigTable')" title="Sort by Speed">Speed</th>
-          <th (click)="sortTable(4, 'deviceRigTable')" title="Sort by Fan Speed">Fan</th>
-          <th (click)="sortTable(5, 'deviceRigTable')" title="Sort by Power (Watts)">Power</th>
-          <!--<th (click)="sortTable(7, 'deviceRigTable')" title="Sort by Core Clock">Core-C</th>
-          <th (click)="sortTable(8, 'deviceRigTable')" title="Sort by Memory Clock">Mem-C</th>
-          <th (click)="sortTable(9, 'deviceRigTable')" title="Sort by Core Voltage">C-Volt</th>
-          <th (click)="sortTable(10, 'deviceRigTable')" title="Sort by Power Limit %">P%</th>
-          <th (click)="sortTable(11, 'deviceRigTable')" title="Sort by Power Limit W">PW</th>-->
-          <th (click)="sortTable(6, 'deviceRigTable')" title="Sort by Miner">Miner</th>
+          <th (click)="sortTable($event)" title="Sort by Device Name">Device</th>
+          <th (click)="sortTable($event)" title="Sort by Temperature">°C</th>
+          <th (click)="sortTable($event)" title="Sort by State">State</th>
+          <th (click)="sortTable($event)" title="Sort by Speed">Speed</th>
+          <th (click)="sortTable($event)" title="Sort by Fan Speed">Fan</th>
+          <th (click)="sortTable($event)" title="Sort by Power (Watts)">Power</th>
+          <!--<th (click)="sortTable($event)" title="Sort by Core Clock">Core-C</th>
+          <th (click)="sortTable($event)" title="Sort by Memory Clock">Mem-C</th>
+          <th (click)="sortTable($event)" title="Sort by Core Voltage">C-Volt</th>
+          <th (click)="sortTable($event)" title="Sort by Power Limit %">P%</th>
+          <th (click)="sortTable($event)" title="Sort by Power Limit W">PW</th>-->
+          <th (click)="sortTable($event)" title="Sort by Miner">Miner</th>
           <th><input type="submit" value="❌" (click)="miningRigDevices = undefined;" /></th>
         </tr>
       </thead>

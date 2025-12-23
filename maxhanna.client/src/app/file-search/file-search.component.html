@@ -1,4 +1,4 @@
-
+﻿
 <div class="fileActionCommands" *ngIf="!fileSearchMode">
   <span [class]="'topSearchButtonDiv' + ((!showSpaceForNotifications && !showFileSearchOptions) ? ' noNotificationsSearchDiv' : '')" (click)="openSearchPanel();">🔍</span>
   <span class="notificationTopButton" (click)="openSearchOptionsPanel();" *ngIf="showFileSearchOptions">⚙️</span>
@@ -93,6 +93,7 @@
                  [id]="'fileIdDiv'+file.id"
                  [attr.data-content]="file?.givenFileName ?? file?.fileName ?? ''">
               <span class="fileNameWrapperSpan">
+                <input *ngIf="massDeleteMode" type="checkbox" [checked]="selectedForDelete.has(file.id)" (click)="toggleSelectForDelete(file, $event)" />
                 <input type="text"
                        [placeholder]="file?.givenFileName ?? (file && file.fileName ? file.fileName.split('.')[0]! : 'New file name')"
                        [value]=""

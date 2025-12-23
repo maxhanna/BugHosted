@@ -1,4 +1,5 @@
 import { Component, ElementRef, OnInit, Renderer2, ViewChild } from '@angular/core';
+import { WordlerHighScoresComponent } from '../wordler-high-scores/wordler-high-scores.component';
 import { ChildComponent } from '../child.component';
 import { WordlerService } from '../../services/wordler.service';
 import { WordlerScore } from '../../services/datacontracts/wordler/wordler-score';
@@ -39,6 +40,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   wordlerStreak: number = 0;
 
   @ViewChild('difficultySelect') difficultySelect!: ElementRef<HTMLSelectElement>;
+  @ViewChild('todayScores') todayScores?: WordlerHighScoresComponent;
 
   difficultyMapping: Record<DifficultyKey, number> = {
     "Easy Difficulty": 4,
@@ -327,6 +329,10 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     let tmpScore: WordlerScore = { score: this.currentAttempt, user: this.parentRef?.user ?? new User(0, "Anonymous"), time: this.elapsedTime, difficulty: this.selectedDifficulty };
     await this.wordlerService.addScore(tmpScore);
     await this.getHighScores();
+    // If the high-scores child component is present, refresh it so the UI reflects the new score immediately
+    try {
+      this.todayScores?.refresh();
+    } catch (e) { }
     const definition = await this.wordlerService.getWordDefinition(guess);
 
     this.definition = `Word definition: ${definition}`;

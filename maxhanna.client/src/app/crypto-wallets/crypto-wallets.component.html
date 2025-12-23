@@ -4,11 +4,11 @@
         <thead *ngIf="wallet?.length">
             <tr>
                 <th (click)="areWalletAddressesHidden = !areWalletAddressesHidden" class="cursorPointerUnderlined normalBtcAddress" *ngIf="expandedWalletCurrency">Address</th>
-                <th (click)="sortTable(1, 'walletTable')">Currency</th>
-                <th (click)="sortTable(2, 'walletTable')">Total Balance</th>
-                <th (click)="sortTable(3, 'walletTable')" title="Fiat rate">{{ null | currencySymbol:(selectedCurrency)
-                    }}{{selectedCurrency}}</th>
-                <th (click)="sortTable(4, 'walletTable')" title="Wallet data"></th>
+                <th (click)="sortTable($event)">Currency</th>
+                <th (click)="sortTable($event)">Total Balance</th>
+                <th (click)="sortTable($event)" title="Fiat rate">{{ null | currencySymbol:(selectedCurrency)
+                    }}</th>
+                <th (click)="sortTable($event)" title="Wallet data"></th>
             </tr>
         </thead>
         <tbody *ngFor="let subWallet of wallet"> 

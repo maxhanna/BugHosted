@@ -253,7 +253,11 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   showMenuPanel() {
     (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer");
     if (!this.storageStats) {
-      this.crawlerService.storageStats().then(res => { if (res) this.storageStats = res; });
+      this.startLoading();
+      this.crawlerService.storageStats()
+        .then(res => { if (res) this.storageStats = res; })
+        .catch(() => { /* ignore fetch errors here; UI will remain empty */ })
+        .finally(() => { this.stopLoading(); });
     }
     if (this.isMenuOpen) {
       this.closeMenuPanel();

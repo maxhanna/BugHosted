@@ -342,6 +342,22 @@ export class UserService {
     }
   }
 
+  async updateEnderInactivityNotifications(userId: number, isAllowed: boolean) {
+    try {
+      const response = await fetch('/user/updateenderinactivitynotifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: userId, IsAllowed: isAllowed }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return "Error";
+    }
+  }
+
   async updateLastSeen(userId: number) {
     try {
       const response = await fetch('/user/updatelastseen', {
@@ -482,6 +498,19 @@ export class UserService {
       return await response.text();
     } catch (error) {
       return "Error";
+    }
+  }
+  async updateComponentMute(userId: number, component: 'ender' | 'emulator' | 'bones', isMusic: boolean, isAllowed: boolean) {
+    try {
+      const payload = { UserId: userId, Component: component, IsMusic: isMusic, IsAllowed: isAllowed };
+      const response = await fetch('/user/updatecomponentmute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      return await response.text();
+    } catch (error) {
+      return 'Error';
     }
   }
   async getUserMenu(userId?: number): Promise<Array<MenuItem>> {

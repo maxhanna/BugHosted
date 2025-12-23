@@ -11,6 +11,9 @@ namespace maxhanna.Server.Controllers.DataContracts.Bones
 		[JsonPropertyName("hp")]
 		public int Hp { get; set; } = 100;
 
+		[JsonPropertyName("mp")]
+		public int Mp { get; set; } = 100;
+
 		[JsonPropertyName("userId")]
 		public int? UserId { get; set; } = null;
 
@@ -44,10 +47,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Bones
 		public int Regen { get; set; } = 0; // health per second
 
 		[JsonPropertyName("mana")]
-		public int Mana { get; set; } = 0;
-
-		[JsonPropertyName("mp")]
-		public int Mp { get; set; } = 100;
+		public int Mana { get; set; } = 0; 
 
 		[JsonPropertyName("mana_regen")]
 		public int ManaRegen { get; set; } = 0;

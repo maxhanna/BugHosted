@@ -221,7 +221,7 @@ namespace maxhanna.Server.Controllers
 							// Determine file type based on extension (save files explicitly 'sav')
 							var extension = Path.GetExtension(file.FileName)?.ToLowerInvariant().Trim('.') ?? string.Empty;
 							string fileType = isSaveFile ? "sav" : extension;
-							var command = new MySqlCommand("INSERT INTO maxhanna.file_uploads (user_id, file_name, upload_date, last_access, folder_path, is_public, is_folder, file_type) VALUES (@user_id, @fileName, @uploadDate, @lastAccess, @folderPath, @isPublic, @isFolder, @fileType)", connection);
+							var command = new MySqlCommand("INSERT INTO maxhanna.file_uploads (user_id, file_name, upload_date, last_access, folder_path, is_public, is_folder) VALUES (@user_id, @fileName, @uploadDate, @lastAccess, @folderPath, @isPublic, @isFolder)", connection);
 							var now = DateTime.UtcNow;
 							command.Parameters.AddWithValue("@user_id", userId);
 							command.Parameters.AddWithValue("@fileName", file.FileName);
@@ -230,7 +230,6 @@ namespace maxhanna.Server.Controllers
 							command.Parameters.AddWithValue("@folderPath", _baseTarget);
 							command.Parameters.AddWithValue("@isPublic", 1);
 							command.Parameters.AddWithValue("@isFolder", 0);
-							command.Parameters.AddWithValue("@fileType", fileType);
 
 							await command.ExecuteNonQueryAsync();
 							_ = _log.Db($"Uploaded rom file: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}, Type: {fileType}", userId, "ROM", true);
@@ -260,27 +259,40 @@ namespace maxhanna.Server.Controllers
 								if (Request.Form.ContainsKey("saveTimeMs") && long.TryParse(Request.Form["saveTimeMs"], out var svm)) saveMs = svm;
 								if (Request.Form.ContainsKey("durationSeconds") && int.TryParse(Request.Form["durationSeconds"], out var ds)) durationSeconds = ds;
 
-								string upsertSql = @"
-								INSERT INTO maxhanna.emulation_play_time (user_id, rom_file_name, start_time, save_time, duration_seconds, plays, created_at)
-								VALUES (@UserId, @RomFileName, FROM_UNIXTIME(@StartMs/1000), FROM_UNIXTIME(@SaveMs/1000), @DurationSeconds, 1, UTC_TIMESTAMP())
-								ON DUPLICATE KEY UPDATE
-									start_time = VALUES(start_time),
-									save_time = VALUES(save_time),
-									duration_seconds = IFNULL(duration_seconds, 0) + VALUES(duration_seconds),
-									plays = plays + 1,
-									created_at = VALUES(created_at);";
-								var upsertCmd = new MySqlCommand(upsertSql, connection);
-								upsertCmd.Parameters.AddWithValue("@UserId", userId);
-								upsertCmd.Parameters.AddWithValue("@RomFileName", file.FileName);
-								upsertCmd.Parameters.AddWithValue("@StartMs", startMs);
-								upsertCmd.Parameters.AddWithValue("@SaveMs", saveMs);
-								upsertCmd.Parameters.AddWithValue("@DurationSeconds", durationSeconds);
+								// When a user uploads a .sav (save file), only update save_time and duration_seconds.
+								// Do NOT modify start_time or plays here — plays should be incremented when the user
+								// actually selects/starts the ROM for play (handled in RecordRomSelectionAsync).
 								try
 								{
-									await upsertCmd.ExecuteNonQueryAsync();
+									string updateSql = @"UPDATE maxhanna.emulation_play_time
+										SET save_time = FROM_UNIXTIME(@SaveMs/1000),
+											duration_seconds = IFNULL(duration_seconds, 0) + @DurationSeconds
+										WHERE user_id = @UserId AND rom_file_name = @RomFileName LIMIT 1;";
+
+									using (var upd = new MySqlCommand(updateSql, connection))
+									{
+										upd.Parameters.AddWithValue("@UserId", userId);
+										upd.Parameters.AddWithValue("@RomFileName", file.FileName);
+										upd.Parameters.AddWithValue("@SaveMs", saveMs);
+										upd.Parameters.AddWithValue("@DurationSeconds", durationSeconds);
+										int rows = await upd.ExecuteNonQueryAsync();
+
+										if (rows == 0)
+										{
+											// No existing row: insert a new record with plays = 0 (since user hasn't started a play session yet)
+											string insertSql = @"INSERT INTO maxhanna.emulation_play_time (user_id, rom_file_name, save_time, duration_seconds, plays, created_at)
+												VALUES (@UserId, @RomFileName, FROM_UNIXTIME(@SaveMs/1000), @DurationSeconds, 0, UTC_TIMESTAMP());";
+											using var ins = new MySqlCommand(insertSql, connection);
+											ins.Parameters.AddWithValue("@UserId", userId);
+											ins.Parameters.AddWithValue("@RomFileName", file.FileName);
+											ins.Parameters.AddWithValue("@SaveMs", saveMs);
+											ins.Parameters.AddWithValue("@DurationSeconds", durationSeconds);
+											await ins.ExecuteNonQueryAsync();
+										}
+									}
 								}
 								catch (MySqlException mex)
-								{ 
+								{
 									_ = _log.Db("Error recording playtime on upload (DB error): " + mex.Message, userId, "ROM", true);
 								}
 							}
@@ -305,7 +317,7 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpPost("/Rom/GetRomFile/{filePath}", Name = "GetRomFile")]
-		public IActionResult GetRomFile([FromBody] int? userId, string filePath)
+		public async Task<IActionResult> GetRomFile([FromBody] int? userId, string filePath)
 		{
 			filePath = Path.Combine(_baseTarget, WebUtility.UrlDecode(filePath) ?? "").Replace("\\", "/"); 
 			string fileName = Path.GetFileName(filePath);
@@ -336,10 +348,25 @@ namespace maxhanna.Server.Controllers
 					//_ = _log.Db($"File path changed . New FilePath: " + filePath, userId, "ROM", true);
 				}
 				else if (userId == null && (filePath.Contains(".sav") || filePath.Contains(".srm")))
+                {
 					return BadRequest("Must be logged in to access save files!"); 
+				}
 
 				var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
 				string contentType = "application/octet-stream";
+
+				// Record user's selection/play start in emulation_play_time when logged in
+				if (userId != null)
+				{
+					try
+					{
+						await RecordRomSelectionAsync(userId.Value, fileName);
+					}
+					catch (Exception ex)
+					{
+						_ = _log.Db($"Error recording rom selection: {ex.Message}", userId, "ROM", true);
+					}
+				}
 
 				updateLastAccessForRom(fileName);
 				return File(fileStream, contentType, Path.GetFileName(filePath));
@@ -362,6 +389,47 @@ namespace maxhanna.Server.Controllers
 				command.Parameters.AddWithValue("@File_Name", fileName);
 
 				await command.ExecuteNonQueryAsync();
+			}
+		}
+
+		private async Task RecordRomSelectionAsync(int userId, string romFileName)
+		{
+			if (string.IsNullOrWhiteSpace(romFileName) || userId == 0) return;
+			var baseName = Path.GetFileNameWithoutExtension(romFileName);
+			if (string.IsNullOrWhiteSpace(baseName)) return;
+			romFileName = baseName + ".sav"; 
+
+			try
+			{
+				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await connection.OpenAsync();
+					// Try an update first so we don't rely on a specific unique key being present.
+					string updateSql = @"UPDATE maxhanna.emulation_play_time 
+					SET start_time = UTC_TIMESTAMP(), plays = plays + 1 
+					WHERE user_id = @UserId AND rom_file_name = @RomFileName LIMIT 1;";
+
+					using (var upd = new MySqlCommand(updateSql, connection))
+					{
+						upd.Parameters.AddWithValue("@UserId", userId);
+						upd.Parameters.AddWithValue("@RomFileName", romFileName);
+						int rows = await upd.ExecuteNonQueryAsync();
+
+						if (rows == 0)
+						{
+							string insertSql = @"INSERT INTO maxhanna.emulation_play_time (user_id, rom_file_name, start_time, plays, created_at)
+							VALUES (@UserId, @RomFileName, UTC_TIMESTAMP(), 1, UTC_TIMESTAMP());";
+							using var ins = new MySqlCommand(insertSql, connection);
+							ins.Parameters.AddWithValue("@UserId", userId);
+							ins.Parameters.AddWithValue("@RomFileName", romFileName);
+							await ins.ExecuteNonQueryAsync();
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error in RecordRomSelectionAsync: {ex.Message}", userId, "ROM", true);
 			}
 		}
 	}

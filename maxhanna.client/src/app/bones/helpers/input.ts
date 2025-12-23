@@ -284,9 +284,13 @@ export class Input {
   pressB() {
     if (document.activeElement != this.chatInput) { 
       console.log("pressed B");
+      // Close any open UI menus
       events.emit("CLOSE_INVENTORY_MENU");
       events.emit("CLOSE_HERO_DIALOGUE"); 
       events.emit("CLOSE_MENUS");  
+      // Also emit the spacebar-style attack event so B acts as a skill/alternate attack button.
+      // This lets the Hero class handle using `currentSkill` when appropriate.
+      this.emitDebounced('SPACEBAR_PRESSED');
     }
   }
   pressSpace() {

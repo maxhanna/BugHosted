@@ -331,7 +331,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
           try {
             story.storyText = this.encryptionService.decryptContent(story.storyText, story.user.id + "");
           } catch (ex) {
-            console.error(`Failed to decrypt story ID ${story.id}: ${ex}`); 
+            console.error(`Failed to decrypt story ID ${story.id}: ${ex}`);
           }
         }
       });
@@ -741,6 +741,15 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
   commentAddedEvent(comment: FileComment) {
     if (comment.storyId) {
+      // attempt to decrypt the incoming comment so replies appear decrypted immediately
+      try {
+        if (!comment.decrypted && comment.commentText && comment.user && comment.user.id) {
+          comment.commentText = this.encryptionService.decryptContent(comment.commentText, String(comment.user.id));
+          comment.decrypted = true;
+        }
+      } catch (ex) {
+        console.error('Failed to decrypt new comment', ex);
+      }
       const targetStory = this.storyResponse?.stories?.find(x => x.id === comment.storyId);
       if (targetStory) {
         if (!targetStory.storyComments) {

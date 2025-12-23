@@ -21,7 +21,7 @@
     <div class="nintendo"><span class="nintendoLogo">Hackboy</span></div>
 
     <div class="controls" [ngClass]="{'snes-controls': isSnesGame()}">
-      <div class="dpad"
+      <div *ngIf="!useJoystick" class="dpad"
         [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">
         <div class="up-left">
           <div class="up-left-triangle"></div>
@@ -49,13 +49,18 @@
         </div>
         <div class="middle"></div>
       </div>
+      <div *ngIf="useJoystick" class="joystick" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">
+        <div class="joystick-base" id="joystickBase">
+          <div class="joystick-knob" id="joystickKnob"></div>
+        </div>
+      </div>
       <div class="face-buttons" *ngIf="!parentRef?.isShowingOverlay && isSnesGame()">
         <div class="x" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : 'visible'">X</div>
         <div class="y" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : 'visible'">Y</div>
         <div class="a" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : 'visible'">A</div>
         <div class="b" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : 'visible'">B</div>
       </div>
-      <div class="face-buttons" *ngIf="!parentRef?.isShowingOverlay && !isSnesGame()">
+      <div [class]="'face-buttons' + ((!isSegaGame() && selectedRomName && showControls) ? ' two-button-mode' : '')" *ngIf="!parentRef?.isShowingOverlay && !isSnesGame()">
         <div class="b"
           [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' :  'visible'  ">
           B</div>
@@ -159,6 +164,16 @@
           <span class="slider"></span>
         </label>
         <span class="toggle-label" (click)="showControls = !showControls">{{ showControls ? 'Display' : 'Hide' }}</span>
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings">
+      <div class="optionsStatsHeader">Use Joystick:</div>
+      <div class="optionsStatsDescription">
+        <label class="toggle-switch">
+          <input type="checkbox" [checked]="useJoystick" (change)="onToggleJoystick()">
+          <span class="slider"></span>
+        </label>
+        <span class="toggle-label" (click)="onToggleJoystick()">{{ useJoystick ? 'Joystick' : 'D-Pad' }}</span>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="!onMobile()">

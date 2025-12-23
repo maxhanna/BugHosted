@@ -1,7 +1,12 @@
-<div class="componentMain">
+﻿<div class="componentMain">
   <div class="closeButton" (click)="remove_me('FileComponent');" *ngIf="!user"></div>
   <div class="menuButton" (click)="showMenuPanel();"></div>
   <div class="componentTitle" *ngIf="!user">Filesystem</div>
+
+  <div class="massDeleteControls" *ngIf="massDeleteMode" style="margin:8px 0; text-align: center;">
+    <button (click)="confirmMassDelete()" class="dangerButton">❌Delete Selected ({{ fileSearchComponent.selectedCount() || 0 }})</button>
+    <button (click)="cancelMassDelete()">Cancel Mass Delete</button>
+  </div>
 
   <app-user-list (userClickEvent)="shareFile($event);" [user]="parentRef?.user!" *ngIf="isSharePanelExpanded && !user"></app-user-list>
 
@@ -13,6 +18,7 @@
                    [commentId]="commentId"
                    [displayComments]="true"
                    [captureNotifications]="true"
+                   [massDeleteMode]="massDeleteMode"
                    (currentDirectoryChangeEvent)="changeDirectoryEvent($event)"
                    (userNotificationEvent)="uploadNotification($event);">
   </app-file-search>
@@ -25,6 +31,7 @@
   </div> 
   <div *ngIf="!user && canUploadToFolder()" class="uploadAndNewFolderButtonDiv popupPanelContent"> 
     <button (click)="showMakeDirectoryPrompt=true;" title="Make a New Folder" *ngIf="!showMakeDirectoryPrompt">📂New Folder</button>
+    <button (click)="enableMassDeleteMode()" title="Enable Mass Delete" *ngIf="!massDeleteMode">❌Mass Delete</button>
 
     <app-file-upload (userUploadEvent)="uploadInitiate();"
                       (userUploadFinishedEvent)="uploadFinished($event)"
@@ -66,4 +73,4 @@
     For your browsing convenience on Desktop, you may use the J and K buttons on your keyboard to scroll through files.
   </div>
   <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>
-</div> 
+</div>

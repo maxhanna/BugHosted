@@ -143,7 +143,7 @@ namespace maxhanna.Server.Services
 				_ = _log.Db("Skipping indicator update - already in progress", null, "TISVC", outputToConsole: true);
 			}
 		}
-
+ 
 		private async Task RunHourlyTasks()
 		{
 			await AssignTrophies();
@@ -366,15 +366,30 @@ namespace maxhanna.Server.Services
 					if (!occupiedSpots.TryGetValue(lvl, out var heroList)) { heroList = new List<(int, int)>(); occupiedSpots[lvl] = heroList; }
 					heroList.Add((newX, newY));
 					relocated++;
-
 					if (v.userId.HasValue && v.userId.Value > 0)
 					{
 						// Skip displacement if user recently displaced (per-user cooldown)
 						if (recentlyDisplacedUsers.Contains(v.userId.Value))
 						{
 							_ = _log.Db($"Skipping hero {v.heroId} displacement due to recent per-user cooldown (user {v.userId.Value}).", v.heroId, "SYSTEM");
-							continue; // continue to next victim without committing previous move? (we already moved hero; revert?)
+							continue; // continue to next victim
 						}
+
+						// Check user preference: if they disabled ender inactivity notifications, skip inserting notification
+						const string allowSql = "SELECT IFNULL(allow_ender_inactivity_notifications,1) FROM maxhanna.user_settings WHERE user_id = @userId LIMIT 1;";
+						await using (var allowCmd = new MySqlCommand(allowSql, conn, transaction))
+						{
+							allowCmd.Parameters.AddWithValue("@userId", v.userId.Value);
+							var allowObj = await allowCmd.ExecuteScalarAsync();
+							int allowNotifications = allowObj == null ? 1 : Convert.ToInt32(allowObj);
+							if (allowNotifications == 0)
+							{
+								_ = _log.Db($"Skipping notification for displaced hero {v.heroId} because user {v.userId.Value} disabled ender inactivity notifications.", v.heroId, "SYSTEM");
+								recentlyDisplacedUsers.Add(v.userId.Value); // avoid re-checking in this run
+								continue;
+							}
+						}
+
 						insertNotifCmd.Parameters["@userId"].Value = v.userId.Value;
 						insertNotifCmd.Parameters["@text"].Value = displacementNotificationText;
 						await insertNotifCmd.ExecuteNonQueryAsync();

@@ -101,6 +101,14 @@ export class LineGraphComponent implements OnInit, OnChanges {
         : this.getCSSVariableValue("--component-background-color") ?? '#ffffff';
       // this.initializeSlider();
       // this.updateGraph(this.data);
+      // Apply configured height to the canvas wrapper so consumers can control vertical size
+      try {
+        if (this.canvasDiv && this.height) {
+          this.canvasDiv.nativeElement.style.height = this.height + 'px';
+        }
+      } catch (e) {
+        // ignore if DOM not ready
+      }
     }, 500);
   }
 
@@ -108,6 +116,9 @@ export class LineGraphComponent implements OnInit, OnChanges {
     if (changes['data'] || changes['data2']) {
       this.initializeSlider();
       this.updateGraph(this.data);
+      if (changes['height'] && this.canvasDiv) {
+        try { this.canvasDiv.nativeElement.style.height = this.height + 'px'; } catch { }
+      }
     }
     else if ((changes['showAverage'] || changes['selectedPeriod'] || changes['selectedCoin'] || changes['showMacdLine'] || changes['showSignalLine'] || changes['showHistogram']) &&
       this.lineChartData.length > 0) {

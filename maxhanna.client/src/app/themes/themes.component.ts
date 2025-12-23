@@ -353,7 +353,6 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   onThemeChange(event: any): void {
     const selectedId = event.target.value; 
     this.changeThemeById(selectedId, event.target.id);
-
   }
 
   changeThemeById(selectedId: number, targetId?: string) { 
@@ -362,6 +361,8 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
       selectedTheme = this.allThemes?.find(theme => theme.id == selectedId);
     }
     this.userSelectedTheme = selectedTheme;
+    this.mediaSelector.removeAllFiles();
+    
     if (!selectedTheme) {
       this.restoreDefaultSettings(false);
       return

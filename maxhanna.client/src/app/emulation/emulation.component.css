@@ -163,6 +163,37 @@ canvas:-ms-fullscreen,
   z-index: 5;
 }
 
+/* Joystick styles */
+.joystick {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  z-index: 6;
+}
+.joystick-base {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+.joystick-knob {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.95);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+  transform: translate(0px, 0px);
+  transition: transform 0.05s linear;
+  touch-action: none;
+}
+
 .dpad>* {
   width: 33%;
   height: 33%;
@@ -270,6 +301,29 @@ canvas:-ms-fullscreen,
   bottom: 100px;
   right: 20px;
   z-index: 30;
+}
+
+/* Two-button mode: when only A and B are shown (non-SNES, non-Sega) make them larger
+   and offset the lower A button slightly left so it sits more separate from B above. */
+.face-buttons.two-button-mode {
+  grid-template-columns: 86px 86px;
+  grid-template-rows: 86px 86px;
+  gap: 12px;
+  right: 18px;
+}
+
+.face-buttons.two-button-mode .a,
+.face-buttons.two-button-mode .b {
+  width: 126px;
+  height: 86px;
+  line-height: 86px;
+  font-size: 36px;
+}
+.face-buttons.two-button-mode .a {
+  transform: translate(-60px, 35px);
+}
+.face-buttons.two-button-mode .b {
+  transform: translate(-30px, 35px);
 }
 
 .shoulder-buttons {

@@ -399,6 +399,77 @@ body {
   right: -60%;
 }
 
+/* Stat panel styles added for Change Stats numeric inputs and +/- buttons */
+.stat-points {
+  font-family: owreKynge;
+  font-size: 16px;
+  margin-bottom: 8px;
+  color: var(--secondary-font-color);
+}
+
+.stat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stat-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-btn {
+  min-width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #2b2f36 0%, #1b1d20 100%);
+  color: var(--secondary-font-color);
+  border: var(--main-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-family: owreKynge;
+  font-size: 20px;
+}
+
+.stat-btn:active {
+  transform: translateY(1px);
+}
+
+.stat-input {
+  width: 72px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: var(--main-border);
+  background-color: rgba(0,0,0,0.5);
+  color: var(--secondary-font-color);
+  text-align: center;
+  font-family: owreKynge;
+  font-size: 16px;
+}
+
+.stat-name {
+  min-width: 120px;
+  font-family: owreKynge;
+}
+
+.stat-available {
+  font-family: owreKynge;
+  font-size: 14px;
+  color: #a8ff9a;
+}
+
+
 /* In-party pill styling to match pending badge visuals */
 .pendingBadgeWrapper.inPartyPill {
   display: inline-block;
@@ -900,7 +971,7 @@ body {
 }
 
 .changeStatPanel {
-  height: 475px;
+  height: 500px;
 }
 
 .changeStatsPanel {
@@ -1041,4 +1112,102 @@ body .componentMain.startPopupPanel,
 .mainPopupTitle {
   font-size: x-large;
   font-family: 'owreKynge';
+}
+
+.editableSkillsLevel {
+  color: #ccc;
+}
+
+.editableSkillPanelSkillName {
+  margin-top: 8px;
+  font-weight: 700;
+}
+
+.editableSkillsPanelIcon {
+  width: 44px;
+  height: 44px;
+  background: #555;
+  border-radius: 6px;
+}
+
+.editableSkillsPanelIconWrapper {
+  width: 84px;
+  height: 84px;
+  background: #222;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+.editableSkillsLargeBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 160px;
+  height: 140px;
+  background: #0f0f0f;
+  border: 1px solid #333;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.editableSkillsInputWrapper {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  justify-content: space-between;
+}
+
+/* Skill portrait styles (image + label) */
+.skill-portrait {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 6px;
+  transition: transform 120ms ease, box-shadow 160ms ease;
+}
+.skill-portrait img {
+  border-radius: 8px;
+  border: 1px solid rgba(68, 68, 68, 0.8);
+  background: #0b0b0b;
+}
+.skill-portrait.selected {
+  transform: translateY(-4px);
+}
+.skill-portrait.selected img {
+  box-shadow: 0 0 0 3px rgba(199,123,26,0.12), 0 6px 24px rgba(199,123,26,0.18), 0 0 18px rgba(199,123,26,0.22) !important;
+  border-color: rgba(199,123,26,0.9) !important;
+}
+.skill-portrait .skill-label {
+  font-size: 12px;
+  color: #fff;
+}
+
+/* Clickable slot icon wrapper styles */
+.editableSkillsPanelIconWrapper.clickable {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 84px;
+  height: 84px;
+  background: #161616;
+  border-radius: 8px;
+  border: 1px solid rgba(68,68,68,0.8);
+}
+.editableSkillsPanelIconWrapper.clickable img.slot-skill-img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+.editableSkillsPanelIconWrapper.clickable.selected {
+  transform: translateY(-4px);
+}
+.editableSkillsPanelIconWrapper.clickable.selected img.slot-skill-img {
+  box-shadow: 0 0 0 3px rgba(199,123,26,0.12), 0 6px 24px rgba(199,123,26,0.18), 0 0 18px rgba(199,123,26,0.22) !important;
+  border-color: rgba(199,123,26,0.9) !important;
 }

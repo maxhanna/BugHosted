@@ -241,9 +241,9 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     }
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user ?? new User(0, "Anonymous");
 
-    const tmpUserList = users.filter(x => x.id != user.id); 
+    const tmpUserList = users.filter(x => x.id != user.id && user.username?.toLowerCase() != "unknown"); 
     return tmpUserList.filter((user, index, self) =>
-      index === self.findIndex(u => u.id === user.id)
+      index === self.findIndex(u => u.id === user.id) 
     );  
   }
   getOnlineUserCount() {
