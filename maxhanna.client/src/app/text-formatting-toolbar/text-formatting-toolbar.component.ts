@@ -42,16 +42,9 @@ export class TextFormattingToolbarComponent extends ChildComponent {
       element = document.getElementById(this.parentId) as HTMLInputElement;
     }
 
-    // If not found by ID, try by class or default selector
     if (!element) {
       const selector = this.parentClass ?? 'textarea';
       element = document.querySelector(selector) as HTMLTextAreaElement;
-    }
-
-    // If still not found, you could throw an error or return a default
-    if (!element) {
-      console.warn('Textarea element not found');
-      // Optionally throw an error: throw new Error('Textarea element not found');
     }
 
     return element;
