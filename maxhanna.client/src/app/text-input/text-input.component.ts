@@ -59,7 +59,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   @Output() selectFileEvent = new EventEmitter<FileEntry[]>();
   @Output() topicClicked = new EventEmitter<Topic[] | undefined>();
   @Output() topicAdded = new EventEmitter<Topic[]>();
-  @Output() topicIgnored = new EventEmitter<Topic[]>();
+  @Output() topicIgnored = new EventEmitter<Topic[] | null>();
 
   @ViewChild('mediaSelector') mediaSelector!: MediaSelectorComponent;
   @ViewChild('topicSelector') topicSelector!: TopicsComponent;
@@ -70,11 +70,11 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   visibility: 'public' | 'following' | 'self' = 'public';
   eachAttachmentSeperatePost = false;
   isPostOptionsPanelOpen = false;
-  ignoredTopics: Topic[] = [];
-  favTopics: Topic[] = [];
   isAppFormattingOptionsOpen = false;
   isComponentPanelOpen = false;
-  topTopics: TopicRank[] = [];
+  topTopics?: TopicRank[] | null = [];
+  ignoredTopics?: Topic[] | null = [];
+  favTopics?: Topic[] | null = [];
   showHelpPopup = false;
   highlightTopicsButton = false;
 
@@ -529,7 +529,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     if (!this.attachedTopics || !this.favTopics) return [];
 
     return this.attachedTopics.filter(attachedTopic =>
-      !this.favTopics.some(favTopic => favTopic.id === attachedTopic.id)
+      !this.favTopics?.some(favTopic => favTopic.id === attachedTopic.id)
     );
   }
   removeFavTopic(topic: Topic) {

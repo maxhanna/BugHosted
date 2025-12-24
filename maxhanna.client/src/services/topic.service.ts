@@ -2,11 +2,17 @@
 import { Injectable } from '@angular/core';
 import { Topic } from './datacontracts/topics/topic';
 import { User } from './datacontracts/user/user';
+import { TopicRank } from './datacontracts/topics/topic-rank';
 
 @Injectable({
   providedIn: 'root'
 })
 export class TopicService {
+  
+  topTopics?: TopicRank[] = undefined;
+  ignoredTopics?: Topic[] = undefined;
+  favTopics?: Topic[] = undefined;
+  
   async getTopics(topic?: string, user?: User) {
     try {
       const response = await fetch(`/topic/get`, {
@@ -58,7 +64,7 @@ export class TopicService {
         },
         body: JSON.stringify({ UserId: userId, TopicIds: topicIds }),
       });
-
+      this.ignoredTopics?.concat(topicIds.map(x => new Topic(x, "")));
       return await response.json();
     } catch (error) {
     }
@@ -72,7 +78,7 @@ export class TopicService {
         },
         body: JSON.stringify({ UserId: userId, TopicIds: topicIds }),
       });
-
+      this.favTopics = this.favTopics?.filter(x => topicIds.includes(x.id));
       return await response.json();
     } catch (error) {
     }
@@ -93,6 +99,9 @@ export class TopicService {
   }
   async getTopStoryTopics() {
     try {
+      if (this.topTopics) {
+        return this.topTopics;
+      }
       const res = await fetch('/topic/gettopstorytopics', {
         method: 'GET',
         headers: {
@@ -103,7 +112,8 @@ export class TopicService {
       if (!res.ok) {
         throw new Error('Failed to get top topics');
       }
-      return res.json();
+      this.topTopics = await res.json() as TopicRank[]; 
+      return this.topTopics;
     } catch (error) {
       console.error('Error getting top topics:', error);
       return null;
@@ -111,6 +121,9 @@ export class TopicService {
   }
   async getFavTopics(user: User) {
     try {
+      if (this.favTopics) {
+        return this.favTopics;
+      }
       const res = await fetch('/topic/getFavTopics', {
         method: 'POST',
         headers: {
@@ -122,7 +135,8 @@ export class TopicService {
       if (!res.ok) {
         throw new Error('Failed to get fav topics');
       }
-      return res.json();
+      this.favTopics = await res.json() as Topic[];
+      return this.favTopics;
     } catch (error) {
       console.error('Error getting fav topics:', error);
       return null;
@@ -130,6 +144,9 @@ export class TopicService {
   }
   async getIgnoredTopics(user: User) {
     try {
+      if (this.ignoredTopics) {
+        return this.ignoredTopics;
+      }
       const res = await fetch('/topic/getIgnoredTopics', {
         method: 'POST',
         headers: {
@@ -141,7 +158,8 @@ export class TopicService {
       if (!res.ok) {
         throw new Error('Failed to get ignored topics');
       }
-      return res.json();
+      this.ignoredTopics = await res.json() as Topic[];
+      return this.ignoredTopics;
     } catch (error) {
       console.error('Error getting ignored topics:', error);
       return null;
