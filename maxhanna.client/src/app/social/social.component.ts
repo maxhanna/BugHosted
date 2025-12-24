@@ -74,8 +74,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   canLoad = false; 
   city: string | undefined;
   country: string | undefined;
-  ignoredTopics: Topic[] = [];
-
+  
   @ViewChild('story') story!: ElementRef<HTMLInputElement>;
   @ViewChild('pageSelect') pageSelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('pageSelect2') pageSelect2!: ElementRef<HTMLSelectElement>;
@@ -924,7 +923,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         if (res) {
           this.parentRef?.showNotification(res.message);
           if (res.success) {
-            this.ignoredTopics = res.allIgnoredTopics;
             this.closePostOptionsPanel();
             this.getStories();
           }

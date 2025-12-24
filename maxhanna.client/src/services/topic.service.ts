@@ -41,16 +41,19 @@ export class TopicService {
     } catch (error) {
     }
   }
-  async addFavTopic(userId: number, topicIds: number[]) {
+  async addFavTopic(userId: number, topics: Topic[]) {
     try {
       const response = await fetch(`/topic/addfavtopic`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ UserId: userId, TopicIds: topicIds }),
+        body: JSON.stringify({ UserId: userId, TopicIds: topics.map(x => x.id) }),
       });
-
+      if (!this.favTopics) {
+        this.favTopics = [];
+      }
+      this.favTopics.concat(topics);
       return await response.json();
     } catch (error) {
     }
@@ -170,6 +173,9 @@ export class TopicService {
   }
   async getTopFileTopics() {
     try {
+      if (this.topTopics) {
+        return this.topTopics;
+      }
       const res = await fetch('/topic/gettopfiletopics', {
         method: 'GET',
         headers: {
@@ -180,7 +186,8 @@ export class TopicService {
       if (!res.ok) {
         throw new Error('Failed to get top file topics');
       }
-      return res.json();
+      this.topTopics = await res.json();
+      return this.topTopics;
     } catch (error) {
       console.error('Error getting top file topics:', error);
       return null;

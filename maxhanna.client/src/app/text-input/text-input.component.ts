@@ -507,8 +507,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   addFavouriteTopic() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent?.user?.id) {
-      const topicIds = this.attachedTopics?.map(x => x.id);
-      this.topicService.addFavTopic(parent.user.id, topicIds).then(res => {
+      this.topicService.addFavTopic(parent.user.id, this.attachedTopics).then(res => {
         if (res) {
           parent.showNotification(res.message);
           if (res.success) {
