@@ -234,13 +234,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
     };
   }
 
-  private debouncedRestartNotifications = this.debounce(() => {
+  debouncedRestartNotifications = this.debounce(() => {
     if (this.navbarCollapsed) {
       return;
     }
 
     this.getNotifications();
-  }, 5000); // 5s debounce delay
+  }, 5000);
 
   setNotificationNumber(notifs?: number, notification?: UserNotification) {
     if (notifs !== undefined) {
