@@ -487,8 +487,6 @@ export function subscribeToMainGameEvents(object: any) {
           const heroCurrentSkill = String((object.hero as any)?.currentSkill ?? '').toLowerCase();
           attack.currentSkill = heroCurrentSkill;
           const srcObjType = String((srcObj as any)?.type ?? '').toLowerCase();
-          // Debug: show types when debugging magi detection (kept minimal)
-          //console.debug(`attack type check: metaHero.type='${metaHeroType}', srcObj.type='${srcObjType}'`);
           const isMagi = (metaHeroType === 'magi') || (srcObjType === 'magi');
           const isRogue = (metaHeroType === 'rogue') || (srcObjType === 'rogue');
           if (isMagi || isRogue) {
@@ -496,7 +494,6 @@ export function subscribeToMainGameEvents(object: any) {
           }
 
         } catch (innerEx) {
-          // If anything goes wrong here, don't block the attack; fall back to no length
           console.warn('Failed to determine hero type for magi length', innerEx);
         }
       } catch (ex) {

@@ -261,10 +261,8 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
           };
           results = await this.socialService.postStory(user.id ?? 0, content.story, sessionToken ?? "");
         } else if (this.type == "Comment") {
-          console.debug('Posting comment: files=', files);
           const commentStart = Date.now();
           content = await this.createComment(files);
-          console.debug('createComment returned', content);
           originalContent = content.originalContent;
           derivedIds = {
             userProfileId: content.comment?.userProfileId ?? this.profileUser?.id ?? undefined,
@@ -272,7 +270,6 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
             fileId: this.fileId ?? content.comment?.fileId ?? undefined,
             commentId: this.commentId ?? content.comment?.commentId ?? undefined
           };
-          console.debug('Derived IDs for comment:', derivedIds);
           try {
             results = await this.commentService.addComment(
               content.comment.commentText ?? "",
@@ -286,9 +283,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
               content.comment.country,
               content.comment.ip,
             );
-            console.debug('commentService.addComment result', { result: results, elapsedMs: Date.now() - commentStart });
           } catch (err) {
-            console.error('commentService.addComment threw an error', err, { derivedIds });
             throw err; // rethrow to be caught by outer try/catch
           }
         } else if (this.type == "Chat") {
@@ -383,16 +378,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       }
       if (this.type == "Comment") {
         const fromUserId = user?.id ?? 0;
-        const toUserIds = [replyingToUser?.id ?? 0].filter(id => id != fromUserId);
-        console.debug('Comment notification block start', {
-          fromUserId,
-          replyingToUserId: replyingToUser?.id,
-          mentionedSet: Array.from(mentionedSet),
-          storyIdToUse,
-          fileIdProp: this.fileId,
-          isComment,
-          isFile
-        });
+        const toUserIds = [replyingToUser?.id ?? 0].filter(id => id != fromUserId); 
         if (replyingToUser?.id && toUserIds.length > 0) {
           const filteredToUserIds = toUserIds.filter(id => !mentionedSet.has(id));
           if (filteredToUserIds.length > 0) {
@@ -406,7 +392,6 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
               commentId: ids?.commentId ?? results.results?.commentId ?? (isComment ? this.commentParent?.id : undefined),
               userProfileId: ids?.userProfileId ?? this.profileUser?.id,
             };
-            console.debug('Sending notification to replying user(s)', notificationData);
             this.notificationService.createNotifications(notificationData);
           }
         }
@@ -425,15 +410,12 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
               }
             };
             collect(threadRoot);
-            console.debug('Collected participantIds before exclusions', Array.from(participantIds));
-
             const posterId = user?.id ?? 0;
             if (posterId) participantIds.delete(posterId);
             if (replyingToUser?.id) participantIds.delete(replyingToUser.id);
             for (const m of mentionedSet) participantIds.delete(m);
 
             const notifyIds = Array.from(participantIds).filter(id => typeof id === 'number' && id > 0);
-            console.debug('Final notifyIds for thread participants', notifyIds);
             if (notifyIds.length > 0) {
               const message = results.originalContent.length > 50 ? results.originalContent.slice(0, 50) + '…' : results.originalContent;
               const threadNotification = {
@@ -445,7 +427,6 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
                 commentId: this.commentId ?? ids?.commentId ?? results.results?.commentId ?? (isComment ? this.commentParent?.id : undefined),
                 userProfileId: ids?.userProfileId ?? this.profileUser?.id,
               };
-              console.debug('Sending thread participant notifications', threadNotification);
               this.notificationService.createNotifications(threadNotification);
             }
           } catch (e) {
@@ -653,8 +634,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     tmpComment.city = location?.city;
     tmpComment.userProfileId = this.profileUser?.id;
     tmpComment.ip = location?.ip;
-  console.debug('Built tmpComment:', tmpComment);
-  return { comment: tmpComment, originalContent: commentsWithEmoji };
+    return { comment: tmpComment, originalContent: commentsWithEmoji };
   }
 
   private async createChatMessage(files?: FileEntry[]): Promise<{ msg: string, chatUsersIdsArray: number[], originalContent: string }> {
