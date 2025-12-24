@@ -175,6 +175,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   async getNotifications() {
     if (!this.notificationsActive) return;
     if (!this._parent || !this._parent.user || this._parent.user.id == 0) return;
+    console.log("fetch notifications");
     this.getCurrentWeatherInfo();
     this.getCalendarInfo();
     this.getCryptoHubInfo();
@@ -207,7 +208,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   stopNotifications() {
-    console.log("stopping notifcs")
+    console.log("stopping notifs")
     this.notificationsActive = false;
     clearInterval(this.notificationInfoInterval);
     clearInterval(this.cryptoHubInterval);
