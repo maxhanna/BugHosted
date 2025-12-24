@@ -40,8 +40,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private cryptoHubInterval: any;
   private calendarInfoInterval: any;
   private wordlerInfoInterval: any;
-  private lastCollapseTime: Date | null = null;
-  private readonly COLLAPSE_COOLDOWN_MS = 60 * 1000;
   tradeNotifsCount = 0;
   navbarReady = false;
   navbarCollapsed: boolean = false;
@@ -773,28 +771,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
         this.toggleMenu();
       }
     }
-    this.smartRestartNotifications();
-  }
-  private smartRestartNotifications() {
-    if (!this.lastCollapseTime) {
-      // No recent collapse - restart immediately
-      this.debouncedRestartNotifications();
-      return;
-    }
-
-    const timeSinceCollapse = new Date().getTime() - this.lastCollapseTime.getTime();
-    const remainingCooldown = this.COLLAPSE_COOLDOWN_MS - timeSinceCollapse;
-
-    if (remainingCooldown <= 0) {
-      // Cooldown period has passed
-      this.debouncedRestartNotifications();
-    } else {
-      // Wait until cooldown period ends
-      setTimeout(() => {
-        this.debouncedRestartNotifications();
-      }, remainingCooldown);
-    }
-  }
+    this.debouncedRestartNotifications();
+  } 
   applyThemeToCSS(theme: any) {
     if (theme.backgroundImage) {
       const requesterId = this._parent?.user?.id;

@@ -826,8 +826,6 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.parentRef.showNotification(`Access granted. Welcome ${(fromUserCreation ? 'to BugHosted' : 'back')} ${this.parentRef!.user?.username}`);
         this.parentRef.getLocation();
         this.parentRef.getSessionToken();
-        this.parentRef.navigationComponent.getNotifications();
-        this.parentRef.navigationComponent.debouncedRestartNotifications();
         this.parentRef.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser.id);
         this.resetNavigationAppSelectionHelp();
         if (this.loginOnly) {
