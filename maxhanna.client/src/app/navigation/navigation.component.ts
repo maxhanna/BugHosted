@@ -758,7 +758,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (this.navbar) {
       this.navbar.nativeElement.classList.add('collapsed');
       this.navbarCollapsed = true;
-      this.lastCollapseTime = new Date();
     }
     this.stopNotifications();
   }

@@ -57,13 +57,13 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
     collapsedGroups: Record<string, boolean> = {};
 
     toggleMode(mode: Mode) {
-    if (this.showUserHeader) return; // when showing user header, do not toggle
-    this.collapsedModes[mode] = !this.collapsedModes[mode];
+        if (this.showUserHeader) return; // when showing user header, do not toggle
+        this.collapsedModes[mode] = !this.collapsedModes[mode];
     }
 
     isModeCollapsed(mode: Mode) {
-    if (this.showUserHeader) return false; // never collapsed when showUserHeader is active
-    return !!this.collapsedModes[mode];
+        if (this.showUserHeader) return false; // never collapsed when showUserHeader is active
+        return !!this.collapsedModes[mode];
     }
 
     toggleGroup(mode: Mode, groupKey: string) {
@@ -104,12 +104,9 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
 
             if (modes.includes('all') || modes.includes('today')) {
                 const res = await this.wordlerService.getAllScores();
-                console.debug('wordler-high-scores: getAllScores() result:', res);
                 if (Array.isArray(res)) {
                     allScores = res as WordlerScore[];
-                    console.debug(`wordler-high-scores: allScores.length=${allScores.length}`);
                 } else {
-                    console.error('getAllScores returned unexpected result:', res);
                     allScores = [];
                 }
             }
@@ -142,13 +139,10 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
                     this.groupedByMode.user = {};
                 } else {
                     const userRes = await this.wordlerService.getAllScores(this.userId);
-                    console.debug('wordler-high-scores: getAllScores(user) result:', userRes);
                     if (Array.isArray(userRes)) {
                         const userScores = userRes as WordlerScore[];
-                        console.debug(`wordler-high-scores: userScores.length=${userScores.length}`);
                         this.groupedByMode.user = this.groupScores(userScores || []);
                     } else {
-                        console.error('getAllScores(userId) returned unexpected result:', userRes);
                         this.groupedByMode.user = {};
                     }
                 }
@@ -172,7 +166,7 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
             try {
                 const any = Object.values(this.groupedByMode || {}).some(m => Object.keys(m || {}).length > 0);
                 this.hasData.emit(any);
-            } catch {}
+            } catch { }
         }
     }
 
