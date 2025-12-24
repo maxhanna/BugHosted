@@ -920,7 +920,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
   ignoreTopic(topic: Topic) {
     if (this.parentRef?.user?.id) {
-      this.topicService.addIgnoredTopic(this.parentRef.user.id, [topic.id]).then(res => {
+      this.topicService.addIgnoredTopic(this.parentRef.user.id, topic).then(res => {
         if (res) {
           this.parentRef?.showNotification(res.message);
           if (res.success) {

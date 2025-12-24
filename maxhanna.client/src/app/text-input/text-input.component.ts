@@ -548,7 +548,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   ignoreTopic(topic: Topic) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent?.user?.id) {
-      this.topicService.addIgnoredTopic(parent.user.id, [topic.id]).then(res => {
+      this.topicService.addIgnoredTopic(parent.user.id, topic).then(res => {
         if (res) {
           parent.showNotification(res.message);
           if (res.success) {

@@ -55,16 +55,19 @@ export class TopicService {
     } catch (error) {
     }
   }
-  async addIgnoredTopic(userId: number, topicIds: number[]) {
+  async addIgnoredTopic(userId: number, topic: Topic) {
     try {
       const response = await fetch(`/topic/addignoredtopic`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ UserId: userId, TopicIds: topicIds }),
+        body: JSON.stringify({ UserId: userId, TopicIds: [topic.id] }),
       });
-      this.ignoredTopics?.concat(topicIds.map(x => new Topic(x, "")));
+      if (!this.ignoredTopics) {
+        this.ignoredTopics = [];
+      }
+      this.ignoredTopics.push(topic);
       return await response.json();
     } catch (error) {
     }
@@ -92,7 +95,7 @@ export class TopicService {
         },
         body: JSON.stringify({ UserId: userId, TopicIds: topicIds }),
       });
-
+      this.ignoredTopics = this.ignoredTopics?.filter(x => topicIds.includes(x.id));
       return await response.json();
     } catch (error) {
     }
