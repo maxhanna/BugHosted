@@ -1948,6 +1948,9 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/User/UpdateUserTheme", Name = "UpdateUserTheme")]
 		public async Task<IActionResult> UpdateUserTheme([FromBody] UserThemeRequest request)
 		{
+			if (request == null) {
+				return BadRequest("Request was null");
+			}
 			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 			{
 				await conn.OpenAsync();
@@ -1992,10 +1995,11 @@ namespace maxhanna.Server.Controllers
 								string dbLinkColor = GetStringSafe(reader, "link_color");
 								int? dbFontSize = GetNullableInt(reader, "font_size");
 								string dbFontFamily = GetStringSafe(reader, "font_family");
+								FileEntry? tmpBackgroundImage = dbBackgroundImage.HasValue ? new FileEntry(dbBackgroundImage.Value) : null;
 
 								isSameTheme =
-										dbBackgroundImage == request.Theme.BackgroundImage &&
-										dbBackgroundColor.Equals(request.Theme.BackgroundColor?.Trim(), StringComparison.OrdinalIgnoreCase) &&
+										tmpBackgroundImage?.Id == request.Theme?.BackgroundImage?.Id &&
+										dbBackgroundColor.Equals(request.Theme?.BackgroundColor?.Trim(), StringComparison.OrdinalIgnoreCase) &&
 										dbComponentBackgroundColor.Equals(request.Theme.ComponentBackgroundColor?.Trim(), StringComparison.OrdinalIgnoreCase) &&
 										dbSecondaryComponentBackgroundColor.Equals(request.Theme.SecondaryComponentBackgroundColor?.Trim(), StringComparison.OrdinalIgnoreCase) &&
 										dbFontColor.Equals(request.Theme.FontColor?.Trim(), StringComparison.OrdinalIgnoreCase) &&
@@ -2009,7 +2013,7 @@ namespace maxhanna.Server.Controllers
 							}
 						}
 
-						if (existingThemeId.HasValue)
+						if (existingThemeId.HasValue && request.Theme != null)
 						{
 							// If theme exists for another user, reject request
 							if (existingUserId != request.UserId && !isSameTheme)
@@ -2057,7 +2061,7 @@ namespace maxhanna.Server.Controllers
 						}
 						else
 						{
-							if (existingThemeId == null)
+							if (existingThemeId == null && request.Theme != null)
 							{
 								string insertSql = @"
                         INSERT INTO maxhanna.user_theme 
@@ -2142,10 +2146,13 @@ namespace maxhanna.Server.Controllers
 					{
 						if (reader.Read())
 						{
+							int? bgImgId = GetNullableInt(reader, "background_image");
+							FileEntry? tmpBackgroundImage = bgImgId.HasValue ? new FileEntry(bgImgId.Value) : null;
+
 							var theme = new UserTheme()
 							{
 								Id = Convert.ToInt32(reader["id"]), 
-								BackgroundImage = GetNullableInt(reader, "background_image"),
+								BackgroundImage = tmpBackgroundImage,
 								BackgroundColor = GetStringSafe(reader, "background_color"),
 								ComponentBackgroundColor = GetStringSafe(reader, "component_background_color"),
 								SecondaryComponentBackgroundColor = GetStringSafe(reader, "secondary_component_background_color"),
@@ -2210,11 +2217,14 @@ namespace maxhanna.Server.Controllers
 
 						while (reader.Read())
 						{
+							int? bgImgId = GetNullableInt(reader, "background_image");
+							FileEntry? tmpBackgroundImage = bgImgId.HasValue ? new FileEntry(bgImgId.Value) : null;
+
 							var theme = new UserTheme()
 							{
 								Id = Convert.ToInt32(reader["id"]),
 								UserId = reader["user_id"] != DBNull.Value ? Convert.ToInt32(reader["user_id"]) : null,
-								BackgroundImage = GetNullableInt(reader, "background_image"),
+								BackgroundImage = tmpBackgroundImage,
 								BackgroundColor = GetStringSafe(reader, "background_color"),
 								ComponentBackgroundColor = GetStringSafe(reader, "component_background_color"),
 								SecondaryComponentBackgroundColor = GetStringSafe(reader, "secondary_component_background_color"),
@@ -2280,11 +2290,14 @@ namespace maxhanna.Server.Controllers
 
 						while (reader.Read())
 						{
+							int? bgImgId = GetNullableInt(reader, "background_image");
+							FileEntry? tmpBackgroundImage = bgImgId.HasValue ? new FileEntry(bgImgId.Value) : null;
+
 							var theme = new UserTheme()
 							{
 								Id = Convert.ToInt32(reader["id"]),
 								UserId = reader["user_id"] != DBNull.Value ? Convert.ToInt32(reader["user_id"]) : null,
-								BackgroundImage = GetNullableInt(reader, "background_image"),
+								BackgroundImage = tmpBackgroundImage,
 								BackgroundColor = GetStringSafe(reader, "background_color"),
 								ComponentBackgroundColor = GetStringSafe(reader, "component_background_color"),
 								SecondaryComponentBackgroundColor = GetStringSafe(reader, "secondary_component_background_color"),

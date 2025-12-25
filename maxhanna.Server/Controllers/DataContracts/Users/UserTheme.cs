@@ -1,3 +1,5 @@
+using maxhanna.Server.Controllers.DataContracts.Files;
+
 namespace maxhanna.Server.Controllers.DataContracts.Users
 { 
 	public class UserTheme
@@ -5,7 +7,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Users
 		public int? Id { get; set; }
 		public int? UserId { get; set; }
 		public string? Name { get; set; }
-		public int? BackgroundImage { get; set; }
+		public FileEntry? BackgroundImage { get; set; }
 		public string? BackgroundColor { get; set; } 
 		public string? ComponentBackgroundColor { get; set; }
 		public string? SecondaryComponentBackgroundColor { get; set; }
@@ -15,7 +17,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Users
 		public string? MainHighlightColor { get; set; }
 		public string? MainHighlightColorQuarterOpacity { get; set; }
 		public string? LinkColor { get; set; }
-		public int FontSize { get; set; }
+		public int? FontSize { get; set; }
 		public string? FontFamily { get; set; }
 	}
 
