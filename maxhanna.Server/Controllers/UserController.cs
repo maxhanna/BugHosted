@@ -2076,7 +2076,7 @@ namespace maxhanna.Server.Controllers
 
 								MySqlCommand insertCmd = new MySqlCommand(insertSql, conn, transaction);
 								insertCmd.Parameters.AddWithValue("@UserId", request.UserId);
-								insertCmd.Parameters.AddWithValue("@BackgroundImage", request.Theme.BackgroundImage);
+								insertCmd.Parameters.AddWithValue("@BackgroundImage", request.Theme.BackgroundImage?.Id);
 								insertCmd.Parameters.AddWithValue("@BackgroundColor", request.Theme.BackgroundColor);
 								insertCmd.Parameters.AddWithValue("@ComponentBackgroundColor", request.Theme.ComponentBackgroundColor);
 								insertCmd.Parameters.AddWithValue("@SecondaryComponentBackgroundColor", request.Theme.SecondaryComponentBackgroundColor);
