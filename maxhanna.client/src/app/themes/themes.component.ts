@@ -479,7 +479,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
 
   private selectBackgroundImage(feRes: FileEntry, blockSavePrompt: boolean = false) { 
     this.attachedFiles = [];
-    this.mediaSelector.selectedFiles = [];
+    this.mediaSelector.removeAllFiles();
     this.mediaSelector.selectFile(feRes);
     if (blockSavePrompt) {
       setTimeout(() => {
