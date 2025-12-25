@@ -738,7 +738,7 @@ namespace maxhanna.Server.Controllers
 
 				const int maxAttempts = 3;
 				int attempt = 0;
-				string responseBody = null;
+				string? responseBody = null;
 				while (attempt < maxAttempts)
 				{
 					attempt++;
@@ -752,7 +752,7 @@ namespace maxhanna.Server.Controllers
 
 						// Wait for the media lock (no timeout here; callers can control concurrency via JS/API)
 						await _ollamaMediaLock.WaitAsync();
-						HttpResponseMessage resp = null;
+						HttpResponseMessage? resp = null;
 						try
 						{
 							resp = await _httpClient.SendAsync(req);
