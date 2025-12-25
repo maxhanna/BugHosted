@@ -2043,7 +2043,7 @@ namespace maxhanna.Server.Controllers
 								MySqlCommand updateCmd = new MySqlCommand(updateSql, conn, transaction);
 								updateCmd.Parameters.AddWithValue("@Id", existingThemeId);
 								updateCmd.Parameters.AddWithValue("@UserId", request.UserId);
-								updateCmd.Parameters.AddWithValue("@BackgroundImage", request.Theme.BackgroundImage);
+								updateCmd.Parameters.AddWithValue("@BackgroundImage", request.Theme.BackgroundImage?.Id);
 								updateCmd.Parameters.AddWithValue("@BackgroundColor", request.Theme.BackgroundColor);
 								updateCmd.Parameters.AddWithValue("@ComponentBackgroundColor", request.Theme.ComponentBackgroundColor);
 								updateCmd.Parameters.AddWithValue("@SecondaryComponentBackgroundColor", request.Theme.SecondaryComponentBackgroundColor);
