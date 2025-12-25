@@ -177,9 +177,6 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       await this.getLoggedInUser();
       if (this.user) {
         await this.loadFriendData();
-        this.loadWordlerData();
-        this.loadMetaheroData();
-        this.loadSongData();
         this.loadContactsData();
         this.loadLocation(this.user);
         this.getIsBeingFollowedByUser();
@@ -208,9 +205,6 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       this.getNSFWValue();
     }
     catch (error) { console.log((error as Error).message); }
-    if (!this.trophies) {
-      this.getTrophies();
-    }
     this.stopLoading();
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -898,9 +892,15 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     }
   }
   openAboutPanel() { 
+    this.loadWordlerData();
+    this.loadMetaheroData();
+    this.loadSongData();
     this.getNumberOfNexusBases();
     this.getNumberOfTrades();
     this.loadExtraCounts();
+    if (!this.trophies) {
+      this.getTrophies();
+    }
     this.isAboutPanelOpen = true;
     const parent = this.parentRef ?? this.inputtedParentRef;
     if (parent) {
@@ -1115,6 +1115,9 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   }
   showTrophies() {
     this.openAboutPanel();
+    if (!this.trophies) {
+      this.getTrophies();
+    }
     setTimeout(() => {
       this.isTrophyExpanded = true;
     }, 50);
