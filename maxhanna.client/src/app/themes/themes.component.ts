@@ -466,10 +466,10 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     }, 500);  
   }
 
-  private replenishBackroundImageSelection(res: any, blockSavePrompt = false) {
+  private replenishBackroundImageSelection(res: UserTheme, blockSavePrompt = false) {
     if (res.backgroundImage) {
       const requesterId = this.parentRef?.user?.id;
-      this.fileService.getFileEntryById(res.backgroundImage, requesterId).then(feRes => {
+      this.fileService.getFileEntryById(res.backgroundImage.id, requesterId).then(feRes => {
         if (feRes) {
           this.selectBackgroundImage(feRes, blockSavePrompt);
         }
