@@ -391,9 +391,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
             // ignore
           }
           this.isInitialLoad = true;
-          // Ensure chat theme is kept in sync for all participants. If someone updates the chat theme server-side,
-          // fetch and apply it locally so all users see the same theme without requiring a full reload.
-          try { this.checkAndApplyChatTheme(); } catch {}
         }, 1000);
       }
     } catch (error) {
@@ -626,6 +623,7 @@ q                  onClick="document.getElementById('pollCheckId').value='${inpu
       this.togglePanel();
       return;
     }
+
     if (res && res.messages) {
       this.chatHistory = (res.messages as Message[]).reverse();
       this.pageNumber = res.currentPage;
@@ -637,6 +635,7 @@ q                  onClick="document.getElementById('pollCheckId').value='${inpu
         this.currentChatId = message0.chatId;
       }
     }
+
     setTimeout(() => {
       this.scrollToBottomIfNeeded();
       this.pollForMessages();
@@ -657,35 +656,20 @@ q                  onClick="document.getElementById('pollCheckId').value='${inpu
     }, 410);
     this.togglePanel();
 
-    // Load chat theme for this chat id (prefer saved user theme if present)
-    try {
-      if (this.currentChatId) {
-        const themeRes = await this.chatService.getChatTheme(this.currentChatId);
-        if (themeRes) {
-          // prefer the full userTheme object returned by server (camelCase)
-          if (themeRes.userTheme) {
-            this.currentChatUserThemeId = themeRes.userTheme.id;
-            this.applyUserTheme(themeRes.userTheme);
-            this.currentChatTheme = '';
-          } else if (themeRes.userThemeId) {
-            // fallback to local cached themes (older shape may use snake_case)
-            this.currentChatUserThemeId = themeRes.userThemeId;
-            const ut = this.userThemes.find((u: any) => u.id === themeRes.userThemeId);
-            if (ut) this.applyUserTheme(ut);
-            this.currentChatTheme = '';
-          } else if (themeRes.theme) {
-            // fallback to class-based theme
-            this.currentChatTheme = themeRes.theme;
-            this.applyChatTheme(this.currentChatTheme);
-          } else {
-            this.currentChatTheme = '';
-            this.applyChatTheme('');
-          }
+    if (this.currentChatId) {
+      const themeRes = await this.chatService.getChatTheme(this.currentChatId);
+      if (themeRes) {
+        if (themeRes.userTheme) {
+          this.currentChatUserThemeId = themeRes.userTheme.id;
+          this.applyUserTheme(themeRes.userTheme);
+          this.currentChatTheme = '';
+        } else {
+          this.currentChatTheme = '';
+          this.applyChatTheme('');
         }
       }
-    } catch (ex) {
-      // ignore
     }
+    
 
     this.stopLoading();
   }
