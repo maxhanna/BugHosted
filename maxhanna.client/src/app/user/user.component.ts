@@ -160,7 +160,6 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       this.parentRef = this.inputtedParentRef;
     }
     this.startLoading();
-    this.usersCount = await this.userService.getUserCount();
     try {
       if (this.userId) {
         const res = await this.userService.getUserById(this.userId);
@@ -190,6 +189,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.setBackgroundImage();
       }
       if (!this.user) {
+        this.usersCount = await this.userService.getUserCount(); 
         const lidRes = await this.socialService.getLatestStoryId();
         if (lidRes) {
           this.latestSocialStoryId = parseInt(lidRes);

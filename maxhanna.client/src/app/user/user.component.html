@@ -198,7 +198,7 @@
       </div>
     </div>
     <!-- LATEST MEME -->
-    <div *ngIf="!user?.id && !loginOnly" class="memeAndWordlerWrapper" [class]="onMobile() ? 'gradientBackground':''">
+    <div *ngIf="!user?.id && !loginOnly && !isLoading" class="memeAndWordlerWrapper" [class]="onMobile() ? 'gradientBackground':''">
       <div *ngIf="latestMemeId">
         <div class="popupPanelTitle" style="margin-top: 15px;">
           <app-menu-item [type]="'Meme'" [parentRef]="parentRef" [label]="'Latest Meme:'"></app-menu-item>
