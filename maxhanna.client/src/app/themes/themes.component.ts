@@ -5,6 +5,7 @@ import { Theme } from '../../services/datacontracts/user/theme';
 import { UserService } from '../../services/user.service';
 import { FileService } from '../../services/file.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
+import { UserTheme } from '../../services/datacontracts/chat/chat-theme';
 
 @Component({
     selector: 'app-themes',
@@ -27,9 +28,9 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   @ViewChild('themeSearchInput') themeSearchInput!: ElementRef<HTMLInputElement>;
   @ViewChild('mediaSelector') mediaSelector!: MediaSelectorComponent;
   attachedFiles?: FileEntry[];
-  userSelectedTheme?: Theme;
-  allThemes?: Theme[];
-  myThemes?: Theme[];
+  userSelectedTheme?: UserTheme;
+  allThemes?: UserTheme[];
+  myThemes?: UserTheme[];
   showDeleteConfirm: boolean = false;
  
   isSearching = false
@@ -98,7 +99,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
       });
 
       this.userService.getAllUserThemes(this.parentRef.user.id).then(res => {
-        if (res && !res.message ) {
+        if (res ) {
           this.myThemes = res;
         } else {
           this.myThemes = [];
@@ -210,7 +211,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
             if (!this.myThemes) {
               this.myThemes = [];
             }
-            this.myThemes.push(theme as Theme);
+            this.myThemes.push(theme);
             this.parentRef?.showNotification(res);
           }
         });
@@ -405,7 +406,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     // Handle background image
     if (selectedTheme.backgroundImage) {
       const requesterId = this.parentRef?.user?.id;
-      this.fileService.getFileEntryById(selectedTheme.backgroundImage, requesterId).then(res => {
+      this.fileService.getFileEntryById(selectedTheme.backgroundImage.id, requesterId).then(res => {
         if (res) {
           this.selectBackgroundImage(res);
           const directLink = `https://bughosted.com/assets/Uploads/${(this.getDirectoryName(res) != '.' ? this.getDirectoryName(res) : '')}${res.fileName}`;
@@ -441,13 +442,11 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => { 
       if (search) {
-        this.userService.getAllThemes(search).then((res: any)=> {
-          if (res && !res.message) { 
+        this.userService.getAllThemes(search).then((res: (UserTheme[] | null))=> {
+          if (res) { 
             this.allThemes = res;
-          } else {
-            if (res.message) {
-              this.parentRef?.showNotification(res.message);
-            }
+          } else { 
+            this.parentRef?.showNotification("No themes found."); 
             this.allThemes = [];
           }
         });
@@ -455,12 +454,10 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
       }
       else {
         this.userService.getAllThemes('').then(res => {
-          if (res && !res.message) {
+          if (res) {
             this.allThemes = res;
-          } else {
-            if (res.message) {
-              this.parentRef?.showNotification(res.message);
-            }
+          } else { 
+            this.parentRef?.showNotification("No theme found."); 
             this.allThemes = [];
           }
         });

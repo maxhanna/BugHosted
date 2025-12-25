@@ -317,7 +317,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     // Then apply new theme if conditions are met
     if (this.user?.id != this.parentRef?.user?.id && this.user?.id !== undefined) {
       const theme = await this.userService.getTheme(this.user?.id);
-      if (theme && !theme.message) {
+      if (theme) {
         this.parentRef?.navigationComponent.getThemeInfo(this.user.id ?? 0);
         this.changedTheme = true;
       }
