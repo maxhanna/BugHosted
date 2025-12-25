@@ -176,15 +176,13 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
 
       await this.getLoggedInUser();
       if (this.user) {
-  // Ensure friend/follow request data is loaded before computing relationship flags
-  await this.loadFriendData();
+        await this.loadFriendData();
         this.loadWordlerData();
         this.loadMetaheroData();
         this.loadSongData();
         this.loadContactsData();
         this.loadLocation(this.user);
-  // Now that friendRequests is populated, compute follow relationship
-  this.getIsBeingFollowedByUser();
+        this.getIsBeingFollowedByUser();
         this.getIsUserBlocked(this.user);
         this.getUserLoginStreak();
 
@@ -208,9 +206,6 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.latestSocialStoryId = undefined;
       }
       this.getNSFWValue();
-      this.getNumberOfNexusBases();
-      this.getNumberOfTrades();
-      this.loadExtraCounts();
     }
     catch (error) { console.log((error as Error).message); }
     if (!this.trophies) {
@@ -902,7 +897,10 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       parent.closeOverlay();
     }
   }
-  openAboutPanel() {
+  openAboutPanel() { 
+    this.getNumberOfNexusBases();
+    this.getNumberOfTrades();
+    this.loadExtraCounts();
     this.isAboutPanelOpen = true;
     const parent = this.parentRef ?? this.inputtedParentRef;
     if (parent) {
