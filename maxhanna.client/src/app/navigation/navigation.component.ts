@@ -25,6 +25,7 @@ import { FriendService } from '../../services/friend.service';
 import { SocialService } from '../../services/social.service';
 import { CrawlerService } from '../../services/crawler.service';
 import { NewsService } from '../../services/news.service';
+import { UserTheme } from '../../services/datacontracts/chat/chat-theme';
 
 @Component({
   selector: 'app-navigation',
@@ -773,10 +774,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     this.debouncedRestartNotifications();
   } 
-  applyThemeToCSS(theme: any) {
+  applyThemeToCSS(theme: UserTheme) {
     if (theme.backgroundImage) {
       const requesterId = this._parent?.user?.id;
-      this.fileService.getFileEntryById(theme.backgroundImage, requesterId).then(res => {
+      this.fileService.getFileEntryById(theme.backgroundImage.id, requesterId).then(res => {
         if (res) {
           const directLink = `https://bughosted.com/assets/Uploads/${(this._parent.getDirectoryName(res) != '.' ? this._parent.getDirectoryName(res) : '')}${res.fileName}`;
           document.documentElement.style.setProperty('--main-background-image-url', `url(${directLink})`);
