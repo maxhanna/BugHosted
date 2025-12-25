@@ -619,7 +619,7 @@ export class UserService {
     }
   }
 
-  async updateTheme(userId: number, theme: JSON) {
+  async updateTheme(userId: number, theme: UserTheme) {
     try {
       const response = await fetch('/user/updateusertheme/', {
         method: 'POST',

@@ -177,7 +177,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
       this.themeNameInput.nativeElement.focus();
       return alert("Please enter a valid theme name.");
     }
-    // Handle file attachment (background image)
+
     let tmpFileId = undefined;
     if (this.attachedFiles && this.attachedFiles[0] && this.attachedFiles[0].id) {
       tmpFileId = this.attachedFiles[0].id;
@@ -185,7 +185,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
 
     const theme: any = {
       id: this.userSelectedTheme?.id,
-      backgroundImage: tmpFileId,
+      backgroundImage: tmpFileId ? new FileEntry(tmpFileId) : undefined,
       backgroundColor: this.backgroundColor.nativeElement.value,
       componentBackgroundColor: this.componentBackgroundColor.nativeElement.value,
       secondaryComponentBackgroundColor: this.secondaryComponentBackgroundColor.nativeElement.value,
