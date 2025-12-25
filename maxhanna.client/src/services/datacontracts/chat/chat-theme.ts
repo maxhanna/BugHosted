@@ -1,7 +1,9 @@
+import { FileEntry } from "../file/file-entry";
+
 export interface UserTheme {
   id: number;
   userId?: number | null;
-  backgroundImage?: string | null;
+  backgroundImage?: FileEntry | null;
   fontColor?: string | null;
   secondaryFontColor?: string | null;
   thirdFontColor?: string | null;

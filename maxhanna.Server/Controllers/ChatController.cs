@@ -341,11 +341,12 @@ namespace maxhanna.Server.Controllers
 							UserThemeDto? userTheme = null;
 							if (!reader.IsDBNull(reader.GetOrdinal("ut_id")))
 							{
+								FileEntry? tmpBackgroundImage =  reader.IsDBNull(reader.GetOrdinal("ut_background_image")) ? null : new FileEntry(reader.GetInt32("ut_background_image"));
 								userTheme = new UserThemeDto
 								{
 									Id = reader.GetInt32("ut_id"),
 									UserId = reader.IsDBNull(reader.GetOrdinal("ut_user_id")) ? null : (int?)reader.GetInt32("ut_user_id"),
-									BackgroundImage = reader.IsDBNull(reader.GetOrdinal("ut_background_image")) ? null : reader.GetString("ut_background_image"),
+									BackgroundImage = tmpBackgroundImage,
 									FontColor = reader.IsDBNull(reader.GetOrdinal("ut_font_color")) ? null : reader.GetString("ut_font_color"),
 									SecondaryFontColor = reader.IsDBNull(reader.GetOrdinal("ut_secondary_font_color")) ? null : reader.GetString("ut_secondary_font_color"),
 									ThirdFontColor = reader.IsDBNull(reader.GetOrdinal("ut_third_font_color")) ? null : reader.GetString("ut_third_font_color"),

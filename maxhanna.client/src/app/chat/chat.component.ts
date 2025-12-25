@@ -12,6 +12,8 @@ import { MediaSelectorComponent } from '../media-selector/media-selector.compone
 import { UserService } from '../../services/user.service';
 import { UserSettings } from '../../services/datacontracts/user/user-settings';
 import { EncryptionService } from '../../services/encryption.service';
+import { UserTheme } from '../../services/datacontracts/chat/chat-theme';
+import { FileService } from '../../services/file.service';
 
 @Component({
   selector: 'app-chat',
@@ -71,7 +73,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     private chatService: ChatService,
     private notificationService: NotificationService,
     private userService: UserService,
-    private encryptionService: EncryptionService) {
+    private encryptionService: EncryptionService,
+    private fileService: FileService) {
     super();
 
     const parent = this.inputtedParentRef ?? this.parentRef;
@@ -80,7 +83,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   
   // Apply a user theme object to the chatArea by setting CSS variables.
   // Supports both camelCase and snake_case property names from server or local records.
-  applyUserTheme(ut: any | null) {
+  async applyUserTheme(ut: UserTheme | null) {
     const container = document.querySelector('.chatArea') as HTMLElement | null;
     if (!container) return;
 
@@ -99,41 +102,41 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       container.style.removeProperty('--main-font-family');
       container.style.removeProperty('--main-font-size');
       return;
+    } 
+
+    const bgColor = ut.backgroundColor;
+    const fontColor = ut.fontColor;
+    const secondaryFont = ut.secondaryFontColor;
+    const thirdFont = ut.thirdFontColor;
+    const compBg = ut.componentBackgroundColor;
+    const secCompBg = ut.secondaryComponentBackgroundColor;
+    const highlight = ut.mainHighlightColor;
+    const highlightQuarter = ut.mainHighlightColorQuarterOpacity;
+    const linkColor = ut.linkColor;
+    const fontFamily = ut.fontFamily;
+    const fontSize = ut.fontSize;
+    const bgImage = ut.backgroundImage;
+     
+    var tmpBackImage = bgImage?.id ? await this.fileService.getFileEntryById(bgImage?.id, this.parentRef?.user?.id) : undefined;
+    if (tmpBackImage) {
+      const directLink = `https://bughosted.com/assets/Uploads/${(this.parentRef?.getDirectoryName(tmpBackImage) != '.' ? this.parentRef?.getDirectoryName(tmpBackImage) : '')}${tmpBackImage?.fileName}`;
+      container.style.setProperty('--main-background-image-url', `url(${directLink})`);
+      container.style.backgroundImage = `url(${directLink})`;
+    } else {
+      container.style.setProperty('--main-background-image-url', `none`);
+      container.style.backgroundImage = `none`;
     }
-
-    // helper to read either snake_case or camelCase
-    const g = (k1: string, k2: string) => {
-      if (ut[k1] !== undefined) return ut[k1];
-      if (ut[k2] !== undefined) return ut[k2];
-      return null;
-    };
-
-  const background = g('backgroundColor', 'background_color');
-  const fontColor = g('fontColor', 'font_color');
-  const secondaryFont = g('secondaryFontColor', 'secondary_font_color');
-  const thirdFont = g('thirdFontColor', 'third_font_color');
-  const compBg = g('componentBackgroundColor', 'component_background_color');
-  const secCompBg = g('secondaryComponentBackgroundColor', 'secondary_component_background_color');
-  const highlight = g('mainHighlightColor', 'main_highlight_color');
-  const highlightQuarter = g('mainHighlightColorQuarterOpacity', 'main_highlight_color_quarter_opacity');
-  const linkColor = g('linkColor', 'link_color');
-  const fontFamily = g('fontFamily', 'font_family');
-  const fontSize = g('fontSize', 'font_size');
-  const bgImage = g('backgroundImage', 'background_image');
-
-  // Apply using the global var names used by ThemesComponent
-  if (bgImage) container.style.setProperty('--main-background-image-url', typeof bgImage === 'string' && bgImage.startsWith('http') ? bgImage : (bgImage ? `url('${bgImage}')` : ''));
-  if (background) container.style.setProperty('--main-bg-color', background);
-  if (compBg) container.style.setProperty('--component-background-color', compBg);
-  if (secCompBg) container.style.setProperty('--secondary-component-background-color', secCompBg);
-  if (fontColor) container.style.setProperty('--main-font-color', fontColor);
-  if (secondaryFont) container.style.setProperty('--secondary-font-color', secondaryFont);
-  if (thirdFont) container.style.setProperty('--third-font-color', thirdFont);
-  if (highlight) container.style.setProperty('--main-highlight-color', highlight);
-  if (highlightQuarter) container.style.setProperty('--main-highlight-color-quarter-opacity', highlightQuarter);
-  if (linkColor) container.style.setProperty('--main-link-color', linkColor);
-  if (fontFamily) container.style.setProperty('--main-font-family', fontFamily);
-  if (fontSize) container.style.setProperty('--main-font-size', (typeof fontSize === 'number' ? fontSize + 'px' : fontSize));
+    if (bgColor) container.style.setProperty('--main-bg-color', bgColor);
+    if (compBg) container.style.setProperty('--component-background-color', compBg);
+    if (secCompBg) container.style.setProperty('--secondary-component-background-color', secCompBg);
+    if (fontColor) container.style.setProperty('--main-font-color', fontColor);
+    if (secondaryFont) container.style.setProperty('--secondary-font-color', secondaryFont);
+    if (thirdFont) container.style.setProperty('--third-font-color', thirdFont);
+    if (highlight) container.style.setProperty('--main-highlight-color', highlight);
+    if (highlightQuarter) container.style.setProperty('--main-highlight-color-quarter-opacity', highlightQuarter);
+    if (linkColor) container.style.setProperty('--main-link-color', linkColor);
+    if (fontFamily) container.style.setProperty('--main-font-family', fontFamily);
+    if (fontSize) container.style.setProperty('--main-font-size', (typeof fontSize === 'number' ? fontSize + 'px' : fontSize));
   }
 
   async changeChatUserTheme(event: any) {
@@ -226,44 +229,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           this.getMessageHistory(this.pageNumber, this.pageSize);
         }
       }, 5000);
-    }
-  }
-
-  // Fetch the current chat theme from the server and apply it if it changed.
-  async checkAndApplyChatTheme() {
-    try {
-      if (!this.currentChatId) return;
-      const themeRes = await this.chatService.getChatTheme(this.currentChatId);
-      if (!themeRes) return;
-
-      // If server returns full userTheme, apply it. Otherwise handle older shapes.
-      if (themeRes.userTheme) {
-        // If it's different from current selection, apply it
-        if (this.currentChatUserThemeId !== themeRes.userTheme.id) {
-          this.currentChatUserThemeId = themeRes.userTheme.id;
-          this.applyUserTheme(themeRes.userTheme);
-          this.currentChatTheme = '';
-        }
-      } else if (themeRes.userThemeId) {
-        if (this.currentChatUserThemeId !== themeRes.userThemeId) {
-          this.currentChatUserThemeId = themeRes.userThemeId;
-          const ut = this.userThemes.find((u: any) => u.id === themeRes.userThemeId);
-          if (ut) this.applyUserTheme(ut);
-          this.currentChatTheme = '';
-        }
-      } else if (themeRes.theme) {
-        if (this.currentChatTheme !== themeRes.theme) {
-          this.currentChatTheme = themeRes.theme;
-          this.applyChatTheme(this.currentChatTheme);
-        }
-      } else {
-        if (this.currentChatTheme) {
-          this.currentChatTheme = '';
-          this.applyChatTheme('');
-        }
-      }
-    } catch (err) {
-      // ignore errors here
     }
   }
 

@@ -328,7 +328,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingTheme = true;
     try {
       const theme = await this.userService.getTheme(userId ?? this._parent?.user?.id ?? 0);
-      if (theme && !theme.message) {
+      if (theme) {
         this.applyThemeToCSS(theme);
       } else {
         this.applyDefaultTheme();

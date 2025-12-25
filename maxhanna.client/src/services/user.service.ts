@@ -6,6 +6,7 @@ import { UserAbout } from './datacontracts/user/user-about';
 import { HttpClient } from '@angular/common/http';
 import { UserSettings } from './datacontracts/user/user-settings';
 import { Compactness, ShowPostsFrom } from './datacontracts/user/show-posts-from';
+import { UserTheme } from './datacontracts/chat/chat-theme';
 
 export interface StreakInfo {
   currentStreak: number;
@@ -662,7 +663,7 @@ export class UserService {
       return 'error';
     }
   }
-  async getTheme(userId: number): Promise<any> {
+  async getTheme(userId: number): Promise<UserTheme | null> {
     try {
       const response = await fetch('/user/getusertheme/', {
         method: 'POST',
@@ -678,10 +679,10 @@ export class UserService {
 
       return await response.json();
     } catch (error) { 
-      return 'error';
+      return null;
     }
   }
-  async getAllThemes(search?: string) {
+  async getAllThemes(search?: string): Promise<UserTheme[] | null> {
     try {
       const response = await fetch('/user/getallthemes/', {
         method: 'POST',
@@ -692,10 +693,10 @@ export class UserService {
       });
       return await response.json();
     } catch (error) {
-      return 'error';
+      return null;
     }
   }
-  async getAllUserThemes(userId: number) {
+  async getAllUserThemes(userId: number): Promise<UserTheme[] | null> {
     try {
       const response = await fetch('/user/getalluserthemes/', {
         method: 'POST',
@@ -706,7 +707,7 @@ export class UserService {
       });
       return await response.json();
     } catch (error) {
-      return 'error';
+      return null;
     }
   }
   

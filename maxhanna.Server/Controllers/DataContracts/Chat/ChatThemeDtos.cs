@@ -1,3 +1,5 @@
+using maxhanna.Server.Controllers.DataContracts.Files;
+
 namespace maxhanna.Server.Controllers.DataContracts.Chat
 {
     public class GetChatThemeRequest
@@ -24,7 +26,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Chat
     {
         public int Id { get; set; }
         public int? UserId { get; set; }
-        public string? BackgroundImage { get; set; }
+        public FileEntry? BackgroundImage { get; set; }
         public string? FontColor { get; set; }
         public string? SecondaryFontColor { get; set; }
         public string? ThirdFontColor { get; set; }
