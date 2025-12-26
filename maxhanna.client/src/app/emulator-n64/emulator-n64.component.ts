@@ -36,64 +36,46 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const file = input.files && input.files[0];
     if (!file) return;
     this.romName = file.name;
-    const reader = new FileReader();
-    reader.onload = () => {
-      this.romBuffer = reader.result as ArrayBuffer;
+
+    try {
+      const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as ArrayBuffer);
+        reader.onerror = (e) => reject(e);
+        reader.readAsArrayBuffer(file);
+      });
+
+      this.romBuffer = buffer;
       this.parentRef?.showNotification(`Loaded ${this.romName}`);
-    };
-    reader.onerror = (e) => {
-      console.error(e);
-      this.parentRef?.showNotification('Failed to read ROM file');
-    };
-    reader.readAsArrayBuffer(file);
-    const emulatorControls = await createMupen64PlusWeb({
 
-  // REQUIRED: This canvas' id has to be 'canvas' for... reasons
-  canvas: document.getElementById('screen'),
+      const canvasEl = this.screen?.nativeElement as HTMLCanvasElement | undefined;
+      if (!canvasEl) {
+        this.parentRef?.showNotification('No canvas available');
+        return;
+      }
+      // some runtimes expect id 'canvas'
+      if (canvasEl.id !== 'canvas') canvasEl.id = 'canvas';
 
-  // REQUIRED: An arraybuffer containing the rom data to play
-  romData: this.romBuffer,
+      // Initialize mupen64plus-web with the ROM bytes and canvas
+      this.instance = await createMupen64PlusWeb({
+        canvas: canvasEl,
+        romData: new Int8Array(this.romBuffer),
+        beginStats: () => {},
+        endStats: () => {},
+        coreConfig: { emuMode: 0 },
+        setErrorStatus: (errorMessage: string) => {
+          console.log('Mupen error:', errorMessage);
+        }
+      });
 
-  // OPTIONAL: These get called roughly before and after each frame
-  beginStats: () => {},
-  endStats: () => {},
-
-  // OPTIONAL
-  coreConfig: {
-    emuMode: 0 // 0=pure-interpretter (default)(seems to be more stable), 1=cached
-  },
-
-//   // OPTIONAL
-//   netplayConfig: {
-//     player: 1, // The player (1-4) that we would like to control
-//     reliableChannel: myChannel, // websocket-like object that can send and receive the 'tcp' messages described at https://mupen64plus.org/wiki/index.php?title=Mupen64Plus_v2.0_Core_Netplay_Protocol
-//     unreliableChannel: myChannel2, // websocket-like object that can send and receive the 'udp' messages described at the link above
-//   },
-
-//   // OPTIONAL - Can be used to point to files that the emulator needs if they are moved for whatever reason
-//   locateFile: (path: string, prefix: string) => {
-
-//     const publicURL = process.env.PUBLIC_URL;
-
-//     if (path.endsWith('.wasm') || path.endsWith('.data')) {
-//       return publicURL + "/dist/" + path;
-//     }
-
-//     return prefix + path;
-//   },
-
-  // OPTIONAL - Can be used to get notifications for uncaught exceptions
-  setErrorStatus: (errorMessage: string) => {
-    console.log("errorMessage: %s", errorMessage);
-  }
-});
-
-emulatorControls.start();
-
-emulatorControls.pause();
-
-emulatorControls.resume();
-console.log("Started?");
+      if (this.instance && typeof this.instance.start === 'function') {
+        await this.instance.start();
+        this.status = 'running';
+      }
+    } catch (e) {
+      console.error('Failed to load ROM / initialize emulator', e);
+      this.parentRef?.showNotification('Failed to load ROM');
+    }
   }
 
   async boot() {

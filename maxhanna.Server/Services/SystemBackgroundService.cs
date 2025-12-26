@@ -123,7 +123,7 @@ namespace maxhanna.Server.Services
 		}
 		private async Task RunOneMinuteTasks()
 		{
-			await _aiController.AnalyzeAndRenameFile();
+			//await _aiController.AnalyzeAndRenameFile();
 		}
 		private async Task RunFiveMinuteTasks()
 		{
