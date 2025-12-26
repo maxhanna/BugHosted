@@ -65,6 +65,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         coreConfig: { emuMode: 0 },
         setErrorStatus: (errorMessage: string) => {
           console.log('Mupen error:', errorMessage);
+        },
+        // Ensure the Emscripten module locates its .wasm/.data files from our assets folder
+        locateFile: (path: string, prefix?: string) => {
+          return `/assets/mupen64plus/${path}`;
         }
       });
 
