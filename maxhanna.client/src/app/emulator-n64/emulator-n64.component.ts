@@ -1,6 +1,6 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import createMupen64PlusWeb from 'mupen64plus-web';
+import createMupen64PlusWeb, { writeAutoInputConfig } from 'mupen64plus-web';
 
 @Component({
   selector: 'app-emulator-n64',
@@ -21,6 +21,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   selectedGamepadIndex: number | null = null;
   private _gpPoller = 0;
   private _originalGetGamepads: any = null;
+  // mapping: N64 control name -> { type: 'button'|'axis', index: number, axisDir?: 1|-1 }
+  mapping: Record<string, any> = {};
+  n64Controls = ['A Button','B Button','Z Trig','Start','DPad U','DPad D','DPad L','DPad R','C Button U','C Button D','C Button L','C Button R','L Trig','R Trig','Analog X+','Analog X-','Analog Y+','Analog Y-'];
+  private _recordingFor: string | null = null;
+  exportText: string | null = null;
 
   constructor() {
     super();
@@ -30,6 +35,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   ngOnDestroy(): void { 
     this.restoreGamepadGetter();
   } 
+
+  // load saved mapping on init if present
+  private _mappingKey = 'n64_gamepad_mapping_v1';
 
   async onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
@@ -93,6 +101,133 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.romInput.nativeElement.value = '';
     this.romBuffer = undefined;
     this.romName = undefined;
+  }
+
+  // -- Mapping helpers -------------------------------------------------------
+  startRecording(control: string) {
+    this._recordingFor = control;
+    this.parentRef?.showNotification(`Recording mapping for ${control}. Press a button on the controller.`);
+    // start a short-term poller to capture the first pressed button
+    const cap = () => {
+      const g = navigator.getGamepads ? navigator.getGamepads() : [];
+      for (let i = 0; i < g.length; i++) {
+        const gp = g[i];
+        if (!gp) continue;
+        for (let b = 0; b < gp.buttons.length; b++) {
+          if ((gp.buttons[b] as any).pressed) {
+            this.mapping[control] = { type: 'button', index: b, gpIndex: gp.index };
+            this._recordingFor = null;
+            this.parentRef?.showNotification(`${control} mapped to button ${b} (gamepad ${gp.index})`);
+            return;
+          }
+        }
+        // simple axis capture (if axis beyond threshold)
+        for (let a = 0; a < gp.axes.length; a++) {
+          const v = gp.axes[a];
+          if (Math.abs(v) > 0.7) {
+            this.mapping[control] = { type: 'axis', index: a, axisDir: v > 0 ? 1 : -1, gpIndex: gp.index };
+            this._recordingFor = null;
+            this.parentRef?.showNotification(`${control} mapped to axis ${a} ${v > 0 ? '+' : '-'}`);
+            return;
+          }
+        }
+      }
+      if (this._recordingFor) {
+        setTimeout(cap, 200);
+      }
+    };
+    cap();
+  }
+
+  formatMapping(m: any) {
+    if (!m) return '';
+    if (m.type === 'button') return `button ${m.index} (gp ${m.gpIndex})`;
+    if (m.type === 'axis') return `axis ${m.index} ${m.axisDir === 1 ? '+' : '-' } (gp ${m.gpIndex})`;
+    return JSON.stringify(m);
+  }
+
+  saveMapping() {
+    try {
+      localStorage.setItem(this._mappingKey, JSON.stringify(this.mapping || {}));
+      this.parentRef?.showNotification('Mapping saved');
+    } catch (e) {
+      console.error('Failed to save mapping', e);
+    }
+  }
+
+  loadMapping() {
+    try {
+      const raw = localStorage.getItem(this._mappingKey);
+      if (raw) {
+        this.mapping = JSON.parse(raw);
+        this.parentRef?.showNotification('Mapping loaded');
+      } else {
+        this.parentRef?.showNotification('No saved mapping found');
+      }
+    } catch (e) {
+      console.error('Failed to load mapping', e);
+    }
+  }
+
+  exportMapping() {
+    // Provide JSON and a simple INI-like snippet for manual insertion into InputAutoCfg
+    const json = JSON.stringify(this.mapping, null, 2);
+    const lines: string[] = ['# N64 mapping export (manual format)'];
+    for (const ctrl of Object.keys(this.mapping)) {
+      const m = this.mapping[ctrl];
+      if (m.type === 'button') {
+        lines.push(`${ctrl} = button(${m.gpIndex}, ${m.index})`);
+      } else if (m.type === 'axis') {
+        lines.push(`${ctrl} = axis(${m.gpIndex}, ${m.index}, ${m.axisDir})`);
+      } else {
+        lines.push(`${ctrl} = ${JSON.stringify(m)}`);
+      }
+    }
+    this.exportText = `JSON:\n${json}\n\nINI-LIKE:\n${lines.join('\n')}`;
+  }
+
+  /** Apply the current mapping into the emulator's InputAutoCfg (IDBFS) and restart emulator. */
+  async applyMappingToEmulator() {
+    try {
+      // Build config entries from our mapping object
+      const config: Record<string, string> = {};
+      for (const key of Object.keys(this.mapping)) {
+        const m = this.mapping[key];
+        if (!m) continue;
+        if (m.type === 'button') {
+          config[key] = `button(${m.index})`;
+        } else if (m.type === 'axis') {
+          // use single-side axis notation, e.g. axis(0+)
+          config[key] = `axis(${m.index}${m.axisDir === -1 ? '-' : '+'})`;
+        }
+      }
+
+      // Decide joystick name using one of the mapped gpIndex values
+      const anyEntry = Object.values(this.mapping).find((v: any) => v && v.gpIndex != null);
+      const gpIndex = anyEntry ? anyEntry.gpIndex : this.selectedGamepadIndex;
+      const gp = (navigator.getGamepads ? navigator.getGamepads() : [])[gpIndex ?? 0];
+      const joyName = (gp && gp.id) ? gp.id : `Custom Gamepad ${gpIndex ?? 0}`;
+
+      // Stop emulator if running
+      const wasRunning = !!this.instance || this.status === 'running';
+      if (wasRunning) {
+        await this.stop();
+        // small pause to ensure IDBFS is writable
+        await new Promise((r) => setTimeout(r, 150));
+      }
+
+      // write config into emulator IDBFS
+      await writeAutoInputConfig(joyName, config as any);
+      this.parentRef?.showNotification('Applied mapping to emulator configuration');
+
+      // restart emulator if it was running
+      if (wasRunning) {
+        await this.boot();
+      }
+    } catch (e) {
+      console.error('Failed to apply mapping to emulator', e);
+      this.parentRef?.showNotification('Failed to apply mapping');
+    }
   }
 
   /** Called when user picks a different controller in the UI. */

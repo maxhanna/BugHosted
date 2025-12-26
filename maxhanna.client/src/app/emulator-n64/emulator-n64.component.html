@@ -17,6 +17,25 @@
       <button (click)="stopGamepadLogging()">Stop Log</button>
     </div>
 
+    <div class="mapping-controls">
+      <h4>Controller Mapping</h4>
+      <div *ngFor="let ctrl of n64Controls">
+        <label>{{ctrl}}:
+          <span *ngIf="mapping[ctrl]">{{formatMapping(mapping[ctrl])}}</span>
+          <button (click)="startRecording(ctrl)">Record</button>
+        </label>
+      </div>
+      <div class="map-actions">
+        <button (click)="saveMapping()">Save Mapping</button>
+        <button (click)="loadMapping()">Load Mapping</button>
+        <button (click)="exportMapping()">Export Mapping</button>
+      </div>
+      <div *ngIf="exportText">
+        <h5>Export</h5>
+        <textarea rows="8" cols="60" readonly>{{exportText}}</textarea>
+      </div>
+    </div>
+
     <div class="btns"> 
       <button (click)="clearSelection()">Clear</button>
     </div>
