@@ -1,5 +1,4 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { N64EmulatorService } from './n64-emulator.service';
 import { ChildComponent } from '../child.component';
 import createMupen64PlusWeb from 'mupen64plus-web';
 
@@ -94,6 +93,118 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.romInput.nativeElement.value = '';
     this.romBuffer = undefined;
     this.romName = undefined;
+  }
+
+  /** Called when user picks a different controller in the UI. */
+  async onSelectGamepad(value: string | number) {
+    const idx = Number(value);
+    this.selectedGamepadIndex = Number.isNaN(idx) ? null : idx;
+    // update the list (keep the explicit selection)
+    this.refreshGamepads();
+
+    // If emulator is currently running, restart it so it binds the new controller
+    if (this.instance || this.status === 'running') {
+      try {
+        // stop current instance (restores getGamepads)
+        await this.stop();
+        // small delay to ensure resources are cleaned up
+        await new Promise((r) => setTimeout(r, 120));
+        // boot will reapply the gamepad reorder and start the emulator
+        await this.boot();
+      } catch (e) {
+        console.error('Failed to restart emulator with new controller', e);
+        this.parentRef?.showNotification('Failed to restart emulator with selected controller');
+      }
+    }
+  }
+
+  // -- Emulator control methods ---------------------------------------------
+  async boot() {
+    if (!this.romBuffer) {
+      this.parentRef?.showNotification('Pick a ROM first');
+      return;
+    }
+    const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
+    if (!canvasEl) {
+      this.parentRef?.showNotification('No canvas available');
+      return;
+    }
+
+    this.loading = true;
+    this.status = 'booting';
+    try {
+      // ensure selected gamepad is exposed as player 1
+      this.applyGamepadReorder();
+
+      this.instance = await createMupen64PlusWeb({
+        canvas: canvasEl,
+        romData: new Int8Array(this.romBuffer!),
+        beginStats: () => {},
+        endStats: () => {},
+        coreConfig: { emuMode: 0 },
+        setErrorStatus: (errorMessage: string) => {
+          console.log('Mupen error:', errorMessage);
+        },
+        locateFile: (path: string, prefix?: string) => {
+          return `/assets/mupen64plus/${path}`;
+        }
+      });
+
+      if (this.instance && typeof this.instance.start === 'function') {
+        await this.instance.start();
+        this.status = 'running';
+        this.parentRef?.showNotification(`Booted ${this.romName}`);
+      } else {
+        this.status = 'error';
+        throw new Error('Emulator instance missing start method');
+      }
+    } catch (ex) {
+      console.error('Failed to boot emulator', ex);
+      this.status = 'error';
+      this.parentRef?.showNotification('Failed to boot emulator');
+      // ensure we restore patched getter on failure
+      this.restoreGamepadGetter();
+      throw ex;
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  async stop() {
+    try {
+      if (this.instance && typeof this.instance.stop === 'function') {
+        await this.instance.stop();
+      }
+    } catch (e) {
+      console.error('Error stopping emulator', e);
+    } finally {
+      this.instance = null;
+      this.status = 'stopped';
+      this.restoreGamepadGetter();
+      this.parentRef?.showNotification('Emulator stopped');
+    }
+  }
+
+  async pause() {
+    try {
+      if (this.instance && typeof this.instance.pause === 'function') {
+        await this.instance.pause();
+        this.status = 'paused';
+      }
+    } catch (e) {
+      console.error('Error pausing emulator', e);
+    }
+  }
+
+  async resume() {
+    try {
+      if (this.instance && typeof this.instance.resume === 'function') {
+        await this.instance.resume();
+        this.status = 'running';
+      }
+    } catch (e) {
+      console.error('Error resuming emulator', e);
+    }
   }
 
   // -- Gamepad helper methods -------------------------------------------------

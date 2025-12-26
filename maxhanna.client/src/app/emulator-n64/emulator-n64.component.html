@@ -7,7 +7,7 @@
 
     <div class="gamepad-controls">
       <label>Controller:
-        <select (change)="selectedGamepadIndex = +($any($event.target).value)" [value]="selectedGamepadIndex ?? ''">
+        <select (change)="onSelectGamepad($any($event.target).value)" [value]="selectedGamepadIndex ?? ''">
           <option value="" disabled *ngIf="!gamepads.length">-- No controllers --</option>
           <option *ngFor="let gp of gamepads" [value]="gp.index">{{gp.index}} — {{gp.id}} {{gp.mapping ? '(' + gp.mapping + ')' : ''}}</option>
         </select>
