@@ -26,6 +26,26 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   n64Controls = ['A Button','B Button','Z Trig','Start','DPad U','DPad D','DPad L','DPad R','C Button U','C Button D','C Button L','C Button R','L Trig','R Trig','Analog X+','Analog X-','Analog Y+','Analog Y-'];
   private _recordingFor: string | null = null;
   exportText: string | null = null;
+  private _runtimeTranslatorEnabled = false;
+  private _originalGetGamepadsRuntime: any = null;
+
+  // mapping of control name -> virtual button index that emulator will read (we choose a stable layout)
+  private _virtualIndexForControl: Record<string, number> = {
+    'A Button': 0,
+    'B Button': 1,
+    'Z Trig': 2,
+    'Start': 3,
+    'DPad U': 4,
+    'DPad D': 5,
+    'DPad L': 6,
+    'DPad R': 7,
+    'C Button U': 8,
+    'C Button D': 9,
+    'C Button L': 10,
+    'C Button R': 11,
+    'L Trig': 12,
+    'R Trig': 13
+  };
 
   constructor() {
     super();
@@ -257,6 +277,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       await writeAutoInputConfig(joyName, config as any);
       this.parentRef?.showNotification('Applied mapping to emulator configuration');
 
+      // enable runtime translator so mapping takes effect immediately without restart
+      this.enableRuntimeTranslator();
+
       // restart emulator if it was running
       if (wasRunning) {
         await this.boot();
@@ -352,6 +375,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } finally {
       this.instance = null;
       this.status = 'stopped';
+      // disable runtime translator if enabled
+      this.disableRuntimeTranslator();
       this.restoreGamepadGetter();
       this.parentRef?.showNotification('Emulator stopped');
     }
@@ -377,6 +402,88 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch (e) {
       console.error('Error resuming emulator', e);
     }
+  }
+
+  // -- Runtime translator ----------------------------------------------------
+  enableRuntimeTranslator() {
+    if (this._runtimeTranslatorEnabled) return;
+    try {
+      this._originalGetGamepadsRuntime = navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null;
+      const self = this;
+      navigator.getGamepads = function() {
+        const origArr = (self._originalGetGamepadsRuntime ? self._originalGetGamepadsRuntime() : []) || [];
+        const out: any[] = [];
+        for (let gi = 0; gi < origArr.length; gi++) {
+          const gp = origArr[gi];
+          if (!gp) { out.push(null); continue; }
+          // build virtual buttons array
+          const maxButtons = 16; // ensure enough slots
+          const virtButtons: any[] = [];
+          for (let i = 0; i < maxButtons; i++) {
+            virtButtons.push({ pressed: false, touched: false, value: 0 });
+          }
+          // copy original buttons to a temp map
+          const origButtons = (gp.buttons || []).map((b: any) => ({ pressed: !!b.pressed, value: b.value ?? (b.pressed ? 1 : 0) }));
+          // for each mapping entry that targets this physical gamepad, map into virtual indexes
+          for (const ctrl of Object.keys(self.mapping)) {
+            const m = self.mapping[ctrl];
+            if (!m || m.gpIndex == null) continue;
+            if (m.gpIndex !== gp.index) continue;
+            if (m.type === 'button') {
+              const phys = m.index;
+              const virt = self._virtualIndexForControl[ctrl];
+              if (virt == null) continue;
+              const b = origButtons[phys];
+              if (b) virtButtons[virt] = { pressed: !!b.pressed, touched: !!b.pressed, value: b.value };
+            }
+            // axis mapping: we will synthesize virtual axes by placing axis value in designated slots
+            if (m.type === 'axis') {
+              // find a virtual axis index for X/Y by convention: use 0 for X, 1 for Y
+              let virtAxisIndex = -1;
+              if (ctrl.startsWith('Analog X')) virtAxisIndex = 0;
+              if (ctrl.startsWith('Analog Y')) virtAxisIndex = 1;
+              // we'll store axes later
+            }
+          }
+          // Build virtual axes array
+          const origAxes = gp.axes || [];
+          const virtAxes: number[] = [];
+          // default to copying first two axes into the first two virtual slots
+          virtAxes[0] = origAxes[0] ?? 0;
+          virtAxes[1] = origAxes[1] ?? 0;
+          // create a virtual gamepad-like object
+          const vgp = {
+            id: gp.id,
+            index: gp.index,
+            connected: gp.connected,
+            mapping: gp.mapping,
+            axes: virtAxes,
+            buttons: virtButtons,
+            timestamp: gp.timestamp
+          };
+          out[gi] = vgp;
+        }
+        return out as any;
+      } as any;
+      this._runtimeTranslatorEnabled = true;
+      this.parentRef?.showNotification('Runtime input translator enabled');
+    } catch (e) {
+      console.error('Failed to enable runtime translator', e);
+    }
+  }
+
+  disableRuntimeTranslator() {
+    if (!this._runtimeTranslatorEnabled) return;
+    try {
+      if (this._originalGetGamepadsRuntime) {
+        navigator.getGamepads = this._originalGetGamepadsRuntime;
+        this._originalGetGamepadsRuntime = null;
+      }
+    } catch (e) {
+      // ignore
+    }
+    this._runtimeTranslatorEnabled = false;
+    this.parentRef?.showNotification('Runtime input translator disabled');
   }
 
   // -- Gamepad helper methods -------------------------------------------------
