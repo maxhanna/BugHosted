@@ -331,6 +331,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       // ensure selected gamepad is exposed as player 1
       this.applyGamepadReorder();
 
+      // enable runtime translator before module init so SDL/JSEvents sees gamepad support
+      if (Object.keys(this.mapping).length || this.selectedGamepadIndex !== null) {
+        this.enableRuntimeTranslator();
+      }
+
       this.instance = await createMupen64PlusWeb({
         canvas: canvasEl,
         romData: new Int8Array(this.romBuffer!),
