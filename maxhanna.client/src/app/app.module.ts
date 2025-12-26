@@ -95,6 +95,7 @@ import { WordlerHighScoresComponent } from './wordler-high-scores/wordler-high-s
 import { CryptoNewsArticlesComponent } from './crypto-news-articles/crypto-news-articles.component';
 import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
 import { BonesComponent } from './bones/bones.component';
+import { EmulatorN64Component } from './emulator-n64/emulator-n64.component';
 import { DailyMusicComponent } from './daily-music/daily-music.component';
 import { ProfileWidgetsComponent } from './profile-widgets/profile-widgets.component';
 import { BonesHighScoresComponent } from './bones-high-scores/bones-high-scores.component';
@@ -183,6 +184,7 @@ import { CurrentlyPlayingComponent } from './currently-playing/currently-playing
     WordlerHighScoresComponent,
     DailyMusicComponent,
   ProfileWidgetsComponent,
+  EmulatorN64Component,
     NewUsersComponent,
     CurrentlyPlayingComponent,
   ],
