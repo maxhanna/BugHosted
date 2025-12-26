@@ -179,7 +179,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           if (!gp) continue;
           // light console output for debugging while emulator runs
           // show active buttons
-          const pressed = gp.buttons.map((b,bi) => b.pressed ? bi : -1).filter((v) => v >= 0);
+          const pressed = (gp.buttons as any[]).map((b: any, bi: number) => b.pressed ? bi : -1).filter((v: number) => v >= 0);
           if (pressed.length) console.log(`[Gamepad ${gp.index}] ${gp.id} pressed:`, pressed);
         }
       } catch (e) {
@@ -211,7 +211,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const selected = arr[sel];
         if (!selected) return arr;
         // Put selected at index 0, keep others in the same order skipping selected
-        const reordered = [selected, ...arr.filter((_, i) => i !== sel)];
+        const reordered = [selected, ...arr.filter((_: any, i: number) => i !== sel)];
         return reordered;
       };
     } catch (e) {
