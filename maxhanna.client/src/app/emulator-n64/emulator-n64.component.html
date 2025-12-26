@@ -1,0 +1,22 @@
+<div class="n64-emulator-root">
+  <div class="controls">
+    <label class="file-label">
+      ROM file:
+      <input #romInput type="file" accept=".z64,.n64,.v64,.rom" (change)="onFileSelected($event)" />
+    </label>
+
+    <div class="btns">
+      <button (click)="boot()" [disabled]="loading">Boot</button>
+      <button (click)="pause()" [disabled]="status !== 'running'">Pause</button>
+      <button (click)="resume()" [disabled]="status !== 'paused'">Resume</button>
+      <button (click)="stop()">Stop</button>
+      <button (click)="clearSelection()">Clear</button>
+    </div>
+  </div>
+
+  <div class="status">Status: {{ status }} <span *ngIf="romName">— {{ romName }}</span></div>
+
+  <div class="screen-wrap">
+    <canvas #screen width="640" height="480" class="n64-canvas"></canvas>
+  </div>
+</div>

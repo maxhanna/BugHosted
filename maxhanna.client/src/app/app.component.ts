@@ -41,6 +41,7 @@ import { MastermindComponent } from './mastermind/mastermind.component';
 import { ArtComponent } from './art/art.component';
 import { EnderComponent } from './ender/ender.component';
 import { BonesComponent } from './bones/bones.component';
+import { EmulatorN64Component } from './emulator-n64/emulator-n64.component';
 
 
 @Component({
@@ -102,6 +103,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🧐", title: "HostAi", content: undefined },
     { ownership: 0, icon: "🕸️", title: "Crawler", content: undefined },
     { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
+    { ownership: 0, icon: "N", title: "N64Emulator", content: undefined },
     { ownership: 0, icon: "👤", title: "User", content: undefined },
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
     { ownership: 0, icon: "ℹ️", title: "Help", content: undefined },
@@ -279,6 +281,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       ownership: 0,
       title: 'Theme',
       content: `Change the site's theme! Share your theme with others or use a theme someone else has shared!`
+    },
+    {
+      ownership: 0,
+      title: 'N64Emulator',
+      content: `Our N64 emulator allows users to play Nintendo 64 games directly in their browser!`
     }
   ];
 
@@ -321,6 +328,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Crawler": CrawlerComponent,
     "Meme": MemeComponent,
     "Top100": TopComponent,
+    "N64Emulator": EmulatorN64Component,
     "Ender": EnderComponent,
     "Bones": BonesComponent,
     "Notifications": NotificationsComponent,
