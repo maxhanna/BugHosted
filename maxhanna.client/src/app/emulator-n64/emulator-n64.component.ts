@@ -1,6 +1,7 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { N64EmulatorService } from './n64-emulator.service';
 import { ChildComponent } from '../child.component';
+import createMupen64PlusWeb from 'mupen64plus-web';
 
 @Component({
   selector: 'app-emulator-n64',
@@ -15,7 +16,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   loading = false;
   status = 'idle';
   romName?: string;
-
   private romBuffer?: ArrayBuffer;
   private instance: any;
 
@@ -28,7 +28,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.stop();
   }
 
-  onFileSelected(event: Event) {
+
+
+
+  async onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files && input.files[0];
     if (!file) return;
@@ -43,6 +46,54 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.parentRef?.showNotification('Failed to read ROM file');
     };
     reader.readAsArrayBuffer(file);
+    const emulatorControls = await createMupen64PlusWeb({
+
+  // REQUIRED: This canvas' id has to be 'canvas' for... reasons
+  canvas: document.getElementById('screen'),
+
+  // REQUIRED: An arraybuffer containing the rom data to play
+  romData: this.romBuffer,
+
+  // OPTIONAL: These get called roughly before and after each frame
+  beginStats: () => {},
+  endStats: () => {},
+
+  // OPTIONAL
+  coreConfig: {
+    emuMode: 0 // 0=pure-interpretter (default)(seems to be more stable), 1=cached
+  },
+
+//   // OPTIONAL
+//   netplayConfig: {
+//     player: 1, // The player (1-4) that we would like to control
+//     reliableChannel: myChannel, // websocket-like object that can send and receive the 'tcp' messages described at https://mupen64plus.org/wiki/index.php?title=Mupen64Plus_v2.0_Core_Netplay_Protocol
+//     unreliableChannel: myChannel2, // websocket-like object that can send and receive the 'udp' messages described at the link above
+//   },
+
+//   // OPTIONAL - Can be used to point to files that the emulator needs if they are moved for whatever reason
+//   locateFile: (path: string, prefix: string) => {
+
+//     const publicURL = process.env.PUBLIC_URL;
+
+//     if (path.endsWith('.wasm') || path.endsWith('.data')) {
+//       return publicURL + "/dist/" + path;
+//     }
+
+//     return prefix + path;
+//   },
+
+  // OPTIONAL - Can be used to get notifications for uncaught exceptions
+  setErrorStatus: (errorMessage: string) => {
+    console.log("errorMessage: %s", errorMessage);
+  }
+});
+
+emulatorControls.start();
+
+emulatorControls.pause();
+
+emulatorControls.resume();
+console.log("Started?");
   }
 
   async boot() {
