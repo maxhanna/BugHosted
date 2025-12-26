@@ -28,6 +28,7 @@
     "chart.js": "^4.4.3",
     "firebase": "^12.4.0",
     "jest-editor-support": "*",
+    "mupen64plus-web": "^2.0.0",
     "ng2-charts": "^6.0.1",
     "nostalgist": "^0.16.0",
     "run-script-os": "*",
