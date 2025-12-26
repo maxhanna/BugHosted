@@ -5,7 +5,8 @@ import { ChildComponent } from '../child.component';
 @Component({
   selector: 'app-emulator-n64',
   templateUrl: './emulator-n64.component.html',
-  styleUrls: ['./emulator-n64.component.css']
+  styleUrls: ['./emulator-n64.component.css'],
+  standalone: false
 })
 export class EmulatorN64Component extends ChildComponent implements OnInit, OnDestroy {
   @ViewChild('romInput') romInput!: ElementRef<HTMLInputElement>;
