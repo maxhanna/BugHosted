@@ -5,6 +5,18 @@
       <input #romInput type="file" accept=".z64,.n64,.v64,.rom" (change)="onFileSelected($event)" />
     </label>
 
+    <div class="gamepad-controls">
+      <label>Controller:
+        <select (change)="selectedGamepadIndex = +($event.target.value)" [value]="selectedGamepadIndex ?? ''">
+          <option value="" disabled *ngIf="!gamepads.length">-- No controllers --</option>
+          <option *ngFor="let gp of gamepads" [value]="gp.index">{{gp.index}} — {{gp.id}} {{gp.mapping ? '(' + gp.mapping + ')' : ''}}</option>
+        </select>
+      </label>
+      <button (click)="refreshGamepads()">Refresh</button>
+      <button (click)="startGamepadLogging()">Start Log</button>
+      <button (click)="stopGamepadLogging()">Stop Log</button>
+    </div>
+
     <div class="btns">
       <button (click)="boot()" [disabled]="loading">Boot</button>
       <button (click)="pause()" [disabled]="status !== 'running'">Pause</button>
