@@ -23,18 +23,14 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private _gpPoller = 0;
   private _originalGetGamepads: any = null;
 
-  constructor(private n64Service: N64EmulatorService) {
+  constructor() {
     super();
   }
 
   ngOnInit(): void {}
-  ngOnDestroy(): void {
-    this.stop();
+  ngOnDestroy(): void { 
     this.restoreGamepadGetter();
-  }
-
-
-
+  } 
 
   async onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
@@ -92,55 +88,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.parentRef?.showNotification('Failed to load ROM');
     }
   }
-
-  async boot() {
-    if (!this.romBuffer) {
-      this.parentRef?.showNotification('Pick a ROM first');
-      return;
-    }
-    if (!this.canvas) {
-      this.parentRef?.showNotification('No canvas available');
-      return;
-    }
-
-    this.loading = true;
-    this.status = 'booting';
-    try {
-      // Ensure selected gamepad is exposed as player 1 before booting
-      this.applyGamepadReorder();
-      this.instance = await this.n64Service.bootRom(this.romBuffer!, this.canvas.nativeElement, {});
-      this.status = 'running';
-      this.parentRef?.showNotification(`Booted ${this.romName}`);
-    } catch (ex) {
-      console.error(ex);
-      this.status = 'error';
-      this.parentRef?.showNotification('Failed to boot ROM: ' + ex);
-    } finally {
-      this.loading = false;
-    }
-  }
-
-  async stop() {
-    try {
-      await this.n64Service.stop();
-      this.status = 'stopped';
-      this.parentRef?.showNotification('Emulator stopped');
-    } catch (e) {
-      console.error(e);
-    }
-    // restore navigator.getGamepads to original behavior
-    this.restoreGamepadGetter();
-  }
-
-  async pause() {
-    await this.n64Service.pause();
-    this.status = 'paused';
-  }
-
-  async resume() {
-    await this.n64Service.resume();
-    this.status = 'running';
-  }
+  
 
   clearSelection() {
     this.romInput.nativeElement.value = '';

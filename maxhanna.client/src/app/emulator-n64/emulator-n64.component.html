@@ -17,11 +17,7 @@
       <button (click)="stopGamepadLogging()">Stop Log</button>
     </div>
 
-    <div class="btns">
-      <button (click)="boot()" [disabled]="loading">Boot</button>
-      <button (click)="pause()" [disabled]="status !== 'running'">Pause</button>
-      <button (click)="resume()" [disabled]="status !== 'paused'">Resume</button>
-      <button (click)="stop()">Stop</button>
+    <div class="btns"> 
       <button (click)="clearSelection()">Clear</button>
     </div>
   </div>
