@@ -56,10 +56,9 @@ export class N64EmulatorService {
     // Final fallback: if a module named `n64-wasm` is installed as an npm package,
     // try dynamic import. This will usually fail for this repo but keeps compatibility.
     try {
-      // Use a runtime-only dynamic import wrapper to avoid the bundler trying
-      // to resolve `n64-wasm` at build time when the package isn't installed.
-      // `new Function` prevents static analysis by webpack/rollup.
-      const mod = await new Function('p', 'return import(p)')('n64-wasm');
+      // Use a normal dynamic import so the bundler will include `n64-wasm`
+      // when it is installed in `package.json`.
+      const mod = await import('n64-wasm');
       this.engine = mod?.default ?? mod;
       return this.engine;
     } catch (e) {
