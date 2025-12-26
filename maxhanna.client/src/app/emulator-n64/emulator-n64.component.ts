@@ -11,7 +11,7 @@ import createMupen64PlusWeb from 'mupen64plus-web';
 })
 export class EmulatorN64Component extends ChildComponent implements OnInit, OnDestroy {
   @ViewChild('romInput') romInput!: ElementRef<HTMLInputElement>;
-  @ViewChild('screen') screen!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('canvas') canvas!: ElementRef<HTMLCanvasElement>;
 
   loading = false;
   status = 'idle';
@@ -48,7 +48,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.romBuffer = buffer;
       this.parentRef?.showNotification(`Loaded ${this.romName}`);
 
-      const canvasEl = this.screen?.nativeElement as HTMLCanvasElement | undefined;
+      const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
       if (!canvasEl) {
         this.parentRef?.showNotification('No canvas available');
         return;
@@ -83,7 +83,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.parentRef?.showNotification('Pick a ROM first');
       return;
     }
-    if (!this.screen) {
+    if (!this.canvas) {
       this.parentRef?.showNotification('No canvas available');
       return;
     }
@@ -91,7 +91,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.loading = true;
     this.status = 'booting';
     try {
-      this.instance = await this.n64Service.bootRom(this.romBuffer!, this.screen.nativeElement, {});
+      this.instance = await this.n64Service.bootRom(this.romBuffer!, this.canvas.nativeElement, {});
       this.status = 'running';
       this.parentRef?.showNotification(`Booted ${this.romName}`);
     } catch (ex) {
