@@ -63,7 +63,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch (ex) {
       console.error(ex);
       this.status = 'error';
-      this.parentRef?.showNotification('Failed to boot ROM: ' + (ex?.message ?? ex));
+      this.parentRef?.showNotification('Failed to boot ROM: ' + ex);
     } finally {
       this.loading = false;
     }
