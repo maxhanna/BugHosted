@@ -173,12 +173,31 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     // Provide JSON and a simple INI-like snippet for manual insertion into InputAutoCfg
     const json = JSON.stringify(this.mapping, null, 2);
     const lines: string[] = ['# N64 mapping export (manual format)'];
+    const handled = new Set<string>();
+    // pair analog axes into X/Y Axis entries when both sides present
+    const tryPair = (minusKey: string, plusKey: string, axisName: string) => {
+      const mMinus = this.mapping[minusKey];
+      const mPlus = this.mapping[plusKey];
+      if (mMinus && mPlus && mMinus.type === 'axis' && mPlus.type === 'axis' && mMinus.gpIndex === mPlus.gpIndex) {
+        lines.push(`${axisName} = axis(${mMinus.index}-,${mPlus.index}+)`);
+        handled.add(minusKey);
+        handled.add(plusKey);
+        return true;
+      }
+      return false;
+    };
+
+    tryPair('Analog X-', 'Analog X+', 'X Axis');
+    tryPair('Analog Y-', 'Analog Y+', 'Y Axis');
+
     for (const ctrl of Object.keys(this.mapping)) {
+      if (handled.has(ctrl)) continue;
       const m = this.mapping[ctrl];
       if (m.type === 'button') {
-        lines.push(`${ctrl} = button(${m.gpIndex}, ${m.index})`);
+        lines.push(`${ctrl} = button(${m.index})`);
       } else if (m.type === 'axis') {
-        lines.push(`${ctrl} = axis(${m.gpIndex}, ${m.index}, ${m.axisDir})`);
+        // single-sided axis
+        lines.push(`${ctrl} = axis(${m.index}${m.axisDir === -1 ? '-' : '+'})`);
       } else {
         lines.push(`${ctrl} = ${JSON.stringify(m)}`);
       }
@@ -189,15 +208,33 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   /** Apply the current mapping into the emulator's InputAutoCfg (IDBFS) and restart emulator. */
   async applyMappingToEmulator() {
     try {
-      // Build config entries from our mapping object
+      // Build config entries from our mapping object, pairing analog axes when possible
       const config: Record<string, string> = {};
+      const handled = new Set<string>();
+
+      const pairAxis = (minusKey: string, plusKey: string, axisName: string) => {
+        const mMinus = this.mapping[minusKey];
+        const mPlus = this.mapping[plusKey];
+        if (mMinus && mPlus && mMinus.type === 'axis' && mPlus.type === 'axis' && mMinus.gpIndex === mPlus.gpIndex) {
+          // e.g. X Axis = axis(0-,0+)
+          config[axisName] = `axis(${mMinus.index}-,${mPlus.index}+)`;
+          handled.add(minusKey);
+          handled.add(plusKey);
+          return true;
+        }
+        return false;
+      };
+
+      pairAxis('Analog X-', 'Analog X+', 'X Axis');
+      pairAxis('Analog Y-', 'Analog Y+', 'Y Axis');
+
       for (const key of Object.keys(this.mapping)) {
+        if (handled.has(key)) continue;
         const m = this.mapping[key];
         if (!m) continue;
         if (m.type === 'button') {
           config[key] = `button(${m.index})`;
         } else if (m.type === 'axis') {
-          // use single-side axis notation, e.g. axis(0+)
           config[key] = `axis(${m.index}${m.axisDir === -1 ? '-' : '+'})`;
         }
       }
