@@ -70,7 +70,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private _mappingKey = 'n64_gamepad_mapping_v1';
   // File-search UI state and allowed types for N64 ROMs
   showFileSearch = false;
-  n64Allowed = ['.z64', '.n64', '.v64', '.rom'];
 
   async onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
@@ -750,5 +749,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch (e) {
       // ignore
     }
+  }
+    getAllowedFileTypes(): string[] {
+    return this.fileService.n64FileExtensions;
   }
 }

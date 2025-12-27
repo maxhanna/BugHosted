@@ -23,7 +23,7 @@
     </div>
     <div *ngIf="showFileSearch" class="file-search-panel">
       <app-file-search 
-        [allowedFileTypes]="n64Allowed" 
+        [allowedFileTypes]="getAllowedRomFileTypes()" 
         (selectFileEvent)="onFileSearchSelected($event)" 
         [fileSearchMode]="true"
         [user]="parentRef?.user" 

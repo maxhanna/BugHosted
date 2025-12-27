@@ -38,6 +38,9 @@ export class FileService {
 		"d81", "d82", "atr", "xfd", "cas", "sap", "tzx", "pzx", "zx"
 	];
 
+	n64FileExtensions = [
+		"z64", "n64", "v64"
+	];
 
 	async getDirectory(
 		dir: string,
@@ -596,6 +599,7 @@ export class FileService {
 			return [];
 		}
 	}
+	
 	async massDelete(userId: number, fileIds: number[]) {
 		try {
 			const response = await fetch(`/file/massdelete`, {
@@ -612,6 +616,7 @@ export class FileService {
 			return null;
 		}
 	}
+
 	formatFileSize(bytes: number, decimalPoint: number = 2): string {
 		if (bytes === 0) return '0 Bytes';
 
