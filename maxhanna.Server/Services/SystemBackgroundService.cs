@@ -1,5 +1,7 @@
 ﻿using maxhanna.Server.Controllers;
 using maxhanna.Server.Controllers.DataContracts.Crypto;
+using maxhanna.Server.Controllers.DataContracts.Meta;
+using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.Helpers;
 using MySqlConnector;
 using Newtonsoft.Json;
@@ -2315,111 +2317,5 @@ namespace maxhanna.Server.Services
 		}
 
 	}
-	public class CoinResponse
-	{
-		public string? symbol { get; set; }
-		public string? name { get; set; }
-		public float rate { get; set; }
-	}
 
-	public class WalletInfo
-	{
-		public int Id { get; set; }
-		public int UserId { get; set; }
-		public string BtcAddress { get; set; } = string.Empty;
-	}
-
-	public class BTCWalletData
-	{
-		[JsonProperty("final_balance")]
-		public long FinalBalance { get; set; }
-
-		[JsonProperty("total_received")]
-		public long TotalReceived { get; set; }
-
-		[JsonProperty("total_sent")]
-		public long TotalSent { get; set; }
-	}
-}
-public class MetabotEncounter
-{
-	public int HeroId { get; }
-	public string Map { get; }
-	public int CoordsX { get; }
-	public int CoordsY { get; }
-	public string BotTypes { get; }
-	public int Level { get; }
-	public int Hp { get; }
-	public int HeadPartType { get; }
-	public int LegsPartType { get; }
-	public int LeftArmPartType { get; }
-	public int RightArmPartType { get; }
-
-	public MetabotEncounter(int heroId, string map, int coordsX, int coordsY, string botTypes,
-							int level, int hp, int headPart, int legsPart, int leftArm, int rightArm)
-	{
-		HeroId = heroId;
-		Map = map;
-		CoordsX = coordsX;
-		CoordsY = coordsY;
-		BotTypes = botTypes;
-		Level = level;
-		Hp = hp;
-		HeadPartType = headPart;
-		LegsPartType = legsPart;
-		LeftArmPartType = leftArm;
-		RightArmPartType = rightArm;
-	}
-}
-public class CoinMarketCalResponse
-{
-	[JsonProperty("body")]
-	public List<CryptoEvent>? Body { get; set; }
-}
-
-public class CryptoEvent
-{
-	[JsonProperty("id")]
-	public string? Id { get; set; }
-
-	[JsonProperty("title")]
-	public EventTitle? Title { get; set; }
-
-	[JsonProperty("coins")]
-	public List<EventCoin>? Coins { get; set; }
-
-	[JsonProperty("date_event")]
-	public DateTime DateEvent { get; set; }
-
-	[JsonProperty("created_date")]
-	public DateTime CreatedDate { get; set; }
-
-	[JsonProperty("source")]
-	public string? Source { get; set; }
-
-	[JsonProperty("description")]
-	public string? Description { get; set; }
-
-	[JsonProperty("is_hot")]
-	public bool IsHot { get; set; }
-
-	[JsonProperty("proof")]
-	public string? Proof { get; set; }
-
-	public string? TitleText => Title?.English;
-}
-
-public class EventTitle
-{
-	[JsonProperty("en")]
-	public string? English { get; set; }
-}
-
-public class EventCoin
-{
-	[JsonProperty("symbol")]
-	public string? Symbol { get; set; }
-
-	[JsonProperty("name")]
-	public string? Name { get; set; }
 }
