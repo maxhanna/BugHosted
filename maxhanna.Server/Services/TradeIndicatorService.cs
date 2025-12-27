@@ -206,8 +206,7 @@ namespace maxhanna.Server.Services
 			{
 				try
 				{
-					await EnsureDailyAverageTableExists(connection);
-					await UpsertTodayDailyAverage(connection, coinName);
+ 					await UpsertTodayDailyAverage(connection, coinName);
 
 					var maValueNullable = await ComputeMovingAverageFromDailyAverages(connection, coinName, 200);
 					if (maValueNullable == null)
