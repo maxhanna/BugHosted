@@ -174,8 +174,8 @@ namespace maxhanna.Server.Services
 			await DeleteNotificationRequests();
 			await DeleteHostAiRequests();
 			await DeleteOldCoinValueEntries();
+			await DeleteOldTradeVolumesSixMonths();
 			await DeleteOldNews();
-			await DeleteOldTradeVolumeEntries();
 			await DeleteOldCoinMarketCaps();
 			await DeleteOldEnderScores();
 			await _newsService.CreateDailyCryptoNewsStoryAsync();
@@ -2207,31 +2207,32 @@ namespace maxhanna.Server.Services
 				}
 			}
 		}
-		private async Task DeleteOldTradeVolumeEntries()
+
+		/// <summary>
+		/// Remove trade market volume rows older than 6 months while keeping
+		/// a single representative row per pair per hour (to preserve long-term
+		/// trend information at lower resolution).
+		/// </summary>
+		private async Task DeleteOldTradeVolumesSixMonths()
 		{
 			using (var conn = new MySqlConnection(_connectionString))
 			{
 				await conn.OpenAsync();
 
-				// Step 1: Delete records older than 1 year but younger than 10 years, keeping one per pair per 5-minute interval
+				// Delete records older than 6 months but keep one per pair per hour
 				var deleteSql = @"
 					DELETE FROM trade_market_volumes
-					WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
-					AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR)
+					WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 6 MONTH)
 					AND id NOT IN (
-						SELECT id
-						FROM (
+						SELECT id FROM (
 							SELECT id,
-									ROW_NUMBER() OVER (
-										PARTITION BY pair, 
-										UNIX_TIMESTAMP(timestamp) DIV (5 * 60) 
-										ORDER BY timestamp
-									) AS rn
+							ROW_NUMBER() OVER (
+								PARTITION BY pair,
+								UNIX_TIMESTAMP(timestamp) DIV (60 * 60)
+								ORDER BY timestamp
+							) AS rn
 							FROM trade_market_volumes
-							WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
-								AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR)
-								AND timestamp IS NOT NULL
-								AND pair IS NOT NULL
+							WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 6 MONTH)
 						) ranked
 						WHERE rn = 1
 					);";
@@ -2241,20 +2242,7 @@ namespace maxhanna.Server.Services
 					int rowsAffected = await deleteCmd.ExecuteNonQueryAsync();
 					if (rowsAffected > 0)
 					{
-						await _log.Db($"Deleted {rowsAffected} trade volume entries older than 1 year (keeping one per 5 minutes per pair)", null, "SYSTEM", true);
-					}
-				}
-
-				// Step 2: Delete records older than 10 years
-				var deleteOldSql = @"
-					DELETE FROM trade_market_volumes
-					WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR);";
-				using (var deleteOldCmd = new MySqlCommand(deleteOldSql, conn))
-				{
-					int rowsAffected = await deleteOldCmd.ExecuteNonQueryAsync();
-					if (rowsAffected > 0)
-					{
-						await _log.Db($"Deleted {rowsAffected} trade volume entries older than 10 years", null, "SYSTEM", true);
+						await _log.Db($"Deleted {rowsAffected} trade volume entries older than 6 months (kept 1 per hour per pair)", null, "SYSTEM", true);
 					}
 				}
 			}

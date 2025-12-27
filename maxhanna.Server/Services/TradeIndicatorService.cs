@@ -27,6 +27,9 @@ namespace maxhanna.Server.Services
 		private bool _isUpdating = false;
 		public bool IsUpdating => _isUpdating;
 
+		// Command timeout for long-running DB operations (seconds)
+		private const int DbCommandTimeoutSeconds = 120;
+
 		public TradeIndicatorService(IConfiguration config, Log log)
 		{
 			_config = config;
@@ -119,6 +122,7 @@ namespace maxhanna.Server.Services
                 AND updated >= UTC_TIMESTAMP() - INTERVAL 5 MINUTE";
 
 			using var cmd = new MySqlCommand(sql, connection);
+			cmd.CommandTimeout = DbCommandTimeoutSeconds;
 			cmd.Parameters.AddWithValue("@fromCoin", fromCoin);
 			cmd.Parameters.AddWithValue("@toCoin", toCoin);
 
@@ -151,6 +155,7 @@ namespace maxhanna.Server.Services
 				try
 				{
 					using var cmd = new MySqlCommand(sql, connection);
+					cmd.CommandTimeout = DbCommandTimeoutSeconds;
 					cmd.Parameters.AddWithValue("@coinName", coinName);
 
 					object? result = await cmd.ExecuteScalarAsync();
@@ -175,6 +180,7 @@ namespace maxhanna.Server.Services
                                 updated                         = UTC_TIMESTAMP();";
 
 					using var upd = new MySqlCommand(updateSql, connection);
+					upd.CommandTimeout = DbCommandTimeoutSeconds;
 					upd.Parameters.AddWithValue("@from", fromCoin);
 					upd.Parameters.AddWithValue("@to", toCoin);
 					upd.Parameters.AddWithValue("@flag", isAboveMovingAvg ? 1 : 0);
@@ -215,6 +221,7 @@ namespace maxhanna.Server.Services
 				try
 				{
 					using var cmd = new MySqlCommand(sql, connection);
+					cmd.CommandTimeout = DbCommandTimeoutSeconds;
 					cmd.Parameters.AddWithValue("@coinName", coinName);
 
 					object? result = await cmd.ExecuteScalarAsync();
@@ -239,6 +246,7 @@ namespace maxhanna.Server.Services
                                 updated                         = UTC_TIMESTAMP();";
 
 					using var upd = new MySqlCommand(updateSql, connection);
+					upd.CommandTimeout = DbCommandTimeoutSeconds;
 					upd.Parameters.AddWithValue("@from", fromCoin);
 					upd.Parameters.AddWithValue("@to", toCoin);
 					upd.Parameters.AddWithValue("@flag", isAboveMovingAvg ? 1 : 0);
@@ -279,6 +287,7 @@ namespace maxhanna.Server.Services
 				try
 				{
 					using var cmd = new MySqlCommand(sql, connection);
+					cmd.CommandTimeout = DbCommandTimeoutSeconds;
 					cmd.Parameters.AddWithValue("@coinName", coinName);
 
 					object? result = await cmd.ExecuteScalarAsync();
@@ -303,6 +312,7 @@ namespace maxhanna.Server.Services
                                 updated                         = UTC_TIMESTAMP();";
 
 					using var upd = new MySqlCommand(updateSql, connection);
+					upd.CommandTimeout = DbCommandTimeoutSeconds;
 					upd.Parameters.AddWithValue("@from", fromCoin);
 					upd.Parameters.AddWithValue("@to", toCoin);
 					upd.Parameters.AddWithValue("@flag", isAboveMovingAvg ? 1 : 0);
@@ -356,6 +366,7 @@ namespace maxhanna.Server.Services
 				try
 				{
 					using var cmd = new MySqlCommand(sql, connection);
+					cmd.CommandTimeout = DbCommandTimeoutSeconds;
 					cmd.Parameters.AddWithValue("@coinName", coinName);
 
 					using var reader = await cmd.ExecuteReaderAsync();
@@ -381,6 +392,7 @@ namespace maxhanna.Server.Services
                         updated = UTC_TIMESTAMP();";
 
 					using var updateCmd = new MySqlCommand(updateSql, connection);
+					updateCmd.CommandTimeout = DbCommandTimeoutSeconds;
 					updateCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
 					updateCmd.Parameters.AddWithValue("@toCoin", toCoin);
 					updateCmd.Parameters.AddWithValue("@rsi", rsi);
@@ -415,6 +427,7 @@ namespace maxhanna.Server.Services
 				try
 				{
 					using var cmd = new MySqlCommand(sql, connection);
+					cmd.CommandTimeout = DbCommandTimeoutSeconds;
 					cmd.Parameters.AddWithValue("@pair", pair);
 
 					var result = await cmd.ExecuteScalarAsync();
@@ -437,6 +450,7 @@ namespace maxhanna.Server.Services
                         updated = UTC_TIMESTAMP();";
 
 					using var updateCmd = new MySqlCommand(updateSql, connection);
+					updateCmd.CommandTimeout = DbCommandTimeoutSeconds;
 					updateCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
 					updateCmd.Parameters.AddWithValue("@toCoin", toCoin);
 					updateCmd.Parameters.AddWithValue("@isAboveVWAP", isAboveVWAP ? 1 : 0);
@@ -489,6 +503,7 @@ namespace maxhanna.Server.Services
 
 					using (var cmdHigh = new MySqlCommand(highSql, connection))
 					{
+						cmdHigh.CommandTimeout = DbCommandTimeoutSeconds;
 						cmdHigh.Parameters.AddWithValue("@coinName", coinName);
 						if (HighLookbackDays > 0)
 							cmdHigh.Parameters.AddWithValue("@Days", HighLookbackDays);
@@ -504,6 +519,7 @@ namespace maxhanna.Server.Services
 
 					using (var cmdCur = new MySqlCommand(curSql, connection))
 					{
+						cmdCur.CommandTimeout = DbCommandTimeoutSeconds;
 						cmdCur.Parameters.AddWithValue("@coinName", coinName);
 						object? resCur = await cmdCur.ExecuteScalarAsync();
 						if (resCur == null || resCur == DBNull.Value)
@@ -533,6 +549,7 @@ namespace maxhanna.Server.Services
                             updated                     = UTC_TIMESTAMP();";
 
 					using var upd = new MySqlCommand(updateSql, connection);
+						upd.CommandTimeout = DbCommandTimeoutSeconds;
 					upd.Parameters.AddWithValue("@from", fromCoin);
 					upd.Parameters.AddWithValue("@to", toCoin);
 					upd.Parameters.AddWithValue("@flag", withinBand ? 1 : 0);
@@ -586,6 +603,7 @@ namespace maxhanna.Server.Services
 				{
 					// Fetch data
 					using var cmd = new MySqlCommand(sql, connection);
+					cmd.CommandTimeout = DbCommandTimeoutSeconds;
 					cmd.Parameters.AddWithValue("@coinName", coinName);
 					using var reader = await cmd.ExecuteReaderAsync();
 
@@ -626,6 +644,7 @@ namespace maxhanna.Server.Services
                     updated = UTC_TIMESTAMP();";
 
 					using var updateCmd = new MySqlCommand(updateSql, connection);
+					updateCmd.CommandTimeout = DbCommandTimeoutSeconds;
 					updateCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
 					updateCmd.Parameters.AddWithValue("@toCoin", toCoin);
 					updateCmd.Parameters.AddWithValue("@histogram", latestHistogram);
@@ -744,6 +763,7 @@ namespace maxhanna.Server.Services
 				try
 				{
 					using var cmd = new MySqlCommand(sql, connection);
+					cmd.CommandTimeout = DbCommandTimeoutSeconds;
 					cmd.Parameters.AddWithValue("@pair", pair);
 
 					using var reader = await cmd.ExecuteReaderAsync();
@@ -774,6 +794,7 @@ namespace maxhanna.Server.Services
 							updated = UTC_TIMESTAMP();";
 
 					using var updateCmd = new MySqlCommand(updateSql, connection);
+					updateCmd.CommandTimeout = DbCommandTimeoutSeconds;
 					updateCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
 					updateCmd.Parameters.AddWithValue("@toCoin", toCoin);
 					updateCmd.Parameters.AddWithValue("@isAbove", isAboveAverage ? 1 : 0);
@@ -813,6 +834,7 @@ namespace maxhanna.Server.Services
 					LIMIT 1";
 
 				using var selectCmd = new MySqlCommand(selectSql, connection);
+				selectCmd.CommandTimeout = DbCommandTimeoutSeconds;
 				selectCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
 				selectCmd.Parameters.AddWithValue("@toCoin", toCoin);
 
@@ -844,6 +866,7 @@ namespace maxhanna.Server.Services
 					LIMIT 1";
 
 				using var checkCmd = new MySqlCommand(checkSql, connection);
+				checkCmd.CommandTimeout = DbCommandTimeoutSeconds;
 				checkCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
 				checkCmd.Parameters.AddWithValue("@toCoin", toCoin);
 
@@ -870,6 +893,7 @@ namespace maxhanna.Server.Services
 							VALUES (@fromCoin, @toCoin, UTC_TIMESTAMP(), UTC_TIMESTAMP())";
 
 						using var insertCmd = new MySqlCommand(insertSql, connection);
+						insertCmd.CommandTimeout = DbCommandTimeoutSeconds;
 						insertCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
 						insertCmd.Parameters.AddWithValue("@toCoin", toCoin);
 						await insertCmd.ExecuteNonQueryAsync();
@@ -892,6 +916,7 @@ namespace maxhanna.Server.Services
 						WHERE from_coin = @fromCoin AND to_coin = @toCoin AND end_time IS NULL";
 
 					using var updateCmd = new MySqlCommand(updateSql, connection);
+					updateCmd.CommandTimeout = DbCommandTimeoutSeconds;
 					updateCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
 					updateCmd.Parameters.AddWithValue("@toCoin", toCoin);
 					int rowsAffected = await updateCmd.ExecuteNonQueryAsync();
