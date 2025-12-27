@@ -1,6 +1,9 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import createMupen64PlusWeb, { writeAutoInputConfig } from 'mupen64plus-web';
+import { FileService } from '../../services/file.service';
+import { RomService } from '../../services/rom.service';
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
 
 @Component({
   selector: 'app-emulator-n64',
@@ -28,6 +31,12 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   exportText: string | null = null;
   private _runtimeTranslatorEnabled = false;
   private _originalGetGamepadsRuntime: any = null;
+  // When true, intercept browser gamepad inputs and "inject" into the
+  // emulator via synthetic keyboard events (direct-inject mode).
+  directInjectMode = false;
+  private _directInjectPoller = 0;
+  // previous pressed state per gpIndex+control key to avoid duplicate events
+  private _directPrevState: Record<string, boolean> = {};
 
   // mapping of control name -> virtual button index that emulator will read (we choose a stable layout)
   private _virtualIndexForControl: Record<string, number> = {
@@ -47,12 +56,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     'R Trig': 13
   };
 
-  constructor() {
+  constructor(private fileService: FileService, private romService: RomService) {
     super();
   }
 
   ngOnInit(): void {}
   ngOnDestroy(): void { 
+    this.disableDirectInject();
     this.restoreGamepadGetter();
   } 
 
@@ -120,23 +130,29 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   /** Handler for file selected from the file-search component. */
-  async onFileSearchSelected(file: any) {
+  async onFileSearchSelected(file: FileEntry) {
     try {
-      if (!file || !file.id) {
-        this.parentRef?.showNotification('Invalid file selected');
-        return;
-      }
+        if (!file) {
+            this.parentRef?.showNotification('Invalid file selected');
+            return;
+        }
       // Try to fetch the file bytes from the server endpoint. Adjust URL if your API differs.
-      const res = await fetch(`/File/${file.id}`);
-      if (!res.ok) {
+        const response = await this.romService.getRomFile(file.fileName ?? "", this.parentRef?.user?.id);
+ 
+      if (!response) {
         this.parentRef?.showNotification('Failed to download selected ROM');
         return;
       }
-      const buffer = await res.arrayBuffer();
+      const buffer = await response.arrayBuffer();
       this.romBuffer = buffer;
-      this.romName = file.fileName || file.name || `ROM-${file.id}`;
+      this.romName = file.fileName || "";
       this.parentRef?.showNotification(`Loaded ${this.romName} from search`);
-      // Optionally auto-boot or leave user to press Boot
+      // Auto-boot after selection for convenience
+      try {
+        await this.boot();
+      } catch (e) {
+        // boot will show notifications on failure
+      }
     } catch (e) {
       console.error('Error loading ROM from search', e);
       this.parentRef?.showNotification('Error loading ROM from search');
@@ -301,11 +317,16 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
 
       // write config into emulator IDBFS
+      console.debug('Applying mapping to emulator. joyName=', joyName, 'config=', config);
       await writeAutoInputConfig(joyName, config as any);
       this.parentRef?.showNotification('Applied mapping to emulator configuration');
 
       // enable runtime translator so mapping takes effect immediately without restart
-      this.enableRuntimeTranslator();
+      if (this.directInjectMode) {
+        this.enableDirectInject();
+      } else {
+        this.enableRuntimeTranslator();
+      }
 
       // restart emulator if it was running
       if (wasRunning) {
@@ -358,9 +379,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       // ensure selected gamepad is exposed as player 1
       this.applyGamepadReorder();
 
-      // enable runtime translator before module init so SDL/JSEvents sees gamepad support
+      // enable runtime translator (or direct inject) before module init so SDL/JSEvents
+      // sees gamepad support / we have a handler in place.
       if (Object.keys(this.mapping).length || this.selectedGamepadIndex !== null) {
-        this.enableRuntimeTranslator();
+        if (this.directInjectMode) this.enableDirectInject();
+        else this.enableRuntimeTranslator();
       }
 
       this.instance = await createMupen64PlusWeb({
@@ -409,6 +432,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.status = 'stopped';
       // disable runtime translator if enabled
       this.disableRuntimeTranslator();
+      this.disableDirectInject();
       this.restoreGamepadGetter();
       this.parentRef?.showNotification('Emulator stopped');
     }
@@ -516,6 +540,134 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
     this._runtimeTranslatorEnabled = false;
     this.parentRef?.showNotification('Runtime input translator disabled');
+  }
+
+  // -- Direct-inject mode: poll gamepads and synthesize input events (keyboard)
+  enableDirectInject() {
+    if (this._directInjectPoller) return;
+    this._directPrevState = {};
+    const poll = () => {
+      try {
+        const g = navigator.getGamepads ? navigator.getGamepads() : [];
+        for (let i = 0; i < g.length; i++) {
+          const gp = g[i];
+          if (!gp) continue;
+          // for every mapping entry, if it targets this gp index, map to keys
+          for (const ctrl of Object.keys(this.mapping)) {
+            const m = this.mapping[ctrl];
+            if (!m || m.gpIndex == null) continue;
+            if (m.gpIndex !== gp.index) continue;
+            const stateKey = `${gp.index}:${ctrl}`;
+            if (m.type === 'button') {
+              const pressed = !!(gp.buttons && gp.buttons[m.index] && (gp.buttons[m.index] as any).pressed);
+              const prev = !!this._directPrevState[stateKey];
+              const keyCode = this.getKeyForControl(ctrl);
+              if (pressed && !prev) {
+                this.dispatchKeyboard(keyCode, true);
+                this._directPrevState[stateKey] = true;
+              } else if (!pressed && prev) {
+                this.dispatchKeyboard(keyCode, false);
+                this._directPrevState[stateKey] = false;
+              }
+            }
+            if (m.type === 'axis') {
+              const aidx = m.index;
+              const val = (gp.axes && gp.axes[aidx]) || 0;
+              const plusKey = this.getKeyForControl(ctrl.replace(/[-+]$/, '+'));
+              const minusKey = this.getKeyForControl(ctrl.replace(/[-+]$/, '-'));
+              // threshold-based mapping
+              if (val > 0.5) {
+                const pk = `${gp.index}:${ctrl}:+`;
+                if (!this._directPrevState[pk]) {
+                  if (plusKey) this.dispatchKeyboard(plusKey, true);
+                  this._directPrevState[pk] = true;
+                }
+              } else {
+                const pk = `${gp.index}:${ctrl}:+`;
+                if (this._directPrevState[pk]) {
+                  if (plusKey) this.dispatchKeyboard(plusKey, false);
+                  this._directPrevState[pk] = false;
+                }
+              }
+              if (val < -0.5) {
+                const mk = `${gp.index}:${ctrl}:-`;
+                if (!this._directPrevState[mk]) {
+                  if (minusKey) this.dispatchKeyboard(minusKey, true);
+                  this._directPrevState[mk] = true;
+                }
+              } else {
+                const mk = `${gp.index}:${ctrl}:-`;
+                if (this._directPrevState[mk]) {
+                  if (minusKey) this.dispatchKeyboard(minusKey, false);
+                  this._directPrevState[mk] = false;
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Direct-inject poll error', e);
+      }
+      this._directInjectPoller = window.setTimeout(poll, 80) as any;
+    };
+    poll();
+    this.parentRef?.showNotification('Direct-inject input mode enabled');
+  }
+
+  disableDirectInject() {
+    if (this._directInjectPoller) {
+      clearTimeout(this._directInjectPoller as any);
+      this._directInjectPoller = 0;
+    }
+    this._directPrevState = {};
+    this.parentRef?.showNotification('Direct-inject input mode disabled');
+  }
+
+  // map a logical N64 control name to a keyboard code used for synthetic events
+  private getKeyForControl(ctrl: string): string | null {
+    const map: Record<string, string> = {
+      'A Button': 'KeyZ',
+      'B Button': 'KeyX',
+      'Z Trig': 'KeyA',
+      'Start': 'Enter',
+      'DPad U': 'ArrowUp',
+      'DPad D': 'ArrowDown',
+      'DPad L': 'ArrowLeft',
+      'DPad R': 'ArrowRight',
+      'C Button U': 'KeyI',
+      'C Button D': 'KeyK',
+      'C Button L': 'KeyJ',
+      'C Button R': 'KeyL',
+      'L Trig': 'KeyQ',
+      'R Trig': 'KeyW',
+      'Analog X+': 'ArrowRight',
+      'Analog X-': 'ArrowLeft',
+      'Analog Y+': 'ArrowDown',
+      'Analog Y-': 'ArrowUp'
+    };
+    return map[ctrl] || null;
+  }
+
+  // dispatch a synthetic keyboard event on the canvas so the emulator (SDL) can pick it up
+  private dispatchKeyboard(code: string | null, down: boolean) {
+    try {
+      if (!code) return;
+      const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
+      if (!canvasEl) return;
+      const eventType = down ? 'keydown' : 'keyup';
+      const ev = new KeyboardEvent(eventType, { bubbles: true, cancelable: true, code: code, key: code });
+      canvasEl.dispatchEvent(ev);
+      console.debug('Dispatched', eventType, 'for', code);
+    } catch (e) {
+      console.warn('Failed to dispatch keyboard event', e);
+    }
+  }
+
+  toggleDirectInject(enabled?: boolean) {
+    if (typeof enabled === 'boolean') this.directInjectMode = enabled;
+    else this.directInjectMode = !this.directInjectMode;
+    if (this.directInjectMode) this.enableDirectInject();
+    else this.disableDirectInject();
   }
 
   // -- Gamepad helper methods -------------------------------------------------
