@@ -58,6 +58,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   // load saved mapping on init if present
   private _mappingKey = 'n64_gamepad_mapping_v1';
+  // File-search UI state and allowed types for N64 ROMs
+  showFileSearch = false;
+  n64Allowed = ['.z64', '.n64', '.v64', '.rom'];
 
   async onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
@@ -113,6 +116,30 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch (e) {
       console.error('Failed to load ROM / initialize emulator', e);
       this.parentRef?.showNotification('Failed to load ROM');
+    }
+  }
+
+  /** Handler for file selected from the file-search component. */
+  async onFileSearchSelected(file: any) {
+    try {
+      if (!file || !file.id) {
+        this.parentRef?.showNotification('Invalid file selected');
+        return;
+      }
+      // Try to fetch the file bytes from the server endpoint. Adjust URL if your API differs.
+      const res = await fetch(`/File/${file.id}`);
+      if (!res.ok) {
+        this.parentRef?.showNotification('Failed to download selected ROM');
+        return;
+      }
+      const buffer = await res.arrayBuffer();
+      this.romBuffer = buffer;
+      this.romName = file.fileName || file.name || `ROM-${file.id}`;
+      this.parentRef?.showNotification(`Loaded ${this.romName} from search`);
+      // Optionally auto-boot or leave user to press Boot
+    } catch (e) {
+      console.error('Error loading ROM from search', e);
+      this.parentRef?.showNotification('Error loading ROM from search');
     }
   }
   

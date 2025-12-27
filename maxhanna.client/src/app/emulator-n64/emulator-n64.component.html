@@ -17,6 +17,13 @@
       <button (click)="stopGamepadLogging()">Stop Log</button>
     </div>
 
+    <div class="file-search-toggle">
+      <button (click)="showFileSearch = !showFileSearch">{{ showFileSearch ? 'Hide ROM Search' : 'Search ROMs' }}</button>
+    </div>
+    <div *ngIf="showFileSearch" class="file-search-panel">
+      <app-file-search [allowedFileTypes]="n64Allowed" (selectFileEvent)="onFileSearchSelected($event)" [fileSearchMode]="true"></app-file-search>
+    </div>
+
     <div class="mapping-controls">
       <h4>Controller Mapping</h4>
       <div *ngFor="let ctrl of n64Controls">
