@@ -1,6 +1,10 @@
 ﻿using MySqlConnector;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System;
+using System.Diagnostics;
+using System.Threading;
+using System.Linq;
 
 namespace maxhanna.Server.Services
 {
@@ -62,16 +66,16 @@ namespace maxhanna.Server.Services
 					}
 
 					bool success = true;
-					success &= await Update200DMA(connection, coin.fromCoin, coin.toCoin, coin.coinName);
-					success &= await Update14DMA(connection, coin.fromCoin, coin.toCoin, coin.coinName);
-					success &= await Update21DMA(connection, coin.fromCoin, coin.toCoin, coin.coinName);
-					success &= await UpdateRSI(connection, coin.fromCoin, coin.toCoin, coin.coinName);
-					success &= await UpdateVWAP(connection, coin.pair, coin.fromCoin, coin.toCoin);
-					success &= await UpdateRetracementFromHigh(connection, coin.fromCoin, coin.toCoin, coin.coinName);
-					success &= await UpdateMACD(connection, coin.fromCoin, coin.toCoin, coin.coinName);
-					success &= await UpdateVolumeAbove20DayAvg(connection, coin.pair, coin.fromCoin, coin.toCoin);
-					success &= await RecordSignalInterval(connection, coin.fromCoin, coin.toCoin);
-					success &= await UpdateAllCoinsMonthlyPerformance(connection);
+					success &= await ExecuteStep(() => Update200DMA(connection, coin.fromCoin, coin.toCoin, coin.coinName), "Update200DMA", coin.pair);
+					success &= await ExecuteStep(() => Update14DMA(connection, coin.fromCoin, coin.toCoin, coin.coinName), "Update14DMA", coin.pair);
+					success &= await ExecuteStep(() => Update21DMA(connection, coin.fromCoin, coin.toCoin, coin.coinName), "Update21DMA", coin.pair);
+					success &= await ExecuteStep(() => UpdateRSI(connection, coin.fromCoin, coin.toCoin, coin.coinName), "UpdateRSI", coin.pair);
+					success &= await ExecuteStep(() => UpdateVWAP(connection, coin.pair, coin.fromCoin, coin.toCoin), "UpdateVWAP", coin.pair);
+					success &= await ExecuteStep(() => UpdateRetracementFromHigh(connection, coin.fromCoin, coin.toCoin, coin.coinName), "UpdateRetracementFromHigh", coin.pair);
+					success &= await ExecuteStep(() => UpdateMACD(connection, coin.fromCoin, coin.toCoin, coin.coinName), "UpdateMACD", coin.pair);
+					success &= await ExecuteStep(() => UpdateVolumeAbove20DayAvg(connection, coin.pair, coin.fromCoin, coin.toCoin), "UpdateVolumeAbove20DayAvg", coin.pair);
+					success &= await ExecuteStep(() => RecordSignalInterval(connection, coin.fromCoin, coin.toCoin), "RecordSignalInterval", coin.pair);
+					success &= await ExecuteStep(() => UpdateAllCoinsMonthlyPerformance(connection), "UpdateAllCoinsMonthlyPerformance", coin.pair);
 
 					overallSuccess &= success;
 
@@ -135,6 +139,27 @@ namespace maxhanna.Server.Services
 				return false;
 			}
 			return true;
+		}
+
+		// Helper to execute a named step with timing and detailed logging.
+		private async Task<bool> ExecuteStep(Func<Task<bool>> stepFunc, string stepName, string pair)
+		{
+			var sw = Stopwatch.StartNew();
+			try
+			{
+				_ = _log.Db($"TISVC: Starting {stepName} for {pair}", null, "TISVC", true);
+				bool result = await stepFunc();
+				sw.Stop();
+				_ = _log.Db($"TISVC: Completed {stepName} for {pair} in {sw.ElapsedMilliseconds}ms (success={result})", null, "TISVC", true);
+				return result;
+			}
+			catch (Exception ex)
+			{
+				sw.Stop();
+				// Log full exception to capture timeout details and stack
+				_ = _log.Db($"TISVC: Exception in {stepName} for {pair}: {ex.Message}. Elapsed {sw.ElapsedMilliseconds}ms. Exception: {ex}", null, "TISVC", true);
+				return false;
+			}
 		}
 
 		private async Task<bool> Update200DMA(MySqlConnection connection, string fromCoin, string toCoin, string coinName)
