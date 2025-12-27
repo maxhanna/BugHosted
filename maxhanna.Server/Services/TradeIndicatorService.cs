@@ -166,12 +166,19 @@ namespace maxhanna.Server.Services
 		private async Task UpsertTodayDailyAverage(MySqlConnection connection, string coinName)
 		{
 			var sql = @"
-			INSERT INTO daily_price_averages (`name`, price_date, daily_usd_price)
-			SELECT @coinName, DATE(UTC_TIMESTAMP()), AVG(cv.value_usd)
-			FROM coin_value cv
-			WHERE cv.name = @coinName
-			  AND DATE(cv.timestamp) = DATE(UTC_TIMESTAMP())
-			ON DUPLICATE KEY UPDATE daily_usd_price = VALUES(daily_usd_price), updated_at = UTC_TIMESTAMP();";
+				INSERT INTO daily_price_averages (`name`, price_date, daily_usd_price, updated_at)
+				SELECT
+					@coinName                         AS `name`,
+					UTC_DATE()                        AS price_date,       -- today's UTC date
+					AVG(cv.value_usd)                 AS daily_usd_price,
+					UTC_TIMESTAMP()                   AS updated_at
+				FROM coin_value AS cv FORCE INDEX (ix_coin_value_name_ts)
+				WHERE cv.name = @coinName
+					AND cv.`timestamp` >= UTC_DATE()                           -- 00:00:00 UTC today
+					AND cv.`timestamp` <  UTC_DATE() + INTERVAL 1 DAY          -- 00:00:00 UTC tomorrow
+				ON DUPLICATE KEY UPDATE
+					daily_usd_price = VALUES(daily_usd_price),
+					updated_at      = VALUES(updated_at);";
 
 			using var cmd = new MySqlCommand(sql, connection);
 			cmd.CommandTimeout = DbCommandTimeoutSeconds;
