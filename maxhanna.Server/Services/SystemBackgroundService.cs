@@ -143,7 +143,7 @@ namespace maxhanna.Server.Services
 				_ = _log.Db("Skipping indicator update - already in progress", null, "TISVC", outputToConsole: true);
 			}
 		}
- 
+
 		private async Task RunHourlyTasks()
 		{
 			await AssignTrophies();
@@ -191,7 +191,7 @@ namespace maxhanna.Server.Services
 			var now = DateTime.Now;
 			var nextRun = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0).AddDays(1);
 			return nextRun - now;
-		} 
+		}
 
 		private async Task MoveInactiveEnderHeroes(int recentDisplacementHours = 8)
 		{
@@ -1364,7 +1364,7 @@ namespace maxhanna.Server.Services
 					var timeLeft = nextUpdateTime - DateTime.UtcNow;
 
 					await _log.Db($"Recent market cap data already exists. Next update in {timeLeft.Hours} hours and {timeLeft.Minutes} minutes.",
-								  null, "MCS", outputToConsole: true);
+									null, "MCS", outputToConsole: true);
 					return;
 				}
 
@@ -1997,26 +1997,26 @@ namespace maxhanna.Server.Services
 		}
 
 
-	private async Task CleanupOldFavourites()
-	{
-		try
+		private async Task CleanupOldFavourites()
 		{
-			await using var conn = new MySqlConnection(_connectionString);
-			await conn.OpenAsync();
-			string sql = @"DELETE FROM maxhanna.favourites WHERE created < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR) AND COALESCE(view_count,0) < 3;";
-			await using var cmd = new MySqlCommand(sql, conn);
-			int deleted = Convert.ToInt32(await cmd.ExecuteNonQueryAsync());
-			if (deleted > 0)
+			try
 			{
-				_ = _log.Db($"CleanupOldFavourites removed {deleted} rows", null, "SYSTEM");
+				await using var conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
+				string sql = @"DELETE FROM maxhanna.favourites WHERE created < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR) AND COALESCE(view_count,0) < 3;";
+				await using var cmd = new MySqlCommand(sql, conn);
+				int deleted = Convert.ToInt32(await cmd.ExecuteNonQueryAsync());
+				if (deleted > 0)
+				{
+					_ = _log.Db($"CleanupOldFavourites removed {deleted} rows", null, "SYSTEM");
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("CleanupOldFavourites failure: " + ex.Message, null, "SYSTEM", true);
 			}
 		}
-		catch (Exception ex)
-		{
-			_ = _log.Db("CleanupOldFavourites failure: " + ex.Message, null, "SYSTEM", true);
-		}
-	}
-		
+
 		private async Task FetchAndStoreCoinValues()
 		{
 			await StoreCoinValues();
@@ -2208,45 +2208,112 @@ namespace maxhanna.Server.Services
 			}
 		}
 
-		/// <summary>
-		/// Remove trade market volume rows older than 6 months while keeping
-		/// a single representative row per pair per hour (to preserve long-term
-		/// trend information at lower resolution).
-		/// </summary>
-		private async Task DeleteOldTradeVolumesSixMonths()
-		{
-			using (var conn = new MySqlConnection(_connectionString))
-			{
-				await conn.OpenAsync();
 
-				// Delete records older than 6 months but keep one per pair per hour
-				var deleteSql = @"
+		/// <summary>
+		/// Daily maintenance:
+		///  - Phase A: delete rows older than 6 months in small batches.
+		///  - Phase B: thin ONE month only (the month that is now two months ago),
+		///             keeping 1 row per (pair, hour) in that slice; delete the rest.
+		/// </summary>
+		private async Task DeleteOldTradeVolumesSixMonths(CancellationToken ct = default)
+		{
+			// Compute the month slice that is guaranteed to be > 1 month old:
+			// [ startOfMonth(now - 2 months), startOfMonth(now - 1 month) )
+			var nowUtc = DateTime.UtcNow;
+			var twoMonthsAgo = nowUtc.AddMonths(-2);
+			var sliceStart = new DateTime(twoMonthsAgo.Year, twoMonthsAgo.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+			var sliceEnd = sliceStart.AddMonths(1); // exclusive
+
+			const int batchSize = 5000; // tune: 1000–5000 (lower if you still see timeouts)
+
+			await using var conn = new MySqlConnection(_connectionString);
+			await conn.OpenAsync(ct);
+
+			// -------------------- Phase A: outright delete > 6 months (no window fn) --------------------
+			while (true)
+			{
+				var deleteOlderThanSix = @"
 					DELETE FROM trade_market_volumes
-					WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 6 MONTH)
-					AND id NOT IN (
+					WHERE id IN (
 						SELECT id FROM (
-							SELECT id,
-							ROW_NUMBER() OVER (
-								PARTITION BY pair,
-								UNIX_TIMESTAMP(timestamp) DIV (60 * 60)
-								ORDER BY timestamp
-							) AS rn
-							FROM trade_market_volumes
-							WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 6 MONTH)
-						) ranked
-						WHERE rn = 1
+							SELECT t.id
+							FROM trade_market_volumes t
+							WHERE t.timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 6 MONTH)
+							ORDER BY t.timestamp, t.id
+							LIMIT @lim
+						) s
 					);";
 
-				using (var deleteCmd = new MySqlCommand(deleteSql, conn))
+				await using var cmdA = new MySqlCommand(deleteOlderThanSix, conn);
+				cmdA.Parameters.AddWithValue("@lim", batchSize);
+
+				var affectedA = await cmdA.ExecuteNonQueryAsync(ct);
+				if (affectedA > 0)
 				{
-					int rowsAffected = await deleteCmd.ExecuteNonQueryAsync();
-					if (rowsAffected > 0)
-					{
-						await _log.Db($"Deleted {rowsAffected} trade volume entries older than 6 months (kept 1 per hour per pair)", null, "SYSTEM", true);
-					}
+					await _log.Db($"Phase A: deleted {affectedA} rows > 6 months.", null, "SYSTEM", true);
+					continue; // keep deleting until this slice yields 0 rows
 				}
+				break;
+			}
+
+			// -------------------- Phase B: thin ONE month (two months ago) --------------------
+			// Keep earliest row per (pair, hour) in slice; delete the rest, but only rows 1–6 months old.
+			while (true)
+			{
+				var thinOneMonth = @"
+					DELETE FROM trade_market_volumes
+					WHERE id IN (
+						SELECT id
+						FROM (
+							SELECT t.id
+							FROM trade_market_volumes AS t
+							LEFT JOIN (
+								/* Keepers: earliest row per (pair, hour) inside the month slice */
+								SELECT id
+								FROM (
+									SELECT
+										id,
+										ROW_NUMBER() OVER (
+											PARTITION BY pair, FLOOR(UNIX_TIMESTAMP(timestamp) / 3600)
+											ORDER BY timestamp ASC, id ASC
+										) AS rn
+									FROM trade_market_volumes
+									WHERE timestamp >= @sliceStart
+										AND timestamp <  @sliceEnd
+										-- Only consider candidates that are in the 1–6 month band
+										AND timestamp <  DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MONTH)
+										AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 6 MONTH)
+								) ranked
+								WHERE ranked.rn = 1
+							) keep ON keep.id = t.id
+							WHERE
+								t.timestamp >= @sliceStart AND t.timestamp < @sliceEnd
+								AND t.timestamp <  DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MONTH)
+								AND t.timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 6 MONTH)
+								AND keep.id IS NULL            -- delete only non-keepers
+							ORDER BY t.timestamp, t.id
+							LIMIT @lim
+						) ids
+					);";
+
+				await using var cmdB = new MySqlCommand(thinOneMonth, conn);
+				cmdB.Parameters.AddWithValue("@sliceStart", sliceStart);
+				cmdB.Parameters.AddWithValue("@sliceEnd", sliceEnd);
+				cmdB.Parameters.AddWithValue("@lim", batchSize);
+
+				var affectedB = await cmdB.ExecuteNonQueryAsync(ct);
+				if (affectedB > 0)
+				{
+					await _log.Db(
+							$"Phase B ({sliceStart:yyyy-MM}): thinned {affectedB} rows (kept 1 per hour per pair).",
+							null, "SYSTEM", true
+					);
+					continue; // repeat for the same month until 0 rows deleted
+				}
+				break;
 			}
 		}
+
 	}
 	public class CoinResponse
 	{
@@ -2289,7 +2356,7 @@ public class MetabotEncounter
 	public int RightArmPartType { get; }
 
 	public MetabotEncounter(int heroId, string map, int coordsX, int coordsY, string botTypes,
-						  int level, int hp, int headPart, int legsPart, int leftArm, int rightArm)
+							int level, int hp, int headPart, int legsPart, int leftArm, int rightArm)
 	{
 		HeroId = heroId;
 		Map = map;
