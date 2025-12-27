@@ -533,17 +533,14 @@ namespace maxhanna.Server.Services
 			const decimal RetracementThreshold = 0.15m;   // 0.15 = 15%
 			const int HighLookbackDays = 365;             // 0 = use ALL data
 
-			var highSql = $@"
-                SELECT MAX(value_usd)   
-				FROM coin_value
-				WHERE name = @coinName
-				{(HighLookbackDays > 0
-				? "AND timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL @Days DAY)"
-				: string.Empty)}
-				LIMIT 1;";
+			var highSql = $@"	
+				SELECT MAX(cv.value_usd)
+				FROM coin_value AS cv FORCE INDEX (ix_coin_value_name_ts_val)
+				WHERE cv.name = @coinName
+					AND cv.`timestamp` >= UTC_TIMESTAMP() - INTERVAL 365 DAY;";
 
 			const string curSql = @"
-                SELECT value_usd
+				SELECT value_usd
 				FROM   coin_value
 				WHERE  name = @coinName
 				ORDER  BY timestamp DESC
