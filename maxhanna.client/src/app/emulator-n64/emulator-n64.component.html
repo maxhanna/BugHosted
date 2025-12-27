@@ -22,7 +22,23 @@
       <button (click)="showFileSearch = !showFileSearch">{{ showFileSearch ? 'Hide ROM Search' : 'Search ROMs' }}</button>
     </div>
     <div *ngIf="showFileSearch" class="file-search-panel">
-      <app-file-search [allowedFileTypes]="n64Allowed" (selectFileEvent)="onFileSearchSelected($event)" [fileSearchMode]="true"></app-file-search>
+      <app-file-search 
+        [allowedFileTypes]="n64Allowed" 
+        (selectFileEvent)="onFileSearchSelected($event)" 
+        [fileSearchMode]="true"
+        [user]="parentRef?.user" 
+        [inputtedParentRef]="parentRef" 
+        [currentDirectory]="'Roms/'"
+        [clearAfterSelectFile]="true" 
+        [showPrivatePublicOption]="false"
+        [showFileSearchOptions]="false" 
+        [canChangeDirectory]="false" 
+        [canDragMove]="false" 
+        [displayFileActions]="true"
+        [displayComments]="false" 
+        [displayFileSize]="false" 
+        [displayReactions]="false"
+        ></app-file-search>
     </div>
 
     <div class="mapping-controls">
