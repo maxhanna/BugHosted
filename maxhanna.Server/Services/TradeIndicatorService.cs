@@ -162,47 +162,72 @@ namespace maxhanna.Server.Services
 			}
 		}
 
+		// Upsert today's daily average for the given coin into the daily averages table.
+		private async Task UpsertTodayDailyAverage(MySqlConnection connection, string coinName)
+		{
+			var sql = @"
+			INSERT INTO daily_price_averages (`name`, price_date, daily_usd_price)
+			SELECT @coinName, DATE(UTC_TIMESTAMP()), AVG(cv.value_usd)
+			FROM coin_value cv
+			WHERE cv.name = @coinName
+			  AND DATE(cv.timestamp) = DATE(UTC_TIMESTAMP())
+			ON DUPLICATE KEY UPDATE daily_usd_price = VALUES(daily_usd_price), updated_at = UTC_TIMESTAMP();";
+
+			using var cmd = new MySqlCommand(sql, connection);
+			cmd.CommandTimeout = DbCommandTimeoutSeconds;
+			cmd.Parameters.AddWithValue("@coinName", coinName);
+			await cmd.ExecuteNonQueryAsync();
+		}
+
+		// Compute a moving average using the daily averages table.
+		private async Task<decimal?> ComputeMovingAverageFromDailyAverages(MySqlConnection connection, string coinName, int days)
+		{
+			var sql = @"
+			SELECT AVG(daily_usd_price) AS moving_average
+			FROM daily_price_averages
+			WHERE `name` = @coinName
+			  AND price_date >= DATE_SUB(DATE(UTC_TIMESTAMP()), INTERVAL @days DAY)";
+
+			using var cmd = new MySqlCommand(sql, connection);
+			cmd.CommandTimeout = DbCommandTimeoutSeconds;
+			cmd.Parameters.AddWithValue("@coinName", coinName);
+			cmd.Parameters.AddWithValue("@days", days);
+
+			object? result = await cmd.ExecuteScalarAsync();
+			if (result == null || result == DBNull.Value)
+				return null;
+			return Convert.ToDecimal(result);
+		}
+
 		private async Task<bool> Update200DMA(MySqlConnection connection, string fromCoin, string toCoin, string coinName)
 		{
-			const string sql = @"
-                SELECT AVG(daily_usd_price) AS moving_average
-                FROM (
-                    SELECT  DATE(cv.timestamp)          AS price_date,
-                            AVG(cv.value_usd)           AS daily_usd_price
-                    FROM    coin_value cv
-                    WHERE   cv.name      = @coinName
-                    AND   cv.timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 200 DAY)
-                    GROUP BY DATE(cv.timestamp)
-                ) daily_prices;";
-
+			// Ensure the daily averages table exists, upsert today's average and then compute the 200-day average
 			for (int attempt = 1; attempt <= MaxRetries; attempt++)
 			{
 				try
 				{
-					using var cmd = new MySqlCommand(sql, connection);
-					cmd.CommandTimeout = DbCommandTimeoutSeconds;
-					cmd.Parameters.AddWithValue("@coinName", coinName);
+					await EnsureDailyAverageTableExists(connection);
+					await UpsertTodayDailyAverage(connection, coinName);
 
-					object? result = await cmd.ExecuteScalarAsync();
-
-					if (result is null or DBNull)
+					var maValueNullable = await ComputeMovingAverageFromDailyAverages(connection, coinName, 200);
+					if (maValueNullable == null)
 					{
 						_ = _log.Db($"No data for 200-DMA calc for {fromCoin}/{toCoin}", null, "TISVC", true);
 						return false;
 					}
 
-					decimal maValue = Convert.ToDecimal(result);
+					decimal maValue = maValueNullable.Value;
 					bool isAboveMovingAvg = await IsPriceAboveMovingAverage(connection, coinName, maValue);
 
 					const string updateSql = @"
-                        INSERT INTO trade_indicators
-                               (from_coin, to_coin,
-                                `200_day_moving_average`, `200_day_moving_average_value`, updated)
-                        VALUES (@from, @to, @flag, @val, UTC_TIMESTAMP())
-                        ON DUPLICATE KEY UPDATE
-                                `200_day_moving_average`        = @flag,
-                                `200_day_moving_average_value`  = @val,
-                                updated                         = UTC_TIMESTAMP();";
+						INSERT INTO trade_indicators
+							   (from_coin, to_coin,
+								`200_day_moving_average`, `200_day_moving_average_value`, updated)
+						VALUES (@from, @to, @flag, @val, UTC_TIMESTAMP())
+						ON DUPLICATE KEY UPDATE
+								`200_day_moving_average`        = @flag,
+								`200_day_moving_average_value`  = @val,
+								updated                         = UTC_TIMESTAMP();";
 
 					using var upd = new MySqlCommand(updateSql, connection);
 					upd.CommandTimeout = DbCommandTimeoutSeconds;
@@ -213,7 +238,6 @@ namespace maxhanna.Server.Services
 
 					await upd.ExecuteNonQueryAsync();
 
-					//_ = _log.Db($"{fromCoin}/{toCoin} 200-DMA flag={isAboveMovingAvg}, value={maValue:F2}", null, "TISVC", true);
 					return true;
 				}
 				catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
