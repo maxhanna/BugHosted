@@ -118,20 +118,20 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "An error occurred while saving the default search.");
 			}
 		}
-		
-        [HttpGet("negative-today")]
-        public async Task<IActionResult> GetNegativeToday()
-        {
-            try
-            {
-                using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
+
+		[HttpGet("negative-today")]
+		public async Task<IActionResult> GetNegativeToday()
+		{
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
 
 				// Find latest sentiment row for today (use UTC_DATE because recorded_at is saved with UTC_TIMESTAMP)
 				string sql = @"SELECT article_ids FROM news_sentiment_score WHERE DATE(recorded_at) = UTC_DATE() ORDER BY recorded_at DESC LIMIT 1;";
-                using var cmd = new MySqlCommand(sql, conn);
-                var obj = await cmd.ExecuteScalarAsync();
-                if (obj == null || obj == DBNull.Value) return Ok(new List<Article>());
+				using var cmd = new MySqlCommand(sql, conn);
+				var obj = await cmd.ExecuteScalarAsync();
+				if (obj == null || obj == DBNull.Value) return Ok(new List<Article>());
 
 				var json = obj as string;
 				if (string.IsNullOrWhiteSpace(json)) return Ok(new List<Article>());
@@ -140,32 +140,32 @@ namespace maxhanna.Server.Controllers
 
 				if (ids.Count == 0) return Ok(new List<Article>());
 
-                string inClause = string.Join(',', ids);
-                string fetchSql = $@"SELECT id as Id, title, description, url, published_at, url_to_image, content, author FROM news_headlines WHERE id IN ({inClause});";
-                using var fetchCmd = new MySqlCommand(fetchSql, conn);
-                using var reader = await fetchCmd.ExecuteReaderAsync();
-                var list = new List<Article>();
-                while (await reader.ReadAsync())
-                {
-                    list.Add(new Article
-                    {
-                        Title = reader["title"]?.ToString(),
-                        Description = reader["description"]?.ToString(),
-                        Url = reader["url"]?.ToString(),
-                        PublishedAt = reader["published_at"] as DateTime?,
-                        UrlToImage = reader["url_to_image"]?.ToString(),
-                        Content = reader["content"]?.ToString(),
-                        Author = reader["author"]?.ToString()
-                    });
-                }
-                return Ok(list);
-            }
-            catch (Exception ex)
-            {
-                await _log.Db($"NewsController.GetNegativeToday failed: {ex.Message}", null, "API", true);
-                return StatusCode(500);
-            }
-        }
+				string inClause = string.Join(',', ids);
+				string fetchSql = $@"SELECT id as Id, title, description, url, published_at, url_to_image, content, author FROM news_headlines WHERE id IN ({inClause});";
+				using var fetchCmd = new MySqlCommand(fetchSql, conn);
+				using var reader = await fetchCmd.ExecuteReaderAsync();
+				var list = new List<Article>();
+				while (await reader.ReadAsync())
+				{
+					list.Add(new Article
+					{
+						Title = reader["title"]?.ToString(),
+						Description = reader["description"]?.ToString(),
+						Url = reader["url"]?.ToString(),
+						PublishedAt = reader["published_at"] as DateTime?,
+						UrlToImage = reader["url_to_image"]?.ToString(),
+						Content = reader["content"]?.ToString(),
+						Author = reader["author"]?.ToString()
+					});
+				}
+				return Ok(list);
+			}
+			catch (Exception ex)
+			{
+				await _log.Db($"NewsController.GetNegativeToday failed: {ex.Message}", null, "API", true);
+				return StatusCode(500);
+			}
+		}
 
 		[HttpGet("negative-today-preview")]
 		public async Task<IActionResult> GetNegativeTodayPreview([FromQuery] int limit = 5)
@@ -194,7 +194,8 @@ namespace maxhanna.Server.Controllers
 				var list = new List<object>();
 				while (await reader.ReadAsync())
 				{
-					list.Add(new {
+					list.Add(new
+					{
 						title = reader["title"]?.ToString(),
 						url = reader["url"]?.ToString(),
 						publishedAt = reader["published_at"] as DateTime?,
@@ -204,7 +205,7 @@ namespace maxhanna.Server.Controllers
 				}
 				// total negative count is the number of ids we had
 				var total = ids.Count;
-				return Ok(new { total = total, articles = list });
+				return Ok(new { totalResults = total, articles = list });
 			}
 			catch (Exception ex)
 			{
@@ -213,13 +214,13 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-        [HttpGet("crypto-today")]
-        public async Task<IActionResult> GetCryptoToday()
-        {
-            try
-            {
-                using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
+		[HttpGet("crypto-today")]
+		public async Task<IActionResult> GetCryptoToday()
+		{
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
 
 				// Keyword match on content/title/description using explicit boundary regexes to avoid substring matches
 				string sql = @"SELECT id as Id, title, description, url, published_at, url_to_image, content, author
@@ -235,30 +236,30 @@ namespace maxhanna.Server.Controllers
 								   OR LOWER(title) REGEXP '(^|[^a-z0-9])doge(coin)?([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])doge(coin)?([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])doge(coin)?([^a-z0-9]|$)'
 								   )
 							   ORDER BY saved_at DESC LIMIT 200;";
-                using var cmd = new MySqlCommand(sql, conn);
-                using var reader = await cmd.ExecuteReaderAsync();
-                var list = new List<Article>();
-                while (await reader.ReadAsync())
-                {
-                    list.Add(new Article
-                    {
-                        Title = reader["title"]?.ToString(),
-                        Description = reader["description"]?.ToString(),
-                        Url = reader["url"]?.ToString(),
-                        PublishedAt = reader["published_at"] as DateTime?,
-                        UrlToImage = reader["url_to_image"]?.ToString(),
-                        Content = reader["content"]?.ToString(),
-                        Author = reader["author"]?.ToString()
-                    });
-                }
-                return Ok(list);
-            }
-            catch (Exception ex)
-            {
-                await _log.Db($"NewsController.GetCryptoToday failed: {ex.Message}", null, "API", true);
-                return StatusCode(500);
-            }
-        }
+				using var cmd = new MySqlCommand(sql, conn);
+				using var reader = await cmd.ExecuteReaderAsync();
+				var list = new List<Article>();
+				while (await reader.ReadAsync())
+				{
+					list.Add(new Article
+					{
+						Title = reader["title"]?.ToString(),
+						Description = reader["description"]?.ToString(),
+						Url = reader["url"]?.ToString(),
+						PublishedAt = reader["published_at"] as DateTime?,
+						UrlToImage = reader["url_to_image"]?.ToString(),
+						Content = reader["content"]?.ToString(),
+						Author = reader["author"]?.ToString()
+					});
+				}
+				return Ok(list);
+			}
+			catch (Exception ex)
+			{
+				await _log.Db($"NewsController.GetCryptoToday failed: {ex.Message}", null, "API", true);
+				return StatusCode(500);
+			}
+		}
 
 		[HttpGet("crypto-today-preview")]
 		public async Task<IActionResult> GetCryptoTodayPreview([FromQuery] int limit = 5)
@@ -288,7 +289,8 @@ namespace maxhanna.Server.Controllers
 				var list = new List<object>();
 				while (await reader.ReadAsync())
 				{
-					list.Add(new {
+					list.Add(new
+					{
 						title = reader["title"]?.ToString(),
 						url = reader["url"]?.ToString(),
 						publishedAt = reader["published_at"] as DateTime?,
@@ -310,7 +312,7 @@ namespace maxhanna.Server.Controllers
 				using var countCmd = new MySqlCommand(countSql, conn);
 				var totalObj = await countCmd.ExecuteScalarAsync();
 				var total = Convert.ToInt32(totalObj ?? 0);
-				return Ok(new { total = total, articles = list });
+				return Ok(new { totalResults = total, articles = list });
 			}
 			catch (Exception ex)
 			{
