@@ -2,7 +2,7 @@
   <div class="closeButton" (click)="remove_me('EmulatorN64Component');" *ngIf="!isFullScreen"></div>
   <div class="menuButton" (click)="showMenuPanel();" *ngIf="!isFullScreen"></div>
   <div class="componentTitle" *ngIf="!isFullScreen">N64 Emulator</div>
-  <div class="gamesContainer {{ !romName ? 'expanded' : '' }}" *ngIf="isSearchVisible">
+  <div class="gamesContainer {{ !romName ? 'expanded' : '' }}" *ngIf="!romName">
     <app-file-search 
       [user]="parentRef?.user" 
       [inputtedParentRef]="parentRef" 
@@ -32,7 +32,7 @@
 
 <div class="n64-emulator-root popupPanel" *ngIf="isMenuPanelVisible">
   <div class="optionsStatsWrapperDiv">
-     <div class="optionsStatsDiv" *ngIf="!showControlBindings">
+     <div class="optionsStatsDiv"> 
       <div class="optionsStatsHeader">Fullscreen:</div>
       <div class="optionsStatsDescription">
         <div class="uploadRomSpan upload-label" id="fullscreenBtn" (click)="toggleFullscreen()" title="Fullscreen mode">
