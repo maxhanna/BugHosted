@@ -38,6 +38,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     // previous pressed state per gpIndex+control key to avoid duplicate events
     private _directPrevState: Record<string, boolean> = {};
 
+    isMenuPanelVisible: boolean = false;
     // mapping of control name -> virtual button index that emulator will read (we choose a stable layout)
     private _virtualIndexForControl: Record<string, number> = {
         'A Button': 0,
@@ -750,7 +751,14 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
             // ignore
         }
     }
-
+showMenuPanel() {
+    this.isMenuPanelVisible = true;
+    this.parentRef?.showOverlay();
+}
+closeMenuPanel() {
+    this.isMenuPanelVisible = false;
+    this.parentRef?.closeOverlay();
+}
     getAllowedRomFileTypes(): string[] {
         return this.fileService.n64FileExtensions;
     }

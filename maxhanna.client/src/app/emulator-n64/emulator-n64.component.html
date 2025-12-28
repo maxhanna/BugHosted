@@ -1,10 +1,37 @@
-<div class="n64-emulator-root">
-  <div class="controls">
-    <label class="file-label">
-      ROM file:
-      <input #romInput type="file" accept=".z64,.n64,.v64,.rom" (change)="onFileSelected($event)" />
-    </label>
+<div class="componentMain" [style.paddingTop]="isFullScreen ? '0px' : null">
+  <div class="closeButton" (click)="remove_me('EmulatorN64Component');" *ngIf="!isFullScreen"></div>
+  <div class="menuButton" (click)="showMenuPanel();" *ngIf="!isFullScreen"></div>
+  <div class="componentTitle" *ngIf="!isFullScreen">N64 Emulator</div>
+  <div class="gamesContainer {{ !romName ? 'expanded' : '' }}" *ngIf="isSearchVisible">
+    <app-file-search 
+      [user]="parentRef?.user" 
+      [inputtedParentRef]="parentRef" 
+      [currentDirectory]="'Roms/'"
+      [clearAfterSelectFile]="true" 
+      [showPrivatePublicOption]="false"
+      [showFileSearchOptions]="false" 
+      [canChangeDirectory]="false" 
+      [canDragMove]="false" 
+      [displayFileActions]="true"
+      [displayComments]="false" 
+      [displayFileSize]="false" 
+      [displayReactions]="false"
+      [allowedFileTypes]="getAllowedRomFileTypes()" 
+      (selectFileEvent)="onFileSearchSelected($event)" >
+    </app-file-search>
+  </div>
 
+  <div #fullscreenContainer [style.visibility]="romName ? 'visible' : 'hidden'"
+    [style.height]="romName ? (isFullScreen ? '100vh' : '') : '0px'">
+
+    <div class="screen-area" [style.height]="!onMobile() ? '100%' : ''">
+      <canvas id="canvas" #canvas slot="lcd"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="n64-emulator-root popupPanel" *ngIf="isMenuPanelVisible">
+  <div class="controls"> 
     <div class="gamepad-controls">
       <label>Controller:
         <select (change)="onSelectGamepad($any($event.target).value)" [value]="selectedGamepadIndex ?? ''">
@@ -16,29 +43,6 @@
       <button (click)="startGamepadLogging()">Start Log</button>
       <button (click)="stopGamepadLogging()">Stop Log</button>
       <button (click)="directInjectMode = !directInjectMode">Direct Inject Mode {{directInjectMode ? 'ON' : 'OFF'}}</button>
-    </div>
-
-    <div class="file-search-toggle">
-      <button (click)="showFileSearch = !showFileSearch">{{ showFileSearch ? 'Hide ROM Search' : 'Search ROMs' }}</button>
-    </div>
-    <div *ngIf="showFileSearch" class="file-search-panel">
-      <app-file-search 
-        [allowedFileTypes]="getAllowedRomFileTypes()" 
-        (selectFileEvent)="onFileSearchSelected($event)" 
-        [fileSearchMode]="true"
-        [user]="parentRef?.user" 
-        [inputtedParentRef]="parentRef" 
-        [currentDirectory]="'Roms/'"
-        [clearAfterSelectFile]="true" 
-        [showPrivatePublicOption]="false"
-        [showFileSearchOptions]="false" 
-        [canChangeDirectory]="false" 
-        [canDragMove]="false" 
-        [displayFileActions]="true"
-        [displayComments]="false" 
-        [displayFileSize]="false" 
-        [displayReactions]="false"
-        ></app-file-search>
     </div>
 
     <div class="mapping-controls">
@@ -64,11 +68,9 @@
     <div class="btns"> 
       <button (click)="clearSelection()">Clear</button>
     </div>
+
+    
   </div>
 
-  <div class="status">Status: {{ status }} <span *ngIf="romName">— {{ romName }}</span></div>
-
-  <div class="screen-wrap">
-    <canvas #canvas id="canvas" width="640" height="480" class="n64-canvas"></canvas>
-  </div>
+  <div class="status">Status: {{ status }} <span *ngIf="romName">— {{ romName }}</span></div> 
 </div>
