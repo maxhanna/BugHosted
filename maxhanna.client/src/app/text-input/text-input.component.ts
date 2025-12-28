@@ -78,6 +78,11 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   showHelpPopup = false;
   highlightTopicsButton = false;
 
+  // Prevent duplicate posts: simple debounce and in-flight guard
+  _isPosting: boolean = false;
+  private _postDebounceMs: number = 1500;
+  private _lastPostTime: number = 0;
+
   ngOnInit() {
     if (this.inputtedParentRef?.user?.id && this.type == "Social") {
       this.topicService.getFavTopics(this.inputtedParentRef.user).then(res => this.favTopics = res);
@@ -208,6 +213,20 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   }
 
   async post() {
+    // Debounce / guard: ignore if a post is already in progress or last post was very recent
+    const now = Date.now();
+    if (this._isPosting) {
+      console.warn('Post already in progress; ignoring duplicate call');
+      return;
+    }
+    if (now - this._lastPostTime < this._postDebounceMs) {
+      console.warn('Post ignored due to debounce window');
+      return;
+    }
+    // mark as posting and record time
+    this._isPosting = true;
+    this._lastPostTime = now;
+
     console.log("Posting...");
     const text = this.textarea.value?.trim() || '';
     this.attachedFiles = this.mediaSelector?.selectedFiles ?? [];
@@ -309,6 +328,8 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       this.parentRef?.showNotification("An unexpected error occurred.");
     } finally {
       this.stopLoading();
+      // clear posting guard
+      this._isPosting = false;
       
       setTimeout(() => { 
         this.textarea.focus();

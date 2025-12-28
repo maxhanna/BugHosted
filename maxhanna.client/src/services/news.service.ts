@@ -120,10 +120,12 @@ export class NewsService {
         headers: sessionToken ? { 'Authorization': sessionToken } : undefined,
       });
       if (!res.ok) return null;
-      const arr = await res.json() as any[];
+      const data = await res.json() as any;
+      const arr = data?.articles ?? [];
+      const total = data?.total ?? (arr.length || 0);
       // map to Article shape (partial)
       const mapped = arr.map(a => ({ title: a.title, description: a.description, url: a.url, publishedAt: a.publishedAt, urlToImage: a.urlToImage } as Article));
-      return { articles: mapped || [], totalResults: (mapped || []).length, status: Statuses.OK } as ArticlesResult;
+      return { articles: mapped || [], totalResults: total, status: Statuses.OK } as ArticlesResult;
     } catch (err) {
       console.error('Error fetching negative preview:', err);
       return null;
@@ -153,9 +155,11 @@ export class NewsService {
         headers: sessionToken ? { 'Authorization': sessionToken } : undefined,
       });
       if (!res.ok) return null;
-      const arr = await res.json() as any[];
+      const data = await res.json() as any;
+      const arr = data?.articles ?? [];
+      const total = data?.total ?? (arr.length || 0);
       const mapped = arr.map(a => ({ title: a.title, description: a.description, url: a.url, publishedAt: a.publishedAt, urlToImage: a.urlToImage } as Article));
-      return { articles: mapped || [], totalResults: (mapped || []).length, status: Statuses.OK } as ArticlesResult;
+      return { articles: mapped || [], totalResults: total, status: Statuses.OK } as ArticlesResult;
     } catch (err) {
       console.error('Error fetching crypto preview:', err);
       return null;

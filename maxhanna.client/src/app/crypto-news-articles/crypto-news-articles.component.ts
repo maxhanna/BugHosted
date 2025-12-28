@@ -67,9 +67,9 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
             this.startLoading();
             const sessionToken = await (this.inputtedParentRef ?? this.parentRef)?.getSessionToken() ?? '';
 
-            // Fetch negative-sentiment and crypto-related articles via NewsService
-            const negRes = await this.newsService.getNegativePreview(5, sessionToken);
-            const cryptoRes = await this.newsService.getCryptoPreview(5, sessionToken);
+            // Fetch negative-sentiment and crypto-related articles via NewsService (full load)
+            const negRes = await this.newsService.getNegativeToday(sessionToken);
+            const cryptoRes = await this.newsService.getCryptoToday(sessionToken);
 
             const negList = negRes?.articles ?? [];
             const cryptoList = cryptoRes?.articles ?? [];
@@ -112,8 +112,9 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
             }
             // store baseArticles and server-side neg/crypto counts so toggles restore correctly
             this.baseArticles = [...this.articles];
-            this.negCountServer = negList.length;
-            this.cryptoCountServer = cryptoList.length;
+            // Use server-provided totals where available (preview endpoints return totalResults)
+            this.negCountServer = negRes?.totalResults ?? negList.length;
+            this.cryptoCountServer = cryptoRes?.totalResults ?? cryptoList.length;
             // mark full data as loaded and set timestamp for TTL
             this.fullLoaded = true;
             this.fullLoadedAt = new Date();

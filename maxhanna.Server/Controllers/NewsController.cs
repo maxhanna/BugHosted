@@ -202,7 +202,9 @@ namespace maxhanna.Server.Controllers
 						description = reader["description"]?.ToString()
 					});
 				}
-				return Ok(list);
+				// total negative count is the number of ids we had
+				var total = ids.Count;
+				return Ok(new { total = total, articles = list });
 			}
 			catch (Exception ex)
 			{
@@ -294,7 +296,21 @@ namespace maxhanna.Server.Controllers
 						description = reader["description"]?.ToString()
 					});
 				}
-				return Ok(list);
+				// compute total count for crypto articles using same WHERE predicate (cheap count)
+				string countSql = @"SELECT COUNT(*) FROM news_headlines WHERE (
+								   LOWER(title) REGEXP '(^|[^a-z0-9])btc([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])btc([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])btc([^a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])crypto([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])crypto([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])crypto([^a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])eth([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])eth([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])eth([^a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])ethereum([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])ethereum([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])ethereum([^a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])xrp([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])xrp([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])xrp([^a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])sol([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])sol([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])sol([^a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])solana([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])solana([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])solana([^-a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])doge(coin)?([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])doge(coin)?([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])doge(coin)?([^a-z0-9]|$)'
+								   );";
+				using var countCmd = new MySqlCommand(countSql, conn);
+				var totalObj = await countCmd.ExecuteScalarAsync();
+				var total = Convert.ToInt32(totalObj ?? 0);
+				return Ok(new { total = total, articles = list });
 			}
 			catch (Exception ex)
 			{
