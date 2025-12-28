@@ -110,8 +110,14 @@ export class RomService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req)
       });
-      if (!res.ok) return null;
-      return await res.json();
+      const status = res.status;
+      if (!res.ok) {
+        // return status and text for caller to inspect (e.g. 403 limit reached)
+        const txt = await res.text();
+        return { ok: false, status, text: txt };
+      }
+      const body = await res.json();
+      return { ok: true, status, body };
     } catch {
       return null;
     }

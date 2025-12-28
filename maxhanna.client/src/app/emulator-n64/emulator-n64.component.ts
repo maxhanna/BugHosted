@@ -106,19 +106,43 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
             const uid = this.parentRef?.user?.id;
             const payload = JSON.parse(JSON.stringify(this.mapping || {}));
             if (uid) {
+                // Ask server for list first to avoid attempting save when limit reached
+                try {
+                    const names = await this.romService.listMappings(uid);
+                    if (names && Array.isArray(names) && names.length >= 50 && !names.includes(name)) {
+                        this.parentRef?.showNotification('Mapping limit reached (50). Delete an existing mapping before adding a new one.');
+                        return;
+                    }
+                } catch (e) {
+                    // ignore and try save; server-side also enforces limit
+                }
+
                 const res = await this.romService.saveMapping(uid, name, payload);
-                if (res) {
+                if (res && res.ok) {
                     this.parentRef?.showNotification(`Mapping saved as "${name}"`);
                     await this.loadMappingsList();
                     this.selectedMappingName = name;
                     return;
                 }
-                // otherwise fall through to localStorage fallback
+
+                // if server returned a structured error (e.g. limit reached), show it and do not fallback
+                if (res && !res.ok) {
+                    const msg = res.text || `Server rejected save (status ${res.status})`;
+                    this.parentRef?.showNotification(msg);
+                    return;
+                }
+                // otherwise res === null means server unreachable; fall back to localStorage
             }
 
             // fallback to localStorage
             const raw = localStorage.getItem(this._mappingsStoreKey);
             const store = raw ? JSON.parse(raw) : {};
+            // enforce local limit as well if storing locally
+            const existingLocalCount = Object.keys(store || {}).length;
+            if (!store[name] && existingLocalCount >= 50) {
+                this.parentRef?.showNotification('Local mapping limit reached (50). Delete a mapping before adding a new one.');
+                return;
+            }
             if (store[name]) {
                 const overwrite = window.confirm(`A mapping named "${name}" already exists. Overwrite?`);
                 if (!overwrite) return;

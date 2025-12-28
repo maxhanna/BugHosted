@@ -442,11 +442,34 @@ namespace maxhanna.Server.Controllers
 						using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 						await conn.OpenAsync();
 
+						// Check how many mappings the user currently has
+						string countSql = "SELECT COUNT(*) FROM rom_mappings WHERE user_id = @user_id;";
+						using (var countCmd = new MySqlCommand(countSql, conn))
+						{
+							countCmd.Parameters.AddWithValue("@user_id", request.UserId);
+							var cntObj = await countCmd.ExecuteScalarAsync();
+							int existingCount = Convert.ToInt32(cntObj ?? 0);
+
+							// Check if a mapping with this name already exists (update allowed)
+							string existsSql = "SELECT COUNT(*) FROM rom_mappings WHERE user_id = @user_id AND name = @name LIMIT 1;";
+							using var existsCmd = new MySqlCommand(existsSql, conn);
+							existsCmd.Parameters.AddWithValue("@user_id", request.UserId);
+							existsCmd.Parameters.AddWithValue("@name", request.Name);
+							var existsObj = await existsCmd.ExecuteScalarAsync();
+							int nameExists = Convert.ToInt32(existsObj ?? 0);
+
+							const int MaxMappings = 50;
+							if (existingCount >= MaxMappings && nameExists == 0)
+							{
+								return StatusCode(403, $"Mapping limit reached ({MaxMappings}). Delete an existing mapping before adding a new one.");
+							}
+						}
+
 						// Ensure there's a unique key on (user_id, name) in DB for ON DUPLICATE KEY to work.
 						string sql = @"
-								INSERT INTO rom_mappings (user_id, name, mapping_json, created_at, updated_at)
-								VALUES (@user_id, @name, @mapping_json, UTC_TIMESTAMP(), UTC_TIMESTAMP())
-								ON DUPLICATE KEY UPDATE mapping_json = VALUES(mapping_json), updated_at = UTC_TIMESTAMP();";
+							INSERT INTO rom_mappings (user_id, name, mapping_json, created_at, updated_at)
+							VALUES (@user_id, @name, @mapping_json, UTC_TIMESTAMP(), UTC_TIMESTAMP())
+							ON DUPLICATE KEY UPDATE mapping_json = VALUES(mapping_json), updated_at = UTC_TIMESTAMP();";
 
 						using var cmd = new MySqlCommand(sql, conn);
 						cmd.Parameters.AddWithValue("@user_id", request.UserId);
