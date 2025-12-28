@@ -75,7 +75,7 @@ export class RomService {
   // Mapping persistence APIs
   async listMappings(userId: number) {
     try {
-      const res = await fetch('/Rom/GetMappings', {
+      const res = await fetch('/rom/getmappings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userId)
@@ -90,7 +90,7 @@ export class RomService {
   async getMapping(userId: number, name: string) {
     try {
       const req = { UserId: userId, Name: name };
-      const res = await fetch('/Rom/GetMapping', {
+      const res = await fetch('/rom/getmapping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req)
@@ -105,7 +105,7 @@ export class RomService {
   async saveMapping(userId: number, name: string, mapping: any) {
     try {
       const req = { UserId: userId, Name: name, Mapping: mapping };
-      const res = await fetch('/Rom/SaveMapping', {
+      const res = await fetch('/rom/savemapping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req)
@@ -126,7 +126,7 @@ export class RomService {
   async deleteMapping(userId: number, name: string) {
     try {
       const req = { UserId: userId, Name: name };
-      const res = await fetch('/Rom/DeleteMapping', {
+      const res = await fetch('/rom/deletemapping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req)
