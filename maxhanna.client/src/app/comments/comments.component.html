@@ -33,7 +33,7 @@
   [style.maxHeight]="comment_id ? '' : '300px'">
 
   <div *ngFor="let comment of commentList!" class="commentListDiv borderPaddedComment"
-    [style.paddingLeft]="comment_id ? '40px' : '20px'">
+    [style.paddingLeft]="comment_id ? '' : '20px'">
     <div class="commentContentAndAvatarContainerDiv" [attr.data-timestamp]="comment.date">
       <div class="commentAvatar usernameProfileLink">
         <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"
@@ -99,6 +99,7 @@
 
           <div class="commentInputArea borderPaddedComment" *ngIf="replyingToCommentId == comment.id">
             <app-text-input 
+              style="width:100%"
               [inputtedParentRef]="inputtedParentRef"
               [type]="'Comment'" 
               [commentParent]="comment"
