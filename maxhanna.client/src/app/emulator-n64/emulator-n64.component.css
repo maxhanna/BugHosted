@@ -1,6 +1,6 @@
 canvas {
-  width: 100% !important;
-  height: auto !important;
+  width: auto !important;
+  height: calc(100vh - 60px) !important;
 }
 .componentMain {
   width: 100vw;
