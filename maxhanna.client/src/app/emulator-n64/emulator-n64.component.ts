@@ -65,8 +65,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
     ngOnInit(): void { }
     ngOnDestroy(): void {
-        this.disableDirectInject();
-        this.restoreGamepadGetter();
+        this.stop();
     }
 
     // load saved mapping on init if present
