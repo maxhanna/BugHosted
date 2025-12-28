@@ -39,7 +39,7 @@ export class FileService {
 	];
 
 	n64FileExtensions = [
-		"z64", "n64", "v64"
+		"z64", "n64", "v64", "bin", "zip"
 	];
 
 	async getDirectory(
