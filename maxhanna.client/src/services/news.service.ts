@@ -124,7 +124,7 @@ export class NewsService {
       const arr = data?.articles ?? [];
       const total = data?.total ?? (arr.length || 0);
       // map to Article shape (partial)
-      const mapped = arr.map(a => ({ title: a.title, description: a.description, url: a.url, publishedAt: a.publishedAt, urlToImage: a.urlToImage } as Article));
+      const mapped = arr.map((a: Article) => ({ title: a.title, description: a.description, url: a.url, publishedAt: a.publishedAt, urlToImage: a.urlToImage } as Article));
       return { articles: mapped || [], totalResults: total, status: Statuses.OK } as ArticlesResult;
     } catch (err) {
       console.error('Error fetching negative preview:', err);
@@ -158,7 +158,7 @@ export class NewsService {
       const data = await res.json() as any;
       const arr = data?.articles ?? [];
       const total = data?.total ?? (arr.length || 0);
-      const mapped = arr.map(a => ({ title: a.title, description: a.description, url: a.url, publishedAt: a.publishedAt, urlToImage: a.urlToImage } as Article));
+      const mapped = arr.map((a: Article) => ({ title: a.title, description: a.description, url: a.url, publishedAt: a.publishedAt, urlToImage: a.urlToImage } as Article));
       return { articles: mapped || [], totalResults: total, status: Statuses.OK } as ArticlesResult;
     } catch (err) {
       console.error('Error fetching crypto preview:', err);
