@@ -911,4 +911,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     getAllowedRomFileTypes(): string[] {
         return this.fileService.n64FileExtensions;
     }
+     getAllowedRomFileTypesString(): string {
+        return this.fileService.n64FileExtensions.join(',');
+    }
 }
