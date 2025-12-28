@@ -47,15 +47,18 @@
     </div>
   <div class="controls"> 
     <div class="gamepad-controls">
-      <label>Controller:
-        <select (change)="onSelectGamepad($any($event.target).value)" [value]="selectedGamepadIndex ?? ''">
-          <option value="" disabled *ngIf="!gamepads.length">-- No controllers --</option>
-          <option *ngFor="let gp of gamepads" [value]="gp.index">{{gp.index}} — {{gp.id}} {{gp.mapping ? '(' + gp.mapping + ')' : ''}}</option>
-        </select>
-      </label>
-      <button (click)="refreshGamepads()">Refresh</button>
-      <button (click)="startGamepadLogging()">Start Log</button>
-      <button (click)="stopGamepadLogging()">Stop Log</button>
+      <div *ngIf="!showKeyMappings">
+        <label>Controller:
+          <select (change)="onSelectGamepad($any($event.target).value)" [value]="selectedGamepadIndex ?? ''">
+            <option value="" disabled *ngIf="!gamepads.length">-- No controllers --</option>
+            <option *ngFor="let gp of gamepads" [value]="gp.index">{{gp.index}} — {{gp.id}} {{gp.mapping ? '(' + gp.mapping + ')' : ''}}</option>
+          </select>
+        </label>
+        <button (click)="refreshGamepads()">Refresh</button>
+        <button (click)="startGamepadLogging()">Start Log</button>
+        <button (click)="stopGamepadLogging()">Stop Log</button>
+      </div>
+      
       <!-- Mappings dropdown and save controls (applies on select) -->
       <div *ngIf="!showKeyMappings">
           <label style="margin-left:8px">Mappings:
