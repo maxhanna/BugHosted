@@ -44,6 +44,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     isFullScreen: boolean = false;
     private _mappingKey = 'n64_gamepad_mapping_v1';
     showFileSearch = false;
+    private _canvasResizeAdded = false;
+    private _resizeHandler = () => this.resizeCanvasToParent();
     private _virtualIndexForControl: Record<string, number> = {
         'A Button': 0,
         'B Button': 1,
@@ -236,6 +238,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     ngOnInit(): void { }
     ngOnDestroy(): void {
         this.stop();
+        if (this._canvasResizeAdded) {
+            try { window.removeEventListener('resize', this._resizeHandler); } catch { }
+            this._canvasResizeAdded = false;
+        }
     }
 
     async onFileSelected(event: Event) {
@@ -259,6 +265,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
             if (!canvasEl) {
                 this.parentRef?.showNotification('No canvas available');
                 return;
+            }
+            // Ensure canvas fills parent container before initializing the emulator
+            this.resizeCanvasToParent();
+            if (!this._canvasResizeAdded) {
+                try { window.addEventListener('resize', this._resizeHandler); this._canvasResizeAdded = true; } catch { }
             }
             // some runtimes expect id 'canvas'
             if (canvasEl.id !== 'canvas') canvasEl.id = 'canvas';
@@ -292,6 +303,26 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         } catch (e) {
             console.error('Failed to load ROM / initialize emulator', e);
             this.parentRef?.showNotification('Failed to load ROM');
+        }
+    }
+
+    // Resize canvas pixel buffer and CSS to fill the parent container
+    private resizeCanvasToParent() {
+        try {
+            const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
+            if (!canvasEl) return;
+            // Choose container: fullscreenContainer (wrap) if present, otherwise canvas parent
+            const container = (this.fullscreenContainer && this.fullscreenContainer.nativeElement) ? this.fullscreenContainer.nativeElement : (canvasEl.parentElement ?? document.body);
+            const rect = container.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            // Set CSS size to match container so layout fills available space
+            canvasEl.style.width = rect.width + 'px';
+            canvasEl.style.height = rect.height + 'px';
+            // Set backing buffer size scaled by devicePixelRatio for crisp rendering
+            canvasEl.width = Math.max(1, Math.floor(rect.width * dpr));
+            canvasEl.height = Math.max(1, Math.floor(rect.height * dpr));
+        } catch (e) {
+            console.warn('Failed to resize canvas', e);
         }
     }
 
