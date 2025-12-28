@@ -104,7 +104,7 @@ export class RomService {
 
   async saveMapping(userId: number, name: string, mapping: any) {
     try {
-      const req = { UserId: userId, Name: name, MappingJson: mapping };
+      const req = { UserId: userId, Name: name, Mapping: mapping };
       const res = await fetch('/Rom/SaveMapping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
