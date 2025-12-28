@@ -94,6 +94,8 @@
     </div> 
   </div>
 
-  <div class="status">Status: {{ status }} <span *ngIf="romName">— {{ romName }}</span></div> 
-  <button class="closeButton" id="closeOverlay" (click)="closeMenuPanel();">Close</button>
+  <div class="status">Emulator Status: {{ status }} <span *ngIf="romName">— {{ romName }}</span></div> 
+  <div style="width:100%; text-align: center;">  
+    <button class="closeButton" id="closeOverlay" (click)="closeMenuPanel();">Close</button>
+  </div>
 </div>
