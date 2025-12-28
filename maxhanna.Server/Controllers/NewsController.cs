@@ -11,6 +11,11 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class NewsController : ControllerBase
 	{
+		// Simple in-memory cache for coin counts to avoid repeated heavy SQL runs
+		private static readonly object _coinCountsCacheLock = new object();
+		private static DateTime? _coinCountsCacheTime = null;
+		private static object? _coinCountsCache = null;
+		private const int CoinCountsCacheSeconds = 10800; // TTL for coin counts cache
 		private readonly Log _log;
 		private readonly NewsService _newsService;
 		private readonly IConfiguration _config;
@@ -162,6 +167,50 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+		[HttpGet("negative-today-preview")]
+		public async Task<IActionResult> GetNegativeTodayPreview([FromQuery] int limit = 5)
+		{
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+
+				string sql = @"SELECT article_ids FROM news_sentiment_score WHERE DATE(recorded_at) = UTC_DATE() ORDER BY recorded_at DESC LIMIT 1;";
+				using var cmd = new MySqlCommand(sql, conn);
+				var obj = await cmd.ExecuteScalarAsync();
+				if (obj == null || obj == DBNull.Value) return Ok(new List<object>());
+
+				var json = obj as string;
+				if (string.IsNullOrWhiteSpace(json)) return Ok(new List<object>());
+
+				var ids = System.Text.Json.JsonSerializer.Deserialize<List<int>>(json) ?? new List<int>();
+				if (ids.Count == 0) return Ok(new List<object>());
+
+				string inClause = string.Join(',', ids);
+				string fetchSql = $@"SELECT id as Id, title, url, published_at, url_to_image, description FROM news_headlines WHERE id IN ({inClause}) ORDER BY FIELD(id, {inClause}) LIMIT @limit;";
+				using var fetchCmd = new MySqlCommand(fetchSql, conn);
+				fetchCmd.Parameters.AddWithValue("@limit", limit);
+				using var reader = await fetchCmd.ExecuteReaderAsync();
+				var list = new List<object>();
+				while (await reader.ReadAsync())
+				{
+					list.Add(new {
+						title = reader["title"]?.ToString(),
+						url = reader["url"]?.ToString(),
+						publishedAt = reader["published_at"] as DateTime?,
+						urlToImage = reader["url_to_image"]?.ToString(),
+						description = reader["description"]?.ToString()
+					});
+				}
+				return Ok(list);
+			}
+			catch (Exception ex)
+			{
+				await _log.Db($"NewsController.GetNegativeTodayPreview failed: {ex.Message}", null, "API", true);
+				return StatusCode(500);
+			}
+		}
+
         [HttpGet("crypto-today")]
         public async Task<IActionResult> GetCryptoToday()
         {
@@ -208,6 +257,51 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500);
             }
         }
+
+		[HttpGet("crypto-today-preview")]
+		public async Task<IActionResult> GetCryptoTodayPreview([FromQuery] int limit = 5)
+		{
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+
+				string sql = @"SELECT id as Id, title, description, url, published_at, url_to_image
+							   FROM news_headlines
+							   WHERE (
+								   LOWER(title) REGEXP '(^|[^a-z0-9])btc([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])btc([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])btc([^a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])crypto([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])crypto([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])crypto([^a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])eth([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])eth([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])eth([^a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])ethereum([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])ethereum([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])ethereum([^a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])xrp([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])xrp([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])xrp([^a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])sol([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])sol([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])sol([^a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])solana([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])solana([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])solana([^a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])doge(coin)?([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])doge(coin)?([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])doge(coin)?([^a-z0-9]|$)'
+								   )
+							   ORDER BY saved_at DESC LIMIT @limit;";
+
+				using var cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@limit", limit);
+				using var reader = await cmd.ExecuteReaderAsync();
+				var list = new List<object>();
+				while (await reader.ReadAsync())
+				{
+					list.Add(new {
+						title = reader["title"]?.ToString(),
+						url = reader["url"]?.ToString(),
+						publishedAt = reader["published_at"] as DateTime?,
+						urlToImage = reader["url_to_image"]?.ToString(),
+						description = reader["description"]?.ToString()
+					});
+				}
+				return Ok(list);
+			}
+			catch (Exception ex)
+			{
+				await _log.Db($"NewsController.GetCryptoTodayPreview failed: {ex.Message}", null, "API", true);
+				return StatusCode(500);
+			}
+		}
 
 		[HttpGet("coin")]
 		public async Task<IActionResult> GetArticlesByCoin([FromQuery] string coin)
@@ -269,6 +363,19 @@ namespace maxhanna.Server.Controllers
 		{
 			try
 			{
+				// Check cache first
+				lock (_coinCountsCacheLock)
+				{
+					if (_coinCountsCache != null && _coinCountsCacheTime.HasValue)
+					{
+						var age = DateTime.UtcNow - _coinCountsCacheTime.Value;
+						if (age.TotalSeconds <= CoinCountsCacheSeconds)
+						{
+							return Ok(_coinCountsCache);
+						}
+					}
+				}
+
 				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				await conn.OpenAsync();
 
@@ -289,10 +396,24 @@ namespace maxhanna.Server.Controllers
 					var xrp = Convert.ToInt32(reader["XRP"] ?? 0);
 					var sol = Convert.ToInt32(reader["Solana"] ?? 0);
 
-					return Ok(new { Ethereum = eth, Dogecoin = doge, XRP = xrp, Solana = sol });
+					var obj = new { Ethereum = eth, Dogecoin = doge, XRP = xrp, Solana = sol };
+					lock (_coinCountsCacheLock)
+					{
+						_coinCountsCache = obj;
+						_coinCountsCacheTime = DateTime.UtcNow;
+					}
+
+					return Ok(obj);
 				}
 
-				return Ok(new { Ethereum = 0, Dogecoin = 0, XRP = 0, Solana = 0 });
+				var emptyObj = new { Ethereum = 0, Dogecoin = 0, XRP = 0, Solana = 0 };
+				lock (_coinCountsCacheLock)
+				{
+					_coinCountsCache = emptyObj;
+					_coinCountsCacheTime = DateTime.UtcNow;
+				}
+
+				return Ok(emptyObj);
 			}
 			catch (Exception ex)
 			{

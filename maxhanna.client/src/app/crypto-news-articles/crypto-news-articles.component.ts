@@ -34,11 +34,17 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
     collapsed = true;
     negCountServer: number = 0;
     cryptoCountServer: number = 0;
+    previewLoaded = false;
+    fullLoaded = false;
+    fullLoadedAt: Date | null = null;
+    fullLoadedTTLMinutes: number = 10; // configurable TTL for full data
+    fullLoading = false;
 
     async ngAfterViewInit() {
-        // initial fetch
+        // Load a lightweight preview (counts + up to 5 articles). Full load happens on expand.
         setTimeout(() => {
-            this.fetchArticles();
+            // fire-and-forget preview load
+            void this.fetchPreview();
         }, 50);
 
         // attach scroll listener
@@ -62,8 +68,8 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
             const sessionToken = await (this.inputtedParentRef ?? this.parentRef)?.getSessionToken() ?? '';
 
             // Fetch negative-sentiment and crypto-related articles via NewsService
-            const negRes = await this.newsService.getNegativeToday(sessionToken);
-            const cryptoRes = await this.newsService.getCryptoToday(sessionToken);
+            const negRes = await this.newsService.getNegativePreview(5, sessionToken);
+            const cryptoRes = await this.newsService.getCryptoPreview(5, sessionToken);
 
             const negList = negRes?.articles ?? [];
             const cryptoList = cryptoRes?.articles ?? [];
@@ -108,6 +114,9 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
             this.baseArticles = [...this.articles];
             this.negCountServer = negList.length;
             this.cryptoCountServer = cryptoList.length;
+            // mark full data as loaded and set timestamp for TTL
+            this.fullLoaded = true;
+            this.fullLoadedAt = new Date();
         } catch (err) {
             console.error('Failed to fetch crypto news articles', err);
         } finally {
@@ -246,13 +255,94 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
         }
     }
 
-    toggleCollapsed() {
+    async toggleCollapsed() {
         this.collapsed = !this.collapsed;
         try {
             const el = this.articlesContainer?.nativeElement;
             this.showTopButton = !!el && el.scrollTop > 0;
             this.changeDetectorRef.markForCheck();
         } catch { this.showTopButton = false; }
+
+        // If panel was just expanded and we haven't loaded the full article set yet, fetch full articles now.
+        if (!this.collapsed && !this.loading) {
+            // If we have the full data and it's still within the TTL, skip reloading
+            if (this.fullLoaded && this.fullLoadedAt) {
+                const ageMinutes = (Date.now() - this.fullLoadedAt.getTime()) / 60000.0;
+                if (ageMinutes <= this.fullLoadedTTLMinutes) {
+                    return;
+                }
+            }
+
+            // perform full load and show loading indicator on the expand button
+            this.fullLoading = true;
+            try {
+                await this.fetchArticles();
+            } finally {
+                this.fullLoading = false;
+            }
+        }
+    }
+
+    // Lightweight preview: load counts and at most N articles (5)
+    private async fetchPreview(limit: number = 5) {
+        try {
+            this.startLoading();
+            const sessionToken = await (this.inputtedParentRef ?? this.parentRef)?.getSessionToken() ?? '';
+
+            const negRes = await this.newsService.getNegativeToday(sessionToken);
+            const cryptoRes = await this.newsService.getCryptoToday(sessionToken);
+
+            const negList = negRes?.articles ?? [];
+            const cryptoList = cryptoRes?.articles ?? [];
+
+            const map = new Map<string, Article & { negative?: boolean; crypto?: boolean }>();
+            negList.forEach((a: Article) => { if (a.url) map.set(a.url, { ...a, negative: true }); });
+            cryptoList.forEach((a: Article) => {
+                if (a.url) {
+                    const existing = map.get(a.url);
+                    if (existing) existing.crypto = true; else map.set(a.url, { ...a, crypto: true });
+                }
+            });
+
+            const merged = Array.from(map.values()).sort((a, b) => {
+                const da = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+                const db = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+                return db - da;
+            });
+
+            // Keep only a small preview
+            const preview = merged.slice(0, limit);
+
+            // Fetch coin counts (so pills show correct counts)
+            try {
+                const counts = await this.newsService.getCoinCounts(sessionToken);
+                this.coinPills = [];
+                this.coinCounts = {};
+                if (counts) {
+                    for (const [name, cnt] of Object.entries(counts)) {
+                        if (cnt > 0) {
+                            this.coinPills.push(name);
+                            this.coinCounts[name] = cnt;
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn('Could not fetch coin counts from server for preview', err);
+                this.coinPills = [];
+                this.coinCounts = {};
+            }
+
+            this.articles = preview as Article[];
+            this.baseArticles = [...this.articles];
+            this.negCountServer = negList.length;
+            this.cryptoCountServer = cryptoList.length;
+            this.previewLoaded = true;
+            this.fullLoaded = false;
+        } catch (err) {
+            console.error('Failed to fetch crypto news preview', err);
+        } finally {
+            this.stopLoading();
+        }
     }
 
     scrollTop() {

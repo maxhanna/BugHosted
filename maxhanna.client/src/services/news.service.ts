@@ -112,6 +112,24 @@ export class NewsService {
     }
   }
 
+  async getNegativePreview(limit: number = 5, sessionToken: string = ''): Promise<ArticlesResult | null> {
+    try {
+      const params = new URLSearchParams({ limit: limit.toString() });
+      const res = await fetch(`/news/negative-today-preview?${params.toString()}`, {
+        method: 'GET',
+        headers: sessionToken ? { 'Authorization': sessionToken } : undefined,
+      });
+      if (!res.ok) return null;
+      const arr = await res.json() as any[];
+      // map to Article shape (partial)
+      const mapped = arr.map(a => ({ title: a.title, description: a.description, url: a.url, publishedAt: a.publishedAt, urlToImage: a.urlToImage } as Article));
+      return { articles: mapped || [], totalResults: (mapped || []).length, status: Statuses.OK } as ArticlesResult;
+    } catch (err) {
+      console.error('Error fetching negative preview:', err);
+      return null;
+    }
+  }
+
   async getCryptoToday(sessionToken: string = ''): Promise<ArticlesResult | null> {
     try {
       const res = await fetch('/news/crypto-today', {
@@ -123,6 +141,23 @@ export class NewsService {
       return { articles: arr || [], totalResults: (arr || []).length, status: Statuses.OK } as ArticlesResult;
     } catch (err) {
       console.error('Error fetching crypto today:', err);
+      return null;
+    }
+  }
+
+  async getCryptoPreview(limit: number = 5, sessionToken: string = ''): Promise<ArticlesResult | null> {
+    try {
+      const params = new URLSearchParams({ limit: limit.toString() });
+      const res = await fetch(`/news/crypto-today-preview?${params.toString()}`, {
+        method: 'GET',
+        headers: sessionToken ? { 'Authorization': sessionToken } : undefined,
+      });
+      if (!res.ok) return null;
+      const arr = await res.json() as any[];
+      const mapped = arr.map(a => ({ title: a.title, description: a.description, url: a.url, publishedAt: a.publishedAt, urlToImage: a.urlToImage } as Article));
+      return { articles: mapped || [], totalResults: (mapped || []).length, status: Statuses.OK } as ArticlesResult;
+    } catch (err) {
+      console.error('Error fetching crypto preview:', err);
       return null;
     }
   }
