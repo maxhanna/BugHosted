@@ -57,7 +57,7 @@
       <button (click)="startGamepadLogging()">Start Log</button>
       <button (click)="stopGamepadLogging()">Stop Log</button>
       <!-- Mappings dropdown and save controls (applies on select) -->
-      <div>
+      <div *ngIf="!showKeyMappings">
           <label style="margin-left:8px">Mappings:
             <select (change)="onMappingSelect($any($event.target).value)">
               <option value="" disabled *ngIf="!savedMappingsNames.length">-- No mappings --</option>
@@ -86,6 +86,7 @@
         <button (click)="saveMappingAs()">Save Mapping...</button>
         <button (click)="loadMappingsList()">Refresh Mappings</button>
         <button (click)="applyMappingToEmulator()">Apply Mapping</button>
+        <button (click)="showKeyMappings = false">Cancel</button>
         <button (click)="clearSelection()">Clear</button>
       </div>
       <div *ngIf="exportText">
