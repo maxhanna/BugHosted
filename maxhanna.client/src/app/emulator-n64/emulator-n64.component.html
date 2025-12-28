@@ -76,5 +76,5 @@
   </div>
 
   <div class="status">Status: {{ status }} <span *ngIf="romName">— {{ romName }}</span></div> 
-  <button class="closeButton" id="closeOverlay">Close</button>
+  <button class="closeButton" id="closeOverlay" (click)="closeMenuPanel();">Close</button>
 </div>
