@@ -61,7 +61,7 @@
           <label style="margin-left:8px">Mappings:
             <select (change)="onMappingSelect($any($event.target).value)">
               <option value="" disabled *ngIf="!savedMappingsNames.length">-- No mappings --</option>
-              <option value="" *ngIf="savedMappingsNames.length">Default</option>
+              <option value="" *ngIf="savedMappingsNames.length" selected>Default</option>
               <option *ngFor="let n of savedMappingsNames" [value]="n">{{n}}</option>
             </select>
           </label>

@@ -36,13 +36,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     private _recordingFor: string | null = null;
     exportText: string | null = null;
     private _runtimeTranslatorEnabled = false;
-    private _originalGetGamepadsRuntime: any = null; 
+    private _originalGetGamepadsRuntime: any = null;
     directInjectMode = false;
-    private _directInjectPoller = 0; 
-    private _directPrevState: Record<string, boolean> = {}; 
+    private _directInjectPoller = 0;
+    private _directPrevState: Record<string, boolean> = {};
     isMenuPanelVisible: boolean = false;
-    isFullScreen: boolean = false; 
-    private _mappingKey = 'n64_gamepad_mapping_v1'; 
+    isFullScreen: boolean = false;
+    private _mappingKey = 'n64_gamepad_mapping_v1';
     showFileSearch = false;
     private _virtualIndexForControl: Record<string, number> = {
         'A Button': 0,
@@ -236,7 +236,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     ngOnInit(): void { }
     ngOnDestroy(): void {
         this.stop();
-    } 
+    }
 
     async onFileSelected(event: Event) {
         const input = event.target as HTMLInputElement;
@@ -397,7 +397,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
             console.error('Failed to load mapping', e);
         }
     }
- 
+
     /** Apply the current mapping into the emulator's InputAutoCfg (IDBFS) and restart emulator. */
     async applyMappingToEmulator() {
         try {
@@ -890,7 +890,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         this.isMenuPanelVisible = false;
         this.parentRef?.closeOverlay();
     }
-    
+
     async toggleFullscreen() {
         this.closeMenuPanel();
         const elem = this.fullscreenContainer.nativeElement;
