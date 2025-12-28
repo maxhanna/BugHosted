@@ -84,7 +84,8 @@
         </div>
         <div class="commentInputArea">
           <div class="borderPaddedComment" *ngIf="editingComments.includes(comment.id) && !replyingToCommentId">
-              <app-text-input 
+            <app-text-input 
+              style="width:100%"
               [inputtedParentRef]="inputtedParentRef"
               [type]="'Comment'" 
               [commentId]="comment.id"
