@@ -31,17 +31,14 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     private _recordingFor: string | null = null;
     exportText: string | null = null;
     private _runtimeTranslatorEnabled = false;
-    private _originalGetGamepadsRuntime: any = null;
-    // When true, intercept browser gamepad inputs and "inject" into the
-    // emulator via synthetic keyboard events (direct-inject mode).
+    private _originalGetGamepadsRuntime: any = null; 
     directInjectMode = false;
-    private _directInjectPoller = 0;
-    // previous pressed state per gpIndex+control key to avoid duplicate events
-    private _directPrevState: Record<string, boolean> = {};
-
+    private _directInjectPoller = 0; 
+    private _directPrevState: Record<string, boolean> = {}; 
     isMenuPanelVisible: boolean = false;
-    isFullScreen: boolean = false;
-    // mapping of control name -> virtual button index that emulator will read (we choose a stable layout)
+    isFullScreen: boolean = false; 
+    private _mappingKey = 'n64_gamepad_mapping_v1'; 
+    showFileSearch = false;
     private _virtualIndexForControl: Record<string, number> = {
         'A Button': 0,
         'B Button': 1,
@@ -66,12 +63,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     ngOnInit(): void { }
     ngOnDestroy(): void {
         this.stop();
-    }
-
-    // load saved mapping on init if present
-    private _mappingKey = 'n64_gamepad_mapping_v1';
-    // File-search UI state and allowed types for N64 ROMs
-    showFileSearch = false;
+    } 
 
     async onFileSelected(event: Event) {
         const input = event.target as HTMLInputElement;

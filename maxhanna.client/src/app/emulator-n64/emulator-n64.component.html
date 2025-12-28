@@ -66,19 +66,15 @@
         <button (click)="loadMapping()">Load Mapping</button>
         <button (click)="exportMapping()">Export Mapping</button>
         <button (click)="applyMappingToEmulator()">Apply Mapping</button>
+        <button (click)="clearSelection()">Clear</button>
       </div>
       <div *ngIf="exportText">
         <h5>Export</h5>
         <textarea rows="8" cols="60" readonly>{{exportText}}</textarea>
       </div>
-    </div>
-
-    <div class="btns"> 
-      <button (click)="clearSelection()">Clear</button>
-    </div>
-
-    
+    </div> 
   </div>
 
   <div class="status">Status: {{ status }} <span *ngIf="romName">— {{ romName }}</span></div> 
+  <button class="closeButton" id="closeOverlay">Close</button>
 </div>
