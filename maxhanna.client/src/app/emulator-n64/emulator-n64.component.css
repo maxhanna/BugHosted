@@ -1,8 +1,36 @@
+
+.componentMain {
+  width: 100vw;
+  overflow: unset;
+  border: unset !important;
+}
+
 .n64-emulator-root {
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 8px;
+}
+
+.gamesContainer {
+  width: 100%;
+  height: calc(var(--vh, 1vh) * 100 - 65px);
+  overflow: auto;
+}
+
+.gamesContainer select {
+  width: 100%;
+  text-align: center;
+}
+
+.screen-area {
+  width: 100%; 
+  display: flex; 
+  align-items: center;
+  justify-content: center;
+  align-content: center;
+  flex-wrap: nowrap;
+  flex-direction: row;
 }
 .controls { display:flex; gap:12px; align-items:center; }
 .btns button { margin-right:6px; }
