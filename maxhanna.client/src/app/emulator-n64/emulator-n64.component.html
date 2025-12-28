@@ -60,7 +60,7 @@
       </label>
       <button (click)="saveMappingAs()">Save Mapping...</button>
       <button *ngIf="selectedMappingName" (click)="deleteSelectedMapping()">Delete</button>
-      <button (click)="toggleShowKeyMappings()">Re-Map Controls</button>
+      <button (click)="showKeyMappings = !showKeyMappings">Re-Map Controls</button>
     </div>
 
     <div class="mapping-controls" *ngIf="showKeyMappings">
