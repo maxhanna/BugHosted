@@ -32,6 +32,11 @@
 
 <div class="n64-emulator-root popupPanel" *ngIf="isMenuPanelVisible">
   <div class="popupPanelTitle">N64 Emulation Menu</div>
+  <div>
+    <app-file-upload [currentDirectory]="'Roms'" [user]="parentRef?.user!" [inputtedParentRef]="parentRef"
+      [uploadButtonText]="'Upload Rom(s)'" [maxSelectedFiles]="100" [allowedFileTypes]="allowedFileTypes">
+    </app-file-upload> 
+  </div>
   <div class="optionsStatsWrapperDiv">
      <div class="optionsStatsDiv"> 
       <div class="optionsStatsHeader">Fullscreen:</div>
