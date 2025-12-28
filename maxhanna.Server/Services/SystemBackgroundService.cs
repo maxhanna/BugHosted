@@ -2315,7 +2315,6 @@ namespace maxhanna.Server.Services
 				break;
 			}
 		}
-
 	}
 
 }

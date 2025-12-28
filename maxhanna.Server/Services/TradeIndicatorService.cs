@@ -206,6 +206,45 @@ namespace maxhanna.Server.Services
 			return Convert.ToDecimal(result);
 		}
 
+		// Upsert today's daily volume for a pair from raw trade_market_volumes
+		private async Task UpsertTodayTradeMarketDailyVolume(MySqlConnection connection, string pair)
+		{
+			var sql = @"
+			INSERT INTO trade_market_daily_volume (pair, volume_date, daily_volume_usdc, updated_at)
+			SELECT @pair AS pair, UTC_DATE() AS volume_date, COALESCE(SUM(volume_usdc), 0) AS daily_volume_usdc, UTC_TIMESTAMP() AS updated_at
+			FROM trade_market_volumes FORCE INDEX (ix_trade_vol_pair_ts)
+			WHERE pair = @pair
+			  AND `timestamp` >= UTC_DATE()
+			  AND `timestamp` <  UTC_DATE() + INTERVAL 1 DAY
+			ON DUPLICATE KEY UPDATE
+			  daily_volume_usdc = VALUES(daily_volume_usdc),
+			  updated_at = VALUES(updated_at);";
+
+			using var cmd = new MySqlCommand(sql, connection);
+			cmd.CommandTimeout = DbCommandTimeoutSeconds;
+			cmd.Parameters.AddWithValue("@pair", pair);
+			await cmd.ExecuteNonQueryAsync();
+		}
+
+		// Compute an average daily volume for the past N days from the helper table
+		private async Task<decimal?> ComputeAverageDailyVolumeFromTable(MySqlConnection connection, string pair, int days)
+		{
+			var sql = @"
+			SELECT AVG(daily_volume_usdc) FROM trade_market_daily_volume
+			WHERE pair = @pair
+			  AND volume_date >= DATE_SUB(UTC_DATE(), INTERVAL @days DAY)";
+
+			using var cmd = new MySqlCommand(sql, connection);
+			cmd.CommandTimeout = DbCommandTimeoutSeconds;
+			cmd.Parameters.AddWithValue("@pair", pair);
+			cmd.Parameters.AddWithValue("@days", days);
+
+			object? result = await cmd.ExecuteScalarAsync();
+			if (result == null || result == DBNull.Value)
+				return null;
+			return Convert.ToDecimal(result);
+		}
+
 		private async Task<bool> Update200DMA(MySqlConnection connection, string fromCoin, string toCoin, string coinName)
 		{
 			// Ensure the daily averages table exists, upsert today's average and then compute the 200-day average
@@ -470,12 +509,12 @@ namespace maxhanna.Server.Services
 
 		private async Task<bool> UpdateVWAP(MySqlConnection connection, string pair, string fromCoin, string toCoin)
 		{
-			var sql = @"
-                SELECT 
-                    SUM(volume_usdc * (volume_usdc / volume_coin)) / SUM(volume_usdc) as vwap_usd
-                FROM trade_market_volumes
-                WHERE pair = @pair
-                AND timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 24 HOUR)";
+			var sql = @"      
+				SELECT
+					SUM(volume_usdc) / NULLIF(SUM(volume_coin), 0) AS vwap_usd
+				FROM trade_market_volumes FORCE INDEX (ix_trade_vol_pair_ts)
+				WHERE pair = @pair
+					AND `timestamp` >= UTC_TIMESTAMP() - INTERVAL 24 HOUR;";
 
 			for (int attempt = 1; attempt <= MaxRetries; attempt++)
 			{
@@ -533,18 +572,21 @@ namespace maxhanna.Server.Services
 			const decimal RetracementThreshold = 0.15m;   // 0.15 = 15%
 			const int HighLookbackDays = 365;             // 0 = use ALL data
 
-			var highSql = $@"	
-				SELECT MAX(cv.value_usd)
-				FROM coin_value AS cv FORCE INDEX (ix_coin_value_name_ts_val)
+			var highSql = $@"
+				SELECT cv.value_usd
+				FROM coin_value AS cv FORCE INDEX (`idx_coin_value_name_timestamp_value_desc`)
 				WHERE cv.name = @coinName
-					AND cv.`timestamp` >= UTC_TIMESTAMP() - INTERVAL 365 DAY;";
+					AND cv.`timestamp` >= UTC_TIMESTAMP() - INTERVAL 365 DAY
+				ORDER BY cv.value_usd DESC
+				LIMIT 1;"; 
 
 			const string curSql = @"
-				SELECT value_usd
-				FROM   coin_value
-				WHERE  name = @coinName
-				ORDER  BY timestamp DESC
-				LIMIT  1;";
+				SELECT cv.value_usd
+				FROM coin_value AS cv
+				FORCE INDEX (idx_coin_value_name_timestamp_value_desc)
+				WHERE cv.name = @coinName
+				ORDER BY cv.`timestamp` DESC
+				LIMIT 1;";
 
 			for (int attempt = 1; attempt <= MaxRetries; attempt++)
 			{
@@ -786,64 +828,51 @@ namespace maxhanna.Server.Services
 		}
 		private async Task<bool> UpdateVolumeAbove20DayAvg(MySqlConnection connection, string pair, string fromCoin, string toCoin)
 		{
-			const string sql = @"
-				WITH DailyVolumes AS (
-					SELECT 
-						DATE(timestamp) AS volume_date,
-						SUM(volume_usdc) AS daily_volume
-					FROM trade_market_volumes
-					WHERE pair = @pair
-					AND timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 21 DAY) -- 21 days to get 20 full days
-					GROUP BY DATE(timestamp)
-					ORDER BY volume_date DESC
-					LIMIT 20
-				),
-				CurrentVolume AS (
-					SELECT 
-						SUM(volume_usdc) AS current_volume
-					FROM trade_market_volumes
-					WHERE pair = @pair
-					AND timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 24 HOUR)
-				)
-				SELECT 
-					AVG(daily_volume) AS avg_20_day_volume,
-					(SELECT current_volume FROM CurrentVolume) AS current_volume
-				FROM DailyVolumes;";
-
+			// Use the trade_market_daily_volume helper table to avoid repeated heavy GROUP BYs
 			for (int attempt = 1; attempt <= MaxRetries; attempt++)
 			{
 				try
 				{
-					using var cmd = new MySqlCommand(sql, connection);
-					cmd.CommandTimeout = DbCommandTimeoutSeconds;
-					cmd.Parameters.AddWithValue("@pair", pair);
+					await UpsertTodayTradeMarketDailyVolume(connection, pair);
 
-					using var reader = await cmd.ExecuteReaderAsync();
-
-					if (!await reader.ReadAsync() || reader.IsDBNull(0) || reader.IsDBNull(1))
+					var avg20Nullable = await ComputeAverageDailyVolumeFromTable(connection, pair, 20);
+					if (avg20Nullable == null)
 					{
-						_ = _log.Db($"No data available for 20-day volume average calculation for {pair}",
-								   null, "TISVC", true);
-						await reader.CloseAsync();
+						_ = _log.Db($"No data available for 20-day volume average calculation for {pair}", null, "TISVC", true);
 						return false;
 					}
 
-					decimal avg20DayVolume = reader.GetDecimal(0);
-					decimal currentVolume = reader.GetDecimal(1);
-					await reader.CloseAsync();
+					decimal avg20DayVolume = avg20Nullable.Value;
 
+					// Compute current 24-hour volume from raw table
+					const string curSql = @"
+					SELECT COALESCE(SUM(volume_usdc), 0) FROM trade_market_volumes FORCE INDEX (ix_trade_vol_pair_ts)
+					WHERE pair = @pair
+					  AND `timestamp` >= UTC_TIMESTAMP() - INTERVAL 24 HOUR";
+
+					using var curCmd = new MySqlCommand(curSql, connection);
+					curCmd.CommandTimeout = DbCommandTimeoutSeconds;
+					curCmd.Parameters.AddWithValue("@pair", pair);
+					object? curRes = await curCmd.ExecuteScalarAsync();
+					if (curRes == null || curRes == DBNull.Value)
+					{
+						_ = _log.Db($"No current volume data for {pair}", null, "TISVC", true);
+						return false;
+					}
+
+					decimal currentVolume = Convert.ToDecimal(curRes);
 					bool isAboveAverage = currentVolume > avg20DayVolume;
 
 					const string updateSql = @"
 						INSERT INTO trade_indicators
 							(from_coin, to_coin, 
 							volume_above_20_day_avg, volume_20_day_avg_value, current_volume_value, updated)
-						VALUES (@fromCoin, @toCoin, @isAbove, @avgValue, @currentValue, UTC_TIMESTAMP())
-						ON DUPLICATE KEY UPDATE
-							volume_above_20_day_avg = @isAbove,
-							volume_20_day_avg_value = @avgValue,
-							current_volume_value = @currentValue,
-							updated = UTC_TIMESTAMP();";
+							VALUES (@fromCoin, @toCoin, @isAbove, @avgValue, @currentValue, UTC_TIMESTAMP())
+							ON DUPLICATE KEY UPDATE
+								volume_above_20_day_avg = @isAbove,
+								volume_20_day_avg_value = @avgValue,
+								current_volume_value = @currentValue,
+								updated = UTC_TIMESTAMP();";
 
 					using var updateCmd = new MySqlCommand(updateSql, connection);
 					updateCmd.CommandTimeout = DbCommandTimeoutSeconds;
@@ -855,16 +884,12 @@ namespace maxhanna.Server.Services
 
 					await updateCmd.ExecuteNonQueryAsync();
 
-					// _ = _log.Db($"Volume indicator updated for {pair}: " +
-					// 		   $"Current={currentVolume:F2}, 20-day Avg={avg20DayVolume:F2}, " +
-					// 		   $"Above Avg={(isAboveAverage ? "Yes" : "No")}",
-					// 		   null, "TISVC", true);
 					return true;
 				}
 				catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
 				{
 					_ = _log.Db($"Lost connection during Volume20DayAvg for {pair} (attempt {attempt}): {ex.Message}. Retrying...",
-							   null, "TISVC", true);
+						   null, "TISVC", true);
 					await Task.Delay(RetryDelayMs);
 				}
 			}
