@@ -23,6 +23,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     private instance: any;
     gamepads: Array<{ index: number; id: string; mapping: string; connected: boolean }> = [];
     selectedGamepadIndex: number | null = null;
+    showKeyMappings = false;
+    // Named mapping store
+    savedMappingsNames: string[] = [];
+    private _mappingsStoreKey = 'n64_mappings_store_v1';
+    selectedMappingName: string | null = null;
     private _gpPoller = 0;
     private _originalGetGamepads: any = null;
     // mapping: N64 control name -> { type: 'button'|'axis', index: number, axisDir?: 1|-1 }
@@ -58,6 +63,150 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
     constructor(private fileService: FileService, private romService: RomService) {
         super();
+    }
+
+    // Load the list of named mappings from localStorage
+    async loadMappingsList() {
+        // Try to load from backend first, fall back to localStorage
+        try {
+            const uid = this.parentRef?.user?.id;
+            if (uid) {
+                const names = await this.romService.listMappings(uid);
+                if (names && Array.isArray(names)) {
+                    this.savedMappingsNames = names.sort();
+                    if (this.selectedMappingName && !this.savedMappingsNames.includes(this.selectedMappingName)) {
+                        this.selectedMappingName = null;
+                    }
+                    return;
+                }
+            }
+        } catch (e) {
+            console.warn('Backend mappings list failed, falling back to localStorage', e);
+        }
+
+        try {
+            const raw = localStorage.getItem(this._mappingsStoreKey);
+            const store = raw ? JSON.parse(raw) : {};
+            this.savedMappingsNames = Object.keys(store || {}).sort();
+            if (this.selectedMappingName && !this.savedMappingsNames.includes(this.selectedMappingName)) {
+                this.selectedMappingName = null;
+            }
+        } catch (e) {
+            console.error('Failed to load mappings list', e);
+            this.savedMappingsNames = [];
+            this.selectedMappingName = null;
+        }
+    }
+
+    // Prompt the user for a mapping name and save the current mapping under that name
+    async saveMappingAs() {
+        try {
+            const name = window.prompt('Enter a name for this mapping:');
+            if (!name) return;
+            const uid = this.parentRef?.user?.id;
+            const payload = JSON.parse(JSON.stringify(this.mapping || {}));
+            if (uid) {
+                const res = await this.romService.saveMapping(uid, name, payload);
+                if (res) {
+                    this.parentRef?.showNotification(`Mapping saved as "${name}"`);
+                    await this.loadMappingsList();
+                    this.selectedMappingName = name;
+                    return;
+                }
+                // otherwise fall through to localStorage fallback
+            }
+
+            // fallback to localStorage
+            const raw = localStorage.getItem(this._mappingsStoreKey);
+            const store = raw ? JSON.parse(raw) : {};
+            if (store[name]) {
+                const overwrite = window.confirm(`A mapping named "${name}" already exists. Overwrite?`);
+                if (!overwrite) return;
+            }
+            store[name] = payload;
+            localStorage.setItem(this._mappingsStoreKey, JSON.stringify(store));
+            this.parentRef?.showNotification(`Mapping saved as "${name}" (local)`);
+            this.loadMappingsList();
+            this.selectedMappingName = name;
+        } catch (e) {
+            console.error('Failed to save mapping as', e);
+            this.parentRef?.showNotification('Failed to save mapping');
+        }
+    }
+
+    // Apply a named mapping (set mapping and apply to emulator)
+    async applySelectedMapping() {
+        if (!this.selectedMappingName) return;
+        try {
+            const uid = this.parentRef?.user?.id;
+            if (uid) {
+                try {
+                    const m = await this.romService.getMapping(uid, this.selectedMappingName as string);
+                    if (m) {
+                        this.mapping = JSON.parse(JSON.stringify(m));
+                        await this.applyMappingToEmulator();
+                        this.parentRef?.showNotification(`Applied mapping "${this.selectedMappingName}"`);
+                        return;
+                    }
+                } catch (e) {
+                    console.warn('Backend mapping fetch failed, falling back to localStorage', e);
+                }
+            }
+
+            // fallback to localStorage
+            const raw = localStorage.getItem(this._mappingsStoreKey);
+            const store = raw ? JSON.parse(raw) : {};
+            const m = store[this.selectedMappingName];
+            if (!m) {
+                this.parentRef?.showNotification('Selected mapping not found');
+                this.loadMappingsList();
+                return;
+            }
+            this.mapping = JSON.parse(JSON.stringify(m));
+            await this.applyMappingToEmulator();
+            this.parentRef?.showNotification(`Applied mapping "${this.selectedMappingName}"`);
+        } catch (e) {
+            console.error('Failed to apply selected mapping', e);
+            this.parentRef?.showNotification('Failed to apply mapping');
+        }
+    }
+
+    // Optional: delete a named mapping
+    async deleteSelectedMapping() {
+        if (!this.selectedMappingName) return;
+        try {
+            const ok = window.confirm(`Delete mapping "${this.selectedMappingName}"?`);
+            if (!ok) return;
+            const uid = this.parentRef?.user?.id;
+            if (uid) {
+                const res = await this.romService.deleteMapping(uid, this.selectedMappingName as string);
+                if (res) {
+                    this.parentRef?.showNotification(`Deleted mapping "${this.selectedMappingName}"`);
+                    this.selectedMappingName = null;
+                    await this.loadMappingsList();
+                    return;
+                }
+                // if backend delete failed, fall through to local deletion
+            }
+
+            const raw = localStorage.getItem(this._mappingsStoreKey);
+            const store = raw ? JSON.parse(raw) : {};
+            delete store[this.selectedMappingName];
+            localStorage.setItem(this._mappingsStoreKey, JSON.stringify(store));
+            this.parentRef?.showNotification(`Deleted mapping "${this.selectedMappingName}" (local)`);
+            this.selectedMappingName = null;
+            this.loadMappingsList();
+        } catch (e) {
+            console.error('Failed to delete mapping', e);
+            this.parentRef?.showNotification('Failed to delete mapping');
+        }
+    }
+
+    // Called by template when user selects a mapping from the dropdown
+    onMappingSelect(name: string) {
+        if (!name) return;
+        this.selectedMappingName = name;
+        this.applySelectedMapping();
     }
 
     ngOnInit(): void { }
@@ -224,43 +373,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
             console.error('Failed to load mapping', e);
         }
     }
-
-    exportMapping() {
-        // Provide JSON and a simple INI-like snippet for manual insertion into InputAutoCfg
-        const json = JSON.stringify(this.mapping, null, 2);
-        const lines: string[] = ['# N64 mapping export (manual format)'];
-        const handled = new Set<string>();
-        // pair analog axes into X/Y Axis entries when both sides present
-        const tryPair = (minusKey: string, plusKey: string, axisName: string) => {
-            const mMinus = this.mapping[minusKey];
-            const mPlus = this.mapping[plusKey];
-            if (mMinus && mPlus && mMinus.type === 'axis' && mPlus.type === 'axis' && mMinus.gpIndex === mPlus.gpIndex) {
-                lines.push(`${axisName} = axis(${mMinus.index}-,${mPlus.index}+)`);
-                handled.add(minusKey);
-                handled.add(plusKey);
-                return true;
-            }
-            return false;
-        };
-
-        tryPair('Analog X-', 'Analog X+', 'X Axis');
-        tryPair('Analog Y-', 'Analog Y+', 'Y Axis');
-
-        for (const ctrl of Object.keys(this.mapping)) {
-            if (handled.has(ctrl)) continue;
-            const m = this.mapping[ctrl];
-            if (m.type === 'button') {
-                lines.push(`${ctrl} = button(${m.index})`);
-            } else if (m.type === 'axis') {
-                // single-sided axis
-                lines.push(`${ctrl} = axis(${m.index}${m.axisDir === -1 ? '-' : '+'})`);
-            } else {
-                lines.push(`${ctrl} = ${JSON.stringify(m)}`);
-            }
-        }
-        this.exportText = `JSON:\n${json}\n\nINI-LIKE:\n${lines.join('\n')}`;
-    }
-
+ 
     /** Apply the current mapping into the emulator's InputAutoCfg (IDBFS) and restart emulator. */
     async applyMappingToEmulator() {
         try {
@@ -337,7 +450,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         this.selectedGamepadIndex = Number.isNaN(idx) ? null : idx;
         // update the list (keep the explicit selection)
         this.refreshGamepads();
-
+        this.directInjectMode = true;
         // If emulator is currently running, restart it so it binds the new controller
         if (this.instance || this.status === 'running') {
             try {

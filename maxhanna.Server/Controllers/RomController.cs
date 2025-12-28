@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
 using System.Net;
+using System.Text.Json;
+using maxhanna.Server.Controllers.DataContracts.Rom;
 
 namespace maxhanna.Server.Controllers
 {
@@ -377,6 +379,113 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "An error occurred while streaming the file.");
 			}
 		}
+
+
+		[HttpPost("/Rom/GetMappings")]
+		public async Task<IActionResult> GetMappings([FromBody] int UserId)
+		{
+				try
+				{
+						var list = new List<string>();
+						using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+						await conn.OpenAsync();
+						string sql = "SELECT name FROM rom_mappings WHERE user_id = @user_id ORDER BY name;";
+						using var cmd = new MySqlCommand(sql, conn);
+						cmd.Parameters.AddWithValue("@user_id", UserId);
+						using var reader = await cmd.ExecuteReaderAsync();
+						while (await reader.ReadAsync())
+						{
+								list.Add(reader[0]?.ToString() ?? "");
+						}
+
+						return Ok(list);
+				}
+				catch (Exception ex)
+				{
+						_ = _log.Db($"RomController.GetMappings failed: {ex.Message}", UserId, "ROM", true);
+						return StatusCode(500, "Error retrieving mappings");
+				}
+		}
+
+		[HttpPost("/Rom/GetMapping")]
+		public async Task<IActionResult> GetMapping([FromBody] GetMappingRequest request)
+		{
+				try
+				{
+						using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+						await conn.OpenAsync();
+						string sql = "SELECT mapping_json FROM rom_mappings WHERE user_id = @user_id AND name = @name LIMIT 1;";
+						using var cmd = new MySqlCommand(sql, conn);
+						cmd.Parameters.AddWithValue("@user_id", request.UserId);
+						cmd.Parameters.AddWithValue("@name", request.Name);
+						var obj = await cmd.ExecuteScalarAsync();
+						if (obj == null || obj == DBNull.Value) return NotFound("Mapping not found");
+						var json = obj as string ?? "{}";
+						var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, maxhanna.Server.Controllers.DataContracts.Rom.MappingEntry>>(json);
+						return Ok(dict ?? new Dictionary<string, maxhanna.Server.Controllers.DataContracts.Rom.MappingEntry>());
+				}
+				catch (Exception ex)
+				{
+						_ = _log.Db($"RomController.GetMapping failed: {ex.Message}", request?.UserId, "ROM", true);
+						return StatusCode(500, "Error retrieving mapping");
+				}
+		}
+
+		[HttpPost("/Rom/SaveMapping")]
+		public async Task<IActionResult> SaveMapping([FromBody] SaveMappingRequest request)
+		{
+				try
+				{
+						// Serialize strongly-typed mapping dictionary to JSON text for storage
+						string mappingJson = System.Text.Json.JsonSerializer.Serialize(request.Mapping ?? new Dictionary<string, maxhanna.Server.Controllers.DataContracts.Rom.MappingEntry>());
+
+						using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+						await conn.OpenAsync();
+
+						// Ensure there's a unique key on (user_id, name) in DB for ON DUPLICATE KEY to work.
+						string sql = @"
+								INSERT INTO rom_mappings (user_id, name, mapping_json, created_at, updated_at)
+								VALUES (@user_id, @name, @mapping_json, UTC_TIMESTAMP(), UTC_TIMESTAMP())
+								ON DUPLICATE KEY UPDATE mapping_json = VALUES(mapping_json), updated_at = UTC_TIMESTAMP();";
+
+						using var cmd = new MySqlCommand(sql, conn);
+						cmd.Parameters.AddWithValue("@user_id", request.UserId);
+						cmd.Parameters.AddWithValue("@name", request.Name);
+						cmd.Parameters.AddWithValue("@mapping_json", mappingJson);
+						await cmd.ExecuteNonQueryAsync();
+
+						return Ok("Saved");
+				}
+				catch (Exception ex)
+				{
+						_ = _log.Db($"RomController.SaveMapping failed: {ex.Message}", request?.UserId, "ROM", true);
+						return StatusCode(500, "Error saving mapping");
+				}
+		}
+
+		[HttpPost("/Rom/DeleteMapping")]
+		public async Task<IActionResult> DeleteMapping([FromBody] GetMappingRequest request)
+		{
+				try
+				{
+						using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+						await conn.OpenAsync();
+						string sql = "DELETE FROM rom_mappings WHERE user_id = @user_id AND name = @name LIMIT 1;";
+						using var cmd = new MySqlCommand(sql, conn);
+						cmd.Parameters.AddWithValue("@user_id", request.UserId);
+						cmd.Parameters.AddWithValue("@name", request.Name);
+						var affected = await cmd.ExecuteNonQueryAsync();
+						if (affected == 0) return NotFound("Mapping not found");
+						return Ok("Deleted");
+				}
+				catch (Exception ex)
+				{
+						_ = _log.Db($"RomController.DeleteMapping failed: {ex.Message}", request?.UserId, "ROM", true);
+						return StatusCode(500, "Error deleting mapping");
+				}
+		} 
+
+    
 
 		private async void updateLastAccessForRom(string fileName)
 		{ 

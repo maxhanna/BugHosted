@@ -31,6 +31,7 @@
 </div>
 
 <div class="n64-emulator-root popupPanel" *ngIf="isMenuPanelVisible">
+  <div class="popupPanelTitle">N64 Emulation Menu</div>
   <div class="optionsStatsWrapperDiv">
      <div class="optionsStatsDiv"> 
       <div class="optionsStatsHeader">Fullscreen:</div>
@@ -50,10 +51,19 @@
       <button (click)="refreshGamepads()">Refresh</button>
       <button (click)="startGamepadLogging()">Start Log</button>
       <button (click)="stopGamepadLogging()">Stop Log</button>
-      <button (click)="directInjectMode = !directInjectMode">Direct Inject Mode {{directInjectMode ? 'ON' : 'OFF'}}</button>
+      <!-- Mappings dropdown and save controls (applies on select) -->
+      <label style="margin-left:8px">Mappings:
+        <select (change)="onMappingSelect($any($event.target).value)">
+          <option value="" disabled *ngIf="!savedMappingsNames.length">-- No mappings --</option>
+          <option *ngFor="let n of savedMappingsNames" [value]="n">{{n}}</option>
+        </select>
+      </label>
+      <button (click)="saveMappingAs()">Save Mapping...</button>
+      <button *ngIf="selectedMappingName" (click)="deleteSelectedMapping()">Delete</button>
+      <button (click)="toggleShowKeyMappings()">Re-Map Controls</button>
     </div>
 
-    <div class="mapping-controls">
+    <div class="mapping-controls" *ngIf="showKeyMappings">
       <h4>Controller Mapping</h4>
       <div *ngFor="let ctrl of n64Controls">
         <label>{{ctrl}}:
@@ -62,9 +72,8 @@
         </label>
       </div>
       <div class="map-actions">
-        <button (click)="saveMapping()">Save Mapping</button>
-        <button (click)="loadMapping()">Load Mapping</button>
-        <button (click)="exportMapping()">Export Mapping</button>
+        <button (click)="saveMappingAs()">Save Mapping...</button>
+        <button (click)="loadMappingsList()">Refresh Mappings</button>
         <button (click)="applyMappingToEmulator()">Apply Mapping</button>
         <button (click)="clearSelection()">Clear</button>
       </div>

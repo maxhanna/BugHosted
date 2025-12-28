@@ -71,4 +71,64 @@ export class RomService {
       return await response.json(); // { count }
     } catch { return null; }
   }
+
+  // Mapping persistence APIs
+  async listMappings(userId: number) {
+    try {
+      const res = await fetch('/Rom/GetMappings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userId)
+      });
+      if (!res.ok) return null;
+      return await res.json(); // array of names
+    } catch {
+      return null;
+    }
+  }
+
+  async getMapping(userId: number, name: string) {
+    try {
+      const req = { UserId: userId, Name: name };
+      const res = await fetch('/Rom/GetMapping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req)
+      });
+      if (!res.ok) return null;
+      return await res.json(); // mapping object
+    } catch {
+      return null;
+    }
+  }
+
+  async saveMapping(userId: number, name: string, mapping: any) {
+    try {
+      const req = { UserId: userId, Name: name, MappingJson: mapping };
+      const res = await fetch('/Rom/SaveMapping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req)
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  async deleteMapping(userId: number, name: string) {
+    try {
+      const req = { UserId: userId, Name: name };
+      const res = await fetch('/Rom/DeleteMapping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req)
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
 }
