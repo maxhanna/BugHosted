@@ -31,6 +31,14 @@
 </div>
 
 <div class="n64-emulator-root popupPanel" *ngIf="isMenuPanelVisible">
+  <div class="optionsStatsWrapperDiv">
+     <div class="optionsStatsDiv" *ngIf="!showControlBindings">
+      <div class="optionsStatsHeader">Fullscreen:</div>
+      <div class="optionsStatsDescription">
+        <div class="uploadRomSpan upload-label" id="fullscreenBtn" (click)="toggleFullscreen()" title="Fullscreen mode">
+          ◻️</div>
+      </div>
+    </div>
   <div class="controls"> 
     <div class="gamepad-controls">
       <label>Controller:

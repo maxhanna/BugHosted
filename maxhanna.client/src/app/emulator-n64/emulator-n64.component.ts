@@ -14,6 +14,7 @@ import { FileEntry } from '../../services/datacontracts/file/file-entry';
 export class EmulatorN64Component extends ChildComponent implements OnInit, OnDestroy {
     @ViewChild('romInput') romInput!: ElementRef<HTMLInputElement>;
     @ViewChild('canvas') canvas!: ElementRef<HTMLCanvasElement>;
+    @ViewChild('fullscreenContainer') fullscreenContainer!: ElementRef<HTMLDivElement>;
 
     loading = false;
     status = 'idle';
@@ -39,6 +40,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     private _directPrevState: Record<string, boolean> = {};
 
     isMenuPanelVisible: boolean = false;
+    isFullScreen: boolean = false;
     // mapping of control name -> virtual button index that emulator will read (we choose a stable layout)
     private _virtualIndexForControl: Record<string, number> = {
         'A Button': 0,
@@ -751,14 +753,32 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
             // ignore
         }
     }
-showMenuPanel() {
-    this.isMenuPanelVisible = true;
-    this.parentRef?.showOverlay();
-}
-closeMenuPanel() {
-    this.isMenuPanelVisible = false;
-    this.parentRef?.closeOverlay();
-}
+    showMenuPanel() {
+        this.isMenuPanelVisible = true;
+        this.parentRef?.showOverlay();
+    }
+    closeMenuPanel() {
+        this.isMenuPanelVisible = false;
+        this.parentRef?.closeOverlay();
+    }
+    
+    async toggleFullscreen() {
+        this.closeMenuPanel();
+        const elem = this.fullscreenContainer.nativeElement;
+        const canvas = this.canvas?.nativeElement;
+        if (!this.isFullScreen) {
+            if (this.onMobile()) {
+                await elem.requestFullscreen();
+            } else {
+                await canvas!.requestFullscreen();
+            }
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        }
+    }
+
     getAllowedRomFileTypes(): string[] {
         return this.fileService.n64FileExtensions;
     }
