@@ -738,8 +738,8 @@ public class WebCrawler
                         keywords IS NOT NULL OR 
                         image_url IS NOT NULL OR 
                         author IS NOT NULL,
-                        failed,  // Keep existing value if any content exists
-                        IF(failed = TRUE, TRUE, VALUES(failed))  // Original logic
+                        failed,   
+                        IF(failed = TRUE, TRUE, VALUES(failed))  
                     ), 
                     response_code = IF(
                         title IS NOT NULL OR 
@@ -747,8 +747,8 @@ public class WebCrawler
                         keywords IS NOT NULL OR 
                         image_url IS NOT NULL OR 
                         author IS NOT NULL,
-                        response_code,  // Keep existing value if any content exists
-                        IF(failed = TRUE, @responseCode, response_code)  // Original logic
+                        response_code,  
+                        IF(failed = TRUE, @responseCode, response_code)  
                     ),
                     last_crawled = UTC_TIMESTAMP()";
 
