@@ -35,7 +35,9 @@ const config = {
   certPath: process.env.SSL_CERT || path.join(__dirname, 'ssl', 'bughosted_com.crt'),
   keyPath: process.env.SSL_KEY || path.join(__dirname, 'ssl', 'bughosted_com.key'),
   backendUrl: process.env.BACKEND_URL || 'https://localhost:7299',
-  distPath: path.join(__dirname, 'dist', 'maxhanna.client', 'browser'),
+  // Angular build output is configured in `angular.json` as `dist/maxhanna.client`.
+  // Use that directory so the Express server serves the correct files.
+  distPath: path.join(__dirname, 'dist', 'maxhanna.client'),
   nodeEnv: process.env.NODE_ENV || 'production',
   logLevel: process.env.LOG_LEVEL || 'combined',
   enableCompression: process.env.COMPRESSION !== 'false',
