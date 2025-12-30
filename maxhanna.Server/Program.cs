@@ -66,7 +66,7 @@ app.Use(async (context, next) =>
 {
 	// CSP header that allows the necessary resources while maintaining security
 	// Allows inline scripts/styles (needed for Angular), external scripts from HTTPS, and external API calls
-	context.Response.Headers.Add(
+	context.Response.Headers.Append(
 		"Content-Security-Policy",
 		"default-src 'self' https:; " +
 		"script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; " +
