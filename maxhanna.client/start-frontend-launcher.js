@@ -63,25 +63,68 @@ async function runBuildIfNeeded() {
   // Use a synchronous spawn to avoid subtle child-process lifecycle issues
   // when this script is launched by the .NET SPA proxy. The synchronous call
   // ensures we don't continue until the Angular build has fully completed.
+  // Build can hang after "Application bundle generation complete" message.
+  // Spawn async, capture output, detect completion message, then kill the process.
   const maxMs = parseInt(process.env.FRONTEND_BUILD_TIMEOUT_MS || '180000', 10);
-  try {
-    const result = spawnSync(buildCmd, buildArgs, { cwd: frontendPath, stdio: 'inherit', shell: isWin, timeout: maxMs });
-    if (result.error) {
-      // Timeout or spawn error
-      throw result.error;
-    }
-    if (result.status !== 0) {
-      throw new Error('Build failed with code ' + result.status);
-    }
-    // refresh indexPath
-    if (fs.existsSync(browserIndex)) indexPath = browserIndex;
-    return true;
-  } catch (err) {
-    if (err && err.code === 'ETIMEDOUT') {
-      throw new Error('Build timeout');
-    }
-    throw err;
-  }
+  
+  return new Promise((resolve, reject) => {
+    const child = spawn(buildCmd, buildArgs, { 
+      cwd: frontendPath, 
+      stdio: ['ignore', 'pipe', 'pipe'],  // Capture stdout and stderr
+      shell: isWin, 
+      timeout: maxMs 
+    });
+
+    let buildCompleted = false;
+    
+    // Collect stdout/stderr and detect build completion
+    child.stdout?.on('data', (data) => {
+      const str = data.toString();
+      process.stdout.write(str);  // Echo progress to console
+      
+      if (str.includes('Application bundle generation complete')) {
+        buildCompleted = true;
+        console.log('\n[Launcher] Build complete detected, terminating build process...');
+        try {
+          child.kill('SIGTERM');
+        } catch (e) {
+          // Process already dead
+        }
+      }
+    });
+
+    child.stderr?.on('data', (data) => {
+      process.stderr.write(data.toString());
+    });
+
+    const timeoutHandle = setTimeout(() => {
+      if (!buildCompleted) {
+        console.error('\n[Launcher] Build timeout, killing process...');
+        child.kill('SIGKILL');
+      }
+    }, maxMs);
+
+    child.on('error', (err) => {
+      clearTimeout(timeoutHandle);
+      reject(err);
+    });
+
+    child.on('exit', (code, signal) => {
+      clearTimeout(timeoutHandle);
+      
+      if (buildCompleted) {
+        if (fs.existsSync(browserIndex)) indexPath = browserIndex;
+        return resolve(true);
+      }
+      
+      if (code !== 0) {
+        return reject(new Error(`Build failed with exit code ${code}`));
+      }
+      
+      if (fs.existsSync(browserIndex)) indexPath = browserIndex;
+      resolve(true);
+    });
+  });
 }
 
 // Run the build if needed, locate index.html, then start the production server

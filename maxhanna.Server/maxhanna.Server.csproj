@@ -5,8 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <SpaRoot>..\maxhanna.client</SpaRoot>
-    <!-- Launch frontend launcher from the client folder using absolute node.exe to avoid PATH / working-dir mismatches. -->
-    <SpaProxyLaunchCommand>cmd.exe /c "cd /d ..\maxhanna.client &amp;&amp; \"D:\\nodejs\\node.exe\" start-frontend-launcher.js"</SpaProxyLaunchCommand>
+    <SpaProxyLaunchCommand>C:\\Windows\\System32\\cmd.exe /c node start-frontend-launcher.js</SpaProxyLaunchCommand>
     <SpaProxyServerUrl>https://localhost:443</SpaProxyServerUrl>
     <UserSecretsId>739e1568-60de-4c76-9976-c6d09dabbe47</UserSecretsId>
     <ApplicationIcon>favicon.ico</ApplicationIcon>
