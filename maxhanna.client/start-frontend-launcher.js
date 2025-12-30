@@ -8,6 +8,17 @@ const frontendPath = path.resolve(__dirname);
 const prodServerPath = path.join(frontendPath, 'prod-server.js');
 const distRoot = path.join(frontendPath, 'dist', 'maxhanna.client');
 const browserIndex = path.join(distRoot, 'browser', 'index.html');
+const launcherLog = path.join(frontendPath, 'launcher.log');
+
+function writeLog(...parts) {
+  try {
+    const ts = new Date().toISOString();
+    const msg = parts.map(p => (typeof p === 'string' ? p : JSON.stringify(p))).join(' ');
+    fs.appendFileSync(launcherLog, `${ts} ${msg}\n`);
+  } catch (e) {
+    // ignore logging errors
+  }
+}
 
 function findIndexRecursive(dir) {
   try {
@@ -21,6 +32,7 @@ function findIndexRecursive(dir) {
       }
     }
   } catch (err) {
+    writeLog('index.html not found; starting build', { frontendPath, cwd: process.cwd(), nodeExec: process.execPath });
     return null;
   }
   return null;
