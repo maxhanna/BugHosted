@@ -34,12 +34,6 @@
               "src/favicon.ico",
               "src/sitemap.xml",
               "src/robots.txt",
-              "src/assets/",
-              {
-                "glob": "**/*",
-                "input": "node_modules/mupen64plus-web/bin/web",
-                "output": "/assets/mupen64plus"
-              },
               "src/firebase-messaging-sw.js"
             ],
             "styles": [

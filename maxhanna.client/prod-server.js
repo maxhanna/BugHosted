@@ -304,6 +304,7 @@ app.use(createProxyMiddleware(proxyContext, proxyOptions));
 // Static Asset Serving
 // ============================================================================
 
+// Serve dist folder (compiled Angular app)
 app.use(express.static(config.distPath, {
   maxAge: '1y', // Cache assets for 1 year
   etag: true,
@@ -326,6 +327,17 @@ app.use(express.static(config.distPath, {
     res.set('X-Frame-Options', 'SAMEORIGIN');
   },
 }));
+
+// Serve src/assets folder directly (large assets, uploads, etc. not included in build)
+const assetsPath = path.join(__dirname, 'src', 'assets');
+if (fs.existsSync(assetsPath)) {
+  app.use('/assets', express.static(assetsPath, {
+    maxAge: '1y',
+    etag: true,
+    lastModified: true,
+  }));
+  console.log(chalk.gray(`✓ Serving /assets from: ${assetsPath}`));
+}
 
 // ============================================================================
 // SPA Fallback
