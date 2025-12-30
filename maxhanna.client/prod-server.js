@@ -128,9 +128,10 @@ if (config.enableHelmet) {
         // Allow same-origin and any HTTPS/resource data by default
         defaultSrc: ["'self'", 'https:', 'data:'],
         // Allow scripts from self, HTTPS, common CDNs and permit inline/eval for legacy code
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'cdn.jsdelivr.net', 'https:'],
-        // Allow external script elements (e.g. hashed filenames) from self and HTTPS as well
-        'script-src-elem': ["'self'", 'https:', 'cdn.jsdelivr.net', "'unsafe-inline'", "'unsafe-eval'"],
+        // Include 'blob:' so dynamic/imported blob modules are permitted
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'cdn.jsdelivr.net', 'https:', 'blob:'],
+        // Allow external script elements (e.g. hashed filenames) from self, HTTPS and blob URLs
+        'script-src-elem': ["'self'", 'https:', 'cdn.jsdelivr.net', 'blob:', "'unsafe-inline'", "'unsafe-eval'"],
         // Permit inline handlers temporarily (refactor to remove)
         'script-src-attr': ["'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'https:'],
