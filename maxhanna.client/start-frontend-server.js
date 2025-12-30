@@ -143,4 +143,3 @@ try {
   logStream.end();
   process.exit(1);
 }
-});
