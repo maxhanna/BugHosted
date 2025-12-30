@@ -21,6 +21,10 @@ REM Clean the dist folder using Node (cross-platform, handles read-only files wi
 echo [start-server.cmd] Removing 'dist'...
 node -e "require('fs').rmSync('dist',{recursive:true,force:true})"
 
+REM Clean the launcher.log file
+echo [start-server.cmd] Removing 'launcher.log'...
+node -e "require('fs').rmSync('launcher.log',{force:true})"
+
 REM Start your launcher
 echo [start-server.cmd] Starting 'start-frontend-launcher.js'...
 node start-frontend-launcher.js
