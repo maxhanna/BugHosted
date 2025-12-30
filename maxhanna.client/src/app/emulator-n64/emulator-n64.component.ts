@@ -4,6 +4,7 @@ import createMupen64PlusWeb, { writeAutoInputConfig } from 'mupen64plus-web';
 import { FileService } from '../../services/file.service';
 import { RomService } from '../../services/rom.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { style } from '@angular/animations';
 
 @Component({
     selector: 'app-emulator-n64',
@@ -284,6 +285,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
             this.instance = await createMupen64PlusWeb({
                 canvas: canvasEl,
                 romData: new Int8Array(this.romBuffer),
+                style: 'width: 100%; height: 100%;',
                 beginStats: () => { },
                 endStats: () => { },
                 coreConfig: { emuMode: 0 },
@@ -549,6 +551,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
             this.instance = await createMupen64PlusWeb({
                 canvas: canvasEl,
+                style: 'width: 100%; height: 100%;',
                 romData: new Int8Array(this.romBuffer!),
                 beginStats: () => { },
                 endStats: () => { },
