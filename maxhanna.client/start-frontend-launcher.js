@@ -63,33 +63,33 @@ async function runBuildIfNeeded() {
   // Use a synchronous spawn to avoid subtle child-process lifecycle issues
   // when this script is launched by the .NET SPA proxy. The synchronous call
   // ensures we don't continue until the Angular build has fully completed.
-  // Build can hang after "Application bundle generation complete" message.
-  // Spawn async, capture output, detect completion message, then kill the process.
+  // Spawn build in detached mode so parent process doesn't wait for it to exit.
+  // Detached processes can continue running independently and won't block the parent.
   const maxMs = parseInt(process.env.FRONTEND_BUILD_TIMEOUT_MS || '180000', 10);
   
   return new Promise((resolve, reject) => {
+    console.log('[Launcher] Starting build (detached mode)...');
+    
+    // Spawn with detached: true so the build can run independently
     const child = spawn(buildCmd, buildArgs, { 
-      cwd: frontendPath, 
-      stdio: ['ignore', 'pipe', 'pipe'],  // Capture stdout and stderr
-      shell: isWin, 
-      timeout: maxMs 
+      cwd: frontendPath,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: isWin,
+      detached: isWin // On Windows, detached allows the process to run in background
     });
 
+    let lastOutput = '';
     let buildCompleted = false;
     
-    // Collect stdout/stderr and detect build completion
+    // Capture output to detect completion
     child.stdout?.on('data', (data) => {
       const str = data.toString();
-      process.stdout.write(str);  // Echo progress to console
+      lastOutput += str;
+      process.stdout.write(str);
       
       if (str.includes('Application bundle generation complete')) {
         buildCompleted = true;
-        console.log('\n[Launcher] Build complete detected, terminating build process...');
-        try {
-          child.kill('SIGTERM');
-        } catch (e) {
-          // Process already dead
-        }
+        console.log('[Launcher] Build completion detected');
       }
     });
 
@@ -97,32 +97,45 @@ async function runBuildIfNeeded() {
       process.stderr.write(data.toString());
     });
 
-    const timeoutHandle = setTimeout(() => {
-      if (!buildCompleted) {
-        console.error('\n[Launcher] Build timeout, killing process...');
-        child.kill('SIGKILL');
-      }
-    }, maxMs);
-
-    child.on('error', (err) => {
-      clearTimeout(timeoutHandle);
-      reject(err);
-    });
-
-    child.on('exit', (code, signal) => {
-      clearTimeout(timeoutHandle);
+    // Poll for index.html instead of waiting for process exit
+    let checkCount = 0;
+    const maxChecks = 60; // Up to 60 checks
+    const checkInterval = setInterval(() => {
+      checkCount++;
       
-      if (buildCompleted) {
-        if (fs.existsSync(browserIndex)) indexPath = browserIndex;
+      // If index.html exists and we saw completion message, we're done
+      if (fs.existsSync(browserIndex) && buildCompleted) {
+        clearInterval(checkInterval);
+        console.log('[Launcher] index.html found, proceeding to start server');
+        indexPath = browserIndex;
         return resolve(true);
       }
       
-      if (code !== 0) {
-        return reject(new Error(`Build failed with exit code ${code}`));
+      // Timeout after 60 checks or if time exceeded
+      if (checkCount > maxChecks || Date.now() - startTime > maxMs) {
+        clearInterval(checkInterval);
+        try { child.kill(); } catch (e) {}
+        
+        if (fs.existsSync(browserIndex)) {
+          console.log('[Launcher] Timeout but index.html exists, proceeding');
+          return resolve(true);
+        }
+        return reject(new Error('Build timeout or index.html not found'));
       }
-      
-      if (fs.existsSync(browserIndex)) indexPath = browserIndex;
-      resolve(true);
+    }, 500);
+
+    const startTime = Date.now();
+
+    child.on('error', (err) => {
+      clearInterval(checkInterval);
+      reject(err);
+    });
+
+    // Even if process exits early, continue polling until timeout or index found
+    child.on('exit', (code) => {
+      if (code !== 0 && !buildCompleted) {
+        console.warn(`[Launcher] Build process exited with code ${code}, but continuing...`);
+      }
     });
   });
 }
