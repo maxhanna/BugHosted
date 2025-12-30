@@ -49,7 +49,9 @@ async function runBuildIfNeeded() {
   console.log(`Running: ${buildCmd} ${buildArgs.join(' ')}`);
 
   return new Promise((resolve, reject) => {
-    const child = spawn(buildCmd, buildArgs, { cwd: frontendPath, stdio: 'inherit', shell: false });
+    // On Windows, launching a `.cmd` (ng.cmd or npx.cmd) requires a shell.
+    // Use `shell: true` on Windows to allow execution of cmd wrappers.
+    const child = spawn(buildCmd, buildArgs, { cwd: frontendPath, stdio: 'inherit', shell: isWin });
 
     // Timeout to prevent hanging indefinitely (default 3 minutes)
     const maxMs = parseInt(process.env.FRONTEND_BUILD_TIMEOUT_MS || '180000', 10);
