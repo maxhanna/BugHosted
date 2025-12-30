@@ -24,6 +24,23 @@ if not exist "dist\maxhanna.client\browser" (
 )
 echo dist folder found >> launcher.log
 
+REM Ensure index.html exists, otherwise run a production build automatically
+if not exist "dist\maxhanna.client\browser\index.html" (
+    echo index.html not found, running production build... >> launcher.log
+    echo Running: npm run build -- --configuration production >> launcher.log
+    npm run build -- --configuration production >> launcher.log 2>&1
+    if errorlevel 1 (
+        echo Build failed. Check build logs. >> launcher.log
+        exit /b 1
+    ) else (
+        echo Build succeeded. >> launcher.log
+    )
+    if not exist "dist\maxhanna.client\browser\index.html" (
+        echo After build: index.html still missing. Aborting. >> launcher.log
+        exit /b 1
+    )
+)
+
 REM Set environment variables for prod-server.js
 set NODE_ENV=production
 set PROD_PORT=443
