@@ -166,7 +166,7 @@ if (config.enableCompression) {
 }
 
 // Request logging
-const morganFormat = config.logLevel === 'debug' ? 'dev' : 'combined';
+//const morganFormat = config.logLevel === 'debug' ? 'dev' : 'combined';
 /*
 // Disabled request logging to suppress access-log lines like:
 // 142.112.110.151 - - [30/Dec/2025:21:05:33 +0000] "GET /social/totalposts HTTP/1.1" 200 - "https://bughosted.com/" "User-Agent"
@@ -323,6 +323,11 @@ app.use(express.static(config.distPath, {
   etag: true,
   lastModified: true,
   setHeaders: (res, filePath) => {
+    // Ensure WebAssembly files are served with the correct MIME type so
+    // `WebAssembly.compileStreaming` / dynamic wasm imports work in browsers.
+    if (filePath.endsWith('.wasm')) {
+      res.set('Content-Type', 'application/wasm');
+    }
     // No cache for HTML, manifests, service workers
     if (filePath.match(/\.(html|json|webmanifest|xml|txt)$|service-worker/)) {
       res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
