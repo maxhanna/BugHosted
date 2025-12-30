@@ -31,29 +31,47 @@ if (!fs.existsSync(prodServerPath)) {
   process.exit(1);
 }
 
-// If index.html not present, run build synchronously so output appears in console
+// If index.html not present, run build using the local Angular CLI binary
 let indexPath = browserIndex;
-if (!fs.existsSync(indexPath)) {
-  console.log('index.html not found; running `npm run build -- --configuration production` (foreground)');
-  const build = spawnSync('npm', ['run', 'build', '--', '--configuration', 'production'], {
-    cwd: frontendPath,
-    stdio: 'inherit',
-    shell: true,
+async function runBuildIfNeeded() {
+  if (fs.existsSync(indexPath)) return true;
+
+  console.log('index.html not found; running Angular build (foreground)');
+
+  // Prefer local ng binary to avoid npm wrapper behavior
+  const isWin = process.platform === 'win32';
+  const ngBin = isWin ? path.join(frontendPath, 'node_modules', '.bin', 'ng.cmd') : path.join(frontendPath, 'node_modules', '.bin', 'ng');
+  const useNpx = !fs.existsSync(ngBin);
+
+  const buildCmd = useNpx ? 'npx' : ngBin;
+  const buildArgs = useNpx ? ['ng', 'build', '--configuration', 'production'] : ['build', '--configuration', 'production'];
+
+  console.log(`Running: ${buildCmd} ${buildArgs.join(' ')}`);
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(buildCmd, buildArgs, { cwd: frontendPath, stdio: 'inherit', shell: false });
+
+    // Timeout to prevent hanging indefinitely (default 3 minutes)
+    const maxMs = parseInt(process.env.FRONTEND_BUILD_TIMEOUT_MS || '180000', 10);
+    const timer = setTimeout(() => {
+      console.error(`Build timeout after ${maxMs}ms, killing build process`);
+      try { child.kill('SIGTERM'); } catch (e) {}
+      reject(new Error('Build timeout'));
+    }, maxMs);
+
+    child.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      if (code !== 0) return reject(new Error('Build failed with code ' + code));
+      // refresh indexPath
+      if (fs.existsSync(browserIndex)) indexPath = browserIndex;
+      resolve(true);
+    });
   });
-
-  if (build.error) {
-    console.error('Failed to run build:', build.error);
-    process.exit(1);
-  }
-
-  if (build.status !== 0) {
-    console.error('Build failed with exit code', build.status);
-    process.exit(build.status || 1);
-  }
-
-  if (fs.existsSync(browserIndex)) {
-    indexPath = browserIndex;
-  }
 }
 
 // If still not found, search recursively
