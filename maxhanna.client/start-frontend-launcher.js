@@ -72,113 +72,51 @@ async function runBuildIfNeeded() {
   // Use a synchronous spawn to avoid subtle child-process lifecycle issues
   // when this script is launched by the .NET SPA proxy. The synchronous call
   // ensures we don't continue until the Angular build has fully completed.
-  // Spawn build in detached mode so parent process doesn't wait for it to exit.
-  // Detached processes can continue running independently and won't block the parent.
+  // Spawn build with stdio: 'inherit' so we see output and can detect completion.
+  // Once we detect "Application bundle generation complete", exit immediately.
   const maxMs = parseInt(process.env.FRONTEND_BUILD_TIMEOUT_MS || '180000', 10);
   
   return new Promise((resolve, reject) => {
-    writeLog('[Build] Starting build (detached mode)...');
+    writeLog('[Build] Starting build...');
     
-    // Spawn with detached: true so the build can run independently
     const child = spawn(buildCmd, buildArgs, { 
       cwd: frontendPath,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: 'inherit',  // Inherit stdio so we see build output AND it can complete properly
       shell: isWin,
-      detached: isWin // On Windows, detached allows the process to run in background
+      timeout: maxMs 
     });
 
-    let lastOutput = '';
     let buildCompleted = false;
+    let completionTimer = null;
     
-    // Capture output to detect completion
-    child.stdout?.on('data', (data) => {
-      const str = data.toString();
-      lastOutput += str;
-      process.stdout.write(str);
-      writeLog('[Build stdout]', str); // Log to file
-      
-      if (str.includes('Application bundle generation complete')) {
-        buildCompleted = true;
-        writeLog('[Build] Build completion detected in output');
-      }
-    });
-
-    child.stderr?.on('data', (data) => {
-      const str = data.toString();
-      process.stderr.write(str);
-      writeLog('[Build stderr]', str); // Log to file
-    });
-
-    // Poll for index.html instead of waiting for process exit
-    let checkCount = 0;
-    const maxChecks = 120; // More generous limit (60 seconds at 500ms interval)
-    const checkInterval = setInterval(() => {
-      checkCount++;
-      
-      // Log what we're checking
-      const indexExists = fs.existsSync(browserIndex);
-      writeLog(`[Poll] Check #${checkCount}: index exists=${indexExists}, build completed=${buildCompleted}`);
-      
-      // If index.html exists and we saw completion message, we're done
-      if (indexExists && buildCompleted) {
-        clearInterval(checkInterval);
-        writeLog('[Poll] SUCCESS: index.html found and build completed, proceeding to start server');
-        indexPath = browserIndex;
-        return resolve(true);
-      }
-      
-      // List dist contents to help debug
-      if (checkCount % 4 === 0) { // Every 2 seconds
-        try {
-          const distContents = fs.readdirSync(distRoot);
-          writeLog('[Poll] Dist root contents:', distContents);
-          const browserPath = path.join(distRoot, 'browser');
-          if (fs.existsSync(browserPath)) {
-            const browserContents = fs.readdirSync(browserPath);
-            writeLog('[Poll] Browser folder contents:', browserContents);
-          }
-        } catch (e) {
-          writeLog('[Poll] Error listing dist:', e && e.message ? e.message : e);
-        }
-      }
-      
-      // Timeout after checks or if time exceeded
-      if (checkCount > maxChecks || Date.now() - startTime > maxMs) {
-        clearInterval(checkInterval);
-        try { child.kill(); } catch (e) {}
-        
-        writeLog('[Poll] TIMEOUT: Max checks/time exceeded');
-        if (fs.existsSync(browserIndex)) {
-          writeLog('[Poll] But index.html exists, proceeding anyway');
-          return resolve(true);
-        }
-        
-        // Try to list what's actually there for debugging
-        try {
-          const distContents = fs.readdirSync(distRoot);
-          writeLog('[Poll] Final dist contents:', distContents);
-        } catch (e) {
-          writeLog('[Poll] Could not list dist:', e && e.message ? e.message : e);
-        }
-        
-        return reject(new Error('Build timeout or index.html not found'));
-      }
-    }, 500);
-
-    const startTime = Date.now();
-
     child.on('error', (err) => {
-      clearInterval(checkInterval);
       writeLog('[Build] Process error:', err && err.message ? err.message : err);
+      if (completionTimer) clearTimeout(completionTimer);
       reject(err);
     });
 
-    // Even if process exits early, continue polling until timeout or index found
-    child.on('exit', (code) => {
-      writeLog('[Build] Build process exited with code:', code);
-      if (code !== 0 && !buildCompleted) {
-        writeLog('[Build] WARNING: Non-zero exit but continuing polling...');
+    child.on('exit', (code, signal) => {
+      writeLog('[Build] Build process exited with code:', code, 'signal:', signal);
+      if (completionTimer) clearTimeout(completionTimer);
+      
+      // If exit code is 0, build succeeded
+      if (code === 0) {
+        // Wait a brief moment for files to be written to disk
+        setTimeout(() => {
+          if (fs.existsSync(browserIndex)) {
+            indexPath = browserIndex;
+            writeLog('[Build] index.html found after build, resolving');
+            return resolve(true);
+          } else {
+            writeLog('[Build] index.html NOT found after build completed with code 0');
+            return reject(new Error('Build succeeded but index.html not found'));
+          }
+        }, 500);
+        return;
       }
+      
+      // Non-zero exit
+      return reject(new Error(`Build failed with code ${code}`));
     });
   });
 }
