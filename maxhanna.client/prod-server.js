@@ -364,15 +364,15 @@ app.use(express.static(config.distPath, {
   },
 }));
 
-// Serve src/assets folder directly (large assets, uploads, etc. not included in build)
+// Serve `src/assets` directly only in development (avoids serving uploads in production)
 const assetsPath = path.join(__dirname, 'src', 'assets');
-if (fs.existsSync(assetsPath)) {
+if (config.nodeEnv === 'development' && fs.existsSync(assetsPath)) {
   app.use('/assets', express.static(assetsPath, {
     maxAge: '1y',
     etag: true,
     lastModified: true,
   }));
-  console.log(chalk.gray(`✓ Serving /assets from: ${assetsPath}`));
+  console.log(chalk.gray(`✓ Serving /assets from (dev): ${assetsPath}`));
 }
 
 // ============================================================================

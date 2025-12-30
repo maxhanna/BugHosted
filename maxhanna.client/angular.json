@@ -35,11 +35,7 @@
               "src/sitemap.xml",
               "src/robots.txt",
               "src/firebase-messaging-sw.js",
-              {
-                "glob": "**/*",
-                "input": "src/assets",
-                "output": "assets"
-              },
+              
               {
                 "glob": "**/*.wasm",
                 "input": "node_modules/mupen64plus-web/bin/web",
