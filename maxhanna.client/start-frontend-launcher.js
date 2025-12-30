@@ -95,6 +95,7 @@ async function runBuildIfNeeded() {
       const str = data.toString();
       lastOutput += str;
       process.stdout.write(str);
+      writeLog('[Build stdout]', str); // Log to file
       
       if (str.includes('Application bundle generation complete')) {
         buildCompleted = true;
@@ -103,7 +104,9 @@ async function runBuildIfNeeded() {
     });
 
     child.stderr?.on('data', (data) => {
-      process.stderr.write(data.toString());
+      const str = data.toString();
+      process.stderr.write(str);
+      writeLog('[Build stderr]', str); // Log to file
     });
 
     // Poll for index.html instead of waiting for process exit
