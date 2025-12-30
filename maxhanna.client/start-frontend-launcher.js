@@ -48,32 +48,28 @@ async function runBuildIfNeeded() {
 
   console.log(`Running: ${buildCmd} ${buildArgs.join(' ')}`);
 
-  return new Promise((resolve, reject) => {
-    // On Windows, launching a `.cmd` (ng.cmd or npx.cmd) requires a shell.
-    // Use `shell: true` on Windows to allow execution of cmd wrappers.
-    const child = spawn(buildCmd, buildArgs, { cwd: frontendPath, stdio: 'inherit', shell: isWin });
-
-    // Timeout to prevent hanging indefinitely (default 3 minutes)
-    const maxMs = parseInt(process.env.FRONTEND_BUILD_TIMEOUT_MS || '180000', 10);
-    const timer = setTimeout(() => {
-      console.error(`Build timeout after ${maxMs}ms, killing build process`);
-      try { child.kill('SIGTERM'); } catch (e) {}
-      reject(new Error('Build timeout'));
-    }, maxMs);
-
-    child.on('error', (err) => {
-      clearTimeout(timer);
-      reject(err);
-    });
-
-    child.on('close', (code) => {
-      clearTimeout(timer);
-      if (code !== 0) return reject(new Error('Build failed with code ' + code));
-      // refresh indexPath
-      if (fs.existsSync(browserIndex)) indexPath = browserIndex;
-      resolve(true);
-    });
-  });
+  // Use a synchronous spawn to avoid subtle child-process lifecycle issues
+  // when this script is launched by the .NET SPA proxy. The synchronous call
+  // ensures we don't continue until the Angular build has fully completed.
+  const maxMs = parseInt(process.env.FRONTEND_BUILD_TIMEOUT_MS || '180000', 10);
+  try {
+    const result = spawnSync(buildCmd, buildArgs, { cwd: frontendPath, stdio: 'inherit', shell: isWin, timeout: maxMs });
+    if (result.error) {
+      // Timeout or spawn error
+      throw result.error;
+    }
+    if (result.status !== 0) {
+      throw new Error('Build failed with code ' + result.status);
+    }
+    // refresh indexPath
+    if (fs.existsSync(browserIndex)) indexPath = browserIndex;
+    return true;
+  } catch (err) {
+    if (err && err.code === 'ETIMEDOUT') {
+      throw new Error('Build timeout');
+    }
+    throw err;
+  }
 }
 
 // Run the build if needed, locate index.html, then start the production server
