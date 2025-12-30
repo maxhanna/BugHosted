@@ -63,15 +63,64 @@ if (!fs.existsSync(prodServerPath)) {
 }
 log(`✓ prod-server.js found`);
 
-// Check if dist folder is built
+// Clear and rebuild dist folder for fresh build on each run
+log(`Clearing dist folder for fresh build...`);
+const distRoot = path.join(frontendPath, 'dist');
+if (fs.existsSync(distRoot)) {
+  try {
+    // Recursively remove dist folder
+    const removeDir = (dirPath) => {
+      if (fs.existsSync(dirPath)) {
+        fs.readdirSync(dirPath).forEach(file => {
+          const curPath = path.join(dirPath, file);
+          if (fs.lstatSync(curPath).isDirectory()) {
+            removeDir(curPath);
+          } else {
+            fs.unlinkSync(curPath);
+          }
+        });
+        fs.rmdirSync(dirPath);
+      }
+    };
+    removeDir(distRoot);
+    log(`✓ dist folder cleared`);
+  } catch (err) {
+    log(`WARNING: Could not clear dist folder: ${err.message}`);
+  }
+}
+
+// Check if dist folder will be built
 const distPath = path.join(frontendPath, 'dist', 'maxhanna.client', 'browser');
-log(`Checking dist path: ${distPath}`);
-if (!fs.existsSync(distPath)) {
-  log(`ERROR: Frontend not built! Expected: npm run build in ${frontendPath}`);
+log(`Frontend will be built to: ${distPath}`);
+log(`Building frontend...`);
+
+// Build the frontend synchronously before starting the server
+log(`\nRunning: npm run build in ${frontendPath}\n`);
+try {
+  const buildResult = require('child_process').spawnSync('npm', ['run', 'build'], {
+    cwd: frontendPath,
+    stdio: 'inherit',
+  });
+
+  if (buildResult.status !== 0) {
+    log(`\nERROR: Frontend build failed with code ${buildResult.status}`);
+    logStream.end();
+    process.exit(1);
+  }
+  log(`\n✓ Frontend build completed successfully`);
+} catch (err) {
+  log(`\nERROR: Failed to run build: ${err.message}`);
   logStream.end();
   process.exit(1);
 }
-log(`✓ dist folder found`);
+
+// Verify dist was created
+if (!fs.existsSync(distPath)) {
+  log(`ERROR: Build completed but dist folder not found at ${distPath}`);
+  logStream.end();
+  process.exit(1);
+}
+log(`✓ dist folder created successfully\n`);
 
 // Configuration
 const config = {
