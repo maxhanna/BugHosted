@@ -74,40 +74,50 @@ async function runBuildIfNeeded() {
   });
 }
 
-// If still not found, search recursively
-if (!fs.existsSync(indexPath)) {
-  console.log('Index not at expected location, searching recursively under', distRoot);
-  const found = findIndexRecursive(distRoot);
-  if (found) {
-    indexPath = found;
-    console.log('Found index.html at', indexPath);
+// Run the build if needed, locate index.html, then start the production server
+(async () => {
+  try {
+    await runBuildIfNeeded();
+
+    // If still not found, search recursively
+    if (!fs.existsSync(indexPath)) {
+      console.log('Index not at expected location, searching recursively under', distRoot);
+      const found = findIndexRecursive(distRoot);
+      if (found) {
+        indexPath = found;
+        console.log('Found index.html at', indexPath);
+      }
+    }
+
+    if (!fs.existsSync(indexPath)) {
+      console.error('ERROR: index.html not found under', distRoot);
+      process.exit(1);
+    }
+
+    // Start the production server and forward stdio
+    console.log('Starting prod server:', prodServerPath);
+    const server = spawn(process.execPath, [prodServerPath], {
+      cwd: frontendPath,
+      env: { ...process.env, NODE_ENV: 'production', PROD_PORT: process.env.FRONTEND_PORT || process.env.PORT || '443', USE_HTTPS: 'true', BACKEND_URL: process.env.BACKEND_URL || 'https://localhost:7299' },
+      stdio: 'inherit',
+      shell: false,
+    });
+
+    server.on('error', (err) => {
+      console.error('Failed to start prod server:', err);
+      process.exit(1);
+    });
+
+    server.on('exit', (code, signal) => {
+      if (code !== null) console.log(`prod-server exited with code ${code}`);
+      if (signal) console.log(`prod-server exited with signal ${signal}`);
+      process.exit(code || (signal ? 1 : 0));
+    });
+
+    process.on('SIGINT', () => server.kill('SIGINT'));
+    process.on('SIGTERM', () => server.kill('SIGTERM'));
+  } catch (err) {
+    console.error('Error preparing frontend:', err && err.stack ? err.stack : err);
+    process.exit(1);
   }
-}
-
-if (!fs.existsSync(indexPath)) {
-  console.error('ERROR: index.html not found under', distRoot);
-  process.exit(1);
-}
-
-// Start the production server and forward stdio
-console.log('Starting prod server:', prodServerPath);
-const server = spawn(process.execPath, [prodServerPath], {
-  cwd: frontendPath,
-  env: { ...process.env, NODE_ENV: 'production', PROD_PORT: process.env.FRONTEND_PORT || process.env.PORT || '443', USE_HTTPS: 'true', BACKEND_URL: process.env.BACKEND_URL || 'https://localhost:7299' },
-  stdio: 'inherit',
-  shell: false,
-});
-
-server.on('error', (err) => {
-  console.error('Failed to start prod server:', err);
-  process.exit(1);
-});
-
-server.on('exit', (code, signal) => {
-  if (code !== null) console.log(`prod-server exited with code ${code}`);
-  if (signal) console.log(`prod-server exited with signal ${signal}`);
-  process.exit(code || (signal ? 1 : 0));
-});
-
-process.on('SIGINT', () => server.kill('SIGINT'));
-process.on('SIGTERM', () => server.kill('SIGTERM'));
+})();
