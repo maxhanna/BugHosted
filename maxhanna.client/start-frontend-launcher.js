@@ -105,7 +105,7 @@ async function runBuildIfNeeded() {
       if (str.includes('Output location:') && !buildCompleted) {
         buildCompleted = true;
         writeLog('[Build] Build complete detected (Output location printed)');
-        writeLog('[Build] Waiting 10 seconds for all files to be written to disk...');
+        writeLog('[Build] Waiting 3 seconds for all files to be written to disk...');
         
         // Wait 10 seconds before killing so files can fully flush to disk
         setTimeout(() => {
@@ -115,7 +115,7 @@ async function runBuildIfNeeded() {
           } catch (e) {
             writeLog('[Build] Could not kill child, but proceeding anyway');
           }
-        }, 10000);
+        }, 3000);
         
         // And wait another 3 seconds after the kill before checking files
         setTimeout(() => {
