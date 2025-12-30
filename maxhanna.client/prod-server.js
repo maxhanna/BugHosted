@@ -125,12 +125,17 @@ if (config.enableHelmet) {
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
-        defaultSrc: ["'self'", 'https:'],
+        // Allow same-origin and any HTTPS/resource data by default
+        defaultSrc: ["'self'", 'https:', 'data:'],
+        // Allow scripts from self, HTTPS, common CDNs and permit inline/eval for legacy code
         scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'cdn.jsdelivr.net', 'https:'],
+        // Allow external script elements (e.g. hashed filenames) from self and HTTPS as well
+        'script-src-elem': ["'self'", 'https:', 'cdn.jsdelivr.net', "'unsafe-inline'", "'unsafe-eval'"],
+        // Permit inline handlers temporarily (refactor to remove)
         'script-src-attr': ["'unsafe-inline'"],
-        'script-src-elem': ["'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'https:'],
         fontSrc: ["'self'", 'fonts.gstatic.com', 'data:'],
+        // Allow connecting to backend, external HTTPS APIs and websockets
         connectSrc: ["'self'", 'https:', 'wss:', 'localhost', 'localhost:*', 'https://api.ipify.org'],
         imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
         mediaSrc: ["'self'"],
