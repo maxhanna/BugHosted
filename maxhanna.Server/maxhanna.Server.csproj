@@ -1,16 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
+<PropertyGroup>
+  <TargetFramework>net8.0</TargetFramework>
+  <Nullable>enable</Nullable>
+  <ImplicitUsings>enable</ImplicitUsings>
 
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings> 
-    <SpaRoot>..\maxhanna.client</SpaRoot>
-    <SpaProxyWorkingDirectory>..\maxhanna.client</SpaProxyWorkingDirectory>
-    <SpaProxyLaunchCommand>C:\Windows\System32\cmd.exe /c "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && node start-frontend-launcher.js"</SpaProxyLaunchCommand>
-    <SpaProxyServerUrl>https://localhost:443</SpaProxyServerUrl>
-    <UserSecretsId>739e1568-60de-4c76-9976-c6d09dabbe47</UserSecretsId>
-    <ApplicationIcon>favicon.ico</ApplicationIcon>
-  </PropertyGroup>
+  <!-- Ensure commands run from the SPA folder -->
+  <SpaRoot>..\maxhanna.client</SpaRoot>
+  <SpaProxyWorkingDirectory>..\maxhanna.client</SpaProxyWorkingDirectory>
+
+  <!-- Command wrapped in CDATA to avoid XML escaping -->
+  <SpaProxyLaunchCommand><![CDATA[
+C:\Windows\System32\cmd.exe /c "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && node start-frontend-launcher.js"
+  ]]></SpaProxyLaunchCommand>
+
+  <!-- Set to whatever port your dev server actually uses -->
+  <SpaProxyServerUrl>http://localhost:5173</SpaProxyServerUrl>
+
+  <UserSecretsId>739e1568-60de-4c76-9976-c6d09dabbe47</UserSecretsId>
+  <ApplicationIcon>favicon.ico</ApplicationIcon>
+</PropertyGroup>
+
  
   <ItemGroup>
     <Content Include="favicon.ico" />
