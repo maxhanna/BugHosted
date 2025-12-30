@@ -6,8 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <SpaRoot>..\maxhanna.client</SpaRoot>
     <SpaProxyLaunchCommand>
-      C:\Windows\System32\cmd.exe /c "IF EXIST dist (rmdir /s /q dist) && node start-frontend-launcher.js"
-    </SpaProxyLaunchCommand>
+    C:\Windows\System32\cmd.exe /c "powershell -NoLogo -NoProfile -Command \"Remove-Item -Path 'dist' -Recurse -Force -ErrorAction SilentlyContinue\" && node start-frontend-launcher.js"
+    </SpaProxyLaunchCommand> 
     <SpaProxyServerUrl>https://localhost:443</SpaProxyServerUrl>
     <UserSecretsId>739e1568-60de-4c76-9976-c6d09dabbe47</UserSecretsId>
     <ApplicationIcon>favicon.ico</ApplicationIcon>
