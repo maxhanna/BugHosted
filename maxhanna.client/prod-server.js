@@ -75,6 +75,24 @@ try {
   console.log(chalk.yellow(`Could not list files in dist path: ${err.message}`));
 }
 
+// Explicitly serve built assets from the dist 'assets' folder if present.
+// This ensures files like `/assets/mupen64plus/*.wasm` are served directly
+// from the build output instead of falling back to the SPA index.html.
+const distAssetsPath = path.join(config.distPath, 'assets');
+if (fs.existsSync(distAssetsPath)) {
+  app.use('/assets', express.static(distAssetsPath, {
+    maxAge: '1y',
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.wasm')) {
+        res.set('Content-Type', 'application/wasm');
+      }
+    }
+  }));
+  console.log(chalk.gray(`✓ Serving built assets from: ${distAssetsPath}`));
+}
+
 // If index.html is missing in the resolved distPath, do a recursive search for the first index.html
 (() => {
   const indexPath = path.join(config.distPath, 'index.html');
