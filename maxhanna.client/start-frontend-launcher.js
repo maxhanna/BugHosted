@@ -98,16 +98,20 @@ async function runBuildIfNeeded() {
       // Detect successful build completion
       if (str.includes('Output location:') && !buildCompleted) {
         buildCompleted = true;
-        writeLog('[Build] Build complete detected (Output location printed), killing build process...');
+        writeLog('[Build] Build complete detected (Output location printed)');
+        writeLog('[Build] Waiting 3 seconds for all files to be written to disk...');
         
-        // The build process hangs after this message. Kill it and proceed.
-        try {
-          child.kill('SIGTERM');
-        } catch (e) {
-          writeLog('[Build] Could not kill child, but proceeding anyway');
-        }
+        // Wait 3 seconds before killing so files can fully flush to disk
+        setTimeout(() => {
+          writeLog('[Build] Now killing build process...');
+          try {
+            child.kill('SIGTERM');
+          } catch (e) {
+            writeLog('[Build] Could not kill child, but proceeding anyway');
+          }
+        }, 3000);
         
-        // Give it a moment to write files, then check for index.html
+        // And wait another 2 seconds after the kill before checking files
         setTimeout(() => {
           if (!hasResolved) {
             hasResolved = true;
@@ -134,7 +138,7 @@ async function runBuildIfNeeded() {
               reject(new Error('Build completed but index.html not found'));
             }
           }
-        }, 2000);  // Increased from 1000 to 2000ms for disk write
+        }, 5000);  // Total 5 seconds wait
       }
     });
 
