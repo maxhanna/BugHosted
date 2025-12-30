@@ -6,9 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings> 
     <SpaRoot>..\maxhanna.client</SpaRoot>
     <SpaProxyWorkingDirectory>..\maxhanna.client</SpaProxyWorkingDirectory>
-    <SpaProxyLaunchCommand>
-    C:\Windows\System32\cmd.exe /c "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && node start-frontend-launcher.js"
-    </SpaProxyLaunchCommand>
+    <SpaProxyLaunchCommand>C:\Windows\System32\cmd.exe /c "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && node start-frontend-launcher.js"</SpaProxyLaunchCommand>
     <SpaProxyServerUrl>https://localhost:443</SpaProxyServerUrl>
     <UserSecretsId>739e1568-60de-4c76-9976-c6d09dabbe47</UserSecretsId>
     <ApplicationIcon>favicon.ico</ApplicationIcon>
