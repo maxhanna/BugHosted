@@ -94,28 +94,24 @@ async function runBuildIfNeeded() {
       process.exit(1);
     }
 
-    // Start the production server and forward stdio
-    console.log('Starting prod server:', prodServerPath);
-    const server = spawn(process.execPath, [prodServerPath], {
-      cwd: frontendPath,
-      env: { ...process.env, NODE_ENV: 'production', PROD_PORT: process.env.FRONTEND_PORT || process.env.PORT || '443', USE_HTTPS: 'true', BACKEND_URL: process.env.BACKEND_URL || 'https://localhost:7299' },
-      stdio: 'inherit',
-      shell: false,
-    });
+    // Start the production server in-process to avoid child-process signal and
+    // lifecycle complexities when invoked by the .NET SPA proxy. Requiring the
+    // script will execute it in the current process (it exports the Express
+    // app and calls server.listen internally).
+    console.log('Starting prod server (in-process):', prodServerPath);
+    try {
+      // Ensure env for the server is set
+      process.env.NODE_ENV = process.env.NODE_ENV || 'production';
+      process.env.PROD_PORT = process.env.FRONTEND_PORT || process.env.PORT || process.env.PROD_PORT || '443';
+      process.env.USE_HTTPS = process.env.USE_HTTPS || 'true';
+      process.env.BACKEND_URL = process.env.BACKEND_URL || 'https://localhost:7299';
 
-    server.on('error', (err) => {
-      console.error('Failed to start prod server:', err);
+      // Require the server file directly. It will start listening immediately.
+      require(prodServerPath);
+    } catch (err) {
+      console.error('Failed to require/start prod server in-process:', err && err.stack ? err.stack : err);
       process.exit(1);
-    });
-
-    server.on('exit', (code, signal) => {
-      if (code !== null) console.log(`prod-server exited with code ${code}`);
-      if (signal) console.log(`prod-server exited with signal ${signal}`);
-      process.exit(code || (signal ? 1 : 0));
-    });
-
-    process.on('SIGINT', () => server.kill('SIGINT'));
-    process.on('SIGTERM', () => server.kill('SIGTERM'));
+    }
   } catch (err) {
     console.error('Error preparing frontend:', err && err.stack ? err.stack : err);
     process.exit(1);
