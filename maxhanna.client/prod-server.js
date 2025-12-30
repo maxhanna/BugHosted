@@ -35,9 +35,11 @@ const config = {
   certPath: process.env.SSL_CERT || path.join(__dirname, 'ssl', 'bughosted_com.crt'),
   keyPath: process.env.SSL_KEY || path.join(__dirname, 'ssl', 'bughosted_com.key'),
   backendUrl: process.env.BACKEND_URL || 'https://localhost:7299',
-  // Angular build output is configured in `angular.json` as `dist/maxhanna.client`.
-  // Use that directory so the Express server serves the correct files.
-  distPath: path.join(__dirname, 'dist', 'maxhanna.client'),
+  // Angular build output may place files in `dist/maxhanna.client/browser` (Angular Universal
+  // or differential builds) or directly in `dist/maxhanna.client`. Detect the actual
+  // output directory at runtime and use it so Express serves the correct files.
+  _distRoot: path.join(__dirname, 'dist', 'maxhanna.client'),
+  distPath: null, // resolved below
   nodeEnv: process.env.NODE_ENV || 'production',
   logLevel: process.env.LOG_LEVEL || 'combined',
   enableCompression: process.env.COMPRESSION !== 'false',
@@ -49,6 +51,20 @@ const config = {
 
 // Create Express app
 const app = express();
+
+// Resolve distPath: prefer `dist/maxhanna.client/browser` if present
+(() => {
+  const browserPath = path.join(config._distRoot, 'browser');
+  if (fs.existsSync(browserPath)) {
+    config.distPath = browserPath;
+  } else if (fs.existsSync(config._distRoot)) {
+    config.distPath = config._distRoot;
+  } else {
+    // Default to the original value (safe fallback)
+    config.distPath = path.join(__dirname, 'dist', 'maxhanna.client');
+  }
+  console.log(chalk.gray(`Serving frontend from: ${config.distPath}`));
+})();
 
 // Trust proxy if behind reverse proxy (nginx, load balancer, etc)
 if (config.trustProxy) {
