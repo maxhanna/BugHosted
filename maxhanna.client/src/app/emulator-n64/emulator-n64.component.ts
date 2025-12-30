@@ -526,65 +526,76 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
 
     // -- Emulator control methods ---------------------------------------------
-    async boot() {
-        if (!this.romBuffer) {
-            this.parentRef?.showNotification('Pick a ROM first');
-            return;
-        }
-        const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
-        if (!canvasEl) {
-            this.parentRef?.showNotification('No canvas available');
-            return;
-        }
+    
+async boot() {
+  if (!this.romBuffer) {
+    this.parentRef?.showNotification('Pick a ROM first');
+    return;
+  }
+  const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
+  if (!canvasEl) {
+    this.parentRef?.showNotification('No canvas available');
+    return;
+  }
 
-        this.loading = true;
-        this.status = 'booting';
-        try {
-            // ensure selected gamepad is exposed as player 1
-            this.applyGamepadReorder();
+  // ✨ Make sure the backing buffer matches the container *now*
+  this.resizeCanvasToParent();
 
-            // enable runtime translator (or direct inject) before module init so SDL/JSEvents
-            // sees gamepad support / we have a handler in place.
-            if (Object.keys(this.mapping).length || this.selectedGamepadIndex !== null) {
-                if (this.directInjectMode) this.enableDirectInject();
-                else this.enableRuntimeTranslator();
-            }
+  // Attach listeners if they weren’t added in file-select path
+  if (!this._canvasResizeAdded) {
+    try {
+      window.addEventListener('resize', this._resizeHandler);
+      document.addEventListener('fullscreenchange', this._resizeHandler); // also catch fullscreen exit
+      window.addEventListener('orientationchange', this._resizeHandler);  // mobile rotate
+      this._canvasResizeAdded = true;
+    } catch { /* ignore */ }
+  }
 
-            this.instance = await createMupen64PlusWeb({
-                canvas: canvasEl,
-                innerWidth: canvasEl.width,
-                innerHeight: canvasEl.height,
-                romData: new Int8Array(this.romBuffer!),
-                beginStats: () => { },
-                endStats: () => { },
-                coreConfig: { emuMode: 0 },
-                setErrorStatus: (errorMessage: string) => {
-                    console.log('Mupen error:', errorMessage);
-                },
-                locateFile: (path: string, prefix?: string) => {
-                    return `/assets/mupen64plus/${path}`;
-                }
-            });
-
-            if (this.instance && typeof this.instance.start === 'function') {
-                await this.instance.start();
-                this.status = 'running';
-                this.parentRef?.showNotification(`Booted ${this.romName}`);
-            } else {
-                this.status = 'error';
-                throw new Error('Emulator instance missing start method');
-            }
-        } catch (ex) {
-            console.error('Failed to boot emulator', ex);
-            this.status = 'error';
-            this.parentRef?.showNotification('Failed to boot emulator');
-            // ensure we restore patched getter on failure
-            this.restoreGamepadGetter();
-            throw ex;
-        } finally {
-            this.loading = false;
-        }
+  this.loading = true;
+  this.status = 'booting';
+  try {
+    this.applyGamepadReorder();
+    if (Object.keys(this.mapping).length || this.selectedGamepadIndex !== null) {
+      if (this.directInjectMode) this.enableDirectInject();
+      else this.enableRuntimeTranslator();
     }
+
+    // Use the *freshly* sized backing buffer here
+    this.instance = await createMupen64PlusWeb({
+      canvas: canvasEl,
+      innerWidth: canvasEl.width,
+      innerHeight: canvasEl.height,
+      romData: new Int8Array(this.romBuffer!),
+      beginStats: () => {},
+      endStats: () => {},
+      coreConfig: { emuMode: 0 },
+      setErrorStatus: (msg: string) => console.log('Mupen error:', msg),
+      locateFile: (path: string) => `/assets/mupen64plus/${path}`,
+    });
+
+    if (this.instance && typeof this.instance.start === 'function') {
+      await this.instance.start();
+      this.status = 'running';
+      this.parentRef?.showNotification(`Booted ${this.romName}`);
+
+      // Kick SDL/Emscripten to re-validate layout once rendering begins
+      requestAnimationFrame(() => window.dispatchEvent(new Event('resize'))); // harmless nudge
+      // (SDL/Emscripten often recomputes on window resize/fullscreen events) [2](https://wiki.libsdl.org/SDL2/README-emscripten)[3](https://stackoverflow.com/questions/63987317/proper-way-to-handle-sdl2-resizing-in-emscripten)
+    } else {
+      this.status = 'error';
+      throw new Error('Emulator instance missing start method');
+    }
+  } catch (ex) {
+    console.error('Failed to boot emulator', ex);
+    this.status = 'error';
+    this.parentRef?.showNotification('Failed to boot emulator');
+    this.restoreGamepadGetter();
+    throw ex;
+  } finally {
+    this.loading = false;
+  }
+}
+
 
     async stop() {
         try {
