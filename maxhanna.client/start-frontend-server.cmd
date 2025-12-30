@@ -26,18 +26,25 @@ echo dist folder found >> launcher.log
 
 REM Ensure index.html exists, otherwise run a production build automatically
 if not exist "dist\maxhanna.client\browser\index.html" (
-    echo index.html not found, running production build... >> launcher.log
+    echo index.html not found, starting production build in background... >> launcher.log
     echo Running: npm run build -- --configuration production >> launcher.log
-    npm run build -- --configuration production >> launcher.log 2>&1
-    if errorlevel 1 (
-        echo Build failed. Check build logs. >> launcher.log
-        exit /b 1
+    REM Start build in background so the launcher can poll for output files
+    start "angular-build" /B cmd /c "npm run build -- --configuration production >> launcher.log 2>&1"
+
+    REM Poll for index.html with timeout (seconds)
+    set WAIT_SECS=0
+    set MAX_WAIT=180
+    :poll_index
+    if exist "dist\maxhanna.client\browser\index.html" (
+        echo Build produced index.html after !WAIT_SECS! seconds >> launcher.log
     ) else (
-        echo Build succeeded. >> launcher.log
-    )
-    if not exist "dist\maxhanna.client\browser\index.html" (
-        echo After build: index.html still missing. Aborting. >> launcher.log
-        exit /b 1
+        if !WAIT_SECS! GEQ !MAX_WAIT! (
+            echo Timeout waiting for build to produce index.html (waited !MAX_WAIT!s) >> launcher.log
+            exit /b 1
+        )
+        timeout /t 1 >nul
+        set /A WAIT_SECS+=1
+        goto poll_index
     )
 )
 
