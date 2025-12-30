@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import createMupen64PlusWeb, { writeAutoInputConfig } from 'mupen64plus-web';
 import { FileService } from '../../services/file.service';
@@ -12,7 +12,7 @@ import { style } from '@angular/animations';
     styleUrl: './emulator-n64.component.css',
     standalone: false
 })
-export class EmulatorN64Component extends ChildComponent implements OnInit, OnDestroy {
+export class EmulatorN64Component extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
     @ViewChild('romInput') romInput!: ElementRef<HTMLInputElement>;
     @ViewChild('canvas') canvas!: ElementRef<HTMLCanvasElement>;
     @ViewChild('fullscreenContainer') fullscreenContainer!: ElementRef<HTMLDivElement>;
@@ -46,7 +46,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     private _mappingKey = 'n64_gamepad_mapping_v1';
     showFileSearch = false;
     private _canvasResizeAdded = false;
-    private _resizeHandler = () => this.resizeCanvasToParent();
+    private _resizeHandler = () => this.resizeCanvasToParent(); 
+    private _resizeObserver?: ResizeObserver; 
     private _virtualIndexForControl: Record<string, number> = {
         'A Button': 0,
         'B Button': 1,
@@ -237,12 +238,46 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
 
     ngOnInit(): void { }
+    
+    ngAfterViewInit(): void {
+        const canvasEl = this.canvas?.nativeElement;
+        if (!canvasEl) return;
+        if (canvasEl.id !== 'canvas') canvasEl.id = 'canvas';
+
+        const container = (this.fullscreenContainer?.nativeElement) ??
+                            canvasEl.parentElement ?? document.body;
+
+        // Initial sizing before anything starts
+        this.resizeCanvasToParent();
+
+        // Observe container resizes
+        this._resizeObserver = new ResizeObserver(() => {
+            this.resizeCanvasToParent();
+            // Nudge SDL/Emscripten so input/viewports realign
+            requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+        });
+        this._resizeObserver.observe(container);
+
+        // Also listen to fullscreen & orientation changes (mobile)
+        document.addEventListener('fullscreenchange', this._resizeHandler);
+        window.addEventListener('orientationchange', this._resizeHandler);
+    }
+
     ngOnDestroy(): void {
-        this.stop();
+        this.stop(); 
+        if (this._resizeObserver) {
+            this._resizeObserver.disconnect();
+            this._resizeObserver = undefined;
+        }
+
         if (this._canvasResizeAdded) {
             try { window.removeEventListener('resize', this._resizeHandler); } catch { }
             this._canvasResizeAdded = false;
-        }
+        } 
+        try {
+            document.removeEventListener('fullscreenchange', this._resizeHandler);
+            window.removeEventListener('orientationchange', this._resizeHandler);
+        } catch {} 
     }
 
     async onFileSelected(event: Event) {
@@ -310,24 +345,32 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
 
     // Resize canvas pixel buffer and CSS to fill the parent container
+
     private resizeCanvasToParent() {
-        try {
-            const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
-            if (!canvasEl) return;
-            // Choose container: fullscreenContainer (wrap) if present, otherwise canvas parent
-            const container = (this.fullscreenContainer && this.fullscreenContainer.nativeElement) ? this.fullscreenContainer.nativeElement : (canvasEl.parentElement ?? document.body);
-            const rect = container.getBoundingClientRect();
-            const dpr = window.devicePixelRatio || 1;
-            // Set CSS size to match container so layout fills available space
-            canvasEl.style.width = rect.width + 'px';
-            canvasEl.style.height = rect.height + 'px';
-            // Set backing buffer size scaled by devicePixelRatio for crisp rendering
-            canvasEl.width = Math.max(1, Math.floor(rect.width * dpr));
-            canvasEl.height = Math.max(1, Math.floor(rect.height * dpr));
-        } catch (e) {
-            console.warn('Failed to resize canvas', e);
-        }
+    try {
+        const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
+        if (!canvasEl) return;
+
+        const container = (this.fullscreenContainer?.nativeElement) ??
+                        (canvasEl.parentElement ?? document.body);
+
+        const rect = container.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+
+        // 1) CSS size controls layout
+        canvasEl.style.width = rect.width + 'px';
+        canvasEl.style.height = rect.height + 'px';
+
+        // 2) Backing buffer scaled for crisp rendering
+        const w = Math.max(1, Math.floor(rect.width * dpr));
+        const h = Math.max(1, Math.floor(rect.height * dpr));
+        if (canvasEl.width !== w) canvasEl.width = w;
+        if (canvasEl.height !== h) canvasEl.height = h;
+    } catch (e) {
+        console.warn('Failed to resize canvas', e);
     }
+    }
+
 
     /** Handler for file selected from the file-search component. */
     async onFileSearchSelected(file: FileEntry) {
@@ -938,21 +981,16 @@ async boot() {
         this.parentRef?.closeOverlay();
     }
 
+
     async toggleFullscreen() {
         this.closeMenuPanel();
-        const elem = this.fullscreenContainer.nativeElement;
         const canvas = this.canvas?.nativeElement;
         if (!this.isFullScreen) {
-            if (this.onMobile()) {
-                await elem.requestFullscreen();
-            } else {
-                await canvas!.requestFullscreen();
-            }
+            await canvas?.requestFullscreen();
         } else {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            }
+            await document.exitFullscreen?.();
         }
+        this.isFullScreen = !!document.fullscreenElement;
     }
 
     getAllowedRomFileTypes(): string[] {

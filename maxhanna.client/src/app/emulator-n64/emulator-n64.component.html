@@ -25,7 +25,7 @@
     [style.height]="romName ? (isFullScreen ? '100vh' : '') : '0px'">
 
     <div class="screen-area" [style.height]="!onMobile() ? '100%' : ''">
-      <canvas id="canvas" #canvas slot="lcd"></canvas>
+      <canvas id="canvas" #canvas slot="lcd" [attr.tabindex]="'-1'"></canvas>
     </div>
   </div>
 </div>
