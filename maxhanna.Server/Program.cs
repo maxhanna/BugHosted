@@ -65,11 +65,14 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 app.Use(async (context, next) =>
 {
 	// CSP header that allows the necessary resources while maintaining security
-	// Allows inline scripts/styles (needed for Angular), external scripts from HTTPS, and external API calls
+	// We add script-src-attr/script-src-elem directives to allow legacy inline event handlers
+	// Short-term: enables existing inline handlers; long-term: refactor to remove inline handlers
 	context.Response.Headers.Append(
 		"Content-Security-Policy",
 		"default-src 'self' https:; " +
 		"script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; " +
+		"script-src-attr 'unsafe-inline'; " +
+		"script-src-elem 'unsafe-inline'; " +
 		"style-src 'self' 'unsafe-inline' https:; " +
 		"img-src 'self' data: https:; " +
 		"font-src 'self' data: https:; " +
