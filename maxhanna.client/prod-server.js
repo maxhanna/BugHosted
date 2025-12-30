@@ -333,16 +333,73 @@ app.use(express.static(config.distPath, {
 
 app.get('*', (req, res) => {
   const indexPath = path.join(config.distPath, 'index.html');
-  
+
   if (fs.existsSync(indexPath)) {
     res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.sendFile(indexPath);
-  } else {
-    console.error(chalk.red(`[404] index.html not found at ${indexPath}`));
-    res.status(503).send(
-      'Application not ready. Please ensure "npm run build" has been run.'
-    );
+    return;
   }
+
+  // Diagnostic fallback - render an informative HTML page showing the
+  // resolved dist path, the files that exist there (if any), and the tail
+  // of the launcher log (if present). This helps debugging when builds
+  // are missing or a different output folder was used.
+  console.error(chalk.red(`[404] index.html not found at ${indexPath}`));
+
+  function safeReadTail(filePath, lines = 200) {
+    try {
+      if (!fs.existsSync(filePath)) return '';
+      const data = fs.readFileSync(filePath, { encoding: 'utf8' });
+      const chunks = data.replace(/\r\n/g, '\n').split('\n');
+      return chunks.slice(-lines).join('\n');
+    } catch (e) {
+      return `Could not read ${filePath}: ${e.message}`;
+    }
+  }
+
+  const listing = (() => {
+    try {
+      if (!fs.existsSync(config.distPath)) return `No dist path at ${config.distPath}`;
+      const entries = fs.readdirSync(config.distPath);
+      if (!entries.length) return '(dist directory is empty)';
+      return entries.map(e => `- ${e}`).join('\n');
+    } catch (e) {
+      return `Error listing ${config.distPath}: ${e.message}`;
+    }
+  })();
+
+  const launcherLogPath = path.join(__dirname, 'launcher.log');
+  const launcherTail = safeReadTail(launcherLogPath, 200);
+
+  const html = `<!doctype html>
+  <html>
+  <head>
+    <meta charset="utf-8">
+    <title>Application Not Ready - Diagnostic</title>
+    <style>body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;color:#222;margin:24px}pre{background:#111;color:#eee;padding:12px;border-radius:6px;overflow:auto;max-height:360px}h1{color:#b00}</style>
+  </head>
+  <body>
+    <h1>Application Not Ready</h1>
+    <p>The server could not find <code>index.html</code> at the resolved path.</p>
+    <h2>Resolved Paths</h2>
+    <ul>
+      <li><b>Resolved distPath:</b> <code>${config.distPath}</code></li>
+      <li><b>Dist root:</b> <code>${config._distRoot}</code></li>
+    </ul>
+    <h2>Directory Listing (${config.distPath})</h2>
+    <pre>${listing}</pre>
+    <h2>Launcher Log (tail)</h2>
+    <pre>${launcherTail || '(no launcher log found)'}</pre>
+    <h2>Next Steps</h2>
+    <ol>
+      <li>Ensure you ran <code>npm run build -- --configuration production</code> in <code>maxhanna.client</code>.</li>
+      <li>Confirm <code>index.html</code> exists under the dist output. The server prefers <code>dist/maxhanna.client/browser</code>.</li>
+      <li>Check the launcher log above for build errors.</li>
+    </ol>
+  </body>
+  </html>`;
+
+  res.status(503).set('Content-Type', 'text/html; charset=utf-8').send(html);
 });
 
 // ============================================================================
