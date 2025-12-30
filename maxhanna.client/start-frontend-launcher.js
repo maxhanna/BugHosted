@@ -152,7 +152,8 @@ async function runBuildIfNeeded() {
       clearTimeout(timeoutHandle);
       writeLog('[Build] Process exited with code:', code, 'signal:', signal);
       // If we've already resolved from the stdout completion detection, ignore this
-      if (!hasResolved && code !== 0) {
+      // (code will be null when killed by signal, which is expected and OK)
+      if (!hasResolved && code !== 0 && code !== null) {
         hasResolved = true;
         reject(new Error(`Build failed with exit code ${code}`));
       }
