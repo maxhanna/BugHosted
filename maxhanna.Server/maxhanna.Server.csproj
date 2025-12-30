@@ -6,7 +6,7 @@
 
   <SpaRoot>..\maxhanna.client</SpaRoot>
   <SpaProxyWorkingDirectory>..\maxhanna.client</SpaProxyWorkingDirectory>
-    <SpaProxyLaunchCommand>C:\\Windows\\System32\\cmd.exe /c start-server.cmd</SpaProxyLaunchCommand>
+  <SpaProxyLaunchCommand>C:\\Windows\\System32\\cmd.exe /c start-server.cmd</SpaProxyLaunchCommand>
   <SpaProxyServerUrl>http://localhost:5173</SpaProxyServerUrl>
   
   <UserSecretsId>739e1568-60de-4c76-9976-c6d09dabbe47</UserSecretsId>
