@@ -72,8 +72,8 @@ async function runBuildIfNeeded() {
   // Use a synchronous spawn to avoid subtle child-process lifecycle issues
   // when this script is launched by the .NET SPA proxy. The synchronous call
   // ensures we don't continue until the Angular build has fully completed.
-  // Spawn build with stdio: 'inherit' so we see output and can detect completion.
-  // Once we detect "Application bundle generation complete", exit immediately.
+  // Spawn build and monitor stdout for completion. The ng.cmd process may hang
+  // after printing "Output location", so we kill it after detecting completion.
   const maxMs = parseInt(process.env.FRONTEND_BUILD_TIMEOUT_MS || '180000', 10);
   
   return new Promise((resolve, reject) => {
@@ -81,42 +81,81 @@ async function runBuildIfNeeded() {
     
     const child = spawn(buildCmd, buildArgs, { 
       cwd: frontendPath,
-      stdio: 'inherit',  // Inherit stdio so we see build output AND it can complete properly
+      stdio: ['ignore', 'pipe', 'pipe'],  // Capture output so we can detect completion
       shell: isWin,
       timeout: maxMs 
     });
 
     let buildCompleted = false;
-    let completionTimer = null;
+    let hasResolved = false;
     
+    // Capture stdout to detect completion messages
+    child.stdout?.on('data', (data) => {
+      const str = data.toString();
+      process.stdout.write(str);  // Echo to console
+      writeLog('[Build stdout]', str);
+      
+      // Detect successful build completion
+      if (str.includes('Output location:') && !buildCompleted) {
+        buildCompleted = true;
+        writeLog('[Build] Build complete detected (Output location printed), killing build process...');
+        
+        // The build process hangs after this message. Kill it and proceed.
+        try {
+          child.kill('SIGTERM');
+        } catch (e) {
+          writeLog('[Build] Could not kill child, but proceeding anyway');
+        }
+        
+        // Give it a moment to write files, then check for index.html
+        setTimeout(() => {
+          if (!hasResolved) {
+            hasResolved = true;
+            if (fs.existsSync(browserIndex)) {
+              indexPath = browserIndex;
+              writeLog('[Build] index.html found, resolving');
+              resolve(true);
+            } else {
+              writeLog('[Build] index.html not found even after build completion');
+              reject(new Error('Build completed but index.html not found'));
+            }
+          }
+        }, 1000);
+      }
+    });
+
+    child.stderr?.on('data', (data) => {
+      const str = data.toString();
+      process.stderr.write(str);
+      writeLog('[Build stderr]', str);
+    });
+
+    const timeoutHandle = setTimeout(() => {
+      writeLog('[Build] Build timeout');
+      try { child.kill('SIGKILL'); } catch (e) {}
+      if (!hasResolved) {
+        hasResolved = true;
+        reject(new Error('Build timeout'));
+      }
+    }, maxMs);
+
     child.on('error', (err) => {
+      clearTimeout(timeoutHandle);
       writeLog('[Build] Process error:', err && err.message ? err.message : err);
-      if (completionTimer) clearTimeout(completionTimer);
-      reject(err);
+      if (!hasResolved) {
+        hasResolved = true;
+        reject(err);
+      }
     });
 
     child.on('exit', (code, signal) => {
-      writeLog('[Build] Build process exited with code:', code, 'signal:', signal);
-      if (completionTimer) clearTimeout(completionTimer);
-      
-      // If exit code is 0, build succeeded
-      if (code === 0) {
-        // Wait a brief moment for files to be written to disk
-        setTimeout(() => {
-          if (fs.existsSync(browserIndex)) {
-            indexPath = browserIndex;
-            writeLog('[Build] index.html found after build, resolving');
-            return resolve(true);
-          } else {
-            writeLog('[Build] index.html NOT found after build completed with code 0');
-            return reject(new Error('Build succeeded but index.html not found'));
-          }
-        }, 500);
-        return;
+      clearTimeout(timeoutHandle);
+      writeLog('[Build] Process exited with code:', code, 'signal:', signal);
+      // If we've already resolved from the stdout completion detection, ignore this
+      if (!hasResolved && code !== 0) {
+        hasResolved = true;
+        reject(new Error(`Build failed with exit code ${code}`));
       }
-      
-      // Non-zero exit
-      return reject(new Error(`Build failed with code ${code}`));
     });
   });
 }
