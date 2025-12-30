@@ -66,6 +66,15 @@ const app = express();
   console.log(chalk.gray(`Serving frontend from: ${config.distPath}`));
 })();
 
+// Log dist directory contents for debugging if index.html is missing later
+try {
+  const files = fs.readdirSync(config.distPath || path.join(__dirname, 'dist', 'maxhanna.client'));
+  console.log(chalk.gray(`Files in ${config.distPath}:`));
+  files.forEach(f => console.log(chalk.gray(`  - ${f}`)));
+} catch (err) {
+  console.log(chalk.yellow(`Could not list files in dist path: ${err.message}`));
+}
+
 // Trust proxy if behind reverse proxy (nginx, load balancer, etc)
 if (config.trustProxy) {
   app.set('trust proxy', 1);
