@@ -168,10 +168,10 @@ app.use(morgan(morganFormat, {
 // ============================================================================
 
 if (config.enableRateLimit) {
-  // General rate limiter
+  // General rate limiter - less strict for static assets
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit each IP to 100 requests per windowMs
+    max: 1000, // Increased from 100 to 1000 requests per window
     message: 'Too many requests from this IP, please try again later.',
     standardHeaders: true,
     legacyHeaders: false,
@@ -181,7 +181,7 @@ if (config.enableRateLimit) {
   // Stricter limit for API routes
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 200, // API can handle more requests
+    max: 500, // Increased from 200 to 500 for API calls
     standardHeaders: true,
     legacyHeaders: false,
   });
@@ -190,7 +190,7 @@ if (config.enableRateLimit) {
   // Very strict for auth endpoints
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 5, // Strict limit for auth
+    max: 10, // Increased from 5 to 10 for auth attempts
     skipSuccessfulRequests: true,
     standardHeaders: true,
     legacyHeaders: false,
