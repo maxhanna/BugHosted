@@ -251,7 +251,7 @@ const proxyContext = [
 const proxyOptions = {
   target: config.backendUrl,
   changeOrigin: true,
-  secure: false,
+  secure: false,  // Disable SSL verification for local backend (self-signed cert)
   logLevel: config.proxyDebug ? 'debug' : 'warn',
   timeout: 30000, // 30 second timeout
   proxyTimeout: 30000,
