@@ -10,7 +10,7 @@ import { TopicService } from '../../services/topic.service';
 @Component({
     selector: 'app-file',
     templateUrl: './file.component.html',
-    styleUrls: ['./file.component.css'],
+    styleUrl: './file.component.css',
     standalone: false
 })
 export class FileComponent extends ChildComponent implements OnInit, OnDestroy {

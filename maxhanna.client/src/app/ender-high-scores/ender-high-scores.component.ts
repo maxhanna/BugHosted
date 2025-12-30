@@ -6,7 +6,7 @@ type Mode = 'all' | 'user' | 'today' | 'best';
 @Component({
   selector: 'app-ender-high-scores',
   templateUrl: './ender-high-scores.component.html',
-  styleUrls: ['./ender-high-scores.component.css'],
+  styleUrl: './ender-high-scores.component.css',
   standalone: false,
 })
 export class EnderHighScoresComponent implements OnInit, OnChanges {

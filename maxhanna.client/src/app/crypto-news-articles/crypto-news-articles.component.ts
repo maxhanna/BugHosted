@@ -9,7 +9,7 @@ import { Article } from '../../services/datacontracts/news/news-data';
     selector: 'app-crypto-news-articles',
     standalone: false,
     templateUrl: './crypto-news-articles.component.html',
-    styleUrls: ['./crypto-news-articles.component.css']
+    styleUrl: './crypto-news-articles.component.css'
 })
 export class CryptoNewsArticlesComponent extends ChildComponent implements AfterViewInit, OnDestroy {
     constructor(private changeDetectorRef: ChangeDetectorRef, private newsService: NewsService, private notepadService: NotepadService) { super(); }

@@ -13,7 +13,7 @@ type SortOption = {
   selector: 'app-nexus-movement',
   standalone: false,
   templateUrl: './nexus-movement.component.html',
-  styleUrls: ['./nexus-movement.component.css']
+  styleUrl: './nexus-movement.component.css'
 })
 export class NexusMovementComponent implements OnChanges {
   @Input() user!: User;

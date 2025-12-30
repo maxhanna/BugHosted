@@ -8,7 +8,7 @@ import { NewUsersComponent } from '../new-users/new-users.component';
 @Component({
   selector: 'app-profile-widgets',
   templateUrl: './profile-widgets.component.html',
-  styleUrls: ['./profile-widgets.component.css'],
+  styleUrl: './profile-widgets.component.css',
   standalone: false
 })
 export class ProfileWidgetsComponent implements AfterViewInit {

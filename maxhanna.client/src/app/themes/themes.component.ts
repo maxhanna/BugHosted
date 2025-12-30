@@ -10,7 +10,7 @@ import { UserTheme } from '../../services/datacontracts/chat/chat-theme';
 @Component({
     selector: 'app-themes',
     templateUrl: './themes.component.html',
-    styleUrls: ['./themes.component.css'],
+    styleUrl: './themes.component.css',
     standalone: false
 })
 export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy {

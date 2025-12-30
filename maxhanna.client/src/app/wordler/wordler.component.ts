@@ -10,7 +10,7 @@ type DifficultyKey = "Easy Difficulty" | "Medium Difficulty" | "Hard Difficulty"
 @Component({
   selector: 'app-wordler',
   templateUrl: './wordler.component.html',
-  styleUrls: ['./wordler.component.css'],
+  styleUrl: './wordler.component.css',
   standalone: false
 })
 export class WordlerComponent extends ChildComponent implements OnInit {

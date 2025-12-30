@@ -4,7 +4,7 @@ import { Rating, RatingsService } from '../../services/ratings.service';
 @Component({
   selector: 'app-ratings',
   templateUrl: './ratings.component.html',
-  styleUrls: ['./ratings.component.css'],
+  styleUrl: './ratings.component.css',
   standalone: false
 })
 export class RatingsComponent { 

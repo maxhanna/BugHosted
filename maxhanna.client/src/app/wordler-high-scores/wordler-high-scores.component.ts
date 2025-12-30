@@ -9,7 +9,7 @@ type Mode = 'all' | 'user' | 'today' | 'best';
 @Component({
     selector: 'app-wordler-high-scores',
     templateUrl: './wordler-high-scores.component.html',
-    styleUrls: ['./wordler-high-scores.component.css'],
+    styleUrl: './wordler-high-scores.component.css',
     standalone: false,
 })
 export class WordlerHighScoresComponent implements OnInit, OnChanges {

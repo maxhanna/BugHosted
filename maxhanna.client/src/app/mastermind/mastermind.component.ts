@@ -15,7 +15,7 @@ interface MastermindGuess {
 @Component({
   selector: 'app-mastermind',
   templateUrl: './mastermind.component.html',
-  styleUrls: ['./mastermind.component.css'],
+  styleUrl: './mastermind.component.css',
   standalone: false
 })
 export class MastermindComponent extends ChildComponent implements OnInit {

@@ -44,7 +44,7 @@ import { ChatSpriteTextString } from './objects/SpriteTextString/chat-sprite-tex
 @Component({
   selector: 'app-meta',
   templateUrl: './meta.component.html',
-  styleUrls: ['./meta.component.css'],
+  styleUrl: './meta.component.css',
   standalone: false
 })
 

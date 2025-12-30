@@ -7,7 +7,7 @@ import { AppComponent } from '../app.component';
 @Component({
   selector: 'app-new-users',
   templateUrl: './new-users.component.html',
-  styleUrls: ['./new-users.component.css'],
+  styleUrl: './new-users.component.css',
   standalone: false
 })
 export class NewUsersComponent extends ChildComponent implements OnInit, AfterViewInit { 

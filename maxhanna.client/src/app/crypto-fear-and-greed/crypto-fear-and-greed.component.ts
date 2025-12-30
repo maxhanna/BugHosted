@@ -7,7 +7,7 @@ import { AppComponent } from '../app.component';
 @Component({
   selector: 'app-crypto-fear-and-greed',
   templateUrl: './crypto-fear-and-greed.component.html',
-  styleUrls: ['./crypto-fear-and-greed.component.css'],
+  styleUrl: './crypto-fear-and-greed.component.css',
   imports: [LineGraphComponent, CommonModule]
 })
 export class CryptoFearAndGreedComponent implements OnInit {

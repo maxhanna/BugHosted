@@ -7,7 +7,7 @@ import { AppComponent } from '../app.component';
 @Component({
   selector: 'app-daily-music',
   templateUrl: './daily-music.component.html',
-  styleUrls: ['./daily-music.component.css'],
+  styleUrl: './daily-music.component.css',
   standalone: false
 })
 export class DailyMusicComponent extends ChildComponent implements OnInit, AfterViewInit {

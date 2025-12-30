@@ -29,7 +29,7 @@ import { MetaBikeWall } from '../../services/datacontracts/ender/meta-bike-wall'
 @Component({
     selector: 'app-ender',
     templateUrl: './ender.component.html',
-    styleUrls: ['./ender.component.css'],
+    styleUrl: './ender.component.css',
     standalone: false
 })
 

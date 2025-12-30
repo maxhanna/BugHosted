@@ -17,7 +17,7 @@ interface MacdDataPoint {
   selector: 'app-line-graph',
   standalone: true,
   templateUrl: './line-graph.component.html',
-  styleUrls: ['./line-graph.component.css'],
+  styleUrl: './line-graph.component.css',
   imports: [BaseChartDirective, CommonModule]
 })
 export class LineGraphComponent implements OnInit, OnChanges {

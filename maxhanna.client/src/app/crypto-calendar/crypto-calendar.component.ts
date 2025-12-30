@@ -18,7 +18,7 @@ interface CryptoEvent {
 @Component({
   selector: 'app-crypto-calendar',
   templateUrl: './crypto-calendar.component.html',
-  styleUrls: ['./crypto-calendar.component.css'],
+  styleUrl: './crypto-calendar.component.css',
   standalone: false
 })
 export class CryptoCalendarComponent implements OnInit, AfterViewInit, OnDestroy {

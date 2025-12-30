@@ -8,7 +8,7 @@ import { FileEntry } from '../../services/datacontracts/file/file-entry';
 @Component({
     selector: 'app-emulator-n64',
     templateUrl: './emulator-n64.component.html',
-    styleUrls: ['./emulator-n64.component.css'],
+    styleUrl: './emulator-n64.component.css',
     standalone: false
 })
 export class EmulatorN64Component extends ChildComponent implements OnInit, OnDestroy {

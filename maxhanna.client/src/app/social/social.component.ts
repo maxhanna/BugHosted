@@ -22,7 +22,7 @@ import { TextToSpeechService } from '../../services/text-to-speech.service';
 @Component({
   selector: 'app-social',
   templateUrl: './social.component.html',
-  styleUrls: ['./social.component.css'],
+  styleUrl: './social.component.css',
   standalone: false
 })
 export class SocialComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {

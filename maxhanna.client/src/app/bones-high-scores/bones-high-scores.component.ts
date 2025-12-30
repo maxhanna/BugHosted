@@ -5,7 +5,7 @@ import { BonesService } from '../../services/bones.service';
   selector: 'app-bones-high-scores',
   standalone: false,
   templateUrl: './bones-high-scores.component.html',
-  styleUrls: ['./bones-high-scores.component.css']
+  styleUrl: './bones-high-scores.component.css'
 })
 export class BonesHighScoresComponent implements OnInit {
   @Input() inputtedParentRef?: any;

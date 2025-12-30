@@ -19,7 +19,7 @@ interface ArtPiece {
   selector: 'app-art',
   standalone: false,
   templateUrl: './art.component.html',
-  styleUrls: ['./art.component.css']
+  styleUrl: './art.component.css'
 })
 export class ArtComponent extends ChildComponent implements OnInit {
   constructor(private http: HttpClient) { super(); }

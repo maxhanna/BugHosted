@@ -6,7 +6,7 @@ import { AppComponent } from '../app.component';
   selector: 'app-crypto-top-traders',
   standalone: false,
   templateUrl: './crypto-top-traders.component.html',
-  styleUrls: ['./crypto-top-traders.component.css']
+  styleUrl: './crypto-top-traders.component.css'
 })
 export class CryptoTopTradersComponent implements OnInit {
   @Input() inputtedParentRef?: AppComponent;

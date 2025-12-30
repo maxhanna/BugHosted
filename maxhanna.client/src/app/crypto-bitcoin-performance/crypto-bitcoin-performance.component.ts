@@ -20,7 +20,7 @@ interface BitcoinMonthlyPerformance {
   selector: 'app-crypto-bitcoin-performance',
   templateUrl: './crypto-bitcoin-performance.component.html',
   standalone: false,
-  styleUrls: ['./crypto-bitcoin-performance.component.css']
+  styleUrl: './crypto-bitcoin-performance.component.css'
 })
 export class CryptoBitcoinPerformanceComponent extends ChildComponent implements OnInit {
   performanceData: BitcoinMonthlyPerformance[] = [];

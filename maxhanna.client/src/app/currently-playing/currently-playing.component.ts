@@ -7,7 +7,7 @@ import { UserTagComponent } from '../user-tag/user-tag.component';
 @Component({
   selector: 'app-currently-playing',
   templateUrl: './currently-playing.component.html',
-  styleUrls: ['./currently-playing.component.css'],
+  styleUrl: './currently-playing.component.css',
   standalone: false
 })
 export class CurrentlyPlayingComponent implements OnInit {

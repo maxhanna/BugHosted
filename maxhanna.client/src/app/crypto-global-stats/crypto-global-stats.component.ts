@@ -9,7 +9,7 @@ import { CurrencySymbolPipe } from '../currency-symbol';
   selector: 'app-crypto-global-stats',
   standalone: true, 
   templateUrl: './crypto-global-stats.component.html',
-  styleUrls: ['./crypto-global-stats.component.css'],
+  styleUrl: './crypto-global-stats.component.css',
   imports: [BaseChartDirective, CommonModule, CurrencySymbolPipe],
 })
 export class CryptoGlobalStatsComponent implements OnInit {

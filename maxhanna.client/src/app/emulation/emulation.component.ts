@@ -9,7 +9,7 @@ import { FileEntry } from '../../services/datacontracts/file/file-entry';
 @Component({
   selector: 'app-emulation',
   templateUrl: './emulation.component.html',
-  styleUrls: ['./emulation.component.css'],
+  styleUrl: './emulation.component.css',
   standalone: false
 })
 export class EmulationComponent extends ChildComponent implements OnInit, OnDestroy {

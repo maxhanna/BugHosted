@@ -38,7 +38,7 @@ import { PartyMember } from '../../services/datacontracts/bones/party-member';
 @Component({
   selector: 'app-bones',
   templateUrl: './bones.component.html',
-  styleUrls: ['./bones.component.css'],
+  styleUrl: './bones.component.css',
   standalone: false
 })
 

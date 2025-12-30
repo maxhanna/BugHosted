@@ -6,7 +6,7 @@ import { CommonModule } from '@angular/common';
   standalone: true,
   imports: [CommonModule],
   templateUrl: './app-menu-item.component.html',
-  styleUrls: ['./app-menu-item.component.css']
+  styleUrl: './app-menu-item.component.css'
 })
 export class AppMenuItemComponent {
   @Input() type: string = '';
