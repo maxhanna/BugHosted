@@ -75,6 +75,42 @@ try {
   console.log(chalk.yellow(`Could not list files in dist path: ${err.message}`));
 }
 
+// If index.html is missing in the resolved distPath, do a recursive search for the first index.html
+(() => {
+  const indexPath = path.join(config.distPath, 'index.html');
+  if (!fs.existsSync(indexPath)) {
+    console.log(chalk.yellow('[Fallback] index.html not found in resolved distPath, searching recursively...'));
+    // Depth-first search for index.html under _distRoot
+    function findIndex(dir) {
+      try {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const e of entries) {
+          const full = path.join(dir, e.name);
+          if (e.isFile() && e.name.toLowerCase() === 'index.html') return full;
+          if (e.isDirectory()) {
+            const found = findIndex(full);
+            if (found) return found;
+          }
+        }
+      } catch (err) {
+        return null;
+      }
+      return null;
+    }
+
+    const foundIndex = findIndex(config._distRoot);
+    if (foundIndex) {
+      const newDist = path.dirname(foundIndex);
+      console.log(chalk.green(`[Fallback] Found index at: ${foundIndex}. Serving from: ${newDist}`));
+      config.distPath = newDist;
+    } else {
+      console.log(chalk.red('[Fallback] No index.html found under dist root'));
+    }
+  } else {
+    console.log(chalk.gray('index.html present in resolved distPath'));
+  }
+})();
+
 // Trust proxy if behind reverse proxy (nginx, load balancer, etc)
 if (config.trustProxy) {
   app.set('trust proxy', 1);
