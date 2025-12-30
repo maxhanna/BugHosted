@@ -167,9 +167,14 @@ if (config.enableCompression) {
 
 // Request logging
 const morganFormat = config.logLevel === 'debug' ? 'dev' : 'combined';
+/*
+// Disabled request logging to suppress access-log lines like:
+// 142.112.110.151 - - [30/Dec/2025:21:05:33 +0000] "GET /social/totalposts HTTP/1.1" 200 - "https://bughosted.com/" "User-Agent"
+// Uncomment the following lines to re-enable access logs.
 app.use(morgan(morganFormat, {
   skip: (req) => req.path === '/health', // Don't log health checks
 }));
+*/
 
 // ============================================================================
 // Rate Limiting
@@ -548,7 +553,7 @@ server.listen(config.port, config.host, () => {
   const url = `${protocol}://${displayHost}:${config.port}`;
   
   console.log(chalk.green.bold('╔════════════════════════════════════════════════════════╗'));
-  console.log(chalk.green.bold('║          Production Server Started Successfully         ║'));
+  console.log(chalk.green.bold('║          Production Server Started Successfully        ║'));
   console.log(chalk.green.bold('╚════════════════════════════════════════════════════════╝'));
   console.log();
   console.log(chalk.cyan('Server Configuration:'));
