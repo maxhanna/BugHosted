@@ -61,6 +61,27 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 	ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
+// Add Content Security Policy headers
+app.Use(async (context, next) =>
+{
+	// CSP header that allows the necessary resources while maintaining security
+	// Allows inline scripts/styles (needed for Angular), external scripts from HTTPS, and external API calls
+	context.Response.Headers.Add(
+		"Content-Security-Policy",
+		"default-src 'self' https:; " +
+		"script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; " +
+		"style-src 'self' 'unsafe-inline' https:; " +
+		"img-src 'self' data: https:; " +
+		"font-src 'self' data: https:; " +
+		"connect-src 'self' https: wss: http://localhost:* https://localhost:*; " +
+		"frame-src 'self' https:; " +
+		"object-src 'none'; " +
+		"base-uri 'self'; " +
+		"form-action 'self';"
+	);
+	await next();
+});
+
 app.UseDefaultFiles();
 
 app.MapWhen(context => context.Request.Path.Value != null && context.Request.Path.Value.Contains("firebase-messaging-sw.js"), appBranch =>
