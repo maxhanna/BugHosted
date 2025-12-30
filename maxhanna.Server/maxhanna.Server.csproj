@@ -9,9 +9,7 @@
   <SpaProxyWorkingDirectory>..\maxhanna.client</SpaProxyWorkingDirectory>
 
   <!-- Command wrapped in CDATA to avoid XML escaping -->
-  <SpaProxyLaunchCommand><![CDATA[
-C:\Windows\System32\cmd.exe /c "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && node start-frontend-launcher.js"
-  ]]></SpaProxyLaunchCommand>
+  <SpaProxyLaunchCommand><![CDATA[C:\Windows\System32\cmd.exe /c "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && node start-frontend-launcher.js"]]></SpaProxyLaunchCommand>
 
   <!-- Set to whatever port your dev server actually uses -->
   <SpaProxyServerUrl>http://localhost:5173</SpaProxyServerUrl>
