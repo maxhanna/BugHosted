@@ -15,10 +15,19 @@ function writeLog(...parts) {
     const ts = new Date().toISOString();
     const msg = parts.map(p => (typeof p === 'string' ? p : JSON.stringify(p))).join(' ');
     fs.appendFileSync(launcherLog, `${ts} ${msg}\n`);
+    console.log(`[LOG] ${msg}`); // Also log to console
   } catch (e) {
     // ignore logging errors
   }
 }
+
+// Log startup info
+writeLog('=== Launcher Started ===');
+writeLog('Frontend path:', frontendPath);
+writeLog('Prod server path:', prodServerPath);
+writeLog('Dist root:', distRoot);
+writeLog('Browser index path:', browserIndex);
+writeLog('Current working directory:', process.cwd());
 
 function findIndexRecursive(dir) {
   try {
@@ -68,7 +77,7 @@ async function runBuildIfNeeded() {
   const maxMs = parseInt(process.env.FRONTEND_BUILD_TIMEOUT_MS || '180000', 10);
   
   return new Promise((resolve, reject) => {
-    console.log('[Launcher] Starting build (detached mode)...');
+    writeLog('[Build] Starting build (detached mode)...');
     
     // Spawn with detached: true so the build can run independently
     const child = spawn(buildCmd, buildArgs, { 
@@ -89,7 +98,7 @@ async function runBuildIfNeeded() {
       
       if (str.includes('Application bundle generation complete')) {
         buildCompleted = true;
-        console.log('[Launcher] Build completion detected');
+        writeLog('[Build] Build completion detected in output');
       }
     });
 
@@ -99,27 +108,56 @@ async function runBuildIfNeeded() {
 
     // Poll for index.html instead of waiting for process exit
     let checkCount = 0;
-    const maxChecks = 60; // Up to 60 checks
+    const maxChecks = 120; // More generous limit (60 seconds at 500ms interval)
     const checkInterval = setInterval(() => {
       checkCount++;
       
+      // Log what we're checking
+      const indexExists = fs.existsSync(browserIndex);
+      writeLog(`[Poll] Check #${checkCount}: index exists=${indexExists}, build completed=${buildCompleted}`);
+      
       // If index.html exists and we saw completion message, we're done
-      if (fs.existsSync(browserIndex) && buildCompleted) {
+      if (indexExists && buildCompleted) {
         clearInterval(checkInterval);
-        console.log('[Launcher] index.html found, proceeding to start server');
+        writeLog('[Poll] SUCCESS: index.html found and build completed, proceeding to start server');
         indexPath = browserIndex;
         return resolve(true);
       }
       
-      // Timeout after 60 checks or if time exceeded
+      // List dist contents to help debug
+      if (checkCount % 4 === 0) { // Every 2 seconds
+        try {
+          const distContents = fs.readdirSync(distRoot);
+          writeLog('[Poll] Dist root contents:', distContents);
+          const browserPath = path.join(distRoot, 'browser');
+          if (fs.existsSync(browserPath)) {
+            const browserContents = fs.readdirSync(browserPath);
+            writeLog('[Poll] Browser folder contents:', browserContents);
+          }
+        } catch (e) {
+          writeLog('[Poll] Error listing dist:', e && e.message ? e.message : e);
+        }
+      }
+      
+      // Timeout after checks or if time exceeded
       if (checkCount > maxChecks || Date.now() - startTime > maxMs) {
         clearInterval(checkInterval);
         try { child.kill(); } catch (e) {}
         
+        writeLog('[Poll] TIMEOUT: Max checks/time exceeded');
         if (fs.existsSync(browserIndex)) {
-          console.log('[Launcher] Timeout but index.html exists, proceeding');
+          writeLog('[Poll] But index.html exists, proceeding anyway');
           return resolve(true);
         }
+        
+        // Try to list what's actually there for debugging
+        try {
+          const distContents = fs.readdirSync(distRoot);
+          writeLog('[Poll] Final dist contents:', distContents);
+        } catch (e) {
+          writeLog('[Poll] Could not list dist:', e && e.message ? e.message : e);
+        }
+        
         return reject(new Error('Build timeout or index.html not found'));
       }
     }, 500);
@@ -128,13 +166,15 @@ async function runBuildIfNeeded() {
 
     child.on('error', (err) => {
       clearInterval(checkInterval);
+      writeLog('[Build] Process error:', err && err.message ? err.message : err);
       reject(err);
     });
 
     // Even if process exits early, continue polling until timeout or index found
     child.on('exit', (code) => {
+      writeLog('[Build] Build process exited with code:', code);
       if (code !== 0 && !buildCompleted) {
-        console.warn(`[Launcher] Build process exited with code ${code}, but continuing...`);
+        writeLog('[Build] WARNING: Non-zero exit but continuing polling...');
       }
     });
   });
