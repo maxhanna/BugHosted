@@ -61,30 +61,6 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 	ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
-// Add Content Security Policy headers
-app.Use(async (context, next) =>
-{
-	// CSP header that allows the necessary resources while maintaining security
-	// We add script-src-attr/script-src-elem directives to allow legacy inline event handlers
-	// Short-term: enables existing inline handlers; long-term: refactor to remove inline handlers
-	context.Response.Headers.Append(
-		"Content-Security-Policy",
-		"default-src 'self' https:; " +
-		"script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; " +
-		"script-src-attr 'unsafe-inline'; " +
-		"script-src-elem 'unsafe-inline'; " +
-		"style-src 'self' 'unsafe-inline' https:; " +
-		"img-src 'self' data: https:; " +
-		"font-src 'self' data: https:; " +
-		"connect-src 'self' https: wss: http://localhost:* https://localhost:*; " +
-		"frame-src 'self' https:; " +
-		"object-src 'none'; " +
-		"base-uri 'self'; " +
-		"form-action 'self';"
-	);
-	await next();
-});
-
 app.UseDefaultFiles();
 
 app.MapWhen(context => context.Request.Path.Value != null && context.Request.Path.Value.Contains("firebase-messaging-sw.js"), appBranch =>
