@@ -125,14 +125,18 @@ if (config.enableHelmet) {
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'cdn.jsdelivr.net'],
-        styleSrc: ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net', 'fonts.googleapis.com'],
-        fontSrc: ["'self'", 'fonts.gstatic.com'],
-        connectSrc: ["'self'", 'localhost', 'localhost:*'],
+        defaultSrc: ["'self'", 'https:'],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'cdn.jsdelivr.net', 'https:'],
+        // Allow inline event-handler attributes and inline <script> elements while refactoring
+        'script-src-attr': ["'unsafe-inline'"],
+        'script-src-elem': ["'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'https:'],
+        fontSrc: ["'self'", 'fonts.gstatic.com', 'data:'],
+        // Allow HTTPS external APIs (eg. api.ipify.org) and websockets
+        connectSrc: ["'self'", 'https:', 'wss:', 'localhost', 'localhost:*', 'https://api.ipify.org'],
         imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
         mediaSrc: ["'self'"],
-        frameSrc: ["'self'"],
+        frameSrc: ["'self'", 'https:'],
       },
     },
     hsts: {
