@@ -34,7 +34,27 @@
               "src/favicon.ico",
               "src/sitemap.xml",
               "src/robots.txt",
-              "src/firebase-messaging-sw.js"
+              "src/firebase-messaging-sw.js",
+              {
+                "glob": "**/*",
+                "input": "src/assets",
+                "output": "assets"
+              },
+              {
+                "glob": "**/*.wasm",
+                "input": "node_modules/mupen64plus-web/bin/web",
+                "output": "assets/mupen64plus"
+              },
+              {
+                "glob": "**/*.data",
+                "input": "node_modules/mupen64plus-web/bin/web",
+                "output": "assets/mupen64plus"
+              },
+              {
+                "glob": "**/*.js",
+                "input": "node_modules/mupen64plus-web/bin/web",
+                "output": "assets/mupen64plus"
+              }
             ],
             "styles": [
               "src/styles.css"
