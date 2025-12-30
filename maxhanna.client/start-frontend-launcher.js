@@ -111,6 +111,20 @@ async function runBuildIfNeeded() {
         setTimeout(() => {
           if (!hasResolved) {
             hasResolved = true;
+            
+            // Debug: list what's actually in the dist folder
+            try {
+              const distContents = fs.readdirSync(distRoot);
+              writeLog('[Build] Dist folder contents:', distContents);
+              const browserPath = path.join(distRoot, 'browser');
+              if (fs.existsSync(browserPath)) {
+                const browserContents = fs.readdirSync(browserPath);
+                writeLog('[Build] Browser folder contents:', browserContents);
+              }
+            } catch (e) {
+              writeLog('[Build] Error listing dist:', e && e.message ? e.message : e);
+            }
+            
             if (fs.existsSync(browserIndex)) {
               indexPath = browserIndex;
               writeLog('[Build] index.html found, resolving');
@@ -120,7 +134,7 @@ async function runBuildIfNeeded() {
               reject(new Error('Build completed but index.html not found'));
             }
           }
-        }, 1000);
+        }, 2000);  // Increased from 1000 to 2000ms for disk write
       }
     });
 
