@@ -285,7 +285,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
             this.instance = await createMupen64PlusWeb({
                 canvas: canvasEl,
                 romData: new Int8Array(this.romBuffer),
-                style: 'width: 100%; height: 100%;',
+                innerWidth: canvasEl.width,
+                innerHeight: canvasEl.height,
                 beginStats: () => { },
                 endStats: () => { },
                 coreConfig: { emuMode: 0 },
@@ -551,7 +552,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
             this.instance = await createMupen64PlusWeb({
                 canvas: canvasEl,
-                style: 'width: 100%; height: 100%;',
+                innerWidth: canvasEl.width,
+                innerHeight: canvasEl.height,
                 romData: new Int8Array(this.romBuffer!),
                 beginStats: () => { },
                 endStats: () => { },
