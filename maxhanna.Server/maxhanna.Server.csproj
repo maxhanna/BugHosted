@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <SpaRoot>..\maxhanna.client</SpaRoot>
-    <SpaProxyLaunchCommand>start-frontend-server.cmd</SpaProxyLaunchCommand>
+    <SpaProxyLaunchCommand>cmd /c start-frontend-server.cmd</SpaProxyLaunchCommand>
     <SpaProxyServerUrl>https://localhost:443</SpaProxyServerUrl>
     <UserSecretsId>739e1568-60de-4c76-9976-c6d09dabbe47</UserSecretsId>
     <ApplicationIcon>favicon.ico</ApplicationIcon>
