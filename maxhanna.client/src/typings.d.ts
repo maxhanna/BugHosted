@@ -3,4 +3,4 @@
 // package is not installed. If you install the package, remove or extend
 // this declaration with proper types.
 
-declare module 'n64-wasm';
+//declare module 'n64-wasm';
