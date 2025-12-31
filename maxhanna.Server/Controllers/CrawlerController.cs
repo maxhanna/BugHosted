@@ -105,7 +105,7 @@ namespace maxhanna.Server.Controllers
 						whereCondition = request.ExactMatch.GetValueOrDefault()
 						? " url_hash = @urlHash "
 						: searchAll
-							? " 1=1 "
+							? " failed = 0 OR (failed = 1 AND response_code IS NOT NULL) "
 							: @$" (
 								url_hash = @urlHash
 								OR url_hash = @urlHashWithSlash
