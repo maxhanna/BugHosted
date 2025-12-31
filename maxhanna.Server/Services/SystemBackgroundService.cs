@@ -120,7 +120,7 @@ namespace maxhanna.Server.Services
 		private async Task RunSmokeTests()
 		{
 			Console.WriteLine("Running initial smoke tests...");
-			await RunHourlyTasks();
+			await RunSixHourTasks();
 		}
 		private async Task Run10SecondTasks()
 		{
