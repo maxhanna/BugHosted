@@ -263,10 +263,10 @@ export class ChildComponent {
       rect?.right <= (window.innerWidth || document.documentElement.clientWidth)
     );
   } 
-  searchForEmoji(event?: any): void {
-    console.log("Searching for emoji", event);
+  searchForEmoji(search?: string): void {
+    console.log("Searching for emoji", search);
     if (!this.parentRef) return;
-    const searchTerm = event ? event.target.value.toLowerCase() : '';
+    const searchTerm = search ? search.toLowerCase() : '';
 
     // If there's a search term, filter the emojiMap by key or value
     if (searchTerm) {
