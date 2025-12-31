@@ -2013,7 +2013,7 @@ namespace maxhanna.Server.Services
 			{
 				await using var conn = new MySqlConnection(_connectionString);
 				await conn.OpenAsync();
-				string sql = @"DELETE FROM maxhanna.favourites WHERE created < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR) AND COALESCE(view_count,0) < 3;";
+				string sql = @"DELETE FROM maxhanna.favourites WHERE creation_date < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR) AND COALESCE(access_count,0) < 3;";
 				await using var cmd = new MySqlCommand(sql, conn);
 				int deleted = Convert.ToInt32(await cmd.ExecuteNonQueryAsync());
 				if (deleted > 0)
