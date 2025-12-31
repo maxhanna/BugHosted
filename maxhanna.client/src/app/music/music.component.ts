@@ -121,36 +121,33 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     console.log('[Music] Loaded', this.songs.length, 'songs; page', this.currentPage);
   }
 
-async ngAfterViewInit() {
-  if (this.user) {
-    this.componentMain.nativeElement.style.padding = 'unset';
+  async ngAfterViewInit() {
+    if (this.user) {
+      this.componentMain.nativeElement.style.padding = 'unset';
+    }
+
+    await this.ensureYouTubeApi();
+
+    if (!(window as any).YT?.Player) {
+      console.error('[Music] YT still undefined after ensureYouTubeApi()');
+      return;
+    }
+
+    this.ytReady = true;
+
+    // If you want to autostart when you already have songs loaded:
+    if (this.songs.length && this.songs[0]?.url) {
+      const ids = this.getYoutubeIdsInOrder();
+      const firstId = this.trimYoutubeUrl(this.songs[0].url!);
+      let index = ids.indexOf(firstId);
+      if (index < 0) { ids.unshift(firstId); index = 0; }
+
+      // ✅ Recreate the player with URL-level playlist
+      this.rebuildPlayerWithUrlPlaylist(firstId, ids, index);
+    } else if (this.pendingPlay?.url) {
+      this.consumePendingPlay();
+    }
   }
-
-  await this.ensureYouTubeApi();
-
-  if (!(window as any).YT?.Player) {
-    console.error('[Music] YT still undefined after ensureYouTubeApi()');
-    return;
-  }
-
-  this.ytReady = true;
-
-  // If you want to autostart when you already have songs loaded:
-  if (this.songs.length && this.songs[0]?.url) {
-    const ids = this.getYoutubeIdsInOrder();
-    const firstId = this.trimYoutubeUrl(this.songs[0].url!);
-    let index = ids.indexOf(firstId);
-    if (index < 0) { ids.unshift(firstId); index = 0; }
-
-    // ✅ Recreate the player with URL-level playlist
-    this.rebuildPlayerWithUrlPlaylist(firstId, ids, index);
-  } else if (this.pendingPlay?.url) {
-    // If a click happened before API readiness
-    const url = this.pendingPlay.url;
-    this.pendingPlay = undefined;
-    this.play(url);   // play() will take care of rebuilding
-  }
-}
 
   next() {
     if (!this.ytPlayer) return;
@@ -169,6 +166,14 @@ async ngAfterViewInit() {
       return;
     } catch {/* proceed to fallback */ }
     this.prevFallback();
+  }
+
+  private consumePendingPlay() {
+    if (this.pendingPlay?.url && this.ytReady) {
+      const { url } = this.pendingPlay;
+      this.pendingPlay = undefined;
+      this.play(url);
+    }
   }
 
   private nextFallback() {
@@ -379,47 +384,55 @@ async ngAfterViewInit() {
     this.stopMusic();
   }
 
-play(url?: string, fileId?: number) {
-  console.log("Play called with url:", url, "fileId:", fileId);
-  if (!url && !fileId) { alert("Url/File can't be empty"); return; }
 
-  // Ignore redundant replays
-  if (url != undefined && url === this.currentUrl) return;
-  if (fileId != undefined && fileId === this.currentFileId) return;
+  play(url?: string, fileId?: number) {
+    console.log("Play called with url:", url, "fileId:", fileId);
+    if (!url && !fileId) { alert("Url/File can't be empty"); return; }
 
-  if (!this.ytReady || !this.ytPlayer) {
-    // If API not ready yet, queue and return
-    this.pendingPlay = { url, fileId: null };
-    console.log("YT API not ready, queuing play for url:", url);
-    return;
+    // Ignore redundant replays
+    if (url != undefined && url === this.currentUrl) return;
+    if (fileId != undefined && fileId === this.currentFileId) return;
+
+    // ✅ Only gate on API readiness.
+    // We purposely do NOT check `ytPlayer` here anymore.
+    if (!this.ytReady) {
+      this.pendingPlay = { url, fileId: null };
+      console.log("YT API not ready, queuing play for url:", url);
+      return;
+    }
+
+    // FILE branch unchanged...
+    if (fileId) {
+      this.fileIdPlaying = fileId;
+      setTimeout(() => {
+        if (this.fileMediaViewer) {
+          this.fileMediaViewer.resetSelectedFile();
+          this.fileMediaViewer.setFileSrcById(fileId);
+        }
+      }, 50);
+      console.log("Playing file with ID:", fileId);
+      return;
+    }
+
+    // YOUTUBE — compute ids & index then rebuild player with URL playlist
+    const ids = this.getYoutubeIdsInOrder();
+    const firstId = this.trimYoutubeUrl(url!);
+
+    let index = ids.indexOf(firstId);
+    if (index < 0) { ids.unshift(firstId); index = 0; }
+
+    // 👉 Recreate player here so the UI next/prev works reliably
+    this.rebuildPlayerWithUrlPlaylist(firstId, ids, index);
+
+    // Update UI state
+    this.currentUrl = url;
+    this.currentFileId = null;
+    this.isMusicPlaying = true;
+    this.isMusicControlsDisplayed(true);
+
+    console.log("rebuilt player with first:", firstId, "playlist length:", ids.length, "index:", index);
   }
 
-  // FILE branch unchanged...
-  if (fileId) {
-    this.fileIdPlaying = fileId;
-    setTimeout(() => {
-      if (this.fileMediaViewer) {
-        this.fileMediaViewer.resetSelectedFile();
-        this.fileMediaViewer.setFileSrcById(fileId);
-      }
-    }, 50);
-    console.log("Playing file with ID:", fileId);
-    return;
-  }
-  
-
-  // YOUTUBE — compute ids & index then rebuild player with URL playlist
-  const ids = this.getYoutubeIdsInOrder();
-  const firstId = this.trimYoutubeUrl(url!);
-
-  let index = ids.indexOf(firstId);
-  if (index < 0) { ids.unshift(firstId); index = 0; }
-
-  // 👉 Recreate player here so the UI next/prev works reliably
-  this.rebuildPlayerWithUrlPlaylist(firstId, ids, index);
-
-  console.log("rebuilt player with first:", firstId, "playlist length:", ids.length, "index:", index);
-}
 
 
   randomSong() {
@@ -698,46 +711,46 @@ play(url?: string, fileId?: number) {
   }
 
 
-private rebuildPlayerWithUrlPlaylist(firstId: string, ids: string[], index: number) {
-  if (!this.musicVideo?.nativeElement) return;
+  private rebuildPlayerWithUrlPlaylist(firstId: string, ids: string[], index: number) {
+    if (!this.musicVideo?.nativeElement) return;
 
-  // Destroy any old instance
-  try { this.ytPlayer?.destroy(); } catch {}
+    // Destroy any old instance
+    try { this.ytPlayer?.destroy(); } catch { }
 
-  this.ytPlayer = new YT.Player(this.musicVideo.nativeElement as HTMLElement, {
-    // ✅ Give the player a first video AND the full playlist via URL (best for UI next/prev)
-    videoId: firstId,
-    playerVars: {
-      playsinline: 1,
-      rel: 0,
-      modestbranding: 1,
-      enablejsapi: 1,
-      origin: window.location.origin,
-      controls: 1,
-      disablekb: 0,
-      playlist: ids.join(','),   // <— url-level playlist
-    },
-    events: {
-      onReady: () => {
-        this.ytReady = true;
-        // Jump to the requested index; if 0, just play
-        if (index > 0) this.ytPlayer?.playVideoAt(index);
-        else this.ytPlayer?.playVideo();
-
-        // Playlist tweaks (optional)
-        try {
-          this.ytPlayer?.setLoop(true);
-          // this.ytPlayer?.setShuffle(true);
-        } catch {}
+    this.ytPlayer = new YT.Player(this.musicVideo.nativeElement as HTMLElement, {
+      // ✅ Give the player a first video AND the full playlist via URL (best for UI next/prev)
+      videoId: firstId,
+      playerVars: {
+        playsinline: 1,
+        rel: 0,
+        modestbranding: 1,
+        enablejsapi: 1,
+        origin: window.location.origin,
+        controls: 1,
+        disablekb: 0,
+        playlist: ids.join(','),   // <— url-level playlist
       },
-      onStateChange: (e: YT.OnStateChangeEvent) => {
-        // Auto-advance at end
-        if (e.data === YT.PlayerState.ENDED) this.next();
-      },
-      onError: (_e: YT.OnErrorEvent) => this.next(),
-    }
-  });
-}
+      events: {
+        onReady: () => {
+          this.ytReady = true;
+          // Jump to the requested index; if 0, just play
+          if (index > 0) this.ytPlayer?.playVideoAt(index);
+          else this.ytPlayer?.playVideo();
+
+          // Playlist tweaks (optional)
+          try {
+            this.ytPlayer?.setLoop(true);
+            // this.ytPlayer?.setShuffle(true);
+          } catch { }
+        },
+        onStateChange: (e: YT.OnStateChangeEvent) => {
+          // Auto-advance at end
+          if (e.data === YT.PlayerState.ENDED) this.next();
+        },
+        onError: (_e: YT.OnErrorEvent) => this.next(),
+      }
+    });
+  }
 
 
   // Radio Browser API methods
