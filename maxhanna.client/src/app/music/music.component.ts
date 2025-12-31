@@ -75,8 +75,8 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   @Output() gotPlaylistEvent = new EventEmitter<Array<Todo>>();
 
   constructor(private todoService: TodoService,
-    private location: Location, 
-    private radioService: RadioService, 
+    private location: Location,
+    private radioService: RadioService,
     private cdr: ChangeDetectorRef
   ) {
     super();
@@ -103,18 +103,18 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   }
 
 
-  async ngOnInit() { 
-    await this.tryInitialLoad(); 
+  async ngOnInit() {
+    await this.tryInitialLoad();
   }
 
   private async tryInitialLoad() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = this.user ?? parent?.user;
 
-    if (!user?.id) { 
+    if (!user?.id) {
       await Promise.resolve();
     }
-    await this.refreshPlaylist(); 
+    await this.refreshPlaylist();
     if (this.songs.length && this.songs[0].url) {
       this.play(this.songs[0].url!);
     }
@@ -127,12 +127,12 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     }
 
     await this.ensureYouTubeApi();
-    
+
     if (!(window as any).YT?.Player) {
       console.error('[Music] YT still undefined after ensureYouTubeApi()');
       return;
     }
-    
+
     this.ytPlayer = new YT.Player(this.musicVideo.nativeElement as HTMLElement, {
       playerVars: {
         playsinline: 1,
@@ -152,31 +152,85 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
           }
         },
         onStateChange: (e: YT.OnStateChangeEvent) => {
-          if (e.data === YT.PlayerState.ENDED) {this.safeNextVideo();}
-          else if (e.data === YT.PlayerState.CUED) {this.ytPlayer?.playVideo();}
-        },  
-        onError: (e: YT.OnErrorEvent) => {
-          console.warn('[YT] onError code:', e.data);
-
-          if (e.data === 2) { // invalid parameter
-            const ids = this.getYoutubeIdsInOrder();
-            const fallbackId = ids[0];
-            if (fallbackId) {
-              try {
-                this.ytPlayer?.cueVideoById(fallbackId);
-                this.ytPlayer?.playVideo();
-                setTimeout(() => this.ytPlayer?.loadPlaylist(ids, 0, undefined, 'small'), 250);
-                return; // handled
-              } catch { /* continue to next fallback below */ }
-            }
+          // When video ends, advance
+          if (e.data === YT.PlayerState.ENDED) {
+            this.next(); // use the explicit next() below
+            return;
           }
 
-          // For 5/100/101/150 etc., advance to the next:
-          this.safeNextVideo();
-        } 
+          // As soon as the first video is PLAYING, stabilize the playlist
+          if (e.data === YT.PlayerState.PLAYING) {
+            try {
+              // Enable loop/shuffle once the playlist is attached and playing
+              this.ytPlayer?.setLoop(true);
+              // optional: shuffle
+              // this.ytPlayer?.setShuffle(true);
+            } catch {/* ignore */ }
+          }
+
+          if (e.data === YT.PlayerState.CUED) {
+            this.ytPlayer?.playVideo();
+          }
+        },
+        onError: (e: YT.OnErrorEvent) => {
+          console.warn('[YT] onError code:', e.data);
+          // 2 = invalid parameter, 100/101/150 = unplayable or embedding disabled
+          this.next();
+        }
       }
-    }); 
-  } 
+
+    });
+  }
+
+  next() {
+    if (!this.ytPlayer) return;
+    try {
+      // Try the native next, works when playlist is fully attached
+      this.ytPlayer.nextVideo();  // IFrame API playlist function
+      return;
+    } catch {/* proceed to fallback */ }
+    this.nextFallback();
+  }
+
+  prev() {
+    if (!this.ytPlayer) return;
+    try {
+      this.ytPlayer.previousVideo();
+      return;
+    } catch {/* proceed to fallback */ }
+    this.prevFallback();
+  }
+
+  private nextFallback() {
+    const ids = this.getYoutubeIdsInOrder();
+    if (!ids.length) return;
+    const idx = (this.getCurrentIndex(ids) + 1) % ids.length;
+    this.ytPlayer?.loadPlaylist(ids, idx, undefined, 'small');  // array overload
+
+    setTimeout(() => {
+      const pl = this.ytPlayer?.getPlaylist?.() || [];
+      const pi = this.ytPlayer?.getPlaylistIndex?.() ?? 0;
+      console.log('[YT] playlist size:', pl.length, 'index:', pi);
+    }, 500);
+
+    this.ytPlayer?.playVideo();
+  }
+
+  private prevFallback() {
+    const ids = this.getYoutubeIdsInOrder();
+    if (!ids.length) return;
+    const idx = this.getCurrentIndex(ids) - 1;
+    const prevIdx = (idx < 0) ? (ids.length - 1) : idx;
+    this.ytPlayer?.loadPlaylist(ids, prevIdx, undefined, 'small');
+
+    setTimeout(() => {
+      const pl = this.ytPlayer?.getPlaylist?.() || [];
+      const pi = this.ytPlayer?.getPlaylistIndex?.() ?? 0;
+      console.log('[YT] playlist size:', pl.length, 'index:', pi);
+    }, 500);
+
+    this.ytPlayer?.playVideo();
+  }
 
   private ensureYouTubeApi(): Promise<void> {
     if (this.ytApiPromise) return this.ytApiPromise;
@@ -203,27 +257,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
 
     // ✅ Return the promise so `await` actually waits
     return this.ytApiPromise;
-  } 
-
-  
-  private async safeNextVideo() {
-    const MAX_SKIP = 5;
-    for (let i = 0; i < MAX_SKIP; i++) {
-      try {
-        if (this.ytPlayer?.nextVideo) this.ytPlayer.nextVideo();
-        else {
-          const ids = this.getYoutubeIdsInOrder();
-          const idx = Math.max(0, this.getCurrentIndex(ids)) + 1;
-          const nextIdx = idx % ids.length;
-          this.ytPlayer?.loadPlaylist(ids, nextIdx, undefined, 'small');
-        }
-        this.ytPlayer?.playVideo();
-        await new Promise(res => setTimeout(res, 300)); // give it a moment
-        // If it doesn't error immediately, break out
-        break;
-      } catch { /* try next */ }
-    }
-  } 
+  }
 
   private getYoutubeIdsInOrder(): string[] {
     const ids: string[] = [];
@@ -252,12 +286,12 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
 
       // Build fresh arrays (new references)
       this.youtubeSongs = tmpSongs.filter((song: Todo) => parent.isYoutubeUrl(song.url));
-      this.fileSongs    = tmpSongs.filter((song: Todo) => !parent.isYoutubeUrl(song.url));
+      this.fileSongs = tmpSongs.filter((song: Todo) => !parent.isYoutubeUrl(song.url));
 
       this.songs = this.selectedType === 'file'
         ? [...this.fileSongs]
         : [...this.youtubeSongs];
-    } finally { 
+    } finally {
       this.updatePaginatedSongs();   // ensures new reference for paginatedSongs
       this.gotPlaylistEvent.emit([...this.songs]); // emit a new ref as well
       this.cdr.markForCheck();
@@ -290,7 +324,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
 
     // Create a NEW array reference - this is key for OnPush + *ngFor
     this.paginatedSongs = this.songs.slice(startIndex, startIndex + this.itemsPerPage);
-  } 
+  }
 
   goToPreviousPage() {
     if (this.currentPage > 1) {
@@ -374,7 +408,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.reorderTable(undefined, this.orderSelect?.nativeElement.value || 'Newest');
     this.stopMusic();
   }
-  
+
   play(url?: string, fileId?: number) {
     console.log("Play called with url:", url, "fileId:", fileId);
     if (!url && !fileId) {
@@ -385,17 +419,17 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     // Ignore redundant replays
     if (url != undefined && url === this.currentUrl) {
       console.log("Redundant play call for same URL, ignoring.");
-      return; 
+      return;
     } else if (fileId != undefined && fileId === this.currentFileId) {
       console.log("Redundant play call for same File ID, ignoring.");
-      return; 
+      return;
     }
 
     if (!this.ytReady || !this.ytPlayer) {
       this.pendingPlay = { url, fileId: null };
       console.log("YT API not ready, queuing play for url:", url);
       return;
-    } 
+    }
 
     const ids = this.getYoutubeIdsInOrder();
     const firstId = this.trimYoutubeUrl(url!);
@@ -408,16 +442,23 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.ytPlayer.cueVideoById(firstId);
 
     // Help autoplay policies
-    try { if (!this.ytPlayer.isMuted()) this.ytPlayer.mute(); } catch {}
+    try { if (!this.ytPlayer.isMuted()) this.ytPlayer.mute(); } catch { }
     this.ytPlayer.playVideo();
 
     // 2) Attach the full playlist shortly after
     setTimeout(() => {
       this.ytPlayer?.loadPlaylist(ids, index, undefined, 'small');
+
+      setTimeout(() => {
+        const pl = this.ytPlayer?.getPlaylist?.() || [];
+        const pi = this.ytPlayer?.getPlaylistIndex?.() ?? 0;
+        console.log('[YT] playlist size:', pl.length, 'index:', pi);
+      }, 500);
+
     }, 250);
 
     console.log("primed single video:", firstId, "then attaching playlist of", ids.length, "starting at", index);
-  }  
+  }
 
   randomSong() {
     if (this.fileIdPlaylist && this.fileIdPlaylist.length > 0) {

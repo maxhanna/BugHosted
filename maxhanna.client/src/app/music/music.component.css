@@ -12,6 +12,7 @@
   position: sticky;
   top: -25px; 
   z-index: 2;
+  text-align: center;
 }
 
 .smallIframeDiv {
