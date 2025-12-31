@@ -100,12 +100,12 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
 
 
   async ngOnInit() {
-    await this.getSongList(); 
+    await this.refreshPlaylist(); 
     // if (this.songs && this.songs[0] && this.songs[0].url) {
     //   this.play(this.songs[0].url!);
     // }
-    this.clearInputs();
-    this.reorderTable(undefined, this.orderSelect?.nativeElement.value || 'Newest');
+   // this.clearInputs();
+    //this.reorderTable(undefined, this.orderSelect?.nativeElement.value || 'Newest');
     this.isMusicControlsDisplayed((this.songs && this.songs[0] && this.songs[0].url) ? true : false);
   }
 
