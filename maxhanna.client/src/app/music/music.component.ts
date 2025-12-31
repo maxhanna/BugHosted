@@ -328,7 +328,11 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     }
 
     // Ignore redundant replays
-    if (url === this.currentUrl && fileId === this.currentFileId) return;
+    if (url != undefined && url === this.currentUrl) {
+      return; 
+    } else if (fileId != undefined && fileId === this.currentFileId) {
+      return; 
+    }
 
     this.currentUrl = url;
     this.currentFileId = fileId;
@@ -350,6 +354,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     // YOUTUBE via API
     if (!this.ytReady || !this.ytPlayer) {
       this.pendingPlay = { url, fileId: null };
+      console.log("YT API not ready, queuing play for url:", url);
       return;
     }
 
