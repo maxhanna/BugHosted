@@ -17,9 +17,7 @@
     </div>
   </fieldset> 
   <div id="musicPlayerDiv" [class]="smallPlayer ? 'smallSongList' : 'normalSongList'">
-    <div id="iframeDiv" 
-     [class]="playerClasses" 
-     [style.visibility]="isVisible ? 'visible' : 'hidden'">
+    <div id="iframeDiv" [class]="playerClasses">
       <div id="musicVideo" #musicVideo class="youtubeFrame"></div>
       <app-media-viewer 
         #fileMediaViewer 

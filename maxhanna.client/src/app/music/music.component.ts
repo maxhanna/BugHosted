@@ -127,59 +127,65 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     }
 
     await this.ensureYouTubeApi();
+    
+    if (!(window as any).YT?.Player) {
+      console.error('[Music] YT still undefined after ensureYouTubeApi()');
+      return;
+    }
+    
     this.ytPlayer = new YT.Player(this.musicVideo.nativeElement as HTMLElement, {
-      videoId: undefined, // we’ll load later
       playerVars: {
-        enablejsapi: 1,
-        origin: window.location.origin,
         playsinline: 1,
         rel: 0,
         modestbranding: 1,
-        // vq: 'tiny'  // optional
+        enablejsapi: 1,                 // harmless here, critical for plain iframes
+        origin: window.location.origin, // recommended by the docs
       },
       events: {
         onReady: () => {
+          console.log('[YT] onReady fired');
           this.ytReady = true;
-
-          // If user clicked play before API was ready:
-          if (this.pendingPlay) {
-            const { url } = this.pendingPlay;
+          if (this.pendingPlay?.url) {
+            const url = this.pendingPlay.url;
             this.pendingPlay = undefined;
-            if (url) this.play(url);
+            this.play(url);
           }
-        },  
+        },
         onStateChange: (e: YT.OnStateChangeEvent) => {
           if (e.data === YT.PlayerState.ENDED) this.safeNextVideo();
           else if (e.data === YT.PlayerState.CUED) this.ytPlayer?.playVideo();
-        }, 
-        onError: (e: YT.OnErrorEvent) => {
-          // Recover by skipping to the next video
-          this.safeNextVideo();
-        }
+        },
+        onError: (_e: YT.OnErrorEvent) => this.safeNextVideo(),
       }
-    });
-  }
+    }); 
+  } 
 
-  
-  private async ensureYouTubeApi(): Promise<void> {
+  private ensureYouTubeApi(): Promise<void> {
     if (this.ytApiPromise) return this.ytApiPromise;
 
-    this.ytApiPromise = new Promise((resolve) => {
+    this.ytApiPromise = new Promise<void>((resolve, reject) => {
       const w = window as any;
 
-      // Already present?
+      // Already loaded?
       if (w.YT?.Player) { resolve(); return; }
 
-      // Assign the global callback BEFORE adding the script (prevents race)
+      // Set the global ready callback BEFORE injecting the script (prevents race)
       w.onYouTubeIframeAPIReady = () => resolve();
 
-      const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api';
-      tag.async = true;
-      document.head.appendChild(tag);
+      // Avoid duplicate script inserts
+      const existing = document.querySelector('script[src="https://www.youtube.com/iframe_api"]');
+      if (!existing) {
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        tag.async = true;
+        tag.onerror = () => reject(new Error('Failed to load YouTube IFrame API'));
+        document.head.appendChild(tag);
+      }
     });
-  }
 
+    // ✅ Return the promise so `await` actually waits
+    return this.ytApiPromise;
+  } 
 
   private safeNextVideo() {
     try {
