@@ -101,9 +101,9 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
 
   async ngOnInit() {
     await this.getSongList(); 
-    if (this.songs && this.songs[0] && this.songs[0].url) {
-      this.play(this.songs[0].url!);
-    }
+    // if (this.songs && this.songs[0] && this.songs[0].url) {
+    //   this.play(this.songs[0].url!);
+    // }
     this.clearInputs();
     this.reorderTable(undefined, this.orderSelect?.nativeElement.value || 'Newest');
     this.isMusicControlsDisplayed((this.songs && this.songs[0] && this.songs[0].url) ? true : false);
@@ -190,22 +190,24 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   }
 
   async getSongList() {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    const user = this.user ?? parent?.user;
-    if (!user?.id || !parent) return;
+    try {
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      const user = this.user ?? parent?.user;
+      if (!user?.id || !parent) return;
 
-    const tmpSongs = await this.todoService.getTodo(user.id, 'Music');
+      const tmpSongs = await this.todoService.getTodo(user.id, 'Music');
 
-    // Build fresh arrays (new references)
-    this.youtubeSongs = tmpSongs.filter((song: Todo) => parent.isYoutubeUrl(song.url));
-    this.fileSongs    = tmpSongs.filter((song: Todo) => !parent.isYoutubeUrl(song.url));
+      // Build fresh arrays (new references)
+      this.youtubeSongs = tmpSongs.filter((song: Todo) => parent.isYoutubeUrl(song.url));
+      this.fileSongs    = tmpSongs.filter((song: Todo) => !parent.isYoutubeUrl(song.url));
 
-    this.songs = this.selectedType === 'file'
-      ? [...this.fileSongs]
-      : [...this.youtubeSongs];
-
-    this.updatePaginatedSongs();   // ensures new reference for paginatedSongs
-    this.gotPlaylistEvent.emit([...this.songs]); // emit a new ref as well
+      this.songs = this.selectedType === 'file'
+        ? [...this.fileSongs]
+        : [...this.youtubeSongs];
+    } finally { 
+      this.updatePaginatedSongs();   // ensures new reference for paginatedSongs
+      this.gotPlaylistEvent.emit([...this.songs]); // emit a new ref as well
+    }
   }
 
 
