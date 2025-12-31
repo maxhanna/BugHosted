@@ -115,7 +115,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     }
 
     await this.ensureYouTubeApi();
-    this.ytPlayer = new YT.Player(this.musicVideo.nativeElement, {
+    this.ytPlayer = new YT.Player(this.musicVideo.nativeElement as HTMLElement, {
       videoId: undefined, // we’ll load later
       playerVars: {
         enablejsapi: 1,
@@ -135,18 +135,16 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
             this.pendingPlay = undefined;
             if (url) this.play(url);
           }
-        },
-        onStateChange: (e) => {
+        }, 
+        onStateChange: (e: YT.OnStateChangeEvent) => {
           // 0: ended, 1: playing, 2: paused, 3: buffering, 5: cued
           if (e.data === YT.PlayerState.ENDED) {
-            // Advance reliably (embed playlists on mobile can stop)
             this.safeNextVideo();
           } else if (e.data === YT.PlayerState.CUED) {
-            // Ensure cued videos actually start
             this.ytPlayer?.playVideo();
           }
         },
-        onError: (_e) => {
+        onError: (e: YT.OnErrorEvent) => {
           // Recover by skipping to the next video
           this.safeNextVideo();
         }
