@@ -67,7 +67,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   private ytPlayer?: YT.Player;
   private ytReady = false;
   private pendingPlay?: { url?: string; fileId?: number | null }; // queue if API not ready yet
-
+  private ytApiPromise?: Promise<void>;
 
   @Input() user?: User;
   @Input() smallPlayer = false;
@@ -148,15 +148,26 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     });
   }
 
-  private ensureYouTubeApi(): Promise<void> {
-    return new Promise((resolve) => {
-      if ((window as any).YT?.Player) return resolve();
+  
+  private async ensureYouTubeApi(): Promise<void> {
+    if (this.ytApiPromise) return this.ytApiPromise;
+
+    this.ytApiPromise = new Promise((resolve) => {
+      const w = window as any;
+
+      // Already present?
+      if (w.YT?.Player) { resolve(); return; }
+
+      // Assign the global callback BEFORE adding the script (prevents race)
+      w.onYouTubeIframeAPIReady = () => resolve();
+
       const tag = document.createElement('script');
       tag.src = 'https://www.youtube.com/iframe_api';
-      document.body.appendChild(tag);
-      (window as any).onYouTubeIframeAPIReady = () => resolve();
+      tag.async = true;
+      document.head.appendChild(tag);
     });
   }
+
 
   private safeNextVideo() {
     try {
@@ -370,6 +381,9 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
 
     // ✅ Use the array overload (no object literal with `playlist`)
     this.ytPlayer.loadPlaylist(ids, index, /* startSeconds */ undefined, 'small');
+
+    try { if (!this.ytPlayer.isMuted()) this.ytPlayer.mute(); } catch {}
+    
     this.ytPlayer.playVideo();
     console.log("loading playlist with ids:", ids, "starting at index:", index);
   }
