@@ -202,6 +202,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     this.attachedTopics = event ?? [];
     this.topicAdded.emit(this.attachedTopics);
     this.highlightTopicsButton = this.getButtonHighlightState();
+    this._isPosting = false;
     console.log("topic added");
   }
 
@@ -237,12 +238,14 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       parent?.showNotification?.('Please select at least one topic before posting to the feed.');
       this.highlightTopicsButton = true;
       this.isTopicsPanelOpen = true;
+      this._isPosting = false;
       parent?.showOverlay();
       return;
     }
 
     if (!text && (!this.attachedFiles || this.attachedFiles.length === 0)) {
       alert("Message contents are empty!");
+      this._isPosting = false;
       return;
     }
 
