@@ -225,7 +225,7 @@ namespace maxhanna.Server.Services
 						if (recentCount > 0)
 						{
 							await transaction.CommitAsync();
-							_ = _log.Db($"Skipping displacement run: {recentCount} displacement(s) occurred within last {recentDisplacementHours}h.", null, "SYSTEM");
+							_ = _log.Db($"Skipping displacement run: {recentCount} displacement(s) occurred within last {recentDisplacementHours}h.", null, "SYSTEM", outputToConsole: true);
 							return;
 						}
 					}
@@ -247,14 +247,14 @@ namespace maxhanna.Server.Services
 				}
 				// Find heroes with >=2 total walls but 0 walls in last 8 hours
 				const string selectSql = @"
-				SELECT h.id as hero_id, h.user_id as user_id, h.level as hero_level
-				FROM maxhanna.ender_hero h
-				WHERE (
-					SELECT COUNT(*) FROM maxhanna.ender_bike_wall w WHERE w.hero_id = h.id
-				) >= 2
-				AND (
-					SELECT COUNT(*) FROM maxhanna.ender_bike_wall w2 WHERE w2.hero_id = h.id AND w2.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 8 HOUR)
-				) = 0;";
+					SELECT h.id as hero_id, h.user_id as user_id, h.level as hero_level
+					FROM maxhanna.ender_hero h
+					WHERE (
+						SELECT COUNT(*) FROM maxhanna.ender_bike_wall w WHERE w.hero_id = h.id
+					) >= 2
+					AND (
+						SELECT COUNT(*) FROM maxhanna.ender_bike_wall w2 WHERE w2.hero_id = h.id AND w2.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 8 HOUR)
+					) = 0;";
 
 				using var selCmd = new MySqlCommand(selectSql, conn, transaction);
 				using var reader = await selCmd.ExecuteReaderAsync();
@@ -271,7 +271,7 @@ namespace maxhanna.Server.Services
 				if (victims.Count == 0)
 				{
 					await transaction.CommitAsync();
-					_ = _log.Db("No inactive ender heroes found to relocate.", null, "SYSTEM");
+					_ = _log.Db("No inactive ender heroes found to relocate.", null, "SYSTEM", outputToConsole: true);
 					return;
 				}
 
@@ -381,7 +381,7 @@ namespace maxhanna.Server.Services
 						// Skip displacement if user recently displaced (per-user cooldown)
 						if (recentlyDisplacedUsers.Contains(v.userId.Value))
 						{
-							_ = _log.Db($"Skipping hero {v.heroId} displacement due to recent per-user cooldown (user {v.userId.Value}).", v.heroId, "SYSTEM");
+							_ = _log.Db($"Skipping hero {v.heroId} displacement due to recent per-user cooldown (user {v.userId.Value}).", v.heroId, "SYSTEM", outputToConsole: true);
 							continue; // continue to next victim
 						}
 
@@ -394,7 +394,7 @@ namespace maxhanna.Server.Services
 							int allowNotifications = allowObj == null ? 1 : Convert.ToInt32(allowObj);
 							if (allowNotifications == 0)
 							{
-								_ = _log.Db($"Skipping notification for displaced hero {v.heroId} because user {v.userId.Value} disabled ender inactivity notifications.", v.heroId, "SYSTEM");
+								_ = _log.Db($"Skipping notification for displaced hero {v.heroId} because user {v.userId.Value} disabled ender inactivity notifications.", v.heroId, "SYSTEM", outputToConsole: true);
 								recentlyDisplacedUsers.Add(v.userId.Value); // avoid re-checking in this run
 								continue;
 							}
@@ -405,16 +405,16 @@ namespace maxhanna.Server.Services
 						await insertNotifCmd.ExecuteNonQueryAsync();
 						recentlyDisplacedUsers.Add(v.userId.Value); // update runtime set
 					}
-					_ = _log.Db($"Relocated inactive hero {v.heroId} to ({newX},{newY}) on level {lvl}.", v.heroId, "SYSTEM");
+					_ = _log.Db($"Relocated inactive hero {v.heroId} to ({newX},{newY}) on level {lvl}.", v.heroId, "SYSTEM", outputToConsole: true);
 				}
 
 				await transaction.CommitAsync();
-				_ = _log.Db($"Relocated {relocated} inactive ender heroes.", null, "SYSTEM");
+				_ = _log.Db($"Relocated {relocated} inactive ender heroes.", null, "SYSTEM", outputToConsole: true);
 			}
 			catch (Exception ex)
 			{
 				try { await transaction.RollbackAsync(); } catch { }
-				_ = _log.Db($"Error relocating inactive ender heroes: {ex.Message}", null, "SYSTEM", true);
+				_ = _log.Db($"Error relocating inactive ender heroes: {ex.Message}", null, "SYSTEM", outputToConsole: true);
 			}
 		}
 		public override async Task StopAsync(CancellationToken cancellationToken)
