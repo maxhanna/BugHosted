@@ -35,17 +35,7 @@
               "src/sitemap.xml",
               "src/robots.txt",
               "src/assets/n64Icon.png",
-              "src/firebase-messaging-sw.js",
-              {
-                "glob": "**/*",
-                "input": "src/assets",
-                "output": "/assets/",
-                "ignore": [
-                  "**/bones/**",
-                  "**/metabots/**",
-                  "**/ender/**"
-                ]
-              },
+              "src/firebase-messaging-sw.js", 
               {
                 "glob": "**/*.wasm",
                 "input": "node_modules/mupen64plus-web/bin/web",
