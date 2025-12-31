@@ -75,6 +75,38 @@ try {
   console.log(chalk.yellow(`Could not list files in dist path: ${err.message}`));
 }
 
+
+// ========= External Game Assets (served outside dist) =========
+// Configure where the 'bones', 'metabots', and 'ender' folders live on disk.
+// Example: ASSETS_ROOT=/var/www/game-assets   (with subfolders bones/, metabots/, ender/)
+const externalAssetsRoot = path.join(__dirname, 'src', 'assets');
+
+if (externalAssetsRoot && fs.existsSync(externalAssetsRoot)) {
+  const staticOpts = {
+    maxAge: '1y',
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.wasm')) res.set('Content-Type', 'application/wasm');
+      // Long cache for versioned assets if you pre-hash files
+      if (filePath.match(/\.[a-f0-9]{8,}\.(js|css|data|wasm)$/)) {
+        res.set('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+      res.set('X-Content-Type-Options', 'nosniff');
+    },
+  };
+
+  // Mount each game folder under /assets/<game>
+  app.use('/assets/bones',    express.static(path.join(externalAssetsRoot, 'bones'), staticOpts));
+  app.use('/assets/metabots', express.static(path.join(externalAssetsRoot, 'metabots'), staticOpts));
+  app.use('/assets/ender',    express.static(path.join(externalAssetsRoot, 'ender'), staticOpts));
+
+  console.log(chalk.gray(`✓ Serving external game assets from: ${externalAssetsRoot}`));
+} else {
+  console.log(chalk.yellow('ASSETS_ROOT not set or missing; external game assets not mounted'));
+}
+
+
 // Explicitly serve built assets from the dist 'assets' folder if present.
 // This ensures files like `/assets/mupen64plus/*.wasm` are served directly
 // from the build output instead of falling back to the SPA index.html.
