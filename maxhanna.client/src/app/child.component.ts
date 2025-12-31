@@ -264,8 +264,7 @@ export class ChildComponent {
     );
   } 
   searchForEmoji(search?: string): void {
-    if (!this.parentRef) return; 
-    console.log("Searching for emoji", search);
+    if (!this.parentRef) return;
     const searchTerm = search ? search.toLowerCase() : '';
     const contains = [];
     for (const [alias, emoji] of Object.entries(this.parentRef.emojiMap)) {
@@ -276,7 +275,6 @@ export class ChildComponent {
       }
     }
     this.filteredEmojis = Object.fromEntries([...contains]);
-    console.log("Searching for emoji result", this.filteredEmojis);
   } 
   log(text: any) {
     console.log(text);
