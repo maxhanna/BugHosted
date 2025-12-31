@@ -103,7 +103,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🧐", title: "HostAi", content: undefined },
     { ownership: 0, icon: "🕸️", title: "Crawler", content: undefined },
     { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
-    { ownership: 0, icon: "N", title: "N64Emulator", content: undefined },
+    { ownership: 0, icon: "🕹️", title: "N64Emulator", content: undefined },
     { ownership: 0, icon: "👤", title: "User", content: undefined },
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
     { ownership: 0, icon: "ℹ️", title: "Help", content: undefined },
