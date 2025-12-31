@@ -76,9 +76,7 @@ try {
 }
 
 
-// ========= External Game Assets (served outside dist) =========
-// Configure where the 'bones', 'metabots', and 'ender' folders live on disk.
-// Example: ASSETS_ROOT=/var/www/game-assets   (with subfolders bones/, metabots/, ender/)
+// ========= External Game Assets (served outside dist) ========= 
 const externalAssetsRoot = path.join(__dirname, 'src', 'assets');
 
 if (externalAssetsRoot && fs.existsSync(externalAssetsRoot)) {

@@ -77,6 +77,8 @@ namespace maxhanna.Server.Services
 			// delay (resets if the process restarts).
 			if (!_initialDelayApplied)
 			{
+				//do initial smoke tests
+				await RunSmokeTests();
 				_initialDelayApplied = true;
 				// Wait 5 minutes before scheduling timers for the first run.
 				try
@@ -113,6 +115,12 @@ namespace maxhanna.Server.Services
 			{
 				await Task.Delay(1000, stoppingToken);
 			}
+		}
+		
+		private async Task RunSmokeTests()
+		{
+			Console.WriteLine("Running initial smoke tests...");
+			await RunHourlyTasks();
 		}
 		private async Task Run10SecondTasks()
 		{
