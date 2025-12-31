@@ -517,7 +517,7 @@ server.on('error', (err) => {
 });
 
 server.on('clientError', (err, socket) => {
-  console.error(chalk.red('[Client Error]'), err.message);
+  console.error(chalk.red(`[Client Error:${new Date().toDateString()}]`), err.message);
   if (socket.writable) {
     socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
   }
