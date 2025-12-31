@@ -265,21 +265,15 @@ export class ChildComponent {
   } 
   searchForEmoji(search?: string): void {
     console.log("Searching for emoji", search);
-    if (!this.parentRef) return;
+    if (!this.parentRef) return; 
     const searchTerm = search ? search.toLowerCase() : '';
-
-    // If there's a search term, filter the emojiMap by key or value
-    if (searchTerm) {
-      this.filteredEmojis = Object.entries(this.parentRef.emojiMap).reduce<{ [key: string]: string }>((result, [key, value]) => {
-        if (key.toLowerCase().includes(searchTerm) || value.includes(searchTerm)) {
-          result[key] = value;
-        }
-        return result;
-      }, {});
-    } else {
-      // If there's no search term, show all emojis
-      this.filteredEmojis = { ...this.parentRef.emojiMap };
+    const contains = [];
+    for (const [alias, emoji] of Object.entries(this.parentRef.emojiMap)) {
+      const matchesEmoji = emoji.toLowerCase().includes(searchTerm ?? '');
+      if (!matchesEmoji) continue; 
+      else contains.push([alias, emoji]);
     }
+    this.filteredEmojis = Object.fromEntries([...contains]);
   } 
   log(text: any) {
     console.log(text);
