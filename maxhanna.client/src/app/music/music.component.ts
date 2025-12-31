@@ -152,10 +152,13 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
           }
         },
         onStateChange: (e: YT.OnStateChangeEvent) => {
-          if (e.data === YT.PlayerState.ENDED) this.safeNextVideo();
-          else if (e.data === YT.PlayerState.CUED) this.ytPlayer?.playVideo();
+          if (e.data === YT.PlayerState.ENDED) {this.safeNextVideo();}
+          else if (e.data === YT.PlayerState.CUED) {this.ytPlayer?.playVideo();}
+        }, 
+        onError: (e: YT.OnErrorEvent) => {
+          console.warn('[YT] onError code:', e.data); // 100/101/150 etc.
+          this.safeNextVideo();                        // skip forward on error
         },
-        onError: (_e: YT.OnErrorEvent) => this.safeNextVideo(),
       }
     }); 
   } 
@@ -187,19 +190,25 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     return this.ytApiPromise;
   } 
 
-  private safeNextVideo() {
-    try {
-      if (this.ytPlayer?.nextVideo) {
-        this.ytPlayer.nextVideo();
-      } else {
-        // Fallback: advance by reloading the same playlist index+1
-        const ids = this.getYoutubeIdsInOrder();
-        const idx = Math.max(0, this.getCurrentIndex(ids)); 
-        this.ytPlayer?.loadPlaylist(ids, idx, undefined, 'small');
-        this.ytPlayer?.playVideo(); 
-      }
-    } catch { }
-  }
+  
+  private async safeNextVideo() {
+    const MAX_SKIP = 5;
+    for (let i = 0; i < MAX_SKIP; i++) {
+      try {
+        if (this.ytPlayer?.nextVideo) this.ytPlayer.nextVideo();
+        else {
+          const ids = this.getYoutubeIdsInOrder();
+          const idx = Math.max(0, this.getCurrentIndex(ids)) + 1;
+          const nextIdx = idx % ids.length;
+          this.ytPlayer?.loadPlaylist(ids, nextIdx, undefined, 'small');
+        }
+        this.ytPlayer?.playVideo();
+        await new Promise(res => setTimeout(res, 300)); // give it a moment
+        // If it doesn't error immediately, break out
+        break;
+      } catch { /* try next */ }
+    }
+  } 
 
   private getYoutubeIdsInOrder(): string[] {
     const ids: string[] = [];

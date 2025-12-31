@@ -177,7 +177,7 @@ if (config.enableHelmet) {
         defaultSrc: ["'self'", 'https:', 'data:'],
         // Allow scripts from self, HTTPS, common CDNs and permit inline/eval for legacy code
         // Include 'blob:' so dynamic/imported blob modules are permitted
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'cdn.jsdelivr.net', 'https:', 'blob:'],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'cdn.jsdelivr.net', 'https:', 'blob:', 'https://www.youtube.com', 'https://s.ytimg.com'],
         // Allow external script elements (e.g. hashed filenames) from self, HTTPS and blob URLs
         'script-src-elem': ["'self'", 'https:', 'cdn.jsdelivr.net', 'blob:', "'unsafe-inline'", "'unsafe-eval'"],
         // Permit inline handlers temporarily (refactor to remove)
@@ -185,10 +185,10 @@ if (config.enableHelmet) {
         styleSrc: ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'https:'],
         fontSrc: ["'self'", 'fonts.gstatic.com', 'data:'],
         // Allow connecting to backend, external HTTPS APIs and websockets
-        connectSrc: ["'self'", 'https:', 'wss:', 'localhost', 'localhost:*', 'https://api.ipify.org'],
-        imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
-        mediaSrc: ["'self'", 'blob:', 'data:' /*, 'https://cdn.example.com' */],
-        frameSrc: ["'self'", 'https:'],
+        connectSrc: ["'self'", 'https:', 'wss:', 'localhost', 'localhost:*', 'https://api.ipify.org', 'https://*.googlevideo.com', 'https://www.youtube.com'],
+        imgSrc: ["'self'", 'data:', 'https:', 'blob:', 'https://*.ytimg.com'],
+        mediaSrc: ["'self'", 'blob:', 'data:', 'https://*.googlevideo.com', 'https://*.youtube.com' /*, 'https://cdn.example.com' */],
+        frameSrc: ["'self'", 'https:', 'https://www.youtube.com'],
       },
     },
     hsts: {
