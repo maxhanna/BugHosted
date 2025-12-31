@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, HostListener, Input, OnInit, Output, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { Location } from '@angular/common';
 import { ChildComponent } from '../child.component';
 import { Todo } from '../../services/datacontracts/todo';
@@ -22,7 +22,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   @ViewChild('titleInput') titleInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
   @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
-  @ViewChild('musicVideo') musicVideo!: ElementRef<HTMLIFrameElement>;
+  @ViewChild('musicVideo') musicVideo!: ElementRef<HTMLDivElement>;
   @ViewChild('orderSelect') orderSelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('componentMain') componentMain!: ElementRef<HTMLDivElement>;
   @ViewChild('mediaSelector') mediaSelector!: MediaSelectorComponent;
@@ -74,7 +74,11 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   @Input() inputtedParentRef?: AppComponent;
   @Output() gotPlaylistEvent = new EventEmitter<Array<Todo>>();
 
-  constructor(private todoService: TodoService, private location: Location, private radioService: RadioService) {
+  constructor(private todoService: TodoService,
+    private location: Location, 
+    private radioService: RadioService, 
+    private cdr: ChangeDetectorRef
+  ) {
     super();
     this.location.subscribe(() => {
       if (this.isFullscreen) {
@@ -99,14 +103,22 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   }
 
 
-  async ngOnInit() {
+  async ngOnInit() { 
+    await this.tryInitialLoad(); 
+  }
+
+  private async tryInitialLoad() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = this.user ?? parent?.user;
+
+    if (!user?.id) { 
+      await Promise.resolve();
+    }
     await this.refreshPlaylist(); 
-    // if (this.songs && this.songs[0] && this.songs[0].url) {
-    //   this.play(this.songs[0].url!);
-    // }
-   // this.clearInputs();
-    //this.reorderTable(undefined, this.orderSelect?.nativeElement.value || 'Newest');
-    this.isMusicControlsDisplayed((this.songs && this.songs[0] && this.songs[0].url) ? true : false);
+    if (this.songs.length && this.songs[0].url) {
+      this.play(this.songs[0].url!);
+    }
+    console.log('[Music] Loaded', this.songs.length, 'songs; page', this.currentPage);
   }
 
   async ngAfterViewInit() {
@@ -218,6 +230,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     } finally { 
       this.updatePaginatedSongs();   // ensures new reference for paginatedSongs
       this.gotPlaylistEvent.emit([...this.songs]); // emit a new ref as well
+      this.cdr.markForCheck();
     }
   }
 
@@ -383,7 +396,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.ytPlayer.loadPlaylist(ids, index, /* startSeconds */ undefined, 'small');
 
     try { if (!this.ytPlayer.isMuted()) this.ytPlayer.mute(); } catch {}
-    
+
     this.ytPlayer.playVideo();
     console.log("loading playlist with ids:", ids, "starting at index:", index);
   }
@@ -745,6 +758,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   async refreshPlaylist() {
     await this.getSongList().then(() => {
       this.updatePaginatedSongs();
+      this.cdr.markForCheck();
     });
   }
 }
