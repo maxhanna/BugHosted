@@ -264,6 +264,7 @@ export class ChildComponent {
     );
   } 
   searchForEmoji(event?: any): void {
+    console.log("Searching for emoji", event);
     if (!this.parentRef) return;
     const searchTerm = event ? event.target.value.toLowerCase() : '';
 
