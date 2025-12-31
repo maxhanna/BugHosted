@@ -230,6 +230,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   }
 
   updatePaginatedSongs() {
+    console.log("Updating paginated songs for page:", this.currentPage, this.songs.length, "total songs");
     this.totalPages = Math.ceil(this.songs.length / this.itemsPerPage) || 1;
     const startIndex = (this.currentPage - 1) * this.itemsPerPage;
 
@@ -727,8 +728,8 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
 
     this.isMusicControlsDisplayed(true);
   }
-  refreshPlaylist() {
-    this.getSongList().then(() => {
+  async refreshPlaylist() {
+    await this.getSongList().then(() => {
       this.updatePaginatedSongs();
     });
   }
