@@ -193,14 +193,21 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = this.user ?? parent?.user;
     if (!user?.id || !parent) return;
-    const tmpSongs = await this.todoService.getTodo(user.id, "Music");
-    this.youtubeSongs = tmpSongs.filter((song: Todo) => parent.isYoutubeUrl(song.url));
-    this.fileSongs = tmpSongs.filter((song: Todo) => !parent.isYoutubeUrl(song.url));
-    this.songs = this.selectedType === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
 
-    this.updatePaginatedSongs();
-    this.gotPlaylistEvent.emit(this.songs);
+    const tmpSongs = await this.todoService.getTodo(user.id, 'Music');
+
+    // Build fresh arrays (new references)
+    this.youtubeSongs = tmpSongs.filter((song: Todo) => parent.isYoutubeUrl(song.url));
+    this.fileSongs    = tmpSongs.filter((song: Todo) => !parent.isYoutubeUrl(song.url));
+
+    this.songs = this.selectedType === 'file'
+      ? [...this.fileSongs]
+      : [...this.youtubeSongs];
+
+    this.updatePaginatedSongs();   // ensures new reference for paginatedSongs
+    this.gotPlaylistEvent.emit([...this.songs]); // emit a new ref as well
   }
+
 
   async searchForSong() {
     const search = this.searchInput?.nativeElement.value || '';
@@ -223,8 +230,10 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   updatePaginatedSongs() {
     this.totalPages = Math.ceil(this.songs.length / this.itemsPerPage) || 1;
     const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+
+    // Create a NEW array reference - this is key for OnPush + *ngFor
     this.paginatedSongs = this.songs.slice(startIndex, startIndex + this.itemsPerPage);
-  }
+  } 
 
   goToPreviousPage() {
     if (this.currentPage > 1) {
