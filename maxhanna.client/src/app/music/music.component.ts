@@ -414,15 +414,14 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
       return;
     }
 
-    // YOUTUBE — compute ids & index then rebuild player with URL playlist
     const ids = this.getYoutubeIdsInOrder();
     const firstId = this.trimYoutubeUrl(url!);
-
     let index = ids.indexOf(firstId);
     if (index < 0) { ids.unshift(firstId); index = 0; }
 
-    // 👉 Recreate player here so the UI next/prev works reliably
-    this.rebuildPlayerWithUrlPlaylist(firstId, ids, index);
+    // ✅ Use array-based rebuild for huge lists
+    this.rebuildPlayerWithArrayPlaylist(firstId, ids, index);
+
 
     // Update UI state
     this.currentUrl = url;
@@ -711,15 +710,14 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   }
 
 
-  private rebuildPlayerWithUrlPlaylist(firstId: string, ids: string[], index: number) {
+
+  private rebuildPlayerWithArrayPlaylist(firstId: string, ids: string[], index: number) {
     if (!this.musicVideo?.nativeElement) return;
 
-    // Destroy any old instance
     try { this.ytPlayer?.destroy(); } catch { }
 
     this.ytPlayer = new YT.Player(this.musicVideo.nativeElement as HTMLElement, {
-      // ✅ Give the player a first video AND the full playlist via URL (best for UI next/prev)
-      videoId: firstId,
+      videoId: firstId,               // Only the first video here
       playerVars: {
         playsinline: 1,
         rel: 0,
@@ -728,29 +726,31 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
         origin: window.location.origin,
         controls: 1,
         disablekb: 0,
-        playlist: ids.join(','),   // <— url-level playlist
+        // 🚫 no `playlist:` here to avoid URL length issues
       },
       events: {
         onReady: () => {
-          this.ytReady = true;
-          // Jump to the requested index; if 0, just play
-          if (index > 0) this.ytPlayer?.playVideoAt(index);
-          else this.ytPlayer?.playVideo();
+          // Feed the full array programmatically
+          this.ytPlayer?.loadPlaylist(ids, index, /*startSeconds*/ undefined, /*quality*/ 'small');
 
-          // Playlist tweaks (optional)
+          // Make sure we’re at the intended index and playing
+          try { this.ytPlayer?.playVideoAt(index); } catch { }
+          this.ytPlayer?.playVideo();
+
+          // Playlist behaviors
           try {
             this.ytPlayer?.setLoop(true);
             // this.ytPlayer?.setShuffle(true);
           } catch { }
         },
         onStateChange: (e: YT.OnStateChangeEvent) => {
-          // Auto-advance at end
-          if (e.data === YT.PlayerState.ENDED) this.next();
+          if (e.data === YT.PlayerState.ENDED) this.next();  // your next() remains
         },
         onError: (_e: YT.OnErrorEvent) => this.next(),
       }
     });
   }
+
 
 
   // Radio Browser API methods
