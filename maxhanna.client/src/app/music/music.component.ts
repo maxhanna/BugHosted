@@ -149,24 +149,47 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     }
   }
 
-  next() {
+
+  async next() {
     if (!this.ytPlayer) return;
+
+    const beforeIdx = this.ytPlayer.getPlaylistIndex?.() ?? -1;
+    const hadPlaylist = (this.ytPlayer.getPlaylist?.() || []).length > 0;
+
+    let advanced = false;
     try {
-      // Try the native next, works when playlist is fully attached
-      this.ytPlayer.nextVideo();  // IFrame API playlist function
-      return;
-    } catch {/* proceed to fallback */ }
-    this.nextFallback();
+      this.ytPlayer.nextVideo();       // may silently do nothing if no playlist attached
+      await new Promise(r => setTimeout(r, 200)); // let player react
+      const afterIdx = this.ytPlayer.getPlaylistIndex?.() ?? -1;
+      advanced = hadPlaylist && afterIdx !== beforeIdx;
+    } catch {
+      // swallow, we’ll fallback
+    }
+
+    if (!advanced) {
+      this.nextFallback();             // your array-based re-load
+    }
   }
 
-  prev() {
+  async prev() {
     if (!this.ytPlayer) return;
+
+    const beforeIdx = this.ytPlayer.getPlaylistIndex?.() ?? -1;
+    const hadPlaylist = (this.ytPlayer.getPlaylist?.() || []).length > 0;
+
+    let moved = false;
     try {
       this.ytPlayer.previousVideo();
-      return;
-    } catch {/* proceed to fallback */ }
-    this.prevFallback();
+      await new Promise(r => setTimeout(r, 200));
+      const afterIdx = this.ytPlayer.getPlaylistIndex?.() ?? -1;
+      moved = hadPlaylist && afterIdx !== beforeIdx;
+    } catch { }
+
+    if (!moved) {
+      this.prevFallback();
+    }
   }
+
 
   private consumePendingPlay() {
     if (this.pendingPlay?.url && this.ytReady) {
@@ -711,13 +734,17 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
 
 
 
+
   private rebuildPlayerWithArrayPlaylist(firstId: string, ids: string[], index: number) {
     if (!this.musicVideo?.nativeElement) return;
 
     try { this.ytPlayer?.destroy(); } catch { }
 
+    // Make a small initial chunk to enable native next/prev UI
+    const initialChunk = ids.slice(0, 50).join(','); // <-- TS expects string here
+
     this.ytPlayer = new YT.Player(this.musicVideo.nativeElement as HTMLElement, {
-      videoId: firstId,               // Only the first video here
+      videoId: firstId,
       playerVars: {
         playsinline: 1,
         rel: 0,
@@ -725,32 +752,26 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
         enablejsapi: 1,
         origin: window.location.origin,
         controls: 1,
-        disablekb: 0,
-        // 🚫 no `playlist:` here to avoid URL length issues
+        playlist: initialChunk, // <-- string, not string[]
       },
       events: {
         onReady: () => {
-          // Feed the full array programmatically
+          // Now load the full array programmatically (array is valid here)
           this.ytPlayer?.loadPlaylist(ids, index, /*startSeconds*/ undefined, /*quality*/ 'small');
 
-          // Make sure we’re at the intended index and playing
+          // Ensure we land exactly on the requested index and play
           try { this.ytPlayer?.playVideoAt(index); } catch { }
           this.ytPlayer?.playVideo();
 
-          // Playlist behaviors
-          try {
-            this.ytPlayer?.setLoop(true);
-            // this.ytPlayer?.setShuffle(true);
-          } catch { }
+          try { this.ytPlayer?.setLoop(true); } catch { }
         },
         onStateChange: (e: YT.OnStateChangeEvent) => {
-          if (e.data === YT.PlayerState.ENDED) this.next();  // your next() remains
+          if (e.data === YT.PlayerState.ENDED) this.next();
         },
         onError: (_e: YT.OnErrorEvent) => this.next(),
       }
     });
   }
-
 
 
   // Radio Browser API methods
