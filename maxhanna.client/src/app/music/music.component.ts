@@ -329,8 +329,10 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
 
     // Ignore redundant replays
     if (url != undefined && url === this.currentUrl) {
+      console.log("Redundant play call for same URL, ignoring.");
       return; 
     } else if (fileId != undefined && fileId === this.currentFileId) {
+      console.log("Redundant play call for same File ID, ignoring.");
       return; 
     }
 
@@ -348,6 +350,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
           this.fileMediaViewer.setFileSrcById(fileId);
         }
       }, 50);
+      console.log("Playing file with ID:", fileId);
       return;
     }
 
