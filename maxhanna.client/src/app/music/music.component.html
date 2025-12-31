@@ -20,14 +20,7 @@
     <div id="iframeDiv" 
      [class]="playerClasses" 
      [style.visibility]="isVisible ? 'visible' : 'hidden'">
-      <iframe 
-        id="musicVideo"
-        #musicVideo
-        class="youtubeFrame"
-        [hidden]="selectedType !== 'youtube'"
-        frameborder="0"
-        allow="autoplay; encrypted-media"
-      ></iframe>
+      <div id="musicVideo" #musicVideo class="youtubeFrame"></div>
       <app-media-viewer 
         #fileMediaViewer 
         [hidden]="!fileIdPlaying"
