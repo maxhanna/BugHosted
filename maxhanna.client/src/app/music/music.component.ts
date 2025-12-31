@@ -100,8 +100,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
 
 
   async ngOnInit() {
-    await this.getSongList();
-    this.updatePaginatedSongs();
+    await this.getSongList(); 
     if (this.songs && this.songs[0] && this.songs[0].url) {
       this.play(this.songs[0].url!);
     }
@@ -215,9 +214,9 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
       this.youtubeSongs = tmpSongs.filter((song: Todo) => this.parentRef?.isYoutubeUrl(song.url));
       this.fileSongs = tmpSongs.filter((song: Todo) => !this.parentRef?.isYoutubeUrl(song.url));
       this.songs = this.selectedType === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
+      this.currentPage = 1; // Reset to first page on search
+      this.updatePaginatedSongs();
     }
-    this.currentPage = 1; // Reset to first page on search
-    this.updatePaginatedSongs();
     this.reorderTable(undefined, this.orderSelect?.nativeElement.value || 'Newest');
   }
 
@@ -313,6 +312,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
 
 
   play(url?: string, fileId?: number) {
+    console.log("Play called with url:", url, "fileId:", fileId);
     if (!url && !fileId) {
       alert("Url/File can't be empty");
       return;
@@ -351,6 +351,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     // ✅ Use the array overload (no object literal with `playlist`)
     this.ytPlayer.loadPlaylist(ids, index, /* startSeconds */ undefined, 'small');
     this.ytPlayer.playVideo();
+    console.log("loading playlist with ids:", ids, "starting at index:", index);
   }
 
 
