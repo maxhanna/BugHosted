@@ -957,7 +957,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 			var exists = Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) > 0;
 			if (exists)
 			{
-				await _log.Db("Daily news story already exists. Skipping creation.", null, "NEWSSERVICE", outputToConsole: true);
+				//await _log.Db("Daily news story already exists. Skipping creation.", null, "NEWSSERVICE", outputToConsole: true);
 				await transaction.RollbackAsync();
 				return true;
 			}

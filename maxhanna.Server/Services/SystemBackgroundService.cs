@@ -120,7 +120,7 @@ namespace maxhanna.Server.Services
 		private async Task RunSmokeTests()
 		{
 			Console.WriteLine("Running initial smoke tests...");
-			await RunDailyTasks();
+			//await RunDailyTasks();
 		}
 		private async Task Run10SecondTasks()
 		{
@@ -1751,7 +1751,7 @@ namespace maxhanna.Server.Services
 				{
 					await conn.OpenAsync();
 					var deleteSql = @"
-                        DELETE FROM market_sentiment_analysis 
+						DELETE FROM market_sentiment_analysis 
 						WHERE created < UTC_TIMESTAMP() - INTERVAL 10 YEARS;";
 
 					using (var deleteCmd = new MySqlCommand(deleteSql, conn))
