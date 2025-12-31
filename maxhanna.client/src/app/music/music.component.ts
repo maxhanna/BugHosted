@@ -414,7 +414,11 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   }
 
   followLink() {
-    const currUrl = this.musicVideo.nativeElement.src;
+    if (!this.currentUrl) {
+      alert("No currently selected song!");
+      return;
+    }
+    const currUrl = this.currentUrl;
     const regex = /\/embed[^?]+\?playlist=/;
     const newUrl = currUrl.replace(regex, "/watch_videos?video_ids=");
     window.open(newUrl);
