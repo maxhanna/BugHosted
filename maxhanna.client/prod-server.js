@@ -187,7 +187,7 @@ if (config.enableHelmet) {
         // Allow connecting to backend, external HTTPS APIs and websockets
         connectSrc: ["'self'", 'https:', 'wss:', 'localhost', 'localhost:*', 'https://api.ipify.org'],
         imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
-        mediaSrc: ["'self'"],
+        mediaSrc: ["'self'", 'blob:', 'data:' /*, 'https://cdn.example.com' */],
         frameSrc: ["'self'", 'https:'],
       },
     },
