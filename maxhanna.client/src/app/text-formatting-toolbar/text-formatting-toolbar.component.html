@@ -31,7 +31,7 @@
 <div class="popupPanel" *ngIf="isEmojiPanelOpen">
     <div>
         <div class="emojiFilterInputDiv">
-            <input id="emojiFilter" #emojiFilter placeholder="🔍Search" (input)="searchForEmoji($event)" />
+            <input id="emojiFilter" #emojiFilter placeholder="🔍Search" (input)="searchForEmoji(emojiFilter.value)" />
         </div>
         <div class="emojiFilterContainer">
             <span *ngFor="let emoji of filteredEmojis | keyvalue" (click)="insertEmoji(emoji.value)"
