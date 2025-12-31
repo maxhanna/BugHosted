@@ -1,6 +1,6 @@
 <div class="componentMain" #componentMain>
   <div class="closeButton" *ngIf="!user" (click)="remove_me('MusicComponent');"></div>
-  <div class="refreshButton" *ngIf="!user" (click)="ngOnInit();"></div>
+  <div class="refreshButton" *ngIf="!user" (click)="refreshPlaylist();"></div>
   <div class="helpButton" *ngIf="!user" (click)="openHelpPanel()"></div>
   <div class="componentTitle" *ngIf="!user">Music</div>
 
@@ -21,16 +21,26 @@
      [class]="playerClasses" 
      [style.visibility]="isVisible ? 'visible' : 'hidden'">
       <iframe 
-        [style.visibility]="!fileIdPlaylist ? 'visible' : 'hidden'"
-        [style.width]="fileIdPlaylist ? '0px' : '100%'"
-        [style.height]="fileIdPlaylist ? '0px' : '100%'"
-        frameborder=0
-        id=musicVideo 
-        #musicVideo 
-        allow="autoplay"></iframe>
-      <app-media-viewer #fileMediaViewer *ngIf="fileIdPlaying && fileIdPlaying" [inputtedParentRef]="parentRef"
-        [autoplay]="true" [autoload]="true" [loop]="false" [muted]="false" [showTopics]="false" [showCommentSection]="false"
-        [previousComponent]="'Music'" (mediaEndedEvent)="mediaEndedEvent()"></app-media-viewer>
+        id="musicVideo"
+        #musicVideo
+        class="youtubeFrame"
+        [hidden]="selectedType !== 'youtube'"
+        frameborder="0"
+        allow="autoplay; encrypted-media"
+      ></iframe>
+      <app-media-viewer 
+        #fileMediaViewer 
+        [hidden]="!fileIdPlaying"
+        [inputtedParentRef]="parentRef"
+        [autoplay]="true"
+        [autoload]="true" 
+        [loop]="false" 
+        [muted]="false" 
+        [showTopics]="false" 
+        [showCommentSection]="false"
+        [previousComponent]="'Music'" 
+        (mediaEndedEvent)="mediaEndedEvent()">
+      </app-media-viewer>
       <button title="Shrink Fullscreen" (click)="closeFullscreen()" id="closeOverlay" *ngIf="isFullscreen">Shrink</button>
     </div>
     <div class="musicControls">
@@ -108,9 +118,9 @@
           <!-- YouTube/Files Table -->
           <table id="songListTable" [class]="isEditing.length ? '' : 'mainTable'" id="todoTable" *ngIf="selectedType !== 'radio' && paginatedSongs && paginatedSongs.length > 0">
             <tbody>
-              <tr *ngFor="let song of paginatedSongs" id="songId{{song.id!}}" [class]="isEditing.includes(song.id ?? 0) ? 'popupPanel' : ''">
-                <td (click)="play(song.url, song.fileId)" *ngIf="song.id" [style.width]="isEditing.includes(song.id) ? '' : '100%'">
-                  <span *ngIf="!isEditing.includes(song.id)">{{song.todo}}</span>
+              <tr *ngFor="let song of paginatedSongs; trackBy: trackSong" id="songId{{song.id!}}" [class]="isEditing.includes(song.id ?? 0) ? 'popupPanel' : ''">
+                <td *ngIf="song.id" [style.width]="isEditing.includes(song.id) ? '' : '100%'">
+                  <span *ngIf="!isEditing.includes(song.id)" class="songTitle" (click)="play(song.url, song.fileId)" >{{song.todo}}</span>
                   <div *ngIf="isEditing.includes(song.id)" class="popupPanelTitle">Edit Song</div>
                   <div>
                     <span *ngIf="isEditing.includes(song.id)">Title:&nbsp;</span>

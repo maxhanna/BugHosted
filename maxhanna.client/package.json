@@ -54,6 +54,7 @@
     "@angular/compiler-cli": "^19.2.4",
     "@types/jasmine": "~5.1.0",
     "@types/node": "^20.10.0",
+    "@types/youtube": "^0.1.2",
     "browserslist": "^4.24.4",
     "caniuse-lite": "^1.0.30001713",
     "chalk": "^4.1.2",
