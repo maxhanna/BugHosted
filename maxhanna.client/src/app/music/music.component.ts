@@ -154,11 +154,26 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
         onStateChange: (e: YT.OnStateChangeEvent) => {
           if (e.data === YT.PlayerState.ENDED) {this.safeNextVideo();}
           else if (e.data === YT.PlayerState.CUED) {this.ytPlayer?.playVideo();}
-        }, 
+        },  
         onError: (e: YT.OnErrorEvent) => {
-          console.warn('[YT] onError code:', e.data); // 100/101/150 etc.
-          this.safeNextVideo();                        // skip forward on error
-        },
+          console.warn('[YT] onError code:', e.data);
+
+          if (e.data === 2) { // invalid parameter
+            const ids = this.getYoutubeIdsInOrder();
+            const fallbackId = ids[0];
+            if (fallbackId) {
+              try {
+                this.ytPlayer?.cueVideoById(fallbackId);
+                this.ytPlayer?.playVideo();
+                setTimeout(() => this.ytPlayer?.loadPlaylist(ids, 0, undefined, 'small'), 250);
+                return; // handled
+              } catch { /* continue to next fallback below */ }
+            }
+          }
+
+          // For 5/100/101/150 etc., advance to the next:
+          this.safeNextVideo();
+        } 
       }
     }); 
   } 
@@ -378,25 +393,6 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
       return; 
     }
 
-    this.currentUrl = url;
-    this.currentFileId = fileId;
-    this.isMusicPlaying = true;
-    this.isMusicControlsDisplayed(true);
-
-    // FILE playback unchanged
-    if (fileId) {
-      this.fileIdPlaying = fileId;
-      setTimeout(() => {
-        if (this.fileMediaViewer) {
-          this.fileMediaViewer.resetSelectedFile();
-          this.fileMediaViewer.setFileSrcById(fileId);
-        }
-      }, 50);
-      console.log("Playing file with ID:", fileId);
-      return;
-    }
-
-    // YOUTUBE via API
     if (!this.ytReady || !this.ytPlayer) {
       this.pendingPlay = { url, fileId: null };
       console.log("YT API not ready, queuing play for url:", url);
@@ -405,16 +401,32 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
 
     const ids = this.getYoutubeIdsInOrder();
     const firstId = this.trimYoutubeUrl(url!);
-    const index = Math.max(0, ids.indexOf(firstId));
 
-    // ✅ Use the array overload (no object literal with `playlist`)
-    this.ytPlayer.loadPlaylist(ids, index, /* startSeconds */ undefined, 'small');
+    // Ensure the clicked ID exists in our array at least once
+    let index = ids.indexOf(firstId);
+    if (index < 0) { ids.unshift(firstId); index = 0; }
 
-    try { if (!this.ytPlayer.isMuted()) this.ytPlayer.mute(); } catch {}
+    try {
+      // Strategy A: cue first id, then load full playlist
+      this.ytPlayer.cueVideoById(firstId);
+      // help autoplay on mobile
+      try { if (!this.ytPlayer.isMuted()) this.ytPlayer.mute(); } catch {}
+      this.ytPlayer.playVideo();
 
-    this.ytPlayer.playVideo();
-    console.log("loading playlist with ids:", ids, "starting at index:", index);
+      // load the entire list shortly after the player stabilizes
+      setTimeout(() => {
+        this.ytPlayer?.loadPlaylist(ids, index, undefined, 'small');
+      }, 250);
+
+      console.log("primed single video:", firstId, "then attaching playlist of", ids.length, "starting at", index);
+    } catch (err) {
+      console.warn("cueVideoById failed, falling back to loadPlaylist directly", err);
+      this.ytPlayer.loadPlaylist(ids, index, undefined, 'small');
+      try { if (!this.ytPlayer.isMuted()) this.ytPlayer.mute(); } catch {}
+      this.ytPlayer.playVideo();
+    }
   }
+
 
 
 
