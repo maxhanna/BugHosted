@@ -34,6 +34,7 @@
               "src/favicon.ico",
               "src/sitemap.xml",
               "src/robots.txt",
+              "src/assets/n64Icon.png",
               "src/firebase-messaging-sw.js",
               {
                 "glob": "**/*.wasm",
