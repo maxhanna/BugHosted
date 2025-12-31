@@ -517,7 +517,7 @@ server.on('error', (err) => {
 });
 
 server.on('clientError', (err, socket) => {
-  console.error(chalk.red(`[Client Error:${new Date().toDateString()}]`), err.message);
+  console.error(chalk.red(`[Client Error:${new Date().toLocaleTimeString('en-CA', { hour12: false })}]`), err.message);
   if (socket.writable) {
     socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
   }
@@ -556,7 +556,7 @@ process.on('uncaughtException', (err) => {
   console.error(chalk.red('[Uncaught Exception]'), err);
   // In production, you might want to exit here and let PM2 restart
   if (config.nodeEnv === 'production') {
-    console.error(chalk.red(`[Critical:${new Date().toDateString()}] Exiting after uncaught exception`));
+    console.error(chalk.red(`[Critical:${new Date().toLocaleTimeString('en-CA', { hour12: false })}] Exiting after uncaught exception`));
     process.exit(1);
   }
 });
