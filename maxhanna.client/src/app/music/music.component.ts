@@ -143,7 +143,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
       if (index < 0) { ids.unshift(firstId); index = 0; }
 
       // ✅ Recreate the player with URL-level playlist
-      this.rebuildPlayerWithUrlPlaylist(firstId, ids, index);
+      this.rebuildPlayerWithArrayPlaylist(firstId, ids, index);
     } else if (this.pendingPlay?.url) {
       this.consumePendingPlay();
     }
