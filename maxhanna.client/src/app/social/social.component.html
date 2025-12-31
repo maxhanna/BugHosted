@@ -353,14 +353,15 @@
     <!-- Story Input -->
     <div class="storyInputDiv" *ngIf="!showOnlyPost || user"> 
         <app-text-input 
-        [inputtedParentRef]="parentRef ?? parent"
-        [type]="'Social'"
-        [profileUser]="user"
-        [attachedTopics]="attachedTopics"
-        (topicAdded)="searchStories($event)"
-        (topicClicked)="topicClicked($event)"
-        (topicIgnored)="searchStories()"
-        (contentPosted)="contentPosted($event)"></app-text-input> 
+          [inputtedParentRef]="parentRef ?? parent"
+          [type]="'Social'"
+          [profileUser]="user"
+          [attachedTopics]="attachedTopics"
+          (topicAdded)="searchStories($event)"
+          (topicClicked)="topicClicked($event)"
+          (topicIgnored)="searchStories()"
+          (contentPosted)="contentPosted($event)">
+        </app-text-input> 
     </div>
  
     <div id="mainTableDiv" [class]="!user ? 'storyContainerWrapper' : ''"

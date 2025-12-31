@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { AppComponent } from '../app.component';
 
@@ -8,7 +8,7 @@ import { AppComponent } from '../app.component';
   templateUrl: './text-formatting-toolbar.component.html',
   styleUrl: './text-formatting-toolbar.component.css'
 })
-export class TextFormattingToolbarComponent extends ChildComponent {
+export class TextFormattingToolbarComponent extends ChildComponent implements OnInit {
   constructor() { super(); }
 
   @Input() inputtedParentRef?: AppComponent;
@@ -25,7 +25,9 @@ export class TextFormattingToolbarComponent extends ChildComponent {
   showComponentSelector = false;
   componentSearchTerm: string = '';
   isCrawlerOpen = false;
-
+  ngOnInit(): void {
+    this.parentRef = this.inputtedParentRef ?? this.parentRef;
+  }
   get textarea(): HTMLTextAreaElement | HTMLInputElement {
     let element: HTMLTextAreaElement | HTMLInputElement | null = null;
 
