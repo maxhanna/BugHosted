@@ -504,8 +504,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.showOverlay();
   }
-  closePostOptionsPanel() {
-    console.log("closing option panel");
+  closePostOptionsPanel() { 
     this.isPostOptionsPanelOpen = false;
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
