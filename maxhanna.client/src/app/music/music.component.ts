@@ -17,6 +17,7 @@ import { AppComponent } from '../app.component';
   standalone: false,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
+
 export class MusicComponent extends ChildComponent implements OnInit, AfterViewInit {
   @ViewChild('titleInput') titleInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
@@ -135,15 +136,11 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
             this.pendingPlay = undefined;
             if (url) this.play(url);
           }
-        }, 
+        },  
         onStateChange: (e: YT.OnStateChangeEvent) => {
-          // 0: ended, 1: playing, 2: paused, 3: buffering, 5: cued
-          if (e.data === YT.PlayerState.ENDED) {
-            this.safeNextVideo();
-          } else if (e.data === YT.PlayerState.CUED) {
-            this.ytPlayer?.playVideo();
-          }
-        },
+          if (e.data === YT.PlayerState.ENDED) this.safeNextVideo();
+          else if (e.data === YT.PlayerState.CUED) this.ytPlayer?.playVideo();
+        }, 
         onError: (e: YT.OnErrorEvent) => {
           // Recover by skipping to the next video
           this.safeNextVideo();
@@ -155,9 +152,9 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   private ensureYouTubeApi(): Promise<void> {
     return new Promise((resolve) => {
       if ((window as any).YT?.Player) return resolve();
-      const script = document.createElement('script');
-      script.src = 'https://www.youtube.com/iframe_api';
-      document.body.appendChild(script);
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      document.body.appendChild(tag);
       (window as any).onYouTubeIframeAPIReady = () => resolve();
     });
   }
@@ -169,12 +166,9 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
       } else {
         // Fallback: advance by reloading the same playlist index+1
         const ids = this.getYoutubeIdsInOrder();
-        const idx = Math.max(0, this.getCurrentIndex(ids));
-        const next = (idx + 1) % ids.length;
-
-        // advance to `next` in your array of IDs; no object literal here
-        this.ytPlayer?.loadPlaylist(ids, next, /* startSeconds */ undefined, /* quality */ 'small');
-        this.ytPlayer?.playVideo();
+        const idx = Math.max(0, this.getCurrentIndex(ids)); 
+        this.ytPlayer?.loadPlaylist(ids, idx, undefined, 'small');
+        this.ytPlayer?.playVideo(); 
       }
     } catch { }
   }
