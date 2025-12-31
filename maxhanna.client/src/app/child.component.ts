@@ -270,8 +270,10 @@ export class ChildComponent {
     const contains = [];
     for (const [alias, emoji] of Object.entries(this.parentRef.emojiMap)) {
       const matchesEmoji = emoji.toLowerCase().includes(searchTerm ?? '');
-      if (!matchesEmoji) continue; 
-      else contains.push([alias, emoji]);
+      const matchesAlias = alias.toLowerCase().includes(searchTerm ?? '');
+      if (matchesEmoji || matchesAlias) {
+        contains.push([alias, emoji]); 
+      }
     }
     this.filteredEmojis = Object.fromEntries([...contains]);
     console.log("Searching for emoji result", this.filteredEmojis);
