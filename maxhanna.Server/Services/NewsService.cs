@@ -246,7 +246,7 @@ public class NewsService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Exception GetTopHeadlines: " + ex.Message, null, "NEWSSERVICE", true);
+			_ = _log.Db("Exception GetTopHeadlines: " + ex.Message, null, "NEWSSERVICE", outputToConsole: true);
 			return null;
 		}
 		return null;
@@ -275,7 +275,7 @@ public class NewsService
 
 			if (articlesResult?.Status != NewsStatuses.Ok || articlesResult.Articles == null)
 			{
-				await _log.Db("Failed to fetch top headlines", null, "NEWSSERVICE", false);
+				await _log.Db("Failed to fetch top headlines", null, "NEWSSERVICE", outputToConsole: true);
 				return false;
 			}
 
@@ -312,7 +312,7 @@ public class NewsService
 				{
 					// Log but continue with next article
 					await _log.Db($"Failed to insert article (Title: {article.Title?.Substring(0, Math.Min(20, article.Title.Length))}...): {ex.Message}",
-								 null, "NEWSSERVICE", false);
+								 null, "NEWSSERVICE", outputToConsole: true);
 					continue;
 				}
 			}
@@ -322,7 +322,7 @@ public class NewsService
 			if (successfullyInsertedCount > 0)
 			{
 				await _log.Db($"Successfully saved {successfullyInsertedCount}/{articlesToTake} headlines{(keyword != null ? $" (keyword: {keyword})" : "")}",
-							 null, "NEWSSERVICE", true);
+							 null, "NEWSSERVICE", outputToConsole: true);
 
 				// After saving articles, compute negative-word sentiment count across the fresh articles
 				try
@@ -347,7 +347,7 @@ public class NewsService
 				}
 				catch (Exception ex)
 				{
-					await _log.Db("Failed to save sentiment score: " + ex.Message, null, "NEWSSERVICE", true);
+					await _log.Db("Failed to save sentiment score: " + ex.Message, null, "NEWSSERVICE", outputToConsole: true);
 				}
 				return true;
 			}
@@ -356,7 +356,7 @@ public class NewsService
 		}
 		catch (Exception ex)
 		{
-			await _log.Db($"Critical error in GetAndSaveTopHeadlines: {ex.Message}", null, "NEWSSERVICE", true);
+			await _log.Db($"Critical error in GetAndSaveTopHeadlines: {ex.Message}", null, "NEWSSERVICE", outputToConsole: true);
 			return false;
 		}
 	}
@@ -452,7 +452,7 @@ public class NewsService
 		}
 		catch (Exception ex)
 		{
-			await _log.Db($"Exception in GetArticlesFromDb (keywords: {keywords}, hours: {hours}): {ex.Message}", null, "NEWSSERVICE", true);
+			await _log.Db($"Exception in GetArticlesFromDb (keywords: {keywords}, hours: {hours}): {ex.Message}", null, "NEWSSERVICE", outputToConsole: true);
 			result.Status = NewsStatuses.Error;
 			result.Error = new Error
 			{
@@ -491,7 +491,7 @@ public class NewsService
 
 			if (await CheckIfDailyNewsStoryAlreadyExists(conn, transaction, checkSql))
 			{
-				await _log.Db("Daily news story already exists. Skipping creation.", null, "NEWSSERVICE");
+				await _log.Db("Daily news story already exists. Skipping creation.", null, "NEWSSERVICE", outputToConsole: true);
 				return;
 			}
 
@@ -501,7 +501,7 @@ public class NewsService
 
 			List<(Article Article, List<string> Tokens)> articleTokenMap;
 			string mostFrequentWord = GetMostFrequentWord(topArticlesResult, out articleTokenMap);
-			await _log.Db($"Most frequent token from today's articles: '{mostFrequentWord}'", null, "NEWSSERVICE");
+			await _log.Db($"Most frequent token from today's articles: '{mostFrequentWord}'", null, "NEWSSERVICE", outputToConsole: true);
 
 			// Find the article where that word appears the most
 			Article? selectedArticle = null;
@@ -510,7 +510,7 @@ public class NewsService
 			foreach (var (article, tokens) in articleTokenMap)
 			{
 				int occurrences = tokens.Count(t => t.Equals(mostFrequentWord, StringComparison.OrdinalIgnoreCase));
-				await _log.Db($"Token '{mostFrequentWord}' found {occurrences} times in article: {article.Title}", null, "NEWSSERVICE");
+				await _log.Db($"Token '{mostFrequentWord}' found {occurrences} times in article: {article.Title}", null, "NEWSSERVICE", outputToConsole: true);
 
 				if (occurrences > maxOccurrences)
 				{
@@ -521,7 +521,7 @@ public class NewsService
 
 			if (selectedArticle == null)
 			{
-				await _log.Db("Error in CreateDailyNewsStoryAsync: No news article selected.", null, "NEWSSERVICE", true);
+				await _log.Db("Error in CreateDailyNewsStoryAsync: No news article selected.", null, "NEWSSERVICE", outputToConsole: true);
 				return;
 			}
 
@@ -533,11 +533,11 @@ public class NewsService
 			var selectedArticleTokens = TokenizeText(selectedArticle?.Description ?? string.Empty);
 			// Insert the story into the 'stories' table (for the news service account)
 			await CreateNewsPosts(conn, transaction, fullStoryText, selectedArticleTokens, newsServiceAccountNo);
-			await _log.Db("Daily news story created successfully on both service account and user profile.", null, "NEWSSERVICE");
+			await _log.Db("Daily news story created successfully on both service account and user profile.", null, "NEWSSERVICE", outputToConsole: true);
 		}
 		catch (Exception ex)
 		{
-			await _log.Db("Error in CreateDailyNewsStoryAsync: " + ex.Message, null, "NEWSSERVICE", true);
+			await _log.Db("Error in CreateDailyNewsStoryAsync: " + ex.Message, null, "NEWSSERVICE", outputToConsole: true);
 		}
 	}
 
@@ -615,7 +615,7 @@ public class NewsService
 			// Check if we already posted a meme today
 			if (await HasPostedMemeTodayAsync(conn, transaction))
 			{
-				await _log.Db("Already posted a meme today. Skipping.", null, "MEMESERVICE");
+				await _log.Db("Already posted a meme today. Skipping.", null, "MEMESERVICE", outputToConsole: true);
 				await transaction.RollbackAsync();
 				return;
 			}
@@ -625,7 +625,7 @@ public class NewsService
 
 			if (topMeme == null)
 			{
-				await _log.Db("No memes uploaded today to post.", null, "MEMESERVICE");
+				await _log.Db("No memes uploaded today to post.", null, "MEMESERVICE", outputToConsole: true);
 				await transaction.RollbackAsync();
 				return;
 			}
@@ -640,11 +640,11 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 			await InsertMemeStoryAsync(conn, transaction, storyText, topMeme.Id, null);
 
 			await transaction.CommitAsync();
-			await _log.Db($"Successfully posted daily meme: {topMeme.FileName}", null, "MEMESERVICE");
+			await _log.Db($"Successfully posted daily meme: {topMeme.FileName}", null, "MEMESERVICE", outputToConsole: true);
 		}
 		catch (Exception ex)
 		{
-			await _log.Db($"Error in PostDailyMemeAsync: {ex.Message}", null, "MEMESERVICE", true);
+			await _log.Db($"Error in PostDailyMemeAsync: {ex.Message}", null, "MEMESERVICE", outputToConsole: true);
 		}
 	}
 
@@ -659,7 +659,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 			// Check if we already posted today's music
 			if (await HasPostedMusicTodayAsync(conn, transaction))
 			{
-				await _log.Db("Already posted daily music today. Skipping.", null, "MUSICSERVICE");
+				await _log.Db("Already posted daily music today. Skipping.", null, "MUSICSERVICE", outputToConsole: true);
 				await transaction.RollbackAsync();
 				return;
 			}
@@ -690,7 +690,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 
 			if (todos.Count == 0)
 			{
-				await _log.Db("No songs added today to post.", null, "MUSICSERVICE");
+				await _log.Db("No songs added today to post.", null, "MUSICSERVICE", outputToConsole: true);
 				await transaction.RollbackAsync();
 				return;
 			}
@@ -718,11 +718,11 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 			await InsertMusicStoryAsync(conn, transaction, fullStoryText, firstFileId, null, urls);
 
 			await transaction.CommitAsync();
-			await _log.Db($"Successfully posted daily music with {todos.Count} entries.", null, "MUSICSERVICE");
+			await _log.Db($"Successfully posted daily music with {todos.Count} entries.", null, "MUSICSERVICE", outputToConsole: true);
 		}
 		catch (Exception ex)
 		{
-			await _log.Db($"Error in PostDailyMusicAsync: {ex.Message}", null, "MUSICSERVICE", true);
+			await _log.Db($"Error in PostDailyMusicAsync: {ex.Message}", null, "MUSICSERVICE", outputToConsole: true);
 		}
 	}
 
@@ -739,7 +739,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 		var exists = Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
 		if (exists)
 		{
-			await _log.Db("Daily music story already exists. Skipping.", null, "MUSICSERVICE");
+			await _log.Db("Daily music story already exists. Skipping.", null, "MUSICSERVICE", outputToConsole: true);
 			await transaction.RollbackAsync();
 			return true;
 		}
@@ -797,7 +797,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 				}
 				catch (Exception ex)
 				{
-					await _log.Db($"Failed to fetch/insert metadata for url {url}: {ex.Message}", null, "NEWSSERVICE", false);
+					await _log.Db($"Failed to fetch/insert metadata for url {url}: {ex.Message}", null, "NEWSSERVICE", outputToConsole: true);
 				}
 			}
 		}
@@ -957,7 +957,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 			var exists = Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) > 0;
 			if (exists)
 			{
-				await _log.Db("Daily news story already exists. Skipping creation.", null, "NEWSSERVICE");
+				await _log.Db("Daily news story already exists. Skipping creation.", null, "NEWSSERVICE", outputToConsole: true);
 				await transaction.RollbackAsync();
 				return true;
 			}
@@ -1162,14 +1162,14 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 
 			if (await CheckIfDailyNewsStoryAlreadyExists(conn, transaction, checkSql))
 			{
-				await _log.Db("Daily crypto news story already exists. Skipping creation.", null, "NEWSSERVICE");
+				await _log.Db("Daily crypto news story already exists. Skipping creation.", null, "NEWSSERVICE", outputToConsole: true);
 				return;
 			}
 
 			var topArticlesResult = await GetTopCryptoArticleAsync(1);
 			if (topArticlesResult == null)
 			{
-				await _log.Db("No crypto articles to write a social story about", null, "NEWSSERVICE", true);
+				await _log.Db("No crypto articles to write a social story about", null, "NEWSSERVICE", outputToConsole: true);
 				return;
 			}
 			// Build story text from all articles
@@ -1182,11 +1182,11 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 			var selectedArticleTokens = TokenizeText(fullStoryText);
 			// Insert the story into the 'stories' table (for the news service account)
 			await CreateNewsPosts(conn, transaction, fullStoryText, selectedArticleTokens, cryptoNewsServiceAccountNo);
-			await _log.Db("Daily crypto news story created successfully.", null, "NEWSSERVICE");
+			await _log.Db("Daily crypto news story created successfully.", null, "NEWSSERVICE", outputToConsole: true);
 		}
 		catch (Exception ex)
 		{
-			await _log.Db("Error in CreateDailyCryptoNewsStoryAsync: " + ex.Message, null, "NEWSSERVICE", true);
+			await _log.Db("Error in CreateDailyCryptoNewsStoryAsync: " + ex.Message, null, "NEWSSERVICE", outputToConsole: true);
 		}
 	}
 	public async Task<Article?> GetTopCryptoArticleAsync(int daysBack = 1)
@@ -1257,7 +1257,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 		}
 		catch (Exception ex)
 		{
-			await _log.Db("Exception in GetTopCryptoArticleAsync: " + ex.Message, null, "NEWSSERVICE", true);
+			await _log.Db("Exception in GetTopCryptoArticleAsync: " + ex.Message, null, "NEWSSERVICE", outputToConsole: true);
 			return null;
 		}
 	}
@@ -1373,7 +1373,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 		catch (Exception ex)
 		{
 			// Log any errors
-			await _log.Db($"Error retrieving story count: {ex.Message}", null, "NEWSSERVICE", true);
+			await _log.Db($"Error retrieving story count: {ex.Message}", null, "NEWSSERVICE", outputToConsole: true);
 			return 0; // Return 0 in case of an error
 		}
 	}
