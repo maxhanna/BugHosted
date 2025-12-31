@@ -163,8 +163,8 @@ namespace maxhanna.Server.Services
 		private async Task RunSixHourTasks()
 		{
 			await FetchExchangeRates();
-			await _profitService.CalculateWeeklyProfits();
-			await _profitService.CalculateMonthlyProfits();
+			// await _profitService.CalculateWeeklyProfits();
+			// await _profitService.CalculateMonthlyProfits();
 			await FetchAndStoreCryptoEvents();
 			await FetchAndStoreFearGreedAsync();
 			await FetchAndStoreGlobalMetricsAsync();
