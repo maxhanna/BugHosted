@@ -713,7 +713,7 @@ namespace maxhanna.Server.Controllers
                     todo t
                 WHERE
                     t.type = 'music'
-                    AND DATE(t.date) = DATE(UTC_TIMESTAMP())
+                    AND t.date >= UTC_TIMESTAMP() - INTERVAL 1 DAY
                 ORDER BY t.date DESC";
 
 					using (var cmd = new MySqlCommand(sql, conn))

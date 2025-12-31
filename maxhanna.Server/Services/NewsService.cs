@@ -669,7 +669,8 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 				SELECT t.id, t.todo, t.url, t.file_id, t.ownership, u.username
 				FROM todo t
 				LEFT JOIN users u ON u.id = t.ownership
-				WHERE t.type = 'music' AND DATE(t.date) = DATE(UTC_TIMESTAMP())
+				WHERE t.type = 'music' 
+				AND t.date >= UTC_TIMESTAMP() - INTERVAL 1 DAY
 				ORDER BY t.date DESC;";
 
 			using var cmd = new MySqlCommand(sql, conn, transaction);
