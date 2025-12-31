@@ -374,9 +374,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.reorderTable(undefined, this.orderSelect?.nativeElement.value || 'Newest');
     this.stopMusic();
   }
-
-
-
+  
   play(url?: string, fileId?: number) {
     console.log("Play called with url:", url, "fileId:", fileId);
     if (!url && !fileId) {
@@ -397,38 +395,29 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
       this.pendingPlay = { url, fileId: null };
       console.log("YT API not ready, queuing play for url:", url);
       return;
-    }
+    } 
 
     const ids = this.getYoutubeIdsInOrder();
     const firstId = this.trimYoutubeUrl(url!);
 
-    // Ensure the clicked ID exists in our array at least once
+    // Ensure clicked ID is included at least once
     let index = ids.indexOf(firstId);
     if (index < 0) { ids.unshift(firstId); index = 0; }
 
-    try {
-      // Strategy A: cue first id, then load full playlist
-      this.ytPlayer.cueVideoById(firstId);
-      // help autoplay on mobile
-      try { if (!this.ytPlayer.isMuted()) this.ytPlayer.mute(); } catch {}
-      this.ytPlayer.playVideo();
+    // 1) Prime single video to avoid 'invalid parameter' on blank embeds
+    this.ytPlayer.cueVideoById(firstId);
 
-      // load the entire list shortly after the player stabilizes
-      setTimeout(() => {
-        this.ytPlayer?.loadPlaylist(ids, index, undefined, 'small');
-      }, 250);
+    // Help autoplay policies
+    try { if (!this.ytPlayer.isMuted()) this.ytPlayer.mute(); } catch {}
+    this.ytPlayer.playVideo();
 
-      console.log("primed single video:", firstId, "then attaching playlist of", ids.length, "starting at", index);
-    } catch (err) {
-      console.warn("cueVideoById failed, falling back to loadPlaylist directly", err);
-      this.ytPlayer.loadPlaylist(ids, index, undefined, 'small');
-      try { if (!this.ytPlayer.isMuted()) this.ytPlayer.mute(); } catch {}
-      this.ytPlayer.playVideo();
-    }
-  }
+    // 2) Attach the full playlist shortly after
+    setTimeout(() => {
+      this.ytPlayer?.loadPlaylist(ids, index, undefined, 'small');
+    }, 250);
 
-
-
+    console.log("primed single video:", firstId, "then attaching playlist of", ids.length, "starting at", index);
+  }  
 
   randomSong() {
     if (this.fileIdPlaylist && this.fileIdPlaylist.length > 0) {

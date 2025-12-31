@@ -185,10 +185,10 @@ if (config.enableHelmet) {
         styleSrc: ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'https:'],
         fontSrc: ["'self'", 'fonts.gstatic.com', 'data:'],
         // Allow connecting to backend, external HTTPS APIs and websockets
-        connectSrc: ["'self'", 'https:', 'wss:', 'localhost', 'localhost:*', 'https://api.ipify.org', 'https://*.googlevideo.com', 'https://www.youtube.com'],
+        connectSrc: ["'self'", 'https:', 'wss:', 'localhost', 'localhost:*', 'https://api.ipify.org', 'https://*.googlevideo.com', 'https://www.youtube.com', "https://www.youtube-nocookie.com"],
         imgSrc: ["'self'", 'data:', 'https:', 'blob:', 'https://*.ytimg.com'],
-        mediaSrc: ["'self'", 'blob:', 'data:', 'https://*.googlevideo.com', 'https://*.youtube.com' /*, 'https://cdn.example.com' */],
-        frameSrc: ["'self'", 'https:', 'https://www.youtube.com'],
+        mediaSrc: ["'self'", 'blob:', 'data:', 'https://*.googlevideo.com', 'https://*.youtube.com', "https://www.youtube-nocookie.com" /*, 'https://cdn.example.com' */],
+        frameSrc: ["'self'", 'https:', 'https://www.youtube.com', "https://www.youtube-nocookie.com"],
       },
     },
     hsts: {
