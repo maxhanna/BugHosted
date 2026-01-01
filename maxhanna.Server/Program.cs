@@ -5,11 +5,12 @@ using Google.Apis.Auth.OAuth2;
 using maxhanna.Server.Controllers;
 using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.HttpOverrides; 
 using MySqlConnector;
 
 var builder = WebApplication.CreateBuilder(args);
-
+builder.Services.AddWindowsService(); 
+builder.Host.UseWindowsService(options => options.ServiceName = "BugHostedServer"); 
 builder.Services.AddMySqlDataSource(builder.Configuration.GetConnectionString("ConnectionStrings:maxhanna")!);
 builder.Services.AddControllers();
 builder.Services.Configure<FormOptions>(options =>
