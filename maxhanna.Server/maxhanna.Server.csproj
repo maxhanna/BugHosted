@@ -25,7 +25,6 @@
       <Version>8.*-*</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
     <PackageReference Include="MySqlConnector.DependencyInjection" Version="2.3.6" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
