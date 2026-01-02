@@ -217,7 +217,7 @@ namespace maxhanna.Server.Controllers
             await connection.OpenAsync();
 
             var checkCommand = new MySqlCommand("SELECT COUNT(*) FROM maxhanna.file_uploads WHERE file_name = @fileName AND folder_path = @folderPath", connection);
-            checkCommand.Parameters.AddWithValue("@fileName", file.FileName);
+            checkCommand.Parameters.AddWithValue("@fileName", isSaveFile ? newFilename : file.FileName);
             checkCommand.Parameters.AddWithValue("@folderPath", _baseTarget);
 
             var fileExists = Convert.ToInt32(await checkCommand.ExecuteScalarAsync()) > 0;
