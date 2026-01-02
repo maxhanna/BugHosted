@@ -30,10 +30,14 @@
       Download Save State
     </button>
     
-    <input type="file"
-       (change)="importInGameSaveRam($event.target.files)"
-       accept=".eep,.sra,.fla" multiple />
-
+    <input
+      #saveInput
+      type="file"
+      (change)="importInGameSaveRam(saveInput.files)"
+      accept=".eep,.sra,.fla"
+      multiple
+    />
+    
     <button (click)="dumpSiteStorage(0)" [disabled]="status !== 'running' || loading" *ngIf="romName">
       Dump Site Storage
     </button>
