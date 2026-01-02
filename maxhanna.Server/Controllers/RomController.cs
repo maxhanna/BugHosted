@@ -410,7 +410,7 @@ namespace maxhanna.Server.Controllers
         if (System.IO.File.Exists(userSpecificPath))
         {
           // Reuse GetRomFile to stream + update last_access + record selection
-          return await GetRomFile(userId, $"{romBase}{ext}");
+          return await GetRomFile(userId, $"{romBase}_{userId}{ext}");
         }
 
         // If no per-user file, try the global file (without _userId)
