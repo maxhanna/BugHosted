@@ -143,7 +143,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
       if (index < 0) { ids.unshift(firstId); index = 0; }
 
       // ✅ Recreate the player with URL-level playlist
-      this.rebuildPlayerWithArrayPlaylist(firstId, ids, index);
+      this.rebuildYTPlayer(firstId, ids, index);
     } else if (this.pendingPlay?.url) {
       this.consumePendingPlay();
     }
@@ -443,7 +443,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     if (index < 0) { ids.unshift(firstId); index = 0; }
 
     // ✅ Use array-based rebuild for huge lists
-    this.rebuildPlayerWithArrayPlaylist(firstId, ids, index);
+    this.rebuildYTPlayer(firstId, ids, index);
 
 
     // Update UI state
@@ -735,13 +735,13 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
 
 
 
-  private rebuildPlayerWithArrayPlaylist(firstId: string, ids: string[], index: number) {
+  private rebuildYTPlayer(firstId: string, songIds: string[], index: number) {
     if (!this.musicVideo?.nativeElement) return;
 
     try { this.ytPlayer?.destroy(); } catch { }
 
     // Make a small initial chunk to enable native next/prev UI
-    const initialChunk = ids.slice(0, 50).join(','); // <-- TS expects string here
+    const initialChunk = songIds.slice(0, 50).join(','); // <-- TS expects string here
 
     this.ytPlayer = new YT.Player(this.musicVideo.nativeElement as HTMLElement, {
       videoId: firstId,
@@ -757,7 +757,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
       events: {
         onReady: () => {
           // Now load the full array programmatically (array is valid here)
-          this.ytPlayer?.loadPlaylist(ids, index, /*startSeconds*/ undefined, /*quality*/ 'small');
+          this.ytPlayer?.loadPlaylist(songIds, index, /*startSeconds*/ undefined, /*quality*/ 'small');
 
           // Ensure we land exactly on the requested index and play
           try { this.ytPlayer?.playVideoAt(index); } catch { }

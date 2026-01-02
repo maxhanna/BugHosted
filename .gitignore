@@ -222,6 +222,8 @@ _pkginfo.txt
 *.appx
 *.appxbundle
 *.appxupload
+external/
+src/assets/n64wasm/*
 
 # Visual Studio cache files
 # files ending in .cache can be ignored

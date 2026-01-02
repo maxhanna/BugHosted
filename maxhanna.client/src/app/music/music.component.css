@@ -4,11 +4,10 @@
   }
 }
 
-.iframeDiv, .mobileIframeDiv {
-  width: 100%;
-  max-height: CALC(var(--vh, 1vh) * 100 - 110px);
-  margin-left: auto;
-  margin-right: auto;
+.iframeDiv, .mobileIframeDiv { 
+  max-width: 100%;
+  aspect-ratio: 16 / 9; 
+  max-height: CALC(var(--vh, 1vh) * 100 - 110px); 
   position: sticky;
   top: -25px; 
   z-index: 2;
@@ -17,8 +16,20 @@
 
 .smallIframeDiv {
   width: 100%;
-  height: 75px;
+  max-width: 480px;
+  aspect-ratio: 16 / 9;
+} 
+
+.mobileIframeDiv {
+  width: 100vw; 
+  aspect-ratio: 16 / 9; 
+  max-height: calc(100vh - 120px); 
+  margin: 0 auto;
+  position: relative;
+  background: #000; 
+  overflow: hidden;
 }
+
 
 @media only screen and (max-device-width:800px) {
   .iframeDiv {
@@ -29,10 +40,28 @@
   }
 }
 
-iframe {
-  width: 100%;
-  height: 100%;
+
+.iframeDiv iframe,
+.smallIframeDiv iframe,
+.mobileIframeDiv iframe,
+.fullscreen iframe {
+  width: 100% !important;
+  height: 100% !important;
+  border: 0;
+  display: block;
 }
+
+.mobileIframeDiv {
+  touch-action: manipulation;
+}
+
+/* Respect safe area on iOS notch devices if you have fixed controls at the bottom */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .mobileIframeDiv {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
 
 .musicControls {
   width: 100%;
@@ -255,10 +284,16 @@ input[type="submit"] {
   max-width: unset !important;
 }
 
+
 .fullscreen {
-  width: 100%;
-  height: 100%;
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: #000;
+  z-index: 9999;
 }
+
 .fullscreen button {
   margin-top: 10px;
   margin-bottom: 8px;
