@@ -755,8 +755,8 @@ namespace maxhanna.Server.Controllers
 					stream = false,
 					images = base64Images.ToArray()
 				};
-  
-				string? responseBody = null; 
+ 
+				string? responseBody = null;
 				try
 				{
 					// Build request per-attempt so we don't reuse a disposed HttpRequestMessage
@@ -782,7 +782,6 @@ namespace maxhanna.Server.Controllers
 					{
 						var errBody = await resp.Content.ReadAsStringAsync();
 						_ = _log.Db($"Ollama media analysis error {(int)resp.StatusCode}: {errBody}", null, "AiController", true);
-							
 						return string.Empty;
 					}
 
@@ -790,14 +789,13 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (HttpRequestException hre)
 				{
-					_ = _log.Db($"Ollama request failed: {hre.Message}", null, "AiController", true);
-
-					else return string.Empty;
+					_ = _log.Db($"Ollama request failed: {hre.Message}", null, "AiController", outputToConsole: true);
+					return string.Empty;
 				}
 				catch (Exception ex)
 				{
 					_ = _log.Db($"Unexpected error sending to Ollama: {ex.Message}", null, "AiController", true);
-					else return string.Empty;
+					return string.Empty;
 				} 
 
 				if (string.IsNullOrEmpty(responseBody))
