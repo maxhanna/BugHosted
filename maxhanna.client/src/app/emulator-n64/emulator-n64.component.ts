@@ -993,11 +993,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.isFullScreen = !!document.fullscreenElement;
   }
 
-  /**
-   * Trigger a download of the current emulator state to the browser.
-   * Tries a direct buffer export first; if unavailable, falls back to reading the
-   * savestate file written by Mupen64Plus in the Emscripten FS.
-   */
+
   async exportSaveState(slot: number = 0) {
     if (!this.instance || this.status !== 'running') {
       this.parentRef?.showNotification('Emulator must be running to export state.');
@@ -1005,9 +1001,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
 
     try {
-      // 1) Try direct buffer API if the wrapper exposes it
-      // Some builds of mupen64plus-web expose either instance.saveState(slot)
-      // or instance.getSaveState(slot) returning a Uint8Array / ArrayBuffer.
+      // Try direct APIs first, if your build exposes them.
       const directBuf =
         (typeof this.instance.saveState === 'function'
           ? await this.instance.saveState(slot)
@@ -1023,18 +1017,21 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         return;
       }
 
-      // 2) Fallback: ensure a savestate file is created (simulate F5 quick-save if needed)
-      // If your core maps quick-save to a specific key, adjust here. Commonly F5 saves, F7 loads.
-      // (You can also call any exposed API to trigger a save if available.)
-      await this.tryTriggerCoreQuickSave();
+      // Fallback path: trigger core quick-save + sync FS, then scan FS for files.
+      await this.ensureCanvasFocus();
+      await this.tryTriggerCoreQuickSave();     // sends synthetic F5 (adjust if your build uses another key)
+      await this.syncFS(true);                  // flush pending writes from IDBFS/MEMFS
+      // Small delay to let core finish writing before we read.
+      await new Promise((r) => setTimeout(r, 250));
 
-      // Small delay to let the core flush to FS
-      await new Promise((r) => setTimeout(r, 300));
-
-      // 3) Read from Emscripten FS
-      const bytes = this.readLatestSavestateFromFS(slot);
-      if (!bytes) {
+      const found = this.findLatestSavestateFile(slot);
+      if (!found) {
         this.parentRef?.showNotification('No savestate file found. Check FS path configuration.');
+        return;
+      }
+      const bytes = this.readFileBytes(found);
+      if (!bytes) {
+        this.parentRef?.showNotification('Savestate file could not be read.');
         return;
       }
 
@@ -1047,127 +1044,168 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  /** Compose a friendly savestate file name using ROM name + slot + timestamp. */
+  /** Focus the canvas so SDL/core receives key events. */
+  private async ensureCanvasFocus() {
+    const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
+    if (!canvasEl) return;
+    try {
+      // Make sure canvas can receive focus
+      if (!canvasEl.hasAttribute('tabindex')) canvasEl.setAttribute('tabindex', '0');
+      canvasEl.focus();
+      // tiny delay so focus settles
+      await new Promise((r) => setTimeout(r, 30));
+    } catch { }
+  }
+
+  /** Synthetic quick-save (adjust key if your build uses another binding). */
+  private async tryTriggerCoreQuickSave() {
+    const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
+    if (!canvasEl) return;
+
+    // If your wrapper has an API, prefer it:
+    // if (this.instance?.quickSave) return this.instance.quickSave(/*slot?*/);
+
+    const down = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, code: 'F5', key: 'F5' });
+    const up = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, code: 'F5', key: 'F5' });
+    canvasEl.dispatchEvent(down);
+    await new Promise((r) => setTimeout(r, 40));
+    canvasEl.dispatchEvent(up);
+  }
+
+  /**
+   * Ensure Emscripten’s FS is synchronized.
+   * If IDBFS is used, syncfs(true) will pull remote → local; syncfs(false) pushes local → remote.
+   * We’ll do a pull to make sure we can read new files.
+   */
+  private async syncFS(pull: boolean = true) {
+    const Module = this.instance?.Module;
+    const FS = Module?.FS;
+    if (!FS || typeof FS.syncfs !== 'function') return;
+
+    await new Promise<void>((resolve, reject) => {
+      try {
+        FS.syncfs(pull, (err: any) => (err ? reject(err) : resolve()));
+      } catch (e) {
+        // Some builds expose Module.syncFS instead
+        try {
+          if (typeof Module.syncFS === 'function') {
+            Module.syncFS(pull, (err: any) => (err ? reject(err) : resolve()));
+          } else {
+            resolve();
+          }
+        } catch {
+          resolve();
+        }
+      }
+    });
+  }
+
+  /**
+   * Find the most recent savestate file anywhere in the FS tree.
+   * We walk directories from the root and look for common extensions or slot tokens.
+   */
+  private findLatestSavestateFile(slot: number): { path: string; mtime: number } | null {
+    const Module = this.instance?.Module;
+    const FS = Module?.FS;
+    if (!FS) return null;
+
+    const allowedExts = ['.st', '.sav', '.state', '.bin']; // adjust if your build uses a specific extension
+    const slotTokens = [
+      `slot${slot}`,
+      `.st${slot}`,
+      `_${slot}.st`,
+      `.${slot}.st`,
+    ];
+
+    let best: { path: string; mtime: number } | null = null;
+
+    // Depth-first traversal from root
+    const stack: string[] = ['/'];
+    const visited = new Set<string>();
+
+    const safeReaddir = (path: string): string[] => {
+      try {
+        return FS.readdir(path) as string[];
+      } catch {
+        return [];
+      }
+    };
+
+    const safeStat = (path: string): any => {
+      try {
+        return FS.stat(path);
+      } catch {
+        return null;
+      }
+    };
+
+    while (stack.length) {
+      const dir = stack.pop()!;
+      if (visited.has(dir)) continue;
+      visited.add(dir);
+
+      const entries = safeReaddir(dir);
+      for (const name of entries) {
+        if (name === '.' || name === '..') continue;
+        const fullPath = dir.endsWith('/') ? `${dir}${name}` : `${dir}/${name}`;
+        const stat = safeStat(fullPath);
+        if (!stat) continue;
+
+        const isDir = stat.mode && (stat.mode & 0x4000); // S_IFDIR
+        if (isDir) {
+          stack.push(fullPath);
+          continue;
+        }
+
+        const lower = name.toLowerCase();
+        const hasAllowedExt = allowedExts.some((ext) => lower.endsWith(ext));
+        const looksLikeSlot = slotTokens.some((t) => lower.includes(t));
+
+        // Heuristics: either extension matches OR slot token matches
+        if (!hasAllowedExt && !looksLikeSlot) continue;
+
+        // Optional: include ROM name token to be stricter
+        if (this.romName) {
+          const token = this.romName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9._-]/g, '');
+          // If names differ wildly, we still accept; comment the next line to enforce strict match:
+          // if (!lower.includes(token)) continue;
+        }
+
+        const mtime = stat.mtime ? Number(new Date(stat.mtime)) : Date.now();
+        if (!best || mtime > best.mtime) {
+          best = { path: fullPath, mtime };
+        }
+      }
+    }
+
+    return best;
+  }
+
+  /** Read bytes of a file path from FS and return Uint8Array. */
+  private readFileBytes(file: { path: string }): Uint8Array | null {
+    const Module = this.instance?.Module;
+    const FS = Module?.FS;
+    if (!FS) return null;
+    try {
+      const data = FS.readFile(file.path);
+      return data instanceof Uint8Array ? data : new Uint8Array(data);
+    } catch (e) {
+      console.warn('readFileBytes failed for', file.path, e);
+      return null;
+    }
+  }
+
+  /** Compose download name. */
   private composeSavestateFilename(slot: number): string {
     const base = (this.romName || 'n64-game').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     return `${base}.slot${slot}.${ts}.savestate`;
   }
 
-  /**
-   * Attempt to trigger the core quick-save. If your core binds a specific keyboard
-   * shortcut (e.g., F5), we synthetically dispatch it to the canvas so SDL picks it up.
-   * If your wrapper exposes a dedicated API, prefer to call that instead.
-   */
-  private async tryTriggerCoreQuickSave() {
+  
+  private downloadBlob(filename: string, bytes: Uint8Array | ArrayBufferLike) {
     try {
-      // Preferred: if there is an API, call it. Uncomment & adjust if available:
-      // if (this.instance && typeof this.instance.quickSave === 'function') {
-      //   await this.instance.quickSave(0); // or pass desired slot
-      //   return;
-      // }
-
-      // Otherwise: synthesize F5 key event to trigger quick-save
-      const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
-      if (!canvasEl) return;
-
-      const down = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, code: 'F5', key: 'F5' });
-      const up = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, code: 'F5', key: 'F5' });
-      canvasEl.dispatchEvent(down);
-      // brief delay to simulate a press
-      await new Promise((r) => setTimeout(r, 40));
-      canvasEl.dispatchEvent(up);
-    } catch (e) {
-      console.warn('Failed to trigger quick-save via key synth', e);
-    }
-  }
-
-  /**
-   * Reads the latest savestate bytes from Emscripten FS.
-   * Adjust the base directory pattern to match your build of mupen64plus-web.
-   *
-   * Common patterns in Emscripten builds:
-   *   - '/home/web_user/.local/share/mupen64plus/savestates'
-   *   - '/home/web_user/.local/share/mupen64plus'
-   *   - '/mupen64plus/savestates'
-   *
-   * Returns Uint8Array or null if not found.
-   */
-  private readLatestSavestateFromFS(slot: number): Uint8Array | null {
-    try {
-      const Module = this.instance?.Module;
-      if (!Module || !Module.FS) {
-        console.warn('No Module.FS available on instance');
-        return null;
-      }
-
-      const FS = Module.FS;
-
-      // Candidate directories to search. Customize if your deployment differs.
-      const candidateDirs = [
-        '/home/web_user/.local/share/mupen64plus/savestates',
-        '/home/web_user/.local/share/mupen64plus',
-        '/mupen64plus/savestates',
-        '/mupen64plus',
-        '/savestates',
-        '/',
-      ];
-
-      // Savestate extensions used by mupen64plus tend to be .st, .sav, or have slot infixes.
-      const allowedExts = ['.st', '.sav', '.state', '.bin'];
-
-      let bestFile: { path: string; mtime: number } | null = null;
-
-      for (const dir of candidateDirs) {
-        try {
-          const entries = FS.readdir(dir) as string[];
-          for (const name of entries) {
-            if (name === '.' || name === '..') continue;
-            const lower = name.toLowerCase();
-
-            // Heuristics: include slot number if present, otherwise accept any allowed extension
-            const looksLikeSlot = lower.includes(`slot${slot}`) || lower.includes(`.st${slot}`) || lower.endsWith(`${slot}.st`);
-            const hasAllowedExt = allowedExts.some((ext) => lower.endsWith(ext));
-
-            if (!hasAllowedExt && !looksLikeSlot) continue;
-
-            // Optional: also filter by ROM name token if available
-            if (this.romName) {
-              const token = this.romName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9._-]/g, '');
-              if (!lower.includes(token)) {
-                // if token doesn’t match, we still allow fallback
-              }
-            }
-
-            const fullPath = `${dir}/${name}`;
-            const stat = FS.stat(fullPath);
-            const mtime = (stat && (stat.mtime as any)) ? Number(new Date(stat.mtime)) : Date.now();
-
-            if (!bestFile || mtime > bestFile.mtime) {
-              bestFile = { path: fullPath, mtime };
-            }
-          }
-        } catch {
-          // directory may not exist; skip
-        }
-      }
-
-      if (!bestFile) return null;
-
-      const data = FS.readFile(bestFile.path);
-      if (!data) return null;
-
-      // FS.readFile may return Uint8Array or a plain array; normalize to Uint8Array
-      return (data instanceof Uint8Array) ? data : new Uint8Array(data);
-    } catch (e) {
-      console.warn('readLatestSavestateFromFS failed', e);
-      return null;
-    }
-  }
-
-  private downloadBlob(filename: string, bytes: Uint8Array) {
-    try {
-      const blob = new Blob([bytes as BlobPart], { type: 'application/octet-stream' });
+      const blob = this.toBlob(bytes);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -1182,6 +1220,17 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch (e) {
       console.warn('Failed to download blob', e);
     }
+  }
+
+  private toBlob(bytes: Uint8Array | ArrayBufferLike): Blob {
+    if (bytes instanceof Uint8Array) {
+      // Slice the underlying ArrayBuffer to the view’s exact range.
+      const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+      return new Blob([ab], { type: 'application/octet-stream' });
+    }
+    // If it's already an ArrayBufferLike, just use it directly.
+    const ab = (bytes as ArrayBufferLike as ArrayBuffer);
+    return new Blob([ab], { type: 'application/octet-stream' });
   }
 
   getAllowedRomFileTypes(): string[] {
