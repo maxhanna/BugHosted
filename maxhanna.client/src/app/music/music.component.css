@@ -63,6 +63,11 @@
   display: block;
 }
 
+iframe {
+  width: 100% !important;
+  height: 100% !important;
+}
+
 .mobileIframeDiv {
   touch-action: manipulation;
 }
