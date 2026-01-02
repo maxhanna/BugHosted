@@ -1202,8 +1202,48 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     return `${base}.slot${slot}.${ts}.savestate`;
   }
 
-  
-  private downloadBlob(filename: string, bytes: Uint8Array | ArrayBufferLike) {
+    
+  /** Narrowing helper so TS understands when it's a SharedArrayBuffer */
+  private isSharedArrayBuffer(x: unknown): x is SharedArrayBuffer {
+    return typeof SharedArrayBuffer !== 'undefined' && x instanceof SharedArrayBuffer;
+  }
+
+  /** Normalize Uint8Array / ArrayBuffer / SharedArrayBuffer to a real ArrayBuffer (no union errors) */
+  private toArrayBuffer(bytes: Uint8Array | ArrayBuffer | SharedArrayBuffer): ArrayBuffer {
+    // 1) If we already have a typed-array view, copy it via slice() on the view itself
+    //    (returns a new Uint8Array with its own ArrayBuffer)
+    if (bytes instanceof Uint8Array) {
+      const copyView = bytes.slice();         // ✅ avoids using bytes.buffer.slice(...)
+      return copyView.buffer;                 // This is a plain ArrayBuffer
+    }
+
+    // 2) If it's a plain ArrayBuffer, return a shallow copy so the return type is unambiguous
+    if (bytes instanceof ArrayBuffer) {
+      return bytes.slice(0);                  // ✅ ArrayBuffer → ArrayBuffer
+    }
+
+    // 3) If it's a SharedArrayBuffer, copy its contents into a fresh ArrayBuffer
+    if (this.isSharedArrayBuffer(bytes)) {
+      const view = new Uint8Array(bytes);     // view over SAB
+      const copy = new Uint8Array(view.length);
+      copy.set(view);                         // copy SAB → AB-backed typed array
+      return copy.buffer;                     // ✅ ArrayBuffer
+    }
+
+    // 4) Fallback for unexpected cases: coerce into a typed view and copy
+    const v = new Uint8Array(bytes as any);
+    const copy = v.slice();
+    return copy.buffer;                       // ✅ ArrayBuffer
+  }
+
+  /** Create a Blob from various byte representations (TS-safe) */
+  private toBlob(bytes: Uint8Array | ArrayBuffer | SharedArrayBuffer): Blob {
+    const ab = this.toArrayBuffer(bytes);
+    return new Blob([ab], { type: 'application/octet-stream' });
+  }
+
+  /** Download helper that accepts Uint8Array / ArrayBuffer / SharedArrayBuffer */
+  private downloadBlob(filename: string, bytes: Uint8Array | ArrayBuffer | SharedArrayBuffer) {
     try {
       const blob = this.toBlob(bytes);
       const url = URL.createObjectURL(blob);
@@ -1222,16 +1262,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  private toBlob(bytes: Uint8Array | ArrayBufferLike): Blob {
-    if (bytes instanceof Uint8Array) {
-      // Slice the underlying ArrayBuffer to the view’s exact range.
-      const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-      return new Blob([ab], { type: 'application/octet-stream' });
-    }
-    // If it's already an ArrayBufferLike, just use it directly.
-    const ab = (bytes as ArrayBufferLike as ArrayBuffer);
-    return new Blob([ab], { type: 'application/octet-stream' });
-  }
 
   getAllowedRomFileTypes(): string[] {
     return this.fileService.n64FileExtensions;
