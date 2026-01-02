@@ -497,6 +497,8 @@ namespace maxhanna.Server.Controllers
 
 		private async Task<string> AnalyzeMediaAsync(FileEntry mediaFile, bool rename)
 		{
+			HttpContext.RequestAborted.ThrowIfCancellationRequested(); // optional check
+			HttpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>().MaxRequestBodySize = null;
 			try
 			{
 				// Reuse DescribeMedia functionality for the analysis
@@ -536,6 +538,8 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task<string> DescribeMediaContent(FileEntry file, bool detailed = true)
 		{
+			HttpContext.RequestAborted.ThrowIfCancellationRequested(); // optional check
+			HttpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>().MaxRequestBodySize = null;
 			const string tempThumbnailDir = @"E:\Dev\maxhanna\maxhanna.Server\TempThumbnails"; 
 			try
 			{
