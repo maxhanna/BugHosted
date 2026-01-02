@@ -21,7 +21,6 @@
   width: 100vw;
   max-height: calc(100vh - 120px); 
   margin: 0 auto;
-  position: relative;
   background: #000; 
   overflow: hidden;
 }
@@ -43,8 +42,7 @@
   display: block;              /* ensure block layout */
   width: 100%; 
   min-height: 200px;           /* fallback so it never collapses */
-  max-height: calc(100vh - 120px);
-  position: relative;          /* not sticky; sticky can cause collapse */
+  max-height: calc(100vh - 120px); 
   background: #000;
   overflow: hidden;
 }
@@ -152,8 +150,8 @@
 .youtubeFrame {
   width: 100%;
   height: 100%;
-  min-width: 200px;
-  min-height: 200px;
+  min-width: 300px;
+  min-height: 250px;
 }
 
 .normalSongList {
