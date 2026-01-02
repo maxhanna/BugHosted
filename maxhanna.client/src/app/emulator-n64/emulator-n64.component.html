@@ -32,6 +32,9 @@
     <button (click)="dumpSiteStorage(0)" [disabled]="status !== 'running' || loading" *ngIf="romName">
       Dump Site Storage
     </button> 
+    <button (click)="exportSavestatesIfPresent(null)" [disabled]="loading">
+      Download Savestate (if present)
+    </button>
   </div>
   <div class="optionsStatsWrapperDiv">
     <div class="optionsStatsDiv">

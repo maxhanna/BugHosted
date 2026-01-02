@@ -999,6 +999,69 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   
+/** Export savestates (.st*) from IndexedDB (if any exist). */
+async exportSavestatesIfPresent(slot: number | null = null) {
+  try {
+    const dbList: Array<{ name?: string }> =
+      (indexedDB as any).databases ? await (indexedDB as any).databases() : [];
+    const meta = dbList.find(d => d.name === '/mupen64plus'); if (!meta) { this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found.'); return; }
+
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open('/mupen64plus');
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => resolve(req.result);
+    });
+
+    const tx = db.transaction('FILE_DATA', 'readonly');
+    const os = tx.objectStore('FILE_DATA');
+
+    const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
+      const res: Array<{ key: any; val: any }> = [];
+      const cursorReq = os.openCursor();
+      cursorReq.onerror = () => reject(cursorReq.error);
+      cursorReq.onsuccess = (ev: any) => {
+        const cursor = ev.target.result;
+        if (cursor) { res.push({ key: cursor.key, val: cursor.value }); cursor.continue(); }
+        else resolve(res);
+      };
+    });
+
+    const exts = ['.st', '.state', '.bin']; // some builds
+    const slotFilters = slot != null ? [`slot${slot}`, `.st${slot}`, `_${slot}.st`, `.${slot}.st`].map(s => s.toLowerCase()) : [];
+    const candidates = rows.filter(({ key }) => {
+      const s = String(key).toLowerCase();
+      const inDir = s.startsWith('/mupen64plus/savestates/');
+      const hasExt = exts.some(e => s.endsWith(e));
+      const slotOk = !slotFilters.length || slotFilters.some(t => s.includes(t));
+      return inDir && hasExt && slotOk;
+    });
+
+    if (!candidates.length) {
+      this.parentRef?.showNotification('No savestates found under /mupen64plus/savestates.');
+      db.close();
+      return;
+    }
+
+    // Download the newest one (or all, if you prefer)
+    const newest = candidates[candidates.length - 1]; // DB order is generally insertion order
+    const ab = this.normalizeToArrayBuffer(newest.val);
+    if (!ab) { this.parentRef?.showNotification('Savestate record found but unreadable.'); db.close(); return; }
+
+    const filename = this.composeSavestateFilename(slot ?? 0);
+    const blob = new Blob([ab], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.style.display = 'none';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 80);
+
+    this.parentRef?.showNotification(`Downloaded savestate: ${String(newest.key)}`);
+    db.close();
+  } catch (e) {
+    console.error('exportSavestatesIfPresent failed', e);
+    this.parentRef?.showNotification('Failed to export savestate');
+  }
+}
+
 /** Export all in-game save RAM files (.eep/.sra/.fla) from IndexedDB → downloads */
 async exportInGameSaveRam() {
   try {
