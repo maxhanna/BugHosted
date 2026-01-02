@@ -29,12 +29,18 @@
 .iframeDiv,
 .mobileIframeDiv,
 .smallIframeDiv {
-  display: block;              /* ensure block layout */
+  display: flex;              /* ensure block layout */
   width: 100%; 
   min-height: 200px;           /* fallback so it never collapses */
   max-height: calc(100vh - 120px);
   background: #000;
   overflow: hidden;
+  text-align: center;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
+  flex-wrap: nowrap;
+  flex-direction: row;
 }
 
 /* If you need sticky behavior, put it on a wrapper above, not the player box */
