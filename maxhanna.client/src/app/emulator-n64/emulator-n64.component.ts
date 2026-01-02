@@ -342,6 +342,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       console.error('Failed to load ROM / initialize emulator', e);
       this.parentRef?.showNotification('Failed to load ROM');
     }
+    console.log('instance.Module:', (this.instance as any)?.Module);
+    console.log('global Module:', (globalThis as any).Module);
+    console.log('global FS:', (globalThis as any).FS);
   }
 
   // Resize canvas pixel buffer and CSS to fill the parent container
@@ -636,6 +639,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       throw ex;
     } finally {
       this.loading = false;
+      console.log('instance.Module:', (this.instance as any)?.Module);
+      console.log('global Module:', (globalThis as any).Module);
+      console.log('global FS:', (globalThis as any).FS);
     }
   }
 
@@ -1206,7 +1212,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     return `${base}.slot${slot}.${ts}.savestate`;
   }
 
-    
+
   /** Narrowing helper so TS understands when it's a SharedArrayBuffer */
   private isSharedArrayBuffer(x: unknown): x is SharedArrayBuffer {
     return typeof SharedArrayBuffer !== 'undefined' && x instanceof SharedArrayBuffer;
