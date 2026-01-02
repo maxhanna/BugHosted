@@ -298,16 +298,67 @@ app.get('/metrics', (req, res) => {
 // ============================================================================
 // API Proxy Configuration
 // ============================================================================
+const AI_PROXY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes for AI endpoints
+
+const setLongResponseTimeout = (req, res, next) => {
+  // Applies only to /ai – leaves other routes at default
+  res.setTimeout(AI_PROXY_TIMEOUT_MS);
+  next();
+};
+
+app.use(
+  '/ai',
+  setLongResponseTimeout,
+  createProxyMiddleware({
+    target: config.backendUrl,     // e.g., https://localhost:7299
+    changeOrigin: true,
+    secure: false,
+    logLevel: config.proxyDebug ? 'debug' : 'warn',
+
+    // ❷ Increase/uncap proxy timeouts only for /ai
+    timeout: AI_PROXY_TIMEOUT_MS,      // time to wait for the proxied socket to connect
+    proxyTimeout: AI_PROXY_TIMEOUT_MS, // time to wait for inactivity on the proxied socket
+
+    // If you stream (SSE or chunked) from backend -> client, this helps:
+    selfHandleResponse: false, // allow streaming passthrough
+    ws: true, // if you ever do websockets on ai routes
+
+    onProxyReq: (proxyReq, req, res) => {
+      req._startTime = Date.now();
+      proxyReq.setHeader('X-Forwarded-By', 'maxhanna-prod-server');
+      if (req.ip) proxyReq.setHeader('X-Forwarded-For', req.ip);
+      // Prevent proxies from buffering (useful if your backend streams)
+      proxyReq.setHeader('X-Accel-Buffering', 'no');
+      proxyReq.setHeader('Cache-Control', 'no-cache');
+      proxyReq.setHeader('Connection', 'keep-alive');
+    },
+    onProxyRes: (proxyRes, req, res) => {
+      proxyRes.headers['X-Proxy-By'] = 'maxhanna-prod-server';
+      proxyRes.headers['X-Response-Time'] = Date.now() - req._startTime;
+      // These headers help browsers/proxies keep long connections alive
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+    },
+    onError: (err, req, res) => {
+      console.error(`[Proxy Error /ai] ${req.method} ${req.path}: ${err.message}`);
+      res.status(502).json({
+        error: 'Bad Gateway',
+        message: 'AI backend temporarily unavailable',
+        timestamp: new Date().toISOString(),
+      });
+    },
+  })
+);
 
 const proxyContext = [
   '/weatherforecast', '/calendar', '/mining', '/todo', '/file', '/notepad',
   '/contact', '/user', '/chat', '/news', '/social', '/rom', '/topic',
   '/friend', '/wordler', '/comment', '/coinvalue', '/currencyvalue',
-  '/reaction', '/array', '/nexus', '/notification', '/meta', '/ai',
+  '/reaction', '/array', '/nexus', '/notification', '/meta',
   '/favourite', '/crawler', '/trade', '/top', '/poll', '/mastermind',
   '/ender', '/search', '/bones',
 ];
-
 // Proxy with retry logic and error handling
 const proxyOptions = {
   target: config.backendUrl,
