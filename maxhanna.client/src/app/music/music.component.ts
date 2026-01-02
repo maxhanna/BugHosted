@@ -143,16 +143,14 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   } 
 
   private attachResizeHandling() {
-    const hostEl = this.musicVideo.nativeElement as HTMLElement; 
-    
-    hostEl.style.display = 'block';
-    hostEl.style.aspectRatio = '16 / 9';
+    const hostEl = this.musicVideo.nativeElement as HTMLElement;
+    hostEl.style.display = 'block'; 
     hostEl.style.minHeight = '200px';
     
     const resize = () => {
       const r = hostEl.getBoundingClientRect();
-      const w = Math.max(200, Math.round(r.width));
-      const h = Math.max(200, Math.round(r.height));
+      const w = Math.max(300, Math.round(r.width));
+      const h = Math.max(250, Math.round(r.height));
       try { this.ytPlayer?.setSize(w, h); } catch {}
     };
     

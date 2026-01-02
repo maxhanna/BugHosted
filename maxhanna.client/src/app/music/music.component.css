@@ -6,7 +6,6 @@
 
 .iframeDiv, .mobileIframeDiv { 
   max-width: 100%;
-  aspect-ratio: 16 / 9; 
   max-height: CALC(var(--vh, 1vh) * 100 - 110px);  
   top: -25px; 
   z-index: 2;
@@ -16,12 +15,10 @@
 .smallIframeDiv {
   width: 100%;
   max-width: 480px;
-  aspect-ratio: 16 / 9;
 } 
 
 .mobileIframeDiv {
-  width: 100vw; 
-  aspect-ratio: 16 / 9; 
+  width: 100vw;
   max-height: calc(100vh - 120px); 
   margin: 0 auto;
   position: relative;
@@ -44,8 +41,7 @@
 .mobileIframeDiv,
 .smallIframeDiv {
   display: block;              /* ensure block layout */
-  width: 100%;
-  aspect-ratio: 16 / 9;        /* preferred responsive height */
+  width: 100%; 
   min-height: 200px;           /* fallback so it never collapses */
   max-height: calc(100vh - 120px);
   position: relative;          /* not sticky; sticky can cause collapse */
