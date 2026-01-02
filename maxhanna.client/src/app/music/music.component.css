@@ -38,13 +38,25 @@
   .mobileIframeDiv {
     height: unset;
   }
+} 
+
+/* Your container classes return from playerClasses() */
+.mobileIframeDiv,
+.smallIframeDiv,
+.iframeDiv {
+  width: 100%;
+  /* Use one of the two approaches to define height: aspect-ratio or padding-top trick */
+  aspect-ratio: 16 / 9;          /* Modern approach */
+  max-height: calc(100vh - 120px);/* prevent overflow on mobile */
+  position: relative;
+  background: #000;
+  overflow: hidden;
 }
 
-
-.iframeDiv iframe,
-.smallIframeDiv iframe,
+/* Force the YT iframe to fit the container despite its inline 640x360 */
 .mobileIframeDiv iframe,
-.fullscreen iframe {
+.smallIframeDiv iframe,
+.iframeDiv iframe {
   width: 100% !important;
   height: 100% !important;
   border: 0;

@@ -738,10 +738,10 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   private rebuildYTPlayer(firstId: string, songIds: string[], index: number) {
     if (!this.musicVideo?.nativeElement) return;
 
-    try { this.ytPlayer?.destroy(); } catch { }
-
-    // Make a small initial chunk to enable native next/prev UI
-    const initialChunk = songIds.slice(0, 50).join(','); // <-- TS expects string here
+    try { this.ytPlayer?.destroy(); } catch { console.warn('[YT] Failed to destroy existing player'); }
+    
+    const hostEl = this.musicVideo.nativeElement as HTMLElement; 
+    const initialChunk = songIds.slice(0, 50).join(',');
 
     this.ytPlayer = new YT.Player(this.musicVideo.nativeElement as HTMLElement, {
       videoId: firstId,
@@ -755,7 +755,12 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
         playlist: initialChunk, // <-- string, not string[]
       },
       events: {
-        onReady: () => {
+        onReady: () => { 
+          // Size the player to match the container immediately
+          const rect = hostEl.getBoundingClientRect();
+          // setSize expects numbers (pixels)
+          this.ytPlayer?.setSize(Math.round(rect.width), Math.round(rect.height));
+
           // Now load the full array programmatically (array is valid here)
           this.ytPlayer?.loadPlaylist(songIds, index, /*startSeconds*/ undefined, /*quality*/ 'small');
 
