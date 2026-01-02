@@ -228,9 +228,10 @@ namespace maxhanna.Server.Controllers
 							// Determine file type based on extension (save files explicitly 'sav')
 							var extension = Path.GetExtension(file.FileName)?.ToLowerInvariant().Trim('.') ?? string.Empty;
               string fileType = ext.Trim('.');
-							var command = new MySqlCommand("INSERT INTO maxhanna.file_uploads (user_id, file_name, upload_date, last_access, folder_path, is_public, is_folder) VALUES (@user_id, @fileName, @uploadDate, @lastAccess, @folderPath, @isPublic, @isFolder)", connection);
+							var command = new MySqlCommand("INSERT INTO maxhanna.file_uploads (user_id, file_name, upload_date, last_access, folder_path, is_public, is_folder, file_size) VALUES (@user_id, @fileName, @uploadDate, @lastAccess, @folderPath, @isPublic, @isFolder, @fileSize)", connection);
 							var now = DateTime.UtcNow;
 							command.Parameters.AddWithValue("@user_id", userId);
+              command.Parameters.AddWithValue("@fileSize", file.Length);
 							command.Parameters.AddWithValue("@fileName", isSaveFile ? newFilename : file.FileName);
 							command.Parameters.AddWithValue("@uploadDate", now);
 							command.Parameters.AddWithValue("@lastAccess", now);
@@ -239,7 +240,7 @@ namespace maxhanna.Server.Controllers
 							command.Parameters.AddWithValue("@isFolder", 0);
 
 							await command.ExecuteNonQueryAsync();
-							_ = _log.Db($"Uploaded rom file: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}, Type: {fileType}", userId, "ROM", true);
+							_ = _log.Db($"Uploaded rom file: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}, Type: {fileType}, isSaveFile: {isSaveFile}", userId, "ROM", true);
 
 						}
 						else
