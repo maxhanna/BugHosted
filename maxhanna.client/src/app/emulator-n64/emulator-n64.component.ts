@@ -998,6 +998,134 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.isFullScreen = !!document.fullscreenElement;
   }
 
+/** Diagnostic: enumerate IndexedDB, Cache Storage, and Web Storage and log what’s there. */
+async dumpSiteStorage(slot: number = 0) {
+  const exts = ['.st', '.sav', '.state', '.bin'];
+  const slotTokens = [`slot${slot}`, `.st${slot}`, `_${slot}.st`, `.${slot}.st`];
+
+  const looksLikeState = (name: string) => {
+    const lower = name.toLowerCase();
+    const hasExt = exts.some((e) => lower.endsWith(e));
+    const looksSlot = slotTokens.some((t) => lower.includes(t));
+    return hasExt || looksSlot;
+  };
+
+  console.group('=== Storage Dump (Cache, WebStorage, IndexedDB) ===');
+
+  // ---- Cache Storage ----
+  try {
+    const cacheNames = await caches.keys();
+    console.group('Cache Storage');
+    console.log('cacheNames:', cacheNames);
+    for (const name of cacheNames) {
+      const cache = await caches.open(name);
+      const keys = await cache.keys();
+      const urls = keys.map((r) => r.url);
+      console.log(`[${name}] entries:`, urls);
+      const candidates = urls.filter(looksLikeState);
+      if (candidates.length) console.warn(`[${name}] savestate candidates:`, candidates);
+    }
+    console.groupEnd();
+  } catch (e) {
+    console.warn('CacheStorage not available / failed:', e);
+  }
+
+  // ---- Web Storage ----
+  try {
+    console.group('Web Storage');
+    const lsKeys = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i) || '');
+    const ssKeys = Array.from({ length: sessionStorage.length }, (_, i) => sessionStorage.key(i) || '');
+    console.log('localStorage keys:', lsKeys);
+    console.log('sessionStorage keys:', ssKeys);
+    const lsCandidates = lsKeys.filter((k) => k && looksLikeState(k));
+    const ssCandidates = ssKeys.filter((k) => k && looksLikeState(k));
+    if (lsCandidates.length) console.warn('localStorage savestate-like keys:', lsCandidates);
+    if (ssCandidates.length) console.warn('sessionStorage savestate-like keys:', ssCandidates);
+    console.groupEnd();
+  } catch (e) {
+    console.warn('Web Storage scan failed:', e);
+  }
+
+  // ---- IndexedDB ----
+  console.group('IndexedDB');
+  const dbMetaList: Array<{ name?: string; version?: number }> =
+    (indexedDB as any).databases ? await (indexedDB as any).databases() : [];
+
+  if (!dbMetaList.length) {
+    // Fallback: try opening a few likely names if databases() isn’t supported
+    // NOTE: you can add known mount-point names here (e.g., '/data', '/mupen64plus')
+    console.warn('indexedDB.databases() not supported; add known DB names to probe if needed.');
+  } else {
+    console.log('IndexedDB databases:', dbMetaList);
+  }
+
+  const openDb = (name: string) =>
+    new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open(name);
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => resolve(req.result);
+    });
+
+  // iterate over all DBs we can see
+  for (const meta of dbMetaList) {
+    const name = meta.name;
+    if (!name) continue;
+    try {
+      const db = await openDb(name);
+      console.group(`DB "${name}" (version ${db.version})`);
+
+      const stores = Array.from(db.objectStoreNames);
+      console.log('objectStores:', stores);
+      for (const storeName of stores) {
+        try {
+          const tx = db.transaction(storeName, 'readonly');
+          const os = tx.objectStore(storeName);
+          console.group(`Store "${storeName}"`);
+
+          // enumerate records
+          const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
+            const res: Array<{ key: any; val: any }> = [];
+            const cursorReq = os.openCursor();
+            cursorReq.onerror = () => reject(cursorReq.error);
+            cursorReq.onsuccess = (ev: any) => {
+              const cursor = ev.target.result;
+              if (cursor) {
+                res.push({ key: cursor.key, val: cursor.value });
+                cursor.continue();
+              } else resolve(res);
+            };
+          });
+
+          console.log(`count: ${rows.length}`);
+          const candidates = rows.filter(({ key }) => looksLikeState(String(key)));
+          if (candidates.length) {
+            console.warn('savestate-like keys:', candidates.map(c => c.key));
+          } else {
+            // Sometimes the savestate key isn’t obviously named; log a sample of record shapes
+            const shapes = rows.slice(0, Math.min(rows.length, 5)).map(({ key, val }) => ({
+              key,
+              type: val?.constructor?.name,
+              fields: val && typeof val === 'object' ? Object.keys(val) : [],
+            }));
+            console.log('sample record shapes:', shapes);
+          }
+
+          console.groupEnd(); // store
+        } catch (storeErr) {
+          console.warn(`Failed to read store "${storeName}"`, storeErr);
+        }
+      }
+      console.groupEnd(); // DB
+      db.close();
+    } catch (dbErr) {
+      console.warn(`Failed to open DB "${name}"`, dbErr);
+    }
+  }
+
+  console.groupEnd(); // IndexedDB
+  console.groupEnd(); // root
+}
+
 
 /** Look for savestate-like files in Cache Storage and download the newest match. */
 async exportSavestateFromCacheStorage(slot: number = 0) {
