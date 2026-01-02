@@ -42,7 +42,7 @@
   display: block;              /* ensure block layout */
   width: 100%; 
   min-height: 200px;           /* fallback so it never collapses */
-  max-height: calc(100vh - 120px); 
+  max-height: calc(100vh - 120px);
   background: #000;
   overflow: hidden;
 }
@@ -74,7 +74,7 @@
   .mobileIframeDiv {
     padding-bottom: env(safe-area-inset-bottom);
   }
-
+}
 
 .mobileIframeDiv {
   touch-action: manipulation;
