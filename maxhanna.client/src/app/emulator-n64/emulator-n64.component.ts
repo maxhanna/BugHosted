@@ -1501,7 +1501,6 @@ private async blobToN64SaveFile(blob: Blob, suggestedName?: string): Promise<Fil
           durationSeconds: 180/* compute since last tick or session */
         };
 
-
         try {
           const uploadRes = await this.romService.saveN64State(payload);
           if (uploadRes.ok) {
