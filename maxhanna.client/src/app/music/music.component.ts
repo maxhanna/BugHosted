@@ -790,12 +790,17 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       console.log("Div not found!");
     }
   }
+
+
   get playerClasses(): string {
-    if (this.isFullscreen) return 'popupPanel fullscreen';
-    if (this.smallPlayer) return 'smallIframeDiv';
-    if (this.onMobile()) return 'mobileIframeDiv';
-    return 'iframeDiv';
+    const base = this.smallPlayer ? 'smallIframeDiv'
+                : this.onMobile() ? 'mobileIframeDiv'
+                : 'iframeDiv';
+    // apply popupPanel only when you actually need overlay behavior
+    const overlay = this.isFullscreen ? 'popupPanel music-fullscreen' : '';
+    return `${base} ${overlay}`.trim();
   }
+
 
   get isVisible(): boolean {
     return !!(this.songs && this.songs.length > 0 && this.isMusicPlaying);
@@ -926,6 +931,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
     this.isMusicControlsDisplayed(true);
   }
+
   async refreshPlaylist() {
     await this.getSongList().then(() => {
       this.updatePaginatedSongs();

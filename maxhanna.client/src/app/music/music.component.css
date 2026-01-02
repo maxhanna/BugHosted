@@ -305,6 +305,26 @@ input[type="submit"] {
 }
 
 
+/* rename to avoid collisions with other global .fullscreen */
+.music-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;  /* shorthand for top/right/bottom/left: 0 */
+  width: 100vw !important;
+  height: 100vh !important;
+  background: #000;
+  z-index: 9999;
+}
+
+/* ensure popupPanel does NOT override our sizing */
+.popupPanel.music-fullscreen {
+  /* keep same declarations here to win specificity if needed */
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+}
+
+
 .fullscreen {
   position: fixed !important;
   inset: 0 !important;
