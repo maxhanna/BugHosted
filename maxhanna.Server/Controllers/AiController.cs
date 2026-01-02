@@ -38,9 +38,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Ai/SendMessageToAi", Name = "SendMessageToAi")]
 		public async Task<IActionResult> SendMessageToAi([FromBody] AiRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{
-			HttpContext.RequestAborted.ThrowIfCancellationRequested(); // optional check
-			HttpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>().MaxRequestBodySize = null;
-
 			try
 			{
 				if (request.UserId != 0)
@@ -497,8 +494,6 @@ namespace maxhanna.Server.Controllers
 
 		private async Task<string> AnalyzeMediaAsync(FileEntry mediaFile, bool rename)
 		{
-			HttpContext.RequestAborted.ThrowIfCancellationRequested(); // optional check
-			HttpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>().MaxRequestBodySize = null;
 			try
 			{
 				// Reuse DescribeMedia functionality for the analysis
@@ -538,8 +533,6 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task<string> DescribeMediaContent(FileEntry file, bool detailed = true)
 		{
-			HttpContext.RequestAborted.ThrowIfCancellationRequested(); // optional check
-			HttpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>().MaxRequestBodySize = null;
 			const string tempThumbnailDir = @"E:\Dev\maxhanna\maxhanna.Server\TempThumbnails"; 
 			try
 			{
@@ -926,8 +919,6 @@ namespace maxhanna.Server.Controllers
 				_ = _log.Db("AnalyzeAndRenameFile skipped because a previous operation is still in progress.", null, "AiController", true);
 				return Conflict(new { Message = "Analyze and rename is already running." });
 			}
-			HttpContext.RequestAborted.ThrowIfCancellationRequested(); // optional check
-			HttpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>().MaxRequestBodySize = null;
 			try
 			{
 				_ = _log.Db("Analyzing and renaming a random file.", null, "AiController", true);
