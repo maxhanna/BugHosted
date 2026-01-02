@@ -36,8 +36,11 @@
     <app-file-upload [currentDirectory]="'Roms'" [user]="parentRef?.user!" [inputtedParentRef]="parentRef"
       [uploadButtonText]="'Upload Rom(s)'" [maxSelectedFiles]="100" [allowedFileTypes]="getAllowedRomFileTypesString()">
     </app-file-upload>  
-    <button (click)="exportSaveStateFromIndexedDB(0)" [disabled]="status !== 'running' || loading" *ngIf="romName">
-      Download Save State (Slot 0)
+    <button (click)="exportSavestateFromWebStorage(0)" [disabled]="status !== 'running' || loading" *ngIf="romName">
+      Download Save State (Web Storage)
+    </button> 
+    <button (click)="exportSavestateFromCacheStorage(0)" [disabled]="status !== 'running' || loading" *ngIf="romName">
+      Download Save State (Cache Storage)
     </button> 
   </div>
   <div class="optionsStatsWrapperDiv">

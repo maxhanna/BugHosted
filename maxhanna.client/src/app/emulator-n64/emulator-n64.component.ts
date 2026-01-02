@@ -999,109 +999,112 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
 
-  
-/** Fallback: export save state directly from IndexedDB (no Module.FS required). */
-async exportSaveStateFromIndexedDB(slot: number = 0) {
+/** Look for savestate-like files in Cache Storage and download the newest match. */
+async exportSavestateFromCacheStorage(slot: number = 0) {
   try {
-    // 1) List databases (Chromium supports indexedDB.databases(); other browsers may not)
-    const dbList: Array<{name?: string}> =
-      (indexedDB as any).databases ? await (indexedDB as any).databases() : [];
+    const cacheNames = await caches.keys(); // list named caches
+    // Heuristics for savestate names
+    const exts = ['.st', '.sav', '.state', '.bin'];
+    const slotTokens = [`slot${slot}`, `.st${slot}`, `_${slot}.st`, `.${slot}.st`];
 
-    const candidates: Array<{
-      dbName: string; store: string; key: any; when: number; bytes: ArrayBuffer;
-    }> = [];
+    const candidates: Array<{name: string; url: string; when: number; resp: Response}> = [];
 
-    // Heuristic: typical savestate extensions / slot tokens
-    const looksLikeState = (keyStr: string) =>
-      keyStr.endsWith('.st') || keyStr.endsWith('.sav') ||
-      keyStr.endsWith('.state') || keyStr.endsWith('.bin') ||
-      keyStr.includes(`slot${slot}`);
+    for (const name of cacheNames) {
+      const cache = await caches.open(name);
+      const requests = await cache.keys(); // all Request keys in this cache
+      for (const req of requests) {
+        const url = req.url.toLowerCase();
+        const hasExt = exts.some((e) => url.endsWith(e));
+        const looksLikeSlot = slotTokens.some((t) => url.includes(t));
+        if (!hasExt && !looksLikeSlot) continue;
 
-    for (const dbMeta of dbList) {
-      const name = dbMeta.name;
-      if (!name) continue;
-
-      const db = await new Promise<IDBDatabase>((resolve, reject) => {
-        const req = indexedDB.open(name);
-        req.onerror = () => reject(req.error);
-        req.onsuccess = () => resolve(req.result);
-      });
-
-      try {
-        const storeNames = Array.from(db.objectStoreNames);
-        for (const store of storeNames) {
-          const tx = db.transaction(store, 'readonly');
-          const os = tx.objectStore(store);
-
-          // Iterate all records in this store
-          const rows: Array<{key: any; val: any}> = await new Promise((resolve, reject) => {
-            const res: Array<{key: any; val: any}> = [];
-            const req = os.openCursor();
-            req.onerror = () => reject(req.error);
-            req.onsuccess = (e: any) => {
-              const cursor = e.target.result;
-              if (cursor) { res.push({ key: cursor.key, val: cursor.value }); cursor.continue(); }
-              else resolve(res);
-            };
-          });
-
-          for (const {key, val} of rows) {
-            const keyStr = (typeof key === 'string' ? key : String(key)).toLowerCase();
-
-            if (!looksLikeState(keyStr)) continue;
-
-            // Normalize value to ArrayBuffer:
-            let buf: ArrayBuffer | null = null;
-
-            // Emscripten IDBFS often stores raw bytes (ArrayBuffer/TypedArray) or objects with 'contents'
-            if (val instanceof ArrayBuffer) buf = val;
-            else if (val?.buffer instanceof ArrayBuffer) {
-              // TypedArray
-              buf = val.buffer;
-            } else if (val?.contents) {
-              const c = val.contents;
-              buf = c instanceof ArrayBuffer ? c
-                  : c?.buffer instanceof ArrayBuffer ? c.buffer
-                  : null;
-            } else if (val?.data) {
-              const d = val.data;
-              buf = d instanceof ArrayBuffer ? d
-                  : d?.buffer instanceof ArrayBuffer ? d.buffer
-                  : null;
-            }
-
-            if (!buf) continue;
-            candidates.push({ dbName: name, store, key, when: Date.now(), bytes: buf });
-          }
+        const resp = await cache.match(req);
+        if (resp) {
+          candidates.push({ name, url: req.url, when: Date.now(), resp });
         }
-      } finally {
-        db.close();
       }
     }
 
     if (!candidates.length) {
-      this.parentRef?.showNotification('No savestate found in IndexedDB.');
+      this.parentRef?.showNotification('No savestate found in Cache Storage.');
       return;
     }
 
-    // Pick the newest candidate; name it nicely
+    // Pick newest candidate and stream to Blob
     const best = candidates.sort((a, b) => b.when - a.when)[0];
+    const blob = await best.resp.blob();
     const filename = this.composeSavestateFilename(slot);
-
-    // Convert to Blob safely and download
-    const ab = this.toArrayBuffer(new Uint8Array(best.bytes));
-    const blob = new Blob([ab], { type: 'application/octet-stream' });
-    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = filename; a.style.display = 'none';
-    document.body.appendChild(a); a.click();
-    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 100);
 
-    this.parentRef?.showNotification(`Downloaded savestate from IndexedDB (db: ${best.dbName}, store: ${best.store})`);
+    this.parentRef?.showNotification(`Downloaded savestate from Cache Storage: ${best.url}`);
   } catch (err) {
-    console.error('IndexedDB export failed', err);
-    this.parentRef?.showNotification('Failed to export savestate from IndexedDB');
+    console.error('CacheStorage export failed', err);
+    this.parentRef?.showNotification('Failed to export savestate from Cache Storage');
   }
+}
+
+/** Try to find savestate-like entries in localStorage/sessionStorage and download. */
+exportSavestateFromWebStorage(slot: number = 0) {
+  const scan = (store: Storage, label: string) => {
+    try {
+      const exts = ['.st', '.sav', '.state', '.bin'];
+      const slotTokens = [`slot${slot}`, `.st${slot}`, `_${slot}.st`, `.${slot}.st`];
+
+      for (let i = 0; i < store.length; i++) {
+        const key = store.key(i) || '';
+        const lower = key.toLowerCase();
+        const hasExt = exts.some((e) => lower.endsWith(e));
+        const looksLikeSlot = slotTokens.some((t) => lower.includes(t));
+        if (!hasExt && !looksLikeSlot) continue;
+
+        const value = store.getItem(key);
+        if (!value) continue;
+
+        // Try base64 → Blob; else try JSON with {data:...}
+        let blob: Blob | null = null;
+        try {
+          // Heuristic: if value looks like base64
+          if (/^[A-Za-z0-9+/=]+$/.test(value) && value.length > 64) {
+            const byteChars = atob(value);
+            const bytes = new Uint8Array(byteChars.length);
+            for (let j = 0; j < byteChars.length; j++) bytes[j] = byteChars.charCodeAt(j);
+            blob = new Blob([bytes.buffer], { type: 'application/octet-stream' });
+          } else {
+            const obj = JSON.parse(value);
+            const arr = obj?.data || obj?.contents;
+            if (arr) {
+              const u8 = Array.isArray(arr) ? new Uint8Array(arr) :
+                         (arr?.buffer ? new Uint8Array(arr) : null);
+              if (u8) blob = new Blob([u8.buffer], { type: 'application/octet-stream' });
+            }
+          }
+        } catch {}
+
+        if (blob) {
+          const filename = this.composeSavestateFilename(slot);
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = filename; a.style.display = 'none';
+          document.body.appendChild(a); a.click();
+          setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+          this.parentRef?.showNotification(`Downloaded savestate from ${label} key "${key}"`);
+          return;
+        }
+      }
+      this.parentRef?.showNotification(`No savestate found in ${label}.`);
+    } catch (e) {
+      console.warn(`${label} scan failed`, e);
+    }
+  };
+
+  scan(localStorage, 'localStorage');
+  scan(sessionStorage, 'sessionStorage');
 }
 
 
