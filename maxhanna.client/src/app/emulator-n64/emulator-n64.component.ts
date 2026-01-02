@@ -998,6 +998,139 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.isFullScreen = !!document.fullscreenElement;
   }
 
+  
+/** Export savestate by enumerating all IndexedDB DBs/stores and downloading newest match. */
+async exportSavestateFromIndexedDB(slot: number = 0) {
+  const exts = ['.st', '.sav', '.state', '.bin'];
+  const slotTokens = [`slot${slot}`, `.st${slot}`, `_${slot}.st`, `.${slot}.st`];
+
+  const looksLikeState = (key: any) => {
+    const s = String(key).toLowerCase();
+    const hasExt = exts.some((e) => s.endsWith(e));
+    const looksSlot = slotTokens.some((t) => s.includes(t));
+    return hasExt || looksSlot;
+  };
+
+  const toArrayBuffer = (u8: Uint8Array) => u8.slice().buffer;
+
+  try {
+    const candidates: Array<{ dbName: string; store: string; key: any; when: number; ab: ArrayBuffer }> = [];
+    const dbMetaList: Array<{ name?: string }> =
+      (indexedDB as any).databases ? await (indexedDB as any).databases() : [];
+
+    const openDb = (name: string) =>
+      new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open(name);
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => resolve(req.result);
+      });
+
+    for (const meta of dbMetaList) {
+      const name = meta.name;
+      if (!name) continue;
+      let db: IDBDatabase | null = null;
+      try {
+        db = await openDb(name);
+        const stores = Array.from(db.objectStoreNames);
+
+        for (const storeName of stores) {
+          const tx = db.transaction(storeName, 'readonly');
+          const os = tx.objectStore(storeName);
+
+          const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
+            const res: Array<{ key: any; val: any }> = [];
+            const cursorReq = os.openCursor();
+            cursorReq.onerror = () => reject(cursorReq.error);
+            cursorReq.onsuccess = (ev: any) => {
+              const cursor = ev.target.result;
+              if (cursor) { res.push({ key: cursor.key, val: cursor.value }); cursor.continue(); }
+              else resolve(res);
+            };
+          });
+
+          for (const { key, val } of rows) {
+            // Heuristic #1: key looks like savestate path
+            if (looksLikeState(key)) {
+              const ab = normalizeToArrayBuffer(val);
+              if (ab) candidates.push({ dbName: name, store: storeName, key, when: Date.now(), ab });
+              continue;
+            }
+            // Heuristic #2: value object has a path/name field that looks like savestate
+            const path = val?.path || val?.name || val?.filename || val?.url;
+            if (path && looksLikeState(path)) {
+              const ab = normalizeToArrayBuffer(val);
+              if (ab) candidates.push({ dbName: name, store: storeName, key, when: Date.now(), ab });
+              continue;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(`IndexedDB read error for DB "${name}"`, e);
+      } finally {
+        try { db?.close(); } catch {}
+      }
+    }
+
+    if (!candidates.length) {
+      this.parentRef?.showNotification('No savestate found in IndexedDB.');
+      return;
+    }
+
+    // newest candidate (we’re using Date.now() as we scan)
+    const best = candidates.sort((a, b) => b.when - a.when)[0];
+    const filename = this.composeSavestateFilename(slot);
+
+    const blob = new Blob([best.ab], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.style.display = 'none';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+
+    this.parentRef?.showNotification(`Downloaded savestate from IndexedDB (db: ${best.dbName}, store: ${best.store})`);
+  } catch (err) {
+    console.error('IndexedDB export failed', err);
+    this.parentRef?.showNotification('Failed to export savestate from IndexedDB');
+  }
+
+  /** Normalize typical Emscripten/IDBFS value shapes to ArrayBuffer. */
+  function normalizeToArrayBuffer(val: any): ArrayBuffer | null {
+    // Raw ArrayBuffer
+    if (val instanceof ArrayBuffer) return val;
+    // Typed arrays
+    if (val?.buffer instanceof ArrayBuffer && typeof val.byteLength === 'number') {
+      return val.buffer;
+    }
+    // Common object shapes in IDBFS-like stores:
+    // { contents: Uint8Array|ArrayBuffer }   OR   { data: Uint8Array|ArrayBuffer }
+    if (val?.contents) {
+      const c = val.contents;
+      if (c instanceof ArrayBuffer) return c;
+      if (c?.buffer instanceof ArrayBuffer) return c.buffer;
+    }
+    if (val?.data) {
+      const d = val.data;
+      if (d instanceof ArrayBuffer) return d;
+      if (d?.buffer instanceof ArrayBuffer) return d.buffer;
+    }
+    // Some stores stash bytes under { bytes: [...] } or { value: [...] }
+    const arr = val?.bytes || val?.value;
+    if (Array.isArray(arr)) return new Uint8Array(arr).buffer;
+
+    // Final fallback: if val is string (base64?), try to decode
+    if (typeof val === 'string' && /^[A-Za-z0-9+/=]+$/.test(val)) {
+      try {
+        const bin = atob(val);
+        const u8 = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+        return u8.buffer;
+      } catch {}
+    }
+    return null;
+  }
+}
+
+
 /** Diagnostic: enumerate IndexedDB, Cache Storage, and Web Storage and log what’s there. */
 async dumpSiteStorage(slot: number = 0) {
   const exts = ['.st', '.sav', '.state', '.bin'];
