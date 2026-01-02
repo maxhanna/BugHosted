@@ -755,63 +755,50 @@ namespace maxhanna.Server.Controllers
 					stream = false,
 					images = base64Images.ToArray()
 				};
-
-				const int maxAttempts = 3;
-				int attempt = 0;
-				string? responseBody = null;
-				while (attempt < maxAttempts)
+  
+				string? responseBody = null; 
+				try
 				{
-					attempt++;
+					// Build request per-attempt so we don't reuse a disposed HttpRequestMessage
+					using var req = new HttpRequestMessage(HttpMethod.Post, "http://localhost:11434/api/generate")
+					{
+						Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+					};
+
+					// Wait for the media lock (no timeout here; callers can control concurrency via JS/API)
+					await _ollamaMediaLock.WaitAsync();
+					HttpResponseMessage? resp = null;
 					try
 					{
-						// Build request per-attempt so we don't reuse a disposed HttpRequestMessage
-						using var req = new HttpRequestMessage(HttpMethod.Post, "http://localhost:11434/api/generate")
-						{
-							Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
-						};
-
-						// Wait for the media lock (no timeout here; callers can control concurrency via JS/API)
-						await _ollamaMediaLock.WaitAsync();
-						HttpResponseMessage? resp = null;
-						try
-						{
-							resp = await _ollamaClient.SendAsync(req, HttpContext?.RequestAborted ?? CancellationToken.None);
-						}
-						finally
-						{
-							// Always release the lock as soon as the network call completes
-							try { _ollamaMediaLock.Release(); } catch { }
-						}
-
-						if (!resp.IsSuccessStatusCode)
-						{
-							var errBody = await resp.Content.ReadAsStringAsync();
-							_ = _log.Db($"Ollama media analysis error {(int)resp.StatusCode}: {errBody}", null, "AiController", true);
-							// Treat 5xx as transient and retry; other codes are fatal
-							if ((int)resp.StatusCode >= 500 && attempt < maxAttempts)
-							{
-								await Task.Delay(300 * attempt); // backoff
-								continue;
-							}
-							return string.Empty;
-						}
-
-						responseBody = await resp.Content.ReadAsStringAsync();
-						break; // success
+						resp = await _ollamaClient.SendAsync(req, HttpContext?.RequestAborted ?? CancellationToken.None);
 					}
-					catch (HttpRequestException hre)
+					finally
 					{
-						_ = _log.Db($"Ollama request failed (attempt {attempt}): {hre.Message}", null, "AiController", true);
-						if (attempt < maxAttempts) await Task.Delay(300 * attempt);
-						else return string.Empty;
+						// Always release the lock as soon as the network call completes
+						try { _ollamaMediaLock.Release(); } catch { }
 					}
-					catch (Exception ex)
+
+					if (!resp.IsSuccessStatusCode)
 					{
-						_ = _log.Db($"Unexpected error sending to Ollama (attempt {attempt}): {ex.Message}", null, "AiController", true);
-						if (attempt < maxAttempts) await Task.Delay(300 * attempt);
-						else return string.Empty;
+						var errBody = await resp.Content.ReadAsStringAsync();
+						_ = _log.Db($"Ollama media analysis error {(int)resp.StatusCode}: {errBody}", null, "AiController", true);
+							
+						return string.Empty;
 					}
+
+					responseBody = await resp.Content.ReadAsStringAsync(); 
 				}
+				catch (HttpRequestException hre)
+				{
+					_ = _log.Db($"Ollama request failed: {hre.Message}", null, "AiController", true);
+
+					else return string.Empty;
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db($"Unexpected error sending to Ollama: {ex.Message}", null, "AiController", true);
+					else return string.Empty;
+				} 
 
 				if (string.IsNullOrEmpty(responseBody))
 				{
