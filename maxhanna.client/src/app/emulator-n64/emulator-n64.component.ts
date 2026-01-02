@@ -999,6 +999,104 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   
+/** Export all in-game save RAM files (.eep/.sra/.fla) from IndexedDB → downloads */
+async exportInGameSaveRam() {
+  try {
+    const dbList: Array<{ name?: string }> =
+      (indexedDB as any).databases ? await (indexedDB as any).databases() : [];
+    const mupenDbMeta = dbList.find(d => d.name === '/mupen64plus') || null;
+    if (!mupenDbMeta) {
+      this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found.');
+      return;
+    }
+
+    const openDb = (name: string) => new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open(name);
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => resolve(req.result);
+    });
+
+    const db = await openDb('/mupen64plus');
+    const storeName = 'FILE_DATA';
+    if (!Array.from(db.objectStoreNames).includes(storeName)) {
+      this.parentRef?.showNotification('FILE_DATA store not found in /mupen64plus.');
+      db.close();
+      return;
+    }
+
+    const tx = db.transaction(storeName, 'readonly');
+    const os = tx.objectStore(storeName);
+
+    const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
+      const res: Array<{ key: any; val: any }> = [];
+      const cursorReq = os.openCursor();
+      cursorReq.onerror = () => reject(cursorReq.error);
+      cursorReq.onsuccess = (ev: any) => {
+        const cursor = ev.target.result;
+        if (cursor) { res.push({ key: cursor.key, val: cursor.value }); cursor.continue(); }
+        else resolve(res);
+      };
+    });
+
+    // Filter for save RAM files
+    const saveExts = ['.eep', '.sra', '.fla'];
+    const saveRows = rows.filter(({ key }) => {
+      const s = String(key).toLowerCase();
+      return s.startsWith('/mupen64plus/saves/') && saveExts.some(e => s.endsWith(e));
+    });
+
+    if (!saveRows.length) {
+      this.parentRef?.showNotification('No in-game save RAM found under /mupen64plus/saves.');
+      db.close();
+      return;
+    }
+
+    // If a ROM name is present, prefer saves that contain its token
+    const romToken = (this.romName || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const preferred = romToken ? saveRows.filter(r => String(r.key).toLowerCase().includes(romToken)) : saveRows;
+    const targetRows = preferred.length ? preferred : saveRows;
+
+    // Download each found save file (EEPROM/SRAM/Flash)
+    for (const { key, val } of targetRows) {
+      const ab = this.normalizeToArrayBuffer(val);
+      if (!ab) continue;
+      const filename = String(key).split('/').pop() || 'save_ram.bin';
+      const blob = new Blob([ab], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.style.display = 'none';
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 80);
+    }
+
+    this.parentRef?.showNotification(`Exported ${targetRows.length} in-game save RAM file(s).`);
+    db.close();
+  } catch (err) {
+    console.error('exportInGameSaveRam failed', err);
+    this.parentRef?.showNotification('Failed to export in-game save RAM');
+  }
+}
+
+/** Normalize common IDBFS value shapes to ArrayBuffer. */
+private normalizeToArrayBuffer(val: any): ArrayBuffer | null {
+  if (val instanceof ArrayBuffer) return val;
+  if (val?.buffer instanceof ArrayBuffer && typeof val.byteLength === 'number') return val.buffer;
+  const fromObj = (field: any) => field instanceof ArrayBuffer ? field
+                      : field?.buffer instanceof ArrayBuffer ? field.buffer : null;
+  let ab = null;
+  if (val?.contents) ab = fromObj(val.contents);
+  if (!ab && val?.data) ab = fromObj(val.data);
+  if (!ab && Array.isArray(val?.bytes)) ab = new Uint8Array(val.bytes).buffer;
+  if (!ab && typeof val === 'string' && /^[A-Za-z0-9+/=]+$/.test(val)) {
+    try {
+      const bin = atob(val);
+      const u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      ab = u8.buffer;
+    } catch { /* ignore */ }
+  }
+  return ab;
+}
+
 /** Export savestate by enumerating all IndexedDB DBs/stores and downloading newest match. */
 async exportSavestateFromIndexedDB(slot: number = 0) {
   const exts = ['.st', '.sav', '.state', '.bin'];
