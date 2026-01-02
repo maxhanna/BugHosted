@@ -999,55 +999,111 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
 
-  async exportSaveState(slot: number = 0) {
-    if (!this.instance || this.status !== 'running') {
-      this.parentRef?.showNotification('Emulator must be running to export state.');
+  
+/** Fallback: export save state directly from IndexedDB (no Module.FS required). */
+async exportSaveStateFromIndexedDB(slot: number = 0) {
+  try {
+    // 1) List databases (Chromium supports indexedDB.databases(); other browsers may not)
+    const dbList: Array<{name?: string}> =
+      (indexedDB as any).databases ? await (indexedDB as any).databases() : [];
+
+    const candidates: Array<{
+      dbName: string; store: string; key: any; when: number; bytes: ArrayBuffer;
+    }> = [];
+
+    // Heuristic: typical savestate extensions / slot tokens
+    const looksLikeState = (keyStr: string) =>
+      keyStr.endsWith('.st') || keyStr.endsWith('.sav') ||
+      keyStr.endsWith('.state') || keyStr.endsWith('.bin') ||
+      keyStr.includes(`slot${slot}`);
+
+    for (const dbMeta of dbList) {
+      const name = dbMeta.name;
+      if (!name) continue;
+
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open(name);
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => resolve(req.result);
+      });
+
+      try {
+        const storeNames = Array.from(db.objectStoreNames);
+        for (const store of storeNames) {
+          const tx = db.transaction(store, 'readonly');
+          const os = tx.objectStore(store);
+
+          // Iterate all records in this store
+          const rows: Array<{key: any; val: any}> = await new Promise((resolve, reject) => {
+            const res: Array<{key: any; val: any}> = [];
+            const req = os.openCursor();
+            req.onerror = () => reject(req.error);
+            req.onsuccess = (e: any) => {
+              const cursor = e.target.result;
+              if (cursor) { res.push({ key: cursor.key, val: cursor.value }); cursor.continue(); }
+              else resolve(res);
+            };
+          });
+
+          for (const {key, val} of rows) {
+            const keyStr = (typeof key === 'string' ? key : String(key)).toLowerCase();
+
+            if (!looksLikeState(keyStr)) continue;
+
+            // Normalize value to ArrayBuffer:
+            let buf: ArrayBuffer | null = null;
+
+            // Emscripten IDBFS often stores raw bytes (ArrayBuffer/TypedArray) or objects with 'contents'
+            if (val instanceof ArrayBuffer) buf = val;
+            else if (val?.buffer instanceof ArrayBuffer) {
+              // TypedArray
+              buf = val.buffer;
+            } else if (val?.contents) {
+              const c = val.contents;
+              buf = c instanceof ArrayBuffer ? c
+                  : c?.buffer instanceof ArrayBuffer ? c.buffer
+                  : null;
+            } else if (val?.data) {
+              const d = val.data;
+              buf = d instanceof ArrayBuffer ? d
+                  : d?.buffer instanceof ArrayBuffer ? d.buffer
+                  : null;
+            }
+
+            if (!buf) continue;
+            candidates.push({ dbName: name, store, key, when: Date.now(), bytes: buf });
+          }
+        }
+      } finally {
+        db.close();
+      }
+    }
+
+    if (!candidates.length) {
+      this.parentRef?.showNotification('No savestate found in IndexedDB.');
       return;
     }
 
-    try {
-      // Try direct APIs first, if your build exposes them.
-      const directBuf =
-        (typeof this.instance.saveState === 'function'
-          ? await this.instance.saveState(slot)
-          : null) ||
-        (typeof this.instance.getSaveState === 'function'
-          ? await this.instance.getSaveState(slot)
-          : null);
+    // Pick the newest candidate; name it nicely
+    const best = candidates.sort((a, b) => b.when - a.when)[0];
+    const filename = this.composeSavestateFilename(slot);
 
-      if (directBuf) {
-        const filename = this.composeSavestateFilename(slot);
-        this.downloadBlob(filename, directBuf instanceof Uint8Array ? directBuf : new Uint8Array(directBuf));
-        this.parentRef?.showNotification(`Downloaded savestate (slot ${slot})`);
-        return;
-      }
+    // Convert to Blob safely and download
+    const ab = this.toArrayBuffer(new Uint8Array(best.bytes));
+    const blob = new Blob([ab], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.style.display = 'none';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
 
-      // Fallback path: trigger core quick-save + sync FS, then scan FS for files.
-      await this.ensureCanvasFocus();
-      await this.tryTriggerCoreQuickSave();     // sends synthetic F5 (adjust if your build uses another key)
-      await this.syncFS(true);                  // flush pending writes from IDBFS/MEMFS
-      // Small delay to let core finish writing before we read.
-      await new Promise((r) => setTimeout(r, 250));
-
-      const found = this.findLatestSavestateFile(slot);
-      if (!found) {
-        this.parentRef?.showNotification('No savestate file found. Check FS path configuration.');
-        return;
-      }
-      const bytes = this.readFileBytes(found);
-      if (!bytes) {
-        this.parentRef?.showNotification('Savestate file could not be read.');
-        return;
-      }
-
-      const filename = this.composeSavestateFilename(slot);
-      this.downloadBlob(filename, bytes);
-      this.parentRef?.showNotification(`Downloaded savestate from FS (slot ${slot})`);
-    } catch (e) {
-      console.error('Failed to export savestate', e);
-      this.parentRef?.showNotification('Failed to export savestate');
-    }
+    this.parentRef?.showNotification(`Downloaded savestate from IndexedDB (db: ${best.dbName}, store: ${best.store})`);
+  } catch (err) {
+    console.error('IndexedDB export failed', err);
+    this.parentRef?.showNotification('Failed to export savestate from IndexedDB');
   }
+}
+
 
   /** Focus the canvas so SDL/core receives key events. */
   private async ensureCanvasFocus() {
