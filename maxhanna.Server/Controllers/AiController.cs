@@ -21,6 +21,7 @@ namespace maxhanna.Server.Controllers
 		private readonly IConfiguration _config;
 		private readonly KrakenService _krakenService;
 		private readonly HttpClient _httpClient;
+		private readonly HttpClient _ollamaClient; 
 		private static readonly SemaphoreSlim _analyzeLock = new SemaphoreSlim(1, 1); 
 		// Serialize heavy media-analysis calls to Ollama to avoid concurrent model runner crashes
 		private static readonly SemaphoreSlim _ollamaMediaLock = new SemaphoreSlim(1, 1);
@@ -30,8 +31,26 @@ namespace maxhanna.Server.Controllers
 			_log = log;
 			_config = config;
 			_krakenService = krakenService;
-			_httpClient = new HttpClient();
-			_httpClient.Timeout = TimeSpan.FromMinutes(5);
+			_httpClient = new HttpClient
+			{
+					Timeout = TimeSpan.FromMinutes(5)
+			};
+			
+			var sockets = new SocketsHttpHandler
+			{
+					// keep connections alive for long generations
+					PooledConnectionIdleTimeout = TimeSpan.FromMinutes(10),
+					ConnectTimeout = TimeSpan.FromSeconds(30), // connection establishment 
+					KeepAlivePingDelay = TimeSpan.FromSeconds(15),
+					KeepAlivePingTimeout = TimeSpan.FromSeconds(5),
+					KeepAlivePingPolicy = HttpKeepAlivePingPolicy.Always, 
+			};
+
+			_ollamaClient = new HttpClient(sockets)
+			{
+					Timeout = Timeout.InfiniteTimeSpan // disable HttpClient timeout for Ollama
+			};
+
 		}
 
 
@@ -130,7 +149,7 @@ namespace maxhanna.Server.Controllers
 				};
 
 				// Send request to Ollama and get full response
-				var ollamaResponse = await _httpClient.SendAsync(httpReq, HttpCompletionOption.ResponseHeadersRead);
+				var ollamaResponse = await _ollamaClient.SendAsync(httpReq, HttpCompletionOption.ResponseHeadersRead);
 				var respBody = await ollamaResponse.Content.ReadAsStringAsync();
 
 				if (!ollamaResponse.IsSuccessStatusCode)
@@ -431,7 +450,8 @@ namespace maxhanna.Server.Controllers
 					model = "gemma3",
 					prompt = prompt,
 					stream = false,
-					max_tokens = 450
+					max_tokens = 450,
+					Timeout = 300000
 				};
 
 				using var httpRequest = new HttpRequestMessage(HttpMethod.Post, ollamaUrl)
@@ -755,7 +775,7 @@ namespace maxhanna.Server.Controllers
 						HttpResponseMessage? resp = null;
 						try
 						{
-							resp = await _httpClient.SendAsync(req);
+							resp = await _ollamaClient.SendAsync(req, HttpContext?.RequestAborted ?? CancellationToken.None);
 						}
 						finally
 						{
