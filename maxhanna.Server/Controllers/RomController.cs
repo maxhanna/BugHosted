@@ -228,11 +228,10 @@ namespace maxhanna.Server.Controllers
 							// Determine file type based on extension (save files explicitly 'sav')
 							var extension = Path.GetExtension(file.FileName)?.ToLowerInvariant().Trim('.') ?? string.Empty;
               string fileType = ext.Trim('.');
-							var command = new MySqlCommand("INSERT INTO maxhanna.file_uploads (user_id, file_name, upload_date, last_access, folder_path, is_public, is_folder, file_type) VALUES (@user_id, @fileName, @uploadDate, @lastAccess, @folderPath, @isPublic, @isFolder, @fileType)", connection);
+							var command = new MySqlCommand("INSERT INTO maxhanna.file_uploads (user_id, file_name, upload_date, last_access, folder_path, is_public, is_folder) VALUES (@user_id, @fileName, @uploadDate, @lastAccess, @folderPath, @isPublic, @isFolder)", connection);
 							var now = DateTime.UtcNow;
 							command.Parameters.AddWithValue("@user_id", userId);
 							command.Parameters.AddWithValue("@fileName", isSaveFile ? newFilename : file.FileName);
-							command.Parameters.AddWithValue("@fileType", fileType);
 							command.Parameters.AddWithValue("@uploadDate", now);
 							command.Parameters.AddWithValue("@lastAccess", now);
 							command.Parameters.AddWithValue("@folderPath", _baseTarget);

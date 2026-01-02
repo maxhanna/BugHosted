@@ -994,7 +994,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   showMenuPanel() {
     this.isMenuPanelVisible = true;
     this.parentRef?.showOverlay();
-    this.loadMappingsList();
+    if (this.savedMappingsNames.length === 0) {
+      this.loadMappingsList();
+    }
   }
   closeMenuPanel() {
     this.isMenuPanelVisible = false;
