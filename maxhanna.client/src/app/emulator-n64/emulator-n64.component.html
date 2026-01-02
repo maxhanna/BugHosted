@@ -26,17 +26,30 @@
     <app-file-upload [currentDirectory]="'Roms'" [user]="parentRef?.user!" [inputtedParentRef]="parentRef"
       [uploadButtonText]="'Upload Rom(s)'" [maxSelectedFiles]="100" [allowedFileTypes]="getAllowedRomFileTypesString()">
     </app-file-upload>
-    <button (click)="exportInGameSaveRam()" [disabled]="status !== 'running' || loading" *ngIf="romName">
-      Download Save State
-    </button>
-    
-    <input
-      type="file"
-      (change)="importInGameSaveRam($any($event.target).files)"
-      accept=".eep,.sra,.fla"
-      multiple
-    />
-    
+    <div style="text-align: center;">
+      <button (click)="exportInGameSaveRam()" [disabled]="status !== 'running' || loading" *ngIf="romName">
+        Download Save State
+      </button>
+      <label for="loadSaveState">
+        Load Save State:
+      </label> 
+      <input
+        id="loadSaveState"
+        type="file"
+        (change)="importInGameSaveRam($any($event.target).files)"
+        accept=".eep,.sra,.fla"
+        multiple />
+      <div class="optionsStatsWrapperDiv">
+        <div class="optionsStatsHeader">Autosave:</div>
+        <div class="optionsStatsDescription">
+          <label class="toggle-switch">
+            <input type="checkbox" [checked]="autosave" (change)="autosave = !autosave">
+            <span class="slider"></span>
+          </label>
+          <span class="toggle-label" (click)="autosave = !autosave">{{ autosave ? 'On' : 'Off' }}</span>
+        </div>
+      </div>
+    </div>
     <button (click)="dumpSiteStorage(0)" [disabled]="status !== 'running' || loading" *ngIf="romName">
       Dump Site Storage
     </button>

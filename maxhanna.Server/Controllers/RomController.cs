@@ -186,14 +186,19 @@ namespace maxhanna.Server.Controllers
 						continue; // Skip empty files
 					}
 
-					string newFilename = "";
-					bool isSaveFile = false;
-					if (file.FileName.Contains(".sav"))
-					{
-						isSaveFile = true;
-						string filenameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
-						newFilename = filenameWithoutExtension + "_" + userId + Path.GetExtension(file.FileName).Replace("\\", "/");
-					}
+          var ext = Path.GetExtension(file.FileName)?.ToLowerInvariant() ?? string.Empty;
+          var saveExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+          { ".sav", ".srm", ".eep", ".sra", ".fla" };
+
+          bool isSaveFile = saveExts.Contains(ext);
+
+          // For user-specific save files, keep your naming convention: <basename>_<userId><ext>
+          string newFilename = "";
+          if (isSaveFile)
+          {
+              string filenameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
+              newFilename = filenameWithoutExtension + "_" + userId + ext.Replace("\\", "/");
+          }
  
 					var filePath = string.IsNullOrEmpty(newFilename) ? file.FileName : newFilename;
 					filePath = Path.Combine(_baseTarget, filePath).Replace("\\", "/");
@@ -222,11 +227,12 @@ namespace maxhanna.Server.Controllers
 						{
 							// Determine file type based on extension (save files explicitly 'sav')
 							var extension = Path.GetExtension(file.FileName)?.ToLowerInvariant().Trim('.') ?? string.Empty;
-							string fileType = isSaveFile ? "sav" : extension;
-							var command = new MySqlCommand("INSERT INTO maxhanna.file_uploads (user_id, file_name, upload_date, last_access, folder_path, is_public, is_folder) VALUES (@user_id, @fileName, @uploadDate, @lastAccess, @folderPath, @isPublic, @isFolder)", connection);
+              string fileType = ext.Trim('.');
+							var command = new MySqlCommand("INSERT INTO maxhanna.file_uploads (user_id, file_name, upload_date, last_access, folder_path, is_public, is_folder, file_type) VALUES (@user_id, @fileName, @uploadDate, @lastAccess, @folderPath, @isPublic, @isFolder, @fileType)", connection);
 							var now = DateTime.UtcNow;
 							command.Parameters.AddWithValue("@user_id", userId);
-							command.Parameters.AddWithValue("@fileName", file.FileName);
+							command.Parameters.AddWithValue("@fileName", isSaveFile ? newFilename : file.FileName);
+							command.Parameters.AddWithValue("@fileType", fileType);
 							command.Parameters.AddWithValue("@uploadDate", now);
 							command.Parameters.AddWithValue("@lastAccess", now);
 							command.Parameters.AddWithValue("@folderPath", _baseTarget);

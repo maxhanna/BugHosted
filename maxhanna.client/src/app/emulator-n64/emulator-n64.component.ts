@@ -2,7 +2,7 @@ import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } fr
 import { ChildComponent } from '../child.component';
 import createMupen64PlusWeb, { writeAutoInputConfig } from 'mupen64plus-web';
 import { FileService } from '../../services/file.service';
-import { RomService } from '../../services/rom.service';
+import { N64StateUpload, RomService } from '../../services/rom.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 
 @Component({
@@ -44,6 +44,16 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   isFullScreen: boolean = false;
   private _mappingKey = 'n64_gamepad_mapping_v1';
   showFileSearch = false;
+
+  // --- Autosave toggle & internals ---
+  autosave = true;                 // your UI toggle (starts ON)
+  private autosaveTimer: any = null;
+  private autosavePeriodMs = 3 * 60 * 1000; // 3 minutes
+  private autosaveInProgress = false;
+
+  // Avoid re-uploading identical bytes (filename-kind keyed)
+  private lastUploadedHashes = new Map<string, string>(); // key (kind:filename) -> sha256
+
   private _canvasResizeAdded = false;
   private _resizeHandler = () => this.resizeCanvasToParent();
   private _resizeObserver?: ResizeObserver;
@@ -264,6 +274,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   ngOnDestroy(): void {
     this.stop();
+    this.stopAutosaveLoop();
     if (this._resizeObserver) {
       this._resizeObserver.disconnect();
       this._resizeObserver = undefined;
@@ -577,6 +588,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.parentRef?.showNotification('Pick a ROM first');
       return;
     }
+    if (this.autosave) {
+      this.startAutosaveLoop();
+    }
     const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
     if (!canvasEl) {
       this.parentRef?.showNotification('No canvas available');
@@ -650,6 +664,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       if (this.instance && typeof this.instance.stop === 'function') {
         await this.instance.stop();
       }
+      this.stopAutosaveLoop();
     } catch (e) {
       console.error('Error stopping emulator', e);
     } finally {
@@ -998,121 +1013,144 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.isFullScreen = !!document.fullscreenElement;
   }
 
-  /** Export all in-game save RAM files (.eep/.sra/.fla) from IndexedDB → downloads */
-  
-/** Compute a robust token from the current ROM name to match save files. */
-private romTokenForMatching(name?: string): string | null {
-  if (!name) return null;
-  // Strip extension and normalize
-  let base = name.replace(/\.(z64|n64|v64|zip|7z|rom)$/i, '');
-  // Collapse whitespace, remove common bracketed codes (region/verification)
-  base = base
-    .replace(/\s+/g, ' ')
-    .replace(/\s*\((?:U|E|J|JU|USA|Europe|Japan|V\d+(\.\d+)?)\)\s*/gi, ' ')
-    .replace(/\s*\[(?:!|b\d*|h\d*|o\d*|t\d*|M\d*|a\d*)\]\s*/gi, ' ')
-    .trim()
-    .toLowerCase();
-  // Also create a "looser" token without punctuation
-  const loose = base.replace(/[^a-z0-9 ]/g, '').trim();
-  return loose || null;
-}
 
-/** Export in-game save RAM for the currently running ROM; otherwise export all. */
-async exportInGameSaveRam() {
-  try {
-    const dbList: Array<{ name?: string }> =
-      (indexedDB as any).databases ? await (indexedDB as any).databases() : [];
-    const mupenDbMeta = dbList.find(d => d.name === '/mupen64plus') || null;
-    if (!mupenDbMeta) {
-      this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found.');
-      return;
-    }
-
-    const openDb = (name: string) => new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open(name);
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => resolve(req.result);
-    });
-
-    const db = await openDb('/mupen64plus');
-    const storeName = 'FILE_DATA';
-    if (!Array.from(db.objectStoreNames).includes(storeName)) {
-      this.parentRef?.showNotification('FILE_DATA store not found in /mupen64plus.');
-      db.close();
-      return;
-    }
-
-    const tx = db.transaction(storeName, 'readonly');
-    const os = tx.objectStore(storeName);
-
-    const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
-      const res: Array<{ key: any; val: any }> = [];
-      const cursorReq = os.openCursor();
-      cursorReq.onerror = () => reject(cursorReq.error);
-      cursorReq.onsuccess = (ev: any) => {
-        const cursor = ev.target.result;
-        if (cursor) { res.push({ key: cursor.key, val: cursor.value }); cursor.continue(); }
-        else resolve(res);
-      };
-    });
-
-    // Filter for save RAM files
-    const saveExts = ['.eep', '.sra', '.fla'];
-    const saveRows = rows.filter(({ key }) => {
-      const s = String(key).toLowerCase();
-      return s.startsWith('/mupen64plus/saves/') && saveExts.some(e => s.endsWith(e));
-    });
-
-    if (!saveRows.length) {
-      this.parentRef?.showNotification('No in-game save RAM found under /mupen64plus/saves.');
-      db.close();
-      return;
-    }
-
-    // Decide whether to narrow to current ROM or export all
-    const isRunning = this.status === 'running' && !!this.instance;
-    const romToken = this.romTokenForMatching(this.romName);
-    let targetRows = saveRows;
-
-    if (isRunning && romToken) {
-      // Match by filename token (loose) or includes original romName lowercased
-      const tokenMatches = (keyStr: string) => {
-        const fileName = keyStr.split('/').pop() || keyStr;
-        const lower = fileName.toLowerCase();
-        const loose = lower.replace(/[^a-z0-9 ]/g, '').trim();
-        return loose.includes(romToken) || lower.includes((this.romName || '').toLowerCase());
-      };
-      const narrowed = saveRows.filter(({ key }) => tokenMatches(String(key)));
-      if (narrowed.length) {
-        targetRows = narrowed;
-      } else {
-        // No specific match — optionally notify and fall back to all saves
-        this.parentRef?.showNotification('No saves matched the current ROM; exporting all saves.');
-      }
-    }
-
-    // Download each found save file (EEPROM/SRAM/Flash)
-    for (const { key, val } of targetRows) {
-      const ab = this.normalizeToArrayBuffer(val);
-      if (!ab) continue;
-      const filename = String(key).split('/').pop() || 'save_ram.bin';
-      const blob = new Blob([ab], { type: 'application/octet-stream' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename; a.style.display = 'none';
-      document.body.appendChild(a); a.click();
-      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 80);
-    }
-
-    this.parentRef?.showNotification(
-      `${isRunning && romToken ? 'Exported matching' : 'Exported'} ${targetRows.length} in-game save file(s).`
-    );
-    db.close();
-  } catch (err) {
-    console.error('exportInGameSaveRam failed', err);
-    this.parentRef?.showNotification('Failed to export in-game save RAM');
+  /** Compute a robust token from the current ROM name to match save files. */
+  private romTokenForMatching(name?: string): string | null {
+    if (!name) return null;
+    // Strip extension and normalize
+    let base = name.replace(/\.(z64|n64|v64|zip|7z|rom)$/i, '');
+    // Collapse whitespace, remove common bracketed codes (region/verification)
+    base = base
+      .replace(/\s+/g, ' ')
+      .replace(/\s*\((?:U|E|J|JU|USA|Europe|Japan|V\d+(\.\d+)?)\)\s*/gi, ' ')
+      .replace(/\s*\[(?:!|b\d*|h\d*|o\d*|t\d*|M\d*|a\d*)\]\s*/gi, ' ')
+      .trim()
+      .toLowerCase();
+    // Also create a "looser" token without punctuation
+    const loose = base.replace(/[^a-z0-9 ]/g, '').trim();
+    return loose || null;
   }
-}
+
+  /** Export in-game save RAM for the currently running ROM; otherwise export all.
+   *  Returns a concrete object with metadata and raw bytes (Uint8Array).
+   */
+  async exportInGameSaveRam(): Promise<ExportInGameSaveRamResult> {
+    const empty: ExportInGameSaveRamResult = {
+      romName: this.romName ?? null,
+      matchedOnly: false,
+      totalFound: 0,
+      exported: []
+    };
+
+    try {
+      const dbList: Array<{ name?: string }> =
+        (indexedDB as any).databases ? await (indexedDB as any).databases() : [];
+      const mupenDbMeta = dbList.find(d => d.name === '/mupen64plus') || null;
+      if (!mupenDbMeta) {
+        this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found.');
+        return empty;
+      }
+
+      const openDb = (name: string) => new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open(name);
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => resolve(req.result);
+      });
+
+      const db = await openDb('/mupen64plus');
+      const storeName = 'FILE_DATA';
+      if (!Array.from(db.objectStoreNames).includes(storeName)) {
+        this.parentRef?.showNotification('FILE_DATA store not found in /mupen64plus.');
+        db.close();
+        return empty;
+      }
+
+      const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readonly');
+        const os = tx.objectStore(storeName);
+        const res: Array<{ key: any; val: any }> = [];
+        const cursorReq = os.openCursor();
+        cursorReq.onerror = () => reject(cursorReq.error);
+        cursorReq.onsuccess = (ev: any) => {
+          const cursor = ev.target.result;
+          if (cursor) { res.push({ key: cursor.key, val: cursor.value }); cursor.continue(); }
+          else resolve(res);
+        };
+      });
+
+      // Filter for save RAM files
+      const saveExts = ['.eep', '.sra', '.fla'];
+      const saveRows = rows.filter(({ key }) => {
+        const s = String(key).toLowerCase();
+        return s.startsWith('/mupen64plus/saves/') && saveExts.some(e => s.endsWith(e));
+      });
+
+      if (!saveRows.length) {
+        this.parentRef?.showNotification('No in-game save RAM found under /mupen64plus/saves.');
+        db.close();
+        return { ...empty, totalFound: 0, exported: [] };
+      }
+
+      // Decide whether to narrow to current ROM or export all
+      const isRunning = this.status === 'running' && !!this.instance;
+      const romToken = this.romTokenForMatching(this.romName);
+      let targetRows = saveRows;
+      let matchedOnly = false;
+
+      if (isRunning && romToken) {
+        // Match by filename token (loose) or includes original romName lowercased
+        const tokenMatches = (keyStr: string) => {
+          const fileName = keyStr.split('/').pop() || keyStr;
+          const lower = fileName.toLowerCase();
+          const loose = lower.replace(/[^a-z0-9 ]/g, '').trim();
+          return loose.includes(romToken) || lower.includes((this.romName || '').toLowerCase());
+        };
+        const narrowed = saveRows.filter(({ key }) => tokenMatches(String(key)));
+        if (narrowed.length) {
+          targetRows = narrowed;
+          matchedOnly = true;
+        } else {
+          this.parentRef?.showNotification('No saves matched the current ROM; returning all saves.');
+        }
+      }
+
+      // Build concrete results (no downloads here)
+      const exported: N64ExportedSave[] = [];
+      for (const { key, val } of targetRows) {
+        const ab = this.normalizeToArrayBuffer(val);
+        if (!ab) continue;
+        const filename = String(key).split('/').pop() || 'save_ram.bin';
+        exported.push({
+          key: String(key),
+          filename,
+          kind: 'battery',
+          size: ab.byteLength,
+          bytes: new Uint8Array(ab)
+        });
+      }
+
+      db.close();
+
+      const result: ExportInGameSaveRamResult = {
+        romName: this.romName ?? null,
+        matchedOnly,
+        totalFound: saveRows.length,
+        exported
+      };
+
+      // Optional UX: summarize
+      const count = exported.length;
+      const scope = matchedOnly ? 'matching' : 'all';
+      this.parentRef?.showNotification(`Prepared ${count} ${scope} in-game save file(s) for export.`);
+
+      return result;
+    } catch (err) {
+      console.error('exportInGameSaveRam failed', err);
+      this.parentRef?.showNotification('Failed to export in-game save RAM');
+      return empty;
+    }
+  }
+
 
 
   /** Normalize common IDBFS value shapes to ArrayBuffer. */
@@ -1264,7 +1302,7 @@ async exportInGameSaveRam() {
     console.groupEnd(); // IndexedDB
     console.groupEnd(); // root
   }
-    
+
   /** Import battery saves (.eep/.sra/.fla) into /mupen64plus/saves/, then restart emulator. */
   async importInGameSaveRam(files: FileList | File[]) {
     try {
@@ -1368,7 +1406,6 @@ async exportInGameSaveRam() {
     }
   }
 
-
   getAllowedRomFileTypes(): string[] {
     return this.fileService.n64FileExtensions;
   }
@@ -1376,4 +1413,109 @@ async exportInGameSaveRam() {
     // file-upload expects extensions in the form ".ext" or MIME types; provide dot-prefixed extensions
     return this.fileService.n64FileExtensions.map(e => '.' + e.trim().toLowerCase()).join(',');
   }
+
+  /** Called by the autosave timer: upload current ROM’s saves every N minutes */
+  private async autosaveTick() {
+    if (!this.autosave || this.autosaveInProgress) return;
+    this.autosaveInProgress = true;
+
+    try {
+      // Must have a userId to save server-side
+      const userId = this.parentRef?.user?.id;
+      if (!userId) { return; }
+
+      // 1) Export current ROM’s saves (if emulator running, it will narrow automatically)
+      const result = await this.exportInGameSaveRam();
+      const isRunning = this.status === 'running' && !!this.instance;
+
+      // We only upload when playing (as requested). If you prefer to upload “all” when idle, change this.
+      if (!isRunning || !result.exported.length || !result.matchedOnly) {
+        return; // no current ROM or nothing matched → skip
+      }
+
+      // 2) Upload only changed files (hash-based dedupe)
+      let uploadedCount = 0;
+      for (const item of result.exported) {
+        const hash = await this.sha256Hex(item.bytes);
+        const key = `${item.filename}`;
+        if (this.lastUploadedHashes.get(key) === hash) continue; // unchanged since last upload
+
+        const payload: N64StateUpload = {
+          userId,
+          romName: result.romName ?? 'Unknown',
+          filename: item.filename,           // e.g., 'GoldenEye 007 (U) [!].eep'
+          bytes: item.bytes,                 // Uint8Array
+          saveTimeMs: Date.now(),
+          durationSeconds: 180/* compute since last tick or session */
+        };
+
+
+        try {
+          const uploadRes = await this.romService.saveN64State(payload);
+          if (uploadRes.ok) {
+            // success
+          } else {
+            console.warn('Upload failed:', uploadRes.errorText);
+          }
+          this.lastUploadedHashes.set(key, hash);
+          uploadedCount++;
+        } catch (e) {
+          console.warn('autosave: saveN64State failed for', item.filename, e);
+        }
+      }
+
+      if (uploadedCount > 0) {
+        this.parentRef?.showNotification(`Autosaved ${uploadedCount} file(s) for ${result.romName ?? 'current ROM'}.`);
+      }
+    } catch (err) {
+      console.error('autosaveTick error', err);
+    } finally {
+      this.autosaveInProgress = false;
+    }
+  }
+
+  private startAutosaveLoop() {
+    this.stopAutosaveLoop(); // clear any existing
+    if (!this.autosave) return; // only run when toggle ON
+    // Fire immediately, then on interval
+    this.autosaveTick().catch(() => { });
+    this.autosaveTimer = setInterval(() => this.autosaveTick(), this.autosavePeriodMs);
+  }
+
+  private stopAutosaveLoop() {
+    if (this.autosaveTimer) {
+      clearInterval(this.autosaveTimer);
+      this.autosaveTimer = null;
+    }
+  }
+
+  /** Normalize input into a tight ArrayBuffer (no offset/extra bytes). */
+  private toTightArrayBuffer(input: ArrayBuffer | ArrayBufferView): ArrayBuffer {
+    if (input instanceof ArrayBuffer) return input;
+    const view = input as ArrayBufferView;
+    return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer;
+  }
+
+  /** Compute SHA-256 hex for ArrayBuffer or any typed array view. */
+  private async sha256Hex(input: ArrayBuffer | ArrayBufferView): Promise<string> {
+    const ab = this.toTightArrayBuffer(input);
+    const digest = await crypto.subtle.digest('SHA-256', ab);
+    const u8 = new Uint8Array(digest);
+    return Array.from(u8).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
 }
+
+type N64ExportedSave = {
+  key: string;                // full virtual path in IDBFS (/mupen64plus/saves/...)
+  filename: string;           // leaf filename
+  kind: 'battery';            // battery saves only (.eep/.sra/.fla)
+  size: number;               // in bytes
+  bytes: Uint8Array;          // raw bytes
+};
+
+type ExportInGameSaveRamResult = {
+  romName: string | null;
+  matchedOnly: boolean;       // true if narrowed to current ROM, false if exported all
+  totalFound: number;         // number of save files found under /mupen64plus/saves/
+  exported: N64ExportedSave[];// the actual items returned
+};
