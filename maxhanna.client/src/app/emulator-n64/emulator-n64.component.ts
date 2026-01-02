@@ -293,86 +293,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch { }
   }
 
-  async onFileSelected(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const file = input.files && input.files[0];
-    if (!file) return;
-    this.romName = file.name;
-
-    if (this.parentRef?.user?.id) {
-      let saveGameFile: Blob | null = null;
-      saveGameFile = await this.romService.getN64StateFile(this.romName, this.parentRef?.user?.id);
-      if (saveGameFile) {
-        const saveFile = await this.blobToN64SaveFile(saveGameFile, this.romName);
-        if (saveFile) {
-          await this.importInGameSaveRam([saveFile], true);
-        } else {
-          this.parentRef?.showNotification('No valid save found on server for this ROM.');
-        }
-      }
-    }
-
-    try {
-      const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as ArrayBuffer);
-        reader.onerror = (e) => reject(e);
-        reader.readAsArrayBuffer(file);
-      });
-
-      this.romBuffer = buffer;
-      this.parentRef?.showNotification(`Loaded ${this.romName}`);
-
-      const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
-      if (!canvasEl) {
-        this.parentRef?.showNotification('No canvas available');
-        return;
-      }
-      // Ensure canvas fills parent container before initializing the emulator
-      this.resizeCanvasToParent();
-      if (!this._canvasResizeAdded) {
-        try { window.addEventListener('resize', this._resizeHandler); this._canvasResizeAdded = true; } catch { }
-      }
-      // some runtimes expect id 'canvas'
-      if (canvasEl.id !== 'canvas') canvasEl.id = 'canvas';
-
-      // If user selected a gamepad, reorder navigator.getGamepads so the selected
-      // device appears as index 0 (player 1) to the emulator. This is a runtime
-      // workaround when multiple controllers are connected and the emulator
-      // picks the first device it finds.
-      this.applyGamepadReorder();
-
-      // Initialize mupen64plus-web with the ROM bytes and canvas
-      this.instance = await createMupen64PlusWeb({
-        canvas: canvasEl,
-        romData: new Int8Array(this.romBuffer),
-        innerWidth: canvasEl.width,
-        innerHeight: canvasEl.height,
-        beginStats: () => { },
-        endStats: () => { },
-        coreConfig: { emuMode: 0 },
-        setErrorStatus: (errorMessage: string) => {
-          console.log('Mupen error:', errorMessage);
-        },
-        // Ensure the Emscripten module locates its .wasm/.data files from our assets folder
-        locateFile: (path: string, prefix?: string) => {
-          return `/assets/mupen64plus/${path}`;
-        }
-      });
-
-      if (this.instance && typeof this.instance.start === 'function') {
-        await this.instance.start();
-        this.status = 'running';
-      }
-    } catch (e) {
-      console.error('Failed to load ROM / initialize emulator', e);
-      this.parentRef?.showNotification('Failed to load ROM');
-    }
-    console.log('instance.Module:', (this.instance as any)?.Module);
-    console.log('global Module:', (globalThis as any).Module);
-    console.log('global FS:', (globalThis as any).FS);
-  }
-
 
   /** Try to infer N64 battery save extension from file size. */
   private inferBatteryExtFromSize(size: number): '.eep' | '.sra' | '.fla' | null {
@@ -453,6 +373,20 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.romBuffer = buffer;
       this.romName = file.fileName || "";
       this.parentRef?.showNotification(`Loaded ${this.romName} from search`);
+
+
+      if (this.parentRef?.user?.id) {
+        let saveGameFile: Blob | null = null;
+        saveGameFile = await this.romService.getN64StateFile(this.romName, this.parentRef?.user?.id);
+        if (saveGameFile) {
+          const saveFile = await this.blobToN64SaveFile(saveGameFile, this.romName);
+          if (saveFile) {
+            await this.importInGameSaveRam([saveFile], true);
+          } else {
+            this.parentRef?.showNotification('No valid save found on server for this ROM.');
+          }
+        }
+      }
       // Auto-boot after selection for convenience
       try {
         await this.boot();
@@ -1049,8 +983,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   closeMenuPanel() {
     this.isMenuPanelVisible = false;
     this.parentRef?.closeOverlay();
-  }
-
+  } 
 
   async toggleFullscreen() {
     this.closeMenuPanel();
@@ -1199,9 +1132,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.parentRef?.showNotification('Failed to export in-game save RAM');
       return empty;
     }
-  }
-
-
+  } 
 
   /** Normalize common IDBFS value shapes to ArrayBuffer. */
   private normalizeToArrayBuffer(val: any): ArrayBuffer | null {
@@ -1222,7 +1153,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
     return ab;
   }
- 
+
 
   /** Import battery saves (.eep/.sra/.fla) into /mupen64plus/saves/, then restart emulator. */
   async importInGameSaveRam(files: FileList | File[], skipBoot: boolean = false) {
