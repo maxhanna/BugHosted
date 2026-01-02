@@ -272,9 +272,12 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     window.addEventListener('orientationchange', this._resizeHandler);
   }
 
-  ngOnDestroy(): void {
-    this.stop();
+  async ngOnDestroy(): Promise<void> {
     this.stopAutosaveLoop();
+    if (confirm('Save your progress on the server before exiting?')) {
+      await this.autosaveTick();
+    }
+    this.stop();
     if (this._resizeObserver) {
       this._resizeObserver.disconnect();
       this._resizeObserver = undefined;
@@ -295,19 +298,20 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const file = input.files && input.files[0];
     if (!file) return;
     this.romName = file.name;
-    let saveGameFile : Blob | null = null;
+    
     if (this.parentRef?.user?.id) {
+      let saveGameFile : Blob | null = null;
       saveGameFile = await this.romService.getN64StateFile(this.romName, this.parentRef?.user?.id);
-    }
-    if (saveGameFile) {
-      const saveFile = await this.blobToN64SaveFile(saveGameFile, this.romName);
-      if (saveFile) {
-        await this.importInGameSaveRam([saveFile]);
-      } else {
-        this.parentRef?.showNotification('No valid save found on server for this ROM.');
+      if (saveGameFile) {
+        const saveFile = await this.blobToN64SaveFile(saveGameFile, this.romName);
+        if (saveFile) {
+          await this.importInGameSaveRam([saveFile], true);
+        } else {
+          this.parentRef?.showNotification('No valid save found on server for this ROM.');
+        }
       }
     }
-    
+
     try {
       const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
         const reader = new FileReader();
@@ -1350,7 +1354,7 @@ private async blobToN64SaveFile(blob: Blob, suggestedName?: string): Promise<Fil
   }
 
   /** Import battery saves (.eep/.sra/.fla) into /mupen64plus/saves/, then restart emulator. */
-  async importInGameSaveRam(files: FileList | File[]) {
+  async importInGameSaveRam(files: FileList | File[], skipBoot: boolean = false) {
     try {
       // 1) Open the /mupen64plus → FILE_DATA store
       const dbMeta: Array<{ name?: string }> =
@@ -1442,7 +1446,9 @@ private async blobToN64SaveFile(blob: Blob, suggestedName?: string): Promise<Fil
         // Restart emulator so it performs its IDBFS sync-on-start and the game sees the new saves
         const wasRunning = this.status === 'running' || !!this.instance;
         if (wasRunning) { await this.stop(); await new Promise(r => setTimeout(r, 150)); }
-        await this.boot();
+        if (!skipBoot) {
+          await this.boot();
+        }
       } else {
         this.parentRef?.showNotification('No save files imported.');
       }
@@ -1522,9 +1528,11 @@ private async blobToN64SaveFile(blob: Blob, suggestedName?: string): Promise<Fil
 
   private startAutosaveLoop() {
     this.stopAutosaveLoop(); // clear any existing
-    if (!this.autosave) return; // only run when toggle ON
-    // Fire immediately, then on interval
-    this.autosaveTick().catch(() => { });
+    if (!this.autosave) return;
+    if (!this.parentRef?.user?.id) { 
+      this.parentRef?.showNotification('Autosave requires user login.');
+      return; 
+    }
     this.autosaveTimer = setInterval(() => this.autosaveTick(), this.autosavePeriodMs);
   }
 
