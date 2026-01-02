@@ -250,7 +250,7 @@ namespace maxhanna.Server.Controllers
               updateLastAccess.Parameters.AddWithValue("@folderPath", _baseTarget);
               await updateLastAccess.ExecuteNonQueryAsync();
               if (!isSaveFile)
-                _ = _log.Db($"Rom file already exists: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}", userId, "ROM", true);
+                _ = _log.Db($"Rom file already exists: {(isSaveFile ? newFilename : file.FileName)}, Size: {file.Length} bytes, Path: {filePath}, isSaveFile: {isSaveFile}", userId, "ROM", true);
             }
 
             // If this was a save file upload, check for optional timing fields and persist playtime
