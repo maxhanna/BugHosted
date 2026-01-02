@@ -40,3 +40,9 @@ canvas {
 .screen-wrap { border: 1px solid #222; display:inline-block; }
 .n64-canvas { background: #000; display:block; }
 .status { font-size: 12px; color: #ddd; }
+
+.toggle-label {
+  font-weight: bold;
+  font-size: 14px;
+  vertical-align: middle;
+}
