@@ -1107,8 +1107,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private findLatestSavestateFile(slot: number): { path: string; mtime: number } | null {
     const Module = this.instance?.Module;
     const FS = Module?.FS;
-    if (!FS) return null;
-
+    if (!FS) {
+      console.warn('FS not available for savestate search');
+      return null;
+    }
     const allowedExts = ['.st', '.sav', '.state', '.bin']; // adjust if your build uses a specific extension
     const slotTokens = [
       `slot${slot}`,
@@ -1127,6 +1129,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       try {
         return FS.readdir(path) as string[];
       } catch {
+        console.log('Failed to read dir during savestate search:', path);
         return [];
       }
     };
@@ -1135,6 +1138,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       try {
         return FS.stat(path);
       } catch {
+        console.log('Failed to stat path during savestate search:', path);
         return null;
       }
     };
