@@ -35,7 +35,10 @@
   <div>
     <app-file-upload [currentDirectory]="'Roms'" [user]="parentRef?.user!" [inputtedParentRef]="parentRef"
       [uploadButtonText]="'Upload Rom(s)'" [maxSelectedFiles]="100" [allowedFileTypes]="getAllowedRomFileTypesString()">
-    </app-file-upload> 
+    </app-file-upload>  
+    <button (click)="exportSaveState(0)" [disabled]="status !== 'running' || loading" *ngIf="romName">
+      Download Save State (Slot 0)
+    </button> 
   </div>
   <div class="optionsStatsWrapperDiv">
      <div class="optionsStatsDiv"> 
