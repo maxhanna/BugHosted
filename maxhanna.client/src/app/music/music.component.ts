@@ -141,22 +141,29 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.radioAudioEl = undefined;
     } 
   } 
-  
-  private attachResizeHandling(hostEl: HTMLElement) {
-    // If you implemented programmatic sizing for the YT iframe:
+
+  private attachResizeHandling() {
+    const hostEl = this.musicVideo.nativeElement as HTMLElement; 
+    
+    hostEl.style.display = 'block';
+    hostEl.style.aspectRatio = '16 / 9';
+    hostEl.style.minHeight = '200px';
+    
     const resize = () => {
       const r = hostEl.getBoundingClientRect();
-      try { this.ytPlayer?.setSize(Math.round(r.width), Math.round(r.height)); } catch {}
+      const w = Math.max(200, Math.round(r.width));
+      const h = Math.max(200, Math.round(r.height));
+      try { this.ytPlayer?.setSize(w, h); } catch {}
     };
-
+    
     // Save so we can remove later
-    this.resizeHandler = resize;
-
+    this.resizeHandler = resize; 
     window.addEventListener('resize', resize);
 
     // ResizeObserver is great for container-size changes
     this.ro = new ResizeObserver(() => resize());
     this.ro.observe(hostEl);
+    resize(); 
   }
 
   private detachResizeHandling() {
@@ -806,7 +813,6 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
     try { this.ytPlayer?.destroy(); } catch { console.warn('[YT] Failed to destroy existing player'); }
     
-    const hostEl = this.musicVideo.nativeElement as HTMLElement; 
     const initialChunk = songIds.slice(0, 50).join(',');
 
     this.ytPlayer = new YT.Player(this.musicVideo.nativeElement as HTMLElement, {
@@ -826,7 +832,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
           try { this.ytPlayer?.playVideoAt(index); } catch {}
           this.ytPlayer?.playVideo();
           try { this.ytPlayer?.setLoop(true); } catch {} 
-          this.attachResizeHandling(hostEl); 
+          this.attachResizeHandling(); 
         },
         onStateChange: (e: YT.OnStateChangeEvent) => {
           if (e.data === YT.PlayerState.ENDED) this.next();
