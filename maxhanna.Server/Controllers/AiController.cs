@@ -38,6 +38,9 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Ai/SendMessageToAi", Name = "SendMessageToAi")]
 		public async Task<IActionResult> SendMessageToAi([FromBody] AiRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{
+			HttpContext.RequestAborted.ThrowIfCancellationRequested(); // optional check
+			HttpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>().MaxRequestBodySize = null;
+
 			try
 			{
 				if (request.UserId != 0)

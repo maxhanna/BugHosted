@@ -43,9 +43,13 @@ builder.Services.AddSingleton<AiController>();
 builder.Services.AddSingleton<NewsService>();
 builder.Services.AddSingleton<ProfitCalculationService>();
 builder.Services.AddSingleton<TradeIndicatorService>();
-builder.Services.AddSingleton<KrakenService>();  
-
-builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue); // Allows for large files
+builder.Services.AddSingleton<KrakenService>();
+builder.WebHost.ConfigureKestrel(options =>
+{
+		options.Limits.MaxRequestBodySize = long.MaxValue;
+    options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(10); // or more
+    options.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(10);
+});
 
 var defaultApp = FirebaseApp.Create(new AppOptions
 {
