@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Input, OnInit, Output, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { Location } from '@angular/common';
 import { ChildComponent } from '../child.component';
 import { Todo } from '../../services/datacontracts/todo';
@@ -8,7 +8,8 @@ import { User } from '../../services/datacontracts/user/user';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
-import { AppComponent } from '../app.component';
+import { AppComponent } from '../app.component'; 
+import { SubscriptionLike } from 'rxjs';
 
 @Component({
   selector: 'app-music',
@@ -18,7 +19,7 @@ import { AppComponent } from '../app.component';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 
-export class MusicComponent extends ChildComponent implements OnInit, AfterViewInit {
+export class MusicComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('titleInput') titleInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
   @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
@@ -62,12 +63,16 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   currentRadioStation?: RadioStation;
   trackSong = (_: number, s: { id?: number }) => s.id ?? _;
   private currentUrl?: string;
-  private currentFileId?: number | null;
-
+  private currentFileId?: number | null; 
   private ytPlayer?: YT.Player;
   private ytReady = false;
   private pendingPlay?: { url?: string; fileId?: number | null }; // queue if API not ready yet
-  private ytApiPromise?: Promise<void>;
+  private ytApiPromise?: Promise<void>; 
+  private resizeHandler?: () => void;
+  private ro?: ResizeObserver;
+  private locationSub?: SubscriptionLike;
+  private radioAudioEl?: HTMLAudioElement;
+
 
   @Input() user?: User;
   @Input() smallPlayer = false;
@@ -79,8 +84,8 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     private radioService: RadioService,
     private cdr: ChangeDetectorRef
   ) {
-    super();
-    this.location.subscribe(() => {
+    super(); 
+    this.locationSub = this.location.subscribe(() => {
       if (this.isFullscreen) {
         this.closeFullscreen();
       }
@@ -100,12 +105,71 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     if (document.visibilityState === 'visible' && this.isMusicPlaying) {
       try { this.ytPlayer?.playVideo(); } catch { }
     }
-  }
-
+  } 
 
   async ngOnInit() {
     await this.tryInitialLoad();
   }
+
+  ngOnDestroy(): void { 
+    try { this.ytPlayer?.stopVideo(); } catch {}
+    try { this.ytPlayer?.destroy(); } catch {}
+    this.ytPlayer = undefined;
+
+    // Clear pending play queue
+    this.pendingPlay = undefined;
+
+    // Tear down resize listeners / observers
+    this.detachResizeHandling();
+
+    // Clear timers
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = undefined;
+    }
+
+    // Unsubscribe from Location (and any other RxJS subscriptions)
+    if (this.locationSub) {
+      try { this.locationSub.unsubscribe(); } catch {}
+      this.locationSub = undefined;
+    }
+
+    // Remove radio audio element
+    if (this.radioAudioEl) {
+      try { this.radioAudioEl.pause(); } catch {}
+      try { this.radioAudioEl.remove(); } catch {}
+      this.radioAudioEl = undefined;
+    } 
+  } 
+  
+  private attachResizeHandling(hostEl: HTMLElement) {
+    // If you implemented programmatic sizing for the YT iframe:
+    const resize = () => {
+      const r = hostEl.getBoundingClientRect();
+      try { this.ytPlayer?.setSize(Math.round(r.width), Math.round(r.height)); } catch {}
+    };
+
+    // Save so we can remove later
+    this.resizeHandler = resize;
+
+    window.addEventListener('resize', resize);
+
+    // ResizeObserver is great for container-size changes
+    this.ro = new ResizeObserver(() => resize());
+    this.ro.observe(hostEl);
+  }
+
+  private detachResizeHandling() {
+    if (this.resizeHandler) {
+      window.removeEventListener('resize', this.resizeHandler);
+      this.resizeHandler = undefined;
+    }
+    if (this.ro) {
+      try { this.ro.disconnect(); } catch {}
+      this.ro = undefined;
+    }
+  }
+
 
   private async tryInitialLoad() {
     const parent = this.inputtedParentRef ?? this.parentRef;
@@ -738,6 +802,8 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   private rebuildYTPlayer(firstId: string, songIds: string[], index: number) {
     if (!this.musicVideo?.nativeElement) return;
 
+    this.detachResizeHandling();
+
     try { this.ytPlayer?.destroy(); } catch { console.warn('[YT] Failed to destroy existing player'); }
     
     const hostEl = this.musicVideo.nativeElement as HTMLElement; 
@@ -755,20 +821,12 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
         playlist: initialChunk, // <-- string, not string[]
       },
       events: {
-        onReady: () => { 
-          // Size the player to match the container immediately
-          const rect = hostEl.getBoundingClientRect();
-          // setSize expects numbers (pixels)
-          this.ytPlayer?.setSize(Math.round(rect.width), Math.round(rect.height));
-
-          // Now load the full array programmatically (array is valid here)
-          this.ytPlayer?.loadPlaylist(songIds, index, /*startSeconds*/ undefined, /*quality*/ 'small');
-
-          // Ensure we land exactly on the requested index and play
-          try { this.ytPlayer?.playVideoAt(index); } catch { }
+        onReady: () => {  
+          this.ytPlayer?.loadPlaylist(songIds, index, undefined, 'small');
+          try { this.ytPlayer?.playVideoAt(index); } catch {}
           this.ytPlayer?.playVideo();
-
-          try { this.ytPlayer?.setLoop(true); } catch { }
+          try { this.ytPlayer?.setLoop(true); } catch {} 
+          this.attachResizeHandling(hostEl); 
         },
         onStateChange: (e: YT.OnStateChangeEvent) => {
           if (e.data === YT.PlayerState.ENDED) this.next();
@@ -777,7 +835,6 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
       }
     });
   }
-
 
   // Radio Browser API methods
   async loadRadioData() {
@@ -831,20 +888,25 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
       return;
     }
 
-    this.currentRadioStation = station;
-    this.isMusicPlaying = true;
-
-    // Create an audio element to play the radio stream
-    const audioPlayer = document.createElement('audio');
-    audioPlayer.src = station.url_resolved;
-    audioPlayer.autoplay = true;
-    audioPlayer.controls = true;
-    audioPlayer.style.width = '100%';
-    audioPlayer.style.marginTop = '10px';
-
-    // Clear existing content and add the audio player
     const iframeDiv = document.getElementById('iframeDiv');
     if (iframeDiv) {
+      // Remove any existing instance we created
+      if (this.radioAudioEl) {
+        try { this.radioAudioEl.pause(); } catch {}
+        this.radioAudioEl.remove();
+      }
+
+      this.currentRadioStation = station;
+      this.isMusicPlaying = true;
+
+      // Create an audio element to play the radio stream
+      const audioPlayer = document.createElement('audio');
+      audioPlayer.src = station.url_resolved;
+      audioPlayer.autoplay = true;
+      audioPlayer.controls = true;
+      audioPlayer.style.width = '100%';
+      audioPlayer.style.marginTop = '10px';
+  
       // Remove any existing audio players
       const existingAudio = iframeDiv.querySelector('audio');
       if (existingAudio) {
