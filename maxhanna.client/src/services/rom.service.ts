@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core'; 
- 
+
 export interface N64StateUpload {
   /** Logged-in user ID */
   userId: number;
@@ -42,6 +42,24 @@ export class RomService {
       return null;
     }
   }
+
+  
+  async getN64StateFile(rom: string, userId?: number) {
+    try {
+      const response = await fetch(`/rom/getn64statefile/${encodeURIComponent(rom)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userId),
+      });
+
+      return await response.blob();
+    } catch (error) {
+      return null;
+    }
+  }
+
   async uploadRomFile(userId: number, form: FormData) {
     form.append('userId', JSON.stringify(userId));
 

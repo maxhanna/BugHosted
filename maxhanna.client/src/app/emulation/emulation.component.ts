@@ -399,8 +399,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     const romSaveFile = this.fileService.getFileWithoutExtension(this.selectedRomName) + ".sav";
     const saveStateResponse = await this.romService.getRomFile(romSaveFile, this.parentRef?.user?.id);
     await this.nostalgist?.loadState(saveStateResponse!);
-  // mark session start when a state is loaded
-  this.runStartMs = Date.now();
+    // mark session start when a state is loaded
+    this.runStartMs = Date.now();
   }
 
   async loadRom(file: FileEntry) {

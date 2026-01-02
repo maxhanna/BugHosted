@@ -295,7 +295,19 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const file = input.files && input.files[0];
     if (!file) return;
     this.romName = file.name;
-
+    let saveGameFile : Blob | null = null;
+    if (this.parentRef?.user?.id) {
+      saveGameFile = await this.romService.getN64StateFile(this.romName, this.parentRef?.user?.id);
+    }
+    if (saveGameFile) {
+      const saveFile = await this.blobToN64SaveFile(saveGameFile, this.romName);
+      if (saveFile) {
+        await this.importInGameSaveRam([saveFile]);
+      } else {
+        this.parentRef?.showNotification('No valid save found on server for this ROM.');
+      }
+    }
+    
     try {
       const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
         const reader = new FileReader();
@@ -357,8 +369,42 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     console.log('global FS:', (globalThis as any).FS);
   }
 
-  // Resize canvas pixel buffer and CSS to fill the parent container
+  
+/** Try to infer N64 battery save extension from file size. */
+private inferBatteryExtFromSize(size: number): '.eep' | '.sra' | '.fla' | null {
+  if (size === 512 || size === 2048) return '.eep';     // 4Kb or 16Kb EEPROM
+  if (size === 32768) return '.sra';                    // 32KB SRAM
+  if (size === 131072) return '.fla';                   // 128KB FlashRAM
+  return null;
+}
 
+/** Build a base name from the current ROM (strip extension and common codes). */
+private baseNameFromRom(): string {
+  const name = this.romName || 'Unknown';
+  let base = name.replace(/\.(z64|n64|v64|zip|7z|rom)$/i, '');
+  base = base
+    .replace(/\s+/g, ' ')
+    .replace(/\s*\((?:U|E|J|JU|USA|Europe|Japan|V\d+(\.\d+)?)\)\s*/gi, ' ')
+    .replace(/\s*\[(?:!|b\d*|h\d*|o\d*|t\d*|M\d*|a\d*)\]\s*/gi, ' ')
+    .trim();
+  return base || 'Unknown';
+}
+
+/** Wrap a Blob into a File with a derived filename; detects battery save extension by size. */
+private async blobToN64SaveFile(blob: Blob, suggestedName?: string): Promise<File | null> {
+  const size = blob.size;
+  const ext = this.inferBatteryExtFromSize(size);
+  if (!ext) {
+    // Not a battery save we can import with this function (likely a savestate container .sav/.srm)
+    this.parentRef?.showNotification('Downloaded blob is not a recognized battery save (.eep/.sra/.fla).');
+    return null;
+  }
+  const base = (suggestedName && suggestedName.replace(/\.[^\.]+$/,'')) || this.baseNameFromRom();
+  const filename = `${base}${ext}`;
+  return new File([blob], filename, { type: blob.type || 'application/octet-stream' });
+}
+
+  // Resize canvas pixel buffer and CSS to fill the parent container
   private resizeCanvasToParent() {
     try {
       const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
@@ -596,11 +642,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.parentRef?.showNotification('No canvas available');
       return;
     }
-
-    // ✨ Make sure the backing buffer matches the container *now*
+ 
     this.resizeCanvasToParent();
-
-    // Attach listeners if they weren’t added in file-select path
+ 
     if (!this._canvasResizeAdded) {
       try {
         window.addEventListener('resize', this._resizeHandler);
