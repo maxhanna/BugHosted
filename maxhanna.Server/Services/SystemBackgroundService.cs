@@ -137,6 +137,7 @@ namespace maxhanna.Server.Services
 		}
 		private async Task RunFiveMinuteTasks()
 		{
+			await _aiController.AnalyzeAndRenameFile();
 			await FetchAndStoreTopMarketCaps();
 			await UpdateLastBTCWalletInfo();
 			await FetchAndStoreCoinValues();
