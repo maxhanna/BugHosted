@@ -28,12 +28,14 @@
     </app-file-upload>
     <button (click)="exportInGameSaveRam()" [disabled]="status !== 'running' || loading" *ngIf="romName">
       Download Save State
-    </button> 
+    </button>
+    
+    <input type="file"
+       (change)="importInGameSaveRam($event.target.files)"
+       accept=".eep,.sra,.fla" multiple />
+
     <button (click)="dumpSiteStorage(0)" [disabled]="status !== 'running' || loading" *ngIf="romName">
       Dump Site Storage
-    </button> 
-    <button (click)="exportSavestatesIfPresent(null)" [disabled]="loading">
-      Download Savestate (if present)
     </button>
   </div>
   <div class="optionsStatsWrapperDiv">

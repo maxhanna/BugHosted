@@ -998,186 +998,166 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.isFullScreen = !!document.fullscreenElement;
   }
 
-  
-/** Export savestates (.st*) from IndexedDB (if any exist). */
-async exportSavestatesIfPresent(slot: number | null = null) {
-  try {
-    const dbList: Array<{ name?: string }> =
-      (indexedDB as any).databases ? await (indexedDB as any).databases() : [];
-    const meta = dbList.find(d => d.name === '/mupen64plus'); if (!meta) { this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found.'); return; }
-
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open('/mupen64plus');
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => resolve(req.result);
-    });
-
-    const tx = db.transaction('FILE_DATA', 'readonly');
-    const os = tx.objectStore('FILE_DATA');
-
-    const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
-      const res: Array<{ key: any; val: any }> = [];
-      const cursorReq = os.openCursor();
-      cursorReq.onerror = () => reject(cursorReq.error);
-      cursorReq.onsuccess = (ev: any) => {
-        const cursor = ev.target.result;
-        if (cursor) { res.push({ key: cursor.key, val: cursor.value }); cursor.continue(); }
-        else resolve(res);
-      };
-    });
-
-    const exts = ['.st', '.state', '.bin']; // some builds
-    const slotFilters = slot != null ? [`slot${slot}`, `.st${slot}`, `_${slot}.st`, `.${slot}.st`].map(s => s.toLowerCase()) : [];
-    const candidates = rows.filter(({ key }) => {
-      const s = String(key).toLowerCase();
-      const inDir = s.startsWith('/mupen64plus/savestates/');
-      const hasExt = exts.some(e => s.endsWith(e));
-      const slotOk = !slotFilters.length || slotFilters.some(t => s.includes(t));
-      return inDir && hasExt && slotOk;
-    });
-
-    if (!candidates.length) {
-      this.parentRef?.showNotification('No savestates found under /mupen64plus/savestates.');
-      db.close();
-      return;
-    }
-
-    // Download the newest one (or all, if you prefer)
-    const newest = candidates[candidates.length - 1]; // DB order is generally insertion order
-    const ab = this.normalizeToArrayBuffer(newest.val);
-    if (!ab) { this.parentRef?.showNotification('Savestate record found but unreadable.'); db.close(); return; }
-
-    const filename = this.composeSavestateFilename(slot ?? 0);
-    const blob = new Blob([ab], { type: 'application/octet-stream' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = filename; a.style.display = 'none';
-    document.body.appendChild(a); a.click();
-    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 80);
-
-    this.parentRef?.showNotification(`Downloaded savestate: ${String(newest.key)}`);
-    db.close();
-  } catch (e) {
-    console.error('exportSavestatesIfPresent failed', e);
-    this.parentRef?.showNotification('Failed to export savestate');
-  }
-}
-
-/** Export all in-game save RAM files (.eep/.sra/.fla) from IndexedDB → downloads */
-async exportInGameSaveRam() {
-  try {
-    const dbList: Array<{ name?: string }> =
-      (indexedDB as any).databases ? await (indexedDB as any).databases() : [];
-    const mupenDbMeta = dbList.find(d => d.name === '/mupen64plus') || null;
-    if (!mupenDbMeta) {
-      this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found.');
-      return;
-    }
-
-    const openDb = (name: string) => new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open(name);
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => resolve(req.result);
-    });
-
-    const db = await openDb('/mupen64plus');
-    const storeName = 'FILE_DATA';
-    if (!Array.from(db.objectStoreNames).includes(storeName)) {
-      this.parentRef?.showNotification('FILE_DATA store not found in /mupen64plus.');
-      db.close();
-      return;
-    }
-
-    const tx = db.transaction(storeName, 'readonly');
-    const os = tx.objectStore(storeName);
-
-    const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
-      const res: Array<{ key: any; val: any }> = [];
-      const cursorReq = os.openCursor();
-      cursorReq.onerror = () => reject(cursorReq.error);
-      cursorReq.onsuccess = (ev: any) => {
-        const cursor = ev.target.result;
-        if (cursor) { res.push({ key: cursor.key, val: cursor.value }); cursor.continue(); }
-        else resolve(res);
-      };
-    });
-
-    // Filter for save RAM files
-    const saveExts = ['.eep', '.sra', '.fla'];
-    const saveRows = rows.filter(({ key }) => {
-      const s = String(key).toLowerCase();
-      return s.startsWith('/mupen64plus/saves/') && saveExts.some(e => s.endsWith(e));
-    });
-
-    if (!saveRows.length) {
-      this.parentRef?.showNotification('No in-game save RAM found under /mupen64plus/saves.');
-      db.close();
-      return;
-    }
-
-    // If a ROM name is present, prefer saves that contain its token
-    const romToken = (this.romName || '').toLowerCase().replace(/\s+/g, ' ').trim();
-    const preferred = romToken ? saveRows.filter(r => String(r.key).toLowerCase().includes(romToken)) : saveRows;
-    const targetRows = preferred.length ? preferred : saveRows;
-
-    // Download each found save file (EEPROM/SRAM/Flash)
-    for (const { key, val } of targetRows) {
-      const ab = this.normalizeToArrayBuffer(val);
-      if (!ab) continue;
-      const filename = String(key).split('/').pop() || 'save_ram.bin';
-      const blob = new Blob([ab], { type: 'application/octet-stream' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename; a.style.display = 'none';
-      document.body.appendChild(a); a.click();
-      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 80);
-    }
-
-    this.parentRef?.showNotification(`Exported ${targetRows.length} in-game save RAM file(s).`);
-    db.close();
-  } catch (err) {
-    console.error('exportInGameSaveRam failed', err);
-    this.parentRef?.showNotification('Failed to export in-game save RAM');
-  }
-}
-
-/** Normalize common IDBFS value shapes to ArrayBuffer. */
-private normalizeToArrayBuffer(val: any): ArrayBuffer | null {
-  if (val instanceof ArrayBuffer) return val;
-  if (val?.buffer instanceof ArrayBuffer && typeof val.byteLength === 'number') return val.buffer;
-  const fromObj = (field: any) => field instanceof ArrayBuffer ? field
-                      : field?.buffer instanceof ArrayBuffer ? field.buffer : null;
-  let ab = null;
-  if (val?.contents) ab = fromObj(val.contents);
-  if (!ab && val?.data) ab = fromObj(val.data);
-  if (!ab && Array.isArray(val?.bytes)) ab = new Uint8Array(val.bytes).buffer;
-  if (!ab && typeof val === 'string' && /^[A-Za-z0-9+/=]+$/.test(val)) {
+  /** Export all in-game save RAM files (.eep/.sra/.fla) from IndexedDB → downloads */
+  async exportInGameSaveRam() {
     try {
-      const bin = atob(val);
-      const u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-      ab = u8.buffer;
-    } catch { /* ignore */ }
+      const dbList: Array<{ name?: string }> =
+        (indexedDB as any).databases ? await (indexedDB as any).databases() : [];
+      const mupenDbMeta = dbList.find(d => d.name === '/mupen64plus') || null;
+      if (!mupenDbMeta) {
+        this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found.');
+        return;
+      }
+
+      const openDb = (name: string) => new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open(name);
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => resolve(req.result);
+      });
+
+      const db = await openDb('/mupen64plus');
+      const storeName = 'FILE_DATA';
+      if (!Array.from(db.objectStoreNames).includes(storeName)) {
+        this.parentRef?.showNotification('FILE_DATA store not found in /mupen64plus.');
+        db.close();
+        return;
+      }
+
+      const tx = db.transaction(storeName, 'readonly');
+      const os = tx.objectStore(storeName);
+
+      const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
+        const res: Array<{ key: any; val: any }> = [];
+        const cursorReq = os.openCursor();
+        cursorReq.onerror = () => reject(cursorReq.error);
+        cursorReq.onsuccess = (ev: any) => {
+          const cursor = ev.target.result;
+          if (cursor) { res.push({ key: cursor.key, val: cursor.value }); cursor.continue(); }
+          else resolve(res);
+        };
+      });
+
+      // Filter for save RAM files
+      const saveExts = ['.eep', '.sra', '.fla'];
+      const saveRows = rows.filter(({ key }) => {
+        const s = String(key).toLowerCase();
+        return s.startsWith('/mupen64plus/saves/') && saveExts.some(e => s.endsWith(e));
+      });
+
+      if (!saveRows.length) {
+        this.parentRef?.showNotification('No in-game save RAM found under /mupen64plus/saves.');
+        db.close();
+        return;
+      }
+
+      // If a ROM name is present, prefer saves that contain its token
+      const romToken = (this.romName || '').toLowerCase().replace(/\s+/g, ' ').trim();
+      const preferred = romToken ? saveRows.filter(r => String(r.key).toLowerCase().includes(romToken)) : saveRows;
+      const targetRows = preferred.length ? preferred : saveRows;
+
+      // Download each found save file (EEPROM/SRAM/Flash)
+      for (const { key, val } of targetRows) {
+        const ab = this.normalizeToArrayBuffer(val);
+        if (!ab) continue;
+        const filename = String(key).split('/').pop() || 'save_ram.bin';
+        const blob = new Blob([ab], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename; a.style.display = 'none';
+        document.body.appendChild(a); a.click();
+        setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 80);
+      }
+
+      this.parentRef?.showNotification(`Exported ${targetRows.length} in-game save RAM file(s).`);
+      db.close();
+    } catch (err) {
+      console.error('exportInGameSaveRam failed', err);
+      this.parentRef?.showNotification('Failed to export in-game save RAM');
+    }
   }
-  return ab;
-}
 
-/** Export savestate by enumerating all IndexedDB DBs/stores and downloading newest match. */
-async exportSavestateFromIndexedDB(slot: number = 0) {
-  const exts = ['.st', '.sav', '.state', '.bin'];
-  const slotTokens = [`slot${slot}`, `.st${slot}`, `_${slot}.st`, `.${slot}.st`];
+  /** Normalize common IDBFS value shapes to ArrayBuffer. */
+  private normalizeToArrayBuffer(val: any): ArrayBuffer | null {
+    if (val instanceof ArrayBuffer) return val;
+    if (val?.buffer instanceof ArrayBuffer && typeof val.byteLength === 'number') return val.buffer;
+    const fromObj = (field: any) => field instanceof ArrayBuffer ? field
+      : field?.buffer instanceof ArrayBuffer ? field.buffer : null;
+    let ab = null;
+    if (val?.contents) ab = fromObj(val.contents);
+    if (!ab && val?.data) ab = fromObj(val.data);
+    if (!ab && Array.isArray(val?.bytes)) ab = new Uint8Array(val.bytes).buffer;
+    if (!ab && typeof val === 'string' && /^[A-Za-z0-9+/=]+$/.test(val)) {
+      try {
+        const bin = atob(val);
+        const u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+        ab = u8.buffer;
+      } catch { /* ignore */ }
+    }
+    return ab;
+  }
 
-  const looksLikeState = (key: any) => {
-    const s = String(key).toLowerCase();
-    const hasExt = exts.some((e) => s.endsWith(e));
-    const looksSlot = slotTokens.some((t) => s.includes(t));
-    return hasExt || looksSlot;
-  };
 
-  const toArrayBuffer = (u8: Uint8Array) => u8.slice().buffer;
 
-  try {
-    const candidates: Array<{ dbName: string; store: string; key: any; when: number; ab: ArrayBuffer }> = [];
-    const dbMetaList: Array<{ name?: string }> =
+  /** Diagnostic: enumerate IndexedDB, Cache Storage, and Web Storage and log what’s there. */
+  async dumpSiteStorage(slot: number = 0) {
+    const exts = ['.st', '.sav', '.state', '.bin'];
+    const slotTokens = [`slot${slot}`, `.st${slot}`, `_${slot}.st`, `.${slot}.st`];
+
+    const looksLikeState = (name: string) => {
+      const lower = name.toLowerCase();
+      const hasExt = exts.some((e) => lower.endsWith(e));
+      const looksSlot = slotTokens.some((t) => lower.includes(t));
+      return hasExt || looksSlot;
+    };
+
+    console.group('=== Storage Dump (Cache, WebStorage, IndexedDB) ===');
+
+    // ---- Cache Storage ----
+    try {
+      const cacheNames = await caches.keys();
+      console.group('Cache Storage');
+      console.log('cacheNames:', cacheNames);
+      for (const name of cacheNames) {
+        const cache = await caches.open(name);
+        const keys = await cache.keys();
+        const urls = keys.map((r) => r.url);
+        console.log(`[${name}] entries:`, urls);
+        const candidates = urls.filter(looksLikeState);
+        if (candidates.length) console.warn(`[${name}] savestate candidates:`, candidates);
+      }
+      console.groupEnd();
+    } catch (e) {
+      console.warn('CacheStorage not available / failed:', e);
+    }
+
+    // ---- Web Storage ----
+    try {
+      console.group('Web Storage');
+      const lsKeys = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i) || '');
+      const ssKeys = Array.from({ length: sessionStorage.length }, (_, i) => sessionStorage.key(i) || '');
+      console.log('localStorage keys:', lsKeys);
+      console.log('sessionStorage keys:', ssKeys);
+      const lsCandidates = lsKeys.filter((k) => k && looksLikeState(k));
+      const ssCandidates = ssKeys.filter((k) => k && looksLikeState(k));
+      if (lsCandidates.length) console.warn('localStorage savestate-like keys:', lsCandidates);
+      if (ssCandidates.length) console.warn('sessionStorage savestate-like keys:', ssCandidates);
+      console.groupEnd();
+    } catch (e) {
+      console.warn('Web Storage scan failed:', e);
+    }
+
+    // ---- IndexedDB ----
+    console.group('IndexedDB');
+    const dbMetaList: Array<{ name?: string; version?: number }> =
       (indexedDB as any).databases ? await (indexedDB as any).databases() : [];
+
+    if (!dbMetaList.length) {
+      // Fallback: try opening a few likely names if databases() isn’t supported
+      // NOTE: you can add known mount-point names here (e.g., '/data', '/mupen64plus')
+      console.warn('indexedDB.databases() not supported; add known DB names to probe if needed.');
+    } else {
+      console.log('IndexedDB databases:', dbMetaList);
+    }
 
     const openDb = (name: string) =>
       new Promise<IDBDatabase>((resolve, reject) => {
@@ -1186,569 +1166,166 @@ async exportSavestateFromIndexedDB(slot: number = 0) {
         req.onsuccess = () => resolve(req.result);
       });
 
+    // iterate over all DBs we can see
     for (const meta of dbMetaList) {
       const name = meta.name;
       if (!name) continue;
-      let db: IDBDatabase | null = null;
       try {
-        db = await openDb(name);
+        const db = await openDb(name);
+        console.group(`DB "${name}" (version ${db.version})`);
+
         const stores = Array.from(db.objectStoreNames);
-
+        console.log('objectStores:', stores);
         for (const storeName of stores) {
-          const tx = db.transaction(storeName, 'readonly');
-          const os = tx.objectStore(storeName);
+          try {
+            const tx = db.transaction(storeName, 'readonly');
+            const os = tx.objectStore(storeName);
+            console.group(`Store "${storeName}"`);
 
-          const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
-            const res: Array<{ key: any; val: any }> = [];
-            const cursorReq = os.openCursor();
-            cursorReq.onerror = () => reject(cursorReq.error);
-            cursorReq.onsuccess = (ev: any) => {
-              const cursor = ev.target.result;
-              if (cursor) { res.push({ key: cursor.key, val: cursor.value }); cursor.continue(); }
-              else resolve(res);
-            };
-          });
+            // enumerate records
+            const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
+              const res: Array<{ key: any; val: any }> = [];
+              const cursorReq = os.openCursor();
+              cursorReq.onerror = () => reject(cursorReq.error);
+              cursorReq.onsuccess = (ev: any) => {
+                const cursor = ev.target.result;
+                if (cursor) {
+                  res.push({ key: cursor.key, val: cursor.value });
+                  cursor.continue();
+                } else resolve(res);
+              };
+            });
 
-          for (const { key, val } of rows) {
-            // Heuristic #1: key looks like savestate path
-            if (looksLikeState(key)) {
-              const ab = normalizeToArrayBuffer(val);
-              if (ab) candidates.push({ dbName: name, store: storeName, key, when: Date.now(), ab });
-              continue;
+            console.log(`count: ${rows.length}`);
+            const candidates = rows.filter(({ key }) => looksLikeState(String(key)));
+            if (candidates.length) {
+              console.warn('savestate-like keys:', candidates.map(c => c.key));
+            } else {
+              // Sometimes the savestate key isn’t obviously named; log a sample of record shapes
+              const shapes = rows.slice(0, Math.min(rows.length, 5)).map(({ key, val }) => ({
+                key,
+                type: val?.constructor?.name,
+                fields: val && typeof val === 'object' ? Object.keys(val) : [],
+              }));
+              console.log('sample record shapes:', shapes);
             }
-            // Heuristic #2: value object has a path/name field that looks like savestate
-            const path = val?.path || val?.name || val?.filename || val?.url;
-            if (path && looksLikeState(path)) {
-              const ab = normalizeToArrayBuffer(val);
-              if (ab) candidates.push({ dbName: name, store: storeName, key, when: Date.now(), ab });
-              continue;
-            }
+
+            console.groupEnd(); // store
+          } catch (storeErr) {
+            console.warn(`Failed to read store "${storeName}"`, storeErr);
           }
         }
-      } catch (e) {
-        console.warn(`IndexedDB read error for DB "${name}"`, e);
-      } finally {
-        try { db?.close(); } catch {}
+        console.groupEnd(); // DB
+        db.close();
+      } catch (dbErr) {
+        console.warn(`Failed to open DB "${name}"`, dbErr);
       }
     }
 
-    if (!candidates.length) {
-      this.parentRef?.showNotification('No savestate found in IndexedDB.');
-      return;
-    }
-
-    // newest candidate (we’re using Date.now() as we scan)
-    const best = candidates.sort((a, b) => b.when - a.when)[0];
-    const filename = this.composeSavestateFilename(slot);
-
-    const blob = new Blob([best.ab], { type: 'application/octet-stream' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename; a.style.display = 'none';
-    document.body.appendChild(a); a.click();
-    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-
-    this.parentRef?.showNotification(`Downloaded savestate from IndexedDB (db: ${best.dbName}, store: ${best.store})`);
-  } catch (err) {
-    console.error('IndexedDB export failed', err);
-    this.parentRef?.showNotification('Failed to export savestate from IndexedDB');
+    console.groupEnd(); // IndexedDB
+    console.groupEnd(); // root
   }
-
-  /** Normalize typical Emscripten/IDBFS value shapes to ArrayBuffer. */
-  function normalizeToArrayBuffer(val: any): ArrayBuffer | null {
-    // Raw ArrayBuffer
-    if (val instanceof ArrayBuffer) return val;
-    // Typed arrays
-    if (val?.buffer instanceof ArrayBuffer && typeof val.byteLength === 'number') {
-      return val.buffer;
-    }
-    // Common object shapes in IDBFS-like stores:
-    // { contents: Uint8Array|ArrayBuffer }   OR   { data: Uint8Array|ArrayBuffer }
-    if (val?.contents) {
-      const c = val.contents;
-      if (c instanceof ArrayBuffer) return c;
-      if (c?.buffer instanceof ArrayBuffer) return c.buffer;
-    }
-    if (val?.data) {
-      const d = val.data;
-      if (d instanceof ArrayBuffer) return d;
-      if (d?.buffer instanceof ArrayBuffer) return d.buffer;
-    }
-    // Some stores stash bytes under { bytes: [...] } or { value: [...] }
-    const arr = val?.bytes || val?.value;
-    if (Array.isArray(arr)) return new Uint8Array(arr).buffer;
-
-    // Final fallback: if val is string (base64?), try to decode
-    if (typeof val === 'string' && /^[A-Za-z0-9+/=]+$/.test(val)) {
-      try {
-        const bin = atob(val);
-        const u8 = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-        return u8.buffer;
-      } catch {}
-    }
-    return null;
-  }
-}
-
-
-/** Diagnostic: enumerate IndexedDB, Cache Storage, and Web Storage and log what’s there. */
-async dumpSiteStorage(slot: number = 0) {
-  const exts = ['.st', '.sav', '.state', '.bin'];
-  const slotTokens = [`slot${slot}`, `.st${slot}`, `_${slot}.st`, `.${slot}.st`];
-
-  const looksLikeState = (name: string) => {
-    const lower = name.toLowerCase();
-    const hasExt = exts.some((e) => lower.endsWith(e));
-    const looksSlot = slotTokens.some((t) => lower.includes(t));
-    return hasExt || looksSlot;
-  };
-
-  console.group('=== Storage Dump (Cache, WebStorage, IndexedDB) ===');
-
-  // ---- Cache Storage ----
-  try {
-    const cacheNames = await caches.keys();
-    console.group('Cache Storage');
-    console.log('cacheNames:', cacheNames);
-    for (const name of cacheNames) {
-      const cache = await caches.open(name);
-      const keys = await cache.keys();
-      const urls = keys.map((r) => r.url);
-      console.log(`[${name}] entries:`, urls);
-      const candidates = urls.filter(looksLikeState);
-      if (candidates.length) console.warn(`[${name}] savestate candidates:`, candidates);
-    }
-    console.groupEnd();
-  } catch (e) {
-    console.warn('CacheStorage not available / failed:', e);
-  }
-
-  // ---- Web Storage ----
-  try {
-    console.group('Web Storage');
-    const lsKeys = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i) || '');
-    const ssKeys = Array.from({ length: sessionStorage.length }, (_, i) => sessionStorage.key(i) || '');
-    console.log('localStorage keys:', lsKeys);
-    console.log('sessionStorage keys:', ssKeys);
-    const lsCandidates = lsKeys.filter((k) => k && looksLikeState(k));
-    const ssCandidates = ssKeys.filter((k) => k && looksLikeState(k));
-    if (lsCandidates.length) console.warn('localStorage savestate-like keys:', lsCandidates);
-    if (ssCandidates.length) console.warn('sessionStorage savestate-like keys:', ssCandidates);
-    console.groupEnd();
-  } catch (e) {
-    console.warn('Web Storage scan failed:', e);
-  }
-
-  // ---- IndexedDB ----
-  console.group('IndexedDB');
-  const dbMetaList: Array<{ name?: string; version?: number }> =
-    (indexedDB as any).databases ? await (indexedDB as any).databases() : [];
-
-  if (!dbMetaList.length) {
-    // Fallback: try opening a few likely names if databases() isn’t supported
-    // NOTE: you can add known mount-point names here (e.g., '/data', '/mupen64plus')
-    console.warn('indexedDB.databases() not supported; add known DB names to probe if needed.');
-  } else {
-    console.log('IndexedDB databases:', dbMetaList);
-  }
-
-  const openDb = (name: string) =>
-    new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open(name);
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => resolve(req.result);
-    });
-
-  // iterate over all DBs we can see
-  for (const meta of dbMetaList) {
-    const name = meta.name;
-    if (!name) continue;
+    
+  /** Import battery saves (.eep/.sra/.fla) into /mupen64plus/saves/, then restart emulator. */
+  async importInGameSaveRam(files: FileList | File[]) {
     try {
-      const db = await openDb(name);
-      console.group(`DB "${name}" (version ${db.version})`);
-
-      const stores = Array.from(db.objectStoreNames);
-      console.log('objectStores:', stores);
-      for (const storeName of stores) {
-        try {
-          const tx = db.transaction(storeName, 'readonly');
-          const os = tx.objectStore(storeName);
-          console.group(`Store "${storeName}"`);
-
-          // enumerate records
-          const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
-            const res: Array<{ key: any; val: any }> = [];
-            const cursorReq = os.openCursor();
-            cursorReq.onerror = () => reject(cursorReq.error);
-            cursorReq.onsuccess = (ev: any) => {
-              const cursor = ev.target.result;
-              if (cursor) {
-                res.push({ key: cursor.key, val: cursor.value });
-                cursor.continue();
-              } else resolve(res);
-            };
-          });
-
-          console.log(`count: ${rows.length}`);
-          const candidates = rows.filter(({ key }) => looksLikeState(String(key)));
-          if (candidates.length) {
-            console.warn('savestate-like keys:', candidates.map(c => c.key));
-          } else {
-            // Sometimes the savestate key isn’t obviously named; log a sample of record shapes
-            const shapes = rows.slice(0, Math.min(rows.length, 5)).map(({ key, val }) => ({
-              key,
-              type: val?.constructor?.name,
-              fields: val && typeof val === 'object' ? Object.keys(val) : [],
-            }));
-            console.log('sample record shapes:', shapes);
-          }
-
-          console.groupEnd(); // store
-        } catch (storeErr) {
-          console.warn(`Failed to read store "${storeName}"`, storeErr);
-        }
+      // 1) Open the /mupen64plus → FILE_DATA store
+      const dbMeta: Array<{ name?: string }> =
+        (indexedDB as any).databases ? await (indexedDB as any).databases() : [];
+      const mupenDb = dbMeta.find(d => d.name === '/mupen64plus');
+      if (!mupenDb) {
+        this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found.');
+        return;
       }
-      console.groupEnd(); // DB
-      db.close();
-    } catch (dbErr) {
-      console.warn(`Failed to open DB "${name}"`, dbErr);
-    }
-  }
-
-  console.groupEnd(); // IndexedDB
-  console.groupEnd(); // root
-}
-
-
-/** Look for savestate-like files in Cache Storage and download the newest match. */
-async exportSavestateFromCacheStorage(slot: number = 0) {
-  try {
-    const cacheNames = await caches.keys(); // list named caches
-    // Heuristics for savestate names
-    const exts = ['.st', '.sav', '.state', '.bin'];
-    const slotTokens = [`slot${slot}`, `.st${slot}`, `_${slot}.st`, `.${slot}.st`];
-
-    const candidates: Array<{name: string; url: string; when: number; resp: Response}> = [];
-
-    for (const name of cacheNames) {
-      const cache = await caches.open(name);
-      const requests = await cache.keys(); // all Request keys in this cache
-      for (const req of requests) {
-        const url = req.url.toLowerCase();
-        const hasExt = exts.some((e) => url.endsWith(e));
-        const looksLikeSlot = slotTokens.some((t) => url.includes(t));
-        if (!hasExt && !looksLikeSlot) continue;
-
-        const resp = await cache.match(req);
-        if (resp) {
-          candidates.push({ name, url: req.url, when: Date.now(), resp });
-        }
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open('/mupen64plus'); req.onerror = () => reject(req.error); req.onsuccess = () => resolve(req.result);
+      });
+      if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) {
+        this.parentRef?.showNotification('FILE_DATA store not found.');
+        db.close();
+        return;
       }
-    }
 
-    if (!candidates.length) {
-      this.parentRef?.showNotification('No savestate found in Cache Storage.');
-      return;
-    }
+      // 2) Fetch an existing /mupen64plus/saves record as a template for value shape
+      const getTemplate = async (): Promise<any | null> => {
+        const tx = db.transaction('FILE_DATA', 'readonly');
+        const os = tx.objectStore('FILE_DATA');
+        const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
+          const res: any[] = []; const cur = os.openCursor();
+          cur.onerror = () => reject(cur.error);
+          cur.onsuccess = (ev: any) => { const c = ev.target.result; if (c) { res.push({ key: c.key, val: c.value }); c.continue(); } else resolve(res); };
+        });
+        const sample = rows.find(r => String(r.key).startsWith('/mupen64plus/saves/'));
+        return sample ? sample.val : null;
+      };
+      const templateVal = await getTemplate();
 
-    // Pick newest candidate and stream to Blob
-    const best = candidates.sort((a, b) => b.when - a.when)[0];
-    const blob = await best.resp.blob();
-    const filename = this.composeSavestateFilename(slot);
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 100);
-
-    this.parentRef?.showNotification(`Downloaded savestate from Cache Storage: ${best.url}`);
-  } catch (err) {
-    console.error('CacheStorage export failed', err);
-    this.parentRef?.showNotification('Failed to export savestate from Cache Storage');
-  }
-}
-
-/** Try to find savestate-like entries in localStorage/sessionStorage and download. */
-exportSavestateFromWebStorage(slot: number = 0) {
-  const scan = (store: Storage, label: string) => {
-    try {
-      const exts = ['.st', '.sav', '.state', '.bin'];
-      const slotTokens = [`slot${slot}`, `.st${slot}`, `_${slot}.st`, `.${slot}.st`];
-
-      for (let i = 0; i < store.length; i++) {
-        const key = store.key(i) || '';
-        const lower = key.toLowerCase();
-        const hasExt = exts.some((e) => lower.endsWith(e));
-        const looksLikeSlot = slotTokens.some((t) => lower.includes(t));
-        if (!hasExt && !looksLikeSlot) continue;
-
-        const value = store.getItem(key);
-        if (!value) continue;
-
-        // Try base64 → Blob; else try JSON with {data:...}
-        let blob: Blob | null = null;
-        try {
-          // Heuristic: if value looks like base64
-          if (/^[A-Za-z0-9+/=]+$/.test(value) && value.length > 64) {
-            const byteChars = atob(value);
-            const bytes = new Uint8Array(byteChars.length);
-            for (let j = 0; j < byteChars.length; j++) bytes[j] = byteChars.charCodeAt(j);
-            blob = new Blob([bytes.buffer], { type: 'application/octet-stream' });
-          } else {
-            const obj = JSON.parse(value);
-            const arr = obj?.data || obj?.contents;
-            if (arr) {
-              const u8 = Array.isArray(arr) ? new Uint8Array(arr) :
-                         (arr?.buffer ? new Uint8Array(arr) : null);
-              if (u8) blob = new Blob([u8.buffer], { type: 'application/octet-stream' });
-            }
-          }
-        } catch {}
-
-        if (blob) {
-          const filename = this.composeSavestateFilename(slot);
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url; a.download = filename; a.style.display = 'none';
-          document.body.appendChild(a); a.click();
-          setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-          this.parentRef?.showNotification(`Downloaded savestate from ${label} key "${key}"`);
-          return;
-        }
-      }
-      this.parentRef?.showNotification(`No savestate found in ${label}.`);
-    } catch (e) {
-      console.warn(`${label} scan failed`, e);
-    }
-  };
-
-  scan(localStorage, 'localStorage');
-  scan(sessionStorage, 'sessionStorage');
-}
-
-
-  /** Focus the canvas so SDL/core receives key events. */
-  private async ensureCanvasFocus() {
-    const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
-    if (!canvasEl) return;
-    try {
-      // Make sure canvas can receive focus
-      if (!canvasEl.hasAttribute('tabindex')) canvasEl.setAttribute('tabindex', '0');
-      canvasEl.focus();
-      // tiny delay so focus settles
-      await new Promise((r) => setTimeout(r, 30));
-    } catch { }
-  }
-
-  /** Synthetic quick-save (adjust key if your build uses another binding). */
-  private async tryTriggerCoreQuickSave() {
-    const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
-    if (!canvasEl) return;
-
-    // If your wrapper has an API, prefer it:
-    // if (this.instance?.quickSave) return this.instance.quickSave(/*slot?*/);
-
-    const down = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, code: 'F5', key: 'F5' });
-    const up = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, code: 'F5', key: 'F5' });
-    canvasEl.dispatchEvent(down);
-    await new Promise((r) => setTimeout(r, 40));
-    canvasEl.dispatchEvent(up);
-  }
-
-  /**
-   * Ensure Emscripten’s FS is synchronized.
-   * If IDBFS is used, syncfs(true) will pull remote → local; syncfs(false) pushes local → remote.
-   * We’ll do a pull to make sure we can read new files.
-   */
-  private async syncFS(pull: boolean = true) {
-    const Module = this.instance?.Module;
-    const FS = Module?.FS;
-    if (!FS || typeof FS.syncfs !== 'function') return;
-
-    await new Promise<void>((resolve, reject) => {
-      try {
-        FS.syncfs(pull, (err: any) => (err ? reject(err) : resolve()));
-      } catch (e) {
-        // Some builds expose Module.syncFS instead
-        try {
-          if (typeof Module.syncFS === 'function') {
-            Module.syncFS(pull, (err: any) => (err ? reject(err) : resolve()));
-          } else {
-            resolve();
-          }
-        } catch {
-          resolve();
-        }
-      }
-    });
-  }
-
-  /**
-   * Find the most recent savestate file anywhere in the FS tree.
-   * We walk directories from the root and look for common extensions or slot tokens.
-   */
-  private findLatestSavestateFile(slot: number): { path: string; mtime: number } | null {
-    const Module = this.instance?.Module;
-    const FS = Module?.FS;
-    if (!FS) {
-      console.warn('FS not available for savestate search');
-      return null;
-    }
-    const allowedExts = ['.st', '.sav', '.state', '.bin']; // adjust if your build uses a specific extension
-    const slotTokens = [
-      `slot${slot}`,
-      `.st${slot}`,
-      `_${slot}.st`,
-      `.${slot}.st`,
-    ];
-
-    let best: { path: string; mtime: number } | null = null;
-
-    // Depth-first traversal from root
-    const stack: string[] = ['/'];
-    const visited = new Set<string>();
-
-    const safeReaddir = (path: string): string[] => {
-      try {
-        return FS.readdir(path) as string[];
-      } catch {
-        console.log('Failed to read dir during savestate search:', path);
-        return [];
-      }
-    };
-
-    const safeStat = (path: string): any => {
-      try {
-        return FS.stat(path);
-      } catch {
-        console.log('Failed to stat path during savestate search:', path);
-        return null;
-      }
-    };
-
-    while (stack.length) {
-      const dir = stack.pop()!;
-      if (visited.has(dir)) continue;
-      visited.add(dir);
-
-      const entries = safeReaddir(dir);
-      for (const name of entries) {
-        if (name === '.' || name === '..') continue;
-        const fullPath = dir.endsWith('/') ? `${dir}${name}` : `${dir}/${name}`;
-        const stat = safeStat(fullPath);
-        if (!stat) continue;
-
-        const isDir = stat.mode && (stat.mode & 0x4000); // S_IFDIR
-        if (isDir) {
-          stack.push(fullPath);
+      // 3) For each selected file, write it to /mupen64plus/saves/<filename>
+      const allowedExts = ['.eep', '.sra', '.fla'];
+      const written: string[] = [];
+      for (const fAny of Array.from(files)) {
+        const f = fAny as File;
+        const name = f.name;
+        const lower = name.toLowerCase();
+        if (!allowedExts.some(e => lower.endsWith(e))) {
+          this.parentRef?.showNotification(`Skipped "${name}" (unsupported type)`);
           continue;
         }
+        const bytes = new Uint8Array(await f.arrayBuffer());
+        const key = `/mupen64plus/saves/${name}`;
 
-        const lower = name.toLowerCase();
-        const hasAllowedExt = allowedExts.some((ext) => lower.endsWith(ext));
-        const looksLikeSlot = slotTokens.some((t) => lower.includes(t));
+        // Read existing record (if any), otherwise build a new record using the template
+        const txRW = db.transaction('FILE_DATA', 'readwrite');
+        const osRW = txRW.objectStore('FILE_DATA');
+        const existing = await new Promise<any>((resolve) => {
+          const req = osRW.get(key);
+          req.onerror = () => resolve(null);
+          req.onsuccess = () => resolve(req.result || null);
+        });
 
-        // Heuristics: either extension matches OR slot token matches
-        if (!hasAllowedExt && !looksLikeSlot) continue;
-
-        // Optional: include ROM name token to be stricter
-        if (this.romName) {
-          const token = this.romName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9._-]/g, '');
-          // If names differ wildly, we still accept; comment the next line to enforce strict match:
-          // if (!lower.includes(token)) continue;
+        let value: any = null;
+        if (existing) {
+          // Overwrite only the payload field we recognize
+          if (existing.contents) existing.contents = bytes;
+          else if (existing.data) existing.data = bytes;
+          else if (existing.bytes && Array.isArray(existing.bytes)) existing.bytes = Array.from(bytes);
+          else value = bytes; // last resort: raw ArrayBuffer-like value
+          value = value ?? existing;
+        } else if (templateVal) {
+          // Clone template and drop in new bytes; preserve mode/timestamp if present
+          const clone = JSON.parse(JSON.stringify(templateVal));
+          if (clone.contents) clone.contents = bytes;
+          else if (clone.data) clone.data = bytes;
+          else if (clone.bytes && Array.isArray(clone.bytes)) clone.bytes = Array.from(bytes);
+          else value = bytes;
+          value = value ?? clone;
+        } else {
+          // Minimal new value; many IDBFS builds accept raw bytes-like payloads
+          value = bytes;
         }
 
-        const mtime = stat.mtime ? Number(new Date(stat.mtime)) : Date.now();
-        if (!best || mtime > best.mtime) {
-          best = { path: fullPath, mtime };
-        }
+        await new Promise<void>((resolve, reject) => {
+          const req = osRW.put(value, key);
+          req.onerror = () => reject(req.error);
+          req.onsuccess = () => resolve();
+        });
+        written.push(name);
       }
-    }
 
-    return best;
-  }
+      db.close();
 
-  /** Read bytes of a file path from FS and return Uint8Array. */
-  private readFileBytes(file: { path: string }): Uint8Array | null {
-    const Module = this.instance?.Module;
-    const FS = Module?.FS;
-    if (!FS) return null;
-    try {
-      const data = FS.readFile(file.path);
-      return data instanceof Uint8Array ? data : new Uint8Array(data);
-    } catch (e) {
-      console.warn('readFileBytes failed for', file.path, e);
-      return null;
-    }
-  }
-
-  /** Compose download name. */
-  private composeSavestateFilename(slot: number): string {
-    const base = (this.romName || 'n64-game').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
-    const ts = new Date().toISOString().replace(/[:.]/g, '-');
-    return `${base}.slot${slot}.${ts}.savestate`;
-  }
-
-
-  /** Narrowing helper so TS understands when it's a SharedArrayBuffer */
-  private isSharedArrayBuffer(x: unknown): x is SharedArrayBuffer {
-    return typeof SharedArrayBuffer !== 'undefined' && x instanceof SharedArrayBuffer;
-  }
-
-  /** Normalize Uint8Array / ArrayBuffer / SharedArrayBuffer to a real ArrayBuffer (no union errors) */
-  private toArrayBuffer(bytes: Uint8Array | ArrayBuffer | SharedArrayBuffer): ArrayBuffer {
-    // 1) If we already have a typed-array view, copy it via slice() on the view itself
-    //    (returns a new Uint8Array with its own ArrayBuffer)
-    if (bytes instanceof Uint8Array) {
-      const copyView = bytes.slice();         // ✅ avoids using bytes.buffer.slice(...)
-      return copyView.buffer;                 // This is a plain ArrayBuffer
-    }
-
-    // 2) If it's a plain ArrayBuffer, return a shallow copy so the return type is unambiguous
-    if (bytes instanceof ArrayBuffer) {
-      return bytes.slice(0);                  // ✅ ArrayBuffer → ArrayBuffer
-    }
-
-    // 3) If it's a SharedArrayBuffer, copy its contents into a fresh ArrayBuffer
-    if (this.isSharedArrayBuffer(bytes)) {
-      const view = new Uint8Array(bytes);     // view over SAB
-      const copy = new Uint8Array(view.length);
-      copy.set(view);                         // copy SAB → AB-backed typed array
-      return copy.buffer;                     // ✅ ArrayBuffer
-    }
-
-    // 4) Fallback for unexpected cases: coerce into a typed view and copy
-    const v = new Uint8Array(bytes as any);
-    const copy = v.slice();
-    return copy.buffer;                       // ✅ ArrayBuffer
-  }
-
-  /** Create a Blob from various byte representations (TS-safe) */
-  private toBlob(bytes: Uint8Array | ArrayBuffer | SharedArrayBuffer): Blob {
-    const ab = this.toArrayBuffer(bytes);
-    return new Blob([ab], { type: 'application/octet-stream' });
-  }
-
-  /** Download helper that accepts Uint8Array / ArrayBuffer / SharedArrayBuffer */
-  private downloadBlob(filename: string, bytes: Uint8Array | ArrayBuffer | SharedArrayBuffer) {
-    try {
-      const blob = this.toBlob(bytes);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 100);
-    } catch (e) {
-      console.warn('Failed to download blob', e);
+      if (written.length) {
+        this.parentRef?.showNotification(`Imported ${written.length} save file(s): ${written.join(', ')}`);
+        // Restart emulator so it performs its IDBFS sync-on-start and the game sees the new saves
+        const wasRunning = this.status === 'running' || !!this.instance;
+        if (wasRunning) { await this.stop(); await new Promise(r => setTimeout(r, 150)); }
+        await this.boot();
+      } else {
+        this.parentRef?.showNotification('No save files imported.');
+      }
+    } catch (err) {
+      console.error('importInGameSaveRam failed', err);
+      this.parentRef?.showNotification('Failed to import save files');
     }
   }
 
