@@ -35,6 +35,9 @@
     <button (click)="dumpSiteStorage(0)" [disabled]="status !== 'running' || loading" *ngIf="romName">
       Dump Site Storage
     </button>
+    <button (click)="exportSavestateFromIndexedDB(0)" [disabled]="status !== 'running' || loading" *ngIf="romName">
+      Download Save State (IndexedDB)
+    </button> 
   </div>
   <div class="optionsStatsWrapperDiv">
     <div class="optionsStatsDiv">
