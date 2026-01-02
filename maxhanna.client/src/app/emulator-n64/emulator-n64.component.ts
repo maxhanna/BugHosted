@@ -4,7 +4,6 @@ import createMupen64PlusWeb, { writeAutoInputConfig } from 'mupen64plus-web';
 import { FileService } from '../../services/file.service';
 import { RomService } from '../../services/rom.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
-import { style } from '@angular/animations';
 
 @Component({
   selector: 'app-emulator-n64',
