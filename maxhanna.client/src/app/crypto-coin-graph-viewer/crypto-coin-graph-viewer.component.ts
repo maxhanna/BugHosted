@@ -43,7 +43,8 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
   }[] = undefined; 
   tradebotTradeValuesForMainGraph: { timestamp: string | Date; priceCAD: number; tradeValueCAD: number; type: string }[] = [];
   private pollingInterval: any;
-  timeLeft = 30;
+  timeLeft = 120;
+  defaultTimeLeft = 120;
 
   ngOnInit() { 
   }
@@ -179,12 +180,12 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
     if (this.isPaused) return;
     if (this.pollingInterval) return;
 
-    this.timeLeft = 30;
+    this.timeLeft = this.defaultTimeLeft;
     this.pollingInterval = setInterval(async () => {
       if (this.isPaused) return; // skip ticks while paused
       this.timeLeft--;
       if (this.timeLeft == 0) {
-        this.timeLeft = 30;
+        this.timeLeft = this.defaultTimeLeft;
         this.changeTimePeriodEventOnBTCHistoricalGraph(this.lineGraphComponent.selectedPeriod);
       } else {
         this.changeDetectorRef.detectChanges();
