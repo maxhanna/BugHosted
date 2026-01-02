@@ -315,13 +315,23 @@ input[type="submit"] {
   z-index: 9999;
 }
 
+.popupPanel {
+  transform: unset !important;
+}
+
 /* ensure popupPanel does NOT override our sizing */
 .popupPanel.music-fullscreen {
   /* keep same declarations here to win specificity if needed */
   position: fixed !important;
   inset: 0 !important;
   width: 100vw !important;
-  height: 100vh !important;
+  height: 100vh !important; 
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
+  flex-wrap: nowrap;
 }
 
 
