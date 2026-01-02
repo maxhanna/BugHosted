@@ -32,6 +32,9 @@
     <button (click)="exportSavestateFromCacheStorage(0)" [disabled]="status !== 'running' || loading" *ngIf="romName">
       Download Save State (Cache Storage)
     </button>
+    <button (click)="dumpSiteStorage(0)" [disabled]="status !== 'running' || loading" *ngIf="romName">
+      Dump Site Storage
+    </button>
   </div>
   <div class="optionsStatsWrapperDiv">
     <div class="optionsStatsDiv">
