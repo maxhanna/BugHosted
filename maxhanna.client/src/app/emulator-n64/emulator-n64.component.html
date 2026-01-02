@@ -31,9 +31,8 @@
     </button>
     
     <input
-      #saveInput
       type="file"
-      (change)="importInGameSaveRam(saveInput.files)"
+      (change)="importInGameSaveRam($any($event.target).files)"
       accept=".eep,.sra,.fla"
       multiple
     />
