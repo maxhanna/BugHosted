@@ -69,15 +69,20 @@ public class KrakenService
             _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No trade history.", userId, "TRADE", viewDebugLogs);
             isFirstTradeEver = true;
         }
-        var coinPriceUSDC = await GetCoinPriceToUSDC(userId, coin, keys);
+        decimal? coinPriceUSDC = await GetCoinPriceToUSDC(userId, coin, keys);
+        if (coinPriceUSDC == null)
+        {
+            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Unable to fetch {coin}/USDC price. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
+            return false;
+        }
         decimal? coinPriceCAD = await IsSystemUpToDate(userId, coin, coinPriceUSDC.Value);
         if (!CheckPriceValidity(userId, coin, strategy, tmpCoin, coinPriceUSDC, coinPriceCAD))
         {
             return false;
         }
 
-
-        if (coinPriceUSDC < _TradeStopLoss)
+        decimal PriceUSDC = coinPriceUSDC.Value; 
+        if (PriceUSDC < _TradeStopLoss)
         {
             _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Stop Loss ({_TradeStopLoss}) threshold breached (current price: {coinPriceUSDC}). Liquidating {coin} for USDC.", userId, "TRADE", viewDebugLogs);
             return await ExitPosition(userId, coin, strategy);
@@ -3273,7 +3278,7 @@ public class KrakenService
 	public async Task<decimal?> GetCoinPriceToUSDC(int userId, string coin, UserKrakenApiKey keys)
 	{
 		string inputCoin = coin?.ToUpperInvariant() ?? "";
-		inputCoin = (inputCoin == "Bitcoin" || inputCoin == "XBT") ? "BTC" : inputCoin;
+		inputCoin = (inputCoin == "BITCOIN" || inputCoin == "XBT") ? "BTC" : inputCoin;
 
 		string tmpCoin = inputCoin == "BTC" ? "XBT" : inputCoin;
 
