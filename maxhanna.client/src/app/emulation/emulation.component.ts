@@ -81,7 +81,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   controlsSet = false;
   showHelpText = false;
   autosaveInterval: any;
-  autosaveIntervalTime: number = 60000;
+  autosaveIntervalTime: number = 180000;
   autosave = true;
   currentVolume = 99;
   maxVolume = 99;
