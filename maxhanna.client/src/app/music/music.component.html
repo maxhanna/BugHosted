@@ -151,7 +151,7 @@
           <div *ngIf="isShowingYoutubeSearch" class="popupPanel">
             <app-youtube-search 
             [inputtedParentRef]="inputtedParentRef ?? parentRef" 
-            [keyword]="searchInput.value"
+            [keyword]="ytSearchTerm"
             (selectVideoEvent)="selectYoutubeVideoEvent($event)"></app-youtube-search>
             <button id="closeOverlay" (click)="closeYoutubeSearch()" style="margin-top:10px;">Close</button>
           </div> 

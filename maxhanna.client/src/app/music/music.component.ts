@@ -72,6 +72,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   private ro?: ResizeObserver;
   private locationSub?: SubscriptionLike;
   private radioAudioEl?: HTMLAudioElement;
+  ytSearchTerm = '';
+
 
 
   @Input() user?: User;
@@ -682,6 +684,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
   onSearchEnter() {
     clearTimeout(this.debounceTimer);
+    this.ytSearchTerm = this.searchInput?.nativeElement.value || '';
     this.debounceTimer = setTimeout(() => {
       this.searchForSong();
     }, 100);
@@ -756,12 +759,15 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.parentRef?.showOverlay();
   }
   showYoutubeSearch() {
+    this.ytSearchTerm = this.searchInput?.nativeElement.value || '';
     this.isShowingYoutubeSearch = true;
     this.parentRef?.showOverlay();
+    this.cdr.markForCheck();
   }
   closeYoutubeSearch() {
     this.isShowingYoutubeSearch = false;
-    this.parentRef?.closeOverlay();
+    this.parentRef?.closeOverlay(); 
+    this.cdr.markForCheck(); 
   }
   selectYoutubeVideoEvent(video: any) {
     this.urlInput.nativeElement.value = video.url;

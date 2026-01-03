@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core'; 
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild } from '@angular/core'; 
 import { CrawlerService } from '../../services/crawler.service';
 import { ChildComponent } from '../child.component';
 import { AppComponent } from '../app.component';
@@ -11,9 +11,10 @@ import { DecodeHtmlPipe } from '../decode-html.pipe';
   selector: 'app-youtube-search',
   templateUrl: './youtube-search.component.html',
   styleUrl: './youtube-search.component.css',
-  standalone: false, 
+  standalone: false,  
+  changeDetection: ChangeDetectionStrategy.OnPush 
 })
-export class YoutubeSearchComponent extends ChildComponent { 
+export class YoutubeSearchComponent extends ChildComponent implements OnChanges { 
   videos: any[] = []; 
   hasSearched = false;
 
@@ -23,7 +24,13 @@ export class YoutubeSearchComponent extends ChildComponent {
   
   @ViewChild('searchInput') searchInput?: ElementRef<HTMLInputElement>;
 
-  constructor(private crawlerService: CrawlerService) { super(); }
+  constructor(private crawlerService: CrawlerService, private cdr: ChangeDetectorRef) { super(); }
+
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['keyword'] && this.keyword?.trim()) {
+      this.search();
+    }
+  }
 
   selectVideo(video: any) {
     this.selectVideoEvent.emit(video);
@@ -33,7 +40,7 @@ export class YoutubeSearchComponent extends ChildComponent {
   async search() {
     this.startLoading();
     this.videos = [];
-    const keyword = this.searchInput?.nativeElement.value.trim();
+    const keyword = this.keyword.trim();
     if (keyword) {
       const result = await this.crawlerService.searchYoutube(keyword);
       if (Array.isArray(result)) {
@@ -42,5 +49,6 @@ export class YoutubeSearchComponent extends ChildComponent {
     } 
     this.hasSearched = true;
     this.stopLoading();
+    this.cdr.markForCheck();
   }
 }
