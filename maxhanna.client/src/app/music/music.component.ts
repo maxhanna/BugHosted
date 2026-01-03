@@ -769,11 +769,12 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.parentRef?.closeOverlay(); 
     this.cdr.markForCheck(); 
   }
-  selectYoutubeVideoEvent(video: any) {
+  async selectYoutubeVideoEvent(video: any) {
     this.urlInput.nativeElement.value = video.url;
     this.titleInput.nativeElement.value = video.title;
-    this.addSong();
+    await this.addSong();
     this.closeYoutubeSearch();
+    this.cdr.markForCheck();
   }
   closeEditPopup(editSong = true) {
     clearTimeout(this.debounceTimer);
