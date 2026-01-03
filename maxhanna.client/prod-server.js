@@ -675,4 +675,43 @@ server.listen(config.port, config.host, () => {
   console.log();
 });
 
+// ----- HTTP -> HTTPS redirect server (port 80) -----
+if (config.useHttps) {
+  const redirectApp = express();
+
+  // Trust proxy if behind LB so req.secure works correctly
+  if (config.trustProxy) {
+    redirectApp.set('trust proxy', 1);
+  }
+
+  redirectApp.use((req, res) => {
+    const host = req.headers.host || 'localhost';
+    // Preserve path and query string
+    const location = `https://${host}${req.url}`;
+    // Permanent redirect
+    res.status(301).set({
+      'Location': location,
+      'Connection': 'close',
+      'Cache-Control': 'no-cache',
+      'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
+    }).end();
+  });
+
+  const httpRedirectServer = http.createServer(redirectApp);
+
+  httpRedirectServer.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(chalk.red('Port 80 is already in use'));
+    } else if (err.code === 'EACCES') {
+      console.error(chalk.red('Access denied. Port 80 requires elevated permissions'));
+    } else {
+      console.error(chalk.red('HTTP Redirect server error:'), err);
+    }
+  });
+
+  httpRedirectServer.listen(80, config.host, () => {
+    console.log(chalk.green('✓ HTTP redirect server listening on :80 → :443'));
+  });
+}
+
 module.exports = app;
