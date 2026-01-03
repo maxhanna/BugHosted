@@ -40,7 +40,7 @@ export class YoutubeSearchComponent extends ChildComponent implements OnChanges 
   async search() {
     this.startLoading();
     this.videos = [];
-    const keyword = this.keyword.trim();
+    const keyword = this.searchInput?.nativeElement.value.trim();
     if (keyword) {
       const result = await this.crawlerService.searchYoutube(keyword);
       if (Array.isArray(result)) {
