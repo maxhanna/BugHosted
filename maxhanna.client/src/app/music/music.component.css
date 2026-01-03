@@ -313,11 +313,7 @@ input[type="submit"] {
   height: 100vh !important;
   background: #000;
   z-index: 9999;
-}
-
-.popupPanel {
-  transform: unset !important;
-}
+} 
 
 /* ensure popupPanel does NOT override our sizing */
 .popupPanel.music-fullscreen {

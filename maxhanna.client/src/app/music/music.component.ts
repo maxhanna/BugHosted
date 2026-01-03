@@ -804,7 +804,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
                 : this.onMobile() ? 'mobileIframeDiv'
                 : 'iframeDiv';
     // apply popupPanel only when you actually need overlay behavior
-    const overlay = this.isFullscreen ? 'popupPanel music-fullscreen' : '';
+    const overlay = this.isFullscreen ? 'music-fullscreen' : '';
     return `${base} ${overlay}`.trim();
   }
 
