@@ -371,8 +371,8 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					_ = _log.Db("Error in GetChatTheme: " + ex.Message, null, "CHAT");
-					return StatusCode(500, "Error");
+					_ = _log.Db("Error in GetChatTheme: " + ex.Message, null, "CHAT", outputToConsole: true);
+					return StatusCode(500, "Error: " + ex.Message);
 				}
 			}
 		}
