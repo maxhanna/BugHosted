@@ -2971,7 +2971,7 @@ public class KrakenService
 				await connection.OpenAsync();
 
 				// Check if a record already exists for this user
-				var checkCmd = new MySqlCommand("SELECT COUNT(*) FROM user_kraken_api_keys WHERE user_id = @userId", connection);
+				var checkCmd = new MySqlCommand("SELECT COUNT(*) FROM user_kraken_api_keys WHERE user_id = @userId;", connection);
 				checkCmd.Parameters.AddWithValue("@userId", request.UserId);
 
 				var exists = Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) > 0;
@@ -2982,8 +2982,8 @@ public class KrakenService
 					var updateCmd = new MySqlCommand(@"
                     UPDATE user_kraken_api_keys
                     SET api_key = @apiKey,
-                        private_key = @privateKey, 
-                    WHERE user_id = @userId", connection);
+                        private_key = @privateKey 
+                    WHERE user_id = @userId;", connection);
 
 					updateCmd.Parameters.AddWithValue("@apiKey", request.ApiKey);
 					updateCmd.Parameters.AddWithValue("@privateKey", request.PrivateKey);
@@ -2996,7 +2996,7 @@ public class KrakenService
 					// Insert new
 					var insertCmd = new MySqlCommand(@"
                     INSERT INTO user_kraken_api_keys (user_id, api_key, private_key)
-                    VALUES (@userId, @apiKey, @privateKey)", connection);
+                    VALUES (@userId, @apiKey, @privateKey);", connection);
 
 					insertCmd.Parameters.AddWithValue("@userId", request.UserId);
 					insertCmd.Parameters.AddWithValue("@apiKey", request.ApiKey);
