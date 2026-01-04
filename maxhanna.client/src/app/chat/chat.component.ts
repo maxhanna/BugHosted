@@ -80,15 +80,14 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.addResizeListener();
   }
-  
+
   // Apply a user theme object to the chatArea by setting CSS variables.
-  // Supports both camelCase and snake_case property names from server or local records.
+  // Supports both camelCase and snake_case property names from server or local records.=
   async applyUserTheme(ut: UserTheme | null) {
     const container = document.querySelector('.chatArea') as HTMLElement | null;
     if (!container) return;
 
     if (!ut) {
-      // clear properties (use the same vars ThemesComponent uses)
       container.style.removeProperty('--main-background-image-url');
       container.style.removeProperty('--main-bg-color');
       container.style.removeProperty('--component-background-color');
@@ -101,31 +100,74 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       container.style.removeProperty('--main-link-color');
       container.style.removeProperty('--main-font-family');
       container.style.removeProperty('--main-font-size');
+      container.style.backgroundImage = 'none';
       return;
-    } 
+    }
 
-    const bgColor = ut.backgroundColor;
-    const fontColor = ut.fontColor;
-    const secondaryFont = ut.secondaryFontColor;
-    const thirdFont = ut.thirdFontColor;
-    const compBg = ut.componentBackgroundColor;
-    const secCompBg = ut.secondaryComponentBackgroundColor;
-    const highlight = ut.mainHighlightColor;
-    const highlightQuarter = ut.mainHighlightColorQuarterOpacity;
-    const linkColor = ut.linkColor;
-    const fontFamily = ut.fontFamily;
-    const fontSize = ut.fontSize;
+    // Resolve the file entry (if set)
     const bgImage = ut.backgroundImage;
-     
-    var tmpBackImage = bgImage?.id ? await this.fileService.getFileEntryById(bgImage?.id, this.parentRef?.user?.id) : undefined;
-    if (tmpBackImage) {
-      const directLink = `https://bughosted.com/assets/Uploads/${(this.parentRef?.getDirectoryName(tmpBackImage) != '.' ? this.parentRef?.getDirectoryName(tmpBackImage) : '')}${tmpBackImage?.fileName}`;
-      container.style.setProperty('--main-background-image-url', `url(${directLink})`);
-      container.style.backgroundImage = `url(${directLink})`;
+    let directLink: string | null = null;
+
+    try {
+      let tmpBackImage: FileEntry | undefined =
+        bgImage?.id
+          ? await this.fileService.getFileEntryById(bgImage.id, this.parentRef?.user?.id)
+          : undefined;
+
+      if (tmpBackImage?.fileName) {
+        const base = 'https://bughosted.com';
+        const uploadsRoot = 'assets/Uploads';
+        const dir = this.parentRef?.getDirectoryName(tmpBackImage);
+        // Ensure a proper path: assets/Uploads/<dir-if-any>/<filename>
+        const path = this.joinUrl(
+          uploadsRoot,
+          dir && dir !== '.' ? dir : undefined,
+          tmpBackImage.fileName
+        );
+        directLink = `${base}/${this.encodePath(path)}`;
+      }
+    } catch (e) {
+      console.warn('Failed to resolve background image:', e);
+    }
+
+    // Preload image to ensure it exists; if it fails, remove background
+    if (directLink) {
+      const ok = await new Promise<boolean>((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.referrerPolicy = 'no-referrer'; // optional; adjust if needed
+        img.src = directLink!;
+      });
+      if (ok) {
+        container.style.setProperty('--main-background-image-url', `url("${directLink}")`);
+        // Inline style wins — use it for reliability
+        container.style.backgroundImage = `url("${directLink}")`;
+      } else {
+        console.warn('Background image failed to load:', directLink);
+        container.style.setProperty('--main-background-image-url', `none`);
+        container.style.backgroundImage = 'none';
+      }
     } else {
       container.style.setProperty('--main-background-image-url', `none`);
-      container.style.backgroundImage = `none`;
+      container.style.backgroundImage = 'none';
     }
+
+    // Apply other color/font variables
+    const {
+      backgroundColor: bgColor,
+      fontColor,
+      secondaryFontColor: secondaryFont,
+      thirdFontColor: thirdFont,
+      componentBackgroundColor: compBg,
+      secondaryComponentBackgroundColor: secCompBg,
+      mainHighlightColor: highlight,
+      mainHighlightColorQuarterOpacity: highlightQuarter,
+      linkColor,
+      fontFamily,
+      fontSize
+    } = ut;
+
     if (bgColor) container.style.setProperty('--main-bg-color', bgColor);
     if (compBg) container.style.setProperty('--component-background-color', compBg);
     if (secCompBg) container.style.setProperty('--secondary-component-background-color', secCompBg);
@@ -136,8 +178,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (highlightQuarter) container.style.setProperty('--main-highlight-color-quarter-opacity', highlightQuarter);
     if (linkColor) container.style.setProperty('--main-link-color', linkColor);
     if (fontFamily) container.style.setProperty('--main-font-family', fontFamily);
-    if (fontSize) container.style.setProperty('--main-font-size', (typeof fontSize === 'number' ? fontSize + 'px' : fontSize));
+    if (fontSize) container.style.setProperty('--main-font-size', (typeof fontSize === 'number' ? `${fontSize}px` : fontSize));
   }
+
 
   async changeChatUserTheme(event: any) {
     if (!this.currentChatId) return;
@@ -362,14 +405,14 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       console.error('Error fetching message history:', error);
     }
   }
-  
+
   private setServerDown(res: any) {
     if (!res || res == null) {
       this.incrementFailCount();
-    } 
+    }
     else if ((res as any).status && (res as any).status >= 500) {
       this.incrementFailCount();
-    } 
+    }
     else if (res) {
       this.resetFailCount();
     }
@@ -634,7 +677,7 @@ q                  onClick="document.getElementById('pollCheckId').value='${inpu
         }
       }
     }
-    
+
 
     this.stopLoading();
   }
@@ -914,8 +957,8 @@ q                  onClick="document.getElementById('pollCheckId').value='${inpu
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
   }
-  
-  
+
+
 
   applyChatTheme(themeClass: string) {
     try {
@@ -1084,5 +1127,17 @@ q                  onClick="document.getElementById('pollCheckId').value='${inpu
         notificationSound.play()
       } catch (e) { console.error("Error playing notification sound:", e) }
     }
+  }
+
+  private joinUrl(...parts: (string | undefined | null)[]): string {
+    const cleaned = parts
+      .filter((p): p is string => !!p)
+      .map(p => p.replace(/(^\/+|\/+$)/g, '')); // trim leading/trailing slashes
+    return cleaned.join('/');
+  }
+
+  private encodePath(path: string): string {
+    // Encode each segment separately to keep slashes intact
+    return path.split('/').map(s => encodeURIComponent(s)).join('/');
   }
 }
