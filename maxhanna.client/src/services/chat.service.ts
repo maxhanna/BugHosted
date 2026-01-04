@@ -124,6 +124,14 @@ export class ChatService {
         body: JSON.stringify({ ChatId: chatId }),
       });
 
+      if (!response.ok) {
+        // Try parse ProblemDetails
+        let problem: any;
+        try { problem = await response.json(); } catch {}
+        const message = problem?.detail || problem?.title || `HTTP ${response.status}`;
+        throw new Error(message);
+      }
+
       return await response.json() as GetChatThemeResponse;
     } catch (error) {
       return null;
