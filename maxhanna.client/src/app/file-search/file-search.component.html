@@ -82,7 +82,7 @@
         </div>
       </div>
 
-      <div *ngIf="directory && directory.totalCount! > 0" class="directoryDisplayDiv">
+      <div *ngIf="directory && directory.totalCount! > 0" class="directoryDisplayDiv{{disabled? ' disabled' : ''}}">
         <ng-container *ngFor="let file of directory.data; let i = index">
           <div class="draggableDiv"
                draggable="true"
@@ -104,7 +104,7 @@
 
                 <span *ngIf="!isEditing.includes(file.id)"
                       class="fileFolderNameSpan {{file.isFolder ? 'folder' : ''}}"
-                      (click)="selectFile(file);"
+                      (click)="!disabled && selectFile(file);"
                       [id]="'fileIdName'+file.id">
                   {{file.isFolder ? '📁' : ''}}{{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '')}}
                 </span>

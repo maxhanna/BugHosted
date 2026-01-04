@@ -7,7 +7,7 @@
       [clearAfterSelectFile]="true" [showPrivatePublicOption]="false" [showFileSearchOptions]="false"
       [canChangeDirectory]="false" [canDragMove]="false" [displayFileActions]="true" [displayComments]="false"
       [displayFileSize]="false" [displayReactions]="false" [allowedFileTypes]="getAllowedRomFileTypes()"
-      (selectFileEvent)="onFileSearchSelected($event)">
+      [disabled]="isLoading" (selectFileEvent)="onFileSearchSelected($event)">
     </app-file-search>
   </div>
 

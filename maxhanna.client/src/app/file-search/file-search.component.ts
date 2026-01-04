@@ -50,6 +50,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() captureNotifications: boolean = false;
   @Input() currentPage = this.defaultCurrentPage;
   @Input() massDeleteMode: boolean = false;
+  @Input() disabled = false;
   @Output() selectedForDeleteChange = new EventEmitter<number[]>();
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
