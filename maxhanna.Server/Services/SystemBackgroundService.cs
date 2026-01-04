@@ -35,7 +35,8 @@ namespace maxhanna.Server.Services
 		private static bool _initialDelayApplied = false;
 		private bool isCrawling = false;
 		private bool lastWasCrypto = false;
-		private static readonly SemaphoreSlim _tradeLock = new SemaphoreSlim(1, 1);
+		private static readonly SemaphoreSlim _tradeLock = new SemaphoreSlim(1, 1); 
+    private static readonly SemaphoreSlim _fileCleanLock = new SemaphoreSlim(1, 1); 
 		private static readonly Dictionary<string, string> CoinNameMap = new(StringComparer.OrdinalIgnoreCase) {
 			{ "BTC", "Bitcoin" }, { "XBT", "Bitcoin" }, { "ETH", "Ethereum" }, { "XDG", "Dogecoin" }, { "SOL", "Solana" }
 		};
@@ -138,6 +139,7 @@ namespace maxhanna.Server.Services
 		private async Task RunFiveMinuteTasks()
 		{
 			await _aiController.AnalyzeAndRenameFile();
+      await CleanOneSluggyFileNameAsync();
 			await FetchAndStoreTopMarketCaps();
 			await UpdateLastBTCWalletInfo();
 			await FetchAndStoreCoinValues();
@@ -2324,6 +2326,140 @@ namespace maxhanna.Server.Services
 				break;
 			}
 		}
+
+    
+/// <summary>
+/// Fetches ONE candidate filename from SQL, cleans it with FileNameCleaner,
+/// and updates given_file_name (no AI). Uses a light heuristic to select
+/// “sluggy” names with separators and/or long numeric tails.
+/// </summary>
+private async Task CleanOneSluggyFileNameAsync(CancellationToken ct = default)
+{
+    if (!await _fileCleanLock.WaitAsync(0, ct))
+        return; // skip if already running
+
+    try
+    {
+        await using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync(ct);
+
+        // Pick ONE candidate likely needing cleanup.
+        // - not already cleaned (given_file_name IS NULL)
+        // - contains dashes/underscores
+        // - ends with a long numeric tail or has multiple separators (sluggy)
+        const string selectSql = @"
+            SELECT id, file_name, folder_path, file_type
+            FROM file_uploads
+            WHERE given_file_name IS NULL
+              AND (file_name LIKE '%-%' OR file_name LIKE '%_%')
+              AND (
+                    file_name REGEXP '[0-9]{5,}\.[A-Za-z0-9]+$'  /* long numeric before extension */
+                 OR file_name REGEXP '.*[0-9]{5,}$'               /* long numeric tail w/o extension */
+                 OR file_name REGEXP '.*(-|_).*(-|_).*(-|_).*'    /* several separators imply slug */
+              )
+            ORDER BY RAND()
+            LIMIT 1;";
+
+        int? id = null;
+        string? fileName = null;
+        string? folderPath = null;
+        string? fileType = null;
+
+        await using (var cmd = new MySqlCommand(selectSql, conn))
+        await using (var reader = await cmd.ExecuteReaderAsync(ct))
+        {
+            if (await reader.ReadAsync(ct))
+            {
+                id = reader.GetInt32("id");
+                fileName = reader.GetString("file_name");
+                folderPath = reader.GetString("folder_path");
+                fileType = reader.GetString("file_type");
+            }
+        }
+
+        if (id is null || string.IsNullOrWhiteSpace(fileName))
+        {
+            await _log.Db("FileNameCleanup: no candidate found.", null, "SYSTEM", outputToConsole: false);
+            return;
+        }
+
+        // Clean to human-readable (stem only)
+        var human = FileNameCleaner.CleanHumanFileName(fileName);
+
+        // Enforce filesystem-safe characters/length (same logic you used in AiController)
+        human = SanitizeFileNameSafe(human, fileType ?? "");
+
+        if (string.IsNullOrWhiteSpace(human))
+        {
+            await _log.Db($"FileNameCleanup: empty result after cleaning id={id}, name='{fileName}'. Skipping.", id, "SYSTEM", true);
+            return;
+        }
+
+        // If the cleaned stem equals the original stem, skip writing
+        var originalStem = Path.GetFileNameWithoutExtension(fileName) ?? "";
+        if (human.Equals(originalStem, StringComparison.Ordinal))
+        {
+            await _log.Db($"FileNameCleanup: cleaned stem equals original for id={id}. Skipping.", id, "SYSTEM", false);
+            return;
+        }
+
+        const string updateSql = @"
+            UPDATE file_uploads
+            SET given_file_name = @newName,
+                last_updated = UTC_TIMESTAMP(),
+                last_updated_by_user_id = @uid
+            WHERE id = @id;";
+
+        await using (var up = new MySqlCommand(updateSql, conn))
+        {
+            up.Parameters.AddWithValue("@newName", human);
+            up.Parameters.AddWithValue("@uid", 314); // your existing audit user id
+            up.Parameters.AddWithValue("@id", id.Value);
+
+            var rows = await up.ExecuteNonQueryAsync(ct);
+            if (rows > 0)
+            {
+                await _log.Db($"FileNameCleanup: id={id} '{fileName}' → '{human}'", id, "SYSTEM", outputToConsole: true);
+                await _aiController.UpdateSitemapEntry(fileId: id.Value, fileName: human, description: human);
+            }
+            else
+            {
+                await _log.Db($"FileNameCleanup: update affected 0 rows for id={id}.", id, "SYSTEM", true);
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        await _log.Db($"FileNameCleanup error: {ex.Message}", null, "SYSTEM", true);
+    }
+    finally
+    {
+        try { _fileCleanLock.Release(); } catch { /* ignore */ }
+    }
+}
+
+
+/// <summary>
+/// Local copy of your sanitize logic (stem only). If you already moved this to
+/// a shared helper, reference that instead.
+/// </summary>
+private static string SanitizeFileNameSafe(string name, string extension)
+{
+    if (string.IsNullOrWhiteSpace(name))
+        name = "media-file";
+
+    var invalidChars = Path.GetInvalidFileNameChars();
+    var sanitized = new string(name.Where(c => !invalidChars.Contains(c)).ToArray());
+
+    int maxLength = 240 - (extension?.Length ?? 0);
+    if (sanitized.Length > maxLength)
+        sanitized = sanitized.Substring(0, maxLength);
+
+    sanitized = sanitized.TrimEnd('.', '-', ' ');
+    return sanitized;
+}
+
+
 	}
 
 }

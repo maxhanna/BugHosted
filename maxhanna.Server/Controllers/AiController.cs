@@ -1133,7 +1133,7 @@ private async Task<string> DescribeMediaContent(FileEntry file, bool detailed = 
       await cmd.ExecuteNonQueryAsync();
     }
 
-    private async Task UpdateSitemapEntry(int? fileId, string? fileName, string? description)
+    public async Task UpdateSitemapEntry(int? fileId, string? fileName, string? description)
     {
       if (string.IsNullOrEmpty(fileName) || fileId == null)
       {
