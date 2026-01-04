@@ -292,7 +292,7 @@ namespace maxhanna.Server.Controllers
 
 			}
 		} 
-    
+
     [HttpPost("/Chat/GetChatTheme", Name = "GetChatTheme")]
     public async Task<IActionResult> GetChatTheme([FromBody] GetChatThemeRequest req)
     {
@@ -333,34 +333,35 @@ namespace maxhanna.Server.Controllers
             await using var reader = await cmd.ExecuteReaderAsync();
             if (await reader.ReadAsync())
             {
-                var theme = reader.IsDBNull("theme") ? "" : reader.GetString("theme");
-                int? userThemeId = reader.IsDBNull("user_theme_id") ? null : reader.GetInt32("user_theme_id");
+                
+              var theme = IsDbNull(reader, "theme") ? "" : reader.GetString(reader.GetOrdinal("theme"));
+              int? userThemeId = GetInt32Nullable(reader, "user_theme_id");
 
-                UserTheme? userTheme = null;
-                if (!reader.IsDBNull("ut_id"))
-                {
-                    FileEntry? tmpBackgroundImage =
-                        reader.IsDBNull("ut_background_image") ? null : new FileEntry(reader.GetInt32("ut_background_image"));
+              UserTheme? userTheme = null;
+              if (!IsDbNull(reader, "ut_id"))
+              {
+                  var bgImageId = GetInt32Nullable(reader, "ut_background_image");
+                  FileEntry? tmpBackgroundImage = bgImageId.HasValue ? new FileEntry(bgImageId.Value) : null;
 
-                    userTheme = new UserTheme
-                    {
-                        Id = reader.GetInt32("ut_id"),
-                        UserId = reader.IsDBNull("ut_user_id") ? null : reader.GetInt32("ut_user_id"),
-                        BackgroundImage = tmpBackgroundImage,
-                        FontColor = reader.IsDBNull("ut_font_color") ? null : reader.GetString("ut_font_color"),
-                        SecondaryFontColor = reader.IsDBNull("ut_secondary_font_color") ? null : reader.GetString("ut_secondary_font_color"),
-                        ThirdFontColor = reader.IsDBNull("ut_third_font_color") ? null : reader.GetString("ut_third_font_color"),
-                        BackgroundColor = reader.IsDBNull("ut_background_color") ? null : reader.GetString("ut_background_color"),
-                        ComponentBackgroundColor = reader.IsDBNull("ut_component_background_color") ? null : reader.GetString("ut_component_background_color"),
-                        SecondaryComponentBackgroundColor = reader.IsDBNull("ut_secondary_component_background_color") ? null : reader.GetString("ut_secondary_component_background_color"),
-                        MainHighlightColor = reader.IsDBNull("ut_main_highlight_color") ? null : reader.GetString("ut_main_highlight_color"),
-                        MainHighlightColorQuarterOpacity = reader.IsDBNull("ut_main_highlight_color_quarter_opacity") ? null : reader.GetString("ut_main_highlight_color_quarter_opacity"),
-                        LinkColor = reader.IsDBNull("ut_link_color") ? null : reader.GetString("ut_link_color"),
-                        FontSize = reader.IsDBNull("ut_font_size") ? null : reader.GetInt32("ut_font_size"),
-                        FontFamily = reader.IsDBNull("ut_font_family") ? null : reader.GetString("ut_font_family"),
-                        Name = reader.IsDBNull("ut_name") ? "" : reader.GetString("ut_name")
-                    };
-                }
+                  userTheme = new UserTheme
+                  {
+                      Id = GetInt32OrDefault(reader, "ut_id"),
+                      UserId = GetInt32Nullable(reader, "ut_user_id"),
+                      BackgroundImage = tmpBackgroundImage,
+                      FontColor = IsDbNull(reader, "ut_font_color") ? null : reader.GetString(reader.GetOrdinal("ut_font_color")),
+                      SecondaryFontColor = IsDbNull(reader, "ut_secondary_font_color") ? null : reader.GetString(reader.GetOrdinal("ut_secondary_font_color")),
+                      ThirdFontColor = IsDbNull(reader, "ut_third_font_color") ? null : reader.GetString(reader.GetOrdinal("ut_third_font_color")),
+                      BackgroundColor = IsDbNull(reader, "ut_background_color") ? null : reader.GetString(reader.GetOrdinal("ut_background_color")),
+                      ComponentBackgroundColor = IsDbNull(reader, "ut_component_background_color") ? null : reader.GetString(reader.GetOrdinal("ut_component_background_color")),
+                      SecondaryComponentBackgroundColor = IsDbNull(reader, "ut_secondary_component_background_color") ? null : reader.GetString(reader.GetOrdinal("ut_secondary_component_background_color")),
+                      MainHighlightColor = IsDbNull(reader, "ut_main_highlight_color") ? null : reader.GetString(reader.GetOrdinal("ut_main_highlight_color")),
+                      MainHighlightColorQuarterOpacity = IsDbNull(reader, "ut_main_highlight_color_quarter_opacity") ? null : reader.GetString(reader.GetOrdinal("ut_main_highlight_color_quarter_opacity")),
+                      LinkColor = IsDbNull(reader, "ut_link_color") ? null : reader.GetString(reader.GetOrdinal("ut_link_color")),
+                      FontSize = GetInt32Nullable(reader, "ut_font_size"),
+                      FontFamily = IsDbNull(reader, "ut_font_family") ? null : reader.GetString(reader.GetOrdinal("ut_font_family")),
+                      Name = IsDbNull(reader, "ut_name") ? "" : reader.GetString(reader.GetOrdinal("ut_name")),
+                  };
+              }
 
                 return Ok(new GetChatThemeResponse { Theme = theme, UserThemeId = userThemeId, UserTheme = userTheme });
             }
@@ -1176,38 +1177,6 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		public class SendMessageRequest
-		{
-			public int SenderId { get; set; }
-			public int[]? ReceiverIds { get; set; }
-			public int? ChatId { get; set; }
-			public string? Content { get; set; }
-			public List<FileEntry>? Files { get; set; }
-		}
-		public class Notification
-		{
-			public int ChatId { get; set; }
-			public int Count { get; set; }
-		}
-		public class LeaveChatRequest
-		{
-			public int ChatId { get; set; }
-			public int UserId { get; set; }
-		}
-		public class EditChatRequest
-		{
-			public int? UserId { get; set; }
-			public int MessageId { get; set; }
-			public string? Content { get; set; }
-		}
-
-		public class EditChatFilesRequest
-		{
-			public int? UserId { get; set; }
-			public int MessageId { get; set; }
-			public List<FileEntry>? Files { get; set; }
-		}
-
 		[HttpPost("/Chat/EditFiles", Name = "EditChatFiles")]
 		public async Task<IActionResult> EditChatFiles([FromBody] EditChatFilesRequest request)
 		{
@@ -1243,5 +1212,57 @@ namespace maxhanna.Server.Controllers
 			}
 			finally { conn.Close(); }
 		}
+
+private static int? GetInt32Nullable(IDataRecord r, string name)
+{
+    int i = r.GetOrdinal(name);
+    if (r.IsDBNull(i)) return null;
+    var v = r.GetValue(i); // could be string, long, decimal, etc.
+    try { return Convert.ToInt32(v); } catch { return null; }
+}
+
+private static int GetInt32OrDefault(IDataRecord r, string name, int def = 0)
+{
+    int i = r.GetOrdinal(name);
+    if (r.IsDBNull(i)) return def;
+    var v = r.GetValue(i);
+    try { return Convert.ToInt32(v); } catch { return def; }
+}
+
+private static bool IsDbNull(IDataRecord r, string name) =>
+    r.IsDBNull(r.GetOrdinal(name));
+
 	}
 }
+
+		public class SendMessageRequest
+		{
+			public int SenderId { get; set; }
+			public int[]? ReceiverIds { get; set; }
+			public int? ChatId { get; set; }
+			public string? Content { get; set; }
+			public List<FileEntry>? Files { get; set; }
+		}
+		public class Notification
+		{
+			public int ChatId { get; set; }
+			public int Count { get; set; }
+		}
+		public class LeaveChatRequest
+		{
+			public int ChatId { get; set; }
+			public int UserId { get; set; }
+		}
+		public class EditChatRequest
+		{
+			public int? UserId { get; set; }
+			public int MessageId { get; set; }
+			public string? Content { get; set; }
+		}
+
+		public class EditChatFilesRequest
+		{
+			public int? UserId { get; set; }
+			public int MessageId { get; set; }
+			public List<FileEntry>? Files { get; set; }
+		}
