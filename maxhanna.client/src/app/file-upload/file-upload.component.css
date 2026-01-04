@@ -13,7 +13,6 @@
   background-color: var(--button-background-color, #f8f9fa);
   color: var(--button-text-color, #333);
   transition: all 0.2s ease-in-out;
-  font-size: 0;
   width: 24px !important;
   height: 24px !important;
   display: inline-flex;
