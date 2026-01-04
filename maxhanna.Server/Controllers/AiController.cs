@@ -127,7 +127,7 @@ namespace maxhanna.Server.Controllers
 
 				object requestBody = new
 				{
-					model = "gemma3",
+					model = "gemma3:4b",
 					prompt = basePrompt,
 					stream = false,
 					max_tokens = request.MaxCount,
@@ -284,7 +284,7 @@ namespace maxhanna.Server.Controllers
 				string url = "http://localhost:11434/api/generate";
 				object requestBody = new
 				{
-					model = "gemma3",
+					model = "gemma3:4b",
 					prompt = prompt,
 					stream = false,
 					max_tokens = request.MaxCount
@@ -373,7 +373,7 @@ namespace maxhanna.Server.Controllers
 				string url = "http://localhost:11434/api/generate";
 				object requestBody = new
 				{
-					model = "gemma3",
+					model = "gemma3:4b",
 					prompt = prompt,
 					stream = false,
 					max_tokens = request.MaxCount
@@ -447,7 +447,7 @@ namespace maxhanna.Server.Controllers
 				var ollamaUrl = "http://localhost:11434/api/generate";
 				var body = new
 				{
-					model = "gemma3",
+					model = "gemma3:4b",
 					prompt = prompt,
 					stream = false,
 					max_tokens = 450,
