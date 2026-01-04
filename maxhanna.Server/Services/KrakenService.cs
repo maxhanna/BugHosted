@@ -129,7 +129,7 @@ public class KrakenService
 
             decimal coinBalance = GetCoinBalanceFromDictionaryAndKey(balances, tmpCoin);
             decimal usdcBalance = GetCoinBalanceFromDictionaryAndKey(balances, "USDC");
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) balance: {coinBalance} usdcBalance: {usdcBalance}", userId, "TRADE", viewDebugLogs);
+			      _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) balance: {coinBalance} usdcBalance: {usdcBalance}", userId, "TRADE", viewDebugLogs);
             if (spread >= spreadThreshold || (firstPriceToday != null && spread2 >= spreadThreshold))
             {   // DCA|IND: Selling, HFT: Buying
                 string triggeredBy = spread >= spreadThreshold ? "spread" : "spread2";
@@ -396,7 +396,7 @@ public class KrakenService
 		}
 
 		//buy some coin then create momentum strategy.
-		var balances = await GetBalance(userId, tmpCoin, strategy, keys);
+		Dictionary<string, decimal>? balances = await GetBalance(userId, tmpCoin, strategy, keys);
 		if (balances == null)
 		{
 			_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Failed to get wallet balances.", userId, "TRADE", viewDebugLogs);
@@ -1955,7 +1955,7 @@ public class KrakenService
 			checkCmd.Parameters.AddWithValue("@Strategy", strategy);
 			checkCmd.Parameters.AddWithValue("@FromCurrency", tmpCoin);
 
-			var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+			int count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
 
 			//_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) [ActiveTradeCount] Count={count}", userId, "TRADE", viewDebugLogs);
 			return count;
