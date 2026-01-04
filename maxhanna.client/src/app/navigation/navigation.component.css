@@ -251,6 +251,12 @@ a {
   margin: 0;
   font-size: 1.6rem;
 }
+.help-title-since {
+  margin: 0;
+  font-size: xx-small;
+  text-align: center;
+  width: 100%;
+}
 
 .help-intro {
   margin-top: 0.5rem;
