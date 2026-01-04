@@ -772,14 +772,12 @@ namespace maxhanna.Server.Controllers
           model = "moondream",      // or moondream:latest
           stream = false,
           messages = new[] {
-        new {
-            role = "user",
-            content = detailed ? BuildDetailedPrompt(imagesB64.Length > 1)
-                               : BuildConcisePrompt(),
-            images = imagesB64
-        }
-    },
-          // Optional: reduce context to avoid backend memory spikes (phi2 shows 2048 in your log).
+            new {
+              role = "user",
+              content = detailed ? BuildDetailedPrompt(imagesB64.Length > 1) : BuildConcisePrompt(),
+              images = imagesB64
+            }
+          }, 
           options = new { num_ctx = 1024 }
         };
 
@@ -791,7 +789,7 @@ namespace maxhanna.Server.Controllers
 
         string? responseBody = null;
         try
-        { 
+        {
           // Send to /api/chat (Vision)
           using var req = new HttpRequestMessage(HttpMethod.Post, "http://localhost:11434/api/chat")
           {
