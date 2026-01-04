@@ -75,7 +75,7 @@ app.MapWhen(context => context.Request.Path.Value != null && context.Request.Pat
 		await context.Response.WriteAsync("Access Denied");
 	});
 });
-//app.UseStaticFiles();
+app.UseStaticFiles();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
