@@ -104,8 +104,7 @@ if (externalAssetsRoot && fs.existsSync(externalAssetsRoot)) {
   console.log(chalk.yellow('ASSETS_ROOT not set or missing; external game assets not mounted'));
 }
 
-
-// Put this near your other static mounts, BEFORE app.get('*')
+// Serve Uploads folder separately to avoid SPA fallback
 const uploadsRoot = path.join(__dirname, 'src', 'assets', 'Uploads'); // <-- adjust to your real path
 if (fs.existsSync(uploadsRoot)) {
   app.use('/assets/Uploads', express.static(uploadsRoot, {
