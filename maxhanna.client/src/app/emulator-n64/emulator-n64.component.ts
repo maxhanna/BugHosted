@@ -28,7 +28,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   savedMappingsNames: string[] = [];
   private _mappingsStoreKey = 'n64_mappings_store_v1'; 
   selectedMappingName: string | null = null;
-  private _gpPoller = 0;
   private _originalGetGamepads: any = null;
   // mapping: N64 control name -> { type: 'button'|'axis', index: number, axisDir?: 1|-1 }
   mapping: Record<string, any> = {};
@@ -117,7 +116,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   // Prompt the user for a mapping name and save the current mapping under that name
   async saveMappingAs() {
     try {
-      const name = window.prompt('Enter a name for this mapping:');
+      const selectedGamepadName = this.gamepads[this.selectedGamepadIndex ?? 0]?.id || '';
+      const name = window.prompt('Enter a name for this mapping:', selectedGamepadName);
       if (!name) return;
       const uid = this.parentRef?.user?.id;
       const payload = JSON.parse(JSON.stringify(this.mapping || {}));
