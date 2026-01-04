@@ -747,7 +747,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   }
 
   getAllowedFileTypes(): string[] {
-    return this.fileService.romFileExtensions;
+    return this.fileService.romFileExtensions.filter(x => !this.fileService.n64FileExtensions.includes(x));
   }
 
   get keybindingEntriesList() {
