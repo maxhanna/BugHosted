@@ -558,64 +558,7 @@ namespace maxhanna.Server.Controllers
     
 private async Task<string> DescribeMediaContent(FileEntry file, bool detailed = true)
 {
-    const string tempThumbnailDir = @"E:\Dev\maxhanna\maxhanna.Server\TempThumbnails";
-
-    // -------- Local helper functions (conversion + hygiene) --------
-    static string StripDataUriPrefixIfPresent(string input)
-    {
-        if (string.IsNullOrWhiteSpace(input)) return string.Empty;
-        int commaIdx = input.IndexOf(',');
-        return commaIdx >= 0 ? input.Substring(commaIdx + 1).Trim() : input.Trim();
-    }
-
-    static string ToCleanBase64(byte[] bytes)
-    {
-        var b64 = Convert.ToBase64String(bytes);
-        int mod = b64.Length % 4;                      // normalize padding defensively
-        if (mod != 0) b64 = b64.PadRight(b64.Length + (4 - mod), '=');
-        return b64.Trim();
-    }
-
-    static byte[] ToPngBytesResized(Image img, int maxShortSide = 512)
-    {
-        // Compute target size preserving aspect ratio where SHORT side = maxShortSide
-        int w = img.Width, h = img.Height;
-        bool widthIsShort = w <= h;
-        float scale;
-        if (widthIsShort)
-            scale = (float)maxShortSide / w;
-        else
-            scale = (float)maxShortSide / h;
-
-        int targetW = Math.Max(1, (int)Math.Round(w * scale));
-        int targetH = Math.Max(1, (int)Math.Round(h * scale));
-
-        // Resize + encode PNG
-        using var resized = img.Clone(x => x.Resize(targetW, targetH));
-        using var ms = new MemoryStream();
-        resized.Save(ms, new SixLabors.ImageSharp.Formats.Png.PngEncoder());
-        return ms.ToArray();
-    }
-
-    static async Task<byte[]> ConvertImageFileToPngAsync(string path, int maxShortSide = 512)
-    {
-        using var img = await SixLabors.ImageSharp.Image.LoadAsync(path);
-        return ToPngBytesResized(img, maxShortSide);
-    }
-
-    static async Task<byte[]> ConvertImageBytesToPngAsync(byte[] bytes, int maxShortSide = 512)
-    {
-        using var img = await SixLabors.ImageSharp.Image.LoadAsync(new MemoryStream(bytes));
-        return ToPngBytesResized(img, maxShortSide);
-    }
-
-    static void EnsureTempDir(string dir)
-    {
-        if (!Directory.Exists(dir))
-            Directory.CreateDirectory(dir);
-    }
-
-    // -------- Method body --------
+    const string tempThumbnailDir = @"E:\Dev\maxhanna\maxhanna.Server\TempThumbnails"; 
     try
     {
         EnsureTempDir(tempThumbnailDir);
@@ -1296,6 +1239,60 @@ private async Task<string> DescribeMediaContent(FileEntry file, bool detailed = 
         _sitemapLock.Release();
       }
     } 
+    
+    static string StripDataUriPrefixIfPresent(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+        int commaIdx = input.IndexOf(',');
+        return commaIdx >= 0 ? input.Substring(commaIdx + 1).Trim() : input.Trim();
+    }
+
+    static string ToCleanBase64(byte[] bytes)
+    {
+        var b64 = Convert.ToBase64String(bytes);
+        int mod = b64.Length % 4;                      // normalize padding defensively
+        if (mod != 0) b64 = b64.PadRight(b64.Length + (4 - mod), '=');
+        return b64.Trim();
+    }
+
+    static byte[] ToPngBytesResized(Image img, int maxShortSide = 512)
+    {
+        // Compute target size preserving aspect ratio where SHORT side = maxShortSide
+        int w = img.Width, h = img.Height;
+        bool widthIsShort = w <= h;
+        float scale;
+        if (widthIsShort)
+            scale = (float)maxShortSide / w;
+        else
+            scale = (float)maxShortSide / h;
+
+        int targetW = Math.Max(1, (int)Math.Round(w * scale));
+        int targetH = Math.Max(1, (int)Math.Round(h * scale));
+
+        // Resize + encode PNG
+        using var resized = img.Clone(x => x.Resize(targetW, targetH));
+        using var ms = new MemoryStream();
+        resized.Save(ms, new SixLabors.ImageSharp.Formats.Png.PngEncoder());
+        return ms.ToArray();
+    }
+
+    static async Task<byte[]> ConvertImageFileToPngAsync(string path, int maxShortSide = 512)
+    {
+        using var img = await SixLabors.ImageSharp.Image.LoadAsync(path);
+        return ToPngBytesResized(img, maxShortSide);
+    }
+
+    static async Task<byte[]> ConvertImageBytesToPngAsync(byte[] bytes, int maxShortSide = 512)
+    {
+        using var img = await SixLabors.ImageSharp.Image.LoadAsync(new MemoryStream(bytes));
+        return ToPngBytesResized(img, maxShortSide);
+    }
+
+    static void EnsureTempDir(string dir)
+    {
+        if (!Directory.Exists(dir))
+            Directory.CreateDirectory(dir);
+    }
   }
 }
 public class AiRequest
