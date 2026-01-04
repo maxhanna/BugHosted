@@ -607,7 +607,7 @@ namespace maxhanna.Server.Controllers
       {
         await connection.OpenAsync();
 
-        string sql = "UPDATE maxhanna.file_uploads SET last_access = NOW() WHERE file_name = @File_Name LIMIT 1;";
+        string sql = "UPDATE maxhanna.file_uploads SET last_access = UTC_TIMESTAMP() WHERE file_name = @File_Name LIMIT 1;";
         var command = new MySqlCommand(sql, connection);
         command.Parameters.AddWithValue("@File_Name", fileName);
 
