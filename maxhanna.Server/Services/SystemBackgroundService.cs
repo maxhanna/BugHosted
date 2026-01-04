@@ -2347,18 +2347,21 @@ private async Task CleanOneSluggyFileNameAsync(CancellationToken ct = default)
         // - not already cleaned (given_file_name IS NULL)
         // - contains dashes/underscores
         // - ends with a long numeric tail or has multiple separators (sluggy)
-        const string selectSql = @"
-            SELECT id, file_name, folder_path, file_type
-            FROM file_uploads
-            WHERE given_file_name IS NULL
-              AND (file_name LIKE '%-%' OR file_name LIKE '%_%')
-              AND (
-                    file_name REGEXP '[0-9]{5,}\.[A-Za-z0-9]+$'  /* long numeric before extension */
-                 OR file_name REGEXP '.*[0-9]{5,}$'               /* long numeric tail w/o extension */
-                 OR file_name REGEXP '.*(-|_).*(-|_).*(-|_).*'    /* several separators imply slug */
-              )
-            ORDER BY RAND()
-            LIMIT 1;";
+        const string selectSql = @" 
+          SELECT id, file_name, folder_path, file_type
+          FROM file_uploads
+          WHERE given_file_name IS NULL
+            -- looks sluggy (has dashes or underscores)
+            AND (file_name LIKE '%-%' OR file_name LIKE '%_%')
+            -- EXCLUDE files whose stem is ONLY digits (e.g., 1000020274.webp)
+            AND file_name NOT REGEXP '^[0-9]+\\.[A-Za-z0-9]+$' 
+            AND (
+                  file_name REGEXP '[0-9]{5,}\\.[A-Za-z0-9]+$'     -- long numeric before extension
+              OR file_name REGEXP '.*[0-9]{5,}$'                  -- long numeric tail without extension
+              OR file_name REGEXP '.*(-|_).*(-|_).*(-|_).*'       -- several separators imply slug
+            )
+          ORDER BY RAND()
+          LIMIT 1;";
 
         int? id = null;
         string? fileName = null;
