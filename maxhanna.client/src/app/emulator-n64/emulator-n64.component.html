@@ -68,7 +68,7 @@
             <select (change)="onMappingSelect($any($event.target).value)" [value]="selectedMappingName ?? ''">
               <option value="" disabled *ngIf="!savedMappingsNames.length">-- No mappings --</option>
               <option value="" *ngIf="savedMappingsNames.length">Default</option>
-              <option *ngFor="let n of savedMappingsNames" [value]="n">{{n}}</option>
+              <option *ngFor="let n of savedMappingsNames" [value]="n" [selected]="n === selectedMappingName">{{n}}</option>
             </select>
           </label>
 
