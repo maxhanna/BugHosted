@@ -1017,9 +1017,9 @@ private async Task<string> DescribeMediaContent(FileEntry file, bool detailed = 
         .ToArray());
 
       // Ensure max length of 240 + extension
-      int maxLength = 240 - (extension?.Length ?? 0);
-      if (sanitized.Length > maxLength)
-        sanitized = sanitized.Substring(0, maxLength);
+      // int maxLength = 240 - (extension?.Length ?? 0);
+      // if (sanitized.Length > maxLength)
+      //   sanitized = sanitized.Substring(0, maxLength);
 
       // Remove trailing periods/dashes
       sanitized = sanitized.TrimEnd('.', '-', ' ');
