@@ -296,7 +296,10 @@ namespace maxhanna.Server.Controllers
     [HttpPost("/Chat/GetChatTheme", Name = "GetChatTheme")]
     public async Task<IActionResult> GetChatTheme([FromBody] GetChatThemeRequest req)
     {
-        if (req == null) return BadRequest();
+        if (req == null) {
+          return BadRequest();
+        }
+        Console.WriteLine("GetChatTheme called with request: " + (req != null ? $"ChatId={req.ChatId}" : "null"));
 
         var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
         await using var conn = new MySqlConnection(connectionString);
@@ -328,7 +331,7 @@ namespace maxhanna.Server.Controllers
                 LIMIT 1";
 
             await using var cmd = new MySqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue("@ChatId", req.ChatId);
+            cmd.Parameters.AddWithValue("@ChatId", req?.ChatId);
 
             await using var reader = await cmd.ExecuteReaderAsync();
             if (await reader.ReadAsync())
