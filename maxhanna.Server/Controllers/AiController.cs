@@ -590,7 +590,7 @@ namespace maxhanna.Server.Controllers
 
 						// Resize and compress more aggressively to keep payloads small
 						// Use a smaller width and higher q:v (lower quality) to reduce bytes.
-						var ffmpegArgs = $"-i \"{filePath}\" -ss {t} -vframes 1 -vf scale=768:-1 -q:v 10 \"{thumbPath}\"";
+						var ffmpegArgs = $"-i \"{filePath}\" -ss {t} -vframes 1 -vf scale=512:-1 -q:v 10 \"{thumbPath}\"";
 						var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
 						{
 							RedirectStandardError = true,
@@ -626,7 +626,7 @@ namespace maxhanna.Server.Controllers
 							{
 								var jpegPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg");
 								// More aggressive downscale and compression for images
-								var ffmpegArgs = $"-i \"{filePath}\" -vf scale=768:-1 -q:v 10 \"{jpegPath}\"";
+								var ffmpegArgs = $"-i \"{filePath}\" -vf scale=512:-1 -q:v 10 \"{jpegPath}\"";
 								var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
 								{
 									RedirectStandardError = true,
@@ -659,7 +659,7 @@ namespace maxhanna.Server.Controllers
 						// Fallback to conversion if direct read fails
 						var jpegPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg"); 
 						// Fallback conversion: use smaller scale and higher compression
-						var ffmpegArgs = $"-i \"{filePath}\" -vf scale=768:-1 -q:v 10 \"{jpegPath}\"";
+						var ffmpegArgs = $"-i \"{filePath}\" -vf scale=512:-1 -q:v 10 \"{jpegPath}\"";
 						var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
 						{
 							RedirectStandardError = true,
@@ -756,13 +756,14 @@ namespace maxhanna.Server.Controllers
           messages = new[] {
             new
             {
-                role = "user",
-                content = detailed
-                    ? BuildDetailedPrompt(base64Images.Count > 1)
-                    : BuildConcisePrompt(),
-                images = base64Images.ToArray()
+              role = "user",
+              content = detailed
+                  ? BuildDetailedPrompt(base64Images.Count > 1)
+                  : BuildConcisePrompt(), 
+              images = base64Images.Select(b => "data:image/jpeg;base64," + b).ToArray()
             }
-          }
+          },
+          options = new { num_ctx = 2048 } 
 				};
  
 				string? responseBody = null;
