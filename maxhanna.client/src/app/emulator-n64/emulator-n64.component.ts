@@ -362,6 +362,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         this.parentRef?.showNotification('Invalid file selected');
         return;
       }
+      this.startLoading();
       // Try to fetch the file bytes from the server endpoint. Adjust URL if your API differs.
       const response = await this.romService.getRomFile(file.fileName ?? "", this.parentRef?.user?.id);
 
@@ -397,6 +398,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       console.error('Error loading ROM from search', e);
       this.parentRef?.showNotification('Error loading ROM from search');
     }
+    this.stopLoading();
   }
 
 

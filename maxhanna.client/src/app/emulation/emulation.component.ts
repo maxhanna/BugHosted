@@ -434,8 +434,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     }, 1);
     this.setHTMLControls();
     this.setupAutosave();
-  // mark session start when rom is loaded/launched
-  this.runStartMs = Date.now();
+    // mark session start when rom is loaded/launched
+    this.runStartMs = Date.now();
     this.stopLoading();
   }
 

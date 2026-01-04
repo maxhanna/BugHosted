@@ -2,7 +2,7 @@
   <div class="closeButton" (click)="remove_me('EmulatorN64Component');" *ngIf="!isFullScreen"></div>
   <div class="menuButton" (click)="showMenuPanel();" *ngIf="!isFullScreen"></div>
   <div class="componentTitle" *ngIf="!isFullScreen">N64 Emulator</div>
-  <div class="gamesContainer {{ !romName ? 'expanded' : '' }}" *ngIf="!romName">
+  <div class="gamesContainer{{ !romName ? ' expanded' : '' }}{{isLoading ? ' is-disabled' : ''}}" *ngIf="!romName">
     <app-file-search [user]="parentRef?.user" [inputtedParentRef]="parentRef" [currentDirectory]="'Roms/'"
       [clearAfterSelectFile]="true" [showPrivatePublicOption]="false" [showFileSearchOptions]="false"
       [canChangeDirectory]="false" [canDragMove]="false" [displayFileActions]="true" [displayComments]="false"

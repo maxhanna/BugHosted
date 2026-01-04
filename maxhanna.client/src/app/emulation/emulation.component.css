@@ -703,3 +703,8 @@ input:checked+.slider::before {
 .rebindingWrapper button:disabled {
   color: black;
 }
+
+.is-disabled {
+  pointer-events: none;    /* blocks clicks in children */
+  opacity: 0.6;            /* visual cue, tweak as needed */
+}

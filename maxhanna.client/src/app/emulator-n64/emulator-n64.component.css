@@ -45,4 +45,9 @@ canvas {
   font-weight: bold;
   font-size: 14px;
   vertical-align: middle;
+} 
+
+.is-disabled {
+  pointer-events: none;    /* blocks clicks in children */
+  opacity: 0.6;            /* visual cue, tweak as needed */
 }
