@@ -105,6 +105,26 @@ if (externalAssetsRoot && fs.existsSync(externalAssetsRoot)) {
 }
 
 
+// Put this near your other static mounts, BEFORE app.get('*')
+const uploadsRoot = path.join(__dirname, 'src', 'assets', 'Uploads'); // <-- adjust to your real path
+if (fs.existsSync(uploadsRoot)) {
+  app.use('/assets/Uploads', express.static(uploadsRoot, {
+    fallthrough: false,             // if not found, return 404; don't fall to SPA
+    maxAge: '1y',
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.webp')) res.set('Content-Type', 'image/webp');
+      res.set('X-Content-Type-Options', 'nosniff');
+      // If you fingerprint filenames, also consider: Cache-Control: immutable
+    }
+  }));
+  console.log(chalk.gray(`✓ Serving uploads from: ${uploadsRoot}`));
+} else {
+  console.log(chalk.yellow(`Uploads folder missing: ${uploadsRoot}`));
+}
+
+
 // Explicitly serve built assets from the dist 'assets' folder if present.
 // This ensures files like `/assets/mupen64plus/*.wasm` are served directly
 // from the build output instead of falling back to the SPA index.html.
