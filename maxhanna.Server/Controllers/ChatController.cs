@@ -368,12 +368,30 @@ namespace maxhanna.Server.Controllers
 					}
 
 					return Ok(new GetChatThemeResponse { Theme = "", UserThemeId = null, UserTheme = null });
-				}
-				catch (Exception ex)
-				{
-					_ = _log.Db("Error in GetChatTheme: " + ex.Message, null, "CHAT", outputToConsole: true);
-					return StatusCode(500, "Error: " + ex.Message);
-				}
+				} 
+        catch (Exception ex)
+        {
+            // Log *full* details server-side
+            _ = _log.Db(
+                "Error in GetChatTheme: " + ex.ToString(), // ex.ToString() gives stack + inner exceptions
+                null, "CHAT", outputToConsole: true
+            );
+
+            var problem = new ProblemDetails
+            {
+                Title = "GetChatTheme failed",
+                Status = StatusCodes.Status500InternalServerError,
+                Detail = ex.InnerException?.Message ?? ex.Message, // still keep concise for the client
+                Type = "https://httpstatuses.com/500",
+                Instance = HttpContext?.Request?.Path.Value
+            };
+
+            // Optional: include a stable application code for easy client handling
+            problem.Extensions["code"] = "CHAT_THEME_001";
+
+            return StatusCode(StatusCodes.Status500InternalServerError, problem);
+        }
+
 			}
 		}
 
