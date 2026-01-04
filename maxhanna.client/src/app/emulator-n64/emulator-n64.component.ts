@@ -26,7 +26,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   showKeyMappings = false;
   // Named mapping store
   savedMappingsNames: string[] = [];
-  private _mappingsStoreKey = 'n64_mappings_store_v1';
+  private _mappingsStoreKey = 'n64_mappings_store_v1'; 
   selectedMappingName: string | null = null;
   private _gpPoller = 0;
   private _originalGetGamepads: any = null;
@@ -42,8 +42,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private _directPrevState: Record<string, boolean> = {};
   isMenuPanelVisible: boolean = false;
   isFullScreen: boolean = false;
-  private _mappingKey = 'n64_gamepad_mapping_v1';
-  showFileSearch = false;
+  private _mappingKey = 'n64_gamepad_mapping_v1'; 
+  private readonly _lastPerGamepadKey = 'n64_last_mapping_per_gp_v1'; 
+  private lastMappingPerGp: Record<string, string> = {}; 
+  showFileSearch = false; 
+  private _autoDetectTimer: any = null;
 
   // --- Autosave toggle & internals ---
   autosave = true;                 // your UI toggle (starts ON)
@@ -183,6 +186,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
             this.mapping = JSON.parse(JSON.stringify(m));
             await this.applyMappingToEmulator();
             this.parentRef?.showNotification(`Applied mapping "${this.selectedMappingName}"`);
+            
+            const gpIndex = this.selectedGamepadIndex ?? 0;
+            const gp = (navigator.getGamepads ? navigator.getGamepads() : [])[gpIndex];
+            if (gp?.id) { 
+              this.rememberForGp(gp.id, this.selectedMappingName ?? ''); 
+            }
+
             return;
           }
         } catch (e) {
@@ -239,14 +249,18 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  // Called by template when user selects a mapping from the dropdown
   onMappingSelect(name: string) {
     if (!name) return;
     this.selectedMappingName = name;
     this.applySelectedMapping();
   }
 
-  ngOnInit(): void { }
+  ngOnInit(): void {
+    try {
+      const raw = localStorage.getItem(this._lastPerGamepadKey);
+      this.lastMappingPerGp = raw ? JSON.parse(raw) : {};
+    } catch { this.lastMappingPerGp = {}; } 
+  }
 
   ngAfterViewInit(): void {
     const canvasEl = this.canvas?.nativeElement;
@@ -265,11 +279,17 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       // Nudge SDL/Emscripten so input/viewports realign
       requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
     });
-    this._resizeObserver.observe(container);
+    this._resizeObserver.observe(container); 
 
     // Also listen to fullscreen & orientation changes (mobile)
     document.addEventListener('fullscreenchange', this._resizeHandler);
     window.addEventListener('orientationchange', this._resizeHandler);
+    // --- Add gamepad event listeners ---
+    window.addEventListener('gamepadconnected', this._onGamepadConnected);
+    window.addEventListener('gamepaddisconnected', this._onGamepadDisconnected); 
+    canvasEl?.addEventListener('click', () => this._bootstrapDetectOnce());
+    // Start a gentle poller as a fallback (see next section)
+    this.startGamepadAutoDetect(); 
   }
 
   async ngOnDestroy(): Promise<void> {
@@ -284,13 +304,22 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
 
     if (this._canvasResizeAdded) {
-      try { window.removeEventListener('resize', this._resizeHandler); } catch { }
+      try { window.removeEventListener('resize', this._resizeHandler); } catch {
+        console.log('Failed to remove resize listener'); 
+      }
       this._canvasResizeAdded = false;
     }
+
     try {
       document.removeEventListener('fullscreenchange', this._resizeHandler);
       window.removeEventListener('orientationchange', this._resizeHandler);
-    } catch { }
+    } catch { console.log('Failed to remove fullscreen/orientation listeners'); }
+    
+    this.stopGamepadAutoDetect();
+    try {
+      window.removeEventListener('gamepadconnected', this._onGamepadConnected);
+      window.removeEventListener('gamepaddisconnected', this._onGamepadDisconnected);
+    } catch { console.log('Failed to remove gamepad event listeners'); }
   }
 
 
@@ -912,36 +941,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch (e) {
       console.warn('Failed to read gamepads', e);
     }
-  }
-
-  startGamepadLogging() {
-    const poll = () => {
-      try {
-        const g = navigator.getGamepads ? navigator.getGamepads() : [];
-        // update the UI list so user can pick newly connected devices
-        this.refreshGamepads();
-        for (let i = 0; i < g.length; i++) {
-          const gp = g[i];
-          if (!gp) continue;
-          // light console output for debugging while emulator runs
-          // show active buttons
-          const pressed = (gp.buttons as any[]).map((b: any, bi: number) => b.pressed ? bi : -1).filter((v: number) => v >= 0);
-          if (pressed.length) console.log(`[Gamepad ${gp.index}] ${gp.id} pressed:`, pressed);
-        }
-      } catch (e) {
-        console.warn('Gamepad poll error', e);
-      }
-      this._gpPoller = window.setTimeout(poll, 750) as any;
-    };
-    poll();
-  }
-
-  stopGamepadLogging() {
-    if (this._gpPoller) {
-      clearTimeout(this._gpPoller);
-      this._gpPoller = 0;
-    }
-  }
+  } 
 
   applyGamepadReorder() {
     if (this.selectedGamepadIndex === null) return;
@@ -981,6 +981,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     if (this.savedMappingsNames.length === 0) {
       this.loadMappingsList();
     }
+    this._bootstrapDetectOnce(); 
   }
   closeMenuPanel() {
     this.isMenuPanelVisible = false;
@@ -1359,6 +1360,89 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const u8 = new Uint8Array(digest);
     return Array.from(u8).map(b => b.toString(16).padStart(2, '0')).join('');
   }
+    
+  private _onGamepadConnected = (ev: GamepadEvent) => {
+    // Update list immediately
+    this.refreshGamepads();
+
+    // Auto-select if none selected yet
+    if (this.selectedGamepadIndex === null && this.gamepads.length) {
+      const std = this.gamepads.find(g => g.mapping === 'standard');
+      this.onSelectGamepad(std ? std.index : ev.gamepad.index);
+    }
+
+    // Nudge emulator to pick up new device if running
+    if (this.instance || this.status === 'running') {
+      // Reorder so selected is index 0
+      this.applyGamepadReorder();
+      // Optional: if SDL didn’t bind yet, a quick stop/start helps
+      // await this.stop(); await this.boot();
+    }
+    this.maybeApplyStoredMappingFor(ev.gamepad.id);
+  };
+
+  private _onGamepadDisconnected = (_ev: GamepadEvent) => {
+    this.refreshGamepads();
+    if (this.selectedGamepadIndex !== null) {
+      const stillThere = this.gamepads.some(g => g.index === this.selectedGamepadIndex);
+      if (!stillThere) this.selectedGamepadIndex = null;
+    }
+  }; 
+    
+  startGamepadAutoDetect() {
+    // Poll every 750ms for newly visible controllers
+    const tick = () => {
+      try {
+        const before = this.gamepads.map(g => g.index).join(',');
+        this.refreshGamepads();
+        const after = this.gamepads.map(g => g.index).join(',');
+
+        // If a new controller appeared and none is selected, auto-select
+        if (this.selectedGamepadIndex === null && this.gamepads.length) {
+          const std = this.gamepads.find(g => g.mapping === 'standard');
+          this.onSelectGamepad(std ? std.index : this.gamepads[0].index);
+        }
+
+        // If list changed, reapply reorder so selected is index 0
+        if (before !== after) {
+          this.applyGamepadReorder();
+        }
+      } catch {/* ignore */}
+      this._autoDetectTimer = setTimeout(tick, 750);
+    };
+    tick();
+  }
+
+  stopGamepadAutoDetect() {
+    if (this._autoDetectTimer) {
+      clearTimeout(this._autoDetectTimer);
+      this._autoDetectTimer = null;
+    }
+  } 
+  
+  private _bootstrapDetectOnce() {
+    // A quick burst of rapid polling for ~2 seconds after a user gesture
+    let runs = 0;
+    const burst = () => {
+      this.refreshGamepads();
+      runs++;
+      if (runs < 8) setTimeout(burst, 250);
+    };
+    burst();
+  }  
+
+  private async maybeApplyStoredMappingFor(id: string) {
+    const knownName = this.savedMappingsNames.find(n => n.toLowerCase() === id.toLowerCase());
+    if (knownName) {
+      this.selectedMappingName = knownName;
+      await this.applySelectedMapping();
+    }
+  }  
+
+  private rememberForGp(id: string, name: string) {
+    this.lastMappingPerGp[id] = name; // name can be '' for Default
+    localStorage.setItem(this._lastPerGamepadKey, JSON.stringify(this.lastMappingPerGp));
+  } 
 }
 
 type N64ExportedSave = {

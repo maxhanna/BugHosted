@@ -60,16 +60,14 @@
             </select>
           </label>
           <button (click)="refreshGamepads()">Refresh</button>
-          <button (click)="startGamepadLogging()">Start Log</button>
-          <button (click)="stopGamepadLogging()">Stop Log</button>
         </div>
 
         <!-- Mappings dropdown and save controls (applies on select) -->
         <div *ngIf="!showKeyMappings && gamepads.length">
           <label style="margin-left:8px">Mappings:
-            <select (change)="onMappingSelect($any($event.target).value)">
+            <select (change)="onMappingSelect($any($event.target).value)" [value]="selectedMappingName ?? ''">
               <option value="" disabled *ngIf="!savedMappingsNames.length">-- No mappings --</option>
-              <option value="" *ngIf="savedMappingsNames.length" selected>Default</option>
+              <option value="" *ngIf="savedMappingsNames.length">Default</option>
               <option *ngFor="let n of savedMappingsNames" [value]="n">{{n}}</option>
             </select>
           </label>
