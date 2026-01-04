@@ -2416,7 +2416,7 @@ private async Task CleanOneSluggyFileNameAsync(CancellationToken ct = default)
         await using (var up = new MySqlCommand(updateSql, conn))
         {
             up.Parameters.AddWithValue("@newName", human);
-            up.Parameters.AddWithValue("@uid", 314); // your existing audit user id
+            up.Parameters.AddWithValue("@uid", 314); // audit user id
             up.Parameters.AddWithValue("@id", id.Value);
 
             var rows = await up.ExecuteNonQueryAsync(ct);
