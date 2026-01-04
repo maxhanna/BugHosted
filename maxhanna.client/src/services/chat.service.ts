@@ -124,8 +124,7 @@ export class ChatService {
         body: JSON.stringify({ ChatId: chatId }),
       });
 
-      if (!response.ok) {
-        // Try parse ProblemDetails
+      if (!response.ok) { 
         let problem: any;
         try { problem = await response.json(); } catch {}
         const message = problem?.detail || problem?.title || `HTTP ${response.status}`;
