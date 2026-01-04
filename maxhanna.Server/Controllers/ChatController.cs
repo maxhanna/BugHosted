@@ -291,109 +291,98 @@ namespace maxhanna.Server.Controllers
 				}
 
 			}
-		}
+		} 
+    
+    [HttpPost("/Chat/GetChatTheme", Name = "GetChatTheme")]
+    public async Task<IActionResult> GetChatTheme([FromBody] GetChatThemeRequest req)
+    {
+        if (req == null) return BadRequest();
 
+        var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+        await using var conn = new MySqlConnection(connectionString);
 
-		[HttpPost("/Chat/GetChatTheme", Name = "GetChatTheme")]
-		public async Task<IActionResult> GetChatTheme([FromBody] GetChatThemeRequest req)
-		{
-			if (req == null) return BadRequest();
-			int chatId = req.ChatId;
-			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-			using (MySqlConnection conn = new MySqlConnection(connectionString))
-			{
-				try
-				{
-					await conn.OpenAsync();
-					// Join to user_theme to return the saved theme properties when available
-					string sql = @"
-						SELECT ct.theme, ct.user_theme_id,
-							   ut.id AS ut_id,
-							   ut.user_id AS ut_user_id,
-							   ut.background_image AS ut_background_image,
-							   ut.font_color AS ut_font_color,
-							   ut.secondary_font_color AS ut_secondary_font_color,
-							   ut.third_font_color AS ut_third_font_color,
-							   ut.background_color AS ut_background_color,
-							   ut.component_background_color AS ut_component_background_color,
-							   ut.secondary_component_background_color AS ut_secondary_component_background_color,
-							   ut.main_highlight_color AS ut_main_highlight_color,
-							   ut.main_highlight_color_quarter_opacity AS ut_main_highlight_color_quarter_opacity,
-							   ut.link_color AS ut_link_color,
-							   ut.font_size AS ut_font_size,
-							   ut.font_family AS ut_font_family,
-							   ut.name AS ut_name
-						FROM maxhanna.chat_themes ct
-						LEFT JOIN maxhanna.user_theme ut ON ct.user_theme_id = ut.id
-						WHERE ct.chat_id = @ChatId
-						LIMIT 1";
+        try
+        {
+            await conn.OpenAsync();
 
-					MySqlCommand cmd = new MySqlCommand(sql, conn);
-					cmd.Parameters.AddWithValue("@ChatId", chatId);
+            const string sql = @"
+                SELECT ct.theme, ct.user_theme_id,
+                      ut.id AS ut_id,
+                      ut.user_id AS ut_user_id,
+                      ut.background_image AS ut_background_image,
+                      ut.font_color AS ut_font_color,
+                      ut.secondary_font_color AS ut_secondary_font_color,
+                      ut.third_font_color AS ut_third_font_color,
+                      ut.background_color AS ut_background_color,
+                      ut.component_background_color AS ut_component_background_color,
+                      ut.secondary_component_background_color AS ut_secondary_component_background_color,
+                      ut.main_highlight_color AS ut_main_highlight_color,
+                      ut.main_highlight_color_quarter_opacity AS ut_main_highlight_color_quarter_opacity,
+                      ut.link_color AS ut_link_color,
+                      ut.font_size AS ut_font_size,
+                      ut.font_family AS ut_font_family,
+                      ut.name AS ut_name
+                FROM maxhanna.chat_themes ct
+                LEFT JOIN maxhanna.user_theme ut ON ct.user_theme_id = ut.id
+                WHERE ct.chat_id = @ChatId
+                LIMIT 1";
 
-					using (var reader = await cmd.ExecuteReaderAsync())
-					{
-						if (await reader.ReadAsync())
-						{
-							var theme = reader.IsDBNull(reader.GetOrdinal("theme")) ? "" : reader.GetString("theme");
-							int? userThemeId = reader.IsDBNull(reader.GetOrdinal("user_theme_id")) ? null : (int?)reader.GetInt32("user_theme_id");
+            await using var cmd = new MySqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@ChatId", req.ChatId);
 
-							UserTheme? userTheme = null;
-							if (!reader.IsDBNull(reader.GetOrdinal("ut_id")))
-							{
-								FileEntry? tmpBackgroundImage =  reader.IsDBNull(reader.GetOrdinal("ut_background_image")) ? null : new FileEntry(reader.GetInt32("ut_background_image"));
-								userTheme = new UserTheme
-								{
-									Id = reader.GetInt32("ut_id"),
-									UserId = reader.IsDBNull(reader.GetOrdinal("ut_user_id")) ? null : (int?)reader.GetInt32("ut_user_id"),
-									BackgroundImage = tmpBackgroundImage,
-									FontColor = reader.IsDBNull(reader.GetOrdinal("ut_font_color")) ? null : reader.GetString("ut_font_color"),
-									SecondaryFontColor = reader.IsDBNull(reader.GetOrdinal("ut_secondary_font_color")) ? null : reader.GetString("ut_secondary_font_color"),
-									ThirdFontColor = reader.IsDBNull(reader.GetOrdinal("ut_third_font_color")) ? null : reader.GetString("ut_third_font_color"),
-									BackgroundColor = reader.IsDBNull(reader.GetOrdinal("ut_background_color")) ? null : reader.GetString("ut_background_color"),
-									ComponentBackgroundColor = reader.IsDBNull(reader.GetOrdinal("ut_component_background_color")) ? null : reader.GetString("ut_component_background_color"),
-									SecondaryComponentBackgroundColor = reader.IsDBNull(reader.GetOrdinal("ut_secondary_component_background_color")) ? null : reader.GetString("ut_secondary_component_background_color"),
-									MainHighlightColor = reader.IsDBNull(reader.GetOrdinal("ut_main_highlight_color")) ? null : reader.GetString("ut_main_highlight_color"),
-									MainHighlightColorQuarterOpacity = reader.IsDBNull(reader.GetOrdinal("ut_main_highlight_color_quarter_opacity")) ? null : reader.GetString("ut_main_highlight_color_quarter_opacity"),
-									LinkColor = reader.IsDBNull(reader.GetOrdinal("ut_link_color")) ? null : reader.GetString("ut_link_color"),
-									FontSize = reader.IsDBNull(reader.GetOrdinal("ut_font_size")) ? null : (int?)reader.GetInt32("ut_font_size"),
-									FontFamily = reader.IsDBNull(reader.GetOrdinal("ut_font_family")) ? null : reader.GetString("ut_font_family"),
-									Name = reader.IsDBNull(reader.GetOrdinal("ut_name")) ? "" : reader.GetString("ut_name")
-								};
-							}
+            await using var reader = await cmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                var theme = reader.IsDBNull("theme") ? "" : reader.GetString("theme");
+                int? userThemeId = reader.IsDBNull("user_theme_id") ? null : reader.GetInt32("user_theme_id");
 
-							var resp = new GetChatThemeResponse { Theme = theme, UserThemeId = userThemeId, UserTheme = userTheme };
-							return Ok(resp);
-						}
-					}
+                UserTheme? userTheme = null;
+                if (!reader.IsDBNull("ut_id"))
+                {
+                    FileEntry? tmpBackgroundImage =
+                        reader.IsDBNull("ut_background_image") ? null : new FileEntry(reader.GetInt32("ut_background_image"));
 
-					return Ok(new GetChatThemeResponse { Theme = "", UserThemeId = null, UserTheme = null });
-				} 
+                    userTheme = new UserTheme
+                    {
+                        Id = reader.GetInt32("ut_id"),
+                        UserId = reader.IsDBNull("ut_user_id") ? null : reader.GetInt32("ut_user_id"),
+                        BackgroundImage = tmpBackgroundImage,
+                        FontColor = reader.IsDBNull("ut_font_color") ? null : reader.GetString("ut_font_color"),
+                        SecondaryFontColor = reader.IsDBNull("ut_secondary_font_color") ? null : reader.GetString("ut_secondary_font_color"),
+                        ThirdFontColor = reader.IsDBNull("ut_third_font_color") ? null : reader.GetString("ut_third_font_color"),
+                        BackgroundColor = reader.IsDBNull("ut_background_color") ? null : reader.GetString("ut_background_color"),
+                        ComponentBackgroundColor = reader.IsDBNull("ut_component_background_color") ? null : reader.GetString("ut_component_background_color"),
+                        SecondaryComponentBackgroundColor = reader.IsDBNull("ut_secondary_component_background_color") ? null : reader.GetString("ut_secondary_component_background_color"),
+                        MainHighlightColor = reader.IsDBNull("ut_main_highlight_color") ? null : reader.GetString("ut_main_highlight_color"),
+                        MainHighlightColorQuarterOpacity = reader.IsDBNull("ut_main_highlight_color_quarter_opacity") ? null : reader.GetString("ut_main_highlight_color_quarter_opacity"),
+                        LinkColor = reader.IsDBNull("ut_link_color") ? null : reader.GetString("ut_link_color"),
+                        FontSize = reader.IsDBNull("ut_font_size") ? null : reader.GetInt32("ut_font_size"),
+                        FontFamily = reader.IsDBNull("ut_font_family") ? null : reader.GetString("ut_font_family"),
+                        Name = reader.IsDBNull("ut_name") ? "" : reader.GetString("ut_name")
+                    };
+                }
+
+                return Ok(new GetChatThemeResponse { Theme = theme, UserThemeId = userThemeId, UserTheme = userTheme });
+            }
+
+            return Ok(new GetChatThemeResponse { Theme = "", UserThemeId = null, UserTheme = null });
+        }
         catch (Exception ex)
         {
-            // Log *full* details server-side
-            _ = _log.Db(
-                "Error in GetChatTheme: " + ex.ToString(), // ex.ToString() gives stack + inner exceptions
-                null, "CHAT", outputToConsole: true
-            );
-
+            try { _ = _log.Db("Error in GetChatTheme: " + ex.ToString(), null, "CHAT", outputToConsole: true); } catch {}
             var problem = new ProblemDetails
             {
                 Title = "GetChatTheme failed",
                 Status = StatusCodes.Status500InternalServerError,
-                Detail = ex.InnerException?.Message ?? ex.Message, // still keep concise for the client
+                Detail = ex.InnerException?.Message ?? ex.Message,
                 Type = "https://httpstatuses.com/500",
                 Instance = HttpContext?.Request?.Path.Value
             };
-
-            // Optional: include a stable application code for easy client handling
             problem.Extensions["code"] = "CHAT_THEME_001";
-
             return StatusCode(StatusCodes.Status500InternalServerError, problem);
         }
+    }
 
-			}
-		}
 
 		[HttpPost("/Chat/SetChatTheme", Name = "SetChatTheme")]
 		public async Task<IActionResult> SetChatTheme([FromBody] SetChatThemeRequest req)
