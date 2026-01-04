@@ -505,6 +505,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
         }
       }, 50);
       console.log("Playing file with ID:", fileId);
+      this.cdr.markForCheck();
       return;
     }
 
@@ -674,6 +675,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     elements.forEach(el => {
       if (el) el.style.display = setter ? "inline-block" : "none";
     });
+    this.cdr.markForCheck();
   }
 
   extractYouTubeVideoId(url: string) {
@@ -868,6 +870,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       console.error('Error loading radio data:', error);
     } finally {
       this.isLoadingRadio = false;
+      this.cdr.markForCheck();
     }
   }
 
