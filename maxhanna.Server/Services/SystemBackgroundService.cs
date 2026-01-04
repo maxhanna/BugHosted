@@ -878,10 +878,10 @@ namespace maxhanna.Server.Services
 					var endTime = DateTime.UtcNow;
 					var elapsedMs = (endTime - startTime).TotalMilliseconds;
 					//await _log.Db($"Trade for userId={userId}, crypto={crypto}, strategy={strategy} completed in {elapsedMs:F2}ms", userId, "TRADE", true);
-					await Task.Delay(500).ConfigureAwait(false);
+					await Task.Delay(1000).ConfigureAwait(false);
 				}
 
-				//await _log.Db($"Completed execution of {tradeTaskDelegates.Count} trade tasks", null, "TRADE", true);
+				await _log.Db($"Completed execution of {tradeTaskDelegates.Count} trade tasks for users: {string.Join(", ", tradeTaskDelegates.Select(t => t.UserId))}", null, "TRADE", true);
 			}
 			catch (Exception ex)
 			{
