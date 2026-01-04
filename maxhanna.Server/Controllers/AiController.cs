@@ -285,7 +285,7 @@ namespace maxhanna.Server.Controllers
 				object requestBody = new
 				{
 					model = "gemma3:4b",
-					prompt = prompt,
+          prompt,
 					stream = false,
 					max_tokens = request.MaxCount
 				};
@@ -750,21 +750,28 @@ namespace maxhanna.Server.Controllers
 				// for transient 5xx failures (model runner crashes or restarts).
 				var payload = new
 				{
-					model = "llava",
+					model = "moondream",
 					prompt,
-					stream = false,
-					images = base64Images.ToArray()
+					stream = false, 
+          messages = new[] {
+            new
+            {
+                role = "user",
+                content = detailed
+                    ? BuildDetailedPrompt(base64Images.Count > 1)
+                    : BuildConcisePrompt(),
+                images = base64Images.ToArray()
+            }
+          }
 				};
  
 				string? responseBody = null;
 				try
-				{
-					// Build request per-attempt so we don't reuse a disposed HttpRequestMessage
-					using var req = new HttpRequestMessage(HttpMethod.Post, "http://localhost:11434/api/generate")
-					{
-						Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
-					};
-
+				{ 
+          using var req = new HttpRequestMessage(HttpMethod.Post, "http://localhost:11434/api/chat")
+          {
+              Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+          };
 					// Wait for the media lock (no timeout here; callers can control concurrency via JS/API)
 					await _ollamaMediaLock.WaitAsync();
 					HttpResponseMessage? resp = null;
@@ -803,9 +810,9 @@ namespace maxhanna.Server.Controllers
 					_ = _log.Db("Ollama media analysis returned empty body after retries.", null, "AiController", true);
 					return string.Empty;
 				}
-
-				var parsed = JsonSerializer.Deserialize<JsonElement>(responseBody);
-				return RemoveMediaReferences(parsed.GetProperty("response").GetString()?.Trim() ?? string.Empty);
+        var parsed = JsonSerializer.Deserialize<JsonElement>(responseBody);
+        var content = parsed.GetProperty("message").GetProperty("content").GetString();
+        return RemoveMediaReferences(content?.Trim() ?? string.Empty);
 			}
 			catch (Exception ex)
 			{
@@ -820,21 +827,17 @@ namespace maxhanna.Server.Controllers
 
 		private string BuildDetailedPrompt(bool multipleFrames)
 		{
-			string basePrompt = "Describe the scene or action depicted, focusing on the main subjects, their interactions, and the overall context. ";
+			string basePrompt = "Describe the image in 2–3 short sentences. Start with the main subject and action, then relevant details (objects, colors, setting). Avoid meta-language and formatting.";
 			if (multipleFrames)
 			{
-				basePrompt += "Consider the sequence of events across the frames. ";
+				basePrompt += "If multiple images are provided, summarize consistent elements across frames and note any differences.";
 			}
-			basePrompt += "Do not mention that this is from an image or video. Describe it as if you are observing it directly. ";
-			basePrompt += "If there is text, transcribe it exactly. ";
-			basePrompt += "Do not include comments about your capabilities or limitations. ";
-			basePrompt += "Keep the description under 250 words.";
 			return basePrompt;
 		}
 
 		private string BuildConcisePrompt()
 		{
-			return "Summarize the main subject or action in 2-5 words, without mentioning media type or your capabilities.";
+			return "Create a single-sentence caption describing the main subject and action. Avoid meta-language and formatting.";
 		}
 
 		private string RemoveMediaReferences(string response)
