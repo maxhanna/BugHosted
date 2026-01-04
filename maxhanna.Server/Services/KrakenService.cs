@@ -3792,17 +3792,17 @@ public class KrakenService
 
 			var tradeCount = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
 
-			// 2. If no recent trades, get first BTC price today
+			// 2. If no recent trades, get first price today
 			if (tradeCount == 0)
 			{
 				var priceQuery = $@"
 					SELECT value_usd 
 					FROM maxhanna.coin_value 
-					WHERE name = '{tmpCoinName}'
-					AND timestamp >= CURDATE()
-					AND timestamp < CURDATE() + INTERVAL 1 DAY
-					ORDER BY timestamp ASC 
-					LIMIT 1;";
+					WHERE name = '{tmpCoinName}' 
+          AND timestamp >= UTC_DATE()
+            AND timestamp <  UTC_DATE() + INTERVAL 1 DAY
+          ORDER BY timestamp ASC
+          LIMIT 1;";
 
 				using var priceCmd = new MySqlCommand(priceQuery, connection);
 				var result = await priceCmd.ExecuteScalarAsync();
@@ -3811,9 +3811,9 @@ public class KrakenService
 				{
 					return Convert.ToDecimal(result);
 				}
+        _ = _log.Db($"({tmpCoinName}:{userId}:{strategy}) No price found for today for {tmpCoinName}.", userId, "TRADE", viewDebugLogs);
 			}
-
-			return null;
+ 			return null;
 		}
 		catch (Exception ex)
 		{
@@ -5581,8 +5581,16 @@ public class KrakenService
 		}
 		else
 		{
-			lastPrice = firstPriceToday.Value; // Fallback to current price
+      if (firstPriceToday == null || !firstPriceToday.HasValue)
+      {
+        _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No last trade, checked price, or firstPriceToday available. Cannot calculate spread accurately.", userId, "TRADE", viewErrorDebugLogs);
+        lastPrice = coinPriceUSDC; // Fallback to current price
+      }
+      else
+      {
+        lastPrice = firstPriceToday.Value; // Fallback to current price
 			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No last trade or checked price, using firstPriceToday ({firstPriceToday.Value}) as fallback.", userId, "TRADE", viewDebugLogs);
+      }
 		}
 
 		decimal currentPrice = coinPriceUSDC;
