@@ -294,7 +294,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   async ngOnDestroy(): Promise<void> {
     this.stopAutosaveLoop();
-    if (confirm('Save your progress on the server before exiting?')) {
+    if (this.romName && confirm('Save your progress on the server before exiting?')) {
       await this.autosaveTick();
     }
     this.stop();
