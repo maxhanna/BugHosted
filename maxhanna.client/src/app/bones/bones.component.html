@@ -240,8 +240,9 @@
               class="heroRemoteMap">
               Map: {{ p.map }}
             </div>
-            <div class="xxSmallFont thirdFontColor" *ngIf="p.updated" [title]="p.updated">Updated: {{ p.updated |
-              timeSince }}</div>
+            <div class="xxSmallFont thirdFontColor" *ngIf="p.updated" [title]="p.updated">
+              Updated: {{ p.updated | timeSince }}
+            </div>
           </div>
         </div>
         <div>

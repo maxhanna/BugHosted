@@ -112,7 +112,7 @@
               <strong>{{ notification.text }}</strong>
             </div>
             <div class="date notificationText" (click)="notificationTextClick(notification)">
-              <strong>Time:</strong> {{ getUtcTimeSince(notification?.date) }}
+              <strong>Time:</strong> {{ notification?.date | timeSince }}
             </div>
           </div>
         </div>
