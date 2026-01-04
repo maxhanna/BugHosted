@@ -112,7 +112,7 @@
               <strong>{{ notification.text }}</strong>
             </div>
             <div class="date notificationText" (click)="notificationTextClick(notification)">
-              <strong>Time:</strong> {{ notification?.date | timeSince }}
+              <strong>Time:</strong> {{ notification?.date | timeSince:'minute':true }}
             </div>
           </div>
         </div>
