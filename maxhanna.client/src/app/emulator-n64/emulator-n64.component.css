@@ -15,6 +15,14 @@ canvas {
   padding: 8px;
 }
 
+.gamepad-controls {
+  max-width: calc(100% - 20px);
+}
+
+.gamepad-controls select {
+  max-width: calc(100% - 50px);
+}
+
 .gamesContainer {
   width: 100%;
   height: calc(var(--vh, 1vh) * 100 - 65px);

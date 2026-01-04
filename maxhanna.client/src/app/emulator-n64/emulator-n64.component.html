@@ -22,7 +22,7 @@
 
 <div class="n64-emulator-root popupPanel" *ngIf="isMenuPanelVisible">
   <div class="popupPanelTitle">N64 Emulation Menu</div>
-  <div>
+  <div *ngIf="!showKeyMappings">
     <app-file-upload [currentDirectory]="'Roms'" [user]="parentRef?.user!" [inputtedParentRef]="parentRef"
       [uploadButtonText]="'Upload Rom(s)'" [maxSelectedFiles]="100" [allowedFileTypes]="getAllowedRomFileTypesString()">
     </app-file-upload>
@@ -31,18 +31,17 @@
         <div class="optionsStatsDiv">
           <div class="optionsStatsHeader">Autosave:</div>
           <div class="optionsStatsDescription">
-            <label class="toggle-switch">
+            <label>
               <input type="checkbox" [checked]="autosave" (change)="autosave = !autosave">
-              <span class="slider"></span>
+              <span class="toggle-label" (click)="autosave = !autosave">{{ autosave ? 'On' : 'Off' }}</span>
             </label>
-            <span class="toggle-label" (click)="autosave = !autosave">{{ autosave ? 'On' : 'Off' }}</span>
           </div>
         </div>
       </div>
     </div>
   </div>
   <div class="optionsStatsWrapperDiv">
-    <div class="optionsStatsDiv">
+    <div class="optionsStatsDiv" *ngIf="romName && !showKeyMappings">
       <div class="optionsStatsHeader">Fullscreen:</div>
       <div class="optionsStatsDescription">
         <div class="uploadRomSpan upload-label" id="fullscreenBtn" (click)="toggleFullscreen()" title="Fullscreen mode">
@@ -90,7 +89,6 @@
         </div>
         <div class="map-actions">
           <button (click)="saveMappingAs()">Save Mapping...</button>
-          <button (click)="loadMappingsList()">Refresh Mappings</button>
           <button (click)="applyMappingToEmulator()">Apply Mapping</button>
           <button (click)="showKeyMappings = false">Cancel</button>
           <button (click)="clearSelection()">Clear</button>
