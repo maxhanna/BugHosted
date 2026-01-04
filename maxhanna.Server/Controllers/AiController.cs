@@ -763,7 +763,7 @@ namespace maxhanna.Server.Controllers
               images = base64Images.Select(b => "data:image/jpeg;base64," + b).ToArray()
             }
           },
-          options = new { num_ctx = 2048 } 
+          options = new { num_ctx = 1024 } 
 				};
  
 				string? responseBody = null;
