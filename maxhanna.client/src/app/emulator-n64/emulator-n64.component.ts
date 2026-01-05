@@ -47,6 +47,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   showFileSearch = false; 
   private _autoDetectTimer: any = null;
 
+private hasLoadedLastInput = false;   // set true after loadLastInputSelectionAndApply finishes
+private bootGraceUntil = 0;           // timestamp (ms) for suppressing hot-restart right after boot
+
   // --- Autosave toggle & internals ---
   autosave = true;                 // your UI toggle (starts ON)
   private autosaveTimer: any = null;
@@ -212,7 +215,12 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
             } catch (e) {
               console.warn('Persist last input selection failed after applySelectedMapping', e);
             }
-
+            if (this.directInjectMode) {
+              this.enableDirectInject();
+            }
+            else { 
+              this.enableRuntimeTranslator();
+            }
             return;
           }
         } catch (e) {
@@ -593,28 +601,57 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  /** Called when user picks a different controller in the UI. */
-  async onSelectGamepad(value: string | number) {
-    const idx = Number(value);
-    this.selectedGamepadIndex = Number.isNaN(idx) ? null : idx;
-    // update the list (keep the explicit selection)
-    this.refreshGamepads();
-    this.directInjectMode = true;
-    // If emulator is currently running, restart it so it binds the new controller
-    if (this.instance || this.status === 'running') {
-      try {
-        // stop current instance (restores getGamepads)
-        await this.stop();
-        // small delay to ensure resources are cleaned up
-        await new Promise((r) => setTimeout(r, 120));
-        // boot will reapply the gamepad reorder and start the emulator
-        await this.boot();
-      } catch (e) {
-        console.error('Failed to restart emulator with new controller', e);
-        this.parentRef?.showNotification('Failed to restart emulator with selected controller');
+  /** Called when user picks a different controller in the UI. */ 
+async onSelectGamepad(value: string | number) {
+  const idx = Number(value);
+  if (Number.isNaN(idx)) return;
+
+  // If the same index is being re-selected, avoid a restart—just ensure our reorder/injection is active.
+  if (this.selectedGamepadIndex === idx) {
+    this.applyGamepadReorder();
+    if (this.directInjectMode) this.enableDirectInject(); else this.enableRuntimeTranslator();
+
+    // Still persist selection for last-input (optional)
+    try {
+      const uid = this.parentRef?.user?.id;
+      const token = this.romTokenForMatching(this.romName);
+      if (uid && token) {
+        const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+        const gp = pads[idx];
+        const gamepadId = gp?.id ?? null;
+        await this.romService.saveLastInputSelection({
+          userId: uid,
+          romToken: token,
+          mappingName: this.selectedMappingName ?? null,
+          gamepadId
+        });
       }
+    } catch { /* ignore */ }
+
+    if (this.directInjectMode) {
+      this.enableDirectInject();
     } 
-    // Persist the gamepad change as part of last selection for current ROM
+    else { 
+      this.enableRuntimeTranslator();
+    }
+    
+    return;
+  }
+
+  this.selectedGamepadIndex = idx;
+
+  // Keep the visible list up-to-date
+  this.refreshGamepads();
+  this.directInjectMode = true;
+
+  // 🚫 If we're in booting state or within the grace window, 
+  // only reorder/enable injection—do NOT restart.
+  const now = performance.now();
+  if (this.status === 'booting' || now < this.bootGraceUntil) {
+    this.applyGamepadReorder();
+    if (this.directInjectMode) this.enableDirectInject(); else this.enableRuntimeTranslator();
+
+    // Persist selection
     try {
       const uid = this.parentRef?.user?.id;
       const token = this.romTokenForMatching(this.romName);
@@ -629,8 +666,40 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           gamepadId
         });
       }
-    } catch { /* ignore */ } 
+    } catch { /* ignore */ }
+    return;
   }
+
+  // ✅ Past grace period → hot-swap restart is allowed
+  if (this.instance || this.status === 'running') {
+    try {
+      await this.stop();
+      await new Promise((r) => setTimeout(r, 120));
+      await this.boot();
+    } catch (e) {
+      console.error('Failed to restart emulator with new controller', e);
+      this.parentRef?.showNotification('Failed to restart emulator with selected controller');
+    }
+  }
+
+  // Persist selection (existing code already below)
+  try {
+    const uid = this.parentRef?.user?.id;
+    const token = this.romTokenForMatching(this.romName);
+    if (uid && token) {
+      const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+      const gp = pads[this.selectedGamepadIndex ?? 0];
+      const gamepadId = gp?.id ?? null;
+      await this.romService.saveLastInputSelection({
+        userId: uid,
+        romToken: token,
+        mappingName: this.selectedMappingName ?? null,
+        gamepadId
+      });
+    }
+  } catch { /* ignore */ }
+}
+
 
   // -- Emulator control methods ---------------------------------------------
 
@@ -685,7 +754,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         await this.instance.start();
         this.status = 'running';
         this.parentRef?.showNotification(`Booted ${this.romName}`);
-
+this.bootGraceUntil = performance.now() + 1500; // ~1.5s grace window after boot
         // Kick SDL/Emscripten to re-validate layout once rendering begins
         requestAnimationFrame(() => window.dispatchEvent(new Event('resize'))); // harmless nudge
         // (SDL/Emscripten often recomputes on window resize/fullscreen events) [2](https://wiki.libsdl.org/SDL2/README-emscripten)[3](https://stackoverflow.com/questions/63987317/proper-way-to-handle-sdl2-resizing-in-emscripten)
@@ -1397,25 +1466,29 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     return Array.from(u8).map(b => b.toString(16).padStart(2, '0')).join('');
   }
     
-  private _onGamepadConnected = (ev: GamepadEvent) => {
-    // Update list immediately
-    this.refreshGamepads();
+  
+private _onGamepadConnected = (ev: GamepadEvent) => {
+  this.refreshGamepads();
 
-    // Auto-select if none selected yet
-    if (this.selectedGamepadIndex === null && this.gamepads.length) {
+  // Auto-select ONLY if there was no prior last-input applied and none is selected yet.
+  if (this.selectedGamepadIndex === null && this.gamepads.length) {
+    if (!this.hasLoadedLastInput) {
       const std = this.gamepads.find(g => g.mapping === 'standard');
       this.onSelectGamepad(std ? std.index : ev.gamepad.index);
-    }
-
-    // Nudge emulator to pick up new device if running
-    if (this.instance || this.status === 'running') {
-      // Reorder so selected is index 0
+    } else {
+      // We already applied last input → do not force a selection; just make sure reorder is applied.
       this.applyGamepadReorder();
-      // Optional: if SDL didn’t bind yet, a quick stop/start helps
-      // await this.stop(); await this.boot();
     }
-    this.maybeApplyStoredMappingFor(ev.gamepad.id);
-  };
+  }
+
+  // If emulator is running, just reorder so selected is index 0 (no restart here)
+  if (this.instance || this.status === 'running') {
+    this.applyGamepadReorder();
+  }
+
+  this.maybeApplyStoredMappingFor(ev.gamepad.id);
+};
+
 
   private _onGamepadDisconnected = (_ev: GamepadEvent) => {
     this.refreshGamepads();
@@ -1428,22 +1501,27 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   startGamepadAutoDetect() {
     // Poll every 750ms for newly visible controllers
     const tick = () => {
-      try {
+      try { 
         const before = this.gamepads.map(g => g.index).join(',');
         this.refreshGamepads();
         const after = this.gamepads.map(g => g.index).join(',');
 
         // If a new controller appeared and none is selected, auto-select
         if (this.selectedGamepadIndex === null && this.gamepads.length) {
-          const std = this.gamepads.find(g => g.mapping === 'standard');
-          this.onSelectGamepad(std ? std.index : this.gamepads[0].index);
-        }
+          if (!this.hasLoadedLastInput) {
+            const std = this.gamepads.find(g => g.mapping === 'standard');
+            this.onSelectGamepad(std ? std.index : this.gamepads[0].index);
+          } else {
+            // Don’t auto-select if last input was applied; just reorder
+            this.applyGamepadReorder();
+          }
+        } 
 
         // If list changed, reapply reorder so selected is index 0
         if (before !== after) {
           this.applyGamepadReorder();
         }
-      } catch {/* ignore */}
+      } catch { console.log('Gamepad auto-detect tick failed'); }
       this._autoDetectTimer = setTimeout(tick, 750);
     };
     tick();
@@ -1506,6 +1584,9 @@ private async loadLastInputSelectionAndApply(): Promise<void> {
   } catch (e) {
     console.warn('loadLastInputSelectionAndApply failed', e);
   }
+  
+this.hasLoadedLastInput = true;
+
 }
 
   private _bootstrapDetectOnce() {
