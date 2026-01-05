@@ -613,7 +613,7 @@ public async Task<IActionResult> GetLastInputSelection([FromBody] GetLastInputSe
 
     const string sql = @"
       SELECT user_id, rom_token, mapping_name, gamepad_id, UNIX_TIMESTAMP(updated_at)*1000 AS updated_ms
-        FROM maxhanna.rom_last_input_selection
+        FROM maxhanna.n64_last_input_selection
        WHERE user_id = @user_id AND rom_token = @rom_token
        LIMIT 1;";
 
@@ -654,7 +654,7 @@ public async Task<IActionResult> SaveLastInputSelection([FromBody] LastInputSele
     await conn.OpenAsync();
 
     const string sql = @"
-      INSERT INTO maxhanna.rom_last_input_selection (user_id, rom_token, mapping_name, gamepad_id, updated_at)
+      INSERT INTO maxhanna.n64_last_input_selection (user_id, rom_token, mapping_name, gamepad_id, updated_at)
       VALUES (@user_id, @rom_token, @mapping_name, @gamepad_id, UTC_TIMESTAMP())
       ON DUPLICATE KEY UPDATE
         mapping_name = VALUES(mapping_name),
