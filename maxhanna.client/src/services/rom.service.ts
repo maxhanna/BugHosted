@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core'; 
+import { Injectable } from '@angular/core';
 
 export interface N64StateUpload {
   /** Logged-in user ID */
@@ -13,7 +13,7 @@ export interface N64StateUpload {
   startTimeMs?: number;      // when play started
   saveTimeMs?: number;       // when save occurred
   durationSeconds?: number;  // seconds played since last upload
-} 
+}
 export interface SaveUploadResponse {
   ok: boolean;
   status: number;
@@ -21,12 +21,23 @@ export interface SaveUploadResponse {
   errorText?: string;
 }
 
+// shared contract (can live in a common contracts folder)
+/** Keyed by (userId, romToken) */
+export interface LastInputSelection {
+  userId: number;
+  romToken: string;
+  mappingName?: string | null;
+  gamepadId?: string | null;
+  updatedAtMs?: number;
+}
+
+
 @Injectable({
   providedIn: 'root'
 })
 export class RomService {
   constructor() { }
-   
+
   async getRomFile(rom: string, userId?: number) {
     try {
       const response = await fetch(`/rom/getromfile/${encodeURIComponent(rom)}`, {
@@ -43,7 +54,7 @@ export class RomService {
     }
   }
 
-  
+
   async getN64StateFile(rom: string, userId?: number) {
     try {
       const response = await fetch(`/rom/getn64statefile/${encodeURIComponent(rom)}`, {
@@ -74,6 +85,7 @@ export class RomService {
       return null;
     }
   }
+
   getFileExtension(file: string) {
     return file.lastIndexOf('.') !== -1 ? file.split('.').pop() : null;
   }
@@ -175,52 +187,87 @@ export class RomService {
       return null;
     }
   }
- 
-/** Normalize input into a tight ArrayBuffer (no offset/extra bytes). */
-private toTightArrayBuffer(input: ArrayBuffer | ArrayBufferView): ArrayBuffer {
-  if (input instanceof ArrayBuffer) return input;
-  const view = input as ArrayBufferView;
-  return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer;
-}
- 
-async saveN64State(req: N64StateUpload): Promise<SaveUploadResponse> {
-  const form = new FormData();
 
-  // ✅ Normalize to a tight ArrayBuffer — satisfies strict DOM typings
-  const tightAb: ArrayBuffer = this.toTightArrayBuffer(req.bytes);
-
-  // Option A: File (sets filename directly on the part)
-  const fileBlob = new File([tightAb], req.filename, { type: 'application/octet-stream' });
-  form.append('file', fileBlob);
-
-  // Option B: Blob + filename (equivalent; FormData takes a filename in the 3rd argument)
-  // const blob = new Blob([tightAb], { type: 'application/octet-stream' });
-  // form.append('file', blob, req.filename);
-
-  // Required & optional fields
-  form.append('userId', JSON.stringify(req.userId));
-  form.append('romName', req.romName);
-  if (typeof req.startTimeMs === 'number') form.append('startTimeMs', String(req.startTimeMs));
-  if (typeof req.saveTimeMs === 'number') form.append('saveTimeMs', String(req.saveTimeMs));
-  if (typeof req.durationSeconds === 'number') form.append('durationSeconds', String(req.durationSeconds));
-
-  try {
-    const res = await fetch(`/rom/uploadrom/`, { method: 'POST', body: form });
-    const status = res.status;
-
-    if (!res.ok) {
-      const errorText = await res.text().catch(() => 'Upload failed');
-      return { ok: false, status, errorText };
+  async getLastInputSelection(userId: number, romToken: string): Promise<LastInputSelection | null> {
+    try {
+      const req = { UserId: userId, RomToken: romToken };
+      const res = await fetch('/rom/getlastinputselection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req)
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
     }
-
-    let body: any;
-    try { body = await res.json(); } catch { body = await res.text(); }
-    return { ok: true, status, body };
-  } catch (error: any) {
-    return { ok: false, status: 0, errorText: String(error?.message ?? error) };
   }
-}
 
+  async saveLastInputSelection(payload: LastInputSelection): Promise<{ ok: boolean; status: number; text?: string }> {
+    try {
+      const res = await fetch('/rom/savelastinputselection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          UserId: payload.userId,
+          RomToken: payload.romToken,
+          MappingName: payload.mappingName ?? null,
+          GamepadId: payload.gamepadId ?? null
+        })
+      });
+      const status = res.status;
+      if (!res.ok) {
+        const text = await res.text().catch(() => undefined);
+        return { ok: false, status, text };
+      }
+      return { ok: true, status };
+    } catch (e: any) {
+      return { ok: false, status: 0, text: String(e?.message ?? e) };
+    }
+  }
 
+  /** Normalize input into a tight ArrayBuffer (no offset/extra bytes). */
+  private toTightArrayBuffer(input: ArrayBuffer | ArrayBufferView): ArrayBuffer {
+    if (input instanceof ArrayBuffer) return input;
+    const view = input as ArrayBufferView;
+    return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer;
+  }
 
+  async saveN64State(req: N64StateUpload): Promise<SaveUploadResponse> {
+    const form = new FormData();
+
+    // ✅ Normalize to a tight ArrayBuffer — satisfies strict DOM typings
+    const tightAb: ArrayBuffer = this.toTightArrayBuffer(req.bytes);
+
+    // Option A: File (sets filename directly on the part)
+    const fileBlob = new File([tightAb], req.filename, { type: 'application/octet-stream' });
+    form.append('file', fileBlob);
+
+    // Option B: Blob + filename (equivalent; FormData takes a filename in the 3rd argument)
+    // const blob = new Blob([tightAb], { type: 'application/octet-stream' });
+    // form.append('file', blob, req.filename);
+
+    // Required & optional fields
+    form.append('userId', JSON.stringify(req.userId));
+    form.append('romName', req.romName);
+    if (typeof req.startTimeMs === 'number') form.append('startTimeMs', String(req.startTimeMs));
+    if (typeof req.saveTimeMs === 'number') form.append('saveTimeMs', String(req.saveTimeMs));
+    if (typeof req.durationSeconds === 'number') form.append('durationSeconds', String(req.durationSeconds));
+
+    try {
+      const res = await fetch(`/rom/uploadrom/`, { method: 'POST', body: form });
+      const status = res.status;
+
+      if (!res.ok) {
+        const errorText = await res.text().catch(() => 'Upload failed');
+        return { ok: false, status, errorText };
+      }
+
+      let body: any;
+      try { body = await res.json(); } catch { body = await res.text(); }
+      return { ok: true, status, body };
+    } catch (error: any) {
+      return { ok: false, status: 0, errorText: String(error?.message ?? error) };
+    }
+  } 
 }

@@ -193,6 +193,26 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
               this.rememberForGp(gp.id, this.selectedMappingName ?? ''); 
             }
 
+            try {
+              const uid = this.parentRef?.user?.id;
+              const token = this.romTokenForMatching(this.romName);
+              if (uid && token) {
+                const gpIndex = this.selectedGamepadIndex ?? 0;
+                const gpArr = navigator.getGamepads ? navigator.getGamepads() : [];
+                const gp = gpArr[gpIndex];
+                const gamepadId = gp?.id ?? null;
+
+                await this.romService.saveLastInputSelection({
+                  userId: uid,
+                  romToken: token,
+                  mappingName: this.selectedMappingName ?? null,
+                  gamepadId
+                });
+              }
+            } catch (e) {
+              console.warn('Persist last input selection failed after applySelectedMapping', e);
+            }
+
             return;
           }
         } catch (e) {
@@ -403,7 +423,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.romBuffer = buffer;
       this.romName = file.fileName || "";
       this.parentRef?.showNotification(`Loaded ${this.romName} from search`);
-
+      await this.loadLastInputSelectionAndApply();
 
       if (this.parentRef?.user?.id) {
         let saveGameFile: Blob | null = null;
@@ -593,7 +613,23 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         console.error('Failed to restart emulator with new controller', e);
         this.parentRef?.showNotification('Failed to restart emulator with selected controller');
       }
-    }
+    } 
+    // Persist the gamepad change as part of last selection for current ROM
+    try {
+      const uid = this.parentRef?.user?.id;
+      const token = this.romTokenForMatching(this.romName);
+      if (uid && token) {
+        const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+        const gp = pads[this.selectedGamepadIndex ?? 0];
+        const gamepadId = gp?.id ?? null;
+        await this.romService.saveLastInputSelection({
+          userId: uid,
+          romToken: token,
+          mappingName: this.selectedMappingName ?? null,
+          gamepadId
+        });
+      }
+    } catch { /* ignore */ } 
   }
 
   // -- Emulator control methods ---------------------------------------------
@@ -1420,6 +1456,58 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   } 
   
+private async loadLastInputSelectionAndApply(): Promise<void> {
+  try {
+    const uid = this.parentRef?.user?.id;
+    if (!uid) return;
+
+    const token = this.romTokenForMatching(this.romName);
+    if (!token) return;
+
+    // Ensure we have current gamepads list
+    this.refreshGamepads();
+
+    const sel = await this.romService.getLastInputSelection(uid, token);
+    if (!sel) return;
+
+    // 1) If gamepadId is present and connected, select it
+    if (sel.gamepadId) {
+      const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+      const found = Array.from(pads).find(gp => gp && gp.id === sel.gamepadId);
+      if (found) {
+        await this.onSelectGamepad(found.index); // restarts if running
+      }
+    }
+
+    // 2) Apply mapping by name
+    if (sel.mappingName) {
+      if (!this.savedMappingsNames.length) await this.loadMappingsList();
+
+      if (this.savedMappingsNames.includes(sel.mappingName)) {
+        this.selectedMappingName = sel.mappingName;
+        await this.applySelectedMapping();
+      } else {
+        // Attempt direct fetch from backend
+        try {
+          const m = await this.romService.getMapping(uid, sel.mappingName);
+          if (m) {
+            this.mapping = JSON.parse(JSON.stringify(m));
+            await this.applyMappingToEmulator();
+            this.selectedMappingName = sel.mappingName;
+            this.parentRef?.showNotification(`Applied last mapping "${sel.mappingName}" for this ROM.`);
+          } else {
+            this.parentRef?.showNotification(`Last mapping "${sel.mappingName}" not found; using defaults.`);
+          }
+        } catch {
+          this.parentRef?.showNotification(`Failed to fetch last mapping "${sel.mappingName}".`);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('loadLastInputSelectionAndApply failed', e);
+  }
+}
+
   private _bootstrapDetectOnce() {
     // A quick burst of rapid polling for ~2 seconds after a user gesture
     let runs = 0;
