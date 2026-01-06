@@ -26,7 +26,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   showKeyMappings = false;
   // Named mapping store
   savedMappingsNames: string[] = [];
-  private _mappingsStoreKey = 'n64_mappings_store_v1'; 
+  private _mappingsStoreKey = 'n64_mappings_store_v1';
   selectedMappingName: string | null = null;
   private _originalGetGamepads: any = null;
   // mapping: N64 control name -> { type: 'button'|'axis', index: number, axisDir?: 1|-1 }
@@ -41,14 +41,14 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private _directPrevState: Record<string, boolean> = {};
   isMenuPanelVisible: boolean = false;
   isFullScreen: boolean = false;
-  private _mappingKey = 'n64_gamepad_mapping_v1'; 
-  private readonly _lastPerGamepadKey = 'n64_last_mapping_per_gp_v1'; 
-  private lastMappingPerGp: Record<string, string> = {}; 
-  showFileSearch = false; 
+  private _mappingKey = 'n64_gamepad_mapping_v1';
+  private readonly _lastPerGamepadKey = 'n64_last_mapping_per_gp_v1';
+  private lastMappingPerGp: Record<string, string> = {};
+  showFileSearch = false;
   private _autoDetectTimer: any = null;
 
-private hasLoadedLastInput = false;   // set true after loadLastInputSelectionAndApply finishes
-private bootGraceUntil = 0;           // timestamp (ms) for suppressing hot-restart right after boot
+  private hasLoadedLastInput = false;   // set true after loadLastInputSelectionAndApply finishes
+  private bootGraceUntil = 0;           // timestamp (ms) for suppressing hot-restart right after boot
 
   // --- Autosave toggle & internals ---
   autosave = true;                 // your UI toggle (starts ON)
@@ -78,6 +78,7 @@ private bootGraceUntil = 0;           // timestamp (ms) for suppressing hot-rest
     'L Trig': 12,
     'R Trig': 13
   };
+  _gpPoller: any;
 
   constructor(private fileService: FileService, private romService: RomService) {
     super();
@@ -189,11 +190,11 @@ private bootGraceUntil = 0;           // timestamp (ms) for suppressing hot-rest
             this.mapping = JSON.parse(JSON.stringify(m));
             await this.applyMappingToEmulator();
             this.parentRef?.showNotification(`Applied mapping "${this.selectedMappingName}"`);
-            
+
             const gpIndex = this.selectedGamepadIndex ?? 0;
             const gp = (navigator.getGamepads ? navigator.getGamepads() : [])[gpIndex];
-            if (gp?.id) { 
-              this.rememberForGp(gp.id, this.selectedMappingName ?? ''); 
+            if (gp?.id) {
+              this.rememberForGp(gp.id, this.selectedMappingName ?? '');
             }
 
             try {
@@ -218,7 +219,7 @@ private bootGraceUntil = 0;           // timestamp (ms) for suppressing hot-rest
             if (this.directInjectMode) {
               this.enableDirectInject();
             }
-            else { 
+            else {
               this.enableRuntimeTranslator();
             }
             return;
@@ -287,7 +288,7 @@ private bootGraceUntil = 0;           // timestamp (ms) for suppressing hot-rest
     try {
       const raw = localStorage.getItem(this._lastPerGamepadKey);
       this.lastMappingPerGp = raw ? JSON.parse(raw) : {};
-    } catch { this.lastMappingPerGp = {}; } 
+    } catch { this.lastMappingPerGp = {}; }
   }
 
   ngAfterViewInit(): void {
@@ -307,17 +308,17 @@ private bootGraceUntil = 0;           // timestamp (ms) for suppressing hot-rest
       // Nudge SDL/Emscripten so input/viewports realign
       requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
     });
-    this._resizeObserver.observe(container); 
+    this._resizeObserver.observe(container);
 
     // Also listen to fullscreen & orientation changes (mobile)
     document.addEventListener('fullscreenchange', this._resizeHandler);
     window.addEventListener('orientationchange', this._resizeHandler);
     // --- Add gamepad event listeners ---
     window.addEventListener('gamepadconnected', this._onGamepadConnected);
-    window.addEventListener('gamepaddisconnected', this._onGamepadDisconnected); 
+    window.addEventListener('gamepaddisconnected', this._onGamepadDisconnected);
     canvasEl?.addEventListener('click', () => this._bootstrapDetectOnce());
     // Start a gentle poller as a fallback (see next section)
-    this.startGamepadAutoDetect(); 
+    this.startGamepadAutoDetect();
   }
 
   async ngOnDestroy(): Promise<void> {
@@ -333,7 +334,7 @@ private bootGraceUntil = 0;           // timestamp (ms) for suppressing hot-rest
 
     if (this._canvasResizeAdded) {
       try { window.removeEventListener('resize', this._resizeHandler); } catch {
-        console.log('Failed to remove resize listener'); 
+        console.log('Failed to remove resize listener');
       }
       this._canvasResizeAdded = false;
     }
@@ -342,7 +343,7 @@ private bootGraceUntil = 0;           // timestamp (ms) for suppressing hot-rest
       document.removeEventListener('fullscreenchange', this._resizeHandler);
       window.removeEventListener('orientationchange', this._resizeHandler);
     } catch { console.log('Failed to remove fullscreen/orientation listeners'); }
-    
+
     this.stopGamepadAutoDetect();
     try {
       window.removeEventListener('gamepadconnected', this._onGamepadConnected);
@@ -601,57 +602,88 @@ private bootGraceUntil = 0;           // timestamp (ms) for suppressing hot-rest
     }
   }
 
-  /** Called when user picks a different controller in the UI. */ 
-async onSelectGamepad(value: string | number) {
-  const idx = Number(value);
-  if (Number.isNaN(idx)) return;
+  /** Called when user picks a different controller in the UI. */
+  async onSelectGamepad(value: string | number) {
+    const idx = Number(value);
+    if (Number.isNaN(idx)) return;
 
-  // If the same index is being re-selected, avoid a restart—just ensure our reorder/injection is active.
-  if (this.selectedGamepadIndex === idx) {
-    this.applyGamepadReorder();
-    if (this.directInjectMode) this.enableDirectInject(); else this.enableRuntimeTranslator();
+    // If the same index is being re-selected, avoid a restart—just ensure our reorder/injection is active.
+    if (this.selectedGamepadIndex === idx) {
+      this.applyGamepadReorder();
+      if (this.directInjectMode) this.enableDirectInject(); else this.enableRuntimeTranslator();
 
-    // Still persist selection for last-input (optional)
-    try {
-      const uid = this.parentRef?.user?.id;
-      const token = this.romTokenForMatching(this.romName);
-      if (uid && token) {
-        const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-        const gp = pads[idx];
-        const gamepadId = gp?.id ?? null;
-        await this.romService.saveLastInputSelection({
-          userId: uid,
-          romToken: token,
-          mappingName: this.selectedMappingName ?? null,
-          gamepadId
-        });
+      // Still persist selection for last-input (optional)
+      try {
+        const uid = this.parentRef?.user?.id;
+        const token = this.romTokenForMatching(this.romName);
+        if (uid && token) {
+          const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+          const gp = pads[idx];
+          const gamepadId = gp?.id ?? null;
+          await this.romService.saveLastInputSelection({
+            userId: uid,
+            romToken: token,
+            mappingName: this.selectedMappingName ?? null,
+            gamepadId
+          });
+        }
+      } catch { /* ignore */ }
+
+      if (this.directInjectMode) {
+        this.enableDirectInject();
       }
-    } catch { /* ignore */ }
+      else {
+        this.enableRuntimeTranslator();
+      }
 
-    if (this.directInjectMode) {
-      this.enableDirectInject();
-    } 
-    else { 
-      this.enableRuntimeTranslator();
+      return;
     }
-    
-    return;
-  }
 
-  this.selectedGamepadIndex = idx;
+    this.selectedGamepadIndex = idx;
 
-  // Keep the visible list up-to-date
-  this.refreshGamepads();
-  this.directInjectMode = true;
+    // Keep the visible list up-to-date
+    this.refreshGamepads();
+    this.directInjectMode = true;
 
-  // 🚫 If we're in booting state or within the grace window, 
-  // only reorder/enable injection—do NOT restart.
-  const now = performance.now();
-  if (this.status === 'booting' || now < this.bootGraceUntil) {
-    this.applyGamepadReorder();
-    if (this.directInjectMode) this.enableDirectInject(); else this.enableRuntimeTranslator();
+    // 🚫 If we're in booting state or within the grace window, 
+    // only reorder/enable injection—do NOT restart.
+    const now = performance.now();
+    if (this.status === 'booting' || now < this.bootGraceUntil) {
+      this.applyGamepadReorder();
+      if (this.directInjectMode) this.enableDirectInject(); else this.enableRuntimeTranslator();
 
-    // Persist selection
+      // Persist selection
+      try {
+        const uid = this.parentRef?.user?.id;
+        const token = this.romTokenForMatching(this.romName);
+        if (uid && token) {
+          const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+          const gp = pads[this.selectedGamepadIndex ?? 0];
+          const gamepadId = gp?.id ?? null;
+          await this.romService.saveLastInputSelection({
+            userId: uid,
+            romToken: token,
+            mappingName: this.selectedMappingName ?? null,
+            gamepadId
+          });
+        }
+      } catch { /* ignore */ }
+      return;
+    }
+
+    // ✅ Past grace period → hot-swap restart is allowed
+    if (this.instance || this.status === 'running') {
+      try {
+        await this.stop();
+        await new Promise((r) => setTimeout(r, 120));
+        await this.boot();
+      } catch (e) {
+        console.error('Failed to restart emulator with new controller', e);
+        this.parentRef?.showNotification('Failed to restart emulator with selected controller');
+      }
+    }
+
+    // Persist selection (existing code already below)
     try {
       const uid = this.parentRef?.user?.id;
       const token = this.romTokenForMatching(this.romName);
@@ -667,38 +699,7 @@ async onSelectGamepad(value: string | number) {
         });
       }
     } catch { /* ignore */ }
-    return;
   }
-
-  // ✅ Past grace period → hot-swap restart is allowed
-  if (this.instance || this.status === 'running') {
-    try {
-      await this.stop();
-      await new Promise((r) => setTimeout(r, 120));
-      await this.boot();
-    } catch (e) {
-      console.error('Failed to restart emulator with new controller', e);
-      this.parentRef?.showNotification('Failed to restart emulator with selected controller');
-    }
-  }
-
-  // Persist selection (existing code already below)
-  try {
-    const uid = this.parentRef?.user?.id;
-    const token = this.romTokenForMatching(this.romName);
-    if (uid && token) {
-      const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-      const gp = pads[this.selectedGamepadIndex ?? 0];
-      const gamepadId = gp?.id ?? null;
-      await this.romService.saveLastInputSelection({
-        userId: uid,
-        romToken: token,
-        mappingName: this.selectedMappingName ?? null,
-        gamepadId
-      });
-    }
-  } catch { /* ignore */ }
-}
 
 
   // -- Emulator control methods ---------------------------------------------
@@ -754,7 +755,7 @@ async onSelectGamepad(value: string | number) {
         await this.instance.start();
         this.status = 'running';
         this.parentRef?.showNotification(`Booted ${this.romName}`);
-this.bootGraceUntil = performance.now() + 1500; // ~1.5s grace window after boot
+        this.bootGraceUntil = performance.now() + 1500; // ~1.5s grace window after boot
         // Kick SDL/Emscripten to re-validate layout once rendering begins
         requestAnimationFrame(() => window.dispatchEvent(new Event('resize'))); // harmless nudge
         // (SDL/Emscripten often recomputes on window resize/fullscreen events) [2](https://wiki.libsdl.org/SDL2/README-emscripten)[3](https://stackoverflow.com/questions/63987317/proper-way-to-handle-sdl2-resizing-in-emscripten)
@@ -1046,7 +1047,7 @@ this.bootGraceUntil = performance.now() + 1500; // ~1.5s grace window after boot
     } catch (e) {
       console.warn('Failed to read gamepads', e);
     }
-  } 
+  }
 
   applyGamepadReorder() {
     if (this.selectedGamepadIndex === null) return;
@@ -1086,12 +1087,12 @@ this.bootGraceUntil = performance.now() + 1500; // ~1.5s grace window after boot
     if (this.savedMappingsNames.length === 0) {
       this.loadMappingsList();
     }
-    this._bootstrapDetectOnce(); 
+    this._bootstrapDetectOnce();
   }
   closeMenuPanel() {
     this.isMenuPanelVisible = false;
     this.parentRef?.closeOverlay();
-  } 
+  }
 
   async toggleFullscreen() {
     this.closeMenuPanel();
@@ -1240,7 +1241,7 @@ this.bootGraceUntil = performance.now() + 1500; // ~1.5s grace window after boot
       this.parentRef?.showNotification('Failed to export in-game save RAM');
       return empty;
     }
-  } 
+  }
 
   /** Normalize common IDBFS value shapes to ArrayBuffer. */
   private normalizeToArrayBuffer(val: any): ArrayBuffer | null {
@@ -1465,29 +1466,29 @@ this.bootGraceUntil = performance.now() + 1500; // ~1.5s grace window after boot
     const u8 = new Uint8Array(digest);
     return Array.from(u8).map(b => b.toString(16).padStart(2, '0')).join('');
   }
-    
-  
-private _onGamepadConnected = (ev: GamepadEvent) => {
-  this.refreshGamepads();
 
-  // Auto-select ONLY if there was no prior last-input applied and none is selected yet.
-  if (this.selectedGamepadIndex === null && this.gamepads.length) {
-    if (!this.hasLoadedLastInput) {
-      const std = this.gamepads.find(g => g.mapping === 'standard');
-      this.onSelectGamepad(std ? std.index : ev.gamepad.index);
-    } else {
-      // We already applied last input → do not force a selection; just make sure reorder is applied.
+
+  private _onGamepadConnected = (ev: GamepadEvent) => {
+    this.refreshGamepads();
+
+    // Auto-select ONLY if there was no prior last-input applied and none is selected yet.
+    if (this.selectedGamepadIndex === null && this.gamepads.length) {
+      if (!this.hasLoadedLastInput) {
+        const std = this.gamepads.find(g => g.mapping === 'standard');
+        this.onSelectGamepad(std ? std.index : ev.gamepad.index);
+      } else {
+        // We already applied last input → do not force a selection; just make sure reorder is applied.
+        this.applyGamepadReorder();
+      }
+    }
+
+    // If emulator is running, just reorder so selected is index 0 (no restart here)
+    if (this.instance || this.status === 'running') {
       this.applyGamepadReorder();
     }
-  }
 
-  // If emulator is running, just reorder so selected is index 0 (no restart here)
-  if (this.instance || this.status === 'running') {
-    this.applyGamepadReorder();
-  }
-
-  this.maybeApplyStoredMappingFor(ev.gamepad.id);
-};
+    this.maybeApplyStoredMappingFor(ev.gamepad.id);
+  };
 
 
   private _onGamepadDisconnected = (_ev: GamepadEvent) => {
@@ -1496,12 +1497,12 @@ private _onGamepadConnected = (ev: GamepadEvent) => {
       const stillThere = this.gamepads.some(g => g.index === this.selectedGamepadIndex);
       if (!stillThere) this.selectedGamepadIndex = null;
     }
-  }; 
-    
+  };
+
   startGamepadAutoDetect() {
     // Poll every 750ms for newly visible controllers
     const tick = () => {
-      try { 
+      try {
         const before = this.gamepads.map(g => g.index).join(',');
         this.refreshGamepads();
         const after = this.gamepads.map(g => g.index).join(',');
@@ -1515,7 +1516,7 @@ private _onGamepadConnected = (ev: GamepadEvent) => {
             // Don’t auto-select if last input was applied; just reorder
             this.applyGamepadReorder();
           }
-        } 
+        }
 
         // If list changed, reapply reorder so selected is index 0
         if (before !== after) {
@@ -1532,63 +1533,91 @@ private _onGamepadConnected = (ev: GamepadEvent) => {
       clearTimeout(this._autoDetectTimer);
       this._autoDetectTimer = null;
     }
-  } 
-  
-private async loadLastInputSelectionAndApply(): Promise<void> {
-  try {
-    const uid = this.parentRef?.user?.id;
-    if (!uid) return;
+  }
 
-    const token = this.romTokenForMatching(this.romName);
-    if (!token) return;
+  private async loadLastInputSelectionAndApply(): Promise<void> {
+    try {
+      const uid = this.parentRef?.user?.id;
+      if (!uid) return;
 
-    // Ensure we have current gamepads list
-    this.refreshGamepads();
+      const token = this.romTokenForMatching(this.romName);
+      if (!token) return;
 
-    const sel = await this.romService.getLastInputSelection(uid, token);
-    if (!sel) return;
+      // Ensure we have current gamepads list
+      this.refreshGamepads();
 
-    // 1) If gamepadId is present and connected, select it
-    if (sel.gamepadId) {
-      const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-      const found = Array.from(pads).find(gp => gp && gp.id === sel.gamepadId);
-      if (found) {
-        await this.onSelectGamepad(found.index); // restarts if running
-      }
-    }
+      const sel = await this.romService.getLastInputSelection(uid, token);
+      if (!sel) return;
 
-    // 2) Apply mapping by name
-    if (sel.mappingName) {
-      if (!this.savedMappingsNames.length) await this.loadMappingsList();
-
-      if (this.savedMappingsNames.includes(sel.mappingName)) {
-        this.selectedMappingName = sel.mappingName;
-        await this.applySelectedMapping();
-      } else {
-        // Attempt direct fetch from backend
-        try {
-          const m = await this.romService.getMapping(uid, sel.mappingName);
-          if (m) {
-            this.mapping = JSON.parse(JSON.stringify(m));
-            await this.applyMappingToEmulator();
-            this.selectedMappingName = sel.mappingName;
-            this.parentRef?.showNotification(`Applied last mapping "${sel.mappingName}" for this ROM.`);
-          } else {
-            this.parentRef?.showNotification(`Last mapping "${sel.mappingName}" not found; using defaults.`);
-          }
-        } catch {
-          this.parentRef?.showNotification(`Failed to fetch last mapping "${sel.mappingName}".`);
+      // 1) If gamepadId is present and connected, select it
+      if (sel.gamepadId) {
+        const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+        const found = Array.from(pads).find(gp => gp && gp.id === sel.gamepadId);
+        if (found) {
+          await this.onSelectGamepad(found.index); // restarts if running
         }
       }
+
+      // 2) Apply mapping by name
+      if (sel.mappingName) {
+        if (!this.savedMappingsNames.length) await this.loadMappingsList();
+
+        if (this.savedMappingsNames.includes(sel.mappingName)) {
+          this.selectedMappingName = sel.mappingName;
+          await this.applySelectedMapping();
+        } else {
+          // Attempt direct fetch from backend
+          try {
+            const m = await this.romService.getMapping(uid, sel.mappingName);
+            if (m) {
+              this.mapping = JSON.parse(JSON.stringify(m));
+              await this.applyMappingToEmulator();
+              this.selectedMappingName = sel.mappingName;
+              this.parentRef?.showNotification(`Applied last mapping "${sel.mappingName}" for this ROM.`);
+            } else {
+              this.parentRef?.showNotification(`Last mapping "${sel.mappingName}" not found; using defaults.`);
+            }
+          } catch {
+            this.parentRef?.showNotification(`Failed to fetch last mapping "${sel.mappingName}".`);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('loadLastInputSelectionAndApply failed', e);
     }
-  } catch (e) {
-    console.warn('loadLastInputSelectionAndApply failed', e);
+
+    this.hasLoadedLastInput = true; 
+  }
+
+  startGamepadLogging() {
+    const poll = () => {
+      try {
+        const g = navigator.getGamepads ? navigator.getGamepads() : [];
+        // update the UI list so user can pick newly connected devices
+        this.refreshGamepads();
+        for (let i = 0; i < g.length; i++) {
+          const gp = g[i];
+          if (!gp) continue;
+          // light console output for debugging while emulator runs
+          // show active buttons
+          const pressed = (gp.buttons as any[]).map((b: any, bi: number) => b.pressed ? bi : -1).filter((v: number) => v >= 0);
+          if (pressed.length) console.log(`[Gamepad ${gp.index}] ${gp.id} pressed:`, pressed);
+        }
+      } catch (e) {
+        console.warn('Gamepad poll error', e);
+      }
+      this._gpPoller = window.setTimeout(poll, 750) as any;
+    };
+    poll();
+  }
+
+  stopGamepadLogging() {
+    if (this._gpPoller) {
+      clearTimeout(this._gpPoller);
+      this._gpPoller = 0;
+    }
   }
   
-this.hasLoadedLastInput = true;
-
-}
-
   private _bootstrapDetectOnce() {
     // A quick burst of rapid polling for ~2 seconds after a user gesture
     let runs = 0;
@@ -1598,7 +1627,7 @@ this.hasLoadedLastInput = true;
       if (runs < 8) setTimeout(burst, 250);
     };
     burst();
-  }  
+  }
 
   private async maybeApplyStoredMappingFor(id: string) {
     const knownName = this.savedMappingsNames.find(n => n.toLowerCase() === id.toLowerCase());
@@ -1606,12 +1635,12 @@ this.hasLoadedLastInput = true;
       this.selectedMappingName = knownName;
       await this.applySelectedMapping();
     }
-  }  
+  }
 
   private rememberForGp(id: string, name: string) {
     this.lastMappingPerGp[id] = name; // name can be '' for Default
     localStorage.setItem(this._lastPerGamepadKey, JSON.stringify(this.lastMappingPerGp));
-  } 
+  }
 }
 
 type N64ExportedSave = {
