@@ -338,7 +338,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
     // Start auto-detect and logging (raw + effective)
     this.startGamepadAutoDetect();
-    this.startGamepadLoggingRaw();       // shows everything the controller exposes
+    this.startGamepadLogging();       // shows everything the controller exposes
     this.startGamepadLoggingEffective(); // shows post-wrapper view (if enabled)
   }
 
@@ -370,7 +370,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       window.removeEventListener('gamepaddisconnected', this._onGamepadDisconnected);
     } catch { /* ignore */ }
 
-    this.stopGamepadLoggingRaw();
+    this.stopGamepadLogging();
     this.stopGamepadLoggingEffective();
   }
 
@@ -1695,8 +1695,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     console.groupEnd();
   }
 
-  startGamepadLoggingRaw() {
-    this.stopGamepadLoggingRaw();
+  startGamepadLogging() {
+    this.stopGamepadLogging();
     const tick = () => {
       try {
         const raw = this.getGamepadsBase();
@@ -1709,7 +1709,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     tick();
   }
 
-  stopGamepadLoggingRaw() {
+  stopGamepadLogging() {
     if (this._logRawTimer) {
       clearTimeout(this._logRawTimer);
       this._logRawTimer = null;
