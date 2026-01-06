@@ -22,15 +22,18 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   romName?: string;
   private romBuffer?: ArrayBuffer;
   private instance: any;
+
   gamepads: Array<{ index: number; id: string; mapping: string; connected: boolean }> = [];
   selectedGamepadIndex: number | null = null;
 
   showKeyMappings = false;
+
+  // Named mapping store (backend/local)
   savedMappingsNames: string[] = [];
   private _mappingsStoreKey = 'n64_mappings_store_v1';
   selectedMappingName: string | null = null;
 
-  // Your mapping: control name -> { type, index, axisDir?, gamepadId }
+  // Your mapping: N64 control -> {type:'button'|'axis', index:number, axisDir?:1|-1, gamepadId:string}
   mapping: Record<string, any> = {};
 
   n64Controls = [
@@ -47,9 +50,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   // Unified wrapper flags
   private _runtimeTranslatorEnabled = false;
-  private _originalGetGamepadsBase: any = null; // the single original getter
-  private _gpWrapperInstalled = false;          // is our unified wrapper installed?
-  private _reorderSelectedFirst = false;        // flag for reorder in wrapper
+  private _originalGetGamepadsBase: any = null; // single original getter
+  private _gpWrapperInstalled = false;
+  private _reorderSelectedFirst = false;
 
   // Direct-inject keyboard synth
   directInjectMode = false;
@@ -65,23 +68,22 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   showFileSearch = false;
   private _autoDetectTimer: any = null;
 
-  private hasLoadedLastInput = false;   // set true after loadLastInputSelectionAndApply finishes
-  private bootGraceUntil = 0;           // ms timestamp suppressing hot-restart right after boot
+  private hasLoadedLastInput = false;
+  private bootGraceUntil = 0;
 
-  // --- Autosave toggle & internals ---
-  autosave = true; // starts ON
+  // Autosave
+  autosave = true;
   private autosaveTimer: any = null;
-  private autosavePeriodMs = 3 * 60 * 1000; // 3 minutes
+  private autosavePeriodMs = 3 * 60 * 1000;
   private autosaveInProgress = false;
 
-  // Avoid re-uploading identical bytes (filename-kind keyed)
-  private lastUploadedHashes = new Map<string, string>(); // key (kind:filename) -> sha256
+  private lastUploadedHashes = new Map<string, string>();
 
   private _canvasResizeAdded = false;
   private _resizeHandler = () => this.resizeCanvasToParent();
   private _resizeObserver?: ResizeObserver;
 
-  // Virtual indices for runtime translator (buttons synthesized to these positions)
+  // Virtual button positions used by runtime translator
   private _virtualIndexForControl: Record<string, number> = {
     'A Button': 0,
     'B Button': 1,
@@ -99,12 +101,12 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     'R Trig': 13
   };
 
-  _gpPoller: any;
+  _gpPoller: any; // used by your UI toggle button
 
-  // Optional axis behavior
+  // Axis behavior
   private _axisDeadzone = 0.2;
 
-  // Logging toggles & intervals
+  // Logging timers
   private _logRawTimer: any = null;
   private _logEffectiveTimer: any = null;
   private _logRawPeriodMs = 750;
@@ -115,7 +117,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   // ---------------------------
-  // Named Mapping Store
+  // Named mappings
   // ---------------------------
 
   async loadMappingsList() {
@@ -180,7 +182,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         }
       }
 
-      // Fallback local
       const raw = localStorage.getItem(this._mappingsStoreKey);
       const store = raw ? JSON.parse(raw) : {};
       const existingLocalCount = Object.keys(store || {}).length;
@@ -336,10 +337,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
     canvasEl?.addEventListener('click', () => this._bootstrapDetectOnce());
 
-    // Start auto-detect and logging (raw + effective)
+    // Start auto-detect and logging (RAW + Effective)
     this.startGamepadAutoDetect();
-    this.startGamepadLogging();       // shows everything the controller exposes
-    this.startGamepadLoggingEffective(); // shows post-wrapper view (if enabled)
+    this.startGamepadLoggingRaw();
+    this.startGamepadLoggingEffective();
   }
 
   async ngOnDestroy(): Promise<void> {
@@ -370,12 +371,12 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       window.removeEventListener('gamepaddisconnected', this._onGamepadDisconnected);
     } catch { /* ignore */ }
 
-    this.stopGamepadLogging();
+    this.stopGamepadLoggingRaw();
     this.stopGamepadLoggingEffective();
   }
 
   // ---------------------------
-  // Save helpers (names, files)
+  // Save helpers
   // ---------------------------
 
   private inferBatteryExtFromSize(size: number): '.eep' | '.sra' | '.fla' | null {
@@ -434,7 +435,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   // ---------------------------
-  // File search handler
+  // File search
   // ---------------------------
 
   async onFileSearchSelected(file: FileEntry) {
@@ -471,7 +472,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
       try {
         await this.boot();
-      } catch { /* boot notifies on failure */ }
+      } catch { /* ignore */ }
     } catch (e) {
       console.error('Error loading ROM from search', e);
       this.parentRef?.showNotification('Error loading ROM from search');
@@ -486,8 +487,46 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   // ---------------------------
-  // Mapping helpers (record/save/load/apply)
+  // Mapping helpers (RAW-first)
   // ---------------------------
+
+  /**
+   * Generate a RAW "standard" mapping for the selected pad (DualSense/XInput-like layouts).
+   * This uses the browser’s standard indices: buttons (0..15), axes (0..3).
+   * C-Buttons map to right-stick axes with thresholds via runtime translator.
+   */
+  private generateDefaultRawMappingForPad(gp: Gamepad) {
+    const id = gp.id;
+    const m: Record<string, any> = {};
+
+    // Face buttons / triggers / start
+    m['A Button'] = { type: 'button', index: 0, gamepadId: id }; // Cross / A
+    m['B Button'] = { type: 'button', index: 1, gamepadId: id }; // Circle / B
+    m['Z Trig']   = { type: 'button', index: 6, gamepadId: id }; // L2
+    m['L Trig']   = { type: 'button', index: 4, gamepadId: id }; // L1
+    m['R Trig']   = { type: 'button', index: 5, gamepadId: id }; // R1
+    m['Start']    = { type: 'button', index: 9, gamepadId: id }; // Start/Options
+
+    // DPad (standard)
+    m['DPad U'] = { type: 'button', index: 12, gamepadId: id };
+    m['DPad D'] = { type: 'button', index: 13, gamepadId: id };
+    m['DPad L'] = { type: 'button', index: 14, gamepadId: id };
+    m['DPad R'] = { type: 'button', index: 15, gamepadId: id };
+
+    // Analog stick (Left) -> axes 0 (X), 1 (Y)
+    m['Analog X+'] = { type: 'axis', index: 0, axisDir: 1, gamepadId: id };
+    m['Analog X-'] = { type: 'axis', index: 0, axisDir: -1, gamepadId: id };
+    m['Analog Y+'] = { type: 'axis', index: 1, axisDir: 1, gamepadId: id };  // note: browser Y+ is down
+    m['Analog Y-'] = { type: 'axis', index: 1, axisDir: -1, gamepadId: id }; // browser Y- is up
+
+    // C-Buttons (Right stick thresholds): axes 2 (RX), 3 (RY)
+    m['C Button R'] = { type: 'axis', index: 2, axisDir: 1, gamepadId: id };  // right stick → right
+    m['C Button L'] = { type: 'axis', index: 2, axisDir: -1, gamepadId: id }; // right stick → left
+    m['C Button D'] = { type: 'axis', index: 3, axisDir: 1, gamepadId: id };  // right stick → down
+    m['C Button U'] = { type: 'axis', index: 3, axisDir: -1, gamepadId: id }; // right stick → up
+
+    this.mapping = m;
+  }
 
   startRecording(control: string) {
     this._recordingFor = control;
@@ -656,8 +695,17 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.refreshGamepads();
     this.directInjectMode = true;
 
-    // Reorder immediately via wrapper; no restart during boot grace
+    // Immediately set reorder (no restart during grace)
     this.applyGamepadReorder();
+
+    // If no mapping exists yet and the selected pad reports 'standard', generate RAW default now.
+    const gpNow = this.getGamepadsBase()[this.selectedGamepadIndex ?? 0];
+    if (gpNow && gpNow.mapping === 'standard' && !Object.keys(this.mapping || {}).length) {
+      this.generateDefaultRawMappingForPad(gpNow);
+      this.parentRef?.showNotification('Default RAW mapping generated from standard profile.');
+      // Apply into emulator config so it sticks
+      await this.applyMappingToEmulator();
+    }
 
     const now = performance.now();
     if (this.status === 'booting' || now < this.bootGraceUntil) {
@@ -856,7 +904,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       (navigator as any).getGamepads = function (): (Gamepad | null)[] {
         const baseArr = (self._originalGetGamepadsBase ? self._originalGetGamepadsBase() : []) || [];
 
-        // Reorder (selected-first) in the view only
+        // Reorder (selected-first) for consumer view
         let view: (Gamepad | null)[] = baseArr.slice();
         if (self._reorderSelectedFirst && self.selectedGamepadIndex !== null) {
           const selIdx = self.selectedGamepadIndex;
@@ -868,7 +916,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
         if (!self._runtimeTranslatorEnabled) return view;
 
-        // Translate runtime to virtual N64-friendly layout
+        // Translate runtime → synthesize N64-friendly virtual buttons & axes
         const out: (Gamepad | null)[] = [];
         for (let i = 0; i < view.length; i++) {
           const gp = view[i];
@@ -884,12 +932,12 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           }));
           const srcAxes = gp.axes || [];
 
-          // Map buttons via control->virt index
+          // BUTTON mappings
           for (const ctrl of Object.keys(self.mapping || {})) {
             const m = self.mapping[ctrl];
             if (!m) continue;
 
-            // Back-compat migration on the fly
+            // Migrate legacy gpIndex -> id if needed
             if (!m.gamepadId && typeof m.gpIndex === 'number') {
               const legacyGp = baseArr[m.gpIndex];
               if (legacyGp) m.gamepadId = legacyGp.id;
@@ -898,16 +946,24 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
             const matches = m.gamepadId && (gp.id === m.gamepadId);
             if (!matches) continue;
 
+            const virt = self._virtualIndexForControl[ctrl];
+
             if (m.type === 'button') {
-              const phys = m.index;
-              const virt = self._virtualIndexForControl[ctrl];
               if (virt == null) continue;
-              const b = srcButtons[phys];
+              const b = srcButtons[m.index];
               if (b) virtButtons[virt] = { pressed: !!b.pressed, touched: !!b.pressed, value: b.value };
+            }
+
+            // AXIS → virtual BUTTONS for C-Buttons (threshold)
+            if (m.type === 'axis' && virt != null && !ctrl.startsWith('Analog ')) {
+              const val = srcAxes[m.index] ?? 0;
+              const vNorm = self.normalizeAxis(val);
+              const pressed = (m.axisDir === 1) ? (vNorm > 0.5) : (vNorm < -0.5);
+              virtButtons[virt] = { pressed, touched: pressed, value: pressed ? 1 : 0 };
             }
           }
 
-          // Axes mapping
+          // Analog axes mapping (left stick)
           const mxp = self.mapping['Analog X+'];
           const mxm = self.mapping['Analog X-'];
           const myp = self.mapping['Analog Y+'];
@@ -1158,6 +1214,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.isFullScreen = !!document.fullscreenElement;
   }
 
+  // ---------------------------
+  // ROM name tokenization
+  // ---------------------------
+
   private romTokenForMatching(name?: string): string | null {
     if (!name) return null;
     let base = name.replace(/\.(z64|n64|v64|zip|7z|rom)$/i, '');
@@ -1170,6 +1230,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const loose = base.replace(/[^a-z0-9 ]/g, '').trim();
     return loose || null;
   }
+
+  // ---------------------------
+  // Export/import saves
+  // ---------------------------
 
   async exportInGameSaveRam(): Promise<ExportInGameSaveRamResult> {
     const empty: ExportInGameSaveRamResult = {
@@ -1607,6 +1671,19 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.hasLoadedLastInput = true;
   }
 
+  // Your original UI toggles a simple logger with _gpPoller; keep compatibility.
+  startGamepadLogging() {
+    this._gpPoller = 1; // sentinel (non-zero means active in your UI)
+    this.startGamepadLoggingRaw();
+    this.startGamepadLoggingEffective();
+  }
+
+  stopGamepadLogging() {
+    this._gpPoller = 0;
+    this.stopGamepadLoggingRaw();
+    this.stopGamepadLoggingEffective();
+  }
+
   private _bootstrapDetectOnce() {
     let runs = 0;
     const burst = () => {
@@ -1663,7 +1740,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   // ---------------------------
-  // Deep logging (raw & effective)
+  // Deep logging (RAW & Effective)
   // ---------------------------
 
   private dumpGamepadDetails(label: string, list: (Gamepad | null)[]) {
@@ -1695,8 +1772,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     console.groupEnd();
   }
 
-  startGamepadLogging() {
-    this.stopGamepadLogging();
+  startGamepadLoggingRaw() {
+    this.stopGamepadLoggingRaw();
     const tick = () => {
       try {
         const raw = this.getGamepadsBase();
@@ -1709,7 +1786,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     tick();
   }
 
-  stopGamepadLogging() {
+  stopGamepadLoggingRaw() {
     if (this._logRawTimer) {
       clearTimeout(this._logRawTimer);
       this._logRawTimer = null;
@@ -1720,7 +1797,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.stopGamepadLoggingEffective();
     const tick = () => {
       try {
-        // Effective view uses (possibly wrapped) navigator.getGamepads()
         const effective = (navigator.getGamepads ? navigator.getGamepads() : []) || [];
         this.dumpGamepadDetails('EFFECTIVE', effective as any);
       } catch (e) {
