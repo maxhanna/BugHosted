@@ -109,8 +109,15 @@
         <div class="mapper-wrap">
           <div class="mapper-toolbar">
             <button (click)="regenDefaultForSelectedPad()">Generate Default (standard)</button>
-            <button (click)="clearAllMappings()">Clear All</button>
-            <label><input type="checkbox" [(ngModel)]="liveTest"> Live test</label>
+            <button (click)="clearAllMappings()">Clear All</button> 
+            <label>
+              <input
+                type="checkbox"
+                [checked]="liveTest"
+                (change)="liveTest = $any($event.target).checked"
+              >
+              Live test
+            </label>
           </div>
 
           <!-- SVG N64 pad -->
@@ -188,7 +195,7 @@
               <span class="sel-label">Selected:</span>
               <strong>{{selectedControl}}</strong>
               <span class="sel-binding">{{formatMapping(mapping[selectedControl])}}</span>
-            </div>
+            </div>B
             <div class="buttons-row">
               <button (click)="recordSelected()">Record</button>
               <button (click)="clearSelected()">Clear</button>
