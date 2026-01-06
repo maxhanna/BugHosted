@@ -80,6 +80,14 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   };
   _gpPoller: any;
 
+// --- New fields (add near other private fields) ---
+private _originalGetGamepadsBase: any = null; // the single original getter
+private _gpWrapperInstalled = false;          // is our unified wrapper installed?
+private _reorderSelectedFirst = false;        // flag for reorder in wrapper
+
+// Optional axis behavior (can be extended later)
+private _axisDeadzone = 0.2;
+
   constructor(private fileService: FileService, private romService: RomService) {
     super();
   }
@@ -188,6 +196,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           const m = await this.romService.getMapping(uid, this.selectedMappingName as string);
           if (m) {
             this.mapping = JSON.parse(JSON.stringify(m));
+            this.migrateMappingToIdsIfNeeded();
             await this.applyMappingToEmulator();
             this.parentRef?.showNotification(`Applied mapping "${this.selectedMappingName}"`);
 
@@ -467,47 +476,237 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   // -- Mapping helpers -------------------------------------------------------
-  startRecording(control: string) {
-    this._recordingFor = control;
-    this.parentRef?.showNotification(`Recording mapping for ${control}. Press a button on the controller.`);
-    // start a short-term poller to capture the first pressed button
-    const cap = () => {
-      const g = navigator.getGamepads ? navigator.getGamepads() : [];
-      for (let i = 0; i < g.length; i++) {
-        const gp = g[i];
-        if (!gp) continue;
-        for (let b = 0; b < gp.buttons.length; b++) {
-          if ((gp.buttons[b] as any).pressed) {
-            this.mapping[control] = { type: 'button', index: b, gpIndex: gp.index };
-            this._recordingFor = null;
-            this.parentRef?.showNotification(`${control} mapped to button ${b} (gamepad ${gp.index})`);
-            return;
-          }
-        }
-        // simple axis capture (if axis beyond threshold)
-        for (let a = 0; a < gp.axes.length; a++) {
-          const v = gp.axes[a];
-          if (Math.abs(v) > 0.7) {
-            this.mapping[control] = { type: 'axis', index: a, axisDir: v > 0 ? 1 : -1, gpIndex: gp.index };
-            this._recordingFor = null;
-            this.parentRef?.showNotification(`${control} mapped to axis ${a} ${v > 0 ? '+' : '-'}`);
-            return;
-          }
-        }
-      }
-      if (this._recordingFor) {
-        setTimeout(cap, 200);
-      }
-    };
-    cap();
-  }
+  
 
-  formatMapping(m: any) {
-    if (!m) return '';
-    if (m.type === 'button') return `button ${m.index} (gp ${m.gpIndex})`;
-    if (m.type === 'axis') return `axis ${m.index} ${m.axisDir === 1 ? '+' : '-'} (gp ${m.gpIndex})`;
-    return JSON.stringify(m);
+startRecording(control: string) {
+  this._recordingFor = control;
+  this.parentRef?.showNotification(`Recording mapping for ${control}. Press a button or move an axis on the controller.`);
+
+  const cap = () => {
+    const g = this.getGamepadsBase();
+    for (const gp of g) {
+      if (!gp) continue;
+
+      // Buttons
+      for (let b = 0; b < gp.buttons.length; b++) {
+        if ((gp.buttons[b] as any).pressed) {
+          this.mapping[control] = { type: 'button', index: b, gamepadId: gp.id };
+          this._recordingFor = null;
+          this.parentRef?.showNotification(`${control} mapped to button ${b} on "${gp.id}"`);
+          return;
+        }
+      }
+      // Axes
+      for (let a = 0; a < gp.axes.length; a++) {
+        const v = gp.axes[a];
+        if (Math.abs(v) > 0.7) {
+          this.mapping[control] = { type: 'axis', index: a, axisDir: v > 0 ? 1 : -1, gamepadId: gp.id };
+          this._recordingFor = null;
+          this.parentRef?.showNotification(`${control} mapped to axis ${a} ${v > 0 ? '+' : '-'} on "${gp.id}"`);
+          return;
+        }
+      }
+    }
+    if (this._recordingFor) setTimeout(cap, 200);
+  };
+  cap();
+} 
+
+
+/** Get the base (original) navigator.getGamepads (without our wrapper). */
+private getGamepadsBase(): (Gamepad | null)[] {
+  const getter = this._originalGetGamepadsBase || (navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null);
+  return getter ? getter() : [];
+}
+
+/** Return current gp.index for a given gamepad id, or null if not connected. */
+private resolveGpIndexById(id?: string | null): number | null {
+  if (!id) return null;
+  const arr = this.getGamepadsBase();
+  for (const gp of arr) {
+    if (gp && gp.id === id) return gp.index;
   }
+  return null;
+}
+
+/** Normalize signed axis with deadzone and optional invert. */
+private normalizeAxis(v: number, deadzone = this._axisDeadzone, invert = false): number {
+  if (invert) v = -v;
+  if (Math.abs(v) < deadzone) return 0;
+  return Math.max(-1, Math.min(1, v));
+}
+
+/**
+ * Install a SINGLE wrapper over navigator.getGamepads that composes:
+ *   1) reorder (selected-first) and
+ *   2) runtime translation (virtual buttons/axes) using mapping & gamepadId.
+ *
+ * This avoids multiple nested wrappers and keeps behavior predictable.
+ */
+private installGamepadsWrapper() {
+  if (this._gpWrapperInstalled) return;
+  try {
+    this._originalGetGamepadsBase = navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null;
+    const self = this;
+
+    (navigator as any).getGamepads = function (): (Gamepad | null)[] {
+      // 1) Start from the original list
+      const baseArr = (self._originalGetGamepadsBase ? self._originalGetGamepadsBase() : []) || [];
+
+      // 2) Apply reorder (selected-first) WITHOUT changing indices the browser uses.
+      //    We expose a reordered view to *consumers* (emulator), but resolution by id
+      //    still uses base list.
+      let view: (Gamepad | null)[] = baseArr.slice();
+      if (self._reorderSelectedFirst && self.selectedGamepadIndex !== null) {
+        const selIdx = self.selectedGamepadIndex;
+        const sel = baseArr[selIdx];
+        if (sel) {
+          view = [sel, ...baseArr.filter((_:any, i:any) => i !== selIdx)];
+        }
+      }
+
+      // 3) If runtime translator is disabled, return view as-is.
+      if (!self._runtimeTranslatorEnabled) return view;
+
+      // 4) Build translated view: synthesize virtual buttons according to mapping.
+      //    We keep the same length/holes as 'view' to not break consumers expecting indices.
+      const out: (Gamepad | null)[] = [];
+      for (let i = 0; i < view.length; i++) {
+        const gp = view[i];
+        if (!gp) { out.push(null); continue; }
+
+        // Build a virtual pad shape with enough buttons for N64 mapping
+        const maxButtons = 16;
+        const virtButtons: any[] = Array.from({ length: maxButtons }, () => ({ pressed: false, touched: false, value: 0 }));
+        const virtAxes: number[] = [0, 0]; // 0: X, 1: Y
+
+        // Source state
+        const srcButtons = (gp.buttons || []).map((b: any) => ({
+          pressed: !!b.pressed,
+          value: b.value ?? (b.pressed ? 1 : 0)
+        }));
+        const srcAxes = gp.axes || [];
+
+        // 4a) Apply button mappings for entries that target this gp by id
+        for (const ctrl of Object.keys(self.mapping || {})) {
+          const m = self.mapping[ctrl];
+          if (!m) continue;
+
+          // Back-compat: if legacy gpIndex exists but no gamepadId, try to migrate on the fly
+          if (!m.gamepadId && typeof m.gpIndex === 'number') {
+            const legacyGp = baseArr[m.gpIndex];
+            if (legacyGp) m.gamepadId = legacyGp.id;
+          }
+
+          const matches = m.gamepadId && (gp.id === m.gamepadId);
+          if (!matches) continue;
+
+          // Buttons
+          if (m.type === 'button') {
+            const phys = m.index;
+            const virt = self._virtualIndexForControl[ctrl];
+            if (virt == null) continue;
+            const b = srcButtons[phys];
+            if (b) virtButtons[virt] = { pressed: !!b.pressed, touched: !!b.pressed, value: b.value };
+          }
+        }
+
+        // 4b) Axes: default passthrough if no specific analog mappings exist.
+        // If user mapped explicit analog axes, prefer them.
+        const mxp = self.mapping['Analog X+'];
+        const mxm = self.mapping['Analog X-'];
+        const myp = self.mapping['Analog Y+'];
+        const mym = self.mapping['Analog Y-'];
+
+        // Helper to compute a virtual axis from two mappings (plus/minus)
+        const axisFrom = (plus: any, minus: any): number | null => {
+          const okPlus = plus && plus.gamepadId === gp.id && plus.type === 'axis';
+          const okMinus = minus && minus.gamepadId === gp.id && minus.type === 'axis';
+          if (!okPlus && !okMinus) return null;
+
+          if (okPlus && okMinus && plus.index === minus.index) {
+            // Same physical axis → use it directly
+            const v = srcAxes[plus.index] ?? 0;
+            return self.normalizeAxis(v);
+          }
+
+          // Fallback: compose from half-axes
+          let v = 0;
+          if (okPlus) {
+            const pv = srcAxes[plus.index] ?? 0;
+            v = Math.max(v, self.normalizeAxis(pv));
+          }
+          if (okMinus) {
+            const nv = srcAxes[minus.index] ?? 0;
+            v = Math.min(v, self.normalizeAxis(nv) * -1);
+          }
+          return v;
+        };
+
+        const xFromMap = axisFrom(mxp, mxm);
+        const yFromMap = axisFrom(myp, mym);
+
+        virtAxes[0] = xFromMap != null ? xFromMap : (srcAxes[0] ?? 0);
+        virtAxes[1] = yFromMap != null ? yFromMap : (srcAxes[1] ?? 0);
+
+        const vgp = {
+          id: gp.id,
+          index: gp.index,
+          connected: gp.connected,
+          mapping: gp.mapping,
+          axes: virtAxes,
+          buttons: virtButtons,
+          timestamp: gp.timestamp
+        };
+        out.push(vgp as any);
+      }
+
+      return out;
+    };
+
+    this._gpWrapperInstalled = true;
+  } catch (e) {
+    console.warn('Failed installing gamepads wrapper', e);
+  }
+}
+
+private uninstallGamepadsWrapper() {
+  if (!this._gpWrapperInstalled) return;
+  try {
+    if (this._originalGetGamepadsBase) {
+      (navigator as any).getGamepads = this._originalGetGamepadsBase;
+    }
+  } catch { /* ignore */ }
+  this._gpWrapperInstalled = false;
+  this._originalGetGamepadsBase = null;
+}
+
+/** One-time migration for legacy saved mappings that only stored gpIndex. */
+private migrateMappingToIdsIfNeeded() {
+  const arr = this.getGamepadsBase();
+  for (const key of Object.keys(this.mapping || {})) {
+    const m = this.mapping[key];
+    if (!m) continue;
+    if (!m.gamepadId && typeof m.gpIndex === 'number') {
+      const gp = arr[m.gpIndex];
+      if (gp?.id) {
+        m.gamepadId = gp.id;
+      }
+    }
+  }
+}
+
+
+
+
+formatMapping(m: any) {
+  if (!m) return '';
+  const id = m.gamepadId ? `id "${m.gamepadId}"` : (typeof m.gpIndex === 'number' ? `gp ${m.gpIndex}` : 'gp ?');
+  if (m.type === 'button') return `button ${m.index} (${id})`;
+  if (m.type === 'axis') return `axis ${m.index} ${m.axisDir === 1 ? '+' : '-'} (${id})`;
+  return JSON.stringify(m);
+}
+
 
   saveMapping() {
     try {
@@ -518,177 +717,147 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  loadMapping() {
-    try {
-      const raw = localStorage.getItem(this._mappingKey);
-      if (raw) {
-        this.mapping = JSON.parse(raw);
-        this.parentRef?.showNotification('Mapping loaded');
-      } else {
-        this.parentRef?.showNotification('No saved mapping found');
-      }
-    } catch (e) {
-      console.error('Failed to load mapping', e);
+
+loadMapping() {
+  try {
+    const raw = localStorage.getItem(this._mappingKey);
+    if (raw) {
+      this.mapping = JSON.parse(raw);
+      this.migrateMappingToIdsIfNeeded();
+      this.parentRef?.showNotification('Mapping loaded');
+    } else {
+      this.parentRef?.showNotification('No saved mapping found');
     }
+  } catch (e) {
+    console.error('Failed to load mapping', e);
   }
+}
+
 
   /** Apply the current mapping into the emulator's InputAutoCfg (IDBFS) and restart emulator. */
-  async applyMappingToEmulator() {
-    try {
-      // Build config entries from our mapping object, pairing analog axes when possible
-      const config: Record<string, string> = {};
-      const handled = new Set<string>();
+  
+async applyMappingToEmulator() {
+  try {
+    // Ensure we migrate old mappings (gpIndex -> gamepadId) if needed
+    this.migrateMappingToIdsIfNeeded();
 
-      const pairAxis = (minusKey: string, plusKey: string, axisName: string) => {
-        const mMinus = this.mapping[minusKey];
-        const mPlus = this.mapping[plusKey];
-        if (mMinus && mPlus && mMinus.type === 'axis' && mPlus.type === 'axis' && mMinus.gpIndex === mPlus.gpIndex) {
-          // e.g. X Axis = axis(0-,0+)
-          config[axisName] = `axis(${mMinus.index}-,${mPlus.index}+)`;
-          handled.add(minusKey);
-          handled.add(plusKey);
-          return true;
-        }
-        return false;
-      };
+    // Build config entries from our mapping object, pairing analog axes when possible
+    const config: Record<string, string> = {};
+    const handled = new Set<string>();
 
-      pairAxis('Analog X-', 'Analog X+', 'X Axis');
-      pairAxis('Analog Y-', 'Analog Y+', 'Y Axis');
-
-      for (const key of Object.keys(this.mapping)) {
-        if (handled.has(key)) continue;
-        const m = this.mapping[key];
-        if (!m) continue;
-        if (m.type === 'button') {
-          config[key] = `button(${m.index})`;
-        } else if (m.type === 'axis') {
-          config[key] = `axis(${m.index}${m.axisDir === -1 ? '-' : '+'})`;
-        }
+    const pairAxis = (minusKey: string, plusKey: string, axisName: string) => {
+      const mMinus = this.mapping[minusKey];
+      const mPlus = this.mapping[plusKey];
+      if (mMinus && mPlus && mMinus.type === 'axis' && mPlus.type === 'axis' &&
+          mMinus.gamepadId && mPlus.gamepadId && mMinus.gamepadId === mPlus.gamepadId) {
+        config[axisName] = `axis(${mMinus.index}-,${mPlus.index}+)`;
+        handled.add(minusKey);
+        handled.add(plusKey);
+        return true;
       }
+      return false;
+    };
 
-      // Decide joystick name using one of the mapped gpIndex values
-      const anyEntry = Object.values(this.mapping).find((v: any) => v && v.gpIndex != null);
-      const gpIndex = anyEntry ? anyEntry.gpIndex : this.selectedGamepadIndex;
-      const gp = (navigator.getGamepads ? navigator.getGamepads() : [])[gpIndex ?? 0];
-      const joyName = (gp && gp.id) ? gp.id : `Custom Gamepad ${gpIndex ?? 0}`;
+    pairAxis('Analog X-', 'Analog X+', 'X Axis');
+    pairAxis('Analog Y-', 'Analog Y+', 'Y Axis');
 
-      // Stop emulator if running
-      const wasRunning = !!this.instance || this.status === 'running';
-      if (wasRunning) {
-        await this.stop();
-        // small pause to ensure IDBFS is writable
-        await new Promise((r) => setTimeout(r, 150));
+    for (const key of Object.keys(this.mapping)) {
+      if (handled.has(key)) continue;
+      const m = this.mapping[key];
+      if (!m) continue;
+      if (m.type === 'button') {
+        config[key] = `button(${m.index})`;
+      } else if (m.type === 'axis') {
+        config[key] = `axis(${m.index}${m.axisDir === -1 ? '-' : '+'})`;
       }
-
-      // write config into emulator IDBFS
-      console.debug('Applying mapping to emulator. joyName=', joyName, 'config=', config);
-      await writeAutoInputConfig(joyName, config as any);
-      this.parentRef?.showNotification('Applied mapping to emulator configuration');
-
-      // enable runtime translator so mapping takes effect immediately without restart
-      if (this.directInjectMode) {
-        this.enableDirectInject();
-      } else {
-        this.enableRuntimeTranslator();
-      }
-
-      // restart emulator if it was running
-      if (wasRunning) {
-        await this.boot();
-      }
-    } catch (e) {
-      console.error('Failed to apply mapping to emulator', e);
-      this.parentRef?.showNotification('Failed to apply mapping');
     }
+
+    // Choose joystick name: prefer the device referenced by mapping (first entry with gamepadId)
+    let joyId: string | null = null;
+    for (const v of Object.values(this.mapping)) {
+      if (v?.gamepadId) { joyId = v.gamepadId; break; }
+    }
+    let gpName = 'Custom Gamepad';
+    if (joyId) {
+      const idx = this.resolveGpIndexById(joyId);
+      const gp = idx != null ? this.getGamepadsBase()[idx] : null;
+      if (gp?.id) gpName = gp.id;
+    } else if (this.selectedGamepadIndex != null) {
+      const gp = this.getGamepadsBase()[this.selectedGamepadIndex];
+      if (gp?.id) gpName = gp.id;
+    }
+
+    // Stop emulator if running
+    const wasRunning = !!this.instance || this.status === 'running';
+    if (wasRunning) {
+      await this.stop();
+      await new Promise((r) => setTimeout(r, 150));
+    }
+
+    // Write config into emulator IDBFS
+    await writeAutoInputConfig(gpName, config as any);
+    this.parentRef?.showNotification(`Applied mapping to emulator configuration for "${gpName}"`);
+
+    // Ensure the wrapper (reorder + translator) is active according to toggles
+    if (this.directInjectMode) {
+      this.enableDirectInject();
+    } else {
+      this.enableRuntimeTranslator();
+    }
+
+    if (wasRunning) {
+      await this.boot();
+    }
+  } catch (e) {
+    console.error('Failed to apply mapping to emulator', e);
+    this.parentRef?.showNotification('Failed to apply mapping');
   }
+}
+
 
   /** Called when user picks a different controller in the UI. */
-  async onSelectGamepad(value: string | number) {
-    const idx = Number(value);
-    if (Number.isNaN(idx)) return;
+ 
+async onSelectGamepad(value: string | number) {
+  const idx = Number(value);
+  if (Number.isNaN(idx)) return;
 
-    // If the same index is being re-selected, avoid a restart—just ensure our reorder/injection is active.
-    if (this.selectedGamepadIndex === idx) {
-      this.applyGamepadReorder();
-      if (this.directInjectMode) this.enableDirectInject(); else this.enableRuntimeTranslator();
-
-      // Still persist selection for last-input (optional)
-      try {
-        const uid = this.parentRef?.user?.id;
-        const token = this.romTokenForMatching(this.romName);
-        if (uid && token) {
-          const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-          const gp = pads[idx];
-          const gamepadId = gp?.id ?? null;
-          await this.romService.saveLastInputSelection({
-            userId: uid,
-            romToken: token,
-            mappingName: this.selectedMappingName ?? null,
-            gamepadId
-          });
-        }
-      } catch { /* ignore */ }
-
-      if (this.directInjectMode) {
-        this.enableDirectInject();
-      }
-      else {
-        this.enableRuntimeTranslator();
-      }
-
-      return;
-    }
-
-    this.selectedGamepadIndex = idx;
-
-    // Keep the visible list up-to-date
-    this.refreshGamepads();
-    this.directInjectMode = true;
-
-    // 🚫 If we're in booting state or within the grace window, 
-    // only reorder/enable injection—do NOT restart.
-    const now = performance.now();
-    if (this.status === 'booting' || now < this.bootGraceUntil) {
-      this.applyGamepadReorder();
-      if (this.directInjectMode) this.enableDirectInject(); else this.enableRuntimeTranslator();
-
-      // Persist selection
-      try {
-        const uid = this.parentRef?.user?.id;
-        const token = this.romTokenForMatching(this.romName);
-        if (uid && token) {
-          const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-          const gp = pads[this.selectedGamepadIndex ?? 0];
-          const gamepadId = gp?.id ?? null;
-          await this.romService.saveLastInputSelection({
-            userId: uid,
-            romToken: token,
-            mappingName: this.selectedMappingName ?? null,
-            gamepadId
-          });
-        }
-      } catch { /* ignore */ }
-      return;
-    }
-
-    // ✅ Past grace period → hot-swap restart is allowed
-    if (this.instance || this.status === 'running') {
-      try {
-        await this.stop();
-        await new Promise((r) => setTimeout(r, 120));
-        await this.boot();
-      } catch (e) {
-        console.error('Failed to restart emulator with new controller', e);
-        this.parentRef?.showNotification('Failed to restart emulator with selected controller');
-      }
-    }
-
-    // Persist selection (existing code already below)
+  if (this.selectedGamepadIndex === idx) {
+    this.applyGamepadReorder();
+    if (this.directInjectMode) this.enableDirectInject(); else this.enableRuntimeTranslator();
+    // Persist selection (unchanged)
     try {
       const uid = this.parentRef?.user?.id;
       const token = this.romTokenForMatching(this.romName);
       if (uid && token) {
-        const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+        const pads = this.getGamepadsBase();
+        const gp = pads[idx];
+        const gamepadId = gp?.id ?? null;
+        await this.romService.saveLastInputSelection({
+          userId: uid,
+          romToken: token,
+          mappingName: this.selectedMappingName ?? null,
+          gamepadId
+        });
+      }
+    } catch { /* ignore */ }
+    return;
+  }
+
+  this.selectedGamepadIndex = idx;
+  this.refreshGamepads();
+  this.directInjectMode = true;
+
+  // Reorder immediately via wrapper; no restart during boot grace
+  this.applyGamepadReorder();
+
+  const now = performance.now();
+  if (this.status === 'booting' || now < this.bootGraceUntil) {
+    // Persist selection
+    try {
+      const uid = this.parentRef?.user?.id;
+      const token = this.romTokenForMatching(this.romName);
+      if (uid && token) {
+        const pads = this.getGamepadsBase();
         const gp = pads[this.selectedGamepadIndex ?? 0];
         const gamepadId = gp?.id ?? null;
         await this.romService.saveLastInputSelection({
@@ -699,7 +868,37 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         });
       }
     } catch { /* ignore */ }
+    return;
   }
+
+  if (this.instance || this.status === 'running') {
+    try {
+      await this.stop();
+      await new Promise((r) => setTimeout(r, 120));
+      await this.boot();
+    } catch (e) {
+      console.error('Failed to restart emulator with new controller', e);
+      this.parentRef?.showNotification('Failed to restart emulator with selected controller');
+    }
+  }
+
+  try {
+    const uid = this.parentRef?.user?.id;
+    const token = this.romTokenForMatching(this.romName);
+    if (uid && token) {
+      const pads = this.getGamepadsBase();
+      const gp = pads[this.selectedGamepadIndex ?? 0];
+      const gamepadId = gp?.id ?? null;
+      await this.romService.saveLastInputSelection({
+        userId: uid,
+        romToken: token,
+        mappingName: this.selectedMappingName ?? null,
+        gamepadId
+      });
+    }
+  } catch { /* ignore */ }
+}
+
 
 
   // -- Emulator control methods ---------------------------------------------
@@ -820,158 +1019,95 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   // -- Runtime translator ----------------------------------------------------
-  enableRuntimeTranslator() {
-    if (this._runtimeTranslatorEnabled) return;
-    try {
-      this._originalGetGamepadsRuntime = navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null;
-      const self = this;
-      navigator.getGamepads = function () {
-        const origArr = (self._originalGetGamepadsRuntime ? self._originalGetGamepadsRuntime() : []) || [];
-        const out: any[] = [];
-        for (let gi = 0; gi < origArr.length; gi++) {
-          const gp = origArr[gi];
-          if (!gp) { out.push(null); continue; }
-          // build virtual buttons array
-          const maxButtons = 16; // ensure enough slots
-          const virtButtons: any[] = [];
-          for (let i = 0; i < maxButtons; i++) {
-            virtButtons.push({ pressed: false, touched: false, value: 0 });
-          }
-          // copy original buttons to a temp map
-          const origButtons = (gp.buttons || []).map((b: any) => ({ pressed: !!b.pressed, value: b.value ?? (b.pressed ? 1 : 0) }));
-          // for each mapping entry that targets this physical gamepad, map into virtual indexes
-          for (const ctrl of Object.keys(self.mapping)) {
-            const m = self.mapping[ctrl];
-            if (!m || m.gpIndex == null) continue;
-            if (m.gpIndex !== gp.index) continue;
-            if (m.type === 'button') {
-              const phys = m.index;
-              const virt = self._virtualIndexForControl[ctrl];
-              if (virt == null) continue;
-              const b = origButtons[phys];
-              if (b) virtButtons[virt] = { pressed: !!b.pressed, touched: !!b.pressed, value: b.value };
-            }
-            // axis mapping: we will synthesize virtual axes by placing axis value in designated slots
-            if (m.type === 'axis') {
-              // find a virtual axis index for X/Y by convention: use 0 for X, 1 for Y
-              let virtAxisIndex = -1;
-              if (ctrl.startsWith('Analog X')) virtAxisIndex = 0;
-              if (ctrl.startsWith('Analog Y')) virtAxisIndex = 1;
-              // we'll store axes later
-            }
-          }
-          // Build virtual axes array
-          const origAxes = gp.axes || [];
-          const virtAxes: number[] = [];
-          // default to copying first two axes into the first two virtual slots
-          virtAxes[0] = origAxes[0] ?? 0;
-          virtAxes[1] = origAxes[1] ?? 0;
-          // create a virtual gamepad-like object
-          const vgp = {
-            id: gp.id,
-            index: gp.index,
-            connected: gp.connected,
-            mapping: gp.mapping,
-            axes: virtAxes,
-            buttons: virtButtons,
-            timestamp: gp.timestamp
-          };
-          out[gi] = vgp;
-        }
-        return out as any;
-      } as any;
-      this._runtimeTranslatorEnabled = true;
-      this.parentRef?.showNotification('Runtime input translator enabled');
-    } catch (e) {
-      console.error('Failed to enable runtime translator', e);
-    }
-  }
+  
+enableRuntimeTranslator() {
+  if (this._runtimeTranslatorEnabled) return;
+  this._runtimeTranslatorEnabled = true;
+  this.installGamepadsWrapper();
+  this.parentRef?.showNotification('Runtime input translator enabled');
+}
 
-  disableRuntimeTranslator() {
-    if (!this._runtimeTranslatorEnabled) return;
-    try {
-      if (this._originalGetGamepadsRuntime) {
-        navigator.getGamepads = this._originalGetGamepadsRuntime;
-        this._originalGetGamepadsRuntime = null;
-      }
-    } catch (e) {
-      // ignore
-    }
-    this._runtimeTranslatorEnabled = false;
-    this.parentRef?.showNotification('Runtime input translator disabled');
+disableRuntimeTranslator() {
+  if (!this._runtimeTranslatorEnabled) return;
+  this._runtimeTranslatorEnabled = false;
+
+  // If reorder is still requested, keep wrapper; otherwise uninstall.
+  if (!this._reorderSelectedFirst) {
+    this.uninstallGamepadsWrapper();
   }
+  this.parentRef?.showNotification('Runtime input translator disabled');
+}
+
 
   // -- Direct-inject mode: poll gamepads and synthesize input events (keyboard)
-  enableDirectInject() {
-    if (this._directInjectPoller) return;
-    this._directPrevState = {};
-    const poll = () => {
-      try {
-        const g = navigator.getGamepads ? navigator.getGamepads() : [];
-        for (let i = 0; i < g.length; i++) {
-          const gp = g[i];
-          if (!gp) continue;
-          // for every mapping entry, if it targets this gp index, map to keys
-          for (const ctrl of Object.keys(this.mapping)) {
-            const m = this.mapping[ctrl];
-            if (!m || m.gpIndex == null) continue;
-            if (m.gpIndex !== gp.index) continue;
-            const stateKey = `${gp.index}:${ctrl}`;
-            if (m.type === 'button') {
-              const pressed = !!(gp.buttons && gp.buttons[m.index] && (gp.buttons[m.index] as any).pressed);
-              const prev = !!this._directPrevState[stateKey];
-              const keyCode = this.getKeyForControl(ctrl);
-              if (pressed && !prev) {
-                this.dispatchKeyboard(keyCode, true);
-                this._directPrevState[stateKey] = true;
-              } else if (!pressed && prev) {
-                this.dispatchKeyboard(keyCode, false);
-                this._directPrevState[stateKey] = false;
-              }
+  
+enableDirectInject() {
+  if (this._directInjectPoller) return;
+  this._directPrevState = {};
+  const poll = () => {
+    try {
+      const g = this.getGamepadsBase();
+      for (const gp of g) {
+        if (!gp) continue;
+
+        for (const ctrl of Object.keys(this.mapping || {})) {
+          const m = this.mapping[ctrl];
+          if (!m || !m.gamepadId || gp.id !== m.gamepadId) continue;
+
+          const stateKey = `${gp.id}:${ctrl}`;
+          if (m.type === 'button') {
+            const pressed = !!(gp.buttons && gp.buttons[m.index] && (gp.buttons[m.index] as any).pressed);
+            const prev = !!this._directPrevState[stateKey];
+            const keyCode = this.getKeyForControl(ctrl);
+            if (pressed && !prev) {
+              this.dispatchKeyboard(keyCode, true);
+              this._directPrevState[stateKey] = true;
+            } else if (!pressed && prev) {
+              this.dispatchKeyboard(keyCode, false);
+              this._directPrevState[stateKey] = false;
             }
-            if (m.type === 'axis') {
-              const aidx = m.index;
-              const val = (gp.axes && gp.axes[aidx]) || 0;
-              const plusKey = this.getKeyForControl(ctrl.replace(/[-+]$/, '+'));
-              const minusKey = this.getKeyForControl(ctrl.replace(/[-+]$/, '-'));
-              // threshold-based mapping
-              if (val > 0.5) {
-                const pk = `${gp.index}:${ctrl}:+`;
-                if (!this._directPrevState[pk]) {
-                  if (plusKey) this.dispatchKeyboard(plusKey, true);
-                  this._directPrevState[pk] = true;
-                }
-              } else {
-                const pk = `${gp.index}:${ctrl}:+`;
-                if (this._directPrevState[pk]) {
-                  if (plusKey) this.dispatchKeyboard(plusKey, false);
-                  this._directPrevState[pk] = false;
-                }
+          }
+          if (m.type === 'axis') {
+            const aidx = m.index;
+            const val = (gp.axes && gp.axes[aidx]) || 0;
+            const plusKey = this.getKeyForControl(ctrl.replace(/[-+]$/, '+'));
+            const minusKey = this.getKeyForControl(ctrl.replace(/[-+]$/, '-'));
+
+            // Threshold mapping
+            const pk = `${gp.id}:${ctrl}:+`;
+            const mk = `${gp.id}:${ctrl}:-`;
+
+            if (val > 0.5) {
+              if (!this._directPrevState[pk]) {
+                if (plusKey) this.dispatchKeyboard(plusKey, true);
+                this._directPrevState[pk] = true;
               }
-              if (val < -0.5) {
-                const mk = `${gp.index}:${ctrl}:-`;
-                if (!this._directPrevState[mk]) {
-                  if (minusKey) this.dispatchKeyboard(minusKey, true);
-                  this._directPrevState[mk] = true;
-                }
-              } else {
-                const mk = `${gp.index}:${ctrl}:-`;
-                if (this._directPrevState[mk]) {
-                  if (minusKey) this.dispatchKeyboard(minusKey, false);
-                  this._directPrevState[mk] = false;
-                }
+            } else if (this._directPrevState[pk]) {
+              if (plusKey) this.dispatchKeyboard(plusKey, false);
+              this._directPrevState[pk] = false;
+            }
+
+            if (val < -0.5) {
+              if (!this._directPrevState[mk]) {
+                if (minusKey) this.dispatchKeyboard(minusKey, true);
+                this._directPrevState[mk] = true;
               }
+            } else if (this._directPrevState[mk]) {
+              if (minusKey) this.dispatchKeyboard(minusKey, false);
+              this._directPrevState[mk] = false;
             }
           }
         }
-      } catch (e) {
-        console.warn('Direct-inject poll error', e);
       }
-      this._directInjectPoller = window.setTimeout(poll, 80) as any;
-    };
-    poll();
-    this.parentRef?.showNotification('Direct-inject input mode enabled');
-  }
+    } catch (e) {
+      console.warn('Direct-inject poll error', e);
+    }
+    this._directInjectPoller = window.setTimeout(poll, 80) as any;
+  };
+  poll();
+  this.parentRef?.showNotification('Direct-inject input mode enabled');
+}
+
 
   disableDirectInject() {
     if (this._directInjectPoller) {
@@ -1030,57 +1166,43 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   // -- Gamepad helper methods -------------------------------------------------
-  refreshGamepads() {
-    try {
-      const g = navigator.getGamepads ? navigator.getGamepads() : [];
-      this.gamepads = [];
-      for (let i = 0; i < g.length; i++) {
-        const gp = g[i];
-        if (!gp) continue;
-        this.gamepads.push({ index: gp.index, id: gp.id, mapping: gp.mapping || '', connected: gp.connected });
-      }
-      // default to first standard-mapped device if available
-      if (this.selectedGamepadIndex === null && this.gamepads.length) {
-        const std = this.gamepads.find((p) => p.mapping === 'standard');
-        this.selectedGamepadIndex = std ? std.index : this.gamepads[0].index;
-      }
-    } catch (e) {
-      console.warn('Failed to read gamepads', e);
+  
+refreshGamepads() {
+  try {
+    const g = this.getGamepadsBase();
+    this.gamepads = [];
+    for (const gp of g) {
+      if (!gp) continue;
+      this.gamepads.push({ index: gp.index, id: gp.id, mapping: gp.mapping || '', connected: gp.connected });
     }
+    if (this.selectedGamepadIndex === null && this.gamepads.length) {
+      const std = this.gamepads.find((p) => p.mapping === 'standard');
+      this.selectedGamepadIndex = std ? std.index : this.gamepads[0].index;
+    }
+  } catch (e) {
+    console.warn('Failed to read gamepads', e);
   }
+}
 
-  applyGamepadReorder() {
-    if (this.selectedGamepadIndex === null) return;
-    try {
-      if (!this._originalGetGamepads) {
-        this._originalGetGamepads = navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null;
-      }
-      const orig = this._originalGetGamepads || (() => []);
-      const sel = this.selectedGamepadIndex;
-      navigator.getGamepads = () => {
-        const arr = orig() || [];
-        if (!arr || arr.length <= sel) return arr;
-        const selected = arr[sel];
-        if (!selected) return arr;
-        // Put selected at index 0, keep others in the same order skipping selected
-        const reordered = [selected, ...arr.filter((_: any, i: number) => i !== sel)];
-        return reordered;
-      };
-    } catch (e) {
-      console.warn('Failed to patch navigator.getGamepads', e);
-    }
-  }
 
-  restoreGamepadGetter() {
-    try {
-      if (this._originalGetGamepads) {
-        navigator.getGamepads = this._originalGetGamepads;
-        this._originalGetGamepads = null;
-      }
-    } catch (e) {
-      // ignore
-    }
+applyGamepadReorder() {
+  if (this.selectedGamepadIndex === null) return;
+  try {
+    this._reorderSelectedFirst = true;
+    this.installGamepadsWrapper();
+  } catch (e) {
+    console.warn('Failed to apply gamepad reorder', e);
   }
+}
+
+
+restoreGamepadGetter() {
+  try {
+    this.uninstallGamepadsWrapper();
+    this._reorderSelectedFirst = false;
+  } catch { /* ignore */ }
+}
+
   showMenuPanel() {
     this.isMenuPanelVisible = true;
     this.parentRef?.showOverlay();
@@ -1593,8 +1715,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const poll = () => {
       try {
         const g = navigator.getGamepads ? navigator.getGamepads() : [];
-        // update the UI list so user can pick newly connected devices
-        this.refreshGamepads();
         for (let i = 0; i < g.length; i++) {
           const gp = g[i];
           if (!gp) continue;
