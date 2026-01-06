@@ -1,61 +1,41 @@
-canvas {
-  width: auto !important;
-  height: calc(100vh - 60px) !important;
-}
-.componentMain {
-  width: 100vw;
-  overflow: unset;
-  border: unset !important;
-}
 
-.n64-emulator-root {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px;
-}
+canvas { width: auto !important; height: calc(100vh - 60px) !important; }
+.componentMain { width: 100vw; overflow: unset; border: unset !important; }
 
-.gamepad-controls {
-  max-width: calc(100% - 20px);
-}
+.n64-emulator-root { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+.gamepad-controls { max-width: calc(100% - 20px); }
+.gamepad-controls select { max-width: calc(100% - 50px); }
 
-.gamepad-controls select {
-  max-width: calc(100% - 50px);
-}
+.gamesContainer { width: 100%; height: calc(var(--vh, 1vh) * 100 - 65px); overflow: auto; }
+.gamesContainer select { width: 100%; text-align: center; }
 
-.gamesContainer {
-  width: 100%;
-  height: calc(var(--vh, 1vh) * 100 - 65px);
-  overflow: auto;
-}
-
-.gamesContainer select {
-  width: 100%;
-  text-align: center;
-}
-
-.screen-area {
-  width: 100%; 
-  display: flex; 
-  align-items: center;
-  justify-content: center;
-  align-content: center;
-  flex-wrap: nowrap;
-  flex-direction: row;
-}
+.screen-area { width: 100%; display: flex; align-items: center; justify-content: center; align-content: center; flex-wrap: nowrap; flex-direction: row; }
 .controls { display:flex; gap:12px; align-items:center; }
 .btns button { margin-right:6px; }
 .screen-wrap { border: 1px solid #222; display:inline-block; }
 .n64-canvas { background: #000; display:block; }
 .status { font-size: 12px; color: #ddd; }
+.toggle-label { font-weight: bold; font-size: 14px; vertical-align: middle; }
 
-.toggle-label {
-  font-weight: bold;
-  font-size: 14px;
-  vertical-align: middle;
-} 
+.is-disabled { pointer-events: none; opacity: 0.6; }
 
-.is-disabled {
-  pointer-events: none;    /* blocks clicks in children */
-  opacity: 0.6;            /* visual cue, tweak as needed */
-}
+/* Visual mapper */
+.mapper-wrap { display: grid; grid-template-columns: minmax(300px, 640px) 1fr; gap: 16px; align-items: start; }
+.mapper-toolbar { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+.mapper-actions { display:flex; flex-direction: column; gap:12px; }
+.sel-row { display:flex; gap:8px; align-items:center; }
+.sel-label { color:#aaa; }
+.buttons-row { display:flex; flex-wrap:wrap; gap:6px; }
+
+.n64-pad-svg { width: 100%; height: auto; background: radial-gradient(ellipse at center, #1d1d1d 0%, #0f0f0f 100%); border-radius: 8px; }
+.hit { cursor: pointer; fill: #3a3a3a; stroke: #8a8a8a; stroke-width: 2; transition: fill .15s, stroke .15s, transform .05s; }
+.hit:hover { fill: #505050; }
+.bound { stroke: #00c853; }
+.active { fill: #1976d2; stroke: #64b5f6; }
+
+.bubble-label { fill: #ddd; font-size: 10px; font-weight: 600; pointer-events: none; }
+.aBtn { fill:#274b27; } .bBtn { fill:#4b2727; }
+.zBtn, .lBtn, .rBtn, .startBtn { fill:#333; }
+.dpad .hit { fill:#444; }
+.ccluster .hit { fill:#494023; }
+.analog { fill:#666; }
