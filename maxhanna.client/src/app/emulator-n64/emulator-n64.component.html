@@ -36,7 +36,7 @@
 <div class="n64-emulator-root popupPanel" *ngIf="isMenuPanelVisible">
   <div class="popupPanelTitle">N64 Emulation Menu</div>
 
-  <div *ngIf="!showKeyMappings">
+  <div *ngIf="!showKeyMappings" class="menuAutosaveWrapper">
     <app-file-upload
       [currentDirectory]="'Roms'"
       [user]="parentRef?.user!"

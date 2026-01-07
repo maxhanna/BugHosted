@@ -33,3 +33,6 @@ canvas { width: auto !important; height: calc(100vh - 60px) !important; }
 .col-actions { display:flex; gap: 6px; justify-content: flex-end; }
 
 .footer-actions { display:flex; gap:8px; justify-content:flex-end; }
+.menuAutosaveWrapper {
+  width: calc(100% - 20px);
+}
