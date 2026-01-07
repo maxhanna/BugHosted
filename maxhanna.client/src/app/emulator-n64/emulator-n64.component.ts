@@ -312,8 +312,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     canvasEl?.addEventListener('click', () => this._bootstrapDetectOnce());
 
     this.startGamepadAutoDetect();
-    this.startGamepadLoggingRaw();
-    this.startGamepadLoggingEffective();
+    // this.startGamepadLoggingRaw();
+    // this.startGamepadLoggingEffective();
   }
 
   async ngOnDestroy(): Promise<void> {
