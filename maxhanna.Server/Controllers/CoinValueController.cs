@@ -512,14 +512,14 @@ namespace maxhanna.Server.Controllers
     }
 
 
-[HttpPost("/CurrencyValue/GetLatest/", Name = "GetLatestCurrencyValues")]
-public async Task<List<ExchangeRate>> GetLatestCurrencyValues()
-{
-    var exchangeRates = new List<ExchangeRate>();
-
-    await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-    try
+    [HttpPost("/CurrencyValue/GetLatest/", Name = "GetLatestCurrencyValues")]
+    public async Task<List<ExchangeRate>> GetLatestCurrencyValues()
     {
+      var exchangeRates = new List<ExchangeRate>();
+
+      await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      try
+      {
         await conn.OpenAsync();
 
         const string sql = @"
@@ -533,29 +533,29 @@ public async Task<List<ExchangeRate>> GetLatestCurrencyValues()
 
         while (await reader.ReadAsync())
         {
-            var exchangeRate = new ExchangeRate
-            {
-                Id = reader.GetInt32(reader.GetOrdinal("id")),
-                BaseCurrency = reader.IsDBNull(reader.GetOrdinal("base_currency")) ? null : reader.GetString(reader.GetOrdinal("base_currency")),
-                TargetCurrency = reader.IsDBNull(reader.GetOrdinal("target_currency")) ? null : reader.GetString(reader.GetOrdinal("target_currency")),
-                Rate = reader.IsDBNull(reader.GetOrdinal("rate")) ? 0 : reader.GetDecimal(reader.GetOrdinal("rate")),
-                Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp"))
-            };
-            exchangeRates.Add(exchangeRate);
+          var exchangeRate = new ExchangeRate
+          {
+            Id = reader.GetInt32(reader.GetOrdinal("id")),
+            BaseCurrency = reader.IsDBNull(reader.GetOrdinal("base_currency")) ? null : reader.GetString(reader.GetOrdinal("base_currency")),
+            TargetCurrency = reader.IsDBNull(reader.GetOrdinal("target_currency")) ? null : reader.GetString(reader.GetOrdinal("target_currency")),
+            Rate = reader.IsDBNull(reader.GetOrdinal("rate")) ? 0 : reader.GetDecimal(reader.GetOrdinal("rate")),
+            Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp"))
+          };
+          exchangeRates.Add(exchangeRate);
         }
-    }
-    catch (Exception ex)
-    {
+      }
+      catch (Exception ex)
+      {
         _ = _log.Db("An error occurred while trying to get the latest currency values. " + ex.Message, null, "COIN", true);
         // Depending on your API contract, consider returning proper status codes
-    }
-    finally
-    {
+      }
+      finally
+      {
         await conn.CloseAsync();
-    }
+      }
 
-    return exchangeRates;
-}
+      return exchangeRates;
+    }
 
 
     [HttpPost("/CurrencyValue/GetUniqueNames/", Name = "GetUniqueCurrencyValueNames")]
@@ -770,58 +770,65 @@ public async Task<List<ExchangeRate>> GetLatestCurrencyValues()
       return false;
     }
 
-
-
     [HttpPost("/CurrencyValue/GetLatestByName/{name}", Name = "GetLatestCurrencyValuesByName")]
     public async Task<ExchangeRate> GetLatestCurrencyValuesByName(string name)
     {
-      var exchangeRates = new ExchangeRate();
+      // If you prefer null when not found, change the return type to ExchangeRate? and return null.
+      var exchangeRate = new ExchangeRate();
 
-      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
       try
       {
         await conn.OpenAsync();
 
-        // Get the latest timestamp
-        string timestampSql = @"SELECT MAX(timestamp) FROM maxhanna.exchange_rates WHERE LOWER(target_currency) = LOWER(@name)";
-        MySqlCommand timestampCmd = new MySqlCommand(timestampSql, conn);
-        timestampCmd.Parameters.AddWithValue("@name", name);
-        var latestTimestamp = await timestampCmd.ExecuteScalarAsync() as DateTime?;
+        const string sql = @"
+            SELECT id, base_currency, target_currency, rate, timestamp
+            FROM maxhanna.exchange_rates
+            WHERE target_currency = @name
+            ORDER BY timestamp DESC, id DESC
+            LIMIT 1;";
 
-        if (latestTimestamp != null)
+        await using var cmd = new MySqlCommand(sql, conn);
+        // Explicit type & size helps plan reuse
+        cmd.Parameters.Add("@name", MySqlDbType.VarChar, 45).Value = name;
+        cmd.CommandTimeout = 8;
+        cmd.Prepare();
+
+        // We only expect a single row
+        await using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleRow);
+
+        if (await reader.ReadAsync())
         {
-          string sql = @"SELECT id, base_currency, target_currency, rate, timestamp FROM maxhanna.exchange_rates WHERE LOWER(target_currency) = LOWER(@name) AND timestamp = @latestTimestamp LIMIT 1";
-          MySqlCommand cmd = new MySqlCommand(sql, conn);
-          cmd.Parameters.AddWithValue("@name", name);
-          cmd.Parameters.AddWithValue("@latestTimestamp", latestTimestamp);
-          using (var reader = await cmd.ExecuteReaderAsync())
+          // Inline GetOrdinal with IsDBNull / getters (condensed)
+          exchangeRate = new ExchangeRate
           {
-            while (await reader.ReadAsync())
-            {
-              var exchangeRate = new ExchangeRate
-              {
-                Id = reader.GetInt32(reader.GetOrdinal("id")),
-                BaseCurrency = reader.IsDBNull(reader.GetOrdinal("base_currency")) ? null : reader.GetString(reader.GetOrdinal("base_currency")),
-                TargetCurrency = reader.IsDBNull(reader.GetOrdinal("target_currency")) ? null : reader.GetString(reader.GetOrdinal("target_currency")),
-                Rate = reader.IsDBNull(reader.GetOrdinal("rate")) ? 0 : reader.GetDecimal(reader.GetOrdinal("rate")),
-                Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp"))
-              };
-              return exchangeRate;
-            }
-          }
+            Id = reader.IsDBNull(reader.GetOrdinal("id"))
+                  ? 0 : reader.GetInt32(reader.GetOrdinal("id")),
+            BaseCurrency = reader.IsDBNull(reader.GetOrdinal("base_currency"))
+                  ? null : reader.GetString(reader.GetOrdinal("base_currency")),
+            TargetCurrency = reader.IsDBNull(reader.GetOrdinal("target_currency"))
+                  ? null : reader.GetString(reader.GetOrdinal("target_currency")),
+            Rate = reader.IsDBNull(reader.GetOrdinal("rate"))
+                  ? 0 : reader.GetDecimal(reader.GetOrdinal("rate")),
+            Timestamp = reader.IsDBNull(reader.GetOrdinal("timestamp"))
+                  ? DateTime.UtcNow : reader.GetDateTime(reader.GetOrdinal("timestamp"))
+          };
         }
       }
       catch (Exception ex)
       {
-        _ = _log.Db("An error occurred while trying to get the latest coin values by name. " + ex.Message, null, "COIN", true);
+        _ = _log.Db("An error occurred while trying to get the latest currency values by name. " + ex.Message, null, "COIN", true);
       }
       finally
       {
         await conn.CloseAsync();
       }
 
-      return exchangeRates;
+      return exchangeRate;
     }
+
+
+
     /// <summary>
     /// Return the CoinMarketCap Fear & Greed index values for the last N days.
     /// Defaults to the last 7 days if no daysBack is supplied.
@@ -890,6 +897,7 @@ public async Task<List<ExchangeRate>> GetLatestCurrencyValues()
         });
       }
     }
+
     [HttpPost("/CoinValue/CryptoCalendarEvents", Name = "GetCryptoCalendarEvents")]
     public async Task<IActionResult> GetCryptoCalendarEvents(
       [FromQuery] int daysAhead = 7,
@@ -976,6 +984,7 @@ public async Task<List<ExchangeRate>> GetLatestCurrencyValues()
         });
       }
     }
+
     [HttpGet("/CoinValue/GlobalMetrics", Name = "GetLatestGlobalMetrics")]
     public async Task<IActionResult> GetLatestGlobalMetrics()
     {
@@ -1366,14 +1375,14 @@ public async Task<List<ExchangeRate>> GetLatestCurrencyValues()
     }
 
 
-[HttpGet("/CoinValue/GetLatestCoinMarketCaps", Name = "GetLatestCoinMarketCaps")]
-public async Task<List<CoinMarketCap>> GetLatestCoinMarketCaps()
-{
-    var coinMarketCaps = new List<CoinMarketCap>();
-
-    await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-    try
+    [HttpGet("/CoinValue/GetLatestCoinMarketCaps", Name = "GetLatestCoinMarketCaps")]
+    public async Task<List<CoinMarketCap>> GetLatestCoinMarketCaps()
     {
+      var coinMarketCaps = new List<CoinMarketCap>();
+
+      await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      try
+      {
         await conn.OpenAsync();
 
         const string sql = @"
@@ -1432,35 +1441,35 @@ ORDER BY mc.market_cap_usd DESC;";
 
         while (await reader.ReadAsync())
         {
-            var cmc = new CoinMarketCap
-            {
-                CoinId = reader.IsDBNull(reader.GetOrdinal("coin_id")) ? null : reader.GetString(reader.GetOrdinal("coin_id")),
-                Symbol = reader.IsDBNull(reader.GetOrdinal("symbol")) ? null : reader.GetString(reader.GetOrdinal("symbol")),
-                Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name")),
-                MarketCapUSD = reader.IsDBNull(reader.GetOrdinal("market_cap_usd")) ? 0 : reader.GetDecimal(reader.GetOrdinal("market_cap_usd")),
-                MarketCapCAD = reader.IsDBNull(reader.GetOrdinal("market_cap_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("market_cap_cad")),
-                PriceUSD = reader.IsDBNull(reader.GetOrdinal("price_usd")) ? 0 : reader.GetDecimal(reader.GetOrdinal("price_usd")),
-                PriceCAD = reader.IsDBNull(reader.GetOrdinal("price_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("price_cad")),
-                PriceChangePercentage24h = reader.IsDBNull(reader.GetOrdinal("price_change_percentage_24h")) ? 0 : reader.GetDecimal(reader.GetOrdinal("price_change_percentage_24h")),
-                InflowChange24h = reader.IsDBNull(reader.GetOrdinal("inflow_change_24h")) ? 0 : reader.GetDecimal(reader.GetOrdinal("inflow_change_24h")),
-                RecordedAt = reader.GetDateTime(reader.GetOrdinal("recorded_at")),
-                PriceTimestamp = reader.IsDBNull(reader.GetOrdinal("price_timestamp")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("price_timestamp"))
-            };
-            coinMarketCaps.Add(cmc);
+          var cmc = new CoinMarketCap
+          {
+            CoinId = reader.IsDBNull(reader.GetOrdinal("coin_id")) ? null : reader.GetString(reader.GetOrdinal("coin_id")),
+            Symbol = reader.IsDBNull(reader.GetOrdinal("symbol")) ? null : reader.GetString(reader.GetOrdinal("symbol")),
+            Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name")),
+            MarketCapUSD = reader.IsDBNull(reader.GetOrdinal("market_cap_usd")) ? 0 : reader.GetDecimal(reader.GetOrdinal("market_cap_usd")),
+            MarketCapCAD = reader.IsDBNull(reader.GetOrdinal("market_cap_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("market_cap_cad")),
+            PriceUSD = reader.IsDBNull(reader.GetOrdinal("price_usd")) ? 0 : reader.GetDecimal(reader.GetOrdinal("price_usd")),
+            PriceCAD = reader.IsDBNull(reader.GetOrdinal("price_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("price_cad")),
+            PriceChangePercentage24h = reader.IsDBNull(reader.GetOrdinal("price_change_percentage_24h")) ? 0 : reader.GetDecimal(reader.GetOrdinal("price_change_percentage_24h")),
+            InflowChange24h = reader.IsDBNull(reader.GetOrdinal("inflow_change_24h")) ? 0 : reader.GetDecimal(reader.GetOrdinal("inflow_change_24h")),
+            RecordedAt = reader.GetDateTime(reader.GetOrdinal("recorded_at")),
+            PriceTimestamp = reader.IsDBNull(reader.GetOrdinal("price_timestamp")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("price_timestamp"))
+          };
+          coinMarketCaps.Add(cmc);
         }
-    }
-    catch (Exception ex)
-    {
+      }
+      catch (Exception ex)
+      {
         _ = _log.Db($"An error occurred while trying to get the latest coin market caps: {ex.Message}", null, "MCS", true);
-    }
-    finally
-    {
+      }
+      finally
+      {
         await conn.CloseAsync();
+      }
+
+      return coinMarketCaps;
     }
- 
-    return coinMarketCaps;
-} 
- 
+
     private async Task<CryptoWallet?> GetWalletFromDb(int? userId, string type)
     {
       if (userId == null) { return null; }
