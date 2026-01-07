@@ -881,7 +881,7 @@ namespace maxhanna.Server.Services
 					await Task.Delay(1000).ConfigureAwait(false);
 				}
 
-				await _log.Db($"Completed execution of {tradeTaskDelegates.Count} trade tasks for users: {string.Join(", ", tradeTaskDelegates.Select(t => t.UserId))}", null, "TRADE", true);
+				//await _log.Db($"Completed execution of {tradeTaskDelegates.Count} trade tasks for users: {string.Join(", ", tradeTaskDelegates.Select(t => t.UserId))}", null, "TRADE", true);
 			}
 			catch (Exception ex)
 			{
