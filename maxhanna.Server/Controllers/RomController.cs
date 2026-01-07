@@ -324,11 +324,10 @@ namespace maxhanna.Server.Controllers
 
 
     [HttpPost("/Rom/GetRomFile/{filePath}", Name = "GetRomFile")]
-    public async Task<IActionResult> GetRomFile(
-    [FromRoute] string filePath,
-    [FromQuery] int? userId,
-    [FromQuery] int? fileId) 
+    public async Task<IActionResult>  GetRomFile([FromRoute] string filePath, [FromBody] GetRomFileRequest req)
     {
+      int? fileId = req.FileId;
+      int? userId = req.UserId;
       filePath = Path.Combine(_baseTarget, WebUtility.UrlDecode(filePath) ?? "").Replace("\\", "/");
       string fileName = Path.GetFileName(filePath);
       if (!ValidatePath(filePath)) { return StatusCode(500, $"Must be within {_baseTarget}"); }
@@ -405,6 +404,8 @@ namespace maxhanna.Server.Controllers
       // .sav / .srm (savestate containers) then battery saves (.eep/.sra/.fla)
       var saveExts = new[] { ".sav", ".srm", ".eep", ".sra", ".fla" };
 
+      GetRomFileRequest req = new GetRomFileRequest();
+      req.UserId = userId; 
       // 1) Try physical on disk (user-specific first), using your naming convention: <base>_<userId><ext>
       foreach (var ext in saveExts)
       {
@@ -413,7 +414,7 @@ namespace maxhanna.Server.Controllers
         if (System.IO.File.Exists(userSpecificPath))
         {
           // Reuse GetRomFile to stream + update last_access + record selection
-          return await GetRomFile(userId, null, $"{romBase}_{userId}{ext}");
+          return await GetRomFile($"{romBase}_{userId}{ext}", req);
         }
 
         // If no per-user file, try the global file (without _userId)
@@ -421,7 +422,7 @@ namespace maxhanna.Server.Controllers
         var globalPath = Path.Combine(_baseTarget, globalName).Replace("\\", "/");
         if (System.IO.File.Exists(globalPath))
         {
-          return await GetRomFile(userId, null, $"{romBase}{ext}");
+          return await GetRomFile($"{romBase}{ext}", req);
         }
       }
 
@@ -461,7 +462,7 @@ namespace maxhanna.Server.Controllers
           // We can delegate streaming to GetRomFile by passing the "logical" filename (<base><ext>).
           // GetRomFile will rewrite to per-user path automatically.
           var ext = Path.GetExtension(dbFileName)?.ToLowerInvariant() ?? ".sav";
-          return await GetRomFile(userId, null, $"{romBase}{ext}");
+          return await GetRomFile($"{romBase}{ext}", req);
         }
       }
       catch (Exception ex)
@@ -794,4 +795,9 @@ public class LastInputSelectionResponse
   public string? MappingName { get; set; }
   public string? GamepadId { get; set; }
   public long UpdatedAtMs { get; set; }
+}
+
+public class GetRomFileRequest {
+    public int? UserId { get; set; }
+    public int? FileId { get; set; }
 }
