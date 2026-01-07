@@ -682,7 +682,6 @@ namespace maxhanna.Server.Controllers
     private async Task UpdateLastAccessForRom(string fileName, int? userId)
     {
       int? fileId = null;
-      string? folderPath = null;
 
       // First: update last_access and get file_id + folder_path
       await using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -695,7 +694,7 @@ namespace maxhanna.Server.Controllers
             WHERE file_name = @FileName 
             LIMIT 1;
 
-            SELECT id, folder_path FROM maxhanna.file_uploads WHERE file_name = @FileName LIMIT 1;
+            SELECT id FROM maxhanna.file_uploads WHERE file_name = @FileName LIMIT 1;
         ";
 
         await using var command = new MySqlCommand(sql, connection);
@@ -707,12 +706,11 @@ namespace maxhanna.Server.Controllers
         if (await reader.NextResultAsync() && await reader.ReadAsync())
         {
           fileId = reader.GetInt32(reader.GetOrdinal("id"));
-          folderPath = reader.GetString(reader.GetOrdinal("folder_path"));
         }
       }
 
       // Second: insert into file_access if we have userId and fileId
-      if (userId.HasValue && fileId.HasValue && !string.IsNullOrEmpty(folderPath))
+      if (userId.HasValue && fileId.HasValue)
       {
         await using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
         {
