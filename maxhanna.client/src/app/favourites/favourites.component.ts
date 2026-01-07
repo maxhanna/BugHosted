@@ -150,7 +150,15 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
 
         if (!targetData) {
           const userId = this.parentRef?.user?.id;
-          const cRes: CrawlerSearchResponse | null = await this.crawlerService.searchUrl(tmpLinkUrl, undefined, undefined, exactMatch, undefined, userId);
+          let cRes = await this.crawlerService.searchUrl(tmpLinkUrl, undefined, undefined, exactMatch, undefined, userId);
+          
+          if ((cRes as any)?.error) {
+            const error = (cRes as any).error; 
+            this.parentRef?.showNotification(error);
+            this.stopLoading();
+            return;
+          }
+          cRes = cRes as CrawlerSearchResponse;  
           if (cRes && cRes.results && cRes.results.length > 0 && (!exactMatch ? cRes.results[0].url.includes(tmpLinkUrl) : true)) {
             targetData = cRes.results[0];
           }
