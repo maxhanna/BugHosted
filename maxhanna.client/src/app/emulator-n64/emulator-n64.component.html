@@ -1,18 +1,31 @@
+
 <div class="componentMain" [style.paddingTop]="isFullScreen ? '0px' : null">
   <div class="closeButton" (click)="remove_me('EmulatorN64Component');" *ngIf="!isFullScreen"></div>
   <div class="menuButton" (click)="showMenuPanel();" *ngIf="!isFullScreen"></div>
   <div class="componentTitle" *ngIf="!isFullScreen">N64 Emulator</div>
+
   <div class="gamesContainer{{ !romName ? ' expanded' : '' }}{{isLoading ? ' is-disabled' : ''}}" *ngIf="!romName">
-    <app-file-search [user]="parentRef?.user" [inputtedParentRef]="parentRef" [currentDirectory]="'Roms/'"
-      [clearAfterSelectFile]="true" [showPrivatePublicOption]="false" [showFileSearchOptions]="false"
-      [canChangeDirectory]="false" [canDragMove]="false" [displayFileActions]="true" [displayComments]="false"
-      [displayFileSize]="false" [displayReactions]="false" [allowedFileTypes]="getAllowedRomFileTypes()"
-      [disabled]="isLoading" (selectFileEvent)="onFileSearchSelected($event)">
+    <app-file-search
+      [user]="parentRef?.user"
+      [inputtedParentRef]="parentRef"
+      [currentDirectory]="'Roms/'"
+      [clearAfterSelectFile]="true"
+      [showPrivatePublicOption]="false"
+      [showFileSearchOptions]="false"
+      [canChangeDirectory]="false"
+      [canDragMove]="false"
+      [displayFileActions]="true"
+      [displayComments]="false"
+      [displayFileSize]="false"
+      [displayReactions]="false"
+      [allowedFileTypes]="getAllowedRomFileTypes()"
+      [disabled]="isLoading"
+      (selectFileEvent)="onFileSearchSelected($event)">
     </app-file-search>
   </div>
 
   <div #fullscreenContainer [style.visibility]="romName ? 'visible' : 'hidden'"
-    [style.height]="romName ? (isFullScreen ? '100vh' : '') : '0px'">
+       [style.height]="romName ? (isFullScreen ? '100vh' : '') : '0px'">
 
     <div class="screen-area" [style.height]="!onMobile() ? '100%' : ''">
       <canvas id="canvas" #canvas slot="lcd" [attr.tabindex]="'-1'"></canvas>
@@ -22,10 +35,17 @@
 
 <div class="n64-emulator-root popupPanel" *ngIf="isMenuPanelVisible">
   <div class="popupPanelTitle">N64 Emulation Menu</div>
+
   <div *ngIf="!showKeyMappings">
-    <app-file-upload [currentDirectory]="'Roms'" [user]="parentRef?.user!" [inputtedParentRef]="parentRef"
-      [uploadButtonText]="'Upload Rom(s)'" [maxSelectedFiles]="100" [allowedFileTypes]="getAllowedRomFileTypesString()">
+    <app-file-upload
+      [currentDirectory]="'Roms'"
+      [user]="parentRef?.user!"
+      [inputtedParentRef]="parentRef"
+      [uploadButtonText]="'Upload Rom(s)'"
+      [maxSelectedFiles]="100"
+      [allowedFileTypes]="getAllowedRomFileTypesString()">
     </app-file-upload>
+
     <div style="text-align: center;">
       <div class="optionsStatsWrapperDiv">
         <div class="optionsStatsDiv">
@@ -40,33 +60,37 @@
       </div>
     </div>
   </div>
+
   <div class="optionsStatsWrapperDiv">
     <div class="optionsStatsDiv" *ngIf="romName && !showKeyMappings">
       <div class="optionsStatsHeader">Fullscreen:</div>
       <div class="optionsStatsDescription">
         <div class="uploadRomSpan upload-label" id="fullscreenBtn" (click)="toggleFullscreen()" title="Fullscreen mode">
-          ◻️</div>
+          ◻️
+        </div>
       </div>
     </div>
+
     <div class="controls">
       <div class="gamepad-controls">
         <div *ngIf="!showKeyMappings">
           <label>Controller:
             <select (change)="onSelectGamepad($any($event.target).value)" [value]="selectedGamepadIndex ?? ''">
               <option value="" disabled *ngIf="!gamepads.length">-- No controllers --</option>
-              <option *ngFor="let gp of gamepads" [value]="gp.index">{{gp.index}} — {{gp.id}} {{gp.mapping ? '(' +
-                gp.mapping + ')' : ''}}</option>
+              <option *ngFor="let gp of gamepads" [value]="gp.index">
+                {{gp.index}} — {{gp.id}} {{gp.mapping ? '(' + gp.mapping + ')' : ''}}
+              </option>
             </select>
           </label>
           <button (click)="refreshGamepads()">Refresh</button>
         </div>
 
-        <!-- Mappings dropdown and save controls (applies on select) -->
+        <!-- Mappings dropdown + save -->
         <div *ngIf="!showKeyMappings && gamepads.length">
           <label style="margin-left:8px">Mappings:
             <select (change)="onMappingSelect($any($event.target).value)" [value]="selectedMappingName ?? ''">
-              <option value="" disabled *ngIf="!savedMappingsNames.length">-- No mappings --</option>
               <option value="" *ngIf="savedMappingsNames.length">Default</option>
+              <option value="" disabled *ngIf="!savedMappingsNames.length">-- No mappings --</option>
               <option *ngFor="let n of savedMappingsNames" [value]="n" [selected]="n === selectedMappingName">{{n}}</option>
             </select>
           </label>
@@ -75,34 +99,70 @@
             <button (click)="saveMappingAs()">Save Mapping...</button>
             <button *ngIf="selectedMappingName" (click)="deleteSelectedMapping()">Delete</button>
             <button (click)="showKeyMappings = !showKeyMappings">Re-Map Controls</button>
-            <button (click)="_gpPoller ? stopGamepadLogging() : startGamepadLogging();">{{_gpPoller ? 'Stop' : 'Start'}} Gamepad Logging</button>
+            <button (click)="_gpPoller ? stopGamepadLogging() : startGamepadLogging();">
+              {{_gpPoller ? 'Stop' : 'Start'}} Gamepad Logging
+            </button>
           </div>
         </div>
       </div>
 
+      <!-- ************ LIST-BASED REMAPPER ************ -->
       <div class="mapping-controls" *ngIf="showKeyMappings">
-        <h4>Controller Mapping</h4>
-        <div *ngFor="let ctrl of n64Controls">
-          <label>{{ctrl}}:
-            <span *ngIf="mapping[ctrl]">{{formatMapping(mapping[ctrl])}}</span>
-            <button (click)="startRecording(ctrl)">Record</button>
-          </label>
+        <div class="remap-header">
+          <h4>Controller Mapping</h4>
+          <div class="remap-actions">
+            <button (click)="regenDefaultForSelectedPad()">Generate Default (standard)</button>
+            <button (click)="clearAllMappings()">Clear All</button>
+            <label class="inline">
+              <input type="checkbox" [checked]="liveTest" (change)="liveTest = $any($event.target).checked">
+              Live test
+            </label>
+            <button (click)="showKeyMappings = false">Close</button>
+          </div>
         </div>
-        <div class="map-actions">
+
+        <div class="remap-list">
+          <div class="remap-row header">
+            <div class="col-control">N64 Control</div>
+            <div class="col-binding">Current Binding</div>
+            <div class="col-actions">Actions</div>
+          </div>
+
+          <div *ngFor="let ctrl of n64Controls" class="remap-row"
+               [class.active]="isRowActive(ctrl)">
+            <div class="col-control">
+              <span class="ctrl-name">{{ ctrl }}</span>
+            </div>
+            <div class="col-binding">
+              <span class="binding-text">{{ bindingText(ctrl) }}</span>
+            </div>
+            <div class="col-actions">
+              <button (click)="recordCtrl(ctrl)">Record</button>
+              <button (click)="clearCtrl(ctrl)" [disabled]="!mapping[ctrl]">Clear</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer-actions">
           <button (click)="saveMappingAs()">Save Mapping...</button>
           <button (click)="applyMappingToEmulator()">Apply Mapping</button>
-          <button (click)="showKeyMappings = false">Cancel</button>
-          <button (click)="clearSelection()">Clear</button>
         </div>
+
+        <!-- Optional export preview -->
         <div *ngIf="exportText">
           <h5>Export</h5>
           <textarea rows="8" cols="60" readonly>{{exportText}}</textarea>
         </div>
       </div>
-    </div>
-
-    <div class="status">Emulator Status: {{ status }} <span *ngIf="romName">— {{ romName }}</span></div>
-    <div style="width:100%; text-align: center;">
-      <button class="closeButton" id="closeOverlay" (click)="closeMenuPanel();">Close</button>
+      <!-- ********************************************* -->
     </div>
   </div>
+
+  <div class="status">
+    Emulator Status: {{ status }} <span *ngIf="romName">— {{ romName }}</span>
+  </div>
+
+  <div style="width:100%; text-align: center;">
+    <button class="closeButton" id="closeOverlay" (click)="closeMenuPanel();">Close</button>
+  </div>
+</div>

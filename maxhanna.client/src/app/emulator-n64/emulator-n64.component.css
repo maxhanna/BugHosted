@@ -1,61 +1,35 @@
-canvas {
-  width: auto !important;
-  height: calc(100vh - 60px) !important;
-}
-.componentMain {
-  width: 100vw;
-  overflow: unset;
-  border: unset !important;
-}
 
-.n64-emulator-root {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px;
-}
+canvas { width: auto !important; height: calc(100vh - 60px) !important; }
+.componentMain { width: 100vw; overflow: unset; border: unset !important; }
 
-.gamepad-controls {
-  max-width: calc(100% - 20px);
-}
+.n64-emulator-root { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+.gamepad-controls { max-width: calc(100% - 20px); }
+.gamepad-controls select { max-width: calc(100% - 50px); }
 
-.gamepad-controls select {
-  max-width: calc(100% - 50px);
-}
+.gamesContainer { width: 100%; height: calc(var(--vh, 1vh) * 100 - 65px); overflow: auto; }
+.gamesContainer select { width: 100%; text-align: center; }
 
-.gamesContainer {
-  width: 100%;
-  height: calc(var(--vh, 1vh) * 100 - 65px);
-  overflow: auto;
-}
-
-.gamesContainer select {
-  width: 100%;
-  text-align: center;
-}
-
-.screen-area {
-  width: 100%; 
-  display: flex; 
-  align-items: center;
-  justify-content: center;
-  align-content: center;
-  flex-wrap: nowrap;
-  flex-direction: row;
-}
-.controls { display:flex; gap:12px; align-items:center; }
-.btns button { margin-right:6px; }
-.screen-wrap { border: 1px solid #222; display:inline-block; }
-.n64-canvas { background: #000; display:block; }
+.screen-area { width: 100%; display: flex; align-items: center; justify-content: center; }
+.controls { display:flex; gap:12px; align-items:flex-start; }
 .status { font-size: 12px; color: #ddd; }
+.toggle-label { font-weight: bold; font-size: 14px; vertical-align: middle; }
+.is-disabled { pointer-events: none; opacity: 0.6; }
 
-.toggle-label {
-  font-weight: bold;
-  font-size: 14px;
-  vertical-align: middle;
-} 
+/* Remapper list */
+.mapping-controls { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+.remap-header { display:flex; justify-content: space-between; align-items:center; }
+.remap-actions { display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
+.remap-actions .inline { display:flex; gap:6px; align-items:center; }
 
-.is-disabled {
-  pointer-events: none;    /* blocks clicks in children */
-  opacity: 0.6;            /* visual cue, tweak as needed */
-}
+.remap-list { width: 100%; border: 1px solid #333; border-radius: 6px; overflow: hidden; }
+.remap-row { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; align-items: center; padding: 8px 10px; }
+.remap-row:nth-child(even) { background: #181818; }
+.remap-row:nth-child(odd) { background: #121212; }
+.remap-row.header { background: #0e0e0e; font-weight: 600; color:#cfcfcf; }
+.remap-row.active { outline: 1px solid #1976d2; position: relative; }
+
+.col-control { font-weight: 600; }
+.col-binding .binding-text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color:#c5e1a5; }
+.col-actions { display:flex; gap: 6px; justify-content: flex-end; }
+
+.footer-actions { display:flex; gap:8px; justify-content:flex-end; }
