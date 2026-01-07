@@ -375,7 +375,7 @@ namespace maxhanna.Server.Controllers
           }
         }
 
-        updateLastAccessForRom(fileName);
+        _ = UpdateLastAccessForRom(fileName, userId);
         return File(fileStream, contentType, Path.GetFileName(filePath));
       }
       catch (Exception ex)
@@ -600,60 +600,60 @@ namespace maxhanna.Server.Controllers
     }
 
 
-[HttpPost("/Rom/GetLastInputSelection")]
-public async Task<IActionResult> GetLastInputSelection([FromBody] GetLastInputSelectionRequest request)
-{
-  if (request == null || request.UserId <= 0 || string.IsNullOrWhiteSpace(request.RomToken))
-    return BadRequest("Missing userId or romToken");
+    [HttpPost("/Rom/GetLastInputSelection")]
+    public async Task<IActionResult> GetLastInputSelection([FromBody] GetLastInputSelectionRequest request)
+    {
+      if (request == null || request.UserId <= 0 || string.IsNullOrWhiteSpace(request.RomToken))
+        return BadRequest("Missing userId or romToken");
 
-  try
-  {
-    await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-    await conn.OpenAsync();
+      try
+      {
+        await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
 
-    const string sql = @"
+        const string sql = @"
       SELECT user_id, rom_token, mapping_name, gamepad_id, UNIX_TIMESTAMP(updated_at)*1000 AS updated_ms
         FROM maxhanna.n64_last_input_selection
        WHERE user_id = @user_id AND rom_token = @rom_token
        LIMIT 1;";
 
-    await using var cmd = new MySqlCommand(sql, conn);
-    cmd.Parameters.AddWithValue("@user_id", request.UserId);
-    cmd.Parameters.AddWithValue("@rom_token", request.RomToken);
-    await using var reader = await cmd.ExecuteReaderAsync();
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@user_id", request.UserId);
+        cmd.Parameters.AddWithValue("@rom_token", request.RomToken);
+        await using var reader = await cmd.ExecuteReaderAsync();
 
-    if (!await reader.ReadAsync()) return NotFound();
+        if (!await reader.ReadAsync()) return NotFound();
 
-    var resp = new LastInputSelectionResponse
+        var resp = new LastInputSelectionResponse
+        {
+          UserId = reader.IsDBNull(0) ? 0 : reader.GetInt32(0),
+          RomToken = reader.IsDBNull(1) ? "" : reader.GetString(1),
+          MappingName = reader.IsDBNull(2) ? null : reader.GetString(2),
+          GamepadId = reader.IsDBNull(3) ? null : reader.GetString(3),
+          UpdatedAtMs = reader.IsDBNull(4) ? 0 : reader.GetInt64(4)
+        };
+
+        return Ok(resp);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"RomController.GetLastInputSelection failed: {ex.Message}", request?.UserId, "ROM", true);
+        return StatusCode(500, "Error fetching last input selection");
+      }
+    }
+
+    [HttpPost("/Rom/SaveLastInputSelection")]
+    public async Task<IActionResult> SaveLastInputSelection([FromBody] LastInputSelectionRequest request)
     {
-      UserId = reader.IsDBNull(0) ? 0 : reader.GetInt32(0),
-      RomToken = reader.IsDBNull(1) ? "" : reader.GetString(1),
-      MappingName = reader.IsDBNull(2) ? null : reader.GetString(2),
-      GamepadId   = reader.IsDBNull(3) ? null : reader.GetString(3),
-      UpdatedAtMs = reader.IsDBNull(4) ? 0 : reader.GetInt64(4)
-    };
+      if (request == null || request.UserId <= 0 || string.IsNullOrWhiteSpace(request.RomToken))
+        return BadRequest("Missing userId or romToken");
 
-    return Ok(resp);
-  }
-  catch (Exception ex)
-  {
-    _ = _log.Db($"RomController.GetLastInputSelection failed: {ex.Message}", request?.UserId, "ROM", true);
-    return StatusCode(500, "Error fetching last input selection");
-  }
-}
+      try
+      {
+        await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
 
-[HttpPost("/Rom/SaveLastInputSelection")]
-public async Task<IActionResult> SaveLastInputSelection([FromBody] LastInputSelectionRequest request)
-{
-  if (request == null || request.UserId <= 0 || string.IsNullOrWhiteSpace(request.RomToken))
-    return BadRequest("Missing userId or romToken");
-
-  try
-  {
-    await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-    await conn.OpenAsync();
-
-    const string sql = @"
+        const string sql = @"
       INSERT INTO maxhanna.n64_last_input_selection (user_id, rom_token, mapping_name, gamepad_id, updated_at)
       VALUES (@user_id, @rom_token, @mapping_name, @gamepad_id, UTC_TIMESTAMP())
       ON DUPLICATE KEY UPDATE
@@ -661,36 +661,78 @@ public async Task<IActionResult> SaveLastInputSelection([FromBody] LastInputSele
         gamepad_id   = VALUES(gamepad_id),
         updated_at   = UTC_TIMESTAMP();";
 
-    await using var cmd = new MySqlCommand(sql, conn);
-    cmd.Parameters.AddWithValue("@user_id", request.UserId);
-    cmd.Parameters.AddWithValue("@rom_token", request.RomToken);
-    cmd.Parameters.AddWithValue("@mapping_name", (object?)request.MappingName ?? DBNull.Value);
-    cmd.Parameters.AddWithValue("@gamepad_id", (object?)request.GamepadId ?? DBNull.Value);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@user_id", request.UserId);
+        cmd.Parameters.AddWithValue("@rom_token", request.RomToken);
+        cmd.Parameters.AddWithValue("@mapping_name", (object?)request.MappingName ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@gamepad_id", (object?)request.GamepadId ?? DBNull.Value);
 
-    await cmd.ExecuteNonQueryAsync();
-    return Ok("Saved");
-  }
-  catch (Exception ex)
-  {
-    _ = _log.Db($"RomController.SaveLastInputSelection failed: {ex.Message}", request?.UserId, "ROM", true);
-    return StatusCode(500, "Error saving last input selection");
-  }
-}
+        await cmd.ExecuteNonQueryAsync();
+        return Ok("Saved");
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"RomController.SaveLastInputSelection failed: {ex.Message}", request?.UserId, "ROM", true);
+        return StatusCode(500, "Error saving last input selection");
+      }
+    }
 
 
-    private async void updateLastAccessForRom(string fileName)
+
+    private async Task UpdateLastAccessForRom(string fileName, int? userId)
     {
-      using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+      int? fileId = null;
+      string? folderPath = null;
+
+      // First: update last_access and get file_id + folder_path
+      await using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
       {
         await connection.OpenAsync();
 
-        string sql = "UPDATE maxhanna.file_uploads SET last_access = UTC_TIMESTAMP(), access_count = access_count + 1 WHERE file_name = @File_Name LIMIT 1;";
-        var command = new MySqlCommand(sql, connection);
-        command.Parameters.AddWithValue("@File_Name", fileName);
+        string sql = @"
+            UPDATE maxhanna.file_uploads 
+            SET last_access = UTC_TIMESTAMP(), access_count = access_count + 1 
+            WHERE file_name = @FileName 
+            LIMIT 1;
 
-        await command.ExecuteNonQueryAsync();
+            SELECT id, folder_path FROM maxhanna.file_uploads WHERE file_name = @FileName LIMIT 1;
+        ";
+
+        await using var command = new MySqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@FileName", fileName);
+
+        // Execute both statements
+        await using var reader = await command.ExecuteReaderAsync();
+        // Move to second result set
+        if (await reader.NextResultAsync() && await reader.ReadAsync())
+        {
+          fileId = reader.GetInt32(reader.GetOrdinal("id"));
+          folderPath = reader.GetString(reader.GetOrdinal("folder_path"));
+        }
+      }
+
+      // Second: insert into file_access if we have userId and fileId
+      if (userId.HasValue && fileId.HasValue && !string.IsNullOrEmpty(folderPath))
+      {
+        await using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+        {
+          await connection.OpenAsync();
+
+          string sql = @"
+                INSERT INTO file_access (file_id, user_id)
+                VALUES (@FileId, @UserId)
+                ON DUPLICATE KEY UPDATE file_id = VALUES(file_id);
+            ";
+
+          await using var command = new MySqlCommand(sql, connection);
+          command.Parameters.AddWithValue("@FileId", fileId.Value);
+          command.Parameters.AddWithValue("@UserId", userId.Value);
+
+          await command.ExecuteNonQueryAsync();
+        }
       }
     }
+
 
     private async Task RecordRomSelectionAsync(int userId, string romFileName)
     {
@@ -734,25 +776,25 @@ public async Task<IActionResult> SaveLastInputSelection([FromBody] LastInputSele
     }
   }
 }
- public class GetLastInputSelectionRequest
-  {
-    public int UserId { get; set; }
-    public string RomToken { get; set; } = string.Empty;
-  }
+public class GetLastInputSelectionRequest
+{
+  public int UserId { get; set; }
+  public string RomToken { get; set; } = string.Empty;
+}
 
-  public class LastInputSelectionRequest
-  {
-    public int UserId { get; set; }
-    public string RomToken { get; set; } = string.Empty;
-    public string? MappingName { get; set; }
-    public string? GamepadId { get; set; }
-  }
+public class LastInputSelectionRequest
+{
+  public int UserId { get; set; }
+  public string RomToken { get; set; } = string.Empty;
+  public string? MappingName { get; set; }
+  public string? GamepadId { get; set; }
+}
 
-  public class LastInputSelectionResponse
-  {
-    public int UserId { get; set; }
-    public string RomToken { get; set; } = string.Empty;
-    public string? MappingName { get; set; }
-    public string? GamepadId { get; set; }
-    public long UpdatedAtMs { get; set; }
-  }
+public class LastInputSelectionResponse
+{
+  public int UserId { get; set; }
+  public string RomToken { get; set; } = string.Empty;
+  public string? MappingName { get; set; }
+  public string? GamepadId { get; set; }
+  public long UpdatedAtMs { get; set; }
+}
