@@ -8,6 +8,7 @@ import { User } from './datacontracts/user/user';
   providedIn: 'root'
 })
 export class CrawlerService {
+  
   async searchUrl(
     url: string,
     currentPage = 1,
@@ -15,7 +16,7 @@ export class CrawlerService {
     exactMatch?: boolean,
     skipScrape?: boolean,
     userId?: number
-  ): Promise<CrawlerSearchResponse | null> {
+  ): Promise<CrawlerSearchResponse | { error: string; status?: number } | null> {
     const body: CrawlerSearchRequest = {
       Url: url,
       CurrentPage: currentPage,
@@ -25,29 +26,42 @@ export class CrawlerService {
       UserId: userId ?? undefined
     };
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 32000); // 32s client timeout
+
     try {
       const response = await fetch(`/crawler/searchurl`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        signal: controller.signal
       });
 
-      if (!response.ok) return null;
-  const json = (await response.json()) as CrawlerSearchResponse;
-      // normalize casing used across the app
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        let msg = 'Search failed';
+        try {
+          const err = await response.json();
+          msg = err?.detail || err?.title || msg;
+        } catch {
+          msg = await response.text();
+        }
+        return { error: msg || 'Search failed', status: response.status };
+      }
+
+      const json = (await response.json()) as CrawlerSearchResponse;
       const rawResults: MetaData[] = json.Results ?? json.results ?? [];
-    const normalizedResults: NormalizedMetaData[] = (rawResults ?? []).map(r => ({
+      const normalizedResults: NormalizedMetaData[] = (rawResults ?? []).map(r => ({
         url: r.url ?? '',
         title: r.title ?? '',
         description: r.description ?? '',
         author: r.author ?? '',
         keywords: r.keywords ?? '',
         imageUrl: r.imageUrl ?? '',
-  httpStatus: r.httpStatus ?? undefined,
-  favouriteCount: r.favouriteCount ?? undefined,
-  isUserFavourite: (r as any).isUserFavourite ?? false
+        httpStatus: r.httpStatus ?? undefined,
+        favouriteCount: r.favouriteCount ?? undefined,
+        isUserFavourite: (r as any).isUserFavourite ?? false
       }));
 
       json.Results = rawResults;
@@ -55,10 +69,15 @@ export class CrawlerService {
       json.TotalResults = json.TotalResults ?? json.totalResults ?? 0;
       json.totalResults = json.totalResults ?? json.TotalResults;
       return json;
-    } catch (error) {
-      return null;
+    } catch (error: any) {
+      clearTimeout(timeout);
+      if (error?.name === 'AbortError') {
+        return { error: 'Request timed out. Please try again with a narrower search.' };
+      }
+      return { error: 'Network or server error while searching.' };
     }
   }
+
 
   async indexLink(url: string): Promise<boolean> {
     try {

@@ -122,8 +122,18 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
 
     if (url) {
       const userId = (this.inputtedParentRef ?? this.parentRef)?.user?.id;
-      const res: CrawlerSearchResponse | null = await this.crawlerService.searchUrl(url, currentPage, pageSize, undefined, skipScrape, userId);
-      if (res && res.totalResults != 0) {
+      let res = await this.crawlerService.searchUrl(url, currentPage, pageSize, undefined, skipScrape, userId);     
+      if ((res as any)?.error) {
+        this.error = (res as any).error;
+        this.totalResults = 0;
+        this.totalPages = 0;
+        this.searchMetadata = [];
+        this.groupedResults = [];
+        this.stopLoading();
+        return;
+      } 
+      if (res && (res as CrawlerSearchResponse).totalResults != 0) {
+        res = (res as CrawlerSearchResponse);
         this.totalResults = res.totalResults;
         this.totalPages = Math.ceil(this.totalResults / this.pageSize);
         this.searchMetadata = res.results ?? [];
