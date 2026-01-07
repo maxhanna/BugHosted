@@ -158,6 +158,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
             this.stopLoading();
             return;
           }
+          
           cRes = cRes as CrawlerSearchResponse;  
           if (cRes && cRes.results && cRes.results.length > 0 && (!exactMatch ? cRes.results[0].url.includes(tmpLinkUrl) : true)) {
             targetData = cRes.results[0];
