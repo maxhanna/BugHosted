@@ -324,7 +324,10 @@ namespace maxhanna.Server.Controllers
 
 
     [HttpPost("/Rom/GetRomFile/{filePath}", Name = "GetRomFile")]
-    public async Task<IActionResult> GetRomFile([FromBody] int? userId, [FromBody] int? fileId, string filePath)
+    public async Task<IActionResult> GetRomFile(
+    [FromRoute] string filePath,
+    [FromQuery] int? userId,
+    [FromQuery] int? fileId) 
     {
       filePath = Path.Combine(_baseTarget, WebUtility.UrlDecode(filePath) ?? "").Replace("\\", "/");
       string fileName = Path.GetFileName(filePath);
