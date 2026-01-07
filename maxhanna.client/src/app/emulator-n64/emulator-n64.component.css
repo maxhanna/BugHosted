@@ -10,7 +10,7 @@ canvas { width: auto !important; height: calc(100vh - 60px) !important; }
 .gamesContainer select { width: 100%; text-align: center; }
 
 .screen-area { width: 100%; display: flex; align-items: center; justify-content: center; }
-.controls { display:flex; gap:12px; align-items:flex-start; }
+.controls { display:flex; align-items:flex-start; }
 .status { font-size: 12px; color: #ddd; }
 .toggle-label { font-weight: bold; font-size: 14px; vertical-align: middle; }
 .is-disabled { pointer-events: none; opacity: 0.6; }
@@ -21,7 +21,7 @@ canvas { width: auto !important; height: calc(100vh - 60px) !important; }
 .remap-actions { display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
 .remap-actions .inline { display:flex; gap:6px; align-items:center; }
 
-.remap-list { width: 100%; border: 1px solid #333; border-radius: 6px; overflow: hidden; }
+.remap-list { width: calc(100% - 5px); border: 1px solid #333; border-radius: 6px; overflow: hidden; }
 .remap-row { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; align-items: center; padding: 8px 10px; }
 .remap-row:nth-child(even) { background: #181818; }
 .remap-row:nth-child(odd) { background: #121212; }
