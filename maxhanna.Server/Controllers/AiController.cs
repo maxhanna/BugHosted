@@ -7,7 +7,7 @@ using MySqlConnector;
 using System.Diagnostics;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.Processing; 
+using SixLabors.ImageSharp.Processing;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -555,19 +555,19 @@ namespace maxhanna.Server.Controllers
         return "";
       }
     }
-    
-private async Task<string> DescribeMediaContent(FileEntry file, bool detailed = true)
-{
-    const string tempThumbnailDir = @"E:\Dev\maxhanna\maxhanna.Server\TempThumbnails"; 
-    try
+
+    private async Task<string> DescribeMediaContent(FileEntry file, bool detailed = true)
     {
+      const string tempThumbnailDir = @"E:\Dev\maxhanna\maxhanna.Server\TempThumbnails";
+      try
+      {
         EnsureTempDir(tempThumbnailDir);
 
         var filePath = Path.Combine(file.Directory ?? string.Empty, file.FileName ?? string.Empty);
         if (!System.IO.File.Exists(filePath))
         {
-            _ = _log.Db($"File {file.FileName} not found on disk.", null, "AiController", true);
-            return string.Empty;
+          _ = _log.Db($"File {file.FileName} not found on disk.", null, "AiController", true);
+          return string.Empty;
         }
 
         var base64Images = new List<string>();
@@ -578,105 +578,106 @@ private async Task<string> DescribeMediaContent(FileEntry file, bool detailed = 
         bool hasMultipleFrames = false;
 
         // Keep RAM small; we’ll resample to PNG + small dimension
-        const int MaxShortSide = 512;
+        const int MaxShortSide = 768;
 
         if (isVideo)
         {
-            double durationSec = file.Duration.GetValueOrDefault(10);
-            hasMultipleFrames = durationSec > 2;
+          double durationSec = file.Duration.GetValueOrDefault(10);
+          hasMultipleFrames = durationSec > 2;
 
-            var capturePoints = hasMultipleFrames
-                ? new[] { 0.3, 0.6 }  // two representative frames
-                : new[] { 0.5 };      // single frame for short videos
+          var capturePoints = hasMultipleFrames
+              ? new[] { 0.3, 0.6 }  // two representative frames
+              : new[] { 0.5 };      // single frame for short videos
 
-            foreach (var t in capturePoints)
+          foreach (var t in capturePoints)
+          {
+            // Extract a JPG frame via ffmpeg
+            var jpgPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg");
+            var ffmpegArgs = $"-i \"{filePath}\" -ss {t} -vframes 1 -vf scale={MaxShortSide}:-1 -q:v 10 \"{jpgPath}\"";
+
+            var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
             {
-                // Extract a JPG frame via ffmpeg
-                var jpgPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg");
-                var ffmpegArgs = $"-i \"{filePath}\" -ss {t} -vframes 1 -vf scale={MaxShortSide}:-1 -q:v 10 \"{jpgPath}\"";
+              RedirectStandardError = true,
+              UseShellExecute = false,
+              CreateNoWindow = true
+            });
 
-                var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
-                {
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                });
-
-                if (proc != null)
-                {
-                    await proc.WaitForExitAsync();
-                    if (proc.ExitCode == 0 && System.IO.File.Exists(jpgPath))
-                    {
-                        // Convert JPG bytes to PNG bytes via ImageSharp, then Base64
-                        var jpgBytes = await System.IO.File.ReadAllBytesAsync(jpgPath);
-                        var pngBytes = await ConvertImageBytesToPngAsync(jpgBytes, MaxShortSide);
-                        var b64 = ToCleanBase64(pngBytes);
-                        base64Images.Add(b64);
-
-                        _ = _log.Db($"Created video thumbnail (PNG): {jpgPath} → {pngBytes.Length} bytes", null, "AiController", true);
-                    }
-                    else
-                    {
-                        var err = await proc.StandardError.ReadToEndAsync();
-                        _ = _log.Db($"FFmpeg thumbnail failed: {err}", null, "AiController", true);
-                    }
-                }
-            }
-        }
-        else
-        {
-            // Image: convert to PNG at MaxShortSide
-            try
+            if (proc != null)
             {
-                var pngBytes = await ConvertImageFileToPngAsync(filePath, MaxShortSide);
+              await proc.WaitForExitAsync();
+              if (proc.ExitCode == 0 && System.IO.File.Exists(jpgPath))
+              {
+                // Convert JPG bytes to PNG bytes via ImageSharp, then Base64
+                var jpgBytes = await System.IO.File.ReadAllBytesAsync(jpgPath);
+                var pngBytes = await ConvertImageBytesToPngAsync(jpgBytes, MaxShortSide);
                 var b64 = ToCleanBase64(pngBytes);
                 base64Images.Add(b64);
 
-                _ = _log.Db($"Converted image to PNG: {filePath} → {pngBytes.Length} bytes", null, "AiController", true);
+                _ = _log.Db($"Created video thumbnail (PNG): {jpgPath} → {pngBytes.Length} bytes", null, "AiController", true);
+              }
+              else
+              {
+                var err = await proc.StandardError.ReadToEndAsync();
+                _ = _log.Db($"FFmpeg thumbnail failed: {err}", null, "AiController", true);
+              }
             }
-            catch (Exception ex)
+          }
+        }
+        else
+        {
+          // Image: convert to PNG at MaxShortSide
+          try
+          {
+            var pngBytes = await ConvertImageFileToPngAsync(filePath, MaxShortSide);
+            var b64 = ToCleanBase64(pngBytes);
+            base64Images.Add(b64);
+
+            _ = _log.Db($"Converted image to PNG: {filePath} → {pngBytes.Length} bytes", null, "AiController", true);
+          }
+          catch (Exception ex)
+          {
+            // Fallback: ffmpeg → JPG, then PNG
+            var jpgPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg");
+            var ffmpegArgs = $"-i \"{filePath}\" -vf scale={MaxShortSide}:-1 -q:v 10 \"{jpgPath}\"";
+
+            var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
             {
-                // Fallback: ffmpeg → JPG, then PNG
-                var jpgPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg");
-                var ffmpegArgs = $"-i \"{filePath}\" -vf scale={MaxShortSide}:-1 -q:v 10 \"{jpgPath}\"";
+              RedirectStandardError = true,
+              UseShellExecute = false,
+              CreateNoWindow = true
+            });
 
-                var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
-                {
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                });
+            if (proc != null)
+            {
+              await proc.WaitForExitAsync();
+              if (proc.ExitCode == 0 && System.IO.File.Exists(jpgPath))
+              {
+                var jpgBytes = await System.IO.File.ReadAllBytesAsync(jpgPath);
+                var pngBytes = await ConvertImageBytesToPngAsync(jpgBytes, MaxShortSide);
+                var b64 = ToCleanBase64(pngBytes);
+                base64Images.Add(b64);
 
-                if (proc != null)
-                {
-                    await proc.WaitForExitAsync();
-                    if (proc.ExitCode == 0 && System.IO.File.Exists(jpgPath))
-                    {
-                        var jpgBytes = await System.IO.File.ReadAllBytesAsync(jpgPath);
-                        var pngBytes = await ConvertImageBytesToPngAsync(jpgBytes, MaxShortSide);
-                        var b64 = ToCleanBase64(pngBytes);
-                        base64Images.Add(b64);
-
-                        _ = _log.Db($"Fallback image conversion (ffmpeg->JPG->PNG): {jpgPath} → {pngBytes.Length} bytes", null, "AiController", true);
-                    }
-                    else
-                    {
-                        var err = proc != null ? await proc.StandardError.ReadToEndAsync() : "ffmpeg start failed";
-                        _ = _log.Db($"FFmpeg image fallback failed: {err} | Original error: {ex.Message}", null, "AiController", true);
-                    }
-                }
+                _ = _log.Db($"Fallback image conversion (ffmpeg->JPG->PNG): {jpgPath} → {pngBytes.Length} bytes", null, "AiController", true);
+              }
+              else
+              {
+                var err = proc != null ? await proc.StandardError.ReadToEndAsync() : "ffmpeg start failed";
+                _ = _log.Db($"FFmpeg image fallback failed: {err} | Original error: {ex.Message}", null, "AiController", true);
+              }
             }
+          }
         }
 
         if (!base64Images.Any())
         {
-            _ = _log.Db("No valid media content to analyze.", null, "AiController", true);
-            return string.Empty;
+          _ = _log.Db("No valid media content to analyze.", null, "AiController", true);
+          return string.Empty;
         }
 
         // Limit to at most 2 images
-        if (base64Images.Count > 2)
-            base64Images = base64Images.Take(2).ToList();
+        if (base64Images.Count > 3) {
+          base64Images = base64Images.Take(3).ToList();
+        }
 
         // Validate via ImageSharp and compute total bytes
         const long MaxTotalImageBytes = 3_000_000; // 3 MB
@@ -685,40 +686,40 @@ private async Task<string> DescribeMediaContent(FileEntry file, bool detailed = 
 
         foreach (var b64 in base64Images)
         {
-            try
-            {
-                var raw = Convert.FromBase64String(StripDataUriPrefixIfPresent(b64));
-                using var ms = new MemoryStream(raw);
-                var info = SixLabors.ImageSharp.Image.Identify(ms);
+          try
+          {
+            var raw = Convert.FromBase64String(StripDataUriPrefixIfPresent(b64));
+            using var ms = new MemoryStream(raw);
+            var info = SixLabors.ImageSharp.Image.Identify(ms);
 
-                if (info != null)
-                {
-                    totalBytes += raw.Length;
-                    validated.Add(ToCleanBase64(raw));  // ensure padded/cleaned
-                }
-                else
-                {
-                    _ = _log.Db("Thumbnail not recognized as a valid image; skipped.", null, "AiController", true);
-                }
-            }
-            catch (Exception ex)
+            if (info != null)
             {
-                _ = _log.Db($"Invalid/corrupt thumbnail skipped: {ex.Message}", null, "AiController", true);
+              totalBytes += raw.Length;
+              validated.Add(ToCleanBase64(raw));  // ensure padded/cleaned
             }
+            else
+            {
+              _ = _log.Db("Thumbnail not recognized as a valid image; skipped.", null, "AiController", true);
+            }
+          }
+          catch (Exception ex)
+          {
+            _ = _log.Db($"Invalid/corrupt thumbnail skipped: {ex.Message}", null, "AiController", true);
+          }
         }
 
         base64Images = validated;
 
         if (!base64Images.Any())
         {
-            _ = _log.Db("No valid thumbnails after validation.", null, "AiController", true);
-            return string.Empty;
+          _ = _log.Db("No valid thumbnails after validation.", null, "AiController", true);
+          return string.Empty;
         }
 
         if (totalBytes > MaxTotalImageBytes)
         {
-            _ = _log.Db($"Combined thumbnail payload too large ({totalBytes} bytes). Aborting media analysis.", null, "AiController", true);
-            return string.Empty;
+          _ = _log.Db($"Combined thumbnail payload too large ({totalBytes} bytes). Aborting media analysis.", null, "AiController", true);
+          return string.Empty;
         }
 
         _ = _log.Db($"Thumbnails validated: {base64Images.Count} images, combined size: {totalBytes} bytes.", null, "AiController", true);
@@ -731,9 +732,9 @@ private async Task<string> DescribeMediaContent(FileEntry file, bool detailed = 
         // STRICT Vision /api/chat payload — raw base64 strings in messages[].images[]
         var payload = new
         {
-            model = "moondream",
-            stream = false,
-            messages = new[]
+          model = "moondream",
+          stream = false,
+          messages = new[]
             {
                 new
                 {
@@ -742,88 +743,100 @@ private async Task<string> DescribeMediaContent(FileEntry file, bool detailed = 
                     images = base64Images.Select(StripDataUriPrefixIfPresent).ToArray()
                 }
             },
-            options = new { num_ctx = 1024 } // keep within moondream2's 2048 context
+          options = new { num_ctx = 1024 } // keep within moondream2's 2048 context
         };
 
         var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
         {
-            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+          Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         });
 
         string? responseBody = null;
         try
         {
-            using var req = new HttpRequestMessage(HttpMethod.Post, "http://localhost:11434/api/chat")
-            {
-                Content = new StringContent(json, Encoding.UTF8, "application/json")
-            };
+          using var req = new HttpRequestMessage(HttpMethod.Post, "http://localhost:11434/api/chat")
+          {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+          };
 
-            await _ollamaMediaLock.WaitAsync();
-            HttpResponseMessage? resp = null;
-            try
-            {
-                var ct = HttpContext?.RequestAborted ?? CancellationToken.None;
-                resp = await _ollamaClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
-            }
-            finally
-            {
-                try { _ollamaMediaLock.Release(); } catch { /* ignore */ }
-            }
+          await _ollamaMediaLock.WaitAsync();
+          HttpResponseMessage? resp = null;
+          try
+          {
+            var ct = HttpContext?.RequestAborted ?? CancellationToken.None;
+            resp = await _ollamaClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+          }
+          finally
+          {
+            try { _ollamaMediaLock.Release(); } catch { /* ignore */ }
+          }
 
-            if (!resp.IsSuccessStatusCode)
-            {
-                var errBody = await resp.Content.ReadAsStringAsync();
-                _ = _log.Db($"Ollama media analysis error {(int)resp.StatusCode}: {errBody}", null, "AiController", true);
-                return string.Empty;
-            }
+          if (!resp.IsSuccessStatusCode)
+          {
+            var errBody = await resp.Content.ReadAsStringAsync();
+            _ = _log.Db($"Ollama media analysis error {(int)resp.StatusCode}: {errBody}", null, "AiController", true);
+            return string.Empty;
+          }
 
-            responseBody = await resp.Content.ReadAsStringAsync();
+          responseBody = await resp.Content.ReadAsStringAsync();
         }
         catch (HttpRequestException hre)
         {
-            _ = _log.Db($"Ollama request failed: {hre.Message}", null, "AiController", outputToConsole: true);
-            return string.Empty;
+          _ = _log.Db($"Ollama request failed: {hre.Message}", null, "AiController", outputToConsole: true);
+          return string.Empty;
         }
         catch (Exception ex)
         {
-            _ = _log.Db($"Unexpected error sending to Ollama: {ex.Message}", null, "AiController", true);
-            return string.Empty;
+          _ = _log.Db($"Unexpected error sending to Ollama: {ex.Message}", null, "AiController", true);
+          return string.Empty;
         }
 
         if (string.IsNullOrEmpty(responseBody))
         {
-            _ = _log.Db("Ollama media analysis returned empty body.", null, "AiController", true);
-            return string.Empty;
+          _ = _log.Db("Ollama media analysis returned empty body.", null, "AiController", true);
+          return string.Empty;
         }
 
         var parsed = JsonSerializer.Deserialize<JsonElement>(responseBody);
         var content = parsed.GetProperty("message").GetProperty("content").GetString();
         return RemoveMediaReferences(content?.Trim() ?? string.Empty);
-    }
-    catch (Exception ex)
-    {
+      }
+      catch (Exception ex)
+      {
         _ = _log.Db($"Error in DescribeMediaContent: {ex.Message}", null, "AiController", true);
         return string.Empty;
-    }
-    finally
-    {
+      }
+      finally
+      {
         CleanupTempThumbnails(tempThumbnailDir);
+      }
     }
-} 
 
     private string BuildDetailedPrompt(bool multipleFrames)
     {
-      string basePrompt = "Describe the image in 2–3 short sentences. Start with the main subject and action, then relevant details (objects, colors, setting). Avoid meta-language and formatting.";
+      var prompt = @"You are generating a visual description to be used for naming and captioning media.
+Write 2–3 short sentences (max 45 words total) that:
+• Start with the main subject and action.
+• Include only salient details (objects, colors, setting, mood).
+• If visible text exists, summarize the idea or joke—DO NOT quote or say “it says”.
+• DO NOT use meta-language (e.g., “this image shows”, “a post on social media”, “caption reads”).
+• DO NOT mention platforms (Facebook, Reddit, Instagram), file types, or filenames.
+• Avoid hashtags, emojis, quotes, and formatting.
+
+";
       if (multipleFrames)
       {
-        basePrompt += "If multiple images are provided, summarize consistent elements across frames and note any differences.";
+        prompt += "If multiple frames are present, summarize the consistent elements and briefly note any key differences.";
       }
-      return basePrompt;
+      return prompt;
     }
 
     private string BuildConcisePrompt()
     {
-      return "Create a single-sentence caption describing the main subject and action. Avoid meta-language and formatting.";
+      return @"Write a single sentence (12–18 words) describing the main subject and action, with one salient detail.
+• NO meta-language (e.g., “image/post that says”, “caption reads”).
+• If text exists, summarize the idea/joke—DO NOT quote.
+• No hashtags, emojis, quotes, platform names, or formatting.";
     }
 
     private string RemoveMediaReferences(string response)
@@ -1240,60 +1253,60 @@ private async Task<string> DescribeMediaContent(FileEntry file, bool detailed = 
       {
         _sitemapLock.Release();
       }
-    } 
-    
+    }
+
     static string StripDataUriPrefixIfPresent(string input)
     {
-        if (string.IsNullOrWhiteSpace(input)) return string.Empty;
-        int commaIdx = input.IndexOf(',');
-        return commaIdx >= 0 ? input.Substring(commaIdx + 1).Trim() : input.Trim();
+      if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+      int commaIdx = input.IndexOf(',');
+      return commaIdx >= 0 ? input.Substring(commaIdx + 1).Trim() : input.Trim();
     }
 
     static string ToCleanBase64(byte[] bytes)
     {
-        var b64 = Convert.ToBase64String(bytes);
-        int mod = b64.Length % 4;                      // normalize padding defensively
-        if (mod != 0) b64 = b64.PadRight(b64.Length + (4 - mod), '=');
-        return b64.Trim();
+      var b64 = Convert.ToBase64String(bytes);
+      int mod = b64.Length % 4;                      // normalize padding defensively
+      if (mod != 0) b64 = b64.PadRight(b64.Length + (4 - mod), '=');
+      return b64.Trim();
     }
 
     static byte[] ToPngBytesResized(Image img, int maxShortSide = 512)
     {
-        // Compute target size preserving aspect ratio where SHORT side = maxShortSide
-        int w = img.Width, h = img.Height;
-        bool widthIsShort = w <= h;
-        float scale;
-        if (widthIsShort)
-            scale = (float)maxShortSide / w;
-        else
-            scale = (float)maxShortSide / h;
+      // Compute target size preserving aspect ratio where SHORT side = maxShortSide
+      int w = img.Width, h = img.Height;
+      bool widthIsShort = w <= h;
+      float scale;
+      if (widthIsShort)
+        scale = (float)maxShortSide / w;
+      else
+        scale = (float)maxShortSide / h;
 
-        int targetW = Math.Max(1, (int)Math.Round(w * scale));
-        int targetH = Math.Max(1, (int)Math.Round(h * scale));
+      int targetW = Math.Max(1, (int)Math.Round(w * scale));
+      int targetH = Math.Max(1, (int)Math.Round(h * scale));
 
-        // Resize + encode PNG
-        using var resized = img.Clone(x => x.Resize(targetW, targetH));
-        using var ms = new MemoryStream();
-        resized.Save(ms, new SixLabors.ImageSharp.Formats.Png.PngEncoder());
-        return ms.ToArray();
+      // Resize + encode PNG
+      using var resized = img.Clone(x => x.Resize(targetW, targetH));
+      using var ms = new MemoryStream();
+      resized.Save(ms, new SixLabors.ImageSharp.Formats.Png.PngEncoder());
+      return ms.ToArray();
     }
 
     static async Task<byte[]> ConvertImageFileToPngAsync(string path, int maxShortSide = 512)
     {
-        using var img = await SixLabors.ImageSharp.Image.LoadAsync(path);
-        return ToPngBytesResized(img, maxShortSide);
+      using var img = await SixLabors.ImageSharp.Image.LoadAsync(path);
+      return ToPngBytesResized(img, maxShortSide);
     }
 
     static async Task<byte[]> ConvertImageBytesToPngAsync(byte[] bytes, int maxShortSide = 512)
     {
-        using var img = await SixLabors.ImageSharp.Image.LoadAsync(new MemoryStream(bytes));
-        return ToPngBytesResized(img, maxShortSide);
+      using var img = await SixLabors.ImageSharp.Image.LoadAsync(new MemoryStream(bytes));
+      return ToPngBytesResized(img, maxShortSide);
     }
 
     static void EnsureTempDir(string dir)
     {
-        if (!Directory.Exists(dir))
-            Directory.CreateDirectory(dir);
+      if (!Directory.Exists(dir))
+        Directory.CreateDirectory(dir);
     }
   }
 }
