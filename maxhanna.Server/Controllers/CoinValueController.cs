@@ -1460,41 +1460,7 @@ ORDER BY mc.market_cap_usd DESC;";
  
     return coinMarketCaps;
 } 
-
-
-    private async Task<decimal> Calculate24hPriceChange(string? coinName, decimal currentPrice, DateTime? currentTimestamp)
-    {
-      if (string.IsNullOrEmpty(coinName) || currentTimestamp == null || currentPrice == 0)
-        return 0;
-
-      using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-      {
-        await conn.OpenAsync();
-
-        string sql = @"
-            SELECT value_usd
-            FROM coin_value
-            WHERE name = @name
-            AND timestamp <= DATE_SUB(@currentTimestamp, INTERVAL 24 HOUR)
-            ORDER BY timestamp DESC
-            LIMIT 1";
-
-        MySqlCommand cmd = new MySqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@name", coinName);
-        cmd.Parameters.AddWithValue("@currentTimestamp", currentTimestamp.Value);
-
-        var result = await cmd.ExecuteScalarAsync();
-        if (result == null || result == DBNull.Value)
-          return 0;
-
-        decimal previousPrice = Convert.ToDecimal(result);
-        if (previousPrice == 0)
-          return 0;
-
-        return Math.Round(((currentPrice - previousPrice) / previousPrice) * 100, 2);
-      }
-    }
-
+ 
     private async Task<CryptoWallet?> GetWalletFromDb(int? userId, string type)
     {
       if (userId == null) { return null; }
