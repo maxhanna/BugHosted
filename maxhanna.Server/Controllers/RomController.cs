@@ -410,7 +410,7 @@ namespace maxhanna.Server.Controllers
         if (System.IO.File.Exists(userSpecificPath))
         {
           // Reuse GetRomFile to stream + update last_access + record selection
-          return await GetRomFile(userId, $"{romBase}_{userId}{ext}");
+          return await GetRomFile(userId, null, $"{romBase}_{userId}{ext}");
         }
 
         // If no per-user file, try the global file (without _userId)
@@ -418,7 +418,7 @@ namespace maxhanna.Server.Controllers
         var globalPath = Path.Combine(_baseTarget, globalName).Replace("\\", "/");
         if (System.IO.File.Exists(globalPath))
         {
-          return await GetRomFile(userId, $"{romBase}{ext}");
+          return await GetRomFile(userId, null, $"{romBase}{ext}");
         }
       }
 
@@ -458,7 +458,7 @@ namespace maxhanna.Server.Controllers
           // We can delegate streaming to GetRomFile by passing the "logical" filename (<base><ext>).
           // GetRomFile will rewrite to per-user path automatically.
           var ext = Path.GetExtension(dbFileName)?.ToLowerInvariant() ?? ".sav";
-          return await GetRomFile(userId, $"{romBase}{ext}");
+          return await GetRomFile(userId, null, $"{romBase}{ext}");
         }
       }
       catch (Exception ex)
