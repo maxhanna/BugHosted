@@ -38,14 +38,14 @@ export interface LastInputSelection {
 export class RomService {
   constructor() { }
 
-  async getRomFile(rom: string, userId?: number) {
+  async getRomFile(rom: string, userId?: number, fileId?: number) {
     try {
       const response = await fetch(`/rom/getromfile/${encodeURIComponent(rom)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(userId),
+        body: JSON.stringify({UserId: userId, FileId: fileId}),
       });
 
       return await response.blob();

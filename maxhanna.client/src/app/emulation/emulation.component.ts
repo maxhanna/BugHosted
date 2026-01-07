@@ -409,7 +409,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     const romSaveFile = this.fileService.getFileWithoutExtension(file.fileName ?? "") + ".sav";
     this.selectedRomName = file.fileName ?? "";
     const saveStateResponse = await this.romService.getRomFile(romSaveFile, this.parentRef?.user?.id);
-    const response = await this.romService.getRomFile(file.fileName ?? "", this.parentRef?.user?.id);
+    const response = await this.romService.getRomFile(file.fileName ?? "", this.parentRef?.user?.id, file.id);
     const fileType = this.currentFileType = file?.fileType ?? this.fileService.getFileExtension(file?.fileName!);
     const style = {
       backgroundColor: 'unset',

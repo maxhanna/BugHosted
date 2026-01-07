@@ -359,7 +359,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
       this.startLoading();
 
-      const response = await this.romService.getRomFile(file.fileName ?? "", this.parentRef?.user?.id);
+      const response = await this.romService.getRomFile(file.fileName ?? "", this.parentRef?.user?.id, file.id);
       if (!response) {
         this.parentRef?.showNotification('Failed to download selected ROM');
         return;

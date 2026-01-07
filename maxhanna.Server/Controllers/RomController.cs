@@ -324,7 +324,7 @@ namespace maxhanna.Server.Controllers
 
 
     [HttpPost("/Rom/GetRomFile/{filePath}", Name = "GetRomFile")]
-    public async Task<IActionResult> GetRomFile([FromBody] int? userId, string filePath)
+    public async Task<IActionResult> GetRomFile([FromBody] int? userId, [FromBody] int? fileId, string filePath)
     {
       filePath = Path.Combine(_baseTarget, WebUtility.UrlDecode(filePath) ?? "").Replace("\\", "/");
       string fileName = Path.GetFileName(filePath);
@@ -375,7 +375,7 @@ namespace maxhanna.Server.Controllers
           }
         }
 
-        _ = UpdateLastAccessForRom(fileName, userId);
+        _ = UpdateLastAccessForRom(fileName, userId, fileId);
         return File(fileStream, contentType, Path.GetFileName(filePath));
       }
       catch (Exception ex)
@@ -679,10 +679,8 @@ namespace maxhanna.Server.Controllers
 
 
 
-    private async Task UpdateLastAccessForRom(string fileName, int? userId)
-    {
-      int? fileId = null;
-
+    private async Task UpdateLastAccessForRom(string fileName, int? userId, int? fileId)
+    { 
       // First: update last_access and get file_id + folder_path
       await using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
       {
@@ -691,14 +689,12 @@ namespace maxhanna.Server.Controllers
         string sql = @"
             UPDATE maxhanna.file_uploads 
             SET last_access = UTC_TIMESTAMP(), access_count = access_count + 1 
-            WHERE file_name = @FileName 
-            LIMIT 1;
-
-            SELECT id FROM maxhanna.file_uploads WHERE file_name = @FileName LIMIT 1;
+            WHERE id = @FileId 
+            LIMIT 1; 
         ";
 
         await using var command = new MySqlCommand(sql, connection);
-        command.Parameters.AddWithValue("@FileName", fileName);
+        command.Parameters.AddWithValue("@FileId", fileId);
 
         // Execute both statements
         await using var reader = await command.ExecuteReaderAsync();
