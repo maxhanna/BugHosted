@@ -1501,39 +1501,82 @@ public class WebCrawler
 		}
 		return "";
 	}
-	public async Task<int> GetIndexCount()
-	{
-		var results = new List<Metadata>();
-		string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+public async Task<int> GetIndexCount()
+{
+    string? cs = _config.GetValue<string>("ConnectionStrings:maxhanna");
+    if (string.IsNullOrWhiteSpace(cs)) return 0;
 
-		try
-		{
-			using (var connection = new MySqlConnection(connectionString))
-			{
-				await connection.OpenAsync();
+    try
+    {
+        await using var conn = new MySqlConnection(cs);
+        await conn.OpenAsync();
 
-				string checkUrlQuery = @"SELECT count(*) as count FROM search_results;";
+        // 1) Read cached value
+        const string getCacheSql = @"
+            SELECT last_count, last_counted_at
+            FROM search_results_count_cache
+            WHERE id = 1
+            LIMIT 1;";
 
-				using (var command = new MySqlCommand(checkUrlQuery, connection))
-				{
+        long cachedCount = 0;
+        DateTime? lastCounted = null;
 
-					using (var reader = await command.ExecuteReaderAsync())
-					{
-						if (await reader.ReadAsync())
-						{
-							return reader.GetInt32("count");
-						}
-					}
-				}
+        await using (var getCmd = new MySqlCommand(getCacheSql, conn))
+        {
+            getCmd.CommandTimeout = 5;
+            await using var reader = await getCmd.ExecuteReaderAsync(CommandBehavior.SingleRow);
+            if (await reader.ReadAsync())
+            {
+                cachedCount = reader.IsDBNull(reader.GetOrdinal("last_count"))
+                              ? 0
+                              : reader.GetInt64(reader.GetOrdinal("last_count"));
 
-				return 0;
-			}
-		}
-		catch (Exception)
-		{
-			return 0;
-		}
-	}
+                lastCounted = reader.IsDBNull(reader.GetOrdinal("last_counted_at"))
+                              ? null
+                              : reader.GetDateTime(reader.GetOrdinal("last_counted_at"));
+            }
+        }
+
+        // 2) If cached within last 30 minutes, return it
+        if (lastCounted.HasValue && lastCounted.Value >= DateTime.UtcNow.AddMinutes(-30))
+        {
+            return (int)Math.Min(cachedCount, int.MaxValue);
+        }
+
+        // 3) Recompute COUNT(*) using a small secondary index for speed
+        const string fastCountSql = @"SELECT COUNT(*) FROM search_results;";
+        long freshCount = 0;
+
+        await using (var countCmd = new MySqlCommand(fastCountSql, conn))
+        {
+            countCmd.CommandTimeout = 15; // allow a bit more time if needed
+            var scalar = await countCmd.ExecuteScalarAsync();
+            freshCount = scalar is long l ? l : Convert.ToInt64(scalar);
+        }
+
+        // 4) Upsert the cache row
+        const string upsertSql = @"
+            INSERT INTO search_results_count_cache (id, last_count, last_counted_at)
+            VALUES (1, @count, UTC_TIMESTAMP())
+            ON DUPLICATE KEY UPDATE
+              last_count = VALUES(last_count),
+              last_counted_at = VALUES(last_counted_at);";
+
+        await using (var upCmd = new MySqlCommand(upsertSql, conn))
+        {
+            upCmd.Parameters.Add("@count", MySqlDbType.Int64).Value = freshCount;
+            await upCmd.ExecuteNonQueryAsync();
+        }
+
+        return (int)Math.Min(freshCount, int.MaxValue);
+    }
+    catch
+    {
+        // Return cached value on errors? You can choose to try a fallback read here.
+        return 0;
+    }
+}
+
 	public void ClearVisitedUrls()
 	{
 		try
