@@ -935,7 +935,9 @@ private async Task<string> DescribeMediaContent(FileEntry file, bool detailed = 
 							AND (
 								file_name REGEXP '^[0-9]+\\.[a-zA-Z0-9]+$'  -- Pure numeric
 								OR file_name REGEXP '^\\w+_\\w+\\.[a-zA-Z0-9]+$'  -- Alphanumeric + underscore
-							)
+							) 
+              OR file_name REGEXP '^FB_IMG_[0-9]+\\.[A-Za-z0-9]+$' 
+              OR file_name REGEXP '^RDT_[0-9]{8}_[0-9]{10,}\\.[A-Za-z0-9]+$'  
 						) 
 						ORDER BY RAND()
 						LIMIT 1;";
