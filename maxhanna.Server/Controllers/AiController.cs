@@ -744,7 +744,13 @@ namespace maxhanna.Server.Controllers
                     images = base64Images.Select(StripDataUriPrefixIfPresent).ToArray()
                 }
             },
-          options = new { num_ctx = 1024 } // keep within moondream2's 2048 context
+          options = new
+          {
+            num_ctx = 1024,
+            temperature = 0.6,          // keeps output controlled, less likely to go off template
+            repeat_penalty = 1.15,      // discourages placeholder repetition
+            stop = new[] { "!!!IMG!!!", "!!!IMAGE!!!", "!!!IMPORTANT!!!", "[IMAGE]", "[CAPTION]" }
+          }
         };
 
         var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
@@ -798,9 +804,73 @@ namespace maxhanna.Server.Controllers
           return string.Empty;
         }
 
+
+        // First pass: sanitize the initial output
         var parsed = JsonSerializer.Deserialize<JsonElement>(responseBody);
-        var content = parsed.GetProperty("message").GetProperty("content").GetString();
-        return RemoveMediaReferences(content?.Trim() ?? string.Empty);
+        var content = parsed.GetProperty("message").GetProperty("content").GetString() ?? string.Empty;
+        var cleaned = CleanCaption(content);
+
+        // Decide if we need a retry (banned tokens or too short/empty)
+        bool needsRetry = string.IsNullOrWhiteSpace(cleaned) || ContainsBannedTokens(cleaned) || cleaned.Length < 8;
+
+        // Retry strategy: up to 2 attempts with softened prompt / slightly higher temperature
+        if (needsRetry)
+        {
+          // Attempt 1: gentle prompt + modestly higher temperature
+          string gentlePrompt = BuildGentlePrompt(base64Images.Count > 1);
+          string[] stopSeq = { "!!!IMG!!!", "!!!IMAGE!!!", "!!!IMPORTANT!!!", "[IMAGE]", "[CAPTION]" };
+
+          var retry1 = await SendVisionAsync(
+            model: "moondream",
+            prompt: gentlePrompt,
+            base64Images: base64Images.ToArray(),
+            temperature: 0.7,
+            repeatPenalty: 1.2,
+            stop: stopSeq,
+            numCtx: 1024);
+
+          if (!string.IsNullOrWhiteSpace(retry1))
+          {
+            var cleaned1 = CleanCaption(retry1);
+            if (!string.IsNullOrWhiteSpace(cleaned1) && !ContainsBannedTokens(cleaned1) && cleaned1.Length >= 8)
+            {
+              return cleaned1;
+            }
+          }
+
+          // Attempt 2: if available, fallback to another vision model that’s less tag-happy (e.g., llava)
+          // If you don’t have llava installed in Ollama, keep moondream and tweak parameters further.
+          var retryModel = "llava:7b"; // change or remove if not installed
+          var retry2 = await SendVisionAsync(
+            model: retryModel,
+            prompt: gentlePrompt,
+            base64Images: base64Images.ToArray(),
+            temperature: 0.65,
+            repeatPenalty: 1.15,
+            stop: stopSeq,
+            numCtx: 1024);
+
+          if (!string.IsNullOrWhiteSpace(retry2))
+          {
+            var cleaned2 = CleanCaption(retry2);
+            if (!ContainsBannedTokens(cleaned2) && cleaned2.Length >= 8)
+            {
+              return cleaned2;
+            }
+          }
+
+          // Final fallback: return the sanitized first content or a safe default
+          cleaned = CleanCaption(content);
+          if (string.IsNullOrWhiteSpace(cleaned))
+          {
+            cleaned = "untitled media";
+          }
+          return cleaned;
+        }
+
+        // No retry needed; return sanitized initial caption
+        return cleaned;
+
       }
       catch (Exception ex)
       {
@@ -811,6 +881,149 @@ namespace maxhanna.Server.Controllers
       {
         CleanupTempThumbnails(tempThumbnailDir);
       }
+    }
+
+    // A softer prompt that reduces "DO NOT" pressure and encourages natural phrasing
+    private string BuildGentlePrompt(bool multipleFrames)
+    {
+      var prompt = @"Write a short natural-language caption suitable for a filename or alt text.
+Focus on the main subject and action with one or two vivid details.
+If text is visible, paraphrase the idea without quoting.";
+
+      if (multipleFrames)
+      {
+        prompt += "\nSummarize the consistent elements across shots and mention one brief difference.";
+      }
+
+      // Keep only one clear constraint line to avoid triggering placeholder heuristics
+      prompt += "\nAvoid any tags, placeholders, or markup.";
+      return prompt;
+    }
+
+    // Centralized vision call with locking and tunable options
+    private async Task<string?> SendVisionAsync(
+      string model,
+      string prompt,
+      string[] base64Images,
+      double temperature = 0.6,
+      double repeatPenalty = 1.15,
+      string[]? stop = null,
+      int numCtx = 1024,
+      CancellationToken? ctOpt = null)
+    {
+      var payload = new
+      {
+        model,
+        stream = false,
+        messages = new[]
+        {
+      new
+      {
+        role = "user",
+        content = prompt,
+        images = base64Images.Select(StripDataUriPrefixIfPresent).ToArray()
+      }
+    },
+        options = new
+        {
+          num_ctx = numCtx,
+          temperature = temperature,
+          repeat_penalty = repeatPenalty,
+          stop = stop ?? new[] { "!!!IMG!!!", "!!!IMAGE!!!", "!!!IMPORTANT!!!", "[IMAGE]", "[CAPTION]" }
+        }
+      };
+
+      var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
+      {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+      });
+
+      HttpResponseMessage? resp = null;
+      string? responseBody = null;
+
+      var ct = ctOpt ?? HttpContext?.RequestAborted ?? CancellationToken.None;
+
+      using var req = new HttpRequestMessage(HttpMethod.Post, "http://localhost:11434/api/chat")
+      {
+        Content = new StringContent(json, Encoding.UTF8, "application/json")
+      };
+
+      await _ollamaMediaLock.WaitAsync(ct);
+      try
+      {
+        resp = await _ollamaClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+      }
+      finally
+      {
+        try { _ollamaMediaLock.Release(); } catch { /* ignore */ }
+      }
+
+      if (!resp.IsSuccessStatusCode)
+      {
+        var errBody = await resp.Content.ReadAsStringAsync();
+        _ = _log.Db($"Ollama media analysis error {(int)resp.StatusCode}: {errBody}", null, "AiController", true);
+        return null;
+      }
+
+      responseBody = await resp.Content.ReadAsStringAsync();
+      if (string.IsNullOrEmpty(responseBody))
+      {
+        _ = _log.Db("Ollama media analysis returned empty body.", null, "AiController", true);
+        return null;
+      }
+
+      var parsed = JsonSerializer.Deserialize<JsonElement>(responseBody);
+      var content = parsed.GetProperty("message").GetProperty("content").GetString();
+      return content;
+    }
+
+    private static readonly string[] BannedTokens = {
+  "!!!IMG!!!","!!!IMAGE!!!","!!!IMPORTANT!!!","[IMAGE]","[CAPTION]"
+};
+
+    private bool ContainsBannedTokens(string text) =>
+      BannedTokens.Any(t => text.IndexOf(t, StringComparison.OrdinalIgnoreCase) >= 0);
+
+    private string CleanCaption(string response)
+    {
+      if (string.IsNullOrWhiteSpace(response)) return string.Empty;
+
+      // Strip common placeholder tokens or markup
+      var placeholders = new[]
+      {
+    "!!!IMG!!!", "!!!IMAGE!!!", "!!!IMPORTANT!!!",
+    "[IMAGE]", "[CAPTION]", "[ALT]", "[TEXT]"
+  };
+      foreach (var p in placeholders)
+      {
+        response = response.Replace(p, "", StringComparison.OrdinalIgnoreCase);
+      }
+
+      // Remove meta-language phrases (case-insensitive)
+      var metaPatterns = new[]
+      {
+    "image of", "images of", "video of", "videos of",
+    "this image", "this video", "these images", "these frames",
+    "in the picture", "in the clip", "in these shots",
+    "caption reads", "post that says"
+  };
+      foreach (var pattern in metaPatterns)
+      {
+        response = System.Text.RegularExpressions.Regex.Replace(
+          response, pattern, "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+      }
+
+      // Trim leading articles/prepositions
+      response = System.Text.RegularExpressions.Regex.Replace(
+        response, @"^(the|a|an|this|these)\s+", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+      // Collapse extra whitespace
+      response = System.Text.RegularExpressions.Regex.Replace(response, @"\s{2,}", " ").Trim();
+
+      // Enforce max length for filenames (optional)
+      if (response.Length > 240) response = response.Substring(0, 240).TrimEnd('.', '-', ' ');
+
+      return response;
     }
 
 
