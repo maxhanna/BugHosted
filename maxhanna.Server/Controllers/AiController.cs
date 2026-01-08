@@ -675,7 +675,8 @@ namespace maxhanna.Server.Controllers
         }
 
         // Limit to at most 2 images
-        if (base64Images.Count > 3) {
+        if (base64Images.Count > 3)
+        {
           base64Images = base64Images.Take(3).ToList();
         }
 
@@ -812,31 +813,35 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+
     private string BuildDetailedPrompt(bool multipleFrames)
     {
-      var prompt = @"You are generating a visual description to be used for naming and captioning media.
+      var prompt = @"You are writing a short visual caption intended for a filename or alt text.
 Write 2–3 short sentences (max 45 words total) that:
-• Start with the main subject and action.
-• Include only salient details (objects, colors, setting, mood).
-• If visible text exists, summarize the idea or joke—DO NOT quote or say “it says”.
-• DO NOT use meta-language (e.g., “this image shows”, “a post on social media”, “caption reads”).
-• DO NOT mention platforms (Facebook, Reddit, Instagram), file types, or filenames.
-• Avoid hashtags, emojis, quotes, and formatting.
+• Begin with the main subject and action.
+• Include salient details (objects, colors, setting, mood).
+• If visible text exists, paraphrase the idea humorously or succinctly without quoting.
 
-";
+Constraints:
+• Use natural language only; do not include tags, placeholders, or markup.
+• Do not use or invent tokens like !!!IMG!!!, !!!IMAGE!!!, !!!IMPORTANT!!!, [IMAGE], [CAPTION], or similar.
+• Avoid meta phrases (e.g., “this image shows”, “caption reads”, “in the picture”).
+• Avoid platform names, file types, hashtags, emojis, or quotes.";
+
       if (multipleFrames)
       {
-        prompt += "If multiple frames are present, summarize the consistent elements and briefly note any key differences.";
+        prompt += "\nIf multiple frames are present, summarize the shared elements and note one key difference naturally.";
       }
       return prompt;
     }
 
     private string BuildConcisePrompt()
     {
-      return @"Write a single sentence (12–18 words) describing the main subject and action, with one salient detail.
-• NO meta-language (e.g., “image/post that says”, “caption reads”).
-• If text exists, summarize the idea/joke—DO NOT quote.
-• No hashtags, emojis, quotes, platform names, or formatting.";
+      return @"Write one natural sentence (12–18 words) describing the main subject and action with one salient detail.
+Constraints:
+• Natural language only — no tags, placeholders, or markup.
+• Do not use tokens like !!!IMG!!!, !!!IMAGE!!!, !!!IMPORTANT!!!, [IMAGE], [CAPTION], or similar.
+• Avoid meta phrases (“image/post that says”, “caption reads”), platform names, hashtags, emojis, quotes.";
     }
 
     private string RemoveMediaReferences(string response)
