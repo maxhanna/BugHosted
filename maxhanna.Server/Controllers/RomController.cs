@@ -227,13 +227,14 @@ namespace maxhanna.Server.Controllers
               // Determine file type based on extension (save files explicitly 'sav')
               var extension = Path.GetExtension(file.FileName)?.ToLowerInvariant().Trim('.') ?? string.Empty;
               string fileType = ext.Trim('.');
-              var command = new MySqlCommand("INSERT INTO maxhanna.file_uploads (user_id, file_name, upload_date, last_access, folder_path, is_public, is_folder, file_size) VALUES (@user_id, @fileName, @uploadDate, @lastAccess, @folderPath, @isPublic, @isFolder, @fileSize)", connection);
+              var command = new MySqlCommand("INSERT INTO maxhanna.file_uploads (user_id, file_name, upload_date, last_access, last_updated, last_updated_by_user_id, folder_path, is_public, is_folder, file_size) VALUES (@user_id, @fileName, @uploadDate, @lastAccess, @lastUpdated, @user_id, @folderPath, @isPublic, @isFolder, @fileSize)", connection);
               var now = DateTime.UtcNow;
               command.Parameters.AddWithValue("@user_id", userId);
               command.Parameters.AddWithValue("@fileSize", file.Length);
               command.Parameters.AddWithValue("@fileName", isSaveFile ? newFilename : file.FileName);
               command.Parameters.AddWithValue("@uploadDate", now);
               command.Parameters.AddWithValue("@lastAccess", now);
+              command.Parameters.AddWithValue("@lastUpdated", now);
               command.Parameters.AddWithValue("@folderPath", _baseTarget);
               command.Parameters.AddWithValue("@isPublic", 1);
               command.Parameters.AddWithValue("@isFolder", 0);
@@ -245,8 +246,9 @@ namespace maxhanna.Server.Controllers
             else
             {
               // Update last_access to reflect current interaction (especially for .sav updates)
-              var updateLastAccess = new MySqlCommand("UPDATE maxhanna.file_uploads SET last_access = UTC_TIMESTAMP() WHERE file_name = @fileName AND folder_path = @folderPath LIMIT 1;", connection);
+              var updateLastAccess = new MySqlCommand("UPDATE maxhanna.file_uploads SET last_access = UTC_TIMESTAMP(), last_updated = UTC_TIMESTAMP(), last_updated_by_user_id = @user_id WHERE file_name = @fileName AND folder_path = @folderPath LIMIT 1;", connection);
               updateLastAccess.Parameters.AddWithValue("@fileName", file.FileName);
+              updateLastAccess.Parameters.AddWithValue("@user_id", userId);
               updateLastAccess.Parameters.AddWithValue("@folderPath", _baseTarget);
               await updateLastAccess.ExecuteNonQueryAsync();
               if (!isSaveFile)
