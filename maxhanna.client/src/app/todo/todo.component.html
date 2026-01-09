@@ -50,7 +50,7 @@
                 URL: <textarea *ngIf="isEditing.includes(item)" [value]="item.url" id="todoEditingUrlTextarea"
                   style="width:calc(100% - 10px)" (input)="hasEditedTodo = true"></textarea>
               </div>
-              <div *ngIf="isEditing.includes(item)" [class.blocked]="isLoading">
+              <div *ngIf="isEditing.includes(item) && !item.deleted" [class.blocked]="isLoading">
                 File: <app-media-selector #todoEditingFile [inputtedParentRef]="parentRef" 
                 (selectFileEvent)="hasEditedTodo = true"
                 (expandFileSelectorEvent)="expandedEditFile($event)"></app-media-selector>
@@ -64,9 +64,9 @@
             <button (click)="visitUrl(item.url); $event.preventDefault();" *ngIf="item.url && !isEditing?.length"
               class="xxSmallFont cursorPointer" [title]="'Navigate to: ' + item.url">🔗</button>
             <button (click)="closeEditPopup(); $event.preventDefault();" [title]="'Edit'" class="closeButton cursorPointer"
-              *ngIf="isEditing.includes(item)" id="closeOverlay" [disabled]="isLoading">💾Update</button>
+              *ngIf="isEditing.includes(item) && !item.deleted" id="closeOverlay" [disabled]="isLoading">💾Update</button>
             <button (click)="deleteTodo(item.id!); $event.preventDefault();" [title]="'Delete'" id="todoDeleteNo{{item.id}}"
-              class="cursorPointer" *ngIf="isEditing.includes(item)" [disabled]="isLoading">❌Delete</button>
+              class="cursorPointer" *ngIf="isEditing.includes(item) && !item.deleted" [disabled]="isLoading">❌Delete</button>
           </td>
           <td class="todoDate" [title]="(item.date?.toString() ?? '').replace('T',' ')">
             {{ item.date | timeSince }}

@@ -254,6 +254,10 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
         }
       }
     }
+    const tmpTodo = this.todos.filter(x => x.id == id)[0];
+    if (tmpTodo) {
+      tmpTodo.deleted = true;
+    }
     this.todoCount--;
     this.clearInputs();
     this.stopLoading();

@@ -9,4 +9,6 @@ export class Todo {
   // server returns ownership and owner_name for shared todos
   ownership?: number;
   owner_name?: string;
+  // front-end only helper
+  deleted?: boolean;
 }
