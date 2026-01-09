@@ -719,56 +719,70 @@ namespace maxhanna.Server.Controllers
     }
 
 
+
     [HttpPost("/CoinValue/IsBTCRising", Name = "IsBTCRising")]
-    public async Task<bool> IsBTCRising()
+    public async Task<bool> IsBTCRising(CancellationToken ct = default)
     {
-      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-      try
-      {
-        await conn.OpenAsync();
-
-        // Single query to get both latest price and price from one day ago
-        string sql = @"
-            SELECT  
-							(SELECT value_cad 
-							 FROM coin_value 
-							 WHERE name = 'Bitcoin' 
-							 ORDER BY timestamp DESC 
-							 LIMIT 1) AS latest_price,
- 
-							(SELECT value_cad 
-							 FROM coin_value 
-							 WHERE name = 'Bitcoin' 
-								 AND timestamp <= DATE_SUB(NOW(), INTERVAL 1 DAY)
-							 ORDER BY timestamp DESC 
-							 LIMIT 1) AS previous_price;";
-
-        MySqlCommand cmd = new MySqlCommand(sql, conn);
-        using (var reader = await cmd.ExecuteReaderAsync())
-        {
-          if (await reader.ReadAsync())
-          {
-            var latestPrice = reader.IsDBNull(0) ? (decimal?)null : reader.GetDecimal(0);
-            var previousPrice = reader.IsDBNull(1) ? (decimal?)null : reader.GetDecimal(1);
-
-            if (latestPrice.HasValue && previousPrice.HasValue)
-            {
-              return latestPrice.Value > previousPrice.Value;
-            }
-          }
-        }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("An error occurred while checking if BTC is rising." + ex.Message, null, "COIN", true);
-      }
-      finally
-      {
-        await conn.CloseAsync();
-      }
-
-      return false;
+      var (latest, previous, diff) = await GetOrUpdateBTCPriceAsync();
+      return latest > previous;
     }
+
+
+    public async Task<(decimal latestPrice, decimal previousPrice, decimal difference)> GetOrUpdateBTCPriceAsync()
+    {
+      var connString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+      await using var conn = new MySqlConnection(connString);
+      await conn.OpenAsync();
+
+      // Step 1: Check cache freshness
+      string selectCacheSql = "SELECT latest_price, previous_price, difference, updated_at FROM btc_current_velocity_cache WHERE id = 1;";
+      await using var selectCmd = new MySqlCommand(selectCacheSql, conn);
+      using var reader = await selectCmd.ExecuteReaderAsync();
+
+      decimal latestPrice = 0, previousPrice = 0, difference = 0;
+      DateTime updatedAt = DateTime.MinValue;
+
+      if (await reader.ReadAsync())
+      {
+        latestPrice = reader.GetDecimal("latest_price");
+        previousPrice = reader.GetDecimal("previous_price");
+        difference = reader.GetDecimal("difference");
+        updatedAt = reader.GetDateTime("updated_at");
+      }
+      reader.Close();
+
+      if ((DateTime.UtcNow - updatedAt).TotalMinutes < 30)
+      {
+        return (latestPrice, previousPrice, difference);
+      }
+
+      // Step 2: Fetch fresh data from coin_value
+      string sql = @"
+        SELECT  
+          (SELECT value_cad FROM coin_value WHERE name = 'Bitcoin' ORDER BY timestamp DESC LIMIT 1) AS latest_price,
+          (SELECT value_cad FROM coin_value WHERE name = 'Bitcoin' AND timestamp <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY) ORDER BY timestamp DESC LIMIT 1) AS previous_price;";
+
+      await using var cmd = new MySqlCommand(sql, conn);
+      using var freshReader = await cmd.ExecuteReaderAsync();
+      if (await freshReader.ReadAsync())
+      {
+        latestPrice = freshReader.IsDBNull(0) ? 0 : freshReader.GetDecimal(0);
+        previousPrice = freshReader.IsDBNull(1) ? 0 : freshReader.GetDecimal(1);
+      }
+      freshReader.Close();
+
+      difference = latestPrice - previousPrice;
+
+      // Step 3: Update cache table
+      string updateSql = "UPDATE btc_current_velocity_cache SET latest_price = @latest, previous_price = @previous, updated_at = UTC_TIMESTAMP() WHERE id = 1;";
+      await using var updateCmd = new MySqlCommand(updateSql, conn);
+      updateCmd.Parameters.AddWithValue("@latest", latestPrice);
+      updateCmd.Parameters.AddWithValue("@previous", previousPrice);
+      await updateCmd.ExecuteNonQueryAsync();
+
+      return (latestPrice, previousPrice, difference);
+    }
+
 
     [HttpPost("/CurrencyValue/GetLatestByName/{name}", Name = "GetLatestCurrencyValuesByName")]
     public async Task<ExchangeRate> GetLatestCurrencyValuesByName(string name)
