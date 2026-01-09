@@ -2121,67 +2121,97 @@ namespace maxhanna.Server.Controllers
 		}
 
 
-		[HttpPost("/User/GetUserTheme", Name = "GetUserTheme")]
-		public async Task<IActionResult> GetUserTheme([FromBody] int UserId)
-		{
-			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-			{
-				try
-				{
-					await conn.OpenAsync();
+[HttpPost("/User/GetUserTheme", Name = "GetUserTheme")]
+public async Task<IActionResult> GetUserTheme([FromBody] int userId, CancellationToken ct = default)
+{
+    try
+    {
+        await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync(ct).ConfigureAwait(false);
 
-					string sql = @"
-						SELECT ut.id, ut.background_image, ut.background_color, ut.component_background_color, ut.secondary_component_background_color, 
-							ut.font_color, ut.secondary_font_color, ut.third_font_color, ut.main_highlight_color, ut.main_highlight_color_quarter_opacity, 
-							ut.link_color, ut.font_size, ut.font_family, ut.name
-						FROM maxhanna.user_theme_selected uts
-						INNER JOIN maxhanna.user_theme ut ON uts.theme_id = ut.id
-						WHERE uts.user_id = @UserId
-						LIMIT 1;";
+        const string sql = @"
+            SELECT 
+                ut.id,
+                ut.background_image,
+                ut.background_color,
+                ut.component_background_color,
+                ut.secondary_component_background_color,
+                ut.font_color,
+                ut.secondary_font_color,
+                ut.third_font_color,
+                ut.main_highlight_color,
+                ut.main_highlight_color_quarter_opacity,
+                ut.link_color,
+                ut.font_size,
+                ut.font_family,
+                ut.name
+            FROM maxhanna.user_theme_selected AS uts
+            INNER JOIN maxhanna.user_theme AS ut ON uts.theme_id = ut.id
+            WHERE uts.user_id = @UserId
+            LIMIT 1;";
 
-					MySqlCommand cmd = new MySqlCommand(sql, conn);
-					cmd.Parameters.AddWithValue("@UserId", UserId);
+        await using var cmd = new MySqlCommand(sql, conn)
+        {
+            CommandTimeout = 5
+        };
+        cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
 
-					using (var reader = await cmd.ExecuteReaderAsync())
-					{
-						if (reader.Read())
-						{
-							int? bgImgId = GetNullableInt(reader, "background_image");
-							FileEntry? tmpBackgroundImage = bgImgId.HasValue ? new FileEntry(bgImgId.Value) : null;
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        if (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            // Cache ordinals once
+            int ordId = reader.GetOrdinal("id");
+            int ordBgImg = reader.GetOrdinal("background_image");
+            int ordBgColor = reader.GetOrdinal("background_color");
+            int ordCompBgColor = reader.GetOrdinal("component_background_color");
+            int ordSecCompBgColor = reader.GetOrdinal("secondary_component_background_color");
+            int ordFontColor = reader.GetOrdinal("font_color");
+            int ordSecFontColor = reader.GetOrdinal("secondary_font_color");
+            int ordThirdFontColor = reader.GetOrdinal("third_font_color");
+            int ordMainHl = reader.GetOrdinal("main_highlight_color");
+            int ordMainHlQuarter = reader.GetOrdinal("main_highlight_color_quarter_opacity");
+            int ordLinkColor = reader.GetOrdinal("link_color");
+            int ordFontSize = reader.GetOrdinal("font_size");
+            int ordFontFamily = reader.GetOrdinal("font_family");
+            int ordName = reader.GetOrdinal("name");
 
-							var theme = new UserTheme()
-							{
-								Id = Convert.ToInt32(reader["id"]), 
-								BackgroundImage = tmpBackgroundImage,
-								BackgroundColor = GetStringSafe(reader, "background_color"),
-								ComponentBackgroundColor = GetStringSafe(reader, "component_background_color"),
-								SecondaryComponentBackgroundColor = GetStringSafe(reader, "secondary_component_background_color"),
-								FontColor = GetStringSafe(reader, "font_color"),
-								SecondaryFontColor = GetStringSafe(reader, "secondary_font_color"),
-								ThirdFontColor = GetStringSafe(reader, "third_font_color"),
-								MainHighlightColor = GetStringSafe(reader, "main_highlight_color"),
-								MainHighlightColorQuarterOpacity = GetStringSafe(reader, "main_highlight_color_quarter_opacity"),
-								LinkColor = GetStringSafe(reader, "link_color"),
-								FontSize = GetIntSafe(reader, "font_size", 16),
-								FontFamily = GetStringSafe(reader, "font_family"),
-								Name = GetStringSafe(reader, "name") 
-							};
+            // Handle background_image depending on schema type:
+            FileEntry? tmpBackgroundImage = null;
+ 
+            if (!reader.IsDBNull(ordBgImg))
+            {
+                tmpBackgroundImage = new FileEntry(reader.GetInt32(ordBgImg));
+            }
+            var theme = new UserTheme
+            {
+                Id = reader.GetInt32(ordId),
+                BackgroundImage = tmpBackgroundImage,
+                BackgroundColor = reader.IsDBNull(ordBgColor) ? null : reader.GetString(ordBgColor),
+                ComponentBackgroundColor = reader.IsDBNull(ordCompBgColor) ? null : reader.GetString(ordCompBgColor),
+                SecondaryComponentBackgroundColor = reader.IsDBNull(ordSecCompBgColor) ? null : reader.GetString(ordSecCompBgColor),
+                FontColor = reader.IsDBNull(ordFontColor) ? null : reader.GetString(ordFontColor),
+                SecondaryFontColor = reader.IsDBNull(ordSecFontColor) ? null : reader.GetString(ordSecFontColor),
+                ThirdFontColor = reader.IsDBNull(ordThirdFontColor) ? null : reader.GetString(ordThirdFontColor),
+                MainHighlightColor = reader.IsDBNull(ordMainHl) ? null : reader.GetString(ordMainHl),
+                MainHighlightColorQuarterOpacity = reader.IsDBNull(ordMainHlQuarter) ? null : reader.GetString(ordMainHlQuarter),
+                LinkColor = reader.IsDBNull(ordLinkColor) ? null : reader.GetString(ordLinkColor),
+                FontSize = reader.IsDBNull(ordFontSize) ? 16 : reader.GetInt32(ordFontSize),
+                FontFamily = reader.IsDBNull(ordFontFamily) ? null : reader.GetString(ordFontFamily),
+                Name = reader.IsDBNull(ordName) ? null : reader.GetString(ordName)
+            };
 
-							return Ok(theme);
-						}
-						else
-						{
-							return Ok(new { message = "No theme found for the user." });
-						}
-					}
-				}
-				catch (Exception ex)
-				{
-					_ = _log.Db("Error processing GetUserTheme. " + ex.Message, UserId, "USER", true);
-					return StatusCode(500, "An error occurred while processing the request.");
-				}
-			}
-		}
+            return Ok(theme);
+        }
+
+        return NotFound(new { message = "No theme found for the user." });
+    }
+    catch (Exception ex)
+    {
+        _ = _log.Db("Error processing GetUserTheme. " + ex.Message, userId, "USER", true);
+        return StatusCode(500, "An error occurred while processing the request.");
+    }
+}
+
 
 
 		[HttpPost("/User/GetAllThemes", Name = "GetAllThemes")]
