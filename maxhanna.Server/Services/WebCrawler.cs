@@ -1591,77 +1591,81 @@ public class WebCrawler
       _ = _log.Db("Crawler exception (GetUrlHash) : " + ex.Message, null, "CRAWLER", true);
     }
     return "";
-  }
+  } 
 
-
-  public async Task<int> GetIndexCount(CancellationToken ct = default)
-  {
+public async Task<int> GetIndexCount(CancellationToken ct = default)
+{
     var cs = _config.GetValue<string>("ConnectionStrings:maxhanna");
     if (string.IsNullOrWhiteSpace(cs)) return 0;
 
     try
     {
-      await using var conn = new MySqlConnection(cs);
-      await conn.OpenAsync(ct).ConfigureAwait(false);
+        await using var conn = new MySqlConnection(cs);
+        await conn.OpenAsync(ct).ConfigureAwait(false);
 
-      // 1) Ensure cache row exists (bootstrap once)
-      const string bootstrapSql = @"
-            INSERT INTO search_results_count_cache (id, last_count, last_counted_at)
-            VALUES (1, (SELECT COUNT(*) FROM search_results), UTC_TIMESTAMP())
-            ON DUPLICATE KEY UPDATE
-              last_count      = last_count,
-              last_counted_at = last_counted_at;
-        ";
-      await using (var bootCmd = new MySqlCommand(bootstrapSql, conn)
-      { CommandTimeout = 30 })
-      {
-        await bootCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
-      }
-
-      // 2) Conditionally refresh if stale
-      const string refreshSql = @"
-            UPDATE search_results_count_cache
-            SET last_count      = (SELECT COUNT(*) FROM search_results),
-                last_counted_at = UTC_TIMESTAMP()
-            WHERE id = 1
-              AND (last_counted_at IS NULL
-                   OR last_counted_at < UTC_TIMESTAMP() - INTERVAL 30 MINUTE);
-        ";
-      await using (var refreshCmd = new MySqlCommand(refreshSql, conn)
-      { CommandTimeout = 30 })
-      {
-        await refreshCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
-      }
-
-      // 3) Read the value
-      const string readSql = @"
+        // 1) Read cache first
+        const string readSql = @"
             SELECT last_count, last_counted_at
             FROM search_results_count_cache
             WHERE id = 1
-            LIMIT 1;
+            LIMIT 1;";
+        long cachedCount = 0;
+        DateTime? lastCountedAt = null;
+
+        await using (var readCmd = new MySqlCommand(readSql, conn)
+        { CommandTimeout = 5 })
+        {
+            await using var reader = await readCmd.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow, ct)
+                                                  .ConfigureAwait(false);
+            if (await reader.ReadAsync(ct).ConfigureAwait(false))
+            {
+                cachedCount   = reader.IsDBNull(0) ? 0L : reader.GetInt64(0);
+                lastCountedAt = reader.IsDBNull(1) ? (DateTime?)null : reader.GetDateTime(1);
+            }
+        }
+
+        // 2) If cache exists and is fresh (< 30 minutes), return it
+        if (lastCountedAt.HasValue && lastCountedAt.Value >= DateTime.UtcNow.AddMinutes(-30))
+        {
+            return (int)Math.Min(cachedCount, int.MaxValue);
+        }
+
+        // 3) Cache missing or stale → recompute and upsert with a single statement
+        const string upsertRefreshSql = @"
+            INSERT INTO search_results_count_cache (id, last_count, last_counted_at)
+            VALUES (1, (SELECT COUNT(*) FROM search_results), UTC_TIMESTAMP())
+            ON DUPLICATE KEY UPDATE
+              last_count      = (SELECT COUNT(*) FROM search_results),
+              last_counted_at = UTC_TIMESTAMP();
         ";
-      await using var readCmd = new MySqlCommand(readSql, conn)
-      { CommandTimeout = 5 };
+        await using (var upCmd = new MySqlCommand(upsertRefreshSql, conn)
+        { CommandTimeout = 30 })
+        {
+            await upCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        }
 
-      await using var reader = await readCmd.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow, ct)
-                                           .ConfigureAwait(false);
-      if (await reader.ReadAsync(ct).ConfigureAwait(false))
-      {
-        var lastCount = reader.IsDBNull(0) ? 0L : reader.GetInt64(0);
-        // Optionally check staleness again here if you want—but not necessary.
-        return (int)Math.Min(lastCount, int.MaxValue);
-      }
+        // 4) Re-read and return
+        await using (var readCmd2 = new MySqlCommand(readSql, conn)
+        { CommandTimeout = 5 })
+        {
+            await using var reader2 = await readCmd2.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow, ct)
+                                                    .ConfigureAwait(false);
+            if (await reader2.ReadAsync(ct).ConfigureAwait(false))
+            {
+                var lastCount = reader2.IsDBNull(0) ? 0L : reader2.GetInt64(0);
+                return (int)Math.Min(lastCount, int.MaxValue);
+            }
+        }
 
-      return 0; // Shouldn’t happen if bootstrap succeeded
+        // Shouldn’t happen (row is created/updated above), but be defensive.
+        return 0;
     }
     catch (Exception ex)
     {
-      // Optional: fall back to reading whatever is in the cache, to avoid 0 on transient failures
-      _ = _log.Db("GetIndexCount failed: " + ex.Message, null, "SEARCH", true);
-      return 0;
+        _ = _log.Db("GetIndexCount failed: " + ex.Message, null, "SEARCH", true);
+        return 0;
     }
-  }
-
+} 
 
   public void ClearVisitedUrls()
   {
