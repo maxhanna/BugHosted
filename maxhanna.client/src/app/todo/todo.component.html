@@ -67,6 +67,8 @@
               *ngIf="isEditing.includes(item) && !item.deleted" id="closeOverlay" [disabled]="isLoading">💾Update</button>
             <button (click)="deleteTodo(item.id!); $event.preventDefault();" [title]="'Delete'" id="todoDeleteNo{{item.id}}"
               class="cursorPointer" *ngIf="isEditing.includes(item) && !item.deleted" [disabled]="isLoading">❌Delete</button>
+            <button (click)="closeEditPopup(false); $event.preventDefault();" [title]="'Close'"
+              class="cursorPointer" *ngIf="isEditing.includes(item) && item.deleted" [disabled]="isLoading">Close</button>
           </td>
           <td class="todoDate" [title]="(item.date?.toString() ?? '').replace('T',' ')">
             {{ item.date | timeSince }}
