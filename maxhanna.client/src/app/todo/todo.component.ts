@@ -236,13 +236,13 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   }
   async deleteTodo(id: number) {
     if (!this.parentRef?.user?.id) return;
-    await this.closeEditPopup(false);
     this.startLoading();
-    await this.todoService.deleteTodo(this.parentRef.user.id, id);
+    await this.todoService.deleteTodo(this.parentRef.user.id, id); 
     const tmpTodo = this.todos.filter(x => x.id == id)[0];
     if (tmpTodo) {
       tmpTodo.deleted = true;
-    }
+    } 
+    await this.closeEditPopup(false);
     this.todoCount--;
     this.clearInputs();
     this.stopLoading();
