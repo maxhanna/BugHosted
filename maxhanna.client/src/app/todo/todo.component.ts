@@ -236,7 +236,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   }
   async deleteTodo(id: number) {
     if (!this.parentRef?.user?.id) return;
-    this.closeEditPopup(false);
+    await this.closeEditPopup(false);
     this.startLoading();
     await this.todoService.deleteTodo(this.parentRef.user.id, id);
     const row = document.getElementById("todoNo" + id) as HTMLTableRowElement;
@@ -563,18 +563,21 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       }
     }
   }
-  closeEditPopup(shouldEdit = true) {
+  async closeEditPopup(shouldEdit = true) {
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
-      if (this.parentRef) { 
-        this.parentRef.closeOverlay(false);
-      }
+      this.startLoading();
       if (this.hasEditedTodo && shouldEdit) { 
-        this.editTodo(this.isEditing[0]);
+        await this.editTodo(this.isEditing[0]);
       } else {
         this.isEditing = [];
         this.resumeSharedPollingIfNeeded();
       }
+      
+      if (this.parentRef) { 
+        this.parentRef.closeOverlay(false);
+      }
+      this.stopLoading();
     }, 50); 
   }
   expandedEditFile(value : boolean) {
