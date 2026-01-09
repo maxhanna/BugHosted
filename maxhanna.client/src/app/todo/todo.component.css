@@ -219,3 +219,8 @@ input:checked+.slider:before {
   min-width: 50vw;
   min-height: 50vh;
 }
+
+.blocked {
+  pointer-events: none;
+  opacity: 0.6;
+}

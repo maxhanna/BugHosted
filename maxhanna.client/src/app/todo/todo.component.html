@@ -44,13 +44,13 @@
             <div>
               <span class="todoText" *ngIf="!isEditing.includes(item)">{{ item.todo }}</span>
               <span class="creator-badge" *ngIf="!isEditing.includes(item) && item.ownership != null && parentRef?.user?.id != null && item.ownership !== parentRef?.user?.id" style="margin-left:8px; font-size:0.85em; color:#666;">by {{ item.owner_name ?? ('User ' + item.ownership) }}</span>
-              <div *ngIf="isEditing.includes(item)">
+              <div *ngIf="isEditing.includes(item)" [class.blocked]="isLoading">
                 Text: <textarea [value]="item.todo" id="todoEditingTextarea" style="width:calc(100% - 10px)" (input)="hasEditedTodo = true"></textarea>
-              </div><div *ngIf="isEditing.includes(item)">
+              </div><div *ngIf="isEditing.includes(item)" [class.blocked]="isLoading">
                 URL: <textarea *ngIf="isEditing.includes(item)" [value]="item.url" id="todoEditingUrlTextarea"
                   style="width:calc(100% - 10px)" (input)="hasEditedTodo = true"></textarea>
               </div>
-              <div *ngIf="isEditing.includes(item)">
+              <div *ngIf="isEditing.includes(item)" [class.blocked]="isLoading">
                 File: <app-media-selector #todoEditingFile [inputtedParentRef]="parentRef" 
                 (selectFileEvent)="hasEditedTodo = true"
                 (expandFileSelectorEvent)="expandedEditFile($event)"></app-media-selector>
@@ -68,7 +68,10 @@
             <button (click)="deleteTodo(item.id!); $event.preventDefault();" [title]="'Delete'" id="todoDeleteNo{{item.id}}"
               class="cursorPointer" *ngIf="isEditing.includes(item)" [disabled]="isLoading">❌Delete</button>
           </td>
-          <td class="todoDate" [title]="(item.date?.toString() ?? '').replace('T',' ')">{{ item.date | timeSince }}</td> 
+          <td class="todoDate" [title]="(item.date?.toString() ?? '').replace('T',' ')">
+            {{ item.date | timeSince }}
+            <div *ngIf="isEditing.includes(item) && isLoading">Loading...</div>
+          </td> 
         </tr>
       </tbody>
     </table><div *ngIf="todos.length <= 0 && !isLoading">Nothing in this list yet!</div>
