@@ -1549,7 +1549,7 @@ public async Task<int> GetIndexCount()
 
         await using (var countCmd = new MySqlCommand(fastCountSql, conn))
         {
-            countCmd.CommandTimeout = 15; // allow a bit more time if needed
+            countCmd.CommandTimeout = 30; // allow a bit more time if needed
             var scalar = await countCmd.ExecuteScalarAsync();
             freshCount = scalar is long l ? l : Convert.ToInt64(scalar);
         }
