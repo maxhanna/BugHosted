@@ -248,7 +248,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     this.stopLoading();
   }
   async search() {
-    this.getTodoInfo();
+    await this.getTodoInfo();
   }
   clearSearch() {
     if (!this.searchInput) return;
