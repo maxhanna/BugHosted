@@ -2159,7 +2159,6 @@ public async Task<IActionResult> GetUserTheme([FromBody] int userId, Cancellatio
         await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
         if (await reader.ReadAsync(ct).ConfigureAwait(false))
         {
-            // Cache ordinals once
             int ordId = reader.GetOrdinal("id");
             int ordBgImg = reader.GetOrdinal("background_image");
             int ordBgColor = reader.GetOrdinal("background_color");
@@ -2174,10 +2173,8 @@ public async Task<IActionResult> GetUserTheme([FromBody] int userId, Cancellatio
             int ordFontSize = reader.GetOrdinal("font_size");
             int ordFontFamily = reader.GetOrdinal("font_family");
             int ordName = reader.GetOrdinal("name");
-
-            // Handle background_image depending on schema type:
-            FileEntry? tmpBackgroundImage = null;
  
+            FileEntry? tmpBackgroundImage = null;
             if (!reader.IsDBNull(ordBgImg))
             {
                 tmpBackgroundImage = new FileEntry(reader.GetInt32(ordBgImg));
