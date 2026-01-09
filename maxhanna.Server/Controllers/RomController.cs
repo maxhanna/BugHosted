@@ -21,42 +21,58 @@ namespace maxhanna.Server.Controllers
       _config = config;
     }
 
-    [HttpPost("/Rom/ActivePlayers", Name = "Rom_ActivePlayers")]
-    public async Task<IActionResult> ActivePlayers([FromBody] int? minutes)
+    
+[HttpPost("/Rom/ActivePlayers", Name = "Rom_ActivePlayers")]
+public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, CancellationToken ct = default)
+{
+    var windowMinutes = Math.Clamp(minutes ?? 2, 1, 24 * 60);
+    var cutoffUtc = DateTime.UtcNow.AddMinutes(-windowMinutes);
+
+    try
     {
-      int windowMinutes = minutes ?? 2;
-      if (windowMinutes <= 0) windowMinutes = 2;
-      if (windowMinutes > 24 * 60) windowMinutes = 24 * 60;
-      try
-      {
-        await using var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-        await connection.OpenAsync();
-        // Count distinct users who have recent play/save activity OR recent save file creation/access (.sav in file_uploads)
-        string sql = @"SELECT COUNT(DISTINCT user_id) AS cnt FROM (
-					SELECT user_id FROM maxhanna.emulation_play_time 
-					WHERE (save_time IS NOT NULL AND save_time >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE))
-					   OR (start_time IS NOT NULL AND start_time >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE))
-					UNION
-					SELECT user_id FROM maxhanna.file_uploads 
-					WHERE ( (file_type = 'sav' OR file_name LIKE '%.sav')
-					  AND (
-					       (upload_date IS NOT NULL AND upload_date >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE))
-					    OR (last_access IS NOT NULL AND last_access >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE))
-					     )
-					    )
-					) AS recent;";
-        await using var cmd = new MySqlCommand(sql, connection);
-        cmd.Parameters.AddWithValue("@Minutes", windowMinutes);
-        var result = await cmd.ExecuteScalarAsync();
-        int count = result == null || result == DBNull.Value ? 0 : Convert.ToInt32(result);
+        await using var connection = new MySqlConnection(
+            _config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await connection.OpenAsync(ct).ConfigureAwait(false);
+
+        const string sql = @"
+            SELECT COUNT(*) AS cnt
+            FROM (
+              SELECT ep.user_id
+              FROM maxhanna.emulation_play_time AS ep
+              WHERE ep.user_id IS NOT NULL
+                AND ep.save_time IS NOT NULL
+                AND ep.save_time >= @cutoff
+
+              UNION
+
+              SELECT fu.user_id
+              FROM maxhanna.file_uploads AS fu
+              WHERE fu.user_id IS NOT NULL
+                AND fu.file_type = 'sav'
+                AND (
+                  (fu.upload_date IS NOT NULL AND fu.upload_date >= @cutoff)
+                  OR (fu.last_access IS NOT NULL AND fu.last_access >= @cutoff)
+                )
+            ) AS recent;";
+
+        await using var cmd = new MySqlCommand(sql, connection)
+        {
+            CommandTimeout = 5
+        };
+        cmd.Parameters.Add("@cutoff", MySqlDbType.DateTime).Value = cutoffUtc;
+
+        var obj = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
+        int count = (obj == null || obj == DBNull.Value) ? 0 : Convert.ToInt32(obj);
+
         return Ok(new { count });
-      }
-      catch (Exception ex)
-      {
+    }
+    catch (Exception ex)
+    {
         _ = _log.Db("Rom ActivePlayers error: " + ex.Message, null, "ROM", true);
         return StatusCode(500, "Internal server error");
-      }
     }
+}
+
 
 
     [HttpGet("/Rom/UserStats/{userId}")]
@@ -274,7 +290,7 @@ namespace maxhanna.Server.Controllers
                 try
                 {
                   string updateSql = @"UPDATE maxhanna.emulation_play_time
-										SET save_time = FROM_UNIXTIME(@SaveMs/1000),
+										SET save_time = UTC_TIMESTAMP(),
 											duration_seconds = IFNULL(duration_seconds, 0) + @DurationSeconds
 										WHERE user_id = @UserId AND rom_file_name = @RomFileName LIMIT 1;";
 
@@ -289,8 +305,8 @@ namespace maxhanna.Server.Controllers
                     if (rows == 0)
                     {
                       // No existing row: insert a new record with plays = 0 (since user hasn't started a play session yet)
-                      string insertSql = @"INSERT INTO maxhanna.emulation_play_time (user_id, rom_file_name, save_time, duration_seconds, plays, created_at)
-												VALUES (@UserId, @RomFileName, FROM_UNIXTIME(@SaveMs/1000), @DurationSeconds, 0, UTC_TIMESTAMP());";
+                      string insertSql = @"INSERT INTO maxhanna.emulation_play_time (user_id, rom_file_name, start_time, save_time, duration_seconds, plays, created_at)
+												VALUES (@UserId, @RomFileName, UTC_TIMESTAMP(), UTC_TIMESTAMP(), @DurationSeconds, 0, UTC_TIMESTAMP());";
                       using var ins = new MySqlCommand(insertSql, connection);
                       ins.Parameters.AddWithValue("@UserId", userId);
                       ins.Parameters.AddWithValue("@RomFileName", file.FileName);
