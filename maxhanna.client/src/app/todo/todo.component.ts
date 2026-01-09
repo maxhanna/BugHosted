@@ -250,10 +250,10 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   async search() {
     await this.getTodoInfo();
   }
-  clearSearch() {
+  async clearSearch() {
     if (!this.searchInput) return;
     this.searchInput.nativeElement.value = '';
-    this.getTodoInfo();
+    await this.getTodoInfo();
   }
   openEditListPanel() {
     this.isEditListPanelOpen = true;
