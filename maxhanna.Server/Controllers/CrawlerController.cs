@@ -501,7 +501,6 @@ namespace maxhanna.Server.Controllers
       } 
     }
 
-
     [HttpPost("/Crawler/IndexCount", Name = "IndexCount")]
     public async Task<IActionResult> IndexCount()
     {
