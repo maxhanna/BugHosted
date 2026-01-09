@@ -498,9 +498,7 @@ namespace maxhanna.Server.Controllers
       {
         _ = _log.Db($"Exception while indexing {url}: " + ex.Message, null, "CRAWLERCTRL", true);
 
-      }
-
-
+      } 
     }
 
 
