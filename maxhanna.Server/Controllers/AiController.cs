@@ -1019,9 +1019,7 @@ If text is visible, paraphrase the idea without quoting.";
 
       // Collapse extra whitespace
       response = System.Text.RegularExpressions.Regex.Replace(response, @"\s{2,}", " ").Trim();
-
-      // Enforce max length for filenames (optional)
-      if (response.Length > 240) response = response.Substring(0, 240).TrimEnd('.', '-', ' ');
+      response = response.TrimEnd('.', '-', ' ');
 
       return response;
     }
