@@ -940,9 +940,9 @@ namespace maxhanna.Server.Controllers
       // Strip common placeholder tokens or markup
       var placeholders = new[]
       {
-    "!!!IMG!!!", "!!!IMAGE!!!", "!!!IMPORTANT!!!",
-    "[IMAGE]", "[CAPTION]", "[ALT]", "[TEXT]"
-  };
+        "!!!IMG!!!", "!!!IMAGE!!!", "!!!IMPORTANT!!!",
+        "[IMAGE]", "[CAPTION]", "[ALT]", "[TEXT]"
+      };
       foreach (var p in placeholders)
       {
         response = response.Replace(p, "", StringComparison.OrdinalIgnoreCase);
@@ -951,24 +951,21 @@ namespace maxhanna.Server.Controllers
       // Remove meta-language phrases (case-insensitive)
       var metaPatterns = new[]
       {
-    "image of", "images of", "video of", "videos of",
-    "this image", "this video", "these images", "these frames",
-    "in the picture", "in the clip", "in these shots",
-    "caption reads", "post that says"
-  };
+        "image of", "images of", "video of", "videos of",
+        "this image", "this video", "these images", "these frames",
+        "in the picture", "in the clip", "in these shots",
+        "caption reads", "post that says"
+      };
       foreach (var pattern in metaPatterns)
       {
         response = System.Text.RegularExpressions.Regex.Replace(
           response, pattern, "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
       }
 
-      // Trim leading articles/prepositions
-      response = System.Text.RegularExpressions.Regex.Replace(
-        response, @"^(the|a|an|this|these)\s+", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
       // Collapse extra whitespace
       response = System.Text.RegularExpressions.Regex.Replace(response, @"\s{2,}", " ").Trim();
       response = response.TrimEnd('.', '-', ' ');
+      response = response.Replace("_", " ");
 
       return response;
     }
