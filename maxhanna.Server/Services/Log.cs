@@ -47,8 +47,7 @@ public class Log
     {
       sb.AppendLine("  AND MATCH(comment) AGAINST (@Keywords IN BOOLEAN MODE)");
     }
-    sb.AppendLine(" ORDER BY timestamp DESC LIMIT @Limit OFFSET @Offset ");
-    sb.AppendLine(" LIMIT @Limit;");
+    sb.AppendLine(" ORDER BY timestamp DESC LIMIT @Limit OFFSET @Offset;");
 
     try
     {
