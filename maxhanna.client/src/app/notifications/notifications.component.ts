@@ -252,17 +252,17 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (!parent || !parent.user || !this.notifications) return;
 
-    if (notification) {
-      // Single notification delete - ensure ID exists
+    if (notification) { 
       if (notification.id === undefined) return;
-
+      this.startLoading();
       await this.notificationService.deleteNotifications(parent.user.id ?? 0, [notification.id]);
       this.notifications = this.notifications.filter(x => x.id !== notification.id);
       if (!notification.isRead) {
         this.unreadNotifications--;
       }
+      this.stopLoading();
     } else {
-      // Delete all or filtered notifications
+      this.startLoading();
       let notificationsToDelete = [...this.notifications];
 
       if (this.filterCategory === 'Unread') {
@@ -285,6 +285,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
         // Update unread count
         this.unreadNotifications -= validNotifications.filter(n => !n.isRead).length;
       }
+      this.stopLoading();
     }
 
     this.updateCategories(false);
@@ -304,7 +305,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     if (notification) {
       // Single notification read/unread - ensure ID exists
       if (notification.id === undefined) return;
-
+      this.startLoading();
       if (notification.isRead && !forceRead) {
         notification.isRead = false;
         this.unreadNotifications++;
@@ -314,8 +315,10 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
         this.unreadNotifications--;
         await this.notificationService.readNotifications(parent.user.id ?? 0, [notification.id]);
       }
+      this.stopLoading();
     } else {
       // Read all or filtered notifications
+      this.startLoading();
       let notificationsToRead = [...this.notifications];
 
       if (this.filterCategory === 'Unread') {
@@ -339,6 +342,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
           this.parentRef.navigationComponent.tradeNotifsCount = 0;
         }
       }
+      this.stopLoading();
     }
 
     this.updateCategories(false);
@@ -431,11 +435,13 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   }
 
   private async subscribeToNotificationTopic(token: string) {
+    this.startLoading();
     if (this.parentRef?.user?.id) {
       this.notificationService.subscribeToTopic(this.parentRef.user.id, token, "notification" + this.parentRef.user.id).then(res => {
         console.log(res);
       });
     }
+    this.stopLoading();
   }
 
   getShowClearAll() {
@@ -470,10 +476,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       ];
       if (resetFilter) this.filterCategory = 'All';
       return;
-    }
-
-    // Store current counts before update
-    const currentCounts = new Map(this.categories.map(c => [c.name, c.count]));
+    } 
 
     // Calculate new counts
     const newCounts: { [key: string]: number } = {

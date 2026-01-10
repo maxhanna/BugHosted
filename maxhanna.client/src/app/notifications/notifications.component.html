@@ -17,11 +17,11 @@
           <div *ngIf="unreadNotifications" class="unreadNotifications">({{unreadNotifications}} unread)</div>
         </div>
         <div class="notificationsCountHeaderButtons">
-          <button (click)="delete()" *ngIf="getShowClearAll()">
+          <button (click)="delete()" *ngIf="getShowClearAll()" [disabled]="isLoading">
             ❌ Clear {{notifications && notifications.length > 1 ? 'All '
             : '' }} {{filterCategory !== 'All' ? filterCategory + ' ' : '' }}
           </button>
-          <button (click)="read()" *ngIf="getShowReadAll()">
+          <button (click)="read()" *ngIf="getShowReadAll()" [disabled]="isLoading">
             👀 Read {{notifications && notifications.length > 1 ? 'All '
             : '' }} {{filterCategory !== 'All' ? filterCategory + ' ' : '' }}
           </button>
