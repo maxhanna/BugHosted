@@ -96,37 +96,53 @@ namespace maxhanna.Server.Controllers.Helpers
 				_ = _log.Db("Error creating wallet balance entry: " + ex.Message, null, "MININGAPI", true);
 			}
 		}
-		public async Task<double?> GetLatestBTCRate(IConfiguration config, Log _log)
-		{
-			double? rate = null;
+	
+public async Task<double?> GetLatestBTCRate(IConfiguration config, Log _log, CancellationToken ct = default)
+{
+    double? rate = null;
 
-			try
-			{
-				using var conn = new MySqlConnection(config.GetValue<string>("ConnectionStrings:maxhanna"));
-				await conn.OpenAsync();
+    try
+    {
+        await using var conn = new MySqlConnection(config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync(ct);
 
-				string sql = @"
-					SELECT value_cad 
-					FROM coin_value 
-					WHERE name = 'Bitcoin' 
-					ORDER BY timestamp DESC 
-					LIMIT 1;";
+        // 1) Fast path: latest_coin_value
+        const string latestSql = @"
+          SELECT value_cad
+          FROM latest_coin_value
+          WHERE name = 'Bitcoin'
+          LIMIT 1;";
 
-				using var cmd = new MySqlCommand(sql, conn);
-				var result = await cmd.ExecuteScalarAsync();
+        await using (var latestCmd = new MySqlCommand(latestSql, conn) { CommandTimeout = 6 })
+        {
+            var latestObj = await latestCmd.ExecuteScalarAsync(ct);
+            if (latestObj != null && latestObj != DBNull.Value)
+                return Convert.ToDouble(latestObj);
+        }
 
-				if (result != null && result != DBNull.Value)
-				{
-					rate = Convert.ToDouble(result);
-				}
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("An error occurred while trying to get the latest Bitcoin rate: " + ex.Message, null, "MININGAPI", true);
-			}
+        // 2) Fallback: historical coin_value — deterministic ordering
+        const string fallbackSql = @"
+          SELECT value_cad
+          FROM coin_value
+          WHERE name = 'Bitcoin'
+          ORDER BY `timestamp` DESC, id DESC
+          LIMIT 1;";
 
-			return rate;
-		}
+        await using (var fbCmd = new MySqlCommand(fallbackSql, conn) { CommandTimeout = 10 })
+        {
+            var fbObj = await fbCmd.ExecuteScalarAsync(ct);
+            if (fbObj != null && fbObj != DBNull.Value)
+                rate = Convert.ToDouble(fbObj);
+        }
+    }
+    catch (Exception ex)
+    {
+        _ = _log.Db("An error occurred while trying to get the latest Bitcoin rate: " + ex.Message, null, "MININGAPI", true);
+    }
+
+    return rate;
+}
+
 		private async Task<int> GetNextUserWalletToUpdate(IConfiguration config, Log _log)
 		{
 			int userId = -1; // Default value if no wallet is found

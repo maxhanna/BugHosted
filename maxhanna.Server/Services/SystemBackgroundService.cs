@@ -2082,6 +2082,8 @@ namespace maxhanna.Server.Services
       await StoreCoinValues();
     }
     
+
+// In SystemBackgroundService
 private async Task StoreCoinValues()
 {
     try
@@ -2089,6 +2091,7 @@ private async Task StoreCoinValues()
         await using var conn = new MySqlConnection(_connectionString);
         await conn.OpenAsync();
 
+        // 1) Fetch coin data (USD)
         CoinResponse[] coinData = await FetchCoinData();
         if (coinData == null || coinData.Length == 0)
         {
@@ -2096,14 +2099,14 @@ private async Task StoreCoinValues()
             return;
         }
 
-        // 1) Prefer latest_exchange_rate for CAD→USD (fast, tiny table)
-        decimal cadUsdRate = 0.705m; // fallback
+        // 2) CAD→USD (prefer latest, fallback to legacy)
+        decimal cadUsdRate = 0.705m; // safety fallback
         const string latestRateSql = @"
             SELECT rate
             FROM latest_exchange_rate
             WHERE base_currency = 'CAD' AND target_currency = 'USD'
             LIMIT 1;";
-        await using (var latestRateCmd = new MySqlCommand(latestRateSql, conn))
+        await using (var latestRateCmd = new MySqlCommand(latestRateSql, conn) { CommandTimeout = 8 })
         {
             var r = await latestRateCmd.ExecuteScalarAsync();
             if (r != null && r != DBNull.Value)
@@ -2112,14 +2115,13 @@ private async Task StoreCoinValues()
             }
             else
             {
-                // 2) Fallback to historical table if latest is missing
                 const string historicalRateSql = @"
                     SELECT rate
                     FROM exchange_rates
                     WHERE base_currency = 'CAD' AND target_currency = 'USD'
-                    ORDER BY timestamp DESC, id DESC
+                    ORDER BY `timestamp` DESC, id DESC
                     LIMIT 1;";
-                await using var histCmd = new MySqlCommand(historicalRateSql, conn);
+                await using var histCmd = new MySqlCommand(historicalRateSql, conn) { CommandTimeout = 10 };
                 var hr = await histCmd.ExecuteScalarAsync();
                 if (hr != null && hr != DBNull.Value)
                 {
@@ -2132,69 +2134,103 @@ private async Task StoreCoinValues()
             }
         }
 
-        // 3) Prepared commands for check+insert (reuse parameters)
-        const string checkSql = @"
+        // 3) Start transaction so latest points to a real historical row
+        await using var tx = await conn.BeginTransactionAsync();
+
+        // 3a) Freshness check (prefer latest table for speed)
+        const string checkLatestSql = @"
             SELECT 1
-            FROM coin_value
+            FROM latest_coin_value
             WHERE name = @Name
-              AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE)
+              AND `timestamp` >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE)
             LIMIT 1;";
-        await using var checkCmd = new MySqlCommand(checkSql, conn);
-        var pName = checkCmd.Parameters.Add("@Name", MySqlDbType.VarChar, 100); // adjust size if needed
+        await using var checkCmd = new MySqlCommand(checkLatestSql, conn, (MySqlTransaction)tx);
+        var pCheckName = checkCmd.Parameters.Add("@Name", MySqlDbType.VarChar, 100);
         checkCmd.Prepare();
 
-        const string insertSql = @"
-            INSERT INTO coin_value (symbol, name, value_cad, value_usd, timestamp)
+        // 3b) Insert historical (coin_value)
+        const string insertHistoricalSql = @"
+            INSERT INTO coin_value (symbol, name, value_cad, value_usd, `timestamp`)
             VALUES (@Symbol, @Name, @ValueCAD, @ValueUSD, UTC_TIMESTAMP());";
-        await using var insertCmd = new MySqlCommand(insertSql, conn);
+        await using var insertCmd = new MySqlCommand(insertHistoricalSql, conn, (MySqlTransaction)tx);
         var pSymbol   = insertCmd.Parameters.Add("@Symbol",   MySqlDbType.VarChar, 16);
-        var pName2    = insertCmd.Parameters.Add("@Name",     MySqlDbType.VarChar, 100);
-        var pValueCad = insertCmd.Parameters.Add("@ValueCAD", MySqlDbType.NewDecimal);
-        var pValueUsd = insertCmd.Parameters.Add("@ValueUSD", MySqlDbType.NewDecimal);
-        // Match DECIMAL(18,6)
-        pValueCad.Precision = 18; pValueCad.Scale = 6;
-        pValueUsd.Precision = 18; pValueUsd.Scale = 6;
+        var pName     = insertCmd.Parameters.Add("@Name",     MySqlDbType.VarChar, 100);
+        var pValueCad = insertCmd.Parameters.Add("@ValueCAD", MySqlDbType.NewDecimal); pValueCad.Precision = 18; pValueCad.Scale = 6;
+        var pValueUsd = insertCmd.Parameters.Add("@ValueUSD", MySqlDbType.NewDecimal); pValueUsd.Precision = 18; pValueUsd.Scale = 6;
         insertCmd.Prepare();
 
-        // 4) Loop coins and insert if not recently present
+        // 3c) Upsert latest (latest_coin_value)
+        const string upsertLatestSql = @"
+            INSERT INTO latest_coin_value (name, id, symbol, value_cad, value_usd, `timestamp`)
+            VALUES (@l_name, @l_id, @l_symbol, @l_cad, @l_usd, UTC_TIMESTAMP(3))
+            ON DUPLICATE KEY UPDATE
+                id         = VALUES(id),
+                symbol     = VALUES(symbol),
+                value_cad  = VALUES(value_cad),
+                value_usd  = VALUES(value_usd),
+                `timestamp`= VALUES(`timestamp`);";
+        await using var upsertLatestCmd = new MySqlCommand(upsertLatestSql, conn, (MySqlTransaction)tx);
+        var lName   = upsertLatestCmd.Parameters.Add("@l_name",   MySqlDbType.VarChar, 100);
+        var lId     = upsertLatestCmd.Parameters.Add("@l_id",     MySqlDbType.Int32);
+        var lSymbol = upsertLatestCmd.Parameters.Add("@l_symbol", MySqlDbType.VarChar, 16);
+        var lCad    = upsertLatestCmd.Parameters.Add("@l_cad",    MySqlDbType.NewDecimal); lCad.Precision = 18; lCad.Scale = 6;
+        var lUsd    = upsertLatestCmd.Parameters.Add("@l_usd",    MySqlDbType.NewDecimal); lUsd.Precision = 18; lUsd.Scale = 6;
+        upsertLatestCmd.Prepare();
+
+        // 4) Process each coin
+        int inserted = 0, upserts = 0, skippedFresh = 0;
         foreach (var coin in coinData)
         {
             if (coin == null) continue;
 
-            string rawSymbol = coin.symbol?.ToUpper() ?? string.Empty;
-            string coinNameSafe = coin.name ?? string.Empty;
-            decimal coinRateSafe = Convert.ToDecimal(coin.rate);
+            string rawSymbol = coin.symbol?.ToUpperInvariant() ?? string.Empty;
+            string coinName  = coin.name ?? string.Empty;
 
-            if (coinRateSafe <= 0) continue; // skip non-positive rates
+            // price from API in USD
+            if (!decimal.TryParse(Convert.ToString(coin.rate), out var priceUsd) || priceUsd <= 0m)
+                continue;
 
-            string normalizedName = (CoinNameMap.TryGetValue(coinNameSafe, out var mappedName) ? mappedName : coinNameSafe) ?? string.Empty;
-            string symbol = CoinSymbols.TryGetValue(normalizedName, out var knownSymbol) ? knownSymbol : rawSymbol;
+            // Normalize display name / symbol
+            string normalizedName = CoinNameMap.TryGetValue(coinName, out var mappedName) ? mappedName : coinName;
+            string displaySymbol  = CoinSymbols.TryGetValue(normalizedName, out var knownSymbol) ? knownSymbol : rawSymbol;
 
-            // Recent check
-            pName.Value = normalizedName;
-            var recentObj = await checkCmd.ExecuteScalarAsync();
-            var hasRecent = recentObj != null && recentObj != DBNull.Value;
+            // Freshness check in latest table (cheap)
+            pCheckName.Value = normalizedName;
+            var recentMarker = await checkCmd.ExecuteScalarAsync();
+            if (recentMarker != null) { skippedFresh++; continue; }
 
-            if (hasRecent) continue;
+            // Compute CAD using CAD→USD (USD / (CAD→USD) = CAD)
+            decimal valueCad = cadUsdRate != 0m ? Math.Round(priceUsd / cadUsdRate, 6) : Math.Round(priceUsd, 6);
+            decimal valueUsd = Math.Round(priceUsd, 6);
 
-            // Compute CAD using CAD→USD rate (USD / (CAD→USD) = CAD)
-            decimal valueCad = cadUsdRate != 0 ? Math.Round(coinRateSafe / cadUsdRate, 6) : coinRateSafe;
-
-            // Insert
-            pSymbol.Value = symbol;
-            pName2.Value = normalizedName;
+            // Insert historical
+            pSymbol.Value   = displaySymbol;
+            pName.Value     = normalizedName;
             pValueCad.Value = valueCad;
-            pValueUsd.Value = Math.Round(coinRateSafe, 6);
+            pValueUsd.Value = valueUsd;
             await insertCmd.ExecuteNonQueryAsync();
+            int insertedId = (int)insertCmd.LastInsertedId;
+            inserted++;
+
+            // Upsert latest
+            lName.Value   = normalizedName;
+            lId.Value     = insertedId;
+            lSymbol.Value = displaySymbol;
+            lCad.Value    = valueCad;
+            lUsd.Value    = valueUsd;
+            upserts += await upsertLatestCmd.ExecuteNonQueryAsync();
         }
 
-        _ = _log.Db("Coin values stored successfully (using latest CAD/USD).", null, "COINSVC");
+        await tx.CommitAsync();
+
+        _ = _log.Db($"Coin values stored. Inserted(historical): {inserted}, Latest upserts: {upserts}, Skipped (fresh): {skippedFresh}.", null, "COINSVC", outputToConsole: true);
     }
     catch (Exception ex)
     {
         _ = _log.Db($"Error occurred while storing coin values: {ex.Message}", null, "COINSVC", outputToConsole: true);
     }
 }
+
 
 
     private async Task<CoinResponse[]> FetchCoinData()

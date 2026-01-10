@@ -415,43 +415,77 @@ ORDER BY target_currency;";
     }
 
 
-    [HttpPost("/CoinValue/GetLatest/", Name = "GetLatestCoinValues")]
-    public async Task<List<CoinValue>> GetLatestCoinValues()
-    {
-      var coinValues = new List<CoinValue>();
 
-      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+    [HttpPost("/CoinValue/GetLatest/", Name = "GetLatestCoinValues")]
+    public async Task<List<CoinValue>> GetLatestCoinValues(CancellationToken ct = default)
+    {
+      var coinValues = new List<CoinValue>(128);
+
+      await using var conn = new MySqlConnection(_config.GetConnectionString("maxhanna"));
       try
       {
-        await conn.OpenAsync();
+        await conn.OpenAsync(ct);
 
-        // SQL query to get the latest values for each coin by symbol (or id)
-        string sql = @"
-					SELECT cv.id, cv.symbol, cv.name, cv.value_cad, cv.value_usd, cv.timestamp
-					FROM coin_value cv
-					JOIN (
-						SELECT name, MAX(timestamp) as max_timestamp
-						FROM coin_value
-						GROUP BY name
-					) latest ON cv.name = latest.name AND cv.timestamp = latest.max_timestamp
-					LIMIT 100;";
+        // 1) Fast path: read directly from latest_coin_value (one row per coin)
+        const string latestSql = @"
+SELECT id, symbol, name, value_cad, value_usd, `timestamp`
+FROM latest_coin_value
+ORDER BY name
+LIMIT 100;";
 
-        MySqlCommand cmd = new MySqlCommand(sql, conn);
-        using (var reader = await cmd.ExecuteReaderAsync())
+        await using (var latestCmd = new MySqlCommand(latestSql, conn) { CommandTimeout = 8 })
+        await using (var reader = await latestCmd.ExecuteReaderAsync(ct))
         {
-          while (await reader.ReadAsync())
+          while (await reader.ReadAsync(ct))
           {
-            var coinValue = new CoinValue
+            coinValues.Add(new CoinValue
             {
               Id = reader.GetInt32(reader.GetOrdinal("id")),
               Symbol = reader.IsDBNull(reader.GetOrdinal("symbol")) ? null : reader.GetString(reader.GetOrdinal("symbol")),
               Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name")),
-              ValueCAD = reader.IsDBNull(reader.GetOrdinal("value_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("value_cad")),
-              ValueUSD = reader.IsDBNull(reader.GetOrdinal("value_usd")) ? 0 : reader.GetDecimal(reader.GetOrdinal("value_usd")),
+              ValueCAD = reader.IsDBNull(reader.GetOrdinal("value_cad")) ? 0m : reader.GetDecimal(reader.GetOrdinal("value_cad")),
+              ValueUSD = reader.IsDBNull(reader.GetOrdinal("value_usd")) ? 0m : reader.GetDecimal(reader.GetOrdinal("value_usd")),
               Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp"))
-            };
-            coinValues.Add(coinValue);
+            });
           }
+        }
+
+        // If the latest table had rows, return them
+        if (coinValues.Count > 0)
+          return coinValues;
+
+        // 2) Fallback: compute latest per coin from historical table
+        const string fallbackSql = @"
+SELECT cv.id, cv.symbol, cv.name, cv.value_cad, cv.value_usd, cv.`timestamp`
+FROM coin_value cv
+JOIN (
+    SELECT name, MAX(`timestamp`) AS max_ts
+    FROM coin_value
+    GROUP BY name
+) mx
+  ON mx.name = cv.name
+ AND mx.max_ts = cv.`timestamp`
+LEFT JOIN coin_value tie
+  ON tie.name = cv.name
+ AND tie.`timestamp` = cv.`timestamp`
+ AND tie.id > cv.id
+WHERE tie.id IS NULL
+ORDER BY cv.name
+LIMIT 100;";
+
+        await using var fallbackCmd = new MySqlCommand(fallbackSql, conn) { CommandTimeout = 15 };
+        await using var fbReader = await fallbackCmd.ExecuteReaderAsync(ct);
+        while (await fbReader.ReadAsync(ct))
+        {
+          coinValues.Add(new CoinValue
+          {
+            Id = fbReader.GetInt32(fbReader.GetOrdinal("id")),
+            Symbol = fbReader.IsDBNull(fbReader.GetOrdinal("symbol")) ? null : fbReader.GetString(fbReader.GetOrdinal("symbol")),
+            Name = fbReader.IsDBNull(fbReader.GetOrdinal("name")) ? null : fbReader.GetString(fbReader.GetOrdinal("name")),
+            ValueCAD = fbReader.IsDBNull(fbReader.GetOrdinal("value_cad")) ? 0m : fbReader.GetDecimal(fbReader.GetOrdinal("value_cad")),
+            ValueUSD = fbReader.IsDBNull(fbReader.GetOrdinal("value_usd")) ? 0m : fbReader.GetDecimal(fbReader.GetOrdinal("value_usd")),
+            Timestamp = fbReader.GetDateTime(fbReader.GetOrdinal("timestamp"))
+          });
         }
       }
       catch (Exception ex)
@@ -465,6 +499,7 @@ ORDER BY target_currency;";
 
       return coinValues;
     }
+
 
 
 
@@ -658,41 +693,67 @@ ORDER BY `timestamp` DESC, id DESC;";
       }
     }
 
+
     [HttpPost("/CoinValue/GetLatestByName/{name}", Name = "GetLatestCoinValuesByName")]
-    public async Task<CoinValue> GetLatestCoinValuesByName(string name)
+    public async Task<CoinValue> GetLatestCoinValuesByName(string name, CancellationToken ct = default)
     {
-      // Return null or 404 if not found is typically better than returning a "blank" object
+      // Prefer returning null/404 in APIs, but keeping your current contract:
       CoinValue? result = null;
 
-      await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      await using var conn = new MySqlConnection(_config.GetConnectionString("maxhanna"));
       try
       {
-        await conn.OpenAsync();
+        await conn.OpenAsync(ct);
+        const string latestSql = @"
+          SELECT id, symbol, name, value_cad, value_usd, `timestamp`
+          FROM latest_coin_value
+          WHERE name = @name
+          LIMIT 1;";
 
-        const string sql = @"
-            SELECT id, symbol, name, value_cad, value_usd, timestamp
-            FROM coin_value
-            WHERE name = @name
-            ORDER BY timestamp DESC, id DESC
-            LIMIT 1;";
+        await using (var latestCmd = new MySqlCommand(latestSql, conn) { CommandTimeout = 8 })
+        {
+          latestCmd.Parameters.Add("@name", MySqlDbType.VarChar, 100).Value = name; // size aligned with latest table PK
+          latestCmd.Prepare();
 
-        await using var cmd = new MySqlCommand(sql, conn);
-        // Explicit type/size helps parameterization & plan reuse
-        cmd.Parameters.Add("@name", MySqlDbType.VarChar, 45).Value = name;
-        cmd.Prepare(); // If you use MySqlConnector, this gives true prepared statements
+          await using var latestReader = await latestCmd.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow, ct);
+          if (await latestReader.ReadAsync(ct))
+          {
+            result = new CoinValue
+            {
+              Id = latestReader.GetInt32(latestReader.GetOrdinal("id")),
+              Symbol = latestReader.IsDBNull(latestReader.GetOrdinal("symbol")) ? null : latestReader.GetString(latestReader.GetOrdinal("symbol")),
+              Name = latestReader.IsDBNull(latestReader.GetOrdinal("name")) ? null : latestReader.GetString(latestReader.GetOrdinal("name")),
+              ValueCAD = latestReader.IsDBNull(latestReader.GetOrdinal("value_cad")) ? 0m : latestReader.GetDecimal(latestReader.GetOrdinal("value_cad")),
+              ValueUSD = latestReader.IsDBNull(latestReader.GetOrdinal("value_usd")) ? 0m : latestReader.GetDecimal(latestReader.GetOrdinal("value_usd")),
+              Timestamp = latestReader.GetDateTime(latestReader.GetOrdinal("timestamp"))
+            };
 
-        // Hint driver we only read one row
-        await using var reader = await cmd.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow);
+            return result; // Early return if found in latest
+          }
+        }
 
-        if (await reader.ReadAsync())
+        // 2) Fallback: historical coin_value — latest by timestamp with id DESC tie-breaker
+        const string legacySql = @"
+          SELECT id, symbol, name, value_cad, value_usd, `timestamp`
+          FROM coin_value
+          WHERE name = @name
+          ORDER BY `timestamp` DESC, id DESC
+          LIMIT 1;";
+
+        await using var cmd = new MySqlCommand(legacySql, conn) { CommandTimeout = 10 };
+        cmd.Parameters.Add("@name", MySqlDbType.VarChar, 100).Value = name; // size aligned with writes
+        cmd.Prepare();
+
+        await using var reader = await cmd.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow, ct);
+        if (await reader.ReadAsync(ct))
         {
           result = new CoinValue
           {
             Id = reader.GetInt32(reader.GetOrdinal("id")),
             Symbol = reader.IsDBNull(reader.GetOrdinal("symbol")) ? null : reader.GetString(reader.GetOrdinal("symbol")),
             Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name")),
-            ValueCAD = reader.IsDBNull(reader.GetOrdinal("value_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("value_cad")),
-            ValueUSD = reader.IsDBNull(reader.GetOrdinal("value_usd")) ? 0 : reader.GetDecimal(reader.GetOrdinal("value_usd")),
+            ValueCAD = reader.IsDBNull(reader.GetOrdinal("value_cad")) ? 0m : reader.GetDecimal(reader.GetOrdinal("value_cad")),
+            ValueUSD = reader.IsDBNull(reader.GetOrdinal("value_usd")) ? 0m : reader.GetDecimal(reader.GetOrdinal("value_usd")),
             Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp"))
           };
         }
@@ -700,18 +761,15 @@ ORDER BY `timestamp` DESC, id DESC;";
       catch (Exception ex)
       {
         _ = _log.Db("An error occurred while trying to get the latest coin values by name. " + ex.Message, null, "COIN", true);
-        // Depending on API contract, rethrow or return proper status
       }
       finally
       {
         await conn.CloseAsync();
       }
 
-      // If your API should 404 when not found:
-      // if (result == null) return NotFound();
+      // If your API should 404 when not found, change the return type to ActionResult<CoinValue> and return NotFound().
       return result ?? new CoinValue();
     }
-
 
 
     [HttpPost("/CoinValue/IsBTCRising", Name = "IsBTCRising")]
@@ -722,62 +780,102 @@ ORDER BY `timestamp` DESC, id DESC;";
     }
 
 
-    public async Task<(decimal latestPrice, decimal previousPrice, decimal difference)> GetOrUpdateBTCPriceAsync()
+    public async Task<(decimal latestPrice, decimal previousPrice, decimal difference)> GetOrUpdateBTCPriceAsync(CancellationToken ct = default)
     {
-      var connString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+      var connString = _config.GetConnectionString("maxhanna");
       await using var conn = new MySqlConnection(connString);
-      await conn.OpenAsync();
+      await conn.OpenAsync(ct);
 
       // Step 1: Check cache freshness
-      string selectCacheSql = "SELECT latest_price, previous_price, difference, updated_at FROM btc_current_velocity_cache WHERE id = 1;";
-      await using var selectCmd = new MySqlCommand(selectCacheSql, conn);
-      using var reader = await selectCmd.ExecuteReaderAsync();
-
-      decimal latestPrice = 0, previousPrice = 0, difference = 0;
-      DateTime updatedAt = DateTime.MinValue;
-
-      if (await reader.ReadAsync())
+      const string selectCacheSql = @"
+        SELECT latest_price, previous_price, difference, updated_at
+        FROM btc_current_velocity_cache
+        WHERE id = 1;";
+      await using (var selectCmd = new MySqlCommand(selectCacheSql, conn) { CommandTimeout = 8 })
+      await using (var reader = await selectCmd.ExecuteReaderAsync(ct))
       {
-        latestPrice = reader.GetDecimal("latest_price");
-        previousPrice = reader.GetDecimal("previous_price");
-        difference = reader.GetDecimal("difference");
-        updatedAt = reader.GetDateTime("updated_at");
-      }
-      reader.Close();
+        decimal latestPrice = 0, previousPrice = 0, difference = 0;
+        DateTime updatedAt = DateTime.MinValue;
 
-      if ((DateTime.UtcNow - updatedAt).TotalMinutes < 30)
+        if (await reader.ReadAsync(ct))
+        {
+          latestPrice = reader.IsDBNull(reader.GetOrdinal("latest_price")) ? 0m : reader.GetDecimal(reader.GetOrdinal("latest_price"));
+          previousPrice = reader.IsDBNull(reader.GetOrdinal("previous_price")) ? 0m : reader.GetDecimal(reader.GetOrdinal("previous_price"));
+          difference = reader.IsDBNull(reader.GetOrdinal("difference")) ? 0m : reader.GetDecimal(reader.GetOrdinal("difference"));
+          updatedAt = reader.IsDBNull(reader.GetOrdinal("updated_at")) ? DateTime.MinValue : reader.GetDateTime(reader.GetOrdinal("updated_at"));
+        }
+        reader.Close();
+
+        if ((DateTime.UtcNow - updatedAt).TotalMinutes < 30 && latestPrice > 0m && previousPrice > 0m)
+        {
+          return (latestPrice, previousPrice, difference);
+        }
+      }
+
+      // Step 2a: Latest price — FAST PATH: latest_coin_value
+      decimal latest;
       {
-        return (latestPrice, previousPrice, difference);
+        const string latestSql = @"
+            SELECT value_cad
+            FROM latest_coin_value
+            WHERE name = 'Bitcoin'
+            LIMIT 1;";
+        await using var latestCmd = new MySqlCommand(latestSql, conn) { CommandTimeout = 6 };
+        var latestObj = await latestCmd.ExecuteScalarAsync(ct);
+        if (latestObj != null && latestObj != DBNull.Value)
+        {
+          latest = Convert.ToDecimal(latestObj);
+        }
+        else
+        {
+          // Step 2b: Fallback to historical table
+          const string fallbackLatestSql = @"
+                SELECT value_cad
+                FROM coin_value
+                WHERE name = 'Bitcoin'
+                ORDER BY `timestamp` DESC, id DESC
+                LIMIT 1;";
+          await using var fbCmd = new MySqlCommand(fallbackLatestSql, conn) { CommandTimeout = 10 };
+          var fbObj = await fbCmd.ExecuteScalarAsync(ct);
+          latest = (fbObj != null && fbObj != DBNull.Value) ? Convert.ToDecimal(fbObj) : 0m;
+        }
       }
 
-      // Step 2: Fetch fresh data from coin_value
-      string sql = @"
-        SELECT  
-          (SELECT value_cad FROM coin_value WHERE name = 'Bitcoin' ORDER BY timestamp DESC LIMIT 1) AS latest_price,
-          (SELECT value_cad FROM coin_value WHERE name = 'Bitcoin' AND timestamp <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY) ORDER BY timestamp DESC LIMIT 1) AS previous_price;";
-
-      await using var cmd = new MySqlCommand(sql, conn);
-      using var freshReader = await cmd.ExecuteReaderAsync();
-      if (await freshReader.ReadAsync())
+      // Step 3: Previous price (historical, day-ago) — separate query
+      decimal previous;
       {
-        latestPrice = freshReader.IsDBNull(0) ? 0 : freshReader.GetDecimal(0);
-        previousPrice = freshReader.IsDBNull(1) ? 0 : freshReader.GetDecimal(1);
+        const string prevSql = @"
+            SELECT value_cad
+            FROM coin_value
+            WHERE name = 'Bitcoin'
+              AND `timestamp` <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY)
+            ORDER BY `timestamp` DESC, id DESC
+            LIMIT 1;";
+        await using var prevCmd = new MySqlCommand(prevSql, conn) { CommandTimeout = 10 };
+        var prevObj = await prevCmd.ExecuteScalarAsync(ct);
+        previous = (prevObj != null && prevObj != DBNull.Value) ? Convert.ToDecimal(prevObj) : 0m;
       }
-      freshReader.Close();
 
-      difference = latestPrice - previousPrice;
+      var diff = latest - previous;
 
-      // Step 3: Update cache table
-      string updateSql = "UPDATE btc_current_velocity_cache SET latest_price = @latest, previous_price = @previous, updated_at = UTC_TIMESTAMP() WHERE id = 1;";
-      await using var updateCmd = new MySqlCommand(updateSql, conn);
-      updateCmd.Parameters.AddWithValue("@latest", latestPrice);
-      updateCmd.Parameters.AddWithValue("@previous", previousPrice);
-      await updateCmd.ExecuteNonQueryAsync();
+      // Step 4: Update cache table (store difference too so we can short-circuit next time)
+      const string updateSql = @"
+        UPDATE btc_current_velocity_cache
+        SET latest_price = @latest,
+            previous_price = @previous,
+            difference = @diff,
+            updated_at = UTC_TIMESTAMP()
+        WHERE id = 1;";
+      await using (var updateCmd = new MySqlCommand(updateSql, conn) { CommandTimeout = 6 })
+      {
+        updateCmd.Parameters.Add("@latest", MySqlDbType.NewDecimal).Value = latest;
+        updateCmd.Parameters.Add("@previous", MySqlDbType.NewDecimal).Value = previous;
+        updateCmd.Parameters.Add("@diff", MySqlDbType.NewDecimal).Value = diff;
+        await updateCmd.ExecuteNonQueryAsync(ct);
+      }
 
-      return (latestPrice, previousPrice, difference);
+      return (latest, previous, diff);
     }
-
-
 
     [HttpPost("/CurrencyValue/GetLatestByName/{name}", Name = "GetLatestCurrencyValuesByName")]
     public async Task<ExchangeRate> GetLatestCurrencyValuesByName(string name, CancellationToken ct = default)
@@ -1419,16 +1517,17 @@ LIMIT 1;";
 
 
     [HttpGet("/CoinValue/GetLatestCoinMarketCaps", Name = "GetLatestCoinMarketCaps")]
-    public async Task<List<CoinMarketCap>> GetLatestCoinMarketCaps()
+    public async Task<List<CoinMarketCap>> GetLatestCoinMarketCaps(CancellationToken ct = default)
     {
-      var coinMarketCaps = new List<CoinMarketCap>();
+      var coinMarketCaps = new List<CoinMarketCap>(64);
 
-      await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      await using var conn = new MySqlConnection(_config.GetConnectionString("maxhanna"));
       try
       {
-        await conn.OpenAsync();
+        await conn.OpenAsync(ct);
 
-        const string sql = @"
+        // 1) Fast path: latest market caps + latest prices (from latest_coin_value)
+        const string latestFirstSql = @"
 WITH latest_market_caps AS (
     SELECT
         c1.coin_id,
@@ -1446,7 +1545,75 @@ WITH latest_market_caps AS (
         SELECT coin_id, MAX(recorded_at) AS max_time
         FROM coin_market_caps
         GROUP BY coin_id
-    ) c2 ON c1.coin_id = c2.coin_id AND c1.recorded_at = c2.max_time
+    ) c2
+      ON c1.coin_id = c2.coin_id AND c1.recorded_at = c2.max_time
+    ORDER BY c1.market_cap_usd DESC
+    LIMIT 30
+)
+SELECT
+    mc.coin_id,
+    mc.symbol,
+    mc.name,
+    mc.market_cap_usd,
+    mc.market_cap_cad,
+    COALESCE(lcv.value_usd, mc.mc_price_usd) AS price_usd,
+    COALESCE(lcv.value_cad, mc.mc_price_cad) AS price_cad,
+    mc.price_change_percentage_24h,
+    mc.inflow_change_24h,
+    mc.recorded_at,
+    lcv.`timestamp` AS price_timestamp
+FROM latest_market_caps mc
+LEFT JOIN latest_coin_value lcv
+  ON mc.name = lcv.name
+ORDER BY mc.market_cap_usd DESC;";
+
+        await using (var cmd = new MySqlCommand(latestFirstSql, conn) { CommandTimeout = 12 })
+        await using (var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleResult | CommandBehavior.SequentialAccess, ct))
+        {
+          while (await reader.ReadAsync(ct))
+          {
+            coinMarketCaps.Add(new CoinMarketCap
+            {
+              CoinId = reader.IsDBNull(reader.GetOrdinal("coin_id")) ? null : reader.GetString(reader.GetOrdinal("coin_id")),
+              Symbol = reader.IsDBNull(reader.GetOrdinal("symbol")) ? null : reader.GetString(reader.GetOrdinal("symbol")),
+              Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name")),
+              MarketCapUSD = reader.IsDBNull(reader.GetOrdinal("market_cap_usd")) ? 0m : reader.GetDecimal(reader.GetOrdinal("market_cap_usd")),
+              MarketCapCAD = reader.IsDBNull(reader.GetOrdinal("market_cap_cad")) ? 0m : reader.GetDecimal(reader.GetOrdinal("market_cap_cad")),
+              PriceUSD = reader.IsDBNull(reader.GetOrdinal("price_usd")) ? 0m : reader.GetDecimal(reader.GetOrdinal("price_usd")),
+              PriceCAD = reader.IsDBNull(reader.GetOrdinal("price_cad")) ? 0m : reader.GetDecimal(reader.GetOrdinal("price_cad")),
+              PriceChangePercentage24h = reader.IsDBNull(reader.GetOrdinal("price_change_percentage_24h")) ? 0m : reader.GetDecimal(reader.GetOrdinal("price_change_percentage_24h")),
+              InflowChange24h = reader.IsDBNull(reader.GetOrdinal("inflow_change_24h")) ? 0m : reader.GetDecimal(reader.GetOrdinal("inflow_change_24h")),
+              RecordedAt = reader.GetDateTime(reader.GetOrdinal("recorded_at")),
+              PriceTimestamp = reader.IsDBNull(reader.GetOrdinal("price_timestamp")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("price_timestamp"))
+            });
+          }
+        }
+
+        // If we got rows (which we almost always will), return
+        if (coinMarketCaps.Count > 0)
+          return coinMarketCaps;
+
+        // 2) Fallback: compute latest prices from historical coin_value (your current approach)
+        const string fallbackSql = @"
+WITH latest_market_caps AS (
+    SELECT
+        c1.coin_id,
+        c1.symbol,
+        c1.name,
+        c1.market_cap_usd,
+        c1.market_cap_cad,
+        c1.price_usd AS mc_price_usd,
+        c1.price_cad AS mc_price_cad,
+        c1.price_change_percentage_24h,
+        c1.inflow_change_24h,
+        c1.recorded_at
+    FROM coin_market_caps c1
+    INNER JOIN (
+        SELECT coin_id, MAX(recorded_at) AS max_time
+        FROM coin_market_caps
+        GROUP BY coin_id
+    ) c2
+      ON c1.coin_id = c2.coin_id AND c1.recorded_at = c2.max_time
     ORDER BY c1.market_cap_usd DESC
     LIMIT 30
 ),
@@ -1455,13 +1622,14 @@ latest_coin_values AS (
         v1.name,
         v1.value_usd,
         v1.value_cad,
-        v1.timestamp
+        v1.`timestamp`
     FROM coin_value v1
     INNER JOIN (
-        SELECT name, MAX(timestamp) AS max_time
+        SELECT name, MAX(`timestamp`) AS max_time
         FROM coin_value
         GROUP BY name
-    ) v2 ON v1.name = v2.name AND v1.timestamp = v2.max_time
+    ) v2
+      ON v1.name = v2.name AND v1.`timestamp` = v2.max_time
 )
 SELECT
     mc.coin_id,
@@ -1474,31 +1642,31 @@ SELECT
     mc.price_change_percentage_24h,
     mc.inflow_change_24h,
     mc.recorded_at,
-    cv.timestamp AS price_timestamp
+    cv.`timestamp` AS price_timestamp
 FROM latest_market_caps mc
-LEFT JOIN latest_coin_values cv ON mc.name = cv.name
+LEFT JOIN latest_coin_values cv
+  ON mc.name = cv.name
 ORDER BY mc.market_cap_usd DESC;";
 
-        await using var cmd = new MySqlCommand(sql, conn);
-        await using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleResult | CommandBehavior.SequentialAccess);
-
-        while (await reader.ReadAsync())
+        coinMarketCaps.Clear(); // just in case
+        await using var fbCmd = new MySqlCommand(fallbackSql, conn) { CommandTimeout = 15 };
+        await using var fbReader = await fbCmd.ExecuteReaderAsync(CommandBehavior.SingleResult | CommandBehavior.SequentialAccess, ct);
+        while (await fbReader.ReadAsync(ct))
         {
-          var cmc = new CoinMarketCap
+          coinMarketCaps.Add(new CoinMarketCap
           {
-            CoinId = reader.IsDBNull(reader.GetOrdinal("coin_id")) ? null : reader.GetString(reader.GetOrdinal("coin_id")),
-            Symbol = reader.IsDBNull(reader.GetOrdinal("symbol")) ? null : reader.GetString(reader.GetOrdinal("symbol")),
-            Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name")),
-            MarketCapUSD = reader.IsDBNull(reader.GetOrdinal("market_cap_usd")) ? 0 : reader.GetDecimal(reader.GetOrdinal("market_cap_usd")),
-            MarketCapCAD = reader.IsDBNull(reader.GetOrdinal("market_cap_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("market_cap_cad")),
-            PriceUSD = reader.IsDBNull(reader.GetOrdinal("price_usd")) ? 0 : reader.GetDecimal(reader.GetOrdinal("price_usd")),
-            PriceCAD = reader.IsDBNull(reader.GetOrdinal("price_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("price_cad")),
-            PriceChangePercentage24h = reader.IsDBNull(reader.GetOrdinal("price_change_percentage_24h")) ? 0 : reader.GetDecimal(reader.GetOrdinal("price_change_percentage_24h")),
-            InflowChange24h = reader.IsDBNull(reader.GetOrdinal("inflow_change_24h")) ? 0 : reader.GetDecimal(reader.GetOrdinal("inflow_change_24h")),
-            RecordedAt = reader.GetDateTime(reader.GetOrdinal("recorded_at")),
-            PriceTimestamp = reader.IsDBNull(reader.GetOrdinal("price_timestamp")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("price_timestamp"))
-          };
-          coinMarketCaps.Add(cmc);
+            CoinId = fbReader.IsDBNull(fbReader.GetOrdinal("coin_id")) ? null : fbReader.GetString(fbReader.GetOrdinal("coin_id")),
+            Symbol = fbReader.IsDBNull(fbReader.GetOrdinal("symbol")) ? null : fbReader.GetString(fbReader.GetOrdinal("symbol")),
+            Name = fbReader.IsDBNull(fbReader.GetOrdinal("name")) ? null : fbReader.GetString(fbReader.GetOrdinal("name")),
+            MarketCapUSD = fbReader.IsDBNull(fbReader.GetOrdinal("market_cap_usd")) ? 0m : fbReader.GetDecimal(fbReader.GetOrdinal("market_cap_usd")),
+            MarketCapCAD = fbReader.IsDBNull(fbReader.GetOrdinal("market_cap_cad")) ? 0m : fbReader.GetDecimal(fbReader.GetOrdinal("market_cap_cad")),
+            PriceUSD = fbReader.IsDBNull(fbReader.GetOrdinal("price_usd")) ? 0m : fbReader.GetDecimal(fbReader.GetOrdinal("price_usd")),
+            PriceCAD = fbReader.IsDBNull(fbReader.GetOrdinal("price_cad")) ? 0m : fbReader.GetDecimal(fbReader.GetOrdinal("price_cad")),
+            PriceChangePercentage24h = fbReader.IsDBNull(fbReader.GetOrdinal("price_change_percentage_24h")) ? 0m : fbReader.GetDecimal(fbReader.GetOrdinal("price_change_percentage_24h")),
+            InflowChange24h = fbReader.IsDBNull(fbReader.GetOrdinal("inflow_change_24h")) ? 0m : fbReader.GetDecimal(fbReader.GetOrdinal("inflow_change_24h")),
+            RecordedAt = fbReader.GetDateTime(fbReader.GetOrdinal("recorded_at")),
+            PriceTimestamp = fbReader.IsDBNull(fbReader.GetOrdinal("price_timestamp")) ? (DateTime?)null : fbReader.GetDateTime(fbReader.GetOrdinal("price_timestamp"))
+          });
         }
       }
       catch (Exception ex)
@@ -1516,10 +1684,10 @@ ORDER BY mc.market_cap_usd DESC;";
     private async Task<CryptoWallet?> GetWalletFromDb(int? userId, string type, CancellationToken ct = default)
     {
       if (userId == null) return null;
-      var typeNorm = type?.Trim(); 
-      if (string.IsNullOrWhiteSpace(typeNorm) || !AllowedWalletTypes.Contains(typeNorm)){
+
+      var typeNorm = type?.Trim();
+      if (string.IsNullOrWhiteSpace(typeNorm) || !AllowedWalletTypes.Contains(typeNorm))
         throw new ArgumentException($"Unsupported wallet type: '{type}'", nameof(type));
-      }
 
       var typeUpper = typeNorm.ToUpperInvariant();
       var typeLower = typeNorm.ToLowerInvariant();
@@ -1553,28 +1721,48 @@ ORDER BY mc.market_cap_usd DESC;";
             userCurrency = Convert.ToString(result)!.Trim();
         }
 
-        // 2) Coin → CAD rate (latest from coin_value)
+        // Normalize the coin name for price lookups (e.g., BTC/XBT -> 'Bitcoin', ETH -> 'Ethereum', etc.)
+        string normalizedCoinName = CoinNameMap.TryGetValue(typeUpper, out var toName) ? toName : typeUpper;
+
+        // 2) Coin → CAD rate (prefer latest_coin_value, fallback to coin_value)
         decimal coinToCad = 0m;
-        const string coinSql = @"
+
+        // 2a) FAST PATH: latest_coin_value
+        const string latestCoinSql = @"
+SELECT value_cad
+FROM latest_coin_value
+WHERE name = @Name
+LIMIT 1;";
+        await using (var latestCoinCmd = new MySqlCommand(latestCoinSql, conn) { CommandTimeout = 6 })
+        {
+          latestCoinCmd.Parameters.Add("@Name", MySqlDbType.VarChar, 100).Value = normalizedCoinName;
+          var coinResult = await latestCoinCmd.ExecuteScalarAsync(ct);
+          if (coinResult != null && coinResult != DBNull.Value)
+          {
+            coinToCad = Convert.ToDecimal(coinResult);
+          }
+          else
+          {
+            // 2b) Fallback: historical table
+            const string coinSql = @"
 SELECT value_cad
 FROM coin_value
 WHERE name = @Name
 ORDER BY `timestamp` DESC, id DESC
 LIMIT 1;";
-        await using (var coinCmd = new MySqlCommand(coinSql, conn) { CommandTimeout = 8 })
-        {
-          string tmpCoinName = CoinNameMap.TryGetValue(typeUpper, out var toName) ? toName : typeUpper;
-          coinCmd.Parameters.Add("@Name", MySqlDbType.VarChar, 64).Value = tmpCoinName;
-          var coinResult = await coinCmd.ExecuteScalarAsync(ct);
-          if (coinResult != null && coinResult != DBNull.Value)
-            coinToCad = Convert.ToDecimal(coinResult);
+            await using var coinCmd = new MySqlCommand(coinSql, conn) { CommandTimeout = 8 };
+            coinCmd.Parameters.Add("@Name", MySqlDbType.VarChar, 100).Value = normalizedCoinName;
+            var legacyCoinResult = await coinCmd.ExecuteScalarAsync(ct);
+            if (legacyCoinResult != null && legacyCoinResult != DBNull.Value)
+              coinToCad = Convert.ToDecimal(legacyCoinResult);
+          }
         }
 
-        // 3) CAD → user currency rate (prefer latest_exchange_rate, fallback to exchange_rates)
+        // 3) CAD → user currency (prefer latest_exchange_rate, fallback to exchange_rates)
         decimal cadToUserCurrency = 1m; // Identity if userCurrency == CAD or rate missing
         if (!userCurrency.Equals("CAD", StringComparison.OrdinalIgnoreCase))
         {
-          // Primary: latest_exchange_rate (fast, small, PK on target_currency)
+          // Primary: latest_exchange_rate (fast, small)
           const string latestFxSql = @"
 SELECT rate
 FROM latest_exchange_rate
@@ -1592,7 +1780,7 @@ LIMIT 1;";
             }
           }
 
-          // Fallback: exchange_rates (legacy, ordered by timestamp DESC, id DESC)
+          // Fallback: exchange_rates (ordered for determinism)
           if (!gotLatest)
           {
             const string legacyFxSql = @"
@@ -1612,8 +1800,7 @@ LIMIT 1;";
         // 4) Compute coin → user's fiat rate
         decimal fiatRate = coinToCad * cadToUserCurrency;
 
-        // 5) Latest balances per wallet for this user & type
-        // NOTE: dynamic table names must be from a whitelist (enforced above)
+        // 5) Latest balances per wallet for this user & type (dynamic tables limited by whitelist)
         string walletSql = $@"
 SELECT
     wi.{typeLower}_address AS address,
@@ -1633,13 +1820,11 @@ WHERE wi.user_id = @UserId;";
         await using var cmd = new MySqlCommand(walletSql, conn) { CommandTimeout = 15 };
         cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId.Value;
 
-        // Stream results efficiently
         await using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleResult | CommandBehavior.SequentialAccess, ct);
 
         decimal totalBalance = 0m;
         decimal totalAvailable = 0m;
 
-        // Resolve ordinals once
         int addressOrdinal = reader.GetOrdinal("address");
         int balanceOrdinal = reader.GetOrdinal("balance");
         int fetchedAtOrdinal = reader.GetOrdinal("fetched_at");
@@ -1658,13 +1843,12 @@ WHERE wi.user_id = @UserId;";
             available = finalBalance.ToString("F8", System.Globalization.CultureInfo.InvariantCulture),
             debt = "0",
             pending = "0",
-            btcRate = 1, // if 'type' is BTC; otherwise you might want to derive a cross rate
+            btcRate = 1, // if 'type' is BTC; otherwise adjust if you need cross-coin rates
             fiatRate = Convert.ToDouble(fiatRate),
             status = "active"
           };
 
           wallet.currencies.Add(currency);
-
           totalBalance += finalBalance;
           totalAvailable += finalBalance;
         }
