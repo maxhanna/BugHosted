@@ -59,9 +59,14 @@
           </select>
         </div>
         <div class="page-navigation">
-          <button (click)="previousPage()" [disabled]="currentPage === 1">{{onMobile() ? 'Prev' : 'Previous'}}</button>
+          <button (click)="previousPage()" [disabled]="currentPage === 1 || isLoading">
+            {{onMobile() ? 'Prev' : 'Previous'}}
+          </button>
           <span>{{onMobile() ? '' : 'Page '}}{{currentPage}} {{onMobile() ? '/' : 'of'}} {{totalPages}}</span>
-          <button (click)="nextPage()" [disabled]="currentPage === totalPages">Next</button>
+          <button (click)="nextPage()"
+           [disabled]="currentPage === totalPages || isLoading">
+           Next
+          </button>
         </div>
       </div>
 
@@ -81,11 +86,18 @@
             <span class="largeAvatar cursorPointer" (click)="notificationTextClick(notification)">👽</span>
           </div>
           <div class="nliRightDiv">
-            <button title="Delete Notification" (click)="delete(notification)"
-              class="deleteNotificationButton">❌</button>
-            <button title="Read Notification" (click)="read(notification)"
-              class="readNotificationButton">{{notification.isRead
-              ? 'Unread' : '👀'}}</button>
+            <button 
+              [disabled]="isLoading"
+              title="Delete Notification" 
+              class="deleteNotificationButton"
+              (click)="delete(notification)">❌</button>
+            <button 
+              [disabled]="isLoading"
+              title="Read Notification" 
+              class="readNotificationButton"
+              (click)="read(notification)">
+              {{notification.isRead ? 'Unread' : '👀'}}
+            </button>
             <div *ngIf="notification.fileId" (click)="goToFileId(notification)"
               class="usernameProfileLink cursorPointerUnderlined fileId">
               <strong>File ID:</strong> {{ notification.fileId }}
