@@ -845,23 +845,6 @@ private async Task<string> DescribeMediaContent(FileEntry file, bool detailed = 
   }
 }
 
-    // A softer prompt that reduces "DO NOT" pressure and encourages natural phrasing
-    private string BuildGentlePrompt(bool multipleFrames)
-    {
-      var prompt = @"Write a short natural-language caption suitable for a filename or alt text.
-Focus on the main subject and action with one or two vivid details.
-If text is visible, paraphrase the idea without quoting.";
-
-      if (multipleFrames)
-      {
-        prompt += "\nSummarize the consistent elements across shots and mention one brief difference.";
-      }
-
-      // Keep only one clear constraint line to avoid triggering placeholder heuristics
-      prompt += "\nAvoid any tags, placeholders, or markup.";
-      return prompt;
-    }
-
     // Centralized vision call with locking and tunable options
     private async Task<string?> SendVisionAsync(
       string model,
@@ -987,9 +970,26 @@ If text is visible, paraphrase the idea without quoting.";
     }
 
 
+    // A softer prompt that reduces "DO NOT" pressure and encourages natural phrasing
+    private string BuildGentlePrompt(bool multipleFrames)
+    {
+      var prompt = @"Write a short natural-language caption suitable for alt text.
+Focus on the main subject and action with one or two vivid details.
+If text is visible, paraphrase the idea without quoting.";
+
+      if (multipleFrames)
+      {
+        prompt += "\nSummarize the consistent elements across shots and mention one brief difference.";
+      }
+
+      // Keep only one clear constraint line to avoid triggering placeholder heuristics
+      prompt += "\nAvoid any tags, placeholders, or markup.";
+      return prompt;
+    }
+
 private string BuildDetailedPrompt(bool multipleFrames)
 {
-    var prompt = @"You are creating a short, funny caption intended for a meme file name.
+    var prompt = @"You are creating a short, funny caption intended for a meme.
 Write 1–2 short phrases (max 12 words each) that:
 • Capture the joke or vibe of the image.
 • Use casual, relatable language (like memes).
@@ -997,7 +997,7 @@ Write 1–2 short phrases (max 12 words each) that:
 
 Constraints:
 • Output should look like a meme filename.
-• No tags, placeholders, markup, hashtags, emojis, or quotes.
+• No tags, placeholders, markup, hashtags, emojis, underscores or quotes.
 • Avoid meta phrases (e.g., “this image shows”, “caption reads”).
 • Keep it in English and ASCII only.";
 
@@ -1013,7 +1013,7 @@ private string BuildConcisePrompt()
     return @"Write one short, funny phrase (8–12 words) that feels like a meme filename.
 Constraints:
 • Use underscores instead of spaces.
-• No tags, placeholders, markup, hashtags, emojis, or quotes.
+• No tags, placeholders, markup, hashtags, emojis, underscores or quotes.
 • Avoid meta phrases (“image/post that says”, “caption reads”).
 • Keep it in English and ASCII only.";
 }
