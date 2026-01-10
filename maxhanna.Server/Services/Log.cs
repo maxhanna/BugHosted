@@ -27,18 +27,10 @@ public Task Db(string message, int? userId = null, string? type = "SYSTEM", bool
 
   
 	
-public async Task<List<Dictionary<string, object?>>> GetLogs(
-    int? userId = null,
-    string? component = null,
-    int limit = 1000,
-    string keywords = "",
-    // Keyset pagination tokens (optional): when provided, fetch rows older than this cursor
-    DateTime? lastTimestamp = null,
-    int? lastId = null,
-    CancellationToken ct = default)
+	public async Task<List<Dictionary<string, object?>>> GetLogs(int? userId = null, string? component = null, int limit = 1000, string keywords = "", int page = 1, CancellationToken ct = default)
 {
     var logs = new List<Dictionary<string, object?>>(Math.Min(Math.Max(limit, 1), 5000));
-    int take = Math.Max(1, Math.Min(limit, 5000));
+		int offset = (page - 1) * limit;
 
     // Build WHERE + ORDER BY with deterministic order
     var sb = new StringBuilder();
@@ -54,18 +46,9 @@ public async Task<List<Dictionary<string, object?>>> GetLogs(
     if (hasKeywords)
     {  
        sb.AppendLine("  AND MATCH(comment) AGAINST (@Keywords IN BOOLEAN MODE)"); 
-    }
-
-    // Keyset pagination
-    // If you don't pass cursor, you get the newest page. If you pass it, you get older rows.
-    if (lastTimestamp.HasValue && lastId.HasValue)
-    {
-        sb.AppendLine("  AND ( `timestamp` < @LastTs OR (`timestamp` = @LastTs AND id < @LastId) )");
-    }
-
-    // Deterministic order; matches suggested indexes
-    sb.AppendLine("ORDER BY `timestamp` DESC, id DESC");
-    sb.AppendLine("LIMIT @Limit;");
+    } 
+		sb.AppendLine(" ORDER BY timestamp DESC LIMIT @Limit OFFSET @Offset ");
+    sb.AppendLine(" LIMIT @Limit;");
 
     try
     {
@@ -75,27 +58,19 @@ public async Task<List<Dictionary<string, object?>>> GetLogs(
         await using var cmd = new MySqlCommand(sb.ToString(), conn)
         {
             CommandTimeout = 15
-        };
-        cmd.Parameters.Add("@Limit", MySqlDbType.Int32).Value = take;
+        }; 
+        cmd.Parameters.AddWithValue("@Limit", limit);
+        cmd.Parameters.AddWithValue("@Offset", offset);
 
-        if (userId.HasValue)
+        if (userId.HasValue) {
             cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId.Value;
-        if (!string.IsNullOrWhiteSpace(component))
+        }
+        if (!string.IsNullOrWhiteSpace(component)) { 
             cmd.Parameters.Add("@Component", MySqlDbType.VarChar, 45).Value = component;
-
-        if (hasKeywords)
-        {
-            // For FULLTEXT boolean mode, you may want to transform raw keywords to "+term*" format.
-            // For now, pass as-is and let the caller control the boolean syntax.
+        }
+        if (hasKeywords) {
             cmd.Parameters.Add("@Keywords", MySqlDbType.Text).Value = keywords;
-        }
-
-        if (lastTimestamp.HasValue && lastId.HasValue)
-        {
-            cmd.Parameters.Add("@LastTs", MySqlDbType.Timestamp).Value = lastTimestamp.Value;
-            cmd.Parameters.Add("@LastId", MySqlDbType.Int32).Value = lastId.Value;
-        }
-
+        } 
         await using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleResult | CommandBehavior.SequentialAccess, ct);
 
         // Resolve ordinals once
@@ -210,8 +185,7 @@ public async Task<List<Dictionary<string, object?>>> GetLogs(
 			_ = Db("ValidateUserLoggedIn Exception: " + ex.Message + $".{(!string.IsNullOrEmpty(callingMethodName) ? " Calling method: " + callingMethodName : "")}", null, "SYSTEM", true);
 			return false;
 		}
-	}
-	
+	} 
 public async Task<bool> DeleteOldLogs(CancellationToken ct = default)
 {
     const int batchSize = 1000; // tune: 1k–20k depending on row size & I/O
