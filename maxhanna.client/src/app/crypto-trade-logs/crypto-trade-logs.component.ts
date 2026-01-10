@@ -27,7 +27,8 @@ export class CryptoTradeLogsComponent extends ChildComponent implements AfterVie
   totalLogs = 0;
   selectedCoin?: string;
   selectedStrategy?: string;
-  timeLeft = 30;
+  timeLeft = 120;
+  defaultTimeLeft = 120;
   private tradeLogInterval: any = null;
 
   async ngAfterViewInit() {
@@ -89,12 +90,12 @@ export class CryptoTradeLogsComponent extends ChildComponent implements AfterVie
     if (this.tradeLogInterval) {
       clearInterval(this.tradeLogInterval); 
     }
-    this.timeLeft = 30;
+    this.timeLeft = this.defaultTimeLeft;
     this.tradeLogInterval = setInterval(async () => {
       this.timeLeft--;
       if (this.timeLeft === 0) {  
         await this.fetchTradeLogs();
-        this.timeLeft = 30;
+        this.timeLeft = this.defaultTimeLeft;
       } else {
         this.changeDetectorRef.detectChanges();
       }
