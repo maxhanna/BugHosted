@@ -558,179 +558,183 @@ namespace maxhanna.Server.Controllers
       }
     }
 
-    
-private async Task<string> DescribeMediaContent(FileEntry file, bool detailed = true)
-{
-  const string tempThumbnailDir = @"E:\Dev\maxhanna\maxhanna.Server\TempThumbnails";
-  try
-  {
-    EnsureTempDir(tempThumbnailDir);
 
-    var filePath = Path.Combine(file.Directory ?? string.Empty, file.FileName ?? string.Empty);
-    if (!System.IO.File.Exists(filePath))
+    private async Task<string> DescribeMediaContent(FileEntry file, bool detailed = true)
     {
-      _ = _log.Db($"File {file.FileName} not found on disk.", null, "AiController", true);
-      return string.Empty;
-    }
-
-    var base64Images = new List<string>();
-
-    // Decide if the media is video
-    var videoTypes = new[] { "mp4", "mov", "webm", "avi", "mkv" };
-    bool isVideo = file.FileType != null && videoTypes.Contains(file.FileType.ToLower());
-
-    // We’ll adapt the size if payload grows too large
-    int shortSide = _resizeSteps[0];
-
-    List<byte[]> pngThumbs = new();
-
-    if (isVideo)
-    {
-      // 1) Prefer pre-generated thumbnails (use up to configured max)
-      pngThumbs = await LoadExistingVideoThumbnailsAsync(file, _maxVisionThumbnails, shortSide);
-
-      // 2) If none found, fallback to ffmpeg capture as you had before (2 frames)
-      if (pngThumbs.Count == 0)
+      const string tempThumbnailDir = @"E:\Dev\maxhanna\maxhanna.Server\TempThumbnails";
+      try
       {
-        double durationSec = file.Duration.GetValueOrDefault(10);
-        var capturePoints = (durationSec > 2) ? new[] { 0.3, 0.6 } : new[] { 0.5 };
+        EnsureTempDir(tempThumbnailDir);
 
-        foreach (var t in capturePoints)
+        var filePath = Path.Combine(file.Directory ?? string.Empty, file.FileName ?? string.Empty);
+        if (!System.IO.File.Exists(filePath))
         {
-          var jpgPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg");
-          var ffmpegArgs = $"-i \"{filePath}\" -ss {t} -vframes 1 -vf scale={shortSide}:-1 -q:v 10 \"{jpgPath}\"";
+          _ = _log.Db($"File {file.FileName} not found on disk.", null, "AiController", true);
+          return string.Empty;
+        }
 
-          var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
-          {
-            RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true
-          });
+        var base64Images = new List<string>();
 
-          if (proc != null)
+        // Decide if the media is video
+        var videoTypes = new[] { "mp4", "mov", "webm", "avi", "mkv" };
+        bool isVideo = file.FileType != null && videoTypes.Contains(file.FileType.ToLower());
+
+        // We’ll adapt the size if payload grows too large
+        int shortSide = _resizeSteps[0];
+
+        List<byte[]> pngThumbs = new();
+
+        if (isVideo)
+        {
+          // 1) Prefer pre-generated thumbnails (use up to configured max)
+          pngThumbs = await LoadExistingVideoThumbnailsAsync(file, _maxVisionThumbnails, shortSide);
+
+          // 2) If none found, fallback to ffmpeg capture as you had before (2 frames)
+          if (pngThumbs.Count == 0)
           {
-            await proc.WaitForExitAsync();
-            if (proc.ExitCode == 0 && System.IO.File.Exists(jpgPath))
+            double durationSec = file.Duration.GetValueOrDefault(10);
+            var capturePoints = (durationSec > 2) ? new[] { 0.3, 0.6 } : new[] { 0.5 };
+
+            foreach (var t in capturePoints)
             {
-              var jpgBytes = await System.IO.File.ReadAllBytesAsync(jpgPath);
-              var pngBytes = await ConvertImageBytesToPngAsync(jpgBytes, shortSide);
-              pngThumbs.Add(pngBytes);
-              _ = _log.Db($"Created video thumbnail (fallback PNG): {jpgPath} → {pngBytes.Length} bytes", null, "AiController", true);
-            }
-            else
-            {
-              var err = proc != null ? await proc.StandardError.ReadToEndAsync() : "ffmpeg start failed";
-              _ = _log.Db($"FFmpeg thumbnail failed: {err}", null, "AiController", true);
+              var jpgPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg");
+              var ffmpegArgs = $"-i \"{filePath}\" -ss {t} -vframes 1 -vf scale={shortSide}:-1 -q:v 10 \"{jpgPath}\"";
+
+              var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
+              {
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+              });
+
+              if (proc != null)
+              {
+                await proc.WaitForExitAsync();
+                if (proc.ExitCode == 0 && System.IO.File.Exists(jpgPath))
+                {
+                  var jpgBytes = await System.IO.File.ReadAllBytesAsync(jpgPath);
+                  var pngBytes = await ConvertImageBytesToPngAsync(jpgBytes, shortSide);
+                  pngThumbs.Add(pngBytes);
+                  _ = _log.Db($"Created video thumbnail (fallback PNG): {jpgPath} → {pngBytes.Length} bytes", null, "AiController", true);
+                }
+                else
+                {
+                  var err = proc != null ? await proc.StandardError.ReadToEndAsync() : "ffmpeg start failed";
+                  _ = _log.Db($"FFmpeg thumbnail failed: {err}", null, "AiController", true);
+                }
+              }
             }
           }
         }
-      }
-    }
-    else
-    {
-      // Image: convert to PNG at initial shortSide
-      try
-      {
-        var pngBytes = await ConvertImageFileToPngAsync(filePath, shortSide);
-        pngThumbs.Add(pngBytes);
-        _ = _log.Db($"Converted image to PNG: {filePath} → {pngBytes.Length} bytes", null, "AiController", true);
-      }
-      catch (Exception ex)
-      {
-        // Fallback via ffmpeg
-        var jpgPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg");
-        var ffmpegArgs = $"-i \"{filePath}\" -vf scale={shortSide}:-1 -q:v 10 \"{jpgPath}\"";
-        var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
+        else
         {
-          RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true
-        });
-        if (proc != null)
-        {
-          await proc.WaitForExitAsync();
-          if (proc.ExitCode == 0 && System.IO.File.Exists(jpgPath))
+          // Image: convert to PNG at initial shortSide
+          try
           {
-            var jpgBytes = await System.IO.File.ReadAllBytesAsync(jpgPath);
-            var pngBytes = await ConvertImageBytesToPngAsync(jpgBytes, shortSide);
+            var pngBytes = await ConvertImageFileToPngAsync(filePath, shortSide);
             pngThumbs.Add(pngBytes);
-            _ = _log.Db($"Fallback image conversion (ffmpeg→JPG→PNG): {jpgPath} → {pngBytes.Length} bytes", null, "AiController", true);
+            _ = _log.Db($"Converted image to PNG: {filePath} → {pngBytes.Length} bytes", null, "AiController", true);
           }
-          else
+          catch (Exception ex)
           {
-            var err = proc != null ? await proc.StandardError.ReadToEndAsync() : "ffmpeg start failed";
-            _ = _log.Db($"FFmpeg image fallback failed: {err} | Original error: {ex.Message}", null, "AiController", true);
+            // Fallback via ffmpeg
+            var jpgPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg");
+            var ffmpegArgs = $"-i \"{filePath}\" -vf scale={shortSide}:-1 -q:v 10 \"{jpgPath}\"";
+            var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
+            {
+              RedirectStandardError = true,
+              UseShellExecute = false,
+              CreateNoWindow = true
+            });
+            if (proc != null)
+            {
+              await proc.WaitForExitAsync();
+              if (proc.ExitCode == 0 && System.IO.File.Exists(jpgPath))
+              {
+                var jpgBytes = await System.IO.File.ReadAllBytesAsync(jpgPath);
+                var pngBytes = await ConvertImageBytesToPngAsync(jpgBytes, shortSide);
+                pngThumbs.Add(pngBytes);
+                _ = _log.Db($"Fallback image conversion (ffmpeg→JPG→PNG): {jpgPath} → {pngBytes.Length} bytes", null, "AiController", true);
+              }
+              else
+              {
+                var err = proc != null ? await proc.StandardError.ReadToEndAsync() : "ffmpeg start failed";
+                _ = _log.Db($"FFmpeg image fallback failed: {err} | Original error: {ex.Message}", null, "AiController", true);
+              }
+            }
           }
         }
-      }
-    }
 
-    if (pngThumbs.Count == 0)
-    {
-      _ = _log.Db("No valid media content to analyze.", null, "AiController", true);
-      return string.Empty;
-    }
+        if (pngThumbs.Count == 0)
+        {
+          _ = _log.Db("No valid media content to analyze.", null, "AiController", true);
+          return string.Empty;
+        }
 
-    // Validate as images & compute combined size; adaptively downscale if needed
-    List<byte[]> validated = new();
-    foreach (var bytes in pngThumbs)
-    {
-      try
-      {
-        using var ms = new MemoryStream(bytes);
-        var info = SixLabors.ImageSharp.Image.Identify(ms);
-        if (info != null) validated.Add(bytes);
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"Skipping invalid thumbnail: {ex.Message}", null, "AiController", true);
-      }
-    }
+        // Validate as images & compute combined size; adaptively downscale if needed
+        List<byte[]> validated = new();
+        foreach (var bytes in pngThumbs)
+        {
+          try
+          {
+            using var ms = new MemoryStream(bytes);
+            var info = SixLabors.ImageSharp.Image.Identify(ms);
+            if (info != null) validated.Add(bytes);
+          }
+          catch (Exception ex)
+          {
+            _ = _log.Db($"Skipping invalid thumbnail: {ex.Message}", null, "AiController", true);
+          }
+        }
 
-    if (validated.Count == 0)
-    {
-      _ = _log.Db("No valid thumbnails after validation.", null, "AiController", true);
-      return string.Empty;
-    }
+        if (validated.Count == 0)
+        {
+          _ = _log.Db("No valid thumbnails after validation.", null, "AiController", true);
+          return string.Empty;
+        }
 
-    // If over size budget, step down resolution until payload fits (or we hit the smallest step)
-    long SumBytes(List<byte[]> arr) => arr.Sum(a => (long)a.Length);
+        // If over size budget, step down resolution until payload fits (or we hit the smallest step)
+        long SumBytes(List<byte[]> arr) => arr.Sum(a => (long)a.Length);
 
-    int stepIdx = 0;
-    while (SumBytes(validated) > _maxCombinedImageBytes && stepIdx < _resizeSteps.Length - 1)
-    {
-      stepIdx++;
-      int newShortSide = _resizeSteps[stepIdx];
-      var resized = new List<byte[]>();
-      foreach (var bytes in validated)
-      {
-        var smaller = await ConvertImageBytesToPngAsync(bytes, newShortSide);
-        resized.Add(smaller);
-      }
-      validated = resized;
-      _ = _log.Db($"Downscaled thumbnails to short side {newShortSide}. New combined size: {SumBytes(validated)} bytes.", null, "AiController", true);
-    }
+        int stepIdx = 0;
+        while (SumBytes(validated) > _maxCombinedImageBytes && stepIdx < _resizeSteps.Length - 1)
+        {
+          stepIdx++;
+          int newShortSide = _resizeSteps[stepIdx];
+          var resized = new List<byte[]>();
+          foreach (var bytes in validated)
+          {
+            var smaller = await ConvertImageBytesToPngAsync(bytes, newShortSide);
+            resized.Add(smaller);
+          }
+          validated = resized;
+          _ = _log.Db($"Downscaled thumbnails to short side {newShortSide}. New combined size: {SumBytes(validated)} bytes.", null, "AiController", true);
+        }
 
-    // Convert to clean base64 and (IMPORTANT) keep all available thumbnails up to configured max
-    var base64ImagesClean = validated
-      .Take(_maxVisionThumbnails)
-      .Select(b => ToCleanBase64(b))
-      .ToList();
+        // Convert to clean base64 and (IMPORTANT) keep all available thumbnails up to configured max
+        var base64ImagesClean = validated
+          .Take(_maxVisionThumbnails)
+          .Select(b => ToCleanBase64(b))
+          .ToList();
 
-    if (base64ImagesClean.Count == 0)
-    {
-      _ = _log.Db("No thumbnails available after size adaptation.", null, "AiController", true);
-      return string.Empty;
-    }
+        if (base64ImagesClean.Count == 0)
+        {
+          _ = _log.Db("No thumbnails available after size adaptation.", null, "AiController", true);
+          return string.Empty;
+        }
 
-    _ = _log.Db($"Thumbnails ready: {base64ImagesClean.Count}, combined size: {SumBytes(validated)} bytes.", null, "AiController", true);
+        _ = _log.Db($"Thumbnails ready: {base64ImagesClean.Count}, combined size: {SumBytes(validated)} bytes.", null, "AiController", true);
 
-    // Build prompt (keep your existing helpers)
-    string prompt = detailed ? BuildDetailedPrompt(base64ImagesClean.Count > 1) : BuildConcisePrompt();
+        // Build prompt (keep your existing helpers)
+        string prompt = detailed ? BuildDetailedPrompt(base64ImagesClean.Count > 1) : BuildConcisePrompt();
 
-    // PRIMARY CALL: Qwen2.5-VL (from _visionModel)
-    var payload = new
-    {
-      model = _visionModel, // "qwen2.5vl:7b" by default
-      stream = false,
-      messages = new[]
-      {
+        // PRIMARY CALL: Qwen2.5-VL (from _visionModel)
+        var payload = new
+        {
+          model = _visionModel, // "qwen2.5vl:7b" by default
+          stream = false,
+          messages = new[]
+          {
         new
         {
           role = "user",
@@ -738,112 +742,112 @@ private async Task<string> DescribeMediaContent(FileEntry file, bool detailed = 
           images = base64ImagesClean.Select(StripDataUriPrefixIfPresent).ToArray()
         }
       },
-      options = new
-      {
-        num_ctx = 2048,   // Qwen supports large contexts; 2K is safe for short captions
-        temperature = 0.35,
-        repeat_penalty = 1.15
+          options = new
+          {
+            num_ctx = 2048,   // Qwen supports large contexts; 2K is safe for short captions
+            temperature = 0.35,
+            repeat_penalty = 1.15
+          }
+        };
+
+        var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
+        {
+          Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        });
+
+        string? responseBody = null;
+        try
+        {
+          using var req = new HttpRequestMessage(HttpMethod.Post, "http://localhost:11434/api/chat")
+          {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+          };
+
+          await _ollamaMediaLock.WaitAsync();
+          HttpResponseMessage? resp = null;
+          try
+          {
+            var ct = HttpContext?.RequestAborted ?? CancellationToken.None;
+            resp = await _ollamaClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+          }
+          finally
+          {
+            try { _ollamaMediaLock.Release(); } catch { /* ignore */ }
+          }
+
+          if (!resp.IsSuccessStatusCode)
+          {
+            var errBody = await resp.Content.ReadAsStringAsync();
+            _ = _log.Db($"Ollama media analysis error {(int)resp.StatusCode}: {errBody}", null, "AiController", true);
+            return string.Empty;
+          }
+
+          responseBody = await resp.Content.ReadAsStringAsync();
+        }
+        catch (HttpRequestException hre)
+        {
+          _ = _log.Db($"Ollama request failed: {hre.Message}", null, "AiController", outputToConsole: true);
+          return string.Empty;
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db($"Unexpected error sending to Ollama: {ex.Message}", null, "AiController", true);
+          return string.Empty;
+        }
+
+        if (string.IsNullOrEmpty(responseBody))
+        {
+          _ = _log.Db("Ollama media analysis returned empty body.", null, "AiController", true);
+          return string.Empty;
+        }
+
+        // Parse and sanitize
+        var parsed = JsonSerializer.Deserialize<JsonElement>(responseBody);
+        var content = parsed.GetProperty("message").GetProperty("content").GetString() ?? string.Empty;
+        var cleaned = CleanCaption(content);
+
+        bool needsRetry = string.IsNullOrWhiteSpace(cleaned) || ContainsBannedTokens(cleaned) || cleaned.Length < 8;
+
+        // Retry to a second model if needed (keep your fallback to LLaVA)
+        if (needsRetry)
+        {
+          string gentlePrompt = BuildGentlePrompt(base64ImagesClean.Count > 1);
+          string[] stopSeq = { "!!!IMG!!!", "!!!IMAGE!!!", "!!!IMPORTANT!!!", "[IMAGE]", "[CAPTION]" };
+
+          // Second attempt: LLaVA 7B
+          var retry2 = await SendVisionAsync(
+            model: "llava:7b",
+            prompt: gentlePrompt,
+            base64Images: base64ImagesClean.ToArray(),
+            temperature: 0.6,
+            repeatPenalty: 1.1,
+            stop: stopSeq,
+            numCtx: 1024);
+
+          if (!string.IsNullOrWhiteSpace(retry2))
+          {
+            var cleaned2 = CleanCaption(retry2);
+            if (!ContainsBannedTokens(cleaned2) && cleaned2.Length >= 8) return cleaned2;
+          }
+
+          // Final fallback
+          cleaned = CleanCaption(content);
+          if (string.IsNullOrWhiteSpace(cleaned)) cleaned = "untitled media";
+          return cleaned;
+        }
+
+        return cleaned;
       }
-    };
-
-    var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
-    {
-      Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-    });
-
-    string? responseBody = null;
-    try
-    {
-      using var req = new HttpRequestMessage(HttpMethod.Post, "http://localhost:11434/api/chat")
+      catch (Exception ex)
       {
-        Content = new StringContent(json, Encoding.UTF8, "application/json")
-      };
-
-      await _ollamaMediaLock.WaitAsync();
-      HttpResponseMessage? resp = null;
-      try
-      {
-        var ct = HttpContext?.RequestAborted ?? CancellationToken.None;
-        resp = await _ollamaClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        _ = _log.Db($"Error in DescribeMediaContent: {ex.Message}", null, "AiController", true);
+        return string.Empty;
       }
       finally
       {
-        try { _ollamaMediaLock.Release(); } catch { /* ignore */ }
+        CleanupTempThumbnails(tempThumbnailDir);
       }
-
-      if (!resp.IsSuccessStatusCode)
-      {
-        var errBody = await resp.Content.ReadAsStringAsync();
-        _ = _log.Db($"Ollama media analysis error {(int)resp.StatusCode}: {errBody}", null, "AiController", true);
-        return string.Empty;
-      }
-
-      responseBody = await resp.Content.ReadAsStringAsync();
     }
-    catch (HttpRequestException hre)
-    {
-      _ = _log.Db($"Ollama request failed: {hre.Message}", null, "AiController", outputToConsole: true);
-      return string.Empty;
-    }
-    catch (Exception ex)
-    {
-      _ = _log.Db($"Unexpected error sending to Ollama: {ex.Message}", null, "AiController", true);
-      return string.Empty;
-    }
-
-    if (string.IsNullOrEmpty(responseBody))
-    {
-      _ = _log.Db("Ollama media analysis returned empty body.", null, "AiController", true);
-      return string.Empty;
-    }
-
-    // Parse and sanitize
-    var parsed = JsonSerializer.Deserialize<JsonElement>(responseBody);
-    var content = parsed.GetProperty("message").GetProperty("content").GetString() ?? string.Empty;
-    var cleaned = CleanCaption(content);
-
-    bool needsRetry = string.IsNullOrWhiteSpace(cleaned) || ContainsBannedTokens(cleaned) || cleaned.Length < 8;
-
-    // Retry to a second model if needed (keep your fallback to LLaVA)
-    if (needsRetry)
-    {
-      string gentlePrompt = BuildGentlePrompt(base64ImagesClean.Count > 1);
-      string[] stopSeq = { "!!!IMG!!!", "!!!IMAGE!!!", "!!!IMPORTANT!!!", "[IMAGE]", "[CAPTION]" };
-
-      // Second attempt: LLaVA 7B
-      var retry2 = await SendVisionAsync(
-        model: "llava:7b",
-        prompt: gentlePrompt,
-        base64Images: base64ImagesClean.ToArray(),
-        temperature: 0.6,
-        repeatPenalty: 1.1,
-        stop: stopSeq,
-        numCtx: 1024);
-
-      if (!string.IsNullOrWhiteSpace(retry2))
-      {
-        var cleaned2 = CleanCaption(retry2);
-        if (!ContainsBannedTokens(cleaned2) && cleaned2.Length >= 8) return cleaned2;
-      }
-
-      // Final fallback
-      cleaned = CleanCaption(content);
-      if (string.IsNullOrWhiteSpace(cleaned)) cleaned = "untitled media";
-      return cleaned;
-    }
-
-    return cleaned;
-  }
-  catch (Exception ex)
-  {
-    _ = _log.Db($"Error in DescribeMediaContent: {ex.Message}", null, "AiController", true);
-    return string.Empty;
-  }
-  finally
-  {
-    CleanupTempThumbnails(tempThumbnailDir);
-  }
-}
 
     // Centralized vision call with locking and tunable options
     private async Task<string?> SendVisionAsync(
@@ -987,9 +991,9 @@ If text is visible, paraphrase the idea without quoting.";
       return prompt;
     }
 
-private string BuildDetailedPrompt(bool multipleFrames)
-{
-    var prompt = @"You are creating a short, funny caption intended for a meme.
+    private string BuildDetailedPrompt(bool multipleFrames)
+    {
+      var prompt = @"You are creating a short, funny caption intended for a meme.
 Write 1–2 short phrases (max 12 words each) that:
 • Capture the joke or vibe of the image.
 • Use casual, relatable language (like memes).
@@ -1001,22 +1005,22 @@ Constraints:
 • Avoid meta phrases (e.g., “this image shows”, “caption reads”).
 • Keep it in English and ASCII only.";
 
-    if (multipleFrames)
-    {
+      if (multipleFrames)
+      {
         prompt += "\nIf multiple frames are present, summarize the shared joke and note one key twist.";
+      }
+      return prompt;
     }
-    return prompt;
-}
 
-private string BuildConcisePrompt()
-{
-    return @"Write one short, funny phrase (8–12 words) that feels like a meme filename.
+    private string BuildConcisePrompt()
+    {
+      return @"Write one short, funny phrase (8–12 words) that feels like a meme filename.
 Constraints:
 • Use underscores instead of spaces.
 • No tags, placeholders, markup, hashtags, emojis, underscores or quotes.
 • Avoid meta phrases (“image/post that says”, “caption reads”).
 • Keep it in English and ASCII only.";
-}
+    }
 
     public async Task<string?> DescribeMedia([FromBody] int fileEntryId)
     {
@@ -1464,94 +1468,94 @@ Constraints:
     }
 
 
-// NEW: Find and load video thumbnails from disk, convert to PNG, and resize.
-private async Task<List<byte[]>> LoadExistingVideoThumbnailsAsync(FileEntry file, int maxCount, int targetShortSide)
-{
-  var results = new List<byte[]>();
-  try
-  {
-    if (string.IsNullOrWhiteSpace(file.Directory) || string.IsNullOrWhiteSpace(file.FileName))
-      return results;
-
-    var dir = file.Directory!;
-    var baseName = Path.GetFileNameWithoutExtension(file.FileName);
-
-    // Candidate directories: same folder + common subfolders
-    var candidateDirs = new List<string> { dir };
-    var subdirs = new[] { "thumbnails", "Thumbnails", "thumbs", "Thumbs" };
-    foreach (var sd in subdirs)
+    // NEW: Find and load video thumbnails from disk, convert to PNG, and resize.
+    private async Task<List<byte[]>> LoadExistingVideoThumbnailsAsync(FileEntry file, int maxCount, int targetShortSide)
     {
-      var sub = Path.Combine(dir, sd);
-      if (Directory.Exists(sub)) candidateDirs.Add(sub);
-    }
+      var results = new List<byte[]>();
+      try
+      {
+        if (string.IsNullOrWhiteSpace(file.Directory) || string.IsNullOrWhiteSpace(file.FileName))
+          return results;
 
-    // Build patterns to match most common thumbnail naming schemes
-    // e.g., myvideo_thumb1.jpg, myvideo-thumb2.png, myvideo.thumbnail3.webp, myvideo_001.jpg
-    var patterns = new[]
-    {
+        var dir = file.Directory!;
+        var baseName = Path.GetFileNameWithoutExtension(file.FileName);
+
+        // Candidate directories: same folder + common subfolders
+        var candidateDirs = new List<string> { dir };
+        var subdirs = new[] { "thumbnails", "Thumbnails", "thumbs", "Thumbs" };
+        foreach (var sd in subdirs)
+        {
+          var sub = Path.Combine(dir, sd);
+          if (Directory.Exists(sub)) candidateDirs.Add(sub);
+        }
+
+        // Build patterns to match most common thumbnail naming schemes
+        // e.g., myvideo_thumb1.jpg, myvideo-thumb2.png, myvideo.thumbnail3.webp, myvideo_001.jpg
+        var patterns = new[]
+        {
       $"{baseName}_thumb", $"{baseName}-thumb", $"{baseName}.thumb",
       $"{baseName}_thumbnail", $"{baseName}-thumbnail", $"{baseName}.thumbnail",
       $"{baseName}_", $"{baseName}-"
     };
 
-    var exts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".webp" };
+        var exts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".webp" };
 
-    var candidates = new List<string>();
-    foreach (var cdir in candidateDirs.Distinct())
-    {
-      try
-      {
-        foreach (var f in Directory.EnumerateFiles(cdir))
+        var candidates = new List<string>();
+        foreach (var cdir in candidateDirs.Distinct())
         {
-          var ext = Path.GetExtension(f);
-          if (!exts.Contains(ext)) continue;
-          var name = Path.GetFileNameWithoutExtension(f);
-          if (patterns.Any(p => name.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+          try
           {
-            candidates.Add(f);
+            foreach (var f in Directory.EnumerateFiles(cdir))
+            {
+              var ext = Path.GetExtension(f);
+              if (!exts.Contains(ext)) continue;
+              var name = Path.GetFileNameWithoutExtension(f);
+              if (patterns.Any(p => name.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+              {
+                candidates.Add(f);
+              }
+            }
+          }
+          catch { /* ignore per-dir issues */ }
+        }
+
+        // Try to order thumbnails by numeric suffix if present (…thumb1, …thumb2, …001…)
+        int ExtractIndex(string path)
+        {
+          var n = Path.GetFileNameWithoutExtension(path);
+          var m = System.Text.RegularExpressions.Regex.Match(n, @"(\d+)$");
+          return m.Success ? int.Parse(m.Groups[1].Value) : int.MaxValue;
+        }
+
+        var ordered = candidates
+          .OrderBy(ExtractIndex)
+          .ThenBy(p => p, StringComparer.OrdinalIgnoreCase)
+          .Take(maxCount)
+          .ToList();
+
+        foreach (var path in ordered)
+        {
+          try
+          {
+            var bytes = await System.IO.File.ReadAllBytesAsync(path);
+            // Convert to PNG & resize to targetShortSide
+            var png = await ConvertImageBytesToPngAsync(bytes, targetShortSide);
+            results.Add(png);
+            _ = _log.Db($"Loaded video thumbnail: {path} → {png.Length} bytes", null, "AiController", true);
+          }
+          catch (Exception ex)
+          {
+            _ = _log.Db($"Failed to load/convert thumbnail {path}: {ex.Message}", null, "AiController", true);
           }
         }
       }
-      catch { /* ignore per-dir issues */ }
-    }
-
-    // Try to order thumbnails by numeric suffix if present (…thumb1, …thumb2, …001…)
-    int ExtractIndex(string path)
-    {
-      var n = Path.GetFileNameWithoutExtension(path);
-      var m = System.Text.RegularExpressions.Regex.Match(n, @"(\d+)$");
-      return m.Success ? int.Parse(m.Groups[1].Value) : int.MaxValue;
-    }
-
-    var ordered = candidates
-      .OrderBy(ExtractIndex)
-      .ThenBy(p => p, StringComparer.OrdinalIgnoreCase)
-      .Take(maxCount)
-      .ToList();
-
-    foreach (var path in ordered)
-    {
-      try
-      {
-        var bytes = await System.IO.File.ReadAllBytesAsync(path);
-        // Convert to PNG & resize to targetShortSide
-        var png = await ConvertImageBytesToPngAsync(bytes, targetShortSide);
-        results.Add(png);
-        _ = _log.Db($"Loaded video thumbnail: {path} → {png.Length} bytes", null, "AiController", true);
-      }
       catch (Exception ex)
       {
-        _ = _log.Db($"Failed to load/convert thumbnail {path}: {ex.Message}", null, "AiController", true);
+        _ = _log.Db($"LoadExistingVideoThumbnailsAsync error: {ex.Message}", null, "AiController", true);
       }
-    }
-  }
-  catch (Exception ex)
-  {
-    _ = _log.Db($"LoadExistingVideoThumbnailsAsync error: {ex.Message}", null, "AiController", true);
-  }
 
-  return results;
-}
+      return results;
+    }
 
     static void EnsureTempDir(string dir)
     {
