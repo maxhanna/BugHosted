@@ -8,6 +8,10 @@ REM ----------------------------------------------------------------------------
 REM Ensure we are in the folder where this script lives (the client dir)
 pushd "%~dp0"
 
+REM Set a cool console color and title
+title BugHosted Launcher
+color 0A
+
 REM Show current directory and Node presence (helpful diagnostics)
 echo [start-server.cmd] Working directory: %CD%
 where node >nul 2>&1
@@ -30,4 +34,6 @@ echo [start-server.cmd] Starting 'start-frontend-launcher.js'...
 node start-frontend-launcher.js
 
 :end
+REM Restore default colors (optional)
+color 07
 popd
