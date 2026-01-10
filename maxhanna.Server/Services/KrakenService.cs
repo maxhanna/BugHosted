@@ -2437,98 +2437,121 @@ public class KrakenService
     }
   }
 
-  private async Task<decimal?> IsSystemUpToDate(int userId, string coin, decimal coinPriceUSDC)
-  {
+private async Task<decimal?> IsSystemUpToDate(int userId, string coin, decimal coinPriceUSDC)
+{
     string tmpCoin = coin == "XBT" ? "BTC" : coin;
-    //_ = _log.Db($"Checking IsSystemUpToDate for coin: {tmpCoin}", userId, "TRADE", viewDebugLogs);
+
     try
     {
-      using (var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna")))
-      {
-        await conn.OpenAsync();
-
-        string normalizedCoinName = CoinNameMap.TryGetValue(tmpCoin.ToUpperInvariant(), out var mappedName) ? mappedName : tmpCoin;
-        string symbol = CoinSymbols.TryGetValue(normalizedCoinName, out var knownSymbol) ? knownSymbol : "";
-
-
-        string checkSql = @$"
-					SELECT value_cad 
-					FROM maxhanna.coin_value 
-					WHERE name = @CoinName
-					AND timestamp >= UTC_TIMESTAMP() - INTERVAL 1 MINUTE
-					ORDER BY ID DESC LIMIT 1;";
-
-        // Check if there's a recent price in the database
-        using (var checkCmd = new MySqlCommand(checkSql, conn))
+        using (var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna")))
         {
-          checkCmd.Parameters.AddWithValue("@CoinName", normalizedCoinName);
+            await conn.OpenAsync();
 
-          var result = await checkCmd.ExecuteScalarAsync();
-          if (result != null && decimal.TryParse(result.ToString(), out var valueCad))
-          {
-            //_ = _log.Db($"Returning recent {tmpCoin} rate from database.", userId, "TRADE", viewDebugLogs);
-            return valueCad;
-          }
+            // Resolve your canonical coin name + symbol (unchanged from your logic)
+            string normalizedCoinName = CoinNameMap.TryGetValue(tmpCoin.ToUpperInvariant(), out var mappedName)
+                ? mappedName
+                : tmpCoin;
+            string symbol = CoinSymbols.TryGetValue(normalizedCoinName, out var knownSymbol) ? knownSymbol : "";
+
+            // 1) Check if we already have a fresh (≤ 1 minute old) coin value
+            string checkSql = @"
+                SELECT value_cad 
+                FROM maxhanna.coin_value 
+                WHERE name = @CoinName
+                  AND `timestamp` >= UTC_TIMESTAMP() - INTERVAL 1 MINUTE
+                ORDER BY id DESC 
+                LIMIT 1;";
+
+            using (var checkCmd = new MySqlCommand(checkSql, conn))
+            {
+                checkCmd.Parameters.Add("@CoinName", MySqlDbType.VarChar, 64).Value = normalizedCoinName;
+
+                var result = await checkCmd.ExecuteScalarAsync();
+                if (result != null && decimal.TryParse(result.ToString(), out var valueCad))
+                {
+                    return valueCad;
+                }
+            }
+
+            // 2) Get CAD→USD rate (prefer latest table, fallback to legacy)
+            //    NOTE: If your table is named latest_currency_values, replace `latest_exchange_rate` below.
+            const string latestFxSql = @"
+                SELECT rate
+                FROM latest_exchange_rate
+                WHERE base_currency = 'CAD' AND target_currency = 'USD'
+                LIMIT 1;";
+            decimal? cadToUsdRate = null;
+
+            using (var latestRateCmd = new MySqlCommand(latestFxSql, conn))
+            {
+                var fx = await latestRateCmd.ExecuteScalarAsync();
+                if (fx != null && decimal.TryParse(fx.ToString(), out var r))
+                {
+                    cadToUsdRate = r;
+                }
+            }
+
+            if (cadToUsdRate == null)
+            {
+                // Fallback to legacy historical table with proper ordering + index
+                const string legacyFxSql = @"
+                    SELECT rate
+                    FROM exchange_rates FORCE INDEX (ix_exchange_rates_base_target_ts_id)
+                    WHERE base_currency = 'CAD' AND target_currency = 'USD'
+                    ORDER BY `timestamp` DESC, id DESC
+                    LIMIT 1;";
+
+                using (var legacyRateCmd = new MySqlCommand(legacyFxSql, conn))
+                {
+                    var fx = await legacyRateCmd.ExecuteScalarAsync();
+                    if (fx != null && decimal.TryParse(fx.ToString(), out var r))
+                    {
+                        cadToUsdRate = r;
+                        _ = _log.Db("Fall back to legacy SQL table for exchange_rates.", userId, "TRADE", viewErrorDebugLogs);
+                    }
+                }
+            }
+
+            if (cadToUsdRate is null || cadToUsdRate == 0m)
+            {
+                _ = _log.Db("Failed to fetch CAD/USD exchange rate from database.", userId, "TRADE", viewErrorDebugLogs);
+                return null;
+            }
+
+            // You receive coinPriceUSDC in USD; convert USD→CAD
+            // If cadToUsdRate = CAD→USD, then USD→CAD = 1 / cadToUsdRate
+            decimal usdToCadRate = 1m / cadToUsdRate.Value;
+            decimal coinPriceCad = coinPriceUSDC * usdToCadRate;
+
+            // 3) Insert the computed value back into coin_value
+            var insertSql = @"
+                INSERT INTO maxhanna.coin_value (symbol, name, value_cad, value_usd, `timestamp`)
+                VALUES (@Symbol, @CoinName, @ValueCad, @ValueUsd, UTC_TIMESTAMP());";
+
+            using (var insertCmd = new MySqlCommand(insertSql, conn))
+            {
+                insertCmd.Parameters.Add("@Symbol", MySqlDbType.VarChar, 32).Value = symbol ?? "";
+                insertCmd.Parameters.Add("@CoinName", MySqlDbType.VarChar, 64).Value = normalizedCoinName;
+                insertCmd.Parameters.Add("@ValueCad", MySqlDbType.Decimal).Value = coinPriceCad;
+                insertCmd.Parameters.Add("@ValueUsd", MySqlDbType.Decimal).Value = coinPriceUSDC;
+
+                await insertCmd.ExecuteNonQueryAsync();
+            }
+
+            return coinPriceCad;
         }
-
-        // Fetch CAD/USD exchange rate
-        var exchangeRateSql = @"
-					SELECT rate 
-					FROM exchange_rates 
-					WHERE base_currency = 'CAD' AND target_currency = 'USD' 
-					ORDER BY timestamp DESC LIMIT 1;";
-
-        decimal usdToCadRate;
-        using (var rateCmd = new MySqlCommand(exchangeRateSql, conn))
-        {
-          var rateResult = await rateCmd.ExecuteScalarAsync();
-          if (rateResult != null && decimal.TryParse(rateResult.ToString(), out var cadToUsdRate))
-          {
-            usdToCadRate = 1m / cadToUsdRate;
-          }
-          else
-          {
-            _ = _log.Db("Failed to fetch CAD/USD exchange rate from database.", userId, "TRADE", viewDebugLogs);
-            return null;
-          }
-        }
-
-        decimal coinPriceCad = coinPriceUSDC * usdToCadRate;
-
-        var insertSql = @$"
-					INSERT INTO maxhanna.coin_value (symbol, name, value_cad, value_usd, timestamp)
-					VALUES (@Symbol, @CoinName, @ValueCad, @ValueUsd, UTC_TIMESTAMP());";
-
-        // _ = _log.Db(
-        // 	$"[Symbol Resolution] Raw Coin Input: '{coin}' | Upper: '{tmpCoin}' | Normalized Name: '{normalizedCoinName}' | Final Symbol: '{symbol}'",
-        // 	userId,
-        // 	"TRADE",
-        // 	outputToConsole: viewDebugLogs
-        //);
-        using (var insertCmd = new MySqlCommand(insertSql, conn))
-        {
-          insertCmd.Parameters.AddWithValue("@Symbol", symbol);
-          insertCmd.Parameters.AddWithValue("@CoinName", normalizedCoinName);
-          insertCmd.Parameters.AddWithValue("@ValueCad", coinPriceCad);
-          insertCmd.Parameters.AddWithValue("@ValueUsd", coinPriceUSDC);
-          await insertCmd.ExecuteNonQueryAsync();
-          //_ = _log.Db($"Inserted new data for {tmpCoin} with symbol {symbol} into database.", userId, "TRADE", viewDebugLogs); 
-        }
-
-        return coinPriceCad;
-      }
     }
     catch (MySqlException ex)
     {
-      _ = _log.Db("⚠️Error checking IsSystemUpToDate: " + ex.Message, userId, "TRADE", viewDebugLogs);
-      return null;
+        _ = _log.Db("⚠️Error checking IsSystemUpToDate: " + ex.Message, userId, "TRADE", viewDebugLogs);
+        return null;
     }
     catch (Exception ex)
     {
-      _ = _log.Db("⚠️Unexpected error in IsSystemUpToDate: " + ex.Message, userId, "TRADE", viewDebugLogs);
-      return null;
+        _ = _log.Db("⚠️Unexpected error in IsSystemUpToDate: " + ex.Message, userId, "TRADE", viewDebugLogs);
+        return null;
     }
-  }
+}
 
   public async Task<TradeRecord?> GetLastTrade(int userId, string coin, string strategy)
   {
@@ -3564,22 +3587,55 @@ LIMIT @PageSize OFFSET @Offset;";
     }
   }
 
-  private async Task<decimal?> GetRateAsync(string baseCurrency, string targetCurrency, MySqlConnection conn)
-  {
-    var sql = @"
-		SELECT rate 
-		FROM exchange_rates 
-		WHERE base_currency = @BaseCurrency AND target_currency = @TargetCurrency 
-		ORDER BY timestamp DESC 
-		LIMIT 1;";
+  
+private async Task<decimal?> GetRateAsync(
+    string baseCurrency,
+    string targetCurrency,
+    MySqlConnection conn,
+    CancellationToken ct = default)
+{
+    if (string.IsNullOrWhiteSpace(baseCurrency) || string.IsNullOrWhiteSpace(targetCurrency))
+        return null;
 
-    using var cmd = new MySqlCommand(sql, conn);
-    cmd.Parameters.AddWithValue("@BaseCurrency", baseCurrency);
-    cmd.Parameters.AddWithValue("@TargetCurrency", targetCurrency);
+    // Normalize to upper (ISO-like)
+    baseCurrency = baseCurrency.Trim().ToUpperInvariant();
+    targetCurrency = targetCurrency.Trim().ToUpperInvariant();
 
-    var result = await cmd.ExecuteScalarAsync();
-    return result != null && decimal.TryParse(result.ToString(), out var rate) ? rate : null;
-  }
+    // 1) Primary: latest table (fast, small)
+    const string latestSql = @"
+      SELECT rate
+      FROM latest_exchange_rate
+      WHERE base_currency = @BaseCurrency AND target_currency = @TargetCurrency
+      LIMIT 1;";
+
+    await using (var latestCmd = new MySqlCommand(latestSql, conn) { CommandTimeout = 8 })
+    {
+        latestCmd.Parameters.Add("@BaseCurrency", MySqlDbType.VarChar, 10).Value = baseCurrency;
+        latestCmd.Parameters.Add("@TargetCurrency", MySqlDbType.VarChar, 10).Value = targetCurrency;
+        latestCmd.Prepare();
+
+        var latest = await latestCmd.ExecuteScalarAsync(ct);
+        if (latest != null && decimal.TryParse(latest.ToString(), out var latestRate))
+            return latestRate;
+    }
+
+    // 2) Fallback: legacy table (deterministic ordering)
+    const string legacySql = @"
+      SELECT rate
+      FROM exchange_rates 
+      WHERE base_currency = @BaseCurrency AND target_currency = @TargetCurrency
+      ORDER BY `timestamp` DESC, id DESC
+      LIMIT 1;";
+
+    await using var legacyCmd = new MySqlCommand(legacySql, conn) { CommandTimeout = 10 };
+    legacyCmd.Parameters.Add("@BaseCurrency", MySqlDbType.VarChar, 10).Value = baseCurrency;
+    legacyCmd.Parameters.Add("@TargetCurrency", MySqlDbType.VarChar, 10).Value = targetCurrency;
+    legacyCmd.Prepare();
+
+    var result = await legacyCmd.ExecuteScalarAsync(ct);
+    return (result != null && decimal.TryParse(result.ToString(), out var rate)) ? rate : (decimal?)null;
+}
+
 
 
   private string FormatBTC(decimal amount) => amount.ToString("0.00000000", CultureInfo.InvariantCulture);
