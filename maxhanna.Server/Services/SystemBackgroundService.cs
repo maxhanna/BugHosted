@@ -9,247 +9,247 @@ using System.Text;
 
 namespace maxhanna.Server.Services
 {
-	public class SystemBackgroundService : BackgroundService
-	{
-		private readonly string _apiKey;
-		private readonly string _coinwatchUrl = "https://api.livecoinwatch.com/coins/list";
-		private readonly string _connectionString;
-		private readonly HttpClient _httpClient;
-		private readonly WebCrawler _webCrawler;
-		private readonly KrakenService _krakenService;
-		private readonly AiController _aiController;
-		private readonly NewsService _newsService;
-		private readonly ProfitCalculationService _profitService;
-		private readonly TradeIndicatorService _indicatorService;
-		private readonly MiningApi _miningApiService = new MiningApi();
-		private readonly Log _log;
-		private readonly IConfiguration _config; // needed for apiKey 
-		private Timer _tenSecondTimer;
-		private Timer _halfMinuteTimer;
-		private Timer _minuteTimer;
-		private Timer _fiveMinuteTimer;
-		private Timer _hourlyTimer;
-		private Timer _threeHourTimer;
-		private Timer _sixHourTimer;
-		private Timer _dailyTimer;
-		private static bool _initialDelayApplied = false;
-		private bool isCrawling = false;
-		private bool lastWasCrypto = false;
-		private static readonly SemaphoreSlim _tradeLock = new SemaphoreSlim(1, 1); 
-    private static readonly SemaphoreSlim _fileCleanLock = new SemaphoreSlim(1, 1); 
-		private static readonly Dictionary<string, string> CoinNameMap = new(StringComparer.OrdinalIgnoreCase) {
-			{ "BTC", "Bitcoin" }, { "XBT", "Bitcoin" }, { "ETH", "Ethereum" }, { "XDG", "Dogecoin" }, { "SOL", "Solana" }
-		};
-		private static readonly Dictionary<string, string> CoinSymbols = new(StringComparer.OrdinalIgnoreCase) {
-			{ "Bitcoin", "₿" }, { "XBT", "₿" }, { "BTC", "₿" }, { "Ethereum", "Ξ" }, { "ETH", "Ξ" },
-			{ "Dogecoin", "Ɖ" }, { "XDG", "Ɖ" }, { "Solana", "◎" }, { "SOL", "◎" }
-		};
+  public class SystemBackgroundService : BackgroundService
+  {
+    private readonly string _apiKey;
+    private readonly string _coinwatchUrl = "https://api.livecoinwatch.com/coins/list";
+    private readonly string _connectionString;
+    private readonly HttpClient _httpClient;
+    private readonly WebCrawler _webCrawler;
+    private readonly KrakenService _krakenService;
+    private readonly AiController _aiController;
+    private readonly NewsService _newsService;
+    private readonly ProfitCalculationService _profitService;
+    private readonly TradeIndicatorService _indicatorService;
+    private readonly MiningApi _miningApiService = new MiningApi();
+    private readonly Log _log;
+    private readonly IConfiguration _config; // needed for apiKey 
+    private Timer _tenSecondTimer;
+    private Timer _halfMinuteTimer;
+    private Timer _minuteTimer;
+    private Timer _fiveMinuteTimer;
+    private Timer _hourlyTimer;
+    private Timer _threeHourTimer;
+    private Timer _sixHourTimer;
+    private Timer _dailyTimer;
+    private static bool _initialDelayApplied = false;
+    private bool isCrawling = false;
+    private bool lastWasCrypto = false;
+    private static readonly SemaphoreSlim _tradeLock = new SemaphoreSlim(1, 1);
+    private static readonly SemaphoreSlim _fileCleanLock = new SemaphoreSlim(1, 1);
+    private static readonly Dictionary<string, string> CoinNameMap = new(StringComparer.OrdinalIgnoreCase) {
+      { "BTC", "Bitcoin" }, { "XBT", "Bitcoin" }, { "ETH", "Ethereum" }, { "XDG", "Dogecoin" }, { "SOL", "Solana" }
+    };
+    private static readonly Dictionary<string, string> CoinSymbols = new(StringComparer.OrdinalIgnoreCase) {
+      { "Bitcoin", "₿" }, { "XBT", "₿" }, { "BTC", "₿" }, { "Ethereum", "Ξ" }, { "ETH", "Ξ" },
+      { "Dogecoin", "Ɖ" }, { "XDG", "Ɖ" }, { "Solana", "◎" }, { "SOL", "◎" }
+    };
 
-		public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, AiController aiController,
-			KrakenService krakenService, NewsService newsService, ProfitCalculationService profitService, TradeIndicatorService indicatorService)
-		{
-			_config = config;
-			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna")!;
-			_apiKey = config.GetValue<string>("CoinWatch:ApiKey")!;
-			_httpClient = new HttpClient();
-			_webCrawler = webCrawler;
-			_aiController = aiController;
-			_log = log;
-			_krakenService = krakenService;
-			_newsService = newsService;
-			_profitService = profitService;
-			_indicatorService = indicatorService;
+    public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, AiController aiController,
+      KrakenService krakenService, NewsService newsService, ProfitCalculationService profitService, TradeIndicatorService indicatorService)
+    {
+      _config = config;
+      _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna")!;
+      _apiKey = config.GetValue<string>("CoinWatch:ApiKey")!;
+      _httpClient = new HttpClient();
+      _webCrawler = webCrawler;
+      _aiController = aiController;
+      _log = log;
+      _krakenService = krakenService;
+      _newsService = newsService;
+      _profitService = profitService;
+      _indicatorService = indicatorService;
 
-			_tenSecondTimer = new Timer(async _ => await Run10SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
-			_halfMinuteTimer = new Timer(async _ => await Run30SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
-			_minuteTimer = new Timer(async _ => await RunOneMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
-			_fiveMinuteTimer = new Timer(async _ => await RunFiveMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
-			_hourlyTimer = new Timer(async _ => await RunHourlyTasks(), null, Timeout.Infinite, Timeout.Infinite);
-			_threeHourTimer = new Timer(async _ => await RunThreeHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
-			_sixHourTimer = new Timer(async _ => await RunSixHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
-			_dailyTimer = new Timer(async _ => await RunDailyTasks(), null, Timeout.Infinite, Timeout.Infinite);
-		}
+      _tenSecondTimer = new Timer(async _ => await Run10SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
+      _halfMinuteTimer = new Timer(async _ => await Run30SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
+      _minuteTimer = new Timer(async _ => await RunOneMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
+      _fiveMinuteTimer = new Timer(async _ => await RunFiveMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
+      _hourlyTimer = new Timer(async _ => await RunHourlyTasks(), null, Timeout.Infinite, Timeout.Infinite);
+      _threeHourTimer = new Timer(async _ => await RunThreeHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
+      _sixHourTimer = new Timer(async _ => await RunSixHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
+      _dailyTimer = new Timer(async _ => await RunDailyTasks(), null, Timeout.Infinite, Timeout.Infinite);
+    }
 
-		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-		{
-			// Start all timers but stagger the first run to avoid heavy startup spikes.
-			// Apply a one-time initial delay on first process start so the background
-			// work doesn't hit immediately after deployment. This is an in-process
-			// delay (resets if the process restarts).
-			if (!_initialDelayApplied)
-			{
-				//do initial smoke tests
-				await RunSmokeTests();
-				_initialDelayApplied = true;
-				// Wait 5 minutes before scheduling timers for the first run.
-				try
-				{
-					await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
-				}
-				catch (OperationCanceledException) { /* shutting down */ }
-			}
-			// Each timer keeps its periodic interval; the initial due time is randomized.
-			var rnd = new Random((int)DateTime.UtcNow.Ticks & 0x0000FFFF);
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+      // Start all timers but stagger the first run to avoid heavy startup spikes.
+      // Apply a one-time initial delay on first process start so the background
+      // work doesn't hit immediately after deployment. This is an in-process
+      // delay (resets if the process restarts).
+      if (!_initialDelayApplied)
+      {
+        //do initial smoke tests
+        await RunSmokeTests();
+        _initialDelayApplied = true;
+        // Wait 5 minutes before scheduling timers for the first run.
+        try
+        {
+          await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+        }
+        catch (OperationCanceledException) { /* shutting down */ }
+      }
+      // Each timer keeps its periodic interval; the initial due time is randomized.
+      var rnd = new Random((int)DateTime.UtcNow.Ticks & 0x0000FFFF);
 
-			// Small randomized delays for first run (only) - compressed so first executions happen sooner
-			// Keep jitter to avoid thundering starts but reduce overall span.
-			TimeSpan tenSecDelay = TimeSpan.FromSeconds(rnd.Next(1, 3));    // 1-2s
-			TimeSpan halfMinDelay = TimeSpan.FromSeconds(rnd.Next(2, 6));   // 2-5s
-			TimeSpan minuteDelay = TimeSpan.FromSeconds(rnd.Next(4, 12));   // 4-11s
-			TimeSpan fiveMinDelay = TimeSpan.FromSeconds(rnd.Next(8, 25));  // 8-24s
-			TimeSpan hourlyDelay = TimeSpan.FromSeconds(rnd.Next(12, 40));  // 12-39s
-			TimeSpan threeHourDelay = TimeSpan.FromSeconds(rnd.Next(20, 80)); // 20-79s
-			TimeSpan sixHourDelay = TimeSpan.FromSeconds(rnd.Next(30, 120));  // 30-119s
+      // Small randomized delays for first run (only) - compressed so first executions happen sooner
+      // Keep jitter to avoid thundering starts but reduce overall span.
+      TimeSpan tenSecDelay = TimeSpan.FromSeconds(rnd.Next(1, 3));    // 1-2s
+      TimeSpan halfMinDelay = TimeSpan.FromSeconds(rnd.Next(2, 6));   // 2-5s
+      TimeSpan minuteDelay = TimeSpan.FromSeconds(rnd.Next(4, 12));   // 4-11s
+      TimeSpan fiveMinDelay = TimeSpan.FromSeconds(rnd.Next(8, 25));  // 8-24s
+      TimeSpan hourlyDelay = TimeSpan.FromSeconds(rnd.Next(12, 40));  // 12-39s
+      TimeSpan threeHourDelay = TimeSpan.FromSeconds(rnd.Next(20, 80)); // 20-79s
+      TimeSpan sixHourDelay = TimeSpan.FromSeconds(rnd.Next(30, 120));  // 30-119s
 
-			_tenSecondTimer.Change(tenSecDelay, TimeSpan.FromSeconds(10));
-			_halfMinuteTimer.Change(halfMinDelay, TimeSpan.FromSeconds(30));
-			_minuteTimer.Change(minuteDelay, TimeSpan.FromMinutes(1));
-			_fiveMinuteTimer.Change(fiveMinDelay, TimeSpan.FromMinutes(5));
-			_hourlyTimer.Change(hourlyDelay, TimeSpan.FromHours(1));
-			_threeHourTimer.Change(threeHourDelay, TimeSpan.FromHours(3));
-			_sixHourTimer.Change(sixHourDelay, TimeSpan.FromHours(6));
-			// Daily timer remains scheduled to next midnight
-			_dailyTimer.Change(CalculateNextDailyRun(), TimeSpan.FromHours(24));
+      _tenSecondTimer.Change(tenSecDelay, TimeSpan.FromSeconds(10));
+      _halfMinuteTimer.Change(halfMinDelay, TimeSpan.FromSeconds(30));
+      _minuteTimer.Change(minuteDelay, TimeSpan.FromMinutes(1));
+      _fiveMinuteTimer.Change(fiveMinDelay, TimeSpan.FromMinutes(5));
+      _hourlyTimer.Change(hourlyDelay, TimeSpan.FromHours(1));
+      _threeHourTimer.Change(threeHourDelay, TimeSpan.FromHours(3));
+      _sixHourTimer.Change(sixHourDelay, TimeSpan.FromHours(6));
+      // Daily timer remains scheduled to next midnight
+      _dailyTimer.Change(CalculateNextDailyRun(), TimeSpan.FromHours(24));
 
-			// Keep the service running until cancellation
-			while (!stoppingToken.IsCancellationRequested)
-			{
-				await Task.Delay(1000, stoppingToken);
-			}
-		}
-		
-		private async Task RunSmokeTests()
-		{
-			Console.WriteLine("Running initial smoke tests...");
-			//await RunDailyTasks();
-		}
-		private async Task Run10SecondTasks()
-		{
-			await MakeCryptoTrade();
-		}
-		private async Task Run30SecondTasks()
-		{
-			await SpawnEncounterMetabots();
-			await FetchWebsiteMetadata();
-		}
-		private async Task RunOneMinuteTasks()
-		{
-			//await _aiController.AnalyzeAndRenameFile();
-		}
-		private async Task RunFiveMinuteTasks()
-		{
-			await _aiController.AnalyzeAndRenameFile();
+      // Keep the service running until cancellation
+      while (!stoppingToken.IsCancellationRequested)
+      {
+        await Task.Delay(1000, stoppingToken);
+      }
+    }
+
+    private async Task RunSmokeTests()
+    {
+      Console.WriteLine("Running initial smoke tests...");
+      //await RunDailyTasks();
+    }
+    private async Task Run10SecondTasks()
+    {
+      await MakeCryptoTrade();
+    }
+    private async Task Run30SecondTasks()
+    {
+      await SpawnEncounterMetabots();
+      await FetchWebsiteMetadata();
+    }
+    private async Task RunOneMinuteTasks()
+    {
+      //await _aiController.AnalyzeAndRenameFile();
+    }
+    private async Task RunFiveMinuteTasks()
+    {
+      await _aiController.AnalyzeAndRenameFile();
       await CleanOneSluggyFileNameAsync();
-			await FetchAndStoreTopMarketCaps();
-			await UpdateLastBTCWalletInfo();
-			await FetchAndStoreCoinValues();
-			_miningApiService.UpdateWalletInDB(_config, _log);
-			lastWasCrypto = !lastWasCrypto;
-			await _newsService.GetAndSaveTopQuarterHourlyHeadlines(!lastWasCrypto ? "Cryptocurrency" : null);
-			await _profitService.CalculateDailyProfits();
-			if (!_indicatorService.IsUpdating)
-			{
-				await _indicatorService.UpdateIndicators();
-			}
-			else
-			{
-				_ = _log.Db("Skipping indicator update - already in progress", null, "TISVC", outputToConsole: true);
-			}
-		}
+      await FetchAndStoreTopMarketCaps();
+      await UpdateLastBTCWalletInfo();
+      await FetchAndStoreCoinValues();
+      _miningApiService.UpdateWalletInDB(_config, _log);
+      lastWasCrypto = !lastWasCrypto;
+      await _newsService.GetAndSaveTopQuarterHourlyHeadlines(!lastWasCrypto ? "Cryptocurrency" : null);
+      await _profitService.CalculateDailyProfits();
+      if (!_indicatorService.IsUpdating)
+      {
+        await _indicatorService.UpdateIndicators();
+      }
+      else
+      {
+        _ = _log.Db("Skipping indicator update - already in progress", null, "TISVC", outputToConsole: true);
+      }
+    }
 
-		private async Task RunHourlyTasks()
-		{
-			await AssignTrophies();
-			await _aiController.ProvideMarketAnalysis();
-			await _log.DeleteOldLogs();
-		}
-		private async Task RunSixHourTasks()
-		{
-			await FetchExchangeRates();
-			// await _profitService.CalculateWeeklyProfits();
-			// await _profitService.CalculateMonthlyProfits();
-			await FetchAndStoreCryptoEvents();
-			await FetchAndStoreFearGreedAsync();
-			await FetchAndStoreGlobalMetricsAsync();
-		}
-		private async Task RunThreeHourTasks()
-		{
-			await MoveInactiveEnderHeroes();
-		}
-		private async Task RunDailyTasks()
-		{
-			await DeleteOldBattleReports();
-			await DeleteOldGuests();
-			await DeleteOldSearchResults();
-			await DeleteOldSearchQueries();
-			await DeleteOldSentimentAnalysis();
-			await DeleteOldGlobalMetrics();
-			await DeleteNotificationRequests();
-			await DeleteHostAiRequests();
-			await DeleteOldCoinValueEntries();
-			await DeleteOldTradeVolumesSixMonths();
-			await DeleteOldNews();
-			await DeleteOldCoinMarketCaps();
-			await DeleteOldEnderScores();
-			await _newsService.CreateDailyCryptoNewsStoryAsync();
-			await _newsService.CreateDailyNewsStoryAsync();
-			await _newsService.PostDailyMemeAsync();
-			await _newsService.CreateDailyMusicStoryAsync();
-			await CleanupOldFavourites();
-			await _log.BackupDatabase();
-		}
+    private async Task RunHourlyTasks()
+    {
+      await AssignTrophies();
+      await _aiController.ProvideMarketAnalysis();
+      await _log.DeleteOldLogs();
+    }
+    private async Task RunSixHourTasks()
+    {
+      await FetchExchangeRates();
+      // await _profitService.CalculateWeeklyProfits();
+      // await _profitService.CalculateMonthlyProfits();
+      await FetchAndStoreCryptoEvents();
+      await FetchAndStoreFearGreedAsync();
+      await FetchAndStoreGlobalMetricsAsync();
+    }
+    private async Task RunThreeHourTasks()
+    {
+      await MoveInactiveEnderHeroes();
+    }
+    private async Task RunDailyTasks()
+    {
+      await DeleteOldBattleReports();
+      await DeleteOldGuests();
+      await DeleteOldSearchResults();
+      await DeleteOldSearchQueries();
+      await DeleteOldSentimentAnalysis();
+      await DeleteOldGlobalMetrics();
+      await DeleteNotificationRequests();
+      await DeleteHostAiRequests();
+      await DeleteOldCoinValueEntries();
+      await DeleteOldTradeVolumesSixMonths();
+      await DeleteOldNews();
+      await DeleteOldCoinMarketCaps();
+      await DeleteOldEnderScores();
+      await _newsService.CreateDailyCryptoNewsStoryAsync();
+      await _newsService.CreateDailyNewsStoryAsync();
+      await _newsService.PostDailyMemeAsync();
+      await _newsService.CreateDailyMusicStoryAsync();
+      await CleanupOldFavourites();
+      await _log.BackupDatabase();
+    }
 
-		private TimeSpan CalculateNextDailyRun()
-		{
-			var now = DateTime.Now;
-			var nextRun = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0).AddDays(1);
-			return nextRun - now;
-		}
+    private TimeSpan CalculateNextDailyRun()
+    {
+      var now = DateTime.Now;
+      var nextRun = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0).AddDays(1);
+      return nextRun - now;
+    }
 
-		private async Task MoveInactiveEnderHeroes(int recentDisplacementHours = 8)
-		{
-			await using var conn = new MySqlConnection(_connectionString);
-			await conn.OpenAsync();
-			using var transaction = await conn.BeginTransactionAsync();
-			try
-			{
-				const string displacementNotificationText = "Your lightcycle was displaced for inactivity and moved to a new sector.";
-				// 1. Global throttle: if ANY displacement occurred in the last `recentDisplacementHours`, skip this run entirely.
-				if (recentDisplacementHours > 0)
-				{
-					string globalScanSql = @"SELECT COUNT(*) FROM maxhanna.notifications 
+    private async Task MoveInactiveEnderHeroes(int recentDisplacementHours = 8)
+    {
+      await using var conn = new MySqlConnection(_connectionString);
+      await conn.OpenAsync();
+      using var transaction = await conn.BeginTransactionAsync();
+      try
+      {
+        const string displacementNotificationText = "Your lightcycle was displaced for inactivity and moved to a new sector.";
+        // 1. Global throttle: if ANY displacement occurred in the last `recentDisplacementHours`, skip this run entirely.
+        if (recentDisplacementHours > 0)
+        {
+          string globalScanSql = @"SELECT COUNT(*) FROM maxhanna.notifications 
 						WHERE text = @dispText AND date >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @hrs HOUR);";
-					await using (var gCmd = new MySqlCommand(globalScanSql, conn, transaction))
-					{
-						gCmd.Parameters.AddWithValue("@dispText", displacementNotificationText);
-						gCmd.Parameters.AddWithValue("@hrs", recentDisplacementHours);
-						var recentCountObj = await gCmd.ExecuteScalarAsync();
-						int recentCount = recentCountObj == null ? 0 : Convert.ToInt32(recentCountObj);
-						if (recentCount > 0)
-						{
-							await transaction.CommitAsync();
-							_ = _log.Db($"Skipping displacement run: {recentCount} displacement(s) occurred within last {recentDisplacementHours}h.", null, "SYSTEM", outputToConsole: true);
-							return;
-						}
-					}
-				}
+          await using (var gCmd = new MySqlCommand(globalScanSql, conn, transaction))
+          {
+            gCmd.Parameters.AddWithValue("@dispText", displacementNotificationText);
+            gCmd.Parameters.AddWithValue("@hrs", recentDisplacementHours);
+            var recentCountObj = await gCmd.ExecuteScalarAsync();
+            int recentCount = recentCountObj == null ? 0 : Convert.ToInt32(recentCountObj);
+            if (recentCount > 0)
+            {
+              await transaction.CommitAsync();
+              _ = _log.Db($"Skipping displacement run: {recentCount} displacement(s) occurred within last {recentDisplacementHours}h.", null, "SYSTEM", outputToConsole: true);
+              return;
+            }
+          }
+        }
 
-				// 2. Build hash of users who already received a displacement notification in the past 8 hours (per-user cooldown)
-				var recentlyDisplacedUsers = new HashSet<int>();
-				string userScanSql = @"SELECT DISTINCT user_id FROM maxhanna.notifications 
+        // 2. Build hash of users who already received a displacement notification in the past 8 hours (per-user cooldown)
+        var recentlyDisplacedUsers = new HashSet<int>();
+        string userScanSql = @"SELECT DISTINCT user_id FROM maxhanna.notifications 
 					WHERE text = @dispText AND date >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 8 HOUR) AND user_id IS NOT NULL;";
-				await using (var uCmd = new MySqlCommand(userScanSql, conn, transaction))
-				{
-					uCmd.Parameters.AddWithValue("@dispText", displacementNotificationText);
-					using var uReader = await uCmd.ExecuteReaderAsync();
-					while (await uReader.ReadAsync())
-					{
-						int uid = uReader.IsDBNull(0) ? 0 : uReader.GetInt32(0);
-						if (uid > 0) recentlyDisplacedUsers.Add(uid);
-					}
-				}
-				// Find heroes with >=2 total walls but 0 walls in last 8 hours
-				const string selectSql = @"
+        await using (var uCmd = new MySqlCommand(userScanSql, conn, transaction))
+        {
+          uCmd.Parameters.AddWithValue("@dispText", displacementNotificationText);
+          using var uReader = await uCmd.ExecuteReaderAsync();
+          while (await uReader.ReadAsync())
+          {
+            int uid = uReader.IsDBNull(0) ? 0 : uReader.GetInt32(0);
+            if (uid > 0) recentlyDisplacedUsers.Add(uid);
+          }
+        }
+        // Find heroes with >=2 total walls but 0 walls in last 8 hours
+        const string selectSql = @"
 					SELECT h.id as hero_id, h.user_id as user_id, h.level as hero_level
 					FROM maxhanna.ender_hero h
 					WHERE (
@@ -259,252 +259,252 @@ namespace maxhanna.Server.Services
 						SELECT COUNT(*) FROM maxhanna.ender_bike_wall w2 WHERE w2.hero_id = h.id AND w2.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 8 HOUR)
 					) = 0;";
 
-				using var selCmd = new MySqlCommand(selectSql, conn, transaction);
-				using var reader = await selCmd.ExecuteReaderAsync();
-				var victims = new List<(int heroId, int? userId, int level)>();
-				while (await reader.ReadAsync())
-				{
-					int heroId = Convert.ToInt32(reader["hero_id"]);
-					int? userId = reader.IsDBNull(reader.GetOrdinal("user_id")) ? null : Convert.ToInt32(reader["user_id"]);
-					int level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 1 : Convert.ToInt32(reader["hero_level"]);
-					victims.Add((heroId, userId, level));
-				}
-				reader.Close();
+        using var selCmd = new MySqlCommand(selectSql, conn, transaction);
+        using var reader = await selCmd.ExecuteReaderAsync();
+        var victims = new List<(int heroId, int? userId, int level)>();
+        while (await reader.ReadAsync())
+        {
+          int heroId = Convert.ToInt32(reader["hero_id"]);
+          int? userId = reader.IsDBNull(reader.GetOrdinal("user_id")) ? null : Convert.ToInt32(reader["user_id"]);
+          int level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 1 : Convert.ToInt32(reader["hero_level"]);
+          victims.Add((heroId, userId, level));
+        }
+        reader.Close();
 
-				if (victims.Count == 0)
-				{
-					await transaction.CommitAsync();
-					_ = _log.Db("No inactive ender heroes found to relocate.", null, "SYSTEM", outputToConsole: true);
-					return;
-				}
+        if (victims.Count == 0)
+        {
+          await transaction.CommitAsync();
+          _ = _log.Db("No inactive ender heroes found to relocate.", null, "SYSTEM", outputToConsole: true);
+          return;
+        }
 
-				// Gather occupied hero spots (all levels) & wall spots for safety checks
-				var occupiedSpots = new Dictionary<int, List<(int X, int Y)>>(); // level -> coords list
-				var wallSpots = new Dictionary<int, List<(int X, int Y)>>();
-				const string occSql = "SELECT id, level, coordsX, coordsY FROM maxhanna.ender_hero;";
-				await using (var occCmd = new MySqlCommand(occSql, conn, transaction))
-				await using (var occReader = await occCmd.ExecuteReaderAsync())
-				{
-					while (await occReader.ReadAsync())
-					{
-						int lvl = occReader.IsDBNull(occReader.GetOrdinal("level")) ? 1 : occReader.GetInt32("level");
-						int cx = occReader.IsDBNull(occReader.GetOrdinal("coordsX")) ? 0 : occReader.GetInt32("coordsX");
-						int cy = occReader.IsDBNull(occReader.GetOrdinal("coordsY")) ? 0 : occReader.GetInt32("coordsY");
-						if (!occupiedSpots.TryGetValue(lvl, out var list)) { list = new List<(int, int)>(); occupiedSpots[lvl] = list; }
-						list.Add((cx, cy));
-					}
-				}
-				const string wallSql = "SELECT level, x, y FROM maxhanna.ender_bike_wall;";
-				await using (var wallCmd = new MySqlCommand(wallSql, conn, transaction))
-				await using (var wallReader = await wallCmd.ExecuteReaderAsync())
-				{
-					while (await wallReader.ReadAsync())
-					{
-						int lvl = wallReader.IsDBNull(wallReader.GetOrdinal("level")) ? 1 : wallReader.GetInt32("level");
-						int wx = wallReader.IsDBNull(wallReader.GetOrdinal("x")) ? 0 : wallReader.GetInt32("x");
-						int wy = wallReader.IsDBNull(wallReader.GetOrdinal("y")) ? 0 : wallReader.GetInt32("y");
-						if (!wallSpots.TryGetValue(lvl, out var list)) { list = new List<(int, int)>(); wallSpots[lvl] = list; }
-						list.Add((wx, wy));
-					}
-				}
+        // Gather occupied hero spots (all levels) & wall spots for safety checks
+        var occupiedSpots = new Dictionary<int, List<(int X, int Y)>>(); // level -> coords list
+        var wallSpots = new Dictionary<int, List<(int X, int Y)>>();
+        const string occSql = "SELECT id, level, coordsX, coordsY FROM maxhanna.ender_hero;";
+        await using (var occCmd = new MySqlCommand(occSql, conn, transaction))
+        await using (var occReader = await occCmd.ExecuteReaderAsync())
+        {
+          while (await occReader.ReadAsync())
+          {
+            int lvl = occReader.IsDBNull(occReader.GetOrdinal("level")) ? 1 : occReader.GetInt32("level");
+            int cx = occReader.IsDBNull(occReader.GetOrdinal("coordsX")) ? 0 : occReader.GetInt32("coordsX");
+            int cy = occReader.IsDBNull(occReader.GetOrdinal("coordsY")) ? 0 : occReader.GetInt32("coordsY");
+            if (!occupiedSpots.TryGetValue(lvl, out var list)) { list = new List<(int, int)>(); occupiedSpots[lvl] = list; }
+            list.Add((cx, cy));
+          }
+        }
+        const string wallSql = "SELECT level, x, y FROM maxhanna.ender_bike_wall;";
+        await using (var wallCmd = new MySqlCommand(wallSql, conn, transaction))
+        await using (var wallReader = await wallCmd.ExecuteReaderAsync())
+        {
+          while (await wallReader.ReadAsync())
+          {
+            int lvl = wallReader.IsDBNull(wallReader.GetOrdinal("level")) ? 1 : wallReader.GetInt32("level");
+            int wx = wallReader.IsDBNull(wallReader.GetOrdinal("x")) ? 0 : wallReader.GetInt32("x");
+            int wy = wallReader.IsDBNull(wallReader.GetOrdinal("y")) ? 0 : wallReader.GetInt32("y");
+            if (!wallSpots.TryGetValue(lvl, out var list)) { list = new List<(int, int)>(); wallSpots[lvl] = list; }
+            list.Add((wx, wy));
+          }
+        }
 
-				const int SAFE_DISTANCE = 32; // pixels
-				const int MAX_ATTEMPTS = 150;
-				const int MAP_SIZE = 1024; // should match hero creation logic
+        const int SAFE_DISTANCE = 32; // pixels
+        const int MAX_ATTEMPTS = 150;
+        const int MAP_SIZE = 1024; // should match hero creation logic
 
-				bool IsSafe(int level, int x, int y)
-				{
-					if (x < 0 || y < 0 || x >= MAP_SIZE || y >= MAP_SIZE) return false;
-					if (occupiedSpots.TryGetValue(level, out var heroes))
-					{
-						foreach (var (hx, hy) in heroes)
-						{
-							if (Math.Abs(hx - x) <= SAFE_DISTANCE && Math.Abs(hy - y) <= SAFE_DISTANCE) return false;
-						}
-					}
-					if (wallSpots.TryGetValue(level, out var walls))
-					{
-						foreach (var (wx, wy) in walls)
-						{
-							if (Math.Abs(wx - x) <= SAFE_DISTANCE && Math.Abs(wy - y) <= SAFE_DISTANCE) return false;
-						}
-					}
-					return true;
-				}
+        bool IsSafe(int level, int x, int y)
+        {
+          if (x < 0 || y < 0 || x >= MAP_SIZE || y >= MAP_SIZE) return false;
+          if (occupiedSpots.TryGetValue(level, out var heroes))
+          {
+            foreach (var (hx, hy) in heroes)
+            {
+              if (Math.Abs(hx - x) <= SAFE_DISTANCE && Math.Abs(hy - y) <= SAFE_DISTANCE) return false;
+            }
+          }
+          if (wallSpots.TryGetValue(level, out var walls))
+          {
+            foreach (var (wx, wy) in walls)
+            {
+              if (Math.Abs(wx - x) <= SAFE_DISTANCE && Math.Abs(wy - y) <= SAFE_DISTANCE) return false;
+            }
+          }
+          return true;
+        }
 
-				const string updateHeroSql = "UPDATE maxhanna.ender_hero SET coordsX = @X, coordsY = @Y WHERE id = @HeroId;";
-				await using var updateHeroCmd = new MySqlCommand(updateHeroSql, conn, transaction);
-				updateHeroCmd.Parameters.Add(new MySqlParameter("@X", MySqlDbType.Int32));
-				updateHeroCmd.Parameters.Add(new MySqlParameter("@Y", MySqlDbType.Int32));
-				updateHeroCmd.Parameters.Add(new MySqlParameter("@HeroId", MySqlDbType.Int32));
+        const string updateHeroSql = "UPDATE maxhanna.ender_hero SET coordsX = @X, coordsY = @Y WHERE id = @HeroId;";
+        await using var updateHeroCmd = new MySqlCommand(updateHeroSql, conn, transaction);
+        updateHeroCmd.Parameters.Add(new MySqlParameter("@X", MySqlDbType.Int32));
+        updateHeroCmd.Parameters.Add(new MySqlParameter("@Y", MySqlDbType.Int32));
+        updateHeroCmd.Parameters.Add(new MySqlParameter("@HeroId", MySqlDbType.Int32));
 
-				const string insertNotificationSql = @"INSERT INTO maxhanna.notifications (user_id, text, date) VALUES (@userId, @text, UTC_TIMESTAMP());";
-				await using var insertNotifCmd = new MySqlCommand(insertNotificationSql, conn, transaction);
-				insertNotifCmd.Parameters.Add(new MySqlParameter("@userId", MySqlDbType.Int32));
-				insertNotifCmd.Parameters.Add(new MySqlParameter("@text", MySqlDbType.VarChar));
+        const string insertNotificationSql = @"INSERT INTO maxhanna.notifications (user_id, text, date) VALUES (@userId, @text, UTC_TIMESTAMP());";
+        await using var insertNotifCmd = new MySqlCommand(insertNotificationSql, conn, transaction);
+        insertNotifCmd.Parameters.Add(new MySqlParameter("@userId", MySqlDbType.Int32));
+        insertNotifCmd.Parameters.Add(new MySqlParameter("@text", MySqlDbType.VarChar));
 
-				var rnd = new Random();
-				int relocated = 0;
-				foreach (var v in victims)
-				{
-					int lvl = v.level;
-					int newX = 16; int newY = 16; bool found = false;
-					for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++)
-					{
-						int x = rnd.Next(32, MAP_SIZE - 32);
-						int y = rnd.Next(32, MAP_SIZE - 32);
-						if (IsSafe(lvl, x, y)) { newX = x; newY = y; found = true; break; }
-					}
-					if (!found)
-					{
-						// fallback small expanding search
-						for (int radius = 16; radius <= 160 && !found; radius += 16)
-						{
-							for (int dx = -radius; dx <= radius && !found; dx += 16)
-							{
-								for (int dy = -radius; dy <= radius && !found; dy += 16)
-								{
-									int tx = newX + dx; int ty = newY + dy;
-									if (IsSafe(lvl, tx, ty)) { newX = tx; newY = ty; found = true; }
-								}
-							}
-						}
-					}
+        var rnd = new Random();
+        int relocated = 0;
+        foreach (var v in victims)
+        {
+          int lvl = v.level;
+          int newX = 16; int newY = 16; bool found = false;
+          for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++)
+          {
+            int x = rnd.Next(32, MAP_SIZE - 32);
+            int y = rnd.Next(32, MAP_SIZE - 32);
+            if (IsSafe(lvl, x, y)) { newX = x; newY = y; found = true; break; }
+          }
+          if (!found)
+          {
+            // fallback small expanding search
+            for (int radius = 16; radius <= 160 && !found; radius += 16)
+            {
+              for (int dx = -radius; dx <= radius && !found; dx += 16)
+              {
+                for (int dy = -radius; dy <= radius && !found; dy += 16)
+                {
+                  int tx = newX + dx; int ty = newY + dy;
+                  if (IsSafe(lvl, tx, ty)) { newX = tx; newY = ty; found = true; }
+                }
+              }
+            }
+          }
 
-					updateHeroCmd.Parameters["@X"].Value = newX;
-					updateHeroCmd.Parameters["@Y"].Value = newY;
-					updateHeroCmd.Parameters["@HeroId"].Value = v.heroId;
-					await updateHeroCmd.ExecuteNonQueryAsync();
+          updateHeroCmd.Parameters["@X"].Value = newX;
+          updateHeroCmd.Parameters["@Y"].Value = newY;
+          updateHeroCmd.Parameters["@HeroId"].Value = v.heroId;
+          await updateHeroCmd.ExecuteNonQueryAsync();
 
-					if (!occupiedSpots.TryGetValue(lvl, out var heroList)) { heroList = new List<(int, int)>(); occupiedSpots[lvl] = heroList; }
-					heroList.Add((newX, newY));
-					relocated++;
-					if (v.userId.HasValue && v.userId.Value > 0)
-					{
-						// Skip displacement if user recently displaced (per-user cooldown)
-						if (recentlyDisplacedUsers.Contains(v.userId.Value))
-						{
-							_ = _log.Db($"Skipping hero {v.heroId} displacement due to recent per-user cooldown (user {v.userId.Value}).", v.heroId, "SYSTEM", outputToConsole: true);
-							continue; // continue to next victim
-						}
+          if (!occupiedSpots.TryGetValue(lvl, out var heroList)) { heroList = new List<(int, int)>(); occupiedSpots[lvl] = heroList; }
+          heroList.Add((newX, newY));
+          relocated++;
+          if (v.userId.HasValue && v.userId.Value > 0)
+          {
+            // Skip displacement if user recently displaced (per-user cooldown)
+            if (recentlyDisplacedUsers.Contains(v.userId.Value))
+            {
+              _ = _log.Db($"Skipping hero {v.heroId} displacement due to recent per-user cooldown (user {v.userId.Value}).", v.heroId, "SYSTEM", outputToConsole: true);
+              continue; // continue to next victim
+            }
 
-						// Check user preference: if they disabled ender inactivity notifications, skip inserting notification
-						const string allowSql = "SELECT IFNULL(allow_ender_inactivity_notifications,1) FROM maxhanna.user_settings WHERE user_id = @userId LIMIT 1;";
-						await using (var allowCmd = new MySqlCommand(allowSql, conn, transaction))
-						{
-							allowCmd.Parameters.AddWithValue("@userId", v.userId.Value);
-							var allowObj = await allowCmd.ExecuteScalarAsync();
-							int allowNotifications = allowObj == null ? 1 : Convert.ToInt32(allowObj);
-							if (allowNotifications == 0)
-							{
-								_ = _log.Db($"Skipping notification for displaced hero {v.heroId} because user {v.userId.Value} disabled ender inactivity notifications.", v.heroId, "SYSTEM", outputToConsole: true);
-								recentlyDisplacedUsers.Add(v.userId.Value); // avoid re-checking in this run
-								continue;
-							}
-						}
+            // Check user preference: if they disabled ender inactivity notifications, skip inserting notification
+            const string allowSql = "SELECT IFNULL(allow_ender_inactivity_notifications,1) FROM maxhanna.user_settings WHERE user_id = @userId LIMIT 1;";
+            await using (var allowCmd = new MySqlCommand(allowSql, conn, transaction))
+            {
+              allowCmd.Parameters.AddWithValue("@userId", v.userId.Value);
+              var allowObj = await allowCmd.ExecuteScalarAsync();
+              int allowNotifications = allowObj == null ? 1 : Convert.ToInt32(allowObj);
+              if (allowNotifications == 0)
+              {
+                _ = _log.Db($"Skipping notification for displaced hero {v.heroId} because user {v.userId.Value} disabled ender inactivity notifications.", v.heroId, "SYSTEM", outputToConsole: true);
+                recentlyDisplacedUsers.Add(v.userId.Value); // avoid re-checking in this run
+                continue;
+              }
+            }
 
-						insertNotifCmd.Parameters["@userId"].Value = v.userId.Value;
-						insertNotifCmd.Parameters["@text"].Value = displacementNotificationText;
-						await insertNotifCmd.ExecuteNonQueryAsync();
-						recentlyDisplacedUsers.Add(v.userId.Value); // update runtime set
-					}
-					_ = _log.Db($"Relocated inactive hero {v.heroId} to ({newX},{newY}) on level {lvl}.", v.heroId, "SYSTEM", outputToConsole: true);
-				}
+            insertNotifCmd.Parameters["@userId"].Value = v.userId.Value;
+            insertNotifCmd.Parameters["@text"].Value = displacementNotificationText;
+            await insertNotifCmd.ExecuteNonQueryAsync();
+            recentlyDisplacedUsers.Add(v.userId.Value); // update runtime set
+          }
+          _ = _log.Db($"Relocated inactive hero {v.heroId} to ({newX},{newY}) on level {lvl}.", v.heroId, "SYSTEM", outputToConsole: true);
+        }
 
-				await transaction.CommitAsync();
-				_ = _log.Db($"Relocated {relocated} inactive ender heroes.", null, "SYSTEM", outputToConsole: true);
-			}
-			catch (Exception ex)
-			{
-				try { await transaction.RollbackAsync(); } catch { }
-				_ = _log.Db($"Error relocating inactive ender heroes: {ex.Message}", null, "SYSTEM", outputToConsole: true);
-			}
-		}
-		public override async Task StopAsync(CancellationToken cancellationToken)
-		{
-			_halfMinuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-			_minuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-			_fiveMinuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-			_hourlyTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-			_threeHourTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-			_sixHourTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-			_dailyTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+        await transaction.CommitAsync();
+        _ = _log.Db($"Relocated {relocated} inactive ender heroes.", null, "SYSTEM", outputToConsole: true);
+      }
+      catch (Exception ex)
+      {
+        try { await transaction.RollbackAsync(); } catch { }
+        _ = _log.Db($"Error relocating inactive ender heroes: {ex.Message}", null, "SYSTEM", outputToConsole: true);
+      }
+    }
+    public override async Task StopAsync(CancellationToken cancellationToken)
+    {
+      _halfMinuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+      _minuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+      _fiveMinuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+      _hourlyTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+      _threeHourTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+      _sixHourTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+      _dailyTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 
-			await base.StopAsync(cancellationToken);
-		}
+      await base.StopAsync(cancellationToken);
+    }
 
-		private async Task FetchAndStoreFearGreedAsync()
-		{
-			await _log.Db("Fetching Fear & Greed index...", null, "FGI", outputToConsole: true);
-			await using (var conn1 = new MySqlConnection(_connectionString))
-			{
-				await conn1.OpenAsync();
+    private async Task FetchAndStoreFearGreedAsync()
+    {
+      await _log.Db("Fetching Fear & Greed index...", null, "FGI", outputToConsole: true);
+      await using (var conn1 = new MySqlConnection(_connectionString))
+      {
+        await conn1.OpenAsync();
 
-				const string latestSql = "SELECT MAX(updated) FROM crypto_fear_greed;";
-				await using var latestCmd = new MySqlCommand(latestSql, conn1);
-				var latestObj = await latestCmd.ExecuteScalarAsync();
+        const string latestSql = "SELECT MAX(updated) FROM crypto_fear_greed;";
+        await using var latestCmd = new MySqlCommand(latestSql, conn1);
+        var latestObj = await latestCmd.ExecuteScalarAsync();
 
-				if (latestObj is DateTime lastUpdated &&
-					lastUpdated >= DateTime.UtcNow.AddDays(-1))
-				{
-					await _log.Db(
-						$"Fear-and-Greed already stored @ {lastUpdated:u}; skipped pull.",
-						null, "FGI", outputToConsole: true);
-					return;
-				}
-			}
+        if (latestObj is DateTime lastUpdated &&
+          lastUpdated >= DateTime.UtcNow.AddDays(-1))
+        {
+          await _log.Db(
+            $"Fear-and-Greed already stored @ {lastUpdated:u}; skipped pull.",
+            null, "FGI", outputToConsole: true);
+          return;
+        }
+      }
 
-			// 1. Grab the API key you put in appsettings.json
-			var apiKey = _config.GetValue<string>("CoinMarketCap:ApiKey");
-			if (string.IsNullOrWhiteSpace(apiKey))
-			{
-				await _log.Db("CoinMarketCap API key missing", null, "FGI", outputToConsole: true);
-				return;
-			}
+      // 1. Grab the API key you put in appsettings.json
+      var apiKey = _config.GetValue<string>("CoinMarketCap:ApiKey");
+      if (string.IsNullOrWhiteSpace(apiKey))
+      {
+        await _log.Db("CoinMarketCap API key missing", null, "FGI", outputToConsole: true);
+        return;
+      }
 
-			// 2. Call /v3/fear‑and‑greed/latest
-			string json;
-			using (var http = new HttpClient())
-			{
-				var req = new HttpRequestMessage
-				{
-					Method = HttpMethod.Get,
-					RequestUri = new Uri("https://pro-api.coinmarketcap.com/v3/fear-and-greed/latest"),
-				};
-				req.Headers.Add("X-CMC_PRO_API_KEY", apiKey);
-				req.Headers.Add("Accepts", "application/json");
+      // 2. Call /v3/fear‑and‑greed/latest
+      string json;
+      using (var http = new HttpClient())
+      {
+        var req = new HttpRequestMessage
+        {
+          Method = HttpMethod.Get,
+          RequestUri = new Uri("https://pro-api.coinmarketcap.com/v3/fear-and-greed/latest"),
+        };
+        req.Headers.Add("X-CMC_PRO_API_KEY", apiKey);
+        req.Headers.Add("Accepts", "application/json");
 
-				using var resp = await http.SendAsync(req);
-				resp.EnsureSuccessStatusCode();
-				json = await resp.Content.ReadAsStringAsync();
-			}
+        using var resp = await http.SendAsync(req);
+        resp.EnsureSuccessStatusCode();
+        json = await resp.Content.ReadAsStringAsync();
+      }
 
-			// 3. Pull out the fields we care about
-			var root = Newtonsoft.Json.Linq.JObject.Parse(json);
-			var dataToken = root["data"];                 // object, not an array, for “latest”
-			var indexValue = dataToken?["value"]?.ToObject<int>() ?? 0;
-			var classification = dataToken?["value_classification"]?.ToObject<string>();
-			var timestampUtc = dataToken?["timestamp"]?.ToObject<DateTime>() ?? DateTime.UtcNow;
-			// 4. Insert / update
-			await using var conn = new MySqlConnection(_connectionString);
-			await conn.OpenAsync();
+      // 3. Pull out the fields we care about
+      var root = Newtonsoft.Json.Linq.JObject.Parse(json);
+      var dataToken = root["data"];                 // object, not an array, for “latest”
+      var indexValue = dataToken?["value"]?.ToObject<int>() ?? 0;
+      var classification = dataToken?["value_classification"]?.ToObject<string>();
+      var timestampUtc = dataToken?["timestamp"]?.ToObject<DateTime>() ?? DateTime.UtcNow;
+      // 4. Insert / update
+      await using var conn = new MySqlConnection(_connectionString);
+      await conn.OpenAsync();
 
-			// quick duplicate check (optional)
-			const string existsSql = @"SELECT 1 FROM crypto_fear_greed
+      // quick duplicate check (optional)
+      const string existsSql = @"SELECT 1 FROM crypto_fear_greed
                                WHERE timestamp_utc = @ts
                                  AND updated >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR)
                                LIMIT 1;";
-			await using (var exists = new MySqlCommand(existsSql, conn))
-			{
-				exists.Parameters.AddWithValue("@ts", timestampUtc);
-				if (await exists.ExecuteScalarAsync() is not null)
-				{
-					await _log.Db("Fear‑and‑Greed already up‑to‑date, skipping.", null, "FGI", outputToConsole: true);
-					return;
-				}
-			}
+      await using (var exists = new MySqlCommand(existsSql, conn))
+      {
+        exists.Parameters.AddWithValue("@ts", timestampUtc);
+        if (await exists.ExecuteScalarAsync() is not null)
+        {
+          await _log.Db("Fear‑and‑Greed already up‑to‑date, skipping.", null, "FGI", outputToConsole: true);
+          return;
+        }
+      }
 
-			const string upsertSql = @"
+      const string upsertSql = @"
 				INSERT INTO crypto_fear_greed (timestamp_utc, value, classification, updated)
 				VALUES (@ts, @val, @class, UTC_TIMESTAMP())
 				ON DUPLICATE KEY UPDATE
@@ -512,96 +512,96 @@ namespace maxhanna.Server.Services
 					classification = VALUES(classification),
 					updated        = VALUES(updated);";
 
-			await using (var cmd = new MySqlCommand(upsertSql, conn))
-			{
-				cmd.Parameters.AddWithValue("@ts", timestampUtc);
-				cmd.Parameters.AddWithValue("@val", indexValue);
-				cmd.Parameters.AddWithValue("@class", classification);
-				await cmd.ExecuteNonQueryAsync();
-			}
+      await using (var cmd = new MySqlCommand(upsertSql, conn))
+      {
+        cmd.Parameters.AddWithValue("@ts", timestampUtc);
+        cmd.Parameters.AddWithValue("@val", indexValue);
+        cmd.Parameters.AddWithValue("@class", classification);
+        await cmd.ExecuteNonQueryAsync();
+      }
 
-			await _log.Db($"Stored Fear & Greed = {indexValue} ({classification}) @ {timestampUtc:u}", null, "FGI", outputToConsole: true);
-		}
+      await _log.Db($"Stored Fear & Greed = {indexValue} ({classification}) @ {timestampUtc:u}", null, "FGI", outputToConsole: true);
+    }
 
-		private async Task FetchAndStoreGlobalMetricsAsync()
-		{
-			await _log.Db("Fetching global metrics from CoinMarketCap...", null, "GMF", outputToConsole: true);
+    private async Task FetchAndStoreGlobalMetricsAsync()
+    {
+      await _log.Db("Fetching global metrics from CoinMarketCap...", null, "GMF", outputToConsole: true);
 
-			// First check if we have recent data (within last 3 hours)
-			await using (var checkConn = new MySqlConnection(_connectionString))
-			{
-				await checkConn.OpenAsync();
+      // First check if we have recent data (within last 3 hours)
+      await using (var checkConn = new MySqlConnection(_connectionString))
+      {
+        await checkConn.OpenAsync();
 
-				const string recentCheckSql = @"
+        const string recentCheckSql = @"
 					SELECT 1 FROM crypto_global_metrics 
 					WHERE last_updated >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR)
 					LIMIT 1;";
 
-				await using var checkCmd = new MySqlCommand(recentCheckSql, checkConn);
-				if (await checkCmd.ExecuteScalarAsync() != null)
-				{
-					await _log.Db("Recent global metrics already exist (within last 3 hours), skipping update.",
-								 null, "GMF", outputToConsole: true);
-					return;
-				}
-			}
+        await using var checkCmd = new MySqlCommand(recentCheckSql, checkConn);
+        if (await checkCmd.ExecuteScalarAsync() != null)
+        {
+          await _log.Db("Recent global metrics already exist (within last 3 hours), skipping update.",
+                 null, "GMF", outputToConsole: true);
+          return;
+        }
+      }
 
-			// Get API key from config
-			var apiKey = _config.GetValue<string>("CoinMarketCap:ApiKey");
-			if (string.IsNullOrWhiteSpace(apiKey))
-			{
-				await _log.Db("CoinMarketCap API key missing", null, "GMF", outputToConsole: true);
-				return;
-			}
+      // Get API key from config
+      var apiKey = _config.GetValue<string>("CoinMarketCap:ApiKey");
+      if (string.IsNullOrWhiteSpace(apiKey))
+      {
+        await _log.Db("CoinMarketCap API key missing", null, "GMF", outputToConsole: true);
+        return;
+      }
 
-			// Call CoinMarketCap API
-			string json;
-			try
-			{
-				using var http = new HttpClient();
-				var req = new HttpRequestMessage
-				{
-					Method = HttpMethod.Get,
-					RequestUri = new Uri("https://pro-api.coinmarketcap.com/v1/global-metrics/quotes/latest"),
-				};
-				req.Headers.Add("X-CMC_PRO_API_KEY", apiKey);
-				req.Headers.Add("Accepts", "application/json");
+      // Call CoinMarketCap API
+      string json;
+      try
+      {
+        using var http = new HttpClient();
+        var req = new HttpRequestMessage
+        {
+          Method = HttpMethod.Get,
+          RequestUri = new Uri("https://pro-api.coinmarketcap.com/v1/global-metrics/quotes/latest"),
+        };
+        req.Headers.Add("X-CMC_PRO_API_KEY", apiKey);
+        req.Headers.Add("Accepts", "application/json");
 
-				using var resp = await http.SendAsync(req);
-				resp.EnsureSuccessStatusCode();
-				json = await resp.Content.ReadAsStringAsync();
-			}
-			catch (Exception ex)
-			{
-				await _log.Db($"Failed to fetch global metrics: {ex.Message}", null, "GMF", outputToConsole: true);
-				return;
-			}
+        using var resp = await http.SendAsync(req);
+        resp.EnsureSuccessStatusCode();
+        json = await resp.Content.ReadAsStringAsync();
+      }
+      catch (Exception ex)
+      {
+        await _log.Db($"Failed to fetch global metrics: {ex.Message}", null, "GMF", outputToConsole: true);
+        return;
+      }
 
-			// Parse the response
-			try
-			{
-				var root = Newtonsoft.Json.Linq.JObject.Parse(json);
-				var data = root["data"] ?? throw new Exception("No data in API response");
-				var quote = data["quote"]?["USD"] ?? throw new Exception("No USD quote in API response");
+      // Parse the response
+      try
+      {
+        var root = Newtonsoft.Json.Linq.JObject.Parse(json);
+        var data = root["data"] ?? throw new Exception("No data in API response");
+        var quote = data["quote"]?["USD"] ?? throw new Exception("No USD quote in API response");
 
-				var timestamp = data["last_updated"]?.ToObject<DateTime>() ?? DateTime.UtcNow;
+        var timestamp = data["last_updated"]?.ToObject<DateTime>() ?? DateTime.UtcNow;
 
-				// Check if we already have this exact timestamp (redundant check but good for safety)
-				await using var conn = new MySqlConnection(_connectionString);
-				await conn.OpenAsync();
+        // Check if we already have this exact timestamp (redundant check but good for safety)
+        await using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
 
-				const string existsSql = @"SELECT 1 FROM crypto_global_metrics 
+        const string existsSql = @"SELECT 1 FROM crypto_global_metrics 
                               WHERE timestamp_utc = @ts LIMIT 1;";
-				await using var existsCmd = new MySqlCommand(existsSql, conn);
-				existsCmd.Parameters.AddWithValue("@ts", timestamp);
-				if (await existsCmd.ExecuteScalarAsync() != null)
-				{
-					await _log.Db($"Global metrics already exist @ {timestamp:u}, skipping.", null, "GMF", outputToConsole: true);
-					return;
-				}
+        await using var existsCmd = new MySqlCommand(existsSql, conn);
+        existsCmd.Parameters.AddWithValue("@ts", timestamp);
+        if (await existsCmd.ExecuteScalarAsync() != null)
+        {
+          await _log.Db($"Global metrics already exist @ {timestamp:u}, skipping.", null, "GMF", outputToConsole: true);
+          return;
+        }
 
-				// Prepare the insert command
-				const string insertSql = @"
+        // Prepare the insert command
+        const string insertSql = @"
 					INSERT INTO crypto_global_metrics (
 						timestamp_utc, btc_dominance, eth_dominance,
 						active_cryptocurrencies, active_exchanges, active_market_pairs,
@@ -620,121 +620,121 @@ namespace maxhanna.Server.Services
 						@derivativesVol, @lastUpdated
 					)";
 
-				await using var cmd = new MySqlCommand(insertSql, conn);
+        await using var cmd = new MySqlCommand(insertSql, conn);
 
-				// Add parameters
-				cmd.Parameters.AddWithValue("@ts", timestamp);
-				cmd.Parameters.AddWithValue("@btcDom", data["btc_dominance"]?.ToObject<decimal>() ?? 0m);
-				cmd.Parameters.AddWithValue("@ethDom", data["eth_dominance"]?.ToObject<decimal>() ?? 0m);
-				cmd.Parameters.AddWithValue("@activeCryptos", data["active_cryptocurrencies"]?.ToObject<int>() ?? 0);
-				cmd.Parameters.AddWithValue("@activeExchanges", data["active_exchanges"]?.ToObject<int>() ?? 0);
-				cmd.Parameters.AddWithValue("@activePairs", data["active_market_pairs"]?.ToObject<int>() ?? 0);
+        // Add parameters
+        cmd.Parameters.AddWithValue("@ts", timestamp);
+        cmd.Parameters.AddWithValue("@btcDom", data["btc_dominance"]?.ToObject<decimal>() ?? 0m);
+        cmd.Parameters.AddWithValue("@ethDom", data["eth_dominance"]?.ToObject<decimal>() ?? 0m);
+        cmd.Parameters.AddWithValue("@activeCryptos", data["active_cryptocurrencies"]?.ToObject<int>() ?? 0);
+        cmd.Parameters.AddWithValue("@activeExchanges", data["active_exchanges"]?.ToObject<int>() ?? 0);
+        cmd.Parameters.AddWithValue("@activePairs", data["active_market_pairs"]?.ToObject<int>() ?? 0);
 
-				cmd.Parameters.AddWithValue("@totalCap", quote["total_market_cap"]?.ToObject<decimal>() ?? 0m);
-				cmd.Parameters.AddWithValue("@totalVol", quote["total_volume_24h"]?.ToObject<decimal>() ?? 0m);
-				cmd.Parameters.AddWithValue("@totalVolReported", quote["total_volume_24h_reported"]?.ToObject<decimal>() ?? 0m);
-				cmd.Parameters.AddWithValue("@altcoinCap", quote["altcoin_market_cap"]?.ToObject<decimal>() ?? 0m);
-				cmd.Parameters.AddWithValue("@altcoinVol", quote["altcoin_volume_24h"]?.ToObject<decimal>() ?? 0m);
-				cmd.Parameters.AddWithValue("@altcoinVolReported", quote["altcoin_volume_24h_reported"]?.ToObject<decimal>() ?? 0m);
+        cmd.Parameters.AddWithValue("@totalCap", quote["total_market_cap"]?.ToObject<decimal>() ?? 0m);
+        cmd.Parameters.AddWithValue("@totalVol", quote["total_volume_24h"]?.ToObject<decimal>() ?? 0m);
+        cmd.Parameters.AddWithValue("@totalVolReported", quote["total_volume_24h_reported"]?.ToObject<decimal>() ?? 0m);
+        cmd.Parameters.AddWithValue("@altcoinCap", quote["altcoin_market_cap"]?.ToObject<decimal>() ?? 0m);
+        cmd.Parameters.AddWithValue("@altcoinVol", quote["altcoin_volume_24h"]?.ToObject<decimal>() ?? 0m);
+        cmd.Parameters.AddWithValue("@altcoinVolReported", quote["altcoin_volume_24h_reported"]?.ToObject<decimal>() ?? 0m);
 
-				cmd.Parameters.AddWithValue("@defiCap", quote["defi_market_cap"]?.ToObject<decimal>() ?? 0m);
-				cmd.Parameters.AddWithValue("@defiVol", quote["defi_volume_24h"]?.ToObject<decimal>() ?? 0m);
-				cmd.Parameters.AddWithValue("@stablecoinCap", quote["stablecoin_market_cap"]?.ToObject<decimal>() ?? 0m);
-				cmd.Parameters.AddWithValue("@stablecoinVol", quote["stablecoin_volume_24h"]?.ToObject<decimal>() ?? 0m);
-				cmd.Parameters.AddWithValue("@derivativesVol", quote["derivatives_volume_24h"]?.ToObject<decimal>() ?? 0m);
-				cmd.Parameters.AddWithValue("@lastUpdated", data["last_updated"]?.ToObject<DateTime>() ?? DateTime.UtcNow);
+        cmd.Parameters.AddWithValue("@defiCap", quote["defi_market_cap"]?.ToObject<decimal>() ?? 0m);
+        cmd.Parameters.AddWithValue("@defiVol", quote["defi_volume_24h"]?.ToObject<decimal>() ?? 0m);
+        cmd.Parameters.AddWithValue("@stablecoinCap", quote["stablecoin_market_cap"]?.ToObject<decimal>() ?? 0m);
+        cmd.Parameters.AddWithValue("@stablecoinVol", quote["stablecoin_volume_24h"]?.ToObject<decimal>() ?? 0m);
+        cmd.Parameters.AddWithValue("@derivativesVol", quote["derivatives_volume_24h"]?.ToObject<decimal>() ?? 0m);
+        cmd.Parameters.AddWithValue("@lastUpdated", data["last_updated"]?.ToObject<DateTime>() ?? DateTime.UtcNow);
 
-				var affectedRows = await cmd.ExecuteNonQueryAsync();
+        var affectedRows = await cmd.ExecuteNonQueryAsync();
 
-				if (affectedRows > 0)
-				{
-					await _log.Db($"Successfully stored global metrics @ {timestamp:u}", null, "GMF", outputToConsole: true);
-				}
-				else
-				{
-					await _log.Db("Failed to store global metrics (no rows affected)", null, "GMF", outputToConsole: true);
-				}
-			}
-			catch (Exception ex)
-			{
-				await _log.Db($"Failed to process global metrics: {ex.Message}", null, "GMF", outputToConsole: true);
-			}
-		}
+        if (affectedRows > 0)
+        {
+          await _log.Db($"Successfully stored global metrics @ {timestamp:u}", null, "GMF", outputToConsole: true);
+        }
+        else
+        {
+          await _log.Db("Failed to store global metrics (no rows affected)", null, "GMF", outputToConsole: true);
+        }
+      }
+      catch (Exception ex)
+      {
+        await _log.Db($"Failed to process global metrics: {ex.Message}", null, "GMF", outputToConsole: true);
+      }
+    }
 
-		private async Task FetchAndStoreCryptoEvents()
-		{
-			await _log.Db("Fetching Crypto Calendar of events...", null, "CCS", outputToConsole: true);
+    private async Task FetchAndStoreCryptoEvents()
+    {
+      await _log.Db("Fetching Crypto Calendar of events...", null, "CCS", outputToConsole: true);
 
-			try
-			{
-				await using (var conn1 = new MySqlConnection(_connectionString))
-				{
-					await conn1.OpenAsync();
+      try
+      {
+        await using (var conn1 = new MySqlConnection(_connectionString))
+        {
+          await conn1.OpenAsync();
 
-					var recentExistsSql = @"
+          var recentExistsSql = @"
 						SELECT 1
 						FROM crypto_calendar_events
 						WHERE updated >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY)
 						LIMIT 1;";
 
-					await using (var recentCmd = new MySqlCommand(recentExistsSql, conn1))
-					{
-						var hasRecent = await recentCmd.ExecuteScalarAsync() is not null;
-						if (hasRecent)
-						{
-							await _log.Db("Crypto-calendar already updated in the last 24 h. Skipping fetch.", null, "CCS", outputToConsole: true);
-							return;
-						}
-					}
-				}
+          await using (var recentCmd = new MySqlCommand(recentExistsSql, conn1))
+          {
+            var hasRecent = await recentCmd.ExecuteScalarAsync() is not null;
+            if (hasRecent)
+            {
+              await _log.Db("Crypto-calendar already updated in the last 24 h. Skipping fetch.", null, "CCS", outputToConsole: true);
+              return;
+            }
+          }
+        }
 
-				var apiKey = _config.GetValue<string>("CoinMarketCal:ApiKey");
-				if (string.IsNullOrEmpty(apiKey))
-				{
-					await _log.Db("CoinMarketCal API key is missing in configuration", null, "CCS", outputToConsole: true);
-					return;
-				}
+        var apiKey = _config.GetValue<string>("CoinMarketCal:ApiKey");
+        if (string.IsNullOrEmpty(apiKey))
+        {
+          await _log.Db("CoinMarketCal API key is missing in configuration", null, "CCS", outputToConsole: true);
+          return;
+        }
 
-				using var httpClient = new HttpClient();
-				var request = new HttpRequestMessage
-				{
-					Method = HttpMethod.Get,
-					RequestUri = new Uri("https://developers.coinmarketcal.com/v1/events?max=100"),
-					Headers =
-					{
-						{ "Accept", "application/json" },
-						{ "x-api-key", apiKey },
-					},
-				};
+        using var httpClient = new HttpClient();
+        var request = new HttpRequestMessage
+        {
+          Method = HttpMethod.Get,
+          RequestUri = new Uri("https://developers.coinmarketcal.com/v1/events?max=100"),
+          Headers =
+          {
+            { "Accept", "application/json" },
+            { "x-api-key", apiKey },
+          },
+        };
 
-				using var response = await httpClient.SendAsync(request);
-				response.EnsureSuccessStatusCode();
+        using var response = await httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
 
-				var responseBody = await response.Content.ReadAsStringAsync();
-				//Console.WriteLine("Received response: " + responseBody);
-				var eventsResponse = JsonConvert.DeserializeObject<CoinMarketCalResponse>(responseBody);
+        var responseBody = await response.Content.ReadAsStringAsync();
+        //Console.WriteLine("Received response: " + responseBody);
+        var eventsResponse = JsonConvert.DeserializeObject<CoinMarketCalResponse>(responseBody);
 
-				if (eventsResponse?.Body == null || eventsResponse.Body.Count == 0)
-				{
-					await _log.Db("No events found in CoinMarketCal response", null, "CCS", outputToConsole: true);
-					return;
-				}
+        if (eventsResponse?.Body == null || eventsResponse.Body.Count == 0)
+        {
+          await _log.Db("No events found in CoinMarketCal response", null, "CCS", outputToConsole: true);
+          return;
+        }
 
-				await using var conn = new MySqlConnection(_connectionString);
-				await conn.OpenAsync();
+        await using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
 
-				// Delete events older than 10 years
-				var deleteOldSql = "DELETE FROM crypto_calendar_events WHERE event_date < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR);";
-				await using (var deleteCmd = new MySqlCommand(deleteOldSql, conn))
-				{
-					await deleteCmd.ExecuteNonQueryAsync();
-				}
+        // Delete events older than 10 years
+        var deleteOldSql = "DELETE FROM crypto_calendar_events WHERE event_date < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR);";
+        await using (var deleteCmd = new MySqlCommand(deleteOldSql, conn))
+        {
+          await deleteCmd.ExecuteNonQueryAsync();
+        }
 
-				foreach (var eventItem in eventsResponse.Body)
-				{
-					//Console.WriteLine($"Processing event: ID={eventItem?.Id}, Title={eventItem?.TitleText}, DateEvent={eventItem?.DateEvent}");
+        foreach (var eventItem in eventsResponse.Body)
+        {
+          //Console.WriteLine($"Processing event: ID={eventItem?.Id}, Title={eventItem?.TitleText}, DateEvent={eventItem?.DateEvent}");
 
-					var insertSql = @"
+          var insertSql = @"
 						INSERT INTO crypto_calendar_events 
 						(event_id, title, coin_symbol, coin_name, event_date, created_date, source, description, is_hot, proof_url, updated)
 						VALUES (@eventId, @title, @coinSymbol, @coinName, @eventDate, @createdDate, @source, @description, @isHot, @proofUrl, UTC_TIMESTAMP())
@@ -747,277 +747,277 @@ namespace maxhanna.Server.Services
 							is_hot = VALUES(is_hot),
 							proof_url = VALUES(proof_url);";
 
-					await using (var insertCmd = new MySqlCommand(insertSql, conn))
-					{
-						insertCmd.Parameters.AddWithValue("@eventId", eventItem?.Id);
-						insertCmd.Parameters.AddWithValue("@title", eventItem?.TitleText);
-						insertCmd.Parameters.AddWithValue("@coinSymbol", eventItem?.Coins?[0].Symbol);
-						insertCmd.Parameters.AddWithValue("@coinName", eventItem?.Coins?[0].Name);
-						insertCmd.Parameters.AddWithValue("@eventDate", eventItem?.DateEvent);
-						insertCmd.Parameters.AddWithValue("@createdDate", eventItem?.CreatedDate);
-						insertCmd.Parameters.AddWithValue("@source", eventItem?.Source);
-						insertCmd.Parameters.AddWithValue("@description", eventItem?.Description);
-						insertCmd.Parameters.AddWithValue("@isHot", eventItem?.IsHot);
-						insertCmd.Parameters.AddWithValue("@proofUrl", eventItem?.Proof);
+          await using (var insertCmd = new MySqlCommand(insertSql, conn))
+          {
+            insertCmd.Parameters.AddWithValue("@eventId", eventItem?.Id);
+            insertCmd.Parameters.AddWithValue("@title", eventItem?.TitleText);
+            insertCmd.Parameters.AddWithValue("@coinSymbol", eventItem?.Coins?[0].Symbol);
+            insertCmd.Parameters.AddWithValue("@coinName", eventItem?.Coins?[0].Name);
+            insertCmd.Parameters.AddWithValue("@eventDate", eventItem?.DateEvent);
+            insertCmd.Parameters.AddWithValue("@createdDate", eventItem?.CreatedDate);
+            insertCmd.Parameters.AddWithValue("@source", eventItem?.Source);
+            insertCmd.Parameters.AddWithValue("@description", eventItem?.Description);
+            insertCmd.Parameters.AddWithValue("@isHot", eventItem?.IsHot);
+            insertCmd.Parameters.AddWithValue("@proofUrl", eventItem?.Proof);
 
-						await insertCmd.ExecuteNonQueryAsync();
-					}
-				}
+            await insertCmd.ExecuteNonQueryAsync();
+          }
+        }
 
-				await _log.Db($"Successfully stored {eventsResponse.Body.Count} crypto events", null, "CCS", outputToConsole: true);
-			}
-			catch (Exception ex)
-			{
-				await _log.Db($"Error fetching crypto events: {ex.Message}", null, "CCS", outputToConsole: true);
-			}
-		}
-		private async Task FetchWebsiteMetadata()
-		{
-			if (!isCrawling)
-			{
-				try
-				{
-					this.isCrawling = true;
-					await _webCrawler.StartBackgroundScrape();
-				}
-				catch (Exception ex)
-				{
-					_ = _log.Db("Exception while crawling : " + ex.Message, null);
-				}
-			}
-			this.isCrawling = false;
-		}
-		private async Task MakeCryptoTrade()
-		{
-			if (!await _tradeLock.WaitAsync(0))
-			{
-				return;
-			}
+        await _log.Db($"Successfully stored {eventsResponse.Body.Count} crypto events", null, "CCS", outputToConsole: true);
+      }
+      catch (Exception ex)
+      {
+        await _log.Db($"Error fetching crypto events: {ex.Message}", null, "CCS", outputToConsole: true);
+      }
+    }
+    private async Task FetchWebsiteMetadata()
+    {
+      if (!isCrawling)
+      {
+        try
+        {
+          this.isCrawling = true;
+          await _webCrawler.StartBackgroundScrape();
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db("Exception while crawling : " + ex.Message, null);
+        }
+      }
+      this.isCrawling = false;
+    }
+    private async Task MakeCryptoTrade()
+    {
+      if (!await _tradeLock.WaitAsync(0))
+      {
+        return;
+      }
 
-			try
-			{
-				// Get owner keys
-				UserKrakenApiKey? ownerKeys = await _krakenService.GetApiKey(1).ConfigureAwait(false);
-				if (ownerKeys?.ApiKey == null || ownerKeys.PrivateKey == null)
-				{
-					await _log.Db("No Kraken API keys found for userId: 1", 1, "SYSTEM", true).ConfigureAwait(false);
-					return;
-				}
+      try
+      {
+        // Get owner keys
+        UserKrakenApiKey? ownerKeys = await _krakenService.GetApiKey(1).ConfigureAwait(false);
+        if (ownerKeys?.ApiKey == null || ownerKeys.PrivateKey == null)
+        {
+          await _log.Db("No Kraken API keys found for userId: 1", 1, "SYSTEM", true).ConfigureAwait(false);
+          return;
+        }
 
-				try
-				{
-					var volumePairs = new[] { "XBTUSDC", "XRPUSDC", "XDGUSDC", "ETHUSDC", "SOLUSDC" };
-					var volumeTasks = new List<Task>();
+        try
+        {
+          var volumePairs = new[] { "XBTUSDC", "XRPUSDC", "XDGUSDC", "ETHUSDC", "SOLUSDC" };
+          var volumeTasks = new List<Task>();
 
-					foreach (var pair in volumePairs)
-					{
-						volumeTasks.Add(SaveVolumeDataAsync(1, pair, ownerKeys).ContinueWith(t =>
-						{
-							if (t.IsFaulted)
-							{
-								_ = _log.Db($"Volume save failed for {pair}: {t.Exception?.InnerException?.Message}",
-											1, "TRADE", true);
-							}
-						}));
-					}
+          foreach (var pair in volumePairs)
+          {
+            volumeTasks.Add(SaveVolumeDataAsync(1, pair, ownerKeys).ContinueWith(t =>
+            {
+              if (t.IsFaulted)
+              {
+                _ = _log.Db($"Volume save failed for {pair}: {t.Exception?.InnerException?.Message}",
+                      1, "TRADE", true);
+              }
+            }));
+          }
 
-					await Task.WhenAll(volumeTasks).ConfigureAwait(false);
-				}
-				catch (Exception ex)
-				{
-					await _log.Db($"Volume data error: {ex.Message}", 1, "TRADE", true).ConfigureAwait(false);
-					return;
-				}
+          await Task.WhenAll(volumeTasks).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+          await _log.Db($"Volume data error: {ex.Message}", 1, "TRADE", true).ConfigureAwait(false);
+          return;
+        }
 
-				// Collect trade task delegates
-				var tradeTaskDelegates = new List<(Func<Task> TaskDelegate, string Crypto, int UserId, string Strategy)>();
-				var cryptocurrencies = new[] { "BTC", "XRP", "SOL", "XDG", "ETH" };
-				var strategies = new[] { "HFT", "DCA", "IND" };
+        // Collect trade task delegates
+        var tradeTaskDelegates = new List<(Func<Task> TaskDelegate, string Crypto, int UserId, string Strategy)>();
+        var cryptocurrencies = new[] { "BTC", "XRP", "SOL", "XDG", "ETH" };
+        var strategies = new[] { "HFT", "DCA", "IND" };
 
-				foreach (var crypto in cryptocurrencies)
-				{
-					foreach (var strategy in strategies)
-					{
-						var activeUsers = await _krakenService.GetActiveTradeBotUsers(crypto, strategy, null);
-						foreach (var userId in activeUsers)
-						{
-							UserKrakenApiKey? keys = await _krakenService.GetApiKey(userId);
-							if (keys == null || string.IsNullOrEmpty(keys.ApiKey) || string.IsNullOrEmpty(keys.PrivateKey))
-							{
-								await _log.Db($"No Kraken API keys found for userId: {userId}", userId, "SYSTEM", true);
-								continue;
-							}
+        foreach (var crypto in cryptocurrencies)
+        {
+          foreach (var strategy in strategies)
+          {
+            var activeUsers = await _krakenService.GetActiveTradeBotUsers(crypto, strategy, null);
+            foreach (var userId in activeUsers)
+            {
+              UserKrakenApiKey? keys = await _krakenService.GetApiKey(userId);
+              if (keys == null || string.IsNullOrEmpty(keys.ApiKey) || string.IsNullOrEmpty(keys.PrivateKey))
+              {
+                await _log.Db($"No Kraken API keys found for userId: {userId}", userId, "SYSTEM", true);
+                continue;
+              }
 
-							// Capture keys in a local variable to avoid closure issues
-							UserKrakenApiKey capturedKeys = keys;
-							tradeTaskDelegates.Add((
-								() => _krakenService.MakeATrade(userId, crypto, capturedKeys, strategy),
-								crypto,
-								userId,
-								strategy
-							));
-						}
-					}
-				}
+              // Capture keys in a local variable to avoid closure issues
+              UserKrakenApiKey capturedKeys = keys;
+              tradeTaskDelegates.Add((
+                () => _krakenService.MakeATrade(userId, crypto, capturedKeys, strategy),
+                crypto,
+                userId,
+                strategy
+              ));
+            }
+          }
+        }
 
-				// Process tasks sequentially with 0.5-second delay
-				//await _log.Db($"Starting execution of {tradeTaskDelegates.Count} trade tasks", null, "TRADE", true);
-				foreach (var (taskDelegate, crypto, userId, strategy) in tradeTaskDelegates)
-				{
-					var startTime = DateTime.UtcNow;
-					//await _log.Db($"Executing trade for userId={userId}, crypto={crypto}, strategy={strategy} at {startTime:u}", userId, "TRADE", true);
-					try
-					{
-						await taskDelegate().ConfigureAwait(false);
-					}
-					catch (Exception ex)
-					{
-						await _log.Db($"Error executing trade for userId={userId}, crypto={crypto}, strategy={strategy}: {ex.Message}", userId, "TRADE", true);
-					}
+        // Process tasks sequentially with 0.5-second delay
+        //await _log.Db($"Starting execution of {tradeTaskDelegates.Count} trade tasks", null, "TRADE", true);
+        foreach (var (taskDelegate, crypto, userId, strategy) in tradeTaskDelegates)
+        {
+          var startTime = DateTime.UtcNow;
+          //await _log.Db($"Executing trade for userId={userId}, crypto={crypto}, strategy={strategy} at {startTime:u}", userId, "TRADE", true);
+          try
+          {
+            await taskDelegate().ConfigureAwait(false);
+          }
+          catch (Exception ex)
+          {
+            await _log.Db($"Error executing trade for userId={userId}, crypto={crypto}, strategy={strategy}: {ex.Message}", userId, "TRADE", true);
+          }
 
-					var endTime = DateTime.UtcNow;
-					var elapsedMs = (endTime - startTime).TotalMilliseconds;
-					//await _log.Db($"Trade for userId={userId}, crypto={crypto}, strategy={strategy} completed in {elapsedMs:F2}ms", userId, "TRADE", true);
-					await Task.Delay(1000).ConfigureAwait(false);
-				}
+          var endTime = DateTime.UtcNow;
+          var elapsedMs = (endTime - startTime).TotalMilliseconds;
+          //await _log.Db($"Trade for userId={userId}, crypto={crypto}, strategy={strategy} completed in {elapsedMs:F2}ms", userId, "TRADE", true);
+          await Task.Delay(1000).ConfigureAwait(false);
+        }
 
-				//await _log.Db($"Completed execution of {tradeTaskDelegates.Count} trade tasks for users: {string.Join(", ", tradeTaskDelegates.Select(t => t.UserId))}", null, "TRADE", true);
-			}
-			catch (Exception ex)
-			{
-				await _log.Db($"Exception while trading: {ex.Message}", null, "TRADE", true);
-			}
-			finally
-			{
-				_tradeLock.Release();
-			}
-		}
-		private async Task UpdateLastBTCWalletInfo()
-		{
-			try
-			{
-				using var conn = new MySqlConnection(_connectionString);
-				await conn.OpenAsync();
+        //await _log.Db($"Completed execution of {tradeTaskDelegates.Count} trade tasks for users: {string.Join(", ", tradeTaskDelegates.Select(t => t.UserId))}", null, "TRADE", true);
+      }
+      catch (Exception ex)
+      {
+        await _log.Db($"Exception while trading: {ex.Message}", null, "TRADE", true);
+      }
+      finally
+      {
+        _tradeLock.Release();
+      }
+    }
+    private async Task UpdateLastBTCWalletInfo()
+    {
+      try
+      {
+        using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
 
-				// Fetch the most recently updated BTC wallet where the last_fetched timestamp is older than 1 hour
-				string fetchWalletSql = @"
+        // Fetch the most recently updated BTC wallet where the last_fetched timestamp is older than 1 hour
+        string fetchWalletSql = @"
 					SELECT id, user_id, btc_address, last_fetched 
 					FROM user_btc_wallet_info 
 					WHERE last_fetched < UTC_TIMESTAMP() - INTERVAL 1 HOUR
 					ORDER BY last_fetched DESC
 					LIMIT 1;";
 
-				WalletInfo? wallet = null;
-				using (var cmd = new MySqlCommand(fetchWalletSql, conn))
-				using (var reader = await cmd.ExecuteReaderAsync())
-				{
-					if (await reader.ReadAsync())
-					{
-						wallet = new WalletInfo
-						{
-							Id = reader.GetInt32("id"),
-							UserId = reader.GetInt32("user_id"),
-							BtcAddress = reader.GetString("btc_address")
-						};
-					}
-				}
+        WalletInfo? wallet = null;
+        using (var cmd = new MySqlCommand(fetchWalletSql, conn))
+        using (var reader = await cmd.ExecuteReaderAsync())
+        {
+          if (await reader.ReadAsync())
+          {
+            wallet = new WalletInfo
+            {
+              Id = reader.GetInt32("id"),
+              UserId = reader.GetInt32("user_id"),
+              BtcAddress = reader.GetString("btc_address")
+            };
+          }
+        }
 
-				if (wallet == null)
-				{
-					_ = _log.Db("No BTC wallets found to update or all wallets are up to date.", null);
-					return;
-				}
+        if (wallet == null)
+        {
+          _ = _log.Db("No BTC wallets found to update or all wallets are up to date.", null);
+          return;
+        }
 
-				// Fetch wallet data from Blockchain.com API
-				var walletData = await FetchBTCWalletData(wallet.BtcAddress);
-				if (walletData == null)
-				{
-					_ = _log.Db($"Failed to update wallet info for address: {wallet.BtcAddress}", null);
-					return;
-				}
+        // Fetch wallet data from Blockchain.com API
+        var walletData = await FetchBTCWalletData(wallet.BtcAddress);
+        if (walletData == null)
+        {
+          _ = _log.Db($"Failed to update wallet info for address: {wallet.BtcAddress}", null);
+          return;
+        }
 
-				// Insert the new wallet balance data into user_btc_wallet_balance
-				string insertSql = @"
+        // Insert the new wallet balance data into user_btc_wallet_balance
+        string insertSql = @"
 					INSERT INTO user_btc_wallet_balance (wallet_id, balance, fetched_at)
 					VALUES (@WalletId, @FinalBalance, UTC_TIMESTAMP());";
 
-				using (var insertCmd = new MySqlCommand(insertSql, conn))
-				{
-					decimal btc = walletData.FinalBalance / 100_000_000m;
-					insertCmd.Parameters.AddWithValue("@WalletId", wallet.Id);
-					insertCmd.Parameters.AddWithValue("@FinalBalance", btc);
+        using (var insertCmd = new MySqlCommand(insertSql, conn))
+        {
+          decimal btc = walletData.FinalBalance / 100_000_000m;
+          insertCmd.Parameters.AddWithValue("@WalletId", wallet.Id);
+          insertCmd.Parameters.AddWithValue("@FinalBalance", btc);
 
-					await insertCmd.ExecuteNonQueryAsync();
-				}
+          await insertCmd.ExecuteNonQueryAsync();
+        }
 
-				// Update the last_fetched timestamp in user_btc_wallet_info
-				string updateLastFetchedSql = @"
+        // Update the last_fetched timestamp in user_btc_wallet_info
+        string updateLastFetchedSql = @"
 					UPDATE user_btc_wallet_info 
 					SET last_fetched = UTC_TIMESTAMP() 
 					WHERE id = @WalletId;";
 
-				using (var updateCmd = new MySqlCommand(updateLastFetchedSql, conn))
-				{
-					updateCmd.Parameters.AddWithValue("@WalletId", wallet.Id);
-					await updateCmd.ExecuteNonQueryAsync();
-				}
+        using (var updateCmd = new MySqlCommand(updateLastFetchedSql, conn))
+        {
+          updateCmd.Parameters.AddWithValue("@WalletId", wallet.Id);
+          await updateCmd.ExecuteNonQueryAsync();
+        }
 
-				//_ = _log.Db($"Successfully inserted wallet balance data and updated last_fetched for address: {wallet.BtcAddress}");
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("Error occurred while updating BTC wallet info. " + ex.Message, null);
-			}
-		}
+        //_ = _log.Db($"Successfully inserted wallet balance data and updated last_fetched for address: {wallet.BtcAddress}");
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error occurred while updating BTC wallet info. " + ex.Message, null);
+      }
+    }
 
 
-		private async Task<BTCWalletData?> FetchBTCWalletData(string btcAddress)
-		{
-			string apiUrl = $"https://blockchain.info/rawaddr/{btcAddress}";
+    private async Task<BTCWalletData?> FetchBTCWalletData(string btcAddress)
+    {
+      string apiUrl = $"https://blockchain.info/rawaddr/{btcAddress}";
 
-			try
-			{
-				var response = await _httpClient.GetAsync(apiUrl);
-				if (response.IsSuccessStatusCode)
-				{
-					var responseContent = await response.Content.ReadAsStringAsync();
-					return JsonConvert.DeserializeObject<BTCWalletData>(responseContent);
-				}
-				else
-				{
-					_ = _log.Db($"Failed to fetch BTC wallet data for address {btcAddress}: {response.StatusCode}", null);
-				}
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db($"Error fetching BTC wallet data for address {btcAddress}. " + ex.Message, null);
-			}
+      try
+      {
+        var response = await _httpClient.GetAsync(apiUrl);
+        if (response.IsSuccessStatusCode)
+        {
+          var responseContent = await response.Content.ReadAsStringAsync();
+          return JsonConvert.DeserializeObject<BTCWalletData>(responseContent);
+        }
+        else
+        {
+          _ = _log.Db($"Failed to fetch BTC wallet data for address {btcAddress}: {response.StatusCode}", null);
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error fetching BTC wallet data for address {btcAddress}. " + ex.Message, null);
+      }
 
-			return null;
-		}
-		private async Task DeleteOldBattleReports()
-		{
-			try
-			{
-				await using MySqlConnection conn = new MySqlConnection(_connectionString);
-				await conn.OpenAsync();
+      return null;
+    }
+    private async Task DeleteOldBattleReports()
+    {
+      try
+      {
+        await using MySqlConnection conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
 
-				await using MySqlTransaction transaction = await conn.BeginTransactionAsync();
-				try
-				{
-					string deleteSqlReportsAndBattles = @"
+        await using MySqlTransaction transaction = await conn.BeginTransactionAsync();
+        try
+        {
+          string deleteSqlReportsAndBattles = @"
                         DELETE rd, b
                         FROM nexus_reports_deleted rd
                         JOIN nexus_battles b ON rd.battle_id = b.battle_id
                         WHERE b.timestamp < NOW() - INTERVAL 10 DAY;";
 
-					await using (var deleteCmd = new MySqlCommand(deleteSqlReportsAndBattles, conn, transaction))
-					{
-						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						_ = _log.Db($"Deleted {affectedRows} old battle reports and references.", null);
-					}
+          await using (var deleteCmd = new MySqlCommand(deleteSqlReportsAndBattles, conn, transaction))
+          {
+            int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
+            _ = _log.Db($"Deleted {affectedRows} old battle reports and references.", null);
+          }
 
-					string deleteSqlBaseUpgrades = @"
+          string deleteSqlBaseUpgrades = @"
                         DELETE FROM nexus_base_upgrades
                         WHERE command_center_upgraded IS NULL
                         AND mines_upgraded IS NULL
@@ -1027,468 +1027,468 @@ namespace maxhanna.Server.Services
                         AND engineering_bay_upgraded IS NULL
                         AND warehouse_upgraded IS NULL;";
 
-					await using (var deleteCmd = new MySqlCommand(deleteSqlBaseUpgrades, conn, transaction))
-					{
-						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						_ = _log.Db($"Deleted {affectedRows} null nexus base upgrade rows.", null);
-					}
+          await using (var deleteCmd = new MySqlCommand(deleteSqlBaseUpgrades, conn, transaction))
+          {
+            int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
+            _ = _log.Db($"Deleted {affectedRows} null nexus base upgrade rows.", null);
+          }
 
-					await transaction.CommitAsync();
-				}
-				catch (Exception ex)
-				{
-					_ = _log.Db("Error occurred while deleting old battle reports or base upgrades. Rolling back transaction. " + ex.Message, null);
-					await transaction.RollbackAsync();
-				}
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("Error occurred while establishing the database connection or transaction." + ex.Message, null);
-			}
-		}
+          await transaction.CommitAsync();
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db("Error occurred while deleting old battle reports or base upgrades. Rolling back transaction. " + ex.Message, null);
+          await transaction.RollbackAsync();
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error occurred while establishing the database connection or transaction." + ex.Message, null);
+      }
+    }
 
-		private async Task DeleteNotificationRequests()
-		{
-			try
-			{
-				await using MySqlConnection conn = new MySqlConnection(_connectionString);
-				await conn.OpenAsync();
+    private async Task DeleteNotificationRequests()
+    {
+      try
+      {
+        await using MySqlConnection conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
 
-				await using MySqlTransaction transaction = await conn.BeginTransactionAsync();
-				try
-				{
-					string deleteSql = @"
+        await using MySqlTransaction transaction = await conn.BeginTransactionAsync();
+        try
+        {
+          string deleteSql = @"
 						UPDATE maxhanna.user_settings 
             SET notifications_enabled = NULL, 
                 notifications_changed_date = UTC_TIMESTAMP() 
             WHERE notifications_changed_date < DATE_SUB(NOW(), INTERVAL 1 MONTH);";
 
-					await using (var deleteCmd = new MySqlCommand(deleteSql, conn, transaction))
-					{
-						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						_ = _log.Db($"Deleted {affectedRows} notification settings.", null);
-					}
+          await using (var deleteCmd = new MySqlCommand(deleteSql, conn, transaction))
+          {
+            int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
+            _ = _log.Db($"Deleted {affectedRows} notification settings.", null);
+          }
 
-					await transaction.CommitAsync();
-				}
-				catch (Exception ex)
-				{
-					_ = _log.Db("Error occurred while deleting notification settings. Rolling back transaction." + ex.Message, null);
-					await transaction.RollbackAsync();
-				}
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("Error occurred while establishing the database connection or transaction." + ex.Message, null);
-			}
-		}
-		private async Task DeleteHostAiRequests()
-		{
-			try
-			{
-				await using MySqlConnection conn = new MySqlConnection(_connectionString);
-				await conn.OpenAsync();
+          await transaction.CommitAsync();
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db("Error occurred while deleting notification settings. Rolling back transaction." + ex.Message, null);
+          await transaction.RollbackAsync();
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error occurred while establishing the database connection or transaction." + ex.Message, null);
+      }
+    }
+    private async Task DeleteHostAiRequests()
+    {
+      try
+      {
+        await using MySqlConnection conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
 
-				await using MySqlTransaction transaction = await conn.BeginTransactionAsync();
-				try
-				{
-					var deleteSql = @"
+        await using MySqlTransaction transaction = await conn.BeginTransactionAsync();
+        try
+        {
+          var deleteSql = @"
                 DELETE FROM maxhanna.host_ai_calls 
                 WHERE created < UTC_TIMESTAMP() - INTERVAL 1 YEAR;";
 
-					await using (var deleteCmd = new MySqlCommand(deleteSql, conn, transaction))
-					{
-						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						_ = _log.Db($"Deleted {affectedRows} host ai calls.", null);
-					}
+          await using (var deleteCmd = new MySqlCommand(deleteSql, conn, transaction))
+          {
+            int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
+            _ = _log.Db($"Deleted {affectedRows} host ai calls.", null);
+          }
 
-					await transaction.CommitAsync();
-				}
-				catch (Exception ex)
-				{
-					_ = _log.Db("Error occurred while deleting old HostAI calls. Rolling back transaction." + ex.Message, null);
-					await transaction.RollbackAsync();
-				}
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("Error occurred while establishing the database connection or transaction." + ex.Message, null);
-			}
-		}
+          await transaction.CommitAsync();
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db("Error occurred while deleting old HostAI calls. Rolling back transaction." + ex.Message, null);
+          await transaction.RollbackAsync();
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error occurred while establishing the database connection or transaction." + ex.Message, null);
+      }
+    }
 
-		private async Task DeleteOldNews()
-		{
-			try
-			{
-				await using MySqlConnection conn = new MySqlConnection(_connectionString);
-				await conn.OpenAsync();
+    private async Task DeleteOldNews()
+    {
+      try
+      {
+        await using MySqlConnection conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
 
-				await using MySqlTransaction transaction = await conn.BeginTransactionAsync();
-				try
-				{
-					var deleteSql = @"
+        await using MySqlTransaction transaction = await conn.BeginTransactionAsync();
+        try
+        {
+          var deleteSql = @"
 						DELETE FROM maxhanna.news_headlines 
 						WHERE saved_at < UTC_TIMESTAMP() - INTERVAL 5 YEAR;";
 
-					await using (var deleteCmd = new MySqlCommand(deleteSql, conn, transaction))
-					{
-						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						_ = _log.Db($"Deleted {affectedRows} news headlines.", null);
-					}
+          await using (var deleteCmd = new MySqlCommand(deleteSql, conn, transaction))
+          {
+            int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
+            _ = _log.Db($"Deleted {affectedRows} news headlines.", null);
+          }
 
-					await transaction.CommitAsync();
-				}
-				catch (Exception ex)
-				{
-					_ = _log.Db("Error occurred while deleting old news headlines. Rolling back transaction." + ex.Message, null);
-					await transaction.RollbackAsync();
-				}
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("Error occurred while establishing the database connection or transaction." + ex.Message, null);
-			}
-		}
-		private async Task SpawnEncounterMetabots()
-		{
-			int spawnCount = 0;
-			try
-			{
-				await using MySqlConnection conn = new MySqlConnection(_connectionString);
-				await conn.OpenAsync();
+          await transaction.CommitAsync();
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db("Error occurred while deleting old news headlines. Rolling back transaction." + ex.Message, null);
+          await transaction.RollbackAsync();
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error occurred while establishing the database connection or transaction." + ex.Message, null);
+      }
+    }
+    private async Task SpawnEncounterMetabots()
+    {
+      int spawnCount = 0;
+      try
+      {
+        await using MySqlConnection conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
 
-				await using MySqlTransaction transaction = await conn.BeginTransactionAsync();
-				try
-				{
-					// Get dead metabots that need respawning
-					var getDeadMetabotsSql = @"
+        await using MySqlTransaction transaction = await conn.BeginTransactionAsync();
+        try
+        {
+          // Get dead metabots that need respawning
+          var getDeadMetabotsSql = @"
                 SELECT hero_id, map, coordsX, coordsY, bot_types, level, hp,
                        head_part_type, legs_part_type, left_arm_part_type, right_arm_part_type
                 FROM meta_encounter 
                 WHERE last_killed < UTC_TIMESTAMP() - INTERVAL 30 SECOND;";
 
-					List<MetabotEncounter> deadEncounters = new();
+          List<MetabotEncounter> deadEncounters = new();
 
-					await using (var getCmd = new MySqlCommand(getDeadMetabotsSql, conn, transaction))
-					{
-						await using var reader = await getCmd.ExecuteReaderAsync();
-						while (await reader.ReadAsync())
-						{
-							deadEncounters.Add(new MetabotEncounter(
-								reader.GetInt32("hero_id"),
-								reader.GetString("map"),
-								reader.GetInt32("coordsX"),
-								reader.GetInt32("coordsY"),
-								reader.GetString("bot_types"),
-								reader.GetInt32("level"),
-								reader.GetInt32("hp"),
-								reader.GetInt32("head_part_type"),
-								reader.GetInt32("legs_part_type"),
-								reader.GetInt32("left_arm_part_type"),
-								reader.GetInt32("right_arm_part_type")
-							));
-						}
-					}
+          await using (var getCmd = new MySqlCommand(getDeadMetabotsSql, conn, transaction))
+          {
+            await using var reader = await getCmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+              deadEncounters.Add(new MetabotEncounter(
+                reader.GetInt32("hero_id"),
+                reader.GetString("map"),
+                reader.GetInt32("coordsX"),
+                reader.GetInt32("coordsY"),
+                reader.GetString("bot_types"),
+                reader.GetInt32("level"),
+                reader.GetInt32("hp"),
+                reader.GetInt32("head_part_type"),
+                reader.GetInt32("legs_part_type"),
+                reader.GetInt32("left_arm_part_type"),
+                reader.GetInt32("right_arm_part_type")
+              ));
+            }
+          }
 
-					// Respawn each dead metabot
-					if (deadEncounters.Count > 0)
-					{
-						var random = new Random();
-						foreach (var encounter in deadEncounters)
-						{
-							// Check if bot already exists
-							string checkSql = "SELECT COUNT(*) FROM maxhanna.meta_bot WHERE hero_id = @HeroId;";
-							int existingBotCount = 0;
+          // Respawn each dead metabot
+          if (deadEncounters.Count > 0)
+          {
+            var random = new Random();
+            foreach (var encounter in deadEncounters)
+            {
+              // Check if bot already exists
+              string checkSql = "SELECT COUNT(*) FROM maxhanna.meta_bot WHERE hero_id = @HeroId;";
+              int existingBotCount = 0;
 
-							using (var command = new MySqlCommand(checkSql, conn, transaction))
-							{
-								command.Parameters.AddWithValue("@HeroId", encounter.HeroId);
-								existingBotCount = Convert.ToInt32(await command.ExecuteScalarAsync());
-							}
+              using (var command = new MySqlCommand(checkSql, conn, transaction))
+              {
+                command.Parameters.AddWithValue("@HeroId", encounter.HeroId);
+                existingBotCount = Convert.ToInt32(await command.ExecuteScalarAsync());
+              }
 
-							if (existingBotCount > 0)
-							{
-								//_ = _log.Db($"Bot with hero_id {encounter.HeroId} already exists. Skipping.", null, "META", true);
-								continue;
-							}
+              if (existingBotCount > 0)
+              {
+                //_ = _log.Db($"Bot with hero_id {encounter.HeroId} already exists. Skipping.", null, "META", true);
+                continue;
+              }
 
-							//Console.WriteLine("inserting encounterid: " + encounter.HeroId);
-							// Select random bot type
-							string[] botTypeArray = encounter.BotTypes.Split(',')
-								.Select(bt => bt.Trim())
-								.Where(bt => !string.IsNullOrEmpty(bt))
-								.ToArray();
-							if (botTypeArray.Length == 0)
-							{
-								_ = _log.Db($"No valid bot types for hero {encounter.HeroId}. Skipping.", null, outputToConsole: true);
-								continue;
-							}
-							string selectedBotType = botTypeArray[random.Next(botTypeArray.Length)];
-							int typeId = await GetBotTypeId(selectedBotType, conn, transaction);
+              //Console.WriteLine("inserting encounterid: " + encounter.HeroId);
+              // Select random bot type
+              string[] botTypeArray = encounter.BotTypes.Split(',')
+                .Select(bt => bt.Trim())
+                .Where(bt => !string.IsNullOrEmpty(bt))
+                .ToArray();
+              if (botTypeArray.Length == 0)
+              {
+                _ = _log.Db($"No valid bot types for hero {encounter.HeroId}. Skipping.", null, outputToConsole: true);
+                continue;
+              }
+              string selectedBotType = botTypeArray[random.Next(botTypeArray.Length)];
+              int typeId = await GetBotTypeId(selectedBotType, conn, transaction);
 
-							if (typeId == 0)
-							{
-								_ = _log.Db($"Invalid bot type '{selectedBotType}' for hero {encounter.HeroId}. Skipping.", null, outputToConsole: true);
-								continue;
-							}
+              if (typeId == 0)
+              {
+                _ = _log.Db($"Invalid bot type '{selectedBotType}' for hero {encounter.HeroId}. Skipping.", null, outputToConsole: true);
+                continue;
+              }
 
-							// Insert new metabot and get its ID
-							int newBotId = 0;
-							try
-							{
-								string insertSql = @"
+              // Insert new metabot and get its ID
+              int newBotId = 0;
+              try
+              {
+                string insertSql = @"
 									INSERT INTO maxhanna.meta_bot 
 									(hero_id, name, type, hp, exp, level, is_deployed) 
 									VALUES (@HeroId, @Name, @Type, @Hp, @Exp, @Level, @IsDeployed);
 									SELECT LAST_INSERT_ID();";
 
-								using (var command = new MySqlCommand(insertSql, conn, transaction))
-								{
-									command.Parameters.AddWithValue("@HeroId", encounter.HeroId);
-									command.Parameters.AddWithValue("@Name", selectedBotType);
-									command.Parameters.AddWithValue("@Type", typeId);
-									command.Parameters.AddWithValue("@Hp", encounter.Hp);
-									command.Parameters.AddWithValue("@Exp", 0);
-									command.Parameters.AddWithValue("@Level", encounter.Level);
-									command.Parameters.AddWithValue("@IsDeployed", true);
+                using (var command = new MySqlCommand(insertSql, conn, transaction))
+                {
+                  command.Parameters.AddWithValue("@HeroId", encounter.HeroId);
+                  command.Parameters.AddWithValue("@Name", selectedBotType);
+                  command.Parameters.AddWithValue("@Type", typeId);
+                  command.Parameters.AddWithValue("@Hp", encounter.Hp);
+                  command.Parameters.AddWithValue("@Exp", 0);
+                  command.Parameters.AddWithValue("@Level", encounter.Level);
+                  command.Parameters.AddWithValue("@IsDeployed", true);
 
-									newBotId = Convert.ToInt32(await command.ExecuteScalarAsync());
-								}
-							}
-							catch (Exception ex)
-							{
-								_ = _log.Db($"Exception while respawning {selectedBotType} (ID: {encounter.HeroId}) at {encounter.Map}({encounter.CoordsX},{encounter.CoordsY}). " + ex.Message, null, outputToConsole: true);
-								continue;
-							}
+                  newBotId = Convert.ToInt32(await command.ExecuteScalarAsync());
+                }
+              }
+              catch (Exception ex)
+              {
+                _ = _log.Db($"Exception while respawning {selectedBotType} (ID: {encounter.HeroId}) at {encounter.Map}({encounter.CoordsX},{encounter.CoordsY}). " + ex.Message, null, outputToConsole: true);
+                continue;
+              }
 
-							// Insert metabot parts into meta_encounter_bot_part
-							var parts = new Dictionary<string, int>
-							{
-								{ "head", encounter.HeadPartType },
-								{ "legs", encounter.LegsPartType },
-								{ "left_arm", encounter.LeftArmPartType },
-								{ "right_arm", encounter.RightArmPartType }
-							};
+              // Insert metabot parts into meta_encounter_bot_part
+              var parts = new Dictionary<string, int>
+              {
+                { "head", encounter.HeadPartType },
+                { "legs", encounter.LegsPartType },
+                { "left_arm", encounter.LeftArmPartType },
+                { "right_arm", encounter.RightArmPartType }
+              };
 
-							foreach (var part in parts)
-							{
-								try
-								{
-									// Get part details from meta_bot_part_type using part type as id
-									string getPartSql = @"
+              foreach (var part in parts)
+              {
+                try
+                {
+                  // Get part details from meta_bot_part_type using part type as id
+                  string getPartSql = @"
                                 SELECT damage_mod_min, damage_mod_max, skill 
                                 FROM meta_bot_part_type 
                                 WHERE id = @PartTypeId;";
 
-									int damageMod = 0;
-									string? skill = null;
+                  int damageMod = 0;
+                  string? skill = null;
 
-									using (var command = new MySqlCommand(getPartSql, conn, transaction))
-									{
-										command.Parameters.AddWithValue("@PartTypeId", part.Value);
+                  using (var command = new MySqlCommand(getPartSql, conn, transaction))
+                  {
+                    command.Parameters.AddWithValue("@PartTypeId", part.Value);
 
-										await using var reader = await command.ExecuteReaderAsync();
-										if (await reader.ReadAsync())
-										{
-											int minDamage = reader.GetInt32("damage_mod_min");
-											int maxDamage = reader.GetInt32("damage_mod_max");
-											damageMod = random.Next(minDamage, maxDamage + 1);
-											skill = reader.IsDBNull(reader.GetOrdinal("skill")) ? "Sting" : reader.GetString("skill");
-										}
-										else
-										{
-											_ = _log.Db($"No part type found for {part.Key} with id {part.Value} for hero {encounter.HeroId}. Skipping part.", null, outputToConsole: true);
-											continue;
-										}
-									}
+                    await using var reader = await command.ExecuteReaderAsync();
+                    if (await reader.ReadAsync())
+                    {
+                      int minDamage = reader.GetInt32("damage_mod_min");
+                      int maxDamage = reader.GetInt32("damage_mod_max");
+                      damageMod = random.Next(minDamage, maxDamage + 1);
+                      skill = reader.IsDBNull(reader.GetOrdinal("skill")) ? "Sting" : reader.GetString("skill");
+                    }
+                    else
+                    {
+                      _ = _log.Db($"No part type found for {part.Key} with id {part.Value} for hero {encounter.HeroId}. Skipping part.", null, outputToConsole: true);
+                      continue;
+                    }
+                  }
 
-									// Insert the part into meta_encounter_bot_part
-									string insertPartSql = @"
+                  // Insert the part into meta_encounter_bot_part
+                  string insertPartSql = @"
 										INSERT INTO maxhanna.meta_encounter_bot_part 
 										(hero_id, part_name, type, damage_mod, skill) 
 										VALUES (@HeroId, @PartName, @Type, @DamageMod, @Skill);";
 
-									using (var command = new MySqlCommand(insertPartSql, conn, transaction))
-									{
-										command.Parameters.AddWithValue("@HeroId", encounter.HeroId);
-										command.Parameters.AddWithValue("@PartName", part.Key.ToUpper());
-										command.Parameters.AddWithValue("@Type", part.Value);
-										command.Parameters.AddWithValue("@DamageMod", damageMod);
-										command.Parameters.AddWithValue("@Skill", skill ?? (object)DBNull.Value);
+                  using (var command = new MySqlCommand(insertPartSql, conn, transaction))
+                  {
+                    command.Parameters.AddWithValue("@HeroId", encounter.HeroId);
+                    command.Parameters.AddWithValue("@PartName", part.Key.ToUpper());
+                    command.Parameters.AddWithValue("@Type", part.Value);
+                    command.Parameters.AddWithValue("@DamageMod", damageMod);
+                    command.Parameters.AddWithValue("@Skill", skill ?? (object)DBNull.Value);
 
-										await command.ExecuteNonQueryAsync();
-									}
-								}
-								catch (Exception ex)
-								{
-									_ = _log.Db($"Exception while inserting part {part.Key} for hero {encounter.HeroId}: {ex.Message}", null, outputToConsole: true);
-									continue;
-								}
-							}
+                    await command.ExecuteNonQueryAsync();
+                  }
+                }
+                catch (Exception ex)
+                {
+                  _ = _log.Db($"Exception while inserting part {part.Key} for hero {encounter.HeroId}: {ex.Message}", null, outputToConsole: true);
+                  continue;
+                }
+              }
 
-							// Update spawn time
-							var updateSql = "UPDATE meta_encounter SET last_spawn = UTC_TIMESTAMP() WHERE hero_id = @heroId;";
-							using (var updateCmd = new MySqlCommand(updateSql, conn, transaction))
-							{
-								updateCmd.Parameters.AddWithValue("@heroId", encounter.HeroId);
-								await updateCmd.ExecuteNonQueryAsync();
-							}
-							spawnCount++;
-							//	_ = _log.Db($"Respawned {selectedBotType} (ID: {newBotId}, HeroID: {encounter.HeroId}) at {encounter.Map}({encounter.CoordsX},{encounter.CoordsY})", null, outputToConsole: true);
-						}
-					}
+              // Update spawn time
+              var updateSql = "UPDATE meta_encounter SET last_spawn = UTC_TIMESTAMP() WHERE hero_id = @heroId;";
+              using (var updateCmd = new MySqlCommand(updateSql, conn, transaction))
+              {
+                updateCmd.Parameters.AddWithValue("@heroId", encounter.HeroId);
+                await updateCmd.ExecuteNonQueryAsync();
+              }
+              spawnCount++;
+              //	_ = _log.Db($"Respawned {selectedBotType} (ID: {newBotId}, HeroID: {encounter.HeroId}) at {encounter.Map}({encounter.CoordsX},{encounter.CoordsY})", null, outputToConsole: true);
+            }
+          }
 
-					await transaction.CommitAsync();
-					_ = _log.Db($"Processed {spawnCount} metabot respawns.", null, outputToConsole: spawnCount > 0);
-				}
-				catch (Exception ex)
-				{
-					_ = _log.Db("Error in metabot respawn transaction: " + ex.Message, null, outputToConsole: true);
-					await transaction.RollbackAsync();
-				}
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("Database connection error: " + ex.Message, null, outputToConsole: true);
-			}
-		}
+          await transaction.CommitAsync();
+          _ = _log.Db($"Processed {spawnCount} metabot respawns.", null, outputToConsole: spawnCount > 0);
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db("Error in metabot respawn transaction: " + ex.Message, null, outputToConsole: true);
+          await transaction.RollbackAsync();
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Database connection error: " + ex.Message, null, outputToConsole: true);
+      }
+    }
 
-		private async Task FetchAndStoreTopMarketCaps()
-		{
-			await _log.Db("Fetching top market caps from CoinMarketCap...", null, "MCS", outputToConsole: true);
+    private async Task FetchAndStoreTopMarketCaps()
+    {
+      await _log.Db("Fetching top market caps from CoinMarketCap...", null, "MCS", outputToConsole: true);
 
-			try
-			{
-				await using var conn = new MySqlConnection(_connectionString);
-				await conn.OpenAsync();
+      try
+      {
+        await using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
 
-				const string recentCheckSql = @"
+        const string recentCheckSql = @"
 					SELECT recorded_at FROM coin_market_caps 
 					WHERE recorded_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
 					ORDER BY recorded_at DESC
 					LIMIT 1;";
 
-				await using var checkCmd = new MySqlCommand(recentCheckSql, conn);
-				var lastUpdateTime = await checkCmd.ExecuteScalarAsync() as DateTime?;
+        await using var checkCmd = new MySqlCommand(recentCheckSql, conn);
+        var lastUpdateTime = await checkCmd.ExecuteScalarAsync() as DateTime?;
 
-				if (lastUpdateTime.HasValue)
-				{
-					var nextUpdateTime = lastUpdateTime.Value.AddHours(24);
-					var timeLeft = nextUpdateTime - DateTime.UtcNow;
+        if (lastUpdateTime.HasValue)
+        {
+          var nextUpdateTime = lastUpdateTime.Value.AddHours(24);
+          var timeLeft = nextUpdateTime - DateTime.UtcNow;
 
-					await _log.Db($"Recent market cap data already exists. Next update in {timeLeft.Hours} hours and {timeLeft.Minutes} minutes.",
-									null, "MCS", outputToConsole: true);
-					return;
-				}
+          await _log.Db($"Recent market cap data already exists. Next update in {timeLeft.Hours} hours and {timeLeft.Minutes} minutes.",
+                  null, "MCS", outputToConsole: true);
+          return;
+        }
 
-				// Fetch API key
-				var apiKey = _config.GetValue<string>("CoinMarketCap:ApiKey");
-				if (string.IsNullOrWhiteSpace(apiKey))
-				{
-					await _log.Db("CoinMarketCap API key missing", null, "MCS", outputToConsole: true);
-					return;
-				}
+        // Fetch API key
+        var apiKey = _config.GetValue<string>("CoinMarketCap:ApiKey");
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+          await _log.Db("CoinMarketCap API key missing", null, "MCS", outputToConsole: true);
+          return;
+        }
 
-				// Fetch top 30 coins
-				const string url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?start=1&limit=30&convert=USD";
-				var request = new HttpRequestMessage
-				{
-					Method = HttpMethod.Get,
-					RequestUri = new Uri(url),
-				};
-				request.Headers.Add("X-CMC_PRO_API_KEY", apiKey);
-				request.Headers.Add("Accepts", "application/json");
+        // Fetch top 30 coins
+        const string url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?start=1&limit=30&convert=USD";
+        var request = new HttpRequestMessage
+        {
+          Method = HttpMethod.Get,
+          RequestUri = new Uri(url),
+        };
+        request.Headers.Add("X-CMC_PRO_API_KEY", apiKey);
+        request.Headers.Add("Accepts", "application/json");
 
-				var response = await _httpClient.SendAsync(request);
-				response.EnsureSuccessStatusCode();
-				var responseContent = await response.Content.ReadAsStringAsync();
-				var root = Newtonsoft.Json.Linq.JObject.Parse(responseContent);
-				var coins = root["data"]?.ToObject<List<Dictionary<string, object>>>();
+        var response = await _httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var root = Newtonsoft.Json.Linq.JObject.Parse(responseContent);
+        var coins = root["data"]?.ToObject<List<Dictionary<string, object>>>();
 
-				if (coins == null || coins.Count == 0)
-				{
-					await _log.Db("No market cap data found in CoinMarketCap response", null, "MCS", outputToConsole: true);
-					return;
-				}
+        if (coins == null || coins.Count == 0)
+        {
+          await _log.Db("No market cap data found in CoinMarketCap response", null, "MCS", outputToConsole: true);
+          return;
+        }
 
-				const string historicalDataSql = @"
+        const string historicalDataSql = @"
 					SELECT coin_id, market_cap_usd
 					FROM coin_market_caps
 					WHERE recorded_at BETWEEN UTC_TIMESTAMP() - INTERVAL 48 HOUR 
 										AND UTC_TIMESTAMP() - INTERVAL 24 HOUR
 					ORDER BY recorded_at DESC";
-				var historicalData = new Dictionary<string, decimal>();
-				await using (var historicalCmd = new MySqlCommand(historicalDataSql, conn))
-				{
-					await using var reader = await historicalCmd.ExecuteReaderAsync();
-					while (await reader.ReadAsync())
-					{
-						// FIX 2: Only take the first/latest record per coin
-						var coinId = reader.GetString("coin_id");
-						if (!historicalData.ContainsKey(coinId))
-						{
-							historicalData[coinId] = reader.GetDecimal("market_cap_usd");
-						}
-					}
-				}
+        var historicalData = new Dictionary<string, decimal>();
+        await using (var historicalCmd = new MySqlCommand(historicalDataSql, conn))
+        {
+          await using var reader = await historicalCmd.ExecuteReaderAsync();
+          while (await reader.ReadAsync())
+          {
+            // FIX 2: Only take the first/latest record per coin
+            var coinId = reader.GetString("coin_id");
+            if (!historicalData.ContainsKey(coinId))
+            {
+              historicalData[coinId] = reader.GetDecimal("market_cap_usd");
+            }
+          }
+        }
 
-				// Fetch CAD/USD exchange rate
-				decimal cadUsdRate = 0.705m;
-				const string rateSql = @"
+        // Fetch CAD/USD exchange rate
+        decimal cadUsdRate = 0.705m;
+        const string rateSql = @"
 					SELECT rate
 					FROM exchange_rates
 					WHERE base_currency = 'CAD' AND target_currency = 'USD'
 					ORDER BY timestamp DESC
 					LIMIT 1";
 
-				await using (var rateCmd = new MySqlCommand(rateSql, conn))
-				{
-					var rateResult = await rateCmd.ExecuteScalarAsync();
-					if (rateResult != null && rateResult != DBNull.Value)
-					{
-						cadUsdRate = Convert.ToDecimal(rateResult);
-					}
-					else
-					{
-						await _log.Db("No recent CAD/USD exchange rate found, using fallback rate 0.705", null, "MCS", outputToConsole: true);
-					}
-				}
+        await using (var rateCmd = new MySqlCommand(rateSql, conn))
+        {
+          var rateResult = await rateCmd.ExecuteScalarAsync();
+          if (rateResult != null && rateResult != DBNull.Value)
+          {
+            cadUsdRate = Convert.ToDecimal(rateResult);
+          }
+          else
+          {
+            await _log.Db("No recent CAD/USD exchange rate found, using fallback rate 0.705", null, "MCS", outputToConsole: true);
+          }
+        }
 
-				foreach (var coin in coins)
-				{
-					if (coin == null) continue;
+        foreach (var coin in coins)
+        {
+          if (coin == null) continue;
 
-					string coinId = coin["id"]?.ToString() ?? "";
-					string rawSymbol = coin["symbol"]?.ToString()?.ToUpper() ?? "";
-					string coinNameSafe = coin["name"]?.ToString() ?? "";
-					var quote = (Newtonsoft.Json.Linq.JObject)coin["quote"];
-					var usdData = (Newtonsoft.Json.Linq.JObject?)quote["USD"];
-					if (usdData != null)
-					{
-						decimal marketCapSafe = Convert.ToDecimal(usdData["market_cap"] ?? 0);
-						decimal priceSafe = Convert.ToDecimal(usdData["price"] ?? 0);
-						decimal priceChangePercentage = Convert.ToDecimal(usdData["percent_change_24h"] ?? 0);
-						string normalizedName = CoinNameMap.TryGetValue(coinNameSafe, out var mappedName) ? mappedName : coinNameSafe;
-						string symbol = CoinSymbols.TryGetValue(normalizedName, out var knownSymbol) ? knownSymbol : rawSymbol;
+          string coinId = coin["id"]?.ToString() ?? "";
+          string rawSymbol = coin["symbol"]?.ToString()?.ToUpper() ?? "";
+          string coinNameSafe = coin["name"]?.ToString() ?? "";
+          var quote = (Newtonsoft.Json.Linq.JObject)coin["quote"];
+          var usdData = (Newtonsoft.Json.Linq.JObject?)quote["USD"];
+          if (usdData != null)
+          {
+            decimal marketCapSafe = Convert.ToDecimal(usdData["market_cap"] ?? 0);
+            decimal priceSafe = Convert.ToDecimal(usdData["price"] ?? 0);
+            decimal priceChangePercentage = Convert.ToDecimal(usdData["percent_change_24h"] ?? 0);
+            string normalizedName = CoinNameMap.TryGetValue(coinNameSafe, out var mappedName) ? mappedName : coinNameSafe;
+            string symbol = CoinSymbols.TryGetValue(normalizedName, out var knownSymbol) ? knownSymbol : rawSymbol;
 
-						decimal yesterdayMarketCap = marketCapSafe;
-						if (historicalData.TryGetValue(coinId, out var histCap))
-						{
-							yesterdayMarketCap = histCap;
-						}
-						else
-						{
-							await _log.Db($"No historical data found for {coinNameSafe} ({coinId}), using current cap", null, "MCS", outputToConsole: true);
-						}
+            decimal yesterdayMarketCap = marketCapSafe;
+            if (historicalData.TryGetValue(coinId, out var histCap))
+            {
+              yesterdayMarketCap = histCap;
+            }
+            else
+            {
+              await _log.Db($"No historical data found for {coinNameSafe} ({coinId}), using current cap", null, "MCS", outputToConsole: true);
+            }
 
-						// Calculate 24h inflow change (now non-zero!)
-						decimal inflowChange = marketCapSafe - yesterdayMarketCap;
+            // Calculate 24h inflow change (now non-zero!)
+            decimal inflowChange = marketCapSafe - yesterdayMarketCap;
 
-						// Calculate CAD values
-						decimal marketCapCad = cadUsdRate != 0 ? marketCapSafe / cadUsdRate : marketCapSafe;
-						decimal priceCad = cadUsdRate != 0 ? priceSafe / cadUsdRate : priceSafe;
+            // Calculate CAD values
+            decimal marketCapCad = cadUsdRate != 0 ? marketCapSafe / cadUsdRate : marketCapSafe;
+            decimal priceCad = cadUsdRate != 0 ? priceSafe / cadUsdRate : priceSafe;
 
-						const string insertSql = @"
+            const string insertSql = @"
 							INSERT INTO coin_market_caps (
 								coin_id, symbol, name, market_cap_usd, market_cap_cad, price_usd, price_cad,
 								price_change_percentage_24h, inflow_change_24h, recorded_at
@@ -1497,176 +1497,223 @@ namespace maxhanna.Server.Services
 								@PriceChangePercentage24h, @InflowChange24h, UTC_TIMESTAMP()
 							)";
 
-						await using (var insertCmd = new MySqlCommand(insertSql, conn))
-						{
-							insertCmd.Parameters.AddWithValue("@CoinId", coinId);
-							insertCmd.Parameters.AddWithValue("@Symbol", symbol);
-							insertCmd.Parameters.AddWithValue("@Name", normalizedName);
-							insertCmd.Parameters.AddWithValue("@MarketCapUsd", marketCapSafe);
-							insertCmd.Parameters.AddWithValue("@MarketCapCad", marketCapCad);
-							insertCmd.Parameters.AddWithValue("@PriceUsd", priceSafe);
-							insertCmd.Parameters.AddWithValue("@PriceCad", priceCad);
-							insertCmd.Parameters.AddWithValue("@PriceChangePercentage24h", priceChangePercentage);
-							insertCmd.Parameters.AddWithValue("@InflowChange24h", inflowChange);
-							await insertCmd.ExecuteNonQueryAsync();
-						}
-					}
-				}
-				await _log.Db($"Successfully stored {coins.Count} top market cap records", null, "MCS", outputToConsole: true);
-			}
-			catch (Exception ex)
-			{
-				await _log.Db($"Error fetching/storing market caps: {ex.Message}", null, "MCS", outputToConsole: true);
-			}
-		}
-		private async Task<int> GetBotTypeId(string botTypeName, MySqlConnection conn, MySqlTransaction transaction)
-		{
-			string query = "SELECT type FROM meta_encounter_bot_type WHERE bot_name = @BotName LIMIT 1;";
+            await using (var insertCmd = new MySqlCommand(insertSql, conn))
+            {
+              insertCmd.Parameters.AddWithValue("@CoinId", coinId);
+              insertCmd.Parameters.AddWithValue("@Symbol", symbol);
+              insertCmd.Parameters.AddWithValue("@Name", normalizedName);
+              insertCmd.Parameters.AddWithValue("@MarketCapUsd", marketCapSafe);
+              insertCmd.Parameters.AddWithValue("@MarketCapCad", marketCapCad);
+              insertCmd.Parameters.AddWithValue("@PriceUsd", priceSafe);
+              insertCmd.Parameters.AddWithValue("@PriceCad", priceCad);
+              insertCmd.Parameters.AddWithValue("@PriceChangePercentage24h", priceChangePercentage);
+              insertCmd.Parameters.AddWithValue("@InflowChange24h", inflowChange);
+              await insertCmd.ExecuteNonQueryAsync();
+            }
+          }
+        }
+        await _log.Db($"Successfully stored {coins.Count} top market cap records", null, "MCS", outputToConsole: true);
+      }
+      catch (Exception ex)
+      {
+        await _log.Db($"Error fetching/storing market caps: {ex.Message}", null, "MCS", outputToConsole: true);
+      }
+    }
+    private async Task<int> GetBotTypeId(string botTypeName, MySqlConnection conn, MySqlTransaction transaction)
+    {
+      string query = "SELECT type FROM meta_encounter_bot_type WHERE bot_name = @BotName LIMIT 1;";
 
-			using var command = new MySqlCommand(query, conn, transaction);
-			command.Parameters.AddWithValue("@BotName", botTypeName);
+      using var command = new MySqlCommand(query, conn, transaction);
+      command.Parameters.AddWithValue("@BotName", botTypeName);
 
-			var result = await command.ExecuteScalarAsync();
+      var result = await command.ExecuteScalarAsync();
 
-			if (result != null && int.TryParse(result.ToString(), out var typeId))
-			{
-				return typeId;
-			}
+      if (result != null && int.TryParse(result.ToString(), out var typeId))
+      {
+        return typeId;
+      }
 
-			_ = _log.Db($"Bot type '{botTypeName}' not found in meta_encounter_bot_type.", null);
-			return 0; // Fallback or throw an exception based on your requirements
-		}
-		private async Task<ExchangeRateData?> FetchExchangeRates()
-		{
-			string apiUrl = $"https://api.exchangerate-api.com/v4/latest/CAD";
+      _ = _log.Db($"Bot type '{botTypeName}' not found in meta_encounter_bot_type.", null);
+      return 0; // Fallback or throw an exception based on your requirements
+    }
+    private async Task<ExchangeRateData?> FetchExchangeRates()
+    {
+      string apiUrl = $"https://api.exchangerate-api.com/v4/latest/CAD";
 
-			try
-			{
-				var response = await _httpClient.GetAsync(apiUrl);
-				if (response.IsSuccessStatusCode)
-				{
-					var responseContent = await response.Content.ReadAsStringAsync();
-					var exchangeData = JsonConvert.DeserializeObject<ExchangeRateData>(responseContent);
+      try
+      {
+        var response = await _httpClient.GetAsync(apiUrl);
+        if (response.IsSuccessStatusCode)
+        {
+          var responseContent = await response.Content.ReadAsStringAsync();
+          var exchangeData = JsonConvert.DeserializeObject<ExchangeRateData>(responseContent);
 
-					if (exchangeData != null)
-					{
-						await SaveExchangeRatesToDatabase(exchangeData);
-					}
+          if (exchangeData != null)
+          {
+            await SaveExchangeRatesToDatabase(exchangeData);
+          }
 
-					return exchangeData;
-				}
-				else
-				{
-					_ = _log.Db($"Failed to fetch exchange rates for CAD: {response.StatusCode}", null);
-				}
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db($"Error fetching exchange rates for CAD. " + ex.Message, null);
-			}
+          return exchangeData;
+        }
+        else
+        {
+          _ = _log.Db($"Failed to fetch exchange rates for CAD: {response.StatusCode}", null);
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error fetching exchange rates for CAD. " + ex.Message, null);
+      }
 
-			return null;
-		}
-
-		private async Task SaveExchangeRatesToDatabase(ExchangeRateData exchangeData)
-		{
-			try
-			{
-				using (var connection = new MySqlConnection(_connectionString))
-				{
-					await connection.OpenAsync();
-
-					// Check if an entry was added in the last 6 hours
-					var checkSql = @"
-						SELECT COUNT(*) FROM exchange_rates 
-						WHERE timestamp >= UTC_TIMESTAMP() - INTERVAL 6 HOUR";
-
-					using (var checkCmd = new MySqlCommand(checkSql, connection))
-					{
-						var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
-						if (count > 0)
-						{
-							_ = _log.Db("Exchange rates not added as entries exist in the last 6 hours.", null);
-							return;
-						}
-					}
-
-					// Delete old entries (older than 10 years)
-					var deleteSql = @"
-						DELETE FROM exchange_rates 
-						WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 10 YEAR";
-
-					using (var deleteCmd = new MySqlCommand(deleteSql, connection))
-					{
-						await deleteCmd.ExecuteNonQueryAsync();
-					}
-					if (exchangeData.Rates == null || exchangeData.Rates.Count == 0)
-					{
-						_ = _log.Db("No exchange rates found in the response.", null);
-						return;
-					}
-					foreach (var rate in exchangeData.Rates)
-					{
-						var insertSql = @"
-							INSERT INTO exchange_rates (base_currency, target_currency, rate, timestamp) 
-							VALUES (@base, @target, @rate, UTC_TIMESTAMP())";
-
-						using (var insertCmd = new MySqlCommand(insertSql, connection))
-						{
-							insertCmd.Parameters.AddWithValue("@base", exchangeData.Base);
-							insertCmd.Parameters.AddWithValue("@target", rate.Key);
-							insertCmd.Parameters.AddWithValue("@rate", rate.Value);
-
-							await insertCmd.ExecuteNonQueryAsync();
-						}
-					}
-
-					_ = _log.Db("Exchange rates stored successfully.");
-				}
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("Error occurred while storing exchange rates. " + ex.Message, null);
-			}
-		}
+      return null;
+    }
 
 
-		private async Task DeleteOldGuests()
-		{
-			try
-			{
-				using (var conn = new MySqlConnection(_connectionString))
-				{
-					await conn.OpenAsync();
+    private async Task SaveExchangeRatesToDatabase(ExchangeRateData exchangeData)
+    {
+      try
+      {
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
 
-					// SQL statement to delete from nexus_reports_deleted and nexus_battles in one go
-					var deleteSql = @"
+        const string checkSql = @"
+            SELECT 1 
+            FROM latest_exchange_rate 
+            WHERE timestamp >= UTC_TIMESTAMP() - INTERVAL 6 HOUR
+            LIMIT 1;";
+        await using (var checkCmd = new MySqlCommand(checkSql, connection))
+        {
+          var exists = await checkCmd.ExecuteScalarAsync();
+          if (exists != null)
+          {
+            _ = _log.Db("Exchange rates not added (latest table already updated within 6 hours).", null);
+            return;
+          }
+        }
+
+
+        // Delete very old rows (keeps your cleanup semantics)
+        const string deleteSql = @"
+            DELETE FROM exchange_rates 
+            WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 10 YEAR";
+        await using (var deleteCmd = new MySqlCommand(deleteSql, connection))
+        {
+          await deleteCmd.ExecuteNonQueryAsync();
+        }
+
+        if (exchangeData?.Rates == null || exchangeData.Rates.Count == 0)
+        {
+          _ = _log.Db("No exchange rates found in the response.", null);
+          return;
+        }
+
+        // Do the inserts + latest upserts atomically
+        await using var tx = await connection.BeginTransactionAsync();
+
+        // 1) Insert into exchange_rates (prepared)
+        const string insertRateSql = @"
+            INSERT INTO exchange_rates (base_currency, target_currency, rate, timestamp) 
+            VALUES (@base, @target, @rate, UTC_TIMESTAMP());";
+
+        await using var insertRateCmd = new MySqlCommand(insertRateSql, connection, (MySqlTransaction)tx);
+        var pBase = insertRateCmd.Parameters.Add("@base", MySqlDbType.VarChar, 10);
+        var pTarget = insertRateCmd.Parameters.Add("@target", MySqlDbType.VarChar, 10);
+        var pRate = insertRateCmd.Parameters.Add("@rate", MySqlDbType.Decimal);
+        insertRateCmd.Prepare();
+
+        // 2) Upsert into latest_exchange_rate (prepared)
+        //    NOTE: target_currency is PK there, so ON DUPLICATE KEY UPDATE is deterministic.
+        const string upsertLatestSql = @"
+            INSERT INTO latest_exchange_rate (target_currency, id, base_currency, rate, timestamp)
+            VALUES (@l_target, @l_id, @l_base, @l_rate, UTC_TIMESTAMP(3))
+            ON DUPLICATE KEY UPDATE
+                id            = VALUES(id),
+                base_currency = VALUES(base_currency),
+                rate          = VALUES(rate),
+                timestamp     = VALUES(timestamp);";
+
+        await using var upsertLatestCmd = new MySqlCommand(upsertLatestSql, connection, (MySqlTransaction)tx);
+        var lTarget = upsertLatestCmd.Parameters.Add("@l_target", MySqlDbType.VarChar, 10);
+        var lId = upsertLatestCmd.Parameters.Add("@l_id", MySqlDbType.Int32);
+        var lBase = upsertLatestCmd.Parameters.Add("@l_base", MySqlDbType.VarChar, 10);
+        var lRate = upsertLatestCmd.Parameters.Add("@l_rate", MySqlDbType.Decimal);
+        upsertLatestCmd.Prepare();
+
+        // Loop all rates; each iteration:
+        //  - insert into exchange_rates
+        //  - capture inserted id
+        //  - upsert latest_exchange_rate
+        foreach (var kv in exchangeData.Rates)
+        {
+          var target = kv.Key;
+          var rateVal = kv.Value;
+
+          // Skip obviously bad data
+          if (string.IsNullOrWhiteSpace(target)) continue;
+
+          // Insert the historical row
+          pBase.Value = exchangeData.Base;
+          pTarget.Value = target;
+          pRate.Value = rateVal;
+          await insertRateCmd.ExecuteNonQueryAsync();
+
+          // Grab the auto-increment id from the previous insert
+          var insertedId = (int)insertRateCmd.LastInsertedId;
+
+          // Upsert the "latest" per target_currency
+          lTarget.Value = target;
+          lId.Value = insertedId;
+          lBase.Value = exchangeData.Base;
+          lRate.Value = rateVal;
+          await upsertLatestCmd.ExecuteNonQueryAsync();
+        }
+
+        await tx.CommitAsync();
+
+        _ = _log.Db("Exchange rates stored successfully (historical + latest).");
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error occurred while storing exchange rates (historical + latest). " + ex.Message, null);
+      }
+    }
+
+    private async Task DeleteOldGuests()
+    {
+      try
+      {
+        using (var conn = new MySqlConnection(_connectionString))
+        {
+          await conn.OpenAsync();
+
+          // SQL statement to delete from nexus_reports_deleted and nexus_battles in one go
+          var deleteSql = @"
                         DELETE FROM maxhanna.users 
                         WHERE username LIKE 'Guest%'
                         AND (last_seen < (UTC_TIMESTAMP() - INTERVAL 10 DAY));";
 
-					using (var deleteCmd = new MySqlCommand(deleteSql, conn))
-					{
-						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						_ = _log.Db($"Deleted {affectedRows} guest accounts older than 10 days.");
-					}
-				}
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("Error occurred while deleting old guest accounts. " + ex.Message, null);
-			}
-		}
+          using (var deleteCmd = new MySqlCommand(deleteSql, conn))
+          {
+            int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
+            _ = _log.Db($"Deleted {affectedRows} guest accounts older than 10 days.");
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error occurred while deleting old guest accounts. " + ex.Message, null);
+      }
+    }
 
 
-		private async Task DeleteOldSearchResults()
-		{
-			try
-			{
-				using (var conn = new MySqlConnection(_connectionString))
-				{
-					await conn.OpenAsync();
-					var deleteSql = @"
+    private async Task DeleteOldSearchResults()
+    {
+      try
+      {
+        using (var conn = new MySqlConnection(_connectionString))
+        {
+          await conn.OpenAsync();
+          var deleteSql = @"
                         DELETE FROM search_results 
 						WHERE title IS NULL 
 						AND description IS NULL
@@ -1676,52 +1723,52 @@ namespace maxhanna.Server.Services
 						AND response_code IS NULL
 						AND last_crawled < UTC_TIMESTAMP() - INTERVAL 30 DAY;";
 
-					using (var deleteCmd = new MySqlCommand(deleteSql, conn))
-					{
-						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						_ = _log.Db($"Deleted {affectedRows} search results older than 30 days.", null);
-					}
-				}
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("Error occurred while deleting old search results. " + ex.Message, null);
-			}
-		}
+          using (var deleteCmd = new MySqlCommand(deleteSql, conn))
+          {
+            int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
+            _ = _log.Db($"Deleted {affectedRows} search results older than 30 days.", null);
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error occurred while deleting old search results. " + ex.Message, null);
+      }
+    }
 
-		private async Task DeleteOldSearchQueries()
-		{
-			try
-			{
-				using (var conn = new MySqlConnection(_connectionString))
-				{
-					await conn.OpenAsync();
-					var deleteSql = @"
+    private async Task DeleteOldSearchQueries()
+    {
+      try
+      {
+        using (var conn = new MySqlConnection(_connectionString))
+        {
+          await conn.OpenAsync();
+          var deleteSql = @"
 						DELETE FROM search_queries
 						WHERE created_at < UTC_TIMESTAMP() - INTERVAL 7 DAY;";
 
-					using (var deleteCmd = new MySqlCommand(deleteSql, conn))
-					{
-						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						_ = _log.Db($"Deleted {affectedRows} search queries older than 7 days.", null);
-					}
-				}
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("Error occurred while deleting old search queries. " + ex.Message, null);
-			}
-		}
+          using (var deleteCmd = new MySqlCommand(deleteSql, conn))
+          {
+            int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
+            _ = _log.Db($"Deleted {affectedRows} search queries older than 7 days.", null);
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error occurred while deleting old search queries. " + ex.Message, null);
+      }
+    }
 
-		// Keep: Top 20 scores per user (score DESC, created_at ASC tie-break) regardless of age.
-		// Delete: Any rows older than 3 days AND NOT in that top-20-per-user set.
-		private async Task DeleteOldEnderScores()
-		{
-			try
-			{
-				await using var conn = new MySqlConnection(_connectionString);
-				await conn.OpenAsync();
-				string deleteSql = @"
+    // Keep: Top 20 scores per user (score DESC, created_at ASC tie-break) regardless of age.
+    // Delete: Any rows older than 3 days AND NOT in that top-20-per-user set.
+    private async Task DeleteOldEnderScores()
+    {
+      try
+      {
+        await using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
+        string deleteSql = @"
 					DELETE FROM maxhanna.ender_top_scores
 					WHERE created_at < UTC_TIMESTAMP() - INTERVAL 3 DAY
 					  AND id IN (
@@ -1733,153 +1780,153 @@ namespace maxhanna.Server.Services
 					    WHERE rn > 20
 					  );";
 
-				int affected;
-				await using (var cmd = new MySqlCommand(deleteSql, conn))
-				{
-					affected = await cmd.ExecuteNonQueryAsync();
-				}
-				_ = _log.Db($"Deleted {affected} old Ender scores (older than 3 days, excluding each user's top 20).", null, "ENDER_CLEANUP", true);
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("Error deleting old Ender scores: " + ex.Message, null, "ENDER_CLEANUP", true);
-			}
-		}
+        int affected;
+        await using (var cmd = new MySqlCommand(deleteSql, conn))
+        {
+          affected = await cmd.ExecuteNonQueryAsync();
+        }
+        _ = _log.Db($"Deleted {affected} old Ender scores (older than 3 days, excluding each user's top 20).", null, "ENDER_CLEANUP", true);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error deleting old Ender scores: " + ex.Message, null, "ENDER_CLEANUP", true);
+      }
+    }
 
-		private async Task DeleteOldSentimentAnalysis()
-		{
-			try
-			{
-				using (var conn = new MySqlConnection(_connectionString))
-				{
-					await conn.OpenAsync();
-					var deleteSql = @"
+    private async Task DeleteOldSentimentAnalysis()
+    {
+      try
+      {
+        using (var conn = new MySqlConnection(_connectionString))
+        {
+          await conn.OpenAsync();
+          var deleteSql = @"
 						DELETE FROM market_sentiment_analysis 
 						WHERE created < UTC_TIMESTAMP() - INTERVAL 10 YEARS;";
 
-					using (var deleteCmd = new MySqlCommand(deleteSql, conn))
-					{
-						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						_ = _log.Db($"Deleted {affectedRows} market sentiment analysis records older than 10 years.", null);
-					}
-				}
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("Error occurred while deleting market sentiment analysis records older than 10 years. " + ex.Message, null);
-			}
-		}
-		public async Task DeleteOldGlobalMetrics()
-		{
-			const string componentName = "METRICS_CLEANUP";
+          using (var deleteCmd = new MySqlCommand(deleteSql, conn))
+          {
+            int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
+            _ = _log.Db($"Deleted {affectedRows} market sentiment analysis records older than 10 years.", null);
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error occurred while deleting market sentiment analysis records older than 10 years. " + ex.Message, null);
+      }
+    }
+    public async Task DeleteOldGlobalMetrics()
+    {
+      const string componentName = "METRICS_CLEANUP";
 
-			// Validate configuration
-			if (_config == null || string.IsNullOrEmpty(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-			{
-				_ = _log.Db("Configuration or connection string is missing.", null, componentName, true);
-				return;
-			}
+      // Validate configuration
+      if (_config == null || string.IsNullOrEmpty(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+      {
+        _ = _log.Db("Configuration or connection string is missing.", null, componentName, true);
+        return;
+      }
 
-			// SQL query to delete global metrics records older than 10 years
-			const string sql = @"
+      // SQL query to delete global metrics records older than 10 years
+      const string sql = @"
 				DELETE FROM crypto_global_metrics 
 				WHERE timestamp_utc < UTC_TIMESTAMP() - INTERVAL 10 YEAR";
 
-			try
-			{
-				await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-				await conn.OpenAsync();
+      try
+      {
+        await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
 
-				await using var cmd = new MySqlCommand(sql, conn);
-				int rowsAffected = await cmd.ExecuteNonQueryAsync();
+        await using var cmd = new MySqlCommand(sql, conn);
+        int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
-				if (rowsAffected > 0)
-				{
-					_ = _log.Db($"Deleted {rowsAffected} crypto global metrics records older than 10 years.", null, componentName, true);
-				}
-				else
-				{
-					_ = _log.Db("No crypto global metrics records found older than 10 years.", null, componentName, true);
-				}
-			}
-			catch (MySqlException ex)
-			{
-				_ = _log.Db($"Database error deleting old crypto global metrics records: {ex.Message}", null, componentName, true);
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db($"Unexpected error deleting old crypto global metrics records: {ex.Message}", null, componentName, true);
-			}
-		}
-		private async Task AssignTrophies()
-		{
-			int trophiesAssigned = 0;
+        if (rowsAffected > 0)
+        {
+          _ = _log.Db($"Deleted {rowsAffected} crypto global metrics records older than 10 years.", null, componentName, true);
+        }
+        else
+        {
+          _ = _log.Db("No crypto global metrics records found older than 10 years.", null, componentName, true);
+        }
+      }
+      catch (MySqlException ex)
+      {
+        _ = _log.Db($"Database error deleting old crypto global metrics records: {ex.Message}", null, componentName, true);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Unexpected error deleting old crypto global metrics records: {ex.Message}", null, componentName, true);
+      }
+    }
+    private async Task AssignTrophies()
+    {
+      int trophiesAssigned = 0;
 
-			try
-			{
-				using (var conn = new MySqlConnection(_connectionString))
-				{
-					await conn.OpenAsync();
+      try
+      {
+        using (var conn = new MySqlConnection(_connectionString))
+        {
+          await conn.OpenAsync();
 
-					var trophyCriteria = new Dictionary<string, string>
-					{
-						{ "Novice Trader", "SELECT user_id FROM trade_history GROUP BY user_id HAVING COUNT(*) >= 5" },
-						{ "Active Trader", "SELECT user_id FROM trade_history GROUP BY user_id HAVING COUNT(*) >= 25" },
-						{ "Frequent Trader", "SELECT user_id FROM trade_history GROUP BY user_id HAVING COUNT(*) >= 100" },
-						{ "Trade Addict", "SELECT user_id FROM trade_history GROUP BY user_id HAVING COUNT(*) >= 500" },
-						{ "Trade Master", "SELECT user_id FROM trade_history GROUP BY user_id HAVING COUNT(*) >= 1000" },
-						{ "$100 Portfolio", "SELECT user_id FROM trade_history GROUP BY user_id HAVING MAX(portfolio_value) >= 100" },
-						{ "$1K Portfolio", "SELECT user_id FROM trade_history GROUP BY user_id HAVING MAX(portfolio_value) >= 1000" },
-						{ "$10K Portfolio", "SELECT user_id FROM trade_history GROUP BY user_id HAVING MAX(portfolio_value) >= 10000" },
-						{ "$100K Portfolio", "SELECT user_id FROM trade_history GROUP BY user_id HAVING MAX(portfolio_value) >= 100000" },
-						{ "DCA Strategist", "SELECT user_id FROM trade_history WHERE strategy = 'DCA' GROUP BY user_id HAVING COUNT(*) >= 10" },
-						{ "BTC Veteran", "SELECT user_id FROM trade_history WHERE from_currency = 'BTC' OR to_currency = 'BTC' GROUP BY user_id HAVING COUNT(*) >= 10" },
-						{ "ETH Veteran", "SELECT user_id FROM trade_history WHERE from_currency = 'ETH' OR to_currency = 'ETH' GROUP BY user_id HAVING COUNT(*) >= 10" },
-						{ "Altcoin Explorer", "SELECT user_id FROM trade_history WHERE from_currency NOT IN ('BTC','ETH','USDC') OR to_currency NOT IN ('BTC','ETH','USDC') GROUP BY user_id HAVING COUNT(*) >= 10" },
-						{ "First Profit", "SELECT user_id FROM trade_history GROUP BY user_id HAVING SUM(trade_value_usdc) > 0" },
-						{ "Consistent Profits", "SELECT user_id FROM (SELECT user_id, DATE(timestamp) AS day, SUM(trade_value_usdc) AS daily_pnl FROM trade_history GROUP BY user_id, day) AS daily WHERE daily_pnl > 0 GROUP BY user_id HAVING COUNT(*) >= 5" },
-						{ "7-Day Streak", "SELECT user_id FROM (SELECT user_id, DATE(timestamp) AS day FROM trade_history GROUP BY user_id, day) AS days GROUP BY user_id HAVING COUNT(DISTINCT day) >= 7" },
-						{ "30-Day Streak", "SELECT user_id FROM (SELECT user_id, DATE(timestamp) AS day FROM trade_history GROUP BY user_id, day) AS days GROUP BY user_id HAVING COUNT(DISTINCT day) >= 30" },
-						{ "Year-Round Trader", "SELECT user_id FROM trade_history GROUP BY user_id HAVING COUNT(DISTINCT MONTH(timestamp)) >= 12" },
-						{ "Chat Master 50", "SELECT sender AS user_id FROM messages GROUP BY sender HAVING COUNT(*) >= 50" },
-						{ "Chat Master 100", "SELECT sender AS user_id FROM messages GROUP BY sender HAVING COUNT(*) >= 100" },
-						{ "Chat Master 150", "SELECT sender AS user_id FROM messages GROUP BY sender HAVING COUNT(*) >= 150" },
-						{ "Uploader 50", "SELECT user_id FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 50" },
-						{ "Uploader 100", "SELECT user_id FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 100" },
-						{ "Uploader 150", "SELECT user_id FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 150" },
-						{ "Topic Creator 1", "SELECT created_by_user_id AS user_id FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 1" },
-						{ "Topic Creator 3", "SELECT created_by_user_id AS user_id FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 3" },
-						{ "Topic Creator 10", "SELECT created_by_user_id AS user_id FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 10" },
-						{ "Social Poster 10", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 10" },
-						{ "Social Poster 50", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 50" },
-						{ "Social Poster 100", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 100" },
-						{ "Bug Wars Ensign", "SELECT user_id FROM maxhanna.nexus_bases GROUP BY user_id HAVING COUNT(*) >= 1" },
-						{ "Bug Wars Chief", "SELECT user_id FROM maxhanna.nexus_bases GROUP BY user_id HAVING COUNT(*) >= 5" },
-						{ "Bug Wars Commander", "SELECT user_id FROM maxhanna.nexus_bases GROUP BY user_id HAVING COUNT(*) >= 15" },
-						{ "Bug Wars Colonel", "SELECT user_id FROM maxhanna.nexus_bases GROUP BY user_id HAVING COUNT(*) >= 150" },
-						{ "Bug Wars General", "SELECT user_id FROM maxhanna.nexus_bases GROUP BY user_id HAVING COUNT(*) >= 1500" },
-						{ "Bug Wars Emperor", "SELECT user_id FROM maxhanna.nexus_bases GROUP BY user_id HAVING COUNT(*) >= 2500" },
-						{ "2024 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2024" },
-						{ "2025 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2025" },
-						{ "2026 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2026" },
-						{ "2027 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2027" },
-						{ "2028 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2028" },
-						{ "2029 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2029" },
-						{ "Wordler Beginner", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 3" },
-						{ "Wordler Expert", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 30" },
-						{ "Master Wordler", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 100" },
-						{ "Wordler Legend", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 1000" },
-						{ "Wordler God", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 10000" },
-						{ "Array Scout", "SELECT user_id FROM array_characters WHERE ABS(position) > 10" },
-						{ "Array Navigator", "SELECT user_id FROM array_characters WHERE ABS(position) > 100" },
-						{ "Array Pathfinder", "SELECT user_id FROM array_characters WHERE ABS(position) > 1000" },
-						{ "Array Voyager", "SELECT user_id FROM array_characters WHERE ABS(position) > 10000" },
-						{ "Array Conqueror", "SELECT user_id FROM array_characters WHERE ABS(position) > 100000" },
-						{ "Meta-Fighter", "SELECT DISTINCT u.id AS user_id FROM users u JOIN meta_hero mh ON u.id=mh.user_id JOIN meta_bot mb ON mh.id=mb.hero_id WHERE mb.level>5" },
-						{ "Novice Meta-Fighter", "SELECT DISTINCT u.id AS user_id FROM users u JOIN meta_hero mh ON u.id=mh.user_id JOIN meta_bot mb ON mh.id=mb.hero_id WHERE mb.level>10" },
-						{ "Elite Meta-Fighter", "SELECT DISTINCT u.id AS user_id FROM users u JOIN meta_hero mh ON u.id=mh.user_id JOIN meta_bot mb ON mh.id=mb.hero_id WHERE mb.level>20" },
-						{ "Legendary Meta-Fighter", "SELECT DISTINCT u.id AS user_id FROM users u JOIN meta_hero mh ON u.id=mh.user_id JOIN meta_bot mb ON mh.id=mb.hero_id WHERE mb.level>30" },
-						{ "Mastermind Fastest Win", @"
+          var trophyCriteria = new Dictionary<string, string>
+          {
+            { "Novice Trader", "SELECT user_id FROM trade_history GROUP BY user_id HAVING COUNT(*) >= 5" },
+            { "Active Trader", "SELECT user_id FROM trade_history GROUP BY user_id HAVING COUNT(*) >= 25" },
+            { "Frequent Trader", "SELECT user_id FROM trade_history GROUP BY user_id HAVING COUNT(*) >= 100" },
+            { "Trade Addict", "SELECT user_id FROM trade_history GROUP BY user_id HAVING COUNT(*) >= 500" },
+            { "Trade Master", "SELECT user_id FROM trade_history GROUP BY user_id HAVING COUNT(*) >= 1000" },
+            { "$100 Portfolio", "SELECT user_id FROM trade_history GROUP BY user_id HAVING MAX(portfolio_value) >= 100" },
+            { "$1K Portfolio", "SELECT user_id FROM trade_history GROUP BY user_id HAVING MAX(portfolio_value) >= 1000" },
+            { "$10K Portfolio", "SELECT user_id FROM trade_history GROUP BY user_id HAVING MAX(portfolio_value) >= 10000" },
+            { "$100K Portfolio", "SELECT user_id FROM trade_history GROUP BY user_id HAVING MAX(portfolio_value) >= 100000" },
+            { "DCA Strategist", "SELECT user_id FROM trade_history WHERE strategy = 'DCA' GROUP BY user_id HAVING COUNT(*) >= 10" },
+            { "BTC Veteran", "SELECT user_id FROM trade_history WHERE from_currency = 'BTC' OR to_currency = 'BTC' GROUP BY user_id HAVING COUNT(*) >= 10" },
+            { "ETH Veteran", "SELECT user_id FROM trade_history WHERE from_currency = 'ETH' OR to_currency = 'ETH' GROUP BY user_id HAVING COUNT(*) >= 10" },
+            { "Altcoin Explorer", "SELECT user_id FROM trade_history WHERE from_currency NOT IN ('BTC','ETH','USDC') OR to_currency NOT IN ('BTC','ETH','USDC') GROUP BY user_id HAVING COUNT(*) >= 10" },
+            { "First Profit", "SELECT user_id FROM trade_history GROUP BY user_id HAVING SUM(trade_value_usdc) > 0" },
+            { "Consistent Profits", "SELECT user_id FROM (SELECT user_id, DATE(timestamp) AS day, SUM(trade_value_usdc) AS daily_pnl FROM trade_history GROUP BY user_id, day) AS daily WHERE daily_pnl > 0 GROUP BY user_id HAVING COUNT(*) >= 5" },
+            { "7-Day Streak", "SELECT user_id FROM (SELECT user_id, DATE(timestamp) AS day FROM trade_history GROUP BY user_id, day) AS days GROUP BY user_id HAVING COUNT(DISTINCT day) >= 7" },
+            { "30-Day Streak", "SELECT user_id FROM (SELECT user_id, DATE(timestamp) AS day FROM trade_history GROUP BY user_id, day) AS days GROUP BY user_id HAVING COUNT(DISTINCT day) >= 30" },
+            { "Year-Round Trader", "SELECT user_id FROM trade_history GROUP BY user_id HAVING COUNT(DISTINCT MONTH(timestamp)) >= 12" },
+            { "Chat Master 50", "SELECT sender AS user_id FROM messages GROUP BY sender HAVING COUNT(*) >= 50" },
+            { "Chat Master 100", "SELECT sender AS user_id FROM messages GROUP BY sender HAVING COUNT(*) >= 100" },
+            { "Chat Master 150", "SELECT sender AS user_id FROM messages GROUP BY sender HAVING COUNT(*) >= 150" },
+            { "Uploader 50", "SELECT user_id FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 50" },
+            { "Uploader 100", "SELECT user_id FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 100" },
+            { "Uploader 150", "SELECT user_id FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 150" },
+            { "Topic Creator 1", "SELECT created_by_user_id AS user_id FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 1" },
+            { "Topic Creator 3", "SELECT created_by_user_id AS user_id FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 3" },
+            { "Topic Creator 10", "SELECT created_by_user_id AS user_id FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 10" },
+            { "Social Poster 10", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 10" },
+            { "Social Poster 50", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 50" },
+            { "Social Poster 100", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 100" },
+            { "Bug Wars Ensign", "SELECT user_id FROM maxhanna.nexus_bases GROUP BY user_id HAVING COUNT(*) >= 1" },
+            { "Bug Wars Chief", "SELECT user_id FROM maxhanna.nexus_bases GROUP BY user_id HAVING COUNT(*) >= 5" },
+            { "Bug Wars Commander", "SELECT user_id FROM maxhanna.nexus_bases GROUP BY user_id HAVING COUNT(*) >= 15" },
+            { "Bug Wars Colonel", "SELECT user_id FROM maxhanna.nexus_bases GROUP BY user_id HAVING COUNT(*) >= 150" },
+            { "Bug Wars General", "SELECT user_id FROM maxhanna.nexus_bases GROUP BY user_id HAVING COUNT(*) >= 1500" },
+            { "Bug Wars Emperor", "SELECT user_id FROM maxhanna.nexus_bases GROUP BY user_id HAVING COUNT(*) >= 2500" },
+            { "2024 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2024" },
+            { "2025 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2025" },
+            { "2026 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2026" },
+            { "2027 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2027" },
+            { "2028 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2028" },
+            { "2029 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2029" },
+            { "Wordler Beginner", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 3" },
+            { "Wordler Expert", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 30" },
+            { "Master Wordler", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 100" },
+            { "Wordler Legend", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 1000" },
+            { "Wordler God", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 10000" },
+            { "Array Scout", "SELECT user_id FROM array_characters WHERE ABS(position) > 10" },
+            { "Array Navigator", "SELECT user_id FROM array_characters WHERE ABS(position) > 100" },
+            { "Array Pathfinder", "SELECT user_id FROM array_characters WHERE ABS(position) > 1000" },
+            { "Array Voyager", "SELECT user_id FROM array_characters WHERE ABS(position) > 10000" },
+            { "Array Conqueror", "SELECT user_id FROM array_characters WHERE ABS(position) > 100000" },
+            { "Meta-Fighter", "SELECT DISTINCT u.id AS user_id FROM users u JOIN meta_hero mh ON u.id=mh.user_id JOIN meta_bot mb ON mh.id=mb.hero_id WHERE mb.level>5" },
+            { "Novice Meta-Fighter", "SELECT DISTINCT u.id AS user_id FROM users u JOIN meta_hero mh ON u.id=mh.user_id JOIN meta_bot mb ON mh.id=mb.hero_id WHERE mb.level>10" },
+            { "Elite Meta-Fighter", "SELECT DISTINCT u.id AS user_id FROM users u JOIN meta_hero mh ON u.id=mh.user_id JOIN meta_bot mb ON mh.id=mb.hero_id WHERE mb.level>20" },
+            { "Legendary Meta-Fighter", "SELECT DISTINCT u.id AS user_id FROM users u JOIN meta_hero mh ON u.id=mh.user_id JOIN meta_bot mb ON mh.id=mb.hero_id WHERE mb.level>30" },
+            { "Mastermind Fastest Win", @"
 							SELECT user_id FROM mastermind_scores 
 							WHERE time = (SELECT MIN(time) FROM mastermind_scores WHERE score > 0 AND DATE(submitted) = DATE(UTC_DATE())) 
 							  AND score > 0 AND DATE(submitted) = DATE(UTC_DATE()) 
@@ -1890,7 +1937,7 @@ namespace maxhanna.Server.Services
 							  )
 							LIMIT 1
 						" },
-						{ "Mastermind Most Wins", @"
+            { "Mastermind Most Wins", @"
 							SELECT user_id FROM (
 								SELECT user_id, COUNT(*) AS win_count FROM mastermind_scores 
 								WHERE score > 0 AND DATE(submitted) = DATE(UTC_DATE()) 
@@ -1902,7 +1949,7 @@ namespace maxhanna.Server.Services
 								WHERE ut.user_id = mw.user_id AND tt.name = 'Mastermind Most Wins'
 							)
 						" },
-						{ "Mastermind 10 Wins", @"
+            { "Mastermind 10 Wins", @"
 							SELECT user_id FROM (
 								SELECT user_id, COUNT(*) AS win_count FROM mastermind_scores 
 								WHERE score > 0 
@@ -1914,7 +1961,7 @@ namespace maxhanna.Server.Services
 								WHERE ut.user_id = mw.user_id AND tt.name = 'Mastermind 10 Wins'
 							)
 						" },
-						{ "Mastermind 100 Wins", @"
+            { "Mastermind 100 Wins", @"
 							SELECT user_id FROM (
 								SELECT user_id, COUNT(*) AS win_count FROM mastermind_scores 
 								WHERE score > 0 
@@ -1926,7 +1973,7 @@ namespace maxhanna.Server.Services
 								WHERE ut.user_id = mw.user_id AND tt.name = 'Mastermind 100 Wins'
 							)
 						" },
-						{ "Mastermind 1000 Wins", @"
+            { "Mastermind 1000 Wins", @"
 							SELECT user_id FROM (
 								SELECT user_id, COUNT(*) AS win_count FROM mastermind_scores 
 								WHERE score > 0 
@@ -1938,10 +1985,10 @@ namespace maxhanna.Server.Services
 								WHERE ut.user_id = mw.user_id AND tt.name = 'Mastermind 1000 Wins'
 							)
 						" },
-					};
-					foreach (var trophy in trophyCriteria)
-					{
-						var sql = $@"
+          };
+          foreach (var trophy in trophyCriteria)
+          {
+            var sql = $@"
 							INSERT INTO user_trophy (user_id, trophy_id)
 							SELECT u.user_id, tt.id
 							FROM ({trophy.Value}) u
@@ -1957,222 +2004,244 @@ namespace maxhanna.Server.Services
 							WHERE ut.user_id IS NULL;
 						";
 
-						using (var cmd = new MySqlCommand(sql, conn))
-						{
-							cmd.Parameters.AddWithValue("@TrophyName", trophy.Key);
-							int rowsAffected = await cmd.ExecuteNonQueryAsync();
-							trophiesAssigned += rowsAffected / 2; // Since we insert both a trophy and a notification
-						}
-					}
+            using (var cmd = new MySqlCommand(sql, conn))
+            {
+              cmd.Parameters.AddWithValue("@TrophyName", trophy.Key);
+              int rowsAffected = await cmd.ExecuteNonQueryAsync();
+              trophiesAssigned += rowsAffected / 2; // Since we insert both a trophy and a notification
+            }
+          }
 
-					_ = _log.Db($"Trophies assigned successfully. Total trophies awarded: {trophiesAssigned}", null);
-				}
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("Error occurred while assigning trophies. " + ex.Message, null);
-			}
-		}
-		public async Task SaveVolumeDataAsync(int userId, string pair, UserKrakenApiKey keys)
-		{
-			// Connect to the MySQL database
-			using (var connection = new MySqlConnection(_connectionString))
-			{
-				await connection.OpenAsync();
+          _ = _log.Db($"Trophies assigned successfully. Total trophies awarded: {trophiesAssigned}", null);
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error occurred while assigning trophies. " + ex.Message, null);
+      }
+    }
+    public async Task SaveVolumeDataAsync(int userId, string pair, UserKrakenApiKey keys)
+    {
+      // Connect to the MySQL database
+      using (var connection = new MySqlConnection(_connectionString))
+      {
+        await connection.OpenAsync();
 
-				// Check if there's already a record for XBTUSDC in the last 30 seconds
-				var query = @"
+        // Check if there's already a record for XBTUSDC in the last 30 seconds
+        var query = @"
 					SELECT COUNT(*) 
 					FROM trade_market_volumes
 					WHERE pair = @pair AND timestamp > @timestampThreshold;";
 
-				var command = new MySqlCommand(query, connection);
-				command.Parameters.AddWithValue("@pair", pair);
-				command.Parameters.AddWithValue("@timestampThreshold", DateTime.UtcNow.AddSeconds(-30));
+        var command = new MySqlCommand(query, connection);
+        command.Parameters.AddWithValue("@pair", pair);
+        command.Parameters.AddWithValue("@timestampThreshold", DateTime.UtcNow.AddSeconds(-30));
 
-				var existingRecordCount = Convert.ToInt32(await command.ExecuteScalarAsync());
-				if (existingRecordCount > 0)
-				{
-					return;
-				}
+        var existingRecordCount = Convert.ToInt32(await command.ExecuteScalarAsync());
+        if (existingRecordCount > 0)
+        {
+          return;
+        }
 
-				var volumes = await _krakenService.GetLatest15MinVolumeAsync(userId, pair, keys);
+        var volumes = await _krakenService.GetLatest15MinVolumeAsync(userId, pair, keys);
 
-				query = @"
+        query = @"
 					INSERT INTO trade_market_volumes (pair, volume_coin, volume_usdc, timestamp)
 					VALUES (@pair, @volume_coin, @volume_usdc, UTC_TIMESTAMP());";
-				command = new MySqlCommand(query, connection);
-				command.Parameters.AddWithValue("@pair", pair);
-				command.Parameters.AddWithValue("@volume_coin", volumes?.Volume);
-				command.Parameters.AddWithValue("@volume_usdc", volumes?.VolumeUSDC);
-				await command.ExecuteNonQueryAsync();
-			}
-		}
+        command = new MySqlCommand(query, connection);
+        command.Parameters.AddWithValue("@pair", pair);
+        command.Parameters.AddWithValue("@volume_coin", volumes?.Volume);
+        command.Parameters.AddWithValue("@volume_usdc", volumes?.VolumeUSDC);
+        await command.ExecuteNonQueryAsync();
+      }
+    }
 
 
-		private async Task CleanupOldFavourites()
-		{
-			try
-			{
-				await using var conn = new MySqlConnection(_connectionString);
-				await conn.OpenAsync();
-				string sql = @"DELETE FROM maxhanna.favourites WHERE creation_date < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR) AND COALESCE(access_count,0) < 3;";
-				await using var cmd = new MySqlCommand(sql, conn);
-				int deleted = Convert.ToInt32(await cmd.ExecuteNonQueryAsync());
-				if (deleted > 0)
-				{
-					_ = _log.Db($"CleanupOldFavourites removed {deleted} rows", null, "SYSTEM");
-				}
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("CleanupOldFavourites failure: " + ex.Message, null, "SYSTEM", true);
-			}
-		}
+    private async Task CleanupOldFavourites()
+    {
+      try
+      {
+        await using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
+        string sql = @"DELETE FROM maxhanna.favourites WHERE creation_date < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR) AND COALESCE(access_count,0) < 3;";
+        await using var cmd = new MySqlCommand(sql, conn);
+        int deleted = Convert.ToInt32(await cmd.ExecuteNonQueryAsync());
+        if (deleted > 0)
+        {
+          _ = _log.Db($"CleanupOldFavourites removed {deleted} rows", null, "SYSTEM");
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("CleanupOldFavourites failure: " + ex.Message, null, "SYSTEM", true);
+      }
+    }
 
-		private async Task FetchAndStoreCoinValues()
-		{
-			await StoreCoinValues();
-		}
-		private async Task StoreCoinValues()
-		{
-			try
-			{
-				using (var conn = new MySqlConnection(_connectionString))
-				{
-					await conn.OpenAsync();
+    private async Task FetchAndStoreCoinValues()
+    {
+      await StoreCoinValues();
+    }
+    
+private async Task StoreCoinValues()
+{
+    try
+    {
+        await using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
 
-					CoinResponse[] coinData = await FetchCoinData();
+        CoinResponse[] coinData = await FetchCoinData();
+        if (coinData == null || coinData.Length == 0)
+        {
+            _ = _log.Db("No coin data returned from API.", null, "COINSVC", outputToConsole: true);
+            return;
+        }
 
-					if (coinData != null)
-					{
-						// Fetch the latest CAD/USD exchange rate
-						decimal cadUsdRate = 0.705m; // Fallback rate (1 CAD = 0.705 USD)
-						var rateSql = @"
-							SELECT rate
-							FROM exchange_rates
-							WHERE base_currency = 'CAD' AND target_currency = 'USD'
-							ORDER BY timestamp DESC
-							LIMIT 1";
+        // 1) Prefer latest_exchange_rate for CAD→USD (fast, tiny table)
+        decimal cadUsdRate = 0.705m; // fallback
+        const string latestRateSql = @"
+            SELECT rate
+            FROM latest_exchange_rate
+            WHERE base_currency = 'CAD' AND target_currency = 'USD'
+            LIMIT 1;";
+        await using (var latestRateCmd = new MySqlCommand(latestRateSql, conn))
+        {
+            var r = await latestRateCmd.ExecuteScalarAsync();
+            if (r != null && r != DBNull.Value)
+            {
+                cadUsdRate = Convert.ToDecimal(r);
+            }
+            else
+            {
+                // 2) Fallback to historical table if latest is missing
+                const string historicalRateSql = @"
+                    SELECT rate
+                    FROM exchange_rates
+                    WHERE base_currency = 'CAD' AND target_currency = 'USD'
+                    ORDER BY timestamp DESC, id DESC
+                    LIMIT 1;";
+                await using var histCmd = new MySqlCommand(historicalRateSql, conn);
+                var hr = await histCmd.ExecuteScalarAsync();
+                if (hr != null && hr != DBNull.Value)
+                {
+                    cadUsdRate = Convert.ToDecimal(hr);
+                }
+                else
+                {
+                    _ = _log.Db("No recent CAD/USD exchange rate found; using fallback 0.705", null, "COINSVC", outputToConsole: true);
+                }
+            }
+        }
 
-						using (var rateCmd = new MySqlCommand(rateSql, conn))
-						{
-							var rateResult = await rateCmd.ExecuteScalarAsync();
-							if (rateResult != null && rateResult != DBNull.Value)
-							{
-								cadUsdRate = Convert.ToDecimal(rateResult);
-							}
-							else
-							{
-								_ = _log.Db("No recent CAD/USD exchange rate found, using fallback rate 0.705", null, "COINSVC", outputToConsole: true);
-							}
-						}
+        // 3) Prepared commands for check+insert (reuse parameters)
+        const string checkSql = @"
+            SELECT 1
+            FROM coin_value
+            WHERE name = @Name
+              AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE)
+            LIMIT 1;";
+        await using var checkCmd = new MySqlCommand(checkSql, conn);
+        var pName = checkCmd.Parameters.Add("@Name", MySqlDbType.VarChar, 100); // adjust size if needed
+        checkCmd.Prepare();
 
-						foreach (var coin in coinData)
-						{
-							if (coin != null)
-							{
-								string rawSymbol = coin?.symbol?.ToUpper() ?? "";
-								string coinNameSafe = coin?.name ?? "";
-								decimal coinRateSafe = Convert.ToDecimal(coin?.rate ?? 0);
-								string normalizedName = (CoinNameMap.TryGetValue(coinNameSafe, out var mappedName) ? mappedName : coinNameSafe) ?? "";
-								string symbol = CoinSymbols.TryGetValue(normalizedName, out var knownSymbol) ? knownSymbol : "";
-								// _ = _log.Db(
-								// 	$"Raw Symbol: '{rawSymbol}' | Coin Name: '{coinNameSafe}' | Normalized Name: '{normalizedName}' | Final Symbol: '{symbol}' | Rate: {coinRateSafe}",
-								// 	null,
-								// 	"COINSVC",
-								// 	outputToConsole: true
-								//);
-								var checkSql = @"
-									SELECT 1 FROM coin_value 
-									WHERE name = @Name 
-									AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE)
-									LIMIT 1";
+        const string insertSql = @"
+            INSERT INTO coin_value (symbol, name, value_cad, value_usd, timestamp)
+            VALUES (@Symbol, @Name, @ValueCAD, @ValueUSD, UTC_TIMESTAMP());";
+        await using var insertCmd = new MySqlCommand(insertSql, conn);
+        var pSymbol   = insertCmd.Parameters.Add("@Symbol",   MySqlDbType.VarChar, 16);
+        var pName2    = insertCmd.Parameters.Add("@Name",     MySqlDbType.VarChar, 100);
+        var pValueCad = insertCmd.Parameters.Add("@ValueCAD", MySqlDbType.NewDecimal);
+        var pValueUsd = insertCmd.Parameters.Add("@ValueUSD", MySqlDbType.NewDecimal);
+        // Match DECIMAL(18,6)
+        pValueCad.Precision = 18; pValueCad.Scale = 6;
+        pValueUsd.Precision = 18; pValueUsd.Scale = 6;
+        insertCmd.Prepare();
 
-								using (var checkCmd = new MySqlCommand(checkSql, conn))
-								{
-									checkCmd.Parameters.AddWithValue("@Name", normalizedName);
-									var recentEntries = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+        // 4) Loop coins and insert if not recently present
+        foreach (var coin in coinData)
+        {
+            if (coin == null) continue;
 
-									if (recentEntries == 0 && coinRateSafe != 0)
-									{
-										// Calculate value_cad using the exchange rate (USD to CAD)
-										decimal valueCad = cadUsdRate != 0 ? coinRateSafe / cadUsdRate : coinRateSafe;
+            string rawSymbol = coin.symbol?.ToUpper() ?? string.Empty;
+            string coinNameSafe = coin.name ?? string.Empty;
+            decimal coinRateSafe = Convert.ToDecimal(coin.rate);
 
-										var insertSql = @"
-										INSERT INTO coin_value (symbol, name, value_cad, value_usd, timestamp) 
-										VALUES (@Symbol, @Name, @ValueCAD, @ValueUSD, UTC_TIMESTAMP())";
+            if (coinRateSafe <= 0) continue; // skip non-positive rates
 
-										using (var insertCmd = new MySqlCommand(insertSql, conn))
-										{
-											insertCmd.Parameters.AddWithValue("@Symbol", symbol);
-											insertCmd.Parameters.AddWithValue("@Name", normalizedName);
-											insertCmd.Parameters.AddWithValue("@ValueCAD", valueCad);
-											insertCmd.Parameters.AddWithValue("@ValueUSD", coinRateSafe);
-											insertCmd.Parameters.AddWithValue("@Timestamp", DateTime.UtcNow);
+            string normalizedName = (CoinNameMap.TryGetValue(coinNameSafe, out var mappedName) ? mappedName : coinNameSafe) ?? string.Empty;
+            string symbol = CoinSymbols.TryGetValue(normalizedName, out var knownSymbol) ? knownSymbol : rawSymbol;
 
-											await insertCmd.ExecuteNonQueryAsync();
-										}
-									}
-								}
-							}
-						}
-					}
+            // Recent check
+            pName.Value = normalizedName;
+            var recentObj = await checkCmd.ExecuteScalarAsync();
+            var hasRecent = recentObj != null && recentObj != DBNull.Value;
 
-					_ = _log.Db("Coin values stored successfully.", null, "COINSVC");
-				}
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db($"Error occurred while storing coin values: {ex.Message}", null, "COINSVC", outputToConsole: true);
-			}
-		}
+            if (hasRecent) continue;
 
-		private async Task<CoinResponse[]> FetchCoinData()
-		{
-			CoinResponse[] coinData = [];
-			var body = new
-			{
-				currency = "USD",
-				sort = "rank",
-				order = "ascending",
-				offset = 0,
-				maximum = 100,
-				meta = true
-			};
+            // Compute CAD using CAD→USD rate (USD / (CAD→USD) = CAD)
+            decimal valueCad = cadUsdRate != 0 ? Math.Round(coinRateSafe / cadUsdRate, 6) : coinRateSafe;
 
-			var jsonBody = JsonConvert.SerializeObject(body);
-			var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
-			content.Headers.Add("x-api-key", _apiKey);
+            // Insert
+            pSymbol.Value = symbol;
+            pName2.Value = normalizedName;
+            pValueCad.Value = valueCad;
+            pValueUsd.Value = Math.Round(coinRateSafe, 6);
+            await insertCmd.ExecuteNonQueryAsync();
+        }
 
-			try
-			{
-				var response = await _httpClient.PostAsync(_coinwatchUrl, content);
-				if (response.IsSuccessStatusCode)
-				{
-					var responseContent = await response.Content.ReadAsStringAsync();
-					coinData = JsonConvert.DeserializeObject<CoinResponse[]>(responseContent) ?? [];
-				}
-				else
-				{
-					_ = _log.Db($"Failed to fetch coin values: {response.StatusCode}", null);
-				}
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("Error occurred while fetching coin values. " + ex.Message, null);
-			}
+        _ = _log.Db("Coin values stored successfully (using latest CAD/USD).", null, "COINSVC");
+    }
+    catch (Exception ex)
+    {
+        _ = _log.Db($"Error occurred while storing coin values: {ex.Message}", null, "COINSVC", outputToConsole: true);
+    }
+}
 
-			return coinData;
-		}
 
-		private async Task DeleteOldCoinValueEntries()
-		{
-			using (var conn = new MySqlConnection(_connectionString))
-			{
-				await conn.OpenAsync();
+    private async Task<CoinResponse[]> FetchCoinData()
+    {
+      CoinResponse[] coinData = [];
+      var body = new
+      {
+        currency = "USD",
+        sort = "rank",
+        order = "ascending",
+        offset = 0,
+        maximum = 100,
+        meta = true
+      };
 
-				var deleteSql = @"
+      var jsonBody = JsonConvert.SerializeObject(body);
+      var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+      content.Headers.Add("x-api-key", _apiKey);
+
+      try
+      {
+        var response = await _httpClient.PostAsync(_coinwatchUrl, content);
+        if (response.IsSuccessStatusCode)
+        {
+          var responseContent = await response.Content.ReadAsStringAsync();
+          coinData = JsonConvert.DeserializeObject<CoinResponse[]>(responseContent) ?? [];
+        }
+        else
+        {
+          _ = _log.Db($"Failed to fetch coin values: {response.StatusCode}", null);
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error occurred while fetching coin values. " + ex.Message, null);
+      }
+
+      return coinData;
+    }
+
+    private async Task DeleteOldCoinValueEntries()
+    {
+      using (var conn = new MySqlConnection(_connectionString))
+      {
+        await conn.OpenAsync();
+
+        var deleteSql = @"
 					DELETE FROM coin_value
 					WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
 					AND id NOT IN (
@@ -2190,62 +2259,62 @@ namespace maxhanna.Server.Services
 						WHERE rn = 1
 					);";
 
-				using (var deleteCmd = new MySqlCommand(deleteSql, conn))
-				{
-					int rowsAffected = await deleteCmd.ExecuteNonQueryAsync();
-					_ = _log.Db($"Deleted {rowsAffected} old coin value entries.");
-				}
+        using (var deleteCmd = new MySqlCommand(deleteSql, conn))
+        {
+          int rowsAffected = await deleteCmd.ExecuteNonQueryAsync();
+          _ = _log.Db($"Deleted {rowsAffected} old coin value entries.");
+        }
 
-				// Delete records older than 10 years
-				var deleteOldSql = "DELETE FROM coin_value WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR);";
-				using (var deleteOldCmd = new MySqlCommand(deleteOldSql, conn))
-				{
-					int rowsAffected = await deleteOldCmd.ExecuteNonQueryAsync();
-					_ = _log.Db($"Deleted {rowsAffected} coin value entries older than 10 years.");
-				}
-			}
-		}
-		private async Task DeleteOldCoinMarketCaps()
-		{
-			using (var conn = new MySqlConnection(_connectionString))
-			{
-				await conn.OpenAsync();
+        // Delete records older than 10 years
+        var deleteOldSql = "DELETE FROM coin_value WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR);";
+        using (var deleteOldCmd = new MySqlCommand(deleteOldSql, conn))
+        {
+          int rowsAffected = await deleteOldCmd.ExecuteNonQueryAsync();
+          _ = _log.Db($"Deleted {rowsAffected} coin value entries older than 10 years.");
+        }
+      }
+    }
+    private async Task DeleteOldCoinMarketCaps()
+    {
+      using (var conn = new MySqlConnection(_connectionString))
+      {
+        await conn.OpenAsync();
 
-				var deleteSql = @"DELETE FROM maxhanna.coin_market_caps where recorded_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 YEAR);";
+        var deleteSql = @"DELETE FROM maxhanna.coin_market_caps where recorded_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 YEAR);";
 
-				using (var deleteCmd = new MySqlCommand(deleteSql, conn))
-				{
-					int rowsAffected = await deleteCmd.ExecuteNonQueryAsync();
-					_ = _log.Db($"Deleted {rowsAffected} old coin market capitals older than 5 years.");
-				}
-			}
-		}
+        using (var deleteCmd = new MySqlCommand(deleteSql, conn))
+        {
+          int rowsAffected = await deleteCmd.ExecuteNonQueryAsync();
+          _ = _log.Db($"Deleted {rowsAffected} old coin market capitals older than 5 years.");
+        }
+      }
+    }
 
 
-		/// <summary>
-		/// Daily maintenance:
-		///  - Phase A: delete rows older than 6 months in small batches.
-		///  - Phase B: thin ONE month only (the month that is now two months ago),
-		///             keeping 1 row per (pair, hour) in that slice; delete the rest.
-		/// </summary>
-		private async Task DeleteOldTradeVolumesSixMonths(CancellationToken ct = default)
-		{
-			// Compute the month slice that is guaranteed to be > 1 month old:
-			// [ startOfMonth(now - 2 months), startOfMonth(now - 1 month) )
-			var nowUtc = DateTime.UtcNow;
-			var twoMonthsAgo = nowUtc.AddMonths(-2);
-			var sliceStart = new DateTime(twoMonthsAgo.Year, twoMonthsAgo.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-			var sliceEnd = sliceStart.AddMonths(1); // exclusive
+    /// <summary>
+    /// Daily maintenance:
+    ///  - Phase A: delete rows older than 6 months in small batches.
+    ///  - Phase B: thin ONE month only (the month that is now two months ago),
+    ///             keeping 1 row per (pair, hour) in that slice; delete the rest.
+    /// </summary>
+    private async Task DeleteOldTradeVolumesSixMonths(CancellationToken ct = default)
+    {
+      // Compute the month slice that is guaranteed to be > 1 month old:
+      // [ startOfMonth(now - 2 months), startOfMonth(now - 1 month) )
+      var nowUtc = DateTime.UtcNow;
+      var twoMonthsAgo = nowUtc.AddMonths(-2);
+      var sliceStart = new DateTime(twoMonthsAgo.Year, twoMonthsAgo.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+      var sliceEnd = sliceStart.AddMonths(1); // exclusive
 
-			const int batchSize = 5000; // tune: 1000–5000 (lower if you still see timeouts)
+      const int batchSize = 5000; // tune: 1000–5000 (lower if you still see timeouts)
 
-			await using var conn = new MySqlConnection(_connectionString);
-			await conn.OpenAsync(ct);
+      await using var conn = new MySqlConnection(_connectionString);
+      await conn.OpenAsync(ct);
 
-			// -------------------- Phase A: outright delete > 6 months (no window fn) --------------------
-			while (true)
-			{
-				var deleteOlderThanSix = @"
+      // -------------------- Phase A: outright delete > 6 months (no window fn) --------------------
+      while (true)
+      {
+        var deleteOlderThanSix = @"
 					DELETE FROM trade_market_volumes
 					WHERE id IN (
 						SELECT id FROM (
@@ -2257,23 +2326,23 @@ namespace maxhanna.Server.Services
 						) s
 					);";
 
-				await using var cmdA = new MySqlCommand(deleteOlderThanSix, conn);
-				cmdA.Parameters.AddWithValue("@lim", batchSize);
+        await using var cmdA = new MySqlCommand(deleteOlderThanSix, conn);
+        cmdA.Parameters.AddWithValue("@lim", batchSize);
 
-				var affectedA = await cmdA.ExecuteNonQueryAsync(ct);
-				if (affectedA > 0)
-				{
-					await _log.Db($"Phase A: deleted {affectedA} rows > 6 months.", null, "SYSTEM", true);
-					continue; // keep deleting until this slice yields 0 rows
-				}
-				break;
-			}
+        var affectedA = await cmdA.ExecuteNonQueryAsync(ct);
+        if (affectedA > 0)
+        {
+          await _log.Db($"Phase A: deleted {affectedA} rows > 6 months.", null, "SYSTEM", true);
+          continue; // keep deleting until this slice yields 0 rows
+        }
+        break;
+      }
 
-			// -------------------- Phase B: thin ONE month (two months ago) --------------------
-			// Keep earliest row per (pair, hour) in slice; delete the rest, but only rows 1–6 months old.
-			while (true)
-			{
-				var thinOneMonth = @"
+      // -------------------- Phase B: thin ONE month (two months ago) --------------------
+      // Keep earliest row per (pair, hour) in slice; delete the rest, but only rows 1–6 months old.
+      while (true)
+      {
+        var thinOneMonth = @"
 					DELETE FROM trade_market_volumes
 					WHERE id IN (
 						SELECT id
@@ -2309,37 +2378,37 @@ namespace maxhanna.Server.Services
 						) ids
 					);";
 
-				await using var cmdB = new MySqlCommand(thinOneMonth, conn);
-				cmdB.Parameters.AddWithValue("@sliceStart", sliceStart);
-				cmdB.Parameters.AddWithValue("@sliceEnd", sliceEnd);
-				cmdB.Parameters.AddWithValue("@lim", batchSize);
+        await using var cmdB = new MySqlCommand(thinOneMonth, conn);
+        cmdB.Parameters.AddWithValue("@sliceStart", sliceStart);
+        cmdB.Parameters.AddWithValue("@sliceEnd", sliceEnd);
+        cmdB.Parameters.AddWithValue("@lim", batchSize);
 
-				var affectedB = await cmdB.ExecuteNonQueryAsync(ct);
-				if (affectedB > 0)
-				{
-					await _log.Db(
-							$"Phase B ({sliceStart:yyyy-MM}): thinned {affectedB} rows (kept 1 per hour per pair).",
-							null, "SYSTEM", true
-					);
-					continue; // repeat for the same month until 0 rows deleted
-				}
-				break;
-			}
-		}
+        var affectedB = await cmdB.ExecuteNonQueryAsync(ct);
+        if (affectedB > 0)
+        {
+          await _log.Db(
+              $"Phase B ({sliceStart:yyyy-MM}): thinned {affectedB} rows (kept 1 per hour per pair).",
+              null, "SYSTEM", true
+          );
+          continue; // repeat for the same month until 0 rows deleted
+        }
+        break;
+      }
+    }
 
-    
-/// <summary>
-/// Fetches ONE candidate filename from SQL, cleans it with FileNameCleaner,
-/// and updates given_file_name (no AI). Uses a light heuristic to select
-/// “sluggy” names with separators and/or long numeric tails.
-/// </summary>
-private async Task CleanOneSluggyFileNameAsync(CancellationToken ct = default)
-{
-    if (!await _fileCleanLock.WaitAsync(0, ct))
+
+    /// <summary>
+    /// Fetches ONE candidate filename from SQL, cleans it with FileNameCleaner,
+    /// and updates given_file_name (no AI). Uses a light heuristic to select
+    /// “sluggy” names with separators and/or long numeric tails.
+    /// </summary>
+    private async Task CleanOneSluggyFileNameAsync(CancellationToken ct = default)
+    {
+      if (!await _fileCleanLock.WaitAsync(0, ct))
         return; // skip if already running
 
-    try
-    {
+      try
+      {
         await using var conn = new MySqlConnection(_connectionString);
         await conn.OpenAsync(ct);
 
@@ -2371,19 +2440,19 @@ private async Task CleanOneSluggyFileNameAsync(CancellationToken ct = default)
         await using (var cmd = new MySqlCommand(selectSql, conn))
         await using (var reader = await cmd.ExecuteReaderAsync(ct))
         {
-            if (await reader.ReadAsync(ct))
-            {
-                id = reader.GetInt32("id");
-                fileName = reader.GetString("file_name");
-                folderPath = reader.GetString("folder_path");
-                fileType = reader.GetString("file_type");
-            }
+          if (await reader.ReadAsync(ct))
+          {
+            id = reader.GetInt32("id");
+            fileName = reader.GetString("file_name");
+            folderPath = reader.GetString("folder_path");
+            fileType = reader.GetString("file_type");
+          }
         }
 
         if (id is null || string.IsNullOrWhiteSpace(fileName))
         {
-            await _log.Db("FileNameCleanup: no candidate found.", null, "SYSTEM", outputToConsole: false);
-            return;
+          await _log.Db("FileNameCleanup: no candidate found.", null, "SYSTEM", outputToConsole: false);
+          return;
         }
 
         // Clean to human-readable (stem only)
@@ -2394,16 +2463,16 @@ private async Task CleanOneSluggyFileNameAsync(CancellationToken ct = default)
 
         if (string.IsNullOrWhiteSpace(human))
         {
-            await _log.Db($"FileNameCleanup: empty result after cleaning id={id}, name='{fileName}'. Skipping.", id, "SYSTEM", true);
-            return;
+          await _log.Db($"FileNameCleanup: empty result after cleaning id={id}, name='{fileName}'. Skipping.", id, "SYSTEM", true);
+          return;
         }
 
         // If the cleaned stem equals the original stem, skip writing
         var originalStem = Path.GetFileNameWithoutExtension(fileName) ?? "";
         if (human.Equals(originalStem, StringComparison.Ordinal))
         {
-            await _log.Db($"FileNameCleanup: cleaned stem equals original for id={id}. Skipping.", id, "SYSTEM", false);
-            return;
+          await _log.Db($"FileNameCleanup: cleaned stem equals original for id={id}. Skipping.", id, "SYSTEM", false);
+          return;
         }
 
         const string updateSql = @"
@@ -2415,54 +2484,51 @@ private async Task CleanOneSluggyFileNameAsync(CancellationToken ct = default)
 
         await using (var up = new MySqlCommand(updateSql, conn))
         {
-            up.Parameters.AddWithValue("@newName", human);
-            up.Parameters.AddWithValue("@uid", 314); // audit user id
-            up.Parameters.AddWithValue("@id", id.Value);
+          up.Parameters.AddWithValue("@newName", human);
+          up.Parameters.AddWithValue("@uid", 314); // audit user id
+          up.Parameters.AddWithValue("@id", id.Value);
 
-            var rows = await up.ExecuteNonQueryAsync(ct);
-            if (rows > 0)
-            {
-                await _log.Db($"FileNameCleanup: id={id} '{fileName}' → '{human}'", id, "SYSTEM", outputToConsole: true);
-                await _aiController.UpdateSitemapEntry(fileId: id.Value, fileName: human, description: human);
-            }
-            else
-            {
-                await _log.Db($"FileNameCleanup: update affected 0 rows for id={id}.", id, "SYSTEM", true);
-            }
+          var rows = await up.ExecuteNonQueryAsync(ct);
+          if (rows > 0)
+          {
+            await _log.Db($"FileNameCleanup: id={id} '{fileName}' → '{human}'", id, "SYSTEM", outputToConsole: true);
+            await _aiController.UpdateSitemapEntry(fileId: id.Value, fileName: human, description: human);
+          }
+          else
+          {
+            await _log.Db($"FileNameCleanup: update affected 0 rows for id={id}.", id, "SYSTEM", true);
+          }
         }
-    }
-    catch (Exception ex)
-    {
+      }
+      catch (Exception ex)
+      {
         await _log.Db($"FileNameCleanup error: {ex.Message}", null, "SYSTEM", true);
-    }
-    finally
-    {
+      }
+      finally
+      {
         try { _fileCleanLock.Release(); } catch { /* ignore */ }
+      }
     }
-}
 
 
-/// <summary>
-/// Local copy of your sanitize logic (stem only). If you already moved this to
-/// a shared helper, reference that instead.
-/// </summary>
-private static string SanitizeFileNameSafe(string name, string extension)
-{
-    if (string.IsNullOrWhiteSpace(name))
+    /// <summary>
+    /// Local copy of your sanitize logic (stem only). If you already moved this to
+    /// a shared helper, reference that instead.
+    /// </summary>
+    private static string SanitizeFileNameSafe(string name, string extension)
+    {
+      if (string.IsNullOrWhiteSpace(name))
         name = "media-file";
 
-    var invalidChars = Path.GetInvalidFileNameChars();
-    var sanitized = new string(name.Where(c => !invalidChars.Contains(c)).ToArray());
+      var invalidChars = Path.GetInvalidFileNameChars();
+      var sanitized = new string(name.Where(c => !invalidChars.Contains(c)).ToArray());
 
-    int maxLength = 240 - (extension?.Length ?? 0);
-    if (sanitized.Length > maxLength)
+      int maxLength = 240 - (extension?.Length ?? 0);
+      if (sanitized.Length > maxLength)
         sanitized = sanitized.Substring(0, maxLength);
 
-    sanitized = sanitized.TrimEnd('.', '-', ' ');
-    return sanitized;
-}
-
-
-	}
-
+      sanitized = sanitized.TrimEnd('.', '-', ' ');
+      return sanitized;
+    } 
+  } 
 }

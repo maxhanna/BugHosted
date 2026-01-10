@@ -455,8 +455,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       if (ceRes) {
         latestCurrencyPriceRespectToCAD = ceRes.rate;
       }
-      const res = await this.coinValueService.getLatestCoinValuesByName("Bitcoin");
-      const result = res;
+      const result = await this.coinValueService.getLatestCoinValuesByName("Bitcoin"); 
       if (result) {
         const btcToCADRate = result.valueCAD * latestCurrencyPriceRespectToCAD;
         const nav = this._parent.navigationItems.find(x => x.title == "Crypto-Hub");

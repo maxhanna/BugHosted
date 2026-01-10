@@ -10,23 +10,7 @@ import { MiningWalletResponse } from './datacontracts/crypto/mining-wallet-respo
 })
 export class CoinValueService {
 
-  constructor(private http: HttpClient) { }
-
-  // Get all coin values
-  async getAllCoinValues(): Promise<CoinValue[] | undefined> {
-    try {
-      const response = await fetch(`/coinvalue`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      return await response.json();
-    } catch (error) {
-      return;
-    }
-  }
+  constructor(private http: HttpClient) { } 
 
   async getAllCoinValuesForGraph(from?: Date, hourRange?: number, coin?: string): Promise<CoinValue[] | undefined> {
     try {

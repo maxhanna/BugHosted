@@ -21,50 +21,18 @@ namespace maxhanna.Server.Controllers
     private const double HOURS_IN_YEAR = 8760; // 365 days * 24 hours
     private static readonly Dictionary<string, string> CoinNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "BTC", "Bitcoin" }, { "XBT", "Bitcoin" }, { "ETH", "Ethereum" }, { "XDG", "Dogecoin" }, { "SOL", "Solana" } };
 
+    private static readonly HashSet<string> AllowedWalletTypes =
+    new HashSet<string>(
+        KrakenService.CoinMappingsForDB.Values
+            .Select(v => v.ToLowerInvariant())
+            .Distinct(),
+        StringComparer.OrdinalIgnoreCase
+    );
+
     public CoinValueController(Log log, IConfiguration config)
     {
       _log = log;
       _config = config;
-    }
-
-    [HttpPost("/CoinValue/", Name = "GetAllCoinValues")]
-    public async Task<List<CoinValue>> GetAllCoinValues()
-    {
-      var coinValues = new List<CoinValue>();
-
-      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-      try
-      {
-        await conn.OpenAsync();
-
-        string sql = @"SELECT id, symbol, name, value_cad, timestamp FROM coin_value";
-        MySqlCommand cmd = new MySqlCommand(sql, conn);
-        using (var reader = await cmd.ExecuteReaderAsync())
-        {
-          while (await reader.ReadAsync())
-          {
-            var coinValue = new CoinValue
-            {
-              Id = reader.GetInt32(reader.GetOrdinal("id")),
-              Symbol = reader.IsDBNull(reader.GetOrdinal("symbol")) ? null : reader.GetString(reader.GetOrdinal("symbol")),
-              Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name")),
-              ValueCAD = reader.IsDBNull(reader.GetOrdinal("value_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("value_cad")),
-              Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp"))
-            };
-            coinValues.Add(coinValue);
-          }
-        }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("An error occurred while trying to get all coin values. " + ex.Message, null, "COIN", true);
-      }
-      finally
-      {
-        await conn.CloseAsync();
-      }
-
-      return coinValues;
     }
 
     [HttpPost("/CoinValue/GetWalletBalanceData", Name = "GetWalletBalanceData")]
@@ -118,47 +86,6 @@ namespace maxhanna.Server.Controllers
       }
 
       return coinValues;
-    }
-
-
-    [HttpPost("/CurrencyValue/", Name = "GetAllCurrencyValues")]
-    public async Task<List<ExchangeRate>> GetAllCurrencyValues()
-    {
-      var exchangeRates = new List<ExchangeRate>();
-
-      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-      try
-      {
-        await conn.OpenAsync();
-
-        string sql = @"SELECT id, base_currency, target_currency, rate, timestamp FROM maxhanna.exchange_rates";
-        MySqlCommand cmd = new MySqlCommand(sql, conn);
-        using (var reader = await cmd.ExecuteReaderAsync())
-        {
-          while (await reader.ReadAsync())
-          {
-            var exchangeRate = new ExchangeRate
-            {
-              Id = reader.GetInt32(reader.GetOrdinal("id")),
-              BaseCurrency = reader.IsDBNull(reader.GetOrdinal("base_currency")) ? null : reader.GetString(reader.GetOrdinal("base_currency")),
-              TargetCurrency = reader.IsDBNull(reader.GetOrdinal("target_currency")) ? null : reader.GetString(reader.GetOrdinal("target_currency")),
-              Rate = reader.IsDBNull(reader.GetOrdinal("rate")) ? 0 : reader.GetDecimal(reader.GetOrdinal("rate")),
-              Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp"))
-            };
-            exchangeRates.Add(exchangeRate);
-          }
-        }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("An error occurred while trying to get all exchange rate values. " + ex.Message, null, "COIN", true);
-      }
-      finally
-      {
-        await conn.CloseAsync();
-      }
-
-      return exchangeRates;
     }
 
     [HttpPost("/CoinValue/GetAllForGraph", Name = "GetAllCoinValuesForGraph")]
@@ -427,25 +354,52 @@ namespace maxhanna.Server.Controllers
       return exchangeRates;
     }
 
-    [HttpPost("/CurrencyValue/GetCurrencyNames", Name = "GetCurrencyNames")]
-    public async Task<List<string>> GetCurrencyNames()
+
+    [HttpGet("/CurrencyValue/GetCurrencyNames", Name = "GetCurrencyNames")]
+    public async Task<List<string>> GetCurrencyNames(CancellationToken ct = default)
     {
-      List<string> currencies = new List<string>();
-      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      var currencies = new List<string>(64);
+
+      await using var conn = new MySqlConnection(_config.GetConnectionString("maxhanna"));
       try
       {
-        await conn.OpenAsync();
-        string sql = "SELECT DISTINCT target_currency FROM maxhanna.exchange_rates";
+        await conn.OpenAsync(ct);
 
-        MySqlCommand cmd = new MySqlCommand(sql, conn);
+        // 1) Primary: read from latest_exchange_rate (fast, small table)
+        const string latestSql = @"
+SELECT target_currency
+FROM latest_exchange_rate
+ORDER BY target_currency;";
 
-
-        using (var reader = await cmd.ExecuteReaderAsync())
+        await using (var latestCmd = new MySqlCommand(latestSql, conn) { CommandTimeout = 15 })
+        await using (var latestReader = await latestCmd.ExecuteReaderAsync(ct))
         {
-          while (await reader.ReadAsync())
+          while (await latestReader.ReadAsync(ct))
           {
-            currencies.Add(reader.GetString(reader.GetOrdinal("target_currency")));
+            var ord = latestReader.GetOrdinal("target_currency");
+            if (!latestReader.IsDBNull(ord))
+              currencies.Add(latestReader.GetString(ord));
           }
+        }
+
+        // If latest table had data, return it
+        if (currencies.Count > 0)
+          return currencies;
+
+        // 2) Fallback: get distinct from legacy table
+        const string fallbackSql = @"
+SELECT DISTINCT target_currency
+FROM exchange_rates
+WHERE target_currency IS NOT NULL
+ORDER BY target_currency;";
+
+        await using var fallbackCmd = new MySqlCommand(fallbackSql, conn) { CommandTimeout = 30 };
+        await using var fallbackReader = await fallbackCmd.ExecuteReaderAsync(ct);
+        while (await fallbackReader.ReadAsync(ct))
+        {
+          var ord = fallbackReader.GetOrdinal("target_currency");
+          if (!fallbackReader.IsDBNull(ord))
+            currencies.Add(fallbackReader.GetString(ord));
         }
       }
       catch (Exception ex)
@@ -459,6 +413,7 @@ namespace maxhanna.Server.Controllers
 
       return currencies;
     }
+
 
     [HttpPost("/CoinValue/GetLatest/", Name = "GetLatestCoinValues")]
     public async Task<List<CoinValue>> GetLatestCoinValues()
@@ -512,42 +467,80 @@ namespace maxhanna.Server.Controllers
     }
 
 
-    [HttpPost("/CurrencyValue/GetLatest/", Name = "GetLatestCurrencyValues")]
-    public async Task<List<ExchangeRate>> GetLatestCurrencyValues()
-    {
-      var exchangeRates = new List<ExchangeRate>();
 
-      await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+    [HttpPost("/CurrencyValue/GetLatest/", Name = "GetLatestCurrencyValues")]
+    public async Task<List<ExchangeRate>> GetLatestCurrencyValues(CancellationToken ct = default)
+    {
+      var exchangeRates = new List<ExchangeRate>(256);
+
+      await using var conn = new MySqlConnection(_config.GetConnectionString("maxhanna"));
       try
       {
-        await conn.OpenAsync();
+        await conn.OpenAsync(ct);
 
-        const string sql = @"
-            SELECT id, base_currency, target_currency, rate, timestamp
-            FROM exchange_rates
-            WHERE timestamp = (SELECT MAX(timestamp) FROM exchange_rates);";
+        // 1) Primary: new 'latest' table (fast, small, already deduped)
+        const string latestSql = @"
+SELECT id, base_currency, target_currency, rate, `timestamp`
+FROM latest_exchange_rate
+ORDER BY target_currency;";
 
-        await using var cmd = new MySqlCommand(sql, conn);
-        // SingleResult + SequentialAccess are good hints for streaming many rows efficiently
-        await using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleResult | CommandBehavior.SequentialAccess);
-
-        while (await reader.ReadAsync())
+        await using (var latestCmd = new MySqlCommand(latestSql, conn) { CommandTimeout = 15 })
+        await using (var latestReader = await latestCmd.ExecuteReaderAsync(CommandBehavior.SingleResult | CommandBehavior.SequentialAccess, ct))
         {
-          var exchangeRate = new ExchangeRate
+          while (await latestReader.ReadAsync(ct))
           {
-            Id = reader.GetInt32(reader.GetOrdinal("id")),
-            BaseCurrency = reader.IsDBNull(reader.GetOrdinal("base_currency")) ? null : reader.GetString(reader.GetOrdinal("base_currency")),
-            TargetCurrency = reader.IsDBNull(reader.GetOrdinal("target_currency")) ? null : reader.GetString(reader.GetOrdinal("target_currency")),
-            Rate = reader.IsDBNull(reader.GetOrdinal("rate")) ? 0 : reader.GetDecimal(reader.GetOrdinal("rate")),
-            Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp"))
-          };
-          exchangeRates.Add(exchangeRate);
+            var idOrdinal = latestReader.GetOrdinal("id");
+            var baseOrdinal = latestReader.GetOrdinal("base_currency");
+            var targetOrdinal = latestReader.GetOrdinal("target_currency");
+            var rateOrdinal = latestReader.GetOrdinal("rate");
+            var tsOrdinal = latestReader.GetOrdinal("timestamp");
+
+            exchangeRates.Add(new ExchangeRate
+            {
+              Id = latestReader.GetInt32(idOrdinal),
+              BaseCurrency = latestReader.IsDBNull(baseOrdinal) ? null : latestReader.GetString(baseOrdinal),
+              TargetCurrency = latestReader.IsDBNull(targetOrdinal) ? null : latestReader.GetString(targetOrdinal),
+              Rate = latestReader.IsDBNull(rateOrdinal) ? 0 : latestReader.GetDecimal(rateOrdinal),
+              Timestamp = latestReader.GetDateTime(tsOrdinal)
+            });
+          }
+        }
+
+        // If we found rows in latest table, return them
+        if (exchangeRates.Count > 0)
+          return exchangeRates;
+
+        // 2) Fallback: legacy table — all rows at the global MAX(timestamp)
+        // (Matches your current behavior; keeps id as tiebreaker ordering)
+        const string fallbackSql = @"
+SELECT id, base_currency, target_currency, rate, `timestamp`
+FROM exchange_rates
+WHERE `timestamp` = (SELECT MAX(`timestamp`) FROM exchange_rates)
+ORDER BY `timestamp` DESC, id DESC;";
+
+        await using var fallbackCmd = new MySqlCommand(fallbackSql, conn) { CommandTimeout = 30 };
+        await using var reader = await fallbackCmd.ExecuteReaderAsync(CommandBehavior.SingleResult | CommandBehavior.SequentialAccess, ct);
+        while (await reader.ReadAsync(ct))
+        {
+          var idOrdinal = reader.GetOrdinal("id");
+          var baseOrdinal = reader.GetOrdinal("base_currency");
+          var targetOrdinal = reader.GetOrdinal("target_currency");
+          var rateOrdinal = reader.GetOrdinal("rate");
+          var tsOrdinal = reader.GetOrdinal("timestamp");
+
+          exchangeRates.Add(new ExchangeRate
+          {
+            Id = reader.GetInt32(idOrdinal),
+            BaseCurrency = reader.IsDBNull(baseOrdinal) ? null : reader.GetString(baseOrdinal),
+            TargetCurrency = reader.IsDBNull(targetOrdinal) ? null : reader.GetString(targetOrdinal),
+            Rate = reader.IsDBNull(rateOrdinal) ? 0 : reader.GetDecimal(rateOrdinal),
+            Timestamp = reader.GetDateTime(tsOrdinal)
+          });
         }
       }
       catch (Exception ex)
       {
         _ = _log.Db("An error occurred while trying to get the latest currency values. " + ex.Message, null, "COIN", true);
-        // Depending on your API contract, consider returning proper status codes
       }
       finally
       {
@@ -556,6 +549,7 @@ namespace maxhanna.Server.Controllers
 
       return exchangeRates;
     }
+
 
 
     [HttpPost("/CurrencyValue/GetUniqueNames/", Name = "GetUniqueCurrencyValueNames")]
@@ -568,7 +562,7 @@ namespace maxhanna.Server.Controllers
       {
         await conn.OpenAsync();
 
-        string sql = @"SELECT DISTINCT target_currency FROM exchange_rates;";
+        string sql = @"SELECT DISTINCT target_currency FROM latest_exchange_rate;";
         MySqlCommand cmd = new MySqlCommand(sql, conn);
         using (var reader = await cmd.ExecuteReaderAsync())
         {
@@ -784,48 +778,82 @@ namespace maxhanna.Server.Controllers
     }
 
 
+
     [HttpPost("/CurrencyValue/GetLatestByName/{name}", Name = "GetLatestCurrencyValuesByName")]
-    public async Task<ExchangeRate> GetLatestCurrencyValuesByName(string name)
+    public async Task<ExchangeRate> GetLatestCurrencyValuesByName(string name, CancellationToken ct = default)
     {
       // If you prefer null when not found, change the return type to ExchangeRate? and return null.
       var exchangeRate = new ExchangeRate();
 
-      await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      // Basic guard: avoid empty/whitespace names
+      if (string.IsNullOrWhiteSpace(name))
+        return exchangeRate;
+
+      await using var conn = new MySqlConnection(_config.GetConnectionString("maxhanna"));
       try
       {
-        await conn.OpenAsync();
+        await conn.OpenAsync(ct);
 
-        const string sql = @"
-            SELECT id, base_currency, target_currency, rate, timestamp
-            FROM maxhanna.exchange_rates
-            WHERE target_currency = @name
-            ORDER BY timestamp DESC, id DESC
-            LIMIT 1;";
+        // 1) Primary: look up in latest_exchange_rate (fast, small, PK on target_currency)
+        const string latestSql = @"
+SELECT id, base_currency, target_currency, rate, `timestamp`
+FROM latest_exchange_rate
+WHERE target_currency = @name
+LIMIT 1;";
 
-        await using var cmd = new MySqlCommand(sql, conn);
-        // Explicit type & size helps plan reuse
-        cmd.Parameters.Add("@name", MySqlDbType.VarChar, 45).Value = name;
-        cmd.CommandTimeout = 8;
-        cmd.Prepare();
-
-        // We only expect a single row
-        await using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleRow);
-
-        if (await reader.ReadAsync())
+        await using (var latestCmd = new MySqlCommand(latestSql, conn) { CommandTimeout = 8 })
         {
-          // Inline GetOrdinal with IsDBNull / getters (condensed)
+          latestCmd.Parameters.Add("@name", MySqlDbType.VarChar, 45).Value = name;
+          latestCmd.Prepare();
+
+          await using var latestReader = await latestCmd.ExecuteReaderAsync(CommandBehavior.SingleRow, ct);
+          if (await latestReader.ReadAsync(ct))
+          {
+            var idOrdinal = latestReader.GetOrdinal("id");
+            var baseOrdinal = latestReader.GetOrdinal("base_currency");
+            var targetOrdinal = latestReader.GetOrdinal("target_currency");
+            var rateOrdinal = latestReader.GetOrdinal("rate");
+            var tsOrdinal = latestReader.GetOrdinal("timestamp");
+
+            return new ExchangeRate
+            {
+              Id = latestReader.IsDBNull(idOrdinal) ? 0 : latestReader.GetInt32(idOrdinal),
+              BaseCurrency = latestReader.IsDBNull(baseOrdinal) ? null : latestReader.GetString(baseOrdinal),
+              TargetCurrency = latestReader.IsDBNull(targetOrdinal) ? null : latestReader.GetString(targetOrdinal),
+              Rate = latestReader.IsDBNull(rateOrdinal) ? 0 : latestReader.GetDecimal(rateOrdinal),
+              Timestamp = latestReader.IsDBNull(tsOrdinal) ? DateTime.UtcNow : latestReader.GetDateTime(tsOrdinal)
+            };
+          }
+        }
+
+        // 2) Fallback: legacy table — latest by timestamp with id DESC tiebreaker
+        const string fallbackSql = @"
+SELECT id, base_currency, target_currency, rate, `timestamp`
+FROM exchange_rates FORCE INDEX (ix_exchange_rates_target_ts_id)
+WHERE target_currency = @name
+ORDER BY `timestamp` DESC, id DESC
+LIMIT 1;";
+
+        await using var fallbackCmd = new MySqlCommand(fallbackSql, conn) { CommandTimeout = 8 };
+        fallbackCmd.Parameters.Add("@name", MySqlDbType.VarChar, 45).Value = name;
+        fallbackCmd.Prepare();
+
+        await using var reader = await fallbackCmd.ExecuteReaderAsync(CommandBehavior.SingleRow, ct);
+        if (await reader.ReadAsync(ct))
+        {
+          var idOrdinal = reader.GetOrdinal("id");
+          var baseOrdinal = reader.GetOrdinal("base_currency");
+          var targetOrdinal = reader.GetOrdinal("target_currency");
+          var rateOrdinal = reader.GetOrdinal("rate");
+          var tsOrdinal = reader.GetOrdinal("timestamp");
+
           exchangeRate = new ExchangeRate
           {
-            Id = reader.IsDBNull(reader.GetOrdinal("id"))
-                  ? 0 : reader.GetInt32(reader.GetOrdinal("id")),
-            BaseCurrency = reader.IsDBNull(reader.GetOrdinal("base_currency"))
-                  ? null : reader.GetString(reader.GetOrdinal("base_currency")),
-            TargetCurrency = reader.IsDBNull(reader.GetOrdinal("target_currency"))
-                  ? null : reader.GetString(reader.GetOrdinal("target_currency")),
-            Rate = reader.IsDBNull(reader.GetOrdinal("rate"))
-                  ? 0 : reader.GetDecimal(reader.GetOrdinal("rate")),
-            Timestamp = reader.IsDBNull(reader.GetOrdinal("timestamp"))
-                  ? DateTime.UtcNow : reader.GetDateTime(reader.GetOrdinal("timestamp"))
+            Id = reader.IsDBNull(idOrdinal) ? 0 : reader.GetInt32(idOrdinal),
+            BaseCurrency = reader.IsDBNull(baseOrdinal) ? null : reader.GetString(baseOrdinal),
+            TargetCurrency = reader.IsDBNull(targetOrdinal) ? null : reader.GetString(targetOrdinal),
+            Rate = reader.IsDBNull(rateOrdinal) ? 0 : reader.GetDecimal(rateOrdinal),
+            Timestamp = reader.IsDBNull(tsOrdinal) ? DateTime.UtcNow : reader.GetDateTime(tsOrdinal)
           };
         }
       }
@@ -840,6 +868,7 @@ namespace maxhanna.Server.Controllers
 
       return exchangeRate;
     }
+
 
 
 
@@ -1484,15 +1513,22 @@ ORDER BY mc.market_cap_usd DESC;";
       return coinMarketCaps;
     }
 
-    private async Task<CryptoWallet?> GetWalletFromDb(int? userId, string type)
+    private async Task<CryptoWallet?> GetWalletFromDb(int? userId, string type, CancellationToken ct = default)
     {
-      if (userId == null) { return null; }
+      if (userId == null) return null;
+      var typeNorm = type?.Trim(); 
+      if (string.IsNullOrWhiteSpace(typeNorm) || !AllowedWalletTypes.Contains(typeNorm)){
+        throw new ArgumentException($"Unsupported wallet type: '{type}'", nameof(type));
+      }
+
+      var typeUpper = typeNorm.ToUpperInvariant();
+      var typeLower = typeNorm.ToLowerInvariant();
 
       var wallet = new CryptoWallet
       {
         total = new Total
         {
-          currency = type.ToUpper(),
+          currency = typeUpper,
           totalBalance = "0",
           available = "0",
           debt = "0",
@@ -1503,113 +1539,142 @@ ORDER BY mc.market_cap_usd DESC;";
 
       try
       {
-        using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+        await using var conn = new MySqlConnection(_config.GetConnectionString("maxhanna"));
+        await conn.OpenAsync(ct);
+
+        // 1) User currency (default CAD if not set)
+        string userCurrency = "CAD";
+        const string userCurrencySql = "SELECT currency FROM user_about WHERE user_id = @UserId LIMIT 1;";
+        await using (var currencyCmd = new MySqlCommand(userCurrencySql, conn) { CommandTimeout = 8 })
         {
-          await conn.OpenAsync();
+          currencyCmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId.Value;
+          var result = await currencyCmd.ExecuteScalarAsync(ct);
+          if (result != null && result != DBNull.Value)
+            userCurrency = Convert.ToString(result)!.Trim();
+        }
 
+        // 2) Coin → CAD rate (latest from coin_value)
+        decimal coinToCad = 0m;
+        const string coinSql = @"
+SELECT value_cad
+FROM coin_value
+WHERE name = @Name
+ORDER BY `timestamp` DESC, id DESC
+LIMIT 1;";
+        await using (var coinCmd = new MySqlCommand(coinSql, conn) { CommandTimeout = 8 })
+        {
+          string tmpCoinName = CoinNameMap.TryGetValue(typeUpper, out var toName) ? toName : typeUpper;
+          coinCmd.Parameters.Add("@Name", MySqlDbType.VarChar, 64).Value = tmpCoinName;
+          var coinResult = await coinCmd.ExecuteScalarAsync(ct);
+          if (coinResult != null && coinResult != DBNull.Value)
+            coinToCad = Convert.ToDecimal(coinResult);
+        }
 
-          string userCurrency = "CAD"; // fallback
-          decimal coinToCad = 0;
-          decimal cadToUserCurrency = 1;
-
-          using (var currencyCmd = new MySqlCommand("SELECT currency FROM user_about WHERE user_id = @UserId", conn))
+        // 3) CAD → user currency rate (prefer latest_exchange_rate, fallback to exchange_rates)
+        decimal cadToUserCurrency = 1m; // Identity if userCurrency == CAD or rate missing
+        if (!userCurrency.Equals("CAD", StringComparison.OrdinalIgnoreCase))
+        {
+          // Primary: latest_exchange_rate (fast, small, PK on target_currency)
+          const string latestFxSql = @"
+SELECT rate
+FROM latest_exchange_rate
+WHERE base_currency = 'CAD' AND target_currency = @Target
+LIMIT 1;";
+          bool gotLatest = false;
+          await using (var latestFxCmd = new MySqlCommand(latestFxSql, conn) { CommandTimeout = 8 })
           {
-            currencyCmd.Parameters.AddWithValue("@UserId", userId);
-            var result = await currencyCmd.ExecuteScalarAsync();
-            if (result != null && result != DBNull.Value)
-              userCurrency = result.ToString()!;
-          }
-          using (var coinCmd = new MySqlCommand(@"
-						SELECT value_cad 
-						FROM coin_value 
-						WHERE name = @Name 
-						ORDER BY timestamp DESC 
-						LIMIT 1", conn))
-          {
-            string tmpCoinName = CoinNameMap.TryGetValue(type.ToUpper(), out var toname) ? toname : type;
-            coinCmd.Parameters.AddWithValue("@Name", tmpCoinName);
-            var coinResult = await coinCmd.ExecuteScalarAsync();
-            if (coinResult != null && coinResult != DBNull.Value)
-              coinToCad = Convert.ToDecimal(coinResult);
-          }
-          if (userCurrency != "CAD")
-          {
-            using (var rateCmd = new MySqlCommand(@"
-							SELECT rate 
-							FROM exchange_rates 
-							WHERE base_currency = 'CAD' AND target_currency = @Target 
-							ORDER BY timestamp DESC 
-							LIMIT 1", conn))
+            latestFxCmd.Parameters.Add("@Target", MySqlDbType.VarChar, 10).Value = userCurrency;
+            var fxResult = await latestFxCmd.ExecuteScalarAsync(ct);
+            if (fxResult != null && fxResult != DBNull.Value)
             {
-              rateCmd.Parameters.AddWithValue("@Target", userCurrency);
-              var rateResult = await rateCmd.ExecuteScalarAsync();
-              if (rateResult != null && rateResult != DBNull.Value)
-                cadToUserCurrency = Convert.ToDecimal(rateResult);
+              cadToUserCurrency = Convert.ToDecimal(fxResult);
+              gotLatest = true;
             }
           }
 
-          decimal fiatRate = coinToCad * cadToUserCurrency;
-
-          string sql = $@"
-						SELECT DISTINCT
-							wi.{type}_address, 
-							wb.balance,  
-							wb.fetched_at
-						FROM user_{type}_wallet_info wi
-						JOIN (
-							SELECT wallet_id, MAX(fetched_at) as latest_fetch
-							FROM user_{type}_wallet_balance
-							GROUP BY wallet_id
-						) latest ON wi.id = latest.wallet_id
-						JOIN user_{type}_wallet_balance wb ON latest.wallet_id = wb.wallet_id 
-							AND latest.latest_fetch = wb.fetched_at
-						WHERE wi.user_id = @UserId;
-						);";
-          using (var cmd = new MySqlCommand(sql, conn))
+          // Fallback: exchange_rates (legacy, ordered by timestamp DESC, id DESC)
+          if (!gotLatest)
           {
-            cmd.Parameters.AddWithValue("@UserId", userId);
-
-            using (var reader = await cmd.ExecuteReaderAsync())
-            {
-              decimal totalBalance = 0;
-              decimal totalAvailable = 0;
-
-              while (await reader.ReadAsync())
-              {
-                // Retrieve the final balance as Int64 and convert to decimal
-                decimal finalBalance = reader.GetDecimal("balance");
-                string address = reader.GetString($"{type}_address");
-                var currency = new Currency
-                {
-                  active = true,
-                  address = address,
-                  currency = type.ToUpper(),
-                  totalBalance = finalBalance.ToString("F8"),
-                  available = finalBalance.ToString("F8"),
-                  debt = "0",
-                  pending = "0",
-                  btcRate = 1,
-                  fiatRate = Convert.ToDouble(fiatRate),
-                  status = "active"
-                };
-
-                wallet.currencies.Add(currency);
-
-                // Accumulate totals
-                totalBalance += finalBalance;
-                totalAvailable += finalBalance;
-              }
-
-              // Update totals in MiningWallet
-              wallet.total.totalBalance = totalBalance.ToString("F8");
-              wallet.total.available = totalAvailable.ToString("F8");
-            }
+            const string legacyFxSql = @"
+SELECT rate
+FROM exchange_rates FORCE INDEX (ix_exchange_rates_target_ts_id)
+WHERE base_currency = 'CAD' AND target_currency = @Target
+ORDER BY `timestamp` DESC, id DESC
+LIMIT 1;";
+            await using var legacyFxCmd = new MySqlCommand(legacyFxSql, conn) { CommandTimeout = 8 };
+            legacyFxCmd.Parameters.Add("@Target", MySqlDbType.VarChar, 10).Value = userCurrency;
+            var legacyFxResult = await legacyFxCmd.ExecuteScalarAsync(ct);
+            if (legacyFxResult != null && legacyFxResult != DBNull.Value)
+              cadToUserCurrency = Convert.ToDecimal(legacyFxResult);
           }
         }
+
+        // 4) Compute coin → user's fiat rate
+        decimal fiatRate = coinToCad * cadToUserCurrency;
+
+        // 5) Latest balances per wallet for this user & type
+        // NOTE: dynamic table names must be from a whitelist (enforced above)
+        string walletSql = $@"
+SELECT
+    wi.{typeLower}_address AS address,
+    wb.balance,
+    wb.fetched_at
+FROM user_{typeLower}_wallet_info wi
+JOIN (
+    SELECT wallet_id, MAX(fetched_at) AS latest_fetch
+    FROM user_{typeLower}_wallet_balance
+    GROUP BY wallet_id
+) latest ON wi.id = latest.wallet_id
+JOIN user_{typeLower}_wallet_balance wb
+  ON wb.wallet_id = latest.wallet_id
+ AND wb.fetched_at = latest.latest_fetch
+WHERE wi.user_id = @UserId;";
+
+        await using var cmd = new MySqlCommand(walletSql, conn) { CommandTimeout = 15 };
+        cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId.Value;
+
+        // Stream results efficiently
+        await using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleResult | CommandBehavior.SequentialAccess, ct);
+
+        decimal totalBalance = 0m;
+        decimal totalAvailable = 0m;
+
+        // Resolve ordinals once
+        int addressOrdinal = reader.GetOrdinal("address");
+        int balanceOrdinal = reader.GetOrdinal("balance");
+        int fetchedAtOrdinal = reader.GetOrdinal("fetched_at");
+
+        while (await reader.ReadAsync(ct))
+        {
+          decimal finalBalance = reader.IsDBNull(balanceOrdinal) ? 0m : reader.GetDecimal(balanceOrdinal);
+          string address = reader.IsDBNull(addressOrdinal) ? "" : reader.GetString(addressOrdinal);
+
+          var currency = new Currency
+          {
+            active = true,
+            address = address,
+            currency = typeUpper,
+            totalBalance = finalBalance.ToString("F8", System.Globalization.CultureInfo.InvariantCulture),
+            available = finalBalance.ToString("F8", System.Globalization.CultureInfo.InvariantCulture),
+            debt = "0",
+            pending = "0",
+            btcRate = 1, // if 'type' is BTC; otherwise you might want to derive a cross rate
+            fiatRate = Convert.ToDouble(fiatRate),
+            status = "active"
+          };
+
+          wallet.currencies.Add(currency);
+
+          totalBalance += finalBalance;
+          totalAvailable += finalBalance;
+        }
+
+        wallet.total.totalBalance = totalBalance.ToString("F8", System.Globalization.CultureInfo.InvariantCulture);
+        wallet.total.available = totalAvailable.ToString("F8", System.Globalization.CultureInfo.InvariantCulture);
       }
       catch (Exception ex)
       {
-        _ = _log.Db($"An error occurred while fetching {type.ToUpper()} wallet data from the database. " + ex.Message, userId, "USER", true);
+        _ = _log.Db($"An error occurred while fetching {typeUpper} wallet data from the database. " + ex.Message, userId, "USER", true);
         throw;
       }
 
