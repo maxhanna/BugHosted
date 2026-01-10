@@ -1,5 +1,6 @@
 ﻿using FirebaseAdmin.Messaging;
 using MySqlConnector;
+using System.Data;
 using System.Diagnostics;
 using System.Diagnostics.Tracing;
 using System.Security.Cryptography;
@@ -25,73 +26,107 @@ public Task Db(string message, int? userId = null, string? type = "SYSTEM", bool
 }
 
   
-	public async Task<List<Dictionary<string, object?>>> GetLogs(int? userId = null, string? component = null, int limit = 1000, string keywords = "", int page = 1)
-	{
-		var logs = new List<Dictionary<string, object?>>();
-		int offset = (page - 1) * limit;
+	
+public async Task<List<Dictionary<string, object?>>> GetLogs(
+    int? userId = null,
+    string? component = null,
+    int limit = 1000,
+    string keywords = "",
+    // Keyset pagination tokens (optional): when provided, fetch rows older than this cursor
+    DateTime? lastTimestamp = null,
+    int? lastId = null,
+    CancellationToken ct = default)
+{
+    var logs = new List<Dictionary<string, object?>>(Math.Min(Math.Max(limit, 1), 5000));
+    int take = Math.Max(1, Math.Min(limit, 5000));
 
-		var sql = new StringBuilder("SELECT comment, component, user_id, timestamp FROM maxhanna.logs WHERE 1=1");
+    // Build WHERE + ORDER BY with deterministic order
+    var sb = new StringBuilder();
+    sb.AppendLine("SELECT id, comment, component, user_id, `timestamp`");
+    sb.AppendLine("FROM maxhanna.logs WHERE 1=1");
 
-		if (userId != null)
-		{
-			sql.Append(" AND user_id = @UserId ");
-		}
+    if (userId.HasValue)
+        sb.AppendLine("  AND user_id = @UserId");
+    if (!string.IsNullOrWhiteSpace(component))
+        sb.AppendLine("  AND component = @Component");
 
-		if (!string.IsNullOrEmpty(component))
-		{
-			sql.Append(" AND component = @Component ");
-		}
+    bool hasKeywords = !string.IsNullOrWhiteSpace(keywords);
+    if (hasKeywords)
+    {  
+       sb.AppendLine("  AND MATCH(comment) AGAINST (@Keywords IN BOOLEAN MODE)"); 
+    }
 
-		if (!string.IsNullOrEmpty(keywords))
-		{
-			sql.Append(" AND comment LIKE CONCAT('%', @Keywords, '%') ");
-		}
+    // Keyset pagination
+    // If you don't pass cursor, you get the newest page. If you pass it, you get older rows.
+    if (lastTimestamp.HasValue && lastId.HasValue)
+    {
+        sb.AppendLine("  AND ( `timestamp` < @LastTs OR (`timestamp` = @LastTs AND id < @LastId) )");
+    }
 
-		sql.Append(" ORDER BY timestamp DESC LIMIT @Limit OFFSET @Offset;");
+    // Deterministic order; matches suggested indexes
+    sb.AppendLine("ORDER BY `timestamp` DESC, id DESC");
+    sb.AppendLine("LIMIT @Limit;");
 
-		try
-		{
-			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-			await conn.OpenAsync();
+    try
+    {
+        await using var conn = new MySqlConnection(_config.GetConnectionString("maxhanna"));
+        await conn.OpenAsync(ct);
 
-			using var cmd = new MySqlCommand(sql.ToString(), conn);
-			cmd.Parameters.AddWithValue("@Limit", limit);
-			cmd.Parameters.AddWithValue("@Offset", offset);
-			if (userId != null)
-			{
-				cmd.Parameters.AddWithValue("@UserId", userId);
-			}
-			if (!string.IsNullOrEmpty(component))
-			{
-				cmd.Parameters.AddWithValue("@Component", component);
-			}
-			if (!string.IsNullOrEmpty(keywords))
-			{
-				cmd.Parameters.AddWithValue("@Keywords", keywords);
-			}
+        await using var cmd = new MySqlCommand(sb.ToString(), conn)
+        {
+            CommandTimeout = 15
+        };
+        cmd.Parameters.Add("@Limit", MySqlDbType.Int32).Value = take;
 
-			using var reader = await cmd.ExecuteReaderAsync();
+        if (userId.HasValue)
+            cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId.Value;
+        if (!string.IsNullOrWhiteSpace(component))
+            cmd.Parameters.Add("@Component", MySqlDbType.VarChar, 45).Value = component;
 
-			while (await reader.ReadAsync())
-			{
-				var logEntry = new Dictionary<string, object?>
-				{
-					["comment"] = reader["comment"],
-					["component"] = reader["component"],
-					["user_id"] = reader["user_id"] == DBNull.Value ? null : reader["user_id"],
-					["timestamp"] = Convert.ToDateTime(reader["timestamp"]).ToString("o") // ISO 8601
-				};
+        if (hasKeywords)
+        {
+            // For FULLTEXT boolean mode, you may want to transform raw keywords to "+term*" format.
+            // For now, pass as-is and let the caller control the boolean syntax.
+            cmd.Parameters.Add("@Keywords", MySqlDbType.Text).Value = keywords;
+        }
 
-				logs.Add(logEntry);
-			}
-		}
-		catch (Exception ex)
-		{
-			Console.WriteLine("GetLogs Exception: " + ex.Message);
-		}
+        if (lastTimestamp.HasValue && lastId.HasValue)
+        {
+            cmd.Parameters.Add("@LastTs", MySqlDbType.Timestamp).Value = lastTimestamp.Value;
+            cmd.Parameters.Add("@LastId", MySqlDbType.Int32).Value = lastId.Value;
+        }
 
-		return logs;
-	}
+        await using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleResult | CommandBehavior.SequentialAccess, ct);
+
+        // Resolve ordinals once
+        int ordId = reader.GetOrdinal("id");
+        int ordComment = reader.GetOrdinal("comment");
+        int ordComponent = reader.GetOrdinal("component");
+        int ordUserId = reader.GetOrdinal("user_id");
+        int ordTs = reader.GetOrdinal("timestamp");
+
+        while (await reader.ReadAsync(ct))
+        {
+            var logEntry = new Dictionary<string, object?>(4)
+            {
+                ["id"]        = reader.IsDBNull(ordId) ? null : reader.GetInt32(ordId),
+                ["comment"]   = reader.IsDBNull(ordComment) ? null : reader.GetString(ordComment),
+                ["component"] = reader.IsDBNull(ordComponent) ? null : reader.GetString(ordComponent),
+                ["user_id"]   = reader.IsDBNull(ordUserId) ? null : reader.GetInt32(ordUserId),
+                ["timestamp"] = reader.IsDBNull(ordTs) ? null : reader.GetDateTime(ordTs).ToString("o") // ISO 8601
+            };
+
+            logs.Add(logEntry);
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("GetLogs Exception: " + ex.Message);
+    }
+
+    return logs;
+}
+
 
 	public async Task<int> GetLogsCount(int? userId = null, string? component = null, string keywords = "")
 	{
@@ -176,29 +211,58 @@ public Task Db(string message, int? userId = null, string? type = "SYSTEM", bool
 			return false;
 		}
 	}
-	public async Task<bool> DeleteOldLogs()
-	{
-		try
-		{
-			const string sql = @"
-			DELETE FROM maxhanna.logs 
-			WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 1 DAY;";
+	
+public async Task<bool> DeleteOldLogs(CancellationToken ct = default)
+{
+    const int batchSize = 1000; // tune: 1k–20k depending on row size & I/O
+    var cutoff = DateTime.UtcNow.AddDays(-1);
 
-			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-			await conn.OpenAsync();
+    try
+    {
+        await using var conn = new MySqlConnection(_config.GetConnectionString("maxhanna"));
+        await conn.OpenAsync(ct);
 
-			using var cmd = new MySqlCommand(sql, conn);
-			int rowsAffected = await cmd.ExecuteNonQueryAsync();
+        int totalDeleted = 0;
 
-			_ = Db($"Deleted {rowsAffected} old log(s)", null, "SYSTEM", true);
-			return true;
-		}
-		catch (Exception ex)
-		{
-			_ = Db("DeleteOldLogs Exception: " + ex.Message, null, "SYSTEM", true);
-			return false;
-		}
-	}
+        // Use a loop to delete in batches until nothing left
+        while (true)
+        {
+            const string batchSql = @"
+              DELETE FROM maxhanna.logs
+              WHERE id IN (
+                SELECT id
+                FROM (
+                  SELECT id
+                  FROM maxhanna.logs
+                  WHERE `timestamp` < @cutoff
+                  ORDER BY `timestamp` ASC, id ASC
+                  LIMIT @lim
+                ) x
+              );";
+
+            await using var cmd = new MySqlCommand(batchSql, conn) { CommandTimeout = 30 };
+            cmd.Parameters.Add("@cutoff", MySqlDbType.DateTime).Value = cutoff;
+            cmd.Parameters.Add("@lim", MySqlDbType.Int32).Value = batchSize;
+
+            var affected = await cmd.ExecuteNonQueryAsync(ct);
+            totalDeleted += affected;
+
+            if (affected == 0) break; // finished this slice
+
+            // small pause to reduce lock contention (optional)
+            await Task.Delay(50, ct);
+        }
+
+        _ = Db($"Deleted {totalDeleted} old log(s)", null, "SYSTEM", true);
+        return true;
+    }
+    catch (Exception ex)
+    {
+        _ = Db("DeleteOldLogs Exception: " + ex.Message, null, "SYSTEM", true);
+        return false;
+    }
+}
+
 	public async Task<bool> BackupDatabase()
 	{
 		try

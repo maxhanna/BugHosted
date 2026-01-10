@@ -780,7 +780,8 @@ ORDER BY `timestamp` DESC, id DESC;";
     }
 
 
-    public async Task<(decimal latestPrice, decimal previousPrice, decimal difference)> GetOrUpdateBTCPriceAsync(CancellationToken ct = default)
+    public async Task<(decimal latestPrice, decimal previousPrice, decimal difference)> 
+      GetOrUpdateBTCPriceAsync(CancellationToken ct = default)
     {
       var connString = _config.GetConnectionString("maxhanna");
       await using var conn = new MySqlConnection(connString);
