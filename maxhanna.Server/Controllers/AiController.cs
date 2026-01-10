@@ -987,54 +987,36 @@ If text is visible, paraphrase the idea without quoting.";
     }
 
 
-    private string BuildDetailedPrompt(bool multipleFrames)
-    {
-      var prompt = @"You are writing a short visual caption intended for a filename or alt text.
-Write 2–3 short sentences (max 45 words total) that:
-• Begin with the main subject and action.
-• Include salient details (objects, colors, setting, mood).
-• If visible text exists, paraphrase the idea humorously or succinctly without quoting.
+private string BuildDetailedPrompt(bool multipleFrames)
+{
+    var prompt = @"You are creating a short, funny caption intended for a meme file name.
+Write 1–2 short phrases (max 12 words each) that:
+• Capture the joke or vibe of the image.
+• Use casual, relatable language (like memes).
+• If text is visible, paraphrase the joke without quoting exactly.
 
 Constraints:
-• Use natural language only; do not include tags, placeholders, or markup.
-• Do not use or invent tokens like !!!IMG!!!, !!!IMAGE!!!, !!!IMPORTANT!!!, [IMAGE], [CAPTION], or similar.
-• Avoid meta phrases (e.g., “this image shows”, “caption reads”, “in the picture”).
-• Avoid platform names, file types, hashtags, emojis, or quotes.";
+• Output should look like a meme filename.
+• No tags, placeholders, markup, hashtags, emojis, or quotes.
+• Avoid meta phrases (e.g., “this image shows”, “caption reads”).
+• Keep it in English and ASCII only.";
 
-      if (multipleFrames)
-      {
-        prompt += "\nIf multiple frames are present, summarize the shared elements and note one key difference naturally.";
-      }
-      return prompt;
-    }
-
-    private string BuildConcisePrompt()
+    if (multipleFrames)
     {
-      return @"Write one natural sentence (12–18 words) describing the main subject and action with one salient detail.
+        prompt += "\nIf multiple frames are present, summarize the shared joke and note one key twist.";
+    }
+    return prompt;
+}
+
+private string BuildConcisePrompt()
+{
+    return @"Write one short, funny phrase (8–12 words) that feels like a meme filename.
 Constraints:
-• Natural language only — no tags, placeholders, or markup.
-• Do not use tokens like !!!IMG!!!, !!!IMAGE!!!, !!!IMPORTANT!!!, [IMAGE], [CAPTION], or similar.
-• Avoid meta phrases (“image/post that says”, “caption reads”), platform names, hashtags, emojis, quotes.";
-    }
-
-    private string RemoveMediaReferences(string response)
-    {
-      // Remove common media-type references
-      var patterns = new[] {
-        "image of", "images of", "video of", "videos of",
-        "this image", "this video", "these images", "these frames",
-        "in the picture", "in the clip", "in these shots"
-      };
-
-      foreach (var pattern in patterns)
-      {
-        response = System.Text.RegularExpressions.Regex.Replace(response, pattern, "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-      }
-
-      // Remove leading articles/prepositions
-      return System.Text.RegularExpressions.Regex.Replace(response, @"^(the|a|an|this|these)\s+", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-    }
-
+• Use underscores instead of spaces.
+• No tags, placeholders, markup, hashtags, emojis, or quotes.
+• Avoid meta phrases (“image/post that says”, “caption reads”).
+• Keep it in English and ASCII only.";
+}
 
     public async Task<string?> DescribeMedia([FromBody] int fileEntryId)
     {
