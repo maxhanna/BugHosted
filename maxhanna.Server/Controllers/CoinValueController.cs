@@ -862,15 +862,13 @@ ORDER BY `timestamp` DESC, id DESC;";
       const string updateSql = @"
         UPDATE btc_current_velocity_cache
         SET latest_price = @latest,
-            previous_price = @previous,
-            difference = @diff,
+            previous_price = @previous, 
             updated_at = UTC_TIMESTAMP()
         WHERE id = 1;";
       await using (var updateCmd = new MySqlCommand(updateSql, conn) { CommandTimeout = 6 })
       {
         updateCmd.Parameters.Add("@latest", MySqlDbType.NewDecimal).Value = latest;
         updateCmd.Parameters.Add("@previous", MySqlDbType.NewDecimal).Value = previous;
-        updateCmd.Parameters.Add("@diff", MySqlDbType.NewDecimal).Value = diff;
         await updateCmd.ExecuteNonQueryAsync(ct);
       }
 
