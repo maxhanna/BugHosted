@@ -8,35 +8,23 @@ public class Log
 {
 	private readonly IConfiguration _config;
 
-	public Log(IConfiguration config)
-	{
-		_config = config;
-	}
+private readonly AsyncDbLogger _asyncLogger;
 
-	public async Task Db(string message, int? userId = null, string? type = "SYSTEM", bool outputToConsole = false)
-	{
-		string sql = @"INSERT INTO maxhanna.logs (comment, component, user_id, timestamp) VALUES (@comment, @component, @userId, UTC_TIMESTAMP());";
+public Log(IConfiguration config)
+{
+    _config = config;
+    _asyncLogger = new AsyncDbLogger(config);
+}
 
-		try
-		{
-			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-			await conn.OpenAsync();
-			using var cmd = new MySqlCommand(sql, conn);
-			cmd.Parameters.AddWithValue("@comment", message);
-			cmd.Parameters.AddWithValue("@component", type);
-			cmd.Parameters.AddWithValue("@userId", userId != null ? userId : DBNull.Value);
-			await cmd.ExecuteReaderAsync();
-		}
-		catch (Exception ex)
-		{
-			Console.WriteLine("Log.Db Exception: " + ex.Message);
-		}
+public Task Db(string message, int? userId = null, string? type = "SYSTEM", bool outputToConsole = false)
+{
+    _asyncLogger.TryEnqueue(message, type ?? "SYSTEM", userId);
+    if (outputToConsole)
+        Console.WriteLine($"[{DateTime.Now:HH:mm}] {type}: {message}");
+    return Task.CompletedTask; // fire-and-forget to keep callers fast
+}
 
-		if (outputToConsole)
-		{
-			Console.WriteLine($"[{DateTime.Now.ToShortTimeString()}] {type}: {message}");
-		}
-	}
+  
 	public async Task<List<Dictionary<string, object?>>> GetLogs(int? userId = null, string? component = null, int limit = 1000, string keywords = "", int page = 1)
 	{
 		var logs = new List<Dictionary<string, object?>>();

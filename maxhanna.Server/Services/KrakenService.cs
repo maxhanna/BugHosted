@@ -3419,7 +3419,7 @@ LIMIT 1;";
         // Step 3: Insert into both tables (historical + latest) atomically
         try
         {
-            await using var connInsert = new MySqlConnection(_config.GetConnectionString("maxhanna"));
+            await using var connInsert = new MySqlConnection(_config?.GetConnectionString("maxhanna"));
             await connInsert.OpenAsync(ct);
             await using var tx = await connInsert.BeginTransactionAsync(ct);
 
@@ -5480,7 +5480,12 @@ private async Task<decimal?> GetRateAsync(
       null, "TRADE", viewDebugLogs);
     return result;
   }
-
+  
+  /// <summary>
+  /// ATR most commonly stands for Average True Range, 
+  /// a technical analysis indicator measuring market volatility,
+  /// not direction, used by traders to gauge price fluctuations and set risk levels.
+  /// </summary>
   private async Task<decimal> ComputeATR(int userId, string strategy, string coin, int period = 14)
   {
     string tmpCoin = coin.ToUpper() == "BTC" ? "XBT" : coin.ToUpper();
