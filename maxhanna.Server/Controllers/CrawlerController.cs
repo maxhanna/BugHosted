@@ -931,8 +931,13 @@ namespace maxhanna.Server.Controllers
       {
         using var http = new HttpClient
         {
-          Timeout = TimeSpan.FromSeconds(3) // Keep this fast
+          Timeout = TimeSpan.FromSeconds(6) // Keep this fast
         };
+
+        
+        http.DefaultRequestHeaders.UserAgent.ParseAdd(
+          "maxhanna-crawler/1.0 (+https://bughosted.com; max@maxhanna.com)");
+
 
         // Step 1: Use MediaWiki search to find the best title
         string searchUrl =
@@ -1001,7 +1006,7 @@ namespace maxhanna.Server.Controllers
         }
         catch
         {
-          // If summary enrichment fails, fall back to a basic Metadata with only URL+Title
+          _ = _log.Db("Summary enrichment failed. Falling back to minimal metadata.", null, "CRAWLERCTRL", true);
         }
 
         // Fallback: minimal metadata with URL when summary isn’t available
