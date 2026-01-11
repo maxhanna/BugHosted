@@ -540,7 +540,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (!parent) return; 
-    
+
     let directoryValue = this.currentDirectory;
     if (!directoryValue) {
 
@@ -773,7 +773,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       parent?.showNotification(`Added ${tmpTodo.todo} to music playlist.`);
     }
   } 
-
+  stopAllMedia() {
+    this.stopMedia(this.mediaContainer?.nativeElement);
+    this.stopMedia(this.fullscreenVideo?.nativeElement);
+    this.stopMedia(this.fullscreenAudio?.nativeElement); 
+  }
   stopMedia(media?: HTMLMediaElement): void {
     if (!media || media == null) return;
     try {

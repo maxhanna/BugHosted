@@ -480,6 +480,11 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       }
     }
 
+    if (type != 'file') {
+      this.fileIdPlaying = undefined;
+      this.fileMediaViewer.stopAllMedia();
+    }
+
     if (type === 'radio') {
       this.loadRadioData();
     } else { 
@@ -723,6 +728,9 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   mediaEndedEvent() {
+    if (this.selectedType != "file") {
+      return;
+    }
     const currentId = this.fileIdPlaying;
     if (this.fileIdPlaylist && this.fileIdPlaylist.length > 0) {
       const currentIndex = this.fileIdPlaylist.indexOf(currentId!);
