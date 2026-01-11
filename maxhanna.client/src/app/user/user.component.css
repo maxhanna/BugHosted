@@ -194,8 +194,6 @@
   gap: clamp(0px, 3vw, 20px);
   justify-content: center;
   max-width: 443px;
-  /* padding-right: 50px;
-  padding-left: 50px; */
 }
 
 .popupPanel {
