@@ -82,6 +82,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🤖", title: "Meta-Bots", content: undefined },
     { ownership: 0, icon: "🗨️", title: "Chat", content: undefined },
     { ownership: 0, icon: "🎮", title: "Emulation", content: undefined },
+    { ownership: 0, icon: "🕹️", title: "N64Emulator", content: undefined },
     { ownership: 0, icon: "⚔️", title: "Array", content: undefined },
     { ownership: 0, icon: "🧠", title: "Wordler", content: undefined },
     { ownership: 0, icon: "🎯", title: "Mastermind", content: undefined },
@@ -103,7 +104,6 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🧐", title: "HostAi", content: undefined },
     { ownership: 0, icon: "🕸️", title: "Crawler", content: undefined },
     { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
-    { ownership: 0, icon: "🕹️", title: "N64Emulator", content: undefined },
     { ownership: 0, icon: "👤", title: "User", content: undefined },
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
     { ownership: 0, icon: "ℹ️", title: "Help", content: undefined },
@@ -285,7 +285,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     {
       ownership: 0,
       title: 'N64Emulator',
-      content: `Our N64 emulator allows users to play Nintendo 64 games directly in their browser!`
+      content: `Our N64 emulator allows users to play Nintendo 64 games directly in their browser! Connect any gamepad and upload your own roms or choose from the ones available!`
     }
   ];
 

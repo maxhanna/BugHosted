@@ -113,11 +113,41 @@ namespace maxhanna.Server.Controllers
           }
         }
 
-        // Post-process
-        var allResults = GetOrderedResultsForWeb(request, results);
-        allResults = await AddFavouriteCountsAsync(allResults, request.UserId);
+        
+// Post-process
+var allResults = GetOrderedResultsForWeb(request, results);
+allResults = await AddFavouriteCountsAsync(allResults, request.UserId);
 
-        return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResults });
+// 🔎 Wikipedia fallback: only if NO URL was found AND the query is a keyword.
+// "No URL found" here means no results from DB + quick scrape.
+if ((allResults == null || allResults.Count == 0) && IsKeywordQuery(request.Url))
+{
+  try
+  {
+    // Link to the controller-level 30s token, but give Wikipedia a tight 3s budget
+    using var wikiCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+    wikiCts.CancelAfter(TimeSpan.FromSeconds(3));
+
+    var wiki = await TryFindWikipediaUrlAsync(request.Url!.Trim(), wikiCts.Token);
+    if (wiki != null)
+    {
+      var wikiOnly = new List<Metadata> { wiki };
+
+      // Keep your normalization pipeline consistent
+      wikiOnly = GetOrderedResultsForWeb(request, wikiOnly);
+      wikiOnly = await AddFavouriteCountsAsync(wikiOnly, request.UserId);
+
+      return Ok(new { Results = wikiOnly, TotalResults = 1 });
+    }
+  }
+  catch (Exception e)
+  {
+    _ = _log.Db($"Failed to scrape Wikipedia for keyword: {e.Message}", null, "CRAWLERCTRL", true);
+  }
+}
+
+return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResults });
+
       }
       catch (OperationCanceledException oce)
       {
@@ -875,5 +905,122 @@ namespace maxhanna.Server.Controllers
       var results = await Task.WhenAll(scrapeTasks);
       return results.Where(m => m != null).Cast<Metadata>().ToList();
     }
+    
+private async Task<Metadata?> TryFindWikipediaUrlAsync(string keyword, CancellationToken ct)
+{
+  try
+  {
+    using var http = new HttpClient
+    {
+      Timeout = TimeSpan.FromSeconds(3) // Keep this fast
+    };
+
+    // Step 1: Use MediaWiki search to find the best title
+    string searchUrl =
+      $"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={Uri.EscapeDataString(keyword)}&format=json&utf8=1&srlimit=1";
+    using var sresp = await http.GetAsync(searchUrl, ct);
+    if (!sresp.IsSuccessStatusCode) return null;
+
+    var sjson = await sresp.Content.ReadAsStringAsync(ct);
+    using var sdoc = System.Text.Json.JsonDocument.Parse(sjson);
+    if (!(sdoc.RootElement.TryGetProperty("query", out var q) &&
+          q.TryGetProperty("search", out var arr) &&
+          arr.ValueKind == System.Text.Json.JsonValueKind.Array &&
+          arr.GetArrayLength() > 0))
+    {
+      return null;
+    }
+
+    var title = arr[0].GetProperty("title").GetString();
+    if (string.IsNullOrWhiteSpace(title)) return null;
+
+    // Canonical page URL
+    string canonicalUrl = $"https://en.wikipedia.org/wiki/{Uri.EscapeDataString(title!.Replace(' ', '_'))}";
+
+    // Step 2: Try to enrich with the REST summary (best effort)
+    try
+    {
+      string summaryUrl =
+        $"https://en.wikipedia.org/api/rest_v1/page/summary/{Uri.EscapeDataString(title!.Replace(' ', '_'))}";
+      using var resp = await http.GetAsync(summaryUrl, ct);
+      if (resp.IsSuccessStatusCode)
+      {
+        var json = await resp.Content.ReadAsStringAsync(ct);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        string? pageTitle = root.TryGetProperty("title", out var t) ? t.GetString() : title;
+        string? extract = root.TryGetProperty("extract", out var ex) ? ex.GetString() : null;
+        string? shortDesc = root.TryGetProperty("description", out var d) ? d.GetString() : null;
+        string? pageUrl =
+            root.TryGetProperty("content_urls", out var cu)
+         && cu.TryGetProperty("desktop", out var desk)
+         && desk.TryGetProperty("page", out var p)
+              ? p.GetString()
+              : canonicalUrl;
+        string? thumb = null;
+        if (root.TryGetProperty("thumbnail", out var thumbEl) &&
+            thumbEl.TryGetProperty("source", out var src))
+        {
+          thumb = src.GetString();
+        }
+
+        var description = !string.IsNullOrEmpty(shortDesc) && !string.IsNullOrEmpty(extract)
+          ? $"{shortDesc}. {extract}"
+          : (extract ?? shortDesc ?? "");
+
+        return new Metadata
+        {
+          Url = pageUrl,
+          Title = pageTitle ?? title,
+          Description = description,
+          ImageUrl = thumb,
+          Author = "Wikipedia",
+          Keywords = keyword
+        };
+      }
+    }
+    catch
+    {
+      // If summary enrichment fails, fall back to a basic Metadata with only URL+Title
+    }
+
+    // Fallback: minimal metadata with URL when summary isn’t available
+    return new Metadata
+    {
+      Url = canonicalUrl,
+      Title = title,
+      Description = null,
+      ImageUrl = null,
+      Author = "Wikipedia",
+      Keywords = keyword
+    };
+  }
+  catch
+  {
+    return null; // best effort
+  }
+} 
+// Heuristic: treat input as URL/domain if it has a scheme or a dot and no spaces,
+// or starts with 'site:' (explicit domain search). Otherwise, it's a keyword.
+private static bool IsKeywordQuery(string? input)
+{
+  if (string.IsNullOrWhiteSpace(input)) return false;
+  var s = input.Trim();
+
+  if (s.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+      s.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+    return false;
+
+  if (s.StartsWith("site:", StringComparison.OrdinalIgnoreCase))
+    return false;
+
+  // If it has no spaces and contains a dot, it's likely a hostname or URL
+  if (!s.Contains(' ') && s.Contains('.') && !s.EndsWith("."))
+    return false;
+
+  return true;
+}
+
   }
 }
