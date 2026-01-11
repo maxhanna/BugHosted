@@ -241,6 +241,7 @@ private void BuildUnionSql(
     return;
   }
 
+  // Exact URL equality (fast UNIQUE/BTree probe)
   if (request.ExactMatch.GetValueOrDefault())
   {
     resultsSql = @"
@@ -267,7 +268,7 @@ private void BuildUnionSql(
     resultsSql = $@"
       SELECT id, url, title, description, author, keywords, image_url, response_code
       FROM (
-          -- 0) domain matches (prefix/equality)
+          -- 0) domain matches (prefix/equality) — sargable
           SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
                  0 AS `rnk`, NULL AS `ft_score`
           FROM search_results sr
@@ -287,7 +288,7 @@ private void BuildUnionSql(
             AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
           {(withFt ? "UNION ALL" : string.Empty)}
           {(withFt ? @"
-          -- 1) fulltext within site (BOOLEAN MODE) — includes URL in MATCH
+          -- 1) fulltext within site (BOOLEAN MODE) — index-backed FT
           SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
                  1 AS `rnk`,
                  MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url)
@@ -358,11 +359,11 @@ private void BuildUnionSql(
     return;
   }
 
-  // Generic (non-site): exact equals, domain prefix, FT (includes URL), and compact URL branch
+  // Generic: exact equals, prefix matches, FT (includes URL), and compact-domain prefix (sargable)
   resultsSql = @"
     SELECT id, url, title, description, author, keywords, image_url, response_code
     FROM (
-        -- 0) exact url equals
+        -- 0) exact url equals (covers http/https, with/without trailing slash)
         SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
                0 AS `rnk`, NULL AS `ft_score`
         FROM search_results sr
@@ -371,7 +372,7 @@ private void BuildUnionSql(
 
         UNION ALL
 
-        -- 1) domain prefix (left-anchored LIKE)
+        -- 1a) domain prefix (left-anchored LIKE) — index-backed
         SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
                1 AS `rnk`, NULL AS `ft_score`
         FROM search_results sr
@@ -397,8 +398,35 @@ private void BuildUnionSql(
           AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
 
         UNION ALL
+
+        -- 1b) compact-domain prefix (e.g., 'banana bread' -> 'bananabread') — index-backed
+        SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
+               1 AS `rnk`, NULL AS `ft_score`
+        FROM search_results sr
+        WHERE (
+               sr.url LIKE CONCAT('https://',     @compactDomain, '%')
+            OR sr.url LIKE CONCAT('https://www.', @compactDomain, '%')
+            OR sr.url LIKE CONCAT('http://',      @compactDomain, '%')
+            OR sr.url LIKE CONCAT('http://www.',  @compactDomain, '%')
+            OR sr.url LIKE CONCAT(@compactDomain, '%')
+            OR sr.url IN (
+                  CONCAT('https://',     @compactDomain),
+                  CONCAT('https://',     @compactDomain, '/'),
+                  CONCAT('https://www.', @compactDomain),
+                  CONCAT('https://www.', @compactDomain, '/'),
+                  CONCAT('http://',      @compactDomain),
+                  CONCAT('http://',      @compactDomain, '/'),
+                  CONCAT('http://www.',  @compactDomain),
+                  CONCAT('http://www.',  @compactDomain, '/'),
+                  CONCAT(@compactDomain),
+                  CONCAT(@compactDomain, '/')
+              )
+        )
+          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+
+        UNION ALL
         
-        -- 2) fulltext on metadata + URL (BOOLEAN MODE)
+        -- 2) FULLTEXT on metadata + URL (BOOLEAN MODE) — index-backed FT
         SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
                2 AS `rnk`,
                MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url)
@@ -408,21 +436,6 @@ private void BuildUnionSql(
           AND MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url)
                 AGAINST (@searchBoolean IN BOOLEAN MODE)
           AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-
-        UNION ALL
-        
-        -- 3) compact URL contains compacted query (robust: strips percent-encodings)
-        SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
-              3 AS `rnk`, NULL AS `ft_score`
-        FROM search_results sr
-        WHERE
-          -- Strip all percent-encoded bytes, then keep only a-z0-9
-          REGEXP_REPLACE(
-            REGEXP_REPLACE(LOWER(sr.url), '%[0-9a-f]{2}', ''),
-            '[^a-z0-9]', ''
-          ) LIKE @searchCompactLike
-          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-
     ) AS u
     ORDER BY u.`rnk` ASC, u.`ft_score` DESC, u.id DESC
     LIMIT @pageSize OFFSET @offset;";
@@ -430,6 +443,7 @@ private void BuildUnionSql(
   countSql = @"
     SELECT COUNT(DISTINCT id) AS total
     FROM (
+        -- exact equals
         SELECT sr.id
         FROM search_results sr
         WHERE sr.url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
@@ -437,6 +451,7 @@ private void BuildUnionSql(
 
         UNION ALL
 
+        -- domain prefix
         SELECT sr.id
         FROM search_results sr
         WHERE (
@@ -462,23 +477,39 @@ private void BuildUnionSql(
 
         UNION ALL
 
+        -- compact-domain prefix
+        SELECT sr.id
+        FROM search_results sr
+        WHERE (
+               sr.url LIKE CONCAT('https://',     @compactDomain, '%')
+            OR sr.url LIKE CONCAT('https://www.', @compactDomain, '%')
+            OR sr.url LIKE CONCAT('http://',      @compactDomain, '%')
+            OR sr.url LIKE CONCAT('http://www.',  @compactDomain, '%')
+            OR sr.url LIKE CONCAT(@compactDomain, '%')
+            OR sr.url IN (
+                  CONCAT('https://',     @compactDomain),
+                  CONCAT('https://',     @compactDomain, '/'),
+                  CONCAT('https://www.', @compactDomain),
+                  CONCAT('https://www.', @compactDomain, '/'),
+                  CONCAT('http://',      @compactDomain),
+                  CONCAT('http://',      @compactDomain, '/'),
+                  CONCAT('http://www.',  @compactDomain),
+                  CONCAT('http://www.',  @compactDomain, '/'),
+                  CONCAT(@compactDomain),
+                  CONCAT(@compactDomain, '/')
+              )
+        )
+          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+
+        UNION ALL
+
+        -- FT count mirror
         SELECT sr.id
         FROM search_results sr
         WHERE @searchBoolean IS NOT NULL
           AND MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url)
                 AGAINST (@searchBoolean IN BOOLEAN MODE)
           AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-
-        UNION ALL
-        
-        SELECT sr.id
-        FROM search_results sr
-        WHERE REGEXP_REPLACE(
-                REGEXP_REPLACE(LOWER(sr.url), '%[0-9a-f]{2}', ''),
-                '[^a-z0-9]', ''
-              ) LIKE @searchCompactLike
-          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-
     ) AS c;";
 }
 
@@ -499,10 +530,10 @@ private void BuildUnionSql(
       var raw = (request.Url ?? string.Empty).Trim().ToLower();
       command.Parameters.AddWithValue("@search", raw);
 
-      // Compact for URL-contains branch
+      // Compact for URL-contains branch 
       var compact = BuildCompact(raw);
-      command.Parameters.AddWithValue("@searchCompact", compact);
-      command.Parameters.AddWithValue("@searchCompactLike", "%" + compact + "%");
+      command.Parameters.AddWithValue("@compactDomain", compact);
+
 
       // BOOLEAN MODE query
       var searchBoolean = BuildBooleanQuery(raw);
