@@ -2459,8 +2459,8 @@ private async Task StoreCoinValues()
             AND file_name NOT REGEXP '^[0-9]+\.[A-Za-z0-9]+$' 
             -- EXCLUDE prefixes: RDT_ and FB_IMG_
             AND file_name NOT REGEXP '^(IMG_|PXL_|VID_|DSC_)'
-            AND file_name NOT LIKE 'RDT\_%' ESCAPE '\'
-            AND file_name NOT LIKE 'FB\_IMG\_%' ESCAPE '\'
+            AND file_name NOT LIKE 'RDT\_%' ESCAPE '\\'
+            AND file_name NOT LIKE 'FB\_IMG\_%' ESCAPE '\\'
             AND (
               file_name REGEXP '[0-9]{5,}\.[A-Za-z0-9]+$'     -- long numeric before extension
               OR file_name REGEXP '.*[0-9]{5,}$'              -- long numeric tail without extension
