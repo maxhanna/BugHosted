@@ -134,7 +134,7 @@ namespace maxhanna.Server.Controllers
             _ = _log.Db($"Scraping Wikipedia for: {request.Url!.Trim()}.", null, "CRAWLERCTRL", true);
             // Link to the controller-level 30s token, but give Wikipedia a tight 3s budget
             using var wikiCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            wikiCts.CancelAfter(TimeSpan.FromSeconds(3));
+            wikiCts.CancelAfter(TimeSpan.FromSeconds(8));
 
             var wiki = await TryFindWikipediaUrlAsync(request.Url!.Trim(), wikiCts.Token);
             if (wiki != null)
