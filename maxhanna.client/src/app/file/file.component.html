@@ -26,10 +26,10 @@
 
 <!-- Menu Popup -->
 <div class="popupPanel" *ngIf="isMenuPanelOpen">
-  <div class="popupPanelTitle popupPanelContent" style="margin-bottom:15px;">
+  <div class="popupPanelTitle" style="margin-bottom:15px;">
     File Menu
   </div> 
-  <div *ngIf="!user && canUploadToFolder()" class="uploadAndNewFolderButtonDiv popupPanelContent"> 
+  <div *ngIf="!user && canUploadToFolder()" class="uploadAndNewFolderButtonDiv"> 
     <button (click)="showMakeDirectoryPrompt=true;" title="Make a New Folder" *ngIf="!showMakeDirectoryPrompt">📂New Folder</button>
     <button (click)="enableMassDeleteMode()" title="Enable Mass Delete" *ngIf="!massDeleteMode">❌Mass Delete</button>
 
@@ -58,7 +58,7 @@
     </div>
   </div>  
 
-  <div class="popupPanelContent">
+  <div style="margin-top: 15px;">
     <div class="popupPanelTitle">
       Search Popular Topics:
     </div>
