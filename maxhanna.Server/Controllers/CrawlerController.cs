@@ -120,7 +120,6 @@ namespace maxhanna.Server.Controllers
           }
         }
 
-
         // Post-process
         var allResults = GetOrderedResultsForWeb(request, results);
         allResults = await AddFavouriteCountsAsync(allResults, request.UserId);
