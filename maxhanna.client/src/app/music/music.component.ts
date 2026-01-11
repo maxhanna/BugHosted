@@ -466,6 +466,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
   async selectType(type: 'youtube' | 'file' | 'radio') {
     this.selectedType = type;
+    this.stopMusic();
     
     if (type != 'youtube') { 
       if (this.ytPlayer && this.ytPlayer != null) {
@@ -484,7 +485,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
     if (type != 'file') {
       this.fileIdPlaying = undefined;
-      this.fileMediaViewer.stopAllMedia();
+      this.fileMediaViewer?.stopAllMedia();
     }
 
     if (type === 'radio') {
@@ -495,9 +496,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       await this.refreshPlaylist();
       this.songs = type === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
       this.fileIdPlaylist = type === 'file' ? this.fileSongs.map(song => song.fileId!).filter(id => id !== undefined) : undefined;
-    }
-
-    this.stopMusic();
+    } 
   }
 
 
