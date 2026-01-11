@@ -1141,6 +1141,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   showPicturesToggled() {
     this.showPicturesOnly = !this.showPicturesOnly;
+    this.currentPage = this.defaultCurrentPage;
     if (!this.showPicturesOnly) {
       this.clearFileTypeFilter();
     } else {
@@ -1151,6 +1152,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   showVideosToggled() {
     this.showVideosOnly = !this.showVideosOnly;
+    this.currentPage = this.defaultCurrentPage;
     if (!this.showVideosOnly) {
       this.clearFileTypeFilter();
     } else {
@@ -1161,6 +1163,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   showFavouritesToggled() {
     this.showFavouritesOnly = !this.showFavouritesOnly;
+    this.currentPage = this.defaultCurrentPage;
     this.debounceSearch();
   }
 
