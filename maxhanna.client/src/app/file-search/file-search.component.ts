@@ -60,6 +60,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   selectedForDelete: Set<number> = new Set<number>();
   showFavouritesOnly = false;
   showPicturesOnly = false;
+  showVideosOnly = false;
   trendingSearches: string[] = [];
   sortOption: string = 'Latest';
   showData = true;
@@ -1144,6 +1145,16 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.clearFileTypeFilter();
     } else {
       this.fileTypeFilter = this.fileService.imageFileExtensions.join(',');
+      this.onFiletypeFilterChange(true);
+    }
+  }
+
+  showVideosToggled() {
+    this.showVideosOnly = !this.showVideosOnly;
+    if (!this.showVideosOnly) {
+      this.clearFileTypeFilter();
+    } else {
+      this.fileTypeFilter = this.fileService.videoFileExtensions.join(',');
       this.onFiletypeFilterChange(true);
     }
   }

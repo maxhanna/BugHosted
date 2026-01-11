@@ -454,10 +454,17 @@
       </button>
     </div>
 
-    <div *ngIf="userIsLoggedIn()">
+    <div>
       Show pictures only?
       <button class="toggle-switch" (click)="showPicturesToggled()">
         {{ showPicturesOnly ? 'On' : 'Off' }}
+      </button>
+    </div>
+
+    <div>
+      Show videos only?
+      <button class="toggle-switch" (click)="showVideosToggled()">
+        {{ showVideosOnly ? 'On' : 'Off' }}
       </button>
     </div>
     
