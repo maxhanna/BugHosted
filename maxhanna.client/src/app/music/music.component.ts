@@ -467,7 +467,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   selectType(type: 'youtube' | 'file' | 'radio') {
     this.selectedType = type;
     if (type != 'youtube') { 
-      if (this.ytPlayer) {
+      if (this.ytPlayer && this.ytPlayer != null) {
         this.ytPlayer?.stopVideo();
         setTimeout(() => {
           this.ytPlayer?.destroy();
