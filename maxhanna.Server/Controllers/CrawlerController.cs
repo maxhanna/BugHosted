@@ -1126,8 +1126,7 @@ private static string? BuildBooleanQuery(string? text)
         bool isLast = i == tokens.Count - 1;
         booleanSegments.Add(isLast ? $"+{tok}*" : $"+{tok}");
       }
-      tokenAccumulator.AddRange(tokens);
-      if (tokens.Count > 1) anyMultiWord = true;
+      tokenAccumulator.AddRange(tokens); 
     }
   }
 
