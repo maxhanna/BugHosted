@@ -1089,13 +1089,10 @@ private static string? BuildBooleanQuery(string? text)
   //    - phrases: "+\"banana bread\"*"
   var booleanSegments = new List<string>();
   var tokenAccumulator = new List<string>();  // for compact creation across multi-word unquoted input
-  var anyMultiWord = false;
-
+ 
   foreach (var rawPart in parts)
   {
-    var isQuoted = rawPart.Contains(' ') && !string.IsNullOrWhiteSpace(rawPart);
-    if (isQuoted)
-      anyMultiWord = true;
+    var isQuoted = rawPart.Contains(' ') && !string.IsNullOrWhiteSpace(rawPart); 
 
     // Split the part into tokens to filter stopwords/short tokens
     var tokens = System.Text.RegularExpressions.Regex
