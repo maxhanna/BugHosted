@@ -216,44 +216,34 @@ namespace maxhanna.Server.Controllers
     }
 
 
-    /// <summary>
-    /// Builds UNION-based SQL that is index-friendly per branch.
-    /// Branches (non-site):
-    ///   0) exact url equals (UNIQUE(url))
-    ///   1) domain prefix (left-anchored LIKE on url)
-    ///   2) FULLTEXT (BOOLEAN MODE on title/description/author/keywords/url)
-    ///   3) Compact URL contains compacted query (late branch; no schema change)
-    /// Site-specific uses domain branches, plus optional FT within site.
-    /// </summary>
-    private void BuildUnionSql(
-        CrawlerRequest request,
-        bool searchAll,
-        bool siteOnly,
-        string? siteDomain,
-        string? siteKeywords,
-        out string resultsSql,
-        out string countSql)
-    {
-      if (searchAll)
-      {
-        resultsSql = @"
+private void BuildUnionSql(
+    CrawlerRequest request,
+    bool searchAll,
+    bool siteOnly,
+    string? siteDomain,
+    string? siteKeywords,
+    out string resultsSql,
+    out string countSql)
+{
+  if (searchAll)
+  {
+    resultsSql = @"
       SELECT id, url, title, description, author, keywords, image_url, response_code
       FROM search_results
       WHERE failed = 0 OR (failed = 1 AND response_code IS NOT NULL)
       ORDER BY found_date DESC
       LIMIT @pageSize OFFSET @offset;";
 
-        countSql = @"
+    countSql = @"
       SELECT COUNT(*)
       FROM search_results
       WHERE failed = 0 OR (failed = 1 AND response_code IS NOT NULL);";
-        return;
-      }
+    return;
+  }
 
-      // If ExactMatch: just do the equality branch (fast UNIQUE(url) probe)
-      if (request.ExactMatch.GetValueOrDefault())
-      {
-        resultsSql = @"
+  if (request.ExactMatch.GetValueOrDefault())
+  {
+    resultsSql = @"
       SELECT id, url, title, description, author, keywords, image_url, response_code
       FROM search_results
       WHERE url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
@@ -261,20 +251,20 @@ namespace maxhanna.Server.Controllers
       ORDER BY id DESC
       LIMIT @pageSize OFFSET @offset;";
 
-        countSql = @"
+    countSql = @"
       SELECT COUNT(*)
       FROM search_results
       WHERE url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
         AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL));";
-        return;
-      }
+    return;
+  }
 
-      // site:domain
-      if (siteOnly && !string.IsNullOrEmpty(siteDomain))
-      {
-        bool withFt = !string.IsNullOrWhiteSpace(siteKeywords);
+  // site:domain
+  if (siteOnly && !string.IsNullOrEmpty(siteDomain))
+  {
+    bool withFt = !string.IsNullOrWhiteSpace(siteKeywords);
 
-        resultsSql = $@"
+    resultsSql = $@"
       SELECT id, url, title, description, author, keywords, image_url, response_code
       FROM (
           -- 0) domain matches (prefix/equality)
@@ -324,7 +314,7 @@ namespace maxhanna.Server.Controllers
       ORDER BY u.`rnk` ASC, u.`ft_score` DESC, u.id DESC
       LIMIT @pageSize OFFSET @offset;";
 
-        countSql = $@"
+    countSql = $@"
       SELECT COUNT(DISTINCT id) AS total
       FROM (
           SELECT sr.id
@@ -365,14 +355,14 @@ namespace maxhanna.Server.Controllers
                   AGAINST (@siteBoolean IN BOOLEAN MODE)
             AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))" : string.Empty)}
       ) AS c;";
-        return;
-      }
+    return;
+  }
 
-      // Generic (non-site): union of exact equals, domain prefix, FT (includes URL), and compact URL branch
-      resultsSql = @"
+  // Generic (non-site): exact equals, domain prefix, FT (includes URL), and compact URL branch
+  resultsSql = @"
     SELECT id, url, title, description, author, keywords, image_url, response_code
     FROM (
-        -- 0) exact url equals (covers http/https, with/without trailing slash)
+        -- 0) exact url equals
         SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
                0 AS `rnk`, NULL AS `ft_score`
         FROM search_results sr
@@ -404,11 +394,11 @@ namespace maxhanna.Server.Controllers
                   CONCAT(@baseDomain, '/')
               )
         )
-        AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
 
         UNION ALL
         
-        -- 2) fulltext on metadata + URL (BOOLEAN MODE, require significant terms)
+        -- 2) fulltext on metadata + URL (BOOLEAN MODE)
         SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
                2 AS `rnk`,
                MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url)
@@ -421,28 +411,17 @@ namespace maxhanna.Server.Controllers
 
         UNION ALL
 
-        -- 3) compact URL contains compacted query (late branch; schema-free)
+        -- 3) compact URL contains compacted query (MySQL 8+: REGEXP_REPLACE)
         SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
                3 AS `rnk`, NULL AS `ft_score`
         FROM search_results sr
-        WHERE REPLACE(
-                REPLACE(
-                  REPLACE(
-                    REPLACE(
-                      REPLACE(
-                        REPLACE(LOWER(sr.url),
-                          'https://',''),'http://',''),
-                        'www.',''),
-                      '-', ''),
-                    '_', ''),
-                  ' ', '')
-              LIKE @searchCompactLike
+        WHERE REGEXP_REPLACE(LOWER(sr.url), '[^a-z0-9]', '') LIKE @searchCompactLike
           AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
     ) AS u
     ORDER BY u.`rnk` ASC, u.`ft_score` DESC, u.id DESC
     LIMIT @pageSize OFFSET @offset;";
 
-      countSql = @"
+  countSql = @"
     SELECT COUNT(DISTINCT id) AS total
     FROM (
         SELECT sr.id
@@ -477,7 +456,6 @@ namespace maxhanna.Server.Controllers
 
         UNION ALL
 
-        -- FT in COUNT mirrors BOOLEAN MODE usage (includes URL)
         SELECT sr.id
         FROM search_results sr
         WHERE @searchBoolean IS NOT NULL
@@ -487,24 +465,13 @@ namespace maxhanna.Server.Controllers
 
         UNION ALL
 
-        -- Mirror compact URL branch for count
         SELECT sr.id
         FROM search_results sr
-        WHERE REPLACE(
-                REPLACE(
-                  REPLACE(
-                    REPLACE(
-                      REPLACE(
-                        REPLACE(LOWER(sr.url),
-                          'https://',''),'http://',''),
-                        'www.',''),
-                      '-', ''),
-                    '_', ''),
-                  ' ', '')
-              LIKE @searchCompactLike
+        WHERE REGEXP_REPLACE(LOWER(sr.url), '[^a-z0-9]', '') LIKE @searchCompactLike
           AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
     ) AS c;";
-    }
+}
+
 
 
     private void AddParametersToCrawlerQuery(
