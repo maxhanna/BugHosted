@@ -464,7 +464,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.closeEditPopup(false);
   }
 
-  selectType(type: 'youtube' | 'file' | 'radio') {
+  async selectType(type: 'youtube' | 'file' | 'radio') {
     this.selectedType = type;
     if (type != 'youtube') { 
       if (this.ytPlayer && this.ytPlayer != null) {
@@ -479,7 +479,6 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
         existingAudio.remove();
       }
     }
-
     if (type != 'file') {
       this.fileIdPlaying = undefined;
       this.fileMediaViewer.stopAllMedia();
@@ -488,13 +487,12 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     if (type === 'radio') {
       this.loadRadioData();
     } else { 
+      this.currentPage = 1;
+      await this.refreshPlaylist();
       this.songs = type === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
       this.fileIdPlaylist = type === 'file' ? this.fileSongs.map(song => song.fileId!).filter(id => id !== undefined) : undefined;
     }
 
-    this.currentPage = 1;
-    this.updatePaginatedSongs();
-    this.reorderTable(undefined, this.orderSelect?.nativeElement.value || 'Newest');
     this.stopMusic();
   }
 
