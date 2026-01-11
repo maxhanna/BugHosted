@@ -493,4 +493,5 @@
     flex-wrap: nowrap;
     justify-content: space-around;
     align-items: center;
+    padding-top: 3px;
 }
