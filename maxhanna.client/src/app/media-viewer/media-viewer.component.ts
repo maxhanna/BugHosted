@@ -352,6 +352,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.selectedFileSrc = parent.pictureSrcs.find(x => x.key == fileId + '')!.value;
       this.fileType = parent.pictureSrcs.find(x => x.key == fileId + '')!.type;
       this.selectedFileExtension = parent.pictureSrcs.find(x => x.key == fileId + '')!.extension;
+      this.finishedLoadingEvent.emit();
       return;
     } 
 
