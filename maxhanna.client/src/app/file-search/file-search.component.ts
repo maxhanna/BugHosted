@@ -343,7 +343,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
                 data.lastUpdated = new Date(data.lastUpdated);
               }
               data.lastUpdated = new Date(data.lastUpdated.getTime() - data.lastUpdated.getTimezoneOffset() * 60000);  //Convert UTC dates to local time.
-
             }
           });
         }
@@ -1063,15 +1062,16 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
     return count;
   }
-  changeSearchTermsFromPopup() {
+  async changeSearchTermsFromPopup() {
     clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
+    this.debounceTimer = setTimeout(async () => {
       this.searchTerms = this.popupSearch.nativeElement.value.trim();
-      this.getDirectory();
+      this.currentPage = this.defaultCurrentPage;
+      await this.getDirectory();
       // record search as user typed and executed
       try {
         const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
-        this.fileService.recordSearch(this.searchTerms, 'file', user?.id);
+        await this.fileService.recordSearch(this.searchTerms, 'file', user?.id);
       } catch { }
     }, 500);
   }
