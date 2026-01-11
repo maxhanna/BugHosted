@@ -207,6 +207,7 @@ a {
 .navLink:hover { 
   z-index: 2; 
 }
+
 .app-selection-help {
   position: relative;
   max-height: 75vh;

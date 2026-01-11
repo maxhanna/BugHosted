@@ -16,6 +16,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   @ViewChild('romInput') romInput!: ElementRef<HTMLInputElement>;
   @ViewChild('canvas') canvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('fullscreenContainer') fullscreenContainer!: ElementRef<HTMLDivElement>;
+  @ViewChild('saveFileInput') saveFileInput!: ElementRef<HTMLInputElement>;
 
   // ---- State ----
   loading = false;
@@ -437,10 +438,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     // Face/triggers/start
     m['A Button'] = { type: 'button', index: 0, gamepadId: id };
     m['B Button'] = { type: 'button', index: 1, gamepadId: id };
-    m['Z Trig']   = { type: 'button', index: 6, gamepadId: id }; // L2
-    m['L Trig']   = { type: 'button', index: 4, gamepadId: id }; // L1
-    m['R Trig']   = { type: 'button', index: 5, gamepadId: id }; // R1
-    m['Start']    = { type: 'button', index: 9, gamepadId: id };
+    m['Z Trig'] = { type: 'button', index: 6, gamepadId: id }; // L2
+    m['L Trig'] = { type: 'button', index: 4, gamepadId: id }; // L1
+    m['R Trig'] = { type: 'button', index: 5, gamepadId: id }; // R1
+    m['Start'] = { type: 'button', index: 9, gamepadId: id };
 
     // DPad (standard buttons)
     m['DPad U'] = { type: 'button', index: 12, gamepadId: id };
@@ -585,7 +586,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const mMinus = this.mapping[minusKey];
         const mPlus = this.mapping[plusKey];
         if (mMinus && mPlus && mMinus.type === 'axis' && mPlus.type === 'axis' &&
-            mMinus.gamepadId && mPlus.gamepadId && mMinus.gamepadId === mPlus.gamepadId) {
+          mMinus.gamepadId && mPlus.gamepadId && mMinus.gamepadId === mPlus.gamepadId) {
           config[axisName] = `axis(${mMinus.index}-,${mPlus.index}+)`;
           handled.add(minusKey); handled.add(plusKey);
           return true;
@@ -1627,11 +1628,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  private rememberForGp(id: string, name: string) {
-    this.lastMappingPerGp[id] = name;
-    localStorage.setItem(this._lastPerGamepadKey, JSON.stringify(this.lastMappingPerGp));
-  }
-
   refreshGamepads() {
     try {
       const g = this.getGamepadsBase();
@@ -1664,6 +1660,120 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.uninstallReorderWrapper();
       this._reorderSelectedFirst = false;
     } catch { /* ignore */ }
+  }
+
+  /**
+   * Trigger an automatic download of the current in-game battery saves
+   * (only those that match the currently loaded ROM if available).
+   */
+  async downloadCurrentSaves() {
+    try {
+      const result = await this.exportInGameSaveRam();
+
+      if (!result.exported.length) {
+        this.parentRef?.showNotification('No in-game save RAM found to download.');
+        return;
+      }
+
+      // If multiple are matched, download each as a separate file.
+      const scope = result.matchedOnly ? 'matching' : 'all';
+      this.parentRef?.showNotification(`Downloading ${result.exported.length} ${scope} save file(s).`);
+
+      for (const item of result.exported) {
+        // Prefer a ROM-derived name if the item name isn't clean
+        const filename = item.filename || (this.baseNameFromRom() + (this.inferBatteryExtFromSize(item.size) || '.bin'));
+        this.downloadBytesAs(filename, item.bytes);
+      }
+    } catch (e) {
+      console.error('downloadCurrentSaves failed', e);
+      this.parentRef?.showNotification('Failed to download save(s).');
+    }
+  }
+
+  /** Programmatically click the hidden file input. */
+  openSavePicker() {
+    const el = this.saveFileInput?.nativeElement;
+    if (!el) {
+      this.parentRef?.showNotification('Save file picker not available.');
+      return;
+    }
+    el.click();
+  }
+
+  /** Handle files selected by the user and import them into IndexedDB. */
+  async onSaveFilePicked(ev: Event) {
+    try {
+      const input = ev.target as HTMLInputElement;
+      const files = input.files;
+      if (!files || files.length === 0) return;
+
+      // This will write to /mupen64plus/FILE_DATA and restart the emulator if needed.
+      await this.importInGameSaveRam(files, /* skipBoot */ false);
+    } catch (e) {
+      console.error('onSaveFilePicked failed', e);
+      this.parentRef?.showNotification('Failed to import save files.');
+    } finally {
+      // allow picking the same file again by clearing the input
+      try { (ev.target as HTMLInputElement).value = ''; } catch { }
+    }
+  }
+
+  /** Normalize any buffer-like to a *plain* ArrayBuffer (never SharedArrayBuffer). */
+  private toPlainArrayBuffer(
+    input: Uint8Array | ArrayBuffer | SharedArrayBuffer | ArrayBufferView
+  ): ArrayBuffer {
+    // Fast path: plain ArrayBuffer → clone (avoid sharing/mutation)
+    if (input instanceof ArrayBuffer) {
+      return input.slice(0);
+    }
+
+    // Handle SharedArrayBuffer explicitly
+    const hasSAB = typeof SharedArrayBuffer !== 'undefined';
+    if (hasSAB && input instanceof SharedArrayBuffer) {
+      // Copy SAB into a new, non-shared ArrayBuffer
+      return new Uint8Array(input).slice().buffer;
+    }
+
+    // If it's a Uint8Array or any view
+    if (ArrayBuffer.isView(input as any)) {
+      const view = input as ArrayBufferView;
+      const backing = view.buffer as ArrayBuffer | SharedArrayBuffer;
+
+      // If the backing is SAB, copy into a normal buffer
+      if (hasSAB && backing instanceof SharedArrayBuffer) {
+        return new Uint8Array(backing, view.byteOffset, view.byteLength).slice().buffer;
+      }
+
+      // Otherwise slice the ArrayBuffer to a tight copy
+      return (backing as ArrayBuffer).slice(view.byteOffset, view.byteOffset + view.byteLength);
+    }
+
+    // If we reach here TS allowed a type we didn't expect at runtime
+    throw new Error('Unsupported buffer type for Blob');
+  }
+
+  /** Trigger a browser download for bytes. Accepts various buffer-like inputs. */
+  private downloadBytesAs(
+    filename: string,
+    bytes: Uint8Array | ArrayBuffer | SharedArrayBuffer | ArrayBufferView
+  ) {
+    try {
+      const ab: ArrayBuffer = this.toPlainArrayBuffer(bytes);
+      const blob = new Blob([ab], { type: 'application/octet-stream' });
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      console.warn('downloadBytesAs failed', e);
+      this.parentRef?.showNotification(`Failed to download "${filename}".`);
+    }
   }
 
   private romTokenForMatching(name?: string): string | null {
