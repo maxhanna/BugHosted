@@ -2448,24 +2448,25 @@ private async Task StoreCoinValues()
         await using var conn = new MySqlConnection(_connectionString);
         await conn.OpenAsync(ct);
 
-        // Pick ONE candidate likely needing cleanup.
-        // - not already cleaned (given_file_name IS NULL)
-        // - contains dashes/underscores
-        // - ends with a long numeric tail or has multiple separators (sluggy)
         const string selectSql = @" 
           SELECT id, file_name, folder_path, file_type
-          FROM file_uploads
-          WHERE given_file_name IS NULL
+          FROM file_uploads 
+          WHERE id >= FLOOR(RAND() * (SELECT MAX(id) FROM file_uploads))
+            AND given_file_name IS NULL
             -- looks sluggy (has dashes or underscores)
             AND (file_name LIKE '%-%' OR file_name LIKE '%_%')
             -- EXCLUDE files whose stem is ONLY digits (e.g., 1000020274.webp)
-            AND file_name NOT REGEXP '^[0-9]+\\.[A-Za-z0-9]+$' 
+            AND file_name NOT REGEXP '^[0-9]+\.[A-Za-z0-9]+$' 
+            -- EXCLUDE prefixes: RDT_ and FB_IMG_
+            AND file_name NOT REGEXP '^(IMG_|PXL_|VID_|DSC_)'
+            AND file_name NOT LIKE 'RDT\_%' ESCAPE '\'
+            AND file_name NOT LIKE 'FB\_IMG\_%' ESCAPE '\'
             AND (
-                  file_name REGEXP '[0-9]{5,}\\.[A-Za-z0-9]+$'     -- long numeric before extension
-              OR file_name REGEXP '.*[0-9]{5,}$'                  -- long numeric tail without extension
-              OR file_name REGEXP '.*(-|_).*(-|_).*(-|_).*'       -- several separators imply slug
+              file_name REGEXP '[0-9]{5,}\.[A-Za-z0-9]+$'     -- long numeric before extension
+              OR file_name REGEXP '.*[0-9]{5,}$'              -- long numeric tail without extension
+              OR file_name REGEXP '.*(-|_).*(-|_).*(-|_).*'   -- several separators imply slug
             )
-          ORDER BY RAND()
+          ORDER BY id
           LIMIT 1;";
 
         int? id = null;
