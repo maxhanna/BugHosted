@@ -119,11 +119,10 @@ namespace maxhanna.Server.Services
 
     private async Task<bool> CanUpdateIndicators(MySqlConnection connection, string fromCoin, string toCoin)
     {
-      var sql = @"
-                SELECT updated
-                FROM trade_indicators
-                WHERE from_coin = @fromCoin AND to_coin = @toCoin
-                AND updated >= UTC_TIMESTAMP() - INTERVAL 5 MINUTE";
+      var sql = @"SELECT updated
+                  FROM trade_indicators
+                  WHERE from_coin = @fromCoin AND to_coin = @toCoin
+                  AND updated >= UTC_TIMESTAMP() - INTERVAL 5 MINUTE";
 
       using var cmd = new MySqlCommand(sql, connection);
       cmd.CommandTimeout = DbCommandTimeoutSeconds;
