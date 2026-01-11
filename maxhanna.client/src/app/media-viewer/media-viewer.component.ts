@@ -367,6 +367,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
     if (this.abortFileRequestController) {
       this.abortFileRequestController.abort();
+      console.log("Aborting previous file request");
     }
     this.abortFileRequestController = new AbortController();
     try {

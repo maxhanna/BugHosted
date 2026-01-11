@@ -484,7 +484,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.songs = type === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
       this.fileIdPlaylist = type === 'file' ? this.fileSongs.map(song => song.fileId!).filter(id => id !== undefined) : undefined;
     }
-    
+
     this.currentPage = 1;
     this.updatePaginatedSongs();
     this.reorderTable(undefined, this.orderSelect?.nativeElement.value || 'Newest');
@@ -494,7 +494,10 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
   play(url?: string, fileId?: number) {
     console.log("Play called with url:", url, "fileId:", fileId);
-    if (!url && !fileId) { alert("Url/File can't be empty"); return; }
+    if (!url && !fileId) { 
+      this.parentRef?.showNotification("Url/File can't be empty"); 
+      return;
+   }
 
     // Ignore redundant replays
     if (url != undefined && url === this.currentUrl) return;
@@ -502,7 +505,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
     // ✅ Only gate on API readiness.
     // We purposely do NOT check `ytPlayer` here anymore.
-    if (!this.ytReady) {
+    if (!this.ytReady && url) {
       this.pendingPlay = { url, fileId: null };
       console.log("YT API not ready, queuing play for url:", url);
       return;
@@ -511,10 +514,11 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     // FILE branch unchanged...
     if (fileId) {
       this.fileIdPlaying = fileId;
-      setTimeout(() => {
+      setTimeout(async () => {
         if (this.fileMediaViewer) {
-          this.fileMediaViewer.resetSelectedFile();
-          this.fileMediaViewer.setFileSrcById(fileId);
+          //this.fileMediaViewer.resetSelectedFile();
+          await this.fileMediaViewer.setFileSrcById(fileId);
+          this.cdr.markForCheck();
         }
       }, 50);
       console.log("Playing file with ID:", fileId);
