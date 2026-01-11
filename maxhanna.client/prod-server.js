@@ -206,8 +206,8 @@ if (config.enableHelmet) {
         // Allow connecting to backend, external HTTPS APIs and websockets
         connectSrc: ["'self'", 'https:', 'wss:', 'localhost', 'localhost:*', 'https://api.ipify.org', 'https://*.googlevideo.com', 'https://www.youtube.com', "https://www.youtube-nocookie.com"],
         imgSrc: ["'self'", 'data:', 'https:', 'blob:', 'https://*.ytimg.com'],
-        mediaSrc: ["'self'", 'blob:', 'data:', 'https://*.googlevideo.com', 'https://*.youtube.com', "https://www.youtube-nocookie.com" /*, 'https://cdn.example.com' */],
-        frameSrc: ["'self'", 'https:', 'https://www.youtube.com', "https://www.youtube-nocookie.com"],
+        mediaSrc: ["'self'", 'blob:', 'data:', 'https:'],
+        frameSrc: ["'self'", 'https:'],
       },
     },
     hsts: {
