@@ -467,7 +467,11 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   async selectType(type: 'youtube' | 'file' | 'radio') {
     this.selectedType = type;
     setTimeout(() => { 
-      this.stopMusic(); 
+      try { 
+       this.stopMusic(); 
+      } catch (e) {
+        console.error(e);
+      }
     }, 50);//allow for adjustment time
     
     if (type != 'youtube') { 
