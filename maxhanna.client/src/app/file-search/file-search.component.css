@@ -486,3 +486,11 @@
   pointer-events: none;
   opacity: 0.6;
 }
+
+.spaceAroundFlex {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: space-around;
+    align-items: center;
+}
