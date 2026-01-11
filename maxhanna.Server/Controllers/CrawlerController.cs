@@ -897,7 +897,7 @@ private void BuildUnionSql(
       var list = new List<Metadata>();
       await using var conn = new MySqlConnection(connectionString);
       await conn.OpenAsync(ct);
-      await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 30 };
+      await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 45 };
       paramizer(cmd);
 
       await using var reader = await cmd.ExecuteReaderAsync(ct);
