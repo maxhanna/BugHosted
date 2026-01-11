@@ -70,6 +70,7 @@ export class ContactsComponent extends ChildComponent implements OnInit {
     const name = this.name.nativeElement.value;
     if (!name) { return alert("Name cannot be empty!"); }
 
+    this.startLoading();
     if (this.selectedContact) {
       this.selectedContact.name = name;
       this.selectedContact.email = this.email.nativeElement.value != '' ? this.email.nativeElement.value : null;
@@ -86,12 +87,15 @@ export class ContactsComponent extends ChildComponent implements OnInit {
       this.selectedContact = undefined;
       this.parentRef?.closeOverlay();
     }
+    this.stopLoading();
   }
   async deleteContact(id: number) {
     const userId = this.parentRef?.user?.id;
     if (!userId || userId == 0) { return alert("You must be logged in to delete a contact."); }
+    this.startLoading();
     await this.contactService.deleteContact(userId, id);
     this.contacts = this.contacts.filter(x => x.id != id);
+    this.stopLoading();
   }
   formatDate(date: Date | undefined | null): string | undefined {
     if (!date) return undefined;

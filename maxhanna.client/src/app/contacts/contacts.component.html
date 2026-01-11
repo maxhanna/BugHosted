@@ -103,8 +103,11 @@
         </tr>
         <tr>
           <td colspan="2" class="saveCancelButtonTd">
-            <button (click)="saveContact()" title="Save">💾Save</button>
-            <button class="closeButton" (click)="selectedContact = undefined; parentRef?.closeOverlay();" title="Cancel"
+            <button (click)="saveContact()" title="Save" [disabled]="isLoading">💾Save</button>
+            <button class="closeButton" 
+              (click)="selectedContact = undefined; parentRef?.closeOverlay();" 
+              [disabled]="isLoading"
+              title="Cancel"
               id="closeOverlay">❌Close</button>
           </td>
         </tr>
