@@ -1,7 +1,7 @@
 ﻿<div class="componentMain">
   <div class="closeButton" (click)="remove_me('FileComponent');" *ngIf="!user"></div>
   <div class="menuButton" (click)="showMenuPanel();"></div>
-  <div class="componentTitle" *ngIf="!user">Filesystem</div>
+  <div class="componentTitle" *ngIf="!user">Files</div>
 
   <div class="massDeleteControls" *ngIf="massDeleteMode" style="margin:8px 0; text-align: center;">
     <button (click)="confirmMassDelete()" class="dangerButton">❌Delete Selected ({{ fileSearchComponent.selectedCount() || 0 }})</button>
@@ -27,7 +27,7 @@
 <!-- Menu Popup -->
 <div class="popupPanel" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle popupPanelContent" style="margin-bottom:15px;">
-    Filesystem Menu
+    File Menu
   </div> 
   <div *ngIf="!user && canUploadToFolder()" class="uploadAndNewFolderButtonDiv popupPanelContent"> 
     <button (click)="showMakeDirectoryPrompt=true;" title="Make a New Folder" *ngIf="!showMakeDirectoryPrompt">📂New Folder</button>

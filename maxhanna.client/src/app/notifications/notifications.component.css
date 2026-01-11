@@ -39,7 +39,7 @@
 }
 
 /* typical phone screen resolution */
-@media only screen and (max-width : 667px) {
+@media only screen and (max-width : 900px) {
   .minimalPopupPanel {
     height: CALC(var(--vh, 1vh) * 100 - 50px);
     width: 100vw;
@@ -57,9 +57,7 @@
 
 .notificationsDisplay {
   display: flex;
-  z-index: 3;
-  /*  height: CALC(var(--vh, 1vh) * 100 - 70px);
-*/
+  z-index: 3; 
   flex-wrap: nowrap;
   text-shadow: 0 0 black;
   font-size: var(--main-font-size);
@@ -140,7 +138,7 @@
   text-align: center;
 }
 
-@media only screen and (min-width: 667px) {
+@media only screen and (min-width: 900px) {
   .notificationsCountHeader {
     padding: 15px 0px 0px 15px;
   }
