@@ -55,7 +55,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @ViewChild('editFileNameInput', { static: false }) editFileNameInput!: ElementRef;
   @ViewChild(TopicsComponent) topicComponent!: TopicsComponent;
  
-  @Input() debug = false;
+  @Input() debug = true;
   @Input() displayExpander: boolean = true;
   @Input() displayExtraInfo: boolean = true;
   @Input() blockExpand: boolean = false;
