@@ -62,14 +62,14 @@
     <div class="popupPanelTitle">
       Search Popular Topics:
     </div>
-    <div *ngIf="topTopics">
+    <div *ngIf="topTopics" style="margin-top: 8px;">
       <span *ngFor="let topic of topTopics | slice:0:15" (click)="topTopicClicked(topic)" class="topTopicsDiv">
         <span class="matchingTopic">{{topic.topicName}}</span>
         <span class="topicFileCount">({{topic.fileCount}})</span>
       </span>
     </div>
   </div>
-  <div class="browserInstructions">
+  <div class="browserInstructions" style="margin-top: 15px;">
     For your browsing convenience on Desktop, you may use the J and K buttons on your keyboard to scroll through files.
   </div>
   <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>
