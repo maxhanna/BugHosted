@@ -1496,17 +1496,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private getGamepadsBase(): (Gamepad | null)[] {
     const getter = this._originalGetGamepadsBase || (navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null);
     return getter ? getter() : [];
-  }
-
-  private resolveGpIndexById(id?: string | null): number | null {
-    if (!id) return null;
-    const arr = this.getGamepadsBase();
-    for (const gp of arr) {
-      if (gp && gp.id === id) return gp.index;
-    }
-    return null;
-  }
-
+  } 
+  
   private migrateMappingToIdsIfNeeded() {
     const arr = this.getGamepadsBase();
     for (const key of Object.keys(this.mapping || {})) {
