@@ -540,6 +540,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
           this.fileMediaViewer.resetSelectedFile();
           setTimeout(async () => {
             await this.fileMediaViewer.setFileSrcById(fileId);
+            this.fileMediaViewer.unmuteAllMedia();
             this.cdr.markForCheck();
           }, 50);
         }

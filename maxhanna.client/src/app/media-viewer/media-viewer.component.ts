@@ -225,7 +225,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     window.removeEventListener('popstate', this.handleBackButton);
     window.removeEventListener('keydown', this.handleEscapeKey);
   }
-  
+
   resetSelectedFile() {
     this.stopAllMedia();
     if (this.abortFileRequestController) {
@@ -867,6 +867,33 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       // media.load(); // reinitialize without source
     } catch (e) {
       this.debugLog('Failed to stop media:', e);
+    }
+  }
+
+  unmuteAllMedia() {
+    // Unmute known ViewChild elements first
+    this.unmuteMedia(this.mediaContainer?.nativeElement);
+    this.unmuteMedia(this.fullscreenVideo?.nativeElement);
+    this.unmuteMedia(this.fullscreenAudio?.nativeElement);
+
+    // Sweep all media elements in this component subtree
+    const root: Document | HTMLElement = this.mediaRoot?.nativeElement ?? document;
+    const mediaNodes = root.querySelectorAll<HTMLMediaElement>('video, audio');
+
+    mediaNodes.forEach(el => this.unmuteMedia(el));
+  }
+
+  private unmuteMedia(media?: HTMLMediaElement): void {
+    if (!media) return;
+    try {
+      media.muted = false;
+      (media as any).volume = 1; // Ensure full volume
+      // If autoplay is desired, resume playback
+      if (media.paused && this.autoplay) {
+        media.play().catch(e => console.log('Autoplay prevented:', e));
+      }
+    } catch (e) {
+      this.debugLog('Failed to unmute media:', e);
     }
   }
 }
