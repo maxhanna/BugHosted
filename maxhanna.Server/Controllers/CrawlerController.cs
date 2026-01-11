@@ -165,7 +165,7 @@ namespace maxhanna.Server.Controllers
 
           if (IsKeywordQuery(request.Url) && !hasWikipedia)
           {
-            _ = PrefetchWikipediaAsync(request.Url!.Trim());
+            _ = ScrapeWikipediaAsync(request.Url!.Trim());
           }
         }
 
@@ -1181,13 +1181,13 @@ private void BuildUnionSql(
     }
 
 
-    private Task PrefetchWikipediaAsync(string keyword)
+    private Task ScrapeWikipediaAsync(string keyword)
     {
       return Task.Run(async () =>
       {
         try
         {
-          _ = _log.Db($"Wikipedia prefetch queued for: {keyword}.", null, "CRAWLERCTRL", true);
+          _ = _log.Db($"Wikipedia scrape queued for: {keyword}.", null, "CRAWLERCTRL", true);
           using var prefetchCts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
           var wiki = await TryFindWikipediaUrlAsync(keyword, prefetchCts.Token);
           if (!string.IsNullOrWhiteSpace(wiki?.Url))
@@ -1198,7 +1198,7 @@ private void BuildUnionSql(
         }
         catch (Exception ex)
         {
-          _ = _log.Db($"Wikipedia prefetch failed for '{keyword}': {ex.Message}", null, "CRAWLERCTRL", true);
+          _ = _log.Db($"Wikipedia scrape failed for '{keyword}': {ex.Message}", null, "CRAWLERCTRL", true);
         }
       });
     }
