@@ -156,9 +156,9 @@ namespace maxhanna.Server.Controllers
           {
             _ = _log.Db($"Failed to scrape Wikipedia for keyword: {e.Message}", null, "CRAWLERCTRL", true);
           }
-        } 
+        }
         else if (allResults != null && allResults.Count > 0)
-        { 
+        {
           // If this is a keyword query, prefetch Wikipedia in the background even if we already have results.
           // Skip if a Wikipedia URL already exists in these results.
           bool hasWikipedia = allResults.Any(r =>
@@ -342,7 +342,7 @@ namespace maxhanna.Server.Controllers
                       CONCAT(@siteDomain, '/')
                   )
             )
-              AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+            AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
             {(withFt ? "UNION ALL" : string.Empty)}
             {(withFt ? @"
             SELECT sr.id
@@ -479,7 +479,7 @@ namespace maxhanna.Server.Controllers
       var raw = (request.Url ?? string.Empty).Trim().ToLower();
       command.Parameters.AddWithValue("@search", raw);
 
-      // NEW: boolean-mode search query
+      // boolean-mode search query
       var searchBoolean = BuildBooleanQuery(raw);
       command.Parameters.AddWithValue("@searchBoolean",
           string.IsNullOrWhiteSpace(searchBoolean) ? (object)DBNull.Value : searchBoolean);
@@ -949,7 +949,7 @@ namespace maxhanna.Server.Controllers
           Timeout = TimeSpan.FromSeconds(6) // Keep this fast
         };
 
-        
+
         http.DefaultRequestHeaders.UserAgent.ParseAdd(
           "maxhanna-crawler/1.0 (+https://bughosted.com; max@maxhanna.com)");
 
@@ -1046,7 +1046,7 @@ namespace maxhanna.Server.Controllers
     // - Removes stopwords
     // - Filters out short tokens (len < 3)
     // - Requires each remaining token (+term)
-    // - Adds '*' to the last token to allow prefix match (optional)
+    // - Adds '*' to the last token to allow prefix match (optional) 
     private static string? BuildBooleanQuery(string? text)
     {
       if (string.IsNullOrWhiteSpace(text)) return null;
@@ -1059,15 +1059,23 @@ namespace maxhanna.Server.Controllers
 
       if (tokens.Count == 0) return null;
 
-      // Require all tokens with '+'; add wildcard to last for UX
+      // Standard required tokens (+term) with wildcard on the last
       for (int i = 0; i < tokens.Count; i++)
       {
         bool isLast = i == tokens.Count - 1;
         tokens[i] = (isLast ? $"+{tokens[i]}*" : $"+{tokens[i]}");
       }
 
+      // NEW: also add a compact single token with wildcard to catch concatenations
+      if (tokens.Count >= 2)
+      {
+        var compact = string.Concat(tokens.Select(t => t.TrimStart('+').TrimEnd('*'))); // strip +/-*
+        tokens.Add("+" + compact + "*");
+      }
+
       return string.Join(" ", tokens);
     }
+
 
     // Heuristic: treat input as keyword if it doesn’t look like a URL/domain.
     private static bool IsKeywordQuery(string? input)
@@ -1088,28 +1096,39 @@ namespace maxhanna.Server.Controllers
       return true;
     }
 
-    
-private Task PrefetchWikipediaAsync(string keyword)
-{
-  return Task.Run(async () =>
-  {
-    try
-    {
-      _ = _log.Db($"Wikipedia prefetch queued for: {keyword}.", null, "CRAWLERCTRL", true);
-      using var prefetchCts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
-      var wiki = await TryFindWikipediaUrlAsync(keyword, prefetchCts.Token);
-      if (!string.IsNullOrWhiteSpace(wiki?.Url))
-      {
-        // Index asynchronously so next searches show the card
-        await _webCrawler.StartScrapingAsync(wiki.Url);
-      }
-    }
-    catch (Exception ex)
-    {
-      _ = _log.Db($"Wikipedia prefetch failed for '{keyword}': {ex.Message}", null, "CRAWLERCTRL", true);
-    }
-  });
-}
 
+    private Task PrefetchWikipediaAsync(string keyword)
+    {
+      return Task.Run(async () =>
+      {
+        try
+        {
+          _ = _log.Db($"Wikipedia prefetch queued for: {keyword}.", null, "CRAWLERCTRL", true);
+          using var prefetchCts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+          var wiki = await TryFindWikipediaUrlAsync(keyword, prefetchCts.Token);
+          if (!string.IsNullOrWhiteSpace(wiki?.Url))
+          {
+            // Index asynchronously so next searches show the card
+            await _webCrawler.StartScrapingAsync(wiki.Url);
+          }
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db($"Wikipedia prefetch failed for '{keyword}': {ex.Message}", null, "CRAWLERCTRL", true);
+        }
+      });
+    }
+    
+private static string BuildCompact(string? text)
+{
+  if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+  var sb = new System.Text.StringBuilder(text.Length);
+  foreach (var ch in text.ToLowerInvariant())
+  {
+    if ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9'))
+      sb.Append(ch);
+  }
+  return sb.ToString();
+}
   }
 }
