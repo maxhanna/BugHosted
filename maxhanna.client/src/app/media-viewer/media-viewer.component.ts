@@ -215,18 +215,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  resetSelectedFile() {
-    this.stopMedia(this.mediaContainer?.nativeElement);
-    this.stopMedia(this.fullscreenVideo?.nativeElement);
-    this.stopMedia(this.fullscreenAudio?.nativeElement);
-    if (this.abortFileRequestController) {
-      this.abortFileRequestController.abort("Component is destroyed");
-    }
-    this.selectedFile = undefined;
-    this.selectedFileSrc = "";
-    this.selectedFileName = "";
-    this.selectedFileExtension = undefined;
-  }
   ngOnDestroy() {
     try { this.stopAllMedia(); } catch { }
     try {
@@ -236,6 +224,17 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     } catch (e) { }
     window.removeEventListener('popstate', this.handleBackButton);
     window.removeEventListener('keydown', this.handleEscapeKey);
+  }
+  
+  resetSelectedFile() {
+    this.stopAllMedia();
+    if (this.abortFileRequestController) {
+      this.abortFileRequestController.abort("Component is destroyed");
+    }
+    this.selectedFile = undefined;
+    this.selectedFileSrc = "";
+    this.selectedFileName = "";
+    this.selectedFileExtension = undefined;
   }
 
   private handleBackButton = (event: PopStateEvent) => {
