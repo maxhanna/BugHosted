@@ -454,21 +454,21 @@
     </div>
     
     <div *ngIf="userIsLoggedIn()" class="spaceAroundFlex">
-      Show favourites only?
+      <span style="width:100%">Show favourites only?</span>
       <button class="toggle-switch" (click)="showFavouritesToggled()">
         {{ showFavouritesOnly ? 'On' : 'Off' }}
       </button>
     </div>
 
     <div class="spaceAroundFlex">
-      Show pictures only?
+      <span style="width:100%">Show pictures only?</span>
       <button class="toggle-switch" (click)="showPicturesToggled()">
         {{ showPicturesOnly ? 'On' : 'Off' }}
       </button>
     </div>
 
     <div class="spaceAroundFlex">
-      Show videos only?
+      <span style="width:100%">Show videos only?</span>
       <button class="toggle-switch" (click)="showVideosToggled()">
         {{ showVideosOnly ? 'On' : 'Off' }}
       </button>
