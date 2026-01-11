@@ -773,7 +773,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       // media.src = '';
       // media.load(); // reinitialize without source
     } catch (e) {
-      console.error('Failed to stop media:', e);
+      this.debugLog('Failed to stop media:', e);
     }
   } 
 }
