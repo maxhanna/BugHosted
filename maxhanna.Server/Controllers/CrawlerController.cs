@@ -1,3 +1,4 @@
+
 using maxhanna.Server.Controllers.DataContracts.Crawler;
 using maxhanna.Server.Controllers.DataContracts.Metadata;
 using Microsoft.AspNetCore.Mvc;
@@ -13,6 +14,7 @@ namespace maxhanna.Server.Controllers
     private readonly Log _log;
     private readonly IConfiguration _config;
     private readonly WebCrawler _webCrawler;
+
     public CrawlerController(Log log, IConfiguration config, WebCrawler webCrawler)
     {
       _log = log;
@@ -20,162 +22,58 @@ namespace maxhanna.Server.Controllers
       _webCrawler = webCrawler;
     }
 
-    
-[HttpPost("/Crawler/SearchUrl", Name = "SearchUrl")]
-public async Task<IActionResult> SearchUrl([FromBody] CrawlerRequest request)
-{
-    var results = new List<Metadata>();
-    string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
-    int pageNumber = request.CurrentPage;
-    int pageSize = request.PageSize;
-    int offset = (pageNumber - 1) * pageSize;
-    int totalResults = 0;
-
-    request.Url = request.Url?.ToLower();
-
-    // ✅ Local timeout: cancel everything if > 30s
-    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-    var ct = cts.Token;
-
-    try
+    [HttpPost("/Crawler/SearchUrl", Name = "SearchUrl")]
+    public async Task<IActionResult> SearchUrl([FromBody] CrawlerRequest request)
     {
-        bool hasCommaSeparatedKeywords = (request.Url ?? "").Contains(",");
-        var keywords = request.Url?.Split(',')
-                                   .Select(keyword => "%" + keyword.Trim().ToLower() + "%")
-                                   .ToList();
+      var results = new List<Metadata>();
+      string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+      int pageNumber = request.CurrentPage;
+      int pageSize = request.PageSize;
+      int offset = (pageNumber - 1) * pageSize;
+      int totalResults = 0;
 
+      request.Url = request.Url?.ToLower();
+
+      // ✅ Local timeout: cancel everything if > 30s
+      using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+      var ct = cts.Token;
+
+      try
+      {
         // Detect site:domain keywords pattern (e.g. "site:example.com robots")
         string? siteDomain = null;
         string? siteKeywords = null;
         bool siteOnly = false;
         if (!string.IsNullOrWhiteSpace(request.Url) && request.Url.Trim().StartsWith("site:"))
         {
-            var remainder = request.Url.Trim().Substring(5).Trim();
-            if (!string.IsNullOrEmpty(remainder))
+          var remainder = request.Url.Trim().Substring(5).Trim();
+          if (!string.IsNullOrEmpty(remainder))
+          {
+            var firstSpace = remainder.IndexOf(' ');
+            if (firstSpace > 0)
             {
-                var firstSpace = remainder.IndexOf(' ');
-                if (firstSpace > 0)
-                {
-                    siteDomain = remainder.Substring(0, firstSpace).Trim();
-                    siteKeywords = remainder.Substring(firstSpace + 1).Trim();
-                }
-                else
-                {
-                    siteDomain = remainder.Trim();
-                    siteKeywords = null;
-                }
-                siteOnly = true;
+              siteDomain = remainder.Substring(0, firstSpace).Trim();
+              siteKeywords = remainder.Substring(firstSpace + 1).Trim();
             }
+            else
+            {
+              siteDomain = remainder.Trim();
+              siteKeywords = null;
+            }
+            siteOnly = true;
+          }
         }
 
-        // Define the common search condition
         bool searchAll = request.Url == "*";
-        string whereCondition;
 
-        if (siteOnly && !string.IsNullOrEmpty(siteDomain))
-        {
-            var normalizedSite = NormalizeBaseDomain(siteDomain.ToLower());
-            whereCondition = @$"(
-                    url LIKE CONCAT('https://', @siteDomain, '%')
-                OR  url LIKE CONCAT('http://',  @siteDomain, '%')
-                OR  url LIKE CONCAT(@siteDomain, '%')
-                OR  url IN (
-                        CONCAT('https://', @siteDomain),
-                        CONCAT('https://', @siteDomain, '/'),
-                        CONCAT('http://',  @siteDomain),
-                        CONCAT('http://',  @siteDomain, '/'),
-                        CONCAT(@siteDomain),
-                        CONCAT(@siteDomain, '/')
-                    )
-            )";
-
-            if (!string.IsNullOrWhiteSpace(siteKeywords))
-            {
-                whereCondition = @$"({whereCondition}) AND (
-                        MATCH(title, description, author, keywords) AGAINST (@siteKeywords IN NATURAL LANGUAGE MODE)
-                    OR  title LIKE @siteKeywordsLike
-                    OR  description LIKE @siteKeywordsLike
-                    OR  url LIKE @siteKeywordsLike
-                )";
-            }
-
-            whereCondition += " AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL))";
-        }
-        else
-        {
-            whereCondition = request.ExactMatch.GetValueOrDefault()
-                ? " url_hash = @urlHash "
-                : searchAll
-                    ? " failed = 0 OR (failed = 1 AND response_code IS NOT NULL) "
-                    : @$" (
-                            url_hash = @urlHash
-                        OR  url_hash = @urlHashWithSlash
-                        OR  url_hash = @urlHashWithoutSlash 
-                        OR  url LIKE @urlWithSlash
-                        OR  url LIKE @urlWithoutSlash
-                        OR  MATCH(title, description, author, keywords) AGAINST (@search IN NATURAL LANGUAGE MODE)
-                        OR  url LIKE @search
-                        OR  url LIKE @searchWithSlash
-                        OR  url LIKE @searchWithoutSlash
-                        OR  url LIKE @searchWithWildcard
-                        OR  url IN (
-                                CONCAT('https://', @baseDomain),
-                                CONCAT('https://', @baseDomain, '/'),
-                                CONCAT('https://www.', @baseDomain),
-                                CONCAT('https://www.', @baseDomain, '/'),
-                                CONCAT('http://', @baseDomain),
-                                CONCAT('http://', @baseDomain, '/'),
-                                CONCAT('http://www.', @baseDomain),
-                                CONCAT('http://www.', @baseDomain, '/'),
-                                CONCAT(@baseDomain),
-                                CONCAT(@baseDomain, '/')
-                            ) 
-                        OR  url LIKE CONCAT('https://',     @baseDomain, '%')
-                        OR  url LIKE CONCAT('https://www.', @baseDomain, '%')
-                        OR  url LIKE CONCAT('http://',      @baseDomain, '%')
-                        OR  url LIKE CONCAT('http://www.',  @baseDomain, '%')
-                        OR  url LIKE CONCAT(@baseDomain, '%')
-                    )
-                    AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL))";
-        }
-
-        string orderByClause = searchAll
-            ? "ORDER BY found_date DESC"
-            : @"ORDER BY
-                    CASE
-                        WHEN url_hash = @urlHash            THEN 0
-                        WHEN url_hash = @urlHashWithSlash   THEN 1
-                        WHEN url_hash = @urlHashWithoutSlash THEN 2
-                        WHEN url = @search                  THEN 3
-                        WHEN url = @searchWithSlash         THEN 4
-                        WHEN url = @searchWithoutSlash      THEN 5
-                        WHEN MATCH(title)       AGAINST (@search IN BOOLEAN MODE) THEN 6
-                        WHEN MATCH(description) AGAINST (@search IN BOOLEAN MODE) THEN 7
-                        WHEN MATCH(keywords)    AGAINST (@search IN BOOLEAN MODE) THEN 8
-                        WHEN title       LIKE @searchLike THEN 9
-                        WHEN url         LIKE @searchLike THEN 10
-                        WHEN description LIKE @searchLike THEN 11
-                        WHEN keywords    LIKE @searchLike THEN 12
-                        ELSE 13
-                    END,
-                    id DESC";
-
-        string resultsSql = $@"
-            SELECT id, url, title, description, author, keywords, image_url, failed, response_code
-            FROM search_results
-            WHERE {whereCondition}
-            {orderByClause}
-            LIMIT @pageSize OFFSET @offset;";
-
-        string countSql = $@"
-            SELECT COUNT(*)
-            FROM search_results
-            WHERE {whereCondition};";
+        // Build UNION-based SQL that lets MySQL pick the best index per branch
+        BuildUnionSql(request, searchAll, siteOnly, siteDomain, siteKeywords,
+                      out string resultsSql, out string countSql);
 
         // Build paramizer once so we reuse consistent params in both commands
         Action<MySqlCommand> paramizer = (cmd) =>
         {
-            AddParametersToCrawlerQuery(request, pageSize, offset, searchAll, cmd, siteDomain, siteKeywords);
+          AddParametersToCrawlerQuery(request, pageSize, offset, searchAll, cmd, siteDomain, siteKeywords);
         };
 
         // 🔁 Kick off quick scrape in parallel (best effort)
@@ -184,13 +82,13 @@ public async Task<IActionResult> SearchUrl([FromBody] CrawlerRequest request)
         List<string> urlVariants = new();
         if (shouldScrape)
         {
-            urlVariants = GetUrlVariants(request);
-            quickScrapeTask = ScrapeQuickAsync(urlVariants, TimeSpan.FromSeconds(5), ct);
+          urlVariants = GetUrlVariants(request);
+          quickScrapeTask = ScrapeQuickAsync(urlVariants, TimeSpan.FromSeconds(5), ct);
         }
 
         // ⚙️ Run results and count concurrently (two separate connections)
         var resultsTask = ExecuteResultsAsync(connectionString!, resultsSql, paramizer, ct);
-        var countTask   = ExecuteScalarAsync(connectionString!, countSql, paramizer, ct);
+        var countTask = ExecuteScalarAsync(connectionString!, countSql, paramizer, ct);
 
         await Task.WhenAll(resultsTask, countTask);
 
@@ -199,20 +97,20 @@ public async Task<IActionResult> SearchUrl([FromBody] CrawlerRequest request)
 
         _ = _log.Db($"Found {results.Count} results before merging quick scrape", null, "CRAWLERCTRL", true);
 
-        // Merge scraped results **only if the quick scrape already finished** (no extra waiting)
+        // Small grace to incorporate scraped results if they are almost done (no noticeable wait)
         int scrapedResults = 0;
         if (shouldScrape)
         {
-            await Task.WhenAny(quickScrapeTask, Task.Delay(250, ct));  
-            if (quickScrapeTask.IsCompletedSuccessfully)
+          await Task.WhenAny(quickScrapeTask, Task.Delay(250, ct));
+          if (quickScrapeTask.IsCompletedSuccessfully)
+          {
+            var scraped = quickScrapeTask.Result;
+            if (scraped?.Count > 0)
             {
-              var scraped = quickScrapeTask.Result;
-              if (scraped?.Count > 0)
-              {
-                  results.AddRange(scraped);
-                  scrapedResults = scraped.Count;
-              }
-            } 
+              results.AddRange(scraped);
+              scrapedResults = scraped.Count;
+            }
+          }
         }
 
         // Post-process
@@ -220,92 +118,349 @@ public async Task<IActionResult> SearchUrl([FromBody] CrawlerRequest request)
         allResults = await AddFavouriteCountsAsync(allResults, request.UserId);
 
         return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResults });
-    }
-    catch (OperationCanceledException oce)
-    {
+      }
+      catch (OperationCanceledException oce)
+      {
         var pd = new ProblemDetails
         {
-            Status = StatusCodes.Status408RequestTimeout,
-            Title = "Search timed out",
-            Detail = "The search took too long and was canceled. Try narrowing your query or reducing page size."
+          Status = StatusCodes.Status408RequestTimeout,
+          Title = "Search timed out",
+          Detail = "The search took too long and was canceled. Try narrowing your query or reducing page size."
         };
         _ = _log.Db($"SearchUrl timeout: {oce.Message}", null, "CRAWLERCTRL", true);
         return StatusCode(pd.Status.Value, pd);
-    }
-    catch (MySqlException dbex) when (dbex.Message.Contains("Timeout", StringComparison.OrdinalIgnoreCase))
-    {
+      }
+      catch (MySqlException dbex) when (dbex.Message.Contains("Timeout", StringComparison.OrdinalIgnoreCase))
+      {
         var pd = new ProblemDetails
         {
-            Status = StatusCodes.Status504GatewayTimeout,
-            Title = "Database timeout",
-            Detail = "The database did not respond in time for this query. Please refine your search."
+          Status = StatusCodes.Status504GatewayTimeout,
+          Title = "Database timeout",
+          Detail = "The database did not respond in time for this query. Please refine your search."
         };
         _ = _log.Db($"SearchUrl DB timeout: {dbex.Message}", null, "CRAWLERCTRL", true);
         return StatusCode(pd.Status.Value, pd);
-    }
-    catch (Exception ex)
-    {
+      }
+      catch (Exception ex)
+      {
         if (results.Count > 0)
         {
-            results = GetOrderedResultsForWeb(request, results);
-            return Ok(new { Results = results, TotalResults = totalResults });
+          results = GetOrderedResultsForWeb(request, results);
+          return Ok(new { Results = results, TotalResults = totalResults });
         }
         else
-        { 
-            var pd = new ProblemDetails
-            {
-                Status = StatusCodes.Status500InternalServerError,
-                Title = "Search failed",
-                Detail = ex.Message
-            };
-            _ = _log.Db($"SearchUrl error: {ex.Message}", null, "CRAWLERCTRL", true);
-            return StatusCode(pd.Status.Value, pd); 
+        {
+          var pd = new ProblemDetails
+          {
+            Status = StatusCodes.Status500InternalServerError,
+            Title = "Search failed",
+            Detail = ex.Message
+          };
+          _ = _log.Db($"SearchUrl error: {ex.Message}", null, "CRAWLERCTRL", true);
+          return StatusCode(pd.Status.Value, pd);
         }
+      }
     }
-}
 
+    /// <summary>
+    /// Builds UNION-based SQL that is index-friendly per branch.
+    /// Branches (non-site):
+    ///   0) exact url equals (UNIQUE(url))
+    ///   1) domain prefix (left-anchored LIKE on url)
+    ///   2) FULLTEXT
+    /// Site-specific uses domain branches, plus optional FT within site.
+    /// </summary>
+    private void BuildUnionSql(
+        CrawlerRequest request,
+        bool searchAll,
+        bool siteOnly,
+        string? siteDomain,
+        string? siteKeywords,
+        out string resultsSql,
+        out string countSql)
+    {
+      if (searchAll)
+      {
+        resultsSql = @"
+                    SELECT id, url, title, description, author, keywords, image_url, response_code
+                    FROM search_results
+                    WHERE failed = 0 OR (failed = 1 AND response_code IS NOT NULL)
+                    ORDER BY found_date DESC
+                    LIMIT @pageSize OFFSET @offset;";
 
-    private void AddParametersToCrawlerQuery(CrawlerRequest request, int pageSize, int offset, bool searchAll, MySqlCommand command, string? siteDomain = null, string? siteKeywords = null)
+        countSql = @"
+                    SELECT COUNT(*)
+                    FROM search_results
+                    WHERE failed = 0 OR (failed = 1 AND response_code IS NOT NULL);";
+        return;
+      }
+
+      // If ExactMatch: just do the equality branch (fast UNIQUE(url) probe)
+      if (request.ExactMatch.GetValueOrDefault())
+      {
+        resultsSql = @"
+                    SELECT id, url, title, description, author, keywords, image_url, response_code
+                    FROM search_results
+                    WHERE url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
+                      AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL))
+                    ORDER BY id DESC
+                    LIMIT @pageSize OFFSET @offset;";
+
+        countSql = @"
+                    SELECT COUNT(*)
+                    FROM search_results
+                    WHERE url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
+                      AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL));";
+        return;
+      }
+
+      // site:domain
+      if (siteOnly && !string.IsNullOrEmpty(siteDomain))
+      {
+        // If siteKeywords present, include FT branch; otherwise only domain prefix branch
+        bool withFt = !string.IsNullOrWhiteSpace(siteKeywords);
+
+        resultsSql = $@"
+                    SELECT id, url, title, description, author, keywords, image_url, response_code
+                    FROM (
+                        -- 0) domain matches (prefix/equality)
+                        SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
+                               0 AS rank, NULL AS ft_score
+                        FROM search_results sr
+                        WHERE (
+                               sr.url LIKE CONCAT('https://', @siteDomain, '%')
+                            OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
+                            OR sr.url LIKE CONCAT(@siteDomain, '%')
+                            OR sr.url IN (
+                                  CONCAT('https://', @siteDomain),
+                                  CONCAT('https://', @siteDomain, '/'),
+                                  CONCAT('http://',  @siteDomain),
+                                  CONCAT('http://',  @siteDomain, '/'),
+                                  CONCAT(@siteDomain),
+                                  CONCAT(@siteDomain, '/')
+                              )
+                        )
+                          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+                        {(withFt ? "UNION ALL" : string.Empty)}
+                        {(withFt ? @"
+                        -- 1) fulltext within site
+                        SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
+                               1 AS rank,
+                               MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@siteKeywords IN NATURAL LANGUAGE MODE) AS ft_score
+                        FROM search_results sr
+                        WHERE (
+                               sr.url LIKE CONCAT('https://', @siteDomain, '%')
+                            OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
+                            OR sr.url LIKE CONCAT(@siteDomain, '%')
+                            OR sr.url IN (
+                                  CONCAT('https://', @siteDomain),
+                                  CONCAT('https://', @siteDomain, '/'),
+                                  CONCAT('http://',  @siteDomain),
+                                  CONCAT('http://',  @siteDomain, '/'),
+                                  CONCAT(@siteDomain),
+                                  CONCAT(@siteDomain, '/')
+                              )
+                        )
+                          AND @siteKeywords IS NOT NULL
+                          AND @siteKeywords <> ''
+                          AND MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@siteKeywords IN NATURAL LANGUAGE MODE)
+                          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))" : string.Empty)}
+                    ) AS u
+                    ORDER BY u.rank ASC, u.ft_score DESC, u.id DESC
+                    LIMIT @pageSize OFFSET @offset;";
+
+        countSql = $@"
+                    SELECT COUNT(DISTINCT id) AS total
+                    FROM (
+                        SELECT sr.id
+                        FROM search_results sr
+                        WHERE (
+                               sr.url LIKE CONCAT('https://', @siteDomain, '%')
+                            OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
+                            OR sr.url LIKE CONCAT(@siteDomain, '%')
+                            OR sr.url IN (
+                                  CONCAT('https://', @siteDomain),
+                                  CONCAT('https://', @siteDomain, '/'),
+                                  CONCAT('http://',  @siteDomain),
+                                  CONCAT('http://',  @siteDomain, '/'),
+                                  CONCAT(@siteDomain),
+                                  CONCAT(@siteDomain, '/')
+                              )
+                        )
+                          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+                        {(withFt ? "UNION ALL" : string.Empty)}
+                        {(withFt ? @"
+                        SELECT sr.id
+                        FROM search_results sr
+                        WHERE (
+                               sr.url LIKE CONCAT('https://', @siteDomain, '%')
+                            OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
+                            OR sr.url LIKE CONCAT(@siteDomain, '%')
+                            OR sr.url IN (
+                                  CONCAT('https://', @siteDomain),
+                                  CONCAT('https://', @siteDomain, '/'),
+                                  CONCAT('http://',  @siteDomain),
+                                  CONCAT('http://',  @siteDomain, '/'),
+                                  CONCAT(@siteDomain),
+                                  CONCAT(@siteDomain, '/')
+                              )
+                        )
+                          AND @siteKeywords IS NOT NULL
+                          AND @siteKeywords <> ''
+                          AND MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@siteKeywords IN NATURAL LANGUAGE MODE)
+                          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))" : string.Empty)}
+                    ) AS c;";
+        return;
+      }
+
+      // Generic (non-site): union of exact equals, domain prefix, and fulltext
+      resultsSql = @"
+                SELECT id, url, title, description, author, keywords, image_url, response_code
+                FROM (
+                    -- 0) exact url equals (covers http/https, with/without trailing slash)
+                    SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
+                           0 AS rank, NULL AS ft_score
+                    FROM search_results sr
+                    WHERE sr.url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
+                      AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+
+                    UNION ALL
+
+                    -- 1) domain prefix (left-anchored LIKE)
+                    SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
+                           1 AS rank, NULL AS ft_score
+                    FROM search_results sr
+                    WHERE (
+                           sr.url LIKE CONCAT('https://',     @baseDomain, '%')
+                        OR sr.url LIKE CONCAT('https://www.', @baseDomain, '%')
+                        OR sr.url LIKE CONCAT('http://',      @baseDomain, '%')
+                        OR sr.url LIKE CONCAT('http://www.',  @baseDomain, '%')
+                        OR sr.url LIKE CONCAT(@baseDomain, '%')
+                        OR sr.url IN (
+                              CONCAT('https://',     @baseDomain),
+                              CONCAT('https://',     @baseDomain, '/'),
+                              CONCAT('https://www.', @baseDomain),
+                              CONCAT('https://www.', @baseDomain, '/'),
+                              CONCAT('http://',      @baseDomain),
+                              CONCAT('http://',      @baseDomain, '/'),
+                              CONCAT('http://www.',  @baseDomain),
+                              CONCAT('http://www.',  @baseDomain, '/'),
+                              CONCAT(@baseDomain),
+                              CONCAT(@baseDomain, '/')
+                          )
+                    )
+                      AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+
+                    UNION ALL
+
+                    -- 2) fulltext on metadata
+                    SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
+                           2 AS rank,
+                           MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@search IN NATURAL LANGUAGE MODE) AS ft_score
+                    FROM search_results sr
+                    WHERE @search IS NOT NULL
+                      AND @search <> ''
+                      AND MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@search IN NATURAL LANGUAGE MODE)
+                      AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+                ) AS u
+                ORDER BY u.rank ASC, u.ft_score DESC, u.id DESC
+                LIMIT @pageSize OFFSET @offset;";
+
+      countSql = @"
+                SELECT COUNT(DISTINCT id) AS total
+                FROM (
+                    SELECT sr.id
+                    FROM search_results sr
+                    WHERE sr.url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
+                      AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+
+                    UNION ALL
+
+                    SELECT sr.id
+                    FROM search_results sr
+                    WHERE (
+                           sr.url LIKE CONCAT('https://',     @baseDomain, '%')
+                        OR sr.url LIKE CONCAT('https://www.', @baseDomain, '%')
+                        OR sr.url LIKE CONCAT('http://',      @baseDomain, '%')
+                        OR sr.url LIKE CONCAT('http://www.',  @baseDomain, '%')
+                        OR sr.url LIKE CONCAT(@baseDomain, '%')
+                        OR sr.url IN (
+                              CONCAT('https://',     @baseDomain),
+                              CONCAT('https://',     @baseDomain, '/'),
+                              CONCAT('https://www.', @baseDomain),
+                              CONCAT('https://www.', @baseDomain, '/'),
+                              CONCAT('http://',      @baseDomain),
+                              CONCAT('http://',      @baseDomain, '/'),
+                              CONCAT('http://www.',  @baseDomain),
+                              CONCAT('http://www.',  @baseDomain, '/'),
+                              CONCAT(@baseDomain),
+                              CONCAT(@baseDomain, '/')
+                          )
+                    )
+                      AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+
+                    UNION ALL
+
+                    SELECT sr.id
+                    FROM search_results sr
+                    WHERE @search IS NOT NULL
+                      AND @search <> ''
+                      AND MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@search IN NATURAL LANGUAGE MODE)
+                      AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+                ) AS c;";
+    }
+
+    private void AddParametersToCrawlerQuery(
+        CrawlerRequest request,
+        int pageSize,
+        int offset,
+        bool searchAll,
+        MySqlCommand command,
+        string? siteDomain = null,
+        string? siteKeywords = null)
     {
       command.Parameters.AddWithValue("@searchAll", searchAll);
-      command.Parameters.AddWithValue("@urlHash", searchAll ? DBNull.Value : _webCrawler.GetUrlHash(request.Url ?? ""));
-      command.Parameters.AddWithValue("@urlHashWithSlash", searchAll ? DBNull.Value : _webCrawler.GetUrlHash(request.Url?.TrimEnd('/') + '/' ?? ""));
-      command.Parameters.AddWithValue("@urlHashWithoutSlash", searchAll ? DBNull.Value : _webCrawler.GetUrlHash(request.Url?.TrimEnd('/') ?? ""));
 
-      command.Parameters.AddWithValue("@urlWithSlash", searchAll ? DBNull.Value : request.Url?.TrimEnd('/') + '/' ?? "");
-      command.Parameters.AddWithValue("@urlWithoutSlash", searchAll ? DBNull.Value : request.Url?.TrimEnd('/') ?? "");
-
-      command.Parameters.AddWithValue("@search", request.Url?.ToLower());
-      string baseDomain = NormalizeBaseDomain(request.Url?.ToLower() ?? "");
+      // Core search text and domain
+      var raw = (request.Url ?? string.Empty).Trim().ToLower();
+      command.Parameters.AddWithValue("@search", raw);
+      string baseDomain = NormalizeBaseDomain(raw);
       command.Parameters.AddWithValue("@baseDomain", baseDomain);
-      command.Parameters.AddWithValue("@searchLike", $"%{request.Url?.ToLower()}%");
+
+      // Paging
       command.Parameters.AddWithValue("@pageSize", pageSize);
       command.Parameters.AddWithValue("@offset", offset);
-      command.Parameters.AddWithValue("@searchWithSlash", $"%{request.Url?.ToLower()}/%");
-      command.Parameters.AddWithValue("@searchWithoutSlash", $"%{request.Url?.ToLower().TrimEnd('/')}%");
-      command.Parameters.AddWithValue("@searchWithWildcard", $"%{request.Url?.ToLower()}%");
-      command.Parameters.AddWithValue("@searchIsDomain",
-        Uri.CheckHostName(request.Url?.Replace("https://", "").Replace("http://", "").Split('/')[0]) != UriHostNameType.Unknown);
 
-      // optional user id for favourite checks
+      // Absolute URL candidates for equality (UNIQUE(url) lookups)
+      // Build both https:// and http:// forms + with/without trailing slash
+      // If 'raw' already has a scheme, we still compute both schemes for robustness
+      string rawNoSlash = raw.TrimEnd('/');
+      string https = rawNoSlash.StartsWith("http://") || rawNoSlash.StartsWith("https://")
+          ? (rawNoSlash.StartsWith("https://") ? rawNoSlash : "https://" + rawNoSlash.Substring(rawNoSlash.IndexOf("://") + 3))
+          : "https://" + rawNoSlash;
+      string http = rawNoSlash.StartsWith("http://") || rawNoSlash.StartsWith("https://")
+          ? (rawNoSlash.StartsWith("http://") ? rawNoSlash : "http://" + rawNoSlash.Substring(rawNoSlash.IndexOf("://") + 3))
+          : "http://" + rawNoSlash;
+
+      string httpsWithSlash = https.EndsWith("/") ? https : (https + "/");
+      string httpWithSlash = http.EndsWith("/") ? http : (http + "/");
+
+      command.Parameters.AddWithValue("@httpsUrl", https);
+      command.Parameters.AddWithValue("@httpsUrlWithSlash", httpsWithSlash);
+      command.Parameters.AddWithValue("@httpUrl", http);
+      command.Parameters.AddWithValue("@httpUrlWithSlash", httpWithSlash);
+
+      // Optional user id for favourite checks (used later)
       if (request.UserId != null)
-      {
         command.Parameters.AddWithValue("@UserId", request.UserId.Value);
-      }
       else
-      {
         command.Parameters.AddWithValue("@UserId", 0);
-      }
 
       // optional site:domain parameters
       if (!string.IsNullOrWhiteSpace(siteDomain))
-      {
-        command.Parameters.AddWithValue("@siteDomain", siteDomain.ToLower());
-      }
+        command.Parameters.AddWithValue("@siteDomain", NormalizeBaseDomain(siteDomain.ToLower()));
       else
-      {
         command.Parameters.AddWithValue("@siteDomain", DBNull.Value);
-      }
 
       if (!string.IsNullOrWhiteSpace(siteKeywords))
       {
@@ -324,11 +479,11 @@ public async Task<IActionResult> SearchUrl([FromBody] CrawlerRequest request)
       try
       {
         if (Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
-          Uri.TryCreate("https://" + url, UriKind.Absolute, out uri))
+            Uri.TryCreate("https://" + url, UriKind.Absolute, out uri))
         {
           return uri.Host.StartsWith("www.")
-            ? uri.Host.Substring(4)
-            : uri.Host;
+              ? uri.Host.Substring(4)
+              : uri.Host;
         }
 
         // Fallback for non-URL strings
@@ -339,6 +494,7 @@ public async Task<IActionResult> SearchUrl([FromBody] CrawlerRequest request)
         return url;
       }
     }
+
     private List<string> GetUrlVariants(CrawlerRequest request)
     {
       List<string> variants = new List<string>();
@@ -376,38 +532,38 @@ public async Task<IActionResult> SearchUrl([FromBody] CrawlerRequest request)
 
       return variants;
     }
+
     private List<Metadata> GetOrderedResultsForWeb(CrawlerRequest request, List<Metadata> allResults)
     {
       // Normalize: prefer https over http
       var httpsUrls = new HashSet<string>(
-        allResults
-          .Where(r => r.Url != null && r.Url.StartsWith("https://"))
-          .Select(r => r.Url!.Replace("https://", ""))
+          allResults
+              .Where(r => r.Url != null && r.Url.StartsWith("https://"))
+              .Select(r => r.Url!.Replace("https://", ""))
       );
 
       allResults = allResults
-        .Where(r =>
-        {
-          if (r.Url == null) return false;
-          if (r.Url.StartsWith("http://"))
+          .Where(r =>
           {
-            var withoutScheme = r.Url.Replace("http://", "");
-            return !httpsUrls.Contains(withoutScheme);
-          }
-          return true;
-        })
-        .ToList();
+            if (r.Url == null) return false;
+            if (r.Url.StartsWith("http://"))
+            {
+              var withoutScheme = r.Url.Replace("http://", "");
+              return !httpsUrls.Contains(withoutScheme);
+            }
+            return true;
+          })
+          .ToList();
 
       // Deduplicate by URL and sort by relevance
       allResults = allResults
-        .GroupBy(r => r.Url)
-        .Select(g => g.First())
-        .OrderByDescending(r => _webCrawler.CalculateRelevanceScore(r, request.Url ?? ""))
-        .ToList();
+          .GroupBy(r => r.Url)
+          .Select(g => g.First())
+          .OrderByDescending(r => _webCrawler.CalculateRelevanceScore(r, request.Url ?? ""))
+          .ToList();
 
       return allResults;
     }
-
 
     [HttpPost("/Crawler/IndexLinks", Name = "IndexLinks")]
     public async void IndexLinks([FromBody] string url)
@@ -438,8 +594,7 @@ public async Task<IActionResult> SearchUrl([FromBody] CrawlerRequest request)
       catch (Exception ex)
       {
         _ = _log.Db($"Exception while indexing {url}: " + ex.Message, null, "CRAWLERCTRL", true);
-
-      } 
+      }
     }
 
     [HttpPost("/Crawler/IndexCount", Name = "IndexCount")]
@@ -492,12 +647,12 @@ public async Task<IActionResult> SearchUrl([FromBody] CrawlerRequest request)
         {
           await connection.OpenAsync();
           string sql = @"
-					SELECT fs.user_id AS userId, u.username, udp.file_id AS displayPictureFileId, udp.tag_background_file_id AS backgroundPictureFileId
-					FROM favourites_selected fs
-					JOIN favourites f ON fs.favourite_id = f.id
-					LEFT JOIN users u ON fs.user_id = u.id
-					LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
-					WHERE f.url = @url;";
+                        SELECT fs.user_id AS userId, u.username, udp.file_id AS displayPictureFileId, udp.tag_background_file_id AS backgroundPictureFileId
+                        FROM favourites_selected fs
+                        JOIN favourites f ON fs.favourite_id = f.id
+                        LEFT JOIN users u ON fs.user_id = u.id
+                        LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
+                        WHERE f.url = @url;";
 
           using (var cmd = new MySqlCommand(sql, connection))
           {
@@ -527,6 +682,7 @@ public async Task<IActionResult> SearchUrl([FromBody] CrawlerRequest request)
         return StatusCode(500, "An error occurred while fetching favourited-by data");
       }
     }
+
     private async Task<List<YoutubeVideo>> SearchYoutubeVideosAsync(string keyword, string apiKey)
     {
       var videos = new List<YoutubeVideo>();
@@ -546,7 +702,7 @@ public async Task<IActionResult> SearchUrl([FromBody] CrawlerRequest request)
         foreach (var item in items.EnumerateArray())
         {
           if (!item.TryGetProperty("id", out var idElem) ||
-            !idElem.TryGetProperty("videoId", out var videoIdElem)) continue;
+              !idElem.TryGetProperty("videoId", out var videoIdElem)) continue;
 
           var snippet = item.GetProperty("snippet");
 
@@ -563,7 +719,6 @@ public async Task<IActionResult> SearchUrl([FromBody] CrawlerRequest request)
       return videos;
     }
 
-
     private async Task<List<Metadata>?> AddFavouriteCountsAsync(List<Metadata> searchResults, int? userId = null)
     {
       if (searchResults == null || searchResults.Count == 0)
@@ -573,10 +728,10 @@ public async Task<IActionResult> SearchUrl([FromBody] CrawlerRequest request)
 
       // Collect all URLs
       var urls = searchResults
-        .Select(r => r.Url?.Trim().ToLower())
-        .Where(url => !string.IsNullOrEmpty(url))
-        .Distinct()
-        .ToList();
+          .Select(r => r.Url?.Trim().ToLower())
+          .Where(url => !string.IsNullOrEmpty(url))
+          .Distinct()
+          .ToList();
 
       // Build a dictionary to map url -> favourite count
       var favouriteCounts = new Dictionary<string, int>();
@@ -598,14 +753,14 @@ public async Task<IActionResult> SearchUrl([FromBody] CrawlerRequest request)
 
         // Combined query: favourite count and whether the requesting user favoured each url
         string query = $@"
-					SELECT f.url,
-						   COUNT(DISTINCT fs.user_id) AS favourite_count,
-						   SUM(CASE WHEN fs.user_id = @UserId THEN 1 ELSE 0 END) AS is_user_favourite_count
-					FROM favourites f
-					JOIN favourites_selected fs ON fs.favourite_id = f.id
-					WHERE f.url IN ({inClause})
-					GROUP BY f.url;
-				";
+                    SELECT f.url,
+                           COUNT(DISTINCT fs.user_id) AS favourite_count,
+                           SUM(CASE WHEN fs.user_id = @UserId THEN 1 ELSE 0 END) AS is_user_favourite_count
+                    FROM favourites f
+                    JOIN favourites_selected fs ON fs.favourite_id = f.id
+                    WHERE f.url IN ({inClause})
+                    GROUP BY f.url;
+                ";
 
         using (var command = new MySqlCommand(query, connection))
         {
@@ -649,75 +804,74 @@ public async Task<IActionResult> SearchUrl([FromBody] CrawlerRequest request)
       return searchResults;
     }
 
-    
-private async Task<List<Metadata>> ExecuteResultsAsync(
-    string connectionString, string sql, Action<MySqlCommand> paramizer, CancellationToken ct)
-{
-    var list = new List<Metadata>();
-    await using var conn = new MySqlConnection(connectionString);
-    await conn.OpenAsync(ct);
-    await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 30 };
-    paramizer(cmd);
-
-    await using var reader = await cmd.ExecuteReaderAsync(ct);
-    while (await reader.ReadAsync(ct))
+    private async Task<List<Metadata>> ExecuteResultsAsync(
+        string connectionString, string sql, Action<MySqlCommand> paramizer, CancellationToken ct)
     {
+      var list = new List<Metadata>();
+      await using var conn = new MySqlConnection(connectionString);
+      await conn.OpenAsync(ct);
+      await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 30 };
+      paramizer(cmd);
+
+      await using var reader = await cmd.ExecuteReaderAsync(ct);
+      while (await reader.ReadAsync(ct))
+      {
         list.Add(new Metadata
         {
-            Url = reader.IsDBNull(reader.GetOrdinal("url")) ? null : reader.GetString("url"),
-            Title = reader.IsDBNull(reader.GetOrdinal("title")) ? null : reader.GetString("title"),
-            Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description"),
-            ImageUrl = reader.IsDBNull(reader.GetOrdinal("image_url")) ? null : reader.GetString("image_url"),
-            Author = reader.IsDBNull(reader.GetOrdinal("author")) ? null : reader.GetString("author"),
-            Keywords = reader.IsDBNull(reader.GetOrdinal("keywords")) ? null : reader.GetString("keywords"),
-            HttpStatus = reader.IsDBNull(reader.GetOrdinal("response_code")) ? null : reader.GetInt32("response_code"),
+          Url = reader.IsDBNull(reader.GetOrdinal("url")) ? null : reader.GetString("url"),
+          Title = reader.IsDBNull(reader.GetOrdinal("title")) ? null : reader.GetString("title"),
+          Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description"),
+          ImageUrl = reader.IsDBNull(reader.GetOrdinal("image_url")) ? null : reader.GetString("image_url"),
+          Author = reader.IsDBNull(reader.GetOrdinal("author")) ? null : reader.GetString("author"),
+          Keywords = reader.IsDBNull(reader.GetOrdinal("keywords")) ? null : reader.GetString("keywords"),
+          HttpStatus = reader.IsDBNull(reader.GetOrdinal("response_code")) ? null : reader.GetInt32("response_code"),
         });
+      }
+      return list;
     }
-    return list;
-}
 
-private async Task<object?> ExecuteScalarAsync(
-    string connectionString, string sql, Action<MySqlCommand> paramizer, CancellationToken ct)
-{
-    await using var conn = new MySqlConnection(connectionString);
-    await conn.OpenAsync(ct);
-    await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 15 };
-    paramizer(cmd);
-    return await cmd.ExecuteScalarAsync(ct);
-}
-
-private async Task<List<Metadata>> ScrapeQuickAsync(IEnumerable<string> variants, TimeSpan perVariantBudget, CancellationToken ct)
-{
-    var scrapeTasks = variants.Select(async v =>
+    private async Task<object?> ExecuteScalarAsync(
+        string connectionString, string sql, Action<MySqlCommand> paramizer, CancellationToken ct)
     {
+      await using var conn = new MySqlConnection(connectionString);
+      await conn.OpenAsync(ct);
+      await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 15 };
+      paramizer(cmd);
+      return await cmd.ExecuteScalarAsync(ct);
+    }
+
+    private async Task<List<Metadata>> ScrapeQuickAsync(IEnumerable<string> variants, TimeSpan perVariantBudget, CancellationToken ct)
+    {
+      var scrapeTasks = variants.Select(async v =>
+      {
         try
         {
-            // Kick off background indexing regardless
-            _ = _webCrawler.StartScrapingAsync(v);
+          // Kick off background indexing regardless
+          _ = _webCrawler.StartScrapingAsync(v);
 
-            // Try to get metadata quickly for interactive UX
-            var scrapeTask = _webCrawler.ScrapeUrlData(v);
-            var completed = await Task.WhenAny(scrapeTask, Task.Delay(perVariantBudget, ct));
-            if (completed == scrapeTask)
+          // Try to get metadata quickly for interactive UX
+          var scrapeTask = _webCrawler.ScrapeUrlData(v);
+          var completed = await Task.WhenAny(scrapeTask, Task.Delay(perVariantBudget, ct));
+          if (completed == scrapeTask)
+          {
+            var m = await scrapeTask; // completed
+            if (m != null && !_webCrawler.IsMetadataCompletelyEmpty(m))
             {
-                var m = await scrapeTask; // completed
-                if (m != null && !_webCrawler.IsMetadataCompletelyEmpty(m))
-                {
-                    // Normalize URL relative to the variant
-                    m.Url = new Uri(new Uri(v), m.Url).ToString().TrimEnd('/');
-                    return m;
-                }
+              // Normalize URL relative to the variant
+              m.Url = new Uri(new Uri(v), m.Url).ToString().TrimEnd('/');
+              return m;
             }
+          }
         }
         catch (Exception ex)
         {
-            _ = _log.Db($"Quick scrape failed for {v}: {ex.Message}", null, "CRAWLERCTRL", true);
+          _ = _log.Db($"Quick scrape failed for {v}: {ex.Message}", null, "CRAWLERCTRL", true);
         }
         return null;
-    });
+      });
 
-    var results = await Task.WhenAll(scrapeTasks);
-    return results.Where(m => m != null).Cast<Metadata>().ToList();
-} 
+      var results = await Task.WhenAll(scrapeTasks);
+      return results.Where(m => m != null).Cast<Metadata>().ToList();
+    }
   }
 }
