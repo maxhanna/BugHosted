@@ -237,16 +237,16 @@ namespace maxhanna.Server.Controllers
       if (searchAll)
       {
         resultsSql = @"
-      SELECT id, url, title, description, author, keywords, image_url, response_code
-      FROM search_results
-      WHERE failed = 0 OR (failed = 1 AND response_code IS NOT NULL)
-      ORDER BY found_date DESC
-      LIMIT @pageSize OFFSET @offset;";
+        SELECT id, url, title, description, author, keywords, image_url, response_code
+        FROM search_results
+        WHERE failed = 0 OR (failed = 1 AND response_code IS NOT NULL)
+        ORDER BY found_date DESC
+        LIMIT @pageSize OFFSET @offset;";
 
         countSql = @"
-      SELECT COUNT(*)
-      FROM search_results
-      WHERE failed = 0 OR (failed = 1 AND response_code IS NOT NULL);";
+        SELECT COUNT(*)
+        FROM search_results
+        WHERE failed = 0 OR (failed = 1 AND response_code IS NOT NULL);";
         return;
       }
 
@@ -254,18 +254,18 @@ namespace maxhanna.Server.Controllers
       if (request.ExactMatch.GetValueOrDefault())
       {
         resultsSql = @"
-      SELECT id, url, title, description, author, keywords, image_url, response_code
-      FROM search_results
-      WHERE url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
-        AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL))
-      ORDER BY id DESC
-      LIMIT @pageSize OFFSET @offset;";
+        SELECT id, url, title, description, author, keywords, image_url, response_code
+        FROM search_results
+        WHERE url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
+          AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL))
+        ORDER BY id DESC
+        LIMIT @pageSize OFFSET @offset;";
 
         countSql = @"
-      SELECT COUNT(*)
-      FROM search_results
-      WHERE url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
-        AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL));";
+        SELECT COUNT(*)
+        FROM search_results
+        WHERE url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
+          AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL));";
         return;
       }
 
@@ -275,100 +275,100 @@ namespace maxhanna.Server.Controllers
         bool withFt = !string.IsNullOrWhiteSpace(siteKeywords);
 
         resultsSql = $@"
-      SELECT id, url, title, description, author, keywords, image_url, response_code
-      FROM (
-          -- 0) domain matches (prefix/equality)
-          SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
-                 0 AS `rnk`, NULL AS `ft_score`
-          FROM search_results sr
-          WHERE (
-                 sr.url LIKE CONCAT('https://', @siteDomain, '%')
-              OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
-              OR sr.url LIKE CONCAT(@siteDomain, '%')
-              OR sr.url IN (
-                    CONCAT('https://', @siteDomain),
-                    CONCAT('https://', @siteDomain, '/'),
-                    CONCAT('http://',  @siteDomain),
-                    CONCAT('http://',  @siteDomain, '/'),
-                    CONCAT(@siteDomain),
-                    CONCAT(@siteDomain, '/')
-                )
-          )
-            AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-          {(withFt ? "UNION ALL" : string.Empty)}
-          {(withFt ? @"
-          -- 1) fulltext within site (BOOLEAN MODE) -- includes URL in MATCH
-          SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
-                 1 AS `rnk`,
-                 MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url)
-                   AGAINST (@siteBoolean IN BOOLEAN MODE) AS `ft_score`
-          FROM search_results sr
-          WHERE (
-                 sr.url LIKE CONCAT('https://', @siteDomain, '%')
-              OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
-              OR sr.url LIKE CONCAT(@siteDomain, '%')
-              OR sr.url IN (
-                    CONCAT('https://', @siteDomain),
-                    CONCAT('https://', @siteDomain, '/'),
-                    CONCAT('http://',  @siteDomain),
-                    CONCAT('http://',  @siteDomain, '/'),
-                    CONCAT(@siteDomain),
-                    CONCAT(@siteDomain, '/')
-                )
-          )
-            AND @siteBoolean IS NOT NULL
-            AND MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url)
-                  AGAINST (@siteBoolean IN BOOLEAN MODE)
-            AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))" : string.Empty)}
-      ) AS u
-      ORDER BY u.`rnk` ASC, u.`ft_score` DESC, u.id DESC
-      LIMIT @pageSize OFFSET @offset;";
+        SELECT id, url, title, description, author, keywords, image_url, response_code
+        FROM (
+            -- 0) domain matches (prefix/equality)
+            SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
+                   0 AS `rnk`, NULL AS `ft_score`
+            FROM search_results sr
+            WHERE (
+                   sr.url LIKE CONCAT('https://', @siteDomain, '%')
+                OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
+                OR sr.url LIKE CONCAT(@siteDomain, '%')
+                OR sr.url IN (
+                      CONCAT('https://', @siteDomain),
+                      CONCAT('https://', @siteDomain, '/'),
+                      CONCAT('http://',  @siteDomain),
+                      CONCAT('http://',  @siteDomain, '/'),
+                      CONCAT(@siteDomain),
+                      CONCAT(@siteDomain, '/')
+                  )
+            )
+              AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+            {(withFt ? "UNION ALL" : string.Empty)}
+            {(withFt ? @"
+            -- 1) fulltext within site (BOOLEAN MODE)
+            SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
+                   1 AS `rnk`,
+                   MATCH(sr.title, sr.description, sr.author, sr.keywords)
+                     AGAINST (@siteBoolean IN BOOLEAN MODE) AS `ft_score`
+            FROM search_results sr
+            WHERE (
+                   sr.url LIKE CONCAT('https://', @siteDomain, '%')
+                OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
+                OR sr.url LIKE CONCAT(@siteDomain, '%')
+                OR sr.url IN (
+                      CONCAT('https://', @siteDomain),
+                      CONCAT('https://', @siteDomain, '/'),
+                      CONCAT('http://',  @siteDomain),
+                      CONCAT('http://',  @siteDomain, '/'),
+                      CONCAT(@siteDomain),
+                      CONCAT(@siteDomain, '/')
+                  )
+            )
+              AND @siteBoolean IS NOT NULL
+              AND MATCH(sr.title, sr.description, sr.author, sr.keywords)
+                    AGAINST (@siteBoolean IN BOOLEAN MODE)
+              AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))" : string.Empty)}
+        ) AS u
+        ORDER BY u.`rnk` ASC, u.`ft_score` DESC, u.id DESC
+        LIMIT @pageSize OFFSET @offset;";
 
         countSql = $@"
-      SELECT COUNT(DISTINCT id) AS total
-      FROM (
-          SELECT sr.id
-          FROM search_results sr
-          WHERE (
-                 sr.url LIKE CONCAT('https://', @siteDomain, '%')
-              OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
-              OR sr.url LIKE CONCAT(@siteDomain, '%')
-              OR sr.url IN (
-                    CONCAT('https://', @siteDomain),
-                    CONCAT('https://', @siteDomain, '/'),
-                    CONCAT('http://',  @siteDomain),
-                    CONCAT('http://',  @siteDomain, '/'),
-                    CONCAT(@siteDomain),
-                    CONCAT(@siteDomain, '/')
-                )
-          )
+        SELECT COUNT(DISTINCT id) AS total
+        FROM (
+            SELECT sr.id
+            FROM search_results sr
+            WHERE (
+                   sr.url LIKE CONCAT('https://', @siteDomain, '%')
+                OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
+                OR sr.url LIKE CONCAT(@siteDomain, '%')
+                OR sr.url IN (
+                      CONCAT('https://', @siteDomain),
+                      CONCAT('https://', @siteDomain, '/'),
+                      CONCAT('http://',  @siteDomain),
+                      CONCAT('http://',  @siteDomain, '/'),
+                      CONCAT(@siteDomain),
+                      CONCAT(@siteDomain, '/')
+                  )
+            )
             AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-          {(withFt ? "UNION ALL" : string.Empty)}
-          {(withFt ? @"
-          SELECT sr.id
-          FROM search_results sr
-          WHERE (
-                 sr.url LIKE CONCAT('https://', @siteDomain, '%')
-              OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
-              OR sr.url LIKE CONCAT(@siteDomain, '%')
-              OR sr.url IN (
-                    CONCAT('https://', @siteDomain),
-                    CONCAT('https://', @siteDomain, '/'),
-                    CONCAT('http://',  @siteDomain),
-                    CONCAT('http://',  @siteDomain, '/'),
-                    CONCAT(@siteDomain),
-                    CONCAT(@siteDomain, '/')
-                )
-          )
-            AND @siteBoolean IS NOT NULL
-            AND MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url)
-                  AGAINST (@siteBoolean IN BOOLEAN MODE)
-            AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))" : string.Empty)}
-      ) AS c;";
+            {(withFt ? "UNION ALL" : string.Empty)}
+            {(withFt ? @"
+            SELECT sr.id
+            FROM search_results sr
+            WHERE (
+                   sr.url LIKE CONCAT('https://', @siteDomain, '%')
+                OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
+                OR sr.url LIKE CONCAT(@siteDomain, '%')
+                OR sr.url IN (
+                      CONCAT('https://', @siteDomain),
+                      CONCAT('https://', @siteDomain, '/'),
+                      CONCAT('http://',  @siteDomain),
+                      CONCAT('http://',  @siteDomain, '/'),
+                      CONCAT(@siteDomain),
+                      CONCAT(@siteDomain, '/')
+                  )
+            )
+              AND @siteBoolean IS NOT NULL
+              AND MATCH(sr.title, sr.description, sr.author, sr.keywords)
+                    AGAINST (@siteBoolean IN BOOLEAN MODE)
+              AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))" : string.Empty)}
+        ) AS c;";
         return;
       }
 
-      // Generic (non-site): union of exact equals, domain prefix, and fulltext (now includes URL)
+      // Generic (non-site): union of exact equals, domain prefix, and fulltext
       resultsSql = @"
     SELECT id, url, title, description, author, keywords, image_url, response_code
     FROM (
@@ -408,15 +408,13 @@ namespace maxhanna.Server.Controllers
 
         UNION ALL
         
-        -- 2) fulltext on metadata + URL (BOOLEAN MODE, require significant terms)
+        -- 2) fulltext on metadata (BOOLEAN MODE, require significant terms)
         SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
-               2 AS `rnk`,
-               MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url)
-                 AGAINST (@searchBoolean IN BOOLEAN MODE) AS `ft_score`
+              2 AS `rnk`,
+              MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url) AGAINST (@searchBoolean IN BOOLEAN MODE) AS `ft_score`
         FROM search_results sr
         WHERE @searchBoolean IS NOT NULL
-          AND MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url)
-                AGAINST (@searchBoolean IN BOOLEAN MODE)
+          AND MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url) AGAINST (@searchBoolean IN BOOLEAN MODE)
           AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
     ) AS u
     ORDER BY u.`rnk` ASC, u.`ft_score` DESC, u.id DESC
@@ -457,16 +455,14 @@ namespace maxhanna.Server.Controllers
 
         UNION ALL
 
-        -- FT in COUNT mirrors BOOLEAN MODE usage (includes URL)
+        -- FT in COUNT mirrors BOOLEAN MODE usage
         SELECT sr.id
         FROM search_results sr
         WHERE @searchBoolean IS NOT NULL
-          AND MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url)
-                AGAINST (@searchBoolean IN BOOLEAN MODE)
+          AND MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url) AGAINST (@searchBoolean IN BOOLEAN MODE)
           AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
     ) AS c;";
     }
-
 
     private void AddParametersToCrawlerQuery(
         CrawlerRequest request,
@@ -481,9 +477,9 @@ namespace maxhanna.Server.Controllers
 
       // Core search text and domain
       var raw = (request.Url ?? string.Empty).Trim().ToLower();
-      command.Parameters.AddWithValue("@search", raw);
+      command.Parameters.AddWithValue("@search", raw);  
 
-      // boolean-mode search query
+      // NEW: boolean-mode search query
       var searchBoolean = BuildBooleanQuery(raw);
       command.Parameters.AddWithValue("@searchBoolean",
           string.IsNullOrWhiteSpace(searchBoolean) ? (object)DBNull.Value : searchBoolean);
@@ -1121,18 +1117,6 @@ namespace maxhanna.Server.Controllers
           _ = _log.Db($"Wikipedia prefetch failed for '{keyword}': {ex.Message}", null, "CRAWLERCTRL", true);
         }
       });
-    }
-
-    private static string BuildCompact(string? text)
-    {
-      if (string.IsNullOrWhiteSpace(text)) return string.Empty;
-      var sb = new System.Text.StringBuilder(text.Length);
-      foreach (var ch in text.ToLowerInvariant())
-      {
-        if ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9'))
-          sb.Append(ch);
-      }
-      return sb.ToString();
-    }
+    } 
   }
 }
