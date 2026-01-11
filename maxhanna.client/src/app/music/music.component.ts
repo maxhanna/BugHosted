@@ -634,7 +634,6 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     }
   }
 
-
   stopMusic() {
     this.isMusicPlaying = false;
     this.isMusicControlsDisplayed(false);
@@ -648,7 +647,6 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     }
     this.fileIdPlaying = undefined;
   }
-
 
   fullscreen() {
     const youtubePopup = document.getElementById('musicVideo');
@@ -665,6 +663,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       console.error("YouTube popup element not found.");
     }
   }
+  
   closeFullscreen() {
     const youtubePopup = document.getElementById('musicVideo');
     if (youtubePopup) {
