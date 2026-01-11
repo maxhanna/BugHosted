@@ -7,15 +7,15 @@ using System.Text.Json;
 
 namespace maxhanna.Server.Controllers
 {
-    [ApiController]
-    [Microsoft.AspNetCore.Components.Route("[controller]")]
-    public class EnderController : ControllerBase
-    {
-        private readonly Log _log;
-        private readonly IConfiguration _config;
-        private readonly string _connectionString;
-        private static Dictionary<string, CancellationTokenSource> activeLocks = new();
-        private static readonly Dictionary<SkillType, SkillType> TypeEffectiveness = new()
+  [ApiController]
+  [Microsoft.AspNetCore.Components.Route("[controller]")]
+  public class EnderController : ControllerBase
+  {
+    private readonly Log _log;
+    private readonly IConfiguration _config;
+    private readonly string _connectionString;
+    private static Dictionary<string, CancellationTokenSource> activeLocks = new();
+    private static readonly Dictionary<SkillType, SkillType> TypeEffectiveness = new()
         {
                 { SkillType.SPEED, SkillType.ARMOR }, // SPEED is strong against ARMOR
                 { SkillType.STRENGTH, SkillType.STEALTH }, // STRENGTH is strong against STEALTH
@@ -25,117 +25,117 @@ namespace maxhanna.Server.Controllers
                 { SkillType.INTELLIGENCE, SkillType.STRENGTH } // INTELLIGENCE is strong against STRENGTH
         };
 
-        private enum SkillType
-        {
-            NORMAL = 0,
-            SPEED = 1,
-            STRENGTH = 2,
-            ARMOR = 3,
-            RANGED = 4,
-            STEALTH = 5,
-            INTELLIGENCE = 6
-        }
+    private enum SkillType
+    {
+      NORMAL = 0,
+      SPEED = 1,
+      STRENGTH = 2,
+      ARMOR = 3,
+      RANGED = 4,
+      STEALTH = 5,
+      INTELLIGENCE = 6
+    }
 
-        public EnderController(Log log, IConfiguration config)
-        {
-            _log = log;
-            _config = config;
-            _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-        }
+    public EnderController(Log log, IConfiguration config)
+    {
+      _log = log;
+      _config = config;
+      _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+    }
 
-        // Helper to centralize error logging with stack traces
-        private async Task LogError(string context, Exception ex, int? relatedId = null)
+    // Helper to centralize error logging with stack traces
+    private async Task LogError(string context, Exception ex, int? relatedId = null)
+    {
+      try
+      {
+        await _log.Db($"{context}: {ex.ToString()}", relatedId, "ENDER", true);
+      }
+      catch { }
+    }
+
+
+    [HttpPost("/Ender", Name = "Ender_GetHero")]
+    public async Task<IActionResult> GetHero([FromBody] int userId)
+    {
+      using (var connection = new MySqlConnection(_connectionString))
+      {
+        await connection.OpenAsync();
+        using (var transaction = connection.BeginTransaction())
         {
+          try
+          {
+            MetaHero? hero = await GetHeroData(userId, connection, transaction);
+            await transaction.CommitAsync();
+
+            return Ok(hero);
+          }
+          catch (Exception ex)
+          {
+            await transaction.RollbackAsync();
+            return StatusCode(500, "Internal server error: " + ex.Message);
+          }
+        }
+      }
+    }
+
+    [HttpPost("/Ender/FetchGameData", Name = "Ender_FetchGameData")]
+    public async Task<IActionResult> FetchGameData([FromBody] FetchGameDataRequest payload)
+    {
+      using (var connection = new MySqlConnection(_connectionString))
+      {
+        await connection.OpenAsync();
+        using (var transaction = connection.BeginTransaction())
+        {
+          try
+          {
+            MetaHero? hero = payload?.hero;
+            int heroLevel = hero?.Level ?? 1;
+            if (payload?.pendingWalls != null && payload.pendingWalls.Count > 0 && hero != null)
+            {
+              string insertSql = @"INSERT INTO maxhanna.ender_bike_wall (hero_id, x, y, level, created_at)
+                                VALUES (@HeroId, @X, @Y, (SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1), UTC_TIMESTAMP());";
+              using (var insertCmd = new MySqlCommand(insertSql, connection, transaction))
+              {
+                insertCmd.Parameters.Add("@HeroId", MySqlDbType.Int32);
+                insertCmd.Parameters.Add("@X", MySqlDbType.Int32);
+                insertCmd.Parameters.Add("@Y", MySqlDbType.Int32);
+                foreach (var w in payload.pendingWalls)
+                {
+                  try
+                  {
+                    insertCmd.Parameters["@HeroId"].Value = hero.Id;
+                    insertCmd.Parameters["@X"].Value = w.x;
+                    insertCmd.Parameters["@Y"].Value = w.y;
+                    await insertCmd.ExecuteNonQueryAsync();
+                  }
+                  catch { }
+                }
+              }
+            }
+
+            if (hero == null)
+            {
+              await transaction.RollbackAsync();
+              return BadRequest("Invalid hero payload");
+            }
+
+            hero = await UpdateHeroInDB(hero, connection, transaction);
+            MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
+            List<MetaEvent> events = await GetEventsFromDb(heroLevel, connection, transaction);
+            List<MetaBikeWall> walls = await GetWallsOnSameLevel(heroLevel, connection, transaction);
             try
             {
-                await _log.Db($"{context}: {ex.ToString()}", relatedId, "ENDER", true);
-            }
-            catch { }
-        }
+              int tolerance = 16; // pixels; adjust as needed
+              Console.WriteLine("Checking deaths for " + heroes?.Length + " heroes and " + walls.Count + " walls");
+              var victims = new Dictionary<int, int?>(); // victimId -> killerHeroId
 
-
-        [HttpPost("/Ender", Name = "Ender_GetHero")]
-        public async Task<IActionResult> GetHero([FromBody] int userId)
-        {
-            using (var connection = new MySqlConnection(_connectionString))
-            {
-                await connection.OpenAsync();
-                using (var transaction = connection.BeginTransaction())
+              if (walls != null && heroes != null && walls.Count > 0 && heroes.Length > 0)
+              {
+                // Use a single DB query to detect collisions between heroes and walls within a tolerance box.
+                // This lets the DB do the heavy lifting (avoids O(heroes*walls) loops in C#).
+                try
                 {
-                    try
-                    {
-                        MetaHero? hero = await GetHeroData(userId, connection, transaction);
-                        await transaction.CommitAsync();
-
-                        return Ok(hero);
-                    }
-                    catch (Exception ex)
-                    {
-                        await transaction.RollbackAsync();
-                        return StatusCode(500, "Internal server error: " + ex.Message);
-                    }
-                }
-            }
-        }
-
-        [HttpPost("/Ender/FetchGameData", Name = "Ender_FetchGameData")]
-        public async Task<IActionResult> FetchGameData([FromBody] FetchGameDataRequest payload)
-        {
-            using (var connection = new MySqlConnection(_connectionString))
-            {
-                await connection.OpenAsync();
-                using (var transaction = connection.BeginTransaction())
-                {
-                    try
-                    {
-                        MetaHero? hero = payload?.hero;
-                        int heroLevel = hero?.Level ?? 1;
-                        if (payload?.pendingWalls != null && payload.pendingWalls.Count > 0 && hero != null)
-                        {
-                            string insertSql = @"INSERT INTO maxhanna.ender_bike_wall (hero_id, x, y, level, created_at)
-                                VALUES (@HeroId, @X, @Y, (SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1), UTC_TIMESTAMP());";
-                            using (var insertCmd = new MySqlCommand(insertSql, connection, transaction))
-                            {
-                                insertCmd.Parameters.Add("@HeroId", MySqlDbType.Int32);
-                                insertCmd.Parameters.Add("@X", MySqlDbType.Int32);
-                                insertCmd.Parameters.Add("@Y", MySqlDbType.Int32);
-                                foreach (var w in payload.pendingWalls)
-                                {
-                                    try
-                                    {
-                                        insertCmd.Parameters["@HeroId"].Value = hero.Id;
-                                        insertCmd.Parameters["@X"].Value = w.x;
-                                        insertCmd.Parameters["@Y"].Value = w.y;
-                                        await insertCmd.ExecuteNonQueryAsync();
-                                    }
-                                    catch { }
-                                }
-                            }
-                        }
-
-                        if (hero == null)
-                        {
-                            await transaction.RollbackAsync();
-                            return BadRequest("Invalid hero payload");
-                        }
-
-                        hero = await UpdateHeroInDB(hero, connection, transaction);
-                        MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
-                        List<MetaEvent> events = await GetEventsFromDb(heroLevel, connection, transaction);
-                        List<MetaBikeWall> walls = await GetWallsOnSameLevel(heroLevel, connection, transaction);
-                        try
-                        {
-                            int tolerance = 16; // pixels; adjust as needed
-                            Console.WriteLine("Checking deaths for " + heroes?.Length + " heroes and " + walls.Count + " walls");
-                            var victims = new Dictionary<int, int?>(); // victimId -> killerHeroId
-
-                            if (walls != null && heroes != null && walls.Count > 0 && heroes.Length > 0)
-                            {
-                                // Use a single DB query to detect collisions between heroes and walls within a tolerance box.
-                                // This lets the DB do the heavy lifting (avoids O(heroes*walls) loops in C#).
-                                try
-                                {
-                                    string sql = @"
+                  string sql = @"
                                         SELECT h.id AS victim_id,
                                             w.hero_id AS killer_id,
                                             w.id      AS wall_id
@@ -153,356 +153,356 @@ namespace maxhanna.Server.Controllers
                                         -- exclude immediate self-wall: same hero and wall is that hero's most-recent one
                                         AND NOT (w.hero_id = h.id AND w.id = lw.last_id);";
 
-                                    using (var cmd = new MySqlCommand(sql, connection, transaction))
-                                    {
-                                        cmd.Parameters.AddWithValue("@Level", heroLevel);
-                                        cmd.Parameters.AddWithValue("@Tolerance", tolerance);
-                                        using (var rdr = await cmd.ExecuteReaderAsync())
-                                        {
-                                            while (await rdr.ReadAsync())
-                                            {
-                                                if (rdr.IsDBNull(rdr.GetOrdinal("victim_id"))) continue;
-                                                int victimId = rdr.GetInt32("victim_id");
-                                                int? killerId = rdr.IsDBNull(rdr.GetOrdinal("killer_id")) ? (int?)null : rdr.GetInt32("killer_id");
-                                                // keep the first killer we saw for a given victim (mirrors original behaviour)
-                                                if (!victims.ContainsKey(victimId)) victims[victimId] = killerId;
-                                            }
-                                        }
-                                    }
-                                }
-                                catch (Exception exInner)
-                                {
-                                    _ = _log.Db($"Error while querying collisions: {exInner.Message}", null, "ENDER", true);
-                                }
-
-                                if (victims.Count > 0)
-                                {
-                                    foreach (var kv in victims)
-                                    {
-                                        var victimId = kv.Key;
-                                        var killerId = kv.Value;
-                                        try
-                                        {
-                                            // Resolve killer user id (if killerId present in current heroes snapshot)
-                                            string killerUserIdStr = "";
-                                            if (killerId.HasValue && heroes != null)
-                                            {
-                                                var killerMeta = heroes.FirstOrDefault(hh => hh != null && hh.Id == killerId.Value);
-                                                if (killerMeta != null && killerMeta.UserId > 0)
-                                                {
-                                                    killerUserIdStr = killerMeta.UserId.ToString();
-                                                }
-                                            }
-                                            var deathData = new Dictionary<string, string>() { { "cause", "BIKE_WALL" }, { "killerId", killerId + "" } };
-                                            if (!string.IsNullOrWhiteSpace(killerUserIdStr)) deathData["killerUserId"] = killerUserIdStr;
-                                            var deathEvent = new MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", hero.Level, deathData);
-                                            await UpdateEventsInDB(deathEvent, connection, transaction);
-                                            Console.WriteLine("added event death event for heroId" + victimId);
-                                            await SendKillNotificationAsync(victimId, killerId, connection, transaction);
-                                            await KillHeroById(victimId, connection, transaction, killerId);
-                                            Console.WriteLine(killerId + " killed heroId" + victimId);
-                                        }
-                                        catch (Exception exKill)
-                                        {
-                                            _ = _log.Db($"Failed to kill hero {victimId}: {exKill.Message}", null, "ENDER", true);
-                                        }
-                                    }
-                                    heroes = await GetNearbyPlayers(hero, connection, transaction);
-                                    events = await GetEventsFromDb(hero.Level, connection, transaction);
-
-                                    // Last-hero-standing level up: if at least one victim and only one hero remains on this level                                     
-                                    // Fetch up to 2 survivors on this level to determine if only 1 remains
-                                    var survivorIds = new List<int>();
-                                    using (var survivorsCmd = new MySqlCommand("SELECT id FROM maxhanna.ender_hero WHERE level = @Level LIMIT 2;", connection, transaction))
-                                    {
-                                        survivorsCmd.Parameters.AddWithValue("@Level", hero.Level);
-                                        using (var rdr = await survivorsCmd.ExecuteReaderAsync())
-                                        {
-                                            while (await rdr.ReadAsync())
-                                            {
-                                                survivorIds.Add(rdr.GetInt32(0));
-                                            }
-                                        }
-                                    }
-
-                                    if (survivorIds.Count == 1)
-                                    {
-                                        int survivorId = survivorIds[0];
-                                        // Clear all bike walls on this level before any hero leaves it (per requirement)
-                                        try
-                                        {
-                                            await DeleteWallsForLevel(heroLevel, connection, transaction);
-                                        }
-                                        catch (Exception exDel)
-                                        {
-                                            _ = _log.Db($"Failed to delete walls for level {heroLevel} prior to level up: {exDel.Message}", null, "ENDER", true);
-                                        }
-                                        using (var levelUpCmd = new MySqlCommand("UPDATE maxhanna.ender_hero SET level = level + 1 WHERE id = @HeroId LIMIT 1;", connection, transaction))
-                                        {
-                                            levelUpCmd.Parameters.AddWithValue("@HeroId", survivorId);
-                                            await levelUpCmd.ExecuteNonQueryAsync();
-                                        }
-                                        if (hero.Id == survivorId)
-                                        {
-                                            hero.Level += 1;
-                                        }
-                                    }
-
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _ = _log.Db("Bike wall collision sweep failed: " + ex.Message, null, "ENDER", true);
-                        }
-
-                        int heroLevelForWalls = hero?.Level ?? 1;
-                        // Return walls in a radius around the hero's current position so client can visualise nearby walls only
-                        int desiredFetchRadiusPx = 10000; // fetch ~10k pixels around hero
-                        double heroSpeed = hero?.Speed > 0 ? hero.Speed : 1d;
-                        int radiusSecondsForFetch = Math.Max(1, (int)Math.Ceiling((desiredFetchRadiusPx - 128) / heroSpeed));
-                        int heroX = hero?.Position?.x ?? 0;
-                        int heroY = hero?.Position?.y ?? 0;
-                        List<MetaBikeWall> recentWalls = await GetWallsAroundPosition(heroLevelForWalls, heroX, heroY, heroSpeed, radiusSecondsForFetch, connection, transaction);
-                        Console.WriteLine($"Found {recentWalls.Count} recent bike walls around {heroX},{heroY} (user: {hero?.Id}).");
-                        // Compute provisional current score for the active run (mirrors HeroDied authoritative formula: time + walls*10)
-                        int wallsPlacedForRun = 0;
-                        if (walls != null && hero != null)
-                        {
-                            wallsPlacedForRun = walls.Where(w => w.HeroId == hero.Id).Count();
-                        }
-                        int currentScore = (hero?.TimeOnLevelSeconds ?? 0) + (wallsPlacedForRun * 10);
-
-                        await transaction.CommitAsync();
-                        return Ok(new
-                        {
-                            heroId = hero?.Id ?? 0,
-                            heroPosition = hero?.Position,
-                            timeOnLevelSeconds = hero?.TimeOnLevelSeconds ?? 0,
-                            heroKills = hero?.Kills ?? 0,
-                            currentScore,
-                            currentLevel = hero?.Level,
-                            wallsPlacedForRun,
-                            heroes,
-                            events,
-                            recentWalls
-                        });
-                    }
-                    catch (Exception ex)
+                  using (var cmd = new MySqlCommand(sql, connection, transaction))
+                  {
+                    cmd.Parameters.AddWithValue("@Level", heroLevel);
+                    cmd.Parameters.AddWithValue("@Tolerance", tolerance);
+                    using (var rdr = await cmd.ExecuteReaderAsync())
                     {
-                        _ = _log.Db("Error in /Ender/FetchGameData: " + ex.Message, null, "ENDER", true);
-                        await transaction.RollbackAsync();
-                        return StatusCode(500, "Internal server error: " + ex.Message);
+                      while (await rdr.ReadAsync())
+                      {
+                        if (rdr.IsDBNull(rdr.GetOrdinal("victim_id"))) continue;
+                        int victimId = rdr.GetInt32("victim_id");
+                        int? killerId = rdr.IsDBNull(rdr.GetOrdinal("killer_id")) ? (int?)null : rdr.GetInt32("killer_id");
+                        // keep the first killer we saw for a given victim (mirrors original behaviour)
+                        if (!victims.ContainsKey(victimId)) victims[victimId] = killerId;
+                      }
                     }
+                  }
                 }
-            }
-        }
-
-        [HttpPost("/Ender/FetchInventoryData", Name = "Ender_FetchInventoryData")]
-        public async Task<IActionResult> FetchInventoryData([FromBody] int heroId)
-        {
-            using (var connection = new MySqlConnection(_connectionString))
-            {
-                await connection.OpenAsync();
-                using (var transaction = connection.BeginTransaction())
+                catch (Exception exInner)
                 {
+                  _ = _log.Db($"Error while querying collisions: {exInner.Message}", null, "ENDER", true);
+                }
+
+                if (victims.Count > 0)
+                {
+                  foreach (var kv in victims)
+                  {
+                    var victimId = kv.Key;
+                    var killerId = kv.Value;
                     try
                     {
-                        await _log.Db($"Enter FetchInventoryData heroId={heroId}", heroId, "ENDER", false);
-                        MetaInventoryItem[]? inventory = await GetInventoryFromDB(heroId, connection, transaction);
-                        await transaction.CommitAsync();
-                        return Ok(new
+                      // Resolve killer user id (if killerId present in current heroes snapshot)
+                      string killerUserIdStr = "";
+                      if (killerId.HasValue && heroes != null)
+                      {
+                        var killerMeta = heroes.FirstOrDefault(hh => hh != null && hh.Id == killerId.Value);
+                        if (killerMeta != null && killerMeta.UserId > 0)
                         {
-                            inventory
-                        });
+                          killerUserIdStr = killerMeta.UserId.ToString();
+                        }
+                      }
+                      var deathData = new Dictionary<string, string>() { { "cause", "BIKE_WALL" }, { "killerId", killerId + "" } };
+                      if (!string.IsNullOrWhiteSpace(killerUserIdStr)) deathData["killerUserId"] = killerUserIdStr;
+                      var deathEvent = new MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", hero.Level, deathData);
+                      await UpdateEventsInDB(deathEvent, connection, transaction);
+                      Console.WriteLine("added event death event for heroId" + victimId);
+                      await SendKillNotificationAsync(victimId, killerId, connection, transaction);
+                      await KillHeroById(victimId, connection, transaction, killerId);
+                      Console.WriteLine(killerId + " killed heroId" + victimId);
                     }
-                    catch (Exception ex)
+                    catch (Exception exKill)
                     {
-                        await transaction.RollbackAsync();
-                        await LogError($"FetchInventoryData failed for heroId={heroId}", ex, heroId);
-                        return StatusCode(500, "Internal server error: " + ex.Message);
+                      _ = _log.Db($"Failed to kill hero {victimId}: {exKill.Message}", null, "ENDER", true);
                     }
-                }
-            }
-        }
+                  }
+                  heroes = await GetNearbyPlayers(hero, connection, transaction);
+                  events = await GetEventsFromDb(hero.Level, connection, transaction);
 
-        [HttpPost("/Ender/UpdateEvents", Name = "Ender_UpdateEvents")]
-        public async Task<IActionResult> UpdateEvents([FromBody] MetaEvent metaEvent)
-        {
-            using (var connection = new MySqlConnection(_connectionString))
-            {
-                await connection.OpenAsync();
-                using (var transaction = await connection.BeginTransactionAsync())
-                {
+                  // Last-hero-standing level up: if at least one victim and only one hero remains on this level                                     
+                  // Fetch up to 2 survivors on this level to determine if only 1 remains
+                  var survivorIds = new List<int>();
+                  using (var survivorsCmd = new MySqlCommand("SELECT id FROM maxhanna.ender_hero WHERE level = @Level LIMIT 2;", connection, transaction))
+                  {
+                    survivorsCmd.Parameters.AddWithValue("@Level", hero.Level);
+                    using (var rdr = await survivorsCmd.ExecuteReaderAsync())
+                    {
+                      while (await rdr.ReadAsync())
+                      {
+                        survivorIds.Add(rdr.GetInt32(0));
+                      }
+                    }
+                  }
+
+                  if (survivorIds.Count == 1)
+                  {
+                    int survivorId = survivorIds[0];
+                    // Clear all bike walls on this level before any hero leaves it (per requirement)
                     try
                     {
-                        await _log.Db($"Enter UpdateEvents event={metaEvent?.EventType} heroId={metaEvent?.HeroId}", metaEvent?.HeroId, "ENDER", false);
-                        if (metaEvent == null) throw new ArgumentNullException(nameof(metaEvent));
-                        await UpdateEventsInDB(metaEvent, connection, transaction);
-                        await PerformEventChecks(metaEvent, connection, transaction);
-
-                        await transaction.CommitAsync();
-                        return Ok();
+                      await DeleteWallsForLevel(heroLevel, connection, transaction);
                     }
-                    catch (Exception ex)
+                    catch (Exception exDel)
                     {
-                        await transaction.RollbackAsync();
-                        await LogError("UpdateEvents failed", ex, metaEvent?.HeroId);
-                        return StatusCode(500, "Internal server error: " + ex.Message);
+                      _ = _log.Db($"Failed to delete walls for level {heroLevel} prior to level up: {exDel.Message}", null, "ENDER", true);
                     }
+                    using (var levelUpCmd = new MySqlCommand("UPDATE maxhanna.ender_hero SET level = level + 1 WHERE id = @HeroId LIMIT 1;", connection, transaction))
+                    {
+                      levelUpCmd.Parameters.AddWithValue("@HeroId", survivorId);
+                      await levelUpCmd.ExecuteNonQueryAsync();
+                    }
+                    if (hero.Id == survivorId)
+                    {
+                      hero.Level += 1;
+                    }
+                  }
+
                 }
+              }
             }
-        }
-
-        [HttpPost("/Ender/DeleteEvent", Name = "Ender_DeleteEvent")]
-        public async Task<IActionResult> DeleteEvent([FromBody] DeleteEventRequest req)
-        {
-            using (var connection = new MySqlConnection(_connectionString))
+            catch (Exception ex)
             {
-                await connection.OpenAsync();
-                using (var transaction = connection.BeginTransaction())
-                {
-                    try
-                    {
-                        if (req == null) throw new ArgumentNullException(nameof(req));
-                        await _log.Db($"Enter DeleteEvent id={req.EventId}", null, "ENDER", false);
-                        string sql = @"DELETE FROM maxhanna.ender_event WHERE id = @EventId LIMIT 1;";
-                        Dictionary<string, object?> parameters = new Dictionary<string, object?>
+              _ = _log.Db("Bike wall collision sweep failed: " + ex.Message, null, "ENDER", true);
+            }
+
+            int heroLevelForWalls = hero?.Level ?? 1;
+            // Return walls in a radius around the hero's current position so client can visualise nearby walls only
+            int desiredFetchRadiusPx = 10000; // fetch ~10k pixels around hero
+            double heroSpeed = hero?.Speed > 0 ? hero.Speed : 1d;
+            int radiusSecondsForFetch = Math.Max(1, (int)Math.Ceiling((desiredFetchRadiusPx - 128) / heroSpeed));
+            int heroX = hero?.Position?.x ?? 0;
+            int heroY = hero?.Position?.y ?? 0;
+            List<MetaBikeWall> recentWalls = await GetWallsAroundPosition(heroLevelForWalls, heroX, heroY, heroSpeed, radiusSecondsForFetch, connection, transaction);
+            Console.WriteLine($"Found {recentWalls.Count} recent bike walls around {heroX},{heroY} (user: {hero?.Id}).");
+            // Compute provisional current score for the active run (mirrors HeroDied authoritative formula: time + walls*10)
+            int wallsPlacedForRun = 0;
+            if (walls != null && hero != null)
+            {
+              wallsPlacedForRun = walls.Where(w => w.HeroId == hero.Id).Count();
+            }
+            int currentScore = (hero?.TimeOnLevelSeconds ?? 0) + (wallsPlacedForRun * 10);
+
+            await transaction.CommitAsync();
+            return Ok(new
+            {
+              heroId = hero?.Id ?? 0,
+              heroPosition = hero?.Position,
+              timeOnLevelSeconds = hero?.TimeOnLevelSeconds ?? 0,
+              heroKills = hero?.Kills ?? 0,
+              currentScore,
+              currentLevel = hero?.Level,
+              wallsPlacedForRun,
+              heroes,
+              events,
+              recentWalls
+            });
+          }
+          catch (Exception ex)
+          {
+            _ = _log.Db("Error in /Ender/FetchGameData: " + ex.Message, null, "ENDER", true);
+            await transaction.RollbackAsync();
+            return StatusCode(500, "Internal server error: " + ex.Message);
+          }
+        }
+      }
+    }
+
+    [HttpPost("/Ender/FetchInventoryData", Name = "Ender_FetchInventoryData")]
+    public async Task<IActionResult> FetchInventoryData([FromBody] int heroId)
+    {
+      using (var connection = new MySqlConnection(_connectionString))
+      {
+        await connection.OpenAsync();
+        using (var transaction = connection.BeginTransaction())
+        {
+          try
+          {
+            await _log.Db($"Enter FetchInventoryData heroId={heroId}", heroId, "ENDER", false);
+            MetaInventoryItem[]? inventory = await GetInventoryFromDB(heroId, connection, transaction);
+            await transaction.CommitAsync();
+            return Ok(new
+            {
+              inventory
+            });
+          }
+          catch (Exception ex)
+          {
+            await transaction.RollbackAsync();
+            await LogError($"FetchInventoryData failed for heroId={heroId}", ex, heroId);
+            return StatusCode(500, "Internal server error: " + ex.Message);
+          }
+        }
+      }
+    }
+
+    [HttpPost("/Ender/UpdateEvents", Name = "Ender_UpdateEvents")]
+    public async Task<IActionResult> UpdateEvents([FromBody] MetaEvent metaEvent)
+    {
+      using (var connection = new MySqlConnection(_connectionString))
+      {
+        await connection.OpenAsync();
+        using (var transaction = await connection.BeginTransactionAsync())
+        {
+          try
+          {
+            await _log.Db($"Enter UpdateEvents event={metaEvent?.EventType} heroId={metaEvent?.HeroId}", metaEvent?.HeroId, "ENDER", false);
+            if (metaEvent == null) throw new ArgumentNullException(nameof(metaEvent));
+            await UpdateEventsInDB(metaEvent, connection, transaction);
+            await PerformEventChecks(metaEvent, connection, transaction);
+
+            await transaction.CommitAsync();
+            return Ok();
+          }
+          catch (Exception ex)
+          {
+            await transaction.RollbackAsync();
+            await LogError("UpdateEvents failed", ex, metaEvent?.HeroId);
+            return StatusCode(500, "Internal server error: " + ex.Message);
+          }
+        }
+      }
+    }
+
+    [HttpPost("/Ender/DeleteEvent", Name = "Ender_DeleteEvent")]
+    public async Task<IActionResult> DeleteEvent([FromBody] DeleteEventRequest req)
+    {
+      using (var connection = new MySqlConnection(_connectionString))
+      {
+        await connection.OpenAsync();
+        using (var transaction = connection.BeginTransaction())
+        {
+          try
+          {
+            if (req == null) throw new ArgumentNullException(nameof(req));
+            await _log.Db($"Enter DeleteEvent id={req.EventId}", null, "ENDER", false);
+            string sql = @"DELETE FROM maxhanna.ender_event WHERE id = @EventId LIMIT 1;";
+            Dictionary<string, object?> parameters = new Dictionary<string, object?>
                         {
                             { "@EventId", req.EventId },
                         };
-                        await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-                        await transaction.CommitAsync();
+            await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+            await transaction.CommitAsync();
 
-                        return Ok();
-                    }
-                    catch (Exception ex)
-                    {
-                        await transaction.RollbackAsync();
-                        await LogError($"DeleteEvent failed id={req?.EventId}", ex);
-                        return StatusCode(500, "Internal server error: " + ex.Message);
-                    }
-                }
-            }
+            return Ok();
+          }
+          catch (Exception ex)
+          {
+            await transaction.RollbackAsync();
+            await LogError($"DeleteEvent failed id={req?.EventId}", ex);
+            return StatusCode(500, "Internal server error: " + ex.Message);
+          }
         }
+      }
+    }
 
-        [HttpPost("/Ender/UpdateInventory", Name = "Ender_UpdateInventory")]
-        public async Task<IActionResult> UpdateInventory([FromBody] UpdateMetaHeroInventoryRequest request)
+    [HttpPost("/Ender/UpdateInventory", Name = "Ender_UpdateInventory")]
+    public async Task<IActionResult> UpdateInventory([FromBody] UpdateMetaHeroInventoryRequest request)
+    {
+      if (request.HeroId != 0)
+      {
+        using (var connection = new MySqlConnection(_connectionString))
         {
-            if (request.HeroId != 0)
+          await connection.OpenAsync();
+          using (var transaction = connection.BeginTransaction())
+          {
+            try
             {
-                using (var connection = new MySqlConnection(_connectionString))
-                {
-                    await connection.OpenAsync();
-                    using (var transaction = connection.BeginTransaction())
-                    {
-                        try
-                        {
-                            await _log.Db($"Enter UpdateInventory heroId={request.HeroId} name={request.Name}", request.HeroId, "ENDER", false);
-                            await UpdateInventoryInDB(request, connection, transaction);
-                            await transaction.CommitAsync();
+              await _log.Db($"Enter UpdateInventory heroId={request.HeroId} name={request.Name}", request.HeroId, "ENDER", false);
+              await UpdateInventoryInDB(request, connection, transaction);
+              await transaction.CommitAsync();
 
-                            return Ok();
-                        }
-                        catch (Exception ex)
-                        {
-                            await transaction.RollbackAsync();
-                            await LogError($"UpdateInventory failed for heroId={request.HeroId}", ex, request.HeroId);
-                            return StatusCode(500, "Internal server error: " + ex.Message);
-                        }
-                    }
-                }
+              return Ok();
             }
-            else return BadRequest("Hero ID must be supplied");
-        }
-
-        [HttpPost("/Ender/HeroDied", Name = "Ender_HeroDied")]
-        public async Task<IActionResult> HeroDied([FromBody] HeroDiedRequest req)
-        {
-            using (var connection = new MySqlConnection(_connectionString))
+            catch (Exception ex)
             {
-                await connection.OpenAsync();
-                using (var transaction = connection.BeginTransaction())
+              await transaction.RollbackAsync();
+              await LogError($"UpdateInventory failed for heroId={request.HeroId}", ex, request.HeroId);
+              return StatusCode(500, "Internal server error: " + ex.Message);
+            }
+          }
+        }
+      }
+      else return BadRequest("Hero ID must be supplied");
+    }
+
+    [HttpPost("/Ender/HeroDied", Name = "Ender_HeroDied")]
+    public async Task<IActionResult> HeroDied([FromBody] HeroDiedRequest req)
+    {
+      using (var connection = new MySqlConnection(_connectionString))
+      {
+        await connection.OpenAsync();
+        using (var transaction = connection.BeginTransaction())
+        {
+          try
+          {
+            await _log.Db($"Enter HeroDied heroId={req?.HeroId} userId={req?.UserId}", req?.HeroId, "ENDER", false);
+            // Validate walls server-side if RunStartMs provided; recompute authoritative score = time + walls*10
+            // Compute authoritative time-on-level from the hero's creation time (server-side) and validate walls since then
+            if (req == null) throw new ArgumentNullException(nameof(req));
+            int validatedWalls = req.WallsPlaced;
+            int timeOnLevelSeconds = req.TimeOnLevel;
+            DateTime? heroCreatedAt = null;
+
+            int heroLevelFromDb = 1;
+            try
+            {
+              // Fetch hero.created_at and level from DB for authoritative run start
+              string heroSql = @"SELECT created, level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+              using (var getHeroCmd = new MySqlCommand(heroSql, connection, transaction))
+              {
+                getHeroCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
+                using (var rdr = await getHeroCmd.ExecuteReaderAsync())
                 {
-                    try
-                    {
-                        await _log.Db($"Enter HeroDied heroId={req?.HeroId} userId={req?.UserId}", req?.HeroId, "ENDER", false);
-                        // Validate walls server-side if RunStartMs provided; recompute authoritative score = time + walls*10
-                        // Compute authoritative time-on-level from the hero's creation time (server-side) and validate walls since then
-                        if (req == null) throw new ArgumentNullException(nameof(req));
-                        int validatedWalls = req.WallsPlaced;
-                        int timeOnLevelSeconds = req.TimeOnLevel;
-                        DateTime? heroCreatedAt = null;
+                  if (await rdr.ReadAsync())
+                  {
+                    heroCreatedAt = rdr.IsDBNull(rdr.GetOrdinal("created")) ? (DateTime?)null : Convert.ToDateTime(rdr["created"]).ToUniversalTime();
+                    heroLevelFromDb = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 1 : Convert.ToInt32(rdr["level"]);
+                  }
+                }
+              }
+              if (heroCreatedAt != null)
+              {
+                // authoritative time on level = now - hero.created_at
+                timeOnLevelSeconds = Math.Max(0, (int)Math.Floor((DateTime.UtcNow - heroCreatedAt.Value).TotalSeconds));
 
-                        int heroLevelFromDb = 1;
-                        try
-                        {
-                            // Fetch hero.created_at and level from DB for authoritative run start
-                            string heroSql = @"SELECT created, level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
-                            using (var getHeroCmd = new MySqlCommand(heroSql, connection, transaction))
-                            {
-                                getHeroCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
-                                using (var rdr = await getHeroCmd.ExecuteReaderAsync())
-                                {
-                                    if (await rdr.ReadAsync())
-                                    {
-                                        heroCreatedAt = rdr.IsDBNull(rdr.GetOrdinal("created")) ? (DateTime?)null : Convert.ToDateTime(rdr["created"]).ToUniversalTime();
-                                        heroLevelFromDb = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 1 : Convert.ToInt32(rdr["level"]);
-                                    }
-                                }
-                            }
-                            if (heroCreatedAt != null)
-                            {
-                                // authoritative time on level = now - hero.created_at
-                                timeOnLevelSeconds = Math.Max(0, (int)Math.Floor((DateTime.UtcNow - heroCreatedAt.Value).TotalSeconds));
+                // Count persisted bike walls for this hero that were created at/after heroCreatedAt and on the same level
+                string countSql = @"SELECT COUNT(*) FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId AND created_at >= @CreatedAt AND level = @Level;";
+                using (var countCmd = new MySqlCommand(countSql, connection, transaction))
+                {
+                  countCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
+                  countCmd.Parameters.AddWithValue("@CreatedAt", heroCreatedAt.Value);
+                  countCmd.Parameters.AddWithValue("@Level", heroLevelFromDb);
+                  var result = await countCmd.ExecuteScalarAsync();
+                  validatedWalls = Convert.ToInt32(result);
+                }
+              }
+            }
+            catch (Exception ex)
+            {
+              _ = _log.Db("Failed to compute authoritative time/walls: " + ex.Message, null, "ENDER", true);
+              // fallback to client-supplied values already present in req
+              timeOnLevelSeconds = req.TimeOnLevel;
+              validatedWalls = req.WallsPlaced;
+            }
 
-                                // Count persisted bike walls for this hero that were created at/after heroCreatedAt and on the same level
-                                string countSql = @"SELECT COUNT(*) FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId AND created_at >= @CreatedAt AND level = @Level;";
-                                using (var countCmd = new MySqlCommand(countSql, connection, transaction))
-                                {
-                                    countCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
-                                    countCmd.Parameters.AddWithValue("@CreatedAt", heroCreatedAt.Value);
-                                    countCmd.Parameters.AddWithValue("@Level", heroLevelFromDb);
-                                    var result = await countCmd.ExecuteScalarAsync();
-                                    validatedWalls = Convert.ToInt32(result);
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _ = _log.Db("Failed to compute authoritative time/walls: " + ex.Message, null, "ENDER", true);
-                            // fallback to client-supplied values already present in req
-                            timeOnLevelSeconds = req.TimeOnLevel;
-                            validatedWalls = req.WallsPlaced;
-                        }
+            int authoritativeScore = timeOnLevelSeconds + (validatedWalls * 10);
 
-                        int authoritativeScore = timeOnLevelSeconds + (validatedWalls * 10);
+            int heroLevel = 1;
+            int kills = 0;
+            try
+            {
+              // attempt to read hero level and kills from DB so we can record them with the score
+              string heroLevelSql = @"SELECT level, kills FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+              using (var lvlCmd = new MySqlCommand(heroLevelSql, connection, transaction))
+              {
+                lvlCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
+                using (var rdr = await lvlCmd.ExecuteReaderAsync())
+                {
+                  if (await rdr.ReadAsync())
+                  {
+                    heroLevel = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 1 : Convert.ToInt32(rdr["level"]);
+                    kills = rdr.IsDBNull(rdr.GetOrdinal("kills")) ? 0 : Convert.ToInt32(rdr["kills"]);
+                  }
+                }
+              }
+            }
+            catch { /* ignore and default to 1/0 */ }
 
-                        int heroLevel = 1;
-                        int kills = 0;
-                        try
-                        {
-                            // attempt to read hero level and kills from DB so we can record them with the score
-                            string heroLevelSql = @"SELECT level, kills FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
-                            using (var lvlCmd = new MySqlCommand(heroLevelSql, connection, transaction))
-                            {
-                                lvlCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
-                                using (var rdr = await lvlCmd.ExecuteReaderAsync())
-                                {
-                                    if (await rdr.ReadAsync())
-                                    {
-                                        heroLevel = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 1 : Convert.ToInt32(rdr["level"]);
-                                        kills = rdr.IsDBNull(rdr.GetOrdinal("kills")) ? 0 : Convert.ToInt32(rdr["kills"]);
-                                    }
-                                }
-                            }
-                        }
-                        catch { /* ignore and default to 1/0 */ }
-
-                        // Insert into top scores table (include time on level, walls placed, hero level and kills)
-                        // NOTE: ensure your DB has a `kills` INT NOT NULL DEFAULT 0 column on maxhanna.ender_top_scores
-                        string insertScoreSql = @"INSERT INTO maxhanna.ender_top_scores (hero_id, user_id, score, time_on_level_seconds, walls_placed, level, kills, created_at) VALUES (@HeroId, @UserId, @Score, @TimeOnLevel, @WallsPlaced, @Level, @Kills, UTC_TIMESTAMP());";
-                        Dictionary<string, object?> scoreParams = new Dictionary<string, object?>()
+            // Insert into top scores table (include time on level, walls placed, hero level and kills)
+            // NOTE: ensure your DB has a `kills` INT NOT NULL DEFAULT 0 column on maxhanna.ender_top_scores
+            string insertScoreSql = @"INSERT INTO maxhanna.ender_top_scores (hero_id, user_id, score, time_on_level_seconds, walls_placed, level, kills, created_at) VALUES (@HeroId, @UserId, @Score, @TimeOnLevel, @WallsPlaced, @Level, @Kills, UTC_TIMESTAMP());";
+            Dictionary<string, object?> scoreParams = new Dictionary<string, object?>()
                         {
                             { "@HeroId", req.HeroId },
                             { "@UserId", req.UserId },
@@ -512,153 +512,153 @@ namespace maxhanna.Server.Controllers
                             { "@Level", heroLevel },
                             { "@Kills", kills }
                         };
-                        await ExecuteInsertOrUpdateOrDeleteAsync(insertScoreSql, scoreParams, connection, transaction);
+            await ExecuteInsertOrUpdateOrDeleteAsync(insertScoreSql, scoreParams, connection, transaction);
 
-                        // Delete hero and related rows (inventory, bots, events)
-                        string deleteInventory = "DELETE FROM maxhanna.ender_hero_inventory WHERE ender_hero_id = @HeroId;";
-                        await ExecuteInsertOrUpdateOrDeleteAsync(deleteInventory, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
+            // Delete hero and related rows (inventory, bots, events)
+            string deleteInventory = "DELETE FROM maxhanna.ender_hero_inventory WHERE ender_hero_id = @HeroId;";
+            await ExecuteInsertOrUpdateOrDeleteAsync(deleteInventory, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
 
-                        string deleteHero = "DELETE FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
-                        await ExecuteInsertOrUpdateOrDeleteAsync(deleteHero, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
+            string deleteHero = "DELETE FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+            await ExecuteInsertOrUpdateOrDeleteAsync(deleteHero, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
 
-                        await transaction.CommitAsync();
-                        return Ok();
-                    }
-                    catch (Exception ex)
-                    {
-                        await transaction.RollbackAsync();
-                        return StatusCode(500, "Internal server error: " + ex.Message);
-                    }
-                }
-            }
+            await transaction.CommitAsync();
+            return Ok();
+          }
+          catch (Exception ex)
+          {
+            await transaction.RollbackAsync();
+            return StatusCode(500, "Internal server error: " + ex.Message);
+          }
         }
+      }
+    }
 
-        [HttpPost("/Ender/Create", Name = "Ender_CreateHero")]
-        public async Task<IActionResult> CreateHero([FromBody] CreateMetaHeroRequest req)
+    [HttpPost("/Ender/Create", Name = "Ender_CreateHero")]
+    public async Task<IActionResult> CreateHero([FromBody] CreateMetaHeroRequest req)
+    {
+      using (var connection = new MySqlConnection(_connectionString))
+      {
+        await connection.OpenAsync();
+        using (var transaction = connection.BeginTransaction())
         {
-            using (var connection = new MySqlConnection(_connectionString))
-            {
-                await connection.OpenAsync();
-                using (var transaction = connection.BeginTransaction())
-                {
-                    try
-                    {
-                        string sql = @"INSERT INTO maxhanna.ender_hero (name, user_id, coordsX, coordsY, speed, level, color)
+          try
+          {
+            string sql = @"INSERT INTO maxhanna.ender_hero (name, user_id, coordsX, coordsY, speed, level, color)
                                     SELECT @Name, @UserId, @CoordsX, @CoordsY, @Speed, @Level, @Color
                                     WHERE NOT EXISTS (
                                             SELECT 1 FROM maxhanna.ender_hero WHERE user_id = @UserId OR name = @Name
                                     );";
-                        // Choose a random starting location that doesn't collide with other heroes or bike walls
-                        const int mapSize = 1000; // coordinate bounds 0..999 (pixels)
-                        const int SAFE_DISTANCE = 96; // pixels; must be larger than collision tolerance (16) + margin
-                        const int MAX_ATTEMPTS = 500;
+            // Choose a random starting location that doesn't collide with other heroes or bike walls
+            const int mapSize = 1000; // coordinate bounds 0..999 (pixels)
+            const int SAFE_DISTANCE = 96; // pixels; must be larger than collision tolerance (16) + margin
+            const int MAX_ATTEMPTS = 500;
 
-                        // Gather occupied hero spots (level 1 only)
-                        var occupiedSpots = new List<(int X, int Y)>();
-                        string occSql = "SELECT coordsX AS cx, coordsY AS cy FROM maxhanna.ender_hero WHERE level = 1;";
-                        using (var occCmd = new MySqlCommand(occSql, connection, transaction))
-                        {
-                            using var occReader = await occCmd.ExecuteReaderAsync();
-                            while (await occReader.ReadAsync())
-                            {
-                                var ox = occReader.IsDBNull(occReader.GetOrdinal("cx")) ? 0 : occReader.GetInt32("cx");
-                                var oy = occReader.IsDBNull(occReader.GetOrdinal("cy")) ? 0 : occReader.GetInt32("cy");
-                                occupiedSpots.Add((ox, oy));
-                            }
-                        }
+            // Gather occupied hero spots (level 1 only)
+            var occupiedSpots = new List<(int X, int Y)>();
+            string occSql = "SELECT coordsX AS cx, coordsY AS cy FROM maxhanna.ender_hero WHERE level = 1;";
+            using (var occCmd = new MySqlCommand(occSql, connection, transaction))
+            {
+              using var occReader = await occCmd.ExecuteReaderAsync();
+              while (await occReader.ReadAsync())
+              {
+                var ox = occReader.IsDBNull(occReader.GetOrdinal("cx")) ? 0 : occReader.GetInt32("cx");
+                var oy = occReader.IsDBNull(occReader.GetOrdinal("cy")) ? 0 : occReader.GetInt32("cy");
+                occupiedSpots.Add((ox, oy));
+              }
+            }
 
-                        // Gather bike wall spots (level 1 only)
-                        var bikeWallSpots = new List<(int X, int Y)>();
-                        string bikeSql = "SELECT x AS bx, y AS byy FROM maxhanna.ender_bike_wall WHERE level = 1;";
-                        using (var bikeCmd = new MySqlCommand(bikeSql, connection, transaction))
-                        {
-                            using var bikeReader = await bikeCmd.ExecuteReaderAsync();
-                            while (await bikeReader.ReadAsync())
-                            {
-                                var bx = bikeReader.IsDBNull(bikeReader.GetOrdinal("bx")) ? 0 : bikeReader.GetInt32("bx");
-                                var by = bikeReader.IsDBNull(bikeReader.GetOrdinal("byy")) ? 0 : bikeReader.GetInt32("byy");
-                                bikeWallSpots.Add((bx, by));
-                            }
-                        }
+            // Gather bike wall spots (level 1 only)
+            var bikeWallSpots = new List<(int X, int Y)>();
+            string bikeSql = "SELECT x AS bx, y AS byy FROM maxhanna.ender_bike_wall WHERE level = 1;";
+            using (var bikeCmd = new MySqlCommand(bikeSql, connection, transaction))
+            {
+              using var bikeReader = await bikeCmd.ExecuteReaderAsync();
+              while (await bikeReader.ReadAsync())
+              {
+                var bx = bikeReader.IsDBNull(bikeReader.GetOrdinal("bx")) ? 0 : bikeReader.GetInt32("bx");
+                var by = bikeReader.IsDBNull(bikeReader.GetOrdinal("byy")) ? 0 : bikeReader.GetInt32("byy");
+                bikeWallSpots.Add((bx, by));
+              }
+            }
 
-                        bool IsSafe(int x, int y)
-                        {
-                            // Quick reject if near any hero
-                            foreach (var (hx, hy) in occupiedSpots)
-                            {
-                                if (Math.Abs(hx - x) <= SAFE_DISTANCE && Math.Abs(hy - y) <= SAFE_DISTANCE) return false;
-                            }
-                            // Quick reject if near any wall
-                            foreach (var (wx, wy) in bikeWallSpots)
-                            {
-                                if (Math.Abs(wx - x) <= SAFE_DISTANCE && Math.Abs(wy - y) <= SAFE_DISTANCE) return false;
-                            }
-                            return true;
-                        }
+            bool IsSafe(int x, int y)
+            {
+              // Quick reject if near any hero
+              foreach (var (hx, hy) in occupiedSpots)
+              {
+                if (Math.Abs(hx - x) <= SAFE_DISTANCE && Math.Abs(hy - y) <= SAFE_DISTANCE) return false;
+              }
+              // Quick reject if near any wall
+              foreach (var (wx, wy) in bikeWallSpots)
+              {
+                if (Math.Abs(wx - x) <= SAFE_DISTANCE && Math.Abs(wy - y) <= SAFE_DISTANCE) return false;
+              }
+              return true;
+            }
 
-                        var rnd = new Random();
-                        int posX = 16; // default fallback grid cell (1*16)
-                        int posY = 16 * 11; // keep prior Y fallback
-                        bool found = false;
-                        for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++)
-                        {
-                            // Bias away from extreme edges (leave 32px margin)
-                            int x = rnd.Next(32, mapSize - 32);
-                            int y = rnd.Next(32, mapSize - 32);
-                            if (IsSafe(x, y))
-                            {
-                                posX = x;
-                                posY = y;
-                                found = true;
-                                break;
-                            }
-                        }
-                        if (!found)
-                        {
-                            // Last resort: search a small expanding spiral around fallback until safe
-                            int startX = posX;
-                            int startY = posY;
-                            int radius = 16;
-                            for (int r = 0; r <= 10 && !found; r++)
-                            {
-                                for (int dx = -radius; dx <= radius && !found; dx += 16)
-                                {
-                                    for (int dy = -radius; dy <= radius && !found; dy += 16)
-                                    {
-                                        int tx = startX + dx;
-                                        int ty = startY + dy;
-                                        if (tx < 0 || ty < 0 || tx >= mapSize || ty >= mapSize) continue;
-                                        if (IsSafe(tx, ty)) { posX = tx; posY = ty; found = true; }
-                                    }
-                                }
-                                radius += 16;
-                            }
-                        }
-                        string chosenColor = req.Color ?? "#00a0c8";
-                        if (string.Equals(chosenColor, "#00a0c8", StringComparison.OrdinalIgnoreCase) && req.UserId > 0)
-                        {
-                            try
-                            {
-                                string getColorSql = "SELECT last_character_color FROM maxhanna.user_settings WHERE user_id = @UserId LIMIT 1;";
-                                using (var getColorCmd = new MySqlCommand(getColorSql, connection, transaction))
-                                {
-                                    getColorCmd.Parameters.AddWithValue("@UserId", req.UserId);
-                                    var res = await getColorCmd.ExecuteScalarAsync();
-                                    if (res != null && res != DBNull.Value)
-                                    {
-                                        var saved = Convert.ToString(res);
-                                        if (!string.IsNullOrWhiteSpace(saved)) chosenColor = saved!;
-                                    }
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                // non-fatal: log and continue with default
-                                _ = _log.Db($"Failed to read last_character_color for user {req.UserId}: {ex.Message}", null, "ENDER", true);
-                            }
-                        }
+            var rnd = new Random();
+            int posX = 16; // default fallback grid cell (1*16)
+            int posY = 16 * 11; // keep prior Y fallback
+            bool found = false;
+            for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++)
+            {
+              // Bias away from extreme edges (leave 32px margin)
+              int x = rnd.Next(32, mapSize - 32);
+              int y = rnd.Next(32, mapSize - 32);
+              if (IsSafe(x, y))
+              {
+                posX = x;
+                posY = y;
+                found = true;
+                break;
+              }
+            }
+            if (!found)
+            {
+              // Last resort: search a small expanding spiral around fallback until safe
+              int startX = posX;
+              int startY = posY;
+              int radius = 16;
+              for (int r = 0; r <= 10 && !found; r++)
+              {
+                for (int dx = -radius; dx <= radius && !found; dx += 16)
+                {
+                  for (int dy = -radius; dy <= radius && !found; dy += 16)
+                  {
+                    int tx = startX + dx;
+                    int ty = startY + dy;
+                    if (tx < 0 || ty < 0 || tx >= mapSize || ty >= mapSize) continue;
+                    if (IsSafe(tx, ty)) { posX = tx; posY = ty; found = true; }
+                  }
+                }
+                radius += 16;
+              }
+            }
+            string chosenColor = req.Color ?? "#00a0c8";
+            if (string.Equals(chosenColor, "#00a0c8", StringComparison.OrdinalIgnoreCase) && req.UserId > 0)
+            {
+              try
+              {
+                string getColorSql = "SELECT last_character_color FROM maxhanna.user_settings WHERE user_id = @UserId LIMIT 1;";
+                using (var getColorCmd = new MySqlCommand(getColorSql, connection, transaction))
+                {
+                  getColorCmd.Parameters.AddWithValue("@UserId", req.UserId);
+                  var res = await getColorCmd.ExecuteScalarAsync();
+                  if (res != null && res != DBNull.Value)
+                  {
+                    var saved = Convert.ToString(res);
+                    if (!string.IsNullOrWhiteSpace(saved)) chosenColor = saved!;
+                  }
+                }
+              }
+              catch (Exception ex)
+              {
+                // non-fatal: log and continue with default
+                _ = _log.Db($"Failed to read last_character_color for user {req.UserId}: {ex.Message}", null, "ENDER", true);
+              }
+            }
 
-                        Dictionary<string, object?> parameters = new Dictionary<string, object?>
+            Dictionary<string, object?> parameters = new Dictionary<string, object?>
                         {
                                 { "@CoordsX", posX },
                                 { "@CoordsY", posY },
@@ -668,384 +668,467 @@ namespace maxhanna.Server.Controllers
                                 { "@Level", 1 },
                                 { "@Color", chosenColor }
                         };
-                        long? botId = await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+            long? botId = await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 
-                        // Persist last character name to user_settings
+            // Persist last character name to user_settings
 
-                        string upsertNameSql = @"INSERT INTO maxhanna.user_settings (user_id, last_character_name, last_character_color) VALUES (@UserId, @Name, @Color)
+            string upsertNameSql = @"INSERT INTO maxhanna.user_settings (user_id, last_character_name, last_character_color) VALUES (@UserId, @Name, @Color)
                                                     ON DUPLICATE KEY UPDATE last_character_name = VALUES(last_character_name), last_character_color = VALUES(last_character_color);";
-                        await ExecuteInsertOrUpdateOrDeleteAsync(upsertNameSql, new Dictionary<string, object?>() {
+            await ExecuteInsertOrUpdateOrDeleteAsync(upsertNameSql, new Dictionary<string, object?>() {
                             { "@UserId", req.UserId },
                             { "@Name", req.Name ?? "" },
                             { "@Color", chosenColor }
                         }, connection, transaction);
 
-                        await transaction.CommitAsync();
+            await transaction.CommitAsync();
 
-                        MetaHero hero = new MetaHero();
-                        hero.Position = new Vector2(posX, posY);
-                        hero.Id = (int)botId;
-                        hero.Speed = 1;
-                        hero.Name = req.Name ?? "Anonymous";
-                        hero.Color = chosenColor;
-                        hero.Created = DateTime.UtcNow;
-                        return Ok(hero);
-                    }
-                    catch (Exception ex)
-                    {
-                        await transaction.RollbackAsync();
-                        return StatusCode(500, "Internal server error: " + ex.Message);
-                    }
-                }
-            }
+            MetaHero hero = new MetaHero();
+            hero.Position = new Vector2(posX, posY);
+            hero.Id = (int)botId;
+            hero.Speed = 1;
+            hero.Name = req.Name ?? "Anonymous";
+            hero.Color = chosenColor;
+            hero.Created = DateTime.UtcNow;
+            return Ok(hero);
+          }
+          catch (Exception ex)
+          {
+            await transaction.RollbackAsync();
+            return StatusCode(500, "Internal server error: " + ex.Message);
+          }
         }
+      }
+    }
 
-        [HttpPost("/Ender/TopScores", Name = "Ender_TopScores")]
-        public async Task<IActionResult> TopScores([FromBody] int limit)
+    [HttpPost("/Ender/TopScores", Name = "Ender_TopScores")]
+    public async Task<IActionResult> TopScores([FromBody] int limit)
+    {
+      if (limit <= 0) limit = 50;
+      using (var connection = new MySqlConnection(_connectionString))
+      {
+        await connection.OpenAsync();
+        using (var transaction = connection.BeginTransaction())
         {
-            if (limit <= 0) limit = 50;
-            using (var connection = new MySqlConnection(_connectionString))
-            {
-                await connection.OpenAsync();
-                using (var transaction = connection.BeginTransaction())
-                {
-                    try
-                    {
-                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, IFNULL(t.kills,0) AS kills, t.created_at,
+          try
+          {
+            string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, IFNULL(t.kills,0) AS kills, t.created_at,
                                        u.id as user_id_fk, u.username, u.created as user_created, udp.file_id as display_picture_file_id
                                        FROM maxhanna.ender_top_scores t
                                        LEFT JOIN users u ON u.id = t.user_id
                                        LEFT JOIN user_display_pictures udp ON u.id = udp.user_id
                                        ORDER BY t.score DESC LIMIT @Limit;";
-                        var result = new List<Dictionary<string, object?>>();
-                        using (var command = new MySqlCommand(sql, connection, transaction))
-                        {
-                            command.Parameters.AddWithValue("@Limit", limit);
-                            using (var reader = await command.ExecuteReaderAsync())
-                            {
-                                while (await reader.ReadAsync())
-                                {
-                                    var row = new Dictionary<string, object?>();
-                                    row["id"] = reader.GetInt32("id");
-                                    row["hero_id"] = reader.GetInt32("hero_id");
-                                    row["user_id"] = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id");
-                                    row["score"] = reader.GetInt32("score");
-                                    row["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
-                                    row["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
-                                    row["kills"] = reader.IsDBNull(reader.GetOrdinal("kills")) ? 0 : reader.GetInt32("kills");
-                                    row["created_at"] = reader.GetDateTime("created_at");
-                                    row["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
-
-                                    if (!reader.IsDBNull(reader.GetOrdinal("user_id_fk")))
-                                    {
-                                        // Construct a typed User object like WordlerController does
-                                        var tmpUser = new User();
-                                        tmpUser.Id = reader.GetInt32("user_id_fk");
-                                        tmpUser.Username = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
-                                        tmpUser.Created = reader.IsDBNull(reader.GetOrdinal("user_created")) ? (DateTime?)null : reader.GetDateTime("user_created");
-                                        try
-                                        {
-                                            if (!reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")))
-                                            {
-                                                var fileId = reader.GetInt32("display_picture_file_id");
-                                                tmpUser.DisplayPictureFile = new FileEntry(fileId);
-                                            }
-                                        }
-                                        catch { }
-                                        row["user"] = tmpUser;
-                                    }
-
-                                    result.Add(row);
-                                }
-                            }
-                        }
-                        await transaction.CommitAsync();
-                        return Ok(result);
-                    }
-                    catch (Exception ex)
-                    {
-                        await transaction.RollbackAsync();
-                        return StatusCode(500, "Internal server error: " + ex.Message);
-                    }
-                }
-            }
-        }
-
-        [HttpPost("/Ender/ActivePlayers", Name = "Ender_ActivePlayers")]
-        public async Task<IActionResult> ActivePlayers([FromBody] int minutes)
-        {
-            try
+            var result = new List<Dictionary<string, object?>>();
+            using (var command = new MySqlCommand(sql, connection, transaction))
             {
-                if (minutes <= 0) minutes = 2;
-                await using var connection = new MySqlConnection(_connectionString);
-                await connection.OpenAsync();
-                const string sql = @"SELECT COUNT(DISTINCT hero_id) AS cnt FROM maxhanna.ender_bike_wall WHERE created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE);";
-                using var cmd = new MySqlCommand(sql, connection);
-                cmd.Parameters.AddWithValue("@Minutes", minutes);
-                var count = Convert.ToInt32(await cmd.ExecuteScalarAsync());
-                return Ok(new { count = count });
-            }
-            catch (Exception ex)
-            {
-                await LogError("ActivePlayers failed", ex);
-                return StatusCode(500, "Internal server error: " + ex.Message);
-            }
-        }
-
-        [HttpPost("/Ender/GetUserRank", Name = "Ender_GetUserRank")]
-        public async Task<IActionResult> GetUserRank([FromBody] int userId)
-        {
-            if (userId <= 0) return BadRequest("Invalid user id");
-            try
-            {
-                await using var connection = new MySqlConnection(_connectionString);
-                await connection.OpenAsync();
-
-                // Check if user has an active hero
-                const string heroCheckSql = "SELECT id FROM maxhanna.ender_hero WHERE user_id = @UserId LIMIT 1;";
-                using (var heroCmd = new MySqlCommand(heroCheckSql, connection))
+              command.Parameters.AddWithValue("@Limit", limit);
+              using (var reader = await command.ExecuteReaderAsync())
+              {
+                while (await reader.ReadAsync())
                 {
-                    heroCmd.Parameters.AddWithValue("@UserId", userId);
-                    var heroIdObj = await heroCmd.ExecuteScalarAsync();
-                    if (heroIdObj == null || heroIdObj == DBNull.Value)
-                    {
-                        return Ok(new { hasHero = false });
-                    }
-                }
+                  var row = new Dictionary<string, object?>();
+                  row["id"] = reader.GetInt32("id");
+                  row["hero_id"] = reader.GetInt32("hero_id");
+                  row["user_id"] = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id");
+                  row["score"] = reader.GetInt32("score");
+                  row["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
+                  row["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
+                  row["kills"] = reader.IsDBNull(reader.GetOrdinal("kills")) ? 0 : reader.GetInt32("kills");
+                  row["created_at"] = reader.GetDateTime("created_at");
+                  row["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
 
-                // Get the user's best score
-                const string bestSql = "SELECT score FROM maxhanna.ender_top_scores WHERE user_id = @UserId ORDER BY score DESC LIMIT 1;";
-                int userScore = 0;
-                using (var bestCmd = new MySqlCommand(bestSql, connection))
-                {
-                    bestCmd.Parameters.AddWithValue("@UserId", userId);
-                    var scoreObj = await bestCmd.ExecuteScalarAsync();
-                    if (scoreObj == null || scoreObj == DBNull.Value)
-                    {
-                        // user has a hero but no recorded top score yet
-                        return Ok(new { hasHero = true, rank = (int?)null, score = (int?)null, totalPlayers = 0 });
-                    }
-                    userScore = Convert.ToInt32(scoreObj);
-                }
-
-                // Rank is 1 + number of scores strictly greater than user's score
-                const string rankSql = "SELECT COUNT(*) FROM maxhanna.ender_top_scores WHERE score > @Score;";
-                int higherCount = 0;
-                using (var rankCmd = new MySqlCommand(rankSql, connection))
-                {
-                    rankCmd.Parameters.AddWithValue("@Score", userScore);
-                    higherCount = Convert.ToInt32(await rankCmd.ExecuteScalarAsync());
-                }
-
-                // Total distinct players with top scores
-                const string totalSql = "SELECT COUNT(DISTINCT user_id) FROM maxhanna.ender_top_scores;";
-                int totalPlayers = 0;
-                using (var totalCmd = new MySqlCommand(totalSql, connection))
-                {
-                    totalPlayers = Convert.ToInt32(await totalCmd.ExecuteScalarAsync());
-                }
-
-                return Ok(new { hasHero = true, rank = higherCount + 1, score = userScore, totalPlayers = totalPlayers });
-            }
-            catch (Exception ex)
-            {
-                await LogError("GetUserRank failed", ex);
-                return StatusCode(500, "Internal server error: " + ex.Message);
-            }
-        }
-
-        [HttpPost("/Ender/TopScoresToday", Name = "Ender_TopScoresToday")]
-        public async Task<IActionResult> TopScoresToday([FromBody] int limit)
-        {
-            if (limit <= 0) limit = 50;
-            using (var connection = new MySqlConnection(_connectionString))
-            {
-                await connection.OpenAsync();
-                using (var transaction = connection.BeginTransaction())
-                {
+                  if (!reader.IsDBNull(reader.GetOrdinal("user_id_fk")))
+                  {
+                    // Construct a typed User object like WordlerController does
+                    var tmpUser = new User();
+                    tmpUser.Id = reader.GetInt32("user_id_fk");
+                    tmpUser.Username = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
+                    tmpUser.Created = reader.IsDBNull(reader.GetOrdinal("user_created")) ? (DateTime?)null : reader.GetDateTime("user_created");
                     try
                     {
-                        // Use UTC dates to match stored created_at
-                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, IFNULL(t.kills,0) AS kills, t.created_at,
+                      if (!reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")))
+                      {
+                        var fileId = reader.GetInt32("display_picture_file_id");
+                        tmpUser.DisplayPictureFile = new FileEntry(fileId);
+                      }
+                    }
+                    catch { }
+                    row["user"] = tmpUser;
+                  }
+
+                  result.Add(row);
+                }
+              }
+            }
+            await transaction.CommitAsync();
+            return Ok(result);
+          }
+          catch (Exception ex)
+          {
+            await transaction.RollbackAsync();
+            return StatusCode(500, "Internal server error: " + ex.Message);
+          }
+        }
+      }
+    }
+
+    [HttpPost("/Ender/ActivePlayers", Name = "Ender_ActivePlayers")]
+    public async Task<IActionResult> ActivePlayers([FromBody] int minutes)
+    {
+      try
+      {
+        if (minutes <= 0) minutes = 2;
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+        const string sql = @"SELECT COUNT(DISTINCT hero_id) AS cnt FROM maxhanna.ender_bike_wall WHERE created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE);";
+        using var cmd = new MySqlCommand(sql, connection);
+        cmd.Parameters.AddWithValue("@Minutes", minutes);
+        var count = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+        return Ok(new { count = count });
+      }
+      catch (Exception ex)
+      {
+        await LogError("ActivePlayers failed", ex);
+        return StatusCode(500, "Internal server error: " + ex.Message);
+      }
+    }
+
+
+    [HttpPost("/Ender/GetUserRank", Name = "Ender_GetUserRank")]
+    public async Task<IActionResult> GetUserRank([FromBody] int userId)
+    {
+      if (userId <= 0) return BadRequest("Invalid user id");
+
+      try
+      {
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        // 1) Does the user currently have an active hero?
+        bool hasHero = false;
+        const string heroCheckSql = "SELECT id FROM maxhanna.ender_hero WHERE user_id = @UserId LIMIT 1;";
+        await using (var heroCmd = new MySqlCommand(heroCheckSql, connection))
+        {
+          heroCmd.Parameters.AddWithValue("@UserId", userId);
+          var heroIdObj = await heroCmd.ExecuteScalarAsync();
+          hasHero = !(heroIdObj == null || heroIdObj == DBNull.Value);
+        }
+
+        // 2) Compute the user's live score (if any) using the same formula you apply at death.
+        //    We take the MAX in case there are multiple hero rows (defensive; your code implies at most 1).
+        int? liveScore = null;
+        const string liveScoreSql = @"
+            SELECT
+                MAX( TIMESTAMPDIFF(SECOND, h.created, UTC_TIMESTAMP()) 
+                     + COALESCE(w.cnt, 0) * COALESCE(h.kills, 0) ) AS live_score
+            FROM maxhanna.ender_hero h
+            LEFT JOIN (
+                SELECT hero_id, level, COUNT(*) AS cnt
+                FROM maxhanna.ender_bike_wall
+                GROUP BY hero_id, level
+            ) w ON w.hero_id = h.id AND w.level = h.level
+            WHERE h.user_id = @UserId;
+        ";
+        await using (var liveCmd = new MySqlCommand(liveScoreSql, connection))
+        {
+          liveCmd.Parameters.AddWithValue("@UserId", userId);
+          var liveObj = await liveCmd.ExecuteScalarAsync();
+          if (liveObj != null && liveObj != DBNull.Value)
+            liveScore = Convert.ToInt32(liveObj);
+        }
+
+        // 3) Get the user's best recorded score (if any).
+        int? bestRecorded = null;
+        const string bestRecordedSql = @"
+            SELECT MAX(score) FROM maxhanna.ender_top_scores WHERE user_id = @UserId;
+        ";
+        await using (var recCmd = new MySqlCommand(bestRecordedSql, connection))
+        {
+          recCmd.Parameters.AddWithValue("@UserId", userId);
+          var recObj = await recCmd.ExecuteScalarAsync();
+          if (recObj != null && recObj != DBNull.Value)
+            bestRecorded = Convert.ToInt32(recObj);
+        }
+
+        // 4) Determine the user's effective best score (live vs recorded).
+        int? userBest = null;
+        if (liveScore.HasValue && bestRecorded.HasValue)
+          userBest = Math.Max(liveScore.Value, bestRecorded.Value);
+        else if (liveScore.HasValue)
+          userBest = liveScore.Value;
+        else if (bestRecorded.HasValue)
+          userBest = bestRecorded.Value;
+
+        // If user has neither an active hero nor a recorded score, respond cleanly.
+        if (!hasHero && !userBest.HasValue)
+        {
+          return Ok(new { hasHero = false, rank = (int?)null, score = (int?)null, totalPlayers = 0 });
+        }
+
+        // 5) Compute higherCount = number of DISTINCT users whose effective best > userBest
+        //    (effective best per user = max(best recorded, best live))
+        int higherCount = 0;
+        if (userBest.HasValue)
+        {
+          const string higherCountSql = @"
+                SELECT COUNT(*) AS higher_count
+                FROM (
+                    SELECT user_id, MAX(best_score) AS best_score
+                    FROM (
+                        SELECT user_id, MAX(score) AS best_score
+                        FROM maxhanna.ender_top_scores
+                        GROUP BY user_id
+
+                        UNION ALL
+
+                        SELECT h.user_id,
+                               MAX( TIMESTAMPDIFF(SECOND, h.created, UTC_TIMESTAMP())
+                                   + COALESCE(w.cnt, 0) * COALESCE(h.kills, 0) ) AS best_score
+                        FROM maxhanna.ender_hero h
+                        LEFT JOIN (
+                            SELECT hero_id, level, COUNT(*) AS cnt
+                            FROM maxhanna.ender_bike_wall
+                            GROUP BY hero_id, level
+                        ) w ON w.hero_id = h.id AND w.level = h.level
+                        GROUP BY h.user_id
+                    ) s
+                    GROUP BY user_id
+                ) e
+                WHERE e.best_score > @UserBest;
+            ";
+          await using (var higherCmd = new MySqlCommand(higherCountSql, connection))
+          {
+            higherCmd.Parameters.AddWithValue("@UserBest", userBest.Value);
+            var hcObj = await higherCmd.ExecuteScalarAsync();
+            if (hcObj != null && hcObj != DBNull.Value)
+              higherCount = Convert.ToInt32(hcObj);
+          }
+        }
+
+        // 6) Compute totalPlayers = distinct users who either have a recorded score OR an active hero.
+        int totalPlayers = 0;
+        const string totalPlayersSql = @"
+            SELECT COUNT(*) AS total_players
+            FROM (
+                SELECT user_id FROM maxhanna.ender_top_scores
+                UNION
+                SELECT user_id FROM maxhanna.ender_hero
+            ) u;
+        ";
+        await using (var totalCmd = new MySqlCommand(totalPlayersSql, connection))
+        {
+          var tpObj = await totalCmd.ExecuteScalarAsync();
+          if (tpObj != null && tpObj != DBNull.Value)
+            totalPlayers = Convert.ToInt32(tpObj);
+        }
+
+        return Ok(new
+        {
+          hasHero,
+          rank = userBest.HasValue ? higherCount + 1 : (int?)null,
+          score = userBest, // effective best (live or recorded)
+          totalPlayers
+        });
+      }
+      catch (Exception ex)
+      {
+        await LogError("GetUserRank failed", ex);
+        return StatusCode(500, "Internal server error: " + ex.Message);
+      }
+    }
+
+
+    [HttpPost("/Ender/TopScoresToday", Name = "Ender_TopScoresToday")]
+    public async Task<IActionResult> TopScoresToday([FromBody] int limit)
+    {
+      if (limit <= 0) limit = 50;
+      using (var connection = new MySqlConnection(_connectionString))
+      {
+        await connection.OpenAsync();
+        using (var transaction = connection.BeginTransaction())
+        {
+          try
+          {
+            // Use UTC dates to match stored created_at
+            string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, IFNULL(t.kills,0) AS kills, t.created_at,
                                        u.id as user_id_fk, u.username, u.created as user_created, udp.file_id as display_picture_file_id
                                        FROM maxhanna.ender_top_scores t
                                        LEFT JOIN users u ON u.id = t.user_id
                                        LEFT JOIN user_display_pictures udp ON u.id = udp.user_id
                                        WHERE DATE(t.created_at) = DATE(UTC_TIMESTAMP())
                                        ORDER BY t.score DESC LIMIT @Limit;";
-                        var result = new List<Dictionary<string, object?>>();
-                        using (var command = new MySqlCommand(sql, connection, transaction))
-                        {
-                            command.Parameters.AddWithValue("@Limit", limit);
-                            using (var reader = await command.ExecuteReaderAsync())
-                            {
-                                while (await reader.ReadAsync())
-                                {
-                                    var row = new Dictionary<string, object?>();
-                                    row["id"] = reader.GetInt32("id");
-                                    row["hero_id"] = reader.GetInt32("hero_id");
-                                    row["user_id"] = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id");
-                                    row["score"] = reader.GetInt32("score");
-                                    row["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
-                                    row["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
-                                    row["kills"] = reader.IsDBNull(reader.GetOrdinal("kills")) ? 0 : reader.GetInt32("kills");
-                                    row["created_at"] = reader.GetDateTime("created_at");
-                                    row["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
-
-                                    if (!reader.IsDBNull(reader.GetOrdinal("user_id_fk")))
-                                    {
-                                        var userObj = new Dictionary<string, object?>();
-                                        userObj["id"] = reader.GetInt32("user_id_fk");
-                                        userObj["username"] = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
-                                        userObj["created"] = reader.IsDBNull(reader.GetOrdinal("user_created")) ? null : reader.GetDateTime("user_created");
-                                        try
-                                        {
-                                            if (!reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")))
-                                            {
-                                                var fileId = reader.GetInt32("display_picture_file_id");
-                                                userObj["displayPictureFile"] = new FileEntry(fileId);
-                                            }
-                                        }
-                                        catch { }
-                                        row["user"] = userObj;
-                                    }
-
-                                    result.Add(row);
-                                }
-                            }
-                        }
-                        await transaction.CommitAsync();
-                        return Ok(result);
-                    }
-                    catch (Exception ex)
-                    {
-                        await transaction.RollbackAsync();
-                        return StatusCode(500, "Internal server error: " + ex.Message);
-                    }
-                }
-            }
-        }
-
-        [HttpPost("/Ender/TopScoresForUser", Name = "Ender_TopScoresForUser")]
-        public async Task<IActionResult> TopScoresForUser([FromBody] int userId)
-        {
-            if (userId <= 0) return BadRequest("Invalid user id");
-            using (var connection = new MySqlConnection(_connectionString))
+            var result = new List<Dictionary<string, object?>>();
+            using (var command = new MySqlCommand(sql, connection, transaction))
             {
-                await connection.OpenAsync();
-                using (var transaction = connection.BeginTransaction())
+              command.Parameters.AddWithValue("@Limit", limit);
+              using (var reader = await command.ExecuteReaderAsync())
+              {
+                while (await reader.ReadAsync())
                 {
+                  var row = new Dictionary<string, object?>();
+                  row["id"] = reader.GetInt32("id");
+                  row["hero_id"] = reader.GetInt32("hero_id");
+                  row["user_id"] = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id");
+                  row["score"] = reader.GetInt32("score");
+                  row["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
+                  row["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
+                  row["kills"] = reader.IsDBNull(reader.GetOrdinal("kills")) ? 0 : reader.GetInt32("kills");
+                  row["created_at"] = reader.GetDateTime("created_at");
+                  row["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
+
+                  if (!reader.IsDBNull(reader.GetOrdinal("user_id_fk")))
+                  {
+                    var userObj = new Dictionary<string, object?>();
+                    userObj["id"] = reader.GetInt32("user_id_fk");
+                    userObj["username"] = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
+                    userObj["created"] = reader.IsDBNull(reader.GetOrdinal("user_created")) ? null : reader.GetDateTime("user_created");
                     try
                     {
-                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, IFNULL(t.kills,0) AS kills, t.created_at,
+                      if (!reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")))
+                      {
+                        var fileId = reader.GetInt32("display_picture_file_id");
+                        userObj["displayPictureFile"] = new FileEntry(fileId);
+                      }
+                    }
+                    catch { }
+                    row["user"] = userObj;
+                  }
+
+                  result.Add(row);
+                }
+              }
+            }
+            await transaction.CommitAsync();
+            return Ok(result);
+          }
+          catch (Exception ex)
+          {
+            await transaction.RollbackAsync();
+            return StatusCode(500, "Internal server error: " + ex.Message);
+          }
+        }
+      }
+    }
+
+    [HttpPost("/Ender/TopScoresForUser", Name = "Ender_TopScoresForUser")]
+    public async Task<IActionResult> TopScoresForUser([FromBody] int userId)
+    {
+      if (userId <= 0) return BadRequest("Invalid user id");
+      using (var connection = new MySqlConnection(_connectionString))
+      {
+        await connection.OpenAsync();
+        using (var transaction = connection.BeginTransaction())
+        {
+          try
+          {
+            string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, IFNULL(t.kills,0) AS kills, t.created_at,
                                        u.id as user_id_fk, u.username, u.created as user_created, udp.file_id as display_picture_file_id
                                        FROM maxhanna.ender_top_scores t
                                        LEFT JOIN users u ON u.id = t.user_id
                                        LEFT JOIN user_display_pictures udp ON u.id = udp.user_id
                                        WHERE t.user_id = @UserId
                                        ORDER BY t.score DESC LIMIT 20;";
-                        var result = new List<Dictionary<string, object?>>();
-                        using (var command = new MySqlCommand(sql, connection, transaction))
-                        {
-                            command.Parameters.AddWithValue("@UserId", userId);
-                            using (var reader = await command.ExecuteReaderAsync())
-                            {
-                                while (await reader.ReadAsync())
-                                {
-                                    var row = new Dictionary<string, object?>();
-                                    row["id"] = reader.GetInt32("id");
-                                    row["hero_id"] = reader.GetInt32("hero_id");
-                                    row["user_id"] = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id");
-                                    row["score"] = reader.GetInt32("score");
-                                    row["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
-                                    row["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
-                                    row["created_at"] = reader.GetDateTime("created_at");
-                                    row["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
-
-                                    if (!reader.IsDBNull(reader.GetOrdinal("user_id_fk")))
-                                    {
-                                        var userObj = new Dictionary<string, object?>();
-                                        userObj["id"] = reader.GetInt32("user_id_fk");
-                                        userObj["username"] = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
-                                        userObj["created"] = reader.IsDBNull(reader.GetOrdinal("user_created")) ? null : reader.GetDateTime("user_created");
-                                        try
-                                        {
-                                            if (!reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")))
-                                            {
-                                                var fileId = reader.GetInt32("display_picture_file_id");
-                                                userObj["displayPictureFile"] = new FileEntry(fileId);
-                                            }
-                                        }
-                                        catch { }
-                                        row["user"] = userObj;
-                                    }
-
-                                    result.Add(row);
-                                }
-                            }
-                        }
-                        await transaction.CommitAsync();
-                        return Ok(result);
-                    }
-                    catch (Exception ex)
-                    {
-                        await transaction.RollbackAsync();
-                        return StatusCode(500, "Internal server error: " + ex.Message);
-                    }
-                }
-            }
-        }
-
-        [HttpPost("/Ender/BestScore", Name = "Ender_BestScore")]
-        public async Task<IActionResult> BestScore([FromBody] int dummy)
-        {
-            try
+            var result = new List<Dictionary<string, object?>>();
+            using (var command = new MySqlCommand(sql, connection, transaction))
             {
-                await using var connection = new MySqlConnection(_connectionString);
-                await connection.OpenAsync();
-                const string sql = @"SELECT t.hero_id, t.user_id, t.score, t.level, IFNULL(t.kills,0) AS kills, u.username
+              command.Parameters.AddWithValue("@UserId", userId);
+              using (var reader = await command.ExecuteReaderAsync())
+              {
+                while (await reader.ReadAsync())
+                {
+                  var row = new Dictionary<string, object?>();
+                  row["id"] = reader.GetInt32("id");
+                  row["hero_id"] = reader.GetInt32("hero_id");
+                  row["user_id"] = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id");
+                  row["score"] = reader.GetInt32("score");
+                  row["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
+                  row["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
+                  row["created_at"] = reader.GetDateTime("created_at");
+                  row["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
+
+                  if (!reader.IsDBNull(reader.GetOrdinal("user_id_fk")))
+                  {
+                    var userObj = new Dictionary<string, object?>();
+                    userObj["id"] = reader.GetInt32("user_id_fk");
+                    userObj["username"] = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
+                    userObj["created"] = reader.IsDBNull(reader.GetOrdinal("user_created")) ? null : reader.GetDateTime("user_created");
+                    try
+                    {
+                      if (!reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")))
+                      {
+                        var fileId = reader.GetInt32("display_picture_file_id");
+                        userObj["displayPictureFile"] = new FileEntry(fileId);
+                      }
+                    }
+                    catch { }
+                    row["user"] = userObj;
+                  }
+
+                  result.Add(row);
+                }
+              }
+            }
+            await transaction.CommitAsync();
+            return Ok(result);
+          }
+          catch (Exception ex)
+          {
+            await transaction.RollbackAsync();
+            return StatusCode(500, "Internal server error: " + ex.Message);
+          }
+        }
+      }
+    }
+
+    [HttpPost("/Ender/BestScore", Name = "Ender_BestScore")]
+    public async Task<IActionResult> BestScore([FromBody] int dummy)
+    {
+      try
+      {
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+        const string sql = @"SELECT t.hero_id, t.user_id, t.score, t.level, IFNULL(t.kills,0) AS kills, u.username
                                       FROM maxhanna.ender_top_scores t
                                       LEFT JOIN users u ON u.id = t.user_id
                                       ORDER BY t.score DESC LIMIT 1;";
-                Dictionary<string, object?>? row = null;
-                await using (var cmd = new MySqlCommand(sql, connection))
-                await using (var reader = await cmd.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow))
-                {
-                    if (await reader.ReadAsync())
-                    {
-                        row = new Dictionary<string, object?>
-                        {
-                            ["hero_id"] = reader.IsDBNull(reader.GetOrdinal("hero_id")) ? 0 : reader.GetInt32("hero_id"),
-                            ["user_id"] = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id"),
-                            ["score"] = reader.IsDBNull(reader.GetOrdinal("score")) ? 0 : reader.GetInt32("score"),
-                            ["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level"),
-                            ["kills"] = reader.IsDBNull(reader.GetOrdinal("kills")) ? 0 : reader.GetInt32("kills"),
-                            ["username"] = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username")
-                        };
-                    }
-                }
-                return Ok(row);
-            }
-            catch (Exception ex)
-            {
-                await LogError("BestScore failed", ex);
-                return StatusCode(500, "Internal server error: " + ex.Message);
-            }
-        }
-
-        [HttpPost("/Ender/BestForUser", Name = "Ender_BestForUser")]
-        public async Task<IActionResult> BestForUser([FromBody] int userId)
+        Dictionary<string, object?>? row = null;
+        await using (var cmd = new MySqlCommand(sql, connection))
+        await using (var reader = await cmd.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow))
         {
-            if (userId <= 0) return BadRequest("Invalid user id");
-            using (var connection = new MySqlConnection(_connectionString))
+          if (await reader.ReadAsync())
+          {
+            row = new Dictionary<string, object?>
             {
-                await connection.OpenAsync();
-                using (var transaction = connection.BeginTransaction())
-                {
-                    try
-                    {
-                        // Select the best score for this user. Join to users table to provide basic user info if available.
-                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, IFNULL(t.kills,0) AS kills, t.created_at,
+              ["hero_id"] = reader.IsDBNull(reader.GetOrdinal("hero_id")) ? 0 : reader.GetInt32("hero_id"),
+              ["user_id"] = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id"),
+              ["score"] = reader.IsDBNull(reader.GetOrdinal("score")) ? 0 : reader.GetInt32("score"),
+              ["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level"),
+              ["kills"] = reader.IsDBNull(reader.GetOrdinal("kills")) ? 0 : reader.GetInt32("kills"),
+              ["username"] = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username")
+            };
+          }
+        }
+        return Ok(row);
+      }
+      catch (Exception ex)
+      {
+        await LogError("BestScore failed", ex);
+        return StatusCode(500, "Internal server error: " + ex.Message);
+      }
+    }
+
+    [HttpPost("/Ender/BestForUser", Name = "Ender_BestForUser")]
+    public async Task<IActionResult> BestForUser([FromBody] int userId)
+    {
+      if (userId <= 0) return BadRequest("Invalid user id");
+      using (var connection = new MySqlConnection(_connectionString))
+      {
+        await connection.OpenAsync();
+        using (var transaction = connection.BeginTransaction())
+        {
+          try
+          {
+            // Select the best score for this user. Join to users table to provide basic user info if available.
+            string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, IFNULL(t.kills,0) AS kills, t.created_at,
                                        u.id as user_id_fk, u.username, u.created as user_created, udp.file_id as display_picture_file_id
                                        FROM maxhanna.ender_top_scores t
                                        LEFT JOIN users u ON u.id = t.user_id
@@ -1054,69 +1137,69 @@ namespace maxhanna.Server.Controllers
                                        ORDER BY t.score DESC, t.created_at ASC
                                        LIMIT 1;";
 
-                        Dictionary<string, object?> result = new Dictionary<string, object?>();
-                        using (var command = new MySqlCommand(sql, connection, transaction))
-                        {
-                            command.Parameters.AddWithValue("@UserId", userId);
-                            using (var reader = await command.ExecuteReaderAsync())
-                            {
-                                if (await reader.ReadAsync())
-                                {
-                                    result["id"] = reader.GetInt32("id");
-                                    result["hero_id"] = reader.GetInt32("hero_id");
-                                    result["user_id"] = reader.GetInt32("user_id");
-                                    result["score"] = reader.GetInt32("score");
-                                    result["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
-                                    result["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
-                                    result["kills"] = reader.IsDBNull(reader.GetOrdinal("kills")) ? 0 : reader.GetInt32("kills");
-                                    result["created_at"] = reader.GetDateTime("created_at");
-                                    result["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
-
-                                    if (!reader.IsDBNull(reader.GetOrdinal("user_id_fk")))
-                                    {
-                                        var userObj = new Dictionary<string, object?>();
-                                        userObj["id"] = reader.GetInt32("user_id_fk");
-                                        userObj["username"] = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
-                                        userObj["created"] = reader.IsDBNull(reader.GetOrdinal("user_created")) ? null : reader.GetDateTime("user_created");
-                                        try
-                                        {
-                                            if (!reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")))
-                                            {
-                                                var fileId = reader.GetInt32("display_picture_file_id");
-                                                userObj["displayPictureFile"] = new FileEntry(fileId);
-                                            }
-                                        }
-                                        catch { }
-                                        result["user"] = userObj;
-                                    }
-                                }
-                            }
-                        }
-
-                        await transaction.CommitAsync();
-                        return Ok(result);
-                    }
-                    catch (Exception ex)
-                    {
-                        await transaction.RollbackAsync();
-                        return StatusCode(500, "Internal server error: " + ex.Message);
-                    }
-                }
-            }
-        }
-
-
-
-        [HttpPost("/Ender/GetUserPartyMembers", Name = "Ender_GetUserPartyMembers")]
-        public async Task<IActionResult> GetUserPartyMembers([FromBody] int userId)
-        {
-            using (var connection = new MySqlConnection(_connectionString))
+            Dictionary<string, object?> result = new Dictionary<string, object?>();
+            using (var command = new MySqlCommand(sql, connection, transaction))
             {
-                await connection.OpenAsync();
-                try
+              command.Parameters.AddWithValue("@UserId", userId);
+              using (var reader = await command.ExecuteReaderAsync())
+              {
+                if (await reader.ReadAsync())
                 {
-                    // Query to find all hero IDs and names in the party
-                    const string sql = @"
+                  result["id"] = reader.GetInt32("id");
+                  result["hero_id"] = reader.GetInt32("hero_id");
+                  result["user_id"] = reader.GetInt32("user_id");
+                  result["score"] = reader.GetInt32("score");
+                  result["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
+                  result["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
+                  result["kills"] = reader.IsDBNull(reader.GetOrdinal("kills")) ? 0 : reader.GetInt32("kills");
+                  result["created_at"] = reader.GetDateTime("created_at");
+                  result["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
+
+                  if (!reader.IsDBNull(reader.GetOrdinal("user_id_fk")))
+                  {
+                    var userObj = new Dictionary<string, object?>();
+                    userObj["id"] = reader.GetInt32("user_id_fk");
+                    userObj["username"] = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
+                    userObj["created"] = reader.IsDBNull(reader.GetOrdinal("user_created")) ? null : reader.GetDateTime("user_created");
+                    try
+                    {
+                      if (!reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")))
+                      {
+                        var fileId = reader.GetInt32("display_picture_file_id");
+                        userObj["displayPictureFile"] = new FileEntry(fileId);
+                      }
+                    }
+                    catch { }
+                    result["user"] = userObj;
+                  }
+                }
+              }
+            }
+
+            await transaction.CommitAsync();
+            return Ok(result);
+          }
+          catch (Exception ex)
+          {
+            await transaction.RollbackAsync();
+            return StatusCode(500, "Internal server error: " + ex.Message);
+          }
+        }
+      }
+    }
+
+
+
+    [HttpPost("/Ender/GetUserPartyMembers", Name = "Ender_GetUserPartyMembers")]
+    public async Task<IActionResult> GetUserPartyMembers([FromBody] int userId)
+    {
+      using (var connection = new MySqlConnection(_connectionString))
+      {
+        await connection.OpenAsync();
+        try
+        {
+          // Query to find all hero IDs and names in the party
+          const string sql = @"
                 SELECT DISTINCT h.id, h.name, h.color
                 FROM (
                     SELECT ender_hero_id_1 AS hero_id
@@ -1131,67 +1214,67 @@ namespace maxhanna.Server.Controllers
                 ) AS party_members
                 JOIN ender_hero h ON party_members.hero_id = h.id";
 
-                    using (var command = new MySqlCommand(sql, connection))
-                    {
-                        command.Parameters.AddWithValue("@UserId", userId);
-                        var partyMembers = new List<object>();
+          using (var command = new MySqlCommand(sql, connection))
+          {
+            command.Parameters.AddWithValue("@UserId", userId);
+            var partyMembers = new List<object>();
 
-                        using (var reader = await command.ExecuteReaderAsync())
-                        {
-                            while (await reader.ReadAsync())
-                            {
-                                partyMembers.Add(new
-                                {
-                                    heroId = reader.GetInt32("id"),
-                                    name = reader.GetString("name"),
-                                    color = reader.IsDBNull(reader.GetOrdinal("color")) ? null : reader.GetString("color")
-                                });
-                            }
-                        }
-
-                        // Return the list of party members with heroId and name
-                        return Ok(partyMembers);
-                    }
-                }
-                catch (MySqlException ex)
+            using (var reader = await command.ExecuteReaderAsync())
+            {
+              while (await reader.ReadAsync())
+              {
+                partyMembers.Add(new
                 {
-                    // Log the error (assuming _log.Db exists from previous context)
-                    await _log.Db($"Database error in GetUserPartyMembers for userId {userId}: {ex.Message} (Error Code: {ex.Number})", null, "ENDER", true);
-                    return StatusCode(500, $"Database error: {ex.Message}");
-                }
-                catch (Exception ex)
-                {
-                    // Log unexpected errors
-                    await _log.Db($"Unexpected error in GetUserPartyMembers for userId {userId}: {ex.Message}", null, "ENDER", true);
-                    return StatusCode(500, $"Internal server error: {ex.Message}");
-                }
+                  heroId = reader.GetInt32("id"),
+                  name = reader.GetString("name"),
+                  color = reader.IsDBNull(reader.GetOrdinal("color")) ? null : reader.GetString("color")
+                });
+              }
             }
+
+            // Return the list of party members with heroId and name
+            return Ok(partyMembers);
+          }
         }
-
-        private async Task<MetaHero> UpdateHeroInDB(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
+        catch (MySqlException ex)
         {
-            if (hero == null) throw new ArgumentNullException(nameof(hero));
-            if (hero.Position == null) hero.Position = new Vector2(0, 0);
-            int heroId = hero.Id;
-            // await _log.Db($"Enter UpdateHeroInDB heroId={heroId}", heroId, "ENDER", false);
-            int? previousLevel = null;
-            try
-            {
-                using (var lvlCmd = new MySqlCommand("SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;", connection, transaction))
-                {
-                    lvlCmd.Parameters.AddWithValue("@HeroId", heroId);
-                    var existingLevelObj = await lvlCmd.ExecuteScalarAsync();
-                    if (existingLevelObj != null && existingLevelObj != DBNull.Value)
-                    {
-                        previousLevel = Convert.ToInt32(existingLevelObj);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _ = _log.Db($"Failed to read previous level for heroId={heroId}: {ex.Message}", heroId, "ENDER", true);
-            }
-            string sql = @"UPDATE maxhanna.ender_hero 
+          // Log the error (assuming _log.Db exists from previous context)
+          await _log.Db($"Database error in GetUserPartyMembers for userId {userId}: {ex.Message} (Error Code: {ex.Number})", null, "ENDER", true);
+          return StatusCode(500, $"Database error: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+          // Log unexpected errors
+          await _log.Db($"Unexpected error in GetUserPartyMembers for userId {userId}: {ex.Message}", null, "ENDER", true);
+          return StatusCode(500, $"Internal server error: {ex.Message}");
+        }
+      }
+    }
+
+    private async Task<MetaHero> UpdateHeroInDB(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
+    {
+      if (hero == null) throw new ArgumentNullException(nameof(hero));
+      if (hero.Position == null) hero.Position = new Vector2(0, 0);
+      int heroId = hero.Id;
+      // await _log.Db($"Enter UpdateHeroInDB heroId={heroId}", heroId, "ENDER", false);
+      int? previousLevel = null;
+      try
+      {
+        using (var lvlCmd = new MySqlCommand("SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;", connection, transaction))
+        {
+          lvlCmd.Parameters.AddWithValue("@HeroId", heroId);
+          var existingLevelObj = await lvlCmd.ExecuteScalarAsync();
+          if (existingLevelObj != null && existingLevelObj != DBNull.Value)
+          {
+            previousLevel = Convert.ToInt32(existingLevelObj);
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Failed to read previous level for heroId={heroId}: {ex.Message}", heroId, "ENDER", true);
+      }
+      string sql = @"UPDATE maxhanna.ender_hero 
                             SET coordsX = @CoordsX, 
                                 coordsY = @CoordsY, 
                                 color = @Color,  
@@ -1200,7 +1283,7 @@ namespace maxhanna.Server.Controllers
                                 level = @Level
                             WHERE 
                                 id = @HeroId";
-            Dictionary<string, object?> parameters = new Dictionary<string, object?>
+      Dictionary<string, object?> parameters = new Dictionary<string, object?>
                         {
                                 { "@CoordsX", hero.Position.x },
                                 { "@CoordsY", hero.Position.y },
@@ -1210,127 +1293,127 @@ namespace maxhanna.Server.Controllers
                                 { "@Level", hero.Level },
                                 { "@HeroId", hero.Id }
                         };
-            try
+      try
+      {
+        // If level is changing, delete walls on the level being left before updating
+        if (previousLevel.HasValue && previousLevel.Value != hero.Level)
+        {
+          try
+          {
+            await DeleteWallsForLevel(previousLevel.Value, connection, transaction);
+          }
+          catch (Exception exDel)
+          {
+            _ = _log.Db($"Failed to delete walls for level {previousLevel.Value} during hero level change heroId={heroId}: {exDel.Message}", heroId, "ENDER", true);
+          }
+        }
+        await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+      }
+      catch (Exception ex)
+      {
+        await LogError($"ExecuteUpdate failed for heroId={hero?.Id}", ex, hero?.Id);
+        throw;
+      }
+
+      try
+      {
+        // Read created timestamp and kills in one query so we only hit the DB once
+        string combinedSql = @"SELECT created, IFNULL(kills,0) AS kills FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+        using (var cmd = new MySqlCommand(combinedSql, connection, transaction))
+        {
+          cmd.Parameters.AddWithValue("@HeroId", heroId);
+          using (var rdr = await cmd.ExecuteReaderAsync())
+          {
+            if (await rdr.ReadAsync())
             {
-                // If level is changing, delete walls on the level being left before updating
-                if (previousLevel.HasValue && previousLevel.Value != hero.Level)
+              try
+              {
+                if (!rdr.IsDBNull(rdr.GetOrdinal("created")))
                 {
-                    try
-                    {
-                        await DeleteWallsForLevel(previousLevel.Value, connection, transaction);
-                    }
-                    catch (Exception exDel)
-                    {
-                        _ = _log.Db($"Failed to delete walls for level {previousLevel.Value} during hero level change heroId={heroId}: {exDel.Message}", heroId, "ENDER", true);
-                    }
+                  DateTime created = Convert.ToDateTime(rdr["created"]).ToUniversalTime();
+                  hero.TimeOnLevelSeconds = Math.Max(0, (int)Math.Floor((DateTime.UtcNow - created).TotalSeconds));
                 }
-                await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-            }
-            catch (Exception ex)
-            {
-                await LogError($"ExecuteUpdate failed for heroId={hero?.Id}", ex, hero?.Id);
-                throw;
-            }
+              }
+              catch (Exception exInner)
+              {
+                await LogError("Failed to parse created timestamp from combined query", exInner, heroId);
+              }
 
-            try
-            {
-                // Read created timestamp and kills in one query so we only hit the DB once
-                string combinedSql = @"SELECT created, IFNULL(kills,0) AS kills FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
-                using (var cmd = new MySqlCommand(combinedSql, connection, transaction))
-                {
-                    cmd.Parameters.AddWithValue("@HeroId", heroId);
-                    using (var rdr = await cmd.ExecuteReaderAsync())
-                    {
-                        if (await rdr.ReadAsync())
-                        {
-                            try
-                            {
-                                if (!rdr.IsDBNull(rdr.GetOrdinal("created")))
-                                {
-                                    DateTime created = Convert.ToDateTime(rdr["created"]).ToUniversalTime();
-                                    hero.TimeOnLevelSeconds = Math.Max(0, (int)Math.Floor((DateTime.UtcNow - created).TotalSeconds));
-                                }
-                            }
-                            catch (Exception exInner)
-                            {
-                                await LogError("Failed to parse created timestamp from combined query", exInner, heroId);
-                            }
-
-                            try
-                            {
-                                hero.Kills = rdr.IsDBNull(rdr.GetOrdinal("kills")) ? 0 : Convert.ToInt32(rdr["kills"]);
-                            }
-                            catch (Exception exInner)
-                            {
-                                await LogError("Failed to parse kills from combined query", exInner, heroId);
-                            }
-                        }
-                    }
-                }
+              try
+              {
+                hero.Kills = rdr.IsDBNull(rdr.GetOrdinal("kills")) ? 0 : Convert.ToInt32(rdr["kills"]);
+              }
+              catch (Exception exInner)
+              {
+                await LogError("Failed to parse kills from combined query", exInner, heroId);
+              }
             }
-            catch (Exception ex)
-            {
-                await LogError("Failed to read created and kills for hero", ex, heroId);
-            }
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        await LogError("Failed to read created and kills for hero", ex, heroId);
+      }
 
-            return hero!;
+      return hero!;
+    }
+
+    private async Task DeleteWallsForLevel(int level, MySqlConnection connection, MySqlTransaction transaction)
+    {
+      string deleteSql = "DELETE FROM maxhanna.ender_bike_wall WHERE level = @Level;";
+      using (var cmd = new MySqlCommand(deleteSql, connection, transaction))
+      {
+        cmd.Parameters.AddWithValue("@Level", level);
+        await cmd.ExecuteNonQueryAsync();
+      }
+    }
+
+    private async Task UpdateEventsInDB(MetaEvent @event, MySqlConnection connection, MySqlTransaction transaction)
+    {
+      Console.WriteLine("Updating events in db" + @event.HeroId);
+      try
+      {
+        // Run the cleanup as a dedicated command so multi-statement quirks won't interfere with the INSERT
+        string deleteSql = "DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;";
+        using (var delCmd = new MySqlCommand(deleteSql, connection, transaction))
+        {
+          var deleted = await delCmd.ExecuteNonQueryAsync();
+          await _log.Db($"UpdateEventsInDb: deleted {deleted} old event rows", null, "ENDER", false);
         }
 
-        private async Task DeleteWallsForLevel(int level, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            string deleteSql = "DELETE FROM maxhanna.ender_bike_wall WHERE level = @Level;";
-            using (var cmd = new MySqlCommand(deleteSql, connection, transaction))
-            {
-                cmd.Parameters.AddWithValue("@Level", level);
-                await cmd.ExecuteNonQueryAsync();
-            }
-        }
-
-        private async Task UpdateEventsInDB(MetaEvent @event, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            Console.WriteLine("Updating events in db" + @event.HeroId);
-            try
-            {
-                // Run the cleanup as a dedicated command so multi-statement quirks won't interfere with the INSERT
-                string deleteSql = "DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;";
-                using (var delCmd = new MySqlCommand(deleteSql, connection, transaction))
-                {
-                    var deleted = await delCmd.ExecuteNonQueryAsync();
-                    await _log.Db($"UpdateEventsInDb: deleted {deleted} old event rows", null, "ENDER", false);
-                }
-
-                // Explicit INSERT; escape `event` column name to avoid reserved-word issues
-                string insertSql = @"INSERT INTO maxhanna.ender_event (hero_id, `event`, level, data, timestamp)
+        // Explicit INSERT; escape `event` column name to avoid reserved-word issues
+        string insertSql = @"INSERT INTO maxhanna.ender_event (hero_id, `event`, level, data, timestamp)
                             VALUES (@HeroId, @Event, @Level, @Data, UTC_TIMESTAMP());";
 
-                using (var insertCmd = new MySqlCommand(insertSql, connection, transaction))
-                {
-                    insertCmd.Parameters.AddWithValue("@HeroId", @event.HeroId);
-                    insertCmd.Parameters.AddWithValue("@Event", @event.EventType ?? string.Empty);
-                    insertCmd.Parameters.AddWithValue("@Level", @event.Level);
-                    insertCmd.Parameters.AddWithValue("@Data", Newtonsoft.Json.JsonConvert.SerializeObject(@event.Data));
-
-                    var insertedRows = await insertCmd.ExecuteNonQueryAsync();
-                    var lastId = insertCmd.LastInsertedId;
-                    await _log.Db($"UpdateEventsInDb: inserted rows={insertedRows} lastId={lastId} heroId={@event.HeroId} event={@event.EventType}", null, "ENDER", false);
-                }
-            }
-            catch (Exception ex)
-            {
-                _ = _log.Db("UpdateEventsInDb failed : " + ex.ToString(), null, "ENDER", true);
-            }
-        }
-        private async Task UpdateInventoryInDB(UpdateMetaHeroInventoryRequest request, MySqlConnection connection, MySqlTransaction transaction)
+        using (var insertCmd = new MySqlCommand(insertSql, connection, transaction))
         {
-            if (request.HeroId != 0)
-            {
-                string sql = @"
+          insertCmd.Parameters.AddWithValue("@HeroId", @event.HeroId);
+          insertCmd.Parameters.AddWithValue("@Event", @event.EventType ?? string.Empty);
+          insertCmd.Parameters.AddWithValue("@Level", @event.Level);
+          insertCmd.Parameters.AddWithValue("@Data", Newtonsoft.Json.JsonConvert.SerializeObject(@event.Data));
+
+          var insertedRows = await insertCmd.ExecuteNonQueryAsync();
+          var lastId = insertCmd.LastInsertedId;
+          await _log.Db($"UpdateEventsInDb: inserted rows={insertedRows} lastId={lastId} heroId={@event.HeroId} event={@event.EventType}", null, "ENDER", false);
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("UpdateEventsInDb failed : " + ex.ToString(), null, "ENDER", true);
+      }
+    }
+    private async Task UpdateInventoryInDB(UpdateMetaHeroInventoryRequest request, MySqlConnection connection, MySqlTransaction transaction)
+    {
+      if (request.HeroId != 0)
+      {
+        string sql = @"
                     INSERT INTO ender_hero_inventory (ender_hero_id, name, image, category, quantity) 
                     VALUES (@HeroId, @Name, @Image, @Category, @Quantity)
                     ON DUPLICATE KEY UPDATE 
                         quantity = quantity + @Quantity;";
 
-                Dictionary<string, object?> parameters = new Dictionary<string, object?>
+        Dictionary<string, object?> parameters = new Dictionary<string, object?>
                 {
                     { "@HeroId", request.HeroId },
                     { "@Name", request.Name },
@@ -1339,233 +1422,233 @@ namespace maxhanna.Server.Controllers
                     { "@Quantity", 1 } // assuming each addition increases quantity by 1
                 };
 
-                await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-            }
-        }
+        await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+      }
+    }
 
-        private async Task<List<MetaEvent>> GetEventsFromDb(int level, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            if (connection.State != System.Data.ConnectionState.Open)
-            {
-                await connection.OpenAsync();
-            }
+    private async Task<List<MetaEvent>> GetEventsFromDb(int level, MySqlConnection connection, MySqlTransaction transaction)
+    {
+      if (connection.State != System.Data.ConnectionState.Open)
+      {
+        await connection.OpenAsync();
+      }
 
-            if (transaction == null)
-            {
-                _ = _log.Db("Exception: GetEventsFromDB Transaction is null.", null, "ENDER", true);
-                throw new InvalidOperationException("Transaction is required for this operation.");
-            }
+      if (transaction == null)
+      {
+        _ = _log.Db("Exception: GetEventsFromDB Transaction is null.", null, "ENDER", true);
+        throw new InvalidOperationException("Transaction is required for this operation.");
+      }
 
-            string sql = @"
+      string sql = @"
                 DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;
                 
                 SELECT *
                 FROM maxhanna.ender_event 
                 WHERE (level = @Level OR event = 'CHAT');";
 
-            MySqlCommand cmd = new MySqlCommand(sql, connection, transaction);
-            // bind level parameter
-            cmd.Parameters.AddWithValue("@Level", level);
+      MySqlCommand cmd = new MySqlCommand(sql, connection, transaction);
+      // bind level parameter
+      cmd.Parameters.AddWithValue("@Level", level);
 
-            List<MetaEvent> events = new List<MetaEvent>();
+      List<MetaEvent> events = new List<MetaEvent>();
+      try
+      {
+        using (var reader = await cmd.ExecuteReaderAsync())
+        {
+          while (reader.Read())
+          {
             try
             {
-                using (var reader = await cmd.ExecuteReaderAsync())
-                {
-                    while (reader.Read())
-                    {
-                        try
-                        {
-                            MetaEvent tmpEvent = new MetaEvent(
-                                    Convert.ToInt32(reader["id"]),
-                                    Convert.ToInt32(reader["hero_id"]),
-                                    Convert.ToDateTime(reader["timestamp"]),
-                                    Convert.ToString(reader["event"]) ?? "",
-                                    Convert.ToInt32(reader["level"]),
-                                    Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(reader.GetString("data")) ?? new Dictionary<string, string>()
-                            );
-                            events.Add(tmpEvent);
-                        }
-                        catch (Exception ex)
-                        {
-                            await LogError("Failed to parse event row", ex);
-                        }
-                    }
-                }
+              MetaEvent tmpEvent = new MetaEvent(
+                      Convert.ToInt32(reader["id"]),
+                      Convert.ToInt32(reader["hero_id"]),
+                      Convert.ToDateTime(reader["timestamp"]),
+                      Convert.ToString(reader["event"]) ?? "",
+                      Convert.ToInt32(reader["level"]),
+                      Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(reader.GetString("data")) ?? new Dictionary<string, string>()
+              );
+              events.Add(tmpEvent);
             }
             catch (Exception ex)
             {
-                await LogError("GetEventsFromDb query failed", ex);
+              await LogError("Failed to parse event row", ex);
             }
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        await LogError("GetEventsFromDb query failed", ex);
+      }
 
-            return events;
+      return events;
+    }
+
+    private async Task<int> GetHeroIdByUserId(int userId, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
+    {
+      bool createdConnection = false;
+      bool createdTransaction = false;
+      MySqlConnection? conn = connection;
+      MySqlTransaction? trans = transaction;
+
+      try
+      {
+        if (trans != null && conn == null)
+        {
+          // If transaction supplied but connection not, derive connection from transaction
+          conn = trans.Connection;
         }
 
-        private async Task<int> GetHeroIdByUserId(int userId, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
+        if (conn == null)
         {
-            bool createdConnection = false;
-            bool createdTransaction = false;
-            MySqlConnection? conn = connection;
-            MySqlTransaction? trans = transaction;
-
-            try
-            {
-                if (trans != null && conn == null)
-                {
-                    // If transaction supplied but connection not, derive connection from transaction
-                    conn = trans.Connection;
-                }
-
-                if (conn == null)
-                {
-                    conn = new MySqlConnection(_connectionString);
-                    await conn.OpenAsync();
-                    createdConnection = true;
-                }
-
-                if (trans == null)
-                {
-                    trans = await conn.BeginTransactionAsync();
-                    createdTransaction = true;
-                }
-
-                if (userId <= 0) return 0;
-
-                string sql = @"SELECT id FROM maxhanna.ender_hero WHERE user_id = @UserId LIMIT 1;";
-                using (var cmd = new MySqlCommand(sql, conn, trans))
-                {
-                    cmd.Parameters.AddWithValue("@UserId", userId);
-                    var res = await cmd.ExecuteScalarAsync();
-                    if (res == null || res == DBNull.Value)
-                    {
-                        if (createdTransaction)
-                        {
-                            await trans.CommitAsync();
-                        }
-                        return 0;
-                    }
-                    var id = Convert.ToInt32(res);
-                    if (createdTransaction)
-                    {
-                        await trans.CommitAsync();
-                    }
-                    return id;
-                }
-            }
-            catch (Exception ex)
-            {
-                if (trans != null && createdTransaction)
-                {
-                    try { await trans.RollbackAsync(); } catch { }
-                }
-                await LogError($"GetHeroIdByUserId failed for userId={userId}", ex, null);
-                return 0;
-            }
-            finally
-            {
-                if (trans != null && createdTransaction)
-                {
-                    try { trans.Dispose(); } catch { }
-                }
-                if (conn != null && createdConnection)
-                {
-                    try { await conn.CloseAsync(); conn.Dispose(); } catch { }
-                }
-            }
+          conn = new MySqlConnection(_connectionString);
+          await conn.OpenAsync();
+          createdConnection = true;
         }
 
-        private async Task<int> GetUserIdByHeroId(int heroId, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
+        if (trans == null)
         {
-            bool createdConnection = false;
-            bool createdTransaction = false;
-            MySqlConnection? conn = connection;
-            MySqlTransaction? trans = transaction;
-
-            try
-            {
-                if (trans != null && conn == null)
-                {
-                    conn = trans.Connection;
-                }
-
-                if (conn == null)
-                {
-                    conn = new MySqlConnection(_connectionString);
-                    await conn.OpenAsync();
-                    createdConnection = true;
-                }
-
-                if (trans == null)
-                {
-                    trans = await conn.BeginTransactionAsync();
-                    createdTransaction = true;
-                }
-
-                if (heroId <= 0) return 0;
-
-                string sql = @"SELECT user_id FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
-                using (var cmd = new MySqlCommand(sql, conn, trans))
-                {
-                    cmd.Parameters.AddWithValue("@HeroId", heroId);
-                    var res = await cmd.ExecuteScalarAsync();
-                    if (res == null || res == DBNull.Value)
-                    {
-                        if (createdTransaction)
-                        {
-                            await trans.CommitAsync();
-                        }
-                        return 0;
-                    }
-                    var id = Convert.ToInt32(res);
-                    if (createdTransaction)
-                    {
-                        await trans.CommitAsync();
-                    }
-                    return id;
-                }
-            }
-            catch (Exception ex)
-            {
-                if (trans != null && createdTransaction)
-                {
-                    try { await trans.RollbackAsync(); } catch { }
-                }
-                await LogError($"GetUserIdByHeroId failed for heroId={heroId}", ex, null);
-                return 0;
-            }
-            finally
-            {
-                if (trans != null && createdTransaction)
-                {
-                    try { trans.Dispose(); } catch { }
-                }
-                if (conn != null && createdConnection)
-                {
-                    try { await conn.CloseAsync(); conn.Dispose(); } catch { }
-                }
-            }
+          trans = await conn.BeginTransactionAsync();
+          createdTransaction = true;
         }
-        private async Task<MetaHero?> GetHeroData(int userId, MySqlConnection conn, MySqlTransaction transaction)
+
+        if (userId <= 0) return 0;
+
+        string sql = @"SELECT id FROM maxhanna.ender_hero WHERE user_id = @UserId LIMIT 1;";
+        using (var cmd = new MySqlCommand(sql, conn, trans))
         {
-            // Ensure the connection is open
-            if (conn.State != System.Data.ConnectionState.Open)
+          cmd.Parameters.AddWithValue("@UserId", userId);
+          var res = await cmd.ExecuteScalarAsync();
+          if (res == null || res == DBNull.Value)
+          {
+            if (createdTransaction)
             {
-                await conn.OpenAsync();
+              await trans.CommitAsync();
             }
+            return 0;
+          }
+          var id = Convert.ToInt32(res);
+          if (createdTransaction)
+          {
+            await trans.CommitAsync();
+          }
+          return id;
+        }
+      }
+      catch (Exception ex)
+      {
+        if (trans != null && createdTransaction)
+        {
+          try { await trans.RollbackAsync(); } catch { }
+        }
+        await LogError($"GetHeroIdByUserId failed for userId={userId}", ex, null);
+        return 0;
+      }
+      finally
+      {
+        if (trans != null && createdTransaction)
+        {
+          try { trans.Dispose(); } catch { }
+        }
+        if (conn != null && createdConnection)
+        {
+          try { await conn.CloseAsync(); conn.Dispose(); } catch { }
+        }
+      }
+    }
 
-            if (transaction == null)
+    private async Task<int> GetUserIdByHeroId(int heroId, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
+    {
+      bool createdConnection = false;
+      bool createdTransaction = false;
+      MySqlConnection? conn = connection;
+      MySqlTransaction? trans = transaction;
+
+      try
+      {
+        if (trans != null && conn == null)
+        {
+          conn = trans.Connection;
+        }
+
+        if (conn == null)
+        {
+          conn = new MySqlConnection(_connectionString);
+          await conn.OpenAsync();
+          createdConnection = true;
+        }
+
+        if (trans == null)
+        {
+          trans = await conn.BeginTransactionAsync();
+          createdTransaction = true;
+        }
+
+        if (heroId <= 0) return 0;
+
+        string sql = @"SELECT user_id FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+        using (var cmd = new MySqlCommand(sql, conn, trans))
+        {
+          cmd.Parameters.AddWithValue("@HeroId", heroId);
+          var res = await cmd.ExecuteScalarAsync();
+          if (res == null || res == DBNull.Value)
+          {
+            if (createdTransaction)
             {
-                _ = _log.Db("Exception: GetHeroData Transaction is null.", null, "ENDER", true);
-                throw new InvalidOperationException("Transaction is required for this operation.");
+              await trans.CommitAsync();
             }
+            return 0;
+          }
+          var id = Convert.ToInt32(res);
+          if (createdTransaction)
+          {
+            await trans.CommitAsync();
+          }
+          return id;
+        }
+      }
+      catch (Exception ex)
+      {
+        if (trans != null && createdTransaction)
+        {
+          try { await trans.RollbackAsync(); } catch { }
+        }
+        await LogError($"GetUserIdByHeroId failed for heroId={heroId}", ex, null);
+        return 0;
+      }
+      finally
+      {
+        if (trans != null && createdTransaction)
+        {
+          try { trans.Dispose(); } catch { }
+        }
+        if (conn != null && createdConnection)
+        {
+          try { await conn.CloseAsync(); conn.Dispose(); } catch { }
+        }
+      }
+    }
+    private async Task<MetaHero?> GetHeroData(int userId, MySqlConnection conn, MySqlTransaction transaction)
+    {
+      // Ensure the connection is open
+      if (conn.State != System.Data.ConnectionState.Open)
+      {
+        await conn.OpenAsync();
+      }
 
-            if (userId == 0)
-            {
-                return null;
-            }
+      if (transaction == null)
+      {
+        _ = _log.Db("Exception: GetHeroData Transaction is null.", null, "ENDER", true);
+        throw new InvalidOperationException("Transaction is required for this operation.");
+      }
 
-            // Fetch hero, associated metabots, and metabot parts
-            string sql = $@"
+      if (userId == 0)
+      {
+        return null;
+      }
+
+      // Fetch hero, associated metabots, and metabot parts
+      string sql = $@"
         SELECT 
             h.id as hero_id, h.coordsX, h.coordsY, h.speed, h.name as hero_name, h.color as hero_color, h.mask as hero_mask,
                 h.level as hero_level, h.kills as hero_kills, h.created
@@ -1574,56 +1657,56 @@ namespace maxhanna.Server.Controllers
         WHERE 
             user_id = @UserId;";
 
-            MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
-            cmd.Parameters.AddWithValue("@UserId", userId);
+      MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
+      cmd.Parameters.AddWithValue("@UserId", userId);
 
-            MetaHero? hero = null;
+      MetaHero? hero = null;
 
-            try
-            {
-                using (var reader = await cmd.ExecuteReaderAsync())
-                {
-                    while (reader.Read())
-                    {
-                        // Initialize hero if it hasn't been done yet
-                        if (hero == null)
-                        {
-                            try
-                            {
-                                hero = new MetaHero
-                                {
-                                    Id = Convert.ToInt32(reader["hero_id"]),
-                                    Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
-                                    Speed = Convert.ToInt32(reader["speed"]),
-                                    Name = Convert.ToString(reader["hero_name"]),
-                                    Color = Convert.ToString(reader["hero_color"]) ?? "",
-                                    Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : Convert.ToInt32(reader["hero_mask"]),
-                                    Level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 1 : Convert.ToInt32(reader["hero_level"]),
-                                    Kills = reader.IsDBNull(reader.GetOrdinal("hero_kills")) ? 0 : Convert.ToInt32(reader["hero_kills"]),
-                                    Created = reader.IsDBNull(reader.GetOrdinal("created")) ? (DateTime?)null : Convert.ToDateTime(reader["created"]),
-                                };
-                            }
-                            catch (Exception ex)
-                            {
-                                await LogError("Failed to read hero row in GetHeroData", ex);
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                await LogError("GetHeroData query failed", ex, userId);
-            }
-
-            return hero;
-        }
-
-        private async Task<MetaHero[]> GetMetaHeroes(MySqlConnection conn, MySqlTransaction transaction)
+      try
+      {
+        using (var reader = await cmd.ExecuteReaderAsync())
         {
-            Dictionary<int, MetaHero> heroesDict = new Dictionary<int, MetaHero>();
+          while (reader.Read())
+          {
+            // Initialize hero if it hasn't been done yet
+            if (hero == null)
+            {
+              try
+              {
+                hero = new MetaHero
+                {
+                  Id = Convert.ToInt32(reader["hero_id"]),
+                  Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
+                  Speed = Convert.ToInt32(reader["speed"]),
+                  Name = Convert.ToString(reader["hero_name"]),
+                  Color = Convert.ToString(reader["hero_color"]) ?? "",
+                  Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : Convert.ToInt32(reader["hero_mask"]),
+                  Level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 1 : Convert.ToInt32(reader["hero_level"]),
+                  Kills = reader.IsDBNull(reader.GetOrdinal("hero_kills")) ? 0 : Convert.ToInt32(reader["hero_kills"]),
+                  Created = reader.IsDBNull(reader.GetOrdinal("created")) ? (DateTime?)null : Convert.ToDateTime(reader["created"]),
+                };
+              }
+              catch (Exception ex)
+              {
+                await LogError("Failed to read hero row in GetHeroData", ex);
+              }
+            }
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        await LogError("GetHeroData query failed", ex, userId);
+      }
 
-            string sql = @"
+      return hero;
+    }
+
+    private async Task<MetaHero[]> GetMetaHeroes(MySqlConnection conn, MySqlTransaction transaction)
+    {
+      Dictionary<int, MetaHero> heroesDict = new Dictionary<int, MetaHero>();
+
+      string sql = @"
         SELECT 
             m.id as hero_id, 
             m.name as hero_name,
@@ -1637,50 +1720,50 @@ namespace maxhanna.Server.Controllers
             maxhanna.ender_hero m
         ORDER BY m.coordsY ASC;";
 
-            MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
+      MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
 
-            using (var reader = await cmd.ExecuteReaderAsync())
-            {
-                while (await reader.ReadAsync())
-                {
-                    int heroId = Convert.ToInt32(reader["hero_id"]);
-
-                    // Create a new hero if not already in the dictionary
-                    if (!heroesDict.TryGetValue(heroId, out MetaHero? tmpHero))
-                    {
-                        tmpHero = new MetaHero
-                        {
-                            Id = heroId,
-                            Name = Convert.ToString(reader["hero_name"]),
-                            Color = Convert.ToString(reader["color"]) ?? "",
-                            Mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? null : Convert.ToInt32(reader["mask"]),
-                            Level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 1 : Convert.ToInt32(reader["hero_level"]),
-                            Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
-                            Speed = Convert.ToInt32(reader["speed"]),
-                        };
-                        heroesDict[heroId] = tmpHero;
-                    }
-                }
-            }
-
-            return heroesDict.Values.ToArray();
-        }
-
-        private async Task<MetaHero[]?> GetNearbyPlayers(MetaHero hero, MySqlConnection conn, MySqlTransaction transaction)
+      using (var reader = await cmd.ExecuteReaderAsync())
+      {
+        while (await reader.ReadAsync())
         {
-            // Ensure the connection is open
-            if (conn.State != System.Data.ConnectionState.Open)
-            {
-                await conn.OpenAsync();
-            }
-            if (transaction == null)
-            {
-                _ = _log.Db("Exception: GetNearbyPlayers Transaction is null.", null, "ENDER", true);
-                throw new InvalidOperationException("Transaction is required for this operation.");
-            }
+          int heroId = Convert.ToInt32(reader["hero_id"]);
 
-            Dictionary<int, MetaHero> heroesDict = new Dictionary<int, MetaHero>();
-            string sql = @"
+          // Create a new hero if not already in the dictionary
+          if (!heroesDict.TryGetValue(heroId, out MetaHero? tmpHero))
+          {
+            tmpHero = new MetaHero
+            {
+              Id = heroId,
+              Name = Convert.ToString(reader["hero_name"]),
+              Color = Convert.ToString(reader["color"]) ?? "",
+              Mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? null : Convert.ToInt32(reader["mask"]),
+              Level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 1 : Convert.ToInt32(reader["hero_level"]),
+              Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
+              Speed = Convert.ToInt32(reader["speed"]),
+            };
+            heroesDict[heroId] = tmpHero;
+          }
+        }
+      }
+
+      return heroesDict.Values.ToArray();
+    }
+
+    private async Task<MetaHero[]?> GetNearbyPlayers(MetaHero hero, MySqlConnection conn, MySqlTransaction transaction)
+    {
+      // Ensure the connection is open
+      if (conn.State != System.Data.ConnectionState.Open)
+      {
+        await conn.OpenAsync();
+      }
+      if (transaction == null)
+      {
+        _ = _log.Db("Exception: GetNearbyPlayers Transaction is null.", null, "ENDER", true);
+        throw new InvalidOperationException("Transaction is required for this operation.");
+      }
+
+      Dictionary<int, MetaHero> heroesDict = new Dictionary<int, MetaHero>();
+      string sql = @"
         SELECT 
             m.id as hero_id, 
             m.user_id,
@@ -1698,540 +1781,540 @@ namespace maxhanna.Server.Controllers
         WHERE m.level = @Level
         ORDER BY m.coordsY ASC;";
 
-            MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
-            cmd.Parameters.AddWithValue("@Level", hero.Level);
+      MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
+      cmd.Parameters.AddWithValue("@Level", hero.Level);
+      try
+      {
+        using (var reader = await cmd.ExecuteReaderAsync())
+        {
+          while (await reader.ReadAsync())
+          {
             try
             {
-                using (var reader = await cmd.ExecuteReaderAsync())
-                {
-                    while (await reader.ReadAsync())
-                    {
-                        try
-                        {
-                            int heroId = Convert.ToInt32(reader["hero_id"]);
+              int heroId = Convert.ToInt32(reader["hero_id"]);
 
-                            // Check if the hero already exists in the dictionary
-                            if (!heroesDict.TryGetValue(heroId, out MetaHero? tmpHero))
-                            {
-                                // Create a new hero if not already in the dictionary
-                                tmpHero = new MetaHero
-                                {
-                                    Id = heroId,
-                                    UserId = Convert.ToInt32(reader["user_id"]),
-                                    Name = Convert.ToString(reader["hero_name"]),
-                                    Color = Convert.ToString(reader["color"]) ?? "",
-                                    Mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? null : Convert.ToInt32(reader["mask"]),
-                                    Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
-                                    Speed = Convert.ToInt32(reader["speed"]),
-                                    Level = Convert.ToInt32(reader["level"]),
-                                    Kills = reader.IsDBNull(reader.GetOrdinal("hero_kills")) ? 0 : Convert.ToInt32(reader["hero_kills"]),
-                                    Created = reader.IsDBNull(reader.GetOrdinal("created")) ? (DateTime?)null : Convert.ToDateTime(reader["created"])
-                                };
-                                heroesDict[heroId] = tmpHero;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            await LogError("Failed to parse nearby player row", ex);
-                        }
-                    }
-                }
+              // Check if the hero already exists in the dictionary
+              if (!heroesDict.TryGetValue(heroId, out MetaHero? tmpHero))
+              {
+                // Create a new hero if not already in the dictionary
+                tmpHero = new MetaHero
+                {
+                  Id = heroId,
+                  UserId = Convert.ToInt32(reader["user_id"]),
+                  Name = Convert.ToString(reader["hero_name"]),
+                  Color = Convert.ToString(reader["color"]) ?? "",
+                  Mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? null : Convert.ToInt32(reader["mask"]),
+                  Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
+                  Speed = Convert.ToInt32(reader["speed"]),
+                  Level = Convert.ToInt32(reader["level"]),
+                  Kills = reader.IsDBNull(reader.GetOrdinal("hero_kills")) ? 0 : Convert.ToInt32(reader["hero_kills"]),
+                  Created = reader.IsDBNull(reader.GetOrdinal("created")) ? (DateTime?)null : Convert.ToDateTime(reader["created"])
+                };
+                heroesDict[heroId] = tmpHero;
+              }
             }
             catch (Exception ex)
             {
-                await LogError("GetNearbyPlayers query failed", ex);
+              await LogError("Failed to parse nearby player row", ex);
             }
-
-            return heroesDict.Values.ToArray();
+          }
         }
-        private async Task<MetaInventoryItem[]?> GetInventoryFromDB(int heroId, MySqlConnection conn, MySqlTransaction transaction)
-        {
-            // Ensure the connection is open
-            if (conn.State != System.Data.ConnectionState.Open)
-            {
-                await conn.OpenAsync();
-            }
-            if (transaction == null)
-            {
-                _ = _log.Db("Exception: GetInventoryFromDB Transaction is null.", null, "ENDER", true);
-                throw new InvalidOperationException("Transaction is required for this operation.");
-            }
-            List<MetaInventoryItem> inventory = new List<MetaInventoryItem>();
-            string sql = @"
+      }
+      catch (Exception ex)
+      {
+        await LogError("GetNearbyPlayers query failed", ex);
+      }
+
+      return heroesDict.Values.ToArray();
+    }
+    private async Task<MetaInventoryItem[]?> GetInventoryFromDB(int heroId, MySqlConnection conn, MySqlTransaction transaction)
+    {
+      // Ensure the connection is open
+      if (conn.State != System.Data.ConnectionState.Open)
+      {
+        await conn.OpenAsync();
+      }
+      if (transaction == null)
+      {
+        _ = _log.Db("Exception: GetInventoryFromDB Transaction is null.", null, "ENDER", true);
+        throw new InvalidOperationException("Transaction is required for this operation.");
+      }
+      List<MetaInventoryItem> inventory = new List<MetaInventoryItem>();
+      string sql = @"
                     SELECT *
                     FROM 
                         maxhanna.ender_hero_inventory 
                     WHERE ender_hero_id = @HeroId;";
 
-            MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
-            cmd.Parameters.AddWithValue("@HeroId", heroId);
+      MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
+      cmd.Parameters.AddWithValue("@HeroId", heroId);
 
-            using (var reader = await cmd.ExecuteReaderAsync())
-            {
-                while (reader.Read())
-                {
-                    MetaInventoryItem tmpInventoryItem = new MetaInventoryItem(
-                    id: Convert.ToInt32(reader["id"]),
-                    heroId: Convert.ToInt32(reader["ender_hero_id"]),
-                    created: Convert.ToDateTime(reader["created"]),
-                    name: Convert.ToString(reader["name"]),
-                    image: Convert.ToString(reader["image"]),
-                    category: Convert.ToString(reader["category"]),
-                    quantity: reader.IsDBNull(reader.GetOrdinal("quantity")) ? null : Convert.ToInt32(reader["quantity"])
-                );
-
-                    inventory.Add(tmpInventoryItem);
-                }
-            }
-            return inventory.ToArray();
-        }
-
-
-        private async Task PerformEventChecks(MetaEvent metaEvent, MySqlConnection connection, MySqlTransaction transaction)
+      using (var reader = await cmd.ExecuteReaderAsync())
+      {
+        while (reader.Read())
         {
-            if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "PARTY_INVITE_ACCEPTED")
-            {
-                if (metaEvent.Data.TryGetValue("party_members", out var partyJson))
-                {
-                    try
-                    {
-                        // Parse the batch JSON string into a list of position updates
-                        var partyData = JsonSerializer.Deserialize<List<int>>(partyJson);
-                        if (partyData != null && partyData.Count > 0)
-                        {
-                            await UpdateMetaHeroParty(partyData, connection, transaction);
-                        }
-                        else
-                        {
-                            _ = _log.Db("Empty or invalid party data for UPDATE_ENCOPARTY_INVITE_ACCEPTEDUNTER_POSITION", null, "ENDER", true);
-                        }
-                    }
-                    catch (JsonException ex)
-                    {
-                        _ = _log.Db($"Failed to parse party data for PARTY_INVITE_ACCEPTED: {ex.Message}", null, "ENDER", true);
-                    }
-                }
-                else
-                {
-                    _ = _log.Db("No batch data found for UPDATE_ENCOUNTER_POSITION", null, "ENDER", true);
-                }
-            }
-        }
+          MetaInventoryItem tmpInventoryItem = new MetaInventoryItem(
+          id: Convert.ToInt32(reader["id"]),
+          heroId: Convert.ToInt32(reader["ender_hero_id"]),
+          created: Convert.ToDateTime(reader["created"]),
+          name: Convert.ToString(reader["name"]),
+          image: Convert.ToString(reader["image"]),
+          category: Convert.ToString(reader["category"]),
+          quantity: reader.IsDBNull(reader.GetOrdinal("quantity")) ? null : Convert.ToInt32(reader["quantity"])
+      );
 
-        private async Task<List<MetaBikeWall>> GetBikeWalls(int level, MySqlConnection connection, MySqlTransaction transaction, int lastKnownWallId = 0)
+          inventory.Add(tmpInventoryItem);
+        }
+      }
+      return inventory.ToArray();
+    }
+
+
+    private async Task PerformEventChecks(MetaEvent metaEvent, MySqlConnection connection, MySqlTransaction transaction)
+    {
+      if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "PARTY_INVITE_ACCEPTED")
+      {
+        if (metaEvent.Data.TryGetValue("party_members", out var partyJson))
         {
-            var walls = new List<MetaBikeWall>();
-            string sql = @"SELECT id, hero_id, x, y, level 
+          try
+          {
+            // Parse the batch JSON string into a list of position updates
+            var partyData = JsonSerializer.Deserialize<List<int>>(partyJson);
+            if (partyData != null && partyData.Count > 0)
+            {
+              await UpdateMetaHeroParty(partyData, connection, transaction);
+            }
+            else
+            {
+              _ = _log.Db("Empty or invalid party data for UPDATE_ENCOPARTY_INVITE_ACCEPTEDUNTER_POSITION", null, "ENDER", true);
+            }
+          }
+          catch (JsonException ex)
+          {
+            _ = _log.Db($"Failed to parse party data for PARTY_INVITE_ACCEPTED: {ex.Message}", null, "ENDER", true);
+          }
+        }
+        else
+        {
+          _ = _log.Db("No batch data found for UPDATE_ENCOUNTER_POSITION", null, "ENDER", true);
+        }
+      }
+    }
+
+    private async Task<List<MetaBikeWall>> GetBikeWalls(int level, MySqlConnection connection, MySqlTransaction transaction, int lastKnownWallId = 0)
+    {
+      var walls = new List<MetaBikeWall>();
+      string sql = @"SELECT id, hero_id, x, y, level 
                            FROM maxhanna.ender_bike_wall 
                            WHERE level = @Level AND id > @LastKnownWallId 
                            ORDER BY id ASC";
-            try
-            {
-                using (var cmd = new MySqlCommand(sql, connection, transaction))
-                {
-                    cmd.Parameters.AddWithValue("@Level", level);
-                    cmd.Parameters.AddWithValue("@LastKnownWallId", lastKnownWallId);
-                    using (var reader = await cmd.ExecuteReaderAsync())
-                    {
-                        while (await reader.ReadAsync())
-                        {
-                            try
-                            {
-                                walls.Add(new MetaBikeWall
-                                {
-                                    Id = reader.GetInt32("id"),
-                                    HeroId = reader.GetInt32("hero_id"),
-                                    X = reader.GetInt32("x"),
-                                    Y = reader.GetInt32("y"),
-                                    Level = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level")
-                                });
-                            }
-                            catch (Exception ex)
-                            {
-                                await LogError("Failed to parse bike wall row", ex);
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                await LogError($"GetBikeWalls failed for level={level}", ex);
-            }
-            return walls;
-        }
-
-        // Recent walls within a rolling time window (seconds)
-        private async Task<List<MetaBikeWall>> GetRecentBikeWalls(int level, MySqlConnection connection, MySqlTransaction transaction, int seconds = 10)
+      try
+      {
+        using (var cmd = new MySqlCommand(sql, connection, transaction))
         {
-            var walls = new List<MetaBikeWall>();
-            // Prefer created_at if exists; fall back to last 500 newest IDs as approximation
-            string sql = @"SELECT id, hero_id, x, y, level 
+          cmd.Parameters.AddWithValue("@Level", level);
+          cmd.Parameters.AddWithValue("@LastKnownWallId", lastKnownWallId);
+          using (var reader = await cmd.ExecuteReaderAsync())
+          {
+            while (await reader.ReadAsync())
+            {
+              try
+              {
+                walls.Add(new MetaBikeWall
+                {
+                  Id = reader.GetInt32("id"),
+                  HeroId = reader.GetInt32("hero_id"),
+                  X = reader.GetInt32("x"),
+                  Y = reader.GetInt32("y"),
+                  Level = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level")
+                });
+              }
+              catch (Exception ex)
+              {
+                await LogError("Failed to parse bike wall row", ex);
+              }
+            }
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        await LogError($"GetBikeWalls failed for level={level}", ex);
+      }
+      return walls;
+    }
+
+    // Recent walls within a rolling time window (seconds)
+    private async Task<List<MetaBikeWall>> GetRecentBikeWalls(int level, MySqlConnection connection, MySqlTransaction transaction, int seconds = 10)
+    {
+      var walls = new List<MetaBikeWall>();
+      // Prefer created_at if exists; fall back to last 500 newest IDs as approximation
+      string sql = @"SELECT id, hero_id, x, y, level 
                            FROM maxhanna.ender_bike_wall 
                            WHERE level = @Level AND (created_at >= (UTC_TIMESTAMP() - INTERVAL @Seconds SECOND) OR created_at IS NULL)
                            ORDER BY id ASC";
-            using (var cmd = new MySqlCommand(sql, connection, transaction))
-            {
-                cmd.Parameters.AddWithValue("@Level", level);
-                cmd.Parameters.AddWithValue("@Seconds", seconds);
-                try
-                {
-                    using (var reader = await cmd.ExecuteReaderAsync())
-                    {
-                        while (await reader.ReadAsync())
-                        {
-                            walls.Add(new MetaBikeWall
-                            {
-                                Id = reader.GetInt32("id"),
-                                HeroId = reader.GetInt32("hero_id"),
-                                X = reader.GetInt32("x"),
-                                Y = reader.GetInt32("y"),
-                                Level = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level")
-                            });
-                        }
-                    }
-                }
-                catch
-                {
-                    // Fallback if created_at column doesn't exist
-                    return await GetBikeWalls(level, connection, transaction, 0);
-                }
-            }
-            return walls;
-        }
-
-        private async Task<List<MetaBikeWall>> GetWallsAroundPosition(int level, int centerX, int centerY, double speed, int radiusSeconds, MySqlConnection connection, MySqlTransaction transaction)
+      using (var cmd = new MySqlCommand(sql, connection, transaction))
+      {
+        cmd.Parameters.AddWithValue("@Level", level);
+        cmd.Parameters.AddWithValue("@Seconds", seconds);
+        try
         {
-            var result = new List<MetaBikeWall>();
-            try
+          using (var reader = await cmd.ExecuteReaderAsync())
+          {
+            while (await reader.ReadAsync())
             {
-                int radius = Math.Max(128, (int)Math.Ceiling(speed * radiusSeconds) + 128);
-                // Don't clamp to 0 here — world coordinates may be negative and clamping biases the search window
-                int minX = centerX - radius;
-                int maxX = centerX + radius;
-                int minY = centerY - radius;
-                int maxY = centerY + radius;
-
-                string sql = @"SELECT id, hero_id, x, y, level FROM maxhanna.ender_bike_wall WHERE level = @Level AND x BETWEEN @MinX AND @MaxX AND y BETWEEN @MinY AND @MaxY ORDER BY id DESC;";
-                using (var cmd = new MySqlCommand(sql, connection, transaction))
-                {
-                    cmd.Parameters.AddWithValue("@Level", level);
-                    cmd.Parameters.AddWithValue("@MinX", minX);
-                    cmd.Parameters.AddWithValue("@MaxX", maxX);
-                    cmd.Parameters.AddWithValue("@MinY", minY);
-                    cmd.Parameters.AddWithValue("@MaxY", maxY);
-                    using (var rdr = await cmd.ExecuteReaderAsync())
-                    {
-                        while (await rdr.ReadAsync())
-                        {
-                            try
-                            {
-                                result.Add(new MetaBikeWall
-                                {
-                                    Id = rdr.GetInt32("id"),
-                                    HeroId = rdr.IsDBNull(rdr.GetOrdinal("hero_id")) ? 0 : rdr.GetInt32("hero_id"),
-                                    X = rdr.GetInt32("x"),
-                                    Y = rdr.GetInt32("y"),
-                                    Level = rdr.IsDBNull(rdr.GetOrdinal("level")) ? level : rdr.GetInt32("level")
-                                });
-                            }
-                            catch (Exception ex)
-                            {
-                                await LogError("Failed to parse wall row in GetWallsAroundPosition", ex);
-                            }
-                        }
-                    }
-                }
+              walls.Add(new MetaBikeWall
+              {
+                Id = reader.GetInt32("id"),
+                HeroId = reader.GetInt32("hero_id"),
+                X = reader.GetInt32("x"),
+                Y = reader.GetInt32("y"),
+                Level = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level")
+              });
             }
-            catch (Exception ex)
-            {
-                await LogError("GetWallsAroundPosition failed", ex);
-            }
-            return result;
+          }
         }
-
-        // Return all bike walls on the specified level (no recent-time filtering).
-        private async Task<List<MetaBikeWall>> GetWallsOnSameLevel(int level, MySqlConnection connection, MySqlTransaction transaction)
+        catch
         {
-            var walls = new List<MetaBikeWall>();
-            string sql = @"SELECT id, hero_id, x, y, level
+          // Fallback if created_at column doesn't exist
+          return await GetBikeWalls(level, connection, transaction, 0);
+        }
+      }
+      return walls;
+    }
+
+    private async Task<List<MetaBikeWall>> GetWallsAroundPosition(int level, int centerX, int centerY, double speed, int radiusSeconds, MySqlConnection connection, MySqlTransaction transaction)
+    {
+      var result = new List<MetaBikeWall>();
+      try
+      {
+        int radius = Math.Max(128, (int)Math.Ceiling(speed * radiusSeconds) + 128);
+        // Don't clamp to 0 here — world coordinates may be negative and clamping biases the search window
+        int minX = centerX - radius;
+        int maxX = centerX + radius;
+        int minY = centerY - radius;
+        int maxY = centerY + radius;
+
+        string sql = @"SELECT id, hero_id, x, y, level FROM maxhanna.ender_bike_wall WHERE level = @Level AND x BETWEEN @MinX AND @MaxX AND y BETWEEN @MinY AND @MaxY ORDER BY id DESC;";
+        using (var cmd = new MySqlCommand(sql, connection, transaction))
+        {
+          cmd.Parameters.AddWithValue("@Level", level);
+          cmd.Parameters.AddWithValue("@MinX", minX);
+          cmd.Parameters.AddWithValue("@MaxX", maxX);
+          cmd.Parameters.AddWithValue("@MinY", minY);
+          cmd.Parameters.AddWithValue("@MaxY", maxY);
+          using (var rdr = await cmd.ExecuteReaderAsync())
+          {
+            while (await rdr.ReadAsync())
+            {
+              try
+              {
+                result.Add(new MetaBikeWall
+                {
+                  Id = rdr.GetInt32("id"),
+                  HeroId = rdr.IsDBNull(rdr.GetOrdinal("hero_id")) ? 0 : rdr.GetInt32("hero_id"),
+                  X = rdr.GetInt32("x"),
+                  Y = rdr.GetInt32("y"),
+                  Level = rdr.IsDBNull(rdr.GetOrdinal("level")) ? level : rdr.GetInt32("level")
+                });
+              }
+              catch (Exception ex)
+              {
+                await LogError("Failed to parse wall row in GetWallsAroundPosition", ex);
+              }
+            }
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        await LogError("GetWallsAroundPosition failed", ex);
+      }
+      return result;
+    }
+
+    // Return all bike walls on the specified level (no recent-time filtering).
+    private async Task<List<MetaBikeWall>> GetWallsOnSameLevel(int level, MySqlConnection connection, MySqlTransaction transaction)
+    {
+      var walls = new List<MetaBikeWall>();
+      string sql = @"SELECT id, hero_id, x, y, level
                            FROM maxhanna.ender_bike_wall
                            WHERE level = @Level
                            ORDER BY id ASC";
+      try
+      {
+        using (var cmd = new MySqlCommand(sql, connection, transaction))
+        {
+          cmd.Parameters.AddWithValue("@Level", level);
+          using (var reader = await cmd.ExecuteReaderAsync())
+          {
+            while (await reader.ReadAsync())
+            {
+              try
+              {
+                walls.Add(new MetaBikeWall
+                {
+                  Id = reader.GetInt32("id"),
+                  HeroId = reader.GetInt32("hero_id"),
+                  X = reader.GetInt32("x"),
+                  Y = reader.GetInt32("y"),
+                  Level = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level")
+                });
+              }
+              catch (Exception ex)
+              {
+                await LogError("Failed to parse bike wall row in GetWallsOnSameLevel", ex);
+              }
+            }
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        await LogError($"GetWallsOnSameLevel failed for level={level}", ex);
+      }
+      return walls;
+    }
+
+    [HttpPost("/Ender/AllBikeWalls", Name = "Ender_AllBikeWalls")]
+    public async Task<IActionResult> AllBikeWalls([FromBody] int heroId)
+    {
+      if (heroId <= 0) return BadRequest("Invalid hero id");
+      using (var connection = new MySqlConnection(_connectionString))
+      {
+        await connection.OpenAsync();
+        using (var transaction = connection.BeginTransaction())
+        {
+          try
+          {
+            int userId = await GetUserIdByHeroId(heroId, connection, transaction);
+            var hero = await GetHeroData(userId, connection, transaction);
+            if (hero == null)
+            {
+              await transaction.RollbackAsync();
+              return NotFound("Hero not found");
+            }
+            var walls = await GetBikeWalls(hero.Level, connection, transaction, 0);
+            await transaction.CommitAsync();
+            return Ok(walls);
+          }
+          catch (Exception ex)
+          {
+            await transaction.RollbackAsync();
+            return StatusCode(500, "Internal server error: " + ex.Message);
+          }
+        }
+      }
+    }
+
+    [HttpPost("/Ender/WallsAroundHero", Name = "Ender_WallsAroundHero")]
+    public async Task<IActionResult> WallsAroundHero([FromBody] WallsAroundHeroRequest? payload)
+    {
+      try
+      {
+        if (payload == null || payload.Hero == null) return BadRequest("Missing hero in payload");
+
+        int level = payload.Hero.Level <= 0 ? 1 : payload.Hero.Level;
+        int heroX = payload.Hero.Position?.x ?? 0;
+        int heroY = payload.Hero.Position?.y ?? 0;
+        double speed = payload.Hero.Speed <= 0 ? 1d : payload.Hero.Speed;
+
+        // Increase default lookahead so fast heroes receive walls earlier on the client
+        int radiusSeconds = payload.RadiusSeconds > 0 ? payload.RadiusSeconds : 150;
+
+        // Calculate radius in pixels: speed (pixels/sec) * seconds + margin
+        // Use a larger minimum pixel radius and margin so the client gets a generous
+        // area of walls around the hero. This reduces cases where walls appear
+        // too late on the client (resulting in invisible-wall deaths).
+        int radius = Math.Max(1024, (int)Math.Ceiling(speed * radiusSeconds) + 1024);
+
+        int minX = Math.Max(0, heroX - radius);
+        int maxX = heroX + radius;
+        int minY = Math.Max(0, heroY - radius);
+        int maxY = heroY + radius;
+
+        var result = new List<BikeWallDto>();
+        using (var connection = new MySqlConnection(_connectionString))
+        {
+          await connection.OpenAsync();
+          string sql = @"SELECT id, hero_id, x, y FROM maxhanna.ender_bike_wall WHERE level = @Level AND x BETWEEN @MinX AND @MaxX AND y BETWEEN @MinY AND @MaxY ORDER BY id DESC;";
+          using (var cmd = new MySqlCommand(sql, connection))
+          {
+            cmd.Parameters.AddWithValue("@Level", level);
+            cmd.Parameters.AddWithValue("@MinX", minX);
+            cmd.Parameters.AddWithValue("@MaxX", maxX);
+            cmd.Parameters.AddWithValue("@MinY", minY);
+            cmd.Parameters.AddWithValue("@MaxY", maxY);
+            using (var rdr = await cmd.ExecuteReaderAsync())
+            {
+              while (await rdr.ReadAsync())
+              {
+                var item = new BikeWallDto
+                {
+                  Id = rdr.GetInt32("id"),
+                  HeroId = rdr.IsDBNull(rdr.GetOrdinal("hero_id")) ? 0 : rdr.GetInt32("hero_id"),
+                  X = rdr.GetInt32("x"),
+                  Y = rdr.GetInt32("y")
+                };
+                result.Add(item);
+              }
+            }
+          }
+        }
+        return Ok(result);
+      }
+      catch (Exception ex)
+      {
+        await LogError("WallsAroundHero failed", ex);
+        return StatusCode(500, "Internal server error: " + ex.Message);
+      }
+    }
+
+    [HttpPost("/Ender/DeleteBikeWalls", Name = "Ender_DeleteBikeWalls")]
+    public async Task<IActionResult> DeleteBikeWalls([FromBody] DeleteBikeWallsRequest? payload)
+    {
+      if (payload == null) return BadRequest("Missing payload");
+      if (payload.HeroId <= 0) return BadRequest("Invalid hero id");
+      if (payload.Level <= 0) return BadRequest("Invalid level");
+      if (payload.Walls == null || payload.Walls.Count == 0) return BadRequest("No walls to delete");
+
+      try
+      {
+        using (var connection = new MySqlConnection(_connectionString))
+        {
+          await connection.OpenAsync();
+          using (var transaction = await connection.BeginTransactionAsync())
+          {
             try
             {
-                using (var cmd = new MySqlCommand(sql, connection, transaction))
-                {
-                    cmd.Parameters.AddWithValue("@Level", level);
-                    using (var reader = await cmd.ExecuteReaderAsync())
-                    {
-                        while (await reader.ReadAsync())
-                        {
-                            try
-                            {
-                                walls.Add(new MetaBikeWall
-                                {
-                                    Id = reader.GetInt32("id"),
-                                    HeroId = reader.GetInt32("hero_id"),
-                                    X = reader.GetInt32("x"),
-                                    Y = reader.GetInt32("y"),
-                                    Level = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level")
-                                });
-                            }
-                            catch (Exception ex)
-                            {
-                                await LogError("Failed to parse bike wall row in GetWallsOnSameLevel", ex);
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                await LogError($"GetWallsOnSameLevel failed for level={level}", ex);
-            }
-            return walls;
-        }
+              string deleteSql = "DELETE FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId AND level = @Level AND x = @X AND y = @Y LIMIT 1;";
+              using (var cmd = new MySqlCommand(deleteSql, connection, transaction))
+              {
+                cmd.Parameters.AddWithValue("@HeroId", payload.HeroId);
+                cmd.Parameters.AddWithValue("@Level", payload.Level);
+                // prepare parameters for reuse; we'll set values in loop
+                var pX = cmd.Parameters.Add("@X", MySqlDbType.Int32);
+                var pY = cmd.Parameters.Add("@Y", MySqlDbType.Int32);
 
-        [HttpPost("/Ender/AllBikeWalls", Name = "Ender_AllBikeWalls")]
-        public async Task<IActionResult> AllBikeWalls([FromBody] int heroId)
-        {
-            if (heroId <= 0) return BadRequest("Invalid hero id");
-            using (var connection = new MySqlConnection(_connectionString))
-            {
-                await connection.OpenAsync();
-                using (var transaction = connection.BeginTransaction())
+                foreach (var w in payload.Walls)
                 {
-                    try
-                    {
-                        int userId = await GetUserIdByHeroId(heroId, connection, transaction);
-                        var hero = await GetHeroData(userId, connection, transaction);
-                        if (hero == null)
-                        {
-                            await transaction.RollbackAsync();
-                            return NotFound("Hero not found");
-                        }
-                        var walls = await GetBikeWalls(hero.Level, connection, transaction, 0);
-                        await transaction.CommitAsync();
-                        return Ok(walls);
-                    }
-                    catch (Exception ex)
-                    {
-                        await transaction.RollbackAsync();
-                        return StatusCode(500, "Internal server error: " + ex.Message);
-                    }
+                  pX.Value = w.X;
+                  pY.Value = w.Y;
+                  await cmd.ExecuteNonQueryAsync();
                 }
+              }
+              await transaction.CommitAsync();
             }
+            catch (Exception exInner)
+            {
+              try { await transaction.RollbackAsync(); } catch { }
+              await LogError("DeleteBikeWalls failed during delete loop", exInner);
+              return StatusCode(500, "Internal server error: " + exInner.Message);
+            }
+          }
         }
+        return Ok(new { success = true });
+      }
+      catch (Exception ex)
+      {
+        await LogError("DeleteBikeWalls failed", ex);
+        return StatusCode(500, "Internal server error: " + ex.Message);
+      }
+    }
 
-        [HttpPost("/Ender/WallsAroundHero", Name = "Ender_WallsAroundHero")]
-        public async Task<IActionResult> WallsAroundHero([FromBody] WallsAroundHeroRequest? payload)
+    [HttpPost("/Ender/SetHeroLocation", Name = "Ender_SetHeroLocation")]
+    public async Task<IActionResult> SetHeroLocation([FromBody] SetHeroLocationRequest? payload)
+    {
+      if (payload == null) return BadRequest("Missing payload");
+      if (payload.HeroId <= 0) return BadRequest("Invalid hero id");
+
+      try
+      {
+        using (var connection = new MySqlConnection(_connectionString))
         {
+          await connection.OpenAsync();
+          using (var transaction = connection.BeginTransaction())
+          {
             try
             {
-                if (payload == null || payload.Hero == null) return BadRequest("Missing hero in payload");
-
-                int level = payload.Hero.Level <= 0 ? 1 : payload.Hero.Level;
-                int heroX = payload.Hero.Position?.x ?? 0;
-                int heroY = payload.Hero.Position?.y ?? 0;
-                double speed = payload.Hero.Speed <= 0 ? 1d : payload.Hero.Speed;
-
-                // Increase default lookahead so fast heroes receive walls earlier on the client
-                int radiusSeconds = payload.RadiusSeconds > 0 ? payload.RadiusSeconds : 150;
-
-                // Calculate radius in pixels: speed (pixels/sec) * seconds + margin
-                // Use a larger minimum pixel radius and margin so the client gets a generous
-                // area of walls around the hero. This reduces cases where walls appear
-                // too late on the client (resulting in invisible-wall deaths).
-                int radius = Math.Max(1024, (int)Math.Ceiling(speed * radiusSeconds) + 1024);
-
-                int minX = Math.Max(0, heroX - radius);
-                int maxX = heroX + radius;
-                int minY = Math.Max(0, heroY - radius);
-                int maxY = heroY + radius;
-
-                var result = new List<BikeWallDto>();
-                using (var connection = new MySqlConnection(_connectionString))
-                {
-                    await connection.OpenAsync();
-                    string sql = @"SELECT id, hero_id, x, y FROM maxhanna.ender_bike_wall WHERE level = @Level AND x BETWEEN @MinX AND @MaxX AND y BETWEEN @MinY AND @MaxY ORDER BY id DESC;";
-                    using (var cmd = new MySqlCommand(sql, connection))
-                    {
-                        cmd.Parameters.AddWithValue("@Level", level);
-                        cmd.Parameters.AddWithValue("@MinX", minX);
-                        cmd.Parameters.AddWithValue("@MaxX", maxX);
-                        cmd.Parameters.AddWithValue("@MinY", minY);
-                        cmd.Parameters.AddWithValue("@MaxY", maxY);
-                        using (var rdr = await cmd.ExecuteReaderAsync())
-                        {
-                            while (await rdr.ReadAsync())
-                            {
-                                var item = new BikeWallDto
-                                {
-                                    Id = rdr.GetInt32("id"),
-                                    HeroId = rdr.IsDBNull(rdr.GetOrdinal("hero_id")) ? 0 : rdr.GetInt32("hero_id"),
-                                    X = rdr.GetInt32("x"),
-                                    Y = rdr.GetInt32("y")
-                                };
-                                result.Add(item);
-                            }
-                        }
-                    }
-                }
-                return Ok(result);
+              string sql = @"UPDATE maxhanna.ender_hero SET coordsX = @X, coordsY = @Y, level = @Level WHERE id = @HeroId LIMIT 1;";
+              using (var cmd = new MySqlCommand(sql, connection, transaction))
+              {
+                cmd.Parameters.AddWithValue("@X", payload.X);
+                cmd.Parameters.AddWithValue("@Y", payload.Y);
+                cmd.Parameters.AddWithValue("@Level", payload.Level);
+                cmd.Parameters.AddWithValue("@HeroId", payload.HeroId);
+                await cmd.ExecuteNonQueryAsync();
+              }
+              await transaction.CommitAsync();
             }
-            catch (Exception ex)
+            catch (Exception exInner)
             {
-                await LogError("WallsAroundHero failed", ex);
-                return StatusCode(500, "Internal server error: " + ex.Message);
+              try { await transaction.RollbackAsync(); } catch { }
+              await LogError("SetHeroLocation failed during update", exInner);
+              return StatusCode(500, "Internal server error: " + exInner.Message);
             }
+          }
+        }
+        return Ok(new { success = true });
+      }
+      catch (Exception ex)
+      {
+        await LogError("SetHeroLocation failed", ex);
+        return StatusCode(500, "Internal server error: " + ex.Message);
+      }
+    }
+
+    private async Task KillHeroById(int heroId, MySqlConnection connection, MySqlTransaction transaction, int? killerHeroId = null)
+    {
+      try
+      {
+        // fetch hero info for score
+        string selSql = @"SELECT user_id, created, level, kills FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+        int userId = 0;
+        DateTime? createdAt = null;
+        int heroLevel = 1;
+        int heroKills = 0;
+        using (var cmd = new MySqlCommand(selSql, connection, transaction))
+        {
+          cmd.Parameters.AddWithValue("@HeroId", heroId);
+          using (var rdr = await cmd.ExecuteReaderAsync())
+          {
+            if (await rdr.ReadAsync())
+            {
+              userId = rdr.IsDBNull(rdr.GetOrdinal("user_id")) ? 0 : rdr.GetInt32("user_id");
+              createdAt = rdr.IsDBNull(rdr.GetOrdinal("created")) ? (DateTime?)null : Convert.ToDateTime(rdr["created"]).ToUniversalTime();
+              heroLevel = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 1 : rdr.GetInt32("level");
+              heroKills = rdr.IsDBNull(rdr.GetOrdinal("kills")) ? 0 : rdr.GetInt32("kills");
+            }
+          }
         }
 
-        [HttpPost("/Ender/DeleteBikeWalls", Name = "Ender_DeleteBikeWalls")]
-        public async Task<IActionResult> DeleteBikeWalls([FromBody] DeleteBikeWallsRequest? payload)
+        // compute time on level from createdAt
+        int timeOnLevelSeconds = 0;
+        if (createdAt != null)
         {
-            if (payload == null) return BadRequest("Missing payload");
-            if (payload.HeroId <= 0) return BadRequest("Invalid hero id");
-            if (payload.Level <= 0) return BadRequest("Invalid level");
-            if (payload.Walls == null || payload.Walls.Count == 0) return BadRequest("No walls to delete");
-
-            try
-            {
-                using (var connection = new MySqlConnection(_connectionString))
-                {
-                    await connection.OpenAsync();
-                    using (var transaction = await connection.BeginTransactionAsync())
-                    {
-                        try
-                        {
-                            string deleteSql = "DELETE FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId AND level = @Level AND x = @X AND y = @Y LIMIT 1;";
-                            using (var cmd = new MySqlCommand(deleteSql, connection, transaction))
-                            {
-                                cmd.Parameters.AddWithValue("@HeroId", payload.HeroId);
-                                cmd.Parameters.AddWithValue("@Level", payload.Level);
-                                // prepare parameters for reuse; we'll set values in loop
-                                var pX = cmd.Parameters.Add("@X", MySqlDbType.Int32);
-                                var pY = cmd.Parameters.Add("@Y", MySqlDbType.Int32);
-
-                                foreach (var w in payload.Walls)
-                                {
-                                    pX.Value = w.X;
-                                    pY.Value = w.Y;
-                                    await cmd.ExecuteNonQueryAsync();
-                                }
-                            }
-                            await transaction.CommitAsync();
-                        }
-                        catch (Exception exInner)
-                        {
-                            try { await transaction.RollbackAsync(); } catch { }
-                            await LogError("DeleteBikeWalls failed during delete loop", exInner);
-                            return StatusCode(500, "Internal server error: " + exInner.Message);
-                        }
-                    }
-                }
-                return Ok(new { success = true });
-            }
-            catch (Exception ex)
-            {
-                await LogError("DeleteBikeWalls failed", ex);
-                return StatusCode(500, "Internal server error: " + ex.Message);
-            }
+          timeOnLevelSeconds = Math.Max(0, (int)Math.Floor((DateTime.UtcNow - createdAt.Value).TotalSeconds));
         }
 
-        [HttpPost("/Ender/SetHeroLocation", Name = "Ender_SetHeroLocation")]
-        public async Task<IActionResult> SetHeroLocation([FromBody] SetHeroLocationRequest? payload)
-        {
-            if (payload == null) return BadRequest("Missing payload");
-            if (payload.HeroId <= 0) return BadRequest("Invalid hero id");
+        // count walls persisted for this hero
+        int wallsPlaced = 0;
 
-            try
-            {
-                using (var connection = new MySqlConnection(_connectionString))
-                {
-                    await connection.OpenAsync();
-                    using (var transaction = connection.BeginTransaction())
-                    {
-                        try
-                        {
-                            string sql = @"UPDATE maxhanna.ender_hero SET coordsX = @X, coordsY = @Y, level = @Level WHERE id = @HeroId LIMIT 1;";
-                            using (var cmd = new MySqlCommand(sql, connection, transaction))
-                            {
-                                cmd.Parameters.AddWithValue("@X", payload.X);
-                                cmd.Parameters.AddWithValue("@Y", payload.Y);
-                                cmd.Parameters.AddWithValue("@Level", payload.Level);
-                                cmd.Parameters.AddWithValue("@HeroId", payload.HeroId);
-                                await cmd.ExecuteNonQueryAsync();
-                            }
-                            await transaction.CommitAsync();
-                        }
-                        catch (Exception exInner)
-                        {
-                            try { await transaction.RollbackAsync(); } catch { }
-                            await LogError("SetHeroLocation failed during update", exInner);
-                            return StatusCode(500, "Internal server error: " + exInner.Message);
-                        }
-                    }
-                }
-                return Ok(new { success = true });
-            }
-            catch (Exception ex)
-            {
-                await LogError("SetHeroLocation failed", ex);
-                return StatusCode(500, "Internal server error: " + ex.Message);
-            }
+        // count only walls for the hero at the same level
+        string countSql = @"SELECT COUNT(*) FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId AND level = @Level";
+        using (var countCmd = new MySqlCommand(countSql, connection, transaction))
+        {
+          countCmd.Parameters.AddWithValue("@HeroId", heroId);
+          countCmd.Parameters.AddWithValue("@Level", heroLevel);
+          var cnt = await countCmd.ExecuteScalarAsync();
+          wallsPlaced = Convert.ToInt32(cnt);
         }
 
-        private async Task KillHeroById(int heroId, MySqlConnection connection, MySqlTransaction transaction, int? killerHeroId = null)
-        {
-            try
-            {
-                // fetch hero info for score
-                string selSql = @"SELECT user_id, created, level, kills FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
-                int userId = 0;
-                DateTime? createdAt = null;
-                int heroLevel = 1;
-                int heroKills = 0;
-                using (var cmd = new MySqlCommand(selSql, connection, transaction))
-                {
-                    cmd.Parameters.AddWithValue("@HeroId", heroId);
-                    using (var rdr = await cmd.ExecuteReaderAsync())
-                    {
-                        if (await rdr.ReadAsync())
-                        {
-                            userId = rdr.IsDBNull(rdr.GetOrdinal("user_id")) ? 0 : rdr.GetInt32("user_id");
-                            createdAt = rdr.IsDBNull(rdr.GetOrdinal("created")) ? (DateTime?)null : Convert.ToDateTime(rdr["created"]).ToUniversalTime();
-                            heroLevel = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 1 : rdr.GetInt32("level");
-                            heroKills = rdr.IsDBNull(rdr.GetOrdinal("kills")) ? 0 : rdr.GetInt32("kills");
-                        }
-                    }
-                }
+        int score = timeOnLevelSeconds + (wallsPlaced * heroKills);
 
-                // compute time on level from createdAt
-                int timeOnLevelSeconds = 0;
-                if (createdAt != null)
-                {
-                    timeOnLevelSeconds = Math.Max(0, (int)Math.Floor((DateTime.UtcNow - createdAt.Value).TotalSeconds));
-                }
-
-                // count walls persisted for this hero
-                int wallsPlaced = 0;
-
-                // count only walls for the hero at the same level
-                string countSql = @"SELECT COUNT(*) FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId AND level = @Level";
-                using (var countCmd = new MySqlCommand(countSql, connection, transaction))
-                {
-                    countCmd.Parameters.AddWithValue("@HeroId", heroId);
-                    countCmd.Parameters.AddWithValue("@Level", heroLevel);
-                    var cnt = await countCmd.ExecuteScalarAsync();
-                    wallsPlaced = Convert.ToInt32(cnt);
-                }
-
-                int score = timeOnLevelSeconds + (wallsPlaced * heroKills);
-
-                // record top score (include kills column; default 0)
-                string insertScoreSql = @"INSERT INTO maxhanna.ender_top_scores (hero_id, user_id, score, time_on_level_seconds, walls_placed, level, kills, created_at) VALUES (@HeroId, @UserId, @Score, @TimeOnLevel, @WallsPlaced, @Level, @Kills, UTC_TIMESTAMP());";
-                await ExecuteInsertOrUpdateOrDeleteAsync(insertScoreSql, new Dictionary<string, object?>() {
+        // record top score (include kills column; default 0)
+        string insertScoreSql = @"INSERT INTO maxhanna.ender_top_scores (hero_id, user_id, score, time_on_level_seconds, walls_placed, level, kills, created_at) VALUES (@HeroId, @UserId, @Score, @TimeOnLevel, @WallsPlaced, @Level, @Kills, UTC_TIMESTAMP());";
+        await ExecuteInsertOrUpdateOrDeleteAsync(insertScoreSql, new Dictionary<string, object?>() {
                     { "@HeroId", heroId },
                     { "@UserId", userId },
                     { "@Score", score },
@@ -2241,180 +2324,180 @@ namespace maxhanna.Server.Controllers
                     { "@Kills", heroKills }
                 }, connection, transaction);
 
-                // if a killer is provided, increment their kills counter on their active hero row
-                if (killerHeroId != null)
-                {
-                    try
-                    {
-                        string updateKillsSql = "UPDATE maxhanna.ender_hero SET kills = IFNULL(kills,0) + 1 WHERE id = @KillerId LIMIT 1;";
-                        await ExecuteInsertOrUpdateOrDeleteAsync(updateKillsSql, new Dictionary<string, object?>() { { "@KillerId", killerHeroId } }, connection, transaction);
-                    }
-                    catch { /* non-fatal */ }
-                }
-
-                // remove hero data
-                await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_hero_inventory WHERE ender_hero_id = @HeroId;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
-                await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
-            }
-            catch (Exception ex)
-            {
-                _ = _log.Db("KillHeroById failed: " + ex.Message, null, "ENDER", true);
-                throw;
-            }
-        }
-        private async Task UpdateMetaHeroParty(List<int>? partyData, MySqlConnection connection, MySqlTransaction transaction)
+        // if a killer is provided, increment their kills counter on their active hero row
+        if (killerHeroId != null)
         {
-            try
-            {
-                // Validate input
-                if (partyData == null || partyData.Count < 2)
-                {
-                    await _log.Db("Party data is null or has fewer than 2 members for PARTY_INVITE_ACCEPTED", null, "ENDER", true);
-                    return;
-                }
+          try
+          {
+            string updateKillsSql = "UPDATE maxhanna.ender_hero SET kills = IFNULL(kills,0) + 1 WHERE id = @KillerId LIMIT 1;";
+            await ExecuteInsertOrUpdateOrDeleteAsync(updateKillsSql, new Dictionary<string, object?>() { { "@KillerId", killerHeroId } }, connection, transaction);
+          }
+          catch { /* non-fatal */ }
+        }
 
-                // Extract hero IDs (assuming MetaHero has an Id property)
-                var heroIds = partyData.Distinct().ToList();
-                if (heroIds.Count < 2)
-                {
-                    await _log.Db("Fewer than 2 unique hero IDs in party data for PARTY_INVITE_ACCEPTED", null, "ENDER", true);
-                    return;
-                }
+        // remove hero data
+        await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_hero_inventory WHERE ender_hero_id = @HeroId;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
+        await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("KillHeroById failed: " + ex.Message, null, "ENDER", true);
+        throw;
+      }
+    }
+    private async Task UpdateMetaHeroParty(List<int>? partyData, MySqlConnection connection, MySqlTransaction transaction)
+    {
+      try
+      {
+        // Validate input
+        if (partyData == null || partyData.Count < 2)
+        {
+          await _log.Db("Party data is null or has fewer than 2 members for PARTY_INVITE_ACCEPTED", null, "ENDER", true);
+          return;
+        }
 
-                // Step 1: Delete existing party records for these heroes to avoid duplicates
-                const string deleteQuery = @"
+        // Extract hero IDs (assuming MetaHero has an Id property)
+        var heroIds = partyData.Distinct().ToList();
+        if (heroIds.Count < 2)
+        {
+          await _log.Db("Fewer than 2 unique hero IDs in party data for PARTY_INVITE_ACCEPTED", null, "ENDER", true);
+          return;
+        }
+
+        // Step 1: Delete existing party records for these heroes to avoid duplicates
+        const string deleteQuery = @"
             DELETE FROM ender_hero_party 
             WHERE ender_hero_id_1 IN (@heroId1) OR ender_hero_id_2 IN (@heroId2)";
 
-                using (var deleteCommand = new MySqlCommand(deleteQuery, connection, transaction))
-                {
-                    // Create a comma-separated list of hero IDs for the IN clause
-                    var heroIdParams = string.Join(",", heroIds.Select((_, index) => $"@hero{index}"));
-                    deleteCommand.CommandText = deleteQuery.Replace("@heroId1", heroIdParams).Replace("@heroId2", heroIdParams);
+        using (var deleteCommand = new MySqlCommand(deleteQuery, connection, transaction))
+        {
+          // Create a comma-separated list of hero IDs for the IN clause
+          var heroIdParams = string.Join(",", heroIds.Select((_, index) => $"@hero{index}"));
+          deleteCommand.CommandText = deleteQuery.Replace("@heroId1", heroIdParams).Replace("@heroId2", heroIdParams);
 
-                    // Add parameters for each hero ID
-                    for (int i = 0; i < heroIds.Count; i++)
-                    {
-                        deleteCommand.Parameters.AddWithValue($"@hero{i}", heroIds[i]);
-                    }
+          // Add parameters for each hero ID
+          for (int i = 0; i < heroIds.Count; i++)
+          {
+            deleteCommand.Parameters.AddWithValue($"@hero{i}", heroIds[i]);
+          }
 
-                    await deleteCommand.ExecuteNonQueryAsync();
-                }
+          await deleteCommand.ExecuteNonQueryAsync();
+        }
 
-                // Step 2: Insert new party records (all pairwise combinations of heroes)
-                const string insertQuery = @"
+        // Step 2: Insert new party records (all pairwise combinations of heroes)
+        const string insertQuery = @"
             INSERT INTO ender_hero_party (ender_hero_id_1, ender_hero_id_2)
             VALUES (@heroId1, @heroId2)";
 
-                using (var insertCommand = new MySqlCommand(insertQuery, connection, transaction))
-                {
-                    // Insert each pair of heroes (avoiding self-pairs and duplicates)
-                    for (int i = 0; i < heroIds.Count; i++)
-                    {
-                        for (int j = i + 1; j < heroIds.Count; j++)
-                        {
-                            insertCommand.Parameters.Clear();
-                            insertCommand.Parameters.AddWithValue("@heroId1", heroIds[i]);
-                            insertCommand.Parameters.AddWithValue("@heroId2", heroIds[j]);
-
-                            await insertCommand.ExecuteNonQueryAsync();
-                        }
-                    }
-                }
-
-                // Log success
-                await _log.Db($"Successfully updated party with {heroIds.Count} heroes for PARTY_INVITE_ACCEPTED", null, "ENDER", false);
-            }
-            catch (MySqlException ex)
-            {
-                await _log.Db($"Database error while updating party for PARTY_INVITE_ACCEPTED: {ex.Message}", null, "ENDER", true);
-                throw; // Re-throw to allow transaction rollback
-            }
-            catch (Exception ex)
-            {
-                await _log.Db($"Unexpected error while updating party for PARTY_INVITE_ACCEPTED: {ex.Message}", null, "ENDER", true);
-                throw; // Re-throw to allow transaction rollback
-            }
-        }
-        private async Task<long?> ExecuteInsertOrUpdateOrDeleteAsync(string sql, Dictionary<string, object?> parameters, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
+        using (var insertCommand = new MySqlCommand(insertQuery, connection, transaction))
         {
-            string cmdText = "";
-            bool createdConnection = false;
-            long? insertedId = null;
-            int rowsAffected = 0;
-            try
+          // Insert each pair of heroes (avoiding self-pairs and duplicates)
+          for (int i = 0; i < heroIds.Count; i++)
+          {
+            for (int j = i + 1; j < heroIds.Count; j++)
             {
-                if (connection == null)
-                {
-                    connection = new MySqlConnection(_connectionString);
-                    await connection.OpenAsync();
-                    createdConnection = true;
-                }
+              insertCommand.Parameters.Clear();
+              insertCommand.Parameters.AddWithValue("@heroId1", heroIds[i]);
+              insertCommand.Parameters.AddWithValue("@heroId2", heroIds[j]);
 
-                if (connection.State != System.Data.ConnectionState.Open)
-                {
-                    throw new Exception("Connection failed to open.");
-                }
-
-                using (MySqlCommand cmdUpdate = new MySqlCommand(sql, connection, transaction))
-                {
-                    if (cmdUpdate == null)
-                    {
-                        throw new Exception("MySqlCommand object initialization failed.");
-                    }
-
-                    foreach (var param in parameters)
-                    {
-                        if (param.Value == null)
-                        {
-                            cmdUpdate.Parameters.AddWithValue(param.Key, DBNull.Value);
-                        }
-                        else
-                        {
-                            cmdUpdate.Parameters.AddWithValue(param.Key, param.Value);
-                        }
-                    }
-
-                    cmdText = cmdUpdate.CommandText;
-                    rowsAffected = await cmdUpdate.ExecuteNonQueryAsync();
-
-                    if (sql.Trim().StartsWith("INSERT", StringComparison.OrdinalIgnoreCase))
-                    {
-                        insertedId = cmdUpdate.LastInsertedId;
-                    }
-                }
+              await insertCommand.ExecuteNonQueryAsync();
             }
-            catch (Exception ex)
-            {
-                _ = _log.Db("Update ERROR: " + ex.Message, null, "ENDER", true);
-                _ = _log.Db(cmdText, null, "ENDER", true);
-                foreach (var param in parameters)
-                {
-                    _ = _log.Db("Param: " + param.Key + ": " + param.Value, null, "ENDER", true);
-                }
-            }
-            finally
-            {
-                if (createdConnection && connection != null)
-                {
-                    await connection.CloseAsync();
-                }
-            }
-
-            return insertedId ?? rowsAffected;
+          }
         }
-        // Helper to send a kill notification for a victim when killed by a killer
-        private async Task SendKillNotificationAsync(int victimId, int? killerId, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            try
-            {
-                // If there's no killer specified, don't send notifications
-                if (!killerId.HasValue || killerId.Value == 0) return;
 
-                // Suicide: killer is the same hero as the victim. Send a single tailored notification instead of two.
-                if (killerId.Value == victimId)
-                {
-                    string insertSuicideNotif = @"
+        // Log success
+        await _log.Db($"Successfully updated party with {heroIds.Count} heroes for PARTY_INVITE_ACCEPTED", null, "ENDER", false);
+      }
+      catch (MySqlException ex)
+      {
+        await _log.Db($"Database error while updating party for PARTY_INVITE_ACCEPTED: {ex.Message}", null, "ENDER", true);
+        throw; // Re-throw to allow transaction rollback
+      }
+      catch (Exception ex)
+      {
+        await _log.Db($"Unexpected error while updating party for PARTY_INVITE_ACCEPTED: {ex.Message}", null, "ENDER", true);
+        throw; // Re-throw to allow transaction rollback
+      }
+    }
+    private async Task<long?> ExecuteInsertOrUpdateOrDeleteAsync(string sql, Dictionary<string, object?> parameters, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
+    {
+      string cmdText = "";
+      bool createdConnection = false;
+      long? insertedId = null;
+      int rowsAffected = 0;
+      try
+      {
+        if (connection == null)
+        {
+          connection = new MySqlConnection(_connectionString);
+          await connection.OpenAsync();
+          createdConnection = true;
+        }
+
+        if (connection.State != System.Data.ConnectionState.Open)
+        {
+          throw new Exception("Connection failed to open.");
+        }
+
+        using (MySqlCommand cmdUpdate = new MySqlCommand(sql, connection, transaction))
+        {
+          if (cmdUpdate == null)
+          {
+            throw new Exception("MySqlCommand object initialization failed.");
+          }
+
+          foreach (var param in parameters)
+          {
+            if (param.Value == null)
+            {
+              cmdUpdate.Parameters.AddWithValue(param.Key, DBNull.Value);
+            }
+            else
+            {
+              cmdUpdate.Parameters.AddWithValue(param.Key, param.Value);
+            }
+          }
+
+          cmdText = cmdUpdate.CommandText;
+          rowsAffected = await cmdUpdate.ExecuteNonQueryAsync();
+
+          if (sql.Trim().StartsWith("INSERT", StringComparison.OrdinalIgnoreCase))
+          {
+            insertedId = cmdUpdate.LastInsertedId;
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Update ERROR: " + ex.Message, null, "ENDER", true);
+        _ = _log.Db(cmdText, null, "ENDER", true);
+        foreach (var param in parameters)
+        {
+          _ = _log.Db("Param: " + param.Key + ": " + param.Value, null, "ENDER", true);
+        }
+      }
+      finally
+      {
+        if (createdConnection && connection != null)
+        {
+          await connection.CloseAsync();
+        }
+      }
+
+      return insertedId ?? rowsAffected;
+    }
+    // Helper to send a kill notification for a victim when killed by a killer
+    private async Task SendKillNotificationAsync(int victimId, int? killerId, MySqlConnection connection, MySqlTransaction transaction)
+    {
+      try
+      {
+        // If there's no killer specified, don't send notifications
+        if (!killerId.HasValue || killerId.Value == 0) return;
+
+        // Suicide: killer is the same hero as the victim. Send a single tailored notification instead of two.
+        if (killerId.Value == victimId)
+        {
+          string insertSuicideNotif = @"
                     INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
                     SELECT v.user_id AS user_id,
                            COALESCE(kh.user_id, 0) AS from_user_id,
@@ -2426,18 +2509,18 @@ namespace maxhanna.Server.Controllers
                     WHERE v.id = @VictimHeroId AND v.user_id IS NOT NULL AND v.user_id != 0
                     LIMIT 1;";
 
-                    using (var notifCmd = new MySqlCommand(insertSuicideNotif, connection, transaction))
-                    {
-                        notifCmd.Parameters.AddWithValue("@VictimHeroId", victimId);
-                        notifCmd.Parameters.AddWithValue("@KillerHeroId", killerId.Value);
-                        await notifCmd.ExecuteNonQueryAsync();
-                    }
+          using (var notifCmd = new MySqlCommand(insertSuicideNotif, connection, transaction))
+          {
+            notifCmd.Parameters.AddWithValue("@VictimHeroId", victimId);
+            notifCmd.Parameters.AddWithValue("@KillerHeroId", killerId.Value);
+            await notifCmd.ExecuteNonQueryAsync();
+          }
 
-                    return;
-                }
+          return;
+        }
 
-                // Standard case: notify victim they were killed by someone
-                string insertNotif = @"
+        // Standard case: notify victim they were killed by someone
+        string insertNotif = @"
                     INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
                     SELECT v.user_id AS user_id,
                            COALESCE(kh.user_id, 0) AS from_user_id,
@@ -2450,15 +2533,15 @@ namespace maxhanna.Server.Controllers
                     WHERE v.id = @VictimHeroId AND v.user_id IS NOT NULL AND v.user_id != 0
                     LIMIT 1;";
 
-                using (var notifCmd = new MySqlCommand(insertNotif, connection, transaction))
-                {
-                    notifCmd.Parameters.AddWithValue("@VictimHeroId", victimId);
-                    notifCmd.Parameters.AddWithValue("@KillerHeroId", killerId.Value);
-                    await notifCmd.ExecuteNonQueryAsync();
-                }
+        using (var notifCmd = new MySqlCommand(insertNotif, connection, transaction))
+        {
+          notifCmd.Parameters.AddWithValue("@VictimHeroId", victimId);
+          notifCmd.Parameters.AddWithValue("@KillerHeroId", killerId.Value);
+          await notifCmd.ExecuteNonQueryAsync();
+        }
 
-                // Killer notification: let the killer know they scored a takedown (tron/lightcycle style)
-                string insertNotifForKiller = @"
+        // Killer notification: let the killer know they scored a takedown (tron/lightcycle style)
+        string insertNotifForKiller = @"
                     INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
                     SELECT COALESCE(kh.user_id, 0) AS user_id,
                            COALESCE(v.user_id, 0) AS from_user_id,
@@ -2471,18 +2554,18 @@ namespace maxhanna.Server.Controllers
                     WHERE kh.id = @KillerHeroId AND kh.user_id IS NOT NULL AND kh.user_id != 0
                     LIMIT 1;";
 
-                using (var killerNotifCmd = new MySqlCommand(insertNotifForKiller, connection, transaction))
-                {
-                    killerNotifCmd.Parameters.AddWithValue("@VictimHeroId", victimId);
-                    killerNotifCmd.Parameters.AddWithValue("@KillerHeroId", killerId.Value);
-                    await killerNotifCmd.ExecuteNonQueryAsync();
-                }
-            }
-            catch (Exception ex)
-            {
-                _ = _log.Db($"Failed to insert kill notification for victim hero {victimId}: {ex.Message}", victimId, "ENDER", true);
-            }
+        using (var killerNotifCmd = new MySqlCommand(insertNotifForKiller, connection, transaction))
+        {
+          killerNotifCmd.Parameters.AddWithValue("@VictimHeroId", victimId);
+          killerNotifCmd.Parameters.AddWithValue("@KillerHeroId", killerId.Value);
+          await killerNotifCmd.ExecuteNonQueryAsync();
         }
-
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Failed to insert kill notification for victim hero {victimId}: {ex.Message}", victimId, "ENDER", true);
+      }
     }
+
+  }
 }
