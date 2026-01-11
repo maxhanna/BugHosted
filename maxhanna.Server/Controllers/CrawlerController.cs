@@ -162,6 +162,7 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+
     /// <summary>
     /// Builds UNION-based SQL that is index-friendly per branch.
     /// Branches (non-site):
@@ -182,16 +183,16 @@ namespace maxhanna.Server.Controllers
       if (searchAll)
       {
         resultsSql = @"
-                    SELECT id, url, title, description, author, keywords, image_url, response_code
-                    FROM search_results
-                    WHERE failed = 0 OR (failed = 1 AND response_code IS NOT NULL)
-                    ORDER BY found_date DESC
-                    LIMIT @pageSize OFFSET @offset;";
+            SELECT id, url, title, description, author, keywords, image_url, response_code
+            FROM search_results
+            WHERE failed = 0 OR (failed = 1 AND response_code IS NOT NULL)
+            ORDER BY found_date DESC
+            LIMIT @pageSize OFFSET @offset;";
 
         countSql = @"
-                    SELECT COUNT(*)
-                    FROM search_results
-                    WHERE failed = 0 OR (failed = 1 AND response_code IS NOT NULL);";
+            SELECT COUNT(*)
+            FROM search_results
+            WHERE failed = 0 OR (failed = 1 AND response_code IS NOT NULL);";
         return;
       }
 
@@ -199,18 +200,18 @@ namespace maxhanna.Server.Controllers
       if (request.ExactMatch.GetValueOrDefault())
       {
         resultsSql = @"
-                    SELECT id, url, title, description, author, keywords, image_url, response_code
-                    FROM search_results
-                    WHERE url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
-                      AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL))
-                    ORDER BY id DESC
-                    LIMIT @pageSize OFFSET @offset;";
+            SELECT id, url, title, description, author, keywords, image_url, response_code
+            FROM search_results
+            WHERE url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
+              AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL))
+            ORDER BY id DESC
+            LIMIT @pageSize OFFSET @offset;";
 
         countSql = @"
-                    SELECT COUNT(*)
-                    FROM search_results
-                    WHERE url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
-                      AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL));";
+            SELECT COUNT(*)
+            FROM search_results
+            WHERE url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
+              AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL));";
         return;
       }
 
@@ -221,194 +222,195 @@ namespace maxhanna.Server.Controllers
         bool withFt = !string.IsNullOrWhiteSpace(siteKeywords);
 
         resultsSql = $@"
-                    SELECT id, url, title, description, author, keywords, image_url, response_code
-                    FROM (
-                        -- 0) domain matches (prefix/equality)
-                        SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
-                               0 AS rank, NULL AS ft_score
-                        FROM search_results sr
-                        WHERE (
-                               sr.url LIKE CONCAT('https://', @siteDomain, '%')
-                            OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
-                            OR sr.url LIKE CONCAT(@siteDomain, '%')
-                            OR sr.url IN (
-                                  CONCAT('https://', @siteDomain),
-                                  CONCAT('https://', @siteDomain, '/'),
-                                  CONCAT('http://',  @siteDomain),
-                                  CONCAT('http://',  @siteDomain, '/'),
-                                  CONCAT(@siteDomain),
-                                  CONCAT(@siteDomain, '/')
-                              )
-                        )
-                          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-                        {(withFt ? "UNION ALL" : string.Empty)}
-                        {(withFt ? @"
-                        -- 1) fulltext within site
-                        SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
-                               1 AS rank,
-                               MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@siteKeywords IN NATURAL LANGUAGE MODE) AS ft_score
-                        FROM search_results sr
-                        WHERE (
-                               sr.url LIKE CONCAT('https://', @siteDomain, '%')
-                            OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
-                            OR sr.url LIKE CONCAT(@siteDomain, '%')
-                            OR sr.url IN (
-                                  CONCAT('https://', @siteDomain),
-                                  CONCAT('https://', @siteDomain, '/'),
-                                  CONCAT('http://',  @siteDomain),
-                                  CONCAT('http://',  @siteDomain, '/'),
-                                  CONCAT(@siteDomain),
-                                  CONCAT(@siteDomain, '/')
-                              )
-                        )
-                          AND @siteKeywords IS NOT NULL
-                          AND @siteKeywords <> ''
-                          AND MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@siteKeywords IN NATURAL LANGUAGE MODE)
-                          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))" : string.Empty)}
-                    ) AS u
-                    ORDER BY u.rank ASC, u.ft_score DESC, u.id DESC
-                    LIMIT @pageSize OFFSET @offset;";
+            SELECT id, url, title, description, author, keywords, image_url, response_code
+            FROM (
+                -- 0) domain matches (prefix/equality)
+                SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
+                       0 AS `rnk`, NULL AS `ft_score`
+                FROM search_results sr
+                WHERE (
+                       sr.url LIKE CONCAT('https://', @siteDomain, '%')
+                    OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
+                    OR sr.url LIKE CONCAT(@siteDomain, '%')
+                    OR sr.url IN (
+                          CONCAT('https://', @siteDomain),
+                          CONCAT('https://', @siteDomain, '/'),
+                          CONCAT('http://',  @siteDomain),
+                          CONCAT('http://',  @siteDomain, '/'),
+                          CONCAT(@siteDomain),
+                          CONCAT(@siteDomain, '/')
+                      )
+                )
+                  AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+                {(withFt ? "UNION ALL" : string.Empty)}
+                {(withFt ? @"
+                -- 1) fulltext within site
+                SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
+                       1 AS `rnk`,
+                       MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@siteKeywords IN NATURAL LANGUAGE MODE) AS `ft_score`
+                FROM search_results sr
+                WHERE (
+                       sr.url LIKE CONCAT('https://', @siteDomain, '%')
+                    OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
+                    OR sr.url LIKE CONCAT(@siteDomain, '%')
+                    OR sr.url IN (
+                          CONCAT('https://', @siteDomain),
+                          CONCAT('https://', @siteDomain, '/'),
+                          CONCAT('http://',  @siteDomain),
+                          CONCAT('http://',  @siteDomain, '/'),
+                          CONCAT(@siteDomain),
+                          CONCAT(@siteDomain, '/')
+                      )
+                )
+                  AND @siteKeywords IS NOT NULL
+                  AND @siteKeywords <> ''
+                  AND MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@siteKeywords IN NATURAL LANGUAGE MODE)
+                  AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))" : string.Empty)}
+            ) AS u
+            ORDER BY u.`rnk` ASC, u.`ft_score` DESC, u.id DESC
+            LIMIT @pageSize OFFSET @offset;";
 
         countSql = $@"
-                    SELECT COUNT(DISTINCT id) AS total
-                    FROM (
-                        SELECT sr.id
-                        FROM search_results sr
-                        WHERE (
-                               sr.url LIKE CONCAT('https://', @siteDomain, '%')
-                            OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
-                            OR sr.url LIKE CONCAT(@siteDomain, '%')
-                            OR sr.url IN (
-                                  CONCAT('https://', @siteDomain),
-                                  CONCAT('https://', @siteDomain, '/'),
-                                  CONCAT('http://',  @siteDomain),
-                                  CONCAT('http://',  @siteDomain, '/'),
-                                  CONCAT(@siteDomain),
-                                  CONCAT(@siteDomain, '/')
-                              )
-                        )
-                          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-                        {(withFt ? "UNION ALL" : string.Empty)}
-                        {(withFt ? @"
-                        SELECT sr.id
-                        FROM search_results sr
-                        WHERE (
-                               sr.url LIKE CONCAT('https://', @siteDomain, '%')
-                            OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
-                            OR sr.url LIKE CONCAT(@siteDomain, '%')
-                            OR sr.url IN (
-                                  CONCAT('https://', @siteDomain),
-                                  CONCAT('https://', @siteDomain, '/'),
-                                  CONCAT('http://',  @siteDomain),
-                                  CONCAT('http://',  @siteDomain, '/'),
-                                  CONCAT(@siteDomain),
-                                  CONCAT(@siteDomain, '/')
-                              )
-                        )
-                          AND @siteKeywords IS NOT NULL
-                          AND @siteKeywords <> ''
-                          AND MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@siteKeywords IN NATURAL LANGUAGE MODE)
-                          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))" : string.Empty)}
-                    ) AS c;";
+            SELECT COUNT(DISTINCT id) AS total
+            FROM (
+                SELECT sr.id
+                FROM search_results sr
+                WHERE (
+                       sr.url LIKE CONCAT('https://', @siteDomain, '%')
+                    OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
+                    OR sr.url LIKE CONCAT(@siteDomain, '%')
+                    OR sr.url IN (
+                          CONCAT('https://', @siteDomain),
+                          CONCAT('https://', @siteDomain, '/'),
+                          CONCAT('http://',  @siteDomain),
+                          CONCAT('http://',  @siteDomain, '/'),
+                          CONCAT(@siteDomain),
+                          CONCAT(@siteDomain, '/')
+                      )
+                )
+                  AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+                {(withFt ? "UNION ALL" : string.Empty)}
+                {(withFt ? @"
+                SELECT sr.id
+                FROM search_results sr
+                WHERE (
+                       sr.url LIKE CONCAT('https://', @siteDomain, '%')
+                    OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
+                    OR sr.url LIKE CONCAT(@siteDomain, '%')
+                    OR sr.url IN (
+                          CONCAT('https://', @siteDomain),
+                          CONCAT('https://', @siteDomain, '/'),
+                          CONCAT('http://',  @siteDomain),
+                          CONCAT('http://',  @siteDomain, '/'),
+                          CONCAT(@siteDomain),
+                          CONCAT(@siteDomain, '/')
+                      )
+                )
+                  AND @siteKeywords IS NOT NULL
+                  AND @siteKeywords <> ''
+                  AND MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@siteKeywords IN NATURAL LANGUAGE MODE)
+                  AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))" : string.Empty)}
+            ) AS c;";
         return;
       }
 
       // Generic (non-site): union of exact equals, domain prefix, and fulltext
       resultsSql = @"
-                SELECT id, url, title, description, author, keywords, image_url, response_code
-                FROM (
-                    -- 0) exact url equals (covers http/https, with/without trailing slash)
-                    SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
-                           0 AS rank, NULL AS ft_score
-                    FROM search_results sr
-                    WHERE sr.url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
-                      AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+        SELECT id, url, title, description, author, keywords, image_url, response_code
+        FROM (
+            -- 0) exact url equals (covers http/https, with/without trailing slash)
+            SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
+                   0 AS `rnk`, NULL AS `ft_score`
+            FROM search_results sr
+            WHERE sr.url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
+              AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
 
-                    UNION ALL
+            UNION ALL
 
-                    -- 1) domain prefix (left-anchored LIKE)
-                    SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
-                           1 AS rank, NULL AS ft_score
-                    FROM search_results sr
-                    WHERE (
-                           sr.url LIKE CONCAT('https://',     @baseDomain, '%')
-                        OR sr.url LIKE CONCAT('https://www.', @baseDomain, '%')
-                        OR sr.url LIKE CONCAT('http://',      @baseDomain, '%')
-                        OR sr.url LIKE CONCAT('http://www.',  @baseDomain, '%')
-                        OR sr.url LIKE CONCAT(@baseDomain, '%')
-                        OR sr.url IN (
-                              CONCAT('https://',     @baseDomain),
-                              CONCAT('https://',     @baseDomain, '/'),
-                              CONCAT('https://www.', @baseDomain),
-                              CONCAT('https://www.', @baseDomain, '/'),
-                              CONCAT('http://',      @baseDomain),
-                              CONCAT('http://',      @baseDomain, '/'),
-                              CONCAT('http://www.',  @baseDomain),
-                              CONCAT('http://www.',  @baseDomain, '/'),
-                              CONCAT(@baseDomain),
-                              CONCAT(@baseDomain, '/')
-                          )
-                    )
-                      AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+            -- 1) domain prefix (left-anchored LIKE)
+            SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
+                   1 AS `rnk`, NULL AS `ft_score`
+            FROM search_results sr
+            WHERE (
+                   sr.url LIKE CONCAT('https://',     @baseDomain, '%')
+                OR sr.url LIKE CONCAT('https://www.', @baseDomain, '%')
+                OR sr.url LIKE CONCAT('http://',      @baseDomain, '%')
+                OR sr.url LIKE CONCAT('http://www.',  @baseDomain, '%')
+                OR sr.url LIKE CONCAT(@baseDomain, '%')
+                OR sr.url IN (
+                      CONCAT('https://',     @baseDomain),
+                      CONCAT('https://',     @baseDomain, '/'),
+                      CONCAT('https://www.', @baseDomain),
+                      CONCAT('https://www.', @baseDomain, '/'),
+                      CONCAT('http://',      @baseDomain),
+                      CONCAT('http://',      @baseDomain, '/'),
+                      CONCAT('http://www.',  @baseDomain),
+                      CONCAT('http://www.',  @baseDomain, '/'),
+                      CONCAT(@baseDomain),
+                      CONCAT(@baseDomain, '/')
+                  )
+            )
+              AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
 
-                    UNION ALL
+            UNION ALL
 
-                    -- 2) fulltext on metadata
-                    SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
-                           2 AS rank,
-                           MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@search IN NATURAL LANGUAGE MODE) AS ft_score
-                    FROM search_results sr
-                    WHERE @search IS NOT NULL
-                      AND @search <> ''
-                      AND MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@search IN NATURAL LANGUAGE MODE)
-                      AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-                ) AS u
-                ORDER BY u.rank ASC, u.ft_score DESC, u.id DESC
-                LIMIT @pageSize OFFSET @offset;";
+            -- 2) fulltext on metadata
+            SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
+                   2 AS `rnk`,
+                   MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@search IN NATURAL LANGUAGE MODE) AS `ft_score`
+            FROM search_results sr
+            WHERE @search IS NOT NULL
+              AND @search <> ''
+              AND MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@search IN NATURAL LANGUAGE MODE)
+              AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+        ) AS u
+        ORDER BY u.`rnk` ASC, u.`ft_score` DESC, u.id DESC
+        LIMIT @pageSize OFFSET @offset;";
 
       countSql = @"
-                SELECT COUNT(DISTINCT id) AS total
-                FROM (
-                    SELECT sr.id
-                    FROM search_results sr
-                    WHERE sr.url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
-                      AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+        SELECT COUNT(DISTINCT id) AS total
+        FROM (
+            SELECT sr.id
+            FROM search_results sr
+            WHERE sr.url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
+              AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
 
-                    UNION ALL
+            UNION ALL
 
-                    SELECT sr.id
-                    FROM search_results sr
-                    WHERE (
-                           sr.url LIKE CONCAT('https://',     @baseDomain, '%')
-                        OR sr.url LIKE CONCAT('https://www.', @baseDomain, '%')
-                        OR sr.url LIKE CONCAT('http://',      @baseDomain, '%')
-                        OR sr.url LIKE CONCAT('http://www.',  @baseDomain, '%')
-                        OR sr.url LIKE CONCAT(@baseDomain, '%')
-                        OR sr.url IN (
-                              CONCAT('https://',     @baseDomain),
-                              CONCAT('https://',     @baseDomain, '/'),
-                              CONCAT('https://www.', @baseDomain),
-                              CONCAT('https://www.', @baseDomain, '/'),
-                              CONCAT('http://',      @baseDomain),
-                              CONCAT('http://',      @baseDomain, '/'),
-                              CONCAT('http://www.',  @baseDomain),
-                              CONCAT('http://www.',  @baseDomain, '/'),
-                              CONCAT(@baseDomain),
-                              CONCAT(@baseDomain, '/')
-                          )
-                    )
-                      AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+            SELECT sr.id
+            FROM search_results sr
+            WHERE (
+                   sr.url LIKE CONCAT('https://',     @baseDomain, '%')
+                OR sr.url LIKE CONCAT('https://www.', @baseDomain, '%')
+                OR sr.url LIKE CONCAT('http://',      @baseDomain, '%')
+                OR sr.url LIKE CONCAT('http://www.',  @baseDomain, '%')
+                OR sr.url LIKE CONCAT(@baseDomain, '%')
+                OR sr.url IN (
+                      CONCAT('https://',     @baseDomain),
+                      CONCAT('https://',     @baseDomain, '/'),
+                      CONCAT('https://www.', @baseDomain),
+                      CONCAT('https://www.', @baseDomain, '/'),
+                      CONCAT('http://',      @baseDomain),
+                      CONCAT('http://',      @baseDomain, '/'),
+                      CONCAT('http://www.',  @baseDomain),
+                      CONCAT('http://www.',  @baseDomain, '/'),
+                      CONCAT(@baseDomain),
+                      CONCAT(@baseDomain, '/')
+                  )
+            )
+              AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
 
-                    UNION ALL
+            UNION ALL
 
-                    SELECT sr.id
-                    FROM search_results sr
-                    WHERE @search IS NOT NULL
-                      AND @search <> ''
-                      AND MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@search IN NATURAL LANGUAGE MODE)
-                      AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-                ) AS c;";
+            SELECT sr.id
+            FROM search_results sr
+            WHERE @search IS NOT NULL
+              AND @search <> ''
+              AND MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@search IN NATURAL LANGUAGE MODE)
+              AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+        ) AS c;";
     }
+
 
     private void AddParametersToCrawlerQuery(
         CrawlerRequest request,
