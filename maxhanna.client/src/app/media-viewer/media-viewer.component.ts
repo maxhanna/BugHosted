@@ -598,17 +598,29 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       }
     });
   }
-  videoFileExtensionsIncludes(ext: string) {
+  videoFileExtensionsIncludes(ext?: string) {
+    if (!ext) {
+      return false;
+    }
     return this.fileService.videoFileExtensions.includes(ext);
   }
-  audioFileExtensionsIncludes(ext: string) {
+  audioFileExtensionsIncludes(ext?: string) {
+    if (!ext) {
+      return false;
+    }
     return this.fileService.audioFileExtensions.includes(ext);
   }
-  imageFileExtensionsIncludes(ext: string) {
+  imageFileExtensionsIncludes(ext?: string) {
+    if (!ext) {
+      return false; 
+    }
     if (ext.includes("image")) return true;
     return this.fileService.imageFileExtensions.includes(ext);
   }
-  otherFileExtensionsIncludes(ext: string) {
+  otherFileExtensionsIncludes(ext?: string) {
+    if (!ext) {
+      return false;
+    }
     return !this.videoFileExtensionsIncludes(ext) && !this.audioFileExtensionsIncludes(ext) && !this.imageFileExtensionsIncludes(ext);
   }
   commentAddedEvent(comment: FileComment) {
