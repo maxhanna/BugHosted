@@ -466,12 +466,14 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
   async selectType(type: 'youtube' | 'file' | 'radio') {
     this.selectedType = type;
+    
     if (type != 'youtube') { 
       if (this.ytPlayer && this.ytPlayer != null) {
         this.ytPlayer?.destroy();
         this.ytPlayer = undefined;
       }
     }
+
     if (type != 'radio') {
       const iframeDiv = document.getElementById('iframeDiv'); 
       const existingAudio = iframeDiv?.querySelector('audio');
@@ -479,6 +481,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
         existingAudio.remove();
       }
     }
+
     if (type != 'file') {
       this.fileIdPlaying = undefined;
       this.fileMediaViewer.stopAllMedia();
@@ -486,7 +489,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
     if (type === 'radio') {
       this.loadRadioData();
-    } else { 
+    } 
+    else { 
       this.currentPage = 1;
       await this.refreshPlaylist();
       this.songs = type === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
@@ -663,7 +667,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       console.error("YouTube popup element not found.");
     }
   }
-  
+
   closeFullscreen() {
     const youtubePopup = document.getElementById('musicVideo');
     if (youtubePopup) {
