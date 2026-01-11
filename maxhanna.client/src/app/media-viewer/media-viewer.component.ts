@@ -27,9 +27,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
   fileViewers?: User[] | undefined;
   fileFavouriters?: User[] | undefined;
-  selectedFileExtension = '';
-  selectedFileSrc = '';
-  selectedFile: FileEntry | undefined;
+  selectedFileExtension? : string = undefined;
+  selectedFileSrc? : string = undefined;
+  selectedFile?: FileEntry;
   fileType = '';
   showThumbnail = false;
   showComments = true;
@@ -224,7 +224,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     this.selectedFile = undefined;
     this.selectedFileSrc = "";
     this.selectedFileName = "";
-    this.selectedFileExtension = "";
+    this.selectedFileExtension = undefined;
   }
   ngOnDestroy() {
     try {
@@ -296,6 +296,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     // If we have a media container, reload the media element
     if (this.mediaContainer && this.mediaContainer.nativeElement) {
       const mediaElement = this.mediaContainer.nativeElement;
+
+      if (!this.selectedFileSrc) {
+        console.error("No file src to set!");
+        return;
+      }
 
       // For video/audio elements, we need to load() after changing src
       if (mediaElement instanceof HTMLVideoElement || mediaElement instanceof HTMLAudioElement) {
@@ -397,7 +402,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
           this.selectedFileSrc = (reader.result as string);
           this.debugLog('FileReader onloadend set selectedFileSrc', { length: this.selectedFileSrc.length });
           if (parent && !parent.pictureSrcs.find(x => x.key == fileId + '')) {
-            parent.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
+            parent.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension ?? "" });
           }
           this.finishedLoadingEvent.emit();
         };
@@ -515,7 +520,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     image.src = undefined;
     video.src = undefined;
     audio.src = undefined;
-    if (this.mediaContainer) { 
+    if (this.mediaContainer) {
+      if (!this.selectedFileSrc) {
+        console.log("No selected file Src to set!");
+        return;
+      }
       (this.mediaContainer.nativeElement as HTMLMediaElement).src = this.selectedFileSrc;
     } else {
       console.error("mediaContainer not found");
