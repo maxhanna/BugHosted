@@ -496,14 +496,21 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
   play(url?: string, fileId?: number) {
     console.log("Play called with url:", url, "fileId:", fileId);
+    const parent = this.inputtedParentRef ?? this.parentRef;
     if (!url && !fileId) { 
-      this.parentRef?.showNotification("Url/File can't be empty"); 
+      parent?.showNotification("Url/File can't be empty"); 
       return;
    }
 
     // Ignore redundant replays
-    if (url != undefined && url === this.currentUrl) return;
-    if (fileId != undefined && fileId === this.currentFileId) return;
+    if (url != undefined && url === this.currentUrl) { 
+      parent?.showNotification("Already playing this URL");
+      return; 
+    }
+    if (fileId != undefined && fileId === this.currentFileId) {
+      parent?.showNotification("Already playing this file");
+      return;
+    }
 
     // ✅ Only gate on API readiness.
     // We purposely do NOT check `ytPlayer` here anymore.
@@ -547,8 +554,6 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
     console.log("rebuilt player with first:", firstId, "playlist length:", ids.length, "index:", index);
   }
-
-
 
   randomSong() {
     if (this.fileIdPlaylist && this.fileIdPlaylist.length > 0) {

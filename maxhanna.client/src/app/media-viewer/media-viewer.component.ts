@@ -351,11 +351,12 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.selectedFileSrc = parent.pictureSrcs.find(x => x.key == fileId + '')!.value;
       this.fileType = parent.pictureSrcs.find(x => x.key == fileId + '')!.type;
       this.selectedFileExtension = parent.pictureSrcs.find(x => x.key == fileId + '')!.extension;
+      return;
     } 
 
     if (!this.selectedFile?.givenFileName && !this.selectedFile?.fileName) {
       const requesterId = parent?.user?.id;
-      this.fileService.getFileEntryById(fileId, requesterId).then(res => {
+      await this.fileService.getFileEntryById(fileId, requesterId).then(res => {
         if (res) {
           this.selectedFile = res;
         }
@@ -369,7 +370,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     try { 
       const user = parent?.user;
       const sessionToken = await parent?.getSessionToken();
-      this.fileService.getFileById(fileId, sessionToken ?? "", {
+      await this.fileService.getFileById(fileId, sessionToken ?? "", {
         signal: this.abortFileRequestController.signal
       }, user?.id).then(response => {
         if (!response || response == null) return;
