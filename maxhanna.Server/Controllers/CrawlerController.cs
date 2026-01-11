@@ -165,7 +165,7 @@ namespace maxhanna.Server.Controllers
 
           if (IsKeywordQuery(request.Url) && !hasWikipedia)
           {
-            _ = PrefetchWikipediaAsync(request.Url!.Trim());
+            _ = ScrapeWikipediaAsync(request.Url!.Trim());
           }
         }
 
@@ -216,43 +216,34 @@ namespace maxhanna.Server.Controllers
     }
 
 
-    /// <summary>
-    /// Builds UNION-based SQL that is index-friendly per branch.
-    /// Branches (non-site):
-    ///   0) exact url equals (UNIQUE(url))
-    ///   1) domain prefix (left-anchored LIKE on url)
-    ///   2) FULLTEXT (BOOLEAN MODE on title/description/author/keywords/url)
-    /// Site-specific uses domain branches, plus optional FT within site.
-    /// </summary>
-    private void BuildUnionSql(
-        CrawlerRequest request,
-        bool searchAll,
-        bool siteOnly,
-        string? siteDomain,
-        string? siteKeywords,
-        out string resultsSql,
-        out string countSql)
-    {
-      if (searchAll)
-      {
-        resultsSql = @"
+private void BuildUnionSql(
+    CrawlerRequest request,
+    bool searchAll,
+    bool siteOnly,
+    string? siteDomain,
+    string? siteKeywords,
+    out string resultsSql,
+    out string countSql)
+{
+  if (searchAll)
+  {
+    resultsSql = @"
       SELECT id, url, title, description, author, keywords, image_url, response_code
       FROM search_results
       WHERE failed = 0 OR (failed = 1 AND response_code IS NOT NULL)
       ORDER BY found_date DESC
       LIMIT @pageSize OFFSET @offset;";
 
-        countSql = @"
+    countSql = @"
       SELECT COUNT(*)
       FROM search_results
       WHERE failed = 0 OR (failed = 1 AND response_code IS NOT NULL);";
-        return;
-      }
+    return;
+  }
 
-      // If ExactMatch: just do the equality branch (fast UNIQUE(url) probe)
-      if (request.ExactMatch.GetValueOrDefault())
-      {
-        resultsSql = @"
+  if (request.ExactMatch.GetValueOrDefault())
+  {
+    resultsSql = @"
       SELECT id, url, title, description, author, keywords, image_url, response_code
       FROM search_results
       WHERE url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
@@ -260,20 +251,20 @@ namespace maxhanna.Server.Controllers
       ORDER BY id DESC
       LIMIT @pageSize OFFSET @offset;";
 
-        countSql = @"
+    countSql = @"
       SELECT COUNT(*)
       FROM search_results
       WHERE url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
         AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL));";
-        return;
-      }
+    return;
+  }
 
-      // site:domain
-      if (siteOnly && !string.IsNullOrEmpty(siteDomain))
-      {
-        bool withFt = !string.IsNullOrWhiteSpace(siteKeywords);
+  // site:domain
+  if (siteOnly && !string.IsNullOrEmpty(siteDomain))
+  {
+    bool withFt = !string.IsNullOrWhiteSpace(siteKeywords);
 
-        resultsSql = $@"
+    resultsSql = $@"
       SELECT id, url, title, description, author, keywords, image_url, response_code
       FROM (
           -- 0) domain matches (prefix/equality)
@@ -323,7 +314,7 @@ namespace maxhanna.Server.Controllers
       ORDER BY u.`rnk` ASC, u.`ft_score` DESC, u.id DESC
       LIMIT @pageSize OFFSET @offset;";
 
-        countSql = $@"
+    countSql = $@"
       SELECT COUNT(DISTINCT id) AS total
       FROM (
           SELECT sr.id
@@ -364,14 +355,14 @@ namespace maxhanna.Server.Controllers
                   AGAINST (@siteBoolean IN BOOLEAN MODE)
             AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))" : string.Empty)}
       ) AS c;";
-        return;
-      }
+    return;
+  }
 
-      // Generic (non-site): union of exact equals, domain prefix, and fulltext (now includes URL)
-      resultsSql = @"
+  // Generic (non-site): exact equals, domain prefix, FT (includes URL), and compact URL branch
+  resultsSql = @"
     SELECT id, url, title, description, author, keywords, image_url, response_code
     FROM (
-        -- 0) exact url equals (covers http/https, with/without trailing slash)
+        -- 0) exact url equals
         SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
                0 AS `rnk`, NULL AS `ft_score`
         FROM search_results sr
@@ -403,11 +394,11 @@ namespace maxhanna.Server.Controllers
                   CONCAT(@baseDomain, '/')
               )
         )
-        AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
 
         UNION ALL
         
-        -- 2) fulltext on metadata + URL (BOOLEAN MODE, require significant terms)
+        -- 2) fulltext on metadata + URL (BOOLEAN MODE)
         SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
                2 AS `rnk`,
                MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url)
@@ -417,11 +408,26 @@ namespace maxhanna.Server.Controllers
           AND MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url)
                 AGAINST (@searchBoolean IN BOOLEAN MODE)
           AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+
+        UNION ALL
+        
+        -- 3) compact URL contains compacted query (robust: strips percent-encodings)
+        SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
+              3 AS `rnk`, NULL AS `ft_score`
+        FROM search_results sr
+        WHERE
+          -- Strip all percent-encoded bytes, then keep only a-z0-9
+          REGEXP_REPLACE(
+            REGEXP_REPLACE(LOWER(sr.url), '%[0-9a-f]{2}', ''),
+            '[^a-z0-9]', ''
+          ) LIKE @searchCompactLike
+          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+
     ) AS u
     ORDER BY u.`rnk` ASC, u.`ft_score` DESC, u.id DESC
     LIMIT @pageSize OFFSET @offset;";
 
-      countSql = @"
+  countSql = @"
     SELECT COUNT(DISTINCT id) AS total
     FROM (
         SELECT sr.id
@@ -456,15 +462,26 @@ namespace maxhanna.Server.Controllers
 
         UNION ALL
 
-        -- FT in COUNT mirrors BOOLEAN MODE usage (includes URL)
         SELECT sr.id
         FROM search_results sr
         WHERE @searchBoolean IS NOT NULL
           AND MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url)
                 AGAINST (@searchBoolean IN BOOLEAN MODE)
           AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+
+        UNION ALL
+        
+        SELECT sr.id
+        FROM search_results sr
+        WHERE REGEXP_REPLACE(
+                REGEXP_REPLACE(LOWER(sr.url), '%[0-9a-f]{2}', ''),
+                '[^a-z0-9]', ''
+              ) LIKE @searchCompactLike
+          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+
     ) AS c;";
-    }
+}
+
 
 
     private void AddParametersToCrawlerQuery(
@@ -482,11 +499,12 @@ namespace maxhanna.Server.Controllers
       var raw = (request.Url ?? string.Empty).Trim().ToLower();
       command.Parameters.AddWithValue("@search", raw);
 
+      // Compact for URL-contains branch
       var compact = BuildCompact(raw);
       command.Parameters.AddWithValue("@searchCompact", compact);
       command.Parameters.AddWithValue("@searchCompactLike", "%" + compact + "%");
 
-      // NEW: boolean-mode search query
+      // BOOLEAN MODE query
       var searchBoolean = BuildBooleanQuery(raw);
       command.Parameters.AddWithValue("@searchBoolean",
           string.IsNullOrWhiteSpace(searchBoolean) ? (object)DBNull.Value : searchBoolean);
@@ -498,7 +516,7 @@ namespace maxhanna.Server.Controllers
       command.Parameters.AddWithValue("@pageSize", pageSize);
       command.Parameters.AddWithValue("@offset", offset);
 
-      // Absolute URL candidates (existing code)
+      // Absolute URL candidates
       string rawNoSlash = raw.TrimEnd('/');
       string https = rawNoSlash.StartsWith("http://") || rawNoSlash.StartsWith("https://")
           ? (rawNoSlash.StartsWith("https://") ? rawNoSlash : "https://" + rawNoSlash.Substring(rawNoSlash.IndexOf("://") + 3))
@@ -516,10 +534,7 @@ namespace maxhanna.Server.Controllers
       command.Parameters.AddWithValue("@httpUrlWithSlash", httpWithSlash);
 
       // Optional user id
-      if (request.UserId != null)
-        command.Parameters.AddWithValue("@UserId", request.UserId.Value);
-      else
-        command.Parameters.AddWithValue("@UserId", 0);
+      command.Parameters.AddWithValue("@UserId", request.UserId ?? 0);
 
       // site:domain params
       if (!string.IsNullOrWhiteSpace(siteDomain))
@@ -531,7 +546,6 @@ namespace maxhanna.Server.Controllers
       {
         command.Parameters.AddWithValue("@siteKeywords", siteKeywords);
 
-        // NEW: boolean-mode site query
         var siteBoolean = BuildBooleanQuery(siteKeywords);
         command.Parameters.AddWithValue("@siteBoolean",
             string.IsNullOrWhiteSpace(siteBoolean) ? (object)DBNull.Value : siteBoolean);
@@ -1049,133 +1063,102 @@ namespace maxhanna.Server.Controllers
     }
 
 
-/// <summary>
-/// Build a MySQL BOOLEAN MODE query from free text:
-/// - Keeps quoted phrases together (e.g., "banana bread").
-/// - Removes stopwords and tokens shorter than 3 chars.
-/// - Escapes MySQL boolean operators from user input.
-/// - Requires each remaining term with '+'.
-/// - Adds '*' to the last token of each clause for prefix matching.
-/// - Appends a compact concatenation token (e.g., +bananabread*) for multi-word inputs to catch
-///   concatenations in URLs or text.
-/// Returns null if nothing usable remains.
-/// </summary>
-private static string? BuildBooleanQuery(string? text)
-{
-  if (string.IsNullOrWhiteSpace(text))
-    return null;
-
-  // 1) Tokenize while preserving quoted phrases
-  //    Examples:
-  //    - input:  banana bread           -> ["banana", "bread"]
-  //    - input: "banana bread" recipe   -> ["banana bread", "recipe"]  (phrase kept)
-  var parts = new List<string>();
-  foreach (System.Text.RegularExpressions.Match m in
-           System.Text.RegularExpressions.Regex.Matches(
-             text, "\"([^\"]+)\"|([A-Za-z0-9]+)", System.Text.RegularExpressions.RegexOptions.Multiline))
-  {
-    var phrase = m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value;
-    if (!string.IsNullOrWhiteSpace(phrase))
-      parts.Add(phrase);
-  }
-
-  if (parts.Count == 0)
-    return null;
-
-  // 2) Normalize, split phrases into tokens for compact tracking,
-  //    but keep original phrases to build boolean segments.
-  //    We will produce two kinds of segments:
-  //    - tokens: "+banana +bread*"
-  //    - phrases: "+\"banana bread\"*"
-  var booleanSegments = new List<string>();
-  var tokenAccumulator = new List<string>();  // for compact creation across multi-word unquoted input
- 
-  foreach (var rawPart in parts)
-  {
-    var isQuoted = rawPart.Contains(' ') && !string.IsNullOrWhiteSpace(rawPart); 
-
-    // Split the part into tokens to filter stopwords/short tokens
-    var tokens = System.Text.RegularExpressions.Regex
-      .Matches(rawPart.ToLowerInvariant(), @"[a-z0-9]+")
-      .Select(t => t.Value)
-      .Where(tok => tok.Length >= 3 && !Stopwords.Contains(tok))
-      .ToList();
-
-    if (tokens.Count == 0)
-      continue;
-
-    if (isQuoted)
+    /// <summary>
+    /// Build a MySQL BOOLEAN MODE query from free text:
+    /// - Keeps quoted phrases together (e.g., "banana bread").
+    /// - Removes stopwords and tokens shorter than 3 chars.
+    /// - Escapes MySQL boolean operators from user input.
+    /// - Requires each remaining term with '+'.
+    /// - Adds '*' to the last token of each clause for prefix matching.
+    /// - Appends a compact concatenation token (e.g., +bananabread*) for multi-word inputs.
+    /// Returns null if nothing usable remains.
+    /// </summary>
+    private static string? BuildBooleanQuery(string? text)
     {
-      // Build a phrase segment if meaningful tokens remain
-      var phraseValue = string.Join(" ", tokens);
+      if (string.IsNullOrWhiteSpace(text))
+        return null;
 
-      // Escape double quotes inside phrase, though our tokenizer shouldn’t capture quotes within quotes.
-      phraseValue = phraseValue.Replace("\"", "\\\"");
-
-      // Require the phrase; add trailing '*' for prefix on the last word of the phrase.
-      // MySQL BOOLEAN MODE treats '*' at the end of a term for prefix; inside quotes it applies to the last token.
-      booleanSegments.Add($"+\"{phraseValue}\"*");
-      tokenAccumulator.AddRange(tokens);
-    }
-    else
-    {
-      // Single token(s) segment: require each token, add '*' only to the last one for UX.
-      for (int i = 0; i < tokens.Count; i++)
+      // 1) Tokenize while preserving quoted phrases
+      var parts = new List<string>();
+      foreach (System.Text.RegularExpressions.Match m in
+               System.Text.RegularExpressions.Regex.Matches(
+                 text, "\"([^\"]+)\"|([A-Za-z0-9]+)", System.Text.RegularExpressions.RegexOptions.Multiline))
       {
-        var tok = EscapeBooleanToken(tokens[i]);
-        bool isLast = i == tokens.Count - 1;
-        booleanSegments.Add(isLast ? $"+{tok}*" : $"+{tok}");
+        var phrase = m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value;
+        if (!string.IsNullOrWhiteSpace(phrase))
+          parts.Add(phrase);
       }
-      tokenAccumulator.AddRange(tokens); 
+      if (parts.Count == 0) return null;
+
+      // 2) Build boolean segments + accumulate tokens for compact
+      var booleanSegments = new List<string>();
+      var tokenAccumulator = new List<string>();
+
+      foreach (var rawPart in parts)
+      {
+        var isQuoted = rawPart.Contains(' ') && !string.IsNullOrWhiteSpace(rawPart);
+
+        var tokens = System.Text.RegularExpressions.Regex
+          .Matches(rawPart.ToLowerInvariant(), @"[a-z0-9]+")
+          .Select(t => t.Value)
+          .Where(tok => tok.Length >= 3 && !Stopwords.Contains(tok))
+          .ToList();
+
+        if (tokens.Count == 0) continue;
+
+        if (isQuoted)
+        {
+          var phraseValue = string.Join(" ", tokens).Replace("\"", "\\\"");
+          booleanSegments.Add($"+\"{phraseValue}\"*");
+          tokenAccumulator.AddRange(tokens);
+        }
+        else
+        {
+          for (int i = 0; i < tokens.Count; i++)
+          {
+            var tok = EscapeBooleanToken(tokens[i]);
+            bool isLast = i == tokens.Count - 1;
+            booleanSegments.Add(isLast ? $"+{tok}*" : $"+{tok}");
+          }
+          tokenAccumulator.AddRange(tokens);
+        }
+      }
+
+      if (booleanSegments.Count == 0) return null;
+
+      // 3) Add compact term for multi-token inputs (e.g., +bananabread*)
+      var uniqueTokens = tokenAccumulator.Distinct().ToList();
+      if (uniqueTokens.Count >= 2)
+      {
+        var compact = string.Concat(uniqueTokens);
+        var compactTerm = "+" + compact + "*";
+        if (!booleanSegments.Contains(compactTerm))
+          booleanSegments.Add(compactTerm);
+      }
+
+      var booleanQuery = string.Join(" ", booleanSegments);
+      return string.IsNullOrWhiteSpace(booleanQuery) ? null : booleanQuery;
     }
-  }
 
-  if (booleanSegments.Count == 0)
-    return null;
+    /// <summary>
+    /// Clean a token so it won't be interpreted as a MySQL boolean operator in BOOLEAN MODE.
+    /// </summary>
+    private static string EscapeBooleanToken(string token)
+    {
+      if (string.IsNullOrEmpty(token)) return token;
 
-  // 3) Add compact concatenation for multi-token inputs so "banana bread" also matches "bananabread"
-  //    Only if there are at least 2 tokens across the whole input after filtering.
-  var uniqueTokens = tokenAccumulator.Distinct().ToList();
-  if (uniqueTokens.Count >= 2)
-  {
-    var compact = string.Concat(uniqueTokens);
-    // Don’t add if it already exists in the boolean list as a token w/ wildcard
-    // (rare, but keeps the output clean).
-    var compactTerm = "+" + compact + "*";
-    if (!booleanSegments.Contains(compactTerm))
-      booleanSegments.Add(compactTerm);
-  }
-
-  // 4) Join
-  var booleanQuery = string.Join(" ", booleanSegments);
-  return string.IsNullOrWhiteSpace(booleanQuery) ? null : booleanQuery;
-}
-
-/// <summary>
-/// Escapes/cleans a token so it won't be interpreted as a MySQL boolean operator.
-/// MySQL boolean operators include: + - @ ~ < > ( ) " * and space.
-/// We also strip stray operators users might type.
-/// </summary>
-private static string EscapeBooleanToken(string token)
-{
-  if (string.IsNullOrEmpty(token)) return token;
-
-  // Remove/escape boolean special chars if present in token (defensive).
-  // Our tokenization uses [a-z0-9]+ so this is an extra guard.
-  var cleaned = token.Replace("\"", "")
-                     .Replace("+", "")
-                     .Replace("-", "")
-                     .Replace("@", "")
-                     .Replace("~", "")
-                     .Replace("<", "")
-                     .Replace(">", "")
-                     .Replace("(", "")
-                     .Replace(")", "")
-                     .Replace("*", "");
-
-  return cleaned;
-}
-
+      var cleaned = token.Replace("\"", "")
+                         .Replace("+", "")
+                         .Replace("-", "")
+                         .Replace("@", "")
+                         .Replace("~", "")
+                         .Replace("<", "")
+                         .Replace(">", "")
+                         .Replace("(", "")
+                         .Replace(")", "")
+                         .Replace("*", "");
+      return cleaned;
+    }
 
 
     // Heuristic: treat input as keyword if it doesn’t look like a URL/domain.
@@ -1198,13 +1181,13 @@ private static string EscapeBooleanToken(string token)
     }
 
 
-    private Task PrefetchWikipediaAsync(string keyword)
+    private Task ScrapeWikipediaAsync(string keyword)
     {
       return Task.Run(async () =>
       {
         try
         {
-          _ = _log.Db($"Wikipedia prefetch queued for: {keyword}.", null, "CRAWLERCTRL", true);
+          _ = _log.Db($"Wikipedia scrape queued for: {keyword}.", null, "CRAWLERCTRL", true);
           using var prefetchCts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
           var wiki = await TryFindWikipediaUrlAsync(keyword, prefetchCts.Token);
           if (!string.IsNullOrWhiteSpace(wiki?.Url))
@@ -1215,7 +1198,7 @@ private static string EscapeBooleanToken(string token)
         }
         catch (Exception ex)
         {
-          _ = _log.Db($"Wikipedia prefetch failed for '{keyword}': {ex.Message}", null, "CRAWLERCTRL", true);
+          _ = _log.Db($"Wikipedia scrape failed for '{keyword}': {ex.Message}", null, "CRAWLERCTRL", true);
         }
       });
     }
