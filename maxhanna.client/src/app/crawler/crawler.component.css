@@ -141,6 +141,7 @@
   align-content: flex-start;
   flex-direction: row;
   text-align: left;
+  font-size: smaller;
 }
 
 .metadataTitleLinkFavouriteWrapper a {

@@ -140,7 +140,10 @@ namespace maxhanna.Server.Controllers
             if (wiki != null)
             {
               var wikiOnly = new List<Metadata> { wiki };
-
+              if (wiki.Url != null)
+              {
+                await _webCrawler.SaveSearchResult(wiki.Url, wiki);
+              }
               // Keep your normalization pipeline consistent
               wikiOnly = GetOrderedResultsForWeb(request, wikiOnly);
               wikiOnly = await AddFavouriteCountsAsync(wikiOnly, request.UserId);
@@ -1092,13 +1095,13 @@ private Task PrefetchWikipediaAsync(string keyword)
   {
     try
     {
+      _ = _log.Db($"Wikipedia prefetch queued for: {keyword}.", null, "CRAWLERCTRL", true);
       using var prefetchCts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
       var wiki = await TryFindWikipediaUrlAsync(keyword, prefetchCts.Token);
       if (!string.IsNullOrWhiteSpace(wiki?.Url))
       {
         // Index asynchronously so next searches show the card
         await _webCrawler.StartScrapingAsync(wiki.Url);
-        _ = _log.Db($"Wikipedia prefetch queued for '{keyword}' -> {wiki.Url}", null, "CRAWLERCTRL", true);
       }
     }
     catch (Exception ex)
