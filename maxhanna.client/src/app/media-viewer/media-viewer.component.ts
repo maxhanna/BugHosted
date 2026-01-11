@@ -534,7 +534,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
 
   async download(file: FileEntry, force: boolean) {
-
     if (!confirm(`Download ${file.givenFileName ?? file.fileName}?`)) {
       return;
     }
