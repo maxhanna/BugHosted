@@ -700,76 +700,142 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+
     [HttpPost("/Ender/TopScores", Name = "Ender_TopScores")]
     public async Task<IActionResult> TopScores([FromBody] int limit)
     {
       if (limit <= 0) limit = 50;
-      using (var connection = new MySqlConnection(_connectionString))
+
+      await using var connection = new MySqlConnection(_connectionString);
+      await connection.OpenAsync();
+
+      // Pure reads: no need for an explicit transaction
+      try
       {
-        await connection.OpenAsync();
-        using (var transaction = connection.BeginTransaction())
+        const string sql = @"
+            WITH live_scores AS (
+                SELECT
+                    NULL AS id,               -- no id in live scores table
+                    h.id AS hero_id,
+                    h.user_id,
+                    /* live score formula */
+                    (TIMESTAMPDIFF(SECOND, h.created, UTC_TIMESTAMP())
+                     + COALESCE(w.cnt, 0) * COALESCE(h.kills, 0)) AS score,
+                    TIMESTAMPDIFF(SECOND, h.created, UTC_TIMESTAMP()) AS time_on_level_seconds,
+                    COALESCE(w.cnt, 0) AS walls_placed,
+                    h.level,
+                    COALESCE(h.kills, 0) AS kills,
+                    UTC_TIMESTAMP() AS created_at -- synthetic timestamp for live snapshot
+                FROM maxhanna.ender_hero h
+                LEFT JOIN (
+                    SELECT hero_id, level, COUNT(*) AS cnt
+                    FROM maxhanna.ender_bike_wall
+                    GROUP BY hero_id, level
+                ) w ON w.hero_id = h.id AND w.level = h.level
+            ),
+            recorded_scores AS (
+                SELECT
+                    t.id,
+                    t.hero_id,
+                    t.user_id,
+                    t.score,
+                    t.time_on_level_seconds,
+                    t.walls_placed,
+                    t.level,
+                    IFNULL(t.kills, 0) AS kills,
+                    t.created_at
+                FROM maxhanna.ender_top_scores t
+            ),
+            unified AS (
+                SELECT * FROM recorded_scores
+                UNION ALL
+                SELECT * FROM live_scores
+            ),
+            best_per_user AS (
+                SELECT
+                    u.*,
+                    ROW_NUMBER() OVER (PARTITION BY u.user_id ORDER BY u.score DESC, u.created_at DESC) AS rn
+                FROM unified u
+            )
+            SELECT
+                bpu.id,
+                bpu.hero_id,
+                bpu.user_id,
+                bpu.score,
+                bpu.time_on_level_seconds,
+                bpu.walls_placed,
+                bpu.level,
+                bpu.kills,
+                bpu.created_at,
+                u.id AS user_id_fk,
+                u.username,
+                u.created AS user_created,
+                udp.file_id AS display_picture_file_id
+            FROM best_per_user bpu
+            LEFT JOIN users u ON u.id = bpu.user_id
+            LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
+            WHERE bpu.rn = 1
+            ORDER BY bpu.score DESC, bpu.created_at DESC
+            LIMIT @Limit;
+        ";
+
+        var result = new List<Dictionary<string, object?>>();
+        await using (var command = new MySqlCommand(sql, connection))
         {
-          try
+          command.Parameters.AddWithValue("@Limit", limit);
+
+          using (var reader = await command.ExecuteReaderAsync())
           {
-            string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, IFNULL(t.kills,0) AS kills, t.created_at,
-                                       u.id as user_id_fk, u.username, u.created as user_created, udp.file_id as display_picture_file_id
-                                       FROM maxhanna.ender_top_scores t
-                                       LEFT JOIN users u ON u.id = t.user_id
-                                       LEFT JOIN user_display_pictures udp ON u.id = udp.user_id
-                                       ORDER BY t.score DESC LIMIT @Limit;";
-            var result = new List<Dictionary<string, object?>>();
-            using (var command = new MySqlCommand(sql, connection, transaction))
+            while (await reader.ReadAsync())
             {
-              command.Parameters.AddWithValue("@Limit", limit);
-              using (var reader = await command.ExecuteReaderAsync())
+              var row = new Dictionary<string, object?>();
+
+              // id can be null for live scores
+              row["id"] = reader.IsDBNull(reader.GetOrdinal("id")) ? (int?)null : reader.GetInt32("id");
+              row["hero_id"] = reader.IsDBNull(reader.GetOrdinal("hero_id")) ? (int?)null : reader.GetInt32("hero_id");
+              row["user_id"] = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id");
+              row["score"] = reader.GetInt32("score");
+              row["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
+              row["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
+              row["kills"] = reader.IsDBNull(reader.GetOrdinal("kills")) ? 0 : reader.GetInt32("kills");
+              row["created_at"] = reader.GetDateTime("created_at");
+              row["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
+
+              if (!reader.IsDBNull(reader.GetOrdinal("user_id_fk")))
               {
-                while (await reader.ReadAsync())
+                var tmpUser = new User
                 {
-                  var row = new Dictionary<string, object?>();
-                  row["id"] = reader.GetInt32("id");
-                  row["hero_id"] = reader.GetInt32("hero_id");
-                  row["user_id"] = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id");
-                  row["score"] = reader.GetInt32("score");
-                  row["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
-                  row["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
-                  row["kills"] = reader.IsDBNull(reader.GetOrdinal("kills")) ? 0 : reader.GetInt32("kills");
-                  row["created_at"] = reader.GetDateTime("created_at");
-                  row["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
+                  Id = reader.GetInt32("user_id_fk"),
+                  Username = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username"),
+                  Created = reader.IsDBNull(reader.GetOrdinal("user_created")) ? (DateTime?)null : reader.GetDateTime("user_created")
+                };
 
-                  if (!reader.IsDBNull(reader.GetOrdinal("user_id_fk")))
+                try
+                {
+                  if (!reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")))
                   {
-                    // Construct a typed User object like WordlerController does
-                    var tmpUser = new User();
-                    tmpUser.Id = reader.GetInt32("user_id_fk");
-                    tmpUser.Username = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
-                    tmpUser.Created = reader.IsDBNull(reader.GetOrdinal("user_created")) ? (DateTime?)null : reader.GetDateTime("user_created");
-                    try
-                    {
-                      if (!reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")))
-                      {
-                        var fileId = reader.GetInt32("display_picture_file_id");
-                        tmpUser.DisplayPictureFile = new FileEntry(fileId);
-                      }
-                    }
-                    catch { }
-                    row["user"] = tmpUser;
+                    var fileId = reader.GetInt32("display_picture_file_id");
+                    tmpUser.DisplayPictureFile = new FileEntry(fileId);
                   }
-
-                  result.Add(row);
                 }
+                catch { /* non-fatal */ }
+
+                row["user"] = tmpUser;
               }
+
+              result.Add(row);
             }
-            await transaction.CommitAsync();
-            return Ok(result);
-          }
-          catch (Exception ex)
-          {
-            await transaction.RollbackAsync();
-            return StatusCode(500, "Internal server error: " + ex.Message);
           }
         }
+
+        return Ok(result);
+      }
+      catch (Exception ex)
+      {
+        return StatusCode(500, "Internal server error: " + ex.Message);
       }
     }
+
 
     [HttpPost("/Ender/ActivePlayers", Name = "Ender_ActivePlayers")]
     public async Task<IActionResult> ActivePlayers([FromBody] int minutes)
@@ -1079,17 +1145,67 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+
     [HttpPost("/Ender/BestScore", Name = "Ender_BestScore")]
-    public async Task<IActionResult> BestScore([FromBody] int dummy)
+    public async Task<IActionResult> BestScore([FromBody] int _)
     {
       try
       {
         await using var connection = new MySqlConnection(_connectionString);
         await connection.OpenAsync();
-        const string sql = @"SELECT t.hero_id, t.user_id, t.score, t.level, IFNULL(t.kills,0) AS kills, u.username
-                                      FROM maxhanna.ender_top_scores t
-                                      LEFT JOIN users u ON u.id = t.user_id
-                                      ORDER BY t.score DESC LIMIT 1;";
+
+        const string sql = @"
+            WITH live_scores AS (
+                SELECT
+                    h.id AS hero_id,
+                    h.user_id,
+                    /* live score formula */
+                    (TIMESTAMPDIFF(SECOND, h.created, UTC_TIMESTAMP())
+                     + COALESCE(w.cnt, 0) * COALESCE(h.kills, 0)) AS score,
+                    h.level,
+                    COALESCE(h.kills, 0) AS kills,
+                    UTC_TIMESTAMP() AS created_at
+                FROM maxhanna.ender_hero h
+                LEFT JOIN (
+                    SELECT hero_id, level, COUNT(*) AS cnt
+                    FROM maxhanna.ender_bike_wall
+                    GROUP BY hero_id, level
+                ) w ON w.hero_id = h.id AND w.level = h.level
+            ),
+            recorded_scores AS (
+                SELECT
+                    t.hero_id,
+                    t.user_id,
+                    t.score,
+                    t.level,
+                    IFNULL(t.kills, 0) AS kills,
+                    t.created_at
+                FROM maxhanna.ender_top_scores t
+            ),
+            unified AS (
+                SELECT * FROM recorded_scores
+                UNION ALL
+                SELECT * FROM live_scores
+            ),
+            ranked AS (
+                SELECT
+                    u.*,
+                    ROW_NUMBER() OVER (ORDER BY u.score DESC, u.created_at DESC) AS rn
+                FROM unified u
+            )
+            SELECT
+                r.hero_id,
+                r.user_id,
+                r.score,
+                r.level,
+                r.kills,
+                u.username
+            FROM ranked r
+            LEFT JOIN users u ON u.id = r.user_id
+            WHERE r.rn = 1
+            LIMIT 1;
+        ";
+
         Dictionary<string, object?>? row = null;
         await using (var cmd = new MySqlCommand(sql, connection))
         await using (var reader = await cmd.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow))
@@ -1107,6 +1223,7 @@ namespace maxhanna.Server.Controllers
             };
           }
         }
+
         return Ok(row);
       }
       catch (Exception ex)
@@ -2565,7 +2682,6 @@ namespace maxhanna.Server.Controllers
       {
         _ = _log.Db($"Failed to insert kill notification for victim hero {victimId}: {ex.Message}", victimId, "ENDER", true);
       }
-    }
-
+    } 
   }
 }
