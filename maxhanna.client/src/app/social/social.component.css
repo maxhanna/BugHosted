@@ -434,8 +434,7 @@ singleAttachment {
 }
 
 .popupPanelTitle {
-  display: flex;
-  width: 100%;
+  display: flex; 
   justify-content: space-evenly;
 }
 
