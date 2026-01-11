@@ -412,13 +412,19 @@
       <input type="button" (click)="clearPopupSearch()" value="❌" class="search-clear-button" />
       <span class="search-results-count">{{ directory?.totalCount || 0 }} results</span>
     </div>
-      <div *ngIf="trendingSearches && trendingSearches.length" class="trending-searches">
-        <div class="trending-header">Trending:</div>
-        <div class="trending-list">
-          <button class="trending-chip" *ngFor="let t of trendingSearches" (click)="searchFiles(t)">{{t}}</button>
-        </div>
+    <div class="search-tips gradientBackground">
+      <p class="tip-text">
+        <i class="icon-info"></i>
+        <strong>Search tips:</strong> Use quotes <code>"</code> for exact matches.
+        Separate keywords with spaces or commas.
+      </p>
+    </div>
+    <div *ngIf="trendingSearches && trendingSearches.length" class="trending-searches">
+      <div class="trending-header">Trending:</div>
+      <div class="trending-list">
+        <button class="trending-chip" *ngFor="let t of trendingSearches" (click)="searchFiles(t)">{{t}}</button>
       </div>
-    
+    </div> 
     <div class="search-filters">
       <div class="filter-group">
         <label for="sort-select" class="filter-label">Sort by:</label>
@@ -466,15 +472,7 @@
       <button class="toggle-switch" (click)="showVideosToggled()">
         {{ showVideosOnly ? 'On' : 'Off' }}
       </button>
-    </div>
-    
-    <div class="search-tips gradientBackground">
-      <p class="tip-text">
-        <i class="icon-info"></i>
-        <strong>Search tips:</strong> Use quotes <code>"</code> for exact matches.
-        Separate keywords with spaces or commas.
-      </p>
-    </div>
+    </div> 
   </div>
   
   <button class="closeButton" id="closeOverlay" (click)="closeSearchPanel()">Close</button> 
