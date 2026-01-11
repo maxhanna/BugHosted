@@ -153,6 +153,18 @@ namespace maxhanna.Server.Controllers
           {
             _ = _log.Db($"Failed to scrape Wikipedia for keyword: {e.Message}", null, "CRAWLERCTRL", true);
           }
+        } 
+        else if (allResults != null && allResults.Count > 0)
+        { 
+          // If this is a keyword query, prefetch Wikipedia in the background even if we already have results.
+          // Skip if a Wikipedia URL already exists in these results.
+          bool hasWikipedia = allResults.Any(r =>
+            r.Url?.Contains("wikipedia.org/wiki/", StringComparison.OrdinalIgnoreCase) == true);
+
+          if (IsKeywordQuery(request.Url) && !hasWikipedia)
+          {
+            _ = PrefetchWikipediaAsync(request.Url!.Trim());
+          }
         }
 
         return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResults });
@@ -1072,5 +1084,29 @@ namespace maxhanna.Server.Controllers
 
       return true;
     }
+
+    
+private Task PrefetchWikipediaAsync(string keyword)
+{
+  return Task.Run(async () =>
+  {
+    try
+    {
+      using var prefetchCts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+      var wiki = await TryFindWikipediaUrlAsync(keyword, prefetchCts.Token);
+      if (!string.IsNullOrWhiteSpace(wiki?.Url))
+      {
+        // Index asynchronously so next searches show the card
+        await _webCrawler.StartScrapingAsync(wiki.Url);
+        _ = _log.Db($"Wikipedia prefetch queued for '{keyword}' -> {wiki.Url}", null, "CRAWLERCTRL", true);
+      }
+    }
+    catch (Exception ex)
+    {
+      _ = _log.Db($"Wikipedia prefetch failed for '{keyword}': {ex.Message}", null, "CRAWLERCTRL", true);
+    }
+  });
+}
+
   }
 }
