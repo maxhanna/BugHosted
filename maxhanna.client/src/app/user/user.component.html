@@ -183,13 +183,22 @@
             </div>
 
             <div class="loginDiv">
-              <input type="text" id="loginInput" placeholder="Username" #loginUsername (keydown.enter)="login()" />
-              <input type="password" id="passwordInput" placeholder="Password" #loginPassword
-                (keydown.enter)="login()" />
+              <input type="text" 
+                id="loginInput" 
+                placeholder="Username" 
+                #loginUsername 
+                (keydown.enter)="login()"
+                [disabled]="isLoading" />
+              <input type="password" 
+                id="passwordInput" 
+                placeholder="Password" 
+                #loginPassword
+                (keydown.enter)="login()" 
+                [disabled]="isLoading"/>
               <div>
-                <input type="submit" value="🔑 Login" (click)="login()" />
-                <input type="submit" value="👤➕ Create User" (click)="createUser()" />
-                <input type="submit" value="👤➕ Guest" (click)="createUser(true)" />
+                <input type="submit" value="🔑 Login" (click)="login()" [disabled]="isLoading" />
+                <input type="submit" value="👤➕ Create User" (click)="createUser()" [disabled]="isLoading" />
+                <input type="submit" value="👤➕ Guest" (click)="createUser(true)" [disabled]="isLoading" />
               </div>
             </div>
           </div>

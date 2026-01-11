@@ -796,6 +796,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   async login(guest?: string, fromUserCreation?: boolean) {
+    this.startLoading();
     if (this.parentRef?.user) {
       this.parentRef.user = undefined;
     }
@@ -833,6 +834,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.justLoggedIn = true;
         this.ngOnInit();
       }
+      this.stopLoading();
     }
   }
   private resetNavigationAppSelectionHelp() {
