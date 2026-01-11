@@ -47,12 +47,12 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   // Removed delayed in-view scheduling; fetch will occur immediately upon visibility.
   private hasTriedInitialCachedLoad = false;
 
-  @ViewChild('mediaContainer', { static: false }) mediaContainer!: ElementRef;
-  @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay!: ElementRef;
-  @ViewChild('fullscreenImage', { static: false }) fullscreenImage!: ElementRef;
-  @ViewChild('fullscreenVideo', { static: false }) fullscreenVideo!: ElementRef;
-  @ViewChild('fullscreenAudio', { static: false }) fullscreenAudio!: ElementRef;
-  @ViewChild('editFileNameInput', { static: false }) editFileNameInput!: ElementRef;
+  @ViewChild('mediaContainer', { static: false }) mediaContainer?: ElementRef;
+  @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay?: ElementRef;
+  @ViewChild('fullscreenImage', { static: false }) fullscreenImage?: ElementRef;
+  @ViewChild('fullscreenVideo', { static: false }) fullscreenVideo?: ElementRef;
+  @ViewChild('fullscreenAudio', { static: false }) fullscreenAudio?: ElementRef;
+  @ViewChild('editFileNameInput', { static: false }) editFileNameInput?: ElementRef;
   @ViewChild(TopicsComponent) topicComponent!: TopicsComponent;
  
   @Input() debug = false;
@@ -418,7 +418,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     this.isEditingFileName = true;
   }
   async saveFileName(file: FileEntry) {
-    const fileName = this.editFileNameInput.nativeElement.value.trim();
+    const fileName = this.editFileNameInput?.nativeElement.value.trim();
     if (!fileName || fileName.length === 0) {
       this.emittedNotification.emit("File name cannot be empty!");
       return;
@@ -466,12 +466,15 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (this.blockExpand) return;
 
     this.isFullscreenMode = true;
-    (this.mediaContainer.nativeElement as HTMLMediaElement).src = '';
-    const overlay = this.fullscreenOverlay.nativeElement;
-    const image = this.fullscreenImage.nativeElement;
-    const video = this.fullscreenVideo.nativeElement;
-    const audio = this.fullscreenAudio.nativeElement;
-
+    (this.mediaContainer?.nativeElement as HTMLMediaElement).src = '';
+    const overlay = this.fullscreenOverlay?.nativeElement;
+    const image = this.fullscreenImage?.nativeElement;
+    const video = this.fullscreenVideo?.nativeElement;
+    const audio = this.fullscreenAudio?.nativeElement;
+    if (!overlay || !image || !video || !audio) {
+      console.error("Fullscreen elements not found");
+      return;
+    }
     if (this.fileService.videoFileExtensions.includes(file.extension)) {
       video.src = this.selectedFileSrc;
       video.style.display = 'block';
@@ -501,14 +504,22 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
 
   shrink() {
-    const overlay = this.fullscreenOverlay.nativeElement;
-    const image = this.fullscreenImage.nativeElement;
-    const video = this.fullscreenVideo.nativeElement;
-    const audio = this.fullscreenAudio.nativeElement;
+    const overlay = this.fullscreenOverlay?.nativeElement;
+    const image = this.fullscreenImage?.nativeElement;
+    const video = this.fullscreenVideo?.nativeElement;
+    const audio = this.fullscreenAudio?.nativeElement;
+    if (!overlay || !image || !video || !audio) {
+      console.error("Fullscreen elements not found");
+      return;
+    }
     image.src = undefined;
     video.src = undefined;
     audio.src = undefined;
-    (this.mediaContainer.nativeElement as HTMLMediaElement).src = this.selectedFileSrc;
+    if (this.mediaContainer) { 
+      (this.mediaContainer.nativeElement as HTMLMediaElement).src = this.selectedFileSrc;
+    } else {
+      console.error("mediaContainer not found");
+    }
 
     overlay.style.display = 'none';
     this.isFullscreenMode = false;
@@ -528,9 +539,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       return;
     }
     const parent = this.inputtedParentRef ?? this.parentRef;
-    if (!parent) return;
-    const session = await parent.getSessionToken();
-
+    if (!parent) return; 
+    
     let directoryValue = this.currentDirectory;
     if (!directoryValue) {
 
