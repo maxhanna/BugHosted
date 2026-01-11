@@ -59,6 +59,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   selectedForDelete: Set<number> = new Set<number>();
   showFavouritesOnly = false;
+  showPicturesOnly = false;
   trendingSearches: string[] = [];
   sortOption: string = 'Latest';
   showData = true;
@@ -656,19 +657,19 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   async handleUploadedFiles(files: FileEntry[]) {
     await this.getDirectory();
   }
-  
+
   toggleSelectForDelete(file: FileEntry, event?: Event) {
     if (!file || !file.id) {
       return;
     }
-    if (this.selectedForDelete.has(file.id)) { 
-      this.selectedForDelete.delete(file.id); 
-    } else { 
-      this.selectedForDelete.add(file.id); 
+    if (this.selectedForDelete.has(file.id)) {
+      this.selectedForDelete.delete(file.id);
+    } else {
+      this.selectedForDelete.add(file.id);
     }
     this.selectedForDeleteChange.emit(Array.from(this.selectedForDelete));
-    if (event) { 
-      event.stopPropagation(); 
+    if (event) {
+      event.stopPropagation();
     }
   }
 
@@ -1136,6 +1137,17 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       parent?.showNotification(`Added ${tmpTodo.todo} to music playlist.`);
     }
   }
+
+  showPicturesToggled() {
+    this.showPicturesOnly = !this.showPicturesOnly;
+    if (!this.showPicturesOnly) {
+      this.clearFileTypeFilter();
+    } else {
+      this.fileTypeFilter = this.fileService.imageFileExtensions.join(',');
+      this.onFiletypeFilterChange(true);
+    }
+  }
+
   showFavouritesToggled() {
     this.showFavouritesOnly = !this.showFavouritesOnly;
     this.debounceSearch();
@@ -1177,8 +1189,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.currentDirectoryChangeEvent.emit(this.currentDirectory);
     this.getDirectory();
   }
-  onFiletypeFilterChange() {
-    this.fileTypeFilter = this.fileTypeFilterInput.nativeElement.value;
+  onFiletypeFilterChange(setFilterInput = false) {
+    if (setFilterInput) {
+      this.fileTypeFilterInput.nativeElement.value = this.fileTypeFilter;
+    } else {
+      this.fileTypeFilter = this.fileTypeFilterInput.nativeElement.value;
+    }
     this.getDirectory();
   }
   clearPopupSearch() {
@@ -1201,7 +1217,3 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     try { this.onFiletypeFilterChange(); } catch { }
   }
 }
-
-
-
-

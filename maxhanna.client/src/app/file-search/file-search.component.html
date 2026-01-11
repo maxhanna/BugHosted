@@ -453,6 +453,13 @@
         {{ showFavouritesOnly ? 'On' : 'Off' }}
       </button>
     </div>
+
+    <div *ngIf="userIsLoggedIn()">
+      Show pictures only?
+      <button class="toggle-switch" (click)="showPicturesToggled()">
+        {{ showPicturesOnly ? 'On' : 'Off' }}
+      </button>
+    </div>
     
     <div class="search-tips gradientBackground">
       <p class="tip-text">
