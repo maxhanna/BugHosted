@@ -134,8 +134,7 @@ namespace maxhanna.Server.Services
 
       if (result != null && result != DBNull.Value)
       {
-        // _ = _log.Db($"Trade indicators for {fromCoin}/{toCoin} updated within last 5 minutes, skipping update",
-        // 		   null, "TISVC", outputToConsole: true);
+        _ = _log.Db($"Trade indicators for {fromCoin}/{toCoin} updated within last 5 minutes, skipping update",  null, "TISVC", outputToConsole: true);
         return false;
       }
       return true;
