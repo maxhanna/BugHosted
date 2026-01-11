@@ -203,12 +203,7 @@
 .aboutPopupPanel #closeOverlay {
   margin-top: 20px;
   margin-bottom: 15px;
-}
-
-.popupPanelTitle {
-  display: flex; 
-  justify-content: space-evenly;
-}
+} 
 
 .friendsListWrapperDiv {
   display: flex;
@@ -383,9 +378,10 @@
     touch-action: manipulation;
   }
 }
-
+ 
 .popupPanelTitle {
   display: flex;
+  justify-content: space-evenly;
   align-items: center;
   padding: 0.5rem 0;
   font-weight: 600;
