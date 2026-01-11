@@ -215,6 +215,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
 
   resetSelectedFile() {
+    this.stopMedia(this.mediaContainer.nativeElement);
+    this.stopMedia(this.fullscreenVideo.nativeElement);
+    this.stopMedia(this.fullscreenAudio.nativeElement); 
     if (this.abortFileRequestController) {
       this.abortFileRequestController.abort("Component is destroyed");
     }
@@ -759,5 +762,18 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (resTodo) {
       parent?.showNotification(`Added ${tmpTodo.todo} to music playlist.`);
     }
-  }
+  } 
+
+  stopMedia(media: HTMLMediaElement): void {
+    try {
+      media.pause();           // Pause playback
+      media.currentTime = 0;   // Rewind to start
+      // If it's looping, resetting currentTime is enough to 'stop'
+      // Optionally clear src to fully stop buffering:
+      // media.src = '';
+      // media.load(); // reinitialize without source
+    } catch (e) {
+      console.error('Failed to stop media:', e);
+    }
+  } 
 }
