@@ -410,13 +410,19 @@ private void BuildUnionSql(
           AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
 
         UNION ALL
-
-        -- 3) compact URL contains compacted query (MySQL 8+: REGEXP_REPLACE)
+        
+        -- 3) compact URL contains compacted query (robust: strips percent-encodings)
         SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
-               3 AS `rnk`, NULL AS `ft_score`
+              3 AS `rnk`, NULL AS `ft_score`
         FROM search_results sr
-        WHERE REGEXP_REPLACE(LOWER(sr.url), '[^a-z0-9]', '') LIKE @searchCompactLike
+        WHERE
+          -- Strip all percent-encoded bytes, then keep only a-z0-9
+          REGEXP_REPLACE(
+            REGEXP_REPLACE(LOWER(sr.url), '%[0-9a-f]{2}', ''),
+            '[^a-z0-9]', ''
+          ) LIKE @searchCompactLike
           AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+
     ) AS u
     ORDER BY u.`rnk` ASC, u.`ft_score` DESC, u.id DESC
     LIMIT @pageSize OFFSET @offset;";
@@ -464,11 +470,15 @@ private void BuildUnionSql(
           AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
 
         UNION ALL
-
+        
         SELECT sr.id
         FROM search_results sr
-        WHERE REGEXP_REPLACE(LOWER(sr.url), '[^a-z0-9]', '') LIKE @searchCompactLike
+        WHERE REGEXP_REPLACE(
+                REGEXP_REPLACE(LOWER(sr.url), '%[0-9a-f]{2}', ''),
+                '[^a-z0-9]', ''
+              ) LIKE @searchCompactLike
           AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+
     ) AS c;";
 }
 
