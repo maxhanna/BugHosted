@@ -14,6 +14,13 @@ namespace maxhanna.Server.Controllers
     private readonly Log _log;
     private readonly IConfiguration _config;
     private readonly WebCrawler _webCrawler;
+    private static readonly HashSet<string> Stopwords = new(StringComparer.OrdinalIgnoreCase)
+    {
+      // Very common English stopwords; add more as needed or localize.
+      "a","an","and","are","as","at","be","but","by","for","from","has","he","in",
+      "is","it","its","of","on","or","our","she","that","the","their","there","they",
+      "this","to","was","were","will","with","you","your"
+    };
 
     public CrawlerController(Log log, IConfiguration config, WebCrawler webCrawler)
     {
@@ -113,40 +120,40 @@ namespace maxhanna.Server.Controllers
           }
         }
 
-        
-// Post-process
-var allResults = GetOrderedResultsForWeb(request, results);
-allResults = await AddFavouriteCountsAsync(allResults, request.UserId);
 
-// 🔎 Wikipedia fallback: only if NO URL was found AND the query is a keyword.
-// "No URL found" here means no results from DB + quick scrape.
-if ((allResults == null || allResults.Count == 0) && IsKeywordQuery(request.Url))
-{
-  try
-  {
-    // Link to the controller-level 30s token, but give Wikipedia a tight 3s budget
-    using var wikiCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-    wikiCts.CancelAfter(TimeSpan.FromSeconds(3));
+        // Post-process
+        var allResults = GetOrderedResultsForWeb(request, results);
+        allResults = await AddFavouriteCountsAsync(allResults, request.UserId);
 
-    var wiki = await TryFindWikipediaUrlAsync(request.Url!.Trim(), wikiCts.Token);
-    if (wiki != null)
-    {
-      var wikiOnly = new List<Metadata> { wiki };
+        // 🔎 Wikipedia fallback: only if NO URL was found AND the query is a keyword.
+        // "No URL found" here means no results from DB + quick scrape.
+        if ((allResults == null || allResults.Count == 0) && IsKeywordQuery(request.Url))
+        {
+          try
+          {
+            // Link to the controller-level 30s token, but give Wikipedia a tight 3s budget
+            using var wikiCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            wikiCts.CancelAfter(TimeSpan.FromSeconds(3));
 
-      // Keep your normalization pipeline consistent
-      wikiOnly = GetOrderedResultsForWeb(request, wikiOnly);
-      wikiOnly = await AddFavouriteCountsAsync(wikiOnly, request.UserId);
+            var wiki = await TryFindWikipediaUrlAsync(request.Url!.Trim(), wikiCts.Token);
+            if (wiki != null)
+            {
+              var wikiOnly = new List<Metadata> { wiki };
 
-      return Ok(new { Results = wikiOnly, TotalResults = 1 });
-    }
-  }
-  catch (Exception e)
-  {
-    _ = _log.Db($"Failed to scrape Wikipedia for keyword: {e.Message}", null, "CRAWLERCTRL", true);
-  }
-}
+              // Keep your normalization pipeline consistent
+              wikiOnly = GetOrderedResultsForWeb(request, wikiOnly);
+              wikiOnly = await AddFavouriteCountsAsync(wikiOnly, request.UserId);
 
-return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResults });
+              return Ok(new { Results = wikiOnly, TotalResults = 1 });
+            }
+          }
+          catch (Exception e)
+          {
+            _ = _log.Db($"Failed to scrape Wikipedia for keyword: {e.Message}", null, "CRAWLERCTRL", true);
+          }
+        }
+
+        return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResults });
 
       }
       catch (OperationCanceledException oce)
@@ -198,7 +205,7 @@ return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResul
     /// Branches (non-site):
     ///   0) exact url equals (UNIQUE(url))
     ///   1) domain prefix (left-anchored LIKE on url)
-    ///   2) FULLTEXT
+    ///   2) FULLTEXT (BOOLEAN MODE with required significant tokens)
     /// Site-specific uses domain branches, plus optional FT within site.
     /// </summary>
     private void BuildUnionSql(
@@ -213,16 +220,16 @@ return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResul
       if (searchAll)
       {
         resultsSql = @"
-            SELECT id, url, title, description, author, keywords, image_url, response_code
-            FROM search_results
-            WHERE failed = 0 OR (failed = 1 AND response_code IS NOT NULL)
-            ORDER BY found_date DESC
-            LIMIT @pageSize OFFSET @offset;";
+        SELECT id, url, title, description, author, keywords, image_url, response_code
+        FROM search_results
+        WHERE failed = 0 OR (failed = 1 AND response_code IS NOT NULL)
+        ORDER BY found_date DESC
+        LIMIT @pageSize OFFSET @offset;";
 
         countSql = @"
-            SELECT COUNT(*)
-            FROM search_results
-            WHERE failed = 0 OR (failed = 1 AND response_code IS NOT NULL);";
+        SELECT COUNT(*)
+        FROM search_results
+        WHERE failed = 0 OR (failed = 1 AND response_code IS NOT NULL);";
         return;
       }
 
@@ -230,217 +237,215 @@ return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResul
       if (request.ExactMatch.GetValueOrDefault())
       {
         resultsSql = @"
-            SELECT id, url, title, description, author, keywords, image_url, response_code
-            FROM search_results
-            WHERE url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
-              AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL))
-            ORDER BY id DESC
-            LIMIT @pageSize OFFSET @offset;";
+        SELECT id, url, title, description, author, keywords, image_url, response_code
+        FROM search_results
+        WHERE url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
+          AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL))
+        ORDER BY id DESC
+        LIMIT @pageSize OFFSET @offset;";
 
         countSql = @"
-            SELECT COUNT(*)
-            FROM search_results
-            WHERE url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
-              AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL));";
+        SELECT COUNT(*)
+        FROM search_results
+        WHERE url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
+          AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL));";
         return;
       }
 
       // site:domain
       if (siteOnly && !string.IsNullOrEmpty(siteDomain))
       {
-        // If siteKeywords present, include FT branch; otherwise only domain prefix branch
         bool withFt = !string.IsNullOrWhiteSpace(siteKeywords);
 
         resultsSql = $@"
-            SELECT id, url, title, description, author, keywords, image_url, response_code
-            FROM (
-                -- 0) domain matches (prefix/equality)
-                SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
-                       0 AS `rnk`, NULL AS `ft_score`
-                FROM search_results sr
-                WHERE (
-                       sr.url LIKE CONCAT('https://', @siteDomain, '%')
-                    OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
-                    OR sr.url LIKE CONCAT(@siteDomain, '%')
-                    OR sr.url IN (
-                          CONCAT('https://', @siteDomain),
-                          CONCAT('https://', @siteDomain, '/'),
-                          CONCAT('http://',  @siteDomain),
-                          CONCAT('http://',  @siteDomain, '/'),
-                          CONCAT(@siteDomain),
-                          CONCAT(@siteDomain, '/')
-                      )
-                )
-                  AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-                {(withFt ? "UNION ALL" : string.Empty)}
-                {(withFt ? @"
-                -- 1) fulltext within site
-                SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
-                       1 AS `rnk`,
-                       MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@siteKeywords IN NATURAL LANGUAGE MODE) AS `ft_score`
-                FROM search_results sr
-                WHERE (
-                       sr.url LIKE CONCAT('https://', @siteDomain, '%')
-                    OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
-                    OR sr.url LIKE CONCAT(@siteDomain, '%')
-                    OR sr.url IN (
-                          CONCAT('https://', @siteDomain),
-                          CONCAT('https://', @siteDomain, '/'),
-                          CONCAT('http://',  @siteDomain),
-                          CONCAT('http://',  @siteDomain, '/'),
-                          CONCAT(@siteDomain),
-                          CONCAT(@siteDomain, '/')
-                      )
-                )
-                  AND @siteKeywords IS NOT NULL
-                  AND @siteKeywords <> ''
-                  AND MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@siteKeywords IN NATURAL LANGUAGE MODE)
-                  AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))" : string.Empty)}
-            ) AS u
-            ORDER BY u.`rnk` ASC, u.`ft_score` DESC, u.id DESC
-            LIMIT @pageSize OFFSET @offset;";
+        SELECT id, url, title, description, author, keywords, image_url, response_code
+        FROM (
+            -- 0) domain matches (prefix/equality)
+            SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
+                   0 AS `rnk`, NULL AS `ft_score`
+            FROM search_results sr
+            WHERE (
+                   sr.url LIKE CONCAT('https://', @siteDomain, '%')
+                OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
+                OR sr.url LIKE CONCAT(@siteDomain, '%')
+                OR sr.url IN (
+                      CONCAT('https://', @siteDomain),
+                      CONCAT('https://', @siteDomain, '/'),
+                      CONCAT('http://',  @siteDomain),
+                      CONCAT('http://',  @siteDomain, '/'),
+                      CONCAT(@siteDomain),
+                      CONCAT(@siteDomain, '/')
+                  )
+            )
+              AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+            {(withFt ? "UNION ALL" : string.Empty)}
+            {(withFt ? @"
+            -- 1) fulltext within site (BOOLEAN MODE)
+            SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
+                   1 AS `rnk`,
+                   MATCH(sr.title, sr.description, sr.author, sr.keywords)
+                     AGAINST (@siteBoolean IN BOOLEAN MODE) AS `ft_score`
+            FROM search_results sr
+            WHERE (
+                   sr.url LIKE CONCAT('https://', @siteDomain, '%')
+                OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
+                OR sr.url LIKE CONCAT(@siteDomain, '%')
+                OR sr.url IN (
+                      CONCAT('https://', @siteDomain),
+                      CONCAT('https://', @siteDomain, '/'),
+                      CONCAT('http://',  @siteDomain),
+                      CONCAT('http://',  @siteDomain, '/'),
+                      CONCAT(@siteDomain),
+                      CONCAT(@siteDomain, '/')
+                  )
+            )
+              AND @siteBoolean IS NOT NULL
+              AND MATCH(sr.title, sr.description, sr.author, sr.keywords)
+                    AGAINST (@siteBoolean IN BOOLEAN MODE)
+              AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))" : string.Empty)}
+        ) AS u
+        ORDER BY u.`rnk` ASC, u.`ft_score` DESC, u.id DESC
+        LIMIT @pageSize OFFSET @offset;";
 
         countSql = $@"
-            SELECT COUNT(DISTINCT id) AS total
-            FROM (
-                SELECT sr.id
-                FROM search_results sr
-                WHERE (
-                       sr.url LIKE CONCAT('https://', @siteDomain, '%')
-                    OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
-                    OR sr.url LIKE CONCAT(@siteDomain, '%')
-                    OR sr.url IN (
-                          CONCAT('https://', @siteDomain),
-                          CONCAT('https://', @siteDomain, '/'),
-                          CONCAT('http://',  @siteDomain),
-                          CONCAT('http://',  @siteDomain, '/'),
-                          CONCAT(@siteDomain),
-                          CONCAT(@siteDomain, '/')
-                      )
-                )
-                  AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-                {(withFt ? "UNION ALL" : string.Empty)}
-                {(withFt ? @"
-                SELECT sr.id
-                FROM search_results sr
-                WHERE (
-                       sr.url LIKE CONCAT('https://', @siteDomain, '%')
-                    OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
-                    OR sr.url LIKE CONCAT(@siteDomain, '%')
-                    OR sr.url IN (
-                          CONCAT('https://', @siteDomain),
-                          CONCAT('https://', @siteDomain, '/'),
-                          CONCAT('http://',  @siteDomain),
-                          CONCAT('http://',  @siteDomain, '/'),
-                          CONCAT(@siteDomain),
-                          CONCAT(@siteDomain, '/')
-                      )
-                )
-                  AND @siteKeywords IS NOT NULL
-                  AND @siteKeywords <> ''
-                  AND MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@siteKeywords IN NATURAL LANGUAGE MODE)
-                  AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))" : string.Empty)}
-            ) AS c;";
+        SELECT COUNT(DISTINCT id) AS total
+        FROM (
+            SELECT sr.id
+            FROM search_results sr
+            WHERE (
+                   sr.url LIKE CONCAT('https://', @siteDomain, '%')
+                OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
+                OR sr.url LIKE CONCAT(@siteDomain, '%')
+                OR sr.url IN (
+                      CONCAT('https://', @siteDomain),
+                      CONCAT('https://', @siteDomain, '/'),
+                      CONCAT('http://',  @siteDomain),
+                      CONCAT('http://',  @siteDomain, '/'),
+                      CONCAT(@siteDomain),
+                      CONCAT(@siteDomain, '/')
+                  )
+            )
+              AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+            {(withFt ? "UNION ALL" : string.Empty)}
+            {(withFt ? @"
+            SELECT sr.id
+            FROM search_results sr
+            WHERE (
+                   sr.url LIKE CONCAT('https://', @siteDomain, '%')
+                OR sr.url LIKE CONCAT('http://',  @siteDomain, '%')
+                OR sr.url LIKE CONCAT(@siteDomain, '%')
+                OR sr.url IN (
+                      CONCAT('https://', @siteDomain),
+                      CONCAT('https://', @siteDomain, '/'),
+                      CONCAT('http://',  @siteDomain),
+                      CONCAT('http://',  @siteDomain, '/'),
+                      CONCAT(@siteDomain),
+                      CONCAT(@siteDomain, '/')
+                  )
+            )
+              AND @siteBoolean IS NOT NULL
+              AND MATCH(sr.title, sr.description, sr.author, sr.keywords)
+                    AGAINST (@siteBoolean IN BOOLEAN MODE)
+              AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))" : string.Empty)}
+        ) AS c;";
         return;
       }
 
       // Generic (non-site): union of exact equals, domain prefix, and fulltext
       resultsSql = @"
-        SELECT id, url, title, description, author, keywords, image_url, response_code
-        FROM (
-            -- 0) exact url equals (covers http/https, with/without trailing slash)
-            SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
-                   0 AS `rnk`, NULL AS `ft_score`
-            FROM search_results sr
-            WHERE sr.url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
-              AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+    SELECT id, url, title, description, author, keywords, image_url, response_code
+    FROM (
+        -- 0) exact url equals (covers http/https, with/without trailing slash)
+        SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
+               0 AS `rnk`, NULL AS `ft_score`
+        FROM search_results sr
+        WHERE sr.url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
+          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
 
-            UNION ALL
+        UNION ALL
 
-            -- 1) domain prefix (left-anchored LIKE)
-            SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
-                   1 AS `rnk`, NULL AS `ft_score`
-            FROM search_results sr
-            WHERE (
-                   sr.url LIKE CONCAT('https://',     @baseDomain, '%')
-                OR sr.url LIKE CONCAT('https://www.', @baseDomain, '%')
-                OR sr.url LIKE CONCAT('http://',      @baseDomain, '%')
-                OR sr.url LIKE CONCAT('http://www.',  @baseDomain, '%')
-                OR sr.url LIKE CONCAT(@baseDomain, '%')
-                OR sr.url IN (
-                      CONCAT('https://',     @baseDomain),
-                      CONCAT('https://',     @baseDomain, '/'),
-                      CONCAT('https://www.', @baseDomain),
-                      CONCAT('https://www.', @baseDomain, '/'),
-                      CONCAT('http://',      @baseDomain),
-                      CONCAT('http://',      @baseDomain, '/'),
-                      CONCAT('http://www.',  @baseDomain),
-                      CONCAT('http://www.',  @baseDomain, '/'),
-                      CONCAT(@baseDomain),
-                      CONCAT(@baseDomain, '/')
-                  )
-            )
-              AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+        -- 1) domain prefix (left-anchored LIKE)
+        SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
+               1 AS `rnk`, NULL AS `ft_score`
+        FROM search_results sr
+        WHERE (
+               sr.url LIKE CONCAT('https://',     @baseDomain, '%')
+            OR sr.url LIKE CONCAT('https://www.', @baseDomain, '%')
+            OR sr.url LIKE CONCAT('http://',      @baseDomain, '%')
+            OR sr.url LIKE CONCAT('http://www.',  @baseDomain, '%')
+            OR sr.url LIKE CONCAT(@baseDomain, '%')
+            OR sr.url IN (
+                  CONCAT('https://',     @baseDomain),
+                  CONCAT('https://',     @baseDomain, '/'),
+                  CONCAT('https://www.', @baseDomain),
+                  CONCAT('https://www.', @baseDomain, '/'),
+                  CONCAT('http://',      @baseDomain),
+                  CONCAT('http://',      @baseDomain, '/'),
+                  CONCAT('http://www.',  @baseDomain),
+                  CONCAT('http://www.',  @baseDomain, '/'),
+                  CONCAT(@baseDomain),
+                  CONCAT(@baseDomain, '/')
+              )
+        )
+        AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
 
-            UNION ALL
-
-            -- 2) fulltext on metadata
-            SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
-                   2 AS `rnk`,
-                   MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@search IN NATURAL LANGUAGE MODE) AS `ft_score`
-            FROM search_results sr
-            WHERE @search IS NOT NULL
-              AND @search <> ''
-              AND MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@search IN NATURAL LANGUAGE MODE)
-              AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-        ) AS u
-        ORDER BY u.`rnk` ASC, u.`ft_score` DESC, u.id DESC
-        LIMIT @pageSize OFFSET @offset;";
+        UNION ALL
+        
+        -- 2) fulltext on metadata (BOOLEAN MODE, require significant terms)
+        SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
+              2 AS `rnk`,
+              MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@searchBoolean IN BOOLEAN MODE) AS `ft_score`
+        FROM search_results sr
+        WHERE @searchBoolean IS NOT NULL
+          AND MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@searchBoolean IN BOOLEAN MODE)
+          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+    ) AS u
+    ORDER BY u.`rnk` ASC, u.`ft_score` DESC, u.id DESC
+    LIMIT @pageSize OFFSET @offset;";
 
       countSql = @"
-        SELECT COUNT(DISTINCT id) AS total
-        FROM (
-            SELECT sr.id
-            FROM search_results sr
-            WHERE sr.url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
-              AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+    SELECT COUNT(DISTINCT id) AS total
+    FROM (
+        SELECT sr.id
+        FROM search_results sr
+        WHERE sr.url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
+          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
 
-            UNION ALL
+        UNION ALL
 
-            SELECT sr.id
-            FROM search_results sr
-            WHERE (
-                   sr.url LIKE CONCAT('https://',     @baseDomain, '%')
-                OR sr.url LIKE CONCAT('https://www.', @baseDomain, '%')
-                OR sr.url LIKE CONCAT('http://',      @baseDomain, '%')
-                OR sr.url LIKE CONCAT('http://www.',  @baseDomain, '%')
-                OR sr.url LIKE CONCAT(@baseDomain, '%')
-                OR sr.url IN (
-                      CONCAT('https://',     @baseDomain),
-                      CONCAT('https://',     @baseDomain, '/'),
-                      CONCAT('https://www.', @baseDomain),
-                      CONCAT('https://www.', @baseDomain, '/'),
-                      CONCAT('http://',      @baseDomain),
-                      CONCAT('http://',      @baseDomain, '/'),
-                      CONCAT('http://www.',  @baseDomain),
-                      CONCAT('http://www.',  @baseDomain, '/'),
-                      CONCAT(@baseDomain),
-                      CONCAT(@baseDomain, '/')
-                  )
-            )
-              AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+        SELECT sr.id
+        FROM search_results sr
+        WHERE (
+               sr.url LIKE CONCAT('https://',     @baseDomain, '%')
+            OR sr.url LIKE CONCAT('https://www.', @baseDomain, '%')
+            OR sr.url LIKE CONCAT('http://',      @baseDomain, '%')
+            OR sr.url LIKE CONCAT('http://www.',  @baseDomain, '%')
+            OR sr.url LIKE CONCAT(@baseDomain, '%')
+            OR sr.url IN (
+                  CONCAT('https://',     @baseDomain),
+                  CONCAT('https://',     @baseDomain, '/'),
+                  CONCAT('https://www.', @baseDomain),
+                  CONCAT('https://www.', @baseDomain, '/'),
+                  CONCAT('http://',      @baseDomain),
+                  CONCAT('http://',      @baseDomain, '/'),
+                  CONCAT('http://www.',  @baseDomain),
+                  CONCAT('http://www.',  @baseDomain, '/'),
+                  CONCAT(@baseDomain),
+                  CONCAT(@baseDomain, '/')
+              )
+        )
+          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
 
-            UNION ALL
+        UNION ALL
 
-            SELECT sr.id
-            FROM search_results sr
-            WHERE @search IS NOT NULL
-              AND @search <> ''
-              AND MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@search IN NATURAL LANGUAGE MODE)
-              AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-        ) AS c;";
+        -- FT in COUNT mirrors BOOLEAN MODE usage
+        SELECT sr.id
+        FROM search_results sr
+        WHERE @searchBoolean IS NOT NULL
+          AND MATCH(sr.title, sr.description, sr.author, sr.keywords) AGAINST (@searchBoolean IN BOOLEAN MODE)
+          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
+    ) AS c;";
     }
-
 
     private void AddParametersToCrawlerQuery(
         CrawlerRequest request,
@@ -456,6 +461,12 @@ return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResul
       // Core search text and domain
       var raw = (request.Url ?? string.Empty).Trim().ToLower();
       command.Parameters.AddWithValue("@search", raw);
+
+      // NEW: boolean-mode search query
+      var searchBoolean = BuildBooleanQuery(raw);
+      command.Parameters.AddWithValue("@searchBoolean",
+          string.IsNullOrWhiteSpace(searchBoolean) ? (object)DBNull.Value : searchBoolean);
+
       string baseDomain = NormalizeBaseDomain(raw);
       command.Parameters.AddWithValue("@baseDomain", baseDomain);
 
@@ -463,9 +474,7 @@ return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResul
       command.Parameters.AddWithValue("@pageSize", pageSize);
       command.Parameters.AddWithValue("@offset", offset);
 
-      // Absolute URL candidates for equality (UNIQUE(url) lookups)
-      // Build both https:// and http:// forms + with/without trailing slash
-      // If 'raw' already has a scheme, we still compute both schemes for robustness
+      // Absolute URL candidates (existing code)
       string rawNoSlash = raw.TrimEnd('/');
       string https = rawNoSlash.StartsWith("http://") || rawNoSlash.StartsWith("https://")
           ? (rawNoSlash.StartsWith("https://") ? rawNoSlash : "https://" + rawNoSlash.Substring(rawNoSlash.IndexOf("://") + 3))
@@ -482,13 +491,13 @@ return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResul
       command.Parameters.AddWithValue("@httpUrl", http);
       command.Parameters.AddWithValue("@httpUrlWithSlash", httpWithSlash);
 
-      // Optional user id for favourite checks (used later)
+      // Optional user id
       if (request.UserId != null)
         command.Parameters.AddWithValue("@UserId", request.UserId.Value);
       else
         command.Parameters.AddWithValue("@UserId", 0);
 
-      // optional site:domain parameters
+      // site:domain params
       if (!string.IsNullOrWhiteSpace(siteDomain))
         command.Parameters.AddWithValue("@siteDomain", NormalizeBaseDomain(siteDomain.ToLower()));
       else
@@ -497,14 +506,22 @@ return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResul
       if (!string.IsNullOrWhiteSpace(siteKeywords))
       {
         command.Parameters.AddWithValue("@siteKeywords", siteKeywords);
+
+        // NEW: boolean-mode site query
+        var siteBoolean = BuildBooleanQuery(siteKeywords);
+        command.Parameters.AddWithValue("@siteBoolean",
+            string.IsNullOrWhiteSpace(siteBoolean) ? (object)DBNull.Value : siteBoolean);
+
         command.Parameters.AddWithValue("@siteKeywordsLike", $"%{siteKeywords.ToLower()}%");
       }
       else
       {
         command.Parameters.AddWithValue("@siteKeywords", DBNull.Value);
+        command.Parameters.AddWithValue("@siteBoolean", DBNull.Value);
         command.Parameters.AddWithValue("@siteKeywordsLike", DBNull.Value);
       }
     }
+
 
     private string NormalizeBaseDomain(string url)
     {
@@ -905,122 +922,148 @@ return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResul
       var results = await Task.WhenAll(scrapeTasks);
       return results.Where(m => m != null).Cast<Metadata>().ToList();
     }
-    
-private async Task<Metadata?> TryFindWikipediaUrlAsync(string keyword, CancellationToken ct)
-{
-  try
-  {
-    using var http = new HttpClient
+
+    private async Task<Metadata?> TryFindWikipediaUrlAsync(string keyword, CancellationToken ct)
     {
-      Timeout = TimeSpan.FromSeconds(3) // Keep this fast
-    };
-
-    // Step 1: Use MediaWiki search to find the best title
-    string searchUrl =
-      $"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={Uri.EscapeDataString(keyword)}&format=json&utf8=1&srlimit=1";
-    using var sresp = await http.GetAsync(searchUrl, ct);
-    if (!sresp.IsSuccessStatusCode) return null;
-
-    var sjson = await sresp.Content.ReadAsStringAsync(ct);
-    using var sdoc = System.Text.Json.JsonDocument.Parse(sjson);
-    if (!(sdoc.RootElement.TryGetProperty("query", out var q) &&
-          q.TryGetProperty("search", out var arr) &&
-          arr.ValueKind == System.Text.Json.JsonValueKind.Array &&
-          arr.GetArrayLength() > 0))
-    {
-      return null;
-    }
-
-    var title = arr[0].GetProperty("title").GetString();
-    if (string.IsNullOrWhiteSpace(title)) return null;
-
-    // Canonical page URL
-    string canonicalUrl = $"https://en.wikipedia.org/wiki/{Uri.EscapeDataString(title!.Replace(' ', '_'))}";
-
-    // Step 2: Try to enrich with the REST summary (best effort)
-    try
-    {
-      string summaryUrl =
-        $"https://en.wikipedia.org/api/rest_v1/page/summary/{Uri.EscapeDataString(title!.Replace(' ', '_'))}";
-      using var resp = await http.GetAsync(summaryUrl, ct);
-      if (resp.IsSuccessStatusCode)
+      try
       {
-        var json = await resp.Content.ReadAsStringAsync(ct);
-        using var doc = System.Text.Json.JsonDocument.Parse(json);
-        var root = doc.RootElement;
-
-        string? pageTitle = root.TryGetProperty("title", out var t) ? t.GetString() : title;
-        string? extract = root.TryGetProperty("extract", out var ex) ? ex.GetString() : null;
-        string? shortDesc = root.TryGetProperty("description", out var d) ? d.GetString() : null;
-        string? pageUrl =
-            root.TryGetProperty("content_urls", out var cu)
-         && cu.TryGetProperty("desktop", out var desk)
-         && desk.TryGetProperty("page", out var p)
-              ? p.GetString()
-              : canonicalUrl;
-        string? thumb = null;
-        if (root.TryGetProperty("thumbnail", out var thumbEl) &&
-            thumbEl.TryGetProperty("source", out var src))
+        using var http = new HttpClient
         {
-          thumb = src.GetString();
+          Timeout = TimeSpan.FromSeconds(3) // Keep this fast
+        };
+
+        // Step 1: Use MediaWiki search to find the best title
+        string searchUrl =
+          $"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={Uri.EscapeDataString(keyword)}&format=json&utf8=1&srlimit=1";
+        using var sresp = await http.GetAsync(searchUrl, ct);
+        if (!sresp.IsSuccessStatusCode) return null;
+
+        var sjson = await sresp.Content.ReadAsStringAsync(ct);
+        using var sdoc = System.Text.Json.JsonDocument.Parse(sjson);
+        if (!(sdoc.RootElement.TryGetProperty("query", out var q) &&
+              q.TryGetProperty("search", out var arr) &&
+              arr.ValueKind == System.Text.Json.JsonValueKind.Array &&
+              arr.GetArrayLength() > 0))
+        {
+          return null;
         }
 
-        var description = !string.IsNullOrEmpty(shortDesc) && !string.IsNullOrEmpty(extract)
-          ? $"{shortDesc}. {extract}"
-          : (extract ?? shortDesc ?? "");
+        var title = arr[0].GetProperty("title").GetString();
+        if (string.IsNullOrWhiteSpace(title)) return null;
 
+        // Canonical page URL
+        string canonicalUrl = $"https://en.wikipedia.org/wiki/{Uri.EscapeDataString(title!.Replace(' ', '_'))}";
+
+        // Step 2: Try to enrich with the REST summary (best effort)
+        try
+        {
+          string summaryUrl =
+            $"https://en.wikipedia.org/api/rest_v1/page/summary/{Uri.EscapeDataString(title!.Replace(' ', '_'))}";
+          using var resp = await http.GetAsync(summaryUrl, ct);
+          if (resp.IsSuccessStatusCode)
+          {
+            var json = await resp.Content.ReadAsStringAsync(ct);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            string? pageTitle = root.TryGetProperty("title", out var t) ? t.GetString() : title;
+            string? extract = root.TryGetProperty("extract", out var ex) ? ex.GetString() : null;
+            string? shortDesc = root.TryGetProperty("description", out var d) ? d.GetString() : null;
+            string? pageUrl =
+                root.TryGetProperty("content_urls", out var cu)
+             && cu.TryGetProperty("desktop", out var desk)
+             && desk.TryGetProperty("page", out var p)
+                  ? p.GetString()
+                  : canonicalUrl;
+            string? thumb = null;
+            if (root.TryGetProperty("thumbnail", out var thumbEl) &&
+                thumbEl.TryGetProperty("source", out var src))
+            {
+              thumb = src.GetString();
+            }
+
+            var description = !string.IsNullOrEmpty(shortDesc) && !string.IsNullOrEmpty(extract)
+              ? $"{shortDesc}. {extract}"
+              : (extract ?? shortDesc ?? "");
+
+            return new Metadata
+            {
+              Url = pageUrl,
+              Title = pageTitle ?? title,
+              Description = description,
+              ImageUrl = thumb,
+              Author = "Wikipedia",
+              Keywords = keyword
+            };
+          }
+        }
+        catch
+        {
+          // If summary enrichment fails, fall back to a basic Metadata with only URL+Title
+        }
+
+        // Fallback: minimal metadata with URL when summary isn’t available
         return new Metadata
         {
-          Url = pageUrl,
-          Title = pageTitle ?? title,
-          Description = description,
-          ImageUrl = thumb,
+          Url = canonicalUrl,
+          Title = title,
+          Description = null,
+          ImageUrl = null,
           Author = "Wikipedia",
           Keywords = keyword
         };
       }
+      catch
+      {
+        return null; // best effort
+      }
     }
-    catch
+
+
+    // Build a MySQL boolean-mode query string like: +command +conquer*
+    // - Removes stopwords
+    // - Filters out short tokens (len < 3)
+    // - Requires each remaining token (+term)
+    // - Adds '*' to the last token to allow prefix match (optional)
+    private static string? BuildBooleanQuery(string? text)
     {
-      // If summary enrichment fails, fall back to a basic Metadata with only URL+Title
+      if (string.IsNullOrWhiteSpace(text)) return null;
+
+      var tokens = System.Text.RegularExpressions.Regex
+          .Matches(text.ToLowerInvariant(), @"[a-z0-9]+")
+          .Select(m => m.Value)
+          .Where(tok => tok.Length >= 3 && !Stopwords.Contains(tok))
+          .ToList();
+
+      if (tokens.Count == 0) return null;
+
+      // Require all tokens with '+'; add wildcard to last for UX
+      for (int i = 0; i < tokens.Count; i++)
+      {
+        bool isLast = i == tokens.Count - 1;
+        tokens[i] = (isLast ? $"+{tokens[i]}*" : $"+{tokens[i]}");
+      }
+
+      return string.Join(" ", tokens);
     }
 
-    // Fallback: minimal metadata with URL when summary isn’t available
-    return new Metadata
+    // Heuristic: treat input as keyword if it doesn’t look like a URL/domain.
+    private static bool IsKeywordQuery(string? input)
     {
-      Url = canonicalUrl,
-      Title = title,
-      Description = null,
-      ImageUrl = null,
-      Author = "Wikipedia",
-      Keywords = keyword
-    };
-  }
-  catch
-  {
-    return null; // best effort
-  }
-} 
-// Heuristic: treat input as URL/domain if it has a scheme or a dot and no spaces,
-// or starts with 'site:' (explicit domain search). Otherwise, it's a keyword.
-private static bool IsKeywordQuery(string? input)
-{
-  if (string.IsNullOrWhiteSpace(input)) return false;
-  var s = input.Trim();
+      if (string.IsNullOrWhiteSpace(input)) return false;
+      var s = input.Trim();
 
-  if (s.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-      s.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-    return false;
+      if (s.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+          s.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        return false;
 
-  if (s.StartsWith("site:", StringComparison.OrdinalIgnoreCase))
-    return false;
+      if (s.StartsWith("site:", StringComparison.OrdinalIgnoreCase))
+        return false;
 
-  // If it has no spaces and contains a dot, it's likely a hostname or URL
-  if (!s.Contains(' ') && s.Contains('.') && !s.EndsWith("."))
-    return false;
+      if (!s.Contains(' ') && s.Contains('.') && !s.EndsWith("."))
+        return false;
 
-  return true;
-}
-
+      return true;
+    }
   }
 }
