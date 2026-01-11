@@ -178,8 +178,7 @@ tr[draggable] {
 }
  
 .uploadAndNewFolderButtonDiv {
-  display: flex;
-  gap: 30px;
+  display: flex; 
 }
 
 .topTopicsDiv {

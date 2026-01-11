@@ -625,7 +625,6 @@ fieldset {
 }
 
 .popupPanel > .popupPanelTitle:first-of-type {
-  width:100%;
   padding-left:45px;
   padding-right:45px;
   margin-bottom: 10px;
