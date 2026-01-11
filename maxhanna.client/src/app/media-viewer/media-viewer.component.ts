@@ -764,7 +764,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
   } 
 
-  stopMedia(media: HTMLMediaElement): void {
+  stopMedia(media?: HTMLMediaElement): void {
+    if (!media || media == null) return;
     try {
       media.pause();           // Pause playback
       media.currentTime = 0;   // Rewind to start
