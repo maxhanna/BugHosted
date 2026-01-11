@@ -30,8 +30,12 @@
   </div>
   <div *ngFor="let user of usersSearched" class="userList" (click)="closeOverlayOnClick(user);">
     <span class="user">
-      <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true"
-        [preventOpenProfile]="true" [preventExpandPicture]="true"></app-user-tag>
+      <app-user-tag [user]="user" 
+        [inputtedParentRef]="inputtedParentRef ?? parentRef" 
+        [displayMiniTag]="true"
+        [displayHoverPicture]="true"
+        [preventOpenProfile]="true" 
+        [preventExpandPicture]="true"></app-user-tag>
       <span *ngIf="parentRef?.isUserOnline(user.lastSeen | timeSince)" class="onlineButton"
         [title]="'Online Since: ' + (user.lastSeen | timeSince)" [style.top]="'10px'"></span>
     </span>
@@ -52,6 +56,7 @@
       <app-user-tag [user]="user"
                     [inputtedParentRef]="inputtedParentRef ?? parentRef"
                     [displayMiniTag]="true"
+                    [displayHoverPicture]="true"
                     [preventOpenProfile]="true"
                     [preventExpandPicture]="true"></app-user-tag>  
       <span *ngIf="parentRef?.isUserOnline(user.lastSeen | timeSince)" class="onlineButton"
@@ -81,6 +86,7 @@
             <app-user-tag [user]="user"
                           [inputtedParentRef]="inputtedParentRef ?? parentRef"
                           [displayMiniTag]="true"
+                          [displayHoverPicture]="true"
                           [preventOpenProfile]="true"
                           [preventExpandPicture]="true"
                           [displayOnlyAvatar]="true"></app-user-tag>
