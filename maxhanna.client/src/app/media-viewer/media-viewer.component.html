@@ -4,7 +4,7 @@
     <div class="componentTitle"><span><a href="https://bughosted.com">BugHosted</a> Media</span></div>
   </div>
 </div>
-<div [id]="'mediaContainer'+fileId" [class]="'mediaContainerWrapperDiv ' + (isLoadedFromURL ? 'fileDataDiv' : '')"
+<div [id]="'mediaContainer'+fileId" #mediaRoot [class]="'mediaContainerWrapperDiv ' + (isLoadedFromURL ? 'fileDataDiv' : '')"
   [style.margin-top]="isLoadedFromURL ? '60px' : '0px'" appInView (inView)="onInView($event)">
   <!-- Fullscreen Overlay -->
   <div #fullscreenOverlay class="fullscreen-overlay"

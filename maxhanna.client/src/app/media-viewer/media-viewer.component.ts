@@ -27,8 +27,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
   fileViewers?: User[] | undefined;
   fileFavouriters?: User[] | undefined;
-  selectedFileExtension? : string = undefined;
-  selectedFileSrc? : string = undefined;
+  selectedFileExtension?: string = undefined;
+  selectedFileSrc?: string = undefined;
   selectedFile?: FileEntry;
   fileType = '';
   showThumbnail = false;
@@ -53,8 +53,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @ViewChild('fullscreenVideo', { static: false }) fullscreenVideo?: ElementRef;
   @ViewChild('fullscreenAudio', { static: false }) fullscreenAudio?: ElementRef;
   @ViewChild('editFileNameInput', { static: false }) editFileNameInput?: ElementRef;
+  @ViewChild('mediaRoot', { static: true }) mediaRoot?: ElementRef<HTMLElement>;
   @ViewChild(TopicsComponent) topicComponent!: TopicsComponent;
- 
+
   @Input() debug = false;
   @Input() displayExpander: boolean = true;
   @Input() displayExtraInfo: boolean = true;
@@ -99,7 +100,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (this.forceInviewLoad) {
       console.log("forcing load");
       await this.fetchFileSrc().then(() => this.applyPageTitleIfNeeded());
-    } else { 
+    } else {
       this.tryLoadFromCacheFastPath();
     }
   }
@@ -132,7 +133,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.hasTriedInitialCachedLoad = true;
     }
   }
- 
+
   private debugLog(message: string, data?: any) {
     if (this.debug) {
       console.log(`[MediaViewerDebug] ${message}`, data || '', this.file, this.fileId);
@@ -161,7 +162,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       }
     }
   }
-  
+
   async fetchFileSrc() {
     this.debugLog('fetchFileSrc invoked', { fileId: this.fileId, hasFileObj: !!this.file, fileSrcInput: this.fileSrc, alreadySelectedSrc: !!this.selectedFileSrc });
     if (this.selectedFileSrc) return; // already set
@@ -173,9 +174,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.debugLog('fetchFileSrc used direct fileSrc input');
       return;
     }
-  
+
     const parentRef = this.parentRef || this.inputtedParentRef;
-        
+
     if (this.fileId) {
       this.selectedFile = {
         id: this.fileId,
@@ -217,7 +218,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   resetSelectedFile() {
     this.stopMedia(this.mediaContainer?.nativeElement);
     this.stopMedia(this.fullscreenVideo?.nativeElement);
-    this.stopMedia(this.fullscreenAudio?.nativeElement); 
+    this.stopMedia(this.fullscreenAudio?.nativeElement);
     if (this.abortFileRequestController) {
       this.abortFileRequestController.abort("Component is destroyed");
     }
@@ -227,6 +228,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     this.selectedFileExtension = undefined;
   }
   ngOnDestroy() {
+    try { this.stopAllMedia(); } catch { }
     try {
       if (this.abortFileRequestController) {
         this.abortFileRequestController.abort("Component is destroyed");
@@ -349,10 +351,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
 
   async setFileSrcById(fileId: number) {
-    if (this.selectedFileSrc) { 
+    if (this.selectedFileSrc) {
       this.debugLog('setFileSrcById early exit (already have selectedFileSrc)');
-      return; 
-    } 
+      return;
+    }
     this.fileId = fileId;
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent && parent.pictureSrcs && parent.pictureSrcs.find(x => x.key == fileId + '')) {
@@ -362,7 +364,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.selectedFileExtension = parent.pictureSrcs.find(x => x.key == fileId + '')!.extension;
       this.finishedLoadingEvent.emit();
       return;
-    } 
+    }
 
     if (!this.selectedFile?.givenFileName && !this.selectedFile?.fileName) {
       const requesterId = parent?.user?.id;
@@ -377,7 +379,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       console.log("Aborting previous file request");
     }
     this.abortFileRequestController = new AbortController();
-    try { 
+    try {
       const user = parent?.user;
       const sessionToken = await parent?.getSessionToken();
       await this.fileService.getFileById(fileId, sessionToken ?? "", {
@@ -508,46 +510,26 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     this.setupEscapeKeyListener();
   }
 
+
   shrink() {
-    const overlay = this.fullscreenOverlay?.nativeElement;
-    const image = this.fullscreenImage?.nativeElement;
-    const video = this.fullscreenVideo?.nativeElement;
-    const audio = this.fullscreenAudio?.nativeElement;
-    if (!overlay || !image || !video || !audio) {
-      console.error("Fullscreen elements not found");
-      return;
-    }
-    image.src = undefined;
-    video.src = undefined;
-    audio.src = undefined;
-    if (this.mediaContainer) {
-      if (!this.selectedFileSrc) {
-        console.log("No selected file Src to set!");
-        return;
-      }
-      (this.mediaContainer.nativeElement as HTMLMediaElement).src = this.selectedFileSrc;
-    } else {
-      console.error("mediaContainer not found");
-    }
+    // Stop overlay media first
+    this.clearOverlaySrcs();
 
-    overlay.style.display = 'none';
-    this.isFullscreenMode = false;
-
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent) {
-      parent.restoreBodyOverflow();
+    // Restore the inline media only if you want it to resume later
+    const container = this.mediaContainer?.nativeElement as HTMLMediaElement | undefined;
+    if (container && this.selectedFileSrc) {
+      container.src = this.selectedFileSrc;
+      container.load();
     }
-
-    window.removeEventListener('popstate', this.handleBackButton);
-    window.removeEventListener('keydown', this.handleEscapeKey);
   }
+
 
   async download(file: FileEntry, force: boolean) {
     if (!confirm(`Download ${file.givenFileName ?? file.fileName}?`)) {
       return;
     }
     const parent = this.inputtedParentRef ?? this.parentRef;
-    if (!parent) return; 
+    if (!parent) return;
 
     let directoryValue = this.currentDirectory;
     if (!directoryValue) {
@@ -612,7 +594,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
   imageFileExtensionsIncludes(ext?: string) {
     if (!ext) {
-      return false; 
+      return false;
     }
     if (ext.includes("image")) return true;
     return this.fileService.imageFileExtensions.includes(ext);
@@ -792,12 +774,89 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (resTodo) {
       parent?.showNotification(`Added ${tmpTodo.todo} to music playlist.`);
     }
-  } 
+  }
+
   stopAllMedia() {
+    // Stop the known ViewChild elements first (if any)
     this.stopMedia(this.mediaContainer?.nativeElement);
     this.stopMedia(this.fullscreenVideo?.nativeElement);
-    this.stopMedia(this.fullscreenAudio?.nativeElement); 
+    this.stopMedia(this.fullscreenAudio?.nativeElement);
+
+    // Now sweep all media elements in this component subtree
+    const root: Document | HTMLElement = this.mediaRoot?.nativeElement ?? document;
+    const mediaNodes = root.querySelectorAll<HTMLMediaElement>('video, audio');
+
+    mediaNodes.forEach(el => this.hardStopMedia(el));
+
+    // If your fullscreen overlay is visible and using the overlay refs,
+    // also clear their srcs explicitly:
+    this.clearOverlaySrcs();
   }
+
+  private hardStopMedia(el: HTMLMediaElement) {
+    try {
+      // 1) Pause and silence
+      el.pause();
+      el.muted = true;
+      (el as any).volume = 0; // Just in case muted flag flips later
+
+      // 2) Reset playback & disable autoplay/loop
+      el.autoplay = false;
+      el.loop = false;
+      try { el.currentTime = 0; } catch { }
+
+      // 3) Exit Picture-in-Picture if this element is in PiP
+      const pipDoc = document as any;
+      if (pipDoc.pictureInPictureElement === el) {
+        pipDoc.exitPictureInPicture?.().catch(() => { });
+      }
+
+      // 4) Capture the src to revoke if it's a blob/object URL
+      const prevSrc = el.currentSrc || el.src;
+      const isBlobUrl = !!prevSrc && prevSrc.startsWith('blob:');
+
+      // 5) Detach all sources to force the UA to drop decoders/network
+      //    (removeAttribute + load() is more reliable than setting src='')
+      el.removeAttribute('src');
+      el.querySelectorAll('source').forEach(s => s.remove());
+      // Force the media element to forget buffers and stop network requests
+      el.load();
+
+      // 6) If it was a blob URL we created earlier, revoke it
+      if (isBlobUrl) {
+        // Use a microtask timeout to let the load() settle first
+        setTimeout(() => {
+          try { URL.revokeObjectURL(prevSrc); } catch { }
+        }, 0);
+      }
+    } catch (err) {
+      this.debugLog('hardStopMedia failed', err);
+    }
+  }
+
+  private clearOverlaySrcs() {
+    const overlay = this.fullscreenOverlay?.nativeElement as HTMLElement | undefined;
+    const img = this.fullscreenImage?.nativeElement as HTMLImageElement | undefined;
+    const vid = this.fullscreenVideo?.nativeElement as HTMLVideoElement | undefined;
+    const aud = this.fullscreenAudio?.nativeElement as HTMLAudioElement | undefined;
+
+    if (img) { img.src = ''; }
+    if (vid) { this.hardStopMedia(vid); }
+    if (aud) { this.hardStopMedia(aud); }
+
+    if (overlay) {
+      overlay.style.display = 'none';
+      this.isFullscreenMode = false;
+    }
+
+    // Restore body overflow if you hid it
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.restoreBodyOverflow?.();
+
+    window.removeEventListener('popstate', this.handleBackButton);
+    window.removeEventListener('keydown', this.handleEscapeKey);
+  }
+
   stopMedia(media?: HTMLMediaElement): void {
     if (!media || media == null) return;
     try {
@@ -810,5 +869,5 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     } catch (e) {
       this.debugLog('Failed to stop media:', e);
     }
-  } 
+  }
 }
