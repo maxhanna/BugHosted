@@ -1098,22 +1098,29 @@ Constraints:
           await conn.OpenAsync();
 
           const string selectSql = @"
-						SELECT 
-							id, file_name, folder_path, file_type, duration
-						FROM file_uploads
-						WHERE given_file_name IS NULL
-						AND folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/'
-						AND file_type IN ('jpg','jpeg','png','gif','bmp','webp','mp4','mov','webm','avi','mkv','flv') 
-						AND (
-							(file_name LIKE '%.%' AND file_name NOT LIKE '%-%' AND file_name NOT LIKE '% %')
-							AND (
-								file_name REGEXP '^[0-9]+\\.[a-zA-Z0-9]+$'  -- Pure numeric
-								OR file_name REGEXP '^\\w+_\\w+\\.[a-zA-Z0-9]+$'  -- Alphanumeric + underscore
-							) 
-              OR file_name REGEXP '^FB_IMG_[0-9]+\\.[A-Za-z0-9]+$' 
-              OR file_name REGEXP '^RDT_[0-9]{8}_[0-9]{10,}\\.[A-Za-z0-9]+$'  
-						) 
-						ORDER BY RAND()
+            SELECT 
+              id, file_name, folder_path, file_type, duration
+            FROM file_uploads
+            WHERE given_file_name IS NULL
+              AND folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/'
+              AND file_type IN ('jpg','jpeg','png','gif','bmp','webp','mp4','mov','webm','avi','mkv','flv')
+              AND (
+                -- 1) Simple structured names with no dashes or spaces, but with a dot
+                (
+                  file_name LIKE '%.%' AND file_name NOT LIKE '%-%' AND file_name NOT LIKE '% %'
+                  AND (
+                      REGEXP_LIKE(file_name, '^[0-9]+[.][A-Za-z0-9]+$', 'i')      -- Pure numeric + extension
+                    OR REGEXP_LIKE(file_name, '^[A-Za-z0-9]+_[A-Za-z0-9]+[.][A-Za-z0-9]+$', 'i') -- two segments with underscore + ext
+                  )
+                )
+                -- 2) FB/IMG/VID camera-like names (case-insensitive)
+                OR REGEXP_LIKE(file_name, '^FB_IMG_[0-9]+[.][A-Za-z0-9]+$', 'i')
+                OR REGEXP_LIKE(file_name, '^IMG_[0-9]+[.][A-Za-z0-9]+$', 'i')
+                OR REGEXP_LIKE(file_name, '^VID_[0-9]+[.][A-Za-z0-9]+$', 'i')
+                -- 3) Reddit-style names: RDT_YYYYMMDD_<bigNumber>.<ext> (case-insensitive)
+                OR REGEXP_LIKE(file_name, '^RDT_[0-9]{8}_[0-9]{9,}[.][A-Za-z0-9]+$', 'i')
+              )
+            ORDER BY RAND()
 						LIMIT 1;";
 
           using var cmd = new MySqlCommand(selectSql, conn);
