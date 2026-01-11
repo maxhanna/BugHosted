@@ -967,7 +967,9 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
     this.isMusicControlsDisplayed(true);
   }
-
+  mediaViewerFinishedLoading() {
+    this.cdr.markForCheck();
+  }
   async refreshPlaylist() {
     await this.getSongList().then(() => {
       this.updatePaginatedSongs();

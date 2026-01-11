@@ -43,7 +43,8 @@
         [showTopics]="false" 
         [showCommentSection]="false"
         [previousComponent]="'Music'" 
-        (mediaEndedEvent)="mediaEndedEvent()">
+        (mediaEndedEvent)="mediaEndedEvent()"
+        (finishedLoadingEvent)="mediaViewerFinishedLoading()">
       </app-media-viewer>
       <button title="Shrink Fullscreen" (click)="closeFullscreen()" id="closeOverlay" *ngIf="isFullscreen">Shrink</button>
     </div>

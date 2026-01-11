@@ -86,6 +86,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Output() expandClickedEvent = new EventEmitter<FileEntry>();
   @Output() topicClickedEvent = new EventEmitter<Topic[]>();
   @Output() mediaEndedEvent = new EventEmitter<void>();
+  @Output() finishedLoadingEvent = new EventEmitter<void>();
 
   async ngOnInit() {
     this.debugLog('ngOnInit start', { isLoadedFromURL: this.isLoadedFromURL, autoload: this.autoload, fileId: this.fileId, hasFileObj: !!this.file, fileSrc: this.fileSrc });
@@ -377,11 +378,12 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
         const contentDisposition = response.headers["content-disposition"];
         this.selectedFileExtension = this.fileService.getFileExtensionFromContentDisposition(contentDisposition);
-        const type = this.fileType = this.fileService.videoFileExtensions.includes(this.selectedFileExtension)
+        const type = this.fileService.videoFileExtensions.includes(this.selectedFileExtension)
           ? `video/${this.selectedFileExtension}`
           : this.fileService.audioFileExtensions.includes(this.selectedFileExtension)
             ? `audio/${this.selectedFileExtension}`
             : `image/${this.selectedFileExtension}`;
+        this.fileType = type;
 
         const blob = new Blob([response.blob], { type });
         const reader = new FileReader();
@@ -393,6 +395,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
           if (parent && !parent.pictureSrcs.find(x => x.key == fileId + '')) {
             parent.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
           }
+          this.finishedLoadingEvent.emit();
         };
       });
     } catch (error) {
