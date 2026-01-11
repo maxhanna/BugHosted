@@ -99,6 +99,7 @@
           </label>
           <button (click)="refreshGamepads()">Refresh</button>
         </div>
+        <div *ngIf="!showKeyMappings" style="font-size:x-small">Note: If your gamepad is not detected, try restarting the browser.</div>
 
         <!-- Mappings dropdown + save -->
         <div *ngIf="!showKeyMappings && gamepads.length">
