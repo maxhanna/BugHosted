@@ -215,9 +215,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
 
   resetSelectedFile() {
-    this.stopMedia(this.mediaContainer.nativeElement);
-    this.stopMedia(this.fullscreenVideo.nativeElement);
-    this.stopMedia(this.fullscreenAudio.nativeElement); 
+    this.stopMedia(this.mediaContainer?.nativeElement);
+    this.stopMedia(this.fullscreenVideo?.nativeElement);
+    this.stopMedia(this.fullscreenAudio?.nativeElement); 
     if (this.abortFileRequestController) {
       this.abortFileRequestController.abort("Component is destroyed");
     }
