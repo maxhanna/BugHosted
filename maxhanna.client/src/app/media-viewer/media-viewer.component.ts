@@ -344,21 +344,17 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.debugLog('setFileSrcById early exit (already have selectedFileSrc)');
       return; 
     } 
-    if (this.parentRef && this.parentRef.pictureSrcs && this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
+    this.fileId = fileId;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent && parent.pictureSrcs && parent.pictureSrcs.find(x => x.key == fileId + '')) {
       this.showThumbnail = true;
-      this.selectedFileSrc = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.value;
-      this.fileType = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.type;
-      this.selectedFileExtension = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.extension;
-    }
-    else if (this.inputtedParentRef && this.inputtedParentRef.pictureSrcs && this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')) {
-      this.showThumbnail = true;
-      this.selectedFileSrc = this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')!.value;
-      this.fileType = this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')!.type;
-      this.selectedFileExtension = this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')!.extension;
-    }
+      this.selectedFileSrc = parent.pictureSrcs.find(x => x.key == fileId + '')!.value;
+      this.fileType = parent.pictureSrcs.find(x => x.key == fileId + '')!.type;
+      this.selectedFileExtension = parent.pictureSrcs.find(x => x.key == fileId + '')!.extension;
+    } 
 
     if (!this.selectedFile?.givenFileName && !this.selectedFile?.fileName) {
-      const requesterId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id;
+      const requesterId = parent?.user?.id;
       this.fileService.getFileEntryById(fileId, requesterId).then(res => {
         if (res) {
           this.selectedFile = res;
@@ -370,8 +366,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       console.log("Aborting previous file request");
     }
     this.abortFileRequestController = new AbortController();
-    try {
-      const parent = this.inputtedParentRef ?? this.parentRef;
+    try { 
       const user = parent?.user;
       const sessionToken = await parent?.getSessionToken();
       this.fileService.getFileById(fileId, sessionToken ?? "", {
@@ -394,12 +389,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
           this.showThumbnail = true;
           this.selectedFileSrc = (reader.result as string);
           this.debugLog('FileReader onloadend set selectedFileSrc', { length: this.selectedFileSrc.length });
-          if (this.parentRef && !this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
-            this.parentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
+          if (parent && !parent.pictureSrcs.find(x => x.key == fileId + '')) {
+            parent.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
           }
-          else if (this.inputtedParentRef && !this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')) {
-            this.inputtedParentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
-          } 
         };
       });
     } catch (error) {

@@ -22,7 +22,7 @@
     <div *ngIf="!autoload" class="noAutoLoadDiv" (click)="forceLoad()">
       <span class="clickToLoadText">Click here to load media</span>
     </div>
-    <div *ngIf="isLoading && autoload" class="loading-spinner">
+    <div *ngIf="isLoading && (autoload || !selectedFileSrc)" class="loading-spinner">
       <div class="spinner"></div>
       Loading media...
     </div>
