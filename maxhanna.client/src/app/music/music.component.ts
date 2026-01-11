@@ -883,6 +883,9 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
           this.ytPlayer?.loadPlaylist(songIds, index, undefined, 'small');
           try { this.ytPlayer?.playVideoAt(index); } catch {}
           this.ytPlayer?.playVideo();
+          if (this.ytPlayer?.isMuted()) {
+            this.ytPlayer?.unMute();
+          }
           try { this.ytPlayer?.setLoop(true); } catch {} 
           this.attachResizeHandling(); 
         },
