@@ -132,7 +132,9 @@
   display: block;
   width: 100%;
 }
-
+#musicPlayerDiv {
+  max-width: calc(100vw - 10px);
+}
 .smallSongList,
 .normalSongList {
   overflow: auto;

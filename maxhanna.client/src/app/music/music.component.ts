@@ -466,12 +466,25 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
   selectType(type: 'youtube' | 'file' | 'radio') {
     this.selectedType = type;
+    if (type != 'youtube') { 
+      this.ytPlayer?.stopVideo();
+      this.ytPlayer?.destroy();
+    }
+    if (type != 'radio') {
+      const iframeDiv = document.getElementById('iframeDiv'); 
+      const existingAudio = iframeDiv?.querySelector('audio');
+      if (existingAudio) {
+        existingAudio.remove();
+      }
+    }
+
     if (type === 'radio') {
       this.loadRadioData();
-    } else {
+    } else { 
       this.songs = type === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
       this.fileIdPlaylist = type === 'file' ? this.fileSongs.map(song => song.fileId!).filter(id => id !== undefined) : undefined;
     }
+    
     this.currentPage = 1;
     this.updatePaginatedSongs();
     this.reorderTable(undefined, this.orderSelect?.nativeElement.value || 'Newest');
