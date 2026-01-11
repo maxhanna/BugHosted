@@ -516,11 +516,13 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.fileIdPlaying = fileId;
       setTimeout(async () => {
         if (this.fileMediaViewer) {
-          //this.fileMediaViewer.resetSelectedFile();
-          await this.fileMediaViewer.setFileSrcById(fileId);
-          this.cdr.markForCheck();
+          this.fileMediaViewer.resetSelectedFile();
+          setTimeout(async () => {
+            await this.fileMediaViewer.setFileSrcById(fileId);
+            this.cdr.markForCheck();
+          }, 50);
         }
-      }, 50);
+      }, 10);
       console.log("Playing file with ID:", fileId);
       this.cdr.markForCheck();
       return;
