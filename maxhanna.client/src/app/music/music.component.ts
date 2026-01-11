@@ -114,8 +114,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   ngOnDestroy(): void { 
-    try { this.ytPlayer?.stopVideo(); } catch {}
-    try { this.ytPlayer?.destroy(); } catch {}
+    try { this.ytPlayer?.stopVideo(); } catch { console.error("Error stopping YT video"); }
+    try { this.ytPlayer?.destroy(); } catch { console.error("Error destroying YT player"); }
     this.ytPlayer = undefined;
 
     // Clear pending play queue
@@ -632,7 +632,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.isMusicControlsDisplayed(false);
 
     // Stop YT without unloading the iframe
-    try { this.ytPlayer?.stopVideo(); } catch { }
+    try { this.ytPlayer?.stopVideo(); } catch { console.error("Error stopping YT video"); }
 
     // Stop file playback
     if (this.fileMediaViewer) {
