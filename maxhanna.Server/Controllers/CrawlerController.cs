@@ -131,6 +131,7 @@ namespace maxhanna.Server.Controllers
         {
           try
           {
+            _ = _log.Db($"Scraping Wikipedia for: {request.Url!.Trim()}.", null, "CRAWLERCTRL", true);
             // Link to the controller-level 30s token, but give Wikipedia a tight 3s budget
             using var wikiCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             wikiCts.CancelAfter(TimeSpan.FromSeconds(3));
@@ -143,6 +144,7 @@ namespace maxhanna.Server.Controllers
               // Keep your normalization pipeline consistent
               wikiOnly = GetOrderedResultsForWeb(request, wikiOnly);
               wikiOnly = await AddFavouriteCountsAsync(wikiOnly, request.UserId);
+              _ = _log.Db($"Scraping Wikipedia found results. Including results in search.", null, "CRAWLERCTRL", true);
 
               return Ok(new { Results = wikiOnly, TotalResults = 1 });
             }
