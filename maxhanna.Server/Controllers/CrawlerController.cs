@@ -1049,39 +1049,137 @@ namespace maxhanna.Server.Controllers
     }
 
 
-    // Build a MySQL boolean-mode query string like: +command +conquer*
-    // - Removes stopwords
-    // - Filters out short tokens (len < 3)
-    // - Requires each remaining token (+term)
-    // - Adds '*' to the last token to allow prefix match (optional) 
-    private static string? BuildBooleanQuery(string? text)
+/// <summary>
+/// Build a MySQL BOOLEAN MODE query from free text:
+/// - Keeps quoted phrases together (e.g., "banana bread").
+/// - Removes stopwords and tokens shorter than 3 chars.
+/// - Escapes MySQL boolean operators from user input.
+/// - Requires each remaining term with '+'.
+/// - Adds '*' to the last token of each clause for prefix matching.
+/// - Appends a compact concatenation token (e.g., +bananabread*) for multi-word inputs to catch
+///   concatenations in URLs or text.
+/// Returns null if nothing usable remains.
+/// </summary>
+private static string? BuildBooleanQuery(string? text)
+{
+  if (string.IsNullOrWhiteSpace(text))
+    return null;
+
+  // 1) Tokenize while preserving quoted phrases
+  //    Examples:
+  //    - input:  banana bread           -> ["banana", "bread"]
+  //    - input: "banana bread" recipe   -> ["banana bread", "recipe"]  (phrase kept)
+  var parts = new List<string>();
+  foreach (System.Text.RegularExpressions.Match m in
+           System.Text.RegularExpressions.Regex.Matches(
+             text, "\"([^\"]+)\"|([A-Za-z0-9]+)", System.Text.RegularExpressions.RegexOptions.Multiline))
+  {
+    var phrase = m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value;
+    if (!string.IsNullOrWhiteSpace(phrase))
+      parts.Add(phrase);
+  }
+
+  if (parts.Count == 0)
+    return null;
+
+  // 2) Normalize, split phrases into tokens for compact tracking,
+  //    but keep original phrases to build boolean segments.
+  //    We will produce two kinds of segments:
+  //    - tokens: "+banana +bread*"
+  //    - phrases: "+\"banana bread\"*"
+  var booleanSegments = new List<string>();
+  var tokenAccumulator = new List<string>();  // for compact creation across multi-word unquoted input
+  var anyMultiWord = false;
+
+  foreach (var rawPart in parts)
+  {
+    var isQuoted = rawPart.Contains(' ') && !string.IsNullOrWhiteSpace(rawPart);
+    if (isQuoted)
+      anyMultiWord = true;
+
+    // Split the part into tokens to filter stopwords/short tokens
+    var tokens = System.Text.RegularExpressions.Regex
+      .Matches(rawPart.ToLowerInvariant(), @"[a-z0-9]+")
+      .Select(t => t.Value)
+      .Where(tok => tok.Length >= 3 && !Stopwords.Contains(tok))
+      .ToList();
+
+    if (tokens.Count == 0)
+      continue;
+
+    if (isQuoted)
     {
-      if (string.IsNullOrWhiteSpace(text)) return null;
+      // Build a phrase segment if meaningful tokens remain
+      var phraseValue = string.Join(" ", tokens);
 
-      var tokens = System.Text.RegularExpressions.Regex
-          .Matches(text.ToLowerInvariant(), @"[a-z0-9]+")
-          .Select(m => m.Value)
-          .Where(tok => tok.Length >= 3 && !Stopwords.Contains(tok))
-          .ToList();
+      // Escape double quotes inside phrase, though our tokenizer shouldn’t capture quotes within quotes.
+      phraseValue = phraseValue.Replace("\"", "\\\"");
 
-      if (tokens.Count == 0) return null;
-
-      // Standard required tokens (+term) with wildcard on the last
+      // Require the phrase; add trailing '*' for prefix on the last word of the phrase.
+      // MySQL BOOLEAN MODE treats '*' at the end of a term for prefix; inside quotes it applies to the last token.
+      booleanSegments.Add($"+\"{phraseValue}\"*");
+      tokenAccumulator.AddRange(tokens);
+    }
+    else
+    {
+      // Single token(s) segment: require each token, add '*' only to the last one for UX.
       for (int i = 0; i < tokens.Count; i++)
       {
+        var tok = EscapeBooleanToken(tokens[i]);
         bool isLast = i == tokens.Count - 1;
-        tokens[i] = (isLast ? $"+{tokens[i]}*" : $"+{tokens[i]}");
+        booleanSegments.Add(isLast ? $"+{tok}*" : $"+{tok}");
       }
-
-      // NEW: also add a compact single token with wildcard to catch concatenations
-      if (tokens.Count >= 2)
-      {
-        var compact = string.Concat(tokens.Select(t => t.TrimStart('+').TrimEnd('*'))); // strip +/-*
-        tokens.Add("+" + compact + "*");
-      }
-
-      return string.Join(" ", tokens);
+      tokenAccumulator.AddRange(tokens);
+      if (tokens.Count > 1) anyMultiWord = true;
     }
+  }
+
+  if (booleanSegments.Count == 0)
+    return null;
+
+  // 3) Add compact concatenation for multi-token inputs so "banana bread" also matches "bananabread"
+  //    Only if there are at least 2 tokens across the whole input after filtering.
+  var uniqueTokens = tokenAccumulator.Distinct().ToList();
+  if (uniqueTokens.Count >= 2)
+  {
+    var compact = string.Concat(uniqueTokens);
+    // Don’t add if it already exists in the boolean list as a token w/ wildcard
+    // (rare, but keeps the output clean).
+    var compactTerm = "+" + compact + "*";
+    if (!booleanSegments.Contains(compactTerm))
+      booleanSegments.Add(compactTerm);
+  }
+
+  // 4) Join
+  var booleanQuery = string.Join(" ", booleanSegments);
+  return string.IsNullOrWhiteSpace(booleanQuery) ? null : booleanQuery;
+}
+
+/// <summary>
+/// Escapes/cleans a token so it won't be interpreted as a MySQL boolean operator.
+/// MySQL boolean operators include: + - @ ~ < > ( ) " * and space.
+/// We also strip stray operators users might type.
+/// </summary>
+private static string EscapeBooleanToken(string token)
+{
+  if (string.IsNullOrEmpty(token)) return token;
+
+  // Remove/escape boolean special chars if present in token (defensive).
+  // Our tokenization uses [a-z0-9]+ so this is an extra guard.
+  var cleaned = token.Replace("\"", "")
+                     .Replace("+", "")
+                     .Replace("-", "")
+                     .Replace("@", "")
+                     .Replace("~", "")
+                     .Replace("<", "")
+                     .Replace(">", "")
+                     .Replace("(", "")
+                     .Replace(")", "")
+                     .Replace("*", "");
+
+  return cleaned;
+}
+
 
 
     // Heuristic: treat input as keyword if it doesn’t look like a URL/domain.
