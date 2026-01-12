@@ -72,8 +72,7 @@
 
       <div class="notificationsListSubContainer">
         <div *ngFor="let notification of filteredNotifications"
-          [class]="'notificationListItem' + (!notification.isRead ? ' gradientBackground' : '')"
-          [style.opacity]="notification.isRead ? '50%' : '100%'">
+          [class]="'notificationListItem' + (!notification.isRead ? ' gradientBackground' : '')">
           <div class="nliLeftDiv" *ngIf="!notification?.text?.includes('Executed Trade')
                                         && !notification?.text?.includes('lightcycle was displaced')">
             <app-user-tag [user]="notification.fromUser" [inputtedParentRef]="inputtedParentRef ?? parentRef"
@@ -99,31 +98,42 @@
               {{notification.isRead ? 'Unread' : '👀'}}
             </button>
             <div *ngIf="notification.fileId" (click)="goToFileId(notification)"
-              class="usernameProfileLink cursorPointerUnderlined fileId">
+              class="usernameProfileLink cursorPointerUnderlined fileId" 
+              [style.opacity]="notification.isRead ? '50%' : '100%'">
               <strong>File ID:</strong> {{ notification.fileId }}
             </div>
             <div *ngIf="notification.storyId"
               (click)="notification.userProfileId ? viewProfileByNotification(notification) : goToStoryId(notification)"
-              class="usernameProfileLink cursorPointerUnderlined fileId">
+              class="usernameProfileLink cursorPointerUnderlined fileId"
+              [style.opacity]="notification.isRead ? '50%' : '100%'">
               <strong>Post ID:</strong> {{ notification.storyId }}
             </div>
             <div *ngIf="notification.commentId"
               (click)="notification.userProfileId ? viewProfileByNotification(notification) : goToCommentId(notification)"
-              class="usernameProfileLink cursorPointerUnderlined fileId">
+              class="usernameProfileLink cursorPointerUnderlined fileId"
+              [style.opacity]="notification.isRead ? '50%' : '100%'">
               <strong>Comment ID:</strong> {{ notification.commentId }}
             </div>
             <div *ngIf="notification.userProfileId" (click)="viewProfileByNotification(notification)"
-              class="usernameProfileLink cursorPointerUnderlined fileId">
+              class="usernameProfileLink cursorPointerUnderlined fileId"
+              [style.opacity]="notification.isRead ? '50%' : '100%'">
               <strong>Profile ID:</strong> {{ notification.userProfileId }}
             </div>
             <div *ngIf="notification.chatId && notification.fromUser" (click)="goToChat(notification)"
-              class="usernameProfileLink cursorPointerUnderlined fileId">
+              class="usernameProfileLink cursorPointerUnderlined fileId"
+              [style.opacity]="notification.isRead ? '50%' : '100%'">
               <strong>Chat Notification</strong>
             </div>
-            <div class="notificationText cursorPointer" (click)="notificationTextClick(notification)">
+            <div 
+              class="notificationText cursorPointer" 
+              (click)="notificationTextClick(notification)"
+              [style.opacity]="notification.isRead ? '50%' : '100%'">
               <strong>{{ notification.text }}</strong>
             </div>
-            <div class="date notificationText" (click)="notificationTextClick(notification)">
+            <div 
+              class="date notificationText" 
+              (click)="notificationTextClick(notification)"
+              [style.opacity]="notification.isRead ? '50%' : '100%'">
               <strong>Time:</strong> {{ notification?.date | timeSince:'minute':true }}
             </div>
           </div>
