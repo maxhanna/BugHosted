@@ -654,8 +654,8 @@ public class WebCrawler
 
       await using var tx = await connection.BeginTransactionAsync().ConfigureAwait(false);
 
-      // Normalize URL (unique key on url/url_hash will enforce uniqueness)
-      var url = (domain ?? string.Empty).Trim().ToLowerInvariant();
+      // Normalize URL (unique key on url/url_hash will enforce uniqueness) 
+      var url = NormalizeUrlForStorage(domain);
 
       // 1) Try INSERT (new row path)
       const string insertSql = @"
@@ -738,8 +738,8 @@ public class WebCrawler
       var cs = _config.GetValue<string>("ConnectionStrings:maxhanna");
       if (string.IsNullOrWhiteSpace(cs)) return null;
 
-      // Normalize URL once
-      var normUrl = (url ?? string.Empty).Trim().ToLowerInvariant();
+      // Normalize URL once  
+      var normUrl =  NormalizeUrlForStorage(url);
 
       await using var connection = new MySqlConnection(cs);
       await connection.OpenAsync().ConfigureAwait(false);
@@ -1979,6 +1979,97 @@ public async Task<int> GetIndexCount(CancellationToken ct = default)
     }
     return false;
   }
+
+
+// Add this helper in your class (private static is fine)
+private static string NormalizeUrlForStorage(string? input)
+{
+  if (string.IsNullOrWhiteSpace(input))
+    return string.Empty;
+
+  // Keep original text as much as possible to preserve path casing/encoding
+  string raw = input.Trim();
+
+  // Ensure we have a scheme for proper parsing
+  bool addedScheme = false;
+  if (!raw.Contains("://", StringComparison.Ordinal))
+  {
+    raw = "https://" + raw;
+    addedScheme = true;
+  }
+
+  // Try to parse with Uri to reliably extract host/port
+  if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri))
+  {
+    // If parsing fails, do a conservative fallback: lowercase leading scheme and host quickly
+    // Find scheme://
+    int schemeSep = raw.IndexOf("://", StringComparison.Ordinal);
+    if (schemeSep > 0)
+    {
+      string tmpSchemeLower = raw.Substring(0, schemeSep).ToLowerInvariant();
+      string afterScheme = raw.Substring(schemeSep + 3);
+
+      // authority = up to first '/' (or end)
+      int slashIdx = afterScheme.IndexOf('/');
+      string authority = slashIdx >= 0 ? afterScheme.Substring(0, slashIdx) : afterScheme;
+      string remainder = slashIdx >= 0 ? afterScheme.Substring(slashIdx) : string.Empty;
+
+      // Lowercase just the authority (best effort; may include port)
+      string authorityLower = authority.ToLowerInvariant();
+      return $"{tmpSchemeLower}://{authorityLower}{remainder}";
+    }
+
+    // No scheme sep: nothing better we can do; just return input trimmed
+    return input.Trim();
+  }
+
+  // We now have a parsed URI. We want: lowercase scheme + lowercase host (+ port if non-default),
+  // and preserve the exact original remainder (path/query/fragment) casing/encoding.
+
+  string schemeLower = uri.Scheme.ToLowerInvariant();
+
+  // Use IdnHost for internationalized domains (punycode), then lowercase it
+  string hostLower = uri.IdnHost.ToLowerInvariant();
+
+  string portPart = string.Empty;
+  if (!uri.IsDefaultPort && uri.Port > 0)
+  {
+    portPart = ":" + uri.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
+  }
+
+  // Extract the original remainder (path + query + fragment) from the original string
+  // Raw string may have been prefixed with https:// if we added scheme above.
+  string original = input.Trim();
+  string originalWithScheme = addedScheme ? ("https://" + original) : original;
+
+  // Find the start of the "after authority" segment in the originalWithScheme
+  // Format: scheme://authority/remainder
+  int schemeIdx = originalWithScheme.IndexOf("://", StringComparison.Ordinal);
+  string remainderPart = string.Empty;
+
+  if (schemeIdx >= 0)
+  {
+    int afterSchemeIdx = schemeIdx + 3;
+    // Find the next '/' after scheme:// to delimit the authority
+    int slashIdx = originalWithScheme.IndexOf('/', afterSchemeIdx);
+    if (slashIdx >= 0)
+    {
+      remainderPart = originalWithScheme.Substring(slashIdx); // includes '/' and everything after
+    }
+    else
+    {
+      remainderPart = string.Empty; // no path/query/fragment
+    }
+  }
+  else
+  {
+    // Very unusual (we always added scheme if missing), fallback: try to grab a leading '/'
+    int slashIdx = original.IndexOf('/');
+    remainderPart = slashIdx >= 0 ? original.Substring(slashIdx) : string.Empty;
+  }
+
+  return $"{schemeLower}://{hostLower}{portPart}{remainderPart}";
+}
 
   private async Task<bool> HeadExists(string url)
   {
