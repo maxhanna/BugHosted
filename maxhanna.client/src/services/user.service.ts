@@ -71,7 +71,7 @@ export class UserService {
       return undefined;
     }
   }
-  async getUserById(userId: number) {
+  async getUserById(userId: number): Promise<User | null> {
     try {
       const response = await fetch(`/user/${userId}`, {
         method: 'POST',

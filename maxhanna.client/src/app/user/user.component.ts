@@ -163,8 +163,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     try {
       if (this.userId) {
         const res = await this.userService.getUserById(this.userId);
-        if (res) {
-          this.user = res as User;
+        if (res && res != null) {
+          this.user = res;
           if (this.socialComponent) {
             this.socialComponent.user = this.user;
           }

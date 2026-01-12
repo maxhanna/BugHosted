@@ -98,7 +98,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       }
     }
     if (this.forceInviewLoad) {
-      console.log("forcing load");
+      this.debugLog("forcing load");
       await this.fetchFileSrc().then(() => this.applyPageTitleIfNeeded());
     } else {
       this.tryLoadFromCacheFastPath();
