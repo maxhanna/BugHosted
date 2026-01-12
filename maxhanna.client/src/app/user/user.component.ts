@@ -403,10 +403,12 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     if (this.justLoggedIn) {
-      const parent = this.parentRef ?? this.inputtedParentRef;
-      if (parent && parent.navigationComponent) {
-        parent.navigationComponent.getNotifications();
-      }
+      setTimeout(() => {
+        const parent = this.parentRef ?? this.inputtedParentRef;
+        if (parent && parent.navigationComponent) {
+          parent.navigationComponent.getNotifications();
+        }
+      }, 100); 
     }
     if (this.changedTheme) {
       this.parentRef?.navigationComponent.getThemeInfo(this.parentRef.user?.id ?? 0);
