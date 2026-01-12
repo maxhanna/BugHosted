@@ -37,6 +37,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   @ViewChild('navbar') navbar!: ElementRef<HTMLElement>;
   @ViewChild('toggleNavButton') toggleNavButton!: ElementRef<HTMLElement>;
 
+  @Input() user?: User;
+
   private notificationInfoInterval: any;
   private cryptoHubInterval: any;
   private calendarInfoInterval: any;
@@ -68,7 +70,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
     backgroundImage: '',
     name: 'default'
   };
-  @Input() user?: User;
 
   constructor(public _parent: AppComponent,
     private miningService: MiningService,
@@ -89,8 +90,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private friendService: FriendService,
     private socialService: SocialService,
     private crawlerService: CrawlerService,
-    private newsService: NewsService) {
-  }
+    private newsService: NewsService) 
+    { }
 
   // runtime values for Ender nav item
   enderActivePlayers: number | null = null;
@@ -436,12 +437,23 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getCryptoHubInfo() {
-    if (!this.user?.id) { return; }
-    if (!this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("crypto-hub"))) { return; }
+    if (this.user?.id) { 
+      console.log("No need to load CryptoHub info for other users");
+      return; 
+    }
+    const nav = this._parent.navigationItems.find(x => x.title === "Crypto-Hub");
+    const isCHSelected = this._parent.userSelectedNavigationItems.find(x => x.title === "Crypto-Hub") ? true : false;
+    const userId = this._parent?.user?.id;
+
+    if (!isCHSelected || !nav || !userId) { 
+      console.log("No logged in user or no selected nav for CryptoHub");
+      return; 
+    } 
+
     try {
       let tmpLocalProfitability = 0;
       this.isLoadingCryptoHub = true;
-      const res1 = await this.miningService.getMiningRigInfo(this.user.id) as Array<MiningRig>;
+      const res1 = await this.miningService.getMiningRigInfo(userId) as Array<MiningRig>;
       res1?.forEach(x => {
         tmpLocalProfitability += x.localProfitability!;
       });
@@ -449,7 +461,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       await this.coinValueService.isBTCRising().then(res => {
         this.isBTCRising = (Boolean)(res);
       });
-      const userCurrency = await this.coinValueService.getUserCurrency(this.user.id) ?? "CAD";
+      const userCurrency = await this.coinValueService.getUserCurrency(userId) ?? "CAD";
       let latestCurrencyPriceRespectToCAD = 1;
       const ceRes = await this.coinValueService.getLatestCurrencyValuesByName(userCurrency) as ExchangeRate;
       if (ceRes) {
@@ -458,7 +470,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const result = await this.coinValueService.getLatestCoinValuesByName("Bitcoin"); 
       if (result) {
         const btcToCADRate = result.valueCAD * latestCurrencyPriceRespectToCAD;
-        const nav = this._parent.navigationItems.find(x => x.title == "Crypto-Hub");
         if (nav) {
           const lines: string[] = [];
           if (tmpLocalProfitability > 0) {
