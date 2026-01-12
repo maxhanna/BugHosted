@@ -406,6 +406,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       setTimeout(() => {
         const parent = this.parentRef ?? this.inputtedParentRef;
         if (parent && parent.navigationComponent) {
+          parent.navigationComponent.notificationsActive = true;
           parent.navigationComponent.getNotifications();
         }
       }, 100); 
