@@ -42,7 +42,7 @@ namespace maxhanna.Server.Controllers
       request.Url = request.Url?.ToLower();
 
       // ✅ Local timeout: cancel everything if > 30s
-      using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+      using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
       var ct = cts.Token;
 
       try
