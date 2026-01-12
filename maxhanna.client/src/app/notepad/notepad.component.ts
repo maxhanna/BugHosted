@@ -205,7 +205,11 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     const ids = this.selectedNote?.ownership?.split(',').filter(x => parseInt(x) != this.parentRef?.user?.id);
     this.splitNoteOwnershipUsers = [];
     ids?.forEach(async id => {
-      await this.userService.getUserById(parseInt(id)).then((res: User) => { this.splitNoteOwnershipUsers.push(res); });
+      await this.userService.getUserById(parseInt(id)).then((res: User | null) => { 
+        if (res && res != null) {
+          this.splitNoteOwnershipUsers.push(res); 
+        }
+      });
     }); 
   } 
 
