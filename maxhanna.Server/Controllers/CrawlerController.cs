@@ -922,7 +922,7 @@ private void BuildUnionSql(
     {
       await using var conn = new MySqlConnection(connectionString);
       await conn.OpenAsync(ct);
-      await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 15 };
+      await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 45 };
       paramizer(cmd);
       return await cmd.ExecuteScalarAsync(ct);
     }
