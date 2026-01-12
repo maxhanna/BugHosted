@@ -436,17 +436,15 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
   }
 
-  async getCryptoHubInfo() {
-    if (this.user?.id) { 
-      console.log("No need to load CryptoHub info for other users");
-      return; 
-    }
+  async getCryptoHubInfo() { 
     const nav = this._parent.navigationItems.find(x => x.title === "Crypto-Hub");
     const isCHSelected = this._parent.userSelectedNavigationItems.find(x => x.title === "Crypto-Hub") ? true : false;
     const userId = this._parent?.user?.id;
 
     if (!isCHSelected || !nav || !userId) { 
-      console.log("No logged in user or no selected nav for CryptoHub");
+      if (!isCHSelected) { console.error("No CryptoHub selected in nav."); }
+      if (!nav) { console.error("No nav to modify."); }
+      if (!userId) { console.error("No user logged in."); } 
       return; 
     } 
 
