@@ -13,7 +13,7 @@ import { LineGraphComponent } from '../line-graph/line-graph.component';
   styleUrl: './crypto-coin-graph-viewer.component.css'
 })
 export class CryptoCoinGraphViewerComponent extends ChildComponent implements OnInit, OnChanges, OnDestroy {
-  constructor(private coinValueService: CoinValueService, private tradeService: TradeService, private changeDetectorRef: ChangeDetectorRef) {super();}
+  constructor(private coinValueService: CoinValueService, private tradeService: TradeService, private changeDetectorRef: ChangeDetectorRef) { super(); }
 
   @Input() inputtedParentRef!: AppComponent;
   @Input() currentSelectedCoin!: string;
@@ -22,7 +22,7 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
   @Input() isPaused: boolean = false;
 
   @ViewChild(LineGraphComponent) lineGraphComponent!: LineGraphComponent;
-  
+
   lineGraphInitialPeriod: '5min' | '15min' | '1h' | '6h' | '12h' | '1d' | '2d' | '5d' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' | 'max' = '6h';
   allHistoricalData?: CoinValue[] = [];
   tradebotBalances?: {
@@ -40,13 +40,15 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
     timestamp: Date,
     matching_trade_id: number | undefined,
     is_reserved: boolean | undefined,
-  }[] = undefined; 
+  }[] = undefined;
   tradebotTradeValuesForMainGraph: { timestamp: string | Date; priceCAD: number; tradeValueCAD: number; type: string }[] = [];
   private pollingInterval: any;
+  private timeouts: any[] = [];
+  private destroyed = false;
   timeLeft = 120;
   defaultTimeLeft = 120;
 
-  ngOnInit() { 
+  ngOnInit() {
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -69,14 +71,23 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.stopPolling();
+    this.timeouts.forEach(t => clearTimeout(t));
+    this.timeouts = [];
+  }
+
+  private safeDetectChanges() {
+    if (!this.destroyed) {
+      try { this.changeDetectorRef.detectChanges(); } catch {/* ignore */ }
+    }
   }
 
   async changeTimePeriodEventOnBTCHistoricalGraph(periodSelected: string) {
     this.startLoading();
     this.stopPolling();
     this.lineGraphInitialPeriod = periodSelected as "5min" | "15min" | "1h" | "6h" | "12h" | "1d" | "2d" | "5d" | "1m" | "2m" | "3m" | "6m" | "1y" | "2y" | "3y" | "5y" | "max";
-    const hours = this.tradeService.convertTimePeriodToHours(periodSelected); 
+    const hours = this.tradeService.convertTimePeriodToHours(periodSelected);
     const session = await this.inputtedParentRef.getSessionToken();
     await this.getTradebotValuesForMainGraph(this.inputtedParentRef.user?.id ?? 1, session);
 
@@ -90,24 +101,25 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
             x.valueCAD = 0;
           }
         });
-        if (hours <= 24) { 
+        if (hours <= 24) {
           this.startPolling();
         } else {
           this.timeLeft = 999;
         }
       }
-      this.changeDetectorRef.detectChanges();
+      this.safeDetectChanges();
     });
     this.stopLoading();
   }
   private async getTradebotValuesForMainGraph(tradeUserId: number, sessionToken: string | undefined) {
+    if (this.destroyed) return;
     const token = sessionToken ?? "";
-  // Immediately clear any previous tradebot data so the UI doesn't show stale history
-  // while we fetch new data for the newly selected coin.
-  this.tradebotTradeValuesForMainGraph = [];
-  this.tradebotBalances = [];
-  // Trigger change detection so the template reflects the cleared state right away.
-  try { this.changeDetectorRef.detectChanges(); } catch { /* noop if view not ready */ }
+    // Immediately clear any previous tradebot data so the UI doesn't show stale history
+    // while we fetch new data for the newly selected coin.
+    this.tradebotTradeValuesForMainGraph = [];
+    this.tradebotBalances = [];
+    // Trigger change detection so the template reflects the cleared state right away.
+    try { this.safeDetectChanges(); } catch { /* noop if view not ready */ }
     const COIN_REPLACEMENTS = [
       { from: /^BTC$/i, to: 'XBT' },
       { from: /^Bitcoin$/i, to: 'XBT' },
@@ -128,19 +140,19 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
     if (COIN_REPLACEMENTS.some(x => x.to === selectedCoin)) {
       const period = this.lineGraphComponent.selectedPeriod;
       const hours = this.tradeService.convertTimePeriodToHours(period);
-  
+
       const results = await Promise.all([
         this.tradeService.getTradeHistory(tradeUserId, token, selectedCoin, "DCA", hours),
         this.tradeService.getTradeHistory(tradeUserId, token, selectedCoin, "IND", hours),
         this.tradeService.getTradeHistory(tradeUserId, token, selectedCoin, "HFT", hours)
       ]);
-    
+
       if (results.some(res => res === "Access Denied.")) {
-        this.inputtedParentRef.showNotification("Access Denied (Loading coin graph)."); 
+        this.inputtedParentRef.showNotification("Access Denied (Loading coin graph).");
         return;
       }
 
-      const [dcaRes, indRes, hftRes] = results; 
+      const [dcaRes, indRes, hftRes] = results;
       const combined = [...(dcaRes.trades ?? []), ...(indRes.trades ?? []), ...(hftRes.trades ?? [])];
 
       this.tradebotBalances = combined;
@@ -150,7 +162,7 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
         this.tradebotBalances = [];
         // Ensure template updates after clearing
         setTimeout(() => {
-          this.changeDetectorRef.detectChanges();
+          this.safeDetectChanges();
         }, 50);
         return;
       }
@@ -164,21 +176,22 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
           tradeValueCAD,
           type: `${isSell ? "sell" : "buy"}_${x.strategy}`
         };
-      }); 
+      });
     } else {
-  // No tradebot data for this selection; clear any previous values
-  this.tradebotTradeValuesForMainGraph = [];
-  this.tradebotBalances = [];
+      // No tradebot data for this selection; clear any previous values
+      this.tradebotTradeValuesForMainGraph = [];
+      this.tradebotBalances = [];
     }
-    
+
     setTimeout(() => {
-      this.changeDetectorRef.detectChanges();
+      this.safeDetectChanges();
     }, 50);
   }
   startPolling() {
     // Do not start polling if the component is paused or already polling
     if (this.isPaused) return;
     if (this.pollingInterval) return;
+    if (this.destroyed) return;
 
     this.timeLeft = this.defaultTimeLeft;
     this.pollingInterval = setInterval(async () => {
@@ -188,7 +201,7 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
         this.timeLeft = this.defaultTimeLeft;
         this.changeTimePeriodEventOnBTCHistoricalGraph(this.lineGraphComponent.selectedPeriod);
       } else {
-        this.changeDetectorRef.detectChanges();
+        this.safeDetectChanges();
       }
     }, 1000 * 1);
   }
