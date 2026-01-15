@@ -45,7 +45,9 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
   selectedCoin: string = 'BTC'; // Default value
   selectedStrategy: string = 'DCA'; // Default value
   tradeHistoryInterval: any;
-  timeLeft = 30;
+  timeLeft = 120;
+  defaultTimeLeft = 120;
+  destroyed = false;
 
   ngAfterViewInit(): void {
     // Initialize with default values if provided
@@ -63,6 +65,9 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
   }
 
   ngOnChanges(changes: SimpleChanges) {
+    if (this.destroyed) {
+      return;
+    }
     // When the parent changes the default coin or strategy, reload or clear the trade history
     if (changes['defaultCoin'] && changes['defaultCoin'].currentValue !== changes['defaultCoin'].previousValue) {
       if (this.defaultCoin) {
@@ -87,10 +92,14 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.stopTradeHistoryPolling();
   }
 
   async checkBalance() {
+    if (this.destroyed) {
+      return;
+    }
     this.stopTradeHistoryPolling();
     this.startLoading();
     const userId = this.hasKrakenApi ? this.inputtedParentRef.user?.id ?? 1 : 1;
@@ -119,12 +128,15 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
   }
 
   startTradeHistoryPolling() {
-    this.timeLeft = 30;
+    if (this.destroyed) {
+      return;
+    }
+    this.timeLeft = this.defaultTimeLeft;
     this.tradeHistoryInterval = setInterval(async () => {
       this.timeLeft--;
       if (this.timeLeft == 0) {
         this.checkBalance();
-        this.timeLeft = 30;
+        this.timeLeft = this.defaultTimeLeft;
       } else {
         this.changeDetectorRef.detectChanges();
       }
@@ -141,12 +153,18 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
   }
 
   onCoinChange(event: Event) {
+    if (this.destroyed) {
+      return;
+    }
     this.selectedCoin = (event.target as HTMLSelectElement).value;
     this.currentTradePage = 1;
     this.checkBalance();
   }
 
   onStrategyChange(event: Event) {
+    if (this.destroyed) {
+      return;
+    }
     this.selectedStrategy = (event.target as HTMLSelectElement).value;
     this.currentTradePage = 1;
     this.checkBalance();
