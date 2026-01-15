@@ -131,6 +131,11 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
     if (this.destroyed) {
       return;
     }
+
+    if (this.tradeHistoryInterval) {
+      clearInterval(this.tradeHistoryInterval);
+    }
+
     this.timeLeft = this.defaultTimeLeft;
     this.tradeHistoryInterval = setInterval(async () => {
       this.timeLeft--;
@@ -144,7 +149,10 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
   }
 
   stopTradeHistoryPolling() {
-    clearInterval(this.tradeHistoryInterval);
+    if (this.tradeHistoryInterval) {
+      clearInterval(this.tradeHistoryInterval);
+      this.tradeHistoryInterval = null;
+    }
   }
 
   setPaginatedTrades() {
