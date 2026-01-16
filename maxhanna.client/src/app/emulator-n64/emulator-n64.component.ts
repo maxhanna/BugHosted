@@ -923,7 +923,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     };
 
     poll();
-    this.parentRef?.showNotification('Direct-inject input mode enabled');
+    //this.parentRef?.showNotification('Direct-inject input mode enabled');
   }
 
   disableDirectInject() {
@@ -932,7 +932,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this._directInjectPoller = 0;
     }
     this._directPrevState = {};
-    this.parentRef?.showNotification('Direct-inject input mode disabled');
+    //this.parentRef?.showNotification('Direct-inject input mode disabled');
   }
 
   toggleDirectInject(enabled?: boolean) {
@@ -1084,7 +1084,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
       const count = exported.length;
       const scope = matchedOnly ? 'matching' : 'all';
-      this.parentRef?.showNotification(`Prepared ${count} ${scope} in-game save file(s) for export.`);
+      console.log(`Prepared ${count} ${scope} in-game save file(s) for export.`);
 
       return result;
     } catch (err) {
@@ -1136,7 +1136,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const size = blob.size;
     const ext = this.inferBatteryExtFromSize(size);
     if (!ext) {
-      this.parentRef?.showNotification('Downloaded blob is not a recognized battery save (.eep/.sra/.fla).');
+      console.log('Downloaded blob is not a recognized battery save (.eep/.sra/.fla).');
       return null;
     }
     const base = (suggestedName && suggestedName.replace(/\.[^\.]+$/, '')) || this.baseNameFromRom();
@@ -1290,7 +1290,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         try {
           const uploadRes = await this.romService.saveN64State(payload);
           if (!uploadRes.ok) {
-            console.warn('Upload failed:', uploadRes.errorText);
+            console.warn('Upload failed:', uploadRes.errorText); 
           }
           this.lastUploadedHashes.set(key, hash);
           uploadedCount++;
@@ -1438,12 +1438,12 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
               this.migrateMappingToIdsIfNeeded();
               await this.applyMappingToEmulator();
               this.selectedMappingName = sel.mappingName;
-              this.parentRef?.showNotification(`Applied last mapping "${sel.mappingName}" for this ROM.`);
+              console.log(`Applied last mapping "${sel.mappingName}" for this ROM.`);
             } else {
-              this.parentRef?.showNotification(`Last mapping "${sel.mappingName}" not found; using defaults.`);
+              console.log(`Last mapping "${sel.mappingName}" not found; using defaults.`);
             }
           } catch {
-            this.parentRef?.showNotification(`Failed to fetch last mapping "${sel.mappingName}".`);
+            console.log(`Failed to fetch last mapping "${sel.mappingName}".`);
           }
         }
       }
