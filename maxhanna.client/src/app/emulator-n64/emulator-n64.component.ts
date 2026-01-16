@@ -368,7 +368,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       const buffer = await response.arrayBuffer();
       this.romBuffer = buffer;
       this.romName = file.fileName || "";
-      this.parentRef?.showNotification(`Loaded ${this.romName} from search`);
+      console.log(`Loaded ${this.romName} from search`);
 
       await this.loadLastInputSelectionAndApply();
 
