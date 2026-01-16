@@ -416,6 +416,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       const h = Math.max(1, Math.floor(rect.height * dpr));
       if (canvasEl.width !== w) canvasEl.width = w;
       if (canvasEl.height !== h) canvasEl.height = h;
+      if (container.id != this.fullscreenContainer.nativeElement.id) {
+        this.isFullScreen = false;
+      }
     } catch (e) {
       console.warn('Failed to resize canvas', e);
     }
@@ -840,10 +843,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const canvas = this.canvas?.nativeElement;
     if (!this.isFullScreen) {
       await canvas?.requestFullscreen();
+      this.isFullScreen = true;
     } else {
       await (document as any).exitFullscreen?.();
-    }
-    this.isFullScreen = !!document.fullscreenElement;
+      this.isFullScreen = false;
+    } 
   }
 
   showMenuPanel() {
