@@ -133,8 +133,10 @@
             <label class="inline">
               <input type="checkbox" [checked]="liveTest" (change)="liveTest = $any($event.target).checked">
               Live test
-            </label>
-            <button (click)="showKeyMappings = false">Close</button>
+            </label> 
+            <button (click)="closeRemapAction()">
+              Close
+            </button>
           </div>
         </div>
 
@@ -171,7 +173,46 @@
           <textarea rows="8" cols="60" readonly>{{exportText}}</textarea>
         </div>
       </div>
-      <!-- ********************************************* -->
+      <!-- ********************************************* --> 
+            
+      <div class="optionsStatsDiv" *ngIf="!showKeyMappings">
+        <div class="optionsStatsHeader">Players:</div>
+        <div class="optionsStatsDescription" style="display:flex; flex-direction:column; gap:8px;">
+
+          <div *ngFor="let p of playerPorts" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <div style="min-width:70px;">P{{p}}</div>
+
+            <!-- Controller dropdown -->
+            <label>Controller:
+              <select [value]="ports[p].gpIndex ?? ''"
+                      (change)="onSelectGamepadForPort(p, $any($event.target).value)">
+                <option value="">-- none --</option>
+                <option *ngFor="let gp of gamepads" [value]="gp.index">
+                  {{gp.index}} — {{gp.id}} {{gp.mapping ? '(' + gp.mapping + ')' : ''}}
+                </option>
+              </select>
+            </label>
+
+            <!-- Mapping dropdown -->
+            <label>Mapping:
+              <select [value]="ports[p].mappingName ?? ''"
+                      (change)="onPortMappingSelect(p, $any($event.target).value)">
+                <option value="">Default</option>
+                <option value="" disabled *ngIf="!savedMappingsNames.length">-- No mappings --</option>
+                <option *ngFor="let n of savedMappingsNames" [value]="n">{{ n }}</option>
+              </select>
+            </label> 
+            <button (click)="remapAction(p)">
+              Re-Map P{{p}}
+            </button>
+          </div>
+
+          <div>
+            <button (click)="applyAllPortMappings()">Apply All (P1–P4)</button>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 

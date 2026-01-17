@@ -45,7 +45,15 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     'Analog X+', 'Analog X-',
     'Analog Y+', 'Analog Y-'
   ];
-
+  ports: Record<PlayerPort, PortConfig> = {
+    1: { gpIndex: null, mapping: {}, mappingName: null },
+    2: { gpIndex: null, mapping: {}, mappingName: null },
+    3: { gpIndex: null, mapping: {}, mappingName: null },
+    4: { gpIndex: null, mapping: {}, mappingName: null },
+  }; 
+  editingPort: PlayerPort | null = null; 
+  private _applyingAll = false;
+  
   // Remapper (list) helpers
   liveTest = true;
   private _recordingFor: string | null = null;
@@ -84,8 +92,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   // Reorder wrapper only (no translator)
   private _originalGetGamepadsBase: any = null;
-  private _gpWrapperInstalled = false;
-  private _reorderSelectedFirst = false;
+  private _gpWrapperInstalled = false; 
 
   // Logging
   _gpPoller: any; // just a flag for your UI button
@@ -666,8 +673,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
             gamepadId
           });
         }
-      } catch { /* ignore */ }
-
+      } catch (e) { 
+        console.log("Failed to select gamepad: ", e);
+      } finally {
+        this.ensureP1InitializedFromSinglePad();
+      }
       return;
     }
 
@@ -1374,6 +1384,15 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       const stillThere = this.gamepads.some(g => g.index === this.selectedGamepadIndex);
       if (!stillThere) this.selectedGamepadIndex = null;
     }
+    
+    for (const p of [1,2,3,4] as const) {
+      const idx = this.ports[p].gpIndex;  
+      if (idx != null && !this.gamepads.some(g => g.index === idx)) {
+        this.ports[p].gpIndex = null;
+        this.parentRef?.showNotification?.(`P${p} controller disconnected`);
+      } 
+    }
+    this.applyGamepadReorder();
   };
 
   startGamepadAutoDetect() {
@@ -1459,11 +1478,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
 
     this.hasLoadedLastInput = true;
-  }
+  } 
 
-  // =====================================================
-  // Reorder wrapper (only)
-  // =====================================================
   private installReorderWrapper() {
     if (this._gpWrapperInstalled) return;
     try {
@@ -1472,12 +1488,27 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
       (navigator as any).getGamepads = function (): (Gamepad | null)[] {
         const baseArr = (self._originalGetGamepadsBase ? self._originalGetGamepadsBase() : []) || [];
-        if (!self._reorderSelectedFirst || self.selectedGamepadIndex == null) return baseArr;
+        // If no ports assigned, keep base order (or rely on your single-pad reorder)
+        const chosen: (Gamepad | null)[] = [];
+        const used = new Set<number>();
 
-        const selIdx = self.selectedGamepadIndex;
-        const sel = baseArr[selIdx];
-        if (!sel) return baseArr;
-        return [sel, ...baseArr.filter((_: any, i: number) => i !== selIdx)];
+        const pushIf = (idx: number | null) => {
+          if (idx == null) return;
+          const pad = baseArr[idx];
+          if (pad && !used.has(idx)) { chosen.push(pad); used.add(idx); }
+        };
+
+        // P1 → P4 in order
+        pushIf(self.ports[1].gpIndex);
+        pushIf(self.ports[2].gpIndex);
+        pushIf(self.ports[3].gpIndex);
+        pushIf(self.ports[4].gpIndex);
+
+        // then all others as-is
+        for (let i = 0; i < baseArr.length; i++) {
+          if (!used.has(i)) chosen.push(baseArr[i]);
+        }
+        return chosen;
       };
 
       this._gpWrapperInstalled = true;
@@ -1485,6 +1516,146 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       console.warn('Failed installing reorder wrapper', e);
     }
   }
+
+  closeRemapperToPort(port: PlayerPort) {
+    this.ports[port].mapping = JSON.parse(JSON.stringify(this.mapping));
+    this.showKeyMappings = false;
+    this.parentRef?.showNotification(`Updated mapping for P${port}`);
+  }
+
+  async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
+    const idx = Number(value);
+    if (Number.isNaN(idx)) return;
+
+    // Prevent the same pad in two ports (optional)
+    for (const p of [1, 2, 3, 4] as const) {
+      if (p !== port && this.ports[p].gpIndex === idx) {
+        this.parentRef?.showNotification(`That controller is already assigned to Player ${p}.`);
+        return;
+      }
+    }
+
+    this.ports[port].gpIndex = idx;
+    this.refreshGamepads();          // keeps list current
+    this.applyGamepadReorder();      // P1→P4 ordering
+
+    // Optionally generate default mapping if none
+    this.ensureDefaultMappingForPort(port);
+  }
+
+  onPortMappingSelect(port: PlayerPort, name: string) {
+    this.ports[port].mappingName = name || null;
+    this.applySelectedMappingForPort(port);
+  }
+
+  async applySelectedMappingForPort(port: PlayerPort) {
+    const name = this.ports[port].mappingName;
+    if (!name) {
+      // Default behavior
+      const idx = this.ports[port].gpIndex;
+      const pads = this.getGamepadsBase();
+      const gp = (idx != null) ? pads[idx] : null;
+
+      this.ports[port].mapping = {};
+      if (gp?.mapping === 'standard') {
+        this.generateDefaultRawMappingForPad(gp);
+        this.ports[port].mapping = JSON.parse(JSON.stringify(this.mapping));
+        this.parentRef?.showNotification(`Default RAW mapping for P${port} (standard controller).`);
+      }
+      return;
+    }
+
+    try {
+      const uid = this.parentRef?.user?.id;
+      // Try backend
+      if (uid) {
+        try {
+          const m = await this.romService.getMapping(uid, name);
+          if (m) {
+            const idx = this.ports[port].gpIndex;
+            const gpId = this.gamepadIdFromIndex(idx);
+            const rebound = this.rebindMappingToPad(JSON.parse(JSON.stringify(m)), gpId);
+            this.migrateMappingToIdsIfNeeded(); // keeps consistent
+            this.ports[port].mapping = rebound;
+            this.parentRef?.showNotification(`Applied mapping "${name}" to P${port}`);
+            return;
+          }
+        } catch {/* fall back to local */}
+      }
+
+      // Local fallback
+      const raw = localStorage.getItem(this._mappingsStoreKey);
+      const store = raw ? JSON.parse(raw) : {};
+      const m = store[name];
+      if (m) {
+        const idx = this.ports[port].gpIndex;
+        const gpId = this.gamepadIdFromIndex(idx);
+        const rebound = this.rebindMappingToPad(JSON.parse(JSON.stringify(m)), gpId);
+        this.migrateMappingToIdsIfNeeded();
+        this.ports[port].mapping = rebound;
+        this.parentRef?.showNotification(`Applied mapping "${name}" to P${port}`);
+      } else {
+        this.parentRef?.showNotification('Selected mapping not found');
+        await this.loadMappingsList();
+      }
+    } catch (e) {
+      console.error('applySelectedMappingForPort failed', e);
+      this.parentRef?.showNotification('Failed to apply mapping');
+    }
+  }
+
+  async applyAllPortMappings() {
+    if (this._applyingAll) return;
+    this._applyingAll = true;
+
+    try {
+      // Stop/rerun if needed so input plugin reloads configs cleanly
+      const wasRunning = !!this.instance || this.status === 'running';
+      if (wasRunning) {
+        await this.stop();
+        await new Promise(r => setTimeout(r, 150));
+      }
+
+      // For each port that has a controller, build and write that device's config
+      for (const p of [1, 2, 3, 4] as const) {
+        const idx = this.ports[p].gpIndex;
+        if (idx == null) continue;
+        this.ensureDefaultMappingForPort(p);
+
+        // Ensure mapping is bound to the selected pad id
+        const gpId = this.gamepadIdFromIndex(idx);
+        if (!gpId) continue;
+
+        const perPortMapping = this.rebindMappingToPad(
+          JSON.parse(JSON.stringify(this.ports[p].mapping || {})),
+          gpId
+        );
+        // Update port mapping with ids (optional consistency)
+        this.ports[p].mapping = perPortMapping;
+
+        const cfg = this.buildAutoInputConfigFromMapping(perPortMapping);
+        const sectionName = gpId; // Device-id section (like your single-pad flow)
+
+        await writeAutoInputConfig(sectionName, cfg as any);
+        // Optionally: this.parentRef?.showNotification(`Applied mapping for P${p}: "${gpId}"`);
+      }
+
+      if (this.multiPortActive() && this.directInjectMode) {
+        this.toggleDirectInject(false);
+        this.parentRef?.showNotification('Direct-inject disabled for multi-controller mode.');
+      }
+
+      // Install the P1→P4 reorder (must be active before boot)
+      this.applyGamepadReorder();
+
+      if (wasRunning) await this.boot();
+    } catch (e) {
+      console.error('applyAllPortMappings failed', e);
+      this.parentRef?.showNotification('Failed to apply multi-controller mappings');
+    } finally {
+      this._applyingAll = false;
+    }
+  } 
 
   private uninstallReorderWrapper() {
     if (!this._gpWrapperInstalled) return;
@@ -1640,13 +1811,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
     } catch (e) {
       console.warn('Failed to read gamepads', e);
+    } finally {
+      this.ensureP1InitializedFromSinglePad();
     }
   }
 
   applyGamepadReorder() {
-    if (this.selectedGamepadIndex === null) return;
-    try {
-      this._reorderSelectedFirst = true;
+    try { 
       this.installReorderWrapper();
     } catch (e) {
       console.warn('Failed to apply gamepad reorder', e);
@@ -1655,8 +1826,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   restoreGamepadGetter() {
     try {
-      this.uninstallReorderWrapper();
-      this._reorderSelectedFirst = false;
+      this.uninstallReorderWrapper(); 
     } catch { /* ignore */ }
   }
 
@@ -1800,7 +1970,91 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
     } catch { /* ignore */ }
   };
+  
+  private ensureP1InitializedFromSinglePad() {
+    if (this.ports[1].gpIndex == null && this.selectedGamepadIndex != null) {
+      this.ports[1].gpIndex = this.selectedGamepadIndex;
+      this.ports[1].mapping = { ...this.mapping };
+      this.ports[1].mappingName = this.selectedMappingName;
+    }
+  }
+    
+  private buildAutoInputConfigFromMapping(mapping: Record<string, any>): Record<string, string> {
+    const config: Record<string, string> = {};
+    const handled = new Set<string>();
 
+    const pairAxis = (minusKey: string, plusKey: string, axisName: string) => {
+      const mMinus = mapping[minusKey];
+      const mPlus = mapping[plusKey];
+      if (mMinus && mPlus && mMinus.type === 'axis' && mPlus.type === 'axis' &&
+          mMinus.gamepadId && mPlus.gamepadId && mMinus.gamepadId === mPlus.gamepadId) {
+        config[axisName] = `axis(${mMinus.index}-,${mPlus.index}+)`;
+        handled.add(minusKey); handled.add(plusKey);
+        return true;
+      }
+      return false;
+    };
+
+    pairAxis('Analog X-', 'Analog X+', 'X Axis');
+    pairAxis('Analog Y-', 'Analog Y+', 'Y Axis');
+
+    for (const key of Object.keys(mapping)) {
+      if (handled.has(key)) continue;
+      const m = mapping[key];
+      if (!m) continue;
+      if (m.type === 'button') {
+        config[key] = `button(${m.index})`;
+      } else if (m.type === 'axis') {
+        config[key] = `axis(${m.index}${m.axisDir === -1 ? '-' : '+'})`;
+      }
+    }
+
+    return config;
+  }
+
+  private gamepadIdFromIndex(idx: number | null): string | null {
+    if (idx == null) return null;
+    const pads = this.getGamepadsBase();
+    const gp = pads[idx];
+    return gp?.id ?? null;
+  }
+  
+  private ensureDefaultMappingForPort(p: PlayerPort) {
+    if (Object.keys(this.ports[p].mapping || {}).length) return;
+    const idx = this.ports[p].gpIndex;
+    if (idx == null) return;
+
+    const pads = this.getGamepadsBase();
+    const gp = pads[idx];
+    if (gp && gp.mapping === 'standard') {
+      // Uses your existing method to populate this.mapping; we want a copy per port.
+      this.generateDefaultRawMappingForPad(gp); 
+      this.ports[p].mapping = JSON.parse(JSON.stringify(this.mapping));
+    }
+  }
+
+  remapAction(p: PlayerPort) {
+    if (this.ports[p].gpIndex) {
+      this.editingPort = p;
+      this.selectedGamepadIndex = this.ports[p].gpIndex;
+      this.showKeyMappings = true;
+    } else {
+      this.parentRef?.showNotification('Assign a controller to P' + p + ' first');
+    }
+  }
+  closeRemapAction() {
+    if (this.editingPort) {
+      this.closeRemapperToPort(this.editingPort);
+    } else {
+      this.showKeyMappings = false;
+    } 
+  }
+
+  private multiPortActive(): boolean {
+    return [1,2,3,4].filter(p => this.ports[p as PlayerPort].gpIndex != null).length > 1;
+  } 
+  
+  get playerPorts(): PlayerPort[] { return [1,2,3,4]; }
 }
 
 // ---------------------------
@@ -1819,4 +2073,13 @@ type ExportInGameSaveRamResult = {
   matchedOnly: boolean;
   totalFound: number;
   exported: N64ExportedSave[];
+};
+
+
+type PlayerPort = 1 | 2 | 3 | 4;
+
+type PortConfig = {
+  gpIndex: number | null;                    // selected gamepad index for this port
+  mapping: Record<string, any>;              // control mapping for this port (same structure you already use)
+  mappingName: string | null;                // saved mapping name selected for this port
 };
