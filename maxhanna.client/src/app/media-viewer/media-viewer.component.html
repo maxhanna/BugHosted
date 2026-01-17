@@ -19,7 +19,7 @@
     <div class="shrinkMediaDiv cursorPointerUnderlined" (click)="shrink()">Shrink {{fileType}} ▢</div>
   </div>
   <div [class]="'mediaContainerDiv ' + (isLoadedFromURL ? 'fileDataDiv' : '')"
-    [style.height]="selectedFileSrc == '' ? (file && file.height ? file.height : 250)+ 'px' : ''">
+    [style.height]="!selectedFileSrc ?(file?.height ?? 250) + 'px' : null">
     <div *ngIf="!autoload" class="noAutoLoadDiv" (click)="forceLoad()">
       <span class="clickToLoadText">Click here to load media</span>
     </div>

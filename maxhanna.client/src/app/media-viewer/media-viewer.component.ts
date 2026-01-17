@@ -117,29 +117,18 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.tryLoadFromCacheFastPath();
     }
   }
-
-  private tryLoadFromCacheFastPath() {
-    if (this.hasTriedInitialCachedLoad) return;
-    if (!this.autoload) return;
-    if (this.fileSrc) {
-      this.fetchFileSrc();
-      this.hasTriedInitialCachedLoad = true;
-      return;
-    }
-    const targetId = this.fileId || (this.file ? (Array.isArray(this.file) ? this.file[0]?.id : this.file.id) : undefined);
-    const parentRef = this.parentRef || this.inputtedParentRef;
-    if (targetId && parentRef && parentRef.pictureSrcs && parentRef.pictureSrcs[targetId] && parentRef.pictureSrcs[targetId].value) {
-      this.debugLog('tryLoadFromCacheFastPath found cached value; loading immediately', { targetId });
-      this.fetchFileSrc();
-      this.hasTriedInitialCachedLoad = true;
-    }
+  
+  ngOnDestroy() {
+    try { this.stopAllMedia(); } catch { }
+    try {
+      if (this.abortFileRequestController) {
+        this.abortFileRequestController.abort("Component is destroyed");
+      }
+    } catch (e) { }
+    window.removeEventListener('popstate', this.handleBackButton);
+    window.removeEventListener('keydown', this.handleEscapeKey);
   }
 
-  private debugLog(message: string, data?: any) {
-    if (this.debug) {
-      console.log(`[MediaViewerDebug] ${message}`, data || '', this.file, this.fileId);
-    }
-  }
   onInView(isInView: boolean) {
     this.debugLog('onInView event', { isInView });
     if (!isInView) {
@@ -167,8 +156,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   async fetchFileSrc() {
     this.debugLog('fetchFileSrc invoked', { fileId: this.fileId, hasFileObj: !!this.file, fileSrcInput: this.fileSrc, alreadySelectedSrc: !!this.selectedFileSrc });
     if (this.selectedFileSrc) return; // already set
-    if (!this.autoload) return;
+    if (!this.autoload) return; 
+
     this.isLoading = true;
+    await this.waitForPaint();
+
     // Direct fileSrc always overrides gating
     if (this.fileSrc) {
       this.selectedFileSrc = this.fileSrc;
@@ -192,6 +184,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       } else {
         this.debugLog('fetchFileSrc no cached value (indexed array access), proceeding to setFileSrcById');
         this.setFileSrcById(this.selectedFile.id);
+        this.isLoading = false;
+        return;
       }
     }
     else if (this.file) {
@@ -201,13 +195,16 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       if (parentRef?.pictureSrcs[fileId]?.value) {
         this.debugLog('fetchFileSrc found cached parentRef pictureSrcs entry (object style)');
         this.setFileSrcByParentRefValue(fileId);
+        this.isLoading = false;
+        return;
       } else {
         this.debugLog('fetchFileSrc no cached value for file object; calling setFileSrcById');
         this.setFileSrcById(fileId);
         this.selectedFile = fileObject;
+        this.isLoading = false;
+        return;
       }
     }
-    this.isLoading = false;
   }
   private setFileSrcByParentRefValue(id: number) {
     this.muteOtherVideos();
@@ -218,16 +215,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.debugLog('setFileSrcByParentRefValue failed (likely sparse array access)', { id, error: ex });
     }
   }
-
-  ngOnDestroy() {
-    try { this.stopAllMedia(); } catch { }
-    try {
-      if (this.abortFileRequestController) {
-        this.abortFileRequestController.abort("Component is destroyed");
-      }
-    } catch (e) { }
-    window.removeEventListener('popstate', this.handleBackButton);
-    window.removeEventListener('keydown', this.handleEscapeKey);
+  
+  private async waitForPaint() {
+    await new Promise(requestAnimationFrame);
   }
 
   resetSelectedFile() {
@@ -902,6 +892,29 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       }
     } catch (e) {
       this.debugLog('Failed to unmute media:', e);
+    }
+  }
+  
+  private tryLoadFromCacheFastPath() {
+    if (this.hasTriedInitialCachedLoad) return;
+    if (!this.autoload) return;
+    if (this.fileSrc) {
+      this.fetchFileSrc();
+      this.hasTriedInitialCachedLoad = true;
+      return;
+    }
+    const targetId = this.fileId || (this.file ? (Array.isArray(this.file) ? this.file[0]?.id : this.file.id) : undefined);
+    const parentRef = this.parentRef || this.inputtedParentRef;
+    if (targetId && parentRef && parentRef.pictureSrcs && parentRef.pictureSrcs[targetId] && parentRef.pictureSrcs[targetId].value) {
+      this.debugLog('tryLoadFromCacheFastPath found cached value; loading immediately', { targetId });
+      this.fetchFileSrc();
+      this.hasTriedInitialCachedLoad = true;
+    }
+  }
+
+  private debugLog(message: string, data?: any) {
+    if (this.debug) {
+      console.log(`[MediaViewerDebug] ${message}`, data || '', this.file, this.fileId);
     }
   }
 }
