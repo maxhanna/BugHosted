@@ -1076,7 +1076,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           targetRows = narrowed;
           matchedOnly = true;
         } else {
-          this.parentRef?.showNotification('No saves matched the current ROM; returning all saves.');
+          console.log('No saves matched the current ROM; returning all saves.');
         }
       }
 
@@ -1085,6 +1085,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const ab = this.normalizeToArrayBuffer(val);
         if (!ab) continue;
         const filename = String(key).split('/').pop() || 'save_ram.bin';
+        console.log("Found exported filename:", filename);
         exported.push({
           key: String(key),
           filename,
@@ -1105,7 +1106,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
       const count = exported.length;
       const scope = matchedOnly ? 'matching' : 'all';
-      console.log(`Prepared ${count} ${scope} in-game save file(s) for export.`);
+      console.log(`Prepared ${scope} ${count} in-game save file(s) for export.`);
 
       return result;
     } catch (err) {
