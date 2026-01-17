@@ -785,11 +785,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
 
         // GoodName <-> Canonical mirrors kept (safe no-ops when absent)
-        this.mirrorGoodNameSavesToCanonical().catch(() => {});
-       // this.mirrorCanonicalToGoodNameIfMissing().catch(() => {});
+        this.mirrorGoodNameSavesToCanonical().catch(() => { });
+        // this.mirrorCanonicalToGoodNameIfMissing().catch(() => {});
 
         // Actively ensure the *right* ext is used (EEP preferred), and restart once if needed
-        this.ensureSaveLoadedForCurrentRom().catch(() => {});
+        this.ensureSaveLoadedForCurrentRom().catch(() => { });
 
         this.parentRef?.showNotification(`Booted ${this.romName}`);
         this.bootGraceUntil = performance.now() + 1500;
@@ -1337,9 +1337,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         console.log(`Imported ${written.length} save file(s): ${written.join(', ')}`);
         this.parentRef?.showNotification(`Imported ${written.length} save file(s): ${written.join(', ')}`);
         const wasRunning = this.status === 'running' || !!this.instance;
-        if (wasRunning) { 
-          await this.stop(); 
-          await new Promise(r => setTimeout(r, 400)); 
+        if (wasRunning) {
+          await this.stop();
+          await new Promise(r => setTimeout(r, 400));
           await this.syncFs('post-import');
         }
         if (!skipBoot) {
@@ -1423,8 +1423,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch (err) {
       console.error('autosaveTick error', err);
     } finally {
-      this.autosaveInProgress = false; 
-      await this.syncFs('post-autosave'); 
+      this.autosaveInProgress = false;
+      await this.syncFs('post-autosave');
       console.log("Finished Autosave");
     }
   }
@@ -2382,156 +2382,156 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
     return null;
   }
- 
-
-/** If EEPROM is 2048 but the game actually needs 512, try a 512-byte truncated variant. */
-private maybeDownsizeEeprom4K(bytes: Uint8Array): Uint8Array | null {
-  if (!bytes || bytes.byteLength !== 2048) return null;
-  // Heuristic: many titles (e.g., Star Wars Episode I: Racer) are EEPROM 4K (512B).
-  // Write a 512B truncated copy as a fallback for GoodName.
-  return bytes.slice(0, 512);
-}
 
 
-/**
- * Ensure the current ROM loads the imported save:
- * - Prefer ext order .eep -> .sra -> .fla
- * - Validate by ext-typical size; skip mismatches.
- * - Copy canonical -> GoodName once; restart if changed.
- * - For .eep: honor per-ROM override (e.g. Racer -> 512B), otherwise prefer existing GoodName size.
- * - Keep canonical in sync with the chosen GoodName bytes to avoid confusion on export.
- */
-private async ensureSaveLoadedForCurrentRom(): Promise<void> {
-  const userId = this.parentRef?.user?.id ?? 0;
-  if (!this.romName || !userId) return;
+  /** If EEPROM is 2048 but the game actually needs 512, try a 512-byte truncated variant. */
+  private maybeDownsizeEeprom4K(bytes: Uint8Array): Uint8Array | null {
+    if (!bytes || bytes.byteLength !== 2048) return null;
+    // Heuristic: many titles (e.g., Star Wars Episode I: Racer) are EEPROM 4K (512B).
+    // Write a 512B truncated copy as a fallback for GoodName.
+    return bytes.slice(0, 512);
+  }
 
-  const tryExts: ('.eep' | '.sra' | '.fla')[] = ['.eep', '.sra', '.fla'];
-  let chosenExt: '.eep' | '.sra' | '.fla' | null = null;
-  let canonicalKey: string | null = null;
 
-  try {
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open('/mupen64plus');
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => resolve(req.result);
-    });
-    if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
+  /**
+   * Ensure the current ROM loads the imported save:
+   * - Prefer ext order .eep -> .sra -> .fla
+   * - Validate by ext-typical size; skip mismatches.
+   * - Copy canonical -> GoodName once; restart if changed.
+   * - For .eep: honor per-ROM override (e.g. Racer -> 512B), otherwise prefer existing GoodName size.
+   * - Keep canonical in sync with the chosen GoodName bytes to avoid confusion on export.
+   */
+  private async ensureSaveLoadedForCurrentRom(): Promise<void> {
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (!this.romName || !userId) return;
 
-    // 1) Choose canonical by existence + plausible size
-    for (const ext of tryExts) {
-      const cand = `/mupen64plus/saves/${this.canonicalSaveFilename(ext, userId)}`;
-      const exists = await this.idbKeyExists(db, cand);
-      if (!exists) continue;
+    const tryExts: ('.eep' | '.sra' | '.fla')[] = ['.eep', '.sra', '.fla'];
+    let chosenExt: '.eep' | '.sra' | '.fla' | null = null;
+    let canonicalKey: string | null = null;
 
-      const bytes = await this.readIdbBytes(db, cand);
-      const sizes = this.expectedSizeForExt(ext);
-      if (bytes && sizes.includes(bytes.byteLength)) {
-        chosenExt = ext;
-        canonicalKey = cand;
-        break;
-      }
-    }
+    try {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open('/mupen64plus');
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => resolve(req.result);
+      });
+      if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
 
-    this.saveDebug(`LOAD-GUARD: canonical ext chosen`, { chosenExt, canonicalKey });
-    if (!chosenExt || !canonicalKey) { db.close(); return; }
+      // 1) Choose canonical by existence + plausible size
+      for (const ext of tryExts) {
+        const cand = `/mupen64plus/saves/${this.canonicalSaveFilename(ext, userId)}`;
+        const exists = await this.idbKeyExists(db, cand);
+        if (!exists) continue;
 
-    // 2) Read canonical once
-    const canonicalBytes = await this.readIdbBytes(db, canonicalKey);
-    if (!canonicalBytes || canonicalBytes.byteLength === 0) { db.close(); return; }
-    this.saveDebug(`LOAD-GUARD: canonical bytes`, {
-      canonicalKey,
-      size: canonicalBytes.byteLength,
-      hash: await this.shortSha(canonicalBytes)
-    });
-
-    db.close();
-
-    // 3) Wait for GoodName key to appear
-    const goodKey = await this.waitForGoodNameKey(chosenExt, 2250, 150);
-    this.saveDebug(`LOAD-GUARD: goodKey detected`, { goodKey });
-    if (!goodKey) return;
-
-    // 4) Sync canonical -> GoodName once, using a single chosen size
-    const db2 = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open('/mupen64plus');
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => resolve(req.result);
-    });
-    if (!Array.from(db2.objectStoreNames).includes('FILE_DATA')) { db2.close(); return; }
-
-    const goodBytes = await this.readIdbBytes(db2, goodKey);
-    let targetBytes = canonicalBytes; // default to canonical size/bytes
-    let wrote = false;
-
-    if (chosenExt === '.eep') {
-      const override = this.eepromSizeOverrideForRom(); // e.g., Racer => 512
-      if (override === 512) {
-        // Force 512B, downsizing if canonical is 2048B
-        if (canonicalBytes.byteLength === 2048) {
-          const downsized = this.maybeDownsizeEeprom4K(canonicalBytes);
-          if (downsized) targetBytes = downsized;
-        } else if (canonicalBytes.byteLength !== 512) {
-          // If canonical is odd-sized, still prefer 512 if possible
-          const downsized = this.maybeDownsizeEeprom4K(canonicalBytes);
-          if (downsized) targetBytes = downsized;
+        const bytes = await this.readIdbBytes(db, cand);
+        const sizes = this.expectedSizeForExt(ext);
+        if (bytes && sizes.includes(bytes.byteLength)) {
+          chosenExt = ext;
+          canonicalKey = cand;
+          break;
         }
-      } else if (override === 2048) {
-        // (Not needed for Racer, but here for completeness)
-        // If canonical is 512 and you *must* force 2048, you'd need an upsize strategy.
-        // We intentionally do nothing by default.
-      } else {
-        // No override: prefer GoodName's existing size to avoid flips
-        if (goodBytes && (goodBytes.byteLength === 512 || goodBytes.byteLength === 2048)) {
-          if (goodBytes.byteLength === 512 && canonicalBytes.byteLength === 2048) {
+      }
+
+      this.saveDebug(`LOAD-GUARD: canonical ext chosen`, { chosenExt, canonicalKey });
+      if (!chosenExt || !canonicalKey) { db.close(); return; }
+
+      // 2) Read canonical once
+      const canonicalBytes = await this.readIdbBytes(db, canonicalKey);
+      if (!canonicalBytes || canonicalBytes.byteLength === 0) { db.close(); return; }
+      this.saveDebug(`LOAD-GUARD: canonical bytes`, {
+        canonicalKey,
+        size: canonicalBytes.byteLength,
+        hash: await this.shortSha(canonicalBytes)
+      });
+
+      db.close();
+
+      // 3) Wait for GoodName key to appear
+      const goodKey = await this.waitForGoodNameKey(chosenExt, 2250, 150);
+      this.saveDebug(`LOAD-GUARD: goodKey detected`, { goodKey });
+      if (!goodKey) return;
+
+      // 4) Sync canonical -> GoodName once, using a single chosen size
+      const db2 = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open('/mupen64plus');
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => resolve(req.result);
+      });
+      if (!Array.from(db2.objectStoreNames).includes('FILE_DATA')) { db2.close(); return; }
+
+      const goodBytes = await this.readIdbBytes(db2, goodKey);
+      let targetBytes = canonicalBytes; // default to canonical size/bytes
+      let wrote = false;
+
+      if (chosenExt === '.eep') {
+        const override = this.eepromSizeOverrideForRom(); // e.g., Racer => 512
+        if (override === 512) {
+          // Force 512B, downsizing if canonical is 2048B
+          if (canonicalBytes.byteLength === 2048) {
             const downsized = this.maybeDownsizeEeprom4K(canonicalBytes);
             if (downsized) targetBytes = downsized;
-          } else {
-            targetBytes = canonicalBytes;
+          } else if (canonicalBytes.byteLength !== 512) {
+            // If canonical is odd-sized, still prefer 512 if possible
+            const downsized = this.maybeDownsizeEeprom4K(canonicalBytes);
+            if (downsized) targetBytes = downsized;
+          }
+        } else if (override === 2048) {
+          // (Not needed for Racer, but here for completeness)
+          // If canonical is 512 and you *must* force 2048, you'd need an upsize strategy.
+          // We intentionally do nothing by default.
+        } else {
+          // No override: prefer GoodName's existing size to avoid flips
+          if (goodBytes && (goodBytes.byteLength === 512 || goodBytes.byteLength === 2048)) {
+            if (goodBytes.byteLength === 512 && canonicalBytes.byteLength === 2048) {
+              const downsized = this.maybeDownsizeEeprom4K(canonicalBytes);
+              if (downsized) targetBytes = downsized;
+            } else {
+              targetBytes = canonicalBytes;
+            }
           }
         }
       }
-    }
 
-    // Write GoodName if different
-    if (!this.bytesEqual(targetBytes, goodBytes)) {
-      await this.writeIdbBytes(db2, goodKey, targetBytes);
-      wrote = true;
-      this.saveDebug(`LOAD-GUARD: wrote chosen bytes -> GoodName`, {
-        goodKey,
-        size: targetBytes.byteLength,
-        hash: await this.shortSha(targetBytes)
-      });
-    } else {
-      this.saveDebug(`LOAD-GUARD: no GoodName write needed`);
-    }
-
-    // Keep canonical in sync (optional but avoids waiting next boot mirror)
-    if (!this.bytesEqual(targetBytes, canonicalBytes)) {
-      await this.writeIdbBytes(db2, canonicalKey!, targetBytes);
-      this.saveDebug(`LOAD-GUARD: synced GoodName size back to canonical`, {
-        canonicalKey,
-        size: targetBytes.byteLength,
-        hash: await this.shortSha(targetBytes)
-      });
-    }
-
-    db2.close();
-
-    // 5) Restart once if we actually changed GoodName (so the game reloads it)
-    if (wrote) {
-      try {
-        await this.stop();
-        await new Promise(r => setTimeout(r, 350));
-        await this.boot();
-        this.parentRef?.showNotification('Applied save to GoodName and restarted to load it.');
-      } catch (e) {
-        console.warn('Restart after save sync failed', e);
+      // Write GoodName if different
+      if (!this.bytesEqual(targetBytes, goodBytes)) {
+        await this.writeIdbBytes(db2, goodKey, targetBytes);
+        wrote = true;
+        this.saveDebug(`LOAD-GUARD: wrote chosen bytes -> GoodName`, {
+          goodKey,
+          size: targetBytes.byteLength,
+          hash: await this.shortSha(targetBytes)
+        });
+      } else {
+        this.saveDebug(`LOAD-GUARD: no GoodName write needed`);
       }
+
+      // Keep canonical in sync (optional but avoids waiting next boot mirror)
+      if (!this.bytesEqual(targetBytes, canonicalBytes)) {
+        await this.writeIdbBytes(db2, canonicalKey!, targetBytes);
+        this.saveDebug(`LOAD-GUARD: synced GoodName size back to canonical`, {
+          canonicalKey,
+          size: targetBytes.byteLength,
+          hash: await this.shortSha(targetBytes)
+        });
+      }
+
+      db2.close();
+
+      // 5) Restart once if we actually changed GoodName (so the game reloads it)
+      if (wrote) {
+        try {
+          await this.stop();
+          await new Promise(r => setTimeout(r, 350));
+          await this.boot();
+          this.parentRef?.showNotification('Applied save to GoodName and restarted to load it.');
+        } catch (e) {
+          console.warn('Restart after save sync failed', e);
+        }
+      }
+    } catch (e) {
+      console.warn('ensureSaveLoadedForCurrentRom failed', e);
     }
-  } catch (e) {
-    console.warn('ensureSaveLoadedForCurrentRom failed', e);
   }
-}
 
 
 
@@ -2687,21 +2687,26 @@ private async ensureSaveLoadedForCurrentRom(): Promise<void> {
     this._idbfsSync = this._idbfsSync.then(run, run);
     await this._idbfsSync;
   }
-  
-/** Heuristic/override of EEPROM size for specific ROMs (by loose token). */
-private eepromSizeOverrideForRom(): 512 | 2048 | null {
-  const t = (this.romTokenForMatching(this.romName) || '');
-  // Star Wars Episode I: Racer (USA) → EEPROM 4K (512 bytes)
-  if (
-    t.includes('star wars ep1 racer') ||
-    t.includes('star wars episode i racer') ||
-    t.includes('star wars episode 1 racer')
-  ) {
-    return 512;
+
+  /** Heuristic/override of EEPROM size for specific ROMs (by loose token). */
+  private eepromSizeOverrideForRom(): 512 | 2048 | null {
+    // Normalize: lowercase, collapse spaces
+    const raw = this.romTokenForMatching(this.romName) || '';
+    const t = raw.replace(/\s+/g, ' ').trim(); // <-- collapse multiple spaces
+
+    // Cover common variants for Racer
+    const isRacer =
+      t.includes('star wars episode i racer') ||
+      t.includes('star wars episode 1 racer') ||
+      t.includes('star wars ep1 racer') ||
+      // light fallback in case title is shortened:
+      (t.includes('star wars') && t.includes('racer') && (t.includes('episode') || t.includes('ep1')));
+
+    if (isRacer) return 512;
+
+    // Add more overrides here as needed (Zelda etc.) — not necessary right now.
+    return null;
   }
-  // Add more overrides here if needed (e.g., Zelda OOT uses 2048 by default, but we don't need to force it).
-  return null;
-}
 
 }
 
