@@ -1392,12 +1392,15 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         // Determine extension and canonical upload name
         const ext = this.detectSaveExt(item.filename, item.size);
         const filenameForServer = this.canonicalSaveFilenameForUpload(ext);
-
+        
+        console.log("Finding file to send to backend: ", filenameForServer);
         // Hash de-dupe keyed by the name we actually upload
         const hash = await this.sha256Hex(item.bytes);
         const dedupeKey = filenameForServer;
-        if (this.lastUploadedHashes.get(dedupeKey) === hash) continue;
-
+        if (this.lastUploadedHashes.get(dedupeKey) === hash) {
+          console.log("No need to save state, current state matches previous save state.");
+          continue; 
+        }
 
         const payload: N64StateUpload = {
           userId,
@@ -1412,6 +1415,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           const uploadRes = await this.romService.saveN64State(payload);
           if (!uploadRes.ok) {
             console.warn('Upload failed:', uploadRes.errorText);
+          } else {
+            console.log("Saved state with payload: ", uploadRes);
           }
           this.lastUploadedHashes.set(dedupeKey, hash);
           uploadedCount++;
@@ -1427,6 +1432,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       console.error('autosaveTick error', err);
     } finally {
       this.autosaveInProgress = false;
+      console.log("Finished Autosave");
     }
   }
 
