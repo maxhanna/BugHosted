@@ -85,138 +85,136 @@
       </div>
     </div>
   </div>
+ 
+  <div class="controls">
+    <!-- <div class="gamepad-controls">
+      <div *ngIf="!showKeyMappings">
+        <label>Controller:
+          <select (change)="onSelectGamepad($any($event.target).value)" [value]="selectedGamepadIndex ?? ''">
+            <option value="" disabled *ngIf="!gamepads.length">-- No controllers --</option>
+            <option *ngFor="let gp of gamepads" [value]="gp.index">
+              {{gp.index}} — {{gp.id}} {{gp.mapping ? '(' + gp.mapping + ')' : ''}}
+            </option>
+          </select>
+        </label>
+        <button (click)="refreshGamepads()">Refresh</button>
+      </div>
+      <div *ngIf="!showKeyMappings" style="font-size:x-small">Note: If your gamepad is not detected, try restarting the browser.</div>
 
-  <div class="">  
-    <div class="controls">
-      <!-- <div class="gamepad-controls">
-        <div *ngIf="!showKeyMappings">
+      <div *ngIf="!showKeyMappings && gamepads.length">
+        <label style="margin-left:8px">Mappings:
+          <select (change)="onMappingSelect($any($event.target).value)" [value]="selectedMappingName ?? ''">
+            <option value="" *ngIf="savedMappingsNames.length">Default</option>
+            <option value="" disabled *ngIf="!savedMappingsNames.length">-- No mappings --</option>
+            <option *ngFor="let n of savedMappingsNames" [value]="n" [selected]="n === selectedMappingName">{{n}}</option>
+          </select>
+        </label>
+
+        <div>
+          <button (click)="saveMappingAs()">Save Mapping...</button>
+          <button *ngIf="selectedMappingName" (click)="deleteSelectedMapping()">Delete</button>
+          <button (click)="showKeyMappings = !showKeyMappings">Re-Map Controls</button>
+          <button (click)="_gpPoller ? stopGamepadLogging() : startGamepadLogging();">
+            {{_gpPoller ? 'Stop' : 'Start'}} Gamepad Logging
+          </button>
+        </div>
+      </div>
+    </div> -->
+
+    <!-- ************ LIST-BASED REMAPPER ************ -->
+    <div class="mapping-controls" *ngIf="showKeyMappings">
+      <div class="remap-header">
+        <h4>Controller Mapping</h4>
+        <div class="remap-actions">
+          <button (click)="regenDefaultForSelectedPad()">Generate Default (standard)</button>
+          <button (click)="clearAllMappings()">Clear All</button>
+          <label class="inline">
+            <input type="checkbox" [checked]="liveTest" (change)="liveTest = $any($event.target).checked">
+            Live test
+          </label> 
+          <button (click)="closeRemapAction()">
+            Close
+          </button>
+        </div>
+      </div>
+
+      <div class="remap-list">
+        <div class="remap-row header">
+          <div class="col-control">N64 Control</div>
+          <div class="col-binding">Current Binding</div>
+          <div class="col-actions">Actions</div>
+        </div>
+
+        <div *ngFor="let ctrl of n64Controls" class="remap-row"
+              [class.active]="isRowActive(ctrl)">
+          <div class="col-control">
+            <span class="ctrl-name">{{ ctrl }}</span>
+          </div>
+          <div class="col-binding">
+            <span class="binding-text">{{ bindingText(ctrl) }}</span>
+          </div>
+          <div class="col-actions">
+            <button (click)="recordCtrl(ctrl)">Record</button>
+            <button (click)="clearCtrl(ctrl)" [disabled]="!mapping[ctrl]">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-actions">
+        <button (click)="saveMappingAs()">Save Mapping...</button>
+        <button (click)="applyMappingToEmulator()">Apply Mapping</button>
+      </div>
+
+      <!-- Optional export preview -->
+      <div *ngIf="exportText">
+        <h5>Export</h5>
+        <textarea rows="8" cols="60" readonly>{{exportText}}</textarea>
+      </div>
+    </div>
+    <!-- ********************************************* --> 
+          
+    <div class="" *ngIf="!showKeyMappings">
+      <div class="">Players:</div>
+      <div class="" style="display:flex; flex-direction:column; gap:8px;">
+
+        <div style="margin-bottom:6px;">
+          <button (click)="refreshGamepads()">Refresh Controllers</button>
+        </div>
+
+        <div *ngFor="let p of playerPorts" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <div style="min-width:70px;">P{{p}}</div>
+
+          <!-- Controller dropdown -->
           <label>Controller:
-            <select (change)="onSelectGamepad($any($event.target).value)" [value]="selectedGamepadIndex ?? ''">
-              <option value="" disabled *ngIf="!gamepads.length">-- No controllers --</option>
+            <select [value]="ports[p].gpIndex ?? ''"
+                    (change)="onSelectGamepadForPort(p, $any($event.target).value)">
+              <option value="">-- none --</option>
               <option *ngFor="let gp of gamepads" [value]="gp.index">
                 {{gp.index}} — {{gp.id}} {{gp.mapping ? '(' + gp.mapping + ')' : ''}}
               </option>
             </select>
           </label>
-          <button (click)="refreshGamepads()">Refresh</button>
-        </div>
-        <div *ngIf="!showKeyMappings" style="font-size:x-small">Note: If your gamepad is not detected, try restarting the browser.</div>
- 
-        <div *ngIf="!showKeyMappings && gamepads.length">
-          <label style="margin-left:8px">Mappings:
-            <select (change)="onMappingSelect($any($event.target).value)" [value]="selectedMappingName ?? ''">
-              <option value="" *ngIf="savedMappingsNames.length">Default</option>
+
+          <!-- Mapping dropdown -->
+          <label>Mapping:
+            <select [value]="ports[p].mappingName ?? ''"
+                    (change)="onPortMappingSelect(p, $any($event.target).value)">
+              <option value="">Default</option>
               <option value="" disabled *ngIf="!savedMappingsNames.length">-- No mappings --</option>
-              <option *ngFor="let n of savedMappingsNames" [value]="n" [selected]="n === selectedMappingName">{{n}}</option>
+              <option *ngFor="let n of savedMappingsNames" [value]="n">{{ n }}</option>
             </select>
-          </label>
-
-          <div>
-            <button (click)="saveMappingAs()">Save Mapping...</button>
-            <button *ngIf="selectedMappingName" (click)="deleteSelectedMapping()">Delete</button>
-            <button (click)="showKeyMappings = !showKeyMappings">Re-Map Controls</button>
-            <button (click)="_gpPoller ? stopGamepadLogging() : startGamepadLogging();">
-              {{_gpPoller ? 'Stop' : 'Start'}} Gamepad Logging
-            </button>
-          </div>
-        </div>
-      </div> -->
-
-      <!-- ************ LIST-BASED REMAPPER ************ -->
-      <div class="mapping-controls" *ngIf="showKeyMappings">
-        <div class="remap-header">
-          <h4>Controller Mapping</h4>
-          <div class="remap-actions">
-            <button (click)="regenDefaultForSelectedPad()">Generate Default (standard)</button>
-            <button (click)="clearAllMappings()">Clear All</button>
-            <label class="inline">
-              <input type="checkbox" [checked]="liveTest" (change)="liveTest = $any($event.target).checked">
-              Live test
-            </label> 
-            <button (click)="closeRemapAction()">
-              Close
-            </button>
-          </div>
+          </label> 
+          <button (click)="remapAction(p)">
+            Re-Map P{{p}}
+          </button>
         </div>
 
-        <div class="remap-list">
-          <div class="remap-row header">
-            <div class="col-control">N64 Control</div>
-            <div class="col-binding">Current Binding</div>
-            <div class="col-actions">Actions</div>
-          </div>
-
-          <div *ngFor="let ctrl of n64Controls" class="remap-row"
-               [class.active]="isRowActive(ctrl)">
-            <div class="col-control">
-              <span class="ctrl-name">{{ ctrl }}</span>
-            </div>
-            <div class="col-binding">
-              <span class="binding-text">{{ bindingText(ctrl) }}</span>
-            </div>
-            <div class="col-actions">
-              <button (click)="recordCtrl(ctrl)">Record</button>
-              <button (click)="clearCtrl(ctrl)" [disabled]="!mapping[ctrl]">Clear</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="footer-actions">
-          <button (click)="saveMappingAs()">Save Mapping...</button>
-          <button (click)="applyMappingToEmulator()">Apply Mapping</button>
-        </div>
-
-        <!-- Optional export preview -->
-        <div *ngIf="exportText">
-          <h5>Export</h5>
-          <textarea rows="8" cols="60" readonly>{{exportText}}</textarea>
+        <div>
+          <button (click)="applyAllPortMappings()">Apply All (P1–P4)</button>
         </div>
       </div>
-      <!-- ********************************************* --> 
-            
-      <div class="" *ngIf="!showKeyMappings">
-        <div class="">Players:</div>
-        <div class="" style="display:flex; flex-direction:column; gap:8px;">
-
-          <div style="margin-bottom:6px;">
-            <button (click)="refreshGamepads()">Refresh Controllers</button>
-          </div>
-
-          <div *ngFor="let p of playerPorts" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <div style="min-width:70px;">P{{p}}</div>
-
-            <!-- Controller dropdown -->
-            <label>Controller:
-              <select [value]="ports[p].gpIndex ?? ''"
-                      (change)="onSelectGamepadForPort(p, $any($event.target).value)">
-                <option value="">-- none --</option>
-                <option *ngFor="let gp of gamepads" [value]="gp.index">
-                  {{gp.index}} — {{gp.id}} {{gp.mapping ? '(' + gp.mapping + ')' : ''}}
-                </option>
-              </select>
-            </label>
-
-            <!-- Mapping dropdown -->
-            <label>Mapping:
-              <select [value]="ports[p].mappingName ?? ''"
-                      (change)="onPortMappingSelect(p, $any($event.target).value)">
-                <option value="">Default</option>
-                <option value="" disabled *ngIf="!savedMappingsNames.length">-- No mappings --</option>
-                <option *ngFor="let n of savedMappingsNames" [value]="n">{{ n }}</option>
-              </select>
-            </label> 
-            <button (click)="remapAction(p)">
-              Re-Map P{{p}}
-            </button>
-          </div>
-
-          <div>
-            <button (click)="applyAllPortMappings()">Apply All (P1–P4)</button>
-          </div>
-        </div>
-      </div>
-
     </div>
+
   </div>
 
   <div class="status">

@@ -11,6 +11,7 @@ canvas { width: auto !important; height: calc(100vh - 60px) !important; }
 
 .screen-area { width: 100%; display: flex; align-items: center; justify-content: center; }
 .controls {   
+  width: calc(100% - 20px);
   max-height: 30vh;
   overflow: auto; 
 }
