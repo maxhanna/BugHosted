@@ -783,6 +783,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         await new Promise(r => setTimeout(r, 400));
         await this.syncFs('post-start');
 
+        await this.safeDebug('SAVE-SCAN', () => this.debugScanSavesForCurrentRom());
+        await this.safeDebug('ROM-ID', () => this.debugRomIdentity());
+        await this.safeDebug('INI', () => this.debugCheckIniForRacer());
 
         // GoodName <-> Canonical mirrors kept (safe no-ops when absent)
         this.mirrorGoodNameSavesToCanonical().catch(() => { });
@@ -2687,6 +2690,85 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this._idbfsSync = this._idbfsSync.then(run, run);
     await this._idbfsSync;
   }
+
+private readCrc1Crc2FromRom(rom: ArrayBuffer): { crc1: string; crc2: string } {
+  const dv = new DataView(rom);
+  const crc1 = dv.getUint32(0x10, false).toString(16).padStart(8, '0');
+  const crc2 = dv.getUint32(0x14, false).toString(16).padStart(8, '0');
+  return { crc1, crc2 };
+} 
+
+private async safeDebug(label: string, fn: () => Promise<void>) {
+  try { await fn(); }
+  catch (e) { console.warn(`[DEBUG:${label}] failed`, e); }
+}
+
+private async debugRomIdentity(): Promise<void> {
+  if (!this.romBuffer) return;
+  const { crc1, crc2 } = this.readCrc1Crc2FromRom(this.romBuffer);
+  const sha = await this.sha256Hex(this.romBuffer);
+  console.log('[ROM-ID]', { romName: this.romName, crc1, crc2, sha256: sha });
+}
+
+private async debugCheckIniForRacer(): Promise<void> {
+  const text = await fetch('/assets/mupen64plus/mupen64plus.ini').then(r => r.text());
+  console.log('[INI] length', text.length);
+  console.log('[INI] contains "Star Wars Episode I - Racer"?', text.includes('Star Wars Episode I - Racer'));
+  console.log('[INI] contains "SaveType=Eeprom 4KB"?', text.includes('SaveType=Eeprom 4KB'));
+} 
+
+private async debugScanSavesForCurrentRom(): Promise<void> {
+  const db = await new Promise<IDBDatabase>((resolve, reject) => {
+    const req = indexedDB.open('/mupen64plus');
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result);
+  });
+
+  if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
+
+  const token = this.romTokenForMatching(this.romName);
+  const tx = db.transaction('FILE_DATA', 'readonly');
+  const os = tx.objectStore('FILE_DATA');
+
+  const rows: Array<{ key: string; size: number }> = await new Promise((resolve, reject) => {
+    const out: any[] = [];
+    const cur = os.openCursor();
+    cur.onerror = () => reject(cur.error);
+    cur.onsuccess = (ev: any) => {
+      const c = ev.target.result;
+      if (c) {
+        const keyStr = String(c.key);
+        const lower = keyStr.toLowerCase();
+        if (lower.startsWith('/mupen64plus/saves/') && lower.endsWith('.eep')) {
+          const fname = lower.split('/').pop() || '';
+          const loose = fname.replace(/[^a-z0-9 ]/g, '').trim();
+          if (!token || loose.includes(token)) { 
+            const u8 = this.coerceToU8(c.value);
+            out.push({ key: keyStr, size: u8?.byteLength ?? 0 }); 
+          }
+        }
+        c.continue();
+      } else resolve(out);
+    };
+  });
+
+  console.log('[SAVE-SCAN] .eep candidates:', rows);
+  db.close();
+}
+
+private coerceToU8(v: any): Uint8Array | null {
+  if (!v) return null;
+  if (v instanceof Uint8Array) return v;
+  if (v instanceof ArrayBuffer) return new Uint8Array(v);
+  if (v?.buffer instanceof ArrayBuffer && typeof v.byteLength === 'number') {
+    // handle views correctly:
+    return new Uint8Array(v.buffer, v.byteOffset ?? 0, v.byteLength);
+  }
+  if (v?.contents) return this.coerceToU8(v.contents);
+  if (v?.data) return this.coerceToU8(v.data);
+  if (Array.isArray(v?.bytes)) return new Uint8Array(v.bytes);
+  return null;
+}
 
   /** Heuristic/override of EEPROM size for specific ROMs (by loose token). */
   private eepromSizeOverrideForRom(): 512 | 2048 | null {
