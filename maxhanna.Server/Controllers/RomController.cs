@@ -359,7 +359,7 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
         if (userId != null && saveExts.Contains(fileExt))
         {
           string filenameWithoutExtension = Path.GetFileNameWithoutExtension(filePath);
-          string tmpUserId = filenameWithoutExtension.Contains("_" + userId + ".") ? "" :  ("_" + userId);
+          string tmpUserId = filenameWithoutExtension.EndsWith("_" + userId) ? "" :  ("_" + userId);
           string newFilename = filenameWithoutExtension + tmpUserId + fileExt.Replace("\\", "/");
           string userSpecificPath = Path.Combine(_baseTarget, newFilename).Replace("\\", "/");
 
