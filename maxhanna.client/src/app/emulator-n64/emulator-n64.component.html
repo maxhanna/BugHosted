@@ -73,20 +73,20 @@
             /> 
           </div>
         </div>
+
+        <div class="optionsStatsDiv" *ngIf="romName">
+          <div class="optionsStatsHeader">Fullscreen:</div>
+          <div class="optionsStatsDescription"> 
+            <div class="uploadRomSpan upload-label" id="fullscreenBtn" (click)="toggleFullscreen()" title="Fullscreen mode">
+              ◻️
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="optionsStatsWrapperDiv">
-    <div class="optionsStatsDiv" *ngIf="romName && !showKeyMappings">
-      <div class="optionsStatsHeader">Fullscreen:</div>
-      <div class="optionsStatsDescription">
-        <div class="uploadRomSpan upload-label" id="fullscreenBtn" (click)="toggleFullscreen()" title="Fullscreen mode">
-          ◻️
-        </div>
-      </div>
-    </div>
-
+  <div class="">  
     <div class="controls">
       <!-- <div class="gamepad-controls">
         <div *ngIf="!showKeyMappings">
@@ -174,9 +174,9 @@
       </div>
       <!-- ********************************************* --> 
             
-      <div class="optionsStatsDiv" *ngIf="!showKeyMappings">
-        <div class="optionsStatsHeader">Players:</div>
-        <div class="optionsStatsDescription" style="display:flex; flex-direction:column; gap:8px;">
+      <div class="" *ngIf="!showKeyMappings">
+        <div class="">Players:</div>
+        <div class="" style="display:flex; flex-direction:column; gap:8px;">
 
           <div style="margin-bottom:6px;">
             <button (click)="refreshGamepads()">Refresh Controllers</button>

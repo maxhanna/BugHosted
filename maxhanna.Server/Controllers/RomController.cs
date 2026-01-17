@@ -418,6 +418,7 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
       if (string.IsNullOrWhiteSpace(romBase))
         return BadRequest("Invalid ROM name.");
 
+      Console.WriteLine($"Attempting to find save file : {romBase}");
       // Known N64 save/savestate extensions (priority order)
       // .sav / .srm (savestate containers) then battery saves (.eep/.sra/.fla)
       var saveExts = new[] { ".sav", ".srm", ".eep", ".sra", ".fla" };
@@ -456,7 +457,7 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
             SELECT file_name
               FROM maxhanna.file_uploads
              WHERE folder_path = @FolderPath
-               AND user_id      = @UserId
+               AND user_id = @UserId
                AND (file_type = 'sav'
                     OR file_name LIKE CONCAT(@RomBase, '%.sav')
                     OR file_name LIKE CONCAT(@RomBase, '%.srm')

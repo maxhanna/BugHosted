@@ -10,7 +10,10 @@ canvas { width: auto !important; height: calc(100vh - 60px) !important; }
 .gamesContainer select { width: 100%; text-align: center; }
 
 .screen-area { width: 100%; display: flex; align-items: center; justify-content: center; }
-.controls { display:flex; align-items:flex-start; }
+.controls {   
+  max-height: 30vh;
+  overflow: auto; 
+}
 .status { font-size: 12px; color: #ddd; }
 .toggle-label { font-weight: bold; font-size: 14px; vertical-align: middle; }
 .is-disabled { pointer-events: none; opacity: 0.6; }
