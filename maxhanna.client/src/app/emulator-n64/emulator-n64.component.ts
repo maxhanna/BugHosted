@@ -386,7 +386,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           console.log("Found Save File.");
           const saveFile = await this.blobToN64SaveFile(saveGameFile, this.romName);
           if (saveFile) {
-            await this.importInGameSaveRam([saveFile], true);
+            await this.importInGameSaveRam([saveFile], true); 
+            await this.deleteSavestatesForCurrentRom(); // ensure battery wins 
           } else {
             console.log("No Save file found for this ROM.");
             this.parentRef?.showNotification('No save found on server for this ROM.');
@@ -794,14 +795,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
       if (this.instance && typeof this.instance.start === 'function') {
         await this.instance.start();
-        this.status = 'running';
+        this.status = 'running'; 
+        
+        await new Promise(r => setTimeout(r, 250)); // small head-start for IDBFS
+        this.mirrorGoodNameSavesToCanonical().catch(() => {});
+        this.mirrorCanonicalToGoodNameIfMissing().catch(() => {});
+        this.ensureSaveLoadedForCurrentRom().catch(() => {});
 
-        // Keep your mirrors
-        this.mirrorGoodNameSavesToCanonical().catch(() => { });
-        this.mirrorCanonicalToGoodNameIfMissing().catch(() => { });
-
-        // NEW: actively make sure the ROM loads the just-imported save
-        this.ensureSaveLoadedForCurrentRom().catch(() => { });
 
         this.parentRef?.showNotification(`Booted ${this.romName}`);
         this.bootGraceUntil = performance.now() + 1500;
@@ -2010,7 +2010,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       if (!files || files.length === 0) return;
 
       // This will write to /mupen64plus/FILE_DATA and restart the emulator if needed.
-      await this.importInGameSaveRam(files, /* skipBoot */ false);
+      await this.importInGameSaveRam(files, /* skipBoot */ false); 
+      await this.deleteSavestatesForCurrentRom(); // ensure battery wins 
     } catch (e) {
       console.error('onSaveFilePicked failed', e);
       this.parentRef?.showNotification('Failed to import save files.');
@@ -2467,7 +2468,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const tryExts: ('.eep' | '.sra' | '.fla')[] = ['.sra', '.eep', '.fla']; // sra most common
     let chosenExt: '.eep' | '.sra' | '.fla' | null = null;
     let canonicalKey: string | null = null;
-    this.saveDebug(`LOAD-GUARD: canonical ext chosen`, { chosenExt, canonicalKey });
     try {
       const db = await new Promise<IDBDatabase>((resolve, reject) => {
         const req = indexedDB.open('/mupen64plus');
@@ -2483,6 +2483,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         if (exists) { chosenExt = ext; canonicalKey = cand; break; }
       }
 
+      this.saveDebug(`LOAD-GUARD: canonical ext chosen`, { chosenExt, canonicalKey });
+      
       if (!chosenExt || !canonicalKey) { db.close(); return; }
 
       // Grab canonical bytes once
@@ -2638,6 +2640,50 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
+// Utility you can add once for testing:
+
+private async deleteSavestatesForCurrentRom(): Promise<void> {
+  const db = await new Promise<IDBDatabase>((resolve, reject) => {
+    const req = indexedDB.open('/mupen64plus');
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result);
+  });
+  if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
+
+  const token = this.romTokenForMatching(this.romName);
+  if (!token) { db.close(); return; }
+
+  const tx = db.transaction('FILE_DATA', 'readwrite');
+  const os = tx.objectStore('FILE_DATA');
+
+  const keysToDelete: string[] = await new Promise((resolve, reject) => {
+    const keys: string[] = [];
+    const cur = os.openCursor();
+    cur.onerror = () => reject(cur.error);
+    cur.onsuccess = (ev: any) => {
+      const c = ev.target.result;
+      if (c) {
+        const keyStr = String(c.key);
+        const lower = keyStr.toLowerCase();
+        if (lower.startsWith('/mupen64plus/savestates/')) {
+          const fname = lower.split('/').pop() || lower;
+          const loose = fname.replace(/[^a-z0-9 ]/g, '').trim();
+          if (loose.includes(token)) keys.push(keyStr);
+        }
+        c.continue();
+      } else resolve(keys);
+    };
+  });
+
+  await Promise.all(keysToDelete.map(key => new Promise<void>((resolve) => {
+    const del = os.delete(key);
+    del.onerror = () => resolve();
+    del.onsuccess = () => resolve();
+  })));
+  db.close();
+}
+
+
   // Pretty-print a short SHA-256 for quick equality checks
   private async shortSha(bytes: Uint8Array | ArrayBuffer | ArrayBufferView | null): Promise<string> {
     if (!bytes) return 'null';
@@ -2649,6 +2695,20 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const hex = Array.from(u8).map(b => b.toString(16).padStart(2, '0')).join('');
     return hex.slice(0, 12);
   }
+
+  
+// Optional: serialize FS.syncfs if you ever call it.
+private _idbfsSync = Promise.resolve();
+private async syncFs(label = 'manual'): Promise<void> {
+  const FS: any = (window as any).FS;
+  if (!FS?.syncfs) return;
+  const run = () => new Promise<void>(resolve => {
+    try { FS.syncfs(false, () => resolve()); } catch { resolve(); }
+  });
+  this._idbfsSync = this._idbfsSync.then(run, run);
+  await this._idbfsSync;
+}
+
 
 }
 
