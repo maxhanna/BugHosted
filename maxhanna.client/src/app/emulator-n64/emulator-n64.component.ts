@@ -791,23 +791,23 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         locateFile: (path: string) => `/assets/mupen64plus/${path}`,
       });
 
-      
-if (this.instance && typeof this.instance.start === 'function') {
-  await this.instance.start();
-  this.status = 'running';
 
-  // Keep your mirrors
-  this.mirrorGoodNameSavesToCanonical().catch(() => {});
-  this.mirrorCanonicalToGoodNameIfMissing().catch(() => {});
+      if (this.instance && typeof this.instance.start === 'function') {
+        await this.instance.start();
+        this.status = 'running';
 
-  // NEW: actively make sure the ROM loads the just-imported save
-  this.ensureSaveLoadedForCurrentRom().catch(() => {});
+        // Keep your mirrors
+        this.mirrorGoodNameSavesToCanonical().catch(() => { });
+        this.mirrorCanonicalToGoodNameIfMissing().catch(() => { });
 
-  this.parentRef?.showNotification(`Booted ${this.romName}`);
-  this.bootGraceUntil = performance.now() + 1500;
-  requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
-}
- else {
+        // NEW: actively make sure the ROM loads the just-imported save
+        this.ensureSaveLoadedForCurrentRom().catch(() => { });
+
+        this.parentRef?.showNotification(`Booted ${this.romName}`);
+        this.bootGraceUntil = performance.now() + 1500;
+        requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+      }
+      else {
         this.status = 'error';
         throw new Error('Emulator instance missing start method');
       }
@@ -819,7 +819,7 @@ if (this.instance && typeof this.instance.start === 'function') {
       throw ex;
     } finally {
       this.loading = false;
-      this.debugScanMempaks();
+      this.debugScanMempaks().catch(() => { });
     }
   }
 
@@ -1177,7 +1177,7 @@ if (this.instance && typeof this.instance.start === 'function') {
       console.log('Downloaded blob is not a recognized battery save (.eep/.sra/.fla).');
       return null;
     }
-        
+
     this.saveDebug(`SERVER SAVE`, {
       rom: suggestedName,
       inferredExt: ext,
@@ -1187,180 +1187,180 @@ if (this.instance && typeof this.instance.start === 'function') {
     const base = (suggestedName && suggestedName.replace(/\.[^\.]+$/, '')) || this.canonicalRomBaseFromFileName(this.romName);
     const filename = `${base}${ext}`;
     return new File([blob], filename, { type: blob.type || 'application/octet-stream' });
-  } 
-
-  
-async importInGameSaveRam(files: FileList | File[], skipBoot: boolean = false) {
-  try {
-    // --- Open /mupen64plus / FILE_DATA ---
-    const dbMeta: Array<{ name?: string }> =
-      (indexedDB as any).databases ? await (indexedDB as any).databases() : [];
-    const mupenDb = dbMeta.find(d => d.name === '/mupen64plus');
-    if (!mupenDb) {
-      this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found.');
-      console.log('IndexedDB "/mupen64plus" not found.');
-      return;
-    }
-
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open('/mupen64plus');
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => resolve(req.result);
-    });
-    if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) {
-      this.parentRef?.showNotification('FILE_DATA store not found.');
-      console.log("FILE_DATA store not found");
-      db.close();
-      return;
-    }
-
-    // Load a template row if needed to match stored shape
-    const getTemplate = async (): Promise<any | null> => {
-      const tx = db.transaction('FILE_DATA', 'readonly');
-      const os = tx.objectStore('FILE_DATA');
-      const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
-        const res: any[] = [];
-        const cur = os.openCursor();
-        cur.onerror = () => reject(cur.error);
-        cur.onsuccess = (ev: any) => {
-          const c = ev.target.result;
-          if (c) { res.push({ key: c.key, val: c.value }); c.continue(); }
-          else resolve(res);
-        };
-      });
-      const sample = rows.find(r => String(r.key).startsWith('/mupen64plus/saves/'));
-      return sample ? sample.val : null;
-    };
-    const templateVal = await getTemplate();
-
-    const allowedExts = ['.eep', '.sra', '.fla'];
-    const written: string[] = [];
-    const userId = this.parentRef?.user?.id ?? 0;
-
-    // Helper to match stored value shape
-    const makeValue = (bytes: Uint8Array, existingOrTemplate?: any) => {
-      if (!existingOrTemplate) return bytes;
-      const clone = JSON.parse(JSON.stringify(existingOrTemplate));
-      if (clone.contents) clone.contents = bytes;
-      else if (clone.data) clone.data = bytes;
-      else if (Array.isArray(clone.bytes)) clone.bytes = Array.from(bytes);
-      else return bytes;
-      return clone;
-    };
-
-    // Helper for a single tx put
-    const txPut = (os: IDBObjectStore, key: string, val: any) => new Promise<void>((resolve, reject) => {
-      const r = os.put(val, key);
-      r.onerror = () => reject(r.error);
-      r.onsuccess = () => resolve();
-    });
-
-    
-for (const fAny of Array.from(files)) {
-  const f = fAny as File;
-  const name = f.name;
-  const ext = (name.match(/\.(eep|sra|fla)$/i)?.[0] || '').toLowerCase() as '.eep'|'.sra'|'.fla'|string;
-  if (!allowedExts.includes(ext)) {
-    this.parentRef?.showNotification(`Skipped "${name}" (unsupported type)`);
-    this.saveDebug(`SKIP`, { name, reason: 'unsupported-ext' });
-    continue;
   }
 
-  const bytes = new Uint8Array(await f.arrayBuffer());
-  const size = bytes.byteLength;
 
-  // Prepare keys first (NO readwrite tx yet)
-  const incomingKey  = `/mupen64plus/saves/${name}`;
-  const canonicalKey = `/mupen64plus/saves/${this.canonicalSaveFilename(ext as any, userId)}`;
-  const goodKey      = await this.findEmuGoodNameKeyForExt(db, ext as any).catch(() => null);
-
-  this.saveDebug(`IMPORT BEGIN`, {
-    romName: this.romName,
-    userId,
-    file: { name, ext, size },
-    keys: { incomingKey, canonicalKey, goodKey }
-  });
-
-  // Start ONE readwrite tx and do all writes inside it without awaiting other transactions
-  const txRW = db.transaction('FILE_DATA', 'readwrite');
-  const osRW = txRW.objectStore('FILE_DATA');
-
-  const existingIncoming = await new Promise<any>((resolve) => {
-    const req = osRW.get(incomingKey);
-    req.onerror = () => resolve(null);
-    req.onsuccess = () => resolve(req.result || null);
-  });
-
-  const valueIncoming = makeValue(bytes, existingIncoming ?? templateVal);
-
-  const writes: Promise<void>[] = [];
-  writes.push(txPut(osRW, incomingKey, valueIncoming));
-  if (canonicalKey !== incomingKey) writes.push(txPut(osRW, canonicalKey, valueIncoming));
-  if (goodKey && goodKey !== incomingKey && goodKey !== canonicalKey) {
-    writes.push(txPut(osRW, goodKey, valueIncoming));
-  }
-
-  await Promise.all(writes);
-
-  // Read back and checksum for verification
-  const verifyTx = db.transaction('FILE_DATA', 'readonly');
-  const verifyOS = verifyTx.objectStore('FILE_DATA');
-
-  const readBack = async (key: string) => new Promise<any>((resolve) => {
-    const r = verifyOS.get(key);
-    r.onerror = () => resolve(null);
-    r.onsuccess = () => resolve(r.result ?? null);
-  });
-
-  const vIncoming = await readBack(incomingKey);
-  const vCanonical = await readBack(canonicalKey);
-  const vGood = goodKey ? await readBack(goodKey) : null;
-
-  // Convert to Uint8Array to hash
-  const castToU8 = (v: any) => {
-    if (!v) return null;
-    if (v instanceof ArrayBuffer) return new Uint8Array(v);
-    if (v?.buffer instanceof ArrayBuffer && typeof v.byteLength === 'number') return new Uint8Array(v.buffer, v.byteOffset ?? 0, v.byteLength);
-    if (v?.contents) return castToU8(v.contents);
-    if (v?.data) return castToU8(v.data);
-    if (Array.isArray(v?.bytes)) return new Uint8Array(v.bytes);
-    return null;
-  };
-
-  const hb = await this.shortSha(bytes);
-  const hIncoming = await this.shortSha(castToU8(vIncoming));
-  const hCanonical = await this.shortSha(castToU8(vCanonical));
-  const hGood = await this.shortSha(castToU8(vGood));
-
-  this.saveDebug(`IMPORT WRITE OK`, {
-    incomingKey, canonicalKey, goodKey,
-    hashes: { src: hb, incoming: hIncoming, canonical: hCanonical, good: hGood }
-  });
-
-  written.push(name);
-}
-
-
-    db.close();
-
-    // Reboot if needed
-    if (written.length) {
-      console.log(`Imported ${written.length} save file(s): ${written.join(', ')}`);
-      this.parentRef?.showNotification(`Imported ${written.length} save file(s): ${written.join(', ')}`);
-      const wasRunning = this.status === 'running' || !!this.instance;
-      if (wasRunning) { await this.stop(); await new Promise(r => setTimeout(r, 150)); }
-      if (!skipBoot) {
-        await this.boot();
+  async importInGameSaveRam(files: FileList | File[], skipBoot: boolean = false) {
+    try {
+      // --- Open /mupen64plus / FILE_DATA ---
+      const dbMeta: Array<{ name?: string }> =
+        (indexedDB as any).databases ? await (indexedDB as any).databases() : [];
+      const mupenDb = dbMeta.find(d => d.name === '/mupen64plus');
+      if (!mupenDb) {
+        this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found.');
+        console.log('IndexedDB "/mupen64plus" not found.');
+        return;
       }
-    } else {
-      console.log("No Save files imported");
-      this.parentRef?.showNotification('No save files imported.');
+
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open('/mupen64plus');
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => resolve(req.result);
+      });
+      if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) {
+        this.parentRef?.showNotification('FILE_DATA store not found.');
+        console.log("FILE_DATA store not found");
+        db.close();
+        return;
+      }
+
+      // Load a template row if needed to match stored shape
+      const getTemplate = async (): Promise<any | null> => {
+        const tx = db.transaction('FILE_DATA', 'readonly');
+        const os = tx.objectStore('FILE_DATA');
+        const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
+          const res: any[] = [];
+          const cur = os.openCursor();
+          cur.onerror = () => reject(cur.error);
+          cur.onsuccess = (ev: any) => {
+            const c = ev.target.result;
+            if (c) { res.push({ key: c.key, val: c.value }); c.continue(); }
+            else resolve(res);
+          };
+        });
+        const sample = rows.find(r => String(r.key).startsWith('/mupen64plus/saves/'));
+        return sample ? sample.val : null;
+      };
+      const templateVal = await getTemplate();
+
+      const allowedExts = ['.eep', '.sra', '.fla'];
+      const written: string[] = [];
+      const userId = this.parentRef?.user?.id ?? 0;
+
+      // Helper to match stored value shape
+      const makeValue = (bytes: Uint8Array, existingOrTemplate?: any) => {
+        if (!existingOrTemplate) return bytes;
+        const clone = JSON.parse(JSON.stringify(existingOrTemplate));
+        if (clone.contents) clone.contents = bytes;
+        else if (clone.data) clone.data = bytes;
+        else if (Array.isArray(clone.bytes)) clone.bytes = Array.from(bytes);
+        else return bytes;
+        return clone;
+      };
+
+      // Helper for a single tx put
+      const txPut = (os: IDBObjectStore, key: string, val: any) => new Promise<void>((resolve, reject) => {
+        const r = os.put(val, key);
+        r.onerror = () => reject(r.error);
+        r.onsuccess = () => resolve();
+      });
+
+
+      for (const fAny of Array.from(files)) {
+        const f = fAny as File;
+        const name = f.name;
+        const ext = (name.match(/\.(eep|sra|fla)$/i)?.[0] || '').toLowerCase() as '.eep' | '.sra' | '.fla' | string;
+        if (!allowedExts.includes(ext)) {
+          this.parentRef?.showNotification(`Skipped "${name}" (unsupported type)`);
+          this.saveDebug(`SKIP`, { name, reason: 'unsupported-ext' });
+          continue;
+        }
+
+        const bytes = new Uint8Array(await f.arrayBuffer());
+        const size = bytes.byteLength;
+
+        // Prepare keys first (NO readwrite tx yet)
+        const incomingKey = `/mupen64plus/saves/${name}`;
+        const canonicalKey = `/mupen64plus/saves/${this.canonicalSaveFilename(ext as any, userId)}`;
+        const goodKey = await this.findEmuGoodNameKeyForExt(db, ext as any).catch(() => null);
+
+        this.saveDebug(`IMPORT BEGIN`, {
+          romName: this.romName,
+          userId,
+          file: { name, ext, size },
+          keys: { incomingKey, canonicalKey, goodKey }
+        });
+
+        // Start ONE readwrite tx and do all writes inside it without awaiting other transactions
+        const txRW = db.transaction('FILE_DATA', 'readwrite');
+        const osRW = txRW.objectStore('FILE_DATA');
+
+        const existingIncoming = await new Promise<any>((resolve) => {
+          const req = osRW.get(incomingKey);
+          req.onerror = () => resolve(null);
+          req.onsuccess = () => resolve(req.result || null);
+        });
+
+        const valueIncoming = makeValue(bytes, existingIncoming ?? templateVal);
+
+        const writes: Promise<void>[] = [];
+        writes.push(txPut(osRW, incomingKey, valueIncoming));
+        if (canonicalKey !== incomingKey) writes.push(txPut(osRW, canonicalKey, valueIncoming));
+        if (goodKey && goodKey !== incomingKey && goodKey !== canonicalKey) {
+          writes.push(txPut(osRW, goodKey, valueIncoming));
+        }
+
+        await Promise.all(writes);
+
+        // Read back and checksum for verification
+        const verifyTx = db.transaction('FILE_DATA', 'readonly');
+        const verifyOS = verifyTx.objectStore('FILE_DATA');
+
+        const readBack = async (key: string) => new Promise<any>((resolve) => {
+          const r = verifyOS.get(key);
+          r.onerror = () => resolve(null);
+          r.onsuccess = () => resolve(r.result ?? null);
+        });
+
+        const vIncoming = await readBack(incomingKey);
+        const vCanonical = await readBack(canonicalKey);
+        const vGood = goodKey ? await readBack(goodKey) : null;
+
+        // Convert to Uint8Array to hash
+        const castToU8 = (v: any) => {
+          if (!v) return null;
+          if (v instanceof ArrayBuffer) return new Uint8Array(v);
+          if (v?.buffer instanceof ArrayBuffer && typeof v.byteLength === 'number') return new Uint8Array(v.buffer, v.byteOffset ?? 0, v.byteLength);
+          if (v?.contents) return castToU8(v.contents);
+          if (v?.data) return castToU8(v.data);
+          if (Array.isArray(v?.bytes)) return new Uint8Array(v.bytes);
+          return null;
+        };
+
+        const hb = await this.shortSha(bytes);
+        const hIncoming = await this.shortSha(castToU8(vIncoming));
+        const hCanonical = await this.shortSha(castToU8(vCanonical));
+        const hGood = await this.shortSha(castToU8(vGood));
+
+        this.saveDebug(`IMPORT WRITE OK`, {
+          incomingKey, canonicalKey, goodKey,
+          hashes: { src: hb, incoming: hIncoming, canonical: hCanonical, good: hGood }
+        });
+
+        written.push(name);
+      }
+
+
+      db.close();
+
+      // Reboot if needed
+      if (written.length) {
+        console.log(`Imported ${written.length} save file(s): ${written.join(', ')}`);
+        this.parentRef?.showNotification(`Imported ${written.length} save file(s): ${written.join(', ')}`);
+        const wasRunning = this.status === 'running' || !!this.instance;
+        if (wasRunning) { await this.stop(); await new Promise(r => setTimeout(r, 150)); }
+        if (!skipBoot) {
+          await this.boot();
+        }
+      } else {
+        console.log("No Save files imported");
+        this.parentRef?.showNotification('No save files imported.');
+      }
+    } catch (err) {
+      console.error('importInGameSaveRam failed', err);
+      this.parentRef?.showNotification('Failed to import save files');
     }
-  } catch (err) {
-    console.error('importInGameSaveRam failed', err);
-    this.parentRef?.showNotification('Failed to import save files');
   }
-} 
 
   getAllowedRomFileTypes(): string[] {
     return this.fileService.n64FileExtensions;
@@ -2350,190 +2350,190 @@ for (const fAny of Array.from(files)) {
     }
   }
 
-/** Read raw bytes (Uint8Array) from a FILE_DATA entry key. */
-private async readIdbBytes(db: IDBDatabase, key: string): Promise<Uint8Array | null> {
-  const tx = db.transaction('FILE_DATA', 'readonly');
-  const os = tx.objectStore('FILE_DATA');
-  const val = await new Promise<any>((resolve) => {
-    const r = os.get(key);
-    r.onerror = () => resolve(null);
-    r.onsuccess = () => resolve(r.result ?? null);
-  });
-  if (!val) return null;
+  /** Read raw bytes (Uint8Array) from a FILE_DATA entry key. */
+  private async readIdbBytes(db: IDBDatabase, key: string): Promise<Uint8Array | null> {
+    const tx = db.transaction('FILE_DATA', 'readonly');
+    const os = tx.objectStore('FILE_DATA');
+    const val = await new Promise<any>((resolve) => {
+      const r = os.get(key);
+      r.onerror = () => resolve(null);
+      r.onsuccess = () => resolve(r.result ?? null);
+    });
+    if (!val) return null;
 
-  // Normalize common shapes: {contents}, {data}, {bytes: []}, ArrayBuffer
-  const toU8 = (v: any): Uint8Array | null => {
-    if (v instanceof ArrayBuffer) return new Uint8Array(v);
-    if (v?.buffer instanceof ArrayBuffer && typeof v.byteLength === 'number') return new Uint8Array(v.buffer, v.byteOffset ?? 0, v.byteLength);
-    if (v?.contents) return toU8(v.contents);
-    if (v?.data) return toU8(v.data);
-    if (Array.isArray(v?.bytes)) return new Uint8Array(v.bytes);
-    return null;
-  };
-  return toU8(val);
-}
-
-/** Write raw bytes to FILE_DATA key, matching stored shape if an entry exists. */
-private async writeIdbBytes(db: IDBDatabase, key: string, bytes: Uint8Array): Promise<void> {
-  const tx = db.transaction('FILE_DATA', 'readwrite');
-  const os = tx.objectStore('FILE_DATA');
-  const existing = await new Promise<any>((resolve) => {
-    const r = os.get(key);
-    r.onerror = () => resolve(null);
-    r.onsuccess = () => resolve(r.result ?? null);
-  });
-
-  let value: any;
-  if (!existing) {
-    value = bytes;
-  } else {
-    const clone = JSON.parse(JSON.stringify(existing));
-    if (clone.contents) clone.contents = bytes;
-    else if (clone.data) clone.data = bytes;
-    else if (Array.isArray(clone.bytes)) clone.bytes = Array.from(bytes);
-    else value = bytes;
-    value = value ?? clone;
+    // Normalize common shapes: {contents}, {data}, {bytes: []}, ArrayBuffer
+    const toU8 = (v: any): Uint8Array | null => {
+      if (v instanceof ArrayBuffer) return new Uint8Array(v);
+      if (v?.buffer instanceof ArrayBuffer && typeof v.byteLength === 'number') return new Uint8Array(v.buffer, v.byteOffset ?? 0, v.byteLength);
+      if (v?.contents) return toU8(v.contents);
+      if (v?.data) return toU8(v.data);
+      if (Array.isArray(v?.bytes)) return new Uint8Array(v.bytes);
+      return null;
+    };
+    return toU8(val);
   }
 
-  await new Promise<void>((resolve, reject) => {
-    const w = os.put(value, key);
-    w.onerror = () => reject(w.error);
-    w.onsuccess = () => resolve();
-  });
-}
+  /** Write raw bytes to FILE_DATA key, matching stored shape if an entry exists. */
+  private async writeIdbBytes(db: IDBDatabase, key: string, bytes: Uint8Array): Promise<void> {
+    const tx = db.transaction('FILE_DATA', 'readwrite');
+    const os = tx.objectStore('FILE_DATA');
+    const existing = await new Promise<any>((resolve) => {
+      const r = os.get(key);
+      r.onerror = () => resolve(null);
+      r.onsuccess = () => resolve(r.result ?? null);
+    });
 
-/** Check if a FILE_DATA key exists. */
-private async idbKeyExists(db: IDBDatabase, key: string): Promise<boolean> {
-  const tx = db.transaction('FILE_DATA', 'readonly');
-  const os = tx.objectStore('FILE_DATA');
-  return await new Promise<boolean>((resolve) => {
-    const r = os.getKey(key);
-    r.onerror = () => resolve(false);
-    r.onsuccess = () => resolve(r.result !== undefined && r.result !== null);
-  });
-}
+    let value: any;
+    if (!existing) {
+      value = bytes;
+    } else {
+      const clone = JSON.parse(JSON.stringify(existing));
+      if (clone.contents) clone.contents = bytes;
+      else if (clone.data) clone.data = bytes;
+      else if (Array.isArray(clone.bytes)) clone.bytes = Array.from(bytes);
+      else value = bytes;
+      value = value ?? clone;
+    }
 
-/** Shallow byte equality. */
-private bytesEqual(a: Uint8Array | null, b: Uint8Array | null): boolean {
-  if (!a || !b) return false;
-  if (a.byteLength !== b.byteLength) return false;
-  for (let i = 0; i < a.byteLength; i++) if (a[i] !== b[i]) return false;
-  return true;
-}
+    await new Promise<void>((resolve, reject) => {
+      const w = os.put(value, key);
+      w.onerror = () => reject(w.error);
+      w.onsuccess = () => resolve();
+    });
+  }
 
-/**
- * Poll up to timeoutMs for the GoodName key for a given ext to appear.
- * Returns the key string or null.
- */
-private async waitForGoodNameKey(ext: '.eep' | '.sra' | '.fla', timeoutMs = 2000, intervalMs = 150): Promise<string | null> {
-  const start = performance.now();
-  // open db each poll to keep transactions simple
-  while (performance.now() - start < timeoutMs) {
+  /** Check if a FILE_DATA key exists. */
+  private async idbKeyExists(db: IDBDatabase, key: string): Promise<boolean> {
+    const tx = db.transaction('FILE_DATA', 'readonly');
+    const os = tx.objectStore('FILE_DATA');
+    return await new Promise<boolean>((resolve) => {
+      const r = os.getKey(key);
+      r.onerror = () => resolve(false);
+      r.onsuccess = () => resolve(r.result !== undefined && r.result !== null);
+    });
+  }
+
+  /** Shallow byte equality. */
+  private bytesEqual(a: Uint8Array | null, b: Uint8Array | null): boolean {
+    if (!a || !b) return false;
+    if (a.byteLength !== b.byteLength) return false;
+    for (let i = 0; i < a.byteLength; i++) if (a[i] !== b[i]) return false;
+    return true;
+  }
+
+  /**
+   * Poll up to timeoutMs for the GoodName key for a given ext to appear.
+   * Returns the key string or null.
+   */
+  private async waitForGoodNameKey(ext: '.eep' | '.sra' | '.fla', timeoutMs = 2000, intervalMs = 150): Promise<string | null> {
+    const start = performance.now();
+    // open db each poll to keep transactions simple
+    while (performance.now() - start < timeoutMs) {
+      try {
+        const db = await new Promise<IDBDatabase>((resolve, reject) => {
+          const req = indexedDB.open('/mupen64plus');
+          req.onerror = () => reject(req.error);
+          req.onsuccess = () => resolve(req.result);
+        });
+        if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return null; }
+
+        const goodKey = await this.findEmuGoodNameKeyForExt(db, ext).catch(() => null);
+        db.close();
+        if (goodKey) return goodKey;
+      } catch { /* ignore and retry */ }
+      await new Promise(r => setTimeout(r, intervalMs));
+    }
+    return null;
+  }
+
+
+  /**
+   * Ensure the current ROM loads the imported save:
+   * - Find which canonical ext exists for this ROM (.sra/.eep/.fla).
+   * - Wait briefly for emulator to expose its GoodName key after start().
+   * - If GoodName bytes differ from canonical, copy canonical -> GoodName and restart once.
+   */
+  private async ensureSaveLoadedForCurrentRom(): Promise<void> {
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (!this.romName || !userId) return;
+
+    // detect which ext we have canonically
+    const tryExts: ('.eep' | '.sra' | '.fla')[] = ['.sra', '.eep', '.fla']; // sra most common
+    let chosenExt: '.eep' | '.sra' | '.fla' | null = null;
+    let canonicalKey: string | null = null;
+    this.saveDebug(`LOAD-GUARD: canonical ext chosen`, { chosenExt, canonicalKey });
     try {
       const db = await new Promise<IDBDatabase>((resolve, reject) => {
         const req = indexedDB.open('/mupen64plus');
         req.onerror = () => reject(req.error);
         req.onsuccess = () => resolve(req.result);
       });
-      if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return null; }
+      if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
 
-      const goodKey = await this.findEmuGoodNameKeyForExt(db, ext).catch(() => null);
-      db.close();
-      if (goodKey) return goodKey;
-    } catch { /* ignore and retry */ }
-    await new Promise(r => setTimeout(r, intervalMs));
-  }
-  return null;
-}
-
-
-/**
- * Ensure the current ROM loads the imported save:
- * - Find which canonical ext exists for this ROM (.sra/.eep/.fla).
- * - Wait briefly for emulator to expose its GoodName key after start().
- * - If GoodName bytes differ from canonical, copy canonical -> GoodName and restart once.
- */
-private async ensureSaveLoadedForCurrentRom(): Promise<void> {
-  const userId = this.parentRef?.user?.id ?? 0;
-  if (!this.romName || !userId) return;
-
-  // detect which ext we have canonically
-  const tryExts: ('.eep' | '.sra' | '.fla')[] = ['.sra', '.eep', '.fla']; // sra most common
-  let chosenExt: '.eep' | '.sra' | '.fla' | null = null;
-  let canonicalKey: string | null = null;
-  this.saveDebug(`LOAD-GUARD: canonical ext chosen`, { chosenExt, canonicalKey });
-  try {
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open('/mupen64plus');
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => resolve(req.result);
-    });
-    if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
-
-    for (const ext of tryExts) {
-      const cand = `/mupen64plus/saves/${this.canonicalSaveFilename(ext, userId)}`;
-      // eslint-disable-next-line no-await-in-loop
-      const exists = await this.idbKeyExists(db, cand);
-      if (exists) { chosenExt = ext; canonicalKey = cand; break; }
-    }
-
-    if (!chosenExt || !canonicalKey) { db.close(); return; }
-
-    // Grab canonical bytes once
-
-    const canonicalBytes = await this.readIdbBytes(db, canonicalKey);
-    const hCanon = await this.shortSha(canonicalBytes);
-    this.saveDebug(`LOAD-GUARD: canonical bytes`, { canonicalKey, size: canonicalBytes?.byteLength ?? 0, hash: hCanon });
-
-    db.close();
-    if (!canonicalBytes || canonicalBytes.byteLength === 0) return;
-
-    // Wait up to ~2s for the GoodName key to appear
-    const goodKey = await this.waitForGoodNameKey(chosenExt, 2250, 150);
-    this.saveDebug(`LOAD-GUARD: goodKey detected`, { goodKey });
-    if (!goodKey) return;
-
-    // Compare and sync if needed
-    const db2 = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open('/mupen64plus');
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => resolve(req.result);
-    });
-    if (!Array.from(db2.objectStoreNames).includes('FILE_DATA')) { db2.close(); return; }
-
-
-    const goodBytes = await this.readIdbBytes(db2, goodKey);
-    const hGood = await this.shortSha(goodBytes);
-    const different = !this.bytesEqual(canonicalBytes, goodBytes);
-    this.saveDebug(`LOAD-GUARD: compare`, {
-      canonicalKey, goodKey,
-      canonicalHash: hCanon, goodHash: hGood,
-      different
-    });
-
-
-    if (different) {
-      await this.writeIdbBytes(db2, goodKey, canonicalBytes);
-      db2.close();
-
-      // Restart once so the ROM actually loads the new save
-      try { 
-        this.saveDebug(`LOAD-GUARD: wrote canonical -> GoodName; restarting emulator to force load`);
-
-        await this.stop();
-        await new Promise(r => setTimeout(r, 150));
-        await this.boot();
-        this.parentRef?.showNotification('Applied save to GoodName and restarted to load it.');
-      } catch (e) {
-        console.warn('Restart after save sync failed', e);
+      for (const ext of tryExts) {
+        const cand = `/mupen64plus/saves/${this.canonicalSaveFilename(ext, userId)}`;
+        // eslint-disable-next-line no-await-in-loop
+        const exists = await this.idbKeyExists(db, cand);
+        if (exists) { chosenExt = ext; canonicalKey = cand; break; }
       }
-    } else {
-      db2.close();
+
+      if (!chosenExt || !canonicalKey) { db.close(); return; }
+
+      // Grab canonical bytes once
+
+      const canonicalBytes = await this.readIdbBytes(db, canonicalKey);
+      const hCanon = await this.shortSha(canonicalBytes);
+      this.saveDebug(`LOAD-GUARD: canonical bytes`, { canonicalKey, size: canonicalBytes?.byteLength ?? 0, hash: hCanon });
+
+      db.close();
+      if (!canonicalBytes || canonicalBytes.byteLength === 0) return;
+
+      // Wait up to ~2s for the GoodName key to appear
+      const goodKey = await this.waitForGoodNameKey(chosenExt, 2250, 150);
+      this.saveDebug(`LOAD-GUARD: goodKey detected`, { goodKey });
+      if (!goodKey) return;
+
+      // Compare and sync if needed
+      const db2 = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open('/mupen64plus');
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => resolve(req.result);
+      });
+      if (!Array.from(db2.objectStoreNames).includes('FILE_DATA')) { db2.close(); return; }
+
+
+      const goodBytes = await this.readIdbBytes(db2, goodKey);
+      const hGood = await this.shortSha(goodBytes);
+      const different = !this.bytesEqual(canonicalBytes, goodBytes);
+      this.saveDebug(`LOAD-GUARD: compare`, {
+        canonicalKey, goodKey,
+        canonicalHash: hCanon, goodHash: hGood,
+        different
+      });
+
+
+      if (different) {
+        await this.writeIdbBytes(db2, goodKey, canonicalBytes);
+        db2.close();
+
+        // Restart once so the ROM actually loads the new save
+        try {
+          this.saveDebug(`LOAD-GUARD: wrote canonical -> GoodName; restarting emulator to force load`);
+
+          await this.stop();
+          await new Promise(r => setTimeout(r, 150));
+          await this.boot();
+          this.parentRef?.showNotification('Applied save to GoodName and restarted to load it.');
+        } catch (e) {
+          console.warn('Restart after save sync failed', e);
+        }
+      } else {
+        db2.close();
+      }
+    } catch (e) {
+      console.warn('ensureSaveLoadedForCurrentRom failed', e);
     }
-  } catch (e) {
-    console.warn('ensureSaveLoadedForCurrentRom failed', e);
   }
-}
 
 
   /** Try to find the emulator's expected GoodName save key for the current ROM + ext. */
@@ -2577,72 +2577,72 @@ private async ensureSaveLoadedForCurrentRom(): Promise<void> {
 
   get playerPorts(): PlayerPort[] { return [1, 2, 3, 4]; }
 
-  
-// Toggle to enable detailed save debug logs
-private SAVE_DEBUG = true;
 
-private saveDebug(...args: any[]) {
-  if (!this.SAVE_DEBUG) return;
-  const tag = `[SAVE-DEBUG]`;
-  // eslint-disable-next-line no-console
-  console.log(tag, ...args);
-}
+  // Toggle to enable detailed save debug logs
+  private SAVE_DEBUG = true;
 
-private async debugScanMempaks(): Promise<void> {
-  try {
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open('/mupen64plus');
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => resolve(req.result);
-    });
-    if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
-
-    const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
-      const tx = db.transaction('FILE_DATA', 'readonly');
-      const os = tx.objectStore('FILE_DATA');
-      const out: any[] = [];
-      const cur = os.openCursor();
-      cur.onerror = () => reject(cur.error);
-      cur.onsuccess = (ev: any) => {
-        const c = ev.target.result;
-        if (c) { out.push({ key: c.key, val: c.value }); c.continue(); }
-        else resolve(out);
-      };
-    });
-
-    const mempakRows = rows.filter(r => String(r.key).toLowerCase().startsWith('/mupen64plus/mempaks/'));
-    const summarize = (val: any): number => {
-      if (!val) return 0;
-      if (val instanceof ArrayBuffer) return val.byteLength;
-      if (val?.buffer instanceof ArrayBuffer && typeof val.byteLength === 'number') return val.byteLength;
-      if (val?.contents?.byteLength) return val.contents.byteLength;
-      if (val?.data?.byteLength) return val.data.byteLength;
-      if (Array.isArray(val?.bytes)) return val.bytes.length;
-      return 0;
-    };
-
-    this.saveDebug(`MEMPAKS`, mempakRows.map(r => ({
-      key: String(r.key),
-      size: summarize(r.val)
-    })));
-
-    db.close();
-  } catch (e) {
-    this.saveDebug('MEMPAKS scan failed', e);
+  private saveDebug(...args: any[]) {
+    if (!this.SAVE_DEBUG) return;
+    const tag = `[SAVE-DEBUG]`;
+    // eslint-disable-next-line no-console
+    console.log(tag, ...args);
   }
-}
 
-// Pretty-print a short SHA-256 for quick equality checks
-private async shortSha(bytes: Uint8Array | ArrayBuffer | ArrayBufferView | null): Promise<string> {
-  if (!bytes) return 'null';
-  const ab = bytes instanceof Uint8Array
-    ? bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
-    : (bytes as any).buffer ? (bytes as any).buffer : (bytes as ArrayBuffer);
-  const digest = await crypto.subtle.digest('SHA-256', ab);
-  const u8 = new Uint8Array(digest);
-  const hex = Array.from(u8).map(b => b.toString(16).padStart(2, '0')).join('');
-  return hex.slice(0, 12);
-}
+  private async debugScanMempaks(): Promise<void> {
+    try {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open('/mupen64plus');
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => resolve(req.result);
+      });
+      if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
+
+      const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
+        const tx = db.transaction('FILE_DATA', 'readonly');
+        const os = tx.objectStore('FILE_DATA');
+        const out: any[] = [];
+        const cur = os.openCursor();
+        cur.onerror = () => reject(cur.error);
+        cur.onsuccess = (ev: any) => {
+          const c = ev.target.result;
+          if (c) { out.push({ key: c.key, val: c.value }); c.continue(); }
+          else resolve(out);
+        };
+      });
+
+      const mempakRows = rows.filter(r => String(r.key).toLowerCase().startsWith('/mupen64plus/mempaks/'));
+      const summarize = (val: any): number => {
+        if (!val) return 0;
+        if (val instanceof ArrayBuffer) return val.byteLength;
+        if (val?.buffer instanceof ArrayBuffer && typeof val.byteLength === 'number') return val.byteLength;
+        if (val?.contents?.byteLength) return val.contents.byteLength;
+        if (val?.data?.byteLength) return val.data.byteLength;
+        if (Array.isArray(val?.bytes)) return val.bytes.length;
+        return 0;
+      };
+
+      this.saveDebug(`MEMPAKS`, mempakRows.map(r => ({
+        key: String(r.key),
+        size: summarize(r.val)
+      })));
+
+      db.close();
+    } catch (e) {
+      this.saveDebug('MEMPAKS scan failed', e);
+    }
+  }
+
+  // Pretty-print a short SHA-256 for quick equality checks
+  private async shortSha(bytes: Uint8Array | ArrayBuffer | ArrayBufferView | null): Promise<string> {
+    if (!bytes) return 'null';
+    const ab = bytes instanceof Uint8Array
+      ? bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+      : (bytes as any).buffer ? (bytes as any).buffer : (bytes as ArrayBuffer);
+    const digest = await crypto.subtle.digest('SHA-256', ab);
+    const u8 = new Uint8Array(digest);
+    const hex = Array.from(u8).map(b => b.toString(16).padStart(2, '0')).join('');
+    return hex.slice(0, 12);
+  }
 
 }
 
