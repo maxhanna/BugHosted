@@ -1360,16 +1360,16 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   // Gamepad events & auto-detect
   // =====================================================
   private _onGamepadConnected = (ev: GamepadEvent) => {
-    this.refreshGamepads();
+    this.refreshGamepads(); 
 
-    if (this.selectedGamepadIndex === null && this.gamepads.length) {
+    if (this.ports[1].gpIndex == null && this.gamepads.length) {
       if (!this.hasLoadedLastInput) {
         const std = this.gamepads.find(g => g.mapping === 'standard');
-        this.onSelectGamepad(std ? std.index : ev.gamepad.index);
+        this.assignFirstDetectedToP1(std ? std.index : ev.gamepad.index);
       } else {
         this.applyGamepadReorder();
       }
-    }
+    } 
 
     if (this.instance || this.status === 'running') {
       this.applyGamepadReorder();
@@ -1401,15 +1401,15 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const before = this.gamepads.map(g => g.index).join(',');
         this.refreshGamepads();
         const after = this.gamepads.map(g => g.index).join(',');
-
-        if (this.selectedGamepadIndex === null && this.gamepads.length) {
+        
+        if (this.ports[1].gpIndex == null && this.gamepads.length) {
           if (!this.hasLoadedLastInput) {
             const std = this.gamepads.find(g => g.mapping === 'standard');
-            this.onSelectGamepad(std ? std.index : this.gamepads[0].index);
+            this.assignFirstDetectedToP1(std ? std.index : this.gamepads[0].index);
           } else {
             this.applyGamepadReorder();
           }
-        }
+        } 
 
         if (before !== after) {
           this.applyGamepadReorder();
@@ -1425,6 +1425,28 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       clearTimeout(this._autoDetectTimer);
       this._autoDetectTimer = null;
     }
+  }
+
+  private assignFirstDetectedToP1(preferredIdx?: number) {
+    const pads = this.getGamepadsBase();
+    if (!pads || !pads.length) return;
+
+    // Prefer a standard-profile pad if available, else use preferredIdx, else the first pad
+    const std = pads.find(p => p && p.mapping === 'standard');
+    const chosen = std ?? (typeof preferredIdx === 'number' ? pads[preferredIdx] : pads[0]);
+    if (!chosen) return;
+
+    const idx = chosen.index;
+    this.ports[1].gpIndex = idx;
+
+    // Build a default mapping if none exists for P1
+    this.ensureDefaultMappingForPort(1);
+
+    // Keep remapper targeting P1 by default
+    this.selectedGamepadIndex = idx;
+
+    // Put P1 first in the effective array order
+    this.applyGamepadReorder();
   }
 
   private async loadLastInputSelectionAndApply(): Promise<void> {
@@ -1812,7 +1834,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch (e) {
       console.warn('Failed to read gamepads', e);
     } finally {
-      this.ensureP1InitializedFromSinglePad();
+      //this.ensureP1InitializedFromSinglePad();
     }
   }
 

@@ -88,7 +88,7 @@
     </div>
 
     <div class="controls">
-      <div class="gamepad-controls">
+      <!-- <div class="gamepad-controls">
         <div *ngIf="!showKeyMappings">
           <label>Controller:
             <select (change)="onSelectGamepad($any($event.target).value)" [value]="selectedGamepadIndex ?? ''">
@@ -101,8 +101,7 @@
           <button (click)="refreshGamepads()">Refresh</button>
         </div>
         <div *ngIf="!showKeyMappings" style="font-size:x-small">Note: If your gamepad is not detected, try restarting the browser.</div>
-
-        <!-- Mappings dropdown + save -->
+ 
         <div *ngIf="!showKeyMappings && gamepads.length">
           <label style="margin-left:8px">Mappings:
             <select (change)="onMappingSelect($any($event.target).value)" [value]="selectedMappingName ?? ''">
@@ -121,7 +120,7 @@
             </button>
           </div>
         </div>
-      </div>
+      </div> -->
 
       <!-- ************ LIST-BASED REMAPPER ************ -->
       <div class="mapping-controls" *ngIf="showKeyMappings">
@@ -178,6 +177,10 @@
       <div class="optionsStatsDiv" *ngIf="!showKeyMappings">
         <div class="optionsStatsHeader">Players:</div>
         <div class="optionsStatsDescription" style="display:flex; flex-direction:column; gap:8px;">
+
+          <div style="margin-bottom:6px;">
+            <button (click)="refreshGamepads()">Refresh Controllers</button>
+          </div>
 
           <div *ngFor="let p of playerPorts" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
             <div style="min-width:70px;">P{{p}}</div>
