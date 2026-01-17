@@ -4,9 +4,12 @@
     <div class="componentTitle"><span><a href="https://bughosted.com">BugHosted</a> Media</span></div>
   </div>
 </div>
-<div *ngIf="isLoading && displayLoading">Loading Media...</div>
-<div [id]="'mediaContainer'+fileId" #mediaRoot [class]="'mediaContainerWrapperDiv ' + (isLoadedFromURL ? 'fileDataDiv' : '')"
-  [style.margin-top]="isLoadedFromURL ? '60px' : '0px'" appInView (inView)="onInView($event)">
+<div 
+  [id]="'mediaContainer'+fileId" 
+  #mediaRoot
+  [class]="'mediaContainerWrapperDiv ' + (isLoadedFromURL ? 'fileDataDiv' : '')"
+  [style.margin-top]="isLoadedFromURL ? '60px' : '0px'" 
+  appInView (inView)="onInView($event)">
   <!-- Fullscreen Overlay -->
   <div #fullscreenOverlay class="fullscreen-overlay"
     (click)="imageFileExtensionsIncludes(this.selectedFileExtension) ? shrink() : ''">
@@ -19,13 +22,13 @@
     <div class="shrinkMediaDiv cursorPointerUnderlined" (click)="shrink()">Shrink {{fileType}} ▢</div>
   </div>
   <div [class]="'mediaContainerDiv ' + (isLoadedFromURL ? 'fileDataDiv' : '')"
-    [style.height]="!selectedFileSrc ?(file?.height ?? 250) + 'px' : null">
+    [style.height]="!selectedFileSrc ? (file?.height ?? 250) + 'px' : null">
     <div *ngIf="!autoload" class="noAutoLoadDiv" (click)="forceLoad()">
       <span class="clickToLoadText">Click here to load media</span>
     </div>
-    <div *ngIf="isLoading && (autoload || !selectedFileSrc)" class="loading-spinner">
+    <div *ngIf="isLoading && (autoload || !selectedFileSrc || displayLoading)" class="loading-spinner">
       <div class="spinner"></div>
-      Loading media...
+      Loading Media...
     </div>
     <div *ngIf="autoload && selectedFileSrc != ''" class="mediaDiv">
       <img #mediaContainer (click)="expandFile({url: selectedFile, extension: selectedFileExtension})"
