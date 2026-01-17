@@ -134,7 +134,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
     setTimeout(() => {
       if (!this.notificationsActive) return;
       this.getNotifications();
-      this.getBonesPlayerInfo();
       this.displayAppSelectionHelp();
     }, 100)
   }
@@ -152,6 +151,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     clearInterval(this.emulationInterval);
     clearInterval(this.socialInterval);
     clearInterval(this.crawlerInterval);
+    clearInterval(this.bonesInterval);
     this.showAppSelectionHelp = false;
     this.clearNotifications();
   }
@@ -175,7 +175,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getNotifications() {
-    if (!this.notificationsActive) return;
+    if (this.notificationsActive) return;
     if (!this._parent || !this._parent.user || this._parent.user.id == 0) return;
     console.log("fetch notifications");
     this.notificationsActive = true;
@@ -195,7 +195,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
       Promise.resolve(this.getEmulationPlayerInfo()),
       Promise.resolve(this.getSocialInfo()),
       Promise.resolve(this.getCrawlerInfo()),
-      Promise.resolve(this.getThemeInfo())
+      Promise.resolve(this.getThemeInfo()),
+      Promise.resolve(this.getBonesPlayerInfo())
     ].map(p =>
       // Isolate failures so one error doesn't prevent others
       p.catch(err => {
