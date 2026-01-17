@@ -29,6 +29,7 @@ namespace maxhanna.Server.Controllers
     private readonly int _maxVisionThumbnails;
     private readonly long _maxCombinedImageBytes;
     private readonly int[] _resizeSteps = new[] { 768, 640, 512, 384 }; // adaptive downscale steps
+		private readonly string _memeDirectory = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/";
 
     public AiController(Log log, IConfiguration config, KrakenService krakenService)
     {
@@ -1102,7 +1103,7 @@ Constraints:
               id, file_name, folder_path, file_type, duration
             FROM file_uploads
             WHERE given_file_name IS NULL
-              AND folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/'
+              AND folder_path = @MemeFolder
               AND file_type IN ('jpg','jpeg','png','gif','bmp','webp','mp4','mov','webm','avi','mkv','flv')
               AND (
                 -- 1) Simple structured names with no dashes or spaces, but with a dot
@@ -1123,7 +1124,8 @@ Constraints:
             ORDER BY RAND()
 						LIMIT 1;";
 
-          using var cmd = new MySqlCommand(selectSql, conn);
+          var cmd = new MySqlCommand(selectSql, conn);
+          cmd.Parameters.AddWithValue("@MemeFolder", _memeDirectory);
           using var reader = await cmd.ExecuteReaderAsync();
           if (await reader.ReadAsync())
           {

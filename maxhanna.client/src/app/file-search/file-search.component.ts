@@ -1198,6 +1198,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     return segments.slice(0, index + 1).join('/') + '/';
   }
   navigateToDirectory(directory: string): void {
+    if (!this.canChangeDirectory) {
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      parent?.showNotification("Can't change directory.");
+      return;
+    }
     this.currentPage = this.defaultCurrentPage;
     this.currentDirectory = directory;
     this.currentDirectoryChangeEvent.emit(this.currentDirectory);

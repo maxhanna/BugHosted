@@ -29,7 +29,8 @@ namespace maxhanna.Server.Controllers
 		private readonly HashSet<string> romExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
 				"sgx", "vb", "ws", "wsc", "gba", "gbc", "gb",
 				"gen", "md", "smd", "32x", "sms", "gg",
-				"nes", "fds", "sfc", "smc", "snes", "nds"
+				"nes", "fds", "sfc", "smc", "snes", "nds",     
+		    "z64", "n64", "v64", "bin", "zip"
 		};
 
 		public FileController(Log log, IConfiguration config)

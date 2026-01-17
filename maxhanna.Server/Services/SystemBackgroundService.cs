@@ -44,6 +44,7 @@ namespace maxhanna.Server.Services
       { "Bitcoin", "₿" }, { "XBT", "₿" }, { "BTC", "₿" }, { "Ethereum", "Ξ" }, { "ETH", "Ξ" },
       { "Dogecoin", "Ɖ" }, { "XDG", "Ɖ" }, { "Solana", "◎" }, { "SOL", "◎" }
     };
+		private readonly string _memeDirectory = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/";
 
     public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, AiController aiController,
       KrakenService krakenService, NewsService newsService, ProfitCalculationService profitService, TradeIndicatorService indicatorService)
@@ -2452,6 +2453,7 @@ private async Task StoreCoinValues()
           SELECT id, file_name, folder_path, file_type
           FROM file_uploads 
           WHERE id >= FLOOR(RAND() * (SELECT MAX(id) FROM file_uploads))
+            AND folder_path = @MemeDirectory
             AND given_file_name IS NULL
             -- looks sluggy (has dashes or underscores)
             AND (file_name LIKE '%-%' OR file_name LIKE '%_%')
@@ -2474,7 +2476,8 @@ private async Task StoreCoinValues()
         string? folderPath = null;
         string? fileType = null;
 
-        await using (var cmd = new MySqlCommand(selectSql, conn))
+        MySqlCommand? cmd = new MySqlCommand(selectSql, conn);
+        cmd.Parameters.AddWithValue("@MemeDirectory", _memeDirectory);
         await using (var reader = await cmd.ExecuteReaderAsync(ct))
         {
           if (await reader.ReadAsync(ct))
