@@ -13,6 +13,7 @@ namespace maxhanna.Server.Controllers
     private readonly Log _log;
     private readonly IConfiguration _config;
     private readonly string _baseTarget = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Roms/";
+    private readonly string[] saveExts = [".sav", ".srm", ".eep", ".sra", ".fla"];
 
 
     public RomController(Log log, IConfiguration config)
@@ -201,10 +202,7 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
             continue; // Skip empty files
           }
 
-          var ext = Path.GetExtension(file.FileName)?.ToLowerInvariant() ?? string.Empty;
-          var saveExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-          { ".sav", ".srm", ".eep", ".sra", ".fla" };
-
+          var ext = Path.GetExtension(file.FileName)?.ToLowerInvariant() ?? string.Empty; 
           bool isSaveFile = saveExts.Contains(ext);
 
           // For user-specific save files, keep your naming convention: <basename>_<userId><ext>
@@ -348,8 +346,9 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
       int? userId = req.UserId;
       filePath = Path.Combine(_baseTarget, WebUtility.UrlDecode(filePath) ?? "").Replace("\\", "/");
       string fileName = Path.GetFileName(filePath);
+      string fileExt = Path.GetExtension(filePath);
       if (!ValidatePath(filePath)) { return StatusCode(500, $"Must be within {_baseTarget}"); }
-
+      Console.WriteLine($"Getting Rom file with fileName: {fileName}, fileExt: {fileExt} and filePath: {filePath}");
       try
       {
         if (string.IsNullOrEmpty(filePath))
@@ -357,10 +356,10 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
           _ = _log.Db($"File path is missing.", null, "ROM", true);
           return BadRequest("File path is missing.");
         }
-        if (userId != null && (filePath.Contains(".sav") || filePath.Contains(".srm")))
+        if (userId != null && saveExts.Contains(fileExt))
         {
           string filenameWithoutExtension = Path.GetFileNameWithoutExtension(filePath);
-          string newFilename = filenameWithoutExtension + "_" + userId + Path.GetExtension(filePath).Replace("\\", "/");
+          string newFilename = filenameWithoutExtension + "_" + userId + fileExt.Replace("\\", "/");
           string userSpecificPath = Path.Combine(_baseTarget, newFilename).Replace("\\", "/");
 
           if (System.IO.File.Exists(userSpecificPath))
@@ -374,7 +373,7 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
           }
           //_ = _log.Db($"File path changed . New FilePath: " + filePath, userId, "ROM", true);
         }
-        else if (userId == null && (filePath.Contains(".sav") || filePath.Contains(".srm")))
+        else if (userId == null && saveExts.Contains(fileExt))
         {
           return BadRequest("Must be logged in to access save files!");
         }
@@ -409,14 +408,16 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
     public async Task<IActionResult> GetN64StateFile([FromBody] int? userId, string romName)
     {
       // Require login for save files (same rule as GetRomFile)
-      if (userId == null || userId == 0)
+      if (userId == null || userId == 0) {
         return BadRequest("Must be logged in to access save files!");
-
+      }
       // Normalized ROM base (without extension)
       var decodedRom = WebUtility.UrlDecode(romName) ?? string.Empty;
       var romBase = Path.GetFileNameWithoutExtension(decodedRom);
       if (string.IsNullOrWhiteSpace(romBase))
-        return BadRequest("Invalid ROM name.");
+      {
+        return BadRequest("Invalid ROM name."); 
+      }
 
       Console.WriteLine($"Attempting to find save file : {romBase}");
       // Known N64 save/savestate extensions (priority order)
@@ -432,6 +433,7 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
         var userSpecificPath = Path.Combine(_baseTarget, userSpecificName).Replace("\\", "/");
         if (System.IO.File.Exists(userSpecificPath))
         {
+          Console.WriteLine($"Found file with path: {userSpecificPath}");
           // Reuse GetRomFile to stream + update last_access + record selection
           return await GetRomFile($"{romBase}_{userId}{ext}", req);
         }
