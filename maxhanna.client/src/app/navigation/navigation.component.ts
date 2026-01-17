@@ -126,13 +126,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
   crawlerIndexCount: number | null = null;
   private crawlerInterval: any;
 
-  notificationsActive = true; // master flag to gate polling
+  notificationsActive = false; // master flag to gate polling
 
   async ngOnInit() {
     this.navbarReady = true;
 
     setTimeout(() => {
-      if (!this.notificationsActive) return;
+      if (this.notificationsActive) return;
       this.getNotifications();
       this.displayAppSelectionHelp();
     }, 100)
@@ -600,7 +600,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getMetaPlayerInfo() {
-    if (!this.notificationsActive) return;
+    if (!this.notificationsActive) {
+      return;
+    }
     try {
       const res: any = await this.metaService.getActivePlayers(2);
       this.metaActivePlayers = res?.count ?? null;
