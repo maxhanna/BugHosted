@@ -395,7 +395,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
         const blob = new Blob([response.blob], { type });
         const reader = new FileReader();
-        reader.readAsDataURL(blob);
         reader.onloadend = () => {
           this.showThumbnail = true;
           this.selectedFileSrc = (reader.result as string);
@@ -404,12 +403,16 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
             parent.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension ?? "" });
           }
           this.finishedLoadingEvent.emit();
+          this.isLoading = false;
         };
+        
+        reader.readAsDataURL(blob);
       });
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
         console.error(error);
         this.emittedNotification.emit((error as Error).message);
+        this.isLoading = false;        
       }
     } finally {
       this.isLoading = false;
@@ -894,7 +897,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.debugLog('Failed to unmute media:', e);
     }
   }
-  
+
   private tryLoadFromCacheFastPath() {
     if (this.hasTriedInitialCachedLoad) return;
     if (!this.autoload) return;
