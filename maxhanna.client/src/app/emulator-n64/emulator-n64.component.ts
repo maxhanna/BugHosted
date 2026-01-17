@@ -303,7 +303,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
     });
     this._resizeObserver.observe(container);
- 
+
     window.addEventListener('orientationchange', this._resizeHandler);
 
     window.addEventListener('gamepadconnected', this._onGamepadConnected);
@@ -848,7 +848,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } else {
       await (document as any).exitFullscreen?.();
       this.isFullScreen = false;
-    } 
+    }
   }
 
   showMenuPanel() {
@@ -1295,7 +1295,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         try {
           const uploadRes = await this.romService.saveN64State(payload);
           if (!uploadRes.ok) {
-            console.warn('Upload failed:', uploadRes.errorText); 
+            console.warn('Upload failed:', uploadRes.errorText);
           }
           this.lastUploadedHashes.set(key, hash);
           uploadedCount++;
@@ -1501,8 +1501,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private getGamepadsBase(): (Gamepad | null)[] {
     const getter = this._originalGetGamepadsBase || (navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null);
     return getter ? getter() : [];
-  } 
-  
+  }
+
   private migrateMappingToIdsIfNeeded() {
     const arr = this.getGamepadsBase();
     for (const key of Object.keys(this.mapping || {})) {
@@ -1784,7 +1784,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const loose = base.replace(/[^a-z0-9 ]/g, '').trim();
     return loose || null;
   }
-   
+
   private _onFullscreenChange = () => {
     try {
       const canvasEl = this.canvas?.nativeElement;
