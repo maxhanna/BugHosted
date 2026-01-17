@@ -1397,10 +1397,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         // Hash de-dupe keyed by the name we actually upload
         const hash = await this.sha256Hex(item.bytes);
         const dedupeKey = filenameForServer;
-        if (this.lastUploadedHashes.get(dedupeKey) === hash) {
-          console.log("No need to save state, current state matches previous save state.");
-          continue; 
-        }
+        // if (this.lastUploadedHashes.get(dedupeKey) === hash) {
+        //   console.log("No need to save state, current state matches previous save state.");
+        //   continue; 
+        // }
 
         const payload: N64StateUpload = {
           userId,
