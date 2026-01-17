@@ -1156,7 +1156,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       console.log('Downloaded blob is not a recognized battery save (.eep/.sra/.fla).');
       return null;
     }
-    const base = (suggestedName && suggestedName.replace(/\.[^\.]+$/, '')) || this.baseNameFromRom();
+    const base = (suggestedName && suggestedName.replace(/\.[^\.]+$/, '')) || this.canonicalRomBaseFromFileName(this.romName);
     const filename = `${base}${ext}`;
     return new File([blob], filename, { type: blob.type || 'application/octet-stream' });
   }
@@ -2070,6 +2070,15 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } else {
       this.showKeyMappings = false;
     } 
+  }
+
+  /** Canonical base from the chosen ROM file name, keeping your visible region tags. */
+  private canonicalRomBaseFromFileName(romName?: string): string {
+    if (!romName) return 'Unknown';
+    // Strip ROM container/extensions only
+    let base = romName.replace(/\.(z64|n64|v64|zip|7z|rom)$/i, ''); 
+    // Do NOT convert (USA) to (U) or add [!] etc. Keep exactly what's in the file name.
+    return base || 'Unknown';
   }
 
   private multiPortActive(): boolean {

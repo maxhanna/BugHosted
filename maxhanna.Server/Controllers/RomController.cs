@@ -417,13 +417,8 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
       if (string.IsNullOrWhiteSpace(romBase))
       {
         return BadRequest("Invalid ROM name."); 
-      }
-
+      } 
       Console.WriteLine($"Attempting to find save file : {romBase}");
-      // Known N64 save/savestate extensions (priority order)
-      // .sav / .srm (savestate containers) then battery saves (.eep/.sra/.fla)
-      var saveExts = new[] { ".sav", ".srm", ".eep", ".sra", ".fla" };
-
       GetRomFileRequest req = new GetRomFileRequest();
       req.UserId = userId; 
       // 1) Try physical on disk (user-specific first), using your naming convention: <base>_<userId><ext>
