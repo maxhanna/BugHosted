@@ -303,12 +303,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
     });
     this._resizeObserver.observe(container);
-
-    document.addEventListener('fullscreenchange', this._resizeHandler);
+ 
     window.addEventListener('orientationchange', this._resizeHandler);
 
     window.addEventListener('gamepadconnected', this._onGamepadConnected);
     window.addEventListener('gamepaddisconnected', this._onGamepadDisconnected);
+
+    document.addEventListener('fullscreenchange', this._onFullscreenChange);
 
     canvasEl?.addEventListener('click', () => this._bootstrapDetectOnce());
 
@@ -1783,6 +1784,21 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const loose = base.replace(/[^a-z0-9 ]/g, '').trim();
     return loose || null;
   }
+   
+  private _onFullscreenChange = () => {
+    try {
+      const canvasEl = this.canvas?.nativeElement;
+      // We are in fullscreen iff the fullscreenElement is the canvas
+      this.isFullScreen = !!document.fullscreenElement && document.fullscreenElement === canvasEl;
+
+      // Ensure the canvas resizes correctly after the UI reflows
+      this.resizeCanvasToParent();
+
+      // Optional: force a re-lay out for emu
+      requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+    } catch { /* ignore */ }
+  };
+
 }
 
 // ---------------------------
