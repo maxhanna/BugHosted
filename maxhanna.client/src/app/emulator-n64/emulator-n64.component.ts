@@ -813,7 +813,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.status = 'stopped';
       this.disableDirectInject();
       this.restoreGamepadGetter();
-      this.parentRef?.showNotification('Emulator stopped');
+      if (this.romName) { 
+        this.parentRef?.showNotification('Emulator stopped');
+      }
     }
   }
 
