@@ -418,7 +418,7 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
       {
         return BadRequest("Invalid ROM name."); 
       } 
-      Console.WriteLine($"Attempting to find save file : {romBase}");
+      Console.WriteLine($"Requesting save file for ROM: {romBase}");
       GetRomFileRequest req = new GetRomFileRequest();
       req.UserId = userId; 
       // 1) Try physical on disk (user-specific first), using your naming convention: <base>_<userId><ext>
@@ -426,6 +426,7 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
       {
         var userSpecificName = $"{romBase}_{userId}{ext}";
         var userSpecificPath = Path.Combine(_baseTarget, userSpecificName).Replace("\\", "/");
+        Console.WriteLine($"Looking for file: {userSpecificPath}");
         if (System.IO.File.Exists(userSpecificPath))
         {
           Console.WriteLine($"Found file with path: {userSpecificPath}");
@@ -438,11 +439,13 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
         var globalPath = Path.Combine(_baseTarget, globalName).Replace("\\", "/");
         if (System.IO.File.Exists(globalPath))
         {
+          Console.WriteLine($"Found global save file with path: {globalPath}");
           return await GetRomFile($"{romBase}{ext}", req);
         }
       }
 
       // 2) If not found physically, look up DB rows in file_uploads by file_type and name
+      Console.WriteLine($"Could not find physical save file. Attempting to find it in DB. RomBase: {romBase}");
       try
       {
         await using var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -477,6 +480,7 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
           // The physical file on disk uses <base>_<userId><ext> for saves.
           // We can delegate streaming to GetRomFile by passing the "logical" filename (<base><ext>).
           // GetRomFile will rewrite to per-user path automatically.
+          Console.WriteLine($"Found DB Match : {dbFileName}");
           var ext = Path.GetExtension(dbFileName)?.ToLowerInvariant() ?? ".sav";
           return await GetRomFile($"{romBase}{ext}", req);
         }

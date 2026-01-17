@@ -2079,7 +2079,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     let base = romName.replace(/\.(z64|n64|v64|zip|7z|rom)$/i, ''); 
     // Do NOT convert (USA) to (U) or add [!] etc. Keep exactly what's in the file name.
     return base || 'Unknown';
-  }
+  } 
 
   private multiPortActive(): boolean {
     return [1,2,3,4].filter(p => this.ports[p as PlayerPort].gpIndex != null).length > 1;
