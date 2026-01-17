@@ -56,9 +56,16 @@
                 (expandFileSelectorEvent)="expandedEditFile($event)"></app-media-selector>
               </div>
             </div>
-            <app-media-viewer *ngIf="item.fileId" [fileId]="item.fileId" [inputtedParentRef]="parentRef"
-              [showCommentSection]="false" [showMediaInformation]="false" [displayExpander]="true"
-              [displayExtraInfo]="false"></app-media-viewer>
+            <app-media-viewer 
+              *ngIf="item.fileId" 
+              [fileId]="item.fileId" 
+              [inputtedParentRef]="parentRef"
+              [showCommentSection]="false" 
+              [showMediaInformation]="false" 
+              [displayExpander]="true"
+              [displayExtraInfo]="false"
+              [displayLoading]="true">
+            </app-media-viewer>
           </td> 
           <td *ngIf="item.id" class="actionTd">
             <button (click)="visitUrl(item.url); $event.preventDefault();" *ngIf="item.url && !isEditing?.length"

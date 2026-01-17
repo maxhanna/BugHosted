@@ -33,37 +33,36 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   comments: FileComment[] = [];
   openedStoryComments: number[] = [];
   openedStoryYoutubeVideos: number[] = [];
+  trendingSearches: string[] = [];
   isMobileTopicsPanelOpen = false;
   isSearchSocialsPanelOpen = false;
   isMenuPanelOpen = false;
-  trendingSearches: string[] = [];
   isStoryOptionsPanelOpen = false;
   isStoryVisibilityPanelOpen = false;
   isPostOptionsPanelOpen = false; 
+  showPostInput = false;
+  showComponentSelector = false;
+  wasFromSearchId = false;
+  isShowingPostFromHelpInfo = false;
+  isDisplayingNSFW = false;
+  showHiddenFiles = false;
+  canLoad = false; 
   isEditing: number[] = [];
   editingTopics: number[] = [];
   attachedFiles: FileEntry[] = [];
   attachedTopics: Array<Topic> = [];
   storyOverflowMap: { [key: string]: boolean } = {};
-  showPostInput = false;
-  showComponentSelector = false;
   userProfileId?: number = undefined;
-  wasFromSearchId = false;
-  isShowingPostFromHelpInfo = false;
-
   fileType: string | undefined;
   abortAttachmentRequestController: AbortController | null = null;
   notifications: String[] = [];
   expanded: string[] = [];
   attachedSearchTopics: Array<Topic> = [];
-
   currentPage: number = 1;
   totalPages: number = 1;
   totalPagesArray: number[] = [];
   userSearch = "";
-  isDisplayingNSFW = false;
   searchTimeout: any;
-  showHiddenFiles: boolean = false;
   filter = {
     hidden: this.showHiddenFiles ? 'yes' : 'no',
   };
@@ -71,7 +70,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   compactness: Compactness= "yes";
   private storyUpdateInterval: any;
   private overflowCache: Record<string, boolean> = {};
-  canLoad = false; 
   city: string | undefined;
   country: string | undefined;
   

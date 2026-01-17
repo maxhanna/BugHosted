@@ -59,6 +59,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() debug = false;
   @Input() displayExpander: boolean = true;
   @Input() displayExtraInfo: boolean = true;
+  @Input() displayLoading: boolean = false;
   @Input() blockExpand: boolean = false;
   @Input() autoplay: boolean = true;
   @Input() autoplayAudio: boolean = false;
@@ -167,11 +168,12 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     this.debugLog('fetchFileSrc invoked', { fileId: this.fileId, hasFileObj: !!this.file, fileSrcInput: this.fileSrc, alreadySelectedSrc: !!this.selectedFileSrc });
     if (this.selectedFileSrc) return; // already set
     if (!this.autoload) return;
-
+    this.isLoading = true;
     // Direct fileSrc always overrides gating
     if (this.fileSrc) {
       this.selectedFileSrc = this.fileSrc;
       this.debugLog('fetchFileSrc used direct fileSrc input');
+      this.isLoading = false;
       return;
     }
 
@@ -185,6 +187,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       if (parentRef && parentRef.pictureSrcs[this.fileId] && parentRef.pictureSrcs[this.fileId].value) {
         this.debugLog('fetchFileSrc found cached parentRef pictureSrcs entry (indexed)');
         this.setFileSrcByParentRefValue(this.fileId);
+        this.isLoading = false;
         return;
       } else {
         this.debugLog('fetchFileSrc no cached value (indexed array access), proceeding to setFileSrcById');
@@ -204,6 +207,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         this.selectedFile = fileObject;
       }
     }
+    this.isLoading = false;
   }
   private setFileSrcByParentRefValue(id: number) {
     this.muteOtherVideos();
@@ -354,6 +358,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.debugLog('setFileSrcById early exit (already have selectedFileSrc)');
       return;
     }
+    this.isLoading = true;
     this.fileId = fileId;
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent && parent.pictureSrcs && parent.pictureSrcs.find(x => x.key == fileId + '')) {
@@ -362,6 +367,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.fileType = parent.pictureSrcs.find(x => x.key == fileId + '')!.type;
       this.selectedFileExtension = parent.pictureSrcs.find(x => x.key == fileId + '')!.extension;
       this.finishedLoadingEvent.emit();
+      this.isLoading = false;
       return;
     }
 
@@ -384,8 +390,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       await this.fileService.getFileById(fileId, sessionToken ?? "", {
         signal: this.abortFileRequestController.signal
       }, user?.id).then(response => {
-        if (!response || response == null) return;
-
+        if (!response || response == null) {
+          this.isLoading = false;
+          return;
+        }
         const contentDisposition = response.headers["content-disposition"];
         this.selectedFileExtension = this.fileService.getFileExtensionFromContentDisposition(contentDisposition);
         const type = this.fileService.videoFileExtensions.includes(this.selectedFileExtension)
@@ -414,7 +422,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         this.emittedNotification.emit((error as Error).message);
       }
     } finally {
-      this.stopLoading();
+      this.isLoading = false;
       if (this.canScroll) {
         setTimeout(() => { document.getElementById('fileIdName' + fileId)?.scrollIntoView(); }, 100);
       }

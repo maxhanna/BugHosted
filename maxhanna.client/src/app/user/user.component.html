@@ -174,8 +174,8 @@
             <div class="welcomeMessage" *ngIf="!loginOnly">
               <p class="welcomeTitle">Social... <small>and anti-social</small> Community🪲</p>
               <p class="welcomeTitle">{{ !usersCount && !isLoading ? '' : 'Total users: ' }}<span
-                  [class]="!usersCount && !isLoading ? 'redText' : ''">{{usersCount && !isLoading ? usersCount :
-                  !usersCount && !isLoading ? 'Server is down!' : 'Unknown Error'}}</span></p>
+                  [class]="!usersCount && !isLoading ? 'redText' : ''">{{usersCount ? usersCount :
+                  !usersCount && !isLoading ? 'Server is down!' : !isLoading ? 'Unknown' : 'Loading...' }}</span></p>
             </div>
 
             <div *ngIf="loginOnly" class="loginOnlyInstructionDiv">

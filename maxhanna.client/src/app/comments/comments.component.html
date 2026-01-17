@@ -77,10 +77,20 @@
         <div [innerHTML]="createClickableUrls(comment.commentText, comment.id)" [id]="'commentText'+comment.id"
           class="commentTextDiv" [style.display]="editingComments.includes(comment.id) ? 'none': 'block'"></div>
           <div *ngFor="let file of comment.commentFiles" class="commentMediaFile">
-          <app-media-viewer [file]="file" [user]="comment.user" [currentDirectory]="file.directory"
-            [inputtedParentRef]="inputtedParentRef" [displayExtraInfo]="false" [autoplay]="false" [autoload]="true"
-            [showCommentSection]="false" [showMediaInformation]="true" [showTopics]="false"
-            [previousComponent]="previousComponent"></app-media-viewer>
+          <app-media-viewer 
+            [file]="file" 
+            [user]="comment.user" 
+            [currentDirectory]="file.directory"
+            [inputtedParentRef]="inputtedParentRef" 
+            [displayExtraInfo]="false" 
+            [autoplay]="false" 
+            [autoload]="true"
+            [showCommentSection]="false" 
+            [showMediaInformation]="true" 
+            [showTopics]="false"
+            [displayLoading]="true"
+            [previousComponent]="previousComponent">
+          </app-media-viewer>
         </div>
         <div class="commentInputArea">
           <div class="borderPaddedComment" *ngIf="editingComments.includes(comment.id) && !replyingToCommentId">
