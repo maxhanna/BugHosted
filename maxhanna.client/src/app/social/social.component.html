@@ -499,7 +499,7 @@
         </div>
         <div class="loadMoreResultsDiv"
           *ngIf="!showOnlyPost && (wasFromSearchId || (totalPagesArray.length > 1 && currentPage < totalPagesArray.length))">
-          <button (click)="loadMorePosts()" appInView (inView)="loadMorePosts()">Load More</button>
+          <button (click)="loadMorePosts()" appInView (inView)="loadMorePosts()" style="cursor: pointer;">Load More</button>
         </div>
       </div>
     </div>

@@ -178,21 +178,32 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!this.notificationsActive) return;
     if (!this._parent || !this._parent.user || this._parent.user.id == 0) return;
     console.log("fetch notifications");
-    this.getCurrentWeatherInfo();
-    this.getCalendarInfo();
-    this.getCryptoHubInfo();
-    this.getNewsCountInfo();
-    this.getNotificationInfo();
-    this.getWordlerStreakInfo();
-    this.getEnderPlayerInfo();
-    this.getNexusPlayerInfo();
-    this.getMetaPlayerInfo();
-    this.getMusicInfo();
-    this.getArrayPlayerInfo();
-    this.getEmulationPlayerInfo();
-    this.getSocialInfo();
-    this.getCrawlerInfo();
-    this.getThemeInfo();
+    this.notificationsActive = true;
+
+    const tasks: Promise<unknown>[] = [
+      Promise.resolve(this.getCurrentWeatherInfo()),
+      Promise.resolve(this.getCalendarInfo()),
+      Promise.resolve(this.getCryptoHubInfo()),
+      Promise.resolve(this.getNewsCountInfo()),
+      Promise.resolve(this.getNotificationInfo()),
+      Promise.resolve(this.getWordlerStreakInfo()),
+      Promise.resolve(this.getEnderPlayerInfo()),
+      Promise.resolve(this.getNexusPlayerInfo()),
+      Promise.resolve(this.getMetaPlayerInfo()),
+      Promise.resolve(this.getMusicInfo()),
+      Promise.resolve(this.getArrayPlayerInfo()),
+      Promise.resolve(this.getEmulationPlayerInfo()),
+      Promise.resolve(this.getSocialInfo()),
+      Promise.resolve(this.getCrawlerInfo()),
+      Promise.resolve(this.getThemeInfo())
+    ].map(p =>
+      // Isolate failures so one error doesn't prevent others
+      p.catch(err => {
+        console.error('Concurrent task failed:', err);
+      })
+    ); 
+
+    await Promise.allSettled(tasks); 
 
     this.notificationInfoInterval = setInterval(() => { if (this.notificationsActive) this.getNotificationInfo(); }, 20 * 1000); // every minute
     this.cryptoHubInterval = setInterval(() => { if (this.notificationsActive) this.getCryptoHubInfo(); }, 20 * 60 * 1000); // every 20 minutes
