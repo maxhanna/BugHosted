@@ -340,7 +340,7 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
 
 
     [HttpPost("/Rom/GetRomFile/{filePath}", Name = "GetRomFile")]
-    public async Task<IActionResult>  GetRomFile([FromRoute] string filePath, [FromBody] GetRomFileRequest req)
+    public async Task<IActionResult> GetRomFile([FromRoute] string filePath, [FromBody] GetRomFileRequest req)
     {
       int? fileId = req.FileId;
       int? userId = req.UserId;
@@ -359,7 +359,8 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
         if (userId != null && saveExts.Contains(fileExt))
         {
           string filenameWithoutExtension = Path.GetFileNameWithoutExtension(filePath);
-          string newFilename = filenameWithoutExtension + "_" + userId + fileExt.Replace("\\", "/");
+          string tmpUserId = filenameWithoutExtension.Contains("_" + userId + ".") ? "" :  ("_" + userId);
+          string newFilename = filenameWithoutExtension + tmpUserId + fileExt.Replace("\\", "/");
           string userSpecificPath = Path.Combine(_baseTarget, newFilename).Replace("\\", "/");
 
           if (System.IO.File.Exists(userSpecificPath))
