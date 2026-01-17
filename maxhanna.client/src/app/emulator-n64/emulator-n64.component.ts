@@ -95,7 +95,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private _gpWrapperInstalled = false;
 
   // Logging
-  _gpPoller: any; // just a flag for your UI button
+  _gpPoller: any;
   private _logRawTimer: any = null;
   private _logEffectiveTimer: any = null;
   private _logRawPeriodMs = 750;
@@ -103,6 +103,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   // Axis behavior
   private _axisDeadzone = 0.2;
+
+  // ---- Debug knobs ----
+  private SAVE_DEBUG = true;
+  private DEBUG_CLEAR_SAVESTATES = true; // set to false in prod builds
 
   constructor(private fileService: FileService, private romService: RomService) {
     super();
@@ -197,7 +201,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   async applySelectedMapping() {
-    // Selecting "Default" clears selectedMappingName or sets it to ''
     if (!this.selectedMappingName) {
       const gp = this.currentPad();
       this.mapping = {};
@@ -274,12 +277,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.loadMappingsList();
     } catch (e) {
       console.error('Failed to delete mapping', e);
-      this.parentRef?.showNotification('Failed to delete mapping');
+      this.parentRef?.showNotification('Failed to apply mapping');
     }
   }
 
   onMappingSelect(name: string) {
-    // name === '' => Default
     this.selectedMappingName = name || null;
     this.applySelectedMapping();
   }
@@ -321,8 +323,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     canvasEl?.addEventListener('click', () => this._bootstrapDetectOnce());
 
     this.startGamepadAutoDetect();
-    // this.startGamepadLoggingRaw();
-    // this.startGamepadLoggingEffective();
   }
 
   async ngOnDestroy(): Promise<void> {
@@ -386,8 +386,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           console.log("Found Save File.");
           const saveFile = await this.blobToN64SaveFile(saveGameFile, this.romName);
           if (saveFile) {
-            await this.importInGameSaveRam([saveFile], true); 
-            await this.deleteSavestatesForCurrentRom(); // ensure battery wins 
+            await this.importInGameSaveRam([saveFile], true);
+            if (this.DEBUG_CLEAR_SAVESTATES) {
+              await this.deleteSavestatesForCurrentRom();
+            }
           } else {
             console.log("No Save file found for this ROM.");
             this.parentRef?.showNotification('No save found on server for this ROM.');
@@ -444,41 +446,30 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     return pads[idx] || null;
   }
 
-  /** Generate a DualSense/XInput-like RAW mapping for a standard-profile pad. */
   private generateDefaultRawMappingForPad(gp: Gamepad) {
     const id = gp.id;
     const m: Record<string, any> = {};
-
-    // Face/triggers/start
     m['A Button'] = { type: 'button', index: 0, gamepadId: id };
     m['B Button'] = { type: 'button', index: 1, gamepadId: id };
-    m['Z Trig'] = { type: 'button', index: 6, gamepadId: id }; // L2
-    m['L Trig'] = { type: 'button', index: 4, gamepadId: id }; // L1
-    m['R Trig'] = { type: 'button', index: 5, gamepadId: id }; // R1
+    m['Z Trig'] = { type: 'button', index: 6, gamepadId: id };
+    m['L Trig'] = { type: 'button', index: 4, gamepadId: id };
+    m['R Trig'] = { type: 'button', index: 5, gamepadId: id };
     m['Start'] = { type: 'button', index: 9, gamepadId: id };
-
-    // DPad (standard buttons)
     m['DPad U'] = { type: 'button', index: 12, gamepadId: id };
     m['DPad D'] = { type: 'button', index: 13, gamepadId: id };
     m['DPad L'] = { type: 'button', index: 14, gamepadId: id };
     m['DPad R'] = { type: 'button', index: 15, gamepadId: id };
-
-    // Analog (left stick)
     m['Analog X+'] = { type: 'axis', index: 0, axisDir: 1, gamepadId: id };
     m['Analog X-'] = { type: 'axis', index: 0, axisDir: -1, gamepadId: id };
-    m['Analog Y+'] = { type: 'axis', index: 1, axisDir: 1, gamepadId: id };   // browser Y+: down
-    m['Analog Y-'] = { type: 'axis', index: 1, axisDir: -1, gamepadId: id };  // browser Y-: up
-
-    // C-Buttons (right stick)
-    m['C Button R'] = { type: 'axis', index: 2, axisDir: 1, gamepadId: id };  // RX+
-    m['C Button L'] = { type: 'axis', index: 2, axisDir: -1, gamepadId: id }; // RX-
-    m['C Button D'] = { type: 'axis', index: 3, axisDir: 1, gamepadId: id };  // RY+
-    m['C Button U'] = { type: 'axis', index: 3, axisDir: -1, gamepadId: id }; // RY-
-
+    m['Analog Y+'] = { type: 'axis', index: 1, axisDir: 1, gamepadId: id };
+    m['Analog Y-'] = { type: 'axis', index: 1, axisDir: -1, gamepadId: id };
+    m['C Button R'] = { type: 'axis', index: 2, axisDir: 1, gamepadId: id };
+    m['C Button L'] = { type: 'axis', index: 2, axisDir: -1, gamepadId: id };
+    m['C Button D'] = { type: 'axis', index: 3, axisDir: 1, gamepadId: id };
+    m['C Button U'] = { type: 'axis', index: 3, axisDir: -1, gamepadId: id };
     this.mapping = m;
   }
 
-  /** Force all entries to the selected pad id (fix re-import across variants). */
   private rebindMappingToPad(mapping: Record<string, any>, gamepadId: string | null): Record<string, any> {
     if (!gamepadId) return mapping;
     for (const key of Object.keys(mapping || {})) {
@@ -492,7 +483,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     return mapping;
   }
 
-  // ---- List UI actions ----
   recordCtrl(ctrl: string) { this.startRecording(ctrl); }
   clearCtrl(ctrl: string) { delete this.mapping[ctrl]; }
   clearAllMappings() { this.mapping = {}; this.parentRef?.showNotification('Cleared all mappings (not applied yet)'); }
@@ -511,8 +501,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       const g = this.getGamepadsBase();
       for (const gp of g) {
         if (!gp) continue;
-
-        // Buttons
         for (let b = 0; b < gp.buttons.length; b++) {
           if ((gp.buttons[b] as any).pressed) {
             this.mapping[control] = { type: 'button', index: b, gamepadId: gp.id };
@@ -521,7 +509,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
             return;
           }
         }
-        // Axes
         for (let a = 0; a < gp.axes.length; a++) {
           const v = gp.axes[a];
           if (Math.abs(v) > 0.7) {
@@ -622,7 +609,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         }
       }
 
-      // Section name: exact device id (canonical requirement)
+      // Section name
       let sectionName = 'Custom Gamepad';
       for (const v of Object.values(this.mapping)) {
         if (v?.gamepadId) { sectionName = v.gamepadId; break; }
@@ -686,11 +673,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
     this.selectedGamepadIndex = idx;
     this.refreshGamepads();
-
-    // Reorder immediately (keep selected-first)
     this.applyGamepadReorder();
 
-    // Default mapping when empty and standard profile
     const gpNow = this.currentPad();
     if (gpNow && gpNow.mapping === 'standard' && !Object.keys(this.mapping || {}).length) {
       this.generateDefaultRawMappingForPad(gpNow);
@@ -777,7 +761,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     try {
       this.applyGamepadReorder();
 
-      // RAW-only: no translator; optional direct-inject
       if (this.directInjectMode) this.enableDirectInject();
 
       this.instance = await createMupen64PlusWeb({
@@ -792,16 +775,19 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         locateFile: (path: string) => `/assets/mupen64plus/${path}`,
       });
 
-
       if (this.instance && typeof this.instance.start === 'function') {
         await this.instance.start();
-        this.status = 'running'; 
-        
-        await new Promise(r => setTimeout(r, 250)); // small head-start for IDBFS
+        this.status = 'running';
+
+        // Give IDBFS a small head start; reduces "syncfs overlap" churn
+        await new Promise(r => setTimeout(r, 250));
+
+        // GoodName <-> Canonical mirrors kept (safe no-ops when absent)
         this.mirrorGoodNameSavesToCanonical().catch(() => {});
         this.mirrorCanonicalToGoodNameIfMissing().catch(() => {});
-        this.ensureSaveLoadedForCurrentRom().catch(() => {});
 
+        // Actively ensure the *right* ext is used (EEP preferred), and restart once if needed
+        this.ensureSaveLoadedForCurrentRom().catch(() => {});
 
         this.parentRef?.showNotification(`Booted ${this.romName}`);
         this.bootGraceUntil = performance.now() + 1500;
@@ -891,7 +877,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   // =====================================================
-  // Direct-inject (keyboard synth) — IMPLEMENTED
+  // Direct-inject (keyboard synth)
   // =====================================================
   enableDirectInject() {
     if (this._directInjectPoller) return;
@@ -953,7 +939,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     };
 
     poll();
-    //this.parentRef?.showNotification('Direct-inject input mode enabled');
   }
 
   disableDirectInject() {
@@ -962,7 +947,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this._directInjectPoller = 0;
     }
     this._directPrevState = {};
-    //this.parentRef?.showNotification('Direct-inject input mode disabled');
   }
 
   toggleDirectInject(enabled?: boolean) {
@@ -972,7 +956,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     else this.disableDirectInject();
   }
 
-  /** Key mapping for synth (adjust to taste) */
   private getKeyForControl(ctrl: string): string | null {
     const map: Record<string, string> = {
       'A Button': 'KeyZ',
@@ -1089,12 +1072,30 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         }
       }
 
+      // ---- De-duplicate: choose ONE best entry per ROM using ext preference and canonical preference ----
+      const userId = this.parentRef?.user?.id ?? 0;
+      const extOrder: ('.eep' | '.sra' | '.fla')[] = ['.eep', '.sra', '.fla'];
+
+      const chooseForExt = (ext: '.eep' | '.sra' | '.fla') => {
+        // Prefer canonical "<base>_<userId><ext>" if present, else the first matching
+        const candidates = targetRows.filter(({ key }) => String(key).toLowerCase().endsWith(ext));
+        if (!candidates.length) return null;
+        const canonicalName = `/mupen64plus/saves/${this.canonicalSaveFilename(ext, userId)}`;
+        const canon = candidates.find(({ key }) => String(key) === canonicalName);
+        return canon ?? candidates[0];
+      };
+
+      const chosenRows: Array<{ key: any; val: any }> = [];
+      for (const ext of extOrder) {
+        const picked = chooseForExt(ext);
+        if (picked) chosenRows.push(picked);
+      }
+
       const exported: N64ExportedSave[] = [];
-      for (const { key, val } of targetRows) {
+      for (const { key, val } of chosenRows) {
         const ab = this.normalizeToArrayBuffer(val);
         if (!ab) continue;
         const filename = String(key).split('/').pop() || 'save_ram.bin';
-        console.log("Found exported filename:", filename);
         exported.push({
           key: String(key),
           filename,
@@ -1116,7 +1117,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       const count = exported.length;
       const scope = matchedOnly ? 'matching' : 'all';
       console.log(`Prepared ${scope} ${count} in-game save file(s) for export.`);
-
       this.saveDebug(`EXPORT RESULT`, {
         rom: this.romName,
         matchedOnly,
@@ -1189,7 +1189,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     return new File([blob], filename, { type: blob.type || 'application/octet-stream' });
   }
 
-
   async importInGameSaveRam(files: FileList | File[], skipBoot: boolean = false) {
     try {
       // --- Open /mupen64plus / FILE_DATA ---
@@ -1237,7 +1236,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       const written: string[] = [];
       const userId = this.parentRef?.user?.id ?? 0;
 
-      // Helper to match stored value shape
       const makeValue = (bytes: Uint8Array, existingOrTemplate?: any) => {
         if (!existingOrTemplate) return bytes;
         const clone = JSON.parse(JSON.stringify(existingOrTemplate));
@@ -1248,13 +1246,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         return clone;
       };
 
-      // Helper for a single tx put
       const txPut = (os: IDBObjectStore, key: string, val: any) => new Promise<void>((resolve, reject) => {
         const r = os.put(val, key);
         r.onerror = () => reject(r.error);
         r.onsuccess = () => resolve();
       });
-
 
       for (const fAny of Array.from(files)) {
         const f = fAny as File;
@@ -1269,19 +1265,17 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const bytes = new Uint8Array(await f.arrayBuffer());
         const size = bytes.byteLength;
 
-        // Prepare keys first (NO readwrite tx yet)
+        // Prepare keys (no GoodName write during import; only incoming + canonical)
         const incomingKey = `/mupen64plus/saves/${name}`;
         const canonicalKey = `/mupen64plus/saves/${this.canonicalSaveFilename(ext as any, userId)}`;
-        const goodKey = await this.findEmuGoodNameKeyForExt(db, ext as any).catch(() => null);
 
         this.saveDebug(`IMPORT BEGIN`, {
           romName: this.romName,
           userId,
           file: { name, ext, size },
-          keys: { incomingKey, canonicalKey, goodKey }
+          keys: { incomingKey, canonicalKey, goodKey: null }
         });
 
-        // Start ONE readwrite tx and do all writes inside it without awaiting other transactions
         const txRW = db.transaction('FILE_DATA', 'readwrite');
         const osRW = txRW.objectStore('FILE_DATA');
 
@@ -1296,13 +1290,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const writes: Promise<void>[] = [];
         writes.push(txPut(osRW, incomingKey, valueIncoming));
         if (canonicalKey !== incomingKey) writes.push(txPut(osRW, canonicalKey, valueIncoming));
-        if (goodKey && goodKey !== incomingKey && goodKey !== canonicalKey) {
-          writes.push(txPut(osRW, goodKey, valueIncoming));
-        }
 
         await Promise.all(writes);
 
-        // Read back and checksum for verification
+        // Verify incoming/canonical only
         const verifyTx = db.transaction('FILE_DATA', 'readonly');
         const verifyOS = verifyTx.objectStore('FILE_DATA');
 
@@ -1314,9 +1305,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
         const vIncoming = await readBack(incomingKey);
         const vCanonical = await readBack(canonicalKey);
-        const vGood = goodKey ? await readBack(goodKey) : null;
 
-        // Convert to Uint8Array to hash
         const castToU8 = (v: any) => {
           if (!v) return null;
           if (v instanceof ArrayBuffer) return new Uint8Array(v);
@@ -1330,16 +1319,14 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const hb = await this.shortSha(bytes);
         const hIncoming = await this.shortSha(castToU8(vIncoming));
         const hCanonical = await this.shortSha(castToU8(vCanonical));
-        const hGood = await this.shortSha(castToU8(vGood));
 
         this.saveDebug(`IMPORT WRITE OK`, {
-          incomingKey, canonicalKey, goodKey,
-          hashes: { src: hb, incoming: hIncoming, canonical: hCanonical, good: hGood }
+          incomingKey, canonicalKey, goodKey: null,
+          hashes: { src: hb, incoming: hIncoming, canonical: hCanonical }
         });
 
         written.push(name);
       }
-
 
       db.close();
 
@@ -1386,21 +1373,20 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       if (!isRunning || !result.exported.length || !result.matchedOnly) {
         return;
       }
-      console.log('Exported:', result.exported.map(e => e.filename));
+
+      // Only upload the single chosen export (deduped by exportInGameSaveRam)
       let uploadedCount = 0;
       for (const item of result.exported) {
-        // Determine extension and canonical upload name
         const ext = this.detectSaveExt(item.filename, item.size);
         const filenameForServer = this.canonicalSaveFilenameForUpload(ext);
-        
+
         console.log("Finding file to send to backend: ", filenameForServer);
-        // Hash de-dupe keyed by the name we actually upload
+
         const hash = await this.sha256Hex(item.bytes);
         const dedupeKey = filenameForServer;
-        // if (this.lastUploadedHashes.get(dedupeKey) === hash) {
-        //   console.log("No need to save state, current state matches previous save state.");
-        //   continue; 
-        // }
+
+        // Optional de-dupe
+        // if (this.lastUploadedHashes.get(dedupeKey) === hash) continue;
 
         const payload: N64StateUpload = {
           userId,
@@ -1541,7 +1527,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const pads = this.getGamepadsBase();
     if (!pads || !pads.length) return;
 
-    // Prefer a standard-profile pad if available, else use preferredIdx, else the first pad
     const std = pads.find(p => p && p.mapping === 'standard');
     const chosen = std ?? (typeof preferredIdx === 'number' ? pads[preferredIdx] : pads[0]);
     if (!chosen) return;
@@ -1549,13 +1534,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const idx = chosen.index;
     this.ports[1].gpIndex = idx;
 
-    // Build a default mapping if none exists for P1
     this.ensureDefaultMappingForPort(1);
-
-    // Keep remapper targeting P1 by default
     this.selectedGamepadIndex = idx;
-
-    // Put P1 first in the effective array order
     this.applyGamepadReorder();
   }
 
@@ -1572,7 +1552,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       const sel = await this.romService.getLastInputSelection(uid, token);
       if (!sel) return;
 
-      // Select by id if present
       if (sel.gamepadId) {
         const pads = this.getGamepadsBase();
         const found = pads.find(gp => gp && gp.id === sel.gamepadId);
@@ -1620,7 +1599,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
       (navigator as any).getGamepads = function (): (Gamepad | null)[] {
         const baseArr = (self._originalGetGamepadsBase ? self._originalGetGamepadsBase() : []) || [];
-        // If no ports assigned, keep base order (or rely on your single-pad reorder)
         const chosen: (Gamepad | null)[] = [];
         const used = new Set<number>();
 
@@ -1630,13 +1608,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           if (pad && !used.has(idx)) { chosen.push(pad); used.add(idx); }
         };
 
-        // P1 → P4 in order
         pushIf(self.ports[1].gpIndex);
         pushIf(self.ports[2].gpIndex);
         pushIf(self.ports[3].gpIndex);
         pushIf(self.ports[4].gpIndex);
 
-        // then all others as-is
         for (let i = 0; i < baseArr.length; i++) {
           if (!used.has(i)) chosen.push(baseArr[i]);
         }
@@ -1659,7 +1635,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const idx = Number(value);
     if (Number.isNaN(idx)) return;
 
-    // Prevent the same pad in two ports (optional)
     for (const p of [1, 2, 3, 4] as const) {
       if (p !== port && this.ports[p].gpIndex === idx) {
         this.parentRef?.showNotification(`That controller is already assigned to Player ${p}.`);
@@ -1668,10 +1643,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
 
     this.ports[port].gpIndex = idx;
-    this.refreshGamepads();          // keeps list current
-    this.applyGamepadReorder();      // P1→P4 ordering
-
-    // Optionally generate default mapping if none
+    this.refreshGamepads();
+    this.applyGamepadReorder();
     this.ensureDefaultMappingForPort(port);
   }
 
@@ -1683,7 +1656,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   async applySelectedMappingForPort(port: PlayerPort) {
     const name = this.ports[port].mappingName;
     if (!name) {
-      // Default behavior
       const idx = this.ports[port].gpIndex;
       const pads = this.getGamepadsBase();
       const gp = (idx != null) ? pads[idx] : null;
@@ -1699,7 +1671,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
     try {
       const uid = this.parentRef?.user?.id;
-      // Try backend
       if (uid) {
         try {
           const m = await this.romService.getMapping(uid, name);
@@ -1707,7 +1678,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
             const idx = this.ports[port].gpIndex;
             const gpId = this.gamepadIdFromIndex(idx);
             const rebound = this.rebindMappingToPad(JSON.parse(JSON.stringify(m)), gpId);
-            this.migrateMappingToIdsIfNeeded(); // keeps consistent
+            this.migrateMappingToIdsIfNeeded();
             this.ports[port].mapping = rebound;
             this.parentRef?.showNotification(`Applied mapping "${name}" to P${port}`);
             return;
@@ -1715,7 +1686,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         } catch {/* fall back to local */ }
       }
 
-      // Local fallback
       const raw = localStorage.getItem(this._mappingsStoreKey);
       const store = raw ? JSON.parse(raw) : {};
       const m = store[name];
@@ -1741,20 +1711,17 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this._applyingAll = true;
 
     try {
-      // Stop/rerun if needed so input plugin reloads configs cleanly
       const wasRunning = !!this.instance || this.status === 'running';
       if (wasRunning) {
         await this.stop();
         await new Promise(r => setTimeout(r, 150));
       }
 
-      // For each port that has a controller, build and write that device's config
       for (const p of [1, 2, 3, 4] as const) {
         const idx = this.ports[p].gpIndex;
         if (idx == null) continue;
         this.ensureDefaultMappingForPort(p);
 
-        // Ensure mapping is bound to the selected pad id
         const gpId = this.gamepadIdFromIndex(idx);
         if (!gpId) continue;
 
@@ -1762,14 +1729,12 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           JSON.parse(JSON.stringify(this.ports[p].mapping || {})),
           gpId
         );
-        // Update port mapping with ids (optional consistency)
         this.ports[p].mapping = perPortMapping;
 
         const cfg = this.buildAutoInputConfigFromMapping(perPortMapping);
-        const sectionName = gpId; // Device-id section (like your single-pad flow)
+        const sectionName = gpId;
 
         await writeAutoInputConfig(sectionName, cfg as any);
-        // Optionally: this.parentRef?.showNotification(`Applied mapping for P${p}: "${gpId}"`);
       }
 
       if (this.multiPortActive() && this.directInjectMode) {
@@ -1777,7 +1742,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         this.parentRef?.showNotification('Direct-inject disabled for multi-controller mode.');
       }
 
-      // Install the P1→P4 reorder (must be active before boot)
       this.applyGamepadReorder();
 
       if (wasRunning) await this.boot();
@@ -1896,7 +1860,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  // Compatibility with your UI buttons
   startGamepadLogging() {
     this._gpPoller = 1;
     this.startGamepadLoggingRaw();
@@ -1943,8 +1906,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
     } catch (e) {
       console.warn('Failed to read gamepads', e);
-    } finally {
-      //this.ensureP1InitializedFromSinglePad();
     }
   }
 
@@ -1962,11 +1923,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch { /* ignore */ }
   }
 
-  /**
-   * Trigger an automatic download of the current in-game battery saves
-   * (only those that match the currently loaded ROM if available).
-   */
-
   async downloadCurrentSaves() {
     try {
       const result = await this.exportInGameSaveRam();
@@ -1981,7 +1937,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
       for (const item of result.exported) {
         const ext = this.detectSaveExt(item.filename, item.size);
-        // For downloads, include the user suffix so what the user downloads matches what the server stores.
         const base = this.canonicalRomBaseFromFileName(this.romName);
         const filename = userId ? `${base}_${userId}${ext}` : `${base}${ext}`;
         this.downloadBytesAs(filename, item.bytes);
@@ -1992,7 +1947,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  /** Programmatically click the hidden file input. */
   openSavePicker() {
     const el = this.saveFileInput?.nativeElement;
     if (!el) {
@@ -2002,60 +1956,50 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     el.click();
   }
 
-  /** Handle files selected by the user and import them into IndexedDB. */
   async onSaveFilePicked(ev: Event) {
     try {
       const input = ev.target as HTMLInputElement;
       const files = input.files;
       if (!files || files.length === 0) return;
 
-      // This will write to /mupen64plus/FILE_DATA and restart the emulator if needed.
-      await this.importInGameSaveRam(files, /* skipBoot */ false); 
-      await this.deleteSavestatesForCurrentRom(); // ensure battery wins 
+      await this.importInGameSaveRam(files, /* skipBoot */ false);
+      if (this.DEBUG_CLEAR_SAVESTATES) {
+        await this.deleteSavestatesForCurrentRom();
+      }
     } catch (e) {
       console.error('onSaveFilePicked failed', e);
       this.parentRef?.showNotification('Failed to import save files.');
     } finally {
-      // allow picking the same file again by clearing the input
       try { (ev.target as HTMLInputElement).value = ''; } catch { }
     }
   }
 
-  /** Normalize any buffer-like to a *plain* ArrayBuffer (never SharedArrayBuffer). */
   private toPlainArrayBuffer(
     input: Uint8Array | ArrayBuffer | SharedArrayBuffer | ArrayBufferView
   ): ArrayBuffer {
-    // Fast path: plain ArrayBuffer → clone (avoid sharing/mutation)
     if (input instanceof ArrayBuffer) {
       return input.slice(0);
     }
 
-    // Handle SharedArrayBuffer explicitly
     const hasSAB = typeof SharedArrayBuffer !== 'undefined';
     if (hasSAB && input instanceof SharedArrayBuffer) {
-      // Copy SAB into a new, non-shared ArrayBuffer
       return new Uint8Array(input).slice().buffer;
     }
 
-    // If it's a Uint8Array or any view
     if (ArrayBuffer.isView(input as any)) {
       const view = input as ArrayBufferView;
       const backing = view.buffer as ArrayBuffer | SharedArrayBuffer;
 
-      // If the backing is SAB, copy into a normal buffer
       if (hasSAB && backing instanceof SharedArrayBuffer) {
         return new Uint8Array(backing, view.byteOffset, view.byteLength).slice().buffer;
       }
 
-      // Otherwise slice the ArrayBuffer to a tight copy
       return (backing as ArrayBuffer).slice(view.byteOffset, view.byteOffset + view.byteLength);
     }
 
-    // If we reach here TS allowed a type we didn't expect at runtime
     throw new Error('Unsupported buffer type for Blob');
   }
 
-  /** Trigger a browser download for bytes. Accepts various buffer-like inputs. */
   private downloadBytesAs(
     filename: string,
     bytes: Uint8Array | ArrayBuffer | SharedArrayBuffer | ArrayBufferView
@@ -2095,13 +2039,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private _onFullscreenChange = () => {
     try {
       const canvasEl = this.canvas?.nativeElement;
-      // We are in fullscreen iff the fullscreenElement is the canvas
       this.isFullScreen = !!document.fullscreenElement && document.fullscreenElement === canvasEl;
-
-      // Ensure the canvas resizes correctly after the UI reflows
       this.resizeCanvasToParent();
-
-      // Optional: force a re-lay out for emu
       requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
     } catch { /* ignore */ }
   };
@@ -2162,7 +2101,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const pads = this.getGamepadsBase();
     const gp = pads[idx];
     if (gp && gp.mapping === 'standard') {
-      // Uses your existing method to populate this.mapping; we want a copy per port.
       this.generateDefaultRawMappingForPad(gp);
       this.ports[p].mapping = JSON.parse(JSON.stringify(this.mapping));
     }
@@ -2185,29 +2123,23 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  /** Canonical base from the chosen ROM file name, keeping your visible region tags. */
   private canonicalRomBaseFromFileName(romName?: string): string {
     if (!romName) return 'Unknown';
-    // Strip ROM container/extensions only
     let base = romName.replace(/\.(z64|n64|v64|zip|7z|rom)$/i, '');
-    // Do NOT convert (USA) to (U) or add [!] etc. Keep exactly what's in the file name.
     return base || 'Unknown';
   }
 
-  /** Canonical filename "<ROM base><ext>" (NO _<userId> here; server appends it). */
   private canonicalSaveFilenameForUpload(ext: '.eep' | '.sra' | '.fla' | string): string {
     const base = this.canonicalRomBaseFromFileName(this.romName);
     return `${base}${ext}`;
   }
 
-  /** Extract save-file extension (prefer from item.filename; fallback by size). */
   private detectSaveExt(filename: string | null | undefined, size: number): '.eep' | '.sra' | '.fla' {
     const extFromName = (filename?.match(/\.(eep|sra|fla)$/i)?.[0] || '').toLowerCase() as any;
     if (extFromName) return extFromName;
     return this.inferBatteryExtFromSize(size) || '.sra';
   }
 
-  /** After mirroring GoodName -> canonical, also ensure canonical -> GoodName (if GoodName missing). */
   private async mirrorCanonicalToGoodNameIfMissing(): Promise<void> {
     try {
       const dbMeta: Array<{ name?: string }> =
@@ -2229,7 +2161,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const canonicalName = this.canonicalSaveFilename(ext, userId);
         const canonicalKey = `/mupen64plus/saves/${canonicalName}`;
 
-        // Read canonical
         const txR = db.transaction('FILE_DATA', 'readonly');
         const osR = txR.objectStore('FILE_DATA');
         const canonicalVal = await new Promise<any>((resolve) => {
@@ -2239,10 +2170,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         });
         if (!canonicalVal) continue;
 
-        // Find GoodName key for this ROM/ext; if missing, skip (emulator will create it when it first writes).
         const goodKey = await this.findEmuGoodNameKeyForExt(db, ext).catch(() => null);
         if (goodKey) {
-          // Write canonical -> GoodName (if GoodName differs)
           const txW = db.transaction('FILE_DATA', 'readwrite');
           const osW = txW.objectStore('FILE_DATA');
           await new Promise<void>((resolve, reject) => {
@@ -2259,7 +2188,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  /** After boot, mirror GoodName saves to your canonical filename(s) so exports/round-trips are stable. */
   private async mirrorGoodNameSavesToCanonical(): Promise<void> {
     try {
       const dbMeta: Array<{ name?: string }> =
@@ -2296,7 +2224,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         return s.startsWith('/mupen64plus/saves/') && saveExts.some(e => s.endsWith(e));
       });
 
-      // Narrow to the current ROM by loose token match (same logic you already use).
       const matching = saveRows.filter(({ key }) => {
         const fname = String(key).split('/').pop() || '';
         const lower = fname.toLowerCase();
@@ -2321,7 +2248,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  /** Canonical filename "<ROM base>_<userId><ext>" where ROM base preserves (USA). */
   private canonicalSaveFilename(ext: '.eep' | '.sra' | '.fla' | string, userId?: number | null): string {
     const base = this.canonicalRomBaseFromFileName(this.romName);
     const uid = userId ?? this.parentRef?.user?.id ?? 0;
@@ -2357,7 +2283,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  /** Read raw bytes (Uint8Array) from a FILE_DATA entry key. */
   private async readIdbBytes(db: IDBDatabase, key: string): Promise<Uint8Array | null> {
     const tx = db.transaction('FILE_DATA', 'readonly');
     const os = tx.objectStore('FILE_DATA');
@@ -2368,7 +2293,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     });
     if (!val) return null;
 
-    // Normalize common shapes: {contents}, {data}, {bytes: []}, ArrayBuffer
     const toU8 = (v: any): Uint8Array | null => {
       if (v instanceof ArrayBuffer) return new Uint8Array(v);
       if (v?.buffer instanceof ArrayBuffer && typeof v.byteLength === 'number') return new Uint8Array(v.buffer, v.byteOffset ?? 0, v.byteLength);
@@ -2380,7 +2304,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     return toU8(val);
   }
 
-  /** Write raw bytes to FILE_DATA key, matching stored shape if an entry exists. */
   private async writeIdbBytes(db: IDBDatabase, key: string, bytes: Uint8Array): Promise<void> {
     const tx = db.transaction('FILE_DATA', 'readwrite');
     const os = tx.objectStore('FILE_DATA');
@@ -2409,7 +2332,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     });
   }
 
-  /** Check if a FILE_DATA key exists. */
   private async idbKeyExists(db: IDBDatabase, key: string): Promise<boolean> {
     const tx = db.transaction('FILE_DATA', 'readonly');
     const os = tx.objectStore('FILE_DATA');
@@ -2420,7 +2342,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     });
   }
 
-  /** Shallow byte equality. */
   private bytesEqual(a: Uint8Array | null, b: Uint8Array | null): boolean {
     if (!a || !b) return false;
     if (a.byteLength !== b.byteLength) return false;
@@ -2428,13 +2349,15 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     return true;
   }
 
-  /**
-   * Poll up to timeoutMs for the GoodName key for a given ext to appear.
-   * Returns the key string or null.
-   */
+  private expectedSizeForExt(ext: '.eep' | '.sra' | '.fla'): number[] {
+    if (ext === '.eep') return [512, 2048];
+    if (ext === '.sra') return [32768];
+    if (ext === '.fla') return [131072];
+    return [];
+  }
+
   private async waitForGoodNameKey(ext: '.eep' | '.sra' | '.fla', timeoutMs = 2000, intervalMs = 150): Promise<string | null> {
     const start = performance.now();
-    // open db each poll to keep transactions simple
     while (performance.now() - start < timeoutMs) {
       try {
         const db = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -2453,21 +2376,15 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     return null;
   }
 
-
-  /**
-   * Ensure the current ROM loads the imported save:
-   * - Find which canonical ext exists for this ROM (.sra/.eep/.fla).
-   * - Wait briefly for emulator to expose its GoodName key after start().
-   * - If GoodName bytes differ from canonical, copy canonical -> GoodName and restart once.
-   */
   private async ensureSaveLoadedForCurrentRom(): Promise<void> {
     const userId = this.parentRef?.user?.id ?? 0;
     if (!this.romName || !userId) return;
 
-    // detect which ext we have canonically
-    const tryExts: ('.eep' | '.sra' | '.fla')[] = ['.sra', '.eep', '.fla']; // sra most common
+    // Prefer EEPROM first; Zelda OOT uses EEPROM 16K (.eep ~2KB)
+    const tryExts: ('.eep' | '.sra' | '.fla')[] = ['.eep', '.sra', '.fla'];
     let chosenExt: '.eep' | '.sra' | '.fla' | null = null;
     let canonicalKey: string | null = null;
+
     try {
       const db = await new Promise<IDBDatabase>((resolve, reject) => {
         const req = indexedDB.open('/mupen64plus');
@@ -2478,16 +2395,20 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
       for (const ext of tryExts) {
         const cand = `/mupen64plus/saves/${this.canonicalSaveFilename(ext, userId)}`;
-        // eslint-disable-next-line no-await-in-loop
         const exists = await this.idbKeyExists(db, cand);
-        if (exists) { chosenExt = ext; canonicalKey = cand; break; }
+        if (!exists) continue;
+
+        const bytes = await this.readIdbBytes(db, cand);
+        const sizes = this.expectedSizeForExt(ext);
+        if (bytes && sizes.includes(bytes.byteLength)) {
+          chosenExt = ext;
+          canonicalKey = cand;
+          break;
+        }
       }
 
       this.saveDebug(`LOAD-GUARD: canonical ext chosen`, { chosenExt, canonicalKey });
-      
       if (!chosenExt || !canonicalKey) { db.close(); return; }
-
-      // Grab canonical bytes once
 
       const canonicalBytes = await this.readIdbBytes(db, canonicalKey);
       const hCanon = await this.shortSha(canonicalBytes);
@@ -2496,19 +2417,16 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       db.close();
       if (!canonicalBytes || canonicalBytes.byteLength === 0) return;
 
-      // Wait up to ~2s for the GoodName key to appear
       const goodKey = await this.waitForGoodNameKey(chosenExt, 2250, 150);
       this.saveDebug(`LOAD-GUARD: goodKey detected`, { goodKey });
       if (!goodKey) return;
 
-      // Compare and sync if needed
       const db2 = await new Promise<IDBDatabase>((resolve, reject) => {
         const req = indexedDB.open('/mupen64plus');
         req.onerror = () => reject(req.error);
         req.onsuccess = () => resolve(req.result);
       });
       if (!Array.from(db2.objectStoreNames).includes('FILE_DATA')) { db2.close(); return; }
-
 
       const goodBytes = await this.readIdbBytes(db2, goodKey);
       const hGood = await this.shortSha(goodBytes);
@@ -2519,15 +2437,12 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         different
       });
 
-
       if (different) {
         await this.writeIdbBytes(db2, goodKey, canonicalBytes);
         db2.close();
 
-        // Restart once so the ROM actually loads the new save
         try {
           this.saveDebug(`LOAD-GUARD: wrote canonical -> GoodName; restarting emulator to force load`);
-
           await this.stop();
           await new Promise(r => setTimeout(r, 150));
           await this.boot();
@@ -2543,8 +2458,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-
-  /** Try to find the emulator's expected GoodName save key for the current ROM + ext. */
   private async findEmuGoodNameKeyForExt(db: IDBDatabase, ext: '.eep' | '.sra' | '.fla'): Promise<string | null> {
     const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
       const res: any[] = [];
@@ -2568,7 +2481,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       return s.startsWith('/mupen64plus/saves/') && s.endsWith(lowerExt);
     });
 
-    // GoodName keys usually differ from file base, so match loosely by token
     const match = saveRows.find(({ key }) => {
       const fname = String(key).split('/').pop() || '';
       const loose = fname.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
@@ -2578,21 +2490,15 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     return match ? String(match.key) : null;
   }
 
-
   private multiPortActive(): boolean {
     return [1, 2, 3, 4].filter(p => this.ports[p as PlayerPort].gpIndex != null).length > 1;
   }
 
   get playerPorts(): PlayerPort[] { return [1, 2, 3, 4]; }
 
-
-  // Toggle to enable detailed save debug logs
-  private SAVE_DEBUG = true;
-
   private saveDebug(...args: any[]) {
     if (!this.SAVE_DEBUG) return;
     const tag = `[SAVE-DEBUG]`;
-    // eslint-disable-next-line no-console
     console.log(tag, ...args);
   }
 
@@ -2640,51 +2546,48 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-// Utility you can add once for testing:
+  // ---- Debug utility: delete savestates for current ROM only (to prevent masking battery) ----
+  private async deleteSavestatesForCurrentRom(): Promise<void> {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open('/mupen64plus');
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => resolve(req.result);
+    });
+    if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
 
-private async deleteSavestatesForCurrentRom(): Promise<void> {
-  const db = await new Promise<IDBDatabase>((resolve, reject) => {
-    const req = indexedDB.open('/mupen64plus');
-    req.onerror = () => reject(req.error);
-    req.onsuccess = () => resolve(req.result);
-  });
-  if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
+    const token = this.romTokenForMatching(this.romName);
+    if (!token) { db.close(); return; }
 
-  const token = this.romTokenForMatching(this.romName);
-  if (!token) { db.close(); return; }
+    const tx = db.transaction('FILE_DATA', 'readwrite');
+    const os = tx.objectStore('FILE_DATA');
 
-  const tx = db.transaction('FILE_DATA', 'readwrite');
-  const os = tx.objectStore('FILE_DATA');
+    const keysToDelete: string[] = await new Promise((resolve, reject) => {
+      const keys: string[] = [];
+      const cur = os.openCursor();
+      cur.onerror = () => reject(cur.error);
+      cur.onsuccess = (ev: any) => {
+        const c = ev.target.result;
+        if (c) {
+          const keyStr = String(c.key);
+          const lower = keyStr.toLowerCase();
+          if (lower.startsWith('/mupen64plus/savestates/')) {
+            const fname = lower.split('/').pop() || lower;
+            const loose = fname.replace(/[^a-z0-9 ]/g, '').trim();
+            if (loose.includes(token)) keys.push(keyStr);
+          }
+          c.continue();
+        } else resolve(keys);
+      };
+    });
 
-  const keysToDelete: string[] = await new Promise((resolve, reject) => {
-    const keys: string[] = [];
-    const cur = os.openCursor();
-    cur.onerror = () => reject(cur.error);
-    cur.onsuccess = (ev: any) => {
-      const c = ev.target.result;
-      if (c) {
-        const keyStr = String(c.key);
-        const lower = keyStr.toLowerCase();
-        if (lower.startsWith('/mupen64plus/savestates/')) {
-          const fname = lower.split('/').pop() || lower;
-          const loose = fname.replace(/[^a-z0-9 ]/g, '').trim();
-          if (loose.includes(token)) keys.push(keyStr);
-        }
-        c.continue();
-      } else resolve(keys);
-    };
-  });
+    await Promise.all(keysToDelete.map(key => new Promise<void>((resolve) => {
+      const del = os.delete(key);
+      del.onerror = () => resolve();
+      del.onsuccess = () => resolve();
+    })));
+    db.close();
+  }
 
-  await Promise.all(keysToDelete.map(key => new Promise<void>((resolve) => {
-    const del = os.delete(key);
-    del.onerror = () => resolve();
-    del.onsuccess = () => resolve();
-  })));
-  db.close();
-}
-
-
-  // Pretty-print a short SHA-256 for quick equality checks
   private async shortSha(bytes: Uint8Array | ArrayBuffer | ArrayBufferView | null): Promise<string> {
     if (!bytes) return 'null';
     const ab = bytes instanceof Uint8Array
@@ -2696,20 +2599,17 @@ private async deleteSavestatesForCurrentRom(): Promise<void> {
     return hex.slice(0, 12);
   }
 
-  
-// Optional: serialize FS.syncfs if you ever call it.
-private _idbfsSync = Promise.resolve();
-private async syncFs(label = 'manual'): Promise<void> {
-  const FS: any = (window as any).FS;
-  if (!FS?.syncfs) return;
-  const run = () => new Promise<void>(resolve => {
-    try { FS.syncfs(false, () => resolve()); } catch { resolve(); }
-  });
-  this._idbfsSync = this._idbfsSync.then(run, run);
-  await this._idbfsSync;
-}
-
-
+  // Optional: serialize FS.syncfs if you ever call it.
+  private _idbfsSync = Promise.resolve();
+  private async syncFs(label = 'manual'): Promise<void> {
+    const FS: any = (window as any).FS;
+    if (!FS?.syncfs) return;
+    const run = () => new Promise<void>(resolve => {
+      try { FS.syncfs(false, () => resolve()); } catch { resolve(); }
+    });
+    this._idbfsSync = this._idbfsSync.then(run, run);
+    await this._idbfsSync;
+  }
 }
 
 // ---------------------------
@@ -2733,7 +2633,7 @@ type ExportInGameSaveRamResult = {
 type PlayerPort = 1 | 2 | 3 | 4;
 
 type PortConfig = {
-  gpIndex: number | null;                    // selected gamepad index for this port
-  mapping: Record<string, any>;              // control mapping for this port (same structure you already use)
-  mappingName: string | null;                // saved mapping name selected for this port
+  gpIndex: number | null;
+  mapping: Record<string, any>;
+  mappingName: string | null;
 };
