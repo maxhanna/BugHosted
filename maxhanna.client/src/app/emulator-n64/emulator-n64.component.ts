@@ -734,93 +734,101 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   // =====================================================
   // Emulator control (RAW-only)
   // =====================================================
-  async boot() {
-    if (!this.romBuffer) {
-      this.parentRef?.showNotification('Pick a ROM first');
-      return;
-    }
-    if (this.autosave) {
-      this.startAutosaveLoop();
-    }
-    const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
-    if (!canvasEl) {
-      this.parentRef?.showNotification('No canvas available');
-      return;
-    }
-
-    this.resizeCanvasToParent();
-
-    if (!this._canvasResizeAdded) {
-      try {
-        window.addEventListener('resize', this._resizeHandler);
-        document.addEventListener('fullscreenchange', this._resizeHandler);
-        window.addEventListener('orientationchange', this._resizeHandler);
-        this._canvasResizeAdded = true;
-      } catch { /* ignore */ }
-    }
-
-    this.loading = true;
-    this.status = 'booting';
-    try {
-      this.applyGamepadReorder();
-
-      if (this.directInjectMode) this.enableDirectInject();
-
-      this.instance = await createMupen64PlusWeb({
-        canvas: canvasEl,
-        innerWidth: canvasEl.width,
-        innerHeight: canvasEl.height,
-        romData: new Int8Array(this.romBuffer!),
-        beginStats: () => { },
-        endStats: () => { },
-        coreConfig: { emuMode: 0 },
-        setErrorStatus: (msg: string) => console.log('Mupen error:', msg),
-        locateFile: (path: string) => `/assets/mupen64plus/${path}`,
-      });
-
-const restoreSniffer = this.installMupenConsoleSniffer();
-this._romGoodName = null;
-this._romMd5 = null;
-
-      if (this.instance && typeof this.instance.start === 'function') {
-        await this.instance.start();
-        
-        restoreSniffer();
-        this.status = 'running';
-        // Give IDBFS a small head start; reduces "syncfs overlap" churn 
-        await new Promise(r => setTimeout(r, 400));
-        await this.syncFs('post-start');
-
-        await this.safeDebug('SAVE-SCAN', () => this.debugScanSavesForCurrentRom());
-        await this.safeDebug('ROM-ID', () => this.debugRomIdentity());
-        await this.safeDebug('INI', () => this.debugCheckIniForRacer());
-
-        // GoodName <-> Canonical mirrors kept (safe no-ops when absent)
-        this.mirrorGoodNameSavesToCanonical().catch(() => { });
-        // this.mirrorCanonicalToGoodNameIfMissing().catch(() => {});
-
-        // Actively ensure the *right* ext is used (EEP preferred), and restart once if needed
-        this.ensureSaveLoadedForCurrentRom().catch(() => { });
-
-        this.parentRef?.showNotification(`Booted ${this.romName}`);
-        this.bootGraceUntil = performance.now() + 1500;
-        requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
-      }
-      else {
-        this.status = 'error';
-        throw new Error('Emulator instance missing start method');
-      }
-    } catch (ex) {
-      console.error('Failed to boot emulator', ex);
-      this.status = 'error';
-      this.parentRef?.showNotification('Failed to boot emulator');
-      this.restoreGamepadGetter();
-      throw ex;
-    } finally {
-      this.loading = false;
-      this.debugScanMempaks().catch(() => { });
-    }
+  
+async boot() {
+  if (!this.romBuffer) {
+    this.parentRef?.showNotification('Pick a ROM first');
+    return;
   }
+  if (this.autosave) {
+    this.startAutosaveLoop();
+  }
+
+  const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
+  if (!canvasEl) {
+    this.parentRef?.showNotification('No canvas available');
+    return;
+  }
+
+  this.resizeCanvasToParent();
+
+  if (!this._canvasResizeAdded) {
+    try {
+      window.addEventListener('resize', this._resizeHandler);
+      document.addEventListener('fullscreenchange', this._resizeHandler);
+      window.addEventListener('orientationchange', this._resizeHandler);
+      this._canvasResizeAdded = true;
+    } catch { /* ignore */ }
+  }
+
+  this.loading = true;
+  this.status = 'booting';
+
+  // ✅ Reset meta and start sniffer BEFORE emulator creation
+  this._romGoodName = null;
+  this._romMd5 = null;
+  const restoreSniffer = this.installMupenConsoleSniffer();
+
+  try {
+    this.applyGamepadReorder();
+    if (this.directInjectMode) this.enableDirectInject();
+
+    this.instance = await createMupen64PlusWeb({
+      canvas: canvasEl,
+      innerWidth: canvasEl.width,
+      innerHeight: canvasEl.height,
+      romData: new Int8Array(this.romBuffer!),
+      beginStats: () => { },
+      endStats: () => { },
+      coreConfig: { emuMode: 0 },
+      setErrorStatus: (msg: string) => console.log('Mupen error:', msg),
+      locateFile: (path: string) => `/assets/mupen64plus/${path}`,
+    });
+
+    if (!this.instance || typeof this.instance.start !== 'function') {
+      this.status = 'error';
+      throw new Error('Emulator instance missing start method');
+    }
+
+    await this.instance.start();
+    this.status = 'running';
+
+    // ✅ Stop sniffing once ROM meta printed
+    restoreSniffer();
+
+    // Give IDBFS a small head start; reduces "syncfs overlap" churn
+    await new Promise(r => setTimeout(r, 400));
+    await this.syncFs('post-start');
+
+    await this.safeDebug('SAVE-SCAN', () => this.debugScanSavesForCurrentRom());
+    await this.safeDebug('ROM-ID', () => this.debugRomIdentity());
+
+    // Optional (your ini in /assets looks like a stub; safeDebug prevents crashing)
+    await this.safeDebug('INI', () => this.debugCheckIniForRacer());
+
+    // Mirrors (keep if you want)
+    this.mirrorGoodNameSavesToCanonical().catch(() => { });
+
+    // ✅ This is the key: copy canonical -> emulator key (GoodName).eep and restart once
+    this.ensureSaveLoadedForCurrentRom().catch(() => { });
+
+    this.parentRef?.showNotification(`Booted ${this.romName}`);
+    this.bootGraceUntil = performance.now() + 1500;
+    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+  } catch (ex) {
+    console.error('Failed to boot emulator', ex);
+    this.status = 'error';
+    this.parentRef?.showNotification('Failed to boot emulator');
+    this.restoreGamepadGetter();
+    throw ex;
+  } finally {
+    // Always restore to avoid leaving console patched if something throws early
+    try { restoreSniffer(); } catch { /* ignore */ }
+    this.loading = false;
+    this.debugScanMempaks().catch(() => { });
+  }
+}
+
 
   async stop() {
     try {
@@ -2434,137 +2442,126 @@ this._romMd5 = null;
    * - For .eep: honor per-ROM override (e.g. Racer -> 512B), otherwise prefer existing GoodName size.
    * - Keep canonical in sync with the chosen GoodName bytes to avoid confusion on export.
    */
-  private async ensureSaveLoadedForCurrentRom(): Promise<void> {
-    const userId = this.parentRef?.user?.id ?? 0;
-    if (!this.romName || !userId) return;
+  
+private async ensureSaveLoadedForCurrentRom(): Promise<void> {
+  const userId = this.parentRef?.user?.id ?? 0;
+  if (!this.romName || !userId) return;
 
-    const tryExts: ('.eep' | '.sra' | '.fla')[] = ['.eep', '.sra', '.fla'];
-    let chosenExt: '.eep' | '.sra' | '.fla' | null = null;
-    let canonicalKey: string | null = null;
+  const tryExts: ('.eep' | '.sra' | '.fla')[] = ['.eep', '.sra', '.fla'];
 
-    try {
-      const db = await new Promise<IDBDatabase>((resolve, reject) => {
-        const req = indexedDB.open('/mupen64plus');
-        req.onerror = () => reject(req.error);
-        req.onsuccess = () => resolve(req.result);
-      });
-      if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
+  let chosenExt: '.eep' | '.sra' | '.fla' | null = null;
+  let canonicalKey: string | null = null;
 
-      // 1) Choose canonical by existence + plausible size
-      for (const ext of tryExts) {
-        const cand = `/mupen64plus/saves/${this.canonicalSaveFilename(ext, userId)}`;
-        const exists = await this.idbKeyExists(db, cand);
-        if (!exists) continue;
+  try {
+    // 1) Choose canonical key (what you imported / stored)
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open('/mupen64plus');
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => resolve(req.result);
+    });
+    if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
 
-        const bytes = await this.readIdbBytes(db, cand);
-        const sizes = this.expectedSizeForExt(ext);
-        if (bytes && sizes.includes(bytes.byteLength)) {
-          chosenExt = ext;
-          canonicalKey = cand;
-          break;
-        }
+    for (const ext of tryExts) {
+      const cand = `/mupen64plus/saves/${this.canonicalSaveFilename(ext, userId)}`;
+      const exists = await this.idbKeyExists(db, cand);
+      if (!exists) continue;
+
+      const bytes = await this.readIdbBytes(db, cand);
+      const sizes = this.expectedSizeForExt(ext);
+      if (bytes && sizes.includes(bytes.byteLength)) {
+        chosenExt = ext;
+        canonicalKey = cand;
+        break;
       }
+    }
 
-      this.saveDebug(`LOAD-GUARD: canonical ext chosen`, { chosenExt, canonicalKey });
-      if (!chosenExt || !canonicalKey) { db.close(); return; }
+    this.saveDebug(`LOAD-GUARD: canonical ext chosen`, { chosenExt, canonicalKey });
+    if (!chosenExt || !canonicalKey) { db.close(); return; }
 
-      // 2) Read canonical once
-      const canonicalBytes = await this.readIdbBytes(db, canonicalKey);
-      if (!canonicalBytes || canonicalBytes.byteLength === 0) { db.close(); return; }
-      this.saveDebug(`LOAD-GUARD: canonical bytes`, {
-        canonicalKey,
-        size: canonicalBytes.byteLength,
-        hash: await this.shortSha(canonicalBytes)
-      });
+    const canonicalBytes = await this.readIdbBytes(db, canonicalKey);
+    db.close();
+    if (!canonicalBytes || canonicalBytes.byteLength === 0) return;
 
-      db.close();
+    this.saveDebug(`LOAD-GUARD: canonical bytes`, {
+      canonicalKey,
+      size: canonicalBytes.byteLength,
+      hash: await this.shortSha(canonicalBytes)
+    });
 
-      // 3) Wait for GoodName key to appear
-      const goodKey = await this.waitForGoodNameKey(chosenExt, 2250, 150);
-      this.saveDebug(`LOAD-GUARD: goodKey detected`, { goodKey });
-      if (!goodKey) return;
+    // 2) Determine the emulator’s real save key from GoodName (deterministic)
+    const emuKey = this.emuPrimarySaveKey(chosenExt);
 
-      // 4) Sync canonical -> GoodName once, using a single chosen size
-      const db2 = await new Promise<IDBDatabase>((resolve, reject) => {
-        const req = indexedDB.open('/mupen64plus');
-        req.onerror = () => reject(req.error);
-        req.onsuccess = () => resolve(req.result);
-      });
-      if (!Array.from(db2.objectStoreNames).includes('FILE_DATA')) { db2.close(); return; }
+    this.saveDebug(`LOAD-GUARD: emuKey chosen`, {
+      emuKey,
+      goodname: this._romGoodName,
+      md5: this._romMd5
+    });
 
-      const goodBytes = await this.readIdbBytes(db2, goodKey);
-      let targetBytes = canonicalBytes; // default to canonical size/bytes
-      let wrote = false;
+    if (!emuKey) {
+      // fallback: try previous heuristic (still safe)
+      const fallback = await this.waitForGoodNameKey(chosenExt, 2250, 150);
+      if (!fallback) return;
+      return await this.writeCanonicalToEmuKey(chosenExt, canonicalBytes, fallback);
+    }
 
-      if (chosenExt === '.eep') {
-        const override = this.eepromSizeOverrideForRom(); // e.g., Racer => 512
-        if (override === 512) {
-          // Force 512B, downsizing if canonical is 2048B
-          if (canonicalBytes.byteLength === 2048) {
-            const downsized = this.maybeDownsizeEeprom4K(canonicalBytes);
-            if (downsized) targetBytes = downsized;
-          } else if (canonicalBytes.byteLength !== 512) {
-            // If canonical is odd-sized, still prefer 512 if possible
-            const downsized = this.maybeDownsizeEeprom4K(canonicalBytes);
-            if (downsized) targetBytes = downsized;
-          }
-        } else if (override === 2048) {
-          // (Not needed for Racer, but here for completeness)
-          // If canonical is 512 and you *must* force 2048, you'd need an upsize strategy.
-          // We intentionally do nothing by default.
-        } else {
-          // No override: prefer GoodName's existing size to avoid flips
-          if (goodBytes && (goodBytes.byteLength === 512 || goodBytes.byteLength === 2048)) {
-            if (goodBytes.byteLength === 512 && canonicalBytes.byteLength === 2048) {
-              const downsized = this.maybeDownsizeEeprom4K(canonicalBytes);
-              if (downsized) targetBytes = downsized;
-            } else {
-              targetBytes = canonicalBytes;
-            }
-          }
-        }
-      }
+    // 3) Write canonical -> emuKey and restart if changed
+    await this.writeCanonicalToEmuKey(chosenExt, canonicalBytes, emuKey);
+  } catch (e) {
+    console.warn('ensureSaveLoadedForCurrentRom failed', e);
+  }
+}
 
-      // Write GoodName if different
-      if (!this.bytesEqual(targetBytes, goodBytes)) {
-        await this.writeIdbBytes(db2, goodKey, targetBytes);
-        wrote = true;
-        this.saveDebug(`LOAD-GUARD: wrote chosen bytes -> GoodName`, {
-          goodKey,
-          size: targetBytes.byteLength,
-          hash: await this.shortSha(targetBytes)
-        });
-      } else {
-        this.saveDebug(`LOAD-GUARD: no GoodName write needed`);
-      }
+private async writeCanonicalToEmuKey(
+  ext: '.eep' | '.sra' | '.fla',
+  canonicalBytes: Uint8Array,
+  emuKey: string
+): Promise<void> {
+  const db2 = await new Promise<IDBDatabase>((resolve, reject) => {
+    const req = indexedDB.open('/mupen64plus');
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result);
+  });
+  if (!Array.from(db2.objectStoreNames).includes('FILE_DATA')) { db2.close(); return; }
 
-      // Keep canonical in sync (optional but avoids waiting next boot mirror)
-      if (!this.bytesEqual(targetBytes, canonicalBytes)) {
-        await this.writeIdbBytes(db2, canonicalKey!, targetBytes);
-        this.saveDebug(`LOAD-GUARD: synced GoodName size back to canonical`, {
-          canonicalKey,
-          size: targetBytes.byteLength,
-          hash: await this.shortSha(targetBytes)
-        });
-      }
+  const emuBytes = await this.readIdbBytes(db2, emuKey);
+  let wrote = false;
 
-      db2.close();
-
-      // 5) Restart once if we actually changed GoodName (so the game reloads it)
-      if (wrote) {
-        try {
-          await this.stop();
-          await new Promise(r => setTimeout(r, 350));
-          await this.boot();
-          this.parentRef?.showNotification('Applied save to GoodName and restarted to load it.');
-        } catch (e) {
-          console.warn('Restart after save sync failed', e);
-        }
-      }
-    } catch (e) {
-      console.warn('ensureSaveLoadedForCurrentRom failed', e);
+  // (Optional) EEPROM override / resizing (only if you still need it)
+  let targetBytes = canonicalBytes;
+  if (ext === '.eep') {
+    const override = this.eepromSizeOverrideForRom();
+    if (override === 512 && canonicalBytes.byteLength === 2048) {
+      const downsized = this.maybeDownsizeEeprom4K(canonicalBytes);
+      if (downsized) targetBytes = downsized;
     }
   }
+
+  if (!this.bytesEqual(targetBytes, emuBytes)) {
+    await this.writeIdbBytes(db2, emuKey, targetBytes);
+    wrote = true;
+    this.saveDebug(`LOAD-GUARD: wrote canonical -> emuKey`, {
+      emuKey,
+      size: targetBytes.byteLength,
+      hash: await this.shortSha(targetBytes)
+    });
+  } else {
+    this.saveDebug(`LOAD-GUARD: emuKey already matches canonical`, { emuKey });
+  }
+
+  db2.close();
+
+  // Restart once so game re-reads battery save on boot
+  if (wrote) {
+    try {
+      await this.stop();
+      await new Promise(r => setTimeout(r, 350));
+      await this.boot();
+      this.parentRef?.showNotification('Save injected into emulator save key; restarted to reload it.');
+    } catch (e) {
+      console.warn('Restart after save sync failed', e);
+    }
+  }
+} 
 
 
 
@@ -2785,7 +2782,7 @@ private async debugScanSavesForCurrentRom(): Promise<void> {
   console.log('[SAVE-SCAN] .eep candidates:', rows);
   db.close();
 }
-
+ 
 private coerceToU8(v: any): Uint8Array | null {
   if (!v) return null;
   if (v instanceof Uint8Array) return v;
@@ -2821,21 +2818,17 @@ private coerceToU8(v: any): Uint8Array | null {
   }
 
 /** Capture core-printed ROM metadata (Goodname + MD5) during boot. */
+
 private installMupenConsoleSniffer(): () => void {
   const originalLog = console.log.bind(console);
 
   console.log = (...args: any[]) => {
     try {
-      // Pass through
       originalLog(...args);
 
-      // Parse only strings
       const msg = args?.[0];
       if (typeof msg !== 'string') return;
 
-      // Examples from your logs:
-      // "@@@ Core: Goodname: Star Wars Episode I - Racer (U) [!]"
-      // "@@@ Core: MD5: 1EE8800A4003E7F9688C5A35F929D01B"
       const mGood = msg.match(/@@@\s*Core:\s*Goodname:\s*(.+)$/i);
       if (mGood?.[1]) this._romGoodName = mGood[1].trim();
 
@@ -2846,7 +2839,6 @@ private installMupenConsoleSniffer(): () => void {
     }
   };
 
-  // return restore fn
   return () => { console.log = originalLog; };
 } 
 
@@ -2907,6 +2899,13 @@ private buildSaveKeyCandidates(ext: '.eep' | '.sra' | '.fla', incomingFileName?:
 
   return Array.from(keys);
 }
+
+/** The save key the emulator is most likely using right now (based on GoodName). */ 
+private emuPrimarySaveKey(ext: '.eep' | '.sra' | '.fla'): string | null {
+  if (!this._romGoodName) return null;
+  return `/mupen64plus/saves/${this._romGoodName}${ext}`;
+}
+
 
 }
 
