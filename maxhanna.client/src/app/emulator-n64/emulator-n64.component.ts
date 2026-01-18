@@ -776,18 +776,22 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         throw new Error('Emulator instance missing start method');
       }
 
-      this.installSyncfsGate();
+      this.installSyncfsGate();                 // (you already have)
+      this.installIdbfsGuardsRobust();          // <-- NEW (robust guard)
+      this.pruneUnsupportedNodesUnder('/mupen64plus'); // optional, but helps keep logs clean
 
-      this.installIdbfsStoreEntryGuard();
-
-      this.pruneUnsupportedNodesUnder('/mupen64plus'); // optional but helps
-
-      await this.repairAllIdbTimestampFields(); // keep this (harmless)
-      await this.normalizeMupenFileDataShapes();
+      await this.repairAllIdbTimestampFields(); // keep (harmless)
+      await this.normalizeMupenFileDataShapes(); // you added this already
 
 
-      await this.logAllIdbDbs()
-      //await this.wipeIdbfsMetaStores();
+const FS = (this.instance as any)?.FS;
+console.log('IDBFS guards:',
+  FS?.filesystems?.IDBFS?.storeLocalEntry?.__guarded,
+  FS?.filesystems?.IDBFS?.storeRemoteEntry?.__guarded
+);
+console.log('Mounts:', FS?.mounts?.map((m: any) => ({
+  typeHasGuards: !!(m?.type?.storeLocalEntry?.__guarded),
+})));
 
       await this.instance.start();
       this.status = 'running'; 
@@ -3197,49 +3201,80 @@ private async wipeAllIdbfsMetaStores(): Promise<void> {
   }
 } 
 
-/** Guard IDBFS store*Entry so unsupported node types are skipped (not fatal). */
-private installIdbfsStoreEntryGuard(): void {
-  const patchStore = (FS: any, methodName: 'storeLocalEntry' | 'storeRemoteEntry') => {
-    const IDBFS = FS?.filesystems?.IDBFS;
-    if (!IDBFS) return;
-    const flag = `__${methodName}GuardInstalled`;
-    if ((IDBFS as any)[flag]) return;
 
-    const orig = IDBFS[methodName]?.bind(IDBFS);
-    if (typeof orig !== 'function') return;
+
+/** Guard IDBFS store*Entry so unsupported node types are skipped (not fatal). */
+private installIdbfsGuardsRobust(retries = 6, intervalMs = 50): void {
+  const patchTargets = (FS: any): any[] => {
+    const t: any[] = [];
+    try {
+      const idbfs = FS?.filesystems?.IDBFS;
+      if (idbfs) t.push(idbfs);
+    } catch {}
+    try {
+      const mounts = FS?.mounts || [];
+      for (const m of mounts) {
+        if (m?.type) t.push(m.type);
+      }
+    } catch {}
+    // Unique by object identity
+    return Array.from(new Set(t.filter(Boolean)));
+  };
+
+  const installOn = (FS: any, obj: any, name: 'storeLocalEntry' | 'storeRemoteEntry') => {
+    if (!obj || typeof obj[name] !== 'function' || obj[name].__guarded) return;
+
+    const orig = obj[name].bind(obj);
 
     const isFile = (mode: number) =>
-      (FS.isFile ? FS.isFile(mode) : ((mode & 0o170000) === 0o100000));
+      FS?.isFile ? FS.isFile(mode) : ((mode & 0o170000) === 0o100000);
     const isDir = (mode: number) =>
-      (FS.isDir ? FS.isDir(mode) : ((mode & 0o170000) === 0o040000));
+      FS?.isDir ? FS.isDir(mode) : ((mode & 0o170000) === 0o040000);
 
-    const guarded = (path: any, entry: any, cb?: (err?: any) => void) => {
-      // 1) Pre-check: if not file or dir, skip immediately
+    const guarded = (...args: any[]) => {
+      // Try to find entry and cb regardless of signature
+      let entry = undefined as any;
+      for (const a of args) {
+        if (a && typeof a === 'object' && typeof a.mode === 'number') { entry = a; break; }
+      }
+      let cb: any = null;
+      for (let i = args.length - 1; i >= 0; i--) {
+        if (typeof args[i] === 'function') { cb = args[i]; break; }
+      }
+
+      const skipWith = (reason: string) => {
+        console.warn(`[IDBFS] ${name}: skip unsupported node`, { reason, args });
+        try { cb && cb(); } catch {}
+        return;
+      };
+
       try {
         const mode = entry?.mode;
         if (mode != null && !isFile(mode) && !isDir(mode)) {
-          console.warn(`[IDBFS] ${methodName}: skip unsupported node`, { path, mode });
-          try { cb && cb(); } catch {}
-          return;
+          return skipWith('not file/dir');
         }
-      } catch { /* ignore and call orig */ }
+      } catch { /* fall through */ }
 
-      // 2) Wrap callback to swallow the specific error
+      // Wrap callback to swallow the specific error if callback style
       const wrappedCb = (err?: any) => {
         if (err && /node type not supported/i.test(String(err?.message || err))) {
-          console.warn(`[IDBFS] ${methodName}: swallowed unsupported node error`, { path });
+          console.warn(`[IDBFS] ${name}: swallowed unsupported node error (cb)`);
           try { cb && cb(); } catch {}
           return;
         }
         try { cb && cb(err); } catch {}
       };
 
-      // 3) Try/catch around original (for builds that throw)
       try {
-        return orig(path, entry, wrappedCb);
+        if (cb) {
+          const newArgs = [...args];
+          newArgs[args.lastIndexOf(cb)] = wrappedCb;
+          return orig(...newArgs);
+        }
+        return orig(...args);
       } catch (e: any) {
         if (/node type not supported/i.test(String(e?.message || e))) {
-          console.warn(`[IDBFS] ${methodName}: caught unsupported node throw`, { path });
+          console.warn(`[IDBFS] ${name}: swallowed unsupported node throw`);
           try { cb && cb(); } catch {}
           return;
         }
@@ -3247,21 +3282,36 @@ private installIdbfsStoreEntryGuard(): void {
       }
     };
 
-    IDBFS[methodName] = guarded;
-    (IDBFS as any)[flag] = true;
+    (guarded as any).__guarded = true;
+    obj[name] = guarded;
   };
 
-  const patchAll = (FS: any) => {
-    if (!FS) return;
-    patchStore(FS, 'storeLocalEntry');
-    patchStore(FS, 'storeRemoteEntry');
+  const tryPatch = (FS: any) => {
+    const targets = patchTargets(FS);
+    for (const t of targets) {
+      installOn(FS, t, 'storeLocalEntry');
+      installOn(FS, t, 'storeRemoteEntry');
+    }
   };
 
-  const mFS = (this.instance as any)?.FS;
-  patchAll(mFS);
-  const wFS = (window as any).FS;
-  if (wFS && wFS !== mFS) patchAll(wFS);
+  const patchAll = () => {
+    const mFS = (this.instance as any)?.FS;
+    if (mFS) tryPatch(mFS);
+    const wFS = (window as any).FS;
+    if (wFS && wFS !== mFS) tryPatch(wFS);
+  };
+
+  // Immediate and a few retries (catches late init / mount)
+  patchAll();
+  if (retries > 0) {
+    let n = 0;
+    const iv = setInterval(() => {
+      patchAll();
+      if (++n >= retries) clearInterval(iv);
+    }, intervalMs);
+  }
 }
+
 
 
 private async normalizeMupenFileDataShapes(): Promise<void> {
@@ -3334,44 +3384,33 @@ private async normalizeMupenFileDataShapes(): Promise<void> {
     try { db.close(); } catch {}
   } catch { /* ignore */ }
 } 
-
+ 
 /** Remove non-file/dir nodes under a path to prevent IDBFS choking on them. */
 private pruneUnsupportedNodesUnder(root = '/mupen64plus'): void {
   try {
     const FS = (this.instance as any)?.FS;
     if (!FS) return;
 
-    const walk = (p: string) => {
-      let entries: string[] = [];
-      try {
-        entries = FS.readdir(p).filter((n: string) => n !== '.' && n !== '..');
-      } catch { return; }
+    const isFile = (m: number) => FS.isFile?.(m) ?? ((m & 0o170000) === 0o100000);
+    const isDir  = (m: number) => FS.isDir?.(m)  ?? ((m & 0o170000) === 0o040000);
+    const isLink = (m: number) => FS.isLink?.(m) ?? ((m & 0o170000) === 0o120000);
 
-      for (const name of entries) {
+    const walk = (p: string) => {
+      let list: string[] = [];
+      try { list = FS.readdir(p).filter((n: string) => n !== '.' && n !== '..'); }
+      catch { return; }
+
+      for (const name of list) {
         const child = p.endsWith('/') ? p + name : `${p}/${name}`;
         let mode = 0;
-        try {
-          const node = FS.lookupPath(child)?.node;
-          mode = node?.mode ?? 0;
-        } catch { /* ignore */ }
+        try { mode = FS.lookupPath(child)?.node?.mode ?? 0; } catch {}
 
-        const isF = FS.isFile?.(mode) ?? ((mode & 0o170000) === 0o100000);
-        const isD = FS.isDir?.(mode) ?? ((mode & 0o170000) === 0o040000);
-        const isL = FS.isLink?.(mode) ?? ((mode & 0o170000) === 0o120000);
-
-        if (isD) {
+        if (isDir(mode)) {
           walk(child);
-        } else if (!isF && !isD) {
-          // Try to remove symlinks/other specials
-          try {
-            if (isL && FS.unlink) {
-              FS.unlink(child);
-              console.warn('[IDBFS] pruned symlink', child);
-            } else if (FS.unlink) {
-              FS.unlink(child);
-              console.warn('[IDBFS] pruned special node', child);
-            }
-          } catch { /* ignore */ }
+          continue;
+        }
+        if (!isFile(mode) && !isDir(mode)) {
+          try { FS.unlink?.(child); console.warn('[IDBFS] pruned special node', child); } catch {}
         }
       }
     };
@@ -3381,32 +3420,7 @@ private pruneUnsupportedNodesUnder(root = '/mupen64plus'): void {
     console.warn('pruneUnsupportedNodesUnder failed', e);
   }
 }
-
-private logFsChildren = (root = '/mupen64plus') => {
-  try {
-    const FS = (this.instance as any)?.FS;
-    if (!FS) return;
-    const list = (p: string) => {
-      const names = FS.readdir(p).filter((n: string) => n !== '.' && n !== '..');
-      return names.map((n: any) => {
-        const full = p.endsWith('/') ? p + n : p + '/' + n;
-        const node = FS.lookupPath(full).node;
-        const mode = node?.mode ?? 0;
-        return {
-          path: full,
-          isFile: FS.isFile?.(mode) || false,
-          isDir: FS.isDir?.(mode) || false,
-          isLink: FS.isLink?.(mode) || false,
-          mode
-        };
-      });
-    };
-    console.table(list('/'));
-    console.table(list(root));
-  } catch (e) {
-    console.warn('FS list failed', e);
-  }
-};
+ 
 
 private async logAllIdbDbs(): Promise<void> {
   try {
