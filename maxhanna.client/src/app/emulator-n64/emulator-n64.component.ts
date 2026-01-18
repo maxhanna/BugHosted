@@ -776,12 +776,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         throw new Error('Emulator instance missing start method');
       }
 
-      this.installSyncfsGate();                 // (you already have)
-      this.installIdbfsGuardsRobust();          // <-- NEW (robust guard)
-      this.pruneUnsupportedNodesUnder('/mupen64plus'); // optional, but helps keep logs clean
+// Order matters: install read-only sync BEFORE start()
+this.installSyncfsGate();            // keep your single-flight gate (fine)
+this.installIdbfsReadOnlySync();     // <-- NEW: block write syncs that cause the throw
+this.pruneUnsupportedNodesUnder('/mupen64plus'); // keep optional prune (no harm)
 
-      await this.repairAllIdbTimestampFields(); // keep (harmless)
-      await this.normalizeMupenFileDataShapes(); // you added this already
+await this.repairAllIdbTimestampFields();
+await this.normalizeMupenFileDataShapes();
 
 
 const FS = (this.instance as any)?.FS;
@@ -2899,6 +2900,52 @@ private async wipeIdbfsMetaStores(): Promise<void> {
     }
   }
 
+/** Make FS.syncfs read-only: allow populate reads; no-op writes to avoid storeLocalEntry crashes. */
+private installIdbfsReadOnlySync(): void {
+  const FS = (this.instance as any)?.FS || (window as any).FS;
+  if (!FS) return;
+  if ((FS as any).__roSyncInstalled) return;
+
+  const original = (typeof FS.syncfs === 'function') ? FS.syncfs.bind(FS) : null;
+
+  // Stub FS.syncfs(populate, cb)
+  const roSync = (populate: boolean, cb: (err?: any) => void) => {
+    // Let the initial populate pass through (remote -> local)
+    if (populate && original) {
+      try {
+        original(true, (err?: any) => {
+          if (err) console.warn('[IDBFS] populate sync reported err (ignored):', err);
+          try { cb?.(); } catch {}
+        });
+      } catch {
+        try { cb?.(); } catch {}
+      }
+      return;
+    }
+    // Block local->remote (write) to avoid "node type not supported"
+    setTimeout(() => { try { cb?.(); } catch {} }, 0);
+  };
+
+  (roSync as any).__roSyncInstalled = true;
+  FS.syncfs = roSync;
+
+  // If this build exposes IDBFS.syncfs(mount, populate, cb), stub that too
+  const IDBFS = FS.filesystems?.IDBFS;
+  if (IDBFS && typeof IDBFS.syncfs === 'function') {
+    const origIdbfs = IDBFS.syncfs.bind(IDBFS);
+    IDBFS.syncfs = (mount: any, populate: boolean, cb: (err?: any) => void) => {
+      if (populate) {
+        try {
+          origIdbfs(mount, true, (_?: any) => { try { cb?.(); } catch {} });
+        } catch {
+          try { cb?.(); } catch {}
+        }
+      } else {
+        setTimeout(() => { try { cb?.(); } catch {} }, 0);
+      }
+    };
+  }
+} 
   
 /** Try to convert any numeric/string timestamps to Date across all DBs/stores. */
 private async repairAllIdbTimestampFields(): Promise<void> {
