@@ -776,14 +776,15 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         throw new Error('Emulator instance missing start method');
       }
 
-// Order matters: install read-only sync BEFORE start()
-this.installSyncfsGate();            // keep your single-flight gate (fine)
-this.installIdbfsReadOnlySync();     // <-- NEW: block write syncs that cause the throw
-this.pruneUnsupportedNodesUnder('/mupen64plus'); // keep optional prune (no harm)
+// Order matters: install read-only sync BEFORE start() 
+// Install guards *immediately*, before any IDBFS sync kicks in
+this.installHiddenIdbfsGuardsBrutal({ passes: 8, interval: 40 });
+this.installSyncfsGate();         // keep: single-flight debounce
+this.installIdbfsReadOnlySync();  // read-only sync + installs brutal guard again for populate
+this.pruneUnsupportedNodesUnder('/mupen64plus'); // optional but helpful
 
 await this.repairAllIdbTimestampFields();
 await this.normalizeMupenFileDataShapes();
-
 
 const FS = (this.instance as any)?.FS;
 console.log('IDBFS guards:',
@@ -2900,7 +2901,96 @@ private async wipeIdbfsMetaStores(): Promise<void> {
     }
   }
 
-/** Make FS.syncfs read-only: allow populate reads; no-op writes to avoid storeLocalEntry crashes. */
+/** Find & guard hidden IDBFS storeLocalEntry/storeRemoteEntry even if not at FS.filesystems.IDBFS. */
+private installHiddenIdbfsGuardsBrutal(opts?: { passes?: number; interval?: number }): void {
+  const passes = Math.max(1, Math.min(20, opts?.passes ?? 8));
+  const interval = Math.max(10, Math.min(200, opts?.interval ?? 40));
+
+  const already = (window as any).__hiddenIdbfsGuardInstalled as boolean;
+  if (already) return;
+
+  const swallow = (name: 'storeLocalEntry' | 'storeRemoteEntry', obj: any) => {
+    if (!obj || typeof obj[name] !== 'function' || obj[name].__guarded) return false;
+
+    const orig = obj[name].bind(obj);
+
+    const guarded = (...args: any[]) => {
+      // Find callback if present
+      let cb: any = null;
+      for (let i = args.length - 1; i >= 0; i--) {
+        if (typeof args[i] === 'function') { cb = args[i]; break; }
+      }
+
+      const wrappedCb = (err?: any) => {
+        if (err && /node type not supported/i.test(String(err?.message || err))) {
+          console.warn(`[IDBFS] ${name}: swallowed unsupported node error (cb)`);
+          try { cb && cb(); } catch {}
+          return;
+        }
+        try { cb && cb(err); } catch {}
+      };
+
+      try {
+        if (cb) {
+          const a = [...args];
+          a[args.lastIndexOf(cb)] = wrappedCb;
+          return orig(...a);
+        }
+        return orig(...args);
+      } catch (e: any) {
+        if (/node type not supported/i.test(String(e?.message || e))) {
+          console.warn(`[IDBFS] ${name}: swallowed unsupported node throw`);
+          try { cb && cb(); } catch {}
+          return;
+        }
+        throw e;
+      }
+    };
+
+    (guarded as any).__guarded = true;
+    obj[name] = guarded;
+    return true;
+  };
+
+  const tryPatchRoots = () => {
+    let patched = 0;
+    const roots = new Set<any>([
+      (this.instance as any) || null,
+      (this.instance as any)?.Module || null,
+      (window as any) || null
+    ].filter(Boolean));
+
+    // shallow scan each root’s enumerable properties
+    for (const root of roots) {
+      try {
+        const keys = Object.keys(root);
+        for (const k of keys) {
+          const v = (root as any)[k];
+          if (!v || typeof v !== 'object') continue;
+
+          try { patched += swallow('storeLocalEntry', v) ? 1 : 0; } catch {}
+          try { patched += swallow('storeRemoteEntry', v) ? 1 : 0; } catch {}
+        }
+      } catch { /* ignore */ }
+    }
+
+    if (patched) {
+      console.log(`[IDBFS] hidden guard: patched ${patched} method(s) this pass`);
+    }
+  };
+
+  tryPatchRoots(); // immediate
+  let n = 1;
+  const timer = setInterval(() => {
+    tryPatchRoots();
+    if (++n >= passes) {
+      clearInterval(timer);
+      (window as any).__hiddenIdbfsGuardInstalled = true;
+    }
+  }, interval);
+}
+
+/** Make FS.syncfs read-only: allow populate reads; no-op writes. Also guard hidden store*Entry during populate. */
 private installIdbfsReadOnlySync(): void {
   const FS = (this.instance as any)?.FS || (window as any).FS;
   if (!FS) return;
@@ -2908,38 +2998,34 @@ private installIdbfsReadOnlySync(): void {
 
   const original = (typeof FS.syncfs === 'function') ? FS.syncfs.bind(FS) : null;
 
-  // Stub FS.syncfs(populate, cb)
   const roSync = (populate: boolean, cb: (err?: any) => void) => {
-    // Let the initial populate pass through (remote -> local)
     if (populate && original) {
+      // ⬇️ Ensure the hidden store*Entry functions are guarded *before* populate runs
+      try { this.installHiddenIdbfsGuardsBrutal({ passes: 6, interval: 30 }); } catch {}
+
       try {
-        original(true, (err?: any) => {
-          if (err) console.warn('[IDBFS] populate sync reported err (ignored):', err);
-          try { cb?.(); } catch {}
-        });
+        original(true, (_?: any) => { try { cb?.(); } catch {} });
       } catch {
         try { cb?.(); } catch {}
       }
       return;
     }
-    // Block local->remote (write) to avoid "node type not supported"
+    // Block local->remote (write) syncs which can hit special nodes
     setTimeout(() => { try { cb?.(); } catch {} }, 0);
   };
 
   (roSync as any).__roSyncInstalled = true;
   FS.syncfs = roSync;
 
-  // If this build exposes IDBFS.syncfs(mount, populate, cb), stub that too
+  // If this build exposes IDBFS.syncfs, stub it similarly
   const IDBFS = FS.filesystems?.IDBFS;
   if (IDBFS && typeof IDBFS.syncfs === 'function') {
     const origIdbfs = IDBFS.syncfs.bind(IDBFS);
     IDBFS.syncfs = (mount: any, populate: boolean, cb: (err?: any) => void) => {
       if (populate) {
-        try {
-          origIdbfs(mount, true, (_?: any) => { try { cb?.(); } catch {} });
-        } catch {
-          try { cb?.(); } catch {}
-        }
+        try { this.installHiddenIdbfsGuardsBrutal({ passes: 6, interval: 30 }); } catch {}
+        try { origIdbfs(mount, true, (_?: any) => { try { cb?.(); } catch {} }); }
+        catch { try { cb?.(); } catch {} }
       } else {
         setTimeout(() => { try { cb?.(); } catch {} }, 0);
       }
