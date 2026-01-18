@@ -3309,7 +3309,7 @@ private logFsChildren = (root = '/mupen64plus') => {
     if (!FS) return;
     const list = (p: string) => {
       const names = FS.readdir(p).filter((n: string) => n !== '.' && n !== '..');
-      return names.map(n => {
+      return names.map((n: any) => {
         const full = p.endsWith('/') ? p + n : p + '/' + n;
         const node = FS.lookupPath(full).node;
         const mode = node?.mode ?? 0;
