@@ -90,6 +90,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private lastUploadedHashes = new Map<string, string>(); 
   private _syncInFlight = false;
   private _syncQueued = false;
+  private _metaWipedOnce = false; 
 
 
   // Canvas resize
@@ -772,16 +773,19 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         throw new Error('Emulator instance missing start method');
       }
 
+      this.installSyncfsGate();
+      await this.wipeIdbfsMetaStores();
+
       await this.instance.start();
       this.status = 'running'; 
 
-      await this.repairIdbfsMetaTimestamps(); 
+      //await this.repairIdbfsMetaTimestamps(); 
       await this.waitForRomIdentity(2000);
       restoreSniffer();// ✅ Stop sniffing once ROM meta printed
 
       // Give IDBFS a small head start; reduces "syncfs overlap" churn
       await new Promise(r => setTimeout(r, 400)); 
-      await this.syncFs('populate', /* populate = */ true);
+     // await this.syncFs('populate', /* populate = */ true);
       await this.safeDebug('SAVE-SCAN', () => this.debugScanSavesForCurrentRom());
       await this.safeDebug('ROM-ID', () => this.debugRomIdentity());
 
@@ -1320,7 +1324,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         if (wasRunning) {
           await this.stop();
           await new Promise(r => setTimeout(r, 400));
-          await this.syncFs('post-import');
+         // await this.syncFs('post-import');
         }
         if (!skipBoot) {
           await this.boot();
@@ -1400,8 +1404,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch (err) {
       console.error('autosaveTick error', err);
     } finally {
-      this.autosaveInProgress = false;
-     // await this.syncFs('post-autosave');
+      this.autosaveInProgress = false; 
       console.log("Finished Autosave");
     }
   }
@@ -2388,11 +2391,19 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
   
+
 private async writeCanonicalToEmuKey(
   ext: '.eep' | '.sra' | '.fla',
   canonicalBytes: Uint8Array,
   emuKey: string
 ): Promise<void> {
+  // 👉 Stop first to avoid concurrent writes from the core
+  const wasRunning = (this.status === 'running' && !!this.instance);
+  if (wasRunning) {
+    await this.stop();
+    await new Promise(r => setTimeout(r, 200));
+  }
+
   const db2 = await new Promise<IDBDatabase>((resolve, reject) => {
     const req = indexedDB.open('/mupen64plus');
     req.onerror = () => reject(req.error);
@@ -2403,12 +2414,10 @@ private async writeCanonicalToEmuKey(
   const emuBytes = await this.readIdbBytes(db2, emuKey);
 
   let target = canonicalBytes;
-
   if (ext === '.eep') {
-    // Prefer the emulator's existing size if present; else use per-ROM override; else keep canonical size.
     let desired = emuBytes?.byteLength ?? 0;
     if (desired !== 512 && desired !== 2048) {
-      const override = this.eepromSizeOverrideForRom(); // 512 for Racer
+      const override = this.eepromSizeOverrideForRom();
       if (override) desired = override;
     }
     if (desired !== 512 && desired !== 2048) desired = canonicalBytes.byteLength;
@@ -2436,15 +2445,13 @@ private async writeCanonicalToEmuKey(
 
   db2.close();
 
-  // 👉 CRITICAL: pull persisted -> memory FS, then restart once so the game re-reads the battery
-  try { await this.syncFs('ensure-populate', /*populate=*/true); } catch {}
+  // ❌ Remove any explicit FS.syncfs calls — boot will populate cleanly.
+  // try { await this.syncFs('ensure-populate', /*populate=*/true); } catch {}
 
   if (changed || !this._saveReloadedOnceThisBoot) {
     try {
-      await this.stop();
+      // Repair meta just in case, then boot
       await this.repairIdbfsMetaTimestamps();
-      await new Promise(r => setTimeout(r, 350)); 
-      await this.syncFs('populate', true); 
       await this.boot();
       this._saveReloadedOnceThisBoot = true;
       this.parentRef?.showNotification(
@@ -2787,6 +2794,44 @@ private async writeCanonicalToEmuKey(
     return restore;
   }
 
+/** Remove only IDBFS META / METADATA stores to clear bad timestamps. Keeps FILE_DATA intact. */
+private async wipeIdbfsMetaStores(): Promise<void> {
+  
+ if (this._metaWipedOnce) return;
+  this._metaWipedOnce = true;
+
+  // Low-risk: reopen DB in an upgrade path and delete only meta-like stores
+  await new Promise<void>((resolve, reject) => {
+    // First open to read current version
+    const pre = indexedDB.open('/mupen64plus');
+    pre.onerror = () => resolve(); // if DB doesn't exist, nothing to do
+    pre.onsuccess = () => {
+      const db = pre.result;
+      const currentVersion = (db as any).version || 1;
+      const storeNames = Array.from(db.objectStoreNames);
+      db.close();
+
+      const metaNames = storeNames.filter(n =>
+        /meta/i.test(n) || /metadata/i.test(n) || /remote/i.test(n)
+      );
+      if (!metaNames.length) { resolve(); return; }
+
+      const req = indexedDB.open('/mupen64plus', currentVersion + 1);
+      req.onupgradeneeded = (ev: any) => {
+        const up = req.result;
+        const names = Array.from(up.objectStoreNames);
+        for (const n of names) {
+          if (/meta/i.test(n) || /metadata/i.test(n) || /remote/i.test(n)) {
+            try { up.deleteObjectStore(n); } catch { /* ignore */ }
+          }
+        }
+      };
+      req.onsuccess = () => { try { req.result.close(); } catch {} ; resolve(); };
+      req.onerror = () => resolve(); // do not block if wipe fails
+    };
+  });
+}
+
   /** ROM header internal name (offset 0x20..0x33), trimmed. */
   private romHeaderInternalName(): string | null {
     if (!this.romBuffer) return null;
@@ -2897,6 +2942,71 @@ private async repairIdbfsMetaTimestamps(): Promise<void> {
     if (header) return `/mupen64plus/saves/${header}${ext}`;
     return null;
   }
+
+/** Install a global single-flight shim for FS.syncfs to prevent overlaps and retry storms. */
+private installSyncfsGate(): void {
+  const FS: any = (window as any).FS;
+  if (!FS?.syncfs || (FS as any).__gateInstalled) return;
+
+  let inFlight = false;
+  let queued = false;
+  const original = FS.syncfs.bind(FS);
+
+  FS.syncfs = function (populate: boolean, cb: (err?: any) => void) {
+    // Coalesce: if one is running, queue just one more and return quickly
+    if (inFlight) {
+      queued = true;
+      // Respond to caller asynchronously so they don't hang
+      setTimeout(() => cb?.(), 0);
+      return;
+    }
+    inFlight = true;
+
+    const runOnce = () => { 
+      try {
+        const e = new Error();
+        console.debug('[SYNCFS] requested', { populate, at: (e.stack || '').split('\n').slice(2,6) });
+      } catch {}
+
+      try {
+        original(populate, (err?: any) => {
+          // Finish this run
+          inFlight = false;
+
+          if (queued) {
+            // Drain exactly once more
+            queued = false;
+            // Re-run WITHOUT letting other callers add more storms during this frame
+            inFlight = true;
+            try {
+              original(populate, (_err2?: any) => {
+                inFlight = false;
+                queued = false;
+                try { cb?.(); } catch {}
+              });
+            } catch {
+              inFlight = false;
+              queued = false;
+              try { cb?.(); } catch {}
+            }
+          } else {
+            try { cb?.(err); } catch {}
+          }
+        });
+      } catch {
+        // If original threw synchronously, unlock and return
+        inFlight = false;
+        queued = false;
+        try { cb?.(); } catch {}
+      }
+    };
+
+    // Defer slightly to allow multiple back-to-back callers to coalesce
+    setTimeout(runOnce, 0);
+  };
+
+  (FS as any).__gateInstalled = true;
+}
 
   private async openMupenDb(): Promise<IDBDatabase | null> {
     try {
