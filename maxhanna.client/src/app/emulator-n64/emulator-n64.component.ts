@@ -81,6 +81,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   private hasLoadedLastInput = false;
   private bootGraceUntil = 0;
+private _ensureRanThisBoot = false;
+
 
   // Autosave
   autosave = true;
@@ -726,6 +728,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.startAutosaveLoop();
     }
     this._saveReloadedOnceThisBoot = false;
+    this._ensureRanThisBoot = false; 
 
     const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
     if (!canvasEl) {
@@ -796,7 +799,15 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.mirrorGoodNameSavesToCanonical().catch(() => { });
 
       // ✅ This is the key: copy canonical -> emulator key (GoodName).eep and restart once
-      this.ensureSaveLoadedForCurrentRom().catch(() => { });
+      // Defer a bit to let plugins finish attaching
+      
+      setTimeout(() => {
+        if (!this._ensureRanThisBoot) {
+          this._ensureRanThisBoot = true;
+          this.ensureSaveLoadedForCurrentRom().catch(() => {});
+        }
+      }, 800);
+
 
       this.parentRef?.showNotification(`Booted ${this.romName}`);
       this.bootGraceUntil = performance.now() + 1500;
@@ -2397,22 +2408,18 @@ private async writeCanonicalToEmuKey(
   canonicalBytes: Uint8Array,
   emuKey: string
 ): Promise<void> {
-  // 👉 Stop first to avoid concurrent writes from the core
-  const wasRunning = (this.status === 'running' && !!this.instance);
-  if (wasRunning) {
-    await this.stop();
-    await new Promise(r => setTimeout(r, 200));
-  }
-
-  const db2 = await new Promise<IDBDatabase>((resolve, reject) => {
+  // 1) Read existing emu bytes first (no stop yet)
+  const dbRead = await new Promise<IDBDatabase>((resolve, reject) => {
     const req = indexedDB.open('/mupen64plus');
     req.onerror = () => reject(req.error);
     req.onsuccess = () => resolve(req.result);
   });
-  if (!Array.from(db2.objectStoreNames).includes('FILE_DATA')) { db2.close(); return; }
+  if (!Array.from(dbRead.objectStoreNames).includes('FILE_DATA')) { dbRead.close(); return; }
 
-  const emuBytes = await this.readIdbBytes(db2, emuKey);
+  const emuBytes = await this.readIdbBytes(dbRead, emuKey);
+  dbRead.close();
 
+  // Prepare target (EEPROM size reconcile as you had)
   let target = canonicalBytes;
   if (ext === '.eep') {
     let desired = emuBytes?.byteLength ?? 0;
@@ -2421,7 +2428,6 @@ private async writeCanonicalToEmuKey(
       if (override) desired = override;
     }
     if (desired !== 512 && desired !== 2048) desired = canonicalBytes.byteLength;
-
     if (desired === 512 && canonicalBytes.byteLength === 2048) {
       target = canonicalBytes.slice(0, 512);
     } else if (desired === 2048 && canonicalBytes.byteLength === 512) {
@@ -2432,35 +2438,41 @@ private async writeCanonicalToEmuKey(
   }
 
   const changed = !this.bytesEqual(target, emuBytes);
-  if (changed) {
-    await this.writeIdbBytes(db2, emuKey, target);
-    this.saveDebug(`LOAD-GUARD: wrote canonical -> emuKey`, {
-      emuKey,
-      size: target.byteLength,
-      hash: await this.shortSha(target)
-    });
-  } else {
+  if (!changed) {
     this.saveDebug(`LOAD-GUARD: emuKey already matches canonical`, { emuKey });
+    return; // ✅ no stop/restart if nothing to do
   }
 
-  db2.close();
-
-  // ❌ Remove any explicit FS.syncfs calls — boot will populate cleanly.
-  // try { await this.syncFs('ensure-populate', /*populate=*/true); } catch {}
-
-  if (changed || !this._saveReloadedOnceThisBoot) {
-    try {
-      // Repair meta just in case, then boot
-      await this.repairIdbfsMetaTimestamps();
-      await this.boot();
-      this._saveReloadedOnceThisBoot = true;
-      this.parentRef?.showNotification(
-        changed
-          ? 'Save injected and emulator restarted to load it.'
-          : 'Save present; emulator restarted to ensure it is loaded.'
-      );
-    } catch { /* ignore */ }
+  // 2) Now stop (safe, only if we actually need to write)
+  const wasRunning = (this.status === 'running' && !!this.instance);
+  if (wasRunning) {
+    await this.stop();
+    await new Promise(r => setTimeout(r, 200));
   }
+
+  // 3) Write target bytes
+  const dbWrite = await new Promise<IDBDatabase>((resolve, reject) => {
+    const req = indexedDB.open('/mupen64plus');
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result);
+  });
+  if (!Array.from(dbWrite.objectStoreNames).includes('FILE_DATA')) { dbWrite.close(); return; }
+
+  await this.writeIdbBytes(dbWrite, emuKey, target);
+  this.saveDebug(`LOAD-GUARD: wrote canonical -> emuKey`, {
+    emuKey,
+    size: target.byteLength,
+    hash: await this.shortSha(target)
+  });
+  dbWrite.close();
+
+  // 4) Repair meta just in case, then boot
+  try {
+    await this.repairIdbfsMetaTimestamps();
+    await this.boot();
+    this._saveReloadedOnceThisBoot = true;
+    this.parentRef?.showNotification('Save injected and emulator restarted to load it.');
+  } catch { /* ignore */ }
 } 
 
   private async findEmuGoodNameKeyForExt(db: IDBDatabase, ext: '.eep' | '.sra' | '.fla'): Promise<string | null> {
