@@ -84,8 +84,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private _ensureRanThisBoot = false;
   private _allMetaWipedOnce = false;
 
-
-
   // Autosave
   autosave = true;
   private autosaveTimer: any = null;
@@ -94,8 +92,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private lastUploadedHashes = new Map<string, string>(); 
   private _syncInFlight = false;
   private _syncQueued = false;
-  private _metaWipedOnce = false; 
-
+  private _metaWipedOnce = false;  
+  private _fileDataNormalizedOnce = false;
 
   // Canvas resize
   private _canvasResizeAdded = false;
@@ -780,8 +778,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
       this.installSyncfsGate();
 
-await this.repairAllIdbTimestampFields();
-await this.logAllIdbDbs()
+await this.repairAllIdbTimestampFields(); // keep this (harmless)
+await this.normalizeMupenFileDataShapes();
+
+
+      await this.logAllIdbDbs()
       //await this.wipeIdbfsMetaStores();
 
       await this.instance.start();
@@ -1215,16 +1216,23 @@ await this.logAllIdbDbs()
       const allowedExts = ['.eep', '.sra', '.fla'];
       const written: string[] = [];
       const userId = this.parentRef?.user?.id ?? 0;
-
+      
       const makeValue = (bytes: Uint8Array, existingOrTemplate?: any) => {
-        if (!existingOrTemplate) return bytes;
-        const clone = JSON.parse(JSON.stringify(existingOrTemplate));
-        if (clone.contents) clone.contents = bytes;
-        else if (clone.data) clone.data = bytes;
-        else if (Array.isArray(clone.bytes)) clone.bytes = Array.from(bytes);
-        else return bytes;
-        return clone;
-      };
+        const now = new Date();
+        const v = existingOrTemplate ? JSON.parse(JSON.stringify(existingOrTemplate)) : { contents: bytes, timestamp: now };
+
+        if (v.contents !== undefined) v.contents = bytes;
+        else if (v.data !== undefined) v.data = bytes;
+        else if (Array.isArray(v.bytes)) v.bytes = Array.from(bytes);
+        else v.contents = bytes;
+
+        if (!(v.timestamp instanceof Date)) v.timestamp = now;
+        if ('mtime' in v && !(v.mtime instanceof Date)) v.mtime = now;
+        if ('ctime' in v && !(v.ctime instanceof Date)) v.ctime = now;
+        if ('atime' in v && !(v.atime instanceof Date)) v.atime = now;
+
+        return v;
+      }; 
 
       const txPut = (os: IDBObjectStore, key: string, val: any) => new Promise<void>((resolve, reject) => {
         const r = os.put(val, key);
@@ -1337,6 +1345,7 @@ await this.logAllIdbDbs()
         console.log(`Imported ${written.length} save file(s): ${written.join(', ')}`);
         this.parentRef?.showNotification(`Imported ${written.length} save file(s): ${written.join(', ')}`);
         const wasRunning = this.status === 'running' || !!this.instance;
+        await this.normalizeMupenFileDataShapes();
         if (wasRunning) {
           await this.stop();
           await new Promise(r => setTimeout(r, 400));
@@ -2259,33 +2268,46 @@ await this.logAllIdbDbs()
     return toU8(val);
   }
 
-  private async writeIdbBytes(db: IDBDatabase, key: string, bytes: Uint8Array): Promise<void> {
-    const tx = db.transaction('FILE_DATA', 'readwrite');
-    const os = tx.objectStore('FILE_DATA');
-    const existing = await new Promise<any>((resolve) => {
-      const r = os.get(key);
-      r.onerror = () => resolve(null);
-      r.onsuccess = () => resolve(r.result ?? null);
-    });
+private async writeIdbBytes(db: IDBDatabase, key: string, bytes: Uint8Array): Promise<void> {
+  const tx = db.transaction('FILE_DATA', 'readwrite');
+  const os = tx.objectStore('FILE_DATA');
 
-    let value: any;
-    if (!existing) {
-      value = bytes;
-    } else {
-      const clone = JSON.parse(JSON.stringify(existing));
-      if (clone.contents) clone.contents = bytes;
-      else if (clone.data) clone.data = bytes;
-      else if (Array.isArray(clone.bytes)) clone.bytes = Array.from(bytes);
-      else value = bytes;
-      value = value ?? clone;
-    }
+  const existing = await new Promise<any>((resolve) => {
+    const r = os.get(key);
+    r.onerror = () => resolve(null);
+    r.onsuccess = () => resolve(r.result ?? null);
+  });
 
-    await new Promise<void>((resolve, reject) => {
-      const w = os.put(value, key);
-      w.onerror = () => reject(w.error);
-      w.onsuccess = () => resolve();
-    });
-  }
+  const now = new Date();
+
+  // Build a safe, normalized value
+  const makeStoreValue = (src: Uint8Array, base?: any) => {
+    // Clone existing or synthesize a minimal record
+    const v = base ? JSON.parse(JSON.stringify(base)) : { contents: src, timestamp: now };
+
+    // Put bytes into whichever field exists; else default to contents
+    if (v.contents !== undefined) v.contents = src;
+    else if (v.data !== undefined) v.data = src;
+    else if (Array.isArray(v.bytes)) v.bytes = Array.from(src);
+    else v.contents = src;
+
+    // Normalize times to real Date objects
+    if (!(v.timestamp instanceof Date)) v.timestamp = now;
+    if ('mtime' in v && !(v.mtime instanceof Date)) v.mtime = now;
+    if ('ctime' in v && !(v.ctime instanceof Date)) v.ctime = now;
+    if ('atime' in v && !(v.atime instanceof Date)) v.atime = now;
+
+    return v;
+  };
+
+  const value = makeStoreValue(bytes, existing);
+
+  await new Promise<void>((resolve, reject) => {
+    const w = os.put(value, key);
+    w.onerror = () => reject(w.error);
+    w.onsuccess = () => resolve();
+  });
+} 
 
   private async idbKeyExists(db: IDBDatabase, key: string): Promise<boolean> {
     const tx = db.transaction('FILE_DATA', 'readonly');
@@ -3170,6 +3192,78 @@ private async wipeAllIdbfsMetaStores(): Promise<void> {
     } catch { /* ignore and continue */ }
   }
 }
+
+
+private async normalizeMupenFileDataShapes(): Promise<void> {
+  if (this._fileDataNormalizedOnce) return;
+  this._fileDataNormalizedOnce = true;
+
+  try {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open('/mupen64plus');
+      req.onerror = () => resolve(null as any);
+      req.onsuccess = () => resolve(req.result);
+    });
+    if (!db || !Array.from(db.objectStoreNames).includes('FILE_DATA')) { db?.close?.(); return; }
+
+    const tx = db.transaction('FILE_DATA', 'readwrite');
+    const os = tx.objectStore('FILE_DATA');
+
+    await new Promise<void>((resolve) => {
+      const cur = os.openCursor();
+      cur.onerror = () => resolve();
+      cur.onsuccess = (ev: any) => {
+        const c = ev.target.result;
+        if (!c) { resolve(); return; }
+
+        const k = c.key as string;
+        let v = c.value;
+        const now = new Date();
+
+        // Decide if malformed:
+        let malformed = false;
+
+        // case 1: bare bytes
+        const isBareBytes =
+          v instanceof ArrayBuffer ||
+          (v?.buffer instanceof ArrayBuffer && typeof v.byteLength === 'number') ||
+          Array.isArray(v?.bytes);
+
+        // case 2: object with bad timestamp type
+        const hasBadTimestamp =
+          v && typeof v === 'object' && 'timestamp' in v && !(v.timestamp instanceof Date);
+
+        if (isBareBytes || hasBadTimestamp) {
+          malformed = true;
+        }
+
+        if (malformed) {
+          // Rewrap
+          const u8 =
+            v instanceof ArrayBuffer
+              ? new Uint8Array(v)
+              : (v?.buffer instanceof ArrayBuffer && typeof v.byteLength === 'number')
+                ? new Uint8Array(v.buffer, v.byteOffset ?? 0, v.byteLength)
+                : Array.isArray(v?.bytes)
+                  ? new Uint8Array(v.bytes)
+                  : null;
+
+          // Create normalized object
+          const nv: any = { contents: u8 ?? new Uint8Array(0), timestamp: now };
+          if ('mtime' in v && !(v.mtime instanceof Date)) nv.mtime = now;
+          if ('ctime' in v && !(v.ctime instanceof Date)) nv.ctime = now;
+          if ('atime' in v && !(v.atime instanceof Date)) nv.atime = now;
+
+          try { c.update(nv); } catch { /* ignore */ }
+        }
+
+        c.continue();
+      };
+    });
+
+    try { db.close(); } catch {}
+  } catch { /* ignore */ }
+} 
 
 private async logAllIdbDbs(): Promise<void> {
   try {
