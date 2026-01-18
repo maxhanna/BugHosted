@@ -81,7 +81,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   private hasLoadedLastInput = false;
   private bootGraceUntil = 0;
-private _ensureRanThisBoot = false;
+  private _ensureRanThisBoot = false;
+  private _allMetaWipedOnce = false;
+
 
 
   // Autosave
@@ -777,7 +779,10 @@ private _ensureRanThisBoot = false;
       }
 
       this.installSyncfsGate();
-      await this.wipeIdbfsMetaStores();
+
+await this.repairAllIdbTimestampFields();
+await this.logAllIdbDbs()
+      //await this.wipeIdbfsMetaStores();
 
       await this.instance.start();
       this.status = 'running'; 
@@ -2864,6 +2869,86 @@ private async wipeIdbfsMetaStores(): Promise<void> {
     }
   }
 
+  
+/** Try to convert any numeric/string timestamps to Date across all DBs/stores. */
+private async repairAllIdbTimestampFields(): Promise<void> {
+  const dbList: string[] = await (async () => {
+    try {
+      const infos = await (indexedDB as any).databases?.() || [];
+      const names = infos.map((d: any) => d?.name).filter(Boolean);
+      // Fallback guesses if databases() isn't supported:
+      if (!names.length) return [
+        '/mupen64plus', 'EM_FS', 'IDBFS', 'MUPEN64PLUS', 'MUPEN', 'FS',
+      ];
+      return names;
+    } catch {
+      return ['/mupen64plus', 'EM_FS', 'IDBFS', 'MUPEN64PLUS', 'MUPEN', 'FS'];
+    }
+  })();
+
+  const fixDeep = (val: any) => {
+    const fixOne = (obj: any) => {
+      if (!obj || typeof obj !== 'object') return;
+      const coerce = (k: string) => {
+        if (obj[k] != null && !(obj[k] instanceof Date)) {
+          const n = Number(obj[k]);
+          if (!Number.isNaN(n)) obj[k] = new Date(n);
+        }
+      };
+      coerce('timestamp'); coerce('mtime'); coerce('atime'); coerce('ctime');
+      if (obj.attr) {
+        if (obj.attr.timestamp != null && !(obj.attr.timestamp instanceof Date)) {
+          const n = Number(obj.attr.timestamp);
+          if (!Number.isNaN(n)) obj.attr.timestamp = new Date(n);
+        }
+      }
+    };
+
+    const walk = (v: any) => {
+      if (!v) return;
+      if (Array.isArray(v)) { v.forEach(walk); return; }
+      if (typeof v === 'object') {
+        fixOne(v);
+        Object.values(v).forEach(walk);
+      }
+    };
+    walk(val);
+    return val;
+  };
+
+  for (const name of dbList) {
+    try {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open(name);
+        req.onerror = () => resolve(null as any); // ignore
+        req.onsuccess = () => resolve(req.result);
+      });
+      if (!db) continue;
+
+      const stores = Array.from(db.objectStoreNames);
+      for (const storeName of stores) {
+        await new Promise<void>((resolve) => {
+          try {
+            const tx = db.transaction(storeName, 'readwrite');
+            const os = tx.objectStore(storeName);
+            const cur = os.openCursor();
+            cur.onerror = () => resolve();
+            cur.onsuccess = (ev: any) => {
+              const c = ev.target.result;
+              if (!c) { resolve(); return; }
+              const fixed = fixDeep(c.value);
+              try { if (fixed !== c.value) c.update(fixed); } catch {}
+              c.continue();
+            };
+          } catch { resolve(); }
+        });
+      }
+      try { db.close(); } catch {}
+    } catch { /* ignore */ }
+  }
+}
+
+
   /** Mupen "SaveFilenameFormat=1" style: goodname(32) + "-" + md5(8) */
   private mupenGoodNameMd5Base(): string | null {
     if (!this._romGoodName || !this._romMd5) return null;
@@ -2956,68 +3041,155 @@ private async repairIdbfsMetaTimestamps(): Promise<void> {
   }
 
 /** Install a global single-flight shim for FS.syncfs to prevent overlaps and retry storms. */
+
+/** Install single-flight gates for both FS.syncfs and IDBFS.syncfs on module + window. */
 private installSyncfsGate(): void {
-  const FS: any = (window as any).FS;
-  if (!FS?.syncfs || (FS as any).__gateInstalled) return;
+  const patchFS = (FS: any) => {
+    if (!FS || FS.__fsGateInstalled) return;
 
-  let inFlight = false;
-  let queued = false;
-  const original = FS.syncfs.bind(FS);
+    // ---- Gate FS.syncfs(populate, cb) ----
+    if (typeof FS.syncfs === 'function' && !FS.syncfs.__gated) {
+      const original = FS.syncfs.bind(FS);
+      let inFlight = false, queued = false;
 
-  FS.syncfs = function (populate: boolean, cb: (err?: any) => void) {
-    // Coalesce: if one is running, queue just one more and return quickly
-    if (inFlight) {
-      queued = true;
-      // Respond to caller asynchronously so they don't hang
-      setTimeout(() => cb?.(), 0);
-      return;
-    }
-    inFlight = true;
-
-    const runOnce = () => { 
-      try {
-        const e = new Error();
-        console.debug('[SYNCFS] requested', { populate, at: (e.stack || '').split('\n').slice(2,6) });
-      } catch {}
-
-      try {
-        original(populate, (err?: any) => {
-          // Finish this run
-          inFlight = false;
-
-          if (queued) {
-            // Drain exactly once more
-            queued = false;
-            // Re-run WITHOUT letting other callers add more storms during this frame
-            inFlight = true;
-            try {
-              original(populate, (_err2?: any) => {
-                inFlight = false;
-                queued = false;
-                try { cb?.(); } catch {}
-              });
-            } catch {
+      const gated = (populate: boolean, cb: (err?: any) => void) => {
+        if (inFlight) { queued = true; setTimeout(() => cb?.(), 0); return; }
+        inFlight = true;
+        const runOnce = () => {
+          try {
+            original(populate, (err?: any) => {
               inFlight = false;
-              queued = false;
-              try { cb?.(); } catch {}
-            }
-          } else {
-            try { cb?.(err); } catch {}
+              if (queued) {
+                queued = false;
+                inFlight = true;
+                try { original(populate, () => { inFlight = false; queued = false; try { cb?.(); } catch {} }); }
+                catch { inFlight = false; queued = false; try { cb?.(); } catch {} }
+              } else {
+                try { cb?.(err); } catch {}
+              }
+            });
+          } catch {
+            inFlight = false; queued = false; try { cb?.(); } catch {}
           }
-        });
-      } catch {
-        // If original threw synchronously, unlock and return
-        inFlight = false;
-        queued = false;
-        try { cb?.(); } catch {}
-      }
-    };
+        };
+        setTimeout(runOnce, 0);
+      };
+      (gated as any).__gated = true;
+      FS.syncfs = gated;
+    }
 
-    // Defer slightly to allow multiple back-to-back callers to coalesce
-    setTimeout(runOnce, 0);
+    // ---- Gate IDBFS.syncfs(mount, populate, cb) ----
+    const IDBFS = FS.filesystems?.IDBFS;
+    if (IDBFS && typeof IDBFS.syncfs === 'function' && !IDBFS.syncfs.__gated) {
+      const originalIdbfs = IDBFS.syncfs.bind(IDBFS);
+      let inFlight = false, queued = false;
+
+      const gatedIdbfs = (mount: any, populate: boolean, cb: (err?: any) => void) => {
+        if (inFlight) { queued = true; setTimeout(() => cb?.(), 0); return; }
+        inFlight = true;
+        const runOnce = () => {
+          try {
+            originalIdbfs(mount, populate, (err?: any) => {
+              inFlight = false;
+              if (queued) {
+                queued = false;
+                inFlight = true;
+                try { originalIdbfs(mount, populate, () => { inFlight = false; queued = false; try { cb?.(); } catch {} }); }
+                catch { inFlight = false; queued = false; try { cb?.(); } catch {} }
+              } else {
+                try { cb?.(err); } catch {}
+              }
+            });
+          } catch {
+            inFlight = false; queued = false; try { cb?.(); } catch {}
+          }
+        };
+        setTimeout(runOnce, 0);
+      };
+      (gatedIdbfs as any).__gated = true;
+      IDBFS.syncfs = gatedIdbfs;
+    }
+
+    FS.__fsGateInstalled = true;
   };
 
-  (FS as any).__gateInstalled = true;
+  // Patch module FS then window FS
+  const mFS = (this.instance as any)?.FS;
+  if (mFS) patchFS(mFS);
+  const wFS = (window as any).FS;
+  if (wFS && wFS !== mFS) patchFS(wFS);
+}
+
+
+/** Delete META-like stores (but not FILE_DATA) across all DBs to let IDBFS regenerate them. */
+private async wipeAllIdbfsMetaStores(): Promise<void> {
+  if (this._allMetaWipedOnce) return;
+  this._allMetaWipedOnce = true;
+
+  const names: string[] = await (async () => {
+    try {
+      const infos = await (indexedDB as any).databases?.() || [];
+      const n = infos.map((d: any) => d?.name).filter(Boolean);
+      if (!n.length) return ['/mupen64plus', 'EM_FS', 'IDBFS', 'MUPEN64PLUS', 'MUPEN', 'FS'];
+      return n;
+    } catch {
+      return ['/mupen64plus', 'EM_FS', 'IDBFS', 'MUPEN64PLUS', 'MUPEN', 'FS'];
+    }
+  })();
+
+  for (const name of names) {
+    try {
+      // Read version
+      const db0 = await new Promise<IDBDatabase>((resolve, reject) => {
+        const r = indexedDB.open(name);
+        r.onerror = () => resolve(null as any);
+        r.onsuccess = () => resolve(r.result);
+      });
+      if (!db0) continue;
+
+      const version = (db0 as any).version || 1;
+      const storeNames = Array.from(db0.objectStoreNames);
+      db0.close();
+
+      const metas = storeNames.filter(n => /meta|metadata|remote|map/i.test(n));
+      if (!metas.length) continue;
+
+      await new Promise<void>((resolve) => {
+        const upReq = indexedDB.open(name, version + 1);
+        upReq.onupgradeneeded = () => {
+          const db = upReq.result;
+          for (const s of Array.from(db.objectStoreNames)) {
+            if (/meta|metadata|remote|map/i.test(s) && !/data/i.test(s)) {
+              try { db.deleteObjectStore(s); } catch {}
+            }
+          }
+        };
+        upReq.onsuccess = () => { try { upReq.result.close(); } catch {} ; resolve(); };
+        upReq.onerror = () => resolve();
+      });
+    } catch { /* ignore and continue */ }
+  }
+}
+
+private async logAllIdbDbs(): Promise<void> {
+  try {
+    const infos = await (indexedDB as any).databases?.() || [];
+    for (const d of infos) {
+      const name = d?.name;
+      if (!name) continue;
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const r = indexedDB.open(name);
+        r.onerror = () => resolve(null as any);
+        r.onsuccess = () => resolve(r.result);
+      });
+      if (!db) continue;
+      const stores = Array.from(db.objectStoreNames);
+      console.log('[IDB]', name, stores);
+      db.close();
+    }
+  } catch {
+    console.log('[IDB] databases() not supported');
+  }
 }
 
   private async openMupenDb(): Promise<IDBDatabase | null> {
