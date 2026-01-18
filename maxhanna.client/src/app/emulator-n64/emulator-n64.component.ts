@@ -87,7 +87,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private autosaveTimer: any = null;
   private autosavePeriodMs = 3 * 60 * 1000;
   private autosaveInProgress = false;
-  private lastUploadedHashes = new Map<string, string>();
+  private lastUploadedHashes = new Map<string, string>(); 
+  private _syncInFlight = false;
+  private _syncQueued = false;
+
 
   // Canvas resize
   private _canvasResizeAdded = false;
@@ -770,16 +773,15 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
 
       await this.instance.start();
-      this.status = 'running';
+      this.status = 'running'; 
 
-      // ✅ Stop sniffing once ROM meta printed
+      await this.repairIdbfsMetaTimestamps(); 
       await this.waitForRomIdentity(2000);
-      restoreSniffer();
+      restoreSniffer();// ✅ Stop sniffing once ROM meta printed
 
       // Give IDBFS a small head start; reduces "syncfs overlap" churn
-      await new Promise(r => setTimeout(r, 400));
-      await this.syncFs('post-start');
-
+      await new Promise(r => setTimeout(r, 400)); 
+      await this.syncFs('populate', /* populate = */ true);
       await this.safeDebug('SAVE-SCAN', () => this.debugScanSavesForCurrentRom());
       await this.safeDebug('ROM-ID', () => this.debugRomIdentity());
 
@@ -1399,7 +1401,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       console.error('autosaveTick error', err);
     } finally {
       this.autosaveInProgress = false;
-      await this.syncFs('post-autosave');
+     // await this.syncFs('post-autosave');
       console.log("Finished Autosave");
     }
   }
@@ -2440,7 +2442,9 @@ private async writeCanonicalToEmuKey(
   if (changed || !this._saveReloadedOnceThisBoot) {
     try {
       await this.stop();
-      await new Promise(r => setTimeout(r, 350));
+      await this.repairIdbfsMetaTimestamps();
+      await new Promise(r => setTimeout(r, 350)); 
+      await this.syncFs('populate', true); 
       await this.boot();
       this._saveReloadedOnceThisBoot = true;
       this.parentRef?.showNotification(
@@ -2596,17 +2600,37 @@ private async writeCanonicalToEmuKey(
     const hex = Array.from(u8).map(b => b.toString(16).padStart(2, '0')).join('');
     return hex.slice(0, 12);
   } 
-
-  private _idbfsSync = Promise.resolve();
+  
   private async syncFs(label = 'manual', populate = false): Promise<void> {
     const FS: any = (window as any).FS;
     if (!FS?.syncfs) return;
-    const run = () => new Promise<void>(resolve => {
-      try { FS.syncfs(populate, () => resolve()); } catch { resolve(); }
-    });
-    this._idbfsSync = this._idbfsSync.then(run, run);
-    await this._idbfsSync;
-  } 
+
+    // Debounce: if a sync is in flight, only queue ONE more and exit quickly
+    if (this._syncInFlight) {
+      this._syncQueued = true;
+      return;
+    }
+
+    this._syncInFlight = true;
+    try {
+      await new Promise<void>((resolve) => {
+        try { FS.syncfs(populate, () => resolve()); }
+        catch { resolve(); }
+      });
+
+      // If something queued while we were running, run exactly once more
+      if (this._syncQueued) {
+        this._syncQueued = false;
+        await new Promise<void>((resolve) => {
+          try { FS.syncfs(populate, () => resolve()); }
+          catch { resolve(); }
+        });
+      }
+    } finally {
+      this._syncInFlight = false;
+    }
+  }
+
 
   private readCrc1Crc2FromRom(rom: ArrayBuffer): { crc1: string; crc2: string } {
     const dv = new DataView(rom);
@@ -2820,6 +2844,51 @@ private async writeCanonicalToEmuKey(
 
     return Array.from(keys);
   }
+
+// Repair META store timestamps so IDBFS reconcile won't crash
+private async repairIdbfsMetaTimestamps(): Promise<void> {
+  try {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open('/mupen64plus');
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => resolve(req.result);
+    });
+    // Some builds name it 'FILE_META' or 'METADATA'; we detect it dynamically
+    const metaStore = Array.from(db.objectStoreNames)
+      .find(name => /meta/i.test(name) || /metadata/i.test(name));
+    if (!metaStore) { db.close(); return; }
+
+    const tx = db.transaction(metaStore, 'readwrite');
+    const os = tx.objectStore(metaStore);
+
+    await new Promise<void>((resolve, reject) => {
+      const cursor = os.openCursor();
+      cursor.onerror = () => reject(cursor.error);
+      cursor.onsuccess = (ev: any) => {
+        const c = ev.target.result;
+        if (!c) { resolve(); return; }
+        const val = c.value;
+
+        if (val && val.timestamp != null && !(val.timestamp instanceof Date)) {
+          const t = val.timestamp;
+          // Convert number/string to Date; ignore weird shapes
+          if (typeof t === 'number' || typeof t === 'string') {
+            const d = new Date(Number(t));
+            if (!isNaN(d.getTime())) {
+              val.timestamp = d;
+              c.update(val);
+            }
+          }
+        }
+        c.continue();
+      };
+    });
+
+    db.close();
+  } catch {
+    // non-fatal; leave it alone
+  }
+}
 
   /** The save key the emulator is most likely using right now (based on GoodName). */
   private emuPrimarySaveKey(ext: '.eep' | '.sra' | '.fla'): string | null {
