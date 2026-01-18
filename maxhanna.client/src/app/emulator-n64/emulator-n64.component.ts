@@ -778,8 +778,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
       this.installSyncfsGate();
 
-await this.repairAllIdbTimestampFields(); // keep this (harmless)
-await this.normalizeMupenFileDataShapes();
+      this.installIdbfsStoreEntryGuard();
+      this.logFsChildren('/mupen64plus')
+      await this.repairAllIdbTimestampFields(); // keep this (harmless)
+      await this.normalizeMupenFileDataShapes();
 
 
       await this.logAllIdbDbs()
@@ -3193,6 +3195,42 @@ private async wipeAllIdbfsMetaStores(): Promise<void> {
   }
 }
 
+/** Guard IDBFS.storeLocalEntry so unsupported node types are skipped (not fatal). */
+private installIdbfsStoreEntryGuard(): void {
+  const patchOne = (FS: any) => {
+    const IDBFS = FS?.filesystems?.IDBFS;
+    if (!IDBFS) return;
+    if ((IDBFS as any).__storeGuardInstalled) return;
+
+    const orig = IDBFS.storeLocalEntry?.bind(IDBFS);
+    if (typeof orig !== 'function') return;
+
+    // Wrap with try/catch and tolerant callback on error
+    const guarded = (...args: any[]) => {
+      try {
+        return orig(...args);
+      } catch (e: any) {
+        // Try to extract a path argument for logging (IDBFS signatures vary by build).
+        const pathGuess = args?.[0];
+        console.warn('[IDBFS] Skipping unsupported node during storeLocalEntry', {
+          path: pathGuess,
+          error: e?.message || e
+        });
+        const cb = args?.[args.length - 1];
+        try { typeof cb === 'function' && cb(); } catch { /* ignore */ }
+      }
+    };
+
+    (IDBFS as any).__storeGuardInstalled = true;
+    IDBFS.storeLocalEntry = guarded;
+  };
+
+  // Patch the module FS and also the global FS if present
+  const mFS = (this.instance as any)?.FS;
+  if (mFS) patchOne(mFS);
+  const wFS = (window as any).FS;
+  if (wFS && wFS !== mFS) patchOne(wFS);
+} 
 
 private async normalizeMupenFileDataShapes(): Promise<void> {
   if (this._fileDataNormalizedOnce) return;
@@ -3264,6 +3302,32 @@ private async normalizeMupenFileDataShapes(): Promise<void> {
     try { db.close(); } catch {}
   } catch { /* ignore */ }
 } 
+
+private logFsChildren = (root = '/mupen64plus') => {
+  try {
+    const FS = (this.instance as any)?.FS;
+    if (!FS) return;
+    const list = (p: string) => {
+      const names = FS.readdir(p).filter((n: string) => n !== '.' && n !== '..');
+      return names.map(n => {
+        const full = p.endsWith('/') ? p + n : p + '/' + n;
+        const node = FS.lookupPath(full).node;
+        const mode = node?.mode ?? 0;
+        return {
+          path: full,
+          isFile: FS.isFile?.(mode) || false,
+          isDir: FS.isDir?.(mode) || false,
+          isLink: FS.isLink?.(mode) || false,
+          mode
+        };
+      });
+    };
+    console.table(list('/'));
+    console.table(list(root));
+  } catch (e) {
+    console.warn('FS list failed', e);
+  }
+};
 
 private async logAllIdbDbs(): Promise<void> {
   try {
