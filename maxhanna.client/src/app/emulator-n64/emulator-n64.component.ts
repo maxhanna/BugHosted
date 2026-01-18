@@ -346,7 +346,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
 
     try {
-      document.removeEventListener('fullscreenchange', this._resizeHandler);
+      document.removeEventListener('fullscreenchange', this._onFullscreenChange);
       window.removeEventListener('orientationchange', this._resizeHandler);
     } catch { /* ignore */ }
 
@@ -755,7 +755,7 @@ async boot() {
   if (!this._canvasResizeAdded) {
     try {
       window.addEventListener('resize', this._resizeHandler);
-      document.addEventListener('fullscreenchange', this._resizeHandler);
+      document.addEventListener('fullscreenchange', this._onFullscreenChange);
       window.addEventListener('orientationchange', this._resizeHandler);
       this._canvasResizeAdded = true;
     } catch { /* ignore */ }
