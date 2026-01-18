@@ -33,7 +33,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   showKeyMappings = false;
   savedMappingsNames: string[] = [];
   private _mappingsStoreKey = 'n64_mappings_store_v1';
-  selectedMappingName: string | null = null;
+  selectedMappingName: string | null = null; 
+
+  private _romGoodName: string | null = null;
+  private _romMd5: string | null = null;
 
   // mapping: N64 control -> { type:'button'|'axis', index:number, axisDir?:1|-1, gamepadId:string }
   mapping: Record<string, any> = {};
@@ -775,10 +778,15 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         locateFile: (path: string) => `/assets/mupen64plus/${path}`,
       });
 
+const restoreSniffer = this.installMupenConsoleSniffer();
+this._romGoodName = null;
+this._romMd5 = null;
+
       if (this.instance && typeof this.instance.start === 'function') {
         await this.instance.start();
+        
+        restoreSniffer();
         this.status = 'running';
-
         // Give IDBFS a small head start; reduces "syncfs overlap" churn 
         await new Promise(r => setTimeout(r, 400));
         await this.syncFs('post-start');
@@ -1270,9 +1278,16 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const bytes = new Uint8Array(await f.arrayBuffer());
         const size = bytes.byteLength;
 
-        // Prepare keys (no GoodName write during import; only incoming + canonical)
+        // Prepare keys (no GoodName write during import; only incoming + canonical) 
         const incomingKey = `/mupen64plus/saves/${name}`;
-        const canonicalKey = `/mupen64plus/saves/${this.canonicalSaveFilename(ext as any, userId)}`;
+
+        // Build all likely keys Mupen might use for this ROM + ext
+        const keyCandidates = this.buildSaveKeyCandidates(ext as any, name);
+
+        // Keep canonicalKey just for your debug payload (optional)
+        const canonicalKey = userId
+          ? `/mupen64plus/saves/${this.canonicalSaveFilename(ext as any, userId)}`
+          : incomingKey;
 
         this.saveDebug(`IMPORT BEGIN`, {
           romName: this.romName,
@@ -1284,19 +1299,34 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const txRW = db.transaction('FILE_DATA', 'readwrite');
         const osRW = txRW.objectStore('FILE_DATA');
 
-        const existingIncoming = await new Promise<any>((resolve) => {
-          const req = osRW.get(incomingKey);
-          req.onerror = () => resolve(null);
-          req.onsuccess = () => resolve(req.result || null);
-        });
+        // const existingIncoming = await new Promise<any>((resolve) => {
+        //   const req = osRW.get(incomingKey);
+        //   req.onerror = () => resolve(null);
+        //   req.onsuccess = () => resolve(req.result || null);
+        // });
 
-        const valueIncoming = makeValue(bytes, existingIncoming ?? templateVal);
-
+        //const valueIncoming = makeValue(bytes, existingIncoming ?? templateVal);
+        
         const writes: Promise<void>[] = [];
-        writes.push(txPut(osRW, incomingKey, valueIncoming));
-        if (canonicalKey !== incomingKey) writes.push(txPut(osRW, canonicalKey, valueIncoming));
+        for (const key of keyCandidates) {
+          // try to preserve stored shape when overwriting
+          const existing = await new Promise<any>((resolve) => {
+            const req = osRW.get(key);
+            req.onerror = () => resolve(null);
+            req.onsuccess = () => resolve(req.result || null);
+          });
+
+          const value = makeValue(bytes, existing ?? templateVal);
+          writes.push(txPut(osRW, key, value));
+        }
 
         await Promise.all(writes);
+
+        this.saveDebug(`IMPORT KEYS WRITTEN`, {
+          ext,
+          count: keyCandidates.length,
+          keys: keyCandidates
+        }); 
 
         // Verify incoming/canonical only
         const verifyTx = db.transaction('FILE_DATA', 'readonly');
@@ -2789,6 +2819,94 @@ private coerceToU8(v: any): Uint8Array | null {
     // Add more overrides here as needed (Zelda etc.) — not necessary right now.
     return null;
   }
+
+/** Capture core-printed ROM metadata (Goodname + MD5) during boot. */
+private installMupenConsoleSniffer(): () => void {
+  const originalLog = console.log.bind(console);
+
+  console.log = (...args: any[]) => {
+    try {
+      // Pass through
+      originalLog(...args);
+
+      // Parse only strings
+      const msg = args?.[0];
+      if (typeof msg !== 'string') return;
+
+      // Examples from your logs:
+      // "@@@ Core: Goodname: Star Wars Episode I - Racer (U) [!]"
+      // "@@@ Core: MD5: 1EE8800A4003E7F9688C5A35F929D01B"
+      const mGood = msg.match(/@@@\s*Core:\s*Goodname:\s*(.+)$/i);
+      if (mGood?.[1]) this._romGoodName = mGood[1].trim();
+
+      const mMd5 = msg.match(/@@@\s*Core:\s*MD5:\s*([0-9A-F]{32})/i);
+      if (mMd5?.[1]) this._romMd5 = mMd5[1].toUpperCase();
+    } catch {
+      // never block boot
+    }
+  };
+
+  // return restore fn
+  return () => { console.log = originalLog; };
+} 
+
+/** ROM header internal name (offset 0x20..0x33), trimmed. */
+private romHeaderInternalName(): string | null {
+  if (!this.romBuffer) return null;
+  try {
+    const u8 = new Uint8Array(this.romBuffer);
+    const start = 0x20;
+    const end = 0x34; // exclusive
+    const slice = u8.slice(start, end);
+    let s = '';
+    for (const b of slice) {
+      if (b === 0) break;
+      s += String.fromCharCode(b);
+    }
+    s = s.replace(/\s+/g, ' ').trim();
+    return s || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Mupen "SaveFilenameFormat=1" style: goodname(32) + "-" + md5(8) */
+private mupenGoodNameMd5Base(): string | null {
+  if (!this._romGoodName || !this._romMd5) return null;
+  const good32 = this._romGoodName.slice(0, 32);
+  const md58 = this._romMd5.slice(0, 8);
+  return `${good32}-${md58}`;
+}
+
+/** Candidate IDBFS keys under /mupen64plus/saves for a given ext. */
+private buildSaveKeyCandidates(ext: '.eep' | '.sra' | '.fla', incomingFileName?: string): string[] {
+  const keys = new Set<string>();
+
+  // 1) Incoming filename (your current behavior)
+  if (incomingFileName) {
+    keys.add(`/mupen64plus/saves/${incomingFileName}`);
+  }
+
+  // 2) Canonical (your current behavior) - only if userId exists
+  const userId = this.parentRef?.user?.id ?? 0;
+  if (userId) {
+    keys.add(`/mupen64plus/saves/${this.canonicalSaveFilename(ext, userId)}`);
+  }
+
+  // 3) Mupen goodname+md5 mode (discussed upstream as SaveFilenameFormat=1)
+  //    "%.32s-%.8s" -> goodname32-md5_8 [3](https://mupen64plus.org/wiki/index.php?title=FileLocations)
+  const gnMd5 = this.mupenGoodNameMd5Base();
+  if (gnMd5) keys.add(`/mupen64plus/saves/${gnMd5}${ext}`);
+
+  // 4) Headername-based candidates (some builds use headername)
+  const header = this.romHeaderInternalName();
+  if (header) {
+    keys.add(`/mupen64plus/saves/${header}${ext}`);
+    if (this._romMd5) keys.add(`/mupen64plus/saves/${header}-${this._romMd5.slice(0, 8)}${ext}`);
+  }
+
+  return Array.from(keys);
+}
 
 }
 
