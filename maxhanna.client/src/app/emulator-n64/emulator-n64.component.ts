@@ -731,10 +731,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
     } catch { /* ignore */ }
   }
-
-  // =====================================================
-  // Emulator control (RAW-only)
-  // =====================================================
   
 async boot() {
   if (!this.romBuffer) {
@@ -795,6 +791,7 @@ async boot() {
     this.status = 'running';
 
     // ✅ Stop sniffing once ROM meta printed
+    await this.waitForRomIdentity(2000);
     restoreSniffer();
 
     // Give IDBFS a small head start; reduces "syncfs overlap" churn
@@ -2481,6 +2478,7 @@ private async ensureSaveLoadedForCurrentRom(): Promise<void> {
   }
 }
 
+
 private async writeCanonicalToEmuKey(
   ext: '.eep' | '.sra' | '.fla',
   canonicalBytes: Uint8Array,
@@ -2494,25 +2492,41 @@ private async writeCanonicalToEmuKey(
   if (!Array.from(db2.objectStoreNames).includes('FILE_DATA')) { db2.close(); return; }
 
   const emuBytes = await this.readIdbBytes(db2, emuKey);
-  let wrote = false;
 
-  // (Optional) EEPROM override / resizing (only if you still need it)
-  let targetBytes = canonicalBytes;
+  let target = canonicalBytes;
+
   if (ext === '.eep') {
-    const override = this.eepromSizeOverrideForRom();
-    if (override === 512 && canonicalBytes.byteLength === 2048) {
-      const downsized = this.maybeDownsizeEeprom4K(canonicalBytes);
-      if (downsized) targetBytes = downsized;
+    // Prefer whatever size the emulator already created (512 or 2048).
+    let desired = emuBytes?.byteLength ?? 0;
+
+    // If emulator hasn't created it, consider a title override:
+    if (desired !== 512 && desired !== 2048) {
+      const override = this.eepromSizeOverrideForRom(); // 512 for Racer, etc.
+      if (override) desired = override;
+    }
+
+    // If still unknown, fall back to canonical size.
+    if (desired !== 512 && desired !== 2048) {
+      desired = canonicalBytes.byteLength; // keep as-is
+    }
+
+    // Adjust size: truncate or pad with zeros
+    if (desired === 512 && canonicalBytes.byteLength === 2048) {
+      target = canonicalBytes.slice(0, 512);
+    } else if (desired === 2048 && canonicalBytes.byteLength === 512) {
+      const padded = new Uint8Array(2048);
+      padded.set(canonicalBytes);
+      target = padded;
     }
   }
 
-  if (!this.bytesEqual(targetBytes, emuBytes)) {
-    await this.writeIdbBytes(db2, emuKey, targetBytes);
-    wrote = true;
+  const changed = !this.bytesEqual(target, emuBytes);
+  if (changed) {
+    await this.writeIdbBytes(db2, emuKey, target);
     this.saveDebug(`LOAD-GUARD: wrote canonical -> emuKey`, {
       emuKey,
-      size: targetBytes.byteLength,
-      hash: await this.shortSha(targetBytes)
+      size: target.byteLength,
+      hash: await this.shortSha(target)
     });
   } else {
     this.saveDebug(`LOAD-GUARD: emuKey already matches canonical`, { emuKey });
@@ -2520,18 +2534,16 @@ private async writeCanonicalToEmuKey(
 
   db2.close();
 
-  // Restart once so game re-reads battery save on boot
-  if (wrote) {
+  if (changed) {
     try {
       await this.stop();
       await new Promise(r => setTimeout(r, 350));
       await this.boot();
-      this.parentRef?.showNotification('Save injected into emulator save key; restarted to reload it.');
-    } catch (e) {
-      console.warn('Restart after save sync failed', e);
-    }
+      this.parentRef?.showNotification('Save injected and emulator restarted to load it.');
+    } catch { /* ignore */ }
   }
-} 
+}
+ 
 
 
 
@@ -2558,10 +2570,17 @@ private async writeCanonicalToEmuKey(
       return s.startsWith('/mupen64plus/saves/') && s.endsWith(lowerExt);
     });
 
+    const header = this.romHeaderInternalName()?.toLowerCase();
+    const md58 = this._romMd5?.slice(0, 8)?.toLowerCase();
+
     const match = saveRows.find(({ key }) => {
-      const fname = String(key).split('/').pop() || '';
-      const loose = fname.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
-      return loose.includes(token);
+      const fname = String(key).split('/').pop()!.toLowerCase();
+      const loose = fname.replace(/[^a-z0-9 ]/g, '').trim();
+      return (
+        loose.includes(token) ||
+        (header && loose.includes(header.replace(/[^a-z0-9 ]/g, '').trim())) ||
+        (md58 && fname.includes(`-${md58}`))
+      );
     });
 
     return match ? String(match.key) : null;
@@ -2784,30 +2803,61 @@ private coerceToU8(v: any): Uint8Array | null {
     return null;
   }
 
-/** Capture core-printed ROM metadata (Goodname + MD5) during boot. */
+private async waitForRomIdentity(ms = 1500): Promise<boolean> {
+  const t0 = performance.now();
+  while (performance.now() - t0 < ms) {
+    if (this._romGoodName || this._romMd5) return true;
+    await new Promise(r => setTimeout(r, 100));
+  }
+  return false;
+}
+/** Capture core-printed ROM metadata (Goodname + MD5) during boot. */  
+private installMupenConsoleSniffer(timeoutMs = 2500): () => void {
+  const originalLog  = console.log.bind(console);
+  const originalInfo = (console.info?.bind(console)) || originalLog;
+  const originalWarn = console.warn.bind(console);
 
-private installMupenConsoleSniffer(): () => void {
-  const originalLog = console.log.bind(console);
+  const parse = (s: string) => {
+    if (typeof s !== 'string') return;
+    // Accept with or without '@@@'
+    const mg = s.match(/(?:@{3}\s*)?Core:\s*Goodname:\s*(.+)$/i);
+    if (mg?.[1]) this._romGoodName = mg[1].trim();
 
-  console.log = (...args: any[]) => {
-    try {
-      originalLog(...args);
-
-      const msg = args?.[0];
-      if (typeof msg !== 'string') return;
-
-      const mGood = msg.match(/@@@\s*Core:\s*Goodname:\s*(.+)$/i);
-      if (mGood?.[1]) this._romGoodName = mGood[1].trim();
-
-      const mMd5 = msg.match(/@@@\s*Core:\s*MD5:\s*([0-9A-F]{32})/i);
-      if (mMd5?.[1]) this._romMd5 = mMd5[1].toUpperCase();
-    } catch {
-      // never block boot
-    }
+    const mm = s.match(/(?:@{3}\s*)?Core:\s*MD5:\s*([0-9A-F]{32})/i);
+    if (mm?.[1]) this._romMd5 = mm[1].toUpperCase();
   };
 
-  return () => { console.log = originalLog; };
-} 
+  const wrap = (fn: (...a: any[]) => void) => (...args: any[]) => {
+    try { parse(args?.[0]); } catch {}
+    fn(...args);
+  };
+
+  console.log = wrap(originalLog);
+  console.info = wrap(originalInfo as any);
+  console.warn = wrap(originalWarn);
+
+  let restored = false;
+  const restore = () => {
+    if (restored) return;
+    restored = true;
+    console.log = originalLog;
+    console.info = originalInfo as any;
+    console.warn = originalWarn;
+  };
+
+  // Auto-restore when both are known or after timeout
+  const start = performance.now();
+  const tick = () => {
+    if ((this._romGoodName && this._romMd5) || performance.now() - start > timeoutMs) {
+      restore();
+    } else {
+      setTimeout(tick, 100);
+    }
+  };
+  tick();
+
+  return restore;
+}
 
 /** ROM header internal name (offset 0x20..0x33), trimmed. */
 private romHeaderInternalName(): string | null {
@@ -2867,11 +2917,14 @@ private buildSaveKeyCandidates(ext: '.eep' | '.sra' | '.fla', incomingFileName?:
   return Array.from(keys);
 }
 
-/** The save key the emulator is most likely using right now (based on GoodName). */ 
+/** The save key the emulator is most likely using right now (based on GoodName). */  
 private emuPrimarySaveKey(ext: '.eep' | '.sra' | '.fla'): string | null {
-  if (!this._romGoodName) return null;
-  return `/mupen64plus/saves/${this._romGoodName}${ext}`;
+  if (this._romGoodName) return `/mupen64plus/saves/${this._romGoodName}${ext}`;
+  const header = this.romHeaderInternalName();
+  if (header) return `/mupen64plus/saves/${header}${ext}`;
+  return null;
 }
+
 
 
 private async openMupenDb(): Promise<IDBDatabase | null> {
