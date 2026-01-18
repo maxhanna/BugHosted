@@ -432,9 +432,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       const h = Math.max(1, Math.floor(rect.height * dpr));
       if (canvasEl.width !== w) canvasEl.width = w;
       if (canvasEl.height !== h) canvasEl.height = h;
-      if (container.id != this.fullscreenContainer.nativeElement.id) {
+      const fsId = this.fullscreenContainer?.nativeElement?.id;
+      if (fsId && container.id !== fsId) {
         this.isFullScreen = false;
-      }
+      } 
     } catch (e) {
       console.warn('Failed to resize canvas', e);
     }
@@ -1025,27 +1026,13 @@ async boot() {
     };
 
     try {
-      const dbList: Array<{ name?: string }> =
-        (indexedDB as any).databases ? await (indexedDB as any).databases() : [];
-      const mupenDbMeta = dbList.find(d => d.name === '/mupen64plus') || null;
-      if (!mupenDbMeta) {
-        this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found.');
+    
+      const db = await this.openMupenDb();
+      if (!db) {
+        this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found or missing FILE_DATA.');
         return empty;
       }
-
-      const openDb = (name: string) => new Promise<IDBDatabase>((resolve, reject) => {
-        const req = indexedDB.open(name);
-        req.onerror = () => reject(req.error);
-        req.onsuccess = () => resolve(req.result);
-      });
-
-      const db = await openDb('/mupen64plus');
-      const storeName = 'FILE_DATA';
-      if (!Array.from(db.objectStoreNames).includes(storeName)) {
-        this.parentRef?.showNotification('FILE_DATA store not found in /mupen64plus.');
-        db.close();
-        return empty;
-      }
+      const storeName = 'FILE_DATA'; 
 
       const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
         const tx = db.transaction(storeName, 'readonly');
@@ -1211,29 +1198,12 @@ async boot() {
   }
 
   async importInGameSaveRam(files: FileList | File[], skipBoot: boolean = false) {
-    try {
-      // --- Open /mupen64plus / FILE_DATA ---
-      const dbMeta: Array<{ name?: string }> =
-        (indexedDB as any).databases ? await (indexedDB as any).databases() : [];
-      const mupenDb = dbMeta.find(d => d.name === '/mupen64plus');
-      if (!mupenDb) {
-        this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found.');
-        console.log('IndexedDB "/mupen64plus" not found.');
+    try { 
+      const db = await this.openMupenDb();
+      if (!db) {
+        this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found or missing FILE_DATA.');
         return;
-      }
-
-      const db = await new Promise<IDBDatabase>((resolve, reject) => {
-        const req = indexedDB.open('/mupen64plus');
-        req.onerror = () => reject(req.error);
-        req.onsuccess = () => resolve(req.result);
-      });
-      if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) {
-        this.parentRef?.showNotification('FILE_DATA store not found.');
-        console.log("FILE_DATA store not found");
-        db.close();
-        return;
-      }
-
+      } 
       // Load a template row if needed to match stored shape
       const getTemplate = async (): Promise<any | null> => {
         const tx = db.transaction('FILE_DATA', 'readonly');
@@ -2611,12 +2581,11 @@ private async writeCanonicalToEmuKey(
 
   private async debugScanMempaks(): Promise<void> {
     try {
-      const db = await new Promise<IDBDatabase>((resolve, reject) => {
-        const req = indexedDB.open('/mupen64plus');
-        req.onerror = () => reject(req.error);
-        req.onsuccess = () => resolve(req.result);
-      });
-      if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
+      const db = await this.openMupenDb();
+      if (!db) {
+        this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found or missing FILE_DATA.');
+        return;
+      }
 
       const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
         const tx = db.transaction('FILE_DATA', 'readonly');
@@ -2654,14 +2623,12 @@ private async writeCanonicalToEmuKey(
   }
 
   // ---- Debug utility: delete savestates for current ROM only (to prevent masking battery) ----
-  private async deleteSavestatesForCurrentRom(): Promise<void> {
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open('/mupen64plus');
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => resolve(req.result);
-    });
-    if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
-
+  private async deleteSavestatesForCurrentRom(): Promise<void> { 
+    const db = await this.openMupenDb();
+    if (!db) {
+      this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found or missing FILE_DATA.');
+      return;
+    }
     const token = this.romTokenForMatching(this.romName);
     if (!token) { db.close(); return; }
 
@@ -2906,6 +2873,23 @@ private emuPrimarySaveKey(ext: '.eep' | '.sra' | '.fla'): string | null {
   return `/mupen64plus/saves/${this._romGoodName}${ext}`;
 }
 
+
+private async openMupenDb(): Promise<IDBDatabase | null> {
+  try {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open('/mupen64plus');
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => resolve(req.result);
+    });
+    if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) {
+      db.close();
+      return null;
+    }
+    return db;
+  } catch {
+    return null;
+  }
+}
 
 }
 
