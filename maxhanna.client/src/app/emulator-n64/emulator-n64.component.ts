@@ -24,6 +24,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   romName?: string;
   private romBuffer?: ArrayBuffer;
   private instance: any;
+  private _saveReloadedOnceThisBoot = false;
+
 
   // ---- Gamepads ----
   gamepads: Array<{ index: number; id: string; mapping: string; connected: boolean }> = [];
@@ -719,6 +721,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     if (this.autosave) {
       this.startAutosaveLoop();
     }
+    this._saveReloadedOnceThisBoot = false;
 
     const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
     if (!canvasEl) {
@@ -2382,71 +2385,72 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       console.warn('ensureSaveLoadedForCurrentRom failed', e);
     }
   }
+  
+private async writeCanonicalToEmuKey(
+  ext: '.eep' | '.sra' | '.fla',
+  canonicalBytes: Uint8Array,
+  emuKey: string
+): Promise<void> {
+  const db2 = await new Promise<IDBDatabase>((resolve, reject) => {
+    const req = indexedDB.open('/mupen64plus');
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result);
+  });
+  if (!Array.from(db2.objectStoreNames).includes('FILE_DATA')) { db2.close(); return; }
 
-  private async writeCanonicalToEmuKey(
-    ext: '.eep' | '.sra' | '.fla',
-    canonicalBytes: Uint8Array,
-    emuKey: string
-  ): Promise<void> {
-    const db2 = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open('/mupen64plus');
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => resolve(req.result);
-    });
-    if (!Array.from(db2.objectStoreNames).includes('FILE_DATA')) { db2.close(); return; }
+  const emuBytes = await this.readIdbBytes(db2, emuKey);
 
-    const emuBytes = await this.readIdbBytes(db2, emuKey);
+  let target = canonicalBytes;
 
-    let target = canonicalBytes;
-
-    if (ext === '.eep') {
-      // Prefer whatever size the emulator already created (512 or 2048).
-      let desired = emuBytes?.byteLength ?? 0;
-
-      // If emulator hasn't created it, consider a title override:
-      if (desired !== 512 && desired !== 2048) {
-        const override = this.eepromSizeOverrideForRom(); // 512 for Racer, etc.
-        if (override) desired = override;
-      }
-
-      // If still unknown, fall back to canonical size.
-      if (desired !== 512 && desired !== 2048) {
-        desired = canonicalBytes.byteLength; // keep as-is
-      }
-
-      // Adjust size: truncate or pad with zeros
-      if (desired === 512 && canonicalBytes.byteLength === 2048) {
-        target = canonicalBytes.slice(0, 512);
-      } else if (desired === 2048 && canonicalBytes.byteLength === 512) {
-        const padded = new Uint8Array(2048);
-        padded.set(canonicalBytes);
-        target = padded;
-      }
+  if (ext === '.eep') {
+    // Prefer the emulator's existing size if present; else use per-ROM override; else keep canonical size.
+    let desired = emuBytes?.byteLength ?? 0;
+    if (desired !== 512 && desired !== 2048) {
+      const override = this.eepromSizeOverrideForRom(); // 512 for Racer
+      if (override) desired = override;
     }
+    if (desired !== 512 && desired !== 2048) desired = canonicalBytes.byteLength;
 
-    const changed = !this.bytesEqual(target, emuBytes);
-    if (changed) {
-      await this.writeIdbBytes(db2, emuKey, target);
-      this.saveDebug(`LOAD-GUARD: wrote canonical -> emuKey`, {
-        emuKey,
-        size: target.byteLength,
-        hash: await this.shortSha(target)
-      });
-    } else {
-      this.saveDebug(`LOAD-GUARD: emuKey already matches canonical`, { emuKey });
-    }
-
-    db2.close();
-
-    if (changed) {
-      try {
-        await this.stop();
-        await new Promise(r => setTimeout(r, 350));
-        await this.boot();
-        this.parentRef?.showNotification('Save injected and emulator restarted to load it.');
-      } catch { /* ignore */ }
+    if (desired === 512 && canonicalBytes.byteLength === 2048) {
+      target = canonicalBytes.slice(0, 512);
+    } else if (desired === 2048 && canonicalBytes.byteLength === 512) {
+      const padded = new Uint8Array(2048);
+      padded.set(canonicalBytes);
+      target = padded;
     }
   }
+
+  const changed = !this.bytesEqual(target, emuBytes);
+  if (changed) {
+    await this.writeIdbBytes(db2, emuKey, target);
+    this.saveDebug(`LOAD-GUARD: wrote canonical -> emuKey`, {
+      emuKey,
+      size: target.byteLength,
+      hash: await this.shortSha(target)
+    });
+  } else {
+    this.saveDebug(`LOAD-GUARD: emuKey already matches canonical`, { emuKey });
+  }
+
+  db2.close();
+
+  // 👉 CRITICAL: pull persisted -> memory FS, then restart once so the game re-reads the battery
+  try { await this.syncFs('ensure-populate', /*populate=*/true); } catch {}
+
+  if (changed || !this._saveReloadedOnceThisBoot) {
+    try {
+      await this.stop();
+      await new Promise(r => setTimeout(r, 350));
+      await this.boot();
+      this._saveReloadedOnceThisBoot = true;
+      this.parentRef?.showNotification(
+        changed
+          ? 'Save injected and emulator restarted to load it.'
+          : 'Save present; emulator restarted to ensure it is loaded.'
+      );
+    } catch { /* ignore */ }
+  }
+} 
 
   private async findEmuGoodNameKeyForExt(db: IDBDatabase, ext: '.eep' | '.sra' | '.fla'): Promise<string | null> {
     const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
@@ -2591,19 +2595,18 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const u8 = new Uint8Array(digest);
     const hex = Array.from(u8).map(b => b.toString(16).padStart(2, '0')).join('');
     return hex.slice(0, 12);
-  }
+  } 
 
-  // Optional: serialize FS.syncfs if you ever call it.
   private _idbfsSync = Promise.resolve();
-  private async syncFs(label = 'manual'): Promise<void> {
+  private async syncFs(label = 'manual', populate = false): Promise<void> {
     const FS: any = (window as any).FS;
     if (!FS?.syncfs) return;
     const run = () => new Promise<void>(resolve => {
-      try { FS.syncfs(false, () => resolve()); } catch { resolve(); }
+      try { FS.syncfs(populate, () => resolve()); } catch { resolve(); }
     });
     this._idbfsSync = this._idbfsSync.then(run, run);
     await this._idbfsSync;
-  }
+  } 
 
   private readCrc1Crc2FromRom(rom: ArrayBuffer): { crc1: string; crc2: string } {
     const dv = new DataView(rom);
