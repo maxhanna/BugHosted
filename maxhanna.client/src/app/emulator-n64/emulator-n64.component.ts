@@ -895,31 +895,32 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
     }
   }
 
-  showMenuPanel() {
-    this.isMenuPanelVisible = true;
-    this.parentRef?.showOverlay();
-    if (this.savedMappingsNames.length === 0) {
-      this.loadMappingsList();
+showMenuPanel() {
+  this.isMenuPanelVisible = true;
+  this.parentRef?.showOverlay();
+  if (this.savedMappingsNames.length === 0) this.loadMappingsList();
+  this._bootstrapDetectOnce();
+
+  // Pause the background auto-detect while interacting with dropdowns
+  this.stopGamepadAutoDetect();
+
+  if (this.ports[1].gpIndex == null && this.gamepads.length) {
+    const std = this.gamepads.find(g => g.mapping === 'standard') ?? this.gamepads[0];
+    if (std) {
+      this.ports[1].gpIndex = std.index;
+      this.ensureDefaultMappingForPort(1);
     }
-    this._bootstrapDetectOnce();
-    
-    if (this.ports[1].gpIndex == null && this.gamepads.length) {
-      const std = this.gamepads.find(g => g.mapping === 'standard') ?? this.gamepads[0];
-      if (std) {
-        this.ports[1].gpIndex = std.index;
-        this.ensureDefaultMappingForPort(1);
-      }
-    } 
   }
+}
 
-  closeMenuPanel() {
-    this.isMenuPanelVisible = false;
-    this.parentRef?.closeOverlay();
-  }
+closeMenuPanel() {
+  this.isMenuPanelVisible = false;
+  this.parentRef?.closeOverlay();
+  // Resume
+  this.startGamepadAutoDetect();
+}
 
-  // =====================================================
-  // Direct-inject (keyboard synth)
-  // =====================================================
+ 
   enableDirectInject() {
     if (this._directInjectPoller) return;
     this._directPrevState = {};
@@ -1661,22 +1662,34 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
     this.parentRef?.showNotification(`Updated mapping for P${port}`);
   }
 
-  async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
-    const idx = Number(value);
-    if (Number.isNaN(idx)) return;
-
-    for (const p of [1, 2, 3, 4] as const) {
-      if (p !== port && this.ports[p].gpIndex === idx) {
-        this.parentRef?.showNotification(`That controller is already assigned to Player ${p}.`);
-        return;
-      }
+  
+async onSelectGamepadForPort(port: PlayerPort, value: string) {
+  // Convert sentinel to null
+  if (value === '__none__') {
+    if (this.ports[port].gpIndex != null) {
+      this.ports[port].gpIndex = null;
+      this.applyGamepadReorder(); // reflect multi-port order
     }
-
-    this.ports[port].gpIndex = idx;
-    this.refreshGamepads();
-    this.applyGamepadReorder();
-    this.ensureDefaultMappingForPort(port);
+    return;
   }
+
+  const idx = parseInt(value, 10);
+  if (Number.isNaN(idx)) return;
+
+  // Prevent duplicate controller assignment across ports
+  for (const p of [1, 2, 3, 4] as const) {
+    if (p !== port && this.ports[p].gpIndex === idx) {
+      this.parentRef?.showNotification(`That controller is already assigned to Player ${p}.`);
+      return;
+    }
+  }
+
+  // IMPORTANT: do NOT call refreshGamepads() here; it rebuilds the list and can reset selection.
+  this.ports[port].gpIndex = idx;
+  this.applyGamepadReorder();
+  this.ensureDefaultMappingForPort(port);
+}
+
 
   onPortMappingSelect(port: PlayerPort, name: string) {
     this.ports[port].mappingName = name || null;

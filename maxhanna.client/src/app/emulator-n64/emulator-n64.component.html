@@ -184,18 +184,19 @@
         <div *ngFor="let p of playerPorts" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           <div style="min-width:70px;">P{{p}}</div>
 
-          <!-- Controller dropdown -->
+          <!-- Controller dropdown --> 
           <label>Controller: 
             <select
-              [value]="ports[p].gpIndex != null ? (ports[p].gpIndex + '') : ''"
-              (change)="onSelectGamepadForPort(p, $any($event.target).value)"
+              [value]="ports[p].gpIndex != null ? (ports[p].gpIndex + '') : '__none__'"
+              (input)="onSelectGamepadForPort(p, $any($event.target).value)"
             >
-              <option value="">-- none --</option>
-              <option *ngFor="let gp of gamepads" [value]="gp.index + ''">
+              <option value="__none__">-- none --</option>
+              <option *ngFor="let gp of gamepads; trackBy: trackGp" [value]="gp.index + ''">
                 {{gp.index}} — {{gp.id}} {{gp.mapping ? '(' + gp.mapping + ')' : ''}}
               </option>
             </select> 
           </label>
+
 
           <!-- Mapping dropdown -->
           <label>Mapping:
