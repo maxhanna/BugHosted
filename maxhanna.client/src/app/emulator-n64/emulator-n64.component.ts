@@ -68,6 +68,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   directInjectMode = false;
   private _directInjectPoller = 0;
   private _directPrevState: Record<string, boolean> = {};
+  trackGp = (_: number, gp: { index: number }) => gp.index;
 
   // UI modal / fullscreen
   isMenuPanelVisible = false;
