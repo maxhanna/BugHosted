@@ -902,6 +902,14 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
       this.loadMappingsList();
     }
     this._bootstrapDetectOnce();
+    
+    if (this.ports[1].gpIndex == null && this.gamepads.length) {
+      const std = this.gamepads.find(g => g.mapping === 'standard') ?? this.gamepads[0];
+      if (std) {
+        this.ports[1].gpIndex = std.index;
+        this.ensureDefaultMappingForPort(1);
+      }
+    } 
   }
 
   closeMenuPanel() {

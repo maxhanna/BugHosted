@@ -185,14 +185,16 @@
           <div style="min-width:70px;">P{{p}}</div>
 
           <!-- Controller dropdown -->
-          <label>Controller:
-            <select [value]="ports[p].gpIndex ?? ''"
-                    (change)="onSelectGamepadForPort(p, $any($event.target).value)">
+          <label>Controller: 
+            <select
+              [value]="ports[p].gpIndex != null ? (ports[p].gpIndex + '') : ''"
+              (change)="onSelectGamepadForPort(p, $any($event.target).value)"
+            >
               <option value="">-- none --</option>
-              <option *ngFor="let gp of gamepads" [value]="gp.index">
+              <option *ngFor="let gp of gamepads" [value]="gp.index + ''">
                 {{gp.index}} — {{gp.id}} {{gp.mapping ? '(' + gp.mapping + ')' : ''}}
               </option>
-            </select>
+            </select> 
           </label>
 
           <!-- Mapping dropdown -->
