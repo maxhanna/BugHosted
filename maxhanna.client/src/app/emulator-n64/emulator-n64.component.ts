@@ -1292,7 +1292,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-
   private _onGamepadConnected = (ev: GamepadEvent) => {
     this.refreshGamepads();
 
@@ -1301,7 +1300,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const std = this.gamepads.find(g => g.mapping === 'standard');
         this.assignFirstDetectedToP1(std ? std.index : ev.gamepad.index);
       } else {
-        // this.applyGamepadReorder();
+        this.applyGamepadReorder();
       }
     }
 
@@ -1329,7 +1328,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.applyGamepadReorder();
   };
 
-
   startGamepadAutoDetect() {
     const tick = () => {
       try {
@@ -1340,6 +1338,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
         const after = this.gamepads.map(g => g.index).join(',');
 
+        // If P1 is not assigned yet, pick a sensible default (prefer a 'standard' pad)
         if (this.ports[1].gpIndex == null && this.gamepads.length) {
           if (!this.hasLoadedLastInput) {
             const std = this.gamepads.find(g => g.mapping === 'standard');
@@ -1349,6 +1348,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           }
         }
 
+        // Re-apply reorder if the visible list changed
         if (before !== after) {
           this.applyGamepadReorder();
         }
@@ -1367,6 +1367,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
+
   private assignFirstDetectedToP1(preferredIdx?: number) {
     const pads = this.getGamepadsBase();
     if (!pads || !pads.length) return;
@@ -1380,6 +1381,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
     this.ensureDefaultMappingForPort(1);
     this.selectedGamepadIndex = idx;
+
+    // Now that P1 is assigned, enable the reorder wrapper
     this.applyGamepadReorder();
   }
 
@@ -1435,32 +1438,43 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.hasLoadedLastInput = true;
   }
 
+  // --- Reorder wrapper (safe fallback until P1 assigned) ---
   private installReorderWrapper() {
     if (this._gpWrapperInstalled) return;
     try {
-      this._originalGetGamepadsBase = navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null;
+      this._originalGetGamepadsBase = navigator.getGamepads
+        ? navigator.getGamepads.bind(navigator)
+        : null;
+
       const self = this;
 
       (navigator as any).getGamepads = function (): (Gamepad | null)[] {
         const baseArr = (self._originalGetGamepadsBase ? self._originalGetGamepadsBase() : []) || [];
-        const chosen: (Gamepad | null)[] = [];
-        const used = new Set<number>();
 
+        // ✅ IMPORTANT: Until P1 is assigned, DO NOT reorder — return native list
         if (self.ports[1].gpIndex == null) {
           return baseArr;
         }
 
+        const chosen: (Gamepad | null)[] = [];
+        const used = new Set<number>();
+
         const pushIf = (idx: number | null) => {
           if (idx == null) return;
           const pad = baseArr[idx];
-          if (pad && !used.has(idx)) { chosen.push(pad); used.add(idx); }
+          if (pad && !used.has(idx)) {
+            chosen.push(pad);
+            used.add(idx);
+          }
         };
 
+        // Put assigned ports (P1..P4) first, in order
         pushIf(self.ports[1].gpIndex);
         pushIf(self.ports[2].gpIndex);
         pushIf(self.ports[3].gpIndex);
         pushIf(self.ports[4].gpIndex);
 
+        // Then append any unassigned pads to keep them visible
         for (let i = 0; i < baseArr.length; i++) {
           if (!used.has(i)) chosen.push(baseArr[i]);
         }
@@ -1472,6 +1486,36 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       console.warn('Failed installing reorder wrapper', e);
     }
   }
+
+  applyGamepadReorder() {
+    try {
+      this.installReorderWrapper(); // safe to call repeatedly
+    } catch (e) {
+      console.warn('Failed to apply gamepad reorder', e);
+    }
+  }
+
+  private uninstallReorderWrapper() {
+    if (!this._gpWrapperInstalled) return;
+    try {
+      if (this._originalGetGamepadsBase) {
+        (navigator as any).getGamepads = this._originalGetGamepadsBase;
+      }
+    } catch { /* ignore */ }
+    this._gpWrapperInstalled = false;
+    this._originalGetGamepadsBase = null;
+  }
+
+  // Always fetch the raw browser list (wrapper only affects navigator.getGamepads())
+  private getGamepadsBase(): (Gamepad | null)[] {
+    const getter = this._originalGetGamepadsBase || (navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null);
+    return getter ? getter() : [];
+  }
+
+  restoreGamepadGetter() {
+    try { this.uninstallReorderWrapper(); } catch { /* ignore */ }
+  }
+
 
   closeRemapperToPort(port: PlayerPort) {
     this.ports[port].mapping = JSON.parse(JSON.stringify(this.mapping));
@@ -1613,21 +1657,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  private uninstallReorderWrapper() {
-    if (!this._gpWrapperInstalled) return;
-    try {
-      if (this._originalGetGamepadsBase) {
-        (navigator as any).getGamepads = this._originalGetGamepadsBase;
-      }
-    } catch { /* ignore */ }
-    this._gpWrapperInstalled = false;
-    this._originalGetGamepadsBase = null;
-  }
-
-  private getGamepadsBase(): (Gamepad | null)[] {
-    const getter = this._originalGetGamepadsBase || (navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null);
-    return getter ? getter() : [];
-  }
 
   private migrateMappingToIdsIfNeeded() {
     const arr = this.getGamepadsBase();
@@ -1760,19 +1789,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-
-  applyGamepadReorder() {
-    // Only reorder AFTER at least one port is assigned
-    if (this.ports[1].gpIndex == null) return;
-    this.installReorderWrapper();
-  }
-
-
-  restoreGamepadGetter() {
-    try {
-      this.uninstallReorderWrapper();
-    } catch { /* ignore */ }
-  }
 
   async downloadCurrentSaves() {
     try {
