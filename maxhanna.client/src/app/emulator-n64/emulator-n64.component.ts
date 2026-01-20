@@ -770,7 +770,8 @@ if (Object.keys(this.mapping || {}).length) {
       //this.applyGamepadReorder();
       if (this.directInjectMode) this.enableDirectInject();
 this.restoreGamepadGetter();
-      this.instance = await createMupen64PlusWeb({
+      this.instance = await createMupen64PlusWeb({ 
+        preRun: [ this._preRunIdbfsGuards ], 
         canvas: canvasEl,
         innerWidth: canvasEl.width,
         innerHeight: canvasEl.height,
@@ -797,14 +798,14 @@ this.restoreGamepadGetter();
       // await this.repairAllIdbTimestampFields();
       await this.normalizeMupenFileDataShapes();
 
-      const FS = (this.instance as any)?.FS;
-      console.log('IDBFS guards:',
-        FS?.filesystems?.IDBFS?.storeLocalEntry?.__guarded,
-        FS?.filesystems?.IDBFS?.storeRemoteEntry?.__guarded
-      );
-      console.log('Mounts:', FS?.mounts?.map((m: any) => ({
-        typeHasGuards: !!(m?.type?.storeLocalEntry?.__guarded),
-      })));
+      //const FS = (this.instance as any)?.FS;
+      // console.log('IDBFS guards:',
+      //   FS?.filesystems?.IDBFS?.storeLocalEntry?.__guarded,
+      //   FS?.filesystems?.IDBFS?.storeRemoteEntry?.__guarded
+      // );
+      // console.log('Mounts:', FS?.mounts?.map((m: any) => ({
+      //   typeHasGuards: !!(m?.type?.storeLocalEntry?.__guarded),
+      // })));
 
       await this.instance.start();
       this.status = 'running';
@@ -2061,6 +2062,67 @@ applyGamepadReorder() {
     })));
     db.close();
   }
+
+/** Install IDBFS guards *before* any mount/sync via Emscripten preRun. */
+private _preRunIdbfsGuards = (Module: any) => {
+  try {
+    const FS = Module?.FS;
+    if (!FS) return;
+
+    // 1) Make FS.syncfs read-only (allow populate reads; no-op writes)
+    const originalSyncfs = (typeof FS.syncfs === 'function') ? FS.syncfs.bind(FS) : null;
+
+    const roSync = (populate: boolean, cb: (err?: any) => void) => {
+      try {
+        if (populate && originalSyncfs) {
+          // remote -> local (read) — allowed
+          originalSyncfs(true, (_: any) => { try { cb?.(); } catch {} });
+        } else {
+          // local -> remote (write) — block
+          setTimeout(() => { try { cb?.(); } catch {} }, 0);
+        }
+      } catch {
+        try { cb?.(); } catch {}
+      }
+    };
+
+    (roSync as any).__preRunGuard = true;
+    FS.syncfs = roSync;
+
+    // 2) Swallow "node type not supported" throws inside IDBFS helpers
+    const IDBFS = FS.filesystems?.IDBFS;
+    if (IDBFS) {
+      const wrap = (name: 'storeLocalEntry' | 'storeRemoteEntry') => {
+        const fn = (IDBFS as any)[name];
+        if (typeof fn !== 'function' || (fn as any).__guarded) return;
+        const orig = fn.bind(IDBFS);
+
+        const guarded = (...args: any[]) => {
+          try {
+            return orig(...args);
+          } catch (e: any) {
+            const msg = String(e?.message || e).toLowerCase();
+            if (msg.includes('node type not supported')) {
+              console.warn(`[IDBFS] ${name}: swallowed unsupported node`);
+              // If the last arg is a callback, call it to signal "continue"
+              const cb = [...args].reverse().find(a => typeof a === 'function');
+              try { cb?.(); } catch {}
+              return;
+            }
+            throw e;
+          }
+        };
+        (guarded as any).__guarded = true;
+        (IDBFS as any)[name] = guarded;
+      };
+
+      wrap('storeLocalEntry');
+      wrap('storeRemoteEntry');
+    }
+  } catch {
+    /* ignore preRun guard failures */
+  }
+};
 
 
   private async waitForRomIdentity(ms = 1500): Promise<boolean> {
