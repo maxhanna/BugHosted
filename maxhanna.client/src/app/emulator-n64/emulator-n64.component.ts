@@ -770,6 +770,9 @@ if (Object.keys(this.mapping || {}).length) {
       //this.applyGamepadReorder();
       if (this.directInjectMode) this.enableDirectInject();
 this.restoreGamepadGetter();
+
+this.patchAutoInputCrashOnce();
+
       this.instance = await createMupen64PlusWeb({ 
         preRun: [ this._preRunIdbfsGuards ], 
         canvas: canvasEl,
@@ -1686,6 +1689,25 @@ private async safeWriteAutoCfg(sectionName: string, cfg: Record<string,string>) 
   }
 }
 
+
+private patchAutoInputCrashOnce() {
+  const anyWin = window as any;
+  if (anyWin.__mupenAutoCfgPatched) return;
+  anyWin.__mupenAutoCfgPatched = true;
+
+  const log = console.log.bind(console);
+
+  console.log = (...args: any[]) => {
+    // swallow the crashing internal log
+    if (
+      typeof args?.[0] === 'string' &&
+      args[0].includes('found autoInputConfig:')
+    ) {
+      return;
+    }
+    log(...args);
+  };
+}
 
   private migrateMappingToIdsIfNeeded() {
     const arr = this.getGamepadsBase();
