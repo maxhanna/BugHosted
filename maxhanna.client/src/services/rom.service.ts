@@ -1,18 +1,17 @@
 import { Injectable } from '@angular/core';
 
+
 export interface N64StateUpload {
-  /** Logged-in user ID */
-  userId: number; 
-  /** The *save* filename you want to persist (eep/sra/fla/srm/sav) */
+  userId: number;
+  romName: string;
   filename: string;
-  /** Raw bytes to upload */
   bytes: Uint8Array;
   emuKey: string;
-  /** Optional timing/analytics fields already supported in your backend */
-  startTimeMs?: number;      // when play started
-  saveTimeMs?: number;       // when save occurred
-  durationSeconds?: number;  // seconds played since last upload
+  startTimeMs?: number;
+  saveTimeMs?: number;
+  durationSeconds?: number;
 }
+
 export interface SaveUploadResponse {
   ok: boolean;
   status: number;
@@ -54,18 +53,30 @@ export class RomService {
   }
 
 
-async getN64SaveByName(filename: string, userId: number): Promise<Blob | null> {
-  const url = `/Rom/GetN64SaveByName/${encodeURIComponent(filename)}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(userId)
-  });
-  if (!res.ok) return null;
-  return await res.blob();
-} 
+  async getN64SaveByName(romName: string, userId: number): Promise<{ blob: Blob; filename: string } | null> {
+    const url = `/Rom/GetN64SaveByName/${encodeURIComponent(romName)}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userId)
+    });
+    if (!res.ok) return null;
 
-//deprecated, delete
+    // Extract filename from Content-Disposition header
+    const cd = res.headers.get('content-disposition') || '';
+    let filename = romName; // fallback
+    // robust parse: supports filename="..." and RFC5987 filename*=UTF-8''
+    const rfc5987 = cd.match(/filename\*=(?:UTF-8'')?([^;]+)/i);
+    const quoted = cd.match(/filename="([^"]+)"/i);
+    if (rfc5987 && rfc5987[1]) filename = decodeURIComponent(rfc5987[1]);
+    else if (quoted && quoted[1]) filename = quoted[1];
+
+    const blob = await res.blob();
+    return { blob, filename };
+  }
+
+
+  //deprecated, delete
   async getN64StateFile(rom: string, userId?: number) {
     try {
       const response = await fetch(`/rom/getn64statefile/${encodeURIComponent(rom)}`, {
@@ -246,23 +257,28 @@ async getN64SaveByName(filename: string, userId: number): Promise<Blob | null> {
 
   async saveN64State(req: N64StateUpload): Promise<SaveUploadResponse> {
     const form = new FormData();
+    // NOTE: req.romName must be provided by caller
+    if (!(req as any).romName) {
+      return { ok: false, status: 0, errorText: 'romName is required on N64StateUpload' };
+    }
+
     const tightAb: ArrayBuffer = this.toTightArrayBuffer(req.bytes);
     form.append('file', new File([tightAb], req.filename, { type: 'application/octet-stream' }));
-    form.append('userId', JSON.stringify(req.userId));
+    form.append('userId', String(req.userId));
+    form.append('romName', (req as any).romName as string); // typed as any to be drop-in safe
+    form.append('filename', req.filename);
+
     if (typeof req.startTimeMs === 'number') form.append('startTimeMs', String(req.startTimeMs));
     if (typeof req.saveTimeMs === 'number') form.append('saveTimeMs', String(req.saveTimeMs));
     if (typeof req.durationSeconds === 'number') form.append('durationSeconds', String(req.durationSeconds));
 
     try {
-      const res = await fetch(`/rom/uploadrom`, { method: 'POST', body: form }); // match server route casing
+      const res = await fetch(`/rom/saven64state`, { method: 'POST', body: form });
       const status = res.status;
       const ct = (res.headers.get('content-type') || '').toLowerCase();
 
-      // Decide once, read once
       const readAsText = async () => await res.text();
-      const readAsJson = async () => {
-        try { return await res.json(); } catch { return null; }
-      };
+      const readAsJson = async () => { try { return await res.json(); } catch { return null; } };
 
       if (!res.ok) {
         const errorBody = ct.includes('application/json') ? await readAsJson() : await readAsText();
@@ -275,5 +291,5 @@ async getN64SaveByName(filename: string, userId: number): Promise<Blob | null> {
     } catch (error: any) {
       return { ok: false, status: 0, errorText: String(error?.message ?? error) };
     }
-  }
+  } 
 }
