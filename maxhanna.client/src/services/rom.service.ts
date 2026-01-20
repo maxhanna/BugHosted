@@ -54,7 +54,7 @@ export class RomService {
 
 
   async getN64SaveByName(romName: string, userId: number): Promise<{ blob: Blob; filename: string } | null> {
-    const url = `/Rom/GetN64SaveByName/${encodeURIComponent(romName)}`;
+    const url = `/rom/getn64savebyname/${encodeURIComponent(romName)}`;
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
