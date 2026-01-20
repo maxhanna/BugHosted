@@ -218,10 +218,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
             await this.deleteSavestatesForCurrentRom();
           }
 
-          // 5) Restart emulator so the game reads the imported battery save
-          await this.stop();
-          await new Promise(r => setTimeout(r, 300));
-          await this.boot();
+          // // 5) Restart emulator so the game reads the imported battery save
+          // await this.stop();
+          // await new Promise(r => setTimeout(r, 300));
+          // await this.boot();
         } else {
           console.log("No save file found for this ROM.");
           this.parentRef?.showNotification('No save found on server for this ROM.');
@@ -1214,11 +1214,11 @@ this.restoreGamepadGetter();
         this.parentRef?.showNotification(`Imported ${written.length} save file(s): ${written.join(', ')}`);
         const wasRunning = this.status === 'running' || !!this.instance;
         await this.normalizeMupenFileDataShapes();
-        if (wasRunning) {
-          await this.stop();
-          await new Promise(r => setTimeout(r, 400));
-          // await this.syncFs('post-import');
-        }
+        // if (wasRunning) {
+        //   await this.stop();
+        //   await new Promise(r => setTimeout(r, 400));
+        //   // await this.syncFs('post-import');
+        // }
         if (!skipBoot) {
           await this.boot();
         }
