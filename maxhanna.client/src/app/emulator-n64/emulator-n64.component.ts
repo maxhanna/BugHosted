@@ -575,69 +575,57 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  
 async applyMappingToEmulator() {
   try {
     this.migrateMappingToIdsIfNeeded();
 
-    // Build "key = value" lines from current mapping
+    if (this.status === 'running' || this.status === 'booting') {
+      // ❌ Never write InputAutoCfg while emulator is alive
+      this.parentRef?.showNotification(
+        'Controller mapping will be applied on next launch.'
+      );
+      return;
+    }
+
     const config: Record<string, string> = {};
     const handled = new Set<string>();
 
-    const pairAxis = (minusKey: string, plusKey: string, axisName: string) => {
-      const mMinus = this.mapping[minusKey];
-      const mPlus  = this.mapping[plusKey];
-      if (mMinus && mPlus && mMinus.type === 'axis' && mPlus.type === 'axis' &&
-          mMinus.gamepadId && mPlus.gamepadId && mMinus.gamepadId === mPlus.gamepadId) {
-        config[axisName] = `axis(${mMinus.index}-,${mPlus.index}+)`;
-        handled.add(minusKey); handled.add(plusKey);
-        return true;
+    const pairAxis = (minus: string, plus: string, axis: string) => {
+      const a = this.mapping[minus];
+      const b = this.mapping[plus];
+      if (a && b && a.type === 'axis' && b.type === 'axis') {
+        config[axis] = `axis(${a.index}-,${b.index}+)`;
+        handled.add(minus);
+        handled.add(plus);
       }
-      return false;
     };
+
     pairAxis('Analog X-', 'Analog X+', 'X Axis');
     pairAxis('Analog Y-', 'Analog Y+', 'Y Axis');
 
-    for (const key of Object.keys(this.mapping)) {
-      if (handled.has(key)) continue;
-      const m = this.mapping[key];
+    for (const k of Object.keys(this.mapping)) {
+      if (handled.has(k)) continue;
+      const m = this.mapping[k];
       if (!m) continue;
-      if (m.type === 'button') {
-        config[key] = `button(${m.index})`;
-      } else if (m.type === 'axis') {
-        config[key] = `axis(${m.index}${m.axisDir === -1 ? '-' : '+'})`;
-      }
+      config[k] = m.type === 'button'
+        ? `button(${m.index})`
+        : `axis(${m.index}${m.axisDir === -1 ? '-' : '+'})`;
     }
 
-    // ✅ Choose section name: prefer exact SDL name; fallback to current pad id
-    let sectionName =
+    const sectionName =
       this._sdlPadName ||
       Object.values(this.mapping).find(v => v?.gamepadId)?.gamepadId ||
-      (this.currentPad()?.id ?? 'Custom Gamepad');
+      this.currentPad()?.id ||
+      'Custom Gamepad';
 
-    const wasRunning = !!this.instance || this.status === 'running';
-    if (wasRunning) {
-      await this.stop();
-      await new Promise((r) => setTimeout(r, 350));
-    }
-
-    // ✅ Write/update the section inside IndexedDB
     await this.writeInputAutoCfgSection(sectionName, config);
     this._lastAppliedSectionName = sectionName;
 
-    this.parentRef?.showNotification(`Applied mapping for "${sectionName}"`);
-
-    if (this.directInjectMode && this.multiPortActive()) {
-      this.toggleDirectInject(false);
-      this.parentRef?.showNotification('Direct-inject disabled for multi-controller mode.');
-    } else if (this.directInjectMode) {
-      this.enableDirectInject();
-    }
-
-    if (wasRunning) await this.boot();
+    this.parentRef?.showNotification(
+      `Mapping saved for "${sectionName}". Restart emulator to apply.`
+    );
   } catch (e) {
-    console.error('Failed to apply mapping to emulator', e);
-    this.parentRef?.showNotification('Failed to apply mapping');
+    console.error('applyMappingToEmulator failed', e);
   }
 } 
 
@@ -757,6 +745,22 @@ async applyMappingToEmulator() {
     this.loading = true;
     this.status = 'booting';
 
+// ✅ Apply mapping BEFORE emulator exists
+if (Object.keys(this.mapping || {}).length) {
+  const section =
+    this._sdlPadName ||
+    Object.values(this.mapping).find(v => v?.gamepadId)?.gamepadId ||
+    this.currentPad()?.id ||
+    'Custom Gamepad';
+
+  await this.writeInputAutoCfgSection(
+    section,
+    this.buildAutoInputConfigFromMapping(this.mapping)
+  );
+
+  this._lastAppliedSectionName = section;
+}
+
     // ✅ Reset meta and start sniffer BEFORE emulator creation
     this._romGoodName = null;
     this._romMd5 = null;
@@ -806,15 +810,7 @@ this.restoreGamepadGetter();
       this.status = 'running';
 
       //await this.repairIdbfsMetaTimestamps(); 
-      await this.waitForRomIdentity(2000);
-
-      // 🔁 If we have a mapping and just learned the SDL name, re-apply once so Mupen uses the right section
-      try {
-        if (Object.keys(this.mapping || {}).length && this._sdlPadName && this._lastAppliedSectionName !== this._sdlPadName) {
-          // This will stop and reboot once with the correct section header
-          await this.applyMappingToEmulator();
-        }
-      } catch { /* ignore */ } 
+      await this.waitForRomIdentity(2000); 
 
       restoreSniffer();// ✅ Stop sniffing once ROM meta printed
 
