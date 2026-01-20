@@ -785,7 +785,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.installIdbfsReadOnlySync();  // read-only sync + installs brutal guard again for populate
       this.pruneUnsupportedNodesUnder('/mupen64plus'); // optional but helpful
 
-     // await this.repairAllIdbTimestampFields();
+      // await this.repairAllIdbTimestampFields();
       await this.normalizeMupenFileDataShapes();
 
       const FS = (this.instance as any)?.FS;
@@ -805,7 +805,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       restoreSniffer();// ✅ Stop sniffing once ROM meta printed
 
       // Give IDBFS a small head start; reduces "syncfs overlap" churn
-      await new Promise(r => setTimeout(r, 400)); 
+      await new Promise(r => setTimeout(r, 400));
 
 
       this.parentRef?.showNotification(`Booted ${this.romName}`);
@@ -1291,7 +1291,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.autosaveTimer = null;
     }
   }
- 
+
 
   private _onGamepadConnected = (ev: GamepadEvent) => {
     this.refreshGamepads();
@@ -1301,7 +1301,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const std = this.gamepads.find(g => g.mapping === 'standard');
         this.assignFirstDetectedToP1(std ? std.index : ev.gamepad.index);
       } else {
-       // this.applyGamepadReorder();
+        // this.applyGamepadReorder();
       }
     }
 
@@ -1329,11 +1329,15 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.applyGamepadReorder();
   };
 
+
   startGamepadAutoDetect() {
     const tick = () => {
       try {
         const before = this.gamepads.map(g => g.index).join(',');
-       // this.refreshGamepads();
+
+        // ✅ REQUIRED: pull fresh browser state
+        this.refreshGamepads();
+
         const after = this.gamepads.map(g => g.index).join(',');
 
         if (this.ports[1].gpIndex == null && this.gamepads.length) {
@@ -1348,7 +1352,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         if (before !== after) {
           this.applyGamepadReorder();
         }
-      } catch { console.log('Gamepad auto-detect tick failed'); }
+      } catch {
+        console.log('Gamepad auto-detect tick failed');
+      }
       this._autoDetectTimer = setTimeout(tick, 750);
     };
     tick();
@@ -1755,11 +1761,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
 
-applyGamepadReorder() {
-  // Only reorder AFTER at least one port is assigned
-  if (this.ports[1].gpIndex == null) return;
-  this.installReorderWrapper();
-}
+  applyGamepadReorder() {
+    // Only reorder AFTER at least one port is assigned
+    if (this.ports[1].gpIndex == null) return;
+    this.installReorderWrapper();
+  }
 
 
   restoreGamepadGetter() {
@@ -1978,7 +1984,7 @@ applyGamepadReorder() {
     const extFromName = (filename?.match(/\.(eep|sra|fla)$/i)?.[0] || '').toLowerCase() as any;
     if (extFromName) return extFromName;
     return this.inferBatteryExtFromSize(size) || '.sra';
-  } 
+  }
 
   private multiPortActive(): boolean {
     return [1, 2, 3, 4].filter(p => this.ports[p as PlayerPort].gpIndex != null).length > 1;
@@ -2024,8 +2030,8 @@ applyGamepadReorder() {
       del.onsuccess = () => resolve();
     })));
     db.close();
-  } 
- 
+  }
+
 
   private async waitForRomIdentity(ms = 1500): Promise<boolean> {
     const t0 = performance.now();
@@ -2083,7 +2089,7 @@ applyGamepadReorder() {
     return restore;
   }
 
- 
+
 
   /** Find & guard hidden IDBFS storeLocalEntry/storeRemoteEntry even if not at FS.filesystems.IDBFS. */
   private installHiddenIdbfsGuardsBrutal(opts?: { passes?: number; interval?: number }): void {
@@ -2294,7 +2300,7 @@ applyGamepadReorder() {
       } catch { /* ignore */ }
     }
   }
- 
+
   /** Install single-flight gates for both FS.syncfs and IDBFS.syncfs on module + window. */
   // private installSyncfsGate(): void {
   //   const patchFS = (FS: any) => {
