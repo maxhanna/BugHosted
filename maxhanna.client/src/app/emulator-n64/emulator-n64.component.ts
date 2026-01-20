@@ -758,7 +758,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const restoreSniffer = this.installMupenConsoleSniffer();
 
     try {
-      this.applyGamepadReorder();
+      //this.applyGamepadReorder();
       if (this.directInjectMode) this.enableDirectInject();
 
       this.instance = await createMupen64PlusWeb({
@@ -1301,7 +1301,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const std = this.gamepads.find(g => g.mapping === 'standard');
         this.assignFirstDetectedToP1(std ? std.index : ev.gamepad.index);
       } else {
-        this.applyGamepadReorder();
+       // this.applyGamepadReorder();
       }
     }
 
@@ -1333,7 +1333,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const tick = () => {
       try {
         const before = this.gamepads.map(g => g.index).join(',');
-        this.refreshGamepads();
+       // this.refreshGamepads();
         const after = this.gamepads.map(g => g.index).join(',');
 
         if (this.ports[1].gpIndex == null && this.gamepads.length) {
@@ -1439,6 +1439,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const baseArr = (self._originalGetGamepadsBase ? self._originalGetGamepadsBase() : []) || [];
         const chosen: (Gamepad | null)[] = [];
         const used = new Set<number>();
+
+        if (self.ports[1].gpIndex == null) {
+          return baseArr;
+        }
 
         const pushIf = (idx: number | null) => {
           if (idx == null) return;
@@ -1750,13 +1754,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  applyGamepadReorder() {
-    try {
-      this.installReorderWrapper();
-    } catch (e) {
-      console.warn('Failed to apply gamepad reorder', e);
-    }
-  }
+
+applyGamepadReorder() {
+  // Only reorder AFTER at least one port is assigned
+  if (this.ports[1].gpIndex == null) return;
+  this.installReorderWrapper();
+}
+
 
   restoreGamepadGetter() {
     try {
