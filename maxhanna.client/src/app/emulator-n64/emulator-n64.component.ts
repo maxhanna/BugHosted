@@ -765,7 +765,7 @@ async applyMappingToEmulator() {
     try {
       //this.applyGamepadReorder();
       if (this.directInjectMode) this.enableDirectInject();
-
+this.restoreGamepadGetter();
       this.instance = await createMupen64PlusWeb({
         canvas: canvasEl,
         innerWidth: canvasEl.width,
@@ -854,6 +854,7 @@ async applyMappingToEmulator() {
       if (this.romName) {
         this.parentRef?.showNotification('Emulator stopped');
       }
+      this.applyGamepadReorder();
     }
   }
 
@@ -1318,9 +1319,11 @@ async applyMappingToEmulator() {
       }
     }
 
-    if (this.instance || this.status === 'running') {
-      this.applyGamepadReorder();
-    }
+
+if (!this.instance && this.status !== 'running' && this.status !== 'booting') {
+  this.applyGamepadReorder();
+}
+
 
     this.maybeApplyStoredMappingFor(ev.gamepad.id);
   };
@@ -1452,62 +1455,63 @@ async applyMappingToEmulator() {
     this.hasLoadedLastInput = true;
   }
 
-  // --- Reorder wrapper (safe fallback until P1 assigned) ---
-  private installReorderWrapper() {
-    if (this._gpWrapperInstalled) return;
-    try {
-      this._originalGetGamepadsBase = navigator.getGamepads
-        ? navigator.getGamepads.bind(navigator)
-        : null;
+  
+// --- Reorder wrapper (safe fallback until P1 assigned) ---
+private installReorderWrapper() {
+  if (this._gpWrapperInstalled) return;
 
-      const self = this;
+  // ❌ Never install the wrapper while the emulator is running
+  if (this.instance || this.status === 'running' || this.status === 'booting') return;
 
-      (navigator as any).getGamepads = function (): (Gamepad | null)[] {
-        const baseArr = (self._originalGetGamepadsBase ? self._originalGetGamepadsBase() : []) || [];
+  try {
+    this._originalGetGamepadsBase = navigator.getGamepads
+      ? navigator.getGamepads.bind(navigator)
+      : null;
 
-        // ✅ IMPORTANT: Until P1 is assigned, DO NOT reorder — return native list
-        if (self.ports[1].gpIndex == null) {
-          return baseArr;
-        }
+    const self = this;
 
-        const chosen: (Gamepad | null)[] = [];
-        const used = new Set<number>();
+    (navigator as any).getGamepads = function (): (Gamepad | null)[] {
+      const baseArr = (self._originalGetGamepadsBase ? self._originalGetGamepadsBase() : []) || [];
 
-        const pushIf = (idx: number | null) => {
-          if (idx == null) return;
-          const pad = baseArr[idx];
-          if (pad && !used.has(idx)) {
-            chosen.push(pad);
-            used.add(idx);
-          }
-        };
+      // Until P1 is assigned, do not reorder — return native list
+      if (self.ports[1].gpIndex == null) return baseArr;
 
-        // Put assigned ports (P1..P4) first, in order
-        pushIf(self.ports[1].gpIndex);
-        pushIf(self.ports[2].gpIndex);
-        pushIf(self.ports[3].gpIndex);
-        pushIf(self.ports[4].gpIndex);
-
-        // Then append any unassigned pads to keep them visible
-        for (let i = 0; i < baseArr.length; i++) {
-          if (!used.has(i)) chosen.push(baseArr[i]);
-        }
-        return chosen;
+      const chosen: (Gamepad | null)[] = [];
+      const used = new Set<number>();
+      const pushIf = (idx: number | null) => {
+        if (idx == null) return;
+        const pad = baseArr[idx];
+        if (pad && !used.has(idx)) { chosen.push(pad); used.add(idx); }
       };
 
-      this._gpWrapperInstalled = true;
-    } catch (e) {
-      console.warn('Failed installing reorder wrapper', e);
-    }
-  }
+      // Assigned ports first
+      pushIf(self.ports[1].gpIndex);
+      pushIf(self.ports[2].gpIndex);
+      pushIf(self.ports[3].gpIndex);
+      pushIf(self.ports[4].gpIndex);
 
-  applyGamepadReorder() {
-    try {
-      this.installReorderWrapper(); // safe to call repeatedly
-    } catch (e) {
-      console.warn('Failed to apply gamepad reorder', e);
-    }
+      // Then everyone else
+      for (let i = 0; i < baseArr.length; i++) {
+        if (!used.has(i)) chosen.push(baseArr[i]);
+      }
+      return chosen;
+    };
+
+    this._gpWrapperInstalled = true;
+  } catch (e) {
+    console.warn('Failed installing reorder wrapper', e);
   }
+}
+
+applyGamepadReorder() {
+  try {
+    // ❌ Do NOT install the wrapper while the emulator is running
+    if (this.instance || this.status === 'running' || this.status === 'booting') return;
+    this.installReorderWrapper(); // safe to call repeatedly when stopped/idle
+  } catch (e) {
+    console.warn('Failed to apply gamepad reorder', e);
+  }
+} 
 
   private uninstallReorderWrapper() {
     if (!this._gpWrapperInstalled) return;
