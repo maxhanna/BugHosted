@@ -3,6 +3,7 @@ using MySqlConnector;
 using Newtonsoft.Json;
 using System.Net;
 using maxhanna.Server.Controllers.DataContracts.Rom;
+using System.Data;
 
 namespace maxhanna.Server.Controllers
 {
@@ -405,96 +406,340 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
       }
     }
 
-    [HttpPost("/Rom/GetN64StateFile/{romName}", Name = "GetN64StateFile")]
-    public async Task<IActionResult> GetN64StateFile([FromBody] int? userId, string romName)
-    {
-      // Require login for save files (same rule as GetRomFile)
-      if (userId == null || userId == 0) {
-        return BadRequest("Must be logged in to access save files!");
-      }
-      // Normalized ROM base (without extension)
-      var decodedRom = WebUtility.UrlDecode(romName) ?? string.Empty;
-      var romBase = Path.GetFileNameWithoutExtension(decodedRom);
-      if (string.IsNullOrWhiteSpace(romBase))
-      {
-        return BadRequest("Invalid ROM name."); 
-      } 
-      Console.WriteLine($"Requesting save file for ROM: {romBase}");
-      GetRomFileRequest req = new GetRomFileRequest();
-      req.UserId = userId; 
-      // 1) Try physical on disk (user-specific first), using your naming convention: <base>_<userId><ext>
-      foreach (var ext in saveExts)
-      {
-        var userSpecificName = $"{romBase}_{userId}{ext}";
-        var userSpecificPath = Path.Combine(_baseTarget, userSpecificName).Replace("\\", "/");
-        Console.WriteLine($"Looking for file: {userSpecificPath}");
-        if (System.IO.File.Exists(userSpecificPath))
+   // ---------------------------
+        // POST /rom/saven64state
+        // FormData:
+        //  - file        : IFormFile (save bytes)  [required]
+        //  - userId      : number                  [required]
+        //  - romName     : string                  [required]
+        //  - filename    : string (e.g. "Game.sra") [optional; fallback to file.FileName]
+        //  - saveTimeMs  : number (optional)
+        // ---------------------------
+        [HttpPost("saven64state")]
+        [RequestSizeLimit(2_000_000)] // 2 MB safety cap
+        public async Task<IActionResult> SaveN64State()
         {
-          Console.WriteLine($"Found file with path: {userSpecificPath}");
-          // Reuse GetRomFile to stream + update last_access + record selection
-          return await GetRomFile($"{romBase}_{userId}{ext}", req);
+            var form = await Request.ReadFormAsync();
+            var file = form.Files.GetFile("file");
+            if (file == null || file.Length <= 0)
+                return BadRequest("Missing 'file'");
+
+            if (!int.TryParse(form["userId"], out var userId) || userId <= 0)
+                return BadRequest("Invalid 'userId'");
+
+            var romName = form["romName"].ToString();
+            if (string.IsNullOrWhiteSpace(romName))
+                return BadRequest("Missing 'romName'");
+
+            var providedFilename = form["filename"].ToString();
+            var fileName = string.IsNullOrWhiteSpace(providedFilename) ? file.FileName : providedFilename;
+
+            if (string.IsNullOrWhiteSpace(fileName))
+                return BadRequest("Missing 'filename'");
+
+            // Validate extension
+            var ext = Path.GetExtension(fileName).ToLowerInvariant();
+            if (ext != ".eep" && ext != ".sra" && ext != ".fla")
+                return BadRequest("Unsupported save type. Allowed: .eep, .sra, .fla");
+
+            // Read bytes
+            byte[] bytes;
+            using (var ms = new MemoryStream())
+            {
+                await file.CopyToAsync(ms);
+                bytes = ms.ToArray();
+            }
+            var size = bytes.Length;
+
+            // Domain-enforced sizes
+            if (!IsValidSize(ext, size, out var saveType))
+                return BadRequest($"Invalid {ext} size: {size} bytes");
+
+            // UPSERT into MySQL
+            using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            await conn.OpenAsync();
+
+            const string sql = @"
+INSERT INTO n64_user_saves
+    (user_id, rom_name, save_file_name, save_type, save_data, file_size, last_write)
+VALUES
+    (@UserId, @RomName, @SaveFileName, @SaveType, @SaveData, @FileSize, CURRENT_TIMESTAMP)
+ON DUPLICATE KEY UPDATE
+    save_type  = VALUES(save_type),
+    save_data  = VALUES(save_data),
+    file_size  = VALUES(file_size),
+    last_write = CURRENT_TIMESTAMP;";
+
+            using var cmd = new MySqlCommand(sql, conn);
+            cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
+            cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = romName;
+            cmd.Parameters.Add("@SaveFileName", MySqlDbType.VarChar).Value = fileName;
+            cmd.Parameters.Add("@SaveType", MySqlDbType.VarChar).Value = saveType; // 'eep'|'sra'|'fla'
+            cmd.Parameters.Add("@SaveData", MySqlDbType.MediumBlob).Value = bytes;
+            cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value = size;
+
+            await cmd.ExecuteNonQueryAsync();
+
+            return Ok(new
+            {
+                ok = true,
+                userId,
+                romName,
+                fileName,
+                saveType,
+                fileSize = size
+            });
         }
 
-        // If no per-user file, try the global file (without _userId)
-        var globalName = $"{romBase}{ext}";
-        var globalPath = Path.Combine(_baseTarget, globalName).Replace("\\", "/");
-        if (System.IO.File.Exists(globalPath))
+        // ---------------------------
+        // POST /rom/GetN64SaveByName/{romName}
+        // Body: userId (raw JSON number)
+        // Returns: octet-stream with *save_file_name* as download filename
+        // ---------------------------
+        [HttpPost("GetN64SaveByName/{romName}")]
+        public async Task<IActionResult> GetN64SaveByName([FromRoute] string romName, [FromBody] int userId)
         {
-          Console.WriteLine($"Found global save file with path: {globalPath}");
-          return await GetRomFile($"{romBase}{ext}", req);
+            if (string.IsNullOrWhiteSpace(romName) || userId <= 0)
+                return BadRequest("Missing romName or invalid userId");
+
+            using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            await conn.OpenAsync();
+
+            const string sql = @"
+SELECT save_file_name, save_data
+FROM n64_user_saves
+WHERE user_id = @UserId
+  AND rom_name = @RomName
+ORDER BY last_write DESC
+LIMIT 1;";
+
+            using var cmd = new MySqlCommand(sql, conn);
+            cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
+            cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = romName;
+
+            using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess);
+            if (!await reader.ReadAsync())
+                return NotFound("No save found for this ROM");
+
+            var fileName = reader.GetString(0);
+            byte[] data;
+
+            // Read blob efficiently
+            const int chunk = 81920;
+            using (var ms = new MemoryStream())
+            {
+                long offset = 0;
+                long bytesRead;
+                do
+                {
+                    var buffer = new byte[chunk];
+                    bytesRead = reader.GetBytes(1, offset, buffer, 0, buffer.Length);
+                    if (bytesRead > 0)
+                    {
+                        ms.Write(buffer, 0, (int)bytesRead);
+                        offset += bytesRead;
+                    }
+                } while (bytesRead > 0);
+                data = ms.ToArray();
+            }
+
+            // Return exact emulator filename → your frontend feeds this to importInGameSaveRam (no rename)
+            return File(data, "application/octet-stream", fileName);
         }
-      }
 
-      // 2) If not found physically, look up DB rows in file_uploads by file_type and name
-      Console.WriteLine($"Could not find physical save file. Attempting to find it in DB. RomBase: {romBase}");
-      try
-      {
-        await using var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-        await connection.OpenAsync();
-
-        // Preferred: file_type 'sav' (unified for all save formats if you applied the earlier change);
-        // otherwise fall back to extension checks in SQL.
-        string sql = @"
-            SELECT file_name
-              FROM maxhanna.file_uploads
-             WHERE folder_path = @FolderPath
-               AND user_id = @UserId
-               AND (file_type = 'sav'
-                    OR file_name LIKE CONCAT(@RomBase, '%.sav')
-                    OR file_name LIKE CONCAT(@RomBase, '%.srm')
-                    OR file_name LIKE CONCAT(@RomBase, '%.eep')
-                    OR file_name LIKE CONCAT(@RomBase, '%.sra')
-                    OR file_name LIKE CONCAT(@RomBase, '%.fla'))
-             ORDER BY upload_date DESC, last_access DESC
-             LIMIT 1;";
-
-        using var cmd = new MySqlCommand(sql, connection);
-        cmd.Parameters.AddWithValue("@FolderPath", _baseTarget);
-        cmd.Parameters.AddWithValue("@UserId", userId);
-        cmd.Parameters.AddWithValue("@RomBase", romBase);
-
-        var obj = await cmd.ExecuteScalarAsync();
-        var dbFileName = obj as string;
-
-        if (!string.IsNullOrWhiteSpace(dbFileName))
+        // ---------------------------
+        // (Optional)
+        // POST /rom/GetN64SaveByFilename/{fileName}
+        // Body: userId (raw JSON number)
+        // ---------------------------
+        [HttpPost("GetN64SaveByFilename/{fileName}")]
+        public async Task<IActionResult> GetN64SaveByFilename([FromRoute] string fileName, [FromBody] int userId)
         {
-          // The physical file on disk uses <base>_<userId><ext> for saves.
-          // We can delegate streaming to GetRomFile by passing the "logical" filename (<base><ext>).
-          // GetRomFile will rewrite to per-user path automatically.
-          Console.WriteLine($"Found DB Match : {dbFileName}");
-          var ext = Path.GetExtension(dbFileName)?.ToLowerInvariant() ?? ".sav";
-          return await GetRomFile($"{romBase}{ext}", req);
-        }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("GetN64StateFile DB lookup error: " + ex.Message, userId, "ROM", true);
-        // Continue to 404 if DB lookup fails; you can return 500 if you prefer.
-      }
+            if (string.IsNullOrWhiteSpace(fileName) || userId <= 0)
+                return BadRequest("Missing fileName or invalid userId");
 
-      _ = _log.Db($"No save/savestate found for ROM '{romBase}' (user {userId}).", userId, "ROM", true);
-      return NotFound($"No N64 save/savestate found for '{romBase}'.");
-    }
+            using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            await conn.OpenAsync();
+
+            const string sql = @"
+SELECT save_file_name, save_data
+FROM n64_user_saves
+WHERE user_id = @UserId
+  AND save_file_name = @FileName
+ORDER BY last_write DESC
+LIMIT 1;";
+
+            using var cmd = new MySqlCommand(sql, conn);
+            cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
+            cmd.Parameters.Add("@FileName", MySqlDbType.VarChar).Value = fileName;
+
+            using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess);
+            if (!await reader.ReadAsync())
+                return NotFound("No save found with that filename");
+
+            var dlName = reader.GetString(0);
+            byte[] data;
+            const int chunk = 81920;
+            using (var ms = new MemoryStream())
+            {
+                long offset = 0; long bytesRead;
+                do
+                {
+                    var buffer = new byte[chunk];
+                    bytesRead = reader.GetBytes(1, offset, buffer, 0, buffer.Length);
+                    if (bytesRead > 0) { ms.Write(buffer, 0, (int)bytesRead); offset += bytesRead; }
+                } while (bytesRead > 0);
+                data = ms.ToArray();
+            }
+
+            return File(data, "application/octet-stream", dlName);
+        }
+
+        // ---------------------------
+        // Helpers
+        // ---------------------------
+        private static bool IsValidSize(string ext, int size, out string saveType)
+        {
+            saveType = ext.TrimStart('.'); // 'eep'|'sra'|'fla'
+            switch (ext)
+            {
+                case ".eep": return size == 512 || size == 2048;
+                case ".sra": return size == 32768;
+                case ".fla": return size == 131072;
+                default:     return false;
+            }
+        }
+
+// [HttpPost("/Rom/GetN64SaveByName/{fileName}")]
+// public async Task<IActionResult> GetN64SaveByName([FromBody] int? userId, string fileName)
+// {
+//   if (userId == null || userId == 0)
+//     return BadRequest("Must be logged in to access save files!");
+
+//   var safeName = Path.GetFileName(WebUtility.UrlDecode(fileName) ?? string.Empty);
+//   if (string.IsNullOrWhiteSpace(safeName))
+//     return BadRequest("Invalid filename.");
+
+//   // If you keep everything flat in _baseTarget:
+//   var candidatePaths = new[]
+//   {
+//     Path.Combine(_baseTarget, safeName).Replace("\\", "/"),
+//     // Optional: a per-user folder if you switch storage layout:
+//     Path.Combine(_baseTarget, "users", userId!.Value.ToString(), "n64", safeName).Replace("\\", "/"),
+//   };
+
+//   foreach (var path in candidatePaths)
+//   {
+//     if (System.IO.File.Exists(path))
+//     {
+//       try
+//       {
+//         var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+//         _ = UpdateLastAccessForRom(safeName, userId, null);
+//         return File(stream, "application/octet-stream", safeName);
+//       }
+//       catch (Exception ex)
+//       {
+//         _ = _log.Db("GetN64SaveByName error opening file: " + ex.Message, userId, "ROM", true);
+//         return StatusCode(500, "Error opening save file.");
+//       }
+//     }
+//   }
+
+//   return NotFound();
+// }
+
+// //below is deprecated
+//     [HttpPost("/Rom/GetN64StateFile/{romName}", Name = "GetN64StateFile")]
+//     public async Task<IActionResult> GetN64StateFile([FromBody] int? userId, string romName)
+//     {
+//       // Require login for save files (same rule as GetRomFile)
+//       if (userId == null || userId == 0) {
+//         return BadRequest("Must be logged in to access save files!");
+//       }
+//       // Normalized ROM base (without extension)
+//       var decodedRom = WebUtility.UrlDecode(romName) ?? string.Empty;
+//       var romBase = Path.GetFileNameWithoutExtension(decodedRom);
+//       if (string.IsNullOrWhiteSpace(romBase))
+//       {
+//         return BadRequest("Invalid ROM name."); 
+//       } 
+//       Console.WriteLine($"Requesting save file for ROM: {romBase}");
+//       GetRomFileRequest req = new GetRomFileRequest();
+//       req.UserId = userId; 
+//       // 1) Try physical on disk (user-specific first), using your naming convention: <base>_<userId><ext>
+//       foreach (var ext in saveExts)
+//       {
+//         var userSpecificName = $"{romBase}_{userId}{ext}";
+//         var userSpecificPath = Path.Combine(_baseTarget, userSpecificName).Replace("\\", "/");
+//         Console.WriteLine($"Looking for file: {userSpecificPath}");
+//         if (System.IO.File.Exists(userSpecificPath))
+//         {
+//           Console.WriteLine($"Found file with path: {userSpecificPath}");
+//           // Reuse GetRomFile to stream + update last_access + record selection
+//           return await GetRomFile($"{romBase}_{userId}{ext}", req);
+//         }
+
+//         // If no per-user file, try the global file (without _userId)
+//         var globalName = $"{romBase}{ext}";
+//         var globalPath = Path.Combine(_baseTarget, globalName).Replace("\\", "/");
+//         if (System.IO.File.Exists(globalPath))
+//         {
+//           Console.WriteLine($"Found global save file with path: {globalPath}");
+//           return await GetRomFile($"{romBase}{ext}", req);
+//         }
+//       }
+
+//       // 2) If not found physically, look up DB rows in file_uploads by file_type and name
+//       Console.WriteLine($"Could not find physical save file. Attempting to find it in DB. RomBase: {romBase}");
+//       try
+//       {
+//         await using var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+//         await connection.OpenAsync();
+
+//         // Preferred: file_type 'sav' (unified for all save formats if you applied the earlier change);
+//         // otherwise fall back to extension checks in SQL.
+//         string sql = @"
+//             SELECT file_name
+//               FROM maxhanna.file_uploads
+//              WHERE folder_path = @FolderPath
+//                AND user_id = @UserId
+//                AND (file_type = 'sav'
+//                     OR file_name LIKE CONCAT(@RomBase, '%.sav')
+//                     OR file_name LIKE CONCAT(@RomBase, '%.srm')
+//                     OR file_name LIKE CONCAT(@RomBase, '%.eep')
+//                     OR file_name LIKE CONCAT(@RomBase, '%.sra')
+//                     OR file_name LIKE CONCAT(@RomBase, '%.fla'))
+//              ORDER BY upload_date DESC, last_access DESC
+//              LIMIT 1;";
+
+//         using var cmd = new MySqlCommand(sql, connection);
+//         cmd.Parameters.AddWithValue("@FolderPath", _baseTarget);
+//         cmd.Parameters.AddWithValue("@UserId", userId);
+//         cmd.Parameters.AddWithValue("@RomBase", romBase);
+
+//         var obj = await cmd.ExecuteScalarAsync();
+//         var dbFileName = obj as string;
+
+//         if (!string.IsNullOrWhiteSpace(dbFileName))
+//         {
+//           // The physical file on disk uses <base>_<userId><ext> for saves.
+//           // We can delegate streaming to GetRomFile by passing the "logical" filename (<base><ext>).
+//           // GetRomFile will rewrite to per-user path automatically.
+//           Console.WriteLine($"Found DB Match : {dbFileName}");
+//           var ext = Path.GetExtension(dbFileName)?.ToLowerInvariant() ?? ".sav";
+//           return await GetRomFile($"{romBase}{ext}", req);
+//         }
+//       }
+//       catch (Exception ex)
+//       {
+//         _ = _log.Db("GetN64StateFile DB lookup error: " + ex.Message, userId, "ROM", true);
+//         // Continue to 404 if DB lookup fails; you can return 500 if you prefer.
+//       }
+
+//       _ = _log.Db($"No save/savestate found for ROM '{romBase}' (user {userId}).", userId, "ROM", true);
+//       return NotFound($"No N64 save/savestate found for '{romBase}'.");
+//     }
 
 
     [HttpPost("/Rom/GetMappings")]

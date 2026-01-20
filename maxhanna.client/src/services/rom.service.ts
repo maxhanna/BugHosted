@@ -2,13 +2,12 @@ import { Injectable } from '@angular/core';
 
 export interface N64StateUpload {
   /** Logged-in user ID */
-  userId: number;
-  /** ROM file name shown to user (e.g., GoldenEye 007 (U) [!].z64) */
-  romName: string;
+  userId: number; 
   /** The *save* filename you want to persist (eep/sra/fla/srm/sav) */
   filename: string;
   /** Raw bytes to upload */
   bytes: Uint8Array;
+  emuKey: string;
   /** Optional timing/analytics fields already supported in your backend */
   startTimeMs?: number;      // when play started
   saveTimeMs?: number;       // when save occurred
@@ -55,6 +54,18 @@ export class RomService {
   }
 
 
+async getN64SaveByName(filename: string, userId: number): Promise<Blob | null> {
+  const url = `/Rom/GetN64SaveByName/${encodeURIComponent(filename)}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(userId)
+  });
+  if (!res.ok) return null;
+  return await res.blob();
+} 
+
+//deprecated, delete
   async getN64StateFile(rom: string, userId?: number) {
     try {
       const response = await fetch(`/rom/getn64statefile/${encodeURIComponent(rom)}`, {
@@ -238,7 +249,6 @@ export class RomService {
     const tightAb: ArrayBuffer = this.toTightArrayBuffer(req.bytes);
     form.append('file', new File([tightAb], req.filename, { type: 'application/octet-stream' }));
     form.append('userId', JSON.stringify(req.userId));
-    form.append('romName', req.romName);
     if (typeof req.startTimeMs === 'number') form.append('startTimeMs', String(req.startTimeMs));
     if (typeof req.saveTimeMs === 'number') form.append('saveTimeMs', String(req.saveTimeMs));
     if (typeof req.durationSeconds === 'number') form.append('durationSeconds', String(req.durationSeconds));
