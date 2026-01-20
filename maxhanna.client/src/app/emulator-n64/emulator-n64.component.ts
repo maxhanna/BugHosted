@@ -1,7 +1,7 @@
 
 import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import createMupen64PlusWeb, { writeAutoInputConfig } from 'mupen64plus-web';
+import createMupen64PlusWeb from 'mupen64plus-web';
 import { FileService } from '../../services/file.service';
 import { RomService } from '../../services/rom.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
@@ -1648,12 +1648,10 @@ applyGamepadReorder() {
           JSON.parse(JSON.stringify(this.ports[p].mapping || {})),
           gpId
         );
-        this.ports[p].mapping = perPortMapping;
-
+        this.ports[p].mapping = perPortMapping; 
         const cfg = this.buildAutoInputConfigFromMapping(perPortMapping);
         const sectionName = gpId;
-
-        await writeAutoInputConfig(sectionName, cfg as any);
+        await this.safeWriteAutoCfg(sectionName, cfg); 
       }
 
       if (this.multiPortActive() && this.directInjectMode) {
@@ -1671,6 +1669,22 @@ applyGamepadReorder() {
       this._applyingAll = false;
     }
   }
+
+private async safeWriteAutoCfg(sectionName: string, cfg: Record<string,string>) {
+  try {
+    // If you still want to try the library helper:
+    // const res = await writeAutoInputConfig(sectionName, cfg as any);
+    // if (!res || !res.autoInputConfig) throw new Error('no-base-config');
+    // (Avoid reading res.autoInputConfig.matchScore; it may not exist.)
+    // return res;
+
+    // Recommended: skip the helper entirely:
+    await this.writeInputAutoCfgSection(sectionName, cfg);
+  } catch {
+    // Fallback: always write the section directly
+    await this.writeInputAutoCfgSection(sectionName, cfg);
+  }
+}
 
 
   private migrateMappingToIdsIfNeeded() {
