@@ -30,6 +30,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   selectedGamepadIndex: number | null = null;
 
 // === MULTI-CONTROLLER STATE ===
+trackGp = (_: number, gp: { index: number }) => gp.index;
 readonly playerPorts = [1, 2, 3, 4] as const;
 
 ports: Record<number, {
@@ -1809,6 +1810,9 @@ private async autosaveTick() {
       this.parentRef?.showNotification(`Failed to download "${filename}".`);
     }
   }
+  
+  onSelectGamepadForPort(p: any, event: any) {}
+  closeRemapAction(){}
   onPortMappingSelect(p: any, event: any){}
   remapAction(p: any){}
   applyAllPortMappings(){}
