@@ -90,10 +90,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private autosaveTimer: any = null;
   private autosavePeriodMs = 3 * 60 * 1000;
   private autosaveInProgress = false;
-  private lastUploadedHashes = new Map<string, string>(); 
+  private lastUploadedHashes = new Map<string, string>();
   private _syncInFlight = false;
   private _syncQueued = false;
-  private _metaWipedOnce = false;  
+  private _metaWipedOnce = false;
   private _fileDataNormalizedOnce = false;
 
   // Canvas resize
@@ -123,7 +123,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     super();
   }
 
-  ngOnInit(): void { 
+  ngOnInit(): void {
   }
 
   ngAfterViewInit(): void {
@@ -262,7 +262,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       console.warn('Failed to resize canvas', e);
     }
   }
-  
+
   private currentPad(): Gamepad | null {
     const pads = this.getGamepadsBase();
     const idx = this.selectedGamepadIndex ?? 0;
@@ -518,7 +518,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.selectedMappingName = name || null;
     this.applySelectedMapping();
   }
-  
+
   bindingText(ctrl: string): string {
     const m = this.mapping[ctrl];
     if (!m) return '(unbound)';
@@ -729,7 +729,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.startAutosaveLoop();
     }
     this._saveReloadedOnceThisBoot = false;
-    this._ensureRanThisBoot = false; 
+    this._ensureRanThisBoot = false;
 
     const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
     if (!canvasEl) {
@@ -777,35 +777,35 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         throw new Error('Emulator instance missing start method');
       }
 
-// Order matters: install read-only sync BEFORE start() 
-// Install guards *immediately*, before any IDBFS sync kicks in
-this.installHiddenIdbfsGuardsBrutal({ passes: 8, interval: 40 });
-this.installSyncfsGate();         // keep: single-flight debounce
-this.installIdbfsReadOnlySync();  // read-only sync + installs brutal guard again for populate
-this.pruneUnsupportedNodesUnder('/mupen64plus'); // optional but helpful
+      // Order matters: install read-only sync BEFORE start() 
+      // Install guards *immediately*, before any IDBFS sync kicks in
+      this.installHiddenIdbfsGuardsBrutal({ passes: 8, interval: 40 });
+      this.installSyncfsGate();         // keep: single-flight debounce
+      this.installIdbfsReadOnlySync();  // read-only sync + installs brutal guard again for populate
+      this.pruneUnsupportedNodesUnder('/mupen64plus'); // optional but helpful
 
-await this.repairAllIdbTimestampFields();
-await this.normalizeMupenFileDataShapes();
+      await this.repairAllIdbTimestampFields();
+      await this.normalizeMupenFileDataShapes();
 
-const FS = (this.instance as any)?.FS;
-console.log('IDBFS guards:',
-  FS?.filesystems?.IDBFS?.storeLocalEntry?.__guarded,
-  FS?.filesystems?.IDBFS?.storeRemoteEntry?.__guarded
-);
-console.log('Mounts:', FS?.mounts?.map((m: any) => ({
-  typeHasGuards: !!(m?.type?.storeLocalEntry?.__guarded),
-})));
+      const FS = (this.instance as any)?.FS;
+      console.log('IDBFS guards:',
+        FS?.filesystems?.IDBFS?.storeLocalEntry?.__guarded,
+        FS?.filesystems?.IDBFS?.storeRemoteEntry?.__guarded
+      );
+      console.log('Mounts:', FS?.mounts?.map((m: any) => ({
+        typeHasGuards: !!(m?.type?.storeLocalEntry?.__guarded),
+      })));
 
       await this.instance.start();
-      this.status = 'running'; 
+      this.status = 'running';
 
       //await this.repairIdbfsMetaTimestamps(); 
       await this.waitForRomIdentity(2000);
       restoreSniffer();// ✅ Stop sniffing once ROM meta printed
 
       // Give IDBFS a small head start; reduces "syncfs overlap" churn
-      await new Promise(r => setTimeout(r, 400)); 
-     // await this.syncFs('populate', /* populate = */ true);
+      await new Promise(r => setTimeout(r, 400));
+      // await this.syncFs('populate', /* populate = */ true);
       await this.safeDebug('SAVE-SCAN', () => this.debugScanSavesForCurrentRom());
       await this.safeDebug('ROM-ID', () => this.debugRomIdentity());
 
@@ -817,11 +817,11 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
 
       // ✅ This is the key: copy canonical -> emulator key (GoodName).eep and restart once
       // Defer a bit to let plugins finish attaching
-      
+
       setTimeout(() => {
         if (!this._ensureRanThisBoot) {
           this._ensureRanThisBoot = true;
-          this.ensureSaveLoadedForCurrentRom().catch(() => {});
+          this.ensureSaveLoadedForCurrentRom().catch(() => { });
         }
       }, 800);
 
@@ -903,14 +903,14 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
       this.loadMappingsList();
     }
     this._bootstrapDetectOnce();
-    
+
     if (this.ports[1].gpIndex == null && this.gamepads.length) {
       const std = this.gamepads.find(g => g.mapping === 'standard') ?? this.gamepads[0];
       if (std) {
         this.ports[1].gpIndex = std.index;
         this.ensureDefaultMappingForPort(1);
       }
-    } 
+    }
   }
 
   closeMenuPanel() {
@@ -1185,7 +1185,7 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
     if (size === 32768) return '.sra';
     if (size === 131072) return '.fla';
     return null;
-  } 
+  }
 
   private async blobToN64SaveFile(blob: Blob, suggestedName?: string): Promise<File | null> {
     const size = blob.size;
@@ -1235,7 +1235,7 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
       const allowedExts = ['.eep', '.sra', '.fla'];
       const written: string[] = [];
       const userId = this.parentRef?.user?.id ?? 0;
-      
+
       const makeValue = (bytes: Uint8Array, existingOrTemplate?: any) => {
         const now = new Date();
         const v = existingOrTemplate ? JSON.parse(JSON.stringify(existingOrTemplate)) : { contents: bytes, timestamp: now };
@@ -1251,7 +1251,7 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
         if ('atime' in v && !(v.atime instanceof Date)) v.atime = now;
 
         return v;
-      }; 
+      };
 
       const txPut = (os: IDBObjectStore, key: string, val: any) => new Promise<void>((resolve, reject) => {
         const r = os.put(val, key);
@@ -1368,7 +1368,7 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
         if (wasRunning) {
           await this.stop();
           await new Promise(r => setTimeout(r, 400));
-         // await this.syncFs('post-import');
+          // await this.syncFs('post-import');
         }
         if (!skipBoot) {
           await this.boot();
@@ -1389,7 +1389,7 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
   getAllowedRomFileTypesString(): string {
     return this.fileService.n64FileExtensions.map(e => '.' + e.trim().toLowerCase()).join(',');
   }
- 
+
   private async autosaveTick() {
     if (!this.autosave || this.autosaveInProgress) return;
     this.autosaveInProgress = true;
@@ -1448,7 +1448,7 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
     } catch (err) {
       console.error('autosaveTick error', err);
     } finally {
-      this.autosaveInProgress = false; 
+      this.autosaveInProgress = false;
       console.log("Finished Autosave");
     }
   }
@@ -1485,14 +1485,36 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
 
   // =====================================================
   // Gamepad events & auto-detect
-  // =====================================================
+  // =====================================================  
+  startGamepadAutoDetect() {
+    const tick = () => {
+      try {
+        const before = this.gamepads.map(g => g.index).join(',');
+        this.refreshGamepads();
+        const after = this.gamepads.map(g => g.index).join(',');
+
+        // If we still don't have a selection but there are pads, pick one now
+        if (this.selectedGamepadIndex === null && this.gamepads.length) {
+          const std = this.gamepads.find(g => g.mapping === 'standard');
+          this.onSelectGamepad(std ? std.index : this.gamepads[0].index);
+        }
+
+        if (before !== after) {
+          this.applyGamepadReorder();
+        }
+      } catch { console.log('Gamepad auto-detect tick failed'); }
+      this._autoDetectTimer = setTimeout(tick, 750);
+    };
+    tick();
+  }
+
   private _onGamepadConnected = (ev: GamepadEvent) => {
     this.refreshGamepads();
 
-    if (this.ports[1].gpIndex == null && this.gamepads.length) {
+    if (this.selectedGamepadIndex === null && this.gamepads.length) {
       if (!this.hasLoadedLastInput) {
         const std = this.gamepads.find(g => g.mapping === 'standard');
-        this.assignFirstDetectedToP1(std ? std.index : ev.gamepad.index);
+        this.onSelectGamepad(std ? std.index : ev.gamepad.index);
       } else {
         this.applyGamepadReorder();
       }
@@ -1522,30 +1544,6 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
     this.applyGamepadReorder();
   };
 
-  startGamepadAutoDetect() {
-    const tick = () => {
-      try {
-        const before = this.gamepads.map(g => g.index).join(',');
-        this.refreshGamepads();
-        const after = this.gamepads.map(g => g.index).join(',');
-
-        if (this.ports[1].gpIndex == null && this.gamepads.length) {
-          if (!this.hasLoadedLastInput) {
-            const std = this.gamepads.find(g => g.mapping === 'standard');
-            this.assignFirstDetectedToP1(std ? std.index : this.gamepads[0].index);
-          } else {
-            this.applyGamepadReorder();
-          }
-        }
-
-        if (before !== after) {
-          this.applyGamepadReorder();
-        }
-      } catch { console.log('Gamepad auto-detect tick failed'); }
-      this._autoDetectTimer = setTimeout(tick, 750);
-    };
-    tick();
-  }
 
   stopGamepadAutoDetect() {
     if (this._autoDetectTimer) {
@@ -1554,21 +1552,21 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
     }
   }
 
-  private assignFirstDetectedToP1(preferredIdx?: number) {
-    const pads = this.getGamepadsBase();
-    if (!pads || !pads.length) return;
-
-    const std = pads.find(p => p && p.mapping === 'standard');
-    const chosen = std ?? (typeof preferredIdx === 'number' ? pads[preferredIdx] : pads[0]);
-    if (!chosen) return;
-
-    const idx = chosen.index;
-    this.ports[1].gpIndex = idx;
-
-    this.ensureDefaultMappingForPort(1);
-    this.selectedGamepadIndex = idx;
-    this.applyGamepadReorder();
+  private normalizeId(s?: string): string {
+    return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
   }
+
+  private findPadByStoredId(pads: (Gamepad | null)[], storedId: string): Gamepad | null {
+    const target = this.normalizeId(storedId);
+    // exact or contains-in-either-direction match
+    return pads.find(gp => {
+      if (!gp) return false;
+      const gid = this.normalizeId(gp.id);
+      return gid === target || gid.includes(target) || target.includes(gid);
+    }) || null;
+  }
+
+
 
   private async loadLastInputSelectionAndApply(): Promise<void> {
     try {
@@ -1583,35 +1581,30 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
       const sel = await this.romService.getLastInputSelection(uid, token);
       if (!sel) return;
 
+      // Try fuzzy match by stored gamepadId
       if (sel.gamepadId) {
         const pads = this.getGamepadsBase();
-        const found = pads.find(gp => gp && gp.id === sel.gamepadId);
+        const found = this.findPadByStoredId(pads, sel.gamepadId);
         if (found) {
           await this.onSelectGamepad(found.index);
         }
       }
 
+      // Apply mapping if present
       if (sel.mappingName) {
         if (!this.savedMappingsNames.length) await this.loadMappingsList();
-
         if (this.savedMappingsNames.includes(sel.mappingName)) {
           this.selectedMappingName = sel.mappingName;
           await this.applySelectedMapping();
         } else {
-          try {
-            const m = await this.romService.getMapping(uid, sel.mappingName);
-            if (m) {
-              const gp = this.currentPad();
-              this.mapping = this.rebindMappingToPad(JSON.parse(JSON.stringify(m)), gp?.id || null);
-              this.migrateMappingToIdsIfNeeded();
-              await this.applyMappingToEmulator();
-              this.selectedMappingName = sel.mappingName;
-              console.log(`Applied last mapping "${sel.mappingName}" for this ROM.`);
-            } else {
-              console.log(`Last mapping "${sel.mappingName}" not found; using defaults.`);
-            }
-          } catch {
-            console.log(`Failed to fetch last mapping "${sel.mappingName}".`);
+          // backend->local fallback
+          const m = await this.romService.getMapping(uid, sel.mappingName);
+          if (m) {
+            const gp = this.currentPad();
+            this.mapping = this.rebindMappingToPad(JSON.parse(JSON.stringify(m)), gp?.id || null);
+            this.migrateMappingToIdsIfNeeded();
+            await this.applyMappingToEmulator();
+            this.selectedMappingName = sel.mappingName;
           }
         }
       }
@@ -1622,6 +1615,8 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
     this.hasLoadedLastInput = true;
   }
 
+
+
   private installReorderWrapper() {
     if (this._gpWrapperInstalled) return;
     try {
@@ -1630,24 +1625,13 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
 
       (navigator as any).getGamepads = function (): (Gamepad | null)[] {
         const baseArr = (self._originalGetGamepadsBase ? self._originalGetGamepadsBase() : []) || [];
-        const chosen: (Gamepad | null)[] = [];
-        const used = new Set<number>();
+        if (self.selectedGamepadIndex == null) return baseArr;
 
-        const pushIf = (idx: number | null) => {
-          if (idx == null) return;
-          const pad = baseArr[idx];
-          if (pad && !used.has(idx)) { chosen.push(pad); used.add(idx); }
-        };
-
-        pushIf(self.ports[1].gpIndex);
-        pushIf(self.ports[2].gpIndex);
-        pushIf(self.ports[3].gpIndex);
-        pushIf(self.ports[4].gpIndex);
-
-        for (let i = 0; i < baseArr.length; i++) {
-          if (!used.has(i)) chosen.push(baseArr[i]);
-        }
-        return chosen;
+        const selIdx = self.selectedGamepadIndex;
+        const sel = baseArr[selIdx];
+        if (!sel) return baseArr;
+        // Place selected first, then the rest
+        return [sel, ...baseArr.filter((_: any, i: number) => i !== selIdx)];
       };
 
       this._gpWrapperInstalled = true;
@@ -1655,6 +1639,7 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
       console.warn('Failed installing reorder wrapper', e);
     }
   }
+
 
   closeRemapperToPort(port: PlayerPort) {
     this.ports[port].mapping = JSON.parse(JSON.stringify(this.mapping));
@@ -1923,6 +1908,7 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
     }
   }
 
+
   refreshGamepads() {
     try {
       const g = this.getGamepadsBase();
@@ -1939,6 +1925,7 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
       console.warn('Failed to read gamepads', e);
     }
   }
+
 
   applyGamepadReorder() {
     try {
@@ -2076,13 +2063,15 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
     } catch { /* ignore */ }
   };
 
+
   private ensureP1InitializedFromSinglePad() {
-    if (this.ports[1].gpIndex == null && this.selectedGamepadIndex != null) {
+    if (this.selectedGamepadIndex != null) {
       this.ports[1].gpIndex = this.selectedGamepadIndex;
       this.ports[1].mapping = { ...this.mapping };
       this.ports[1].mappingName = this.selectedMappingName;
     }
   }
+
 
   private buildAutoInputConfigFromMapping(mapping: Record<string, any>): Record<string, string> {
     const config: Record<string, string> = {};
@@ -2169,7 +2158,7 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
     const extFromName = (filename?.match(/\.(eep|sra|fla)$/i)?.[0] || '').toLowerCase() as any;
     if (extFromName) return extFromName;
     return this.inferBatteryExtFromSize(size) || '.sra';
-  } 
+  }
 
   private async mirrorGoodNameSavesToCanonical(): Promise<void> {
     try {
@@ -2287,46 +2276,46 @@ console.log('Mounts:', FS?.mounts?.map((m: any) => ({
     return toU8(val);
   }
 
-private async writeIdbBytes(db: IDBDatabase, key: string, bytes: Uint8Array): Promise<void> {
-  const tx = db.transaction('FILE_DATA', 'readwrite');
-  const os = tx.objectStore('FILE_DATA');
+  private async writeIdbBytes(db: IDBDatabase, key: string, bytes: Uint8Array): Promise<void> {
+    const tx = db.transaction('FILE_DATA', 'readwrite');
+    const os = tx.objectStore('FILE_DATA');
 
-  const existing = await new Promise<any>((resolve) => {
-    const r = os.get(key);
-    r.onerror = () => resolve(null);
-    r.onsuccess = () => resolve(r.result ?? null);
-  });
+    const existing = await new Promise<any>((resolve) => {
+      const r = os.get(key);
+      r.onerror = () => resolve(null);
+      r.onsuccess = () => resolve(r.result ?? null);
+    });
 
-  const now = new Date();
+    const now = new Date();
 
-  // Build a safe, normalized value
-  const makeStoreValue = (src: Uint8Array, base?: any) => {
-    // Clone existing or synthesize a minimal record
-    const v = base ? JSON.parse(JSON.stringify(base)) : { contents: src, timestamp: now };
+    // Build a safe, normalized value
+    const makeStoreValue = (src: Uint8Array, base?: any) => {
+      // Clone existing or synthesize a minimal record
+      const v = base ? JSON.parse(JSON.stringify(base)) : { contents: src, timestamp: now };
 
-    // Put bytes into whichever field exists; else default to contents
-    if (v.contents !== undefined) v.contents = src;
-    else if (v.data !== undefined) v.data = src;
-    else if (Array.isArray(v.bytes)) v.bytes = Array.from(src);
-    else v.contents = src;
+      // Put bytes into whichever field exists; else default to contents
+      if (v.contents !== undefined) v.contents = src;
+      else if (v.data !== undefined) v.data = src;
+      else if (Array.isArray(v.bytes)) v.bytes = Array.from(src);
+      else v.contents = src;
 
-    // Normalize times to real Date objects
-    if (!(v.timestamp instanceof Date)) v.timestamp = now;
-    if ('mtime' in v && !(v.mtime instanceof Date)) v.mtime = now;
-    if ('ctime' in v && !(v.ctime instanceof Date)) v.ctime = now;
-    if ('atime' in v && !(v.atime instanceof Date)) v.atime = now;
+      // Normalize times to real Date objects
+      if (!(v.timestamp instanceof Date)) v.timestamp = now;
+      if ('mtime' in v && !(v.mtime instanceof Date)) v.mtime = now;
+      if ('ctime' in v && !(v.ctime instanceof Date)) v.ctime = now;
+      if ('atime' in v && !(v.atime instanceof Date)) v.atime = now;
 
-    return v;
-  };
+      return v;
+    };
 
-  const value = makeStoreValue(bytes, existing);
+    const value = makeStoreValue(bytes, existing);
 
-  await new Promise<void>((resolve, reject) => {
-    const w = os.put(value, key);
-    w.onerror = () => reject(w.error);
-    w.onsuccess = () => resolve();
-  });
-} 
+    await new Promise<void>((resolve, reject) => {
+      const w = os.put(value, key);
+      w.onerror = () => reject(w.error);
+      w.onsuccess = () => resolve();
+    });
+  }
 
   private async idbKeyExists(db: IDBDatabase, key: string): Promise<boolean> {
     const tx = db.transaction('FILE_DATA', 'readonly');
@@ -2447,79 +2436,79 @@ private async writeIdbBytes(db: IDBDatabase, key: string, bytes: Uint8Array): Pr
       console.warn('ensureSaveLoadedForCurrentRom failed', e);
     }
   }
-  
 
-private async writeCanonicalToEmuKey(
-  ext: '.eep' | '.sra' | '.fla',
-  canonicalBytes: Uint8Array,
-  emuKey: string
-): Promise<void> {
-  // 1) Read existing emu bytes first (no stop yet)
-  const dbRead = await new Promise<IDBDatabase>((resolve, reject) => {
-    const req = indexedDB.open('/mupen64plus');
-    req.onerror = () => reject(req.error);
-    req.onsuccess = () => resolve(req.result);
-  });
-  if (!Array.from(dbRead.objectStoreNames).includes('FILE_DATA')) { dbRead.close(); return; }
 
-  const emuBytes = await this.readIdbBytes(dbRead, emuKey);
-  dbRead.close();
+  private async writeCanonicalToEmuKey(
+    ext: '.eep' | '.sra' | '.fla',
+    canonicalBytes: Uint8Array,
+    emuKey: string
+  ): Promise<void> {
+    // 1) Read existing emu bytes first (no stop yet)
+    const dbRead = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open('/mupen64plus');
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => resolve(req.result);
+    });
+    if (!Array.from(dbRead.objectStoreNames).includes('FILE_DATA')) { dbRead.close(); return; }
 
-  // Prepare target (EEPROM size reconcile as you had)
-  let target = canonicalBytes;
-  if (ext === '.eep') {
-    let desired = emuBytes?.byteLength ?? 0;
-    if (desired !== 512 && desired !== 2048) {
-      const override = this.eepromSizeOverrideForRom();
-      if (override) desired = override;
+    const emuBytes = await this.readIdbBytes(dbRead, emuKey);
+    dbRead.close();
+
+    // Prepare target (EEPROM size reconcile as you had)
+    let target = canonicalBytes;
+    if (ext === '.eep') {
+      let desired = emuBytes?.byteLength ?? 0;
+      if (desired !== 512 && desired !== 2048) {
+        const override = this.eepromSizeOverrideForRom();
+        if (override) desired = override;
+      }
+      if (desired !== 512 && desired !== 2048) desired = canonicalBytes.byteLength;
+      if (desired === 512 && canonicalBytes.byteLength === 2048) {
+        target = canonicalBytes.slice(0, 512);
+      } else if (desired === 2048 && canonicalBytes.byteLength === 512) {
+        const padded = new Uint8Array(2048);
+        padded.set(canonicalBytes);
+        target = padded;
+      }
     }
-    if (desired !== 512 && desired !== 2048) desired = canonicalBytes.byteLength;
-    if (desired === 512 && canonicalBytes.byteLength === 2048) {
-      target = canonicalBytes.slice(0, 512);
-    } else if (desired === 2048 && canonicalBytes.byteLength === 512) {
-      const padded = new Uint8Array(2048);
-      padded.set(canonicalBytes);
-      target = padded;
+
+    const changed = !this.bytesEqual(target, emuBytes);
+    if (!changed) {
+      this.saveDebug(`LOAD-GUARD: emuKey already matches canonical`, { emuKey });
+      return; // ✅ no stop/restart if nothing to do
     }
+
+    // 2) Now stop (safe, only if we actually need to write)
+    const wasRunning = (this.status === 'running' && !!this.instance);
+    if (wasRunning) {
+      await this.stop();
+      await new Promise(r => setTimeout(r, 200));
+    }
+
+    // 3) Write target bytes
+    const dbWrite = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open('/mupen64plus');
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => resolve(req.result);
+    });
+    if (!Array.from(dbWrite.objectStoreNames).includes('FILE_DATA')) { dbWrite.close(); return; }
+
+    await this.writeIdbBytes(dbWrite, emuKey, target);
+    this.saveDebug(`LOAD-GUARD: wrote canonical -> emuKey`, {
+      emuKey,
+      size: target.byteLength,
+      hash: await this.shortSha(target)
+    });
+    dbWrite.close();
+
+    // 4) Repair meta just in case, then boot
+    try {
+      await this.repairIdbfsMetaTimestamps();
+      await this.boot();
+      this._saveReloadedOnceThisBoot = true;
+      this.parentRef?.showNotification('Save injected and emulator restarted to load it.');
+    } catch { /* ignore */ }
   }
-
-  const changed = !this.bytesEqual(target, emuBytes);
-  if (!changed) {
-    this.saveDebug(`LOAD-GUARD: emuKey already matches canonical`, { emuKey });
-    return; // ✅ no stop/restart if nothing to do
-  }
-
-  // 2) Now stop (safe, only if we actually need to write)
-  const wasRunning = (this.status === 'running' && !!this.instance);
-  if (wasRunning) {
-    await this.stop();
-    await new Promise(r => setTimeout(r, 200));
-  }
-
-  // 3) Write target bytes
-  const dbWrite = await new Promise<IDBDatabase>((resolve, reject) => {
-    const req = indexedDB.open('/mupen64plus');
-    req.onerror = () => reject(req.error);
-    req.onsuccess = () => resolve(req.result);
-  });
-  if (!Array.from(dbWrite.objectStoreNames).includes('FILE_DATA')) { dbWrite.close(); return; }
-
-  await this.writeIdbBytes(dbWrite, emuKey, target);
-  this.saveDebug(`LOAD-GUARD: wrote canonical -> emuKey`, {
-    emuKey,
-    size: target.byteLength,
-    hash: await this.shortSha(target)
-  });
-  dbWrite.close();
-
-  // 4) Repair meta just in case, then boot
-  try {
-    await this.repairIdbfsMetaTimestamps();
-    await this.boot();
-    this._saveReloadedOnceThisBoot = true;
-    this.parentRef?.showNotification('Save injected and emulator restarted to load it.');
-  } catch { /* ignore */ }
-} 
 
   private async findEmuGoodNameKeyForExt(db: IDBDatabase, ext: '.eep' | '.sra' | '.fla'): Promise<string | null> {
     const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
@@ -2664,8 +2653,8 @@ private async writeCanonicalToEmuKey(
     const u8 = new Uint8Array(digest);
     const hex = Array.from(u8).map(b => b.toString(16).padStart(2, '0')).join('');
     return hex.slice(0, 12);
-  } 
-  
+  }
+
   private async syncFs(label = 'manual', populate = false): Promise<void> {
     const FS: any = (window as any).FS;
     if (!FS?.syncfs) return;
@@ -2852,43 +2841,43 @@ private async writeCanonicalToEmuKey(
     return restore;
   }
 
-/** Remove only IDBFS META / METADATA stores to clear bad timestamps. Keeps FILE_DATA intact. */
-private async wipeIdbfsMetaStores(): Promise<void> {
-  
- if (this._metaWipedOnce) return;
-  this._metaWipedOnce = true;
+  /** Remove only IDBFS META / METADATA stores to clear bad timestamps. Keeps FILE_DATA intact. */
+  private async wipeIdbfsMetaStores(): Promise<void> {
 
-  // Low-risk: reopen DB in an upgrade path and delete only meta-like stores
-  await new Promise<void>((resolve, reject) => {
-    // First open to read current version
-    const pre = indexedDB.open('/mupen64plus');
-    pre.onerror = () => resolve(); // if DB doesn't exist, nothing to do
-    pre.onsuccess = () => {
-      const db = pre.result;
-      const currentVersion = (db as any).version || 1;
-      const storeNames = Array.from(db.objectStoreNames);
-      db.close();
+    if (this._metaWipedOnce) return;
+    this._metaWipedOnce = true;
 
-      const metaNames = storeNames.filter(n =>
-        /meta/i.test(n) || /metadata/i.test(n) || /remote/i.test(n)
-      );
-      if (!metaNames.length) { resolve(); return; }
+    // Low-risk: reopen DB in an upgrade path and delete only meta-like stores
+    await new Promise<void>((resolve, reject) => {
+      // First open to read current version
+      const pre = indexedDB.open('/mupen64plus');
+      pre.onerror = () => resolve(); // if DB doesn't exist, nothing to do
+      pre.onsuccess = () => {
+        const db = pre.result;
+        const currentVersion = (db as any).version || 1;
+        const storeNames = Array.from(db.objectStoreNames);
+        db.close();
 
-      const req = indexedDB.open('/mupen64plus', currentVersion + 1);
-      req.onupgradeneeded = (ev: any) => {
-        const up = req.result;
-        const names = Array.from(up.objectStoreNames);
-        for (const n of names) {
-          if (/meta/i.test(n) || /metadata/i.test(n) || /remote/i.test(n)) {
-            try { up.deleteObjectStore(n); } catch { /* ignore */ }
+        const metaNames = storeNames.filter(n =>
+          /meta/i.test(n) || /metadata/i.test(n) || /remote/i.test(n)
+        );
+        if (!metaNames.length) { resolve(); return; }
+
+        const req = indexedDB.open('/mupen64plus', currentVersion + 1);
+        req.onupgradeneeded = (ev: any) => {
+          const up = req.result;
+          const names = Array.from(up.objectStoreNames);
+          for (const n of names) {
+            if (/meta/i.test(n) || /metadata/i.test(n) || /remote/i.test(n)) {
+              try { up.deleteObjectStore(n); } catch { /* ignore */ }
+            }
           }
-        }
+        };
+        req.onsuccess = () => { try { req.result.close(); } catch { }; resolve(); };
+        req.onerror = () => resolve(); // do not block if wipe fails
       };
-      req.onsuccess = () => { try { req.result.close(); } catch {} ; resolve(); };
-      req.onerror = () => resolve(); // do not block if wipe fails
-    };
-  });
-}
+    });
+  }
 
   /** ROM header internal name (offset 0x20..0x33), trimmed. */
   private romHeaderInternalName(): string | null {
@@ -2910,215 +2899,215 @@ private async wipeIdbfsMetaStores(): Promise<void> {
     }
   }
 
-/** Find & guard hidden IDBFS storeLocalEntry/storeRemoteEntry even if not at FS.filesystems.IDBFS. */
-private installHiddenIdbfsGuardsBrutal(opts?: { passes?: number; interval?: number }): void {
-  const passes = Math.max(1, Math.min(20, opts?.passes ?? 8));
-  const interval = Math.max(10, Math.min(200, opts?.interval ?? 40));
+  /** Find & guard hidden IDBFS storeLocalEntry/storeRemoteEntry even if not at FS.filesystems.IDBFS. */
+  private installHiddenIdbfsGuardsBrutal(opts?: { passes?: number; interval?: number }): void {
+    const passes = Math.max(1, Math.min(20, opts?.passes ?? 8));
+    const interval = Math.max(10, Math.min(200, opts?.interval ?? 40));
 
-  const already = (window as any).__hiddenIdbfsGuardInstalled as boolean;
-  if (already) return;
+    const already = (window as any).__hiddenIdbfsGuardInstalled as boolean;
+    if (already) return;
 
-  const swallow = (name: 'storeLocalEntry' | 'storeRemoteEntry', obj: any) => {
-    if (!obj || typeof obj[name] !== 'function' || obj[name].__guarded) return false;
+    const swallow = (name: 'storeLocalEntry' | 'storeRemoteEntry', obj: any) => {
+      if (!obj || typeof obj[name] !== 'function' || obj[name].__guarded) return false;
 
-    const orig = obj[name].bind(obj);
+      const orig = obj[name].bind(obj);
 
-    const guarded = (...args: any[]) => {
-      // Find callback if present
-      let cb: any = null;
-      for (let i = args.length - 1; i >= 0; i--) {
-        if (typeof args[i] === 'function') { cb = args[i]; break; }
-      }
-
-      const wrappedCb = (err?: any) => {
-        if (err && /node type not supported/i.test(String(err?.message || err))) {
-          console.warn(`[IDBFS] ${name}: swallowed unsupported node error (cb)`);
-          try { cb && cb(); } catch {}
-          return;
+      const guarded = (...args: any[]) => {
+        // Find callback if present
+        let cb: any = null;
+        for (let i = args.length - 1; i >= 0; i--) {
+          if (typeof args[i] === 'function') { cb = args[i]; break; }
         }
-        try { cb && cb(err); } catch {}
+
+        const wrappedCb = (err?: any) => {
+          if (err && /node type not supported/i.test(String(err?.message || err))) {
+            console.warn(`[IDBFS] ${name}: swallowed unsupported node error (cb)`);
+            try { cb && cb(); } catch { }
+            return;
+          }
+          try { cb && cb(err); } catch { }
+        };
+
+        try {
+          if (cb) {
+            const a = [...args];
+            a[args.lastIndexOf(cb)] = wrappedCb;
+            return orig(...a);
+          }
+          return orig(...args);
+        } catch (e: any) {
+          if (/node type not supported/i.test(String(e?.message || e))) {
+            console.warn(`[IDBFS] ${name}: swallowed unsupported node throw`);
+            try { cb && cb(); } catch { }
+            return;
+          }
+          throw e;
+        }
       };
 
-      try {
-        if (cb) {
-          const a = [...args];
-          a[args.lastIndexOf(cb)] = wrappedCb;
-          return orig(...a);
-        }
-        return orig(...args);
-      } catch (e: any) {
-        if (/node type not supported/i.test(String(e?.message || e))) {
-          console.warn(`[IDBFS] ${name}: swallowed unsupported node throw`);
-          try { cb && cb(); } catch {}
-          return;
-        }
-        throw e;
+      (guarded as any).__guarded = true;
+      obj[name] = guarded;
+      return true;
+    };
+
+    const tryPatchRoots = () => {
+      let patched = 0;
+      const roots = new Set<any>([
+        (this.instance as any) || null,
+        (this.instance as any)?.Module || null,
+        (window as any) || null
+      ].filter(Boolean));
+
+      // shallow scan each root’s enumerable properties
+      for (const root of roots) {
+        try {
+          const keys = Object.keys(root);
+          for (const k of keys) {
+            const v = (root as any)[k];
+            if (!v || typeof v !== 'object') continue;
+
+            try { patched += swallow('storeLocalEntry', v) ? 1 : 0; } catch { }
+            try { patched += swallow('storeRemoteEntry', v) ? 1 : 0; } catch { }
+          }
+        } catch { /* ignore */ }
+      }
+
+      if (patched) {
+        console.log(`[IDBFS] hidden guard: patched ${patched} method(s) this pass`);
       }
     };
 
-    (guarded as any).__guarded = true;
-    obj[name] = guarded;
-    return true;
-  };
+    tryPatchRoots(); // immediate
+    let n = 1;
+    const timer = setInterval(() => {
+      tryPatchRoots();
+      if (++n >= passes) {
+        clearInterval(timer);
+        (window as any).__hiddenIdbfsGuardInstalled = true;
+      }
+    }, interval);
+  }
 
-  const tryPatchRoots = () => {
-    let patched = 0;
-    const roots = new Set<any>([
-      (this.instance as any) || null,
-      (this.instance as any)?.Module || null,
-      (window as any) || null
-    ].filter(Boolean));
+  /** Make FS.syncfs read-only: allow populate reads; no-op writes. Also guard hidden store*Entry during populate. */
+  private installIdbfsReadOnlySync(): void {
+    const FS = (this.instance as any)?.FS || (window as any).FS;
+    if (!FS) return;
+    if ((FS as any).__roSyncInstalled) return;
 
-    // shallow scan each root’s enumerable properties
-    for (const root of roots) {
-      try {
-        const keys = Object.keys(root);
-        for (const k of keys) {
-          const v = (root as any)[k];
-          if (!v || typeof v !== 'object') continue;
+    const original = (typeof FS.syncfs === 'function') ? FS.syncfs.bind(FS) : null;
 
-          try { patched += swallow('storeLocalEntry', v) ? 1 : 0; } catch {}
-          try { patched += swallow('storeRemoteEntry', v) ? 1 : 0; } catch {}
+    const roSync = (populate: boolean, cb: (err?: any) => void) => {
+      if (populate && original) {
+        // ⬇️ Ensure the hidden store*Entry functions are guarded *before* populate runs
+        try { this.installHiddenIdbfsGuardsBrutal({ passes: 6, interval: 30 }); } catch { }
+
+        try {
+          original(true, (_?: any) => { try { cb?.(); } catch { } });
+        } catch {
+          try { cb?.(); } catch { }
         }
+        return;
+      }
+      // Block local->remote (write) syncs which can hit special nodes
+      setTimeout(() => { try { cb?.(); } catch { } }, 0);
+    };
+
+    (roSync as any).__roSyncInstalled = true;
+    FS.syncfs = roSync;
+
+    // If this build exposes IDBFS.syncfs, stub it similarly
+    const IDBFS = FS.filesystems?.IDBFS;
+    if (IDBFS && typeof IDBFS.syncfs === 'function') {
+      const origIdbfs = IDBFS.syncfs.bind(IDBFS);
+      IDBFS.syncfs = (mount: any, populate: boolean, cb: (err?: any) => void) => {
+        if (populate) {
+          try { this.installHiddenIdbfsGuardsBrutal({ passes: 6, interval: 30 }); } catch { }
+          try { origIdbfs(mount, true, (_?: any) => { try { cb?.(); } catch { } }); }
+          catch { try { cb?.(); } catch { } }
+        } else {
+          setTimeout(() => { try { cb?.(); } catch { } }, 0);
+        }
+      };
+    }
+  }
+
+  /** Try to convert any numeric/string timestamps to Date across all DBs/stores. */
+  private async repairAllIdbTimestampFields(): Promise<void> {
+    const dbList: string[] = await (async () => {
+      try {
+        const infos = await (indexedDB as any).databases?.() || [];
+        const names = infos.map((d: any) => d?.name).filter(Boolean);
+        // Fallback guesses if databases() isn't supported:
+        if (!names.length) return [
+          '/mupen64plus', 'EM_FS', 'IDBFS', 'MUPEN64PLUS', 'MUPEN', 'FS',
+        ];
+        return names;
+      } catch {
+        return ['/mupen64plus', 'EM_FS', 'IDBFS', 'MUPEN64PLUS', 'MUPEN', 'FS'];
+      }
+    })();
+
+    const fixDeep = (val: any) => {
+      const fixOne = (obj: any) => {
+        if (!obj || typeof obj !== 'object') return;
+        const coerce = (k: string) => {
+          if (obj[k] != null && !(obj[k] instanceof Date)) {
+            const n = Number(obj[k]);
+            if (!Number.isNaN(n)) obj[k] = new Date(n);
+          }
+        };
+        coerce('timestamp'); coerce('mtime'); coerce('atime'); coerce('ctime');
+        if (obj.attr) {
+          if (obj.attr.timestamp != null && !(obj.attr.timestamp instanceof Date)) {
+            const n = Number(obj.attr.timestamp);
+            if (!Number.isNaN(n)) obj.attr.timestamp = new Date(n);
+          }
+        }
+      };
+
+      const walk = (v: any) => {
+        if (!v) return;
+        if (Array.isArray(v)) { v.forEach(walk); return; }
+        if (typeof v === 'object') {
+          fixOne(v);
+          Object.values(v).forEach(walk);
+        }
+      };
+      walk(val);
+      return val;
+    };
+
+    for (const name of dbList) {
+      try {
+        const db = await new Promise<IDBDatabase>((resolve, reject) => {
+          const req = indexedDB.open(name);
+          req.onerror = () => resolve(null as any); // ignore
+          req.onsuccess = () => resolve(req.result);
+        });
+        if (!db) continue;
+
+        const stores = Array.from(db.objectStoreNames);
+        for (const storeName of stores) {
+          await new Promise<void>((resolve) => {
+            try {
+              const tx = db.transaction(storeName, 'readwrite');
+              const os = tx.objectStore(storeName);
+              const cur = os.openCursor();
+              cur.onerror = () => resolve();
+              cur.onsuccess = (ev: any) => {
+                const c = ev.target.result;
+                if (!c) { resolve(); return; }
+                const fixed = fixDeep(c.value);
+                try { if (fixed !== c.value) c.update(fixed); } catch { }
+                c.continue();
+              };
+            } catch { resolve(); }
+          });
+        }
+        try { db.close(); } catch { }
       } catch { /* ignore */ }
     }
-
-    if (patched) {
-      console.log(`[IDBFS] hidden guard: patched ${patched} method(s) this pass`);
-    }
-  };
-
-  tryPatchRoots(); // immediate
-  let n = 1;
-  const timer = setInterval(() => {
-    tryPatchRoots();
-    if (++n >= passes) {
-      clearInterval(timer);
-      (window as any).__hiddenIdbfsGuardInstalled = true;
-    }
-  }, interval);
-}
-
-/** Make FS.syncfs read-only: allow populate reads; no-op writes. Also guard hidden store*Entry during populate. */
-private installIdbfsReadOnlySync(): void {
-  const FS = (this.instance as any)?.FS || (window as any).FS;
-  if (!FS) return;
-  if ((FS as any).__roSyncInstalled) return;
-
-  const original = (typeof FS.syncfs === 'function') ? FS.syncfs.bind(FS) : null;
-
-  const roSync = (populate: boolean, cb: (err?: any) => void) => {
-    if (populate && original) {
-      // ⬇️ Ensure the hidden store*Entry functions are guarded *before* populate runs
-      try { this.installHiddenIdbfsGuardsBrutal({ passes: 6, interval: 30 }); } catch {}
-
-      try {
-        original(true, (_?: any) => { try { cb?.(); } catch {} });
-      } catch {
-        try { cb?.(); } catch {}
-      }
-      return;
-    }
-    // Block local->remote (write) syncs which can hit special nodes
-    setTimeout(() => { try { cb?.(); } catch {} }, 0);
-  };
-
-  (roSync as any).__roSyncInstalled = true;
-  FS.syncfs = roSync;
-
-  // If this build exposes IDBFS.syncfs, stub it similarly
-  const IDBFS = FS.filesystems?.IDBFS;
-  if (IDBFS && typeof IDBFS.syncfs === 'function') {
-    const origIdbfs = IDBFS.syncfs.bind(IDBFS);
-    IDBFS.syncfs = (mount: any, populate: boolean, cb: (err?: any) => void) => {
-      if (populate) {
-        try { this.installHiddenIdbfsGuardsBrutal({ passes: 6, interval: 30 }); } catch {}
-        try { origIdbfs(mount, true, (_?: any) => { try { cb?.(); } catch {} }); }
-        catch { try { cb?.(); } catch {} }
-      } else {
-        setTimeout(() => { try { cb?.(); } catch {} }, 0);
-      }
-    };
   }
-} 
-  
-/** Try to convert any numeric/string timestamps to Date across all DBs/stores. */
-private async repairAllIdbTimestampFields(): Promise<void> {
-  const dbList: string[] = await (async () => {
-    try {
-      const infos = await (indexedDB as any).databases?.() || [];
-      const names = infos.map((d: any) => d?.name).filter(Boolean);
-      // Fallback guesses if databases() isn't supported:
-      if (!names.length) return [
-        '/mupen64plus', 'EM_FS', 'IDBFS', 'MUPEN64PLUS', 'MUPEN', 'FS',
-      ];
-      return names;
-    } catch {
-      return ['/mupen64plus', 'EM_FS', 'IDBFS', 'MUPEN64PLUS', 'MUPEN', 'FS'];
-    }
-  })();
-
-  const fixDeep = (val: any) => {
-    const fixOne = (obj: any) => {
-      if (!obj || typeof obj !== 'object') return;
-      const coerce = (k: string) => {
-        if (obj[k] != null && !(obj[k] instanceof Date)) {
-          const n = Number(obj[k]);
-          if (!Number.isNaN(n)) obj[k] = new Date(n);
-        }
-      };
-      coerce('timestamp'); coerce('mtime'); coerce('atime'); coerce('ctime');
-      if (obj.attr) {
-        if (obj.attr.timestamp != null && !(obj.attr.timestamp instanceof Date)) {
-          const n = Number(obj.attr.timestamp);
-          if (!Number.isNaN(n)) obj.attr.timestamp = new Date(n);
-        }
-      }
-    };
-
-    const walk = (v: any) => {
-      if (!v) return;
-      if (Array.isArray(v)) { v.forEach(walk); return; }
-      if (typeof v === 'object') {
-        fixOne(v);
-        Object.values(v).forEach(walk);
-      }
-    };
-    walk(val);
-    return val;
-  };
-
-  for (const name of dbList) {
-    try {
-      const db = await new Promise<IDBDatabase>((resolve, reject) => {
-        const req = indexedDB.open(name);
-        req.onerror = () => resolve(null as any); // ignore
-        req.onsuccess = () => resolve(req.result);
-      });
-      if (!db) continue;
-
-      const stores = Array.from(db.objectStoreNames);
-      for (const storeName of stores) {
-        await new Promise<void>((resolve) => {
-          try {
-            const tx = db.transaction(storeName, 'readwrite');
-            const os = tx.objectStore(storeName);
-            const cur = os.openCursor();
-            cur.onerror = () => resolve();
-            cur.onsuccess = (ev: any) => {
-              const c = ev.target.result;
-              if (!c) { resolve(); return; }
-              const fixed = fixDeep(c.value);
-              try { if (fixed !== c.value) c.update(fixed); } catch {}
-              c.continue();
-            };
-          } catch { resolve(); }
-        });
-      }
-      try { db.close(); } catch {}
-    } catch { /* ignore */ }
-  }
-}
 
 
   /** Mupen "SaveFilenameFormat=1" style: goodname(32) + "-" + md5(8) */
@@ -3159,50 +3148,50 @@ private async repairAllIdbTimestampFields(): Promise<void> {
     return Array.from(keys);
   }
 
-// Repair META store timestamps so IDBFS reconcile won't crash
-private async repairIdbfsMetaTimestamps(): Promise<void> {
-  try {
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open('/mupen64plus');
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => resolve(req.result);
-    });
-    // Some builds name it 'FILE_META' or 'METADATA'; we detect it dynamically
-    const metaStore = Array.from(db.objectStoreNames)
-      .find(name => /meta/i.test(name) || /metadata/i.test(name));
-    if (!metaStore) { db.close(); return; }
+  // Repair META store timestamps so IDBFS reconcile won't crash
+  private async repairIdbfsMetaTimestamps(): Promise<void> {
+    try {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open('/mupen64plus');
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => resolve(req.result);
+      });
+      // Some builds name it 'FILE_META' or 'METADATA'; we detect it dynamically
+      const metaStore = Array.from(db.objectStoreNames)
+        .find(name => /meta/i.test(name) || /metadata/i.test(name));
+      if (!metaStore) { db.close(); return; }
 
-    const tx = db.transaction(metaStore, 'readwrite');
-    const os = tx.objectStore(metaStore);
+      const tx = db.transaction(metaStore, 'readwrite');
+      const os = tx.objectStore(metaStore);
 
-    await new Promise<void>((resolve, reject) => {
-      const cursor = os.openCursor();
-      cursor.onerror = () => reject(cursor.error);
-      cursor.onsuccess = (ev: any) => {
-        const c = ev.target.result;
-        if (!c) { resolve(); return; }
-        const val = c.value;
+      await new Promise<void>((resolve, reject) => {
+        const cursor = os.openCursor();
+        cursor.onerror = () => reject(cursor.error);
+        cursor.onsuccess = (ev: any) => {
+          const c = ev.target.result;
+          if (!c) { resolve(); return; }
+          const val = c.value;
 
-        if (val && val.timestamp != null && !(val.timestamp instanceof Date)) {
-          const t = val.timestamp;
-          // Convert number/string to Date; ignore weird shapes
-          if (typeof t === 'number' || typeof t === 'string') {
-            const d = new Date(Number(t));
-            if (!isNaN(d.getTime())) {
-              val.timestamp = d;
-              c.update(val);
+          if (val && val.timestamp != null && !(val.timestamp instanceof Date)) {
+            const t = val.timestamp;
+            // Convert number/string to Date; ignore weird shapes
+            if (typeof t === 'number' || typeof t === 'string') {
+              const d = new Date(Number(t));
+              if (!isNaN(d.getTime())) {
+                val.timestamp = d;
+                c.update(val);
+              }
             }
           }
-        }
-        c.continue();
-      };
-    });
+          c.continue();
+        };
+      });
 
-    db.close();
-  } catch {
-    // non-fatal; leave it alone
+      db.close();
+    } catch {
+      // non-fatal; leave it alone
+    }
   }
-}
 
   /** The save key the emulator is most likely using right now (based on GoodName). */
   private emuPrimarySaveKey(ext: '.eep' | '.sra' | '.fla'): string | null {
@@ -3212,378 +3201,378 @@ private async repairIdbfsMetaTimestamps(): Promise<void> {
     return null;
   }
 
-/** Install a global single-flight shim for FS.syncfs to prevent overlaps and retry storms. */
+  /** Install a global single-flight shim for FS.syncfs to prevent overlaps and retry storms. */
 
-/** Install single-flight gates for both FS.syncfs and IDBFS.syncfs on module + window. */
-private installSyncfsGate(): void {
-  const patchFS = (FS: any) => {
-    if (!FS || FS.__fsGateInstalled) return;
+  /** Install single-flight gates for both FS.syncfs and IDBFS.syncfs on module + window. */
+  private installSyncfsGate(): void {
+    const patchFS = (FS: any) => {
+      if (!FS || FS.__fsGateInstalled) return;
 
-    // ---- Gate FS.syncfs(populate, cb) ----
-    if (typeof FS.syncfs === 'function' && !FS.syncfs.__gated) {
-      const original = FS.syncfs.bind(FS);
-      let inFlight = false, queued = false;
+      // ---- Gate FS.syncfs(populate, cb) ----
+      if (typeof FS.syncfs === 'function' && !FS.syncfs.__gated) {
+        const original = FS.syncfs.bind(FS);
+        let inFlight = false, queued = false;
 
-      const gated = (populate: boolean, cb: (err?: any) => void) => {
-        if (inFlight) { queued = true; setTimeout(() => cb?.(), 0); return; }
-        inFlight = true;
-        const runOnce = () => {
-          try {
-            original(populate, (err?: any) => {
-              inFlight = false;
-              if (queued) {
-                queued = false;
-                inFlight = true;
-                try { original(populate, () => { inFlight = false; queued = false; try { cb?.(); } catch {} }); }
-                catch { inFlight = false; queued = false; try { cb?.(); } catch {} }
-              } else {
-                try { cb?.(err); } catch {}
-              }
-            });
-          } catch {
-            inFlight = false; queued = false; try { cb?.(); } catch {}
-          }
+        const gated = (populate: boolean, cb: (err?: any) => void) => {
+          if (inFlight) { queued = true; setTimeout(() => cb?.(), 0); return; }
+          inFlight = true;
+          const runOnce = () => {
+            try {
+              original(populate, (err?: any) => {
+                inFlight = false;
+                if (queued) {
+                  queued = false;
+                  inFlight = true;
+                  try { original(populate, () => { inFlight = false; queued = false; try { cb?.(); } catch { } }); }
+                  catch { inFlight = false; queued = false; try { cb?.(); } catch { } }
+                } else {
+                  try { cb?.(err); } catch { }
+                }
+              });
+            } catch {
+              inFlight = false; queued = false; try { cb?.(); } catch { }
+            }
+          };
+          setTimeout(runOnce, 0);
         };
-        setTimeout(runOnce, 0);
-      };
-      (gated as any).__gated = true;
-      FS.syncfs = gated;
-    }
+        (gated as any).__gated = true;
+        FS.syncfs = gated;
+      }
 
-    // ---- Gate IDBFS.syncfs(mount, populate, cb) ----
-    const IDBFS = FS.filesystems?.IDBFS;
-    if (IDBFS && typeof IDBFS.syncfs === 'function' && !IDBFS.syncfs.__gated) {
-      const originalIdbfs = IDBFS.syncfs.bind(IDBFS);
-      let inFlight = false, queued = false;
+      // ---- Gate IDBFS.syncfs(mount, populate, cb) ----
+      const IDBFS = FS.filesystems?.IDBFS;
+      if (IDBFS && typeof IDBFS.syncfs === 'function' && !IDBFS.syncfs.__gated) {
+        const originalIdbfs = IDBFS.syncfs.bind(IDBFS);
+        let inFlight = false, queued = false;
 
-      const gatedIdbfs = (mount: any, populate: boolean, cb: (err?: any) => void) => {
-        if (inFlight) { queued = true; setTimeout(() => cb?.(), 0); return; }
-        inFlight = true;
-        const runOnce = () => {
-          try {
-            originalIdbfs(mount, populate, (err?: any) => {
-              inFlight = false;
-              if (queued) {
-                queued = false;
-                inFlight = true;
-                try { originalIdbfs(mount, populate, () => { inFlight = false; queued = false; try { cb?.(); } catch {} }); }
-                catch { inFlight = false; queued = false; try { cb?.(); } catch {} }
-              } else {
-                try { cb?.(err); } catch {}
-              }
-            });
-          } catch {
-            inFlight = false; queued = false; try { cb?.(); } catch {}
-          }
+        const gatedIdbfs = (mount: any, populate: boolean, cb: (err?: any) => void) => {
+          if (inFlight) { queued = true; setTimeout(() => cb?.(), 0); return; }
+          inFlight = true;
+          const runOnce = () => {
+            try {
+              originalIdbfs(mount, populate, (err?: any) => {
+                inFlight = false;
+                if (queued) {
+                  queued = false;
+                  inFlight = true;
+                  try { originalIdbfs(mount, populate, () => { inFlight = false; queued = false; try { cb?.(); } catch { } }); }
+                  catch { inFlight = false; queued = false; try { cb?.(); } catch { } }
+                } else {
+                  try { cb?.(err); } catch { }
+                }
+              });
+            } catch {
+              inFlight = false; queued = false; try { cb?.(); } catch { }
+            }
+          };
+          setTimeout(runOnce, 0);
         };
-        setTimeout(runOnce, 0);
+        (gatedIdbfs as any).__gated = true;
+        IDBFS.syncfs = gatedIdbfs;
+      }
+
+      FS.__fsGateInstalled = true;
+    };
+
+    // Patch module FS then window FS
+    const mFS = (this.instance as any)?.FS;
+    if (mFS) patchFS(mFS);
+    const wFS = (window as any).FS;
+    if (wFS && wFS !== mFS) patchFS(wFS);
+  }
+
+
+  /** Delete META-like stores (but not FILE_DATA) across all DBs to let IDBFS regenerate them. */
+  private async wipeAllIdbfsMetaStores(): Promise<void> {
+    if (this._allMetaWipedOnce) return;
+    this._allMetaWipedOnce = true;
+
+    const names: string[] = await (async () => {
+      try {
+        const infos = await (indexedDB as any).databases?.() || [];
+        const n = infos.map((d: any) => d?.name).filter(Boolean);
+        if (!n.length) return ['/mupen64plus', 'EM_FS', 'IDBFS', 'MUPEN64PLUS', 'MUPEN', 'FS'];
+        return n;
+      } catch {
+        return ['/mupen64plus', 'EM_FS', 'IDBFS', 'MUPEN64PLUS', 'MUPEN', 'FS'];
+      }
+    })();
+
+    for (const name of names) {
+      try {
+        // Read version
+        const db0 = await new Promise<IDBDatabase>((resolve, reject) => {
+          const r = indexedDB.open(name);
+          r.onerror = () => resolve(null as any);
+          r.onsuccess = () => resolve(r.result);
+        });
+        if (!db0) continue;
+
+        const version = (db0 as any).version || 1;
+        const storeNames = Array.from(db0.objectStoreNames);
+        db0.close();
+
+        const metas = storeNames.filter(n => /meta|metadata|remote|map/i.test(n));
+        if (!metas.length) continue;
+
+        await new Promise<void>((resolve) => {
+          const upReq = indexedDB.open(name, version + 1);
+          upReq.onupgradeneeded = () => {
+            const db = upReq.result;
+            for (const s of Array.from(db.objectStoreNames)) {
+              if (/meta|metadata|remote|map/i.test(s) && !/data/i.test(s)) {
+                try { db.deleteObjectStore(s); } catch { }
+              }
+            }
+          };
+          upReq.onsuccess = () => { try { upReq.result.close(); } catch { }; resolve(); };
+          upReq.onerror = () => resolve();
+        });
+      } catch { /* ignore and continue */ }
+    }
+  }
+
+
+
+  /** Guard IDBFS store*Entry so unsupported node types are skipped (not fatal). */
+  private installIdbfsGuardsRobust(retries = 6, intervalMs = 50): void {
+    const patchTargets = (FS: any): any[] => {
+      const t: any[] = [];
+      try {
+        const idbfs = FS?.filesystems?.IDBFS;
+        if (idbfs) t.push(idbfs);
+      } catch { }
+      try {
+        const mounts = FS?.mounts || [];
+        for (const m of mounts) {
+          if (m?.type) t.push(m.type);
+        }
+      } catch { }
+      // Unique by object identity
+      return Array.from(new Set(t.filter(Boolean)));
+    };
+
+    const installOn = (FS: any, obj: any, name: 'storeLocalEntry' | 'storeRemoteEntry') => {
+      if (!obj || typeof obj[name] !== 'function' || obj[name].__guarded) return;
+
+      const orig = obj[name].bind(obj);
+
+      const isFile = (mode: number) =>
+        FS?.isFile ? FS.isFile(mode) : ((mode & 0o170000) === 0o100000);
+      const isDir = (mode: number) =>
+        FS?.isDir ? FS.isDir(mode) : ((mode & 0o170000) === 0o040000);
+
+      const guarded = (...args: any[]) => {
+        // Try to find entry and cb regardless of signature
+        let entry = undefined as any;
+        for (const a of args) {
+          if (a && typeof a === 'object' && typeof a.mode === 'number') { entry = a; break; }
+        }
+        let cb: any = null;
+        for (let i = args.length - 1; i >= 0; i--) {
+          if (typeof args[i] === 'function') { cb = args[i]; break; }
+        }
+
+        const skipWith = (reason: string) => {
+          console.warn(`[IDBFS] ${name}: skip unsupported node`, { reason, args });
+          try { cb && cb(); } catch { }
+          return;
+        };
+
+        try {
+          const mode = entry?.mode;
+          if (mode != null && !isFile(mode) && !isDir(mode)) {
+            return skipWith('not file/dir');
+          }
+        } catch { /* fall through */ }
+
+        // Wrap callback to swallow the specific error if callback style
+        const wrappedCb = (err?: any) => {
+          if (err && /node type not supported/i.test(String(err?.message || err))) {
+            console.warn(`[IDBFS] ${name}: swallowed unsupported node error (cb)`);
+            try { cb && cb(); } catch { }
+            return;
+          }
+          try { cb && cb(err); } catch { }
+        };
+
+        try {
+          if (cb) {
+            const newArgs = [...args];
+            newArgs[args.lastIndexOf(cb)] = wrappedCb;
+            return orig(...newArgs);
+          }
+          return orig(...args);
+        } catch (e: any) {
+          if (/node type not supported/i.test(String(e?.message || e))) {
+            console.warn(`[IDBFS] ${name}: swallowed unsupported node throw`);
+            try { cb && cb(); } catch { }
+            return;
+          }
+          throw e;
+        }
       };
-      (gatedIdbfs as any).__gated = true;
-      IDBFS.syncfs = gatedIdbfs;
+
+      (guarded as any).__guarded = true;
+      obj[name] = guarded;
+    };
+
+    const tryPatch = (FS: any) => {
+      const targets = patchTargets(FS);
+      for (const t of targets) {
+        installOn(FS, t, 'storeLocalEntry');
+        installOn(FS, t, 'storeRemoteEntry');
+      }
+    };
+
+    const patchAll = () => {
+      const mFS = (this.instance as any)?.FS;
+      if (mFS) tryPatch(mFS);
+      const wFS = (window as any).FS;
+      if (wFS && wFS !== mFS) tryPatch(wFS);
+    };
+
+    // Immediate and a few retries (catches late init / mount)
+    patchAll();
+    if (retries > 0) {
+      let n = 0;
+      const iv = setInterval(() => {
+        patchAll();
+        if (++n >= retries) clearInterval(iv);
+      }, intervalMs);
     }
-
-    FS.__fsGateInstalled = true;
-  };
-
-  // Patch module FS then window FS
-  const mFS = (this.instance as any)?.FS;
-  if (mFS) patchFS(mFS);
-  const wFS = (window as any).FS;
-  if (wFS && wFS !== mFS) patchFS(wFS);
-}
+  }
 
 
-/** Delete META-like stores (but not FILE_DATA) across all DBs to let IDBFS regenerate them. */
-private async wipeAllIdbfsMetaStores(): Promise<void> {
-  if (this._allMetaWipedOnce) return;
-  this._allMetaWipedOnce = true;
 
-  const names: string[] = await (async () => {
+  private async normalizeMupenFileDataShapes(): Promise<void> {
+    if (this._fileDataNormalizedOnce) return;
+    this._fileDataNormalizedOnce = true;
+
     try {
-      const infos = await (indexedDB as any).databases?.() || [];
-      const n = infos.map((d: any) => d?.name).filter(Boolean);
-      if (!n.length) return ['/mupen64plus', 'EM_FS', 'IDBFS', 'MUPEN64PLUS', 'MUPEN', 'FS'];
-      return n;
-    } catch {
-      return ['/mupen64plus', 'EM_FS', 'IDBFS', 'MUPEN64PLUS', 'MUPEN', 'FS'];
-    }
-  })();
-
-  for (const name of names) {
-    try {
-      // Read version
-      const db0 = await new Promise<IDBDatabase>((resolve, reject) => {
-        const r = indexedDB.open(name);
-        r.onerror = () => resolve(null as any);
-        r.onsuccess = () => resolve(r.result);
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open('/mupen64plus');
+        req.onerror = () => resolve(null as any);
+        req.onsuccess = () => resolve(req.result);
       });
-      if (!db0) continue;
+      if (!db || !Array.from(db.objectStoreNames).includes('FILE_DATA')) { db?.close?.(); return; }
 
-      const version = (db0 as any).version || 1;
-      const storeNames = Array.from(db0.objectStoreNames);
-      db0.close();
-
-      const metas = storeNames.filter(n => /meta|metadata|remote|map/i.test(n));
-      if (!metas.length) continue;
+      const tx = db.transaction('FILE_DATA', 'readwrite');
+      const os = tx.objectStore('FILE_DATA');
 
       await new Promise<void>((resolve) => {
-        const upReq = indexedDB.open(name, version + 1);
-        upReq.onupgradeneeded = () => {
-          const db = upReq.result;
-          for (const s of Array.from(db.objectStoreNames)) {
-            if (/meta|metadata|remote|map/i.test(s) && !/data/i.test(s)) {
-              try { db.deleteObjectStore(s); } catch {}
-            }
+        const cur = os.openCursor();
+        cur.onerror = () => resolve();
+        cur.onsuccess = (ev: any) => {
+          const c = ev.target.result;
+          if (!c) { resolve(); return; }
+
+          const k = c.key as string;
+          let v = c.value;
+          const now = new Date();
+
+          // Decide if malformed:
+          let malformed = false;
+
+          // case 1: bare bytes
+          const isBareBytes =
+            v instanceof ArrayBuffer ||
+            (v?.buffer instanceof ArrayBuffer && typeof v.byteLength === 'number') ||
+            Array.isArray(v?.bytes);
+
+          // case 2: object with bad timestamp type
+          const hasBadTimestamp =
+            v && typeof v === 'object' && 'timestamp' in v && !(v.timestamp instanceof Date);
+
+          if (isBareBytes || hasBadTimestamp) {
+            malformed = true;
           }
+
+          if (malformed) {
+            // Rewrap
+            const u8 =
+              v instanceof ArrayBuffer
+                ? new Uint8Array(v)
+                : (v?.buffer instanceof ArrayBuffer && typeof v.byteLength === 'number')
+                  ? new Uint8Array(v.buffer, v.byteOffset ?? 0, v.byteLength)
+                  : Array.isArray(v?.bytes)
+                    ? new Uint8Array(v.bytes)
+                    : null;
+
+            // Create normalized object
+            const nv: any = { contents: u8 ?? new Uint8Array(0), timestamp: now };
+            if ('mtime' in v && !(v.mtime instanceof Date)) nv.mtime = now;
+            if ('ctime' in v && !(v.ctime instanceof Date)) nv.ctime = now;
+            if ('atime' in v && !(v.atime instanceof Date)) nv.atime = now;
+
+            try { c.update(nv); } catch { /* ignore */ }
+          }
+
+          c.continue();
         };
-        upReq.onsuccess = () => { try { upReq.result.close(); } catch {} ; resolve(); };
-        upReq.onerror = () => resolve();
       });
-    } catch { /* ignore and continue */ }
+
+      try { db.close(); } catch { }
+    } catch { /* ignore */ }
   }
-} 
 
-
-
-/** Guard IDBFS store*Entry so unsupported node types are skipped (not fatal). */
-private installIdbfsGuardsRobust(retries = 6, intervalMs = 50): void {
-  const patchTargets = (FS: any): any[] => {
-    const t: any[] = [];
+  /** Remove non-file/dir nodes under a path to prevent IDBFS choking on them. */
+  private pruneUnsupportedNodesUnder(root = '/mupen64plus'): void {
     try {
-      const idbfs = FS?.filesystems?.IDBFS;
-      if (idbfs) t.push(idbfs);
-    } catch {}
+      const FS = (this.instance as any)?.FS;
+      if (!FS) return;
+
+      const isFile = (m: number) => FS.isFile?.(m) ?? ((m & 0o170000) === 0o100000);
+      const isDir = (m: number) => FS.isDir?.(m) ?? ((m & 0o170000) === 0o040000);
+      const isLink = (m: number) => FS.isLink?.(m) ?? ((m & 0o170000) === 0o120000);
+
+      const walk = (p: string) => {
+        let list: string[] = [];
+        try { list = FS.readdir(p).filter((n: string) => n !== '.' && n !== '..'); }
+        catch { return; }
+
+        for (const name of list) {
+          const child = p.endsWith('/') ? p + name : `${p}/${name}`;
+          let mode = 0;
+          try { mode = FS.lookupPath(child)?.node?.mode ?? 0; } catch { }
+
+          if (isDir(mode)) {
+            walk(child);
+            continue;
+          }
+          if (!isFile(mode) && !isDir(mode)) {
+            try { FS.unlink?.(child); console.warn('[IDBFS] pruned special node', child); } catch { }
+          }
+        }
+      };
+
+      walk(root);
+    } catch (e) {
+      console.warn('pruneUnsupportedNodesUnder failed', e);
+    }
+  }
+
+
+  private async logAllIdbDbs(): Promise<void> {
     try {
-      const mounts = FS?.mounts || [];
-      for (const m of mounts) {
-        if (m?.type) t.push(m.type);
+      const infos = await (indexedDB as any).databases?.() || [];
+      for (const d of infos) {
+        const name = d?.name;
+        if (!name) continue;
+        const db = await new Promise<IDBDatabase>((resolve, reject) => {
+          const r = indexedDB.open(name);
+          r.onerror = () => resolve(null as any);
+          r.onsuccess = () => resolve(r.result);
+        });
+        if (!db) continue;
+        const stores = Array.from(db.objectStoreNames);
+        console.log('[IDB]', name, stores);
+        db.close();
       }
-    } catch {}
-    // Unique by object identity
-    return Array.from(new Set(t.filter(Boolean)));
-  };
-
-  const installOn = (FS: any, obj: any, name: 'storeLocalEntry' | 'storeRemoteEntry') => {
-    if (!obj || typeof obj[name] !== 'function' || obj[name].__guarded) return;
-
-    const orig = obj[name].bind(obj);
-
-    const isFile = (mode: number) =>
-      FS?.isFile ? FS.isFile(mode) : ((mode & 0o170000) === 0o100000);
-    const isDir = (mode: number) =>
-      FS?.isDir ? FS.isDir(mode) : ((mode & 0o170000) === 0o040000);
-
-    const guarded = (...args: any[]) => {
-      // Try to find entry and cb regardless of signature
-      let entry = undefined as any;
-      for (const a of args) {
-        if (a && typeof a === 'object' && typeof a.mode === 'number') { entry = a; break; }
-      }
-      let cb: any = null;
-      for (let i = args.length - 1; i >= 0; i--) {
-        if (typeof args[i] === 'function') { cb = args[i]; break; }
-      }
-
-      const skipWith = (reason: string) => {
-        console.warn(`[IDBFS] ${name}: skip unsupported node`, { reason, args });
-        try { cb && cb(); } catch {}
-        return;
-      };
-
-      try {
-        const mode = entry?.mode;
-        if (mode != null && !isFile(mode) && !isDir(mode)) {
-          return skipWith('not file/dir');
-        }
-      } catch { /* fall through */ }
-
-      // Wrap callback to swallow the specific error if callback style
-      const wrappedCb = (err?: any) => {
-        if (err && /node type not supported/i.test(String(err?.message || err))) {
-          console.warn(`[IDBFS] ${name}: swallowed unsupported node error (cb)`);
-          try { cb && cb(); } catch {}
-          return;
-        }
-        try { cb && cb(err); } catch {}
-      };
-
-      try {
-        if (cb) {
-          const newArgs = [...args];
-          newArgs[args.lastIndexOf(cb)] = wrappedCb;
-          return orig(...newArgs);
-        }
-        return orig(...args);
-      } catch (e: any) {
-        if (/node type not supported/i.test(String(e?.message || e))) {
-          console.warn(`[IDBFS] ${name}: swallowed unsupported node throw`);
-          try { cb && cb(); } catch {}
-          return;
-        }
-        throw e;
-      }
-    };
-
-    (guarded as any).__guarded = true;
-    obj[name] = guarded;
-  };
-
-  const tryPatch = (FS: any) => {
-    const targets = patchTargets(FS);
-    for (const t of targets) {
-      installOn(FS, t, 'storeLocalEntry');
-      installOn(FS, t, 'storeRemoteEntry');
+    } catch {
+      console.log('[IDB] databases() not supported');
     }
-  };
-
-  const patchAll = () => {
-    const mFS = (this.instance as any)?.FS;
-    if (mFS) tryPatch(mFS);
-    const wFS = (window as any).FS;
-    if (wFS && wFS !== mFS) tryPatch(wFS);
-  };
-
-  // Immediate and a few retries (catches late init / mount)
-  patchAll();
-  if (retries > 0) {
-    let n = 0;
-    const iv = setInterval(() => {
-      patchAll();
-      if (++n >= retries) clearInterval(iv);
-    }, intervalMs);
   }
-}
-
-
-
-private async normalizeMupenFileDataShapes(): Promise<void> {
-  if (this._fileDataNormalizedOnce) return;
-  this._fileDataNormalizedOnce = true;
-
-  try {
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open('/mupen64plus');
-      req.onerror = () => resolve(null as any);
-      req.onsuccess = () => resolve(req.result);
-    });
-    if (!db || !Array.from(db.objectStoreNames).includes('FILE_DATA')) { db?.close?.(); return; }
-
-    const tx = db.transaction('FILE_DATA', 'readwrite');
-    const os = tx.objectStore('FILE_DATA');
-
-    await new Promise<void>((resolve) => {
-      const cur = os.openCursor();
-      cur.onerror = () => resolve();
-      cur.onsuccess = (ev: any) => {
-        const c = ev.target.result;
-        if (!c) { resolve(); return; }
-
-        const k = c.key as string;
-        let v = c.value;
-        const now = new Date();
-
-        // Decide if malformed:
-        let malformed = false;
-
-        // case 1: bare bytes
-        const isBareBytes =
-          v instanceof ArrayBuffer ||
-          (v?.buffer instanceof ArrayBuffer && typeof v.byteLength === 'number') ||
-          Array.isArray(v?.bytes);
-
-        // case 2: object with bad timestamp type
-        const hasBadTimestamp =
-          v && typeof v === 'object' && 'timestamp' in v && !(v.timestamp instanceof Date);
-
-        if (isBareBytes || hasBadTimestamp) {
-          malformed = true;
-        }
-
-        if (malformed) {
-          // Rewrap
-          const u8 =
-            v instanceof ArrayBuffer
-              ? new Uint8Array(v)
-              : (v?.buffer instanceof ArrayBuffer && typeof v.byteLength === 'number')
-                ? new Uint8Array(v.buffer, v.byteOffset ?? 0, v.byteLength)
-                : Array.isArray(v?.bytes)
-                  ? new Uint8Array(v.bytes)
-                  : null;
-
-          // Create normalized object
-          const nv: any = { contents: u8 ?? new Uint8Array(0), timestamp: now };
-          if ('mtime' in v && !(v.mtime instanceof Date)) nv.mtime = now;
-          if ('ctime' in v && !(v.ctime instanceof Date)) nv.ctime = now;
-          if ('atime' in v && !(v.atime instanceof Date)) nv.atime = now;
-
-          try { c.update(nv); } catch { /* ignore */ }
-        }
-
-        c.continue();
-      };
-    });
-
-    try { db.close(); } catch {}
-  } catch { /* ignore */ }
-} 
- 
-/** Remove non-file/dir nodes under a path to prevent IDBFS choking on them. */
-private pruneUnsupportedNodesUnder(root = '/mupen64plus'): void {
-  try {
-    const FS = (this.instance as any)?.FS;
-    if (!FS) return;
-
-    const isFile = (m: number) => FS.isFile?.(m) ?? ((m & 0o170000) === 0o100000);
-    const isDir  = (m: number) => FS.isDir?.(m)  ?? ((m & 0o170000) === 0o040000);
-    const isLink = (m: number) => FS.isLink?.(m) ?? ((m & 0o170000) === 0o120000);
-
-    const walk = (p: string) => {
-      let list: string[] = [];
-      try { list = FS.readdir(p).filter((n: string) => n !== '.' && n !== '..'); }
-      catch { return; }
-
-      for (const name of list) {
-        const child = p.endsWith('/') ? p + name : `${p}/${name}`;
-        let mode = 0;
-        try { mode = FS.lookupPath(child)?.node?.mode ?? 0; } catch {}
-
-        if (isDir(mode)) {
-          walk(child);
-          continue;
-        }
-        if (!isFile(mode) && !isDir(mode)) {
-          try { FS.unlink?.(child); console.warn('[IDBFS] pruned special node', child); } catch {}
-        }
-      }
-    };
-
-    walk(root);
-  } catch (e) {
-    console.warn('pruneUnsupportedNodesUnder failed', e);
-  }
-}
- 
-
-private async logAllIdbDbs(): Promise<void> {
-  try {
-    const infos = await (indexedDB as any).databases?.() || [];
-    for (const d of infos) {
-      const name = d?.name;
-      if (!name) continue;
-      const db = await new Promise<IDBDatabase>((resolve, reject) => {
-        const r = indexedDB.open(name);
-        r.onerror = () => resolve(null as any);
-        r.onsuccess = () => resolve(r.result);
-      });
-      if (!db) continue;
-      const stores = Array.from(db.objectStoreNames);
-      console.log('[IDB]', name, stores);
-      db.close();
-    }
-  } catch {
-    console.log('[IDB] databases() not supported');
-  }
-}
 
   private async openMupenDb(): Promise<IDBDatabase | null> {
     try {
