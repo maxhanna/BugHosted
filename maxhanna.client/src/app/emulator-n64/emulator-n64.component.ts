@@ -27,9 +27,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   // ---- Gamepads ----
   gamepads: Array<{ index: number; id: string; mapping: string; connected: boolean }> = [];
-  selectedGamepadIndex: number | null = null; 
-  private _sdlPadName: string | null = null;           // the exact SDL device name Mupen prints
-  private _lastAppliedSectionName: string | null = null;// to avoid re-applying in a loop
+  selectedGamepadIndex: number | null = null;
 
   // ---- Mapping UI/store ----
   showKeyMappings = false;
@@ -575,59 +573,68 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-async applyMappingToEmulator() {
-  try {
-    this.migrateMappingToIdsIfNeeded();
+  async applyMappingToEmulator() {
+    try {
+      this.migrateMappingToIdsIfNeeded();
 
-    if (this.status === 'running' || this.status === 'booting') {
-      // ❌ Never write InputAutoCfg while emulator is alive
-      this.parentRef?.showNotification(
-        'Controller mapping will be applied on next launch.'
-      );
-      return;
-    }
+      const config: Record<string, string> = {};
+      const handled = new Set<string>();
 
-    const config: Record<string, string> = {};
-    const handled = new Set<string>();
+      const pairAxis = (minusKey: string, plusKey: string, axisName: string) => {
+        const mMinus = this.mapping[minusKey];
+        const mPlus = this.mapping[plusKey];
+        if (mMinus && mPlus && mMinus.type === 'axis' && mPlus.type === 'axis' &&
+          mMinus.gamepadId && mPlus.gamepadId && mMinus.gamepadId === mPlus.gamepadId) {
+          config[axisName] = `axis(${mMinus.index}-,${mPlus.index}+)`;
+          handled.add(minusKey); handled.add(plusKey);
+          return true;
+        }
+        return false;
+      };
 
-    const pairAxis = (minus: string, plus: string, axis: string) => {
-      const a = this.mapping[minus];
-      const b = this.mapping[plus];
-      if (a && b && a.type === 'axis' && b.type === 'axis') {
-        config[axis] = `axis(${a.index}-,${b.index}+)`;
-        handled.add(minus);
-        handled.add(plus);
+      pairAxis('Analog X-', 'Analog X+', 'X Axis');
+      pairAxis('Analog Y-', 'Analog Y+', 'Y Axis');
+
+      for (const key of Object.keys(this.mapping)) {
+        if (handled.has(key)) continue;
+        const m = this.mapping[key];
+        if (!m) continue;
+        if (m.type === 'button') {
+          config[key] = `button(${m.index})`;
+        } else if (m.type === 'axis') {
+          config[key] = `axis(${m.index}${m.axisDir === -1 ? '-' : '+'})`;
+        }
       }
-    };
 
-    pairAxis('Analog X-', 'Analog X+', 'X Axis');
-    pairAxis('Analog Y-', 'Analog Y+', 'Y Axis');
+      // Section name
+      let sectionName = 'Custom Gamepad';
+      for (const v of Object.values(this.mapping)) {
+        if (v?.gamepadId) { sectionName = v.gamepadId; break; }
+      }
+      if (sectionName === 'Custom Gamepad') {
+        const gp = this.currentPad();
+        if (gp?.id) sectionName = gp.id;
+      }
 
-    for (const k of Object.keys(this.mapping)) {
-      if (handled.has(k)) continue;
-      const m = this.mapping[k];
-      if (!m) continue;
-      config[k] = m.type === 'button'
-        ? `button(${m.index})`
-        : `axis(${m.index}${m.axisDir === -1 ? '-' : '+'})`;
+      console.log('[InputAutoCfg] writing section for:', sectionName);
+
+      const wasRunning = !!this.instance || this.status === 'running';
+      if (wasRunning) {
+        await this.stop();
+        await new Promise((r) => setTimeout(r, 350));
+      }
+
+      await writeAutoInputConfig(sectionName, config as any);
+      this.parentRef?.showNotification(`Applied RAW mapping for "${sectionName}"`);
+
+      if (this.directInjectMode) this.enableDirectInject();
+
+      if (wasRunning) await this.boot();
+    } catch (e) {
+      console.error('Failed to apply mapping to emulator', e);
+      this.parentRef?.showNotification('Failed to apply mapping');
     }
-
-    const sectionName =
-      this._sdlPadName ||
-      Object.values(this.mapping).find(v => v?.gamepadId)?.gamepadId ||
-      this.currentPad()?.id ||
-      'Custom Gamepad';
-
-    await this.writeInputAutoCfgSection(sectionName, config);
-    this._lastAppliedSectionName = sectionName;
-
-    this.parentRef?.showNotification(
-      `Mapping saved for "${sectionName}". Restart emulator to apply.`
-    );
-  } catch (e) {
-    console.error('applyMappingToEmulator failed', e);
   }
-} 
 
   async onSelectGamepad(value: string | number) {
     const idx = Number(value);
@@ -745,31 +752,15 @@ async applyMappingToEmulator() {
     this.loading = true;
     this.status = 'booting';
 
-// ✅ Apply mapping BEFORE emulator exists
-if (Object.keys(this.mapping || {}).length) {
-  const section =
-    this._sdlPadName ||
-    Object.values(this.mapping).find(v => v?.gamepadId)?.gamepadId ||
-    this.currentPad()?.id ||
-    'Custom Gamepad';
-
-  await this.writeInputAutoCfgSection(
-    section,
-    this.buildAutoInputConfigFromMapping(this.mapping)
-  );
-
-  this._lastAppliedSectionName = section;
-}
-
     // ✅ Reset meta and start sniffer BEFORE emulator creation
     this._romGoodName = null;
     this._romMd5 = null;
     const restoreSniffer = this.installMupenConsoleSniffer();
 
     try {
-      //this.applyGamepadReorder();
+      this.applyGamepadReorder();
       if (this.directInjectMode) this.enableDirectInject();
-this.restoreGamepadGetter();
+
       this.instance = await createMupen64PlusWeb({
         canvas: canvasEl,
         innerWidth: canvasEl.width,
@@ -794,7 +785,7 @@ this.restoreGamepadGetter();
       this.installIdbfsReadOnlySync();  // read-only sync + installs brutal guard again for populate
       this.pruneUnsupportedNodesUnder('/mupen64plus'); // optional but helpful
 
-      // await this.repairAllIdbTimestampFields();
+     // await this.repairAllIdbTimestampFields();
       await this.normalizeMupenFileDataShapes();
 
       const FS = (this.instance as any)?.FS;
@@ -810,12 +801,11 @@ this.restoreGamepadGetter();
       this.status = 'running';
 
       //await this.repairIdbfsMetaTimestamps(); 
-      await this.waitForRomIdentity(2000); 
-
+      await this.waitForRomIdentity(2000);
       restoreSniffer();// ✅ Stop sniffing once ROM meta printed
 
       // Give IDBFS a small head start; reduces "syncfs overlap" churn
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 400)); 
 
 
       this.parentRef?.showNotification(`Booted ${this.romName}`);
@@ -850,7 +840,6 @@ this.restoreGamepadGetter();
       if (this.romName) {
         this.parentRef?.showNotification('Emulator stopped');
       }
-      this.applyGamepadReorder();
     }
   }
 
@@ -1302,6 +1291,7 @@ this.restoreGamepadGetter();
       this.autosaveTimer = null;
     }
   }
+ 
 
   private _onGamepadConnected = (ev: GamepadEvent) => {
     this.refreshGamepads();
@@ -1315,11 +1305,9 @@ this.restoreGamepadGetter();
       }
     }
 
-
-if (!this.instance && this.status !== 'running' && this.status !== 'booting') {
-  this.applyGamepadReorder();
-}
-
+    if (this.instance || this.status === 'running') {
+      this.applyGamepadReorder();
+    }
 
     this.maybeApplyStoredMappingFor(ev.gamepad.id);
   };
@@ -1345,13 +1333,9 @@ if (!this.instance && this.status !== 'running' && this.status !== 'booting') {
     const tick = () => {
       try {
         const before = this.gamepads.map(g => g.index).join(',');
-
-        // ✅ REQUIRED: pull fresh browser state
         this.refreshGamepads();
-
         const after = this.gamepads.map(g => g.index).join(',');
 
-        // If P1 is not assigned yet, pick a sensible default (prefer a 'standard' pad)
         if (this.ports[1].gpIndex == null && this.gamepads.length) {
           if (!this.hasLoadedLastInput) {
             const std = this.gamepads.find(g => g.mapping === 'standard');
@@ -1361,13 +1345,10 @@ if (!this.instance && this.status !== 'running' && this.status !== 'booting') {
           }
         }
 
-        // Re-apply reorder if the visible list changed
         if (before !== after) {
           this.applyGamepadReorder();
         }
-      } catch {
-        console.log('Gamepad auto-detect tick failed');
-      }
+      } catch { console.log('Gamepad auto-detect tick failed'); }
       this._autoDetectTimer = setTimeout(tick, 750);
     };
     tick();
@@ -1379,7 +1360,6 @@ if (!this.instance && this.status !== 'running' && this.status !== 'booting') {
       this._autoDetectTimer = null;
     }
   }
-
 
   private assignFirstDetectedToP1(preferredIdx?: number) {
     const pads = this.getGamepadsBase();
@@ -1394,8 +1374,6 @@ if (!this.instance && this.status !== 'running' && this.status !== 'booting') {
 
     this.ensureDefaultMappingForPort(1);
     this.selectedGamepadIndex = idx;
-
-    // Now that P1 is assigned, enable the reorder wrapper
     this.applyGamepadReorder();
   }
 
@@ -1451,85 +1429,39 @@ if (!this.instance && this.status !== 'running' && this.status !== 'booting') {
     this.hasLoadedLastInput = true;
   }
 
-  
-// --- Reorder wrapper (safe fallback until P1 assigned) ---
-private installReorderWrapper() {
-  if (this._gpWrapperInstalled) return;
+  private installReorderWrapper() {
+    if (this._gpWrapperInstalled) return;
+    try {
+      this._originalGetGamepadsBase = navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null;
+      const self = this;
 
-  // ❌ Never install the wrapper while the emulator is running
-  if (this.instance || this.status === 'running' || this.status === 'booting') return;
+      (navigator as any).getGamepads = function (): (Gamepad | null)[] {
+        const baseArr = (self._originalGetGamepadsBase ? self._originalGetGamepadsBase() : []) || [];
+        const chosen: (Gamepad | null)[] = [];
+        const used = new Set<number>();
 
-  try {
-    this._originalGetGamepadsBase = navigator.getGamepads
-      ? navigator.getGamepads.bind(navigator)
-      : null;
+        const pushIf = (idx: number | null) => {
+          if (idx == null) return;
+          const pad = baseArr[idx];
+          if (pad && !used.has(idx)) { chosen.push(pad); used.add(idx); }
+        };
 
-    const self = this;
+        pushIf(self.ports[1].gpIndex);
+        pushIf(self.ports[2].gpIndex);
+        pushIf(self.ports[3].gpIndex);
+        pushIf(self.ports[4].gpIndex);
 
-    (navigator as any).getGamepads = function (): (Gamepad | null)[] {
-      const baseArr = (self._originalGetGamepadsBase ? self._originalGetGamepadsBase() : []) || [];
-
-      // Until P1 is assigned, do not reorder — return native list
-      if (self.ports[1].gpIndex == null) return baseArr;
-
-      const chosen: (Gamepad | null)[] = [];
-      const used = new Set<number>();
-      const pushIf = (idx: number | null) => {
-        if (idx == null) return;
-        const pad = baseArr[idx];
-        if (pad && !used.has(idx)) { chosen.push(pad); used.add(idx); }
+        for (let i = 0; i < baseArr.length; i++) {
+          if (!used.has(i)) chosen.push(baseArr[i]);
+        }
+        return chosen;
       };
 
-      // Assigned ports first
-      pushIf(self.ports[1].gpIndex);
-      pushIf(self.ports[2].gpIndex);
-      pushIf(self.ports[3].gpIndex);
-      pushIf(self.ports[4].gpIndex);
-
-      // Then everyone else
-      for (let i = 0; i < baseArr.length; i++) {
-        if (!used.has(i)) chosen.push(baseArr[i]);
-      }
-      return chosen;
-    };
-
-    this._gpWrapperInstalled = true;
-  } catch (e) {
-    console.warn('Failed installing reorder wrapper', e);
+      this._gpWrapperInstalled = true;
+    } catch (e) {
+      console.warn('Failed installing reorder wrapper', e);
+    }
   }
-}
-
-applyGamepadReorder() {
-  try {
-    // ❌ Do NOT install the wrapper while the emulator is running
-    if (this.instance || this.status === 'running' || this.status === 'booting') return;
-    this.installReorderWrapper(); // safe to call repeatedly when stopped/idle
-  } catch (e) {
-    console.warn('Failed to apply gamepad reorder', e);
-  }
-} 
-
-  private uninstallReorderWrapper() {
-    if (!this._gpWrapperInstalled) return;
-    try {
-      if (this._originalGetGamepadsBase) {
-        (navigator as any).getGamepads = this._originalGetGamepadsBase;
-      }
-    } catch { /* ignore */ }
-    this._gpWrapperInstalled = false;
-    this._originalGetGamepadsBase = null;
-  }
-
-  // Always fetch the raw browser list (wrapper only affects navigator.getGamepads())
-  private getGamepadsBase(): (Gamepad | null)[] {
-    const getter = this._originalGetGamepadsBase || (navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null);
-    return getter ? getter() : [];
-  }
-
-  restoreGamepadGetter() {
-    try { this.uninstallReorderWrapper(); } catch { /* ignore */ }
-  }
-
 
   closeRemapperToPort(port: PlayerPort) {
     this.ports[port].mapping = JSON.parse(JSON.stringify(this.mapping));
@@ -1671,6 +1603,21 @@ applyGamepadReorder() {
     }
   }
 
+  private uninstallReorderWrapper() {
+    if (!this._gpWrapperInstalled) return;
+    try {
+      if (this._originalGetGamepadsBase) {
+        (navigator as any).getGamepads = this._originalGetGamepadsBase;
+      }
+    } catch { /* ignore */ }
+    this._gpWrapperInstalled = false;
+    this._originalGetGamepadsBase = null;
+  }
+
+  private getGamepadsBase(): (Gamepad | null)[] {
+    const getter = this._originalGetGamepadsBase || (navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null);
+    return getter ? getter() : [];
+  }
 
   private migrateMappingToIdsIfNeeded() {
     const arr = this.getGamepadsBase();
@@ -1803,6 +1750,19 @@ applyGamepadReorder() {
     }
   }
 
+  applyGamepadReorder() {
+    try {
+      this.installReorderWrapper();
+    } catch (e) {
+      console.warn('Failed to apply gamepad reorder', e);
+    }
+  }
+
+  restoreGamepadGetter() {
+    try {
+      this.uninstallReorderWrapper();
+    } catch { /* ignore */ }
+  }
 
   async downloadCurrentSaves() {
     try {
@@ -2014,7 +1974,7 @@ applyGamepadReorder() {
     const extFromName = (filename?.match(/\.(eep|sra|fla)$/i)?.[0] || '').toLowerCase() as any;
     if (extFromName) return extFromName;
     return this.inferBatteryExtFromSize(size) || '.sra';
-  }
+  } 
 
   private multiPortActive(): boolean {
     return [1, 2, 3, 4].filter(p => this.ports[p as PlayerPort].gpIndex != null).length > 1;
@@ -2060,8 +2020,8 @@ applyGamepadReorder() {
       del.onsuccess = () => resolve();
     })));
     db.close();
-  }
-
+  } 
+ 
 
   private async waitForRomIdentity(ms = 1500): Promise<boolean> {
     const t0 = performance.now();
@@ -2072,63 +2032,55 @@ applyGamepadReorder() {
     return false;
   }
   /** Capture core-printed ROM metadata (Goodname + MD5) during boot. */
-  
-/** Capture core-printed ROM metadata AND the SDL device name during boot. */
-private installMupenConsoleSniffer(timeoutMs = 2500): () => void {
-  const originalLog  = console.log.bind(console);
-  const originalInfo = (console.info?.bind(console)) || originalLog;
-  const originalWarn = console.warn.bind(console);
+  private installMupenConsoleSniffer(timeoutMs = 2500): () => void {
+    const originalLog = console.log.bind(console);
+    const originalInfo = (console.info?.bind(console)) || originalLog;
+    const originalWarn = console.warn.bind(console);
 
-  const parse = (s: string) => {
-    if (typeof s !== 'string') return;
+    const parse = (s: string) => {
+      if (typeof s !== 'string') return;
+      // Accept with or without '@@@'
+      const mg = s.match(/(?:@{3}\s*)?Core:\s*Goodname:\s*(.+)$/i);
+      if (mg?.[1]) this._romGoodName = mg[1].trim();
 
-    // Core metadata
-    const mg = s.match(/(?:@{3}\s*)?Core:\s*Goodname:\s*(.+)$/i);
-    if (mg?.[1]) this._romGoodName = mg[1].trim();
+      const mm = s.match(/(?:@{3}\s*)?Core:\s*MD5:\s*([0-9A-F]{32})/i);
+      if (mm?.[1]) this._romMd5 = mm[1].toUpperCase();
+    };
 
-    const mm = s.match(/(?:@{3}\s*)?Core:\s*MD5:\s*([0-9A-F]{32})/i);
-    if (mm?.[1]) this._romMd5 = mm[1].toUpperCase();
+    const wrap = (fn: (...a: any[]) => void) => (...args: any[]) => {
+      try { parse(args?.[0]); } catch { }
+      fn(...args);
+    };
 
-    // ✅ SDL input device name (what InputAutoCfg sections must match)
-    // Examples printed by Mupen's input plugin:
-    //  - Input: Using auto-configuration for device 'Xbox 360 Controller'
-    //  - Input: No auto-configuration found for device 'Wireless Controller'
-    const ia = s.match(/Input:\s+(?:Using auto-configuration for device|No auto-configuration found for device)\s+'(.+?)'/i);
-    if (ia?.[1]) this._sdlPadName = ia[1].trim();
-  };
+    console.log = wrap(originalLog);
+    console.info = wrap(originalInfo as any);
+    console.warn = wrap(originalWarn);
 
-  const wrap = (fn: (...a: any[]) => void) => (...args: any[]) => {
-    try { parse(args?.[0]); } catch {}
-    fn(...args);
-  };
+    let restored = false;
+    const restore = () => {
+      if (restored) return;
+      restored = true;
+      console.log = originalLog;
+      console.info = originalInfo as any;
+      console.warn = originalWarn;
+    };
 
-  console.log = wrap(originalLog);
-  console.info = wrap(originalInfo as any);
-  console.warn = wrap(originalWarn);
+    // Auto-restore when both are known or after timeout
+    const start = performance.now();
+    const tick = () => {
+      if ((this._romGoodName && this._romMd5) || performance.now() - start > timeoutMs) {
+        restore();
+      } else {
+        setTimeout(tick, 100);
+      }
+    };
+    tick();
 
-  let restored = false;
-  const restore = () => {
-    if (restored) return;
-    restored = true;
-    console.log = originalLog;
-    console.info = originalInfo as any;
-    console.warn = originalWarn;
-  };
+    return restore;
+  }
 
-  const start = performance.now();
-  const tick = () => {
-    // restore after we have meta OR after timeout
-    if ((this._romGoodName && this._romMd5) || performance.now() - start > timeoutMs) {
-      restore();
-    } else {
-      setTimeout(tick, 100);
-    }
-  };
-  tick();
-
-  return restore;
-}
  
+
   /** Find & guard hidden IDBFS storeLocalEntry/storeRemoteEntry even if not at FS.filesystems.IDBFS. */
   private installHiddenIdbfsGuardsBrutal(opts?: { passes?: number; interval?: number }): void {
     const passes = Math.max(1, Math.min(20, opts?.passes ?? 8));
@@ -2338,70 +2290,84 @@ private installMupenConsoleSniffer(timeoutMs = 2500): () => void {
       } catch { /* ignore */ }
     }
   }
+ 
+  /** Install single-flight gates for both FS.syncfs and IDBFS.syncfs on module + window. */
+  // private installSyncfsGate(): void {
+  //   const patchFS = (FS: any) => {
+  //     if (!FS || FS.__fsGateInstalled) return;
 
-// --- IDB helpers for FILE_DATA ---
-private async _idbGet(os: IDBObjectStore, key: string): Promise<any | null> {
-  return await new Promise((resolve) => {
-    const r = os.get(key);
-    r.onerror = () => resolve(null);
-    r.onsuccess = () => resolve(r.result ?? null);
-  });
-}
-private async _idbPut(os: IDBObjectStore, key: string, val: any): Promise<void> {
-  return await new Promise((resolve) => {
-    const r = os.put(val, key);
-    r.onerror = () => resolve();
-    r.onsuccess = () => resolve();
-  });
-}
+  //     // ---- Gate FS.syncfs(populate, cb) ----
+  //     if (typeof FS.syncfs === 'function' && !FS.syncfs.__gated) {
+  //       const original = FS.syncfs.bind(FS);
+  //       let inFlight = false, queued = false;
 
-/** Build an INI section with required keys + your bindings. */
-private _buildInputAutoCfgSection(sectionName: string, cfg: Record<string,string>): string {
-  const lines: string[] = [];
-  lines.push(`[${sectionName}]`);
-  // Required/common keys per Mupen InputAutoCfg examples
-  lines.push(`plugged = True`);
-  lines.push(`plugin = 2`);
-  lines.push(`mouse = False`);
-  lines.push(`AnalogDeadzone = 4096,4096`);
-  lines.push(`AnalogPeak = 32768,32768`);
-  for (const [k, v] of Object.entries(cfg)) lines.push(`${k} = ${v}`);
-  return lines.join('\n') + '\n\n';
-}
+  //       const gated = (populate: boolean, cb: (err?: any) => void) => {
+  //         if (inFlight) { queued = true; setTimeout(() => cb?.(), 0); return; }
+  //         inFlight = true;
+  //         const runOnce = () => {
+  //           try {
+  //             original(populate, (err?: any) => {
+  //               inFlight = false;
+  //               if (queued) {
+  //                 queued = false;
+  //                 inFlight = true;
+  //                 try { original(populate, () => { inFlight = false; queued = false; try { cb?.(); } catch { } }); }
+  //                 catch { inFlight = false; queued = false; try { cb?.(); } catch { } }
+  //               } else {
+  //                 try { cb?.(err); } catch { }
+  //               }
+  //             });
+  //           } catch {
+  //             inFlight = false; queued = false; try { cb?.(); } catch { }
+  //           }
+  //         };
+  //         setTimeout(runOnce, 0);
+  //       };
+  //       (gated as any).__gated = true;
+  //       FS.syncfs = gated;
+  //     }
 
-/** Insert or replace a section in /mupen64plus/InputAutoCfg.ini (IndexedDB). */
-private async writeInputAutoCfgSection(sectionName: string, cfg: Record<string,string>): Promise<void> {
-  const db = await this.openMupenDb();
-  if (!db) return;
+  //     // ---- Gate IDBFS.syncfs(mount, populate, cb) ----
+  //     const IDBFS = FS.filesystems?.IDBFS;
+  //     if (IDBFS && typeof IDBFS.syncfs === 'function' && !IDBFS.syncfs.__gated) {
+  //       const originalIdbfs = IDBFS.syncfs.bind(IDBFS);
+  //       let inFlight = false, queued = false;
 
-  const tx = db.transaction('FILE_DATA', 'readwrite');
-  const os = tx.objectStore('FILE_DATA');
-  const key = '/mupen64plus/InputAutoCfg.ini';
+  //       const gatedIdbfs = (mount: any, populate: boolean, cb: (err?: any) => void) => {
+  //         if (inFlight) { queued = true; setTimeout(() => cb?.(), 0); return; }
+  //         inFlight = true;
+  //         const runOnce = () => {
+  //           try {
+  //             originalIdbfs(mount, populate, (err?: any) => {
+  //               inFlight = false;
+  //               if (queued) {
+  //                 queued = false;
+  //                 inFlight = true;
+  //                 try { originalIdbfs(mount, populate, () => { inFlight = false; queued = false; try { cb?.(); } catch { } }); }
+  //                 catch { inFlight = false; queued = false; try { cb?.(); } catch { } }
+  //               } else {
+  //                 try { cb?.(err); } catch { }
+  //               }
+  //             });
+  //           } catch {
+  //             inFlight = false; queued = false; try { cb?.(); } catch { }
+  //           }
+  //         };
+  //         setTimeout(runOnce, 0);
+  //       };
+  //       (gatedIdbfs as any).__gated = true;
+  //       IDBFS.syncfs = gatedIdbfs;
+  //     }
 
-  const row = await this._idbGet(os, key);
-  const dec = new TextDecoder();
-  const enc = new TextEncoder();
+  //     FS.__fsGateInstalled = true;
+  //   };
 
-  let current = '';
-  if (row) {
-    const ab = this.normalizeToArrayBuffer(row) ?? this.normalizeToArrayBuffer(row.contents) ?? null;
-    if (ab) current = dec.decode(new Uint8Array(ab));
-  }
-
-  const sectionText = this._buildInputAutoCfgSection(sectionName, cfg);
-  const esc = sectionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const sectionRe = new RegExp(String.raw`^\[${esc}\][\s\S]*?(?=^\[|\Z)`, 'm');
-
-  const nextText = current
-    ? (sectionRe.test(current) ? current.replace(sectionRe, sectionText)
-                               : current.trimEnd() + '\n\n' + sectionText)
-    : sectionText;
-
-  const bytes = enc.encode(nextText);
-  await this._idbPut(os, key, { contents: bytes, timestamp: new Date() });
-
-  try { db.close(); } catch {}
-}
+  //   // Patch module FS then window FS
+  //   const mFS = (this.instance as any)?.FS;
+  //   if (mFS) patchFS(mFS);
+  //   const wFS = (window as any).FS;
+  //   if (wFS && wFS !== mFS) patchFS(wFS);
+  // }
 
   private async normalizeMupenFileDataShapes(): Promise<void> {
     if (this._fileDataNormalizedOnce) return;
