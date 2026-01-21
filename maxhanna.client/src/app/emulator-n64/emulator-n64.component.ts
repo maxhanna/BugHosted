@@ -1385,25 +1385,26 @@ private async autosaveTick() {
 
   // =====================================================
   // Gamepad events & auto-detect
-  // =====================================================
-  private _onGamepadConnected = (ev: GamepadEvent) => {
-    this.refreshGamepads();
+  // ===================================================== 
+private _onGamepadConnected = (ev: GamepadEvent) => {
+  this.refreshGamepads();
 
-    if (this.selectedGamepadIndex === null && this.gamepads.length) {
-      if (!this.hasLoadedLastInput) {
-        const std = this.gamepads.find(g => g.mapping === 'standard');
-        this.onSelectGamepad(std ? std.index : ev.gamepad.index);
-      } else {
-        this.applyGamepadReorder();
-      }
-    }
-
-    if (this.instance || this.status === 'running') {
+  if (this.selectedGamepadIndex === null && this.gamepads.length) {
+    if (!this.hasLoadedLastInput) {
+      const std = this.gamepads.find(g => g.mapping === 'standard');
+      this.onSelectGamepad(std ? std.index : ev.gamepad.index);
+    } else {
       this.applyGamepadReorder();
     }
+  }
 
-    this.maybeApplyStoredMappingFor(ev.gamepad.id);
-  };
+  if (this.instance || this.status === 'running') {
+    this.applyGamepadReorder();
+  }
+
+  this.maybeApplyStoredMappingFor(ev.gamepad.id);
+};
+
 
   private _onGamepadDisconnected = (_ev: GamepadEvent) => {
     this.refreshGamepads();
@@ -1413,30 +1414,30 @@ private async autosaveTick() {
     }
   };
 
-  startGamepadAutoDetect() {
-    const tick = () => {
-      try {
-        const before = this.gamepads.map(g => g.index).join(',');
-        this.refreshGamepads();
-        const after = this.gamepads.map(g => g.index).join(',');
+  
+startGamepadAutoDetect() {
+  const tick = () => {
+    try {
+      const before = this.gamepads.map(g => g.index).join(',');
+      this.refreshGamepads();
+      const after = this.gamepads.map(g => g.index).join(',');
 
-        if (this.selectedGamepadIndex === null && this.gamepads.length) {
-          if (!this.hasLoadedLastInput) {
-            const std = this.gamepads.find(g => g.mapping === 'standard');
-            this.onSelectGamepad(std ? std.index : this.gamepads[0].index);
-          } else {
-            this.applyGamepadReorder();
-          }
-        }
+      // Assign selected if needed (refreshGamepads handles this).
+      // Apply reorder if device list changed.
+      if (before !== after) {
+        this.applyGamepadReorder();
+      }
 
-        if (before !== after) {
-          this.applyGamepadReorder();
-        }
-      } catch { console.log('Gamepad auto-detect tick failed'); }
-      this._autoDetectTimer = setTimeout(tick, 750);
-    };
-    tick();
-  }
+      // If we still don't have a selection but there are pads, pick first and reorder
+      if (this.selectedGamepadIndex === null && this.gamepads.length) {
+        const std = this.gamepads.find(g => g.mapping === 'standard');
+        this.onSelectGamepad(std ? std.index : this.gamepads[0].index);
+      }
+    } catch { console.log('Gamepad auto-detect tick failed'); }
+    this._autoDetectTimer = setTimeout(tick, 750);
+  };
+  tick();
+} 
 
   stopGamepadAutoDetect() {
     if (this._autoDetectTimer) {
@@ -1497,43 +1498,7 @@ private async autosaveTick() {
 
     this.hasLoadedLastInput = true;
   }
-
-  // =====================================================
-  // Reorder wrapper (only)
-  // =====================================================
-  private installReorderWrapper() {
-    if (this._gpWrapperInstalled) return;
-    try {
-      this._originalGetGamepadsBase = navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null;
-      const self = this;
-
-      (navigator as any).getGamepads = function (): (Gamepad | null)[] {
-        const baseArr = (self._originalGetGamepadsBase ? self._originalGetGamepadsBase() : []) || [];
-        if (!self._reorderSelectedFirst || self.selectedGamepadIndex == null) return baseArr;
-
-        const selIdx = self.selectedGamepadIndex;
-        const sel = baseArr[selIdx];
-        if (!sel) return baseArr;
-        return [sel, ...baseArr.filter((_: any, i: number) => i !== selIdx)];
-      };
-
-      this._gpWrapperInstalled = true;
-    } catch (e) {
-      console.warn('Failed installing reorder wrapper', e);
-    }
-  }
-
-  private uninstallReorderWrapper() {
-    if (!this._gpWrapperInstalled) return;
-    try {
-      if (this._originalGetGamepadsBase) {
-        (navigator as any).getGamepads = this._originalGetGamepadsBase;
-      }
-    } catch { /* ignore */ }
-    this._gpWrapperInstalled = false;
-    this._originalGetGamepadsBase = null;
-  }
-
+ 
   // =====================================================
   // Base getter + resolver + migration
   // =====================================================
@@ -1663,31 +1628,69 @@ private async autosaveTick() {
     }
   }
 
-  refreshGamepads() {
-    try {
-      const g = this.getGamepadsBase();
-      this.gamepads = [];
-      for (const gp of g) {
-        if (!gp) continue;
-        this.gamepads.push({ index: gp.index, id: gp.id, mapping: gp.mapping || '', connected: gp.connected });
-      }
-      if (this.selectedGamepadIndex === null && this.gamepads.length) {
-        const std = this.gamepads.find((p) => p.mapping === 'standard');
-        this.selectedGamepadIndex = std ? std.index : this.gamepads[0].index;
-      }
-    } catch (e) {
-      console.warn('Failed to read gamepads', e);
+  
+refreshGamepads() {
+  try {
+    const g = this.getGamepadsBase();
+    this.gamepads = [];
+    for (const gp of g) {
+      if (!gp) continue;
+      this.gamepads.push({ index: gp.index, id: gp.id, mapping: gp.mapping || '', connected: gp.connected });
     }
-  }
 
-  applyGamepadReorder() {
-    if (this.selectedGamepadIndex === null) return;
-    try {
-      this._reorderSelectedFirst = true;
-      this.installReorderWrapper();
-    } catch (e) {
-      console.warn('Failed to apply gamepad reorder', e);
+    // If nothing selected yet, pick a standard profile if available; else first.
+    if (this.selectedGamepadIndex === null && this.gamepads.length) {
+      const std = this.gamepads.find(p => p.mapping === 'standard');
+      this.selectedGamepadIndex = (std ? std.index : this.gamepads[0].index);
     }
+  } catch (e) {
+    console.warn('Failed to read gamepads', e);
+  }
+}
+
+
+applyGamepadReorder() {
+  if (this.selectedGamepadIndex === null) return;
+  try {
+    this._reorderSelectedFirst = true;
+    this.installReorderWrapper();
+  } catch (e) {
+    console.warn('Failed to apply gamepad reorder', e);
+  }
+}
+
+private installReorderWrapper() {
+  if (this._gpWrapperInstalled) return;
+  try {
+    this._originalGetGamepadsBase = navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null;
+    const self = this;
+
+    (navigator as any).getGamepads = function (): (Gamepad | null)[] {
+      const baseArr = (self._originalGetGamepadsBase ? self._originalGetGamepadsBase() : []) || [];
+      if (!self._reorderSelectedFirst || self.selectedGamepadIndex == null) return baseArr;
+
+      const selIdx = self.selectedGamepadIndex;
+      const sel = baseArr[selIdx];
+      if (!sel) return baseArr;
+      return [sel, ...baseArr.filter((_: any, i: number) => i !== selIdx)];
+    };
+
+    this._gpWrapperInstalled = true;
+  } catch (e) {
+    console.warn('Failed installing reorder wrapper', e);
+  }
+} 
+
+
+  private uninstallReorderWrapper() {
+    if (!this._gpWrapperInstalled) return;
+    try {
+      if (this._originalGetGamepadsBase) {
+        (navigator as any).getGamepads = this._originalGetGamepadsBase;
+      }
+    } catch { /* ignore */ }
+    this._gpWrapperInstalled = false;
+    this._originalGetGamepadsBase = null;
   }
 
   restoreGamepadGetter() {
@@ -1810,7 +1813,7 @@ private async autosaveTick() {
       this.parentRef?.showNotification(`Failed to download "${filename}".`);
     }
   }
-  
+
   onSelectGamepadForPort(p: any, event: any) {}
   closeRemapAction(){}
   onPortMappingSelect(p: any, event: any){}
