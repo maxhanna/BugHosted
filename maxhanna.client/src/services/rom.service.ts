@@ -77,21 +77,21 @@ export class RomService {
 
 
   //deprecated, delete
-  async getN64StateFile(rom: string, userId?: number) {
-    try {
-      const response = await fetch(`/rom/getn64statefile/${encodeURIComponent(rom)}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userId),
-      });
+  // async getN64StateFile(rom: string, userId?: number) {
+  //   try {
+  //     const response = await fetch(`/rom/getn64statefile/${encodeURIComponent(rom)}`, {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //       },
+  //       body: JSON.stringify(userId),
+  //     });
 
-      return await response.blob();
-    } catch (error) {
-      return null;
-    }
-  }
+  //     return await response.blob();
+  //   } catch (error) {
+  //     return null;
+  //   }
+  // }
 
   async uploadRomFile(userId: number, form: FormData) {
     form.append('userId', JSON.stringify(userId));
