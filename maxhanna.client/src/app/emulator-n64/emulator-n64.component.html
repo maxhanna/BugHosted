@@ -191,7 +191,7 @@
               (input)="onSelectGamepadForPort(p, $any($event.target).value)"
             >
               <option value="__none__">-- none --</option>
-              <option *ngFor="let gp of gamepads; trackBy: trackGp" [value]="gp.index + ''">
+              <option *ngFor="let gp of gamepads" [value]="gp.index + ''">
                 {{gp.index}} — {{gp.id}} {{gp.mapping ? '(' + gp.mapping + ')' : ''}}
               </option>
             </select> 
