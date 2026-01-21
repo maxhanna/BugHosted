@@ -760,6 +760,23 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.applyGamepadReorder();
       if (this.directInjectMode) this.enableDirectInject();
 
+// Ensure we have a selected pad (best effort)
+this.pickPadIfNone();
+
+// Prepare preRun to write InputAutoCfg BEFORE the input plugin loads
+const preRun: Array<() => void> = [];
+const preCfg = this.buildAutoInputConfigFromCurrentMapping();
+if (preCfg) {
+  const { section, cfg } = preCfg;
+  preRun.push(() => {
+    // Safely log what we’re injecting
+    try { console.log('[preRun] Writing auto-config for:', section, cfg); } catch {}
+    // This goes directly into /mupen64plus/data/InputAutoCfg.ini
+    // so the SDL input plugin can match it at startup.
+    (async () => { try { await writeAutoInputConfig(section, cfg as any); } catch {} })();
+  });
+}
+
       this.instance = await createMupen64PlusWeb({
         canvas: canvasEl,
         innerWidth: canvasEl.width,
@@ -798,7 +815,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
       await this.instance.start();
       this.status = 'running';
-
+this.postBootPadActivation();
       //await this.repairIdbfsMetaTimestamps(); 
       await this.waitForRomIdentity(2000);
       restoreSniffer();// ✅ Stop sniffing once ROM meta printed
@@ -1469,6 +1486,34 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.autosaveTimer = null;
     }
   }
+
+private postBootPadActivation(ms = 3000, poll = 150) {
+  const t0 = performance.now();
+  const tick = async () => {
+    if (this.selectedGamepadIndex != null) return;
+    const pads = this.getGamepadsBase();
+    if (pads && pads.length) {
+      // Prefer any activity to avoid ghost pads
+      let idx = -1;
+      for (let i = 0; i < pads.length; i++) {
+        const gp = pads[i];
+        if (!gp) continue;
+        const active = (gp.buttons || []).some((b: any) => !!b?.pressed) ||
+                       (gp.axes || []).some((v: number) => Math.abs(v) > 0.25);
+        if (active) { idx = i; break; }
+      }
+      if (idx < 0) idx = pads.findIndex(p => !!p); // fallback: first present
+
+      if (idx >= 0) {
+        await this.onSelectGamepad(idx);        // writes last selection
+        await this.applyMappingToEmulator();    // stops/boots and injects config
+        return;
+      }
+    }
+    if (performance.now() - t0 < ms) setTimeout(tick, poll);
+  };
+  setTimeout(tick, poll);
+}
 
   private toTightArrayBuffer(input: ArrayBuffer | ArrayBufferView): ArrayBuffer {
     if (input instanceof ArrayBuffer) return input;
@@ -3574,6 +3619,53 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
+/** Try to pick a pad right now if none is selected. Returns true when selected. */
+private pickPadIfNone(threshold = 0.25): boolean {
+  if (this.selectedGamepadIndex != null) return true;
+
+  const pads = this.getGamepadsBase();
+  if (!pads || !pads.length) return false;
+
+  // Prefer a standard profile
+  let idx = pads.findIndex(p => p && p.mapping === 'standard');
+  if (idx < 0) idx = pads.findIndex(p => !!p);
+
+  if (idx < 0) return false;
+
+  // Optional: require a little activity to avoid ghost pads (Chrome sometimes lists "empty" entries)
+  const gp = pads[idx];
+  const anyActivity =
+    (gp?.buttons || []).some((b: any) => !!b?.pressed) ||
+    (gp?.axes || []).some((v: number) => Math.abs(v) > threshold);
+
+  if (!anyActivity) {
+    // If you prefer to wait for activity, return false here.
+    // For now, we accept first present pad:
+    // return false;
+  }
+
+  this.selectedGamepadIndex = gp!.index;
+  return true;
+}
+
+/** Build InputAutoCfg record for current `this.mapping`. */
+private buildAutoInputConfigFromCurrentMapping(): { section: string, cfg: Record<string,string> } | null {
+  const gp = this.currentPad();
+  if (!gp) return null;
+
+  // If mapping empty and pad is standard, generate a default
+  if (!Object.keys(this.mapping).length && gp.mapping === 'standard') {
+    this.generateDefaultRawMappingForPad(gp);
+  }
+
+  // Build Mupen InputAutoCfg key/values
+  const cfg = this.buildAutoInputConfigFromMapping(this.mapping);
+
+  // Section name MUST match the device name the input plugin sees.
+  // Using the gamepad's id works with mupen64plus-web’s matcher.
+  const section = gp.id || 'Custom Gamepad';
+  return { section, cfg };
+} 
   private async openMupenDb(): Promise<IDBDatabase | null> {
     try {
       const db = await new Promise<IDBDatabase>((resolve, reject) => {
