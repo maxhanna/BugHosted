@@ -29,26 +29,24 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   gamepads: Array<{ index: number; id: string; mapping: string; connected: boolean }> = [];
   selectedGamepadIndex: number | null = null;
 
-  // === MULTI-CONTROLLER STATE ===
-  readonly playerPorts = [1, 2, 3, 4] as const;
+// === MULTI-CONTROLLER STATE ===
+readonly playerPorts = [1, 2, 3, 4] as const;
 
-  ports: Record<number, {
-    gpIndex: number | null;           // currently selected navigator.getGamepads() index
-    gpId: string | null;              // cached device id (stable)
-    mappingName: string | null;       // saved named mapping to apply (optional)
-    customMapping: Record<string, any>; // ad-hoc raw mapping object for this port
-  }> = {
-      1: { gpIndex: null, gpId: null, mappingName: null, customMapping: {} },
-      2: { gpIndex: null, gpId: null, mappingName: null, customMapping: {} },
-      3: { gpIndex: null, gpId: null, mappingName: null, customMapping: {} },
-      4: { gpIndex: null, gpId: null, mappingName: null, customMapping: {} },
-    };
+ports: Record<number, {
+  gpIndex: number | null;           // currently selected navigator.getGamepads() index
+  gpId: string | null;              // cached device id (stable)
+  mappingName: string | null;       // saved named mapping to apply (optional)
+  customMapping: Record<string, any>; // ad-hoc raw mapping object for this port
+}> = {
+  1: { gpIndex: null, gpId: null, mappingName: null, customMapping: {} },
+  2: { gpIndex: null, gpId: null, mappingName: null, customMapping: {} },
+  3: { gpIndex: null, gpId: null, mappingName: null, customMapping: {} },
+  4: { gpIndex: null, gpId: null, mappingName: null, customMapping: {} },
+};
 
-  trackGp = (_: unknown, gp: { index: number }) => gp.index + '';
-
-  // Which port we are editing in the remapper UI
-  editingPort: PortNum | null = null;
-
+// Which port we are editing in the remapper UI
+editingPort: PortNum | null = null;
+ 
   // ---- Mapping UI/store ----
   showKeyMappings = false;
   savedMappingsNames: string[] = [];
@@ -96,7 +94,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private autosavePeriodMs = 3 * 60 * 1000;
   private autosaveInProgress = false;
   private lastUploadedHashes = new Map<string, string>();
-  private _goodName: string | null = null;
+  private _goodName: string | null = null; 
 
   // Canvas resize
   private _canvasResizeAdded = false;
@@ -374,58 +372,58 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   // =====================================================
   // File selection & canvas sizing
   // =====================================================
-
-  async onFileSearchSelected(file: FileEntry) {
-    try {
-      if (!file) {
-        this.parentRef?.showNotification('Invalid file selected');
-        return;
-      }
-      this.startLoading();
-
-      const response = await this.romService.getRomFile(file.fileName ?? "", this.parentRef?.user?.id, file.id);
-      if (!response) {
-        this.parentRef?.showNotification('Failed to download selected ROM');
-        return;
-      }
-      const buffer = await response.arrayBuffer();
-      this.romBuffer = buffer;
-      this.romName = file.fileName || "";
-      this._goodName = null; // NEW: reset and recompute lazily
-      console.log(`Loaded ${this.romName} from search`);
-
-      await this.loadLastInputSelectionAndApply();
-
-      // NEW: restore exact emulator filename from server, keyed by GoodName
-      const uid = this.parentRef?.user?.id;
-      const gn = this.goodName;
-      if (uid && gn) {
-        const got = await this.romService.getN64SaveByName(gn, uid);
-        if (got && got.blob && got.filename) {
-          const saveFile = new File([got.blob], got.filename, { type: 'application/octet-stream' });
-          await this.importInGameSaveRam([saveFile], true /* skipBoot: don't reboot yet */);
-          this.parentRef?.showNotification(`Loaded save "${got.filename}" for ${gn}`);
-        } else {
-          this.parentRef?.showNotification('No save found on server for this ROM.');
-        }
-      }
-
-      try {
-        await this.boot();
-      } catch { /* ignore */ }
-    } catch (e) {
-      console.error('Error loading ROM from search', e);
-      this.parentRef?.showNotification('Error loading ROM from search');
+  
+async onFileSearchSelected(file: FileEntry) {
+  try {
+    if (!file) {
+      this.parentRef?.showNotification('Invalid file selected');
+      return;
     }
-    this.stopLoading();
-  }
+    this.startLoading();
 
-  clearSelection() {
-    this.romInput.nativeElement.value = '';
-    this.romBuffer = undefined;
-    this.romName = undefined;
-    this._goodName = null;
+    const response = await this.romService.getRomFile(file.fileName ?? "", this.parentRef?.user?.id, file.id);
+    if (!response) {
+      this.parentRef?.showNotification('Failed to download selected ROM');
+      return;
+    }
+    const buffer = await response.arrayBuffer();
+    this.romBuffer = buffer;
+    this.romName = file.fileName || "";
+    this._goodName = null; // NEW: reset and recompute lazily
+    console.log(`Loaded ${this.romName} from search`);
+
+    await this.loadLastInputSelectionAndApply();
+
+    // NEW: restore exact emulator filename from server, keyed by GoodName
+    const uid = this.parentRef?.user?.id;
+    const gn = this.goodName;
+    if (uid && gn) {
+      const got = await this.romService.getN64SaveByName(gn, uid);
+      if (got && got.blob && got.filename) {
+        const saveFile = new File([got.blob], got.filename, { type: 'application/octet-stream' });
+        await this.importInGameSaveRam([saveFile], true /* skipBoot: don't reboot yet */);
+        this.parentRef?.showNotification(`Loaded save "${got.filename}" for ${gn}`);
+      } else {
+        this.parentRef?.showNotification('No save found on server for this ROM.');
+      }
+    }
+
+    try {
+      await this.boot();
+    } catch { /* ignore */ }
+  } catch (e) {
+    console.error('Error loading ROM from search', e);
+    this.parentRef?.showNotification('Error loading ROM from search');
   }
+  this.stopLoading();
+}
+
+clearSelection() {
+  this.romInput.nativeElement.value = '';
+  this.romBuffer = undefined;
+  this.romName = undefined;
+  this._goodName = null;  
+}
 
 
   private resizeCanvasToParent() {
@@ -789,7 +787,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.loading = true;
     this.status = 'booting';
     try {
-      this.applyGamepadReorderMulti();
+      this.applyGamepadReorder();
+
       // RAW-only: no translator; optional direct-inject
       if (this.directInjectMode) this.enableDirectInject();
 
@@ -839,7 +838,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.status = 'stopped';
       this.disableDirectInject();
       this.restoreGamepadGetter();
-      if (this.romName) {
+      if (this.romName) { 
         this.parentRef?.showNotification('Emulator stopped');
       }
     }
@@ -896,7 +895,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   // =====================================================
   // Direct-inject (keyboard synth) — IMPLEMENTED
   // =====================================================
-
   enableDirectInject() {
     if (this._directInjectPoller) return;
     this._directPrevState = {};
@@ -904,58 +902,48 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const poll = () => {
       try {
         const g = this.getGamepadsBase();
-
-        // Gather all mappings for all ports
-        const mappingSets: Record<string, any>[] = [];
-        for (const p of this.playerPorts) {
-          const m = this.ports[p].customMapping;
-          if (m && Object.keys(m).length) mappingSets.push(m);
-        }
-
         for (const gp of g) {
           if (!gp) continue;
 
-          for (const mapping of mappingSets) {
-            for (const ctrl of Object.keys(mapping || {})) {
-              const m = mapping[ctrl];
-              if (!m || !m.gamepadId || gp.id !== m.gamepadId) continue;
+          for (const ctrl of Object.keys(this.mapping || {})) {
+            const m = this.mapping[ctrl];
+            if (!m || !m.gamepadId || gp.id !== m.gamepadId) continue;
 
-              const stateKey = `${gp.id}:${ctrl}`;
-              if (m.type === 'button') {
-                const pressed = !!(gp.buttons && gp.buttons[m.index] && (gp.buttons[m.index] as any).pressed);
-                const prev = !!this._directPrevState[stateKey];
-                const keyCode = this.getKeyForControl(ctrl);
-                if (keyCode) {
-                  if (pressed && !prev) { this.dispatchKeyboard(keyCode, true); this._directPrevState[stateKey] = true; }
-                  else if (!pressed && prev) { this.dispatchKeyboard(keyCode, false); this._directPrevState[stateKey] = false; }
-                }
-              } else if (m.type === 'axis') {
-                const aidx = m.index;
-                const val = (gp.axes && gp.axes[aidx]) || 0;
-                const plusKey = this.getKeyForControl(ctrl.replace(/[-+]$/, '+'));
-                const minusKey = this.getKeyForControl(ctrl.replace(/[-+]$/, '-'));
-                const pk = `${gp.id}:${ctrl}:+`;
-                const mk = `${gp.id}:${ctrl}:-`;
+            const stateKey = `${gp.id}:${ctrl}`;
+            if (m.type === 'button') {
+              const pressed = !!(gp.buttons && gp.buttons[m.index] && (gp.buttons[m.index] as any).pressed);
+              const prev = !!this._directPrevState[stateKey];
+              const keyCode = this.getKeyForControl(ctrl);
+              if (keyCode) {
+                if (pressed && !prev) { this.dispatchKeyboard(keyCode, true); this._directPrevState[stateKey] = true; }
+                else if (!pressed && prev) { this.dispatchKeyboard(keyCode, false); this._directPrevState[stateKey] = false; }
+              }
+            } else if (m.type === 'axis') {
+              const aidx = m.index;
+              const val = (gp.axes && gp.axes[aidx]) || 0;
+              const plusKey = this.getKeyForControl(ctrl.replace(/[-+]$/, '+'));
+              const minusKey = this.getKeyForControl(ctrl.replace(/[-+]$/, '-'));
+              const pk = `${gp.id}:${ctrl}:+`;
+              const mk = `${gp.id}:${ctrl}:-`;
 
-                if (val > 0.5) {
-                  if (!this._directPrevState[pk]) {
-                    if (plusKey) this.dispatchKeyboard(plusKey, true);
-                    this._directPrevState[pk] = true;
-                  }
-                } else if (this._directPrevState[pk]) {
-                  if (plusKey) this.dispatchKeyboard(plusKey, false);
-                  this._directPrevState[pk] = false;
+              if (val > 0.5) {
+                if (!this._directPrevState[pk]) {
+                  if (plusKey) this.dispatchKeyboard(plusKey, true);
+                  this._directPrevState[pk] = true;
                 }
+              } else if (this._directPrevState[pk]) {
+                if (plusKey) this.dispatchKeyboard(plusKey, false);
+                this._directPrevState[pk] = false;
+              }
 
-                if (val < -0.5) {
-                  if (!this._directPrevState[mk]) {
-                    if (minusKey) this.dispatchKeyboard(minusKey, true);
-                    this._directPrevState[mk] = true;
-                  }
-                } else if (this._directPrevState[mk]) {
-                  if (minusKey) this.dispatchKeyboard(minusKey, false);
-                  this._directPrevState[mk] = false;
+              if (val < -0.5) {
+                if (!this._directPrevState[mk]) {
+                  if (minusKey) this.dispatchKeyboard(minusKey, true);
+                  this._directPrevState[mk] = true;
                 }
+              } else if (this._directPrevState[mk]) {
+                if (minusKey) this.dispatchKeyboard(minusKey, false);
+                this._directPrevState[mk] = false;
               }
             }
           }
@@ -967,6 +955,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     };
 
     poll();
+    //this.parentRef?.showNotification('Direct-inject input mode enabled');
   }
 
   disableDirectInject() {
@@ -1300,67 +1289,67 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   // =====================================================
   // Autosave
   // =====================================================
+  
+private async autosaveTick() {
+  if (!this.autosave || this.autosaveInProgress) return;
+  this.autosaveInProgress = true;
 
-  private async autosaveTick() {
-    if (!this.autosave || this.autosaveInProgress) return;
-    this.autosaveInProgress = true;
+  try {
+    const userId = this.parentRef?.user?.id;
+    if (!userId) return;
 
-    try {
-      const userId = this.parentRef?.user?.id;
-      if (!userId) return;
+    // Export emulator saves (battery) in IndexedDB
+    const result = await this.exportInGameSaveRam();
+    const isRunning = this.status === 'running' && !!this.instance;
+    if (!isRunning || !result.exported.length) return;
 
-      // Export emulator saves (battery) in IndexedDB
-      const result = await this.exportInGameSaveRam();
-      const isRunning = this.status === 'running' && !!this.instance;
-      if (!isRunning || !result.exported.length) return;
+    // Only autosave when we positively matched the current ROM
+    if (!result.matchedOnly) return;
 
-      // Only autosave when we positively matched the current ROM
-      if (!result.matchedOnly) return;
+    const gn = this.goodName; // NEW: canonical key to DB
+    if (!gn) return;
 
-      const gn = this.goodName; // NEW: canonical key to DB
-      if (!gn) return;
+    let uploadedCount = 0;
+    for (const item of result.exported) {
+      // de-dup local uploads by content hash
+      const hash = await this.sha256Hex(item.bytes);
+      const key = `${item.filename}`;
+      if (this.lastUploadedHashes.get(key) === hash) continue;
 
-      let uploadedCount = 0;
-      for (const item of result.exported) {
-        // de-dup local uploads by content hash
-        const hash = await this.sha256Hex(item.bytes);
-        const key = `${item.filename}`;
-        if (this.lastUploadedHashes.get(key) === hash) continue;
+      // Build backend payload (uses exact filename & bytes, canonical romName)
+      const payload: N64StateUpload = {
+        userId,
+        romName: gn,                     // CHANGED: canonical GoodName as key
+        filename: item.filename,         // exact emulator filename (.eep/.sra/.fla)
+        bytes: item.bytes,
+        emuKey: this.romTokenForMatching(this.romName) ?? '', // optional, backend ignores
+        saveTimeMs: Date.now(),
+        // durationSeconds optional; keep if you want analytics
+        durationSeconds: 180
+      };
 
-        // Build backend payload (uses exact filename & bytes, canonical romName)
-        const payload: N64StateUpload = {
-          userId,
-          romName: gn,                     // CHANGED: canonical GoodName as key
-          filename: item.filename,         // exact emulator filename (.eep/.sra/.fla)
-          bytes: item.bytes,
-          emuKey: this.romTokenForMatching(this.romName) ?? '', // optional, backend ignores
-          saveTimeMs: Date.now(),
-          // durationSeconds optional; keep if you want analytics
-          durationSeconds: 180
-        };
-
-        try {
-          const uploadRes = await this.romService.saveN64State(payload);
-          if (!uploadRes.ok) {
-            console.warn('Upload failed:', uploadRes.errorText);
-            continue;
-          }
-          this.lastUploadedHashes.set(key, hash);
-          uploadedCount++;
-        } catch (e) {
-          console.warn('autosave: saveN64State failed for', item.filename, e);
+      try {
+        const uploadRes = await this.romService.saveN64State(payload);
+        if (!uploadRes.ok) {
+          console.warn('Upload failed:', uploadRes.errorText);
+          continue;
         }
+        this.lastUploadedHashes.set(key, hash);
+        uploadedCount++;
+      } catch (e) {
+        console.warn('autosave: saveN64State failed for', item.filename, e);
       }
-
-      if (uploadedCount > 0) {
-        this.parentRef?.showNotification(`Autosaved ${uploadedCount} file(s) for ${gn}.`);
-      }
-    } catch (err) {
-      console.error('autosaveTick error', err);
-    } finally {
-      this.autosaveInProgress = false;
     }
+
+    if (uploadedCount > 0) {
+      this.parentRef?.showNotification(`Autosaved ${uploadedCount} file(s) for ${gn}.`);
+    }
+  } catch (err) {
+    console.error('autosaveTick error', err);
+  } finally {
+    this.autosaveInProgress = false;
   }
+}
 
 
   private startAutosaveLoop() {
@@ -1533,6 +1522,17 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
+  private uninstallReorderWrapper() {
+    if (!this._gpWrapperInstalled) return;
+    try {
+      if (this._originalGetGamepadsBase) {
+        (navigator as any).getGamepads = this._originalGetGamepadsBase;
+      }
+    } catch { /* ignore */ }
+    this._gpWrapperInstalled = false;
+    this._originalGetGamepadsBase = null;
+  }
+
   // =====================================================
   // Base getter + resolver + migration
   // =====================================================
@@ -1662,48 +1662,22 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-
   refreshGamepads() {
     try {
       const g = this.getGamepadsBase();
       this.gamepads = [];
-      const byId = new Map<string, Gamepad>();
       for (const gp of g) {
         if (!gp) continue;
         this.gamepads.push({ index: gp.index, id: gp.id, mapping: gp.mapping || '', connected: gp.connected });
-        byId.set(gp.id, gp);
       }
-
-      // Maintain each port's gpIndex/gpId if still connected
-      for (const p of this.playerPorts) {
-        const sel = this.ports[p];
-        if (sel.gpId && byId.has(sel.gpId)) {
-          const gp = byId.get(sel.gpId)!;
-          sel.gpIndex = gp.index;
-        } else if (typeof sel.gpIndex === 'number') {
-          // Fallback: keep numeric index if still there
-          const gp = g[sel.gpIndex];
-          if (!gp) {
-            sel.gpIndex = null;
-            sel.gpId = null;
-          } else {
-            sel.gpId = gp.id;
-          }
-        }
-      }
-
-      // Optional: auto-assign P1 if nothing selected yet
-      if (!this.ports[1].gpIndex && this.gamepads.length) {
-        const std = this.gamepads.find(p => p.mapping === 'standard') ?? this.gamepads[0];
-        this.ports[1].gpIndex = std.index;
-        const pads = this.getGamepadsBase();
-        this.ports[1].gpId = pads[std.index]?.id ?? null;
+      if (this.selectedGamepadIndex === null && this.gamepads.length) {
+        const std = this.gamepads.find((p) => p.mapping === 'standard');
+        this.selectedGamepadIndex = std ? std.index : this.gamepads[0].index;
       }
     } catch (e) {
       console.warn('Failed to read gamepads', e);
     }
   }
-
 
   applyGamepadReorder() {
     if (this.selectedGamepadIndex === null) return;
@@ -1713,6 +1687,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch (e) {
       console.warn('Failed to apply gamepad reorder', e);
     }
+  }
+
+  restoreGamepadGetter() {
+    try {
+      this.uninstallReorderWrapper();
+      this._reorderSelectedFirst = false;
+    } catch { /* ignore */ }
   }
 
   /**
@@ -1805,228 +1786,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     throw new Error('Unsupported buffer type for Blob');
   }
 
-  onSelectGamepadForPort(port: PortNum, value: string) {
-    if (value === '__none__') {
-      this.ports[port].gpIndex = null;
-      this.ports[port].gpId = null;
-      this.applyGamepadReorderMulti();
-      return;
-    }
-    const idx = Number(value);
-    const base = this.getGamepadsBase();
-    const gp = base[idx] || null;
-    this.ports[port].gpIndex = gp ? gp.index : null;
-    this.ports[port].gpId = gp ? gp.id : null;
-    this.applyGamepadReorderMulti();
-  }
-
-  async onPortMappingSelect(port: PortNum, name: string) {
-    this.ports[port].mappingName = name || null;
-    await this.applyPortMapping(port);
-  }
-
-  /** Opens the remapper for a specific port, reusing your existing remap UI */
-  remapAction(port: PortNum) {
-    this.editingPort = port;
-    this.showKeyMappings = true;
-
-    // Seed the editor buffer (this.mapping) with the port's custom mapping or a default.
-    const gp = this.portGamepad(port);
-    const existing = this.ports[port].customMapping || {};
-    if (gp && gp.mapping === 'standard' && !Object.keys(existing).length) {
-      this.ports[port].customMapping = this.buildDefaultRawMappingForPad(gp);
-    }
-    this.mapping = JSON.parse(JSON.stringify(this.ports[port].customMapping || {}));
-  }
-
-  /** Close remapper and persist mapping back to the selected port */
-  async closeRemapAction() {
-    if (this.editingPort != null) {
-      this.ports[this.editingPort].customMapping = JSON.parse(JSON.stringify(this.mapping || {}));
-      await this.applyPortMapping(this.editingPort);
-    }
-    this.editingPort = null;
-    this.showKeyMappings = false;
-  }
-
-  /** Load a mapping object by name (backend first, fallback local) */
-  private async loadMappingByName(name: string): Promise<Record<string, any> | null> {
-    try {
-      const uid = this.parentRef?.user?.id;
-      if (uid) {
-        const m = await this.romService.getMapping(uid, name);
-        if (m) return m;
-      }
-    } catch { /* ignore; fallback local */ }
-    try {
-      const raw = localStorage.getItem(this._mappingsStoreKey);
-      const store = raw ? JSON.parse(raw) : {};
-      return store[name] || null;
-    } catch { return null; }
-  }
-
-  /** Convert a mapping object to Mupen64Plus InputAutoCfg lines */
-  private mappingToInputAutoCfg(mapping: Record<string, any>): Record<string, string> {
-    const config: Record<string, string> = {};
-    const handled = new Set<string>();
-
-    const pairAxis = (minusKey: string, plusKey: string, axisName: string) => {
-      const mMinus = mapping[minusKey];
-      const mPlus = mapping[plusKey];
-      if (mMinus && mPlus && mMinus.type === 'axis' && mPlus.type === 'axis' &&
-        mMinus.gamepadId && mPlus.gamepadId && mMinus.gamepadId === mPlus.gamepadId) {
-        config[axisName] = `axis(${mMinus.index}-,${mPlus.index}+)`;
-        handled.add(minusKey); handled.add(plusKey);
-        return true;
-      }
-      return false;
-    };
-
-    pairAxis('Analog X-', 'Analog X+', 'X Axis');
-    pairAxis('Analog Y-', 'Analog Y+', 'Y Axis');
-
-    for (const key of Object.keys(mapping || {})) {
-      if (handled.has(key)) continue;
-      const m = mapping[key];
-      if (!m) continue;
-      if (m.type === 'button') {
-        config[key] = `button(${m.index})`;
-      } else if (m.type === 'axis') {
-        config[key] = `axis(${m.index}${m.axisDir === -1 ? '-' : '+'})`;
-      }
-    }
-    return config;
-  }
-
-  /** Core worker: compute & write InputAutoCfg for a single port (no reboot here) */
-  private async applyPortMappingInternal(port: PortNum): Promise<void> {
-    const sel = this.ports[port];
-    const gp = this.portGamepad(port);
-    if (!gp) {
-      this.parentRef?.showNotification(`P${port}: No controller selected`);
-      return;
-    }
-
-    // Decide final mapping source
-    let mappingObj: Record<string, any> | null = null;
-
-    if (sel.mappingName) {
-      mappingObj = await this.loadMappingByName(sel.mappingName);
-      if (!mappingObj) {
-        this.parentRef?.showNotification(`P${port}: mapping "${sel.mappingName}" not found; using defaults.`);
-      }
-    }
-
-    if (!mappingObj) {
-      mappingObj = Object.keys(sel.customMapping || {}).length
-        ? sel.customMapping
-        : this.buildDefaultRawMappingForPad(gp);
-    }
-
-    // Rebind to this specific gamepad id
-    mappingObj = this.rebindMappingToPad(JSON.parse(JSON.stringify(mappingObj)), gp.id || null);
-    this.migrateMappingToIdsIfNeeded(); // uses navigator state; safe no-op if not needed
-
-    // Write the auto-config for this device id (section = gp.id)
-    const sectionName = gp.id || 'Custom Gamepad';
-    const config = this.mappingToInputAutoCfg(mappingObj);
-    await writeAutoInputConfig(sectionName, config as any);
-
-    // Persist chosen mapping into the port state
-    this.ports[port].customMapping = mappingObj;
-  }
-
-  /** Public: apply to one port, with minimal reboot churn */
-  async applyPortMapping(port: PortNum) {
-    const wasRunning = this.status === 'running' || !!this.instance;
-    if (wasRunning) { await this.stop(); await new Promise(r => setTimeout(r, 120)); }
-    await this.applyPortMappingInternal(port);
-    if (this.directInjectMode) this.enableDirectInject(); // will scan all port mappings
-    if (wasRunning) await this.boot();
-    const label = this.ports[port].gpId ? `(${this.ports[port].gpId})` : '';
-    this.parentRef?.showNotification(`Applied mapping for P${port} ${label}`);
-  }
-
-  /** Apply mappings for all configured ports, stopping/starting once */
-  async applyAllPortMappings() {
-    const wasRunning = this.status === 'running' || !!this.instance;
-    if (wasRunning) { await this.stop(); await new Promise(r => setTimeout(r, 150)); }
-
-    // Write in P1→P4 order for determinism
-    for (const p of this.playerPorts) {
-      try {
-        await this.applyPortMappingInternal(p);
-      } catch (e) {
-        console.warn(`applyAllPortMappings: P${p} failed`, e);
-      }
-    }
-
-    if (this.directInjectMode) this.enableDirectInject();
-    if (wasRunning) await this.boot();
-    this.parentRef?.showNotification('Applied mappings for P1–P4');
-  }
-
-  applyGamepadReorderMulti() {
-    try {
-      this._reorderSelectedFirst = true; // legacy flag for your logs
-      this.installReorderWrapperMulti();
-    } catch (e) {
-      console.warn('Failed to apply multi-pad reorder', e);
-    }
-  }
-
-  private installReorderWrapperMulti() {
-    if (this._gpWrapperInstalled) return;
-    try {
-      this._originalGetGamepadsBase = navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null;
-      const self = this;
-
-      (navigator as any).getGamepads = function (): (Gamepad | null)[] {
-        const baseArr = (self._originalGetGamepadsBase ? self._originalGetGamepadsBase() : []) || [];
-        // Gather unique selected indices in P1→P4 order
-        const selectedIdx: number[] = [];
-        const used = new Set<number>();
-
-        for (const p of self.playerPorts) {
-          const idx = self.ports[p].gpIndex;
-          if (typeof idx === 'number' && !used.has(idx)) {
-            selectedIdx.push(idx);
-            used.add(idx);
-          }
-        }
-        // Append the rest
-        for (let i = 0; i < baseArr.length; i++) {
-          if (!used.has(i)) selectedIdx.push(i);
-        }
-
-        // Build the reordered list
-        return selectedIdx.map(i => baseArr[i] || null);
-      };
-
-      this._gpWrapperInstalled = true;
-    } catch (e) {
-      console.warn('installReorderWrapperMulti failed', e);
-    }
-  }
-
-  restoreGamepadGetter() {
-    try {
-      this.uninstallReorderWrapper();
-      this._reorderSelectedFirst = false;
-    } catch { /* ignore */ }
-  }
-
-  private uninstallReorderWrapper() {
-    if (!this._gpWrapperInstalled) return;
-    try {
-      if (this._originalGetGamepadsBase) {
-        (navigator as any).getGamepads = this._originalGetGamepadsBase;
-      }
-    } catch { /* ignore */ }
-    this._gpWrapperInstalled = false;
-    this._originalGetGamepadsBase = null;
-  }
-
   /** Trigger a browser download for bytes. Accepts various buffer-like inputs. */
   private downloadBytesAs(
     filename: string,
@@ -2050,7 +1809,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.parentRef?.showNotification(`Failed to download "${filename}".`);
     }
   }
-
+  onPortMappingSelect(p: any, event: any){}
+  remapAction(p: any){}
+  applyAllPortMappings(){}
   private get goodName(): string | null {
     if (this._goodName) return this._goodName;
     if (!this.romName) return null;
@@ -2073,41 +1834,41 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     return loose || null;
   }
 
-  private portGamepad(port: PortNum): Gamepad | null {
-    const idx = this.ports[port].gpIndex;
-    if (idx == null) return null;
-    const pads = this.getGamepadsBase();
-    return pads[idx] || null;
-  }
+private portGamepad(port: PortNum): Gamepad | null {
+  const idx = this.ports[port].gpIndex;
+  if (idx == null) return null;
+  const pads = this.getGamepadsBase();
+  return pads[idx] || null;
+}
 
-  /** Pure builder (no side effects) */
-  private buildDefaultRawMappingForPad(gp: Gamepad): Record<string, any> {
-    const id = gp.id;
-    const m: Record<string, any> = {};
-    // Face/triggers/start
-    m['A Button'] = { type: 'button', index: 0, gamepadId: id };
-    m['B Button'] = { type: 'button', index: 1, gamepadId: id };
-    m['Z Trig'] = { type: 'button', index: 6, gamepadId: id }; // L2
-    m['L Trig'] = { type: 'button', index: 4, gamepadId: id };
-    m['R Trig'] = { type: 'button', index: 5, gamepadId: id };
-    m['Start'] = { type: 'button', index: 9, gamepadId: id };
-    // DPad
-    m['DPad U'] = { type: 'button', index: 12, gamepadId: id };
-    m['DPad D'] = { type: 'button', index: 13, gamepadId: id };
-    m['DPad L'] = { type: 'button', index: 14, gamepadId: id };
-    m['DPad R'] = { type: 'button', index: 15, gamepadId: id };
-    // Analog (left)
-    m['Analog X+'] = { type: 'axis', index: 0, axisDir: 1, gamepadId: id };
-    m['Analog X-'] = { type: 'axis', index: 0, axisDir: -1, gamepadId: id };
-    m['Analog Y+'] = { type: 'axis', index: 1, axisDir: 1, gamepadId: id };
-    m['Analog Y-'] = { type: 'axis', index: 1, axisDir: -1, gamepadId: id };
-    // C-Buttons (right)
-    m['C Button R'] = { type: 'axis', index: 2, axisDir: 1, gamepadId: id };
-    m['C Button L'] = { type: 'axis', index: 2, axisDir: -1, gamepadId: id };
-    m['C Button D'] = { type: 'axis', index: 3, axisDir: 1, gamepadId: id };
-    m['C Button U'] = { type: 'axis', index: 3, axisDir: -1, gamepadId: id };
-    return m;
-  }
+/** Pure builder (no side effects) */
+private buildDefaultRawMappingForPad(gp: Gamepad): Record<string, any> {
+  const id = gp.id;
+  const m: Record<string, any> = {};
+  // Face/triggers/start
+  m['A Button'] = { type: 'button', index: 0, gamepadId: id };
+  m['B Button'] = { type: 'button', index: 1, gamepadId: id };
+  m['Z Trig']   = { type: 'button', index: 6, gamepadId: id }; // L2
+  m['L Trig']   = { type: 'button', index: 4, gamepadId: id };
+  m['R Trig']   = { type: 'button', index: 5, gamepadId: id };
+  m['Start']    = { type: 'button', index: 9, gamepadId: id };
+  // DPad
+  m['DPad U'] = { type: 'button', index: 12, gamepadId: id };
+  m['DPad D'] = { type: 'button', index: 13, gamepadId: id };
+  m['DPad L'] = { type: 'button', index: 14, gamepadId: id };
+  m['DPad R'] = { type: 'button', index: 15, gamepadId: id };
+  // Analog (left)
+  m['Analog X+'] = { type: 'axis', index: 0, axisDir: 1,  gamepadId: id };
+  m['Analog X-'] = { type: 'axis', index: 0, axisDir: -1, gamepadId: id };
+  m['Analog Y+'] = { type: 'axis', index: 1, axisDir: 1,  gamepadId: id };
+  m['Analog Y-'] = { type: 'axis', index: 1, axisDir: -1, gamepadId: id };
+  // C-Buttons (right)
+  m['C Button R'] = { type: 'axis', index: 2, axisDir:  1, gamepadId: id };
+  m['C Button L'] = { type: 'axis', index: 2, axisDir: -1, gamepadId: id };
+  m['C Button D'] = { type: 'axis', index: 3, axisDir:  1, gamepadId: id };
+  m['C Button U'] = { type: 'axis', index: 3, axisDir: -1, gamepadId: id };
+  return m;
+}
 
 
   private _onFullscreenChange = () => {
