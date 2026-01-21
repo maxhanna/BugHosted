@@ -5,8 +5,7 @@ export interface N64StateUpload {
   userId: number;
   romName: string;
   filename: string;
-  bytes: Uint8Array;
-  emuKey: string;
+  bytes: Uint8Array; 
   startTimeMs?: number;
   saveTimeMs?: number;
   durationSeconds?: number;
