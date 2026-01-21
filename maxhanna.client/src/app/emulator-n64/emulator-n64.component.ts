@@ -36,6 +36,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   savedMappingsNames: string[] = [];
   private _mappingsStoreKey = 'n64_mappings_store_v1';
   selectedMappingName: string | null = null;
+  trackGp = (_: number, gp: { index: number }) => gp.index;
 
   private _romGoodName: string | null = null;
   private _romMd5: string | null = null;
