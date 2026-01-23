@@ -462,6 +462,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       await writeAutoInputConfig(sectionName, config as any);
       this.parentRef?.showNotification(`Applied RAW mapping for "${sectionName}"`);
 
+      const gp = this.currentPad();
+      this.persistLastMappingForGp(gp?.id || null, this.selectedMappingName); // <-- ADD
+
       if (this.directInjectMode) this.enableDirectInject();
 
       if (wasRunning) await this.boot();
@@ -1744,7 +1747,10 @@ private async applyMappingNameToCurrentPad(mappingName: string) {
     if (!name) {
       const idx = this.ports[port].gpIndex;
       const pads = this.getGamepadsBase();
-      const gp = (idx != null) ? pads[idx] : null;
+      const gp = (idx != null) ? pads[idx] : null; 
+      const gpId = this.gamepadIdFromIndex(idx); 
+      const name = this.ports[port].mappingName;
+      this.persistLastMappingForGp(gpId, name); 
 
       this.ports[port].mapping = {};
       if (gp?.mapping === 'standard') {
