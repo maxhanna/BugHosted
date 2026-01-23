@@ -632,7 +632,7 @@ async boot() {
     await new Promise(r => setTimeout(r, 400));
     await this.syncFs('post-start');
 
-    await this.safeDebug('SAVE-SCAN', () => this.debugScanSavesForCurrentRom());
+    await this.safeDebug('SAVE-SCAN', () => this.debugScanAllBatteryForCurrentRom());
     await this.safeDebug('ROM-ID', () => this.debugRomIdentity());
 
     // Optional (your ini in /assets looks like a stub; safeDebug prevents crashing)
@@ -2806,7 +2806,7 @@ private async debugCheckIniForRacer(): Promise<void> {
   console.log('[INI] contains "SaveType=Eeprom 4KB"?', text.includes('SaveType=Eeprom 4KB'));
 } 
 
-private async debugScanSavesForCurrentRom(): Promise<void> {
+private async debugScanAllBatteryForCurrentRom(): Promise<void> {
   const db = await new Promise<IDBDatabase>((resolve, reject) => {
     const req = indexedDB.open('/mupen64plus');
     req.onerror = () => reject(req.error);
@@ -2815,11 +2815,11 @@ private async debugScanSavesForCurrentRom(): Promise<void> {
 
   if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
 
-  const token = this.romTokenForMatching(this.romName);
+  const token = (this.romTokenForMatching(this.romName) || '').toLowerCase();
   const tx = db.transaction('FILE_DATA', 'readonly');
   const os = tx.objectStore('FILE_DATA');
 
-  const rows: Array<{ key: string; size: number }> = await new Promise((resolve, reject) => {
+  const rows: Array<{ key: string; size: number; ext: string; matches: boolean }> = await new Promise((resolve, reject) => {
     const out: any[] = [];
     const cur = os.openCursor();
     cur.onerror = () => reject(cur.error);
@@ -2828,22 +2828,25 @@ private async debugScanSavesForCurrentRom(): Promise<void> {
       if (c) {
         const keyStr = String(c.key);
         const lower = keyStr.toLowerCase();
-        if (lower.startsWith('/mupen64plus/saves/') && lower.endsWith('.eep')) {
+        const isBattery = lower.startsWith('/mupen64plus/saves/') &&
+                          (lower.endsWith('.eep') || lower.endsWith('.sra') || lower.endsWith('.fla'));
+        if (isBattery) {
           const fname = lower.split('/').pop() || '';
           const loose = fname.replace(/[^a-z0-9 ]/g, '').trim();
-          if (!token || loose.includes(token)) { 
-            const u8 = this.coerceToU8(c.value);
-            out.push({ key: keyStr, size: u8?.byteLength ?? 0 }); 
-          }
+          const matches = !token || loose.includes(token);
+          const u8 = this.coerceToU8(c.value);
+          const size = u8?.byteLength ?? 0;
+          const ext = (fname.match(/\.(eep|sra|fla)$/i)?.[0] || '').toLowerCase();
+          out.push({ key: keyStr, size, ext, matches });
         }
         c.continue();
       } else resolve(out);
     };
   });
 
-  console.log('[SAVE-SCAN] .eep candidates:', rows);
+  console.log('[SAVE-SCAN] battery candidates (.eep/.sra/.fla):', rows);
   db.close();
-}
+} 
  
 private coerceToU8(v: any): Uint8Array | null {
   if (!v) return null;
