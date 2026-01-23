@@ -116,180 +116,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   // =====================================================
-  // Named mappings (backend/local)
-  // =====================================================
-  async loadMappingsList() {
-    try {
-      const uid = this.parentRef?.user?.id;
-      if (uid) {
-        const names = await this.romService.listMappings(uid);
-        if (names && Array.isArray(names)) {
-          this.savedMappingsNames = names.sort();
-          if (this.selectedMappingName && !this.savedMappingsNames.includes(this.selectedMappingName)) {
-            this.selectedMappingName = null;
-          }
-          return;
-        }
-      }
-    } catch (e) {
-      console.warn('Backend mappings list failed, falling back to localStorage', e);
-    }
-
-    try {
-      const raw = localStorage.getItem(this._mappingsStoreKey);
-      const store = raw ? JSON.parse(raw) : {};
-      this.savedMappingsNames = Object.keys(store || {}).sort();
-      if (this.selectedMappingName && !this.savedMappingsNames.includes(this.selectedMappingName)) {
-        this.selectedMappingName = null;
-      }
-    } catch (e) {
-      console.error('Failed to load mappings list', e);
-      this.savedMappingsNames = [];
-      this.selectedMappingName = null;
-    }
-  }
-
-  async saveMappingAs() {
-    try {
-      const selectedGamepadName = this.gamepads[this.selectedGamepadIndex ?? 0]?.id || '';
-      const name = window.prompt('Enter a name for this mapping:', selectedGamepadName);
-      if (!name) return;
-      const uid = this.parentRef?.user?.id;
-      const payload = JSON.parse(JSON.stringify(this.mapping || {}));
-
-      if (uid) {
-        try {
-          const names = await this.romService.listMappings(uid);
-          if (names && Array.isArray(names) && names.length >= 50 && !names.includes(name)) {
-            this.parentRef?.showNotification('Mapping limit reached (50). Delete an existing mapping before adding a new one.');
-            return;
-          }
-        } catch { /* ignore */ }
-
-        const res = await this.romService.saveMapping(uid, name, payload);
-        if (res && res.ok) {
-          this.parentRef?.showNotification(`Mapping saved as "${name}"`);
-          await this.loadMappingsList();
-          this.selectedMappingName = name;
-          return;
-        }
-        if (res && !res.ok) {
-          const msg = res.text || `Server rejected save (status ${res.status})`;
-          this.parentRef?.showNotification(msg);
-          return;
-        }
-      }
-
-      // Fallback local
-      const raw = localStorage.getItem(this._mappingsStoreKey);
-      const store = raw ? JSON.parse(raw) : {};
-      const existingLocalCount = Object.keys(store || {}).length;
-      if (!store[name] && existingLocalCount >= 50) {
-        this.parentRef?.showNotification('Local mapping limit reached (50). Delete a mapping before adding a new one.');
-        return;
-      }
-      if (store[name]) {
-        const overwrite = window.confirm(`A mapping named "${name}" already exists. Overwrite?`);
-        if (!overwrite) return;
-      }
-      store[name] = payload;
-      localStorage.setItem(this._mappingsStoreKey, JSON.stringify(store));
-      this.parentRef?.showNotification(`Mapping saved as "${name}" (local)`);
-      this.loadMappingsList();
-      this.selectedMappingName = name;
-    } catch (e) {
-      console.error('Failed to save mapping as', e);
-      this.parentRef?.showNotification('Failed to save mapping');
-    }
-  }
-
-  async applySelectedMapping() {
-    if (!this.selectedMappingName) {
-      const gp = this.currentPad();
-      this.mapping = {};
-      if (gp?.mapping === 'standard') {
-        this.generateDefaultRawMappingForPad(gp);
-        this.parentRef?.showNotification('Default RAW mapping generated for standard profile.');
-      } else {
-        this.parentRef?.showNotification('Default mapping cleared — remap manually or record.');
-      }
-      await this.applyMappingToEmulator();
-      return;
-    }
-
-    try {
-      const uid = this.parentRef?.user?.id;
-      if (uid) {
-        try {
-          const m = await this.romService.getMapping(uid, this.selectedMappingName as string);
-          if (m) {
-            const gp = this.currentPad();
-            this.mapping = this.rebindMappingToPad(JSON.parse(JSON.stringify(m)), gp?.id || null);
-            this.migrateMappingToIdsIfNeeded();
-            await this.applyMappingToEmulator();
-            this.parentRef?.showNotification(`Applied mapping "${this.selectedMappingName}" to selected controller`);
-            return;
-          }
-        } catch (e) {
-          console.warn('Backend mapping fetch failed, falling back to localStorage', e);
-        }
-      }
-
-      const raw = localStorage.getItem(this._mappingsStoreKey);
-      const store = raw ? JSON.parse(raw) : {};
-      const m = store[this.selectedMappingName];
-      if (!m) {
-        this.parentRef?.showNotification('Selected mapping not found');
-        this.loadMappingsList();
-        return;
-      }
-      const gp = this.currentPad();
-      this.mapping = this.rebindMappingToPad(JSON.parse(JSON.stringify(m)), gp?.id || null);
-      this.migrateMappingToIdsIfNeeded();
-      await this.applyMappingToEmulator();
-      this.parentRef?.showNotification(`Applied mapping "${this.selectedMappingName}" to selected controller`);
-    } catch (e) {
-      console.error('Failed to apply selected mapping', e);
-      this.parentRef?.showNotification('Failed to apply mapping');
-    }
-  }
-
-  async deleteSelectedMapping() {
-    if (!this.selectedMappingName) return;
-    try {
-      const ok = window.confirm(`Delete mapping "${this.selectedMappingName}"?`);
-      if (!ok) return;
-      const uid = this.parentRef?.user?.id;
-
-      if (uid) {
-        const res = await this.romService.deleteMapping(uid, this.selectedMappingName as string);
-        if (res) {
-          this.parentRef?.showNotification(`Deleted mapping "${this.selectedMappingName}"`);
-          this.selectedMappingName = null;
-          await this.loadMappingsList();
-          return;
-        }
-      }
-
-      const raw = localStorage.getItem(this._mappingsStoreKey);
-      const store = raw ? JSON.parse(raw) : {};
-      delete store[this.selectedMappingName];
-      localStorage.setItem(this._mappingsStoreKey, JSON.stringify(store));
-      this.parentRef?.showNotification(`Deleted mapping "${this.selectedMappingName}" (local)`);
-      this.selectedMappingName = null;
-      this.loadMappingsList();
-    } catch (e) {
-      console.error('Failed to delete mapping', e);
-      this.parentRef?.showNotification('Failed to apply mapping');
-    }
-  }
-
-  onMappingSelect(name: string) {
-    this.selectedMappingName = name || null;
-    this.applySelectedMapping();
-  }
-
-  // =====================================================
   // Lifecycle
   // =====================================================
   ngOnInit(): void {
@@ -326,6 +152,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     canvasEl?.addEventListener('click', () => this._bootstrapDetectOnce());
 
     this.startGamepadAutoDetect();
+    
+    setTimeout(() => { this.tryApplyLastForConnectedPads().catch(() => {}); }, 0); 
   }
 
   async ngOnDestroy(): Promise<void> {
@@ -1472,25 +1300,43 @@ async boot() {
 
   // =====================================================
   // Gamepad events & auto-detect
-  // =====================================================
+  // ===================================================== 
   private _onGamepadConnected = (ev: GamepadEvent) => {
     this.refreshGamepads();
 
-    if (this.ports[1].gpIndex == null && this.gamepads.length) {
-      if (!this.hasLoadedLastInput) {
-        const std = this.gamepads.find(g => g.mapping === 'standard');
-        this.assignFirstDetectedToP1(std ? std.index : ev.gamepad.index);
-      } else {
+    // --- ADD: if P1 is empty, try to use a known mapping for this specific device
+    (async () => {
+      if (this.ports[1].gpIndex == null) {
+        const last = this.lastMappingPerGp[ev.gamepad.id];
+        if (last) {
+          // Mount this controller to P1 and apply its mapping
+          this.ports[1].gpIndex = ev.gamepad.index;
+          this.selectedGamepadIndex = ev.gamepad.index;
+          await this.applyMappingNameToCurrentPad(last);
+          this.applyGamepadReorder();
+          return; // done
+        }
+      }
+
+      // existing “first standard or first available” path
+      if (this.ports[1].gpIndex == null && this.gamepads.length) {
+        if (!this.hasLoadedLastInput) {
+          const std = this.gamepads.find(g => g.mapping === 'standard');
+          this.assignFirstDetectedToP1(std ? std.index : ev.gamepad.index);
+        } else {
+          this.applyGamepadReorder();
+        }
+      }
+
+      if (this.instance || this.status === 'running') {
         this.applyGamepadReorder();
       }
-    }
 
-    if (this.instance || this.status === 'running') {
-      this.applyGamepadReorder();
-    }
-
-    this.maybeApplyStoredMappingFor(ev.gamepad.id);
+      // --- MODIFY: maybeApplyStoredMappingFor() should also check lastMappingPerGp first (see next section)
+      this.maybeApplyStoredMappingFor(ev.gamepad.id);
+    })().catch(() => {});
   };
+
 
   private _onGamepadDisconnected = (_ev: GamepadEvent) => {
     this.refreshGamepads();
@@ -1540,6 +1386,228 @@ async boot() {
       this._autoDetectTimer = null;
     }
   }
+
+  
+/** Persist last mapping name used for a given gamepad.id */
+private persistLastMappingForGp(gamepadId: string | null, mappingName: string | null) {
+  if (!gamepadId || !mappingName) return;
+  try {
+    this.lastMappingPerGp[gamepadId] = mappingName;
+    localStorage.setItem(this._lastPerGamepadKey, JSON.stringify(this.lastMappingPerGp));
+  } catch { /* ignore */ }
+}
+
+  // =====================================================
+  // Named mappings (backend/local)
+  // =====================================================
+  async loadMappingsList() {
+    try {
+      const uid = this.parentRef?.user?.id;
+      if (uid) {
+        const names = await this.romService.listMappings(uid);
+        if (names && Array.isArray(names)) {
+          this.savedMappingsNames = names.sort();
+          if (this.selectedMappingName && !this.savedMappingsNames.includes(this.selectedMappingName)) {
+            this.selectedMappingName = null;
+          }
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('Backend mappings list failed, falling back to localStorage', e);
+    }
+
+    try {
+      const raw = localStorage.getItem(this._mappingsStoreKey);
+      const store = raw ? JSON.parse(raw) : {};
+      this.savedMappingsNames = Object.keys(store || {}).sort();
+      if (this.selectedMappingName && !this.savedMappingsNames.includes(this.selectedMappingName)) {
+        this.selectedMappingName = null;
+      }
+    } catch (e) {
+      console.error('Failed to load mappings list', e);
+      this.savedMappingsNames = [];
+      this.selectedMappingName = null;
+    }
+  }
+
+  async saveMappingAs() {
+    try {
+      const selectedGamepadName = this.gamepads[this.selectedGamepadIndex ?? 0]?.id || '';
+      const name = window.prompt('Enter a name for this mapping:', selectedGamepadName);
+      if (!name) return;
+      const uid = this.parentRef?.user?.id;
+      const payload = JSON.parse(JSON.stringify(this.mapping || {}));
+
+      if (uid) {
+        try {
+          const names = await this.romService.listMappings(uid);
+          if (names && Array.isArray(names) && names.length >= 50 && !names.includes(name)) {
+            this.parentRef?.showNotification('Mapping limit reached (50). Delete an existing mapping before adding a new one.');
+            return;
+          }
+        } catch { /* ignore */ }
+
+        const res = await this.romService.saveMapping(uid, name, payload);
+        if (res && res.ok) {
+          this.parentRef?.showNotification(`Mapping saved as "${name}"`);
+          await this.loadMappingsList();
+          this.selectedMappingName = name;
+          
+          const gp = this.currentPad();
+          this.persistLastMappingForGp(gp?.id || null, name); // <-- ADD
+
+          return;
+        }
+        if (res && !res.ok) {
+          const msg = res.text || `Server rejected save (status ${res.status})`;
+          this.parentRef?.showNotification(msg);
+          return;
+        }
+      }
+
+      // Fallback local
+      const raw = localStorage.getItem(this._mappingsStoreKey);
+      const store = raw ? JSON.parse(raw) : {};
+      const existingLocalCount = Object.keys(store || {}).length;
+      if (!store[name] && existingLocalCount >= 50) {
+        this.parentRef?.showNotification('Local mapping limit reached (50). Delete a mapping before adding a new one.');
+        return;
+      }
+      if (store[name]) {
+        const overwrite = window.confirm(`A mapping named "${name}" already exists. Overwrite?`);
+        if (!overwrite) return;
+      }
+      store[name] = payload;
+      localStorage.setItem(this._mappingsStoreKey, JSON.stringify(store));
+      this.parentRef?.showNotification(`Mapping saved as "${name}" (local)`);
+      this.loadMappingsList();
+      this.selectedMappingName = name;
+    } catch (e) {
+      console.error('Failed to save mapping as', e);
+      this.parentRef?.showNotification('Failed to save mapping');
+    }
+  }
+
+  async applySelectedMapping() {
+    if (!this.selectedMappingName) {
+      const gp = this.currentPad();
+      this.mapping = {};
+      if (gp?.mapping === 'standard') {
+        this.generateDefaultRawMappingForPad(gp);
+        this.parentRef?.showNotification('Default RAW mapping generated for standard profile.');
+      } else {
+        this.parentRef?.showNotification('Default mapping cleared — remap manually or record.');
+      }
+      await this.applyMappingToEmulator();
+      return;
+    }
+
+    try {
+      const uid = this.parentRef?.user?.id;
+      if (uid) {
+        try {
+          const m = await this.romService.getMapping(uid, this.selectedMappingName as string);
+          if (m) {
+            const gp = this.currentPad();
+            this.mapping = this.rebindMappingToPad(JSON.parse(JSON.stringify(m)), gp?.id || null);
+            this.migrateMappingToIdsIfNeeded();
+            await this.applyMappingToEmulator();
+            this.parentRef?.showNotification(`Applied mapping "${this.selectedMappingName}" to selected controller`);
+            return;
+          }
+        } catch (e) {
+          console.warn('Backend mapping fetch failed, falling back to localStorage', e);
+        }
+      }
+
+      const raw = localStorage.getItem(this._mappingsStoreKey);
+      const store = raw ? JSON.parse(raw) : {};
+      const m = store[this.selectedMappingName];
+      if (!m) {
+        this.parentRef?.showNotification('Selected mapping not found');
+        this.loadMappingsList();
+        return;
+      }
+      const gp = this.currentPad();
+      this.mapping = this.rebindMappingToPad(JSON.parse(JSON.stringify(m)), gp?.id || null);
+      this.migrateMappingToIdsIfNeeded();
+      await this.applyMappingToEmulator();
+      this.parentRef?.showNotification(`Applied mapping "${this.selectedMappingName}" to selected controller`);
+    } catch (e) {
+      console.error('Failed to apply selected mapping', e);
+      this.parentRef?.showNotification('Failed to apply mapping');
+    }
+  }
+
+  async deleteSelectedMapping() {
+    if (!this.selectedMappingName) return;
+    try {
+      const ok = window.confirm(`Delete mapping "${this.selectedMappingName}"?`);
+      if (!ok) return;
+      const uid = this.parentRef?.user?.id;
+
+      if (uid) {
+        const res = await this.romService.deleteMapping(uid, this.selectedMappingName as string);
+        if (res) {
+          this.parentRef?.showNotification(`Deleted mapping "${this.selectedMappingName}"`);
+          this.selectedMappingName = null;
+          await this.loadMappingsList();
+          return;
+        }
+      }
+
+      const raw = localStorage.getItem(this._mappingsStoreKey);
+      const store = raw ? JSON.parse(raw) : {};
+      delete store[this.selectedMappingName];
+      localStorage.setItem(this._mappingsStoreKey, JSON.stringify(store));
+      this.parentRef?.showNotification(`Deleted mapping "${this.selectedMappingName}" (local)`);
+      this.selectedMappingName = null;
+      this.loadMappingsList();
+    } catch (e) {
+      console.error('Failed to delete mapping', e);
+      this.parentRef?.showNotification('Failed to apply mapping');
+    }
+  } 
+
+onMappingSelect(name: string) {
+  this.selectedMappingName = name || null;
+  this.applySelectedMapping().then(() => {
+    const gp = this.currentPad();
+    this.persistLastMappingForGp(gp?.id || null, this.selectedMappingName);  
+  }).catch(() => {});
+} 
+
+/** Try to auto-pick a connected pad that has a stored mapping; returns true if applied */
+private async tryApplyLastForConnectedPads(): Promise<boolean> {
+  this.refreshGamepads();
+  // Prefer a pad that has a known mapping stored in lastMappingPerGp
+  for (const gp of this.gamepads) {
+    const name = this.lastMappingPerGp[gp.id];
+    if (!name) continue;
+
+    // Select this pad, set mapping, apply, assign to P1
+    this.selectedGamepadIndex = gp.index;
+    this.ports[1].gpIndex = gp.index;
+    this.selectedMappingName = name;
+
+    await this.applySelectedMapping();
+    this.applyGamepadReorder();
+    this.ensureP1InitializedFromSinglePad();
+    this.parentRef?.showNotification?.(`Auto-applied "${name}" for ${gp.id}`);
+    return true;
+  }
+  return false;
+}
+
+/** Centralized helper: apply the given mapping name to this.selectedGamepadIndex and persist it */
+private async applyMappingNameToCurrentPad(mappingName: string) {
+  this.selectedMappingName = mappingName || null;
+  await this.applySelectedMapping();
+  const gp = this.currentPad();
+  this.persistLastMappingForGp(gp?.id || null, this.selectedMappingName);
+}
+
 
   private assignFirstDetectedToP1(preferredIdx?: number) {
     const pads = this.getGamepadsBase();
@@ -1902,13 +1970,34 @@ async boot() {
     burst();
   }
 
-  private async maybeApplyStoredMappingFor(id: string) {
-    const knownName = this.savedMappingsNames.find(n => n.toLowerCase() === id.toLowerCase());
-    if (knownName) {
-      this.selectedMappingName = knownName;
+ 
+private async maybeApplyStoredMappingFor(id: string) {
+  // --- ADD: prefer last-per-gamepad
+  const lastName = this.lastMappingPerGp[id];
+  if (lastName) {
+    // If the saved mapping exists, apply it and persist again
+    const has = this.savedMappingsNames.includes(lastName);
+    if (!has && !this.savedMappingsNames.length) {
+      await this.loadMappingsList();
+    }
+    if (this.savedMappingsNames.includes(lastName)) {
+      this.selectedMappingName = lastName;
       await this.applySelectedMapping();
+      this.persistLastMappingForGp(id, lastName);
+      return;
     }
   }
+
+  // --- Fallback to prior behavior: look for a mapping literally named after the gamepad id
+  const knownName = this.savedMappingsNames.find(n => n.toLowerCase() === id.toLowerCase());
+  if (knownName) {
+    this.selectedMappingName = knownName;
+    await this.applySelectedMapping();
+    // also persist under last-per-gp for next time
+    this.persistLastMappingForGp(id, knownName);
+  }
+}
+
 
   refreshGamepads() {
     try {
