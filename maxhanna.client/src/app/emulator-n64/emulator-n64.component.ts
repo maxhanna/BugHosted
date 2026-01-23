@@ -1236,69 +1236,78 @@ async exportInGameSaveRam(): Promise<ExportInGameSaveRamResult> {
   // =====================================================
   // Autosave
   // =====================================================
-  private async autosaveTick() {
-    if (!this.autosave || this.autosaveInProgress) return;
-    this.autosaveInProgress = true;
+ 
+// =====================================================
+// Autosave (REPLACE the whole method)
+// =====================================================
+private async autosaveTick() {
+  if (!this.autosave || this.autosaveInProgress) return;
+  this.autosaveInProgress = true;
 
-    try {
-      const userId = this.parentRef?.user?.id;
-      if (!userId) { return; }
+  try {
+    const userId = this.parentRef?.user?.id;
+    if (!userId) return;
 
-      const result = await this.exportInGameSaveRam();
-      const isRunning = this.status === 'running' && !!this.instance;
+    // Always export; don’t require matchedOnly to be true
+    const result = await this.exportInGameSaveRam();
+    const isRunning = this.status === 'running' && !!this.instance;
+    if (!isRunning || !result.exported.length) return;
 
-      if (!isRunning || !result.exported.length || !result.matchedOnly) {
-        return;
-      }
+    // Pick the best save for the ACTIVE ROM:
+    // 1) Prefer exact Goodname match
+    // 2) Else prefer token match
+    // 3) Else first (fallback)
+    const good = this._romGoodName || '';
+    const token = (this.romTokenForMatching(this.romName) || '').toLowerCase();
 
-      // Only upload the single chosen export (deduped by exportInGameSaveRam)
-      let uploadedCount = 0;
-      for (const item of result.exported) {
-        const ext = this.detectSaveExt(item.filename, item.size);
-        const filenameForServer = this.canonicalSaveFilenameForUpload(ext);
+    const byGood = good
+      ? result.exported.find(e => e.filename === `${good}.eep`
+                              ||  e.filename === `${good}.sra`
+                              ||  e.filename === `${good}.fla`)
+      : null;
 
-        console.log("Finding file to send to backend: ", filenameForServer);
+    const byToken = !byGood && token
+      ? result.exported.find(e => {
+          const lower = (e.filename || '').toLowerCase();
+          const loose = lower.replace(/[^a-z0-9 ]/g, '').trim();
+          return loose.includes(token);
+        })
+      : null;
 
-        const hash = await this.sha256Hex(item.bytes);
-        const dedupeKey = filenameForServer;
+    const best = byGood || byToken || result.exported[0];
+    if (!best) return;
 
-        // Optional de-dupe
-        // if (this.lastUploadedHashes.get(dedupeKey) === hash) continue;
+    // IMPORTANT: send the EXACT ROM filename (with extension),
+    // so it matches GetN64SaveByName() later.
+    const romNameForServer = this.romName || this.canonicalRomBaseFromFileName(this.romName);
 
-        const payload: N64StateUpload = {
-          userId,
-          romName: this.canonicalRomBaseFromFileName(this.romName),
-          filename: filenameForServer,
-          bytes: item.bytes,
-          saveTimeMs: Date.now(),
-          durationSeconds: 180
-        };
+    const ext = this.detectSaveExt(best.filename, best.size);
+    const filenameForServer = this.canonicalSaveFilenameForUpload(ext);
 
-        try {
-          const uploadRes = await this.romService.saveN64State(payload);
-          if (!uploadRes.ok) {
-            console.warn('Upload failed:', uploadRes.errorText);
-          } else {
-            console.log("Saved state with payload: ", uploadRes);
-          }
-          this.lastUploadedHashes.set(dedupeKey, hash);
-          uploadedCount++;
-        } catch (e) {
-          console.warn('autosave: saveN64State failed for', filenameForServer, e);
-        }
-      }
+    const payload: N64StateUpload = {
+      userId,
+      romName: romNameForServer,          // <— FIX: exact ROM filename with extension
+      filename: filenameForServer,        // e.g., "<Base>.eep|.sra|.fla"
+      bytes: best.bytes,
+      saveTimeMs: Date.now(),
+      durationSeconds: 180
+    };
 
-      if (uploadedCount > 0) {
-        this.parentRef?.showNotification(`Autosaved ${uploadedCount} file(s) for ${result.romName ?? 'current ROM'}.`);
-      }
-    } catch (err) {
-      console.error('autosaveTick error', err);
-    } finally {
-      this.autosaveInProgress = false;
-      await this.syncFs('post-autosave');
-      console.log("Finished Autosave");
+    const uploadRes = await this.romService.saveN64State(payload);
+    if (!uploadRes.ok) {
+      console.warn('Upload failed:', uploadRes.errorText);
+    } else {
+      console.log('Saved state with payload:', uploadRes);
+      this.parentRef?.showNotification?.(`Autosaved ${ext} for ${romNameForServer}`);
     }
+  } catch (err) {
+    console.error('autosaveTick error', err);
+  } finally {
+    this.autosaveInProgress = false;
+    await this.syncFs('post-autosave');
+    console.log('Finished Autosave');
   }
+} 
 
   private startAutosaveLoop() {
     this.stopAutosaveLoop();
