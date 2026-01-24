@@ -393,7 +393,7 @@
                   <div *ngFor="let group of botGroups">
                     {{ group.strategy }}:
                     <span class="thirdFontColor smallFont">
-                      {{ group.currencies.join(', ') }} (Runtime: {{ group.startedSince | timeSince }})
+                      {{ group.currencies.join(', ') }} (Runtime: {{ group.startedSince | timeSince:'minute':true }})
                     </span>
                   </div>
                 </div>

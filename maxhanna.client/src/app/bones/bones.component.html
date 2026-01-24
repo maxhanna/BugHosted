@@ -223,8 +223,8 @@
         <div class="heroLeft">
           <div class="heroInfo">
             <div class="heroNameRow">
-              <div *ngIf="parentRef?.isUserOnline(p.updated | timeSince)" class="onlineButton" title="Online"></div>
-              <div *ngIf="!parentRef?.isUserOnline(p.updated | timeSince)" class="offlineIndicator" title="Offline">
+              <div *ngIf="parentRef?.isUserOnline(p.updated | timeSince:'minute':true)" class="onlineButton" title="Online"></div>
+              <div *ngIf="!parentRef?.isUserOnline(p.updated | timeSince:'minute':true)" class="offlineIndicator" title="Offline">
               </div>
               <div>
                 {{p.name}}

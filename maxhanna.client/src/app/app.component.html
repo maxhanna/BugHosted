@@ -94,13 +94,13 @@
         <div class="xxSmallFont">Last Seen: </div>
         <div>
           <span
-            *ngIf="popupUserTagUser && popupUserTagUser.lastSeen && isUserOnline(popupUserTagUser.lastSeen | timeSince)"
-            class="cursorPointer" [title]="popupUserTagUser.lastSeen | timeSince">
+            *ngIf="popupUserTagUser && popupUserTagUser.lastSeen && isUserOnline(popupUserTagUser.lastSeen | timeSince:'minute':true)"
+            class="cursorPointer" [title]="popupUserTagUser.lastSeen | timeSince:'minute':true">
             <span class="onlineButton"></span> Online
           </span>
           <span
-            *ngIf="popupUserTagUser && popupUserTagUser.lastSeen && !isUserOnline(popupUserTagUser.lastSeen | timeSince)">
-            {{ popupUserTagUser.lastSeen | timeSince }}
+            *ngIf="popupUserTagUser && popupUserTagUser.lastSeen && !isUserOnline(popupUserTagUser.lastSeen | timeSince:'minute':true)">
+            {{ popupUserTagUser.lastSeen | timeSince:'minute':true }}
           </span>
           <span *ngIf="!popupUserTagUser?.lastSeen">
             Unknown <span class="xxSmallFont">(0 days)</span>

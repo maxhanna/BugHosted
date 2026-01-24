@@ -24,7 +24,7 @@
                     <td>{{score.score}}</td>
                     <td>{{score.tries}}</td>
                     <td>{{score.time}}</td>
-                    <td>{{score.submitted | timeSince}}</td>
+                    <td>{{score.submitted | timeSince:'minute':true }}</td>
                 </tr>
             </tbody>
         </table>
@@ -59,7 +59,7 @@
                     <td>{{score.score}}</td>
                     <td>{{score.tries}}</td>
                     <td>{{score.time}}</td>
-                    <td>{{score.submitted | timeSince}}</td>
+                    <td>{{score.submitted | timeSince:'minute':true }}</td>
                 </tr>
             </tbody>
         </table>

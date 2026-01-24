@@ -41,10 +41,10 @@
       </div>
       <div class="commentDate" [title]="(comment.date?.toString() ?? '').replace('T',' ')">
         <ng-container *ngIf="onMobile(); else fullTime">
-          {{ (comment.date | timeSince).split(' ')[0] }}
+          {{ (comment.date | timeSince:'minute':true).split(' ')[0] }}
         </ng-container>
         <ng-template #fullTime>
-          {{ comment.date | timeSince }}
+          {{ comment.date | timeSince:'minute':true }}
         </ng-template>
       </div>
       <div class="commentActions">
