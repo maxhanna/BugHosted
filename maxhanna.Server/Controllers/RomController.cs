@@ -23,15 +23,15 @@ namespace maxhanna.Server.Controllers
       _config = config;
     }
 
-    
-[HttpPost("/Rom/ActivePlayers", Name = "Rom_ActivePlayers")]
-public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, CancellationToken ct = default)
-{
-    var windowMinutes = Math.Clamp(minutes ?? 2, 1, 24 * 60);
-    var cutoffUtc = DateTime.UtcNow.AddMinutes(-windowMinutes);
 
-    try
+    [HttpPost("/Rom/ActivePlayers", Name = "Rom_ActivePlayers")]
+    public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, CancellationToken ct = default)
     {
+      var windowMinutes = Math.Clamp(minutes ?? 2, 1, 24 * 60);
+      var cutoffUtc = DateTime.UtcNow.AddMinutes(-windowMinutes);
+
+      try
+      {
         await using var connection = new MySqlConnection(
             _config.GetValue<string>("ConnectionStrings:maxhanna"));
         await connection.OpenAsync(ct).ConfigureAwait(false);
@@ -59,7 +59,7 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
 
         await using var cmd = new MySqlCommand(sql, connection)
         {
-            CommandTimeout = 5
+          CommandTimeout = 5
         };
         cmd.Parameters.Add("@cutoff", MySqlDbType.DateTime).Value = cutoffUtc;
 
@@ -67,13 +67,13 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
         int count = (obj == null || obj == DBNull.Value) ? 0 : Convert.ToInt32(obj);
 
         return Ok(new { count });
-    }
-    catch (Exception ex)
-    {
+      }
+      catch (Exception ex)
+      {
         _ = _log.Db("Rom ActivePlayers error: " + ex.Message, null, "ROM", true);
         return StatusCode(500, "Internal server error");
+      }
     }
-}
 
 
 
@@ -203,7 +203,7 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
             continue; // Skip empty files
           }
 
-          var ext = Path.GetExtension(file.FileName)?.ToLowerInvariant() ?? string.Empty; 
+          var ext = Path.GetExtension(file.FileName)?.ToLowerInvariant() ?? string.Empty;
           bool isSaveFile = saveExts.Contains(ext);
 
           // For user-specific save files, keep your naming convention: <basename>_<userId><ext>
@@ -360,7 +360,7 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
         if (userId != null && saveExts.Contains(fileExt))
         {
           string filenameWithoutExtension = Path.GetFileNameWithoutExtension(filePath);
-          string tmpUserId = filenameWithoutExtension.EndsWith("_" + userId) ? "" :  ("_" + userId);
+          string tmpUserId = filenameWithoutExtension.EndsWith("_" + userId) ? "" : ("_" + userId);
           string newFilename = filenameWithoutExtension + tmpUserId + fileExt.Replace("\\", "/");
           string userSpecificPath = Path.Combine(_baseTarget, newFilename).Replace("\\", "/");
 
@@ -406,60 +406,60 @@ public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, Cancella
       }
     }
 
-   // ---------------------------
-        // POST /rom/saven64state
-        // FormData:
-        //  - file        : IFormFile (save bytes)  [required]
-        //  - userId      : number                  [required]
-        //  - romName     : string                  [required]
-        //  - filename    : string (e.g. "Game.sra") [optional; fallback to file.FileName]
-        //  - saveTimeMs  : number (optional)
-        // ---------------------------
-        [HttpPost("saven64state")]
-        [RequestSizeLimit(2_000_000)] // 2 MB safety cap
-        public async Task<IActionResult> SaveN64State()
-        {
-            var form = await Request.ReadFormAsync();
-            var file = form.Files.GetFile("file");
-            if (file == null || file.Length <= 0)
-                return BadRequest("Missing 'file'");
+    // ---------------------------
+    // POST /rom/saven64state
+    // FormData:
+    //  - file        : IFormFile (save bytes)  [required]
+    //  - userId      : number                  [required]
+    //  - romName     : string                  [required]
+    //  - filename    : string (e.g. "Game.sra") [optional; fallback to file.FileName]
+    //  - saveTimeMs  : number (optional)
+    // ---------------------------
+    [HttpPost("saven64state")]
+    [RequestSizeLimit(2_000_000)] // 2 MB safety cap
+    public async Task<IActionResult> SaveN64State()
+    {
+      var form = await Request.ReadFormAsync();
+      var file = form.Files.GetFile("file");
+      if (file == null || file.Length <= 0)
+        return BadRequest("Missing 'file'");
 
-            if (!int.TryParse(form["userId"], out var userId) || userId <= 0)
-                return BadRequest("Invalid 'userId'");
+      if (!int.TryParse(form["userId"], out var userId) || userId <= 0)
+        return BadRequest("Invalid 'userId'");
 
-            var romName = form["romName"].ToString();
-            if (string.IsNullOrWhiteSpace(romName))
-                return BadRequest("Missing 'romName'");
+      var romName = form["romName"].ToString();
+      if (string.IsNullOrWhiteSpace(romName))
+        return BadRequest("Missing 'romName'");
 
-            var providedFilename = form["filename"].ToString();
-            var fileName = string.IsNullOrWhiteSpace(providedFilename) ? file.FileName : providedFilename;
+      var providedFilename = form["filename"].ToString();
+      var fileName = string.IsNullOrWhiteSpace(providedFilename) ? file.FileName : providedFilename;
 
-            if (string.IsNullOrWhiteSpace(fileName))
-                return BadRequest("Missing 'filename'");
+      if (string.IsNullOrWhiteSpace(fileName))
+        return BadRequest("Missing 'filename'");
 
-            // Validate extension
-            var ext = Path.GetExtension(fileName).ToLowerInvariant();
-            if (ext != ".eep" && ext != ".sra" && ext != ".fla")
-                return BadRequest("Unsupported save type. Allowed: .eep, .sra, .fla");
+      // Validate extension
+      var ext = Path.GetExtension(fileName).ToLowerInvariant();
+      if (ext != ".eep" && ext != ".sra" && ext != ".fla")
+        return BadRequest("Unsupported save type. Allowed: .eep, .sra, .fla");
 
-            // Read bytes
-            byte[] bytes;
-            using (var ms = new MemoryStream())
-            {
-                await file.CopyToAsync(ms);
-                bytes = ms.ToArray();
-            }
-            var size = bytes.Length;
+      // Read bytes
+      byte[] bytes;
+      using (var ms = new MemoryStream())
+      {
+        await file.CopyToAsync(ms);
+        bytes = ms.ToArray();
+      }
+      var size = bytes.Length;
 
-            // Domain-enforced sizes
-            if (!IsValidSize(ext, size, out var saveType))
-                return BadRequest($"Invalid {ext} size: {size} bytes");
+      // Domain-enforced sizes
+      if (!IsValidSize(ext, size, out var saveType))
+        return BadRequest($"Invalid {ext} size: {size} bytes");
 
-            // UPSERT into MySQL
-            using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-            await conn.OpenAsync();
+      // UPSERT into MySQL
+      using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      await conn.OpenAsync();
 
-            const string sql = @"
+      const string sql = @"
 INSERT INTO n64_user_saves
     (user_id, rom_name, save_file_name, save_type, save_data, file_size, last_write)
 VALUES
@@ -470,42 +470,42 @@ ON DUPLICATE KEY UPDATE
     file_size  = VALUES(file_size),
     last_write = CURRENT_TIMESTAMP;";
 
-            using var cmd = new MySqlCommand(sql, conn);
-            cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
-            cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = romName;
-            cmd.Parameters.Add("@SaveFileName", MySqlDbType.VarChar).Value = fileName;
-            cmd.Parameters.Add("@SaveType", MySqlDbType.VarChar).Value = saveType; // 'eep'|'sra'|'fla'
-            cmd.Parameters.Add("@SaveData", MySqlDbType.MediumBlob).Value = bytes;
-            cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value = size;
+      using var cmd = new MySqlCommand(sql, conn);
+      cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
+      cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = romName;
+      cmd.Parameters.Add("@SaveFileName", MySqlDbType.VarChar).Value = fileName;
+      cmd.Parameters.Add("@SaveType", MySqlDbType.VarChar).Value = saveType; // 'eep'|'sra'|'fla'
+      cmd.Parameters.Add("@SaveData", MySqlDbType.MediumBlob).Value = bytes;
+      cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value = size;
 
-            await cmd.ExecuteNonQueryAsync();
+      await cmd.ExecuteNonQueryAsync();
 
-            return Ok(new
-            {
-                ok = true,
-                userId,
-                romName,
-                fileName,
-                saveType,
-                fileSize = size
-            });
-        }
+      return Ok(new
+      {
+        ok = true,
+        userId,
+        romName,
+        fileName,
+        saveType,
+        fileSize = size
+      });
+    }
 
-        // ---------------------------
-        // POST /rom/GetN64SaveByName/{romName}
-        // Body: userId (raw JSON number)
-        // Returns: octet-stream with *save_file_name* as download filename
-        // ---------------------------
-        [HttpPost("GetN64SaveByName/{romName}")]
-        public async Task<IActionResult> GetN64SaveByName([FromRoute] string romName, [FromBody] int userId)
-        {
-            if (string.IsNullOrWhiteSpace(romName) || userId <= 0)
-                return BadRequest("Missing romName or invalid userId");
+    // ---------------------------
+    // POST /rom/GetN64SaveByName/{romName}
+    // Body: userId (raw JSON number)
+    // Returns: octet-stream with *save_file_name* as download filename
+    // ---------------------------
+    [HttpPost("GetN64SaveByName/{romName}")]
+    public async Task<IActionResult> GetN64SaveByName([FromRoute] string romName, [FromBody] int userId)
+    {
+      if (string.IsNullOrWhiteSpace(romName) || userId <= 0)
+        return BadRequest("Missing romName or invalid userId");
 
-            using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-            await conn.OpenAsync();
+      using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      await conn.OpenAsync();
 
-            const string sql = @"
+      const string sql = @"
 SELECT save_file_name, save_data
 FROM n64_user_saves
 WHERE user_id = @UserId
@@ -513,55 +513,55 @@ WHERE user_id = @UserId
 ORDER BY last_write DESC
 LIMIT 1;";
 
-            using var cmd = new MySqlCommand(sql, conn);
-            cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
-            cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = romName;
+      using var cmd = new MySqlCommand(sql, conn);
+      cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
+      cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = romName;
 
-            using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess);
-            if (!await reader.ReadAsync())
-                return NotFound("No save found for this ROM");
+      using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess);
+      if (!await reader.ReadAsync())
+        return NotFound("No save found for this ROM");
 
-            var fileName = reader.GetString(0);
-            byte[] data;
+      var fileName = reader.GetString(0);
+      byte[] data;
 
-            // Read blob efficiently
-            const int chunk = 81920;
-            using (var ms = new MemoryStream())
-            {
-                long offset = 0;
-                long bytesRead;
-                do
-                {
-                    var buffer = new byte[chunk];
-                    bytesRead = reader.GetBytes(1, offset, buffer, 0, buffer.Length);
-                    if (bytesRead > 0)
-                    {
-                        ms.Write(buffer, 0, (int)bytesRead);
-                        offset += bytesRead;
-                    }
-                } while (bytesRead > 0);
-                data = ms.ToArray();
-            }
-
-            // Return exact emulator filename → your frontend feeds this to importInGameSaveRam (no rename)
-            return File(data, "application/octet-stream", fileName);
-        }
-
-        // ---------------------------
-        // (Optional)
-        // POST /rom/GetN64SaveByFilename/{fileName}
-        // Body: userId (raw JSON number)
-        // ---------------------------
-        [HttpPost("GetN64SaveByFilename/{fileName}")]
-        public async Task<IActionResult> GetN64SaveByFilename([FromRoute] string fileName, [FromBody] int userId)
+      // Read blob efficiently
+      const int chunk = 81920;
+      using (var ms = new MemoryStream())
+      {
+        long offset = 0;
+        long bytesRead;
+        do
         {
-            if (string.IsNullOrWhiteSpace(fileName) || userId <= 0)
-                return BadRequest("Missing fileName or invalid userId");
+          var buffer = new byte[chunk];
+          bytesRead = reader.GetBytes(1, offset, buffer, 0, buffer.Length);
+          if (bytesRead > 0)
+          {
+            ms.Write(buffer, 0, (int)bytesRead);
+            offset += bytesRead;
+          }
+        } while (bytesRead > 0);
+        data = ms.ToArray();
+      }
 
-            using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-            await conn.OpenAsync();
+      // Return exact emulator filename → your frontend feeds this to importInGameSaveRam (no rename)
+      return File(data, "application/octet-stream", fileName);
+    }
 
-            const string sql = @"
+    // ---------------------------
+    // (Optional)
+    // POST /rom/GetN64SaveByFilename/{fileName}
+    // Body: userId (raw JSON number)
+    // ---------------------------
+    [HttpPost("GetN64SaveByFilename/{fileName}")]
+    public async Task<IActionResult> GetN64SaveByFilename([FromRoute] string fileName, [FromBody] int userId)
+    {
+      if (string.IsNullOrWhiteSpace(fileName) || userId <= 0)
+        return BadRequest("Missing fileName or invalid userId");
+
+      using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      await conn.OpenAsync();
+
+      const string sql = @"
 SELECT save_file_name, save_data
 FROM n64_user_saves
 WHERE user_id = @UserId
@@ -569,47 +569,47 @@ WHERE user_id = @UserId
 ORDER BY last_write DESC
 LIMIT 1;";
 
-            using var cmd = new MySqlCommand(sql, conn);
-            cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
-            cmd.Parameters.Add("@FileName", MySqlDbType.VarChar).Value = fileName;
+      using var cmd = new MySqlCommand(sql, conn);
+      cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
+      cmd.Parameters.Add("@FileName", MySqlDbType.VarChar).Value = fileName;
 
-            using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess);
-            if (!await reader.ReadAsync())
-                return NotFound("No save found with that filename");
+      using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess);
+      if (!await reader.ReadAsync())
+        return NotFound("No save found with that filename");
 
-            var dlName = reader.GetString(0);
-            byte[] data;
-            const int chunk = 81920;
-            using (var ms = new MemoryStream())
-            {
-                long offset = 0; long bytesRead;
-                do
-                {
-                    var buffer = new byte[chunk];
-                    bytesRead = reader.GetBytes(1, offset, buffer, 0, buffer.Length);
-                    if (bytesRead > 0) { ms.Write(buffer, 0, (int)bytesRead); offset += bytesRead; }
-                } while (bytesRead > 0);
-                data = ms.ToArray();
-            }
-
-            return File(data, "application/octet-stream", dlName);
-        }
-
-        // ---------------------------
-        // Helpers
-        // ---------------------------
-        private static bool IsValidSize(string ext, int size, out string saveType)
+      var dlName = reader.GetString(0);
+      byte[] data;
+      const int chunk = 81920;
+      using (var ms = new MemoryStream())
+      {
+        long offset = 0; long bytesRead;
+        do
         {
-            saveType = ext.TrimStart('.'); // 'eep'|'sra'|'fla'
-            switch (ext)
-            {
-                case ".eep": return size == 512 || size == 2048;
-                case ".sra": return size == 32768;
-                case ".fla": return size == 131072;
-                default:     return false;
-            }
-        }
- 
+          var buffer = new byte[chunk];
+          bytesRead = reader.GetBytes(1, offset, buffer, 0, buffer.Length);
+          if (bytesRead > 0) { ms.Write(buffer, 0, (int)bytesRead); offset += bytesRead; }
+        } while (bytesRead > 0);
+        data = ms.ToArray();
+      }
+
+      return File(data, "application/octet-stream", dlName);
+    }
+
+    // ---------------------------
+    // Helpers
+    // ---------------------------
+    private static bool IsValidSize(string ext, int size, out string saveType)
+    {
+      saveType = ext.TrimStart('.'); // 'eep'|'sra'|'fla'
+      switch (ext)
+      {
+        case ".eep": return size == 512 || size == 2048;
+        case ".sra": return size == 32768;
+        case ".fla": return size == 131072;
+        default: return false;
+      }
+    }
+
 
 
     [HttpPost("/Rom/GetMappings")]
@@ -820,7 +820,7 @@ LIMIT 1;";
 
 
     private async Task UpdateLastAccessForRom(string fileName, int? userId, int? fileId)
-    { 
+    {
       // First: update last_access and get file_id + folder_path
       await using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
       {
@@ -933,7 +933,8 @@ public class LastInputSelectionResponse
   public long UpdatedAtMs { get; set; }
 }
 
-public class GetRomFileRequest {
-    public int? UserId { get; set; }
-    public int? FileId { get; set; }
+public class GetRomFileRequest
+{
+  public int? UserId { get; set; }
+  public int? FileId { get; set; }
 }
