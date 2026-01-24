@@ -6,7 +6,7 @@ import { HttpClient } from '@angular/common/http';
 @Injectable({
   providedIn: 'root'
 })
-export class AiService { 
+export class AiService {
   async sendMessage(userId: number, skipSave = false, message: string, encryptedUserId: string, maxCount?: number, fileId?: number) {
     try {
       const response = await fetch('/ai/sendmessagetoai', {
@@ -16,7 +16,7 @@ export class AiService {
           'Encrypted-UserId': encryptedUserId,
         },
         body: JSON.stringify({ UserId: userId, Message: message, SkipSave: skipSave, MaxCount: maxCount ?? 0, FileId: fileId }),
-      }); 
+      });
       return response.json();
     } catch (error) {
       console.error('Error in AI streaming response:', error);
@@ -105,74 +105,83 @@ export class AiService {
       throw error;
     }
   }
-  
 
   parseMessage(message: string): string {
     if (!message) return '';
 
     const preBlocks: string[] = [];
 
-    // 1. Capture ```language\ncode\n``` blocks (with optional language)
+    // 1) Code fences: ```lang\n...\n```
     message = message.replace(/```(\w+)?\n([\s\S]*?)```/g, (_, lang = '', code) => {
       const safeCode = this.escapeHTML(code);
       preBlocks.push(`<pre><code class="language-${lang}">${safeCode}</code></pre>`);
       return `<pre-placeholder-${preBlocks.length - 1}>`;
     });
 
-    
-// ===============================
-  // [1b: superscript/subscript handling]
-  // We’ll capture both HTML tags and shorthand syntaxes (^sup^ and ~sub~)
-  const supBlocks: string[] = [];
-  const subBlocks: string[] = [];
+    // =========================================================
+    // Superscript / subscript handling (HTML tags + shorthands)
+    // =========================================================
+    const supBlocks: string[] = [];
+    const subBlocks: string[] = [];
 
-  // 1c: Real <sup>...</sup> coming from the model
-  message = message.replace(/<\s*sup\s*>([\s\S]*?)<\s*\/\s*sup\s*>/gi, (_, inner) => {
-    const safeInner = this.escapeHTML(inner);
-    supBlocks.push(`<sup>${safeInner}</sup>`);
-    return `<sup-placeholder-${supBlocks.length - 1}>`;
-  });
+    // 1a) REAL <sup>...</sup>
+    message = message.replace(/<\s*sup\s*>([\s\S]*?)<\s*\/\s*sup\s*>/gi, (_, inner) => {
+      const safeInner = this.escapeHTML(inner);
+      supBlocks.push(`<sup>${safeInner}</sup>`);
+      return `<sup-placeholder-${supBlocks.length - 1}>`;
+    });
 
-  // 1d: Real <sub>...</sub> coming from the model
-  message = message.replace(/<\s*sub\s*>([\s\S]*?)<\s*\/\s*sub\s*>/gi, (_, inner) => {
-    const safeInner = this.escapeHTML(inner);
-    subBlocks.push(`<sub>${safeInner}</sub>`);
-    return `<sub-placeholder-${subBlocks.length - 1}>`;
-  });
+    // 1b) REAL <sub>...</sub>
+    message = message.replace(/<\s*sub\s*>([\s\S]*?)<\s*\/\s*sub\s*>/gi, (_, inner) => {
+      const safeInner = this.escapeHTML(inner);
+      subBlocks.push(`<sub>${safeInner}</sub>`);
+      return `<sub-placeholder-${subBlocks.length - 1}>`;
+    });
 
-  // 1d) Shorthand ^...^ → <sup>...</sup> (avoid matching across newlines)
-  //    Example: "x^2^" => "x<sup>2</sup>"
-  message = message.replace(/\^([^^\n]+)\^/g, (_, inner) => {
-    const safeInner = this.escapeHTML(inner);
-    supBlocks.push(`<sup>${safeInner}</sup>`);
-    return `<sup-placeholder-${supBlocks.length - 1}>`;
-  });
+    // 1c) ESCAPED &lt;sup&gt;...&lt;/sup&gt;
+    message = message.replace(/&lt;\s*sup\s*&gt;([\s\S]*?)&lt;\s*\/\s*sup\s*&gt;/gi, (_, inner) => {
+      const safeInner = this.escapeHTML(inner);
+      supBlocks.push(`<sup>${safeInner}</sup>`);
+      return `<sup-placeholder-${supBlocks.length - 1}>`;
+    });
 
-  // 1e) Shorthand ~...~ → <sub>...</sub> (avoid matching across newlines)
-  message = message.replace(/~([^~\n]+)~/g, (_, inner) => {
-    const safeInner = this.escapeHTML(inner);
-    subBlocks.push(`<sub>${safeInner}</sub>`);
-    return `<sub-placeholder-${subBlocks.length - 1}>`;
-  }); 
+    // 1d) ESCAPED &lt;sub&gt;...&lt;/sub&gt;
+    message = message.replace(/&lt;\s*sub\s*&gt;([\s\S]*?)&lt;\s*\/\s*sub\s*&gt;/gi, (_, inner) => {
+      const safeInner = this.escapeHTML(inner);
+      subBlocks.push(`<sub>${safeInner}</sub>`);
+      return `<sub-placeholder-${subBlocks.length - 1}>`;
+    });
 
-    // 2. Escape everything else (important: do NOT escape the placeholders!)
+    // 1e) Shorthands: ^sup^ and ~sub~  (avoid spanning newlines)
+    message = message.replace(/\^([^^\n]+)\^/g, (_, inner) => {
+      const safeInner = this.escapeHTML(inner);
+      supBlocks.push(`<sup>${safeInner}</sup>`);
+      return `<sup-placeholder-${supBlocks.length - 1}>`;
+    });
+
+    message = message.replace(/~([^~\n]+)~/g, (_, inner) => {
+      const safeInner = this.escapeHTML(inner);
+      subBlocks.push(`<sub>${safeInner}</sub>`);
+      return `<sub-placeholder-${subBlocks.length - 1}>`;
+    });
+
+    // 2) Escape everything else (IMPORTANT: placeholders are not escaped)
     message = message
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
 
-  // 3. Restore <pre> blocks
-  message = message.replace(/&lt;pre-placeholder-(\d+)&gt;/g, (_, index) => {
-    return preBlocks[parseInt(index)];
-  });
+    // 3) Restore code fences
+    message = message.replace(/&lt;pre-placeholder-(\d+)&gt;/g, (_, index) => {
+      return preBlocks[parseInt(index, 10)];
+    });
 
-  // ===============================
-  // [3a: restore superscript/subscript placeholders]
-  message = message
-    .replace(/&lt;sup-placeholder-(\d+)&gt;/g, (_, idx) => supBlocks[parseInt(idx)])
-    .replace(/&lt;sub-placeholder-(\d+)&gt;/g, (_, idx) => subBlocks[parseInt(idx)]); 
+    // 4) Restore <sup>/<sub> placeholders (now as real tags)
+    message = message
+      .replace(/&lt;sup-placeholder-(\d+)&gt;/g, (_, idx) => supBlocks[parseInt(idx, 10)])
+      .replace(/&lt;sub-placeholder-(\d+)&gt;/g, (_, idx) => subBlocks[parseInt(idx, 10)]);
 
-    // 4. Continue with markdown-like transformations
+    // 5) Markdown-like formatting (unchanged from your code)
     message = message.replace(/^###### (.*$)/gim, '<h6>$1</h6>')
       .replace(/^##### (.*$)/gim, '<h5>$1</h5>')
       .replace(/^#### (.*$)/gim, '<h4>$1</h4>')
@@ -180,7 +189,7 @@ export class AiService {
       .replace(/^## (.*$)/gim, '<h2>$1</h2>')
       .replace(/^# (.*$)/gim, '<h1>$1</h1>');
 
-    message = message.replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>');
+    message = message.replace(/^&gt; (.*$)/gim, '<blockquote>$1</blockquote>');
     message = message.replace(/^\s*[-*] (.*$)/gim, '<li>$1</li>');
     message = message.replace(/(<li>.*<\/li>)/gims, '<ul>$1</ul>');
     message = message.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
@@ -202,6 +211,5 @@ export class AiService {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
-  }
-
+  } 
 }
