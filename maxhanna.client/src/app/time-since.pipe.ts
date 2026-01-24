@@ -11,13 +11,13 @@ export class TimeSincePipe implements PipeTransform {
   /**
    * @param date Date or string (ISO).
    * @param granularity Max unit to include in the output. Default 'minute'.
-   * @param isUTC If true, ISO strings without TZ are treated as UTC (append 'Z').
+   * @param isUTC If true, ISO-like strings without TZ are treated as UTC (append 'Z').
    *              If false, they are treated as local time. Default true.
    */
   transform(
     date?: Date | string,
     granularity: Granularity = 'minute',
-    isUTC: boolean = false
+    isUTC: boolean = true   // <-- Default to true (matches JSDoc and typical API behavior)
   ): string {
     if (!date) return "0";
 
@@ -29,15 +29,18 @@ export class TimeSincePipe implements PipeTransform {
 
   private parseDate(date: Date | string, isUTC: boolean): Date | null {
     if (date instanceof Date) {
-      // A JS Date already represents an absolute point in time; no string parsing needed.
       return date;
     }
 
     if (typeof date === 'string') {
-      // Treat sentinel as invalid/missing
+      // Treat sentinel as invalid/missing (SQL min date)
       if (date.trim().startsWith('0001-01-01')) return null;
 
-      const trimmed = date.trim();
+      // Normalize common forms: allow space instead of 'T'
+      let trimmed = date.trim();
+      if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?$/.test(trimmed)) {
+        trimmed = trimmed.replace(' ', 'T');
+      }
 
       // If it already has timezone info, use as-is
       if (/[Zz]|[+\-]\d{2}:\d{2}$/.test(trimmed)) {
@@ -51,7 +54,7 @@ export class TimeSincePipe implements PipeTransform {
         return isUTC ? new Date(trimmed + 'Z') : new Date(trimmed);
       }
 
-      // Fallback: try native parsing (may be local depending on format)
+      // Fallback: native parser
       return new Date(trimmed);
     }
 
@@ -59,10 +62,23 @@ export class TimeSincePipe implements PipeTransform {
   }
 
   private calculateTimeSince(date: Date, granularity: Granularity): string {
-    const now = new Date();
-    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    const nowMs = Date.now();
+    const thenMs = date.getTime();
 
-    if (diffInSeconds < 0) return "0"; // Future date (or clock skew)
+    // Grace window for small skews (e.g., 5 seconds)
+    const skewGraceSeconds = 5;
+
+    let diffInSeconds = Math.floor((nowMs - thenMs) / 1000);
+
+    // If within ±skewGraceSeconds, treat as "Just now"
+    if (Math.abs(diffInSeconds) <= skewGraceSeconds) {
+      return 'Just now';
+    }
+
+    // If truly in the future, clamp to "0s" (or "0" if you prefer) instead of negative
+    if (diffInSeconds < 0) {
+      return '0s';
+    }
 
     const years = Math.floor(diffInSeconds / (60 * 60 * 24 * 365));
     const monthsTotal = Math.floor(diffInSeconds / (60 * 60 * 24 * 30)); // simple avg month
@@ -77,7 +93,7 @@ export class TimeSincePipe implements PipeTransform {
     if (years > 0) parts.push(`${years}y`);
     if (granularity === 'year') return parts.join(' ') || '0y';
 
-    // Use "mo" to avoid confusion with minutes ("m")
+    // Use "mo" to avoid conflict with minutes "m"
     if (months > 0) parts.push(`${months}mo`);
     if (granularity === 'month') return parts.join(' ') || '0mo';
 
@@ -89,7 +105,7 @@ export class TimeSincePipe implements PipeTransform {
 
     if (minutes > 0) parts.push(`${minutes}m`);
     if (granularity === 'minute') {
-      if (parts.length === 0) { 
+      if (parts.length === 0) {
         return seconds > 0 ? `${seconds}s` : 'Just now';
       }
       return parts.join(' ');
@@ -99,4 +115,3 @@ export class TimeSincePipe implements PipeTransform {
     return parts.join(' ') || '0s';
   }
 }
-``
