@@ -176,3 +176,16 @@ ol, ul {
 .close-button {   
   margin-top: 10px;
 } 
+
+
+.message sup {
+  font-size: 0.75em;
+  vertical-align: super;
+  line-height: 1;
+}
+
+.message sub {
+  font-size: 0.75em;
+  vertical-align: sub;
+  line-height: 1;
+}

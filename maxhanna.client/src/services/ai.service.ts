@@ -119,16 +119,58 @@ export class AiService {
       return `<pre-placeholder-${preBlocks.length - 1}>`;
     });
 
+    
+// ===============================
+  // [1b: superscript/subscript handling]
+  // We’ll capture both HTML tags and shorthand syntaxes (^sup^ and ~sub~)
+  const supBlocks: string[] = [];
+  const subBlocks: string[] = [];
+
+  // 1c: Real <sup>...</sup> coming from the model
+  message = message.replace(/<\s*sup\s*>([\s\S]*?)<\s*\/\s*sup\s*>/gi, (_, inner) => {
+    const safeInner = this.escapeHTML(inner);
+    supBlocks.push(`<sup>${safeInner}</sup>`);
+    return `<sup-placeholder-${supBlocks.length - 1}>`;
+  });
+
+  // 1d: Real <sub>...</sub> coming from the model
+  message = message.replace(/<\s*sub\s*>([\s\S]*?)<\s*\/\s*sub\s*>/gi, (_, inner) => {
+    const safeInner = this.escapeHTML(inner);
+    subBlocks.push(`<sub>${safeInner}</sub>`);
+    return `<sub-placeholder-${subBlocks.length - 1}>`;
+  });
+
+  // 1d) Shorthand ^...^ → <sup>...</sup> (avoid matching across newlines)
+  //    Example: "x^2^" => "x<sup>2</sup>"
+  message = message.replace(/\^([^^\n]+)\^/g, (_, inner) => {
+    const safeInner = this.escapeHTML(inner);
+    supBlocks.push(`<sup>${safeInner}</sup>`);
+    return `<sup-placeholder-${supBlocks.length - 1}>`;
+  });
+
+  // 1e) Shorthand ~...~ → <sub>...</sub> (avoid matching across newlines)
+  message = message.replace(/~([^~\n]+)~/g, (_, inner) => {
+    const safeInner = this.escapeHTML(inner);
+    subBlocks.push(`<sub>${safeInner}</sub>`);
+    return `<sub-placeholder-${subBlocks.length - 1}>`;
+  }); 
+
     // 2. Escape everything else (important: do NOT escape the placeholders!)
     message = message
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
 
-    // 3. Restore <pre> blocks (placeholders are safe to replace now)
-    message = message.replace(/&lt;pre-placeholder-(\d+)&gt;/g, (_, index) => {
-      return preBlocks[parseInt(index)];
-    });
+  // 3. Restore <pre> blocks
+  message = message.replace(/&lt;pre-placeholder-(\d+)&gt;/g, (_, index) => {
+    return preBlocks[parseInt(index)];
+  });
+
+  // ===============================
+  // [3a: restore superscript/subscript placeholders]
+  message = message
+    .replace(/&lt;sup-placeholder-(\d+)&gt;/g, (_, idx) => supBlocks[parseInt(idx)])
+    .replace(/&lt;sub-placeholder-(\d+)&gt;/g, (_, idx) => subBlocks[parseInt(idx)]); 
 
     // 4. Continue with markdown-like transformations
     message = message.replace(/^###### (.*$)/gim, '<h6>$1</h6>')
