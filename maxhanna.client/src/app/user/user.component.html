@@ -92,10 +92,10 @@
             *ngIf="(userLoginStreakCurrent || userLoginStreakLongest) && !loginOnly">
             <div class="xxSmallFont" title="Login Streak">Streak: </div>
             <div class="smallFont loginStreakWrapper">
-              <span *ngIf="userLoginStreakCurrent">Current: {{userLoginStreakCurrent}} day{{userLoginStreakCurrent > 1 ?
-                's' : ''}}</span>
-              <span *ngIf="userLoginStreakLongest"> • Best: {{userLoginStreakLongest}} day{{userLoginStreakLongest > 1 ?
-                's' : ''}}</span>
+              <div *ngIf="userLoginStreakCurrent">Current: {{userLoginStreakCurrent}} day{{userLoginStreakCurrent > 1 ?
+                's' : ''}}</div>
+              <div *ngIf="userLoginStreakLongest">Best: {{userLoginStreakLongest}} day{{userLoginStreakLongest > 1 ?
+                's' : ''}}</div>
             </div>
           </div>
 

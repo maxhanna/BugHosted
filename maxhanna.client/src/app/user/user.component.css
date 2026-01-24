@@ -548,11 +548,11 @@
 
 .loginStreakWrapper {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   flex-wrap: wrap;
   align-content: center;
   justify-content: flex-end;
-  align-items: center;
+  align-items: flex-end;
 }
 
 .optionsStatsBreakdownValue {
