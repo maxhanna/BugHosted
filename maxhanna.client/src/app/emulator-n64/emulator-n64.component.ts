@@ -1087,15 +1087,47 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       const written: string[] = [];
       const userId = this.parentRef?.user?.id ?? 0;
 
+ 
       const makeValue = (bytes: Uint8Array, existingOrTemplate?: any) => {
-        if (!existingOrTemplate) return bytes;
+        // Helper: coerce any timestamp-like field to a real Date
+        const ensureDate = (obj: any) => {
+          if (!obj) return;
+          const t = obj.timestamp ?? obj.mtime ?? obj.time ?? null;
+          if (t instanceof Date) return;
+          if (typeof t === 'number') obj.timestamp = new Date(t);
+          else if (typeof t === 'string') {
+            const d = new Date(t);
+            obj.timestamp = Number.isNaN(+d) ? new Date() : d;
+          } else {
+            obj.timestamp = new Date();
+          }
+        };
+
+        if (!existingOrTemplate) {
+          // Create a minimal IDBFS-compatible record.
+          // IDBFS usually stores one of {contents|data|bytes} plus a timestamp-like field.
+          return {
+            timestamp: new Date(),     // <-- critical: a real Date instance
+            mode: 0o100644,            // optional (regular file, rw-r--r--)
+            contents: bytes            // pick one field name consistently
+          };
+        }
+
+        // Clone and preserve overall shape; convert timestamp to Date
         const clone = JSON.parse(JSON.stringify(existingOrTemplate));
+        ensureDate(clone);
+
         if (clone.contents) clone.contents = bytes;
         else if (clone.data) clone.data = bytes;
         else if (Array.isArray(clone.bytes)) clone.bytes = Array.from(bytes);
-        else return bytes;
+        else {
+          // Fallback: add a 'contents' field if none matched
+          clone.contents = bytes;
+        }
+
         return clone;
       };
+
 
       const txPut = (os: IDBObjectStore, key: string, val: any) => new Promise<void>((resolve, reject) => {
         const r = os.put(val, key);
