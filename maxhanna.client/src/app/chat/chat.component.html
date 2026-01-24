@@ -58,7 +58,7 @@
               </app-text-input>
             </div>
             <div class="xxSmallFont thirdFontColor" *ngIf="message.editDate" [title]="message.editDate">
-              Edited: {{message.editDate | timeSince}}
+              Edited: {{message.editDate | timeSince:'minute':true}}
             </div>
 
             <div *ngFor="let file of message.files"

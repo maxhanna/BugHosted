@@ -77,7 +77,7 @@
                         <span *ngFor="let category of getCategories(entry.category); let last = last" class="secondaryFontColor clickable-category cursorPointerUnderlined" (click)="addClickedTopic(category)">{{ category.trim() }}{{ !last ? ',' : '' }}</span>
                     </div>
                     <div class="entry-date" [title]="entry.createdAt">
-                        <span class="thirdFontColor">Added:</span> <span class="secondaryFontColor">{{ entry.createdAt | timeSince }}</span>
+                        <span class="thirdFontColor">Added:</span> <span class="secondaryFontColor">{{ entry.createdAt | timeSince:'minute':true }}</span>
                     </div>
                     <div class="entry-date cursorPointer" title="Display who voted" (click)="openVoterPanel(entry)" style="margin-bottom: 10px">
                         <span class="thirdFontColor">Votes:</span> <span class="secondaryFontColor cursorPointerUnderlined">{{ entry.totalVotes }}</span>

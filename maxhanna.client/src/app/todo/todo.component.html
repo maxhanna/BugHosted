@@ -78,7 +78,7 @@
               class="cursorPointer" *ngIf="isEditing.includes(item) && item.deleted" [disabled]="isLoading">Close</button>
           </td>
           <td class="todoDate" [title]="(item.date?.toString() ?? '').replace('T',' ')">
-            {{ item.date | timeSince }}
+            {{ item.date | timeSince:'minute':true}}
             <div *ngIf="isEditing.includes(item) && isLoading">Loading...</div>
           </td> 
         </tr>

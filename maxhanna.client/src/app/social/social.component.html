@@ -374,7 +374,7 @@
               [displayHoverPicture]="true" [previousComponent]="'Social'"></app-user-tag>
           </span>
           <div *ngIf="!isLoading && canLoad" class="storyDate" [title]="(story.date?.toString() ?? '')">
-            {{ story.date | timeSince }}
+            {{ story.date | timeSince:'minute':true }}
           </div>
           <div class="postOptionButtonWrapper">
             <span class="postOptionButtons">

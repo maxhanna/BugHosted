@@ -62,13 +62,13 @@
           <div class="seperatedUserHeader blackFontColor linkHighlights">
             <div class="xxSmallFont" title="Last Seen">Last Seen: </div>
             <div>
-              <span *ngIf="user && user.lastSeen && isUserOnline(user.lastSeen | timeSince)" class="cursorPointer"
-                [title]="user.lastSeen | timeSince">
+              <span *ngIf="user && user.lastSeen && isUserOnline(user.lastSeen | timeSince:'minute':true)" class="cursorPointer"
+                [title]="user.lastSeen | timeSince:'minute':true">
                 <span class="onlineButton" title="Online"></span> Online
               </span>
-              <span *ngIf="user && user.lastSeen && !isUserOnline(user.lastSeen | timeSince)" class="smallFont"
+              <span *ngIf="user && user.lastSeen && !isUserOnline(user.lastSeen | timeSince:'minute':true)" class="smallFont"
                 [title]="user.lastSeen">
-                {{ user.lastSeen | timeSince }}
+                {{ user.lastSeen | timeSince:'minute':true }}
               </span>
               <span *ngIf="!user?.lastSeen">
                 Unknown <span class="xxSmallFont">(0 days)</span>
