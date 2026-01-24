@@ -14,11 +14,13 @@ export class AppMenuItemComponent {
   @Input() label?: string;
   @Input() className?: string;
 
+  private readonly EXCLUDED_TYPES = new Set<string>([
+    'reactions', 
+  ]);
+
   open() {
-    if (this.parentRef.getMenuItemDescription(this.type)) {
-      if (this.parentRef && typeof this.parentRef.createComponent === 'function') {
-        this.parentRef.createComponent(this.type);
-      }
+    if (!this.isExcluded(this.type) && this.parentRef.getMenuItemDescription(this.type)) {
+      this.parentRef.createComponent(this.type); 
     } else {
       this.parentRef.showNotification("Unknown component type");
     }
@@ -43,4 +45,12 @@ export class AppMenuItemComponent {
     const base = s.trim().slice(0, -1); // remove trailing ':'
     return icon ? `${base}${icon}:` : `${base}:`;
   }
+  
+  private normalize(s?: string): string {
+    return (s ?? '').trim().toLowerCase();
+  }
+
+  private isExcluded(type: string): boolean {
+    return this.EXCLUDED_TYPES.has(this.normalize(type));
+  } 
 }
