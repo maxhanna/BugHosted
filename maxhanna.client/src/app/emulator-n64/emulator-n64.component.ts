@@ -33,7 +33,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   showKeyMappings = false;
   savedMappingsNames: string[] = [];
   private _mappingsStoreKey = 'n64_mappings_store_v1';
-  selectedMappingName: string | null = null; 
+  selectedMappingName: string | null = null;
 
   private _romGoodName: string | null = null;
   private _romMd5: string | null = null;
@@ -152,8 +152,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     canvasEl?.addEventListener('click', () => this._bootstrapDetectOnce());
 
     this.startGamepadAutoDetect();
-    
-    setTimeout(() => { this.tryApplyLastForConnectedPads().catch(() => {}); }, 0); 
+
+    setTimeout(() => { this.tryApplyLastForConnectedPads().catch(() => { }); }, 0);
   }
 
   async ngOnDestroy(): Promise<void> {
@@ -263,7 +263,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       const fsId = this.fullscreenContainer?.nativeElement?.id;
       if (fsId && container.id !== fsId) {
         this.isFullScreen = false;
-      } 
+      }
     } catch (e) {
       console.warn('Failed to resize canvas', e);
     }
@@ -566,100 +566,100 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   // =====================================================
   // Emulator control (RAW-only)
   // =====================================================
-  
-async boot() {
-  if (!this.romBuffer) {
-    this.parentRef?.showNotification('Pick a ROM first');
-    return;
-  }
-  if (this.autosave) {
-    this.startAutosaveLoop();
-  }
 
-  const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
-  if (!canvasEl) {
-    this.parentRef?.showNotification('No canvas available');
-    return;
-  }
-
-  this.resizeCanvasToParent();
-
-  if (!this._canvasResizeAdded) {
-    try {
-      window.addEventListener('resize', this._resizeHandler);
-      document.addEventListener('fullscreenchange', this._onFullscreenChange);
-      window.addEventListener('orientationchange', this._resizeHandler);
-      this._canvasResizeAdded = true;
-    } catch { /* ignore */ }
-  }
-
-  this.loading = true;
-  this.status = 'booting';
-
-  // ✅ Reset meta and start sniffer BEFORE emulator creation
-  this._romGoodName = null;
-  this._romMd5 = null;
-  const restoreSniffer = this.installMupenConsoleSniffer();
-
-  try {
-    this.applyGamepadReorder();
-    if (this.directInjectMode) this.enableDirectInject();
-
-    this.instance = await createMupen64PlusWeb({
-      canvas: canvasEl,
-      innerWidth: canvasEl.width,
-      innerHeight: canvasEl.height,
-      romData: new Int8Array(this.romBuffer!),
-      beginStats: () => { },
-      endStats: () => { },
-      coreConfig: { emuMode: 0 },
-      setErrorStatus: (msg: string) => console.log('Mupen error:', msg),
-      locateFile: (path: string) => `/assets/mupen64plus/${path}`,
-    });
-
-    if (!this.instance || typeof this.instance.start !== 'function') {
-      this.status = 'error';
-      throw new Error('Emulator instance missing start method');
+  async boot() {
+    if (!this.romBuffer) {
+      this.parentRef?.showNotification('Pick a ROM first');
+      return;
+    }
+    if (this.autosave) {
+      this.startAutosaveLoop();
     }
 
-    await this.instance.start();
-    this.status = 'running';
+    const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
+    if (!canvasEl) {
+      this.parentRef?.showNotification('No canvas available');
+      return;
+    }
 
-    // ✅ Stop sniffing once ROM meta printed
-    restoreSniffer();
+    this.resizeCanvasToParent();
 
-    // Give IDBFS a small head start; reduces "syncfs overlap" churn
-    await new Promise(r => setTimeout(r, 400));
-    await this.syncFs('post-start');
+    if (!this._canvasResizeAdded) {
+      try {
+        window.addEventListener('resize', this._resizeHandler);
+        document.addEventListener('fullscreenchange', this._onFullscreenChange);
+        window.addEventListener('orientationchange', this._resizeHandler);
+        this._canvasResizeAdded = true;
+      } catch { /* ignore */ }
+    }
 
-    await this.safeDebug('SAVE-SCAN', () => this.debugScanAllBatteryForCurrentRom());
-    await this.safeDebug('ROM-ID', () => this.debugRomIdentity());
+    this.loading = true;
+    this.status = 'booting';
 
-    // Optional (your ini in /assets looks like a stub; safeDebug prevents crashing)
-    await this.safeDebug('INI', () => this.debugCheckIniForRacer());
+    // ✅ Reset meta and start sniffer BEFORE emulator creation
+    this._romGoodName = null;
+    this._romMd5 = null;
+    const restoreSniffer = this.installMupenConsoleSniffer();
 
-    // Mirrors (keep if you want)
-    this.mirrorGoodNameSavesToCanonical().catch(() => { });
+    try {
+      this.applyGamepadReorder();
+      if (this.directInjectMode) this.enableDirectInject();
 
-    // ✅ This is the key: copy canonical -> emulator key (GoodName).eep and restart once
-    this.ensureSaveLoadedForCurrentRom().catch(() => { });
+      this.instance = await createMupen64PlusWeb({
+        canvas: canvasEl,
+        innerWidth: canvasEl.width,
+        innerHeight: canvasEl.height,
+        romData: new Int8Array(this.romBuffer!),
+        beginStats: () => { },
+        endStats: () => { },
+        coreConfig: { emuMode: 0 },
+        setErrorStatus: (msg: string) => console.log('Mupen error:', msg),
+        locateFile: (path: string) => `/assets/mupen64plus/${path}`,
+      });
 
-    this.parentRef?.showNotification(`Booted ${this.romName}`);
-    this.bootGraceUntil = performance.now() + 1500;
-    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
-  } catch (ex) {
-    console.error('Failed to boot emulator', ex);
-    this.status = 'error';
-    this.parentRef?.showNotification('Failed to boot emulator');
-    this.restoreGamepadGetter();
-    throw ex;
-  } finally {
-    // Always restore to avoid leaving console patched if something throws early
-    try { restoreSniffer(); } catch { /* ignore */ }
-    this.loading = false;
-    this.debugScanMempaks().catch(() => { });
+      if (!this.instance || typeof this.instance.start !== 'function') {
+        this.status = 'error';
+        throw new Error('Emulator instance missing start method');
+      }
+
+      await this.instance.start();
+      this.status = 'running';
+
+      // ✅ Stop sniffing once ROM meta printed
+      restoreSniffer();
+
+      // Give IDBFS a small head start; reduces "syncfs overlap" churn
+      await new Promise(r => setTimeout(r, 400));
+      await this.syncFs('post-start');
+
+      await this.safeDebug('SAVE-SCAN', () => this.debugScanAllBatteryForCurrentRom());
+      await this.safeDebug('ROM-ID', () => this.debugRomIdentity());
+
+      // Optional (your ini in /assets looks like a stub; safeDebug prevents crashing)
+      await this.safeDebug('INI', () => this.debugCheckIniForRacer());
+
+      // Mirrors (keep if you want)
+      this.mirrorGoodNameSavesToCanonical().catch(() => { });
+
+      // ✅ This is the key: copy canonical -> emulator key (GoodName).eep and restart once
+      this.ensureSaveLoadedForCurrentRom().catch(() => { });
+
+      this.parentRef?.showNotification(`Booted ${this.romName}`);
+      this.bootGraceUntil = performance.now() + 1500;
+      requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+    } catch (ex) {
+      console.error('Failed to boot emulator', ex);
+      this.status = 'error';
+      this.parentRef?.showNotification('Failed to boot emulator');
+      this.restoreGamepadGetter();
+      throw ex;
+    } finally {
+      // Always restore to avoid leaving console patched if something throws early
+      try { restoreSniffer(); } catch { /* ignore */ }
+      this.loading = false;
+      this.debugScanMempaks().catch(() => { });
+    }
   }
-}
 
 
   async stop() {
@@ -848,157 +848,157 @@ async boot() {
   // =====================================================
   // Export/import in-game save RAM
   // =====================================================
- 
-async exportInGameSaveRam(): Promise<ExportInGameSaveRamResult> {
-  const empty: ExportInGameSaveRamResult = {
-    romName: this.romName ?? null,
-    matchedOnly: false,
-    totalFound: 0,
-    exported: []
-  };
 
-  try {
-    const db = await this.openMupenDb();
-    if (!db) {
-      this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found or missing FILE_DATA.');
-      return empty;
-    }
+  async exportInGameSaveRam(): Promise<ExportInGameSaveRamResult> {
+    const empty: ExportInGameSaveRamResult = {
+      romName: this.romName ?? null,
+      matchedOnly: false,
+      totalFound: 0,
+      exported: []
+    };
 
-    // Pull all rows from FILE_DATA
-    const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
-      const tx = db.transaction('FILE_DATA', 'readonly');
-      const os = tx.objectStore('FILE_DATA');
-      const res: Array<{ key: any; val: any }> = [];
-      const cursorReq = os.openCursor();
-      cursorReq.onerror = () => reject(cursorReq.error);
-      cursorReq.onsuccess = (ev: any) => {
-        const cursor = ev.target.result;
-        if (cursor) { res.push({ key: cursor.key, val: cursor.value }); cursor.continue(); }
-        else resolve(res);
-      };
-    });
+    try {
+      const db = await this.openMupenDb();
+      if (!db) {
+        this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found or missing FILE_DATA.');
+        return empty;
+      }
 
-    const saveExts = ['.eep', '.sra', '.fla'];
-    const saveRows = rows.filter(({ key }) => {
-      const s = String(key).toLowerCase();
-      return s.startsWith('/mupen64plus/saves/') && saveExts.some(e => s.endsWith(e));
-    });
-
-    if (!saveRows.length) {
-      this.parentRef?.showNotification('No in-game save RAM found under /mupen64plus/saves.');
-      db.close();
-      return { ...empty, totalFound: 0, exported: [] };
-    }
-
-    // ---------- Goodname-first targeting ----------
-    const goodname = this._romGoodName || null;
-    const goodnameKeys = goodname
-      ? ['.eep', '.sra', '.fla'].map(ext => `/mupen64plus/saves/${goodname}${ext}`)
-      : [];
-
-    const byExactGood = goodname
-      ? saveRows.filter(({ key }) => goodnameKeys.includes(String(key)))
-      : [];
-
-    let targetRows = saveRows;
-    let matchedOnly = false;
-
-    if (byExactGood.length) {
-      // ✅ Prefer the active ROM’s Goodname saves
-      targetRows = byExactGood;
-      matchedOnly = true;
-    } else {
-      // ---------- Token-based narrowing (your original logic) ----------
-      const isRunning = this.status === 'running' && !!this.instance;
-      const romToken = this.romTokenForMatching(this.romName);
-      if (isRunning && romToken) {
-        const tokenMatches = (keyStr: string) => {
-          const fileName = keyStr.split('/').pop() || keyStr;
-          const lower = fileName.toLowerCase();
-          const loose = lower.replace(/[^a-z0-9 ]/g, '').trim();
-          return loose.includes(romToken) || lower.includes((this.romName || '').toLowerCase());
+      // Pull all rows from FILE_DATA
+      const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
+        const tx = db.transaction('FILE_DATA', 'readonly');
+        const os = tx.objectStore('FILE_DATA');
+        const res: Array<{ key: any; val: any }> = [];
+        const cursorReq = os.openCursor();
+        cursorReq.onerror = () => reject(cursorReq.error);
+        cursorReq.onsuccess = (ev: any) => {
+          const cursor = ev.target.result;
+          if (cursor) { res.push({ key: cursor.key, val: cursor.value }); cursor.continue(); }
+          else resolve(res);
         };
-        const narrowed = saveRows.filter(({ key }) => tokenMatches(String(key)));
-        if (narrowed.length) {
-          targetRows = narrowed;
-          matchedOnly = true;
-        } else {
-          console.log('No saves matched the current ROM; returning all saves.');
+      });
+
+      const saveExts = ['.eep', '.sra', '.fla'];
+      const saveRows = rows.filter(({ key }) => {
+        const s = String(key).toLowerCase();
+        return s.startsWith('/mupen64plus/saves/') && saveExts.some(e => s.endsWith(e));
+      });
+
+      if (!saveRows.length) {
+        this.parentRef?.showNotification('No in-game save RAM found under /mupen64plus/saves.');
+        db.close();
+        return { ...empty, totalFound: 0, exported: [] };
+      }
+
+      // ---------- Goodname-first targeting ----------
+      const goodname = this._romGoodName || null;
+      const goodnameKeys = goodname
+        ? ['.eep', '.sra', '.fla'].map(ext => `/mupen64plus/saves/${goodname}${ext}`)
+        : [];
+
+      const byExactGood = goodname
+        ? saveRows.filter(({ key }) => goodnameKeys.includes(String(key)))
+        : [];
+
+      let targetRows = saveRows;
+      let matchedOnly = false;
+
+      if (byExactGood.length) {
+        // ✅ Prefer the active ROM’s Goodname saves
+        targetRows = byExactGood;
+        matchedOnly = true;
+      } else {
+        // ---------- Token-based narrowing (your original logic) ----------
+        const isRunning = this.status === 'running' && !!this.instance;
+        const romToken = this.romTokenForMatching(this.romName);
+        if (isRunning && romToken) {
+          const tokenMatches = (keyStr: string) => {
+            const fileName = keyStr.split('/').pop() || keyStr;
+            const lower = fileName.toLowerCase();
+            const loose = lower.replace(/[^a-z0-9 ]/g, '').trim();
+            return loose.includes(romToken) || lower.includes((this.romName || '').toLowerCase());
+          };
+          const narrowed = saveRows.filter(({ key }) => tokenMatches(String(key)));
+          if (narrowed.length) {
+            targetRows = narrowed;
+            matchedOnly = true;
+          } else {
+            console.log('No saves matched the current ROM; returning all saves.');
+          }
         }
       }
-    }
 
-    // ---------- De-duplicate by extension with Goodname -> Canonical -> Any preference ----------
-    const userId = this.parentRef?.user?.id ?? 0;
-    const extOrder: ('.eep' | '.sra' | '.fla')[] = ['.eep', '.sra', '.fla'];
+      // ---------- De-duplicate by extension with Goodname -> Canonical -> Any preference ----------
+      const userId = this.parentRef?.user?.id ?? 0;
+      const extOrder: ('.eep' | '.sra' | '.fla')[] = ['.eep', '.sra', '.fla'];
 
-    const chooseForExt = (ext: '.eep' | '.sra' | '.fla') => {
-      const candidates = targetRows.filter(({ key }) => String(key).toLowerCase().endsWith(ext));
-      if (!candidates.length) return null;
+      const chooseForExt = (ext: '.eep' | '.sra' | '.fla') => {
+        const candidates = targetRows.filter(({ key }) => String(key).toLowerCase().endsWith(ext));
+        if (!candidates.length) return null;
 
-      // Prefer Goodname exact key if present
-      if (goodname) {
-        const gk = `/mupen64plus/saves/${goodname}${ext}`;
-        const byGood = candidates.find(({ key }) => String(key) === gk);
-        if (byGood) return byGood;
+        // Prefer Goodname exact key if present
+        if (goodname) {
+          const gk = `/mupen64plus/saves/${goodname}${ext}`;
+          const byGood = candidates.find(({ key }) => String(key) === gk);
+          if (byGood) return byGood;
+        }
+
+        // Then prefer canonical "<base>_<uid><ext>"
+        const canonicalName = `/mupen64plus/saves/${this.canonicalSaveFilename(ext, userId)}`;
+        const canon = candidates.find(({ key }) => String(key) === canonicalName);
+        if (canon) return canon;
+
+        // Else first available
+        return candidates[0];
+      };
+
+      const chosenRows: Array<{ key: any; val: any }> = [];
+      for (const ext of extOrder) {
+        const picked = chooseForExt(ext);
+        if (picked) chosenRows.push(picked);
       }
 
-      // Then prefer canonical "<base>_<uid><ext>"
-      const canonicalName = `/mupen64plus/saves/${this.canonicalSaveFilename(ext, userId)}`;
-      const canon = candidates.find(({ key }) => String(key) === canonicalName);
-      if (canon) return canon;
+      // ---------- Build exported payload ----------
+      const exported: N64ExportedSave[] = [];
+      for (const { key, val } of chosenRows) {
+        const ab = this.normalizeToArrayBuffer(val);
+        if (!ab) continue;
+        const filename = String(key).split('/').pop() || 'save_ram.bin';
+        exported.push({
+          key: String(key),
+          filename,
+          kind: 'battery',
+          size: ab.byteLength,
+          bytes: new Uint8Array(ab)
+        });
+      }
 
-      // Else first available
-      return candidates[0];
-    };
+      db.close();
 
-    const chosenRows: Array<{ key: any; val: any }> = [];
-    for (const ext of extOrder) {
-      const picked = chooseForExt(ext);
-      if (picked) chosenRows.push(picked);
-    }
+      const result: ExportInGameSaveRamResult = {
+        romName: this.romName ?? null,
+        matchedOnly,
+        totalFound: saveRows.length,
+        exported
+      };
 
-    // ---------- Build exported payload ----------
-    const exported: N64ExportedSave[] = [];
-    for (const { key, val } of chosenRows) {
-      const ab = this.normalizeToArrayBuffer(val);
-      if (!ab) continue;
-      const filename = String(key).split('/').pop() || 'save_ram.bin';
-      exported.push({
-        key: String(key),
-        filename,
-        kind: 'battery',
-        size: ab.byteLength,
-        bytes: new Uint8Array(ab)
+      const count = exported.length;
+      const scope = matchedOnly ? 'matching' : 'all';
+      console.log(`Prepared ${scope} ${count} in-game save file(s) for export.`);
+      this.saveDebug(`EXPORT RESULT`, {
+        rom: this.romName,
+        matchedOnly,
+        totalFound: saveRows.length,
+        exported: exported.map(e => ({ filename: e.filename, size: e.size }))
       });
+
+      return result;
+    } catch (err) {
+      console.error('exportInGameSaveRam failed', err);
+      this.parentRef?.showNotification('Failed to export in-game save RAM');
+      return empty;
     }
-
-    db.close();
-
-    const result: ExportInGameSaveRamResult = {
-      romName: this.romName ?? null,
-      matchedOnly,
-      totalFound: saveRows.length,
-      exported
-    };
-
-    const count = exported.length;
-    const scope = matchedOnly ? 'matching' : 'all';
-    console.log(`Prepared ${scope} ${count} in-game save file(s) for export.`);
-    this.saveDebug(`EXPORT RESULT`, {
-      rom: this.romName,
-      matchedOnly,
-      totalFound: saveRows.length,
-      exported: exported.map(e => ({ filename: e.filename, size: e.size }))
-    });
-
-    return result;
-  } catch (err) {
-    console.error('exportInGameSaveRam failed', err);
-    this.parentRef?.showNotification('Failed to export in-game save RAM');
-    return empty;
   }
-} 
 
   private normalizeToArrayBuffer(val: any): ArrayBuffer | null {
     if (val instanceof ArrayBuffer) return val;
@@ -1058,12 +1058,12 @@ async exportInGameSaveRam(): Promise<ExportInGameSaveRamResult> {
   }
 
   async importInGameSaveRam(files: FileList | File[], skipBoot: boolean = false) {
-    try { 
+    try {
       const db = await this.openMupenDb();
       if (!db) {
         this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found or missing FILE_DATA.');
         return;
-      } 
+      }
       // Load a template row if needed to match stored shape
       const getTemplate = async (): Promise<any | null> => {
         const tx = db.transaction('FILE_DATA', 'readonly');
@@ -1144,7 +1144,7 @@ async exportInGameSaveRam(): Promise<ExportInGameSaveRamResult> {
         // });
 
         //const valueIncoming = makeValue(bytes, existingIncoming ?? templateVal);
-        
+
         const writes: Promise<void>[] = [];
         for (const key of keyCandidates) {
           // try to preserve stored shape when overwriting
@@ -1164,7 +1164,7 @@ async exportInGameSaveRam(): Promise<ExportInGameSaveRamResult> {
           ext,
           count: keyCandidates.length,
           keys: keyCandidates
-        }); 
+        });
 
         // Verify incoming/canonical only
         const verifyTx = db.transaction('FILE_DATA', 'readonly');
@@ -1236,78 +1236,78 @@ async exportInGameSaveRam(): Promise<ExportInGameSaveRamResult> {
   // =====================================================
   // Autosave
   // =====================================================
- 
-// =====================================================
-// Autosave (REPLACE the whole method)
-// =====================================================
-private async autosaveTick() {
-  if (!this.autosave || this.autosaveInProgress) return;
-  this.autosaveInProgress = true;
 
-  try {
-    const userId = this.parentRef?.user?.id;
-    if (!userId) return;
+  // =====================================================
+  // Autosave (REPLACE the whole method)
+  // =====================================================
+  private async autosaveTick() {
+    if (!this.autosave || this.autosaveInProgress) return;
+    this.autosaveInProgress = true;
 
-    // Always export; don’t require matchedOnly to be true
-    const result = await this.exportInGameSaveRam();
-    const isRunning = this.status === 'running' && !!this.instance;
-    if (!isRunning || !result.exported.length) return;
+    try {
+      const userId = this.parentRef?.user?.id;
+      if (!userId) return;
 
-    // Pick the best save for the ACTIVE ROM:
-    // 1) Prefer exact Goodname match
-    // 2) Else prefer token match
-    // 3) Else first (fallback)
-    const good = this._romGoodName || '';
-    const token = (this.romTokenForMatching(this.romName) || '').toLowerCase();
+      // Always export; don’t require matchedOnly to be true
+      const result = await this.exportInGameSaveRam();
+      const isRunning = this.status === 'running' && !!this.instance;
+      if (!isRunning || !result.exported.length) return;
 
-    const byGood = good
-      ? result.exported.find(e => e.filename === `${good}.eep`
-                              ||  e.filename === `${good}.sra`
-                              ||  e.filename === `${good}.fla`)
-      : null;
+      // Pick the best save for the ACTIVE ROM:
+      // 1) Prefer exact Goodname match
+      // 2) Else prefer token match
+      // 3) Else first (fallback)
+      const good = this._romGoodName || '';
+      const token = (this.romTokenForMatching(this.romName) || '').toLowerCase();
 
-    const byToken = !byGood && token
-      ? result.exported.find(e => {
+      const byGood = good
+        ? result.exported.find(e => e.filename === `${good}.eep`
+          || e.filename === `${good}.sra`
+          || e.filename === `${good}.fla`)
+        : null;
+
+      const byToken = !byGood && token
+        ? result.exported.find(e => {
           const lower = (e.filename || '').toLowerCase();
           const loose = lower.replace(/[^a-z0-9 ]/g, '').trim();
           return loose.includes(token);
         })
-      : null;
+        : null;
 
-    const best = byGood || byToken || result.exported[0];
-    if (!best) return;
+      const best = byGood || byToken || result.exported[0];
+      if (!best) return;
 
-    // IMPORTANT: send the EXACT ROM filename (with extension),
-    // so it matches GetN64SaveByName() later.
-    const romNameForServer = this.romName || this.canonicalRomBaseFromFileName(this.romName);
+      // IMPORTANT: send the EXACT ROM filename (with extension),
+      // so it matches GetN64SaveByName() later.
+      const romNameForServer = this.romName || this.canonicalRomBaseFromFileName(this.romName);
 
-    const ext = this.detectSaveExt(best.filename, best.size);
-    const filenameForServer = this.canonicalSaveFilenameForUpload(ext);
+      const ext = this.detectSaveExt(best.filename, best.size);
+      const filenameForServer = this.canonicalSaveFilenameForUpload(ext);
 
-    const payload: N64StateUpload = {
-      userId,
-      romName: romNameForServer,          // <— FIX: exact ROM filename with extension
-      filename: filenameForServer,        // e.g., "<Base>.eep|.sra|.fla"
-      bytes: best.bytes,
-      saveTimeMs: Date.now(),
-      durationSeconds: 180
-    };
+      const payload: N64StateUpload = {
+        userId,
+        romName: romNameForServer,          // <— FIX: exact ROM filename with extension
+        filename: filenameForServer,        // e.g., "<Base>.eep|.sra|.fla"
+        bytes: best.bytes,
+        saveTimeMs: Date.now(),
+        durationSeconds: 180
+      };
 
-    const uploadRes = await this.romService.saveN64State(payload);
-    if (!uploadRes.ok) {
-      console.warn('Upload failed:', uploadRes.errorText);
-    } else {
-      console.log('Saved state with payload:', uploadRes);
-      this.parentRef?.showNotification?.(`Autosaved ${ext} for ${romNameForServer}`);
+      const uploadRes = await this.romService.saveN64State(payload);
+      if (!uploadRes.ok) {
+        console.warn('Upload failed:', uploadRes.errorText);
+      } else {
+        console.log('Saved state with payload:', uploadRes);
+        this.parentRef?.showNotification?.(`Autosaved ${ext} for ${romNameForServer}`);
+      }
+    } catch (err) {
+      console.error('autosaveTick error', err);
+    } finally {
+      this.autosaveInProgress = false;
+      await this.syncFs('post-autosave');
+      console.log('Finished Autosave');
     }
-  } catch (err) {
-    console.error('autosaveTick error', err);
-  } finally {
-    this.autosaveInProgress = false;
-    await this.syncFs('post-autosave');
-    console.log('Finished Autosave');
   }
-} 
 
   private startAutosaveLoop() {
     this.stopAutosaveLoop();
@@ -1375,7 +1375,7 @@ private async autosaveTick() {
 
       // --- MODIFY: maybeApplyStoredMappingFor() should also check lastMappingPerGp first (see next section)
       this.maybeApplyStoredMappingFor(ev.gamepad.id);
-    })().catch(() => {});
+    })().catch(() => { });
   };
 
 
@@ -1428,15 +1428,15 @@ private async autosaveTick() {
     }
   }
 
-  
-/** Persist last mapping name used for a given gamepad.id */
-private persistLastMappingForGp(gamepadId: string | null, mappingName: string | null) {
-  if (!gamepadId || !mappingName) return;
-  try {
-    this.lastMappingPerGp[gamepadId] = mappingName;
-    localStorage.setItem(this._lastPerGamepadKey, JSON.stringify(this.lastMappingPerGp));
-  } catch { /* ignore */ }
-}
+
+  /** Persist last mapping name used for a given gamepad.id */
+  private persistLastMappingForGp(gamepadId: string | null, mappingName: string | null) {
+    if (!gamepadId || !mappingName) return;
+    try {
+      this.lastMappingPerGp[gamepadId] = mappingName;
+      localStorage.setItem(this._lastPerGamepadKey, JSON.stringify(this.lastMappingPerGp));
+    } catch { /* ignore */ }
+  }
 
   // =====================================================
   // Named mappings (backend/local)
@@ -1494,7 +1494,7 @@ private persistLastMappingForGp(gamepadId: string | null, mappingName: string | 
           this.parentRef?.showNotification(`Mapping saved as "${name}"`);
           await this.loadMappingsList();
           this.selectedMappingName = name;
-          
+
           const gp = this.currentPad();
           this.persistLastMappingForGp(gp?.id || null, name); // <-- ADD
 
@@ -1609,45 +1609,45 @@ private persistLastMappingForGp(gamepadId: string | null, mappingName: string | 
       console.error('Failed to delete mapping', e);
       this.parentRef?.showNotification('Failed to apply mapping');
     }
-  } 
-
-onMappingSelect(name: string) {
-  this.selectedMappingName = name || null;
-  this.applySelectedMapping().then(() => {
-    const gp = this.currentPad();
-    this.persistLastMappingForGp(gp?.id || null, this.selectedMappingName);  
-  }).catch(() => {});
-} 
-
-/** Try to auto-pick a connected pad that has a stored mapping; returns true if applied */
-private async tryApplyLastForConnectedPads(): Promise<boolean> {
-  this.refreshGamepads();
-  // Prefer a pad that has a known mapping stored in lastMappingPerGp
-  for (const gp of this.gamepads) {
-    const name = this.lastMappingPerGp[gp.id];
-    if (!name) continue;
-
-    // Select this pad, set mapping, apply, assign to P1
-    this.selectedGamepadIndex = gp.index;
-    this.ports[1].gpIndex = gp.index;
-    this.selectedMappingName = name;
-
-    await this.applySelectedMapping();
-    this.applyGamepadReorder();
-    this.ensureP1InitializedFromSinglePad();
-    this.parentRef?.showNotification?.(`Auto-applied "${name}" for ${gp.id}`);
-    return true;
   }
-  return false;
-}
 
-/** Centralized helper: apply the given mapping name to this.selectedGamepadIndex and persist it */
-private async applyMappingNameToCurrentPad(mappingName: string) {
-  this.selectedMappingName = mappingName || null;
-  await this.applySelectedMapping();
-  const gp = this.currentPad();
-  this.persistLastMappingForGp(gp?.id || null, this.selectedMappingName);
-}
+  onMappingSelect(name: string) {
+    this.selectedMappingName = name || null;
+    this.applySelectedMapping().then(() => {
+      const gp = this.currentPad();
+      this.persistLastMappingForGp(gp?.id || null, this.selectedMappingName);
+    }).catch(() => { });
+  }
+
+  /** Try to auto-pick a connected pad that has a stored mapping; returns true if applied */
+  private async tryApplyLastForConnectedPads(): Promise<boolean> {
+    this.refreshGamepads();
+    // Prefer a pad that has a known mapping stored in lastMappingPerGp
+    for (const gp of this.gamepads) {
+      const name = this.lastMappingPerGp[gp.id];
+      if (!name) continue;
+
+      // Select this pad, set mapping, apply, assign to P1
+      this.selectedGamepadIndex = gp.index;
+      this.ports[1].gpIndex = gp.index;
+      this.selectedMappingName = name;
+
+      await this.applySelectedMapping();
+      this.applyGamepadReorder();
+      this.ensureP1InitializedFromSinglePad();
+      this.parentRef?.showNotification?.(`Auto-applied "${name}" for ${gp.id}`);
+      return true;
+    }
+    return false;
+  }
+
+  /** Centralized helper: apply the given mapping name to this.selectedGamepadIndex and persist it */
+  private async applyMappingNameToCurrentPad(mappingName: string) {
+    this.selectedMappingName = mappingName || null;
+    await this.applySelectedMapping();
+    const gp = this.currentPad();
+    this.persistLastMappingForGp(gp?.id || null, this.selectedMappingName);
+  }
 
 
   private assignFirstDetectedToP1(preferredIdx?: number) {
@@ -1785,10 +1785,10 @@ private async applyMappingNameToCurrentPad(mappingName: string) {
     if (!name) {
       const idx = this.ports[port].gpIndex;
       const pads = this.getGamepadsBase();
-      const gp = (idx != null) ? pads[idx] : null; 
-      const gpId = this.gamepadIdFromIndex(idx); 
+      const gp = (idx != null) ? pads[idx] : null;
+      const gpId = this.gamepadIdFromIndex(idx);
       const name = this.ports[port].mappingName;
-      this.persistLastMappingForGp(gpId, name); 
+      this.persistLastMappingForGp(gpId, name);
 
       this.ports[port].mapping = {};
       if (gp?.mapping === 'standard') {
@@ -2014,33 +2014,33 @@ private async applyMappingNameToCurrentPad(mappingName: string) {
     burst();
   }
 
- 
-private async maybeApplyStoredMappingFor(id: string) {
-  // --- ADD: prefer last-per-gamepad
-  const lastName = this.lastMappingPerGp[id];
-  if (lastName) {
-    // If the saved mapping exists, apply it and persist again
-    const has = this.savedMappingsNames.includes(lastName);
-    if (!has && !this.savedMappingsNames.length) {
-      await this.loadMappingsList();
-    }
-    if (this.savedMappingsNames.includes(lastName)) {
-      this.selectedMappingName = lastName;
-      await this.applySelectedMapping();
-      this.persistLastMappingForGp(id, lastName);
-      return;
-    }
-  }
 
-  // --- Fallback to prior behavior: look for a mapping literally named after the gamepad id
-  const knownName = this.savedMappingsNames.find(n => n.toLowerCase() === id.toLowerCase());
-  if (knownName) {
-    this.selectedMappingName = knownName;
-    await this.applySelectedMapping();
-    // also persist under last-per-gp for next time
-    this.persistLastMappingForGp(id, knownName);
+  private async maybeApplyStoredMappingFor(id: string) {
+    // --- ADD: prefer last-per-gamepad
+    const lastName = this.lastMappingPerGp[id];
+    if (lastName) {
+      // If the saved mapping exists, apply it and persist again
+      const has = this.savedMappingsNames.includes(lastName);
+      if (!has && !this.savedMappingsNames.length) {
+        await this.loadMappingsList();
+      }
+      if (this.savedMappingsNames.includes(lastName)) {
+        this.selectedMappingName = lastName;
+        await this.applySelectedMapping();
+        this.persistLastMappingForGp(id, lastName);
+        return;
+      }
+    }
+
+    // --- Fallback to prior behavior: look for a mapping literally named after the gamepad id
+    const knownName = this.savedMappingsNames.find(n => n.toLowerCase() === id.toLowerCase());
+    if (knownName) {
+      this.selectedMappingName = knownName;
+      await this.applySelectedMapping();
+      // also persist under last-per-gp for next time
+      this.persistLastMappingForGp(id, knownName);
+    }
   }
-}
 
 
   refreshGamepads() {
@@ -2545,126 +2545,126 @@ private async maybeApplyStoredMappingFor(id: string) {
    * - For .eep: honor per-ROM override (e.g. Racer -> 512B), otherwise prefer existing GoodName size.
    * - Keep canonical in sync with the chosen GoodName bytes to avoid confusion on export.
    */
-  
-private async ensureSaveLoadedForCurrentRom(): Promise<void> {
-  const userId = this.parentRef?.user?.id ?? 0;
-  if (!this.romName || !userId) return;
 
-  const tryExts: ('.eep' | '.sra' | '.fla')[] = ['.eep', '.sra', '.fla'];
+  private async ensureSaveLoadedForCurrentRom(): Promise<void> {
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (!this.romName || !userId) return;
 
-  let chosenExt: '.eep' | '.sra' | '.fla' | null = null;
-  let canonicalKey: string | null = null;
+    const tryExts: ('.eep' | '.sra' | '.fla')[] = ['.eep', '.sra', '.fla'];
 
-  try {
-    // 1) Choose canonical key (what you imported / stored)
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+    let chosenExt: '.eep' | '.sra' | '.fla' | null = null;
+    let canonicalKey: string | null = null;
+
+    try {
+      // 1) Choose canonical key (what you imported / stored)
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open('/mupen64plus');
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => resolve(req.result);
+      });
+      if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
+
+      for (const ext of tryExts) {
+        const cand = `/mupen64plus/saves/${this.canonicalSaveFilename(ext, userId)}`;
+        const exists = await this.idbKeyExists(db, cand);
+        if (!exists) continue;
+
+        const bytes = await this.readIdbBytes(db, cand);
+        const sizes = this.expectedSizeForExt(ext);
+        if (bytes && sizes.includes(bytes.byteLength)) {
+          chosenExt = ext;
+          canonicalKey = cand;
+          break;
+        }
+      }
+
+      this.saveDebug(`LOAD-GUARD: canonical ext chosen`, { chosenExt, canonicalKey });
+      if (!chosenExt || !canonicalKey) { db.close(); return; }
+
+      const canonicalBytes = await this.readIdbBytes(db, canonicalKey);
+      db.close();
+      if (!canonicalBytes || canonicalBytes.byteLength === 0) return;
+
+      this.saveDebug(`LOAD-GUARD: canonical bytes`, {
+        canonicalKey,
+        size: canonicalBytes.byteLength,
+        hash: await this.shortSha(canonicalBytes)
+      });
+
+      // 2) Determine the emulator’s real save key from GoodName (deterministic)
+      const emuKey = this.emuPrimarySaveKey(chosenExt);
+
+      this.saveDebug(`LOAD-GUARD: emuKey chosen`, {
+        emuKey,
+        goodname: this._romGoodName,
+        md5: this._romMd5
+      });
+
+      if (!emuKey) {
+        // fallback: try previous heuristic (still safe)
+        const fallback = await this.waitForGoodNameKey(chosenExt, 2250, 150);
+        if (!fallback) return;
+        return await this.writeCanonicalToEmuKey(chosenExt, canonicalBytes, fallback);
+      }
+
+      // 3) Write canonical -> emuKey and restart if changed
+      await this.writeCanonicalToEmuKey(chosenExt, canonicalBytes, emuKey);
+    } catch (e) {
+      console.warn('ensureSaveLoadedForCurrentRom failed', e);
+    }
+  }
+
+  private async writeCanonicalToEmuKey(
+    ext: '.eep' | '.sra' | '.fla',
+    canonicalBytes: Uint8Array,
+    emuKey: string
+  ): Promise<void> {
+    const db2 = await new Promise<IDBDatabase>((resolve, reject) => {
       const req = indexedDB.open('/mupen64plus');
       req.onerror = () => reject(req.error);
       req.onsuccess = () => resolve(req.result);
     });
-    if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
+    if (!Array.from(db2.objectStoreNames).includes('FILE_DATA')) { db2.close(); return; }
 
-    for (const ext of tryExts) {
-      const cand = `/mupen64plus/saves/${this.canonicalSaveFilename(ext, userId)}`;
-      const exists = await this.idbKeyExists(db, cand);
-      if (!exists) continue;
+    const emuBytes = await this.readIdbBytes(db2, emuKey);
+    let wrote = false;
 
-      const bytes = await this.readIdbBytes(db, cand);
-      const sizes = this.expectedSizeForExt(ext);
-      if (bytes && sizes.includes(bytes.byteLength)) {
-        chosenExt = ext;
-        canonicalKey = cand;
-        break;
+    // (Optional) EEPROM override / resizing (only if you still need it)
+    let targetBytes = canonicalBytes;
+    if (ext === '.eep') {
+      const override = this.eepromSizeOverrideForRom();
+      if (override === 512 && canonicalBytes.byteLength === 2048) {
+        const downsized = this.maybeDownsizeEeprom4K(canonicalBytes);
+        if (downsized) targetBytes = downsized;
       }
     }
 
-    this.saveDebug(`LOAD-GUARD: canonical ext chosen`, { chosenExt, canonicalKey });
-    if (!chosenExt || !canonicalKey) { db.close(); return; }
-
-    const canonicalBytes = await this.readIdbBytes(db, canonicalKey);
-    db.close();
-    if (!canonicalBytes || canonicalBytes.byteLength === 0) return;
-
-    this.saveDebug(`LOAD-GUARD: canonical bytes`, {
-      canonicalKey,
-      size: canonicalBytes.byteLength,
-      hash: await this.shortSha(canonicalBytes)
-    });
-
-    // 2) Determine the emulator’s real save key from GoodName (deterministic)
-    const emuKey = this.emuPrimarySaveKey(chosenExt);
-
-    this.saveDebug(`LOAD-GUARD: emuKey chosen`, {
-      emuKey,
-      goodname: this._romGoodName,
-      md5: this._romMd5
-    });
-
-    if (!emuKey) {
-      // fallback: try previous heuristic (still safe)
-      const fallback = await this.waitForGoodNameKey(chosenExt, 2250, 150);
-      if (!fallback) return;
-      return await this.writeCanonicalToEmuKey(chosenExt, canonicalBytes, fallback);
+    if (!this.bytesEqual(targetBytes, emuBytes)) {
+      await this.writeIdbBytes(db2, emuKey, targetBytes);
+      wrote = true;
+      this.saveDebug(`LOAD-GUARD: wrote canonical -> emuKey`, {
+        emuKey,
+        size: targetBytes.byteLength,
+        hash: await this.shortSha(targetBytes)
+      });
+    } else {
+      this.saveDebug(`LOAD-GUARD: emuKey already matches canonical`, { emuKey });
     }
 
-    // 3) Write canonical -> emuKey and restart if changed
-    await this.writeCanonicalToEmuKey(chosenExt, canonicalBytes, emuKey);
-  } catch (e) {
-    console.warn('ensureSaveLoadedForCurrentRom failed', e);
-  }
-}
+    db2.close();
 
-private async writeCanonicalToEmuKey(
-  ext: '.eep' | '.sra' | '.fla',
-  canonicalBytes: Uint8Array,
-  emuKey: string
-): Promise<void> {
-  const db2 = await new Promise<IDBDatabase>((resolve, reject) => {
-    const req = indexedDB.open('/mupen64plus');
-    req.onerror = () => reject(req.error);
-    req.onsuccess = () => resolve(req.result);
-  });
-  if (!Array.from(db2.objectStoreNames).includes('FILE_DATA')) { db2.close(); return; }
-
-  const emuBytes = await this.readIdbBytes(db2, emuKey);
-  let wrote = false;
-
-  // (Optional) EEPROM override / resizing (only if you still need it)
-  let targetBytes = canonicalBytes;
-  if (ext === '.eep') {
-    const override = this.eepromSizeOverrideForRom();
-    if (override === 512 && canonicalBytes.byteLength === 2048) {
-      const downsized = this.maybeDownsizeEeprom4K(canonicalBytes);
-      if (downsized) targetBytes = downsized;
+    // Restart once so game re-reads battery save on boot
+    if (wrote) {
+      try {
+        await this.stop();
+        await new Promise(r => setTimeout(r, 350));
+        await this.boot();
+        this.parentRef?.showNotification('Save injected into emulator save key; restarted to reload it.');
+      } catch (e) {
+        console.warn('Restart after save sync failed', e);
+      }
     }
   }
-
-  if (!this.bytesEqual(targetBytes, emuBytes)) {
-    await this.writeIdbBytes(db2, emuKey, targetBytes);
-    wrote = true;
-    this.saveDebug(`LOAD-GUARD: wrote canonical -> emuKey`, {
-      emuKey,
-      size: targetBytes.byteLength,
-      hash: await this.shortSha(targetBytes)
-    });
-  } else {
-    this.saveDebug(`LOAD-GUARD: emuKey already matches canonical`, { emuKey });
-  }
-
-  db2.close();
-
-  // Restart once so game re-reads battery save on boot
-  if (wrote) {
-    try {
-      await this.stop();
-      await new Promise(r => setTimeout(r, 350));
-      await this.boot();
-      this.parentRef?.showNotification('Save injected into emulator save key; restarted to reload it.');
-    } catch (e) {
-      console.warn('Restart after save sync failed', e);
-    }
-  }
-} 
 
 
 
@@ -2756,7 +2756,7 @@ private async writeCanonicalToEmuKey(
   }
 
   // ---- Debug utility: delete savestates for current ROM only (to prevent masking battery) ----
-  private async deleteSavestatesForCurrentRom(): Promise<void> { 
+  private async deleteSavestatesForCurrentRom(): Promise<void> {
     const db = await this.openMupenDb();
     if (!db) {
       this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found or missing FILE_DATA.');
@@ -2818,88 +2818,88 @@ private async writeCanonicalToEmuKey(
     await this._idbfsSync;
   }
 
-private readCrc1Crc2FromRom(rom: ArrayBuffer): { crc1: string; crc2: string } {
-  const dv = new DataView(rom);
-  const crc1 = dv.getUint32(0x10, false).toString(16).padStart(8, '0');
-  const crc2 = dv.getUint32(0x14, false).toString(16).padStart(8, '0');
-  return { crc1, crc2 };
-} 
-
-private async safeDebug(label: string, fn: () => Promise<void>) {
-  try { await fn(); }
-  catch (e) { console.warn(`[DEBUG:${label}] failed`, e); }
-}
-
-private async debugRomIdentity(): Promise<void> {
-  if (!this.romBuffer) return;
-  const { crc1, crc2 } = this.readCrc1Crc2FromRom(this.romBuffer);
-  const sha = await this.sha256Hex(this.romBuffer);
-  console.log('[ROM-ID]', { romName: this.romName, crc1, crc2, sha256: sha });
-}
-
-private async debugCheckIniForRacer(): Promise<void> {
-  const text = await fetch('/assets/mupen64plus/mupen64plus.ini').then(r => r.text());
-  console.log('[INI] length', text.length);
-  console.log('[INI] contains "Star Wars Episode I - Racer"?', text.includes('Star Wars Episode I - Racer'));
-  console.log('[INI] contains "SaveType=Eeprom 4KB"?', text.includes('SaveType=Eeprom 4KB'));
-} 
-
-
-private async debugScanAllBatteryForCurrentRom(): Promise<void> {
-  const db = await new Promise<IDBDatabase>((resolve, reject) => {
-    const req = indexedDB.open('/mupen64plus');
-    req.onerror = () => reject(req.error);
-    req.onsuccess = () => resolve(req.result);
-  });
-
-  if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
-
-  const token = (this.romTokenForMatching(this.romName) || '').toLowerCase();
-  const tx = db.transaction('FILE_DATA', 'readonly');
-  const os = tx.objectStore('FILE_DATA');
-
-  const rows: Array<{ key: string; size: number; ext: string; matches: boolean }> = await new Promise((resolve, reject) => {
-    const out: any[] = [];
-    const cur = os.openCursor();
-    cur.onerror = () => reject(cur.error);
-    cur.onsuccess = (ev: any) => {
-      const c = ev.target.result;
-      if (c) {
-        const keyStr = String(c.key);
-        const lower = keyStr.toLowerCase();
-        const isBattery = lower.startsWith('/mupen64plus/saves/') &&
-                          (lower.endsWith('.eep') || lower.endsWith('.sra') || lower.endsWith('.fla'));
-        if (isBattery) {
-          const fname = lower.split('/').pop() || '';
-          const loose = fname.replace(/[^a-z0-9 ]/g, '').trim();
-          const matches = !token || loose.includes(token);
-          const u8 = this.coerceToU8(c.value);
-          const size = u8?.byteLength ?? 0;
-          const ext = (fname.match(/\.(eep|sra|fla)$/i)?.[0] || '').toLowerCase();
-          out.push({ key: keyStr, size, ext, matches });
-        }
-        c.continue();
-      } else resolve(out);
-    };
-  });
-
-  console.log('[SAVE-SCAN] battery candidates (.eep/.sra/.fla):', rows);
-  db.close();
-}  
- 
-private coerceToU8(v: any): Uint8Array | null {
-  if (!v) return null;
-  if (v instanceof Uint8Array) return v;
-  if (v instanceof ArrayBuffer) return new Uint8Array(v);
-  if (v?.buffer instanceof ArrayBuffer && typeof v.byteLength === 'number') {
-    // handle views correctly:
-    return new Uint8Array(v.buffer, v.byteOffset ?? 0, v.byteLength);
+  private readCrc1Crc2FromRom(rom: ArrayBuffer): { crc1: string; crc2: string } {
+    const dv = new DataView(rom);
+    const crc1 = dv.getUint32(0x10, false).toString(16).padStart(8, '0');
+    const crc2 = dv.getUint32(0x14, false).toString(16).padStart(8, '0');
+    return { crc1, crc2 };
   }
-  if (v?.contents) return this.coerceToU8(v.contents);
-  if (v?.data) return this.coerceToU8(v.data);
-  if (Array.isArray(v?.bytes)) return new Uint8Array(v.bytes);
-  return null;
-}
+
+  private async safeDebug(label: string, fn: () => Promise<void>) {
+    try { await fn(); }
+    catch (e) { console.warn(`[DEBUG:${label}] failed`, e); }
+  }
+
+  private async debugRomIdentity(): Promise<void> {
+    if (!this.romBuffer) return;
+    const { crc1, crc2 } = this.readCrc1Crc2FromRom(this.romBuffer);
+    const sha = await this.sha256Hex(this.romBuffer);
+    console.log('[ROM-ID]', { romName: this.romName, crc1, crc2, sha256: sha });
+  }
+
+  private async debugCheckIniForRacer(): Promise<void> {
+    const text = await fetch('/assets/mupen64plus/mupen64plus.ini').then(r => r.text());
+    console.log('[INI] length', text.length);
+    console.log('[INI] contains "Star Wars Episode I - Racer"?', text.includes('Star Wars Episode I - Racer'));
+    console.log('[INI] contains "SaveType=Eeprom 4KB"?', text.includes('SaveType=Eeprom 4KB'));
+  }
+
+
+  private async debugScanAllBatteryForCurrentRom(): Promise<void> {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open('/mupen64plus');
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => resolve(req.result);
+    });
+
+    if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
+
+    const token = (this.romTokenForMatching(this.romName) || '').toLowerCase();
+    const tx = db.transaction('FILE_DATA', 'readonly');
+    const os = tx.objectStore('FILE_DATA');
+
+    const rows: Array<{ key: string; size: number; ext: string; matches: boolean }> = await new Promise((resolve, reject) => {
+      const out: any[] = [];
+      const cur = os.openCursor();
+      cur.onerror = () => reject(cur.error);
+      cur.onsuccess = (ev: any) => {
+        const c = ev.target.result;
+        if (c) {
+          const keyStr = String(c.key);
+          const lower = keyStr.toLowerCase();
+          const isBattery = lower.startsWith('/mupen64plus/saves/') &&
+            (lower.endsWith('.eep') || lower.endsWith('.sra') || lower.endsWith('.fla'));
+          if (isBattery) {
+            const fname = lower.split('/').pop() || '';
+            const loose = fname.replace(/[^a-z0-9 ]/g, '').trim();
+            const matches = !token || loose.includes(token);
+            const u8 = this.coerceToU8(c.value);
+            const size = u8?.byteLength ?? 0;
+            const ext = (fname.match(/\.(eep|sra|fla)$/i)?.[0] || '').toLowerCase();
+            out.push({ key: keyStr, size, ext, matches });
+          }
+          c.continue();
+        } else resolve(out);
+      };
+    });
+
+    console.log('[SAVE-SCAN] battery candidates (.eep/.sra/.fla):', rows);
+    db.close();
+  }
+
+  private coerceToU8(v: any): Uint8Array | null {
+    if (!v) return null;
+    if (v instanceof Uint8Array) return v;
+    if (v instanceof ArrayBuffer) return new Uint8Array(v);
+    if (v?.buffer instanceof ArrayBuffer && typeof v.byteLength === 'number') {
+      // handle views correctly:
+      return new Uint8Array(v.buffer, v.byteOffset ?? 0, v.byteLength);
+    }
+    if (v?.contents) return this.coerceToU8(v.contents);
+    if (v?.data) return this.coerceToU8(v.data);
+    if (Array.isArray(v?.bytes)) return new Uint8Array(v.bytes);
+    return null;
+  }
 
   /** Heuristic/override of EEPROM size for specific ROMs (by loose token). */
   private eepromSizeOverrideForRom(): 512 | 2048 | null {
@@ -2921,112 +2921,112 @@ private coerceToU8(v: any): Uint8Array | null {
     return null;
   }
 
-/** Capture core-printed ROM metadata (Goodname + MD5) during boot. */
+  /** Capture core-printed ROM metadata (Goodname + MD5) during boot. */
 
-private installMupenConsoleSniffer(): () => void {
-  const originalLog = console.log.bind(console);
+  private installMupenConsoleSniffer(): () => void {
+    const originalLog = console.log.bind(console);
 
-  console.log = (...args: any[]) => {
+    console.log = (...args: any[]) => {
+      try {
+        originalLog(...args);
+
+        const msg = args?.[0];
+        if (typeof msg !== 'string') return;
+
+        const mGood = msg.match(/@@@\s*Core:\s*Goodname:\s*(.+)$/i);
+        if (mGood?.[1]) this._romGoodName = mGood[1].trim();
+
+        const mMd5 = msg.match(/@@@\s*Core:\s*MD5:\s*([0-9A-F]{32})/i);
+        if (mMd5?.[1]) this._romMd5 = mMd5[1].toUpperCase();
+      } catch {
+        // never block boot
+      }
+    };
+
+    return () => { console.log = originalLog; };
+  }
+
+  /** ROM header internal name (offset 0x20..0x33), trimmed. */
+  private romHeaderInternalName(): string | null {
+    if (!this.romBuffer) return null;
     try {
-      originalLog(...args);
-
-      const msg = args?.[0];
-      if (typeof msg !== 'string') return;
-
-      const mGood = msg.match(/@@@\s*Core:\s*Goodname:\s*(.+)$/i);
-      if (mGood?.[1]) this._romGoodName = mGood[1].trim();
-
-      const mMd5 = msg.match(/@@@\s*Core:\s*MD5:\s*([0-9A-F]{32})/i);
-      if (mMd5?.[1]) this._romMd5 = mMd5[1].toUpperCase();
+      const u8 = new Uint8Array(this.romBuffer);
+      const start = 0x20;
+      const end = 0x34; // exclusive
+      const slice = u8.slice(start, end);
+      let s = '';
+      for (const b of slice) {
+        if (b === 0) break;
+        s += String.fromCharCode(b);
+      }
+      s = s.replace(/\s+/g, ' ').trim();
+      return s || null;
     } catch {
-      // never block boot
-    }
-  };
-
-  return () => { console.log = originalLog; };
-} 
-
-/** ROM header internal name (offset 0x20..0x33), trimmed. */
-private romHeaderInternalName(): string | null {
-  if (!this.romBuffer) return null;
-  try {
-    const u8 = new Uint8Array(this.romBuffer);
-    const start = 0x20;
-    const end = 0x34; // exclusive
-    const slice = u8.slice(start, end);
-    let s = '';
-    for (const b of slice) {
-      if (b === 0) break;
-      s += String.fromCharCode(b);
-    }
-    s = s.replace(/\s+/g, ' ').trim();
-    return s || null;
-  } catch {
-    return null;
-  }
-}
-
-/** Mupen "SaveFilenameFormat=1" style: goodname(32) + "-" + md5(8) */
-private mupenGoodNameMd5Base(): string | null {
-  if (!this._romGoodName || !this._romMd5) return null;
-  const good32 = this._romGoodName.slice(0, 32);
-  const md58 = this._romMd5.slice(0, 8);
-  return `${good32}-${md58}`;
-}
-
-/** Candidate IDBFS keys under /mupen64plus/saves for a given ext. */
-private buildSaveKeyCandidates(ext: '.eep' | '.sra' | '.fla', incomingFileName?: string): string[] {
-  const keys = new Set<string>();
-
-  // 1) Incoming filename (your current behavior)
-  if (incomingFileName) {
-    keys.add(`/mupen64plus/saves/${incomingFileName}`);
-  }
-
-  // 2) Canonical (your current behavior) - only if userId exists
-  const userId = this.parentRef?.user?.id ?? 0;
-  if (userId) {
-    keys.add(`/mupen64plus/saves/${this.canonicalSaveFilename(ext, userId)}`);
-  }
-
-  // 3) Mupen goodname+md5 mode (discussed upstream as SaveFilenameFormat=1)
-  //    "%.32s-%.8s" -> goodname32-md5_8 [3](https://mupen64plus.org/wiki/index.php?title=FileLocations)
-  const gnMd5 = this.mupenGoodNameMd5Base();
-  if (gnMd5) keys.add(`/mupen64plus/saves/${gnMd5}${ext}`);
-
-  // 4) Headername-based candidates (some builds use headername)
-  const header = this.romHeaderInternalName();
-  if (header) {
-    keys.add(`/mupen64plus/saves/${header}${ext}`);
-    if (this._romMd5) keys.add(`/mupen64plus/saves/${header}-${this._romMd5.slice(0, 8)}${ext}`);
-  }
-
-  return Array.from(keys);
-}
-
-/** The save key the emulator is most likely using right now (based on GoodName). */ 
-private emuPrimarySaveKey(ext: '.eep' | '.sra' | '.fla'): string | null {
-  if (!this._romGoodName) return null;
-  return `/mupen64plus/saves/${this._romGoodName}${ext}`;
-}
-
-
-private async openMupenDb(): Promise<IDBDatabase | null> {
-  try {
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open('/mupen64plus');
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => resolve(req.result);
-    });
-    if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) {
-      db.close();
       return null;
     }
-    return db;
-  } catch {
-    return null;
   }
-}
+
+  /** Mupen "SaveFilenameFormat=1" style: goodname(32) + "-" + md5(8) */
+  private mupenGoodNameMd5Base(): string | null {
+    if (!this._romGoodName || !this._romMd5) return null;
+    const good32 = this._romGoodName.slice(0, 32);
+    const md58 = this._romMd5.slice(0, 8);
+    return `${good32}-${md58}`;
+  }
+
+  /** Candidate IDBFS keys under /mupen64plus/saves for a given ext. */
+  private buildSaveKeyCandidates(ext: '.eep' | '.sra' | '.fla', incomingFileName?: string): string[] {
+    const keys = new Set<string>();
+
+    // 1) Incoming filename (your current behavior)
+    if (incomingFileName) {
+      keys.add(`/mupen64plus/saves/${incomingFileName}`);
+    }
+
+    // 2) Canonical (your current behavior) - only if userId exists
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (userId) {
+      keys.add(`/mupen64plus/saves/${this.canonicalSaveFilename(ext, userId)}`);
+    }
+
+    // 3) Mupen goodname+md5 mode (discussed upstream as SaveFilenameFormat=1)
+    //    "%.32s-%.8s" -> goodname32-md5_8 [3](https://mupen64plus.org/wiki/index.php?title=FileLocations)
+    const gnMd5 = this.mupenGoodNameMd5Base();
+    if (gnMd5) keys.add(`/mupen64plus/saves/${gnMd5}${ext}`);
+
+    // 4) Headername-based candidates (some builds use headername)
+    const header = this.romHeaderInternalName();
+    if (header) {
+      keys.add(`/mupen64plus/saves/${header}${ext}`);
+      if (this._romMd5) keys.add(`/mupen64plus/saves/${header}-${this._romMd5.slice(0, 8)}${ext}`);
+    }
+
+    return Array.from(keys);
+  }
+
+  /** The save key the emulator is most likely using right now (based on GoodName). */
+  private emuPrimarySaveKey(ext: '.eep' | '.sra' | '.fla'): string | null {
+    if (!this._romGoodName) return null;
+    return `/mupen64plus/saves/${this._romGoodName}${ext}`;
+  }
+
+
+  private async openMupenDb(): Promise<IDBDatabase | null> {
+    try {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open('/mupen64plus');
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => resolve(req.result);
+      });
+      if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) {
+        db.close();
+        return null;
+      }
+      return db;
+    } catch {
+      return null;
+    }
+  }
 
 }
 

@@ -148,7 +148,10 @@ public class WebCrawler
     "ye", "yt",
     "za", "zm", "zw"
   };
-
+  private static readonly string[] _commonFaviconPaths = new[]
+  {
+    "/favicon.ico", "/favicon.png", 
+  };
 
   private readonly TimeSpan _requestInterval = TimeSpan.FromSeconds(7);
   private DateTime _lastRequestTime = DateTime.MinValue;
@@ -739,7 +742,7 @@ public class WebCrawler
       if (string.IsNullOrWhiteSpace(cs)) return null;
 
       // Normalize URL once  
-      var normUrl =  NormalizeUrlForStorage(url);
+      var normUrl = NormalizeUrlForStorage(url);
 
       await using var connection = new MySqlConnection(cs);
       await connection.OpenAsync().ConfigureAwait(false);
@@ -1018,6 +1021,15 @@ public class WebCrawler
       htmlDocument.OptionCheckSyntax = true;
       htmlDocument.LoadHtml(html);
       ExtractMetadataFromHtmlDocument(url, metadata, htmlDocument);
+      if (string.IsNullOrWhiteSpace(metadata.ImageUrl))
+      {
+        var pageUri = new Uri(url);
+        var iconUrl = await ResolveFaviconAsync(pageUri, htmlDocument);
+        if (!string.IsNullOrWhiteSpace(iconUrl))
+        {
+          metadata.ImageUrl = iconUrl;
+        }
+      }
 
       var linkNodes = htmlDocument.DocumentNode.SelectNodes("//a[@href]");
       int maxLinkNodeCount = _maxRecursionLimit;
@@ -1591,81 +1603,81 @@ public class WebCrawler
       _ = _log.Db("Crawler exception (GetUrlHash) : " + ex.Message, null, "CRAWLER", true);
     }
     return "";
-  } 
+  }
 
-public async Task<int> GetIndexCount(CancellationToken ct = default)
-{
+  public async Task<int> GetIndexCount(CancellationToken ct = default)
+  {
     var cs = _config.GetValue<string>("ConnectionStrings:maxhanna");
     if (string.IsNullOrWhiteSpace(cs)) return 0;
 
     try
     {
-        await using var conn = new MySqlConnection(cs);
-        await conn.OpenAsync(ct).ConfigureAwait(false);
+      await using var conn = new MySqlConnection(cs);
+      await conn.OpenAsync(ct).ConfigureAwait(false);
 
-        // 1) Read cache first
-        const string readSql = @"
+      // 1) Read cache first
+      const string readSql = @"
             SELECT last_count, last_counted_at
             FROM search_results_count_cache
             WHERE id = 1
             LIMIT 1;";
-        long cachedCount = 0;
-        DateTime? lastCountedAt = null;
+      long cachedCount = 0;
+      DateTime? lastCountedAt = null;
 
-        await using (var readCmd = new MySqlCommand(readSql, conn)
-        { CommandTimeout = 5 })
+      await using (var readCmd = new MySqlCommand(readSql, conn)
+      { CommandTimeout = 5 })
+      {
+        await using var reader = await readCmd.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow, ct)
+                                              .ConfigureAwait(false);
+        if (await reader.ReadAsync(ct).ConfigureAwait(false))
         {
-            await using var reader = await readCmd.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow, ct)
-                                                  .ConfigureAwait(false);
-            if (await reader.ReadAsync(ct).ConfigureAwait(false))
-            {
-                cachedCount   = reader.IsDBNull(0) ? 0L : reader.GetInt64(0);
-                lastCountedAt = reader.IsDBNull(1) ? (DateTime?)null : reader.GetDateTime(1);
-            }
+          cachedCount = reader.IsDBNull(0) ? 0L : reader.GetInt64(0);
+          lastCountedAt = reader.IsDBNull(1) ? (DateTime?)null : reader.GetDateTime(1);
         }
+      }
 
-        // 2) If cache exists and is fresh (< 30 minutes), return it
-        if (lastCountedAt.HasValue && lastCountedAt.Value >= DateTime.UtcNow.AddMinutes(-30))
-        {
-            return (int)Math.Min(cachedCount, int.MaxValue);
-        }
+      // 2) If cache exists and is fresh (< 30 minutes), return it
+      if (lastCountedAt.HasValue && lastCountedAt.Value >= DateTime.UtcNow.AddMinutes(-30))
+      {
+        return (int)Math.Min(cachedCount, int.MaxValue);
+      }
 
-        // 3) Cache missing or stale → recompute and upsert with a single statement
-        const string upsertRefreshSql = @"
+      // 3) Cache missing or stale → recompute and upsert with a single statement
+      const string upsertRefreshSql = @"
             INSERT INTO search_results_count_cache (id, last_count, last_counted_at)
             VALUES (1, (SELECT COUNT(*) FROM search_results), UTC_TIMESTAMP())
             ON DUPLICATE KEY UPDATE
               last_count      = (SELECT COUNT(*) FROM search_results),
               last_counted_at = UTC_TIMESTAMP();
         ";
-        await using (var upCmd = new MySqlCommand(upsertRefreshSql, conn)
-        { CommandTimeout = 30 })
-        {
-            await upCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
-        }
+      await using (var upCmd = new MySqlCommand(upsertRefreshSql, conn)
+      { CommandTimeout = 30 })
+      {
+        await upCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+      }
 
-        // 4) Re-read and return
-        await using (var readCmd2 = new MySqlCommand(readSql, conn)
-        { CommandTimeout = 5 })
+      // 4) Re-read and return
+      await using (var readCmd2 = new MySqlCommand(readSql, conn)
+      { CommandTimeout = 5 })
+      {
+        await using var reader2 = await readCmd2.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow, ct)
+                                                .ConfigureAwait(false);
+        if (await reader2.ReadAsync(ct).ConfigureAwait(false))
         {
-            await using var reader2 = await readCmd2.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow, ct)
-                                                    .ConfigureAwait(false);
-            if (await reader2.ReadAsync(ct).ConfigureAwait(false))
-            {
-                var lastCount = reader2.IsDBNull(0) ? 0L : reader2.GetInt64(0);
-                return (int)Math.Min(lastCount, int.MaxValue);
-            }
+          var lastCount = reader2.IsDBNull(0) ? 0L : reader2.GetInt64(0);
+          return (int)Math.Min(lastCount, int.MaxValue);
         }
+      }
 
-        // Shouldn’t happen (row is created/updated above), but be defensive.
-        return 0;
+      // Shouldn’t happen (row is created/updated above), but be defensive.
+      return 0;
     }
     catch (Exception ex)
     {
-        _ = _log.Db("GetIndexCount failed: " + ex.Message, null, "SEARCH", true);
-        return 0;
+      _ = _log.Db("GetIndexCount failed: " + ex.Message, null, "SEARCH", true);
+      return 0;
     }
-} 
+  }
 
   public void ClearVisitedUrls()
   {
@@ -1880,7 +1892,7 @@ public async Task<int> GetIndexCount(CancellationToken ct = default)
 
     return builder.ToString();
   }
-  
+
   public string[] ExtractUrls(string? text)
   {
     if (string.IsNullOrEmpty(text))
@@ -1981,95 +1993,95 @@ public async Task<int> GetIndexCount(CancellationToken ct = default)
   }
 
 
-// Add this helper in your class (private static is fine)
-private static string NormalizeUrlForStorage(string? input)
-{
-  if (string.IsNullOrWhiteSpace(input))
-    return string.Empty;
-
-  // Keep original text as much as possible to preserve path casing/encoding
-  string raw = input.Trim();
-
-  // Ensure we have a scheme for proper parsing
-  bool addedScheme = false;
-  if (!raw.Contains("://", StringComparison.Ordinal))
+  // Add this helper in your class (private static is fine)
+  private static string NormalizeUrlForStorage(string? input)
   {
-    raw = "https://" + raw;
-    addedScheme = true;
-  }
+    if (string.IsNullOrWhiteSpace(input))
+      return string.Empty;
 
-  // Try to parse with Uri to reliably extract host/port
-  if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri))
-  {
-    // If parsing fails, do a conservative fallback: lowercase leading scheme and host quickly
-    // Find scheme://
-    int schemeSep = raw.IndexOf("://", StringComparison.Ordinal);
-    if (schemeSep > 0)
+    // Keep original text as much as possible to preserve path casing/encoding
+    string raw = input.Trim();
+
+    // Ensure we have a scheme for proper parsing
+    bool addedScheme = false;
+    if (!raw.Contains("://", StringComparison.Ordinal))
     {
-      string tmpSchemeLower = raw.Substring(0, schemeSep).ToLowerInvariant();
-      string afterScheme = raw.Substring(schemeSep + 3);
-
-      // authority = up to first '/' (or end)
-      int slashIdx = afterScheme.IndexOf('/');
-      string authority = slashIdx >= 0 ? afterScheme.Substring(0, slashIdx) : afterScheme;
-      string remainder = slashIdx >= 0 ? afterScheme.Substring(slashIdx) : string.Empty;
-
-      // Lowercase just the authority (best effort; may include port)
-      string authorityLower = authority.ToLowerInvariant();
-      return $"{tmpSchemeLower}://{authorityLower}{remainder}";
+      raw = "https://" + raw;
+      addedScheme = true;
     }
 
-    // No scheme sep: nothing better we can do; just return input trimmed
-    return input.Trim();
-  }
-
-  // We now have a parsed URI. We want: lowercase scheme + lowercase host (+ port if non-default),
-  // and preserve the exact original remainder (path/query/fragment) casing/encoding.
-
-  string schemeLower = uri.Scheme.ToLowerInvariant();
-
-  // Use IdnHost for internationalized domains (punycode), then lowercase it
-  string hostLower = uri.IdnHost.ToLowerInvariant();
-
-  string portPart = string.Empty;
-  if (!uri.IsDefaultPort && uri.Port > 0)
-  {
-    portPart = ":" + uri.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
-  }
-
-  // Extract the original remainder (path + query + fragment) from the original string
-  // Raw string may have been prefixed with https:// if we added scheme above.
-  string original = input.Trim();
-  string originalWithScheme = addedScheme ? ("https://" + original) : original;
-
-  // Find the start of the "after authority" segment in the originalWithScheme
-  // Format: scheme://authority/remainder
-  int schemeIdx = originalWithScheme.IndexOf("://", StringComparison.Ordinal);
-  string remainderPart = string.Empty;
-
-  if (schemeIdx >= 0)
-  {
-    int afterSchemeIdx = schemeIdx + 3;
-    // Find the next '/' after scheme:// to delimit the authority
-    int slashIdx = originalWithScheme.IndexOf('/', afterSchemeIdx);
-    if (slashIdx >= 0)
+    // Try to parse with Uri to reliably extract host/port
+    if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri))
     {
-      remainderPart = originalWithScheme.Substring(slashIdx); // includes '/' and everything after
+      // If parsing fails, do a conservative fallback: lowercase leading scheme and host quickly
+      // Find scheme://
+      int schemeSep = raw.IndexOf("://", StringComparison.Ordinal);
+      if (schemeSep > 0)
+      {
+        string tmpSchemeLower = raw.Substring(0, schemeSep).ToLowerInvariant();
+        string afterScheme = raw.Substring(schemeSep + 3);
+
+        // authority = up to first '/' (or end)
+        int slashIdx = afterScheme.IndexOf('/');
+        string authority = slashIdx >= 0 ? afterScheme.Substring(0, slashIdx) : afterScheme;
+        string remainder = slashIdx >= 0 ? afterScheme.Substring(slashIdx) : string.Empty;
+
+        // Lowercase just the authority (best effort; may include port)
+        string authorityLower = authority.ToLowerInvariant();
+        return $"{tmpSchemeLower}://{authorityLower}{remainder}";
+      }
+
+      // No scheme sep: nothing better we can do; just return input trimmed
+      return input.Trim();
+    }
+
+    // We now have a parsed URI. We want: lowercase scheme + lowercase host (+ port if non-default),
+    // and preserve the exact original remainder (path/query/fragment) casing/encoding.
+
+    string schemeLower = uri.Scheme.ToLowerInvariant();
+
+    // Use IdnHost for internationalized domains (punycode), then lowercase it
+    string hostLower = uri.IdnHost.ToLowerInvariant();
+
+    string portPart = string.Empty;
+    if (!uri.IsDefaultPort && uri.Port > 0)
+    {
+      portPart = ":" + uri.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    // Extract the original remainder (path + query + fragment) from the original string
+    // Raw string may have been prefixed with https:// if we added scheme above.
+    string original = input.Trim();
+    string originalWithScheme = addedScheme ? ("https://" + original) : original;
+
+    // Find the start of the "after authority" segment in the originalWithScheme
+    // Format: scheme://authority/remainder
+    int schemeIdx = originalWithScheme.IndexOf("://", StringComparison.Ordinal);
+    string remainderPart = string.Empty;
+
+    if (schemeIdx >= 0)
+    {
+      int afterSchemeIdx = schemeIdx + 3;
+      // Find the next '/' after scheme:// to delimit the authority
+      int slashIdx = originalWithScheme.IndexOf('/', afterSchemeIdx);
+      if (slashIdx >= 0)
+      {
+        remainderPart = originalWithScheme.Substring(slashIdx); // includes '/' and everything after
+      }
+      else
+      {
+        remainderPart = string.Empty; // no path/query/fragment
+      }
     }
     else
     {
-      remainderPart = string.Empty; // no path/query/fragment
+      // Very unusual (we always added scheme if missing), fallback: try to grab a leading '/'
+      int slashIdx = original.IndexOf('/');
+      remainderPart = slashIdx >= 0 ? original.Substring(slashIdx) : string.Empty;
     }
-  }
-  else
-  {
-    // Very unusual (we always added scheme if missing), fallback: try to grab a leading '/'
-    int slashIdx = original.IndexOf('/');
-    remainderPart = slashIdx >= 0 ? original.Substring(slashIdx) : string.Empty;
-  }
 
-  return $"{schemeLower}://{hostLower}{portPart}{remainderPart}";
-}
+    return $"{schemeLower}://{hostLower}{portPart}{remainderPart}";
+  }
 
   private async Task<bool> HeadExists(string url)
   {
@@ -2084,6 +2096,112 @@ private static string NormalizeUrlForStorage(string? input)
     }
     catch { return false; }
   }
+
+  /// <summary>
+  /// Resolve a site's favicon using (in order): <link> tags, manifest icons, browserconfig tiles, and common root paths.
+  /// Returns an absolute URL or null.
+  /// </summary>
+  private async Task<string?> ResolveFaviconAsync(Uri pageUri, HtmlDocument doc, CancellationToken ct = default)
+  {
+    // 1) Try <link rel="icon" ...> / shortcut icon / apple-touch-icon / mask-icon / any common rels
+    //    Your existing code handles basic 'icon' and 'shortcut icon'. Let's expand and also verify reachability.
+    var candFromHead = ExtractIconHrefCandidates(doc);
+    foreach (var href in candFromHead)
+    {
+      var abs = MakeAbsoluteUrl(pageUri, href);
+      if (abs != null && await UrlExistsLightweight(abs, ct))
+        return abs;
+    }
+
+    // 2) Try common root paths
+    foreach (var path in _commonFaviconPaths)
+    {
+      var root = $"{pageUri.Scheme}://{pageUri.Host}{(pageUri.IsDefaultPort ? "" : ":" + pageUri.Port)}";
+      var probe = root + path;
+      if (await UrlExistsLightweight(probe, ct))
+        return probe;
+    }
+
+    return null;
+  }
+
+  private static IEnumerable<string> ExtractIconHrefCandidates(HtmlDocument doc)
+  {
+    // We gather a broad set of rel values commonly used for icons
+    // and preserve order of appearance in the DOM.
+    var xPath = "//link[@rel]";
+    var relNodes = doc.DocumentNode.SelectNodes(xPath);
+    if (relNodes == null) yield break;
+
+    foreach (var n in relNodes)
+    {
+      var rel = (n.GetAttributeValue("rel", "") ?? "").ToLowerInvariant();
+      if (string.IsNullOrEmpty(rel)) continue;
+
+      // Accept a family of rel values that often indicate site icons
+      if (rel.Contains("icon")                      // covers 'icon', 'shortcut icon', 'mask-icon', etc.
+          || rel.Contains("apple-touch-icon")       // iOS/Safari
+          || rel.Contains("fluid-icon"))            // GH uses this sometimes
+      {
+        var href = n.GetAttributeValue("href", "")?.Trim();
+        if (!string.IsNullOrEmpty(href))
+          yield return href;
+      }
+    }
+  }
+
+  private static string? MakeAbsoluteUrl(Uri baseUri, string href)
+  {
+    try
+    {
+      if (string.IsNullOrWhiteSpace(href)) return null;
+      if (Uri.TryCreate(href, UriKind.Absolute, out var abs)) return abs.ToString();
+      var combined = new Uri(baseUri, href);
+      return combined.ToString();
+    }
+    catch { return null; }
+  }
+
+  /// <summary>
+  /// Lightweight existence probe: HEAD first; if HEAD blocked, fallback to GET with small cap.
+  /// </summary>
+  private async Task<bool> UrlExistsLightweight(string url, CancellationToken ct)
+  {
+    // try HEAD
+    try
+    {
+      var req = new HttpRequestMessage(HttpMethod.Head, url);
+      var hdrs = GenerateRotatedHeaders(url);
+      foreach (var kv in hdrs) req.Headers.TryAddWithoutValidation(kv.Key, kv.Value);
+
+      using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+      cts.CancelAfter(TimeSpan.FromSeconds(5));
+      using var resp = await _httpClient.SendAsync(req, cts.Token);
+      if ((int)resp.StatusCode == 405 || (int)resp.StatusCode == 501)
+      {
+        // HEAD not allowed → fallback to GET (range or cap)
+      }
+      else
+      {
+        return resp.IsSuccessStatusCode;
+      }
+    }
+    catch
+    {
+      // fallback to GET
+    }
+
+    try
+    {
+      var req = BuildGetRequestWithRotatedHeaders(url);
+      using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+      cts.CancelAfter(TimeSpan.FromSeconds(3));
+      using var resp = await _httpClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+      return resp.IsSuccessStatusCode;
+    }
+    catch { return false; }
+  }
+
 }
 
 class RobotsInfo
