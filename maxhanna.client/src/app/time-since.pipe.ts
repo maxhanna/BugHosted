@@ -17,7 +17,7 @@ export class TimeSincePipe implements PipeTransform {
   transform(
     date?: Date | string,
     granularity: Granularity = 'minute',
-    isUTC: boolean = true   // <-- Default to true (matches JSDoc and typical API behavior)
+    isUTC: boolean = true
   ): string {
     if (!date) return "0";
 
