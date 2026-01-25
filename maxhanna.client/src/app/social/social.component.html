@@ -161,7 +161,7 @@
       <div class="popupPanelTitle" style="margin-bottom: 15px;">
         Post Options
       </div>
-      <div>
+      <div style="text-align: center;">
         <button (click)="copyAllText(optionStory.id)" title="Copy all text">📋 Copy Text</button>
         <button 
           (click)="edit(optionStory)"
@@ -248,10 +248,6 @@
             {{ optionStory.visibility | titlecase }}
           </div> 
         </div> 
- 
-        <div class="xxSmallFont"> 
-            {{optionStory.country}} {{(optionStory.country ?? "") | currencyFlag}} {{optionStory.city}} - {{formatDate(optionStory.date)}}
-        </div>
           
         <div class="metadataOptionsStats" *ngFor="let metadata of optionStory.metadata">
           <div class="optionsStatsDiv" *ngIf="metadata.url">
@@ -281,6 +277,7 @@
             </div>
           </div>
         </div>
+
         <div class="optionsStatsDiv" *ngFor="let videoFile of getVideoStoryFiles(optionStory)"> 
           <div class="optionsStatsHeader">
             <div style="display:flex; flex-direction: column;"> 
@@ -305,6 +302,15 @@
           </div>
         </div>
       </div> 
+ 
+      <div class="xxSmallFont"> 
+          Posted: {{optionStory.country}}
+          {{" "}}{{(optionStory.country ?? "") | currencyFlag}}
+          {{" "}}{{optionStory.city}}
+          {{" "}}{{formatDate(optionStory.date)}}
+          {{" "}}(Post ID : {{optionStory.id}})
+      </div>
+      
       <button id="closeOverlay" (click)="closeStoryOptionsPanel()" class="closeButton" style="margin-top: 8px;">Close</button>
     </div> 
 
