@@ -1,8 +1,4 @@
 .addReactionDiv {
-  /* position: relative;
-  bottom: 0;
-  right: 0;
-  font-size: small; */
   color: var(--main-font-color);
   display: inline-block;
   white-space: nowrap;
@@ -39,7 +35,6 @@
   display: inline-block;
 }
 
-
 .reactionChoice {
   cursor: pointer;
 }
@@ -75,7 +70,6 @@
 }
 
 .reactionsDisplaySpan {
-  /* display: inline-block; */
   position: relative;
   overflow: hidden;
   white-space: nowrap;
