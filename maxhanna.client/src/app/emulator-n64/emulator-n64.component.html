@@ -72,8 +72,18 @@
               style="display: none"
             /> 
           </div>
+        </div> 
+        
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">Controllers:</div>
+          <div class="optionsStatsDescription"> 
+            <button (click)="refreshGamepads()" *ngIf="showControllerAssignments">Refresh Controllers</button>
+            <button (click)="showControllerAssignments = !showControllerAssignments">
+              {{ showControllerAssignments ? 'Hide' : 'Show' }} Controller Assignments
+            </button>
+          </div>
         </div>
-
+        
         <div class="optionsStatsDiv" *ngIf="romName">
           <div class="optionsStatsHeader"></div>
           <div class="optionsStatsDescription"> 
@@ -146,18 +156,10 @@
       </div>
     </div> 
     
-    <div class="" *ngIf="!showKeyMappings">
+    <div class="" *ngIf="!showKeyMappings && showControllerAssignments">
       <div class="">Controllers:</div>
       <div class="" style="display:flex; flex-direction:column; gap:8px;">
-
-        <div style="margin-bottom:6px;">
-          <button (click)="refreshGamepads()" *ngIf="showControllerAssignments">Refresh Controllers</button>
-          <button (click)="showControllerAssignments = !showControllerAssignments">
-            {{ showControllerAssignments ? 'Hide' : 'Show' }} Controller Assignments
-          </button>
-        </div>
-
-        <div *ngFor="let p of playerPorts" class="portAssignmentSection" *ngIf="showControllerAssignments">
+        <div *ngFor="let p of playerPorts" class="portAssignmentSection">
           <div style="min-width:70px; text-align: center;" class="gradientBackground">Player {{p}}</div>
 
           <!-- Controller dropdown --> 
