@@ -165,37 +165,37 @@
 
       <div class="optionsStatsWrapperDiv gradientBackground">
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">Share</div>
+          <div class="optionsStatsHeader"></div>
           <div class="optionsStatsDescription">
             <button (click)="copyLink(optionStory.id)" title="Share Link">📋 Share</button>
           </div>
         </div>
 
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">Copy Text</div>
+          <div class="optionsStatsHeader"></div>
           <div class="optionsStatsDescription">
-            <button (click)="copyAllText(optionStory.id)" title="Copy all text">📋 Copy</button>
+            <button (click)="copyAllText(optionStory.id)" title="Copy all text">📋 Copy Text</button>
           </div>
         </div>
 
         <div class="optionsStatsDiv" *ngIf="optionStory.user?.id == parentRef?.user?.id">
           <div class="optionsStatsHeader">Edit</div>
           <div class="optionsStatsDescription">
-            <button (click)="edit(optionStory)" title="Edit Post Text">✏️ Edit</button>
+            <button (click)="edit(optionStory)" title="Edit Post Text">✏️ Edit Text</button>
           </div>
         </div>
 
         <div class="optionsStatsDiv" *ngIf="parentRef?.user?.id">
-          <div class="optionsStatsHeader">Visibility</div>
+          <div class="optionsStatsHeader"></div>
           <div class="optionsStatsDescription">
-            <button (click)="hide(optionStory)">{{optionStory.hidden ? '🙉 Unhide' : '🙈 Hide'}}</button>
+            <button (click)="hide(optionStory)">{{optionStory.hidden ? '🙉 Unhide' : '🙈 Hide'}} Post</button>
           </div>
         </div>
 
         <div class="optionsStatsDiv" *ngIf="(optionStory.user?.id == parentRef?.user?.id) || (userProfileId && userProfileId == parentRef?.user?.id) || (parentRef?.user?.id == 1 || parent?.user?.id == 1)">
-          <div class="optionsStatsHeader">Delete</div>
+          <div class="optionsStatsHeader"></div>
           <div class="optionsStatsDescription">
-            <button (click)="delete(optionStory)" title="Delete Post">❌ Delete</button>
+            <button (click)="delete(optionStory)" title="Delete Post">❌ Delete Post</button>
           </div>
         </div>
 
@@ -290,7 +290,7 @@
           </div>
         </div>
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">Creation Date:</div>
+          <div class="optionsStatsHeader">Date:</div>
           <div class="optionsStatsDescription" [title]="formatDate(optionStory.date)">
             {{formatDate(optionStory.date)}}
           </div>
