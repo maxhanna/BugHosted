@@ -200,6 +200,14 @@ singleAttachment {
   gap: 20px;
 }
 
+.fileNameStatsHeader {
+  display: flex;
+  flex-direction: column;
+  align-content: flex-start;
+  justify-content: center;
+  align-items: flex-start;
+}
+
 .metadataOptionsStats {
   margin-top: 10px;
   display: flex;

@@ -275,8 +275,9 @@
         </div>
 
         <div class="optionsStatsDiv" *ngFor="let videoFile of getVideoStoryFiles(optionStory)"> 
-          <div class="optionsStatsHeader"> 
-            File: <span class="reducedFileName">{{videoFile.givenFileName ?? videoFile.fileName}}</span>
+          <div class="optionsStatsHeader fileNameStatsHeader">
+            <span>File:</span>
+            <span class="reducedFileName">{{videoFile.givenFileName ?? videoFile.fileName}}</span> 
           </div> 
           <div class="optionsStatsDescription">
             <button 
