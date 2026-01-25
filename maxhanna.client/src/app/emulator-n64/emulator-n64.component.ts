@@ -580,7 +580,18 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     if (!canvasEl) {
       this.parentRef?.showNotification('No canvas available');
       return;
-    }
+    } 
+    
+    try {
+        this.refreshGamepads();
+        const connectedCount = this.gamepads.filter(g => g?.connected).length;
+        this.parentRef?.showNotification(
+          `Booting… ${connectedCount} controller${connectedCount === 1 ? '' : 's'} detected`
+        );
+      } catch {
+        this.parentRef?.showNotification(`No Gamepads detected`);
+      }
+
 
     this.resizeCanvasToParent();
 
@@ -2487,33 +2498,59 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     return toU8(val);
   }
 
-  private async writeIdbBytes(db: IDBDatabase, key: string, bytes: Uint8Array): Promise<void> {
-    const tx = db.transaction('FILE_DATA', 'readwrite');
-    const os = tx.objectStore('FILE_DATA');
-    const existing = await new Promise<any>((resolve) => {
-      const r = os.get(key);
-      r.onerror = () => resolve(null);
-      r.onsuccess = () => resolve(r.result ?? null);
-    });
+  
+// drop-in replacement for your current writeIdbBytes()
+private async writeIdbBytes(db: IDBDatabase, key: string, bytes: Uint8Array): Promise<void> {
+  const tx = db.transaction('FILE_DATA', 'readwrite');
+  const os = tx.objectStore('FILE_DATA');
 
-    let value: any;
-    if (!existing) {
-      value = bytes;
+  // read existing to preserve stored shape if present
+  const existing = await new Promise<any>((resolve) => {
+    const r = os.get(key);
+    r.onerror = () => resolve(null);
+    r.onsuccess = () => resolve(r.result ?? null);
+  });
+
+  // ensure timestamp is a real Date and choose a consistent payload field
+  const ensureDate = (obj: any) => {
+    if (!obj) return;
+    const t = obj.timestamp ?? obj.mtime ?? obj.time ?? null;
+    if (t instanceof Date) return;
+    if (typeof t === 'number') obj.timestamp = new Date(t);
+    else if (typeof t === 'string') {
+      const d = new Date(t);
+      obj.timestamp = Number.isNaN(+d) ? new Date() : d;
     } else {
-      const clone = JSON.parse(JSON.stringify(existing));
-      if (clone.contents) clone.contents = bytes;
-      else if (clone.data) clone.data = bytes;
-      else if (Array.isArray(clone.bytes)) clone.bytes = Array.from(bytes);
-      else value = bytes;
-      value = value ?? clone;
+      obj.timestamp = new Date();
     }
+  };
 
-    await new Promise<void>((resolve, reject) => {
-      const w = os.put(value, key);
-      w.onerror = () => reject(w.error);
-      w.onsuccess = () => resolve();
-    });
+  let value: any;
+  if (!existing) {
+    // NEW ROW: create an IDBFS-compatible object
+    value = {
+      timestamp: new Date(),   // <- critical: real Date instance
+      mode: 0o100644,          // (optional) regular file
+      contents: bytes          // pick one content key; be consistent
+    };
+  } else {
+    // EXISTING ROW: keep shape, update its bytes and timestamp
+    const clone = JSON.parse(JSON.stringify(existing));
+    ensureDate(clone);
+    if (clone.contents) clone.contents = bytes;
+    else if (clone.data) clone.data = bytes;
+    else if (Array.isArray(clone.bytes)) clone.bytes = Array.from(bytes);
+    else clone.contents = bytes;
+    value = clone;
   }
+
+  await new Promise<void>((resolve, reject) => {
+    const w = os.put(value, key);
+    w.onerror = () => reject(w.error);
+    w.onsuccess = () => resolve();
+  });
+}
+
 
   private async idbKeyExists(db: IDBDatabase, key: string): Promise<boolean> {
     const tx = db.transaction('FILE_DATA', 'readonly');
