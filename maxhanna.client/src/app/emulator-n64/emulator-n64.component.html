@@ -200,7 +200,7 @@
   </div>
 
   <div class="status">
-    Emulator Status: {{ status }} <span *ngIf="romName">— {{ romName }}</span>
+    Emulator Status: {{ status.toUpperCase() }} <span *ngIf="romName">— {{ romName }}</span>
   </div>
 
   <div style="width:100%; text-align: center;">
