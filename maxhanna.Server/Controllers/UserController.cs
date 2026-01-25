@@ -977,68 +977,103 @@ namespace maxhanna.Server.Controllers
       }
     }
 
-
     [HttpPost("/User/UpdateLastSeen", Name = "UpdateLastSeen")]
-    public async Task<IActionResult> UpdateLastSeen([FromBody] int userId)
+    public async Task<IActionResult> UpdateLastSeen([FromBody] int userId, CancellationToken ct = default)
     {
-      string? connectionString = _config?.GetValue<string>("ConnectionStrings:maxhanna");
+      if (userId <= 0)
+        return BadRequest("Invalid userId");
 
-      using (MySqlConnection conn = new MySqlConnection(connectionString))
+      var cs = _config?.GetValue<string>("ConnectionStrings:maxhanna");
+      if (string.IsNullOrWhiteSpace(cs))
+        return StatusCode(500, "Missing DB connection string");
+
+      await using var conn = new MySqlConnection(cs);
+      try
       {
-        try
+        await conn.OpenAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+
+        // 1) Always update presence (no throttling).
+        const string updateLastSeenSql = @"
+            UPDATE maxhanna.users
+               SET last_seen = UTC_TIMESTAMP()
+             WHERE id = @UserId
+             LIMIT 1;";
+
+        using (var cmd = new MySqlCommand(updateLastSeenSql, conn, tx))
         {
-          await conn.OpenAsync();
-
-          // 1) Update users.last_seen to current UTC timestamp
-          string updateUserSql = @"
-					UPDATE maxhanna.users 
-					SET last_seen = UTC_TIMESTAMP() 
-					WHERE id = @UserId;";
-
-          using (MySqlCommand cmd = new MySqlCommand(updateUserSql, conn))
+          cmd.Parameters.AddWithValue("@UserId", userId);
+          var affected = await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+          if (affected == 0)
           {
-            cmd.Parameters.AddWithValue("@UserId", userId);
-            await cmd.ExecuteNonQueryAsync();
+            await tx.RollbackAsync(ct).ConfigureAwait(false);
+            return NotFound("User not found");
+          }
+        }
+
+        // 2) Fast-path guard: if today already recorded, skip streak writes.
+        const string guardSql = @"
+            SELECT 1
+              FROM maxhanna.user_login_streaks
+             WHERE user_id = @UserId
+               AND last_seen_date = UTC_DATE()
+             LIMIT 1;";
+
+        bool alreadyToday;
+        using (var guardCmd = new MySqlCommand(guardSql, conn, tx))
+        {
+          guardCmd.Parameters.AddWithValue("@UserId", userId);
+          alreadyToday = (await guardCmd.ExecuteScalarAsync(ct).ConfigureAwait(false)) != null;
+        }
+
+        if (!alreadyToday)
+        {
+          // 3) UPDATE existing row for yesterday/gap; next-day => +1; gap => reset to 1.
+          const string updateStreakSql = @"
+                UPDATE maxhanna.user_login_streaks
+                   SET current_streak = CASE
+                                           WHEN DATEDIFF(UTC_DATE(), last_seen_date) = 1 THEN current_streak + 1
+                                           ELSE 1
+                                         END,
+                       longest_streak = CASE
+                                           WHEN DATEDIFF(UTC_DATE(), last_seen_date) = 1 THEN GREATEST(longest_streak, current_streak + 1)
+                                           ELSE longest_streak
+                                         END,
+                       last_seen_date = UTC_DATE(),
+                       updated_at     = UTC_TIMESTAMP()
+                 WHERE user_id = @UserId
+                   AND last_seen_date <> UTC_DATE()
+                 LIMIT 1;";
+
+          int rows;
+          using (var upd = new MySqlCommand(updateStreakSql, conn, tx))
+          {
+            upd.Parameters.AddWithValue("@UserId", userId);
+            rows = await upd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
           }
 
-          // 2) Compute and update streaks in user_login_streaks table using a single upsert.
-          // We'll use UTC date for comparisons (date only)
-          DateTime utcNow = DateTime.UtcNow.Date; // Date only (midnight UTC)
-
-          string upsertSql = @"
-						INSERT INTO maxhanna.user_login_streaks (user_id, last_seen_date, current_streak, longest_streak, created_at, updated_at)
-						VALUES (@UserId, @LastSeenDate, 1, 1, UTC_TIMESTAMP(), UTC_TIMESTAMP())
-						ON DUPLICATE KEY UPDATE
-						  current_streak = CASE
-							WHEN DATEDIFF(@LastSeenDate, last_seen_date) = 0 THEN current_streak
-							WHEN DATEDIFF(@LastSeenDate, last_seen_date) = 1 THEN current_streak + 1
-							ELSE 1
-						  END,
-						  longest_streak = CASE
-							WHEN DATEDIFF(@LastSeenDate, last_seen_date) = 1 THEN GREATEST(longest_streak, current_streak + 1)
-							ELSE longest_streak
-						  END,
-						  last_seen_date = CASE WHEN DATEDIFF(@LastSeenDate, last_seen_date) = 0 THEN last_seen_date ELSE @LastSeenDate END,
-						  updated_at = UTC_TIMESTAMP();";
-
-          using (MySqlCommand upsertCmd = new MySqlCommand(upsertSql, conn))
+          if (rows == 0)
           {
-            upsertCmd.Parameters.AddWithValue("@UserId", userId);
-            upsertCmd.Parameters.AddWithValue("@LastSeenDate", utcNow);
-            await upsertCmd.ExecuteNonQueryAsync();
-          }
+            // 4) No existing row: INSERT a fresh row for today.
+            const string insertStreakSql = @"
+                    INSERT INTO maxhanna.user_login_streaks
+                        (user_id, last_seen_date, current_streak, longest_streak, created_at, updated_at)
+                    VALUES
+                        (@UserId, UTC_DATE(), 1, 1, UTC_TIMESTAMP(), UTC_TIMESTAMP());";
 
-          return Ok();
+            using var ins = new MySqlCommand(insertStreakSql, conn, tx);
+            ins.Parameters.AddWithValue("@UserId", userId);
+            await ins.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+          }
         }
-        catch (Exception ex)
-        {
-          _ = _log.Db("An error occurred while processing the UpdateLastSeen request. " + ex.Message, userId, "USER", true);
-          return StatusCode(500, "An error occurred while processing the UpdateLastSeen request.");
-        }
-        finally
-        {
-          conn.Close();
-        }
+
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return Ok();
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("UpdateLastSeen failed: " + ex.Message, userId, "USER", true);
+        return StatusCode(500, "Error updating last seen / streak");
       }
     }
 
