@@ -238,19 +238,10 @@
           <div class="optionsStatsHeader">Edit Visibility:</div> 
           <div class="optionsStatsDescription">
             <select [value]="optionStory.visibility" (change)="onOptionStoryVisibilityChange($event, optionStory)">
-              <option value="public">Public</option>
-              <option value="following">Following</option>
-              <option value="self">Self</option>
+              <option value="public">Public{{getPostVisibilityIcon('public')}}</option>
+              <option value="following">Following{{getPostVisibilityIcon('following')}}</option>
+              <option value="self">Self{{getPostVisibilityIcon('self')}}</option>
             </select> 
-          </div> 
-        </div>
-
-        <div 
-          *ngIf="optionStory && optionStory.id && optionStory.user?.id != parentRef?.user?.id" 
-           class="optionsStatsDiv">
-          <div class="optionsStatsHeader">Visibility:</div> 
-          <div class="optionsStatsDescription">
-            {{ optionStory.visibility | titlecase }}
           </div> 
         </div> 
           
