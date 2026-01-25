@@ -485,10 +485,10 @@
     <div class="storyOptionsPopupButtons" style="margin-bottom: 15px;">
       <div>
         <label>Visibility:</label>
-        <select [value]="visibilityStory.visibility" (change)="onOptionStoryVisibilityChange($event, visibilityStory)">
-          <option value="public">Public</option>
-          <option value="following">Following</option>
-          <option value="self">Self</option>
+        <select [value]="visibilityStory.visibility" (change)="onOptionStoryVisibilityChange($event, visibilityStory)"> 
+          <option value="public">Public{{getPostVisibilityIcon('public')}}</option>
+          <option value="following">Following{{getPostVisibilityIcon('following')}}</option>
+          <option value="self">Self{{getPostVisibilityIcon('self')}}</option>
         </select>
       </div>
     </div>
