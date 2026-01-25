@@ -785,6 +785,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     return this.parentRef?.isYoutubeUrl(url) ?? false;
   }
   async addFileToMusicPlaylist(fileEntry: FileEntry) {
+    if (!confirm("Add this file to your music playlist?")) {
+      return;
+    }
     const user = this.parentRef?.user;
     if (!user?.id || !fileEntry || !fileEntry.id) {
       return alert("Error: Cannot add file to music playlist without logging in or a valid file entry.");
@@ -1098,7 +1101,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const link = `https://bughosted.com/${file?.directory?.includes("Meme") ? 'Memes' : 'File'}/${file?.id}`;
     try {
       navigator.clipboard.writeText(link);
-      parent?.showNotification(`${link} copied to clipboard!`);
+      parent?.showNotification(`Link copied to clipboard!`);
     } catch {
       parent?.showNotification("Error: Unable to share link!"); 
     }
