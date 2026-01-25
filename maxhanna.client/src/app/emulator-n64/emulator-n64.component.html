@@ -50,7 +50,7 @@
     <div style="text-align: center;">
       <div class="optionsStatsWrapperDiv">
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">Autosave:</div>
+          <div class="optionsStatsHeader" title="The online server saves your games so you don't have to!">Autosave:</div>
           <div class="optionsStatsDescription">
             <label>
               <input type="checkbox" [checked]="autosave" (change)="autosave = !autosave">
@@ -59,7 +59,7 @@
           </div>
         </div>
         <div class="optionsStatsDiv" *ngIf="romName">
-          <div class="optionsStatsHeader">Save File:</div>
+          <div class="optionsStatsHeader" title="Manage your save files for the current game.">Save File:</div>
           <div class="optionsStatsDescription"> 
             <button (click)="downloadCurrentSaves()">Download</button>
             <button (click)="openSavePicker()">Import</button>
@@ -75,7 +75,7 @@
         </div> 
         
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">Controllers:</div>
+          <div class="optionsStatsHeader" title="Manage your controller assignments.">Controllers:</div>
           <div class="optionsStatsDescription"> 
             <button (click)="refreshGamepads()">Refresh</button>
             <button (click)="showControllerAssignments = !showControllerAssignments">
@@ -96,7 +96,7 @@
         <div class="optionsStatsDiv" *ngIf="romName">
           <div class="optionsStatsHeader"></div>
           <div class="optionsStatsDescription"> 
-            <div class="uploadRomSpan upload-label" id="fullscreenBtn" title="Fullscreen mode">
+            <div class="uploadRomSpan upload-label" id="fullscreenBtn" title="Stop the Emulator and unload the current ROM">
               <button (click)="stopGame()">Stop Emulator: 🛑</button>
             </div>
           </div>
