@@ -916,6 +916,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   ignoreTopic(topic: Topic) {
+    if (!confirm(`Are you sure you want to ignore the topic: ${topic.topicText}? You will no longer see posts with this topic. This can be undone within the topics menu.`)) {
+      return;
+    }
     if (this.parentRef?.user?.id) {
       this.topicService.addIgnoredTopic(this.parentRef.user.id, topic).then(res => {
         if (res) {
