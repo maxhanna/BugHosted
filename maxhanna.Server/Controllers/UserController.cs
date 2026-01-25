@@ -995,10 +995,10 @@ namespace maxhanna.Server.Controllers
 
         // 1) Always update presence (no throttling).
         const string updateLastSeenSql = @"
-            UPDATE maxhanna.users
-               SET last_seen = UTC_TIMESTAMP()
-             WHERE id = @UserId
-             LIMIT 1;";
+          UPDATE maxhanna.users
+              SET last_seen = UTC_TIMESTAMP()
+            WHERE id = @UserId
+            LIMIT 1;";
 
         using (var cmd = new MySqlCommand(updateLastSeenSql, conn, tx))
         {
@@ -1013,11 +1013,11 @@ namespace maxhanna.Server.Controllers
 
         // 2) Fast-path guard: if today already recorded, skip streak writes.
         const string guardSql = @"
-            SELECT 1
-              FROM maxhanna.user_login_streaks
-             WHERE user_id = @UserId
-               AND last_seen_date = UTC_DATE()
-             LIMIT 1;";
+          SELECT 1
+            FROM maxhanna.user_login_streaks
+            WHERE user_id = @UserId
+              AND last_seen_date = UTC_DATE()
+            LIMIT 1;";
 
         bool alreadyToday;
         using (var guardCmd = new MySqlCommand(guardSql, conn, tx))
@@ -1030,20 +1030,20 @@ namespace maxhanna.Server.Controllers
         {
           // 3) UPDATE existing row for yesterday/gap; next-day => +1; gap => reset to 1.
           const string updateStreakSql = @"
-                UPDATE maxhanna.user_login_streaks
-                   SET current_streak = CASE
-                                           WHEN DATEDIFF(UTC_DATE(), last_seen_date) = 1 THEN current_streak + 1
-                                           ELSE 1
-                                         END,
-                       longest_streak = CASE
-                                           WHEN DATEDIFF(UTC_DATE(), last_seen_date) = 1 THEN GREATEST(longest_streak, current_streak + 1)
-                                           ELSE longest_streak
-                                         END,
-                       last_seen_date = UTC_DATE(),
-                       updated_at     = UTC_TIMESTAMP()
-                 WHERE user_id = @UserId
-                   AND last_seen_date <> UTC_DATE()
-                 LIMIT 1;";
+            UPDATE maxhanna.user_login_streaks
+                SET current_streak = CASE
+                                        WHEN DATEDIFF(UTC_DATE(), last_seen_date) = 1 THEN current_streak + 1
+                                        ELSE 1
+                                      END,
+                    longest_streak = CASE
+                                        WHEN DATEDIFF(UTC_DATE(), last_seen_date) = 1 THEN GREATEST(longest_streak, current_streak + 1)
+                                        ELSE longest_streak
+                                      END,
+                    last_seen_date = UTC_DATE(),
+                    updated_at     = UTC_TIMESTAMP()
+              WHERE user_id = @UserId
+                AND last_seen_date <> UTC_DATE()
+              LIMIT 1;";
 
           int rows;
           using (var upd = new MySqlCommand(updateStreakSql, conn, tx))
@@ -1056,10 +1056,10 @@ namespace maxhanna.Server.Controllers
           {
             // 4) No existing row: INSERT a fresh row for today.
             const string insertStreakSql = @"
-                    INSERT INTO maxhanna.user_login_streaks
-                        (user_id, last_seen_date, current_streak, longest_streak, created_at, updated_at)
-                    VALUES
-                        (@UserId, UTC_DATE(), 1, 1, UTC_TIMESTAMP(), UTC_TIMESTAMP());";
+              INSERT INTO maxhanna.user_login_streaks
+                  (user_id, last_seen_date, current_streak, longest_streak, created_at, updated_at)
+              VALUES
+                  (@UserId, UTC_DATE(), 1, 1, UTC_TIMESTAMP(), UTC_TIMESTAMP());";
 
             using var ins = new MySqlCommand(insertStreakSql, conn, tx);
             ins.Parameters.AddWithValue("@UserId", userId);
