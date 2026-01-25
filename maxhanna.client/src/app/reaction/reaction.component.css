@@ -48,8 +48,8 @@
   display: flex;
   width: calc(100% - 5px);
   flex-direction: row;
-  flex-wrap: wrap;
-  align-content: stretch;
+  flex-wrap: wrap;    
+  align-content: flex-start;
   justify-content: center;
   align-items: stretch;
   gap: 20px;
