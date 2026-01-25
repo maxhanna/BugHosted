@@ -183,6 +183,11 @@
           title="Delete Post">
           ❌ Delete Post
         </button>
+        <button 
+          *ngFor="let topic of optionStory.storyTopics" 
+          (click)="ignoreTopic(topic)">
+          Ignore <span class="matchingTopic">{{topic.topicText}}</span>
+        </button>
       </div>
   
       <div class="optionsStatsWrapperDiv gradientBackground">
@@ -192,16 +197,9 @@
             <button (click)="speakMessage(optionStory.storyText)" *ngIf="!isTextToSpeechSpeaking()">🔊 Read Outloud</button>
             <button (click)="stopSpeaking()" *ngIf="isTextToSpeechSpeaking()">🤐 Stop Reading</button>
           </div>
-        </div>
-
-        <div class="optionsStatsDiv" *ngIf="optionStory.storyTopics && optionStory.storyTopics.length">
-          <div class="optionsStatsHeader">Ignore Topics</div>
-          <div class="optionsStatsDescription"> 
-            <button *ngFor="let topic of optionStory.storyTopics" (click)="ignoreTopic(topic)">Ignore <span class="matchingTopic">{{topic.topicText}}</span></button>
-          </div>
         </div> 
 
-        <div class="optionsStatsDiv">
+        <div class="optionsStatsDiv" *ngIf="optionStory.user?.id && optionStory.user?.id == parentRef?.user?.id">
           <div class="optionsStatsHeader">
             Topics
             <button 
@@ -233,6 +231,7 @@
             </div>
           </div>
         </div>
+        
         <div 
           *ngIf="optionStory && optionStory.id && (optionStory.user?.id == parentRef?.user?.id || parentRef?.user?.id == 1)" 
            class="optionsStatsDiv">
