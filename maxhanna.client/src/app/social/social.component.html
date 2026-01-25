@@ -244,9 +244,9 @@
             </select> 
           </div> 
         </div>
-        
+
         <div 
-          *ngIf="optionStory && optionStory.id && optionStory.user?.id != parentRef?.user?.id && parentRef?.user?.id != 1" 
+          *ngIf="optionStory && optionStory.id && optionStory.user?.id != parentRef?.user?.id" 
            class="optionsStatsDiv">
           <div class="optionsStatsHeader">Visibility:</div> 
           <div class="optionsStatsDescription">
