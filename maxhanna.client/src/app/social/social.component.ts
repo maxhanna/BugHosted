@@ -18,12 +18,14 @@ import { Todo } from '../../services/datacontracts/todo';
 import { FileService } from '../../services/file.service'; 
 import { EncryptionService } from '../../services/encryption.service';
 import { TextToSpeechService } from '../../services/text-to-speech.service';
+import { CurrencyFlagPipe } from '../currency-flag.pipe';
 
 @Component({
   selector: 'app-social',
   templateUrl: './social.component.html',
   styleUrl: './social.component.css',
-  standalone: false
+  standalone: false,
+  providers: [CurrencyFlagPipe]
 })
 export class SocialComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   fileMetadata: any;
@@ -100,7 +102,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     private fileService: FileService,
     private encryptionService: EncryptionService,
     private textToSpeechService: TextToSpeechService,
-    private cd: ChangeDetectorRef) {
+    private cd: ChangeDetectorRef,
+    private currencyFlagPipe: CurrencyFlagPipe
+) {
     super();
   }
 
@@ -1109,14 +1113,42 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     return this.textToSpeechService.isSpeaking;
   }
   
-  getPostVisibilityIcon(vis?: string): { emoji: string; label: string } {
+  getPostVisibilityIcon(vis?: string): string {
     switch ((vis || '').toLowerCase()) {
-      case 'public':     return { emoji: '🌍', label: 'Public' };
-      case 'following':  return { emoji: '👥', label: 'Followers only' };
-      case 'self':       return { emoji: '🔒', label: 'Only me' };
-      default:           return { emoji: '❓', label: 'Unknown visibility' };
+      case 'public':     return '🌍';
+      case 'following':  return '👥';
+      case 'self':       return '🔒';
+      default:           return '❓';
     }
   }
+  
+  formatPostMetadata(story: Story): string {
+    if (!story) return "";
+
+    const parts: string[] = [];
+
+    // 📍 City + Country (only if present)
+    const city = story.city?.trim();
+    const country = story.country?.trim();
+    const flag = country ? this.currencyFlagPipe.transform(country) : null;
+
+    if (city || country) {
+      let loc = "";
+      if (city) loc += city;
+      if (city && country) loc += ", ";
+      if (country) loc += country;
+      if (flag) loc += " " + flag;
+      parts.push(loc);
+    }
+
+    // 🗓️ Date (always present)
+    parts.push(this.formatDate(story.date));
+
+    // 🆔 ID (always present)
+    parts.push("ID: " + story.id);
+
+    return parts.join(" · ");
+  } 
 
   private changeComponentMainHeight() {
     if (this.user) {

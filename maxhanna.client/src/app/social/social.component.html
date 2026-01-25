@@ -297,19 +297,12 @@
             </div> 
           </div>
         </div>
+      </div>  
+
+      <div class="xSmallFont">
+        Posted: {{ formatPostMetadata(optionStory) }}
+        <span [title]="optionStory.visibility | titlecase">({{getPostVisibilityIcon(optionStory.visibility)}})</span>
       </div> 
- 
-      <div class="xSmallFont"> 
-          Posted: {{optionStory.country}}
-          {{" "}}{{(optionStory.country ?? "") | currencyFlag}}
-          {{" "}}{{optionStory.city}}
-          {{" "}}{{formatDate(optionStory.date)}}
-          {{" "}}(Post ID : {{optionStory.id}}{{" "}}
-          <span [title]="getPostVisibilityIcon(optionStory.visibility).label">
-            {{ getPostVisibilityIcon(optionStory.visibility).emoji }}
-          </span>
-          )
-      </div>
       
       <button id="closeOverlay" (click)="closeStoryOptionsPanel()" class="closeButton" style="margin-top: 8px;">Close</button>
     </div> 
