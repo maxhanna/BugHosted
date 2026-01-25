@@ -281,7 +281,7 @@
         <div class="optionsStatsDiv" *ngFor="let videoFile of getVideoStoryFiles(optionStory)"> 
           <div class="optionsStatsHeader">
             <div style="display:flex; flex-direction: column;"> 
-              <div>File: {{videoFile.givenFileName ?? videoFile.fileName}}</div> 
+              <div>File: <span class="reducedFileName">{{videoFile.givenFileName ?? videoFile.fileName}}</span></div> 
               <div (click)="addFileToMusicPlaylist(videoFile);" style="cursor:pointer;">
                 ➕ Add{{" "}}
                 <span class="reducedFileName" *ngIf="!onMobile()">"{{videoFile.givenFileName ?? videoFile.fileName}}"</span>
