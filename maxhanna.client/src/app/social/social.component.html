@@ -250,7 +250,7 @@
         </div> 
  
         <div class="xxSmallFont"> 
-            {{optionStory.country}} {{optionStory.country | currencyFlag}} {{optionStory.city}} - {{formatDate(optionStory.date)}}
+            {{optionStory.country}} {{(optionStory.country ?? "") | currencyFlag}} {{optionStory.city}} - {{formatDate(optionStory.date)}}
         </div>
           
         <div class="metadataOptionsStats" *ngFor="let metadata of optionStory.metadata">
