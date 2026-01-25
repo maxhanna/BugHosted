@@ -865,7 +865,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   // =====================================================
   // Export/import in-game save RAM
   // =====================================================
-
   async exportInGameSaveRam(): Promise<ExportInGameSaveRamResult> {
     const empty: ExportInGameSaveRamResult = {
       romName: this.romName ?? null,
@@ -1042,17 +1041,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     if (size === 32768) return '.sra';
     if (size === 131072) return '.fla';
     return null;
-  }
-
-  private baseNameFromRom(): string {
-    const name = this.romName || 'Unknown';
-    let base = name.replace(/\.(z64|n64|v64|zip|7z|rom)$/i, '');
-    base = base
-      .replace(/\s+/g, ' ')
-      .replace(/\s*\((?:U|E|J|JU|USA|Europe|Japan|V\d+(\.\d+)?)\)\s*/gi, ' ')
-      .replace(/\s*\[(?:!|b\d*|h\d*|o\d*|t\d*|M\d*|a\d*)\]\s*/gi, ' ')
-      .trim();
-    return base || 'Unknown';
   } 
 
   private async blobToN64SaveFile(blob: Blob, serverFileName: string): Promise<File> {

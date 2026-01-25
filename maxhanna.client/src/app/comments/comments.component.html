@@ -190,40 +190,11 @@
       🤐Stop Reading Outloud
     </button>
   </div>
-  <div class="optionsStatsWrapperDiv">
-    <div class="optionsStatsDiv">
-      <div class="optionsStatsHeader">
-        Comment Id:
-      </div>
-      <div class="optionsStatsDescription">
-        {{optionsComment.id}}
-      </div>
-    </div>
-    <div class="optionsStatsDiv">
-      <div class="optionsStatsHeader">
-        Date:
-      </div>
-      <div class="optionsStatsDescription">
-        {{inputtedParentRef?.convertUtcToLocalTime(optionsComment.date)}}
-      </div>
-    </div>
-    <div class="optionsStatsDiv" *ngIf="optionsComment.country">
-      <div class="optionsStatsHeader">
-        Country:
-      </div>
-      <div class="optionsStatsDescription">
-        {{optionsComment.country}} {{optionsComment.country | currencyFlag}}
-      </div>
-    </div>
-    <div class="optionsStatsDiv" *ngIf="optionsComment.city">
-      <div class="optionsStatsHeader">
-        City:
-      </div>
-      <div class="optionsStatsDescription">
-        {{optionsComment.city}}
-      </div>
-    </div>
+  
+  <div class="xSmallFont">
+    {{ formatCommentMetadata(optionsComment) }}
   </div>
+
   <div class="xxSmallFont thirdFontColor" style="margin-top:12px;"> We take your privacy seriously. Every message you
     send is
     encrypted before it leaves your device or our servers and remains encrypted until it reaches its intended recipient,

@@ -10,12 +10,14 @@ import { MediaSelectorComponent } from '../media-selector/media-selector.compone
 import { EncryptionService } from '../../services/encryption.service';
 import { TextToSpeechService } from '../../services/text-to-speech.service';
 import { Poll } from '../../services/datacontracts/social/poll';
+import { CurrencyFlagPipe } from '../currency-flag.pipe';
 
 @Component({
   selector: 'app-comments',
   templateUrl: './comments.component.html',
   styleUrl: './comments.component.css',
-  standalone: false
+  standalone: false,
+  providers: [CurrencyFlagPipe]
 })
 export class CommentsComponent extends ChildComponent implements OnInit, AfterViewInit, OnChanges {
   showCommentLoadingOverlay = false;
@@ -67,7 +69,8 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   constructor(
     private commentService: CommentService,
     private encryptionService: EncryptionService,
-    private textToSpeechService: TextToSpeechService) {
+    private textToSpeechService: TextToSpeechService,
+    private currencyFlagPipe: CurrencyFlagPipe) {
     super();
     if (!this.inputtedParentRef && this.parentRef) {
       this.inputtedParentRef = this.parentRef;
@@ -295,7 +298,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     this.replyingToCommentId = undefined;
     this.replyingToCommentEvent.emit();
   }
- 
+
   cancelEdit(comment: FileComment) {
     if (!comment || comment.id === undefined) return;
     this.editingComments = this.editingComments.filter(x => x != comment.id);
@@ -390,7 +393,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     }
     this.replyingToCommentEvent.emit(this.replyingToCommentId);
   }
- 
+
   cancelReply() {
     this.replyingToCommentId = undefined;
     this.replyingToCommentEvent.emit(undefined as any);
@@ -461,7 +464,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       parentComment.comments.push(commentAdded);
     }
     this.replyingToCommentId = undefined;
-    this.replyingToCommentEvent.emit(this.replyingToCommentId); 
+    this.replyingToCommentEvent.emit(this.replyingToCommentId);
     this.scheduleCommentPollRender();
   }
 
@@ -682,5 +685,37 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
         this.decryptCommentsRecursively(comment.comments);
       }
     });
+  }
+
+  formatCommentMetadata(comment: any): string {
+    if (!comment || !this.inputtedParentRef) return "";
+
+    const parts: string[] = [];
+
+    // Location (only if available)
+    const city = comment.city?.trim();
+    const country = comment.country?.trim();
+    const flag = country ? (this.currencyFlagPipe
+      ? this.currencyFlagPipe.transform(country)
+      : "") : "";
+
+    if (city || country) {
+      let loc = "";
+      if (city) loc += city;
+      if (city && country) loc += ", ";
+      if (country) loc += country;
+      if (flag) loc += " " + flag;
+      parts.push(loc);
+    }
+
+    // Convert UTC → local
+    if (comment.date) {
+      parts.push(this.inputtedParentRef.convertUtcToLocalTime(comment.date));
+    }
+
+    // Comment ID
+    parts.push("ID: " + comment.id);
+
+    return parts.join(" · ");
   }
 }

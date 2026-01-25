@@ -277,7 +277,9 @@
         <div class="optionsStatsDiv" *ngFor="let videoFile of getVideoStoryFiles(optionStory)"> 
           <div class="optionsStatsHeader fileNameStatsHeader">
             <span>File:</span>
-            <span class="reducedFileName">{{videoFile.givenFileName ?? videoFile.fileName}}</span> 
+            <span class="reducedFileName" [title]="videoFile.givenFileName ?? videoFile.fileName">
+              {{videoFile.givenFileName ?? videoFile.fileName}}
+            </span> 
           </div> 
           <div class="optionsStatsDescription">
             <button 
@@ -286,7 +288,7 @@
               style="cursor:pointer;">
               ➕ Add to Music Playlist
             </button>
-            <button (click)="copyFileLink(videoFile)" style="cursor:pointer;" title="Copy direct-link to media in clipboard?">
+            <button (click)="copyFileLink(videoFile)" style="cursor:pointer;" title="Copy direct-link to media in clipboard">
               📋 Copy link to Clipboard
             </button>
           </div>
