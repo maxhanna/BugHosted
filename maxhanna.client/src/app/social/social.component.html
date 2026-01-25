@@ -205,7 +205,7 @@
             Topics
             <button 
               (click)="editTopic(optionStory)"
-              *ngIf="optionStory.user?.id == parentRef?.user?.id || parentRef?.user?.id == 1" 
+              *ngIf="optionStory.user?.id && optionStory.user?.id == parentRef?.user?.id" 
               title="Edit Post Topic"
               class="cursorPointer">
               ✏️
