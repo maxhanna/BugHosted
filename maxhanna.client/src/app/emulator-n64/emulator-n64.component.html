@@ -77,9 +77,9 @@
         <div class="optionsStatsDiv">
           <div class="optionsStatsHeader">Controllers:</div>
           <div class="optionsStatsDescription"> 
-            <button (click)="refreshGamepads()" *ngIf="showControllerAssignments">Refresh Controllers</button>
+            <button (click)="refreshGamepads()">Refresh</button>
             <button (click)="showControllerAssignments = !showControllerAssignments">
-              {{ showControllerAssignments ? 'Hide' : 'Show' }} Controller Assignments
+              {{ showControllerAssignments ? 'Hide Details' : 'Details' }}
             </button>
           </div>
         </div>
