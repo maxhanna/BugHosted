@@ -203,9 +203,13 @@
         <div class="optionsStatsDiv">
           <div class="optionsStatsHeader">
             Topics
-            <span (click)="editTopic(optionStory)"
-              *ngIf="optionStory.user?.id == parentRef?.user?.id || parentRef?.user?.id == 1" title="Edit Post Topic"
-              class="cursorPointer">✏️</span>:
+            <button 
+              (click)="editTopic(optionStory)"
+              *ngIf="optionStory.user?.id == parentRef?.user?.id || parentRef?.user?.id == 1" 
+              title="Edit Post Topic"
+              class="cursorPointer">
+              ✏️
+            </button>:
           </div>
           <div class="optionsStatsDescription">
             <div class="reactionTopicsAndExpanderDiv reactionTopics">

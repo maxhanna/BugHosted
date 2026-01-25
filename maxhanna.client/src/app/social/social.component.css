@@ -1,5 +1,5 @@
 @media only screen and (min-width : 600px) {
-  button {
+  .storyOptionsPopup .optionsStatsWrapperDiv button {
     font-size: var(--main-font-size);
   }
 }
