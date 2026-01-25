@@ -161,44 +161,31 @@
       <div class="popupPanelTitle" style="margin-bottom: 15px;">
         Post Options
       </div>
-      <!-- Buttons moved into optionsStatsWrapperDiv as an Actions row -->
-
+      <div>
+        <button (click)="copyAllText(optionStory.id)" title="Copy all text">📋 Copy Text</button>
+        <button 
+          (click)="edit(optionStory)"
+          title="Edit Post Text"
+          *ngIf="optionStory.user?.id == parentRef?.user?.id">
+          ✏️ Edit Text
+        </button>
+        <button 
+          (click)="copyLink(optionStory.id)" 
+          title="Share Link">📋 Share Post</button>
+        <button
+          (click)="hide(optionStory)"
+          *ngIf="parentRef?.user?.id">
+          {{optionStory.hidden ? '🙉 Unhide' : '🙈 Hide'}} Post
+        </button>
+        <button 
+          (click)="delete(optionStory)" 
+          *ngIf="(optionStory.user?.id == parentRef?.user?.id) || (userProfileId && userProfileId == parentRef?.user?.id) || (parentRef?.user?.id == 1 || parent?.user?.id == 1)"
+          title="Delete Post">
+          ❌ Delete Post
+        </button>
+      </div>
+  
       <div class="optionsStatsWrapperDiv gradientBackground">
-        <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader"></div>
-          <div class="optionsStatsDescription">
-            <button (click)="copyLink(optionStory.id)" title="Share Link">📋 Share</button>
-          </div>
-        </div>
-
-        <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader"></div>
-          <div class="optionsStatsDescription">
-            <button (click)="copyAllText(optionStory.id)" title="Copy all text">📋 Copy Text</button>
-          </div>
-        </div>
-
-        <div class="optionsStatsDiv" *ngIf="optionStory.user?.id == parentRef?.user?.id">
-          <div class="optionsStatsHeader">Edit</div>
-          <div class="optionsStatsDescription">
-            <button (click)="edit(optionStory)" title="Edit Post Text">✏️ Edit Text</button>
-          </div>
-        </div>
-
-        <div class="optionsStatsDiv" *ngIf="parentRef?.user?.id">
-          <div class="optionsStatsHeader"></div>
-          <div class="optionsStatsDescription">
-            <button (click)="hide(optionStory)">{{optionStory.hidden ? '🙉 Unhide' : '🙈 Hide'}} Post</button>
-          </div>
-        </div>
-
-        <div class="optionsStatsDiv" *ngIf="(optionStory.user?.id == parentRef?.user?.id) || (userProfileId && userProfileId == parentRef?.user?.id) || (parentRef?.user?.id == 1 || parent?.user?.id == 1)">
-          <div class="optionsStatsHeader"></div>
-          <div class="optionsStatsDescription">
-            <button (click)="delete(optionStory)" title="Delete Post">❌ Delete Post</button>
-          </div>
-        </div>
-
         <div class="optionsStatsDiv">
           <div class="optionsStatsHeader">Text-to-Speech</div>
           <div class="optionsStatsDescription">
@@ -212,15 +199,7 @@
           <div class="optionsStatsDescription"> 
             <button *ngFor="let topic of optionStory.storyTopics" (click)="ignoreTopic(topic)">Ignore <span class="matchingTopic">{{topic.topicText}}</span></button>
           </div>
-        </div>
-        <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">
-            Story Id:
-          </div>
-          <div class="optionsStatsDescription">
-            {{optionStory.id}}
-          </div>
-        </div>
+        </div> 
         <div class="optionsStatsDiv">
           <div class="optionsStatsHeader">
             Topics
@@ -268,33 +247,12 @@
           <div class="optionsStatsDescription">
             {{ optionStory.visibility | titlecase }}
           </div> 
+        </div> 
+ 
+        <div class="xxSmallFont"> 
+            {{optionStory.country}} {{optionStory.country | currencyFlag}} {{optionStory.city}} - {{formatDate(optionStory.date)}}
         </div>
-        <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">Created By:</div>
-          <div class="optionsStatsDescription">
-            <app-user-tag [user]="optionStory.user" [displayHoverPicture]="true"
-              [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true"
-              [previousComponent]="'Social'"></app-user-tag>
-          </div>
-        </div>
-        <div class="optionsStatsDiv" *ngIf="optionStory.country">
-          <div class="optionsStatsHeader">Country:</div>
-          <div class="optionsStatsDescription" [title]="optionStory.country">
-            {{optionStory.country}} {{optionStory.country | currencyFlag}}
-          </div>
-        </div>
-        <div class="optionsStatsDiv" *ngIf="optionStory.city ">
-          <div class="optionsStatsHeader">City:</div>
-          <div class="optionsStatsDescription" [title]="optionStory.city">
-            {{optionStory.city}}
-          </div>
-        </div>
-        <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">Date:</div>
-          <div class="optionsStatsDescription" [title]="formatDate(optionStory.date)">
-            {{formatDate(optionStory.date)}}
-          </div>
-        </div>
+          
         <div class="metadataOptionsStats" *ngFor="let metadata of optionStory.metadata">
           <div class="optionsStatsDiv" *ngIf="metadata.url">
             <div class="optionsStatsHeader">
