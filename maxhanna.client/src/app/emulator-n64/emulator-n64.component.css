@@ -45,6 +45,7 @@ canvas { width: auto !important; height: calc(100vh - 60px) !important; }
   flex-direction:column;
   gap:8px;
   text-align: center;
+  background-color: var(--component-background-color);
 }
 
 .portAssignmentSection {
@@ -56,6 +57,13 @@ canvas { width: auto !important; height: calc(100vh - 60px) !important; }
   align-content: flex-start;
   margin-bottom: 18px;
 }
+.portAssignmentSection select {
+  max-width: 200px;
+}
 .portAssignmentSection label {
   display: flex;
+}
+.playerControllerPortHeader {
+  padding: 4px 0;
+  border: 1px solid var(--main-border-color);
 }
