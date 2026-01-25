@@ -1109,6 +1109,14 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     return this.textToSpeechService.isSpeaking;
   }
   
+  getPostVisibilityIcon(vis?: string): { emoji: string; label: string } {
+    switch ((vis || '').toLowerCase()) {
+      case 'public':     return { emoji: '🌍', label: 'Public' };
+      case 'following':  return { emoji: '👥', label: 'Followers only' };
+      case 'self':       return { emoji: '🔒', label: 'Only me' };
+      default:           return { emoji: '❓', label: 'Unknown visibility' };
+    }
+  }
 
   private changeComponentMainHeight() {
     if (this.user) {
