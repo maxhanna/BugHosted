@@ -37,7 +37,7 @@
 <div class="n64-emulator-root popupPanel" *ngIf="isMenuPanelVisible">
   <div class="popupPanelTitle">N64 Emulation Menu</div>
 
-  <div *ngIf="!showKeyMappings" class="menuAutosaveWrapper">
+  <div *ngIf="!showKeyMappings && !showControllerAssignments" class="menuAutosaveWrapper">
     <app-file-upload
       [currentDirectory]="'Roms'"
       [user]="parentRef?.user!"
@@ -75,10 +75,19 @@
         </div>
 
         <div class="optionsStatsDiv" *ngIf="romName">
-          <div class="optionsStatsHeader">Fullscreen:</div>
+          <div class="optionsStatsHeader"></div>
           <div class="optionsStatsDescription"> 
-            <div class="uploadRomSpan upload-label" id="fullscreenBtn" (click)="toggleFullscreen()" title="Fullscreen mode">
-              ◻️
+            <div class="uploadRomSpan upload-label" id="fullscreenBtn" title="Fullscreen mode">
+              <button (click)="toggleFullscreen()">Fullscreen: ◻️</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="optionsStatsDiv" *ngIf="romName">
+          <div class="optionsStatsHeader"></div>
+          <div class="optionsStatsDescription"> 
+            <div class="uploadRomSpan upload-label" id="fullscreenBtn" title="Fullscreen mode">
+              <button (click)="stopGame()">Stop Emulator: 🛑</button>
             </div>
           </div>
         </div>
@@ -87,41 +96,6 @@
   </div>
  
   <div class="controls">
-    <!-- <div class="gamepad-controls">
-      <div *ngIf="!showKeyMappings">
-        <label>Controller:
-          <select (change)="onSelectGamepad($any($event.target).value)" [value]="selectedGamepadIndex ?? ''">
-            <option value="" disabled *ngIf="!gamepads.length">-- No controllers --</option>
-            <option *ngFor="let gp of gamepads" [value]="gp.index">
-              {{gp.index}} — {{gp.id}} {{gp.mapping ? '(' + gp.mapping + ')' : ''}}
-            </option>
-          </select>
-        </label>
-        <button (click)="refreshGamepads()">Refresh</button>
-      </div>
-      <div *ngIf="!showKeyMappings" style="font-size:x-small">Note: If your gamepad is not detected, try restarting the browser.</div>
-
-      <div *ngIf="!showKeyMappings && gamepads.length">
-        <label style="margin-left:8px">Mappings:
-          <select (change)="onMappingSelect($any($event.target).value)" [value]="selectedMappingName ?? ''">
-            <option value="" *ngIf="savedMappingsNames.length">Default</option>
-            <option value="" disabled *ngIf="!savedMappingsNames.length">-- No mappings --</option>
-            <option *ngFor="let n of savedMappingsNames" [value]="n" [selected]="n === selectedMappingName">{{n}}</option>
-          </select>
-        </label>
-
-        <div>
-          <button (click)="saveMappingAs()">Save Mapping...</button>
-          <button *ngIf="selectedMappingName" (click)="deleteSelectedMapping()">Delete</button>
-          <button (click)="showKeyMappings = !showKeyMappings">Re-Map Controls</button>
-          <button (click)="_gpPoller ? stopGamepadLogging() : startGamepadLogging();">
-            {{_gpPoller ? 'Stop' : 'Start'}} Gamepad Logging
-          </button>
-        </div>
-      </div>
-    </div> -->
-
-    <!-- ************ LIST-BASED REMAPPER ************ -->
     <div class="mapping-controls" *ngIf="showKeyMappings">
       <div class="remap-header">
         <h4>Controller Mapping</h4>
@@ -170,19 +144,21 @@
         <h5>Export</h5>
         <textarea rows="8" cols="60" readonly>{{exportText}}</textarea>
       </div>
-    </div>
-    <!-- ********************************************* --> 
-          
+    </div> 
+    
     <div class="" *ngIf="!showKeyMappings">
-      <div class="">Players:</div>
+      <div class="">Controllers:</div>
       <div class="" style="display:flex; flex-direction:column; gap:8px;">
 
         <div style="margin-bottom:6px;">
-          <button (click)="refreshGamepads()">Refresh Controllers</button>
+          <button (click)="refreshGamepads()" *ngIf="showControllerAssignments">Refresh Controllers</button>
+          <button (click)="showControllerAssignments = !showControllerAssignments">
+            {{ showControllerAssignments ? 'Hide' : 'Show' }} Controller Assignments
+          </button>
         </div>
 
-        <div *ngFor="let p of playerPorts" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-          <div style="min-width:70px;">P{{p}}</div>
+        <div *ngFor="let p of playerPorts" class="portAssignmentSection" *ngIf="showControllerAssignments">
+          <div style="min-width:70px; text-align: center;" class="gradientBackground">Player {{p}}</div>
 
           <!-- Controller dropdown --> 
           <label>Controller: 

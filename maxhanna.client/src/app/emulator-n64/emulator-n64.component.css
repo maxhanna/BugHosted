@@ -40,3 +40,13 @@ canvas { width: auto !important; height: calc(100vh - 60px) !important; }
 .menuAutosaveWrapper {
   width: calc(100% - 20px);
 }
+
+.portAssignmentSection {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-direction: column;
+  align-content: flex-start;
+  margin-bottom: 18px;
+}

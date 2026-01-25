@@ -34,6 +34,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   savedMappingsNames: string[] = [];
   private _mappingsStoreKey = 'n64_mappings_store_v1';
   selectedMappingName: string | null = null;
+  showControllerAssignments = false;
 
   private _romGoodName: string | null = null;
   private _romMd5: string | null = null;
@@ -712,6 +713,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch (e) {
       console.error('Error resuming emulator', e);
     }
+  }
+
+  async stopGame() {
+    await this.stop();
+    this.romBuffer = undefined;
+    this.romName = undefined;
+    this.parentRef?.showNotification('ROM unloaded');
   }
 
   async toggleFullscreen() {
