@@ -279,12 +279,15 @@
             File: <span class="reducedFileName">{{videoFile.givenFileName ?? videoFile.fileName}}</span>
           </div> 
           <div class="optionsStatsDescription">
-            <button (click)="addFileToMusicPlaylist(videoFile);" style="cursor:pointer;">
-              ➕ Add{{" "}}
-              "<span class="reducedFileName" *ngIf="!onMobile()">{{videoFile.givenFileName ?? videoFile.fileName}}</span>"
-              {{" "}}to Music Playlist
+            <button 
+              title="Add {{videoFile.givenFileName ?? videoFile.fileName}} to Music Playlist"
+              (click)="addFileToMusicPlaylist(videoFile);" 
+              style="cursor:pointer;">
+              ➕ Add to Music Playlist
             </button>
-            <button (click)="copyFileLink(videoFile)" style="cursor:pointer;">📋 Copy link to Clipboard?</button>
+            <button (click)="copyFileLink(videoFile)" style="cursor:pointer;" title="Copy direct-link to post in clipboard?">
+              📋 Copy link to Clipboard?
+            </button>
           </div>
         </div>
       </div>  
