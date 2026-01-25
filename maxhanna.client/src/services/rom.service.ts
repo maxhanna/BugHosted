@@ -51,46 +51,20 @@ export class RomService {
     }
   }
 
+async getN64SaveByName(romName: string, userId: number): Promise<{ blob: Blob; fileName: string } | null> {
+  const resp = await fetch(`/rom/getn64savebyname/${encodeURIComponent(romName)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(userId)
+  });
+  if (!resp.ok) return null;
 
-  async getN64SaveByName(romName: string, userId: number): Promise<{ blob: Blob; filename: string } | null> {
-    const url = `/rom/getn64savebyname/${encodeURIComponent(romName)}`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(userId)
-    });
-    if (!res.ok) return null;
-
-    // Extract filename from Content-Disposition header
-    const cd = res.headers.get('content-disposition') || '';
-    let filename = romName; // fallback
-    // robust parse: supports filename="..." and RFC5987 filename*=UTF-8''
-    const rfc5987 = cd.match(/filename\*=(?:UTF-8'')?([^;]+)/i);
-    const quoted = cd.match(/filename="([^"]+)"/i);
-    if (rfc5987 && rfc5987[1]) filename = decodeURIComponent(rfc5987[1]);
-    else if (quoted && quoted[1]) filename = quoted[1];
-
-    const blob = await res.blob();
-    return { blob, filename };
-  }
-
-
-  //deprecated, delete
-  // async getN64StateFile(rom: string, userId?: number) {
-  //   try {
-  //     const response = await fetch(`/rom/getn64statefile/${encodeURIComponent(rom)}`, {
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //       },
-  //       body: JSON.stringify(userId),
-  //     });
-
-  //     return await response.blob();
-  //   } catch (error) {
-  //     return null;
-  //   }
-  // }
+  const blob = await resp.blob();
+  const cd = resp.headers.get('Content-Disposition') || '';
+  const m = cd.match(/filename\*?=(?:UTF-8''|")?([^";]+)"?/i);
+  const fileName = m ? decodeURIComponent(m[1]) : `${romName.replace(/\.[^.]+$/, '')}.eep`; // fallback
+  return { blob, fileName };
+}  
 
   async uploadRomFile(userId: number, form: FormData) {
     form.append('userId', JSON.stringify(userId));

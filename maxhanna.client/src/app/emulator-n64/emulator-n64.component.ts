@@ -215,8 +215,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       if (this.parentRef?.user?.id) {
         const saveGameFile = await this.romService.getN64SaveByName(this.romName, this.parentRef?.user?.id);
         if (saveGameFile) {
-          console.log("Found Save File.");
-          const saveFile = await this.blobToN64SaveFile(saveGameFile.blob, this.romName);
+          console.log("Found Save File."); 
+          const saveFile = await this.blobToN64SaveFile(saveGameFile.blob, saveGameFile.fileName);
           if (saveFile) {
             await this.importInGameSaveRam([saveFile], true);
             if (this.DEBUG_CLEAR_SAVESTATES) {
@@ -639,10 +639,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
       // ✅ Stop sniffing once ROM meta printed
       restoreSniffer();
-
-      // Give IDBFS a small head start; reduces "syncfs overlap" churn
-      await new Promise(r => setTimeout(r, 400));
-      await this.syncFs('post-start');
+ 
+      await new Promise(r => setTimeout(r, 400)); 
 
       await this.safeDebug('SAVE-SCAN', () => this.debugScanAllBatteryForCurrentRom());
       await this.safeDebug('ROM-ID', () => this.debugRomIdentity());
@@ -1055,26 +1053,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       .replace(/\s*\[(?:!|b\d*|h\d*|o\d*|t\d*|M\d*|a\d*)\]\s*/gi, ' ')
       .trim();
     return base || 'Unknown';
-  }
+  } 
 
-  private async blobToN64SaveFile(blob: Blob, suggestedName?: string): Promise<File | null> {
-    const size = blob.size;
-    const ext = this.inferBatteryExtFromSize(size);
-    if (!ext) {
-      console.log('Downloaded blob is not a recognized battery save (.eep/.sra/.fla).');
-      return null;
-    }
-
-    this.saveDebug(`SERVER SAVE`, {
-      rom: suggestedName,
-      inferredExt: ext,
-      size
-    });
-
-    const base = (suggestedName && suggestedName.replace(/\.[^\.]+$/, '')) || this.canonicalRomBaseFromFileName(this.romName);
-    const filename = `${base}${ext}`;
-    return new File([blob], filename, { type: blob.type || 'application/octet-stream' });
-  }
+  private async blobToN64SaveFile(blob: Blob, serverFileName: string): Promise<File> {
+    return new File([blob], serverFileName, { type: 'application/octet-stream' });
+  } 
 
   async importInGameSaveRam(files: FileList | File[], skipBoot: boolean = false) {
     try {
