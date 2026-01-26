@@ -1,4 +1,3 @@
-
 <div class="componentMain" [style.paddingTop]="isFullScreen ? '0px' : null">
   <div class="closeButton" (click)="remove_me('EmulatorN64Component');" *ngIf="!isFullScreen"></div>
   <div class="menuButton" (click)="showMenuPanel();" *ngIf="!isFullScreen"></div>
@@ -129,8 +128,7 @@
           <div class="col-actions">Actions</div>
         </div>
 
-        <div *ngFor="let ctrl of n64Controls" class="remap-row"
-              [class.active]="isRowActive(ctrl)">
+        <div *ngFor="let ctrl of n64Controls" class="remap-row" [class.active]="isRowActive(ctrl)">
           <div class="col-control">
             <span class="ctrl-name">{{ ctrl }}</span>
           </div>

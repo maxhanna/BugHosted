@@ -983,7 +983,8 @@ namespace maxhanna.Server.Controllers
       if (userId <= 0)
         return BadRequest("Invalid userId");
 
-      var cs = _config?.GetValue<string>("ConnectionStrings:maxhanna");
+      // Cache your connection string in the constructor and use a field if possible.
+      var cs = _config?.GetConnectionString("maxhanna");
       if (string.IsNullOrWhiteSpace(cs))
         return StatusCode(500, "Missing DB connection string");
 
@@ -991,83 +992,49 @@ namespace maxhanna.Server.Controllers
       try
       {
         await conn.OpenAsync(ct).ConfigureAwait(false);
-        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
 
-        // 1) Always update presence (no throttling).
-        const string updateLastSeenSql = @"
+        // 1) Update presence (fast, single row)
+        const string presenceSql = @"
           UPDATE maxhanna.users
-              SET last_seen = UTC_TIMESTAMP()
-            WHERE id = @UserId
-            LIMIT 1;";
+            SET last_seen = UTC_TIMESTAMP()
+          WHERE id = @UserId
+          LIMIT 1;";
 
-        using (var cmd = new MySqlCommand(updateLastSeenSql, conn, tx))
+        await using (var cmd = new MySqlCommand(presenceSql, conn))
         {
-          cmd.Parameters.AddWithValue("@UserId", userId);
+          cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
           var affected = await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
           if (affected == 0)
-          {
-            await tx.RollbackAsync(ct).ConfigureAwait(false);
             return NotFound("User not found");
-          }
         }
 
-        // 2) Fast-path guard: if today already recorded, skip streak writes.
-        const string guardSql = @"
-          SELECT 1
-            FROM maxhanna.user_login_streaks
-            WHERE user_id = @UserId
-              AND last_seen_date = UTC_DATE()
-            LIMIT 1;";
+        // 2) Update login streaks.
+        //      - If today already recorded: keep streaks unchanged (no-op other than timestamps).
+        //      - If yesterday: increment current, bump longest if needed.
+        //      - Otherwise: reset current to 1.
+        const string streakUpsertSql = @"
+          INSERT INTO maxhanna.user_login_streaks
+                (user_id, last_seen_date, current_streak, longest_streak, created_at, updated_at)
+          VALUES (@UserId, UTC_DATE(), 1, 1, UTC_TIMESTAMP(), UTC_TIMESTAMP())
+          ON DUPLICATE KEY UPDATE
+            current_streak = CASE
+              WHEN last_seen_date = UTC_DATE() THEN current_streak
+              WHEN DATEDIFF(UTC_DATE(), last_seen_date) = 1 THEN current_streak + 1
+              ELSE 1
+            END,
+            longest_streak = CASE
+              WHEN last_seen_date = UTC_DATE() THEN longest_streak
+              WHEN DATEDIFF(UTC_DATE(), last_seen_date) = 1 THEN GREATEST(longest_streak, current_streak + 1)
+              ELSE GREATEST(longest_streak, 1)
+            END,
+            last_seen_date = UTC_DATE(),
+            updated_at     = UTC_TIMESTAMP();";
 
-        bool alreadyToday;
-        using (var guardCmd = new MySqlCommand(guardSql, conn, tx))
+        await using (var up = new MySqlCommand(streakUpsertSql, conn))
         {
-          guardCmd.Parameters.AddWithValue("@UserId", userId);
-          alreadyToday = (await guardCmd.ExecuteScalarAsync(ct).ConfigureAwait(false)) != null;
+          up.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
+          await up.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         }
-
-        if (!alreadyToday)
-        {
-          // 3) UPDATE existing row for yesterday/gap; next-day => +1; gap => reset to 1.
-          const string updateStreakSql = @"
-            UPDATE maxhanna.user_login_streaks
-                SET current_streak = CASE
-                                        WHEN DATEDIFF(UTC_DATE(), last_seen_date) = 1 THEN current_streak + 1
-                                        ELSE 1
-                                      END,
-                    longest_streak = CASE
-                                        WHEN DATEDIFF(UTC_DATE(), last_seen_date) = 1 THEN GREATEST(longest_streak, current_streak + 1)
-                                        ELSE longest_streak
-                                      END,
-                    last_seen_date = UTC_DATE(),
-                    updated_at     = UTC_TIMESTAMP()
-              WHERE user_id = @UserId
-                AND last_seen_date <> UTC_DATE()
-              LIMIT 1;";
-
-          int rows;
-          using (var upd = new MySqlCommand(updateStreakSql, conn, tx))
-          {
-            upd.Parameters.AddWithValue("@UserId", userId);
-            rows = await upd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
-          }
-
-          if (rows == 0)
-          {
-            // 4) No existing row: INSERT a fresh row for today.
-            const string insertStreakSql = @"
-              INSERT INTO maxhanna.user_login_streaks
-                  (user_id, last_seen_date, current_streak, longest_streak, created_at, updated_at)
-              VALUES
-                  (@UserId, UTC_DATE(), 1, 1, UTC_TIMESTAMP(), UTC_TIMESTAMP());";
-
-            using var ins = new MySqlCommand(insertStreakSql, conn, tx);
-            ins.Parameters.AddWithValue("@UserId", userId);
-            await ins.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
-          }
-        }
-
-        await tx.CommitAsync(ct).ConfigureAwait(false);
         return Ok();
       }
       catch (Exception ex)

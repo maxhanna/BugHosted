@@ -1,7 +1,7 @@
 
 import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import createMupen64PlusWeb, { writeAutoInputConfig } from 'mupen64plus-web';
+import createMupen64PlusWeb, { EmulatorControls, writeAutoInputConfig } from 'mupen64plus-web';
 import { FileService } from '../../services/file.service';
 import { N64StateUpload, RomService } from '../../services/rom.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
@@ -23,7 +23,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   status: 'idle' | 'booting' | 'running' | 'paused' | 'stopped' | 'error' = 'idle';
   romName?: string;
   private romBuffer?: ArrayBuffer;
-  private instance: any;
+  private instance: EmulatorControls | null = null;
+  private _romGoodName: string | null = null;
+  private _romMd5: string | null = null;
 
   // ---- Gamepads ----
   gamepads: Array<{ index: number; id: string; mapping: string; connected: boolean }> = [];
@@ -31,13 +33,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   // ---- Mapping UI/store ----
   showKeyMappings = false;
+  showControllerAssignments = false;
   savedMappingsNames: string[] = [];
   private _mappingsStoreKey = 'n64_mappings_store_v1';
   selectedMappingName: string | null = null;
-  showControllerAssignments = false;
-
-  private _romGoodName: string | null = null;
-  private _romMd5: string | null = null;
+  private _bootstrapTimers: number[] = [];
 
   // mapping: N64 control -> { type:'button'|'axis', index:number, axisDir?:1|-1, gamepadId:string }
   mapping: Record<string, any> = {};
@@ -162,7 +162,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     if (this.romName && confirm('Save your progress on the server before exiting?')) {
       await this.autosaveTick();
     }
-    this.stop();
+    await this.stop();
 
     if (this._resizeObserver) {
       this._resizeObserver.disconnect();
@@ -170,23 +170,30 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
 
     if (this._canvasResizeAdded) {
-      try { window.removeEventListener('resize', this._resizeHandler); } catch { /* ignore */ }
+      try {
+        window.removeEventListener('resize', this._resizeHandler);
+      } catch { 
+        console.error("Failed to remove resize event listener"); 
+      }
       this._canvasResizeAdded = false;
     }
 
     try {
       document.removeEventListener('fullscreenchange', this._onFullscreenChange);
       window.removeEventListener('orientationchange', this._resizeHandler);
-    } catch { /* ignore */ }
+    } catch { console.error("Failed to remove fullscreen or orientation event listeners"); }
 
     this.stopGamepadAutoDetect();
     try {
       window.removeEventListener('gamepadconnected', this._onGamepadConnected);
       window.removeEventListener('gamepaddisconnected', this._onGamepadDisconnected);
-    } catch { /* ignore */ }
+    } catch { console.error("Failed to remove gamepad connection event listeners"); }
 
-    this.stopGamepadLoggingRaw();
-    this.stopGamepadLoggingEffective();
+    this.stopGamepadLogging(); 
+    for (const id of this._bootstrapTimers) { 
+      clearTimeout(id); 
+    }
+    this._bootstrapTimers = []; 
   }
 
   // =====================================================
@@ -316,13 +323,28 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     return mapping;
   }
 
-  recordCtrl(ctrl: string) { this.startRecording(ctrl); }
-  clearCtrl(ctrl: string) { delete this.mapping[ctrl]; }
-  clearAllMappings() { this.mapping = {}; this.parentRef?.showNotification('Cleared all mappings (not applied yet)'); }
+  recordCtrl(ctrl: string) { 
+    this.startRecording(ctrl); 
+  }
+
+  clearCtrl(ctrl: string) { 
+    delete this.mapping[ctrl]; 
+  }
+
+  clearAllMappings() { 
+    this.mapping = {}; 
+    this.parentRef?.showNotification('Cleared all mappings (not applied yet)'); 
+  }
+
   regenDefaultForSelectedPad() {
     const gp = this.currentPad();
-    if (!gp) { this.parentRef?.showNotification('No controller selected'); return; }
-    if (gp.mapping !== 'standard') this.parentRef?.showNotification('Controller is not standard; defaults may differ.');
+    if (!gp) {
+      this.parentRef?.showNotification('No controller selected'); 
+      return; 
+    }
+    if (gp.mapping !== 'standard') {
+      this.parentRef?.showNotification('Controller is not standard; defaults may differ.');
+    }
     this.generateDefaultRawMappingForPad(gp);
   }
 
@@ -561,7 +583,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           gamepadId
         });
       }
-    } catch { /* ignore */ }
+    } catch (e) { 
+      console.error('Failed to persist selected controller:', e);
+    }
   }
 
   // =====================================================
@@ -641,13 +665,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       restoreSniffer();
  
       await new Promise(r => setTimeout(r, 400)); 
-
-      await this.safeDebug('SAVE-SCAN', () => this.debugScanAllBatteryForCurrentRom());
-      await this.safeDebug('ROM-ID', () => this.debugRomIdentity());
-
-      // Optional (your ini in /assets looks like a stub; safeDebug prevents crashing)
-      await this.safeDebug('INI', () => this.debugCheckIniForRacer());
-
+  
       // Mirrors (keep if you want)
       this.mirrorGoodNameSavesToCanonical().catch(() => { });
 
@@ -2031,7 +2049,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const burst = () => {
       this.refreshGamepads();
       runs++;
-      if (runs < 8) setTimeout(burst, 250);
+      if (runs < 8) {
+        const id = window.setTimeout(burst, 250);
+        this._bootstrapTimers.push(id);
+      }
     };
     burst();
   }
@@ -2865,90 +2886,7 @@ private async writeIdbBytes(db: IDBDatabase, key: string, bytes: Uint8Array): Pr
     this._idbfsSync = this._idbfsSync.then(run, run);
     await this._idbfsSync;
   }
-
-  private readCrc1Crc2FromRom(rom: ArrayBuffer): { crc1: string; crc2: string } {
-    const dv = new DataView(rom);
-    const crc1 = dv.getUint32(0x10, false).toString(16).padStart(8, '0');
-    const crc2 = dv.getUint32(0x14, false).toString(16).padStart(8, '0');
-    return { crc1, crc2 };
-  }
-
-  private async safeDebug(label: string, fn: () => Promise<void>) {
-    try { await fn(); }
-    catch (e) { console.warn(`[DEBUG:${label}] failed`, e); }
-  }
-
-  private async debugRomIdentity(): Promise<void> {
-    if (!this.romBuffer) return;
-    const { crc1, crc2 } = this.readCrc1Crc2FromRom(this.romBuffer);
-    const sha = await this.sha256Hex(this.romBuffer);
-    console.log('[ROM-ID]', { romName: this.romName, crc1, crc2, sha256: sha });
-  }
-
-  private async debugCheckIniForRacer(): Promise<void> {
-    const text = await fetch('/assets/mupen64plus/mupen64plus.ini').then(r => r.text());
-    console.log('[INI] length', text.length);
-    console.log('[INI] contains "Star Wars Episode I - Racer"?', text.includes('Star Wars Episode I - Racer'));
-    console.log('[INI] contains "SaveType=Eeprom 4KB"?', text.includes('SaveType=Eeprom 4KB'));
-  }
-
-
-  private async debugScanAllBatteryForCurrentRom(): Promise<void> {
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open('/mupen64plus');
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => resolve(req.result);
-    });
-
-    if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
-
-    const token = (this.romTokenForMatching(this.romName) || '').toLowerCase();
-    const tx = db.transaction('FILE_DATA', 'readonly');
-    const os = tx.objectStore('FILE_DATA');
-
-    const rows: Array<{ key: string; size: number; ext: string; matches: boolean }> = await new Promise((resolve, reject) => {
-      const out: any[] = [];
-      const cur = os.openCursor();
-      cur.onerror = () => reject(cur.error);
-      cur.onsuccess = (ev: any) => {
-        const c = ev.target.result;
-        if (c) {
-          const keyStr = String(c.key);
-          const lower = keyStr.toLowerCase();
-          const isBattery = lower.startsWith('/mupen64plus/saves/') &&
-            (lower.endsWith('.eep') || lower.endsWith('.sra') || lower.endsWith('.fla'));
-          if (isBattery) {
-            const fname = lower.split('/').pop() || '';
-            const loose = fname.replace(/[^a-z0-9 ]/g, '').trim();
-            const matches = !token || loose.includes(token);
-            const u8 = this.coerceToU8(c.value);
-            const size = u8?.byteLength ?? 0;
-            const ext = (fname.match(/\.(eep|sra|fla)$/i)?.[0] || '').toLowerCase();
-            out.push({ key: keyStr, size, ext, matches });
-          }
-          c.continue();
-        } else resolve(out);
-      };
-    });
-
-    console.log('[SAVE-SCAN] battery candidates (.eep/.sra/.fla):', rows);
-    db.close();
-  }
-
-  private coerceToU8(v: any): Uint8Array | null {
-    if (!v) return null;
-    if (v instanceof Uint8Array) return v;
-    if (v instanceof ArrayBuffer) return new Uint8Array(v);
-    if (v?.buffer instanceof ArrayBuffer && typeof v.byteLength === 'number') {
-      // handle views correctly:
-      return new Uint8Array(v.buffer, v.byteOffset ?? 0, v.byteLength);
-    }
-    if (v?.contents) return this.coerceToU8(v.contents);
-    if (v?.data) return this.coerceToU8(v.data);
-    if (Array.isArray(v?.bytes)) return new Uint8Array(v.bytes);
-    return null;
-  }
-
+ 
   /** Heuristic/override of EEPROM size for specific ROMs (by loose token). */
   private eepromSizeOverrideForRom(): 512 | 2048 | null {
     // Normalize: lowercase, collapse spaces
@@ -2970,7 +2908,6 @@ private async writeIdbBytes(db: IDBDatabase, key: string, bytes: Uint8Array): Pr
   }
 
   /** Capture core-printed ROM metadata (Goodname + MD5) during boot. */
-
   private installMupenConsoleSniffer(): () => void {
     const originalLog = console.log.bind(console);
 
