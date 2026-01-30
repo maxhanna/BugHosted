@@ -5,8 +5,16 @@
 
   <button class="newContactButton" (click)="showNewContactForm = !showNewContactForm;" title="New Contact">🆕🧑</button>
   <div class="newContactForm" *ngIf="showNewContactForm">
-    <!-- Reuse the existing user-list component to pick a user to import from. -->
+    <!-- Button to open a floating user-picker popup (reuses app-user-list) -->
     <div style="margin-bottom:8px">
+      <button type="button" (click)="openUserPicker()" title="Import from user">🔍 Import from user</button>
+    </div>
+
+    <div class="popupPanel" *ngIf="showUserPickerPopup">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <label class="editContactLabel popupPanelTitle">Pick a user to import</label>
+        <button class="closeButton" id="closeOverlay" (click)="closeUserPicker()">❌</button>
+      </div>
       <app-user-list
         [inputtedParentRef]="parentRef"
         [displayOnlyFriends]="false"
