@@ -1306,16 +1306,11 @@ namespace maxhanna.Server.Controllers
 
 				// Get all followers (confirmed friends + pending friend requests)
 				string followersSql = @"
-					SELECT DISTINCT follower_id FROM (
-						-- Confirmed friends
+					SELECT DISTINCT follower_id FROM ( 
 						SELECT friend_id AS follower_id FROM friends WHERE user_id = @ownerId
-						UNION
-						-- Pending friend requests (treat as followers)
+						UNION 
 						SELECT sender_id AS follower_id FROM friend_requests 
-						WHERE receiver_id = @ownerId AND status IN ('pending', 'deleted') 
-						---UNION
-						---SELECT receiver_id AS follower_id FROM friend_requests 
-						---WHERE sender_id = @ownerId AND status IN ('pending', 'deleted')
+						WHERE receiver_id = @ownerId AND status IN ('pending', 'deleted')  
 					) AS followers";
 
 				var followerIds = new List<int>();
