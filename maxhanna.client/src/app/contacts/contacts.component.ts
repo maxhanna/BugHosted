@@ -14,6 +14,7 @@ export class ContactsComponent extends ChildComponent implements OnInit {
   contacts: Contact[] = [];
   selectedContact: Contact | undefined;
   showNewContactForm: boolean = false;
+  showUserPickerPopup: boolean = false;
   @ViewChild('name') name!: ElementRef<HTMLInputElement>;
   @ViewChild('phone') phone!: ElementRef<HTMLInputElement>;
   @ViewChild('email') email!: ElementRef<HTMLInputElement>;
@@ -69,6 +70,7 @@ export class ContactsComponent extends ChildComponent implements OnInit {
   onImportUser(user?: User) {
     if (!user) return;
     this.showNewContactForm = true;
+    this.showUserPickerPopup = false;
     setTimeout(() => {
       if (this.newContactName) this.newContactName.nativeElement.value = user.username ?? '';
       if (this.newContactEmail) this.newContactEmail.nativeElement.value = user.about?.email ?? '';
@@ -76,6 +78,14 @@ export class ContactsComponent extends ChildComponent implements OnInit {
       if (this.newContactBirthday) this.newContactBirthday.nativeElement.value = this.formatDate(user.about?.birthday ?? undefined) ?? '';
       if (this.newContactNotes) this.newContactNotes.nativeElement.value = user.about?.description ?? '';
     }, 50);
+  }
+
+  openUserPicker() {
+    this.showUserPickerPopup = true;
+  }
+
+  closeUserPicker() {
+    this.showUserPickerPopup = false;
   }
 
   async saveContact() {
