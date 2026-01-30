@@ -2,7 +2,6 @@ import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Contact } from '../../services/datacontracts/user/contact';
 import { ContactService } from '../../services/contact.service';
-import { UserService } from '../../services/user.service';
 import { User } from '../../services/datacontracts/user/user';
 
 @Component({
@@ -15,8 +14,6 @@ export class ContactsComponent extends ChildComponent implements OnInit {
   contacts: Contact[] = [];
   selectedContact: Contact | undefined;
   showNewContactForm: boolean = false;
-  usersList: User[] = [];
-  selectedImportUserId?: number;
   @ViewChild('name') name!: ElementRef<HTMLInputElement>;
   @ViewChild('phone') phone!: ElementRef<HTMLInputElement>;
   @ViewChild('email') email!: ElementRef<HTMLInputElement>;
@@ -28,11 +25,10 @@ export class ContactsComponent extends ChildComponent implements OnInit {
   @ViewChild('newContactNotes') newContactNotes!: ElementRef<HTMLTextAreaElement>;
   @ViewChild('newContactEmail') newContactEmail!: ElementRef<HTMLInputElement>;
 
-  constructor(private contactService: ContactService, private userService: UserService) { super(); }
+  constructor(private contactService: ContactService) { super(); }
 
   ngOnInit() {
     this.fetchContacts();
-    this.fetchUsersForImport();
   }
 
   async fetchContacts() {
@@ -69,23 +65,9 @@ export class ContactsComponent extends ChildComponent implements OnInit {
     }
   }
 
-  async fetchUsersForImport() {
-    if (this.parentRef && this.parentRef.user?.id) {
-      try {
-        const res = await this.userService.getAllUsers(this.parentRef.user.id);
-        this.usersList = res ?? [];
-      } catch (error: any) {
-        console.error('Error fetching users for import:', error);
-      }
-    }
-  }
-
-  async importSelectedUser() {
-    if (!this.selectedImportUserId) return;
-    const user = this.usersList.find(u => u.id === this.selectedImportUserId);
+  // Called when user selects a user in the embedded <app-user-list>
+  onImportUser(user?: User) {
     if (!user) return;
-
-    // show the new contact form and populate fields from selected user
     this.showNewContactForm = true;
     setTimeout(() => {
       if (this.newContactName) this.newContactName.nativeElement.value = user.username ?? '';
