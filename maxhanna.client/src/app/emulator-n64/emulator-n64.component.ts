@@ -1828,6 +1828,15 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.ports[port].gpIndex = idx;
     this.applyGamepadReorder();
     this.ensureDefaultMappingForPort(port);
+    // Re-apply the selection after reorder: some reorders change the option snapshot
+    setTimeout(() => {
+      // if the option isn't present, refresh once
+      if (!this.gamepads.some(g => g.index === idx)) {
+        try { this.refreshGamepads(); } catch { }
+      }
+      // reassign to ensure template selection matches
+      this.ports[port].gpIndex = idx;
+    }, 60);
   }
 
   onPortMappingSelect(port: PlayerPort, name: string) {
@@ -2348,55 +2357,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     if (extFromName) return extFromName;
     return this.inferBatteryExtFromSize(size) || '.sra';
   }
-
-  private async mirrorCanonicalToGoodNameIfMissing(): Promise<void> {
-    try {
-      const dbMeta: Array<{ name?: string }> =
-        (indexedDB as any).databases ? await (indexedDB as any).databases() : [];
-      const mupenDb = dbMeta.find(d => d.name === '/mupen64plus');
-      if (!mupenDb) return;
-
-      const db = await new Promise<IDBDatabase>((resolve, reject) => {
-        const req = indexedDB.open('/mupen64plus');
-        req.onerror = () => reject(req.error);
-        req.onsuccess = () => resolve(req.result);
-      });
-      if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return; }
-
-      const userId = this.parentRef?.user?.id ?? 0;
-      const tryExts: ('.eep' | '.sra' | '.fla')[] = ['.eep', '.sra', '.fla'];
-
-      for (const ext of tryExts) {
-        const canonicalName = this.canonicalSaveFilename(ext, userId);
-        const canonicalKey = `/mupen64plus/saves/${canonicalName}`;
-
-        const txR = db.transaction('FILE_DATA', 'readonly');
-        const osR = txR.objectStore('FILE_DATA');
-        const canonicalVal = await new Promise<any>((resolve) => {
-          const r = osR.get(canonicalKey);
-          r.onerror = () => resolve(null);
-          r.onsuccess = () => resolve(r.result ?? null);
-        });
-        if (!canonicalVal) continue;
-
-        const goodKey = await this.findEmuGoodNameKeyForExt(db, ext).catch(() => null);
-        if (goodKey) {
-          const txW = db.transaction('FILE_DATA', 'readwrite');
-          const osW = txW.objectStore('FILE_DATA');
-          await new Promise<void>((resolve, reject) => {
-            const w = osW.put(canonicalVal, goodKey);
-            w.onerror = () => reject(w.error);
-            w.onsuccess = () => resolve();
-          });
-        }
-      }
-
-      db.close();
-    } catch (e) {
-      console.warn('mirrorCanonicalToGoodNameIfMissing failed', e);
-    }
-  }
-
+ 
   private async mirrorGoodNameSavesToCanonical(): Promise<void> {
     try {
       const dbMeta: Array<{ name?: string }> =
