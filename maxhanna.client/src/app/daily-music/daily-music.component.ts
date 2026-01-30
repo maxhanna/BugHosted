@@ -25,8 +25,12 @@ export class DailyMusicComponent extends ChildComponent implements OnInit, After
 
   async loadTodayMusic() {
     const res = await this.todoService.getTodayMusic();
-    if (res) this.songs = res;
-  try { this.hasData.emit((this.songs?.length ?? 0) > 0); } catch {}
+    if (res) { 
+      this.songs = res;
+    }
+    try { 
+      this.hasData.emit((this.songs?.length ?? 0) > 0); 
+    } catch {}
   }
 
   play(url?: string, fileId?: number) {

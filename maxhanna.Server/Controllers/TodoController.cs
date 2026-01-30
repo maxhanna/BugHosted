@@ -692,7 +692,7 @@ namespace maxhanna.Server.Controllers
         using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
         {
           await conn.OpenAsync();
-
+          List<string> seenTodos = new List<string>();
           string sql = @"
                 SELECT
                     t.id,
@@ -717,7 +717,7 @@ namespace maxhanna.Server.Controllers
 
               while (await rdr.ReadAsync())
               {
-                entries.Add(new Todo(
+                Todo todo = new Todo(
                   id: rdr.GetInt32(rdr.GetOrdinal("id")),
                   todo: rdr.GetString(rdr.GetOrdinal("todo")),
                   type: rdr.GetString(rdr.GetOrdinal("type")),
@@ -725,7 +725,12 @@ namespace maxhanna.Server.Controllers
                   fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
                   date: rdr.GetDateTime(rdr.GetOrdinal("date")),
                   ownership: rdr.GetInt32(rdr.GetOrdinal("ownership"))
-              ));
+                );
+                if (seenTodos.Contains(todo.todo)) { 
+                  continue; 
+                }
+                seenTodos.Add(todo.todo); 
+                entries.Add(todo);
               }
 
               return Ok(entries);
