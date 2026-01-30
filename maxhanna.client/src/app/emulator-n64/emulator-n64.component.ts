@@ -1799,8 +1799,24 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
+    // allow clearing selection
+    if (value === '__none__' || value === '__none__') {
+      this.ports[port].gpIndex = null;
+      this.applyGamepadReorder();
+      return;
+    }
+
     const idx = Number(value);
     if (Number.isNaN(idx)) return;
+
+    // Ensure our current snapshot knows about this index; try refreshing once if not
+    if (!this.gamepads.some(g => g.index === idx)) {
+      try { this.refreshGamepads(); } catch { }
+      if (!this.gamepads.some(g => g.index === idx)) {
+        this.parentRef?.showNotification(`Controller ${idx} not available right now.`);
+        return;
+      }
+    }
 
     for (const p of [1, 2, 3, 4] as const) {
       if (p !== port && this.ports[p].gpIndex === idx) {
