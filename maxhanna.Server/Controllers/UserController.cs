@@ -116,9 +116,17 @@ namespace maxhanna.Server.Controllers
         string sql = @"
 				SELECT t.userId, t.username, t.game, t.lastActivity,
 					   u.created, u.last_seen,
-					   dp.file_id AS latest_file_id, dp.tag_background_file_id AS tag_background_file_id,
-					   dpf.file_name, dpf.folder_path,
-					   ua.description, ua.phone, ua.email, ua.birthday, ua.currency, ua.is_email_public
+					   dp.file_id AS latest_file_id, 
+             dp.tag_background_file_id AS tag_background_file_id,
+					   dpf.file_name, 
+             dpf.folder_path,
+					   ua.description, 
+             ua.phone, 
+             ua.email, 
+             ua.birthday, 
+             ua.currency, 
+             ua.is_email_public,
+            ua.website as about_website
 				FROM (
 					SELECT u.id AS userId, u.username AS username, 'bones' AS game, MAX(h.updated) AS lastActivity
 					FROM maxhanna.users u
@@ -214,7 +222,7 @@ namespace maxhanna.Server.Controllers
 				LEFT JOIN maxhanna.users u ON u.id = t.userId
 				LEFT JOIN maxhanna.user_display_pictures dp ON dp.user_id = u.id
 				LEFT JOIN maxhanna.user_about ua ON ua.user_id = u.id
-				LEFT JOIN maxhanna.file_uploads dpf ON dpf.id = dp.file_id
+        LEFT JOIN maxhanna.file_uploads dpf ON dpf.id = dp.file_id
 				WHERE t.lastActivity >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)
 				ORDER BY t.lastActivity DESC
 				LIMIT 200;";
@@ -245,7 +253,8 @@ namespace maxhanna.Server.Controllers
             Email = rdr.IsDBNull(rdr.GetOrdinal("email")) ? string.Empty : rdr.GetString("email"),
             Birthday = rdr.IsDBNull(rdr.GetOrdinal("birthday")) ? (DateTime?)null : rdr.GetDateTime("birthday"),
             Currency = rdr.IsDBNull(rdr.GetOrdinal("currency")) ? null : rdr.GetString("currency"),
-            IsEmailPublic = rdr.IsDBNull(rdr.GetOrdinal("is_email_public")) ? true : rdr.GetBoolean("is_email_public")
+            IsEmailPublic = rdr.IsDBNull(rdr.GetOrdinal("is_email_public")) ? true : rdr.GetBoolean("is_email_public"),
+            Website = rdr.IsDBNull(rdr.GetOrdinal("about_website")) ? null : rdr.GetString("about_website")
           };
 
           var fullUser = new maxhanna.Server.Controllers.DataContracts.Users.User()
@@ -339,7 +348,8 @@ namespace maxhanna.Server.Controllers
                             ua.email,
                             ua.birthday,
                             ua.currency,
-                            ua.is_email_public
+                            ua.is_email_public,
+                            ua.website as about_website
                         FROM 
                             maxhanna.users u
                         LEFT JOIN  
@@ -379,6 +389,7 @@ namespace maxhanna.Server.Controllers
                       Birthday = dataReader.IsDBNull(dataReader.GetOrdinal("birthday")) ? null : dataReader.GetDateTime("birthday"),
                       Currency = dataReader.IsDBNull(dataReader.GetOrdinal("currency")) ? null : dataReader.GetString("currency"),
                       IsEmailPublic = dataReader.IsDBNull(dataReader.GetOrdinal("is_email_public")) ? true : dataReader.GetBoolean("is_email_public"),
+                      Website = dataReader.IsDBNull(dataReader.GetOrdinal("about_website")) ? null : dataReader.GetString("about_website")
                     };
 
                     return Ok(new User
@@ -609,7 +620,8 @@ namespace maxhanna.Server.Controllers
           ua.email as about_email,
           ua.birthday as about_birthday,
           ua.currency as about_currency,
-          ua.is_email_public as about_is_email_public
+          ua.is_email_public as about_is_email_public,
+          ua.website as about_website
         FROM maxhanna.users u 
         LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
         LEFT JOIN maxhanna.user_about ua ON ua.user_id = u.id
@@ -665,7 +677,8 @@ namespace maxhanna.Server.Controllers
               Email = reader.IsDBNull(reader.GetOrdinal("about_email")) ? null : reader.GetString("about_email"),
               Birthday = reader.IsDBNull(reader.GetOrdinal("about_birthday")) ? (DateTime?)null : reader.GetDateTime("about_birthday"),
               Currency = reader.IsDBNull(reader.GetOrdinal("about_currency")) ? null : reader.GetString("about_currency"),
-              IsEmailPublic = reader.IsDBNull(reader.GetOrdinal("about_is_email_public")) ? true : reader.GetBoolean("about_is_email_public")
+              IsEmailPublic = reader.IsDBNull(reader.GetOrdinal("about_is_email_public")) ? true : reader.GetBoolean("about_is_email_public"),
+              Website = reader.IsDBNull(reader.GetOrdinal("about_website")) ? null : reader.GetString("about_website")
             };
 
             User tmpUser = new User

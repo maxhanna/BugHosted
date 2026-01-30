@@ -35,6 +35,7 @@ namespace maxhanna.Server.Controllers
                     c.contact_user_id as contact_user_id, 
                     u.username as contact_user_name,
                     ua.description as about_description,
+					          ua.website as about_website,
                     ua.phone as about_phone,
                     ua.email as about_email,
                     ua.birthday as about_birthday,
@@ -90,6 +91,7 @@ namespace maxhanna.Server.Controllers
 												new UserAbout()
 												{
 													Description = rdr.IsDBNull("about_description") ? "" : rdr.GetString("about_description"),
+													Website = rdr.IsDBNull("about_website") ? null : rdr.GetString("about_website"),
 													Email = rdr.IsDBNull("about_email") ? "" : rdr.GetString("about_email"),
 													Phone = rdr.IsDBNull("about_phone") ? "" : rdr.GetString("about_phone"),
 													Birthday = rdr.IsDBNull("about_birthday") ? null : rdr.GetDateTime("about_birthday"),

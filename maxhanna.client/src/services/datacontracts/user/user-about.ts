@@ -6,4 +6,5 @@ export class UserAbout {
   currency?: string;
   birthday?: Date;
   isEmailPublic?: Boolean;
+  website?: string;
 }

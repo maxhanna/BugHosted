@@ -76,6 +76,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   @ViewChild('pushNotificationsCheckmark') pushNotificationsCheckmark!: ElementRef<HTMLInputElement>;
 
   @ViewChild('updatedEmail') updatedEmail!: ElementRef<HTMLInputElement>;
+  @ViewChild('updatedWebsite') updatedWebsite!: ElementRef<HTMLInputElement>;
   @ViewChild('isEmailPublicYes') isEmailPublicYes!: ElementRef<HTMLInputElement>;
   @ViewChild('isEmailPublicNo') isEmailPublicNo!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedPhone') updatedPhone!: ElementRef<HTMLInputElement>;
@@ -191,6 +192,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     about.isEmailPublic = this.isEmailPublicYes.nativeElement.checked ? true : false;
     about.birthday = this.updatedBirthday.nativeElement.value != '' ? new Date(this.updatedBirthday.nativeElement.value) : undefined;
     about.currency = this.selectedCurrencyDropdown.nativeElement.value != '' ? this.selectedCurrencyDropdown.nativeElement.value : undefined;
+    about.website = this.updatedWebsite && this.updatedWebsite.nativeElement.value != '' ? this.updatedWebsite.nativeElement.value : undefined;
     await this.userService.updateUserAbout(user.id, about).then(async res => {
       if (res) {
         if (user && parent) {

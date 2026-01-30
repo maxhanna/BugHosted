@@ -7,6 +7,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Users
 		public DateTime? Birthday { get; set; }
 		public string? Phone { get; set; }
 		public string? Email { get; set; }
+		public string? Website { get; set; }
 		public string? Currency { get; set; }
 		public Boolean IsEmailPublic { get; set; }
 	}
