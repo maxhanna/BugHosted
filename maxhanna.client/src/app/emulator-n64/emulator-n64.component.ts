@@ -1810,7 +1810,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
 
     this.ports[port].gpIndex = idx;
-    this.refreshGamepads();
     this.applyGamepadReorder();
     this.ensureDefaultMappingForPort(port);
   }
