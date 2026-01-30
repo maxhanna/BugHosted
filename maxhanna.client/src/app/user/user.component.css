@@ -272,11 +272,7 @@
 
 .followingFriendsPanelTitle {
   margin-top: 20px;
-}
-
-.aboutPopupPanelContentContainer {
-  width: CALC(100% - 40px);
-}
+} 
 
 .aboutPictureContainer {
   display: flex;
