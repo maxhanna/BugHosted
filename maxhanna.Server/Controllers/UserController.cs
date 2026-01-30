@@ -599,14 +599,21 @@ namespace maxhanna.Server.Controllers
       {
         conn.Open();
         string sql = @"
-					SELECT 
-						u.id, 
-						u.username,
-						u.last_seen,
-						udp.file_id as display_file_id
-					FROM maxhanna.users u 
-					LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
-					WHERE 1=1";
+        SELECT 
+          u.id, 
+          u.username,
+          u.last_seen,
+          udp.file_id as display_file_id,
+          ua.description as about_description,
+          ua.phone as about_phone,
+          ua.email as about_email,
+          ua.birthday as about_birthday,
+          ua.currency as about_currency,
+          ua.is_email_public as about_is_email_public
+        FROM maxhanna.users u 
+        LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
+        LEFT JOIN maxhanna.user_about ua ON ua.user_id = u.id
+        WHERE 1=1";
 
         if (request?.UserId > 0)
         {
@@ -647,13 +654,28 @@ namespace maxhanna.Server.Controllers
         {
           while (reader.Read())
           {
+            int id = Convert.ToInt32(reader["id"]);
+            var displayFile = reader.IsDBNull(reader.GetOrdinal("display_file_id")) ? null : new FileEntry(Convert.ToInt32(reader["display_file_id"]));
+
+            var about = new maxhanna.Server.Controllers.DataContracts.Users.UserAbout()
+            {
+              UserId = id,
+              Description = reader.IsDBNull(reader.GetOrdinal("about_description")) ? null : reader.GetString("about_description"),
+              Phone = reader.IsDBNull(reader.GetOrdinal("about_phone")) ? null : reader.GetString("about_phone"),
+              Email = reader.IsDBNull(reader.GetOrdinal("about_email")) ? null : reader.GetString("about_email"),
+              Birthday = reader.IsDBNull(reader.GetOrdinal("about_birthday")) ? (DateTime?)null : reader.GetDateTime("about_birthday"),
+              Currency = reader.IsDBNull(reader.GetOrdinal("about_currency")) ? null : reader.GetString("about_currency"),
+              IsEmailPublic = reader.IsDBNull(reader.GetOrdinal("about_is_email_public")) ? true : reader.GetBoolean("about_is_email_public")
+            };
+
             User tmpUser = new User
             (
-              Convert.ToInt32(reader["id"]),
+              id,
               (string)reader["username"],
-              reader.IsDBNull(reader.GetOrdinal("display_file_id")) ? null : new FileEntry(Convert.ToInt32(reader["display_file_id"]))
+              displayFile
             );
             tmpUser.LastSeen = reader.IsDBNull(reader.GetOrdinal("last_seen")) ? null : reader.GetDateTime("last_seen");
+            tmpUser.About = about;
             users.Add(tmpUser);
           }
         }
