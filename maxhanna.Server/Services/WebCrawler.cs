@@ -169,7 +169,7 @@ public class WebCrawler
   private static bool isProcessing = false;
   private static bool isBackgroundScrapeRunning = false;
   private const int _maxRecursionLimit = 10;
-  private const int _maxSiteExceedance = 150;
+  private const int _maxSiteExceedance = 30;
   private readonly Log _log;
 
   public WebCrawler(IConfiguration config, Log log)
