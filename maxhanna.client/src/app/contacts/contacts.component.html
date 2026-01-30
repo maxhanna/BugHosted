@@ -5,6 +5,18 @@
 
   <button class="newContactButton" (click)="showNewContactForm = !showNewContactForm;" title="New Contact">🆕🧑</button>
   <div class="newContactForm" *ngIf="showNewContactForm">
+    <table class="editContactTable">
+      <tr *ngIf="usersList && usersList.length > 0">
+        <td><label for="importUser">Import from user:</label></td>
+        <td>
+          <select id="importUser" (change)="selectedImportUserId = +$any($event.target).value">
+            <option value="">-- select user --</option>
+            <option *ngFor="let u of usersList" [value]="u.id">{{ u.username }} ({{ u.id }})</option>
+          </select>
+          <button type="button" (click)="importSelectedUser()" title="Import">Import</button>
+        </td>
+      </tr>
+    </table>
     <label class="editContactLabel">Add New Contact</label>
     <table class="editContactTable">
       <tr>
