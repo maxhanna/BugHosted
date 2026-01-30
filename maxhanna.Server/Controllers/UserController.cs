@@ -657,7 +657,7 @@ namespace maxhanna.Server.Controllers
             int id = Convert.ToInt32(reader["id"]);
             var displayFile = reader.IsDBNull(reader.GetOrdinal("display_file_id")) ? null : new FileEntry(Convert.ToInt32(reader["display_file_id"]));
 
-            var about = new maxhanna.Server.Controllers.DataContracts.Users.UserAbout()
+            var about = new UserAbout()
             {
               UserId = id,
               Description = reader.IsDBNull(reader.GetOrdinal("about_description")) ? null : reader.GetString("about_description"),
