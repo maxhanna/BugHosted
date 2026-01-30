@@ -713,7 +713,7 @@
   <button id="closeOverlay" (click)="closeDisplayPicturePanel()">Close</button>
 </div>
 
-<div class="popupPanel" *ngIf="isEmulationBreakdownOpen" style="overflow: auto;">
+<div class="popupPanel" *ngIf="isEmulationBreakdownOpen" style="overflow: auto; max-height: 65vh;">
   <div class="popupPanelTitle">🎮 Emulation Breakdown</div>
   <div class="optionsStatsBreakdown">
     <div *ngIf="!emulationGameBreakdown || emulationGameBreakdown.length === 0" class="xxSmallFont">No games found.</div>
