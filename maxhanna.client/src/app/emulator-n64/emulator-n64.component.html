@@ -163,7 +163,7 @@
           <label>Controller: 
             <select
               [value]="ports[p].gpIndex != null ? (ports[p].gpIndex + '') : '__none__'"
-              (input)="onSelectGamepadForPort(p, $any($event.target).value)"
+              (change)="onSelectGamepadForPort(p, $any($event.target).value)"
             >
               <option value="__none__">-- none --</option>
               <option *ngFor="let gp of gamepads" [value]="gp.index + ''">
