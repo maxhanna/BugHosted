@@ -79,8 +79,16 @@ namespace maxhanna.Server.Services
       // delay (resets if the process restarts).
       if (!_initialDelayApplied)
       {
-        //do initial smoke tests
-        await RunSmokeTests();
+        // Do initial smoke tests but catch/log errors so a single failing
+        // maintenance task doesn't bring down the whole host on startup.
+        try
+        {
+          await RunSmokeTests();
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db("Error running smoke tests: " + ex.Message, null, "SYSTEM", true);
+        }
         _initialDelayApplied = true;
         // Wait 5 minutes before scheduling timers for the first run.
         try
@@ -2298,16 +2306,33 @@ private async Task StoreCoinValues()
 
         using (var deleteCmd = new MySqlCommand(deleteSql, conn))
         {
-          int rowsAffected = await deleteCmd.ExecuteNonQueryAsync();
-          _ = _log.Db($"Deleted {rowsAffected} old coin value entries.");
+          // Long-running query — increase timeout and guard against failure.
+          deleteCmd.CommandTimeout = 300; // seconds
+          try
+          {
+            int rowsAffected = await deleteCmd.ExecuteNonQueryAsync();
+            _ = _log.Db($"Deleted {rowsAffected} old coin value entries.");
+          }
+          catch (Exception ex)
+          {
+            _ = _log.Db($"Failed to delete old coin value entries: {ex.Message}", null, "SYSTEM", true);
+          }
         }
 
         // Delete records older than 10 years
         var deleteOldSql = "DELETE FROM coin_value WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR);";
         using (var deleteOldCmd = new MySqlCommand(deleteOldSql, conn))
         {
-          int rowsAffected = await deleteOldCmd.ExecuteNonQueryAsync();
-          _ = _log.Db($"Deleted {rowsAffected} coin value entries older than 10 years.");
+          deleteOldCmd.CommandTimeout = 300;
+          try
+          {
+            int rowsAffected = await deleteOldCmd.ExecuteNonQueryAsync();
+            _ = _log.Db($"Deleted {rowsAffected} coin value entries older than 10 years.");
+          }
+          catch (Exception ex)
+          {
+            _ = _log.Db($"Failed to delete very old coin value entries: {ex.Message}", null, "SYSTEM", true);
+          }
         }
       }
     }
@@ -2321,8 +2346,16 @@ private async Task StoreCoinValues()
 
         using (var deleteCmd = new MySqlCommand(deleteSql, conn))
         {
-          int rowsAffected = await deleteCmd.ExecuteNonQueryAsync();
-          _ = _log.Db($"Deleted {rowsAffected} old coin market capitals older than 5 years.");
+          deleteCmd.CommandTimeout = 300;
+          try
+          {
+            int rowsAffected = await deleteCmd.ExecuteNonQueryAsync();
+            _ = _log.Db($"Deleted {rowsAffected} old coin market capitals older than 5 years.");
+          }
+          catch (Exception ex)
+          {
+            _ = _log.Db($"Failed to delete old coin market caps: {ex.Message}", null, "SYSTEM", true);
+          }
         }
       }
     }
