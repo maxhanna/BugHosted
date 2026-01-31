@@ -1384,7 +1384,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   // Gamepad events & auto-detect
   // ===================================================== 
   private _onGamepadConnected = (ev: GamepadEvent) => {
-    console.debug('[GP] connected', ev.gamepad?.id, 'index', ev.gamepad?.index);
+    this.parentRef?.showNotification(`Gamepad connected ${ev.gamepad?.id} port: ${ev.gamepad?.index}`);
     this.refreshGamepads();
 
     // --- ADD: if P1 is empty, try to use a known mapping for this specific device
@@ -1423,7 +1423,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
 
   private _onGamepadDisconnected = (_ev: GamepadEvent) => {
-    console.debug('[GP] disconnected');
     this.refreshGamepads();
     if (this.selectedGamepadIndex !== null) {
       const stillThere = this.gamepads.some(g => g.index === this.selectedGamepadIndex);
