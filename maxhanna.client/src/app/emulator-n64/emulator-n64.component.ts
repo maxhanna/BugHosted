@@ -764,6 +764,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   closeMenuPanel() {
     this.isMenuPanelVisible = false;
     this.parentRef?.closeOverlay();
+    this.startGamepadAutoDetect();
   }
 
   openControllerAssignments() {
@@ -775,7 +776,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.showControllerAssignments = false; 
     this.startGamepadAutoDetect(); 
   }
-  
+
   // =====================================================
   // Direct-inject (keyboard synth)
   // =====================================================
@@ -1456,6 +1457,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   };
 
   startGamepadAutoDetect() {
+    this.stopGamepadAutoDetect();
     const tick = () => {
       try {
         const before = this.gamepads.map(g => g.index).join(',');
