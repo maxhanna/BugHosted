@@ -223,7 +223,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           if (saveFile) {
             await this.boot();
             await new Promise((r) => setTimeout(r, 350));
-            await putSaveFile(saveFile.name, await saveFile.arrayBuffer());
+            //await putSaveFile(saveFile.name, await saveFile.arrayBuffer());
           } else {
             console.log("No Save file found for this ROM.");
             this.parentRef?.showNotification('No save found on server for this ROM.');
