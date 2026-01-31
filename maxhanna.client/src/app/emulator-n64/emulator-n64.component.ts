@@ -2184,6 +2184,30 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   async downloadCurrentSaves() {
     try {
+      // Prefer emulator instance API when available (more reliable)
+      if (this.instance && typeof (this.instance as any).getAllSaves === 'function') {
+        try {
+          const saves: Array<{ filename: string; bytes: Uint8Array } | null> = await (this.instance as any).getAllSaves();
+          const valid = (saves || []).filter(s => s && s.bytes && s.filename) as Array<{ filename: string; bytes: Uint8Array }>;
+          if (!valid.length) {
+            this.parentRef?.showNotification('No in-game save RAM found to download.');
+            return;
+          }
+          this.parentRef?.showNotification(`Downloading ${valid.length} save file(s) from emulator instance.`);
+          const userId = this.parentRef?.user?.id ?? 0;
+          const base = this.canonicalRomBaseFromFileName(this.romName);
+          for (const s of valid) {
+            const ext = s.filename ? (s.filename.split('.').pop() ? '.' + s.filename.split('.').pop() : '') : '';
+            const filename = userId ? `${base}_${userId}${ext}` : `${base}${ext}`;
+            this.downloadBytesAs(filename, s.bytes instanceof Uint8Array ? s.bytes : new Uint8Array(s.bytes));
+          }
+          return;
+        } catch (err) {
+          console.debug('instance.getAllSaves failed, falling back to exportInGameSaveRam', err);
+        }
+      }
+
+      // Fallback: use IndexedDB export path
       const result = await this.exportInGameSaveRam();
       if (!result.exported.length) {
         this.parentRef?.showNotification('No in-game save RAM found to download.');
