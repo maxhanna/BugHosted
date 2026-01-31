@@ -1394,7 +1394,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         if (last) {
           // Mount this controller to P1 and apply its mapping
           this.ports[1].gpIndex = ev.gamepad.index;
+          this.ports[1].gpId = ev.gamepad.id;
           this.selectedGamepadIndex = ev.gamepad.index;
+          console.debug('[GP] _onGamepadConnected: assigned P1 gpId', ev.gamepad.id, 'index', ev.gamepad.index);
           await this.applyMappingNameToCurrentPad(last);
           this.applyGamepadReorder();
           return; // done
@@ -1770,21 +1772,19 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     if (this._gpWrapperInstalled) return;
     try {
       this._originalGetGamepadsBase = navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null;
-      const self = this;
-
       (navigator as any).getGamepads = function (): (Gamepad | null)[] {
-        const baseArr = (self._originalGetGamepadsBase ? self._originalGetGamepadsBase() : []) || [];
+        const baseArr = (this._originalGetGamepadsBase ? this._originalGetGamepadsBase() : []) || [];
         const chosen: (Gamepad | null)[] = [];
         const used = new Set<number>();
 
         const pushIfForPort = (portNum: number) => {
-          let idx = (self.ports && self.ports[portNum]) ? self.ports[portNum].gpIndex : null;
+          let idx = (this.ports && this.ports[portNum]) ? this.ports[portNum].gpIndex : null;
           let pad: Gamepad | null = null as any;
           if (idx != null) pad = baseArr[idx];
 
           // If numeric index didn't yield a pad, try resolving by stored gpId
-          if (!pad && self.ports && self.ports[portNum] && (self.ports[portNum].gpId)) {
-            const wantId = self.ports[portNum].gpId;
+          if (!pad && this.ports && this.ports[portNum] && (this.ports[portNum].gpId)) {
+            const wantId = this.ports[portNum].gpId;
             const foundIdx = baseArr.findIndex((g: any) => g && g.id === wantId);
             if (foundIdx !== -1) { pad = baseArr[foundIdx]; idx = foundIdx; }
           }
