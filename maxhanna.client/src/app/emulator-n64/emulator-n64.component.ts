@@ -2039,10 +2039,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       const files = input.files;
       if (!files || files.length === 0) return;
 
-      await this.importInGameSaveRam(files, /* skipBoot */ false);
-      if (this.DEBUG_CLEAR_SAVESTATES) {
-        await this.deleteSavestatesForCurrentRom();
-      }
+      await this.importInGameSaveRam(files, /* skipBoot */ false); 
     } catch (e) {
       console.error('onSaveFilePicked failed', e);
       this.parentRef?.showNotification('Failed to import save files.');
