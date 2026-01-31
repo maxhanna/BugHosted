@@ -2180,7 +2180,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch { /* ignore */ }
   }
 
-  async downloadCurrentSaves() {
+  async downloadCurrentSaves() : Promise<Array<{ filename: string; bytes: Uint8Array }> | null> {
     try {
       // Prefer emulator instance API when available (more reliable)
       if (this.instance) {
@@ -2201,38 +2201,23 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
           if (!normalized.length) {
             this.parentRef?.showNotification('No in-game save RAM found to download.');
-            return;
+            return null;
           }
 
           this.parentRef?.showNotification(`Downloading ${normalized.length} save file(s) from emulator instance.`);
           for (const s of normalized) {
             this.downloadBytesAs(s.filename, s.bytes instanceof Uint8Array ? s.bytes : new Uint8Array(s.bytes));
           }
-          return;
+          return normalized;
         } catch (err) {
           console.debug('getAllSaveFiles failed, falling back to exportInGameSaveRam', err);
         }
-      }
-
-      // Fallback: use IndexedDB export path
-      const result = await this.exportInGameSaveRam();
-      if (!result.exported.length) {
-        this.parentRef?.showNotification('No in-game save RAM found to download.');
-        return;
-      }
-      const scope = result.matchedOnly ? 'matching' : 'all';
-      this.parentRef?.showNotification(`Downloading ${result.exported.length} ${scope} save file(s).`);
- 
-      for (const item of result.exported) {
-        const ext = this.detectSaveExt(item.filename, item.size);
-        const base = this.canonicalRomBaseFromFileName(this.romName);
-        const filename = `${base}${ext}`;
-        this.downloadBytesAs(filename, item.bytes);
-      }
+      } 
     } catch (e) {
       console.error('downloadCurrentSaves failed', e);
       this.parentRef?.showNotification('Failed to download save(s).');
     }
+    return null;
   }
 
   openSavePicker() {
