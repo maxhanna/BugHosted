@@ -1392,6 +1392,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   // Gamepad events & auto-detect
   // ===================================================== 
   private _onGamepadConnected = (ev: GamepadEvent) => {
+    console.debug('[GP] connected', ev.gamepad?.id, 'index', ev.gamepad?.index);
     this.refreshGamepads();
 
     // --- ADD: if P1 is empty, try to use a known mapping for this specific device
@@ -1424,11 +1425,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
       // --- MODIFY: maybeApplyStoredMappingFor() should also check lastMappingPerGp first (see next section)
       this.maybeApplyStoredMappingFor(ev.gamepad.id);
+      try { this.syncPortSelectionsFromPorts(); } catch { }
     })().catch(() => { });
   };
 
 
   private _onGamepadDisconnected = (_ev: GamepadEvent) => {
+    console.debug('[GP] disconnected');
     this.refreshGamepads();
     if (this.selectedGamepadIndex !== null) {
       const stillThere = this.gamepads.some(g => g.index === this.selectedGamepadIndex);
@@ -1443,6 +1446,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
     }
     this.applyGamepadReorder();
+    try { this.syncPortSelectionsFromPorts(); } catch { }
   };
 
   startGamepadAutoDetect() {
@@ -1462,6 +1466,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         }
 
         if (before !== after) {
+          console.debug('[GP] autoDetect changed order', {before, after});
           this.applyGamepadReorder();
         }
       } catch { console.log('Gamepad auto-detect tick failed'); }
@@ -1796,6 +1801,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       };
 
       this._gpWrapperInstalled = true;
+      console.debug('[GP] installReorderWrapper installed');
     } catch (e) {
       console.warn('Failed installing reorder wrapper', e);
     }
@@ -1811,6 +1817,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     // update the dropdown selection state immediately
     const id = String(value);
     this.portSelections[port] = id;
+    console.debug('[GP] onSelectGamepadForPort', { port, id, portSelections: this.portSelections, ports: this.ports });
 
     // allow clearing selection by id
     if (id === '__none__') {
@@ -1973,6 +1980,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch { /* ignore */ }
     this._gpWrapperInstalled = false;
     this._originalGetGamepadsBase = null;
+    console.debug('[GP] uninstallReorderWrapper removed');
   }
 
   // =====================================================
@@ -2139,6 +2147,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const std = this.gamepads.find((p) => p.mapping === 'standard');
         this.selectedGamepadIndex = std ? std.index : this.gamepads[0].index;
       }
+      console.debug('[GP] refreshGamepads -> gamepads:', this.gamepads.map(gp => ({i: gp.index, id: gp.id})), 'ports:', this.ports, 'portSelections:', this.portSelections);
     } catch (e) {
       console.warn('Failed to read gamepads', e);
     }
