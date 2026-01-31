@@ -77,7 +77,7 @@
           <div class="optionsStatsHeader" title="Manage your controller assignments.">Controllers:</div>
           <div class="optionsStatsDescription"> 
             <button (click)="refreshGamepads()">Refresh</button>
-            <button (click)="showControllerAssignments = !showControllerAssignments">
+            <button (click)="showControllerAssignments ? closeControllerAssignments() : openControllerAssignments()">
               {{ showControllerAssignments ? 'Close' : 'Setup' }}
             </button>
           </div>
@@ -160,16 +160,18 @@
           <div style="min-width:70px; text-align: center;" class="gradientBackground playerControllerPortHeader">Player {{p}}</div>
 
           <!-- Controller dropdown --> 
-          <label>Controller: 
-            <select
-              [value]="visibleGpIdForPort(p)"
-              (change)="onSelectGamepadForPort(p, $any($event.target).value)"
-            >
-              <option value="__none__">-- none --</option>
-              <option *ngFor="let gp of gamepads" [value]="gp.id">
-                {{gp.id}} {{gp.mapping ? '(' + gp.mapping + ')' : ''}}
+          <label>Controller:
+            <select (change)="onSelectGamepadForPort(p, $any($event.target).value)">
+              <option value="__none__" [selected]="visibleGpIdForPort(p) === '__none__'">-- none --</option>
+              <option
+                *ngFor="let gp of gamepads; trackBy: trackGp"
+                [value]="gp.id"
+                [selected]="gp.id === visibleGpIdForPort(p)"
+              >
+                {{ gp.id }} {{ gp.mapping ? '(' + gp.mapping + ')' : '' }}
               </option>
             </select>
+
           </label>
 
 
@@ -189,7 +191,7 @@
 
         <div>
           <button (click)="applyAllPortMappings()">Apply All (P1–P4)</button>
-          <button (click)="showControllerAssignments = false; showKeyMappings = false;">Cancel</button>
+          <button (click)="closeControllerAssignments(); showKeyMappings = false;">Cancel</button>
         </div>
       </div>
     </div>

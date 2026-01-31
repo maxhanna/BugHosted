@@ -34,7 +34,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   // ---- Mapping UI/store ----
   showKeyMappings = false;
   showControllerAssignments = false;
- 
+  trackGp = (_: number, gp: { id: string }) => gp.id;
+
   savedMappingsNames: string[] = [];
   private _mappingsStoreKey = 'n64_mappings_store_v1';
   selectedMappingName: string | null = null;
@@ -765,6 +766,16 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.parentRef?.closeOverlay();
   }
 
+  openControllerAssignments() {
+    this.showControllerAssignments = true; 
+    this.stopGamepadAutoDetect(); 
+  }
+
+  closeControllerAssignments() {
+    this.showControllerAssignments = false; 
+    this.startGamepadAutoDetect(); 
+  }
+  
   // =====================================================
   // Direct-inject (keyboard synth)
   // =====================================================
@@ -2358,8 +2369,16 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       const gid = this.ports[p].gpId;
       if (gid) {
         const foundById = this.gamepads.find(g => g.id === gid);
-        if (foundById) { return foundById.id; }
-        else return gid;
+        if (foundById) return foundById.id;
+
+        // fallback: try resolving by current index
+        const idx = this.ports[p].gpIndex;
+        if (idx != null) {
+          const byIdx = this.gamepads.find(g => g.index === idx);
+          if (byIdx) return byIdx.id;
+        }
+        // if we can't find an option that exists, prefer __none__ to avoid a mismatch
+        return '__none__';
       }
       const idx = this.ports[p].gpIndex;
       if (idx == null) return '__none__';
@@ -2369,6 +2388,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       return '__none__';
     }
   }
+
 
   remapAction(p: PlayerPort) {
     if (this.ports[p].gpIndex) {
