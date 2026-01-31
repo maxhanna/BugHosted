@@ -892,181 +892,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       console.warn('Failed to dispatch keyboard event', e);
     }
   }
-
-  // =====================================================
-  // Export/import in-game save RAM
-  // =====================================================
-  async exportInGameSaveRam(): Promise<ExportInGameSaveRamResult> {
-    const empty: ExportInGameSaveRamResult = {
-      romName: this.romName ?? null,
-      matchedOnly: false,
-      totalFound: 0,
-      exported: []
-    };
-
-    try {
-      const db = await this.openMupenDb();
-      if (!db) {
-        this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found or missing FILE_DATA.');
-        return empty;
-      }
-
-      // Pull all rows from FILE_DATA
-      const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
-        const tx = db.transaction('FILE_DATA', 'readonly');
-        const os = tx.objectStore('FILE_DATA');
-        const res: Array<{ key: any; val: any }> = [];
-        const cursorReq = os.openCursor();
-        cursorReq.onerror = () => reject(cursorReq.error);
-        cursorReq.onsuccess = (ev: any) => {
-          const cursor = ev.target.result;
-          if (cursor) { res.push({ key: cursor.key, val: cursor.value }); cursor.continue(); }
-          else resolve(res);
-        };
-      });
-
-      const saveExts = ['.eep', '.sra', '.fla'];
-      const saveRows = rows.filter(({ key }) => {
-        const s = String(key).toLowerCase();
-        return s.startsWith('/mupen64plus/saves/') && saveExts.some(e => s.endsWith(e));
-      });
-
-      if (!saveRows.length) {
-        this.parentRef?.showNotification('No in-game save RAM found under /mupen64plus/saves.');
-        db.close();
-        return { ...empty, totalFound: 0, exported: [] };
-      }
-
-      // ---------- Goodname-first targeting ----------
-      const goodname = this._romGoodName || null;
-      const goodnameKeys = goodname
-        ? ['.eep', '.sra', '.fla'].map(ext => `/mupen64plus/saves/${goodname}${ext}`)
-        : [];
-
-      const byExactGood = goodname
-        ? saveRows.filter(({ key }) => goodnameKeys.includes(String(key)))
-        : [];
-
-      let targetRows = saveRows;
-      let matchedOnly = false;
-
-      if (byExactGood.length) {
-        // ✅ Prefer the active ROM’s Goodname saves
-        targetRows = byExactGood;
-        matchedOnly = true;
-      } else {
-        // ---------- Token-based narrowing (your original logic) ----------
-        const isRunning = this.status === 'running' && !!this.instance;
-        const romToken = this.romTokenForMatching(this.romName);
-        if (isRunning && romToken) {
-          const tokenMatches = (keyStr: string) => {
-            const fileName = keyStr.split('/').pop() || keyStr;
-            const lower = fileName.toLowerCase();
-            const loose = lower.replace(/[^a-z0-9 ]/g, '').trim();
-            return loose.includes(romToken) || lower.includes((this.romName || '').toLowerCase());
-          };
-          const narrowed = saveRows.filter(({ key }) => tokenMatches(String(key)));
-          if (narrowed.length) {
-            targetRows = narrowed;
-            matchedOnly = true;
-          } else {
-            console.log('No saves matched the current ROM; returning all saves.');
-          }
-        }
-      }
-
-      // ---------- De-duplicate by extension with Goodname -> Canonical -> Any preference ----------
-      const userId = this.parentRef?.user?.id ?? 0;
-      const extOrder: ('.eep' | '.sra' | '.fla')[] = ['.eep', '.sra', '.fla'];
-
-      const chooseForExt = (ext: '.eep' | '.sra' | '.fla') => {
-        const candidates = targetRows.filter(({ key }) => String(key).toLowerCase().endsWith(ext));
-        if (!candidates.length) return null;
-
-        // Prefer Goodname exact key if present
-        if (goodname) {
-          const gk = `/mupen64plus/saves/${goodname}${ext}`;
-          const byGood = candidates.find(({ key }) => String(key) === gk);
-          if (byGood) return byGood;
-        }
-
-        // Then prefer canonical "<base>_<uid><ext>"
-        const canonicalName = `/mupen64plus/saves/${this.canonicalSaveFilename(ext, userId)}`;
-        const canon = candidates.find(({ key }) => String(key) === canonicalName);
-        if (canon) return canon;
-
-        // Else first available
-        return candidates[0];
-      };
-
-      const chosenRows: Array<{ key: any; val: any }> = [];
-      for (const ext of extOrder) {
-        const picked = chooseForExt(ext);
-        if (picked) chosenRows.push(picked);
-      }
-
-      // ---------- Build exported payload ----------
-      const exported: N64ExportedSave[] = [];
-      for (const { key, val } of chosenRows) {
-        const ab = this.normalizeToArrayBuffer(val);
-        if (!ab) continue;
-        const filename = String(key).split('/').pop() || 'save_ram.bin';
-        exported.push({
-          key: String(key),
-          filename,
-          kind: 'battery',
-          size: ab.byteLength,
-          bytes: new Uint8Array(ab)
-        });
-      }
-
-      db.close();
-
-      const result: ExportInGameSaveRamResult = {
-        romName: this.romName ?? null,
-        matchedOnly,
-        totalFound: saveRows.length,
-        exported
-      };
-
-      const count = exported.length;
-      const scope = matchedOnly ? 'matching' : 'all';
-      console.log(`Prepared ${scope} ${count} in-game save file(s) for export.`);
-      this.saveDebug(`EXPORT RESULT`, {
-        rom: this.romName,
-        matchedOnly,
-        totalFound: saveRows.length,
-        exported: exported.map(e => ({ filename: e.filename, size: e.size }))
-      });
-
-      return result;
-    } catch (err) {
-      console.error('exportInGameSaveRam failed', err);
-      this.parentRef?.showNotification('Failed to export in-game save RAM');
-      return empty;
-    }
-  }
-
-  private normalizeToArrayBuffer(val: any): ArrayBuffer | null {
-    if (val instanceof ArrayBuffer) return val;
-    if (val?.buffer instanceof ArrayBuffer && typeof val.byteLength === 'number') return val.buffer;
-    const fromObj = (field: any) => field instanceof ArrayBuffer ? field
-      : field?.buffer instanceof ArrayBuffer ? field.buffer : null;
-    let ab = null;
-    if (val?.contents) ab = fromObj(val.contents);
-    if (!ab && val?.data) ab = fromObj(val.data);
-    if (!ab && Array.isArray(val?.bytes)) ab = new Uint8Array(val.bytes).buffer;
-    if (!ab && typeof val === 'string' && /^[A-Za-z0-9+/=]+$/.test(val)) {
-      try {
-        const bin = atob(val);
-        const u8 = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-        ab = u8.buffer;
-      } catch { /* ignore */ }
-    }
-    return ab;
-  }
-
+  
   private inferBatteryExtFromSize(size: number): '.eep' | '.sra' | '.fla' | null {
     if (size === 512 || size === 2048) return '.eep';
     if (size === 32768) return '.sra';
@@ -1283,62 +1109,27 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   getAllowedRomFileTypesString(): string {
     return this.fileService.n64FileExtensions.map(e => '.' + e.trim().toLowerCase()).join(',');
   }
-
-  // =====================================================
-  // Autosave
-  // =====================================================
-
-  // =====================================================
-  // Autosave (REPLACE the whole method)
-  // =====================================================
+ 
   private async autosaveTick() {
-    if (!this.autosave || this.autosaveInProgress) return;
+    if (!this.autosave || this.autosaveInProgress || !this.romName) return;
     this.autosaveInProgress = true;
 
     try {
       const userId = this.parentRef?.user?.id;
       if (!userId) return;
 
-      // Always export; don’t require matchedOnly to be true
-      const result = await this.exportInGameSaveRam();
+      // Always collect current saves from emulator; don’t require matchedOnly to be true
+      const saves = await this.downloadCurrentSaves(true, true);
       const isRunning = this.status === 'running' && !!this.instance;
-      if (!isRunning || !result.exported.length) return;
-
-      // Pick the best save for the ACTIVE ROM:
-      // 1) Prefer exact Goodname match
-      // 2) Else prefer token match
-      // 3) Else first (fallback)
-      const good = this._romGoodName || '';
-      const token = (this.romTokenForMatching(this.romName) || '').toLowerCase();
-
-      const byGood = good
-        ? result.exported.find(e => e.filename === `${good}.eep`
-          || e.filename === `${good}.sra`
-          || e.filename === `${good}.fla`)
-        : null;
-
-      const byToken = !byGood && token
-        ? result.exported.find(e => {
-          const lower = (e.filename || '').toLowerCase();
-          const loose = lower.replace(/[^a-z0-9 ]/g, '').trim();
-          return loose.includes(token);
-        })
-        : null;
-
-      const best = byGood || byToken || result.exported[0];
+      if (!isRunning || !saves || !saves.length) return;
+ 
+      const best = saves[0];
       if (!best) return;
-
-      // IMPORTANT: send the EXACT ROM filename (with extension),
-      // so it matches GetN64SaveByName() later.
-      const romNameForServer = this.romName || this.canonicalRomBaseFromFileName(this.romName);
-
-      const ext = this.detectSaveExt(best.filename, best.size);
-      const filenameForServer = this.canonicalSaveFilenameForUpload(ext);
 
       const payload: N64StateUpload = {
         userId,
-        romName: romNameForServer,          // <— FIX: exact ROM filename with extension
-        filename: filenameForServer,        // e.g., "<Base>.eep|.sra|.fla"
+        romName: this.romName,          // <— FIX: exact ROM filename with extension
+        filename: best.filename,        // e.g., "<Base>.eep|.sra|.fla"
         bytes: best.bytes,
         saveTimeMs: Date.now(),
         durationSeconds: 180
@@ -1349,7 +1140,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         console.warn('Upload failed:', uploadRes.errorText);
       } else {
         console.log('Saved state with payload:', uploadRes);
-        this.parentRef?.showNotification?.(`Autosaved ${ext} for ${romNameForServer}`);
+        this.parentRef?.showNotification?.(`Autosaved ${this.romName}`);
       }
     } catch (err) {
       console.error('autosaveTick error', err);
@@ -1375,20 +1166,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       clearInterval(this.autosaveTimer);
       this.autosaveTimer = null;
     }
-  }
-
-  private toTightArrayBuffer(input: ArrayBuffer | ArrayBufferView): ArrayBuffer {
-    if (input instanceof ArrayBuffer) return input;
-    const view = input as ArrayBufferView;
-    return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer;
-  }
-
-  private async sha256Hex(input: ArrayBuffer | ArrayBufferView): Promise<string> {
-    const ab = this.toTightArrayBuffer(input);
-    const digest = await crypto.subtle.digest('SHA-256', ab);
-    const u8 = new Uint8Array(digest);
-    return Array.from(u8).map(b => b.toString(16).padStart(2, '0')).join('');
-  }
+  } 
 
   // =====================================================
   // Gamepad events & auto-detect
@@ -2180,7 +1958,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch { /* ignore */ }
   }
 
-  async downloadCurrentSaves() : Promise<Array<{ filename: string; bytes: Uint8Array }> | null> {
+  async downloadCurrentSaves(preferRomMatch?: boolean, skipDownload?: boolean) : Promise<Array<{ filename: string; bytes: Uint8Array }> | null> {
     try {
       // Prefer emulator instance API when available (more reliable)
       if (this.instance) {
@@ -2204,13 +1982,28 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
             return null;
           }
 
-          this.parentRef?.showNotification(`Downloading ${normalized.length} save file(s) from emulator instance.`);
-          for (const s of normalized) {
-            this.downloadBytesAs(s.filename, s.bytes instanceof Uint8Array ? s.bytes : new Uint8Array(s.bytes));
+          // If caller asked for a best-match by ROM name, try to find one
+          if (preferRomMatch) {
+            const best = this.findBestSaveMatch(normalized, this.romName);
+            if (best) {
+              if (!skipDownload) {
+                this.parentRef?.showNotification(`Downloading matching save: ${best.filename}`);
+                this.downloadBytesAs(best.filename, best.bytes instanceof Uint8Array ? best.bytes : new Uint8Array(best.bytes));
+              }
+              return [best];
+            }
+            return null;
+          }
+
+          if (!skipDownload) {
+            this.parentRef?.showNotification(`Downloading ${normalized.length} save file(s) from emulator instance.`);
+            for (const s of normalized) {
+              this.downloadBytesAs(s.filename, s.bytes instanceof Uint8Array ? s.bytes : new Uint8Array(s.bytes));
+            }
           }
           return normalized;
         } catch (err) {
-          console.debug('getAllSaveFiles failed, falling back to exportInGameSaveRam', err);
+          console.debug('getAllSaveFiles failed:', err);
         }
       } 
     } catch (e) {
@@ -2403,6 +2196,73 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch {
       return '__none__';
     }
+  }
+
+  // -----------------
+  // Save matching helpers
+  // -----------------
+  private normalizeForMatch(s: string | null | undefined): string {
+    if (!s) return '';
+    return String(s)
+      .toLowerCase()
+      .replace(/\.(eep|sra|fla)$/i, '')
+      .replace(/[^a-z0-9 ]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private levenshtein(a: string, b: string): number {
+    const al = a.length, bl = b.length;
+    if (!al) return bl;
+    if (!bl) return al;
+    const v0 = new Array(bl + 1).fill(0);
+    const v1 = new Array(bl + 1).fill(0);
+    for (let j = 0; j <= bl; j++) v0[j] = j;
+    for (let i = 0; i < al; i++) {
+      v1[0] = i + 1;
+      for (let j = 0; j < bl; j++) {
+        const cost = a[i] === b[j] ? 0 : 1;
+        v1[j + 1] = Math.min(v1[j] + 1, v0[j + 1] + 1, v0[j] + cost);
+      }
+      for (let j = 0; j <= bl; j++) v0[j] = v1[j];
+    }
+    return v0[bl];
+  }
+
+  private findBestSaveMatch(saves: Array<{ filename: string; bytes: Uint8Array }>, romName?: string | null) {
+    if (!romName) return null;
+    const target = this.normalizeForMatch(romName);
+    if (!target) return null;
+
+    const targetWords = new Set(target.split(' ').filter(Boolean));
+
+    let best: { save: any; score: number } | null = null;
+    for (const s of saves) {
+      const name = this.normalizeForMatch(s.filename.replace(/\.[^.]+$/, ''));
+      if (!name) continue;
+
+      // Exact substring match wins
+      if (name === target || name.includes(target) || target.includes(name)) {
+        return { filename: s.filename, bytes: s.bytes };
+      }
+
+      const nameWords = name.split(' ').filter(Boolean);
+      const matchedWords = nameWords.filter(w => targetWords.has(w)).length;
+      const wordScore = matchedWords / Math.max(1, targetWords.size);
+
+      // tie-breaker: normalized edit distance
+      const dist = this.levenshtein(name, target);
+      const maxLen = Math.max(name.length, target.length) || 1;
+      const editScore = 1 - (dist / maxLen);
+
+      const score = Math.max(wordScore, 0) * 0.7 + Math.max(editScore, 0) * 0.3;
+
+      if (!best || score > best.score) {
+        best = { save: s, score };
+      }
+    }
+
+    return best ? { filename: best.save.filename, bytes: best.save.bytes } : null;
   }
 
 

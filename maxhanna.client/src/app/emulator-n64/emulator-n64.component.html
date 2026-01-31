@@ -60,7 +60,7 @@
         <div class="optionsStatsDiv" *ngIf="romName">
           <div class="optionsStatsHeader" title="Manage your save files for the current game.">Save File:</div>
           <div class="optionsStatsDescription"> 
-            <button (click)="downloadCurrentSaves()">Download</button>
+            <button (click)="downloadCurrentSaves(true)">Download</button>
             <button (click)="openSavePicker()">Import</button>
             <input
               #saveFileInput
