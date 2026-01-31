@@ -251,12 +251,9 @@ private async injectSave(
 ) {
   // Strip ROM extension to make a "base" (this is NOT always equal to Goodname).
   // This is a fallback; Goodname+MD5 is preferred per Mupen’s save formats. [1](https://mupen64plus.org/docs/)[2](https://gitmemories.com/mupen64plus/mupen64plus-core/issues/1115)
-  const base = fileName.replace(/\.(z64|n64|v64|zip|7z|rom)$/i, '');
-  const ext = (fileName.match(/\.(eep|sra|fla)$/i)?.[0] || '').toLowerCase();
-  if (!ext) throw new Error('Unsupported save type: ' + fileName);
-  console.log(`Injecting save file for ROM: ${base}${ext}`);
-  await putSaveFile(`/mupen64plus/saves/${base}${ext}`, bytes);
-  await putSaveFile(`${base}${ext}`, bytes);
+  console.log(`Injecting save file for ROM: ${fileName}`);
+  await putSaveFile(`/mupen64plus/saves/${fileName}`, bytes);
+  await putSaveFile(fileName, bytes);
 }
 
   clearSelection() {
