@@ -112,8 +112,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   // ---- Debug knobs ----
   private SAVE_DEBUG = true;
-  private DEBUG_CLEAR_SAVESTATES = true; // set to false in prod builds
-
+ 
   constructor(private fileService: FileService, private romService: RomService) {
     super();
   }
@@ -227,9 +226,23 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           console.log("Found Save File.");
           const saveFile = await this.blobToN64SaveFile(saveGameFile.blob, saveGameFile.fileName);
           if (saveFile) {
-            await this.importInGameSaveRam([saveFile], true);
-            if (this.DEBUG_CLEAR_SAVESTATES) {
-              await this.deleteSavestatesForCurrentRom();
+            try {
+              // Ensure emulator instance exists first
+              await this.boot();
+              // Give the instance a moment to initialize
+              await new Promise(r => setTimeout(r, 400));
+
+              // Import into IndexedDB without triggering import's own boot
+              await this.importInGameSaveRam([saveFile], true);
+                
+              // Flush FS and restart emulator so the imported save is loaded
+              try { await this.syncFs('post-import'); } catch { /* ignore */ }
+              try { await this.stop(); } catch { /* ignore */ }
+              await new Promise(r => setTimeout(r, 400));
+              await this.boot();
+            } catch (e) {
+              console.error('Failed importing save after boot', e);
+              this.parentRef?.showNotification('Failed to import save file');
             }
           } else {
             console.log("No Save file found for this ROM.");
@@ -239,7 +252,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
 
       try {
-        await this.boot();
+        if (!this.instance || this.status !== 'running') await this.boot();
       } catch { /* ignore */ }
     } catch (e) {
       console.error('Error loading ROM from search', e);
