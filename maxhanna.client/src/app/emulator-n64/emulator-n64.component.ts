@@ -1202,6 +1202,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
 
       this.maybeApplyStoredMappingFor(ev.gamepad.id);
+
+      if (this.status === 'booting' || this.status === 'running') {  
+        await this.stop();
+        setTimeout(() => this.boot(), 500); 
+      }
     })().catch(() => { });
   };
 
