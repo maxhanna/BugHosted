@@ -2187,14 +2187,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       // Prefer emulator instance API when available (more reliable)
       if (this.instance) {
         try {
-          const saves: Array<{ filename: string; bytes: Uint8Array } | null> = await getAllSaveFiles(); 
-          const valid = (saves || []).filter(s => s && s.bytes && s.filename) as Array<{ filename: string; bytes: Uint8Array }>;
-          if (!valid.length) {
-            this.parentRef?.showNotification('No in-game save RAM found to download.');
-            return;
-          }
-          this.parentRef?.showNotification(`Downloading ${valid.length} save file(s) from emulator instance.`);
-          for (const s of valid) {
+          const saves = await getAllSaveFiles(); 
+          console.log('downloadCurrentSaves: got saves from instance', saves);
+          this.parentRef?.showNotification(`Downloading ${saves.length} save file(s) from emulator instance.`);
+          for (const s of saves) {
             this.downloadBytesAs(s.filename, s.bytes instanceof Uint8Array ? s.bytes : new Uint8Array(s.bytes));
           }
           return;
