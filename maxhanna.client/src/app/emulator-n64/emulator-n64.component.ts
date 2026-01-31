@@ -162,8 +162,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.startGamepadAutoDetect();
 
     setTimeout(() => { this.tryApplyLastForConnectedPads().catch(() => { }); }, 0);
-    // ensure dropdown selections reflect any restored/auto-assigned ports
-    setTimeout(() => { try { this.syncPortSelectionsFromPorts(); } catch { } }, 60);
   }
 
   async ngOnDestroy(): Promise<void> {
@@ -1423,9 +1421,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         this.applyGamepadReorder();
       }
 
-      // --- MODIFY: maybeApplyStoredMappingFor() should also check lastMappingPerGp first (see next section)
       this.maybeApplyStoredMappingFor(ev.gamepad.id);
-      try { this.syncPortSelectionsFromPorts(); } catch { }
     })().catch(() => { });
   };
 
@@ -1446,7 +1442,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
     }
     this.applyGamepadReorder();
-    try { this.syncPortSelectionsFromPorts(); } catch { }
   };
 
   startGamepadAutoDetect() {
@@ -2773,22 +2768,7 @@ private async writeIdbBytes(db: IDBDatabase, key: string, bytes: Uint8Array): Pr
 
   private multiPortActive(): boolean {
     return [1, 2, 3, 4].filter(p => this.ports[p as PlayerPort].gpIndex != null).length > 1;
-  }
-
-  // sync the visible dropdown values (`portSelections`) from the runtime `ports` gpIndex
-  private syncPortSelectionsFromPorts(): void {
-    try {
-      for (const p of [1, 2, 3, 4] as PlayerPort[]) {
-        const idx = this.ports[p].gpIndex;
-        if (idx == null) {
-          this.portSelections[p] = '__none__';
-          continue;
-        }
-        const gp = (this.gamepads || []).find((g: any) => g.index === idx);
-        this.portSelections[p] = gp ? gp.id : '__none__';
-      }
-    } catch { /* noop */ }
-  }
+  } 
 
   get playerPorts(): PlayerPort[] { return [1, 2, 3, 4]; }
 
