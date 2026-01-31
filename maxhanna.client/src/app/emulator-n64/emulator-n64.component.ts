@@ -1771,12 +1771,12 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     if (this._gpWrapperInstalled) return;
     try {
       this._originalGetGamepadsBase = navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null;
-      (navigator as any).getGamepads = function (): (Gamepad | null)[] {
+      (navigator as any).getGamepads = () => {
         const baseArr = (this._originalGetGamepadsBase ? this._originalGetGamepadsBase() : []) || [];
         const chosen: (Gamepad | null)[] = [];
         const used = new Set<number>();
 
-        const pushIfForPort = (portNum: number) => {
+        const pushIfForPort = (portNum: PlayerPort) => {
           let idx = (this.ports && this.ports[portNum]) ? this.ports[portNum].gpIndex : null;
           let pad: Gamepad | null = null as any;
           if (idx != null) pad = baseArr[idx];
