@@ -1176,15 +1176,15 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const keyCandidates = this.buildSaveKeyCandidates(ext as any, name);
 
         // Keep canonicalKey just for your debug payload (optional)
-        const canonicalKey = userId
-          ? `/mupen64plus/saves/${this.canonicalSaveFilename(ext as any, userId)}`
-          : incomingKey;
+        // const canonicalKey = userId
+        //   ? `/mupen64plus/saves/${this.canonicalSaveFilename(ext as any, userId)}`
+        //   : incomingKey;
 
         this.saveDebug(`IMPORT BEGIN`, {
           romName: this.romName,
           userId,
           file: { name, ext, size },
-          keys: { incomingKey, canonicalKey, goodKey: null }
+          keys: { incomingKey, goodKey: null }
         });
 
         const txRW = db.transaction('FILE_DATA', 'readwrite');
@@ -1229,8 +1229,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           r.onsuccess = () => resolve(r.result ?? null);
         });
 
-        const vIncoming = await readBack(incomingKey);
-        const vCanonical = await readBack(canonicalKey);
+        const vIncoming = await readBack(incomingKey); 
 
         const castToU8 = (v: any) => {
           if (!v) return null;
@@ -1243,12 +1242,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         };
 
         const hb = await this.shortSha(bytes);
-        const hIncoming = await this.shortSha(castToU8(vIncoming));
-        const hCanonical = await this.shortSha(castToU8(vCanonical));
+        const hIncoming = await this.shortSha(castToU8(vIncoming)); 
 
         this.saveDebug(`IMPORT WRITE OK`, {
-          incomingKey, canonicalKey, goodKey: null,
-          hashes: { src: hb, incoming: hIncoming, canonical: hCanonical }
+          incomingKey, goodKey: null,
+          hashes: { src: hb, incoming: hIncoming }
         });
 
         written.push(name);
@@ -2224,13 +2222,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
       const scope = result.matchedOnly ? 'matching' : 'all';
       this.parentRef?.showNotification(`Downloading ${result.exported.length} ${scope} save file(s).`);
-
-      const userId = this.parentRef?.user?.id ?? 0;
-
+ 
       for (const item of result.exported) {
         const ext = this.detectSaveExt(item.filename, item.size);
         const base = this.canonicalRomBaseFromFileName(this.romName);
-        const filename = userId ? `${base}_${userId}${ext}` : `${base}${ext}`;
+        const filename = `${base}${ext}`;
         this.downloadBytesAs(filename, item.bytes);
       }
     } catch (e) {
@@ -3045,23 +3041,23 @@ private async writeIdbBytes(db: IDBDatabase, key: string, bytes: Uint8Array): Pr
       keys.add(`/mupen64plus/saves/${incomingFileName}`);
     }
 
-    // 2) Canonical (your current behavior) - only if userId exists
-    const userId = this.parentRef?.user?.id ?? 0;
-    if (userId) {
-      keys.add(`/mupen64plus/saves/${this.canonicalSaveFilename(ext, userId)}`);
-    }
+    // // 2) Canonical (your current behavior) - only if userId exists
+    // const userId = this.parentRef?.user?.id ?? 0;
+    // if (userId) {
+    //   keys.add(`/mupen64plus/saves/${this.canonicalSaveFilename(ext, userId)}`);
+    // }
 
-    // 3) Mupen goodname+md5 mode (discussed upstream as SaveFilenameFormat=1)
-    //    "%.32s-%.8s" -> goodname32-md5_8 [3](https://mupen64plus.org/wiki/index.php?title=FileLocations)
-    const gnMd5 = this.mupenGoodNameMd5Base();
-    if (gnMd5) keys.add(`/mupen64plus/saves/${gnMd5}${ext}`);
+    // // 3) Mupen goodname+md5 mode (discussed upstream as SaveFilenameFormat=1)
+    // //    "%.32s-%.8s" -> goodname32-md5_8 [3](https://mupen64plus.org/wiki/index.php?title=FileLocations)
+    // const gnMd5 = this.mupenGoodNameMd5Base();
+    // if (gnMd5) keys.add(`/mupen64plus/saves/${gnMd5}${ext}`);
 
-    // 4) Headername-based candidates (some builds use headername)
-    const header = this.romHeaderInternalName();
-    if (header) {
-      keys.add(`/mupen64plus/saves/${header}${ext}`);
-      if (this._romMd5) keys.add(`/mupen64plus/saves/${header}-${this._romMd5.slice(0, 8)}${ext}`);
-    }
+    // // 4) Headername-based candidates (some builds use headername)
+    // const header = this.romHeaderInternalName();
+    // if (header) {
+    //   keys.add(`/mupen64plus/saves/${header}${ext}`);
+    //   if (this._romMd5) keys.add(`/mupen64plus/saves/${header}-${this._romMd5.slice(0, 8)}${ext}`);
+    // }
 
     return Array.from(keys);
   }
