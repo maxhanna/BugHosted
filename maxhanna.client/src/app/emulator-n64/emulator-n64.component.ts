@@ -1799,29 +1799,35 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
-    // allow clearing selection
-    if (value === '__none__' || value === '__none__') {
+    // allow clearing selection by id
+    if (value === '__none__') {
       this.ports[port].gpIndex = null;
       this.applyGamepadReorder();
       return;
     }
 
-    const idx = Number(value);
-    if (Number.isNaN(idx)) return;
+    const id = String(value);
 
-    // Ensure our current snapshot knows about this index; try refreshing once if not
-    if (!this.gamepads.some(g => g.index === idx)) {
+    // Ensure our current snapshot knows about this id; try refreshing once if not
+    if (!this.gamepads.some(g => g.id === id)) {
       try { this.refreshGamepads(); } catch { }
-      if (!this.gamepads.some(g => g.index === idx)) {
-        this.parentRef?.showNotification(`Controller ${idx} not available right now.`);
+      if (!this.gamepads.some(g => g.id === id)) {
+        this.parentRef?.showNotification(`Controller ${id} not available right now.`);
         return;
       }
     }
 
+    const gp = this.gamepads.find(g => g.id === id)!;
+    const idx = gp.index;
+
     for (const p of [1, 2, 3, 4] as const) {
-      if (p !== port && this.ports[p].gpIndex === idx) {
-        this.parentRef?.showNotification(`That controller is already assigned to Player ${p}.`);
-        return;
+      if (p !== port) {
+        const otherIdx = this.ports[p].gpIndex;
+        const otherId = (otherIdx != null) ? (this.gamepads.find(g => g.index === otherIdx)?.id) : null;
+        if (otherId === id) {
+          this.parentRef?.showNotification(`That controller is already assigned to Player ${p}.`);
+          return;
+        }
       }
     }
 
@@ -1831,7 +1837,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     // Re-apply the selection after reorder: some reorders change the option snapshot
     setTimeout(() => {
       // if the option isn't present, refresh once
-      if (!this.gamepads.some(g => g.index === idx)) {
+      if (!this.gamepads.some(g => g.id === id)) {
         try { this.refreshGamepads(); } catch { }
       }
       // reassign to ensure template selection matches
@@ -2747,6 +2753,16 @@ private async writeIdbBytes(db: IDBDatabase, key: string, bytes: Uint8Array): Pr
 
   private multiPortActive(): boolean {
     return [1, 2, 3, 4].filter(p => this.ports[p as PlayerPort].gpIndex != null).length > 1;
+  }
+
+  // return the stable gamepad id currently assigned to a port (or '__none__')
+  gpIdForPort(p: PlayerPort): string {
+    try {
+      const idx = this.ports[p].gpIndex;
+      if (idx == null) return '__none__';
+      const gp = (this.gamepads || []).find((g: any) => g.index === idx);
+      return gp ? gp.id : '__none__';
+    } catch { return '__none__'; }
   }
 
   get playerPorts(): PlayerPort[] { return [1, 2, 3, 4]; }
