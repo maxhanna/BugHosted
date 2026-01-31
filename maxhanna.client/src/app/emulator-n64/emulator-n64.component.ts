@@ -2160,7 +2160,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         this.selectedGamepadIndex = std ? std.index : this.gamepads[0].index;
       }
       const visible = [1,2,3,4].map(p => ({p, id: this.visibleGpIdForPort(p as PlayerPort)}));
-      console.debug('[GP] refreshGamepads -> gamepads:', this.gamepads.map(gp => ({i: gp.index, id: gp.id})), 'ports:', this.ports, 'visible:', visible);
+      //console.debug('[GP] refreshGamepads -> gamepads:', this.gamepads.map(gp => ({i: gp.index, id: gp.id})), 'ports:', this.ports, 'visible:', visible);
     } catch (e) {
       console.warn('Failed to read gamepads', e);
     }
