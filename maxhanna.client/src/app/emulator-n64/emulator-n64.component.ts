@@ -2351,7 +2351,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       const gid = this.ports[p].gpId;
       if (gid) {
         const foundById = this.gamepads.find(g => g.id === gid);
-        if (foundById) return foundById.id;
+        if (foundById) { return foundById.id; }
+        else return gid;
       }
       const idx = this.ports[p].gpIndex;
       if (idx == null) return '__none__';

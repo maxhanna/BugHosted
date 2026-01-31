@@ -162,7 +162,7 @@
           <!-- Controller dropdown --> 
           <label>Controller: 
             <select
-              [value]="ports[p].gpId ?? '__none__'"
+              [value]="visibleGpIdForPort(p)"
               (change)="onSelectGamepadForPort(p, $any($event.target).value)"
             >
               <option value="__none__">-- none --</option>
