@@ -1854,16 +1854,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.ports[port].gpIndex = idx;
     this.ports[port].gpId = id;
     this.applyGamepadReorder();
-    this.ensureDefaultMappingForPort(port);
-    // Re-apply the selection after reorder: some reorders change the option snapshot
-    setTimeout(() => {
-      // if the option isn't present, refresh once
-      if (!this.gamepads.some(g => g.id === id)) {
-        try { this.refreshGamepads(); } catch { }
-      }
-      // reassign to ensure template selection matches
-      this.ports[port].gpIndex = idx; 
-    }, 60);
+    this.ensureDefaultMappingForPort(port); 
   }
 
   onPortMappingSelect(port: PlayerPort, name: string) {
