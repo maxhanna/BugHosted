@@ -2187,12 +2187,33 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       // Prefer emulator instance API when available (more reliable)
       if (this.instance) {
         try {
-          const saves = await getAllSaveFiles(); 
-          console.log('downloadCurrentSaves: got saves from instance', saves);
-          //this.parentRef?.showNotification(`Downloading ${saves.length} save file(s) from emulator instance.`);
-          // for (const s of saves) {
-          //   this.downloadBytesAs(s.filename, s.bytes instanceof Uint8Array ? s.bytes : new Uint8Array(s.bytes));
-          // }
+          const saves = await getAllSaveFiles();
+          console.debug('downloadCurrentSaves: got saves from instance', saves);
+
+          const normalized = (saves || []).map((s: any) => {
+            if (!s) return null;
+            // new shape used elsewhere: { filename, bytes }
+            if (s.filename && (s.bytes || s.bytes === 0)) {
+              return { filename: String(s.filename), bytes: s.bytes instanceof Uint8Array ? s.bytes : new Uint8Array(s.bytes) };
+            }
+            // mupen module shape: { fileKey: '/mupen64plus/saves/NAME.eep', contents: Uint8Array }
+            if (s.fileKey && (s.contents || s.contents === 0)) {
+              const fk = String(s.fileKey);
+              const filename = fk.split('/').pop() || fk;
+              return { filename, bytes: s.contents instanceof Uint8Array ? s.contents : new Uint8Array(s.contents) };
+            }
+            return null;
+          }).filter(Boolean) as Array<{ filename: string; bytes: Uint8Array }>;
+
+          if (!normalized.length) {
+            this.parentRef?.showNotification('No in-game save RAM found to download.');
+            return;
+          }
+
+          this.parentRef?.showNotification(`Downloading ${normalized.length} save file(s) from emulator instance.`);
+          for (const s of normalized) {
+            this.downloadBytesAs(s.filename, s.bytes instanceof Uint8Array ? s.bytes : new Uint8Array(s.bytes));
+          }
           return;
         } catch (err) {
           console.debug('getAllSaveFiles failed, falling back to exportInGameSaveRam', err);
