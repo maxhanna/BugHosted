@@ -506,12 +506,12 @@ ON DUPLICATE KEY UPDATE
       await conn.OpenAsync();
 
       const string sql = @"
-SELECT save_file_name, save_data
-FROM n64_user_saves
-WHERE user_id = @UserId
-  AND rom_name = @RomName
-ORDER BY last_write DESC
-LIMIT 1;";
+        SELECT save_file_name, save_data
+        FROM n64_user_saves
+        WHERE user_id = @UserId
+          AND rom_name = @RomName
+        ORDER BY last_write DESC
+        LIMIT 1;";
 
       using var cmd = new MySqlCommand(sql, conn);
       cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
@@ -545,55 +545,7 @@ LIMIT 1;";
 
       // Return exact emulator filename → your frontend feeds this to importInGameSaveRam (no rename)
       return File(data, "application/octet-stream", fileName);
-    }
-
-    // ---------------------------
-    // (Optional)
-    // POST /rom/GetN64SaveByFilename/{fileName}
-    // Body: userId (raw JSON number)
-    // ---------------------------
-    [HttpPost("GetN64SaveByFilename/{fileName}")]
-    public async Task<IActionResult> GetN64SaveByFilename([FromRoute] string fileName, [FromBody] int userId)
-    {
-      if (string.IsNullOrWhiteSpace(fileName) || userId <= 0)
-        return BadRequest("Missing fileName or invalid userId");
-
-      using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-      await conn.OpenAsync();
-
-      const string sql = @"
-SELECT save_file_name, save_data
-FROM n64_user_saves
-WHERE user_id = @UserId
-  AND save_file_name = @FileName
-ORDER BY last_write DESC
-LIMIT 1;";
-
-      using var cmd = new MySqlCommand(sql, conn);
-      cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
-      cmd.Parameters.Add("@FileName", MySqlDbType.VarChar).Value = fileName;
-
-      using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess);
-      if (!await reader.ReadAsync())
-        return NotFound("No save found with that filename");
-
-      var dlName = reader.GetString(0);
-      byte[] data;
-      const int chunk = 81920;
-      using (var ms = new MemoryStream())
-      {
-        long offset = 0; long bytesRead;
-        do
-        {
-          var buffer = new byte[chunk];
-          bytesRead = reader.GetBytes(1, offset, buffer, 0, buffer.Length);
-          if (bytesRead > 0) { ms.Write(buffer, 0, (int)bytesRead); offset += bytesRead; }
-        } while (bytesRead > 0);
-        data = ms.ToArray();
-      }
-
-      return File(data, "application/octet-stream", dlName);
-    }
+    } 
 
     // ---------------------------
     // Helpers
