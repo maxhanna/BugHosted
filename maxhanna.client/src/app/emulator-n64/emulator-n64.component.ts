@@ -34,13 +34,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   // ---- Mapping UI/store ----
   showKeyMappings = false;
   showControllerAssignments = false;
-  // dropdown-visible selections (stable gp.id or '__none__') separate from runtime gpIndex
-  portSelections: Record<PlayerPort, string> = {
-    1: '__none__',
-    2: '__none__',
-    3: '__none__',
-    4: '__none__'
-  };
+ 
   savedMappingsNames: string[] = [];
   private _mappingsStoreKey = 'n64_mappings_store_v1';
   selectedMappingName: string | null = null;
@@ -1810,10 +1804,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
     // update the dropdown selection state immediately
-    const id = String(value);
-    this.portSelections[port] = id;
-    console.debug('[GP] onSelectGamepadForPort', { port, id, portSelections: this.portSelections, ports: this.ports });
-
+    const id = String(value); 
+    
     // allow clearing selection by id
     if (id === '__none__') {
       this.ports[port].gpIndex = null;
@@ -2142,7 +2134,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const std = this.gamepads.find((p) => p.mapping === 'standard');
         this.selectedGamepadIndex = std ? std.index : this.gamepads[0].index;
       }
-      console.debug('[GP] refreshGamepads -> gamepads:', this.gamepads.map(gp => ({i: gp.index, id: gp.id})), 'ports:', this.ports, 'portSelections:', this.portSelections);
+      const visible = [1,2,3,4].map(p => ({p, id: this.visibleGpIdForPort(p as PlayerPort)}));
+      console.debug('[GP] refreshGamepads -> gamepads:', this.gamepads.map(gp => ({i: gp.index, id: gp.id})), 'ports:', this.ports, 'visible:', visible);
     } catch (e) {
       console.warn('Failed to read gamepads', e);
     }
@@ -2342,6 +2335,18 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     if (gp && gp.mapping === 'standard') {
       this.generateDefaultRawMappingForPad(gp);
       this.ports[p].mapping = JSON.parse(JSON.stringify(this.mapping));
+    }
+  }
+
+  // Return the visible/stable gamepad id for a player port (or '__none__')
+  visibleGpIdForPort(p: PlayerPort): string {
+    try {
+      const idx = this.ports[p].gpIndex;
+      if (idx == null) return '__none__';
+      const found = this.gamepads.find(g => g.index === idx);
+      return found ? found.id : '__none__';
+    } catch {
+      return '__none__';
     }
   }
 
