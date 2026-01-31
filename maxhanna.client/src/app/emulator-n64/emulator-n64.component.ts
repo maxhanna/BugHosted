@@ -34,6 +34,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   // ---- Mapping UI/store ----
   showKeyMappings = false;
   showControllerAssignments = false;
+  // dropdown-visible selections (stable gp.id or '__none__') separate from runtime gpIndex
+  portSelections: Record<PlayerPort, string> = {
+    1: '__none__',
+    2: '__none__',
+    3: '__none__',
+    4: '__none__'
+  };
   savedMappingsNames: string[] = [];
   private _mappingsStoreKey = 'n64_mappings_store_v1';
   selectedMappingName: string | null = null;
@@ -155,6 +162,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.startGamepadAutoDetect();
 
     setTimeout(() => { this.tryApplyLastForConnectedPads().catch(() => { }); }, 0);
+    // ensure dropdown selections reflect any restored/auto-assigned ports
+    setTimeout(() => { try { this.syncPortSelectionsFromPorts(); } catch { } }, 60);
   }
 
   async ngOnDestroy(): Promise<void> {
@@ -1799,14 +1808,18 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
+    // update the dropdown selection state immediately
+    const id = String(value);
+    this.portSelections[port] = id;
+
     // allow clearing selection by id
-    if (value === '__none__') {
+    if (id === '__none__') {
       this.ports[port].gpIndex = null;
       this.applyGamepadReorder();
+      // sync dropdowns in case reorder changed
+      try { this.syncPortSelectionsFromPorts(); } catch { }
       return;
     }
-
-    const id = String(value);
 
     // Ensure our current snapshot knows about this id; try refreshing once if not
     if (!this.gamepads.some(g => g.id === id)) {
@@ -1842,6 +1855,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
       // reassign to ensure template selection matches
       this.ports[port].gpIndex = idx;
+      // ensure the visible dropdowns reflect final ids/indices
+      try { this.syncPortSelectionsFromPorts(); } catch { }
     }, 60);
   }
 
@@ -2755,14 +2770,19 @@ private async writeIdbBytes(db: IDBDatabase, key: string, bytes: Uint8Array): Pr
     return [1, 2, 3, 4].filter(p => this.ports[p as PlayerPort].gpIndex != null).length > 1;
   }
 
-  // return the stable gamepad id currently assigned to a port (or '__none__')
-  gpIdForPort(p: PlayerPort): string {
+  // sync the visible dropdown values (`portSelections`) from the runtime `ports` gpIndex
+  private syncPortSelectionsFromPorts(): void {
     try {
-      const idx = this.ports[p].gpIndex;
-      if (idx == null) return '__none__';
-      const gp = (this.gamepads || []).find((g: any) => g.index === idx);
-      return gp ? gp.id : '__none__';
-    } catch { return '__none__'; }
+      for (const p of [1, 2, 3, 4] as PlayerPort[]) {
+        const idx = this.ports[p].gpIndex;
+        if (idx == null) {
+          this.portSelections[p] = '__none__';
+          continue;
+        }
+        const gp = (this.gamepads || []).find((g: any) => g.index === idx);
+        this.portSelections[p] = gp ? gp.id : '__none__';
+      }
+    } catch { /* noop */ }
   }
 
   get playerPorts(): PlayerPort[] { return [1, 2, 3, 4]; }
