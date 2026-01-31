@@ -51,10 +51,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     'Analog Y+', 'Analog Y-'
   ];
   ports: Record<PlayerPort, PortConfig> = {
-    1: { gpIndex: null, mapping: {}, mappingName: null },
-    2: { gpIndex: null, mapping: {}, mappingName: null },
-    3: { gpIndex: null, mapping: {}, mappingName: null },
-    4: { gpIndex: null, mapping: {}, mappingName: null },
+    1: { gpIndex: null, gpId: null, mapping: {}, mappingName: null },
+    2: { gpIndex: null, gpId: null, mapping: {}, mappingName: null },
+    3: { gpIndex: null, gpId: null, mapping: {}, mappingName: null },
+    4: { gpIndex: null, gpId: null, mapping: {}, mappingName: null },
   };
   editingPort: PlayerPort | null = null;
   private _applyingAll = false;
@@ -1430,8 +1430,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
     for (const p of [1, 2, 3, 4] as const) {
       const idx = this.ports[p].gpIndex;
-      if (idx != null && !this.gamepads.some(g => g.index === idx)) {
+      const gid = this.ports[p].gpId;
+      // if neither index nor id is present in current snapshot, clear
+      const indexStillThere = (idx != null) ? this.gamepads.some(g => g.index === idx) : false;
+      const idStillThere = (gid != null) ? this.gamepads.some(g => g.id === gid) : false;
+      if (!indexStillThere && !idStillThere) {
         this.ports[p].gpIndex = null;
+        this.ports[p].gpId = null;
         this.parentRef?.showNotification?.(`P${p} controller disconnected`);
       }
     }
@@ -1772,16 +1777,25 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const chosen: (Gamepad | null)[] = [];
         const used = new Set<number>();
 
-        const pushIf = (idx: number | null) => {
-          if (idx == null) return;
-          const pad = baseArr[idx];
-          if (pad && !used.has(idx)) { chosen.push(pad); used.add(idx); }
+        const pushIfForPort = (portNum: number) => {
+          let idx = (self.ports && self.ports[portNum]) ? self.ports[portNum].gpIndex : null;
+          let pad: Gamepad | null = null as any;
+          if (idx != null) pad = baseArr[idx];
+
+          // If numeric index didn't yield a pad, try resolving by stored gpId
+          if (!pad && self.ports && self.ports[portNum] && (self.ports[portNum].gpId)) {
+            const wantId = self.ports[portNum].gpId;
+            const foundIdx = baseArr.findIndex((g: any) => g && g.id === wantId);
+            if (foundIdx !== -1) { pad = baseArr[foundIdx]; idx = foundIdx; }
+          }
+
+          if (pad && !used.has(idx as number)) { chosen.push(pad); used.add(idx as number); }
         };
 
-        pushIf(self.ports[1].gpIndex);
-        pushIf(self.ports[2].gpIndex);
-        pushIf(self.ports[3].gpIndex);
-        pushIf(self.ports[4].gpIndex);
+        pushIfForPort(1);
+        pushIfForPort(2);
+        pushIfForPort(3);
+        pushIfForPort(4);
 
         for (let i = 0; i < baseArr.length; i++) {
           if (!used.has(i)) chosen.push(baseArr[i]);
@@ -1809,6 +1823,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     // allow clearing selection by id
     if (id === '__none__') {
       this.ports[port].gpIndex = null;
+      this.ports[port].gpId = null;
       this.applyGamepadReorder(); 
       return;
     }
@@ -1828,7 +1843,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     for (const p of [1, 2, 3, 4] as const) {
       if (p !== port) {
         const otherIdx = this.ports[p].gpIndex;
-        const otherId = (otherIdx != null) ? (this.gamepads.find(g => g.index === otherIdx)?.id) : null;
+        const otherId = this.ports[p].gpId ?? ((otherIdx != null) ? (this.gamepads.find(g => g.index === otherIdx)?.id) : null);
         if (otherId === id) {
           this.parentRef?.showNotification(`That controller is already assigned to Player ${p}.`);
           return;
@@ -1836,7 +1851,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
     }
 
+    // persist by id AND index so later refreshes can resolve reliably
     this.ports[port].gpIndex = idx;
+    this.ports[port].gpId = id;
     this.applyGamepadReorder();
     this.ensureDefaultMappingForPort(port);
     // Re-apply the selection after reorder: some reorders change the option snapshot
@@ -2341,6 +2358,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   // Return the visible/stable gamepad id for a player port (or '__none__')
   visibleGpIdForPort(p: PlayerPort): string {
     try {
+      const gid = this.ports[p].gpId;
+      if (gid) {
+        const foundById = this.gamepads.find(g => g.id === gid);
+        if (foundById) return foundById.id;
+      }
       const idx = this.ports[p].gpIndex;
       if (idx == null) return '__none__';
       const found = this.gamepads.find(g => g.index === idx);
@@ -3039,6 +3061,7 @@ type PlayerPort = 1 | 2 | 3 | 4;
 
 type PortConfig = {
   gpIndex: number | null;
+  gpId?: string | null;
   mapping: Record<string, any>;
   mappingName: string | null;
 };
