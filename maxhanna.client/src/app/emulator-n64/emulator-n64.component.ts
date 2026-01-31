@@ -112,8 +112,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   // ---- Debug knobs ----
   private SAVE_DEBUG = true;
-  private DEBUG_CLEAR_SAVESTATES = true; // set to false in prod builds
-
+ 
   constructor(private fileService: FileService, private romService: RomService) {
     super();
   }
@@ -225,12 +224,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const saveGameFile = await this.romService.getN64SaveByName(this.romName, this.parentRef?.user?.id);
         if (saveGameFile) {
           console.log("Found Save File.");
+          await this.boot();
+          await new Promise(r => setTimeout(r, 400));
+
           const saveFile = await this.blobToN64SaveFile(saveGameFile.blob, saveGameFile.fileName);
           if (saveFile) {
-            await this.importInGameSaveRam([saveFile], true);
-            if (this.DEBUG_CLEAR_SAVESTATES) {
-              await this.deleteSavestatesForCurrentRom();
-            }
+            await this.importInGameSaveRam([saveFile], true); 
+            this.parentRef?.showNotification('Loaded save file from server.');
           } else {
             console.log("No Save file found for this ROM.");
             this.parentRef?.showNotification('No save found on server for this ROM.');
@@ -239,7 +239,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
 
       try {
-        await this.boot();
+        if (!this.instance || this.status != 'running') { 
+          await this.boot();
+        }
       } catch { /* ignore */ }
     } catch (e) {
       console.error('Error loading ROM from search', e);
@@ -999,12 +1001,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const incomingKey = `/mupen64plus/saves/${name}`;
 
         // Build all likely keys Mupen might use for this ROM + ext
-        const keyCandidates = this.buildSaveKeyCandidates(ext as any, name);
-
-        // Keep canonicalKey just for your debug payload (optional)
-        // const canonicalKey = userId
-        //   ? `/mupen64plus/saves/${this.canonicalSaveFilename(ext as any, userId)}`
-        //   : incomingKey;
+        const keyCandidates = this.buildSaveKeyCandidates(ext as any, name); 
 
         this.saveDebug(`IMPORT BEGIN`, {
           romName: this.romName,
@@ -1014,15 +1011,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         });
 
         const txRW = db.transaction('FILE_DATA', 'readwrite');
-        const osRW = txRW.objectStore('FILE_DATA');
-
-        // const existingIncoming = await new Promise<any>((resolve) => {
-        //   const req = osRW.get(incomingKey);
-        //   req.onerror = () => resolve(null);
-        //   req.onsuccess = () => resolve(req.result || null);
-        // });
-
-        //const valueIncoming = makeValue(bytes, existingIncoming ?? templateVal);
+        const osRW = txRW.objectStore('FILE_DATA'); 
 
         const writes: Promise<void>[] = [];
         for (const key of keyCandidates) {
@@ -1085,11 +1074,18 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         console.log(`Imported ${written.length} save file(s): ${written.join(', ')}`);
         this.parentRef?.showNotification(`Imported ${written.length} save file(s): ${written.join(', ')}`);
         const wasRunning = this.status === 'running' || !!this.instance;
+        let didSync = false;
         if (wasRunning) {
           await this.stop();
           await new Promise(r => setTimeout(r, 400));
           await this.syncFs('post-import');
+          didSync = true;
         }
+        // Delete savestates after successful import + sync, but before booting the emulator
+        if (didSync) {
+          await this.deleteSavestatesForCurrentRom();
+        }
+
         if (!skipBoot) {
           await this.boot();
         }
@@ -2028,10 +2024,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       const files = input.files;
       if (!files || files.length === 0) return;
 
-      await this.importInGameSaveRam(files, /* skipBoot */ false);
-      if (this.DEBUG_CLEAR_SAVESTATES) {
-        await this.deleteSavestatesForCurrentRom();
-      }
+      await this.importInGameSaveRam(files, /* skipBoot */ false); 
     } catch (e) {
       console.error('onSaveFilePicked failed', e);
       this.parentRef?.showNotification('Failed to import save files.');
@@ -2873,26 +2866,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     // 1) Incoming filename (your current behavior)
     if (incomingFileName) {
       keys.add(`/mupen64plus/saves/${incomingFileName}`);
-    }
-
-    // // 2) Canonical (your current behavior) - only if userId exists
-    // const userId = this.parentRef?.user?.id ?? 0;
-    // if (userId) {
-    //   keys.add(`/mupen64plus/saves/${this.canonicalSaveFilename(ext, userId)}`);
-    // }
-
-    // // 3) Mupen goodname+md5 mode (discussed upstream as SaveFilenameFormat=1)
-    // //    "%.32s-%.8s" -> goodname32-md5_8 [3](https://mupen64plus.org/wiki/index.php?title=FileLocations)
-    // const gnMd5 = this.mupenGoodNameMd5Base();
-    // if (gnMd5) keys.add(`/mupen64plus/saves/${gnMd5}${ext}`);
-
-    // // 4) Headername-based candidates (some builds use headername)
-    // const header = this.romHeaderInternalName();
-    // if (header) {
-    //   keys.add(`/mupen64plus/saves/${header}${ext}`);
-    //   if (this._romMd5) keys.add(`/mupen64plus/saves/${header}-${this._romMd5.slice(0, 8)}${ext}`);
-    // }
-
+    } 
     return Array.from(keys);
   }
 
