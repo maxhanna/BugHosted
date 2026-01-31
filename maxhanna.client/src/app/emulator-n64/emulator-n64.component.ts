@@ -2190,9 +2190,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           const saves = await getAllSaveFiles(); 
           console.log('downloadCurrentSaves: got saves from instance', saves);
           this.parentRef?.showNotification(`Downloading ${saves.length} save file(s) from emulator instance.`);
-          for (const s of saves) {
-            this.downloadBytesAs(s.filename, s.bytes instanceof Uint8Array ? s.bytes : new Uint8Array(s.bytes));
-          }
+          // for (const s of saves) {
+          //   this.downloadBytesAs(s.filename, s.bytes instanceof Uint8Array ? s.bytes : new Uint8Array(s.bytes));
+          // }
           return;
         } catch (err) {
           console.debug('getAllSaveFiles failed, falling back to exportInGameSaveRam', err);
