@@ -2192,10 +2192,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
           const normalized = (saves || []).map((s: any) => {
             if (!s) return null;
-            // new shape used elsewhere: { filename, bytes }
-            if (s.filename && (s.bytes || s.bytes === 0)) {
-              return { filename: String(s.filename), bytes: s.bytes instanceof Uint8Array ? s.bytes : new Uint8Array(s.bytes) };
-            }
             // mupen module shape: { fileKey: '/mupen64plus/saves/NAME.eep', contents: Uint8Array }
             if (s.fileKey && (s.contents || s.contents === 0)) {
               const fk = String(s.fileKey);
