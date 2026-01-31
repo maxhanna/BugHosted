@@ -23,7 +23,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   status: 'idle' | 'booting' | 'running' | 'paused' | 'stopped' | 'error' = 'idle';
   romName?: string;
   private romBuffer?: ArrayBuffer;
-  private instance: EmulatorControls | null = null; 
+  private instance: EmulatorControls | null = null;
 
   // ---- Gamepads ----
   gamepads: Array<{ index: number; id: string; mapping: string; connected: boolean }> = [];
@@ -106,7 +106,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private _logEffectivePeriodMs = 750;
 
   // Axis behavior
-  private _axisDeadzone = 0.2; 
+  private _axisDeadzone = 0.2;
 
   constructor(private fileService: FileService, private romService: RomService) {
     super();
@@ -168,8 +168,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     if (this._canvasResizeAdded) {
       try {
         window.removeEventListener('resize', this._resizeHandler);
-      } catch { 
-        console.error("Failed to remove resize event listener"); 
+      } catch {
+        console.error("Failed to remove resize event listener");
       }
       this._canvasResizeAdded = false;
     }
@@ -185,11 +185,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       window.removeEventListener('gamepaddisconnected', this._onGamepadDisconnected);
     } catch { console.error("Failed to remove gamepad connection event listeners"); }
 
-    this.stopGamepadLogging(); 
-    for (const id of this._bootstrapTimers) { 
-      clearTimeout(id); 
+    this.stopGamepadLogging();
+    for (const id of this._bootstrapTimers) {
+      clearTimeout(id);
     }
-    this._bootstrapTimers = []; 
+    this._bootstrapTimers = [];
   }
 
   // =====================================================
@@ -218,13 +218,14 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       if (this.parentRef?.user?.id) {
         const saveGameFile = await this.romService.getN64SaveByName(this.romName, this.parentRef?.user?.id);
         if (saveGameFile) {
-          console.log("Found Save File."); 
+          console.log("Found Save File.");
           const saveFile = await this.blobToN64SaveFile(saveGameFile.blob, saveGameFile.fileName);
           if (saveFile) {
             await this.boot();
             await new Promise((r) => setTimeout(r, 350));
             console.log("Uploading Save file to emulator.");
-            await putSaveFile(saveFile.name, await saveFile.arrayBuffer());
+            const bytes = await saveFile.arrayBuffer();
+            await this.injectSave(saveFile.name, bytes); 
             console.log("Save file uploaded to emulator.", saveFile);
             this.parentRef?.showNotification('Save file loaded from server for this ROM.');
           } else {
@@ -243,6 +244,20 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
     this.stopLoading();
   }
+
+private async injectSave(
+  fileName: string,
+  bytes: ArrayBuffer
+) {
+  // Strip ROM extension to make a "base" (this is NOT always equal to Goodname).
+  // This is a fallback; Goodname+MD5 is preferred per Mupen’s save formats. [1](https://mupen64plus.org/docs/)[2](https://gitmemories.com/mupen64plus/mupen64plus-core/issues/1115)
+  const base = fileName.replace(/\.(z64|n64|v64|zip|7z|rom)$/i, '');
+  const ext = (fileName.match(/\.(eep|sra|fla)$/i)?.[0] || '').toLowerCase();
+  if (!ext) throw new Error('Unsupported save type: ' + fileName);
+  console.log(`Injecting save file for ROM: ${base}${ext}`);
+  await putSaveFile(`/mupen64plus/saves/${base}${ext}`, bytes);
+  await putSaveFile(`${base}${ext}`, bytes);
+}
 
   clearSelection() {
     this.romInput.nativeElement.value = '';
@@ -321,24 +336,24 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     return mapping;
   }
 
-  recordCtrl(ctrl: string) { 
-    this.startRecording(ctrl); 
+  recordCtrl(ctrl: string) {
+    this.startRecording(ctrl);
   }
 
-  clearCtrl(ctrl: string) { 
-    delete this.mapping[ctrl]; 
+  clearCtrl(ctrl: string) {
+    delete this.mapping[ctrl];
   }
 
-  clearAllMappings() { 
-    this.mapping = {}; 
-    this.parentRef?.showNotification('Cleared all mappings (not applied yet)'); 
+  clearAllMappings() {
+    this.mapping = {};
+    this.parentRef?.showNotification('Cleared all mappings (not applied yet)');
   }
 
   regenDefaultForSelectedPad() {
     const gp = this.currentPad();
     if (!gp) {
-      this.parentRef?.showNotification('No controller selected'); 
-      return; 
+      this.parentRef?.showNotification('No controller selected');
+      return;
     }
     if (gp.mapping !== 'standard') {
       this.parentRef?.showNotification('Controller is not standard; defaults may differ.');
@@ -581,7 +596,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           gamepadId
         });
       }
-    } catch (e) { 
+    } catch (e) {
       console.error('Failed to persist selected controller:', e);
     }
   }
@@ -603,17 +618,17 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     if (!canvasEl) {
       this.parentRef?.showNotification('No canvas available');
       return;
-    } 
-    
+    }
+
     try {
-        this.refreshGamepads();
-        const connectedCount = this.gamepads.filter(g => g?.connected).length;
-        this.parentRef?.showNotification(
-          `Booting… ${connectedCount} controller${connectedCount === 1 ? '' : 's'} detected`
-        );
-      } catch {
-        this.parentRef?.showNotification(`No Gamepads detected`);
-      }
+      this.refreshGamepads();
+      const connectedCount = this.gamepads.filter(g => g?.connected).length;
+      this.parentRef?.showNotification(
+        `Booting… ${connectedCount} controller${connectedCount === 1 ? '' : 's'} detected`
+      );
+    } catch {
+      this.parentRef?.showNotification(`No Gamepads detected`);
+    }
 
 
     this.resizeCanvasToParent();
@@ -628,7 +643,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
 
     this.loading = true;
-    this.status = 'booting'; 
+    this.status = 'booting';
 
     try {
       this.applyGamepadReorder();
@@ -651,9 +666,12 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         throw new Error('Emulator instance missing start method');
       }
 
+      const files = await getAllSaveFiles();
+      console.table(files);
+
       await this.instance.start();
       this.status = 'running';
- 
+
       this.parentRef?.showNotification(`Booted ${this.romName}`);
       this.bootGraceUntil = performance.now() + 1500;
       requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
@@ -663,8 +681,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.parentRef?.showNotification('Failed to boot emulator');
       this.restoreGamepadGetter();
       throw ex;
-    } finally {  
-      this.loading = false; 
+    } finally {
+      this.loading = false;
     }
   }
 
@@ -745,13 +763,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   openControllerAssignments() {
-    this.showControllerAssignments = true; 
-    this.stopGamepadAutoDetect(); 
+    this.showControllerAssignments = true;
+    this.stopGamepadAutoDetect();
   }
 
   closeControllerAssignments() {
-    this.showControllerAssignments = false; 
-    this.startGamepadAutoDetect(); 
+    this.showControllerAssignments = false;
+    this.startGamepadAutoDetect();
   }
 
   // =====================================================
@@ -872,14 +890,14 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   private async blobToN64SaveFile(blob: Blob, serverFileName: string): Promise<File> {
     return new File([blob], serverFileName, { type: 'application/octet-stream' });
-  }  
+  }
   getAllowedRomFileTypes(): string[] {
     return this.fileService.n64FileExtensions;
   }
   getAllowedRomFileTypesString(): string {
     return this.fileService.n64FileExtensions.map(e => '.' + e.trim().toLowerCase()).join(',');
   }
- 
+
   private async autosaveTick() {
     if (!this.autosave || this.autosaveInProgress || !this.romName) return;
     this.autosaveInProgress = true;
@@ -892,7 +910,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       const saves = await this.downloadCurrentSaves(true, true);
       const isRunning = this.status === 'running' && !!this.instance;
       if (!isRunning || !saves || !saves.length) return;
- 
+
       const best = saves[0];
       if (!best) return;
 
@@ -915,7 +933,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch (err) {
       console.error('autosaveTick error', err);
     } finally {
-      this.autosaveInProgress = false; 
+      this.autosaveInProgress = false;
       console.log('Finished Autosave');
     }
   }
@@ -935,7 +953,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       clearInterval(this.autosaveTimer);
       this.autosaveTimer = null;
     }
-  } 
+  }
 
   // =====================================================
   // Gamepad events & auto-detect
@@ -1019,7 +1037,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         }
 
         if (before !== after) {
-          console.debug('[GP] autoDetect changed order', {before, after});
+          console.debug('[GP] autoDetect changed order', { before, after });
           this.applyGamepadReorder();
         }
       } catch { console.log('Gamepad auto-detect tick failed'); }
@@ -1377,13 +1395,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     // update the dropdown selection state immediately
     const id = String(value);
     console.debug('[GP] onSelectGamepadForPort called', { port, value, id });
-    
+
     // allow clearing selection by id
     if (id === '__none__') {
       console.debug('[GP] onSelectGamepadForPort: clearing port', port);
       this.ports[port].gpIndex = null;
       this.ports[port].gpId = null;
-      this.applyGamepadReorder(); 
+      this.applyGamepadReorder();
       return;
     }
 
@@ -1418,7 +1436,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.ports[port].gpIndex = idx;
     this.ports[port].gpId = id;
     this.applyGamepadReorder();
-    this.ensureDefaultMappingForPort(port); 
+    this.ensureDefaultMappingForPort(port);
     console.debug('[GP] onSelectGamepadForPort: assigned', this.ports, this.gamepads);
   }
 
@@ -1706,7 +1724,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const std = this.gamepads.find((p) => p.mapping === 'standard');
         this.selectedGamepadIndex = std ? std.index : this.gamepads[0].index;
       }
-      const visible = [1,2,3,4].map(p => ({p, id: this.visibleGpIdForPort(p as PlayerPort)}));
+      const visible = [1, 2, 3, 4].map(p => ({ p, id: this.visibleGpIdForPort(p as PlayerPort) }));
       //console.debug('[GP] refreshGamepads -> gamepads:', this.gamepads.map(gp => ({i: gp.index, id: gp.id})), 'ports:', this.ports, 'visible:', visible);
     } catch (e) {
       console.warn('Failed to read gamepads', e);
@@ -1726,8 +1744,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.uninstallReorderWrapper();
     } catch { /* ignore */ }
   }
-
-  async downloadCurrentSaves(preferRomMatch?: boolean, skipDownload?: boolean) : Promise<Array<{ filename: string; bytes: Uint8Array }> | null> {
+ 
+  async downloadCurrentSaves(preferRomMatch?: boolean, skipDownload?: boolean): Promise<Array<{ filename: string; bytes: Uint8Array }> | null> {
     try {
       // Prefer emulator instance API when available (more reliable)
       if (this.instance) {
@@ -1774,7 +1792,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         } catch (err) {
           console.debug('getAllSaveFiles failed:', err);
         }
-      } 
+      }
     } catch (e) {
       console.error('downloadCurrentSaves failed', e);
       this.parentRef?.showNotification('Failed to download save(s).');
@@ -2046,15 +2064,15 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } else {
       this.showKeyMappings = false;
     }
-  } 
+  }
 
   private multiPortActive(): boolean {
     return [1, 2, 3, 4].filter(p => this.ports[p as PlayerPort].gpIndex != null).length > 1;
-  } 
+  }
 
-  get playerPorts(): PlayerPort[] { return [1, 2, 3, 4]; } 
+  get playerPorts(): PlayerPort[] { return [1, 2, 3, 4]; }
 }
- 
+
 type PlayerPort = 1 | 2 | 3 | 4;
 
 type PortConfig = {
