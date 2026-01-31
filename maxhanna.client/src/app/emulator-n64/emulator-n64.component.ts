@@ -112,7 +112,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   // ---- Debug knobs ----
   private SAVE_DEBUG = true;
- 
+  private DEBUG_CLEAR_SAVESTATES = true; // set to false in prod builds
+
   constructor(private fileService: FileService, private romService: RomService) {
     super();
   }
@@ -173,8 +174,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     if (this._canvasResizeAdded) {
       try {
         window.removeEventListener('resize', this._resizeHandler);
-      } catch {
-        console.error("Failed to remove resize event listener");
+      } catch { 
+        console.error("Failed to remove resize event listener"); 
       }
       this._canvasResizeAdded = false;
     }
@@ -190,11 +191,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       window.removeEventListener('gamepaddisconnected', this._onGamepadDisconnected);
     } catch { console.error("Failed to remove gamepad connection event listeners"); }
 
-    this.stopGamepadLogging();
-    for (const id of this._bootstrapTimers) {
-      clearTimeout(id);
+    this.stopGamepadLogging(); 
+    for (const id of this._bootstrapTimers) { 
+      clearTimeout(id); 
     }
-    this._bootstrapTimers = [];
+    this._bootstrapTimers = []; 
   }
 
   // =====================================================
@@ -223,26 +224,12 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       if (this.parentRef?.user?.id) {
         const saveGameFile = await this.romService.getN64SaveByName(this.romName, this.parentRef?.user?.id);
         if (saveGameFile) {
-          console.log("Found Save File.");
+          console.log("Found Save File."); 
           const saveFile = await this.blobToN64SaveFile(saveGameFile.blob, saveGameFile.fileName);
           if (saveFile) {
-            try {
-              // Ensure emulator instance exists first
-              await this.boot();
-              // Give the instance a moment to initialize
-              await new Promise(r => setTimeout(r, 400));
-
-              // Import into IndexedDB without triggering import's own boot
-              await this.importInGameSaveRam([saveFile], true);
-                
-              // Flush FS and restart emulator so the imported save is loaded
-              try { await this.syncFs('post-import'); } catch { /* ignore */ }
-              try { await this.stop(); } catch { /* ignore */ }
-              await new Promise(r => setTimeout(r, 400));
-              await this.boot();
-            } catch (e) {
-              console.error('Failed importing save after boot', e);
-              this.parentRef?.showNotification('Failed to import save file');
+            await this.importInGameSaveRam([saveFile], true);
+            if (this.DEBUG_CLEAR_SAVESTATES) {
+              await this.deleteSavestatesForCurrentRom();
             }
           } else {
             console.log("No Save file found for this ROM.");
@@ -252,7 +239,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
 
       try {
-        if (!this.instance || this.status !== 'running') await this.boot();
+        await this.boot();
       } catch { /* ignore */ }
     } catch (e) {
       console.error('Error loading ROM from search', e);
@@ -338,24 +325,24 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     return mapping;
   }
 
-  recordCtrl(ctrl: string) {
-    this.startRecording(ctrl);
+  recordCtrl(ctrl: string) { 
+    this.startRecording(ctrl); 
   }
 
-  clearCtrl(ctrl: string) {
-    delete this.mapping[ctrl];
+  clearCtrl(ctrl: string) { 
+    delete this.mapping[ctrl]; 
   }
 
-  clearAllMappings() {
-    this.mapping = {};
-    this.parentRef?.showNotification('Cleared all mappings (not applied yet)');
+  clearAllMappings() { 
+    this.mapping = {}; 
+    this.parentRef?.showNotification('Cleared all mappings (not applied yet)'); 
   }
 
   regenDefaultForSelectedPad() {
     const gp = this.currentPad();
     if (!gp) {
-      this.parentRef?.showNotification('No controller selected');
-      return;
+      this.parentRef?.showNotification('No controller selected'); 
+      return; 
     }
     if (gp.mapping !== 'standard') {
       this.parentRef?.showNotification('Controller is not standard; defaults may differ.');
@@ -598,7 +585,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           gamepadId
         });
       }
-    } catch (e) {
+    } catch (e) { 
       console.error('Failed to persist selected controller:', e);
     }
   }
@@ -606,6 +593,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   // =====================================================
   // Emulator control (RAW-only)
   // =====================================================
+
   async boot() {
     if (!this.romBuffer) {
       this.parentRef?.showNotification('Pick a ROM first');
@@ -619,17 +607,18 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     if (!canvasEl) {
       this.parentRef?.showNotification('No canvas available');
       return;
-    }
-
+    } 
+    
     try {
-      this.refreshGamepads();
-      const connectedCount = this.gamepads.filter(g => g?.connected).length;
-      this.parentRef?.showNotification(
-        `Booting… ${connectedCount} controller${connectedCount === 1 ? '' : 's'} detected`
-      );
-    } catch {
-      this.parentRef?.showNotification(`No Gamepads detected`);
-    }
+        this.refreshGamepads();
+        const connectedCount = this.gamepads.filter(g => g?.connected).length;
+        this.parentRef?.showNotification(
+          `Booting… ${connectedCount} controller${connectedCount === 1 ? '' : 's'} detected`
+        );
+      } catch {
+        this.parentRef?.showNotification(`No Gamepads detected`);
+      }
+
 
     this.resizeCanvasToParent();
 
@@ -676,9 +665,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
       // ✅ Stop sniffing once ROM meta printed
       restoreSniffer();
-
-      await new Promise(r => setTimeout(r, 400));
-
+ 
+      await new Promise(r => setTimeout(r, 400)); 
+  
       // Mirrors (keep if you want)
       this.mirrorGoodNameSavesToCanonical().catch(() => { });
 
@@ -779,13 +768,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   openControllerAssignments() {
-    this.showControllerAssignments = true;
-    this.stopGamepadAutoDetect();
+    this.showControllerAssignments = true; 
+    this.stopGamepadAutoDetect(); 
   }
 
   closeControllerAssignments() {
-    this.showControllerAssignments = false;
-    this.startGamepadAutoDetect();
+    this.showControllerAssignments = false; 
+    this.startGamepadAutoDetect(); 
   }
 
   // =====================================================
@@ -903,17 +892,17 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       console.warn('Failed to dispatch keyboard event', e);
     }
   }
-
+  
   private inferBatteryExtFromSize(size: number): '.eep' | '.sra' | '.fla' | null {
     if (size === 512 || size === 2048) return '.eep';
     if (size === 32768) return '.sra';
     if (size === 131072) return '.fla';
     return null;
-  }
+  } 
 
   private async blobToN64SaveFile(blob: Blob, serverFileName: string): Promise<File> {
     return new File([blob], serverFileName, { type: 'application/octet-stream' });
-  }
+  } 
 
   async importInGameSaveRam(files: FileList | File[], skipBoot: boolean = false) {
     try {
@@ -945,7 +934,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       const written: string[] = [];
       const userId = this.parentRef?.user?.id ?? 0;
 
-
+ 
       const makeValue = (bytes: Uint8Array, existingOrTemplate?: any) => {
         // Helper: coerce any timestamp-like field to a real Date
         const ensureDate = (obj: any) => {
@@ -1066,7 +1055,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           r.onsuccess = () => resolve(r.result ?? null);
         });
 
-        const vIncoming = await readBack(incomingKey);
+        const vIncoming = await readBack(incomingKey); 
 
         const castToU8 = (v: any) => {
           if (!v) return null;
@@ -1079,7 +1068,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         };
 
         const hb = await this.shortSha(bytes);
-        const hIncoming = await this.shortSha(castToU8(vIncoming));
+        const hIncoming = await this.shortSha(castToU8(vIncoming)); 
 
         this.saveDebug(`IMPORT WRITE OK`, {
           incomingKey, goodKey: null,
@@ -1120,7 +1109,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   getAllowedRomFileTypesString(): string {
     return this.fileService.n64FileExtensions.map(e => '.' + e.trim().toLowerCase()).join(',');
   }
-
+ 
   private async autosaveTick() {
     if (!this.autosave || this.autosaveInProgress || !this.romName) return;
     this.autosaveInProgress = true;
@@ -1133,7 +1122,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       const saves = await this.downloadCurrentSaves(true, true);
       const isRunning = this.status === 'running' && !!this.instance;
       if (!isRunning || !saves || !saves.length) return;
-
+ 
       const best = saves[0];
       if (!best) return;
 
@@ -1177,7 +1166,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       clearInterval(this.autosaveTimer);
       this.autosaveTimer = null;
     }
-  }
+  } 
 
   // =====================================================
   // Gamepad events & auto-detect
@@ -1261,7 +1250,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         }
 
         if (before !== after) {
-          console.debug('[GP] autoDetect changed order', { before, after });
+          console.debug('[GP] autoDetect changed order', {before, after});
           this.applyGamepadReorder();
         }
       } catch { console.log('Gamepad auto-detect tick failed'); }
@@ -1619,13 +1608,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     // update the dropdown selection state immediately
     const id = String(value);
     console.debug('[GP] onSelectGamepadForPort called', { port, value, id });
-
+    
     // allow clearing selection by id
     if (id === '__none__') {
       console.debug('[GP] onSelectGamepadForPort: clearing port', port);
       this.ports[port].gpIndex = null;
       this.ports[port].gpId = null;
-      this.applyGamepadReorder();
+      this.applyGamepadReorder(); 
       return;
     }
 
@@ -1660,7 +1649,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.ports[port].gpIndex = idx;
     this.ports[port].gpId = id;
     this.applyGamepadReorder();
-    this.ensureDefaultMappingForPort(port);
+    this.ensureDefaultMappingForPort(port); 
     console.debug('[GP] onSelectGamepadForPort: assigned', this.ports, this.gamepads);
   }
 
@@ -1948,7 +1937,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const std = this.gamepads.find((p) => p.mapping === 'standard');
         this.selectedGamepadIndex = std ? std.index : this.gamepads[0].index;
       }
-      const visible = [1, 2, 3, 4].map(p => ({ p, id: this.visibleGpIdForPort(p as PlayerPort) }));
+      const visible = [1,2,3,4].map(p => ({p, id: this.visibleGpIdForPort(p as PlayerPort)}));
       //console.debug('[GP] refreshGamepads -> gamepads:', this.gamepads.map(gp => ({i: gp.index, id: gp.id})), 'ports:', this.ports, 'visible:', visible);
     } catch (e) {
       console.warn('Failed to read gamepads', e);
@@ -1969,7 +1958,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch { /* ignore */ }
   }
 
-  async downloadCurrentSaves(preferRomMatch?: boolean, skipDownload?: boolean): Promise<Array<{ filename: string; bytes: Uint8Array }> | null> {
+  async downloadCurrentSaves(preferRomMatch?: boolean, skipDownload?: boolean) : Promise<Array<{ filename: string; bytes: Uint8Array }> | null> {
     try {
       // Prefer emulator instance API when available (more reliable)
       if (this.instance) {
@@ -2016,7 +2005,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         } catch (err) {
           console.debug('getAllSaveFiles failed:', err);
         }
-      }
+      } 
     } catch (e) {
       console.error('downloadCurrentSaves failed', e);
       this.parentRef?.showNotification('Failed to download save(s).');
@@ -2039,7 +2028,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       const files = input.files;
       if (!files || files.length === 0) return;
 
-      await this.importInGameSaveRam(files, /* skipBoot */ false); 
+      await this.importInGameSaveRam(files, /* skipBoot */ false);
+      if (this.DEBUG_CLEAR_SAVESTATES) {
+        await this.deleteSavestatesForCurrentRom();
+      }
     } catch (e) {
       console.error('onSaveFilePicked failed', e);
       this.parentRef?.showNotification('Failed to import save files.');
@@ -2297,6 +2289,17 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     return base || 'Unknown';
   }
 
+  private canonicalSaveFilenameForUpload(ext: '.eep' | '.sra' | '.fla' | string): string {
+    const base = this.canonicalRomBaseFromFileName(this.romName);
+    return `${base}${ext}`;
+  }
+
+  private detectSaveExt(filename: string | null | undefined, size: number): '.eep' | '.sra' | '.fla' {
+    const extFromName = (filename?.match(/\.(eep|sra|fla)$/i)?.[0] || '').toLowerCase() as any;
+    if (extFromName) return extFromName;
+    return this.inferBatteryExtFromSize(size) || '.sra';
+  }
+ 
   private async mirrorGoodNameSavesToCanonical(): Promise<void> {
     try {
       const dbMeta: Array<{ name?: string }> =
@@ -2413,58 +2416,58 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     return toU8(val);
   }
 
+  
+// drop-in replacement for your current writeIdbBytes()
+private async writeIdbBytes(db: IDBDatabase, key: string, bytes: Uint8Array): Promise<void> {
+  const tx = db.transaction('FILE_DATA', 'readwrite');
+  const os = tx.objectStore('FILE_DATA');
 
-  // drop-in replacement for your current writeIdbBytes()
-  private async writeIdbBytes(db: IDBDatabase, key: string, bytes: Uint8Array): Promise<void> {
-    const tx = db.transaction('FILE_DATA', 'readwrite');
-    const os = tx.objectStore('FILE_DATA');
+  // read existing to preserve stored shape if present
+  const existing = await new Promise<any>((resolve) => {
+    const r = os.get(key);
+    r.onerror = () => resolve(null);
+    r.onsuccess = () => resolve(r.result ?? null);
+  });
 
-    // read existing to preserve stored shape if present
-    const existing = await new Promise<any>((resolve) => {
-      const r = os.get(key);
-      r.onerror = () => resolve(null);
-      r.onsuccess = () => resolve(r.result ?? null);
-    });
-
-    // ensure timestamp is a real Date and choose a consistent payload field
-    const ensureDate = (obj: any) => {
-      if (!obj) return;
-      const t = obj.timestamp ?? obj.mtime ?? obj.time ?? null;
-      if (t instanceof Date) return;
-      if (typeof t === 'number') obj.timestamp = new Date(t);
-      else if (typeof t === 'string') {
-        const d = new Date(t);
-        obj.timestamp = Number.isNaN(+d) ? new Date() : d;
-      } else {
-        obj.timestamp = new Date();
-      }
-    };
-
-    let value: any;
-    if (!existing) {
-      // NEW ROW: create an IDBFS-compatible object
-      value = {
-        timestamp: new Date(),   // <- critical: real Date instance
-        mode: 0o100644,          // (optional) regular file
-        contents: bytes          // pick one content key; be consistent
-      };
+  // ensure timestamp is a real Date and choose a consistent payload field
+  const ensureDate = (obj: any) => {
+    if (!obj) return;
+    const t = obj.timestamp ?? obj.mtime ?? obj.time ?? null;
+    if (t instanceof Date) return;
+    if (typeof t === 'number') obj.timestamp = new Date(t);
+    else if (typeof t === 'string') {
+      const d = new Date(t);
+      obj.timestamp = Number.isNaN(+d) ? new Date() : d;
     } else {
-      // EXISTING ROW: keep shape, update its bytes and timestamp
-      const clone = JSON.parse(JSON.stringify(existing));
-      ensureDate(clone);
-      if (clone.contents) clone.contents = bytes;
-      else if (clone.data) clone.data = bytes;
-      else if (Array.isArray(clone.bytes)) clone.bytes = Array.from(bytes);
-      else clone.contents = bytes;
-      value = clone;
+      obj.timestamp = new Date();
     }
+  };
 
-    await new Promise<void>((resolve, reject) => {
-      const w = os.put(value, key);
-      w.onerror = () => reject(w.error);
-      w.onsuccess = () => resolve();
-    });
+  let value: any;
+  if (!existing) {
+    // NEW ROW: create an IDBFS-compatible object
+    value = {
+      timestamp: new Date(),   // <- critical: real Date instance
+      mode: 0o100644,          // (optional) regular file
+      contents: bytes          // pick one content key; be consistent
+    };
+  } else {
+    // EXISTING ROW: keep shape, update its bytes and timestamp
+    const clone = JSON.parse(JSON.stringify(existing));
+    ensureDate(clone);
+    if (clone.contents) clone.contents = bytes;
+    else if (clone.data) clone.data = bytes;
+    else if (Array.isArray(clone.bytes)) clone.bytes = Array.from(bytes);
+    else clone.contents = bytes;
+    value = clone;
   }
+
+  await new Promise<void>((resolve, reject) => {
+    const w = os.put(value, key);
+    w.onerror = () => reject(w.error);
+    w.onsuccess = () => resolve();
+  });
+}
 
 
   private async idbKeyExists(db: IDBDatabase, key: string): Promise<boolean> {
@@ -2686,7 +2689,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   private multiPortActive(): boolean {
     return [1, 2, 3, 4].filter(p => this.ports[p as PlayerPort].gpIndex != null).length > 1;
-  }
+  } 
 
   get playerPorts(): PlayerPort[] { return [1, 2, 3, 4]; }
 
@@ -2801,7 +2804,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this._idbfsSync = this._idbfsSync.then(run, run);
     await this._idbfsSync;
   }
-
+ 
   /** Heuristic/override of EEPROM size for specific ROMs (by loose token). */
   private eepromSizeOverrideForRom(): 512 | 2048 | null {
     // Normalize: lowercase, collapse spaces
