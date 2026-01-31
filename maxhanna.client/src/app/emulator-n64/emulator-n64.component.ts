@@ -1815,9 +1815,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     // allow clearing selection by id
     if (id === '__none__') {
       this.ports[port].gpIndex = null;
-      this.applyGamepadReorder();
-      // sync dropdowns in case reorder changed
-      try { this.syncPortSelectionsFromPorts(); } catch { }
+      this.applyGamepadReorder(); 
       return;
     }
 
@@ -1854,9 +1852,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         try { this.refreshGamepads(); } catch { }
       }
       // reassign to ensure template selection matches
-      this.ports[port].gpIndex = idx;
-      // ensure the visible dropdowns reflect final ids/indices
-      try { this.syncPortSelectionsFromPorts(); } catch { }
+      this.ports[port].gpIndex = idx; 
     }, 60);
   }
 
