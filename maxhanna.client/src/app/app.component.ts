@@ -918,7 +918,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     // a hidden button (so the event is routed through Angular like user mentions)
     text = text.replace(/\[spoiler\](.*?)\[\/spoiler\]/gis, (match, inner) => {
       const safeInner = (inner ?? '').replace(/'/g, "&#39;").replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      return `<span class="spoiler-inline" aria-label="Reveal spoiler" aria-live="polite" onClick="document.getElementById('spoilerRevealButton').click()">${safeInner}</span>`;
+      return `<button title="Reveal spoiler" onClick="this.value = '${safeInner}'">Reveal</button>`;
     }); 
 
     return this.sanitizer.bypassSecurityTrustHtml(text);
@@ -1593,39 +1593,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     if (/^https?:\/\//i.test(url)) return url;
     return 'https://' + url;
   }
-
-  revealSpoiler(el: HTMLElement) {
-    // Debug: log the element being revealed
-    try {
-      console.log('revealSpoiler called for element:', el, 'classes before:', el.className);
-    } catch (e) { /* ignore logging errors */ }
-
-    // Style reveal – centralize here so it’s consistent everywhere
-    el.style.backgroundColor = '';
-    el.style.color = 'var(--main-text-color)';
-    el.style.border = '1px solid var(--main-link-color)';
-    el.style.padding = '4px 6px';
-
-    // Optionally mark as revealed to avoid redoing
-    el.classList.add('spoiler-revealed');
-    try {
-      console.log('revealSpoiler completed, classes after:', el.className);
-    } catch (e) { /* ignore logging errors */ }
-  }
-
-  handleSpoilerReveal() {
-    console.log("Revealing spoiler via hidden button");
-    try {
-      // Reveal all spoilers on the page instead of using a single id
-      const spoilers = Array.from(document.querySelectorAll<HTMLElement>('.spoiler-inline'));
-      for (const s of spoilers) {
-        this.revealSpoiler(s);
-      }
-    } catch (err) {
-      console.error('Error revealing spoiler via hidden button', err);
-    }
-  }
-
+ 
   fullscreenYoutubePopup() {
     const youtubePopup = document.getElementById('youtubeIframe');
     if (youtubePopup) {
