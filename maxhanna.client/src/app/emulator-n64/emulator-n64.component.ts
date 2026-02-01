@@ -1396,7 +1396,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.mapping = {};
       if (gp?.mapping === 'standard') {
         this.generateDefaultRawMappingForPad(gp);
-        this.parentRef?.showNotification('Default RAW mapping generated for standard profile.');
+        console.log('Default RAW mapping generated for standard profile.');
       } else {
         this.parentRef?.showNotification('Default mapping cleared — remap manually or record.');
       }
@@ -1434,7 +1434,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.mapping = this.rebindMappingToPad(JSON.parse(JSON.stringify(m)), gp?.id || null);
       this.migrateMappingToIdsIfNeeded();
       await this.applyMappingToEmulator();
-      this.parentRef?.showNotification(`Applied mapping "${this.selectedMappingName}" to selected controller`);
+      console.log(`Applied mapping "${this.selectedMappingName}" to selected controller`);
     } catch (e) {
       console.error('Failed to apply selected mapping', e);
       this.parentRef?.showNotification('Failed to apply mapping');
