@@ -2,22 +2,12 @@
   <div class="closeButton" (click)="remove_me('EmulationComponent');" *ngIf="!isFullScreen"></div>
   <div class="menuButton" (click)="showMenuPanel();" *ngIf="!isFullScreen"></div>
   <div class="componentTitle" *ngIf="!isFullScreen">{{selectedRomName ? selectedRomName : 'Emulation'}}</div>
-  <div class="gamesContainer{{ !selectedRomName ? ' expanded' : '' }}{{isLoading ? ' is-disabled' : ''}}" *ngIf="isSearchVisible">
-    <app-file-search 
-      [user]="parentRef?.user" 
-      [inputtedParentRef]="parentRef" 
-      [currentDirectory]="'Roms/'"
-      [clearAfterSelectFile]="true" 
-      [allowedFileTypes]="getAllowedFileTypes()" 
-      [showPrivatePublicOption]="false"
-      [showFileSearchOptions]="false" 
-      [canChangeDirectory]="false" 
-      [canDragMove]="false" 
-      [displayFileActions]="true"
-      [displayComments]="false" 
-      [displayFileSize]="false" 
-      [displayReactions]="false" 
-      [disabled]="isLoading"
+  <div class="gamesContainer{{ !selectedRomName ? ' expanded' : '' }}{{isLoading ? ' is-disabled' : ''}}"
+    *ngIf="isSearchVisible">
+    <app-file-search [user]="parentRef?.user" [inputtedParentRef]="parentRef" [currentDirectory]="'Roms/'"
+      [clearAfterSelectFile]="true" [allowedFileTypes]="getAllowedFileTypes()" [showPrivatePublicOption]="false"
+      [showFileSearchOptions]="false" [canChangeDirectory]="false" [canDragMove]="false" [displayFileActions]="true"
+      [displayComments]="false" [displayFileSize]="false" [displayReactions]="false" [disabled]="isLoading"
       (selectFileEvent)="loadRom($event)">
     </app-file-search>
   </div>
@@ -34,13 +24,13 @@
     <div class="controls" [ngClass]="{'snes-controls': isSnesGame()}">
       <div *ngIf="!useJoystick" class="dpad"
         [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">
-        <div class="up-left">
+        <div class="up-left" [style.visibility]="!isSimpleDpadGame() ? 'visible' : 'hidden'">
           <div class="up-left-triangle"></div>
         </div>
         <div class="up">
           <div class="up-triangle"></div>
         </div>
-        <div class="up-right">
+        <div class="up-right" [style.visibility]="!isSimpleDpadGame() ? 'visible' : 'hidden'">
           <div class="up-right-triangle"></div>
         </div>
         <div class="right">
@@ -49,18 +39,19 @@
         <div class="down">
           <div class="down-triangle"></div>
         </div>
-        <div class="down-left">
+        <div class="down-left" [style.visibility]="!isSimpleDpadGame() ? 'visible' : 'hidden'">
           <div class="down-left-triangle"></div>
         </div>
         <div class="left">
           <div class="left-triangle"></div>
         </div>
-        <div class="down-right">
+        <div class="down-right" [style.visibility]="!isSimpleDpadGame() ? 'visible' : 'hidden'">
           <div class="down-right-triangle"></div>
         </div>
         <div class="middle"></div>
       </div>
-      <div *ngIf="useJoystick" class="joystick" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">
+      <div *ngIf="useJoystick" class="joystick"
+        [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">
         <div class="joystick-base" id="joystickBase">
           <div class="joystick-knob" id="joystickKnob"></div>
         </div>
@@ -71,18 +62,18 @@
         <div class="a" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : 'visible'">A</div>
         <div class="b" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : 'visible'">B</div>
       </div>
-      <div [class]="'face-buttons' + ((!isSegaGame() && selectedRomName && showControls) ? ' two-button-mode' : '')" *ngIf="!parentRef?.isShowingOverlay && !isSnesGame()">
-        <div class="b"
-          [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' :  'visible'  ">
+      <div [class]="'face-buttons' + ((!isSegaGame() && selectedRomName && showControls) ? ' two-button-mode' : '')"
+        *ngIf="!parentRef?.isShowingOverlay && !isSnesGame()">
+        <div class="b" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' :  'visible'  ">
           B</div>
-        <div class="a"
-          [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' :  'visible'  ">
+        <div class="a" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' :  'visible'  ">
           A</div>
         <div class="c"
           [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : isSegaGame() ? 'visible' : 'hidden'">
           C</div>
       </div>
-      <div class="shoulder-buttons" *ngIf="!parentRef?.isShowingOverlay && (isSnesGame() || isGbaGame() || isSegaGame())">
+      <div class="shoulder-buttons"
+        *ngIf="!parentRef?.isShowingOverlay && (isSnesGame() || isGbaGame() || isSegaGame())">
         <div class="l" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : 'visible'">L</div>
         <div class="r" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : 'visible'">R</div>
       </div>
@@ -103,8 +94,7 @@
 <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle" style="margin-bottom:15px;">
     Emulation Menu
-    <span (click)="showHelpText = !showHelpText"
-      class="cursorPointer"
+    <span (click)="showHelpText = !showHelpText" class="cursorPointer"
       title="This emulator autosaves every minute and when the game closes (ie: when you navigate away from this page).
      ◻️ : Toggle fullscreen mode.
      🛑 : Click on this to power off the emulator (if autosave is selected, this will also save your progress).
@@ -198,17 +188,19 @@
           : 'Hide' }}</span>
       </div>
     </div>
-        <div class="optionsStatsDiv" *ngIf="onMobile()">
-          <div class="optionsStatsHeader">Haptic Feedback:</div>
-          <div class="optionsStatsDescription">
-            <label class="toggle-switch">
-              <input type="checkbox" [checked]="hapticFeedbackEnabled" (change)="hapticFeedbackEnabled = !hapticFeedbackEnabled">
-              <span class="slider"></span>
-            </label>
-            <span class="toggle-label" (click)="hapticFeedbackEnabled = !hapticFeedbackEnabled">{{ hapticFeedbackEnabled ? 'Enabled'
-              : 'Disabled' }}</span>
-          </div>
-        </div>
+    <div class="optionsStatsDiv" *ngIf="onMobile()">
+      <div class="optionsStatsHeader">Haptic Feedback:</div>
+      <div class="optionsStatsDescription">
+        <label class="toggle-switch">
+          <input type="checkbox" [checked]="hapticFeedbackEnabled"
+            (change)="hapticFeedbackEnabled = !hapticFeedbackEnabled">
+          <span class="slider"></span>
+        </label>
+        <span class="toggle-label" (click)="hapticFeedbackEnabled = !hapticFeedbackEnabled">{{ hapticFeedbackEnabled ?
+          'Enabled'
+          : 'Disabled' }}</span>
+      </div>
+    </div>
     <div class="optionsStatsDiv" *ngIf="!showControlBindings">
       <div class="optionsStatsHeader">Upload ROM file:</div>
       <div class="optionsStatsDescription uploadRomSpan upload-label controlVolume">

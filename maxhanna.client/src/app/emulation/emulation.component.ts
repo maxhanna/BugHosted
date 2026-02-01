@@ -857,6 +857,10 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     }, 3);
   }
 
+  isSimpleDpadGame(): boolean {
+    return !this.isSnesGame() && !this.isSegaGame() && !this.isGbaGame();
+  }
+
   shareLink() {
     const link = `https://bughosted.com/Emulator`;
     try {
