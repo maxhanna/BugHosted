@@ -2921,7 +2921,9 @@ async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
       return null;
     }
   }
-
+  getRomName(): string | null {
+    return this.fileService.getFileWithoutExtension(this.romName || ''); 
+  }
 }
 
 // ---------------------------

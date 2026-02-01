@@ -1,7 +1,7 @@
 <div class="componentMain" [style.paddingTop]="isFullScreen ? '0px' : null">
   <div class="closeButton" (click)="remove_me('EmulatorN64Component');" *ngIf="!isFullScreen"></div>
   <div class="menuButton" (click)="showMenuPanel();" *ngIf="!isFullScreen"></div>
-  <div class="componentTitle" *ngIf="!isFullScreen"><span class="romNameTitle">{{romName ? romName : 'N64 Emulator'}}</span></div>
+  <div class="componentTitle" *ngIf="!isFullScreen"><span class="romNameTitle">{{romName ? getRomName() : 'N64 Emulator'}}</span></div>
 
   <div class="gamesContainer{{ !romName ? ' expanded' : '' }}{{isLoading ? ' is-disabled' : ''}}" *ngIf="!romName">
     <app-file-search

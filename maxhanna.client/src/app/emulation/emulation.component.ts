@@ -866,6 +866,10 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     return !this.isSegaGame();
   }
 
+  getRomName() {
+    return this.fileService.getFileWithoutExtension(this.selectedRomName || '');
+  }
+
   shareLink() {
     const link = `https://bughosted.com/Emulator`;
     try {
