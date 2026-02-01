@@ -50,7 +50,7 @@ import { EmulatorN64Component } from './emulator-n64/emulator-n64.component';
   styleUrl: './app.component.css',
   standalone: false
 })
-export class AppComponent implements OnInit, AfterViewInit {
+export class AppComponent implements OnInit, AfterViewInit { 
   user: User | undefined = undefined;
   @ViewChild("viewContainerRef", { read: ViewContainerRef }) VCR!: ViewContainerRef;
   @ViewChild("outlet") outlet!: RouterOutlet;
@@ -351,6 +351,9 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     if (this.getCookie("user")) {
       this.user = JSON.parse(this.getCookie("user"));
     }
+    // Use delegated event listener so dynamically-rendered HTML (via ChangeDetectorRef)
+    // can still have working spoiler reveal buttons without relying on inline handlers.
+    document.addEventListener('click', this.handleGlobalClick, true);
     this.updateHeight();
     this.getSelectedMenuItems()
     if ('serviceWorker' in navigator) {
@@ -451,6 +454,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         }
       }
     });
+  }
+
+  ngOnDestroy(): void {
+    try { document.removeEventListener('click', this.handleGlobalClick, true); } catch { }
   }
   async getSelectedMenuItems() {
     if (!this.user) {
@@ -913,9 +920,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     });
 
     // Step 8: Replace [spoiler]...[/spoiler] with a clickable reveal element
+    // Use no inline onclick so a delegated handler can manage the reveal consistently.
     text = text.replace(/\[spoiler\](.*?)\[\/spoiler\]/gis, (match, inner) => {
       const safeInner = (inner ?? '').replace(/'/g, "&#39;").replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      return `<span class="spoiler-wrapper"><button class="spoiler-button" onclick="const s=this.nextElementSibling; if(!s) return; if(s.style.display==='none'){s.style.display='inline'; this.textContent='Hide';} else {s.style.display='none'; this.textContent='Show';}">Show</button><span class="spoiler-text" style="display:none">${safeInner}</span></span>`;
+      return `<span class="spoiler-wrapper"><button type="button" class="spoiler-button">Show</button><span class="spoiler-text" style="display:none">${safeInner}</span></span>`;
     });
 
     return this.sanitizer.bypassSecurityTrustHtml(text);
@@ -1605,4 +1613,29 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       console.error("YouTube popup element not found.");
     }
   }
+  private readonly handleGlobalClick = (e: MouseEvent) => {
+    try {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const btn = target.closest('.spoiler-button') as HTMLElement | null;
+      if (!btn) return;
+      // Prevent default to avoid unwanted navigation
+      e.preventDefault();
+      const wrapper = btn.closest('.spoiler-wrapper') as HTMLElement | null;
+      if (!wrapper) return;
+      const text = wrapper.querySelector('.spoiler-text') as HTMLElement | null;
+      if (!text) return;
+      const isHidden = text.style.display === 'none' || getComputedStyle(text).display === 'none';
+      if (isHidden) {
+        text.style.display = 'inline';
+        btn.textContent = 'Hide';
+      } else {
+        text.style.display = 'none';
+        btn.textContent = 'Show';
+      }
+    } catch (err) {
+      // swallow errors to avoid breaking unrelated UI
+      console.error('spoiler handler error', err);
+    }
+  };
 }
