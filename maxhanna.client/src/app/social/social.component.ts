@@ -715,18 +715,21 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   // to replacing span contents for other implementations.
   showSpoilers(story?: Story) {
     if (!story || !story.id) return;
-    const container = document.getElementById('storyText' + story.id);
-    if (!container) return;
+    this.closeStoryOptionsPanel();
+    setTimeout(() => {
+      const container = document.getElementById('storyText' + story.id);
+      if (!container) return;
 
-    // First, try to click any spoiler buttons that may have been rendered
-    const buttons = Array.from(container.querySelectorAll('button.spoiler-button, button[data-spoiler]')) as HTMLButtonElement[];
-    if (buttons.length) {
-      buttons.forEach(b => {
-        try { b.click(); } catch {}
-      });
-      try { this.cd.markForCheck(); } catch {}
-      return;
-    }
+      // First, try to click any spoiler buttons that may have been rendered
+      const buttons = Array.from(container.getElementsByClassName('spoiler-button')) as HTMLButtonElement[];
+      if (buttons.length) {
+        buttons.forEach(b => {
+          try { b.click(); } catch {}
+        });
+        try { this.cd.markForCheck(); } catch {}
+        return;
+      }
+    }, 100);
   }
   showPostOptionsPanel() {
     if (this.isPostOptionsPanelOpen) {
