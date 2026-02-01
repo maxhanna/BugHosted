@@ -863,7 +863,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   }
 
   isSimpleDpadGame(): boolean {
-    return this.isGbaGame() || this.isGbGame();
+    return !this.isSegaGame();
   }
 
   shareLink() {
