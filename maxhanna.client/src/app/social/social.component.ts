@@ -717,17 +717,21 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (!story || !story.id) return;
     this.closeStoryOptionsPanel();
     setTimeout(() => {
-      const container = document.getElementById('storyText' + story.id);
-      if (!container) return;
-
+      const container = document.getElementById('storyText' + story.id); 
+      if (!container) {
+        this.parentRef?.showNotification('Error: Could not find story container to reveal spoilers.');
+        return;
+      }
       // First, try to click any spoiler buttons that may have been rendered
       const buttons = Array.from(container.getElementsByClassName('spoiler-button')) as HTMLButtonElement[];
       if (buttons.length) {
         buttons.forEach(b => {
           try { b.click(); } catch {}
         });
-        try { this.cd.markForCheck(); } catch {}
+        try { this.cd.detectChanges(); } catch {}
         return;
+      } else {
+        this.parentRef?.showNotification('No spoiler buttons found.');
       }
     }, 100);
   }
