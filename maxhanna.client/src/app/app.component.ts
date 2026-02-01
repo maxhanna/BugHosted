@@ -350,10 +350,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   ngOnInit() {
     if (this.getCookie("user")) {
       this.user = JSON.parse(this.getCookie("user"));
-    }
-    // Use delegated event listener so dynamically-rendered HTML (via ChangeDetectorRef)
-    // can still have working spoiler reveal buttons without relying on inline handlers.
-      // (No per-spoiler JS required when using native <details>.)
+    } 
     this.updateHeight();
     this.getSelectedMenuItems()
     if ('serviceWorker' in navigator) {
@@ -916,10 +913,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       return `<span class="userMentionSpan" onClick="document.getElementById('userMentionInput').value='${username}';document.getElementById('userMentionButton').click()" class="user-mention">@${username}</span>`;
     });
 
-    // Step 8: Replace [spoiler]...[/spoiler] with native <details> for minimal runtime cost
+    // Step 8: Replace [spoiler]...[/spoiler] with an inline clickable span (inline JS toggles reveal)
     text = text.replace(/\[spoiler\](.*?)\[\/spoiler\]/gis, (match, inner) => {
       const safeInner = (inner ?? '').replace(/'/g, "&#39;").replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      return `<details class="spoiler"><summary>Show</summary><div class="spoiler-text">${safeInner}</div></details>`;
+      // Inline onclick toggles the 'revealed' class to switch to normal colors and add a border
+      return `<span class="spoiler-inline" onClick="this.classList.add('revealed');">${safeInner}</span>`;
     });
 
     return this.sanitizer.bypassSecurityTrustHtml(text);

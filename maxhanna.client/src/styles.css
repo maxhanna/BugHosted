@@ -940,24 +940,18 @@ fieldset {
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
 }
 
-.spoiler-wrapper {
-  display: inline-block;
-}
-.spoiler {
-  display: inline-block;
-}
-.spoiler summary {
-  cursor: pointer;
-  background: var(--main-link-color, #444);
-  color: var(--main-text-color, #fff);
+.spoiler-inline {
+  background-color: var(--main-highlight-color);
+  color: var(--main-highlight-foreground-color, var(--main-text-color));
   padding: 2px 6px;
   border-radius: 4px;
+  cursor: pointer;
   display: inline-block;
-  list-style: none;
 }
-.spoiler summary:focus { outline: none; }
-.spoiler summary::-webkit-details-marker { display: none; }
-.spoiler .spoiler-text {
-  display: block;
-  margin-left: 8px;
+.spoiler-inline.revealed {
+  background-color: transparent;
+  color: var(--main-text-color);
+  border: 1px solid var(--main-link-color);
+  padding: 4px 6px;
+  border-radius: 4px;
 }
