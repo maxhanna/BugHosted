@@ -1608,13 +1608,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
   handleSpoilerReveal() {
     try {
-      const idInput = (document.getElementById('hiddenSpoilerId') as HTMLInputElement | null);
-      if (!idInput) return;
-      const spoilerId = idInput.value;
-      if (!spoilerId) return;
-      const el = document.getElementById(spoilerId) as HTMLElement | null;
-      if (!el) return;
-      this.revealSpoiler(el);
+      // Reveal all spoilers on the page instead of using a single id
+      const spoilers = Array.from(document.querySelectorAll<HTMLElement>('.spoiler-inline'));
+      for (const s of spoilers) {
+        this.revealSpoiler(s);
+      }
     } catch (err) {
       console.error('Error revealing spoiler via hidden button', err);
     }
