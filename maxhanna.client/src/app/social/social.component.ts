@@ -729,7 +729,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         buttons.forEach(b => {
           try { b.click(); } catch {}
         });
-        try { this.cd.detectChanges(); } catch {}
+        setTimeout(() => { this.cd.detectChanges(); }, 50);
         return;
       } else {
         this.parentRef?.showNotification('No spoiler buttons found.');
