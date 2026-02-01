@@ -50,7 +50,7 @@ import { EmulatorN64Component } from './emulator-n64/emulator-n64.component';
   styleUrl: './app.component.css',
   standalone: false
 })
-export class AppComponent implements OnInit, AfterViewInit { 
+export class AppComponent implements OnInit, AfterViewInit {
   user: User | undefined = undefined;
   @ViewChild("viewContainerRef", { read: ViewContainerRef }) VCR!: ViewContainerRef;
   @ViewChild("outlet") outlet!: RouterOutlet;
@@ -350,7 +350,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   ngOnInit() {
     if (this.getCookie("user")) {
       this.user = JSON.parse(this.getCookie("user"));
-    } 
+    }
     this.updateHeight();
     this.getSelectedMenuItems()
     if ('serviceWorker' in navigator) {
@@ -451,9 +451,9 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           this.createComponent('User');
         }
       }
-    }); 
-  } 
- 
+    });
+  }
+
   async getSelectedMenuItems() {
     if (!this.user) {
       const guestTitles = [
@@ -918,12 +918,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     // a hidden button (so the event is routed through Angular like user mentions)
     text = text.replace(/\[spoiler\](.*?)\[\/spoiler\]/gis, (match, inner) => {
       const safeInner = (inner ?? '').replace(/'/g, "&#39;").replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      return ` 
-        <span class="spoiler" tabindex="0" role="button" title="${safeInner}">
-          <span class="spoiler__content">${safeInner}</span>
-        </span>
-      `;
-      }); 
+      return `<span class="spoiler" tabindex="0" role="button" title="${safeInner}"><span class="spoiler__content">${safeInner}</span></span>`;
+    });
 
     return this.sanitizer.bypassSecurityTrustHtml(text);
   }
@@ -1597,7 +1593,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     if (/^https?:\/\//i.test(url)) return url;
     return 'https://' + url;
   }
- 
+
   fullscreenYoutubePopup() {
     const youtubePopup = document.getElementById('youtubeIframe');
     if (youtubePopup) {
