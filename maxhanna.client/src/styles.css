@@ -942,11 +942,12 @@ fieldset {
 
 .spoiler-inline {
   background-color: var(--main-highlight-color);
-  color: var(--main-highlight-foreground-color, var(--main-text-color));
+  color: var(--main-highlight-color);
   padding: 2px 6px;
   border-radius: 4px;
   cursor: pointer;
   display: inline-block;
+  border: 1px solid var(--main-link-color);
 }
 .spoiler-inline.revealed {
   background-color: transparent;
