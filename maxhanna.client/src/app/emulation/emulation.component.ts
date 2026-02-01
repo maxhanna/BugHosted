@@ -33,7 +33,6 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   isFullScreen = false;
   hapticFeedbackEnabled = this.onMobile();
   showControls = this.onMobile();
-  private currentKeyListeners: { type: string; listener: EventListener }[] = [];
   private touchControls: Map<number, string[]> = new Map(); // touchId to array of joypadIndices
   readonly coreMapping: { [key: string]: string } = {
     'gba': 'mgba',
