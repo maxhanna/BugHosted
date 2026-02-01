@@ -22,9 +22,7 @@
     --dpad-radius: 20px;
     --touch-padding: 18px;
   }
-}
-
-
+} 
 .mainComponent {
   margin-top: 50px;
 }
@@ -39,6 +37,10 @@
   .componentMain {
     width: 100vw !important;
   }
+}
+
+.componentTitle {
+  width: calc(100% - 100px);
 }
 
 .gamesContainer {

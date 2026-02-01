@@ -939,24 +939,25 @@ fieldset {
   transform: translateY(2px);
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
 }
- 
+
 .spoiler-wrapper {
   display: inline-block;
 }
-.spoiler-button {
+.spoiler {
+  display: inline-block;
+}
+.spoiler summary {
+  cursor: pointer;
   background: var(--main-link-color, #444);
   color: var(--main-text-color, #fff);
-  border: none;
   padding: 2px 6px;
-  margin-right: 6px;
   border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.85rem;
+  display: inline-block;
+  list-style: none;
 }
-.spoiler-button:focus { outline: none; }
-.spoiler-text {
-  background: var(--secondary-component-background-color, #222);
-  color: var(--main-text-color, #fff);
-  padding: 2px 4px;
-  border-radius: 4px;
+.spoiler summary:focus { outline: none; }
+.spoiler summary::-webkit-details-marker { display: none; }
+.spoiler .spoiler-text {
+  display: block;
+  margin-left: 8px;
 }
