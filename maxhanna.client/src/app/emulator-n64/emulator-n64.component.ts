@@ -736,10 +736,18 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   async stopGame() {
-    await this.stop();
-    this.romBuffer = undefined;
-    this.romName = undefined;
-    this.parentRef?.showNotification('ROM unloaded');
+    this.startLoading();
+    try {
+      await this.stop();
+      this.romBuffer = undefined;
+      this.romName = undefined;
+      this.parentRef?.showNotification('ROM unloaded');
+    }
+    catch (e) {
+      console.error('Error stopping game', e);
+    } finally {
+      this.stopLoading();
+    }
   }
 
   async toggleFullscreen() {
