@@ -918,8 +918,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     // a hidden button (so the event is routed through Angular like user mentions)
     text = text.replace(/\[spoiler\](.*?)\[\/spoiler\]/gis, (match, inner) => {
       const safeInner = (inner ?? '').replace(/'/g, "&#39;").replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      const id = `spoiler_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      return `<span id="${id}" class="spoiler-inline" tabindex="0" role="button" aria-label="Reveal spoiler" aria-live="polite" onClick="document.getElementById('hiddenSpoilerId').value='${id}';document.getElementById('spoilerRevealButton').click()">${safeInner}</span>`;
+      return `<span class="spoiler-inline" tabindex="0" role="button" aria-label="Reveal spoiler" aria-live="polite" onClick="document.getElementById('spoilerRevealButton').click()">${safeInner}</span>`;
     }); 
 
     return this.sanitizer.bypassSecurityTrustHtml(text);
@@ -1607,6 +1606,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   }
 
   handleSpoilerReveal() {
+    console.log("Revealing spoiler via hidden button");
     try {
       // Reveal all spoilers on the page instead of using a single id
       const spoilers = Array.from(document.querySelectorAll<HTMLElement>('.spoiler-inline'));
