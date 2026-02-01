@@ -714,7 +714,10 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   // Attempts to click any inline spoiler buttons first, then falls back
   // to replacing span contents for other implementations.
   showSpoilers(story?: Story) {
-    if (!story || !story.id) return;
+    if (!story || !story.id) {
+      this.parentRef?.showNotification('Error: Invalid story to reveal spoilers.');
+      return;
+    }
     this.closeStoryOptionsPanel();
     setTimeout(() => {
       const container = document.getElementById('storyText' + story.id); 
