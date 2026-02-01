@@ -571,6 +571,11 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     return this.gameboyAdvancedFileTypes.includes(ft);
   }
 
+  isGbGame(): boolean {
+    const ft = this.currentFileType.toLowerCase().trim();
+    return this.gameboyFileTypes.includes(ft);
+  }
+
   isSegaGame(): boolean {
     const ft = this.currentFileType.toLowerCase().trim();
     return this.segaFileTypes.includes(ft);
@@ -858,7 +863,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   }
 
   isSimpleDpadGame(): boolean {
-    return !this.isSnesGame() && !this.isSegaGame() && !this.isGbaGame();
+    return this.isGbaGame() || this.isGbGame();
   }
 
   shareLink() {
