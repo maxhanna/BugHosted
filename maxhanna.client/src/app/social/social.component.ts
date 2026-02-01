@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnDestroy, OnInit, Renderer2, ViewChild } from '@angular/core';
 import { Compactness, ShowPostsFrom } from '../../services/datacontracts/user/show-posts-from';
 import { ChildComponent } from '../child.component';
 import { MetaData, Story } from '../../services/datacontracts/social/story';
@@ -86,6 +86,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   @ViewChild(MediaSelectorComponent) mediaSelectorComponent!: MediaSelectorComponent;
   @ViewChild(MediaSelectorComponent) postMediaSelector!: MediaSelectorComponent;
   @ViewChild(TopicsComponent) topicComponent!: TopicsComponent;
+  @ViewChild('richHost', { static: true }) richHost!: ElementRef<HTMLElement>;
+  private unlistenClick?: () => void;
 
   @Input() storyId: number | undefined = undefined;
   @Input() commentId: number | undefined = undefined;
@@ -103,7 +105,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     private encryptionService: EncryptionService,
     private textToSpeechService: TextToSpeechService,
     private cd: ChangeDetectorRef,
-    private currencyFlagPipe: CurrencyFlagPipe
+    private currencyFlagPipe: CurrencyFlagPipe,
+    private renderer: Renderer2
 ) {
     super();
   }
@@ -201,7 +204,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   ngOnDestroy() {
     if (this.storyUpdateInterval) {
       clearInterval(this.storyUpdateInterval); // Clean up interval on component destroy
-    }
+    } 
+    this.unlistenClick?.(); 
   }
 
   async ngAfterViewInit() {
@@ -217,7 +221,33 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.componentMain.nativeElement.style.paddingTop = "0px";
       this.componentMain.nativeElement.classList.add("mobileMaxHeight");
     }
-  }
+
+    
+this.unlistenClick = this.renderer.listen(
+      this.richHost.nativeElement,
+      'click',
+      (event: Event) => {
+        const target = event.target as HTMLElement | null;
+        if (!target) return;
+        const spoiler = target.closest('.spoiler-inline') as HTMLElement | null;
+        if (!spoiler || !this.richHost.nativeElement.contains(spoiler)) return;
+        this.parentRef?.revealSpoiler(spoiler);
+      }
+    );
+
+    // Optional: keyboard accessibility via Enter/Space
+    this.renderer.listen(this.richHost.nativeElement, 'keydown', (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      const spoiler = target.closest('.spoiler-inline') as HTMLElement | null;
+      if (!spoiler || !this.richHost.nativeElement.contains(spoiler)) return;
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        this.parentRef?.revealSpoiler(spoiler);
+      }
+    }); 
+  } 
+
   async delete(story: Story) {
     const parent = this.parentRef;
     if (!parent?.user?.id) { return alert("Error: Cannot delete a post unless logged in or the post belongs to you."); }
