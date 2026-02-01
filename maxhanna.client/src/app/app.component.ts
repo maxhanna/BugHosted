@@ -913,10 +913,9 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       return `<span class="userMentionSpan" onClick="document.getElementById('userMentionInput').value='${username}';document.getElementById('userMentionButton').click()" class="user-mention">@${username}</span>`;
     });
 
-    // Step 8: Replace [spoiler]...[/spoiler] with an inline clickable span (inline JS toggles reveal)
+    // Step 8: Replace [spoiler]...[/spoiler] with an inline clickable span
     text = text.replace(/\[spoiler\](.*?)\[\/spoiler\]/gis, (match, inner) => {
       const safeInner = (inner ?? '').replace(/'/g, "&#39;").replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      // Inline onclick toggles the 'revealed' class to switch to normal colors and add a border
       return `<span class="spoiler-inline" onClick="this.classList.add('revealed');">${safeInner}</span>`;
     });
 
