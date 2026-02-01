@@ -311,6 +311,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Notepad": NotepadComponent,
     "Contacts": ContactsComponent,
     "Emulation": EmulationComponent,
+    "N64Emulator": EmulatorN64Component,
     "Array": ArrayComponent,
     "Bug-Wars": NexusComponent,
     "Meta-Bots": MetaComponent,
@@ -328,7 +329,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Crawler": CrawlerComponent,
     "Meme": MemeComponent,
     "Top100": TopComponent,
-    "N64Emulator": EmulatorN64Component,
     "Ender": EnderComponent,
     "Bones": BonesComponent,
     "Notifications": NotificationsComponent,
@@ -409,7 +409,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         }
         else if (this.router.url.toLowerCase().includes('n64')) {
           this.checkAndClearRouterOutlet();
-          this.createComponent('N64Emulation');
+          this.createComponent('N64Emulator');
         } 
         else if (this.router.url.toLowerCase().includes('emu')) {
           this.checkAndClearRouterOutlet();
