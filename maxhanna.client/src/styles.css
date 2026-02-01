@@ -939,3 +939,52 @@ fieldset {
   transform: translateY(2px);
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
 }
+
+/* Base spoiler look (hidden) */
+.spoiler {
+  position: relative;
+  cursor: pointer;
+  display: inline-block;
+  border-radius: 4px;
+  border: 1px dashed rgba(130,130,130,0.45);
+  background: rgba(130,130,130,0.25);
+  padding: 2px 4px;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+}
+
+/* Obfuscate content without DOM changes: blur + transparent foreground */
+.spoiler .spoiler__content {
+  filter: blur(6px);
+  color: transparent;              /* prevents quick select “cheat” */
+  text-shadow: 0 0 9px rgba(0,0,0,0.45); /* gives the blurred “fog” look */
+  transition: filter 140ms ease, color 140ms ease, text-shadow 140ms ease;
+}
+
+/* Prevent selection revealing the text */
+.spoiler .spoiler__content::selection {
+  background: transparent;
+  color: transparent;
+}
+
+/* Reveal states: hover, keyboard focus, or active (touch press) */
+.spoiler:hover .spoiler__content,
+.spoiler:focus .spoiler__content,
+.spoiler:active .spoiler__content {
+  filter: none;
+  color: var(--main-text-color);
+  text-shadow: none;
+}
+
+/* Optional: focus ring for accessibility */
+.spoiler:focus {
+  box-shadow: 0 0 0 2px rgba(100,149,237,0.5);
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .spoiler .spoiler__content {
+    transition: none;
+  }
+}
