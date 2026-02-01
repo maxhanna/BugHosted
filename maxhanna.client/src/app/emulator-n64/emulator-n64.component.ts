@@ -112,7 +112,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   // ---- Debug knobs ----
   private SAVE_DEBUG = true;
- 
+
   constructor(private fileService: FileService, private romService: RomService) {
     super();
   }
@@ -229,7 +229,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
           const saveFile = await this.blobToN64SaveFile(saveGameFile.blob, saveGameFile.fileName);
           if (saveFile) {
-            await this.importInGameSaveRam([saveFile], true); 
+            await this.importInGameSaveRam([saveFile], true);
             this.parentRef?.showNotification('Loaded save file from server.');
           } else {
             console.log("No Save file found for this ROM.");
@@ -239,7 +239,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
 
       try {
-        if (!this.instance || this.status != 'running') { 
+        if (!this.instance || this.status != 'running') {
           await this.boot();
         }
       } catch { /* ignore */ }
@@ -615,7 +615,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     try {
       this.refreshGamepads();
       connectedCount = this.gamepads.filter(g => g?.connected).length;
-    } catch { 
+    } catch {
     }
 
 
@@ -674,7 +674,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.ensureSaveLoadedForCurrentRom().catch(() => { });
 
       this.parentRef?.showNotification(`Booted ${this.romName}. ${connectedCount} controller${connectedCount === 1 ? '' : 's'} detected.`
-);
+      );
       this.bootGraceUntil = performance.now() + 1500;
       requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
     } catch (ex) {
@@ -898,7 +898,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch (e) {
       console.warn('Failed to dispatch keyboard event', e);
     }
-  } 
+  }
 
   private async blobToN64SaveFile(blob: Blob, serverFileName: string): Promise<File> {
     return new File([blob], serverFileName, { type: 'application/octet-stream' });
@@ -999,7 +999,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         const incomingKey = `/mupen64plus/saves/${name}`;
 
         // Build all likely keys Mupen might use for this ROM + ext
-        const keyCandidates = this.buildSaveKeyCandidates(ext as any, name); 
+        const keyCandidates = this.buildSaveKeyCandidates(ext as any, name);
 
         this.saveDebug(`IMPORT BEGIN`, {
           romName: this.romName,
@@ -1009,7 +1009,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         });
 
         const txRW = db.transaction('FILE_DATA', 'readwrite');
-        const osRW = txRW.objectStore('FILE_DATA'); 
+        const osRW = txRW.objectStore('FILE_DATA');
 
         const writes: Promise<void>[] = [];
         for (const key of keyCandidates) {
@@ -1168,7 +1168,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private _onGamepadConnected = (ev: GamepadEvent) => {
     this.refreshGamepads();
 
-    const total = this.gamepads.filter(g => g.connected).length; 
+    const total = this.gamepads.filter(g => g.connected).length;
     this.parentRef?.showNotification(
       `Gamepad connected: ${this.truncateId(ev.gamepad?.id)} (port ${ev.gamepad?.index}). ` +
       `Detected ${total} controller${total === 1 ? '' : 's'} `
@@ -1205,9 +1205,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
       this.maybeApplyStoredMappingFor(ev.gamepad.id);
 
-      if (this.status === 'booting' || this.status === 'running') {  
+      if (this.status === 'booting' || this.status === 'running') {
         await this.stop();
-        setTimeout(() => this.boot(), 500); 
+        setTimeout(() => this.boot(), 500);
       }
     })().catch(() => { });
   };
@@ -1626,48 +1626,47 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.parentRef?.showNotification(`Updated mapping for P${port}`);
   }
 
-  
-async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
-  const raw = String(value);
-  if (raw === '__none__') {
-    this.ports[port].gpIndex = null;
-    this.ports[port].gpId = null;
-    this.applyGamepadReorder();
-    return;
-  }
 
-  const idx = Number(raw);
-  if (Number.isNaN(idx)) {
-    this.parentRef?.showNotification('Invalid controller selection');
-    return;
-  }
+  async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
+    const raw = String(value);
+    if (raw === '__none__') {
+      this.ports[port].gpIndex = null;
+      this.ports[port].gpId = null;
+      this.applyGamepadReorder();
+      return;
+    }
 
-  // Ensure our snapshot includes that index
-  if (!this.gamepads.some(g => g.index === idx)) {
-    this.refreshGamepads();
+    const idx = Number(raw);
+    if (Number.isNaN(idx)) {
+      this.parentRef?.showNotification('Invalid controller selection');
+      return;
+    }
+
+    // Ensure our snapshot includes that index
     if (!this.gamepads.some(g => g.index === idx)) {
-      this.parentRef?.showNotification('Selected controller is not available.');
-      return;
+      this.refreshGamepads();
+      if (!this.gamepads.some(g => g.index === idx)) {
+        this.parentRef?.showNotification('Selected controller is not available.');
+        return;
+      }
     }
-  }
 
-  // Prevent assigning same physical pad to multiple ports (compare by index)
-  for (const p of [1, 2, 3, 4] as const) {
-    if (p !== port && this.ports[p].gpIndex === idx) {
-      this.parentRef?.showNotification(`That controller is already assigned to Player ${p}.`);
-      return;
+    // Prevent assigning same physical pad to multiple ports (compare by index)
+    for (const p of [1, 2, 3, 4] as const) {
+      if (p !== port && this.ports[p].gpIndex === idx) {
+        this.parentRef?.showNotification(`That controller is already assigned to Player ${p}.`);
+        return;
+      }
     }
+
+    const gp = this.gamepads.find(g => g.index === idx)!;
+    this.ports[port].gpIndex = idx;
+    this.ports[port].gpId = gp.id; // keep as a hint to re-resolve later
+    this.applyGamepadReorder();
+
+    // Give the user a usable mapping right away if it's a standard profile
+    this.ensureDefaultMappingForPort(port);
   }
-
-  const gp = this.gamepads.find(g => g.index === idx)!;
-  this.ports[port].gpIndex = idx;
-  this.ports[port].gpId = gp.id; // keep as a hint to re-resolve later
-  this.applyGamepadReorder();
-
-  // Give the user a usable mapping right away if it's a standard profile
-  this.ensureDefaultMappingForPort(port);
-}
-
 
   onPortMappingSelect(port: PlayerPort, name: string) {
     this.ports[port].mappingName = name || null;
@@ -2044,7 +2043,7 @@ async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
       const files = input.files;
       if (!files || files.length === 0) return;
 
-      await this.importInGameSaveRam(files, /* skipBoot */ false); 
+      await this.importInGameSaveRam(files, /* skipBoot */ false);
     } catch (e) {
       console.error('onSaveFilePicked failed', e);
       this.parentRef?.showNotification('Failed to import save files.');
@@ -2201,7 +2200,7 @@ async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
     } catch {
       return null;
     }
-  } 
+  }
   // Return the visible/stable gamepad id for a player port (or '__none__')
   visibleGpIdForPort(p: PlayerPort): string {
     try {
@@ -2903,7 +2902,7 @@ async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
     // 1) Incoming filename (your current behavior)
     if (incomingFileName) {
       keys.add(`/mupen64plus/saves/${incomingFileName}`);
-    } 
+    }
     return Array.from(keys);
   }
 
@@ -2931,7 +2930,7 @@ async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
     }
   }
   getRomName(): string | null {
-    return this.fileService.getFileWithoutExtension(this.romName || ''); 
+    return this.fileService.getFileWithoutExtension(this.romName || '');
   }
 }
 
