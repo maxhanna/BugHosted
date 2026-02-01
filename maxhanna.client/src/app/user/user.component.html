@@ -44,8 +44,11 @@
         </div>
         <div class="profileHeaderInfo profileHeaderBubble blackFontColor linkHighlights"
           *ngIf="!loginOnly && (parentRef?.user || user)">
-          <div class="profileHeaderUserDescription">
+          <div class="profileHeaderUserDescription" *ngIf="user?.about?.description">
             {{user?.about?.description}}
+          </div>
+          <div class="profileHeaderUserDescription" *ngIf="user?.about?.website">
+            <a [href]="user?.about?.website" (click)="visitLink(user?.about?.website)">{{user?.about?.website}}</a>
           </div>
           <div class="seperatedUserHeader blackFontColor linkHighlights"
             *ngIf="weatherLocation?.city || user?.about?.currency">
