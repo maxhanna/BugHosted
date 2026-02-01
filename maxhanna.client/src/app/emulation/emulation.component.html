@@ -1,7 +1,7 @@
 <div class="componentMain" [style.paddingTop]="isFullScreen ? '0px' : null">
   <div class="closeButton" (click)="remove_me('EmulationComponent');" *ngIf="!isFullScreen"></div>
   <div class="menuButton" (click)="showMenuPanel();" *ngIf="!isFullScreen"></div>
-  <div class="componentTitle" *ngIf="!isFullScreen">{{selectedRomName ? selectedRomName : 'Emulation'}}</div>
+  <div class="componentTitle" *ngIf="!isFullScreen"><span class="romNameTitle">{{selectedRomName ? selectedRomName : 'Emulation'}}</span></div>
   <div class="gamesContainer{{ !selectedRomName ? ' expanded' : '' }}{{isLoading ? ' is-disabled' : ''}}"
     *ngIf="isSearchVisible">
     <app-file-search [user]="parentRef?.user" [inputtedParentRef]="parentRef" [currentDirectory]="'Roms/'"

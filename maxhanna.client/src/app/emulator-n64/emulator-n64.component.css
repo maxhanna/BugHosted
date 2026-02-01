@@ -9,6 +9,10 @@ canvas {
   border: unset !important;
 }
 
+.romNameTitle {
+  width: calc(100% - 100px);
+}
+
 .n64-emulator-root {
   display: flex;
   flex-direction: column;
