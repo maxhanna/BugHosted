@@ -34,7 +34,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   // ---- Mapping UI/store ----
   showKeyMappings = false;
   showControllerAssignments = false;
-  trackGp = (_: number, gp: { id: string }) => gp.id;
+  trackGp = (_: number, gp: { index: number; id: string }) => gp.index;
 
   savedMappingsNames: string[] = [];
   private _mappingsStoreKey = 'n64_mappings_store_v1';
@@ -1176,10 +1176,14 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   // Gamepad events & auto-detect
   // ===================================================== 
   private _onGamepadConnected = (ev: GamepadEvent) => {
-    this.parentRef?.showNotification(`Gamepad connected ${ev.gamepad?.id} port: ${ev.gamepad?.index}`);
     this.refreshGamepads();
 
-    // --- ADD: if P1 is empty, try to use a known mapping for this specific device
+    const total = this.gamepads.filter(g => g.connected).length; 
+    this.parentRef?.showNotification(
+      `Gamepad connected: ${ev.gamepad?.id} (port ${ev.gamepad?.index}). ` +
+      `Detected ${total} controller${total === 1 ? '' : 's'} `
+    );
+
     (async () => {
       if (this.ports[1].gpIndex == null) {
         const last = this.lastMappingPerGp[ev.gamepad.id];
@@ -1613,54 +1617,48 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.parentRef?.showNotification(`Updated mapping for P${port}`);
   }
 
-  async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
-    // update the dropdown selection state immediately
-    const id = String(value);
-    console.debug('[GP] onSelectGamepadForPort called', { port, value, id });
+  
+async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
+  const raw = String(value);
+  if (raw === '__none__') {
+    this.ports[port].gpIndex = null;
+    this.ports[port].gpId = null;
+    this.applyGamepadReorder();
+    return;
+  }
 
-    // allow clearing selection by id
-    if (id === '__none__') {
-      console.debug('[GP] onSelectGamepadForPort: clearing port', port);
-      this.ports[port].gpIndex = null;
-      this.ports[port].gpId = null;
-      this.applyGamepadReorder();
+  const idx = Number(raw);
+  if (Number.isNaN(idx)) {
+    this.parentRef?.showNotification('Invalid controller selection');
+    return;
+  }
+
+  // Ensure our snapshot includes that index
+  if (!this.gamepads.some(g => g.index === idx)) {
+    this.refreshGamepads();
+    if (!this.gamepads.some(g => g.index === idx)) {
+      this.parentRef?.showNotification('Selected controller is not available.');
       return;
     }
-
-    // Ensure our current snapshot knows about this id; try refreshing once if not
-    if (!this.gamepads.some(g => g.id === id)) {
-      console.debug('[GP] onSelectGamepadForPort: id not in gamepads, refreshing');
-      try { this.refreshGamepads(); } catch { }
-      if (!this.gamepads.some(g => g.id === id)) {
-        console.debug('[GP] onSelectGamepadForPort: id still not found after refresh');
-        this.parentRef?.showNotification(`Controller ${id} not available right now.`);
-        return;
-      }
-    }
-
-    const gp = this.gamepads.find(g => g.id === id)!;
-    const idx = gp.index;
-
-    for (const p of [1, 2, 3, 4] as const) {
-      if (p !== port) {
-        const otherIdx = this.ports[p].gpIndex;
-        const otherId = this.ports[p].gpId ?? ((otherIdx != null) ? (this.gamepads.find(g => g.index === otherIdx)?.id) : null);
-        if (otherId === id) {
-          console.debug('[GP] onSelectGamepadForPort: duplicate! already assigned to P' + p);
-          this.parentRef?.showNotification(`That controller is already assigned to Player ${p}.`);
-          return;
-        }
-      }
-    }
-
-    // persist by id AND index so later refreshes can resolve reliably
-    console.debug('[GP] onSelectGamepadForPort: assigning port', port, 'gpIndex', idx, 'gpId', id);
-    this.ports[port].gpIndex = idx;
-    this.ports[port].gpId = id;
-    this.applyGamepadReorder();
-    this.ensureDefaultMappingForPort(port);
-    console.debug('[GP] onSelectGamepadForPort: assigned', this.ports, this.gamepads);
   }
+
+  // Prevent assigning same physical pad to multiple ports (compare by index)
+  for (const p of [1, 2, 3, 4] as const) {
+    if (p !== port && this.ports[p].gpIndex === idx) {
+      this.parentRef?.showNotification(`That controller is already assigned to Player ${p}.`);
+      return;
+    }
+  }
+
+  const gp = this.gamepads.find(g => g.index === idx)!;
+  this.ports[port].gpIndex = idx;
+  this.ports[port].gpId = gp.id; // keep as a hint to re-resolve later
+  this.applyGamepadReorder();
+
+  // Give the user a usable mapping right away if it's a standard profile
+  this.ensureDefaultMappingForPort(port);
+}
+
 
   onPortMappingSelect(port: PlayerPort, name: string) {
     this.ports[port].mappingName = name || null;
@@ -2178,6 +2176,23 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
+  visibleGpIndexForPort(p: PlayerPort): number | null {
+    try {
+      // Prefer persisted index
+      const idx = this.ports[p].gpIndex;
+      if (idx != null && this.gamepads.some(g => g.index === idx)) return idx;
+
+      // Fallback to gpId to recover after a refresh
+      const gid = this.ports[p].gpId;
+      if (gid) {
+        const found = this.gamepads.find(g => g.id === gid);
+        if (found) return found.index;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  } 
   // Return the visible/stable gamepad id for a player port (or '__none__')
   visibleGpIdForPort(p: PlayerPort): string {
     try {

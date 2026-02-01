@@ -159,20 +159,19 @@
         <div *ngFor="let p of playerPorts" class="portAssignmentSection">
           <div style="min-width:70px; text-align: center;" class="gradientBackground playerControllerPortHeader">Player {{p}}</div>
 
-          <!-- Controller dropdown --> 
+          <!-- Controller dropdown -->  
           <label>Controller:
             <select (change)="onSelectGamepadForPort(p, $any($event.target).value)">
-              <option value="__none__" [selected]="visibleGpIdForPort(p) === '__none__'">-- none --</option>
+              <option value="__none__" [selected]="visibleGpIndexForPort(p) === null">-- none --</option>
               <option
                 *ngFor="let gp of gamepads; trackBy: trackGp"
-                [value]="gp.id"
-                [selected]="gp.id === visibleGpIdForPort(p)"
-              >
+                [value]="gp.index"
+                [selected]="gp.index === visibleGpIndexForPort(p)">
                 {{ gp.id }} {{ gp.mapping ? '(' + gp.mapping + ')' : '' }}
               </option>
             </select>
-
           </label>
+
 
 
           <!-- Mapping dropdown -->
