@@ -709,11 +709,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       return false;
     }
   }
-
-  // Programmatically reveal spoilers inside a story's rendered DOM.
-  // Attempts to click any inline spoiler buttons first, then falls back
-  // to replacing span contents for other implementations.
+ 
   showSpoilers(story?: Story) {
+    console.log('Revealing spoilers for story', story?.id);
     if (!story || !story.id) {
       this.parentRef?.showNotification('Error: Invalid story to reveal spoilers.');
       return;
