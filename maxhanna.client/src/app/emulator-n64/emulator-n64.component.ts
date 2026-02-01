@@ -1299,6 +1299,15 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
+  // Public helper used by templates to render a readable label for a gamepad option
+  formatGamepadLabel(gp: { id?: string | null; mapping?: string | null; index?: number } | any): string {
+    if (!gp) return '';
+    const idPart = this.truncateId(gp.id ?? '');
+    const mapPart = gp.mapping ? `(${gp.mapping})` : '';
+    const idxPart = typeof gp.index === 'number' ? `[#${gp.index}]` : '';
+    return `${idPart} ${mapPart} ${idxPart}`.trim();
+  }
+
   // =====================================================
   // Named mappings (backend/local)
   // =====================================================

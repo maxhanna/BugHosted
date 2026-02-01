@@ -167,7 +167,7 @@
                 *ngFor="let gp of gamepads; trackBy: trackGp"
                 [value]="gp.index"
                 [selected]="gp.index === visibleGpIndexForPort(p)">
-                {{ gp.id }} {{ gp.mapping ? '(' + gp.mapping + ')' : '' }}
+                {{ formatGamepadLabel(gp) }}
               </option>
             </select>
           </label>
