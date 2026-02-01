@@ -86,8 +86,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   @ViewChild(MediaSelectorComponent) mediaSelectorComponent!: MediaSelectorComponent;
   @ViewChild(MediaSelectorComponent) postMediaSelector!: MediaSelectorComponent;
   @ViewChild(TopicsComponent) topicComponent!: TopicsComponent;
-  @ViewChild('richHost', { static: true }) richHost!: ElementRef<HTMLElement>;
-  private unlistenClick?: () => void;
 
   @Input() storyId: number | undefined = undefined;
   @Input() commentId: number | undefined = undefined;
@@ -205,7 +203,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.storyUpdateInterval) {
       clearInterval(this.storyUpdateInterval); // Clean up interval on component destroy
     } 
-    this.unlistenClick?.(); 
   }
 
   async ngAfterViewInit() {
@@ -220,32 +217,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.showOnlyPost) {
       this.componentMain.nativeElement.style.paddingTop = "0px";
       this.componentMain.nativeElement.classList.add("mobileMaxHeight");
-    }
-
-    
-this.unlistenClick = this.renderer.listen(
-      this.richHost.nativeElement,
-      'click',
-      (event: Event) => {
-        const target = event.target as HTMLElement | null;
-        if (!target) return;
-        const spoiler = target.closest('.spoiler-inline') as HTMLElement | null;
-        if (!spoiler || !this.richHost.nativeElement.contains(spoiler)) return;
-        this.parentRef?.revealSpoiler(spoiler);
-      }
-    );
-
-    // Optional: keyboard accessibility via Enter/Space
-    this.renderer.listen(this.richHost.nativeElement, 'keydown', (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (!target) return;
-      const spoiler = target.closest('.spoiler-inline') as HTMLElement | null;
-      if (!spoiler || !this.richHost.nativeElement.contains(spoiler)) return;
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        this.parentRef?.revealSpoiler(spoiler);
-      }
-    }); 
+    } 
   } 
 
   async delete(story: Story) {

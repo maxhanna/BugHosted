@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ComponentRef, ElementRef, OnDestroy, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ComponentRef, ElementRef, OnDestroy, OnInit, Renderer2, ViewChild, ViewContainerRef } from '@angular/core';
 import { ActivatedRoute, NavigationEnd, NavigationStart, Router, RouterOutlet } from '@angular/router';
 import { CalendarComponent } from './calendar/calendar.component';
 import { FavouritesComponent } from './favourites/favourites.component';
@@ -50,13 +50,15 @@ import { EmulatorN64Component } from './emulator-n64/emulator-n64.component';
   styleUrl: './app.component.css',
   standalone: false
 })
-export class AppComponent implements OnInit, AfterViewInit { 
+export class AppComponent implements OnInit, OnDestroy, AfterViewInit { 
   user: User | undefined = undefined;
   @ViewChild("viewContainerRef", { read: ViewContainerRef }) VCR!: ViewContainerRef;
   @ViewChild("outlet") outlet!: RouterOutlet;
   @ViewChild(NavigationComponent) navigationComponent!: NavigationComponent;
   @ViewChild(ModalComponent) modalComponent!: ModalComponent;
   @ViewChild(MediaViewerComponent) userTagPopupMediaViewer!: MediaViewerComponent;
+  @ViewChild('richHost', { static: true }) richHost!: ElementRef<HTMLElement>;
+  private unlistenClick?: () => void;
   notifications: string[] = [];
   showMainContent = true;
   isModalOpen = false;
@@ -345,7 +347,9 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     private meta: Meta,
     private title: Title,
     private changeDetectorRef: ChangeDetectorRef,
-    private sanitizer: DomSanitizer) { }
+    private sanitizer: DomSanitizer,
+    private renderer: Renderer2
+  ) { }
 
   ngOnInit() {
     if (this.getCookie("user")) {
@@ -364,6 +368,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     }
     this.updateLastSeenPeriodically();
   }
+
   ngAfterViewInit() {
     this.router.events.subscribe(event => {
       if (event instanceof NavigationEnd) {
@@ -451,6 +456,35 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         }
       }
     });
+
+      
+    this.unlistenClick = this.renderer.listen(
+          this.richHost.nativeElement,
+          'click',
+          (event: Event) => {
+            const target = event.target as HTMLElement | null;
+            if (!target) return;
+            const spoiler = target.closest('.spoiler-inline') as HTMLElement | null;
+            if (!spoiler || !this.richHost.nativeElement.contains(spoiler)) return;
+            this.revealSpoiler(spoiler);
+          }
+        );
+    
+        // Optional: keyboard accessibility via Enter/Space
+        this.renderer.listen(this.richHost.nativeElement, 'keydown', (event: KeyboardEvent) => {
+          const target = event.target as HTMLElement | null;
+          if (!target) return;
+          const spoiler = target.closest('.spoiler-inline') as HTMLElement | null;
+          if (!spoiler || !this.richHost.nativeElement.contains(spoiler)) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            this.revealSpoiler(spoiler);
+          }
+        }); 
+  }
+
+  ngOnDestroy() {
+    this.unlistenClick?.(); 
   }
  
   async getSelectedMenuItems() {
