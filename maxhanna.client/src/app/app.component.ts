@@ -918,7 +918,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     // a hidden button (so the event is routed through Angular like user mentions)
     text = text.replace(/\[spoiler\](.*?)\[\/spoiler\]/gis, (match, inner) => {
       const safeInner = (inner ?? '').replace(/'/g, "&#39;").replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      return `<button title="Reveal spoiler" onClick="this.value = '${safeInner}'">Reveal</button>`;
+      return `<button title="Reveal spoiler" onClick="(function(b,t){b.textContent=t;b.disabled=true})(this,'${safeInner}')">Reveal</button>`;
     }); 
 
     return this.sanitizer.bypassSecurityTrustHtml(text);
