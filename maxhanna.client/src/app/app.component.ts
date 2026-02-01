@@ -1,5 +1,5 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ComponentRef, ElementRef, OnDestroy, OnInit, Renderer2, ViewChild, ViewContainerRef } from '@angular/core';
-import { ActivatedRoute, NavigationEnd, NavigationStart, Router, RouterOutlet } from '@angular/router';
+import { AfterViewInit, ChangeDetectorRef, Component, ComponentRef, OnDestroy, OnInit, Renderer2, ViewChild, ViewContainerRef } from '@angular/core';
+import { ActivatedRoute, NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { CalendarComponent } from './calendar/calendar.component';
 import { FavouritesComponent } from './favourites/favourites.component';
 import { WeatherComponent } from './weather/weather.component';
@@ -50,14 +50,13 @@ import { EmulatorN64Component } from './emulator-n64/emulator-n64.component';
   styleUrl: './app.component.css',
   standalone: false
 })
-export class AppComponent implements OnInit, OnDestroy, AfterViewInit { 
+export class AppComponent implements OnInit, AfterViewInit { 
   user: User | undefined = undefined;
   @ViewChild("viewContainerRef", { read: ViewContainerRef }) VCR!: ViewContainerRef;
   @ViewChild("outlet") outlet!: RouterOutlet;
   @ViewChild(NavigationComponent) navigationComponent!: NavigationComponent;
   @ViewChild(ModalComponent) modalComponent!: ModalComponent;
   @ViewChild(MediaViewerComponent) userTagPopupMediaViewer!: MediaViewerComponent;
-  private unlistenClick?: () => void;
   notifications: string[] = [];
   showMainContent = true;
   isModalOpen = false;
@@ -337,7 +336,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   };
   userSelectedNavigationItems: Array<MenuItem> = [];
   constructor(private router: Router,
-    private route: ActivatedRoute,
     private userService: UserService,
     private crawlerService: CrawlerService,
     private favouriteService: FavouriteService,
@@ -346,8 +344,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     private meta: Meta,
     private title: Title,
     private changeDetectorRef: ChangeDetectorRef,
-    private sanitizer: DomSanitizer,
-    private renderer: Renderer2
+    private sanitizer: DomSanitizer
   ) { }
 
   ngOnInit() {
@@ -454,35 +451,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           this.createComponent('User');
         }
       }
-    });
-
-      
-    // Delegate click events from the whole document so spoilers rendered inside any
-    // component (not only `richHost`) will be revealed by this central handler.
-    this.unlistenClick = this.renderer.listen('document', 'click', (event: Event) => {
-      const target = event.target as HTMLElement | null;
-      if (!target) return;
-      const spoiler = target.closest('.spoiler-inline') as HTMLElement | null;
-      if (!spoiler) return;
-      this.revealSpoiler(spoiler);
-    });
-
-    // Optional: keyboard accessibility via Enter/Space for any focused spoiler element
-    this.renderer.listen('document', 'keydown', (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (!target) return;
-      const spoiler = target.closest('.spoiler-inline') as HTMLElement | null;
-      if (!spoiler) return;
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        this.revealSpoiler(spoiler);
-      }
-    });
-  }
-
-  ngOnDestroy() {
-    this.unlistenClick?.(); 
-  }
+    }); 
+  } 
  
   async getSelectedMenuItems() {
     if (!this.user) {
@@ -944,10 +914,12 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       return `<span class="userMentionSpan" onClick="document.getElementById('userMentionInput').value='${username}';document.getElementById('userMentionButton').click()" class="user-mention">@${username}</span>`;
     });
 
-    // Step 8: Replace [spoiler]...[/spoiler] with an inline clickable span
+    // Step 8: Replace [spoiler]...[/spoiler] with an inline clickable span that triggers
+    // a hidden button (so the event is routed through Angular like user mentions)
     text = text.replace(/\[spoiler\](.*?)\[\/spoiler\]/gis, (match, inner) => {
       const safeInner = (inner ?? '').replace(/'/g, "&#39;").replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      return `<span class="spoiler-inline" tabindex="0" role="button" aria-label="Reveal spoiler" aria-live="polite">${safeInner}</span>`;
+      const id = `spoiler_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      return `<span id="${id}" class="spoiler-inline" tabindex="0" role="button" aria-label="Reveal spoiler" aria-live="polite" onClick="document.getElementById('hiddenSpoilerId').value='${id}';document.getElementById('spoilerRevealButton').click()">${safeInner}</span>`;
     }); 
 
     return this.sanitizer.bypassSecurityTrustHtml(text);
@@ -1632,6 +1604,20 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
     // Optionally mark as revealed to avoid redoing
     el.classList.add('spoiler-revealed');
+  }
+
+  handleSpoilerReveal() {
+    try {
+      const idInput = (document.getElementById('hiddenSpoilerId') as HTMLInputElement | null);
+      if (!idInput) return;
+      const spoilerId = idInput.value;
+      if (!spoilerId) return;
+      const el = document.getElementById(spoilerId) as HTMLElement | null;
+      if (!el) return;
+      this.revealSpoiler(el);
+    } catch (err) {
+      console.error('Error revealing spoiler via hidden button', err);
+    }
   }
 
   fullscreenYoutubePopup() {
