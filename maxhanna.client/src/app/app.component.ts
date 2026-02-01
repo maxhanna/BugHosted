@@ -916,7 +916,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     // Step 8: Replace [spoiler]...[/spoiler] with an inline clickable span
     text = text.replace(/\[spoiler\](.*?)\[\/spoiler\]/gis, (match, inner) => {
       const safeInner = (inner ?? '').replace(/'/g, "&#39;").replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      return `<span class="spoiler-inline" onClick="this.classList.add('revealed');">${safeInner}</span>`;
+      return `<span class="spoiler-inline" onClick="this.classList.add('revealed');document.getElementById('hiddenRefreshButton').click()">${safeInner}</span>`;
     });
 
     return this.sanitizer.bypassSecurityTrustHtml(text);
