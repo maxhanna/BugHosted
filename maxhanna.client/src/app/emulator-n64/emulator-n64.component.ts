@@ -487,7 +487,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
 
       await writeAutoInputConfig(sectionName, config as any);
-      this.parentRef?.showNotification(`Applied RAW mapping for "${sectionName}"`);
+      console.log(`Applied RAW mapping for "${sectionName}"`);
 
       const gp = this.currentPad();
       this.persistLastMappingForGp(gp?.id || null, this.selectedMappingName); // <-- ADD
@@ -611,14 +611,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       return;
     }
 
+    let connectedCount = 0;
     try {
       this.refreshGamepads();
-      const connectedCount = this.gamepads.filter(g => g?.connected).length;
-      this.parentRef?.showNotification(
-        `Booting… ${connectedCount} controller${connectedCount === 1 ? '' : 's'} detected`
-      );
-    } catch {
-      this.parentRef?.showNotification(`No Gamepads detected`);
+      connectedCount = this.gamepads.filter(g => g?.connected).length;
+    } catch { 
     }
 
 
@@ -676,13 +673,14 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       // ✅ This is the key: copy canonical -> emulator key (GoodName).eep and restart once
       this.ensureSaveLoadedForCurrentRom().catch(() => { });
 
-      this.parentRef?.showNotification(`Booted ${this.romName}`);
+      this.parentRef?.showNotification(`Booted ${this.romName}. ${connectedCount} controller${connectedCount === 1 ? '' : 's'} detected.`
+);
       this.bootGraceUntil = performance.now() + 1500;
       requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
     } catch (ex) {
       console.error('Failed to boot emulator', ex);
       this.status = 'error';
-      this.parentRef?.showNotification('Failed to boot emulator');
+      this.parentRef?.showNotification('Failed to boot emulator.');
       this.restoreGamepadGetter();
       throw ex;
     } finally {
@@ -692,7 +690,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.debugScanMempaks().catch(() => { });
     }
   }
-
 
   async stop() {
     try {
@@ -901,14 +898,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch (e) {
       console.warn('Failed to dispatch keyboard event', e);
     }
-  }
-
-  private inferBatteryExtFromSize(size: number): '.eep' | '.sra' | '.fla' | null {
-    if (size === 512 || size === 2048) return '.eep';
-    if (size === 32768) return '.sra';
-    if (size === 131072) return '.fla';
-    return null;
-  }
+  } 
 
   private async blobToN64SaveFile(blob: Blob, serverFileName: string): Promise<File> {
     return new File([blob], serverFileName, { type: 'application/octet-stream' });
@@ -1424,7 +1414,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
             this.mapping = this.rebindMappingToPad(JSON.parse(JSON.stringify(m)), gp?.id || null);
             this.migrateMappingToIdsIfNeeded();
             await this.applyMappingToEmulator();
-            this.parentRef?.showNotification(`Applied mapping "${this.selectedMappingName}" to selected controller`);
+            console.log(`Applied mapping "${this.selectedMappingName}" to selected controller`);
             return;
           }
         } catch (e) {
@@ -1505,7 +1495,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       await this.applySelectedMapping();
       this.applyGamepadReorder();
       this.ensureP1InitializedFromSinglePad();
-      this.parentRef?.showNotification?.(`Auto-applied "${name}" for ${gp.id}`);
+      console.log(`Auto-applied "${name}" for ${gp.id}`);
       return true;
     }
     return false;
