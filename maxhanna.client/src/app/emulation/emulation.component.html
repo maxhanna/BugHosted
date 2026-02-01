@@ -32,32 +32,50 @@
     <div class="nintendo"><span class="nintendoLogo">Hackboy</span></div>
 
     <div class="controls" [ngClass]="{'snes-controls': isSnesGame()}"> 
-      <div *ngIf="!useJoystick"
-          class="dpad" 
-          (touchstart)="onDpadTouchStart($event)"
-          (touchmove)="onDpadTouchMove($event)"
-          (touchend)="onDpadTouchEnd()"
-          (mousedown)="onDpadTouchStart($event)"
-          (mousemove)="onDpadTouchMove($event)"
-          (mouseup)="onDpadTouchEnd()" 
-          [class.simple]="isSimpleDpadGame()"
-          [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">
+      
+<div *ngIf="!useJoystick"
+     class="dpad"
+     [class.simple]="isSimpleDpadGame()"
+     [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'"
+     (touchstart)="onDpadTouchStart($event)"
+     (touchmove)="onDpadTouchMove($event)"
+     (touchend)="onDpadTouchEnd()"
+     (mousedown)="onDpadTouchStart($event)"
+     (mousemove)="onDpadTouchMove($event)"
+     (mouseup)="onDpadTouchEnd()">
 
-        <!-- No diagonals for simple D-Pad -->
-        <div class="up"><div class="up-triangle"></div></div>
-        <div class="right"><div class="right-triangle"></div></div>
-        <div class="down"><div class="down-triangle"></div></div>
-        <div class="left"><div class="left-triangle"></div></div>
-        <div class="middle"></div>
+  <!-- Core directions -->
+  <div class="up"    aria-label="Up">
+    <svg class="arrow-icon up" aria-hidden="true"><use href="#dpad-chev"/></svg>
+  </div>
+  <div class="right" aria-label="Right">
+    <svg class="arrow-icon right" aria-hidden="true"><use href="#dpad-chev"/></svg>
+  </div>
+  <div class="down"  aria-label="Down">
+    <svg class="arrow-icon down" aria-hidden="true"><use href="#dpad-chev"/></svg>
+  </div>
+  <div class="left"  aria-label="Left">
+    <svg class="arrow-icon left" aria-hidden="true"><use href="#dpad-chev"/></svg>
+  </div>
 
-        <!-- Diagonals only if NOT simple -->
-        <ng-container *ngIf="!isSimpleDpadGame()">
-          <div class="up-left"><div class="up-left-triangle"></div></div>
-          <div class="up-right"><div class="up-right-triangle"></div></div>
-          <div class="down-left"><div class="down-left-triangle"></div></div>
-          <div class="down-right"><div class="down-right-triangle"></div></div>
-        </ng-container>
-      </div> 
+  <div class="middle" aria-hidden="true"></div>
+
+  <!-- Diagonals only for SNES/Genesis/GBA -->
+  <ng-container *ngIf="!isSimpleDpadGame()">
+    <div class="up-left"    aria-label="Up-Left">
+      <svg class="arrow-icon up-left" aria-hidden="true"><use href="#dpad-chev"/></svg>
+    </div>
+    <div class="up-right"   aria-label="Up-Right">
+      <svg class="arrow-icon up-right" aria-hidden="true"><use href="#dpad-chev"/></svg>
+    </div>
+    <div class="down-left"  aria-label="Down-Left">
+      <svg class="arrow-icon down-left" aria-hidden="true"><use href="#dpad-chev"/></svg>
+    </div>
+    <div class="down-right" aria-label="Down-Right">
+      <svg class="arrow-icon down-right" aria-hidden="true"><use href="#dpad-chev"/></svg>
+    </div>
+  </ng-container>
+</div> 
 
       <div *ngIf="useJoystick" class="joystick" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">
         <div class="joystick-base" id="joystickBase">
@@ -270,3 +288,23 @@
   </div>
   <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
 </div>
+
+<!-- SVG sprite: one definition reused by <use> -->
+<svg aria-hidden="true" focusable="false" width="0" height="0" style="position:absolute; width:0; height:0; overflow:hidden">
+  <defs>
+    <!-- Chevron up (stroke-based, crisp at any scale) -->
+    <symbol id="dpad-chev" viewBox="0 0 24 24">
+      <polyline points="5,14 12,7 19,14"
+                stroke="currentColor"
+                stroke-width="3"
+                fill="none"
+                stroke-linecap="round"
+                stroke-linejoin="round"/>
+    </symbol>
+
+    <!-- Optional: a filled arrow version if you prefer solid icons -->
+    <symbol id="dpad-fill" viewBox="0 0 24 24">
+      <path d="M12 6l7 8H5z" fill="currentColor"/>
+    </symbol>
+  </defs>
+</svg> 
