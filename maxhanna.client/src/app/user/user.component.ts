@@ -1118,7 +1118,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     this.showBackgroundPictureSelector = false;
     targetParent?.closeOverlay();
   }
-  visitLink(url: string) {
+  visitLink(url?: string) {
     this.parentRef?.visitExternalLink(url);
   }
   showTrophies() {
