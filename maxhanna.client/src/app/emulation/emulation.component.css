@@ -19,8 +19,11 @@
   }
 }
 
-.romNameTitle {
+.romNameTitle { 
   width: calc(100% - 100px);
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .gamesContainer {
