@@ -71,6 +71,24 @@ namespace maxhanna.Server.Services
       _dailyTimer = new Timer(async _ => await RunDailyTasks(), null, Timeout.Infinite, Timeout.Infinite);
     }
 
+    // Centralized DB-safe execution helper to prevent unhandled exceptions
+    private async Task RunSafeDbOperationAsync(string tag, Func<CancellationToken, Task> op, CancellationToken ct = default)
+    {
+      try
+      {
+        ct.ThrowIfCancellationRequested();
+        await op(ct);
+      }
+      catch (OperationCanceledException)
+      {
+        _ = _log.Db($"{tag} cancelled.", null, "SYSTEM", true);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"{tag} failed: {ex.Message}", null, "SYSTEM", true);
+      }
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
       // Start all timers but stagger the first run to avoid heavy startup spikes.
@@ -2369,100 +2387,138 @@ private async Task StoreCoinValues()
     /// </summary>
     private async Task DeleteOldTradeVolumesSixMonths(CancellationToken ct = default)
     {
-      // Compute the month slice that is guaranteed to be > 1 month old:
-      // [ startOfMonth(now - 2 months), startOfMonth(now - 1 month) )
-      var nowUtc = DateTime.UtcNow;
-      var twoMonthsAgo = nowUtc.AddMonths(-2);
-      var sliceStart = new DateTime(twoMonthsAgo.Year, twoMonthsAgo.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-      var sliceEnd = sliceStart.AddMonths(1); // exclusive
-
-      const int batchSize = 5000; // tune: 1000–5000 (lower if you still see timeouts)
-
-      await using var conn = new MySqlConnection(_connectionString);
-      await conn.OpenAsync(ct);
-
-      // -------------------- Phase A: outright delete > 6 months (no window fn) --------------------
-      while (true)
+      try
       {
-        var deleteOlderThanSix = @"
-					DELETE FROM trade_market_volumes
-					WHERE id IN (
-						SELECT id FROM (
-							SELECT t.id
-							FROM trade_market_volumes t
-							WHERE t.timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 6 MONTH)
-							ORDER BY t.timestamp, t.id
-							LIMIT @lim
-						) s
-					);";
+        ct.ThrowIfCancellationRequested();
 
-        await using var cmdA = new MySqlCommand(deleteOlderThanSix, conn);
-        cmdA.Parameters.AddWithValue("@lim", batchSize);
+        // Compute the month slice that is guaranteed to be > 1 month old:
+        // [ startOfMonth(now - 2 months), startOfMonth(now - 1 month) )
+        var nowUtc = DateTime.UtcNow;
+        var twoMonthsAgo = nowUtc.AddMonths(-2);
+        var sliceStart = new DateTime(twoMonthsAgo.Year, twoMonthsAgo.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var sliceEnd = sliceStart.AddMonths(1); // exclusive
 
-        var affectedA = await cmdA.ExecuteNonQueryAsync(ct);
-        if (affectedA > 0)
+        const int batchSize = 5000; // tune: 1000–5000 (lower if you still see timeouts)
+
+        await using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync(ct);
+
+        // -------------------- Phase A: outright delete > 6 months (no window fn) --------------------
+        while (true)
         {
-          await _log.Db($"Phase A: deleted {affectedA} rows > 6 months.", null, "SYSTEM", true);
-          continue; // keep deleting until this slice yields 0 rows
+          if (ct.IsCancellationRequested) break;
+
+          var deleteOlderThanSix = @"
+                    DELETE FROM trade_market_volumes
+                    WHERE id IN (
+                        SELECT id FROM (
+                            SELECT t.id
+                            FROM trade_market_volumes t
+                            WHERE t.timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 6 MONTH)
+                            ORDER BY t.timestamp, t.id
+                            LIMIT @lim
+                        ) s
+                    );";
+
+          await using var cmdA = new MySqlCommand(deleteOlderThanSix, conn) { CommandTimeout = 120 };
+          cmdA.Parameters.AddWithValue("@lim", batchSize);
+
+          var affectedA = 0;
+          try
+          {
+            affectedA = await cmdA.ExecuteNonQueryAsync(ct);
+          }
+          catch (OperationCanceledException) { throw; }
+          catch (Exception ex)
+          {
+            // Log and break to avoid tight failing loop
+            await _log.Db($"Phase A query failed: {ex.Message}", null, "SYSTEM", true);
+            break;
+          }
+
+          if (affectedA > 0)
+          {
+            await _log.Db($"Phase A: deleted {affectedA} rows > 6 months.", null, "SYSTEM", true);
+            continue; // keep deleting until this slice yields 0 rows
+          }
+          break;
         }
-        break;
+
+        // -------------------- Phase B: thin ONE month (two months ago) --------------------
+        // Keep earliest row per (pair, hour) in slice; delete the rest, but only rows 1–6 months old.
+        while (true)
+        {
+          if (ct.IsCancellationRequested) break;
+
+          var thinOneMonth = @"
+                    DELETE FROM trade_market_volumes
+                    WHERE id IN (
+                        SELECT id
+                        FROM (
+                            SELECT t.id
+                            FROM trade_market_volumes AS t
+                            LEFT JOIN (
+                                /* Keepers: earliest row per (pair, hour) inside the month slice */
+                                SELECT id
+                                FROM (
+                                    SELECT
+                                        id,
+                                        ROW_NUMBER() OVER (
+                                            PARTITION BY pair, FLOOR(UNIX_TIMESTAMP(timestamp) / 3600)
+                                            ORDER BY timestamp ASC, id ASC
+                                        ) AS rn
+                                    FROM trade_market_volumes
+                                    WHERE timestamp >= @sliceStart
+                                        AND timestamp <  @sliceEnd
+                                        -- Only consider candidates that are in the 1–6 month band
+                                        AND timestamp <  DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MONTH)
+                                        AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 6 MONTH)
+                                ) ranked
+                                WHERE ranked.rn = 1
+                            ) keep ON keep.id = t.id
+                            WHERE
+                                t.timestamp >= @sliceStart AND t.timestamp < @sliceEnd
+                                AND t.timestamp <  DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MONTH)
+                                AND t.timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 6 MONTH)
+                                AND keep.id IS NULL            -- delete only non-keepers
+                            ORDER BY t.timestamp, t.id
+                            LIMIT @lim
+                        ) ids
+                    );";
+
+          await using var cmdB = new MySqlCommand(thinOneMonth, conn) { CommandTimeout = 180 };
+          cmdB.Parameters.AddWithValue("@sliceStart", sliceStart);
+          cmdB.Parameters.AddWithValue("@sliceEnd", sliceEnd);
+          cmdB.Parameters.AddWithValue("@lim", batchSize);
+
+          var affectedB = 0;
+          try
+          {
+            affectedB = await cmdB.ExecuteNonQueryAsync(ct);
+          }
+          catch (OperationCanceledException) { throw; }
+          catch (Exception ex)
+          {
+            await _log.Db($"Phase B query failed ({sliceStart:yyyy-MM}): {ex.Message}", null, "SYSTEM", true);
+            break;
+          }
+
+          if (affectedB > 0)
+          {
+            await _log.Db($"Phase B ({sliceStart:yyyy-MM}): thinned {affectedB} rows (kept 1 per hour per pair).",
+                null, "SYSTEM", true);
+            continue; // repeat for the same month until 0 rows deleted
+          }
+          break;
+        }
       }
-
-      // -------------------- Phase B: thin ONE month (two months ago) --------------------
-      // Keep earliest row per (pair, hour) in slice; delete the rest, but only rows 1–6 months old.
-      while (true)
+      catch (OperationCanceledException)
       {
-        var thinOneMonth = @"
-					DELETE FROM trade_market_volumes
-					WHERE id IN (
-						SELECT id
-						FROM (
-							SELECT t.id
-							FROM trade_market_volumes AS t
-							LEFT JOIN (
-								/* Keepers: earliest row per (pair, hour) inside the month slice */
-								SELECT id
-								FROM (
-									SELECT
-										id,
-										ROW_NUMBER() OVER (
-											PARTITION BY pair, FLOOR(UNIX_TIMESTAMP(timestamp) / 3600)
-											ORDER BY timestamp ASC, id ASC
-										) AS rn
-									FROM trade_market_volumes
-									WHERE timestamp >= @sliceStart
-										AND timestamp <  @sliceEnd
-										-- Only consider candidates that are in the 1–6 month band
-										AND timestamp <  DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MONTH)
-										AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 6 MONTH)
-								) ranked
-								WHERE ranked.rn = 1
-							) keep ON keep.id = t.id
-							WHERE
-								t.timestamp >= @sliceStart AND t.timestamp < @sliceEnd
-								AND t.timestamp <  DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MONTH)
-								AND t.timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 6 MONTH)
-								AND keep.id IS NULL            -- delete only non-keepers
-							ORDER BY t.timestamp, t.id
-							LIMIT @lim
-						) ids
-					);";
-
-        await using var cmdB = new MySqlCommand(thinOneMonth, conn);
-        cmdB.Parameters.AddWithValue("@sliceStart", sliceStart);
-        cmdB.Parameters.AddWithValue("@sliceEnd", sliceEnd);
-        cmdB.Parameters.AddWithValue("@lim", batchSize);
-
-        var affectedB = await cmdB.ExecuteNonQueryAsync(ct);
-        if (affectedB > 0)
-        {
-          await _log.Db(
-              $"Phase B ({sliceStart:yyyy-MM}): thinned {affectedB} rows (kept 1 per hour per pair).",
-              null, "SYSTEM", true
-          );
-          continue; // repeat for the same month until 0 rows deleted
-        }
-        break;
+        _ = _log.Db("DeleteOldTradeVolumesSixMonths cancelled.", null, "SYSTEM", true);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("DeleteOldTradeVolumesSixMonths failure: " + ex.Message, null, "SYSTEM", true);
       }
     }
 
