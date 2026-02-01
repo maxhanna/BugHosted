@@ -699,6 +699,35 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const parent = this.parent ?? this.parentRef;
     parent?.closeOverlay();
   }
+
+  // Returns true if the given story contains [spoiler]...[/spoiler] blocks
+  hasSpoilers(story?: Story): boolean {
+    if (!story || !story.storyText) return false;
+    try {
+      return /\[spoiler\][\s\S]*?\[\/spoiler\]/i.test(story.storyText);
+    } catch (ex) {
+      return false;
+    }
+  }
+
+  // Programmatically reveal spoilers inside a story's rendered DOM.
+  // Attempts to click any inline spoiler buttons first, then falls back
+  // to replacing span contents for other implementations.
+  showSpoilers(story?: Story) {
+    if (!story || !story.id) return;
+    const container = document.getElementById('storyText' + story.id);
+    if (!container) return;
+
+    // First, try to click any spoiler buttons that may have been rendered
+    const buttons = Array.from(container.querySelectorAll('button.spoiler-button, button[data-spoiler]')) as HTMLButtonElement[];
+    if (buttons.length) {
+      buttons.forEach(b => {
+        try { b.click(); } catch {}
+      });
+      try { this.cd.markForCheck(); } catch {}
+      return;
+    }
+  }
   showPostOptionsPanel() {
     if (this.isPostOptionsPanelOpen) {
       this.closePostOptionsPanel();
