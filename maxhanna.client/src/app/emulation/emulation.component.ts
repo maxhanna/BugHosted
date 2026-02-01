@@ -130,6 +130,22 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   } = { active: false, pointerId: null, originX: 0, originY: 0, pressed: new Set() };
 
   private joystickListeners: Array<{ elem: EventTarget, type: string, fn: EventListenerOrEventListenerObject }> = [];
+  private registeredListeners: Array<{ elem: EventTarget, type: string, fn: EventListenerOrEventListenerObject }> = [];
+  private _prevGetUserMedia: typeof navigator.mediaDevices.getUserMedia | undefined;
+
+  private addRegisteredListener(elem: EventTarget, type: string, fn: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions, uniqueBy: 'elem-type-fn' | 'elem-type' = 'elem-type-fn') {
+    const exists = this.registeredListeners.some(l => {
+      if (l.elem !== elem) return false;
+      if (l.type !== type) return false;
+      if (uniqueBy === 'elem-type') return true;
+      return l.fn === fn;
+    });
+    if (exists) return;
+    try {
+      (elem as any).addEventListener(type, fn, options);
+      this.registeredListeners.push({ elem, type, fn });
+    } catch (e) { }
+  }
 
   constructor(private romService: RomService, private fileService: FileService, private userService: UserService) {
     super();
@@ -278,13 +294,14 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   async ngOnInit() {
     this.overrideGetUserMedia();
     this.setupEventListeners();
-    document.addEventListener('fullscreenchange', () => {
+    const fullscreenHandler: EventListener = () => {
       if (!document.fullscreenElement) {
         this.canvas.nativeElement.style.height = (this.onMobile() ? '60vh' : '100vh');
         console.log("set canvas height: " + this.canvas.nativeElement.style.height);
       }
       this.isFullScreen = !this.isFullScreen;
-    });
+    };
+    this.addRegisteredListener(document, 'fullscreenchange', fullscreenHandler as EventListener);
     this.parentRef?.setViewportScalability(false);
     this.parentRef?.addResizeListener();
     // Load user mute setting
@@ -299,7 +316,11 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   }
 
   async ngOnDestroy() {
-    await this.stopEmulator().then(async () => {
+    try {
+      await this.stopEmulator();
+    } catch (ex) {
+      console.warn('stopEmulator failed during destroy', ex);
+    } finally {
       this.stopLoading();
       this.nostalgist = undefined;
       this.parentRef?.setViewportScalability(true);
@@ -309,43 +330,68 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
         controls.forEach(control => this.nostalgist?.pressUp(control));
       });
       this.touchControls.clear();
-    });
+
+      // Remove any registered event listeners
+      for (const l of this.registeredListeners) {
+        try {
+          (l.elem as any).removeEventListener(l.type, l.fn as EventListener);
+        } catch (e) { }
+      }
+      this.registeredListeners = [];
+
+      // teardown joystick listeners if any remain
+      try { this.teardownJoystick(); } catch (e) { }
+
+      // reset element listener tracking
+      this.elementListenerMap = new WeakMap<Element, boolean>();
+
+      // restore getUserMedia if we overrode it
+      try {
+        if (this._prevGetUserMedia && navigator && navigator.mediaDevices) {
+          navigator.mediaDevices.getUserMedia = this._prevGetUserMedia;
+        }
+      } catch (e) { }
+    }
   }
 
   setupEventListeners() {
-    document.addEventListener('keydown', (event) => {
+    const keyDownForBinding: EventListener = (event) => {
       if (this.waitingForKey) {
         event.preventDefault();
-        const newKey = event.key;
+        const newKey = (event as KeyboardEvent).key;
         this.keybindings[this.waitingForKey] = newKey;
         this.waitingForKey = null;
         this.parentRef?.showNotification(`Bound to "${newKey}"`);
         return;
       }
-      const pressedKey = event.key;
+      const pressedKey = (event as KeyboardEvent).key;
       const action = Object.entries(this.keybindings).find(([_, val]) => val === pressedKey)?.[0];
       if (action) {
         this.nostalgist?.pressDown(action);
         event.preventDefault();
       }
-    });
+    };
+    this.addRegisteredListener(document, 'keydown', keyDownForBinding as EventListener);
 
-    document.addEventListener('keyup', (event) => {
-      const releasedKey = event.key;
+    const keyUpHandler: EventListener = (event) => {
+      const releasedKey = (event as KeyboardEvent).key;
       const action = Object.entries(this.keybindings).find(([_, val]) => val === releasedKey)?.[0];
       if (action) {
         this.nostalgist?.pressUp(action);
         event.preventDefault();
       }
-    });
+    };
+    this.addRegisteredListener(document, 'keyup', keyUpHandler as EventListener);
 
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' || event.key === 'Esc') {
+    const escapeHandler: EventListener = (event) => {
+      const k = (event as KeyboardEvent).key;
+      if (k === 'Escape' || k === 'Esc') {
         if (this.isFullScreen) {
           this.toggleFullscreen();
         }
       }
-    });
+    };
+    this.addRegisteredListener(document, 'keydown', escapeHandler as EventListener);
   }
 
   async saveState(isAutosave?: boolean) {
@@ -553,46 +599,63 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
         }
       }, { passive: false });
 
-      element.addEventListener('touchend', (e) => {
+      const touchStart = (e: TouchEvent) => {
         e.preventDefault();
         const touch = e.changedTouches[0];
         const touchId = touch.identifier;
-        const controls = this.touchControls.get(touchId);
-        if (controls) {
-          controls.forEach(control => this.nostalgist?.pressUp(control));
-          this.touchControls.delete(touchId);
-          element.classList.remove('active');
-        }
-      }, { passive: false });
-
-      element.addEventListener('touchcancel', (e) => {
-        e.preventDefault();
-        const touch = e.changedTouches[0];
-        const touchId = touch.identifier;
-        const controls = this.touchControls.get(touchId);
-        if (controls) {
-          controls.forEach(control => this.nostalgist?.pressUp(control));
-          this.touchControls.delete(touchId);
-          element.classList.remove('active');
-        }
-      }, { passive: false });
-
-      element.addEventListener('mousedown', () => {
+        this.touchControls.set(touchId, [joypadIndex]);
         this.nostalgist?.pressDown(joypadIndex);
         element.classList.add('active');
-      });
+        if (this.hapticFeedbackEnabled && 'vibrate' in navigator) {
+          navigator.vibrate(50);
+        }
+      };
+      this.addRegisteredListener(element, 'touchstart', touchStart as EventListener, { passive: false });
+
+      const touchEnd = (e: TouchEvent) => {
+        e.preventDefault();
+        const touch = e.changedTouches[0];
+        const touchId = touch.identifier;
+        const controls = this.touchControls.get(touchId);
+        if (controls) {
+          controls.forEach(control => this.nostalgist?.pressUp(control));
+          this.touchControls.delete(touchId);
+          element.classList.remove('active');
+        }
+      };
+      this.addRegisteredListener(element, 'touchend', touchEnd as EventListener, { passive: false });
+
+      const touchCancel = (e: TouchEvent) => {
+        e.preventDefault();
+        const touch = e.changedTouches[0];
+        const touchId = touch.identifier;
+        const controls = this.touchControls.get(touchId);
+        if (controls) {
+          controls.forEach(control => this.nostalgist?.pressUp(control));
+          this.touchControls.delete(touchId);
+          element.classList.remove('active');
+        }
+      };
+      this.addRegisteredListener(element, 'touchcancel', touchCancel as EventListener, { passive: false });
+
+      const mouseDown = () => {
+        this.nostalgist?.pressDown(joypadIndex);
+        element.classList.add('active');
+      };
+      this.addRegisteredListener(element, 'mousedown', mouseDown as EventListener);
 
       const handleMouseUp = () => {
         this.nostalgist?.pressUp(joypadIndex);
         element.classList.remove('active');
       };
+      this.addRegisteredListener(element, 'mouseup', handleMouseUp as EventListener);
 
-      element.addEventListener('mouseup', handleMouseUp);
-      document.addEventListener('mouseup', (event) => {
+      const docMouseUp = (event: MouseEvent) => {
         if (event.target !== element) {
           handleMouseUp();
         }
-      });
+      };
+      this.addRegisteredListener(document, 'mouseup', docMouseUp as EventListener, undefined, 'elem-type');
     };
 
     addPressReleaseEvents("start", "start");
@@ -641,7 +704,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     const directions = [direction];
     if (secondaryDirection) directions.push(secondaryDirection);
 
-    element.addEventListener('touchstart', (e) => {
+    
+    const touchStart = (e: TouchEvent) => {
       e.preventDefault();
       const touch = e.changedTouches[0];
       const touchId = touch.identifier;
@@ -651,9 +715,10 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       if ('vibrate' in navigator) {
         navigator.vibrate(50);
       }
-    }, { passive: false });
+    };
+    this.addRegisteredListener(element, 'touchstart', touchStart as EventListener, { passive: false });
 
-    element.addEventListener('touchend', (e) => {
+    const touchEnd = (e: TouchEvent) => {
       e.preventDefault();
       const touch = e.changedTouches[0];
       const touchId = touch.identifier;
@@ -663,9 +728,10 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
         this.touchControls.delete(touchId);
         element.classList.remove('active');
       }
-    }, { passive: false });
+    };
+    this.addRegisteredListener(element, 'touchend', touchEnd as EventListener, { passive: false });
 
-    element.addEventListener('touchcancel', (e) => {
+    const touchCancel = (e: TouchEvent) => {
       e.preventDefault();
       const touch = e.changedTouches[0];
       const touchId = touch.identifier;
@@ -675,7 +741,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
         this.touchControls.delete(touchId);
         element.classList.remove('active');
       }
-    }, { passive: false });
+    };
+    this.addRegisteredListener(element, 'touchcancel', touchCancel as EventListener, { passive: false });
 
     const pressDown = (primaryDirection: string, secondaryDirection?: string) => {
       this.nostalgist?.pressDown(primaryDirection);
@@ -701,17 +768,22 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       element.classList.remove('active');
     };
 
-    element.addEventListener('mousedown', handleMouseDown);
-    element.addEventListener('mouseup', handleMouseUp);
-    document.addEventListener('mouseup', (event) => {
+    this.addRegisteredListener(element, 'mousedown', handleMouseDown as EventListener);
+    this.addRegisteredListener(element, 'mouseup', handleMouseUp as EventListener);
+
+    const docMouseUp = (event: MouseEvent) => {
       if (event.target === element) {
         handleMouseUp();
       }
-    });
+    };
+    this.addRegisteredListener(document, 'mouseup', docMouseUp as EventListener, undefined, 'elem-type');
   }
 
   overrideGetUserMedia() {
     if (navigator && navigator.mediaDevices) {
+      try {
+        this._prevGetUserMedia = navigator.mediaDevices.getUserMedia;
+      } catch (e) { }
       navigator.mediaDevices.getUserMedia = async (constraints) => {
         console.warn("getUserMedia request blocked");
         return Promise.reject(new Error("Webcam access is blocked."));
