@@ -3,26 +3,6 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-:root {
-  --dpad-size: 200px;          /* overall diameter of base */
-  --dpad-arm: 64px;            /* thickness of cross arms */
-  --dpad-radius: 18px;         /* corner radius of cross */
-  --dpad-opacity: 0.85;        /* visual opacity */
-  --dpad-base-blur: 8px;
-  --dpad-shadow: 0 6px 14px rgba(0,0,0,0.35);
-  --dpad-press-shadow: 0 2px 6px rgba(0,0,0,0.45);
-  --touch-padding: 14px;       /* extra invisible hit area */
-  --active-brightness: 0.85;
-}
-
-@media (max-width: 480px) {
-  :root {
-    --dpad-size: 220px;
-    --dpad-arm: 72px;
-    --dpad-radius: 20px;
-    --touch-padding: 18px;
-  }
-} 
 .mainComponent {
   margin-top: 50px;
 }
@@ -178,14 +158,14 @@ canvas:-ms-fullscreen,
   align-items: flex-end;
   padding: 0 20px;
 }
-/* 
+
 .dpad {
   position: relative;
   display: inline-block;
   width: 160px;
   height: 160px;
   z-index: 5;
-} */
+}
 
 /* Joystick styles */
 .joystick {
@@ -217,7 +197,102 @@ canvas:-ms-fullscreen,
   transition: transform 0.05s linear;
   touch-action: none;
 }
-  
+
+.dpad>* {
+  width: 33%;
+  height: 33%;
+  position: absolute;
+  /* background-color: var(--main-bg-color); */
+  cursor: pointer;
+}
+
+.dpad>* i {
+  position: relative;
+  display: block;
+  margin: 0 auto;
+  text-align: center;
+  height: 100%;
+  font-size: 28px;
+  color: #333a4a;
+  text-shadow: 0px -0.5px 0px #aaa;
+}
+
+.up {
+  top: calc(0% + 4px);
+  left: 33%;
+  border-top: 4px solid black;
+  border-left: 4px solid black;
+  border-right: 4px solid black;
+  border-radius: 5px 5px 0px 0px;
+}
+
+.up:active,
+.up.active {
+  background: linear-gradient(to top, #565e6a 0%, #333 100%);
+}
+
+.right {
+  top: 33%;
+  left: calc(66% - 4px);
+  border-top: 4px solid black;
+  border-bottom: 4px solid black;
+  border-right: 4px solid black;
+  border-radius: 0px 5px 5px 0px;
+  box-shadow: 0px -2px 0px #888 inset;
+}
+
+.right:active,
+.right.active {
+  background: linear-gradient(to right, #565e6a 0%, #333 100%);
+}
+
+.down {
+  top: calc(66% - 4px);
+  left: 33%;
+  border-left: 4px solid black;
+  border-bottom: 4px solid black;
+  border-right: 4px solid black;
+  border-radius: 0px 0px 5px 5px;
+  box-shadow: 0px -2px 0px #888 inset;
+}
+
+.down:active,
+.down.active {
+  background: linear-gradient(to bottom, #565e6a 0%, #333 100%);
+}
+
+.left {
+  top: 33%;
+  left: calc(0% + 4px);
+  border-top: 4px solid black;
+  border-bottom: 4px solid black;
+  border-left: 4px solid black;
+  border-radius: 5px 0px 0px 5px;
+  box-shadow: 0px -2px 0px #888 inset;
+}
+
+.left:active,
+.left.active {
+  background: linear-gradient(to left, #565e6a 0%, #333 100%);
+}
+
+.middle {
+  top: 33%;
+  left: 33%;
+  z-index: -5;
+}
+
+.middle::after {
+  content: "";
+  position: absolute;
+  top: 20%;
+  left: 20%;
+  display: inline-block;
+  background: linear-gradient(to bottom, #333 30%, var(--secondary-font-color) 100%);
+  border-radius: 50%;
+  height: 60%;
+  width: 60%;
+}
 
  
 .face-buttons {
@@ -402,7 +477,133 @@ canvas:-ms-fullscreen,
 .select.active::before {
   background: linear-gradient(to bottom, #0b0a1c 0%, #0b0a1c 50%, var(--secondary-font-color) 100%);
 }
- 
+
+.up-triangle {
+  position: absolute;
+  bottom: 16px;
+  right: 7px;
+  margin: auto;
+  width: 65%;
+  height: 65%;
+  border-left: solid 15px transparent;
+  border-right: solid 15px transparent;
+  border-bottom: solid 20px var(--secondary-font-color);
+}
+
+.right-triangle {
+  position: absolute;
+  bottom: 8px;
+  right: 0px;
+  margin: auto;
+  width: 65%;
+  height: 65%;
+  border-left: solid 15px transparent;
+  border-right: solid 15px transparent;
+  border-bottom: solid 20px var(--secondary-font-color);
+  transform: rotate(90deg);
+}
+
+.down-triangle {
+  position: absolute;
+  bottom: 0px;
+  right: 7px;
+  margin: auto;
+  width: 65%;
+  height: 65%;
+  border-left: solid 15px transparent;
+  border-right: solid 15px transparent;
+  border-bottom: solid 20px var(--secondary-font-color);
+  transform: rotate(180deg);
+}
+
+.left-triangle {
+  position: absolute;
+  bottom: 8px;
+  left: 1px;
+  margin: auto;
+  width: 65%;
+  height: 65%;
+  border-left: solid 15px transparent;
+  border-right: solid 15px transparent;
+  border-bottom: solid 20px var(--secondary-font-color);
+  transform: rotate(-90deg);
+}
+
+.down-left {
+  bottom: 0px;
+  left: 7px;
+}
+
+.top-left {
+  top: 0px;
+  left: 7px;
+}
+
+.down-right {
+  bottom: 0px;
+  right: 7px;
+}
+
+.up-right {
+  top: 0px;
+  right: 7px;
+}
+
+.down-left,
+.down-right,
+.up-left,
+.up-right {
+  position: absolute;
+  background-color: transparent !important;
+  margin: auto;
+  width: 65%;
+  height: 65%;
+  z-index: 3;
+}
+
+.down-left::after,
+.down-right::after,
+.up-left::after,
+.up-right::after {
+  content: "";
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+
+.down-left::after {
+  border-width: 0 20px 20px 0;
+  border-color: transparent var(--secondary-font-color) transparent transparent;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(180deg);
+}
+
+.up-left::after {
+  border-width: 20px 20px 0 0;
+  border-color: var(--main-font-color) transparent transparent transparent;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(360deg);
+}
+
+.down-right::after {
+  border-width: 0 0 20px 20px;
+  border-color: transparent transparent var(--secondary-font-color) transparent;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.up-right::after {
+  border-width: 20px 0 0 20px;
+  border-color: var(--secondary-font-color) transparent transparent transparent;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
 .controlVolume {
   font-size: xx-small;
   margin-left: 3px;
@@ -510,131 +711,4 @@ input:checked+.slider::before {
 .is-disabled {
   pointer-events: none;    /* blocks clicks in children */
   opacity: 0.6;            /* visual cue, tweak as needed */
-}
-
-
-.dpad {
-  position: relative;
-  display: inline-block;
-  width: var(--dpad-size);
-  height: var(--dpad-size);
-  z-index: 6;
-  /* Centered background “disc” with glassy look */
-  background: radial-gradient(60% 60% at 50% 50%, rgba(255,255,255,0.10), rgba(0,0,0,0.20)) ;
-  border-radius: 50%;
-  backdrop-filter: blur(var(--dpad-base-blur));
-  box-shadow: var(--dpad-shadow);
-  opacity: var(--dpad-opacity);
-  overflow: visible; /* for larger hit areas */
-  touch-action: none;
-}
-
-/* Cross arms using pseudo elements (purely visual) */
-.dpad::before,
-.dpad::after {
-  content:"";
-  position:absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.22));
-  border-radius: var(--dpad-radius);
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.35);
-}
-
-.dpad::before {
-  width: calc(var(--dpad-size) * 0.75);
-  height: var(--dpad-arm);
-}
-
-.dpad::after {
-  width: var(--dpad-arm);
-  height: calc(var(--dpad-size) * 0.75);
-}
-
-/* Center “pivot” */
-.dpad .middle::after {
-  background: radial-gradient(circle, rgba(255,255,255,0.22) 0%, rgba(0,0,0,0.35) 65%);
-  box-shadow: inset 0 4px 10px rgba(0,0,0,0.45);
-}
-
-/* Direction buttons become big invisible pads over the cross.
-   We keep your triangles for the icons but enlarge hit area. */
-.dpad > * {
-  position: absolute;
-  width: 33%;
-  height: 33%;
-  cursor: pointer;
-}
-
-.dpad .up    { top: 0;    left: 33%; }
-.dpad .right { top: 33%;  left: 66%; }
-.dpad .down  { top: 66%;  left: 33%; }
-.dpad .left  { top: 33%;  left: 0;   }
-
-.dpad.simple .up-left,
-.dpad.simple .up-right,
-.dpad.simple .down-left,
-.dpad.simple .down-right {
-  display: none !important;
-}
-
-/* Enlarge touch targets beyond visual triangle with :before halos */
-.dpad .up::before,
-.dpad .right::before,
-.dpad .down::before,
-.dpad .left::before {
-  content: "";
-  position: absolute;
-  inset: calc(-1 * var(--touch-padding));
-  border-radius: 14px;
-  /* Transparent but receives pointer events */
-}
-
-/* Direction “glyphs” – keep your existing triangles but give them glow */
-.up-triangle,
-.right-triangle,
-.down-triangle,
-.left-triangle {
-  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.35));
-  opacity: 0.9;
-}
-
-/* Press feedback: gentle scale + brighter center + deeper shadow */
-.dpad .up:active .up-triangle,
-.dpad .up.active .up-triangle,
-.dpad .right:active .right-triangle,
-.dpad .right.active .right-triangle,
-.dpad .down:active .down-triangle,
-.dpad .down.active .down-triangle,
-.dpad .left:active .left-triangle,
-.dpad .left.active .left-triangle {
-  filter: brightness(var(--active-brightness)) drop-shadow(0 1px 1px rgba(0,0,0,0.6));
-  transform: translateZ(0) scale(0.98);
-}
-
-.dpad:active,
-.dpad.active {
-  box-shadow: var(--dpad-press-shadow);
-}
-
-.up-triangle,
-.right-triangle,
-.down-triangle,
-.left-triangle { 
-  transform-origin: 50% 50%;
-  transform: scale(1.18) translateZ(0);
-}
- 
-.up-triangle {
-  bottom: 18px;
-}
-.right-triangle {
-  right: -2px;
-}
-.down-triangle {
-  bottom: -2px;
-}
-.left-triangle {
-  left: -1px;
 }

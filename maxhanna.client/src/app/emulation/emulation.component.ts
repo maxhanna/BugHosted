@@ -33,9 +33,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   isFullScreen = false;
   hapticFeedbackEnabled = this.onMobile();
   showControls = this.onMobile();
-  
-  private dpadActive = null as null | 'up' | 'down' | 'left' | 'right' | 'ul' | 'ur' | 'dl' | 'dr';
-  private touchStart?: { x: number; y: number }; 
+  private currentKeyListeners: { type: string; listener: EventListener }[] = [];
   private touchControls: Map<number, string[]> = new Map(); // touchId to array of joypadIndices
   readonly coreMapping: { [key: string]: string } = {
     'gba': 'mgba',
@@ -760,78 +758,6 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     return this.keybindings[action] || this.defaultKeybindings[action] || 'Unbound';
   }
 
-onDpadTouchStart(ev: TouchEvent | MouseEvent) {
-  const point = this.getPoint(ev);
-  this.touchStart = point;
-  this.updateDpadDirection(point, /*isSimple*/ this.isSimpleDpadGame());
-}
-
-onDpadTouchMove(ev: TouchEvent | MouseEvent) {
-  const point = this.getPoint(ev);
-  this.updateDpadDirection(point, this.isSimpleDpadGame());
-}
-
-onDpadTouchEnd() {
-  this.setDirection(null);
-  this.touchStart = undefined;
-}
-
-private getPoint(ev: TouchEvent | MouseEvent) {
-  const p = (ev as TouchEvent).touches?.[0] ?? (ev as MouseEvent);
-  return { x: p.clientX, y: p.clientY };
-}
-
-private updateDpadDirection(point: {x:number;y:number}, simple: boolean) {
-  if (!this.touchStart) return;
-  const dx = point.x - this.touchStart.x;
-  const dy = point.y - this.touchStart.y;
-
-  const deadzone = 14;            // ignore jitters
-  if (Math.abs(dx) < deadzone && Math.abs(dy) < deadzone) {
-    this.setDirection(null);
-    return;
-  }
-
-  const angle = Math.atan2(dy, dx); // radians
-  const deg = (angle * 180) / Math.PI;
-
-  // Snap to nearest 90° if simple; else 45° sectors.
-  let dir: typeof this.dpadActive = null;
-  if (simple) {
-    // sectors centered at 0, 90, 180, -90
-    const a = ((deg + 360) % 360);
-    if (a > 315 || a <= 45) dir = 'right';
-    else if (a > 45 && a <= 135) dir = 'down';
-    else if (a > 135 && a <= 225) dir = 'left';
-    else dir = 'up';
-  } else {
-    const a = ((deg + 360) % 360);
-    if (a > 337.5 || a <= 22.5) dir = 'right';
-    else if (a > 22.5 && a <= 67.5) dir = 'dr';
-    else if (a > 67.5 && a <= 112.5) dir = 'down';
-    else if (a > 112.5 && a <= 157.5) dir = 'dl';
-    else if (a > 157.5 && a <= 202.5) dir = 'left';
-    else if (a > 202.5 && a <= 247.5) dir = 'ul';
-    else if (a > 247.5 && a <= 292.5) dir = 'up';
-    else dir = 'ur';
-  }
-
-  this.setDirection(dir);
-}
-
-
-private setDirection(dir: typeof this.dpadActive) {
-  if (this.dpadActive === dir) return; 
-  this.dpadActive = dir;
-  if (dir) this.hapticTick();
-}
-
-
-private hapticTick() {
-  if (!this.hapticFeedbackEnabled) return;
-  if ('vibrate' in navigator) (navigator as any).vibrate(8);
-}
-
   showMenuPanel() {
     if (this.isMenuPanelOpen) {
       this.closeMenuPanel();
@@ -858,10 +784,6 @@ private hapticTick() {
         this.setHTMLControls();
       }
     }, 3);
-  }
-
-  isSimpleDpadGame(): boolean {
-    return !this.isSnesGame() && !this.isSegaGame() && !this.isGbaGame();
   }
 
   shareLink() {
