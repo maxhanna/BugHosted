@@ -407,6 +407,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           this.checkAndClearRouterOutlet();
           this.createComponent('Array');
         }
+        else if (this.router.url.toLowerCase().includes('n64')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('N64Emulation');
+        } 
         else if (this.router.url.toLowerCase().includes('emu')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Emulation');
