@@ -61,7 +61,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   @Input() showOnlyWeatherLocation? = false;
   @Input() showOnlyKrakenApiKeys? = false;
   @Input() showOnlyNicehashApiKeys? = false;
-  @Input() areSelectableMenuItemsExplained? = true;
+  @Input() areSelectableMenuItemsExplained? = false;
 
   @ViewChild('updatedUsername') updatedUsername!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedPassword') updatedPassword!: ElementRef<HTMLInputElement>;
