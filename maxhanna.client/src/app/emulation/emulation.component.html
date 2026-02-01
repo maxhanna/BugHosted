@@ -31,35 +31,34 @@
 
     <div class="nintendo"><span class="nintendoLogo">Hackboy</span></div>
 
-    <div class="controls" [ngClass]="{'snes-controls': isSnesGame()}">
-      <div *ngIf="!useJoystick" class="dpad"
-        [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">
-        <div class="up-left">
-          <div class="up-left-triangle"></div>
-        </div>
-        <div class="up">
-          <div class="up-triangle"></div>
-        </div>
-        <div class="up-right">
-          <div class="up-right-triangle"></div>
-        </div>
-        <div class="right">
-          <div class="right-triangle"></div>
-        </div>
-        <div class="down">
-          <div class="down-triangle"></div>
-        </div>
-        <div class="down-left">
-          <div class="down-left-triangle"></div>
-        </div>
-        <div class="left">
-          <div class="left-triangle"></div>
-        </div>
-        <div class="down-right">
-          <div class="down-right-triangle"></div>
-        </div>
+    <div class="controls" [ngClass]="{'snes-controls': isSnesGame()}"> 
+      <div *ngIf="!useJoystick"
+          class="dpad" 
+          (touchstart)="onDpadTouchStart($event)"
+          (touchmove)="onDpadTouchMove($event)"
+          (touchend)="onDpadTouchEnd()"
+          (mousedown)="onDpadTouchStart($event)"
+          (mousemove)="onDpadTouchMove($event)"
+          (mouseup)="onDpadTouchEnd()" 
+          [class.simple]="isSimpleDpadGame()"
+          [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">
+
+        <!-- No diagonals for simple D-Pad -->
+        <div class="up"><div class="up-triangle"></div></div>
+        <div class="right"><div class="right-triangle"></div></div>
+        <div class="down"><div class="down-triangle"></div></div>
+        <div class="left"><div class="left-triangle"></div></div>
         <div class="middle"></div>
-      </div>
+
+        <!-- Diagonals only if NOT simple -->
+        <ng-container *ngIf="!isSimpleDpadGame()">
+          <div class="up-left"><div class="up-left-triangle"></div></div>
+          <div class="up-right"><div class="up-right-triangle"></div></div>
+          <div class="down-left"><div class="down-left-triangle"></div></div>
+          <div class="down-right"><div class="down-right-triangle"></div></div>
+        </ng-container>
+      </div> 
+
       <div *ngIf="useJoystick" class="joystick" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">
         <div class="joystick-base" id="joystickBase">
           <div class="joystick-knob" id="joystickKnob"></div>

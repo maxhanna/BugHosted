@@ -912,6 +912,12 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       return `<span class="userMentionSpan" onClick="document.getElementById('userMentionInput').value='${username}';document.getElementById('userMentionButton').click()" class="user-mention">@${username}</span>`;
     });
 
+    // Step 8: Replace [spoiler]...[/spoiler] with a clickable reveal element
+    text = text.replace(/\[spoiler\](.*?)\[\/spoiler\]/gis, (match, inner) => {
+      const safeInner = (inner ?? '').replace(/'/g, "&#39;").replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return `<span class="spoiler-wrapper"><button class="spoiler-button" onclick="const s=this.nextElementSibling; if(!s) return; if(s.style.display==='none'){s.style.display='inline'; this.textContent='Hide';} else {s.style.display='none'; this.textContent='Show';}">Show</button><span class="spoiler-text" style="display:none">${safeInner}</span></span>`;
+    });
+
     return this.sanitizer.bypassSecurityTrustHtml(text);
   }
 

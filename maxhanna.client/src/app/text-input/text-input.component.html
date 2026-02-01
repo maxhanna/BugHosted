@@ -52,11 +52,6 @@
             )
         </span>
     </button>
-    <app-text-formatting-toolbar *ngIf="showPostInput && !onMobile()" style="display:flex; height: 25px;"
-        [inputtedParentRef]="inputtedParentRef" [parent]="textarea"
-        (isExpandingEmojiPanel)="onExpandingEmojiPanel($event)"
-        (isExpandingCrawlerPanel)="onExpandingCrawlerPanel($event)"
-        (isExpandingComponentPanel)="onExpandingComponentPanel($event)"></app-text-formatting-toolbar>
 </div>
 
 
@@ -77,9 +72,9 @@
         <span *ngIf="mediaSelector && mediaSelector.selectedFiles.length <= 1">Attach more files to see upload
             options</span>
     </div>
-    <div class="mobileOptionsTitle" *ngIf="onMobile() || isAppFormattingOptionsOpen" style="margin-top: 20px;">Text
+    <div class="mobileOptionsTitle" style="margin-top: 20px;">Text
         Formatting</div>
-    <div *ngIf="onMobile() || isAppFormattingOptionsOpen" class="mobilePostButtonOptions">
+    <div class="mobilePostButtonOptions">
         <app-text-formatting-toolbar style="display:flex; height: 25px;" [inputtedParentRef]="inputtedParentRef"
             [parent]="textarea" (isExpandingEmojiPanel)="onExpandingEmojiPanel($event)"
             (isExpandingComponentPanel)="onExpandingComponentPanel($event)"

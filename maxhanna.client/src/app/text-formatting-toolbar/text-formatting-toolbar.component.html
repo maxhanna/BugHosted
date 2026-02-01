@@ -25,6 +25,9 @@
 <button *ngIf="!hide" class="storyControlFlairButton" (click)="openComponentSelector();" title="Insert Component">
     <span>🧩</span>
 </button>
+<button *ngIf="!hide" class="storyControlFlairButton" (click)="insertTag('spoiler');" title="Spoiler">
+    <span>🤫</span>
+</button>
 
 
 <!-- Emoji picker Popup -->
