@@ -173,10 +173,6 @@
           (click)="copyLink(optionStory.id)" 
           title="Share Link">📋 Share Post</button>
         <button
-          *ngIf="hasSpoilers(optionStory)"
-          (click)="showSpoilers(optionStory)"
-          title="Reveal spoilers">⚠️ Show Spoilers</button>
-        <button
           (click)="hide(optionStory)"
           *ngIf="parentRef?.user?.id">
           {{optionStory.hidden ? '🙉 Unhide' : '🙈 Hide'}} Post
