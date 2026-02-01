@@ -1180,7 +1180,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
     const total = this.gamepads.filter(g => g.connected).length; 
     this.parentRef?.showNotification(
-      `Gamepad connected: ${ev.gamepad?.id} (port ${ev.gamepad?.index}). ` +
+      `Gamepad connected: ${this.truncateId(ev.gamepad?.id)} (port ${ev.gamepad?.index}). ` +
       `Detected ${total} controller${total === 1 ? '' : 's'} `
     );
 
@@ -1287,6 +1287,16 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.lastMappingPerGp[gamepadId] = mappingName;
       localStorage.setItem(this._lastPerGamepadKey, JSON.stringify(this.lastMappingPerGp));
     } catch { /* ignore */ }
+  }
+
+  // Truncate long IDs for UI display, appending an ellipsis if truncated
+  private truncateId(id?: string | null, maxLen: number = 50): string {
+    if (!id) return '';
+    try {
+      return id.length > maxLen ? id.substring(0, maxLen) + '...' : id;
+    } catch {
+      return id as string;
+    }
   }
 
   // =====================================================
