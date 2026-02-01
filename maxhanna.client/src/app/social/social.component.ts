@@ -718,24 +718,66 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
     this.closeStoryOptionsPanel();
     setTimeout(() => {
-      const container = document.getElementById('storyText' + story.id); 
+      const container = document.getElementById('storyText' + story.id);
       if (!container) {
         this.parentRef?.showNotification('Error: Could not find story container to reveal spoilers.');
         return;
       }
-      // First, try to click any spoiler buttons that may have been rendered
-      const buttons = Array.from(container.getElementsByClassName('spoiler-button')) as HTMLButtonElement[];
-      if (buttons.length) {
-        buttons.forEach(b => {
-          try { b.click(); } catch {}
-        });
-        setTimeout(() => { this.cd.detectChanges(); }, 50);
+
+      // 1) Try to click any obvious spoiler buttons (class, data attr, or onclick that mentions spoiler)
+      const allButtons = Array.from(container.getElementsByTagName('button')) as HTMLButtonElement[];
+      const candidateButtons = allButtons.filter(b => {
+        const cls = b.className || '';
+        const data = b.getAttribute('data-spoiler') || b.getAttribute('data-spoiler-text') || '';
+        const on = (b.getAttribute('onclick') || '').toLowerCase();
+        const txt = (b.textContent || '').toLowerCase();
+        return cls.includes('spoiler-button') || data !== '' || on.includes('spoiler') || /reveal|spoiler/.test(txt);
+      });
+      if (candidateButtons.length) {
+        candidateButtons.forEach(b => { try { b.click(); } catch {} });
+        setTimeout(() => { try { this.cd.detectChanges(); } catch {} }, 50);
         return;
-      } else {
-        this.parentRef?.showNotification('No spoiler buttons found.');
       }
+
+      // 2) Look for elements with data attributes or common spoiler classes and reveal them by copying stored text
+      const attrElems = Array.from(container.querySelectorAll('[data-spoiler-text],[data-spoiler],.spoiler-inline')) as HTMLElement[];
+      if (attrElems.length) {
+        attrElems.forEach(e => {
+          const txt = e.getAttribute('data-spoiler-text') || e.getAttribute('data-spoiler') || '';
+          if (txt) {
+            try { e.textContent = txt; } catch {}
+          } else {
+            const hidden = e.querySelector('.spoiler-hidden-text') as HTMLElement | null;
+            if (hidden && hidden.textContent) {
+              try { e.textContent = hidden.textContent; } catch {}
+            }
+          }
+          e.classList.add('spoiler-revealed');
+        });
+        try { this.cd.detectChanges(); } catch {}
+        return;
+      }
+
+      // 3) Fallback: if rendered DOM doesn't contain helper elements, fallback to using the original story text
+      //    and replace [spoiler]...[/spoiler] blocks with the inner text.
+      try {
+        const raw = story.storyText || '';
+        if (/\[spoiler\][\s\S]*?\[\/spoiler\]/i.test(raw)) {
+          const revealed = raw.replace(/\[spoiler\]([\s\S]*?)\[\/spoiler\]/gi, '$1');
+          // Basic HTML-escape to avoid injecting raw markup
+          const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          container.innerHTML = escapeHtml(revealed).replace(/\n/g, '<br />');
+          try { this.cd.detectChanges(); } catch {}
+          return;
+        }
+      } catch (ex) {
+        console.error('Fallback spoiler reveal failed', ex);
+      }
+
+      this.parentRef?.showNotification('No spoiler UI found to reveal.');
     }, 100);
   }
+  
   showPostOptionsPanel() {
     if (this.isPostOptionsPanelOpen) {
       this.closePostOptionsPanel();
