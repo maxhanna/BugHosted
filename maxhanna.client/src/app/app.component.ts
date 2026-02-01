@@ -918,7 +918,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     // a hidden button (so the event is routed through Angular like user mentions)
     text = text.replace(/\[spoiler\](.*?)\[\/spoiler\]/gis, (match, inner) => {
       const safeInner = (inner ?? '').replace(/'/g, "&#39;").replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      return `<span class="spoiler-inline" tabindex="0" role="button" aria-label="Reveal spoiler" aria-live="polite" onClick="document.getElementById('spoilerRevealButton').click()">${safeInner}</span>`;
+      return `<span class="spoiler-inline" aria-label="Reveal spoiler" aria-live="polite" onClick="document.getElementById('spoilerRevealButton').click()">${safeInner}</span>`;
     }); 
 
     return this.sanitizer.bypassSecurityTrustHtml(text);
@@ -1595,6 +1595,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   }
 
   revealSpoiler(el: HTMLElement) {
+    // Debug: log the element being revealed
+    try {
+      console.log('revealSpoiler called for element:', el, 'classes before:', el.className);
+    } catch (e) { /* ignore logging errors */ }
+
     // Style reveal – centralize here so it’s consistent everywhere
     el.style.backgroundColor = '';
     el.style.color = 'var(--main-text-color)';
@@ -1603,6 +1608,9 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
     // Optionally mark as revealed to avoid redoing
     el.classList.add('spoiler-revealed');
+    try {
+      console.log('revealSpoiler completed, classes after:', el.className);
+    } catch (e) { /* ignore logging errors */ }
   }
 
   handleSpoilerReveal() {
