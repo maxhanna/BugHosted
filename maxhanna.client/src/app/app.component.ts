@@ -57,7 +57,6 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild(NavigationComponent) navigationComponent!: NavigationComponent;
   @ViewChild(ModalComponent) modalComponent!: ModalComponent;
   @ViewChild(MediaViewerComponent) userTagPopupMediaViewer!: MediaViewerComponent;
-  @ViewChild('richHost', { static: true }) richHost!: ElementRef<HTMLElement>;
   private unlistenClick?: () => void;
   notifications: string[] = [];
   showMainContent = true;
@@ -458,29 +457,27 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     });
 
       
-    this.unlistenClick = this.renderer.listen(
-          this.richHost.nativeElement,
-          'click',
-          (event: Event) => {
-            const target = event.target as HTMLElement | null;
-            if (!target) return;
-            const spoiler = target.closest('.spoiler-inline') as HTMLElement | null;
-            if (!spoiler || !this.richHost.nativeElement.contains(spoiler)) return;
-            this.revealSpoiler(spoiler);
-          }
-        );
-    
-        // Optional: keyboard accessibility via Enter/Space
-        this.renderer.listen(this.richHost.nativeElement, 'keydown', (event: KeyboardEvent) => {
-          const target = event.target as HTMLElement | null;
-          if (!target) return;
-          const spoiler = target.closest('.spoiler-inline') as HTMLElement | null;
-          if (!spoiler || !this.richHost.nativeElement.contains(spoiler)) return;
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            this.revealSpoiler(spoiler);
-          }
-        }); 
+    // Delegate click events from the whole document so spoilers rendered inside any
+    // component (not only `richHost`) will be revealed by this central handler.
+    this.unlistenClick = this.renderer.listen('document', 'click', (event: Event) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      const spoiler = target.closest('.spoiler-inline') as HTMLElement | null;
+      if (!spoiler) return;
+      this.revealSpoiler(spoiler);
+    });
+
+    // Optional: keyboard accessibility via Enter/Space for any focused spoiler element
+    this.renderer.listen('document', 'keydown', (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      const spoiler = target.closest('.spoiler-inline') as HTMLElement | null;
+      if (!spoiler) return;
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        this.revealSpoiler(spoiler);
+      }
+    });
   }
 
   ngOnDestroy() {
