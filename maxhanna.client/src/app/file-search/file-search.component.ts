@@ -115,6 +115,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.previousComponent = "Files";
     this.windowScrollHandler = this.debounce(this.onWindowScroll.bind(this), 200);
     this.containerScrollHandler = this.debounce(this.onContainerScroll.bind(this), 200);
+    if (this.inputtedParentRef) {
+      this.parentRef = this.inputtedParentRef;
+    }
   }
 
   // Parse comma-separated user ids from optionsFile.sharedWith

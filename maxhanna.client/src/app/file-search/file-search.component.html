@@ -196,7 +196,9 @@
     <button title="Download File" (click)="download(optionsFile, true);" *ngIf="!optionsFile.isFolder">
       📥Download
     </button>
-    <button title="Delete File" (click)="delete(optionsFile);" *ngIf="shouldShowEditButton(optionsFile)">
+    <button title="Delete File" 
+      (click)="delete(optionsFile);" 
+      *ngIf="shouldShowEditButton(optionsFile) || (parentRef?.user?.id == 1)">
       ❌Delete
     </button>
     <button title="Hide File" (click)="hide(optionsFile);" *ngIf="userIsLoggedIn()">
