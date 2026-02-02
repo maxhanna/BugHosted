@@ -1419,6 +1419,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         this.pollResults = res;
         this.pollChecked = true;
         this.pollQuestion = pollQuestion;
+        // Render results immediately in-place so users see results instead of clickable options
+        this.renderPollResultsInDom(componentId ?? initialComponentId ?? '', res, pollQuestion);
         this.changeDetectorRef.detectChanges();
         this.showOverlay();
       } catch (error) {
@@ -1486,6 +1488,37 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     this.pollResults = null;
     this.pollQuestion = '';
     this.closeOverlay();
+  }
+
+  // Render poll results inline inside the poll container (replaces interactive options)
+  private renderPollResultsInDom(componentId: string, results: any, question: string) {
+    try {
+      if (!componentId || !results) return;
+      const container = document.getElementById(componentId);
+      if (!container) return;
+
+      let pollHtml = `<div class="poll-container" data-component-id="${componentId}">` +
+        `<div class="poll-question">${this.escapeHtml(question || '')}</div><div class="poll-options">`;
+
+      const total = results.totalVoters ?? 0;
+      (results.options || []).forEach((option: any, index: number) => {
+        const voteCount = option.voteCount ?? 0;
+        const percentage = total > 0 ? Math.round((voteCount / total) * 100) : 0;
+        pollHtml += `
+          <div class="poll-option">
+            <div class="option-text">${this.escapeHtml(option.value ?? '')}</div>
+            <div class="poll-result">
+              <div class="poll-bar" style="width: ${percentage}%"></div>
+              <span class="poll-stats">${voteCount} votes (${percentage}%)</span>
+            </div>
+          </div>`;
+      });
+
+      pollHtml += `</div><div class="poll-total">Total Votes: ${total}</div></div>`;
+      container.innerHTML = pollHtml;
+    } catch (err) {
+      console.error('Error rendering poll results in DOM', err);
+    }
   }
 
   private escapeHtml(input: string): string {
