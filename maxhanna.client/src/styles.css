@@ -868,8 +868,6 @@ fieldset {
   color: var(--secondary-font-color);
 }
 
-
-
 .option-row {
   display: flex;
   justify-content: space-between;
