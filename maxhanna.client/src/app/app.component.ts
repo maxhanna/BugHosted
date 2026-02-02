@@ -295,6 +295,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   pollChecked = false;
   pollQuestion = "";
   pollResults: any = null;
+  private isPollLoading = false;
   isShowingUserTagPopup = false;
   isShowingSecurityPopup = false;
   popupUserTagUser?: User;
@@ -1338,7 +1339,30 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   }
 
   async handlePollCheckClicked() {
+    if (this.isPollLoading) return;
     clearTimeout(this.debounceTimer);
+    // mark loading immediately and disable UI for the relevant poll
+    this.isPollLoading = true;
+    // attempt to read componentId from hidden input right away to disable only that poll
+    const initialComponentId = (document.getElementById("pollComponentId") as HTMLInputElement)?.value ?? '';
+    if (initialComponentId) {
+      const container = document.getElementById(initialComponentId);
+      if (container) {
+        container.querySelectorAll('input, button, label').forEach((el: Element) => {
+          try {
+            if (el instanceof HTMLInputElement || el instanceof HTMLButtonElement) {
+              (el as HTMLInputElement | HTMLButtonElement).disabled = true;
+            } else if (el instanceof HTMLLabelElement) {
+              (el as HTMLElement).style.pointerEvents = 'none';
+            } else {
+              (el as HTMLElement).style.pointerEvents = 'none';
+            }
+            (el as HTMLElement).classList.add('poll-disabled-by-loading');
+          } catch (e) { }
+        });
+      }
+    }
+
     this.debounceTimer = setTimeout(async () => {
       // Read basic hidden inputs
       const pollCheckIdElement = document.getElementById("pollCheckId") as HTMLInputElement | null;
@@ -1400,6 +1424,27 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       } catch (error) {
         console.error("Error updating poll:", error);
         alert("Failed to update poll. Please try again.");
+      } finally {
+        // re-enable the poll UI that we disabled earlier
+        const finishedComponentId = (document.getElementById("pollComponentId") as HTMLInputElement)?.value ?? initialComponentId ?? '';
+        if (finishedComponentId) {
+          const container = document.getElementById(finishedComponentId);
+          if (container) {
+            container.querySelectorAll('input, button, label').forEach((el: Element) => {
+              try {
+                if (el instanceof HTMLInputElement || el instanceof HTMLButtonElement) {
+                  (el as HTMLInputElement | HTMLButtonElement).disabled = false;
+                } else if (el instanceof HTMLLabelElement) {
+                  (el as HTMLElement).style.pointerEvents = '';
+                } else {
+                  (el as HTMLElement).style.pointerEvents = '';
+                }
+                (el as HTMLElement).classList.remove('poll-disabled-by-loading');
+              } catch (e) { }
+            });
+          }
+        }
+        this.isPollLoading = false;
       }
     }, 100);
   }
