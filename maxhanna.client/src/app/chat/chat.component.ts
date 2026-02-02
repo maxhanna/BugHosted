@@ -488,9 +488,11 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
             // Use checkbox inputs (same markup & id conventions as SocialComponent) wired to global hidden inputs
             html += `
               <div class="poll-option">
-                <input type="checkbox" value="${escapedOpt}" id="${inputId}" name="${inputId}"
-q                  onClick="document.getElementById('pollCheckId').value='${inputId}';document.getElementById('pollValue').value='${escapedOpt}';document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckClickedButton').click()">
-                <label for="${inputId}" onclick="document.getElementById('pollCheckId').value='${inputId}';document.getElementById('pollValue').value='${escapedOpt}';document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckClickedButton').click()">${optText}</label>
+                <div class="poll-option-interactive">
+                  <input type="checkbox" value="${escapedOpt}" id="${inputId}" name="${inputId}"
+                    onClick="document.getElementById('pollCheckId').value='${inputId}';document.getElementById('pollValue').value='${escapedOpt}';document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckClickedButton').click()">
+                  <label for="${inputId}" onclick="document.getElementById('pollCheckId').value='${inputId}';document.getElementById('pollValue').value='${escapedOpt}';document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckClickedButton').click()">${optText}</label>
+                </div>
               </div>`;
           }
           html += `</div>`;
@@ -541,7 +543,39 @@ q                  onClick="document.getElementById('pollCheckId').value='${inpu
         }
 
         html += '</div>';
-        tgt.innerHTML = html;
+        let _usedBuilder = false;
+        if (this.parentRef && typeof this.parentRef.buildPollHtmlFromPollObject === 'function') {
+          try {
+            tgt.innerHTML = this.parentRef.buildPollHtmlFromPollObject(poll, poll.componentId);
+            _usedBuilder = true;
+          } catch (err) {
+            console.error('Error building poll HTML from parent builder', err);
+            tgt.innerHTML = html;
+            _usedBuilder = false;
+          }
+        } else {
+          tgt.innerHTML = html;
+        }
+
+        if (_usedBuilder) {
+          if (poll.userVotes && poll.userVotes.length) {
+            let votersHtml = `<div class="poll-voters">Voted: `;
+            const voters: string[] = [];
+            for (const v of poll.userVotes) {
+              try {
+                const uname = v.username || v.Username || (v.user && v.user.username) || '';
+                if (!uname) continue;
+                const safeName = ('' + uname).replace(/'/g, "");
+                voters.push(`<span class=\"userMentionSpan\" onClick=\"document.getElementById('userMentionInput').value='${safeName}';document.getElementById('userMentionButton').click()\">@${safeName}</span>`);
+              } catch { continue; }
+            }
+            votersHtml += voters.join(' ') + `</div>`;
+            tgt.insertAdjacentHTML('beforeend', votersHtml);
+          }
+          if (hasCurrentUserVoted) {
+            tgt.insertAdjacentHTML('beforeend', `<div class="pollControls"><button onclick="document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click();">Delete vote</button></div>`);
+          }
+        }
       } catch (ex) {
         console.warn('Error updating chat poll for', poll.componentId, ex);
         continue;

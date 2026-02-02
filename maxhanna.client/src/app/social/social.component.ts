@@ -403,17 +403,16 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
           const componentId = poll.componentId;
           const pollContainer = document.getElementById(componentId);
           if (!pollContainer) return;
-          let pollHtml = `<div class="poll-container" data-component-id="${componentId}">`+
-            `<div class=\"poll-question\">${poll.question}</div><div class=\"poll-options\">`;
-          poll.options.forEach((option, index) => {
-            const percentage = option.percentage;
-            const voteCount = option.voteCount;
-            const pollId = `poll_${componentId}_${index}`;
-            pollHtml += `
-              <div class=\"poll-option\">\n\n\t<input type=\"checkbox\" value=\"${option.text}\" id=\"poll-option-${pollId}\" name=\"poll-options-${pollId}\" onClick=\"document.getElementById('pollValue').value='${option.text}';document.getElementById('pollCheckId').value='poll-option-${pollId}';document.getElementById('pollQuestion').value='${poll.question}';document.getElementById('pollComponentId').value='${componentId}';document.getElementById('pollCheckClickedButton').click()\">\n\t<label for=\"poll-option-${pollId}\" onClick=\"document.getElementById('pollValue').value='${option.text}';document.getElementById('pollCheckId').value='poll-option-${pollId}';document.getElementById('pollQuestion').value='${poll.question}';document.getElementById('pollComponentId').value='${componentId}';document.getElementById('pollCheckClickedButton').click()\">${option.text}</label>\n\t<div class=\"poll-result\">\n\t  <div class=\"poll-bar\" style=\"width: ${percentage}%\"></div>\n\t  <span class=\"poll-stats\">${voteCount} votes (${percentage}%)</span>\n\t</div>\n\t</div>`;
-          });
-          pollHtml += `</div><div class=\"poll-total\">Total Votes: ${poll.totalVotes}</div></div>`;
-          pollContainer.innerHTML = pollHtml;
+          if (this.parentRef && typeof this.parentRef.buildPollHtmlFromPollObject === 'function') {
+            try {
+              pollContainer.innerHTML = this.parentRef.buildPollHtmlFromPollObject(poll, componentId);
+            } catch (e) {
+              console.error('Error building poll HTML from parent builder', e);
+            }
+          } else {
+            // Fallback: empty to avoid throwing if parentRef not available
+            pollContainer.innerHTML = '';
+          }
         });
       });
     }, delayMs);
