@@ -474,87 +474,50 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           }
         } catch { hasCurrentUserVoted = false; }
 
-        let html = `<div class="poll-container" data-component-id="${poll.componentId}" onClick="document.getElementById('pollQuestion').value='${safeQuestion}';">`;
-        html += `<div class="poll-question">${poll.question}</div>`;
-
-        // If the current user hasn't voted, show only voting controls (options) without results
-        if (!hasCurrentUserVoted) {
-          html += `<div class="poll-options">`;
-          for (const [i, opt] of (poll.options || []).entries()) {
-            const optText = (opt && (opt.text || opt.Text || opt.value || opt.Value || opt)) ?? '';
-            const escapedOpt = ('' + optText).replace(/'/g, "");
-            const pollId = `poll_${poll.componentId}_${i}`;
-            const inputId = `poll-option-${pollId}`;
-            // Use checkbox inputs (same markup & id conventions as SocialComponent) wired to global hidden inputs
-            html += `
-              <div class="poll-option">
-                <div class="poll-option-interactive">
-                  <input type="checkbox" value="${escapedOpt}" id="${inputId}" name="${inputId}"
-                    onClick="document.getElementById('pollCheckId').value='${inputId}';document.getElementById('pollValue').value='${escapedOpt}';document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckClickedButton').click()">
-                  <label for="${inputId}" onclick="document.getElementById('pollCheckId').value='${inputId}';document.getElementById('pollValue').value='${escapedOpt}';document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckClickedButton').click()">${optText}</label>
-                </div>
-              </div>`;
-          }
-          html += `</div>`;
-          // Do not show totals, bars, or voter list when user hasn't voted
-        } else {
-          // User has voted: show results, totals and voters (existing behavior)
-          html += `<div class="poll-options">`;
-          const totalVotes = poll.totalVotes ?? poll.TotalVotes ?? (poll.userVotes ? poll.userVotes.length : 0);
-          for (const [i, opt] of (poll.options || []).entries()) {
-            const pct = opt.percentage ?? opt.Percentage ?? 0;
-            const votes = opt.voteCount ?? opt.VoteCount ?? 0;
-            const pollId = `poll_${poll.componentId}_${i}`;
-            const optText = (opt && (opt.text || opt.Text || opt.value || opt.Value || opt)) ?? '';
-            html += `
-            <div class="poll-option">
-              <div class="poll-option-text">${optText}</div>
-              <div class="poll-result">
-                <div class="poll-bar" style="width: ${pct}%"></div>
-                <span class="poll-stats">${votes} votes (${pct}%)</span>
-              </div>
-            </div>`;
-          }
-          html += `</div>`;
-
-          // Total votes
-          html += `<div class="poll-total">Total Votes: ${totalVotes}</div>`;
-
-          // Voter list (show who voted with @username links)
-          if (poll.userVotes && poll.userVotes.length) {
-            html += `<div class="poll-voters">Voted: `;
-            const voters = [] as string[];
-            for (const v of poll.userVotes) {
-              try {
-                const uname = v.username || v.Username || (v.user && v.user.username) || '';
-                if (!uname) continue;
-                const safeName = ('' + uname).replace(/'/g, "");
-                voters.push(`<span class=\"userMentionSpan\" onClick=\"document.getElementById('userMentionInput').value='${safeName}';document.getElementById('userMentionButton').click()\">@${safeName}</span>`);
-              } catch {
-                continue;
-              }
-            }
-            html += voters.join(' ');
-            html += `</div>`;
-          }
-
-          // Delete vote control if current user has voted
-          html += `<div class="pollControls"><button onclick="document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click();">Delete vote</button></div>`;
-        }
-
-        html += '</div>';
-        // Prefer centralized rendering from parent to avoid duplicating HTML logic
+        // Prefer centralized rendering from parent. If available, delegate full rendering and controls.
         if (this.parentRef && typeof this.parentRef.renderPollIntoElement === 'function') {
           try {
             this.parentRef.renderPollIntoElement(poll.componentId, poll, { includeVoters: true, includeDelete: hasCurrentUserVoted, safeQuestion: safeQuestion });
+            continue; // rendered, move to next poll
           } catch (e) {
             console.error('Error rendering poll via parent renderer', e);
-            tgt.innerHTML = html;
+            // fallthrough to fallback rendering below
+          }
+        }
+
+        // Fallback: use parent's HTML builder if available, otherwise render a minimal container
+        let html = '';
+        if (this.parentRef && typeof this.parentRef.buildPollHtmlFromPollObject === 'function') {
+          try {
+            html = this.parentRef.buildPollHtmlFromPollObject(poll, poll.componentId);
+          } catch (e) {
+            console.error('Error building poll HTML from parent builder', e);
+            html = `<div class="poll-container" data-component-id="${poll.componentId}"><div class="poll-question">${poll.question}</div></div>`;
           }
         } else {
-          // fallback to existing built HTML
-          tgt.innerHTML = html;
+          html = `<div class="poll-container" data-component-id="${poll.componentId}"><div class="poll-question">${poll.question}</div></div>`;
         }
+
+        // Append voters list and delete control (chat-specific) when present
+        if (poll.userVotes && poll.userVotes.length) {
+          let votersHtml = `<div class="poll-voters">Voted: `;
+          const voters: string[] = [];
+          for (const v of poll.userVotes) {
+            try {
+              const uname = v.username || v.Username || (v.user && v.user.username) || '';
+              if (!uname) continue;
+              const safeName = ('' + uname).replace(/'/g, "");
+              voters.push(`<span class=\"userMentionSpan\" onClick=\"document.getElementById('userMentionInput').value='${safeName}';document.getElementById('userMentionButton').click()\">@${safeName}</span>`);
+            } catch { continue; }
+          }
+          votersHtml += voters.join(' ') + `</div>`;
+          html += votersHtml;
+        }
+        if (hasCurrentUserVoted) {
+          html += `<div class="pollControls"><button onclick="document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click();">Delete vote</button></div>`;
+        }
+
+        tgt.innerHTML = html;
       } catch (ex) {
         console.warn('Error updating chat poll for', poll.componentId, ex);
         continue;
