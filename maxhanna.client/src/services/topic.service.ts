@@ -9,7 +9,8 @@ import { TopicRank } from './datacontracts/topics/topic-rank';
 })
 export class TopicService {
   
-  topTopics?: TopicRank[] = undefined;
+  topStoryTopics?: TopicRank[] = undefined;
+  topFileTopics?: TopicRank[] = undefined;
   ignoredTopics?: Topic[] = undefined;
   favTopics?: Topic[] = undefined;
   
@@ -105,8 +106,8 @@ export class TopicService {
   }
   async getTopStoryTopics() {
     try {
-      if (this.topTopics) {
-        return this.topTopics;
+      if (this.topStoryTopics) {
+        return this.topStoryTopics;
       }
       const res = await fetch('/topic/gettopstorytopics', {
         method: 'GET',
@@ -118,8 +119,8 @@ export class TopicService {
       if (!res.ok) {
         throw new Error('Failed to get top topics');
       }
-      this.topTopics = await res.json() as TopicRank[]; 
-      return this.topTopics;
+      this.topStoryTopics = await res.json() as TopicRank[]; 
+      return this.topStoryTopics;
     } catch (error) {
       console.error('Error getting top topics:', error);
       return null;
@@ -173,8 +174,8 @@ export class TopicService {
   }
   async getTopFileTopics() {
     try {
-      if (this.topTopics) {
-        return this.topTopics;
+      if (this.topFileTopics) {
+        return this.topFileTopics;
       }
       const res = await fetch('/topic/gettopfiletopics', {
         method: 'GET',
@@ -186,8 +187,8 @@ export class TopicService {
       if (!res.ok) {
         throw new Error('Failed to get top file topics');
       }
-      this.topTopics = await res.json();
-      return this.topTopics;
+      this.topFileTopics = await res.json();
+      return this.topFileTopics;
     } catch (error) {
       console.error('Error getting top file topics:', error);
       return null;

@@ -16,7 +16,9 @@ import { TopicService } from '../../services/topic.service';
 export class FileComponent extends ChildComponent implements OnInit, OnDestroy {
   constructor(private fileService: FileService, private topicService: TopicService) {
     super(); 
-    this.topicService.getTopFileTopics().then(res => { if (res) { this.topTopics = res; } });
+    this.topicService.getTopFileTopics().then(
+      res => { if (res) { this.topTopics = res; } }
+    );
   }
   fS = "/"; 
   errorMessage: string | null = null;
