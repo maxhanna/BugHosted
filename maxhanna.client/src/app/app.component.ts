@@ -1657,6 +1657,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       alert("Failed to update poll. Please try again.");
     }
   }
+
   async handleUserMention() {
     const username = (document.getElementById('userMentionInput') as HTMLInputElement).value.trim();
     this.selectedUsername = username;

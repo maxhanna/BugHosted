@@ -793,6 +793,10 @@ fieldset {
   margin-bottom: 6px;
 }
 
+.poll-options {
+  width: 100%;
+}
+
 .poll-option {
   margin-bottom: 15px;
   display: flex;

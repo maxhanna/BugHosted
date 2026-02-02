@@ -474,50 +474,22 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           }
         } catch { hasCurrentUserVoted = false; }
 
-        // Prefer centralized rendering from parent. If available, delegate full rendering and controls.
-        if (this.parentRef && typeof this.parentRef.renderPollIntoElement === 'function') {
-          try {
+        // Delegate all poll rendering to the parent AppComponent to centralize behavior.
+        try {
+          if (this.parentRef && typeof this.parentRef.renderPollIntoElement === 'function') {
             this.parentRef.renderPollIntoElement(poll.componentId, poll, { includeVoters: true, includeDelete: hasCurrentUserVoted, safeQuestion: safeQuestion });
-            continue; // rendered, move to next poll
-          } catch (e) {
-            console.error('Error rendering poll via parent renderer', e);
-            // fallthrough to fallback rendering below
+          } else if (this.parentRef && typeof this.parentRef.buildPollHtmlFromPollObject === 'function') {
+            const html = this.parentRef.buildPollHtmlFromPollObject(poll, poll.componentId);
+            tgt.innerHTML = html;
+          } else {
+            // As a last resort, render minimal container (shouldn't happen if AppComponent is present)
+            tgt.innerHTML = `<div class="poll-container" data-component-id="${poll.componentId}"><div class="poll-question">${poll.question}</div></div>`;
           }
+          continue;
+        } catch (e) {
+          console.error('Error delegating poll render to parent', e);
+          continue;
         }
-
-        // Fallback: use parent's HTML builder if available, otherwise render a minimal container
-        let html = '';
-        if (this.parentRef && typeof this.parentRef.buildPollHtmlFromPollObject === 'function') {
-          try {
-            html = this.parentRef.buildPollHtmlFromPollObject(poll, poll.componentId);
-          } catch (e) {
-            console.error('Error building poll HTML from parent builder', e);
-            html = `<div class="poll-container" data-component-id="${poll.componentId}"><div class="poll-question">${poll.question}</div></div>`;
-          }
-        } else {
-          html = `<div class="poll-container" data-component-id="${poll.componentId}"><div class="poll-question">${poll.question}</div></div>`;
-        }
-
-        // Append voters list and delete control (chat-specific) when present
-        if (poll.userVotes && poll.userVotes.length) {
-          let votersHtml = `<div class="poll-voters">Voted: `;
-          const voters: string[] = [];
-          for (const v of poll.userVotes) {
-            try {
-              const uname = v.username || v.Username || (v.user && v.user.username) || '';
-              if (!uname) continue;
-              const safeName = ('' + uname).replace(/'/g, "");
-              voters.push(`<span class=\"userMentionSpan\" onClick=\"document.getElementById('userMentionInput').value='${safeName}';document.getElementById('userMentionButton').click()\">@${safeName}</span>`);
-            } catch { continue; }
-          }
-          votersHtml += voters.join(' ') + `</div>`;
-          html += votersHtml;
-        }
-        if (hasCurrentUserVoted) {
-          html += `<div class="pollControls"><button onclick="document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click();">Delete vote</button></div>`;
-        }
-
-        tgt.innerHTML = html;
       } catch (ex) {
         console.warn('Error updating chat poll for', poll.componentId, ex);
         continue;
