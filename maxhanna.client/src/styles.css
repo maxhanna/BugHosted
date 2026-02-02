@@ -787,21 +787,25 @@ fieldset {
   font-size: x-large;
   color: var(--secondary-font-color);
 }
-.poll-option-text { 
-  width: 300px;
-} 
+.poll-option-text {
+  /* allow option text to size naturally; occupying full width above the bar */
+  width: 100%;
+  margin-bottom: 6px;
+}
 
 .poll-option {
   margin-bottom: 15px;
   display: flex;
+  flex-direction: column; /* stack text above the bar */
   width: 100%;
   align-items: stretch;
-  align-content: space-between;
-  justify-content: space-between;
 }
 
 .poll-result {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .poll-option:hover {
@@ -818,21 +822,25 @@ fieldset {
   cursor: pointer;
 }
 
-.poll-error {
-  color: red;
-  font-style: italic;
-}
-
-.commentContent .poll-option {
-  margin-bottom: unset !important;
-  align-items: center !important;
-}
-
-.poll-bar {
-  background: linear-gradient(135deg, var(--main-link-color), var(--secondary-component-background-color));
-}
-
 .poll-stats {
+  /* show stats next to or below the bar depending on space */
+  position: relative;
+  font-size: 12px;
+  color: var(--secondary-font-color);
+  margin-top: 2px;
+}
+.poll-bar,
+.poll-bar-empty {
+  border-radius: 5px;
+  transition: width 0.3s ease;
+  display: block;
+  /* allow width to be controlled by inline percentage styles; ensure it can fill container */
+  min-width: 0;
+  max-width: 100%;
+  height: 14px;
+  text-align: left;
+  color: var(--secondary-font-color);
+}
   position: absolute;
 }
 
