@@ -299,6 +299,19 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     });
   }
 
+  // Return true if the provided birthday (Date or parsable string) falls on today's month/day
+  isBirthdayToday(birthday?: string | Date | null): boolean {
+    if (!birthday) return false;
+    try {
+      const b = new Date(birthday as any);
+      if (isNaN(b.getTime())) return false;
+      const today = new Date();
+      return b.getDate() === today.getDate() && b.getMonth() === today.getMonth();
+    } catch (e) {
+      return false;
+    }
+  }
+
   private async changeTheme() {
     // First reset to default settings
     this.resetToDefaultTheme();

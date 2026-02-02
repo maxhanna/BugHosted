@@ -1305,19 +1305,21 @@ namespace maxhanna.Server.Controllers
         conn.Open();
 
         string checkUserSql = $@"
-                    INSERT INTO maxhanna.user_about (user_id, description, birthday, phone, email, currency, is_email_public)
-                    VALUES (@userId, @description, @birthday, @phone, @email, @currency, @is_email_public)
-                    ON DUPLICATE KEY UPDATE 
-                        description = VALUES(description),
-                        birthday = VALUES(birthday),
-                        phone = VALUES(phone),
-                        email = VALUES(email),
-                        is_email_public = VALUES(is_email_public),
-                        currency = VALUES(currency);
-                ";
+          INSERT INTO maxhanna.user_about (user_id, description, birthday, phone, email, currency, website, is_email_public)
+          VALUES (@userId, @description, @birthday, @phone, @email, @currency, @website, @is_email_public)
+          ON DUPLICATE KEY UPDATE 
+              description = VALUES(description),
+              website = VALUES(website),
+              birthday = VALUES(birthday),
+              phone = VALUES(phone),
+              email = VALUES(email),
+              is_email_public = VALUES(is_email_public),
+              currency = VALUES(currency);
+        ";
         MySqlCommand checkUserCmd = new MySqlCommand(checkUserSql, conn);
         checkUserCmd.Parameters.AddWithValue("@userId", request.UserId);
         checkUserCmd.Parameters.AddWithValue("@description", request.About.Description);
+        checkUserCmd.Parameters.AddWithValue("@website", request.About.Website);
         checkUserCmd.Parameters.AddWithValue("@birthday", request.About.Birthday);
         checkUserCmd.Parameters.AddWithValue("@phone", request.About.Phone);
         checkUserCmd.Parameters.AddWithValue("@email", request.About.Email);
