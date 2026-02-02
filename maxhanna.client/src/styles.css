@@ -860,6 +860,8 @@ fieldset {
   display: block;
   /* allow width to be controlled by inline percentage styles; ensure it can fill container */
   min-width: 0;
+  /* Ensure a tiny visible indicator even when percentage rounds to 0% (helps in narrow/story containers) */
+  min-width: 6px;
   max-width: 100%;
   height: 14px;
   text-align: left;
