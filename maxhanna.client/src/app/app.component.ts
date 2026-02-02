@@ -974,10 +974,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       let pollHtml: string = `<div class="poll-container"><div class="poll-question">${question}</div><div class="poll-options">`;
       let hasVoted = false;
       options.forEach((option: string, index: number) => {
-        if (!option.includes("votes, ")) {
+          if (!option.includes("votes, ")) {
           const escOption = ('' + option).replace(/'/g, "");
+          // mark interactive options with an extra class so we can layout checkbox next to text
           pollHtml += `
-            <div class="poll-option">
+            <div class="poll-option poll-option-interactive">
                 <input type="checkbox" value="${option}" id="poll-option-${pollId}-${index}" name="poll-options-${pollId}" onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}-${index}';document.getElementById('pollValue').value='${escOption}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${normalizedComponentId}';document.getElementById('pollCheckClickedButton').click()">
                 <label for="poll-option-${pollId}-${index}" onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}-${index}';document.getElementById('pollValue').value='${escOption}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${normalizedComponentId}';document.getElementById('pollCheckClickedButton').click()">${option}</label>
             </div>
@@ -1562,7 +1563,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           options.forEach((opt, idx) => {
             const pollId = `poll_${componentId}_${idx}`;
             const escOpt = ('' + opt).replace(/'/g, "");
-            pollHtml += `\n  <div class="poll-option">\n    <input type="checkbox" value="${this.escapeHtml(opt)}" id="poll-option-${pollId}" name="poll-options-${pollId}" onClick="document.getElementById('pollValue').value='${escOpt}';document.getElementById('pollCheckId').value='poll-option-${pollId}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${componentId}';document.getElementById('pollCheckClickedButton').click()">\n    <label for="poll-option-${pollId}" onClick="document.getElementById('pollValue').value='${escOpt}';document.getElementById('pollCheckId').value='poll-option-${pollId}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${componentId}';document.getElementById('pollCheckClickedButton').click()">${this.escapeHtml(opt)}</label>\n  </div>`;
+            pollHtml += `\n  <div class="poll-option poll-option-interactive">\n    <input type="checkbox" value="${this.escapeHtml(opt)}" id="poll-option-${pollId}" name="poll-options-${pollId}" onClick="document.getElementById('pollValue').value='${escOpt}';document.getElementById('pollCheckId').value='poll-option-${pollId}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${componentId}';document.getElementById('pollCheckClickedButton').click()">\n    <label for="poll-option-${pollId}" onClick="document.getElementById('pollValue').value='${escOpt}';document.getElementById('pollCheckId').value='poll-option-${pollId}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${componentId}';document.getElementById('pollCheckClickedButton').click()">${this.escapeHtml(opt)}</label>\n  </div>`;
           });
 
           pollHtml += `</div>`;
