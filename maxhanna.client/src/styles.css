@@ -858,8 +858,6 @@ fieldset {
   border-radius: 5px;
   transition: width 0.3s ease;
   display: block;
-  /* allow width to be controlled by inline percentage styles; ensure it can fill container */
-  min-width: 0;
   /* Ensure a tiny visible indicator even when percentage rounds to 0% (helps in narrow/story containers) */
   min-width: 6px;
   max-width: 100%;
