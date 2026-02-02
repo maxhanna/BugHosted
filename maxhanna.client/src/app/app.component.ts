@@ -1551,6 +1551,43 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     return html;
   }
 
+  // Render a poll object into the DOM element with id == componentId.
+  // options: { includeVoters?: boolean, includeDelete?: boolean, safeQuestion?: string }
+  public renderPollIntoElement(componentId: string, poll: any, options?: any): void {
+    try {
+      if (!componentId || !poll) return;
+      const container = document.getElementById(componentId);
+      if (!container) return;
+
+      const html = this.buildPollHtmlFromPollObject(poll, componentId);
+      container.innerHTML = html;
+
+      // Append voter list if requested
+      if (options?.includeVoters && poll.userVotes && poll.userVotes.length) {
+        let votersHtml = `<div class="poll-voters">Voted: `;
+        const voters: string[] = [];
+        for (const v of poll.userVotes) {
+          try {
+            const uname = v.username || v.Username || (v.user && v.user.username) || '';
+            if (!uname) continue;
+            const safeName = ('' + uname).replace(/'/g, "");
+            voters.push(`<span class=\"userMentionSpan\" onClick=\"document.getElementById('userMentionInput').value='${safeName}';document.getElementById('userMentionButton').click()\">@${safeName}</span>`);
+          } catch { continue; }
+        }
+        votersHtml += voters.join(' ') + `</div>`;
+        container.insertAdjacentHTML('beforeend', votersHtml);
+      }
+
+      // Append delete control if requested
+      if (options?.includeDelete) {
+        const safeQuestion = options?.safeQuestion ?? '';
+        container.insertAdjacentHTML('beforeend', `<div class="pollControls"><button onclick="document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${componentId}';document.getElementById('pollDeleteButton').click();">Delete vote</button></div>`);
+      }
+    } catch (err) {
+      console.error('Error in renderPollIntoElement', err);
+    }
+  }
+
   private escapeHtml(input: string): string {
     return input?.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')?.replace(/"/g, '&quot;') || '';
   }

@@ -543,38 +543,17 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         }
 
         html += '</div>';
-        let _usedBuilder = false;
-        if (this.parentRef && typeof this.parentRef.buildPollHtmlFromPollObject === 'function') {
+        // Prefer centralized rendering from parent to avoid duplicating HTML logic
+        if (this.parentRef && typeof this.parentRef.renderPollIntoElement === 'function') {
           try {
-            tgt.innerHTML = this.parentRef.buildPollHtmlFromPollObject(poll, poll.componentId);
-            _usedBuilder = true;
-          } catch (err) {
-            console.error('Error building poll HTML from parent builder', err);
+            this.parentRef.renderPollIntoElement(poll.componentId, poll, { includeVoters: true, includeDelete: hasCurrentUserVoted, safeQuestion: safeQuestion });
+          } catch (e) {
+            console.error('Error rendering poll via parent renderer', e);
             tgt.innerHTML = html;
-            _usedBuilder = false;
           }
         } else {
+          // fallback to existing built HTML
           tgt.innerHTML = html;
-        }
-
-        if (_usedBuilder) {
-          if (poll.userVotes && poll.userVotes.length) {
-            let votersHtml = `<div class="poll-voters">Voted: `;
-            const voters: string[] = [];
-            for (const v of poll.userVotes) {
-              try {
-                const uname = v.username || v.Username || (v.user && v.user.username) || '';
-                if (!uname) continue;
-                const safeName = ('' + uname).replace(/'/g, "");
-                voters.push(`<span class=\"userMentionSpan\" onClick=\"document.getElementById('userMentionInput').value='${safeName}';document.getElementById('userMentionButton').click()\">@${safeName}</span>`);
-              } catch { continue; }
-            }
-            votersHtml += voters.join(' ') + `</div>`;
-            tgt.insertAdjacentHTML('beforeend', votersHtml);
-          }
-          if (hasCurrentUserVoted) {
-            tgt.insertAdjacentHTML('beforeend', `<div class="pollControls"><button onclick="document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click();">Delete vote</button></div>`);
-          }
         }
       } catch (ex) {
         console.warn('Error updating chat poll for', poll.componentId, ex);
