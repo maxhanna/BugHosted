@@ -8,7 +8,6 @@ import { TopicRank } from './datacontracts/topics/topic-rank';
   providedIn: 'root'
 })
 export class TopicService {
-  
   topStoryTopics?: TopicRank[] = undefined;
   topFileTopics?: TopicRank[] = undefined;
   ignoredTopics?: Topic[] = undefined;
