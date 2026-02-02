@@ -841,8 +841,6 @@ fieldset {
   text-align: left;
   color: var(--secondary-font-color);
 }
-  position: absolute;
-}
 
 .poll-bar,
 .poll-bar-empty {
