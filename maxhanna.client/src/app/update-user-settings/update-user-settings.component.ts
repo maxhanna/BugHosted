@@ -412,10 +412,16 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     return this.parentRef!.userSelectedNavigationItems.some(x => x.title == title) || this.inputtedParentRef?.userSelectedNavigationItems.some(x => x.title == title);
   }
 
-  formatDate(date?: Date): string {
-    if (!date || !(date instanceof Date)) return ''; // Handle null or undefined cases
-    const isoDate = date.toISOString(); // Convert date to ISO string
-    return isoDate.substring(0, 10); // Extract YYYY-MM-DD part
+  formatDate(date?: Date | string | null): string {
+    if (!date) return '';
+    let d: Date;
+    if (date instanceof Date) {
+      d = date;
+    } else {
+      d = new Date(date);
+    }
+    if (isNaN(d.getTime())) return '';
+    return d.toISOString().substring(0, 10);
   }
   menuInformationZoom(id: string) {
     if (document.getElementById(id) && this.parentRef) {
