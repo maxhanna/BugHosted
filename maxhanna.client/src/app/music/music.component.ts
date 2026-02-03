@@ -375,6 +375,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     const user = this.user ?? this.parentRef?.user;
     if (!user?.id) return;
 
+    this.startLoading();
     if (!search) {
       await this.getSongList();
     } else {
@@ -386,6 +387,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.updatePaginatedSongs();
     }
     this.reorderTable(undefined, this.orderSelect?.nativeElement.value || 'Newest');
+    this.stopLoading();
   }
 
   updatePaginatedSongs() {
