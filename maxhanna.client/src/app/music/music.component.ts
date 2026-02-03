@@ -814,10 +814,39 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
   async selectYoutubeVideoEvent(video: any) {
     this.urlInput.nativeElement.value = video.url;
-    this.titleInput.nativeElement.value = video.title;
+    this.titleInput.nativeElement.value = this.unescapeYoutubeTitle(video.title);
     await this.addSong();
     this.closeYoutubeSearch();
     this.cdr.markForCheck();
+  }
+
+  // Unescape common YouTube-escaped sequences (e.g. "\\u0026") then decode HTML entities
+  private unescapeYoutubeTitle(input?: string): string {
+    if (!input) return '';
+    try {
+      // Convert literal \uXXXX sequences to characters
+      const unicodeFixed = input.replace(/\\u([0-9a-fA-F]{4})/g, (_m, g1) => String.fromCharCode(parseInt(g1, 16)));
+      // Convert any remaining escaped slashes or quotes
+      const simpleUnescaped = unicodeFixed.replace(/\\([\\"\/bfnrt])/g, (_m, g1) => {
+        switch (g1) {
+          case '\\': return '\\';
+          case '"': return '"';
+          case '/': return '/';
+          case 'b': return '\b';
+          case 'f': return '\f';
+          case 'n': return '\n';
+          case 'r': return '\r';
+          case 't': return '\t';
+          default: return g1;
+        }
+      });
+      // Decode HTML entities
+      const txt = document.createElement('textarea');
+      txt.innerHTML = simpleUnescaped;
+      return txt.value;
+    } catch (e) {
+      return input;
+    }
   }
   closeEditPopup(editSong = true) {
     clearTimeout(this.debounceTimer);

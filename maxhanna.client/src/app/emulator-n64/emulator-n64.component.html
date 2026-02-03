@@ -37,18 +37,19 @@
 </div>
 
 <div class="n64-emulator-root popupPanel" *ngIf="isMenuPanelVisible">
-  <div class="popupPanelTitle">N64 Emulation Menu</div>
+  <div class="popupPanelTitle">N64 Emulation</div>
 
   <div *ngIf="!showKeyMappings && !showControllerAssignments" class="menuAutosaveWrapper">
-    <app-file-upload
-      [currentDirectory]="'Roms'"
-      [user]="parentRef?.user!"
-      [inputtedParentRef]="parentRef"
-      [uploadButtonText]="'Upload Rom(s)'"
-      [maxSelectedFiles]="100"
-      [allowedFileTypes]="getAllowedRomFileTypesString()">
-    </app-file-upload>
-
+    <div style="width:100%; text-align: center; margin-bottom: 8px;">
+      <app-file-upload
+        [currentDirectory]="'Roms'"
+        [user]="parentRef?.user!"
+        [inputtedParentRef]="parentRef"
+        [uploadButtonText]="'Upload Rom(s)'"
+        [maxSelectedFiles]="100"
+        [allowedFileTypes]="getAllowedRomFileTypesString()">
+      </app-file-upload>
+    </div>
     <div style="text-align: center;">
       <div class="optionsStatsWrapperDiv">
         <div class="optionsStatsDiv">
