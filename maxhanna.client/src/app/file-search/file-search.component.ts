@@ -54,6 +54,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() showPicturesOnlyToggler: boolean = true;
   @Input() showVideosOnlyToggler: boolean = true;
   @Input() showNSFWToggler: boolean = true;
+  @Input() showHiddenFilesToggler: boolean = true;
   @Output() selectedForDeleteChange = new EventEmitter<number[]>();
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
@@ -438,6 +439,20 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
     if (user?.id) {
       this.userService.updateShowHiddenFiles(user.id, isChecked).then(res => {
+        if (res && res.toLowerCase().includes('successfully')) {
+          this.parentRef?.showNotification(res);
+        }
+      });
+    }
+    this.getDirectory();
+  }
+
+  toggleShowHiddenFilesButton() {
+    this.showHiddenFiles = !this.showHiddenFiles;
+    this.filter.hidden = this.showHiddenFiles ? 'all' : 'unhidden';
+    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    if (user?.id) {
+      this.userService.updateShowHiddenFiles(user.id, this.showHiddenFiles).then(res => {
         if (res && res.toLowerCase().includes('successfully')) {
           this.parentRef?.showNotification(res);
         }

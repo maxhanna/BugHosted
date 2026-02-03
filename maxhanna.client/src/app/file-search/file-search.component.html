@@ -4,11 +4,6 @@
   <span class="notificationTopButton" (click)="openSearchOptionsPanel();" *ngIf="showFileSearchOptions">⚙️</span>
 </div>
 
-<div *ngIf="isSearchOptionsPanelOpen" class="searchOptionsPanel">
-  <label *ngIf="user?.id">
-    <input type="checkbox" [checked]="showHiddenFiles" (change)="toggleShowHiddenFiles($event)" /> Show Hidden Files
-  </label>
-</div>
 
 
 <div *ngIf="showShareUserList" class="popupPanel" #shareUserListDiv>
@@ -476,6 +471,13 @@
         {{ showVideosOnly ? 'On' : 'Off' }}
       </button>
     </div> 
+
+    <div class="spaceAroundFlex" *ngIf="showHiddenFilesToggler && userIsLoggedIn()">
+      <span style="width:100%">Show hidden files?</span>
+      <button class="toggle-switch" (click)="toggleShowHiddenFilesButton()">
+        {{ showHiddenFiles ? 'On' : 'Off' }}
+      </button>
+    </div>
 
     <div class="spaceAroundFlex" *ngIf="showNSFWToggler && userIsLoggedIn()">
       <span style="width:100%">Show NSFW?</span>

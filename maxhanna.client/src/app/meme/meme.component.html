@@ -39,9 +39,6 @@
 <div class="popupPanel" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
     Meme Menu
-  </div> 
-  <div *ngIf="parentRef?.user?.id">
-    Show Hidden Files?: <input type="checkbox" [checked]="fileSearchComponent?.showHiddenFiles" (change)="fileSearchComponent.toggleShowHiddenFiles($event)" />
   </div>
   <div class="fileUploadInputs">
     <app-file-upload [currentDirectory]="'Meme'"
