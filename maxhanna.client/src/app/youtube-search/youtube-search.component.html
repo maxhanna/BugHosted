@@ -1,7 +1,7 @@
 <div class="youtube-popup-panel gradientBackground">
     <div class="stickySearchBar">
         <input #searchInput [value]="keyword" placeholder="Search YouTube..." class="searchInput" />
-        <button (click)="search()" class="searchButton">🔍 Search</button>
+        <button (click)="search()" class="searchButton" [disabled]="isLoading">🔍 Search</button>
     </div>
 
     <div *ngIf="isLoading" class="statusText">Loading...</div>
@@ -19,7 +19,13 @@
             <h3>{{ video.title | decodeHtml }}</h3>
             <p>{{ video.description }}</p>
             <div class="buttonRow">
-                <button (click)="selectVideo(video)" class="playlistButton" title="Add '{{video.title}}' to music playlist.">➕ Add to Music Playlist</button>
+                <button 
+                  (click)="selectVideo(video)" 
+                  class="playlistButton" 
+                  title="Add '{{video.title}}' to music playlist."
+                  [disabled]="isLoading">
+                  ➕ Add to Music Playlist
+                </button>
             </div>
             <a (click)="inputtedParentRef?.visitExternalLink(video.url)" class="thumbnailLink">
                 <img [src]="video.thumbnailUrl" alt="{{ video.title }}" class="videoThumbnail" />

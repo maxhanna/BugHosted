@@ -346,6 +346,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   async getSongList() {
+    this.startLoading();
     try {
       const parent = this.inputtedParentRef ?? this.parentRef;
       const user = this.user ?? parent?.user;
@@ -363,6 +364,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     } finally {
       this.updatePaginatedSongs();   // ensures new reference for paginatedSongs
       this.gotPlaylistEvent.emit([...this.songs]); // emit a new ref as well
+      this.stopLoading();
       this.cdr.markForCheck();
     }
   }
@@ -434,7 +436,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       alert("Invalid YouTube URL!");
       return;
     } 
-    
+    this.startLoading();
     let tmpTodo = new Todo();
     tmpTodo.type = "music";
     tmpTodo.url = url.trim();
@@ -451,10 +453,12 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.titleInput.nativeElement.value = '';
       this.urlInput.nativeElement.value = '';
     }
+    this.stopLoading();
   }
 
   async deleteSong(id: number) {
     if (!confirm("Deleting song. Are you sure?") || !this.parentRef?.user?.id) return;
+    this.startLoading();
     await this.todoService.deleteTodo(this.parentRef.user.id, id);
     const index = this.songs.findIndex(song => song.id === id);
     if (index !== -1) {
@@ -467,6 +471,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     }
     this.clearInputs();
     this.closeEditPopup(false);
+    this.stopLoading();
   }
 
   async selectType(type: 'youtube' | 'file' | 'radio') {
@@ -817,7 +822,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.parentRef?.closeOverlay(); 
     this.cdr.markForCheck(); 
   }
-  async selectYoutubeVideoEvent(video: any) {
+  async selectYoutubeVideoEvent(video: any) { 
     this.urlInput.nativeElement.value = video.url;
     this.titleInput.nativeElement.value = this.unescapeYoutubeTitle(video.title);
     await this.addSong();
@@ -934,6 +939,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
   // Radio Browser API methods
   async loadRadioData() {
+    this.startLoading();
     this.isLoadingRadio = true;
     try {
       // Load countries, languages, and tags
@@ -948,6 +954,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       console.error('Error loading radio data:', error);
     } finally {
       this.isLoadingRadio = false;
+      this.stopLoading();
       this.cdr.markForCheck();
     }
   }
@@ -965,11 +972,13 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   async fetchRadioStations() {
+    this.startLoading();
     this.isLoadingRadio = true;
     try {
       this.radioStations = await this.radioService.fetchStations(this.radioFilters);
     } finally {
       this.isLoadingRadio = false;
+      this.stopLoading();
     }
   }
 
@@ -979,12 +988,12 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.fetchRadioStations();
   }
 
-  playRadioStation(station: RadioStation) {
+  async playRadioStation(station: RadioStation) {
     if (!station || !station.url_resolved) {
       alert('Invalid radio station URL');
       return;
     }
-
+    this.startLoading();
     const iframeDiv = document.getElementById('iframeDiv');
     if (iframeDiv) {
       // Remove any existing instance we created
@@ -1014,10 +1023,12 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
     // Register click for popularity tracking
     if (station.stationuuid) {
-      this.radioService.registerStationClick(station.stationuuid);
+      await this.radioService.registerStationClick(station.stationuuid);
     }
 
     this.isMusicControlsDisplayed(true);
+    this.stopLoading();
+    this.cdr.markForCheck();
   }
   mediaViewerFinishedLoading() {
     this.cdr.markForCheck();

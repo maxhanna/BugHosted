@@ -1,11 +1,7 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild } from '@angular/core'; 
 import { CrawlerService } from '../../services/crawler.service';
 import { ChildComponent } from '../child.component';
-import { AppComponent } from '../app.component';
-import { DecodeHtmlPipe } from '../decode-html.pipe'; 
-
-
-
+import { AppComponent } from '../app.component'; 
   
 @Component({
   selector: 'app-youtube-search',
