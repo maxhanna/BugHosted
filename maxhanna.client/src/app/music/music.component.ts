@@ -869,9 +869,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       }
       if (this.hasEditedSong && editSong) {
         this.editSong(this.isEditing[0]);
-      } else {
-        this.isEditing = [];
       }
+      this.isEditing = [];
     }, 50);
   }
   scrollToTop() {
@@ -896,10 +895,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
   get isVisible(): boolean {
     return !!(this.songs && this.songs.length > 0 && this.isMusicPlaying);
-  }
-
-
-
+  } 
 
   private rebuildYTPlayer(firstId: string, songIds: string[], index: number) {
     if (!this.musicVideo?.nativeElement) return;
