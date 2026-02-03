@@ -423,6 +423,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     if (isNaN(d.getTime())) return '';
     return d.toISOString().substring(0, 10);
   }
+  
   menuInformationZoom(id: string) {
     if (document.getElementById(id) && this.parentRef) {
       const element = document.getElementById(id);

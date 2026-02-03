@@ -360,6 +360,15 @@
               </div>
             </div>
 
+            <div class="optionsStatsDiv" *ngIf="user?.about?.website">
+              <div class="optionsStatsHeader">
+                Website :
+              </div>
+              <div class="optionsStatsDescription">
+                <a [href]="user?.about?.website" (click)="visitLink(user?.about?.website)">{{user?.about?.website}}</a>
+              </div>
+            </div> 
+            
             <div class="optionsStatsDiv" *ngIf="user?.about?.birthday">
               <div class="optionsStatsHeader">
                 Birthday :
