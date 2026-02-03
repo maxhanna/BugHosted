@@ -557,3 +557,8 @@
 .profileHeaderWebsite a {    
   text-shadow: 1px 1px var(--component-background-color);
 }
+
+.userInfoHeaderLabel {
+  display:flex; 
+  gap: 10px;
+}
