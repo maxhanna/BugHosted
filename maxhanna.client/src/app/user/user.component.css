@@ -95,8 +95,7 @@
 }
 
 .profileHeaderUserDescription {
-  padding-bottom: 10px;
-  padding-top: 10px;
+  padding-bottom: 4px;
   max-width: 230px;
   text-overflow: ellipsis;
   overflow: hidden;

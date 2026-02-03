@@ -51,6 +51,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() currentPage = this.defaultCurrentPage;
   @Input() massDeleteMode: boolean = false;
   @Input() disabled = false;
+  @Input() showPicturesOnlyToggler: boolean = true;
+  @Input() showVideosOnlyToggler: boolean = true;
+  @Input() showNSFWToggler: boolean = true;
   @Output() selectedForDeleteChange = new EventEmitter<number[]>();
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
@@ -443,16 +446,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.getDirectory();
   }
 
-  updateNSFW(event: Event) {
+  toggleNSFW() {
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
     if (!user?.id) {
       alert('You must be logged in to view NSFW content.');
-      (event.target as HTMLInputElement).checked = false;
+      this.isDisplayingNSFW = false;
       return;
-    }
-    const isChecked = (event.target as HTMLInputElement).checked;
-    this.isDisplayingNSFW = isChecked;
-    this.userService.updateNSFW(user.id, isChecked).then(res => {
+    } 
+    this.isDisplayingNSFW = !this.isDisplayingNSFW;
+    this.userService.updateNSFW(user.id, this.isDisplayingNSFW).then(res => {
       if (res) {
         this.parentRef?.showNotification(res);
         this.reinitializePages();

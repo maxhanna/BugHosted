@@ -81,7 +81,7 @@ export class MemeComponent extends ChildComponent implements OnInit, OnDestroy  
   async updateNSFW(event: Event) {
     // Delegate to fileSearchComponent logic
     if (this.fileSearchComponent) {
-      this.fileSearchComponent.updateNSFW(event);
+      this.fileSearchComponent.toggleNSFW(event);
     }
   }
   onLoadMoreInView(isInView: boolean) {

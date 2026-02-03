@@ -4,10 +4,24 @@
   <div class="componentTitle" *ngIf="!isFullScreen"><span class="romNameTitle">{{selectedRomName ? getRomName() : 'Emulation'}}</span></div>
   <div class="gamesContainer{{ !selectedRomName ? ' expanded' : '' }}{{isLoading ? ' is-disabled' : ''}}"
     *ngIf="isSearchVisible">
-    <app-file-search [user]="parentRef?.user" [inputtedParentRef]="parentRef" [currentDirectory]="'Roms/'"
-      [clearAfterSelectFile]="true" [allowedFileTypes]="getAllowedFileTypes()" [showPrivatePublicOption]="false"
-      [showFileSearchOptions]="false" [canChangeDirectory]="false" [canDragMove]="false" [displayFileActions]="true"
-      [displayComments]="false" [displayFileSize]="false" [displayReactions]="false" [disabled]="isLoading"
+    <app-file-search 
+      [user]="parentRef?.user" 
+      [inputtedParentRef]="parentRef" 
+      [currentDirectory]="'Roms/'"
+      [clearAfterSelectFile]="true" 
+      [allowedFileTypes]="getAllowedFileTypes()"
+      [showPrivatePublicOption]="false"
+      [showFileSearchOptions]="false" 
+      [canChangeDirectory]="false" 
+      [canDragMove]="false"
+      [displayFileActions]="true"
+      [displayComments]="false" 
+      [displayFileSize]="false" 
+      [displayReactions]="false"
+      [disabled]="isLoading"
+      [showPicturesOnlyToggler]="false"
+      [showVideosOnlyToggler]="false"
+      [showNSFWToggler]="false"
       (selectFileEvent)="loadRom($event)">
     </app-file-search>
   </div>

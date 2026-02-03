@@ -463,19 +463,26 @@
       </button>
     </div>
 
-    <div class="spaceAroundFlex">
+    <div class="spaceAroundFlex" *ngIf="showPicturesOnlyToggler">
       <span style="width:100%">Show pictures only?</span>
       <button class="toggle-switch" (click)="showPicturesToggled()">
         {{ showPicturesOnly ? 'On' : 'Off' }}
       </button>
     </div>
 
-    <div class="spaceAroundFlex">
+    <div class="spaceAroundFlex" *ngIf="showVideosOnlyToggler">
       <span style="width:100%">Show videos only?</span>
       <button class="toggle-switch" (click)="showVideosToggled()">
         {{ showVideosOnly ? 'On' : 'Off' }}
       </button>
     </div> 
+
+    <div class="spaceAroundFlex" *ngIf="showNSFWToggler && userIsLoggedIn()">
+      <span style="width:100%">Show NSFW?</span>
+      <button class="toggle-switch" (click)="toggleNSFW()">
+        {{ isDisplayingNSFW ? 'On' : 'Off' }}
+      </button>
+    </div>
   </div>
   
   <button class="closeButton" id="closeOverlay" (click)="closeSearchPanel()">Close</button> 
@@ -516,11 +523,7 @@
           </select>
         </label>
       </div>
-      <div *ngIf="userIsLoggedIn()">
-        <label>
-          Display NSFW?: <input type="checkbox" #nsfwCheckmark [checked]="isDisplayingNSFW" (click)="updateNSFW($event)" />
-        </label>
-      </div>
+      
     </div>
   </div> 
   <button id="closeOverlay" class="closeButton" (click)="closeSearchOptionsPanel()" style="margin-top:10px;">Close</button> 
