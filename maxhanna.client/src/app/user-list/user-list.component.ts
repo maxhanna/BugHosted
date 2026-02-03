@@ -96,8 +96,6 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
       const fsRes = await this.friendService.getFriends(user.id ?? 0);
       if (fsRes) {
         this.users = fsRes;
-        if (this.users.length == 0) { 
-        }
       } else {
         this.users = []; 
       }
@@ -129,6 +127,8 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
         this.users = [];
       }
     }
+    this.users = this.users.filter(u => u.username != "Unknown");
+    this.messageRows = this.messageRows.filter(m => m.sender.username != "Unknown");
     this.stopLoading();
   }
 

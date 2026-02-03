@@ -554,3 +554,7 @@
 .optionsStatsBreakdownValue {
   padding: 5px;
 }
+
+.profileHeaderWebsite a {    
+  text-shadow: 1px 1px var(--component-background-color);
+}
