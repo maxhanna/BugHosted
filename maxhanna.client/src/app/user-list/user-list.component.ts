@@ -5,11 +5,8 @@ import { ChatService } from '../../services/chat.service';
 import { ChildComponent } from '../child.component';
 import { User } from '../../services/datacontracts/user/user';
 import { AppComponent } from '../app.component';
-import { FriendService } from '../../services/friend.service';
-import { Pipe, PipeTransform } from '@angular/core';
-import { Message } from '../../services/datacontracts/chat/message';
-import { TimeSincePipe } from '../time-since.pipe';
-import { e } from '@angular/core/weak_ref.d-Bp6cSy-X';
+import { FriendService } from '../../services/friend.service'; 
+import { Message } from '../../services/datacontracts/chat/message'; 
 
 
 @Component({
