@@ -543,8 +543,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       console.log("YT API not ready, queuing play for url:", url);
       return;
     }
+    this.startLoading(); 
 
-    // FILE branch unchanged...
     if (fileId) {
       this.fileIdPlaying = fileId;
       setTimeout(async () => {
@@ -553,12 +553,12 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
           setTimeout(async () => {
             await this.fileMediaViewer.setFileSrcById(fileId);
             this.fileMediaViewer.unmuteAllMedia();
+            this.stopLoading();
             this.cdr.markForCheck();
           }, 50);
         }
       }, 10);
       console.log("Playing file with ID:", fileId);
-      this.cdr.markForCheck();
       return;
     }
 
@@ -576,6 +576,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.currentFileId = null;
     this.isMusicPlaying = true;
     this.isMusicControlsDisplayed(true);
+    this.stopLoading();
 
     console.log("rebuilt player with first:", firstId, "playlist length:", ids.length, "index:", index);
   }
