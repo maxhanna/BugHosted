@@ -57,7 +57,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   messaging?: any;
 
   @Input() inputtedParentRef?: AppComponent;
-  @Input() showOnlySelectableMenuItems? = true;
+  @Input() showOnlySelectableMenuItems? = false;
   @Input() showOnlyWeatherLocation? = false;
   @Input() showOnlyKrakenApiKeys? = false;
   @Input() showOnlyNicehashApiKeys? = false;

@@ -761,7 +761,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (title.toLowerCase() == "close menu") {
       this.toggleMenu();
     } else if (title == "UpdateUserSettings") {
-      this._parent.createComponent(title, { inputtedParentRef: this._parent, areSelectableMenuItemsExplained: true });
+      this._parent.createComponent(title, { inputtedParentRef: this._parent, areSelectableMenuItemsExplained: true, showOnlySelectableMenuItems: true });
     } else if (title.toLowerCase() != "help") {
       this._parent.createComponent(title);
     }
