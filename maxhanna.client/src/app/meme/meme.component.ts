@@ -77,13 +77,7 @@ export class MemeComponent extends ChildComponent implements OnInit, OnDestroy  
     this.closeMenuPanel();
     this.fileSearchComponent.searchTerms = "";
     this.fileSearchComponent.searchFiles(topic.topicName);
-  }
-  async updateNSFW(event: Event) {
-    // Delegate to fileSearchComponent logic
-    if (this.fileSearchComponent) {
-      this.fileSearchComponent.toggleNSFW(event);
-    }
-  }
+  } 
   onLoadMoreInView(isInView: boolean) {
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
