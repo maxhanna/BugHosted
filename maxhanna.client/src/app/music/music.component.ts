@@ -424,12 +424,17 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       alert("You must be logged in to add to the music list.");
       return;
     }
-    const url = this.extractYouTubeVideoId(this.urlInput.nativeElement.value);
     const title = this.titleInput.nativeElement.value;
-    if (((!url || url.trim() === "") && !this.selectedFile) || !title || title.trim() === "") {
-      alert("Title & URL/File cannot be empty!");
+    if (!title || title.trim() === "") {
+      alert("Title cannot be empty!");
       return;
     }
+    const url = this.extractYouTubeVideoId(this.urlInput.nativeElement.value);
+    if (!url || url.trim() === '' && !this.selectedFile) {
+      alert("Invalid YouTube URL!");
+      return;
+    } 
+    
     let tmpTodo = new Todo();
     tmpTodo.type = "music";
     tmpTodo.url = url.trim();
@@ -719,7 +724,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   extractYouTubeVideoId(url: string) {
     const youtubeRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
     const match = url.match(youtubeRegex);
-    return match && match[1] ? `https://www.youtube.com/watch?v=${match[1]}` : url;
+    return match && match[1] ? `https://www.youtube.com/watch?v=${match[1]}` : '';
   }
 
   onSearchEnter() {
