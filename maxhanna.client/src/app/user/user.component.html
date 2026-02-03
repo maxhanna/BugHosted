@@ -48,7 +48,7 @@
             {{user?.about?.description}}
           </div>
           <div class="profileHeaderUserDescription" *ngIf="user?.about?.birthday && isBirthdayToday(user?.about?.birthday)">
-            🎂 Birthday: {{ user?.about?.birthday | date: 'y/MM/d' }}
+            🎂 Birthday: {{ user?.about?.birthday | date: 'MM/d' }}
           </div>
           <div class="profileHeaderUserDescription profileHeaderWebsite" *ngIf="user?.about?.website">
             <a [href]="user?.about?.website" (click)="visitLink(user?.about?.website)">{{user?.about?.website}}</a>
@@ -374,7 +374,7 @@
                 Birthday :
               </div>
               <div class="optionsStatsDescription">
-                {{ user?.about?.birthday | date: 'y/MM/d' : 'UTC' }}
+                {{ user?.about?.birthday | date: 'MM/d' : 'UTC' }}
               </div>
             </div>
 
