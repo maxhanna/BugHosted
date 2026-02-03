@@ -214,11 +214,11 @@
     </div>
     <!-- LATEST MEME -->
     <div *ngIf="!user?.id && !loginOnly && !isLoading" class="memeAndWordlerWrapper" [class]="onMobile() ? 'gradientBackground':''">
-      <div *ngIf="latestMemeId">
+      <div *ngIf="latestMeme">
         <div class="popupPanelTitle" style="margin-top: 15px;">
           <app-menu-item [type]="'Meme'" [parentRef]="parentRef" [label]="'Latest Meme:'"></app-menu-item>
         </div>
-        <app-media-viewer [fileId]="latestMemeId" [inputtedParentRef]="parentRef"
+        <app-media-viewer [file]="latestMeme" [inputtedParentRef]="parentRef"
           [canScroll]="false"></app-media-viewer>
       </div>
       <div style="margin-top:20px;">

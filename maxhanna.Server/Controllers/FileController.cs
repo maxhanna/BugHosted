@@ -1630,8 +1630,8 @@ LIMIT
 			}
 		}
 
-		[HttpGet("/File/GetLatestMemeId", Name = "GetLatestMemeId")]
-		public async Task<IActionResult> GetLatestMemeId()
+		[HttpGet("/File/GetLatestMeme", Name = "GetLatestMeme")]
+		public async Task<IActionResult> GetLatestMeme()
 		{
 			try
 			{
@@ -1658,7 +1658,8 @@ LIMIT
 						if (result != null && result != DBNull.Value)
 						{
 							int latestId = Convert.ToInt32(result);
-							return Ok(latestId);
+							var fileEntry = new FileEntry(latestId);
+							return Ok(fileEntry);
 						}
 						return NotFound("No memes found");
 					}

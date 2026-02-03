@@ -118,7 +118,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   };
   latestSocialStoryId?: number = undefined;
   wordlerHighScores?: any = undefined;
-  latestMemeId?: number = undefined;
+  latestMeme?: FileEntry = undefined;
   changedTheme = false;
   private originalBackgroundColor: string | null = null;
   isDisplayPicturePanelOpen: boolean = false;
@@ -195,9 +195,9 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
           this.latestSocialStoryId = parseInt(lidRes);
         }
         this.wordlerHighScores = await this.wordlerService.getAllScores();
-        const lmRes = await this.fileService.getLatestMemeId();
+        const lmRes = await this.fileService.getLatestMeme();
         if (lmRes) {
-          this.latestMemeId = parseInt(lmRes);
+          this.latestMeme = lmRes as FileEntry;
         }
       } else {
         this.latestSocialStoryId = undefined;

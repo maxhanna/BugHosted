@@ -133,16 +133,27 @@ export class FileService {
 			return null;
 		}
 	}
-	async getLatestMemeId() {
+	async getLatestMeme(): Promise<FileEntry | null> {
 		try {
-			const response = await fetch(`/file/getlatestmemeid`, {
+			const response = await fetch(`/file/getlatestmeme`, {
 				method: 'GET',
 				headers: {
 					'Content-Type': 'application/json',
 				},
 			});
 
-			return await response.text();
+			if (!response.ok) return null;
+
+			const payload = await response.json();
+			if (!payload) return null;
+ 
+			// Expecting an object with an `id` property representing the file id
+			const id = payload.id ?? payload.Id;
+			if (!id) return null;
+
+			// Populate a FileEntry instance with returned properties
+			const entry = Object.assign(new FileEntry(id), payload) as FileEntry;
+			return entry;
 		} catch (error) {
 			return null;
 		}
