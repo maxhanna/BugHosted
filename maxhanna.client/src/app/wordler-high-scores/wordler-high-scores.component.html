@@ -15,29 +15,31 @@
                 <ng-container *ngIf="!isModeCollapsed(m)">
                     <ng-container *ngIf="groupedByMode[m] && (keys(groupedByMode[m]).length > 0); else emptyMode">
                         <div *ngFor="let group of groupedByMode[m] | keyvalue: keepOrder" class="difficulty-group">
-                            <h4 (click)="toggleGroup(m, group.key)" [class]="showUserHeader ? 'userPopupPanelTitle' : ''">
-                                {{ m === 'best' && +group.key === 999 ? 'Best (All Time)' : difficultyLabel(+group.key) }} ({{ group.value.length || 0 }})
-                                <span *ngIf="!showUserHeader" style="float:right; font-size:0.9em">{{ isGroupCollapsed(m, group.key) ? '+' : '−' }}</span>
-                            </h4>
-                            <table class="mainTable" *ngIf="!isGroupCollapsed(m, group.key)">
+                            <table class="mainTable">
                                 <thead>
                                     <tr>
-                                        <th>#</th>
+                                        <th style="width:40px">#</th>
+                                        <th>Difficulty</th>
                                         <th>User</th>
                                         <th>Score</th>
                                         <th>Time (s)</th>
                                         <th>Date</th>
+                                        <th style="width:40px">
+                                          <button class="smallToggle" (click)="toggleGroup(m, group.key)">{{ isGroupCollapsed(m, group.key) ? '+' : '−' }}</button>
+                                        </th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody *ngIf="!isGroupCollapsed(m, group.key)">
                                     <tr *ngFor="let s of group.value; let i = index">
                                         <td>{{ i + 1 }}</td>
+                                        <td>{{ m === 'best' && +group.key === 999 ? 'Best (All Time)' : difficultyLabel(+group.key) }}</td>
                                         <td>
                                             <app-user-tag [user]="s.user" [displayMiniTag]="true" [displayHoverPicture]="true" [inputtedParentRef]="inputtedParentRef"></app-user-tag>
                                         </td>
                                         <td>{{ s.score }}</td>
                                         <td>{{ s.time }}</td>
                                         <td>{{ s.submitted ? (s.submitted  | timeSince:'minute':true) : '-' }}</td>
+                                        <td></td>
                                     </tr>
                                 </tbody>
                             </table>
