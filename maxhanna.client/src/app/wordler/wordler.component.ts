@@ -328,7 +328,9 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     alert(`Congratulations, the Wordler has been defeated on ${this.getDifficultyByValue(this.selectedDifficulty)}! Time Elapsed: ${this.elapsedTime}`);
     let tmpScore: WordlerScore = { score: this.currentAttempt, user: this.parentRef?.user ?? new User(0, "Anonymous"), time: this.elapsedTime, difficulty: this.selectedDifficulty };
     await this.wordlerService.addScore(tmpScore);
-    await this.getHighScores();
+    await this.getHighScores(); 
+    this.updateWinStreaks();
+
     // If the high-scores child component is present, refresh it so the UI reflects the new score immediately
     try {
       this.todayScores?.refresh();
@@ -339,6 +341,28 @@ export class WordlerComponent extends ChildComponent implements OnInit {
 
     this.showScores = true;
     this.disableAllInputs = true;
+  }
+
+  private updateWinStreaks() {
+    this.wordlerStreak++;
+
+    // Update personal best streak if exceeded
+    if (this.wordlerStreak > (this.wordlerBestStreak || 0)) {
+      this.wordlerBestStreak = this.wordlerStreak;
+      try {
+        this.parentRef?.showNotification(`New personal streak: ${this.wordlerBestStreak}`);
+      } catch { }
+    }
+
+    // Update overall best streak if exceeded
+    if (!this.wordlerBestStreakOverall || this.wordlerStreak > (this.wordlerBestStreakOverall.streak || 0)) {
+      if (this.parentRef?.user?.id) {
+        this.wordlerBestStreakOverall = { userId: this.parentRef.user.id, streak: this.wordlerStreak };
+        try {
+          this.parentRef?.showNotification(`New all-time streak record: ${this.wordlerStreak}!`);
+        } catch { }
+      }
+    }
   }
 
   moveToNextInput(attemptIndex: number, letterIndex: number, event: KeyboardEvent) {
