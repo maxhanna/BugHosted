@@ -1639,26 +1639,73 @@ LIMIT
 				{
 					await connection.OpenAsync();
 
-					// Query to get the latest meme ID
+					// Select the latest meme and include common fields to assemble a FileEntry without delegating to GetDirectory.
 					string query = @"
-						SELECT f.id 
+						SELECT
+							f.id,
+							f.user_id,
+							u.username,
+							f.file_name,
+							f.folder_path,
+							f.is_public,
+							f.is_folder,
+							f.upload_date,
+							f.file_type,
+							f.file_size,
+							f.given_file_name,
+							f.description,
+							f.access_count,
+							udp.file_id AS display_picture_id,
+							udp.tag_background_file_id AS background_picture_id
 						FROM file_uploads f
+						LEFT JOIN users u ON u.id = f.user_id
+						LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
 						LEFT JOIN file_topics ft ON f.id = ft.file_id
 						LEFT JOIN topics t ON ft.topic_id = t.id AND t.topic = 'NSFW'
 						WHERE f.folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/'
 						AND f.is_folder = 0
-						AND t.id IS NULL  -- This ensures the file doesn't have the NSFW topic
-						ORDER BY f.id DESC 
+						AND t.id IS NULL
+						ORDER BY f.id DESC
 						LIMIT 1;";
 
 					using (var command = new MySqlCommand(query, connection))
+					using (var reader = await command.ExecuteReaderAsync())
 					{
-						var result = await command.ExecuteScalarAsync();
-
-						if (result != null && result != DBNull.Value)
+						if (await reader.ReadAsync())
 						{
-							int latestId = Convert.ToInt32(result);
-							var fileEntry = new FileEntry(latestId);
+							var id = reader.GetInt32("id");
+							var userId = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id");
+							var username = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
+							var fileName = reader.IsDBNull(reader.GetOrdinal("file_name")) ? null : reader.GetString("file_name");
+							var folderPath = reader.IsDBNull(reader.GetOrdinal("folder_path")) ? null : reader.GetString("folder_path");
+							var isPublic = !reader.IsDBNull(reader.GetOrdinal("is_public")) && reader.GetBoolean("is_public");
+							var isFolder = !reader.IsDBNull(reader.GetOrdinal("is_folder")) && reader.GetBoolean("is_folder");
+							var uploadDate = reader.IsDBNull(reader.GetOrdinal("upload_date")) ? (DateTime?)null : reader.GetDateTime("upload_date");
+							var fileType = reader.IsDBNull(reader.GetOrdinal("file_type")) ? null : reader.GetString("file_type");
+							var fileSize = reader.IsDBNull(reader.GetOrdinal("file_size")) ? (int?)null : reader.GetInt32("file_size");
+							var givenFileName = reader.IsDBNull(reader.GetOrdinal("given_file_name")) ? null : reader.GetString("given_file_name");
+							var description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description");
+							var displayPicId = reader.IsDBNull(reader.GetOrdinal("display_picture_id")) ? (int?)null : reader.GetInt32("display_picture_id");
+							var bgPicId = reader.IsDBNull(reader.GetOrdinal("background_picture_id")) ? (int?)null : reader.GetInt32("background_picture_id");
+
+							var displayPic = displayPicId.HasValue ? new FileEntry(displayPicId.Value) : null;
+							var bgPic = bgPicId.HasValue ? new FileEntry(bgPicId.Value) : null;
+
+							var fileEntry = new FileEntry
+							{
+								Id = id,
+								FileName = fileName,
+								Directory = folderPath,
+								Visibility = isPublic ? "Public" : "Private",
+								IsFolder = isFolder,
+								Date = uploadDate ?? DateTime.MinValue,
+								FileType = fileType,
+								FileSize = fileSize ?? 0,
+								GivenFileName = givenFileName,
+								Description = description,
+								User = new User(userId, username, displayPic, bgPic)
+							};
+
 							return Ok(fileEntry);
 						}
 						return NotFound("No memes found");
@@ -1667,8 +1714,8 @@ LIMIT
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db($"An error occurred while getting latest meme ID: {ex.Message}", 0, "FILE", true);
-				return StatusCode(500, "An error occurred while getting latest meme ID");
+				_ = _log.Db($"An error occurred while getting latest meme: {ex.Message}", 0, "FILE", true);
+				return StatusCode(500, "An error occurred while getting latest meme");
 			}
 		}
 
