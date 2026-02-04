@@ -57,15 +57,13 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   async ngOnInit() {
     this.showExitGameButton = false;
     this.getHighScores();
-    this.loadScoreData();
+    await this.loadWinStreakData();
   }
-  async loadScoreData() {
 
-  // Scores rendering delegated to the reusable wordler-high-scores component
-
-  if (this.parentRef?.user?.id) {
-    try {
-    const wsRes = await this.wordlerService.getBestConsecutiveDayStreak(this.parentRef.user.id);
+  private async loadWinStreakData() {
+    if (this.parentRef?.user?.id) {
+      try {
+        const wsRes = await this.wordlerService.getBestConsecutiveDayStreak(this.parentRef.user.id);
         if (wsRes) {
           this.wordlerBestStreak = parseInt(wsRes);
         }
@@ -75,13 +73,14 @@ export class WordlerComponent extends ChildComponent implements OnInit {
           this.wordlerBestStreakOverall = wsRes3;
         }
 
-  const wsRes2 = await this.wordlerService.getTodaysDayStreak(this.parentRef.user.id);
+        const wsRes2 = await this.wordlerService.getTodaysDayStreak(this.parentRef.user.id);
         if (wsRes2) {
           this.wordlerStreak = parseInt(wsRes2);
         }
       } catch (e) { }
     }
   }
+
   copyLink() {
     const link = `https://bughosted.com/Wordler`;
     navigator.clipboard.writeText(link).then(() => {
@@ -328,8 +327,8 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     alert(`Congratulations, the Wordler has been defeated on ${this.getDifficultyByValue(this.selectedDifficulty)}! Time Elapsed: ${this.elapsedTime}`);
     let tmpScore: WordlerScore = { score: this.currentAttempt, user: this.parentRef?.user ?? new User(0, "Anonymous"), time: this.elapsedTime, difficulty: this.selectedDifficulty };
     await this.wordlerService.addScore(tmpScore);
-    await this.getHighScores(); 
-    this.updateWinStreaks();
+    await this.getHighScores();
+    await this.loadWinStreakData();
 
     // If the high-scores child component is present, refresh it so the UI reflects the new score immediately
     try {
@@ -341,28 +340,6 @@ export class WordlerComponent extends ChildComponent implements OnInit {
 
     this.showScores = true;
     this.disableAllInputs = true;
-  }
-
-  private updateWinStreaks() {
-    this.wordlerStreak++;
-
-    // Update personal best streak if exceeded
-    if (this.wordlerStreak > (this.wordlerBestStreak || 0)) {
-      this.wordlerBestStreak = this.wordlerStreak;
-      try {
-        this.parentRef?.showNotification(`New personal streak: ${this.wordlerBestStreak}`);
-      } catch { }
-    }
-
-    // Update overall best streak if exceeded
-    if (!this.wordlerBestStreakOverall || this.wordlerStreak > (this.wordlerBestStreakOverall.streak || 0)) {
-      if (this.parentRef?.user?.id) {
-        this.wordlerBestStreakOverall = { userId: this.parentRef.user.id, streak: this.wordlerStreak };
-        try {
-          this.parentRef?.showNotification(`New all-time streak record: ${this.wordlerStreak}!`);
-        } catch { }
-      }
-    }
   }
 
   moveToNextInput(attemptIndex: number, letterIndex: number, event: KeyboardEvent) {
