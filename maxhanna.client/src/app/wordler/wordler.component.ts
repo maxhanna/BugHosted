@@ -327,6 +327,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   }
 
   async winningScenario(guess: string) {
+    this.startLoading();
     this.stopTimer();
     alert(`Congratulations, the Wordler has been defeated on ${this.getDifficultyByValue(this.selectedDifficulty)}! Time Elapsed: ${this.elapsedTime}`);
     let tmpScore: WordlerScore = { score: this.currentAttempt, user: this.parentRef?.user ?? new User(0, "Anonymous"), time: this.elapsedTime, difficulty: this.selectedDifficulty };
@@ -343,6 +344,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
 
     this.showScores = true;
     this.disableAllInputs = true;
+    this.stopLoading();
   }
 
   moveToNextInput(attemptIndex: number, letterIndex: number, event: KeyboardEvent) {
