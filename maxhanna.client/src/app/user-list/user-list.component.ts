@@ -53,6 +53,8 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
   async ngOnInit() {
+    this.parentRef = this.inputtedParentRef ?? this.parentRef ?? this.injector.get(AppComponent);
+
     this.startLoading();
     this.parentRef?.addResizeListener();
     if (!this.searchOnly) {

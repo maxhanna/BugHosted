@@ -36,8 +36,12 @@
         [displayHoverPicture]="true"
         [preventOpenProfile]="true" 
         [preventExpandPicture]="true"></app-user-tag>
-      <span *ngIf="parentRef?.isUserOnline(user.lastSeen | timeSince:'minute':true)" class="onlineButton"
-        [title]="'Online Since: ' + (user.lastSeen | timeSince:'minute':true)" [style.top]="'10px'"></span>
+      <span
+        *ngIf="(inputtedParentRef ?? parentRef)?.isUserOnline(user.lastSeen)"
+        class="onlineButton"
+        [title]="'Online Since: ' + (user.lastSeen | timeSince:'minute':true)"
+        [style.top]="'10px'">
+      </span>
     </span>
     <span class="chatIcon" *ngIf="getChatNotificationsByUserId(user.id)">
       💬
