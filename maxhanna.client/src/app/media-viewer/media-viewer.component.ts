@@ -362,6 +362,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
 
     if (!this.selectedFile?.givenFileName && !this.selectedFile?.fileName) {
+      this.debugLog('setFileSrcById no givenFileName/fileName, fetching file entry metadata'); 
       const requesterId = parent?.user?.id;
       await this.fileService.getFileEntryById(fileId, requesterId).then(res => {
         if (res) {
