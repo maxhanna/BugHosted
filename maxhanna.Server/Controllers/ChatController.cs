@@ -302,12 +302,10 @@ namespace maxhanna.Server.Controllers
 
     [HttpPost("/Chat/GetChatTheme", Name = "GetChatTheme")]
     public async Task<IActionResult> GetChatTheme([FromBody] GetChatThemeRequest req)
-    {
-        Console.WriteLine("GetChatTheme called");
+    { 
         if (req == null) {
           return BadRequest();
         }
-        Console.WriteLine($"GetChatTheme called with request: ChatId={req.ChatId}");
 
         var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
         await using var conn = new MySqlConnection(connectionString);
