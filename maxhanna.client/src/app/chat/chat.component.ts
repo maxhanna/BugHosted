@@ -40,7 +40,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   showUserList = true;
   currentChatTheme: string = '';
   currentChatUserThemeId: number | null = null;
-  userThemes: any[] = [];
+  userThemes: UserTheme[] = [];
+  private fileEntryCache: Map<number, FileEntry | null> = new Map();
   // store the page's theme state before entering a chat so we can restore it on exit
   private _preChatThemeClasses: string[] | null = null;
   private _preChatCssVars: { [key: string]: string | null } | null = null;
@@ -76,9 +77,48 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     private encryptionService: EncryptionService,
     private fileService: FileService) {
     super();
+    if (this.inputtedParentRef) {
+      this.parentRef = this.inputtedParentRef;
+    }
+    this.parentRef?.addResizeListener();
+  }
 
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.addResizeListener();
+  async ngOnInit() {
+    this.startLoading();
+    
+    if (this.selectedUser) { 
+      await this.openChat([this.selectedUser]);
+    } else if (this.chatId) {
+      const res = await this.chatService.getChatUsersByChatId(this.chatId);
+      if (res) {
+        this.selectedUsers = res;
+        await this.openChat(this.selectedUsers);
+      }
+    }
+
+    if (this.parentRef?.user) {
+      const res = await this.userService.getUserSettings(this.parentRef.user.id ?? 0) as UserSettings | null;
+      if (res) {
+        this.notificationsEnabled = res.notificationsEnabled;
+        if (this.notificationsEnabled == undefined || this.notificationsEnabled) {
+          await this.requestNotificationPermission();
+        }
+      } 
+    }
+    
+    const themeRes = await this.userService.getAllThemes();
+    if (themeRes) { 
+      this.userThemes = themeRes;
+    }
+
+    this.stopLoading();
+  }
+
+  ngOnDestroy() {
+    this.inputtedParentRef?.removeResizeListener();
+    this.parentRef?.removeResizeListener();
+    this.currentChatUsers = undefined;
+    clearInterval(this.pollingInterval);
   }
 
   // Apply a user theme object to the chatArea by setting CSS variables.
@@ -103,54 +143,78 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       container.style.backgroundImage = 'none';
       return;
     }
+    this.startLoading();
 
-    // Resolve the file entry (if set)
+    // Resolve the file entry (if set) using a small in-memory cache to avoid repeated network calls
     const bgImage = ut.backgroundImage;
     let directLink: string | null = null;
 
     try {
-      let tmpBackImage: FileEntry | undefined =
-        bgImage?.id
-          ? await this.fileService.getFileEntryById(bgImage.id, this.parentRef?.user?.id)
-          : undefined;
+      let tmpBackImage: FileEntry | undefined | null = undefined;
+      if (bgImage?.id) {
+        const cached = this.fileEntryCache.get(bgImage.id);
+        if (cached === undefined) {
+          // not cached yet — fetch and cache result (could be null)
+          try {
+            tmpBackImage = await this.fileService.getFileEntryById(bgImage.id, this.parentRef?.user?.id);
+            this.fileEntryCache.set(bgImage.id, tmpBackImage ?? null);
+          } catch (e) {
+            this.fileEntryCache.set(bgImage.id, null);
+            tmpBackImage = undefined;
+            console.warn('Failed to fetch file entry for theme background:', e);
+          }
+        } else {
+          tmpBackImage = cached ?? undefined;
+        }
+      }
 
-      if (tmpBackImage?.fileName) {
+      if (tmpBackImage && tmpBackImage.fileName) {
         const base = 'https://bughosted.com';
         const uploadsRoot = 'assets/Uploads';
         const dir = this.parentRef?.getDirectoryName(tmpBackImage);
-        // Ensure a proper path: assets/Uploads/<dir-if-any>/<filename>
-        const path = this.joinUrl(
-          uploadsRoot,
-          dir && dir !== '.' ? dir : undefined,
-          tmpBackImage.fileName
-        );
+        const path = this.joinUrl(uploadsRoot, dir && dir !== '.' ? dir : undefined, tmpBackImage.fileName);
         directLink = `${base}/${this.encodePath(path)}`;
       }
     } catch (e) {
       console.warn('Failed to resolve background image:', e);
     }
 
-    // Preload image to ensure it exists; if it fails, remove background
+    // Immediately assign background so browser begins fetching; do not block UI waiting for preload.
     if (directLink) {
-      const ok = await new Promise<boolean>((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve(true);
-        img.onerror = () => resolve(false);
-        img.referrerPolicy = 'no-referrer'; // optional; adjust if needed
-        img.src = directLink!;
+      const cssUrl = `url("${directLink}")`;
+      // Set CSS var and background immediately.
+      requestAnimationFrame(() => {
+        container.style.setProperty('--main-background-image-url', cssUrl);
+        container.style.backgroundImage = cssUrl;
       });
-      if (ok) {
-        container.style.setProperty('--main-background-image-url', `url("${directLink}")`);
-        // Inline style wins — use it for reliability
-        container.style.backgroundImage = `url("${directLink}")`;
-      } else {
-        console.warn('Background image failed to load:', directLink);
-        container.style.setProperty('--main-background-image-url', `none`);
-        container.style.backgroundImage = 'none';
-      }
+
+      // In background, verify the image loads — if it fails and the assigned URL still matches, clear it.
+      (async () => {
+        try {
+          const ok = await new Promise<boolean>((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve(true);
+            img.onerror = () => resolve(false);
+            img.referrerPolicy = 'no-referrer';
+            img.src = directLink!;
+          });
+          // If load failed and the css var still references this link, clear it (don't override newer themes)
+          const currentVar = container.style.getPropertyValue('--main-background-image-url');
+          if (!ok && currentVar === cssUrl) {
+            requestAnimationFrame(() => {
+              container.style.setProperty('--main-background-image-url', 'none');
+              container.style.backgroundImage = 'none';
+            });
+          }
+        } catch (e) {
+          console.warn('Background verification failed:', e);
+        }
+      })();
     } else {
-      container.style.setProperty('--main-background-image-url', `none`);
-      container.style.backgroundImage = 'none';
+      requestAnimationFrame(() => {
+        container.style.setProperty('--main-background-image-url', 'none');
+        container.style.backgroundImage = 'none';
+      });
     }
 
     // Apply other color/font variables
@@ -179,11 +243,14 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (linkColor) container.style.setProperty('--main-link-color', linkColor);
     if (fontFamily) container.style.setProperty('--main-font-family', fontFamily);
     if (fontSize) container.style.setProperty('--main-font-size', (typeof fontSize === 'number' ? `${fontSize}px` : fontSize));
+  
+    this.stopLoading();
   }
 
 
   async changeChatUserTheme(event: any) {
     if (!this.currentChatId) return;
+    this.startLoading();
     const val = event.target.value;
     const userThemeId = val ? +val : null;
     try {
@@ -195,7 +262,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           // find the theme values and apply CSS vars (support both snake_case and camelCase shapes)
           const ut = this.userThemes.find(u => u.id === userThemeId);
           if (ut) {
-            this.applyUserTheme(ut);
+            await this.applyUserTheme(ut);
           }
         } else {
           // user cleared saved theme; remove CSS variables and any theme classes
@@ -215,53 +282,12 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       console.error('Failed to set chat theme userThemeId', ex);
       this.parentRef?.showNotification('Failed to update chat theme.');
     }
+
+    this.stopLoading();
   }
 
-  async ngOnInit() {
-    if (this.selectedUser) {
-      if (this.inputtedParentRef) {
-        this.parentRef = this.inputtedParentRef;
-      }
-      await this.openChat([this.selectedUser]);
-    }
-    if (this.chatId) {
-      let user = this.parentRef?.user ?? this.inputtedParentRef?.user;
-      if (!user) {
-        user = new User(0, "Anonymous");
-      }
-      const res = await this.chatService.getChatUsersByChatId(this.chatId);
-      if (res) {
-        this.selectedUsers = res;
-        await this.openChat(this.selectedUsers);
-      }
-    }
-    let user = this.parentRef?.user ?? this.inputtedParentRef?.user;
-    if (user) {
-      this.userService.getUserSettings(user.id ?? 0).then((res?: UserSettings) => {
-        if (res) {
-          this.notificationsEnabled = res.notificationsEnabled;
-          if (this.notificationsEnabled == undefined || this.notificationsEnabled) {
-            this.requestNotificationPermission();
-          }
-        }
-      })
-      // load themes so they appear in the Saved Themes dropdown (show all themes, not just user's)
-      if (user.id) {
-        this.userService.getAllThemes().then((res: any) => {
-          if (res) this.userThemes = res;
-        }).catch(() => { /* ignore */ });
-      }
-    }
-  }
 
-  ngOnDestroy() {
-    this.inputtedParentRef?.removeResizeListener();
-    this.parentRef?.removeResizeListener();
-    this.currentChatUsers = undefined;
-    clearInterval(this.pollingInterval);
-  }
-
-  pollForMessages() {
+  async pollForMessages() {
     if (this.currentChatUsers) {
       this.pollingInterval = setInterval(async () => {
         if (!this.isComponentInView()) {
@@ -269,7 +295,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           return;
         }
         if (this.currentChatUsers) {
-          this.getMessageHistory(this.pageNumber, this.pageSize);
+          await this.getMessageHistory(this.pageNumber, this.pageSize);
         }
       }, 5000);
     }
@@ -289,6 +315,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
   async getMessageHistory(pageNumber?: number, pageSize: number = 10) {
     if (!this.currentChatUsers) return;
+    this.startLoading();
     try {
       const user = this.parentRef?.user ? this.parentRef.user : new User(0, "Anonymous");
       if (!this.currentChatUsers.some(x => x.id == user.id)) {
@@ -308,6 +335,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         if (this.chatHistory.length > 0) {
           this.chatHistory = [];
         }
+        this.stopLoading();
         return;
       }
       if (res) {
@@ -350,19 +378,18 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
             if (this.firstMessageDetails) {
               const encryptedContent = this.encryptContent(this.firstMessageDetails.content);
               if (encryptedContent !== res.messages[0].content) {
-                await this.chatService.editMessage(
+                const editRes = await this.chatService.editMessage(
                   res.messages[0].id,
                   user.id,
                   encryptedContent
-                ).then(editRes => {
-                  if (editRes) {
-                    this.parentRef?.showNotification(`First message encrypted successfully.`);
-                    // Refresh message history to reflect the edited message
-                    this.getMessageHistory(this.pageNumber, this.pageSize);
-                  } else {
-                    this.parentRef?.showNotification(`Failed to encrypt first message.`);
-                  }
-                });
+                ); 
+                if (editRes) {
+                  this.parentRef?.showNotification(`First message encrypted successfully.`);
+                  // Refresh message history to reflect the edited message
+                  await this.getMessageHistory(this.pageNumber, this.pageSize);
+                } else {
+                  this.parentRef?.showNotification(`Failed to encrypt first message.`);
+                } 
               }
               // Clear firstMessageDetails after processing
               this.firstMessageDetails = null;
@@ -372,38 +399,28 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         }
         this.isChangingPage = false;
         setTimeout(() => {
-          // After messages load, update any poll results in DOM. Prefer server-provided polls in the response.
-          try {
-            // Server now attaches polls to each message (message.Polls). Iterate messages and inject any polls found.
-            if (res && res.messages && res.messages.length) {
-              for (const m of res.messages) {
-                try {
-                  const msgPolls = (m && (m.Polls || m.polls)) ? (m.Polls || m.polls) : null;
-                  if (msgPolls && msgPolls.length) {
-                    this.updateChatPollsInDOM(msgPolls);
-                  }
-                } catch (inner) {
-                  // continue to next message on parse error
-                  continue;
+          // After messages load, update any poll results in DOM.
+          if (res && res.messages && res.messages.length) {
+            for (const m of res.messages as Message[]) {
+              try {
+                const msgPolls = m.polls;
+                if (msgPolls && msgPolls.length) {
+                  this.updateChatPollsInDOM(msgPolls);
                 }
+              } catch (inner) {
+                console.warn('Error updating chat polls for message', m.id, inner);
+                continue;
               }
             }
-
-            // Fallback: if parent.storyResponse has polls (e.g., when viewing a story page), use those
-            const parent = this.inputtedParentRef ?? this.parentRef;
-            const anyParent: any = parent as any;
-            if (anyParent && anyParent.storyResponse && anyParent.storyResponse.polls) {
-              this.updateChatPollsInDOM(anyParent.storyResponse.polls);
-            }
-          } catch (e) {
-            // ignore
           }
+          
           this.isInitialLoad = true;
         }, 1000);
       }
     } catch (error) {
       console.error('Error fetching message history:', error);
     }
+    this.stopLoading();
   }
 
   private setServerDown(res: any) {
@@ -422,6 +439,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.serverDown = false;
     this.failCount = 0;
   }
+
   private incrementFailCount() {
     this.failCount++;
     if (this.failCount > 2) {
@@ -431,6 +449,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.serverDown = false;
     }
   }
+
   private updateSeenStatus(res: any) {
     res.messages.forEach((newMessage: Message) => {
       const existingMessage = this.chatHistory.find((msg: Message) => msg.id === newMessage.id);
@@ -495,7 +514,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         continue;
       }
     }
-    // poll injection only; notification handling happens elsewhere
   }
 
   onScroll() {
@@ -505,6 +523,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.hasManuallyScrolled = !isScrolledToBottom;
     }
   }
+
   formatTimestamp(timestamp: Date) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     return parent?.formatTimestamp(timestamp)
@@ -575,6 +594,12 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     }
     const receiverUserIds: number[] = this.currentChatUsers.map(x => x?.id ?? 0);
 
+    // If we already know the chat id, start fetching its theme in parallel.
+    let themePromise: Promise<any> | null = null;
+    if (this.currentChatId) {
+      themePromise = this.chatService.getChatTheme(this.currentChatId);
+    }
+
     const res = await this.chatService.getMessageHistory(user.id, receiverUserIds, undefined, undefined, this.pageSize);
 
     if (res && res.status && res.status == "404") {
@@ -616,19 +641,26 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     }, 410);
     this.togglePanel();
 
-    if (this.currentChatId) {
-      const themeRes = await this.chatService.getChatTheme(this.currentChatId);
-      if (themeRes) {
-        if (themeRes.userTheme) {
-          this.currentChatUserThemeId = themeRes.userTheme.id;
-          this.applyUserTheme(themeRes.userTheme);
-          this.currentChatTheme = '';
-        } else {
-          this.currentChatTheme = '';
-          this.applyChatTheme('');
-        }
+    // Handle theme result without blocking message load. If we started a themePromise above, use it.
+    const handleTheme = (themeRes: any) => {
+      if (!themeRes) return;
+      if (themeRes.userTheme) {
+        this.currentChatUserThemeId = themeRes.userTheme.id;
+        // fire-and-forget: apply theme asynchronously so messages/UI aren't blocked
+        this.applyUserTheme(themeRes.userTheme).catch(e => console.warn('applyUserTheme failed', e));
+        this.currentChatTheme = '';
+      } else {
+        this.currentChatTheme = '';
+        this.applyChatTheme('');
       }
-    } 
+    };
+
+    if (themePromise) {
+      themePromise.then(handleTheme).catch(e => console.warn('getChatTheme failed', e));
+    } else if (this.currentChatId) {
+      // currentChatId may have been set by the messages we just fetched
+      this.chatService.getChatTheme(this.currentChatId).then(handleTheme).catch(e => console.warn('getChatTheme failed', e));
+    }
 
     this.stopLoading();
   }
