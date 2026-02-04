@@ -620,7 +620,7 @@ fieldset {
 @media only screen and (max-width : 667px) {
   .popupPanel {
     width: calc(100vw - 50px);
-    max-height: CALC(var(--vh, 1vh) * 99);
+    max-height: CALC(var(--vh, 1vh) * 80);
   }
 }
 

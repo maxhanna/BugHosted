@@ -569,7 +569,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.isInitialLoad = false;
     users = this.filterUniqueUsers(users);
     const user = this.getChatUsers(users);
-    if (!this.currentChatUsers) return;
+    if (!this.currentChatUsers) {
+      this.stopLoading();
+      return;
+    }
     const receiverUserIds: number[] = this.currentChatUsers.map(x => x?.id ?? 0);
 
     const res = await this.chatService.getMessageHistory(user.id, receiverUserIds, undefined, undefined, this.pageSize);
@@ -577,6 +580,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (res && res.status && res.status == "404") {
       this.chatHistory = [];
       this.togglePanel();
+      this.stopLoading();
       return;
     }
 
@@ -624,8 +628,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           this.applyChatTheme('');
         }
       }
-    }
-
+    } 
 
     this.stopLoading();
   }
