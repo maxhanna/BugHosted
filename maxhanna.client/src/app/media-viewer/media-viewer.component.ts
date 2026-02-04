@@ -56,7 +56,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @ViewChild('mediaRoot', { static: true }) mediaRoot?: ElementRef<HTMLElement>;
   @ViewChild(TopicsComponent) topicComponent!: TopicsComponent;
 
-  @Input() debug = true;
+  @Input() debug = false;
   @Input() displayExpander: boolean = true;
   @Input() displayExtraInfo: boolean = true;
   @Input() displayLoading: boolean = false;

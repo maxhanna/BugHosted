@@ -218,7 +218,10 @@
         <div class="popupPanelTitle" style="margin-top: 15px;">
           <app-menu-item [type]="'Meme'" [parentRef]="parentRef" [label]="'Latest Meme:'"></app-menu-item>
         </div>
-        <app-media-viewer [file]="latestMeme" [inputtedParentRef]="parentRef"
+        <app-media-viewer 
+          [debug]="true"
+          [file]="latestMeme" 
+          [inputtedParentRef]="parentRef"
           [canScroll]="false"></app-media-viewer>
       </div>
       <div style="margin-top:20px;">
