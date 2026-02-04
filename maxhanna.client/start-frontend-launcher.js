@@ -12,10 +12,12 @@ const launcherLog = path.join(frontendPath, 'launcher.log');
 
 function writeLog(...parts) {
   try {
-    const ts = new Date().toISOString();
+    const now = new Date();
+    const ts = now.toISOString();
+    const localTime = now.toLocaleTimeString();
     const msg = parts.map(p => (typeof p === 'string' ? p : JSON.stringify(p))).join(' ');
-    fs.appendFileSync(launcherLog, `${ts} ${msg}\n`);
-    console.log(`[LOG] ${msg}`); // Also log to console
+    fs.appendFileSync(launcherLog, `${ts} ${localTime} ${msg}\n`);
+    console.log(`[LOG] ${localTime} ${msg}`); // Also log to console
   } catch (e) {
     // ignore logging errors
   }
@@ -60,7 +62,7 @@ async function runBuildIfNeeded() {
     return true;
   }
 
-  console.log('index.html not found; running Angular build (foreground)');
+  writeLog('index.html not found; running Angular build (foreground)');
   writeLog('[Build] index.html not found at', indexPath);
   writeLog('[Build] Frontend path:', frontendPath);
 
@@ -72,7 +74,7 @@ async function runBuildIfNeeded() {
   const buildCmd = useNpx ? 'npx' : ngBin;
   const buildArgs = useNpx ? ['ng', 'build', '--configuration', 'production'] : ['build', '--configuration', 'production'];
 
-  console.log(`Running: ${buildCmd} ${buildArgs.join(' ')}`);
+  writeLog(`[Build] Running: ${buildCmd} ${buildArgs.join(' ')}`);
   writeLog('[Build] Build command:', buildCmd, buildArgs.join(' '));
 
   // Use a synchronous spawn to avoid subtle child-process lifecycle issues
@@ -193,16 +195,16 @@ async function runBuildIfNeeded() {
 
     // If still not found, search recursively
     if (!fs.existsSync(indexPath)) {
-      console.log('Index not at expected location, searching recursively under', distRoot);
+      writeLog('Index not at expected location, searching recursively under', distRoot);
       const found = findIndexRecursive(distRoot);
       if (found) {
         indexPath = found;
-        console.log('Found index.html at', indexPath);
+        writeLog('Found index.html at', indexPath);
       }
     }
 
     if (!fs.existsSync(indexPath)) {
-      console.error('ERROR: index.html not found under', distRoot);
+      writeLog('ERROR: index.html not found under', distRoot);
       process.exit(1);
     }
 
@@ -210,7 +212,7 @@ async function runBuildIfNeeded() {
     // lifecycle complexities when invoked by the .NET SPA proxy. Requiring the
     // script will execute it in the current process (it exports the Express
     // app and calls server.listen internally).
-    console.log('Starting prod server (in-process):', prodServerPath);
+    writeLog('Starting prod server (in-process):', prodServerPath);
     try {
       // Ensure env for the server is set
       process.env.NODE_ENV = process.env.NODE_ENV || 'production';
@@ -221,11 +223,11 @@ async function runBuildIfNeeded() {
       // Require the server file directly. It will start listening immediately.
       require(prodServerPath);
     } catch (err) {
-      console.error('Failed to require/start prod server in-process:', err && err.stack ? err.stack : err);
+      writeLog('Failed to require/start prod server in-process:', err && err.stack ? err.stack : err);
       process.exit(1);
     }
   } catch (err) {
-    console.error('Error preparing frontend:', err && err.stack ? err.stack : err);
+    writeLog('Error preparing frontend:', err && err.stack ? err.stack : err);
     process.exit(1);
   }
 })();
