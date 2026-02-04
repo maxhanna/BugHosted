@@ -56,7 +56,11 @@ export class WordlerComponent extends ChildComponent implements OnInit {
 
   async ngOnInit() {
     this.showExitGameButton = false;
-    this.getHighScores();
+    await this.loadScoreData();
+  }
+
+  private async loadScoreData() {
+    await this.getHighScores();
     await this.loadWinStreakData();
   }
 
@@ -327,8 +331,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     alert(`Congratulations, the Wordler has been defeated on ${this.getDifficultyByValue(this.selectedDifficulty)}! Time Elapsed: ${this.elapsedTime}`);
     let tmpScore: WordlerScore = { score: this.currentAttempt, user: this.parentRef?.user ?? new User(0, "Anonymous"), time: this.elapsedTime, difficulty: this.selectedDifficulty };
     await this.wordlerService.addScore(tmpScore);
-    await this.getHighScores();
-    await this.loadWinStreakData();
+    await this.loadScoreData();
 
     // If the high-scores child component is present, refresh it so the UI reflects the new score immediately
     try {
