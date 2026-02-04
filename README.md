@@ -37,6 +37,9 @@ Direct and group messaging system.
 ### Emulation
 Web emulator for multiple retro consoles with autosave.
 
+### N64 Emulation
+The N64 emulation component runs N64 ROMs in-browser with save/load support, keyboard/controller input mapping, and basic performance tuning for modern browsers.
+
 ### Array
 Progression corridor: descend, gain XP, items, PvP.
 
@@ -83,7 +86,7 @@ Curated public/shareable link collections.
 Ender is a compact, real-time micro-game that runs inside the BugHosted shell. It's designed for quick sessions and as a showcase of lightweight multiplayer mechanics.
 
 ### Bones
-Persistent multiplayer mini-RPG where players control heroes.
+Massive multiplayer RPG where players control heroes.
 
 ### Top100
 Ranked user-voted topic lists.
