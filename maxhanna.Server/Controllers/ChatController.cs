@@ -221,6 +221,13 @@ namespace maxhanna.Server.Controllers
 								.Select(id => users.ContainsKey(id) ? users[id] : new User(id, "Unknown"))
 								.ToList();
 
+						// If this is a 2-person chat and one receiver is an 'Unknown' placeholder,
+						// skip the entry to avoid displaying invalid chat rows.
+						if (receivers.Count == 2 && receivers.Any(r => r.Username != null && r.Username.ToLower() == "unknown"))
+						{
+							continue;
+						}
+
 						messages.Add(new ChatMessage
 						{
 							// Set other properties as needed
