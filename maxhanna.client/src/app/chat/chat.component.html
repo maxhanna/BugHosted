@@ -1,7 +1,7 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me('ChatComponent');"></div>
   <div class="menuButton" (click)="showMenuPanel();"></div>
-  <div *ngIf="currentChatUsers" class="menuBackButton" (click)="closeChat();"></div>
+  <div *ngIf="currentChatUsers" class="menuBackButton" title="Back to User List" (click)="closeChat();"></div>
   <div class="componentTitle">
     Chat
     <span *ngIf="currentChatUsers">

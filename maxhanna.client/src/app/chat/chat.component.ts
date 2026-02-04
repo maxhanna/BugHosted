@@ -115,10 +115,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    this.inputtedParentRef?.removeResizeListener();
     this.parentRef?.removeResizeListener();
     this.currentChatUsers = undefined;
     clearInterval(this.pollingInterval);
+    clearInterval(this.inviewDebounceTimeout);
   }
 
   // Apply a user theme object to the chatArea by setting CSS variables.
@@ -676,6 +676,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   closeChat() {
+    this.startLoading();
     this.closeChatEvent.emit();
     this.hasManuallyScrolled = false;
     this.currentChatUsers = undefined;
@@ -694,32 +695,39 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       if (container) {
         // remove any theme-* classes applied while in chat
         const classesToRemove = Array.from(container.classList).filter((c: string) => c.startsWith('theme-'));
-        for (const c of classesToRemove) container.classList.remove(c);
+        for (const c of classesToRemove) {
+          container.classList.remove(c);
+        }
         // restore pre-chat classes
         if (this._preChatThemeClasses && this._preChatThemeClasses.length) {
-          for (const c of this._preChatThemeClasses) container.classList.add(c);
+          for (const c of this._preChatThemeClasses) {
+            container.classList.add(c);
+          }
         }
         // restore CSS vars
         if (this._preChatCssVars) {
-          for (const k of Object.keys(this._preChatCssVars)) {
-            const v = this._preChatCssVars[k as keyof typeof this._preChatCssVars];
-            if (v === null || v === undefined || v === '') container.style.removeProperty(k);
-            else container.style.setProperty(k, v as string);
+          for (const preChatCSSKey of Object.keys(this._preChatCssVars)) {
+            const preChatCSSVal = this._preChatCssVars[preChatCSSKey as keyof typeof this._preChatCssVars];
+            if (!preChatCSSVal) {
+              container.style.removeProperty(preChatCSSKey);
+            } else {
+              container.style.setProperty(preChatCSSKey, preChatCSSVal as string);
+            }
           }
         }
       }
     } catch (e) {
-      // ignore restore errors
+      console.warn('Failed to restore pre-chat theme state:', e);
     }
-
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.closeOverlay();
+    this.parentRef?.closeOverlay();
+    this.stopLoading();
   }
 
   async loadPreviousPage() {
     if (!this.isInitialLoad || this.isLoadingPreviousPage || this.pageNumber >= this.totalPages) {
       return; // Prevent loading during initial load, while already loading, or if no more pages
     }
+    this.startLoading();
 
     // Debounce to prevent rapid triggers
     if (this.inviewDebounceTimeout) {
@@ -758,6 +766,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         console.error('Error loading previous page:', error);
       } finally {
         this.isLoadingPreviousPage = false;
+        this.stopLoading();
       }
     }, 200); // 200ms debounce
   }
