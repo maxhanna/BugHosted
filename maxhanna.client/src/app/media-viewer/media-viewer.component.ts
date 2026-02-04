@@ -422,9 +422,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       }
     }
   }
+
   editFileName(file: FileEntry) {
     this.isEditingFileName = true;
   }
+  
   async saveFileName(file: FileEntry) {
     const fileName = this.editFileNameInput?.nativeElement.value.trim();
     if (!fileName || fileName.length === 0) {
