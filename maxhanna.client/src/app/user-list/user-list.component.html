@@ -31,7 +31,7 @@
   <div *ngFor="let user of usersSearched" class="userList" (click)="closeOverlayOnClick(user);">
     <span class="user">
       <app-user-tag [user]="user" 
-        [inputtedParentRef]="inputtedParentRef ?? parentRef" 
+        [inputtedParentRef]="parentRef" 
         [displayMiniTag]="true"
         [displayHoverPicture]="true"
         [preventOpenProfile]="true" 

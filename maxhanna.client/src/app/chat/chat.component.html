@@ -12,9 +12,16 @@
     </span>
   </div>
 
-  <app-user-list (userClickEvent)="singleUserSelected($event);" (userSelectClickEvent)="userSelectClickEvent($event)"
-    (groupChatEvent)="groupChatEvent($event)" [user]="parentRef?.user" [class.expanded]="isPanelExpanded"
-    [displayOnlyFriends]="true" [displayRadioFilters]="true" [inputtedParentRef]="parentRef" class="userPanel"
+  <app-user-list 
+    (userClickEvent)="singleUserSelected($event);" 
+    (userSelectClickEvent)="userSelectClickEvent($event)"
+    (groupChatEvent)="groupChatEvent($event)" 
+    [user]="parentRef?.user" 
+    [class.expanded]="isPanelExpanded"
+    [displayOnlyFriends]="true" 
+    [displayRadioFilters]="true" 
+    [inputtedParentRef]="parentRef" 
+    class="userPanel"
     *ngIf="isPanelExpanded && showUserList">
   </app-user-list>
   <div class="chatArea" [class]="isPanelExpanded ? 'expanded' : ''">
@@ -134,7 +141,9 @@
   <div style="width: 100%; margin-top: 5px; text-align: center; max-height: 250px; overflow: auto">
     Add Chat Member(s) :
     <div style="max-height:200px; width: 100%; overflow:auto; display: inline;">
-      <app-user-list [searchOnly]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef"
+      <app-user-list 
+        [searchOnly]="true" 
+        [inputtedParentRef]="parentRef"
         (groupChatEvent)="addChatMember($event)"></app-user-list>
     </div>
   </div>

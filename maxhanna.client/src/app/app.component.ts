@@ -1702,22 +1702,26 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     }, 50);
   }
   isUserOnline(lastSeen: string): boolean {
-    // Parse duration string like "2d 8h 51m" into minutes
+    if (!lastSeen) return false;
+
+    // If an ISO timestamp (e.g. "2026-02-04T16:26:59"), parse as UTC and compare to now
+    const isoLike = /^\d{4}-\d{2}-\d{2}T/.test(lastSeen);
+    if (isoLike) {
+      const d = new Date(lastSeen);
+      if (isNaN(d.getTime())) return false;
+      const minutesAgo = (Date.now() - d.getTime()) / 60000;
+      return minutesAgo < 10;
+    }
+
+    // Fallback: parse duration string like "2d 8h 51m" into minutes
     let days = 0, hours = 0, minutes = 0;
-
     const dayMatch = lastSeen.match(/(\d+)d/);
-    if (dayMatch) days = parseInt(dayMatch[1]);
-
+    if (dayMatch) days = parseInt(dayMatch[1], 10) || 0;
     const hourMatch = lastSeen.match(/(\d+)h/);
-    if (hourMatch) hours = parseInt(hourMatch[1]);
-
+    if (hourMatch) hours = parseInt(hourMatch[1], 10) || 0;
     const minuteMatch = lastSeen.match(/(\d+)m/);
-    if (minuteMatch) minutes = parseInt(minuteMatch[1]);
-
-    // Convert everything to minutes
+    if (minuteMatch) minutes = parseInt(minuteMatch[1], 10) || 0;
     minutes = (days * 24 * 60) + (hours * 60) + minutes;
-
-    // Return true if last seen < 10 minutes ago
     return minutes < 10;
   }
   getMenuItemDescription(title: string): string {
