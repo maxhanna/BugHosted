@@ -905,7 +905,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       ).replace(/\*\*(.*?)\*\*/g, "<b>$1</b>")
       .replace(/\[b\](.*?)\[\/b\]/gi, "<b>$1</b>")
       .replace(/\[\*\](.*?)\[\/\*\]/gi, "<br>• $1")
-      .replace(/\[i\](.*?)\[\/i\]/gi, "<i>$1</i>");
+      .replace(/\[i\](.*?)\[\/i\]/gi, "<i>$1</i>")
+      .replace(/\[u\](.*?)\[\/u\]/gi, "<u>$1</u>");
 
     text = this.replaceEmojisInMessage(text);
 

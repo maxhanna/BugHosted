@@ -264,6 +264,9 @@ export class TextFormattingToolbarComponent extends ChildComponent implements On
   insertItalics(componentId?: string) {
     this.insertTag('i', componentId);
   }
+  insertUnderline(componentId?: string) {
+    this.insertTag('u', componentId);
+  }
   insertBullet(componentId?: string) {
     this.insertTag('*', componentId);
   }
