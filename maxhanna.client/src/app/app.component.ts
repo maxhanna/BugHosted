@@ -1707,7 +1707,9 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     // If an ISO timestamp (e.g. "2026-02-04T16:26:59"), parse as UTC and compare to now
     const isoLike = /^\d{4}-\d{2}-\d{2}T/.test(lastSeen);
     if (isoLike) {
-      const d = new Date(lastSeen);
+      const hasTZ = /Z$|[+-]\d{2}:?\d{2}$/.test(lastSeen);
+      const parseStr = hasTZ ? lastSeen : lastSeen + 'Z';
+      const d = new Date(parseStr);
       if (isNaN(d.getTime())) return false;
       const minutesAgo = (Date.now() - d.getTime()) / 60000;
       return minutesAgo < 10;
