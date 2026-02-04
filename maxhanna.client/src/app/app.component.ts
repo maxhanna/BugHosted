@@ -1701,14 +1701,27 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.userTagPopupMediaViewer?.reloadMedia(true);
     }, 50);
   }
-  isUserOnline(lastSeen: string): boolean {
-    if (!lastSeen) return false;
+  isUserOnline(lastSeen: string | Date | undefined): boolean {
+    if (lastSeen === null || lastSeen === undefined) return false;
+
+    // If we receive a Date object, compare directly
+    if (lastSeen instanceof Date) {
+      if (isNaN(lastSeen.getTime())) return false;
+      const minutesAgo = (Date.now() - lastSeen.getTime()) / 60000;
+      return minutesAgo < 10;
+    }
+
+    // At this point lastSeen is a string
+    const ls = lastSeen as string;
+    if (!ls) return false;
 
     // If an ISO timestamp (e.g. "2026-02-04T16:26:59"), parse as UTC and compare to now
-    const isoLike = /^\d{4}-\d{2}-\d{2}T/.test(lastSeen);
+    const isoLike = /^\d{4}-\d{2}-\d{2}T/.test(ls);
     if (isoLike) {
-      const hasTZ = /Z$|[+-]\d{2}:?\d{2}$/.test(lastSeen);
-      const parseStr = hasTZ ? lastSeen : lastSeen + 'Z';
+      // If the timestamp has no timezone (e.g. "2026-02-04T17:26:51"),
+      // treat it as UTC by appending 'Z' so Date parses it as UTC.
+      const hasTZ = /Z$|[+-]\d{2}:?\d{2}$/.test(ls);
+      const parseStr = hasTZ ? ls : ls + 'Z';
       const d = new Date(parseStr);
       if (isNaN(d.getTime())) return false;
       const minutesAgo = (Date.now() - d.getTime()) / 60000;
@@ -1717,11 +1730,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
     // Fallback: parse duration string like "2d 8h 51m" into minutes
     let days = 0, hours = 0, minutes = 0;
-    const dayMatch = lastSeen.match(/(\d+)d/);
+    const dayMatch = ls.match(/(\d+)d/);
     if (dayMatch) days = parseInt(dayMatch[1], 10) || 0;
-    const hourMatch = lastSeen.match(/(\d+)h/);
+    const hourMatch = ls.match(/(\d+)h/);
     if (hourMatch) hours = parseInt(hourMatch[1], 10) || 0;
-    const minuteMatch = lastSeen.match(/(\d+)m/);
+    const minuteMatch = ls.match(/(\d+)m/);
     if (minuteMatch) minutes = parseInt(minuteMatch[1], 10) || 0;
     minutes = (days * 24 * 60) + (hours * 60) + minutes;
     return minutes < 10;
