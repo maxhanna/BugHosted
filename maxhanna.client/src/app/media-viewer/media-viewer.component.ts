@@ -172,9 +172,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     const parentRef = this.parentRef || this.inputtedParentRef;
 
     if (this.fileId) {
-      this.selectedFile = {
-        id: this.fileId,
-      } as FileEntry;
+      // Preserve existing file data if available, otherwise create minimal entry
+      if (!this.selectedFile || this.selectedFile.id !== this.fileId) {
+        this.selectedFile = this.file ?? { id: this.fileId } as FileEntry;
+      }
 
       if (parentRef && parentRef.pictureSrcs[this.fileId] && parentRef.pictureSrcs[this.fileId].value) {
         this.debugLog('fetchFileSrc found cached parentRef pictureSrcs entry (indexed)');
@@ -191,6 +192,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     else if (this.file) {
       const fileObject = Array.isArray(this.file) && this.file.length > 0 ? this.file[0] : this.file;
       const fileId = fileObject.id;
+      // Set selectedFile BEFORE calling setFileSrcById so it has the full file data
+      this.selectedFile = fileObject;
 
       if (parentRef?.pictureSrcs[fileId]?.value) {
         this.debugLog('fetchFileSrc found cached parentRef pictureSrcs entry (object style)');
@@ -200,7 +203,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       } else {
         this.debugLog('fetchFileSrc no cached value for file object; calling setFileSrcById');
         this.setFileSrcById(fileId);
-        this.selectedFile = fileObject;
         this.isLoading = false;
         return;
       }
@@ -426,7 +428,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   editFileName(file: FileEntry) {
     this.isEditingFileName = true;
   }
-  
+
   async saveFileName(file: FileEntry) {
     const fileName = this.editFileNameInput?.nativeElement.value.trim();
     if (!fileName || fileName.length === 0) {
