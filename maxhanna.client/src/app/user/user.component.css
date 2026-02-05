@@ -562,3 +562,7 @@
   display:flex; 
   gap: 10px;
 }
+
+.aboutPopupPanelContentContainer {
+  width: 100%
+}
