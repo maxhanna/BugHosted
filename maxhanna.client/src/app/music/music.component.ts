@@ -577,8 +577,9 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     console.log("rebuilt player with first:", initialVideoId, "playlist length:", ids.length, "index:", index);
   }
 
+
   randomSong() {
-    // Prefer file playlist when valid IDs exist (filter out null/undefined)
+    // Prefer file playlist when valid IDs exist
     if (this.selectedType == 'file') {
       const fileIds = (this.fileIdPlaylist || []).filter(id => id != null) as number[];
       if (fileIds.length > 0) {
@@ -599,14 +600,32 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
         return;
       }
 
-      console.log("Randomly chosen youtube song:", randomSong.todo, "URL:", randomSong.url);
-      // Play the chosen song — `play()` will construct the playlist from `this.songs` (unchanged)
-      this.play(randomSong.url);
+      const ids = this.getYoutubeIdsInOrder();
+      const rndId = this.parseYoutubeId(randomSong.url || '');
+      if (!rndId || !ids.length) {
+        parent?.showNotification('Invalid YouTube ID or empty playlist');
+        return;
+      }
+
+      // ✅ Rotate so the random song is first; then index = 0 always
+      const rotated = this.rotatePlaylistFromId(ids, rndId);
+      console.log("Randomly chosen youtube song:", randomSong.todo, "ID:", rndId);
+
+      // Build straight from rotated list; index = 0
+      this.rebuildYTPlayer(rotated[0], rotated, 0);
+
+      // Update UI state
+      this.currentUrl = randomSong.url;
+      this.currentFileId = null;
+      this.isMusicPlaying = true;
+      this.isMusicControlsDisplayed(true);
+      this.cdr.markForCheck();
+      return;
     }
-    else {
-      console.error("Random song requested but unsupported type:", this.selectedType);
-    }
+
+    console.error("Random song requested but unsupported type:", this.selectedType);
   }
+
 
   followLink() {
     if (!this.currentUrl) {
@@ -722,7 +741,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       parent?.closeOverlay();
     }
   }
- 
+
   isMusicControlsDisplayed(setter: boolean) {
     const elements = [
       document.getElementById("stopMusicButton"),
@@ -734,11 +753,18 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       if (el) el.style.display = setter ? "inline-block" : "none";
     });
     this.cdr.markForCheck();
-  } 
+  }
 
   extractYouTubeVideoId(url: string) {
     const id = this.parseYoutubeId(url);
     return id ? `https://www.youtube.com/watch?v=${id}` : '';
+  }
+
+
+  private rotatePlaylistFromId(allIds: string[], startId: string): string[] {
+    if (!allIds.length) return [];
+    const idx = Math.max(0, allIds.indexOf(startId));
+    return allIds.slice(idx).concat(allIds.slice(0, idx));
   }
 
 
@@ -905,50 +931,39 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
 
+
   private rebuildYTPlayer(firstId: string, songIds: string[], index: number) {
     if (!this.musicVideo?.nativeElement) return;
 
     this.detachResizeHandling();
-
     try { this.ytPlayer?.destroy(); } catch { console.warn('[YT] Failed to destroy existing player'); }
 
-    // 🔴 REMOVE the 'playlist' playerVar entirely
     this.ytPlayer = new YT.Player(this.musicVideo.nativeElement as HTMLElement, {
-      // In most cases you can omit 'host' entirely. If you keep it, ensure it matches the iframe host.
-      // host: 'https://www.youtube.com',
       videoId: firstId,
       playerVars: {
         playsinline: 1,
         rel: 0,
         modestbranding: 1,
         enablejsapi: 1,
-        // ✅ Make sure this exactly matches your page origin (scheme + host + port)
         origin: window.location.origin,
         controls: 1,
       },
       events: {
         onReady: () => {
-          
+          // (Your iframe host debug log here if you want)
 
           try {
-            const iframe = (this.musicVideo?.nativeElement as HTMLElement)
-              ?.querySelector('iframe') as HTMLIFrameElement | null;
-            if (iframe) {
-              const host = new URL(iframe.src).host;
-              console.debug('[YT] iframe host:', host, 'full src:', iframe.src);
-            } else {
-              console.debug('[YT] iframe not found yet');
-            }
-          } catch (e) {
-            console.debug('[YT] unable to read iframe src', e);
-          }
-
-          try {
-            // ✅ Load the full playlist and jump straight to the chosen index
+            // 🔑 Load the full list at the desired index
             this.ytPlayer!.loadPlaylist(songIds, index, 0, 'small');
+
+            // Make sure the player advances
+            try { this.ytPlayer!.setLoop(false); } catch { }
+            // Optional, but good hygiene:
+            try { (this.ytPlayer as any).setShuffle?.(false); } catch { }
+
             this.ytPlayer!.playVideo();
 
-            // Optional: verify and hard-correct if needed
+            // Verify and hard-correct if needed
             setTimeout(() => {
               const reportedIndex = this.ytPlayer?.getPlaylistIndex?.() ?? -1;
               if (reportedIndex !== index) {
@@ -956,6 +971,14 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
                 if (vid) {
                   this.ytPlayer?.loadVideoById(vid);
                   this.ytPlayer?.playVideo();
+
+                  // 🔁 Re-attach the playlist after forcing a single video
+                  setTimeout(() => {
+                    try {
+                      // `cuePlaylist` attaches without interrupting playback timing as hard
+                      this.ytPlayer?.cuePlaylist(songIds, index, 0, 'small');
+                    } catch { }
+                  }, 200);
                 }
               }
             }, 300);
@@ -964,19 +987,60 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
             const vid = songIds[index] ?? firstId;
             this.ytPlayer?.loadVideoById(vid);
             this.ytPlayer?.playVideo();
+
+            // 🔁 Attach the playlist anyway so the next/prev work
+            setTimeout(() => {
+              try { this.ytPlayer?.cuePlaylist(songIds, index, 0, 'small'); } catch { }
+            }, 200);
           }
 
           if (this.ytPlayer?.isMuted()) this.ytPlayer?.unMute();
           this.attachResizeHandling();
         },
         onStateChange: (e: YT.OnStateChangeEvent) => {
-          if (e.data === YT.PlayerState.ENDED) this.next();
+          if (e.data === YT.PlayerState.ENDED) this.handleEndedFallback();
         },
         onError: (_e: YT.OnErrorEvent) => this.next(),
       }
     });
   }
 
+  private handleEndedFallback() {
+    // If there's a playlist attached, normal flow
+    const pl = this.ytPlayer?.getPlaylist?.() || [];
+    if (pl.length > 0) {
+      this.next();
+      return;
+    }
+
+    // Fallback: compute next using our own list
+    const ids = this.getYoutubeIdsInOrder();
+    if (!ids.length) return;
+
+    const currentId =
+      this.ytPlayer?.getVideoData()?.video_id ||
+      this.parseYoutubeId(this.currentUrl || '') ||
+      ids[0];
+
+    const idx = Math.max(0, ids.indexOf(currentId));
+    const nextIdx = (idx + 1) % ids.length;
+
+    try {
+      this.ytPlayer?.loadPlaylist(ids, nextIdx, 0, 'small');
+      this.ytPlayer?.playVideo();
+    } catch {
+      // Last-chance single-video advance
+      const nextId = ids[nextIdx];
+      if (nextId) {
+        this.ytPlayer?.loadVideoById(nextId);
+        this.ytPlayer?.playVideo();
+        // Re-attach a playlist for subsequent Next/Prev
+        setTimeout(() => {
+          try { this.ytPlayer?.cuePlaylist(ids, nextIdx, 0, 'small'); } catch { }
+        }, 200);
+      }
+    }
+  }
   // Radio Browser API methods
   async loadRadioData() {
     this.startLoading();
@@ -1073,42 +1137,42 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   mediaViewerFinishedLoading() {
     this.cdr.markForCheck();
   }
-  
-private parseYoutubeId(url: string): string {
-  if (!url) return '';
-  try {
-    const u = new URL(url);
-    const host = u.hostname.replace('www.', '');
 
-    // youtu.be/<id>
-    if (host === 'youtu.be') {
-      // path is "/<id>" possibly followed by segments; strip query/fragment
-      const id = u.pathname.split('/').filter(Boolean)[0] || '';
-      return id.split('?')[0].split('#')[0];
+  private parseYoutubeId(url: string): string {
+    if (!url) return '';
+    try {
+      const u = new URL(url);
+      const host = u.hostname.replace('www.', '');
+
+      // youtu.be/<id>
+      if (host === 'youtu.be') {
+        // path is "/<id>" possibly followed by segments; strip query/fragment
+        const id = u.pathname.split('/').filter(Boolean)[0] || '';
+        return id.split('?')[0].split('#')[0];
+      }
+
+      // youtube.com/watch?v=<id>
+      const v = u.searchParams.get('v');
+      if (v && /^[a-zA-Z0-9_-]{11}$/.test(v)) return v;
+
+      // youtube.com/embed/<id>
+      const embed = u.pathname.match(/\/embed\/([a-zA-Z0-9_-]{11})/);
+      if (embed) return embed[1];
+
+      // youtube.com/shorts/<id>
+      const shorts = u.pathname.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
+      if (shorts) return shorts[1];
+    } catch {
+      // Fallback regex if URL constructor fails
+      const m =
+        url.match(/[?&]v=([a-zA-Z0-9_-]{11})/) ||
+        url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/) ||
+        url.match(/\/embed\/([a-zA-Z0-9_-]{11})/) ||
+        url.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
+      if (m) return m[1];
     }
-
-    // youtube.com/watch?v=<id>
-    const v = u.searchParams.get('v');
-    if (v && /^[a-zA-Z0-9_-]{11}$/.test(v)) return v;
-
-    // youtube.com/embed/<id>
-    const embed = u.pathname.match(/\/embed\/([a-zA-Z0-9_-]{11})/);
-    if (embed) return embed[1];
-
-    // youtube.com/shorts/<id>
-    const shorts = u.pathname.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
-    if (shorts) return shorts[1];
-  } catch {
-    // Fallback regex if URL constructor fails
-    const m =
-      url.match(/[?&]v=([a-zA-Z0-9_-]{11})/) ||
-      url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/) ||
-      url.match(/\/embed\/([a-zA-Z0-9_-]{11})/) ||
-      url.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
-    if (m) return m[1];
+    return '';
   }
-  return '';
-}
 
   async refreshPlaylist() {
     await this.getSongList().then(() => {
