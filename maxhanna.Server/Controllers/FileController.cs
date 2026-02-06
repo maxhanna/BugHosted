@@ -1675,7 +1675,7 @@ LIMIT
 						{
 							var id = reader.GetInt32("id");
 							var userId = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id");
-							var username = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
+							var username = reader.IsDBNull(reader.GetOrdinal("username")) ? "Anonymous" : reader.GetString("username");
 							var fileName = reader.IsDBNull(reader.GetOrdinal("file_name")) ? null : reader.GetString("file_name");
 							var folderPath = reader.IsDBNull(reader.GetOrdinal("folder_path")) ? null : reader.GetString("folder_path");
 							var isPublic = !reader.IsDBNull(reader.GetOrdinal("is_public")) && reader.GetBoolean("is_public");
