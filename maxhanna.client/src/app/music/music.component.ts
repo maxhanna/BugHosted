@@ -209,7 +209,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     // If you want to autostart when you already have songs loaded:
     if (this.songs.length && this.songs[0]?.url) {
       const ids = this.getYoutubeIdsInOrder();
-      const firstId = this.trimYoutubeUrl(this.songs[0].url!);
+      const firstId = this.parseYoutubeId(this.songs[0].url!);
       let index = ids.indexOf(firstId);
       if (index < 0) { ids.unshift(firstId); index = 0; }
 
@@ -332,7 +332,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     const ids: string[] = [];
     for (const s of this.songs) {
       if (s.url) {
-        const id = this.trimYoutubeUrl(s.url);
+        const id = this.parseYoutubeId(s.url);
         if (id) ids.push(id);
       }
     }
@@ -560,7 +560,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     const ids = this.getYoutubeIdsInOrder();
-    const requestedId = this.trimYoutubeUrl(url!);
+    const requestedId = this.parseYoutubeId(url!);
     let index = ids.indexOf(requestedId);
     if (index < 0) { ids.unshift(requestedId); index = 0; }
 
@@ -653,10 +653,10 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     let offset = this.songs.indexOf(this.songs.find(x => x.url === url)!);
     if (offset < 0) offset = 0;
     for (let i = offset; i < this.songs.length; i++) {
-      playlist.push(this.trimYoutubeUrl(this.songs[i].url || ''));
+      playlist.push(this.parseYoutubeId(this.songs[i].url || ''));
     }
     for (let i = 0; i < offset; i++) {
-      playlist.push(this.trimYoutubeUrl(this.songs[i].url || ''));
+      playlist.push(this.parseYoutubeId(this.songs[i].url || ''));
     }
     return playlist;
   }
@@ -722,22 +722,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       parent?.closeOverlay();
     }
   }
-
-  trimYoutubeUrl(url: string) {
-    if (!url || url.trim() == '') return '';
-    if (url.includes("youtu.be")) {
-      return url.substring(url.indexOf("youtu.be/") + 9, url.length);
-    }
-    if (url.includes("?v=") || url.includes("&v=")) {
-      const regex = /[?&]v=([^&,$]+)/;
-      const match = url.match(regex);
-      return match && match[1] ? match[1] : '';
-    } else {
-      console.error("URL doesn't contain v parameter: " + url);
-      return '';
-    }
-  }
-
+ 
   isMusicControlsDisplayed(setter: boolean) {
     const elements = [
       document.getElementById("stopMusicButton"),
@@ -749,13 +734,13 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       if (el) el.style.display = setter ? "inline-block" : "none";
     });
     this.cdr.markForCheck();
-  }
+  } 
 
   extractYouTubeVideoId(url: string) {
-    const youtubeRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-    const match = url.match(youtubeRegex);
-    return match && match[1] ? `https://www.youtube.com/watch?v=${match[1]}` : '';
+    const id = this.parseYoutubeId(url);
+    return id ? `https://www.youtube.com/watch?v=${id}` : '';
   }
+
 
   onSearchEnter() {
     clearTimeout(this.debounceTimer);
@@ -943,6 +928,21 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       },
       events: {
         onReady: () => {
+          
+
+          try {
+            const iframe = (this.musicVideo?.nativeElement as HTMLElement)
+              ?.querySelector('iframe') as HTMLIFrameElement | null;
+            if (iframe) {
+              const host = new URL(iframe.src).host;
+              console.debug('[YT] iframe host:', host, 'full src:', iframe.src);
+            } else {
+              console.debug('[YT] iframe not found yet');
+            }
+          } catch (e) {
+            console.debug('[YT] unable to read iframe src', e);
+          }
+
           try {
             // ✅ Load the full playlist and jump straight to the chosen index
             this.ytPlayer!.loadPlaylist(songIds, index, 0, 'small');
@@ -1073,6 +1073,43 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   mediaViewerFinishedLoading() {
     this.cdr.markForCheck();
   }
+  
+private parseYoutubeId(url: string): string {
+  if (!url) return '';
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace('www.', '');
+
+    // youtu.be/<id>
+    if (host === 'youtu.be') {
+      // path is "/<id>" possibly followed by segments; strip query/fragment
+      const id = u.pathname.split('/').filter(Boolean)[0] || '';
+      return id.split('?')[0].split('#')[0];
+    }
+
+    // youtube.com/watch?v=<id>
+    const v = u.searchParams.get('v');
+    if (v && /^[a-zA-Z0-9_-]{11}$/.test(v)) return v;
+
+    // youtube.com/embed/<id>
+    const embed = u.pathname.match(/\/embed\/([a-zA-Z0-9_-]{11})/);
+    if (embed) return embed[1];
+
+    // youtube.com/shorts/<id>
+    const shorts = u.pathname.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
+    if (shorts) return shorts[1];
+  } catch {
+    // Fallback regex if URL constructor fails
+    const m =
+      url.match(/[?&]v=([a-zA-Z0-9_-]{11})/) ||
+      url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/) ||
+      url.match(/\/embed\/([a-zA-Z0-9_-]{11})/) ||
+      url.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
+    if (m) return m[1];
+  }
+  return '';
+}
+
   async refreshPlaylist() {
     await this.getSongList().then(() => {
       this.updatePaginatedSongs();
