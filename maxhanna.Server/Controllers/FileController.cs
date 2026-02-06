@@ -1979,17 +1979,29 @@ LIMIT
 		}
 
 		[HttpGet("/File/GetNumberOfArt", Name = "GetNumberOfArt")]
-		public async Task<IActionResult> GetNumberOfArt([FromQuery] int userId)
+		public async Task<IActionResult> GetNumberOfArt([FromQuery] int? userId)
 		{
 			try
 			{
 				using (var conn = new MySqlConnection(_connectionString))
 				{
 					await conn.OpenAsync();
-					string sql = "SELECT COUNT(*) FROM file_uploads WHERE user_id = @UserId AND folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Art/';";
+					string sql;
+					if (userId.HasValue)
+					{
+						sql = "SELECT COUNT(*) FROM file_uploads WHERE user_id = @UserId AND folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Art/';";
+					}
+					else
+					{
+						sql = "SELECT COUNT(*) FROM file_uploads WHERE folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Art/';";
+					}
+
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@UserId", userId);
+						if (userId.HasValue)
+						{
+							cmd.Parameters.AddWithValue("@UserId", userId.Value);
+						}
 						var result = await cmd.ExecuteScalarAsync();
 						int count = 0;
 						if (result != null && int.TryParse(result.ToString(), out int tmp)) count = tmp;

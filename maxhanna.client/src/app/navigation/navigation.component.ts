@@ -122,7 +122,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
   // Social stats
   socialTotalPosts: number | null = null;
   private socialInterval: any;
-  // Crawler stats
+  // Art stats
+  artTotalSubmissions: number | null = null;
+  private artInterval: any;
+   // Crawler stats
   crawlerIndexCount: number | null = null;
   private crawlerInterval: any;
 
@@ -151,6 +154,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     clearInterval(this.emulationInterval);
     clearInterval(this.socialInterval);
     clearInterval(this.crawlerInterval);
+    clearInterval(this.artInterval);
     clearInterval(this.bonesInterval);
     this.showAppSelectionHelp = false;
     this.clearNotifications();
@@ -194,6 +198,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       Promise.resolve(this.getArrayPlayerInfo()),
       Promise.resolve(this.getEmulationPlayerInfo()),
       Promise.resolve(this.getSocialInfo()),
+      Promise.resolve(this.getArtInfo()),
       Promise.resolve(this.getCrawlerInfo()),
       Promise.resolve(this.getThemeInfo()),
       Promise.resolve(this.getBonesPlayerInfo())
@@ -218,6 +223,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.arrayInterval = setInterval(() => { if (this.notificationsActive) this.getArrayPlayerInfo(); }, 60 * 1000); // every minute
     this.emulationInterval = setInterval(() => { if (this.notificationsActive) this.getEmulationPlayerInfo(); }, 60 * 1000); // every minute
     this.socialInterval = setInterval(() => { if (this.notificationsActive) this.getSocialInfo(); }, 5 * 60 * 1000); // every 5 minutes
+    this.artInterval = setInterval(() => { if (this.notificationsActive) this.getArtInfo(); }, 5 * 60 * 1000); // every 5 minutes
     this.crawlerInterval = setInterval(() => { if (this.notificationsActive) this.getCrawlerInfo(); }, 60 * 60 * 1000); // every hour
   }
 
@@ -235,6 +241,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     clearInterval(this.musicInterval);
     clearInterval(this.arrayInterval);
     clearInterval(this.emulationInterval);
+    clearInterval(this.artInterval);
     clearInterval(this.socialInterval);
     clearInterval(this.crawlerInterval);
   }
@@ -719,6 +726,24 @@ export class NavigationComponent implements OnInit, OnDestroy {
         crawlerNav.content = this.crawlerIndexCount != null ? this.crawlerIndexCount.toString() : '';
       }
     }
+  }
+
+  private async getArtInfo() {
+    if (!this.notificationsActive) return;
+    if (!this.artTotalSubmissions) {
+      try {
+        const res: any = await this.fileService.getNumberOfArt();
+        this.artTotalSubmissions = res ?? 0;
+      } catch {
+        this.artTotalSubmissions = null;
+      }
+    }
+    if (this._parent?.navigationItems) {
+      const artNav = this._parent.navigationItems.find(x => x.title === 'Art');
+      if (artNav) {
+        artNav.content = this.artTotalSubmissions != null ? this.artTotalSubmissions.toString() : '';
+      }
+    } 
   }
 
   async getWordlerStreakInfo() {

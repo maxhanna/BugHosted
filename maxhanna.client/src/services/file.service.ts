@@ -179,9 +179,10 @@ export class FileService {
 		} catch (e) { return 0; }
 	}
 
-	async getNumberOfArt(userId: number) {
+	async getNumberOfArt(userId?: number) {
 		try {
-			const response = await fetch(`/file/getnumberofart?userId=${userId}`, { method: 'GET' });
+			const query = (userId !== undefined && userId !== null) ? `?userId=${encodeURIComponent(userId)}` : '';
+			const response = await fetch(`/file/getnumberofart${query}`, { method: 'GET' });
 			if (!response.ok) return 0;
 			const txt = await response.text();
 			const n = parseInt(txt);
