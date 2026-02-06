@@ -592,15 +592,15 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       }
     }
 
-    // Fallback to youtube URLs only (filter out empty/invalid urls)
-    const urls = (this.songs || []).map(s => s.url).filter(u => !!u) as string[];
-    if (urls.length === 0) {
-      const parent = this.inputtedParentRef ?? this.parentRef;
+    // Fallback to YouTube IDs (use IDs so we can reliably position in playlist)
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const ids = this.getYoutubeIdsInOrder().filter(id => !!id);
+    if (ids.length === 0) {
       parent?.showNotification('No songs available to play');
       return;
     }
-    const randomIndex = Math.floor(Math.random() * urls.length);
-    this.play(urls[randomIndex]);
+    const randomId = ids[Math.floor(Math.random() * ids.length)];
+    this.play(`https://www.youtube.com/watch?v=${randomId}`);
   }
 
   followLink() {
