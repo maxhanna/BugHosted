@@ -596,29 +596,16 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
     if (this.selectedType == 'youtube') { 
       console.log("Selecting random YouTube song");
-      const parent = this.inputtedParentRef ?? this.parentRef;
-      const ids = this.getYoutubeIdsInOrder().filter(id => !!id);
-      if (ids.length === 0) {
+      const parent = this.inputtedParentRef ?? this.parentRef; 
+      const randomSong = this.pickRandomSong(this.songs);
+      if (!randomSong) {
         parent?.showNotification('No songs available to play');
         return;
       }
-
-      // Create a shuffled copy of the songs list, pick the first youtube song from it,
-      // then play that song using the original `this.songs` order (so we don't reorder the list).
-      const songsCopy = [...this.songs];
-      this.shuffleSongs(songsCopy);
-      if (!songsCopy || songsCopy.length === 0) {
-        parent?.showNotification('No songs available to play');
-        return;
-      }
-      const chosen = songsCopy.find(s => parent?.isYoutubeUrl(s.url) && this.trimYoutubeUrl(s.url ?? ""));
-      if (!chosen || !chosen.url) {
-        parent?.showNotification('No valid YouTube songs available to play');
-        return;
-      } 
-      console.log("Randomly chosen youtube song:", chosen.todo, "URL:", chosen.url);
+      
+      console.log("Randomly chosen youtube song:", randomSong.todo, "URL:", randomSong.url);
       // Play the chosen song — `play()` will construct the playlist from `this.songs` (unchanged)
-      this.play(chosen.url);
+      this.play(randomSong.url);
     }
     else {
       console.error("Random song requested but unsupported type:", this.selectedType);
@@ -689,6 +676,11 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       const j = Math.floor(Math.random() * (i + 1));
       [array[i], array[j]] = [array[j], array[i]];
     }
+  }
+
+  pickRandomSong(array: Array<Todo>): Todo | undefined {
+    const idx = Math.floor(Math.random() * array.length);
+    return array[idx]; 
   }
 
   stopMusic() {
