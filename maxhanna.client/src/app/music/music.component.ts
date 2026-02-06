@@ -525,8 +525,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       parent?.showNotification("Url/File can't be empty"); 
       return;
    }
-
-    // Ignore redundant replays
+ 
     if (url != undefined && url === this.currentUrl) { 
       parent?.showNotification("Already playing this URL");
       return; 
@@ -535,9 +534,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       parent?.showNotification("Already playing this file");
       return;
     }
-
-    // ✅ Only gate on API readiness.
-    // We purposely do NOT check `ytPlayer` here anymore.
+ 
     if (!this.ytReady && url) {
       this.pendingPlay = { url, fileId: null };
       console.log("YT API not ready, queuing play for url:", url);
@@ -563,13 +560,12 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     const ids = this.getYoutubeIdsInOrder();
-    const firstId = this.trimYoutubeUrl(url!);
-    let index = ids.indexOf(firstId);
-    if (index < 0) { ids.unshift(firstId); index = 0; }
-
-    // ✅ Use array-based rebuild for huge lists
-    this.rebuildYTPlayer(firstId, ids, index);
-
+    const requestedId = this.trimYoutubeUrl(url!);
+    let index = ids.indexOf(requestedId);
+    if (index < 0) { ids.unshift(requestedId); index = 0; }
+ 
+    const initialVideoId = ids[index]; 
+    this.rebuildYTPlayer(initialVideoId, ids, index); 
 
     // Update UI state
     this.currentUrl = url;
@@ -578,7 +574,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.isMusicControlsDisplayed(true);
     this.stopLoading();
 
-    console.log("rebuilt player with first:", firstId, "playlist length:", ids.length, "index:", index);
+    console.log("rebuilt player with first:", initialVideoId, "playlist length:", ids.length, "index:", index);
   }
 
   randomSong() {
