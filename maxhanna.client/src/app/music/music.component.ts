@@ -946,6 +946,36 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
           this.ytPlayer?.loadPlaylist(songIds, index, undefined, 'small');
           try { this.ytPlayer?.playVideoAt(index); } catch {}
           this.ytPlayer?.playVideo();
+          // Debug: print iframe src to help diagnose origin/postMessage issues
+          try {
+            const iframe = (this.musicVideo?.nativeElement as HTMLElement)?.querySelector('iframe') as HTMLIFrameElement | null;
+            if (iframe) {
+              console.debug('[YT] iframe src at onReady:', iframe.src);
+            }
+          } catch (e) {
+            console.debug('[YT] failed to read iframe src', e);
+          }
+
+          // Fallback: sometimes playlist/load commands don't land due to origin/postMessage issues.
+          // After a short delay, verify the player's reported playlist index; if it doesn't match
+          // the requested index, force-load the requested video by id.
+          setTimeout(() => {
+            try {
+              const reportedIndex = this.ytPlayer?.getPlaylistIndex?.() ?? -1;
+              if (reportedIndex !== index) {
+                console.warn('[YT] playlist index mismatch (reported:', reportedIndex, ') expected:', index, '- forcing loadVideoById');
+                const vidToForce = songIds && songIds.length > index ? songIds[index] : songIds[0];
+                if (vidToForce) {
+                  try { 
+                    this.ytPlayer?.loadVideoById(vidToForce); 
+                    this.ytPlayer?.playVideo(); 
+                  } catch (e) { console.warn('[YT] force loadVideoById failed', e); }
+                }
+              }
+            } catch (e) {
+              console.warn('[YT] error during playlist index verification', e);
+            }
+          }, 300);
           if (this.ytPlayer?.isMuted()) {
             this.ytPlayer?.unMute();
           }
