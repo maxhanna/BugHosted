@@ -193,7 +193,7 @@
     </button>
     <button title="Delete File" 
       (click)="delete(optionsFile);" 
-      *ngIf="shouldShowEditButton(optionsFile) || (parentRef?.user?.id == 1)">
+      *ngIf="shouldShowEditButton(optionsFile) || (parentRef?.user?.id == 1 || inputtedParentRef?.user?.id == 1)">
       ❌Delete
     </button>
     <button title="Hide File" (click)="hide(optionsFile);" *ngIf="userIsLoggedIn()">
