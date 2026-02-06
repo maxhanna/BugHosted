@@ -252,9 +252,12 @@
       <div class="optionsStatsDescription">
         <span *ngFor="let topic of optionsFile.topics" class="matchingTopic" (click)="fileTopicClicked([topic])">
           {{topic.topicText}}
-          <span title="Remove Topic From File"
-                *ngIf="optionsFile && optionsFile.id && editingTopics.includes(optionsFile.id)"
-                (click)="removeTopicFromFile(topic, optionsFile); $event.stopPropagation()">❌</span>
+          <span 
+            title="Remove Topic From File"
+            *ngIf="optionsFile && optionsFile.id && editingTopics.includes(optionsFile.id)"
+            (click)="removeTopicFromFile(topic, optionsFile); $event.stopPropagation()">
+            ❌
+          </span>
         </span>
       </div>
     </div>

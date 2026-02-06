@@ -599,8 +599,22 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       parent?.showNotification('No songs available to play');
       return;
     }
-    const randomId = ids[Math.floor(Math.random() * ids.length)];
-    this.play(`https://www.youtube.com/watch?v=${randomId}`);
+
+    // Create a shuffled copy of the songs list, pick the first youtube song from it,
+    // then play that song using the original `this.songs` order (so we don't reorder the list).
+    const songsCopy = [...this.songs];
+    this.shuffleSongs(songsCopy);
+    if (!songsCopy || songsCopy.length === 0) {
+      parent?.showNotification('No songs available to play');
+      return;
+    }
+    const chosen = songsCopy.find(s => parent?.isYoutubeUrl(s.url) && this.trimYoutubeUrl(s.url ?? ""));
+    if (!chosen || !chosen.url) {
+      parent?.showNotification('No valid YouTube songs available to play');
+      return;
+    } 
+    // Play the chosen song — `play()` will construct the playlist from `this.songs` (unchanged)
+    this.play(chosen.url);
   }
 
   followLink() {
