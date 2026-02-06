@@ -218,8 +218,14 @@
     <div class="optionsStatsDiv" *ngIf="!showControlBindings">
       <div class="optionsStatsHeader">Upload ROM file:</div>
       <div class="optionsStatsDescription uploadRomSpan upload-label controlVolume">
-        <app-file-upload [currentDirectory]="'Roms'" [user]="parentRef?.user!" [inputtedParentRef]="parentRef"
-          [uploadButtonText]="'Upload Rom(s)'" [maxSelectedFiles]="100" [allowedFileTypes]="allowedFileTypes">
+        <app-file-upload 
+          [currentDirectory]="'Roms'" 
+          [user]="parentRef?.user!" 
+          [inputtedParentRef]="parentRef"
+          [uploadButtonText]="'Upload Rom(s)'" 
+          [maxSelectedFiles]="100" 
+          [allowedFileTypes]="allowedFileTypes"
+          [displayOptionsAndTopicsButtons]="false">
         </app-file-upload>
       </div>
     </div>

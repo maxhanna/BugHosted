@@ -20,7 +20,7 @@
     ? currentDirectory : '/'}}</span>{{isUploading ? '...' : '?'}}</div>
   <div style="margin-top:35px; width: 100%;">  
     <div class="uploadFileActionWrapper" *ngIf="!isUploading">
-      <div class="uploadFileActionDiv">
+      <div class="uploadFileActionDiv" *ngIf="displayOptionsAndTopicsButtons">
         <button (click)="displayFileUploadOptions = !displayFileUploadOptions" class="cursorPointer smallFont">
           Options [{{displayFileUploadOptions ? '-' : '+'}}]
         </button>

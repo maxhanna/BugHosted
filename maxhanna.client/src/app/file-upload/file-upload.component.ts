@@ -20,6 +20,7 @@ export class FileUploadComponent implements OnDestroy {
   @Input() showPrivatePublicOption: boolean = true;
   @Input() allowedFileTypes: string = ''; 
   @Input() maxSelectedFiles: number = 5;
+  @Input() displayOptionsAndTopicsButtons: boolean = true;
 
   @Output() userUploadEvent = new EventEmitter<Array<File>>();
   @Output() userUploadFinishedEvent = new EventEmitter<FileEntry[]>();

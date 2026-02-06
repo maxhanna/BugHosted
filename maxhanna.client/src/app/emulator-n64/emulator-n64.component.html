@@ -48,6 +48,7 @@
         [uploadButtonText]="'Upload Rom(s)'"
         [maxSelectedFiles]="100"
         [allowedFileTypes]="getAllowedRomFileTypesString()"
+        [displayOptionsAndTopicsButtons]="false"
         (userUploadEvent)="isFileUploaderExpanded = true;"
         (userCancelEvent)="isFileUploaderExpanded = false;"
         (userUploadFinishedEvent)="isFileUploaderExpanded = false;">
