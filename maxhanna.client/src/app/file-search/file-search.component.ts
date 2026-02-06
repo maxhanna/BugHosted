@@ -99,6 +99,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   };
   isDisplayingNSFW = false;
   fileTypeFilter = "";
+  loadingSearch = false;
   private windowScrollHandler: Function;
   private containerScrollHandler: Function;
 
@@ -1085,6 +1086,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     return count;
   }
   async changeSearchTermsFromPopup() {
+    this.loadingSearch = true;
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
       this.searchTerms = this.popupSearch.nativeElement.value.trim();
@@ -1095,6 +1097,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
         await this.fileService.recordSearch(this.searchTerms, 'file', user?.id);
       } catch { }
+      this.loadingSearch = false;
     }, 500);
   }
   changeSearchTermsFromSearchInput() {
