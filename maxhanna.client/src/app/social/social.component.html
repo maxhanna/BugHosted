@@ -370,6 +370,7 @@
                 [storyId]="story.id"
                 [initialContent]="story.storyText"
                 [attachedFiles]="story.storyFiles ?? []"
+                [isEditing]="isEditing.includes(story.id)"
                 (contentUpdated)="onStoryUpdated($event, story)"
                 (cancelEdit)="cancelEdit(story)"
                 [attachedTopics]="story.storyTopics ?? []">

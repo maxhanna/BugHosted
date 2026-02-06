@@ -102,6 +102,7 @@
               [initialContent]="comment.commentText ?? ''" 
               [attachedFiles]="comment.commentFiles ?? []"
               [showPostInput]="true" 
+              [isEditing]="true"
               (contentUpdated)="onCommentUpdated($event, comment)"
               (cancelEdit)="cancelEdit(comment)">
             </app-text-input>

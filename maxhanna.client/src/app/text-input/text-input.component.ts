@@ -50,6 +50,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   @Input() currentChatUsers?: User[];
   @Input() quoteMessage?: string;
   @Input() initialContent?: string;
+  @Input() isEditing = false;
   @Input() showPostInput = false;
   @Input() enterToPost: boolean = false;
   @Input() attachedFiles: FileEntry[] = [];
@@ -152,21 +153,21 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         return result;
       }
     }
-  catch (err) {
+    catch (err) {
       console.error('Update failed', err);
       throw err;
     }
     finally {
       this.stopLoading();
     }
-  return null;
+    return null;
   }
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['quoteMessage'] && changes['quoteMessage'].currentValue) {
       const quote = changes['quoteMessage'].currentValue;
       const current = this.textarea?.value || '';
-      console.log("quoteMessage changed: ", this.quoteMessage); 
+      console.log("quoteMessage changed: ", this.quoteMessage);
       this.showPostInput = true;
       setTimeout(() => {
         this.textarea.value = quote + current;
@@ -178,24 +179,24 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         this.quoteMessage = undefined;
       }, 100);
     }
-      // If initialContent is provided (even on first change), populate the textarea so
-      // editing an existing comment that only contains attachments still shows the edit UI.
-      if (changes['initialContent'] && changes['initialContent'].currentValue !== undefined) {
-        const val = changes['initialContent'].currentValue as string | undefined;
-        if (val !== undefined) {
-          setTimeout(() => {
-            this.showPostInput = true;
-            try {
-              if (this.textarea) {
-                this.textarea.value = val;
-                this.textarea.focus();
-              }
-            } catch (e) {
-              // ignore if DOM not ready
+    // If initialContent is provided (even on first change), populate the textarea so
+    // editing an existing comment that only contains attachments still shows the edit UI.
+    if (changes['initialContent'] && changes['initialContent'].currentValue !== undefined) {
+      const val = changes['initialContent'].currentValue as string | undefined;
+      if (val !== undefined) {
+        setTimeout(() => {
+          this.showPostInput = true;
+          try {
+            if (this.textarea) {
+              this.textarea.value = val;
+              this.textarea.focus();
             }
-          }, 50);
-        }
+          } catch (e) {
+            // ignore if DOM not ready
+          }
+        }, 50);
       }
+    }
   }
 
   onTopicAdded(event: Topic[] | undefined) {
@@ -333,10 +334,10 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       this.stopLoading();
       // clear posting guard
       this._isPosting = false;
-      
-      setTimeout(() => { 
+
+      setTimeout(() => {
         this.textarea.focus();
-      }, 50); 
+      }, 50);
     }
   }
 
@@ -402,7 +403,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       }
       if (this.type == "Comment") {
         const fromUserId = user?.id ?? 0;
-        const toUserIds = [replyingToUser?.id ?? 0].filter(id => id != fromUserId); 
+        const toUserIds = [replyingToUser?.id ?? 0].filter(id => id != fromUserId);
         if (replyingToUser?.id && toUserIds.length > 0) {
           const filteredToUserIds = toUserIds.filter(id => !mentionedSet.has(id));
           if (filteredToUserIds.length > 0) {
@@ -507,7 +508,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.showOverlay();
   }
-  closePostOptionsPanel() { 
+  closePostOptionsPanel() {
     this.isPostOptionsPanelOpen = false;
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
@@ -687,7 +688,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         return msg;
       }
       return this.encryptionService.encryptContent(msg, (id + "").trim());
-    } catch (error) { 
+    } catch (error) {
       console.error('Encryption error:', error);
       return msg;
     }
@@ -702,7 +703,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         this.textarea.value = savedVal;
       }, 100);
     }, 10);
-    
+
   }
 
   // Workaround for Firefox dragging interference: when textarea is focused, disable dragstart so text selection works.
@@ -727,9 +728,11 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       if (event.key === 'Enter' && !event.ctrlKey && !event.shiftKey) {
         event.preventDefault();
         clearTimeout(this.debounceTimer);
-        this.debounceTimer = setTimeout(() => {
-          this.post();
-        }, 100);
+        if (!this.isEditing) {
+          this.debounceTimer = setTimeout(() => {
+            this.post();
+          }, 100);
+        }
       }
       else if (event.ctrlKey && event.key === 'Enter') {
         event.preventDefault();
@@ -744,9 +747,11 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       if (event.ctrlKey && event.key === 'Enter') {
         event.preventDefault();
         clearTimeout(this.debounceTimer);
-        this.debounceTimer = setTimeout(() => {
-          this.post();
-        }, 100);
+        if (!this.isEditing) {
+          this.debounceTimer = setTimeout(() => {
+            this.post();
+          }, 100);
+        }
       }
     }
     this.hapticFeedback();
