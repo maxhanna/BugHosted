@@ -162,6 +162,9 @@ public class WebCrawler
   private readonly TimeSpan _defaultPerHostDelay = TimeSpan.FromSeconds(2);
   private static SemaphoreSlim scrapeSemaphore = new SemaphoreSlim(1, 1);
   private readonly SemaphoreSlim _asyncScrapeSemaphore = new SemaphoreSlim(1, 1); // Semaphore to limit to one execution at a time per URL
+  // Prevent concurrent background refreshes of the count cache
+  private static readonly SemaphoreSlim _countRefreshSemaphore = new SemaphoreSlim(1, 1);
+
   private static readonly Random _random = new Random();
   private List<string> urlsToScrapeQueue = new List<string>();
   private HashSet<string> _visitedUrls = new HashSet<string>();
@@ -1642,21 +1645,59 @@ public class WebCrawler
         return (int)Math.Min(cachedCount, int.MaxValue);
       }
 
-      // 3) Cache missing or stale → recompute and upsert with a single statement
-      const string upsertRefreshSql = @"
+      // 3) If cache is stale but has a value, return the cached value immediately
+      //    and trigger a background refresh to recompute the COUNT(*) asynchronously.
+      if (cachedCount > 0)
+      {
+        // Fire-and-forget refresh but avoid concurrent refreshes
+        _ = Task.Run(async () =>
+        {
+          if (!await _countRefreshSemaphore.WaitAsync(0).ConfigureAwait(false)) return;
+          try
+          {
+            try
+            {
+              await using var bgConn = new MySqlConnection(cs);
+              await bgConn.OpenAsync().ConfigureAwait(false);
+              const string upsertRefreshSql = @"
+                    INSERT INTO search_results_count_cache (id, last_count, last_counted_at)
+                    VALUES (1, (SELECT COUNT(*) FROM search_results), UTC_TIMESTAMP())
+                    ON DUPLICATE KEY UPDATE
+                      last_count      = (SELECT COUNT(*) FROM search_results),
+                      last_counted_at = UTC_TIMESTAMP();
+                ";
+              await using var upCmd = new MySqlCommand(upsertRefreshSql, bgConn) { CommandTimeout = 30 };
+              await upCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+              _ = _log.Db("Background refresh failed: " + ex.Message, null, "SEARCH", true);
+            }
+          }
+          finally
+          {
+            _countRefreshSemaphore.Release();
+          }
+        });
+
+        return (int)Math.Min(cachedCount, int.MaxValue);
+      }
+
+      // 4) If we have no cached value (or cachedCount == 0), do the synchronous upsert/read
+      const string upsertRefreshSqlSync = @"
             INSERT INTO search_results_count_cache (id, last_count, last_counted_at)
             VALUES (1, (SELECT COUNT(*) FROM search_results), UTC_TIMESTAMP())
             ON DUPLICATE KEY UPDATE
               last_count      = (SELECT COUNT(*) FROM search_results),
               last_counted_at = UTC_TIMESTAMP();
         ";
-      await using (var upCmd = new MySqlCommand(upsertRefreshSql, conn)
+      await using (var upCmd = new MySqlCommand(upsertRefreshSqlSync, conn)
       { CommandTimeout = 30 })
       {
         await upCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
       }
 
-      // 4) Re-read and return
+      // Re-read and return
       await using (var readCmd2 = new MySqlCommand(readSql, conn)
       { CommandTimeout = 5 })
       {
@@ -1669,7 +1710,6 @@ public class WebCrawler
         }
       }
 
-      // Shouldn’t happen (row is created/updated above), but be defensive.
       return 0;
     }
     catch (Exception ex)
@@ -1697,75 +1737,76 @@ public class WebCrawler
   public async Task<object?> GetStorageStats()
   {
     string sql = @"
-	SELECT 
-		stats.*,
-		db_sizes.total_size_mb
-	FROM
-	(
-		SELECT 
-			(
-				AVG(LENGTH(url)) +
-				AVG(LENGTH(IFNULL(title, ''))) +
-				AVG(LENGTH(IFNULL(description, ''))) +
-				AVG(LENGTH(IFNULL(author, ''))) +
-				AVG(LENGTH(IFNULL(keywords, ''))) +
-				AVG(LENGTH(IFNULL(image_url, ''))) +
-				4 + 8 + 8 + 64 + 1 + 4 + 20
-			) AS avg_row_size_bytes,
+    SELECT 
+      stats.*,
+      db_sizes.total_size_mb
+    FROM
+    (
+      SELECT 
+        (
+          AVG(LENGTH(url)) +
+          AVG(LENGTH(IFNULL(title, ''))) +
+          AVG(LENGTH(IFNULL(description, ''))) +
+          AVG(LENGTH(IFNULL(author, ''))) +
+          AVG(LENGTH(IFNULL(keywords, ''))) +
+          AVG(LENGTH(IFNULL(image_url, ''))) +
+          4 + 8 + 8 + 64 + 1 + 4 + 20
+        ) AS avg_row_size_bytes,
 
-			(
-				AVG(LENGTH(url)) +
-				AVG(LENGTH(IFNULL(title, ''))) +
-				AVG(LENGTH(IFNULL(description, ''))) +
-				AVG(LENGTH(IFNULL(author, ''))) +
-				AVG(LENGTH(IFNULL(keywords, ''))) +
-				AVG(LENGTH(IFNULL(image_url, ''))) +
-				4 + 8 + 8 + 64 + 1 + 4 + 20
-			) / (1024 * 1024) AS avg_row_size_mb,
+        (
+          AVG(LENGTH(url)) +
+          AVG(LENGTH(IFNULL(title, ''))) +
+          AVG(LENGTH(IFNULL(description, ''))) +
+          AVG(LENGTH(IFNULL(author, ''))) +
+          AVG(LENGTH(IFNULL(keywords, ''))) +
+          AVG(LENGTH(IFNULL(image_url, ''))) +
+          4 + 8 + 8 + 64 + 1 + 4 + 20
+        ) / (1024 * 1024) AS avg_row_size_mb,
 
-			COUNT(*) AS total_rows,
-			MIN(found_date) AS earliest_date,
-			MAX(found_date) AS latest_date,
+        cnt.total_rows AS total_rows,
+        MIN(found_date) AS earliest_date,
+        MAX(found_date) AS latest_date,
 
-			TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date)) AS days_of_data,
+        TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date)) AS days_of_data,
 
-			CASE 
-				WHEN TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date)) = 0 THEN COUNT(*)
-				ELSE COUNT(*) / TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date))
-			END AS avg_rows_per_day,
+        CASE 
+          WHEN TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date)) = 0 THEN cnt.total_rows
+          ELSE cnt.total_rows / TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date))
+        END AS avg_rows_per_day,
 
-			CASE 
-				WHEN TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date)) = 0 THEN 
-					COUNT(*) * (
-						AVG(LENGTH(url)) +
-						AVG(LENGTH(IFNULL(title, ''))) +
-						AVG(LENGTH(IFNULL(description, ''))) +
-						AVG(LENGTH(IFNULL(author, ''))) +
-						AVG(LENGTH(IFNULL(keywords, ''))) +
-						AVG(LENGTH(IFNULL(image_url, ''))) +
-						4 + 8 + 8 + 64 + 1 + 4 + 20
-					) / (1024 * 1024)
-				ELSE 
-					(COUNT(*) / TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date))) * 30 * 
-					(
-						AVG(LENGTH(url)) +
-						AVG(LENGTH(IFNULL(title, ''))) +
-						AVG(LENGTH(IFNULL(description, ''))) +
-						AVG(LENGTH(IFNULL(author, ''))) +
-						AVG(LENGTH(IFNULL(keywords, ''))) +
-						AVG(LENGTH(IFNULL(image_url, ''))) +
-						4 + 8 + 8 + 64 + 1 + 4 + 20
-					) / (1024 * 1024)
-			END AS projected_monthly_usage_mb
-		FROM search_results
-	) AS stats
-	CROSS JOIN
-	(
-		SELECT 
-			ROUND(SUM(data_length + index_length) / (1024 * 1024), 2) AS total_size_mb
-		FROM information_schema.TABLES
-		WHERE table_schema = 'maxhanna'
-	) AS db_sizes";
+        CASE 
+          WHEN TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date)) = 0 THEN 
+            cnt.total_rows * (
+              AVG(LENGTH(url)) +
+              AVG(LENGTH(IFNULL(title, ''))) +
+              AVG(LENGTH(IFNULL(description, ''))) +
+              AVG(LENGTH(IFNULL(author, ''))) +
+              AVG(LENGTH(IFNULL(keywords, ''))) +
+              AVG(LENGTH(IFNULL(image_url, ''))) +
+              4 + 8 + 8 + 64 + 1 + 4 + 20
+            ) / (1024 * 1024)
+          ELSE 
+            ((cnt.total_rows) / TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date))) * 30 * 
+            (
+              AVG(LENGTH(url)) +
+              AVG(LENGTH(IFNULL(title, ''))) +
+              AVG(LENGTH(IFNULL(description, ''))) +
+              AVG(LENGTH(IFNULL(author, ''))) +
+              AVG(LENGTH(IFNULL(keywords, ''))) +
+              AVG(LENGTH(IFNULL(image_url, ''))) +
+              4 + 8 + 8 + 64 + 1 + 4 + 20
+            ) / (1024 * 1024)
+        END AS projected_monthly_usage_mb
+      FROM search_results
+      CROSS JOIN (SELECT COALESCE(last_count, 0) AS total_rows FROM search_results_count_cache WHERE id = 1) AS cnt
+    ) AS stats
+    CROSS JOIN
+    (
+      SELECT 
+        ROUND(SUM(data_length + index_length) / (1024 * 1024), 2) AS total_size_mb
+      FROM information_schema.TABLES
+      WHERE table_schema = 'maxhanna'
+    ) AS db_sizes";
 
     try
     {
