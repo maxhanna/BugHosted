@@ -25,7 +25,7 @@
 </div>
 <div class="mainFileUploaderAndTopicSelectorDiv">
     <button *ngIf="initialContent == undefined" (click)="post()" title="Post" [disabled]="_isPosting">🗨️Post</button>
-    <button *ngIf="initialContent != undefined" (click)="update(textarea.value)" title="Update" [disabled]="_isPosting">✅</button>
+    <button *ngIf="initialContent != undefined" (click)="update()" title="Update" [disabled]="_isPosting">✅</button>
     <button *ngIf="initialContent != undefined" (click)="cancelEdit.emit()" title="Cancel" [disabled]="_isPosting">❌</button>
     <app-media-selector *ngIf="inputtedParentRef" #mediaSelector [selectedFiles]="attachedFiles" [maxSelectedFiles]="30"
         [currentDirectory]="inputtedParentRef.user?.username ? 'Users/' + inputtedParentRef!.user!.username! : 'Users/Anonymous'"

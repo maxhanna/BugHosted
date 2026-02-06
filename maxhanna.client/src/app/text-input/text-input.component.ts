@@ -97,10 +97,11 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   }
 
   // Update existing content (comment, story, chat)
-  async update(updatedText: string) {
+  async update() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user ?? new User(0, "Anonymous");
     const sessionToken = await parent?.getSessionToken();
+    const updatedText = this.textarea.value?.trim() || '';
 
     try {
       this.startLoading();
@@ -732,6 +733,10 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
           this.debounceTimer = setTimeout(() => {
             this.post();
           }, 100);
+        } else if (this.isEditing) {
+          this.debounceTimer = setTimeout(() => {
+            this.update();
+          }, 100);
         }
       }
       else if (event.ctrlKey && event.key === 'Enter') {
@@ -750,6 +755,10 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         if (!this.isEditing) {
           this.debounceTimer = setTimeout(() => {
             this.post();
+          }, 100);
+        } else if (this.isEditing) {
+          this.debounceTimer = setTimeout(() => {
+            this.update();
           }, 100);
         }
       }
