@@ -8,7 +8,7 @@ import { User } from '../../services/datacontracts/user/user';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
-import { AppComponent } from '../app.component'; 
+import { AppComponent } from '../app.component';
 import { SubscriptionLike } from 'rxjs';
 
 @Component({
@@ -63,11 +63,11 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   currentRadioStation?: RadioStation;
   trackSong = (_: number, s: { id?: number }) => s.id ?? _;
   private currentUrl?: string;
-  private currentFileId?: number | null; 
+  private currentFileId?: number | null;
   private ytPlayer?: YT.Player;
   private ytReady = false;
   private pendingPlay?: { url?: string; fileId?: number | null }; // queue if API not ready yet
-  private ytApiPromise?: Promise<void>; 
+  private ytApiPromise?: Promise<void>;
   private resizeHandler?: () => void;
   private ro?: ResizeObserver;
   private locationSub?: SubscriptionLike;
@@ -86,7 +86,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     private radioService: RadioService,
     private cdr: ChangeDetectorRef
   ) {
-    super(); 
+    super();
     this.locationSub = this.location.subscribe(() => {
       if (this.isFullscreen) {
         this.closeFullscreen();
@@ -107,13 +107,13 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     if (document.visibilityState === 'visible' && this.isMusicPlaying) {
       try { this.ytPlayer?.playVideo(); } catch { }
     }
-  } 
+  }
 
   async ngOnInit() {
     await this.tryInitialLoad();
   }
 
-  ngOnDestroy(): void { 
+  ngOnDestroy(): void {
     try { this.ytPlayer?.stopVideo(); } catch { console.error("Error stopping YT video"); }
     try { this.ytPlayer?.destroy(); } catch { console.error("Error destroying YT player"); }
     this.ytPlayer = undefined;
@@ -132,38 +132,38 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
     // Unsubscribe from Location (and any other RxJS subscriptions)
     if (this.locationSub) {
-      try { this.locationSub.unsubscribe(); } catch {}
+      try { this.locationSub.unsubscribe(); } catch { }
       this.locationSub = undefined;
     }
 
     // Remove radio audio element
     if (this.radioAudioEl) {
-      try { this.radioAudioEl.pause(); } catch {}
-      try { this.radioAudioEl.remove(); } catch {}
+      try { this.radioAudioEl.pause(); } catch { }
+      try { this.radioAudioEl.remove(); } catch { }
       this.radioAudioEl = undefined;
-    } 
-  } 
+    }
+  }
 
   private attachResizeHandling() {
     const hostEl = this.musicVideo.nativeElement as HTMLElement;
-    hostEl.style.display = 'block'; 
+    hostEl.style.display = 'block';
     hostEl.style.minHeight = '200px';
-    
+
     const resize = () => {
       const r = hostEl.getBoundingClientRect();
       const w = Math.max(300, Math.round(r.width));
       const h = Math.max(250, Math.round(r.height));
-      try { this.ytPlayer?.setSize(w, h); } catch {}
+      try { this.ytPlayer?.setSize(w, h); } catch { }
     };
-    
+
     // Save so we can remove later
-    this.resizeHandler = resize; 
+    this.resizeHandler = resize;
     window.addEventListener('resize', resize);
 
     // ResizeObserver is great for container-size changes
     this.ro = new ResizeObserver(() => resize());
     this.ro.observe(hostEl);
-    resize(); 
+    resize();
   }
 
   private detachResizeHandling() {
@@ -172,7 +172,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.resizeHandler = undefined;
     }
     if (this.ro) {
-      try { this.ro.disconnect(); } catch {}
+      try { this.ro.disconnect(); } catch { }
       this.ro = undefined;
     }
   }
@@ -437,7 +437,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     if (!url || url.trim() === '' && !this.selectedFile) {
       alert("Invalid YouTube URL!");
       return;
-    } 
+    }
     this.startLoading();
     let tmpTodo = new Todo();
     tmpTodo.type = "music";
@@ -478,15 +478,15 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
   async selectType(type: 'youtube' | 'file' | 'radio') {
     this.selectedType = type;
-    setTimeout(() => { 
-      try { 
-       this.stopMusic(); 
+    setTimeout(() => {
+      try {
+        this.stopMusic();
       } catch (e) {
         console.error(e);
       }
     }, 50);//allow for adjustment time
-    
-    if (type != 'youtube') { 
+
+    if (type != 'youtube') {
       if (this.ytPlayer && this.ytPlayer != null) {
         this.ytPlayer?.destroy();
         this.ytPlayer = undefined;
@@ -494,7 +494,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     if (type != 'radio') {
-      const iframeDiv = document.getElementById('iframeDiv'); 
+      const iframeDiv = document.getElementById('iframeDiv');
       const existingAudio = iframeDiv?.querySelector('audio');
       if (existingAudio) {
         existingAudio.remove();
@@ -508,39 +508,39 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
     if (type === 'radio') {
       this.loadRadioData();
-    } 
-    else { 
+    }
+    else {
       this.currentPage = 1;
       await this.refreshPlaylist();
       this.songs = type === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
       this.fileIdPlaylist = type === 'file' ? this.fileSongs.map(song => song.fileId!).filter(id => id !== undefined) : undefined;
-    } 
+    }
   }
 
 
   play(url?: string, fileId?: number) {
     console.log("Play called with url:", url, "fileId:", fileId);
     const parent = this.inputtedParentRef ?? this.parentRef;
-    if (!url && !fileId) { 
-      parent?.showNotification("Url/File can't be empty"); 
+    if (!url && !fileId) {
+      parent?.showNotification("Url/File can't be empty");
       return;
-   }
- 
-    if (url != undefined && url === this.currentUrl) { 
+    }
+
+    if (url != undefined && url === this.currentUrl) {
       parent?.showNotification("Already playing this URL");
-      return; 
+      return;
     }
     if (fileId != undefined && fileId === this.currentFileId) {
       parent?.showNotification("Already playing this file");
       return;
     }
- 
+
     if (!this.ytReady && url) {
       this.pendingPlay = { url, fileId: null };
       console.log("YT API not ready, queuing play for url:", url);
       return;
     }
-    this.startLoading(); 
+    this.startLoading();
 
     if (fileId) {
       this.fileIdPlaying = fileId;
@@ -563,9 +563,9 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     const requestedId = this.trimYoutubeUrl(url!);
     let index = ids.indexOf(requestedId);
     if (index < 0) { ids.unshift(requestedId); index = 0; }
- 
-    const initialVideoId = ids[index]; 
-    this.rebuildYTPlayer(initialVideoId, ids, index); 
+
+    const initialVideoId = ids[index];
+    this.rebuildYTPlayer(initialVideoId, ids, index);
 
     // Update UI state
     this.currentUrl = url;
@@ -579,7 +579,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
   randomSong() {
     // Prefer file playlist when valid IDs exist (filter out null/undefined)
-    if (this.selectedType == 'file') { 
+    if (this.selectedType == 'file') {
       const fileIds = (this.fileIdPlaylist || []).filter(id => id != null) as number[];
       if (fileIds.length > 0) {
         const randomFileId = fileIds[Math.floor(Math.random() * fileIds.length)];
@@ -587,18 +587,18 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
           this.play(undefined, randomFileId);
           return;
         }
-      } 
+      }
     }
 
-    if (this.selectedType == 'youtube') { 
+    if (this.selectedType == 'youtube') {
       console.log("Selecting random YouTube song");
-      const parent = this.inputtedParentRef ?? this.parentRef; 
+      const parent = this.inputtedParentRef ?? this.parentRef;
       const randomSong = this.pickRandomSong(this.songs);
       if (!randomSong) {
         parent?.showNotification('No songs available to play');
         return;
       }
-      
+
       console.log("Randomly chosen youtube song:", randomSong.todo, "URL:", randomSong.url);
       // Play the chosen song — `play()` will construct the playlist from `this.songs` (unchanged)
       this.play(randomSong.url);
@@ -676,7 +676,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
   pickRandomSong(array: Array<Todo>): Todo | undefined {
     const idx = Math.floor(Math.random() * array.length);
-    return array[idx]; 
+    return array[idx];
   }
 
   stopMusic() {
@@ -844,10 +844,10 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
   closeYoutubeSearch() {
     this.isShowingYoutubeSearch = false;
-    this.parentRef?.closeOverlay(); 
-    this.cdr.markForCheck(); 
+    this.parentRef?.closeOverlay();
+    this.cdr.markForCheck();
   }
-  async selectYoutubeVideoEvent(video: any) { 
+  async selectYoutubeVideoEvent(video: any) {
     this.urlInput.nativeElement.value = video.url;
     this.titleInput.nativeElement.value = this.unescapeYoutubeTitle(video.title);
     await this.addSong();
@@ -907,8 +907,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
   get playerClasses(): string {
     const base = this.smallPlayer ? 'smallIframeDiv'
-                : this.onMobile() ? 'mobileIframeDiv'
-                : 'iframeDiv';
+      : this.onMobile() ? 'mobileIframeDiv'
+        : 'iframeDiv';
     // apply popupPanel only when you actually need overlay behavior
     const overlay = this.isFullscreen ? 'music-fullscreen' : '';
     return `${base} ${overlay}`.trim();
@@ -917,7 +917,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
   get isVisible(): boolean {
     return !!(this.songs && this.songs.length > 0 && this.isMusicPlaying);
-  } 
+  }
+
 
   private rebuildYTPlayer(firstId: string, songIds: string[], index: number) {
     if (!this.musicVideo?.nativeElement) return;
@@ -925,62 +926,48 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.detachResizeHandling();
 
     try { this.ytPlayer?.destroy(); } catch { console.warn('[YT] Failed to destroy existing player'); }
-    
-    const initialChunk = songIds.slice(0, 50).join(',');
 
+    // 🔴 REMOVE the 'playlist' playerVar entirely
     this.ytPlayer = new YT.Player(this.musicVideo.nativeElement as HTMLElement, {
-      // Ensure the iframe host/origin is explicit to avoid widgetapi postMessage origin mismatches
-      host: 'https://www.youtube.com',
+      // In most cases you can omit 'host' entirely. If you keep it, ensure it matches the iframe host.
+      // host: 'https://www.youtube.com',
       videoId: firstId,
       playerVars: {
         playsinline: 1,
         rel: 0,
         modestbranding: 1,
         enablejsapi: 1,
+        // ✅ Make sure this exactly matches your page origin (scheme + host + port)
         origin: window.location.origin,
         controls: 1,
-        playlist: initialChunk, // <-- string, not string[]
       },
       events: {
-        onReady: () => {  
-          this.ytPlayer?.loadPlaylist(songIds, index, undefined, 'small');
-          try { this.ytPlayer?.playVideoAt(index); } catch {}
-          this.ytPlayer?.playVideo();
-          // Debug: print iframe src to help diagnose origin/postMessage issues
+        onReady: () => {
           try {
-            const iframe = (this.musicVideo?.nativeElement as HTMLElement)?.querySelector('iframe') as HTMLIFrameElement | null;
-            if (iframe) {
-              console.debug('[YT] iframe src at onReady:', iframe.src);
-            }
-          } catch (e) {
-            console.debug('[YT] failed to read iframe src', e);
-          }
+            // ✅ Load the full playlist and jump straight to the chosen index
+            this.ytPlayer!.loadPlaylist(songIds, index, 0, 'small');
+            this.ytPlayer!.playVideo();
 
-          // Fallback: sometimes playlist/load commands don't land due to origin/postMessage issues.
-          // After a short delay, verify the player's reported playlist index; if it doesn't match
-          // the requested index, force-load the requested video by id.
-          setTimeout(() => {
-            try {
+            // Optional: verify and hard-correct if needed
+            setTimeout(() => {
               const reportedIndex = this.ytPlayer?.getPlaylistIndex?.() ?? -1;
               if (reportedIndex !== index) {
-                console.warn('[YT] playlist index mismatch (reported:', reportedIndex, ') expected:', index, '- forcing loadVideoById');
-                const vidToForce = songIds && songIds.length > index ? songIds[index] : songIds[0];
-                if (vidToForce) {
-                  try { 
-                    this.ytPlayer?.loadVideoById(vidToForce); 
-                    this.ytPlayer?.playVideo(); 
-                  } catch (e) { console.warn('[YT] force loadVideoById failed', e); }
+                const vid = songIds[index] ?? songIds[0];
+                if (vid) {
+                  this.ytPlayer?.loadVideoById(vid);
+                  this.ytPlayer?.playVideo();
                 }
               }
-            } catch (e) {
-              console.warn('[YT] error during playlist index verification', e);
-            }
-          }, 300);
-          if (this.ytPlayer?.isMuted()) {
-            this.ytPlayer?.unMute();
+            }, 300);
+          } catch (e) {
+            // As a last resort: force the chosen id
+            const vid = songIds[index] ?? firstId;
+            this.ytPlayer?.loadVideoById(vid);
+            this.ytPlayer?.playVideo();
           }
-          try { this.ytPlayer?.setLoop(true); } catch {} 
-          this.attachResizeHandling(); 
+
+          if (this.ytPlayer?.isMuted()) this.ytPlayer?.unMute();
+          this.attachResizeHandling();
         },
         onStateChange: (e: YT.OnStateChangeEvent) => {
           if (e.data === YT.PlayerState.ENDED) this.next();
@@ -1051,7 +1038,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     if (iframeDiv) {
       // Remove any existing instance we created
       if (this.radioAudioEl) {
-        try { this.radioAudioEl.pause(); } catch {}
+        try { this.radioAudioEl.pause(); } catch { }
         this.radioAudioEl.remove();
       }
 
@@ -1065,7 +1052,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       audioPlayer.controls = true;
       audioPlayer.style.width = '100%';
       audioPlayer.style.marginTop = '10px';
-  
+
       // Remove any existing audio players
       const existingAudio = iframeDiv.querySelector('audio');
       if (existingAudio) {
