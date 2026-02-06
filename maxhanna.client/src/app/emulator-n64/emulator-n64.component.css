@@ -187,3 +187,8 @@ canvas {
   padding: 4px 0;
   border: 1px solid var(--main-border-color);
 }
+
+.uploaderPopupPanel {
+  width: calc(100% - 20px);
+  min-height: 60vh;
+}

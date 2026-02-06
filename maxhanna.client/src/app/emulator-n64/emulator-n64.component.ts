@@ -20,6 +20,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   // ---- State ----
   loading = false;
+  isFileUploaderExpanded = false;
   status: 'idle' | 'booting' | 'running' | 'paused' | 'stopped' | 'error' = 'idle';
   romName?: string;
   private romBuffer?: ArrayBuffer;
