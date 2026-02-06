@@ -5,6 +5,7 @@ import { ChildComponent } from '../child.component';
 import { RomService } from '../../services/rom.service';
 import { FileService } from '../../services/file.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { FileSearchComponent } from '../file-search/file-search.component';
 
 @Component({
   selector: 'app-emulation',
@@ -22,6 +23,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   @ViewChild('loadRomSelect') loadRomSelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('fullscreenContainer') fullscreenContainer!: ElementRef<HTMLDivElement>;
   @ViewChild('stopButton') stopButton!: ElementRef<HTMLButtonElement>;
+  @ViewChild(FileSearchComponent) fileSearchComponent?: FileSearchComponent;
+  
   gbGamesList: Array<string> = [];
   gbColorGamesList: Array<string> = [];
   pokemonGamesList: Array<string> = [];
@@ -868,6 +871,10 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
   getRomName() {
     return this.fileService.getFileWithoutExtension(this.selectedRomName || '');
+  }
+
+  finishFileUploading() {
+    this.fileSearchComponent?.getDirectory();
   }
 
   shareLink() {

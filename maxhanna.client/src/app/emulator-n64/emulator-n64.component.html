@@ -5,6 +5,7 @@
 
   <div class="gamesContainer{{ !romName ? ' expanded' : '' }}{{isLoading ? ' is-disabled' : ''}}" *ngIf="!romName">
     <app-file-search
+      #fileSearchComponent
       [user]="parentRef?.user"
       [inputtedParentRef]="parentRef"
       [currentDirectory]="'Roms/'"
@@ -51,7 +52,7 @@
         [displayOptionsAndTopicsButtons]="false"
         (userUploadEvent)="isFileUploaderExpanded = true;"
         (userCancelEvent)="isFileUploaderExpanded = false;"
-        (userUploadFinishedEvent)="isFileUploaderExpanded = false;">
+        (userUploadFinishedEvent)="finishFileUploading()">
       </app-file-upload>
     </div>
     <div style="text-align: center;">

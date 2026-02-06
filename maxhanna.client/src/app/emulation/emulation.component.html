@@ -225,7 +225,8 @@
           [uploadButtonText]="'Upload Rom(s)'" 
           [maxSelectedFiles]="100" 
           [allowedFileTypes]="allowedFileTypes"
-          [displayOptionsAndTopicsButtons]="false">
+          [displayOptionsAndTopicsButtons]="false"
+          (finishFileUploadingEvent)="finishFileUploading()">
         </app-file-upload>
       </div>
     </div>

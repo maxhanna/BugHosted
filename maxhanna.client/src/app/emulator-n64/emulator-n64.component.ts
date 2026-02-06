@@ -5,6 +5,7 @@ import createMupen64PlusWeb, { EmulatorControls, writeAutoInputConfig, getAllSav
 import { FileService } from '../../services/file.service';
 import { N64StateUpload, RomService } from '../../services/rom.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { FileSearchComponent } from '../file-search/file-search.component';
 
 @Component({
   selector: 'app-emulator-n64',
@@ -17,6 +18,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   @ViewChild('canvas') canvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('fullscreenContainer') fullscreenContainer!: ElementRef<HTMLDivElement>;
   @ViewChild('saveFileInput') saveFileInput!: ElementRef<HTMLInputElement>;
+  @ViewChild(FileSearchComponent) fileSearchComponent?: FileSearchComponent;
 
   // ---- State ----
   loading = false;
@@ -1169,7 +1171,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private _onGamepadConnected = (ev: GamepadEvent) => {
     this.refreshGamepads();
 
-  this.normalizePortsAfterRefresh(); // ✨ make sure P1 gets the first/only pad
+    this.normalizePortsAfterRefresh(); // ✨ make sure P1 gets the first/only pad
 
     const total = this.gamepads.filter(g => g.connected).length;
     this.parentRef?.showNotification(
@@ -1244,7 +1246,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       try {
         const before = this.gamepads.map(g => g.index).join(',');
         this.refreshGamepads();
-         this.normalizePortsAfterRefresh(); // ✨ 
+        this.normalizePortsAfterRefresh(); // ✨ 
         const after = this.gamepads.map(g => g.index).join(',');
 
         if (this.ports[1].gpIndex == null && this.gamepads.length) {
@@ -1618,7 +1620,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       };
 
       this._gpWrapperInstalled = true;
-      console.debug('[GP] installReorderWrapper installed'); 
+      console.debug('[GP] installReorderWrapper installed');
       this.dumpGamepadDetails('EFFECTIVE AFTER REORDER', (navigator.getGamepads ? navigator.getGamepads() : []) as any);
 
     } catch (e) {
@@ -1946,28 +1948,28 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
 
-  
-refreshGamepads() {
-  try {
-    const g = this.getGamepadsBase();
-    this.gamepads = [];
-    for (const gp of g) {
-      if (!gp) continue;
-      this.gamepads.push({ index: gp.index, id: gp.id, mapping: gp.mapping || '', connected: gp.connected });
+
+  refreshGamepads() {
+    try {
+      const g = this.getGamepadsBase();
+      this.gamepads = [];
+      for (const gp of g) {
+        if (!gp) continue;
+        this.gamepads.push({ index: gp.index, id: gp.id, mapping: gp.mapping || '', connected: gp.connected });
+      }
+
+      if (this.selectedGamepadIndex === null && this.gamepads.length) {
+        const std = this.gamepads.find((p) => p.mapping === 'standard');
+        this.selectedGamepadIndex = std ? std.index : this.gamepads[0].index;
+      }
+
+      // ✨ Add this:
+      this.normalizePortsAfterRefresh();
+
+    } catch (e) {
+      console.warn('Failed to read gamepads', e);
     }
-
-    if (this.selectedGamepadIndex === null && this.gamepads.length) {
-      const std = this.gamepads.find((p) => p.mapping === 'standard');
-      this.selectedGamepadIndex = std ? std.index : this.gamepads[0].index;
-    }
-
-    // ✨ Add this:
-    this.normalizePortsAfterRefresh();
-
-  } catch (e) {
-    console.warn('Failed to read gamepads', e);
   }
-} 
 
   applyGamepadReorder() {
     try {
@@ -2939,64 +2941,70 @@ refreshGamepads() {
       return null;
     }
   }
-  
-/** Enforce invariants so the first/only pad sits on P1 before we reorder. */
-private normalizePortsAfterRefresh() {
-  // Build a quick lookup of connected pads by index
-  const connected = new Map<number, { index: number; id: string }>();
-  for (const g of this.gamepads) {
-    if (g?.connected && typeof g.index === 'number') {
-      connected.set(g.index, g as any);
-    }
-  }
 
-  // 1) If exactly one pad is connected and P1 is empty, assign it to P1.
-  if (connected.size === 1 && (this.ports[1].gpIndex == null)) {
-    const only = Array.from(connected.values())[0];
-    this.ports[1].gpIndex = only.index;
-    this.ports[1].gpId = only.id;
-    // Give immediate usable mapping if standard
-    this.ensureDefaultMappingForPort(1);
-  }
-
-  // 2) If P1 points to a non-existent pad but some pad exists, promote one to P1.
-  const p1Idx = this.ports[1].gpIndex;
-  const p1Exists = (p1Idx != null) && connected.has(p1Idx);
-  if (!p1Exists && connected.size > 0) {
-    const first = Array.from(connected.values())[0];
-    this.ports[1].gpIndex = first.index;
-    this.ports[1].gpId = first.id;
-    this.ensureDefaultMappingForPort(1);
-  }
-
-  // 3) Ensure no duplicate assignment of a single pad across ports; P1 has priority.
-  const claimed = new Set<number>();
-  for (const p of [1, 2, 3, 4] as const) {
-    const idx = this.ports[p].gpIndex;
-    if (idx == null) continue;
-    if (claimed.has(idx)) {
-      // Already used by a lower-numbered port; drop this assignment.
-      this.ports[p].gpIndex = null;
-      this.ports[p].gpId = null;
-    } else {
-      // Keep only if actually connected
-      if (connected.has(idx)) {
-        claimed.add(idx);
-      } else {
-        this.ports[p].gpIndex = null;
-        this.ports[p].gpId = null;
+  /** Enforce invariants so the first/only pad sits on P1 before we reorder. */
+  private normalizePortsAfterRefresh() {
+    // Build a quick lookup of connected pads by index
+    const connected = new Map<number, { index: number; id: string }>();
+    for (const g of this.gamepads) {
+      if (g?.connected && typeof g.index === 'number') {
+        connected.set(g.index, g as any);
       }
     }
-  }
 
-  // 4) If we ended up with exactly one connected pad total, reflect it in selectedGamepadIndex too.
-  if (connected.size === 1) {
-    const only = Array.from(connected.values())[0];
-    this.selectedGamepadIndex = only.index;
+    // 1) If exactly one pad is connected and P1 is empty, assign it to P1.
+    if (connected.size === 1 && (this.ports[1].gpIndex == null)) {
+      const only = Array.from(connected.values())[0];
+      this.ports[1].gpIndex = only.index;
+      this.ports[1].gpId = only.id;
+      // Give immediate usable mapping if standard
+      this.ensureDefaultMappingForPort(1);
+    }
+
+    // 2) If P1 points to a non-existent pad but some pad exists, promote one to P1.
+    const p1Idx = this.ports[1].gpIndex;
+    const p1Exists = (p1Idx != null) && connected.has(p1Idx);
+    if (!p1Exists && connected.size > 0) {
+      const first = Array.from(connected.values())[0];
+      this.ports[1].gpIndex = first.index;
+      this.ports[1].gpId = first.id;
+      this.ensureDefaultMappingForPort(1);
+    }
+
+    // 3) Ensure no duplicate assignment of a single pad across ports; P1 has priority.
+    const claimed = new Set<number>();
+    for (const p of [1, 2, 3, 4] as const) {
+      const idx = this.ports[p].gpIndex;
+      if (idx == null) continue;
+      if (claimed.has(idx)) {
+        // Already used by a lower-numbered port; drop this assignment.
+        this.ports[p].gpIndex = null;
+        this.ports[p].gpId = null;
+      } else {
+        // Keep only if actually connected
+        if (connected.has(idx)) {
+          claimed.add(idx);
+        } else {
+          this.ports[p].gpIndex = null;
+          this.ports[p].gpId = null;
+        }
+      }
+    }
+
+    // 4) If we ended up with exactly one connected pad total, reflect it in selectedGamepadIndex too.
+    if (connected.size === 1) {
+      const only = Array.from(connected.values())[0];
+      this.selectedGamepadIndex = only.index;
+    }
   }
-} 
   getRomName(): string | null {
     return this.fileService.getFileWithoutExtension(this.romName || '');
+  }
+  finishFileUploading() {
+    this.isFileUploaderExpanded = false;
+    if (this.fileSearchComponent) {
+      this.fileSearchComponent.getDirectory();
+    }
   }
 }
 
