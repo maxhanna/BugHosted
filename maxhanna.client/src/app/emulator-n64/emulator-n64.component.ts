@@ -1584,49 +1584,63 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.hasLoadedLastInput = true;
   }
 
-  private installReorderWrapper() {
-    if (this._gpWrapperInstalled) return;
-    try {
-      this._originalGetGamepadsBase = navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null;
-      (navigator as any).getGamepads = () => {
-        const baseArr = (this._originalGetGamepadsBase ? this._originalGetGamepadsBase() : []) || [];
-        const chosen: (Gamepad | null)[] = [];
-        const used = new Set<number>();
+  
+private installReorderWrapper() {
+  if (this._gpWrapperInstalled) return;
+  try {
+    this._originalGetGamepadsBase = navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null;
 
-        const pushIfForPort = (portNum: PlayerPort) => {
-          let idx = (this.ports && this.ports[portNum]) ? this.ports[portNum].gpIndex : null;
-          let pad: Gamepad | null = null as any;
-          if (idx != null) pad = baseArr[idx];
+    (navigator as any).getGamepads = () => {
+      const baseArr = (this._originalGetGamepadsBase ? this._originalGetGamepadsBase() : []) || [];
+      const chosen: (Gamepad | null)[] = [];
+      const used = new Set<number>();
 
-          // If numeric index didn't yield a pad, try resolving by stored gpId
-          if (!pad && this.ports && this.ports[portNum] && (this.ports[portNum].gpId)) {
-            const wantId = this.ports[portNum].gpId;
-            const foundIdx = baseArr.findIndex((g: any) => g && g.id === wantId);
-            if (foundIdx !== -1) { pad = baseArr[foundIdx]; idx = foundIdx; }
-          }
+      const pushIfForPort = (portNum: PlayerPort) => {
+        let idx = (this.ports && this.ports[portNum]) ? this.ports[portNum].gpIndex : null;
+        let pad: Gamepad | null = null as any;
+        if (idx != null) pad = baseArr[idx];
 
-          if (pad && !used.has(idx as number)) { chosen.push(pad); used.add(idx as number); }
-        };
-
-        pushIfForPort(1);
-        pushIfForPort(2);
-        pushIfForPort(3);
-        pushIfForPort(4);
-
-        for (let i = 0; i < baseArr.length; i++) {
-          if (!used.has(i)) chosen.push(baseArr[i]);
+        // Fallback by gpId if index is stale
+        if (!pad && this.ports && this.ports[portNum]?.gpId) {
+          const wantId = this.ports[portNum].gpId;
+          const foundIdx = baseArr.findIndex((g: any) => g && g.id === wantId);
+          if (foundIdx !== -1) { pad = baseArr[foundIdx]; idx = foundIdx; }
         }
-        return chosen;
+
+        if (pad && !used.has(idx as number)) { chosen.push(pad); used.add(idx as number); }
       };
 
-      this._gpWrapperInstalled = true;
-      console.debug('[GP] installReorderWrapper installed');
-      this.dumpGamepadDetails('EFFECTIVE AFTER REORDER', (navigator.getGamepads ? navigator.getGamepads() : []) as any);
+      pushIfForPort(1);
+      pushIfForPort(2);
+      pushIfForPort(3);
+      pushIfForPort(4);
 
-    } catch (e) {
-      console.warn('Failed installing reorder wrapper', e);
-    }
+      // Append the rest (not already used)
+      for (let i = 0; i < baseArr.length; i++) {
+        if (!used.has(i)) chosen.push(baseArr[i]);
+      }
+
+      // *** Reindex: return proxies whose "index" reads as their position ***
+      const reindexed = chosen.map((pad, i) => {
+        if (!pad) return pad;
+        return new Proxy(pad, {
+          get(target, prop, receiver) {
+            if (prop === 'index') return i; // <- authoritative port ordering
+            return Reflect.get(target, prop, receiver);
+          }
+        });
+      });
+
+      return reindexed;
+    };
+
+    this._gpWrapperInstalled = true;
+    console.debug('[GP] installReorderWrapper installed');
+    this.dumpGamepadDetails('EFFECTIVE AFTER REORDER', (navigator.getGamepads ? navigator.getGamepads() : []) as any);
+  } catch (e) {
+    console.warn('Failed installing reorder wrapper', e);
   }
+} 
 
   closeRemapperToPort(port: PlayerPort) {
     this.ports[port].mapping = JSON.parse(JSON.stringify(this.mapping));
@@ -1755,7 +1769,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
         const gpId = this.gamepadIdFromIndex(idx);
         if (!gpId) continue;
-
+        
+        this.ports[p].gpId = gpId; // keep in sync so re-resolve by id works on reboot
         const perPortMapping = this.rebindMappingToPad(
           JSON.parse(JSON.stringify(this.ports[p].mapping || {})),
           gpId
@@ -2941,62 +2956,71 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       return null;
     }
   }
+  
+/** Enforce invariants so the first/only pad sits on P1 before we reorder. */
+private normalizePortsAfterRefresh() {
+  // Build a quick lookup of connected pads by index
+  const connected = new Map<number, { index: number; id: string }>();
+  for (const g of this.gamepads) {
+    if (g?.connected && typeof g.index === 'number') {
+      connected.set(g.index, g as any);
+    }
+  }
 
-  /** Enforce invariants so the first/only pad sits on P1 before we reorder. */
-  private normalizePortsAfterRefresh() {
-    // Build a quick lookup of connected pads by index
-    const connected = new Map<number, { index: number; id: string }>();
-    for (const g of this.gamepads) {
-      if (g?.connected && typeof g.index === 'number') {
-        connected.set(g.index, g as any);
+  // 1) If exactly one pad is connected and P1 is empty, assign it to P1.
+  if (connected.size === 1 && (this.ports[1].gpIndex == null)) {
+    const only = Array.from(connected.values())[0];
+    this.ports[1].gpIndex = only.index;
+    this.ports[1].gpId = only.id;
+    this.ensureDefaultMappingForPort(1);
+  }
+
+  // 2) If P1 points to a non-existent pad, try to recover **by gpId** first.
+  const p1Idx = this.ports[1].gpIndex;
+  let p1Exists = (p1Idx != null) && connected.has(p1Idx);
+  if (!p1Exists && connected.size > 0) {
+    const wantId = this.ports[1].gpId;
+    if (wantId) {
+      const byId = this.gamepads.find(g => g.id === wantId && g.connected);
+      if (byId) {
+        this.ports[1].gpIndex = byId.index;
+        p1Exists = true;
       }
     }
-
-    // 1) If exactly one pad is connected and P1 is empty, assign it to P1.
-    if (connected.size === 1 && (this.ports[1].gpIndex == null)) {
-      const only = Array.from(connected.values())[0];
-      this.ports[1].gpIndex = only.index;
-      this.ports[1].gpId = only.id;
-      // Give immediate usable mapping if standard
-      this.ensureDefaultMappingForPort(1);
-    }
-
-    // 2) If P1 points to a non-existent pad but some pad exists, promote one to P1.
-    const p1Idx = this.ports[1].gpIndex;
-    const p1Exists = (p1Idx != null) && connected.has(p1Idx);
-    if (!p1Exists && connected.size > 0) {
+    // If still unresolved, fall back to "first connected"
+    if (!p1Exists) {
       const first = Array.from(connected.values())[0];
       this.ports[1].gpIndex = first.index;
       this.ports[1].gpId = first.id;
       this.ensureDefaultMappingForPort(1);
     }
+  }
 
-    // 3) Ensure no duplicate assignment of a single pad across ports; P1 has priority.
-    const claimed = new Set<number>();
-    for (const p of [1, 2, 3, 4] as const) {
-      const idx = this.ports[p].gpIndex;
-      if (idx == null) continue;
-      if (claimed.has(idx)) {
-        // Already used by a lower-numbered port; drop this assignment.
+  // 3) Ensure no duplicate assignment; P1 has priority.
+  const claimed = new Set<number>();
+  for (const p of [1, 2, 3, 4] as const) {
+    const idx = this.ports[p].gpIndex;
+    if (idx == null) continue;
+    if (claimed.has(idx)) {
+      this.ports[p].gpIndex = null;
+      this.ports[p].gpId = null;
+    } else {
+      if (connected.has(idx)) {
+        claimed.add(idx);
+      } else {
         this.ports[p].gpIndex = null;
         this.ports[p].gpId = null;
-      } else {
-        // Keep only if actually connected
-        if (connected.has(idx)) {
-          claimed.add(idx);
-        } else {
-          this.ports[p].gpIndex = null;
-          this.ports[p].gpId = null;
-        }
       }
     }
-
-    // 4) If we ended up with exactly one connected pad total, reflect it in selectedGamepadIndex too.
-    if (connected.size === 1) {
-      const only = Array.from(connected.values())[0];
-      this.selectedGamepadIndex = only.index;
-    }
   }
+
+  // 4) If exactly one pad is connected, reflect that in selectedGamepadIndex too
+  if (connected.size === 1) {
+    const only = Array.from(connected.values())[0];
+    this.selectedGamepadIndex = only.index;
+  }
+}
+
   getRomName(): string | null {
     return this.fileService.getFileWithoutExtension(this.romName || '');
   }
