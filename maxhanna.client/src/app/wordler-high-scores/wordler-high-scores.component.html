@@ -8,10 +8,14 @@
         <div
           *ngIf="showHeader && ((mode === 'today' && groupedByMode?.[m] && keys(groupedByMode[m]).length > 0) || (mode !== 'today'))"
           (click)="showUserHeader ? (openWordler()) : toggleMode(m)"
-          [class]="(showUserHeader ? 'popupPanelTitle userPopupPanelTitle clickable' : (showHeaderTitles ? 'popupPanelTitle clickable' : 'regularTitle clickable'))"
+          [class]="(showUserHeader ? 'popupPanelTitle userPopupPanelTitle clickable' : (showHeaderTitles ? 'popupPanelTitle clickable gradientBackground' : 'regularTitle clickable'))"
           [style.marginTop]="'15px'">
-          {{ headerTitle ? headerTitle : (m === 'today' ? "Today's Wordler Scores:" : (m === 'user' ? "Your Wordler
-          Scores:" : (m === 'best' ? 'Best Scores (All Time):' : "All-time Wordler Scores:"))) }}
+          {{ headerTitle ? 
+            headerTitle 
+            : (m === 'today' ? "Today's Wordler Scores" 
+            : (m === 'user' ? "Your Wordler Scores" 
+            : (m === 'best' ? 'Best Scores (All Time)' 
+            : "All-time Wordler Scores"))) }}
           <span *ngIf="!showUserHeader" style="float:right; font-size:0.9em">{{ isModeCollapsed(m) ? '+' : '−' }}</span>
         </div>
         <ng-container *ngIf="!isModeCollapsed(m)">
