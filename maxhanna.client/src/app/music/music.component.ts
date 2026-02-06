@@ -583,38 +583,46 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
   randomSong() {
     // Prefer file playlist when valid IDs exist (filter out null/undefined)
-    const fileIds = (this.fileIdPlaylist || []).filter(id => id != null) as number[];
-    if (fileIds.length > 0) {
-      const randomFileId = fileIds[Math.floor(Math.random() * fileIds.length)];
-      if (randomFileId != null) {
-        this.play(undefined, randomFileId);
+    if (this.selectedType == 'file') { 
+      const fileIds = (this.fileIdPlaylist || []).filter(id => id != null) as number[];
+      if (fileIds.length > 0) {
+        const randomFileId = fileIds[Math.floor(Math.random() * fileIds.length)];
+        if (randomFileId != null) {
+          this.play(undefined, randomFileId);
+          return;
+        }
+      } 
+    }
+
+    if (this.selectedType == 'youtube') { 
+      console.log("Selecting random YouTube song");
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      const ids = this.getYoutubeIdsInOrder().filter(id => !!id);
+      if (ids.length === 0) {
+        parent?.showNotification('No songs available to play');
         return;
       }
-    }
 
-    // Fallback to YouTube IDs (use IDs so we can reliably position in playlist)
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    const ids = this.getYoutubeIdsInOrder().filter(id => !!id);
-    if (ids.length === 0) {
-      parent?.showNotification('No songs available to play');
-      return;
+      // Create a shuffled copy of the songs list, pick the first youtube song from it,
+      // then play that song using the original `this.songs` order (so we don't reorder the list).
+      const songsCopy = [...this.songs];
+      this.shuffleSongs(songsCopy);
+      if (!songsCopy || songsCopy.length === 0) {
+        parent?.showNotification('No songs available to play');
+        return;
+      }
+      const chosen = songsCopy.find(s => parent?.isYoutubeUrl(s.url) && this.trimYoutubeUrl(s.url ?? ""));
+      if (!chosen || !chosen.url) {
+        parent?.showNotification('No valid YouTube songs available to play');
+        return;
+      } 
+      console.log("Randomly chosen youtube song:", chosen.todo, "URL:", chosen.url);
+      // Play the chosen song — `play()` will construct the playlist from `this.songs` (unchanged)
+      this.play(chosen.url);
     }
-
-    // Create a shuffled copy of the songs list, pick the first youtube song from it,
-    // then play that song using the original `this.songs` order (so we don't reorder the list).
-    const songsCopy = [...this.songs];
-    this.shuffleSongs(songsCopy);
-    if (!songsCopy || songsCopy.length === 0) {
-      parent?.showNotification('No songs available to play');
-      return;
+    else {
+      console.error("Random song requested but unsupported type:", this.selectedType);
     }
-    const chosen = songsCopy.find(s => parent?.isYoutubeUrl(s.url) && this.trimYoutubeUrl(s.url ?? ""));
-    if (!chosen || !chosen.url) {
-      parent?.showNotification('No valid YouTube songs available to play');
-      return;
-    } 
-    // Play the chosen song — `play()` will construct the playlist from `this.songs` (unchanged)
-    this.play(chosen.url);
   }
 
   followLink() {
