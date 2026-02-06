@@ -878,11 +878,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           const truncatedMessage = quotedMessage.length > maxLength && !quotedMessage.includes("____QUOTE_START____") && !quotedMessage.includes("____QUOTE_END____") ? quotedMessage.slice(0, maxLength) + "..." : quotedMessage;
           const escapedQuotedMessage = encodeURIComponent(truncatedMessage);
           return `
-        ____QUOTE_START____<div class="quote-text quote-link" onClick="document.getElementById('scrollToQuoteDateInput').value='${timestamp}';document.getElementById('scrollToQuoteMessageInput').value='${escapedQuotedMessage}';document.getElementById('quoteClickButton').click()">
-            <span class="quote-user">${username}</span>
-            <span class="quote-time">(${formattedTimestamp})</span>:  
-            "<span class="quote-message">${truncatedMessage}</span>"
-        </div>____QUOTE_END____`;
+            ____QUOTE_START____<div class="quote-text quote-link" onClick="document.getElementById('scrollToQuoteDateInput').value='${timestamp}';document.getElementById('scrollToQuoteMessageInput').value='${escapedQuotedMessage}';document.getElementById('quoteClickButton').click()">
+                <span class="quote-user">${username}</span>
+                <span class="quote-time">(${formattedTimestamp})</span>:  
+                "<span class="quote-message">${truncatedMessage}</span>"
+            </div>____QUOTE_END____`;
         });
       }
       processedText = processedText.replace(/____QUOTE_END____/g, '').replace(/____QUOTE_START____/g, '');
@@ -989,14 +989,18 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         } else {
           hasVoted = true;
           const optionText = option.trim();
-          const percentage = parseInt(optionText.split(', ')[1]) ?? 0;
+          // Robustly extract percentage (handles commas inside option text)
+          let percentage = 0;
+          const pctMatch = optionText.match(/(\d+)\s*%/);
+          if (pctMatch && pctMatch[1]) {
+            percentage = parseInt(pctMatch[1], 10) || 0;
+          }
           pollHtml += `
           <div class="poll-option">
             <div class="poll-option-text">
-              ${optionText} ${percentage > 0 ? `<span class="poll-bar" style="width: ${percentage}%">(${percentage}%)</span>` : ''}  
-            </div>
-           
-          </div>`;
+              ${optionText} ${percentage > 0 ? `<span class="poll-bar" style="width: ${percentage}%">(${percentage}%)</span>` : ''}
+              </div>
+                     </div>`;
         }
       });
 
