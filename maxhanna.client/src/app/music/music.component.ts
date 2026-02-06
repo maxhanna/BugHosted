@@ -582,13 +582,25 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   randomSong() {
-    if (this.fileIdPlaylist && this.fileIdPlaylist.length > 0) {
-      const randomFileId = this.fileIdPlaylist[Math.floor(Math.random() * this.fileIdPlaylist.length)];
-      this.play(undefined, randomFileId);
-    } else {
-      const randomIndex = Math.floor(Math.random() * this.songs.length);
-      this.play(this.songs[randomIndex].url!);
+    // Prefer file playlist when valid IDs exist (filter out null/undefined)
+    const fileIds = (this.fileIdPlaylist || []).filter(id => id != null) as number[];
+    if (fileIds.length > 0) {
+      const randomFileId = fileIds[Math.floor(Math.random() * fileIds.length)];
+      if (randomFileId != null) {
+        this.play(undefined, randomFileId);
+        return;
+      }
     }
+
+    // Fallback to youtube URLs only (filter out empty/invalid urls)
+    const urls = (this.songs || []).map(s => s.url).filter(u => !!u) as string[];
+    if (urls.length === 0) {
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      parent?.showNotification('No songs available to play');
+      return;
+    }
+    const randomIndex = Math.floor(Math.random() * urls.length);
+    this.play(urls[randomIndex]);
   }
 
   followLink() {
