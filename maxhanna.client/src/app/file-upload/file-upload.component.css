@@ -77,6 +77,11 @@ button:disabled {
   opacity: 0.6;
 }
 
+.finalizingButton {
+  position: relative;
+  top: 6px;
+}
+
 .uploadFilesTitle {
   font-family: var(--title-font-family);
   width: calc(100% - 24px);

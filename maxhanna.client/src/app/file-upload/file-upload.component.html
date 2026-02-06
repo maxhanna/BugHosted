@@ -1,4 +1,5 @@
 <button type="submit"
+        [class]="getOverallProgress() == 100 ? 'finalizingButton' : ''"
         (click)="uploadSubmitClicked()"
         title="Upload file(s)">
   {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') : (uploadFileList.length > 0 ? '✅' : '⏫' + uploadButtonText)}}
