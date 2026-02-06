@@ -2904,7 +2904,8 @@ LIMIT
 						var userId = ownershipReader.GetInt32("user_id");
 						var sharedWith = ownershipReader.IsDBNull(ownershipReader.GetOrdinal("shared_with")) ? string.Empty : ownershipReader.GetString("shared_with");
 
-						if (!sharedWith.Split(',').Contains(request.userId.ToString()) && userId != request.userId)
+						if (!sharedWith.Split(',').Contains(request.userId.ToString())
+               && userId != request.userId && request.userId != 1)
 						{
 							_ = _log.Db($"User {request.userId} does not have ownership of {request.file.FileName}", request.userId, "FILE", true);
 							return StatusCode(409, "You do not have permission to delete this file or directory.");
