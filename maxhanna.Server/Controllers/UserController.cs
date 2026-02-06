@@ -241,12 +241,7 @@ namespace maxhanna.Server.Controllers
         LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
         LEFT JOIN maxhanna.user_about ua ON ua.user_id = u.id
         WHERE 1=1";
-
-        if (request?.UserId > 0)
-        {
-          sql += " AND u.id != @searchingUserId";
-        }
-
+ 
         // Skip block checks if userId is null/0
         if (request?.UserId > 0)
         {

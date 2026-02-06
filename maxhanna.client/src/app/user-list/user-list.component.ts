@@ -217,18 +217,9 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   }
   openSearchPanel() {
     this.isSearchPanelOpen = true;
-    // const parent = this.parentRef ?? this.inputtedParentRef;
-    // if (parent) {
-    //   parent.closeOverlay();
-    // }
-    // setTimeout(() => {
-    //   this.isSearchPanelOpen = true;
-    //   setTimeout(() => {
-    //     parent?.showOverlay();
-    //     this.searchInput?.nativeElement?.focus();
-    //   }, 50);
-      
-    // }, 50);
+    setTimeout(() => {
+      this.searchInput?.nativeElement?.focus();
+    }, 50);
   }
   closeSearchPanel() {
     console.log("close search poanel");
