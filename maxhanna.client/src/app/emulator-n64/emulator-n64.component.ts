@@ -1592,65 +1592,61 @@ private installReorderWrapper() {
       navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null;
 
     (navigator as any).getGamepads = () => {
-      const baseArr =
+      const baseArr: (Gamepad | null)[] =
         (this._originalGetGamepadsBase ? this._originalGetGamepadsBase() : []) || [];
 
-      // Helper: resolve the intended pad for a given port by gpIndex first, gpId second
-      const pickForPort = (port: PlayerPort): Gamepad | null => {
-        const idx = this.ports[port]?.gpIndex;
-        const id  = this.ports[port]?.gpId;
+      // Pick a pad for a port by stored gpIndex first, then gpId.
+      const resolveForPort = (port: PlayerPort): { pad: Gamepad; idx: number } | null => {
+        const wantIdx = this.ports[port]?.gpIndex;
+        const wantId  = this.ports[port]?.gpId;
 
-        let pad: Gamepad | null = null as any;
-
-        if (typeof idx === 'number' && baseArr[idx]) {
-          pad = baseArr[idx];
+        if (typeof wantIdx === 'number' && baseArr[wantIdx]) {
+          const pad = baseArr[wantIdx]!;
+          if (pad?.connected) return { pad, idx: wantIdx };
         }
-
-        if (!pad && id) {
-          const found = baseArr.find((g: any) => g && g.id === id);
-          if (found) pad = found as Gamepad;
+        if (wantId) {
+          const idx = baseArr.findIndex(g => g && g.id === wantId && (g as Gamepad).connected);
+          if (idx !== -1) return { pad: baseArr[idx]!, idx };
         }
-
-        return pad || null;
+        return null;
       };
 
-      // We’ll output a real array with P1..P4 at 0..3 (sparse fill with nulls),
-      // then append any other pads in their original order.
-      const out: (Gamepad | null)[] = new Array(Math.max(baseArr.length, 4)).fill(null);
-      const usedByNativeIndex = new Set<number>();
+      // Heuristic: ignore "phantom" devices with no buttons AND no axes
+      const isRealController = (g: Gamepad | null) =>
+        !!g && g.connected && ((g.buttons?.length ?? 0) + (g.axes?.length ?? 0) > 0);
 
-      // Place P1..P4 on slots 0..3 (when available and not already used)
-      ([1, 2, 3, 4] as const).forEach((p, slotIdx) => {
-        const pad = pickForPort(p);
-        if (!pad) return;
-        const nativeIdx = (pad as any).index;
-        if (typeof nativeIdx === 'number' && !usedByNativeIndex.has(nativeIdx)) {
-          out[slotIdx] = pad;
-          usedByNativeIndex.add(nativeIdx);
+      const used = new Set<number>();
+      const ordered: Gamepad[] = [];
+
+      // Place P1..P4 first
+      ([
+        1, 2, 3, 4
+      ] as const).forEach((port) => {
+        const res = resolveForPort(port);
+        if (!res) return;
+        if (!isRealController(res.pad)) return;
+        if (!used.has(res.idx)) {
+          ordered.push(res.pad);
+          used.add(res.idx);
         }
       });
 
-      // Fill remaining slots with any not-yet-used pads in their original order
+      // Append remaining real controllers in their original order
       for (let i = 0; i < baseArr.length; i++) {
         const g = baseArr[i];
-        if (!g) continue;
-        const nativeIdx = (g as any).index;
-        if (usedByNativeIndex.has(nativeIdx)) continue;
-
-        // Place at next free slot, or append
-        const free = out.findIndex(x => x === null);
-        if (free !== -1) out[free] = g;
-        else out.push(g);
-
-        usedByNativeIndex.add(nativeIdx);
+        if (!isRealController(g)) continue;
+        if (!used.has(i)) {
+          ordered.push(g!);
+          used.add(i);
+        }
       }
 
-      return out;
+      // Final: return a compact array [P1, P2, P3, P4, ...others], with NO nulls, NO proxies
+      return ordered;
     };
 
     this._gpWrapperInstalled = true;
-    console.debug('[GP] installReorderWrapper installed (sparse-array mode)');
-    // Safe to call; no Proxy getters here
+    console.debug('[GP] installReorderWrapper installed (compact mode)');
     this.dumpGamepadDetails(
       'EFFECTIVE AFTER REORDER',
       (navigator.getGamepads ? navigator.getGamepads() : []) as any
@@ -1982,27 +1978,31 @@ private installReorderWrapper() {
 
 
 
-  refreshGamepads() {
-    try {
-      const g = this.getGamepadsBase();
-      this.gamepads = [];
-      for (const gp of g) {
-        if (!gp) continue;
-        this.gamepads.push({ index: gp.index, id: gp.id, mapping: gp.mapping || '', connected: gp.connected });
-      }
+refreshGamepads() {
+  try {
+    const g = this.getGamepadsBase();
+    const filtered: Array<{ index: number; id: string; mapping: string; connected: boolean }> = [];
 
-      if (this.selectedGamepadIndex === null && this.gamepads.length) {
-        const std = this.gamepads.find((p) => p.mapping === 'standard');
-        this.selectedGamepadIndex = std ? std.index : this.gamepads[0].index;
-      }
-
-      // ✨ Add this:
-      this.normalizePortsAfterRefresh();
-
-    } catch (e) {
-      console.warn('Failed to read gamepads', e);
+    for (const gp of g) {
+      if (!gp) continue;
+      const isReal = gp.connected && ((gp.buttons?.length ?? 0) + (gp.axes?.length ?? 0) > 0);
+      if (!isReal) continue; // skip phantom HIDs
+      filtered.push({ index: gp.index, id: gp.id, mapping: gp.mapping || '', connected: gp.connected });
     }
+
+    this.gamepads = filtered;
+
+    if (this.selectedGamepadIndex === null && this.gamepads.length) {
+      const std = this.gamepads.find(p => p.mapping === 'standard');
+      this.selectedGamepadIndex = std ? std.index : this.gamepads[0].index;
+    }
+
+    this.normalizePortsAfterRefresh();
+  } catch (e) {
+    console.warn('Failed to read gamepads', e);
   }
+}
+
 
   applyGamepadReorder() {
     try {
