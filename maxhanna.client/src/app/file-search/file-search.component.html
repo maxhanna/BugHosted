@@ -413,7 +413,7 @@
       <input type="button" (click)="clearPopupSearch()" value="❌" class="search-clear-button" />
       <span class="search-results-count">{{ directory?.totalCount || 0 }} results</span>
     </div>
-    <div *ngIf="loadingSearch" style="text-align: center; width:100%;">Loading...</div>
+    <div *ngIf="loadingSearch" style="text-align: center; width:100%; margin-bottom: 10px">Loading...</div>
     <div class="search-tips gradientBackground">
       <p class="tip-text">
         <i class="icon-info"></i>
