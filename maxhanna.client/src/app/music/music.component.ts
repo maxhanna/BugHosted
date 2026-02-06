@@ -929,6 +929,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     const initialChunk = songIds.slice(0, 50).join(',');
 
     this.ytPlayer = new YT.Player(this.musicVideo.nativeElement as HTMLElement, {
+      // Ensure the iframe host/origin is explicit to avoid widgetapi postMessage origin mismatches
+      host: 'https://www.youtube.com',
       videoId: firstId,
       playerVars: {
         playsinline: 1,
