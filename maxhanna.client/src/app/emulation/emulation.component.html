@@ -190,6 +190,12 @@
         </label>
         <span class="toggle-label" (click)="onToggleJoystick()">{{ useJoystick ? 'Joystick' : 'D-Pad' }}</span>
       </div>
+    </div> 
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings">
+      <div class="optionsStatsHeader">Re-Detect Connected Controllers:</div>
+      <div class="optionsStatsDescription">
+        <button (click)="rescanControllersAndRebind(4)" title="Rescan controllers">🔄 Rescan</button>
+      </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="!onMobile()">
       <div class="optionsStatsHeader">Rebind Controls:</div>

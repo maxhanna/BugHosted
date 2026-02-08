@@ -123,8 +123,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   };
   waitingForKey: string | null = null;
   showControlBindings = false;
-  useJoystick = false;
-
+  useJoystick = false; 
   // joystick runtime state
   private joystickState: {
     active: boolean;
@@ -132,11 +131,11 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     originX: number;
     originY: number;
     pressed: Set<string>;
-  } = { active: false, pointerId: null, originX: 0, originY: 0, pressed: new Set() };
-
+  } = { active: false, pointerId: null, originX: 0, originY: 0, pressed: new Set() }; 
   private joystickListeners: Array<{ elem: EventTarget, type: string, fn: EventListenerOrEventListenerObject }> = [];
   private registeredListeners: Array<{ elem: EventTarget, type: string, fn: EventListenerOrEventListenerObject }> = [];
   private _prevGetUserMedia: typeof navigator.mediaDevices.getUserMedia | undefined;
+  private gamepadMonitoringActive = false;
 
   private addRegisteredListener(elem: EventTarget, type: string, fn: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions, uniqueBy: 'elem-type-fn' | 'elem-type' = 'elem-type-fn') {
     const exists = this.registeredListeners.some(l => {
@@ -298,8 +297,9 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
   async ngOnInit() {
     this.overrideGetUserMedia();
-    this.setupEventListeners();
-    this.enableGamepadMonitoring();
+    this.setupEventListeners(); 
+    this.enableGamepadMonitoringScoped();
+
 
     const fullscreenHandler: EventListener = () => {
       if (!document.fullscreenElement) {
@@ -436,7 +436,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     }
     await this.clearAutosave();
     await this.nostalgist?.getEmulator().exit();
-    this.isSearchVisible = true;
+    this.isSearchVisible = true; 
+    this.enableGamepadMonitoringScoped(); 
     this.currentFileType = '';
     this.selectedRomName = '';
     this.controlsSet = false;
@@ -496,10 +497,10 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     });
 
     await this.nostalgist.launchEmulator();
-
     setTimeout(() => { if (!this.soundOn) this.nostalgist?.sendCommand('MUTE'); }, 1);
     this.setHTMLControls();
     this.setupAutosave();
+    this.disableGamepadMonitoringScoped();
     this.runStartMs = Date.now();
     this.stopLoading();
 
@@ -868,7 +869,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     this.isMenuPanelOpen = true;
     if (this.parentRef) {
       this.parentRef.showOverlay();
-    }
+    } 
+    this.enableGamepadMonitoringScoped(); 
     this.touchControls.forEach((controls) => {
       controls.forEach(control => this.nostalgist?.pressUp(control));
     });
@@ -885,7 +887,10 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
         this.controlsSet = false;
         this.setHTMLControls();
       }
-    }, 3);
+    }, 3); 
+    if (this.selectedRomName) {
+      this.disableGamepadMonitoringScoped(); 
+    }
   }
 
   isSimpleDpadGame(): boolean {
@@ -896,6 +901,22 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     return this.fileService.getFileWithoutExtension(this.selectedRomName || '');
   }
 
+  async rescanControllersAndRebind(maxPlayers = 4) {
+    // Briefly enable monitoring to see new pads
+    this.enableGamepadMonitoringScoped();
+
+    // Snapshot pads & rebuild RA port config
+    const portConfig = this.buildRetroArchPortsConfig(maxPlayers);
+
+    // Apply by quick restart (preserves progress if you also call saveState)
+    try { await this.saveState(true); } catch {}
+    const file: FileEntry = { fileName: this.selectedRomName!, fileType: this.currentFileType } as any;
+    await this.stopEmulator();
+    await this.loadRom(file);
+
+    // Back to lean mode
+    this.disableGamepadMonitoringScoped();
+  } 
 
   // Optional: expose a quick read of connected pads (sorted by index)
   getConnectedGamepads(): Gamepad[] {
@@ -927,6 +948,20 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       }
     }
     return cfg;
+  }
+
+  /** Enable listeners + (optional) poller – idempotent. */
+  private enableGamepadMonitoringScoped() {
+    if (this.gamepadMonitoringActive) return;
+    this.gamepadMonitoringActive = true;
+    this.enableGamepadMonitoring(); // your existing function
+  }
+
+  /** Disable listeners + poller – idempotent. */
+  private disableGamepadMonitoringScoped() {
+    if (!this.gamepadMonitoringActive) return;
+    this.gamepadMonitoringActive = false;
+    this.disableGamepadMonitoring(); // your existing function
   }
 
   /** Start listening for Gamepad connect/disconnect and keep a small poll as fallback. */
