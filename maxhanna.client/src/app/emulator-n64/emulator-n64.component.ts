@@ -2089,7 +2089,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch { /* ignore */ }
   };
 
-
   /** Force a one-shot reflow + canvas size sync, preserving perf mode if it was on. */
   private async forceCanvasLayoutSync(emitResizeEvent = false): Promise<void> {
     const wasPerf = this.performanceMode;
