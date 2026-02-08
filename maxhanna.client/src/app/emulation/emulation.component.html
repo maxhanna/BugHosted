@@ -197,8 +197,70 @@
         <button (click)="rescanControllersAndRebind(4)" title="Rescan controllers">🔄 Rescan</button>
       </div>
     </div>
+
+    
+<!-- Rebind Controller (Gamepad) -->
+<div class="optionsStatsDiv" *ngIf="nostalgist">
+  <div class="optionsStatsHeader">Rebind Controller (Gamepad)</div>
+  <div class="optionsStatsDescription">
+    <label class="toggle-switch">
+      <input
+        type="checkbox"
+        [checked]="showControllerPadBindings"
+        (change)="showControllerPadBindings = !showControllerPadBindings">
+      <span class="slider"></span>
+    </label>
+    <span class="toggle-label"
+          (click)="showControllerPadBindings = !showControllerPadBindings">
+      {{ showControllerPadBindings ? 'Hide' : 'Show' }}
+    </span>
+  </div>
+</div>
+
+<div *ngIf="showControllerPadBindings" class="optionsStatsWrapperDiv rebindingWrapper smallFont">
+  <div class="optionsStatsDiv explainWrapper">
+    <div class="optionsStatsHeader">Player</div>
+    <div class="optionsStatsDescription">
+      <!-- NO ngModel: manual value + change -->
+      <select [value]="bindingPlayer" (change)="onBindingPlayerChange($event)">
+        <option *ngFor="let p of [1,2,3,4]" [value]="p">P{{p}}</option>
+      </select>
+      <button (click)="resetControllerBindings(bindingPlayer)"
+              title="Clear custom bindings for this player">
+        Reset P{{bindingPlayer}}
+      </button>
+    </div>
+  </div>
+
+  <!-- Action list depends on the active system -->
+  <div class="optionsStatsDiv smallFont explainWrapper" *ngFor="let action of getActionsForSystem()">
+    <div class="optionsStatsHeader">Bind: {{ action.toUpperCase() }}</div>
+    <div class="optionsStatsDescription">
+      <button
+        [disabled]="isListening(action)"
+        (click)="listenForPad(bindingPlayer, action)">
+        {{ isListening(action) ? 'Press a button...' : getPadBindingLabel(bindingPlayer, action) }}
+      </button>
+      <button (click)="clearPadBinding(bindingPlayer, action)"
+              [disabled]="!hasPadBinding(bindingPlayer, action)">
+        ✕
+      </button>
+    </div>
+  </div>
+
+  <div class="optionsStatsDiv">
+    <div class="optionsStatsHeader">Apply to game</div>
+    <div class="optionsStatsDescription">
+      <button (click)="applyPadBindingsAndRestart()" title="Saves and restarts with this mapping">
+        Save & Restart
+      </button>
+    </div>
+  </div>
+</div>
+
+
     <div class="optionsStatsDiv" *ngIf="!onMobile()">
-      <div class="optionsStatsHeader">Rebind Controls:</div>
+      <div class="optionsStatsHeader">Rebind Keyboard Controls:</div>
       <div class="optionsStatsDescription">
         <label class="toggle-switch">
           <input type="checkbox" [checked]="showControlBindings" (change)="showControlBindings = !showControlBindings">

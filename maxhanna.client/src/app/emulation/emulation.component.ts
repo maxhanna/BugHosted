@@ -123,7 +123,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   };
   waitingForKey: string | null = null;
   showControlBindings = false;
-  useJoystick = false; 
+  useJoystick = false;
   // joystick runtime state
   private joystickState: {
     active: boolean;
@@ -131,11 +131,17 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     originX: number;
     originY: number;
     pressed: Set<string>;
-  } = { active: false, pointerId: null, originX: 0, originY: 0, pressed: new Set() }; 
+  } = { active: false, pointerId: null, originX: 0, originY: 0, pressed: new Set() };
   private joystickListeners: Array<{ elem: EventTarget, type: string, fn: EventListenerOrEventListenerObject }> = [];
   private registeredListeners: Array<{ elem: EventTarget, type: string, fn: EventListenerOrEventListenerObject }> = [];
   private _prevGetUserMedia: typeof navigator.mediaDevices.getUserMedia | undefined;
   private gamepadMonitoringActive = false;
+  showControllerPadBindings = false;
+  bindingPlayer = 1;
+  // Per-player, per-action bindings
+  private padBindings: Record<number, Record<string, PadBind>> = {};
+  // Listener runtime state
+  private padListen?: { player: number; action: string; raf?: number; startedAt: number; prev?: Gamepad[] };
 
   private addRegisteredListener(elem: EventTarget, type: string, fn: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions, uniqueBy: 'elem-type-fn' | 'elem-type' = 'elem-type-fn') {
     const exists = this.registeredListeners.some(l => {
@@ -297,7 +303,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
   async ngOnInit() {
     this.overrideGetUserMedia();
-    this.setupEventListeners(); 
+    this.setupEventListeners();
     this.enableGamepadMonitoringScoped();
 
 
@@ -436,8 +442,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     }
     await this.clearAutosave();
     await this.nostalgist?.getEmulator().exit();
-    this.isSearchVisible = true; 
-    this.enableGamepadMonitoringScoped(); 
+    this.isSearchVisible = true;
+    this.enableGamepadMonitoringScoped();
     this.currentFileType = '';
     this.selectedRomName = '';
     this.controlsSet = false;
@@ -477,8 +483,10 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     const core = this.coreMapping[fileType.toLowerCase()] || 'default_core';
 
     // NEW: Build dynamic controller → port mapping before launching
-    const portConfig = this.buildRetroArchPortsConfig(4); // change 4→2/3/5 if you want
-    // We keep your keyboard bindings working by *not* removing them; RetroArch handles pads natively.
+    const portConfig = this.buildRetroArchPortsConfig(4);
+
+    // NEW: merge per-player pad bindings to retroarchConfig
+    const padRebindConfig = this.getRetroarchPadConfigForAllPlayers();
 
     this.nostalgist = await Nostalgist.launch({
       core,
@@ -487,14 +495,12 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       element: this.canvas.nativeElement,
       state: saveStateResponse != null ? saveStateResponse : undefined,
       runEmulatorManually: true,
-      // NEW: tell RetroArch which physical pad controls each player port
       retroarchConfig: {
         ...portConfig,
-        // You can still add any keyboard fallbacks or RetroArch options here if you want.
-        // Example: keep using your existing keyboard mapping for P1, etc.
-        // (Nostalgist will pass these through to RetroArch at launch.)  [4](https://nostalgist.js.org/apis/index)
+        ...padRebindConfig,
       }
     });
+
 
     await this.nostalgist.launchEmulator();
     setTimeout(() => { if (!this.soundOn) this.nostalgist?.sendCommand('MUTE'); }, 1);
@@ -869,8 +875,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     this.isMenuPanelOpen = true;
     if (this.parentRef) {
       this.parentRef.showOverlay();
-    } 
-    this.enableGamepadMonitoringScoped(); 
+    }
+    this.enableGamepadMonitoringScoped();
     this.touchControls.forEach((controls) => {
       controls.forEach(control => this.nostalgist?.pressUp(control));
     });
@@ -887,9 +893,9 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
         this.controlsSet = false;
         this.setHTMLControls();
       }
-    }, 3); 
+    }, 3);
     if (this.selectedRomName) {
-      this.disableGamepadMonitoringScoped(); 
+      this.disableGamepadMonitoringScoped();
     }
   }
 
@@ -909,14 +915,14 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     const portConfig = this.buildRetroArchPortsConfig(maxPlayers);
 
     // Apply by quick restart (preserves progress if you also call saveState)
-    try { await this.saveState(true); } catch {}
+    try { await this.saveState(true); } catch { }
     const file: FileEntry = { fileName: this.selectedRomName!, fileType: this.currentFileType } as any;
     await this.stopEmulator();
     await this.loadRom(file);
 
     // Back to lean mode
     this.disableGamepadMonitoringScoped();
-  } 
+  }
 
   // Optional: expose a quick read of connected pads (sorted by index)
   getConnectedGamepads(): Gamepad[] {
@@ -1010,6 +1016,161 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     }
   }
 
+
+  // Returns the currently active system and its relevant actions to rebind.
+  // We trim to only what matters for the selected ROM/core.
+  getActionsForSystem(): string[] {
+    // NES: dpad + A/B + Select/Start
+    if (this.currentFileType && ['nes'].includes(this.currentFileType.toLowerCase())) {
+      return ['up', 'down', 'left', 'right', 'a', 'b', 'select', 'start'];
+    }
+    // SNES: dpad + A/B/X/Y + L/R + Select/Start
+    if (this.isSnesGame()) {
+      return ['up', 'down', 'left', 'right', 'a', 'b', 'x', 'y', 'l', 'r', 'select', 'start'];
+    }
+    // Genesis/Mega Drive: 3-button default (A/B/C + Start).
+    // If you want to expose 6-button, add: 'x','y','z','mode'
+    if (this.isSegaGame()) {
+      return ['up', 'down', 'left', 'right', 'a', 'b', 'c', 'start'];
+    }
+    // GBA: dpad + A/B + L/R + Start/Select
+    if (this.isGbaGame()) {
+      return ['up', 'down', 'left', 'right', 'a', 'b', 'l', 'r', 'select', 'start'];
+    }
+    // GB/GBC: dpad + A/B + Start/Select
+    if (this.isGbGame()) {
+      return ['up', 'down', 'left', 'right', 'a', 'b', 'select', 'start'];
+    }
+    // Default fallback: dpad + A/B + Start/Select
+    return ['up', 'down', 'left', 'right', 'a', 'b', 'select', 'start'];
+  }
+
+  // Human-readable label for a binding
+  getPadBindingLabel(player: number, action: string): string {
+    const b = this.padBindings[player]?.[action];
+    if (!b) return 'Set';
+    return b.type === 'btn' ? `Button ${b.index}` : `Axis ${b.index} ${b.sign}`;
+  }
+
+  hasPadBinding(player: number, action: string) {
+    return !!this.padBindings[player]?.[action];
+  }
+
+  clearPadBinding(player: number, action: string) {
+    if (this.padBindings[player]) delete this.padBindings[player][action];
+  }
+
+  resetControllerBindings(player: number) {
+    this.padBindings[player] = {};
+  }
+
+  // Is any listener active for this action?
+  isListening(action: string) {
+    return this.padListen?.action === action;
+  }
+
+  // Start a one-shot capture: first pressed button or significant axis motion becomes the binding.
+  listenForPad(player: number, action: string) {
+    // Ensure our monitoring is on while listening
+    this.enableGamepadMonitoringScoped();
+
+    if (this.padListen?.raf) cancelAnimationFrame(this.padListen.raf);
+    this.padListen = { player, action, startedAt: performance.now(), prev: (navigator.getGamepads?.() || []).slice() as Gamepad[] };
+
+    const DEADZONE = 0.45;    // axis threshold
+    const TIMEOUT_MS = 6000;  // safety timeout
+
+    const step = () => {
+      const now = performance.now();
+      if (!this.padListen || now - this.padListen.startedAt > TIMEOUT_MS) {
+        this.padListen = undefined;
+        return;
+      }
+      const prev = this.padListen.prev || [];
+      const cur = (navigator.getGamepads?.() || []).slice() as Gamepad[];
+
+      // Scan all pads for first edge (button down) or axis threshold
+      for (const gp of cur) {
+        if (!gp) continue;
+
+        // Buttons: look for first rising edge
+        for (let i = 0; i < gp.buttons.length; i++) {
+          const was = prev[gp.index]?.buttons?.[i]?.pressed ?? false;
+          const is = gp.buttons[i].pressed;
+          if (!was && is) {
+            this.setPadBinding(player, action, { type: 'btn', index: i });
+            this.padListen = undefined;
+            return;
+          }
+        }
+        // Axes: look for magnitude over threshold from near-zero
+        for (let i = 0; i < gp.axes.length; i++) {
+          const prevVal = Math.abs(prev[gp.index]?.axes?.[i] ?? 0);
+          const curVal = gp.axes[i];
+          if (prevVal < 0.15 && Math.abs(curVal) >= DEADZONE) {
+            const sign: '+' | '-' = curVal >= 0 ? '+' : '-';
+            this.setPadBinding(player, action, { type: 'axis', index: i, sign });
+            this.padListen = undefined;
+            return;
+          }
+        }
+      }
+
+      this.padListen.prev = cur;
+      this.padListen.raf = requestAnimationFrame(step);
+    };
+
+    this.padListen.raf = requestAnimationFrame(step);
+  }
+
+  private setPadBinding(player: number, action: string, bind: PadBind) {
+    if (!this.padBindings[player]) this.padBindings[player] = {};
+    this.padBindings[player][action] = bind;
+    this.parentRef?.showNotification?.(`P${player} ${action.toUpperCase()} → ${this.getPadBindingLabel(player, action)}`);
+  }
+
+  /**
+   * Build RetroArch config keys from our padBindings:
+   *  - buttons → input_player{n}_{action}_btn = "<index>"
+   *  - axes    → input_player{n}_{action}_axis = "<+/-index>"
+   *
+   * RetroArch consumes these keys at launch. See the default retroarch.cfg for input_* fields. 
+   */
+  private getRetroarchPadConfigForAllPlayers(): Record<string, string> {
+    const cfg: Record<string, string> = {};
+    for (const pStr of Object.keys(this.padBindings)) {
+      const p = Number(pStr);
+      const actions = this.padBindings[p];
+      for (const [action, b] of Object.entries(actions)) {
+        const keyBase = `input_player${p}_${action}`;
+        if (b.type === 'btn') {
+          cfg[`${keyBase}_btn`] = String(b.index);
+        } else {
+          cfg[`${keyBase}_axis`] = `${b.sign}${b.index}`;
+        }
+      }
+    }
+    return cfg;
+  }
+
+  /**
+   * Apply the bindings by restarting the current ROM with an extended retroarchConfig.
+   */
+  async applyPadBindingsAndRestart() {
+    if (!this.selectedRomName) return;
+    try { await this.saveState(true); } catch { }
+    const file: FileEntry = { fileName: this.selectedRomName, fileType: this.currentFileType } as any;
+    await this.stopEmulator();
+    await this.loadRom(file); // loadRom already merges our pad config (see change below)
+  }
+
+  onBindingPlayerChange(ev: Event) {
+    const target = ev.target as HTMLSelectElement | null;
+    if (!target) return;
+    this.bindingPlayer = Number(target.value) || 1;
+  }
+
+
   finishFileUploading() {
     this.fileSearchComponent?.getDirectory();
   }
@@ -1026,3 +1187,5 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     this.closeMenuPanel();
   }
 }
+
+type PadBind = { type: 'btn' | 'axis', index: number, sign?: '+' | '-' }; 
