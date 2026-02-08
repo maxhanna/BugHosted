@@ -155,14 +155,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
     });
     this._resizeObserver.observe(container);
-
     window.addEventListener('orientationchange', this._resizeHandler as any, { passive: true });
-
     window.addEventListener('gamepadconnected', this._onGamepadConnected as any, { passive: true });
     window.addEventListener('gamepaddisconnected', this._onGamepadDisconnected as any, { passive: true });
 
     document.addEventListener('fullscreenchange', this._onFullscreenChange);
-
     canvasEl?.addEventListener('click', () => this._bootstrapDetectOnce());
 
     this.startGamepadAutoDetect();
