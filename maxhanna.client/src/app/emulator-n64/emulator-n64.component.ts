@@ -1762,6 +1762,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   async applyAllPortMappings() {
     if (this._applyingAll) return;
     this._applyingAll = true;
+    let success = false;
 
     try {
       const wasRunning = !!this.instance || this.status === 'running';
@@ -1792,6 +1793,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
 
       this.applyGamepadReorder();
+      success = true;
 
       if (wasRunning) {
         await this.boot();
@@ -1799,8 +1801,12 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch (e) {
       console.error('applyAllPortMappings failed', e);
       this.parentRef?.showNotification('Failed to apply multi-controller mappings');
+      success = false;
     } finally {
       this._applyingAll = false;
+      if (success) { 
+        this.cancelPortMappings();
+      }
     }
   }
 
