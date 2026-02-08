@@ -856,7 +856,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.isMenuPanelVisible = true;
     this.parentRef?.showOverlay();
  
-    this.releaseForMenu();
+    //this.releaseForMenu();
     this.exitPerformanceMode();
     this.enableKeyboardShield();
 
