@@ -1,0 +1,1 @@
+export type PadBind = { type: 'btn' | 'axis', index: number, sign?: '+' | '-' }; 

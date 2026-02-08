@@ -6,6 +6,7 @@ import { RomService } from '../../services/rom.service';
 import { FileService } from '../../services/file.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { FileSearchComponent } from '../file-search/file-search.component';
+import { PadBind } from '../../services/datacontracts/emulation/PadBind';
 
 @Component({
   selector: 'app-emulation',
@@ -16,6 +17,7 @@ import { FileSearchComponent } from '../file-search/file-search.component';
 export class EmulationComponent extends ChildComponent implements OnInit, OnDestroy {
   isMenuPanelOpen = false;
   selectedRomName?: string;
+  selectedRomFileEntry?: FileEntry;
   nostalgist: Nostalgist | undefined;
   elementListenerMap = new WeakMap<Element, boolean>();
   @ViewChild('canvas') canvas!: ElementRef<HTMLCanvasElement>;
@@ -468,6 +470,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   async loadRom(file: FileEntry) {
     this.startLoading();
     this.isSearchVisible = false;
+    this.selectedRomFileEntry = file;
 
     const romSaveFile = this.fileService.getFileWithoutExtension(file.fileName ?? "") + ".sav";
     this.selectedRomName = file.fileName ?? "";
@@ -898,6 +901,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     if (this.selectedRomName) {
       this.disableGamepadMonitoringScoped();
     }
+    this.showControllerPadBindings = false;
   }
 
   isSimpleDpadGame(): boolean {
@@ -911,16 +915,14 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   async rescanControllersAndRebind(maxPlayers = 4) {
     // Briefly enable monitoring to see new pads
     this.enableGamepadMonitoringScoped();
-
-    // Snapshot pads & rebuild RA port config
-    const portConfig = this.buildRetroArchPortsConfig(maxPlayers);
-
-    // Apply by quick restart (preserves progress if you also call saveState)
-    try { await this.saveState(true); } catch { }
-    const file: FileEntry = { fileName: this.selectedRomName!, fileType: this.currentFileType } as any;
-    await this.stopEmulator();
-    await this.loadRom(file);
-
+    // Apply by quick restart (preserves progress if you also call saveState) 
+    if (this.selectedRomFileEntry && this.selectedRomName) {
+      if (this.autosave) {
+        await this.saveState(true);
+      }
+      await this.stopEmulator();
+      await this.loadRom(this.selectedRomFileEntry);
+    }
     // Back to lean mode
     this.disableGamepadMonitoringScoped();
   }
@@ -992,8 +994,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       if (ev.gamepad) removePad(ev.gamepad.index);
     });
 
-    // Fallback poll (some browsers are flaky with events)
-
+    // Fallback poll (some browsers are flaky with events) 
     this.gamepadPollTimer = window.setInterval(() => {
       const seen = new Set<number>();
       for (const gp of (navigator.getGamepads?.() || [])) {
@@ -1027,7 +1028,6 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     }
     this._lastPadCountNotified = -1;
   }
-
 
   // Returns the currently active system and its relevant actions to rebind.
   // We trim to only what matters for the selected ROM/core.
@@ -1169,12 +1169,12 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
    * Apply the bindings by restarting the current ROM with an extended retroarchConfig.
    */
   async applyPadBindingsAndRestart() {
+    this.showControllerPadBindings = false;
     if (!this.selectedRomName) return;
     try { await this.saveState(true); } catch { }
     const file: FileEntry = { fileName: this.selectedRomName, fileType: this.currentFileType } as any;
     await this.stopEmulator();
     await this.loadRom(file); // loadRom already merges our pad config (see change below)
-    this.showControllerPadBindings = false;
     this.closeMenuPanel();
   }
 
@@ -1215,5 +1215,3 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     this.closeMenuPanel();
   }
 }
-
-type PadBind = { type: 'btn' | 'axis', index: number, sign?: '+' | '-' }; 
