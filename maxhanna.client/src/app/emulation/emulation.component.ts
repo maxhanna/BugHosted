@@ -15,11 +15,6 @@ import { PadBind } from '../../services/datacontracts/emulation/PadBind';
   standalone: false
 })
 export class EmulationComponent extends ChildComponent implements OnInit, OnDestroy {
-  isMenuPanelOpen = false;
-  selectedRomName?: string;
-  selectedRomFileEntry?: FileEntry;
-  nostalgist: Nostalgist | undefined;
-  elementListenerMap = new WeakMap<Element, boolean>();
   @ViewChild('canvas') canvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('localFileOpen') localFileOpen!: ElementRef<HTMLInputElement>;
   @ViewChild('loadRomSelect') loadRomSelect!: ElementRef<HTMLSelectElement>;
@@ -38,6 +33,12 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   isFullScreen = false;
   hapticFeedbackEnabled = this.onMobile();
   showControls = this.onMobile();
+  isMenuPanelOpen = false;
+  selectedRomName?: string;
+  selectedRomFileEntry?: FileEntry;
+  nostalgist: Nostalgist | undefined;
+  elementListenerMap = new WeakMap<Element, boolean>();
+  keyboardCaptureEnabled = false;
   private connectedPads = new Map<number, Gamepad>();
   private gamepadPollTimer?: number;
   private touchControls: Map<number, string[]> = new Map();
@@ -372,31 +373,55 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     }
   }
 
+
   setupEventListeners() {
+    const isTextInputTarget = (t: EventTarget | null) => {
+      const el = t as HTMLElement | null;
+      if (!el) return false;
+      const tag = (el.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return true;
+      // Editable DIVs (search bars, rich text, etc.)
+      if ((el as HTMLElement).isContentEditable) return true;
+      // If the target is inside an input/textarea/contentEditable parent
+      return !!el.closest('input, textarea, [contenteditable="true"]');
+    };
+
     const keyDownForBinding: EventListener = (event) => {
+      const e = event as KeyboardEvent;
+
+      // Let rebind UI capture regardless of captureEnabled
       if (this.waitingForKey) {
-        event.preventDefault();
-        const newKey = (event as KeyboardEvent).key;
+        e.preventDefault();
+        const newKey = e.key;
         this.keybindings[this.waitingForKey] = newKey;
         this.waitingForKey = null;
         this.parentRef?.showNotification(`Bound to "${newKey}"`);
         return;
       }
-      const pressedKey = (event as KeyboardEvent).key;
+
+      // If we are not actively playing a ROM, or user is typing in a field, do nothing
+      if (!this.keyboardCaptureEnabled || isTextInputTarget(e.target)) return;
+
+      const pressedKey = e.key;
       const action = Object.entries(this.keybindings).find(([_, val]) => val === pressedKey)?.[0];
       if (action) {
         this.nostalgist?.pressDown(action);
-        event.preventDefault();
+        e.preventDefault();
       }
     };
     this.addRegisteredListener(document, 'keydown', keyDownForBinding as EventListener);
 
     const keyUpHandler: EventListener = (event) => {
-      const releasedKey = (event as KeyboardEvent).key;
+      const e = event as KeyboardEvent;
+
+      // Only handle key-up if capture is active (rebinding doesn't need keyup)
+      if (!this.keyboardCaptureEnabled || isTextInputTarget(e.target)) return;
+
+      const releasedKey = e.key;
       const action = Object.entries(this.keybindings).find(([_, val]) => val === releasedKey)?.[0];
       if (action) {
         this.nostalgist?.pressUp(action);
-        event.preventDefault();
+        e.preventDefault();
       }
     };
     this.addRegisteredListener(document, 'keyup', keyUpHandler as EventListener);
@@ -446,6 +471,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     }
     await this.clearAutosave();
     await this.nostalgist?.getEmulator().exit();
+    this.keyboardCaptureEnabled = false;
     this.isSearchVisible = true;
     this.enableGamepadMonitoringScoped();
     this.currentFileType = '';
@@ -509,6 +535,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
     await this.nostalgist.launchEmulator();
     setTimeout(() => { if (!this.soundOn) this.nostalgist?.sendCommand('MUTE'); }, 1);
+    this.keyboardCaptureEnabled = true;
     this.setHTMLControls();
     this.setupAutosave();
     this.disableGamepadMonitoringScoped();
@@ -886,6 +913,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       controls.forEach(control => this.nostalgist?.pressUp(control));
     });
     this.touchControls.clear();
+    this.keyboardCaptureEnabled = false;
   }
 
   closeMenuPanel() {
@@ -900,6 +928,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       }
     }, 3);
     if (this.selectedRomName) {
+      this.keyboardCaptureEnabled = true;
       this.disableGamepadMonitoringScoped();
     }
     this.showControllerPadBindings = false;

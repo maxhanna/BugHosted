@@ -882,16 +882,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       });
   }); 
   }
- 
-/**
- * Run a callback after the menu panel is fully closed and the browser
- * has completed style/layout/paint for that change.
- *
- * Strategy:
- *  - Wait until the element is hidden/removed.
- *  - Then wait for 2 animation frames (rAF → rAF) to cross a paint boundary.
- *  - Fallback: if something blocks rAF (tab switch), run after a short timeout.
- */
+  
 private runAfterMenuClosed(cb: () => void) {
   const PANEL_SELECTOR = '.n64-emulator-root.popupPanel';
   const isPanelGone = () => !document.querySelector(PANEL_SELECTOR);
