@@ -77,7 +77,7 @@ canvas {
 
 .status {
   font-size: 12px;
-  color: #ddd;
+  color: var(--main-link-color);
 }
 
 .toggle-label {
