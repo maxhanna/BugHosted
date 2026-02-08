@@ -2,10 +2,9 @@ html {
   scrollbar-gutter: stable both-edges; /* modern browsers */
 }
 
-canvas { 
-  max-width: 100%;
-  height: auto;     /* keep aspect via script sizing */
-  display: block;   /* avoid inline baseline gaps */ 
+canvas {
+  width: auto !important;
+  height: calc(100vh - 60px) !important;
 }
 
 .componentMain {
