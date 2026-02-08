@@ -1,5 +1,5 @@
 
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import createMupen64PlusWeb, { EmulatorControls, writeAutoInputConfig, getAllSaveFiles } from 'mupen64plus-web';
 import { FileService } from '../../services/file.service';
@@ -29,7 +29,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private instance: EmulatorControls | null = null;
   private _romGoodName: string | null = null;
   private _romMd5: string | null = null;
-  private _restartLock = Promise.resolve();
+  private _restartLock = Promise.resolve(); 
+  private performanceMode = false;
+  private _listenersDisabledForPerf = false;
+  private perfLockedSize: { width: number; height: number; dpr: number } | null = null;
 
 
   // ---- Gamepads ----
@@ -113,15 +116,17 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private _axisDeadzone = 0.2;
 
   // ---- Debug knobs ----
-  private SAVE_DEBUG = true;
+  private SAVE_DEBUG = false;
 
-  constructor(private fileService: FileService, private romService: RomService) {
+  constructor(
+    private fileService: FileService, 
+    private romService: RomService,
+    private ngZone: NgZone,
+    private cdRef: ChangeDetectorRef
+  ) {
     super();
   }
-
-  // =====================================================
-  // Lifecycle
-  // =====================================================
+ 
   ngOnInit(): void {
     try {
       const raw = localStorage.getItem(this._lastPerGamepadKey);
@@ -142,14 +147,18 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
     this._resizeObserver = new ResizeObserver(() => {
       this.resizeCanvasToParent();
-      requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+      
+      if (!this.performanceMode) {
+        requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+      }
+
     });
     this._resizeObserver.observe(container);
 
-    window.addEventListener('orientationchange', this._resizeHandler);
-
-    window.addEventListener('gamepadconnected', this._onGamepadConnected);
-    window.addEventListener('gamepaddisconnected', this._onGamepadDisconnected);
+window.addEventListener('orientationchange', this._resizeHandler as any, { passive: true });
+   
+window.addEventListener('gamepadconnected', this._onGamepadConnected as any, { passive: true });
+window.addEventListener('gamepaddisconnected', this._onGamepadDisconnected as any, { passive: true });
 
     document.addEventListener('fullscreenchange', this._onFullscreenChange);
 
@@ -198,11 +207,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
     this._bootstrapTimers = [];
   }
-
-  // =====================================================
-  // File selection & canvas sizing
-  // =====================================================
-
+  
   async onFileSearchSelected(file: FileEntry) {
     try {
       if (!file) {
@@ -249,14 +254,89 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } finally {
       this.stopLoading();
     }
-  }
-
+  } 
 
   clearSelection() {
     this.romInput.nativeElement.value = '';
     this.romBuffer = undefined;
     this.romName = undefined;
   }
+
+/** Enter high-performance mode: disable non-critical listeners & timers, freeze canvas size */
+private enterPerformanceMode() {
+  if (this.performanceMode) return;
+  this.performanceMode = true;
+
+  // Stop any periodic scanning/polling that isn’t strictly needed during play
+  this.stopGamepadAutoDetect();
+  this.stopGamepadLogging();
+
+  // Freeze canvas size to avoid layout/resize churn
+  const c = this.canvas?.nativeElement;
+  if (c) {
+    this.perfLockedSize = { width: c.width, height: c.height, dpr: window.devicePixelRatio || 1 };
+  }
+  // Remove global listeners that may fire during gameplay
+  this.disableGlobalListenersForPerf();
+
+  // (Optional) if you want to relax direct-inject polling during gameplay:
+  // if (this.directInjectMode) { /* you can raise the poll interval a bit here if desired */ }
+}
+
+/** Exit high-performance mode: restore listeners so UI/actions work again */
+private exitPerformanceMode() {
+  if (!this.performanceMode) return;
+  this.performanceMode = false;
+
+  // Re-attach needed listeners
+  this.restoreGlobalListenersAfterPerf();
+
+  // You can choose NOT to restart auto-detect immediately to keep it quiet until user opens menu.
+  // If you want auto-detect only when the menu is visible:
+  if (this.isMenuPanelVisible || this.status !== 'running') {
+    this.startGamepadAutoDetect();
+  }
+}
+
+/** Remove global listeners while playing */
+private disableGlobalListenersForPerf() {
+  if (this._listenersDisabledForPerf) return;
+  try { window.removeEventListener('gamepadconnected', this._onGamepadConnected as any); } catch {}
+  try { window.removeEventListener('gamepaddisconnected', this._onGamepadDisconnected as any); } catch {}
+  try { window.removeEventListener('orientationchange', this._resizeHandler as any); } catch {}
+
+  if (this._canvasResizeAdded) {
+    try { window.removeEventListener('resize', this._resizeHandler as any); } catch {}
+    this._canvasResizeAdded = false;
+  }
+
+  if (this._resizeObserver) {
+    try { this._resizeObserver.disconnect(); } catch {}
+  }
+
+  this._listenersDisabledForPerf = true;
+}
+
+/** Restore global listeners after performance mode is off */
+private restoreGlobalListenersAfterPerf() {
+  if (!this._listenersDisabledForPerf) return;
+
+  window.addEventListener('gamepadconnected', this._onGamepadConnected as any, { passive: true });
+  window.addEventListener('gamepaddisconnected', this._onGamepadDisconnected as any, { passive: true });
+  window.addEventListener('orientationchange', this._resizeHandler as any, { passive: true });
+
+  if (!this._canvasResizeAdded) {
+    window.addEventListener('resize', this._resizeHandler as any, { passive: true });
+    this._canvasResizeAdded = true;
+  }
+
+  if (this._resizeObserver) {
+    const container = (this.fullscreenContainer?.nativeElement) ?? this.canvas?.nativeElement?.parentElement ?? document.body;
+    try { this._resizeObserver.observe(container); } catch {}
+  }
+
+  this._listenersDisabledForPerf = false;
+}
 
   private resizeCanvasToParent() {
     try {
@@ -637,26 +717,22 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const restoreSniffer = this.installMupenConsoleSniffer();
 
     try {
-      this.applyGamepadReorder(); 
-
-      this.instance = await createMupen64PlusWeb({
-        canvas: canvasEl,
-        innerWidth: canvasEl.width,
-        innerHeight: canvasEl.height,
-        romData: new Int8Array(this.romBuffer!),
-        beginStats: () => { },
-        endStats: () => { },
-        coreConfig: { emuMode: 0 },
-        setErrorStatus: (msg: string) => console.log('Mupen error:', msg),
-        locateFile: (path: string) => `/assets/mupen64plus/${path}`,
+      this.applyGamepadReorder();  
+      await this.ngZone.runOutsideAngular(async () => {
+        this.instance = await createMupen64PlusWeb({
+          canvas: canvasEl,
+          innerWidth: canvasEl.width,
+          innerHeight: canvasEl.height,
+          romData: new Int8Array(this.romBuffer!),
+          beginStats: () => { },
+          endStats: () => { },
+          coreConfig: { emuMode: 0 },
+          setErrorStatus: (msg: string) => console.log('Mupen error:', msg),
+          locateFile: (path: string) => `/assets/mupen64plus/${path}`,
+        });
+        await this.instance!.start();
       });
 
-      if (!this.instance || typeof this.instance.start !== 'function') {
-        this.status = 'error';
-        throw new Error('Emulator instance missing start method');
-      }
-
-      await this.instance.start();
       this.status = 'running';
 
       // Ensure canvas has focus on some stacks (helps input routing)
@@ -668,10 +744,19 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       await new Promise(r => setTimeout(r, 400));
  
       // Copy canonical -> emulator key (GoodName).eep and restart once if changed
-      this.ensureSaveLoadedForCurrentRom().catch(() => { });
+      this.ensureSaveLoadedForCurrentRom();
+      this.enterPerformanceMode();  // minimize non-critical overhead during gameplay
 
-      this.parentRef?.showNotification(`Booted ${this.romName}. ${connectedCount} controller${connectedCount === 1 ? '' : 's'} detected.`);
-      this.bootGraceUntil = performance.now() + 1500;
+
+      this.ngZone.run(() => {
+        this.parentRef?.showNotification(
+          `Booted ${this.romName}. ${connectedCount} controller${connectedCount === 1 ? '' : 's'} detected.`
+        );
+        this.bootGraceUntil = performance.now() + 1500;
+        this.cdRef.markForCheck();
+      });
+
+    this.bootGraceUntil = performance.now() + 1500;
       requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
     } catch (ex) {
       console.error('Failed to boot emulator', ex);
@@ -688,7 +773,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
 
   async stop() {
-    try {
+    try { 
+      this.exitPerformanceMode(); 
       if (this.instance && typeof this.instance.stop === 'function') {
         try {
           await this.instance.stop();
@@ -780,7 +866,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   showMenuPanel() {
     this.isMenuPanelVisible = true;
-    this.parentRef?.showOverlay();
+    this.parentRef?.showOverlay(); 
+    this.exitPerformanceMode(); 
     if (this.savedMappingsNames.length === 0) {
       this.loadMappingsList();
     }
@@ -790,7 +877,12 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   closeMenuPanel() {
     this.isMenuPanelVisible = false;
     this.parentRef?.closeOverlay();
-    this.startGamepadAutoDetect();
+        
+    if (this.status === 'running') {
+      this.enterPerformanceMode();
+    } else {
+      this.startGamepadAutoDetect();
+    } 
   }
 
   openControllerAssignments() {
@@ -1116,7 +1208,10 @@ if (!skipBoot && (this.status === 'running' || !!this.instance)) {
     this.applyGamepadReorder();
   };
 
-  startGamepadAutoDetect() {
+  startGamepadAutoDetect() { 
+    if (this.performanceMode) {
+       return;  
+    }
     this.stopGamepadAutoDetect();
     const tick = () => {
       try {
@@ -1138,8 +1233,8 @@ if (!skipBoot && (this.status === 'running' || !!this.instance)) {
           console.debug('[GP] autoDetect changed order', { before, after });
           this.applyGamepadReorder();
         }
-      } catch { console.log('Gamepad auto-detect tick failed'); }
-      this._autoDetectTimer = setTimeout(tick, 750);
+      } catch { console.log('Gamepad auto-detect tick failed'); } 
+      this._autoDetectTimer = setTimeout(tick, this.performanceMode ? 999999 : 750);
     };
     tick();
   }
