@@ -895,6 +895,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   closeMenuPanel() {
     this.isMenuPanelVisible = false;
     this.parentRef?.closeOverlay();
+    this.cancelPortMappings();
 
     if (this.status === 'running') {
       this.enterPerformanceMode();
@@ -911,6 +912,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   closeControllerAssignments() {
     this.showControllerAssignments = false;
     this.startGamepadAutoDetect();
+  }
+
+  cancelPortMappings() {
+    this.closeControllerAssignments(); 
+    this.showKeyMappings = false;
   }
 
   private async blobToN64SaveFile(blob: Blob, serverFileName: string): Promise<File> {
