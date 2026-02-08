@@ -1,27 +1,15 @@
 <div class="componentMain" [style.paddingTop]="isFullScreen ? '0px' : null">
   <div class="closeButton" (click)="remove_me('EmulationComponent');" *ngIf="!isFullScreen"></div>
   <div class="menuButton" (click)="showMenuPanel();" *ngIf="!isFullScreen"></div>
-  <div class="componentTitle" *ngIf="!isFullScreen"><span class="romNameTitle">{{selectedRomName ? getRomName() : 'Emulation'}}</span></div>
+  <div class="componentTitle" *ngIf="!isFullScreen"><span class="romNameTitle">{{selectedRomName ? getRomName() :
+      'Emulation'}}</span></div>
   <div class="gamesContainer{{ !selectedRomName ? ' expanded' : '' }}{{isLoading ? ' is-disabled' : ''}}"
     *ngIf="isSearchVisible">
-    <app-file-search 
-      [user]="parentRef?.user" 
-      [inputtedParentRef]="parentRef" 
-      [currentDirectory]="'Roms/'"
-      [clearAfterSelectFile]="true" 
-      [allowedFileTypes]="getAllowedFileTypes()"
-      [showPrivatePublicOption]="false"
-      [showFileSearchOptions]="false" 
-      [canChangeDirectory]="false" 
-      [canDragMove]="false"
-      [displayFileActions]="true"
-      [displayComments]="false" 
-      [displayFileSize]="false" 
-      [displayReactions]="false"
-      [disabled]="isLoading"
-      [showPicturesOnlyToggler]="false"
-      [showVideosOnlyToggler]="false"
-      [showNSFWToggler]="false"
+    <app-file-search [user]="parentRef?.user" [inputtedParentRef]="parentRef" [currentDirectory]="'Roms/'"
+      [clearAfterSelectFile]="true" [allowedFileTypes]="getAllowedFileTypes()" [showPrivatePublicOption]="false"
+      [showFileSearchOptions]="false" [canChangeDirectory]="false" [canDragMove]="false" [displayFileActions]="true"
+      [displayComments]="false" [displayFileSize]="false" [displayReactions]="false" [disabled]="isLoading"
+      [showPicturesOnlyToggler]="false" [showVideosOnlyToggler]="false" [showNSFWToggler]="false"
       (selectFileEvent)="loadRom($event)">
     </app-file-search>
   </div>
@@ -115,7 +103,7 @@
      🔊/🔇 : Click on this to mute/unmute the audio.
      ⌨️ Keyboard Controls: Arrows keys for movement; a = x, b = z, x = s, y = a, l = q, r = w, enter = start, shift = select (SNES); a = x, b = z, c = a, q for left trigger, w for right trigger, enter = start, shift = select (non-SNES).">ℹ️</span>
   </div>
-  <div class="optionsStatsWrapperDiv explainWrapper" *ngIf="!showHelpText">
+  <div class="" *ngIf="!showHelpText">
     <div class="optionsStatsDiv" *ngIf="!showControlBindings && !showControllerPadBindings">
       <div class="optionsStatsHeader">Autosave:</div>
       <div class="optionsStatsDescription">
@@ -181,7 +169,7 @@
         <span class="toggle-label" (click)="showControls = !showControls">{{ showControls ? 'Display' : 'Hide' }}</span>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="!showControlBindings && !showControllerPadBindings">
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings && !showControllerPadBindings && showControls">
       <div class="optionsStatsHeader">Use Joystick:</div>
       <div class="optionsStatsDescription">
         <label class="toggle-switch">
@@ -190,69 +178,60 @@
         </label>
         <span class="toggle-label" (click)="onToggleJoystick()">{{ useJoystick ? 'Joystick' : 'D-Pad' }}</span>
       </div>
-    </div> 
-
-    
-<!-- Rebind Controller (Gamepad) -->
-<div class="optionsStatsDiv" *ngIf="nostalgist">
-  <div class="optionsStatsHeader">Rebind Controller (Gamepad)</div>
-  <div class="optionsStatsDescription">
-    <label class="toggle-switch">
-      <input
-        type="checkbox"
-        [checked]="showControllerPadBindings"
-        (change)="showControllerPadBindings = !showControllerPadBindings">
-      <span class="slider"></span>
-    </label>
-    <span class="toggle-label"
-          (click)="showControllerPadBindings = !showControllerPadBindings">
-      {{ showControllerPadBindings ? 'Hide' : 'Show' }}
-    </span>
-  </div>
-</div>
-
-<div *ngIf="showControllerPadBindings" class="smallFont">
-  <div class="optionsStatsDiv explainWrapper">
-    <div class="optionsStatsHeader">Player</div>
-    <div class="optionsStatsDescription"> 
-      <select [value]="bindingPlayer" (change)="onBindingPlayerChange($event)">
-        <option *ngFor="let p of [1,2,3,4]" [value]="p">P{{p}}</option>
-      </select>
-      <button (click)="resetControllerBindings(bindingPlayer)"
-              title="Clear custom bindings for this player">
-        Reset P{{bindingPlayer}}
-      </button>
     </div>
-  </div>
 
-  <!-- Action list depends on the active system -->
-  <div class="optionsStatsDiv smallFont explainWrapper" *ngFor="let action of getActionsForSystem()">
-    <div class="optionsStatsHeader">Bind: {{ action.toUpperCase() }}</div>
-    <div class="optionsStatsDescription">
-      <button
-        [disabled]="isListening(action)"
-        (click)="listenForPad(bindingPlayer, action)">
-        {{ isListening(action) ? 'Press a button...' : getPadBindingLabel(bindingPlayer, action) }}
-      </button>
-      <button (click)="clearPadBinding(bindingPlayer, action)"
-              [disabled]="!hasPadBinding(bindingPlayer, action)">
-        ✕
-      </button>
+    <!-- Rebind Controller (Gamepad) -->
+    <div class="optionsStatsDiv" *ngIf="nostalgist && !showControls">
+      <div class="optionsStatsHeader">Rebind Controller (Gamepad)</div>
+      <div class="optionsStatsDescription">
+        <label class="toggle-switch">
+          <input type="checkbox" [checked]="showControllerPadBindings"
+            (change)="showControllerPadBindings = !showControllerPadBindings">
+          <span class="slider"></span>
+        </label>
+        <span class="toggle-label" (click)="showControllerPadBindings = !showControllerPadBindings">
+          {{ showControllerPadBindings ? 'Hide' : 'Show' }}
+        </span>
+      </div>
     </div>
-  </div>
 
-  <div class="optionsStatsDiv">
-    <div class="optionsStatsHeader">Apply to game</div>
-    <div class="optionsStatsDescription">
-      <button (click)="applyPadBindingsAndRestart()" title="Saves and restarts with this mapping">
-        Save & Restart
-      </button>
+    <div *ngIf="showControllerPadBindings && !showControls" class="smallFont">
+      <div class="optionsStatsDiv explainWrapper">
+        <div class="optionsStatsHeader">Player</div>
+        <div class="optionsStatsDescription">
+          <select [value]="bindingPlayer" (change)="onBindingPlayerChange($event)">
+            <option *ngFor="let p of [1,2,3,4]" [value]="p">P{{p}}</option>
+          </select>
+          <button (click)="resetControllerBindings(bindingPlayer)" title="Clear custom bindings for this player">
+            Reset P{{bindingPlayer}}
+          </button>
+        </div>
+      </div>
+
+      <!-- Action list depends on the active system -->
+      <div class="optionsStatsDiv smallFont explainWrapper" *ngFor="let action of getActionsForSystem()">
+        <div class="optionsStatsHeader">Bind: {{ action.toUpperCase() }}</div>
+        <div class="optionsStatsDescription">
+          <button [disabled]="isListening(action)" (click)="listenForPad(bindingPlayer, action)">
+            {{ isListening(action) ? 'Press a button...' : getPadBindingLabel(bindingPlayer, action) }}
+          </button>
+          <button (click)="clearPadBinding(bindingPlayer, action)" [disabled]="!hasPadBinding(bindingPlayer, action)">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <div class="optionsStatsDiv">
+        <div class="optionsStatsHeader">Apply to game</div>
+        <div class="optionsStatsDescription">
+          <button (click)="applyPadBindingsAndRestart()" title="Saves and restarts with this mapping">
+            Save & Restart
+          </button>
+        </div>
+      </div>
     </div>
-  </div>
-</div>
 
-
-    <div class="optionsStatsDiv" *ngIf="!onMobile() && !showControllerPadBindings">
+    <div class="optionsStatsDiv" *ngIf="!onMobile() && !showControllerPadBindings && !showControls">
       <div class="optionsStatsHeader">Rebind Keyboard Controls:</div>
       <div class="optionsStatsDescription">
         <label class="toggle-switch">
@@ -263,7 +242,7 @@
           : 'Hide' }}</span>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="onMobile() && !showControllerPadBindings">
+    <div class="optionsStatsDiv" *ngIf="onMobile() && !showControllerPadBindings && showControls">
       <div class="optionsStatsHeader">Haptic Feedback:</div>
       <div class="optionsStatsDescription">
         <label class="toggle-switch">
@@ -276,8 +255,8 @@
           : 'Disabled' }}</span>
       </div>
     </div>
-    
-    <div class="optionsStatsDiv" *ngIf="!showControlBindings && !showControllerPadBindings">
+
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings && !showControllerPadBindings && !showControls">
       <div class="optionsStatsHeader">Re-Detect Connected Controllers:</div>
       <div class="optionsStatsDescription">
         <button (click)="rescanControllersAndRebind(4)" title="Rescan controllers">🔄 Rescan</button>
@@ -287,15 +266,9 @@
     <div class="optionsStatsDiv" *ngIf="!showControlBindings && !showControllerPadBindings">
       <div class="optionsStatsHeader">Upload ROM file:</div>
       <div class="optionsStatsDescription uploadRomSpan upload-label controlVolume">
-        <app-file-upload 
-          [currentDirectory]="'Roms'" 
-          [user]="parentRef?.user!" 
-          [inputtedParentRef]="parentRef"
-          [uploadButtonText]="'Upload Rom(s)'" 
-          [maxSelectedFiles]="100" 
-          [allowedFileTypes]="allowedFileTypes"
-          [displayOptionsAndTopicsButtons]="false"
-          (finishFileUploadingEvent)="finishFileUploading()">
+        <app-file-upload [currentDirectory]="'Roms'" [user]="parentRef?.user!" [inputtedParentRef]="parentRef"
+          [uploadButtonText]="'Upload Rom(s)'" [maxSelectedFiles]="100" [allowedFileTypes]="allowedFileTypes"
+          [displayOptionsAndTopicsButtons]="false" (finishFileUploadingEvent)="finishFileUploading()">
         </app-file-upload>
       </div>
     </div>
