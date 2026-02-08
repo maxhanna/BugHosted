@@ -872,15 +872,77 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.cancelPortMappings();
     this.disableKeyboardShield();  
     const shouldReenterPerf = (this.status === 'running');  
+    
+  this.runAfterMenuClosed(() => {
     this.forceCanvasLayoutSync(/* emitResizeEvent */ true)
-      .catch(() => {/* ignore */})
+      .catch(() => { /* ignore */ })
       .finally(() => {
         if (shouldReenterPerf) this.enterPerformanceMode();
         else this.startGamepadAutoDetect();
       });
-
+  }); 
   }
  
+/**
+ * Run a callback after the menu panel is fully closed and the browser
+ * has completed style/layout/paint for that change.
+ *
+ * Strategy:
+ *  - Wait until the element is hidden/removed.
+ *  - Then wait for 2 animation frames (rAF → rAF) to cross a paint boundary.
+ *  - Fallback: if something blocks rAF (tab switch), run after a short timeout.
+ */
+private runAfterMenuClosed(cb: () => void) {
+  const PANEL_SELECTOR = '.n64-emulator-root.popupPanel';
+  const isPanelGone = () => !document.querySelector(PANEL_SELECTOR);
+
+  // 1) If already gone, schedule for 2 frames.
+  const scheduleResize = () => {
+    let done = false;
+    // rAF → rAF ensures we pass a paint tick
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (done) return;
+        done = true;
+        cb();
+      });
+    });
+    // Fallback in case rAF is throttled (background tab, etc.)
+    setTimeout(() => {
+      if (done) return;
+      done = true;
+      cb();
+    }, 160);
+  };
+
+  if (isPanelGone()) {
+    scheduleResize();
+    return;
+  }
+
+  // 2) Observe DOM until the panel disappears
+  const mo = new MutationObserver(() => {
+    if (isPanelGone()) {
+      try { mo.disconnect(); } catch {}
+      scheduleResize();
+    }
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
+
+  // Safety net: if the app hides it via CSS (not removal), also poll a bit.
+  let tries = 0;
+  const poll = () => {
+    const el = document.querySelector(PANEL_SELECTOR) as HTMLElement | null;
+    if (!el || el.style.display === 'none' || el.hidden || getComputedStyle(el).display === 'none' || getComputedStyle(el).visibility === 'hidden') {
+      try { mo.disconnect(); } catch {}
+      scheduleResize();
+      return;
+    }
+    if (tries++ < 8) setTimeout(poll, 40); // ~320ms total
+  };
+  poll();
+}
+
   openControllerAssignments() {
     this.showControllerAssignments = true;
     this.stopGamepadAutoDetect();
