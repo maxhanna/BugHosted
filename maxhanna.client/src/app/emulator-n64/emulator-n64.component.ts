@@ -2291,8 +2291,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
     return best ? { filename: best.save.filename, bytes: best.save.bytes } : null;
   }
-
-
+  
   remapAction(p: PlayerPort) {
     if (this.ports[p].gpIndex) {
       this.editingPort = p;
@@ -2302,6 +2301,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.parentRef?.showNotification('Assign a controller to P' + p + ' first');
     }
   }
+  
   closeRemapAction() {
     if (this.editingPort) {
       this.closeRemapperToPort(this.editingPort);
