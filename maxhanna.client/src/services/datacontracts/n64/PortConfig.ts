@@ -1,4 +1,4 @@
-type PortConfig = {
+export type PortConfig = {
   gpIndex: number | null;
   gpId?: string | null;
   mapping: Record<string, any>;

@@ -6,6 +6,7 @@ import { FileService } from '../../services/file.service';
 import { N64StateUpload, RomService } from '../../services/rom.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { FileSearchComponent } from '../file-search/file-search.component';
+import { PortConfig } from '../../services/datacontracts/n64/PortConfig';
 import { PlayerPort } from '../../services/datacontracts/n64/PlayerPort';
 
 @Component({
