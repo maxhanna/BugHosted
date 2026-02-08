@@ -855,8 +855,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   showMenuPanel() {
     this.isMenuPanelVisible = true;
     this.parentRef?.showOverlay();
-
-    this.freezeMainWidth();
+ 
     this.releaseForMenu();
     this.exitPerformanceMode();
     this.enableKeyboardShield();
@@ -871,29 +870,17 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.isMenuPanelVisible = false;
     this.parentRef?.closeOverlay();
     this.cancelPortMappings();
-    this.disableKeyboardShield();
-    this.unfreezeMainWidth();
+    this.disableKeyboardShield();  
+    const shouldReenterPerf = (this.status === 'running');  
+    this.forceCanvasLayoutSync(/* emitResizeEvent */ true)
+      .catch(() => {/* ignore */})
+      .finally(() => {
+        if (shouldReenterPerf) this.enterPerformanceMode();
+        else this.startGamepadAutoDetect();
+      });
 
-    if (this.status === 'running') {
-      this.enterPerformanceMode();
-    } else {
-      this.startGamepadAutoDetect();
-    }
   }
-
-  private freezeMainWidth() {
-    const el = document.querySelector('.componentMain') as HTMLElement | null;
-    if (!el) return;
-    // lock to current rendered width in px
-    el.style.width = `${el.getBoundingClientRect().width}px`;
-  }
-
-  private unfreezeMainWidth() {
-    const el = document.querySelector('.componentMain') as HTMLElement | null;
-    if (!el) return;
-    el.style.width = ''; // back to CSS (100%)
-  }
-
+ 
   openControllerAssignments() {
     this.showControllerAssignments = true;
     this.stopGamepadAutoDetect();

@@ -25,23 +25,7 @@ canvas {
   flex-direction: column;
   gap: 8px;
   padding: 8px;
-}
-
-/* Make the menu a fixed overlay so it doesn't shift layout */
-.n64-emulator-root.popupPanel {
-  position: fixed;
-  z-index: 9999;          /* above the emulator surface */
-  overflow: auto;
-  /* Optional: visual baseline */
-  backdrop-filter: blur(2px);   /* if you like the effect */
-}
-
-/* Keep the inner content readable and centered if desired */
-.n64-emulator-root.popupPanel .menuAutosaveWrapper,
-.n64-emulator-root.popupPanel .controls {
-  max-width: 980px;
-  margin: 0 auto;
-}
+} 
 
 .gamepad-controls {
   max-width: calc(100% - 20px);
