@@ -804,10 +804,12 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         }
       }
       this.releaseKeyboardAndFocus();
-      this.stopAutosaveLoop();
-      if (document.fullscreenElement) {
-        await this.toggleFullscreen(false);
-      }
+      this.stopAutosaveLoop(); 
+      try {
+        if (document.fullscreenElement) {
+          (document as any).exitFullscreen?.();
+        }
+      } catch {} 
     } finally {
       this.instance = null;
       this.status = 'stopped';
@@ -1842,8 +1844,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   /** Release fullscreen/pointer lock, keyboard grabs and focus after emu stop. */
-  private releaseKeyboardAndFocus(): void { 
-    this.toggleFullscreen(false); 
+  private releaseKeyboardAndFocus(): void {
+    try {
+      if (document.fullscreenElement) {
+        (document as any).exitFullscreen?.();
+      }
+    } catch {}
+
     try {
       // Exit pointer lock if any (some builds use this indirectly)
       (document as any).exitPointerLock?.();
