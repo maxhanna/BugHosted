@@ -2225,9 +2225,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  // -----------------
-  // Save matching helpers
-  // -----------------
   private normalizeForMatch(s: string | null | undefined): string {
     if (!s) return '';
     return String(s)
@@ -2301,7 +2298,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.parentRef?.showNotification('Assign a controller to P' + p + ' first');
     }
   }
-  
+
   closeRemapAction() {
     if (this.editingPort) {
       this.closeRemapperToPort(this.editingPort);
