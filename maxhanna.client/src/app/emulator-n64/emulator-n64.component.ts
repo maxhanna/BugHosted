@@ -1845,15 +1845,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   /** Release fullscreen/pointer lock, keyboard grabs and focus after emu stop. */
-  private releaseKeyboardAndFocus(): void {
-    try {
-      // If our canvas is in fullscreen, exit it
-      const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
-      if (document.fullscreenElement && canvasEl && document.fullscreenElement === canvasEl) {
-        (document as any).exitFullscreen?.();
-      }
-    } catch { }
-
+  private releaseKeyboardAndFocus(): void { 
+    this.toggleFullscreen(false); 
     try {
       // Exit pointer lock if any (some builds use this indirectly)
       (document as any).exitPointerLock?.();
