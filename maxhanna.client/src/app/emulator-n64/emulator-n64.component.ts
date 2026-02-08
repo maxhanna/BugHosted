@@ -835,16 +835,14 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   showMenuPanel() {
     this.isMenuPanelVisible = true;
-    this.parentRef?.showOverlay();
-
+    this.parentRef?.showOverlay(); 
     // Ensure the emulator isn’t holding keyboard focus while menu is up
     try {
       this.releaseKeyboardAndFocus();
-    } catch {/* ignore */ }
-
-    this.exitPerformanceMode();
-
-    this.enableKeyboardShield();
+    } catch {/* ignore */ } 
+    this.exitPerformanceMode(); 
+    this.enableKeyboardShield(); 
+    document.documentElement.style.setProperty('overflow', 'hidden'); 
 
     if (this.savedMappingsNames.length === 0) {
       this.loadMappingsList();
@@ -856,7 +854,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.isMenuPanelVisible = false;
     this.parentRef?.closeOverlay();
     this.cancelPortMappings();
-    this.disableKeyboardShield();
+    this.disableKeyboardShield(); 
+    document.documentElement.style.removeProperty('overflow');
 
     if (this.status === 'running') {
       this.enterPerformanceMode();
@@ -2079,7 +2078,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     let base = name.replace(/\.(z64|n64|v64|zip|7z|rom)$/i, '');
     base = base
       .replace(/\s+/g, ' ')
-      .replace(/\s*\((?:U|E|J|JU|USA|Europe|Japan|V\d+(\.\d+)?)\)\s*/gi, ' ')
+      .replace(/\s*\((?:U|E|J|JU|USA|Europe|Japan|V\d+(\.\d+)?|rev[^)]*)\)\s*/gi, ' ')
       .replace(/\s*\[(?:!|b\d*|h\d*|o\d*|t\d*|M\d*|a\d*)\]\s*/gi, ' ')
       .trim()
       .toLowerCase();
@@ -2319,6 +2318,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private canonicalRomBaseFromFileName(romName?: string): string {
     if (!romName) return 'Unknown';
     let base = romName.replace(/\.(z64|n64|v64|zip|7z|rom)$/i, '');
+    // Remove revision tags like (Rev 2.1)
+    base = base.replace(/\s*\(rev[^)]*\)/gi, '').trim();
     return base || 'Unknown';
   }
 
@@ -2793,7 +2794,17 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   getRomName(): string | null {
-    return this.fileService.getFileWithoutExtension(this.romName || '');
+    let name = this.fileService.getFileWithoutExtension(this.romName || '');
+    name = name.replace("[!]", "").trim();
+    name = name.replace("(U)", "").trim();
+    name = name.replace("(E)", "").trim();
+    name = name.replace("(J)", "").trim();
+    name = name.replace("(USA)", "").trim();
+    name = name.replace("(Europe)", "").trim();
+    name = name.replace("(Japan)", "").trim();
+    // Remove revision tags like (Rev 2.1) or (rev 2)
+    name = name.replace(/\s*\(rev[^)]*\)/gi, '').trim();
+    return name;
   }
   finishFileUploading() {
     this.isFileUploaderExpanded = false;
