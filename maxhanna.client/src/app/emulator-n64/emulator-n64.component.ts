@@ -89,6 +89,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private _canvasResizeAdded = false;
   private _resizeHandler = () => this.resizeCanvasToParent();
   private _resizeObserver?: ResizeObserver;
+  private _emuEventTracker?: {
+    addOrig: typeof EventTarget.prototype.addEventListener;
+    removeOrig: typeof EventTarget.prototype.removeEventListener;
+    recorded: Array<{ target: EventTarget; type: string; listener: any; options?: any }>;
+    uninstall: () => void;
+    removeAll: () => void;
+  };
   // Reorder wrapper only (no translator)
   private _originalGetGamepadsBase: any = null;
   private _gpWrapperInstalled = false;
@@ -143,6 +150,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.startGamepadAutoDetect();
 
     setTimeout(() => { this.tryApplyLastForConnectedPads().catch(() => { }); }, 0);
+    if (!this.romName) {
+      this.ensureKeyboardIsFreeForUi();
+    }
   }
 
   async ngOnDestroy(): Promise<void> {
@@ -652,6 +662,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.parentRef?.showNotification('Pick a ROM first');
       return;
     }
+    this.installEmuEventTracker();
     if (this.autosave) {
       this.startAutosaveLoop();
     }
@@ -724,6 +735,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       throw ex;
     } finally {
       try { restoreSniffer(); } catch { /* ignore */ }
+      try { this._emuEventTracker?.uninstall(); } catch { /* ignore */ }
       this.loading = false;
       this.debugScanMempaks().catch(() => { });
     }
@@ -745,6 +757,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           }
         }
       }
+      try { this._emuEventTracker?.removeAll(); } catch { /* ignore */ }
       this.releaseKeyboardAndFocus();
       this.stopAutosaveLoop();
     } finally {
@@ -800,6 +813,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.romBuffer = undefined;
       this.romName = undefined;
       this.parentRef?.showNotification('ROM unloaded');
+      this.ensureKeyboardIsFreeForUi();
     }
     catch (e) {
       console.error('Error stopping game', e);
@@ -835,14 +849,14 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   showMenuPanel() {
     this.isMenuPanelVisible = true;
-    this.parentRef?.showOverlay(); 
+    this.parentRef?.showOverlay();
     // Ensure the emulator isn’t holding keyboard focus while menu is up
     try {
       this.releaseKeyboardAndFocus();
-    } catch {/* ignore */ } 
-    this.exitPerformanceMode(); 
-    this.enableKeyboardShield(); 
-    document.documentElement.style.setProperty('overflow', 'hidden'); 
+    } catch {/* ignore */ }
+    this.exitPerformanceMode();
+    this.enableKeyboardShield();
+    document.documentElement.style.setProperty('overflow', 'hidden');
 
     if (this.savedMappingsNames.length === 0) {
       this.loadMappingsList();
@@ -854,14 +868,14 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.isMenuPanelVisible = false;
     this.parentRef?.closeOverlay();
     this.cancelPortMappings();
-    this.disableKeyboardShield(); 
+    this.disableKeyboardShield();
     document.documentElement.style.removeProperty('overflow');
 
     if (this.status === 'running') {
       this.enterPerformanceMode();
     } else {
       this.startGamepadAutoDetect();
-    } 
+    }
     if (!this.isFullScreen) {
       setTimeout(() => this.resizeCanvasToParent(), 100);
     }
@@ -2131,6 +2145,56 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
+  private installEmuEventTracker() {
+    if (this._emuEventTracker) return;
+
+    const addOrig = EventTarget.prototype.addEventListener;
+    const removeOrig = EventTarget.prototype.removeEventListener;
+
+    const recorded: Array<{ target: EventTarget; type: string; listener: any; options?: any }> = [];
+
+    // We only care about keyboard-ish listeners during boot.
+    const shouldTrack = (type: string, target: EventTarget) => {
+      const t = (type || '').toLowerCase();
+      if (t === 'keydown' || t === 'keyup' || t === 'keypress') return true;
+      if (t === 'blur' || t === 'focus' || t === 'pointerlockchange') return true;
+      // You can add more types here if your build registers them.
+      return false;
+    };
+
+    const patchedAdd: typeof addOrig = function (this: EventTarget, type: any, listener: any, options?: any) {
+      try {
+        if (typeof type === 'string' && shouldTrack(type, this)) {
+          recorded.push({ target: this, type, listener, options });
+        }
+      } catch { /* ignore */ }
+      return addOrig.call(this, type as any, listener, options as any);
+    };
+
+    EventTarget.prototype.addEventListener = patchedAdd;
+
+    this._emuEventTracker = {
+      addOrig,
+      removeOrig,
+      recorded,
+      uninstall: () => {
+        try { EventTarget.prototype.addEventListener = addOrig; } catch { /* ignore */ }
+        try { EventTarget.prototype.removeEventListener = removeOrig; } catch { /* ignore */ }
+      },
+      removeAll: () => {
+        for (const r of recorded.splice(0)) {
+          try { r.target.removeEventListener(r.type as any, r.listener, r.options as any); } catch { /* ignore */ }
+        }
+      }
+    };
+  }
+
+  private ensureKeyboardIsFreeForUi() {
+    if (this.status !== 'running') {
+      // Let inputs get the keystrokes while we’re not in gameplay.
+      this.enableKeyboardShield();
+    }
+  }
 
   private ensureP1InitializedFromSinglePad() {
     if (this.ports[1].gpIndex == null && this.selectedGamepadIndex != null) {
@@ -2810,6 +2874,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     name = name.replace(/\s*\(v[^)]*\)/gi, '').trim();
     return name;
   }
+  
   finishFileUploading() {
     this.isFileUploaderExpanded = false;
     if (this.fileSearchComponent) {
