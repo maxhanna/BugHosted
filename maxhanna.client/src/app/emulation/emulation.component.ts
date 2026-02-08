@@ -142,6 +142,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   private padBindings: Record<number, Record<string, PadBind>> = {};
   // Listener runtime state
   private padListen?: { player: number; action: string; raf?: number; startedAt: number; prev?: Gamepad[] };
+  private _lastPadCountNotified = -1;
 
   private addRegisteredListener(elem: EventTarget, type: string, fn: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions, uniqueBy: 'elem-type-fn' | 'elem-type' = 'elem-type-fn') {
     const exists = this.registeredListeners.some(l => {
@@ -974,11 +975,11 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   private enableGamepadMonitoring() {
     const addPad = (gp: Gamepad) => {
       this.connectedPads.set(gp.index, gp);
-      this.parentRef?.showNotification?.(`Controller connected: ${gp.id}`);
+      this.notifyControllerCount();
     };
     const removePad = (idx: number) => {
       this.connectedPads.delete(idx);
-      this.parentRef?.showNotification?.(`Controller disconnected (index ${idx})`);
+      this.notifyControllerCount();
     };
 
     // Event listeners
@@ -992,20 +993,30 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     });
 
     // Fallback poll (some browsers are flaky with events)
+
     this.gamepadPollTimer = window.setInterval(() => {
       const seen = new Set<number>();
       for (const gp of (navigator.getGamepads?.() || [])) {
         if (!gp) continue;
         seen.add(gp.index);
         if (!this.connectedPads.has(gp.index)) {
-          addPad(gp);
+          this.connectedPads.set(gp.index, gp);
         }
       }
       // Remove pads no longer present
+      let changed = false;
       for (const idx of [...this.connectedPads.keys()]) {
-        if (!seen.has(idx)) removePad(idx);
+        if (!seen.has(idx)) {
+          this.connectedPads.delete(idx);
+          changed = true;
+        }
+      }
+      // Only notify if the count actually changed in this tick
+      if (changed || this.connectedPads.size !== this._lastPadCountNotified) {
+        this.notifyControllerCount();
       }
     }, 1000);
+
   }
 
   /** Stop the poller (call in ngOnDestroy). */
@@ -1014,6 +1025,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       clearInterval(this.gamepadPollTimer);
       this.gamepadPollTimer = undefined;
     }
+    this._lastPadCountNotified = -1;
   }
 
 
@@ -1162,6 +1174,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     const file: FileEntry = { fileName: this.selectedRomName, fileType: this.currentFileType } as any;
     await this.stopEmulator();
     await this.loadRom(file); // loadRom already merges our pad config (see change below)
+    this.showControllerPadBindings = false;
+    this.closeMenuPanel();
   }
 
   onBindingPlayerChange(ev: Event) {
@@ -1170,6 +1184,20 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     this.bindingPlayer = Number(target.value) || 1;
   }
 
+  /** Show a single toast with the current number of connected controllers. */
+  private notifyControllerCount() {
+    const count = this.connectedPads.size;
+    if (count === this._lastPadCountNotified) return; // no change → no toast
+    this._lastPadCountNotified = count;
+
+    const msg = count === 0
+      ? 'No controllers connected'
+      : count === 1
+        ? '1 controller connected'
+        : `${count} controllers connected`;
+
+    this.parentRef?.showNotification?.(msg);
+  }
 
   finishFileUploading() {
     this.fileSearchComponent?.getDirectory();

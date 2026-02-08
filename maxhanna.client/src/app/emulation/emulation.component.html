@@ -116,7 +116,7 @@
      ⌨️ Keyboard Controls: Arrows keys for movement; a = x, b = z, x = s, y = a, l = q, r = w, enter = start, shift = select (SNES); a = x, b = z, c = a, q for left trigger, w for right trigger, enter = start, shift = select (non-SNES).">ℹ️</span>
   </div>
   <div class="optionsStatsWrapperDiv explainWrapper" *ngIf="!showHelpText">
-    <div class="optionsStatsDiv" *ngIf="!showControlBindings">
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings && !showControllerPadBindings">
       <div class="optionsStatsHeader">Autosave:</div>
       <div class="optionsStatsDescription">
         <label class="toggle-switch">
@@ -126,52 +126,52 @@
         <span class="toggle-label" (click)="autosave = !autosave">{{ autosave ? 'On' : 'Off' }}</span>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="!autosave">
+    <div class="optionsStatsDiv" *ngIf="!autosave && !showControllerPadBindings">
       <div class="optionsStatsHeader">Save your game:</div>
       <div class="optionsStatsDescription">
         <span class="uploadRomSpan upload-label" (click)="saveState(false)" title="Save your game">💾</span>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="lastSaved">
+    <div class="optionsStatsDiv" *ngIf="lastSaved && !showControllerPadBindings">
       <div class="optionsStatsHeader">Last Saved:</div>
       <div class="optionsStatsDescription">
         {{ lastSaved | date: 'HH:mm' }} ({{ daysSinceDate(lastSaved) }})
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="!isSearchVisible">
+    <div class="optionsStatsDiv" *ngIf="!isSearchVisible && !showControllerPadBindings">
       <div class="optionsStatsHeader">Stop the emulator:</div>
       <div class="optionsStatsDescription">
         <span class="uploadRomSpan upload-label" #stopButton (click)="stopEmulator()" title="Power Off">🛑</span>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="!showControlBindings">
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings && !showControllerPadBindings">
       <div class="optionsStatsHeader">Fullscreen:</div>
       <div class="optionsStatsDescription">
         <div class="uploadRomSpan upload-label" id="fullscreenBtn" (click)="toggleFullscreen()" title="Fullscreen mode">
           ◻️</div>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="nostalgist">
+    <div class="optionsStatsDiv" *ngIf="nostalgist && !showControllerPadBindings">
       <div class="optionsStatsHeader">Reset game:</div>
       <div class="optionsStatsDescription">
         <button (click)="nostalgist.restart()">Reset</button>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="!showControlBindings">
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings && !showControllerPadBindings">
       <div class="optionsStatsHeader">Mute/Unmute:</div>
       <div class="optionsStatsDescription">
         <span class="uploadRomSpan upload-label" (click)="toggleSound()" title="Toggle audio">{{ soundOn ? '🔊' : '🔇'
           }}</span>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="!showControlBindings">
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings && !showControllerPadBindings">
       <div class="optionsStatsHeader">Volume:</div>
       <div class="optionsStatsDescription uploadRomSpan upload-label controlVolume">
         <input type="range" min="0" [max]="maxVolume" [value]="currentVolume" (input)="onVolumeChange($event)"
           title="Adjust volume levels">
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="!showControlBindings">
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings && !showControllerPadBindings">
       <div class="optionsStatsHeader">Controls:</div>
       <div class="optionsStatsDescription">
         <label class="toggle-switch">
@@ -181,7 +181,7 @@
         <span class="toggle-label" (click)="showControls = !showControls">{{ showControls ? 'Display' : 'Hide' }}</span>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="!showControlBindings">
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings && !showControllerPadBindings">
       <div class="optionsStatsHeader">Use Joystick:</div>
       <div class="optionsStatsDescription">
         <label class="toggle-switch">
@@ -191,12 +191,6 @@
         <span class="toggle-label" (click)="onToggleJoystick()">{{ useJoystick ? 'Joystick' : 'D-Pad' }}</span>
       </div>
     </div> 
-    <div class="optionsStatsDiv" *ngIf="!showControlBindings">
-      <div class="optionsStatsHeader">Re-Detect Connected Controllers:</div>
-      <div class="optionsStatsDescription">
-        <button (click)="rescanControllersAndRebind(4)" title="Rescan controllers">🔄 Rescan</button>
-      </div>
-    </div>
 
     
 <!-- Rebind Controller (Gamepad) -->
@@ -217,11 +211,10 @@
   </div>
 </div>
 
-<div *ngIf="showControllerPadBindings" class="optionsStatsWrapperDiv rebindingWrapper smallFont">
+<div *ngIf="showControllerPadBindings" class="smallFont">
   <div class="optionsStatsDiv explainWrapper">
     <div class="optionsStatsHeader">Player</div>
-    <div class="optionsStatsDescription">
-      <!-- NO ngModel: manual value + change -->
+    <div class="optionsStatsDescription"> 
       <select [value]="bindingPlayer" (change)="onBindingPlayerChange($event)">
         <option *ngFor="let p of [1,2,3,4]" [value]="p">P{{p}}</option>
       </select>
@@ -259,7 +252,7 @@
 </div>
 
 
-    <div class="optionsStatsDiv" *ngIf="!onMobile()">
+    <div class="optionsStatsDiv" *ngIf="!onMobile() && !showControllerPadBindings">
       <div class="optionsStatsHeader">Rebind Keyboard Controls:</div>
       <div class="optionsStatsDescription">
         <label class="toggle-switch">
@@ -270,7 +263,7 @@
           : 'Hide' }}</span>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="onMobile()">
+    <div class="optionsStatsDiv" *ngIf="onMobile() && !showControllerPadBindings">
       <div class="optionsStatsHeader">Haptic Feedback:</div>
       <div class="optionsStatsDescription">
         <label class="toggle-switch">
@@ -283,7 +276,15 @@
           : 'Disabled' }}</span>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="!showControlBindings">
+    
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings && !showControllerPadBindings">
+      <div class="optionsStatsHeader">Re-Detect Connected Controllers:</div>
+      <div class="optionsStatsDescription">
+        <button (click)="rescanControllersAndRebind(4)" title="Rescan controllers">🔄 Rescan</button>
+      </div>
+    </div>
+
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings && !showControllerPadBindings">
       <div class="optionsStatsHeader">Upload ROM file:</div>
       <div class="optionsStatsDescription uploadRomSpan upload-label controlVolume">
         <app-file-upload 
@@ -298,7 +299,7 @@
         </app-file-upload>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="!showControlBindings">
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings && !showControllerPadBindings">
       <div class="optionsStatsHeader">Share Link</div>
       <div class="optionsStatsDescription uploadRomSpan upload-label controlVolume">
         <button title="Share this URL" (click)="shareLink();">↗️Share</button>
