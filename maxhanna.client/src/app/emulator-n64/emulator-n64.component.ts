@@ -756,12 +756,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       canvasEl.focus?.();
 
       // Stop sniffing once ROM meta printed
-      restoreSniffer();
-
-      await new Promise(r => setTimeout(r, 400));
-
-      // Copy canonical -> emulator key (GoodName).eep and restart once if changed
-      this.ensureSaveLoadedForCurrentRom();
+      restoreSniffer();  
+      await new Promise(r => setTimeout(r, 50)); 
+      await this.forceCanvasLayoutSync(/* emitResizeEvent */ true); 
+      this.ensureSaveLoadedForCurrentRom(); // Copy canonical -> emulator key (GoodName).eep and restart once if changed
       this.enterPerformanceMode();  // minimize non-critical overhead during gameplay
 
 
@@ -1822,9 +1820,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     console.debug('[GP] uninstallReorderWrapper removed');
   }
 
-  // =====================================================
-  // Base getter + resolver + migration
-  // =====================================================
   private getGamepadsBase(): (Gamepad | null)[] {
     const getter = this._originalGetGamepadsBase || (navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null);
     return getter ? getter() : [];
@@ -2152,14 +2147,49 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     return loose || null;
   }
 
-  private _onFullscreenChange = () => {
-    try {
-      const canvasEl = this.canvas?.nativeElement;
-      this.isFullScreen = !!document.fullscreenElement && document.fullscreenElement === canvasEl;
-      this.resizeCanvasToParent();
-      requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
-    } catch { /* ignore */ }
-  };
+
+private _onFullscreenChange = () => {
+  try {
+    const canvasEl = this.canvas?.nativeElement;
+    this.isFullScreen = !!document.fullscreenElement && document.fullscreenElement === canvasEl;
+
+    // Force a one-shot reflow + size update even in perf mode
+    // (it temporarily unlocks, resizes twice, then re-locks if needed)
+    this.forceCanvasLayoutSync(/* emitResizeEvent */ true).catch(() => {});
+  } catch { /* ignore */ }
+};
+
+
+/** Force a one-shot reflow + canvas size sync, preserving perf mode if it was on. */
+private async forceCanvasLayoutSync(emitResizeEvent = false): Promise<void> {
+  const wasPerf = this.performanceMode;
+  const prevLock = this.perfLockedSize;
+
+  // Temporarily unlock so resize computes against container/DPR
+  this.performanceMode = false;
+  this.perfLockedSize = null;
+
+  // Let layout settle a frame, then size, then another frame (accounts for scrollbars/fullscreen CSS)
+  await new Promise(r => requestAnimationFrame(r));
+  this.resizeCanvasToParent();
+  await new Promise(r => requestAnimationFrame(r));
+  this.resizeCanvasToParent();
+
+  if (emitResizeEvent) {
+    // Let any viewer/shell update if they listen for resize
+    window.dispatchEvent(new Event('resize'));
+  }
+
+  // Restore perf mode lock (to the *new* size) if we were in perf mode
+  if (wasPerf) {
+    const c = this.canvas?.nativeElement;
+    if (c) this.perfLockedSize = { width: c.width, height: c.height, dpr: window.devicePixelRatio || 1 };
+    this.performanceMode = true;
+  } else {
+    this.perfLockedSize = null; // leave unlocked for normal resizing
+  }
+}
+
 
   private ensureP1InitializedFromSinglePad() {
     if (this.ports[1].gpIndex == null && this.selectedGamepadIndex != null) {
