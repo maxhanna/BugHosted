@@ -71,12 +71,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   liveTest = true;
   private _recordingFor: string | null = null;
   exportText: string | null = null;
-
-  // Optional direct-inject keyboard synth (OFF by default)
-  directInjectMode = false;
-  private _directInjectPoller = 0;
-  private _directPrevState: Record<string, boolean> = {};
-
+  
   // UI modal / fullscreen
   isMenuPanelVisible = false;
   isFullScreen = false;
@@ -499,9 +494,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       console.log(`Applied RAW mapping for "${sectionName}"`);
 
       const gp = this.currentPad();
-      this.persistLastMappingForGp(gp?.id || null, this.selectedMappingName);
-
-      if (this.directInjectMode) this.enableDirectInject();
+      this.persistLastMappingForGp(gp?.id || null, this.selectedMappingName); 
 
       if (wasRunning) {
         await this.boot();
@@ -522,8 +515,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     if (Number.isNaN(idx)) return;
 
     if (this.selectedGamepadIndex === idx) {
-      this.applyGamepadReorder();
-      if (this.directInjectMode) this.enableDirectInject();
+      this.applyGamepadReorder(); 
 
       try {
         const uid = this.parentRef?.user?.id;
@@ -645,8 +637,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const restoreSniffer = this.installMupenConsoleSniffer();
 
     try {
-      this.applyGamepadReorder();
-      if (this.directInjectMode) this.enableDirectInject();
+      this.applyGamepadReorder(); 
 
       this.instance = await createMupen64PlusWeb({
         canvas: canvasEl,
@@ -714,8 +705,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.stopAutosaveLoop();
     } finally {
       this.instance = null;
-      this.status = 'stopped';
-      this.disableDirectInject();
+      this.status = 'stopped'; 
       this.restoreGamepadGetter();
       if (this.romName) {
         this.parentRef?.showNotification('Emulator stopped');
@@ -812,123 +802,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.showControllerAssignments = false;
     this.startGamepadAutoDetect();
   }
-
-  // =====================================================
-  // Direct-inject (keyboard synth)
-  // =====================================================
-  enableDirectInject() {
-    if (this._directInjectPoller) return;
-    this._directPrevState = {};
-
-    const poll = () => {
-      try {
-        const g = this.getGamepadsBase();
-        for (const gp of g) {
-          if (!gp) continue;
-
-          for (const ctrl of Object.keys(this.mapping || {})) {
-            const m = this.mapping[ctrl];
-            if (!m || !m.gamepadId || gp.id !== m.gamepadId) continue;
-
-            const stateKey = `${gp.id}:${ctrl}`;
-            if (m.type === 'button') {
-              const pressed = !!(gp.buttons && gp.buttons[m.index] && (gp.buttons[m.index] as any).pressed);
-              const prev = !!this._directPrevState[stateKey];
-              const keyCode = this.getKeyForControl(ctrl);
-              if (keyCode) {
-                if (pressed && !prev) { this.dispatchKeyboard(keyCode, true); this._directPrevState[stateKey] = true; }
-                else if (!pressed && prev) { this.dispatchKeyboard(keyCode, false); this._directPrevState[stateKey] = false; }
-              }
-            } else if (m.type === 'axis') {
-              const aidx = m.index;
-              const val = (gp.axes && gp.axes[aidx]) || 0;
-              const plusKey = this.getKeyForControl(ctrl.replace(/[-+]$/, '+'));
-              const minusKey = this.getKeyForControl(ctrl.replace(/[-+]$/, '-'));
-              const pk = `${gp.id}:${ctrl}:+`;
-              const mk = `${gp.id}:${ctrl}:-`;
-
-              if (val > 0.5) {
-                if (!this._directPrevState[pk]) {
-                  if (plusKey) this.dispatchKeyboard(plusKey, true);
-                  this._directPrevState[pk] = true;
-                }
-              } else if (this._directPrevState[pk]) {
-                if (plusKey) this.dispatchKeyboard(plusKey, false);
-                this._directPrevState[pk] = false;
-              }
-
-              if (val < -0.5) {
-                if (!this._directPrevState[mk]) {
-                  if (minusKey) this.dispatchKeyboard(minusKey, true);
-                  this._directPrevState[mk] = true;
-                }
-              } else if (this._directPrevState[mk]) {
-                if (minusKey) this.dispatchKeyboard(minusKey, false);
-                this._directPrevState[mk] = false;
-              }
-            }
-          }
-        }
-      } catch (e) {
-        console.warn('Direct-inject poll error', e);
-      }
-      this._directInjectPoller = window.setTimeout(poll, 80) as any;
-    };
-
-    poll();
-  }
-
-  disableDirectInject() {
-    if (this._directInjectPoller) {
-      clearTimeout(this._directInjectPoller as any);
-      this._directInjectPoller = 0;
-    }
-    this._directPrevState = {};
-  }
-
-  toggleDirectInject(enabled?: boolean) {
-    if (typeof enabled === 'boolean') this.directInjectMode = enabled;
-    else this.directInjectMode = !this.directInjectMode;
-    if (this.directInjectMode) this.enableDirectInject();
-    else this.disableDirectInject();
-  }
-
-  private getKeyForControl(ctrl: string): string | null {
-    const map: Record<string, string> = {
-      'A Button': 'KeyZ',
-      'B Button': 'KeyX',
-      'Z Trig': 'KeyA',
-      'Start': 'Enter',
-      'DPad U': 'ArrowUp',
-      'DPad D': 'ArrowDown',
-      'DPad L': 'ArrowLeft',
-      'DPad R': 'ArrowRight',
-      'C Button U': 'KeyI',
-      'C Button D': 'KeyK',
-      'C Button L': 'KeyJ',
-      'C Button R': 'KeyL',
-      'L Trig': 'KeyQ',
-      'R Trig': 'KeyW',
-      'Analog X+': 'ArrowRight',
-      'Analog X-': 'ArrowLeft',
-      'Analog Y+': 'ArrowDown',
-      'Analog Y-': 'ArrowUp'
-    };
-    return map[ctrl] || null;
-  }
-
-  private dispatchKeyboard(code: string | null, down: boolean) {
-    try {
-      if (!code) return;
-      const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
-      if (!canvasEl) return;
-      const ev = new KeyboardEvent(down ? 'keydown' : 'keyup', { bubbles: true, cancelable: true, code, key: code });
-      canvasEl.dispatchEvent(ev);
-    } catch (e) {
-      console.warn('Failed to dispatch keyboard event', e);
-    }
-  }
-
+    
   private async blobToN64SaveFile(blob: Blob, serverFileName: string): Promise<File> {
     return new File([blob], serverFileName, { type: 'application/octet-stream' });
   }
@@ -1795,12 +1669,7 @@ async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
         const sectionName = gpId;
 
         await writeAutoInputConfig(sectionName, cfg as any);
-      }
-
-      if (this.multiPortActive() && this.directInjectMode) {
-        this.toggleDirectInject(false);
-        this.parentRef?.showNotification('Direct-inject disabled for multi-controller mode.');
-      }
+      } 
 
       this.applyGamepadReorder();
 
