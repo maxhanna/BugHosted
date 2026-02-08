@@ -155,12 +155,6 @@
         <button (click)="saveMappingAs()">Save Mapping...</button>
         <button (click)="applyMappingToEmulator()">Apply Mapping</button>
       </div>
-
-      <!-- Optional export preview -->
-      <div *ngIf="exportText">
-        <h5>Export</h5>
-        <textarea rows="8" cols="60" readonly>{{exportText}}</textarea>
-      </div>
     </div> 
     
     <div class="" *ngIf="!showKeyMappings && showControllerAssignments">

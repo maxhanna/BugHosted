@@ -30,28 +30,22 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private romBuffer?: ArrayBuffer;
   private instance: EmulatorControls | null = null;
   private _romGoodName: string | null = null;
-  private _romMd5: string | null = null;
   private _restartLock = Promise.resolve();
   private performanceMode = false;
   private _listenersDisabledForPerf = false;
   private perfLockedSize: { width: number; height: number; dpr: number } | null = null;
-  private foundSaveFile = false;
-
-
+  private foundSaveFile = false;  
   // ---- Gamepads ----
   gamepads: Array<{ index: number; id: string; mapping: string; connected: boolean }> = [];
-  selectedGamepadIndex: number | null = null;
-
+  selectedGamepadIndex: number | null = null; 
   // ---- Mapping UI/store ----
   showKeyMappings = false;
   showControllerAssignments = false;
-  trackGp = (_: number, gp: { index: number; id: string }) => gp.index;
-
+  trackGp = (_: number, gp: { index: number; id: string }) => gp.index; 
   savedMappingsNames: string[] = [];
   private _mappingsStoreKey = 'n64_mappings_store_v1';
   selectedMappingName: string | null = null;
-  private _bootstrapTimers: number[] = [];
-
+  private _bootstrapTimers: number[] = []; 
   // mapping: N64 control -> { type:'button'|'axis', index:number, axisDir?:1|-1, gamepadId:string }
   mapping: Record<string, any> = {};
   n64Controls = [
@@ -61,62 +55,43 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     'L Trig', 'R Trig',
     'Analog X+', 'Analog X-',
     'Analog Y+', 'Analog Y-'
-  ];
-
+  ]; 
   ports: Record<PlayerPort, PortConfig> = {
     1: { gpIndex: null, gpId: null, mapping: {}, mappingName: null, autoFill: true },
     2: { gpIndex: null, gpId: null, mapping: {}, mappingName: null, autoFill: true },
     3: { gpIndex: null, gpId: null, mapping: {}, mappingName: null, autoFill: true },
     4: { gpIndex: null, gpId: null, mapping: {}, mappingName: null, autoFill: true },
-  };
-
+  }; 
   editingPort: PlayerPort | null = null;
-  private _applyingAll = false;
-
+  private _applyingAll = false; 
   // Remapper (list) helpers
   liveTest = true;
-  private _recordingFor: string | null = null;
-  exportText: string | null = null;
-
+  private _recordingFor: string | null = null; 
   // UI modal / fullscreen
   isMenuPanelVisible = false;
-  isFullScreen = false;
-
+  isFullScreen = false; 
   // Persist keys
   private _mappingKey = 'n64_gamepad_mapping_v1';
   private readonly _lastPerGamepadKey = 'n64_last_mapping_per_gp_v1';
   private lastMappingPerGp: Record<string, string> = {};
   showFileSearch = false;
-  private _autoDetectTimer: any = null;
-
+  private _autoDetectTimer: any = null; 
   private hasLoadedLastInput = false;
-  private bootGraceUntil = 0;
-
+  private bootGraceUntil = 0; 
   // Autosave
   autosave = true;
   private autosaveTimer: any = null;
   private autosavePeriodMs = 3 * 60 * 1000;
-  private autosaveInProgress = false;
-
+  private autosaveInProgress = false; 
   // Canvas resize
   private _canvasResizeAdded = false;
   private _resizeHandler = () => this.resizeCanvasToParent();
-  private _resizeObserver?: ResizeObserver;
-
+  private _resizeObserver?: ResizeObserver; 
   // Reorder wrapper only (no translator)
   private _originalGetGamepadsBase: any = null;
-  private _gpWrapperInstalled = false;
-
-  // Logging
-  _gpPoller: any;
-  private _logRawTimer: any = null;
-  private _logEffectiveTimer: any = null;
-  private _logRawPeriodMs = 750;
-  private _logEffectivePeriodMs = 750;
-
+  private _gpWrapperInstalled = false; 
   // Axis behavior
-  private _axisDeadzone = 0.2;
-
+  private _axisDeadzone = 0.2; 
   // ---- Debug knobs ----
   private SAVE_DEBUG = false;
 
@@ -162,7 +137,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
     document.addEventListener('fullscreenchange', this._onFullscreenChange);
     canvasEl?.addEventListener('click', () => this._bootstrapDetectOnce());
-
+    this._canvasResizeAdded = true;
     this.startGamepadAutoDetect();
 
     setTimeout(() => { this.tryApplyLastForConnectedPads().catch(() => { }); }, 0);
@@ -201,7 +176,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       window.removeEventListener('gamepaddisconnected', this._onGamepadDisconnected);
     } catch { console.error("Failed to remove gamepad connection event listeners"); }
 
-    this.stopGamepadLogging();
     for (const id of this._bootstrapTimers) {
       clearTimeout(id);
     }
@@ -239,7 +213,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           console.log("Found Save File (import before boot).");
           const saveFile = await this.blobToN64SaveFile(saveGameFile.blob, saveGameFile.fileName);
           if (saveFile) {
-            await this.importInGameSaveRam([saveFile], /* skipBoot */ true); 
+            await this.importInGameSaveRam([saveFile], /* skipBoot */ true);
             this.foundSaveFile = true;
           }
         }
@@ -268,7 +242,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
     // Stop any periodic scanning/polling that isn’t strictly needed during play
     this.stopGamepadAutoDetect();
-    this.stopGamepadLogging();
 
     // Freeze canvas size to avoid layout/resize churn
     const c = this.canvas?.nativeElement;
@@ -276,31 +249,22 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.perfLockedSize = { width: c.width, height: c.height, dpr: window.devicePixelRatio || 1 };
     }
     // Remove global listeners that may fire during gameplay
-    this.disableGlobalListenersForPerf();
-
-    // (Optional) if you want to relax direct-inject polling during gameplay:
-    // if (this.directInjectMode) { /* you can raise the poll interval a bit here if desired */ }
+    this.disableGlobalListenersForPerf(); 
   }
 
   /** Exit high-performance mode: restore listeners so UI/actions work again */
   private exitPerformanceMode() {
     if (!this.performanceMode) return;
-    this.performanceMode = false;
+    this.performanceMode = false; 
+    this.restoreGlobalListenersAfterPerf(); // Re-attach needed listeners
+    this.perfLockedSize = null; // 🔓 Unlock: allow normal canvas resizes again 
 
-    // Re-attach needed listeners
-    this.restoreGlobalListenersAfterPerf();
-    this.perfLockedSize = null; // 🔓 Unlock: allow normal canvas resizes again
-
-
-    // You can choose NOT to restart auto-detect immediately to keep it quiet until user opens menu.
-    // If you want auto-detect only when the menu is visible:
     if (this.isMenuPanelVisible || this.status !== 'running') {
       this.startGamepadAutoDetect();
     }
     this.resizeCanvasToParent(); // Force one resize now that perf mode is off, to sync with UI
-  }
+  } 
 
-  /** Remove global listeners while playing */
   private disableGlobalListenersForPerf() {
     if (this._listenersDisabledForPerf) return;
     try { window.removeEventListener('gamepadconnected', this._onGamepadConnected as any); } catch { }
@@ -377,10 +341,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       console.warn('Failed to resize canvas', e);
     }
   }
-
-  // =====================================================
-  // RAW-first mapping helpers
-  // =====================================================
+ 
   private currentPad(): Gamepad | null {
     const pads = this.getGamepadsBase();
     const idx = this.selectedGamepadIndex ?? 0;
@@ -531,8 +492,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       console.error('Failed to load mapping', e);
     }
   }
-
-
+  
   async applyMappingToEmulator() {
     try {
       this.migrateMappingToIdsIfNeeded();
@@ -599,12 +559,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.parentRef?.showNotification('Failed to apply mapping');
     }
   }
-
-
-  // =====================================================
-  // Gamepad selection
-  // =====================================================
-
+  
   async onSelectGamepad(value: string | number) {
     const idx = Number(value);
     if (Number.isNaN(idx)) return;
@@ -689,8 +644,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       console.error('Failed to persist selected controller:', e);
     }
   }
-
-
+  
   async boot() {
     if (!this.romBuffer) {
       this.parentRef?.showNotification('Pick a ROM first');
@@ -713,22 +667,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch { }
 
     this.resizeCanvasToParent();
-
-    if (!this._canvasResizeAdded) {
-      try {
-        window.addEventListener('resize', this._resizeHandler);
-        document.addEventListener('fullscreenchange', this._onFullscreenChange);
-        window.addEventListener('orientationchange', this._resizeHandler);
-        this._canvasResizeAdded = true;
-      } catch { /* ignore */ }
-    }
-
     this.loading = true;
     this.status = 'booting';
 
     // Reset meta and start sniffer BEFORE emulator creation
     this._romGoodName = null;
-    this._romMd5 = null;
     const restoreSniffer = this.installMupenConsoleSniffer();
 
     try {
@@ -753,20 +696,17 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       // Ensure canvas has focus on some stacks (helps input routing)
       canvasEl.focus?.();
 
-      // Stop sniffing once ROM meta printed
-      restoreSniffer();
+      // Stop sniffing once ROM meta printed 
       await new Promise(r => setTimeout(r, 50));
       await this.forceCanvasLayoutSync(/* emitResizeEvent */ true);
       this.ensureSaveLoadedForCurrentRom(); // Copy canonical -> emulator key (GoodName).eep and restart once if changed
       this.enterPerformanceMode();  // minimize non-critical overhead during gameplay
 
-
       this.ngZone.run(() => {
         this.parentRef?.showNotification(
-          `Booted ${this.romName}${this.foundSaveFile ? ' & save file' : ''}. 
+          `Booted ${this.getRomName()}${this.foundSaveFile ? ' & save file' : ''}. 
           ${connectedCount} controller${connectedCount === 1 ? '' : 's'} detected.`
         );
-        this.bootGraceUntil = performance.now() + 1500;
         this.cdRef.markForCheck();
       });
 
@@ -786,8 +726,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.debugScanMempaks().catch(() => { });
     }
   }
-
-
+  
   async stop() {
     try {
       this.exitPerformanceMode();
@@ -805,12 +744,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         }
       }
       this.releaseKeyboardAndFocus();
-      this.stopAutosaveLoop(); 
-      try {
-        if (document.fullscreenElement) {
-          (document as any).exitFullscreen?.();
-        }
-      } catch {} 
+      this.stopAutosaveLoop();
     } finally {
       this.instance = null;
       this.status = 'stopped';
@@ -872,18 +806,28 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  async toggleFullscreen(open?: boolean) {
+
+  async enterFullscreen(): Promise<void> {
     this.closeMenuPanel();
-    if (!this.isFullScreen || open) {
-      const canvas = this.canvas?.nativeElement;
-      await canvas?.requestFullscreen();
-      this.isFullScreen = true;
-    } else if (!open) {
+    const canvas = this.canvas?.nativeElement;
+    if (document.fullscreenElement !== canvas) {
+      await canvas?.requestFullscreen?.();
+    }
+    this.isFullScreen = (document.fullscreenElement === canvas);
+  }
+
+  async exitFullscreen(): Promise<void> {
+    if (document.fullscreenElement) {
       await (document as any).exitFullscreen?.();
-      this.isFullScreen = false;
+    }
+    this.isFullScreen = false;
+  }
+
+  async toggleFullscreen(): Promise<void> {
+    if (document.fullscreenElement) {
+      await this.exitFullscreen();
     } else {
-      await (document as any).exitFullscreen?.();
-      this.isFullScreen = false;
+      await this.enterFullscreen();
     }
   }
 
@@ -1068,8 +1012,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
       if (written.length) {
         console.log(`Imported ${written.length} save file(s): ${written.join(', ')}`);
-        //this.parentRef?.showNotification(`Imported ${written.length} save file(s): ${written.join(', ')}`);
-
         // Only restart if needed:
         // - EEPROM: no hard restart
         // - SRAM/Flash: restart when emulator is already running
@@ -1095,8 +1037,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.parentRef?.showNotification('Failed to import save files');
     }
   }
-
-
+  
   getAllowedRomFileTypes(): string[] {
     return this.fileService.n64FileExtensions;
   }
@@ -1161,10 +1102,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.autosaveTimer = null;
     }
   }
-
-  // =====================================================
-  // Gamepad events & auto-detect
-  // ===================================================== 
+  
   private _onGamepadConnected = (ev: GamepadEvent) => {
     this.refreshGamepads();
 
@@ -1212,8 +1150,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         setTimeout(() => this.boot(), 500);
       }
     })().catch(() => { });
-  };
-
+  }; 
 
   private _onGamepadDisconnected = (_ev: GamepadEvent) => {
     this.refreshGamepads();
@@ -1274,8 +1211,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this._autoDetectTimer = null;
     }
   }
-
-
+  
   /** Persist last mapping name used for a given gamepad.id */
   private persistLastMappingForGp(gamepadId: string | null, mappingName: string | null) {
     if (!gamepadId || !mappingName) return;
@@ -1303,10 +1239,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const idxPart = typeof gp.index === 'number' ? `[#${gp.index}]` : '';
     return `${idPart} ${mapPart} ${idxPart}`.trim();
   }
-
-  // =====================================================
-  // Named mappings (backend/local)
-  // =====================================================
+  
   async loadMappingsList() {
     try {
       const uid = this.parentRef?.user?.id;
@@ -1654,8 +1587,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.parentRef?.showNotification(`Updated mapping for P${port}`);
   }
 
-
-
   async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
     const raw = String(value);
 
@@ -1713,9 +1644,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       const pads = this.getGamepadsBase();
       const gp = (idx != null) ? pads[idx] : null;
       const gpId = this.gamepadIdFromIndex(idx);
-      const name = this.ports[port].mappingName;
-      this.persistLastMappingForGp(gpId, name);
-
+      this.persistLastMappingForGp(gpId, this.ports[port].mappingName);
       this.ports[port].mapping = {};
       if (gp?.mapping === 'standard') {
         this.generateDefaultRawMappingForPad(gp);
@@ -1846,11 +1775,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
   /** Release fullscreen/pointer lock, keyboard grabs and focus after emu stop. */
   private releaseKeyboardAndFocus(): void {
-    try {
-      if (document.fullscreenElement) {
-        (document as any).exitFullscreen?.();
-      }
-    } catch {}
+    this.exitFullscreen();
 
     try {
       // Exit pointer lock if any (some builds use this indirectly)
@@ -1930,58 +1855,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     console.groupEnd();
   }
 
-  startGamepadLoggingRaw() {
-    this.stopGamepadLoggingRaw();
-    const tick = () => {
-      try {
-        const raw = this.getGamepadsBase();
-        this.dumpGamepadDetails('RAW', raw);
-      } catch (e) {
-        console.warn('Raw gamepad log error', e);
-      }
-      this._logRawTimer = setTimeout(tick, this._logRawPeriodMs);
-    };
-    tick();
-  }
-
-  stopGamepadLoggingRaw() {
-    if (this._logRawTimer) {
-      clearTimeout(this._logRawTimer);
-      this._logRawTimer = null;
-    }
-  }
-
-  startGamepadLoggingEffective() {
-    this.stopGamepadLoggingEffective();
-    const tick = () => {
-      try {
-        const effective = (navigator.getGamepads ? navigator.getGamepads() : []) || [];
-        this.dumpGamepadDetails('EFFECTIVE', effective as any);
-      } catch (e) {
-        console.warn('Effective gamepad log error', e);
-      }
-      this._logEffectiveTimer = setTimeout(tick, this._logEffectivePeriodMs);
-    };
-    tick();
-  }
-
-  stopGamepadLoggingEffective() {
-    if (this._logEffectiveTimer) {
-      clearTimeout(this._logEffectiveTimer);
-      this._logEffectiveTimer = null;
-    }
-  }
-
-  startGamepadLogging() {
-    this._gpPoller = 1;
-    this.startGamepadLoggingRaw();
-    this.startGamepadLoggingEffective();
-  }
-  stopGamepadLogging() {
-    this._gpPoller = 0;
-    this.stopGamepadLoggingRaw();
-    this.stopGamepadLoggingEffective();
-  }
 
   // =====================================================
   // Misc
@@ -2026,8 +1899,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.persistLastMappingForGp(id, knownName);
     }
   }
-
-
 
   refreshGamepads() {
     try {
@@ -2452,35 +2323,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     return `${base}${ext}`;
   }
 
-
-  private async ensureIdbAlias(db: IDBDatabase, fromKey: string, toKey: string): Promise<void> {
-    if (fromKey === toKey) return;
-
-    const tx = db.transaction('FILE_DATA', 'readwrite');
-    const os = tx.objectStore('FILE_DATA');
-
-    const fromVal = await new Promise<any>((resolve) => {
-      const r = os.get(fromKey);
-      r.onerror = () => resolve(null);
-      r.onsuccess = () => resolve(r.result ?? null);
-    });
-    if (!fromVal) return;
-
-    const toVal = await new Promise<any>((resolve) => {
-      const r = os.get(toKey);
-      r.onerror = () => resolve(null);
-      r.onsuccess = () => resolve(r.result ?? null);
-    });
-
-    if (!toVal) {
-      await new Promise<void>((resolve, reject) => {
-        const w = os.put(fromVal, toKey);
-        w.onerror = () => reject(w.error);
-        w.onsuccess = () => resolve();
-      });
-    }
-  }
-
   private async readIdbBytes(db: IDBDatabase, key: string): Promise<Uint8Array | null> {
     const tx = db.transaction('FILE_DATA', 'readonly');
     const os = tx.objectStore('FILE_DATA');
@@ -2567,42 +2409,12 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     });
   }
 
-
-
   private bytesEqual(a: Uint8Array | null, b: Uint8Array | null): boolean {
     if (!a || !b) return false;
     if (a.byteLength !== b.byteLength) return false;
     for (let i = 0; i < a.byteLength; i++) if (a[i] !== b[i]) return false;
     return true;
   }
-
-  private expectedSizeForExt(ext: '.eep' | '.sra' | '.fla'): number[] {
-    if (ext === '.eep') return [512, 2048];
-    if (ext === '.sra') return [32768];
-    if (ext === '.fla') return [131072];
-    return [];
-  }
-
-  private async waitForGoodNameKey(ext: '.eep' | '.sra' | '.fla', timeoutMs = 2000, intervalMs = 150): Promise<string | null> {
-    const start = performance.now();
-    while (performance.now() - start < timeoutMs) {
-      try {
-        const db = await new Promise<IDBDatabase>((resolve, reject) => {
-          const req = indexedDB.open('/mupen64plus');
-          req.onerror = () => reject(req.error);
-          req.onsuccess = () => resolve(req.result);
-        });
-        if (!Array.from(db.objectStoreNames).includes('FILE_DATA')) { db.close(); return null; }
-
-        const goodKey = await this.findEmuGoodNameKeyForExt(db, ext).catch(() => null);
-        db.close();
-        if (goodKey) return goodKey;
-      } catch { /* ignore and retry */ }
-      await new Promise(r => setTimeout(r, intervalMs));
-    }
-    return null;
-  }
-
 
   /** If EEPROM is 2048 but the game actually needs 512, try a 512-byte truncated variant. */
   private maybeDownsizeEeprom4K(bytes: Uint8Array): Uint8Array | null {
@@ -2611,8 +2423,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     // Write a 512B truncated copy as a fallback for GoodName.
     return bytes.slice(0, 512);
   }
-
-
 
   private async ensureSaveLoadedForCurrentRom(): Promise<void> {
     if (!this.romName) return;
@@ -2655,7 +2465,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       console.warn('ensureSaveLoadedForCurrentRom failed', e);
     }
   }
-
 
   private async writeCanonicalToEmuKey(
     ext: '.eep' | '.sra' | '.fla',
@@ -2710,43 +2519,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-
-  private async findEmuGoodNameKeyForExt(db: IDBDatabase, ext: '.eep' | '.sra' | '.fla'): Promise<string | null> {
-    const rows: Array<{ key: any; val: any }> = await new Promise((resolve, reject) => {
-      const res: any[] = [];
-      const tx = db.transaction('FILE_DATA', 'readonly');
-      const os = tx.objectStore('FILE_DATA');
-      const cur = os.openCursor();
-      cur.onerror = () => reject(cur.error);
-      cur.onsuccess = (ev: any) => {
-        const c = ev.target.result;
-        if (c) { res.push({ key: c.key, val: c.value }); c.continue(); }
-        else resolve(res);
-      };
-    });
-
-    const token = this.romTokenForMatching(this.romName);
-    if (!token) return null;
-
-    const lowerExt = ext.toLowerCase();
-    const saveRows = rows.filter(({ key }) => {
-      const s = String(key).toLowerCase();
-      return s.startsWith('/mupen64plus/saves/') && s.endsWith(lowerExt);
-    });
-
-    const match = saveRows.find(({ key }) => {
-      const fname = String(key).split('/').pop() || '';
-      const loose = fname.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
-      return loose.includes(token);
-    });
-
-    return match ? String(match.key) : null;
-  }
-
-  private multiPortActive(): boolean {
-    return [1, 2, 3, 4].filter(p => this.ports[p as PlayerPort].gpIndex != null).length > 1;
-  }
-
   get playerPorts(): PlayerPort[] { return [1, 2, 3, 4]; }
 
   private saveDebug(...args: any[]) {
@@ -2796,46 +2568,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } catch (e) {
       this.saveDebug('MEMPAKS scan failed', e);
     }
-  }
-
-  // ---- Debug utility: delete savestates for current ROM only (to prevent masking battery) ----
-  private async deleteSavestatesForCurrentRom(): Promise<void> {
-    const db = await this.openMupenDb();
-    if (!db) {
-      this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found or missing FILE_DATA.');
-      return;
-    }
-    const token = this.romTokenForMatching(this.romName);
-    if (!token) { db.close(); return; }
-
-    const tx = db.transaction('FILE_DATA', 'readwrite');
-    const os = tx.objectStore('FILE_DATA');
-
-    const keysToDelete: string[] = await new Promise((resolve, reject) => {
-      const keys: string[] = [];
-      const cur = os.openCursor();
-      cur.onerror = () => reject(cur.error);
-      cur.onsuccess = (ev: any) => {
-        const c = ev.target.result;
-        if (c) {
-          const keyStr = String(c.key);
-          const lower = keyStr.toLowerCase();
-          if (lower.startsWith('/mupen64plus/savestates/')) {
-            const fname = lower.split('/').pop() || lower;
-            const loose = fname.replace(/[^a-z0-9 ]/g, '').trim();
-            if (loose.includes(token)) keys.push(keyStr);
-          }
-          c.continue();
-        } else resolve(keys);
-      };
-    });
-
-    await Promise.all(keysToDelete.map(key => new Promise<void>((resolve) => {
-      const del = os.delete(key);
-      del.onerror = () => resolve();
-      del.onsuccess = () => resolve();
-    })));
-    db.close();
   }
 
   private async shortSha(bytes: Uint8Array | ArrayBuffer | ArrayBufferView | null): Promise<string> {
@@ -2893,10 +2625,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         if (typeof msg !== 'string') return;
 
         const mGood = msg.match(/@@@\s*Core:\s*Goodname:\s*(.+)$/i);
-        if (mGood?.[1]) this._romGoodName = mGood[1].trim();
-
-        const mMd5 = msg.match(/@@@\s*Core:\s*MD5:\s*([0-9A-F]{32})/i);
-        if (mMd5?.[1]) this._romMd5 = mMd5[1].toUpperCase();
+        if (mGood?.[1]) {
+          this._romGoodName = mGood[1].trim();
+        }
       } catch {
         // never block boot
       }
@@ -2904,37 +2635,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
     return () => { console.log = originalLog; };
   }
-
-  /** ROM header internal name (offset 0x20..0x33), trimmed. */
-  private romHeaderInternalName(): string | null {
-    if (!this.romBuffer) return null;
-    try {
-      const u8 = new Uint8Array(this.romBuffer);
-      const start = 0x20;
-      const end = 0x34; // exclusive
-      const slice = u8.slice(start, end);
-      let s = '';
-      for (const b of slice) {
-        if (b === 0) break;
-        s += String.fromCharCode(b);
-      }
-      s = s.replace(/\s+/g, ' ').trim();
-      return s || null;
-    } catch {
-      return null;
-    }
-  }
-
-  /** Mupen "SaveFilenameFormat=1" style: goodname(32) + "-" + md5(8) */
-  private mupenGoodNameMd5Base(): string | null {
-    if (!this._romGoodName || !this._romMd5) return null;
-    const good32 = this._romGoodName.slice(0, 32);
-    const md58 = this._romMd5.slice(0, 8);
-    return `${good32}-${md58}`;
-  }
-
-  /** Candidate IDBFS keys under /mupen64plus/saves for a given ext. */
-
 
   private buildSaveKeyCandidates(
     ext: '.eep' | '.sra' | '.fla',
@@ -2954,14 +2654,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     return Array.from(keys);
   }
 
-
-
   /** The save key the emulator is most likely using right now (based on GoodName). */
   private emuPrimarySaveKey(ext: '.eep' | '.sra' | '.fla'): string | null {
     if (!this._romGoodName) return null;
     return `/mupen64plus/saves/${this._romGoodName}${ext}`;
   }
-
 
   private async openMupenDb(): Promise<IDBDatabase | null> {
     try {
