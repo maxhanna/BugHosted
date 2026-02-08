@@ -2416,10 +2416,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       return null;
     };
     return toU8(val);
-  }
-
-
-  // drop-in replacement for your current writeIdbBytes()
+  } 
+ 
   private async writeIdbBytes(db: IDBDatabase, key: string, bytes: Uint8Array): Promise<void> {
     const tx = db.transaction('FILE_DATA', 'readwrite');
     const os = tx.objectStore('FILE_DATA');
@@ -2469,9 +2467,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       w.onerror = () => reject(w.error);
       w.onsuccess = () => resolve();
     });
-  }
-
-
+  } 
 
   private async idbKeyExists(db: IDBDatabase, key: string): Promise<boolean> {
     const tx = db.transaction('FILE_DATA', 'readonly');
@@ -2874,7 +2870,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     name = name.replace(/\s*\(v[^)]*\)/gi, '').trim();
     return name;
   }
-  
+
   finishFileUploading() {
     this.isFileUploaderExpanded = false;
     if (this.fileSearchComponent) {
