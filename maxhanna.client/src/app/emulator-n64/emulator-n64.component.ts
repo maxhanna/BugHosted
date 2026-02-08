@@ -861,7 +861,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.enterPerformanceMode();
     } else {
       this.startGamepadAutoDetect();
-    }
+    } 
+    setTimeout(() => this.resizeCanvasToParent(), 100);
   }
 
   openControllerAssignments() {
@@ -2804,6 +2805,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     name = name.replace("(Japan)", "").trim();
     // Remove revision tags like (Rev 2.1) or (rev 2)
     name = name.replace(/\s*\(rev[^)]*\)/gi, '').trim();
+    name = name.replace(/\s*\(v[^)]*\)/gi, '').trim();
     return name;
   }
   finishFileUploading() {
