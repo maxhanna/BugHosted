@@ -95,7 +95,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   autosave = true;
   private autosaveTimer: any = null;
   private autosavePeriodMs = 3 * 60 * 1000;
-  private autosaveInProgress = false; 
+  private autosaveInProgress = false;
 
   // Canvas resize
   private _canvasResizeAdded = false;
@@ -171,6 +171,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   async ngOnDestroy(): Promise<void> {
+    this.releaseKeyboardAndFocus();
     this.stopAutosaveLoop();
     if (this.romName && confirm('Save your progress on the server before exiting?')) {
       await this.autosaveTick();
@@ -290,7 +291,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.performanceMode = false;
 
     // Re-attach needed listeners
-    this.restoreGlobalListenersAfterPerf(); 
+    this.restoreGlobalListenersAfterPerf();
     this.perfLockedSize = null; // 🔓 Unlock: allow normal canvas resizes again
 
 
@@ -298,7 +299,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     // If you want auto-detect only when the menu is visible:
     if (this.isMenuPanelVisible || this.status !== 'running') {
       this.startGamepadAutoDetect();
-    } 
+    }
     this.resizeCanvasToParent(); // Force one resize now that perf mode is off, to sync with UI
   }
 
@@ -756,9 +757,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       canvasEl.focus?.();
 
       // Stop sniffing once ROM meta printed
-      restoreSniffer();  
-      await new Promise(r => setTimeout(r, 50)); 
-      await this.forceCanvasLayoutSync(/* emitResizeEvent */ true); 
+      restoreSniffer();
+      await new Promise(r => setTimeout(r, 50));
+      await this.forceCanvasLayoutSync(/* emitResizeEvent */ true);
       this.ensureSaveLoadedForCurrentRom(); // Copy canonical -> emulator key (GoodName).eep and restart once if changed
       this.enterPerformanceMode();  // minimize non-critical overhead during gameplay
 
@@ -805,7 +806,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           }
         }
       }
+      this.releaseKeyboardAndFocus();
       this.stopAutosaveLoop();
+      if (document.fullscreenElement) {
+        await this.toggleFullscreen(false);
+      }
     } finally {
       this.instance = null;
       this.status = 'stopped';
@@ -815,7 +820,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
     }
   }
-
 
   private async safeRestart(reason = 'generic') {
     this._restartLock = this._restartLock.then(async () => {
@@ -830,7 +834,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     });
     await this._restartLock;
   }
-
 
   async pause() {
     try {
@@ -869,12 +872,15 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  async toggleFullscreen() {
+  async toggleFullscreen(open?: boolean) {
     this.closeMenuPanel();
-    const canvas = this.canvas?.nativeElement;
-    if (!this.isFullScreen) {
+    if (!this.isFullScreen || open) {
+      const canvas = this.canvas?.nativeElement;
       await canvas?.requestFullscreen();
       this.isFullScreen = true;
+    } else if (!open) {
+      await (document as any).exitFullscreen?.();
+      this.isFullScreen = false;
     } else {
       await (document as any).exitFullscreen?.();
       this.isFullScreen = false;
@@ -914,7 +920,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
   cancelPortMappings() {
-    this.closeControllerAssignments(); 
+    this.closeControllerAssignments();
     this.showKeyMappings = false;
   }
 
@@ -1695,7 +1701,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.parentRef?.showNotification?.(`Player ${port} assigned to controller #${idx}`);
   }
 
-
   onPortMappingSelect(port: PlayerPort, name: string) {
     this.ports[port].mappingName = name || null;
     this.applySelectedMappingForPort(port);
@@ -1802,7 +1807,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       success = false;
     } finally {
       this._applyingAll = false;
-      if (success) { 
+      if (success) {
         this.cancelPortMappings();
       }
     }
@@ -1839,9 +1844,65 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  // =====================================================
-  // Logging
-  // =====================================================
+  /** Release fullscreen/pointer lock, keyboard grabs and focus after emu stop. */
+  private releaseKeyboardAndFocus(): void {
+    try {
+      // If our canvas is in fullscreen, exit it
+      const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
+      if (document.fullscreenElement && canvasEl && document.fullscreenElement === canvasEl) {
+        (document as any).exitFullscreen?.();
+      }
+    } catch { }
+
+    try {
+      // Exit pointer lock if any (some builds use this indirectly)
+      (document as any).exitPointerLock?.();
+    } catch { }
+
+    try {
+      // Blur the canvas and any currently focused element
+      const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
+      canvasEl?.blur?.();
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    } catch { }
+
+    try {
+      // Try to re-focus the app shell (optional)
+      window.focus?.();
+    } catch { }
+
+    // --- Emscripten-specific: detatch global event listeners if exposed
+    try {
+      const JSEvents = (window as any).JSEvents || (globalThis as any).JSEvents || (self as any).JSEvents;
+      if (JSEvents?.removeAllEventListeners) {
+        // Nuclear option: remove all Emscripten-managed event listeners.
+        JSEvents.removeAllEventListeners();
+      } else if (JSEvents?.eventHandlers && Array.isArray(JSEvents.eventHandlers)) {
+        // Safer: remove only keyboard handlers and ones attached to our canvas/document
+        const handlers = JSEvents.eventHandlers.slice();
+        for (const h of handlers) {
+          const type = h?.eventTypeString;
+          const target = h?.target;
+          const isKb = type === 'keydown' || type === 'keyup' || type === 'keypress';
+          const isOurTarget =
+            target === document ||
+            target === document.body ||
+            target === this.canvas?.nativeElement;
+          if (isKb || isOurTarget) {
+            try { JSEvents.removeEventListener?.(target, type, h.useCapture); } catch { }
+          }
+        }
+      }
+    } catch { }
+
+    // In case the emu used DOM0 handlers, null them out
+    try {
+      (document as any).onkeydown = null;
+      (document as any).onkeyup = null;
+      (document as any).onkeypress = null;
+    } catch { }
+  }
+
   private dumpGamepadDetails(label: string, list: (Gamepad | null)[]) {
     const payload = list.map(gp => {
       if (!gp) return null;
@@ -2148,47 +2209,47 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   }
 
 
-private _onFullscreenChange = () => {
-  try {
-    const canvasEl = this.canvas?.nativeElement;
-    this.isFullScreen = !!document.fullscreenElement && document.fullscreenElement === canvasEl;
+  private _onFullscreenChange = () => {
+    try {
+      const canvasEl = this.canvas?.nativeElement;
+      this.isFullScreen = !!document.fullscreenElement && document.fullscreenElement === canvasEl;
 
-    // Force a one-shot reflow + size update even in perf mode
-    // (it temporarily unlocks, resizes twice, then re-locks if needed)
-    this.forceCanvasLayoutSync(/* emitResizeEvent */ true).catch(() => {});
-  } catch { /* ignore */ }
-};
+      // Force a one-shot reflow + size update even in perf mode
+      // (it temporarily unlocks, resizes twice, then re-locks if needed)
+      this.forceCanvasLayoutSync(/* emitResizeEvent */ true).catch(() => { });
+    } catch { /* ignore */ }
+  };
 
 
-/** Force a one-shot reflow + canvas size sync, preserving perf mode if it was on. */
-private async forceCanvasLayoutSync(emitResizeEvent = false): Promise<void> {
-  const wasPerf = this.performanceMode;
-  const prevLock = this.perfLockedSize;
+  /** Force a one-shot reflow + canvas size sync, preserving perf mode if it was on. */
+  private async forceCanvasLayoutSync(emitResizeEvent = false): Promise<void> {
+    const wasPerf = this.performanceMode;
+    const prevLock = this.perfLockedSize;
 
-  // Temporarily unlock so resize computes against container/DPR
-  this.performanceMode = false;
-  this.perfLockedSize = null;
+    // Temporarily unlock so resize computes against container/DPR
+    this.performanceMode = false;
+    this.perfLockedSize = null;
 
-  // Let layout settle a frame, then size, then another frame (accounts for scrollbars/fullscreen CSS)
-  await new Promise(r => requestAnimationFrame(r));
-  this.resizeCanvasToParent();
-  await new Promise(r => requestAnimationFrame(r));
-  this.resizeCanvasToParent();
+    // Let layout settle a frame, then size, then another frame (accounts for scrollbars/fullscreen CSS)
+    await new Promise(r => requestAnimationFrame(r));
+    this.resizeCanvasToParent();
+    await new Promise(r => requestAnimationFrame(r));
+    this.resizeCanvasToParent();
 
-  if (emitResizeEvent) {
-    // Let any viewer/shell update if they listen for resize
-    window.dispatchEvent(new Event('resize'));
+    if (emitResizeEvent) {
+      // Let any viewer/shell update if they listen for resize
+      window.dispatchEvent(new Event('resize'));
+    }
+
+    // Restore perf mode lock (to the *new* size) if we were in perf mode
+    if (wasPerf) {
+      const c = this.canvas?.nativeElement;
+      if (c) this.perfLockedSize = { width: c.width, height: c.height, dpr: window.devicePixelRatio || 1 };
+      this.performanceMode = true;
+    } else {
+      this.perfLockedSize = null; // leave unlocked for normal resizing
+    }
   }
-
-  // Restore perf mode lock (to the *new* size) if we were in perf mode
-  if (wasPerf) {
-    const c = this.canvas?.nativeElement;
-    if (c) this.perfLockedSize = { width: c.width, height: c.height, dpr: window.devicePixelRatio || 1 };
-    this.performanceMode = true;
-  } else {
-    this.perfLockedSize = null; // leave unlocked for normal resizing
-  }
-}
 
 
   private ensureP1InitializedFromSinglePad() {
@@ -3002,4 +3063,4 @@ private async forceCanvasLayoutSync(emitResizeEvent = false): Promise<void> {
       this.fileSearchComponent.getDirectory();
     }
   }
-}  
+}
