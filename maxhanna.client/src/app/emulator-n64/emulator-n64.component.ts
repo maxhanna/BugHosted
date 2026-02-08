@@ -35,6 +35,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private performanceMode = false;
   private _listenersDisabledForPerf = false;
   private perfLockedSize: { width: number; height: number; dpr: number } | null = null;
+  private foundSaveFile = false;
 
 
   // ---- Gamepads ----
@@ -214,6 +215,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         return;
       }
       this.startLoading();
+      this.foundSaveFile = false;
 
       // Always stop any prior instance before loading a new ROM
       await this.stop();
@@ -237,10 +239,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
           console.log("Found Save File (import before boot).");
           const saveFile = await this.blobToN64SaveFile(saveGameFile.blob, saveGameFile.fileName);
           if (saveFile) {
-            await this.importInGameSaveRam([saveFile], /* skipBoot */ true);
-            this.parentRef?.showNotification('Loaded save file from server.');
-          } else {
-            this.parentRef?.showNotification('No save found on server for this ROM.');
+            await this.importInGameSaveRam([saveFile], /* skipBoot */ true); 
+            this.foundSaveFile = true;
           }
         }
       }
@@ -763,7 +763,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
       this.ngZone.run(() => {
         this.parentRef?.showNotification(
-          `Booted ${this.romName}. ${connectedCount} controller${connectedCount === 1 ? '' : 's'} detected.`
+          `Booted ${this.romName}${this.foundSaveFile ? ' & save file' : ''}. 
+          ${connectedCount} controller${connectedCount === 1 ? '' : 's'} detected.`
         );
         this.bootGraceUntil = performance.now() + 1500;
         this.cdRef.markForCheck();
