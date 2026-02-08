@@ -24,7 +24,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   @ViewChild('fullscreenContainer') fullscreenContainer!: ElementRef<HTMLDivElement>;
   @ViewChild('stopButton') stopButton!: ElementRef<HTMLButtonElement>;
   @ViewChild(FileSearchComponent) fileSearchComponent?: FileSearchComponent;
-  
+
   gbGamesList: Array<string> = [];
   gbColorGamesList: Array<string> = [];
   pokemonGamesList: Array<string> = [];
@@ -35,9 +35,9 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   isSearchVisible = true;
   isFullScreen = false;
   hapticFeedbackEnabled = this.onMobile();
-  showControls = this.onMobile();  
+  showControls = this.onMobile();
   private connectedPads = new Map<number, Gamepad>();
-  private gamepadPollTimer?: number; 
+  private gamepadPollTimer?: number;
   private touchControls: Map<number, string[]> = new Map(); // touchId to array of joypadIndices
   readonly coreMapping: { [key: string]: string } = {
     'gba': 'mgba',
@@ -298,7 +298,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
   async ngOnInit() {
     this.overrideGetUserMedia();
-    this.setupEventListeners(); 
+    this.setupEventListeners();
     this.enableGamepadMonitoring();
 
     const fullscreenHandler: EventListener = () => {
@@ -318,7 +318,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
         if (s && typeof s.muteMusicEmulator === 'boolean') {
           this.soundOn = !s.muteMusicEmulator; // soundOn true means not muted
         }
-      }).catch(()=>{});
+      }).catch(() => { });
     }
   }
 
@@ -327,8 +327,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       await this.stopEmulator();
     } catch (ex) {
       console.warn('stopEmulator failed during destroy', ex);
-    } finally { 
-      this.disableGamepadMonitoring(); 
+    } finally {
+      this.disableGamepadMonitoring();
       this.stopLoading();
       this.nostalgist = undefined;
       this.parentRef?.setViewportScalability(true);
@@ -456,59 +456,59 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     this.runStartMs = Date.now();
   }
 
-  
-async loadRom(file: FileEntry) {
-  this.startLoading();
-  this.isSearchVisible = false;
 
-  const romSaveFile = this.fileService.getFileWithoutExtension(file.fileName ?? "") + ".sav";
-  this.selectedRomName = file.fileName ?? "";
-  const saveStateResponse = await this.romService.getRomFile(romSaveFile, this.parentRef?.user?.id);
-  const response = await this.romService.getRomFile(file.fileName ?? "", this.parentRef?.user?.id, file.id);
-  const fileType = this.currentFileType = file?.fileType ?? this.fileService.getFileExtension(file?.fileName!);
+  async loadRom(file: FileEntry) {
+    this.startLoading();
+    this.isSearchVisible = false;
 
-  const style = {
-    backgroundColor: 'unset',
-    zIndex: '1',
-    height: (this.onMobile() ? '60vh' : '100vh'),
-    width: (this.onMobile() ? '97vw' : '100vw')
-  };
-  const core = this.coreMapping[fileType.toLowerCase()] || 'default_core';
+    const romSaveFile = this.fileService.getFileWithoutExtension(file.fileName ?? "") + ".sav";
+    this.selectedRomName = file.fileName ?? "";
+    const saveStateResponse = await this.romService.getRomFile(romSaveFile, this.parentRef?.user?.id);
+    const response = await this.romService.getRomFile(file.fileName ?? "", this.parentRef?.user?.id, file.id);
+    const fileType = this.currentFileType = file?.fileType ?? this.fileService.getFileExtension(file?.fileName!);
 
-  // NEW: Build dynamic controller → port mapping before launching
-  const portConfig = this.buildRetroArchPortsConfig(4); // change 4→2/3/5 if you want
-  // We keep your keyboard bindings working by *not* removing them; RetroArch handles pads natively.
+    const style = {
+      backgroundColor: 'unset',
+      zIndex: '1',
+      height: (this.onMobile() ? '60vh' : '100vh'),
+      width: (this.onMobile() ? '97vw' : '100vw')
+    };
+    const core = this.coreMapping[fileType.toLowerCase()] || 'default_core';
 
-  this.nostalgist = await Nostalgist.launch({
-    core,
-    rom: { fileName: this.selectedRomName, fileContent: response! },
-    style,
-    element: this.canvas.nativeElement,
-    state: saveStateResponse != null ? saveStateResponse : undefined,
-    runEmulatorManually: true,
-    // NEW: tell RetroArch which physical pad controls each player port
-    retroarchConfig: {
-      ...portConfig,
-      // You can still add any keyboard fallbacks or RetroArch options here if you want.
-      // Example: keep using your existing keyboard mapping for P1, etc.
-      // (Nostalgist will pass these through to RetroArch at launch.)  [4](https://nostalgist.js.org/apis/index)
+    // NEW: Build dynamic controller → port mapping before launching
+    const portConfig = this.buildRetroArchPortsConfig(4); // change 4→2/3/5 if you want
+    // We keep your keyboard bindings working by *not* removing them; RetroArch handles pads natively.
+
+    this.nostalgist = await Nostalgist.launch({
+      core,
+      rom: { fileName: this.selectedRomName, fileContent: response! },
+      style,
+      element: this.canvas.nativeElement,
+      state: saveStateResponse != null ? saveStateResponse : undefined,
+      runEmulatorManually: true,
+      // NEW: tell RetroArch which physical pad controls each player port
+      retroarchConfig: {
+        ...portConfig,
+        // You can still add any keyboard fallbacks or RetroArch options here if you want.
+        // Example: keep using your existing keyboard mapping for P1, etc.
+        // (Nostalgist will pass these through to RetroArch at launch.)  [4](https://nostalgist.js.org/apis/index)
+      }
+    });
+
+    await this.nostalgist.launchEmulator();
+
+    setTimeout(() => { if (!this.soundOn) this.nostalgist?.sendCommand('MUTE'); }, 1);
+    this.setHTMLControls();
+    this.setupAutosave();
+    this.runStartMs = Date.now();
+    this.stopLoading();
+
+    // Optional: small toast with how many controllers were seen
+    const pads = this.getConnectedGamepads();
+    if (pads.length > 0) {
+      this.parentRef?.showNotification?.(`Controllers ready: ${pads.length} detected`);
     }
-  });
-
-  await this.nostalgist.launchEmulator();
-
-  setTimeout(() => { if (!this.soundOn) this.nostalgist?.sendCommand('MUTE'); }, 1);
-  this.setHTMLControls();
-  this.setupAutosave();
-  this.runStartMs = Date.now();
-  this.stopLoading();
-
-  // Optional: small toast with how many controllers were seen
-  const pads = this.getConnectedGamepads();
-  if (pads.length > 0) {
-    this.parentRef?.showNotification?.(`Controllers ready: ${pads.length} detected`);
   }
-} 
 
   onVolumeChange(event: Event) {
     const inputElement = event.target as HTMLInputElement;
@@ -735,7 +735,7 @@ async loadRom(file: FileEntry) {
     const directions = [direction];
     if (secondaryDirection) directions.push(secondaryDirection);
 
-    
+
     const touchStart = (e: TouchEvent) => {
       e.preventDefault();
       const touch = e.changedTouches[0];
@@ -896,84 +896,84 @@ async loadRom(file: FileEntry) {
     return this.fileService.getFileWithoutExtension(this.selectedRomName || '');
   }
 
-  
-// Optional: expose a quick read of connected pads (sorted by index)
-getConnectedGamepads(): Gamepad[] {
-  // Some browsers leave nulls in navigator.getGamepads(); filter them out
-  const pads = (navigator.getGamepads?.() || []).filter((p): p is Gamepad => !!p);
-  // Keep our map in sync (covers cases where 'gamepadconnected' isn't fired reliably)
-  this.connectedPads.clear();
-  for (const p of pads) this.connectedPads.set(p.index, p);
-  return pads.sort((a, b) => a.index - b.index);
-}
 
-/**
- * Builds a RetroArch ports config from currently connected gamepads.
- * For example:
- *   input_player1_joypad_index = "0"
- *   input_player2_joypad_index = "1"
- *   ...
- * RetroArch will then use those physical pad indices for each player port.
- * If there are fewer pads than players, those ports fall back to keyboard/onscreen.
- */
-private buildRetroArchPortsConfig(maxPlayers = 4): Record<string, string> {
-  const pads = this.getConnectedGamepads();
-  const cfg: Record<string, string> = {};
-  for (let p = 1; p <= maxPlayers; p++) {
-    const pad = pads[p - 1];
-    if (pad) {
-      // Important: use the physical Gamepad.index as the joypad index for this port
-      cfg[`input_player${p}_joypad_index`] = String(pad.index);
-    }
+  // Optional: expose a quick read of connected pads (sorted by index)
+  getConnectedGamepads(): Gamepad[] {
+    // Some browsers leave nulls in navigator.getGamepads(); filter them out
+    const pads = (navigator.getGamepads?.() || []).filter((p): p is Gamepad => !!p);
+    // Keep our map in sync (covers cases where 'gamepadconnected' isn't fired reliably)
+    this.connectedPads.clear();
+    for (const p of pads) this.connectedPads.set(p.index, p);
+    return pads.sort((a, b) => a.index - b.index);
   }
-  return cfg;
-}
 
-/** Start listening for Gamepad connect/disconnect and keep a small poll as fallback. */
-private enableGamepadMonitoring() {
-  const addPad = (gp: Gamepad) => {
-    this.connectedPads.set(gp.index, gp);
-    this.parentRef?.showNotification?.(`Controller connected: ${gp.id}`);
-  };
-  const removePad = (idx: number) => {
-    this.connectedPads.delete(idx);
-    this.parentRef?.showNotification?.(`Controller disconnected (index ${idx})`);
-  };
-
-  // Event listeners
-  window.addEventListener('gamepadconnected', (e: Event) => {
-    const ev = e as GamepadEvent;
-    if (ev.gamepad) addPad(ev.gamepad);
-  });
-  window.addEventListener('gamepaddisconnected', (e: Event) => {
-    const ev = e as GamepadEvent;
-    if (ev.gamepad) removePad(ev.gamepad.index);
-  });
-
-  // Fallback poll (some browsers are flaky with events)
-  this.gamepadPollTimer = window.setInterval(() => {
-    const seen = new Set<number>();
-    for (const gp of (navigator.getGamepads?.() || [])) {
-      if (!gp) continue;
-      seen.add(gp.index);
-      if (!this.connectedPads.has(gp.index)) {
-        addPad(gp);
+  /**
+   * Builds a RetroArch ports config from currently connected gamepads.
+   * For example:
+   *   input_player1_joypad_index = "0"
+   *   input_player2_joypad_index = "1"
+   *   ...
+   * RetroArch will then use those physical pad indices for each player port.
+   * If there are fewer pads than players, those ports fall back to keyboard/onscreen.
+   */
+  private buildRetroArchPortsConfig(maxPlayers = 4): Record<string, string> {
+    const pads = this.getConnectedGamepads();
+    const cfg: Record<string, string> = {};
+    for (let p = 1; p <= maxPlayers; p++) {
+      const pad = pads[p - 1];
+      if (pad) {
+        // Important: use the physical Gamepad.index as the joypad index for this port
+        cfg[`input_player${p}_joypad_index`] = String(pad.index);
       }
     }
-    // Remove pads no longer present
-    for (const idx of [...this.connectedPads.keys()]) {
-      if (!seen.has(idx)) removePad(idx);
-    }
-  }, 1000);
-}
-
-/** Stop the poller (call in ngOnDestroy). */
-private disableGamepadMonitoring() {
-  if (this.gamepadPollTimer) {
-    clearInterval(this.gamepadPollTimer);
-    this.gamepadPollTimer = undefined;
+    return cfg;
   }
-} 
+
+  /** Start listening for Gamepad connect/disconnect and keep a small poll as fallback. */
+  private enableGamepadMonitoring() {
+    const addPad = (gp: Gamepad) => {
+      this.connectedPads.set(gp.index, gp);
+      this.parentRef?.showNotification?.(`Controller connected: ${gp.id}`);
+    };
+    const removePad = (idx: number) => {
+      this.connectedPads.delete(idx);
+      this.parentRef?.showNotification?.(`Controller disconnected (index ${idx})`);
+    };
+
+    // Event listeners
+    window.addEventListener('gamepadconnected', (e: Event) => {
+      const ev = e as GamepadEvent;
+      if (ev.gamepad) addPad(ev.gamepad);
+    });
+    window.addEventListener('gamepaddisconnected', (e: Event) => {
+      const ev = e as GamepadEvent;
+      if (ev.gamepad) removePad(ev.gamepad.index);
+    });
+
+    // Fallback poll (some browsers are flaky with events)
+    this.gamepadPollTimer = window.setInterval(() => {
+      const seen = new Set<number>();
+      for (const gp of (navigator.getGamepads?.() || [])) {
+        if (!gp) continue;
+        seen.add(gp.index);
+        if (!this.connectedPads.has(gp.index)) {
+          addPad(gp);
+        }
+      }
+      // Remove pads no longer present
+      for (const idx of [...this.connectedPads.keys()]) {
+        if (!seen.has(idx)) removePad(idx);
+      }
+    }, 1000);
+  }
+
+  /** Stop the poller (call in ngOnDestroy). */
+  private disableGamepadMonitoring() {
+    if (this.gamepadPollTimer) {
+      clearInterval(this.gamepadPollTimer);
+      this.gamepadPollTimer = undefined;
+    }
+  }
 
   finishFileUploading() {
     this.fileSearchComponent?.getDirectory();
