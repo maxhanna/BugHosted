@@ -2477,7 +2477,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
     let targetBytes = canonicalBytes;
     
-    if (ext === '.eep') {// DATA-DRIVEN SIZING: 
+    if (ext === '.eep') {
       // If emulator already has an EEPROM, match its size (512 or 2048).
       if (emuBytes?.byteLength === 512 && canonicalBytes.byteLength === 2048) {
         const downsized = this.maybeDownsizeEeprom4K(canonicalBytes);
