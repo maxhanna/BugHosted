@@ -30,7 +30,6 @@ canvas {
 /* Make the menu a fixed overlay so it doesn't shift layout */
 .n64-emulator-root.popupPanel {
   position: fixed;
-  inset: 0;               /* top:0; right:0; bottom:0; left:0 */
   z-index: 9999;          /* above the emulator surface */
   overflow: auto;
   /* Optional: visual baseline */
