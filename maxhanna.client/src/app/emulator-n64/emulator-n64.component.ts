@@ -758,7 +758,12 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         }
       }
       try { this._emuEventTracker?.removeAll(); } catch { /* ignore */ }
-      this.releaseKeyboardAndFocus();
+      this.releaseKeyboardAndFocus({
+        exitFullscreen: true,
+        exitPointerLock: true,
+        removeEmscriptenGlobalHandlers: true,
+        clearDom0KeyHandlers: true
+      });
       this.stopAutosaveLoop();
     } finally {
       this.instance = null;
@@ -850,13 +855,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   showMenuPanel() {
     this.isMenuPanelVisible = true;
     this.parentRef?.showOverlay();
-    // Ensure the emulator isn’t holding keyboard focus while menu is up
-    try {
-      this.releaseKeyboardAndFocus();
-    } catch {/* ignore */ }
+
+    this.releaseForMenu();
     this.exitPerformanceMode();
     this.enableKeyboardShield();
-    document.documentElement.style.setProperty('overflow', 'hidden');
 
     if (this.savedMappingsNames.length === 0) {
       this.loadMappingsList();
@@ -869,15 +871,11 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.parentRef?.closeOverlay();
     this.cancelPortMappings();
     this.disableKeyboardShield();
-    document.documentElement.style.removeProperty('overflow');
 
     if (this.status === 'running') {
       this.enterPerformanceMode();
     } else {
       this.startGamepadAutoDetect();
-    }
-    if (!this.isFullScreen) {
-      setTimeout(() => this.resizeCanvasToParent(), 100);
     }
   }
 
@@ -1801,57 +1799,92 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  /** Release fullscreen/pointer lock, keyboard grabs and focus after emu stop. */
-  private releaseKeyboardAndFocus(): void {
-    this.exitFullscreen();
+  /** A minimal, menu-safe release: don't touch fullscreen/pointer-lock or JSEvents. */
+  private releaseForMenu(): void {
+    try {
+      // 1) Blur the canvas so the browser routes keys to the UI again.
+      const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
+      canvasEl?.blur?.();
+
+      // 2) Also blur any currently focused element to clear capture on some stacks.
+      (document.activeElement as HTMLElement | null)?.blur?.();
+
+      // 3) Do NOT call exitFullscreen or exitPointerLock here.
+      // 4) Do NOT nuke JSEvents here (that can alter scrollbars and global handlers).
+      // 5) Do NOT null out document.onkeydown/keyup globally here.
+    } catch {/* ignore */ }
+  }
+
+
+  /** Full release: use on *stop()*; optional flags let us tailor it. */
+  private releaseKeyboardAndFocus(opts?: {
+    exitFullscreen?: boolean;
+    exitPointerLock?: boolean;
+    removeEmscriptenGlobalHandlers?: boolean;
+    clearDom0KeyHandlers?: boolean;
+  }) {
+    const {
+      exitFullscreen = true,
+      exitPointerLock = true,
+      removeEmscriptenGlobalHandlers = true,
+      clearDom0KeyHandlers = true,
+    } = opts || {};
+
+    if (exitFullscreen) {
+      this.exitFullscreen().catch(() => { });
+    }
+
+    if (exitPointerLock) {
+      try { (document as any).exitPointerLock?.(); } catch { }
+    }
 
     try {
-      // Exit pointer lock if any (some builds use this indirectly)
-      (document as any).exitPointerLock?.();
-    } catch { }
-
-    try {
-      // Blur the canvas and any currently focused element
       const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
       canvasEl?.blur?.();
       (document.activeElement as HTMLElement | null)?.blur?.();
-    } catch { }
-
-    try {
-      // Try to re-focus the app shell (optional)
       window.focus?.();
     } catch { }
 
-    // --- Emscripten-specific: detatch global event listeners if exposed
-    try {
-      const JSEvents = (window as any).JSEvents || (globalThis as any).JSEvents || (self as any).JSEvents;
-      if (JSEvents?.removeAllEventListeners) {
-        // Nuclear option: remove all Emscripten-managed event listeners.
-        JSEvents.removeAllEventListeners();
-      } else if (JSEvents?.eventHandlers && Array.isArray(JSEvents.eventHandlers)) {
-        // Safer: remove only keyboard handlers and ones attached to our canvas/document
-        const handlers = JSEvents.eventHandlers.slice();
-        for (const h of handlers) {
-          const type = h?.eventTypeString;
-          const target = h?.target;
-          const isKb = type === 'keydown' || type === 'keyup' || type === 'keypress';
-          const isOurTarget =
-            target === document ||
-            target === document.body ||
-            target === this.canvas?.nativeElement;
-          if (isKb || isOurTarget) {
-            try { JSEvents.removeEventListener?.(target, type, h.useCapture); } catch { }
+    if (removeEmscriptenGlobalHandlers) {
+      try {
+        const JSEvents = (window as any).JSEvents || (globalThis as any).JSEvents || (self as any).JSEvents;
+
+        if (JSEvents?.removeAllEventListeners) {
+          // Safer: prefer targeted removal instead of nuclear wipe
+          // but keep the old path for some builds:
+          // JSEvents.removeAllEventListeners();
+          const handlers = Array.isArray(JSEvents?.eventHandlers) ? JSEvents.eventHandlers.slice() : [];
+          for (const h of handlers) {
+            const type = h?.eventTypeString;
+            const target = h?.target;
+            const isKeyboard = type === 'keydown' || type === 'keyup' || type === 'keypress';
+            const isOurTarget = target === document || target === document.body || target === this.canvas?.nativeElement;
+            if (isKeyboard || isOurTarget) {
+              try { JSEvents.removeEventListener?.(target, type, h.useCapture); } catch { }
+            }
+          }
+        } else if (Array.isArray(JSEvents?.eventHandlers)) {
+          const handlers = JSEvents.eventHandlers.slice();
+          for (const h of handlers) {
+            const type = h?.eventTypeString;
+            const target = h?.target;
+            const isKeyboard = type === 'keydown' || type === 'keyup' || type === 'keypress';
+            const isOurTarget = target === document || target === document.body || target === this.canvas?.nativeElement;
+            if (isKeyboard || isOurTarget) {
+              try { JSEvents.removeEventListener?.(target, type, h.useCapture); } catch { }
+            }
           }
         }
-      }
-    } catch { }
+      } catch { }
+    }
 
-    // In case the emu used DOM0 handlers, null them out
-    try {
-      (document as any).onkeydown = null;
-      (document as any).onkeyup = null;
-      (document as any).onkeypress = null;
-    } catch { }
+    if (clearDom0KeyHandlers) {
+      try {
+        (document as any).onkeydown = null;
+        (document as any).onkeyup = null;
+        (document as any).onkeypress = null;
+      } catch { }
+    }
   }
 
   private dumpGamepadDetails(label: string, list: (Gamepad | null)[]) {
@@ -1882,7 +1915,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     console.log(payload);
     console.groupEnd();
   }
- 
+
   private _bootstrapDetectOnce() {
     let runs = 0;
     const burst = () => {
@@ -1894,7 +1927,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
     };
     burst();
-  } 
+  }
 
   private async maybeApplyStoredMappingFor(id: string) {
     // --- ADD: prefer last-per-gamepad
@@ -2411,8 +2444,8 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       return null;
     };
     return toU8(val);
-  } 
- 
+  }
+
   private async writeIdbBytes(db: IDBDatabase, key: string, bytes: Uint8Array): Promise<void> {
     const tx = db.transaction('FILE_DATA', 'readwrite');
     const os = tx.objectStore('FILE_DATA');
@@ -2462,7 +2495,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       w.onerror = () => reject(w.error);
       w.onsuccess = () => resolve();
     });
-  } 
+  }
 
   private async idbKeyExists(db: IDBDatabase, key: string): Promise<boolean> {
     const tx = db.transaction('FILE_DATA', 'readonly');
@@ -2789,9 +2822,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.applyGamepadReorder();
     this.parentRef?.showNotification?.(`Player ${port} set to none`);
   }
-
-  /** Enforce invariants so the first/only pad sits on P1 before we reorder. */
-
+ 
   private normalizePortsAfterRefresh() {
     // Build a quick lookup of connected pads by index
     const connected = new Map<number, { index: number; id: string }>();
