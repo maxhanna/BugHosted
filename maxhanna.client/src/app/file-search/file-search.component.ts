@@ -504,6 +504,16 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         if (res) {
           this.notifyUser(res);
           this.isEditing = this.isEditing.filter(x => x != fileId);
+          const local = this.directory?.data?.find(d => d.id === fileId);
+          if (local) {
+            local.givenFileName = text;
+          }
+          if (this.optionsFile?.id === fileId) {
+            this.optionsFile.givenFileName = text;
+          }
+          if (this.selectedSharedFile?.id === fileId) {
+            this.selectedSharedFile.givenFileName = text;
+          }
         }
         setTimeout(() => {
           if (document.getElementById("fileIdName" + fileId) != null) {

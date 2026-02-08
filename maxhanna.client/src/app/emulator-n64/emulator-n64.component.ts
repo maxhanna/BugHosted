@@ -1062,7 +1062,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
       if (written.length) {
         console.log(`Imported ${written.length} save file(s): ${written.join(', ')}`);
-        this.parentRef?.showNotification(`Imported ${written.length} save file(s): ${written.join(', ')}`);
+        //this.parentRef?.showNotification(`Imported ${written.length} save file(s): ${written.join(', ')}`);
 
         // Only restart if needed:
         // - EEPROM: no hard restart
