@@ -35,7 +35,6 @@ canvas {
   z-index: 9999;          /* above the emulator surface */
   overflow: auto;
   /* Optional: visual baseline */
-  background: rgba(0,0,0,0.7);  /* or your panel background */
   backdrop-filter: blur(2px);   /* if you like the effect */
 }
 
