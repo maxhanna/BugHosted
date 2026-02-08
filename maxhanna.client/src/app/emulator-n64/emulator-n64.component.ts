@@ -1912,9 +1912,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       if (this.selectedGamepadIndex === null && this.gamepads.length) {
         const std = this.gamepads.find((p) => p.mapping === 'standard');
         this.selectedGamepadIndex = std ? std.index : this.gamepads[0].index;
-      }
-
-      // ✨ Add this:
+      } 
       this.normalizePortsAfterRefresh();
 
     } catch (e) {
@@ -2478,13 +2476,22 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     let wrote = false;
 
     let targetBytes = canonicalBytes;
-    if (ext === '.eep') {
-      const override = this.eepromSizeOverrideForRom();
-      if (override === 512 && canonicalBytes.byteLength === 2048) {
+    
+    if (ext === '.eep') {// DATA-DRIVEN SIZING: 
+      // If emulator already has an EEPROM, match its size (512 or 2048).
+      if (emuBytes?.byteLength === 512 && canonicalBytes.byteLength === 2048) {
         const downsized = this.maybeDownsizeEeprom4K(canonicalBytes);
-        if (downsized) targetBytes = downsized;
+        if (downsized) {
+          targetBytes = downsized;
+        }
+      } else if (emuBytes?.byteLength === 2048 && canonicalBytes.byteLength === 512) {
+        // If the emulator is using 2048 and our canonical is 512, pad with 0xFF (common EEPROM erased value).
+        const padded = new Uint8Array(2048);
+        padded.fill(0xFF);
+        padded.set(canonicalBytes, 0);
+        targetBytes = padded;
       }
-    }
+    } 
 
     if (!this.bytesEqual(targetBytes, emuBytes)) {
       await this.writeIdbBytes(db2, emuKey, targetBytes);
@@ -2501,9 +2508,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     db2.close();
 
     // ✅ Zero-restart for EEPROM
-    if (wrote && ext === '.eep') {
-      // No hard restart; many N64 titles read EEPROM state at or near title/menu.
-      // Most games will notice immediately when entering the Save/Load screen or after a soft return to menu.
+    if (wrote && ext === '.eep') { 
       this.parentRef?.showNotification('EEPROM save injected (no restart). If not visible yet, open/return to the save menu.');
       return;
     }
@@ -2587,27 +2592,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     });
     this._idbfsSync = this._idbfsSync.then(run, run);
     await this._idbfsSync;
-  }
-
-  /** Heuristic/override of EEPROM size for specific ROMs (by loose token). */
-  private eepromSizeOverrideForRom(): 512 | 2048 | null {
-    // Normalize: lowercase, collapse spaces
-    const raw = this.romTokenForMatching(this.romName) || '';
-    const t = raw.replace(/\s+/g, ' ').trim(); // <-- collapse multiple spaces
-
-    // Cover common variants for Racer
-    const isRacer =
-      t.includes('star wars episode i racer') ||
-      t.includes('star wars episode 1 racer') ||
-      t.includes('star wars ep1 racer') ||
-      // light fallback in case title is shortened:
-      (t.includes('star wars') && t.includes('racer') && (t.includes('episode') || t.includes('ep1')));
-
-    if (isRacer) return 512;
-
-    // Add more overrides here as needed (Zelda etc.) — not necessary right now.
-    return null;
-  }
+  } 
 
   /** Capture core-printed ROM metadata (Goodname + MD5) during boot. */
   private installMupenConsoleSniffer(): () => void {
