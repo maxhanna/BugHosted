@@ -1,6 +1,11 @@
-canvas {
-  width: auto !important;
-  height: calc(100vh - 60px) !important;
+html {
+  scrollbar-gutter: stable both-edges; /* modern browsers */
+}
+
+canvas { 
+  max-width: 100%;
+  height: auto;     /* keep aspect via script sizing */
+  display: block;   /* avoid inline baseline gaps */ 
 }
 
 .componentMain {
@@ -21,6 +26,24 @@ canvas {
   flex-direction: column;
   gap: 8px;
   padding: 8px;
+}
+
+/* Make the menu a fixed overlay so it doesn't shift layout */
+.n64-emulator-root.popupPanel {
+  position: fixed;
+  inset: 0;               /* top:0; right:0; bottom:0; left:0 */
+  z-index: 9999;          /* above the emulator surface */
+  overflow: auto;
+  /* Optional: visual baseline */
+  background: rgba(0,0,0,0.7);  /* or your panel background */
+  backdrop-filter: blur(2px);   /* if you like the effect */
+}
+
+/* Keep the inner content readable and centered if desired */
+.n64-emulator-root.popupPanel .menuAutosaveWrapper,
+.n64-emulator-root.popupPanel .controls {
+  max-width: 980px;
+  margin: 0 auto;
 }
 
 .gamepad-controls {
@@ -47,6 +70,7 @@ canvas {
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 .controls {
