@@ -1011,12 +1011,30 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   @HostListener('window:keydown', ['$event'])
   handleKeyboardEvent(event: KeyboardEvent): void {
-    if ((event?.target as HTMLDivElement).id.includes("editFileName")) return;
+    try {
+      const tgt = event?.target as HTMLElement | null;
 
-    if (event.key === 'k' || event.key === 'K') {
-      this.scrollToNext();
-    } else if (event.key === 'j' || event.key === 'J') {
-      this.scrollToPrevious();
+      // If editing an inline filename input, ignore (legacy specific check)
+      if (tgt && tgt.id && tgt.id.includes('editFileName')) return;
+
+      // If focus is on an input, textarea, or a contenteditable element, don't handle j/k here
+      if (tgt) {
+        const tag = (tgt.tagName || '').toUpperCase();
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tgt.isContentEditable) return;
+
+        // Also allow nested inputs inside custom components like <app-text-input>
+        const editableAncestor = tgt.closest('input, textarea, [contenteditable="true"], app-text-input');
+        if (editableAncestor) return;
+      }
+
+      if (event.key === 'k' || event.key === 'K') {
+        this.scrollToNext();
+      } else if (event.key === 'j' || event.key === 'J') {
+        this.scrollToPrevious();
+      }
+    } catch (e) {
+      // swallow any unexpected errors to avoid breaking global key handling
+      console.error('Keyboard handler error', e);
     }
   }
   scrollToTop() {

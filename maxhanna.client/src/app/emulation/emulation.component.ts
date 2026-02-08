@@ -40,7 +40,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   showControls = this.onMobile();
   private connectedPads = new Map<number, Gamepad>();
   private gamepadPollTimer?: number;
-  private touchControls: Map<number, string[]> = new Map(); // touchId to array of joypadIndices
+  private touchControls: Map<number, string[]> = new Map();
+  private _padNotifyTimer?: number;
   readonly coreMapping: { [key: string]: string } = {
     'gba': 'mgba',
     'gbc': 'mgba',
@@ -974,17 +975,19 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   }
 
   /** Start listening for Gamepad connect/disconnect and keep a small poll as fallback. */
+
   private enableGamepadMonitoring() {
     const addPad = (gp: Gamepad) => {
       this.connectedPads.set(gp.index, gp);
-      this.notifyControllerCount();
-    };
-    const removePad = (idx: number) => {
-      this.connectedPads.delete(idx);
-      this.notifyControllerCount();
+      this.scheduleControllerCountNotification(); // debounce instead of immediate toast
     };
 
-    // Event listeners
+    const removePad = (idx: number) => {
+      this.connectedPads.delete(idx);
+      this.scheduleControllerCountNotification(); // debounce instead of immediate toast
+    };
+
+    // Events
     window.addEventListener('gamepadconnected', (e: Event) => {
       const ev = e as GamepadEvent;
       if (ev.gamepad) addPad(ev.gamepad);
@@ -994,7 +997,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       if (ev.gamepad) removePad(ev.gamepad.index);
     });
 
-    // Fallback poll (some browsers are flaky with events) 
+    // Fallback poll
     this.gamepadPollTimer = window.setInterval(() => {
       const seen = new Set<number>();
       for (const gp of (navigator.getGamepads?.() || [])) {
@@ -1004,7 +1007,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
           this.connectedPads.set(gp.index, gp);
         }
       }
-      // Remove pads no longer present
+
       let changed = false;
       for (const idx of [...this.connectedPads.keys()]) {
         if (!seen.has(idx)) {
@@ -1012,19 +1015,25 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
           changed = true;
         }
       }
-      // Only notify if the count actually changed in this tick
-      if (changed || this.connectedPads.size !== this._lastPadCountNotified) {
-        this.notifyControllerCount();
+
+      // If anything changed in this tick, schedule a single coalesced toast
+      if (changed) {
+        this.scheduleControllerCountNotification();
       }
     }, 1000);
-
   }
 
+
   /** Stop the poller (call in ngOnDestroy). */
+
   private disableGamepadMonitoring() {
     if (this.gamepadPollTimer) {
       clearInterval(this.gamepadPollTimer);
       this.gamepadPollTimer = undefined;
+    }
+    if (this._padNotifyTimer) {
+      clearTimeout(this._padNotifyTimer);
+      this._padNotifyTimer = undefined;
     }
     this._lastPadCountNotified = -1;
   }
@@ -1197,6 +1206,17 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
         : `${count} controllers connected`;
 
     this.parentRef?.showNotification?.(msg);
+  }
+
+  // Schedule one toast after a short delay, coalescing bursts of changes
+  private scheduleControllerCountNotification(delay = 200) {
+    if (this._padNotifyTimer) {
+      clearTimeout(this._padNotifyTimer);
+    }
+    this._padNotifyTimer = window.setTimeout(() => {
+      this._padNotifyTimer = undefined;
+      this.notifyControllerCount(); // uses _lastPadCountNotified to avoid dupes
+    }, delay);
   }
 
   finishFileUploading() {

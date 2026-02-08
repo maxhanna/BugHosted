@@ -34,18 +34,20 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private performanceMode = false;
   private _listenersDisabledForPerf = false;
   private perfLockedSize: { width: number; height: number; dpr: number } | null = null;
-  private foundSaveFile = false;  
+  private foundSaveFile = false;
   // ---- Gamepads ----
   gamepads: Array<{ index: number; id: string; mapping: string; connected: boolean }> = [];
-  selectedGamepadIndex: number | null = null; 
+  selectedGamepadIndex: number | null = null;
   // ---- Mapping UI/store ----
   showKeyMappings = false;
   showControllerAssignments = false;
-  trackGp = (_: number, gp: { index: number; id: string }) => gp.index; 
+  trackGp = (_: number, gp: { index: number; id: string }) => gp.index;
   savedMappingsNames: string[] = [];
   private _mappingsStoreKey = 'n64_mappings_store_v1';
   selectedMappingName: string | null = null;
-  private _bootstrapTimers: number[] = []; 
+  private _bootstrapTimers: number[] = [];
+  private _kbdShieldActive = false;
+  private _kbdShieldFns: Array<{ type: keyof DocumentEventMap, fn: (e: Event) => void }> = [];
   // mapping: N64 control -> { type:'button'|'axis', index:number, axisDir?:1|-1, gamepadId:string }
   mapping: Record<string, any> = {};
   n64Controls = [
@@ -55,43 +57,43 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     'L Trig', 'R Trig',
     'Analog X+', 'Analog X-',
     'Analog Y+', 'Analog Y-'
-  ]; 
+  ];
   ports: Record<PlayerPort, PortConfig> = {
     1: { gpIndex: null, gpId: null, mapping: {}, mappingName: null, autoFill: true },
     2: { gpIndex: null, gpId: null, mapping: {}, mappingName: null, autoFill: true },
     3: { gpIndex: null, gpId: null, mapping: {}, mappingName: null, autoFill: true },
     4: { gpIndex: null, gpId: null, mapping: {}, mappingName: null, autoFill: true },
-  }; 
+  };
   editingPort: PlayerPort | null = null;
-  private _applyingAll = false; 
+  private _applyingAll = false;
   // Remapper (list) helpers
   liveTest = true;
-  private _recordingFor: string | null = null; 
+  private _recordingFor: string | null = null;
   // UI modal / fullscreen
   isMenuPanelVisible = false;
-  isFullScreen = false; 
+  isFullScreen = false;
   // Persist keys
   private _mappingKey = 'n64_gamepad_mapping_v1';
   private readonly _lastPerGamepadKey = 'n64_last_mapping_per_gp_v1';
   private lastMappingPerGp: Record<string, string> = {};
   showFileSearch = false;
-  private _autoDetectTimer: any = null; 
+  private _autoDetectTimer: any = null;
   private hasLoadedLastInput = false;
-  private bootGraceUntil = 0; 
+  private bootGraceUntil = 0;
   // Autosave
   autosave = true;
   private autosaveTimer: any = null;
   private autosavePeriodMs = 3 * 60 * 1000;
-  private autosaveInProgress = false; 
+  private autosaveInProgress = false;
   // Canvas resize
   private _canvasResizeAdded = false;
   private _resizeHandler = () => this.resizeCanvasToParent();
-  private _resizeObserver?: ResizeObserver; 
+  private _resizeObserver?: ResizeObserver;
   // Reorder wrapper only (no translator)
   private _originalGetGamepadsBase: any = null;
-  private _gpWrapperInstalled = false; 
+  private _gpWrapperInstalled = false;
   // Axis behavior
-  private _axisDeadzone = 0.2; 
+  private _axisDeadzone = 0.2;
   // ---- Debug knobs ----
   private SAVE_DEBUG = false;
 
@@ -249,13 +251,13 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.perfLockedSize = { width: c.width, height: c.height, dpr: window.devicePixelRatio || 1 };
     }
     // Remove global listeners that may fire during gameplay
-    this.disableGlobalListenersForPerf(); 
+    this.disableGlobalListenersForPerf();
   }
 
   /** Exit high-performance mode: restore listeners so UI/actions work again */
   private exitPerformanceMode() {
     if (!this.performanceMode) return;
-    this.performanceMode = false; 
+    this.performanceMode = false;
     this.restoreGlobalListenersAfterPerf(); // Re-attach needed listeners
     this.perfLockedSize = null; // 🔓 Unlock: allow normal canvas resizes again 
 
@@ -263,7 +265,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.startGamepadAutoDetect();
     }
     this.resizeCanvasToParent(); // Force one resize now that perf mode is off, to sync with UI
-  } 
+  }
 
   private disableGlobalListenersForPerf() {
     if (this._listenersDisabledForPerf) return;
@@ -341,7 +343,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       console.warn('Failed to resize canvas', e);
     }
   }
- 
+
   private currentPad(): Gamepad | null {
     const pads = this.getGamepadsBase();
     const idx = this.selectedGamepadIndex ?? 0;
@@ -492,7 +494,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       console.error('Failed to load mapping', e);
     }
   }
-  
+
   async applyMappingToEmulator() {
     try {
       this.migrateMappingToIdsIfNeeded();
@@ -559,7 +561,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.parentRef?.showNotification('Failed to apply mapping');
     }
   }
-  
+
   async onSelectGamepad(value: string | number) {
     const idx = Number(value);
     if (Number.isNaN(idx)) return;
@@ -644,7 +646,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       console.error('Failed to persist selected controller:', e);
     }
   }
-  
+
   async boot() {
     if (!this.romBuffer) {
       this.parentRef?.showNotification('Pick a ROM first');
@@ -726,7 +728,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.debugScanMempaks().catch(() => { });
     }
   }
-  
+
   async stop() {
     try {
       this.exitPerformanceMode();
@@ -834,7 +836,16 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   showMenuPanel() {
     this.isMenuPanelVisible = true;
     this.parentRef?.showOverlay();
+
+    // Ensure the emulator isn’t holding keyboard focus while menu is up
+    try {
+      this.releaseKeyboardAndFocus();
+    } catch {/* ignore */ }
+
     this.exitPerformanceMode();
+
+    this.enableKeyboardShield();
+
     if (this.savedMappingsNames.length === 0) {
       this.loadMappingsList();
     }
@@ -845,6 +856,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.isMenuPanelVisible = false;
     this.parentRef?.closeOverlay();
     this.cancelPortMappings();
+    this.disableKeyboardShield();
 
     if (this.status === 'running') {
       this.enterPerformanceMode();
@@ -1037,7 +1049,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.parentRef?.showNotification('Failed to import save files');
     }
   }
-  
+
   getAllowedRomFileTypes(): string[] {
     return this.fileService.n64FileExtensions;
   }
@@ -1102,7 +1114,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.autosaveTimer = null;
     }
   }
-  
+
   private _onGamepadConnected = (ev: GamepadEvent) => {
     this.refreshGamepads();
 
@@ -1150,7 +1162,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         setTimeout(() => this.boot(), 500);
       }
     })().catch(() => { });
-  }; 
+  };
 
   private _onGamepadDisconnected = (_ev: GamepadEvent) => {
     this.refreshGamepads();
@@ -1211,7 +1223,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this._autoDetectTimer = null;
     }
   }
-  
+
   /** Persist last mapping name used for a given gamepad.id */
   private persistLastMappingForGp(gamepadId: string | null, mappingName: string | null) {
     if (!gamepadId || !mappingName) return;
@@ -1239,7 +1251,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     const idxPart = typeof gp.index === 'number' ? `[#${gp.index}]` : '';
     return `${idPart} ${mapPart} ${idxPart}`.trim();
   }
-  
+
   async loadMappingsList() {
     try {
       const uid = this.parentRef?.user?.id;
@@ -1912,7 +1924,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       if (this.selectedGamepadIndex === null && this.gamepads.length) {
         const std = this.gamepads.find((p) => p.mapping === 'standard');
         this.selectedGamepadIndex = std ? std.index : this.gamepads[0].index;
-      } 
+      }
       this.normalizePortsAfterRefresh();
 
     } catch (e) {
@@ -2285,7 +2297,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
     return best ? { filename: best.save.filename, bytes: best.save.bytes } : null;
   }
-  
+
   remapAction(p: PlayerPort) {
     if (this.ports[p].gpIndex) {
       this.editingPort = p;
@@ -2476,7 +2488,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     let wrote = false;
 
     let targetBytes = canonicalBytes;
-    
+
     if (ext === '.eep') {
       // If emulator already has an EEPROM, match its size (512 or 2048).
       if (emuBytes?.byteLength === 512 && canonicalBytes.byteLength === 2048) {
@@ -2491,7 +2503,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
         padded.set(canonicalBytes, 0);
         targetBytes = padded;
       }
-    } 
+    }
 
     if (!this.bytesEqual(targetBytes, emuBytes)) {
       await this.writeIdbBytes(db2, emuKey, targetBytes);
@@ -2508,7 +2520,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     db2.close();
 
     // ✅ Zero-restart for EEPROM
-    if (wrote && ext === '.eep') { 
+    if (wrote && ext === '.eep') {
       this.parentRef?.showNotification('EEPROM save injected (no restart). If not visible yet, open/return to the save menu.');
       return;
     }
@@ -2519,6 +2531,56 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.parentRef?.showNotification('Save injected; emulator restarted to reload it.');
     }
   }
+
+
+  /** Enable a capture-phase keyboard shield for form fields inside the menu/search panel. */
+  private enableKeyboardShield() {
+    if (this._kbdShieldActive) return;
+    this._kbdShieldActive = true;
+
+    const inEditable = (t: EventTarget | null) => {
+      const el = t as HTMLElement | null;
+      if (!el) return false;
+      if ((el as HTMLInputElement).type === 'text' || (el as HTMLInputElement).type === 'search') return true;
+      const tag = (el.tagName || '').toLowerCase();
+      if (tag === 'textarea' || tag === 'input') return true;
+      if (el.isContentEditable) return true;
+      // Walk up a little (labels/spans wrapping inputs)
+      let p = el.parentElement;
+      for (let i = 0; i < 3 && p; i++) {
+        const tag = (p.tagName || '').toLowerCase();
+        if (tag === 'textarea' || tag === 'input' || p.isContentEditable) return true;
+        p = p.parentElement!;
+      }
+      return false;
+    };
+
+    const stopGameHandlers = (ev: Event) => {
+      // Only intercept if user is typing into an editable area
+      if (inEditable(ev.target)) {
+        // Let *your* component handlers run, but prevent emulator/global handlers
+        ev.stopImmediatePropagation();
+        // Do NOT preventDefault here (we want typing to work); let the input handle it.
+      }
+    };
+
+    const types: (keyof DocumentEventMap)[] = ['keydown', 'keypress', 'keyup'];
+    types.forEach(type => {
+      document.addEventListener(type, stopGameHandlers, { capture: true, passive: false });
+      this._kbdShieldFns.push({ type, fn: stopGameHandlers });
+    });
+  }
+
+  /** Disable the shield when closing the menu/search panel. */
+  private disableKeyboardShield() {
+    if (!this._kbdShieldActive) return;
+    this._kbdShieldActive = false;
+    for (const { type, fn } of this._kbdShieldFns) {
+      document.removeEventListener(type, fn, { capture: true } as any);
+    }
+    this._kbdShieldFns = [];
+  }
+
 
   get playerPorts(): PlayerPort[] { return [1, 2, 3, 4]; }
 
@@ -2592,7 +2654,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     });
     this._idbfsSync = this._idbfsSync.then(run, run);
     await this._idbfsSync;
-  } 
+  }
 
   /** Capture core-printed ROM metadata (Goodname + MD5) during boot. */
   private installMupenConsoleSniffer(): () => void {

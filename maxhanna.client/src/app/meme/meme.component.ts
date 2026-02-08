@@ -5,7 +5,6 @@ import { FileSearchComponent } from '../file-search/file-search.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { TopicRank } from '../../services/datacontracts/topics/topic-rank'; 
 import { TopicService } from '../../services/topic.service';
-import { Topic } from '../../services/datacontracts/topics/topic';
 import { UserService } from '../../services/user.service';
 
 @Component({
