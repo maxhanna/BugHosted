@@ -6,6 +6,7 @@ import { FileService } from '../../services/file.service';
 import { N64StateUpload, RomService } from '../../services/rom.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { FileSearchComponent } from '../file-search/file-search.component';
+import { PlayerPort } from '../../services/datacontracts/n64/PlayerPort';
 
 @Component({
   selector: 'app-emulator-n64',
@@ -29,7 +30,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private instance: EmulatorControls | null = null;
   private _romGoodName: string | null = null;
   private _romMd5: string | null = null;
-  private _restartLock = Promise.resolve(); 
+  private _restartLock = Promise.resolve();
   private performanceMode = false;
   private _listenersDisabledForPerf = false;
   private perfLockedSize: { width: number; height: number; dpr: number } | null = null;
@@ -74,7 +75,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   liveTest = true;
   private _recordingFor: string | null = null;
   exportText: string | null = null;
-  
+
   // UI modal / fullscreen
   isMenuPanelVisible = false;
   isFullScreen = false;
@@ -93,8 +94,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   autosave = true;
   private autosaveTimer: any = null;
   private autosavePeriodMs = 3 * 60 * 1000;
-  private autosaveInProgress = false;
-  private lastUploadedHashes = new Map<string, string>();
+  private autosaveInProgress = false; 
 
   // Canvas resize
   private _canvasResizeAdded = false;
@@ -119,14 +119,14 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
   private SAVE_DEBUG = false;
 
   constructor(
-    private fileService: FileService, 
+    private fileService: FileService,
     private romService: RomService,
     private ngZone: NgZone,
     private cdRef: ChangeDetectorRef
   ) {
     super();
   }
- 
+
   ngOnInit(): void {
     try {
       const raw = localStorage.getItem(this._lastPerGamepadKey);
@@ -147,7 +147,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
 
     this._resizeObserver = new ResizeObserver(() => {
       this.resizeCanvasToParent();
-      
+
       if (!this.performanceMode) {
         requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
       }
@@ -155,10 +155,10 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     });
     this._resizeObserver.observe(container);
 
-window.addEventListener('orientationchange', this._resizeHandler as any, { passive: true });
-   
-window.addEventListener('gamepadconnected', this._onGamepadConnected as any, { passive: true });
-window.addEventListener('gamepaddisconnected', this._onGamepadDisconnected as any, { passive: true });
+    window.addEventListener('orientationchange', this._resizeHandler as any, { passive: true });
+
+    window.addEventListener('gamepadconnected', this._onGamepadConnected as any, { passive: true });
+    window.addEventListener('gamepaddisconnected', this._onGamepadDisconnected as any, { passive: true });
 
     document.addEventListener('fullscreenchange', this._onFullscreenChange);
 
@@ -207,7 +207,7 @@ window.addEventListener('gamepaddisconnected', this._onGamepadDisconnected as an
     }
     this._bootstrapTimers = [];
   }
-  
+
   async onFileSearchSelected(file: FileEntry) {
     try {
       if (!file) {
@@ -254,7 +254,7 @@ window.addEventListener('gamepaddisconnected', this._onGamepadDisconnected as an
     } finally {
       this.stopLoading();
     }
-  } 
+  }
 
   clearSelection() {
     this.romInput.nativeElement.value = '';
@@ -262,86 +262,102 @@ window.addEventListener('gamepaddisconnected', this._onGamepadDisconnected as an
     this.romName = undefined;
   }
 
-/** Enter high-performance mode: disable non-critical listeners & timers, freeze canvas size */
-private enterPerformanceMode() {
-  if (this.performanceMode) return;
-  this.performanceMode = true;
+  /** Enter high-performance mode: disable non-critical listeners & timers, freeze canvas size */
+  private enterPerformanceMode() {
+    if (this.performanceMode) return;
+    this.performanceMode = true;
 
-  // Stop any periodic scanning/polling that isn’t strictly needed during play
-  this.stopGamepadAutoDetect();
-  this.stopGamepadLogging();
+    // Stop any periodic scanning/polling that isn’t strictly needed during play
+    this.stopGamepadAutoDetect();
+    this.stopGamepadLogging();
 
-  // Freeze canvas size to avoid layout/resize churn
-  const c = this.canvas?.nativeElement;
-  if (c) {
-    this.perfLockedSize = { width: c.width, height: c.height, dpr: window.devicePixelRatio || 1 };
-  }
-  // Remove global listeners that may fire during gameplay
-  this.disableGlobalListenersForPerf();
+    // Freeze canvas size to avoid layout/resize churn
+    const c = this.canvas?.nativeElement;
+    if (c) {
+      this.perfLockedSize = { width: c.width, height: c.height, dpr: window.devicePixelRatio || 1 };
+    }
+    // Remove global listeners that may fire during gameplay
+    this.disableGlobalListenersForPerf();
 
-  // (Optional) if you want to relax direct-inject polling during gameplay:
-  // if (this.directInjectMode) { /* you can raise the poll interval a bit here if desired */ }
-}
-
-/** Exit high-performance mode: restore listeners so UI/actions work again */
-private exitPerformanceMode() {
-  if (!this.performanceMode) return;
-  this.performanceMode = false;
-
-  // Re-attach needed listeners
-  this.restoreGlobalListenersAfterPerf();
-
-  // You can choose NOT to restart auto-detect immediately to keep it quiet until user opens menu.
-  // If you want auto-detect only when the menu is visible:
-  if (this.isMenuPanelVisible || this.status !== 'running') {
-    this.startGamepadAutoDetect();
-  }
-}
-
-/** Remove global listeners while playing */
-private disableGlobalListenersForPerf() {
-  if (this._listenersDisabledForPerf) return;
-  try { window.removeEventListener('gamepadconnected', this._onGamepadConnected as any); } catch {}
-  try { window.removeEventListener('gamepaddisconnected', this._onGamepadDisconnected as any); } catch {}
-  try { window.removeEventListener('orientationchange', this._resizeHandler as any); } catch {}
-
-  if (this._canvasResizeAdded) {
-    try { window.removeEventListener('resize', this._resizeHandler as any); } catch {}
-    this._canvasResizeAdded = false;
+    // (Optional) if you want to relax direct-inject polling during gameplay:
+    // if (this.directInjectMode) { /* you can raise the poll interval a bit here if desired */ }
   }
 
-  if (this._resizeObserver) {
-    try { this._resizeObserver.disconnect(); } catch {}
+  /** Exit high-performance mode: restore listeners so UI/actions work again */
+  private exitPerformanceMode() {
+    if (!this.performanceMode) return;
+    this.performanceMode = false;
+
+    // Re-attach needed listeners
+    this.restoreGlobalListenersAfterPerf(); 
+    this.perfLockedSize = null; // 🔓 Unlock: allow normal canvas resizes again
+
+
+    // You can choose NOT to restart auto-detect immediately to keep it quiet until user opens menu.
+    // If you want auto-detect only when the menu is visible:
+    if (this.isMenuPanelVisible || this.status !== 'running') {
+      this.startGamepadAutoDetect();
+    } 
+    this.resizeCanvasToParent(); // Force one resize now that perf mode is off, to sync with UI
   }
 
-  this._listenersDisabledForPerf = true;
-}
+  /** Remove global listeners while playing */
+  private disableGlobalListenersForPerf() {
+    if (this._listenersDisabledForPerf) return;
+    try { window.removeEventListener('gamepadconnected', this._onGamepadConnected as any); } catch { }
+    try { window.removeEventListener('gamepaddisconnected', this._onGamepadDisconnected as any); } catch { }
+    try { window.removeEventListener('orientationchange', this._resizeHandler as any); } catch { }
 
-/** Restore global listeners after performance mode is off */
-private restoreGlobalListenersAfterPerf() {
-  if (!this._listenersDisabledForPerf) return;
+    if (this._canvasResizeAdded) {
+      try { window.removeEventListener('resize', this._resizeHandler as any); } catch { }
+      this._canvasResizeAdded = false;
+    }
 
-  window.addEventListener('gamepadconnected', this._onGamepadConnected as any, { passive: true });
-  window.addEventListener('gamepaddisconnected', this._onGamepadDisconnected as any, { passive: true });
-  window.addEventListener('orientationchange', this._resizeHandler as any, { passive: true });
+    if (this._resizeObserver) {
+      try { this._resizeObserver.disconnect(); } catch { }
+    }
 
-  if (!this._canvasResizeAdded) {
-    window.addEventListener('resize', this._resizeHandler as any, { passive: true });
-    this._canvasResizeAdded = true;
+    this._listenersDisabledForPerf = true;
   }
 
-  if (this._resizeObserver) {
-    const container = (this.fullscreenContainer?.nativeElement) ?? this.canvas?.nativeElement?.parentElement ?? document.body;
-    try { this._resizeObserver.observe(container); } catch {}
-  }
+  /** Restore global listeners after performance mode is off */
+  private restoreGlobalListenersAfterPerf() {
+    if (!this._listenersDisabledForPerf) return;
 
-  this._listenersDisabledForPerf = false;
-}
+    window.addEventListener('gamepadconnected', this._onGamepadConnected as any, { passive: true });
+    window.addEventListener('gamepaddisconnected', this._onGamepadDisconnected as any, { passive: true });
+    window.addEventListener('orientationchange', this._resizeHandler as any, { passive: true });
+
+    if (!this._canvasResizeAdded) {
+      window.addEventListener('resize', this._resizeHandler as any, { passive: true });
+      this._canvasResizeAdded = true;
+    }
+
+    if (this._resizeObserver) {
+      const container = (this.fullscreenContainer?.nativeElement) ?? this.canvas?.nativeElement?.parentElement ?? document.body;
+      try { this._resizeObserver.observe(container); } catch { }
+    }
+
+    this._listenersDisabledForPerf = false;
+  }
 
   private resizeCanvasToParent() {
     try {
       const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
       if (!canvasEl) return;
+
+      // 🚫 During performance mode, keep the locked size (no reflow/realloc)
+      if (this.performanceMode && this.perfLockedSize) {
+        const { width, height } = this.perfLockedSize;
+        if (canvasEl.width !== width) canvasEl.width = width;
+        if (canvasEl.height !== height) canvasEl.height = height;
+
+        // Optional: also lock CSS size to prevent layout changes
+        // (keeps visual size stable if parent changes)
+        canvasEl.style.width = `${Math.round(width / (window.devicePixelRatio || 1))}px`;
+        canvasEl.style.height = `${Math.round(height / (window.devicePixelRatio || 1))}px`;
+        return; // <-- do not compute new size
+      }
 
       const container = (this.fullscreenContainer?.nativeElement) ?? (canvasEl.parentElement ?? document.body);
       const rect = container.getBoundingClientRect();
@@ -574,7 +590,7 @@ private restoreGlobalListenersAfterPerf() {
       console.log(`Applied RAW mapping for "${sectionName}"`);
 
       const gp = this.currentPad();
-      this.persistLastMappingForGp(gp?.id || null, this.selectedMappingName); 
+      this.persistLastMappingForGp(gp?.id || null, this.selectedMappingName);
 
       if (wasRunning) {
         await this.boot();
@@ -595,7 +611,7 @@ private restoreGlobalListenersAfterPerf() {
     if (Number.isNaN(idx)) return;
 
     if (this.selectedGamepadIndex === idx) {
-      this.applyGamepadReorder(); 
+      this.applyGamepadReorder();
 
       try {
         const uid = this.parentRef?.user?.id;
@@ -717,7 +733,7 @@ private restoreGlobalListenersAfterPerf() {
     const restoreSniffer = this.installMupenConsoleSniffer();
 
     try {
-      this.applyGamepadReorder();  
+      this.applyGamepadReorder();
       await this.ngZone.runOutsideAngular(async () => {
         this.instance = await createMupen64PlusWeb({
           canvas: canvasEl,
@@ -742,7 +758,7 @@ private restoreGlobalListenersAfterPerf() {
       restoreSniffer();
 
       await new Promise(r => setTimeout(r, 400));
- 
+
       // Copy canonical -> emulator key (GoodName).eep and restart once if changed
       this.ensureSaveLoadedForCurrentRom();
       this.enterPerformanceMode();  // minimize non-critical overhead during gameplay
@@ -756,8 +772,10 @@ private restoreGlobalListenersAfterPerf() {
         this.cdRef.markForCheck();
       });
 
-    this.bootGraceUntil = performance.now() + 1500;
-      requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+      this.bootGraceUntil = performance.now() + 1500;
+      if (!this.performanceMode) {
+        requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+      }
     } catch (ex) {
       console.error('Failed to boot emulator', ex);
       this.status = 'error';
@@ -773,8 +791,8 @@ private restoreGlobalListenersAfterPerf() {
 
 
   async stop() {
-    try { 
-      this.exitPerformanceMode(); 
+    try {
+      this.exitPerformanceMode();
       if (this.instance && typeof this.instance.stop === 'function') {
         try {
           await this.instance.stop();
@@ -791,7 +809,7 @@ private restoreGlobalListenersAfterPerf() {
       this.stopAutosaveLoop();
     } finally {
       this.instance = null;
-      this.status = 'stopped'; 
+      this.status = 'stopped';
       this.restoreGamepadGetter();
       if (this.romName) {
         this.parentRef?.showNotification('Emulator stopped');
@@ -866,8 +884,8 @@ private restoreGlobalListenersAfterPerf() {
 
   showMenuPanel() {
     this.isMenuPanelVisible = true;
-    this.parentRef?.showOverlay(); 
-    this.exitPerformanceMode(); 
+    this.parentRef?.showOverlay();
+    this.exitPerformanceMode();
     if (this.savedMappingsNames.length === 0) {
       this.loadMappingsList();
     }
@@ -877,12 +895,12 @@ private restoreGlobalListenersAfterPerf() {
   closeMenuPanel() {
     this.isMenuPanelVisible = false;
     this.parentRef?.closeOverlay();
-        
+
     if (this.status === 'running') {
       this.enterPerformanceMode();
     } else {
       this.startGamepadAutoDetect();
-    } 
+    }
   }
 
   openControllerAssignments() {
@@ -894,7 +912,7 @@ private restoreGlobalListenersAfterPerf() {
     this.showControllerAssignments = false;
     this.startGamepadAutoDetect();
   }
-    
+
   private async blobToN64SaveFile(blob: Blob, serverFileName: string): Promise<File> {
     return new File([blob], serverFileName, { type: 'application/octet-stream' });
   }
@@ -1040,22 +1058,22 @@ private restoreGlobalListenersAfterPerf() {
       if (written.length) {
         console.log(`Imported ${written.length} save file(s): ${written.join(', ')}`);
         this.parentRef?.showNotification(`Imported ${written.length} save file(s): ${written.join(', ')}`);
-        
-// Only restart if needed:
-// - EEPROM: no hard restart
-// - SRAM/Flash: restart when emulator is already running
-if (!skipBoot && (this.status === 'running' || !!this.instance)) {
-  const importedExts = written
-    .map(n => (n.match(/\.(eep|sra|fla)$/i)?.[0] || '').toLowerCase());
 
-  const hasSraOrFla = importedExts.some(ext => ext === '.sra' || ext === '.fla');
-  if (hasSraOrFla) {
-    await this.safeRestart('post-import');
-  } else {
-    // Only .eep imported: keep it zero-restart
-    this.parentRef?.showNotification('EEPROM save imported (no restart). If not visible, open the in-game save menu.');
-  }
-}
+        // Only restart if needed:
+        // - EEPROM: no hard restart
+        // - SRAM/Flash: restart when emulator is already running
+        if (!skipBoot && (this.status === 'running' || !!this.instance)) {
+          const importedExts = written
+            .map(n => (n.match(/\.(eep|sra|fla)$/i)?.[0] || '').toLowerCase());
+
+          const hasSraOrFla = importedExts.some(ext => ext === '.sra' || ext === '.fla');
+          if (hasSraOrFla) {
+            await this.safeRestart('post-import');
+          } else {
+            // Only .eep imported: keep it zero-restart
+            this.parentRef?.showNotification('EEPROM save imported (no restart). If not visible, open the in-game save menu.');
+          }
+        }
 
       } else {
         console.log("No save files imported");
@@ -1208,9 +1226,9 @@ if (!skipBoot && (this.status === 'running' || !!this.instance)) {
     this.applyGamepadReorder();
   };
 
-  startGamepadAutoDetect() { 
+  startGamepadAutoDetect() {
     if (this.performanceMode) {
-       return;  
+      return;
     }
     this.stopGamepadAutoDetect();
     const tick = () => {
@@ -1233,7 +1251,7 @@ if (!skipBoot && (this.status === 'running' || !!this.instance)) {
           console.debug('[GP] autoDetect changed order', { before, after });
           this.applyGamepadReorder();
         }
-      } catch { console.log('Gamepad auto-detect tick failed'); } 
+      } catch { console.log('Gamepad auto-detect tick failed'); }
       this._autoDetectTimer = setTimeout(tick, this.performanceMode ? 999999 : 750);
     };
     tick();
@@ -1487,24 +1505,24 @@ if (!skipBoot && (this.status === 'running' || !!this.instance)) {
   }
 
 
-private assignFirstDetectedToP1(preferredIdx?: number) {
-  // Respect explicit "none" on P1
-  if (this.ports[1].autoFill === false) return;
+  private assignFirstDetectedToP1(preferredIdx?: number) {
+    // Respect explicit "none" on P1
+    if (this.ports[1].autoFill === false) return;
 
-  const pads = this.getGamepadsBase();
-  if (!pads || !pads.length) return;
+    const pads = this.getGamepadsBase();
+    if (!pads || !pads.length) return;
 
-  const std = pads.find(p => p && p.mapping === 'standard');
-  const chosen = std ?? (typeof preferredIdx === 'number' ? pads[preferredIdx] : pads[0]);
-  if (!chosen) return;
+    const std = pads.find(p => p && p.mapping === 'standard');
+    const chosen = std ?? (typeof preferredIdx === 'number' ? pads[preferredIdx] : pads[0]);
+    if (!chosen) return;
 
-  const idx = chosen.index;
-  this.ports[1].gpIndex = idx;
+    const idx = chosen.index;
+    this.ports[1].gpIndex = idx;
 
-  this.ensureDefaultMappingForPort(1);
-  this.selectedGamepadIndex = idx;
-  this.applyGamepadReorder();
-}
+    this.ensureDefaultMappingForPort(1);
+    this.selectedGamepadIndex = idx;
+    this.applyGamepadReorder();
+  }
 
   private async loadLastInputSelectionAndApply(): Promise<void> {
     try {
@@ -1626,51 +1644,51 @@ private assignFirstDetectedToP1(preferredIdx?: number) {
   }
 
 
- 
-async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
-  const raw = String(value);
 
-  // User explicitly chose "none"
-  if (raw === '__none__') {
-    this.setPortNone(port);
-    return;
-  }
+  async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
+    const raw = String(value);
 
-  const idx = Number(raw);
-  if (Number.isNaN(idx)) {
-    this.parentRef?.showNotification('Invalid controller selection');
-    return;
-  }
+    // User explicitly chose "none"
+    if (raw === '__none__') {
+      this.setPortNone(port);
+      return;
+    }
 
-  // Ensure our snapshot includes that index
-  if (!this.gamepads.some(g => g.index === idx)) {
-    this.refreshGamepads();
+    const idx = Number(raw);
+    if (Number.isNaN(idx)) {
+      this.parentRef?.showNotification('Invalid controller selection');
+      return;
+    }
+
+    // Ensure our snapshot includes that index
     if (!this.gamepads.some(g => g.index === idx)) {
-      this.parentRef?.showNotification('Selected controller is not available.');
-      return;
+      this.refreshGamepads();
+      if (!this.gamepads.some(g => g.index === idx)) {
+        this.parentRef?.showNotification('Selected controller is not available.');
+        return;
+      }
     }
-  }
 
-  // Prevent assigning same physical pad to multiple ports (compare by index)
-  for (const p of [1, 2, 3, 4] as const) {
-    if (p !== port && this.ports[p].gpIndex === idx) {
-      this.parentRef?.showNotification(`That controller is already assigned to Player ${p}.`);
-      return;
+    // Prevent assigning same physical pad to multiple ports (compare by index)
+    for (const p of [1, 2, 3, 4] as const) {
+      if (p !== port && this.ports[p].gpIndex === idx) {
+        this.parentRef?.showNotification(`That controller is already assigned to Player ${p}.`);
+        return;
+      }
     }
+
+    // User explicitly picked a controller for this port -> allow future auto fills for this port
+    const gp = this.gamepads.find(g => g.index === idx)!;
+    this.ports[port].gpIndex = idx;
+    this.ports[port].gpId = gp.id;     // keep as a hint to re-resolve later
+    this.ports[port].autoFill = true;  // <- re-enable autofill for this port
+    this.applyGamepadReorder();
+
+    // Give a usable mapping right away if it's a standard profile
+    this.ensureDefaultMappingForPort(port);
+
+    this.parentRef?.showNotification?.(`Player ${port} assigned to controller #${idx}`);
   }
-
-  // User explicitly picked a controller for this port -> allow future auto fills for this port
-  const gp = this.gamepads.find(g => g.index === idx)!;
-  this.ports[port].gpIndex = idx;
-  this.ports[port].gpId = gp.id;     // keep as a hint to re-resolve later
-  this.ports[port].autoFill = true;  // <- re-enable autofill for this port
-  this.applyGamepadReorder();
-
-  // Give a usable mapping right away if it's a standard profile
-  this.ensureDefaultMappingForPort(port);
-
-  this.parentRef?.showNotification?.(`Player ${port} assigned to controller #${idx}`);
-}
 
 
   onPortMappingSelect(port: PlayerPort, name: string) {
@@ -1764,7 +1782,7 @@ async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
         const sectionName = gpId;
 
         await writeAutoInputConfig(sectionName, cfg as any);
-      } 
+      }
 
       this.applyGamepadReorder();
 
@@ -2324,13 +2342,13 @@ async onSelectGamepadForPort(port: PlayerPort, value: string | number) {
     let base = romName.replace(/\.(z64|n64|v64|zip|7z|rom)$/i, '');
     return base || 'Unknown';
   }
- 
-private canonicalSaveFilename(
-  ext: '.eep' | '.sra' | '.fla'
-): string {
-  const base = this.canonicalRomBaseFromFileName(this.romName);
-  return `${base}${ext}`;
-}
+
+  private canonicalSaveFilename(
+    ext: '.eep' | '.sra' | '.fla'
+  ): string {
+    const base = this.canonicalRomBaseFromFileName(this.romName);
+    return `${base}${ext}`;
+  }
 
 
   private async ensureIdbAlias(db: IDBDatabase, fromKey: string, toKey: string): Promise<void> {
@@ -2492,103 +2510,103 @@ private canonicalSaveFilename(
     return bytes.slice(0, 512);
   }
 
-  
 
-private async ensureSaveLoadedForCurrentRom(): Promise<void> {
-  if (!this.romName) return;
 
-  const tryExts: ('.eep' | '.sra' | '.fla')[] = ['.eep', '.sra', '.fla'];
+  private async ensureSaveLoadedForCurrentRom(): Promise<void> {
+    if (!this.romName) return;
 
-  try {
-    const db = await this.openMupenDb();
-    if (!db) return;
+    const tryExts: ('.eep' | '.sra' | '.fla')[] = ['.eep', '.sra', '.fla'];
 
-    let chosenExt: '.eep' | '.sra' | '.fla' | null = null;
-    let canonicalKey: string | null = null;
+    try {
+      const db = await this.openMupenDb();
+      if (!db) return;
 
-    // ONLY look for canonical ROM save
-    for (const ext of tryExts) {
-      const key = `/mupen64plus/saves/${this.canonicalSaveFilename(ext)}`;
-      if (await this.idbKeyExists(db, key)) {
-        chosenExt = ext;
-        canonicalKey = key;
-        break;
+      let chosenExt: '.eep' | '.sra' | '.fla' | null = null;
+      let canonicalKey: string | null = null;
+
+      // ONLY look for canonical ROM save
+      for (const ext of tryExts) {
+        const key = `/mupen64plus/saves/${this.canonicalSaveFilename(ext)}`;
+        if (await this.idbKeyExists(db, key)) {
+          chosenExt = ext;
+          canonicalKey = key;
+          break;
+        }
+      }
+
+      this.saveDebug('LOAD-GUARD: chosen', { chosenExt, canonicalKey });
+      if (!chosenExt || !canonicalKey) {
+        db.close();
+        return;
+      }
+
+      const canonicalBytes = await this.readIdbBytes(db, canonicalKey);
+      db.close();
+      if (!canonicalBytes) return;
+
+      // Emulator GoodName key (what mupen actually reads)
+      const emuKey = this.emuPrimarySaveKey(chosenExt);
+      if (!emuKey) return;
+
+      await this.writeCanonicalToEmuKey(chosenExt, canonicalBytes, emuKey);
+    } catch (e) {
+      console.warn('ensureSaveLoadedForCurrentRom failed', e);
+    }
+  }
+
+
+  private async writeCanonicalToEmuKey(
+    ext: '.eep' | '.sra' | '.fla',
+    canonicalBytes: Uint8Array,
+    emuKey: string
+  ): Promise<void> {
+    const db2 = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open('/mupen64plus');
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => resolve(req.result);
+    });
+    if (!Array.from(db2.objectStoreNames).includes('FILE_DATA')) { db2.close(); return; }
+
+    const emuBytes = await this.readIdbBytes(db2, emuKey);
+    let wrote = false;
+
+    let targetBytes = canonicalBytes;
+    if (ext === '.eep') {
+      const override = this.eepromSizeOverrideForRom();
+      if (override === 512 && canonicalBytes.byteLength === 2048) {
+        const downsized = this.maybeDownsizeEeprom4K(canonicalBytes);
+        if (downsized) targetBytes = downsized;
       }
     }
 
-    this.saveDebug('LOAD-GUARD: chosen', { chosenExt, canonicalKey });
-    if (!chosenExt || !canonicalKey) {
-      db.close();
+    if (!this.bytesEqual(targetBytes, emuBytes)) {
+      await this.writeIdbBytes(db2, emuKey, targetBytes);
+      wrote = true;
+      this.saveDebug(`LOAD-GUARD: wrote canonical -> emuKey`, {
+        emuKey,
+        size: targetBytes.byteLength,
+        hash: await this.shortSha(targetBytes)
+      });
+    } else {
+      this.saveDebug(`LOAD-GUARD: emuKey already matches canonical`, { emuKey });
+    }
+
+    db2.close();
+
+    // ✅ Zero-restart for EEPROM
+    if (wrote && ext === '.eep') {
+      // No hard restart; many N64 titles read EEPROM state at or near title/menu.
+      // Most games will notice immediately when entering the Save/Load screen or after a soft return to menu.
+      this.parentRef?.showNotification('EEPROM save injected (no restart). If not visible yet, open/return to the save menu.');
       return;
     }
 
-    const canonicalBytes = await this.readIdbBytes(db, canonicalKey);
-    db.close();
-    if (!canonicalBytes) return;
-
-    // Emulator GoodName key (what mupen actually reads)
-    const emuKey = this.emuPrimarySaveKey(chosenExt);
-    if (!emuKey) return;
-
-    await this.writeCanonicalToEmuKey(chosenExt, canonicalBytes, emuKey);
-  } catch (e) {
-    console.warn('ensureSaveLoadedForCurrentRom failed', e);
-  }
-} 
-
-
-private async writeCanonicalToEmuKey(
-  ext: '.eep' | '.sra' | '.fla',
-  canonicalBytes: Uint8Array,
-  emuKey: string
-): Promise<void> {
-  const db2 = await new Promise<IDBDatabase>((resolve, reject) => {
-    const req = indexedDB.open('/mupen64plus');
-    req.onerror = () => reject(req.error);
-    req.onsuccess = () => resolve(req.result);
-  });
-  if (!Array.from(db2.objectStoreNames).includes('FILE_DATA')) { db2.close(); return; }
-
-  const emuBytes = await this.readIdbBytes(db2, emuKey);
-  let wrote = false;
-
-  let targetBytes = canonicalBytes;
-  if (ext === '.eep') {
-    const override = this.eepromSizeOverrideForRom();
-    if (override === 512 && canonicalBytes.byteLength === 2048) {
-      const downsized = this.maybeDownsizeEeprom4K(canonicalBytes);
-      if (downsized) targetBytes = downsized;
+    // Keep existing behavior for SRAM/Flash (needs a reload to be safe)
+    if (wrote && (ext === '.sra' || ext === '.fla')) {
+      await this.safeRestart('load-guard');
+      this.parentRef?.showNotification('Save injected; emulator restarted to reload it.');
     }
   }
-
-  if (!this.bytesEqual(targetBytes, emuBytes)) {
-    await this.writeIdbBytes(db2, emuKey, targetBytes);
-    wrote = true;
-    this.saveDebug(`LOAD-GUARD: wrote canonical -> emuKey`, {
-      emuKey,
-      size: targetBytes.byteLength,
-      hash: await this.shortSha(targetBytes)
-    });
-  } else {
-    this.saveDebug(`LOAD-GUARD: emuKey already matches canonical`, { emuKey });
-  }
-
-  db2.close();
-
-  // ✅ Zero-restart for EEPROM
-  if (wrote && ext === '.eep') {
-    // No hard restart; many N64 titles read EEPROM state at or near title/menu.
-    // Most games will notice immediately when entering the Save/Load screen or after a soft return to menu.
-    this.parentRef?.showNotification('EEPROM save injected (no restart). If not visible yet, open/return to the save menu.');
-    return;
-  }
-
-  // Keep existing behavior for SRAM/Flash (needs a reload to be safe)
-  if (wrote && (ext === '.sra' || ext === '.fla')) {
-    await this.safeRestart('load-guard');
-    this.parentRef?.showNotification('Save injected; emulator restarted to reload it.');
-  }
-}
 
 
   private async findEmuGoodNameKeyForExt(db: IDBDatabase, ext: '.eep' | '.sra' | '.fla'): Promise<string | null> {
@@ -2814,25 +2832,25 @@ private async writeCanonicalToEmuKey(
   }
 
   /** Candidate IDBFS keys under /mupen64plus/saves for a given ext. */
- 
 
-private buildSaveKeyCandidates(
-  ext: '.eep' | '.sra' | '.fla',
-  incomingFileName?: string
-): string[] {
-  const keys = new Set<string>();
 
-  // Keep incoming filename (compat/diagnostics)
-  if (incomingFileName) {
-    keys.add(`/mupen64plus/saves/${incomingFileName}`);
+  private buildSaveKeyCandidates(
+    ext: '.eep' | '.sra' | '.fla',
+    incomingFileName?: string
+  ): string[] {
+    const keys = new Set<string>();
+
+    // Keep incoming filename (compat/diagnostics)
+    if (incomingFileName) {
+      keys.add(`/mupen64plus/saves/${incomingFileName}`);
+    }
+
+    // Always also write canonical key (no suffix)
+    const canonical = this.canonicalSaveFilename(ext);
+    keys.add(`/mupen64plus/saves/${canonical}`);
+
+    return Array.from(keys);
   }
-
-  // Always also write canonical key (no suffix)
-  const canonical = this.canonicalSaveFilename(ext);
-  keys.add(`/mupen64plus/saves/${canonical}`);
-
-  return Array.from(keys);
-}
 
 
 
@@ -2860,77 +2878,77 @@ private buildSaveKeyCandidates(
     }
   }
 
-private setPortNone(port: PlayerPort) {
-  // Explicit user intent: do not auto-assign this port anymore until user picks a controller again.
-  this.ports[port].gpIndex = null;
-  this.ports[port].gpId = null;
-  this.ports[port].mapping = {};
-  this.ports[port].mappingName = null;
-  this.ports[port].autoFill = false; // <- lock
-  this.applyGamepadReorder();
-  this.parentRef?.showNotification?.(`Player ${port} set to none`);
-}
+  private setPortNone(port: PlayerPort) {
+    // Explicit user intent: do not auto-assign this port anymore until user picks a controller again.
+    this.ports[port].gpIndex = null;
+    this.ports[port].gpId = null;
+    this.ports[port].mapping = {};
+    this.ports[port].mappingName = null;
+    this.ports[port].autoFill = false; // <- lock
+    this.applyGamepadReorder();
+    this.parentRef?.showNotification?.(`Player ${port} set to none`);
+  }
 
   /** Enforce invariants so the first/only pad sits on P1 before we reorder. */
- 
-private normalizePortsAfterRefresh() {
-  // Build a quick lookup of connected pads by index
-  const connected = new Map<number, { index: number; id: string }>();
-  for (const g of this.gamepads) {
-    if (g?.connected && typeof g.index === 'number') {
-      connected.set(g.index, g as any);
-    }
-  }
 
-  // 1) If exactly one pad is connected and P1 is empty AND allowed to auto-fill, assign it to P1.
-  if (
-    connected.size === 1 &&
-    this.ports[1].gpIndex == null &&
-    this.ports[1].autoFill === true
-  ) {
-    const only = Array.from(connected.values())[0];
-    this.ports[1].gpIndex = only.index;
-    this.ports[1].gpId = only.id;
-    this.ensureDefaultMappingForPort(1);
-  }
-
-  // 2) If P1 points to a non-existent pad but some pad exists, promote one to P1 ONLY if autoFill is true.
-  const p1Idx = this.ports[1].gpIndex;
-  const p1Exists = (p1Idx != null) && connected.has(p1Idx);
-  if (!p1Exists && connected.size > 0 && this.ports[1].autoFill === true) {
-    const first = Array.from(connected.values())[0];
-    this.ports[1].gpIndex = first.index;
-    this.ports[1].gpId = first.id;
-    this.ensureDefaultMappingForPort(1);
-  }
-
-  // 3) Ensure no duplicate assignment of a single pad across ports; P1 has priority.
-  const claimed = new Set<number>();
-  for (const p of [1, 2, 3, 4] as const) {
-    const idx = this.ports[p].gpIndex;
-    if (idx == null) continue;
-    if (claimed.has(idx)) {
-      // Already used by a lower-numbered port; drop this assignment.
-      this.ports[p].gpIndex = null;
-      this.ports[p].gpId = null;
-    } else {
-      // Keep only if actually connected
-      if (connected.has(idx)) {
-        claimed.add(idx);
-      } else {
-        this.ports[p].gpIndex = null;
-        this.ports[p].gpId = null;
+  private normalizePortsAfterRefresh() {
+    // Build a quick lookup of connected pads by index
+    const connected = new Map<number, { index: number; id: string }>();
+    for (const g of this.gamepads) {
+      if (g?.connected && typeof g.index === 'number') {
+        connected.set(g.index, g as any);
       }
     }
-  }
 
-  // 4) If we ended up with exactly one connected pad total, reflect it in selectedGamepadIndex too.
-  // (This affects UI only; safe to leave as-is.)
-  if (connected.size === 1) {
-    const only = Array.from(connected.values())[0];
-    this.selectedGamepadIndex = only.index;
+    // 1) If exactly one pad is connected and P1 is empty AND allowed to auto-fill, assign it to P1.
+    if (
+      connected.size === 1 &&
+      this.ports[1].gpIndex == null &&
+      this.ports[1].autoFill === true
+    ) {
+      const only = Array.from(connected.values())[0];
+      this.ports[1].gpIndex = only.index;
+      this.ports[1].gpId = only.id;
+      this.ensureDefaultMappingForPort(1);
+    }
+
+    // 2) If P1 points to a non-existent pad but some pad exists, promote one to P1 ONLY if autoFill is true.
+    const p1Idx = this.ports[1].gpIndex;
+    const p1Exists = (p1Idx != null) && connected.has(p1Idx);
+    if (!p1Exists && connected.size > 0 && this.ports[1].autoFill === true) {
+      const first = Array.from(connected.values())[0];
+      this.ports[1].gpIndex = first.index;
+      this.ports[1].gpId = first.id;
+      this.ensureDefaultMappingForPort(1);
+    }
+
+    // 3) Ensure no duplicate assignment of a single pad across ports; P1 has priority.
+    const claimed = new Set<number>();
+    for (const p of [1, 2, 3, 4] as const) {
+      const idx = this.ports[p].gpIndex;
+      if (idx == null) continue;
+      if (claimed.has(idx)) {
+        // Already used by a lower-numbered port; drop this assignment.
+        this.ports[p].gpIndex = null;
+        this.ports[p].gpId = null;
+      } else {
+        // Keep only if actually connected
+        if (connected.has(idx)) {
+          claimed.add(idx);
+        } else {
+          this.ports[p].gpIndex = null;
+          this.ports[p].gpId = null;
+        }
+      }
+    }
+
+    // 4) If we ended up with exactly one connected pad total, reflect it in selectedGamepadIndex too.
+    // (This affects UI only; safe to leave as-is.)
+    if (connected.size === 1) {
+      const only = Array.from(connected.values())[0];
+      this.selectedGamepadIndex = only.index;
+    }
   }
-}
 
   getRomName(): string | null {
     return this.fileService.getFileWithoutExtension(this.romName || '');
@@ -2941,33 +2959,4 @@ private normalizePortsAfterRefresh() {
       this.fileSearchComponent.getDirectory();
     }
   }
-}
-
-// ---------------------------
-// Types
-// ---------------------------
-type N64ExportedSave = {
-  key: string;
-  filename: string;
-  kind: 'battery';
-  size: number;
-  bytes: Uint8Array;
-};
-
-type ExportInGameSaveRamResult = {
-  romName: string | null;
-  matchedOnly: boolean;
-  totalFound: number;
-  exported: N64ExportedSave[];
-};
-
-type PlayerPort = 1 | 2 | 3 | 4;
-
-
-type PortConfig = {
-  gpIndex: number | null;
-  gpId?: string | null;
-  mapping: Record<string, any>;
-  mappingName: string | null;
-  autoFill: boolean; // NEW: if false, never auto-assign this port
-}; 
+}  
