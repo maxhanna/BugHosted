@@ -856,7 +856,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.isMenuPanelVisible = true;
     this.parentRef?.showOverlay();
 
-  this.freezeMainWidth();  
+    this.freezeMainWidth();
     this.releaseForMenu();
     this.exitPerformanceMode();
     this.enableKeyboardShield();
@@ -872,7 +872,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.parentRef?.closeOverlay();
     this.cancelPortMappings();
     this.disableKeyboardShield();
-  this.unfreezeMainWidth(); 
+    this.unfreezeMainWidth();
 
     if (this.status === 'running') {
       this.enterPerformanceMode();
@@ -881,18 +881,18 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-private freezeMainWidth() {
-  const el = document.querySelector('.componentMain') as HTMLElement | null;
-  if (!el) return;
-  // lock to current rendered width in px
-  el.style.width = `${el.getBoundingClientRect().width}px`;
-}
+  private freezeMainWidth() {
+    const el = document.querySelector('.componentMain') as HTMLElement | null;
+    if (!el) return;
+    // lock to current rendered width in px
+    el.style.width = `${el.getBoundingClientRect().width}px`;
+  }
 
-private unfreezeMainWidth() {
-  const el = document.querySelector('.componentMain') as HTMLElement | null;
-  if (!el) return;
-  el.style.width = ''; // back to CSS (100%)
-}
+  private unfreezeMainWidth() {
+    const el = document.querySelector('.componentMain') as HTMLElement | null;
+    if (!el) return;
+    el.style.width = ''; // back to CSS (100%)
+  }
 
   openControllerAssignments() {
     this.showControllerAssignments = true;
@@ -2837,7 +2837,7 @@ private unfreezeMainWidth() {
     this.applyGamepadReorder();
     this.parentRef?.showNotification?.(`Player ${port} set to none`);
   }
- 
+
   private normalizePortsAfterRefresh() {
     // Build a quick lookup of connected pads by index
     const connected = new Map<number, { index: number; id: string }>();
