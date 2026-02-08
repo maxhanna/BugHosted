@@ -856,6 +856,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.isMenuPanelVisible = true;
     this.parentRef?.showOverlay();
 
+  this.freezeMainWidth();  
     this.releaseForMenu();
     this.exitPerformanceMode();
     this.enableKeyboardShield();
@@ -871,6 +872,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     this.parentRef?.closeOverlay();
     this.cancelPortMappings();
     this.disableKeyboardShield();
+  this.unfreezeMainWidth(); 
 
     if (this.status === 'running') {
       this.enterPerformanceMode();
@@ -878,6 +880,19 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       this.startGamepadAutoDetect();
     }
   }
+
+private freezeMainWidth() {
+  const el = document.querySelector('.componentMain') as HTMLElement | null;
+  if (!el) return;
+  // lock to current rendered width in px
+  el.style.width = `${el.getBoundingClientRect().width}px`;
+}
+
+private unfreezeMainWidth() {
+  const el = document.querySelector('.componentMain') as HTMLElement | null;
+  if (!el) return;
+  el.style.width = ''; // back to CSS (100%)
+}
 
   openControllerAssignments() {
     this.showControllerAssignments = true;
