@@ -1882,11 +1882,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     console.log(payload);
     console.groupEnd();
   }
-
-
-  // =====================================================
-  // Misc
-  // =====================================================
+ 
   private _bootstrapDetectOnce() {
     let runs = 0;
     const burst = () => {
@@ -1898,8 +1894,7 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
       }
     };
     burst();
-  }
-
+  } 
 
   private async maybeApplyStoredMappingFor(id: string) {
     // --- ADD: prefer last-per-gamepad
