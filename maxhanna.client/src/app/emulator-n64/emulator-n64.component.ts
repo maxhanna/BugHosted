@@ -862,7 +862,9 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     } else {
       this.startGamepadAutoDetect();
     } 
-    setTimeout(() => this.resizeCanvasToParent(), 100);
+    if (!this.isFullScreen) {
+      setTimeout(() => this.resizeCanvasToParent(), 100);
+    }
   }
 
   openControllerAssignments() {
