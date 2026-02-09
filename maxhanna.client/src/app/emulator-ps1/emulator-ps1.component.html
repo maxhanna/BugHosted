@@ -1,6 +1,6 @@
 <div class="componentMain" [style.paddingTop]="isFullScreen ? '0px' : null">
   <div class="closeButton" (click)="remove_me('EmulatorPs1Component');" *ngIf="!isFullScreen"></div>
-  <div class="menuButton" (click)="toggleFullscreen();" *ngIf="romName && !isFullScreen"></div>
+  <div class="menuButton" (click)="toggleFullscreen();" *ngIf="!isFullScreen"></div>
   <div class="componentTitle" *ngIf="!isFullScreen">
     <span class="romNameTitle">{{ romName ? getRomName() : 'PS1 Emulator' }}</span>
   </div>
