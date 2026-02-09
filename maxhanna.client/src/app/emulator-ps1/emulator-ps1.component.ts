@@ -36,34 +36,34 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   ngOnInit(): void {
   }
 
-  
-async ngAfterViewInit() {
-  // 1) Create and append the <wasmpsx-player> BEFORE loading the script
-  this.playerEl = document.createElement('wasmpsx-player') as any;
-  if (this.playerEl) {
-    this.playerEl.id = 'psxPlayer'; // optional, helpful for debugging
-    this.playerEl.style.display = 'block';
-    this.playerEl.style.width = '100%';
-    this.playerEl.style.height = '100%';
-    this.containerRef.nativeElement.appendChild(this.playerEl);
-  }
-  // 2) Now load the script (it may eagerly look for the element we just added)
-  await this.ensureWasmPsxLoaded();
 
-  // 3) Wait for custom element definition/upgrade (browser-level)
-  await customElements.whenDefined('wasmpsx-player');
+  async ngAfterViewInit() {
+    // 1) Create and append the <wasmpsx-player> BEFORE loading the script
+    this.playerEl = document.createElement('wasmpsx-player') as any;
+    if (this.playerEl) {
+      this.playerEl.id = 'psxPlayer'; // optional, helpful for debugging
+      this.playerEl.style.display = 'block';
+      this.playerEl.style.width = '100%';
+      this.playerEl.style.height = '100%';
+      this.containerRef.nativeElement.appendChild(this.playerEl);
+    }
+    // 2) Now load the script (it may eagerly look for the element we just added)
+    await this.ensureWasmPsxLoaded();
 
-  // 4) If the first element didn’t upgrade (very rare), replace it once
-  if (typeof (this.playerEl as any).readFile !== 'function') {
-    const upgraded = document.createElement('wasmpsx-player') as any;
-    upgraded.id = 'psxPlayer';
-    upgraded.style.display = 'block';
-    upgraded.style.width = '100%';
-    upgraded.style.height = '100%';
-    this.containerRef.nativeElement.replaceChild(upgraded, this.playerEl!);
-    this.playerEl = upgraded;
+    // 3) Wait for custom element definition/upgrade (browser-level)
+    await customElements.whenDefined('wasmpsx-player');
+    await this.waitForPlayerReady(this.playerEl);
+    // 4) If the first element didn’t upgrade (very rare), replace it once
+    if (typeof (this.playerEl as any).readFile !== 'function') {
+      const upgraded = document.createElement('wasmpsx-player') as any;
+      upgraded.id = 'psxPlayer';
+      upgraded.style.display = 'block';
+      upgraded.style.width = '100%';
+      upgraded.style.height = '100%';
+      this.containerRef.nativeElement.replaceChild(upgraded, this.playerEl!);
+      this.playerEl = upgraded;
+    }
   }
-}
 
 
   ngOnDestroy(): void {
@@ -78,8 +78,8 @@ async ngAfterViewInit() {
   async onFileSearchSelected(file: FileEntry) {
     try {
       if (!file) { this.parentRef?.showNotification('Invalid file selected'); return; }
-      if (!this.playerEl) { 
-        await this.ensureWasmPsxLoaded(); 
+      if (!this.playerEl) {
+        await this.ensureWasmPsxLoaded();
       }
 
       this.startLoading();
@@ -134,47 +134,37 @@ async ngAfterViewInit() {
     }
   }
 
-  
 
-private async ensureWasmPsxLoaded(): Promise<void> {
-  if (this._scriptLoaded) return;
 
-  await new Promise<void>((resolve, reject) => {
-    if (document.getElementById('wasmpsx-script')) {
-      this._scriptLoaded = true;
-      resolve();
-      return;
-    }
 
-    const base = new URL('assets/ps1/', document.baseURI).toString();
+  private async ensureWasmPsxLoaded(): Promise<void> {
+    if (this._scriptLoaded) return;
 
-    // 🔴 THIS IS CRITICAL
-    (window as any).Module = {
-      locateFile: (path: string) => {
-        console.log('[wasmpsx] locateFile:', path);
+    await new Promise<void>((resolve, reject) => {
+      if (document.getElementById('wasmpsx-script')) { this._scriptLoaded = true; resolve(); return; }
 
-        if (path.endsWith('.worker.js')) return base + 'wasmpsx_worker';
-        if (path.endsWith('.wasm') && path.includes('worker')) return base + 'wasmpsx_worker.wasm';
-        if (path.endsWith('.wasm')) return base + 'wasmpsx_wasm.wasm';
+      const base = new URL('assets/ps1/', document.baseURI).toString();
 
-        return base + path;
-      }
-    };
+      // Map how Emscripten resolves its side files given your names
+      (window as any).Module = {
+        locateFile: (path: string) => {
+          console.log('[wasmpsx] locateFile:', path);
+          if (path.endsWith('.worker.js')) return base + 'wasmpsx_worker.js';
+          if (path.includes('worker') && path.endsWith('.wasm')) return base + 'wasmpsx_worker.wasm';
+          if (path.endsWith('.wasm')) return base + 'wasmpsx_wasm.wasm';
+          return base + path;
+        }
+      };
 
-    const s = document.createElement('script');
-    s.id = 'wasmpsx-script';
-    s.src = base + 'wasmpsx.min';
-    s.async = true;
-
-    s.onload = () => {
-      this._scriptLoaded = true;
-      resolve();
-    };
-    s.onerror = reject;
-
-    document.head.appendChild(s);
-  });
-} 
+      const s = document.createElement('script');
+      s.id = 'wasmpsx-script';
+      s.src = base + 'wasmpsx.min.js';   // 👈 add .js
+      s.async = true;
+      s.onload = () => { this._scriptLoaded = true; resolve(); };
+      s.onerror = (e) => reject(e);
+      document.head.appendChild(s);
+    });
+  }
 
   async toggleFullscreen(): Promise<void> {
     const target = this.fullscreenContainer?.nativeElement || this.containerRef.nativeElement;
@@ -186,6 +176,23 @@ private async ensureWasmPsxLoaded(): Promise<void> {
       this.isFullScreen = false;
     }
   }
+
+
+  private waitForPlayerReady(el: any, timeoutMs = 20000): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error('wasmpsx not ready in time')), timeoutMs);
+
+      if (el?.isReady === true) { clearTimeout(t); return resolve(); }
+      if (el?.ready instanceof Promise) { el.ready.then(() => { clearTimeout(t); resolve(); }).catch(reject); return; }
+
+      el?.addEventListener?.('ready', () => { clearTimeout(t); resolve(); }, { once: true });
+
+      const iv = setInterval(() => {
+        if (el?.worker || el?.module) { clearInterval(iv); clearTimeout(t); resolve(); }
+      }, 100);
+    });
+  }
+
 
   getRomName(): string {
     const n = this.romName || '';
