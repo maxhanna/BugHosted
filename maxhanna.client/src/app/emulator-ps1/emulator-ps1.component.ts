@@ -3,6 +3,7 @@ import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, NgZone, OnDest
 import { ChildComponent } from '../child.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { RomService } from '../../services/rom.service';
+import { FileService } from '../../services/file.service';
 import { FileSearchComponent } from '../file-search/file-search.component';
 
 
@@ -25,6 +26,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
 
   constructor(
     private romService: RomService,
+    private fileService: FileService,
     private ngZone: NgZone,
   ) {
     super();
@@ -32,7 +34,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
 
   ngOnInit(): void {
   }
-  
+
   async ngAfterViewInit() {
     await this.ensureWasmPsxLoaded();
     // Create the <wasmpsx-player> element when the script is present.
@@ -132,6 +134,14 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   getRomName(): string {
     const n = this.romName || '';
     return n.replace(/\.(bin|img|iso|cue|mdf|pbp|chd)$/i, '');
+  } 
+  
+  getAllowedRomFileTypes(): string[] {
+    return this.fileService.ps1FileExtensions;
+  }
+  
+  getAllowedRomFileTypesString(): string {
+    return this.fileService.ps1FileExtensions.map(e => '.' + e.trim().toLowerCase()).join(',');
   } 
 
   showMenuPanel() {

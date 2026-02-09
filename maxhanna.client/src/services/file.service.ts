@@ -42,6 +42,10 @@ export class FileService {
 		"z64", "n64", "v64", "bin", "zip"
 	];
 
+	ps1FileExtensions = [
+		"bin"
+	];
+
 	async getDirectory(
 		dir: string,
 		visibility: string,

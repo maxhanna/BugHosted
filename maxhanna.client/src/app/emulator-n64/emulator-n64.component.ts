@@ -1122,6 +1122,7 @@ private runAfterMenuClosed(cb: () => void) {
   getAllowedRomFileTypes(): string[] {
     return this.fileService.n64FileExtensions;
   }
+  
   getAllowedRomFileTypesString(): string {
     return this.fileService.n64FileExtensions.map(e => '.' + e.trim().toLowerCase()).join(',');
   }

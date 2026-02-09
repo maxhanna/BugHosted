@@ -21,7 +21,7 @@
       [displayComments]="false"
       [displayFileSize]="false"
       [displayReactions]="false"
-      [allowedFileTypes]="['bin','img','iso','cue','mdf','pbp','chd']"
+      [allowedFileTypes]="getAllowedRomFileTypes()"
       [disabled]="isLoading"
       [showPicturesOnlyToggler]="false"
       [showVideosOnlyToggler]="false"
@@ -41,9 +41,22 @@
 
   <!-- Menu Popup -->
   <div class="popupPanel" *ngIf="isMenuPanelOpen">
-    <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
+    <div class="popupPanelTitle" style="margin-bottom:15px;">
       PS1 Menu
-    </div>
-
+    </div> 
+    <div>
+      <app-file-upload
+        [currentDirectory]="'Roms'"
+        [user]="parentRef?.user!"
+        [inputtedParentRef]="parentRef"
+        [uploadButtonText]="'Upload Rom(s)'"
+        [maxSelectedFiles]="100"
+        [allowedFileTypes]="getAllowedRomFileTypesString()"
+        [displayOptionsAndTopicsButtons]="false"
+        (userUploadEvent)="isFileUploaderExpanded = true;"
+        (userCancelEvent)="isFileUploaderExpanded = false;"
+        (userUploadFinishedEvent)="finishFileUploading()">
+      </app-file-upload>
+    </div> 
     <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
   </div>
