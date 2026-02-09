@@ -823,23 +823,23 @@ ON DUPLICATE KEY UPDATE
             _config.GetValue<string>("ConnectionStrings:maxhanna"));
         await connection.OpenAsync(ct).ConfigureAwait(false);
 
-        const string sql = @"
-            SELECT COUNT(*) AS cnt
-            FROM (
-              SELECT ep.user_id
-              FROM maxhanna.emulation_play_time AS ep
-              WHERE ep.user_id IS NOT NULL
-                AND ep.save_time IS NOT NULL
-                AND ep.save_time >= @cutoff
-                AND (
-                  ep.rom_file_name LIKE '%.sra'
-                    OR ep.rom_file_name LIKE '%.eep' 
-                    OR ep.rom_file_name LIKE '%.fla'
-                    OR ep.rom_file_name LIKE '%.z64'
-                    OR ep.rom_file_name LIKE '%.n64'
-                    OR ep.rom_file_name LIKE '%.v64'
-                )
-            ) AS recent;";
+        const string sql = @" 
+          SELECT COUNT(*) AS cnt
+          FROM (
+            SELECT ep.user_id
+            FROM maxhanna.emulation_play_time AS ep
+            WHERE ep.user_id IS NOT NULL
+              AND ep.save_time IS NOT NULL
+              AND (ep.save_time >= @cutoff OR ep.start_time >= @cutoff)
+              AND (
+                ep.rom_file_name LIKE '%.sra'
+                  OR ep.rom_file_name LIKE '%.eep' 
+                  OR ep.rom_file_name LIKE '%.fla'
+                  OR ep.rom_file_name LIKE '%.z64'
+                  OR ep.rom_file_name LIKE '%.n64'
+                  OR ep.rom_file_name LIKE '%.v64'
+              )
+          ) AS recent;";
 
         await using var cmd = new MySqlCommand(sql, connection)
         {
