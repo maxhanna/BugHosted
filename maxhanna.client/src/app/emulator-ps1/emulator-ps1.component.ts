@@ -36,19 +36,35 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   ngOnInit(): void {
   }
 
-  async ngAfterViewInit() {
-    await this.ensureWasmPsxLoaded();
+  
+async ngAfterViewInit() {
+  // 1) Create and append the <wasmpsx-player> BEFORE loading the script
+  this.playerEl = document.createElement('wasmpsx-player') as any;
+  if (this.playerEl) {
+    this.playerEl.id = 'psxPlayer'; // optional, helpful for debugging
+    this.playerEl.style.display = 'block';
+    this.playerEl.style.width = '100%';
+    this.playerEl.style.height = '100%';
+    this.containerRef.nativeElement.appendChild(this.playerEl);
+  }
+  // 2) Now load the script (it may eagerly look for the element we just added)
+  await this.ensureWasmPsxLoaded();
 
-    this.playerEl = document.createElement('wasmpsx-player') as any;
-    if (this.playerEl) {
+  // 3) Wait for custom element definition/upgrade (browser-level)
+  await customElements.whenDefined('wasmpsx-player');
 
-      this.playerEl.style.display = 'block';
-      this.playerEl.style.width = '100%';
-      this.playerEl.style.height = '100%';
+  // 4) If the first element didn’t upgrade (very rare), replace it once
+  if (typeof (this.playerEl as any).readFile !== 'function') {
+    const upgraded = document.createElement('wasmpsx-player') as any;
+    upgraded.id = 'psxPlayer';
+    upgraded.style.display = 'block';
+    upgraded.style.width = '100%';
+    upgraded.style.height = '100%';
+    this.containerRef.nativeElement.replaceChild(upgraded, this.playerEl!);
+    this.playerEl = upgraded;
+  }
+}
 
-      this.containerRef.nativeElement.appendChild(this.playerEl);
-    }
-  } 
 
   ngOnDestroy(): void {
     try { this.stopGame().catch(() => { }); } catch { }
@@ -118,38 +134,25 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  private async ensureWasmPsxLoaded(): Promise<void> {
-    console.log('Ensuring wasmpsx is loaded');
-    if (this._scriptLoaded) {
-      await customElements.whenDefined('wasmpsx-player');
-      return;
-    }
+  
+private async ensureWasmPsxLoaded(): Promise<void> {
+  console.log('Ensuring wasmpsx is loaded');
 
-    await new Promise<void>((resolve, reject) => {
-      const existing = document.getElementById('wasmpsx-script') as HTMLScriptElement | null;
-      if (existing) {
-        this._scriptLoaded = true;
-        resolve();
-        return;
-      }
+  if (this._scriptLoaded) return; // defer whenDefined to the caller
 
-      const s = document.createElement('script');
-      s.id = 'wasmpsx-script';
-      s.src = '/assets/ps1/wasmpsx.min.js';
-      s.async = true;
+  await new Promise<void>((resolve, reject) => {
+    const existing = document.getElementById('wasmpsx-script') as HTMLScriptElement | null;
+    if (existing) { this._scriptLoaded = true; resolve(); return; }
 
-      s.onload = () => {
-        this._scriptLoaded = true;
-        resolve();
-      };
-      s.onerror = (e) => reject(e);
-
-      document.head.appendChild(s);
-    });
-
-    // ✅ CRITICAL LINE
-    await customElements.whenDefined('wasmpsx-player');
-  }
+    const s = document.createElement('script');
+    s.id = 'wasmpsx-script';
+    s.src = '/assets/ps1/wasmpsx.min.js';
+    s.async = true;
+    s.onload = () => { this._scriptLoaded = true; resolve(); };
+    s.onerror = (e) => reject(e);
+    document.head.appendChild(s);
+  });
+} 
 
   async toggleFullscreen(): Promise<void> {
     const target = this.fullscreenContainer?.nativeElement || this.containerRef.nativeElement;
