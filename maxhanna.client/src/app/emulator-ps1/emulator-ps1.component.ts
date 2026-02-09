@@ -31,7 +31,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     private ngZone: NgZone,
   ) {
     super();
-  } 
+  }
 
   ngOnInit(): void {
   }
@@ -49,11 +49,11 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   }
 
   ngOnDestroy(): void {
-    try { this.stopGame().catch(() => {}); } catch {}
+    try { this.stopGame().catch(() => { }); } catch { }
     // Remove the player element to release DOM references
     try {
       if (this.playerEl?.parentElement) this.playerEl.parentElement.removeChild(this.playerEl);
-    } catch {}
+    } catch { }
     this.playerEl = undefined;
   }
 
@@ -104,7 +104,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
       if (this.playerEl) {
         const el = this.playerEl;
         // Try pause() if present, then detach/recreate
-        try { (el as any).pause?.(); } catch {}
+        try { (el as any).pause?.(); } catch { }
         el.remove();
         // Recreate an empty player element so the UI stays ready
         const fresh = document.createElement('wasmpsx-player') as any;
@@ -135,25 +135,26 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   getRomName(): string {
     const n = this.romName || '';
     return n.replace(/\.(bin|img|iso|cue|mdf|pbp|chd)$/i, '');
-  } 
-  
+  }
+
   getAllowedRomFileTypes(): string[] {
     return this.fileService.ps1FileExtensions;
   }
-  
+
   getAllowedRomFileTypesString(): string {
     return this.fileService.ps1FileExtensions.map(e => '.' + e.trim().toLowerCase()).join(',');
-  } 
+  }
 
   finishFileUploading() {
     this.isFileUploaderExpanded = false;
     this.parentRef?.closeOverlay();
   }
-  
+
   showMenuPanel() {
     this.isMenuPanelOpen = true;
     this.parentRef?.showOverlay();
   }
+  
   closeMenuPanel() {
     this.isMenuPanelOpen = false;
     this.parentRef?.closeOverlay();
