@@ -73,8 +73,7 @@ try {
   files.forEach(f => console.log(chalk.gray(`  - ${f}`)));
 } catch (err) {
   console.log(chalk.yellow(`Could not list files in dist path: ${err.message}`));
-}
-
+} 
 
 // ========= External Game Assets (served outside dist) ========= 
 const externalAssetsRoot = path.join(__dirname, 'src', 'assets');
@@ -104,6 +103,31 @@ if (externalAssetsRoot && fs.existsSync(externalAssetsRoot)) {
   console.log(chalk.yellow('ASSETS_ROOT not set or missing; external game assets not mounted'));
 }
 
+// ========= PS1 Emulator Assets (from src/assets) =========
+const ps1AssetsPath = path.join(__dirname, 'src', 'assets', 'ps1');
+if (fs.existsSync(ps1AssetsPath)) {
+  app.use('/assets/ps1', express.static(ps1AssetsPath, {
+    fallthrough: false,            // 404 if not found; don't fall to SPA
+    maxAge: '1y',
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, filePath) => {
+      // Ensure the right types for WASM and extensionless JS
+      if (filePath.endsWith('.wasm')) {
+        res.set('Content-Type', 'application/wasm');
+      }
+      if (filePath.endsWith(path.sep + 'wasmpsx.min') ||
+          filePath.endsWith(path.sep + 'wasmpsx_worker')) {
+        res.set('Content-Type', 'application/javascript; charset=utf-8');
+      }
+      res.set('X-Content-Type-Options', 'nosniff');
+    }
+  }));
+  console.log(chalk.gray(`✓ Serving PS1 assets from: ${ps1AssetsPath}`));
+} else {
+  console.log(chalk.yellow(`PS1 assets folder missing: ${ps1AssetsPath}`));
+}
+
 // Serve Uploads folder separately to avoid SPA fallback
 const uploadsRoot = path.join(__dirname, 'src', 'assets', 'Uploads'); // <-- adjust to your real path
 if (fs.existsSync(uploadsRoot)) {
@@ -121,8 +145,7 @@ if (fs.existsSync(uploadsRoot)) {
   console.log(chalk.gray(`✓ Serving uploads from: ${uploadsRoot}`));
 } else {
   console.log(chalk.yellow(`Uploads folder missing: ${uploadsRoot}`));
-}
-
+} 
 
 // Explicitly serve built assets from the dist 'assets' folder if present.
 // This ensures files like `/assets/mupen64plus/*.wasm` are served directly
@@ -464,31 +487,6 @@ app.use(express.static(config.distPath, {
   },
 }));
 
-
-// ========= PS1 Emulator Assets (from src/assets) =========
-const ps1AssetsPath = path.join(__dirname, 'src', 'assets', 'ps1');
-if (fs.existsSync(ps1AssetsPath)) {
-  app.use('/assets/ps1', express.static(ps1AssetsPath, {
-    fallthrough: false,            // 404 if not found; don't fall to SPA
-    maxAge: '1y',
-    etag: true,
-    lastModified: true,
-    setHeaders: (res, filePath) => {
-      // Ensure the right types for WASM and extensionless JS
-      if (filePath.endsWith('.wasm')) {
-        res.set('Content-Type', 'application/wasm');
-      }
-      if (filePath.endsWith(path.sep + 'wasmpsx.min') ||
-          filePath.endsWith(path.sep + 'wasmpsx_worker')) {
-        res.set('Content-Type', 'application/javascript; charset=utf-8');
-      }
-      res.set('X-Content-Type-Options', 'nosniff');
-    }
-  }));
-  console.log(chalk.gray(`✓ Serving PS1 assets from: ${ps1AssetsPath}`));
-} else {
-  console.log(chalk.yellow(`PS1 assets folder missing: ${ps1AssetsPath}`));
-}
 
 // Serve `src/assets` directly only in development (avoids serving uploads in production)
 const assetsPath = path.join(__dirname, 'src', 'assets');
