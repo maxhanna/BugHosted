@@ -1,11 +1,43 @@
-<div class="componentMain">
-  <div class="closeButton" (click)="remove_me('EmulatorPS1Component')"></div>
-  <div class="menuButton" (click)="showMenuPanel();"></div>
-  <div class="componentTitle">PS1 Emulator</div>
-
-  <div>
-    Coming soon
+<div class="componentMain" [style.paddingTop]="isFullScreen ? '0px' : null">
+  <div class="closeButton" (click)="remove_me('EmulatorPs1Component');" *ngIf="!isFullScreen"></div>
+  <div class="menuButton" (click)="toggleFullscreen();" *ngIf="romName && !isFullScreen"></div>
+  <div class="componentTitle" *ngIf="!isFullScreen">
+    <span class="romNameTitle">{{ romName ? getRomName() : 'PS1 Emulator' }}</span>
   </div>
+  <div *ngIf="!romName">Please note: Still under construction</div>
+
+  <!-- Search panel (hide after selecting a ROM) -->
+  <div class="gamesContainer expanded" *ngIf="!romName">
+    <app-file-search
+      [user]="parentRef?.user"
+      [inputtedParentRef]="parentRef"
+      [currentDirectory]="'Roms/'"
+      [clearAfterSelectFile]="true"
+      [showPrivatePublicOption]="false"
+      [showFileSearchOptions]="false"
+      [canChangeDirectory]="false"
+      [canDragMove]="false"
+      [displayFileActions]="true"
+      [displayComments]="false"
+      [displayFileSize]="false"
+      [displayReactions]="false"
+      [allowedFileTypes]="['bin','img','iso','cue','mdf','pbp','chd']"
+      [disabled]="isLoading"
+      [showPicturesOnlyToggler]="false"
+      [showVideosOnlyToggler]="false"
+      [showNSFWToggler]="false"
+      (selectFileEvent)="onFileSearchSelected($event)">
+    </app-file-search>
+  </div>
+
+  <!-- Emulator viewport -->
+  <div #fullscreenContainer [style.visibility]="romName ? 'visible' : 'hidden'"
+       [style.height]="romName ? (isFullScreen ? '100vh' : '') : '0px'">
+    <div class="screen-area">
+      <div #container class="player-container"></div>
+    </div>
+  </div>
+</div>
 
   <!-- Menu Popup -->
   <div class="popupPanel" *ngIf="isMenuPanelOpen">
