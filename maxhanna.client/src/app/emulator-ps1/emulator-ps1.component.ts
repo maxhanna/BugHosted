@@ -38,15 +38,17 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
 
   async ngAfterViewInit() {
     await this.ensureWasmPsxLoaded();
-    // Create the <wasmpsx-player> element when the script is present.
+
     this.playerEl = document.createElement('wasmpsx-player') as any;
     if (this.playerEl) {
+
       this.playerEl.style.display = 'block';
       this.playerEl.style.width = '100%';
       this.playerEl.style.height = '100%';
+
       this.containerRef.nativeElement.appendChild(this.playerEl);
     }
-  }
+  } 
 
   ngOnDestroy(): void {
     try { this.stopGame().catch(() => { }); } catch { }
@@ -55,21 +57,6 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
       if (this.playerEl?.parentElement) this.playerEl.parentElement.removeChild(this.playerEl);
     } catch { }
     this.playerEl = undefined;
-  }
-
-  private ensureWasmPsxLoaded(): Promise<void> {
-    if (this._scriptLoaded) return Promise.resolve();
-    return new Promise((resolve, reject) => {
-      const existing = document.getElementById('wasmpsx-script') as HTMLScriptElement | null;
-      if (existing) { this._scriptLoaded = true; resolve(); return; }
-      const s = document.createElement('script');
-      s.id = 'wasmpsx-script';
-      s.src = '/assets/ps1/wasmpsx.min.js'; // served with worker + wasm in same folder
-      s.async = true;
-      s.onload = () => { this._scriptLoaded = true; resolve(); };
-      s.onerror = (e) => reject(e);
-      document.head.appendChild(s);
-    });
   }
 
   async onFileSearchSelected(file: FileEntry) {
@@ -87,6 +74,11 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
 
       // 2) Use readFile() to avoid CORS on blob URLs
       const gameFile = new File([ab], this.romName, { type: 'application/octet-stream' });
+      console.log('readFile exists:', typeof (this.playerEl as any).readFile);
+      if (typeof (this.playerEl as any).readFile !== 'function') {
+        throw new Error('wasmpsx-player not initialized');
+      }
+
       (this.playerEl as any).readFile(gameFile); // WASMpsx API
 
       this.parentRef?.showNotification(`Booted ${this.getRomName()}`);
@@ -119,6 +111,38 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
       this.romName = undefined;
       this.isFullScreen = false;
     }
+  }
+
+  private async ensureWasmPsxLoaded(): Promise<void> {
+    if (this._scriptLoaded) {
+      await customElements.whenDefined('wasmpsx-player');
+      return;
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      const existing = document.getElementById('wasmpsx-script') as HTMLScriptElement | null;
+      if (existing) {
+        this._scriptLoaded = true;
+        resolve();
+        return;
+      }
+
+      const s = document.createElement('script');
+      s.id = 'wasmpsx-script';
+      s.src = '/assets/ps1/wasmpsx.min.js';
+      s.async = true;
+
+      s.onload = () => {
+        this._scriptLoaded = true;
+        resolve();
+      };
+      s.onerror = (e) => reject(e);
+
+      document.head.appendChild(s);
+    });
+
+    // ✅ CRITICAL LINE
+    await customElements.whenDefined('wasmpsx-player');
   }
 
   async toggleFullscreen(): Promise<void> {
@@ -154,7 +178,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     this.isMenuPanelOpen = true;
     this.parentRef?.showOverlay();
   }
-  
+
   closeMenuPanel() {
     this.isMenuPanelOpen = false;
     this.parentRef?.closeOverlay();
