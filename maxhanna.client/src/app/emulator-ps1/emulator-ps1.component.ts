@@ -21,6 +21,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   isMenuPanelOpen = false;
   isFullScreen = false;
   romName?: string;
+  isFileUploaderExpanded = false;
   private playerEl?: WasmPsxPlayerElement;
   private _scriptLoaded = false;
 
@@ -144,6 +145,11 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     return this.fileService.ps1FileExtensions.map(e => '.' + e.trim().toLowerCase()).join(',');
   } 
 
+  finishFileUploading() {
+    this.isFileUploaderExpanded = false;
+    this.parentRef?.closeOverlay();
+  }
+  
   showMenuPanel() {
     this.isMenuPanelOpen = true;
     this.parentRef?.showOverlay();

@@ -40,7 +40,7 @@
 </div>
 
   <!-- Menu Popup -->
-  <div class="popupPanel" *ngIf="isMenuPanelOpen">
+  <div [class]="'popupPanel' + (isFileUploaderExpanded ? ' uploaderPopupPanel' : '')" *ngIf="isMenuPanelOpen">
     <div class="popupPanelTitle" style="margin-bottom:15px;">
       PS1 Menu
     </div> 

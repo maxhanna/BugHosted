@@ -3,3 +3,4 @@
 .gamesContainer { width: 100%; height: calc(var(--vh, 1vh) * 100 - 65px); overflow: auto; }
 .screen-area { width: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .player-container { width: 100%; height: calc(100vh - 60px); }
+.uploaderPopupPanel { width: calc(100% - 60px); min-height: 60vh; }
