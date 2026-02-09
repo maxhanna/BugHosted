@@ -96,6 +96,7 @@ import { CryptoNewsArticlesComponent } from './crypto-news-articles/crypto-news-
 import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
 import { BonesComponent } from './bones/bones.component';
 import { EmulatorN64Component } from './emulator-n64/emulator-n64.component';
+import { EmulatorPS1Component } from './emulator-ps1/emulator-ps1.component';
 import { DailyMusicComponent } from './daily-music/daily-music.component';
 import { ProfileWidgetsComponent } from './profile-widgets/profile-widgets.component';
 import { BonesHighScoresComponent } from './bones-high-scores/bones-high-scores.component';
@@ -185,6 +186,7 @@ import { CurrentlyPlayingComponent } from './currently-playing/currently-playing
     DailyMusicComponent,
     ProfileWidgetsComponent,
     EmulatorN64Component,
+    EmulatorPS1Component,
     NewUsersComponent,
     CurrentlyPlayingComponent,
   ],

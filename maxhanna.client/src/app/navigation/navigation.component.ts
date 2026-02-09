@@ -119,6 +119,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
   // Emulation stats
   emulationActivePlayers: number | null = null;
   private emulationInterval: any;
+  // N64Emulation stats
+  emulationN64ActivePlayers: number | null = null;
+  private emulationN64Interval: any;
   // Social stats
   socialTotalPosts: number | null = null;
   private socialInterval: any;
@@ -152,6 +155,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     clearInterval(this.musicInterval);
     clearInterval(this.arrayInterval);
     clearInterval(this.emulationInterval);
+    clearInterval(this.emulationN64Interval);
     clearInterval(this.socialInterval);
     clearInterval(this.crawlerInterval);
     clearInterval(this.artInterval);
@@ -197,6 +201,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       Promise.resolve(this.getMusicInfo()),
       Promise.resolve(this.getArrayPlayerInfo()),
       Promise.resolve(this.getEmulationPlayerInfo()),
+      Promise.resolve(this.getN64EmulationPlayerInfo()),
       Promise.resolve(this.getSocialInfo()),
       Promise.resolve(this.getArtInfo()),
       Promise.resolve(this.getCrawlerInfo()),
@@ -222,6 +227,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.musicInterval = setInterval(() => { if (this.notificationsActive) this.getMusicInfo(); }, 60 * 60 * 1000); // every hour
     this.arrayInterval = setInterval(() => { if (this.notificationsActive) this.getArrayPlayerInfo(); }, 60 * 1000); // every minute
     this.emulationInterval = setInterval(() => { if (this.notificationsActive) this.getEmulationPlayerInfo(); }, 60 * 1000); // every minute
+    this.emulationN64Interval = setInterval(() => { if (this.notificationsActive) this.getN64EmulationPlayerInfo(); }, 60 * 1000); // every minute
     this.socialInterval = setInterval(() => { if (this.notificationsActive) this.getSocialInfo(); }, 5 * 60 * 1000); // every 5 minutes
     this.artInterval = setInterval(() => { if (this.notificationsActive) this.getArtInfo(); }, 5 * 60 * 1000); // every 5 minutes
     this.crawlerInterval = setInterval(() => { if (this.notificationsActive) this.getCrawlerInfo(); }, 60 * 60 * 1000); // every hour
@@ -241,6 +247,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     clearInterval(this.musicInterval);
     clearInterval(this.arrayInterval);
     clearInterval(this.emulationInterval);
+    clearInterval(this.emulationN64Interval);
     clearInterval(this.artInterval);
     clearInterval(this.socialInterval);
     clearInterval(this.crawlerInterval);
@@ -695,6 +702,20 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const emuNav = this._parent.navigationItems.find(x => x.title === 'Emulation');
       if (emuNav) {
         emuNav.content = this.emulationActivePlayers != null ? this.emulationActivePlayers.toString() : '';
+      }
+    }
+  }
+
+  private async getN64EmulationPlayerInfo() {
+    if (!this.notificationsActive) return;
+    try {
+      const res: any = await this.romService.getActiveN64Players(2);
+      this.emulationN64ActivePlayers = res?.count ?? null;
+    } catch { this.emulationN64ActivePlayers = null; }
+    if (this._parent?.navigationItems) {
+      const emuNav = this._parent.navigationItems.find(x => x.title === 'N64Emulator');
+      if (emuNav) {
+        emuNav.content = this.emulationN64ActivePlayers != null ? this.emulationN64ActivePlayers.toString() : '';
       }
     }
   }

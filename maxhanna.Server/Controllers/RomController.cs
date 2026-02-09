@@ -15,160 +15,15 @@ namespace maxhanna.Server.Controllers
     private readonly IConfiguration _config;
     private readonly string _baseTarget = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Roms/";
     private readonly string[] saveExts = [".sav", ".srm", ".eep", ".sra", ".fla"];
-
+		private readonly HashSet<string> n64Extensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
+		    ".z64", ".n64", ".v64", ".bin", ".zip"
+		};
 
     public RomController(Log log, IConfiguration config)
     {
       _log = log;
       _config = config;
     }
-
-
-    [HttpPost("/Rom/ActivePlayers", Name = "Rom_ActivePlayers")]
-    public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, CancellationToken ct = default)
-    {
-      var windowMinutes = Math.Clamp(minutes ?? 2, 1, 24 * 60);
-      var cutoffUtc = DateTime.UtcNow.AddMinutes(-windowMinutes);
-
-      try
-      {
-        await using var connection = new MySqlConnection(
-            _config.GetValue<string>("ConnectionStrings:maxhanna"));
-        await connection.OpenAsync(ct).ConfigureAwait(false);
-
-        const string sql = @"
-            SELECT COUNT(*) AS cnt
-            FROM (
-              SELECT ep.user_id
-              FROM maxhanna.emulation_play_time AS ep
-              WHERE ep.user_id IS NOT NULL
-                AND ep.save_time IS NOT NULL
-                AND ep.save_time >= @cutoff
-
-              UNION
-
-              SELECT fu.user_id
-              FROM maxhanna.file_uploads AS fu
-              WHERE fu.user_id IS NOT NULL
-                AND fu.file_type = 'sav'
-                AND (
-                  (fu.upload_date IS NOT NULL AND fu.upload_date >= @cutoff)
-                  OR (fu.last_access IS NOT NULL AND fu.last_access >= @cutoff)
-                )
-            ) AS recent;";
-
-        await using var cmd = new MySqlCommand(sql, connection)
-        {
-          CommandTimeout = 5
-        };
-        cmd.Parameters.Add("@cutoff", MySqlDbType.DateTime).Value = cutoffUtc;
-
-        var obj = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
-        int count = (obj == null || obj == DBNull.Value) ? 0 : Convert.ToInt32(obj);
-
-        return Ok(new { count });
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("Rom ActivePlayers error: " + ex.Message, null, "ROM", true);
-        return StatusCode(500, "Internal server error");
-      }
-    }
-
-
-
-    [HttpGet("/Rom/UserStats/{userId}")]
-    public async Task<IActionResult> UserStats(int userId)
-    {
-      try
-      {
-        using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-        {
-          await connection.OpenAsync();
-          string totalSql = @"SELECT IFNULL(SUM(duration_seconds),0) AS totalSeconds FROM maxhanna.emulation_play_time WHERE user_id = @UserId;";
-          var totalCmd = new MySqlCommand(totalSql, connection);
-          totalCmd.Parameters.AddWithValue("@UserId", userId);
-          var totalSecondsObj = await totalCmd.ExecuteScalarAsync();
-          int totalSeconds = Convert.ToInt32(totalSecondsObj ?? 0);
-
-          // Count distinct ROM uploads for this user (files in folder_path = 'roms')
-          string romCountSql = @"SELECT COUNT(*) FROM maxhanna.file_uploads WHERE user_id = @UserId AND folder_path = @FolderPath and file_type != 'sav';";
-          var romCountCmd = new MySqlCommand(romCountSql, connection);
-          romCountCmd.Parameters.AddWithValue("@UserId", userId);
-          romCountCmd.Parameters.AddWithValue("@FolderPath", _baseTarget);
-          var romCountObj = await romCountCmd.ExecuteScalarAsync();
-          int romCount = Convert.ToInt32(romCountObj ?? 0);
-
-          string topSql = @"SELECT rom_file_name, plays FROM maxhanna.emulation_play_time WHERE user_id = @UserId ORDER BY plays DESC LIMIT 1;";
-          var topCmd = new MySqlCommand(topSql, connection);
-          topCmd.Parameters.AddWithValue("@UserId", userId);
-          using (var reader = await topCmd.ExecuteReaderAsync())
-          {
-            string? topName = null;
-            int topPlays = 0;
-            if (await reader.ReadAsync())
-            {
-              topName = reader.IsDBNull(0) ? null : reader.GetString(0);
-              topPlays = reader.IsDBNull(1) ? 0 : reader.GetInt32(1);
-            }
-            return Ok(new { totalSeconds = totalSeconds, topGameName = topName, topGamePlays = topPlays, romCount = romCount });
-          }
-        }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("Error fetching user emulation stats: " + ex.Message, userId, "ROM", true);
-        return StatusCode(500, "Error fetching stats");
-      }
-    }
-
-
-    [HttpGet("/Rom/UserGameBreakdown/{userId}")]
-    public async Task<IActionResult> UserGameBreakdown(int userId)
-    {
-      try
-      {
-        using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-        {
-          await connection.OpenAsync();
-          string sql = @"SELECT rom_file_name, IFNULL(SUM(duration_seconds),0) AS totalSeconds, IFNULL(SUM(plays),0) AS plays FROM maxhanna.emulation_play_time WHERE user_id = @UserId GROUP BY rom_file_name ORDER BY totalSeconds DESC;";
-          var cmd = new MySqlCommand(sql, connection);
-          cmd.Parameters.AddWithValue("@UserId", userId);
-          using (var reader = await cmd.ExecuteReaderAsync())
-          {
-            var list = new List<object>();
-            while (await reader.ReadAsync())
-            {
-              string? name = reader.IsDBNull(0) ? null : reader.GetString(0);
-              int totalSeconds = reader.IsDBNull(1) ? 0 : reader.GetInt32(1);
-              int plays = reader.IsDBNull(2) ? 0 : reader.GetInt32(2);
-              list.Add(new { romFileName = name, totalSeconds = totalSeconds, plays = plays });
-            }
-            return Ok(list);
-          }
-        }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("Error fetching user emulation breakdown: " + ex.Message, userId, "ROM", true);
-        return StatusCode(500, "Error fetching breakdown");
-      }
-    }
-
-
-    private bool ValidatePath(string directory)
-    {
-      if (!directory.Contains(_baseTarget))
-      {
-        _ = _log.Db($"'{directory}'Must be within '{_baseTarget}'", null, "ROM", true);
-        return false;
-      }
-      else
-      {
-        return true;
-      }
-    }
-
 
     [HttpPost("/Rom/Uploadrom", Name = "Uploadrom")]
     public async Task<IActionResult> UploadRom()
@@ -336,9 +191,7 @@ namespace maxhanna.Server.Controllers
         _ = _log.Db("An error occurred while uploading files." + ex.Message, null, "ROM", true);
         return StatusCode(500, "An error occurred while uploading files.");
       }
-    }
-
-
+    } 
 
     [HttpPost("/Rom/GetRomFile/{filePath}", Name = "GetRomFile")]
     public async Task<IActionResult> GetRomFile([FromRoute] string filePath, [FromBody] GetRomFileRequest req)
@@ -547,9 +400,152 @@ ON DUPLICATE KEY UPDATE
       return File(data, "application/octet-stream", fileName);
     } 
 
-    // ---------------------------
-    // Helpers
-    // ---------------------------
+   
+    [HttpPost("/Rom/ActivePlayers", Name = "Rom_ActivePlayers")]
+    public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, CancellationToken ct = default)
+    {
+      var windowMinutes = Math.Clamp(minutes ?? 2, 1, 24 * 60);
+      var cutoffUtc = DateTime.UtcNow.AddMinutes(-windowMinutes);
+
+      try
+      {
+        await using var connection = new MySqlConnection(
+            _config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await connection.OpenAsync(ct).ConfigureAwait(false);
+
+        const string sql = @"
+            SELECT COUNT(*) AS cnt
+            FROM (
+              SELECT ep.user_id
+              FROM maxhanna.emulation_play_time AS ep
+              WHERE ep.user_id IS NOT NULL
+                AND ep.save_time IS NOT NULL
+                AND ep.save_time >= @cutoff
+
+              UNION
+
+              SELECT fu.user_id
+              FROM maxhanna.file_uploads AS fu
+              WHERE fu.user_id IS NOT NULL
+                AND fu.file_type = 'sav'
+                AND (
+                  (fu.upload_date IS NOT NULL AND fu.upload_date >= @cutoff)
+                  OR (fu.last_access IS NOT NULL AND fu.last_access >= @cutoff)
+                )
+            ) AS recent;";
+
+        await using var cmd = new MySqlCommand(sql, connection)
+        {
+          CommandTimeout = 5
+        };
+        cmd.Parameters.Add("@cutoff", MySqlDbType.DateTime).Value = cutoffUtc;
+
+        var obj = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
+        int count = (obj == null || obj == DBNull.Value) ? 0 : Convert.ToInt32(obj);
+
+        return Ok(new { count });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Rom ActivePlayers error: " + ex.Message, null, "ROM", true);
+        return StatusCode(500, "Internal server error");
+      }
+    }
+
+
+
+    [HttpGet("/Rom/UserStats/{userId}")]
+    public async Task<IActionResult> UserStats(int userId)
+    {
+      try
+      {
+        using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+        {
+          await connection.OpenAsync();
+          string totalSql = @"SELECT IFNULL(SUM(duration_seconds),0) AS totalSeconds FROM maxhanna.emulation_play_time WHERE user_id = @UserId;";
+          var totalCmd = new MySqlCommand(totalSql, connection);
+          totalCmd.Parameters.AddWithValue("@UserId", userId);
+          var totalSecondsObj = await totalCmd.ExecuteScalarAsync();
+          int totalSeconds = Convert.ToInt32(totalSecondsObj ?? 0);
+
+          // Count distinct ROM uploads for this user (files in folder_path = 'roms')
+          string romCountSql = @"SELECT COUNT(*) FROM maxhanna.file_uploads WHERE user_id = @UserId AND folder_path = @FolderPath and file_type != 'sav';";
+          var romCountCmd = new MySqlCommand(romCountSql, connection);
+          romCountCmd.Parameters.AddWithValue("@UserId", userId);
+          romCountCmd.Parameters.AddWithValue("@FolderPath", _baseTarget);
+          var romCountObj = await romCountCmd.ExecuteScalarAsync();
+          int romCount = Convert.ToInt32(romCountObj ?? 0);
+
+          string topSql = @"SELECT rom_file_name, plays FROM maxhanna.emulation_play_time WHERE user_id = @UserId ORDER BY plays DESC LIMIT 1;";
+          var topCmd = new MySqlCommand(topSql, connection);
+          topCmd.Parameters.AddWithValue("@UserId", userId);
+          using (var reader = await topCmd.ExecuteReaderAsync())
+          {
+            string? topName = null;
+            int topPlays = 0;
+            if (await reader.ReadAsync())
+            {
+              topName = reader.IsDBNull(0) ? null : reader.GetString(0);
+              topPlays = reader.IsDBNull(1) ? 0 : reader.GetInt32(1);
+            }
+            return Ok(new { totalSeconds = totalSeconds, topGameName = topName, topGamePlays = topPlays, romCount = romCount });
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error fetching user emulation stats: " + ex.Message, userId, "ROM", true);
+        return StatusCode(500, "Error fetching stats");
+      }
+    }
+
+
+    [HttpGet("/Rom/UserGameBreakdown/{userId}")]
+    public async Task<IActionResult> UserGameBreakdown(int userId)
+    {
+      try
+      {
+        using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+        {
+          await connection.OpenAsync();
+          string sql = @"SELECT rom_file_name, IFNULL(SUM(duration_seconds),0) AS totalSeconds, IFNULL(SUM(plays),0) AS plays FROM maxhanna.emulation_play_time WHERE user_id = @UserId GROUP BY rom_file_name ORDER BY totalSeconds DESC;";
+          var cmd = new MySqlCommand(sql, connection);
+          cmd.Parameters.AddWithValue("@UserId", userId);
+          using (var reader = await cmd.ExecuteReaderAsync())
+          {
+            var list = new List<object>();
+            while (await reader.ReadAsync())
+            {
+              string? name = reader.IsDBNull(0) ? null : reader.GetString(0);
+              int totalSeconds = reader.IsDBNull(1) ? 0 : reader.GetInt32(1);
+              int plays = reader.IsDBNull(2) ? 0 : reader.GetInt32(2);
+              list.Add(new { romFileName = name, totalSeconds = totalSeconds, plays = plays });
+            }
+            return Ok(list);
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error fetching user emulation breakdown: " + ex.Message, userId, "ROM", true);
+        return StatusCode(500, "Error fetching breakdown");
+      }
+    }
+
+
+    private bool ValidatePath(string directory)
+    {
+      if (!directory.Contains(_baseTarget))
+      {
+        _ = _log.Db($"'{directory}'Must be within '{_baseTarget}'", null, "ROM", true);
+        return false;
+      }
+      else
+      {
+        return true;
+      }
+    }
+
     private static bool IsValidSize(string ext, int size, out string saveType)
     {
       saveType = ext.TrimStart('.'); // 'eep'|'sra'|'fla'
@@ -560,9 +556,7 @@ ON DUPLICATE KEY UPDATE
         case ".fla": return size == 131072;
         default: return false;
       }
-    }
-
-
+    } 
 
     [HttpPost("/Rom/GetMappings")]
     public async Task<IActionResult> GetMappings([FromBody] int UserId)
@@ -767,9 +761,7 @@ ON DUPLICATE KEY UPDATE
         _ = _log.Db($"RomController.SaveLastInputSelection failed: {ex.Message}", request?.UserId, "ROM", true);
         return StatusCode(500, "Error saving last input selection");
       }
-    }
-
-
+    } 
 
     private async Task UpdateLastAccessForRom(string fileName, int? userId, int? fileId)
     {
@@ -819,14 +811,65 @@ ON DUPLICATE KEY UPDATE
       }
     }
 
+    [HttpPost("/Rom/ActiveN64Players", Name = "Rom_ActiveN64Players")]
+    public async Task<IActionResult> ActiveN64Players([FromBody] int? minutes, CancellationToken ct = default)
+    {
+      var windowMinutes = Math.Clamp(minutes ?? 2, 1, 24 * 60);
+      var cutoffUtc = DateTime.UtcNow.AddMinutes(-windowMinutes);
+
+      try
+      {
+        await using var connection = new MySqlConnection(
+            _config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await connection.OpenAsync(ct).ConfigureAwait(false);
+
+        const string sql = @"
+            SELECT COUNT(*) AS cnt
+            FROM (
+              SELECT ep.user_id
+              FROM maxhanna.emulation_play_time AS ep
+              WHERE ep.user_id IS NOT NULL
+                AND ep.save_time IS NOT NULL
+                AND ep.save_time >= @cutoff
+                AND (
+                  ep.rom_file_name LIKE '%.sra'
+                    OR ep.rom_file_name LIKE '%.eep' 
+                    OR ep.rom_file_name LIKE '%.fla'
+                    OR ep.rom_file_name LIKE '%.z64'
+                    OR ep.rom_file_name LIKE '%.n64'
+                    OR ep.rom_file_name LIKE '%.v64'
+                )
+            ) AS recent;";
+
+        await using var cmd = new MySqlCommand(sql, connection)
+        {
+          CommandTimeout = 5
+        };
+        cmd.Parameters.Add("@cutoff", MySqlDbType.DateTime).Value = cutoffUtc;
+
+        var obj = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
+        int count = (obj == null || obj == DBNull.Value) ? 0 : Convert.ToInt32(obj);
+
+        return Ok(new { count });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Rom ActiveN64Players error: " + ex.Message, null, "ROM", true);
+        return StatusCode(500, "Internal server error");
+      }
+    }
+
 
     private async Task RecordRomSelectionAsync(int userId, string romFileName)
     {
       if (string.IsNullOrWhiteSpace(romFileName) || userId == 0) return;
-      var baseName = Path.GetFileNameWithoutExtension(romFileName);
-      if (string.IsNullOrWhiteSpace(baseName)) return;
-      romFileName = baseName + ".sav";
-
+      var ext = Path.GetExtension(romFileName);
+      if (!n64Extensions.Contains(ext))
+      {
+        string baseName = Path.GetFileNameWithoutExtension(romFileName);
+        romFileName = baseName + ".sav";
+      } 
+      
       try
       {
         using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))

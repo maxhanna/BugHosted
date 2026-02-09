@@ -1,0 +1,14 @@
+<div class="componentMain">
+  <div class="closeButton" (click)="remove_me('EmulatorPS1Component')"></div>
+  <div class="menuButton" (click)="showMenuPanel();"></div>
+  <div class="componentTitle">PS1 Emulator</div>
+    
+ 
+<!-- Menu Popup -->
+<div class="popupPanel" *ngIf="isMenuPanelOpen">
+  <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
+    PS1 Menu
+  </div>
+   
+  <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
+</div>
