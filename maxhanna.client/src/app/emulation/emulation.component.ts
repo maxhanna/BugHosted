@@ -891,7 +891,6 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     let baseTypes = this.fileService.romFileExtensions;
     baseTypes = baseTypes.filter(x => !this.fileService.n64FileExtensions.includes(x));
     baseTypes = baseTypes.filter(x => !this.fileService.ps1FileExtensions.includes(x));
-    baseTypes = baseTypes.filter(x => x != "bin");
     return baseTypes;
   }
 
