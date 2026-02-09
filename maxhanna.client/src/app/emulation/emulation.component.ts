@@ -888,7 +888,11 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   }
 
   getAllowedFileTypes(): string[] {
-    return this.fileService.romFileExtensions.filter(x => !this.fileService.n64FileExtensions.includes(x)).filter(x => x != "bin");
+    let baseTypes = this.fileService.romFileExtensions;
+    baseTypes = baseTypes.filter(x => !this.fileService.n64FileExtensions.includes(x));
+    baseTypes = baseTypes.filter(x => !this.fileService.ps1FileExtensions.includes(x));
+    baseTypes = baseTypes.filter(x => x != "bin");
+    return baseTypes;
   }
 
   get keybindingEntriesList() {
