@@ -62,7 +62,9 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   async onFileSearchSelected(file: FileEntry) {
     try {
       if (!file) { this.parentRef?.showNotification('Invalid file selected'); return; }
-      if (!this.playerEl) { await this.ensureWasmPsxLoaded(); }
+      if (!this.playerEl) { 
+        await this.ensureWasmPsxLoaded(); 
+      }
 
       this.startLoading();
       this.romName = file.fileName || 'Unknown';
@@ -71,15 +73,18 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
       const blobResp = await this.romService.getRomFile(file.fileName ?? '', this.parentRef?.user?.id, file.id);
       if (!blobResp) { this.parentRef?.showNotification('Failed to download ROM'); return; }
       const ab = await blobResp.arrayBuffer();
+      console.log('Downloaded ROM, size:', ab.byteLength);
 
       // 2) Use readFile() to avoid CORS on blob URLs
       const gameFile = new File([ab], this.romName, { type: 'application/octet-stream' });
       console.log('readFile exists:', typeof (this.playerEl as any).readFile);
       if (typeof (this.playerEl as any).readFile !== 'function') {
+        console.error('WASMpsx player readFile function not found');
         throw new Error('wasmpsx-player not initialized');
       }
 
       (this.playerEl as any).readFile(gameFile); // WASMpsx API
+      console.log('WASMpsx readFile called');
 
       this.parentRef?.showNotification(`Booted ${this.getRomName()}`);
     } catch (e) {
@@ -114,6 +119,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   }
 
   private async ensureWasmPsxLoaded(): Promise<void> {
+    console.log('Ensuring wasmpsx is loaded');
     if (this._scriptLoaded) {
       await customElements.whenDefined('wasmpsx-player');
       return;
