@@ -103,30 +103,40 @@ if (externalAssetsRoot && fs.existsSync(externalAssetsRoot)) {
   console.log(chalk.yellow('ASSETS_ROOT not set or missing; external game assets not mounted'));
 }
 
-// ========= PS1 Emulator Assets (from src/assets) =========
+
+// --- PS1 aliases at root so hardcoded relative fetch() works ---
 const ps1AssetsPath = path.join(__dirname, 'src', 'assets', 'ps1');
-if (fs.existsSync(ps1AssetsPath)) {
-  app.use('/assets/ps1', express.static(ps1AssetsPath, {
-    fallthrough: false,            // 404 if not found; don't fall to SPA
-    maxAge: '1y',
-    etag: true,
-    lastModified: true,
-    setHeaders: (res, filePath) => {
-      // Ensure the right types for WASM and extensionless JS
-      if (filePath.endsWith('.wasm')) {
-        res.set('Content-Type', 'application/wasm');
-      }
-      if (filePath.endsWith(path.sep + 'wasmpsx.min') ||
-          filePath.endsWith(path.sep + 'wasmpsx_worker')) {
-        res.set('Content-Type', 'application/javascript; charset=utf-8');
-      }
-      res.set('X-Content-Type-Options', 'nosniff');
-    }
-  }));
-  console.log(chalk.gray(`✓ Serving PS1 assets from: ${ps1AssetsPath}`));
-} else {
-  console.log(chalk.yellow(`PS1 assets folder missing: ${ps1AssetsPath}`));
+function sendStatic(res, absPath) {
+  res.set('X-Content-Type-Options', 'nosniff');
+  if (absPath.endsWith('.wasm')) res.type('application/wasm');
+  else if (absPath.endsWith('.js')) res.type('application/javascript; charset=utf-8');
+  res.sendFile(absPath);
 }
+
+app.get('/wasmpsx.min.js', (req, res) => {
+  const p = path.join(ps1AssetsPath, 'wasmpsx.min.js');
+  if (!fs.existsSync(p)) return res.status(404).end('Not found');
+  sendStatic(res, p);
+});
+
+app.get('/wasmpsx_ww.wasm', (req, res) => {
+  const p = path.join(ps1AssetsPath, 'wasmpsx_ww.wasm'); // ← your exact filename
+  if (!fs.existsSync(p)) return res.status(404).end('Not found');
+  sendStatic(res, p);
+});
+
+app.get('/wasmpsx_worker.js', (req, res) => {
+  const p = path.join(ps1AssetsPath, 'wasmpsx_worker.js');
+  if (!fs.existsSync(p)) return res.status(404).end('Not found');
+  sendStatic(res, p);
+});
+
+app.get('/wasmpsx_worker.wasm', (req, res) => {
+  const p = path.join(ps1AssetsPath, 'wasmpsx_worker.wasm');
+  if (!fs.existsSync(p)) return res.status(404).end('Not found');
+  sendStatic(res, p);
+});
+
 
 // Serve Uploads folder separately to avoid SPA fallback
 const uploadsRoot = path.join(__dirname, 'src', 'assets', 'Uploads'); // <-- adjust to your real path
