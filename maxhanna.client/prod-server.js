@@ -464,6 +464,32 @@ app.use(express.static(config.distPath, {
   },
 }));
 
+
+// ========= PS1 Emulator Assets (from src/assets) =========
+const ps1AssetsPath = path.join(__dirname, 'src', 'assets', 'ps1');
+if (fs.existsSync(ps1AssetsPath)) {
+  app.use('/assets/ps1', express.static(ps1AssetsPath, {
+    fallthrough: false,            // 404 if not found; don't fall to SPA
+    maxAge: '1y',
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, filePath) => {
+      // Ensure the right types for WASM and extensionless JS
+      if (filePath.endsWith('.wasm')) {
+        res.set('Content-Type', 'application/wasm');
+      }
+      if (filePath.endsWith(path.sep + 'wasmpsx.min') ||
+          filePath.endsWith(path.sep + 'wasmpsx_worker')) {
+        res.set('Content-Type', 'application/javascript; charset=utf-8');
+      }
+      res.set('X-Content-Type-Options', 'nosniff');
+    }
+  }));
+  console.log(chalk.gray(`✓ Serving PS1 assets from: ${ps1AssetsPath}`));
+} else {
+  console.log(chalk.yellow(`PS1 assets folder missing: ${ps1AssetsPath}`));
+}
+
 // Serve `src/assets` directly only in development (avoids serving uploads in production)
 const assetsPath = path.join(__dirname, 'src', 'assets');
 if (config.nodeEnv === 'development' && fs.existsSync(assetsPath)) {
