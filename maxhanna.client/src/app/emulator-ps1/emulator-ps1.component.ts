@@ -137,34 +137,42 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
 
 
 
-  private async ensureWasmPsxLoaded(): Promise<void> {
-    if (this._scriptLoaded) return;
+  
+private async ensureWasmPsxLoaded(): Promise<void> {
+  if (this._scriptLoaded) return;
 
-    await new Promise<void>((resolve, reject) => {
-      if (document.getElementById('wasmpsx-script')) { this._scriptLoaded = true; resolve(); return; }
+  await new Promise<void>((resolve, reject) => {
+    if (document.getElementById('wasmpsx-script')) { this._scriptLoaded = true; resolve(); return; }
 
-      const base = new URL('assets/ps1/', document.baseURI).toString();
+    const base = new URL('assets/ps1/', document.baseURI).toString();
 
-      // Map how Emscripten resolves its side files given your names
-      (window as any).Module = {
-        locateFile: (path: string) => {
-          console.log('[wasmpsx] locateFile:', path);
-          if (path.endsWith('.worker.js')) return base + 'wasmpsx_worker.js';
-          if (path.includes('worker') && path.endsWith('.wasm')) return base + 'wasmpsx_worker.wasm';
-          if (path.endsWith('.wasm')) return base + 'wasmpsx_wasm.wasm';
-          return base + path;
-        }
-      };
+    // Tell Emscripten how to find side files (wasm + worker)
+    (window as any).Module = {
+      // This helps some Emscripten builds resolve worker URLs correctly
+      mainScriptUrlOrBlob: new URL('assets/ps1/wasmpsx.min.js', document.baseURI).toString(),
 
-      const s = document.createElement('script');
-      s.id = 'wasmpsx-script';
-      s.src = base + 'wasmpsx.min.js';   // 👈 add .js
-      s.async = true;
-      s.onload = () => { this._scriptLoaded = true; resolve(); };
-      s.onerror = (e) => reject(e);
-      document.head.appendChild(s);
-    });
-  }
+      locateFile: (path: string) => {
+        console.log('[wasmpsx] locateFile:', path);
+        // Worker JS
+        if (path.endsWith('.worker.js')) return base + 'wasmpsx_worker.js';
+        // Worker WASM (some builds request the worker’s wasm by a different name)
+        if (path.includes('worker') && path.endsWith('.wasm')) return base + 'wasmpsx_worker.wasm';
+        // Main WASM (Emscripten often asks for something like 'wasmpsx.min.wasm')
+        if (path.endsWith('.wasm')) return base + 'wasmpsx_wasm.wasm';
+        // Fallback
+        return base + path;
+      }
+    };
+
+    const s = document.createElement('script');
+    s.id = 'wasmpsx-script';
+    s.src = base + 'wasmpsx.min.js';
+    s.async = true;
+    s.onload = () => { this._scriptLoaded = true; resolve(); };
+    s.onerror = (e) => reject(e);
+    document.head.appendChild(s);
+  });
+} 
 
   async toggleFullscreen(): Promise<void> {
     const target = this.fullscreenContainer?.nativeElement || this.containerRef.nativeElement;
