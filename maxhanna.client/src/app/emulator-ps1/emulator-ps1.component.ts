@@ -135,21 +135,43 @@ async ngAfterViewInit() {
   }
 
   
-private async ensureWasmPsxLoaded(): Promise<void> {
-  console.log('Ensuring wasmpsx is loaded');
 
-  if (this._scriptLoaded) return; // defer whenDefined to the caller
+private async ensureWasmPsxLoaded(): Promise<void> {
+  if (this._scriptLoaded) return;
 
   await new Promise<void>((resolve, reject) => {
-    const existing = document.getElementById('wasmpsx-script') as HTMLScriptElement | null;
-    if (existing) { this._scriptLoaded = true; resolve(); return; }
+    if (document.getElementById('wasmpsx-script')) {
+      this._scriptLoaded = true;
+      resolve();
+      return;
+    }
+
+    const base = new URL('assets/ps1/', document.baseURI).toString();
+
+    // 🔴 THIS IS CRITICAL
+    (window as any).Module = {
+      locateFile: (path: string) => {
+        console.log('[wasmpsx] locateFile:', path);
+
+        if (path.endsWith('.worker.js')) return base + 'wasmpsx_worker';
+        if (path.endsWith('.wasm') && path.includes('worker')) return base + 'wasmpsx_worker.wasm';
+        if (path.endsWith('.wasm')) return base + 'wasmpsx_wasm.wasm';
+
+        return base + path;
+      }
+    };
 
     const s = document.createElement('script');
     s.id = 'wasmpsx-script';
-    s.src = '/assets/ps1/wasmpsx.min.js';
+    s.src = base + 'wasmpsx.min';
     s.async = true;
-    s.onload = () => { this._scriptLoaded = true; resolve(); };
-    s.onerror = (e) => reject(e);
+
+    s.onload = () => {
+      this._scriptLoaded = true;
+      resolve();
+    };
+    s.onerror = reject;
+
     document.head.appendChild(s);
   });
 } 
