@@ -26,8 +26,9 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   //resizing 
   private _resizeObs?: ResizeObserver;
   private _onFullscreenChange = () => this.scheduleFit();
-  private _onOrientationChange = () => this.scheduleFit();
-  private _resizeRAF?: number;
+  private _onOrientationChange = () => this.scheduleFit(); 
+  private _fitRAF?: number;
+
 
 
   constructor(
@@ -210,8 +211,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
       this.isMenuPanelOpen = false;
       this.isFileUploaderExpanded = false;
     }
-  }
-
+  } 
 
   private async ensureWasmPsxLoaded(): Promise<void> {
     if (this._scriptLoaded) return;
@@ -358,6 +358,15 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
       (gl as any)?.viewport?.(0, 0, pxW, pxH);
     } catch { /* ignore */ }
   }
+
+// Drop-in replacement for scheduleFit()
+private scheduleFit = () => {
+  if (this._fitRAF) cancelAnimationFrame(this._fitRAF);
+  this._fitRAF = requestAnimationFrame(() => {
+    this._fitRAF = undefined;
+    this.fitPlayerToContainer();
+  });
+};
 
   getRomName(): string {
     const n = this.romName || '';
