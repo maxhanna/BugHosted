@@ -78,9 +78,9 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     } 
 
     // Fullscreen & device orientation
-    window.addEventListener('resize', this._onOrientationChange); 
-    document.addEventListener('fullscreenchange', this._onFullscreenChange);
-    window.addEventListener('orientationchange', this._onOrientationChange); 
+    window.addEventListener('resize', this._onOrientationChange, { passive: true }); 
+    document.addEventListener('fullscreenchange', this._onFullscreenChange, { passive: true });
+    window.addEventListener('orientationchange', this._onOrientationChange, { passive: true }); 
   }
 
 
@@ -328,7 +328,7 @@ private fitPlayerToContainer() {
     const gl = (canvas as any).getContext?.('webgl2') || (canvas as any).getContext?.('webgl') || (canvas as any).getContext?.('2d');
     (gl as any)?.viewport?.(0, 0, pxW, pxH);
   } catch { /* ignore */ } 
-  
+
   this.syncEmscriptenViewport(pxW, pxH); 
 } 
 
