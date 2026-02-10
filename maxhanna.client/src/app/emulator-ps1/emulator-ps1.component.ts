@@ -273,8 +273,10 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
 private syncEmscriptenViewport(pxW: number, pxH: number) {
   const host = this.playerEl as any;
   const mod = host?.module || (window as any).Module;
-  if (!mod) return;
-
+  if (!mod) {
+    console.log('Emscripten module not found for viewport sync');
+    return;
+  }
   try {
     // 1) If your UI is flexible, just push the actual pixel size:
     mod.setCanvasSize?.(pxW, pxH);
@@ -284,7 +286,7 @@ private syncEmscriptenViewport(pxW: number, pxH: number) {
     //    Comment this out if you prefer free-stretch to the container.
     // mod.forcedAspectRatio = 4 / 3; // ~1.3333
   } catch {
-    // Some builds may not export setCanvasSize; safe to ignore.
+    console.error('Failed to sync viewport with Emscripten module');
   }
 }
 
