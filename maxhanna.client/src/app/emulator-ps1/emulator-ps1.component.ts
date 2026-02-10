@@ -31,6 +31,8 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
 
   // --- PS1 multi‑gamepad support (2 ports like the real console) ---
   private readonly _maxPads = 2;
+  private _portLabels = ['Port 1', 'Port 2'];
+  public connectedPadsUI: Array<{ slot: number; id: string } | null> = [null, null];
 
   // Player slots → which browser gamepad index is assigned to each PS1 port
   private _players: Array<{ gpIndex: number | null }> = [
@@ -145,6 +147,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     document.addEventListener('fullscreenchange', this._onFullscreenChange, { passive: true });
     window.addEventListener('orientationchange', this._onOrientationChange, { passive: true });
     this.ngZone.runOutsideAngular(() => this.startGamepadLoop());
+    this._recomputePorts();
   }
 
 
@@ -440,27 +443,27 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     });
   };
 
-  // Connect/disconnect handlers (bound as fields so we can remove them)
-  private _onGpConnected = (e: GamepadEvent) => {
-    // assign to first free PS1 slot
-    for (let p = 0; p < this._maxPads; p++) {
-      if (this._players[p].gpIndex == null) {
-        this._players[p].gpIndex = e.gamepad.index;
-        // console.log(`Gamepad ${e.gamepad.index} → Player ${p+1}`);
-        return;
-      }
-    }
-    // console.warn(`Extra gamepad ignored: index ${e.gamepad.index} (PS1 has 2 ports).`);
+  private _onGpConnected = (_e: GamepadEvent) => {
+    // A controller button press exposes the pad; recompute stable assignment
+    this._recomputePorts(true);
   };
 
-  private _onGpDisconnected = (e: GamepadEvent) => {
-    for (let p = 0; p < this._maxPads; p++) {
-      if (this._players[p].gpIndex === e.gamepad.index) {
-        this._players[p].gpIndex = null;
-        this._releaseAllKeysForPlayer(p);
+
+  private _onGpDisconnected = (_e: GamepadEvent) => {
+    // Release any keys for whichever player used this gp index, then compact left
+    // Find which slot had this index
+    const idx = _e.gamepad?.index;
+    if (idx != null) {
+      for (let p = 0; p < this._maxPads; p++) {
+        if (this._players[p].gpIndex === idx) {
+          this._releaseAllKeysForPlayer(p);
+          break;
+        }
       }
     }
+    this._recomputePorts(true);
   };
+
 
   /** Start polling gamepads and mapping them to emulator keys (P1/P2). */
   private startGamepadLoop() {
@@ -484,17 +487,19 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
 
   /** Poll both PS1 slots and apply mappings. */
   private _pollGamepadsP1P2() {
-    const pads = navigator.getGamepads?.() || []; // Gamepad API polling [3](https://stackoverflow.com/questions/37721782/what-are-passive-event-listeners)
+    const pads = navigator.getGamepads?.() || [];
     for (let p = 0; p < this._maxPads; p++) {
       const idx = this._players[p].gpIndex;
       if (idx == null) continue;
+
       const gp = pads[idx] as Gamepad | null | undefined;
-      if (!gp || !gp.connected) continue;
+      if (!this._isEligiblePad(gp)) continue;
 
       const map = (p === 0 || this.mirrorSecondPadToP1) ? this._mapP1 : this._mapP2;
       this._applyPadToKeys(p, gp, map);
     }
   }
+
 
   /** Map a gamepad to a specific player's key map. */
   private _applyPadToKeys(
@@ -572,6 +577,56 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
+  /** Accept only “real” pads: connected & have the standard mapping */
+  private _isEligiblePad(gp: Gamepad | null | undefined): gp is Gamepad {
+    return !!gp && gp.connected && (gp.mapping === 'standard' || gp.mapping === '');
+    // some browsers report '' for mapping, keep it if connected
+  }
+
+  /** Resolve current snapshot of eligible pads in a stable order */
+  private _getEligiblePadsSnapshot(): Gamepad[] {
+    const arr = (navigator.getGamepads?.() || []) as (Gamepad | null | undefined)[];
+    return arr.filter(this._isEligiblePad).sort((a, b) => a.index - b.index);
+  }
+
+  /** Assign up to two pads to PS1 ports (stable: Port 1 first, then Port 2). */
+  private _assignPortsFromSnapshot(pads: Gamepad[], notify = false) {
+    // Keep old slots to compare later
+    const oldP1 = this._players[0].gpIndex;
+    const oldP2 = this._players[1].gpIndex;
+
+    // Candidate list: in index order
+    const firstTwo = pads.slice(0, this._maxPads);
+
+    // Fill ports in order
+    for (let p = 0; p < this._maxPads; p++) {
+      const chosen = firstTwo[p];
+      this._players[p].gpIndex = chosen ? chosen.index : null;
+      this.connectedPadsUI[p] = chosen ? { slot: p, id: chosen.id } : null;
+    }
+
+    // Toast changes (optional)
+    if (notify) {
+      const newP1 = this._players[0].gpIndex;
+      const newP2 = this._players[1].gpIndex;
+
+      if (oldP1 !== newP1) {
+        if (newP1 != null) this.parentRef?.showNotification(`Connected → ${this._portLabels[0]} (${this.connectedPadsUI[0]?.id})`);
+        else this.parentRef?.showNotification(`Disconnected ← ${this._portLabels[0]}`);
+      }
+      if (oldP2 !== newP2) {
+        if (newP2 != null) this.parentRef?.showNotification(`Connected → ${this._portLabels[1]} (${this.connectedPadsUI[1]?.id})`);
+        else this.parentRef?.showNotification(`Disconnected ← ${this._portLabels[1]}`);
+      }
+    }
+  }
+
+  /** When a single pad connects, re-evaluate all and re-pack into Port 1/2. */
+  private _recomputePorts(notify = true) {
+    const snapshot = this._getEligiblePadsSnapshot();
+    this._assignPortsFromSnapshot(snapshot, notify);
+  }
+
   getRomName(): string {
     const n = this.romName || '';
     return n.replace(/\.(bin|img|iso|cue|mdf|pbp|chd)$/i, '');
@@ -599,7 +654,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     this.isMenuPanelOpen = false;
     this.parentRef?.closeOverlay();
   }
-}  
+}
 
 type KeyBinding = { key: string; code: string };
 

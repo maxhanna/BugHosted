@@ -6,57 +6,46 @@
   </div>
 
   <!-- Search panel (hide after selecting a ROM) -->
-  <div class="gamesContainer expanded" *ngIf="!romName"> 
+  <div class="gamesContainer expanded" *ngIf="!romName">
     <div>Please note: Still under construction</div>
-    <app-file-search
-      [user]="parentRef?.user"
-      [inputtedParentRef]="parentRef"
-      [currentDirectory]="'Roms/'"
-      [clearAfterSelectFile]="true"
-      [showPrivatePublicOption]="false"
-      [showFileSearchOptions]="false"
-      [canChangeDirectory]="false"
-      [canDragMove]="false"
-      [displayFileActions]="true"
-      [displayComments]="false"
-      [displayFileSize]="false"
-      [displayReactions]="false"
-      [allowedFileTypes]="getAllowedRomFileTypes()"
-      [disabled]="isLoading"
-      [showPicturesOnlyToggler]="false"
-      [showVideosOnlyToggler]="false"
-      [showNSFWToggler]="false"
+    <app-file-search [user]="parentRef?.user" [inputtedParentRef]="parentRef" [currentDirectory]="'Roms/'"
+      [clearAfterSelectFile]="true" [showPrivatePublicOption]="false" [showFileSearchOptions]="false"
+      [canChangeDirectory]="false" [canDragMove]="false" [displayFileActions]="true" [displayComments]="false"
+      [displayFileSize]="false" [displayReactions]="false" [allowedFileTypes]="getAllowedRomFileTypes()"
+      [disabled]="isLoading" [showPicturesOnlyToggler]="false" [showVideosOnlyToggler]="false" [showNSFWToggler]="false"
       (selectFileEvent)="onFileSearchSelected($event)">
     </app-file-search>
   </div>
 
   <!-- Emulator viewport -->
   <div #fullscreenContainer [style.visibility]="romName ? 'visible' : 'hidden'"
-       [style.height]="romName ? (isFullScreen ? '100vh' : '') : '0px'">
+    [style.height]="romName ? (isFullScreen ? '100vh' : '') : '0px'">
     <div class="screen-area">
       <div #container class="player-container"></div>
     </div>
   </div>
 </div>
 
-  <!-- Menu Popup -->
-  <div [class]="'popupPanel' + (isFileUploaderExpanded ? ' uploaderPopupPanel' : '')" *ngIf="isMenuPanelOpen">
-    <div class="popupPanelTitle" style="margin-bottom:15px;">
-      PS1 Menu
-    </div> 
-    <div>
-      <app-file-upload
-        [currentDirectory]="'Roms'"
-        [user]="parentRef?.user!"
-        [inputtedParentRef]="parentRef"
-        [uploadButtonText]="'Upload Rom(s)'"
-        [maxSelectedFiles]="100"
-        [allowedFileTypes]="getAllowedRomFileTypesString()"
-        [displayOptionsAndTopicsButtons]="false"
-        (userUploadEvent)="isFileUploaderExpanded = true;"
-        (userCancelEvent)="isFileUploaderExpanded = false;"
-        (userUploadFinishedEvent)="finishFileUploading()">
-      </app-file-upload>
-    </div> 
-    <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
+<!-- Menu Popup -->
+<div [class]="'popupPanel' + (isFileUploaderExpanded ? ' uploaderPopupPanel' : '')" *ngIf="isMenuPanelOpen">
+  <div class="popupPanelTitle" style="margin-bottom:15px;">
+    PS1 Menu
   </div>
+
+  <div class="pad-status" style="font-size:12px; opacity:0.75; margin-top:4px;">
+    <span>
+      {{ connectedPadsUI[0]?.id ? ('Port 1: ' + connectedPadsUI[0]?.id) : 'Port 1: —' }}
+      &nbsp;|&nbsp;
+      {{ connectedPadsUI[1]?.id ? ('Port 2: ' + connectedPadsUI[1]?.id) : 'Port 2: —' }}
+    </span>
+  </div>
+
+  <div>
+    <app-file-upload [currentDirectory]="'Roms'" [user]="parentRef?.user!" [inputtedParentRef]="parentRef"
+      [uploadButtonText]="'Upload Rom(s)'" [maxSelectedFiles]="100" [allowedFileTypes]="getAllowedRomFileTypesString()"
+      [displayOptionsAndTopicsButtons]="false" (userUploadEvent)="isFileUploaderExpanded = true;"
+      (userCancelEvent)="isFileUploaderExpanded = false;" (userUploadFinishedEvent)="finishFileUploading()">
+    </app-file-upload>
+  </div>
+  <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
+</div>
