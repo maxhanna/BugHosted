@@ -4,10 +4,10 @@
   <div class="componentTitle" *ngIf="!isFullScreen">
     <span class="romNameTitle">{{ romName ? getRomName() : 'PS1 Emulator' }}</span>
   </div>
-  <div *ngIf="!romName">Please note: Still under construction</div>
 
   <!-- Search panel (hide after selecting a ROM) -->
-  <div class="gamesContainer expanded" *ngIf="!romName">
+  <div class="gamesContainer expanded" *ngIf="!romName"> 
+    <div>Please note: Still under construction</div>
     <app-file-search
       [user]="parentRef?.user"
       [inputtedParentRef]="parentRef"
