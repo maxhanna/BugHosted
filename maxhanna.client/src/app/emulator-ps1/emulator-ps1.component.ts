@@ -51,13 +51,25 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
       this.playerEl.style.width = '100%';
       this.playerEl.style.height = '100%';
       this.containerRef.nativeElement.appendChild(this.playerEl);
-    }
-    // 2) Now load the script (it may eagerly look for the element we just added)
-    await this.ensureWasmPsxLoaded();
+    } 
 
-    // 3) Wait for custom element definition/upgrade (browser-level)
-    await customElements.whenDefined('wasmpsx-player');
-    await this.waitForPlayerReady(this.playerEl);
+// Give layout a tick and set attributes on the real <canvas> before the worker starts
+await customElements.whenDefined('wasmpsx-player');
+
+requestAnimationFrame(() => {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = this.containerRef.nativeElement.getBoundingClientRect();
+  const canvas = (this.playerEl as any)?.shadowRoot?.querySelector('canvas') as HTMLCanvasElement | null;
+  if (canvas) {
+    canvas.width  = Math.max(1, Math.floor(rect.width  * dpr));
+    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+  }
+});
+
+// Now load the wasmpsx script (worker likely spins up here)
+await this.ensureWasmPsxLoaded();
+await this.waitForPlayerReady(this.playerEl);
+
     // 4) If the first element didn’t upgrade (very rare), replace it once
     if (typeof (this.playerEl as any).readFile !== 'function') {
       const upgraded = document.createElement('wasmpsx-player') as any;
@@ -265,29 +277,33 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
 
       const iv = setInterval(() => {
         if (el?.worker || el?.module) { clearInterval(iv); clearTimeout(t); resolve(); }
-      }, 100);
-    });
+      }, 100); 
+      
+      const host = document.querySelector('wasmpsx-player');
+      const canvas = host?.shadowRoot?.querySelector?.('canvas');
+      console.log({
+        hasWorker: !!(host as any)?.worker,
+        worker: (host as any)?.worker,
+        moduleOnElement: !!(host as any)?.module,
+        moduleOnWindow: !!(window as any)?.Module,
+        canvasPresent: !!canvas,
+        canvasSize: canvas ? { cssW: canvas.clientWidth, cssH: canvas.clientHeight, attrW: (canvas as HTMLCanvasElement).width, attrH: (canvas as HTMLCanvasElement).height } : null
+      }); 
+    })
   }
 
 /** Tell Emscripten about the new render size so the PS1 framebuffer fills the canvas. */
-private syncEmscriptenViewport(pxW: number, pxH: number) {
-  const host = this.playerEl as any;
-  const mod = host?.module || (window as any).Module;
-  if (!mod) {
-    console.log('Emscripten module not found for viewport sync');
-    return;
-  }
-  try {
-    // 1) If your UI is flexible, just push the actual pixel size:
-    mod.setCanvasSize?.(pxW, pxH);
+private syncEmscriptenViewport() {
+  const host = this.playerEl as any; 
+  const canvas = host?.shadowRoot?.querySelector('canvas') as HTMLCanvasElement | null;
+  const rect = this.containerRef.nativeElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const pxW = Math.max(1, Math.floor(rect.width * dpr));
+  const pxH = Math.max(1, Math.floor(rect.height * dpr));
 
-    // 2) If you want to *enforce* a specific aspect (e.g., 4:3),
-    //    set this once (or whenever your container ratio changes).
-    //    Comment this out if you prefer free-stretch to the container.
-    // mod.forcedAspectRatio = 4 / 3; // ~1.3333
-  } catch {
-    console.error('Failed to sync viewport with Emscripten module');
-  }
+  if (host?.worker) {
+    host.worker.postMessage({ type: 'canvas-resize', width: pxW, height: pxH, dpr });
+  } 
 }
 
 /** Resize player canvas to fill its container (CSS px) and match DPR for crisp rendering. */
