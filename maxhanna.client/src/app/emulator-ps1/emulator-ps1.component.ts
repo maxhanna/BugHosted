@@ -29,6 +29,64 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   private _onOrientationChange = () => this.scheduleFit();
   private _fitRAF?: number;
 
+// --- PS1 multi‑gamepad support (2 ports like the real console) ---
+private readonly _maxPads = 2;
+
+// Player slots → which browser gamepad index is assigned to each PS1 port
+private _players: Array<{ gpIndex: number | null }> = [
+  { gpIndex: null }, // Player 1
+  { gpIndex: null }  // Player 2
+];
+
+// If true, 2nd pad mirrors Player 1 keys (safe if your build only reads P1 keys)
+private mirrorSecondPadToP1 = true; 
+
+// P1 keyboard mapping (common web PS1 defaults)
+private readonly _mapP1: PsxKeyMap = {
+  cross:   { key: 'z', code: 'KeyZ' },
+  circle:  { key: 'x', code: 'KeyX' },
+  square:  { key: 's', code: 'KeyS' },
+  triangle:{ key: 'd', code: 'KeyD' },
+  l1:      { key: 'w', code: 'KeyW' },
+  l2:      { key: 'e', code: 'KeyE' },
+  r1:      { key: 'r', code: 'KeyR' },
+  r2:      { key: 't', code: 'KeyT' },
+  select:  { key: 'c', code: 'KeyC' },
+  start:   { key: 'v', code: 'KeyV' },
+  up:      { key: 'ArrowUp',    code: 'ArrowUp' },
+  down:    { key: 'ArrowDown',  code: 'ArrowDown' },
+  left:    { key: 'ArrowLeft',  code: 'ArrowLeft' },
+  right:   { key: 'ArrowRight', code: 'ArrowRight' },
+};
+
+// P2 keyboard mapping (only used if mirrorSecondPadToP1=false AND your build supports P2 keys)
+private readonly _mapP2: PsxKeyMap = {
+  cross:   { key: 'm', code: 'KeyM' },   // choose keys your build uses for P2
+  circle:  { key: 'n', code: 'KeyN' },
+  square:  { key: 'j', code: 'KeyJ' },
+  triangle:{ key: 'k', code: 'KeyK' },
+  l1:      { key: 'u', code: 'KeyU' },
+  l2:      { key: 'i', code: 'KeyI' },
+  r1:      { key: 'o', code: 'KeyO' },
+  r2:      { key: 'p', code: 'KeyP' },
+  select:  { key: '1', code: 'Digit1' },
+  start:   { key: '2', code: 'Digit2' },
+  up:      { key: 'w', code: 'KeyW' },
+  down:    { key: 's', code: 'KeyS' },
+  left:    { key: 'a', code: 'KeyA' },
+  right:   { key: 'd', code: 'KeyD' },
+};
+
+
+// Gamepad polling state
+private _gpRAF?: number;
+private _axisDeadzone = 0.40;      // left‑stick → D‑Pad deadzone
+private _triggerThreshold = 0.50;  // L2/R2 analog threshold
+private _useLeftStickAsDpad = true;
+
+// Track synthesized keys per player so we can send balanced keyup events
+private _keysDown = new Set<string>();
+
   constructor(
     private romService: RomService,
     private fileService: FileService,
@@ -75,7 +133,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     }
 
     // 6) Now that the element is upgraded/ready, fit once
-    requestAnimationFrame(() => this.fitPlayerToContainer());
+    requestAnimationFrame(() => this.fitPlayerToContainer()); 
 
     // 7) Observers/events (fine to keep these) 
     if ('ResizeObserver' in window) {
@@ -86,6 +144,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     window.addEventListener('resize', this._onOrientationChange, { passive: true });
     document.addEventListener('fullscreenchange', this._onFullscreenChange, { passive: true });
     window.addEventListener('orientationchange', this._onOrientationChange, { passive: true });
+    this.ngZone.runOutsideAngular(() => this.startGamepadLoop());
   }
 
 
@@ -114,7 +173,8 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     document.removeEventListener('fullscreenchange', this._onFullscreenChange);
     window.removeEventListener('orientationchange', this._onOrientationChange);
     window.removeEventListener('resize', this._onOrientationChange);
-    if (this._fitRAF) { cancelAnimationFrame(this._fitRAF); this._fitRAF = undefined; }
+    if (this._fitRAF) { cancelAnimationFrame(this._fitRAF); this._fitRAF = undefined; } 
+    this.stopGamepadLoop(); 
   }
 
   async onFileSearchSelected(file: FileEntry) {
@@ -380,6 +440,138 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     });
   };
 
+// Connect/disconnect handlers (bound as fields so we can remove them)
+private _onGpConnected = (e: GamepadEvent) => {
+  // assign to first free PS1 slot
+  for (let p = 0; p < this._maxPads; p++) {
+    if (this._players[p].gpIndex == null) {
+      this._players[p].gpIndex = e.gamepad.index;
+      // console.log(`Gamepad ${e.gamepad.index} → Player ${p+1}`);
+      return;
+    }
+  }
+  // console.warn(`Extra gamepad ignored: index ${e.gamepad.index} (PS1 has 2 ports).`);
+};
+
+private _onGpDisconnected = (e: GamepadEvent) => {
+  for (let p = 0; p < this._maxPads; p++) {
+    if (this._players[p].gpIndex === e.gamepad.index) {
+      this._players[p].gpIndex = null;
+      this._releaseAllKeysForPlayer(p);
+    }
+  }
+};
+
+/** Start polling gamepads and mapping them to emulator keys (P1/P2). */
+private startGamepadLoop() {
+  window.addEventListener('gamepadconnected', this._onGpConnected);
+  window.addEventListener('gamepaddisconnected', this._onGpDisconnected);
+  const loop = () => {
+    this._pollGamepadsP1P2();
+    this._gpRAF = requestAnimationFrame(loop);
+  };
+  if (!this._gpRAF) this._gpRAF = requestAnimationFrame(loop);
+}
+
+/** Stop polling and release any pressed keys. */
+private stopGamepadLoop() {
+  try { window.removeEventListener('gamepadconnected', this._onGpConnected); } catch {}
+  try { window.removeEventListener('gamepaddisconnected', this._onGpDisconnected); } catch {}
+  if (this._gpRAF) cancelAnimationFrame(this._gpRAF);
+  this._gpRAF = undefined;
+  this._releaseAllKeys(); // safety
+}
+
+/** Poll both PS1 slots and apply mappings. */
+private _pollGamepadsP1P2() {
+  const pads = navigator.getGamepads?.() || []; // Gamepad API polling [3](https://stackoverflow.com/questions/37721782/what-are-passive-event-listeners)
+  for (let p = 0; p < this._maxPads; p++) {
+    const idx = this._players[p].gpIndex;
+    if (idx == null) continue;
+    const gp = pads[idx] as Gamepad | null | undefined;
+    if (!gp || !gp.connected) continue;
+
+    const map = (p === 0 || this.mirrorSecondPadToP1) ? this._mapP1 : this._mapP2;
+    this._applyPadToKeys(p, gp, map);
+  }
+}
+
+/** Map a gamepad to a specific player's key map. */
+private _applyPadToKeys( 
+  player: number,
+  gp: Gamepad,
+  map: PsxKeyMap 
+) {
+  const B = gp.buttons;
+  const btn = (i: number) => !!(B[i] && (B[i].pressed || B[i].value > 0.5));
+  const analogBtn = (i: number, th = this._triggerThreshold) => !!(B[i] && (B[i].value ?? 0) > th);
+
+  // Face buttons (standard mapping indices 0–3) [3](https://stackoverflow.com/questions/37721782/what-are-passive-event-listeners)
+  this._setKeyP(player, map.cross,    btn(0));
+  this._setKeyP(player, map.circle,   btn(1));
+  this._setKeyP(player, map.square,   btn(2));
+  this._setKeyP(player, map.triangle, btn(3));
+
+  // Shoulders / triggers (4–7)
+  this._setKeyP(player, map.l1, btn(4));
+  this._setKeyP(player, map.r1, btn(5));
+  this._setKeyP(player, map.l2, analogBtn(6));
+  this._setKeyP(player, map.r2, analogBtn(7));
+
+  // Select / Start (8–9)
+  this._setKeyP(player, map.select, btn(8));
+  this._setKeyP(player, map.start,  btn(9));
+
+  // D‑Pad (12–15). Also allow LS as D‑Pad with deadzone. [3](https://stackoverflow.com/questions/37721782/what-are-passive-event-listeners)
+  const up    = btn(12) || (this._useLeftStickAsDpad && (gp.axes[1] ?? 0) < -this._axisDeadzone);
+  const down  = btn(13) || (this._useLeftStickAsDpad && (gp.axes[1] ?? 0) >  this._axisDeadzone);
+  const left  = btn(14) || (this._useLeftStickAsDpad && (gp.axes[0] ?? 0) < -this._axisDeadzone);
+  const right = btn(15) || (this._useLeftStickAsDpad && (gp.axes[0] ?? 0) >  this._axisDeadzone);
+
+  this._setKeyP(player, map.up,    up);
+  this._setKeyP(player, map.down,  down);
+  this._setKeyP(player, map.left,  left);
+  this._setKeyP(player, map.right, right); 
+}
+
+/** Synthesize keydown/keyup once per change, namespaced by player. */
+private _setKeyP(player: number, mapping: { key: string; code: string }, pressed: boolean) {
+  const { key, code } = mapping;
+  const id = `${player}:${key}|${code}`;
+  const isDown = this._keysDown.has(id);
+
+  if (pressed && !isDown) {
+    this._keysDown.add(id);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key, code, bubbles: true }));
+  } else if (!pressed && isDown) {
+    this._keysDown.delete(id);
+    document.dispatchEvent(new KeyboardEvent('keyup', { key, code, bubbles: true }));
+  }
+}
+
+/** Release any keys currently held by a specific player (on disconnect). */
+private _releaseAllKeysForPlayer(player: number) {
+  const prefix = `${player}:`;
+  for (const id of Array.from(this._keysDown)) {
+    if (!id.startsWith(prefix)) continue;
+    const rest = id.substring(prefix.length);
+    const [key, code] = rest.split('|');
+    document.dispatchEvent(new KeyboardEvent('keyup', { key, code, bubbles: true }));
+    this._keysDown.delete(id);
+  }
+}
+
+/** Release all keys for all players (on destroy). */
+private _releaseAllKeys() {
+  for (const id of Array.from(this._keysDown)) {
+    const [key, code] = id.split('|')[1]?.split('|') ?? id.split('|'); // tolerate either format
+    if (key && code) {
+      document.dispatchEvent(new KeyboardEvent('keyup', { key, code, bubbles: true }));
+    }
+    this._keysDown.delete(id);
+  }
+}
+
   getRomName(): string {
     const n = this.romName || '';
     return n.replace(/\.(bin|img|iso|cue|mdf|pbp|chd)$/i, '');
@@ -408,3 +600,24 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     this.parentRef?.closeOverlay();
   }
 }
+
+
+type KeyBinding = { key: string; code: string };
+
+interface PsxKeyMap {
+  cross: KeyBinding;
+  circle: KeyBinding;
+  square: KeyBinding;
+  triangle: KeyBinding;
+  l1: KeyBinding;
+  l2: KeyBinding;
+  r1: KeyBinding;
+  r2: KeyBinding;
+  select: KeyBinding;
+  start: KeyBinding;
+  up: KeyBinding;
+  down: KeyBinding;
+  left: KeyBinding;
+  right: KeyBinding;
+}
+``
