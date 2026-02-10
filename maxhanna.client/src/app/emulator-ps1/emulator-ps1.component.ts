@@ -42,58 +42,51 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   }
 
 
-  async ngAfterViewInit() {
-    // 1) Create and append the <wasmpsx-player> BEFORE loading the script
-    this.playerEl = document.createElement('wasmpsx-player') as any;
-    if (this.playerEl) {
-      this.playerEl.id = 'psxPlayer'; // optional, helpful for debugging
-      this.playerEl.style.display = 'block';
-      this.playerEl.style.width = '100%';
-      this.playerEl.style.height = '100%';
-      this.containerRef.nativeElement.appendChild(this.playerEl);
-    } 
-
-// Give layout a tick and set attributes on the real <canvas> before the worker starts
-await customElements.whenDefined('wasmpsx-player');
-
-requestAnimationFrame(() => {
-  const dpr = window.devicePixelRatio || 1;
-  const rect = this.containerRef.nativeElement.getBoundingClientRect();
-  const canvas = (this.playerEl as any)?.shadowRoot?.querySelector('canvas') as HTMLCanvasElement | null;
-  if (canvas) {
-    canvas.width  = Math.max(1, Math.floor(rect.width  * dpr));
-    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+ 
+async ngAfterViewInit() {
+  // 1) Create and append the element
+  this.playerEl = document.createElement('wasmpsx-player') as any;
+  if (this.playerEl) { 
+    this.playerEl.id = 'psxPlayer';
+    this.playerEl.style.display = 'block';
+    this.playerEl.style.width = '100%';
+    this.playerEl.style.height = '100%';
+    this.containerRef.nativeElement.appendChild(this.playerEl);
   }
-});
 
-// Now load the wasmpsx script (worker likely spins up here)
-await this.ensureWasmPsxLoaded();
-await this.waitForPlayerReady(this.playerEl);
+  // 2) Load the wasmpsx script (this registers the custom element)
+  await this.ensureWasmPsxLoaded();
 
-    // 4) If the first element didn’t upgrade (very rare), replace it once
-    if (typeof (this.playerEl as any).readFile !== 'function') {
-      const upgraded = document.createElement('wasmpsx-player') as any;
-      upgraded.id = 'psxPlayer';
-      upgraded.style.display = 'block';
-      upgraded.style.width = '100%';
-      upgraded.style.height = '100%';
-      this.containerRef.nativeElement.replaceChild(upgraded, this.playerEl!);
-      this.playerEl = upgraded;
-      await this.waitForPlayerReady(this.playerEl);
-    } 
-    requestAnimationFrame(() => this.fitPlayerToContainer());
+  // 3) Now it can be defined + upgraded
+  await customElements.whenDefined('wasmpsx-player');
 
-    // Observe container size changes
-    if ('ResizeObserver' in window) {
-      this._resizeObs = new ResizeObserver(() => this.fitPlayerToContainer());
-      this._resizeObs.observe(this.containerRef.nativeElement);
-    } 
+  // 4) Wait until the player signals internal readiness
+  await this.waitForPlayerReady(this.playerEl);
 
-    // Fullscreen & device orientation
-    window.addEventListener('resize', this._onOrientationChange, { passive: true }); 
-    document.addEventListener('fullscreenchange', this._onFullscreenChange, { passive: true });
-    window.addEventListener('orientationchange', this._onOrientationChange, { passive: true }); 
+  // 5) If (rarely) still not upgraded to the class with readFile, swap once
+  if (typeof (this.playerEl as any).readFile !== 'function') {
+    const upgraded = document.createElement('wasmpsx-player') as any;
+    upgraded.id = 'psxPlayer';
+    upgraded.style.display = 'block';
+    upgraded.style.width = '100%';
+    upgraded.style.height = '100%';
+    this.containerRef.nativeElement.replaceChild(upgraded, this.playerEl!);
+    this.playerEl = upgraded;
+    await this.waitForPlayerReady(this.playerEl);
   }
+
+  // 6) Now that the element is upgraded/ready, fit once
+  requestAnimationFrame(() => this.fitPlayerToContainer());
+
+  // 7) Observers/events (fine to keep these)
+  if ('ResizeObserver' in window) {
+    this._resizeObs = new ResizeObserver(() => this.fitPlayerToContainer());
+    this._resizeObs.observe(this.containerRef.nativeElement);
+  }
+  window.addEventListener('resize', this._onOrientationChange, { passive: true });
+  document.addEventListener('fullscreenchange', this._onFullscreenChange, { passive: true });
+  window.addEventListener('orientationchange', this._onOrientationChange, { passive: true });
+} 
 
 
   ngOnDestroy(): void {
@@ -115,12 +108,12 @@ await this.waitForPlayerReady(this.playerEl);
     } catch { /* ignore */ }
 
     // 4) Drop references
-    this.playerEl = undefined; 
-    try { this._resizeObs?.disconnect(); } catch {}
+    this.playerEl = undefined;
+    try { this._resizeObs?.disconnect(); } catch { }
     this._resizeObs = undefined;
     document.removeEventListener('fullscreenchange', this._onFullscreenChange);
     window.removeEventListener('orientationchange', this._onOrientationChange);
-    window.removeEventListener('resize', this._onOrientationChange); 
+    window.removeEventListener('resize', this._onOrientationChange);
   }
 
   async onFileSearchSelected(file: FileEntry) {
@@ -149,7 +142,7 @@ await this.waitForPlayerReady(this.playerEl);
 
       (this.playerEl as any).readFile(gameFile); // WASMpsx API
       console.log('WASMpsx readFile called');
-      
+
       requestAnimationFrame(() => this.fitPlayerToContainer());
       // And one more micro-pass in case the player adjusts after init
       setTimeout(() => this.fitPlayerToContainer(), 0);
@@ -161,7 +154,7 @@ await this.waitForPlayerReady(this.playerEl);
     } finally {
       this.stopLoading();
     }
-  } 
+  }
 
   async stopGame() {
     try {
@@ -277,8 +270,8 @@ await this.waitForPlayerReady(this.playerEl);
 
       const iv = setInterval(() => {
         if (el?.worker || el?.module) { clearInterval(iv); clearTimeout(t); resolve(); }
-      }, 100); 
-      
+      }, 100);
+
       const host = document.querySelector('wasmpsx-player');
       const canvas = host?.shadowRoot?.querySelector?.('canvas');
       console.log({
@@ -288,75 +281,75 @@ await this.waitForPlayerReady(this.playerEl);
         moduleOnWindow: !!(window as any)?.Module,
         canvasPresent: !!canvas,
         canvasSize: canvas ? { cssW: canvas.clientWidth, cssH: canvas.clientHeight, attrW: (canvas as HTMLCanvasElement).width, attrH: (canvas as HTMLCanvasElement).height } : null
-      }); 
+      });
     })
   }
 
-/** Tell Emscripten about the new render size so the PS1 framebuffer fills the canvas. */
-private syncEmscriptenViewport() {
-  const host = this.playerEl as any; 
-  const canvas = host?.shadowRoot?.querySelector('canvas') as HTMLCanvasElement | null;
-  const rect = this.containerRef.nativeElement.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  const pxW = Math.max(1, Math.floor(rect.width * dpr));
-  const pxH = Math.max(1, Math.floor(rect.height * dpr));
+  /** Tell Emscripten about the new render size so the PS1 framebuffer fills the canvas. */
+  private syncEmscriptenViewport() {
+    const host = this.playerEl as any;
+    const canvas = host?.shadowRoot?.querySelector('canvas') as HTMLCanvasElement | null;
+    const rect = this.containerRef.nativeElement.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const pxW = Math.max(1, Math.floor(rect.width * dpr));
+    const pxH = Math.max(1, Math.floor(rect.height * dpr));
 
-  if (host?.worker) {
-    host.worker.postMessage({ type: 'canvas-resize', width: pxW, height: pxH, dpr });
-  } 
-}
-
-/** Resize player canvas to fill its container (CSS px) and match DPR for crisp rendering. */
-private fitPlayerToContainer() {
-  const host = this.playerEl as any;
-  const container = this.containerRef?.nativeElement;
-  if (!host || !container) return;
-
-  // Container size in CSS pixels
-  const rect = container.getBoundingClientRect();
-  const cssW = Math.max(0, Math.floor(rect.width));
-  const cssH = Math.max(0, Math.floor(rect.height));
-  const dpr = window.devicePixelRatio || 1;
-
-  // Try to find the actual <canvas>
-  const canvas: HTMLCanvasElement | undefined =
-    host.canvas || host.shadowRoot?.querySelector?.('canvas');
-
-  if (!canvas) {
-    // Closed shadow? Fallback to CSS-only; ensure host fills the container.
-    (host as HTMLElement).style.width = cssW + 'px';
-    (host as HTMLElement).style.height = cssH + 'px';
-    return;
+    if (host?.worker) {
+      host.worker.postMessage({ type: 'canvas-resize', width: pxW, height: pxH, dpr });
+    }
   }
 
-  // 1) CSS size: make canvas fill container (layout size)
-  canvas.style.width = cssW + 'px';
-  canvas.style.height = cssH + 'px';
+  /** Resize player canvas to fill its container (CSS px) and match DPR for crisp rendering. */
+  private fitPlayerToContainer() {
+    const host = this.playerEl as any;
+    const container = this.containerRef?.nativeElement;
+    if (!host || !container) return;
 
-  // 2) Backing store size: match DPR for sharpness on HiDPI/Retina
-  const pxW = Math.max(1, Math.floor(cssW * dpr));
-  const pxH = Math.max(1, Math.floor(cssH * dpr));
-  if (canvas.width !== pxW || canvas.height !== pxH) {
-    canvas.width = pxW;
-    canvas.height = pxH;
+    // Container size in CSS pixels
+    const rect = container.getBoundingClientRect();
+    const cssW = Math.max(0, Math.floor(rect.width));
+    const cssH = Math.max(0, Math.floor(rect.height));
+    const dpr = window.devicePixelRatio || 1;
+
+    // Try to find the actual <canvas>
+    const canvas: HTMLCanvasElement | undefined =
+      host.canvas || host.shadowRoot?.querySelector?.('canvas');
+
+    if (!canvas) {
+      // Closed shadow? Fallback to CSS-only; ensure host fills the container.
+      (host as HTMLElement).style.width = cssW + 'px';
+      (host as HTMLElement).style.height = cssH + 'px';
+      return;
+    }
+
+    // 1) CSS size: make canvas fill container (layout size)
+    canvas.style.width = cssW + 'px';
+    canvas.style.height = cssH + 'px';
+
+    // 2) Backing store size: match DPR for sharpness on HiDPI/Retina
+    const pxW = Math.max(1, Math.floor(cssW * dpr));
+    const pxH = Math.max(1, Math.floor(cssH * dpr));
+    if (canvas.width !== pxW || canvas.height !== pxH) {
+      canvas.width = pxW;
+      canvas.height = pxH;
+    }
+
+    // 3) Update GL viewport if relevant (safe no-op for 2D)
+    try {
+      const gl = (canvas as any).getContext?.('webgl2') || (canvas as any).getContext?.('webgl') || (canvas as any).getContext?.('2d');
+      (gl as any)?.viewport?.(0, 0, pxW, pxH);
+    } catch { /* ignore */ }
+
+    this.syncEmscriptenViewport();
   }
 
-  // 3) Update GL viewport if relevant (safe no-op for 2D)
-  try {
-    const gl = (canvas as any).getContext?.('webgl2') || (canvas as any).getContext?.('webgl') || (canvas as any).getContext?.('2d');
-    (gl as any)?.viewport?.(0, 0, pxW, pxH);
-  } catch { /* ignore */ } 
-
-  this.syncEmscriptenViewport(); 
-} 
-
-private scheduleFit() {
-  if (this._resizeRAF) cancelAnimationFrame(this._resizeRAF);
-  this._resizeRAF = requestAnimationFrame(() => {
-    this._resizeRAF = undefined;
-    this.fitPlayerToContainer();
-  });
-}
+  private scheduleFit() {
+    if (this._resizeRAF) cancelAnimationFrame(this._resizeRAF);
+    this._resizeRAF = requestAnimationFrame(() => {
+      this._resizeRAF = undefined;
+      this.fitPlayerToContainer();
+    });
+  }
 
   getRomName(): string {
     const n = this.romName || '';
