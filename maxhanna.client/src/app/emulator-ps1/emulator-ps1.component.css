@@ -1,3 +1,7 @@
+canvas {
+  width: auto !important;
+  height: calc(100vh - 60px) !important;
+}
 .componentMain { width: 100vw; overflow: hidden; border: unset !important; }
 .romNameTitle { width: calc(100% - 100px); display: block; overflow: hidden; text-overflow: ellipsis; }
 .gamesContainer { width: 100%; height: calc(var(--vh, 1vh) * 100 - 65px); overflow: auto; }
