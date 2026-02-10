@@ -27,7 +27,8 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   private _resizeObs?: ResizeObserver;
   private _onFullscreenChange = () => this.scheduleFit();
   private _onOrientationChange = () => this.scheduleFit();
-  private _fitRAF?: number;
+  private _fitRAF?: number; 
+private _menuPollTimer?: number;
 
   // --- PS1 multi‑gamepad support (2 ports like the real console) ---
   private readonly _maxPads = 2;
@@ -147,7 +148,7 @@ private _lastSeenPadIds: string[] = [];
     document.addEventListener('fullscreenchange', this._onFullscreenChange, { passive: true });
     window.addEventListener('orientationchange', this._onOrientationChange, { passive: true });
 
-this.ngZone.runOutsideAngular(() => this.startGamepadLoop());
+  this.startMenuGamepadMonitor(); 
 
 // Ensure we start fresh AFTER the player is initialized
 this._lastSeenPadIds = [];   
@@ -165,6 +166,10 @@ this.ngZone.run(() => this._recomputePorts(true));
 
     // 2) Stop the game & release element
     await this.stopGame(false);
+
+  this.stopGameplayGamepadLoop();
+  this.stopMenuGamepadMonitor();
+
     // 3) Defensive DOM removal
     try {
       if (this.playerEl?.parentElement) {
@@ -179,8 +184,7 @@ this.ngZone.run(() => this._recomputePorts(true));
     document.removeEventListener('fullscreenchange', this._onFullscreenChange);
     window.removeEventListener('orientationchange', this._onOrientationChange);
     window.removeEventListener('resize', this._onOrientationChange);
-    if (this._fitRAF) { cancelAnimationFrame(this._fitRAF); this._fitRAF = undefined; }
-    this.stopGamepadLoop();
+    if (this._fitRAF) { cancelAnimationFrame(this._fitRAF); this._fitRAF = undefined; } 
   }
 
   async onFileSearchSelected(file: FileEntry) {
@@ -209,6 +213,9 @@ this.ngZone.run(() => this._recomputePorts(true));
 
       (this.playerEl as any).readFile(gameFile); // WASMpsx API
       console.log('WASMpsx readFile called');
+
+this.stopMenuGamepadMonitor();
+this.startGameplayGamepadLoop();
 
       requestAnimationFrame(() => this.fitPlayerToContainer());
       // And one more micro-pass in case the player adjusts after init
@@ -265,7 +272,10 @@ async stopGame(recreate: boolean = true) {
       this.scheduleFit();
     } else {
       this.playerEl = undefined;
-    }
+    } 
+
+  this.stopGameplayGamepadLoop();
+  this.startMenuGamepadMonitor();
 
   } catch (e) {
     console.warn('stopGame failed', e);
@@ -465,21 +475,19 @@ async stopGame(recreate: boolean = true) {
   };
 
 
-  /** Start polling gamepads and mapping them to emulator keys (P1/P2). */
-  private startGamepadLoop() { 
-    const loop = () => {
-      this._pollGamepadsP1P2();
-      this._gpRAF = requestAnimationFrame(loop);
-    };
-    if (!this._gpRAF) this._gpRAF = requestAnimationFrame(loop);
-  }
+  /** Start polling gamepads and mapping them to emulator keys (P1/P2). */ 
+private startGameplayGamepadLoop() {
+  const loop = () => {
+    this._pollGamepadsP1P2();
+    this._gpRAF = requestAnimationFrame(loop);
+  };
+  if (!this._gpRAF) this._gpRAF = requestAnimationFrame(loop);
+}
 
-  /** Stop polling and release any pressed keys. */
-  private stopGamepadLoop() { 
-    if (this._gpRAF) cancelAnimationFrame(this._gpRAF);
-    this._gpRAF = undefined;
-    this._releaseAllKeys(); // safety
-  }
+private stopGameplayGamepadLoop() {
+  if (this._gpRAF) cancelAnimationFrame(this._gpRAF);
+  this._gpRAF = undefined;
+}
 
   /** Poll both PS1 slots and apply mappings. */ 
 private _pollGamepadsP1P2() {
@@ -638,6 +646,28 @@ private _pollGamepadsP1P2() {
     const snapshot = this._getEligiblePadsSnapshot();
     this._assignPortsFromSnapshot(snapshot, notify);
   }
+
+private startMenuGamepadMonitor() {
+  if (this._menuPollTimer) return;
+  this._menuPollTimer = window.setInterval(() => {
+    const pads = this._getEligiblePadsSnapshot();
+    const ids = pads.map(p => p.id);
+
+    if (ids.join() !== this._lastSeenPadIds.join()) {
+      this.ngZone.run(() => {
+        this._lastSeenPadIds = ids;
+        this._recomputePorts(true);
+      });
+    }
+  }, 500); // low cost, enough for detection
+}
+
+private stopMenuGamepadMonitor() {
+  if (this._menuPollTimer) {
+    clearInterval(this._menuPollTimer);
+    this._menuPollTimer = undefined;
+  }
+}
 
   getRomName(): string {
     const n = this.romName || '';
