@@ -100,6 +100,10 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   }
 
   ngOnInit(): void {
+    this.startMenuGamepadMonitor();
+
+    window.addEventListener('keydown', (e) => console.log('[DOWN]', e.key, e.code, e.keyCode, e.which));
+    window.addEventListener('keyup', (e) => console.log('[UP  ]', e.key, e.code, e.keyCode, e.which));
   }
 
 
@@ -149,7 +153,22 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     document.addEventListener('fullscreenchange', this._onFullscreenChange, { passive: true });
     window.addEventListener('orientationchange', this._onOrientationChange, { passive: true });
 
-    this.startMenuGamepadMonitor();
+    const onGpConnect = (e: GamepadEvent) => {
+      this.ngZone.run(() => {
+        this._lastSeenPadIds = [];          // force “change”
+        this._recomputePorts(true);         // toast now
+        this.cdr.detectChanges();
+      });
+    };
+    const onGpDisconnect = (e: GamepadEvent) => {
+      this.ngZone.run(() => {
+        this._lastSeenPadIds = [];
+        this._recomputePorts(true);
+        this.cdr.detectChanges();
+      });
+    };
+    window.addEventListener('gamepadconnected', onGpConnect);
+    window.addEventListener('gamepaddisconnected', onGpDisconnect);
 
     // Ensure we start fresh AFTER the player is initialized
     this._lastSeenPadIds = [];
@@ -185,6 +204,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     document.removeEventListener('fullscreenchange', this._onFullscreenChange);
     window.removeEventListener('orientationchange', this._onOrientationChange);
     window.removeEventListener('resize', this._onOrientationChange);
+
     if (this._fitRAF) { cancelAnimationFrame(this._fitRAF); this._fitRAF = undefined; }
   }
 
@@ -568,14 +588,17 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     const id = `${player}:${key}|${code}`;
     const isDown = this._keysDown.has(id);
 
+    const targets = this._getInputTargets();
+
     if (pressed && !isDown) {
       this._keysDown.add(id);
-      document.dispatchEvent(new KeyboardEvent('keydown', { key, code, bubbles: true }));
+      for (const t of targets) this._dispatchKey(t, 'keydown', key, code);
     } else if (!pressed && isDown) {
       this._keysDown.delete(id);
-      document.dispatchEvent(new KeyboardEvent('keyup', { key, code, bubbles: true }));
+      for (const t of targets) this._dispatchKey(t, 'keyup', key, code);
     }
   }
+
 
   /** Release any keys currently held by a specific player (on disconnect). */
   private _releaseAllKeysForPlayer(player: number) {
@@ -592,13 +615,18 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   /** Release all keys for all players (on destroy). */
   private _releaseAllKeys() {
     for (const id of Array.from(this._keysDown)) {
-      const [key, code] = id.split('|')[1]?.split('|') ?? id.split('|'); // tolerate either format
-      if (key && code) {
-        document.dispatchEvent(new KeyboardEvent('keyup', { key, code, bubbles: true }));
+      // id format: `${player}:${key}|${code}`
+      const colon = id.indexOf(':');
+      const pipe = id.indexOf('|', colon + 1);
+      const key = id.substring(colon + 1, pipe);
+      const code = id.substring(pipe + 1);
+      for (const t of this._getInputTargets()) {
+        this._dispatchKey(t, 'keyup', key, code);
       }
       this._keysDown.delete(id);
     }
   }
+
 
   /** Accept only “real” pads: connected & have the standard mapping */
   private _isEligiblePad(gp: Gamepad | null | undefined): gp is Gamepad {
@@ -690,6 +718,73 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
       clearInterval(this._menuPollTimer);
       this._menuPollTimer = undefined;
     }
+  }
+
+  // Map KeyboardEvent.code to legacy keyCode used by some SDL paths
+  private _codeToKeyCode(code: string): number {
+    if (!code) return 0;
+    if (code.startsWith('Key') && code.length === 4) {
+      return code.charCodeAt(3); // KeyZ -> 'Z' -> 90
+    }
+    if (code.startsWith('Digit')) {
+      const n = Number(code.substring(5));
+      return isFinite(n) ? (48 + n) : 0; // Digit1 -> 49
+    }
+    switch (code) {
+      case 'ArrowUp': return 38;
+      case 'ArrowDown': return 40;
+      case 'ArrowLeft': return 37;
+      case 'ArrowRight': return 39;
+      case 'Enter': return 13;
+      case 'Space': return 32;
+      case 'ShiftLeft':
+      case 'ShiftRight': return 16;
+      case 'ControlLeft':
+      case 'ControlRight': return 17;
+      case 'AltLeft':
+      case 'AltRight': return 18;
+      default: return 0;
+    }
+  }
+
+  private _getInputTargets(): EventTarget[] {
+    const targets: EventTarget[] = [window, document];
+    const host = this.playerEl as any;
+    const canvas = host?.shadowRoot?.querySelector?.('canvas') as HTMLCanvasElement | null;
+    if (canvas) {
+      // make sure it can receive focus
+      if (!canvas.hasAttribute('tabindex')) canvas.setAttribute('tabindex', '0');
+      try { canvas.focus(); } catch { }
+      targets.unshift(canvas); // prioritize the canvas first
+    }
+    // Also try the host custom element
+    if (host) targets.push(host as EventTarget);
+    return targets;
+  }
+
+  // Dispatch a KeyboardEvent with legacy props patched and composed=true
+  private _dispatchKey(
+    target: EventTarget,
+    type: 'keydown' | 'keyup',
+    key: string,
+    code: string
+  ) {
+    const keyCode = this._codeToKeyCode(code);
+    const ev = new KeyboardEvent(type, {
+      key,
+      code,
+      bubbles: true,
+      cancelable: true,
+      composed: true,  // cross shadow boundary
+    });
+
+    // Patch read-only legacy props via getter (many SDL paths read these)
+    try {
+      Object.defineProperty(ev, 'keyCode', { get: () => keyCode });
+      Object.defineProperty(ev, 'which', { get: () => keyCode });
+    } catch { /* ignore */ }
+
+    try { (target as any).dispatchEvent(ev); } catch { /* ignore */ }
   }
 
   getRomName(): string {
