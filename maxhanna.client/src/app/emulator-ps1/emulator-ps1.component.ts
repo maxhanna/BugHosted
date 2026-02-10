@@ -33,7 +33,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   private readonly _maxPads = 2;
   private _portLabels = ['Port 1', 'Port 2'];
   public connectedPadsUI: Array<{ slot: number; id: string } | null> = [null, null];
-
+private _lastSeenPadIds: string[] = [];
   // Player slots → which browser gamepad index is assigned to each PS1 port
   private _players: Array<{ gpIndex: number | null }> = [
     { gpIndex: null }, // Player 1
@@ -466,9 +466,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
 
 
   /** Start polling gamepads and mapping them to emulator keys (P1/P2). */
-  private startGamepadLoop() {
-    window.addEventListener('gamepadconnected', this._onGpConnected);
-    window.addEventListener('gamepaddisconnected', this._onGpDisconnected);
+  private startGamepadLoop() { 
     const loop = () => {
       this._pollGamepadsP1P2();
       this._gpRAF = requestAnimationFrame(loop);
@@ -477,28 +475,42 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   }
 
   /** Stop polling and release any pressed keys. */
-  private stopGamepadLoop() {
-    try { window.removeEventListener('gamepadconnected', this._onGpConnected); } catch { }
-    try { window.removeEventListener('gamepaddisconnected', this._onGpDisconnected); } catch { }
+  private stopGamepadLoop() { 
     if (this._gpRAF) cancelAnimationFrame(this._gpRAF);
     this._gpRAF = undefined;
     this._releaseAllKeys(); // safety
   }
 
   /** Poll both PS1 slots and apply mappings. */
-  private _pollGamepadsP1P2() {
-    const pads = navigator.getGamepads?.() || [];
-    for (let p = 0; p < this._maxPads; p++) {
-      const idx = this._players[p].gpIndex;
-      if (idx == null) continue;
+ 
+private _pollGamepadsP1P2() {
+  const pads = this._getEligiblePadsSnapshot();
 
-      const gp = pads[idx] as Gamepad | null | undefined;
-      if (!this._isEligiblePad(gp)) continue;
+  const ids = pads.map(p => p.id);
+  const last = this._lastSeenPadIds;
 
-      const map = (p === 0 || this.mirrorSecondPadToP1) ? this._mapP1 : this._mapP2;
-      this._applyPadToKeys(p, gp, map);
-    }
+  // Detect any changes
+  const changed = ids.length !== last.length || ids.some((id, i) => id !== last[i]);
+
+  if (changed) {
+    this._recomputePorts(true);     // <-- now port assignment ALWAYS happens
+    this._lastSeenPadIds = ids;
   }
+
+  // Apply input for the active ports
+  for (let p = 0; p < this._maxPads; p++) {
+    const idx = this._players[p].gpIndex;
+    if (idx == null) continue;
+
+    const raw = navigator.getGamepads?.() || [];
+    const gp = raw[idx] as Gamepad | null | undefined;
+    if (!this._isEligiblePad(gp)) continue;
+
+    const map = (p === 0 || this.mirrorSecondPadToP1) ? this._mapP1 : this._mapP2;
+    this._applyPadToKeys(p, gp, map);
+  }
+}
+
 
 
   /** Map a gamepad to a specific player's key map. */
