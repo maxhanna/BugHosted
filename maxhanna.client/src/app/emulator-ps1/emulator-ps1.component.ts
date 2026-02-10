@@ -347,7 +347,7 @@ private fitPlayerToContainer() {
     (gl as any)?.viewport?.(0, 0, pxW, pxH);
   } catch { /* ignore */ } 
 
-  this.syncEmscriptenViewport(pxW, pxH); 
+  this.syncEmscriptenViewport(); 
 } 
 
 private scheduleFit() {
