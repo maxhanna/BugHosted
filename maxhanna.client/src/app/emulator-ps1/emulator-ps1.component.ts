@@ -77,11 +77,12 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     // 6) Now that the element is upgraded/ready, fit once
     requestAnimationFrame(() => this.fitPlayerToContainer());
 
-    // 7) Observers/events (fine to keep these)
+    // 7) Observers/events (fine to keep these) 
     if ('ResizeObserver' in window) {
-      this._resizeObs = new ResizeObserver(() => this.fitPlayerToContainer());
+      this._resizeObs = new ResizeObserver(() => this.scheduleFit());
       this._resizeObs.observe(this.containerRef.nativeElement);
     }
+
     window.addEventListener('resize', this._onOrientationChange, { passive: true });
     document.addEventListener('fullscreenchange', this._onFullscreenChange, { passive: true });
     window.addEventListener('orientationchange', this._onOrientationChange, { passive: true });
@@ -113,6 +114,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     document.removeEventListener('fullscreenchange', this._onFullscreenChange);
     window.removeEventListener('orientationchange', this._onOrientationChange);
     window.removeEventListener('resize', this._onOrientationChange);
+    if (this._fitRAF) { cancelAnimationFrame(this._fitRAF); this._fitRAF = undefined; }
   }
 
   async onFileSearchSelected(file: FileEntry) {
@@ -200,7 +202,8 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
       fresh.style.width = '100%';
       fresh.style.height = '100%';
       this.containerRef.nativeElement.appendChild(fresh);
-      this.playerEl = fresh;
+      this.playerEl = fresh; 
+      this.scheduleFit(); 
     } catch (e) {
       console.warn('stopGame failed', e);
     } finally {
