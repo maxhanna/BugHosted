@@ -131,12 +131,6 @@ app.get('/wasmpsx_worker.js', (req, res) => {
   sendStatic(res, p);
 });
 
-app.get('/wasmpsx_worker_proxy.js', (req, res) => {
-  const p = path.join(ps1AssetsPath, 'wasmpsx_worker_proxy.js');
-  if (!fs.existsSync(p)) return res.status(404).end('Not found');
-  sendStatic(res, p);
-});
-
 app.get('/wasmpsx_worker.wasm', (req, res) => {
   const p = path.join(ps1AssetsPath, 'wasmpsx_worker.wasm');
   if (!fs.existsSync(p)) return res.status(404).end('Not found');

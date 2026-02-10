@@ -26,7 +26,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   //resizing 
   private _resizeObs?: ResizeObserver;
   private _onFullscreenChange = () => this.scheduleFit();
-  private _onOrientationChange = () => this.scheduleFit(); 
+  private _onOrientationChange = () => this.scheduleFit();
   private _fitRAF?: number;
 
 
@@ -211,7 +211,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
       this.isMenuPanelOpen = false;
       this.isFileUploaderExpanded = false;
     }
-  } 
+  }
 
   private async ensureWasmPsxLoaded(): Promise<void> {
     if (this._scriptLoaded) return;
@@ -223,15 +223,10 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
 
       (window as any).Module = {
         mainScriptUrlOrBlob: new URL('assets/ps1/wasmpsx.min.js', document.baseURI).toString(),
-
         locateFile: (path: string) => {
-          // 🔽 use the proxy worker instead of the minified one
-          if (path.endsWith('.worker.js')) return base + 'wasmpsx_worker_proxy.js';
-          // Worker WASM (keep original)
+          if (path.endsWith('.worker.js')) return base + 'wasmpsx_worker.js';
           if (path.includes('worker') && path.endsWith('.wasm')) return base + 'wasmpsx_worker.wasm';
-          // Main WASM
           if (path.endsWith('.wasm')) return base + 'wasmpsx_wasm.wasm';
-          // Fallback
           return base + path;
         }
       };
@@ -284,6 +279,8 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   }
 
   /** Resize the DOM canvas to fill the container, then resize the *runtime* render buffer. */
+
+  /** Resize the DOM canvas to fill the container, and keep the backbuffer == CSS size (no DPR). */
   private fitPlayerToContainer() {
     const host = this.playerEl as any;
     const container = this.containerRef?.nativeElement;
@@ -291,82 +288,46 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
 
     // 1) Container size in CSS pixels
     const rect = container.getBoundingClientRect();
-    const cssW = Math.max(0, Math.floor(rect.width));
-    const cssH = Math.max(0, Math.floor(rect.height));
-    const dpr = window.devicePixelRatio || 1;
+    const cssW = Math.max(1, Math.floor(rect.width));
+    const cssH = Math.max(1, Math.floor(rect.height));
 
-    // 2) Find the canvas (open shadow or property)
+    // 2) Get canvas (open shadow or property)
     const canvas: HTMLCanvasElement | undefined =
       host.canvas || host.shadowRoot?.querySelector?.('canvas');
 
-    // If we cannot reach the canvas (closed shadow), at least size the host
     if (!canvas) {
+      // Closed shadow: at least size the host element, runtime may still fit internally
       (host as HTMLElement).style.width = cssW + 'px';
       (host as HTMLElement).style.height = cssH + 'px';
-      // We still try to resize the runtime (worker/main) below.
     } else {
-      // 3) CSS layout size
+      // Layout size
       canvas.style.width = cssW + 'px';
       canvas.style.height = cssH + 'px';
 
-      // 4) Backing pixel size (for crisp rendering on HiDPI)
-      const pxW = Math.max(1, Math.floor(cssW * dpr));
-      const pxH = Math.max(1, Math.floor(cssH * dpr));
-      if (canvas.width !== pxW || canvas.height !== pxH) {
-        canvas.width = pxW;
-        canvas.height = pxH;
+      // Backing buffer == CSS size (avoid DPR to prevent viewport mismatch)
+      if (canvas.width !== cssW || canvas.height !== cssH) {
+        canvas.width = cssW;
+        canvas.height = cssH;
       }
     }
 
-    // 5) Resize the actual *render buffer + viewport* in whichever place owns GL
-    //    (Emscripten main-thread module OR a Worker with OffscreenCanvas).
-    this.resizeRuntimeRenderBuffer(cssW, cssH, dpr);
-  }
-
-  /** Resize the *runtime* (Emscripten/GL) render buffer so the game fills the canvas. */
-  private resizeRuntimeRenderBuffer(cssW: number, cssH: number, dpr: number) {
-    const host = this.playerEl as any;
-    const pxW = Math.max(1, Math.floor(cssW * dpr));
-    const pxH = Math.max(1, Math.floor(cssH * dpr));
-
-    // A) If this build runs on the main thread, use Emscripten's Module.setCanvasSize
-    const mod = host?.module || (window as any).Module;
-    if (mod?.setCanvasSize) {
-      try {
-        mod.setCanvasSize(pxW, pxH);       // updates framebuffer + viewport (main thread)
-        // If you want strict 4:3 letterboxing from Emscripten, uncomment:
-        // mod.forcedAspectRatio = 4 / 3;  // apply once if desired
-        return;
-      } catch { /* fall through */ }
-    }
-
-    // B) If the renderer lives in a Worker/OffscreenCanvas, ask the worker to resize.
-    if (host?.worker?.postMessage) {
-      try {
-        host.worker.postMessage({ type: 'canvas-resize', width: pxW, height: pxH, dpr });
-        return;
-      } catch { /* ignore */ }
-    }
-
-    // C) Last resort (no-ops on worker builds): try updating GL viewport on main thread
+    // 3) If a main-thread Emscripten Module exists, ask it to match
     try {
-      const canvas: HTMLCanvasElement | undefined =
-        host.canvas || host.shadowRoot?.querySelector?.('canvas');
-      const gl = (canvas as any)?.getContext?.('webgl2')
-        || (canvas as any)?.getContext?.('webgl')
-        || (canvas as any)?.getContext?.('2d');
-      (gl as any)?.viewport?.(0, 0, pxW, pxH);
+      const mod = (host?.module) || (window as any).Module;
+      mod?.setCanvasSize?.(cssW, cssH); // updates framebuffer + viewport when available
+      // Optional: to enforce strict 4:3 letterboxing by the runtime:
+      // mod && (mod.forcedAspectRatio = 4 / 3);
     } catch { /* ignore */ }
   }
 
-// Drop-in replacement for scheduleFit()
-private scheduleFit = () => {
-  if (this._fitRAF) cancelAnimationFrame(this._fitRAF);
-  this._fitRAF = requestAnimationFrame(() => {
-    this._fitRAF = undefined;
-    this.fitPlayerToContainer();
-  });
-};
+  // Drop-in replacement for scheduleFit()
+  private scheduleFit = () => {
+    if (this._fitRAF) cancelAnimationFrame(this._fitRAF);
+    this._fitRAF = requestAnimationFrame(() => {
+      this._fitRAF = undefined;
+      this.fitPlayerToContainer();
+    });
+  };
 
   getRomName(): string {
     const n = this.romName || '';
