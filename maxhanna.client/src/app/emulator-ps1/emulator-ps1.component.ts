@@ -146,8 +146,12 @@ private _lastSeenPadIds: string[] = [];
     window.addEventListener('resize', this._onOrientationChange, { passive: true });
     document.addEventListener('fullscreenchange', this._onFullscreenChange, { passive: true });
     window.addEventListener('orientationchange', this._onOrientationChange, { passive: true });
-    this.ngZone.runOutsideAngular(() => this.startGamepadLoop());
-    this._recomputePorts();
+
+this.ngZone.runOutsideAngular(() => this.startGamepadLoop());
+
+// Ensure we start fresh AFTER the player is initialized
+this._lastSeenPadIds = [];   
+this.ngZone.run(() => this._recomputePorts(true)); 
   }
 
 
@@ -497,7 +501,7 @@ private _pollGamepadsP1P2() {
       this._lastSeenPadIds = ids;
     });
   } 
-  
+
   // Stay outside Angular for input synthesis (no change detection needed)
   for (let p = 0; p < this._maxPads; p++) {
     const idx = this._players[p].gpIndex;
@@ -510,6 +514,7 @@ private _pollGamepadsP1P2() {
     const map = (p === 0 || this.mirrorSecondPadToP1) ? this._mapP1 : this._mapP2;
     this._applyPadToKeys(p, gp, map);
   }
+  console.log("GP SNAPSHOT:", navigator.getGamepads());
 } 
 
   /** Map a gamepad to a specific player's key map. */
