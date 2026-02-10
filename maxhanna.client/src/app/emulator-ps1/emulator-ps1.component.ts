@@ -149,8 +149,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     } finally {
       this.stopLoading();
     }
-  }
-
+  } 
 
   async stopGame() {
     try {
@@ -270,6 +269,25 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     });
   }
 
+/** Tell Emscripten about the new render size so the PS1 framebuffer fills the canvas. */
+private syncEmscriptenViewport(pxW: number, pxH: number) {
+  const host = this.playerEl as any;
+  const mod = host?.module || (window as any).Module;
+  if (!mod) return;
+
+  try {
+    // 1) If your UI is flexible, just push the actual pixel size:
+    mod.setCanvasSize?.(pxW, pxH);
+
+    // 2) If you want to *enforce* a specific aspect (e.g., 4:3),
+    //    set this once (or whenever your container ratio changes).
+    //    Comment this out if you prefer free-stretch to the container.
+    // mod.forcedAspectRatio = 4 / 3; // ~1.3333
+  } catch {
+    // Some builds may not export setCanvasSize; safe to ignore.
+  }
+}
+
 /** Resize player canvas to fill its container (CSS px) and match DPR for crisp rendering. */
 private fitPlayerToContainer() {
   const host = this.playerEl as any;
@@ -309,7 +327,9 @@ private fitPlayerToContainer() {
   try {
     const gl = (canvas as any).getContext?.('webgl2') || (canvas as any).getContext?.('webgl') || (canvas as any).getContext?.('2d');
     (gl as any)?.viewport?.(0, 0, pxW, pxH);
-  } catch { /* ignore */ }
+  } catch { /* ignore */ } 
+  
+  this.syncEmscriptenViewport(pxW, pxH); 
 } 
 
 private scheduleFit() {
