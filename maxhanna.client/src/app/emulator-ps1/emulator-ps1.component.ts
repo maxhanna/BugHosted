@@ -202,8 +202,8 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
       fresh.style.width = '100%';
       fresh.style.height = '100%';
       this.containerRef.nativeElement.appendChild(fresh);
-      this.playerEl = fresh; 
-      this.scheduleFit(); 
+      this.playerEl = fresh;
+      this.scheduleFit();
     } catch (e) {
       console.warn('stopGame failed', e);
     } finally {
@@ -279,46 +279,96 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     })
   }
 
-  /** Resize the DOM canvas to fill the container, then resize the *runtime* render buffer. */
-
-  /** Resize the DOM canvas to fill the container, and keep the backbuffer == CSS size (no DPR). */
+  /** Force the emulator picture to fill the container by scaling the actual framebuffer via CSS. */
   private fitPlayerToContainer() {
     const host = this.playerEl as any;
-    const container = this.containerRef?.nativeElement;
+    const container = this.containerRef?.nativeElement as HTMLElement | undefined;
     if (!host || !container) return;
 
-    // 1) Container size in CSS pixels
+    // Ensure the container acts as a positioning context and clips any overflow.
+    container.style.position = container.style.position || 'relative';
+    container.style.overflow = 'hidden';
+
+    // Container size in CSS pixels
     const rect = container.getBoundingClientRect();
     const cssW = Math.max(1, Math.floor(rect.width));
     const cssH = Math.max(1, Math.floor(rect.height));
 
-    // 2) Get canvas (open shadow or property)
+    // Find the canvas the emulator draws to
+    const canvas: HTMLCanvasElement | undefined =
+      host.canvas || host.shadowRoot?.querySelector?.('canvas');
+    if (!canvas) {
+      // Closed shadow or not created yet—at least size the host so we get no layout surprises
+      (host as HTMLElement).style.width = cssW + 'px';
+      (host as HTMLElement).style.height = cssH + 'px';
+      return;
+    }
+
+    // Try to detect the real framebuffer size (best is WebGL drawing buffer)
+    let fbW = canvas.width || 1;
+    let fbH = canvas.height || 1;
+    try {
+      const gl =
+        (canvas as any).getContext?.('webgl2') ||
+        (canvas as any).getContext?.('webgl') ||
+        null;
+      if (gl && gl.drawingBufferWidth && gl.drawingBufferHeight) {
+        fbW = gl.drawingBufferWidth;
+        fbH = gl.drawingBufferHeight;
+      }
+    } catch { /* ignore */ }
+
+    // If the attributes were changed earlier, normalize so our transform math is consistent
+    // We’ll size the CSS box to the framebuffer and scale from there.
+    canvas.style.position = 'absolute';
+    canvas.style.left = '0';
+    canvas.style.top = '0';
+    canvas.style.width = fbW + 'px';
+    canvas.style.height = fbH + 'px';
+
+    // Choose scaling strategy:
+    //   COVER = fills the entire container (might crop a little, like background-size: cover)
+    //   CONTAIN = fits entirely with letterboxing/pillarboxing
+    const COVER = true;
+    const scaleX = cssW / fbW;
+    const scaleY = cssH / fbH;
+    const scale = COVER ? Math.max(scaleX, scaleY) : Math.min(scaleX, scaleY);
+
+    // Center the scaled image (optional — keeps it visually centered when aspect differs)
+    const scaledW = fbW * scale;
+    const scaledH = fbH * scale;
+    const offsetX = Math.floor((cssW - scaledW) / 2);
+    const offsetY = Math.floor((cssH - scaledH) / 2);
+
+    canvas.style.transformOrigin = 'top left';
+    canvas.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+
+    // Nicer upscaling
+    canvas.style.imageRendering = 'pixelated';
+    (host as HTMLElement).style.display = 'block'; // defensive
+    this.debugCanvasSizing();
+    // If your container was 0 height due to CSS, nothing will fill. Make sure upstream gives it height.
+  }
+
+  private debugCanvasSizing() {
+    const host = this.playerEl as any;
+    const container = this.containerRef?.nativeElement as HTMLElement | undefined;
     const canvas: HTMLCanvasElement | undefined =
       host.canvas || host.shadowRoot?.querySelector?.('canvas');
 
-    if (!canvas) {
-      // Closed shadow: at least size the host element, runtime may still fit internally
-      (host as HTMLElement).style.width = cssW + 'px';
-      (host as HTMLElement).style.height = cssH + 'px';
-    } else {
-      // Layout size
-      canvas.style.width = cssW + 'px';
-      canvas.style.height = cssH + 'px';
-
-      // Backing buffer == CSS size (avoid DPR to prevent viewport mismatch)
-      if (canvas.width !== cssW || canvas.height !== cssH) {
-        canvas.width = cssW;
-        canvas.height = cssH;
-      }
-    }
-
-    // 3) If a main-thread Emscripten Module exists, ask it to match
+    const rect = container?.getBoundingClientRect();
+    let fbW = canvas?.width, fbH = canvas?.height;
     try {
-      const mod = (host?.module) || (window as any).Module;
-      mod?.setCanvasSize?.(cssW, cssH); // updates framebuffer + viewport when available
-      // Optional: to enforce strict 4:3 letterboxing by the runtime:
-      // mod && (mod.forcedAspectRatio = 4 / 3);
-    } catch { /* ignore */ }
+      const gl =
+        (canvas as any)?.getContext?.('webgl2') ||
+        (canvas as any)?.getContext?.('webgl');
+      if (gl) { fbW = gl.drawingBufferWidth; fbH = gl.drawingBufferHeight; }
+    } catch { }
+
+    console.log('container:', rect?.width, rect?.height,
+      'canvas attr:', canvas?.width, canvas?.height,
+      'framebuffer:', fbW, fbH,
+      'css:', canvas && getComputedStyle(canvas).width, canvas && getComputedStyle(canvas).height);
   }
 
   // Drop-in replacement for scheduleFit()
