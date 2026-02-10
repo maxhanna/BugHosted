@@ -481,23 +481,24 @@ private _lastSeenPadIds: string[] = [];
     this._releaseAllKeys(); // safety
   }
 
-  /** Poll both PS1 slots and apply mappings. */
- 
+  /** Poll both PS1 slots and apply mappings. */ 
 private _pollGamepadsP1P2() {
   const pads = this._getEligiblePadsSnapshot();
 
   const ids = pads.map(p => p.id);
   const last = this._lastSeenPadIds;
-
-  // Detect any changes
   const changed = ids.length !== last.length || ids.some((id, i) => id !== last[i]);
-
-  if (changed) {
-    this._recomputePorts(true);     // <-- now port assignment ALWAYS happens
-    this._lastSeenPadIds = ids;
-  }
-
-  // Apply input for the active ports
+  const firstAppearance = last.length === 0 && ids.length > 0; // optional helper
+  
+  if (changed || firstAppearance) {
+    this.ngZone.run(() => {
+      console.log('[GP] change detected → recomputing ports:', ids);
+      this._recomputePorts(true);
+      this._lastSeenPadIds = ids;
+    });
+  } 
+  
+  // Stay outside Angular for input synthesis (no change detection needed)
   for (let p = 0; p < this._maxPads; p++) {
     const idx = this._players[p].gpIndex;
     if (idx == null) continue;
@@ -509,9 +510,7 @@ private _pollGamepadsP1P2() {
     const map = (p === 0 || this.mirrorSecondPadToP1) ? this._mapP1 : this._mapP2;
     this._applyPadToKeys(p, gp, map);
   }
-}
-
-
+} 
 
   /** Map a gamepad to a specific player's key map. */
   private _applyPadToKeys(
