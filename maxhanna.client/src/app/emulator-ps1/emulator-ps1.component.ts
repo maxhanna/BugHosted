@@ -597,11 +597,28 @@ private _pollGamepadsP1P2() {
     }
   }
 
-  /** Accept only “real” pads: connected & have the standard mapping */
-  private _isEligiblePad(gp: Gamepad | null | undefined): gp is Gamepad {
-    return !!gp && gp.connected && (gp.mapping === 'standard' || gp.mapping === '');
-    // some browsers report '' for mapping, keep it if connected
+  /** Accept only “real” pads: connected & have the standard mapping */ 
+private _isEligiblePad(gp: Gamepad | null | undefined): gp is Gamepad {
+  if (!gp || !gp.connected) return false;
+
+  const id = gp.id.toLowerCase();
+
+  // BLOCK audio devices that pretend to be gamepads
+  if (
+    id.includes('poly') ||
+    id.includes('bt700') ||
+    id.includes('headset') ||
+    id.includes('headphone') ||
+    id.includes('audio') ||
+    id.includes('hands-free') ||
+    id.includes('speaker')
+  ) {
+    return false;
   }
+
+  // STRICT MODE — only real controllers
+  return gp.mapping === 'standard';
+} 
 
   /** Resolve current snapshot of eligible pads in a stable order */
   private _getEligiblePadsSnapshot(): Gamepad[] {
