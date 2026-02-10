@@ -155,7 +155,7 @@ this.ngZone.run(() => this._recomputePorts(true));
   }
 
 
-  ngOnDestroy(): void {
+  async ngOnDestroy(): Promise<void> {
     // 1) Exit fullscreen if still active (avoids a stuck fullscreen session)
     try {
       if (document.fullscreenElement) {
@@ -164,8 +164,7 @@ this.ngZone.run(() => this._recomputePorts(true));
     } catch { /* ignore */ }
 
     // 2) Stop the game & release element
-    try { this.stopGame().catch(() => { }); } catch { /* ignore */ }
-
+    await this.stopGame(false);
     // 3) Defensive DOM removal
     try {
       if (this.playerEl?.parentElement) {
@@ -224,46 +223,39 @@ this.ngZone.run(() => this._recomputePorts(true));
     }
   }
 
-  async stopGame() {
+async stopGame(recreate: boolean = true) {
+  try {
+    const el = this.playerEl as any;
+    if (!el) return;
+
+    try { el.pause?.(); } catch {}
+    try { el.destroy?.(); } catch {}
+    try { el.dispose?.(); } catch {}
+    try { el.reset?.(); } catch {}
+
+    try { el.worker?.terminate?.(); } catch {}
+
     try {
-      const el = this.playerEl as any;
-      if (!el) return;
+      if (Array.isArray(el.workers)) {
+        el.workers.forEach((w:any) => { try { w.terminate(); } catch {} });
+        el.workers = [];
+      }
+    } catch {}
 
-      // 1) Pause if API exists
-      try { el.pause?.(); } catch { /* ignore */ }
+    try { await el.audioCtx?.close?.(); } catch {}
 
-      // 2) Call a destroy/dispose/reset if the custom element exposes it
-      // (Many emulators provide one of these; if not present, that's fine.)
-      try { el.destroy?.(); } catch { /* ignore */ }
-      try { el.dispose?.(); } catch { /* ignore */ }
-      try { el.reset?.(); } catch { /* ignore */ }
+    try { await el.module?.quit?.(); } catch {}
 
-      // 3) Terminate worker(s) if exposed
-      try { el.worker?.terminate?.(); } catch { /* ignore */ }
-      // Some builds keep an array of workers
-      try {
-        if (Array.isArray(el.workers)) {
-          el.workers.forEach((w: Worker) => { try { w.terminate(); } catch { } });
-          el.workers = [];
-        }
-      } catch { /* ignore */ }
+    try { el.remove(); } catch {}
 
-      // 4) Close audio context if present
-      try { await el.audioCtx?.close?.(); } catch { /* ignore */ }
+    // drop references
+    try {
+      if (el.module) el.module = undefined;
+      if (el.worker) el.worker = undefined;
+    } catch {}
 
-      // 5) If Emscripten Module is hung, try to quit()
-      try { await el.module?.quit?.(); } catch { /* ignore */ }
-
-      // 6) Remove from DOM
-      try { el.remove(); } catch { /* ignore */ }
-
-      // 7) Drop references so GC can collect
-      try {
-        if (el.module) el.module = undefined;
-        if (el.worker) el.worker = undefined;
-      } catch { /* ignore */ }
-
-      // 8) Recreate an empty player if you want to keep the UI alive
+    // recreate ONLY if requested
+    if (recreate) {
       const fresh = document.createElement('wasmpsx-player') as any;
       fresh.style.display = 'block';
       fresh.style.width = '100%';
@@ -271,15 +263,19 @@ this.ngZone.run(() => this._recomputePorts(true));
       this.containerRef.nativeElement.appendChild(fresh);
       this.playerEl = fresh;
       this.scheduleFit();
-    } catch (e) {
-      console.warn('stopGame failed', e);
-    } finally {
-      this.romName = undefined;
-      this.isFullScreen = false;
-      this.isMenuPanelOpen = false;
-      this.isFileUploaderExpanded = false;
+    } else {
+      this.playerEl = undefined;
     }
+
+  } catch (e) {
+    console.warn('stopGame failed', e);
+  } finally {
+    this.romName = undefined;
+    this.isFullScreen = false;
+    this.isMenuPanelOpen = false;
+    this.isFileUploaderExpanded = false;
   }
+} 
 
   private async ensureWasmPsxLoaded(): Promise<void> {
     if (this._scriptLoaded) return;
