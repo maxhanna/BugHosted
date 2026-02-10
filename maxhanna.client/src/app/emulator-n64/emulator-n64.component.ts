@@ -2742,7 +2742,7 @@ private runAfterMenuClosed(cb: () => void) {
     try {
       const db = await this.openMupenDb();
       if (!db) {
-        this.parentRef?.showNotification('IndexedDB "/mupen64plus" not found or missing FILE_DATA.');
+        this.parentRef?.showNotification('Corrupted save data; Refresh the page to reset emulator storage.');
         return;
       }
 
