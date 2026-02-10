@@ -29,8 +29,6 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   private _onOrientationChange = () => this.scheduleFit();
   private _fitRAF?: number;
 
-
-
   constructor(
     private romService: RomService,
     private fileService: FileService,
