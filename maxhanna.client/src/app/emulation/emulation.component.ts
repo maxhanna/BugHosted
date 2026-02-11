@@ -962,8 +962,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
   // Optional: expose a quick read of connected pads (sorted by index)
   getConnectedGamepads(): Gamepad[] {
-    // Some browsers leave nulls in navigator.getGamepads(); filter them out
-    const pads = (navigator.getGamepads?.() || []).filter((p): p is Gamepad => !!p);
+    // Some browsers leave nulls in navigator.getGamepads(); filter them out and skip audio-like devices
+    const pads = (navigator.getGamepads?.() || []).filter((p): p is Gamepad => !!p && !this.isLikelyAudioDeviceId(p.id));
     // Keep our map in sync (covers cases where 'gamepadconnected' isn't fired reliably)
     this.connectedPads.clear();
     for (const p of pads) this.connectedPads.set(p.index, p);
@@ -1010,6 +1010,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
   private enableGamepadMonitoring() {
     const addPad = (gp: Gamepad) => {
+      if (this.isLikelyAudioDeviceId(gp.id)) return; // ignore likely audio devices
       this.connectedPads.set(gp.index, gp);
       this.scheduleControllerCountNotification(); // debounce instead of immediate toast
     };
@@ -1022,11 +1023,15 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     // Events
     window.addEventListener('gamepadconnected', (e: Event) => {
       const ev = e as GamepadEvent;
-      if (ev.gamepad) addPad(ev.gamepad);
+      if (ev.gamepad) { 
+        addPad(ev.gamepad); 
+      }
     });
     window.addEventListener('gamepaddisconnected', (e: Event) => {
       const ev = e as GamepadEvent;
-      if (ev.gamepad) removePad(ev.gamepad.index);
+      if (ev.gamepad) { 
+        removePad(ev.gamepad.index); 
+      }
     });
 
     // Fallback poll
@@ -1034,6 +1039,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       const seen = new Set<number>();
       for (const gp of (navigator.getGamepads?.() || [])) {
         if (!gp) continue;
+        if (this.isLikelyAudioDeviceId(gp.id)) continue; // skip audio/headset devices
         seen.add(gp.index);
         if (!this.connectedPads.has(gp.index)) {
           this.connectedPads.set(gp.index, gp);
@@ -1057,7 +1063,6 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
 
   /** Stop the poller (call in ngOnDestroy). */
-
   private disableGamepadMonitoring() {
     if (this.gamepadPollTimer) {
       clearInterval(this.gamepadPollTimer);
@@ -1069,7 +1074,20 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     }
     this._lastPadCountNotified = -1;
   }
-
+ // Heuristic: exclude audio/headset/speaker devices from being treated as gamepads
+  private isLikelyAudioDeviceId(id?: string | null): boolean {
+    if (!id) return false;
+    try {
+      const s = id.toLowerCase();
+      const bad = [
+        'poly', 'bt700', 'headset', 'headphone', 'audio', 'hands-free', 'handsfree',
+        'speaker', 'earbud', 'earbuds', 'earphone', 'airpod'
+      ];
+      return bad.some(k => s.includes(k));
+    } catch {
+      return false;
+    }
+  }
   // Returns the currently active system and its relevant actions to rebind.
   // We trim to only what matters for the selected ROM/core.
   getActionsForSystem(): string[] {

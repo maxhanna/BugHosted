@@ -1613,7 +1613,8 @@ private runAfterMenuClosed(cb: () => void) {
           (this._originalGetGamepadsBase ? this._originalGetGamepadsBase() : []) || [];
 
         const isReal = (g: Gamepad | null) =>
-          !!g && g.connected && ((g.buttons?.length ?? 0) + (g.axes?.length ?? 0) > 0);
+          !!g && g.connected && ((g.buttons?.length ?? 0) + (g.axes?.length ?? 0) > 0) &&
+          !this.isLikelyAudioDeviceId(g?.id);
 
         const resolveForPort = (port: PlayerPort): { pad: Gamepad; idx: number } | null => {
           const wantIdx = this.ports[port]?.gpIndex;
@@ -1836,9 +1837,38 @@ private runAfterMenuClosed(cb: () => void) {
     console.debug('[GP] uninstallReorderWrapper removed');
   }
 
+  // Heuristic: exclude audio/headset/speaker devices from being treated as gamepads
+  private isLikelyAudioDeviceId(id?: string | null): boolean {
+    if (!id) return false;
+    try {
+      const s = id.toLowerCase();
+      const bad = [
+        'poly', 'bt700', 'headset', 'headphone', 'audio', 'hands-free', 'handsfree',
+        'speaker', 'earbud', 'earbuds', 'earphone', 'airpod'
+      ];
+      return bad.some(k => s.includes(k));
+    } catch {
+      return false;
+    }
+  }
+
   private getGamepadsBase(): (Gamepad | null)[] {
     const getter = this._originalGetGamepadsBase || (navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null);
-    return getter ? getter() : [];
+    if (!getter) return [];
+    try {
+      const arr = (getter() || []) as (Gamepad | null)[];
+      // Preserve original indexing: mark audio-like devices as `null` so index-based lookups remain correct
+      for (let i = 0; i < arr.length; i++) {
+        const gp = arr[i];
+        if (gp && this.isLikelyAudioDeviceId(gp.id)) {
+          arr[i] = null;
+        }
+      }
+      return arr;
+    } catch (e) {
+      // fallback to raw getter if anything unexpected happens
+      try { return getter() as (Gamepad | null)[]; } catch { return []; }
+    }
   }
 
   private migrateMappingToIdsIfNeeded() {

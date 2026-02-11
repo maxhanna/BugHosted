@@ -662,7 +662,6 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     // Keep old slots to compare later
     const oldP1 = this._players[0].gpIndex;
     const oldP2 = this._players[1].gpIndex;
-
     // Candidate list: in index order
     const firstTwo = pads.slice(0, this._maxPads);
 
