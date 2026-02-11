@@ -7,7 +7,6 @@
 
   <!-- Search panel (hide after selecting a ROM) -->
   <div class="gamesContainer expanded" *ngIf="!romName">
-    <div>Please note: Still under construction</div>
     <app-file-search [user]="parentRef?.user" [inputtedParentRef]="parentRef" [currentDirectory]="'Roms/'"
       [clearAfterSelectFile]="true" [showPrivatePublicOption]="false" [showFileSearchOptions]="false"
       [canChangeDirectory]="false" [canDragMove]="false" [displayFileActions]="true" [displayComments]="false"
@@ -18,7 +17,9 @@
   </div>
 
   <!-- Emulator viewport -->
-  <div #fullscreenContainer>
+  <div #fullscreenContainer 
+    [style.height]="romName ? (isFullScreen ? '100vh' : '') : '1px'"
+    [style.width]="romName ? (isFullScreen ? '100vw' : '') : '1px'">
     <div class="screen-area">
       <div #container class="player-container"></div>
     </div>
@@ -30,7 +31,11 @@
   <div class="popupPanelTitle" style="margin-bottom:15px;">
     PS1 Menu
   </div>
-
+  <div> 
+    <button (click)="saveState()" *ngIf="romName">Save State</button>
+    <button (click)="loadState()">Load State</button>
+    <button (click)="clearState()">Clear Saved State</button>
+  </div>
   <div class="pad-status" style="font-size:12px; opacity:0.75; margin-top:4px;">
     <span>
       {{ connectedPadsUI[0]?.id ? ('Port 1: ' + connectedPadsUI[0]?.id) : 'Port 1: —' }}

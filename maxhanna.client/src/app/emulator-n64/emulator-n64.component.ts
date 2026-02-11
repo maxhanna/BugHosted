@@ -1884,24 +1884,7 @@ private runAfterMenuClosed(cb: () => void) {
       }
     }
   }
-
-  /** A minimal, menu-safe release: don't touch fullscreen/pointer-lock or JSEvents. */
-  private releaseForMenu(): void {
-    try {
-      // 1) Blur the canvas so the browser routes keys to the UI again.
-      const canvasEl = this.canvas?.nativeElement as HTMLCanvasElement | undefined;
-      canvasEl?.blur?.();
-
-      // 2) Also blur any currently focused element to clear capture on some stacks.
-      (document.activeElement as HTMLElement | null)?.blur?.();
-
-      // 3) Do NOT call exitFullscreen or exitPointerLock here.
-      // 4) Do NOT nuke JSEvents here (that can alter scrollbars and global handlers).
-      // 5) Do NOT null out document.onkeydown/keyup globally here.
-    } catch {/* ignore */ }
-  }
-
-
+  
   /** Full release: use on *stop()*; optional flags let us tailor it. */
   private releaseKeyboardAndFocus(opts?: {
     exitFullscreen?: boolean;

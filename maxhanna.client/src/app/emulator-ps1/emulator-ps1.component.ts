@@ -28,8 +28,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   private _onFullscreenChange = () => this.scheduleFit();
   private _onOrientationChange = () => this.scheduleFit();
   private _fitRAF?: number;
-  private _menuPollTimer?: number;
-
+  private _menuPollTimer?: number; 
   // --- PS1 multi‑gamepad support (2 ports like the real console) ---
   private readonly _maxPads = 2;
   private _portLabels = ['Port 1', 'Port 2'];
@@ -39,11 +38,9 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   private _players: Array<{ gpIndex: number | null }> = [
     { gpIndex: null }, // Player 1
     { gpIndex: null }  // Player 2
-  ];
-
+  ]; 
   // If true, 2nd pad mirrors Player 1 keys (safe if your build only reads P1 keys)
-  private mirrorSecondPadToP1 = true;
-
+  private mirrorSecondPadToP1 = true; 
   // P1 keyboard mapping (common web PS1 defaults)
   private readonly _mapP1: PsxKeyMap = {
     cross: { key: 'z', code: 'KeyZ' },
@@ -60,8 +57,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     down: { key: 'ArrowDown', code: 'ArrowDown' },
     left: { key: 'ArrowLeft', code: 'ArrowLeft' },
     right: { key: 'ArrowRight', code: 'ArrowRight' },
-  };
-
+  }; 
   // P2 keyboard mapping (only used if mirrorSecondPadToP1=false AND your build supports P2 keys)
   private readonly _mapP2: PsxKeyMap = {
     cross: { key: 'm', code: 'KeyM' },   // choose keys your build uses for P2
@@ -78,17 +74,15 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     down: { key: 's', code: 'KeyS' },
     left: { key: 'a', code: 'KeyA' },
     right: { key: 'd', code: 'KeyD' },
-  };
-
-
+  }; 
   // Gamepad polling state
   private _gpRAF?: number;
   private _axisDeadzone = 0.40;      // left‑stick → D‑Pad deadzone
   private _triggerThreshold = 0.50;  // L2/R2 analog threshold
-  private _useLeftStickAsDpad = true;
-
+  private _useLeftStickAsDpad = true; 
   // Track synthesized keys per player so we can send balanced keyup events
-  private _keysDown = new Set<string>();
+  private _keysDown = new Set<string>(); 
+  private readonly SAVE_STATE_KEY_PREFIX = "ps1_save_state_";
 
   constructor(
     private romService: RomService,
@@ -785,6 +779,138 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
 
     try { (target as any).dispatchEvent(ev); } catch { /* ignore */ }
   }
+
+  
+/** Build the storage key for the current ROM. */
+private getSaveStateKey(): string {
+  const base = this.getRomName() || "unnamed_rom";
+  return this.SAVE_STATE_KEY_PREFIX + base.toLowerCase();
+}
+
+/** Save a snapshot of emulator RAM+VRAM to IndexedDB. */
+async saveState() {
+  try {
+    if (!this.playerEl || typeof (this.playerEl as any).saveState !== "function") {
+      this.parentRef?.showNotification("Save state not supported by this build.");
+      return;
+    }
+
+    const blob: Blob = await (this.playerEl as any).saveState();
+    const arrayBuf = await blob.arrayBuffer();
+
+    // Store in IndexedDB (Emscripten FS DB)
+    const key = this.getSaveStateKey();
+    await this.storeBinaryInIndexedDB(key, new Uint8Array(arrayBuf));
+
+    this.parentRef?.showNotification(`Saved state for ${this.getRomName()}`);
+  } catch (e) {
+    console.error("Save state failed:", e);
+    this.parentRef?.showNotification("Save state failed.");
+  }
+}
+
+/** Load state from IndexedDB and feed it into the emulator. */
+async loadState() {
+  try {
+    if (!this.playerEl || typeof (this.playerEl as any).loadState !== "function") {
+      this.parentRef?.showNotification("Load state not supported by this build.");
+      return;
+    }
+
+    const key = this.getSaveStateKey();
+    const data = await this.retrieveBinaryFromIndexedDB(key);
+    if (!data) {
+      this.parentRef?.showNotification("No saved state found.");
+      return;
+    }
+
+    const blob = new Blob([data], { type: "application/octet-stream" });
+    await (this.playerEl as any).loadState(blob);
+
+    this.parentRef?.showNotification(`Loaded state for ${this.getRomName()}`);
+  } catch (e) {
+    console.error("Load state failed:", e);
+    this.parentRef?.showNotification("Load state failed.");
+  }
+}
+
+/** Remove stored save state for current ROM. */
+async clearState() {
+  const key = this.getSaveStateKey();
+  await this.removeFromIndexedDB(key);
+  this.parentRef?.showNotification("Save state cleared.");
+} 
+
+// -----------------------------
+// IndexedDB HELPER FUNCTIONS
+// -----------------------------
+private getDbInfo() {
+  const dbName = "EM_FS_" + window.location.pathname;
+  const storeName = "FILE_DATA";
+  const dbVersion = 20;
+  return { dbName, storeName, dbVersion };
+}
+
+private async openIDB(): Promise<IDBDatabase> {
+  const { dbName, dbVersion, storeName } = this.getDbInfo();
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(dbName, dbVersion);
+
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(storeName)) {
+        db.createObjectStore(storeName);
+      }
+    };
+
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+private async storeBinaryInIndexedDB(key: string, data: Uint8Array): Promise<void> {
+  const { storeName } = this.getDbInfo();
+  const db = await this.openIDB();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([storeName], "readwrite");
+    const store = tx.objectStore(storeName);
+
+    const req = store.put(data, key);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+private async retrieveBinaryFromIndexedDB(key: string): Promise<Uint8Array | null> {
+  const { storeName } = this.getDbInfo();
+  const db = await this.openIDB();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([storeName], "readonly");
+    const store = tx.objectStore(storeName);
+
+    const req = store.get(key);
+    req.onsuccess = () => {
+      resolve(req.result ? new Uint8Array(req.result) : null);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+private async removeFromIndexedDB(key: string): Promise<void> {
+  const { storeName } = this.getDbInfo();
+  const db = await this.openIDB();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([storeName], "readwrite");
+    const store = tx.objectStore(storeName);
+
+    const req = store.delete(key);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+} 
 
   getRomName(): string {
     const n = this.romName || '';

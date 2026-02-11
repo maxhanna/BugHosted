@@ -1061,7 +1061,6 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     }, 1000);
   }
 
-
   /** Stop the poller (call in ngOnDestroy). */
   private disableGamepadMonitoring() {
     if (this.gamepadPollTimer) {
