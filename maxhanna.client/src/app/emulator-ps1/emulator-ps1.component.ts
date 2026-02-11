@@ -200,7 +200,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     document.removeEventListener('fullscreenchange', this._onFullscreenChange);
     window.removeEventListener('orientationchange', this._onOrientationChange);
     window.removeEventListener('resize', this._onOrientationChange);
-
+    await this.hardStopEmulator();
     if (this._fitRAF) { cancelAnimationFrame(this._fitRAF); this._fitRAF = undefined; }
   }
 
@@ -255,31 +255,8 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
       const el = this.playerEl as any;
       if (!el) return;
 
-      try { el.pause?.(); } catch { }
-      try { el.destroy?.(); } catch { }
-      try { el.dispose?.(); } catch { }
-      try { el.reset?.(); } catch { }
-
-      try { el.worker?.terminate?.(); } catch { }
-
-      try {
-        if (Array.isArray(el.workers)) {
-          el.workers.forEach((w: any) => { try { w.terminate(); } catch { } });
-          el.workers = [];
-        }
-      } catch { }
-
-      try { await el.audioCtx?.close?.(); } catch { }
-
-      try { await el.module?.quit?.(); } catch { }
-
-      try { el.remove(); } catch { }
-
-      // drop references
-      try {
-        if (el.module) el.module = undefined;
-        if (el.worker) el.worker = undefined;
-      } catch { }
+await this.hardStopEmulator();   // ← stop runtime, workers, audio, GPU
+ 
 
       // recreate ONLY if requested
       if (recreate) {
@@ -323,7 +300,8 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
           if (path.includes('worker') && path.endsWith('.wasm')) return base + 'wasmpsx_worker.wasm';
           if (path.endsWith('.wasm')) return base + 'wasmpsx_wasm.wasm';
           return base + path;
-        }
+        },
+        noExitRuntime: false,
       };
 
       const s = document.createElement('script');
@@ -335,6 +313,110 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
       document.head.appendChild(s);
     });
   }
+
+/** 
+ * Forcefully stop the emulation runtime (main loop, workers, GPU, audio). 
+ * Safe to call multiple times.
+ */
+private async hardStopEmulator(): Promise<void> {
+  try {
+    const el = this.playerEl as any;
+    const M = (window as any).Module;
+
+    // 0) Best-effort pause/stop on the custom element itself
+    try { el?.pause?.(); } catch {}
+    try { el?.stop?.(); } catch {}
+    try { el?.destroy?.(); } catch {}
+    try { el?.dispose?.(); } catch {}
+    try { el?.reset?.(); } catch {}
+
+    // 1) Stop/abort the Emscripten main loop (various APIs across versions)
+    try { M?.Browser?.mainLoop?.pause?.(); } catch {}
+    try { M?.Browser?.mainLoop?.scheduler = () => {}; } catch {}
+    try { (M as any)?._emscripten_cancel_main_loop?.(); } catch {}
+    try { (M as any).cancelMainLoop?.(); } catch {}
+    try { (M as any).ABORT = true; } catch {}
+
+    // 2) Tell the runtime it can exit (if still running)
+    try { M.noExitRuntime = false; } catch {}
+    try { M.quit?.(0); } catch {}
+    try { M.exit?.(0); } catch {}
+    try { M._exit?.(0); } catch {}
+
+    // 3) Terminate any workers (main worker and pthreads)
+    try { el?.worker?.terminate?.(); } catch {}
+    try {
+      if (Array.isArray(el?.workers)) {
+        el.workers.forEach((w: any) => { try { w.terminate(); } catch {} });
+        el.workers = [];
+      }
+    } catch {}
+    try { M?.PThread?.terminateAllThreads?.(); } catch {}
+    try { M?.worker?.terminate?.(); } catch {}
+    try {
+      if (Array.isArray(M?.workers)) {
+        M.workers.forEach((w: any) => { try { w.terminate(); } catch {} });
+        M.workers = [];
+      }
+    } catch {}
+
+    // 4) Stop WebAudio (close contexts, audio worklets)
+    try {
+      // Close contexts tracked by the wrapper we installed previously
+      const tracked: Set<BaseAudioContext> | undefined = (window as any).__trackedAudioCtxSet;
+      if (tracked && tracked.size) {
+        await Promise.all(Array.from(tracked).map(async (ctx) => {
+          try {
+            if (ctx.state !== 'closed') {
+              try { await (ctx as any).close?.(); } catch {
+                try { await (ctx as any).suspend?.(); } catch {}
+              }
+            }
+          } catch {}
+        }));
+        for (const ctx of Array.from(tracked)) {
+          if (ctx.state === 'closed') tracked.delete(ctx);
+        }
+      }
+    } catch {}
+    try { await el?.audioCtx?.close?.(); } catch {}
+    try { await M?.SDL?.audio?.context?.close?.(); } catch {}
+    try { M && (M.SDL && (M.SDL.audio && (M.SDL.audio.noAudio = true))); } catch {}
+    try {
+      const n = el?.audioWorkletNode;
+      if (n?.port?.close) n.port.close();
+      if (n?.disconnect) n.disconnect();
+    } catch {}
+
+    // 5) Release GPU contexts (WebGL), OffscreenCanvas
+    try {
+      const canvas: HTMLCanvasElement | OffscreenCanvas | undefined =
+        el?.canvas || el?.shadowRoot?.querySelector?.('canvas');
+      const gl: WebGLRenderingContext | WebGL2RenderingContext | null =
+        (canvas as any)?.getContext?.('webgl2') ||
+        (canvas as any)?.getContext?.('webgl') || null;
+      if (gl && (gl as any).getExtension) {
+        const ext = (gl as any).getExtension('WEBGL_lose_context');
+        try { ext?.loseContext?.(); } catch {}
+      }
+      // If using OffscreenCanvas in worker, the worker termination above usually suffices.
+    } catch {}
+
+    // 6) Remove element from DOM last (prevents re-creation races)
+    try { el?.remove?.(); } catch {}
+
+  } catch (error) {
+    console.log('hardStopEmulator: unexpected error during shutdown', error);
+  }
+  
+  console.log('post-stop',
+    'raf?', this._gpRAF,
+    'menuPoll?', this._menuPollTimer,
+    'fitRAF?', this._fitRAF,
+    'trackedAudio:', (window as any).__trackedAudioCtxSet && Array.from((window as any).__trackedAudioCtxSet).map((c: BaseAudioContext) => c.state),
+    'document.fullscreenElement?', !!document.fullscreenElement
+  ); 
+}
 
   async toggleFullscreen(): Promise<void> {
     const target = this.fullscreenContainer?.nativeElement || this.containerRef.nativeElement;
