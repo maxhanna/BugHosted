@@ -809,6 +809,7 @@ async saveState() {
   }
 }
 
+
 /** Load state from IndexedDB and feed it into the emulator. */
 async loadState() {
   try {
@@ -822,9 +823,11 @@ async loadState() {
     if (!data) {
       this.parentRef?.showNotification("No saved state found.");
       return;
-    }
+    } 
 
-    const blob = new Blob([data], { type: "application/octet-stream" });
+    const ab = await this.retrieveArrayBufferFromIndexedDB(key);
+    if (!ab) { /* notify no state */ return; }
+    const blob = new Blob([ab], { type: "application/octet-stream" });
     await (this.playerEl as any).loadState(blob);
 
     this.parentRef?.showNotification(`Loaded state for ${this.getRomName()}`);
@@ -833,6 +836,23 @@ async loadState() {
     this.parentRef?.showNotification("Load state failed.");
   }
 }
+
+private async retrieveArrayBufferFromIndexedDB(key: string): Promise<ArrayBuffer | null> {
+  const { storeName } = this.getDbInfo();
+  const db = await this.openIDB();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([storeName], "readonly");
+    const store = tx.objectStore(storeName);
+    const req = store.get(key);
+    req.onsuccess = () => {
+      const result = req.result as ArrayBuffer | undefined;
+      resolve(result ?? null);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
 
 /** Remove stored save state for current ROM. */
 async clearState() {
