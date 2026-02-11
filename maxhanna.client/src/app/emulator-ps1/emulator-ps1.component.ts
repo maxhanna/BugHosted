@@ -1,5 +1,7 @@
 
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { PsxKeyMap } from '../../datacontracts/ps1/psx-key-map';
+import { KeyBinding } from '../../datacontracts/ps1/key-binding';
 import { ChildComponent } from '../child.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { RomService } from '../../services/rom.service';
@@ -110,13 +112,10 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   }
 
   ngOnInit(): void {
-    this.startMenuGamepadMonitor();
-
-    window.addEventListener('keydown', (e) => console.log('[DOWN]', e.key, e.code, e.keyCode, e.which));
-    window.addEventListener('keyup', (e) => console.log('[UP  ]', e.key, e.code, e.keyCode, e.which));
-  }
-
-
+    this.startMenuGamepadMonitor(); 
+    // window.addEventListener('keydown', (e) => console.log('[DOWN]', e.key, e.code, e.keyCode, e.which));
+    // window.addEventListener('keyup', (e) => console.log('[UP  ]', e.key, e.code, e.keyCode, e.which));
+  } 
 
   async ngAfterViewInit() {
     // 1) Create and append the element
@@ -130,14 +129,11 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     }
 
     // 2) Load the wasmpsx script (this registers the custom element)
-    await this.ensureWasmPsxLoaded();
-
+    await this.ensureWasmPsxLoaded(); 
     // 3) Now it can be defined + upgraded
     await customElements.whenDefined('wasmpsx-player');
-
     // 4) Wait until the player signals internal readiness
     await this.waitForPlayerReady(this.playerEl);
-
     // 5) If (rarely) still not upgraded to the class with readFile, swap once
     if (typeof (this.playerEl as any).readFile !== 'function') {
       const upgraded = document.createElement('wasmpsx-player') as any;
@@ -149,20 +145,16 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
       this.playerEl = upgraded;
       await this.waitForPlayerReady(this.playerEl);
     }
-
     // 6) Now that the element is upgraded/ready, fit once
     requestAnimationFrame(() => this.fitPlayerToContainer());
-
-    // 7) Observers/events (fine to keep these) 
+    // 7) Observers/events
     if ('ResizeObserver' in window) {
       this._resizeObs = new ResizeObserver(() => this.scheduleFit());
       this._resizeObs.observe(this.containerRef.nativeElement);
     }
-
     window.addEventListener('resize', this._onOrientationChange, { passive: true });
     document.addEventListener('fullscreenchange', this._onFullscreenChange, { passive: true });
     window.addEventListener('orientationchange', this._onOrientationChange, { passive: true });
-
     const onGpConnect = (e: GamepadEvent) => {
       this.ngZone.run(() => {
         this._lastSeenPadIds = [];          // force “change”
@@ -184,7 +176,6 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     this._lastSeenPadIds = [];
     this.ngZone.run(() => this._recomputePorts(true));
   }
-
 
   async ngOnDestroy(): Promise<void> {
     // 1) Exit fullscreen if still active (avoids a stuck fullscreen session)
@@ -444,10 +435,8 @@ private async hardStopEmulator(): Promise<void> {
     const target = this.fullscreenContainer?.nativeElement || this.containerRef.nativeElement;
     if (!document.fullscreenElement) {
       await target.requestFullscreen?.();
-      this.isFullScreen = true;
     } else {
-      await (document as any).exitFullscreen?.();
-      this.isFullScreen = false;
+      await (document as any).exitFullscreen?.(); 
     }
   }
 
@@ -1047,23 +1036,4 @@ private async removeFromIndexedDB(key: string): Promise<void> {
     this.isMenuPanelOpen = false;
     this.parentRef?.closeOverlay();
   }
-}
-
-type KeyBinding = { key: string; code: string };
-
-interface PsxKeyMap {
-  cross: KeyBinding;
-  circle: KeyBinding;
-  square: KeyBinding;
-  triangle: KeyBinding;
-  l1: KeyBinding;
-  l2: KeyBinding;
-  r1: KeyBinding;
-  r2: KeyBinding;
-  select: KeyBinding;
-  start: KeyBinding;
-  up: KeyBinding;
-  down: KeyBinding;
-  left: KeyBinding;
-  right: KeyBinding;
 }

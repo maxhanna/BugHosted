@@ -148,7 +148,6 @@ export class EmulatorN64Component extends ChildComponent implements OnInit, OnDe
     canvasEl?.addEventListener('click', () => this._bootstrapDetectOnce());
     this._canvasResizeAdded = true;
     this.startGamepadAutoDetect();
-
     setTimeout(() => { this.tryApplyLastForConnectedPads().catch(() => { }); }, 0);
     if (!this.romName) {
       this.ensureKeyboardIsFreeForUi();
