@@ -472,29 +472,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
       this._fitRAF = undefined;
       this.fitPlayerToContainer();
     });
-  };
-
-  private _onGpConnected = (_e: GamepadEvent) => {
-    // A controller button press exposes the pad; recompute stable assignment
-    this._recomputePorts(true);
-  };
-
-
-  private _onGpDisconnected = (_e: GamepadEvent) => {
-    // Release any keys for whichever player used this gp index, then compact left
-    // Find which slot had this index
-    const idx = _e.gamepad?.index;
-    if (idx != null) {
-      for (let p = 0; p < this._maxPads; p++) {
-        if (this._players[p].gpIndex === idx) {
-          this._releaseAllKeysForPlayer(p);
-          break;
-        }
-      }
-    }
-    this._recomputePorts(true);
-  };
-
+  }; 
 
   /** Start polling gamepads and mapping them to emulator keys (P1/P2). */
   private startGameplayGamepadLoop() {

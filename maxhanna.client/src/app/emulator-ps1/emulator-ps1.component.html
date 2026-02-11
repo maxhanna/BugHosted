@@ -37,6 +37,11 @@
     <button (click)="clearState()">Clear Saved State</button>
   </div>
 
+  <div *ngIf="romName" style="margin-top: 15px;">
+    <button (click)="stopGame(true)" *ngIf="romName">Stop Emulator</button>
+    <button (click)="toggleFullscreen()" style="margin-left:8px;">{{ isFullScreen ? 'Exit Fullscreen' : 'Enter Fullscreen' }}</button>
+  </div>
+
   <div>
     <app-file-upload [currentDirectory]="'Roms'" [user]="parentRef?.user!" [inputtedParentRef]="parentRef"
       [uploadButtonText]="'Upload Rom(s)'" [maxSelectedFiles]="100" [allowedFileTypes]="getAllowedRomFileTypesString()"
