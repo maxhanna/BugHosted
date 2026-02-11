@@ -331,8 +331,12 @@ private async hardStopEmulator(): Promise<void> {
     try { el?.reset?.(); } catch {}
 
     // 1) Stop/abort the Emscripten main loop (various APIs across versions)
-    try { M?.Browser?.mainLoop?.pause?.(); } catch {}
-    try { M?.Browser?.mainLoop?.scheduler = () => {}; } catch {}
+    try { M?.Browser?.mainLoop?.pause?.(); } catch {} 
+    try {
+      if (M && M.Browser && M.Browser.mainLoop) {
+        M.Browser.mainLoop.scheduler = () => {};
+      }
+    } catch {}
     try { (M as any)?._emscripten_cancel_main_loop?.(); } catch {}
     try { (M as any).cancelMainLoop?.(); } catch {}
     try { (M as any).ABORT = true; } catch {}
@@ -409,11 +413,15 @@ private async hardStopEmulator(): Promise<void> {
     console.log('hardStopEmulator: unexpected error during shutdown', error);
   }
   
+  const tracked = (window as any).__trackedAudioCtxSet as Set<BaseAudioContext> | undefined; 
+  const trackedStates: AudioContextState[] = tracked
+    ? [...tracked].map((ctx) => ctx.state)
+    : []; 
   console.log('post-stop',
     'raf?', this._gpRAF,
     'menuPoll?', this._menuPollTimer,
     'fitRAF?', this._fitRAF,
-    'trackedAudio:', (window as any).__trackedAudioCtxSet && Array.from((window as any).__trackedAudioCtxSet).map((c: BaseAudioContext) => c.state),
+    'trackedAudio:', trackedStates,
     'document.fullscreenElement?', !!document.fullscreenElement
   ); 
 }
