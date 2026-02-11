@@ -20,6 +20,8 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   isMenuPanelOpen = false;
   isFullScreen = false;
   romName?: string;
+  // Human-readable status shown in the UI (e.g. "Idle", "Loading <game>", "Running: <game>")
+  public status: string = 'Idle';
   isFileUploaderExpanded = false;
   private playerEl?: WasmPsxPlayerElement;
   private _scriptLoaded = false;
@@ -211,6 +213,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
 
       this.startLoading();
       this.romName = file.fileName || 'Unknown';
+      this.status = `Loading: ${this.getRomName()}`;
 
       // 1) Download ROM blob via your RomService
       const blobResp = await this.romService.getRomFile(file.fileName ?? '', this.parentRef?.user?.id, file.id);
@@ -237,9 +240,11 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
       setTimeout(() => this.fitPlayerToContainer(), 0);
 
       this.parentRef?.showNotification(`Booted ${this.getRomName()}`);
+      this.status = `Running: ${this.getRomName()}`;
     } catch (e) {
       console.error('PS1 load failed', e);
       this.parentRef?.showNotification('Failed to load game');
+      this.status = 'Error loading game';
     } finally {
       this.stopLoading();
     }
@@ -299,6 +304,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
       this.isFullScreen = false;
       this.isMenuPanelOpen = false;
       this.isFileUploaderExpanded = false;
+      this.status = 'Stopped';
     }
   }
 
