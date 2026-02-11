@@ -27,7 +27,20 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   private _scriptLoaded = false;
   //resizing 
   private _resizeObs?: ResizeObserver;
-  private _onFullscreenChange = () => this.scheduleFit();
+  private _onFullscreenChange = () => {
+    try {
+      const target = this.fullscreenContainer?.nativeElement || this.containerRef?.nativeElement;
+      const isFs = !!document.fullscreenElement && document.fullscreenElement === target;
+      // Run inside Angular so template updates (button label, etc.) reflect immediately
+      this.ngZone.run(() => {
+        this.isFullScreen = isFs;
+        this.scheduleFit();
+        try { this.cdr.detectChanges(); } catch { }
+      });
+    } catch {
+      this.scheduleFit();
+    }
+  };
   private _onOrientationChange = () => this.scheduleFit();
   private _fitRAF?: number;
   private _menuPollTimer?: number; 
