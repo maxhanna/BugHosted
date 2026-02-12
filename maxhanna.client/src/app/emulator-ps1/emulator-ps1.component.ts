@@ -294,83 +294,83 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-private async ensureWasmPsxLoaded(): Promise<void> {
-  if (this._scriptLoaded) return; 
-  const self = this;   
-  await new Promise<void>((resolve, reject) => {
-    if (document.getElementById('wasmpsx-script')) {
-      this._scriptLoaded = true;
-      resolve();
-      return;
-    } 
-    const base = new URL('assets/ps1/', document.baseURI).toString(); 
-    (window as any).Module = {
-      mainScriptUrlOrBlob: new URL('assets/ps1/wasmpsx.min.js', document.baseURI).toString(),
-      locateFile: (path: string) => {
-        if (path.endsWith('.worker.js')) return base + 'wasmpsx_worker.js';
-        if (path.includes('worker') && path.endsWith('.wasm')) return base + 'wasmpsx_worker.wasm';
-        if (path.endsWith('.wasm')) return base + 'wasmpsx_wasm.wasm';
-        return base + path;
-      }, 
-      noExitRuntime: false, 
-      preRun: [() => {
-        const Module = (window as any).Module;
-        try {
-          const SAVE_DIR = '/memcards';
-          if (!Module.FS.analyzePath(SAVE_DIR).exists) {
-            Module.FS.mkdir(SAVE_DIR);
-          }
-          Module.FS.mount(Module.IDBFS, {}, SAVE_DIR);
-        } catch (e) {
-          console.warn('IDBFS mount error:', e);
-        }
-      }], 
-      onRuntimeInitialized: () => {
-        const Module = (window as any).Module;
-
-        Module.FS.syncfs(true, (err: any) => {
-          if (err) {
-            console.error("IDBFS populate failed:", err);
-            return;
-          }
-
-          try {
-            const SAVE_DIR = "/memcards";
-            const SIZE = 128 * 1024;
-            const c1 = `${SAVE_DIR}/card1.mcr`;
-            const c2 = `${SAVE_DIR}/card2.mcr`;
-
-            if (!Module.FS.analyzePath(c1).exists)
-              Module.FS.writeFile(c1, new Uint8Array(SIZE));
-
-            if (!Module.FS.analyzePath(c2).exists)
-              Module.FS.writeFile(c2, new Uint8Array(SIZE));
-
-            Module.FS.syncfs(false, (err2: any) => {
-              if (err2) console.error("Post-create sync failed:", err2);
-
-              console.log("FS is fully ready!");
-
-              self.fsReady = true;
-              self._resolveFSReady();
-            });
-
-          } catch (err) {
-            console.error("Card creation error:", err);
-          }
-        });
+  private async ensureWasmPsxLoaded(): Promise<void> {
+    if (this._scriptLoaded) return;
+    const self = this;
+    await new Promise<void>((resolve, reject) => {
+      if (document.getElementById('wasmpsx-script')) {
+        this._scriptLoaded = true;
+        resolve();
+        return;
       }
-    };
+      const base = new URL('assets/ps1/', document.baseURI).toString();
+      (window as any).Module = {
+        mainScriptUrlOrBlob: new URL('assets/ps1/wasmpsx.min.js', document.baseURI).toString(),
+        locateFile: (path: string) => {
+          if (path.endsWith('.worker.js')) return base + 'wasmpsx_worker.js';
+          if (path.includes('worker') && path.endsWith('.wasm')) return base + 'wasmpsx_worker.wasm';
+          if (path.endsWith('.wasm')) return base + 'wasmpsx_wasm.wasm';
+          return base + path;
+        },
+        noExitRuntime: false,
+        preRun: [() => {
+          const Module = (window as any).Module;
+          try {
+            const SAVE_DIR = '/memcards';
+            if (!Module.FS.analyzePath(SAVE_DIR).exists) {
+              Module.FS.mkdir(SAVE_DIR);
+            }
+            Module.FS.mount(Module.IDBFS, {}, SAVE_DIR);
+          } catch (e) {
+            console.warn('IDBFS mount error:', e);
+          }
+        }],
+        onRuntimeInitialized: () => {
+          const Module = (window as any).Module;
 
-    const s = document.createElement('script');
-    s.id = 'wasmpsx-script';
-    s.src = base + 'wasmpsx.min.js';
-    s.async = true;
-    s.onload = () => { this._scriptLoaded = true; resolve(); };
-    s.onerror = (e) => reject(e);
-    document.head.appendChild(s);
-  });
-} 
+          Module.FS.syncfs(true, (err: any) => {
+            if (err) {
+              console.error("IDBFS populate failed:", err);
+              return;
+            }
+
+            try {
+              const SAVE_DIR = "/memcards";
+              const SIZE = 128 * 1024;
+              const c1 = `${SAVE_DIR}/card1.mcr`;
+              const c2 = `${SAVE_DIR}/card2.mcr`;
+
+              if (!Module.FS.analyzePath(c1).exists)
+                Module.FS.writeFile(c1, new Uint8Array(SIZE));
+
+              if (!Module.FS.analyzePath(c2).exists)
+                Module.FS.writeFile(c2, new Uint8Array(SIZE));
+
+              Module.FS.syncfs(false, (err2: any) => {
+                if (err2) console.error("Post-create sync failed:", err2);
+
+                console.log("FS is fully ready!");
+
+                self.fsReady = true;
+                self._resolveFSReady();
+              });
+
+            } catch (err) {
+              console.error("Card creation error:", err);
+            }
+          });
+        }
+      };
+
+      const s = document.createElement('script');
+      s.id = 'wasmpsx-script';
+      s.src = base + 'wasmpsx.min.js';
+      s.async = true;
+      s.onload = () => { this._scriptLoaded = true; resolve(); };
+      s.onerror = (e) => reject(e);
+      document.head.appendChild(s);
+    });
+  }
 
   /** 
    * Forcefully stop the emulation runtime (main loop, workers, GPU, audio). 
