@@ -33,9 +33,19 @@
   </div>
 
   <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-    <button (click)="exportMemoryCard(1)">Export Card 1</button>
-    <button (click)="exportMemoryCard(2)">Export Card 2</button>
-    <input type="file" accept=".mcr" (change)="onImportCardFile($event)" /> 
+    <button 
+      (click)="exportMemoryCard(1)" 
+      [disabled]="!fsReady" 
+      [title]="!fsReady ? 'Export Memory Card data available when filesystem finishes mounting' : 'Export Memory Card 1'">
+      Export Card 1
+    </button>
+    <button 
+      (click)="exportMemoryCard(2)" 
+      [disabled]="!fsReady" 
+      [title]="!fsReady ? 'Export Memory Card data available when filesystem finishes mounting' : 'Export Memory Card 2'">
+      Export Card 2
+    </button>
+    <input type="file" accept=".mcr" (change)="onImportCardFile($event)" [disabled]="!fsReady" /> 
   </div> 
 
   <div *ngIf="romName" style="margin-top: 15px;">

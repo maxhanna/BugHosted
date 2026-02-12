@@ -28,8 +28,13 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   private playerEl?: WasmPsxPlayerElement;
   private _scriptLoaded = false;
   //resizing 
-  private _resizeObs?: ResizeObserver;
-  private fsReady = false;
+  private _resizeObs?: ResizeObserver; 
+  private fsReady = false; 
+  private fsReadyPromise = new Promise<void>(resolve => {
+    this._resolveFSReady = resolve;
+  });
+  private _resolveFSReady!: () => void;
+
   private _onOrientationChange = () => this.scheduleFit();
   private _fitRAF?: number;
   private _menuPollTimer?: number;
@@ -293,6 +298,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
 
   private async ensureWasmPsxLoaded(): Promise<void> {
     if (this._scriptLoaded) return;
+    const self = this;
 
     await new Promise<void>((resolve, reject) => {
       if (document.getElementById('wasmpsx-script')) { this._scriptLoaded = true; resolve(); return; }
@@ -306,7 +312,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
           if (path.endsWith('.wasm')) return base + 'wasmpsx_wasm.wasm';
           return base + path;
         },
-        noExitRuntime: false, 
+        noExitRuntime: false,
         preRun: [() => {
           const Module = (window as any).Module;   // ✅ make TS aware
           try {
@@ -318,45 +324,55 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
           } catch (e) {
             console.warn('IDBFS mount error (may be already mounted):', e);
           }
-        }], 
-        onRuntimeInitialized: () => {
-          const Module = (window as any).Module;
+        }],  
+onRuntimeInitialized: () => {
+  const Module = (window as any).Module;
+  const self = this;
 
-          try {
-            Module.FS.syncfs(true, (err: any) => {
-              if (err) {
-                console.error("IDBFS initial populate failed:", err);
-                return;
-              }
+  try {
+    // First: load from IndexedDB into memory
+    Module.FS.syncfs(true, (err: any) => {
+      if (err) {
+        console.error("IDBFS initial populate failed:", err);
+        return;
+      }
 
-              try {
-                const SAVE_DIR = "/memcards";
-                const c1 = `${SAVE_DIR}/card1.mcr`;
-                const c2 = `${SAVE_DIR}/card2.mcr`;
-                const SIZE = 128 * 1024;
+      try {
+        const SAVE_DIR = "/memcards";
+        const SIZE = 128 * 1024;
+        const c1 = `${SAVE_DIR}/card1.mcr`;
+        const c2 = `${SAVE_DIR}/card2.mcr`;
 
-                if (!Module.FS.analyzePath(c1).exists) {
-                  Module.FS.writeFile(c1, new Uint8Array(SIZE));
-                }
-                if (!Module.FS.analyzePath(c2).exists) {
-                  Module.FS.writeFile(c2, new Uint8Array(SIZE));
-                }
-
-                Module.FS.syncfs(false, (err2: any) => {
-                  if (err2) console.error("IDBFS post-create sync failed:", err2);
-
-                  console.log("FS is fully ready!");
-                  // 🔥 SET THE FLAG HERE
-                  this.fsReady = true;
-                });
-              } catch (e) {
-                console.warn("Ensure default cards failed:", e);
-              }
-            });
-          } catch (e) {
-            console.error("onRuntimeInitialized sync error:", e);
-          }
+        // Ensure the card files exist
+        if (!Module.FS.analyzePath(c1).exists) {
+          Module.FS.writeFile(c1, new Uint8Array(SIZE));
         }
+        if (!Module.FS.analyzePath(c2).exists) {
+          Module.FS.writeFile(c2, new Uint8Array(SIZE));
+        }
+
+        // Now flush any creations back to IndexedDB
+        Module.FS.syncfs(false, (err2: any) => {
+          if (err2) {
+            console.error("IDBFS post-create sync failed:", err2);
+          }
+
+          console.log("FS is fully ready!");
+
+          // 🔥 The moment FS is actually ready
+          self.fsReady = true;
+          self._resolveFSReady();
+        });
+
+      } catch (e) {
+        console.error("Error ensuring cards:", e);
+      }
+    });
+
+  } catch (e) {
+    console.error("onRuntimeInitialized fatal error:", e);
+  }
+},
 
       };
 
@@ -368,7 +384,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
       s.onerror = (e) => reject(e);
       document.head.appendChild(s);
     });
-  }
+  } 
 
   /** 
    * Forcefully stop the emulation runtime (main loop, workers, GPU, audio). 
@@ -931,47 +947,47 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
    * @param path - e.g., "/memcards/card1.mcr"
    * @param filename - download file name, e.g., "card1.mcr"
    */ 
+  private async exportMemoryCardByPath(path: string, filename: string): Promise<void> {
+    await this.fsReadyPromise;
+    const M = (window as any).Module;
 
-private async exportMemoryCardByPath(path: string, filename: string): Promise<void> {
-  const M = (window as any).Module;
-
-  if (!this.fsReady || !M?.FS) {
-    this.parentRef?.showNotification('Emulator FS not ready yet. Please wait 1–2 seconds.');
-    return;
-  }
-
-  try {
-    await this.syncSavesToIDB();
-
-    const exists = !!M.FS.analyzePath(path)?.exists;
-    if (!exists) {
-      this.parentRef?.showNotification('No memory card found to export.');
+    if (!this.fsReady || !M?.FS) {
+      this.parentRef?.showNotification('Emulator FS not ready yet. Please wait 1–2 seconds.');
       return;
     }
 
-    const data: Uint8Array = M.FS.readFile(path, { encoding: 'binary' });
+    try {
+      await this.syncSavesToIDB();
 
-    const cleanBuffer = data.slice().buffer;
+      const exists = !!M.FS.analyzePath(path)?.exists;
+      if (!exists) {
+        this.parentRef?.showNotification('No memory card found to export.');
+        return;
+      }
 
-    const blob = new Blob([cleanBuffer], {
-      type: 'application/octet-stream'
-    });
+      const data: Uint8Array = M.FS.readFile(path, { encoding: 'binary' });
 
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      const cleanBuffer = data.slice().buffer;
 
-    this.parentRef?.showNotification(`Memory card exported (${filename}).`);
-  } catch (error) {
-    console.error('Export memory card failed:', error);
-    this.parentRef?.showNotification('Failed to export memory card.');
+      const blob = new Blob([cleanBuffer], {
+        type: 'application/octet-stream'
+      });
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      this.parentRef?.showNotification(`Memory card exported (${filename}).`);
+    } catch (error) {
+      console.error('Export memory card failed:', error);
+      this.parentRef?.showNotification('Failed to export memory card.');
+    }
   }
-} 
 
   /**
    * Export a memory card as "<rom>-cardX.mcr" (or "cardX.mcr" if no ROM).
@@ -981,7 +997,7 @@ private async exportMemoryCardByPath(path: string, filename: string): Promise<vo
     const filename = this.buildCardDownloadName(memNo);
     await this.exportMemoryCardByPath(`/memcards/card${memNo}.mcr`, filename);
   }
- 
+
   onImportCardFile(ev: Event) {
     const input = ev.target as HTMLInputElement;
     const file = input?.files?.[0];
