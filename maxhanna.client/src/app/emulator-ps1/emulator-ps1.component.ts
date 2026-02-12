@@ -29,21 +29,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   private _scriptLoaded = false;
   //resizing 
   private _resizeObs?: ResizeObserver;
-  private _onFullscreenChange = () => {
-    try {
-      if (this.isFullScreen) {
-        this.isFullScreen = false;
-      } else {
-        this.isFullScreen = true;
-      }
-      this.ngZone.run(() => {
-        this.scheduleFit();
-        try { this.cdr.detectChanges(); } catch { }
-      });
-    } catch {
-      this.scheduleFit();
-    }
-  };
+  private fsReady = false;
   private _onOrientationChange = () => this.scheduleFit();
   private _fitRAF?: number;
   private _menuPollTimer?: number;
@@ -320,8 +306,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
           if (path.endsWith('.wasm')) return base + 'wasmpsx_wasm.wasm';
           return base + path;
         },
-        noExitRuntime: false,
-
+        noExitRuntime: false, 
         preRun: [() => {
           const Module = (window as any).Module;   // ✅ make TS aware
           try {
@@ -333,16 +318,19 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
           } catch (e) {
             console.warn('IDBFS mount error (may be already mounted):', e);
           }
-        }],
+        }], 
+        onRuntimeInitialized: () => {
+          const Module = (window as any).Module;
 
-        onRuntimeInitialized: function () {
-          const Module = (window as any).Module;   // ✅ make TS aware
           try {
-            Module.FS.syncfs(true, function (err: any) {
-              if (err) { console.error('IDBFS initial populate failed:', err); return; }
+            Module.FS.syncfs(true, (err: any) => {
+              if (err) {
+                console.error("IDBFS initial populate failed:", err);
+                return;
+              }
 
               try {
-                const SAVE_DIR = '/memcards';
+                const SAVE_DIR = "/memcards";
                 const c1 = `${SAVE_DIR}/card1.mcr`;
                 const c2 = `${SAVE_DIR}/card2.mcr`;
                 const SIZE = 128 * 1024;
@@ -355,16 +343,21 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
                 }
 
                 Module.FS.syncfs(false, (err2: any) => {
-                  if (err2) console.error('IDBFS post-create sync failed:', err2);
+                  if (err2) console.error("IDBFS post-create sync failed:", err2);
+
+                  console.log("FS is fully ready!");
+                  // 🔥 SET THE FLAG HERE
+                  this.fsReady = true;
                 });
               } catch (e) {
-                console.warn('Ensure default cards failed:', e);
+                console.warn("Ensure default cards failed:", e);
               }
             });
           } catch (e) {
-            console.error('onRuntimeInitialized sync error:', e);
+            console.error("onRuntimeInitialized sync error:", e);
           }
         }
+
       };
 
       const s = document.createElement('script');
@@ -615,6 +608,22 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
       'framebuffer:', fbW, fbH,
       'css:', canvas && getComputedStyle(canvas).width, canvas && getComputedStyle(canvas).height);
   }
+
+  private _onFullscreenChange = () => {
+    try {
+      if (this.isFullScreen) {
+        this.isFullScreen = false;
+      } else {
+        this.isFullScreen = true;
+      }
+      this.ngZone.run(() => {
+        this.scheduleFit();
+        try { this.cdr.detectChanges(); } catch { }
+      });
+    } catch {
+      this.scheduleFit();
+    }
+  };
 
   // Drop-in replacement for scheduleFit()
   private scheduleFit = () => {
@@ -921,12 +930,13 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
    * Export any memory card at a given path. Flushes IDBFS first, reads the raw bytes, and triggers a download.
    * @param path - e.g., "/memcards/card1.mcr"
    * @param filename - download file name, e.g., "card1.mcr"
-   */
-  
+   */ 
+
 private async exportMemoryCardByPath(path: string, filename: string): Promise<void> {
   const M = (window as any).Module;
-  if (!M?.FS) {
-    this.parentRef?.showNotification('Emulator FS not ready.');
+
+  if (!this.fsReady || !M?.FS) {
+    this.parentRef?.showNotification('Emulator FS not ready yet. Please wait 1–2 seconds.');
     return;
   }
 
@@ -939,17 +949,14 @@ private async exportMemoryCardByPath(path: string, filename: string): Promise<vo
       return;
     }
 
-    // Read memory card bytes
     const data: Uint8Array = M.FS.readFile(path, { encoding: 'binary' });
 
-    // ✔ Clean ArrayBuffer fix — TS-safe
     const cleanBuffer = data.slice().buffer;
 
     const blob = new Blob([cleanBuffer], {
       type: 'application/octet-stream'
     });
 
-    // Trigger download
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -967,21 +974,14 @@ private async exportMemoryCardByPath(path: string, filename: string): Promise<vo
 } 
 
   /**
-   * Export Card 1 as "<rom>-card1.mcr" (or "card1.mcr" if no ROM).
+   * Export a memory card as "<rom>-cardX.mcr" (or "cardX.mcr" if no ROM).
+   * @param memNo - The memory card number (1 or 2).
    */
-  async exportMemoryCard(): Promise<void> {
-    const filename = this.buildCardDownloadName(1);
-    await this.exportMemoryCardByPath('/memcards/card1.mcr', filename);
+  async exportMemoryCard(memNo: 1 | 2): Promise<void> {
+    const filename = this.buildCardDownloadName(memNo);
+    await this.exportMemoryCardByPath(`/memcards/card${memNo}.mcr`, filename);
   }
-
-  /**
-   * Export Card 2 as "<rom>-card2.mcr" (or "card2.mcr" if no ROM).
-   */
-  async exportMemoryCard2(): Promise<void> {
-    const filename = this.buildCardDownloadName(2);
-    await this.exportMemoryCardByPath('/memcards/card2.mcr', filename);
-  }
-
+ 
   onImportCardFile(ev: Event) {
     const input = ev.target as HTMLInputElement;
     const file = input?.files?.[0];

@@ -33,8 +33,8 @@
   </div>
 
   <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-    <button (click)="exportMemoryCard()">Export Card 1</button>
-    <button (click)="exportMemoryCard2()">Export Card 2</button>
+    <button (click)="exportMemoryCard(1)">Export Card 1</button>
+    <button (click)="exportMemoryCard(2)">Export Card 2</button>
     <input type="file" accept=".mcr" (change)="onImportCardFile($event)" /> 
   </div> 
 
