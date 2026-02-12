@@ -100,7 +100,11 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   private _useLeftStickAsDpad = true; 
   // Track synthesized keys per player so we can send balanced keyup events
   private _keysDown = new Set<string>(); 
-  private readonly SAVE_STATE_KEY_PREFIX = "ps1_save_state_";
+  // Save state tracking
+  private readonly SAVE_STATE_KEY_PREFIX = "ps1_save_state_"; 
+private _saveSyncInterval?: number;
+private readonly _syncMs = 5000;
+
 
   constructor(
     private romService: RomService,
@@ -115,6 +119,10 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     this.startMenuGamepadMonitor(); 
     // window.addEventListener('keydown', (e) => console.log('[DOWN]', e.key, e.code, e.keyCode, e.which));
     // window.addEventListener('keyup', (e) => console.log('[UP  ]', e.key, e.code, e.keyCode, e.which));
+  
+    this.listTree('/');       // top-level
+    this.listTree('/memcards'); // your mounted dir
+  
   } 
 
   async ngAfterViewInit() {
@@ -207,6 +215,9 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     window.removeEventListener('resize', this._onOrientationChange);
     await this.hardStopEmulator();
     if (this._fitRAF) { cancelAnimationFrame(this._fitRAF); this._fitRAF = undefined; }
+    
+    this.stopSaveAutoSync();
+    await this.syncSavesToIDB(); 
   }
 
   async onFileSearchSelected(file: FileEntry) {
@@ -236,7 +247,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
 
       (this.playerEl as any).readFile(gameFile); // WASMpsx API
       console.log('WASMpsx readFile called');
-
+      this.startSaveAutoSync();
       this.stopMenuGamepadMonitor();
       this.startGameplayGamepadLoop();
 
@@ -282,6 +293,8 @@ await this.hardStopEmulator();   // ← stop runtime, workers, audio, GPU
     } catch (e) {
       console.warn('stopGame failed', e);
     } finally {
+this.stopSaveAutoSync();
+await this.syncSavesToIDB(); 
       this.romName = undefined;
       this.isFullScreen = false;
       this.isMenuPanelOpen = false;
@@ -290,34 +303,79 @@ await this.hardStopEmulator();   // ← stop runtime, workers, audio, GPU
     }
   }
 
-  private async ensureWasmPsxLoaded(): Promise<void> {
-    if (this._scriptLoaded) return;
+  
 
-    await new Promise<void>((resolve, reject) => {
-      if (document.getElementById('wasmpsx-script')) { this._scriptLoaded = true; resolve(); return; }
+private async ensureWasmPsxLoaded(): Promise<void> {
+  if (this._scriptLoaded) return;
 
-      const base = new URL('assets/ps1/', document.baseURI).toString();
+  await new Promise<void>((resolve, reject) => {
+    if (document.getElementById('wasmpsx-script')) { this._scriptLoaded = true; resolve(); return; }
+    const base = new URL('assets/ps1/', document.baseURI).toString();
 
-      (window as any).Module = {
-        mainScriptUrlOrBlob: new URL('assets/ps1/wasmpsx.min.js', document.baseURI).toString(),
-        locateFile: (path: string) => {
-          if (path.endsWith('.worker.js')) return base + 'wasmpsx_worker.js';
-          if (path.includes('worker') && path.endsWith('.wasm')) return base + 'wasmpsx_worker.wasm';
-          if (path.endsWith('.wasm')) return base + 'wasmpsx_wasm.wasm';
-          return base + path;
-        },
-        noExitRuntime: false,
-      };
+    (window as any).Module = {
+      mainScriptUrlOrBlob: new URL('assets/ps1/wasmpsx.min.js', document.baseURI).toString(),
+      locateFile: (path: string) => {
+        if (path.endsWith('.worker.js')) return base + 'wasmpsx_worker.js';
+        if (path.includes('worker') && path.endsWith('.wasm')) return base + 'wasmpsx_worker.wasm';
+        if (path.endsWith('.wasm')) return base + 'wasmpsx_wasm.wasm';
+        return base + path;
+      },
+      noExitRuntime: false,
 
-      const s = document.createElement('script');
-      s.id = 'wasmpsx-script';
-      s.src = base + 'wasmpsx.min.js';
-      s.async = true;
-      s.onload = () => { this._scriptLoaded = true; resolve(); };
-      s.onerror = (e) => reject(e);
-      document.head.appendChild(s);
-    });
-  }
+      preRun: [() => {
+        const Module = (window as any).Module;   // ✅ make TS aware
+        try {
+          const SAVE_DIR = '/memcards';
+          if (!Module.FS.analyzePath(SAVE_DIR).exists) {
+            Module.FS.mkdir(SAVE_DIR);
+          }
+          Module.FS.mount(Module.IDBFS, {}, SAVE_DIR);
+        } catch (e) {
+          console.warn('IDBFS mount error (may be already mounted):', e);
+        }
+      }],
+
+      onRuntimeInitialized: function () {
+        const Module = (window as any).Module;   // ✅ make TS aware
+        try {
+          Module.FS.syncfs(true, function (err: any) {
+            if (err) { console.error('IDBFS initial populate failed:', err); return; }
+
+            try {
+              const SAVE_DIR = '/memcards';
+              const c1 = `${SAVE_DIR}/card1.mcr`;
+              const c2 = `${SAVE_DIR}/card2.mcr`;
+              const SIZE = 128 * 1024;
+
+              if (!Module.FS.analyzePath(c1).exists) {
+                Module.FS.writeFile(c1, new Uint8Array(SIZE));
+              }
+              if (!Module.FS.analyzePath(c2).exists) {
+                Module.FS.writeFile(c2, new Uint8Array(SIZE));
+              }
+
+              Module.FS.syncfs(false, (err2: any) => {
+                if (err2) console.error('IDBFS post-create sync failed:', err2);
+              });
+            } catch (e) {
+              console.warn('Ensure default cards failed:', e);
+            }
+          });
+        } catch (e) {
+          console.error('onRuntimeInitialized sync error:', e);
+        }
+      }
+    };
+
+    const s = document.createElement('script');
+    s.id = 'wasmpsx-script';
+    s.src = base + 'wasmpsx.min.js';
+    s.async = true;
+    s.onload = () => { this._scriptLoaded = true; resolve(); };
+    s.onerror = (e) => reject(e);
+    document.head.appendChild(s);
+  });
+} 
 
 /** 
  * Forcefully stop the emulation runtime (main loop, workers, GPU, audio). 
@@ -430,6 +488,10 @@ private async hardStopEmulator(): Promise<void> {
     'document.fullscreenElement?', !!document.fullscreenElement
   ); 
 }
+
+  private getModule(): any {
+    return (window as any).Module;
+  }
 
   async toggleFullscreen(): Promise<void> {
     const target = this.fullscreenContainer?.nativeElement || this.containerRef.nativeElement;
@@ -681,23 +743,7 @@ private async hardStopEmulator(): Promise<void> {
       document.dispatchEvent(new KeyboardEvent('keyup', { key, code, bubbles: true }));
       this._keysDown.delete(id);
     }
-  }
-
-  /** Release all keys for all players (on destroy). */
-  private _releaseAllKeys() {
-    for (const id of Array.from(this._keysDown)) {
-      // id format: `${player}:${key}|${code}`
-      const colon = id.indexOf(':');
-      const pipe = id.indexOf('|', colon + 1);
-      const key = id.substring(colon + 1, pipe);
-      const code = id.substring(pipe + 1);
-      for (const t of this._getInputTargets()) {
-        this._dispatchKey(t, 'keyup', key, code);
-      }
-      this._keysDown.delete(id);
-    }
-  }
-
+  } 
 
   /** Accept only “real” pads: connected & have the standard mapping */
   private _isEligiblePad(gp: Gamepad | null | undefined): gp is Gamepad {
@@ -763,8 +809,7 @@ private async hardStopEmulator(): Promise<void> {
   private _recomputePorts(notify = true) {
     const snapshot = this._getEligiblePadsSnapshot();
     this._assignPortsFromSnapshot(snapshot, notify);
-  }
-
+  } 
 
   private startMenuGamepadMonitor() {
     if (this._menuPollTimer) return;
@@ -1008,6 +1053,95 @@ private async removeFromIndexedDB(key: string): Promise<void> {
     req.onerror = () => reject(req.error);
   });
 } 
+
+private async syncSavesToIDB(): Promise<void> {
+  try {
+    const M = (window as any).Module;
+    await new Promise<void>((resolve) => {
+      if (!M?.FS?.syncfs) return resolve();
+      M.FS.syncfs(false, () => resolve()); // flush, ignore error for UX
+    });
+  } catch {}
+}
+
+private startSaveAutoSync() {
+  this.stopSaveAutoSync();
+  this._saveSyncInterval = window.setInterval(() => this.syncSavesToIDB(), this._syncMs);
+}
+private stopSaveAutoSync() {
+  if (this._saveSyncInterval) clearInterval(this._saveSyncInterval);
+  this._saveSyncInterval = undefined;
+}
+
+
+/** Validate a raw PS1 memory card: exactly 131,072 bytes (128 KiB). */
+private async readAsRawMcr(file: File): Promise<Uint8Array> {
+  const buf = await file.arrayBuffer();
+  const len = buf.byteLength;
+
+  // Accept only exact 128 KiB raw cards
+  if (len !== 131072) {
+    throw new Error(`Unsupported memory card file size ${len}. Expected 131072 bytes (raw .mcr).`);
+  }
+  return new Uint8Array(buf);
+}
+
+async importMemoryCard(file: File) {
+  const M = (window as any).Module;
+  if (!M?.FS) {
+    this.parentRef?.showNotification('Emulator FS not ready.');
+    return;
+  }
+
+  try {
+    const SAVE_DIR = '/memcards';
+    if (!M.FS.analyzePath(SAVE_DIR).exists) M.FS.mkdir(SAVE_DIR);
+
+    // 🔎 Strict: enforce raw .mcr size
+    const data = await this.readAsRawMcr(file);
+
+    const target = `${SAVE_DIR}/card1.mcr`; // overwrite the first card by default
+    M.FS.writeFile(target, data);
+    await this.syncSavesToIDB();
+
+    this.parentRef?.showNotification(`Imported memory card → ${target} (raw 128KiB)`);
+  } catch (e: any) {
+    console.error('Import failed:', e);
+    this.parentRef?.showNotification(e?.message || 'Import failed (unsupported card format).');
+  }
+}
+
+ listTree(path: string, depth=0) {
+  const M = (window as any).Module;
+  try {
+    const names = M.FS.readdir(path).filter((n: string) => n !== '.' && n !== '..');
+    for (const name of names) {
+      const full = (path === '/' ? '' : path) + '/' + name;
+      try {
+        const st = M.FS.stat(full);
+        console.log(`${' '.repeat(depth*2)}${st.isDir() ? '[D]' : '[F]'} ${full}`);
+        if (st.isDir()) this.listTree(full, depth+1);
+      } catch {}
+    }
+  } catch {}
+}
+
+async initializeCards() {
+  const M = (window as any).Module;
+  if (!M?.FS) return;
+  const SAVE_DIR = '/memcards';
+  const SIZE = 128 * 1024;
+  try {
+    if (!M.FS.analyzePath(SAVE_DIR).exists) M.FS.mkdir(SAVE_DIR);
+    M.FS.writeFile(`${SAVE_DIR}/card1.mcr`, new Uint8Array(SIZE));
+    M.FS.writeFile(`${SAVE_DIR}/card2.mcr`, new Uint8Array(SIZE));
+    await this.syncSavesToIDB();
+    this.parentRef?.showNotification('Memory cards initialized (128KiB). Format them in-game once.');
+  } catch (e) {
+    this.parentRef?.showNotification('Failed to initialize cards.');
+  }
+}
+
 
   getRomName(): string {
     const n = this.romName || '';
