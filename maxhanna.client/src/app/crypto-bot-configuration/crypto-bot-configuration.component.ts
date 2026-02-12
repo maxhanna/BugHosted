@@ -1,8 +1,7 @@
 import { ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { TradeService } from '../../services/trade.service';
-import { ChildComponent } from '../child.component';
-import { e } from '@angular/core/weak_ref.d-Bp6cSy-X';
+import { ChildComponent } from '../child.component'; 
 
 @Component({
   selector: 'app-crypto-bot-configuration',

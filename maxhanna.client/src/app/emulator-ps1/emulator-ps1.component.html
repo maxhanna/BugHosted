@@ -31,11 +31,12 @@
   <div class="popupPanelTitle" style="margin-bottom:15px;">
     PS1 Menu
   </div>
-  <div> 
-    <button (click)="saveState()" *ngIf="romName">Save State</button>
-    <button (click)="loadState()">Load State</button>
-    <button (click)="clearState()">Clear Saved State</button>
-  </div>
+
+  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+    <button (click)="exportMemoryCard()">Export Card 1</button>
+    <button (click)="exportMemoryCard2()">Export Card 2</button>
+    <input type="file" accept=".mcr" (change)="onImportCardFile($event)" /> 
+  </div> 
 
   <div *ngIf="romName" style="margin-top: 15px;">
     <button (click)="stopGame(true)" *ngIf="romName">Stop Emulator</button>
