@@ -29,11 +29,17 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   private _scriptLoaded = false;
   //resizing 
   private _resizeObs?: ResizeObserver;
-  fsReady = false;
-  private fsReadyPromise = new Promise<void>(resolve => {
-    this._resolveFSReady = resolve;
-  });
-  private _resolveFSReady!: () => void;
+
+/** Filesystem readiness and access mode */
+fsReady = false;
+private fsReadyPromise = new Promise<void>((resolve) => {
+  this._resolveFSReady = resolve;
+});
+private _resolveFSReady!: () => void;
+
+/** How we can access saves */
+private fsMode: 'none' | 'global' | 'element' = 'none';
+
 
   private _onOrientationChange = () => this.scheduleFit();
   private _fitRAF?: number;
@@ -296,68 +302,165 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   }
 
 /**
- * Initialize the emulator filesystem AFTER wasmpsx-player reports "ready".
- * This is the ONLY correct initialization point for this build.
- */
-
-/**
- * Correct FS initialization for your wasmpsx build.
- * Uses the global window.Module because wasmpsx-player does NOT expose module.
+ * Initialize saves after the custom element is truly ready.
+ * Picks the correct access mode based on what the build exposes.
  */
 private async initializeFilesystem(): Promise<void> {
-  // Wait until custom element becomes fully operational
-  const el: any = this.playerEl;
-  if (!el) return;
-
-  // Wait for wasmpsx-player ready promise/event
-  if (el.ready instanceof Promise) {
-    await el.ready;
-  } else if (!el.isReady) {
-    await new Promise<void>((resolve) =>
-      el.addEventListener("ready", () => resolve(), { once: true })
-    );
-  }
-
-  const Module = (window as any).Module;
-  if (!Module || !Module.FS) {
-    console.error("Module.FS missing — cannot init FS");
-    return;
-  }
-
-  const SAVE_DIR = '/memcards';
-  const SIZE = 128 * 1024;
-
   try {
-    // Ensure /memcards exists
-    if (!Module.FS.analyzePath(SAVE_DIR).exists) {
-      Module.FS.mkdir(SAVE_DIR);
+    await this.waitForPlayerFullReady();
+
+    const diag = this.diagnosePlayerCapabilities();
+
+    // Route 1: Use element-provided APIs (most robust in Worker builds)
+    if (diag.hasElExportLike) {
+      this.fsMode = 'element';
+      this.fsReady = true;
+      this._resolveFSReady();
+      console.log('FS Mode: element (using custom element APIs)');
+      return;
     }
 
-    // Mount IDBFS
-    Module.FS.mount(Module.IDBFS, {}, SAVE_DIR);
+    // Route 2: Use global Module.FS (only if actually exposed in this build)
+    if (diag.hasGlobalFS) {
+      const Module = (window as any).Module;
+      const SAVE_DIR = '/memcards';
+      const SIZE = 128 * 1024;
 
-    // Pull data from IndexedDB -> memory
-    await new Promise<void>((res) => Module.FS.syncfs(true, () => res()));
+      // Mount IDBFS and ensure card files exist
+      try {
+        if (!Module.FS.analyzePath(SAVE_DIR).exists) {
+          Module.FS.mkdir(SAVE_DIR);
+        }
+      } catch { /* ignore */ }
 
-    // Ensure card files exist
-    if (!Module.FS.analyzePath(`${SAVE_DIR}/card1.mcr`).exists) {
-      Module.FS.writeFile(`${SAVE_DIR}/card1.mcr`, new Uint8Array(SIZE));
+      try { Module.FS.mount(Module.IDBFS, {}, SAVE_DIR); } catch { /* may already be mounted */ }
+
+      await new Promise<void>((res) => Module.FS.syncfs(true, () => res()));
+
+      if (!Module.FS.analyzePath(`${SAVE_DIR}/card1.mcr`).exists) {
+        Module.FS.writeFile(`${SAVE_DIR}/card1.mcr`, new Uint8Array(SIZE));
+      }
+      if (!Module.FS.analyzePath(`${SAVE_DIR}/card2.mcr`).exists) {
+        Module.FS.writeFile(`${SAVE_DIR}/card2.mcr`, new Uint8Array(SIZE));
+      }
+
+      await new Promise<void>((res) => Module.FS.syncfs(false, () => res()));
+
+      this.fsMode = 'global';
+      this.fsReady = true;
+      this._resolveFSReady();
+      console.log('FS Mode: global (using window.Module.FS)');
+      return;
     }
-    if (!Module.FS.analyzePath(`${SAVE_DIR}/card2.mcr`).exists) {
-      Module.FS.writeFile(`${SAVE_DIR}/card2.mcr`, new Uint8Array(SIZE));
-    }
 
-    // Flush to IndexedDB
-    await new Promise<void>((res) => Module.FS.syncfs(false, () => res()));
-
-    console.log("Filesystem Ready ✔ (using window.Module)");
-    this.fsReady = true;
-    this._resolveFSReady();
-
+    // Route 3: No saves exposed (needs a bridge in your build)
+    this.fsMode = 'none';
+    this.fsReady = false;
+    console.warn(
+      'No memory card API exposed by this build (no element export API, no global Module.FS). Export/Import unavailable.'
+    );
+    this.parentRef?.showNotification(
+      'This wasm build does not expose memory card APIs to the page. Export/Import not available.'
+    );
   } catch (err) {
-    console.error("Filesystem initialization failed:", err);
+    console.error('initializeFilesystem failed:', err);
+    this.parentRef?.showNotification('Failed to initialize save system.');
   }
-} 
+}
+
+/** Helper: safe blob download */
+private downloadBlob(filename: string, data: Blob | ArrayBuffer | Uint8Array) {
+  let blob: Blob;
+  if (data instanceof Blob) {
+    blob = data;
+  } else if (data instanceof Uint8Array) {
+    blob = new Blob([data.slice().buffer], { type: 'application/octet-stream' });
+  } else {
+    blob = new Blob([data], { type: 'application/octet-stream' });
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Try every known element export API and download the blob.
+ * Returns true if exported, false otherwise.
+ */
+private async tryElementExportCard(slot: 1 | 2, filename: string): Promise<boolean> {
+  const el: any = this.playerEl;
+  if (!el) return false;
+
+  // Known API variants across builds:
+  const candidates: Array<{ name: string; call: () => Promise<any> }> = [
+    { name: 'exportMemoryCard', call: async () => el.exportMemoryCard(slot) },
+    { name: 'getMemoryCard',    call: async () => el.getMemoryCard(slot) },
+    { name: 'dumpMemcard',      call: async () => el.dumpMemcard(slot) },
+  ];
+
+  for (const c of candidates) {
+    try {
+      if (typeof el?.[c.name] === 'function') {
+        const out = await c.call();
+        if (!out) continue;
+
+        // Accept Blob | ArrayBuffer | Uint8Array
+        if (out instanceof Blob) {
+          this.downloadBlob(filename, out);
+        } else if (out instanceof ArrayBuffer || out instanceof Uint8Array) {
+          this.downloadBlob(filename, out);
+        } else if (out?.buffer instanceof ArrayBuffer) {
+          // e.g., typed array–like objects
+          this.downloadBlob(filename, new Uint8Array(out.buffer));
+        } else {
+          // Unknown type
+          console.warn(`Element API ${c.name} returned unsupported type`, out);
+          continue;
+        }
+
+        this.parentRef?.showNotification(`Memory card exported (${filename}).`);
+        return true;
+      }
+    } catch (err) {
+      console.warn(`Element API ${c.name} failed:`, err);
+      // Try next candidate
+    }
+  }
+  return false;
+}
+
+/**
+ * Try element import API if available.
+ * Returns true if imported, false otherwise.
+ */
+private async tryElementImportCard(slot: 1 | 2, data: Uint8Array): Promise<boolean> {
+  const el: any = this.playerEl;
+  if (!el) return false;
+
+  // Known API variants for import across builds:
+  const candidates: Array<{ name: string; call: () => Promise<any> }> = [
+    { name: 'importMemoryCard', call: async () => el.importMemoryCard(slot, data) },
+    { name: 'setMemoryCard',    call: async () => el.setMemoryCard(slot, data) },
+    { name: 'loadMemcard',      call: async () => el.loadMemcard(slot, data) },
+    { name: 'writeMemoryCard',  call: async () => el.writeMemoryCard(slot, data) },
+  ];
+
+  for (const c of candidates) {
+    try {
+      if (typeof el?.[c.name] === 'function') {
+        await c.call();
+        this.parentRef?.showNotification(`Imported memory card to slot ${slot}.`);
+        return true;
+      }
+    } catch (err) {
+      console.warn(`Element API ${c.name} failed:`, err);
+    }
+  }
+  return false;
+}
 
 private async ensureWasmPsxLoaded(): Promise<void> {
   if (this._scriptLoaded) return;
@@ -936,73 +1039,65 @@ private async ensureWasmPsxLoaded(): Promise<void> {
     const base = this.getRomName() || "unnamed_rom";
     return this.SAVE_STATE_KEY_PREFIX + base.toLowerCase();
   }
+ 
 
+private buildCardDownloadName(cardIndex: 1 | 2): string {
+  const base = (this.getRomName() || '').trim();
+  const safeBase = base
+    ? base.replace(/[^a-z0-9\-\.\_\(\)\[\]\s]/gi, '_').replace(/\s+/g, ' ').trim()
+    : '';
+  return safeBase ? `${safeBase}-card${cardIndex}.mcr` : `card${cardIndex}.mcr`;
+}
 
-  /**
-   * Build a safe filename for downloads (e.g., "<game>-card1.mcr" or "card1.mcr").
-   */
-  private buildCardDownloadName(cardIndex: 1 | 2): string {
-    const base = (this.getRomName() || '').trim();
-    const safeBase = base
-      ? base.replace(/[^a-z0-9\-\.\_\(\)\[\]\s]/gi, '_').replace(/\s+/g, ' ').trim()
-      : '';
-    return (safeBase ? `${safeBase}-card${cardIndex}.mcr` : `card${cardIndex}.mcr`);
-  }
-
-  /**
-   * Export any memory card at a given path. Flushes IDBFS first, reads the raw bytes, and triggers a download.
-   * @param path - e.g., "/memcards/card1.mcr"
-   * @param filename - download file name, e.g., "card1.mcr"
-   */
-  
-private async exportMemoryCardByPath(path: string, filename: string): Promise<void> {
+/** Export the card using whichever route is available for this build. */
+private async exportMemoryCardByPath(path: string, filename: string, slot: 1 | 2): Promise<void> {
   await this.fsReadyPromise;
 
-  const Module = (window as any).Module; // <-- REAL Module
-  if (!Module?.FS) {
-    this.parentRef?.showNotification("Filesystem not ready.");
+  if (this.fsMode === 'element') {
+    const ok = await this.tryElementExportCard(slot, filename);
+    if (ok) return;
+    this.parentRef?.showNotification('This build’s element API did not export the card.');
     return;
   }
 
-  try {
-    // Flush pending writes
-    await new Promise<void>((res) => Module.FS.syncfs(false, () => res()));
-
-    if (!Module.FS.analyzePath(path).exists) {
-      this.parentRef?.showNotification("Memory card not found.");
-      return;
+  if (this.fsMode === 'global') {
+    const Module = (window as any).Module;
+    try {
+      await new Promise<void>((res) => Module.FS.syncfs(false, () => res()));
+      if (!Module.FS.analyzePath(path).exists) {
+        this.parentRef?.showNotification('Memory card not found.');
+        return;
+      }
+      const data: Uint8Array = Module.FS.readFile(path, { encoding: 'binary' });
+      this.downloadBlob(filename, data);
+      this.parentRef?.showNotification(`Memory card exported (${filename}).`);
+    } catch (err) {
+      console.error('Global FS export failed:', err);
+      this.parentRef?.showNotification('Export failed.');
     }
-
-    const data: Uint8Array = Module.FS.readFile(path, { encoding: 'binary' });
-
-    const cleanBuffer = data.slice().buffer;
-    const blob = new Blob([cleanBuffer], { type: 'application/octet-stream' }); 
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-
-    URL.revokeObjectURL(url);
-
-    this.parentRef?.showNotification(`Memory card exported: ${filename}`);
-
-  } catch (err) {
-    console.error("Export failed:", err);
-    this.parentRef?.showNotification("Export failed.");
-  }
-} 
-
-  /**
-   * Export a memory card as "<rom>-cardX.mcr" (or "cardX.mcr" if no ROM).
-   * @param memNo - The memory card number (1 or 2).
-   */
-  async exportMemoryCard(memNo: 1 | 2): Promise<void> {
-    const filename = this.buildCardDownloadName(memNo);
-    await this.exportMemoryCardByPath(`/memcards/card${memNo}.mcr`, filename);
+    return;
   }
 
+  this.parentRef?.showNotification(
+    'This wasm build does not expose memory card APIs. Export not available.'
+  );
+}
+
+/** Public entry point (keeps your current template API) */
+async exportMemoryCard(memNo: 1 | 2): Promise<void> {
+  const filename = this.buildCardDownloadName(memNo);
+  await this.exportMemoryCardByPath(`/memcards/card${memNo}.mcr`, filename, memNo);
+}
+
+/** Validate PS1 raw .mcr (128 KiB) */
+private async readAsRawMcr(file: File): Promise<Uint8Array> {
+  const buf = await file.arrayBuffer();
+  if (buf.byteLength !== 131072) {
+    throw new Error(`Unsupported memory card file size ${buf.byteLength}. Expected 131072 bytes (raw .mcr).`);
+  }
+  return new Uint8Array(buf);
+}
+ 
   onImportCardFile(ev: Event) {
     const input = ev.target as HTMLInputElement;
     const file = input?.files?.[0];
@@ -1037,6 +1132,75 @@ private async exportMemoryCardByPath(path: string, filename: string): Promise<vo
       this.parentRef?.showNotification("Load state failed.");
     }
   }
+
+  
+/**
+ * Wait until the wasmpsx-player custom element is fully upgraded and “ready”.
+ * This is stricter than the existing wait (resolves when custom API likely exists).
+ */
+private async waitForPlayerFullReady(timeoutMs = 25000): Promise<void> {
+  const el: any = this.playerEl;
+  if (!el) throw new Error('Player element not created');
+
+  // It may expose .ready (Promise) OR dispatch a 'ready' event OR set .isReady
+  const already = el.isReady === true;
+  if (already) return;
+
+  const p: Promise<void> =
+    el.ready instanceof Promise
+      ? el.ready.then(() => {})
+      : new Promise<void>((resolve) => {
+          el.addEventListener('ready', () => resolve(), { once: true });
+        });
+
+  // Timeout wrapper
+  await Promise.race([
+    p,
+    new Promise<void>((_, rej) =>
+      setTimeout(() => rej(new Error('wasmpsx-player not ready in time')), timeoutMs)
+    ),
+  ]);
+}
+
+/**
+ * Inspect what the element & global environment actually expose, so we know how to export/import cards.
+ */
+private diagnosePlayerCapabilities(): {
+  hasGlobalFS: boolean;
+  hasWorker: boolean;
+  hasElReadFile: boolean;
+  hasElExportLike: boolean;
+  elProtoKeys: string[];
+  elOwnKeys: string[];
+} {
+  const el: any = this.playerEl;
+  const mod = (window as any).Module;
+
+  const hasGlobalFS = !!mod?.FS;
+  const hasWorker = !!el?.worker || !!el?._worker;
+
+  // Common element method names across wasmpsx builds
+  const hasElReadFile = typeof el?.readFile === 'function';
+  const hasElExportLike =
+    typeof el?.exportMemoryCard === 'function' ||
+    typeof el?.getMemoryCard === 'function' ||
+    typeof el?.dumpMemcard === 'function';
+
+  const elProtoKeys = el ? Object.getOwnPropertyNames(Object.getPrototypeOf(el)) : [];
+  const elOwnKeys = el ? Object.keys(el) : [];
+
+  console.log('[wasmpsx diagnostics]', {
+    hasGlobalFS,
+    hasWorker,
+    hasElReadFile,
+    hasElExportLike,
+    elProtoKeys,
+    elOwnKeys,
+  });
+
+  return { hasGlobalFS, hasWorker, hasElReadFile, hasElExportLike, elProtoKeys, elOwnKeys };
+}
+
 
   private async retrieveArrayBufferFromIndexedDB(key: string): Promise<ArrayBuffer | null> {
     const { storeName } = this.getDbInfo();
@@ -1151,44 +1315,46 @@ private async exportMemoryCardByPath(path: string, filename: string): Promise<vo
     if (this._saveSyncInterval) clearInterval(this._saveSyncInterval);
     this._saveSyncInterval = undefined;
   }
+ 
 
+  
+async importMemoryCard(file: File) {
+  try {
+    const data = await this.readAsRawMcr(file);
 
-  /** Validate a raw PS1 memory card: exactly 131,072 bytes (128 KiB). */
-  private async readAsRawMcr(file: File): Promise<Uint8Array> {
-    const buf = await file.arrayBuffer();
-    const len = buf.byteLength;
+    await this.fsReadyPromise;
 
-    // Accept only exact 128 KiB raw cards
-    if (len !== 131072) {
-      throw new Error(`Unsupported memory card file size ${len}. Expected 131072 bytes (raw .mcr).`);
-    }
-    return new Uint8Array(buf);
-  }
-
-  async importMemoryCard(file: File) {
-    const M = (window as any).Module;
-    if (!M?.FS) {
-      this.parentRef?.showNotification('Emulator FS not ready.');
+    // Prefer element import (Worker builds)
+    if (this.fsMode === 'element') {
+      const ok = await this.tryElementImportCard(1, data); // default to slot 1
+      if (ok) return;
+      this.parentRef?.showNotification('Element import API not available in this build.');
       return;
     }
 
-    try {
+    // Fallback to global FS
+    if (this.fsMode === 'global') {
+      const Module = (window as any).Module;
       const SAVE_DIR = '/memcards';
-      if (!M.FS.analyzePath(SAVE_DIR).exists) M.FS.mkdir(SAVE_DIR);
-
-      // 🔎 Strict: enforce raw .mcr size
-      const data = await this.readAsRawMcr(file);
-
-      const target = `${SAVE_DIR}/card1.mcr`; // overwrite the first card by default
-      M.FS.writeFile(target, data);
-      await this.syncSavesToIDB();
-
-      this.parentRef?.showNotification(`Imported memory card → ${target} (raw 128KiB)`);
-    } catch (e: any) {
-      console.error('Import failed:', e);
-      this.parentRef?.showNotification(e?.message || 'Import failed (unsupported card format).');
+      try {
+        if (!Module.FS.analyzePath(SAVE_DIR).exists) Module.FS.mkdir(SAVE_DIR);
+      } catch { /* ignore */ }
+      Module.FS.writeFile(`${SAVE_DIR}/card1.mcr`, data);
+      await new Promise<void>((res) => Module.FS.syncfs(false, () => res()));
+      this.parentRef?.showNotification('Imported memory card → /memcards/card1.mcr (raw 128KiB)');
+      return;
     }
+
+    // No route
+    this.parentRef?.showNotification(
+      'This wasm build does not expose memory card APIs. Import not available.'
+    );
+  } catch (e: any) {
+    console.error('Import failed:', e);
+    this.parentRef?.showNotification(e?.message || 'Import failed (unsupported card format or build).');
   }
+}
+
 
   listTree(path: string, depth = 0) {
     const M = (window as any).Module;
