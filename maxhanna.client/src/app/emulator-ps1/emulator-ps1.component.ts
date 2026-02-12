@@ -299,12 +299,30 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
  * Initialize the emulator filesystem AFTER wasmpsx-player reports "ready".
  * This is the ONLY correct initialization point for this build.
  */
-private async initializeFilesystem(): Promise<void> {
-  // Wait for the custom element to fully initialize
-  await (this.playerEl as any).ready;
 
-  // Get the REAL module instance from wasmpsx-player
-  const Module = (this.playerEl as any).module;
+/**
+ * Correct FS initialization for your wasmpsx build.
+ * Uses the global window.Module because wasmpsx-player does NOT expose module.
+ */
+private async initializeFilesystem(): Promise<void> {
+  // Wait until custom element becomes fully operational
+  const el: any = this.playerEl;
+  if (!el) return;
+
+  // Wait for wasmpsx-player ready promise/event
+  if (el.ready instanceof Promise) {
+    await el.ready;
+  } else if (!el.isReady) {
+    await new Promise<void>((resolve) =>
+      el.addEventListener("ready", () => resolve(), { once: true })
+    );
+  }
+
+  const Module = (window as any).Module;
+  if (!Module || !Module.FS) {
+    console.error("Module.FS missing — cannot init FS");
+    return;
+  }
 
   const SAVE_DIR = '/memcards';
   const SIZE = 128 * 1024;
@@ -318,10 +336,10 @@ private async initializeFilesystem(): Promise<void> {
     // Mount IDBFS
     Module.FS.mount(Module.IDBFS, {}, SAVE_DIR);
 
-    // Load from IndexedDB → memory
-    await new Promise<void>((res) => Module.FS.syncfs(true, res));
+    // Pull data from IndexedDB -> memory
+    await new Promise<void>((res) => Module.FS.syncfs(true, () => res()));
 
-    // Ensure raw 128KiB card files exist
+    // Ensure card files exist
     if (!Module.FS.analyzePath(`${SAVE_DIR}/card1.mcr`).exists) {
       Module.FS.writeFile(`${SAVE_DIR}/card1.mcr`, new Uint8Array(SIZE));
     }
@@ -329,18 +347,17 @@ private async initializeFilesystem(): Promise<void> {
       Module.FS.writeFile(`${SAVE_DIR}/card2.mcr`, new Uint8Array(SIZE));
     }
 
-    // Flush new card files back to IndexedDB
-    await new Promise<void>((res) => Module.FS.syncfs(false, res));
+    // Flush to IndexedDB
+    await new Promise<void>((res) => Module.FS.syncfs(false, () => res()));
 
-    console.log("FS is fully ready (correct wasmpsx-player init path).");
-
+    console.log("Filesystem Ready ✔ (using window.Module)");
     this.fsReady = true;
     this._resolveFSReady();
 
   } catch (err) {
     console.error("Filesystem initialization failed:", err);
   }
-}
+} 
 
 private async ensureWasmPsxLoaded(): Promise<void> {
   if (this._scriptLoaded) return;
@@ -939,40 +956,41 @@ private async ensureWasmPsxLoaded(): Promise<void> {
    */
   
 private async exportMemoryCardByPath(path: string, filename: string): Promise<void> {
-  // Wait until FS is confirmed ready
   await this.fsReadyPromise;
 
-  const Module = (this.playerEl as any).module;  // <-- USE REAL MODULE
+  const Module = (window as any).Module; // <-- REAL Module
+  if (!Module?.FS) {
+    this.parentRef?.showNotification("Filesystem not ready.");
+    return;
+  }
 
   try {
-    // Flush FS → IndexedDB
-    await new Promise<void>((res) => Module.FS.syncfs(false, res));
+    // Flush pending writes
+    await new Promise<void>((res) => Module.FS.syncfs(false, () => res()));
 
-    const exists = Module.FS.analyzePath(path).exists;
-    if (!exists) {
-      this.parentRef?.showNotification('No memory card found to export.');
+    if (!Module.FS.analyzePath(path).exists) {
+      this.parentRef?.showNotification("Memory card not found.");
       return;
     }
 
     const data: Uint8Array = Module.FS.readFile(path, { encoding: 'binary' });
 
     const cleanBuffer = data.slice().buffer;
-    const blob = new Blob([cleanBuffer], { type: 'application/octet-stream' });
-
+    const blob = new Blob([cleanBuffer], { type: 'application/octet-stream' }); 
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+
+    const a = document.createElement("a");
     a.href = url;
     a.download = filename;
-    document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
 
     URL.revokeObjectURL(url);
 
-    this.parentRef?.showNotification(`Memory card exported (${filename}).`);
+    this.parentRef?.showNotification(`Memory card exported: ${filename}`);
+
   } catch (err) {
     console.error("Export failed:", err);
-    this.parentRef?.showNotification("Failed to export memory card.");
+    this.parentRef?.showNotification("Export failed.");
   }
 } 
 
