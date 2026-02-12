@@ -133,6 +133,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     await customElements.whenDefined('wasmpsx-player');
     // 4) Wait until the player signals internal readiness
     await this.waitForPlayerReady(this.playerEl);
+    await this.initializeFilesystem();
     // 5) If (rarely) still not upgraded to the class with readFile, swap once
     if (typeof (this.playerEl as any).readFile !== 'function') {
       const upgraded = document.createElement('wasmpsx-player') as any;
@@ -294,83 +295,86 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  private async ensureWasmPsxLoaded(): Promise<void> {
-    if (this._scriptLoaded) return;
-    const self = this;
-    await new Promise<void>((resolve, reject) => {
-      if (document.getElementById('wasmpsx-script')) {
-        this._scriptLoaded = true;
-        resolve();
-        return;
-      }
-      const base = new URL('assets/ps1/', document.baseURI).toString();
-      (window as any).Module = {
-        mainScriptUrlOrBlob: new URL('assets/ps1/wasmpsx.min.js', document.baseURI).toString(),
-        locateFile: (path: string) => {
-          if (path.endsWith('.worker.js')) return base + 'wasmpsx_worker.js';
-          if (path.includes('worker') && path.endsWith('.wasm')) return base + 'wasmpsx_worker.wasm';
-          if (path.endsWith('.wasm')) return base + 'wasmpsx_wasm.wasm';
-          return base + path;
-        },
-        noExitRuntime: false,
-        preRun: [() => {
-          const Module = (window as any).Module;
-          try {
-            const SAVE_DIR = '/memcards';
-            if (!Module.FS.analyzePath(SAVE_DIR).exists) {
-              Module.FS.mkdir(SAVE_DIR);
-            }
-            Module.FS.mount(Module.IDBFS, {}, SAVE_DIR);
-          } catch (e) {
-            console.warn('IDBFS mount error:', e);
-          }
-        }],
-        onRuntimeInitialized: () => {
-          const Module = (window as any).Module;
+/**
+ * Initialize the emulator filesystem AFTER wasmpsx-player reports "ready".
+ * This is the ONLY correct initialization point for this build.
+ */
+private async initializeFilesystem(): Promise<void> {
+  // Wait for the custom element to fully initialize
+  await (this.playerEl as any).ready;
 
-          Module.FS.syncfs(true, (err: any) => {
-            if (err) {
-              console.error("IDBFS populate failed:", err);
-              return;
-            }
+  // Get the REAL module instance from wasmpsx-player
+  const Module = (this.playerEl as any).module;
 
-            try {
-              const SAVE_DIR = "/memcards";
-              const SIZE = 128 * 1024;
-              const c1 = `${SAVE_DIR}/card1.mcr`;
-              const c2 = `${SAVE_DIR}/card2.mcr`;
+  const SAVE_DIR = '/memcards';
+  const SIZE = 128 * 1024;
 
-              if (!Module.FS.analyzePath(c1).exists)
-                Module.FS.writeFile(c1, new Uint8Array(SIZE));
+  try {
+    // Ensure /memcards exists
+    if (!Module.FS.analyzePath(SAVE_DIR).exists) {
+      Module.FS.mkdir(SAVE_DIR);
+    }
 
-              if (!Module.FS.analyzePath(c2).exists)
-                Module.FS.writeFile(c2, new Uint8Array(SIZE));
+    // Mount IDBFS
+    Module.FS.mount(Module.IDBFS, {}, SAVE_DIR);
 
-              Module.FS.syncfs(false, (err2: any) => {
-                if (err2) console.error("Post-create sync failed:", err2);
+    // Load from IndexedDB → memory
+    await new Promise<void>((res) => Module.FS.syncfs(true, res));
 
-                console.log("FS is fully ready!");
+    // Ensure raw 128KiB card files exist
+    if (!Module.FS.analyzePath(`${SAVE_DIR}/card1.mcr`).exists) {
+      Module.FS.writeFile(`${SAVE_DIR}/card1.mcr`, new Uint8Array(SIZE));
+    }
+    if (!Module.FS.analyzePath(`${SAVE_DIR}/card2.mcr`).exists) {
+      Module.FS.writeFile(`${SAVE_DIR}/card2.mcr`, new Uint8Array(SIZE));
+    }
 
-                self.fsReady = true;
-                self._resolveFSReady();
-              });
+    // Flush new card files back to IndexedDB
+    await new Promise<void>((res) => Module.FS.syncfs(false, res));
 
-            } catch (err) {
-              console.error("Card creation error:", err);
-            }
-          });
-        }
-      };
+    console.log("FS is fully ready (correct wasmpsx-player init path).");
 
-      const s = document.createElement('script');
-      s.id = 'wasmpsx-script';
-      s.src = base + 'wasmpsx.min.js';
-      s.async = true;
-      s.onload = () => { this._scriptLoaded = true; resolve(); };
-      s.onerror = (e) => reject(e);
-      document.head.appendChild(s);
-    });
+    this.fsReady = true;
+    this._resolveFSReady();
+
+  } catch (err) {
+    console.error("Filesystem initialization failed:", err);
   }
+}
+
+private async ensureWasmPsxLoaded(): Promise<void> {
+  if (this._scriptLoaded) return;
+
+  // Capture Angular component context
+  const self = this;
+
+  await new Promise<void>((resolve, reject) => {
+    if (document.getElementById('wasmpsx-script')) {
+      this._scriptLoaded = true;
+      resolve();
+      return;
+    }
+
+    const base = new URL('assets/ps1/', document.baseURI).toString();
+
+    // Load wasmpsx script (this registers the custom element)
+    const script = document.createElement('script');
+    script.id = 'wasmpsx-script';
+    script.src = base + 'wasmpsx.min.js';
+    script.async = true;
+
+    script.onload = () => {
+      self._scriptLoaded = true;
+      resolve();
+    };
+
+    script.onerror = (err) => reject(err);
+
+    document.head.appendChild(script);
+  });
+
+  // ⚠️ DO NOT set window.Module here — wasmpsx-player manages that internally.
+}
 
   /** 
    * Forcefully stop the emulation runtime (main loop, workers, GPU, audio). 
@@ -933,47 +937,44 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
    * @param path - e.g., "/memcards/card1.mcr"
    * @param filename - download file name, e.g., "card1.mcr"
    */
-  private async exportMemoryCardByPath(path: string, filename: string): Promise<void> {
-    await this.fsReadyPromise;
-    const M = (window as any).Module;
+  
+private async exportMemoryCardByPath(path: string, filename: string): Promise<void> {
+  // Wait until FS is confirmed ready
+  await this.fsReadyPromise;
 
-    if (!this.fsReady || !M?.FS) {
-      this.parentRef?.showNotification('Emulator FS not ready yet. Please wait 1–2 seconds.');
+  const Module = (this.playerEl as any).module;  // <-- USE REAL MODULE
+
+  try {
+    // Flush FS → IndexedDB
+    await new Promise<void>((res) => Module.FS.syncfs(false, res));
+
+    const exists = Module.FS.analyzePath(path).exists;
+    if (!exists) {
+      this.parentRef?.showNotification('No memory card found to export.');
       return;
     }
 
-    try {
-      await this.syncSavesToIDB();
+    const data: Uint8Array = Module.FS.readFile(path, { encoding: 'binary' });
 
-      const exists = !!M.FS.analyzePath(path)?.exists;
-      if (!exists) {
-        this.parentRef?.showNotification('No memory card found to export.');
-        return;
-      }
+    const cleanBuffer = data.slice().buffer;
+    const blob = new Blob([cleanBuffer], { type: 'application/octet-stream' });
 
-      const data: Uint8Array = M.FS.readFile(path, { encoding: 'binary' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 
-      const cleanBuffer = data.slice().buffer;
+    URL.revokeObjectURL(url);
 
-      const blob = new Blob([cleanBuffer], {
-        type: 'application/octet-stream'
-      });
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      this.parentRef?.showNotification(`Memory card exported (${filename}).`);
-    } catch (error) {
-      console.error('Export memory card failed:', error);
-      this.parentRef?.showNotification('Failed to export memory card.');
-    }
+    this.parentRef?.showNotification(`Memory card exported (${filename}).`);
+  } catch (err) {
+    console.error("Export failed:", err);
+    this.parentRef?.showNotification("Failed to export memory card.");
   }
+} 
 
   /**
    * Export a memory card as "<rom>-cardX.mcr" (or "cardX.mcr" if no ROM).
