@@ -29,7 +29,7 @@ export class EmulatorPS1Component extends ChildComponent implements OnInit, OnDe
   private _scriptLoaded = false;
   //resizing 
   private _resizeObs?: ResizeObserver; 
-  private fsReady = false; 
+  fsReady = false; 
   private fsReadyPromise = new Promise<void>(resolve => {
     this._resolveFSReady = resolve;
   });
