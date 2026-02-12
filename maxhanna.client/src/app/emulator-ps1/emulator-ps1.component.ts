@@ -487,11 +487,7 @@ private async hardStopEmulator(): Promise<void> {
     'trackedAudio:', trackedStates,
     'document.fullscreenElement?', !!document.fullscreenElement
   ); 
-}
-
-  private getModule(): any {
-    return (window as any).Module;
-  }
+} 
 
   async toggleFullscreen(): Promise<void> {
     const target = this.fullscreenContainer?.nativeElement || this.containerRef.nativeElement;
