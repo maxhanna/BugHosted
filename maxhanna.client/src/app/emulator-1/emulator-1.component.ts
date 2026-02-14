@@ -420,8 +420,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     });
   }
 
-  /** Start periodic autosave if enabled. */
-  private setupAutosave() {
+  setupAutosave() {
     try { this.clearAutosave(); } catch { }
     if (!this.autosave || !this.romName || !this.parentRef?.user?.id) return;
     this.autosaveInterval = setInterval(() => {
@@ -457,7 +456,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     ];
   }
 
-  
+
   getAllowedRomFileTypesString(): string {
     return this.getAllowedFileTypes().map(e => '.' + e.trim().toLowerCase()).join(',');
   }
