@@ -172,8 +172,25 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     window.EJS_lightgun = false;
     window.__EJS_ALIVE__ = true;
     // Optional callbacks (ok to keep)
-    window.EJS_onSaveState = (state: Uint8Array) => this.onSaveState(state);
-    window.EJS_onLoadState = () => this.onLoadState();
+    window.EJS_onSaveState = (state: Uint8Array) => this.onSaveState(state); 
+    window.EJS_onLoadState = async () => {
+      try {
+        if (!this.parentRef?.user?.id || !this.romName) return;
+        // Reuse your existing service to fetch latest server state
+        const blob = await this.loadSaveStateFromDB(this.romName);
+        if (!blob) { console.warn('[EJS] No cloud save found to load'); return; }
+
+        const u8 = new Uint8Array(await blob.arrayBuffer());
+        const { useEjs, useMgr } = await this.waitForLoadApis(4000);
+        if (useEjs) return useEjs(u8);
+        if (useMgr) return useMgr(u8);
+        console.warn('[EJS] No load API available on load button press');
+      } catch (e) {
+        console.warn('[EJS] onLoadState fetch/apply failed', e);
+      }
+    };
+
+    
     this.applyEjsRunOptions();
     // If the build calls back with the instance, capture it early
     (window as any).EJS_ready = (api: any) => {
@@ -230,7 +247,11 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
             requestAnimationFrame(async () => {
               await this.waitForEmulatorAndFocus();
               await this.probeForSaveApi();
-              this.tryBindSaveFromUI();
+              this.tryBindSaveFromUI(); 
+              try {
+                const ok = await this.applySaveStateIfAvailable(saveStateBlob);
+                if (ok) console.log('[EJS] Auto-restored previous session');
+              } catch {} 
               this.lockGameHostHeight();
             });
           });
@@ -493,10 +514,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       }
     }
   }
-
-  private async onLoadState() {
-    console.log('Loading state from database');
-  }
+ 
 
   callEjsSave(): void {
     try {
@@ -1250,6 +1268,39 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     }
   }
 
+
+/** Wait until a load API is available (EJS_loadState or gameManager.loadState). */
+private async waitForLoadApis(maxMs = 5000): Promise<{
+  useEjs: ((u8: Uint8Array) => any) | null,
+  useMgr: ((u8: Uint8Array) => any) | null
+}> {
+  const start = Date.now();
+  while (Date.now() - start < maxMs) {
+    const w = window as any;
+    const useEjs = (typeof w.EJS_loadState === 'function') ? (u8: Uint8Array) => w.EJS_loadState(u8) : null;
+    const mgr = (this.emulatorInstance || w.EJS_emulator || w.EJS)?.gameManager;
+    const useMgr = (mgr && typeof mgr.loadState === 'function') ? (u8: Uint8Array) => mgr.loadState(u8) : null;
+    if (useEjs || useMgr) return { useEjs, useMgr };
+    await new Promise(r => setTimeout(r, 100));
+  }
+  return { useEjs: null, useMgr: null };
+}
+
+/** Apply a save-state Blob to the running emulator as soon as APIs are ready. */
+private async applySaveStateIfAvailable(saveStateBlob: Blob | null): Promise<boolean> {
+  if (!saveStateBlob) return false;
+  try {
+    const u8 = new Uint8Array(await saveStateBlob.arrayBuffer());
+    const { useEjs, useMgr } = await this.waitForLoadApis(6000);
+    if (useEjs) { await Promise.resolve(useEjs(u8)); console.log('[EJS] Loaded state via EJS_loadState'); return true; }
+    if (useMgr) { await Promise.resolve(useMgr(u8)); console.log('[EJS] Loaded state via gameManager.loadState'); return true; }
+    console.warn('[EJS] No load API available; could not apply save state.');
+    return false;
+  } catch (e) {
+    console.warn('[EJS] applySaveStateIfAvailable failed', e);
+    return false;
+  }
+}
 
   showMenuPanel() {
     this.isMenuPanelOpen = true;
