@@ -15,6 +15,11 @@ namespace maxhanna.Server.Controllers
     private readonly IConfiguration _config;
     private readonly string _baseTarget = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Roms/";
     private readonly string[] saveExts = [".sav", ".srm", ".eep", ".sra", ".fla"];
+    private readonly HashSet<string> emulatorJSExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
+      ".gba", ".gbc", ".gb", ".nes", ".snes", ".sfc", ".smd", ".gen", ".bin",
+      ".n64", ".z64", ".v64", ".nds", ".32x", ".gg", ".sms", ".pce",
+      ".ngp", ".ngc", ".ws", ".wsc", ".col", ".a26", ".a78", ".lnx", ".jag"
+    };
 		private readonly HashSet<string> n64Extensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
 		    ".z64", ".n64", ".v64", ".bin", ".zip"
 		};
@@ -895,7 +900,120 @@ ON DUPLICATE KEY UPDATE
         _ = _log.Db($"Error in RecordRomSelectionAsync: {ex.Message}", userId, "ROM", true);
       }
     }
+
+    // ============================================================================
+    // EmulatorJS Save State Endpoints
+    // ============================================================================
+
+    [HttpPost("/Rom/SaveEmulatorJSState")]
+    [RequestSizeLimit(10_000_000)] // 10 MB limit
+    public async Task<IActionResult> SaveEmulatorJSState()
+    {
+      var form = await Request.ReadFormAsync();
+      var file = form.Files.GetFile("file");
+      if (file == null || file.Length <= 0)
+        return BadRequest("Missing 'file'");
+
+      if (!int.TryParse(form["userId"], out var userId) || userId <= 0)
+        return BadRequest("Invalid 'userId'");
+
+      var romName = form["romName"].ToString();
+      if (string.IsNullOrWhiteSpace(romName))
+        return BadRequest("Missing 'romName'");
+
+      // Read state bytes
+      byte[] stateBytes;
+      using (var ms = new MemoryStream())
+      {
+        await file.CopyToAsync(ms);
+        stateBytes = ms.ToArray();
+      }
+
+      // UPSERT into MySQL
+      using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      await conn.OpenAsync();
+
+      const string sql = @"
+        INSERT INTO emulatorjs_save_states
+          (user_id, rom_name, state_data, file_size, last_updated)
+        VALUES
+          (@UserId, @RomName, @StateData, @FileSize, CURRENT_TIMESTAMP)
+        ON DUPLICATE KEY UPDATE
+          state_data = VALUES(state_data),
+          file_size = VALUES(file_size),
+          last_updated = CURRENT_TIMESTAMP;";
+
+      using var cmd = new MySqlCommand(sql, conn);
+      cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
+      cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = romName;
+      cmd.Parameters.Add("@StateData", MySqlDbType.MediumBlob).Value = stateBytes;
+      cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value = stateBytes.Length;
+
+      await cmd.ExecuteNonQueryAsync();
+
+      return Ok(new
+      {
+        ok = true,
+        userId,
+        romName,
+        fileSize = stateBytes.Length
+      });
+    }
+
+    [HttpPost("/Rom/GetEmulatorJSSaveState")]
+    public async Task<IActionResult> GetEmulatorJSSaveState([FromBody] GetEmulatorJSSaveStateRequest req)
+    {
+      if (string.IsNullOrWhiteSpace(req.RomName) || req.UserId <= 0)
+        return BadRequest("Missing romName or invalid userId");
+
+      using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      await conn.OpenAsync();
+
+      const string sql = @"
+        SELECT state_data
+        FROM emulatorjs_save_states
+        WHERE user_id = @UserId
+          AND rom_name = @RomName
+        ORDER BY last_updated DESC
+        LIMIT 1;";
+
+      using var cmd = new MySqlCommand(sql, conn);
+      cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = req.UserId;
+      cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = req.RomName;
+
+      using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess);
+      if (!await reader.ReadAsync())
+        return NotFound("No save state found");
+
+      byte[] data;
+
+      // Read blob efficiently
+      const int chunk = 81920;
+      using (var ms = new MemoryStream())
+      {
+        long offset = 0;
+        long bytesRead;
+        do
+        {
+          var buffer = new byte[chunk];
+          bytesRead = reader.GetBytes(0, offset, buffer, 0, buffer.Length);
+          if (bytesRead > 0)
+          {
+            ms.Write(buffer, 0, (int)bytesRead);
+            offset += bytesRead;
+          }
+        } while (bytesRead > 0);
+        data = ms.ToArray();
+      }
+
+      return File(data, "application/octet-stream", "savestate.state");
+    }
   }
+}
+public class GetEmulatorJSSaveStateRequest
+{
+  public int UserId { get; set; }
+  public string RomName { get; set; } = string.Empty;
 }
 public class GetLastInputSelectionRequest
 {

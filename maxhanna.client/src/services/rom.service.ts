@@ -277,5 +277,54 @@ async getN64SaveByName(romName: string, userId: number): Promise<{ blob: Blob; f
     } catch (error: any) {
       return { ok: false, status: 0, errorText: String(error?.message ?? error) };
     }
-  } 
+  }
+
+  // ============================================================================
+  // EmulatorJS Save State Methods
+  // ============================================================================
+
+  async saveEmulatorJSState(romName: string, userId: number, stateData: Uint8Array): Promise<SaveUploadResponse> {
+    const form = new FormData();
+    const tightAb: ArrayBuffer = this.toTightArrayBuffer(stateData);
+    form.append('file', new File([tightAb], 'savestate.state', { type: 'application/octet-stream' }));
+    form.append('userId', String(userId));
+    form.append('romName', romName);
+
+    try {
+      const res = await fetch(`/rom/saveemulatorjsstate`, { method: 'POST', body: form });
+      const status = res.status;
+      const ct = (res.headers.get('content-type') || '').toLowerCase();
+
+      const readAsText = async () => await res.text();
+      const readAsJson = async () => { try { return await res.json(); } catch { return null; } };
+
+      if (!res.ok) {
+        const errorBody = ct.includes('application/json') ? await readAsJson() : await readAsText();
+        const errorText = typeof errorBody === 'string' ? errorBody : JSON.stringify(errorBody ?? { error: 'Upload failed' });
+        return { ok: false, status, errorText };
+      }
+
+      const body = ct.includes('application/json') ? await readAsJson() : await readAsText();
+      return { ok: true, status, body };
+    } catch (error: any) {
+      return { ok: false, status: 0, errorText: String(error?.message ?? error) };
+    }
+  }
+
+  async getEmulatorJSSaveState(romName: string, userId: number): Promise<Blob | null> {
+    try {
+      const response = await fetch(`/rom/getemulatorjssavestate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: userId, RomName: romName }),
+      });
+
+      if (!response.ok) return null;
+      return await response.blob();
+    } catch (error) {
+      return null;
+    }
+  }
 }

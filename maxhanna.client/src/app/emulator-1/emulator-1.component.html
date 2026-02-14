@@ -4,16 +4,59 @@
   <div class="componentTitle" *ngIf="!isFullScreen">
     <span class="romNameTitle">{{ romName ? getRomName() : '1Emulator' }}</span>
   </div>
-  <div>
-    still under construction but heres a demo
+
+  <!-- ROM File Selector -->
+  <div class="gamesContainer{{ !romName ? ' expanded' : '' }}" *ngIf="isSearchVisible">
+    <app-file-search 
+      [user]="parentRef?.user" 
+      [inputtedParentRef]="parentRef" 
+      [currentDirectory]="'Roms/'"
+      [clearAfterSelectFile]="true" 
+      [allowedFileTypes]="getAllowedFileTypes()" 
+      [showPrivatePublicOption]="false"
+      [showFileSearchOptions]="false" 
+      [canChangeDirectory]="false" 
+      [canDragMove]="false" 
+      [displayFileActions]="true"
+      [displayComments]="false" 
+      [displayFileSize]="false" 
+      [displayReactions]="false"
+      [showPicturesOnlyToggler]="false" 
+      [showVideosOnlyToggler]="false" 
+      [showNSFWToggler]="false"
+      (selectFileEvent)="onRomSelected($event)">
+    </app-file-search>
   </div>
-  <div id="game" style="width:100%;max-width:960px;aspect-ratio:4/3;margin:auto;"></div> 
+
+  <!-- EmulatorJS Container -->
+  <div id="game" 
+       [style.width]="'100%'" 
+       [style.max-width]="'960px'" 
+       [style.aspect-ratio]="'4/3'" 
+       [style.margin]="'auto'"
+       [style.display]="romName ? 'block' : 'none'">
+  </div>
+
+  <!-- Status Display -->
+  <div *ngIf="!romName" style="text-align: center; padding: 20px; color: #666;">
+    {{ status }}
+  </div>
 </div>
+
 <!-- Menu Popup -->
 <div [class]="'popupPanel' + (isFileUploaderExpanded ? ' uploaderPopupPanel' : '')" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle" style="margin-bottom:15px;">
-    1 Menu
+    Emulator Menu
   </div>
+  
+  <div style="margin-bottom: 15px;">
+    <p>Status: {{ status }}</p>
+    <p *ngIf="romName">Playing: {{ getRomName() }}</p>
+  </div>
+
+  <button *ngIf="romName" (click)="stopEmulator()" style="margin-bottom: 10px; width: 100%;">
+    Stop Emulator & Return to ROM Selection
+  </button>
  
   <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
 </div>
