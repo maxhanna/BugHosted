@@ -60,7 +60,7 @@
     <div style="font-weight:600; margin-bottom:6px;">Autosave:</div>
     <div style="display:flex; align-items:center; gap:8px;">
       <label class="toggle-switch">
-        <input type="checkbox" [checked]="autosave" (change)="autosave = !autosave; if (autosave) setupAutosave(); else clearAutosave();">
+        <input type="checkbox" [checked]="autosave" (change)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();">
         <span class="slider"></span>
       </label>
       <div style="font-size:13px; color:#666;">{{ autosave ? 'On' : 'Off' }}</div>
@@ -82,7 +82,7 @@
       [inputtedParentRef]="parentRef"
       [uploadButtonText]="'Upload Rom(s)'" 
       [maxSelectedFiles]="100" 
-      [allowedFileTypes]="getAllowedFileTypes()"
+      [allowedFileTypes]="getAllowedRomFileTypesString()"
       [displayOptionsAndTopicsButtons]="false" 
       (userUploadEvent)="isFileUploaderExpanded = true;"
       (userCancelEvent)="isFileUploaderExpanded = false;"

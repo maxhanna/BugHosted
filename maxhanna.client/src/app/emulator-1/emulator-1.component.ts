@@ -431,7 +431,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     }, this.autosaveIntervalTime);
   }
 
-  private clearAutosave() {
+  clearAutosave() {
     if (this.autosaveInterval) { clearInterval(this.autosaveInterval); this.autosaveInterval = undefined; }
     if (this._pendingSaveTimer) { clearTimeout(this._pendingSaveTimer); this._pendingSaveTimer = undefined; }
   }
@@ -455,6 +455,11 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       // Other
       'wad', 'ccd'
     ];
+  }
+
+  
+  getAllowedRomFileTypesString(): string {
+    return this.getAllowedFileTypes().map(e => '.' + e.trim().toLowerCase()).join(',');
   }
 
   /** Try to focus the emulator's interactive element (canvas/iframe/container). */
