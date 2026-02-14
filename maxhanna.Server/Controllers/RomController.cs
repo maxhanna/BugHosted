@@ -86,22 +86,25 @@ namespace maxhanna.Server.Controllers
           {
             await connection.OpenAsync();
 
-            var checkCommand = new MySqlCommand("SELECT COUNT(*) FROM maxhanna.file_uploads WHERE file_name = @fileName AND folder_path = @folderPath", connection);
-            checkCommand.Parameters.AddWithValue("@fileName", isSaveFile ? newFilename : file.FileName);
-            checkCommand.Parameters.AddWithValue("@folderPath", _baseTarget);
-
-            var fileExists = Convert.ToInt32(await checkCommand.ExecuteScalarAsync()) > 0;
+            var fileExists = false;
+            if (!isSaveFile)
+            {
+              var checkCommand = new MySqlCommand("SELECT COUNT(*) FROM maxhanna.file_uploads WHERE file_name = @fileName AND folder_path = @folderPath", connection);
+              checkCommand.Parameters.AddWithValue("@fileName", file.FileName);
+              checkCommand.Parameters.AddWithValue("@folderPath", _baseTarget); 
+              fileExists = Convert.ToInt32(await checkCommand.ExecuteScalarAsync()) > 0;
+            }
 
             if (!fileExists && !isSaveFile)
             {
-              // Determine file type based on extension (save files explicitly 'sav')
+              // Determine file type based on extension
               var extension = Path.GetExtension(file.FileName)?.ToLowerInvariant().Trim('.') ?? string.Empty;
               string fileType = ext.Trim('.');
               var command = new MySqlCommand("INSERT INTO maxhanna.file_uploads (user_id, file_name, upload_date, last_access, last_updated, last_updated_by_user_id, folder_path, is_public, is_folder, file_size) VALUES (@user_id, @fileName, @uploadDate, @lastAccess, @lastUpdated, @user_id, @folderPath, @isPublic, @isFolder, @fileSize)", connection);
               var now = DateTime.UtcNow;
               command.Parameters.AddWithValue("@user_id", userId);
               command.Parameters.AddWithValue("@fileSize", file.Length);
-              command.Parameters.AddWithValue("@fileName", isSaveFile ? newFilename : file.FileName);
+              command.Parameters.AddWithValue("@fileName", file.FileName);
               command.Parameters.AddWithValue("@uploadDate", now);
               command.Parameters.AddWithValue("@lastAccess", now);
               command.Parameters.AddWithValue("@lastUpdated", now);
@@ -421,17 +424,6 @@ ON DUPLICATE KEY UPDATE
               WHERE ep.user_id IS NOT NULL
                 AND ep.save_time IS NOT NULL
                 AND ep.save_time >= @cutoff
-
-              UNION
-
-              SELECT fu.user_id
-              FROM maxhanna.file_uploads AS fu
-              WHERE fu.user_id IS NOT NULL
-                AND fu.file_type = 'sav'
-                AND (
-                  (fu.upload_date IS NOT NULL AND fu.upload_date >= @cutoff)
-                  OR (fu.last_access IS NOT NULL AND fu.last_access >= @cutoff)
-                )
             ) AS recent;";
 
         await using var cmd = new MySqlCommand(sql, connection)
@@ -469,7 +461,7 @@ ON DUPLICATE KEY UPDATE
           int totalSeconds = Convert.ToInt32(totalSecondsObj ?? 0);
 
           // Count distinct ROM uploads for this user (files in folder_path = 'roms')
-          string romCountSql = @"SELECT COUNT(*) FROM maxhanna.file_uploads WHERE user_id = @UserId AND folder_path = @FolderPath and file_type != 'sav';";
+          string romCountSql = @"SELECT COUNT(*) FROM maxhanna.file_uploads WHERE user_id = @UserId AND folder_path = @FolderPath;";
           var romCountCmd = new MySqlCommand(romCountSql, connection);
           romCountCmd.Parameters.AddWithValue("@UserId", userId);
           romCountCmd.Parameters.AddWithValue("@FolderPath", _baseTarget);

@@ -837,10 +837,6 @@ namespace maxhanna.Server.Controllers
 							SELECT ept.save_time AS lastActivity FROM maxhanna.emulation_play_time ept WHERE ept.user_id = u.id AND ept.save_time IS NOT NULL
 							UNION ALL
 							SELECT ept.start_time AS lastActivity FROM maxhanna.emulation_play_time ept WHERE ept.user_id = u.id AND ept.start_time IS NOT NULL
-							UNION ALL
-							SELECT fu.upload_date AS lastActivity FROM maxhanna.file_uploads fu WHERE fu.user_id = u.id AND (fu.file_type = 'sav' OR fu.file_name LIKE '%.sav') AND fu.upload_date IS NOT NULL
-							UNION ALL
-							SELECT fu.last_access AS lastActivity FROM maxhanna.file_uploads fu WHERE fu.user_id = u.id AND (fu.file_type = 'sav' OR fu.file_name LIKE '%.sav') AND fu.last_access IS NOT NULL
 						) recent_emulation
 					) AS lastActivity
 					FROM maxhanna.users u
