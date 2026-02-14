@@ -84,6 +84,9 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     // clear autosave interval
     try { this.clearAutosave(); } catch { }
 
+
+    try { await this.hardStopEmulatorEJS(); } catch { }
+
     // Clear EmulatorJS global callbacks so they don't reference this component after destroy
     try {
       if (window) {
@@ -102,9 +105,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       try { URL.revokeObjectURL(this.romObjectUrl); } catch { }
       this.romObjectUrl = undefined;
     }
-
-    // Ensure overlay closed
-    try { this.parentRef?.closeOverlay(); } catch { }
   }
 
   async onRomSelected(file: FileEntry) {
@@ -191,7 +191,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     if (gameContainer) {
       gameContainer.innerHTML = '';
     }
-
+    this.installRuntimeTrackers();
     // 8) Inject loader.js (it will initialize EmulatorJS)
     if (!window.__ejsLoaderInjected) {
       await new Promise<void>((resolve, reject) => {
@@ -459,6 +459,150 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     return this.getAllowedFileTypes().map(e => '.' + e.trim().toLowerCase()).join(',');
   }
 
+
+  /** Forcefully stop EmulatorJS runtime: audio, workers, RAF, DOM, globals. Safe to call multiple times. */
+  private async hardStopEmulatorEJS(): Promise<void> {
+    const w = window as any;
+
+    try {
+      // 1) Try any public-ish stops if available in your build
+      try { if (this.emulatorInstance?.exit) await this.emulatorInstance.exit(); } catch { }
+      try { if (typeof w.EJS_stop === 'function') w.EJS_stop(); } catch { }
+      try { if (typeof w.EJS_exit === 'function') w.EJS_exit(); } catch { }
+
+      // 2) Close any WebAudio contexts the emulator created
+      try {
+        const tracked: Set<BaseAudioContext> | undefined = w.__ejsTrackedAudio;
+        if (tracked && tracked.size) {
+          await Promise.all(Array.from(tracked).map(async (ctx) => {
+            try {
+              if (ctx.state !== 'closed') {
+                try { await (ctx as any).close?.(); } catch {
+                  try { await (ctx as any).suspend?.(); } catch { }
+                }
+              }
+            } catch { }
+          }));
+          // clear dead refs
+          for (const ctx of Array.from(tracked)) {
+            try { if (ctx.state === 'closed') tracked.delete(ctx); } catch { }
+          }
+        }
+      } catch { }
+
+      // 3) Terminate any workers (main worker + pthreads) the emulator created
+      try {
+        const workers: Set<any> | undefined = w.__ejsTrackedWorkers;
+        if (workers && workers.size) {
+          for (const wk of Array.from(workers)) {
+            try {
+              // Worker
+              if (typeof wk.terminate === 'function') wk.terminate();
+              // SharedWorker
+              if (wk?.port?.close) wk.port.close();
+            } catch { }
+            try { workers.delete(wk); } catch { }
+          }
+        }
+      } catch { }
+
+      // 4) Cancel any requestAnimationFrame loops
+      try {
+        if ((this as any)._fitRAF) cancelAnimationFrame((this as any)._fitRAF);
+        (this as any)._fitRAF = undefined;
+      } catch { }
+
+      // 5) Remove emulator DOM from #game
+      try {
+        const gameEl = document.getElementById('game');
+        if (gameEl) {
+          // Also stop any <audio> element that might have been created
+          try {
+            gameEl.querySelectorAll('audio').forEach(a => {
+              try { (a as HTMLAudioElement).pause(); } catch { }
+              try { a.remove(); } catch { }
+            });
+          } catch { }
+          gameEl.innerHTML = '';
+        }
+      } catch { }
+
+      // 6) Clear global callbacks to break references to this component
+      try { delete w.EJS_onSaveState; } catch { }
+      try { delete w.EJS_onLoadState; } catch { }
+
+      // 7) Null any instance references
+      this.emulatorInstance = undefined;
+
+    } catch (err) {
+      console.warn('hardStopEmulatorEJS: unexpected error during shutdown', err);
+    }
+  }
+
+  /** Install wrappers so we can close audio & terminate workers on destroy. Idempotent. */
+  private installRuntimeTrackers() {
+    const w = window as any;
+
+    // Track AudioContexts created by the emulator
+    if (!w.__ejsTrackedAudio) {
+      w.__ejsTrackedAudio = new Set<BaseAudioContext>();
+
+      const AC = (w.AudioContext || w.webkitAudioContext);
+      const OAC = w.OfflineAudioContext;
+
+      if (AC && !w.__ejsPatchedAC) {
+        const ACWrapped = function (...args: any[]) {
+          const ctx = new (AC as any)(...args);
+          try { w.__ejsTrackedAudio.add(ctx); } catch { /* ignore */ }
+          return ctx;
+        };
+        ACWrapped.prototype = AC.prototype;
+        w.AudioContext = ACWrapped;
+        if (w.webkitAudioContext) w.webkitAudioContext = ACWrapped;
+        w.__ejsPatchedAC = true;
+      }
+
+      if (OAC && !w.__ejsPatchedOAC) {
+        const OACWrapped = function (...args: any[]) {
+          const ctx = new (OAC as any)(...args);
+          try { w.__ejsTrackedAudio.add(ctx); } catch { /* ignore */ }
+          return ctx;
+        };
+        OACWrapped.prototype = OAC.prototype;
+        w.OfflineAudioContext = OACWrapped;
+        w.__ejsPatchedOAC = true;
+      }
+    }
+
+    // Track Workers created by the emulator (main worker & pthreads)
+    if (!w.__ejsTrackedWorkers) {
+      w.__ejsTrackedWorkers = new Set<Worker | SharedWorker>();
+
+      const OrigWorker = w.Worker;
+      const OrigSharedWorker = w.SharedWorker;
+
+      if (OrigWorker && !w.__ejsPatchedWorker) {
+        w.Worker = function (...args: any[]) {
+          const worker = new OrigWorker(...args);
+          try { w.__ejsTrackedWorkers.add(worker); } catch { /* ignore */ }
+          return worker;
+        };
+        w.Worker.prototype = OrigWorker.prototype;
+        w.__ejsPatchedWorker = true;
+      }
+
+      if (OrigSharedWorker && !w.__ejsPatchedSharedWorker) {
+        w.SharedWorker = function (...args: any[]) {
+          const sworker = new OrigSharedWorker(...args);
+          try { w.__ejsTrackedWorkers.add(sworker); } catch { /* ignore */ }
+          return sworker;
+        };
+        w.SharedWorker.prototype = OrigSharedWorker.prototype;
+        w.__ejsPatchedSharedWorker = true;
+      }
+    }
+  }
+
   /** Try to focus the emulator's interactive element (canvas/iframe/container). */
   private async waitForEmulatorAndFocus(maxAttempts = 8, delayMs = 200): Promise<boolean> {
     for (let i = 0; i < maxAttempts; i++) {
@@ -548,22 +692,23 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
   async stopEmulator() {
-    if (this.emulatorInstance) {
-      // EmulatorJS auto-saves on pause/stop
-      this.emulatorInstance = null;
-    }
+    this.startLoading();
+    try { await this.hardStopEmulatorEJS(); } catch { }
     this.isSearchVisible = true;
     this.status = 'Ready - Select a ROM';
     this.romName = undefined;
-    this.closeMenuPanel();
-    // Reset game container sizing
+
+    // reset container sizing
     const gameEl = document.getElementById('game');
     if (gameEl) {
       gameEl.style.height = '';
       gameEl.style.aspectRatio = '';
     }
+    this.closeMenuPanel();
+    this.stopLoading();
     this.cdr.detectChanges();
   }
+
 
   showMenuPanel() {
     this.isMenuPanelOpen = true;
