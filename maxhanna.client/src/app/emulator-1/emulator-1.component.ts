@@ -129,48 +129,7 @@ private async loadRomThroughService(fileName: string, fileId?: number) {
     // Optionally, you can trigger a re-init if needed depending on your flow.
   }
 }
-
-private ensureEmulatorLoaded(): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    // 1) Configure globals BEFORE loader.js loads
-    window.EJS_player = "#game";
-    window.EJS_pathtodata = "/assets/emulatorjs/data/";
-    window.EJS_coreUrl    = "/assets/emulatorjs/data/cores/";
-    window.EJS_biosUrl    = "/assets/emulatorjs/data/cores/bios/";
-    window.EJS_gameUrl    = "/assets/Uploads/Roms/super_mario.gba"; // prefer same-origin (see note below)
-    window.EJS_language   = "en";
-    window.EJS_startOnLoaded = true;
-
-    // 2) Inject CSS once
-    if (!document.querySelector('link[data-ejs-css="1"]')) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = '/assets/emulatorjs/data/emulator.min.css';
-      link.setAttribute('data-ejs-css', '1');
-      document.head.appendChild(link);
-    }
-
-    // 3) Inject loader.js once
-    if (window.__ejsLoaderInjected || document.querySelector('script[data-ejs-loader="1"]')) {
-      resolve(); // already present
-      return;
-    }
-
-    const s = document.createElement('script');
-    s.src = '/assets/emulatorjs/data/loader.js';
-    s.async = false;      // preserve order after globals
-    s.defer = false;      // execute immediately after append
-    s.setAttribute('data-ejs-loader', '1');
-
-    s.onload = () => {
-      window.__ejsLoaderInjected = true;
-      resolve();
-    };
-    s.onerror = (e) => reject(new Error('Failed to load EmulatorJS loader.js'));
-
-    document.body.appendChild(s);
-  });
-}
+ 
   getRomName(): string {
     if (this.romName) {
       return this.romName;
