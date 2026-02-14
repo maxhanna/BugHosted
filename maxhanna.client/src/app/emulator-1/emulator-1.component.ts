@@ -23,7 +23,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   // Human-readable status shown in the UI (e.g. "Idle", "Loading <game>", "Running: <game>")
   public status: string = 'Idle';
   private romObjectUrl?: string;
- 
+
   constructor(
     private romService: RomService,
     private fileService: FileService,
@@ -38,7 +38,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
   async ngAfterViewInit() {
     this.status = 'Loading…';
-    try { 
+    try {
       await this.loadRomThroughService(
         "Super Mario Advance 2 - Super Mario World (Europe) (En,Fr,De,Es).gba"
         // , /* fileId? */ 123
@@ -94,22 +94,22 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     window.EJS_gameUrl = this.romObjectUrl;   // 👈 blob URL  
     window.EJS_gameID = `gba:${this.romName ?? 'unknown'}`; // or a hash of the filename 
     window.EJS_gameName = this.fileService.getFileWithoutExtension(this.romName ?? '');
-    window.EJS_startOnLoaded = true; 
-window.EJS_paths = {
-  // top-level
-  'emulator.min.js': '/assets/emulatorjs/data/emulator.min.js',
-  'emulator.min.css': '/assets/emulatorjs/data/emulator.min.css',
-  'loader.js': '/assets/emulatorjs/data/loader.js',
-  'version.json': '/assets/emulatorjs/data/version.json',
+    window.EJS_startOnLoaded = true;
+    window.EJS_paths = {
+      // top-level
+      'emulator.min.js': '/assets/emulatorjs/data/emulator.min.js',
+      'emulator.min.css': '/assets/emulatorjs/data/emulator.min.css',
+      'loader.js': '/assets/emulatorjs/data/loader.js',
+      'version.json': '/assets/emulatorjs/data/version.json',
 
-  // runtime (inside /src)
-  'GameManager.js': '/assets/emulatorjs/data/src/GameManager.js',
-  'storage.js': '/assets/emulatorjs/data/src/storage.js',
-  'gamepad.js': '/assets/emulatorjs/data/src/gamepad.js',
-  'nipplejs.js': '/assets/emulatorjs/data/src/nipplejs.js',
-  'shaders.js': '/assets/emulatorjs/data/src/shaders.js'
-};  
-window.EJS_volume = 1;
+      // runtime (inside /src)
+      'GameManager.js': '/assets/emulatorjs/data/src/GameManager.js',
+      'storage.js': '/assets/emulatorjs/data/src/storage.js',
+      'gamepad.js': '/assets/emulatorjs/data/src/gamepad.js',
+      'nipplejs.js': '/assets/emulatorjs/data/src/nipplejs.js',
+      'shaders.js': '/assets/emulatorjs/data/src/shaders.js'
+    };
+    window.EJS_volume = 1;
 
 
 
@@ -156,7 +156,7 @@ window.EJS_volume = 1;
     this.isMenuPanelOpen = false;
     this.parentRef?.closeOverlay();
   }
-} 
+}
 
 declare global {
   interface Window {
