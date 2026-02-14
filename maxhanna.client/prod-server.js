@@ -305,8 +305,7 @@ if (config.enableHelmet) {
     // Required for COEP: require-corp — don't remove
     crossOriginResourcePolicy: { policy: "cross-origin" }
   }));
-} 
-
+}  
 
 const emulatorIsolation = (req, res, next) => {
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
@@ -325,8 +324,6 @@ app.use(
   emulatorIsolation,
   express.static(path.join(config.distPath, 'assets', 'emulatorjs'))
 );
-
-
 
 // ============================================================================
 // Performance Middleware
