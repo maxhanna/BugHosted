@@ -158,7 +158,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
     // ❗ BIOS: set ONLY if required by the selected core; otherwise blank
     window.EJS_biosUrl = this.getBiosUrlForCore(core) ?? "";  // <— key fix
-    window.EJS_softLoad = true;
+    window.EJS_softLoad = false; // TEMP: ensure full boot path for every run
     window.EJS_gameUrl = this.romObjectUrl;
     window.EJS_gameID = `${core}:${this.fileService.getFileWithoutExtension(fileName)}`;
     window.EJS_gameName = this.fileService.getFileWithoutExtension(this.romName ?? '');
@@ -200,12 +200,13 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
     // 8) Inject loader.js (it will initialize EmulatorJS)
     if (!window.__ejsLoaderInjected) {
-      await new Promise<void>((resolve, reject) => {
+        await new Promise<void>((resolve, reject) => { 
         const s = document.createElement('script');
-        s.src = '/assets/emulatorjs/data/loader.js';
+        // add a cache-buster
+        s.src = `/assets/emulatorjs/data/loader.js?v=${Date.now()}`;
         s.async = false;
         s.defer = false;
-        s.setAttribute('data-ejs-loader', '1');
+        s.setAttribute('data-ejs-loader', '1'); 
         s.onload = () => {
           window.__ejsLoaderInjected = true;
           requestAnimationFrame(() => {
@@ -245,7 +246,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     await this.hardStopEmulatorEJS();
 
     // 2) Clear any cached EJS settings that could override input on the next run
-    this.clearEjsLocalState();
+   // this.clearEjsLocalState(); // TEMP: comment out to confirm boot path
 
     // 3) Remove the previous loader script (if still present) and reset flag
     const old = document.querySelector<HTMLScriptElement>('script[data-ejs-loader="1"]');
