@@ -253,6 +253,13 @@ if (config.enableHelmet) {
   }));
 }
 
+app.use((req, res, next) => {
+  // If you want it global for your whole app (recommended for emulators)
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  next();
+});
+
 // ============================================================================
 // Performance Middleware
 // ============================================================================
