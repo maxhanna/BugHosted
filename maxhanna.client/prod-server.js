@@ -240,7 +240,8 @@ if (config.enableHelmet) {
         connectSrc: ["'self'", 'https:', 'wss:', 'localhost', 'localhost:*', 'https://api.ipify.org', 'https://*.googlevideo.com', 'https://www.youtube.com', "https://www.youtube-nocookie.com"],
         imgSrc: ["'self'", 'data:', 'https:', 'blob:', 'https://*.ytimg.com'],
         mediaSrc: ["'self'", 'blob:', 'data:', 'https:'],
-        frameSrc: ["'self'", 'https:'],
+        frameSrc: ["'self'", 'https:'], 
+        'worker-src': ["'self'", 'blob:'], 
       },
     },
     hsts: {

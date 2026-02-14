@@ -94,7 +94,22 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     window.EJS_gameUrl = this.romObjectUrl;   // 👈 blob URL  
     window.EJS_gameID = `gba:${this.romName ?? 'unknown'}`; // or a hash of the filename 
     window.EJS_gameName = this.fileService.getFileWithoutExtension(this.romName ?? '');
-    window.EJS_startOnLoaded = true;
+    window.EJS_startOnLoaded = true; 
+window.EJS_paths = {
+  // top-level
+  'emulator.min.js': '/assets/emulatorjs/data/emulator.min.js',
+  'emulator.min.css': '/assets/emulatorjs/data/emulator.min.css',
+  'loader.js': '/assets/emulatorjs/data/loader.js',
+  'version.json': '/assets/emulatorjs/data/version.json',
+
+  // runtime (inside /src)
+  'GameManager.js': '/assets/emulatorjs/data/src/GameManager.js',
+  'storage.js': '/assets/emulatorjs/data/src/storage.js',
+  'gamepad.js': '/assets/emulatorjs/data/src/gamepad.js',
+  'nipplejs.js': '/assets/emulatorjs/data/src/nipplejs.js',
+  'shaders.js': '/assets/emulatorjs/data/src/shaders.js'
+};
+
 
     // 5) Ensure CSS present once
     if (!document.querySelector('link[data-ejs-css="1"]')) {
@@ -152,6 +167,7 @@ declare global {
     EJS_gameName?: string;
     EJS_language?: string;
     EJS_startOnLoaded?: boolean;
+    EJS_paths?: { [key: string]: string };
     __ejsLoaderInjected?: boolean; // guard so we don't double load
   }
 }
