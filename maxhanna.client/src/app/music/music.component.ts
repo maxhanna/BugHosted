@@ -434,7 +434,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       return;
     }
     const url = this.extractYouTubeVideoId(this.urlInput.nativeElement.value);
-    if (!url || url.trim() === '' && !this.selectedFile) {
+    if ((!url || url.trim() === '') && !this.selectedFile) {
       alert("Invalid YouTube URL!");
       return;
     }
