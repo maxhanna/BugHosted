@@ -7,38 +7,19 @@
 
   <!-- ROM File Selector -->
   <div class="gamesContainer{{ !romName ? ' expanded' : '' }}" *ngIf="isSearchVisible">
-    <app-file-search 
-      [user]="parentRef?.user" 
-      [inputtedParentRef]="parentRef" 
-      [currentDirectory]="'Roms/'"
-      [clearAfterSelectFile]="true" 
-      [allowedFileTypes]="getAllowedFileTypes()" 
-      [showPrivatePublicOption]="false"
-      [showFileSearchOptions]="false" 
-      [canChangeDirectory]="false" 
-      [canDragMove]="false" 
-      [displayFileActions]="true"
-      [displayComments]="false" 
-      [displayFileSize]="false" 
-      [displayReactions]="false"
-      [showPicturesOnlyToggler]="false" 
-      [showVideosOnlyToggler]="false" 
-      [showNSFWToggler]="false"
-      [showSystemIcons]="true"
+    <app-file-search [user]="parentRef?.user" [inputtedParentRef]="parentRef" [currentDirectory]="'Roms/'"
+      [clearAfterSelectFile]="true" [allowedFileTypes]="getAllowedFileTypes()" [showPrivatePublicOption]="false"
+      [showFileSearchOptions]="false" [canChangeDirectory]="false" [canDragMove]="false" [displayFileActions]="true"
+      [displayComments]="false" [displayFileSize]="false" [displayReactions]="false" [showPicturesOnlyToggler]="false"
+      [showVideosOnlyToggler]="false" [showNSFWToggler]="false" [showSystemIcons]="true"
       (selectFileEvent)="onRomSelected($event)">
     </app-file-search>
   </div>
 
-  <!-- EmulatorJS Container --> 
-  <div id="game"
-      [style.width]="'100%'"
-      [style.max-width]="'960px'"
-      [style.height]="'calc(100vh - 60px)'"         
-      [style.aspect-ratio]="null"                   
-      [style.margin]="'auto'"
-      [style.display]="romName ? 'block' : 'none'">
+  <!-- EmulatorJS Container -->
+  <div id="game" [style.width]="'100%'" [style.max-width]="'960px'" [style.height]="'calc(100vh - 60px)'"
+    [style.aspect-ratio]="null" [style.margin]="'auto'" [style.display]="romName ? 'block' : 'none'">
   </div>
-
 
   <!-- Status Display -->
   <div *ngIf="!romName" style="text-align: center; padding: 20px; color: #666;">
@@ -51,7 +32,7 @@
   <div class="popupPanelTitle" style="margin-bottom:15px;" *ngIf="!isFaqOpen">
     Emulator Menu
   </div>
-  
+
   <div style="margin-bottom: 15px;" *ngIf="!isFaqOpen">
     <p>Status: {{ status }}</p>
     <p *ngIf="romName">Playing: {{ getRomName() }}</p>
@@ -61,56 +42,54 @@
     <div style="font-weight:600; margin-bottom:6px;">Autosave:</div>
     <div style="display:flex; align-items:center; gap:8px;">
       <label class="toggle-switch">
-        <input type="checkbox" [checked]="autosave" (change)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();">
+        <input type="checkbox" [checked]="autosave"
+          (change)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();">
         <span class="slider"></span>
       </label>
       <div style="font-size:13px; color:#666;">{{ autosave ? 'On' : 'Off' }}</div>
     </div>
-  </div> 
-  <button *ngIf="romName && !isFaqOpen" (click)="toggleFullScreen()" style="margin-bottom: 10px; width: 100%;" [disabled]="isLoading">
+  </div>
+  <button *ngIf="romName && !isFaqOpen" (click)="toggleFullScreen()" style="margin-bottom: 10px; width: 100%;"
+    [disabled]="isLoading">
     {{ isFullScreen ? 'Exit Fullscreen' : 'Enter Fullscreen' }}
-  </button> 
-  <button *ngIf="romName && !isFaqOpen" (click)="stopEmulator()" style="margin-bottom: 10px; width: 100%;" [disabled]="isLoading">
+  </button>
+  <button *ngIf="romName && !isFaqOpen" (click)="stopEmulator()" style="margin-bottom: 10px; width: 100%;"
+    [disabled]="isLoading">
     Stop Emulator & Return to ROM Selection
   </button>
-  <button *ngIf="!isFaqOpen" (click)="isFaqOpen = !isFaqOpen" style="margin-bottom: 10px; width: 100%;" [disabled]="isLoading">
+  <button *ngIf="!isFaqOpen" (click)="isFaqOpen = !isFaqOpen" style="margin-bottom: 10px; width: 100%;"
+    [disabled]="isLoading">
     {{isFaqOpen ? 'Hide FAQ' : 'View FAQ'}}
-  </button> 
-  <button *ngIf="romName && !isFaqOpen" (click)="callEjsSave()" style="margin-bottom: 10px; width: 100%;" [disabled]="isLoading">
+  </button>
+  <button *ngIf="romName && !isFaqOpen" (click)="callEjsSave()" style="margin-bottom: 10px; width: 100%;"
+    [disabled]="isLoading">
     Manual Save
   </button>
-  
 
   <div style="margin-top:10px; margin-bottom:10px;" *ngIf="!isFaqOpen">
-    <app-file-upload 
-      [currentDirectory]="'Roms'" 
-      [user]="parentRef?.user!" 
-      [inputtedParentRef]="parentRef"
-      [uploadButtonText]="'Upload Rom(s)'" 
-      [maxSelectedFiles]="100" 
-      [allowedFileTypes]="getAllowedRomFileTypesString()"
-      [displayOptionsAndTopicsButtons]="false" 
-      (userUploadEvent)="isFileUploaderExpanded = true;"
-      (userCancelEvent)="isFileUploaderExpanded = false;"
-      (finishFileUploadingEvent)="finishFileUploading()">
+    <app-file-upload [currentDirectory]="'Roms'" [user]="parentRef?.user!" [inputtedParentRef]="parentRef"
+      [uploadButtonText]="'Upload Rom(s)'" [maxSelectedFiles]="100" [allowedFileTypes]="getAllowedRomFileTypesString()"
+      [displayOptionsAndTopicsButtons]="false" (userUploadEvent)="isFileUploaderExpanded = true;"
+      (userCancelEvent)="isFileUploaderExpanded = false;" (finishFileUploadingEvent)="finishFileUploading()">
     </app-file-upload>
-  </div> 
-    <!-- FAQ Panel: when open, hide the rest of the menu -->
-    <div *ngIf="isFaqOpen" style="max-height:60vh; overflow:auto; padding:6px 4px;">
-      <div class="popupPanelTitle">Frequently Asked Questions</div>
+  </div>
+  <!-- FAQ Panel: when open, hide the rest of the menu -->
+  <div *ngIf="isFaqOpen" style="max-height:60vh; overflow:auto; padding:6px 4px;">
+    <div class="popupPanelTitle">Frequently Asked Questions</div>
 
-      <div *ngFor="let item of faqItems; let i = index" style="border-bottom:1px solid #eee; padding:8px 4px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-          <div style="font-weight:600;">{{ item.question }}</div>
-          <button (click)="toggleFaqItem(i)" style="font-size:12px; padding:6px 8px;">{{ item.expanded ? 'Hide' : 'Show' }}</button>
-        </div>
-        <div *ngIf="item.expanded" style="color:#444; margin-top:8px;">
-          <div [innerHTML]="item.answerHtml"></div>
-        </div>
+    <div *ngFor="let item of faqItems; let i = index" style="border-bottom:1px solid var(--main-highlight-color); padding:8px 4px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <div style="font-weight:600;">{{ item.question }}</div>
+        <button (click)="toggleFaqItem(i)" style="font-size:12px; padding:6px 8px;">{{ item.expanded ? 'Hide' : 'Show'
+          }}</button>
       </div>
-      <div style="margin-top:6px;">
-        <button (click)="isFaqOpen = false" style="width:100%;">Back to Menu</button>
+      <div *ngIf="item.expanded" style="margin-top:8px;" class="thirdFontColor">
+        <div [innerHTML]="item.answerHtml"></div>
       </div>
     </div>
+    <div style="margin-top:6px;">
+      <button (click)="isFaqOpen = false" style="width:100%;">Back to Menu</button>
+    </div>
+  </div>
   <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
 </div>
