@@ -3,3 +3,7 @@ canvas {
   height: calc(100vh - 60px) !important;
 } 
 .romNameTitle { width: calc(100% - 100px); display: block; overflow: hidden; text-overflow: ellipsis; } 
+.uploaderPopupPanel {
+  width: calc(100% - 60px);
+  min-height: 60vh;
+}

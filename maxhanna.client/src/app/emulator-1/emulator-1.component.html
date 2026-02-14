@@ -54,9 +54,28 @@
     <p *ngIf="romName">Playing: {{ getRomName() }}</p>
   </div>
 
+  <button *ngIf="romName" (click)="toggleFullScreen()" style="margin-bottom: 10px; width: 100%;">
+    {{ isFullScreen ? 'Exit Fullscreen' : 'Enter Fullscreen' }}
+  </button>
+
   <button *ngIf="romName" (click)="stopEmulator()" style="margin-bottom: 10px; width: 100%;">
     Stop Emulator & Return to ROM Selection
   </button>
+
+  <div style="margin-top:10px; margin-bottom:10px;">
+    <app-file-upload 
+      [currentDirectory]="'Roms'" 
+      [user]="parentRef?.user!" 
+      [inputtedParentRef]="parentRef"
+      [uploadButtonText]="'Upload Rom(s)'" 
+      [maxSelectedFiles]="100" 
+      [allowedFileTypes]="getAllowedFileTypes()"
+      [displayOptionsAndTopicsButtons]="false" 
+      (userUploadEvent)="isFileUploaderExpanded = true;"
+      (userCancelEvent)="isFileUploaderExpanded = false;"
+      (finishFileUploadingEvent)="finishFileUploading()">
+    </app-file-upload>
+  </div>
  
   <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
 </div>

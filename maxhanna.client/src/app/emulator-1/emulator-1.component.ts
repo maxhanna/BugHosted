@@ -26,6 +26,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   public status: string = 'Idle';
   private romObjectUrl?: string;
   private emulatorInstance?: any;
+  private _destroyed = false;
 
   constructor(
     private romService: RomService,
@@ -43,11 +44,50 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     // EmulatorJS will be initialized when a ROM is selected
     this.status = 'Ready - Select a ROM';
     this.cdr.detectChanges();
+    // listen for fullscreen changes to keep UI state in sync
+    document.addEventListener('fullscreenchange', this.onFullscreenChangeBound);
+    document.addEventListener('webkitfullscreenchange', this.onFullscreenChangeBound as any);
   }
   async ngOnDestroy(): Promise<void> {
-    if (this.romObjectUrl) {
-      URL.revokeObjectURL(this.romObjectUrl);
+    this._destroyed = true;
+
+    // remove fullscreen listeners
+    document.removeEventListener('fullscreenchange', this.onFullscreenChangeBound);
+    document.removeEventListener('webkitfullscreenchange', this.onFullscreenChangeBound as any);
+
+    // Exit fullscreen if active
+    try { await this.exitFullScreen(); } catch {}
+
+    // Stop emulator instance if present
+    try {
+      if (this.emulatorInstance && typeof this.emulatorInstance.exit === 'function') {
+        await this.emulatorInstance.exit();
+      }
+    } catch (e) {
+      console.warn('Error while exiting emulator instance', e);
     }
+
+    // Clear EmulatorJS global callbacks so they don't reference this component after destroy
+    try {
+      if (window) {
+        delete window.EJS_onSaveState;
+        delete window.EJS_onLoadState;
+      }
+    } catch {}
+
+    // Clear game container
+    try {
+      const gameEl = document.getElementById('game');
+      if (gameEl) gameEl.innerHTML = '';
+    } catch {}
+
+    if (this.romObjectUrl) {
+      try { URL.revokeObjectURL(this.romObjectUrl); } catch {}
+      this.romObjectUrl = undefined;
+    }
+
+    // Ensure overlay closed
+    try { this.parentRef?.closeOverlay(); } catch {}
   }
 
   async onRomSelected(file: FileEntry) {
@@ -250,6 +290,28 @@ private getBiosUrlForCore(core: string): string | undefined {
     return coreMap[ext] || 'mgba';
   }
 
+  // bound handler so we can add/remove listeners easily
+  private onFullscreenChangeBound = this.onFullscreenChange.bind(this);
+
+  private onFullscreenChange() {
+    const fsEl = (document as any).fullscreenElement || (document as any).webkitFullscreenElement || null;
+    this.isFullScreen = !!fsEl;
+    // When exiting fullscreen restore layout if necessary
+    if (!this.isFullScreen) {
+      const gameEl = document.getElementById('game');
+      if (gameEl) {
+        if (this.romName) {
+          gameEl.style.height = 'calc(100% - 60px)';
+          gameEl.style.removeProperty('aspect-ratio');
+        } else {
+          gameEl.style.height = '';
+          gameEl.style.aspectRatio = '4/3';
+        }
+      }
+    }
+    this.cdr.detectChanges();
+  }
+
   private async loadSaveStateFromDB(romFileName: string): Promise<Blob | null> {
     if (!this.parentRef?.user?.id) return null;
     
@@ -304,6 +366,7 @@ private getBiosUrlForCore(core: string): string | undefined {
   /** Try to focus the emulator's interactive element (canvas/iframe/container). */
   private async waitForEmulatorAndFocus(maxAttempts = 8, delayMs = 200): Promise<boolean> {
     for (let i = 0; i < maxAttempts; i++) {
+      if (this._destroyed) return false;
       await new Promise(r => setTimeout(r, delayMs));
       const gameEl = document.getElementById('game');
       if (!gameEl) continue;
@@ -340,6 +403,47 @@ private getBiosUrlForCore(core: string): string | undefined {
     gameEl.style.removeProperty('aspect-ratio');
   }
 
+  async toggleFullScreen(): Promise<void> {
+    const gameEl = document.getElementById('game');
+    if (!gameEl) return;
+
+    try {
+      if (!this.isFullScreen) {
+        // request fullscreen on the game container
+        if ((gameEl as any).requestFullscreen) await (gameEl as any).requestFullscreen();
+        else if ((gameEl as any).webkitRequestFullscreen) await (gameEl as any).webkitRequestFullscreen();
+        this.isFullScreen = true;
+        // ensure sizing in fullscreen
+        gameEl.style.height = 'calc(100% - 60px)';
+        gameEl.style.removeProperty('aspect-ratio');
+      } else {
+        await this.exitFullScreen();
+      }
+    } catch (e) {
+      console.error('Fullscreen request failed', e);
+    }
+    this.cdr.detectChanges();
+    // try to focus after toggling
+    await this.waitForEmulatorAndFocus();
+  }
+
+  private async exitFullScreen(): Promise<void> {
+    try {
+      if ((document as any).exitFullscreen) await (document as any).exitFullscreen();
+      else if ((document as any).webkitExitFullscreen) await (document as any).webkitExitFullscreen();
+    } catch (e) {
+      // ignore
+    }
+    this.isFullScreen = false;
+    const gameEl = document.getElementById('game');
+    if (gameEl) {
+      gameEl.style.height = this.romName ? 'calc(100% - 60px)' : '';
+      if (!this.romName) gameEl.style.aspectRatio = '4/3';
+      gameEl.style.removeProperty('max-height');
+    }
+    this.cdr.detectChanges();
+  }
+
   getRomName(): string {
     if (this.romName) {
       return this.fileService.getFileWithoutExtension(this.romName);
@@ -373,6 +477,11 @@ private getBiosUrlForCore(core: string): string | undefined {
   closeMenuPanel() {
     this.isMenuPanelOpen = false;
     this.parentRef?.closeOverlay();
+  }
+
+  /** Called by `app-file-upload` when upload finishes; refresh file list. */
+  finishFileUploading() {
+    try { this.fileSearchComponent?.getDirectory(); } catch (e) { }
   }
 }
 
