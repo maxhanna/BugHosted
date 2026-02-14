@@ -152,34 +152,62 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   private detectCore(fileName: string): string {
     const ext = this.fileService.getFileExtension(fileName).toLowerCase();
     const coreMap: { [key: string]: string } = {
-      'gba': 'gba',
-      'gbc': 'gb',
-      'gb': 'gb',
-      'nes': 'nes',
-      'snes': 'snes',
-      'sfc': 'snes',
-      'smd': 'segaMD',
-      'gen': 'segaMD',
-      'bin': 'segaMD',
-      'n64': 'n64',
-      'z64': 'n64',
-      'v64': 'n64',
-      'nds': 'nds',
-      '32x': 'sega32x',
-      'gg': 'segaGG',
-      'sms': 'segaMS',
-      'pce': 'pce',
-      'ngp': 'ngp',
-      'ngc': 'ngp',
-      'ws': 'ws',
-      'wsc': 'ws',
-      'col': 'coleco',
-      'a26': 'atari2600',
-      'a78': 'atari7800',
-      'lnx': 'lynx',
-      'jag': 'jaguar'
+      // Game Boy / Game Boy Color
+      'gba': 'mgba',
+      'gbc': 'gambatte',
+      'gb': 'gambatte',
+      // Nintendo
+      'nes': 'fceumm',
+      'snes': 'snes9x',
+      'sfc': 'snes9x',
+      'n64': 'mupen64plus_next',
+      'z64': 'mupen64plus_next',
+      'v64': 'mupen64plus_next',
+      'nds': 'melonds',
+      // Sega
+      'smd': 'genesis_plus_gx',
+      'gen': 'genesis_plus_gx', 
+      '32x': 'picodrive',
+      'gg': 'genesis_plus_gx',
+      'sms': 'genesis_plus_gx',
+      // PlayStation
+      'cue': 'mednafen_psx_hw',
+      'bin': 'mednafen_psx_hw',
+      'iso': 'mednafen_psx_hw',
+      'chd': 'mednafen_psx_hw',
+      // Other systems
+      'pce': 'mednafen_pce',
+      'ngp': 'mednafen_ngp',
+      'ngc': 'mednafen_ngp',
+      'ws': 'mednafen_wswan',
+      'wsc': 'mednafen_wswan',
+      'col': 'gearcoleco',
+      'a26': 'stella2014',
+      'a78': 'prosystem',
+      'lnx': 'handy',
+      'jag': 'virtualjaguar',
+      // Arcade
+      'zip': 'mame2003_plus',
+      // DOS
+      'exe': 'dosbox_pure',
+      'com': 'dosbox_pure',
+      'bat': 'dosbox_pure',
+      // PC-FX
+      'ccd': 'mednafen_pcfx',
+      // 3DO
+      //'iso': 'opera',
+      // Sega Saturn
+      // 'cue': 'yabause',
+      // Amiga
+      'adf': 'puae',
+      // Commodore 64
+      'd64': 'vice_x64',
+      // PSP
+      'pbp': 'ppsspp',
+      // Doom
+      'wad': 'prboom'
     };
-    return coreMap[ext] || 'gba';
+    return coreMap[ext] || 'mgba';
   }
 
   private async loadSaveStateFromDB(romFileName: string): Promise<Blob | null> {
@@ -214,9 +242,22 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
   getAllowedFileTypes(): string[] {
     return [
-      'gba', 'gbc', 'gb', 'nes', 'snes', 'sfc', 'smd', 'gen', 'bin',
-      'n64', 'z64', 'v64', 'nds', '32x', 'gg', 'sms', 'pce',
-      'ngp', 'ngc', 'ws', 'wsc', 'col', 'a26', 'a78', 'lnx', 'jag'
+      // Nintendo
+      'gba', 'gbc', 'gb', 'nes', 'snes', 'sfc', 'n64', 'z64', 'v64', 'nds',
+      // Sega
+      'smd', 'gen', 'bin', '32x', 'gg', 'sms',
+      // PlayStation
+      'cue', 'iso', 'chd', 'pbp',
+      // Other Handhelds
+      'pce', 'ngp', 'ngc', 'ws', 'wsc', 'lnx',
+      // Atari
+      'col', 'a26', 'a78', 'jag',
+      // Computer Systems
+      'adf', 'd64', 'exe', 'com', 'bat',
+      // Arcade
+      'zip',
+      // Other
+      'wad', 'ccd'
     ];
   }
 

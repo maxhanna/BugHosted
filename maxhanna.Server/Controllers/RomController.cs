@@ -16,9 +16,22 @@ namespace maxhanna.Server.Controllers
     private readonly string _baseTarget = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Roms/";
     private readonly string[] saveExts = [".sav", ".srm", ".eep", ".sra", ".fla"];
     private readonly HashSet<string> emulatorJSExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
-      ".gba", ".gbc", ".gb", ".nes", ".snes", ".sfc", ".smd", ".gen", ".bin",
-      ".n64", ".z64", ".v64", ".nds", ".32x", ".gg", ".sms", ".pce",
-      ".ngp", ".ngc", ".ws", ".wsc", ".col", ".a26", ".a78", ".lnx", ".jag"
+      // Nintendo
+      ".gba", ".gbc", ".gb", ".nes", ".snes", ".sfc", ".n64", ".z64", ".v64", ".nds",
+      // Sega
+      ".smd", ".gen", ".bin", ".32x", ".gg", ".sms",
+      // PlayStation
+      ".cue", ".iso", ".chd", ".pbp",
+      // Other Handhelds
+      ".pce", ".ngp", ".ngc", ".ws", ".wsc", ".lnx",
+      // Atari
+      ".col", ".a26", ".a78", ".jag",
+      // Computer Systems
+      ".adf", ".d64", ".exe", ".com", ".bat",
+      // Arcade
+      ".zip",
+      // Other
+      ".wad", ".ccd"
     };
 		private readonly HashSet<string> n64Extensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
 		    ".z64", ".n64", ".v64", ".bin", ".zip"
