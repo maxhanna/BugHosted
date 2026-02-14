@@ -220,46 +220,100 @@ if (config.trustProxy) {
 // Security Middleware
 // ============================================================================
 
-// Helmet: Set security HTTP headers
+// Helmet: Set security HTTP headers 
 if (config.enableHelmet) {
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
-        // Allow same-origin and any HTTPS/resource data by default
-        defaultSrc: ["'self'", 'https:', 'data:'],
-        // Allow scripts from self, HTTPS, common CDNs and permit inline/eval for legacy code
-        // Include 'blob:' so dynamic/imported blob modules are permitted
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'cdn.jsdelivr.net', 'https:', 'blob:', 'https://www.youtube.com', 'https://s.ytimg.com'],
-        // Allow external script elements (e.g. hashed filenames) from self, HTTPS and blob URLs
-        'script-src-elem': ["'self'", 'https:', 'cdn.jsdelivr.net', 'blob:', "'unsafe-inline'", "'unsafe-eval'"],
-        // Permit inline handlers temporarily (refactor to remove)
-        'script-src-attr': ["'unsafe-inline'"],
-        styleSrc: ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'https:'],
-        fontSrc: ["'self'", 'fonts.gstatic.com', 'data:'],
-        // Allow connecting to backend, external HTTPS APIs and websockets
-        connectSrc: ["'self'", 'https:', 'wss:', 'localhost', 'localhost:*', 'https://api.ipify.org', 'https://*.googlevideo.com', 'https://www.youtube.com', "https://www.youtube-nocookie.com"],
-        imgSrc: ["'self'", 'data:', 'https:', 'blob:', 'https://*.ytimg.com'],
-        mediaSrc: ["'self'", 'blob:', 'data:', 'https:'],
-        frameSrc: ["'self'", 'https:'], 
-        'worker-src': ["'self'", 'blob:'], 
-      },
+        // Allow same-origin and secure resources
+        defaultSrc: ["'self'", "https:", "data:"],
+
+        // Allow JS from self + HTTPS + blob (Emscripten / EmulatorJS needs this)
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+          "https:",
+          "blob:",
+          "cdn.jsdelivr.net",
+          "https://www.youtube.com",
+          "https://s.ytimg.com"
+        ],
+
+        // Allow script tags (loader.js, emulator.min.js, etc.)
+        "script-src-elem": [
+          "'self'",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+          "https:",
+          "blob:",
+          "cdn.jsdelivr.net"
+        ],
+
+        // Allow inline event handlers
+        "script-src-attr": ["'unsafe-inline'"],
+
+        // Styles
+        styleSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https:",
+          "cdn.jsdelivr.net",
+          "fonts.googleapis.com"
+        ],
+
+        // Fonts
+        fontSrc: ["'self'", "data:", "fonts.gstatic.com"],
+
+        // ❗ REQUIRED FIX: allow ROM & WASM blob URLs
+        // EmulatorJS fetches ROM blob URLs, wasm pthread workers, etc.
+        connectSrc: [
+          "'self'",
+          "https:",
+          "wss:",
+          "blob:",
+          "data:",
+          "localhost",
+          "localhost:*",
+          "https://api.ipify.org",
+          "https://*.googlevideo.com",
+          "https://www.youtube.com",
+          "https://www.youtube-nocookie.com"
+        ],
+
+        // Media, images, frames
+        imgSrc: ["'self'", "https:", "data:", "blob:", "https://*.ytimg.com"],
+        mediaSrc: ["'self'", "https:", "data:", "blob:"],
+        frameSrc: ["'self'", "https:"],
+
+        // Workers (pthreads / Emscripten) — REQUIRED
+        "worker-src": ["'self'", "blob:"],
+        // Older Chromium needs child-src for workers too
+        "child-src": ["'self'", "blob:"]
+      }
     },
+
+    // Good security defaults
     hsts: {
-      maxAge: 31536000, // 1 year
+      maxAge: 31536000,
       includeSubDomains: true,
-      preload: true,
+      preload: true
     },
-    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
-    crossOriginResourcePolicy: { policy: 'cross-origin' },
+
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+
+    // Required for COEP: require-corp — don't remove
+    crossOriginResourcePolicy: { policy: "cross-origin" }
   }));
 }
 
+// Cross‑origin isolation required for EmulatorJS's SharedArrayBuffer
 app.use((req, res, next) => {
-  // If you want it global for your whole app (recommended for emulators)
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
   next();
 });
+
 
 // ============================================================================
 // Performance Middleware
