@@ -1,0 +1,5 @@
+canvas {
+  width: auto !important;
+  height: calc(100vh - 60px) !important;
+} 
+.romNameTitle { width: calc(100% - 100px); display: block; overflow: hidden; text-overflow: ellipsis; } 

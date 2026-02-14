@@ -102,6 +102,7 @@ import { ProfileWidgetsComponent } from './profile-widgets/profile-widgets.compo
 import { BonesHighScoresComponent } from './bones-high-scores/bones-high-scores.component';
 import { NewUsersComponent } from './new-users/new-users.component';
 import { CurrentlyPlayingComponent } from './currently-playing/currently-playing.component';
+import { Emulator1Component } from './emulator-1/emulator-1.component';
 
 @NgModule({
   declarations: [
@@ -187,6 +188,7 @@ import { CurrentlyPlayingComponent } from './currently-playing/currently-playing
     ProfileWidgetsComponent,
     EmulatorN64Component,
     EmulatorPS1Component,
+    Emulator1Component,
     NewUsersComponent,
     CurrentlyPlayingComponent,
   ],

@@ -55,7 +55,12 @@
                 "glob": "**/*",
                 "input": "src/assets/ps1",
                 "output": "assets/ps1"
-              }
+              }, 
+              {
+                "glob": "**/*",
+                "input": "src/assets/emulatorjs/data",
+                "output": "assets/emulatorjs/data"
+              } 
             ],
             "styles": [
               "src/styles.css"

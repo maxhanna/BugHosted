@@ -43,6 +43,7 @@ import { EnderComponent } from './ender/ender.component';
 import { BonesComponent } from './bones/bones.component';
 import { EmulatorN64Component } from './emulator-n64/emulator-n64.component';
 import { EmulatorPS1Component } from './emulator-ps1/emulator-ps1.component';
+import { Emulator1Component } from './emulator-1/emulator-1.component';
 
 
 @Component({
@@ -293,6 +294,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       ownership: 0,
       title: 'PS1Emulator',
       content: `Our PS1 emulator allows users to play PlayStation 1 games directly in their browser! Connect any gamepad and upload your own roms or choose from the ones available!`
+    },
+    {
+      ownership: 0,
+      title: '1Emulator',
+      content: `Our All-in-1 emulator allows users to play multiple console games directly in their browser! Connect any gamepad and upload your own roms or choose from the ones available!`
     }
   ];
 
@@ -321,6 +327,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Emulation": EmulationComponent,
     "N64Emulator": EmulatorN64Component,
     "PS1Emulator": EmulatorPS1Component,
+    "1Emulator": Emulator1Component,
     "Array": ArrayComponent,
     "Bug-Wars": NexusComponent,
     "Meta-Bots": MetaComponent,
@@ -423,6 +430,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         else if (this.router.url.toLowerCase().includes('ps1')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('PS1Emulator');
+        } 
+        else if (this.router.url.toLowerCase().includes('1emu')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('Emulator1');
         } 
         else if (this.router.url.toLowerCase().includes('emu')) {
           this.checkAndClearRouterOutlet();
