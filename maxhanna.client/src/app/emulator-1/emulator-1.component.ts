@@ -19,10 +19,9 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   isMenuPanelOpen = false;
   isFullScreen = false;
   romName?: string;
+  isFileUploaderExpanded = false;
   // Human-readable status shown in the UI (e.g. "Idle", "Loading <game>", "Running: <game>")
-  public status: string = 'Idle';
-   
-
+  public status: string = 'Idle'; 
 
   constructor(
     private romService: RomService,
