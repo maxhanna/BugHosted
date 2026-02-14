@@ -440,27 +440,56 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
 
-  private async onSaveState(state: Uint8Array) {
-    console.log('[EJS] onSaveState fired. user?', !!this.parentRef?.user?.id, 'rom?', !!this.romName, 'bytes=', state?.length);
-    if (!this.parentRef?.user?.id || !this.romName) return;
+  
+private async onSaveState(raw: any) {
+  const gameID   = (window as any).EJS_gameID || '';
+  const gameName = (window as any).EJS_gameName
+                || (this.romName ? this.fileService.getFileWithoutExtension(this.romName) : '');
 
-    try {
-      await this.romService.saveEmulatorJSState(this.romName, this.parentRef.user.id, state);
-      console.log('Save state saved to database');
+  console.log(
+    '[EJS] onSaveState fired.',
+    'user?', !!this.parentRef?.user?.id,
+    'rom?',  !!this.romName,
+    'hasPayload?', raw != null,
+    'type=', raw?.constructor?.name ?? typeof raw
+  );
 
-      // resolve any pending save waiters (eg: on destroy)
-      if (this._pendingSaveResolve) {
-        try { this._pendingSaveResolve(true); } catch { }
-        this._pendingSaveResolve = undefined;
-      }
-    } catch (err) {
-      console.error('Failed to save state to database:', err);
-      if (this._pendingSaveResolve) {
-        try { this._pendingSaveResolve(false); } catch { }
-        this._pendingSaveResolve = undefined;
-      }
+  if (!this.parentRef?.user?.id || !this.romName) return;
+
+  // 1) Try to normalize whatever the callback passed
+  let u8: Uint8Array | null = await this.normalizeSavePayload(raw);
+
+  // 2) If callback gave no bytes, try to pull from localStorage (some skins do this)
+  if (!u8 || u8.length === 0) {
+    u8 = this.tryReadSaveFromLocalStorage(gameID, gameName);
+  }
+
+  // 3) If still nothing, bail gracefully (avoid TypeError in romService)
+  if (!u8 || u8.length === 0) {
+    console.warn('[EJS] Save callback had no bytes and no localStorage fallback found; skipping upload.');
+    // Resolve any pending waiter as "failed"
+    if (this._pendingSaveResolve) { try { this._pendingSaveResolve(false); } catch {} this._pendingSaveResolve = undefined; }
+    return;
+  }
+
+  try {
+    await this.romService.saveEmulatorJSState(this.romName, this.parentRef.user.id, u8);
+    console.log('Save state saved to database (bytes=', u8.length, ')');
+
+    // resolve any pending save waiters (eg: on destroy)
+    if (this._pendingSaveResolve) {
+      try { this._pendingSaveResolve(true); } catch {}
+      this._pendingSaveResolve = undefined;
+    }
+  } catch (err) {
+    console.error('Failed to save state to database:', err);
+    if (this._pendingSaveResolve) {
+      try { this._pendingSaveResolve(false); } catch {}
+      this._pendingSaveResolve = undefined;
     }
   }
+}
+
 
   private async onLoadState() {
     console.log('Loading state from database');
@@ -950,6 +979,131 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     }
   }
 
+
+/** Type guards & converters */
+private isArrayBuffer(v: any): v is ArrayBuffer {
+  return v && typeof v === 'object' && typeof (v as ArrayBuffer).byteLength === 'number' && typeof (v as ArrayBuffer).slice === 'function';
+}
+private isTypedArray(v: any): v is Uint8Array {
+  return v && typeof v === 'object' && typeof v.byteLength === 'number' && typeof v.BYTES_PER_ELEMENT === 'number';
+}
+private async blobToU8(b: Blob): Promise<Uint8Array> {
+  const ab = await b.arrayBuffer();
+  return new Uint8Array(ab);
+}
+private base64ToU8(b64: string): Uint8Array {
+  // strip data URI prefix if present
+  const idx = b64.indexOf('base64,');
+  const raw = idx >= 0 ? b64.slice(idx + 7) : b64;
+  const bin = atob(raw);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+/**
+ * Try to pull the most recent savestate from localStorage when the callback gives no bytes.
+ * Heuristic: look for keys mentioning EJS/gameID/name/state and base64-ish values.
+ */
+private tryReadSaveFromLocalStorage(gameID: string, gameName: string): Uint8Array | null {
+  try {
+    const ls = window.localStorage;
+    const keys = Object.keys(ls);
+
+    // Candidates in order of likelihood
+    const candidates = keys
+      .filter(k =>
+        /ejs|state|save|quick/i.test(k) &&
+        (k.includes(gameID) || k.includes(gameName) || /quick/i.test(k))
+      )
+      .map(k => ({ k, v: ls.getItem(k) ?? '' }));
+
+    // Try base64 values first
+    for (const { k, v } of candidates) {
+      if (!v) continue;
+      // base64-like (letters, numbers, +, /, =), or data:...;base64,...
+      if (/^data:.*;base64,/.test(v) || /^[A-Za-z0-9+/=\s]+$/.test(v)) {
+        try {
+          const u8 = this.base64ToU8(v);
+          if (u8 && u8.length > 0) {
+            console.log('[EJS] localStorage savestate found at key:', k, 'bytes=', u8.length);
+            return u8;
+          }
+        } catch { /* try next */ }
+      }
+    }
+
+    // Try JSON-serialized shapes: { data: [numbers] } or { buffer:"base64" }
+    for (const { k, v } of candidates) {
+      if (!v) continue;
+      try {
+        const obj = JSON.parse(v);
+        // Array-like numeric dump
+        if (obj && Array.isArray(obj.data)) {
+          const u8 = new Uint8Array(obj.data);
+          if (u8.length) {
+            console.log('[EJS] localStorage JSON(data[]) savestate at key:', k, 'bytes=', u8.length);
+            return u8;
+          }
+        }
+        // Base64 field
+        if (obj && typeof obj.buffer === 'string') {
+          const u8 = this.base64ToU8(obj.buffer);
+          if (u8.length) {
+            console.log('[EJS] localStorage JSON(buffer b64) savestate at key:', k, 'bytes=', u8.length);
+            return u8;
+          }
+        }
+      } catch { /* ignore non-JSON */ }
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+/** Normalize *any* payload into a Uint8Array we can POST */
+private async normalizeSavePayload(payload: any): Promise<Uint8Array | null> {
+  try {
+    if (!payload) return null;
+
+    // Raw Uint8Array (or other typed arrays)
+    if (this.isTypedArray(payload)) return new Uint8Array(payload);
+
+    // ArrayBuffer
+    if (this.isArrayBuffer(payload)) return new Uint8Array(payload);
+
+    // Blob
+    if (typeof Blob !== 'undefined' && payload instanceof Blob) {
+      return await this.blobToU8(payload);
+    }
+
+    // String (likely base64)
+    if (typeof payload === 'string' && payload.trim().length) {
+      try { return this.base64ToU8(payload); } catch {}
+    }
+
+    // Common wrapper shapes: { buffer: ArrayBuffer | base64 }, { data: number[] }
+    if (typeof payload === 'object') {
+      // buffer: ArrayBuffer
+      if (payload.buffer && this.isArrayBuffer(payload.buffer)) {
+        return new Uint8Array(payload.buffer);
+      }
+      // buffer: base64
+      if (payload.buffer && typeof payload.buffer === 'string') {
+        return this.base64ToU8(payload.buffer);
+      }
+      // data: number[]
+      if (Array.isArray(payload.data)) {
+        return new Uint8Array(payload.data);
+      }
+      // array-like
+      if (typeof payload.byteLength === 'number') {
+        return new Uint8Array(payload as ArrayLike<number>);
+      }
+    }
+
+  } catch { /* fallthrough to return null */ }
+  return null;
+}
 
   showMenuPanel() {
     this.isMenuPanelOpen = true;
