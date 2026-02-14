@@ -1173,7 +1173,11 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     }
     return '';
   }
-
+  async refreshDom() {
+    setTimeout(() => {
+      this.cdr.markForCheck(); 
+    }, 50);
+  }
   async refreshPlaylist() {
     await this.getSongList().then(() => {
       this.updatePaginatedSongs();

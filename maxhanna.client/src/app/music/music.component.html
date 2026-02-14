@@ -11,7 +11,11 @@
       <input type="text" #urlInput placeholder="URL" (keyup.enter)="addSong()" />
       <app-media-selector #mediaSelector
         [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
-        [user]="parentRef?.user" [inputtedParentRef]="parentRef" [maxSelectedFiles]="1" [uploadButtonText]="''"
+        [user]="parentRef?.user" 
+        [inputtedParentRef]="parentRef" 
+        [maxSelectedFiles]="1" 
+        [uploadButtonText]="''"
+        (expandFileSelectorEvent)="refreshDom()"
         (selectFileEvent)="selectFile($event)"></app-media-selector>
       <input type="submit" value="💾" (click)="addSong()" />
     </div>
