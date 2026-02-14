@@ -918,8 +918,12 @@ ON DUPLICATE KEY UPDATE
     // EmulatorJS Save State Endpoints
     // ============================================================================
 
-    [HttpPost("/Rom/SaveEmulatorJSState")]
-    [RequestSizeLimit(10_000_000)] // 10 MB limit
+    [HttpPost("/Rom/SaveEmulatorJSState")] 
+    [RequestSizeLimit(64 * 1024 * 1024)] // 64 MB (adjust as needed)  
+    [RequestFormLimits(
+        MultipartBodyLengthLimit = 64 * 1024 * 1024,
+        ValueLengthLimit = int.MaxValue,
+        MultipartHeadersLengthLimit = int.MaxValue)] 
     public async Task<IActionResult> SaveEmulatorJSState()
     {
       var form = await Request.ReadFormAsync();
