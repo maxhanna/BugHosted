@@ -302,8 +302,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       // PlayStation
       'cue': 'mednafen_psx_hw',
       'bin': 'pcsx_rearmed',
-      'iso': 'mednafen_psx_hw',
-      'chd': 'mednafen_psx_hw',
+      'iso': 'pcsx_rearmed',
+      'chd': 'pcsx_rearmed',
       // Other systems
       'pce': 'mednafen_pce',
       'ngp': 'mednafen_ngp',
@@ -332,7 +332,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       // Commodore 64
       'd64': 'vice_x64',
       // PSP
-      'pbp': 'ppsspp',
+      'pbp': 'pcsx_rearmed',
       // Doom
       'wad': 'prboom'
     };
