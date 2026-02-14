@@ -66,9 +66,9 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   private _pendingSaveResolve?: (v?: any) => void;
   private _pendingSaveTimer?: any;
   private _gameSizeObs?: ResizeObserver;
-  private _gameAttrObs?: MutationObserver; 
-  private _saveFn?: () => void; 
-private _autosaveKick?: any;
+  private _gameAttrObs?: MutationObserver;
+  private _saveFn?: () => void;
+  private _autosaveKick?: any;
 
 
 
@@ -174,17 +174,17 @@ private _autosaveKick?: any;
     // Optional callbacks (ok to keep)
     window.EJS_onSaveState = (state: Uint8Array) => this.onSaveState(state);
     window.EJS_onLoadState = () => this.onLoadState();
-    this.applyEjsRunOptions(); 
-// If the build calls back with the instance, capture it early
-(window as any).EJS_ready = (api: any) => {
-  try {
-    this.emulatorInstance = api || (window as any).EJS || (window as any).EJS_emulator || this.emulatorInstance;
-    if (this.emulatorInstance?.saveState) {
-      this._saveFn = () => { try { (this.emulatorInstance as any).saveState(); } catch {} };
-    }
-    console.log('[EJS] instance ready hook fired, has saveState?', !!this._saveFn);
-  } catch {}
-};
+    this.applyEjsRunOptions();
+    // If the build calls back with the instance, capture it early
+    (window as any).EJS_ready = (api: any) => {
+      try {
+        this.emulatorInstance = api || (window as any).EJS || (window as any).EJS_emulator || this.emulatorInstance;
+        if (this.emulatorInstance?.saveState) {
+          this._saveFn = () => { try { (this.emulatorInstance as any).saveState(); } catch { } };
+        }
+        console.log('[EJS] instance ready hook fired, has saveState?', !!this._saveFn);
+      } catch { }
+    };
 
 
     // ❌ Remove this line; not needed for normal games and can confuse core loading
@@ -229,7 +229,7 @@ private _autosaveKick?: any;
             // a second rAF can make it even smoother: 
             requestAnimationFrame(async () => {
               await this.waitForEmulatorAndFocus();
-              await this.probeForSaveApi(); 
+              await this.probeForSaveApi();
               this.lockGameHostHeight();
             });
           });
@@ -435,28 +435,28 @@ private _autosaveKick?: any;
     return null;
   }
 
-  
-private async onSaveState(state: Uint8Array) {
-  console.log('[EJS] onSaveState fired. user?', !!this.parentRef?.user?.id, 'rom?', !!this.romName, 'bytes=', state?.length);
-  if (!this.parentRef?.user?.id || !this.romName) return;
 
-  try {
-    await this.romService.saveEmulatorJSState(this.romName, this.parentRef.user.id, state);
-    console.log('Save state saved to database');
+  private async onSaveState(state: Uint8Array) {
+    console.log('[EJS] onSaveState fired. user?', !!this.parentRef?.user?.id, 'rom?', !!this.romName, 'bytes=', state?.length);
+    if (!this.parentRef?.user?.id || !this.romName) return;
 
-    // resolve any pending save waiters (eg: on destroy)
-    if (this._pendingSaveResolve) {
-      try { this._pendingSaveResolve(true); } catch {}
-      this._pendingSaveResolve = undefined;
-    }
-  } catch (err) {
-    console.error('Failed to save state to database:', err);
-    if (this._pendingSaveResolve) {
-      try { this._pendingSaveResolve(false); } catch {}
-      this._pendingSaveResolve = undefined;
+    try {
+      await this.romService.saveEmulatorJSState(this.romName, this.parentRef.user.id, state);
+      console.log('Save state saved to database');
+
+      // resolve any pending save waiters (eg: on destroy)
+      if (this._pendingSaveResolve) {
+        try { this._pendingSaveResolve(true); } catch { }
+        this._pendingSaveResolve = undefined;
+      }
+    } catch (err) {
+      console.error('Failed to save state to database:', err);
+      if (this._pendingSaveResolve) {
+        try { this._pendingSaveResolve(false); } catch { }
+        this._pendingSaveResolve = undefined;
+      }
     }
   }
-}
 
 
   private async onLoadState() {
@@ -464,34 +464,34 @@ private async onSaveState(state: Uint8Array) {
     // EmulatorJS handles the actual loading
   }
 
-/** Try to trigger a save via whatever API this build exposes. */
-private callEjsSave(): void {
-  try {
-    // 1) If we discovered a save function, use it
-    if (this._saveFn) { this._saveFn(); return; }
+  /** Try to trigger a save via whatever API this build exposes. */
+  private callEjsSave(): void {
+    try {
+      // 1) If we discovered a save function, use it
+      if (this._saveFn) { this._saveFn(); return; }
 
-    // 2) Preferred: instance API (if later bound)
-    if (this.emulatorInstance && typeof (this.emulatorInstance as any).saveState === 'function') {
-      (this.emulatorInstance as any).saveState(); return;
+      // 2) Preferred: instance API (if later bound)
+      if (this.emulatorInstance && typeof (this.emulatorInstance as any).saveState === 'function') {
+        (this.emulatorInstance as any).saveState(); return;
+      }
+
+      // 3) Global helper (not present in your build, but keep as fallback)
+      if (typeof (window as any).EJS_saveState === 'function') {
+        (window as any).EJS_saveState(); return;
+      }
+
+      // 4) Some skins expose saveState() on the player element
+      const player = (window as any).EJS_player as any;
+      if (player) {
+        const el = typeof player === 'string' ? document.querySelector(player) : player;
+        if (el && typeof (el as any).saveState === 'function') { (el as any).saveState(); return; }
+      }
+
+      console.warn('No known save API found for EmulatorJS; save skipped');
+    } catch (e) {
+      console.warn('callEjsSave failed', e);
     }
-
-    // 3) Global helper (not present in your build, but keep as fallback)
-    if (typeof (window as any).EJS_saveState === 'function') {
-      (window as any).EJS_saveState(); return;
-    }
-
-    // 4) Some skins expose saveState() on the player element
-    const player = (window as any).EJS_player as any;
-    if (player) {
-      const el = typeof player === 'string' ? document.querySelector(player) : player;
-      if (el && typeof (el as any).saveState === 'function') { (el as any).saveState(); return; }
-    }
-
-    console.warn('No known save API found for EmulatorJS; save skipped');
-  } catch (e) {
-    console.warn('callEjsSave failed', e);
   }
-}
 
   /** Attempt a save and wait for `onSaveState` callback. Resolves true if saved. */
   private attemptSaveNow(timeoutMs = 5000): Promise<boolean> {
@@ -507,30 +507,30 @@ private callEjsSave(): void {
     });
   }
 
- 
-setupAutosave() {
-  try { this.clearAutosave(); } catch {}
-  if (!this.autosave || !this.romName || !this.parentRef?.user?.id) return;
 
-  // Kick a first save after 10s so you can verify quickly
-  this._autosaveKick = setTimeout(() => {
-    console.log('[EJS] autosave kick (10s)');
-    this.callEjsSave();
-  }, 10000);
+  setupAutosave() {
+    try { this.clearAutosave(); } catch { }
+    if (!this.autosave || !this.romName || !this.parentRef?.user?.id) return;
 
-  this.autosaveInterval = setInterval(() => {
-    try {
-      console.log('[EJS] autosave tick');
+    // Kick a first save after 10s so you can verify quickly
+    this._autosaveKick = setTimeout(() => {
+      console.log('[EJS] autosave kick (10s)');
       this.callEjsSave();
-    } catch (e) { console.warn('Autosave call failed', e); }
-  }, this.autosaveIntervalTime);
-}
+    }, 10000);
 
-clearAutosave() {
-  if (this._autosaveKick) { clearTimeout(this._autosaveKick); this._autosaveKick = undefined; }
-  if (this.autosaveInterval) { clearInterval(this.autosaveInterval); this.autosaveInterval = undefined; }
-  if (this._pendingSaveTimer) { clearTimeout(this._pendingSaveTimer); this._pendingSaveTimer = undefined; }
-} 
+    this.autosaveInterval = setInterval(() => {
+      try {
+        console.log('[EJS] autosave tick');
+        this.callEjsSave();
+      } catch (e) { console.warn('Autosave call failed', e); }
+    }, this.autosaveIntervalTime);
+  }
+
+  clearAutosave() {
+    if (this._autosaveKick) { clearTimeout(this._autosaveKick); this._autosaveKick = undefined; }
+    if (this.autosaveInterval) { clearInterval(this.autosaveInterval); this.autosaveInterval = undefined; }
+    if (this._pendingSaveTimer) { clearTimeout(this._pendingSaveTimer); this._pendingSaveTimer = undefined; }
+  }
 
   getAllowedFileTypes(): string[] {
     return [
@@ -863,48 +863,48 @@ clearAutosave() {
     this.fullReloadToHome();
   }
 
-/**
- * Probe common places where builds expose the running emulator instance or API.
- * When a .saveState() function is found, cache it in this._saveFn.
- */
-private async probeForSaveApi(maxMs = 3000): Promise<void> {
-  const start = Date.now();
+  /**
+   * Probe common places where builds expose the running emulator instance or API.
+   * When a .saveState() function is found, cache it in this._saveFn.
+   */
+  private async probeForSaveApi(maxMs = 3000): Promise<void> {
+    const start = Date.now();
 
-  const pickSave = (obj: any): boolean => {
-    try {
-      if (obj && typeof obj.saveState === 'function') {
-        this._saveFn = () => { try { obj.saveState(); } catch {} };
-        console.log('[EJS] save API bound from', obj);
-        return true;
-      }
-    } catch {}
-    return false;
-  };
+    const pickSave = (obj: any): boolean => {
+      try {
+        if (obj && typeof obj.saveState === 'function') {
+          this._saveFn = () => { try { obj.saveState(); } catch { } };
+          console.log('[EJS] save API bound from', obj);
+          return true;
+        }
+      } catch { }
+      return false;
+    };
 
-  const w = window as any;
+    const w = window as any;
 
-  // Try immediately a few well-known spots
-  if (pickSave(this.emulatorInstance)) return;
-  if (pickSave(w.EJS_emulator)) return;
-  if (pickSave(w.EJS)) return;
-  if (pickSave(document.querySelector('#game') as any)) return;
-
-  // Poll briefly—some builds attach the instance shortly after loader onload
-  while (Date.now() - start < maxMs) {
+    // Try immediately a few well-known spots
     if (pickSave(this.emulatorInstance)) return;
     if (pickSave(w.EJS_emulator)) return;
     if (pickSave(w.EJS)) return;
+    if (pickSave(document.querySelector('#game') as any)) return;
 
-    const player = typeof w.EJS_player === 'string'
-      ? document.querySelector(w.EJS_player)
-      : (w.EJS_player as any);
-    if (pickSave(player)) return;
+    // Poll briefly—some builds attach the instance shortly after loader onload
+    while (Date.now() - start < maxMs) {
+      if (pickSave(this.emulatorInstance)) return;
+      if (pickSave(w.EJS_emulator)) return;
+      if (pickSave(w.EJS)) return;
 
-    await new Promise(r => setTimeout(r, 100));
+      const player = typeof w.EJS_player === 'string'
+        ? document.querySelector(w.EJS_player)
+        : (w.EJS_player as any);
+      if (pickSave(player)) return;
+
+      await new Promise(r => setTimeout(r, 100));
+    }
+
+    console.warn('[EJS] probeForSaveApi: no saveState() found in this build');
   }
-
-  console.warn('[EJS] probeForSaveApi: no saveState() found in this build');
-} 
 
   showMenuPanel() {
     this.isMenuPanelOpen = true;
@@ -915,7 +915,7 @@ private async probeForSaveApi(maxMs = 3000): Promise<void> {
     this.isMenuPanelOpen = false;
     this.parentRef?.closeOverlay();
   }
- 
+
   toggleFaqItem(index: number) {
     const item = this.faqItems[index];
     if (item) item.expanded = !item.expanded;
@@ -967,7 +967,7 @@ declare global {
     EJS_directKeyboardInput?: boolean;
     EJS_enableGamepads?: boolean;
     EJS_disableAltKey?: boolean;
-    EJS_afterStart?: () => void; 
+    EJS_afterStart?: () => void;
     EJS_ready?: (api: any) => void;
   }
 }
