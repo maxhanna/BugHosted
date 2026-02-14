@@ -31,6 +31,9 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   private _destroyed = false;
   private _pendingSaveResolve?: (v?: any) => void;
   private _pendingSaveTimer?: any;
+  private _gameSizeObs?: ResizeObserver;
+  private _gameAttrObs?: MutationObserver;
+
 
   constructor(
     private romService: RomService,
@@ -72,7 +75,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
     // Exit fullscreen if active
     try { await this.exitFullScreen(); } catch { }
-
+    try { this.unlockGameHostHeight(); } catch { }
     // Stop emulator instance if present
     try {
       if (this.emulatorInstance && typeof this.emulatorInstance.exit === 'function') {
@@ -200,19 +203,22 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
     // 8) Inject loader.js (it will initialize EmulatorJS)
     if (!window.__ejsLoaderInjected) {
-        await new Promise<void>((resolve, reject) => { 
+      await new Promise<void>((resolve, reject) => {
         const s = document.createElement('script');
         // add a cache-buster
         s.src = `/assets/emulatorjs/data/loader.js?v=${Date.now()}`;
         s.async = false;
         s.defer = false;
-        s.setAttribute('data-ejs-loader', '1'); 
+        s.setAttribute('data-ejs-loader', '1');
         s.onload = () => {
           window.__ejsLoaderInjected = true;
           requestAnimationFrame(() => {
             this.setGameScreenHeight();
-            // a second rAF can make it even smoother:
-            requestAnimationFrame(() => this.waitForEmulatorAndFocus());
+            // a second rAF can make it even smoother: 
+            requestAnimationFrame(async () => {
+              await this.waitForEmulatorAndFocus();
+              this.lockGameHostHeight();
+            });
           });
           resolve();
         };
@@ -246,7 +252,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     await this.hardStopEmulatorEJS();
 
     // 2) Clear any cached EJS settings that could override input on the next run
-   // this.clearEjsLocalState(); // TEMP: comment out to confirm boot path
+    // this.clearEjsLocalState(); // TEMP: comment out to confirm boot path
 
     // 3) Remove the previous loader script (if still present) and reset flag
     const old = document.querySelector<HTMLScriptElement>('script[data-ejs-loader="1"]');
@@ -268,7 +274,10 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         // smooth sizing & focus after DOM settles
         requestAnimationFrame(() => {
           this.setGameScreenHeight();
-          requestAnimationFrame(() => this.waitForEmulatorAndFocus().then(() => resolve()));
+          requestAnimationFrame(async () => {
+            this.waitForEmulatorAndFocus().then(() => resolve());
+            this.lockGameHostHeight();
+          });
         });
       };
       s.onerror = () => reject(new Error('Failed to load EmulatorJS loader.js'));
@@ -656,6 +665,58 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     }
   }
 
+  /** Keep #game at 100vh - 60px whether EJS or the core tries to resize it. */
+  private lockGameHostHeight(): void {
+    const game = document.getElementById('game');
+    if (!game) return;
+
+    const apply = () => {
+      try {
+        game.style.setProperty('height', 'calc(100vh - 60px)', 'important');
+        game.style.setProperty('min-height', 'calc(100vh - 60px)', 'important');
+        game.style.setProperty('width', '100%', 'important');
+        game.style.setProperty('max-width', '960px', 'important');
+        game.style.setProperty('margin', '0 auto', 'important');
+        // Optional: ensure no inline aspect-ratio sneaks in
+        game.style.removeProperty('aspect-ratio');
+      } catch { }
+    };
+
+    // Initial apply
+    apply();
+
+    // Re-apply if size changes (e.g., orientation, address bar hide/show)
+    try {
+      this._gameSizeObs?.disconnect();
+      this._gameSizeObs = new ResizeObserver(() => apply());
+      this._gameSizeObs.observe(game);
+    } catch { }
+
+    // Re-apply if someone (skin) modifies inline style attributes
+    try {
+      this._gameAttrObs?.disconnect();
+      this._gameAttrObs = new MutationObserver(() => apply());
+      this._gameAttrObs.observe(game, { attributes: true, attributeFilter: ['style'] });
+    } catch { }
+
+    // Re-apply on viewport changes (mobile browser chrome show/hide)
+    try {
+      window.addEventListener('resize', apply, { passive: true });
+      window.addEventListener('orientationchange', apply, { passive: true });
+    } catch { }
+  }
+
+  private unlockGameHostHeight(): void {
+    try { this._gameSizeObs?.disconnect(); } catch { }
+    try { this._gameAttrObs?.disconnect(); } catch { }
+    this._gameSizeObs = undefined;
+    this._gameAttrObs = undefined;
+    try {
+      window.removeEventListener('resize', this.lockGameHostHeight as any);
+      window.removeEventListener('orientationchange', this.lockGameHostHeight as any);
+    } catch { }
+  }
+
   /** Install wrappers so we can close audio & terminate workers on destroy. Idempotent. */
   private installRuntimeTrackers() {
     const w = window as any;
@@ -814,7 +875,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     this.isSearchVisible = true;
     this.status = 'Ready - Select a ROM';
     this.romName = undefined;
-
+    try { this.unlockGameHostHeight(); } catch { }
     // reset container sizing
     const gameEl = document.getElementById('game');
     if (gameEl) {

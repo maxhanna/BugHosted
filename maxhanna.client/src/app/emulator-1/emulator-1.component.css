@@ -6,4 +6,21 @@ canvas {
 .uploaderPopupPanel {
   width: calc(100% - 60px);
   min-height: 60vh;
+} 
+#game {
+  /* Prefer min-height and height — some skins read height */
+  min-height: calc(100vh - 60px) !important;
+  height: calc(100vh - 60px) !important;
+
+  /* Let inner content center & scale without constraining parent */
+  display: block;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+/* Your canvas can size itself; avoid parent → child feedback loops */
+#game canvas {
+  max-width: 100%;
+  height: auto; /* keep aspect */
 }
