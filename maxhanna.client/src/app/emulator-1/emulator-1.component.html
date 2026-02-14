@@ -7,28 +7,7 @@
   <div>
     still under construction but heres a demo
   </div>
-  <div id="game" style="width:100%;max-width:960px;aspect-ratio:4/3;margin:auto;"></div>
-
-  <script>
-    // Where to render
-    window.EJS_player = "#game";
-
-    // All local, no CDN
-    window.EJS_pathtodata = "/assets/emulatorjs/data/";   // this replaces “dist/” in older guides
-    window.EJS_coreUrl = "/assets/emulatorjs/data/cores/";
-    window.EJS_biosUrl = "/assets/emulatorjs/data/cores/bios/";
-
-    // Your ROM location (also under /assets if you want self-host & caching)
-    window.EJS_gameUrl = "https://bughosted.com/assets/Uploads/Roms/Super%20Mario%20Advance%202%20-%20Super%20Mario%20World%20(Europe)%20(En,Fr,De,Es).gba";
-
-    // Optional config
-    window.EJS_language = "en";
-    window.EJS_startOnLoaded = true;
-  </script>
-
-  <script src="/assets/emulatorjs/data/loader.js" defer></script>
-  <link rel="stylesheet" href="/assets/emulatorjs/data/emulator.min.css">
-
+  <div id="game" style="width:100%;max-width:960px;aspect-ratio:4/3;margin:auto;"></div> 
 </div>
 <!-- Menu Popup -->
 <div [class]="'popupPanel' + (isFileUploaderExpanded ? ' uploaderPopupPanel' : '')" *ngIf="isMenuPanelOpen">

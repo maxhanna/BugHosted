@@ -35,7 +35,7 @@ export interface LastInputSelection {
 export class RomService {
   constructor() { }
 
-  async getRomFile(rom: string, userId?: number, fileId?: number) {
+  async getRomFile(rom: string, userId?: number, fileId?: number):Promise<Blob | null> {
     try {
       const response = await fetch(`/rom/getromfile/${encodeURIComponent(rom)}`, {
         method: 'POST',
