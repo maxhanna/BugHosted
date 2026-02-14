@@ -24,3 +24,14 @@ canvas {
   max-width: 100%;
   height: auto; /* keep aspect */
 }
+
+/* Hide EJS top bar while keeping it in the DOM so we can click buttons programmatically */
+#game .ejs-toolbar, 
+#game [class*="toolbar"],
+.ejs_big_screen .ejs_menu_bar {
+  position: absolute !important;
+  top: -9999px !important;
+  left: -9999px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

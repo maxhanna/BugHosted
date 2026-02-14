@@ -67,18 +67,19 @@
       <div style="font-size:13px; color:#666;">{{ autosave ? 'On' : 'Off' }}</div>
     </div>
   </div> 
-  <button *ngIf="romName && !isFaqOpen" (click)="toggleFullScreen()" style="margin-bottom: 10px; width: 100%;">
+  <button *ngIf="romName && !isFaqOpen" (click)="toggleFullScreen()" style="margin-bottom: 10px; width: 100%;" [disabled]="isLoading">
     {{ isFullScreen ? 'Exit Fullscreen' : 'Enter Fullscreen' }}
   </button> 
-  <button *ngIf="romName && !isFaqOpen" (click)="stopEmulator()" style="margin-bottom: 10px; width: 100%;">
+  <button *ngIf="romName && !isFaqOpen" (click)="stopEmulator()" style="margin-bottom: 10px; width: 100%;" [disabled]="isLoading">
     Stop Emulator & Return to ROM Selection
   </button>
-  <button *ngIf="!isFaqOpen" (click)="isFaqOpen = !isFaqOpen" style="margin-bottom: 10px; width: 100%;">
+  <button *ngIf="!isFaqOpen" (click)="isFaqOpen = !isFaqOpen" style="margin-bottom: 10px; width: 100%;" [disabled]="isLoading">
     {{isFaqOpen ? 'Hide FAQ' : 'View FAQ'}}
   </button> 
-  <button *ngIf="romName && !isFaqOpen" (click)="callEjsSave()" style="margin-bottom: 10px; width: 100%;">
+  <button *ngIf="romName && !isFaqOpen" (click)="callEjsSave()" style="margin-bottom: 10px; width: 100%;" [disabled]="isLoading">
     Manual Save
   </button>
+  
 
   <div style="margin-top:10px; margin-bottom:10px;" *ngIf="!isFaqOpen">
     <app-file-upload 
