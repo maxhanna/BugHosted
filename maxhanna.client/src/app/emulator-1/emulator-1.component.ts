@@ -108,7 +108,9 @@ window.EJS_paths = {
   'gamepad.js': '/assets/emulatorjs/data/src/gamepad.js',
   'nipplejs.js': '/assets/emulatorjs/data/src/nipplejs.js',
   'shaders.js': '/assets/emulatorjs/data/src/shaders.js'
-};
+};  
+window.EJS_volume = 1;
+
 
 
     // 5) Ensure CSS present once
@@ -168,6 +170,7 @@ declare global {
     EJS_language?: string;
     EJS_startOnLoaded?: boolean;
     EJS_paths?: { [key: string]: string };
+    EJS_volume?: number;
     __ejsLoaderInjected?: boolean; // guard so we don't double load
   }
 }
