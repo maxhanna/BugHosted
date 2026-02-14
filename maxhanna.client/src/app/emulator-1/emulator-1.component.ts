@@ -230,7 +230,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
             requestAnimationFrame(async () => {
               await this.waitForEmulatorAndFocus();
               await this.probeForSaveApi();
-               this.tryBindSaveFromUI();
+              this.tryBindSaveFromUI();
               this.lockGameHostHeight();
             });
           });
@@ -260,26 +260,26 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
   /** Reinitialize EmulatorJS for a new ROM in the same page. */
 
-  
-/** Show only Quick Save/Load so we can programmatically trigger saves. */
-private hideEJSMenu() {
-  (window as any).EJS_Buttons = { 
-    playPause: false,
-    restart:  false,
-    mute:     false,
-    settings: false,
-    fullscreen: false,
-    saveState: false,
-    loadState: false,
-    screenRecord: false,
-    gamepad:   false,
-    cheat:     false,
-    volume:    false, 
-    quickSave: true,
-    quickLoad: true,
-    screenshot: false,
-  };
-}
+
+  /** Show only Quick Save/Load so we can programmatically trigger saves. */
+  private hideEJSMenu() {
+    (window as any).EJS_Buttons = {
+      playPause: false,
+      restart: false,
+      mute: false,
+      settings: false,
+      fullscreen: false,
+      saveState: false,
+      loadState: false,
+      screenRecord: false,
+      gamepad: false,
+      cheat: false,
+      volume: false,
+      quickSave: true,
+      quickLoad: true,
+      screenshot: false,
+    };
+  }
 
 
   /**
@@ -913,42 +913,42 @@ private hideEJSMenu() {
 
     console.warn('[EJS] probeForSaveApi: no saveState() found in this build');
   }
-/** Try to locate the Quick Save button in the EJS toolbar. */
-private findQuickSaveButton(): HTMLButtonElement | null {
-  try {
-    const root = document.getElementById('game');
-    if (!root) return null;
+  /** Try to locate the Quick Save button in the EJS toolbar. */
+  private findQuickSaveButton(): HTMLButtonElement | null {
+    try {
+      const root = document.getElementById('game');
+      if (!root) return null;
 
-    // Common patterns seen across EJS skins
-    // 1) A button with a data attribute for the action:
-    let btn = root.querySelector<HTMLButtonElement>('[data-action="quickSave"]');
-    if (btn) return btn;
+      // Common patterns seen across EJS skins
+      // 1) A button with a data attribute for the action:
+      let btn = root.querySelector<HTMLButtonElement>('[data-action="quickSave"]');
+      if (btn) return btn;
 
-    // 2) Buttons with a title/aria-label that mentions save
-    const candidates = Array.from(root.querySelectorAll<HTMLButtonElement>('button, [role="button"]'));
-    for (const el of candidates) {
-      const t = (el.getAttribute('title') || el.getAttribute('aria-label') || el.textContent || '').toLowerCase();
-      if (t.includes('quick save') || t === 'save' || t.includes('save state')) return el as HTMLButtonElement;
-    }
-  } catch {}
-  return null;
-}
-
-/** Bind the Quick Save UI as our save function (used by autosave/manual save). */
-private tryBindSaveFromUI(): void {
-  const btn = this.findQuickSaveButton();
-  if (btn) {
-    this._saveFn = () => {
-      try {
-        // Ensure the button is still in the DOM before clicking
-        if (document.body.contains(btn)) btn.click();
-      } catch {}
-    };
-    console.log('[EJS] save API bound to Quick Save button');
-  } else {
-    console.warn('[EJS] Quick Save button not found; cannot bind UI-based save');
+      // 2) Buttons with a title/aria-label that mentions save
+      const candidates = Array.from(root.querySelectorAll<HTMLButtonElement>('button, [role="button"]'));
+      for (const el of candidates) {
+        const t = (el.getAttribute('title') || el.getAttribute('aria-label') || el.textContent || '').toLowerCase();
+        if (t.includes('quick save') || t === 'save' || t.includes('save state')) return el as HTMLButtonElement;
+      }
+    } catch { }
+    return null;
   }
-}
+
+  /** Bind the Quick Save UI as our save function (used by autosave/manual save). */
+  private tryBindSaveFromUI(): void {
+    const btn = this.findQuickSaveButton();
+    if (btn) {
+      this._saveFn = () => {
+        try {
+          // Ensure the button is still in the DOM before clicking
+          if (document.body.contains(btn)) btn.click();
+        } catch { }
+      };
+      console.log('[EJS] save API bound to Quick Save button');
+    } else {
+      console.warn('[EJS] Quick Save button not found; cannot bind UI-based save');
+    }
+  }
 
 
   showMenuPanel() {
