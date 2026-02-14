@@ -926,104 +926,120 @@ ON DUPLICATE KEY UPDATE
         MultipartHeadersLengthLimit = int.MaxValue)] 
     public async Task<IActionResult> SaveEmulatorJSState()
     {
-      var form = await Request.ReadFormAsync();
-      var file = form.Files.GetFile("file");
-      if (file == null || file.Length <= 0)
-        return BadRequest("Missing 'file'");
-
-      if (!int.TryParse(form["userId"], out var userId) || userId <= 0)
-        return BadRequest("Invalid 'userId'");
-
-      var romName = form["romName"].ToString();
-      if (string.IsNullOrWhiteSpace(romName))
-        return BadRequest("Missing 'romName'");
-
-      // Read state bytes
-      byte[] stateBytes;
-      using (var ms = new MemoryStream())
+      try
       {
-        await file.CopyToAsync(ms);
-        stateBytes = ms.ToArray();
+        var form = await Request.ReadFormAsync();
+        var file = form.Files.GetFile("file");
+        if (file == null || file.Length <= 0)
+          return BadRequest("Missing 'file'");
+
+        if (!int.TryParse(form["userId"], out var userId) || userId <= 0)
+          return BadRequest("Invalid 'userId'");
+
+        var romName = form["romName"].ToString();
+        if (string.IsNullOrWhiteSpace(romName))
+          return BadRequest("Missing 'romName'");
+
+        // Read state bytes
+        byte[] stateBytes;
+        using (var ms = new MemoryStream())
+        {
+          await file.CopyToAsync(ms);
+          stateBytes = ms.ToArray();
+        }
+
+        // UPSERT into MySQL
+        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        const string sql = @"
+          INSERT INTO emulatorjs_save_states
+            (user_id, rom_name, state_data, file_size, last_updated)
+          VALUES
+            (@UserId, @RomName, @StateData, @FileSize, CURRENT_TIMESTAMP)
+          ON DUPLICATE KEY UPDATE
+            state_data = VALUES(state_data),
+            file_size = VALUES(file_size),
+            last_updated = CURRENT_TIMESTAMP;";
+
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
+        cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = romName;
+        cmd.Parameters.Add("@StateData", MySqlDbType.LongBlob).Value = stateBytes;
+        cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value = stateBytes.Length;
+
+        await cmd.ExecuteNonQueryAsync();
+
+        return Ok(new
+        {
+          ok = true,
+          userId,
+          romName,
+          fileSize = stateBytes.Length
+        });
       }
-
-      // UPSERT into MySQL
-      using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-      await conn.OpenAsync();
-
-      const string sql = @"
-        INSERT INTO emulatorjs_save_states
-          (user_id, rom_name, state_data, file_size, last_updated)
-        VALUES
-          (@UserId, @RomName, @StateData, @FileSize, CURRENT_TIMESTAMP)
-        ON DUPLICATE KEY UPDATE
-          state_data = VALUES(state_data),
-          file_size = VALUES(file_size),
-          last_updated = CURRENT_TIMESTAMP;";
-
-      using var cmd = new MySqlCommand(sql, conn);
-      cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
-      cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = romName;
-      cmd.Parameters.Add("@StateData", MySqlDbType.MediumBlob).Value = stateBytes;
-      cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value = stateBytes.Length;
-
-      await cmd.ExecuteNonQueryAsync();
-
-      return Ok(new
+      catch (Exception ex)
       {
-        ok = true,
-        userId,
-        romName,
-        fileSize = stateBytes.Length
-      });
+        _ = _log.Db("SaveEmulatorJSState error: " + ex.Message, null, "ROM", true);
+        return StatusCode(500, "Error saving emulator state");
+      }
     }
 
     [HttpPost("/Rom/GetEmulatorJSSaveState")]
     public async Task<IActionResult> GetEmulatorJSSaveState([FromBody] GetEmulatorJSSaveStateRequest req)
     {
-      if (string.IsNullOrWhiteSpace(req.RomName) || req.UserId <= 0)
-        return BadRequest("Missing romName or invalid userId");
-
-      using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-      await conn.OpenAsync();
-
-      const string sql = @"
-        SELECT state_data
-        FROM emulatorjs_save_states
-        WHERE user_id = @UserId
-          AND rom_name = @RomName
-        ORDER BY last_updated DESC
-        LIMIT 1;";
-
-      using var cmd = new MySqlCommand(sql, conn);
-      cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = req.UserId;
-      cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = req.RomName;
-
-      using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess);
-      if (!await reader.ReadAsync())
-        return NotFound("No save state found");
-
-      byte[] data;
-
-      // Read blob efficiently
-      const int chunk = 81920;
-      using (var ms = new MemoryStream())
+      try
       {
-        long offset = 0;
-        long bytesRead;
-        do
-        {
-          var buffer = new byte[chunk];
-          bytesRead = reader.GetBytes(0, offset, buffer, 0, buffer.Length);
-          if (bytesRead > 0)
-          {
-            ms.Write(buffer, 0, (int)bytesRead);
-            offset += bytesRead;
-          }
-        } while (bytesRead > 0);
-        data = ms.ToArray();
-      }
+        if (string.IsNullOrWhiteSpace(req.RomName) || req.UserId <= 0)
+          return BadRequest("Missing romName or invalid userId");
 
-      return File(data, "application/octet-stream", "savestate.state");
+        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        const string sql = @"
+          SELECT state_data
+          FROM emulatorjs_save_states
+          WHERE user_id = @UserId
+            AND rom_name = @RomName
+          ORDER BY last_updated DESC
+          LIMIT 1;";
+
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = req.UserId;
+        cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = req.RomName;
+
+        using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess);
+        if (!await reader.ReadAsync())
+          return NotFound("No save state found");
+
+        byte[] data;
+
+        // Read blob efficiently
+        const int chunk = 81920;
+        using (var ms = new MemoryStream())
+        {
+          long offset = 0;
+          long bytesRead;
+          do
+          {
+            var buffer = new byte[chunk];
+            bytesRead = reader.GetBytes(0, offset, buffer, 0, buffer.Length);
+            if (bytesRead > 0)
+            {
+              ms.Write(buffer, 0, (int)bytesRead);
+              offset += bytesRead;
+            }
+          } while (bytesRead > 0);
+          data = ms.ToArray();
+        }
+
+        return File(data, "application/octet-stream", "savestate.state");
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("GetEmulatorJSSaveState error: " + ex.Message, null, "ROM", true);
+        return StatusCode(500, "Error retrieving save state");
+      }
     }
   }
 }
