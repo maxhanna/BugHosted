@@ -88,24 +88,31 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
     // 4) Try to load existing save state from database
     const saveStateBlob = await this.loadSaveStateFromDB(fileName);
+ 
+// 5) Configure EmulatorJS globals BEFORE adding loader.js
+const core = this.detectCore(fileName);
+window.EJS_core       = core;
+window.EJS_player     = "#game";
+window.EJS_pathtodata = "/assets/emulatorjs/data/";
+window.EJS_coreUrl    = "/assets/emulatorjs/data/cores/";
 
-    // 5) Configure EmulatorJS globals BEFORE adding loader.js
-    window.EJS_player = "#game";
-    window.EJS_core = this.detectCore(fileName);
-    window.EJS_pathtodata = "/assets/emulatorjs/data/";
-    window.EJS_coreUrl = "/assets/emulatorjs/data/cores/";
-    window.EJS_biosUrl = "/assets/emulatorjs/data/cores/bios/";
-    window.EJS_gameUrl = this.romObjectUrl;
-    window.EJS_gameID = `${window.EJS_core}:${this.fileService.getFileWithoutExtension(fileName)}`;
-    window.EJS_gameName = this.fileService.getFileWithoutExtension(this.romName ?? '');
-    window.EJS_startOnLoaded = true;
-    window.EJS_volume = 0.5;
-    window.EJS_lightgun = false;
-    window.EJS_gameParent = this.romObjectUrl;
-    
-    // Configure save state callbacks
-    window.EJS_onSaveState = (state: Uint8Array) => this.onSaveState(state);
-    window.EJS_onLoadState = () => this.onLoadState();
+// ❗ BIOS: set ONLY if required by the selected core; otherwise blank
+window.EJS_biosUrl    = this.getBiosUrlForCore(core) ?? "";  // <— key fix
+
+window.EJS_gameUrl    = this.romObjectUrl;
+window.EJS_gameID     = `${core}:${this.fileService.getFileWithoutExtension(fileName)}`;
+window.EJS_gameName   = this.fileService.getFileWithoutExtension(this.romName ?? '');
+window.EJS_startOnLoaded = true;
+window.EJS_volume     = 0.5;
+window.EJS_lightgun   = false;
+
+// Optional callbacks (ok to keep)
+window.EJS_onSaveState = (state: Uint8Array) => this.onSaveState(state);
+window.EJS_onLoadState = () => this.onLoadState();
+
+// ❌ Remove this line; not needed for normal games and can confuse core loading
+// window.EJS_gameParent = this.romObjectUrl;
+
 
     // 6) Ensure CSS present once
     if (!document.querySelector('link[data-ejs-css="1"]')) {
@@ -148,6 +155,31 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     this.status = 'Running';
     this.cdr.detectChanges();
   }
+
+/** Return a BIOS URL if the core truly needs one; otherwise undefined/empty */
+private getBiosUrlForCore(core: string): string | undefined {
+  switch (core) {
+    case 'mednafen_psx_hw':
+    case 'pcsx_rearmed': // if you ever switch PSX cores
+      // Make sure this file exists in dist/assets/emulatorjs/data/cores/bios/
+      return '/assets/emulatorjs/data/cores/bios/scph5501.bin';
+
+    case 'melonds': // Nintendo DS typically needs firmware/bios
+      // You can also use a single firmware.bin if your core build expects it
+      return '/assets/emulatorjs/data/cores/bios/nds/firmware.bin';
+
+    // Arcade examples (only for specific sets/systems)
+    case 'fbneo':
+    case 'mame2003_plus':
+      // Example: NeoGeo BIOS pack; only needed for NeoGeo titles
+      // return '/assets/emulatorjs/data/cores/bios/neogeo.zip';
+      return ''; // leave blank by default; set per-ROM if you know it’s needed
+
+    default:
+      // Most 8/16/32-bit consoles (e.g., mgba for GBA) run fine without BIOS
+      return '';
+  }
+}
 
   private detectCore(fileName: string): string {
     const ext = this.fileService.getFileExtension(fileName).toLowerCase();
