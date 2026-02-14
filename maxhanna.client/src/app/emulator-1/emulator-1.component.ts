@@ -192,6 +192,9 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       gameContainer.innerHTML = '';
     }
     this.installRuntimeTrackers();
+     
+    this.hideEJSMenu();
+
     // 8) Inject loader.js (it will initialize EmulatorJS)
     if (!window.__ejsLoaderInjected) {
       await new Promise<void>((resolve, reject) => {
@@ -224,6 +227,26 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     this.status = 'Running';
     this.stopLoading();
     this.cdr.detectChanges();
+  }
+
+  private hideEJSMenu() {
+    (window as any).EJS_Buttons = {
+      playPause: false,
+      restart: false,
+      mute: false,
+      settings: false,
+      fullscreen: false,
+      saveState: false,
+      loadState: false,
+      screenRecord: false,
+      gamepad: false,
+      cheat: false,
+      volume: false,
+      quickSave: false,
+      quickLoad: false,
+      screenshot: false,
+      cacheManage: false,
+    };
   }
 
   /** Return a BIOS URL if the core truly needs one; otherwise undefined/empty */
