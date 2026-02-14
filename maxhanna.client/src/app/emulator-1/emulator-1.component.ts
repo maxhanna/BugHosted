@@ -1,7 +1,5 @@
 
-import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { PsxKeyMap } from '../../datacontracts/ps1/psx-key-map';
-import { KeyBinding } from '../../datacontracts/ps1/key-binding';
+import { AfterViewInit, ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { RomService } from '../../services/rom.service';
