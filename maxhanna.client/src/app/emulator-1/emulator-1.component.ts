@@ -157,14 +157,14 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
     // ❗ BIOS: set ONLY if required by the selected core; otherwise blank
     window.EJS_biosUrl = this.getBiosUrlForCore(core) ?? "";  // <— key fix
-
+    window.EJS_softLoad = true;
     window.EJS_gameUrl = this.romObjectUrl;
     window.EJS_gameID = `${core}:${this.fileService.getFileWithoutExtension(fileName)}`;
     window.EJS_gameName = this.fileService.getFileWithoutExtension(this.romName ?? '');
     window.EJS_startOnLoaded = true;
     window.EJS_volume = 0.5;
     window.EJS_lightgun = false;
-
+    window.__EJS_ALIVE__ = true;
     // Optional callbacks (ok to keep)
     window.EJS_onSaveState = (state: Uint8Array) => this.onSaveState(state);
     window.EJS_onLoadState = () => this.onLoadState();
@@ -192,7 +192,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       gameContainer.innerHTML = '';
     }
     this.installRuntimeTrackers();
-     
+
     this.hideEJSMenu();
 
     // 8) Inject loader.js (it will initialize EmulatorJS)
@@ -203,14 +203,18 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         s.async = false;
         s.defer = false;
         s.setAttribute('data-ejs-loader', '1');
-        s.onload = () => { window.__ejsLoaderInjected = true; resolve(); };
+        s.onload = () => {
+          window.__ejsLoaderInjected = true;
+          requestAnimationFrame(() => {
+            this.setGameScreenHeight();
+            // a second rAF can make it even smoother:
+            requestAnimationFrame(() => this.waitForEmulatorAndFocus());
+          });
+          resolve();
+        };
         s.onerror = () => reject(new Error('Failed to load EmulatorJS loader.js'));
         document.body.appendChild(s);
       });
-      // Once loader is injected we may need to focus the inner emulator element
-      // Resize game container to occupy available vertical space minus header (60px)
-      this.setGameScreenHeight();
-      await this.waitForEmulatorAndFocus();
       // start autosave loop if enabled
       try { this.setupAutosave(); } catch { }
     } else {
@@ -488,12 +492,27 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     const w = window as any;
 
     try {
-      // 1) Try any public-ish stops if available in your build
+
+      // 1) Signal shutdown ASAP so late calls are ignored
+      w.__EJS_ALIVE__ = false;
+
       try { if (this.emulatorInstance?.exit) await this.emulatorInstance.exit(); } catch { }
       try { if (typeof w.EJS_stop === 'function') w.EJS_stop(); } catch { }
       try { if (typeof w.EJS_exit === 'function') w.EJS_exit(); } catch { }
+      try { (window as any).EJS_volume = 0; } catch { }
+      // 2) Terminate any workers (main + pthreads) FIRST
+      try {
+        const workers: Set<any> | undefined = w.__ejsTrackedWorkers;
+        if (workers && workers.size) {
+          for (const wk of Array.from(workers)) {
+            try { if (typeof wk.terminate === 'function') wk.terminate(); } catch { }
+            try { wk?.port?.close?.(); } catch { }
+            try { workers.delete(wk); } catch { }
+          }
+        }
+      } catch { }
 
-      // 2) Close any WebAudio contexts the emulator created
+      // 3) Then close any WebAudio contexts
       try {
         const tracked: Set<BaseAudioContext> | undefined = w.__ejsTrackedAudio;
         if (tracked && tracked.size) {
@@ -506,25 +525,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
               }
             } catch { }
           }));
-          // clear dead refs
           for (const ctx of Array.from(tracked)) {
             try { if (ctx.state === 'closed') tracked.delete(ctx); } catch { }
-          }
-        }
-      } catch { }
-
-      // 3) Terminate any workers (main worker + pthreads) the emulator created
-      try {
-        const workers: Set<any> | undefined = w.__ejsTrackedWorkers;
-        if (workers && workers.size) {
-          for (const wk of Array.from(workers)) {
-            try {
-              // Worker
-              if (typeof wk.terminate === 'function') wk.terminate();
-              // SharedWorker
-              if (wk?.port?.close) wk.port.close();
-            } catch { }
-            try { workers.delete(wk); } catch { }
           }
         }
       } catch { }
@@ -729,6 +731,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     }
     this.closeMenuPanel();
     this.stopLoading();
+    this.clearAutosave();
     this.cdr.detectChanges();
   }
 
@@ -757,6 +760,7 @@ declare global {
     EJS_coreUrl?: string;
     EJS_biosUrl?: string;
     EJS_gameUrl?: string;
+    EJS_softLoad?: boolean;
     EJS_gameID?: string;
     EJS_gameName?: string;
     EJS_gameParent?: string;
@@ -768,5 +772,6 @@ declare global {
     EJS_onSaveState?: (state: Uint8Array) => void;
     EJS_onLoadState?: () => void;
     __ejsLoaderInjected?: boolean;
+    __EJS_ALIVE__?: boolean;
   }
 }
