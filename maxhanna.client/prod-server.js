@@ -308,6 +308,26 @@ if (config.enableHelmet) {
 } 
 
 
+const emulatorIsolation = (req, res, next) => {
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
+  next();
+};
+
+// Angular route that displays Emulator1Component
+app.get(['/emulator', '/Emulator', '/emulator1'], emulatorIsolation, (req, res) => {
+  res.sendFile(path.join(config.distPath, 'index.html'));
+});
+
+// EmulatorJS static assets (WASM, .data, .js)
+app.use(
+  ['/assets/emulatorjs', '/assets/emulatorjs/*'],
+  emulatorIsolation,
+  express.static(path.join(config.distPath, 'assets', 'emulatorjs'))
+);
+
+
+
 // ============================================================================
 // Performance Middleware
 // ============================================================================
