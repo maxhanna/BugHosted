@@ -20,6 +20,40 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   romName?: string;
   isFileUploaderExpanded = false;
   isFaqOpen = false;
+  faqItems: { question: string; answerHtml: string; expanded: boolean }[] = [
+    {
+      question: "My controller is connected but doesn't work—what should I do?",
+      answerHtml: `Unpair all controllers from the PC, then pair and test one controller at a time. Multiple paired controllers or leftover Bluetooth pairings can cause input routing conflicts. Also try restarting the browser after pairing.`,
+      expanded: false
+    },
+    {
+      question: "I don't hear any audio from the game.",
+      answerHtml: `Check that the browser tab isn't muted, confirm the correct audio output device is selected in your OS, and ensure the emulator volume (in the menu) is not set to zero.`,
+      expanded: false
+    },
+    {
+      question: "Save states aren't persisting between sessions.",
+      answerHtml: `Make sure you're logged in and that autosave is enabled. If autosave is off, use the manual save option before closing. Network interruptions can prevent saves from reaching the server.`,
+      expanded: false
+    },
+    {
+      question: "The game runs slowly or stutters.",
+      answerHtml: `Close other heavy apps/tabs, enable hardware acceleration in your browser, and try reducing the emulator rendering resolution if available.`,
+      expanded: false
+    },
+    {
+      question: "What games/systems are available?",
+      answerHtml: `Available systems include:<ul>
+        <li><strong>Nintendo</strong>: Game Boy Advance, Famicom / NES, Virtual Boy, Game Boy, SNES, DS, N64</li>
+        <li><strong>Sega</strong>: Master System, Mega Drive / Genesis, Game Gear, Saturn, 32X, CD</li>
+        <li><strong>Atari</strong>: 2600, 5200, 7800, Lynx, Jaguar</li>
+        <li><strong>Commodore</strong>: Commodore 64, Commodore 128, Amiga, PET, Plus/4, VIC-20</li>
+        <li><strong>Other</strong>: PlayStation, PlayStation Portable (PSP), Arcade (MAME/3DO/MAME2003/ColecoVision)</li>
+      </ul>
+      Note: Not every ROM for every system may be available — the list above shows supported systems; available games depend on what has been uploaded to the Roms directory.`,
+      expanded: false
+    }
+  ];
   isSearchVisible = true;
   autosave = true;
   autosaveIntervalTime: number = 180000; // 3 minutes
@@ -32,7 +66,10 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   private _pendingSaveResolve?: (v?: any) => void;
   private _pendingSaveTimer?: any;
   private _gameSizeObs?: ResizeObserver;
-  private _gameAttrObs?: MutationObserver;
+  private _gameAttrObs?: MutationObserver; 
+  private _saveFn?: () => void; 
+private _autosaveKick?: any;
+
 
 
   constructor(
@@ -66,49 +103,10 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         }
       } catch { }
     }
-
-    this._destroyed = true;
-
-    // remove fullscreen listeners
-    document.removeEventListener('fullscreenchange', this.onFullscreenChangeBound);
-    document.removeEventListener('webkitfullscreenchange', this.onFullscreenChangeBound as any);
-
-    // Exit fullscreen if active
-    try { await this.exitFullScreen(); } catch { }
-    try { this.unlockGameHostHeight(); } catch { }
-    // Stop emulator instance if present
+    // After the save prompt, navigate the user back to the public home page.
     try {
-      if (this.emulatorInstance && typeof this.emulatorInstance.exit === 'function') {
-        await this.emulatorInstance.exit();
-      }
-    } catch (e) {
-      console.warn('Error while exiting emulator instance', e);
-    }
-
-    // clear autosave interval
-    try { this.clearAutosave(); } catch { }
-
-
-    try { await this.hardStopEmulatorEJS(); } catch { }
-
-    // Clear EmulatorJS global callbacks so they don't reference this component after destroy
-    try {
-      if (window) {
-        delete window.EJS_onSaveState;
-        delete window.EJS_onLoadState;
-      }
+      window.location.replace('https://bughosted.com/');
     } catch { }
-
-    // Clear game container
-    try {
-      const gameEl = document.getElementById('game');
-      if (gameEl) gameEl.innerHTML = '';
-    } catch { }
-
-    if (this.romObjectUrl) {
-      try { URL.revokeObjectURL(this.romObjectUrl); } catch { }
-      this.romObjectUrl = undefined;
-    }
   }
 
   async onRomSelected(file: FileEntry) {
@@ -125,6 +123,10 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
   private async loadRomThroughService(fileName: string, fileId?: number) {
+    if (window.__ejsLoaderInjected) {
+      return this.fullReloadToHome();
+    }
+
     this.startLoading();
     this.isSearchVisible = false;
     this.status = 'Loading ROM...';
@@ -172,7 +174,17 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     // Optional callbacks (ok to keep)
     window.EJS_onSaveState = (state: Uint8Array) => this.onSaveState(state);
     window.EJS_onLoadState = () => this.onLoadState();
-    this.applyEjsRunOptions();
+    this.applyEjsRunOptions(); 
+// If the build calls back with the instance, capture it early
+(window as any).EJS_ready = (api: any) => {
+  try {
+    this.emulatorInstance = api || (window as any).EJS || (window as any).EJS_emulator || this.emulatorInstance;
+    if (this.emulatorInstance?.saveState) {
+      this._saveFn = () => { try { (this.emulatorInstance as any).saveState(); } catch {} };
+    }
+    console.log('[EJS] instance ready hook fired, has saveState?', !!this._saveFn);
+  } catch {}
+};
 
 
     // ❌ Remove this line; not needed for normal games and can confuse core loading
@@ -217,6 +229,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
             // a second rAF can make it even smoother: 
             requestAnimationFrame(async () => {
               await this.waitForEmulatorAndFocus();
+              await this.probeForSaveApi(); 
               this.lockGameHostHeight();
             });
           });
@@ -228,9 +241,9 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       // start autosave loop if enabled
       try { this.setupAutosave(); } catch { }
     } else {
-      // Reinitialize with new game URL
-      await this.reloadEJSForNewGame();
-      //console.error('EmulatorJS loader already injected; dynamic game loading may not work correctly without a page refresh. Please refresh the page to load the new ROM.');
+      this.stopLoading();
+      this.fullReloadToHome();
+      return;
     }
 
     // 9) Load save state if it exists
@@ -245,60 +258,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
   /** Reinitialize EmulatorJS for a new ROM in the same page. */
-
-  /** Reinitialize EmulatorJS for a new ROM in the same page safely (no re-declare). */
-  private async reloadEJSForNewGame(): Promise<void> {
-    const w = window as any;
-
-    // 1) Stop runtime & clear DOM
-    await this.hardStopEmulatorEJS();
-
-    // 2) (Optional while stabilizing) avoid clearing localStorage until boot is consistent
-    // this.clearEjsLocalState();
-
-    // 3) Remove **all** previously injected EmulatorJS scripts (loader, emulator.min.js, core bridges, etc.)
-    try {
-      const scripts = Array.from(document.querySelectorAll<HTMLScriptElement>('script[src]'));
-      for (const s of scripts) {
-        const src = s.getAttribute('src') || '';
-        // adjust the prefix if your path differs
-        if (src.includes('/assets/emulatorjs/data/')) {
-          s.parentElement?.removeChild(s);
-        }
-      }
-    } catch { }
-
-    // 4) Reset loader flags/globals that gate initialization
-    w.__ejsLoaderInjected = false;
-
-    // 5) Re-apply run options so loader picks them up
-    this.applyEjsRunOptions();
-
-    // 6) Re-inject a fresh loader (cache-busted so we don't get a cached copy)
-    await new Promise<void>((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = `/assets/emulatorjs/data/loader.js?v=${Date.now()}`;
-      s.async = false;
-      s.defer = false;
-      s.setAttribute('data-ejs-loader', '1');
-      s.onload = () => {
-        w.__ejsLoaderInjected = true;
-        requestAnimationFrame(() => {
-          this.setGameScreenHeight();
-          requestAnimationFrame(async () => {
-            await this.waitForEmulatorAndFocus();
-            this.lockGameHostHeight();
-            resolve();
-          });
-        });
-      };
-      s.onerror = () => reject(new Error('Failed to load EmulatorJS loader.js'));
-      document.body.appendChild(s);
-    });
-
-    // 7) Restart autosave if needed
-    try { this.setupAutosave(); } catch { }
-  }
 
   private hideEJSMenu() {
     (window as any).EJS_Buttons = {
@@ -413,7 +372,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     return coreMap[ext] || 'mgba';
   }
 
-
   /** Make sure every run uses *your* options (not cached ones) and input is enabled. */
   private applyEjsRunOptions(): void {
     const w = window as any;
@@ -438,16 +396,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         (canvas ?? gameEl)?.focus?.();
       } catch { }
     };
-  }
-
-  /** Remove stale per-run settings that can interfere with input rebinding. */
-  private clearEjsLocalState(): void {
-    try {
-      const ls = window.localStorage;
-      Object.keys(ls)
-        .filter(k => k.startsWith('EJS_') || k.startsWith('ejs_'))
-        .forEach(k => { try { ls.removeItem(k); } catch { } });
-    } catch { }
   }
 
 
@@ -487,61 +435,63 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     return null;
   }
 
-  private async onSaveState(state: Uint8Array) {
-    if (!this.parentRef?.user?.id || !this.romName) return;
+  
+private async onSaveState(state: Uint8Array) {
+  console.log('[EJS] onSaveState fired. user?', !!this.parentRef?.user?.id, 'rom?', !!this.romName, 'bytes=', state?.length);
+  if (!this.parentRef?.user?.id || !this.romName) return;
 
-    try {
-      await this.romService.saveEmulatorJSState(this.romName, this.parentRef.user.id, state);
-      console.log('Save state saved to database');
-      // resolve any pending save waiters (eg: on destroy)
-      try {
-        if (this._pendingSaveResolve) {
-          this._pendingSaveResolve(true);
-          this._pendingSaveResolve = undefined;
-        }
-      } catch { }
-    } catch (err) {
-      console.error('Failed to save state to database:', err);
-      try {
-        if (this._pendingSaveResolve) {
-          this._pendingSaveResolve(false);
-          this._pendingSaveResolve = undefined;
-        }
-      } catch { }
+  try {
+    await this.romService.saveEmulatorJSState(this.romName, this.parentRef.user.id, state);
+    console.log('Save state saved to database');
+
+    // resolve any pending save waiters (eg: on destroy)
+    if (this._pendingSaveResolve) {
+      try { this._pendingSaveResolve(true); } catch {}
+      this._pendingSaveResolve = undefined;
+    }
+  } catch (err) {
+    console.error('Failed to save state to database:', err);
+    if (this._pendingSaveResolve) {
+      try { this._pendingSaveResolve(false); } catch {}
+      this._pendingSaveResolve = undefined;
     }
   }
+}
+
 
   private async onLoadState() {
     console.log('Loading state from database');
     // EmulatorJS handles the actual loading
   }
 
-  /** Try to trigger EmulatorJS (or the running instance) to produce a save state. */
-  private callEjsSave(): void {
-    try {
-      // Preferred: instance API
-      if (this.emulatorInstance && typeof this.emulatorInstance.saveState === 'function') {
-        (this.emulatorInstance as any).saveState();
-        return;
-      }
-      // Common global used by some EmulatorJS builds
-      if (typeof (window as any).EJS_saveState === 'function') {
-        (window as any).EJS_saveState();
-        return;
-      }
-      // Some builds expose an API on the player element
-      const player = window.EJS_player as any;
-      if (player) {
-        let el: any = null;
-        if (typeof player === 'string') el = document.querySelector(player);
-        else el = player;
-        if (el && typeof el.saveState === 'function') { el.saveState(); return; }
-      }
-      console.warn('No known save API found for EmulatorJS; autosave skipped');
-    } catch (e) {
-      console.warn('callEjsSave failed', e);
+/** Try to trigger a save via whatever API this build exposes. */
+private callEjsSave(): void {
+  try {
+    // 1) If we discovered a save function, use it
+    if (this._saveFn) { this._saveFn(); return; }
+
+    // 2) Preferred: instance API (if later bound)
+    if (this.emulatorInstance && typeof (this.emulatorInstance as any).saveState === 'function') {
+      (this.emulatorInstance as any).saveState(); return;
     }
+
+    // 3) Global helper (not present in your build, but keep as fallback)
+    if (typeof (window as any).EJS_saveState === 'function') {
+      (window as any).EJS_saveState(); return;
+    }
+
+    // 4) Some skins expose saveState() on the player element
+    const player = (window as any).EJS_player as any;
+    if (player) {
+      const el = typeof player === 'string' ? document.querySelector(player) : player;
+      if (el && typeof (el as any).saveState === 'function') { (el as any).saveState(); return; }
+    }
+
+    console.warn('No known save API found for EmulatorJS; save skipped');
+  } catch (e) {
+    console.warn('callEjsSave failed', e);
   }
+}
 
   /** Attempt a save and wait for `onSaveState` callback. Resolves true if saved. */
   private attemptSaveNow(timeoutMs = 5000): Promise<boolean> {
@@ -557,20 +507,30 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     });
   }
 
-  setupAutosave() {
-    try { this.clearAutosave(); } catch { }
-    if (!this.autosave || !this.romName || !this.parentRef?.user?.id) return;
-    this.autosaveInterval = setInterval(() => {
-      try {
-        this.callEjsSave();
-      } catch (e) { console.warn('Autosave call failed', e); }
-    }, this.autosaveIntervalTime);
-  }
+ 
+setupAutosave() {
+  try { this.clearAutosave(); } catch {}
+  if (!this.autosave || !this.romName || !this.parentRef?.user?.id) return;
 
-  clearAutosave() {
-    if (this.autosaveInterval) { clearInterval(this.autosaveInterval); this.autosaveInterval = undefined; }
-    if (this._pendingSaveTimer) { clearTimeout(this._pendingSaveTimer); this._pendingSaveTimer = undefined; }
-  }
+  // Kick a first save after 10s so you can verify quickly
+  this._autosaveKick = setTimeout(() => {
+    console.log('[EJS] autosave kick (10s)');
+    this.callEjsSave();
+  }, 10000);
+
+  this.autosaveInterval = setInterval(() => {
+    try {
+      console.log('[EJS] autosave tick');
+      this.callEjsSave();
+    } catch (e) { console.warn('Autosave call failed', e); }
+  }, this.autosaveIntervalTime);
+}
+
+clearAutosave() {
+  if (this._autosaveKick) { clearTimeout(this._autosaveKick); this._autosaveKick = undefined; }
+  if (this.autosaveInterval) { clearInterval(this.autosaveInterval); this.autosaveInterval = undefined; }
+  if (this._pendingSaveTimer) { clearTimeout(this._pendingSaveTimer); this._pendingSaveTimer = undefined; }
+} 
 
   getAllowedFileTypes(): string[] {
     return [
@@ -881,24 +841,70 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
   async stopEmulator() {
-    this.startLoading();
+    if (this.romName && this.parentRef?.user?.id) {
+      try {
+        const shouldSave = window.confirm('Save emulator state before closing?');
+        if (shouldSave) {
+          // attempt a save and wait briefly for callback
+          try { await this.attemptSaveNow(5000); } catch { }
+        }
+      } catch { }
+    }
+    try { this.clearAutosave(); } catch { }
     try { await this.hardStopEmulatorEJS(); } catch { }
+    try { this.unlockGameHostHeight(); } catch { }
+
+    // Optional best-effort UI cleanup (not required since we're reloading)
     this.isSearchVisible = true;
     this.status = 'Ready - Select a ROM';
     this.romName = undefined;
-    try { this.unlockGameHostHeight(); } catch { }
-    // reset container sizing
-    const gameEl = document.getElementById('game');
-    if (gameEl) {
-      gameEl.style.height = '';
-      gameEl.style.aspectRatio = '';
-    }
-    this.closeMenuPanel();
-    this.stopLoading();
-    this.clearAutosave();
-    this.cdr.detectChanges();
+
+    // 🚀 Reboot the page to avoid any double-load of emulator.min.js
+    this.fullReloadToHome();
   }
 
+/**
+ * Probe common places where builds expose the running emulator instance or API.
+ * When a .saveState() function is found, cache it in this._saveFn.
+ */
+private async probeForSaveApi(maxMs = 3000): Promise<void> {
+  const start = Date.now();
+
+  const pickSave = (obj: any): boolean => {
+    try {
+      if (obj && typeof obj.saveState === 'function') {
+        this._saveFn = () => { try { obj.saveState(); } catch {} };
+        console.log('[EJS] save API bound from', obj);
+        return true;
+      }
+    } catch {}
+    return false;
+  };
+
+  const w = window as any;
+
+  // Try immediately a few well-known spots
+  if (pickSave(this.emulatorInstance)) return;
+  if (pickSave(w.EJS_emulator)) return;
+  if (pickSave(w.EJS)) return;
+  if (pickSave(document.querySelector('#game') as any)) return;
+
+  // Poll briefly—some builds attach the instance shortly after loader onload
+  while (Date.now() - start < maxMs) {
+    if (pickSave(this.emulatorInstance)) return;
+    if (pickSave(w.EJS_emulator)) return;
+    if (pickSave(w.EJS)) return;
+
+    const player = typeof w.EJS_player === 'string'
+      ? document.querySelector(w.EJS_player)
+      : (w.EJS_player as any);
+    if (pickSave(player)) return;
+
+    await new Promise(r => setTimeout(r, 100));
+  }
+
+  console.warn('[EJS] probeForSaveApi: no saveState() found in this build');
+} 
 
   showMenuPanel() {
     this.isMenuPanelOpen = true;
@@ -908,6 +914,25 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   closeMenuPanel() {
     this.isMenuPanelOpen = false;
     this.parentRef?.closeOverlay();
+  }
+ 
+  toggleFaqItem(index: number) {
+    const item = this.faqItems[index];
+    if (item) item.expanded = !item.expanded;
+  }
+
+  /** Absolute URL to your clean entry page. Works in prod and local/dev (no hardcoding). */
+  private getEmuHomeUrl(): string {
+    // If you must hardcode production, replace with: return 'https://www.bughosted.com/1Emulator';
+    return `${location.protocol}//${location.host}/1Emulator`;
+  }
+
+  /** Full reload for a guaranteed fresh EmulatorJS context. Optional query params supported. */
+  private fullReloadToHome(extraParams?: Record<string, string>): void {
+    const base = this.getEmuHomeUrl();
+    const q = extraParams ? `?${new URLSearchParams(extraParams).toString()}` : '';
+    // Use replace() so back-button doesn't bounce the user back into the "closing" page.
+    window.location.replace(base + q);
   }
 
   /** Called by `app-file-upload` when upload finishes; refresh file list. */
@@ -942,6 +967,7 @@ declare global {
     EJS_directKeyboardInput?: boolean;
     EJS_enableGamepads?: boolean;
     EJS_disableAltKey?: boolean;
-    EJS_afterStart?: () => void;
+    EJS_afterStart?: () => void; 
+    EJS_ready?: (api: any) => void;
   }
 }

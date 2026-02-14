@@ -66,17 +66,18 @@
       </label>
       <div style="font-size:13px; color:#666;">{{ autosave ? 'On' : 'Off' }}</div>
     </div>
-  </div>
-
+  </div> 
   <button *ngIf="romName && !isFaqOpen" (click)="toggleFullScreen()" style="margin-bottom: 10px; width: 100%;">
     {{ isFullScreen ? 'Exit Fullscreen' : 'Enter Fullscreen' }}
-  </button>
-
+  </button> 
   <button *ngIf="romName && !isFaqOpen" (click)="stopEmulator()" style="margin-bottom: 10px; width: 100%;">
     Stop Emulator & Return to ROM Selection
   </button>
-  <button (click)="isFaqOpen = !isFaqOpen" style="margin-bottom: 10px; width: 100%;">
+  <button *ngIf="!isFaqOpen" (click)="isFaqOpen = !isFaqOpen" style="margin-bottom: 10px; width: 100%;">
     {{isFaqOpen ? 'Hide FAQ' : 'View FAQ'}}
+  </button> 
+  <button *ngIf="romName && !isFaqOpen" (click)="callEjsSave()" style="margin-bottom: 10px; width: 100%;">
+    Manual Save
   </button>
 
   <div style="margin-top:10px; margin-bottom:10px;" *ngIf="!isFaqOpen">
@@ -97,26 +98,15 @@
     <div *ngIf="isFaqOpen" style="max-height:60vh; overflow:auto; padding:6px 4px;">
       <div class="popupPanelTitle">Frequently Asked Questions</div>
 
-      <div style="margin-bottom:12px;">
-        <div style="font-weight:600;">Q: My controller is connected but doesn't work—what should I do?</div>
-        <div style="color:#444; margin-top:6px;">A: Unpair all controllers from the PC, then pair and test one controller at a time. Multiple paired controllers or leftover Bluetooth pairings can cause input routing conflicts. Also try restarting the browser after pairing.</div>
+      <div *ngFor="let item of faqItems; let i = index" style="border-bottom:1px solid #eee; padding:8px 4px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <div style="font-weight:600;">{{ item.question }}</div>
+          <button (click)="toggleFaqItem(i)" style="font-size:12px; padding:6px 8px;">{{ item.expanded ? 'Hide' : 'Show' }}</button>
+        </div>
+        <div *ngIf="item.expanded" style="color:#444; margin-top:8px;">
+          <div [innerHTML]="item.answerHtml"></div>
+        </div>
       </div>
-
-      <div style="margin-bottom:12px;">
-        <div style="font-weight:600;">Q: I don't hear any audio from the game.</div>
-        <div style="color:#444; margin-top:6px;">A: Check that the browser tab isn't muted, confirm the correct audio output device is selected in your OS, and ensure the emulator volume (in the menu) is not set to zero.</div>
-      </div>
-
-      <div style="margin-bottom:12px;">
-        <div style="font-weight:600;">Q: Save states aren't persisting between sessions.</div>
-        <div style="color:#444; margin-top:6px;">A: Make sure you're logged in and that autosave is enabled. If autosave is off, use the manual save option before closing. Network interruptions can prevent saves from reaching the server.</div>
-      </div>
-
-      <div style="margin-bottom:12px;">
-        <div style="font-weight:600;">Q: The game runs slowly or stutters.</div>
-        <div style="color:#444; margin-top:6px;">A: Close other heavy apps/tabs, enable hardware acceleration in your browser, and try reducing the emulator rendering resolution if available.</div>
-      </div>
-
       <div style="margin-top:6px;">
         <button (click)="isFaqOpen = false" style="width:100%;">Back to Menu</button>
       </div>
