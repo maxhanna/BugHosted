@@ -22,11 +22,16 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   romName?: string;
   isFileUploaderExpanded = false;
   isSearchVisible = true;
+  autosave = true;
+  autosaveIntervalTime: number = 180000; // 3 minutes
+  private autosaveInterval: any;
   // Human-readable status shown in the UI (e.g. "Idle", "Loading <game>", "Running: <game>")
   public status: string = 'Idle';
   private romObjectUrl?: string;
   private emulatorInstance?: any;
   private _destroyed = false;
+  private _pendingSaveResolve?: (v?: any) => void;
+  private _pendingSaveTimer?: any;
 
   constructor(
     private romService: RomService,
@@ -49,6 +54,17 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     document.addEventListener('webkitfullscreenchange', this.onFullscreenChangeBound as any);
   }
   async ngOnDestroy(): Promise<void> {
+    // Offer to save state before destroying if a ROM is active
+    if (this.romName && this.parentRef?.user?.id) {
+      try {
+        const shouldSave = window.confirm('Save emulator state before closing?');
+        if (shouldSave) {
+          // attempt a save and wait briefly for callback
+          try { await this.attemptSaveNow(5000); } catch { }
+        }
+      } catch { }
+    }
+
     this._destroyed = true;
 
     // remove fullscreen listeners
@@ -56,7 +72,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     document.removeEventListener('webkitfullscreenchange', this.onFullscreenChangeBound as any);
 
     // Exit fullscreen if active
-    try { await this.exitFullScreen(); } catch {}
+    try { await this.exitFullScreen(); } catch { }
 
     // Stop emulator instance if present
     try {
@@ -67,27 +83,30 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       console.warn('Error while exiting emulator instance', e);
     }
 
+    // clear autosave interval
+    try { this.clearAutosave(); } catch { }
+
     // Clear EmulatorJS global callbacks so they don't reference this component after destroy
     try {
       if (window) {
         delete window.EJS_onSaveState;
         delete window.EJS_onLoadState;
       }
-    } catch {}
+    } catch { }
 
     // Clear game container
     try {
       const gameEl = document.getElementById('game');
       if (gameEl) gameEl.innerHTML = '';
-    } catch {}
+    } catch { }
 
     if (this.romObjectUrl) {
-      try { URL.revokeObjectURL(this.romObjectUrl); } catch {}
+      try { URL.revokeObjectURL(this.romObjectUrl); } catch { }
       this.romObjectUrl = undefined;
     }
 
     // Ensure overlay closed
-    try { this.parentRef?.closeOverlay(); } catch {}
+    try { this.parentRef?.closeOverlay(); } catch { }
   }
 
   async onRomSelected(file: FileEntry) {
@@ -104,6 +123,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
   private async loadRomThroughService(fileName: string, fileId?: number) {
+    this.startLoading();
     this.isSearchVisible = false;
     this.status = 'Loading ROM...';
     this.cdr.detectChanges();
@@ -116,6 +136,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     if (romBlobOrArray instanceof Blob) {
       romBlob = romBlobOrArray;
     } else {
+      this.stopLoading();
       throw new Error('getRomFile errored: expected Blob response');
     }
 
@@ -128,30 +149,30 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
     // 4) Try to load existing save state from database
     const saveStateBlob = await this.loadSaveStateFromDB(fileName);
- 
-// 5) Configure EmulatorJS globals BEFORE adding loader.js
-const core = this.detectCore(fileName);
-window.EJS_core       = core;
-window.EJS_player     = "#game";
-window.EJS_pathtodata = "/assets/emulatorjs/data/";
-window.EJS_coreUrl    = "/assets/emulatorjs/data/cores/";
 
-// ❗ BIOS: set ONLY if required by the selected core; otherwise blank
-window.EJS_biosUrl    = this.getBiosUrlForCore(core) ?? "";  // <— key fix
+    // 5) Configure EmulatorJS globals BEFORE adding loader.js
+    const core = this.detectCore(fileName);
+    window.EJS_core = core;
+    window.EJS_player = "#game";
+    window.EJS_pathtodata = "/assets/emulatorjs/data/";
+    window.EJS_coreUrl = "/assets/emulatorjs/data/cores/";
 
-window.EJS_gameUrl    = this.romObjectUrl;
-window.EJS_gameID     = `${core}:${this.fileService.getFileWithoutExtension(fileName)}`;
-window.EJS_gameName   = this.fileService.getFileWithoutExtension(this.romName ?? '');
-window.EJS_startOnLoaded = true;
-window.EJS_volume     = 0.5;
-window.EJS_lightgun   = false;
+    // ❗ BIOS: set ONLY if required by the selected core; otherwise blank
+    window.EJS_biosUrl = this.getBiosUrlForCore(core) ?? "";  // <— key fix
 
-// Optional callbacks (ok to keep)
-window.EJS_onSaveState = (state: Uint8Array) => this.onSaveState(state);
-window.EJS_onLoadState = () => this.onLoadState();
+    window.EJS_gameUrl = this.romObjectUrl;
+    window.EJS_gameID = `${core}:${this.fileService.getFileWithoutExtension(fileName)}`;
+    window.EJS_gameName = this.fileService.getFileWithoutExtension(this.romName ?? '');
+    window.EJS_startOnLoaded = true;
+    window.EJS_volume = 0.5;
+    window.EJS_lightgun = false;
 
-// ❌ Remove this line; not needed for normal games and can confuse core loading
-// window.EJS_gameParent = this.romObjectUrl;
+    // Optional callbacks (ok to keep)
+    window.EJS_onSaveState = (state: Uint8Array) => this.onSaveState(state);
+    window.EJS_onLoadState = () => this.onLoadState();
+
+    // ❌ Remove this line; not needed for normal games and can confuse core loading
+    // window.EJS_gameParent = this.romObjectUrl;
 
 
     // 6) Ensure CSS present once
@@ -165,7 +186,7 @@ window.EJS_onLoadState = () => this.onLoadState();
 
     // Ensure menu is closed when the emulator starts
     this.isMenuPanelOpen = false;
-    try { this.parentRef?.closeOverlay(); } catch {}
+    try { this.parentRef?.closeOverlay(); } catch { }
 
     // 7) Clear existing game container
     const gameContainer = document.getElementById('game');
@@ -189,9 +210,11 @@ window.EJS_onLoadState = () => this.onLoadState();
       // Resize game container to occupy available vertical space minus header (60px)
       this.setGameScreenHeight();
       await this.waitForEmulatorAndFocus();
+      // start autosave loop if enabled
+      try { this.setupAutosave(); } catch { }
     } else {
       // Reinitialize with new game URL
-      location.reload();
+      console.error('EmulatorJS loader already injected; dynamic game loading may not work correctly without a page refresh. Please refresh the page to load the new ROM.');
     }
 
     // 9) Load save state if it exists
@@ -201,33 +224,34 @@ window.EJS_onLoadState = () => this.onLoadState();
     }
 
     this.status = 'Running';
+    this.stopLoading();
     this.cdr.detectChanges();
   }
 
-/** Return a BIOS URL if the core truly needs one; otherwise undefined/empty */
-private getBiosUrlForCore(core: string): string | undefined {
-  switch (core) {
-    case 'mednafen_psx_hw':
-    case 'pcsx_rearmed': // if you ever switch PSX cores
-      // Make sure this file exists in dist/assets/emulatorjs/data/cores/bios/
-      return '/assets/emulatorjs/data/cores/bios/scph5501.bin';
+  /** Return a BIOS URL if the core truly needs one; otherwise undefined/empty */
+  private getBiosUrlForCore(core: string): string | undefined {
+    switch (core) {
+      case 'mednafen_psx_hw':
+      case 'pcsx_rearmed': // if you ever switch PSX cores
+        // Make sure this file exists in dist/assets/emulatorjs/data/cores/bios/
+        return '/assets/emulatorjs/data/cores/bios/scph5501.bin';
 
-    case 'melonds': // Nintendo DS typically needs firmware/bios
-      // You can also use a single firmware.bin if your core build expects it
-      return '/assets/emulatorjs/data/cores/bios/nds/firmware.bin';
+      case 'melonds': // Nintendo DS typically needs firmware/bios
+        // You can also use a single firmware.bin if your core build expects it
+        return '/assets/emulatorjs/data/cores/bios/nds/firmware.bin';
 
-    // Arcade examples (only for specific sets/systems)
-    case 'fbneo':
-    case 'mame2003_plus':
-      // Example: NeoGeo BIOS pack; only needed for NeoGeo titles
-      // return '/assets/emulatorjs/data/cores/bios/neogeo.zip';
-      return ''; // leave blank by default; set per-ROM if you know it’s needed
+      // Arcade examples (only for specific sets/systems)
+      case 'fbneo':
+      case 'mame2003_plus':
+        // Example: NeoGeo BIOS pack; only needed for NeoGeo titles
+        // return '/assets/emulatorjs/data/cores/bios/neogeo.zip';
+        return ''; // leave blank by default; set per-ROM if you know it’s needed
 
-    default:
-      // Most 8/16/32-bit consoles (e.g., mgba for GBA) run fine without BIOS
-      return '';
+      default:
+        // Most 8/16/32-bit consoles (e.g., mgba for GBA) run fine without BIOS
+        return '';
+    }
   }
-}
 
   private detectCore(fileName: string): string {
     const ext = this.fileService.getFileExtension(fileName).toLowerCase();
@@ -246,7 +270,7 @@ private getBiosUrlForCore(core: string): string | undefined {
       'nds': 'melonds',
       // Sega
       'smd': 'genesis_plus_gx',
-      'gen': 'genesis_plus_gx', 
+      'gen': 'genesis_plus_gx',
       '32x': 'picodrive',
       'gg': 'genesis_plus_gx',
       'sms': 'genesis_plus_gx',
@@ -314,7 +338,7 @@ private getBiosUrlForCore(core: string): string | undefined {
 
   private async loadSaveStateFromDB(romFileName: string): Promise<Blob | null> {
     if (!this.parentRef?.user?.id) return null;
-    
+
     try {
       const response = await this.romService.getEmulatorJSSaveState(romFileName, this.parentRef.user.id);
       if (response instanceof Blob && response.size > 0) {
@@ -328,18 +352,88 @@ private getBiosUrlForCore(core: string): string | undefined {
 
   private async onSaveState(state: Uint8Array) {
     if (!this.parentRef?.user?.id || !this.romName) return;
-    
+
     try {
       await this.romService.saveEmulatorJSState(this.romName, this.parentRef.user.id, state);
       console.log('Save state saved to database');
+      // resolve any pending save waiters (eg: on destroy)
+      try {
+        if (this._pendingSaveResolve) {
+          this._pendingSaveResolve(true);
+          this._pendingSaveResolve = undefined;
+        }
+      } catch { }
     } catch (err) {
       console.error('Failed to save state to database:', err);
+      try {
+        if (this._pendingSaveResolve) {
+          this._pendingSaveResolve(false);
+          this._pendingSaveResolve = undefined;
+        }
+      } catch { }
     }
   }
 
   private async onLoadState() {
     console.log('Loading state from database');
     // EmulatorJS handles the actual loading
+  }
+
+  /** Try to trigger EmulatorJS (or the running instance) to produce a save state. */
+  private callEjsSave(): void {
+    try {
+      // Preferred: instance API
+      if (this.emulatorInstance && typeof this.emulatorInstance.saveState === 'function') {
+        (this.emulatorInstance as any).saveState();
+        return;
+      }
+      // Common global used by some EmulatorJS builds
+      if (typeof (window as any).EJS_saveState === 'function') {
+        (window as any).EJS_saveState();
+        return;
+      }
+      // Some builds expose an API on the player element
+      const player = window.EJS_player as any;
+      if (player) {
+        let el: any = null;
+        if (typeof player === 'string') el = document.querySelector(player);
+        else el = player;
+        if (el && typeof el.saveState === 'function') { el.saveState(); return; }
+      }
+      console.warn('No known save API found for EmulatorJS; autosave skipped');
+    } catch (e) {
+      console.warn('callEjsSave failed', e);
+    }
+  }
+
+  /** Attempt a save and wait for `onSaveState` callback. Resolves true if saved. */
+  private attemptSaveNow(timeoutMs = 5000): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      // if no user or rom, nothing to do
+      if (!this.parentRef?.user?.id || !this.romName) return resolve(false);
+      // set pending resolver
+      this._pendingSaveResolve = (v?: any) => { resolve(!!v); };
+      // call save trigger
+      try { this.callEjsSave(); } catch { }
+      // fallback timeout
+      try { this._pendingSaveTimer = setTimeout(() => { if (this._pendingSaveResolve) { this._pendingSaveResolve(false); this._pendingSaveResolve = undefined; } resolve(false); }, timeoutMs); } catch { resolve(false); }
+    });
+  }
+
+  /** Start periodic autosave if enabled. */
+  private setupAutosave() {
+    try { this.clearAutosave(); } catch { }
+    if (!this.autosave || !this.romName || !this.parentRef?.user?.id) return;
+    this.autosaveInterval = setInterval(() => {
+      try {
+        this.callEjsSave();
+      } catch (e) { console.warn('Autosave call failed', e); }
+    }, this.autosaveIntervalTime);
+  }
+
+  private clearAutosave() {
+    if (this.autosaveInterval) { clearInterval(this.autosaveInterval); this.autosaveInterval = undefined; }
+    if (this._pendingSaveTimer) { clearTimeout(this._pendingSaveTimer); this._pendingSaveTimer = undefined; }
   }
 
   getAllowedFileTypes(): string[] {

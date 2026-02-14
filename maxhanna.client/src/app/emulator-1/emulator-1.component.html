@@ -30,11 +30,13 @@
 
   <!-- EmulatorJS Container -->
   <div id="game" 
-       [style.width]="'100%'" 
-       [style.max-width]="'960px'" 
-       [style.aspect-ratio]="'4/3'" 
-       [style.margin]="'auto'"
-       [style.display]="romName ? 'block' : 'none'">
+    [style.width]="'100%'" 
+    [style.max-width]="'960px'" 
+    [style.aspect-ratio]="'4/3'" 
+    [style.maxHeight]="romName ? 'calc(100% - 60px)' : ''"
+    [style.height]="romName ? 'calc(100% - 60px)' : ''"
+    [style.margin]="'auto'"
+    [style.display]="romName ? 'block' : 'none'">
   </div>
 
   <!-- Status Display -->
@@ -52,6 +54,17 @@
   <div style="margin-bottom: 15px;">
     <p>Status: {{ status }}</p>
     <p *ngIf="romName">Playing: {{ getRomName() }}</p>
+  </div>
+
+  <div class="optionsStatsDiv" style="margin-bottom:12px;">
+    <div style="font-weight:600; margin-bottom:6px;">Autosave:</div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <label class="toggle-switch">
+        <input type="checkbox" [checked]="autosave" (change)="autosave = !autosave; if (autosave) setupAutosave(); else clearAutosave();">
+        <span class="slider"></span>
+      </label>
+      <div style="font-size:13px; color:#666;">{{ autosave ? 'On' : 'Off' }}</div>
+    </div>
   </div>
 
   <button *ngIf="romName" (click)="toggleFullScreen()" style="margin-bottom: 10px; width: 100%;">
