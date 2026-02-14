@@ -105,7 +105,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     }
     // After the save prompt, navigate the user back to the public home page.
     try {
-      window.location.replace('https://bughosted.com/');
+      window.location.replace('/');
     } catch { }
   }
 
@@ -921,17 +921,13 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     if (item) item.expanded = !item.expanded;
   }
 
-  /** Absolute URL to your clean entry page. Works in prod and local/dev (no hardcoding). */
   private getEmuHomeUrl(): string {
-    // If you must hardcode production, replace with: return 'https://www.bughosted.com/1Emulator';
     return `${location.protocol}//${location.host}/1Emulator`;
   }
 
-  /** Full reload for a guaranteed fresh EmulatorJS context. Optional query params supported. */
   private fullReloadToHome(extraParams?: Record<string, string>): void {
     const base = this.getEmuHomeUrl();
     const q = extraParams ? `?${new URLSearchParams(extraParams).toString()}` : '';
-    // Use replace() so back-button doesn't bounce the user back into the "closing" page.
     window.location.replace(base + q);
   }
 
