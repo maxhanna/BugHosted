@@ -301,7 +301,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       'sms': 'genesis_plus_gx',
       // PlayStation
       'cue': 'mednafen_psx_hw',
-      'bin': 'mednafen_psx_hw',
+      'bin': 'pcsx_rearmed',
       'iso': 'mednafen_psx_hw',
       'chd': 'mednafen_psx_hw',
       // Other systems
