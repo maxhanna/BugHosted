@@ -219,6 +219,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       try { this.setupAutosave(); } catch { }
     } else {
       // Reinitialize with new game URL
+      await this.reloadEJSForNewGame();
       console.error('EmulatorJS loader already injected; dynamic game loading may not work correctly without a page refresh. Please refresh the page to load the new ROM.');
     }
 
@@ -231,6 +232,41 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     this.status = 'Running';
     this.stopLoading();
     this.cdr.detectChanges();
+  }
+
+  /** Reinitialize EmulatorJS for a new ROM in the same page. */
+  private async reloadEJSForNewGame(): Promise<void> {
+    const w = window as any;
+
+    // 1) Hard stop current runtime and clear DOM
+    await this.hardStopEmulatorEJS();
+
+    // 2) Remove the previous loader script (if still present) and reset flag
+    const old = document.querySelector<HTMLScriptElement>('script[data-ejs-loader="1"]');
+    if (old && old.parentElement) old.parentElement.removeChild(old);
+    w.__ejsLoaderInjected = false;
+
+    // 3) Re-inject loader.js (same code path you use on first load)
+    await new Promise<void>((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = '/assets/emulatorjs/data/loader.js';
+      s.async = false;
+      s.defer = false;
+      s.setAttribute('data-ejs-loader', '1');
+      s.onload = () => {
+        w.__ejsLoaderInjected = true;
+        // Do sizing & focus on the next frames for smoothness
+        requestAnimationFrame(() => {
+          this.setGameScreenHeight();
+          requestAnimationFrame(() => this.waitForEmulatorAndFocus().then(() => resolve()));
+        });
+      };
+      s.onerror = () => reject(new Error('Failed to load EmulatorJS loader.js'));
+      document.body.appendChild(s);
+    });
+
+    // (Re)start autosave if enabled
+    try { this.setupAutosave(); } catch { }
   }
 
   private hideEJSMenu() {
@@ -253,28 +289,36 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     };
   }
 
-  /** Return a BIOS URL if the core truly needs one; otherwise undefined/empty */
+  /**
+   * Return a BIOS/firmware URL when the selected core requires one.
+   * Return `undefined` when no BIOS is required (caller will fall back to empty string).
+   * Keep this list minimal and explicit — prefer per-ROM overrides for unusual cases.
+   */
   private getBiosUrlForCore(core: string): string | undefined {
     switch (core) {
+      // PlayStation (common BIOS used by many PS1 cores)
       case 'mednafen_psx_hw':
       case 'pcsx_rearmed': // if you ever switch PSX cores
-        // Make sure this file exists in dist/assets/emulatorjs/data/cores/bios/
+      case 'duckstation':
+      case 'mednafen_psx':
         return '/assets/emulatorjs/data/cores/bios/scph5501.bin';
 
-      case 'melonds': // Nintendo DS typically needs firmware/bios
-        // You can also use a single firmware.bin if your core build expects it
+      // Nintendo DS firmware
+      case 'melonds':
         return '/assets/emulatorjs/data/cores/bios/nds/firmware.bin';
 
-      // Arcade examples (only for specific sets/systems)
+      // NeoGeo / arcade BIOS packs (only for specific ROM sets)
       case 'fbneo':
       case 'mame2003_plus':
-        // Example: NeoGeo BIOS pack; only needed for NeoGeo titles
+        // If you need NeoGeo BIOS support, place a zip or appropriate files here and
+        // return the path to it. Default is to return undefined so cores that don't
+        // need BIOS won't get confused.
         // return '/assets/emulatorjs/data/cores/bios/neogeo.zip';
-        return ''; // leave blank by default; set per-ROM if you know it’s needed
+        return undefined;
 
+      // By default, do not supply a BIOS URL — caller will treat undefined as "no BIOS".
       default:
-        // Most 8/16/32-bit consoles (e.g., mgba for GBA) run fine without BIOS
-        return '';
+        return undefined;
     }
   }
 
