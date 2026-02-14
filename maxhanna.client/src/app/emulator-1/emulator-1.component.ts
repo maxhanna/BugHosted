@@ -245,38 +245,50 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
   /** Reinitialize EmulatorJS for a new ROM in the same page. */
+
+  /** Reinitialize EmulatorJS for a new ROM in the same page safely (no re-declare). */
   private async reloadEJSForNewGame(): Promise<void> {
     const w = window as any;
 
-    // 1) Hard stop current runtime and clear DOM
+    // 1) Stop runtime & clear DOM
     await this.hardStopEmulatorEJS();
 
-    // 2) Clear any cached EJS settings that could override input on the next run
-    // this.clearEjsLocalState(); // TEMP: comment out to confirm boot path
+    // 2) (Optional while stabilizing) avoid clearing localStorage until boot is consistent
+    // this.clearEjsLocalState();
 
-    // 3) Remove the previous loader script (if still present) and reset flag
-    const old = document.querySelector<HTMLScriptElement>('script[data-ejs-loader="1"]');
-    if (old?.parentElement) old.parentElement.removeChild(old);
+    // 3) Remove **all** previously injected EmulatorJS scripts (loader, emulator.min.js, core bridges, etc.)
+    try {
+      const scripts = Array.from(document.querySelectorAll<HTMLScriptElement>('script[src]'));
+      for (const s of scripts) {
+        const src = s.getAttribute('src') || '';
+        // adjust the prefix if your path differs
+        if (src.includes('/assets/emulatorjs/data/')) {
+          s.parentElement?.removeChild(s);
+        }
+      }
+    } catch { }
+
+    // 4) Reset loader flags/globals that gate initialization
     w.__ejsLoaderInjected = false;
 
-    // 4) Apply run options again (so the new loader picks them up)
+    // 5) Re-apply run options so loader picks them up
     this.applyEjsRunOptions();
 
-    // 5) Re-inject loader.js
+    // 6) Re-inject a fresh loader (cache-busted so we don't get a cached copy)
     await new Promise<void>((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = '/assets/emulatorjs/data/loader.js';
+      s.src = `/assets/emulatorjs/data/loader.js?v=${Date.now()}`;
       s.async = false;
       s.defer = false;
       s.setAttribute('data-ejs-loader', '1');
       s.onload = () => {
         w.__ejsLoaderInjected = true;
-        // smooth sizing & focus after DOM settles
         requestAnimationFrame(() => {
           this.setGameScreenHeight();
           requestAnimationFrame(async () => {
-            this.waitForEmulatorAndFocus().then(() => resolve());
+            await this.waitForEmulatorAndFocus();
             this.lockGameHostHeight();
+            resolve();
           });
         });
       };
@@ -284,7 +296,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       document.body.appendChild(s);
     });
 
-    // 6) (Re)start autosave if enabled
+    // 7) Restart autosave if needed
     try { this.setupAutosave(); } catch { }
   }
 
@@ -304,7 +316,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       quickSave: false,
       quickLoad: false,
       screenshot: false,
-      cacheManage: false,
     };
   }
 
