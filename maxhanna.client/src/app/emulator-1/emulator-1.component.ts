@@ -394,7 +394,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       const gameEl = document.getElementById('game');
       if (gameEl) {
         if (this.romName) {
-          gameEl.style.height = 'calc(100% - 60px)';
+          gameEl.style.height = 'calc(100vh - 60px)';
           gameEl.style.removeProperty('aspect-ratio');
         } else {
           gameEl.style.height = '';
@@ -704,7 +704,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     const gameEl = document.getElementById('game');
     if (!gameEl) return;
     // Use calc so it responds to viewport changes; remove aspect-ratio to allow full height
-    gameEl.style.height = 'calc(100% - 60px)';
+    gameEl.style.height = 'calc(100vh - 60px)';
     gameEl.style.maxHeight = '100vh';
     // Keep width at 100% but allow the core renderer to scale
     gameEl.style.width = '100%';
@@ -723,7 +723,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         else if ((gameEl as any).webkitRequestFullscreen) await (gameEl as any).webkitRequestFullscreen();
         this.isFullScreen = true;
         // ensure sizing in fullscreen
-        gameEl.style.height = 'calc(100% - 60px)';
+        gameEl.style.height = 'calc(100vh - 60px)';
         gameEl.style.removeProperty('aspect-ratio');
       } else {
         await this.exitFullScreen();
@@ -746,7 +746,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     this.isFullScreen = false;
     const gameEl = document.getElementById('game');
     if (gameEl) {
-      gameEl.style.height = this.romName ? 'calc(100% - 60px)' : '';
+      gameEl.style.height = this.romName ? 'calc(100vh - 60px)' : '';
       if (!this.romName) gameEl.style.aspectRatio = '4/3';
       gameEl.style.removeProperty('max-height');
     }
