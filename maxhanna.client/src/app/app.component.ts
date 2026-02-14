@@ -434,7 +434,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         } 
         else if (this.router.url.toLowerCase().includes('1emu')) {
           this.checkAndClearRouterOutlet();
-          this.createComponent('Emulator1');
+          this.createComponent('1Emulator');
         } 
         else if (this.router.url.toLowerCase().includes('emu')) {
           this.checkAndClearRouterOutlet();
