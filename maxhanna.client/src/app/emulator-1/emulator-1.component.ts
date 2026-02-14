@@ -19,6 +19,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   isFullScreen = false;
   romName?: string;
   isFileUploaderExpanded = false;
+  isFaqOpen = false;
   isSearchVisible = true;
   autosave = true;
   autosaveIntervalTime: number = 180000; // 3 minutes
@@ -168,6 +169,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     // Optional callbacks (ok to keep)
     window.EJS_onSaveState = (state: Uint8Array) => this.onSaveState(state);
     window.EJS_onLoadState = () => this.onLoadState();
+    this.applyEjsRunOptions();
+
 
     // ❌ Remove this line; not needed for normal games and can confuse core loading
     // window.EJS_gameParent = this.romObjectUrl;
@@ -220,7 +223,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     } else {
       // Reinitialize with new game URL
       await this.reloadEJSForNewGame();
-      console.error('EmulatorJS loader already injected; dynamic game loading may not work correctly without a page refresh. Please refresh the page to load the new ROM.');
+      //console.error('EmulatorJS loader already injected; dynamic game loading may not work correctly without a page refresh. Please refresh the page to load the new ROM.');
     }
 
     // 9) Load save state if it exists
@@ -241,12 +244,18 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     // 1) Hard stop current runtime and clear DOM
     await this.hardStopEmulatorEJS();
 
-    // 2) Remove the previous loader script (if still present) and reset flag
+    // 2) Clear any cached EJS settings that could override input on the next run
+    this.clearEjsLocalState();
+
+    // 3) Remove the previous loader script (if still present) and reset flag
     const old = document.querySelector<HTMLScriptElement>('script[data-ejs-loader="1"]');
-    if (old && old.parentElement) old.parentElement.removeChild(old);
+    if (old?.parentElement) old.parentElement.removeChild(old);
     w.__ejsLoaderInjected = false;
 
-    // 3) Re-inject loader.js (same code path you use on first load)
+    // 4) Apply run options again (so the new loader picks them up)
+    this.applyEjsRunOptions();
+
+    // 5) Re-inject loader.js
     await new Promise<void>((resolve, reject) => {
       const s = document.createElement('script');
       s.src = '/assets/emulatorjs/data/loader.js';
@@ -255,7 +264,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       s.setAttribute('data-ejs-loader', '1');
       s.onload = () => {
         w.__ejsLoaderInjected = true;
-        // Do sizing & focus on the next frames for smoothness
+        // smooth sizing & focus after DOM settles
         requestAnimationFrame(() => {
           this.setGameScreenHeight();
           requestAnimationFrame(() => this.waitForEmulatorAndFocus().then(() => resolve()));
@@ -265,7 +274,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       document.body.appendChild(s);
     });
 
-    // (Re)start autosave if enabled
+    // 6) (Re)start autosave if enabled
     try { this.setupAutosave(); } catch { }
   }
 
@@ -382,6 +391,44 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     };
     return coreMap[ext] || 'mgba';
   }
+
+
+  /** Make sure every run uses *your* options (not cached ones) and input is enabled. */
+  private applyEjsRunOptions(): void {
+    const w = window as any;
+
+    // Always apply your defaults on *every* start (prevents old cached settings from winning)
+    // Supported by recent 4.2.x builds.
+    w.EJS_defaultOptionsForce = true;              // force defaults every run  (docs: config system)
+    // If you ever want to test without any caching at all, uncomment:
+    // w.EJS_disableLocalStorage = true;
+
+    // Ensure input is enabled each run (names are stable across 4.x)
+    w.EJS_directKeyboardInput = true;              // deliver raw key events to the core
+    w.EJS_enableGamepads = true;              // let cores read the gamepad state
+    w.EJS_disableAltKey = true;              // avoid Alt being swallowed by browser/UI
+
+    // Optional quality-of-life: when the emulator starts, focus the game element so inputs flow
+    w.EJS_afterStart = () => {
+      try {
+        const gameEl = document.getElementById('game');
+        const canvas = gameEl?.querySelector('canvas') as HTMLElement | null;
+        (canvas ?? gameEl)?.setAttribute?.('tabindex', '0');
+        (canvas ?? gameEl)?.focus?.();
+      } catch { }
+    };
+  }
+
+  /** Remove stale per-run settings that can interfere with input rebinding. */
+  private clearEjsLocalState(): void {
+    try {
+      const ls = window.localStorage;
+      Object.keys(ls)
+        .filter(k => k.startsWith('EJS_') || k.startsWith('ejs_'))
+        .forEach(k => { try { ls.removeItem(k); } catch { } });
+    } catch { }
+  }
+
 
   // bound handler so we can add/remove listeners easily
   private onFullscreenChangeBound = this.onFullscreenChange.bind(this);
@@ -817,5 +864,11 @@ declare global {
     EJS_onLoadState?: () => void;
     __ejsLoaderInjected?: boolean;
     __EJS_ALIVE__?: boolean;
+    EJS_defaultOptionsForce?: boolean;
+    EJS_disableLocalStorage?: boolean;
+    EJS_directKeyboardInput?: boolean;
+    EJS_enableGamepads?: boolean;
+    EJS_disableAltKey?: boolean;
+    EJS_afterStart?: () => void;
   }
 }
