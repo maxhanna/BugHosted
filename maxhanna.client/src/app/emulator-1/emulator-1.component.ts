@@ -43,6 +43,13 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   async ngOnDestroy(): Promise<void> {
    
   }
+
+  getRomName(): string {
+    if (this.romName) {
+      return this.romName;
+    }
+    else return '1Emulator';
+  }
  
   showMenuPanel() {
     this.isMenuPanelOpen = true;
