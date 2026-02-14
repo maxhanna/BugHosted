@@ -101,7 +101,9 @@
                       class="fileFolderNameSpan {{file.isFolder ? 'folder' : ''}}"
                       (click)="!disabled && selectFile(file);"
                       [id]="'fileIdName'+file.id">
-                  {{file.isFolder ? '📁' : ''}}{{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '')}}
+                  {{file.isFolder ? '📁' : ''}}{{ 
+                    showSystemIcons ? getSystemEmoji(file.fileName ?? '') 
+                  : (file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? ''))}}
                 </span>
               </span>
               <div class="fileExtras fileOptionsActionWrapper">

@@ -55,6 +55,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() showVideosOnlyToggler: boolean = true;
   @Input() showNSFWToggler: boolean = true;
   @Input() showHiddenFilesToggler: boolean = true;
+  @Input() showSystemIcons: boolean = false;
   @Output() selectedForDeleteChange = new EventEmitter<number[]>();
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
@@ -468,7 +469,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       alert('You must be logged in to view NSFW content.');
       this.isDisplayingNSFW = false;
       return;
-    } 
+    }
     this.isDisplayingNSFW = !this.isDisplayingNSFW;
     this.userService.updateNSFW(user.id, this.isDisplayingNSFW).then(res => {
       if (res) {
@@ -1285,5 +1286,57 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     } catch { }
     this.fileTypeFilter = '';
     try { this.onFiletypeFilterChange(); } catch { }
+  }
+  /** Return a small emoji representing the system inferred from the file extension. */
+  getSystemEmoji(fileName?: string): string {
+    if (!fileName) return '';
+    const ext = this.fileService.getFileExtension(fileName).toLowerCase();
+    const map: { [key: string]: string } = {
+      // Nintendo family
+      'gba': '🎮',
+      'nes': '🕹️',
+      'famicom': '🕹️',
+      'vb': '🟥',
+      'gb': '🟩',
+      'gbc': '🟩',
+      'snes': '🎛️',
+      'sfc': '🎛️',
+      'nds': '📱',
+      'n64': '🎲',
+      'z64': '🎲',
+      'v64': '🎲',
+
+      // Sega
+      'smd': '🔵',
+      'gen': '🔵',
+      '32x': '🟦',
+      'gg': '🔵',
+      'sms': '🔵',
+      'bin': '💠',
+
+      // Atari
+      'a78': '🕹️',
+      '2600': '🕹️',
+      '5200': '🕹️',
+      '7800': '🕹️',
+      'lynx': '🕹️',
+      'jag': '🕹️',
+
+      // Commodore / Amiga
+      'd64': '🖥️',
+      'adf': '🖥️',
+      'c64': '🖥️',
+
+      // Other / PlayStation / PSP / Arcade
+      'cue': '🔷',
+      'iso': '🔷',
+      'chd': '🔷',
+      'pbp': '🔷',
+      'zip': '🕹️',
+      'wad': '🕹️',
+      'ccd': '🕹️'
+    };
+
+    return map[ext] ?? '';
   }
 }

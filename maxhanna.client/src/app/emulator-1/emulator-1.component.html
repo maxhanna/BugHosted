@@ -6,17 +6,95 @@
   </div>
 
   <!-- ROM File Selector -->
-  <div [class]="'popupPanel' + (isFileUploaderExpanded ? ' uploaderPopupPanel' : '')" *ngIf="isMenuPanelOpen">
-    <div class="popupPanelTitle" style="margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; gap:8px;">
-      <div>Emulator Menu</div>
-      <div style="display:flex; gap:8px; align-items:center;">
-        <button (click)="isFaqOpen = !isFaqOpen" style="font-size:12px; padding:6px 8px;">{{ isFaqOpen ? 'Close FAQ' : 'FAQ' }}</button>
-      </div>
-    </div>
+  <div class="gamesContainer{{ !romName ? ' expanded' : '' }}" *ngIf="isSearchVisible">
+    <app-file-search 
+      [user]="parentRef?.user" 
+      [inputtedParentRef]="parentRef" 
+      [currentDirectory]="'Roms/'"
+      [clearAfterSelectFile]="true" 
+      [allowedFileTypes]="getAllowedFileTypes()" 
+      [showPrivatePublicOption]="false"
+      [showFileSearchOptions]="false" 
+      [canChangeDirectory]="false" 
+      [canDragMove]="false" 
+      [displayFileActions]="true"
+      [displayComments]="false" 
+      [displayFileSize]="false" 
+      [displayReactions]="false"
+      [showPicturesOnlyToggler]="false" 
+      [showVideosOnlyToggler]="false" 
+      [showNSFWToggler]="false"
+      [showSystemIcons]="true"
+      (selectFileEvent)="onRomSelected($event)">
+    </app-file-search>
+  </div>
 
+  <!-- EmulatorJS Container -->
+  <div id="game" 
+    [style.width]="'100%'" 
+    [style.max-width]="'960px'" 
+    [style.aspect-ratio]="'4/3'"
+    [style.height]="romName ? 'calc(100vh - 60px)' : '1px'"
+    [style.margin]="'auto'"
+    [style.display]="romName ? 'block' : 'none'">
+  </div>
+
+  <!-- Status Display -->
+  <div *ngIf="!romName" style="text-align: center; padding: 20px; color: #666;">
+    {{ status }}
+  </div>
+</div>
+
+<!-- Menu Popup -->
+<div [class]="'popupPanel' + (isFileUploaderExpanded ? ' uploaderPopupPanel' : '')" *ngIf="isMenuPanelOpen">
+  <div class="popupPanelTitle" style="margin-bottom:15px;" *ngIf="!isFaqOpen">
+    Emulator Menu
+  </div>
+  
+  <div style="margin-bottom: 15px;" *ngIf="!isFaqOpen">
+    <p>Status: {{ status }}</p>
+    <p *ngIf="romName">Playing: {{ getRomName() }}</p>
+  </div>
+
+  <div class="optionsStatsDiv" style="margin-bottom:12px;" *ngIf="!isFaqOpen">
+    <div style="font-weight:600; margin-bottom:6px;">Autosave:</div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <label class="toggle-switch">
+        <input type="checkbox" [checked]="autosave" (change)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();">
+        <span class="slider"></span>
+      </label>
+      <div style="font-size:13px; color:#666;">{{ autosave ? 'On' : 'Off' }}</div>
+    </div>
+  </div>
+
+  <button *ngIf="romName && !isFaqOpen" (click)="toggleFullScreen()" style="margin-bottom: 10px; width: 100%;">
+    {{ isFullScreen ? 'Exit Fullscreen' : 'Enter Fullscreen' }}
+  </button>
+
+  <button *ngIf="romName && !isFaqOpen" (click)="stopEmulator()" style="margin-bottom: 10px; width: 100%;">
+    Stop Emulator & Return to ROM Selection
+  </button>
+  <button (click)="isFaqOpen = !isFaqOpen" style="margin-bottom: 10px; width: 100%;">
+    {{isFaqOpen ? 'Hide FAQ' : 'View FAQ'}}
+  </button>
+
+  <div style="margin-top:10px; margin-bottom:10px;" *ngIf="!isFaqOpen">
+    <app-file-upload 
+      [currentDirectory]="'Roms'" 
+      [user]="parentRef?.user!" 
+      [inputtedParentRef]="parentRef"
+      [uploadButtonText]="'Upload Rom(s)'" 
+      [maxSelectedFiles]="100" 
+      [allowedFileTypes]="getAllowedRomFileTypesString()"
+      [displayOptionsAndTopicsButtons]="false" 
+      (userUploadEvent)="isFileUploaderExpanded = true;"
+      (userCancelEvent)="isFileUploaderExpanded = false;"
+      (finishFileUploadingEvent)="finishFileUploading()">
+    </app-file-upload>
+  </div> 
     <!-- FAQ Panel: when open, hide the rest of the menu -->
-    <div *ngIf="isFaqOpen" class="faqPanel" style="max-height:60vh; overflow:auto; padding:6px 4px;">
-      <div style="font-weight:700; margin-bottom:10px;">Frequently Asked Questions</div>
+    <div *ngIf="isFaqOpen" style="max-height:60vh; overflow:auto; padding:6px 4px;">
+      <div class="popupPanelTitle">Frequently Asked Questions</div>
 
       <div style="margin-bottom:12px;">
         <div style="font-weight:600;">Q: My controller is connected but doesn't work—what should I do?</div>
@@ -42,88 +120,5 @@
         <button (click)="isFaqOpen = false" style="width:100%;">Back to Menu</button>
       </div>
     </div>
-
-    <ng-container *ngIf="!isFaqOpen">
-      <div style="margin-bottom: 15px;">
-        <p>Status: {{ status }}</p>
-        <p *ngIf="romName">Playing: {{ getRomName() }}</p>
-      </div>
-
-      <div class="optionsStatsDiv" style="margin-bottom:12px;">
-        <div style="font-weight:600; margin-bottom:6px;">Autosave:</div>
-        <div style="display:flex; align-items:center; gap:8px;">
-          <label class="toggle-switch">
-            <input type="checkbox" [checked]="autosave" (change)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();">
-            <span class="slider"></span>
-          </label>
-          <div style="font-size:13px; color:#666;">{{ autosave ? 'On' : 'Off' }}</div>
-        </div>
-      </div>
-
-      <button *ngIf="romName" (click)="toggleFullScreen()" style="margin-bottom: 10px; width: 100%;">
-        {{ isFullScreen ? 'Exit Fullscreen' : 'Enter Fullscreen' }}
-      </button>
-
-      <button *ngIf="romName" (click)="stopEmulator()" style="margin-bottom: 10px; width: 100%;">
-        Stop Emulator & Return to ROM Selection
-      </button>
-
-      <div style="margin-top:10px; margin-bottom:10px;">
-        <app-file-upload 
-          [currentDirectory]="'Roms'" 
-          [user]="parentRef?.user!" 
-          [inputtedParentRef]="parentRef"
-          [uploadButtonText]="'Upload Rom(s)'" 
-          [maxSelectedFiles]="100" 
-          [allowedFileTypes]="getAllowedRomFileTypesString()"
-          [displayOptionsAndTopicsButtons]="false" 
-          (userUploadEvent)="isFileUploaderExpanded = true;"
-          (userCancelEvent)="isFileUploaderExpanded = false;"
-          (finishFileUploadingEvent)="finishFileUploading()">
-        </app-file-upload>
-      </div>
-    
-      <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
-    </ng-container>
-  
-  <div style="margin-bottom: 15px;">
-    <p>Status: {{ status }}</p>
-    <p *ngIf="romName">Playing: {{ getRomName() }}</p>
-  </div>
-
-  <div class="optionsStatsDiv" style="margin-bottom:12px;">
-    <div style="font-weight:600; margin-bottom:6px;">Autosave:</div>
-    <div style="display:flex; align-items:center; gap:8px;">
-      <label class="toggle-switch">
-        <input type="checkbox" [checked]="autosave" (change)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();">
-        <span class="slider"></span>
-      </label>
-      <div style="font-size:13px; color:#666;">{{ autosave ? 'On' : 'Off' }}</div>
-    </div>
-  </div>
-
-  <button *ngIf="romName" (click)="toggleFullScreen()" style="margin-bottom: 10px; width: 100%;">
-    {{ isFullScreen ? 'Exit Fullscreen' : 'Enter Fullscreen' }}
-  </button>
-
-  <button *ngIf="romName" (click)="stopEmulator()" style="margin-bottom: 10px; width: 100%;">
-    Stop Emulator & Return to ROM Selection
-  </button>
-
-  <div style="margin-top:10px; margin-bottom:10px;">
-    <app-file-upload 
-      [currentDirectory]="'Roms'" 
-      [user]="parentRef?.user!" 
-      [inputtedParentRef]="parentRef"
-      [uploadButtonText]="'Upload Rom(s)'" 
-      [maxSelectedFiles]="100" 
-      [allowedFileTypes]="getAllowedRomFileTypesString()"
-      [displayOptionsAndTopicsButtons]="false" 
-      (userUploadEvent)="isFileUploaderExpanded = true;"
-      (userCancelEvent)="isFileUploaderExpanded = false;"
-      (finishFileUploadingEvent)="finishFileUploading()">
-    </app-file-upload>
-  </div>
- 
   <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
 </div>
