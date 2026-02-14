@@ -305,14 +305,7 @@ if (config.enableHelmet) {
     // Required for COEP: require-corp — don't remove
     crossOriginResourcePolicy: { policy: "cross-origin" }
   }));
-}
-
-// Cross‑origin isolation required for EmulatorJS's SharedArrayBuffer
-app.use((req, res, next) => {
-  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-  res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
-  next();
-});
+} 
 
 
 // ============================================================================
