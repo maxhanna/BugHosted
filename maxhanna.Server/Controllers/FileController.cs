@@ -1158,7 +1158,6 @@ LIMIT
 				) ";
 			}
 
-
 			if (string.IsNullOrWhiteSpace(search))
 				return (searchCondition, new List<MySqlParameter>());
 

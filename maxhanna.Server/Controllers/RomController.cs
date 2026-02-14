@@ -92,7 +92,7 @@ namespace maxhanna.Server.Controllers
 
             var fileExists = Convert.ToInt32(await checkCommand.ExecuteScalarAsync()) > 0;
 
-            if (!fileExists)
+            if (!fileExists && !isSaveFile)
             {
               // Determine file type based on extension (save files explicitly 'sav')
               var extension = Path.GetExtension(file.FileName)?.ToLowerInvariant().Trim('.') ?? string.Empty;
@@ -113,7 +113,7 @@ namespace maxhanna.Server.Controllers
               _ = _log.Db($"Uploaded rom file: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}, Type: {fileType}, isSaveFile: {isSaveFile}", userId, "ROM", true);
 
             }
-            else
+            else if (isSaveFile)
             {
               // Update last_access to reflect current interaction (especially for .sav updates)
               var updateLastAccess = new MySqlCommand("UPDATE maxhanna.file_uploads SET last_access = UTC_TIMESTAMP(), last_updated = UTC_TIMESTAMP(), last_updated_by_user_id = @user_id WHERE file_name = @fileName AND folder_path = @folderPath LIMIT 1;", connection);
