@@ -465,7 +465,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
   /** Try to trigger a save via whatever API this build exposes. */
-  private callEjsSave(): void {
+  callEjsSave(): void {
     try {
       // 1) If we discovered a save function, use it
       if (this._saveFn) { this._saveFn(); return; }
