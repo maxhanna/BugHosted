@@ -123,6 +123,10 @@ window.EJS_onLoadState = () => this.onLoadState();
       document.head.appendChild(link);
     }
 
+    // Ensure menu is closed when the emulator starts
+    this.isMenuPanelOpen = false;
+    try { this.parentRef?.closeOverlay(); } catch {}
+
     // 7) Clear existing game container
     const gameContainer = document.getElementById('game');
     if (gameContainer) {
@@ -141,6 +145,10 @@ window.EJS_onLoadState = () => this.onLoadState();
         s.onerror = () => reject(new Error('Failed to load EmulatorJS loader.js'));
         document.body.appendChild(s);
       });
+      // Once loader is injected we may need to focus the inner emulator element
+      // Resize game container to occupy available vertical space minus header (60px)
+      this.setGameScreenHeight();
+      await this.waitForEmulatorAndFocus();
     } else {
       // Reinitialize with new game URL
       location.reload();
@@ -293,6 +301,45 @@ private getBiosUrlForCore(core: string): string | undefined {
     ];
   }
 
+  /** Try to focus the emulator's interactive element (canvas/iframe/container). */
+  private async waitForEmulatorAndFocus(maxAttempts = 8, delayMs = 200): Promise<boolean> {
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise(r => setTimeout(r, delayMs));
+      const gameEl = document.getElementById('game');
+      if (!gameEl) continue;
+      // Prefer canvas, then iframe, then any focusable child
+      const canvas = gameEl.querySelector('canvas') as HTMLElement | null;
+      const iframe = gameEl.querySelector('iframe') as HTMLElement | null;
+      const focusTarget = canvas || iframe || gameEl;
+      if (focusTarget) {
+        try {
+          focusTarget.setAttribute('tabindex', '0');
+          (focusTarget as HTMLElement).focus();
+          // small user gesture simulation to reduce lost-focus issues
+          focusTarget.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+          focusTarget.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+        } catch (e) {
+          // ignore
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Force the game container to fill vertical space minus a 60px header. */
+  private setGameScreenHeight(): void {
+    const gameEl = document.getElementById('game');
+    if (!gameEl) return;
+    // Use calc so it responds to viewport changes; remove aspect-ratio to allow full height
+    gameEl.style.height = 'calc(100% - 60px)';
+    gameEl.style.maxHeight = '100vh';
+    // Keep width at 100% but allow the core renderer to scale
+    gameEl.style.width = '100%';
+    // Remove the aspect ratio so the height takes effect
+    gameEl.style.removeProperty('aspect-ratio');
+  }
+
   getRomName(): string {
     if (this.romName) {
       return this.fileService.getFileWithoutExtension(this.romName);
@@ -309,6 +356,12 @@ private getBiosUrlForCore(core: string): string | undefined {
     this.status = 'Ready - Select a ROM';
     this.romName = undefined;
     this.closeMenuPanel();
+    // Reset game container sizing
+    const gameEl = document.getElementById('game');
+    if (gameEl) {
+      gameEl.style.height = '';
+      gameEl.style.aspectRatio = '';
+    }
     this.cdr.detectChanges();
   }
 
