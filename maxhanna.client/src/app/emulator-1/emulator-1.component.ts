@@ -1719,8 +1719,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
     style = document.createElement('style');
     style.setAttribute('data-vpad-overrides', '2');
-    
-style.textContent = `
+
+    style.textContent = `
 /* ===== classes we add to the *actual* clickable nodes ===== */
 
 /* D-pad slightly bigger */
@@ -1779,7 +1779,7 @@ style.textContent = `
   .max-pill.is-a { transform: translate(-22px, 6px) !important; }
   .max-pill.is-b { transform: translate(-34px, 20px) !important; }
 }
-`; 
+`;
     root.appendChild(style);
     return style;
   }
@@ -1816,7 +1816,7 @@ style.textContent = `
     console.log('ids present:', ['btnA', 'btnB', 'speed_fast', 'speed_slow', 'start', 'select'].map(id => [id, !!document.getElementById(id)]));
     if (root) {
       console.log('buttons sample:', Array.from(root.querySelectorAll('.ejs_button, .ejs-button, button, [role="button"]')).slice(0, 10).map(n => ({ tag: n.tagName, cls: n.className, txt: n.textContent?.trim() })));
-      this.ensureVpadStyleSheet(root as HTMLElement); 
+      this.ensureVpadStyleSheet(root as HTMLElement);
     }
 
     if (!root) return;
@@ -1841,7 +1841,7 @@ style.textContent = `
     if (!b) b = this.findByLabel(root, ['B']);
 
     if (a) { a.classList.add('max-pill', 'is-a'); }
-    if (b) { b.classList.add('max-pill', 'is-b'); } 
+    if (b) { b.classList.add('max-pill', 'is-b'); }
 
     // ---------- Speed Fast / Slow ----------
     const fastHost = document.getElementById('speed_fast');
