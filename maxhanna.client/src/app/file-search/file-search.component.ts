@@ -1354,7 +1354,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.fileTypeFilter = '';
     try { this.onFiletypeFilterChange(); } catch { }
   }
-  /** Return a small emoji or an <img> icon representing the system inferred from the file extension. */
   getSystemEmoji(fileName?: string, styling?: string): SafeHtml | string {
     if (!fileName) return '';
     const ext = this.fileService.getFileExtension(fileName).toLowerCase();
@@ -1440,8 +1439,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       'zip': '🕹️',
       'wad': '🕹️',
       'ccd': '🕹️'
-    };
-
+    }; 
     return map[ext] ?? '';
   }
 }
