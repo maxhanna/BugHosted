@@ -1499,13 +1499,11 @@ const speedButtons: VPadItem[] = [
 private ensureTouchOverlaySizingCss(): void {
   if (document.querySelector('style[data-ejs-touch-sizing="1"]')) return;
 
-  const css = `
-/* ===== Generic bumps kept for other systems (optional) ===== */ 
+  const css = ` 
 #game #genA, #game #genB, #game #genC {
   width: 96px !important; height: 96px !important; line-height: 96px !important;
   font-size: 34px !important; border-radius: 50% !important;
-}
-/* Scale D-Pad; cover both hyphen/underscore classnames across builds */
+} 
 #game .ejs-dpad, #game .ejs_dpad { transform: scale(1.25); transform-origin: center left; } 
 #game #gbaA, 
 #game #gbaB {
