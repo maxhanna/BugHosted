@@ -367,7 +367,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
                 console.warn('[EJS] Unable to apply save state on startup');
               }
               this.lockGameHostHeight();
-              this.inspectVPadOnce(); //debug vpad layout on startup, can remove after confirming stable
             });
           });
           resolve();
@@ -1494,24 +1493,26 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
   /** Create or reuse a tiny stylesheet inside the vpad root. */
-  private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
-    let style = root.querySelector('style[data-vpad-overrides="min"]') as HTMLStyleElement | null;
-    if (style) return style;
+  
+/** Create or reuse a tiny stylesheet inside the vpad root. */
+private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
+  let style = root.querySelector('style[data-vpad-overrides="min"]') as HTMLStyleElement | null;
+  if (style) return style;
 
-    style = document.createElement('style');
-    style.setAttribute('data-vpad-overrides', 'min');
+  style = document.createElement('style');
+  style.setAttribute('data-vpad-overrides', 'min');
 
-    // 🔧 Tweak these two knobs if you want slightly bigger/smaller pills later:
-    const PILL_W = 112;  // px
-    const PILL_H = 76;   // px
-    const FONT = 30;   // px
+  // 🔧 Main knobs. If you want bigger/smaller, change these only.
+  const PILL_W = 108;  // px  (was 112)
+  const PILL_H = 72;   // px  (was 76)
+  const FONT   = 28;   // px  (was 30)
 
-    style.textContent = `
+  style.textContent = `
 /* ==== Minimal overrides applied to the actual clickable elements we tag ==== */
 
-/* D-pad scale: modest bump */
+/* D-pad scale: still modest, a touch smaller for balance */
 .max-dpad { 
-  transform: scale(1.30) !important; 
+  transform: scale(1.15) !important; 
   transform-origin: center left !important; 
 }
 
@@ -1528,9 +1529,9 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   justify-content: center !important;
 }
 
-/* Separate nudges so they sit nicely; adjust if you want more spacing */
-.max-pill.is-a { transform: translate(-24px,  6px) !important; }  /* A: left & a hair up */
-.max-pill.is-b { transform: translate(-36px, 20px) !important; }  /* B: more left & a bit down */
+/* Separate nudges so they sit nicely and don't hug the right edge */
+.max-pill.is-a { transform: translate(-26px,  4px) !important; }  /* A: left + tiny up */
+.max-pill.is-b { transform: translate(-42px, 18px) !important; }  /* B: more left + a bit down */
 
 /* Speed buttons: small rectangles */
 .max-rect {
@@ -1550,7 +1551,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 /* If wrapper gets the class, keep first child consistent across skins */
 .max-pill > *, .max-rect > * { all: inherit; }
 
-/* (Optional) Very narrow screens: make pills a touch smaller, keep nudges balanced */
+/* Very narrow screens: slightly smaller pills & balanced nudges */
 @media (max-width: 380px) {
   .max-pill {
     width: ${PILL_W - 8}px !important;
@@ -1559,13 +1560,14 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     border-radius: ${(PILL_H - 6) / 2}px !important;
     font-size: ${FONT - 2}px !important;
   }
-  .max-pill.is-a { transform: translate(-20px,  6px) !important; }
-  .max-pill.is-b { transform: translate(-30px, 18px) !important; }
+  .max-pill.is-a { transform: translate(-22px,  4px) !important; }
+  .max-pill.is-b { transform: translate(-36px, 16px) !important; }
 }
 `;
-    root.appendChild(style);
-    return style;
-  }
+  root.appendChild(style);
+  return style;
+}
+
 
   /** Find inner clickable node for a wrapper (works across common skins). */
   private findClickableInside(host: Element | null): HTMLElement | null {
@@ -1699,51 +1701,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true },
     ];
   }
-
-  /** After the vpad mounts, force inline sizes by ID; if missing, find by text label. */
-  private inspectVPadOnce(): void {
-    const root = document.getElementById('game')!;
-    const bumpEl = (el: HTMLElement | undefined | null) => {
-      if (!el) return;
-      if (el.id === 'btnA'
-        || el.id === 'btnB'
-        || el.id === 'speed_fast'
-        || el.id === 'speed_slow') {
-        return;
-      }
-
-      el.style.width = '96px';
-      el.style.height = '96px';
-      el.style.lineHeight = '96px';
-      el.style.fontSize = '34px';
-      el.style.borderRadius = '50%';
-      const inner = el.firstElementChild as HTMLElement | undefined | null;
-      if (inner) {
-        inner.style.width = '96px';
-        inner.style.height = '96px';
-        inner.style.lineHeight = '96px';
-        inner.style.fontSize = '34px';
-        inner.style.borderRadius = '50%';
-      }
-    };
-
-
-    const once = () => {
-      const vpad = root.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent') as HTMLElement | null;
-      if (!vpad) return;
-
-      // Only bump Genesis circles; do NOT touch A/B or speed buttons
-      const ids = ['genA', 'genB', 'genC'];
-      ids.forEach(id => bumpEl(document.getElementById(id)));
-
-      obs.disconnect();
-    };
-
-
-    const obs = new MutationObserver(once);
-    obs.observe(root, { childList: true, subtree: true });
-    setTimeout(once, 800);
-  }
+ 
 
   systemFromCore(core: string): System {
     const c = core.toLowerCase();
