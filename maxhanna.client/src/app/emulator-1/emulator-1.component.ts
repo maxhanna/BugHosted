@@ -1476,14 +1476,34 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
   /** Two-button (NES/GB/GBC or "large GBA A/B" look) with stagger like your .two-button-mode */
   twoButtonRight(enlarge = true): VPadItem[] {
-    const A: VPadItem = { type: 'button', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true };
-    const B: VPadItem = { type: 'button', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true };
+    const A: VPadItem = {
+      type: 'button',
+      text: 'A',
+      location: 'right',
+      left: 40,
+      top: 80,
+      input_value: 8,
+      size: 32,
+      bold: true
+    };
+    const B: VPadItem = {
+      type: 'button',
+      text: 'B',
+      location: 'right',
+      left: 81,
+      top: 40,
+      input_value: 0,
+      size: 32,
+      bold: true
+    };
     if (enlarge) {
-      (A as any).block = true; (A as any).fontSize = 32;
-      (B as any).block = true; (B as any).fontSize = 32;
-      A.left = (A.left ?? 40) - 20; 
+      (A as any).block = true; 
+      (A as any).fontSize = 32;
+      (B as any).block = true;
+      (B as any).fontSize = 32;
+      A.left = (A.left ?? 40) - 20;
       A.top = (A.top ?? 80) + 20;
-      B.left = (B.left ?? 81) - 10; 
+      B.left = (B.left ?? 81) - 10;
       B.top = (B.top ?? 40) + 20;
     }
     return [B, A];
@@ -1556,11 +1576,11 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         if (segaShowLR) items.push(...this.shouldersTop(false)); // optional L/R when a core exposes them
         items.push(...this.startSelectRow());
         break;
-        
-      default: 
+
+      default:
         items.push(...this.twoButtonRight(true));
         items.push(...this.startSelectRow());
-        break; 
+        break;
     }
 
     return items;
@@ -1631,16 +1651,36 @@ declare global {
 
 type VPadItem =
   | {
-    type: 'button'; text: string; id?: string; location: 'left' | 'right' | 'center' | 'top';
-    left?: number; right?: number; top?: number; fontSize?: number; bold?: boolean; block?: boolean; input_value: number
+    type: 'button';
+    text: string;
+    id?: string;
+    location: 'left' | 'right' | 'center' | 'top';
+    left?: number;
+    right?: number;
+    top?: number;
+    fontSize?: number;
+    bold?: boolean;
+    block?: boolean;
+    input_value: number;
+    size?: number;
   }
   | {
-    type: 'dpad'; location: 'left' | 'right' | 'center' | 'top'; left?: string; right?: string;
-    joystickInput?: boolean; inputValues: [number, number, number, number]
+    type: 'dpad';
+    location: 'left' | 'right' | 'center' | 'top';
+    left?: string;
+    right?: string;
+    joystickInput?: boolean;
+    inputValues: [number, number, number, number]
   }
   | {
-    type: 'zone'; location: 'left' | 'right' | 'center' | 'top'; left?: string; right?: string; top?: string;
-    joystickInput: true; color?: string; inputValues: [number, number, number, number]
+    type: 'zone';
+    location: 'left' | 'right' | 'center' | 'top';
+    left?: string;
+    right?: string;
+    top?: string;
+    joystickInput: true;
+    color?: string;
+    inputValues: [number, number, number, number]
   };
 
 type System =
