@@ -298,7 +298,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     // If the build calls back with the instance, capture it early
     (window as any).EJS_ready = (api: any) => {
       try {
-        this.applyVpadCssIntoRoot();
         this.scanAndTagVpadControls();
 
 
@@ -320,8 +319,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       link.setAttribute('data-ejs-css', '1');
       document.head.appendChild(link);
     }
-
-    this.ensureTouchOverlaySizingCss();
     // Ensure menu is closed when the emulator starts
     this.isMenuPanelOpen = false;
     try { this.parentRef?.closeOverlay(); } catch { }
@@ -359,8 +356,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
               await this.waitForEmulatorAndFocus();
               await this.probeForSaveApi();
               this.tryBindSaveFromUI();
-              try { this.applyVpadCssIntoRoot(); } catch { }
-              this.scanAndTagVpadControls();      // ⟵ add this
+              this.scanAndTagVpadControls();
 
               try {
                 const ok = await this.applySaveStateIfAvailable(saveStateBlob);
@@ -1509,247 +1505,48 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
 
-  /** Force A/B big-pill sizes via inline styles as a fallback. */
-  private forceAbInlineOnce(): void {
-    const apply = (id: string) => {
-      const host = document.getElementById(id) as HTMLElement | null;
-      if (!host) return;
-      // Style host
-      host.style.width = '126px';
-      host.style.height = '86px';
-      host.style.lineHeight = '86px';
-      host.style.borderRadius = '43px';
-      host.style.fontSize = '34px';
-      host.style.fontWeight = '700';
-      host.style.display = 'inline-flex';
-      host.style.alignItems = 'center';
-      host.style.justifyContent = 'center';
-
-      // Style common inner node, if present
-      const inner = host.querySelector('.ejs_button, .ejs-button, button, [role="button"]') as HTMLElement | null;
-      if (inner) {
-        inner.style.width = '126px';
-        inner.style.height = '86px';
-        inner.style.lineHeight = '86px';
-        inner.style.borderRadius = '43px';
-        inner.style.fontSize = '34px';
-        inner.style.fontWeight = '700';
-        inner.style.display = 'inline-flex';
-        inner.style.alignItems = 'center';
-        inner.style.justifyContent = 'center';
-      }
-    };
-    apply('btnA');
-    apply('btnB');
-  }
-
-  /** Inject CSS directly into the vpad root so skin CSS can’t outrank it. */
-  private applyVpadCssIntoRoot(): void {
-    // Find the vpad root (works for common skins)
-    const root = document.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent') as HTMLElement | null;
-    if (!root) return;
-
-    // Ensure idempotent
-    if (root.querySelector('style[data-vpad-overrides="1"]')) return;
-
-    const css = `
-/* ===== Genesis keep A/B/C round if present ===== */
-#genA, #genB, #genC,
-#genA .ejs_button, #genB .ejs_button, #genC .ejs_button {
-  width: 96px !important; height: 96px !important; line-height: 96px !important;
-  font-size: 34px !important; border-radius: 50% !important;
-}
-
-/* ===== D-Pad scale (cover both class variants) ===== */
-.ejs_dpad, .ejs-dpad, .ejs_dpad * , .ejs-dpad * {
-  transform: scale(1.35) !important;
-  transform-origin: center left !important;
-}
-
-/* ===== Big pill A/B for all two-button systems ===== */
-/* Match both the element with the ID AND the inner .ejs_button */
-#btnA, #btnB,
-#btnA .ejs_button, #btnB .ejs_button,
-#btnA > *, #btnB > * {
-  width: 126px !important;
-  height: 86px !important;
-  line-height: 86px !important;
-  border-radius: 43px !important;
-  font-size: 34px !important;
-  font-weight: 700 !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-/* small nudges */
-#btnA { transform: translate(-10px, 10px) !important; }
-#btnB { transform: translate(-5px, 0px) !important; }
-
-/* ===== Start / Select: lower 5px ===== */
-#start, #select { transform: translateY(5px) !important; }
-
-/* ===== Fast/Slow: force rectangular + smaller text ===== */
-#speed_fast, #speed_slow,
-#speed_fast .ejs_button, #speed_slow .ejs_button,
-#speed_fast > *, #speed_slow > * {
-  width: auto !important;
-  height: auto !important;
-  min-width: 44px !important;
-  min-height: 22px !important;
-  padding: 3px 9px !important;
-  border-radius: 8px !important;
-  font-size: 11px !important;
-  line-height: 1.1 !important;
-}
-`;
-    const style = document.createElement('style');
-    style.setAttribute('data-vpad-overrides', '1');
-    style.textContent = css;
-    root.appendChild(style);
-    this.forceAbInlineOnce();
-  }
 
 
-  private ensureTouchOverlaySizingCss(): void {
-    if (document.querySelector('style[data-ejs-touch-sizing="1"]')) return;
-
-    const css = `
-/* ====== Genesis (keep big & round, if those IDs are present) ====== */
-.ejs_virtualGamepad_parent #genA,
-.ejs_virtualGamepad_parent #genB,
-.ejs_virtualGamepad_parent #genC,
-.ejs-virtualGamepad-parent #genA,
-.ejs-virtualGamepad-parent #genB,
-.ejs-virtualGamepad-parent #genC {
-  width: 96px !important; height: 96px !important; line-height: 96px !important;
-  font-size: 34px !important; border-radius: 50% !important;
-}
-
-/* ====== D-Pad: slightly bigger, regardless of class variant ====== */
-.ejs_virtualGamepad_parent .ejs_dpad,
-.ejs_virtualGamepad_parent .ejs-dpad,
-.ejs-virtualGamepad-parent .ejs_dpad,
-.ejs-virtualGamepad-parent .ejs-dpad {
-  transform: scale(1.35) !important;
-  transform-origin: center left !important;
-}
-
-/* ====== Two-button systems: very large pill A/B ====== */
-/* Target the IDs directly without #game scoping; most skins render as <button id="btnA"> etc */
-.ejs_virtualGamepad_parent #btnA,
-.ejs_virtualGamepad_parent #btnB,
-.ejs-virtualGamepad-parent #btnA,
-.ejs-virtualGamepad-parent #btnB,
-#btnA, #btnB {
-  width: 126px !important;
-  height: 86px !important;
-  line-height: 86px !important;
-  border-radius: 43px !important;           /* pill (height / 2) */
-  font-size: 34px !important;
-  font-weight: 700 !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-/* keep inner wrapper in sync across skins */
-.ejs_virtualGamepad_parent #btnA > *,
-.ejs_virtualGamepad_parent #btnB > *,
-.ejs-virtualGamepad-parent #btnA > *,
-.ejs-virtualGamepad-parent #btnB > *,
-#btnA > *, #btnB > * {
-  width: 100% !important;
-  height: 100% !important;
-  line-height: 86px !important;
-  border-radius: 43px !important;
-  font-size: inherit !important;
-}
-/* small positional nudge so big pills sit nicely */
-.ejs_virtualGamepad_parent #btnA,
-.ejs-virtualGamepad-parent #btnA,
-#btnA { transform: translate(-10px, 10px) !important; }
-.ejs_virtualGamepad_parent #btnB,
-.ejs-virtualGamepad-parent #btnB,
-#btnB { transform: translate(-5px, 0px) !important; }
-
-/* ====== Start / Select: lower by ~5px ====== */
-.ejs_virtualGamepad_parent #start,
-.ejs_virtualGamepad_parent #select,
-.ejs-virtualGamepad-parent #start,
-.ejs-virtualGamepad-parent #select,
-#start, #select {
-  transform: translateY(5px) !important;
-}
-
-/* ====== SPEED Fast/Slow: force rectangular, smaller ====== */
-.ejs_virtualGamepad_parent #speed_fast,
-.ejs_virtualGamepad_parent #speed_slow,
-.ejs-virtualGamepad-parent #speed_fast,
-.ejs-virtualGamepad-parent #speed_slow,
-#speed_fast, #speed_slow {
-  width: auto !important;
-  height: auto !important;
-  min-width: 44px !important;
-  min-height: 26px !important;
-  padding: 4px 10px !important;
-  border-radius: 8px !important;
-  font-size: 11px !important;
-  line-height: 1.1 !important;
-}
-
-/* In case the skin sets button-rounded globally, strip it on speed buttons only */
-.ejs_virtualGamepad_parent #speed_fast.ejs_button,
-.ejs_virtualGamepad_parent #speed_slow.ejs_button,
-.ejs-virtualGamepad-parent #speed_fast.ejs_button,
-.ejs-virtualGamepad-parent #speed_slow.ejs_button {
-  border-radius: 8px !important;
-}
-`;
-
-    const style = document.createElement('style');
-    style.setAttribute('data-ejs-touch-sizing', '1');
-    style.textContent = css;
-    document.head.appendChild(style);
-  }
-
-
-  /** Create (or reuse) a stylesheet in vpad root with strong rules for our classes. */
+  /** Create or reuse a tiny stylesheet inside the vpad root. */
   private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
-    let style = root.querySelector('style[data-vpad-overrides="2"]') as HTMLStyleElement | null;
+    let style = root.querySelector('style[data-vpad-overrides="min"]') as HTMLStyleElement | null;
     if (style) return style;
 
     style = document.createElement('style');
-    style.setAttribute('data-vpad-overrides', '2');
+    style.setAttribute('data-vpad-overrides', 'min');
+
+    // 🔧 Tweak these two knobs if you want slightly bigger/smaller pills later:
+    const PILL_W = 112;  // px
+    const PILL_H = 76;   // px
+    const FONT = 30;   // px
 
     style.textContent = `
-/* ===== classes we add to the *actual* clickable nodes ===== */
+/* ==== Minimal overrides applied to the actual clickable elements we tag ==== */
 
-/* D-pad slightly bigger */
-.max-dpad { transform: scale(1.25) !important; transform-origin: center left !important; }
+/* D-pad scale: modest bump */
+.max-dpad { 
+  transform: scale(1.30) !important; 
+  transform-origin: center left !important; 
+}
 
-/* Big pill A/B — slightly smaller than before for better fit */
+/* Big pill A/B — single source of truth for size + text */
 .max-pill {
-  width: 112px !important;
-  height: 76px !important;
-  line-height: 76px !important;
-  border-radius: 38px !important;     /* 76 / 2 */
-  font-size: 30px !important;
+  width: ${PILL_W}px !important;
+  height: ${PILL_H}px !important;
+  line-height: ${PILL_H}px !important;
+  border-radius: ${PILL_H / 2}px !important; 
+  font-size: ${FONT}px !important;
   font-weight: 700 !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
 }
 
-/* Separate nudges so they don't overlap or hug the edge */
-.max-pill.is-a {
-  /* move left and slightly up */
-  transform: translate(-26px, 6px) !important;
-}
-.max-pill.is-b {
-  /* move left and slightly down */
-  transform: translate(-40px, 22px) !important;
-}
+/* Separate nudges so they sit nicely; adjust if you want more spacing */
+.max-pill.is-a { transform: translate(-24px,  6px) !important; }  /* A: left & a hair up */
+.max-pill.is-b { transform: translate(-36px, 20px) !important; }  /* B: more left & a bit down */
 
-/* Small rectangular speed buttons */
+/* Speed buttons: small rectangles */
 .max-rect {
   width: auto !important;
   height: auto !important;
@@ -1761,47 +1558,49 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   line-height: 1.1 !important;
 }
 
-/* Nudge Start/Select down a bit */
+/* Start/Select: drop slightly */
 .max-nudge-down { transform: translateY(10px) !important; }
 
-/* Ensure first child inherits when wrappers are used */
+/* If wrapper gets the class, keep first child consistent across skins */
 .max-pill > *, .max-rect > * { all: inherit; }
 
-/* ===== Optional: responsive tweaks for very narrow screens ===== */
+/* (Optional) Very narrow screens: make pills a touch smaller, keep nudges balanced */
 @media (max-width: 380px) {
   .max-pill {
-    width: 104px !important;
-    height: 70px !important;
-    line-height: 70px !important;
-    border-radius: 35px !important;
-    font-size: 28px !important;
+    width: ${PILL_W - 8}px !important;
+    height: ${PILL_H - 6}px !important;
+    line-height: ${PILL_H - 6}px !important;
+    border-radius: ${(PILL_H - 6) / 2}px !important;
+    font-size: ${FONT - 2}px !important;
   }
-  .max-pill.is-a { transform: translate(-22px, 6px) !important; }
-  .max-pill.is-b { transform: translate(-34px, 20px) !important; }
+  .max-pill.is-a { transform: translate(-20px,  6px) !important; }
+  .max-pill.is-b { transform: translate(-30px, 18px) !important; }
 }
 `;
     root.appendChild(style);
     return style;
   }
 
-  /** Find the clickable inner element for a given host (ID wrapper) */
+
+
+
+
+
+  /** Find inner clickable node for a wrapper (works across common skins). */
   private findClickableInside(host: Element | null): HTMLElement | null {
     if (!host) return null;
-    // Common inner nodes in EmulatorJS skins
     const inner =
       host.querySelector('.ejs_button, .ejs-button, button, [role="button"]') as HTMLElement | null
       || (host.firstElementChild as HTMLElement | null);
     return (inner as HTMLElement) || (host as HTMLElement);
   }
 
-  /** Find nodes by visible label within vpad root; returns the first strong candidate. */
+  /** Fallback search by visible label (A/B/Fast/Slow/Start/Select). */
   private findByLabel(root: HTMLElement, labels: string[]): HTMLElement | null {
-    const candidates = Array.from(
-      root.querySelectorAll('.ejs_button, .ejs-button, button, [role="button"], [class*="button"]')
-    ) as HTMLElement[];
-
-    const want = new Set(labels.map(l => l.trim().toUpperCase()));
-    for (const el of candidates) {
+    const want = new Set(labels.map(s => s.trim().toUpperCase()));
+    const nodes = root.querySelectorAll('.ejs_button, .ejs-button, button, [role="button"], [class*="button"]');
+    for (const n of Array.from(nodes)) {
+      const el = n as HTMLElement;
       const txt = (el.textContent || el.getAttribute('aria-label') || el.getAttribute('title') || '')
         .trim().toUpperCase();
       if (txt && want.has(txt)) return el;
@@ -1809,68 +1608,35 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     return null;
   }
 
-  /** Tag all the parts of the vpad we care about (A/B, D-pad, Fast/Slow, Start/Select). */
+  /** Minimal: tag D-pad, A/B, Fast/Slow, Start/Select. */
   private scanAndTagVpadControls(): void {
-
-    const root = document.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent') as HTMLElement;
-    console.log('ids present:', ['btnA', 'btnB', 'speed_fast', 'speed_slow', 'start', 'select'].map(id => [id, !!document.getElementById(id)]));
-    if (root) {
-      console.log('buttons sample:', Array.from(root.querySelectorAll('.ejs_button, .ejs-button, button, [role="button"]')).slice(0, 10).map(n => ({ tag: n.tagName, cls: n.className, txt: n.textContent?.trim() })));
-      this.ensureVpadStyleSheet(root as HTMLElement);
-    }
-
+    const root = document.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent') as HTMLElement | null;
     if (!root) return;
 
-    // Ensure our stylesheet is present in the same subtree as the vpad
+    // ensure our minimal stylesheet is present in the vpad root
+    this.ensureVpadStyleSheet(root);
 
-    // ---------- D-Pad ----------
-    // Try common class names; as a fallback, look for anything whose class contains 'dpad'
-    let dpad = root.querySelector('.ejs_dpad, .ejs-dpad') as HTMLElement | null;
-    if (!dpad) dpad = root.querySelector('[class*="dpad"]') as HTMLElement | null;
+    // D-pad
+    const dpad = root.querySelector('.ejs_dpad, .ejs-dpad, [class*="dpad"]') as HTMLElement | null;
     if (dpad) dpad.classList.add('max-dpad');
 
-    // ---------- A / B ----------
-    // Prefer ID wrappers then clickable inner
-    const aHost = document.getElementById('btnA');
-    const bHost = document.getElementById('btnB');
-    let a = this.findClickableInside(aHost);
-    let b = this.findClickableInside(bHost);
-
-    // Fallback by label if ID wrappers were not used by the skin
-    if (!a) a = this.findByLabel(root, ['A']);
-    if (!b) b = this.findByLabel(root, ['B']);
-
+    // A / B
+    const a = this.findClickableInside(document.getElementById('btnA')) || this.findByLabel(root, ['A']);
+    const b = this.findClickableInside(document.getElementById('btnB')) || this.findByLabel(root, ['B']);
     if (a) { a.classList.add('max-pill', 'is-a'); }
     if (b) { b.classList.add('max-pill', 'is-b'); }
 
-    // ---------- Speed Fast / Slow ----------
-    const fastHost = document.getElementById('speed_fast');
-    const slowHost = document.getElementById('speed_slow');
-    let fast = this.findClickableInside(fastHost);
-    let slow = this.findClickableInside(slowHost);
-
-    // Some skins won’t propagate those IDs; fallback by label
-    if (!fast) fast = this.findByLabel(root, ['FAST']);
-    if (!slow) slow = this.findByLabel(root, ['SLOW']);
-
+    // Speed Fast / Slow
+    const fast = this.findClickableInside(document.getElementById('speed_fast')) || this.findByLabel(root, ['FAST']);
+    const slow = this.findClickableInside(document.getElementById('speed_slow')) || this.findByLabel(root, ['SLOW']);
     if (fast) fast.classList.add('max-rect');
     if (slow) slow.classList.add('max-rect');
 
-    // ---------- Start / Select ----------
-    const startHost = document.getElementById('start');
-    const selectHost = document.getElementById('select');
-    let start = this.findClickableInside(startHost);
-    let select = this.findClickableInside(selectHost);
-
-    if (!start) start = this.findByLabel(root, ['START']);
-    if (!select) select = this.findByLabel(root, ['SELECT']);
-
+    // Start / Select
+    const start = this.findClickableInside(document.getElementById('start')) || this.findByLabel(root, ['START']);
+    const select = this.findClickableInside(document.getElementById('select')) || this.findByLabel(root, ['SELECT']);
     if (start) start.classList.add('max-nudge-down');
     if (select) select.classList.add('max-nudge-down');
-
-    // Debug so you can see what was tagged
-    console.log('[EJS] tag results:',
-      { dpad, a, b, fast, slow, start, select });
   }
 
 
