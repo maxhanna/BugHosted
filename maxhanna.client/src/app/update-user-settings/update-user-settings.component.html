@@ -111,7 +111,7 @@
         <div *ngIf="isSecurityQuestionsToggled" class="sectionDescriptionDiv">
           <div class="xxSmallFont">Enter between 3 and 5 question/answer pairs. At least 3 required.</div>
           <div class="sectionDescriptionSection" style="margin-top:8px; flex-direction: column;" *ngFor="let n of [1,2,3,4,5]; let i = index">
-            <div style="display:flex; gap:8px; align-items:center;">
+            <div style="display:flex; align-items:center;" [style.gap]="onMobile() ? '' : '8px'">
               <div style="flex:1;">
                 <div>Question {{i+1}}:</div>
                 <div><input type="text" placeholder="Enter a secret question" [attr.id]="'secretQuestion' + (i+1)" /></div>
