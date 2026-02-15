@@ -514,12 +514,20 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
     this._saveInProgress = true;
     try {
-      await this.romService.saveEmulatorJSState(this.romName, this.parentRef.user.id, u8);
-      this._lastSaveTime = Date.now();
-      console.log('Save state saved to database (bytes=', u8.length, ')');
-      if (this._pendingSaveResolve) {
-        try { this._pendingSaveResolve(true); } catch { }
-        this._pendingSaveResolve = undefined;
+      const result = await this.romService.saveEmulatorJSState(this.romName, this.parentRef.user.id, u8);
+      if (result.ok) {
+        this._lastSaveTime = Date.now();
+        console.log('Save state saved to database (bytes=', u8.length, ')');
+        if (this._pendingSaveResolve) {
+          try { this._pendingSaveResolve(true); } catch { }
+          this._pendingSaveResolve = undefined;
+        }
+      } else {
+        console.error('Save state upload failed (bytes=', u8.length, '):', result.errorText);
+        if (this._pendingSaveResolve) {
+          try { this._pendingSaveResolve(false); } catch { }
+          this._pendingSaveResolve = undefined;
+        }
       }
     } catch (err) {
       console.error('Failed to save state (bytes=', u8.length, ') to database:', err);

@@ -279,22 +279,29 @@ export class RomService {
     }
   }
 
-  async saveEmulatorJSState(romName: string, userId: number, stateData: Uint8Array) {
-    const url = `/rom/saveemulatorjsstate?userId=${userId}&romName=${encodeURIComponent(romName)}`;
+  async saveEmulatorJSState(romName: string, userId: number, stateData: Uint8Array): Promise<SaveUploadResponse> {
+    const form = new FormData();
+    const tightAb: ArrayBuffer = this.toTightArrayBuffer(stateData);
+    form.append('file', new File([tightAb], 'savestate.bin', { type: 'application/octet-stream' }));
+    form.append('userId', String(userId));
+    form.append('romName', romName);
 
-    // Normalize into an ArrayBuffer (BodyInit) – avoids DOM typing mismatches
-    const copy = new Uint8Array(stateData.byteLength);
-    copy.set(stateData);
-    const body: ArrayBuffer = copy.buffer;
+    try {
+      const res = await fetch('/rom/saveemulatorjsstate', { method: 'POST', body: form });
+      const status = res.status;
+      const ct = (res.headers.get('content-type') || '').toLowerCase();
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/octet-stream' },
-      body
-    });
+      if (!res.ok) {
+        const errorBody = ct.includes('application/json') ? await res.json().catch(() => null) : await res.text();
+        const errorText = typeof errorBody === 'string' ? errorBody : JSON.stringify(errorBody ?? { error: 'Upload failed' });
+        return { ok: false, status, errorText };
+      }
 
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+      const body = ct.includes('application/json') ? await res.json().catch(() => null) : await res.text();
+      return { ok: true, status, body };
+    } catch (error: any) {
+      return { ok: false, status: 0, errorText: String(error?.message ?? error) };
+    }
   }
 
   async getEmulatorJSSaveState(romName: string, userId: number): Promise<Blob | null> {

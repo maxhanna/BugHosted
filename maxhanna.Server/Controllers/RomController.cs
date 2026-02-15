@@ -917,54 +917,34 @@ ON DUPLICATE KEY UPDATE
 
 [HttpPost("/Rom/SaveEmulatorJSState")]
 [DisableRequestSizeLimit]
-public async Task<IActionResult> SaveEmulatorJSState(
-    [FromQuery] int userId,
-    [FromQuery] string romName,
-    CancellationToken ct) // ← keep for reading the request body only
+[RequestFormLimits(MultipartBodyLengthLimit = 128 * 1024 * 1024)]
+public async Task<IActionResult> SaveEmulatorJSState(CancellationToken ct)
 {
-    if (userId == 0) return BadRequest("You must be logged in to save state.");
-    if (string.IsNullOrWhiteSpace(romName)) return BadRequest("romName is required.");
-
     var swAll = System.Diagnostics.Stopwatch.StartNew();
     try
     {
-        // ---------- Read request body (honour client cancellation here) ----------
-        byte[] stateBytes;
-        if (Request.HasFormContentType)
-        {
-            var form = await Request.ReadFormAsync(ct);
-            var file = form.Files.GetFile("file");
-            if (file == null || file.Length <= 0) return BadRequest("Missing 'file' in multipart request.");
-            using var ms = new MemoryStream((int)Math.Min(file.Length, 32 * 1024 * 1024));
-            await file.CopyToAsync(ms, ct); // OK to cancel while reading request
-            stateBytes = ms.ToArray();
-            if (string.IsNullOrWhiteSpace(romName)) romName = form["romName"].ToString();
-            if (userId <= 0 && int.TryParse(form["userId"], out var u)) userId = u;
-        }
-        else
-        {
-            if (Request.ContentLength is long len && len >= 0 && len <= int.MaxValue)
-            {
-                stateBytes = new byte[len];
-                int read = 0;
-                while (read < len)
-                {
-                    var n = await Request.Body.ReadAsync(stateBytes.AsMemory(read, (int)len - read), ct);
-                    if (n == 0) break;
-                    read += n;
-                }
-                if (read != len) Array.Resize(ref stateBytes, read);
-            }
-            else
-            {
-                using var ms = new MemoryStream();
-                await Request.Body.CopyToAsync(ms, ct);
-                stateBytes = ms.ToArray();
-            }
-        }
+        // ---------- Read multipart/form-data ----------
+        if (!Request.HasFormContentType)
+            return BadRequest("Expected multipart/form-data");
 
-        if (userId <= 0 || string.IsNullOrWhiteSpace(romName))
-            return BadRequest("Missing userId or romName");
+        var form = await Request.ReadFormAsync(ct);
+        var file = form.Files.GetFile("file");
+        if (file == null || file.Length <= 0)
+            return BadRequest("Missing 'file' in multipart request.");
+
+        if (!int.TryParse(form["userId"], out var userId) || userId <= 0)
+            return BadRequest("Missing or invalid 'userId'.");
+
+        var romName = form["romName"].ToString();
+        if (string.IsNullOrWhiteSpace(romName))
+            return BadRequest("Missing 'romName'.");
+
+        byte[] stateBytes;
+        using (var ms = new MemoryStream((int)Math.Min(file.Length, 64 * 1024 * 1024)))
+        {
+            await file.CopyToAsync(ms, ct);
+            stateBytes = ms.ToArray();
+        }
 
         // ---------- DB write (DO NOT tie to RequestAborted) ----------
         await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -996,13 +976,12 @@ public async Task<IActionResult> SaveEmulatorJSState(
     }
     catch (OperationCanceledException)
     {
-        // Map DB-level timeout/cancel to a 504 or 500 as you prefer
-        _ = _log.Db("SaveEmulatorJSState DB timed out/canceled", userId, "ROM", true);
+        _ = _log.Db("SaveEmulatorJSState DB timed out/canceled", null, "ROM", true);
         return StatusCode(504, "Timed out saving emulator state");
     }
     catch (Exception ex)
     {
-        _ = _log.Db("SaveEmulatorJSState error: " + ex.Message, userId, "ROM", true);
+        _ = _log.Db("SaveEmulatorJSState error: " + ex.Message, null, "ROM", true);
         return StatusCode(500, "Error saving emulator state");
     }
 } 
