@@ -193,37 +193,41 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     window.EJS_core = core;
 
     const system = this.systemFromCore(core);
-    const vpad = this.buildTouchLayout(system, {
-      useJoystick: this.useJoystick,
-      showControls: this.showControls,
-      twoButtonMode: (system === 'nes' || system === 'gb' || system === 'gbc'),
-      segaShowLR: this.segaShowLR
-    });
-    //window.EJS_VirtualGamepadSettings = vpad;
 
-      
-    // 1) No negative positions
-    // 2) No joystickInput on dpad
-    // 3) No 'top' on center buttons
-    // 4) Keep only “safe” fields per type
-    window.EJS_VirtualGamepadSettings = [
-      // D-Pad: only required fields
-      { type: 'dpad', location: 'left', left: '8%', inputValues: [4, 5, 6, 7] },
+    const vpadKnownGood: any[] = [
+      // D-pad (percentage left): OK without id
+      { type: 'dpad', location: 'left', left: '8%', joystickInput: false, inputValues: [4, 5, 6, 7] },
 
-      // Face buttons (GBA A/B)
-      { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0 },
-      { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 80, input_value: 8 },
+      // Face buttons: NEED id + input_value
+      { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true },
+      { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true },
 
-      // Shoulders at top
-      { type: 'button', id: 'btnL', text: 'L', location: 'top', left: 10,  top: 0, input_value: 10 },
-      { type: 'button', id: 'btnR', text: 'R', location: 'top', left: 270, top: 0, input_value: 11 },
+      // Shoulders (buttons): NEED id + input_value
+      { type: 'button', id: 'btnL', text: 'L', location: 'top', left: 10, top: 0, input_value: 10, bold: true, block: true },
+      { type: 'button', id: 'btnR', text: 'R', location: 'top', left: 270, top: 0, input_value: 11, bold: true, block: true },
 
-      // Start/Select in center, no negative & no top
-      { type: 'button', id: 'start',  text: 'Start',  location: 'center', left: 60,  fontSize: 15, input_value: 3 },
-      { type: 'button', id: 'select', text: 'Select', location: 'center', left: 10,  fontSize: 15, input_value: 2 },
+      // Start/Select (buttons): NEED id + input_value
+      { type: 'button', id: 'start', text: 'Start', location: 'center', left: 60, top: 0, fontSize: 15, block: true, input_value: 3 },
+      { type: 'button', id: 'select', text: 'Select', location: 'center', left: -5, top: 0, fontSize: 15, block: true, input_value: 2 },
     ];
 
+    window.EJS_VirtualGamepadSettings = vpadKnownGood;
 
+    try {
+      // After you build the array but before the loader:
+      for (const it of vpadKnownGood) {
+        if (it.type === 'button') {
+          if (!('id' in it)) throw new Error(`Missing id on button "${it.text}"`);
+          if (typeof it.input_value === 'undefined' || it.input_value === null)
+            throw new Error(`Missing input_value on button "${it.text}"`);
+        } else if (it.type === 'dpad' || it.type === 'zone') {
+          if (!it.location) throw new Error(`${it.type} missing location`);
+          if (!it.inputValues) throw new Error(`${it.type} missing inputValues`);
+        }
+      }
+    } catch (e) {
+      console.error('Error configuring VirtualGamepadSettings:', e);
+    } 
     console.log('[EJS] assigning custom VirtualGamepadSettings', window.EJS_VirtualGamepadSettings);
 
     // For PlayStation and N64 cores, increase autosave interval to 10 minutes
@@ -274,7 +278,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     this.applyEjsRunOptions();
     // If the build calls back with the instance, capture it early
     (window as any).EJS_ready = (api: any) => {
-      try { 
+      try {
         console.log('EJS_ready: vpad readback=', (window as any).EJS_VirtualGamepadSettings);
 
         this.emulatorInstance = api || (window as any).EJS || (window as any).EJS_emulator || this.emulatorInstance;
@@ -308,7 +312,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
     this.hideEJSMenu();
     console.log('[EJS] final vpad settings before loader:', JSON.stringify(window.EJS_VirtualGamepadSettings, null, 2));
-    
+
     // 8) Inject loader.js (it will initialize EmulatorJS)
     if (!window.__ejsLoaderInjected) {
       await new Promise<void>((resolve, reject) => {
