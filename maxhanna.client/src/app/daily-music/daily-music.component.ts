@@ -34,6 +34,7 @@ export class DailyMusicComponent extends ChildComponent implements OnInit, After
   }
 
   play(url?: string, fileId?: number) {
+    console.log('Attempting to play music with url:', url, ', and fileId:', fileId);
     if (!url && !fileId) return;
     const parent = this.inputtedParentRef ?? this.parentRef;
     // Prefer using the app-level YouTube player when available

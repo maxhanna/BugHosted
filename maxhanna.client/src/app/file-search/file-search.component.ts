@@ -346,7 +346,14 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
               if (a.isFolder !== b.isFolder) {
                 return a.isFolder ? -1 : 1;
               }
-              return (a.date ?? new Date()) > (b.date ?? new Date()) ? 1 : (a.date ?? new Date()) < (b.date ?? new Date()) ? -1 : 0;
+              const aTime = (a.date ?? new Date()).getTime();
+              const bTime = (b.date ?? new Date()).getTime();
+              // If user requested 'Latest', show newest items first (descending).
+              if (this.sortOption && this.sortOption.toLowerCase() === 'latest') {
+                return bTime - aTime;
+              }
+              // Default: oldest first (ascending)
+              return aTime - bTime;
             });
           }
 

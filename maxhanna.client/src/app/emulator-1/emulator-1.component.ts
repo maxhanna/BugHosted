@@ -180,7 +180,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     const core = this.detectCore(fileName);
     window.EJS_core = core;
 
-
+    this.ensureTouchOverlaySizingCss(); 
     const system = this.systemFromCore(core);
     window.EJS_VirtualGamepadSettings = this.buildTouchLayout(system, {
       useJoystick: this.useJoystick,
@@ -1420,6 +1420,34 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
 
+private ensureTouchOverlaySizingCss(): void {
+  if (document.querySelector('style[data-ejs-touch-sizing="1"]')) return;
+
+  const css = ` 
+    #game #genA, #game #genB, #game #genC,
+    #game #gbaA, #game #gbaB {
+      width: 96px !important;
+      height: 96px !important;
+      line-height: 96px !important;
+      font-size: 34px !important;    /* larger label */
+      border-radius: 50% !important;
+      touch-action: manipulation;
+    }
+    #game #genA *, #game #genB *, #game #genC *,
+    #game #gbaA *, #game #gbaB * { pointer-events: none; }
+  
+    #game .ejs_dpad,      
+    #game .ejs-dpad {       
+      transform: scale(1.25);
+      transform-origin: center left;
+    }
+  `;
+  const style = document.createElement('style');
+  style.setAttribute('data-ejs-touch-sizing', '1');
+  style.textContent = css;
+  document.head.appendChild(style);
+}
+
   leftMovementArea(useJoystick: boolean): VPadItem {
     // For analog zone, indices must be [19,18,17,16] and joystickInput: true.
     // For dpad, indices are [4,5,6,7] (UP,DOWN,LEFT,RIGHT).                 // [2](https://emulatorjs.org/docs4devs/virtual-gamepad-settings/)
@@ -1510,13 +1538,15 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     return [B, A];
   }
 
+
   genesisThreeRight(): VPadItem[] {
     return [
-      { type: 'button', text: 'C', location: 'right', left: 0, top: 0, input_value: 8, bold: true }, // C → A(8)
-      { type: 'button', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true }, // B → B(0)
-      { type: 'button', text: 'A', location: 'right', left: 40, top: 80, input_value: 1, bold: true }, // A → Y(1)
+      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 0,  top: 0,  input_value: 8, bold: true },
+      { type: 'button', id: 'genB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true },
+      { type: 'button', id: 'genA', text: 'A', location: 'right', left: 40, top: 80, input_value: 1, bold: true },
     ];
   }
+
 
   systemFromCore(core: string): System {
     const c = core.toLowerCase();

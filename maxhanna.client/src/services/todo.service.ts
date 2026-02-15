@@ -88,6 +88,21 @@ export class TodoService {
       return null;
     }
   }
+  async editTodoUrlAndTitle(id: number, content: string, url?: string) {
+    try {
+      const response = await fetch('/todo/editurlandtitle', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id: id, content: content, url: url }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
   async shareListWith(userId: number, toUserId: number, todoColumn: string) {
     try {
       const response = await fetch('/todo/sharelistwith', {

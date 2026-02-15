@@ -160,8 +160,14 @@
                 <td class="actionTd" *ngIf="!user && song.id">
                   <button (click)="editSong(song.id)" class="xxSmallFont cursorPointer" *ngIf="!isEditing.length">{{ isEditing.includes(song.id) ?
                     '💾':'✏️'}}</button> 
-                  <button (click)="closeEditPopup()" [title]="'Edit'" class="cursorPointer closeButton"
-                      *ngIf="isEditing.includes(song.id)" id="closeOverlay">💾Update</button>
+                  <button 
+                    (click)="closeEditPopup()" 
+                    [title]="'Edit'" 
+                    class="cursorPointer closeButton"
+                    [class.hidden-operable]="isEditing.includes(song.id) ? false : true" 
+                    id="closeOverlay">
+                    💾Update
+                  </button>
                   <button (click)="deleteSong(song.id)" class="cursorPointer" *ngIf="isEditing.includes(song.id)">❌Delete</button>
                 </td>
               </tr>

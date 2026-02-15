@@ -173,6 +173,57 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+    [HttpPost("/Todo/EditUrlAndTitle", Name = "EditTodoUrlAndTitle")]
+    public async Task<IActionResult> EditUrlAndTitle([FromBody] EditTodo req)
+    {
+      MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      try
+      {
+        await conn.OpenAsync();
+        string sql = @"
+                    UPDATE 
+                        maxhanna.todo
+                    SET 
+                        todo = @Todo,
+                        url = CASE 
+                            WHEN @Url IS NULL THEN NULL
+                            WHEN @Url = '' THEN NULL
+                            ELSE @Url
+                        END
+                    WHERE id = @Id
+                    LIMIT 1;";
+
+        using (var cmd = new MySqlCommand(sql, conn))
+        {
+          cmd.Parameters.AddWithValue("@Todo", req.content);
+          cmd.Parameters.AddWithValue("@Id", req.id);
+
+          object urlValue = string.IsNullOrEmpty(req.url) ? DBNull.Value : (object)req.url;
+          cmd.Parameters.AddWithValue("@Url", urlValue);
+
+          var rows = await cmd.ExecuteNonQueryAsync();
+          if (rows > 0)
+          {
+            return Ok($"{req.id} Edit successful.");
+          }
+          else
+          {
+            _ = _log.Db("EditUrlAndTitle returned no rows affected", req.id, "TODO", true);
+            return StatusCode(500, "Failed to update todo");
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("An error occurred while processing the EditUrlAndTitle request." + ex.Message, req.id, "TODO", true);
+        return StatusCode(500, "An error occurred while processing the edit request.");
+      }
+      finally
+      {
+        try { conn.Close(); } catch { }
+      }
+    }
+
     [HttpPost("/Todo/GetSharedColumns", Name = "GetSharedColumns")]
     public async Task<IActionResult> GetSharedColumns([FromBody] int userId)
     {
@@ -695,18 +746,18 @@ namespace maxhanna.Server.Controllers
           List<string> seenTodos = new List<string>();
           string sql = @"
                 SELECT
-                    t.id,
-                    t.todo,
-                    t.type,
-                    t.url,
-                    t.file_id,
-                    t.date,
-                    t.ownership
+                  t.id,
+                  t.todo,
+                  t.type,
+                  t.url,
+                  t.file_id,
+                  t.date,
+                  t.ownership
                 FROM
-                    todo t
+                  todo t
                 WHERE
-                    t.type = 'music'
-                    AND t.date >= UTC_TIMESTAMP() - INTERVAL 1 DAY
+                  t.type = 'music'
+                  AND t.date >= UTC_TIMESTAMP() - INTERVAL 1 DAY
                 ORDER BY t.date DESC";
 
           using (var cmd = new MySqlCommand(sql, conn))
@@ -726,10 +777,11 @@ namespace maxhanna.Server.Controllers
                   date: rdr.GetDateTime(rdr.GetOrdinal("date")),
                   ownership: rdr.GetInt32(rdr.GetOrdinal("ownership"))
                 );
-                if (seenTodos.Contains(todo.todo)) { 
-                  continue; 
+                if (seenTodos.Contains(todo.todo))
+                {
+                  continue;
                 }
-                seenTodos.Add(todo.todo); 
+                seenTodos.Add(todo.todo);
                 entries.Add(todo);
               }
 

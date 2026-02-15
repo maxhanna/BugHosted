@@ -842,7 +842,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       const urlInput = document.getElementById("editSongUrlInput") as HTMLInputElement;
 
       try {
-        await this.todoService.editTodo(id, textInput.value, urlInput?.value).then(res => {
+        await this.todoService.editTodoUrlAndTitle(id, textInput.value, urlInput?.value).then(res => {
           if (res) {
             parent?.showNotification(res);
           }
