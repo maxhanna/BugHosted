@@ -38,47 +38,45 @@ export class FileService {
 		"d81", "d82", "atr", "xfd", "cas", "sap", "tzx", "pzx", "zx"
 	];
 
-	n64FileExtensions = [
-		"z64", "n64", "v64"
-	];
+	n64FileExtensions = ["z64", "n64", "v64"];
 
-	ps1FileExtensions = [
-		"bin"
-	];
+	ps1FileExtensions = ["bin", "cue", "iso", "chd", "pbp"];
+
+	genesisFileExtensions: string[] = ["smd", "gen", "32x", "gg", "sms", "md"];
+	segaFileExtensions: string[] = ["smd", "gen", "32x", "gg", "sms", "md"];
+	nesFileExtensions: string[] = ["nes", "fds"];
+	gbaFileExtensions: string[] = ['gba'];
+	ndsFileExtensions: string[] = ['nds'];
+	snesFileExtensions: string[] = ['snes', 'sfc', 'smc'];
 
 	/** Return Genesis/MegaDrive related extensions present in romFileExtensions */
 	getGenesisFileExtensions(): string[] {
-		const candidates = ["smd", "gen", "32x", "gg", "sms", "md"];
-		return candidates.filter(c => this.romFileExtensions.includes(c));
+		return Array.from(this.genesisFileExtensions);
 	}
 
 	/** Return Sega-related extensions (alias for Genesis/MegaDrive) present in romFileExtensions */
 	getSegaFileExtensions(): string[] {
-		// Keep in sync with Genesis variants supported by the client UI
-		const candidates = ["smd", "gen", "32x", "gg", "sms", "md"];
-		return candidates.filter(c => this.romFileExtensions.includes(c));
+		return Array.from(this.segaFileExtensions);
 	}
 
 	/** Return NES (and Famicom) related extensions present in romFileExtensions */
 	getNesFileExtensions(): string[] {
-		const candidates = ["nes", "fds"];
-		return candidates.filter(c => this.romFileExtensions.includes(c));
+		return Array.from(this.nesFileExtensions);
 	}
 
 	/** Return GBA extensions (usually just 'gba') */
 	getGbaFileExtensions(): string[] {
-		return this.romFileExtensions.includes('gba') ? ['gba'] : [];
+		return Array.from(this.gbaFileExtensions);
 	}
 
 	/** Return NDS extensions (usually just 'nds') */
 	getNdsFileExtensions(): string[] {
-		return this.romFileExtensions.includes('nds') ? ['nds'] : [];
+		return Array.from(this.ndsFileExtensions);
 	}
 
 	/** Return SNES related extensions present in romFileExtensions */
 	getSnesFileExtensions(): string[] {
-		const candidates = ['snes', 'sfc', 'smc'];
-		return candidates.filter(c => this.romFileExtensions.includes(c));
+		return Array.from(this.snesFileExtensions);
 	}
 
 	/** Return N64 extensions (delegates to the explicit array) */

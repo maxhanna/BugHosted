@@ -1225,10 +1225,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     return {
       'n64': (this.fileService.n64FileExtensions && this.fileService.n64FileExtensions.length) ? this.fileService.n64FileExtensions : ['n64', 'z64', 'v64'],
       'ps1': (this.fileService.ps1FileExtensions && this.fileService.ps1FileExtensions.length) ? Array.from(new Set([...this.fileService.ps1FileExtensions, 'cue', 'iso', 'chd', 'pbp'])) : ['bin', 'cue', 'iso', 'chd', 'pbp'],
-      'gba': this.fileService.romFileExtensions.includes('gba') ? ['gba'] : ['gba'],
-      'nds': this.fileService.romFileExtensions.includes('nds') ? ['nds'] : ['nds'],
-      'nes': this.fileService.romFileExtensions.includes('nes') ? ['nes'] : ['nes'],
-      'snes': this.fileService.romFileExtensions.includes('snes') || this.fileService.romFileExtensions.includes('sfc') ? ['snes', 'sfc'] : ['snes', 'sfc'],
+      'gba': this.fileService.getGbaFileExtensions(),
+      'nds': this.fileService.getNdsFileExtensions(),
+      'nes': this.fileService.getNesFileExtensions(),
+      'snes': this.fileService.getSnesFileExtensions(),
       'genesis': this.fileService.getSegaFileExtensions()
     };
   }
