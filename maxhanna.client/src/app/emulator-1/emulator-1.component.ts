@@ -297,8 +297,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     this.applyEjsRunOptions();
     // If the build calls back with the instance, capture it early
     (window as any).EJS_ready = (api: any) => {
-      try { 
-        this.applyVpadCssIntoRoot(); 
+      try {
+        this.applyVpadCssIntoRoot();
 
         console.log('EJS_ready: vpad readback=', (window as any).EJS_VirtualGamepadSettings);
 
@@ -344,7 +344,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         s.setAttribute('data-ejs-loader', '1');
         s.onload = () => {
           window.__ejsLoaderInjected = true;
-          
+
           setTimeout(() => {
             const roots = document.querySelectorAll('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent');
             console.log('[EJS] vpad roots detected:', roots.length, roots);
@@ -356,8 +356,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
             requestAnimationFrame(async () => {
               await this.waitForEmulatorAndFocus();
               await this.probeForSaveApi();
-              this.tryBindSaveFromUI(); 
-              try { this.applyVpadCssIntoRoot(); } catch {} 
+              this.tryBindSaveFromUI();
+              try { this.applyVpadCssIntoRoot(); } catch { }
               try {
                 const ok = await this.applySaveStateIfAvailable(saveStateBlob);
                 if (ok) {
@@ -1505,50 +1505,50 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
 
-/** Force A/B big-pill sizes via inline styles as a fallback. */
-private forceAbInlineOnce(): void {
-  const apply = (id: string) => {
-    const host = document.getElementById(id) as HTMLElement | null;
-    if (!host) return;
-    // Style host
-    host.style.width = '126px';
-    host.style.height = '86px';
-    host.style.lineHeight = '86px';
-    host.style.borderRadius = '43px';
-    host.style.fontSize = '34px';
-    host.style.fontWeight = '700';
-    host.style.display = 'inline-flex';
-    host.style.alignItems = 'center';
-    host.style.justifyContent = 'center';
+  /** Force A/B big-pill sizes via inline styles as a fallback. */
+  private forceAbInlineOnce(): void {
+    const apply = (id: string) => {
+      const host = document.getElementById(id) as HTMLElement | null;
+      if (!host) return;
+      // Style host
+      host.style.width = '126px';
+      host.style.height = '86px';
+      host.style.lineHeight = '86px';
+      host.style.borderRadius = '43px';
+      host.style.fontSize = '34px';
+      host.style.fontWeight = '700';
+      host.style.display = 'inline-flex';
+      host.style.alignItems = 'center';
+      host.style.justifyContent = 'center';
 
-    // Style common inner node, if present
-    const inner = host.querySelector('.ejs_button, .ejs-button, button, [role="button"]') as HTMLElement | null;
-    if (inner) {
-      inner.style.width = '126px';
-      inner.style.height = '86px';
-      inner.style.lineHeight = '86px';
-      inner.style.borderRadius = '43px';
-      inner.style.fontSize = '34px';
-      inner.style.fontWeight = '700';
-      inner.style.display = 'inline-flex';
-      inner.style.alignItems = 'center';
-      inner.style.justifyContent = 'center';
-    }
-  };
-  apply('btnA');
-  apply('btnB');
-}
+      // Style common inner node, if present
+      const inner = host.querySelector('.ejs_button, .ejs-button, button, [role="button"]') as HTMLElement | null;
+      if (inner) {
+        inner.style.width = '126px';
+        inner.style.height = '86px';
+        inner.style.lineHeight = '86px';
+        inner.style.borderRadius = '43px';
+        inner.style.fontSize = '34px';
+        inner.style.fontWeight = '700';
+        inner.style.display = 'inline-flex';
+        inner.style.alignItems = 'center';
+        inner.style.justifyContent = 'center';
+      }
+    };
+    apply('btnA');
+    apply('btnB');
+  }
 
-/** Inject CSS directly into the vpad root so skin CSS can’t outrank it. */
-private applyVpadCssIntoRoot(): void {
-  // Find the vpad root (works for common skins)
-  const root = document.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent') as HTMLElement | null;
-  if (!root) return;
+  /** Inject CSS directly into the vpad root so skin CSS can’t outrank it. */
+  private applyVpadCssIntoRoot(): void {
+    // Find the vpad root (works for common skins)
+    const root = document.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent') as HTMLElement | null;
+    if (!root) return;
 
-  // Ensure idempotent
-  if (root.querySelector('style[data-vpad-overrides="1"]')) return;
+    // Ensure idempotent
+    if (root.querySelector('style[data-vpad-overrides="1"]')) return;
 
-  const css = `
+    const css = `
 /* ===== Genesis keep A/B/C round if present ===== */
 #genA, #genB, #genC,
 #genA .ejs_button, #genB .ejs_button, #genC .ejs_button {
@@ -1598,18 +1598,18 @@ private applyVpadCssIntoRoot(): void {
   line-height: 1.1 !important;
 }
 `;
-  const style = document.createElement('style');
-  style.setAttribute('data-vpad-overrides', '1');
-  style.textContent = css;
-  root.appendChild(style);
-  this.forceAbInlineOnce();
-}
+    const style = document.createElement('style');
+    style.setAttribute('data-vpad-overrides', '1');
+    style.textContent = css;
+    root.appendChild(style);
+    this.forceAbInlineOnce();
+  }
 
-  
-private ensureTouchOverlaySizingCss(): void {
-  if (document.querySelector('style[data-ejs-touch-sizing="1"]')) return;
 
-  const css = `
+  private ensureTouchOverlaySizingCss(): void {
+    if (document.querySelector('style[data-ejs-touch-sizing="1"]')) return;
+
+    const css = `
 /* ====== Genesis (keep big & round, if those IDs are present) ====== */
 .ejs_virtualGamepad_parent #genA,
 .ejs_virtualGamepad_parent #genB,
@@ -1701,11 +1701,11 @@ private ensureTouchOverlaySizingCss(): void {
 }
 `;
 
-  const style = document.createElement('style');
-  style.setAttribute('data-ejs-touch-sizing', '1');
-  style.textContent = css;
-  document.head.appendChild(style);
-} 
+    const style = document.createElement('style');
+    style.setAttribute('data-ejs-touch-sizing', '1');
+    style.textContent = css;
+    document.head.appendChild(style);
+  }
 
   leftMovementArea(useJoystick: boolean): VPadItem {
     return useJoystick
@@ -1728,12 +1728,12 @@ private ensureTouchOverlaySizingCss(): void {
   }
 
 
-twoButtonRight(): VPadItem[] {
-  // Make B a bit left/below; A a bit right/above (classic layout)
-  const B: VPadItem = { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 40, top: 80, input_value: 0, bold: true };
-  const A: VPadItem = { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 81, top: 40, input_value: 8, bold: true };
-  return [B, A];
-} 
+  twoButtonRight(): VPadItem[] {
+    // Make B a bit left/below; A a bit right/above (classic layout)
+    const B: VPadItem = { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 40, top: 80, input_value: 0, bold: true };
+    const A: VPadItem = { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 81, top: 40, input_value: 8, bold: true };
+    return [B, A];
+  }
 
   genesisThreeRight(): VPadItem[] {
     return [
@@ -1813,17 +1813,17 @@ twoButtonRight(): VPadItem[] {
       }
     };
 
-    
-const once = () => {
-  const vpad = root.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent') as HTMLElement | null;
-  if (!vpad) return;
 
-  // Only bump Genesis circles; do NOT touch A/B or speed buttons
-  const ids = ['genA', 'genB', 'genC'];
-  ids.forEach(id => bumpEl(document.getElementById(id)));
+    const once = () => {
+      const vpad = root.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent') as HTMLElement | null;
+      if (!vpad) return;
 
-  obs.disconnect();
-};
+      // Only bump Genesis circles; do NOT touch A/B or speed buttons
+      const ids = ['genA', 'genB', 'genC'];
+      ids.forEach(id => bumpEl(document.getElementById(id)));
+
+      obs.disconnect();
+    };
 
 
     const obs = new MutationObserver(once);
