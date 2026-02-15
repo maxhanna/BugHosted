@@ -430,7 +430,7 @@
       </div>
     </div> 
     <div class="search-filters">
-      <div class="filter-group">
+      <div class="filter-group" style="margin-top:15px">
         <label for="sort-select" class="filter-label">Sort by:</label>
         <select id="sort-select" class="filter-select" (change)="setSortOption($event)">
           <option value="Latest" [selected]="sortOption === 'Latest'">Latest</option>
@@ -453,6 +453,15 @@
         <div class="fInputFlexDiv">
           <input id="filetype-input" class="filter-input" type="text" [value]="fileTypeFilter" #fileTypeFilterInput (input)="onFiletypeFilterChange()" placeholder="e.g. jpg, mp4, pdf" />
           <input type="button" (click)="clearFileTypeFilter()" value="❌" class="search-clear-button" />
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label for="fileid-input" class="filter-label">File ID:</label>
+        <div class="fInputFlexDiv">
+          <input id="fileid-input" class="filter-input" type="number" #fileIdFilterInput placeholder="e.g. 6373" (keyup.enter)="getDirectory(undefined, +fileIdFilterInput.value)" />
+          <input type="button" (click)="getDirectory(undefined, +fileIdFilterInput.value)" value="🔎" class="search-clear-button" title="Search by File ID" />
+          <input type="button" (click)="fileIdFilterInput.value=''; getDirectory()" value="❌" class="search-clear-button" title="Clear File ID" />
         </div>
       </div>
     </div>
