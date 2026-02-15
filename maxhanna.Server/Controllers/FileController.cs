@@ -351,12 +351,10 @@ LIMIT
 					}
 
 					// Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
-					try
-					{
-						var diag = $"GetDirectory: fileId={fileId}, filePosition={filePosition}, offset={offset}, pageSize={pageSize}, page={page}, folderPath={directory}, totalCount={totalCount}, search={(string.IsNullOrEmpty(search) ? "" : search)}, visibility={(string.IsNullOrEmpty(visibility) ? "" : visibility)}, ownership={(string.IsNullOrEmpty(ownership) ? "" : ownership)}, fileTypeCondition={fileTypeCondition}, visibilityCondition={visibilityCondition}, ownershipCondition={ownershipCondition}, hiddenCondition={hiddenCondition}, favouritesCondition={favouritesCondition}";
-						_ = _log.Db(diag, null, "FILE", true);
-					}
-					catch { }
+					 
+					// 	var diag = $"GetDirectory: fileId={fileId}, filePosition={filePosition}, offset={offset}, pageSize={pageSize}, page={page}, folderPath={directory}, totalCount={totalCount}, search={(string.IsNullOrEmpty(search) ? "" : search)}, visibility={(string.IsNullOrEmpty(visibility) ? "" : visibility)}, ownership={(string.IsNullOrEmpty(ownership) ? "" : ownership)}, fileTypeCondition={fileTypeCondition}, visibilityCondition={visibilityCondition}, ownershipCondition={ownershipCondition}, hiddenCondition={hiddenCondition}, favouritesCondition={favouritesCondition}";
+					// 	_ = _log.Db(diag, null, "FILE", true);
+				 
 					using (var reader = command.ExecuteReader())
 					{
 						while (reader.Read())
