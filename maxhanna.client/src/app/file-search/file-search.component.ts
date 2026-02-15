@@ -1,5 +1,6 @@
 ﻿
 import { AfterViewInit, Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output, QueryList, ViewChild, ViewChildren } from '@angular/core';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { FileService } from '../../services/file.service';
 import { DirectoryResults } from '../../services/datacontracts/file/directory-results';
 import { ChildComponent } from '../child.component';
@@ -116,7 +117,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @ViewChild(MediaViewerComponent) mediaViewerComponent!: MediaViewerComponent;
 
 
-  constructor(private fileService: FileService, private userService: UserService, private todoService: TodoService, private route: ActivatedRoute) {
+  constructor(private fileService: FileService, private userService: UserService, private todoService: TodoService, private route: ActivatedRoute, private sanitizer: DomSanitizer) {
     super();
     this.previousComponent = "Files";
     this.windowScrollHandler = this.debounce(this.onWindowScroll.bind(this), 200);
@@ -1287,10 +1288,46 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.fileTypeFilter = '';
     try { this.onFiletypeFilterChange(); } catch { }
   }
-  /** Return a small emoji representing the system inferred from the file extension. */
-  getSystemEmoji(fileName?: string): string {
+  /** Return a small emoji or an <img> icon representing the system inferred from the file extension. */
+  getSystemEmoji(fileName?: string): SafeHtml | string {
     if (!fileName) return '';
     const ext = this.fileService.getFileExtension(fileName).toLowerCase();
+
+    // Prefer image icons for some systems; fall back to emoji when not available
+    const iconMap: { [key: string]: string } = {
+      'n64': '/assets/n64icon.png',
+      'z64': '/assets/n64icon.png',
+      'v64': '/assets/n64icon.png',
+      'a78': '/assets/atariicon.png',
+      '2600': '/assets/atariicon.png',
+      '5200': '/assets/atariicon.png',
+      '7800': '/assets/atariicon.png',
+      'lynx': '/assets/atariicon.png',
+      'jag': '/assets/atariicon.png',
+      'smd': '/assets/segaicon.png',
+      'gen': '/assets/segaicon.png',
+      '32x': '/assets/segaicon.png',
+      'gg': '/assets/segaicon.png',
+      'sms': '/assets/segaicon.png',
+      'snes': '/assets/snesicon.png',
+      'sfc': '/assets/snesicon.png',
+      'nds': '/assets/ndsicon.png',
+      'nes': '/assets/nesicon.png',
+      'ps1': '/assets/ps1icon.png',
+      'pbp': '/assets/ps1icon.png',
+      'cue': '/assets/ps1icon.png',
+      'iso': '/assets/ps1icon.png',
+      'gb': '/assets/gbicon.png',
+      'gbc': '/assets/gbicon.png',
+      'gba': '/assets/gbaicon.png'
+    };
+
+    if (iconMap[ext]) {
+      const src = iconMap[ext];
+      const html = `<img src="${src}" alt="${ext}" style="width:16px;height:16px;vertical-align:middle;margin-right:6px" />`;
+      return this.sanitizer.bypassSecurityTrustHtml(html);
+    }
+
     const map: { [key: string]: string } = {
       // Nintendo family
       'gba': '🎮',

@@ -102,7 +102,7 @@
                       (click)="!disabled && selectFile(file);"
                       [id]="'fileIdName'+file.id"> 
                   {{ file.isFolder ? '📁' : '' }}
-                  {{ showSystemIcons ? getSystemEmoji(file.fileName ?? '') : '' }}
+                  <span [innerHTML]="showSystemIcons ? getSystemEmoji(file.fileName ?? '') : ''"></span>
                   {{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}
                 </span>
               </span>
