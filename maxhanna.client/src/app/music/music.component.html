@@ -1,6 +1,6 @@
 <div class="componentMain" #componentMain>
   <div class="closeButton" *ngIf="!user" (click)="remove_me('MusicComponent');"></div>
-  <div class="refreshButton" *ngIf="!user" (click)="refreshPlaylist();"></div>
+  <div class="menuButton" (click)="showMenuPanel();" *ngIf="!user"></div>
   <div class="helpButton" *ngIf="!user" (click)="openHelpPanel()"></div>
   <div class="componentTitle" *ngIf="!user">Music</div>
 
@@ -261,4 +261,12 @@
     <p class="note">Note: You must be logged in to add or edit songs.</p>
   </div>
   <button id="closeOverlay" class="closeButton" (click)="closeHelpPanel()" style="margin-top:6px;">Close</button>
+</div>
+<!-- Music Menu Popup -->
+<div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
+  <div class="popupPanelTitle">Music</div>
+  <div class="popupPanelContents gradientBackground" style="padding:10px;">
+    <app-daily-music [inputtedParentRef]="inputtedParentRef ?? parentRef"></app-daily-music>
+  </div>
+  <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>
 </div>

@@ -48,6 +48,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   isFullscreen = false;
   isShowingYoutubeSearch = false;
   hasEditedSong = false;
+  isMenuPanelOpen = false;
 
   // Radio properties
   radioStations: RadioStation[] = [];
@@ -92,6 +93,26 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
         this.closeFullscreen();
       }
     });
+  }
+
+  showMenuPanel() {
+    if (this.isMenuPanelOpen) {
+      this.closeMenuPanel();
+      return;
+    }
+    this.isMenuPanelOpen = true;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      try { parent.showOverlay(); } catch { }
+    }
+  }
+
+  closeMenuPanel() {
+    this.isMenuPanelOpen = false;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      try { parent.closeOverlay(); } catch { }
+    }
   }
 
   @HostListener('document:keydown.escape', ['$event'])
