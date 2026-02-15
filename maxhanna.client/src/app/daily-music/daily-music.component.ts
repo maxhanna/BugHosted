@@ -40,9 +40,26 @@ export class DailyMusicComponent extends ChildComponent implements OnInit, After
     if (url && parent) {
       const videoId = parent.getYouTubeVideoId(url);
       if (videoId) {
-        parent.playYoutubeVideo(videoId);
-        return;
+        try {
+          if (typeof parent.playYoutubeVideo === 'function') {
+            parent.playYoutubeVideo(videoId);
+            return;
+          }
+        } catch (e) {
+          console.warn('playYoutubeVideo call failed on parentRef', e);
+        }
+        // fallthrough to fallback below
       }
-    } 
+    }
+
+    // Fallback: trigger the global hidden youtube button (works if parentRef wasn't wired)
+    try {
+      const input = document.getElementById('youtubeVideoIdInput') as HTMLInputElement | null;
+      if (input && url) input.value = url;
+      const btn = document.getElementById('youtubeVideoButton') as HTMLButtonElement | null;
+      if (btn) btn.click();
+    } catch (e) {
+      console.warn('Fallback youtube trigger failed', e);
+    }
   }
 }
