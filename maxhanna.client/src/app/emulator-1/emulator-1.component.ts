@@ -194,40 +194,33 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
     const system = this.systemFromCore(core);
 
-    const vpadKnownGood: any[] = [
-      // D-pad (percentage left): OK without id
-      { type: 'dpad', location: 'left', left: '8%', joystickInput: false, inputValues: [4, 5, 6, 7] },
+const vpad = this.buildTouchLayout(system, {
+  useJoystick: this.useJoystick,
+  showControls: this.showControls,
+  twoButtonMode: (system === 'nes' || system === 'gb' || system === 'gbc'),
+  // For Genesis, default to 3-button pad; set this to true only if you want shoulder "pills"
+  segaShowLR: false
+});
 
-      // Face buttons: NEED id + input_value
-      { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true },
-      { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true },
+// OPTIONAL: If you want Fast/Slow on all systems, append them here.
+const speedButtons: VPadItem[] = [
+  { type: 'button', id: 'speed_fast',   text: 'Fast',   location: 'center', left: -35, top: 50, fontSize: 15, block: true, input_value: 27 },
+  { type: 'button', id: 'speed_slow',   text: 'Slow',   location: 'center', left:  95, top: 50, fontSize: 15, block: true, input_value: 29 },
+  // You can add Rewind regardless of core setting, or gate behind a flag if you prefer:
+  // { type: 'button', id: 'speed_rewind', text: 'Rewind', location: 'center', left: 30, top: 50, fontSize: 15, block: true, input_value: 28 },
+];
 
-      // Shoulders (buttons): NEED id + input_value
-      { type: 'button', id: 'btnL', text: 'L', location: 'top', left: 10, top: 0, input_value: 10, bold: true, block: true },
-      { type: 'button', id: 'btnR', text: 'R', location: 'top', left: 270, top: 0, input_value: 11, bold: true, block: true },
+window.EJS_VirtualGamepadSettings = vpad.concat(speedButtons);
 
-      // Start/Select (buttons): NEED id + input_value
-      { type: 'button', id: 'start', text: 'Start', location: 'center', left: 60, top: 0, fontSize: 15, block: true, input_value: 3 },
-      { type: 'button', id: 'select', text: 'Select', location: 'center', left: -5, top: 0, fontSize: 15, block: true, input_value: 2 },
-    ];
-
-    window.EJS_VirtualGamepadSettings = vpadKnownGood;
-
-    try {
-      // After you build the array but before the loader:
-      for (const it of vpadKnownGood) {
-        if (it.type === 'button') {
-          if (!('id' in it)) throw new Error(`Missing id on button "${it.text}"`);
-          if (typeof it.input_value === 'undefined' || it.input_value === null)
-            throw new Error(`Missing input_value on button "${it.text}"`);
-        } else if (it.type === 'dpad' || it.type === 'zone') {
-          if (!it.location) throw new Error(`${it.type} missing location`);
-          if (!it.inputValues) throw new Error(`${it.type} missing inputValues`);
-        }
-      }
-    } catch (e) {
-      console.error('Error configuring VirtualGamepadSettings:', e);
-    } 
+// Safety assert (keeps you from silently falling back)
+for (const it of window.EJS_VirtualGamepadSettings) {
+  if (it.type === 'button') {
+    if (!('id' in it)) throw new Error(`Missing id on button "${it.text}"`);
+    if (typeof (it as any).input_value === 'undefined') throw new Error(`Missing input_value on button "${it.text}"`);
+  } else if ((it.type === 'dpad' || it.type === 'zone') && !it.inputValues) {
+    throw new Error(`${it.type} missing inputValues`);
+  }
+}  
     console.log('[EJS] assigning custom VirtualGamepadSettings', window.EJS_VirtualGamepadSettings);
 
     // For PlayStation and N64 cores, increase autosave interval to 10 minutes
@@ -1488,7 +1481,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   #game #genA, #game #genB, #game #genC {
     width: 96px !important; height: 96px !important; line-height: 96px !important;
     font-size: 34px !important; border-radius: 50% !important;
-  }
+  } 
   /* Scale D-Pad; cover both hyphen/underscore classnames across builds */
   #game .ejs-dpad, #game .ejs_dpad { transform: scale(1.25); transform-origin: center left; }
   `;
@@ -1498,9 +1491,9 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     document.head.appendChild(style);
   }
 
-  leftMovementArea(useJoystick: boolean): VPadItem {
-    return useJoystick
-      ? {
+leftMovementArea(useJoystick: boolean): VPadItem {
+  return useJoystick
+    ? {
         type: 'zone',
         location: 'left',
         left: '8%',
@@ -1509,66 +1502,83 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         color: 'blue',
         inputValues: [19, 18, 17, 16],
       }
-      : {
+    : {
         type: 'dpad',
+        // optional but nice to have: add a stable id so your inspect helpers can find it
+        // id is not required for dpad by your build, but harmless if you add it to your VPadItem type
+        // @ts-ignore: if your VPadItem type doesn't allow id on dpad, omit this line
+        // id: 'dpad',
         location: 'left',
         left: '8%',
         joystickInput: false,
         inputValues: [4, 5, 6, 7],
       };
+}
+
+twoButtonRight(enlarge = true): VPadItem[] {
+  const A: VPadItem = { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true };
+  const B: VPadItem = { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true };
+  if (enlarge) {
+    (A as any).block = true; (A as any).fontSize = 32;
+    (B as any).block = true; (B as any).fontSize = 32;
+    A.left = (A.left ?? 40) - 20; A.top = (A.top ?? 80) + 20;
+    B.left = (B.left ?? 81) - 10; B.top = (B.top ?? 40) + 20;
   }
+  return [B, A];
+}
 
-  twoButtonRight(enlarge = true): VPadItem[] {
-    const A: VPadItem = { type: 'button', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true };
-    const B: VPadItem = { type: 'button', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true };
-    if (enlarge) {
-      (A as any).block = true; (A as any).fontSize = 32; // px number
-      (B as any).block = true; (B as any).fontSize = 32; // px number
-      A.left = (A.left ?? 40) - 20; A.top = (A.top ?? 80) + 20;
-      B.left = (B.left ?? 81) - 10; B.top = (B.top ?? 40) + 20;
-    }
-    return [B, A];
+genesisThreeRight(): VPadItem[] {
+  // Genesis/Mega Drive A/B/C mapping (matches EmulatorJS defaults):
+  // A = 1, B = 0, C = 8
+  return [
+    { type: 'button', id: 'genC', text: 'C', location: 'right', left: 0,  top: 0,  input_value: 8, bold: true },
+    { type: 'button', id: 'genB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true },
+    { type: 'button', id: 'genA', text: 'A', location: 'right', left: 40, top: 80, input_value: 1, bold: true },
+  ];
+}
+
+genesisSixRight(): VPadItem[] {
+  return [
+    // Lower row A/B/C
+    { type: 'button', id: 'genC', text: 'C', location: 'right', left: 0,   top:  0,  input_value: 8,  bold: true },
+    { type: 'button', id: 'genB', text: 'B', location: 'right', left: 81,  top: 40, input_value: 0,  bold: true },
+    { type: 'button', id: 'genA', text: 'A', location: 'right', left: 40,  top: 80, input_value: 1,  bold: true },
+    // Upper row X/Y/Z (match your build’s scheme)
+    { type: 'button', id: 'genX', text: 'X', location: 'right', left: 0,   top: -60, input_value: 10, bold: true },
+    { type: 'button', id: 'genY', text: 'Y', location: 'right', left: 40,  top: -20, input_value: 9,  bold: true },
+    { type: 'button', id: 'genZ', text: 'Z', location: 'right', left: 81,  top: -60, input_value: 11, bold: true },
+  ];
+}
+
+startSelectRow(): VPadItem[] {
+  return [
+    { type: 'button', id: 'start',  text: 'Start',  location: 'center', left: 60, top: 0, fontSize: 15, block: true, input_value: 3 },
+    { type: 'button', id: 'select', text: 'Select', location: 'center', left: -5, top: 0, fontSize: 15, block: true, input_value: 2 },
+  ];
+}
+
+shouldersTop(hasLR2 = false): VPadItem[] {
+  const items: VPadItem[] = [
+    { type: 'button', id: 'btnL', text: 'L', location: 'top', left: 10,  top: 0, input_value: 10, bold: true, block: true },
+    { type: 'button', id: 'btnR', text: 'R', location: 'top', left: 270, top: 0, input_value: 11, bold: true, block: true },
+  ];
+  if (hasLR2) {
+    items.push(
+      { type: 'button', id: 'btnL2', text: 'L2', location: 'top', left: 90,  top: 0, input_value: 12, bold: true, block: true },
+      { type: 'button', id: 'btnR2', text: 'R2', location: 'top', left: 190, top: 0, input_value: 13, bold: true, block: true },
+    );
   }
+  return items;
+}
 
-  genesisThreeRight(): VPadItem[] {
-    return [
-      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 0, top: 0, input_value: 8, bold: true },
-      { type: 'button', id: 'genB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true },
-      { type: 'button', id: 'genA', text: 'A', location: 'right', left: 40, top: 80, input_value: 1, bold: true },
-    ];
-  }
-
-  startSelectRow(): VPadItem[] {
-    return [
-      { type: 'button', text: 'Start', id: 'start', location: 'center', left: 60, top: 0, fontSize: 15, block: true, input_value: 3 },
-      { type: 'button', text: 'Select', id: 'select', location: 'center', left: -5, top: 0, fontSize: 15, block: true, input_value: 2 },
-    ];
-  }
-
-  shouldersTop(hasLR2 = false): VPadItem[] {
-    const items: VPadItem[] = [
-      { type: 'button', text: 'L', location: 'top', left: 10, top: 0, input_value: 10, bold: true, block: true },
-      { type: 'button', text: 'R', location: 'top', left: 270, top: 0, input_value: 11, bold: true, block: true },
-    ];
-    if (hasLR2) {
-      items.push(
-        { type: 'button', text: 'L2', location: 'top', left: 90, top: 0, input_value: 12, bold: true, block: true },
-        { type: 'button', text: 'R2', location: 'top', left: 190, top: 0, input_value: 13, bold: true, block: true },
-      );
-    }
-    return items;
-  }
-
-  diamondRight(): VPadItem[] {
-    return [
-      { type: 'button', text: 'X', location: 'right', left: 0, top: 0, input_value: 9, bold: true }, // X
-      { type: 'button', text: 'Y', location: 'right', left: 40, top: 40, input_value: 1, bold: true }, // Y
-      { type: 'button', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true }, // B
-      { type: 'button', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true }, // A
-    ];
-  }
-
-
+diamondRight(): VPadItem[] {
+  return [
+    { type: 'button', id: 'btnX', text: 'X', location: 'right', left: 0,  top: 0,  input_value: 9, bold: true },
+    { type: 'button', id: 'btnY', text: 'Y', location: 'right', left: 40, top: 40, input_value: 1, bold: true },
+    { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true },
+    { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true },
+  ];
+}
 
   /** After the vpad mounts, force inline sizes by ID; if missing, find by text label. */
   private inspectVPadOnce(): void {
