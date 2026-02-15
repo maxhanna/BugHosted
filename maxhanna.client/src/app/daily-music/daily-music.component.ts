@@ -41,7 +41,7 @@ export class DailyMusicComponent extends ChildComponent implements OnInit, After
     // If there's no URL but we have a fileId, open the MediaViewer for that file
     if (!url && fileId && parent) {
       try {
-        parent.createComponent("MediaViewer", { fileId: fileId });
+        parent.createComponent("MediaViewer", { fileId: fileId, isLoadedFromURL: true });
         return;
       } catch (e) {
         console.warn('Failed to open MediaViewer via parent.createComponent', e);
