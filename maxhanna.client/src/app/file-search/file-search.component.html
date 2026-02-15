@@ -478,6 +478,15 @@
       </button>
     </div> 
 
+    <div *ngIf="isRomsDirectory()" class="spaceAroundFlex">
+      <span style="width:100%">Filter by system (Roms/)</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button *ngFor="let s of getSupportedRomSystems()" class="toggle-switch-small" (click)="toggleRomSystem(s)">
+          {{ activeRomSystem === s ? 'On' : 'Off' }} {{ getSystemLabel(s) }}
+        </button>
+      </div>
+    </div>
+
     <div class="spaceAroundFlex" *ngIf="showHiddenFilesToggler && userIsLoggedIn()">
       <span style="width:100%">Show hidden files?</span>
       <button class="toggle-switch" (click)="toggleShowHiddenFilesButton()">

@@ -46,6 +46,44 @@ export class FileService {
 		"bin"
 	];
 
+	/** Return Genesis/MegaDrive related extensions present in romFileExtensions */
+	getGenesisFileExtensions(): string[] {
+		const candidates = ["smd", "gen", "32x", "gg", "sms", "md"];
+		return candidates.filter(c => this.romFileExtensions.includes(c));
+	}
+
+	/** Return NES (and Famicom) related extensions present in romFileExtensions */
+	getNesFileExtensions(): string[] {
+		const candidates = ["nes", "fds"];
+		return candidates.filter(c => this.romFileExtensions.includes(c));
+	}
+
+	/** Return GBA extensions (usually just 'gba') */
+	getGbaFileExtensions(): string[] {
+		return this.romFileExtensions.includes('gba') ? ['gba'] : [];
+	}
+
+	/** Return NDS extensions (usually just 'nds') */
+	getNdsFileExtensions(): string[] {
+		return this.romFileExtensions.includes('nds') ? ['nds'] : [];
+	}
+
+	/** Return SNES related extensions present in romFileExtensions */
+	getSnesFileExtensions(): string[] {
+		const candidates = ['snes', 'sfc', 'smc'];
+		return candidates.filter(c => this.romFileExtensions.includes(c));
+	}
+
+	/** Return N64 extensions (delegates to the explicit array) */
+	getN64FileExtensions(): string[] {
+		return Array.from(this.n64FileExtensions);
+	}
+
+	/** Return PlayStation 1 extensions (delegates to explicit array) */
+	getPs1FileExtensions(): string[] {
+		return Array.from(this.ps1FileExtensions);
+	}
+
 	async getDirectory(
 		dir: string,
 		visibility: string,

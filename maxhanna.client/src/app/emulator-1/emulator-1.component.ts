@@ -69,6 +69,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   private _gameAttrObs?: MutationObserver;
   private _saveFn?: () => void;
   private _autosaveKick?: any;
+  private _lastSaveTime: number = 0;
+  private _saveInProgress: boolean = false;
 
 
 
@@ -461,6 +463,19 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
 
   private async onSaveState(raw: any) {
+    const now = Date.now();
+    // If a save is already in progress, skip duplicate uploads
+    if (this._saveInProgress) {
+      console.log('[EJS] onSaveState: save already in progress; skipping');
+      if (this._pendingSaveResolve) { try { this._pendingSaveResolve(true); } catch { } this._pendingSaveResolve = undefined; }
+      return;
+    }
+    // Rate-limit saves to once per 10s
+    if (now - this._lastSaveTime < 10000) {
+      console.log('[EJS] onSaveState: recent save detected (<10s); skipping upload');
+      if (this._pendingSaveResolve) { try { this._pendingSaveResolve(true); } catch { } this._pendingSaveResolve = undefined; }
+      return;
+    }
     const gameID = (window as any).EJS_gameID || '';
     const gameName = (window as any).EJS_gameName
       || (this.romName ? this.fileService.getFileWithoutExtension(this.romName) : '');
@@ -498,10 +513,11 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       return;
     }
 
+    this._saveInProgress = true;
     try {
       await this.romService.saveEmulatorJSState(this.romName, this.parentRef.user.id, u8);
+      this._lastSaveTime = Date.now();
       console.log('Save state saved to database (bytes=', u8.length, ')');
-
       if (this._pendingSaveResolve) {
         try { this._pendingSaveResolve(true); } catch { }
         this._pendingSaveResolve = undefined;
@@ -512,6 +528,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         try { this._pendingSaveResolve(false); } catch { }
         this._pendingSaveResolve = undefined;
       }
+    } finally {
+      this._saveInProgress = false;
     }
   }
  

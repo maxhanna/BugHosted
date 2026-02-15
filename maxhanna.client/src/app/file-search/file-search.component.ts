@@ -101,6 +101,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   };
   isDisplayingNSFW = false;
   fileTypeFilter = "";
+  activeRomSystem: string | undefined = undefined;
   loadingSearch = false;
   private windowScrollHandler: Function;
   private containerScrollHandler: Function;
@@ -1213,6 +1214,58 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.onFiletypeFilterChange(true);
     }
   }
+ 
+
+  // Map logical system keys to extensions understood by the file filter.
+  // Use arrays from FileService where available to keep a single source of truth.
+  private get romSystemExtensions(): { [key: string]: string[] } {
+    return {
+      'n64': (this.fileService.n64FileExtensions && this.fileService.n64FileExtensions.length) ? this.fileService.n64FileExtensions : ['n64', 'z64', 'v64'],
+      'ps1': (this.fileService.ps1FileExtensions && this.fileService.ps1FileExtensions.length) ? Array.from(new Set([...this.fileService.ps1FileExtensions, 'cue', 'iso', 'chd', 'pbp'])) : ['bin', 'cue', 'iso', 'chd', 'pbp'],
+      'gba': this.fileService.romFileExtensions.includes('gba') ? ['gba'] : ['gba'],
+      'nds': this.fileService.romFileExtensions.includes('nds') ? ['nds'] : ['nds'],
+      'nes': this.fileService.romFileExtensions.includes('nes') ? ['nes'] : ['nes'],
+      'snes': this.fileService.romFileExtensions.includes('snes') || this.fileService.romFileExtensions.includes('sfc') ? ['snes', 'sfc'] : ['snes', 'sfc'],
+      'genesis': ['smd', 'gen', '32x', 'gg', 'sms', 'md']
+    };
+  }
+
+  isRomsDirectory(): boolean {
+    return (this.currentDirectory ?? '').toLowerCase() === 'roms/';
+  }
+
+  getSupportedRomSystems(): string[] {
+    const candidates = Object.keys(this.romSystemExtensions);
+    if (!this.allowedFileTypes || this.allowedFileTypes.length === 0) return candidates;
+    const lowerAllowed = this.allowedFileTypes.map(s => s.toLowerCase());
+    return candidates.filter(k => this.romSystemExtensions[k].some(ext => lowerAllowed.includes(ext)));
+  }
+
+  getSystemLabel(key: string): string {
+    switch (key) {
+      case 'n64': return 'N64';
+      case 'ps1': return 'PS1';
+      case 'gba': return 'GBA';
+      case 'nds': return 'NDS';
+      case 'nes': return 'NES';
+      case 'snes': return 'SNES';
+      case 'genesis': return 'Genesis';
+      default: return key.toUpperCase();
+    }
+  }
+
+  toggleRomSystem(key: string) {
+    if (this.activeRomSystem === key) {
+      this.activeRomSystem = undefined;
+      this.fileTypeFilter = '';
+      this.onFiletypeFilterChange(true);
+      return;
+    }
+    this.activeRomSystem = key;
+    const exts = this.romSystemExtensions[key] ?? [key];
+    this.fileTypeFilter = exts.join(',');
+    this.onFiletypeFilterChange(true);
+  }
 
   showFavouritesToggled() {
     this.showFavouritesOnly = !this.showFavouritesOnly;
@@ -1317,6 +1370,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       'pbp': '/assets/ps1icon.png',
       'cue': '/assets/ps1icon.png',
       'iso': '/assets/ps1icon.png',
+      'bin': '/assets/ps1icon.png',
       'gb': '/assets/gbicon.png',
       'gbc': '/assets/gbicon.png',
       'gba': '/assets/gbaicon.png'
