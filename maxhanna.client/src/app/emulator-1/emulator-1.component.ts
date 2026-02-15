@@ -944,8 +944,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
       await new Promise(r => setTimeout(r, 100));
     }
-
-    console.warn('[EJS] probeForSaveApi: no saveState() found in this build');
   }
   /** Try to locate the Quick Save button in the EJS toolbar. */
   private findQuickSaveButton(): HTMLButtonElement | null {
