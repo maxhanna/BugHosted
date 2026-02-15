@@ -65,6 +65,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   private _destroyed = false;
   private _pendingSaveResolve?: (v?: any) => void;
   private _pendingSaveTimer?: any;
+  private _captureSaveResolve?: (u8: Uint8Array | null) => void;
   private _gameSizeObs?: ResizeObserver;
   private _gameAttrObs?: MutationObserver;
   private _saveFn?: () => Promise<void>;
@@ -100,8 +101,32 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
 
   async ngOnDestroy(): Promise<void> {
-    this._destroyed = true; 
-    window.location.replace('/'); 
+    this._destroyed = true;
+    try { this.clearAutosave(); } catch { }
+
+    // Prompt user to save on exit; if they agree, capture the emulator's save bytes
+    // and persist them to IndexedDB so the upload can continue later (reliable
+    // for large saves). This is a fire-and-forget flow: we do not wait for an
+    // upload to finish before navigating.
+    try {
+      const shouldSave = this.romName && this.parentRef?.user?.id
+        ? window.confirm('Save emulator state before closing?')
+        : false;
+
+      if (shouldSave && this.romName && this.parentRef?.user?.id) {
+        try {
+          const u8 = await this.captureSaveOnce(8000);
+          if (u8 && u8.length) {
+            await this.savePendingState(this.parentRef.user.id, this.romName, u8);
+            console.log('[EJS] pending save stored locally for background upload');
+          } else {
+            console.warn('[EJS] captureSaveOnce timed out or returned no data');
+          }
+        } catch (e) { console.warn('[EJS] exit save capture failed', e); }
+      }
+    } catch { }
+
+    window.location.replace('/');
   }
 
   async onRomSelected(file: FileEntry) {
@@ -269,6 +294,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       });
       // start autosave loop if enabled
       try { this.setupAutosave(); } catch { }
+      // Kick off background uploader for any pending exit saves
+      try { this.uploadPendingSavesOnStartup(); } catch { }
     } else {
       this.stopLoading();
       this.fullReloadToHome();
@@ -468,6 +495,17 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
   private async onSaveState(raw: any) {
     if (this._exiting) { return; }
+
+    // If we're trying to capture a single save for exit (fire-and-forget),
+    // resolve the capture promise and skip the normal upload path.
+    if (this._captureSaveResolve) {
+      try {
+        const cap = await this.normalizeSavePayload(raw);
+        this._captureSaveResolve(cap || null);
+      } catch { try { this._captureSaveResolve(null); } catch { } }
+      this._captureSaveResolve = undefined;
+      return;
+    }
     const now = Date.now();
     // If a save is already in progress, skip duplicate uploads
     if (this._saveInProgress) {
@@ -1262,6 +1300,101 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
   private delay(ms: number) {
     return new Promise<void>(r => setTimeout(r, ms));
+  }
+
+  // Ensure bytes become a tight, real ArrayBuffer (never SharedArrayBuffer)
+  private toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+    const buf: any = (bytes as any).buffer;
+    if (buf instanceof ArrayBuffer) {
+      return buf.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    }
+    const copy = Uint8Array.from(bytes);
+    return copy.buffer;
+  }
+
+  // ---------------- IndexedDB pending-save helpers ----------------
+  private async openPendingDb(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('bughosted_pending_saves', 1);
+      req.onupgradeneeded = () => {
+        try { (req.result as IDBDatabase).createObjectStore('pendingSaves', { keyPath: 'id', autoIncrement: true }); } catch { }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  private async savePendingState(userId: number, romName: string, u8: Uint8Array): Promise<number | null> {
+    try {
+      const db = await this.openPendingDb();
+      const tx = db.transaction('pendingSaves', 'readwrite');
+      const store = tx.objectStore('pendingSaves');
+      const ab = this.toArrayBuffer(u8);
+      const blob = new Blob([ab]);
+      const addReq = store.add({ userId, romName, data: blob, ts: Date.now() });
+      return await new Promise<number | null>((resolve) => {
+        addReq.onsuccess = () => { resolve(addReq.result as number); db.close(); };
+        addReq.onerror = () => { resolve(null); db.close(); };
+      });
+    } catch (e) { console.warn('savePendingState failed', e); return null; }
+  }
+
+  private async getAllPendingSaves(): Promise<Array<any>> {
+    try {
+      const db = await this.openPendingDb();
+      const tx = db.transaction('pendingSaves', 'readonly');
+      const store = tx.objectStore('pendingSaves');
+      const req = store.getAll();
+      return await new Promise((resolve) => {
+        req.onsuccess = () => { resolve(req.result || []); db.close(); };
+        req.onerror = () => { resolve([]); db.close(); };
+      });
+    } catch { return []; }
+  }
+
+  private async removePendingSave(id: number): Promise<boolean> {
+    try {
+      const db = await this.openPendingDb();
+      const tx = db.transaction('pendingSaves', 'readwrite');
+      const store = tx.objectStore('pendingSaves');
+      const req = store.delete(id);
+      return await new Promise((resolve) => {
+        req.onsuccess = () => { resolve(true); db.close(); };
+        req.onerror = () => { resolve(false); db.close(); };
+      });
+    } catch { return false; }
+  }
+
+  // Attempt to upload any pending saves found in IndexedDB. Runs on startup.
+  private async uploadPendingSavesOnStartup(): Promise<void> {
+    try {
+      const pending = await this.getAllPendingSaves();
+      if (!pending || !pending.length) return;
+      for (const rec of pending) {
+        try {
+          const blob: Blob = rec.data;
+          const arr = new Uint8Array(await blob.arrayBuffer());
+          const res = await this.romService.saveEmulatorJSState(rec.romName, rec.userId, arr);
+          if (res.ok) {
+            await this.removePendingSave(rec.id);
+            console.log('[EJS] uploaded pending save for', rec.romName);
+          } else {
+            console.warn('[EJS] failed to upload pending save:', res.errorText);
+          }
+        } catch (e) { console.warn('[EJS] uploadPendingSavesOnStartup error', e); }
+      }
+    } catch (e) { console.warn('[EJS] uploadPendingSavesOnStartup failed', e); }
+  }
+
+  // Capture a single save from the emulator (resolves with bytes or null on timeout)
+  private captureSaveOnce(timeoutMs = 5000): Promise<Uint8Array | null> {
+    return new Promise((resolve) => {
+      this._captureSaveResolve = (u8: Uint8Array | null) => { resolve(u8 || null); };
+      try { this.callEjsSave(); } catch (e) { resolve(null); this._captureSaveResolve = undefined; }
+      setTimeout(() => {
+        if (this._captureSaveResolve) { try { this._captureSaveResolve(null); } catch { } this._captureSaveResolve = undefined; }
+      }, timeoutMs);
+    });
   }
 
   /** Stop autosave and wait for any current or final save attempt to complete. */
