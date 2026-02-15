@@ -566,3 +566,22 @@
 .aboutPopupPanelContentContainer {
   width: 100%
 }
+
+.securityQuestionsPanel {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  align-content: space-between;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  justify-content: space-around;
+}
+
+.securityQuestionDescriptionSection {
+  display: flex;
+  flex-direction: column;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}

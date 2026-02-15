@@ -205,13 +205,13 @@
                 <input type="submit" value="🔑 Login" (click)="login()" [disabled]="isLoading" />
                 <input type="submit" value="👤➕ Create User" (click)="createUser()" [disabled]="isLoading" />
                 <input type="submit" value="👤➕ Guest" (click)="createUser(true)" [disabled]="isLoading" />
-                <input type="button" value="🔐 Reset Password" (click)="fetchSecurityQuestionsForUsername()" [disabled]="isLoading" />
+                <input *ngIf="loginUsername?.value?.length > 0" type="button" value="🔐 Reset Password" (click)="fetchSecurityQuestionsForUsername()" [disabled]="isLoading" />
               </div>
             </div>
           </div>
           <div *ngIf="showSecurityQuestionsPanel" class="securityQuestionsPanel" style="margin-top:10px;">
             <div class="popupPanelTitle">Answer Security Questions</div>
-            <div *ngFor="let q of securityQuestions; let i = index" class="sectionDescriptionSection">
+            <div *ngFor="let q of securityQuestions; let i = index" class="securityQuestionDescriptionSection">
               <div>{{i+1}}. {{q}}</div>
               <div><input type="password" [value]="securityAnswers[i]" (input)="securityAnswers[i] = $any($event.target).value" placeholder="Answer" /></div>
             </div>
