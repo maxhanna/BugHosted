@@ -1325,7 +1325,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       try { db.close(); } catch { }
       return null;
     }
-  } 
+  }
 
   /** Wait until a load API is available (EJS_loadState or gameManager.loadState). */
   private async waitForLoadApis(maxMs = 5000): Promise<{
@@ -1493,21 +1493,21 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
   /** Create or reuse a tiny stylesheet inside the vpad root. */
-  
-/** Create or reuse a tiny stylesheet inside the vpad root. */
-private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
-  let style = root.querySelector('style[data-vpad-overrides="min"]') as HTMLStyleElement | null;
-  if (style) return style;
 
-  style = document.createElement('style');
-  style.setAttribute('data-vpad-overrides', 'min');
+  /** Create or reuse a tiny stylesheet inside the vpad root. */
+  private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
+    let style = root.querySelector('style[data-vpad-overrides="min"]') as HTMLStyleElement | null;
+    if (style) return style;
 
-  // 🔧 Main knobs. If you want bigger/smaller, change these only.
-  const PILL_W = 108;  // px  (was 112)
-  const PILL_H = 72;   // px  (was 76)
-  const FONT   = 28;   // px  (was 30)
+    style = document.createElement('style');
+    style.setAttribute('data-vpad-overrides', 'min');
 
-  style.textContent = `
+    // 🔧 Main knobs. If you want bigger/smaller, change these only.
+    const PILL_W = 108;  // px  (was 112)
+    const PILL_H = 72;   // px  (was 76)
+    const FONT = 28;   // px  (was 30)
+
+    style.textContent = `
 /* ==== Minimal overrides applied to the actual clickable elements we tag ==== */
 
 /* D-pad scale: still modest, a touch smaller for balance */
@@ -1564,9 +1564,9 @@ private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
   .max-pill.is-b { transform: translate(-36px, 16px) !important; }
 }
 `;
-  root.appendChild(style);
-  return style;
-}
+    root.appendChild(style);
+    return style;
+  }
 
 
   /** Find inner clickable node for a wrapper (works across common skins). */
@@ -1701,7 +1701,7 @@ private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
       { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true },
     ];
   }
- 
+
 
   systemFromCore(core: string): System {
     const c = core.toLowerCase();
