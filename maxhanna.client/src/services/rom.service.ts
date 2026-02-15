@@ -291,10 +291,8 @@ export class RomService {
     // If SharedArrayBuffer (or other ArrayBufferLike), copy to a new ArrayBuffer
     const copy = Uint8Array.from(bytes);
     return copy.buffer; // ArrayBuffer
-  }
-
-
-
+  } 
+  
   private supportsCompressionStreams(): boolean {
     return typeof (window as any).CompressionStream !== 'undefined';
   }
