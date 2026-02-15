@@ -1,8 +1,7 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router'; 
 import { AppComponent } from './app.component';
-import { MediaViewerComponent } from './media-viewer/media-viewer.component';
-import { EmulatorCanDeactivateGuard } from '../types/emulator-can-deactivate.guard';
+import { MediaViewerComponent } from './media-viewer/media-viewer.component'; 
 
 const routes: Routes = [
   { path: 'Memes/:memeId', component: AppComponent },
@@ -29,7 +28,7 @@ const routes: Routes = [
   { path: 'Emulator', component: AppComponent },
   { path: 'N64Emulator', component: AppComponent },
   { path: 'PS1Emulator', component: AppComponent },
-  { path: '1Emulator', component: AppComponent, canDeactivate: [EmulatorCanDeactivateGuard] },
+  { path: '1Emulator', component: AppComponent },
   { path: 'Emulation', component: AppComponent },
   { path: 'N64Emulation', component: AppComponent },
   { path: 'PS1Emulation', component: AppComponent },
