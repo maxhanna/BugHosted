@@ -447,7 +447,7 @@ namespace maxhanna.Server.Controllers
         if (!callerIsAdmin) return StatusCode(500, "Access Denied.");
       }
 
-      var cs = _config?.GetConnectionString("maxhanna") ?? _config.GetValue<string>("ConnectionStrings:maxhanna");
+      var cs = _config?.GetConnectionString("maxhanna") ?? _config?.GetValue<string>("ConnectionStrings:maxhanna");
       if (string.IsNullOrWhiteSpace(cs)) return StatusCode(500, "Missing DB connection string");
 
       await using var conn = new MySqlConnection(cs);
@@ -490,14 +490,14 @@ namespace maxhanna.Server.Controllers
       var questions = request.Questions?.Where(q => !string.IsNullOrWhiteSpace(q.Question) && !string.IsNullOrWhiteSpace(q.Answer)).Take(5).ToArray() ?? Array.Empty<QuestionAnswer>();
       if (questions.Length < 3) return BadRequest("You must provide at least 3 question/answer pairs.");
 
-      var cs = _config?.GetConnectionString("maxhanna") ?? _config.GetValue<string>("ConnectionStrings:maxhanna");
+      var cs = _config?.GetConnectionString("maxhanna") ?? _config?.GetValue<string>("ConnectionStrings:maxhanna");
       if (string.IsNullOrWhiteSpace(cs)) return StatusCode(500, "Missing DB connection string");
 
       // per-user salt for answer hashing
       var answerSalt = GenerateSalt();
 
       // encryption key for questions (optional)
-      var qKeyBase64 = _config.GetValue<string>("PasswordResetEncryptionKey:Key");
+      var qKeyBase64 = _config?.GetValue<string>("PasswordResetEncryptionKey:Key");
 
       byte[] EncryptQuestion(string plain)
       {
@@ -565,7 +565,7 @@ namespace maxhanna.Server.Controllers
       }
       catch (Exception ex)
       {
-        return StatusCode(500, "Error saving security questions.");
+        return StatusCode(500, "Error saving security questions." + ex.Message);
       }
     }
 
@@ -576,7 +576,7 @@ namespace maxhanna.Server.Controllers
       var answers = request.Answers?.Where(a => a.Index >= 1 && a.Index <= 5 && !string.IsNullOrWhiteSpace(a.Answer)).ToArray() ?? Array.Empty<AnswerEntry>();
       if (answers.Length < 3) return BadRequest("At least 3 answers required for verification.");
 
-      var cs = _config?.GetConnectionString("maxhanna") ?? _config.GetValue<string>("ConnectionStrings:maxhanna");
+      var cs = _config?.GetConnectionString("maxhanna") ?? _config?.GetValue<string>("ConnectionStrings:maxhanna");
       if (string.IsNullOrWhiteSpace(cs)) return StatusCode(500, "Missing DB connection string");
 
       try
@@ -622,7 +622,7 @@ namespace maxhanna.Server.Controllers
       }
       catch (Exception ex)
       {
-        return StatusCode(500, "Error verifying security questions.");
+        return StatusCode(500, "Error verifying security questions." + ex.Message);
       }
     }
 
@@ -642,7 +642,7 @@ namespace maxhanna.Server.Controllers
       }
       if (targetUserId <= 0) return BadRequest("Invalid user identifier");
 
-      var cs = _config?.GetConnectionString("maxhanna") ?? _config.GetValue<string>("ConnectionStrings:maxhanna");
+      var cs = _config?.GetConnectionString("maxhanna") ?? _config?.GetValue<string>("ConnectionStrings:maxhanna");
       if (string.IsNullOrWhiteSpace(cs)) return StatusCode(500, "Missing DB connection string");
 
       try
@@ -656,11 +656,13 @@ namespace maxhanna.Server.Controllers
           await using var reader = await cmd.ExecuteReaderAsync();
           if (!reader.Read()) return NotFound("No security questions configured for this user.");
 
-          var qKeyBase64 = _config.GetValue<string>("PasswordResetEncryptionKey:Key");
+          var qKeyBase64 = _config?.GetValue<string>("PasswordResetEncryptionKey:Key");
 
-          string DecryptQuestion(byte[] data)
+          string? DecryptQuestion(byte[] data)
           {
-            if (data == null || data.Length == 0) return null;
+            if (data == null || data.Length == 0) {
+              return null;
+            }
             if (string.IsNullOrWhiteSpace(qKeyBase64)) return Encoding.UTF8.GetString(data);
             try
             {
@@ -696,13 +698,13 @@ namespace maxhanna.Server.Controllers
       }
       catch (Exception ex)
       {
-        return StatusCode(500, "Error retrieving security questions.");
+        return StatusCode(500, "Error retrieving security questions." + ex.Message);
       }
     }
 
     private async Task<bool> ResetPasswordInternal(int userId)
     {
-      var cs = _config?.GetConnectionString("maxhanna") ?? _config.GetValue<string>("ConnectionStrings:maxhanna");
+      var cs = _config?.GetConnectionString("maxhanna") ?? _config?.GetValue<string>("ConnectionStrings:maxhanna");
       if (string.IsNullOrWhiteSpace(cs)) return false;
       try
       {
@@ -3098,7 +3100,7 @@ namespace maxhanna.Server.Controllers
     {
       try
       {
-        var cs = _config?.GetConnectionString("maxhanna") ?? _config.GetValue<string>("ConnectionStrings:maxhanna");
+        var cs = _config?.GetConnectionString("maxhanna") ?? _config?.GetValue<string>("ConnectionStrings:maxhanna");
         if (string.IsNullOrWhiteSpace(cs)) return null;
         await using var conn = new MySqlConnection(cs);
         await conn.OpenAsync();
