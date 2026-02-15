@@ -913,6 +913,28 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       this.stopLoading();
     }
   }
+
+  async adminResetPassword(targetUserId: number | undefined) {
+    if (!targetUserId) return;
+    // Only allow if current logged-in user is admin (id === 1)
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (!parent?.user || parent.user.id !== 1) return;
+    if (!confirm(`Reset password for user ID ${targetUserId}? This will blank their password.`)) return;
+    this.startLoading();
+    try {
+      const token = await parent.getSessionToken();
+      const res = await this.userService.resetPassword(targetUserId, token ?? '');
+      if (res && (res as any).message) {
+        parent.showNotification((res as any).message);
+      } else {
+        parent.showNotification('Password reset failed');
+      }
+    } catch (e) {
+      parent.showNotification('Error resetting password');
+    } finally {
+      this.stopLoading();
+    }
+  }
   private resetNavigationAppSelectionHelp() {
     if (this.parentRef?.navigationComponent) {
       this.parentRef.navigationComponent.showAppSelectionHelp = false;

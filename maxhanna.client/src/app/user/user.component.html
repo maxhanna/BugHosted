@@ -587,6 +587,11 @@
   </div>
   <div>
     <button id="closeOverlay" (click)="closeAboutPanel()" class="closeButton">Close</button>
+    <button 
+      *ngIf="parentRef?.user?.id === 1 && user && user.id != 1"
+      (click)="adminResetPassword(user.id)">
+      Reset Password
+    </button>    
   </div>
 </div>
 

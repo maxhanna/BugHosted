@@ -439,7 +439,13 @@ namespace maxhanna.Server.Controllers
     public async Task<IActionResult> ResetPassword([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
     {
       if (userId <= 0) return BadRequest("Invalid userId");
-      if (!await _log.ValidateUserLoggedIn(userId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+      // Allow if caller is the target user, or allow if caller is admin (user id 1)
+      var callerIsTarget = await _log.ValidateUserLoggedIn(userId, encryptedUserIdHeader);
+      if (!callerIsTarget)
+      {
+        var callerIsAdmin = await _log.ValidateUserLoggedIn(1, encryptedUserIdHeader);
+        if (!callerIsAdmin) return StatusCode(500, "Access Denied.");
+      }
 
       var cs = _config?.GetConnectionString("maxhanna") ?? _config.GetValue<string>("ConnectionStrings:maxhanna");
       if (string.IsNullOrWhiteSpace(cs)) return StatusCode(500, "Missing DB connection string");
@@ -491,7 +497,7 @@ namespace maxhanna.Server.Controllers
       var answerSalt = GenerateSalt();
 
       // encryption key for questions (optional)
-      var qKeyBase64 = _config.GetValue<string>("Security:QuestionEncryptionKey");
+      var qKeyBase64 = _config.GetValue<string>("PasswordResetEncryptionKey:Key");
 
       byte[] EncryptQuestion(string plain)
       {
@@ -650,7 +656,7 @@ namespace maxhanna.Server.Controllers
           await using var reader = await cmd.ExecuteReaderAsync();
           if (!reader.Read()) return NotFound("No security questions configured for this user.");
 
-          var qKeyBase64 = _config.GetValue<string>("Security:QuestionEncryptionKey");
+          var qKeyBase64 = _config.GetValue<string>("PasswordResetEncryptionKey:Key");
 
           string DecryptQuestion(byte[] data)
           {

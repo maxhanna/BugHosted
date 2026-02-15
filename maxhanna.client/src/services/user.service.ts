@@ -773,4 +773,21 @@ export class UserService {
       return null;
     }
   }
+
+  async resetPassword(targetUserId: number, sessionToken: string) {
+    try {
+      const response = await fetch('/User/ResetPassword', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Encrypted-UserId': sessionToken,
+        },
+        body: JSON.stringify(targetUserId),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
 }
