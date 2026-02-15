@@ -102,12 +102,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
   async ngOnDestroy(): Promise<void> {
     this._destroyed = true;
-    try { this.clearAutosave(); } catch { }
-
-    // Prompt user to save on exit; if they agree, capture the emulator's save bytes
-    // and persist them to IndexedDB so the upload can continue later (reliable
-    // for large saves). This is a fire-and-forget flow: we do not wait for an
-    // upload to finish before navigating.
+    try { this.clearAutosave(); } catch { } 
     try {
       const shouldSave = this.romName && this.parentRef?.user?.id
         ? window.confirm('Save emulator state before closing?')
