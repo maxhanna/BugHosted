@@ -475,9 +475,47 @@ app.use(
   })
 );
 
+// ── /rom proxy with extended timeout (save-states can be 16 MB+) ──
+const ROM_PROXY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+const setRomResponseTimeout = (req, res, next) => {
+  res.setTimeout(ROM_PROXY_TIMEOUT_MS);
+  next();
+};
+
+app.use(
+  '/rom',
+  setRomResponseTimeout,
+  createProxyMiddleware({
+    target: config.backendUrl,
+    changeOrigin: true,
+    secure: false,
+    logLevel: config.proxyDebug ? 'debug' : 'warn',
+    timeout: ROM_PROXY_TIMEOUT_MS,
+    proxyTimeout: ROM_PROXY_TIMEOUT_MS,
+    onProxyReq: (proxyReq, req, res) => {
+      req._startTime = Date.now();
+      proxyReq.setHeader('X-Forwarded-By', 'maxhanna-prod-server');
+      if (req.ip) proxyReq.setHeader('X-Forwarded-For', req.ip);
+    },
+    onProxyRes: (proxyRes, req, res) => {
+      proxyRes.headers['X-Proxy-By'] = 'maxhanna-prod-server';
+      proxyRes.headers['X-Response-Time'] = Date.now() - req._startTime;
+    },
+    onError: (err, req, res) => {
+      console.error(chalk.red(`[Proxy Error /rom] ${req.method} ${req.path}: ${err.message}`));
+      res.status(502).json({
+        error: 'Bad Gateway',
+        message: 'ROM backend temporarily unavailable',
+        timestamp: new Date().toISOString(),
+      });
+    },
+  })
+);
+
 const proxyContext = [
   '/weatherforecast', '/calendar', '/mining', '/todo', '/file', '/notepad',
-  '/contact', '/user', '/chat', '/news', '/social', '/rom', '/topic',
+  '/contact', '/user', '/chat', '/news', '/social', '/topic',
   '/friend', '/wordler', '/comment', '/coinvalue', '/currencyvalue',
   '/reaction', '/array', '/nexus', '/notification', '/meta',
   '/favourite', '/crawler', '/trade', '/top', '/poll', '/mastermind',

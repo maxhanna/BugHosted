@@ -934,7 +934,10 @@ ON DUPLICATE KEY UPDATE
         if (!Request.HasFormContentType)
           return BadRequest("Expected multipart/form-data");
 
-        var form = await Request.ReadFormAsync(ct);
+        // NOTE: Do NOT pass the request CancellationToken (ct) to I/O ops below.
+        // The Express prod-server proxy may signal cancellation before the DB
+        // write completes.  We still want the save to finish server-side.
+        var form = await Request.ReadFormAsync(CancellationToken.None);
         var file = form.Files.GetFile("file");
         if (file == null || file.Length <= 0)
           return BadRequest("Missing 'file' in multipart request.");
@@ -950,7 +953,7 @@ ON DUPLICATE KEY UPDATE
         byte[] bytes;
         using (var ms = new MemoryStream())
         {
-          await file.CopyToAsync(ms, ct);
+          await file.CopyToAsync(ms, CancellationToken.None);
           bytes = ms.ToArray();
         }
 
@@ -963,7 +966,7 @@ ON DUPLICATE KEY UPDATE
           using var gzIn = new System.IO.Compression.GZipStream(
               new MemoryStream(bytes), System.IO.Compression.CompressionMode.Decompress);
           using var rawMs = new MemoryStream();
-          await gzIn.CopyToAsync(rawMs, ct);
+          await gzIn.CopyToAsync(rawMs, CancellationToken.None);
           bytes = rawMs.ToArray();
         }
 
