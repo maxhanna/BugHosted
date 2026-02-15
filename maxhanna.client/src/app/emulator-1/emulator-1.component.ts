@@ -1493,7 +1493,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       left: 81,
       top: 40,
       input_value: 0,
-      size: 32,
+      width: 60,
+      height: 60,
       bold: true
     };
     if (enlarge) {
