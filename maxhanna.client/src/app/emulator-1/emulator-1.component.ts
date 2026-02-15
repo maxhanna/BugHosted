@@ -194,12 +194,14 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
     this.ensureTouchOverlaySizingCss();
     const system = this.systemFromCore(core);
-    window.EJS_VirtualGamepadSettings = this.buildTouchLayout(system, {
+    const vpad = this.buildTouchLayout(system, {
       useJoystick: this.useJoystick,
       showControls: this.showControls,
-      twoButtonMode: (system === 'nes' || system === 'gb' || system === 'gbc'), // big A/B on 2‑button systems
+      twoButtonMode: (system === 'nes' || system === 'gb' || system === 'gbc'),
       segaShowLR: this.segaShowLR
     });
+    console.log('[EJS] assigning custom VirtualGamepadSettings', system, vpad);
+    window.EJS_VirtualGamepadSettings = vpad;
 
     // For PlayStation and N64 cores, increase autosave interval to 10 minutes
     // to reduce upload frequency for large save files (e.g. PS1 saves).
@@ -448,22 +450,12 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     return coreMap[ext] || 'mgba';
   }
 
-  /** Make sure every run uses *your* options (not cached ones) and input is enabled. */
   private applyEjsRunOptions(): void {
     const w = window as any;
-
-    // Always apply your defaults on *every* start (prevents old cached settings from winning)
-    // Supported by recent 4.2.x builds.
-    w.EJS_defaultOptionsForce = true;              // force defaults every run  (docs: config system)
-    // If you ever want to test without any caching at all, uncomment:
-    // w.EJS_disableLocalStorage = true;
-
-    // Ensure input is enabled each run (names are stable across 4.x)
-    w.EJS_directKeyboardInput = true;              // deliver raw key events to the core
-    w.EJS_enableGamepads = true;              // let cores read the gamepad state
-    w.EJS_disableAltKey = true;              // avoid Alt being swallowed by browser/UI
-
-    // Optional quality-of-life: when the emulator starts, focus the game element so inputs flow
+    w.EJS_defaultOptionsForce = true; // force defaults every run  (docs: config system)
+    w.EJS_directKeyboardInput = true; // deliver raw key events to the core
+    w.EJS_enableGamepads = true;      // let cores read the gamepad state
+    w.EJS_disableAltKey = true;       // avoid Alt being swallowed by browser/UI
     w.EJS_afterStart = () => {
       try {
         const gameEl = document.getElementById('game');
@@ -1428,18 +1420,13 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
 
 
+
   private ensureTouchOverlaySizingCss(): void {
     if (document.querySelector('style[data-ejs-touch-sizing="1"]')) return;
 
-    const css = ` 
-  #gbaA, #gbaB, #genA, #genB, #genC {
-    width: 96px !important;
-    height: 96px !important;
-    line-height: 96px !important;
-    font-size: 34px !important;
-    border-radius: 50% !important;
-    z-index: 9999 !important;
-  } 
+    const css = `
+  /* Preferred: our IDs (if the skin preserves them) */
+  #gbaA, #gbaB, #genA, #genB, #genC,
   #gbaA > *, #gbaB > *, #genA > *, #genB > *, #genC > * {
     width: 96px !important;
     height: 96px !important;
@@ -1447,9 +1434,17 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     font-size: 34px !important;
     border-radius: 50% !important;
   }
- 
+
+  /* Fallback: target generic EJS button classes (skins vary: underscore vs dash) */
+  #game .ejs_button, #game .ejs-button,
+  #game .ejs_button > *, #game .ejs-button > * {
+    /* Only enlarge face buttons on the RIGHT cluster by default.
+       If your skin uses region containers (right/left), you can scope more precisely. */
+  }
+
+  /* D-pad scale up (both class spellings) */
   #game .ejs_dpad, #game .ejs-dpad {
-    transform: scale(1.3) !important;
+    transform: scale(1.30) !important;
     transform-origin: center left !important;
   }
   `;
@@ -1459,10 +1454,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     document.head.appendChild(style);
   }
 
-
+  /** D-pad / zone: NO width/height/size in JSON; use CSS later */
   leftMovementArea(useJoystick: boolean): VPadItem {
-    // For analog zone, indices must be [19,18,17,16] and joystickInput: true.
-    // For dpad, indices are [4,5,6,7] (UP,DOWN,LEFT,RIGHT).                 // [2](https://emulatorjs.org/docs4devs/virtual-gamepad-settings/)
     return useJoystick
       ? {
         type: 'zone',
@@ -1478,11 +1471,52 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         location: 'left',
         left: '8%',
         joystickInput: false,
-        width: "100px",
-        height: "100px",
         inputValues: [4, 5, 6, 7],
       };
   }
+
+  /** Two-button cluster (used for GBA/NES/GB*) — give IDs to GBA face buttons */
+  twoButtonRight(enlarge = true): VPadItem[] {
+    const A: VPadItem = {
+      type: 'button',
+      id: 'gbaA',                // <— add
+      text: 'A',
+      location: 'right',
+      left: 40,
+      top: 80,
+      input_value: 8,
+      bold: true
+    };
+    const B: VPadItem = {
+      type: 'button',
+      id: 'gbaB',                // <— add
+      text: 'B',
+      location: 'right',
+      left: 81,
+      top: 40,
+      input_value: 0,
+      bold: true
+    };
+    if (enlarge) {
+      (A as any).block = true; (A as any).fontSize = 32; // numbers (px)
+      (B as any).block = true; (B as any).fontSize = 32;
+      A.left = (A.left ?? 40) - 20;
+      A.top = (A.top ?? 80) + 20;
+      B.left = (B.left ?? 81) - 10;
+      B.top = (B.top ?? 40) + 20;
+    }
+    return [B, A];
+  }
+
+  /** Genesis 3 buttons — you already had IDs, keep them */
+  genesisThreeRight(): VPadItem[] {
+    return [
+      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 0, top: 0, input_value: 8, bold: true },
+      { type: 'button', id: 'genB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true },
+      { type: 'button', id: 'genA', text: 'A', location: 'right', left: 40, top: 80, input_value: 1, bold: true },
+    ];
+  }
+
 
   startSelectRow(): VPadItem[] {
     return [
@@ -1515,89 +1549,52 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
 
-  twoButtonRight(enlarge = true): VPadItem[] {
-    const A: VPadItem = {
-      type: 'button',
-      id: 'gbaA',
-      text: 'A',
-      location: 'right',
-      left: 40,
-      top: 80,
-      input_value: 8,
-      bold: true
-    };
-    const B: VPadItem = {
-      type: 'button',
-      id: 'gbaB',
-      text: 'B',
-      location: 'right',
-      left: 81,
-      top: 40,
-      input_value: 0,
-      bold: true
-    };
-    if (enlarge) {
-      (A as any).block = true; (A as any).fontSize = 32; // numbers (px)
-      (B as any).block = true; (B as any).fontSize = 32;
-      A.left = (A.left ?? 40) - 20;
-      A.top = (A.top ?? 80) + 20;
-      B.left = (B.left ?? 81) - 10;
-      B.top = (B.top ?? 40) + 20;
-    }
-    return [B, A];
-  } 
 
-genesisThreeRight(): VPadItem[] {
-  return [
-    { type: 'button', id: 'genC', text: 'C', location: 'right', left: 0,   top: 10,  input_value: 8, bold: true },
-    { type: 'button', id: 'genB', text: 'B', location: 'right', left: 120, top: 30,  input_value: 0, bold: true },
-    { type: 'button', id: 'genA', text: 'A', location: 'right', left: 60,  top: 110, input_value: 1, bold: true },
-  ];
-}
-
-
-  /** Log what the virtual gamepad rendered, and hard-patch sizes if needed */
+  /** After the vpad mounts, force inline sizes by ID; if missing, find by text label. */
   private inspectVPadOnce(): void {
     const root = document.getElementById('game')!;
+    const bumpEl = (el: HTMLElement | undefined | null) => {
+      if (!el) return;
+      el.style.width = '96px';
+      el.style.height = '96px';
+      el.style.lineHeight = '96px';
+      el.style.fontSize = '34px';
+      el.style.borderRadius = '50%';
+      const inner = el.firstElementChild as HTMLElement | undefined | null;
+      if (inner) {
+        inner.style.width = '96px';
+        inner.style.height = '96px';
+        inner.style.lineHeight = '96px';
+        inner.style.fontSize = '34px';
+        inner.style.borderRadius = '50%';
+      }
+    };
+
     const once = () => {
       const vpad = root.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent') as HTMLElement | null;
       if (!vpad) return;
 
-      // List our buttons if present
+      // Try IDs first
       const ids = ['gbaA', 'gbaB', 'genA', 'genB', 'genC'];
-      console.log('[EJS] vpad present. Found IDs:', ids.map(id => !!document.getElementById(id)));
+      const found = ids.map(id => !!document.getElementById(id));
+      console.log('[EJS] vpad present. Found IDs:', found);
 
-      // As an ultimate override, force inline size (beats stylesheets)
-      const bump = (id: string) => {
-        const el = document.getElementById(id) as HTMLElement | null;
-        if (!el) return;
-        el.style.width = '96px';
-        el.style.height = '96px';
-        el.style.lineHeight = '96px';
-        el.style.fontSize = '34px';
-        el.style.borderRadius = '50%';
-        // Try inner node too (some skins have an inner <button>)
-        const inner = el.firstElementChild as HTMLElement | null;
-        if (inner) {
-          inner.style.width = '96px';
-          inner.style.height = '96px';
-          inner.style.lineHeight = '96px';
-          inner.style.fontSize = '34px';
-          inner.style.borderRadius = '50%';
-        }
-      };
-      ['gbaA', 'gbaB', 'genA', 'genB', 'genC'].forEach(bump);
+      ids.forEach(id => bumpEl(document.getElementById(id)));
+
+      // Fallback: find by text content (A/B/C) inside probable button nodes
+      if (!found.some(Boolean)) {
+        const candidates = Array.from(vpad.querySelectorAll('.ejs_button, .ejs-button, [role="button"], button')) as HTMLElement[];
+        const byLabel = (lbl: string) => candidates.find(el => (el.textContent || '').trim().toUpperCase() === lbl);
+        ['A', 'B', 'C'].forEach(lbl => bumpEl(byLabel(lbl)));
+      }
 
       obs.disconnect();
     };
 
     const obs = new MutationObserver(once);
     obs.observe(root, { childList: true, subtree: true });
-    // also try once after a small delay
-    setTimeout(once, 750);
+    setTimeout(once, 800);
   }
-
-
 
   systemFromCore(core: string): System {
     const c = core.toLowerCase();
