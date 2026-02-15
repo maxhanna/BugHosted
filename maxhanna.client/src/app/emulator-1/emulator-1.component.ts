@@ -1416,35 +1416,21 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     return !!done;
   }
 
-
-
-
   private ensureTouchOverlaySizingCss(): void {
     if (document.querySelector('style[data-ejs-touch-sizing="1"]')) return;
-
     const css = `
-  /* Preferred: our IDs (if the skin preserves them) */
-  #gbaA, #gbaB, #genA, #genB, #genC,
-  #gbaA > *, #gbaB > *, #genA > *, #genB > *, #genC > * {
-    width: 96px !important;
-    height: 96px !important;
-    line-height: 96px !important;
-    font-size: 34px !important;
-    border-radius: 50% !important;
+  /* Bigger A/B for GBA (if you assign those IDs) */
+  #game #gbaA, #game #gbaB {
+    width: 96px !important; height: 96px !important; line-height: 96px !important;
+    font-size: 34px !important; border-radius: 50% !important;
   }
-
-  /* Fallback: target generic EJS button classes (skins vary: underscore vs dash) */
-  #game .ejs_button, #game .ejs-button,
-  #game .ejs_button > *, #game .ejs-button > * {
-    /* Only enlarge face buttons on the RIGHT cluster by default.
-       If your skin uses region containers (right/left), you can scope more precisely. */
+  /* Bigger Genesis A/B/C (if you add IDs as below) */
+  #game #genA, #game #genB, #game #genC {
+    width: 96px !important; height: 96px !important; line-height: 96px !important;
+    font-size: 34px !important; border-radius: 50% !important;
   }
-
-  /* D-pad scale up (both class spellings) */
-  #game .ejs_dpad, #game .ejs-dpad {
-    transform: scale(1.30) !important;
-    transform-origin: center left !important;
-  }
+  /* Scale D-Pad; cover both hyphen/underscore classnames across builds */
+  #game .ejs-dpad, #game .ejs_dpad { transform: scale(1.25); transform-origin: center left; }
   `;
     const style = document.createElement('style');
     style.setAttribute('data-ejs-touch-sizing', '1');
@@ -1452,7 +1438,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     document.head.appendChild(style);
   }
 
-  /** D-pad / zone: NO width/height/size in JSON; use CSS later */
   leftMovementArea(useJoystick: boolean): VPadItem {
     return useJoystick
       ? {
@@ -1473,40 +1458,18 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       };
   }
 
-  /** Two-button cluster (used for GBA/NES/GB*) — give IDs to GBA face buttons */
   twoButtonRight(enlarge = true): VPadItem[] {
-    const A: VPadItem = {
-      type: 'button',
-      id: 'gbaA',                // <— add
-      text: 'A',
-      location: 'right',
-      left: 40,
-      top: 80,
-      input_value: 8,
-      bold: true
-    };
-    const B: VPadItem = {
-      type: 'button',
-      id: 'gbaB',                // <— add
-      text: 'B',
-      location: 'right',
-      left: 81,
-      top: 40,
-      input_value: 0,
-      bold: true
-    };
+    const A: VPadItem = { type: 'button', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true };
+    const B: VPadItem = { type: 'button', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true };
     if (enlarge) {
-      (A as any).block = true; (A as any).fontSize = 32; // numbers (px)
-      (B as any).block = true; (B as any).fontSize = 32;
-      A.left = (A.left ?? 40) - 20;
-      A.top = (A.top ?? 80) + 20;
-      B.left = (B.left ?? 81) - 10;
-      B.top = (B.top ?? 40) + 20;
+      (A as any).block = true; (A as any).fontSize = 32; // px number
+      (B as any).block = true; (B as any).fontSize = 32; // px number
+      A.left = (A.left ?? 40) - 20; A.top = (A.top ?? 80) + 20;
+      B.left = (B.left ?? 81) - 10; B.top = (B.top ?? 40) + 20;
     }
     return [B, A];
   }
 
-  /** Genesis 3 buttons — you already had IDs, keep them */
   genesisThreeRight(): VPadItem[] {
     return [
       { type: 'button', id: 'genC', text: 'C', location: 'right', left: 0, top: 0, input_value: 8, bold: true },
@@ -1514,7 +1477,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       { type: 'button', id: 'genA', text: 'A', location: 'right', left: 40, top: 80, input_value: 1, bold: true },
     ];
   }
-
 
   startSelectRow(): VPadItem[] {
     return [
@@ -1726,36 +1688,31 @@ type VPadItem =
     text: string;
     id?: string;
     location: 'left' | 'right' | 'center' | 'top';
-    left?: number;
-    right?: number;
-    top?: number;
-    fontSize?: number;
+    left?: number;     // px number
+    right?: number;    // px number
+    top?: number;      // px number
+    fontSize?: number; // px number
     bold?: boolean;
     block?: boolean;
     input_value: number;
-    size?: number;
-    width?: number;
-    height?: number;
   }
   | {
     type: 'dpad';
     location: 'left' | 'right' | 'center' | 'top';
-    left?: string;
-    right?: string;
-    width?: string;
-    height?: string;
+    left?: string;     // percent string: '8%'
+    right?: string;    // percent string
     joystickInput?: boolean;
-    inputValues: [number, number, number, number]
+    inputValues: [number, number, number, number];
   }
   | {
     type: 'zone';
     location: 'left' | 'right' | 'center' | 'top';
-    left?: string;
-    right?: string;
-    top?: string;
+    left?: string;     // percent string
+    right?: string;    // percent string
+    top?: string;      // percent string
     joystickInput: true;
     color?: string;
-    inputValues: [number, number, number, number]
+    inputValues: [number, number, number, number];
   };
 
 type System =
@@ -1770,10 +1727,3 @@ interface BuildOpts {
   twoButtonMode?: boolean;// enlarge A/B (NES/GB/GBC, optionally GBA)
   buttonSize?: number;    // base size tuning knob (default 65~70 visual)
 }
-
-const RETRO = {
-  B: 0, Y: 1, SELECT: 2, START: 3, UP: 4, DOWN: 5, LEFT: 6, RIGHT: 7,
-  A: 8, X: 9, L: 10, R: 11, L2: 12, R2: 13, L3: 14, R3: 15,
-  LSTICK_R: 16, LSTICK_L: 17, LSTICK_D: 18, LSTICK_U: 19,
-  RSTICK_R: 20, RSTICK_L: 21, RSTICK_D: 22, RSTICK_U: 23,
-} as const;
