@@ -1039,7 +1039,7 @@ public async Task<IActionResult> SaveEmulatorJSState()
       }
       catch (Exception ex)
       {
-        _ = _log.Db("GetEmulatorJSSaveState error: " + ex.Message, null, "ROM", true);
+        _ = _log.Db("GetEmulatorJSSaveState error: " + ex.Message, req.UserId, "ROM", true);
         return StatusCode(500, "Error retrieving save state");
       }
     }
