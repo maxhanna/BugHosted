@@ -297,7 +297,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     this.applyEjsRunOptions();
     // If the build calls back with the instance, capture it early
     (window as any).EJS_ready = (api: any) => {
-      try {
+      try { 
         this.scanAndTagVpadControls();
 
 
@@ -318,7 +318,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       link.href = '/assets/emulatorjs/data/emulator.min.css';
       link.setAttribute('data-ejs-css', '1');
       document.head.appendChild(link);
-    }
+    } 
     // Ensure menu is closed when the emulator starts
     this.isMenuPanelOpen = false;
     try { this.parentRef?.closeOverlay(); } catch { }
@@ -1232,6 +1232,16 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     const dbCandidates = ['localforage', 'EJS', 'emulatorjs', 'emulatorjs-cache', 'emulator', 'kv', 'storage'];
     const storeCandidates = ['keyvaluepairs', 'keyvalue', 'pairs', 'store', 'ejs', 'data', 'kv'];
 
+    const pickBest = (cands: Array<{ key: string; val: any }>): Uint8Array | null => {
+      let best: Uint8Array | null = null;
+      for (const { val } of cands) {
+        // normalize each
+        // eslint-disable-next-line no-await-in-loop
+        // (make sync for picker; we converted earlier)
+      }
+      return best;
+    };
+
     try {
       let best: Uint8Array | null = null;
 
@@ -1326,6 +1336,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       return null;
     }
   }
+
 
   /** Wait until a load API is available (EJS_loadState or gameManager.loadState). */
   private async waitForLoadApis(maxMs = 5000): Promise<{
@@ -1492,27 +1503,25 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     return !!done;
   }
 
-  /** Create or reuse a tiny stylesheet inside the vpad root. */
+/** Create or reuse a tiny stylesheet inside the vpad root. */
+private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
+  let style = root.querySelector('style[data-vpad-overrides="min"]') as HTMLStyleElement | null;
+  if (style) return style;
 
-  /** Create or reuse a tiny stylesheet inside the vpad root. */
-  private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
-    let style = root.querySelector('style[data-vpad-overrides="min"]') as HTMLStyleElement | null;
-    if (style) return style;
+  style = document.createElement('style');
+  style.setAttribute('data-vpad-overrides', 'min');
 
-    style = document.createElement('style');
-    style.setAttribute('data-vpad-overrides', 'min');
+  // 🔧 Tweak these two knobs if you want slightly bigger/smaller pills later:
+  const PILL_W = 112;  // px
+  const PILL_H = 76;   // px
+  const FONT   = 30;   // px
 
-    // 🔧 Main knobs. If you want bigger/smaller, change these only.
-    const PILL_W = 108;  // px  (was 112)
-    const PILL_H = 72;   // px  (was 76)
-    const FONT = 28;   // px  (was 30)
-
-    style.textContent = `
+  style.textContent = `
 /* ==== Minimal overrides applied to the actual clickable elements we tag ==== */
 
-/* D-pad scale: still modest, a touch smaller for balance */
+/* D-pad scale: modest bump */
 .max-dpad { 
-  transform: scale(1.15) !important; 
+  transform: scale(1.30) !important; 
   transform-origin: center left !important; 
 }
 
@@ -1529,9 +1538,9 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   justify-content: center !important;
 }
 
-/* Separate nudges so they sit nicely and don't hug the right edge */
-.max-pill.is-a { transform: translate(-26px,  4px) !important; }  /* A: left + tiny up */
-.max-pill.is-b { transform: translate(-42px, 18px) !important; }  /* B: more left + a bit down */
+/* Separate nudges so they sit nicely; adjust if you want more spacing */
+.max-pill.is-a { transform: translate(-24px,  6px) !important; }  /* A: left & a hair up */
+.max-pill.is-b { transform: translate(-36px, 20px) !important; }  /* B: more left & a bit down */
 
 /* Speed buttons: small rectangles */
 .max-rect {
@@ -1551,7 +1560,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 /* If wrapper gets the class, keep first child consistent across skins */
 .max-pill > *, .max-rect > * { all: inherit; }
 
-/* Very narrow screens: slightly smaller pills & balanced nudges */
+/* (Optional) Very narrow screens: make pills a touch smaller, keep nudges balanced */
 @media (max-width: 380px) {
   .max-pill {
     width: ${PILL_W - 8}px !important;
@@ -1560,68 +1569,71 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     border-radius: ${(PILL_H - 6) / 2}px !important;
     font-size: ${FONT - 2}px !important;
   }
-  .max-pill.is-a { transform: translate(-22px,  4px) !important; }
-  .max-pill.is-b { transform: translate(-36px, 16px) !important; }
+  .max-pill.is-a { transform: translate(-20px,  6px) !important; }
+  .max-pill.is-b { transform: translate(-30px, 18px) !important; }
 }
 `;
-    root.appendChild(style);
-    return style;
+  root.appendChild(style);
+  return style;
+}
+
+ 
+
+ 
+
+  
+/** Find inner clickable node for a wrapper (works across common skins). */
+private findClickableInside(host: Element | null): HTMLElement | null {
+  if (!host) return null;
+  const inner =
+    host.querySelector('.ejs_button, .ejs-button, button, [role="button"]') as HTMLElement | null
+    || (host.firstElementChild as HTMLElement | null);
+  return (inner as HTMLElement) || (host as HTMLElement);
+}
+
+/** Fallback search by visible label (A/B/Fast/Slow/Start/Select). */
+private findByLabel(root: HTMLElement, labels: string[]): HTMLElement | null {
+  const want = new Set(labels.map(s => s.trim().toUpperCase()));
+  const nodes = root.querySelectorAll('.ejs_button, .ejs-button, button, [role="button"], [class*="button"]');
+  for (const n of Array.from(nodes)) {
+    const el = n as HTMLElement;
+    const txt = (el.textContent || el.getAttribute('aria-label') || el.getAttribute('title') || '')
+      .trim().toUpperCase();
+    if (txt && want.has(txt)) return el;
   }
+  return null;
+}
 
+/** Minimal: tag D-pad, A/B, Fast/Slow, Start/Select. */
+private scanAndTagVpadControls(): void {
+  const root = document.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent') as HTMLElement | null;
+  if (!root) return;
 
-  /** Find inner clickable node for a wrapper (works across common skins). */
-  private findClickableInside(host: Element | null): HTMLElement | null {
-    if (!host) return null;
-    const inner =
-      host.querySelector('.ejs_button, .ejs-button, button, [role="button"]') as HTMLElement | null
-      || (host.firstElementChild as HTMLElement | null);
-    return (inner as HTMLElement) || (host as HTMLElement);
-  }
+  // ensure our minimal stylesheet is present in the vpad root
+  this.ensureVpadStyleSheet(root);
 
-  /** Fallback search by visible label (A/B/Fast/Slow/Start/Select). */
-  private findByLabel(root: HTMLElement, labels: string[]): HTMLElement | null {
-    const want = new Set(labels.map(s => s.trim().toUpperCase()));
-    const nodes = root.querySelectorAll('.ejs_button, .ejs-button, button, [role="button"], [class*="button"]');
-    for (const n of Array.from(nodes)) {
-      const el = n as HTMLElement;
-      const txt = (el.textContent || el.getAttribute('aria-label') || el.getAttribute('title') || '')
-        .trim().toUpperCase();
-      if (txt && want.has(txt)) return el;
-    }
-    return null;
-  }
+  // D-pad
+  const dpad = root.querySelector('.ejs_dpad, .ejs-dpad, [class*="dpad"]') as HTMLElement | null;
+  if (dpad) dpad.classList.add('max-dpad');
 
-  /** Minimal: tag D-pad, A/B, Fast/Slow, Start/Select. */
-  private scanAndTagVpadControls(): void {
-    const root = document.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent') as HTMLElement | null;
-    if (!root) return;
+  // A / B
+  const a = this.findClickableInside(document.getElementById('btnA')) || this.findByLabel(root, ['A']);
+  const b = this.findClickableInside(document.getElementById('btnB')) || this.findByLabel(root, ['B']);
+  if (a) { a.classList.add('max-pill', 'is-a'); }
+  if (b) { b.classList.add('max-pill', 'is-b'); }
 
-    // ensure our minimal stylesheet is present in the vpad root
-    this.ensureVpadStyleSheet(root);
+  // Speed Fast / Slow
+  const fast = this.findClickableInside(document.getElementById('speed_fast')) || this.findByLabel(root, ['FAST']);
+  const slow = this.findClickableInside(document.getElementById('speed_slow')) || this.findByLabel(root, ['SLOW']);
+  if (fast) fast.classList.add('max-rect');
+  if (slow) slow.classList.add('max-rect');
 
-    // D-pad
-    const dpad = root.querySelector('.ejs_dpad, .ejs-dpad, [class*="dpad"]') as HTMLElement | null;
-    if (dpad) dpad.classList.add('max-dpad');
-
-    // A / B
-    const a = this.findClickableInside(document.getElementById('btnA')) || this.findByLabel(root, ['A']);
-    const b = this.findClickableInside(document.getElementById('btnB')) || this.findByLabel(root, ['B']);
-    if (a) { a.classList.add('max-pill', 'is-a'); }
-    if (b) { b.classList.add('max-pill', 'is-b'); }
-
-    // Speed Fast / Slow
-    const fast = this.findClickableInside(document.getElementById('speed_fast')) || this.findByLabel(root, ['FAST']);
-    const slow = this.findClickableInside(document.getElementById('speed_slow')) || this.findByLabel(root, ['SLOW']);
-    if (fast) fast.classList.add('max-rect');
-    if (slow) slow.classList.add('max-rect');
-
-    // Start / Select
-    const start = this.findClickableInside(document.getElementById('start')) || this.findByLabel(root, ['START']);
-    const select = this.findClickableInside(document.getElementById('select')) || this.findByLabel(root, ['SELECT']);
-    if (start) start.classList.add('max-nudge-down');
-    if (select) select.classList.add('max-nudge-down');
-  }
-
+  // Start / Select
+  const start = this.findClickableInside(document.getElementById('start'))  || this.findByLabel(root, ['START']);
+  const select = this.findClickableInside(document.getElementById('select')) || this.findByLabel(root, ['SELECT']);
+  if (start)  start.classList.add('max-nudge-down');
+  if (select) select.classList.add('max-nudge-down');
+}
 
   leftMovementArea(useJoystick: boolean): VPadItem {
     return useJoystick
@@ -1701,7 +1713,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true },
     ];
   }
-
 
   systemFromCore(core: string): System {
     const c = core.toLowerCase();
