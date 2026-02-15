@@ -152,6 +152,41 @@
   min-height: 250px;
 }
 
+/* Non-destructive hide/show for YouTube iframe: keep element mounted
+   to avoid iframe teardown/recreate which can crash playback during
+   incidental DOM repaints. Use opacity/pointer-events rather than
+   display:none or width/height toggling. */
+.youtube-active {
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 150ms ease-in-out;
+}
+.youtube-inactive {
+  opacity: 0;
+  pointer-events: none;
+  /* keep layout intact so iframe isn't removed from flow */
+  transition: opacity 150ms ease-in-out;
+}
+
+/* File media viewer should similarly avoid being removed; position it
+   above the YouTube container when active, otherwise keep it transparent
+   so it doesn't trigger reflow that kills the YT iframe. */
+.file-active {
+  opacity: 1;
+  pointer-events: auto;
+  position: relative;
+  z-index: 3;
+  transition: opacity 150ms ease-in-out;
+}
+.file-inactive {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  transition: opacity 150ms ease-in-out;
+}
+
 .normalSongList {
   height: CALC(var(--vh, 1vh) * 100 - 235px);
 }

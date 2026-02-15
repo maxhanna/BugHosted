@@ -22,31 +22,25 @@
   </fieldset> 
   <div id="musicPlayerDiv" [class]="smallPlayer ? 'smallSongList' : 'normalSongList'">
     <div id="iframeDiv" [class]="playerClasses">
-      <div 
-        id="musicVideo" 
-        #musicVideo 
-        class="youtubeFrame" 
-        [hidden]="fileIdPlaying" 
-        [style.width]="selectedType != 'youtube' ? '0' : '100%'"
-        [style.height]="selectedType != 'youtube' ? '0' : '100%'"  
-        [style.min-width]="selectedType != 'youtube' ? '0' : '300px'"
-        [style.min-height]="selectedType != 'youtube' ? '0' : '250px'" 
+      <div
+        id="musicVideo"
+        #musicVideo
+        class="youtubeFrame"
+        [class.youtube-active]="selectedType === 'youtube' && !fileIdPlaying"
+        [class.youtube-inactive]="!(selectedType === 'youtube' && !fileIdPlaying)"
       ></div>
-      <app-media-viewer 
-        #fileMediaViewer 
-        [hidden]="!fileIdPlaying"
-        [style.width]="!fileIdPlaying ? '0' : '100%'"
-        [style.height]="!fileIdPlaying ? '0' : '100%'"  
-        [style.min-width]="!fileIdPlaying ? '0' : '300px'"
-        [style.min-height]="!fileIdPlaying ? '0' : '250px'" 
+      <app-media-viewer
+        #fileMediaViewer
+        [class.file-active]="fileIdPlaying"
+        [class.file-inactive]="!fileIdPlaying"
         [inputtedParentRef]="parentRef"
         [autoplay]="true"
-        [autoload]="true" 
-        [loop]="false" 
-        [muted]="false" 
-        [showTopics]="false" 
+        [autoload]="true"
+        [loop]="false"
+        [muted]="false"
+        [showTopics]="false"
         [showCommentSection]="false"
-        [previousComponent]="'Music'" 
+        [previousComponent]="'Music'"
         [displayLoading]="true"
         (mediaEndedEvent)="mediaEndedEvent()"
         (finishedLoadingEvent)="mediaViewerFinishedLoading()">

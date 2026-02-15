@@ -297,7 +297,9 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     this.applyEjsRunOptions();
     // If the build calls back with the instance, capture it early
     (window as any).EJS_ready = (api: any) => {
-      try {
+      try { 
+        this.applyVpadCssIntoRoot(); 
+
         console.log('EJS_ready: vpad readback=', (window as any).EJS_VirtualGamepadSettings);
 
         this.emulatorInstance = api || (window as any).EJS || (window as any).EJS_emulator || this.emulatorInstance;
@@ -354,7 +356,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
             requestAnimationFrame(async () => {
               await this.waitForEmulatorAndFocus();
               await this.probeForSaveApi();
-              this.tryBindSaveFromUI();
+              this.tryBindSaveFromUI(); 
+              try { this.applyVpadCssIntoRoot(); } catch {} 
               try {
                 const ok = await this.applySaveStateIfAvailable(saveStateBlob);
                 if (ok) {
@@ -1501,6 +1504,106 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     return !!done;
   }
 
+
+/** Force A/B big-pill sizes via inline styles as a fallback. */
+private forceAbInlineOnce(): void {
+  const apply = (id: string) => {
+    const host = document.getElementById(id) as HTMLElement | null;
+    if (!host) return;
+    // Style host
+    host.style.width = '126px';
+    host.style.height = '86px';
+    host.style.lineHeight = '86px';
+    host.style.borderRadius = '43px';
+    host.style.fontSize = '34px';
+    host.style.fontWeight = '700';
+    host.style.display = 'inline-flex';
+    host.style.alignItems = 'center';
+    host.style.justifyContent = 'center';
+
+    // Style common inner node, if present
+    const inner = host.querySelector('.ejs_button, .ejs-button, button, [role="button"]') as HTMLElement | null;
+    if (inner) {
+      inner.style.width = '126px';
+      inner.style.height = '86px';
+      inner.style.lineHeight = '86px';
+      inner.style.borderRadius = '43px';
+      inner.style.fontSize = '34px';
+      inner.style.fontWeight = '700';
+      inner.style.display = 'inline-flex';
+      inner.style.alignItems = 'center';
+      inner.style.justifyContent = 'center';
+    }
+  };
+  apply('btnA');
+  apply('btnB');
+}
+
+/** Inject CSS directly into the vpad root so skin CSS can’t outrank it. */
+private applyVpadCssIntoRoot(): void {
+  // Find the vpad root (works for common skins)
+  const root = document.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent') as HTMLElement | null;
+  if (!root) return;
+
+  // Ensure idempotent
+  if (root.querySelector('style[data-vpad-overrides="1"]')) return;
+
+  const css = `
+/* ===== Genesis keep A/B/C round if present ===== */
+#genA, #genB, #genC,
+#genA .ejs_button, #genB .ejs_button, #genC .ejs_button {
+  width: 96px !important; height: 96px !important; line-height: 96px !important;
+  font-size: 34px !important; border-radius: 50% !important;
+}
+
+/* ===== D-Pad scale (cover both class variants) ===== */
+.ejs_dpad, .ejs-dpad, .ejs_dpad * , .ejs-dpad * {
+  transform: scale(1.35) !important;
+  transform-origin: center left !important;
+}
+
+/* ===== Big pill A/B for all two-button systems ===== */
+/* Match both the element with the ID AND the inner .ejs_button */
+#btnA, #btnB,
+#btnA .ejs_button, #btnB .ejs_button,
+#btnA > *, #btnB > * {
+  width: 126px !important;
+  height: 86px !important;
+  line-height: 86px !important;
+  border-radius: 43px !important;
+  font-size: 34px !important;
+  font-weight: 700 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+/* small nudges */
+#btnA { transform: translate(-10px, 10px) !important; }
+#btnB { transform: translate(-5px, 0px) !important; }
+
+/* ===== Start / Select: lower 5px ===== */
+#start, #select { transform: translateY(5px) !important; }
+
+/* ===== Fast/Slow: force rectangular + smaller text ===== */
+#speed_fast, #speed_slow,
+#speed_fast .ejs_button, #speed_slow .ejs_button,
+#speed_fast > *, #speed_slow > * {
+  width: auto !important;
+  height: auto !important;
+  min-width: 44px !important;
+  min-height: 22px !important;
+  padding: 3px 9px !important;
+  border-radius: 8px !important;
+  font-size: 11px !important;
+  line-height: 1.1 !important;
+}
+`;
+  const style = document.createElement('style');
+  style.setAttribute('data-vpad-overrides', '1');
+  style.textContent = css;
+  root.appendChild(style);
+  this.forceAbInlineOnce();
+}
 
   
 private ensureTouchOverlaySizingCss(): void {
