@@ -915,35 +915,35 @@ ON DUPLICATE KEY UPDATE
       }
     }
 
-[HttpPost("/Rom/SaveEmulatorJSState")]
-[DisableRequestSizeLimit]
-[RequestFormLimits(MultipartBodyLengthLimit = 128 * 1024 * 1024)]
-public async Task<IActionResult> SaveEmulatorJSState(CancellationToken ct)
-{
-    var swAll = System.Diagnostics.Stopwatch.StartNew();
-    try
+    [HttpPost("/Rom/SaveEmulatorJSState")]
+    [DisableRequestSizeLimit]
+    [RequestFormLimits(MultipartBodyLengthLimit = 128 * 1024 * 1024)]
+    public async Task<IActionResult> SaveEmulatorJSState(CancellationToken ct)
     {
+      var swAll = System.Diagnostics.Stopwatch.StartNew();
+      try
+      {
         // ---------- Read multipart/form-data ----------
         if (!Request.HasFormContentType)
-            return BadRequest("Expected multipart/form-data");
+          return BadRequest("Expected multipart/form-data");
 
         var form = await Request.ReadFormAsync(ct);
         var file = form.Files.GetFile("file");
         if (file == null || file.Length <= 0)
-            return BadRequest("Missing 'file' in multipart request.");
+          return BadRequest("Missing 'file' in multipart request.");
 
         if (!int.TryParse(form["userId"], out var userId) || userId <= 0)
-            return BadRequest("Missing or invalid 'userId'.");
+          return BadRequest("Missing or invalid 'userId'.");
 
         var romName = form["romName"].ToString();
         if (string.IsNullOrWhiteSpace(romName))
-            return BadRequest("Missing 'romName'.");
+          return BadRequest("Missing 'romName'.");
 
         byte[] stateBytes;
         using (var ms = new MemoryStream((int)Math.Min(file.Length, 64 * 1024 * 1024)))
         {
-            await file.CopyToAsync(ms, ct);
-            stateBytes = ms.ToArray();
+          await file.CopyToAsync(ms, ct);
+          stateBytes = ms.ToArray();
         }
 
         // ---------- DB write (DO NOT tie to RequestAborted) ----------
@@ -963,28 +963,28 @@ public async Task<IActionResult> SaveEmulatorJSState(CancellationToken ct)
 
         await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 180 };
         cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
-        cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = romName; 
+        cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = romName;
         cmd.Parameters.Add("@StateData", MySqlDbType.LongBlob);
         await cmd.PrepareAsync();                    // required for Stream/MemoryStream
-        cmd.Parameters["@StateData"].Value = new MemoryStream(stateBytes, writable:false);
+        cmd.Parameters["@StateData"].Value = new MemoryStream(stateBytes, writable: false);
 
         cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value = stateBytes.Length;
 
         await cmd.ExecuteNonQueryAsync(dbCts.Token);  // independent timeout
 
         return Ok(new { ok = true, userId, romName, fileSize = stateBytes.Length, ms = swAll.ElapsedMilliseconds });
-    }
-    catch (OperationCanceledException)
-    {
+      }
+      catch (OperationCanceledException)
+      {
         _ = _log.Db("SaveEmulatorJSState DB timed out/canceled", null, "ROM", true);
         return StatusCode(504, "Timed out saving emulator state");
-    }
-    catch (Exception ex)
-    {
+      }
+      catch (Exception ex)
+      {
         _ = _log.Db("SaveEmulatorJSState error: " + ex.Message, null, "ROM", true);
         return StatusCode(500, "Error saving emulator state");
+      }
     }
-} 
 
     [HttpPost("/Rom/GetEmulatorJSSaveState")]
     public async Task<IActionResult> GetEmulatorJSSaveState([FromBody] GetEmulatorJSSaveStateRequest req, CancellationToken ct = default)

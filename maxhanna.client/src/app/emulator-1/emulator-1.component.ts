@@ -100,28 +100,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
 
   async ngOnDestroy(): Promise<void> {
-    this._destroyed = true;
-    if (this._unloading) return;
-    this._unloading = true;
-
-    try {
-      // Offer to save if a ROM is active
-      if (this.romName && this.parentRef?.user?.id) {
-        const shouldSave = window.confirm('Save emulator state before closing?');
-        if (shouldSave) {
-          // IMPORTANT: wait for the full round-trip or timeout
-          const ok = await this.flushSavesBeforeExit(12000);
-          if (!ok) {
-            console.warn('Timed out waiting for save to finish; continuing exit.');
-          }
-        }
-      }
-    } catch (e) {
-      this.parentRef?.showNotification("Error finalizing save: " + (e instanceof Error ? e.message : String(e)));
-    } finally {
-      // After the save barrier, navigate away
-      window.location.replace('/');
-    }
+    this._destroyed = true; 
+    window.location.replace('/'); 
   }
 
   async onRomSelected(file: FileEntry) {

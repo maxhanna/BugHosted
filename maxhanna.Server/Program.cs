@@ -18,7 +18,9 @@ builder.Services.AddMySqlDataSource(builder.Configuration.GetConnectionString("C
 builder.Services.AddControllers();
 builder.Services.Configure<FormOptions>(options =>
 {
-	options.MultipartBodyLengthLimit = long.MaxValue; // Allows for large files
+	options.MultipartBodyLengthLimit = long.MaxValue; // Allows for large files 
+  options.ValueLengthLimit = int.MaxValue;
+  options.MultipartHeadersLengthLimit = int.MaxValue; 
 });
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
