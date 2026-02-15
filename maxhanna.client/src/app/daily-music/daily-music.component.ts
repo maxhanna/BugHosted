@@ -37,6 +37,16 @@ export class DailyMusicComponent extends ChildComponent implements OnInit, After
     if (!url && !fileId) return;
     const parent = this.inputtedParentRef ?? this.parentRef;
     // Prefer using the app-level YouTube player when available
+    // If there's no URL but we have a fileId, open the MediaViewer for that file
+    if (!url && fileId && parent) {
+      try {
+        parent.createComponent("MediaViewer", { fileId: fileId });
+        return;
+      } catch (e) {
+        console.warn('Failed to open MediaViewer via parent.createComponent', e);
+      }
+    }
+
     if (url && parent) {
       const videoId = parent.getYouTubeVideoId(url);
       if (videoId) {
