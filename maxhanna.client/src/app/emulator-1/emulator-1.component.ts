@@ -127,21 +127,21 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
             } else {
               console.warn('[EJS] captureSaveOnce timed out or returned no data');
             }
-          } catch (e) { 
-            console.warn('[EJS] exit save capture failed', e); 
+          } catch (e) {
+            console.warn('[EJS] exit save capture failed', e);
           }
-          finally { 
+          finally {
             window.location.replace('/');
           }
-        } else { 
+        } else {
           window.location.replace('/');
         }
-      } catch {  
+      } catch {
         window.location.replace('/');
       }
-    } else { 
+    } else {
       window.location.replace('/');
-    } 
+    }
   }
 
   async onRomSelected(file: FileEntry) {
@@ -199,8 +199,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       showControls: this.showControls,
       twoButtonMode: (system === 'nes' || system === 'gb' || system === 'gbc'), // big A/B on 2‑button systems
       segaShowLR: this.segaShowLR
-    }); 
-    
+    });
+
     // For PlayStation and N64 cores, increase autosave interval to 10 minutes
     // to reduce upload frequency for large save files (e.g. PS1 saves).
     const longIntervalCores = new Set([
@@ -256,7 +256,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         }
         console.log('[EJS] instance ready hook fired, has saveState?', !!this._saveFn);
       } catch { }
-    }; 
+    };
 
     // 6) Ensure CSS present once
     if (!document.querySelector('link[data-ejs-css="1"]')) {
@@ -283,7 +283,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     // 8) Inject loader.js (it will initialize EmulatorJS)
     if (!window.__ejsLoaderInjected) {
       await new Promise<void>((resolve, reject) => {
-        const s = document.createElement('script'); 
+        const s = document.createElement('script');
         s.src = `/assets/emulatorjs/data/loader.js`;
         s.async = false;
         s.defer = false;
@@ -302,10 +302,11 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
                 if (ok) {
                   console.log('[EJS] Auto-restored previous session');
                 }
-              } catch { 
+              } catch {
                 console.warn('[EJS] Unable to apply save state on startup');
               }
               this.lockGameHostHeight();
+              this.inspectVPadOnce(); //debug vpad layout on startup, can remove after confirming stable
             });
           });
           resolve();
@@ -322,10 +323,10 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       this.fullReloadToHome();
       return;
     }
- 
-    if (saveStateBlob) { 
+
+    if (saveStateBlob) {
       console.log('Save state loaded from database');
-    } 
+    }
     this.status = 'Running';
     this.stopLoading();
     this.cdr.detectChanges();
@@ -1426,33 +1427,38 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
 
+
   private ensureTouchOverlaySizingCss(): void {
     if (document.querySelector('style[data-ejs-touch-sizing="1"]')) return;
 
     const css = ` 
-    #game #genA, #game #genB, #game #genC,
-    #game #gbaA, #game #gbaB {
-      width: 96px !important;
-      height: 96px !important;
-      line-height: 96px !important;
-      font-size: 34px !important;    /* larger label */
-      border-radius: 50% !important;
-      touch-action: manipulation;
-    }
-    #game #genA *, #game #genB *, #game #genC *,
-    #game #gbaA *, #game #gbaB * { pointer-events: none; }
-  
-    #game .ejs_dpad,      
-    #game .ejs-dpad {       
-      transform: scale(1.25);
-      transform-origin: center left;
-    }
+  #gbaA, #gbaB, #genA, #genB, #genC {
+    width: 96px !important;
+    height: 96px !important;
+    line-height: 96px !important;
+    font-size: 34px !important;
+    border-radius: 50% !important;
+    z-index: 9999 !important;
+  } 
+  #gbaA > *, #gbaB > *, #genA > *, #genB > *, #genC > * {
+    width: 96px !important;
+    height: 96px !important;
+    line-height: 96px !important;
+    font-size: 34px !important;
+    border-radius: 50% !important;
+  }
+ 
+  #game .ejs_dpad, #game .ejs-dpad {
+    transform: scale(1.3) !important;
+    transform-origin: center left !important;
+  }
   `;
     const style = document.createElement('style');
     style.setAttribute('data-ejs-touch-sizing', '1');
     style.textContent = css;
     document.head.appendChild(style);
   }
+
 
   leftMovementArea(useJoystick: boolean): VPadItem {
     // For analog zone, indices must be [19,18,17,16] and joystickInput: true.
@@ -1508,34 +1514,31 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     ];
   }
 
+
   twoButtonRight(enlarge = true): VPadItem[] {
     const A: VPadItem = {
       type: 'button',
+      id: 'gbaA',
       text: 'A',
       location: 'right',
       left: 40,
       top: 80,
       input_value: 8,
-      width: 60,
-      height: 60,
       bold: true
     };
     const B: VPadItem = {
       type: 'button',
+      id: 'gbaB',
       text: 'B',
       location: 'right',
       left: 81,
       top: 40,
       input_value: 0,
-      width: 60,
-      height: 60,
       bold: true
     };
     if (enlarge) {
-      (A as any).block = true;
-      (A as any).fontSize = 32;
-      (B as any).block = true;
-      (B as any).fontSize = 32;
+      (A as any).block = true; (A as any).fontSize = 32; // numbers (px)
+      (B as any).block = true; (B as any).fontSize = 32;
       A.left = (A.left ?? 40) - 20;
       A.top = (A.top ?? 80) + 20;
       B.left = (B.left ?? 81) - 10;
@@ -1552,6 +1555,48 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       { type: 'button', id: 'genA', text: 'A', location: 'right', left: 40, top: 80, input_value: 1, bold: true },
     ];
   }
+
+  /** Log what the virtual gamepad rendered, and hard-patch sizes if needed */
+  private inspectVPadOnce(): void {
+    const root = document.getElementById('game')!;
+    const once = () => {
+      const vpad = root.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent') as HTMLElement | null;
+      if (!vpad) return;
+
+      // List our buttons if present
+      const ids = ['gbaA', 'gbaB', 'genA', 'genB', 'genC'];
+      console.log('[EJS] vpad present. Found IDs:', ids.map(id => !!document.getElementById(id)));
+
+      // As an ultimate override, force inline size (beats stylesheets)
+      const bump = (id: string) => {
+        const el = document.getElementById(id) as HTMLElement | null;
+        if (!el) return;
+        el.style.width = '96px';
+        el.style.height = '96px';
+        el.style.lineHeight = '96px';
+        el.style.fontSize = '34px';
+        el.style.borderRadius = '50%';
+        // Try inner node too (some skins have an inner <button>)
+        const inner = el.firstElementChild as HTMLElement | null;
+        if (inner) {
+          inner.style.width = '96px';
+          inner.style.height = '96px';
+          inner.style.lineHeight = '96px';
+          inner.style.fontSize = '34px';
+          inner.style.borderRadius = '50%';
+        }
+      };
+      ['gbaA', 'gbaB', 'genA', 'genB', 'genC'].forEach(bump);
+
+      obs.disconnect();
+    };
+
+    const obs = new MutationObserver(once);
+    obs.observe(root, { childList: true, subtree: true });
+    // also try once after a small delay
+    setTimeout(once, 750);
+  }
+
 
 
   systemFromCore(core: string): System {
