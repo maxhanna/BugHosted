@@ -939,13 +939,6 @@ ON DUPLICATE KEY UPDATE
         if (string.IsNullOrWhiteSpace(romName))
           return BadRequest("Missing 'romName'.");
 
-        byte[] stateBytes;
-        using (var ms = new MemoryStream((int)Math.Min(file.Length, 64 * 1024 * 1024)))
-        {
-          await file.CopyToAsync(ms, ct);
-          stateBytes = ms.ToArray();
-        }
-
         // ---------- DB write (DO NOT tie to RequestAborted) ----------
         await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
         await conn.OpenAsync(CancellationToken.None); // decoupled
@@ -964,15 +957,16 @@ ON DUPLICATE KEY UPDATE
         await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 180 };
         cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
         cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = romName;
-        cmd.Parameters.Add("@StateData", MySqlDbType.LongBlob);
-        await cmd.PrepareAsync();                    // required for Stream/MemoryStream
-        cmd.Parameters["@StateData"].Value = new MemoryStream(stateBytes, writable: false);
 
-        cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value = stateBytes.Length;
+        await using var uploadStream = file.OpenReadStream(); // reads request body
+        cmd.Parameters.Add("@StateData", MySqlDbType.LongBlob).Value = uploadStream;
+        cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value = (int)file.Length;
+        await cmd.ExecuteNonQueryAsync(dbCts.Token);
+
 
         await cmd.ExecuteNonQueryAsync(dbCts.Token);  // independent timeout
 
-        return Ok(new { ok = true, userId, romName, fileSize = stateBytes.Length, ms = swAll.ElapsedMilliseconds });
+        return Ok(new { ok = true, userId, romName, fileSize = (int)file.Length, ms = swAll.ElapsedMilliseconds });
       }
       catch (OperationCanceledException)
       {
