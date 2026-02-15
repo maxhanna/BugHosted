@@ -299,6 +299,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     (window as any).EJS_ready = (api: any) => {
       try {
         this.applyVpadCssIntoRoot();
+        this.scanAndTagVpadControls();
+
 
         console.log('EJS_ready: vpad readback=', (window as any).EJS_VirtualGamepadSettings);
 
@@ -358,6 +360,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
               await this.probeForSaveApi();
               this.tryBindSaveFromUI();
               try { this.applyVpadCssIntoRoot(); } catch { }
+              this.scanAndTagVpadControls();      // ⟵ add this
+
               try {
                 const ok = await this.applySaveStateIfAvailable(saveStateBlob);
                 if (ok) {
@@ -1706,6 +1710,145 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     style.textContent = css;
     document.head.appendChild(style);
   }
+
+
+  /** Create (or reuse) a stylesheet in vpad root with strong rules for our classes. */
+  private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
+    let style = root.querySelector('style[data-vpad-overrides="2"]') as HTMLStyleElement | null;
+    if (style) return style;
+
+    style = document.createElement('style');
+    style.setAttribute('data-vpad-overrides', '2');
+    style.textContent = `
+/* ===== classes we add to the *actual* clickable nodes ===== */
+
+/* D-pad slightly bigger */
+.max-dpad { transform: scale(1.35) !important; transform-origin: center left !important; }
+
+/* Very large pill-shaped A/B */
+.max-pill {
+  width: 126px !important;
+  height: 86px !important;
+  line-height: 86px !important;
+  border-radius: 43px !important;     /* pill: height/2 */
+  font-size: 34px !important;
+  font-weight: 700 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Small rectangular speed buttons */
+.max-rect {
+  width: auto !important;
+  height: auto !important;
+  min-width: 44px !important;
+  min-height: 22px !important;
+  padding: 3px 9px !important;
+  border-radius: 8px !important;
+  font-size: 11px !important;
+  line-height: 1.1 !important;
+}
+
+/* Nudge Start/Select down a bit */
+.max-nudge-down { transform: translateY(5px) !important; }
+
+/* Optional: if an outer wrapper gets the class, enforce on its first child too */
+.max-pill > *, .max-rect > * { all: inherit; }
+`;
+    root.appendChild(style);
+    return style;
+  }
+
+  /** Find the clickable inner element for a given host (ID wrapper) */
+  private findClickableInside(host: Element | null): HTMLElement | null {
+    if (!host) return null;
+    // Common inner nodes in EmulatorJS skins
+    const inner =
+      host.querySelector('.ejs_button, .ejs-button, button, [role="button"]') as HTMLElement | null
+      || (host.firstElementChild as HTMLElement | null);
+    return (inner as HTMLElement) || (host as HTMLElement);
+  }
+
+  /** Find nodes by visible label within vpad root; returns the first strong candidate. */
+  private findByLabel(root: HTMLElement, labels: string[]): HTMLElement | null {
+    const candidates = Array.from(
+      root.querySelectorAll('.ejs_button, .ejs-button, button, [role="button"], [class*="button"]')
+    ) as HTMLElement[];
+
+    const want = new Set(labels.map(l => l.trim().toUpperCase()));
+    for (const el of candidates) {
+      const txt = (el.textContent || el.getAttribute('aria-label') || el.getAttribute('title') || '')
+        .trim().toUpperCase();
+      if (txt && want.has(txt)) return el;
+    }
+    return null;
+  }
+
+  /** Tag all the parts of the vpad we care about (A/B, D-pad, Fast/Slow, Start/Select). */
+  private scanAndTagVpadControls(): void {
+
+    const root = document.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent');
+    console.log('ids present:', ['btnA', 'btnB', 'speed_fast', 'speed_slow', 'start', 'select'].map(id => [id, !!document.getElementById(id)]));
+    if (root) {
+      console.log('buttons sample:', Array.from(root.querySelectorAll('.ejs_button, .ejs-button, button, [role="button"]')).slice(0, 10).map(n => ({ tag: n.tagName, cls: n.className, txt: n.textContent?.trim() })));
+      this.ensureVpadStyleSheet(root as HTMLElement); 
+    }
+
+    if (!root) return;
+
+    // Ensure our stylesheet is present in the same subtree as the vpad
+
+    // ---------- D-Pad ----------
+    // Try common class names; as a fallback, look for anything whose class contains 'dpad'
+    let dpad = root.querySelector('.ejs_dpad, .ejs-dpad') as HTMLElement | null;
+    if (!dpad) dpad = root.querySelector('[class*="dpad"]') as HTMLElement | null;
+    if (dpad) dpad.classList.add('max-dpad');
+
+    // ---------- A / B ----------
+    // Prefer ID wrappers then clickable inner
+    const aHost = document.getElementById('btnA');
+    const bHost = document.getElementById('btnB');
+    let a = this.findClickableInside(aHost);
+    let b = this.findClickableInside(bHost);
+
+    // Fallback by label if ID wrappers were not used by the skin
+    if (!a) a = this.findByLabel(root, ['A']);
+    if (!b) b = this.findByLabel(root, ['B']);
+
+    if (a) a.classList.add('max-pill');
+    if (b) b.classList.add('max-pill');
+
+    // ---------- Speed Fast / Slow ----------
+    const fastHost = document.getElementById('speed_fast');
+    const slowHost = document.getElementById('speed_slow');
+    let fast = this.findClickableInside(fastHost);
+    let slow = this.findClickableInside(slowHost);
+
+    // Some skins won’t propagate those IDs; fallback by label
+    if (!fast) fast = this.findByLabel(root, ['FAST']);
+    if (!slow) slow = this.findByLabel(root, ['SLOW']);
+
+    if (fast) fast.classList.add('max-rect');
+    if (slow) slow.classList.add('max-rect');
+
+    // ---------- Start / Select ----------
+    const startHost = document.getElementById('start');
+    const selectHost = document.getElementById('select');
+    let start = this.findClickableInside(startHost);
+    let select = this.findClickableInside(selectHost);
+
+    if (!start) start = this.findByLabel(root, ['START']);
+    if (!select) select = this.findByLabel(root, ['SELECT']);
+
+    if (start) start.classList.add('max-nudge-down');
+    if (select) select.classList.add('max-nudge-down');
+
+    // Debug so you can see what was tagged
+    console.log('[EJS] tag results:',
+      { dpad, a, b, fast, slow, start, select });
+  }
+
 
   leftMovementArea(useJoystick: boolean): VPadItem {
     return useJoystick
