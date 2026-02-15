@@ -522,7 +522,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         this._pendingSaveResolve = undefined;
       }
     } catch (err) {
-      console.error('Failed to save state to database:', err);
+      console.error('Failed to save state (bytes=', u8.length, ') to database:', err);
       if (this._pendingSaveResolve) {
         try { this._pendingSaveResolve(false); } catch { }
         this._pendingSaveResolve = undefined;

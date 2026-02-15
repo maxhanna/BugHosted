@@ -915,8 +915,8 @@ ON DUPLICATE KEY UPDATE
       }
     }
 
-    [HttpPost("/Rom/SaveEmulatorJSState")]
-    [RequestSizeLimit(128 * 1024 * 1024)] // adjust if needed
+    [HttpPost("/Rom/SaveEmulatorJSState")] 
+    [DisableRequestSizeLimit]
     public async Task<IActionResult> SaveEmulatorJSState(
         [FromQuery] int userId,
         [FromQuery] string romName,
