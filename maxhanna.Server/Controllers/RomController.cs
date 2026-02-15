@@ -1018,7 +1018,7 @@ ON DUPLICATE KEY UPDATE
 
         // UNIQUE(user_id, rom_name) guarantees at most one row; ORDER BY ... LIMIT 1 is unnecessary work.
         const string sql = @"SELECT state_data FROM emulatorjs_save_states WHERE user_id=@UserId AND rom_name=@RomName;";
-        await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 60 };
+        await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 120 };
         cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = req.UserId;
         cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = req.RomName;
 
