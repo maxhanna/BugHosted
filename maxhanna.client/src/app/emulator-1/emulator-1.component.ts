@@ -1438,7 +1438,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         location: 'left',
         left: '8%',
         joystickInput: false,
-        size: "100px",
+        width: "100px",
+        height: "100px",
         inputValues: [4, 5, 6, 7],
       };
   }
@@ -1451,7 +1452,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
   shouldersTop(hasLR2 = false): VPadItem[] {
-    // Pill-like rectangular buttons along the top (similar vibe to your CSS)
     const items: VPadItem[] = [
       { type: 'button', text: 'L', location: 'top', left: 10, top: 0, input_value: 10, bold: true, block: true },
       { type: 'button', text: 'R', location: 'top', left: 270, top: 0, input_value: 11, bold: true, block: true },
@@ -1465,7 +1465,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     return items;
   }
 
-  /** SNES/DS diamond on the right: X Y / B A (your grid-like layout). */
   diamondRight(): VPadItem[] {
     return [
       { type: 'button', text: 'X', location: 'right', left: 0, top: 0, input_value: 9, bold: true }, // X
@@ -1475,7 +1474,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     ];
   }
 
-  /** Two-button (NES/GB/GBC or "large GBA A/B" look) with stagger like your .two-button-mode */
   twoButtonRight(enlarge = true): VPadItem[] {
     const A: VPadItem = {
       type: 'button',
@@ -1484,7 +1482,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       left: 40,
       top: 80,
       input_value: 8,
-      size: 32,
+      width: 60,
+      height: 60,
       bold: true
     };
     const B: VPadItem = {
@@ -1510,10 +1509,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     return [B, A];
   }
 
-  /** Genesis 3-button cluster: C (top-left), B (mid-right), A (bottom-right).
-   *  Mapping note (RetroPad convention commonly used by cores):
-   *    A → RetroPad Y (1), B → RetroPad B (0), C → RetroPad A (8).
-   *  If your core expects a different swap, just change the indices below.       */ // [1](https://emulatorjs.org/docs4devs/control-mapping/)
   genesisThreeRight(): VPadItem[] {
     return [
       { type: 'button', text: 'C', location: 'right', left: 0, top: 0, input_value: 8, bold: true }, // C → A(8)
@@ -1522,7 +1517,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     ];
   }
 
-  /** Decide the high-level system "shape" from your core id. Adjust as needed. */
   systemFromCore(core: string): System {
     const c = core.toLowerCase();
     if (c.includes('snes')) return 'snes';
@@ -1534,7 +1528,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     return 'nes';
   }
 
-  /** Build a layout that mirrors your CSS placements across systems. */
   buildTouchLayout(
     system: System,
     opts: BuildOpts & { segaShowLR?: boolean } // optional flag for Genesis shoulders
@@ -1664,13 +1657,16 @@ type VPadItem =
     block?: boolean;
     input_value: number;
     size?: number;
+    width?: number;
+    height?: number;
   }
   | {
     type: 'dpad';
     location: 'left' | 'right' | 'center' | 'top';
     left?: string;
     right?: string;
-    size?: string;
+    width?: string;
+    height?: string;
     joystickInput?: boolean;
     inputValues: [number, number, number, number]
   }
