@@ -3,9 +3,11 @@ namespace maxhanna.Server.Services
 {
 	public class NexusUnitBackgroundService : BackgroundService
 	{
-		private readonly IConfiguration _config;
+		private readonly IConfiguration? _config;
 		// private readonly IServiceProvider? _serviceProvider;
 		private readonly Log _log;
+
+		private readonly bool _enabled;
 
 		private Timer? _checkForNewUnitsTimer; 
 
@@ -16,6 +18,13 @@ namespace maxhanna.Server.Services
 		{
 			_config = config;
 			_log = log;
+
+			var cs = _config?.GetValue<string>("ConnectionStrings:maxhanna");
+			_enabled = !string.IsNullOrWhiteSpace(cs);
+			if (!_enabled)
+			{
+				_ = _log.Db("Connection string 'maxhanna' missing; NexusUnitBackgroundService disabled.", null, "NEXUS_UNIT_SVC", true);
+      }
 		}
 		// private void ConfigureServices(IServiceCollection services)
 		// {
@@ -31,6 +40,11 @@ namespace maxhanna.Server.Services
 
 		protected override Task ExecuteAsync(CancellationToken stoppingToken)
 		{
+			if (!_enabled)
+			{
+				return Task.CompletedTask; // DB not configured; skip scheduling
+			}
+
 			_checkForNewUnitsTimer = new Timer(
 					async _ => await CheckForNewPurchases(stoppingToken),
 					null,

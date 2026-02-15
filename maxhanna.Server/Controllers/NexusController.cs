@@ -12,15 +12,15 @@ namespace maxhanna.Server.Controllers
 	public class NexusController : ControllerBase
 	{
 		private readonly Log _log;
-		private readonly IConfiguration _config;
+		private readonly IConfiguration? _config;
 		private readonly string _connectionString;
 		private readonly int MapSizeX = 100;
 
-		public NexusController(Log log, IConfiguration config)
+		public NexusController(Log log, IConfiguration? config)
 		{
 			_log = log;
 			_config = config;
-			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+			_connectionString = config?.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 		}
 
 		[HttpPost("/Nexus", Name = "GetBaseData")]
@@ -135,7 +135,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Nexus/GetNumberOfBases", Name = "GetNumberOfBases")]
 		public async Task<IActionResult> GetNumberOfBases([FromBody] int? userId)
 		{ 
-			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			MySqlConnection conn = new MySqlConnection(_connectionString ?? "");
 			try
 			{
 				conn.Open();
@@ -5325,24 +5325,20 @@ namespace maxhanna.Server.Controllers
 			MySqlTransaction transaction = await conn.BeginTransactionAsync(System.Data.IsolationLevel.ReadUncommitted);
 
 			try
-			{
-
+			{ 
 				var parameters = new Dictionary<string, object?>();
 				long? res = await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction); 
 				await transaction.CommitAsync();
 			}
 			catch (Exception ex)
-			{
-
+			{ 
 				await transaction.RollbackAsync();
 				_ = _log.Db("An error occurred while updating Nexus units. : " + ex.Message, null, "NEXUS", true);
 				throw;
 			}
 			finally
-			{
-
-				await conn.CloseAsync();
-
+			{ 
+				await conn.CloseAsync(); 
 			}
 		}
 
