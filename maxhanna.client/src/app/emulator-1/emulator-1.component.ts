@@ -1500,18 +1500,15 @@ private ensureTouchOverlaySizingCss(): void {
   if (document.querySelector('style[data-ejs-touch-sizing="1"]')) return;
 
   const css = `
-/* ===== Generic bumps kept for other systems (optional) ===== */
-/* Larger circular Genesis (if present) */
+/* ===== Generic bumps kept for other systems (optional) ===== */ 
 #game #genA, #game #genB, #game #genC {
   width: 96px !important; height: 96px !important; line-height: 96px !important;
   font-size: 34px !important; border-radius: 50% !important;
 }
 /* Scale D-Pad; cover both hyphen/underscore classnames across builds */
-#game .ejs-dpad, #game .ejs_dpad { transform: scale(1.25); transform-origin: center left; }
-
-/* ===== GBA-only: very large pill-shaped A/B ===== */
-#game.sys-gba #gbaA, 
-#game.sys-gba #gbaB {
+#game .ejs-dpad, #game .ejs_dpad { transform: scale(1.25); transform-origin: center left; } 
+#game #gbaA, 
+#game #gbaB {
   /* requested size */
   width: 126px !important;
   height: 86px !important;
@@ -1527,18 +1524,17 @@ private ensureTouchOverlaySizingCss(): void {
   align-items: center; 
   justify-content: center;
 }
-#game.sys-gba #gbaA > *, 
-#game.sys-gba #gbaB > * {
+#game #gbaA > *, 
+#game #gbaB > * {
   width: 100% !important;
   height: 100% !important;
   line-height: 86px !important;
   border-radius: 43px !important;
   font-size: inherit !important;
-}
-
-/* Optional: spacing nudges so the two big pills sit nicely */
-#game.sys-gba #gbaA { transform: translate( -10px,  10px ); }
-#game.sys-gba #gbaB { transform: translate(  -5px,   0px ); }
+} 
+  
+#game #gbaA { transform: translate( -10px,  10px ); }
+#game #gbaB { transform: translate(  -5px,   0px ); }
 `;
 
   const style = document.createElement('style');
