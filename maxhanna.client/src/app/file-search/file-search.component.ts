@@ -1244,29 +1244,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     return candidates.filter(k => this.romSystemExtensions[k].some(ext => lowerAllowed.includes(ext)));
   }
 
-  getSystemLabel(key: string): string {
-    switch (key) {
-      case 'n64': return 'N64';
-      case 'ps1': return 'PS1';
-      case 'gba': return 'GBA';
-      case 'nds': return 'NDS';
-      case 'nes': return 'NES';
-      case 'snes': return 'SNES';
-      case 'genesis': return 'Genesis';
-      default: return key.toUpperCase();
-    }
-  }
-
-  getSystemIcon(key: string): SafeHtml | string {
-    if (!key) return '';
-    // Use the first extension for the given system (e.g. 'n64' -> 'n64')
-    const exts = this.romSystemExtensions[key];
-    const ext = (exts && exts.length) ? exts[0] : key;
-    const style = "width:16px;height:16px;vertical-align:middle;";
-    // getSystemEmoji expects a filename; pass a dummy name with the extension so FileService extracts it.
-    return this.getSystemEmoji('file.' + ext, style);
-  }
-
   toggleRomSystem(key: string) {
     if (this.activeRomSystem === key) {
       this.activeRomSystem = undefined;
@@ -1353,6 +1330,27 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     } catch { }
     this.fileTypeFilter = '';
     try { this.onFiletypeFilterChange(); } catch { }
+  } 
+  getSystemLabel(key: string): string {
+    switch (key) {
+      case 'n64': return 'N64';
+      case 'ps1': return 'PS1';
+      case 'gba': return 'GBA';
+      case 'nds': return 'NDS';
+      case 'nes': return 'NES';
+      case 'snes': return 'SNES';
+      case 'genesis': return 'Genesis';
+      default: return key.toUpperCase();
+    }
+  } 
+  getSystemIcon(key: string): SafeHtml | string {
+    if (!key) return '';
+    // Use the first extension for the given system (e.g. 'n64' -> 'n64')
+    const exts = this.romSystemExtensions[key];
+    const ext = (exts && exts.length) ? exts[0] : key;
+    const style = "width:16px;height:16px;vertical-align:middle;";
+    // getSystemEmoji expects a filename; pass a dummy name with the extension so FileService extracts it.
+    return this.getSystemEmoji('file.' + ext, style);
   }
   getSystemEmoji(fileName?: string, styling?: string): SafeHtml | string {
     if (!fileName) return '';
