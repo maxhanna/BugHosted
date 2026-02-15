@@ -56,10 +56,12 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   ];
   isSearchVisible = true;
   autosave = true;
-  autosaveIntervalTime: number = 180000; // 3 minutes
+  autosaveIntervalTime: number = 180000; // 3 minutes 
+  showControls = true;     // show/hide on-screen controls
+  useJoystick = false;     // D-pad (false) vs analog "zone" (true)
+  segaShowLR = true;       // show L/R pills on Genesis when desired
+  status: string = 'Idle';
   private autosaveInterval: any;
-  // Human-readable status shown in the UI (e.g. "Idle", "Loading <game>", "Running: <game>")
-  public status: string = 'Idle';
   private romObjectUrl?: string;
   private emulatorInstance?: any;
   private _destroyed = false;
@@ -102,7 +104,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
   async ngOnDestroy(): Promise<void> {
     this._destroyed = true;
-    try { this.clearAutosave(); } catch { } 
+    try { this.clearAutosave(); } catch { }
     try {
       let shouldSave = false;
       if (this.romName && this.parentRef?.user?.id) {
@@ -131,7 +133,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
   async onRomSelected(file: FileEntry) {
-    try { 
+    try {
       await this.loadRomThroughService(file.fileName!, file.id);
       this.status = 'Running';
     } catch (err) {
@@ -148,7 +150,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     }
 
     this.startLoading();
-    this.isSearchVisible = false; 
+    this.isSearchVisible = false;
     this.status = "Loading Rom - " + this.fileService.getFileWithoutExtension(fileName);
     this.cdr.detectChanges();
 
@@ -177,6 +179,16 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
     const core = this.detectCore(fileName);
     window.EJS_core = core;
+
+
+    const system = this.systemFromCore(core);
+    window.EJS_VirtualGamepadSettings = this.buildTouchLayout(system, {
+      useJoystick: this.useJoystick,
+      showControls: this.showControls,
+      twoButtonMode: (system === 'nes' || system === 'gb' || system === 'gbc'), // big A/B on 2‑button systems
+      segaShowLR: this.segaShowLR
+    });
+
 
     // For PlayStation and N64 cores, increase autosave interval to 10 minutes
     // to reduce upload frequency for large save files (e.g. PS1 saves).
@@ -312,9 +324,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     this.stopLoading();
     this.cdr.detectChanges();
   }
-
-  /** Reinitialize EmulatorJS for a new ROM in the same page. */
-
 
   /** Show only Quick Save/Load so we can programmatically trigger saves. */
   private hideEJSMenu() {
@@ -723,17 +732,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     try {
       window.addEventListener('resize', apply, { passive: true });
       window.addEventListener('orientationchange', apply, { passive: true });
-    } catch { }
-  }
-
-  private unlockGameHostHeight(): void {
-    try { this._gameSizeObs?.disconnect(); } catch { }
-    try { this._gameAttrObs?.disconnect(); } catch { }
-    this._gameSizeObs = undefined;
-    this._gameAttrObs = undefined;
-    try {
-      window.removeEventListener('resize', this.lockGameHostHeight as any);
-      window.removeEventListener('orientationchange', this.lockGameHostHeight as any);
     } catch { }
   }
 
@@ -1422,6 +1420,151 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
 
+  leftMovementArea(useJoystick: boolean): VPadItem {
+    // For analog zone, indices must be [19,18,17,16] and joystickInput: true.
+    // For dpad, indices are [4,5,6,7] (UP,DOWN,LEFT,RIGHT).                 // [2](https://emulatorjs.org/docs4devs/virtual-gamepad-settings/)
+    return useJoystick
+      ? {
+        type: 'zone',
+        location: 'left',
+        left: '8%',       // % required for zone/dpad positioning              // [2](https://emulatorjs.org/docs4devs/virtual-gamepad-settings/)
+        top: '50%',
+        joystickInput: true,
+        color: 'blue',
+        inputValues: [19, 18, 17, 16],
+      }
+      : {
+        type: 'dpad',
+        location: 'left',
+        left: '8%',       // % required for zone/dpad positioning              // [2](https://emulatorjs.org/docs4devs/virtual-gamepad-settings/)
+        joystickInput: false,
+        inputValues: [4, 5, 6, 7],
+      };
+  }
+
+  startSelectRow(): VPadItem[] {
+    return [
+      { type: 'button', text: 'Start', id: 'start', location: 'center', left: 60, top: 0, fontSize: 15, block: true, input_value: 3 },
+      { type: 'button', text: 'Select', id: 'select', location: 'center', left: -5, top: 0, fontSize: 15, block: true, input_value: 2 },
+    ];
+  }
+
+  shouldersTop(hasLR2 = false): VPadItem[] {
+    // Pill-like rectangular buttons along the top (similar vibe to your CSS)
+    const items: VPadItem[] = [
+      { type: 'button', text: 'L', location: 'top', left: 10, top: 0, input_value: 10, bold: true, block: true },
+      { type: 'button', text: 'R', location: 'top', left: 270, top: 0, input_value: 11, bold: true, block: true },
+    ];
+    if (hasLR2) {
+      items.push(
+        { type: 'button', text: 'L2', location: 'top', left: 90, top: 0, input_value: 12, bold: true, block: true },
+        { type: 'button', text: 'R2', location: 'top', left: 190, top: 0, input_value: 13, bold: true, block: true },
+      );
+    }
+    return items;
+  }
+
+  /** SNES/DS diamond on the right: X Y / B A (your grid-like layout). */
+  diamondRight(): VPadItem[] {
+    return [
+      { type: 'button', text: 'X', location: 'right', left: 0, top: 0, input_value: 9, bold: true }, // X
+      { type: 'button', text: 'Y', location: 'right', left: 40, top: 40, input_value: 1, bold: true }, // Y
+      { type: 'button', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true }, // B
+      { type: 'button', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true }, // A
+    ];
+  }
+
+  /** Two-button (NES/GB/GBC or "large GBA A/B" look) with stagger like your .two-button-mode */
+  twoButtonRight(enlarge = true): VPadItem[] {
+    const A: VPadItem = { type: 'button', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true };
+    const B: VPadItem = { type: 'button', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true };
+    if (enlarge) {
+      (A as any).block = true; (A as any).fontSize = 32;
+      (B as any).block = true; (B as any).fontSize = 32;
+      A.left = (A.left ?? 40) - 20; 
+      A.top = (A.top ?? 80) + 20;
+      B.left = (B.left ?? 81) - 10; 
+      B.top = (B.top ?? 40) + 20;
+    }
+    return [B, A];
+  }
+
+  /** Genesis 3-button cluster: C (top-left), B (mid-right), A (bottom-right).
+   *  Mapping note (RetroPad convention commonly used by cores):
+   *    A → RetroPad Y (1), B → RetroPad B (0), C → RetroPad A (8).
+   *  If your core expects a different swap, just change the indices below.       */ // [1](https://emulatorjs.org/docs4devs/control-mapping/)
+  genesisThreeRight(): VPadItem[] {
+    return [
+      { type: 'button', text: 'C', location: 'right', left: 0, top: 0, input_value: 8, bold: true }, // C → A(8)
+      { type: 'button', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true }, // B → B(0)
+      { type: 'button', text: 'A', location: 'right', left: 40, top: 80, input_value: 1, bold: true }, // A → Y(1)
+    ];
+  }
+
+  /** Decide the high-level system "shape" from your core id. Adjust as needed. */
+  systemFromCore(core: string): System {
+    const c = core.toLowerCase();
+    if (c.includes('snes')) return 'snes';
+    if (c.includes('mgba') || c.includes('gba')) return 'gba';
+    if (c.includes('gambatte') || c.includes('gbc') || c === 'gb') return 'gbc';
+    if (c.includes('fceumm') || c.includes('nestopia') || c === 'nes') return 'nes';
+    if (c.includes('genesis') || c.includes('picodrive') || c.includes('megadrive')) return 'genesis';
+    if (c.includes('melonds') || c.includes('desmume') || c.includes('nds')) return 'nds';
+    return 'nes';
+  }
+
+  /** Build a layout that mirrors your CSS placements across systems. */
+  buildTouchLayout(
+    system: System,
+    opts: BuildOpts & { segaShowLR?: boolean } // optional flag for Genesis shoulders
+  ): VPadItem[] {
+    const { useJoystick, showControls = true, twoButtonMode, segaShowLR = true } = opts;
+    if (!showControls) return [];
+
+    const items: VPadItem[] = [];
+    items.push(this.leftMovementArea(useJoystick));
+
+    switch (system) {
+      case 'snes':
+        items.push(...this.diamondRight());
+        items.push(...this.shouldersTop(false));
+        items.push(...this.startSelectRow());
+        break;
+
+      case 'nds':
+        items.push(...this.diamondRight());
+        items.push(...this.shouldersTop(false));
+        items.push(...this.startSelectRow());
+        break;
+
+      case 'gba':
+        // A/B + L/R. Enable "twoButtonMode" if you like the big staggered A/B.
+        items.push(...this.twoButtonRight(!!twoButtonMode));
+        items.push(...this.shouldersTop(false));
+        items.push(...this.startSelectRow());
+        break;
+
+      case 'nes':
+      case 'gb':
+      case 'gbc':
+        items.push(...this.twoButtonRight(true)); // big staggered A/B by default
+        items.push(...this.startSelectRow());
+        break;
+
+      case 'genesis':
+        items.push(...this.genesisThreeRight());  // A/B/C
+        if (segaShowLR) items.push(...this.shouldersTop(false)); // optional L/R when a core exposes them
+        items.push(...this.startSelectRow());
+        break;
+        
+      default: 
+        items.push(...this.twoButtonRight(true));
+        items.push(...this.startSelectRow());
+        break; 
+    }
+
+    return items;
+  }
   showMenuPanel() {
     this.isMenuPanelOpen = true;
     this.parentRef?.showOverlay();
@@ -1479,7 +1622,43 @@ declare global {
     EJS_directKeyboardInput?: boolean;
     EJS_enableGamepads?: boolean;
     EJS_disableAltKey?: boolean;
+    EJS_VirtualGamepadSettings?: any;
+    EJS_Buttons?: any;
     EJS_afterStart?: () => void;
     EJS_ready?: (api: any) => void;
   }
 }
+
+type VPadItem =
+  | {
+    type: 'button'; text: string; id?: string; location: 'left' | 'right' | 'center' | 'top';
+    left?: number; right?: number; top?: number; fontSize?: number; bold?: boolean; block?: boolean; input_value: number
+  }
+  | {
+    type: 'dpad'; location: 'left' | 'right' | 'center' | 'top'; left?: string; right?: string;
+    joystickInput?: boolean; inputValues: [number, number, number, number]
+  }
+  | {
+    type: 'zone'; location: 'left' | 'right' | 'center' | 'top'; left?: string; right?: string; top?: string;
+    joystickInput: true; color?: string; inputValues: [number, number, number, number]
+  };
+
+type System =
+  | 'nes' | 'gb' | 'gbc' | 'gba'
+  | 'snes'
+  | 'genesis' // Sega Mega Drive (3-button focus like your CSS)
+  | 'nds';
+
+interface BuildOpts {
+  useJoystick: boolean;   // your toggle
+  showControls?: boolean; // if false, return [] to hide
+  twoButtonMode?: boolean;// enlarge A/B (NES/GB/GBC, optionally GBA)
+  buttonSize?: number;    // base size tuning knob (default 65~70 visual)
+}
+
+const RETRO = {
+  B: 0, Y: 1, SELECT: 2, START: 3, UP: 4, DOWN: 5, LEFT: 6, RIGHT: 7,
+  A: 8, X: 9, L: 10, R: 11, L2: 12, R2: 13, L3: 14, R3: 15,
+  LSTICK_R: 16, LSTICK_L: 17, LSTICK_D: 18, LSTICK_U: 19,
+  RSTICK_R: 20, RSTICK_L: 21, RSTICK_D: 22, RSTICK_U: 23,
+} as const;

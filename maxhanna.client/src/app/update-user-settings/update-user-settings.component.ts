@@ -54,6 +54,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   isDisplayingNSFW = false;
   isPushNotificationsEnabled? = false;
   isSecurityQuestionsToggled = false;
+  cachedSecurityQuestions?: Array<{ question: string; answer?: string }> = undefined;
   app?: any;
   messaging?: any;
 
@@ -607,7 +608,49 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     const sessionToken = await parent.getSessionToken();
     const res = await this.userService.saveSecurityQuestions(user.id, qas, sessionToken);
     parent.showNotification(res?.message ?? JSON.stringify(res));
+    // Update frontend cache when save appears successful
+    try {
+      const success = !!res && !(res as any).error;
+      if (success) {
+        this.cachedSecurityQuestions = qas.map(x => ({ question: x.question }));
+      }
+    } catch { }
     this.ngOnInit();
+  }
+
+  private populateSecurityQuestionInputs(qas?: Array<{ question?: string }>) {
+    for (let i = 0; i < 5; i++) {
+      const qEl = document.getElementById('secretQuestion' + (i + 1)) as HTMLInputElement | null;
+      const aEl = document.getElementById('secretAnswer' + (i + 1)) as HTMLInputElement | null;
+      if (qEl) qEl.value = (qas && qas[i] && qas[i].question) ? (qas[i].question ?? '') : '';
+      if (aEl) aEl.value = '';
+    }
+  }
+
+  async toggleSecurityQuestions() {
+    this.isSecurityQuestionsToggled = !this.isSecurityQuestionsToggled;
+    if (!this.isSecurityQuestionsToggled) return;
+
+    // If we already have a frontend copy, use it and avoid reloading.
+    if (this.cachedSecurityQuestions && this.cachedSecurityQuestions.length > 0) {
+      // Wait for DOM to render inputs
+      setTimeout(() => { this.populateSecurityQuestionInputs(this.cachedSecurityQuestions); }, 0);
+      return;
+    }
+
+    // Wait for DOM to render the inputs and then load from server once
+    setTimeout(async () => {
+      const id = this.inputtedParentRef?.user?.id ?? this.parentRef?.user?.id;
+      if (!id) return;
+      try {
+        const res: any = await this.userService.getSecurityQuestionsByUserId(id);
+        const qas = Array.isArray(res) ? res.map((x: any) => ({ question: x.question })) : [];
+        this.cachedSecurityQuestions = qas;
+        this.populateSecurityQuestionInputs(qas as any);
+      } catch (err) {
+        console.log('Error loading security questions', err);
+      }
+    }, 0);
   }
 
   async startPasswordResetWithQuestions() {

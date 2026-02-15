@@ -61,6 +61,10 @@
     [disabled]="isLoading">
     {{isFaqOpen ? 'Hide FAQ' : 'View FAQ'}}
   </button>
+  <button *ngIf="!isFaqOpen && onMobile() && romName" (click)="useJoystick = !useJoystick" style="margin-bottom: 10px; width: 100%;"
+    [disabled]="isLoading">
+    {{useJoystick ? 'Disable Joystick' : 'Enable Joystick'}}
+  </button>
   <button *ngIf="romName && !isFaqOpen" (click)="callEjsSave()" style="margin-bottom: 10px; width: 100%;"
     [disabled]="isLoading">
     Manual Save
@@ -80,8 +84,9 @@
     <div *ngFor="let item of faqItems; let i = index" style="border-bottom:1px solid var(--main-highlight-color); padding:8px 4px;">
       <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
         <div style="font-weight:600;">{{ item.question }}</div>
-        <button (click)="toggleFaqItem(i)" style="font-size:12px; padding:6px 8px;">{{ item.expanded ? 'Hide' : 'Show'
-          }}</button>
+        <button (click)="toggleFaqItem(i)" style="font-size:12px; padding:6px 8px;">
+          {{ item.expanded ? 'Hide' : 'Show' }}
+        </button>
       </div>
       <div *ngIf="item.expanded" style="margin-top:8px;" class="thirdFontColor">
         <div [innerHTML]="item.answerHtml"></div>
