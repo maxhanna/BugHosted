@@ -922,6 +922,11 @@ ON DUPLICATE KEY UPDATE
         [FromQuery] string romName,
         CancellationToken ct)
     {
+      if (userId == 0)
+        return BadRequest("You must be logged in to save state.");
+      if (string.IsNullOrWhiteSpace(romName))
+        return BadRequest("romName is required.");
+        
       var swAll = System.Diagnostics.Stopwatch.StartNew();
       try
       {
