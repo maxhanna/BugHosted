@@ -871,11 +871,12 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         return;
       }
       const qres = await this.userService.getSecurityQuestionsByUserId(user.id);
-      if (!qres || !qres.Questions || qres.Questions.length === 0) {
+      const questionsArray: string[] = (qres && (qres.Questions ?? qres.questions)) ?? [];
+      if (!questionsArray || questionsArray.length === 0) {
         this.parentRef?.showNotification('No security questions configured for this user');
         return;
       }
-      this.securityQuestions = qres.Questions as string[];
+      this.securityQuestions = questionsArray as string[];
       this.securityAnswers = new Array(this.securityQuestions.length).fill('');
       this.securityTargetUserId = user.id;
       this.showSecurityQuestionsPanel = true;
