@@ -1719,43 +1719,67 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
     style = document.createElement('style');
     style.setAttribute('data-vpad-overrides', '2');
-    style.textContent = `
+    
+style.textContent = `
 /* ===== classes we add to the *actual* clickable nodes ===== */
 
 /* D-pad slightly bigger */
 .max-dpad { transform: scale(1.35) !important; transform-origin: center left !important; }
 
-/* Very large pill-shaped A/B */
+/* Big pill A/B — slightly smaller than before for better fit */
 .max-pill {
-  width: 126px !important;
-  height: 86px !important;
-  line-height: 86px !important;
-  border-radius: 43px !important;     /* pill: height/2 */
-  font-size: 34px !important;
+  width: 112px !important;
+  height: 76px !important;
+  line-height: 76px !important;
+  border-radius: 38px !important;     /* 76 / 2 */
+  font-size: 30px !important;
   font-weight: 700 !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
 }
 
+/* Separate nudges so they don't overlap or hug the edge */
+.max-pill.is-a {
+  /* move left and slightly up */
+  transform: translate(-26px, 6px) !important;
+}
+.max-pill.is-b {
+  /* move left and slightly down */
+  transform: translate(-40px, 22px) !important;
+}
+
 /* Small rectangular speed buttons */
 .max-rect {
   width: auto !important;
   height: auto !important;
-  min-width: 44px !important;
-  min-height: 22px !important;
-  padding: 3px 9px !important;
+  min-width: 42px !important;
+  min-height: 20px !important;
+  padding: 3px 8px !important;
   border-radius: 8px !important;
-  font-size: 11px !important;
+  font-size: 10px !important;
   line-height: 1.1 !important;
 }
 
 /* Nudge Start/Select down a bit */
-.max-nudge-down { transform: translateY(5px) !important; }
+.max-nudge-down { transform: translateY(10px) !important; }
 
-/* Optional: if an outer wrapper gets the class, enforce on its first child too */
+/* Ensure first child inherits when wrappers are used */
 .max-pill > *, .max-rect > * { all: inherit; }
-`;
+
+/* ===== Optional: responsive tweaks for very narrow screens ===== */
+@media (max-width: 380px) {
+  .max-pill {
+    width: 104px !important;
+    height: 70px !important;
+    line-height: 70px !important;
+    border-radius: 35px !important;
+    font-size: 28px !important;
+  }
+  .max-pill.is-a { transform: translate(-22px, 6px) !important; }
+  .max-pill.is-b { transform: translate(-34px, 20px) !important; }
+}
+`; 
     root.appendChild(style);
     return style;
   }
@@ -1816,8 +1840,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     if (!a) a = this.findByLabel(root, ['A']);
     if (!b) b = this.findByLabel(root, ['B']);
 
-    if (a) a.classList.add('max-pill');
-    if (b) b.classList.add('max-pill');
+    if (a) { a.classList.add('max-pill', 'is-a'); }
+    if (b) { b.classList.add('max-pill', 'is-b'); } 
 
     // ---------- Speed Fast / Slow ----------
     const fastHost = document.getElementById('speed_fast');
