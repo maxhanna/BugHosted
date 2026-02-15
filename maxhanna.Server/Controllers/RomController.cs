@@ -1009,33 +1009,29 @@ ON DUPLICATE KEY UPDATE
         cmd.CommandTimeout = 0; // allow longer reads for large blobs
         cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = req.UserId;
         cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = req.RomName;
+ 
+        await using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, ct);
+        if (!await reader.ReadAsync(ct)) return NotFound();
 
-        using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, ct);
-        if (!await reader.ReadAsync())
-          return NotFound("No save state found");
+        const int chunkSize = 128 * 1024; // 128 KB
+        var buffer = new byte[chunkSize];
 
-        byte[] data;
-
-        // Read blob efficiently
-        const int chunk = 81920;
-        using (var ms = new MemoryStream())
+        await using var ms = new MemoryStream();
+        long read;
+        long offset = 0;
+        do
         {
-          long offset = 0;
-          long bytesRead;
-          do
+          read = reader.GetBytes(0, offset, buffer, 0, buffer.Length);
+          if (read > 0)
           {
-            var buffer = new byte[chunk];
-            bytesRead = reader.GetBytes(0, offset, buffer, 0, buffer.Length);
-            if (bytesRead > 0)
-            {
-              ms.Write(buffer, 0, (int)bytesRead);
-              offset += bytesRead;
-            }
-          } while (bytesRead > 0);
-          data = ms.ToArray();
-        }
+            await ms.WriteAsync(buffer.AsMemory(0, (int)read), ct);
+            offset += read;
+          }
+        } while (read > 0);
 
-        return File(data, "application/octet-stream", "savestate.state");
+        ms.Position = 0;
+        return File(ms, "application/octet-stream", "savestate.state");
+
       }
       catch (Exception ex)
       {

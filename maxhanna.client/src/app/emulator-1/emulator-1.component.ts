@@ -459,8 +459,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       console.log('No existing save state found');
     }
     return null;
-  }
-
+  } 
 
   private async onSaveState(raw: any) {
     const now = Date.now();
@@ -589,10 +588,12 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     if (!this.autosave || !this.romName || !this.parentRef?.user?.id) return;
 
     // Kick a first save after 10s so you can verify quickly
+    // Kick the first autosave after at least 3 minutes (or the configured interval, whichever is larger)
+    const kickDelay = Math.max(this.autosaveIntervalTime, 180000);
     this._autosaveKick = setTimeout(() => {
-      console.log('[EJS] autosave kick (10s)');
+      console.log('[EJS] autosave initial kick after', kickDelay, 'ms');
       this.callEjsSave();
-    }, 10000);
+    }, kickDelay);
 
     this.autosaveInterval = setInterval(() => {
       try {
