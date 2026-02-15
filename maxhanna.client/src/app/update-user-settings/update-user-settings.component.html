@@ -15,7 +15,7 @@
       </div>
       <div style="text-align:right;">
         <button (click)="updateUser()" title="Update settings" [disabled]="!isGeneralToggled"
-          *ngIf="isGeneralToggled">💾Save Username/Password</button>
+          *ngIf="isGeneralToggled">💾Save Account Settings</button>
       </div>
     </div>
     <div *ngIf="isGeneralToggled" class="sectionDescriptionDiv">
@@ -94,6 +94,36 @@
           </app-media-selector>
         </div>
       </div> 
+      <!-- SECRET QUESTIONS (Password Reset) -->
+      <div class="sectionDescriptionSection">
+        <div (click)="isSecurityQuestionsToggled = !isSecurityQuestionsToggled" class="sectionHeaderDiv">
+          <div class="sectionHeaderLabel popupPanelTitle">
+            <div>
+              <span class="helperSpanTitle" title="Set 3-5 secret questions to allow password reset by answering them correctly."></span>
+            </div>
+            <div class="settingsSectionHeaderTitle">Secret Questions (Password Reset)</div>
+          </div>
+          <div style="text-align:right;">
+            <button (click)="saveSecurityQuestions()" title="Save security questions" [disabled]="!isSecurityQuestionsToggled"
+              *ngIf="isSecurityQuestionsToggled">💾Save Security Questions</button>
+          </div>
+        </div>
+        <div *ngIf="isSecurityQuestionsToggled" class="sectionDescriptionDiv">
+          <div class="xxSmallFont">Enter between 3 and 5 question/answer pairs. At least 3 required.</div>
+          <div class="sectionDescriptionSection" style="margin-top:8px;" *ngFor="let n of [1,2,3,4,5]; let i = index">
+            <div style="display:flex; gap:8px; align-items:center;">
+              <div style="flex:1;">
+                <div>Question {{i+1}}:</div>
+                <div><input type="text" placeholder="Enter a secret question" [attr.id]="'secretQuestion' + (i+1)" /></div>
+              </div>
+              <div style="flex:1;">
+                <div>Answer {{i+1}}:</div>
+                <div><input type="password" placeholder="Enter the answer" [attr.id]="'secretAnswer' + (i+1)" /></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
 

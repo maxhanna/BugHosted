@@ -726,4 +726,51 @@ export class UserService {
       return [];
     }
   }
+
+  async saveSecurityQuestions(userId: number, questions: Array<{ question: string; answer: string }>, sessionToken: string) {
+    try {
+      const response = await fetch('/User/SaveSecurityQuestions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Encrypted-UserId': sessionToken,
+        },
+        body: JSON.stringify({ UserId: userId, Questions: questions }),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async verifySecurityQuestionsReset(userId: number, answers: Array<{ index: number; answer: string }>) {
+    try {
+      const response = await fetch('/User/VerifySecurityQuestionsReset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: userId, Answers: answers }),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async getSecurityQuestionsByUserId(userId: number) {
+    try {
+      const response = await fetch('/User/GetSecurityQuestions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ UserId: userId })
+      });
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
 }

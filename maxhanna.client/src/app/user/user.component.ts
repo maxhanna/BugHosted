@@ -124,6 +124,11 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   isDisplayPicturePanelOpen: boolean = false;
   showDisplayPictureSelector = false;
   showBackgroundPictureSelector = false;
+  // Security questions reset flow
+  showSecurityQuestionsPanel = false;
+  securityQuestions: string[] = [];
+  securityAnswers: string[] = [];
+  securityTargetUserId: number | null = null;
 
   constructor(private userService: UserService,
     private nexusService: NexusService,
@@ -850,6 +855,61 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.justLoggedIn = true;
         this.ngOnInit();
       }
+      this.stopLoading();
+    }
+  }
+  
+  async fetchSecurityQuestionsForUsername() {
+    const username = this.loginUsername?.nativeElement?.value?.trim();
+    if (!username) return this.parentRef?.showNotification('Enter a username first');
+    this.startLoading();
+    try {
+      // get user by username
+      const user = await this.userService.getUserByUsername(username);
+      if (!user || !user.id) {
+        this.parentRef?.showNotification('User not found');
+        return;
+      }
+      const qres = await this.userService.getSecurityQuestionsByUserId(user.id);
+      if (!qres || !qres.Questions || qres.Questions.length === 0) {
+        this.parentRef?.showNotification('No security questions configured for this user');
+        return;
+      }
+      this.securityQuestions = qres.Questions as string[];
+      this.securityAnswers = new Array(this.securityQuestions.length).fill('');
+      this.securityTargetUserId = user.id;
+      this.showSecurityQuestionsPanel = true;
+    } catch (e) {
+      this.parentRef?.showNotification('Error fetching security questions');
+    } finally {
+      this.stopLoading();
+    }
+  }
+
+  async submitSecurityAnswers() {
+    if (!this.securityTargetUserId) return;
+    const answers: Array<{ index: number; answer: string }> = [];
+    for (let i = 0; i < this.securityAnswers.length; i++) {
+      const a = this.securityAnswers[i]?.trim() ?? '';
+      if (a) answers.push({ index: i + 1, answer: a });
+    }
+    if (answers.length < 3) return this.parentRef?.showNotification('Please answer at least 3 questions');
+    this.startLoading();
+    try {
+      const res = await this.userService.verifySecurityQuestionsReset(this.securityTargetUserId, answers);
+      if (res && (res as any).message) {
+        this.parentRef?.showNotification((res as any).message);
+        // After reset, clear panel and prompt user to login
+        this.showSecurityQuestionsPanel = false;
+        this.securityQuestions = [];
+        this.securityAnswers = [];
+        this.loginPassword.nativeElement.value = '';
+      } else {
+        this.parentRef?.showNotification('Verification failed');
+      }
+    } catch (e) {
+      this.parentRef?.showNotification('Error submitting answers');
+    } finally {
       this.stopLoading();
     }
   }

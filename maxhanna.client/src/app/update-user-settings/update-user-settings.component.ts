@@ -53,6 +53,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   isKrakenHelpPanelShowing = false;
   isDisplayingNSFW = false;
   isPushNotificationsEnabled? = false;
+  isSecurityQuestionsToggled = false;
   app?: any;
   messaging?: any;
 
@@ -587,6 +588,48 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       }
     } catch (error) {
       console.log('Error requesting notification permission:', error);
+    }
+  }
+  async saveSecurityQuestions() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user || !user.id) return alert('You must be logged in to save security questions.');
+
+    const qas: Array<{ question: string; answer: string }> = [];
+    for (let i = 1; i <= 5; i++) {
+      const qEl = document.getElementById('secretQuestion' + i) as HTMLInputElement | null;
+      const aEl = document.getElementById('secretAnswer' + i) as HTMLInputElement | null;
+      const q = qEl?.value?.trim() ?? '';
+      const a = aEl?.value?.trim() ?? '';
+      if (q && a) qas.push({ question: q, answer: a });
+    }
+    if (qas.length < 3) return alert('Please enter at least 3 question/answer pairs.');
+    const sessionToken = await parent.getSessionToken();
+    const res = await this.userService.saveSecurityQuestions(user.id, qas, sessionToken);
+    parent.showNotification(res?.message ?? JSON.stringify(res));
+    this.ngOnInit();
+  }
+
+  async startPasswordResetWithQuestions() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user || !user.id) return alert('You must be logged in to use this flow.');
+
+    const answers: Array<{ index: number; answer: string }> = [];
+    for (let i = 1; i <= 5; i++) {
+      const aEl = document.getElementById('secretAnswer' + i) as HTMLInputElement | null;
+      const a = aEl?.value?.trim() ?? '';
+      if (a) answers.push({ index: i, answer: a });
+    }
+    if (answers.length < 3) return alert('Please answer at least 3 questions to proceed.');
+    const res = await this.userService.verifySecurityQuestionsReset(user.id, answers);
+    if (res && (res as any).message) {
+      parent.showNotification((res as any).message);
+      // clear user cookie or force re-login since password is blanked
+      parent.deleteCookie('user');
+      window.location.reload();
+    } else {
+      parent.showNotification('Verification failed.');
     }
   }
   private async subscribeToNotificationTopic(token: string) {

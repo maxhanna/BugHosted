@@ -435,6 +435,289 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+    [HttpPost("/User/ResetPassword", Name = "ResetPassword")]
+    public async Task<IActionResult> ResetPassword([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (userId <= 0) return BadRequest("Invalid userId");
+      if (!await _log.ValidateUserLoggedIn(userId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+
+      var cs = _config?.GetConnectionString("maxhanna") ?? _config.GetValue<string>("ConnectionStrings:maxhanna");
+      if (string.IsNullOrWhiteSpace(cs)) return StatusCode(500, "Missing DB connection string");
+
+      await using var conn = new MySqlConnection(cs);
+      try
+      {
+        await conn.OpenAsync();
+
+        // Reset password to empty string (store hash of empty + new salt)
+        string newSalt = GenerateSalt();
+        string hashed = HashPassword("", newSalt);
+
+        const string sql = "UPDATE maxhanna.users SET pass = @Password, salt = @Salt WHERE id = @Id";
+        await using (var cmd = new MySqlCommand(sql, conn))
+        {
+          cmd.Parameters.AddWithValue("@Password", hashed);
+          cmd.Parameters.AddWithValue("@Salt", newSalt);
+          cmd.Parameters.AddWithValue("@Id", userId);
+          var rows = await cmd.ExecuteNonQueryAsync();
+          if (rows > 0) return Ok(new { message = "Password reset" });
+          return NotFound("User not found");
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("ResetPassword failed: " + ex.Message, userId, "USER", true);
+        return StatusCode(500, "Error resetting password");
+      }
+      finally
+      {
+        try { conn.Close(); } catch { }
+      }
+    }
+
+    [HttpPost("/User/SaveSecurityQuestions", Name = "SaveSecurityQuestions")]
+    public async Task<IActionResult> SaveSecurityQuestions([FromBody] SaveSecurityQuestionsRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (request == null || request.UserId <= 0) return BadRequest("Invalid request");
+      if (!await _log.ValidateUserLoggedIn(request.UserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+
+      var questions = request.Questions?.Where(q => !string.IsNullOrWhiteSpace(q.Question) && !string.IsNullOrWhiteSpace(q.Answer)).Take(5).ToArray() ?? Array.Empty<QuestionAnswer>();
+      if (questions.Length < 3) return BadRequest("You must provide at least 3 question/answer pairs.");
+
+      var cs = _config?.GetConnectionString("maxhanna") ?? _config.GetValue<string>("ConnectionStrings:maxhanna");
+      if (string.IsNullOrWhiteSpace(cs)) return StatusCode(500, "Missing DB connection string");
+
+      // per-user salt for answer hashing
+      var answerSalt = GenerateSalt();
+
+      // encryption key for questions (optional)
+      var qKeyBase64 = _config.GetValue<string>("Security:QuestionEncryptionKey");
+
+      byte[] EncryptQuestion(string plain)
+      {
+        if (string.IsNullOrWhiteSpace(qKeyBase64)) return Encoding.UTF8.GetBytes(plain);
+        try
+        {
+          var key = Convert.FromBase64String(qKeyBase64);
+          using var aes = Aes.Create();
+          aes.Key = key;
+          aes.Mode = CipherMode.CBC;
+          aes.GenerateIV();
+          using var encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
+          var plainBytes = Encoding.UTF8.GetBytes(plain);
+          var cipher = encryptor.TransformFinalBlock(plainBytes, 0, plainBytes.Length);
+          // store IV + cipher
+          var outb = new byte[aes.IV.Length + cipher.Length];
+          Buffer.BlockCopy(aes.IV, 0, outb, 0, aes.IV.Length);
+          Buffer.BlockCopy(cipher, 0, outb, aes.IV.Length, cipher.Length);
+          return outb;
+        }
+        catch
+        {
+          return Encoding.UTF8.GetBytes(plain);
+        }
+      }
+
+      try
+      {
+        await using var conn = new MySqlConnection(cs);
+        await conn.OpenAsync();
+
+        // build parameters for upsert
+        var sql = @"INSERT INTO password_reset (user_id, q1, a1, q2, a2, q3, a3, q4, a4, q5, a5, salt, created_at, updated_at)
+                     VALUES (@userId, @q1, @a1, @q2, @a2, @q3, @a3, @q4, @a4, @q5, @a5, @salt, NOW(), NOW())
+                     ON DUPLICATE KEY UPDATE q1=@q1, a1=@a1, q2=@q2, a2=@a2, q3=@q3, a3=@a3, q4=@q4, a4=@a4, q5=@q5, a5=@a5, salt=@salt, updated_at=NOW();";
+
+        await using (var cmd = new MySqlCommand(sql, conn))
+        {
+          cmd.Parameters.AddWithValue("@userId", request.UserId);
+
+          // default nulls
+          for (int i = 1; i <= 5; i++)
+          {
+            cmd.Parameters.Add(new MySqlParameter("@q" + i, MySqlDbType.LongBlob) { Value = DBNull.Value });
+            cmd.Parameters.Add(new MySqlParameter("@a" + i, MySqlDbType.VarChar) { Value = DBNull.Value });
+          }
+
+          cmd.Parameters.AddWithValue("@salt", answerSalt);
+
+          for (int i = 0; i < questions.Length; i++)
+          {
+            var idx = i + 1;
+            var q = questions[i].Question!.Trim();
+            var a = questions[i].Answer!.Trim();
+            var qEnc = EncryptQuestion(q);
+            var aHash = HashPassword(a, answerSalt);
+            cmd.Parameters["@q" + idx].Value = qEnc;
+            cmd.Parameters["@a" + idx].Value = aHash;
+          }
+
+          var rows = await cmd.ExecuteNonQueryAsync();
+        }
+
+        return Ok(new { message = "Security questions saved." });
+      }
+      catch (Exception ex)
+      {
+        return StatusCode(500, "Error saving security questions.");
+      }
+    }
+
+    [HttpPost("/User/VerifySecurityQuestionsReset", Name = "VerifySecurityQuestionsReset")]
+    public async Task<IActionResult> VerifySecurityQuestionsReset([FromBody] VerifySecurityQuestionsRequest request)
+    {
+      if (request == null || request.UserId <= 0) return BadRequest("Invalid request");
+      var answers = request.Answers?.Where(a => a.Index >= 1 && a.Index <= 5 && !string.IsNullOrWhiteSpace(a.Answer)).ToArray() ?? Array.Empty<AnswerEntry>();
+      if (answers.Length < 3) return BadRequest("At least 3 answers required for verification.");
+
+      var cs = _config?.GetConnectionString("maxhanna") ?? _config.GetValue<string>("ConnectionStrings:maxhanna");
+      if (string.IsNullOrWhiteSpace(cs)) return StatusCode(500, "Missing DB connection string");
+
+      try
+      {
+        await using var conn = new MySqlConnection(cs);
+        await conn.OpenAsync();
+
+        var sql = "SELECT q1, a1, q2, a2, q3, a3, q4, a4, q5, a5, salt FROM password_reset WHERE user_id = @userId LIMIT 1";
+        await using (var cmd = new MySqlCommand(sql, conn))
+        {
+          cmd.Parameters.AddWithValue("@userId", request.UserId);
+          await using var reader = await cmd.ExecuteReaderAsync();
+          if (!reader.Read()) return BadRequest("No security questions configured for this user.");
+
+          var stored = new Dictionary<int, string?>();
+          var salt = reader.IsDBNull(10) ? null : reader.GetString(10);
+          for (int i = 1; i <= 5; i++)
+          {
+            var aIdx = (i * 2) - 1;
+            var aVal = reader.IsDBNull(aIdx) ? null : reader.GetString(aIdx);
+            stored[i] = aVal;
+          }
+
+          if (string.IsNullOrWhiteSpace(salt)) return StatusCode(500, "Security configuration corrupted.");
+
+          // verify: any provided answer that doesn't match -> fail
+          foreach (var ans in answers)
+          {
+            var expected = stored[ans.Index];
+            if (string.IsNullOrWhiteSpace(expected)) return BadRequest("Provided answer index has no stored value.");
+            var computed = HashPassword(ans.Answer!.Trim(), salt);
+            if (!string.Equals(computed, expected, StringComparison.Ordinal))
+            {
+              return BadRequest("Incorrect answer provided.");
+            }
+          }
+
+          // all provided answers matched and count >= 3 -> reset password
+          var resetOk = await ResetPasswordInternal(request.UserId);
+          if (!resetOk) return StatusCode(500, "Failed to reset password.");
+          return Ok(new { message = "Password reset successful." });
+        }
+      }
+      catch (Exception ex)
+      {
+        return StatusCode(500, "Error verifying security questions.");
+      }
+    }
+
+    [HttpPost("/User/GetSecurityQuestions", Name = "GetSecurityQuestions")]
+    public async Task<IActionResult> GetSecurityQuestions([FromBody] GetSecurityQuestionsRequest request)
+    {
+      if (request == null) return BadRequest("Invalid request");
+
+      int targetUserId = 0;
+      if (request.UserId > 0) targetUserId = request.UserId;
+      else if (!string.IsNullOrWhiteSpace(request.Username))
+      {
+        // lookup by username
+        var uid = await GetUserIdByUsernameInternal(request.Username);
+        if (uid == null) return BadRequest("User not found");
+        targetUserId = uid.Value;
+      }
+      if (targetUserId <= 0) return BadRequest("Invalid user identifier");
+
+      var cs = _config?.GetConnectionString("maxhanna") ?? _config.GetValue<string>("ConnectionStrings:maxhanna");
+      if (string.IsNullOrWhiteSpace(cs)) return StatusCode(500, "Missing DB connection string");
+
+      try
+      {
+        await using var conn = new MySqlConnection(cs);
+        await conn.OpenAsync();
+        var sql = "SELECT q1, q2, q3, q4, q5 FROM password_reset WHERE user_id = @userId LIMIT 1";
+        await using (var cmd = new MySqlCommand(sql, conn))
+        {
+          cmd.Parameters.AddWithValue("@userId", targetUserId);
+          await using var reader = await cmd.ExecuteReaderAsync();
+          if (!reader.Read()) return NotFound("No security questions configured for this user.");
+
+          var qKeyBase64 = _config.GetValue<string>("Security:QuestionEncryptionKey");
+
+          string DecryptQuestion(byte[] data)
+          {
+            if (data == null || data.Length == 0) return null;
+            if (string.IsNullOrWhiteSpace(qKeyBase64)) return Encoding.UTF8.GetString(data);
+            try
+            {
+              var key = Convert.FromBase64String(qKeyBase64);
+              using var aes = Aes.Create();
+              aes.Key = key;
+              aes.Mode = CipherMode.CBC;
+              var iv = new byte[aes.BlockSize / 8];
+              Buffer.BlockCopy(data, 0, iv, 0, iv.Length);
+              var cipher = new byte[data.Length - iv.Length];
+              Buffer.BlockCopy(data, iv.Length, cipher, 0, cipher.Length);
+              using var decryptor = aes.CreateDecryptor(aes.Key, iv);
+              var plain = decryptor.TransformFinalBlock(cipher, 0, cipher.Length);
+              return Encoding.UTF8.GetString(plain);
+            }
+            catch
+            {
+              try { return Encoding.UTF8.GetString(data); } catch { return null; }
+            }
+          }
+
+          var questions = new List<string>();
+          for (int i = 0; i < 5; i++)
+          {
+            if (reader.IsDBNull(i)) continue;
+            var bytes = (byte[])reader.GetValue(i);
+            var q = DecryptQuestion(bytes);
+            if (!string.IsNullOrWhiteSpace(q)) questions.Add(q);
+          }
+
+          return Ok(new { Questions = questions });
+        }
+      }
+      catch (Exception ex)
+      {
+        return StatusCode(500, "Error retrieving security questions.");
+      }
+    }
+
+    private async Task<bool> ResetPasswordInternal(int userId)
+    {
+      var cs = _config?.GetConnectionString("maxhanna") ?? _config.GetValue<string>("ConnectionStrings:maxhanna");
+      if (string.IsNullOrWhiteSpace(cs)) return false;
+      try
+      {
+        await using var conn = new MySqlConnection(cs);
+        await conn.OpenAsync();
+        var newSalt = GenerateSalt();
+        var hashedEmpty = HashPassword("", newSalt);
+        var sql = "UPDATE maxhanna.users SET pass = @pass, salt = @salt WHERE id = @id";
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@pass", hashedEmpty);
+        cmd.Parameters.AddWithValue("@salt", newSalt);
+        cmd.Parameters.AddWithValue("@id", userId);
+        var rows = await cmd.ExecuteNonQueryAsync();
+        return rows > 0;
+      }
+      catch
+      {
+        return false;
+      }
+    }
+
     // Generate a random salt
     private string GenerateSalt()
     {
@@ -2805,11 +3088,63 @@ namespace maxhanna.Server.Controllers
     {
       return reader[columnName] == DBNull.Value ? fallback : Convert.ToInt32(reader[columnName]);
     }
+    private async Task<int?> GetUserIdByUsernameInternal(string username)
+    {
+      try
+      {
+        var cs = _config?.GetConnectionString("maxhanna") ?? _config.GetValue<string>("ConnectionStrings:maxhanna");
+        if (string.IsNullOrWhiteSpace(cs)) return null;
+        await using var conn = new MySqlConnection(cs);
+        await conn.OpenAsync();
+        var sql = "SELECT id FROM maxhanna.users WHERE username = @username LIMIT 1";
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@username", username);
+        var res = await cmd.ExecuteScalarAsync();
+        if (res == null || res == DBNull.Value) return null;
+        return Convert.ToInt32(res);
+      }
+      catch
+      {
+        return null;
+      }
+    }
   }
+
+  
 }
 public class IpApiResponse
 {
   public string? Query { get; set; }  // This is the IP
   public string? City { get; set; }
   public string? Country { get; set; }
+}
+
+public class SaveSecurityQuestionsRequest
+{
+  public int UserId { get; set; }
+  public QuestionAnswer[]? Questions { get; set; }
+}
+
+public class QuestionAnswer
+{
+  public string? Question { get; set; }
+  public string? Answer { get; set; }
+}
+
+public class VerifySecurityQuestionsRequest
+{
+  public int UserId { get; set; }
+  public AnswerEntry[]? Answers { get; set; }
+}
+
+public class AnswerEntry
+{
+  public int Index { get; set; }
+  public string? Answer { get; set; }
+}
+
+public class GetSecurityQuestionsRequest
+{
+  public int UserId { get; set; }
+  public string? Username { get; set; }
 }
