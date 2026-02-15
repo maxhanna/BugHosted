@@ -270,7 +270,9 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     this.applyEjsRunOptions();
     // If the build calls back with the instance, capture it early
     (window as any).EJS_ready = (api: any) => {
-      try {
+      try { 
+        console.log('EJS_ready: vpad readback=', (window as any).EJS_VirtualGamepadSettings);
+
         this.emulatorInstance = api || (window as any).EJS || (window as any).EJS_emulator || this.emulatorInstance;
         if (this.emulatorInstance?.saveState) {
           this._saveFn = async () => { try { await (this.emulatorInstance as any).saveState(); } catch { } };
