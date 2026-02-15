@@ -1516,6 +1516,9 @@ private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
   const PILL_H = 76;   // px
   const FONT   = 30;   // px
 
+  const SEGA   = 72;   // px (Genesis round buttons: A/B/C/X/Y/Z)
+  const SEGA_FONT = 20;
+
   style.textContent = `
 /* ==== Minimal overrides applied to the actual clickable elements we tag ==== */
 
@@ -1541,6 +1544,18 @@ private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
 /* Separate nudges so they sit nicely; adjust if you want more spacing */
 .max-pill.is-a { transform: translate(-24px,  6px) !important; }  /* A: left & a hair up */
 .max-pill.is-b { transform: translate(-36px, 20px) !important; }  /* B: more left & a bit down */
+
+.max-sega {
+  width: ${SEGA}px !important;
+  height: ${SEGA}px !important;
+  line-height: ${SEGA}px !important;
+  border-radius: 50% !important;
+  font-size: ${SEGA_FONT}px !important;
+  font-weight: 700 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
 
 /* Speed buttons: small rectangles */
 .max-rect {
@@ -1604,7 +1619,7 @@ private findByLabel(root: HTMLElement, labels: string[]): HTMLElement | null {
   return null;
 }
 
-/** Minimal: tag D-pad, A/B, Fast/Slow, Start/Select. */
+/** Minimal: tag D-pad, A/B (non-Sega), or Sega circles; plus Fast/Slow and Start/Select. */
 private scanAndTagVpadControls(): void {
   const root = document.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent') as HTMLElement | null;
   if (!root) return;
@@ -1612,11 +1627,47 @@ private scanAndTagVpadControls(): void {
   // ensure our minimal stylesheet is present in the vpad root
   this.ensureVpadStyleSheet(root);
 
-  // D-pad
+  // D-pad (all systems)
   const dpad = root.querySelector('.ejs_dpad, .ejs-dpad, [class*="dpad"]') as HTMLElement | null;
   if (dpad) dpad.classList.add('max-dpad');
 
-  // A / B
+  // ---------- Sega detection ----------
+  const hasGenesis = !!(
+    document.getElementById('genA') || document.getElementById('genB') || document.getElementById('genC') ||
+    document.getElementById('genX') || document.getElementById('genY') || document.getElementById('genZ')
+  );
+
+  if (hasGenesis) {
+    // Tag Sega circles and STOP (do not add A/B pills)
+    const ids = ['genA','genB','genC','genX','genY','genZ'];
+    for (const id of ids) {
+      const host = document.getElementById(id);
+      const clickable =
+        this.findClickableInside(host) ||
+        (id.startsWith('gen') ? this.findByLabel(root, [id.slice(3).toUpperCase()]) : null);
+
+      if (clickable) {
+        clickable.classList.remove('max-pill', 'is-a', 'is-b'); // just in case
+        clickable.classList.add('max-sega');
+      }
+    }
+
+    // Speed Fast / Slow
+    const fast = this.findClickableInside(document.getElementById('speed_fast')) || this.findByLabel(root, ['FAST']);
+    const slow = this.findClickableInside(document.getElementById('speed_slow')) || this.findByLabel(root, ['SLOW']);
+    if (fast) fast.classList.add('max-rect');
+    if (slow) slow.classList.add('max-rect');
+
+    // Start / Select
+    const start = this.findClickableInside(document.getElementById('start')) || this.findByLabel(root, ['START']);
+    const select = this.findClickableInside(document.getElementById('select')) || this.findByLabel(root, ['SELECT']);
+    if (start)  start.classList.add('max-nudge-down');
+    if (select) select.classList.add('max-nudge-down');
+
+    return; // <-- IMPORTANT: do not fall through to pill logic
+  }
+
+  // ---------- Non-Sega A/B pill logic ----------
   const a = this.findClickableInside(document.getElementById('btnA')) || this.findByLabel(root, ['A']);
   const b = this.findClickableInside(document.getElementById('btnB')) || this.findByLabel(root, ['B']);
   if (a) { a.classList.add('max-pill', 'is-a'); }
@@ -1629,7 +1680,7 @@ private scanAndTagVpadControls(): void {
   if (slow) slow.classList.add('max-rect');
 
   // Start / Select
-  const start = this.findClickableInside(document.getElementById('start'))  || this.findByLabel(root, ['START']);
+  const start = this.findClickableInside(document.getElementById('start')) || this.findByLabel(root, ['START']);
   const select = this.findClickableInside(document.getElementById('select')) || this.findByLabel(root, ['SELECT']);
   if (start)  start.classList.add('max-nudge-down');
   if (select) select.classList.add('max-nudge-down');
