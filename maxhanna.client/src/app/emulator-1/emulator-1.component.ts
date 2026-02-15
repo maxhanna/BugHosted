@@ -918,6 +918,9 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
   async stopEmulator() {
+    this.status = 'Stopping...';
+    this.startLoading();
+    this.cdr.detectChanges();
     if (this.romName && this.parentRef?.user?.id) {
       try {
         const shouldSave = window.confirm('Save emulator state before closing?');
@@ -927,15 +930,13 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         }
       } catch { }
     }
-    try { this.clearAutosave(); } catch { }
-    try { await this.hardStopEmulatorEJS(); } catch { }
-    try { this.unlockGameHostHeight(); } catch { }
+    try { this.clearAutosave(); } catch { } 
 
     // Optional best-effort UI cleanup (not required since we're reloading)
     this.isSearchVisible = true;
-    this.status = 'Ready - Select a ROM';
     this.romName = undefined;
-
+    this.stopLoading();
+    this.cdr.detectChanges();
     // 🚀 Reboot the page to avoid any double-load of emulator.min.js
     this.fullReloadToHome();
   }
