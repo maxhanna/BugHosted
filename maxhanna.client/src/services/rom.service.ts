@@ -277,17 +277,15 @@ export class RomService {
     } catch (error: any) {
       return { ok: false, status: 0, errorText: String(error?.message ?? error) };
     }
-  } 
+  }
 
-  async saveEmulatorJSState(romName: string, userId: number, stateData: Uint8Array<ArrayBufferLike>) {
+  async saveEmulatorJSState(romName: string, userId: number, stateData: Uint8Array) {
     const url = `/rom/saveemulatorjsstate?userId=${userId}&romName=${encodeURIComponent(romName)}`;
 
-    // Ensure ArrayBuffer (not SharedArrayBuffer) by copying
+    // Normalize into an ArrayBuffer (BodyInit) – avoids DOM typing mismatches
     const copy = new Uint8Array(stateData.byteLength);
     copy.set(stateData);
-
-    // Send as ArrayBuffer (BodyInit)
-    const body: ArrayBuffer = copy.buffer; // regular ArrayBuffer
+    const body: ArrayBuffer = copy.buffer;
 
     const res = await fetch(url, {
       method: 'POST',
@@ -297,7 +295,7 @@ export class RomService {
 
     if (!res.ok) throw new Error(await res.text());
     return res.json();
-  } 
+  }
 
   async getEmulatorJSSaveState(romName: string, userId: number): Promise<Blob | null> {
     try {

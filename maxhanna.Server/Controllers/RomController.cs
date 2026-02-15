@@ -916,8 +916,7 @@ ON DUPLICATE KEY UPDATE
     }
 
     [HttpPost("/Rom/SaveEmulatorJSState")]
-    [Consumes("application/octet-stream")]
-    [RequestSizeLimit(128 * 1024 * 1024)] // bump as needed
+    [RequestSizeLimit(128 * 1024 * 1024)] // adjust if needed
     public async Task<IActionResult> SaveEmulatorJSState(
         [FromQuery] int userId,
         [FromQuery] string romName,
@@ -926,31 +925,66 @@ ON DUPLICATE KEY UPDATE
       var swAll = System.Diagnostics.Stopwatch.StartNew();
       try
       {
-        if (userId <= 0 || string.IsNullOrWhiteSpace(romName))
-          return BadRequest("Missing userId or romName");
+        // 1) Allow userId / romName to come from either query or form
+        int formUser = 0;
+        string? formRom = null;
 
-        // If Content-Length is supplied, allocate once; else stream to a temporary buffer
         byte[] stateBytes;
-        if (Request.ContentLength is long len && len >= 0 && len <= int.MaxValue)
+
+        if (Request.HasFormContentType)
         {
-          stateBytes = new byte[len];
-          int readTotal = 0;
-          while (readTotal < len)
-          {
-            int n = await Request.Body.ReadAsync(
-              stateBytes.AsMemory(readTotal, (int)len - readTotal), ct);
-            if (n == 0) break;
-            readTotal += n;
-          }
-          if (readTotal != len) Array.Resize(ref stateBytes, readTotal);
+          // ---- multipart/form-data path ----
+          var form = await Request.ReadFormAsync(ct);
+
+          // metadata may arrive from form if not in query
+          if (userId <= 0 && int.TryParse(form["userId"], out var parsed)) formUser = parsed;
+          if (string.IsNullOrWhiteSpace(romName)) formRom = form["romName"].ToString();
+
+          var file = form.Files.GetFile("file");
+          if (file == null || file.Length <= 0)
+            return BadRequest("Missing 'file' in multipart request.");
+
+          using var ms = new MemoryStream((int)Math.Min(file.Length, 32 * 1024 * 1024));
+          await file.CopyToAsync(ms, ct);
+          stateBytes = ms.ToArray();
         }
         else
         {
-          using var ms = new MemoryStream();
-          await Request.Body.CopyToAsync(ms, ct);
-          stateBytes = ms.ToArray();
+          // ---- raw octet-stream path ----
+          if (!(Request.ContentType?.StartsWith("application/octet-stream", StringComparison.OrdinalIgnoreCase) ?? false))
+          {
+            // Be nice: accept whatever came in and still read raw body (prevents 415s).
+            // You can return 415 here if you want to be strict.
+          }
+
+          if (Request.ContentLength is long len && len >= 0 && len <= int.MaxValue)
+          {
+            stateBytes = new byte[len];
+            int readTotal = 0;
+            while (readTotal < len)
+            {
+              var n = await Request.Body.ReadAsync(stateBytes.AsMemory(readTotal, (int)len - readTotal), ct);
+              if (n == 0) break;
+              readTotal += n;
+            }
+            if (readTotal != len) Array.Resize(ref stateBytes, readTotal);
+          }
+          else
+          {
+            using var ms = new MemoryStream();
+            await Request.Body.CopyToAsync(ms, ct);
+            stateBytes = ms.ToArray();
+          }
         }
 
+        // prefer query > form for metadata
+        var effectiveUserId = userId > 0 ? userId : formUser;
+        var effectiveRomName = !string.IsNullOrWhiteSpace(romName) ? romName : (formRom ?? "");
+
+        if (effectiveUserId <= 0 || string.IsNullOrWhiteSpace(effectiveRomName))
+          return BadRequest("Missing userId or romName");
+
+        // 2) Insert/Upsert
         await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
         await conn.OpenAsync(ct);
 
@@ -965,18 +999,25 @@ ON DUPLICATE KEY UPDATE
         last_updated = CURRENT_TIMESTAMP;";
 
         await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 180 };
-        cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
-        cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = romName;
-        cmd.Parameters.Add("@StateData", MySqlDbType.LongBlob).Value = stateBytes; // LONGBLOB in DB
+        cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = effectiveUserId;
+        cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = effectiveRomName;
+        cmd.Parameters.Add("@StateData", MySqlDbType.LongBlob).Value = stateBytes;   // LONGBLOB column
         cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value = stateBytes.Length;
 
         await cmd.ExecuteNonQueryAsync(ct);
 
-        return Ok(new { ok = true, userId, romName, fileSize = stateBytes.Length, ms = swAll.ElapsedMilliseconds });
+        return Ok(new
+        {
+          ok = true,
+          userId = effectiveUserId,
+          romName = effectiveRomName,
+          fileSize = stateBytes.Length,
+          ms = swAll.ElapsedMilliseconds
+        });
       }
       catch (Exception ex)
       {
-        _ = _log.Db("SaveEmulatorJSStateRaw error: " + ex.Message, userId, "ROM", true);
+        _ = _log.Db("SaveEmulatorJSState error: " + ex.Message, userId, "ROM", true);
         return StatusCode(500, "Error saving emulator state");
       }
     }
