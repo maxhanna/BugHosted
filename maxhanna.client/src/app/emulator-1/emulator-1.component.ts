@@ -104,9 +104,15 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     this._destroyed = true;
     try { this.clearAutosave(); } catch { } 
     try {
-      const shouldSave = this.romName && this.parentRef?.user?.id
-        ? window.confirm('Save emulator state before closing?')
-        : false;
+      let shouldSave = false;
+      if (this.romName && this.parentRef?.user?.id) {
+        // If the user saved recently (within 10s), skip prompting and skip save.
+        if (Date.now() - this._lastSaveTime < 10000) {
+          shouldSave = false;
+        } else {
+          shouldSave = window.confirm('Save emulator state before closing?');
+        }
+      }
 
       if (shouldSave && this.romName && this.parentRef?.user?.id) {
         try {
@@ -125,8 +131,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
   async onRomSelected(file: FileEntry) {
-    try {
-      // file.fileName and file.id come from your FileSearchComponent result
+    try { 
       await this.loadRomThroughService(file.fileName!, file.id);
       this.status = 'Running';
     } catch (err) {
@@ -143,8 +148,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     }
 
     this.startLoading();
-    this.isSearchVisible = false;
-    this.status = 'Loading ROM...';
+    this.isSearchVisible = false; 
+    this.status = "Loading Rom - " + this.fileService.getFileWithoutExtension(fileName);
     this.cdr.detectChanges();
 
     // 1) Fetch ROM via your existing API

@@ -22,7 +22,7 @@
   </div>
 
   <!-- Status Display -->
-  <div *ngIf="!romName" style="text-align: center; padding: 20px; color: #666;">
+  <div *ngIf="!romName && isLoading" style="text-align: center; padding: 20px; color: #666;">
     {{ status }}
   </div>
 </div>
