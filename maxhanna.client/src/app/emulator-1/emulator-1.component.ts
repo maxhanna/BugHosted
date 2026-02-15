@@ -1788,7 +1788,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   /** Tag all the parts of the vpad we care about (A/B, D-pad, Fast/Slow, Start/Select). */
   private scanAndTagVpadControls(): void {
 
-    const root = document.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent');
+    const root = document.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent') as HTMLElement;
     console.log('ids present:', ['btnA', 'btnB', 'speed_fast', 'speed_slow', 'start', 'select'].map(id => [id, !!document.getElementById(id)]));
     if (root) {
       console.log('buttons sample:', Array.from(root.querySelectorAll('.ejs_button, .ejs-button, button, [role="button"]')).slice(0, 10).map(n => ({ tag: n.tagName, cls: n.className, txt: n.textContent?.trim() })));
