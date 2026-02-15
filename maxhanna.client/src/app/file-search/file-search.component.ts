@@ -101,6 +101,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   };
   isDisplayingNSFW = false;
   fileTypeFilter = "";
+  fileIdFilter: number | null = null;
   activeRomSystem: string | undefined = undefined;
   loadingSearch = false;
   private windowScrollHandler: Function;
@@ -158,6 +159,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
     this.allowedFileTypes = this.allowedFileTypes.map(type => type.toLowerCase());
     if (this.fileId) {
+      this.fileIdFilter = this.fileId;
       await this.getDirectory(undefined, this.fileId);
       this.replacePageTitleAndDescription();
       return;
@@ -166,6 +168,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.route.paramMap.subscribe(async (params: any) => {
       this.fileId = +params.get('fileId');
       if (this.fileId && this.fileId != null) {
+        this.fileIdFilter = this.fileId;
         await this.getDirectory(undefined, this.fileId);
         this.replacePageTitleAndDescription();
         return;

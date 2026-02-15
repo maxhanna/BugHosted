@@ -73,7 +73,7 @@ namespace maxhanna.Server.Controllers
 				_ = _log.Db($"Directory invalid : {directory}", null, "FILE", true);
 				return null;
 			}
-
+      int totalCount = 0;
 			try
 			{
 				List<FileEntry> fileEntries = new List<FileEntry>();
@@ -223,7 +223,7 @@ namespace maxhanna.Server.Controllers
 						offset = Math.Max(0, filePosition - desiredPositionInPage - 1);
 
 						// Ensure we don't go past the total count
-						var totalCount = GetResultCount(user, directory, search, favouritesCondition, fileTypeCondition,
+						totalCount = GetResultCount(user, directory, search, favouritesCondition, fileTypeCondition,
 								visibilityCondition, ownershipCondition, hiddenCondition,
 								connection, (await GetWhereCondition(search, user)).Item1,
 								(await GetWhereCondition(search, user)).Item2);
@@ -300,8 +300,8 @@ WHERE
     {visibilityCondition} 
     {ownershipCondition} 
     {hiddenCondition} 
-	{favouritesCondition}
-	{fileIdCondition} 
+    {favouritesCondition}
+    {fileIdCondition} 
 GROUP BY
     f.id,
     f.file_name,
@@ -351,10 +351,12 @@ LIMIT
 					}
 
 					// Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
-					// Console.WriteLine($"filePosition: {filePosition}, search: {search}, visibility: {visibility}, ownership: {ownership}, fileTypeCondition: {fileTypeCondition}, visibilityCondition: {visibilityCondition}, ownershipCondition: {ownershipCondition}, hiddenCondition: {hiddenCondition}");
-					// Console.WriteLine($"searchCondition: {searchCondition}, extraParameters: {JsonConvert.SerializeObject(extraParameters)}");
-					// Console.WriteLine($"orderBy: {orderBy}");
-					// Console.WriteLine(command.CommandText);
+					try
+					{
+						var diag = $"GetDirectory: fileId={fileId}, filePosition={filePosition}, offset={offset}, pageSize={pageSize}, page={page}, folderPath={directory}, totalCount={totalCount}, search={(string.IsNullOrEmpty(search) ? "" : search)}, visibility={(string.IsNullOrEmpty(visibility) ? "" : visibility)}, ownership={(string.IsNullOrEmpty(ownership) ? "" : ownership)}, fileTypeCondition={fileTypeCondition}, visibilityCondition={visibilityCondition}, ownershipCondition={ownershipCondition}, hiddenCondition={hiddenCondition}, favouritesCondition={favouritesCondition}";
+						_ = _log.Db(diag, null, "FILE", true);
+					}
+					catch { }
 					using (var reader = command.ExecuteReader())
 					{
 						while (reader.Read())
