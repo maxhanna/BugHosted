@@ -279,12 +279,82 @@ export class RomService {
     }
   }
 
-  async saveEmulatorJSState(romName: string, userId: number, stateData: Uint8Array): Promise<SaveUploadResponse> {
+  /** Ensure bytes become a tight, real ArrayBuffer (never SharedArrayBuffer). */
+  private toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+    const buf = bytes.buffer;
+
+    if (buf instanceof ArrayBuffer) {
+      // Tight slice of the view
+      return buf.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    }
+
+    // If SharedArrayBuffer (or other ArrayBufferLike), copy to a new ArrayBuffer
+    const copy = Uint8Array.from(bytes);
+    return copy.buffer; // ArrayBuffer
+  }
+
+
+
+  private supportsCompressionStreams(): boolean {
+    return typeof (window as any).CompressionStream !== 'undefined';
+  }
+
+  private async gzip(input: Uint8Array): Promise<Uint8Array> {
+    const cs = new CompressionStream('gzip');
+    const stream = new Blob([this.toArrayBuffer(input)]).stream().pipeThrough(cs);
+    const ab = await new Response(stream).arrayBuffer();
+    return new Uint8Array(ab);
+  } 
+
+  private async gunzip(input: Uint8Array): Promise<Uint8Array> {
+    const ds = new DecompressionStream('gzip');
+
+    // Convert to real ArrayBuffer so BlobPart typing stays happy
+    const stream = new Blob([this.toArrayBuffer(input)]).stream().pipeThrough(ds);
+
+    const ab = await new Response(stream).arrayBuffer();
+    return new Uint8Array(ab);
+  } 
+
+  async saveEmulatorJSState(
+    romName: string,
+    userId: number,
+    stateData: Uint8Array
+  ): Promise<SaveUploadResponse> {
+
+    const tight = new Uint8Array(this.toTightArrayBuffer(stateData));
+
+    let bytesToUpload: Uint8Array = tight;
+    let encoding: 'gzip' | 'identity' = 'identity';
+
+    if (this.supportsCompressionStreams()) {
+      try {
+        const gz: Uint8Array = await this.gzip(tight);
+        if (gz.length > 0 && gz.length < tight.length * 0.98) {
+          bytesToUpload = gz;
+          encoding = 'gzip';
+        }
+        console.log('[EJS] savestate sizes:', { raw: tight.length, gz: gz.length, encoding });
+      } catch (e) {
+        console.warn('[EJS] gzip failed, uploading raw', e);
+      }
+    }
+
     const form = new FormData();
-    const tightAb: ArrayBuffer = this.toTightArrayBuffer(stateData);
-    form.append('file', new File([tightAb], 'savestate.bin', { type: 'application/octet-stream' }));
+
+    // ✅ Force to real ArrayBuffer for File() / BlobPart typing
+    const ab: ArrayBuffer = this.toArrayBuffer(bytesToUpload);
+
+    const filename = encoding === 'gzip' ? 'savestate.bin.gz' : 'savestate.bin';
+
+    form.append('file', new File([ab], filename, {
+      type: encoding === 'gzip' ? 'application/gzip' : 'application/octet-stream'
+    }));
+
     form.append('userId', String(userId));
     form.append('romName', romName);
+    form.append('encoding', encoding);
+    form.append('originalSize', String(tight.length));
 
     try {
       const res = await fetch('/rom/saveemulatorjsstate', { method: 'POST', body: form });
@@ -302,21 +372,31 @@ export class RomService {
     } catch (error: any) {
       return { ok: false, status: 0, errorText: String(error?.message ?? error) };
     }
-  }
+  } 
 
   async getEmulatorJSSaveState(romName: string, userId: number): Promise<Blob | null> {
     try {
       const response = await fetch(`/rom/getemulatorjssavestate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ UserId: userId, RomName: romName }),
       });
 
       if (!response.ok) return null;
-      return await response.blob();
-    } catch (error) {
+
+      const enc = (response.headers.get('X-EJS-Encoding') || 'identity').toLowerCase();
+      const encoding: 'gzip' | 'identity' = enc === 'gzip' ? 'gzip' : 'identity';
+
+      const blob = await response.blob();
+      let u8: Uint8Array = new Uint8Array(await blob.arrayBuffer());
+
+      if (encoding === 'gzip') {
+        u8 = await this.gunzip(u8); // u8 stays Uint8Array ✅
+      }
+
+      // Convert to tight ArrayBuffer only at the end
+      return new Blob([this.toArrayBuffer(u8)], { type: 'application/octet-stream' });
+    } catch {
       return null;
     }
   }
