@@ -464,6 +464,15 @@
           <input type="button" (click)="fileIdFilterInput.value=''; getDirectory()" value="❌" class="search-clear-button" title="Clear File ID" />
         </div>
       </div>
+    </div> 
+
+    <div *ngIf="isRomsDirectory()" class="spaceAroundFlex">
+      <span style="width:100%">Filter by system (Roms/)</span>
+      <div class="systemFilters">
+        <button *ngFor="let s of getSupportedRomSystems()" class="toggle-switch-small" (click)="toggleRomSystem(s)">
+          {{ activeRomSystem === s ? 'On' : 'Off' }} {{ getSystemLabel(s) }}
+        </button>
+      </div>
     </div>
     
     <div *ngIf="userIsLoggedIn()" class="spaceAroundFlex">
@@ -486,15 +495,6 @@
         {{ showVideosOnly ? 'On' : 'Off' }}
       </button>
     </div> 
-
-    <div *ngIf="isRomsDirectory()" class="spaceAroundFlex">
-      <span style="width:100%">Filter by system (Roms/)</span>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <button *ngFor="let s of getSupportedRomSystems()" class="toggle-switch-small" (click)="toggleRomSystem(s)">
-          {{ activeRomSystem === s ? 'On' : 'Off' }} {{ getSystemLabel(s) }}
-        </button>
-      </div>
-    </div>
 
     <div class="spaceAroundFlex" *ngIf="showHiddenFilesToggler && userIsLoggedIn()">
       <span style="width:100%">Show hidden files?</span>

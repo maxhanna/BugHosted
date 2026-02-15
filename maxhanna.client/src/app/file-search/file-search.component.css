@@ -495,3 +495,13 @@
     align-items: center;
     padding-top: 3px;
 }
+
+.systemFilters {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  flex-wrap: wrap;
+  flex-direction: row;
+  justify-content: space-around;
+  margin-bottom: 8px;
+}
