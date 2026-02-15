@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { UserService } from '../../services/user.service';
 import { WeatherService } from '../../services/weather.service';
@@ -149,6 +149,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     private topService: TopService,
     private romService: RomService,
     private reactionService: ReactionService,
+    private cdr: ChangeDetectorRef
   ) {
     super();
     setTimeout(() => {
@@ -166,6 +167,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       const val = (event.target as HTMLInputElement).value;
       this.loginUsernameValue = val ?? '';
     } catch (e) { this.loginUsernameValue = ''; }
+    this.cdr.detectChanges();
   }
 
   async ngOnInit() {
