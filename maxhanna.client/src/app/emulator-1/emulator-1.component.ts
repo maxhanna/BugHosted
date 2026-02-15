@@ -1545,16 +1545,16 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       B.top = (B.top ?? 40) + 20;
     }
     return [B, A];
-  }
+  } 
 
+genesisThreeRight(): VPadItem[] {
+  return [
+    { type: 'button', id: 'genC', text: 'C', location: 'right', left: 0,   top: 10,  input_value: 8, bold: true },
+    { type: 'button', id: 'genB', text: 'B', location: 'right', left: 120, top: 30,  input_value: 0, bold: true },
+    { type: 'button', id: 'genA', text: 'A', location: 'right', left: 60,  top: 110, input_value: 1, bold: true },
+  ];
+}
 
-  genesisThreeRight(): VPadItem[] {
-    return [
-      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 0, top: 0, input_value: 8, bold: true },
-      { type: 'button', id: 'genB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true },
-      { type: 'button', id: 'genA', text: 'A', location: 'right', left: 40, top: 80, input_value: 1, bold: true },
-    ];
-  }
 
   /** Log what the virtual gamepad rendered, and hard-patch sizes if needed */
   private inspectVPadOnce(): void {
