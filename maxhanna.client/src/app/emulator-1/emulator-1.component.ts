@@ -1499,40 +1499,62 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   private ensureTouchOverlaySizingCss(): void {
     if (document.querySelector('style[data-ejs-touch-sizing="1"]')) return;
 
-    const css = ` 
+
+    const css = `
+/* Genesis buttons kept big & round */
 #game #genA, #game #genB, #game #genC {
   width: 96px !important; height: 96px !important; line-height: 96px !important;
   font-size: 34px !important; border-radius: 50% !important;
-} 
-#game .ejs-dpad, #game .ejs_dpad { transform: scale(1.25); transform-origin: center left; } 
-#game #gbaA, 
-#game #gbaB {
-  /* requested size */
+}
+
+/* D-Pad scaling */
+#game .ejs-dpad, #game .ejs_dpad { 
+  transform: scale(1.35); 
+  transform-origin: center left; 
+}
+
+/* --- BIG pill-shaped A/B buttons for ALL 2-button systems --- */
+#game #btnA,
+#game #btnB {
   width: 126px !important;
   height: 86px !important;
   line-height: 86px !important;
 
-  /* pill/capsule look */
-  border-radius: 43px !important;          /* 86 / 2 */
+  border-radius: 43px !important;
   font-size: 34px !important;
   font-weight: 700 !important;
 
-  /* keep the inner wrapper in sync across skins */
   display: inline-flex !important;
-  align-items: center; 
+  align-items: center;
   justify-content: center;
 }
-#game #gbaA > *, 
-#game #gbaB > * {
+#game #btnA > *,
+#game #btnB > * {
   width: 100% !important;
   height: 100% !important;
   line-height: 86px !important;
   border-radius: 43px !important;
   font-size: inherit !important;
-} 
-  
-#game #gbaA { transform: translate( -10px,  10px ); }
-#game #gbaB { transform: translate(  -5px,   0px ); }
+}
+
+/* Optional A/B position tweak */
+#game #btnA { transform: translate(-10px, 10px); }
+#game #btnB { transform: translate(-5px, 0px); }
+
+#game #start,
+#game #select {
+  transform: translateY(5px);
+}
+
+/* --- SPEED buttons should stay rectangles --- */
+#game #speed_fast,
+#game #speed_slow {
+  width: auto !important;
+  height: auto !important;
+  border-radius: 8px !important;
+  padding: 6px 12px !important;
+  font-size: 13px !important;
+}
 `;
 
     const style = document.createElement('style');
@@ -1565,11 +1587,13 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       };
   }
 
+
   twoButtonRight(): VPadItem[] {
-    const A: VPadItem = { type: 'button', id: 'gbaA', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true };
-    const B: VPadItem = { type: 'button', id: 'gbaB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true };
+    const A: VPadItem = { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true };
+    const B: VPadItem = { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true };
     return [B, A];
   }
+
 
   genesisThreeRight(): VPadItem[] {
     // Genesis/Mega Drive A/B/C mapping (matches EmulatorJS defaults):
@@ -1629,6 +1653,13 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     const root = document.getElementById('game')!;
     const bumpEl = (el: HTMLElement | undefined | null) => {
       if (!el) return;
+      if (el.id === 'btnA'
+        || el.id === 'btnB'
+        || el.id === 'speed_fast'
+        || el.id === 'speed_slow') {
+        return;
+      }
+
       el.style.width = '96px';
       el.style.height = '96px';
       el.style.lineHeight = '96px';
