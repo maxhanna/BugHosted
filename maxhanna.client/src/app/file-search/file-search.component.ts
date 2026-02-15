@@ -101,7 +101,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   };
   isDisplayingNSFW = false;
   fileTypeFilter = "";
-  fileIdFilter: number | null = null;
+  fileIdFilter?: number | undefined = undefined;
   activeRomSystem: string | undefined = undefined;
   loadingSearch = false;
   private windowScrollHandler: Function;
