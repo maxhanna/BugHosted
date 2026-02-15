@@ -1438,6 +1438,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         location: 'left',
         left: '8%',       // % required for zone/dpad positioning              // [2](https://emulatorjs.org/docs4devs/virtual-gamepad-settings/)
         joystickInput: false,
+        size: "100px",
         inputValues: [4, 5, 6, 7],
       };
   }
@@ -1669,6 +1670,7 @@ type VPadItem =
     location: 'left' | 'right' | 'center' | 'top';
     left?: string;
     right?: string;
+    size?: string;
     joystickInput?: boolean;
     inputValues: [number, number, number, number]
   }
