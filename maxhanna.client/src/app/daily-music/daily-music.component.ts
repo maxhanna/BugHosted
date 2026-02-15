@@ -15,6 +15,8 @@ export class DailyMusicComponent extends ChildComponent implements OnInit, After
   songs: Array<Todo> = [];
   @Input() inputtedParentRef?: AppComponent; 
   @Output() hasData = new EventEmitter<boolean>();
+  fileId?: number | undefined = undefined;
+  showPopup: boolean = false;
 
   constructor(private todoService: TodoService) { super(); }
 
@@ -39,13 +41,13 @@ export class DailyMusicComponent extends ChildComponent implements OnInit, After
     const parent = this.inputtedParentRef ?? this.parentRef;
     // Prefer using the app-level YouTube player when available
     // If there's no URL but we have a fileId, open the MediaViewer for that file
-    if (!url && fileId && parent) {
-      try {
-        parent.createComponent("MediaViewer", { fileId: fileId, isLoadedFromURL: true });
-        return;
-      } catch (e) {
-        console.warn('Failed to open MediaViewer via parent.createComponent', e);
-      }
+    if (!url && fileId) {
+      // Open a local popup containing a MediaViewer instance. The MediaViewer inside
+      // the popup is *ngIf-bound to `fileId`, so it will load when we set it.
+      this.fileId = fileId;
+      this.showPopup = true;
+      parent?.showOverlay();
+      return;
     }
 
     if (url && parent) {
@@ -71,6 +73,15 @@ export class DailyMusicComponent extends ChildComponent implements OnInit, After
       if (btn) btn.click();
     } catch (e) {
       console.warn('Fallback youtube trigger failed', e);
+    }
+  }
+
+  closeButton() {
+    this.fileId = undefined;
+    this.showPopup = false;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      parent.closeOverlay();
     }
   }
 }

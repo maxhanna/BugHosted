@@ -129,6 +129,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   securityQuestions: string[] = [];
   securityAnswers: string[] = [];
   securityTargetUserId: number | null = null;
+  loginUsernameValue: string = '';
 
   constructor(private userService: UserService,
     private nexusService: NexusService,
@@ -158,6 +159,13 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     }, 500);
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.setViewportScalability(false);
+  }
+
+  onLoginUsernameInput(event: Event) {
+    try {
+      const val = (event.target as HTMLInputElement).value;
+      this.loginUsernameValue = val ?? '';
+    } catch (e) { this.loginUsernameValue = ''; }
   }
 
   async ngOnInit() {
@@ -221,6 +229,15 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         });
       }
     });
+
+    // Capture any autofilled username shortly after view init
+    setTimeout(() => {
+      try {
+        if (this.loginUsername && this.loginUsername.nativeElement) {
+          this.loginUsernameValue = this.loginUsername.nativeElement.value ?? '';
+        }
+      } catch (e) { }
+    }, 120);
   }
 
   private async loadExtraCounts() {

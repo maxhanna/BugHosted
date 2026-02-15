@@ -21,4 +21,14 @@
             </tr>
         </tbody>
     </table>
+    
+    <!-- Popup panel for MediaViewer: rendered when showPopup is true. -->
+    <div class="popupPanel" *ngIf="showPopup">
+      <div class="popupBody">
+          <app-media-viewer *ngIf="fileId" [fileId]="fileId" [inputtedParentRef]="inputtedParentRef"></app-media-viewer>
+      </div> 
+      <div>
+          <button class="closeButton" (click)="closeButton()">Close</button>
+      </div>
+    </div>
 </div>
