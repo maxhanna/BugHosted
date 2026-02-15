@@ -208,15 +208,33 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       segaShowLR: false,           // keep false to avoid L/R "pills"
       genesisSix: genesisSix,      // ⟵ pass the decision in
     });
-
-
-    // OPTIONAL: If you want Fast/Slow on all systems, append them here.
-    const speedButtons: VPadItem[] = [
-      { type: 'button', id: 'speed_fast', text: 'Fast', location: 'center', left: -35, top: 50, fontSize: 15, block: true, input_value: 27 },
-      { type: 'button', id: 'speed_slow', text: 'Slow', location: 'center', left: 95, top: 50, fontSize: 15, block: true, input_value: 29 },
-      // You can add Rewind regardless of core setting, or gate behind a flag if you prefer:
-      // { type: 'button', id: 'speed_rewind', text: 'Rewind', location: 'center', left: 30, top: 50, fontSize: 15, block: true, input_value: 28 },
-    ];
+ 
+// Bottom-left, small & subtle, close together.
+// NOTE: `location: 'left'` puts them in the left column; `top` values push toward the bottom.
+const speedButtons: VPadItem[] = [
+  {
+    type: 'button',
+    id: 'speed_fast',
+    text: 'Fast',
+    location: 'left',
+    left: 10,       // px from the left edge of the left column
+    top: 190,       // push down; increase if you need them lower on tall screens
+    fontSize: 13,   // smaller text
+    block: false,   // pill-less small button
+    input_value: 27
+  },
+  {
+    type: 'button',
+    id: 'speed_slow',
+    text: 'Slow',
+    location: 'left',
+    left: 62,       // sits next to Fast (≈ 50–60px spacing)
+    top: 190,
+    fontSize: 13,
+    block: false,
+    input_value: 29
+  },
+];
 
     window.EJS_VirtualGamepadSettings = vpad.concat(speedButtons);
 
@@ -1477,27 +1495,57 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     return !!done;
   }
 
-  private ensureTouchOverlaySizingCss(): void {
-    if (document.querySelector('style[data-ejs-touch-sizing="1"]')) return;
-    const css = `
-  /* Bigger A/B for GBA (if you assign those IDs) */
-  #game #gbaA, #game #gbaB {
-    width: 96px !important; height: 96px !important; line-height: 96px !important;
-    font-size: 34px !important; border-radius: 50% !important;
-  }
-  /* Bigger Genesis A/B/C (if you add IDs as below) */
-  #game #genA, #game #genB, #game #genC {
-    width: 96px !important; height: 96px !important; line-height: 96px !important;
-    font-size: 34px !important; border-radius: 50% !important;
-  } 
-  /* Scale D-Pad; cover both hyphen/underscore classnames across builds */
-  #game .ejs-dpad, #game .ejs_dpad { transform: scale(1.25); transform-origin: center left; }
-  `;
-    const style = document.createElement('style');
-    style.setAttribute('data-ejs-touch-sizing', '1');
-    style.textContent = css;
-    document.head.appendChild(style);
-  }
+ 
+private ensureTouchOverlaySizingCss(): void {
+  if (document.querySelector('style[data-ejs-touch-sizing="1"]')) return;
+
+  const css = `
+/* ===== Generic bumps kept for other systems (optional) ===== */
+/* Larger circular Genesis (if present) */
+#game #genA, #game #genB, #game #genC {
+  width: 96px !important; height: 96px !important; line-height: 96px !important;
+  font-size: 34px !important; border-radius: 50% !important;
+}
+/* Scale D-Pad; cover both hyphen/underscore classnames across builds */
+#game .ejs-dpad, #game .ejs_dpad { transform: scale(1.25); transform-origin: center left; }
+
+/* ===== GBA-only: very large pill-shaped A/B ===== */
+#game.sys-gba #gbaA, 
+#game.sys-gba #gbaB {
+  /* requested size */
+  width: 126px !important;
+  height: 86px !important;
+  line-height: 86px !important;
+
+  /* pill/capsule look */
+  border-radius: 43px !important;          /* 86 / 2 */
+  font-size: 34px !important;
+  font-weight: 700 !important;
+
+  /* keep the inner wrapper in sync across skins */
+  display: inline-flex !important;
+  align-items: center; 
+  justify-content: center;
+}
+#game.sys-gba #gbaA > *, 
+#game.sys-gba #gbaB > * {
+  width: 100% !important;
+  height: 100% !important;
+  line-height: 86px !important;
+  border-radius: 43px !important;
+  font-size: inherit !important;
+}
+
+/* Optional: spacing nudges so the two big pills sit nicely */
+#game.sys-gba #gbaA { transform: translate( -10px,  10px ); }
+#game.sys-gba #gbaB { transform: translate(  -5px,   0px ); }
+`;
+
+  const style = document.createElement('style');
+  style.setAttribute('data-ejs-touch-sizing', '1');
+  style.textContent = css;
+  document.head.appendChild(style);
+} 
 
   leftMovementArea(useJoystick: boolean): VPadItem {
     return useJoystick
@@ -1523,18 +1571,12 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       };
   }
 
-  twoButtonRight(enlarge = true): VPadItem[] {
-    const A: VPadItem = { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true };
-    const B: VPadItem = { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true };
-    if (enlarge) {
-      (A as any).block = true; (A as any).fontSize = 32;
-      (B as any).block = true; (B as any).fontSize = 32;
-      A.left = (A.left ?? 40) - 20; A.top = (A.top ?? 80) + 20;
-      B.left = (B.left ?? 81) - 10; B.top = (B.top ?? 40) + 20;
-    }
+  twoButtonRight(): VPadItem[] {
+    const A: VPadItem = { type: 'button', id: 'gbaA', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true };
+    const B: VPadItem = { type: 'button', id: 'gbaB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true };
     return [B, A];
   }
-
+ 
   genesisThreeRight(): VPadItem[] {
     // Genesis/Mega Drive A/B/C mapping (matches EmulatorJS defaults):
     // A = 1, B = 0, C = 8
@@ -1670,7 +1712,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         break;
 
       case 'gba':
-        items.push(...this.twoButtonRight(true));
+        items.push(...this.twoButtonRight());
         items.push(...this.shouldersTop(false));
         items.push(...this.startSelectRow());
         break;
@@ -1678,7 +1720,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       case 'nes':
       case 'gb':
       case 'gbc':
-        items.push(...this.twoButtonRight(true));
+        items.push(...this.twoButtonRight());
         items.push(...this.startSelectRow());
         break;
 
@@ -1695,7 +1737,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         break;
 
       default:
-        items.push(...this.twoButtonRight(true));
+        items.push(...this.twoButtonRight());
         items.push(...this.startSelectRow());
         break;
     }
