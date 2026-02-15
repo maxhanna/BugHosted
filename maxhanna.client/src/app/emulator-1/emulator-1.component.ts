@@ -192,7 +192,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     const core = this.detectCore(fileName);
     window.EJS_core = core;
 
-    this.ensureTouchOverlaySizingCss();
     const system = this.systemFromCore(core);
     const vpad = this.buildTouchLayout(system, {
       useJoystick: this.useJoystick,
@@ -221,7 +220,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     ];
     window.EJS_VirtualGamepadSettings = vpadKnownGood;
 
-    console.log('[EJS] assigning custom VirtualGamepadSettings', system, vpad);
+    console.log('[EJS] assigning custom VirtualGamepadSettings', window.EJS_VirtualGamepadSettings);
 
     // For PlayStation and N64 cores, increase autosave interval to 10 minutes
     // to reduce upload frequency for large save files (e.g. PS1 saves).
@@ -289,6 +288,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       document.head.appendChild(link);
     }
 
+    this.ensureTouchOverlaySizingCss();
     // Ensure menu is closed when the emulator starts
     this.isMenuPanelOpen = false;
     try { this.parentRef?.closeOverlay(); } catch { }
@@ -301,7 +301,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     this.installRuntimeTrackers();
 
     this.hideEJSMenu();
-
+    console.log('[EJS] final vpad settings before loader:', JSON.stringify(window.EJS_VirtualGamepadSettings, null, 2));
+    
     // 8) Inject loader.js (it will initialize EmulatorJS)
     if (!window.__ejsLoaderInjected) {
       await new Promise<void>((resolve, reject) => {
