@@ -1576,10 +1576,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       }
       : {
         type: 'dpad',
-        // optional but nice to have: add a stable id so your inspect helpers can find it
-        // id is not required for dpad by your build, but harmless if you add it to your VPadItem type
-        // @ts-ignore: if your VPadItem type doesn't allow id on dpad, omit this line
-        // id: 'dpad',
         location: 'left',
         left: '8%',
         joystickInput: false,
@@ -1595,8 +1591,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
   genesisThreeRight(): VPadItem[] {
-    // Genesis/Mega Drive A/B/C mapping (matches EmulatorJS defaults):
-    // A = 1, B = 0, C = 8
     return [
       { type: 'button', id: 'genC', text: 'C', location: 'right', left: 0, top: 0, input_value: 8, bold: true },
       { type: 'button', id: 'genB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true },
@@ -1711,7 +1705,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     return 'nes';
   }
 
-
   buildTouchLayout(
     system: System,
     opts: BuildOpts & { segaShowLR?: boolean; genesisSix?: boolean } // ⟵ add genesisSix
@@ -1768,7 +1761,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
     return items;
   }
-
 
   private slugifyName(name: string): string {
     return (name || '')
