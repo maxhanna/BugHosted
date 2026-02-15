@@ -223,10 +223,23 @@ namespace maxhanna.Server.Controllers
 						offset = Math.Max(0, filePosition - desiredPositionInPage - 1);
 
 						// Ensure we don't go past the total count
-						totalCount = GetResultCount(user, directory, search, favouritesCondition, fileTypeCondition,
+						// When fileId is specified, include the fileId condition/parameter in the count so totalCount reflects the filtered result
+						var whereTupleForCount = await GetWhereCondition(search, user);
+						var searchCondForCount = whereTupleForCount.Item1;
+						var extraParamsForCount = whereTupleForCount.Item2;
+						if (fileId.HasValue)
+						{
+							extraParamsForCount.Add(new MySqlParameter("@fileId", fileId.Value));
+							totalCount = GetResultCount(user, directory, search, favouritesCondition, fileTypeCondition + fileIdCondition,
 								visibilityCondition, ownershipCondition, hiddenCondition,
-								connection, (await GetWhereCondition(search, user)).Item1,
-								(await GetWhereCondition(search, user)).Item2);
+								connection, searchCondForCount, extraParamsForCount);
+						}
+						else
+						{
+							totalCount = GetResultCount(user, directory, search, favouritesCondition, fileTypeCondition,
+								visibilityCondition, ownershipCondition, hiddenCondition,
+								connection, searchCondForCount, extraParamsForCount);
+						}
 
 						if (offset + pageSize > totalCount)
 						{
