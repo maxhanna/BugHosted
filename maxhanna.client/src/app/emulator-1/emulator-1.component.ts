@@ -1233,16 +1233,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     const dbCandidates = ['localforage', 'EJS', 'emulatorjs', 'emulatorjs-cache', 'emulator', 'kv', 'storage'];
     const storeCandidates = ['keyvaluepairs', 'keyvalue', 'pairs', 'store', 'ejs', 'data', 'kv'];
 
-    const pickBest = (cands: Array<{ key: string; val: any }>): Uint8Array | null => {
-      let best: Uint8Array | null = null;
-      for (const { val } of cands) {
-        // normalize each
-        // eslint-disable-next-line no-await-in-loop
-        // (make sync for picker; we converted earlier)
-      }
-      return best;
-    };
-
     try {
       let best: Uint8Array | null = null;
 
@@ -1336,8 +1326,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       try { db.close(); } catch { }
       return null;
     }
-  }
-
+  } 
 
   /** Wait until a load API is available (EJS_loadState or gameManager.loadState). */
   private async waitForLoadApis(maxMs = 5000): Promise<{
@@ -1504,9 +1493,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     return !!done;
   }
 
-
-
-
   /** Create or reuse a tiny stylesheet inside the vpad root. */
   private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
     let style = root.querySelector('style[data-vpad-overrides="min"]') as HTMLStyleElement | null;
@@ -1580,11 +1566,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     root.appendChild(style);
     return style;
   }
-
-
-
-
-
 
   /** Find inner clickable node for a wrapper (works across common skins). */
   private findClickableInside(host: Element | null): HTMLElement | null {
