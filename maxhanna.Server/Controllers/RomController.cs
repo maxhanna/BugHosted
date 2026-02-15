@@ -921,6 +921,7 @@ ON DUPLICATE KEY UPDATE
 public async Task<IActionResult> SaveEmulatorJSState(CancellationToken ct)
 {
     var swAll = System.Diagnostics.Stopwatch.StartNew();
+
     try
     {
         if (!Request.HasFormContentType)
@@ -939,7 +940,7 @@ public async Task<IActionResult> SaveEmulatorJSState(CancellationToken ct)
             return BadRequest("Missing 'romName'.");
 
         await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-        await conn.OpenAsync(CancellationToken.None);
+        await conn.OpenAsync(CancellationToken.None); // decoupled from RequestAborted
 
         using var dbCts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
 
@@ -954,20 +955,21 @@ ON DUPLICATE KEY UPDATE
   last_updated = CURRENT_TIMESTAMP;";
 
         await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 180 };
+
         cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
         cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = romName;
+        cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value = (int)file.Length;
 
-        // IMPORTANT: define parameter with type + size BEFORE Prepare
         var pState = cmd.Parameters.Add("@StateData", MySqlDbType.LongBlob);
         pState.Size = (int)file.Length;
 
-        cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value = (int)file.Length;
+        await using var uploadStream = file.OpenReadStream(); // ReferenceReadStream
 
-        // REQUIRED for Stream types (other than MemoryStream) in MySqlConnector [1](https://mysqlconnector.net/troubleshooting/parameter-types/)
-        await cmd.PrepareAsync(CancellationToken.None);
-
-        await using var uploadStream = file.OpenReadStream();
+        // Set value first
         pState.Value = uploadStream;
+
+        // Prepare MUST be effective for Stream types (other than MemoryStream). [1](https://mysqlconnector.net/troubleshooting/parameter-types/)
+        cmd.Prepare(); // try sync prepare first
 
         await cmd.ExecuteNonQueryAsync(dbCts.Token);
 
@@ -983,7 +985,7 @@ ON DUPLICATE KEY UPDATE
         _ = _log.Db("SaveEmulatorJSState error: " + ex.Message, null, "ROM", true);
         return StatusCode(500, "Error saving emulator state");
     }
-} 
+}
 
     [HttpPost("/Rom/GetEmulatorJSSaveState")]
     public async Task<IActionResult> GetEmulatorJSSaveState([FromBody] GetEmulatorJSSaveStateRequest req, CancellationToken ct = default)
@@ -1000,12 +1002,12 @@ ON DUPLICATE KEY UPDATE
         const string sql = @"SELECT state_data FROM emulatorjs_save_states WHERE user_id=@UserId AND rom_name=@RomName;";
         await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 60 };
         cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = req.UserId;
-        cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = req.RomName; 
+        cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = req.RomName;
 
         await using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, ct);
         if (!await reader.ReadAsync(ct)) return NotFound();
 
-        byte[] bytes = (byte[]) reader["state_data"];
+        var bytes = await reader.GetFieldValueAsync<byte[]>(0, ct);
         return File(bytes, "application/octet-stream", "savestate.state"); 
       }
       catch (Exception ex)
