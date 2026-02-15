@@ -67,7 +67,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   private _pendingSaveTimer?: any;
   private _gameSizeObs?: ResizeObserver;
   private _gameAttrObs?: MutationObserver;
-  private _saveFn?: () => void;
+  private _saveFn?: () => Promise<void>;
   private _autosaveKick?: any;
   private _lastSaveTime: number = 0;
   private _saveInProgress: boolean = false;
@@ -204,7 +204,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       try {
         this.emulatorInstance = api || (window as any).EJS || (window as any).EJS_emulator || this.emulatorInstance;
         if (this.emulatorInstance?.saveState) {
-          this._saveFn = () => { try { (this.emulatorInstance as any).saveState(); } catch { } };
+          this._saveFn = async () => { try { await (this.emulatorInstance as any).saveState(); } catch { } };
         }
         console.log('[EJS] instance ready hook fired, has saveState?', !!this._saveFn);
       } catch { }
@@ -546,19 +546,19 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
 
-  callEjsSave(): void {
+  async callEjsSave(): Promise<void> {
     try {
       // 1) If we discovered a save function, use it
-      if (this._saveFn) { this._saveFn(); return; }
+      if (this._saveFn) { await this._saveFn(); return; }
       this.startLoading();
       // 2) Preferred: instance API (if later bound)
       if (this.emulatorInstance && typeof (this.emulatorInstance as any).saveState === 'function') {
-        (this.emulatorInstance as any).saveState(); return;
+        await (this.emulatorInstance as any).saveState(); return;
       }
 
       // 3) Global helper (not present in your build, but keep as fallback)
       if (typeof (window as any).EJS_saveState === 'function') {
-        (window as any).EJS_saveState();
+        await (window as any).EJS_saveState();
         this.stopLoading();
         return;
       }
@@ -568,7 +568,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       if (player) {
         const el = typeof player === 'string' ? document.querySelector(player) : player;
         if (el && typeof (el as any).saveState === 'function') {
-          (el as any).saveState();
+          await (el as any).saveState();
           this.stopLoading();
           return;
         }
@@ -964,7 +964,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     const pickSave = (obj: any): boolean => {
       try {
         if (obj && typeof obj.saveState === 'function') {
-          this._saveFn = () => { try { obj.saveState(); } catch { } };
+          this._saveFn = async () => { try { await obj.saveState(); } catch { } };
           console.log('[EJS] save API bound from', obj);
           return true;
         }
@@ -1021,7 +1021,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   private tryBindSaveFromUI(): void {
     const btn = this.findQuickSaveButton();
     if (btn) {
-      this._saveFn = () => {
+      this._saveFn = async () => {
         try {
           // Ensure the button is still in the DOM before clicking
           if (document.body.contains(btn)) btn.click();
