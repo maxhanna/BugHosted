@@ -1724,7 +1724,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 /* ===== classes we add to the *actual* clickable nodes ===== */
 
 /* D-pad slightly bigger */
-.max-dpad { transform: scale(1.35) !important; transform-origin: center left !important; }
+.max-dpad { transform: scale(1.25) !important; transform-origin: center left !important; }
 
 /* Big pill A/B — slightly smaller than before for better fit */
 .max-pill {
