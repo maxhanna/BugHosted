@@ -61,7 +61,7 @@
     [disabled]="isLoading">
     {{isFaqOpen ? 'Hide FAQ' : 'View FAQ'}}
   </button>
-  <button *ngIf="!isFaqOpen && onMobile() && romName" (click)="useJoystick = !useJoystick" style="margin-bottom: 10px; width: 100%;"
+  <button *ngIf="!isFaqOpen && onMobile() && !romName" (click)="useJoystick = !useJoystick" style="margin-bottom: 10px; width: 100%;"
     [disabled]="isLoading">
     {{useJoystick ? 'Disable Joystick' : 'Enable Joystick'}}
   </button>
