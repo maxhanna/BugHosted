@@ -201,24 +201,28 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     });
     //window.EJS_VirtualGamepadSettings = vpad;
 
-    // 100% spec-compatible, minimal test layout for GBA
-    const vpadKnownGood: any[] = [
-      // D-pad: left must be a percentage string; input order is [UP, DOWN, LEFT, RIGHT] = [4,5,6,7]
-      { type: 'dpad', location: 'left', left: '8%', joystickInput: false, inputValues: [4, 5, 6, 7] },
+      
+    // 1) No negative positions
+    // 2) No joystickInput on dpad
+    // 3) No 'top' on center buttons
+    // 4) Keep only “safe” fields per type
+    window.EJS_VirtualGamepadSettings = [
+      // D-Pad: only required fields
+      { type: 'dpad', location: 'left', left: '8%', inputValues: [4, 5, 6, 7] },
 
-      // Face buttons: left/top are numbers (px); fontSize is a number (px); id is optional
-      { type: 'button', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true },
-      { type: 'button', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true },
+      // Face buttons (GBA A/B)
+      { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0 },
+      { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 80, input_value: 8 },
 
-      // Shoulders at top (OK per docs)
-      { type: 'button', text: 'L', location: 'top', left: 10, top: 0, input_value: 10, bold: true, block: true },
-      { type: 'button', text: 'R', location: 'top', left: 270, top: 0, input_value: 11, bold: true, block: true },
+      // Shoulders at top
+      { type: 'button', id: 'btnL', text: 'L', location: 'top', left: 10,  top: 0, input_value: 10 },
+      { type: 'button', id: 'btnR', text: 'R', location: 'top', left: 270, top: 0, input_value: 11 },
 
-      // Start/Select centered, left offset in px allowed (negative fine per docs example)
-      { type: 'button', text: 'Start', id: 'start', location: 'center', left: 60, top: 0, fontSize: 15, block: true, input_value: 3 },
-      { type: 'button', text: 'Select', id: 'select', location: 'center', left: -5, top: 0, fontSize: 15, block: true, input_value: 2 },
+      // Start/Select in center, no negative & no top
+      { type: 'button', id: 'start',  text: 'Start',  location: 'center', left: 60,  fontSize: 15, input_value: 3 },
+      { type: 'button', id: 'select', text: 'Select', location: 'center', left: 10,  fontSize: 15, input_value: 2 },
     ];
-    window.EJS_VirtualGamepadSettings = vpadKnownGood;
+
 
     console.log('[EJS] assigning custom VirtualGamepadSettings', window.EJS_VirtualGamepadSettings);
 
