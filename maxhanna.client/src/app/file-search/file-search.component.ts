@@ -104,6 +104,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   fileIdFilter?: number | undefined = undefined;
   activeRomSystem: string | undefined = undefined;
   loadingSearch = false;
+  private _savedDirectoryBeforeFileIdSearch: string | null = null;
   private windowScrollHandler: Function;
   private containerScrollHandler: Function;
 
@@ -276,6 +277,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
     this.showData = true;
     try {
+      const effectiveFileId = (fileId ?? this.fileIdFilter) as number | undefined;
+      const isFileIdSearch = effectiveFileId !== undefined && effectiveFileId !== null && effectiveFileId !== 0;
+      if (isFileIdSearch && this._savedDirectoryBeforeFileIdSearch == null) {
+        this._savedDirectoryBeforeFileIdSearch = this.currentDirectory;
+      }
+
       await this.fileService.getDirectory(
         this.currentDirectory,
         this.filter.visibility,
@@ -284,7 +291,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.currentPage,
         this.maxResults,
         this.searchTerms,
-        fileId,
+        effectiveFileId,
         fileTypes,
         this.filter.hidden == 'all' ? true : false,
         this.sortOption,
@@ -302,12 +309,16 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         } else {
           this.directory = res;
 
-          if (this.directory && this.directory.currentDirectory) {
-            this.currentDirectory = this.directory.currentDirectory;
-          } else {
-            this.currentDirectory = '';
+          // If searching by fileId, do not change the user's current directory —
+          // show the matched file(s) while keeping the UI directory context stable.
+          if (!isFileIdSearch) {
+            if (this.directory && this.directory.currentDirectory) {
+              this.currentDirectory = this.directory.currentDirectory;
+            } else {
+              this.currentDirectory = '';
+            }
+            this.currentDirectoryChangeEvent.emit(this.currentDirectory);
           }
-          this.currentDirectoryChangeEvent.emit(this.currentDirectory);
           this.showUpFolderRow = (this.currentDirectory && this.currentDirectory.trim() !== "") ? true : false;
           if (this.directory) {
             if (this.directory.page) {
@@ -322,8 +333,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
               this.totalPages = 1;
             }
 
-            if (this.fileId && this.fileId !== null && this.fileId !== 0 && this.directory.data!.find(x => x.id == this.fileId!)) {
-              this.scrollToFile(this.fileId!);
+            if (effectiveFileId && effectiveFileId !== null && effectiveFileId !== 0 && this.directory.data!.find(x => x.id == effectiveFileId)) {
+              this.scrollToFile(effectiveFileId);
             }
           }
 
@@ -361,6 +372,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
               data.lastUpdated = new Date(data.lastUpdated.getTime() - data.lastUpdated.getTimezoneOffset() * 60000);  //Convert UTC dates to local time.
             }
           });
+        }
+
+        // If we just cleared a fileId search, drop the saved directory snapshot
+        if (!isFileIdSearch && this._savedDirectoryBeforeFileIdSearch != null) {
+          this._savedDirectoryBeforeFileIdSearch = null;
         }
 
       });
