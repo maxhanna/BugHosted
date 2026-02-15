@@ -152,6 +152,18 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
     const core = this.detectCore(fileName);
     window.EJS_core = core;
+
+    // For PlayStation and N64 cores, increase autosave interval to 10 minutes
+    // to reduce upload frequency for large save files (e.g. PS1 saves).
+    const longIntervalCores = new Set([
+      'mupen64plus_next', // N64
+      'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mednafen_psx' // PSX variants
+    ]);
+    if (longIntervalCores.has(core)) {
+      this.autosaveIntervalTime = 10 * 60 * 1000; // 10 minutes
+    } else {
+      this.autosaveIntervalTime = 3 * 60 * 1000; // default 3 minutes
+    }
     window.EJS_player = "#game";
     window.EJS_pathtodata = "/assets/emulatorjs/data/";
     window.EJS_coreUrl = "/assets/emulatorjs/data/cores/";

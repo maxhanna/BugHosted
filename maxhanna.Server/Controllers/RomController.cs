@@ -988,7 +988,7 @@ ON DUPLICATE KEY UPDATE
         cmd.Parameters.Add("@UserId",    MySqlDbType.Int32).Value    = userId;
         cmd.Parameters.Add("@RomName",   MySqlDbType.VarChar).Value  = romName;
         cmd.Parameters.Add("@StateData", MySqlDbType.LongBlob).Value = bytes;
-        cmd.Parameters.Add("@FileSize",  MySqlDbType.Int32).Value    = bytes.Length;
+        cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value     = bytes.Length;
 
         await cmd.ExecuteNonQueryAsync(CancellationToken.None);
 
@@ -1029,7 +1029,7 @@ ON DUPLICATE KEY UPDATE
         if (!await reader.ReadAsync(ct)) return NotFound();
 
         var bytes = await reader.GetFieldValueAsync<byte[]>(0, ct);
-        return File(bytes, "application/octet-stream", "savestate.state"); 
+        return File(bytes, "application/octet-stream", "savestate.state");
       }
       catch (Exception ex)
       {
