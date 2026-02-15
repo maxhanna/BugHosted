@@ -1214,7 +1214,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.onFiletypeFilterChange(true);
     }
   }
- 
+
 
   // Map logical system keys to extensions understood by the file filter.
   // Use arrays from FileService where available to keep a single source of truth.
@@ -1252,6 +1252,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       case 'genesis': return 'Genesis';
       default: return key.toUpperCase();
     }
+  }
+
+  getSystemIcon(key: string): SafeHtml | string {
+    if (!key) return '';
+    // Use the first extension for the given system (e.g. 'n64' -> 'n64')
+    const exts = this.romSystemExtensions[key];
+    const ext = (exts && exts.length) ? exts[0] : key;
+    // getSystemEmoji expects a filename; pass a dummy name with the extension so FileService extracts it.
+    return this.getSystemEmoji('file.' + ext);
   }
 
   toggleRomSystem(key: string) {

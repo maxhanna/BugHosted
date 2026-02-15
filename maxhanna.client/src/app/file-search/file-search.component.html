@@ -470,7 +470,7 @@
       <span style="width:100%">Filter by system (Roms/)</span>
       <div class="systemFilters">
         <button *ngFor="let s of getSupportedRomSystems()" class="toggle-switch-small" (click)="toggleRomSystem(s)">
-          {{ activeRomSystem === s ? 'On' : 'Off' }} {{ getSystemLabel(s) }}
+          {{ activeRomSystem === s ? 'On' : 'Off' }} <span class="system-icon" [innerHTML]="getSystemIcon(s)"></span> {{ getSystemLabel(s) }}
         </button>
       </div>
     </div>
