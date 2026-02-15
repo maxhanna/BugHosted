@@ -339,22 +339,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           }
 
 
-          if (this.currentDirectory.toLowerCase() !== "meme/"
-            && this.currentDirectory.toLowerCase() !== "roms/"
-            && this.directory && this.directory.data) {
-            this.directory.data.sort((a, b) => {
-              if (a.isFolder !== b.isFolder) {
-                return a.isFolder ? -1 : 1;
-              }
-              const aTime = (a.date ?? new Date()).getTime();
-              const bTime = (b.date ?? new Date()).getTime();
-              // If user requested 'Latest', show newest items first (descending).
-              if (this.sortOption && this.sortOption.toLowerCase() === 'latest') {
-                return bTime - aTime;
-              }
-              // Default: oldest first (ascending)
-              return aTime - bTime;
-            });
+          // Keep folders at the top, but otherwise preserve the backend's ordering.
+          if (this.directory && this.directory.data) {
+            // Only reorder to ensure folders appear first; let the backend provide the remainder ordering.
+            const folders = this.directory.data.filter(d => d.isFolder);
+            const others = this.directory.data.filter(d => !d.isFolder);
+            this.directory.data = folders.concat(others);
           }
 
           this.directory?.data?.forEach(data => {
