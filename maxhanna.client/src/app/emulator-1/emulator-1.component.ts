@@ -501,7 +501,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
   private applyEjsRunOptions(): void {
     const w = window as any;
-    w.EJS_defaultOptionsForce = true; // force defaults every run  (docs: config system)
+    w.EJS_defaultOptionsForce = false; // force defaults every run  (docs: config system)
     w.EJS_directKeyboardInput = true; // deliver raw key events to the core
     w.EJS_enableGamepads = true;      // let cores read the gamepad state
     w.EJS_disableAltKey = true;       // avoid Alt being swallowed by browser/UI
