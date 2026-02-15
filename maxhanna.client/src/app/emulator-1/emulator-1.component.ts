@@ -342,6 +342,12 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         s.setAttribute('data-ejs-loader', '1');
         s.onload = () => {
           window.__ejsLoaderInjected = true;
+          
+          setTimeout(() => {
+            const roots = document.querySelectorAll('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent');
+            console.log('[EJS] vpad roots detected:', roots.length, roots);
+          }, 1000);
+
           requestAnimationFrame(() => {
             this.setGameScreenHeight();
             // a second rAF can make it even smoother: 
@@ -1496,72 +1502,107 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
 
-  private ensureTouchOverlaySizingCss(): void {
-    if (document.querySelector('style[data-ejs-touch-sizing="1"]')) return;
+  
+private ensureTouchOverlaySizingCss(): void {
+  if (document.querySelector('style[data-ejs-touch-sizing="1"]')) return;
 
-
-    const css = `
-/* Genesis buttons kept big & round */
-#game #genA, #game #genB, #game #genC {
+  const css = `
+/* ====== Genesis (keep big & round, if those IDs are present) ====== */
+.ejs_virtualGamepad_parent #genA,
+.ejs_virtualGamepad_parent #genB,
+.ejs_virtualGamepad_parent #genC,
+.ejs-virtualGamepad-parent #genA,
+.ejs-virtualGamepad-parent #genB,
+.ejs-virtualGamepad-parent #genC {
   width: 96px !important; height: 96px !important; line-height: 96px !important;
   font-size: 34px !important; border-radius: 50% !important;
 }
 
-/* D-Pad scaling */
-#game .ejs-dpad, #game .ejs_dpad { 
-  transform: scale(1.35); 
-  transform-origin: center left; 
+/* ====== D-Pad: slightly bigger, regardless of class variant ====== */
+.ejs_virtualGamepad_parent .ejs_dpad,
+.ejs_virtualGamepad_parent .ejs-dpad,
+.ejs-virtualGamepad-parent .ejs_dpad,
+.ejs-virtualGamepad-parent .ejs-dpad {
+  transform: scale(1.35) !important;
+  transform-origin: center left !important;
 }
 
-/* --- BIG pill-shaped A/B buttons for ALL 2-button systems --- */
-#game #btnA,
-#game #btnB {
+/* ====== Two-button systems: very large pill A/B ====== */
+/* Target the IDs directly without #game scoping; most skins render as <button id="btnA"> etc */
+.ejs_virtualGamepad_parent #btnA,
+.ejs_virtualGamepad_parent #btnB,
+.ejs-virtualGamepad-parent #btnA,
+.ejs-virtualGamepad-parent #btnB,
+#btnA, #btnB {
   width: 126px !important;
   height: 86px !important;
   line-height: 86px !important;
-
-  border-radius: 43px !important;
+  border-radius: 43px !important;           /* pill (height / 2) */
   font-size: 34px !important;
   font-weight: 700 !important;
-
   display: inline-flex !important;
-  align-items: center;
-  justify-content: center;
+  align-items: center !important;
+  justify-content: center !important;
 }
-#game #btnA > *,
-#game #btnB > * {
+/* keep inner wrapper in sync across skins */
+.ejs_virtualGamepad_parent #btnA > *,
+.ejs_virtualGamepad_parent #btnB > *,
+.ejs-virtualGamepad-parent #btnA > *,
+.ejs-virtualGamepad-parent #btnB > *,
+#btnA > *, #btnB > * {
   width: 100% !important;
   height: 100% !important;
   line-height: 86px !important;
   border-radius: 43px !important;
   font-size: inherit !important;
 }
+/* small positional nudge so big pills sit nicely */
+.ejs_virtualGamepad_parent #btnA,
+.ejs-virtualGamepad-parent #btnA,
+#btnA { transform: translate(-10px, 10px) !important; }
+.ejs_virtualGamepad_parent #btnB,
+.ejs-virtualGamepad-parent #btnB,
+#btnB { transform: translate(-5px, 0px) !important; }
 
-/* Optional A/B position tweak */
-#game #btnA { transform: translate(-10px, 10px); }
-#game #btnB { transform: translate(-5px, 0px); }
-
-#game #start,
-#game #select {
-  transform: translateY(5px);
+/* ====== Start / Select: lower by ~5px ====== */
+.ejs_virtualGamepad_parent #start,
+.ejs_virtualGamepad_parent #select,
+.ejs-virtualGamepad-parent #start,
+.ejs-virtualGamepad-parent #select,
+#start, #select {
+  transform: translateY(5px) !important;
 }
 
-/* --- SPEED buttons should stay rectangles --- */
-#game #speed_fast,
-#game #speed_slow {
+/* ====== SPEED Fast/Slow: force rectangular, smaller ====== */
+.ejs_virtualGamepad_parent #speed_fast,
+.ejs_virtualGamepad_parent #speed_slow,
+.ejs-virtualGamepad-parent #speed_fast,
+.ejs-virtualGamepad-parent #speed_slow,
+#speed_fast, #speed_slow {
   width: auto !important;
   height: auto !important;
+  min-width: 44px !important;
+  min-height: 26px !important;
+  padding: 4px 10px !important;
   border-radius: 8px !important;
-  padding: 6px 12px !important;
-  font-size: 13px !important;
+  font-size: 11px !important;
+  line-height: 1.1 !important;
+}
+
+/* In case the skin sets button-rounded globally, strip it on speed buttons only */
+.ejs_virtualGamepad_parent #speed_fast.ejs_button,
+.ejs_virtualGamepad_parent #speed_slow.ejs_button,
+.ejs-virtualGamepad-parent #speed_fast.ejs_button,
+.ejs-virtualGamepad-parent #speed_slow.ejs_button {
+  border-radius: 8px !important;
 }
 `;
 
-    const style = document.createElement('style');
-    style.setAttribute('data-ejs-touch-sizing', '1');
-    style.textContent = css;
-    document.head.appendChild(style);
-  }
+  const style = document.createElement('style');
+  style.setAttribute('data-ejs-touch-sizing', '1');
+  style.textContent = css;
+  document.head.appendChild(style);
+} 
 
   leftMovementArea(useJoystick: boolean): VPadItem {
     return useJoystick
@@ -1584,11 +1625,12 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
 
-  twoButtonRight(): VPadItem[] {
-    const A: VPadItem = { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true };
-    const B: VPadItem = { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true };
-    return [B, A];
-  }
+twoButtonRight(): VPadItem[] {
+  // Make B a bit left/below; A a bit right/above (classic layout)
+  const B: VPadItem = { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 40, top: 80, input_value: 0, bold: true };
+  const A: VPadItem = { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 81, top: 40, input_value: 8, bold: true };
+  return [B, A];
+} 
 
   genesisThreeRight(): VPadItem[] {
     return [
@@ -1668,26 +1710,18 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       }
     };
 
-    const once = () => {
-      const vpad = root.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent') as HTMLElement | null;
-      if (!vpad) return;
+    
+const once = () => {
+  const vpad = root.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent') as HTMLElement | null;
+  if (!vpad) return;
 
-      // Try IDs first
-      const ids = ['gbaA', 'gbaB', 'genA', 'genB', 'genC'];
-      const found = ids.map(id => !!document.getElementById(id));
-      console.log('[EJS] vpad present. Found IDs:', found);
+  // Only bump Genesis circles; do NOT touch A/B or speed buttons
+  const ids = ['genA', 'genB', 'genC'];
+  ids.forEach(id => bumpEl(document.getElementById(id)));
 
-      ids.forEach(id => bumpEl(document.getElementById(id)));
+  obs.disconnect();
+};
 
-      // Fallback: find by text content (A/B/C) inside probable button nodes
-      if (!found.some(Boolean)) {
-        const candidates = Array.from(vpad.querySelectorAll('.ejs_button, .ejs-button, [role="button"], button')) as HTMLElement[];
-        const byLabel = (lbl: string) => candidates.find(el => (el.textContent || '').trim().toUpperCase() === lbl);
-        ['A', 'B', 'C'].forEach(lbl => bumpEl(byLabel(lbl)));
-      }
-
-      obs.disconnect();
-    };
 
     const obs = new MutationObserver(once);
     obs.observe(root, { childList: true, subtree: true });
