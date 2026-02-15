@@ -729,7 +729,7 @@ export class UserService {
 
   async saveSecurityQuestions(userId: number, questions: Array<{ question: string; answer: string }>, sessionToken: string) {
     try {
-      const response = await fetch('/User/SaveSecurityQuestions', {
+      const response = await fetch('/user/savesecurityquestions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -746,7 +746,7 @@ export class UserService {
 
   async verifySecurityQuestionsReset(userId: number, answers: Array<{ index: number; answer: string }>) {
     try {
-      const response = await fetch('/User/VerifySecurityQuestionsReset', {
+      const response = await fetch('/user/verifysecurityquestionsreset', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -762,7 +762,7 @@ export class UserService {
 
   async getSecurityQuestionsByUserId(userId: number) {
     try {
-      const response = await fetch('/User/GetSecurityQuestions', {
+      const response = await fetch('/user/getsecurityquestions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ UserId: userId })
@@ -776,7 +776,7 @@ export class UserService {
 
   async resetPassword(targetUserId: number, sessionToken: string) {
     try {
-      const response = await fetch('/User/ResetPassword', {
+      const response = await fetch('/user/resetpassword', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
