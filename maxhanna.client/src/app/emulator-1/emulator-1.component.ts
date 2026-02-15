@@ -1594,7 +1594,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     return [B, A];
   }
 
-
   genesisThreeRight(): VPadItem[] {
     // Genesis/Mega Drive A/B/C mapping (matches EmulatorJS defaults):
     // A = 1, B = 0, C = 8
