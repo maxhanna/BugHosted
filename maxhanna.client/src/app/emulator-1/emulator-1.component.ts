@@ -391,6 +391,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       '32x': 'picodrive',
       'gg': 'genesis_plus_gx',
       'sms': 'genesis_plus_gx',
+      'md': 'genesis_plus_gx',
       // PlayStation
       'cue': 'mednafen_psx_hw',
       'bin': 'pcsx_rearmed',
@@ -662,7 +663,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       // Nintendo
       'gba', 'gbc', 'gb', 'nes', 'snes', 'sfc', 'n64', 'z64', 'v64', 'nds',
       // Sega
-      'smd', 'gen', 'bin', '32x', 'gg', 'sms',
+      'smd', 'gen', 'bin', '32x', 'gg', 'sms', 'md',
       // PlayStation
       'cue', 'iso', 'chd', 'pbp',
       // Other Handhelds

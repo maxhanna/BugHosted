@@ -1229,7 +1229,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       'nds': this.fileService.romFileExtensions.includes('nds') ? ['nds'] : ['nds'],
       'nes': this.fileService.romFileExtensions.includes('nes') ? ['nes'] : ['nes'],
       'snes': this.fileService.romFileExtensions.includes('snes') || this.fileService.romFileExtensions.includes('sfc') ? ['snes', 'sfc'] : ['snes', 'sfc'],
-      'genesis': ['smd', 'gen', '32x', 'gg', 'sms', 'md']
+      'genesis': this.fileService.getSegaFileExtensions()
     };
   }
 
@@ -1372,6 +1372,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       '32x': '/assets/segaicon.png',
       'gg': '/assets/segaicon.png',
       'sms': '/assets/segaicon.png',
+      'md': '/assets/segaicon.png',
       'snes': '/assets/snesicon.png',
       'sfc': '/assets/snesicon.png',
       'nds': '/assets/ndsicon.png',
@@ -1410,11 +1411,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
       // Sega
       'smd': '🔵',
+      'md': '🔵',
       'gen': '🔵',
       '32x': '🟦',
       'gg': '🔵',
       'sms': '🔵',
-      'bin': '💠',
 
       // Atari
       'a78': '🕹️',
@@ -1430,6 +1431,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       'c64': '🖥️',
 
       // Other / PlayStation / PSP / Arcade
+      'bin': '💠',
       'cue': '🔷',
       'iso': '🔷',
       'chd': '🔷',

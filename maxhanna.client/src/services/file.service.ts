@@ -52,6 +52,13 @@ export class FileService {
 		return candidates.filter(c => this.romFileExtensions.includes(c));
 	}
 
+	/** Return Sega-related extensions (alias for Genesis/MegaDrive) present in romFileExtensions */
+	getSegaFileExtensions(): string[] {
+		// Keep in sync with Genesis variants supported by the client UI
+		const candidates = ["smd", "gen", "32x", "gg", "sms", "md"];
+		return candidates.filter(c => this.romFileExtensions.includes(c));
+	}
+
 	/** Return NES (and Famicom) related extensions present in romFileExtensions */
 	getNesFileExtensions(): string[] {
 		const candidates = ["nes", "fds"];
