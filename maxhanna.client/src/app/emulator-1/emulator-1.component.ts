@@ -71,6 +71,9 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   private _autosaveKick?: any;
   private _lastSaveTime: number = 0;
   private _saveInProgress: boolean = false;
+  private _inFlightSavePromise?: Promise<boolean>;
+  private _unloading = false;
+  private _exiting = false;
 
 
 
@@ -94,26 +97,31 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     document.addEventListener('fullscreenchange', this.onFullscreenChangeBound);
     document.addEventListener('webkitfullscreenchange', this.onFullscreenChangeBound as any);
   }
+
+
   async ngOnDestroy(): Promise<void> {
     this._destroyed = true;
-    try {
+    if (this._unloading) return;
+    this._unloading = true;
 
-      // Offer to save state before destroying if a ROM is active
+    try {
+      // Offer to save if a ROM is active
       if (this.romName && this.parentRef?.user?.id) {
         const shouldSave = window.confirm('Save emulator state before closing?');
         if (shouldSave) {
-          // attempt a save and wait briefly for callback
-          await this.callEjsSave();
+          // IMPORTANT: wait for the full round-trip or timeout
+          const ok = await this.flushSavesBeforeExit(12000);
+          if (!ok) {
+            console.warn('Timed out waiting for save to finish; continuing exit.');
+          }
         }
       }
+    } catch (e) {
+      this.parentRef?.showNotification("Error finalizing save: " + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      // After the save barrier, navigate away
+      window.location.replace('/');
     }
-    catch (e) {
-      this.parentRef?.showNotification("Error saving state: " + (e instanceof Error ? e.message : String(e)));
-    }
-    // After the save prompt, navigate the user back to the public home page.
-
-    window.location.replace('/');
-
   }
 
   async onRomSelected(file: FileEntry) {
@@ -467,6 +475,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
   private async onSaveState(raw: any) {
+    if (this._exiting) { return; }
     const now = Date.now();
     // If a save is already in progress, skip duplicate uploads
     if (this._saveInProgress) {
@@ -519,27 +528,23 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
     this._saveInProgress = true;
     try {
-      const result = await this.romService.saveEmulatorJSState(this.romName, this.parentRef.user.id, u8);
-      if (result.ok) {
-        this._lastSaveTime = Date.now();
-        console.log('Save state saved to database (bytes=', u8.length, ')');
-        if (this._pendingSaveResolve) {
-          try { this._pendingSaveResolve(true); } catch { }
-          this._pendingSaveResolve = undefined;
+      // capture as "in-flight"
+      await this.trackInFlight((async () => {
+        const result = await this.romService.saveEmulatorJSState(this.romName!, this.parentRef!.user!.id!, u8);
+        if (result.ok) {
+          this._lastSaveTime = Date.now();
+          console.log('Save state saved to database (bytes=', u8.length, ')');
+          if (this._pendingSaveResolve) { try { this._pendingSaveResolve(true); } catch { } this._pendingSaveResolve = undefined; }
+          return true;
+        } else {
+          console.error('Save state upload failed:', result.errorText);
+          if (this._pendingSaveResolve) { try { this._pendingSaveResolve(false); } catch { } this._pendingSaveResolve = undefined; }
+          return false;
         }
-      } else {
-        console.error('Save state upload failed (bytes=', u8.length, '):', result.errorText);
-        if (this._pendingSaveResolve) {
-          try { this._pendingSaveResolve(false); } catch { }
-          this._pendingSaveResolve = undefined;
-        }
-      }
+      })());
     } catch (err) {
-      console.error('Failed to save state (bytes=', u8.length, ') to database:', err);
-      if (this._pendingSaveResolve) {
-        try { this._pendingSaveResolve(false); } catch { }
-        this._pendingSaveResolve = undefined;
-      }
+      console.error('Failed to save state (bytes=', u8.length, '):', err);
+      if (this._pendingSaveResolve) { try { this._pendingSaveResolve(false); } catch { } this._pendingSaveResolve = undefined; }
     } finally {
       this._saveInProgress = false;
     }
@@ -648,83 +653,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     return this.getAllowedFileTypes().map(e => '.' + e.trim().toLowerCase()).join(',');
   }
 
-
-  /** Forcefully stop EmulatorJS runtime: audio, workers, RAF, DOM, globals. Safe to call multiple times. */
-  private async hardStopEmulatorEJS(): Promise<void> {
-    const w = window as any;
-
-    try {
-
-      // 1) Signal shutdown ASAP so late calls are ignored
-      w.__EJS_ALIVE__ = false;
-
-      try { if (this.emulatorInstance?.exit) await this.emulatorInstance.exit(); } catch { }
-      try { if (typeof w.EJS_stop === 'function') w.EJS_stop(); } catch { }
-      try { if (typeof w.EJS_exit === 'function') w.EJS_exit(); } catch { }
-      try { (window as any).EJS_volume = 0; } catch { }
-      // 2) Terminate any workers (main + pthreads) FIRST
-      try {
-        const workers: Set<any> | undefined = w.__ejsTrackedWorkers;
-        if (workers && workers.size) {
-          for (const wk of Array.from(workers)) {
-            try { if (typeof wk.terminate === 'function') wk.terminate(); } catch { }
-            try { wk?.port?.close?.(); } catch { }
-            try { workers.delete(wk); } catch { }
-          }
-        }
-      } catch { }
-
-      // 3) Then close any WebAudio contexts
-      try {
-        const tracked: Set<BaseAudioContext> | undefined = w.__ejsTrackedAudio;
-        if (tracked && tracked.size) {
-          await Promise.all(Array.from(tracked).map(async (ctx) => {
-            try {
-              if (ctx.state !== 'closed') {
-                try { await (ctx as any).close?.(); } catch {
-                  try { await (ctx as any).suspend?.(); } catch { }
-                }
-              }
-            } catch { }
-          }));
-          for (const ctx of Array.from(tracked)) {
-            try { if (ctx.state === 'closed') tracked.delete(ctx); } catch { }
-          }
-        }
-      } catch { }
-
-      // 4) Cancel any requestAnimationFrame loops
-      try {
-        if ((this as any)._fitRAF) cancelAnimationFrame((this as any)._fitRAF);
-        (this as any)._fitRAF = undefined;
-      } catch { }
-
-      // 5) Remove emulator DOM from #game
-      try {
-        const gameEl = document.getElementById('game');
-        if (gameEl) {
-          // Also stop any <audio> element that might have been created
-          try {
-            gameEl.querySelectorAll('audio').forEach(a => {
-              try { (a as HTMLAudioElement).pause(); } catch { }
-              try { a.remove(); } catch { }
-            });
-          } catch { }
-          gameEl.innerHTML = '';
-        }
-      } catch { }
-
-      // 6) Clear global callbacks to break references to this component
-      try { delete w.EJS_onSaveState; } catch { }
-      try { delete w.EJS_onLoadState; } catch { }
-
-      // 7) Null any instance references
-      this.emulatorInstance = undefined;
-
-    } catch (err) {
-      console.warn('hardStopEmulatorEJS: unexpected error during shutdown', err);
-    }
-  }
 
   /** Keep #game at 100vh - 60px whether EJS or the core tries to resize it. */
   private lockGameHostHeight(): void {
@@ -930,27 +858,22 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     return '1Emulator';
   }
 
+
   async stopEmulator() {
     this.status = 'Stopping...';
     this.startLoading();
     this.cdr.detectChanges();
-    if (this.romName && this.parentRef?.user?.id) {
-      try {
-        const shouldSave = window.confirm('Save emulator state before closing?');
-        if (shouldSave) {
-          // attempt a save and wait briefly for callback
-          try { await this.attemptSaveNow(5000); } catch { }
-        }
-      } catch { }
-    }
-    try { this.clearAutosave(); } catch { }
 
-    // Optional best-effort UI cleanup (not required since we're reloading)
+    if (this.romName && this.parentRef?.user?.id) {
+      const shouldSave = window.confirm('Save emulator state before closing?');
+      if (shouldSave) { await this.flushSavesBeforeExit(12000); }
+    }
+
+    this.clearAutosave();
     this.isSearchVisible = true;
     this.romName = undefined;
     this.stopLoading();
     this.cdr.detectChanges();
-    // 🚀 Reboot the page to avoid any double-load of emulator.min.js
     this.fullReloadToHome();
   }
 
@@ -1334,6 +1257,44 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       return false;
     }
   }
+
+  private trackInFlight<T>(p: Promise<T>): Promise<T> {
+    const wrapped = p.finally(() => {
+      if (this._inFlightSavePromise === wrapped as any) {
+        this._inFlightSavePromise = undefined;
+      }
+    });
+    // also expose a boolean-ish promise for the barrier
+    this._inFlightSavePromise = wrapped.then(() => true, () => false);
+    return wrapped;
+  }
+  private delay(ms: number) {
+    return new Promise<void>(r => setTimeout(r, ms));
+  }
+
+  /** Stop autosave and wait for any current or final save attempt to complete. */
+  private async flushSavesBeforeExit(timeoutMs = 12000): Promise<boolean> {
+    this._exiting = true;
+    try { this.clearAutosave(); } catch { }
+
+    // If a save is already in-flight, await it (with a cap).
+    if (this._inFlightSavePromise) {
+      const done = await Promise.race([
+        this._inFlightSavePromise,
+        this.delay(timeoutMs).then(() => false)
+      ]);
+      return !!done;
+    }
+
+    // Otherwise, trigger a save and wait for the EJS callback round trip
+    const attempt = this.attemptSaveNow(Math.min(timeoutMs, 10000));
+    const done = await Promise.race([
+      attempt,
+      this.delay(timeoutMs).then(() => false)
+    ]);
+    return !!done;
+  }
+
 
   showMenuPanel() {
     this.isMenuPanelOpen = true;
