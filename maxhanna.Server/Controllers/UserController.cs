@@ -551,9 +551,11 @@ namespace maxhanna.Server.Controllers
           {
             var idx = i + 1;
             var q = questions[i].Question!.Trim();
-            var a = questions[i].Answer!.Trim();
+            var aRaw = questions[i].Answer!.Trim();
+            // normalize answers to lower-case for case-insensitive verification going forward
+            var aNorm = aRaw.ToLowerInvariant();
             var qEnc = EncryptQuestion(q);
-            var aHash = HashPassword(a, answerSalt);
+            var aHash = HashPassword(aNorm, answerSalt);
             cmd.Parameters["@q" + idx].Value = qEnc;
             cmd.Parameters["@a" + idx].Value = aHash;
           }
@@ -607,8 +609,11 @@ namespace maxhanna.Server.Controllers
           {
             var expected = stored[ans.Index];
             if (string.IsNullOrWhiteSpace(expected)) return BadRequest("Provided answer index has no stored value.");
-            var computed = HashPassword(ans.Answer!.Trim(), salt);
-            if (!string.Equals(computed, expected, StringComparison.Ordinal))
+            var provided = ans.Answer!.Trim();
+            // Accept either the original-case hash (legacy) or the normalized lower-case hash
+            var computedExact = HashPassword(provided, salt);
+            var computedNormalized = HashPassword(provided.ToLowerInvariant(), salt);
+            if (!string.Equals(computedExact, expected, StringComparison.Ordinal) && !string.Equals(computedNormalized, expected, StringComparison.Ordinal))
             {
               return BadRequest("Incorrect answer provided.");
             }
