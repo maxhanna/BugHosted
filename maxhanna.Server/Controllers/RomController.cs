@@ -974,7 +974,7 @@ public async Task<IActionResult> SaveEmulatorJSState()
 
     // Optional: structured logging with durations
     _ = _log.Db($"EJS Save: form={tForm.TotalMilliseconds:F0}ms, read={tReadFile.TotalMilliseconds:F0}ms, db={tDb.TotalMilliseconds:F0}ms, total={swAll.Elapsed.TotalMilliseconds:F0}ms",
-                null, "ROM", false);
+                null, "ROM", true);
 
     return Ok(new { ok = true, userId, romName, fileSize = stateBytes.Length });
   }
