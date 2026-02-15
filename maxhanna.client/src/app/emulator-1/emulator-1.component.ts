@@ -75,10 +75,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   private _lastSaveTime: number = 0;
   private _saveInProgress: boolean = false;
   private _inFlightSavePromise?: Promise<boolean>;
-  private _unloading = false;
   private _exiting = false;
-
-
 
   constructor(
     private romService: RomService,
@@ -90,8 +87,11 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
   ngOnInit(): void {
-
+    if (this.parentRef) {
+      this.parentRef.preventShowSecurityPopup = true;
+    }
   }
+
   async ngAfterViewInit() {
     // EmulatorJS will be initialized when a ROM is selected
     this.status = 'Ready - Select a ROM';
@@ -105,31 +105,43 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   async ngOnDestroy(): Promise<void> {
     this._destroyed = true;
     try { this.clearAutosave(); } catch { }
-    try {
-      let shouldSave = false;
-      if (this.romName && this.parentRef?.user?.id) {
-        // If the user saved recently (within 10s), skip prompting and skip save.
-        if (Date.now() - this._lastSaveTime < 10000) {
-          shouldSave = false;
-        } else {
-          shouldSave = window.confirm('Save emulator state before closing?');
-        }
-      }
-
-      if (shouldSave && this.romName && this.parentRef?.user?.id) {
-        try {
-          const u8 = await this.captureSaveOnce(8000);
-          if (u8 && u8.length) {
-            await this.savePendingState(this.parentRef.user.id, this.romName, u8);
-            console.log('[EJS] pending save stored locally for background upload');
+    if (this.parentRef) {
+      this.parentRef.preventShowSecurityPopup = false;
+      try {
+        let shouldSave = false;
+        if (this.romName && this.parentRef?.user?.id) {
+          // If the user saved recently (within 10s), skip prompting and skip save.
+          if (Date.now() - this._lastSaveTime < 10000) {
+            shouldSave = false;
           } else {
-            console.warn('[EJS] captureSaveOnce timed out or returned no data');
+            shouldSave = window.confirm('Save emulator state before closing?');
           }
-        } catch (e) { console.warn('[EJS] exit save capture failed', e); }
-      }
-    } catch { }
+        }
 
-    window.location.replace('/');
+        if (shouldSave && this.romName && this.parentRef?.user?.id) {
+          try {
+            const u8 = await this.captureSaveOnce(8000);
+            if (u8 && u8.length) {
+              await this.savePendingState(this.parentRef.user.id, this.romName, u8);
+              console.log('[EJS] pending save stored locally for background upload');
+            } else {
+              console.warn('[EJS] captureSaveOnce timed out or returned no data');
+            }
+          } catch (e) { 
+            console.warn('[EJS] exit save capture failed', e); 
+          }
+          finally { 
+            window.location.replace('/');
+          }
+        } else { 
+          window.location.replace('/');
+        }
+      } catch {  
+        window.location.replace('/');
+      }
+    } else { 
+      window.location.replace('/');
+    } 
   }
 
   async onRomSelected(file: FileEntry) {
@@ -180,16 +192,15 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     const core = this.detectCore(fileName);
     window.EJS_core = core;
 
-    this.ensureTouchOverlaySizingCss(); 
+    this.ensureTouchOverlaySizingCss();
     const system = this.systemFromCore(core);
     window.EJS_VirtualGamepadSettings = this.buildTouchLayout(system, {
       useJoystick: this.useJoystick,
       showControls: this.showControls,
       twoButtonMode: (system === 'nes' || system === 'gb' || system === 'gbc'), // big A/B on 2‑button systems
       segaShowLR: this.segaShowLR
-    });
-
-
+    }); 
+    
     // For PlayStation and N64 cores, increase autosave interval to 10 minutes
     // to reduce upload frequency for large save files (e.g. PS1 saves).
     const longIntervalCores = new Set([
@@ -245,12 +256,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         }
         console.log('[EJS] instance ready hook fired, has saveState?', !!this._saveFn);
       } catch { }
-    };
-
-
-    // ❌ Remove this line; not needed for normal games and can confuse core loading
-    // window.EJS_gameParent = this.romObjectUrl;
-
+    }; 
 
     // 6) Ensure CSS present once
     if (!document.querySelector('link[data-ejs-css="1"]')) {
@@ -277,9 +283,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     // 8) Inject loader.js (it will initialize EmulatorJS)
     if (!window.__ejsLoaderInjected) {
       await new Promise<void>((resolve, reject) => {
-        const s = document.createElement('script');
-        // add a cache-buster
-        s.src = `/assets/emulatorjs/data/loader.js?v=${Date.now()}`;
+        const s = document.createElement('script'); 
+        s.src = `/assets/emulatorjs/data/loader.js`;
         s.async = false;
         s.defer = false;
         s.setAttribute('data-ejs-loader', '1');
@@ -294,8 +299,12 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
               this.tryBindSaveFromUI();
               try {
                 const ok = await this.applySaveStateIfAvailable(saveStateBlob);
-                if (ok) console.log('[EJS] Auto-restored previous session');
-              } catch { }
+                if (ok) {
+                  console.log('[EJS] Auto-restored previous session');
+                }
+              } catch { 
+                console.warn('[EJS] Unable to apply save state on startup');
+              }
               this.lockGameHostHeight();
             });
           });
@@ -313,13 +322,10 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       this.fullReloadToHome();
       return;
     }
-
-    // 9) Load save state if it exists
-    if (saveStateBlob) {
-      // EmulatorJS will handle loading this through its storage system
+ 
+    if (saveStateBlob) { 
       console.log('Save state loaded from database');
-    }
-
+    } 
     this.status = 'Running';
     this.stopLoading();
     this.cdr.detectChanges();
@@ -1420,10 +1426,10 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   }
 
 
-private ensureTouchOverlaySizingCss(): void {
-  if (document.querySelector('style[data-ejs-touch-sizing="1"]')) return;
+  private ensureTouchOverlaySizingCss(): void {
+    if (document.querySelector('style[data-ejs-touch-sizing="1"]')) return;
 
-  const css = ` 
+    const css = ` 
     #game #genA, #game #genB, #game #genC,
     #game #gbaA, #game #gbaB {
       width: 96px !important;
@@ -1442,11 +1448,11 @@ private ensureTouchOverlaySizingCss(): void {
       transform-origin: center left;
     }
   `;
-  const style = document.createElement('style');
-  style.setAttribute('data-ejs-touch-sizing', '1');
-  style.textContent = css;
-  document.head.appendChild(style);
-}
+    const style = document.createElement('style');
+    style.setAttribute('data-ejs-touch-sizing', '1');
+    style.textContent = css;
+    document.head.appendChild(style);
+  }
 
   leftMovementArea(useJoystick: boolean): VPadItem {
     // For analog zone, indices must be [19,18,17,16] and joystickInput: true.
@@ -1541,7 +1547,7 @@ private ensureTouchOverlaySizingCss(): void {
 
   genesisThreeRight(): VPadItem[] {
     return [
-      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 0,  top: 0,  input_value: 8, bold: true },
+      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 0, top: 0, input_value: 8, bold: true },
       { type: 'button', id: 'genB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true },
       { type: 'button', id: 'genA', text: 'A', location: 'right', left: 40, top: 80, input_value: 1, bold: true },
     ];

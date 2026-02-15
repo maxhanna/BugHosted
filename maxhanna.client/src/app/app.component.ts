@@ -312,6 +312,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   private isPollLoading = false;
   isShowingUserTagPopup = false;
   isShowingSecurityPopup = false;
+  preventShowSecurityPopup = false;
   popupUserTagUser?: User;
   isSpeaking = false;
   private securityTimeout: any = null;
@@ -1284,8 +1285,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       clearTimeout(this.securityTimeout);
     }
     this.securityTimeout = setTimeout(() => {
-      this.isShowingSecurityPopup = true;
-      this.showOverlay();
+      if (!this.preventShowSecurityPopup) {
+        this.isShowingSecurityPopup = true;
+        this.showOverlay();
+      }
     }, 60 * 60 * 1000); // 1 hour
   }
   closeSecurityPopup() {
