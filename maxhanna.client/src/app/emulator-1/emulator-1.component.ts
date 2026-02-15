@@ -1427,7 +1427,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       ? {
         type: 'zone',
         location: 'left',
-        left: '8%',       // % required for zone/dpad positioning              // [2](https://emulatorjs.org/docs4devs/virtual-gamepad-settings/)
+        left: '8%',
         top: '50%',
         joystickInput: true,
         color: 'blue',
@@ -1436,7 +1436,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       : {
         type: 'dpad',
         location: 'left',
-        left: '8%',       // % required for zone/dpad positioning              // [2](https://emulatorjs.org/docs4devs/virtual-gamepad-settings/)
+        left: '8%',
         joystickInput: false,
         size: "100px",
         inputValues: [4, 5, 6, 7],
@@ -1498,7 +1498,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       bold: true
     };
     if (enlarge) {
-      (A as any).block = true; 
+      (A as any).block = true;
       (A as any).fontSize = 32;
       (B as any).block = true;
       (B as any).fontSize = 32;
@@ -1559,8 +1559,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         break;
 
       case 'gba':
-        // A/B + L/R. Enable "twoButtonMode" if you like the big staggered A/B.
-        items.push(...this.twoButtonRight(!!twoButtonMode));
+        items.push(...this.twoButtonRight(true));
         items.push(...this.shouldersTop(false));
         items.push(...this.startSelectRow());
         break;
@@ -1568,13 +1567,15 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       case 'nes':
       case 'gb':
       case 'gbc':
-        items.push(...this.twoButtonRight(true)); // big staggered A/B by default
+        items.push(...this.twoButtonRight(true));
         items.push(...this.startSelectRow());
         break;
 
       case 'genesis':
-        items.push(...this.genesisThreeRight());  // A/B/C
-        if (segaShowLR) items.push(...this.shouldersTop(false)); // optional L/R when a core exposes them
+        items.push(...this.genesisThreeRight());
+        if (segaShowLR) {
+          items.push(...this.shouldersTop(false));
+        }
         items.push(...this.startSelectRow());
         break;
 
@@ -1611,7 +1612,6 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     window.location.replace(base + q);
   }
 
-  /** Called by `app-file-upload` when upload finishes; refresh file list. */
   finishFileUploading() {
     try { this.fileSearchComponent?.getDirectory(); } catch (e) { }
   }
@@ -1688,7 +1688,7 @@ type VPadItem =
 type System =
   | 'nes' | 'gb' | 'gbc' | 'gba'
   | 'snes'
-  | 'genesis' // Sega Mega Drive (3-button focus like your CSS)
+  | 'genesis'
   | 'nds';
 
 interface BuildOpts {
