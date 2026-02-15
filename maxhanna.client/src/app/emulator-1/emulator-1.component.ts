@@ -61,6 +61,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
   useJoystick = false;     // D-pad (false) vs analog "zone" (true)
   segaShowLR = true;       // show L/R pills on Genesis when desired
   status: string = 'Idle';
+  preferSixButtonGenesis: boolean = true;
+  private _currentGenesisSix: boolean = false;
   private autosaveInterval: any;
   private romObjectUrl?: string;
   private emulatorInstance?: any;
@@ -194,33 +196,39 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
     const system = this.systemFromCore(core);
 
-const vpad = this.buildTouchLayout(system, {
-  useJoystick: this.useJoystick,
-  showControls: this.showControls,
-  twoButtonMode: (system === 'nes' || system === 'gb' || system === 'gbc'),
-  // For Genesis, default to 3-button pad; set this to true only if you want shoulder "pills"
-  segaShowLR: false
-});
+    // Decide six-button for Genesis based on ROM + user preference
+    const romDisplayName = this.fileService.getFileWithoutExtension(fileName); // e.g., "Ultimate MK3 (USA)"
+    const genesisSix = (system === 'genesis') ? this.shouldUseGenesisSixButtons(romDisplayName) : false;
+    this._currentGenesisSix = genesisSix; // for debugging/telemetry if desired
 
-// OPTIONAL: If you want Fast/Slow on all systems, append them here.
-const speedButtons: VPadItem[] = [
-  { type: 'button', id: 'speed_fast',   text: 'Fast',   location: 'center', left: -35, top: 50, fontSize: 15, block: true, input_value: 27 },
-  { type: 'button', id: 'speed_slow',   text: 'Slow',   location: 'center', left:  95, top: 50, fontSize: 15, block: true, input_value: 29 },
-  // You can add Rewind regardless of core setting, or gate behind a flag if you prefer:
-  // { type: 'button', id: 'speed_rewind', text: 'Rewind', location: 'center', left: 30, top: 50, fontSize: 15, block: true, input_value: 28 },
-];
+    const vpad = this.buildTouchLayout(system, {
+      useJoystick: this.useJoystick,
+      showControls: this.showControls,
+      twoButtonMode: (system === 'nes' || system === 'gb' || system === 'gbc'),
+      segaShowLR: false,           // keep false to avoid L/R "pills"
+      genesisSix: genesisSix,      // ⟵ pass the decision in
+    });
 
-window.EJS_VirtualGamepadSettings = vpad.concat(speedButtons);
 
-// Safety assert (keeps you from silently falling back)
-for (const it of window.EJS_VirtualGamepadSettings) {
-  if (it.type === 'button') {
-    if (!('id' in it)) throw new Error(`Missing id on button "${it.text}"`);
-    if (typeof (it as any).input_value === 'undefined') throw new Error(`Missing input_value on button "${it.text}"`);
-  } else if ((it.type === 'dpad' || it.type === 'zone') && !it.inputValues) {
-    throw new Error(`${it.type} missing inputValues`);
-  }
-}  
+    // OPTIONAL: If you want Fast/Slow on all systems, append them here.
+    const speedButtons: VPadItem[] = [
+      { type: 'button', id: 'speed_fast', text: 'Fast', location: 'center', left: -35, top: 50, fontSize: 15, block: true, input_value: 27 },
+      { type: 'button', id: 'speed_slow', text: 'Slow', location: 'center', left: 95, top: 50, fontSize: 15, block: true, input_value: 29 },
+      // You can add Rewind regardless of core setting, or gate behind a flag if you prefer:
+      // { type: 'button', id: 'speed_rewind', text: 'Rewind', location: 'center', left: 30, top: 50, fontSize: 15, block: true, input_value: 28 },
+    ];
+
+    window.EJS_VirtualGamepadSettings = vpad.concat(speedButtons);
+
+    // Safety assert (keeps you from silently falling back)
+    for (const it of window.EJS_VirtualGamepadSettings) {
+      if (it.type === 'button') {
+        if (!('id' in it)) throw new Error(`Missing id on button "${it.text}"`);
+        if (typeof (it as any).input_value === 'undefined') throw new Error(`Missing input_value on button "${it.text}"`);
+      } else if ((it.type === 'dpad' || it.type === 'zone') && !it.inputValues) {
+        throw new Error(`${it.type} missing inputValues`);
+      }
+    }
     console.log('[EJS] assigning custom VirtualGamepadSettings', window.EJS_VirtualGamepadSettings);
 
     // For PlayStation and N64 cores, increase autosave interval to 10 minutes
@@ -1491,9 +1499,9 @@ for (const it of window.EJS_VirtualGamepadSettings) {
     document.head.appendChild(style);
   }
 
-leftMovementArea(useJoystick: boolean): VPadItem {
-  return useJoystick
-    ? {
+  leftMovementArea(useJoystick: boolean): VPadItem {
+    return useJoystick
+      ? {
         type: 'zone',
         location: 'left',
         left: '8%',
@@ -1502,7 +1510,7 @@ leftMovementArea(useJoystick: boolean): VPadItem {
         color: 'blue',
         inputValues: [19, 18, 17, 16],
       }
-    : {
+      : {
         type: 'dpad',
         // optional but nice to have: add a stable id so your inspect helpers can find it
         // id is not required for dpad by your build, but harmless if you add it to your VPadItem type
@@ -1513,72 +1521,72 @@ leftMovementArea(useJoystick: boolean): VPadItem {
         joystickInput: false,
         inputValues: [4, 5, 6, 7],
       };
-}
-
-twoButtonRight(enlarge = true): VPadItem[] {
-  const A: VPadItem = { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true };
-  const B: VPadItem = { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true };
-  if (enlarge) {
-    (A as any).block = true; (A as any).fontSize = 32;
-    (B as any).block = true; (B as any).fontSize = 32;
-    A.left = (A.left ?? 40) - 20; A.top = (A.top ?? 80) + 20;
-    B.left = (B.left ?? 81) - 10; B.top = (B.top ?? 40) + 20;
   }
-  return [B, A];
-}
 
-genesisThreeRight(): VPadItem[] {
-  // Genesis/Mega Drive A/B/C mapping (matches EmulatorJS defaults):
-  // A = 1, B = 0, C = 8
-  return [
-    { type: 'button', id: 'genC', text: 'C', location: 'right', left: 0,  top: 0,  input_value: 8, bold: true },
-    { type: 'button', id: 'genB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true },
-    { type: 'button', id: 'genA', text: 'A', location: 'right', left: 40, top: 80, input_value: 1, bold: true },
-  ];
-}
-
-genesisSixRight(): VPadItem[] {
-  return [
-    // Lower row A/B/C
-    { type: 'button', id: 'genC', text: 'C', location: 'right', left: 0,   top:  0,  input_value: 8,  bold: true },
-    { type: 'button', id: 'genB', text: 'B', location: 'right', left: 81,  top: 40, input_value: 0,  bold: true },
-    { type: 'button', id: 'genA', text: 'A', location: 'right', left: 40,  top: 80, input_value: 1,  bold: true },
-    // Upper row X/Y/Z (match your build’s scheme)
-    { type: 'button', id: 'genX', text: 'X', location: 'right', left: 0,   top: -60, input_value: 10, bold: true },
-    { type: 'button', id: 'genY', text: 'Y', location: 'right', left: 40,  top: -20, input_value: 9,  bold: true },
-    { type: 'button', id: 'genZ', text: 'Z', location: 'right', left: 81,  top: -60, input_value: 11, bold: true },
-  ];
-}
-
-startSelectRow(): VPadItem[] {
-  return [
-    { type: 'button', id: 'start',  text: 'Start',  location: 'center', left: 60, top: 0, fontSize: 15, block: true, input_value: 3 },
-    { type: 'button', id: 'select', text: 'Select', location: 'center', left: -5, top: 0, fontSize: 15, block: true, input_value: 2 },
-  ];
-}
-
-shouldersTop(hasLR2 = false): VPadItem[] {
-  const items: VPadItem[] = [
-    { type: 'button', id: 'btnL', text: 'L', location: 'top', left: 10,  top: 0, input_value: 10, bold: true, block: true },
-    { type: 'button', id: 'btnR', text: 'R', location: 'top', left: 270, top: 0, input_value: 11, bold: true, block: true },
-  ];
-  if (hasLR2) {
-    items.push(
-      { type: 'button', id: 'btnL2', text: 'L2', location: 'top', left: 90,  top: 0, input_value: 12, bold: true, block: true },
-      { type: 'button', id: 'btnR2', text: 'R2', location: 'top', left: 190, top: 0, input_value: 13, bold: true, block: true },
-    );
+  twoButtonRight(enlarge = true): VPadItem[] {
+    const A: VPadItem = { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true };
+    const B: VPadItem = { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true };
+    if (enlarge) {
+      (A as any).block = true; (A as any).fontSize = 32;
+      (B as any).block = true; (B as any).fontSize = 32;
+      A.left = (A.left ?? 40) - 20; A.top = (A.top ?? 80) + 20;
+      B.left = (B.left ?? 81) - 10; B.top = (B.top ?? 40) + 20;
+    }
+    return [B, A];
   }
-  return items;
-}
 
-diamondRight(): VPadItem[] {
-  return [
-    { type: 'button', id: 'btnX', text: 'X', location: 'right', left: 0,  top: 0,  input_value: 9, bold: true },
-    { type: 'button', id: 'btnY', text: 'Y', location: 'right', left: 40, top: 40, input_value: 1, bold: true },
-    { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true },
-    { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true },
-  ];
-}
+  genesisThreeRight(): VPadItem[] {
+    // Genesis/Mega Drive A/B/C mapping (matches EmulatorJS defaults):
+    // A = 1, B = 0, C = 8
+    return [
+      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 0, top: 0, input_value: 8, bold: true },
+      { type: 'button', id: 'genB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true },
+      { type: 'button', id: 'genA', text: 'A', location: 'right', left: 40, top: 80, input_value: 1, bold: true },
+    ];
+  }
+
+  genesisSixRight(): VPadItem[] {
+    return [
+      // Lower row A/B/C
+      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 0, top: 0, input_value: 8, bold: true },
+      { type: 'button', id: 'genB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true },
+      { type: 'button', id: 'genA', text: 'A', location: 'right', left: 40, top: 80, input_value: 1, bold: true },
+      // Upper row X/Y/Z (match your build’s scheme)
+      { type: 'button', id: 'genX', text: 'X', location: 'right', left: 0, top: -60, input_value: 10, bold: true },
+      { type: 'button', id: 'genY', text: 'Y', location: 'right', left: 40, top: -20, input_value: 9, bold: true },
+      { type: 'button', id: 'genZ', text: 'Z', location: 'right', left: 81, top: -60, input_value: 11, bold: true },
+    ];
+  }
+
+  startSelectRow(): VPadItem[] {
+    return [
+      { type: 'button', id: 'start', text: 'Start', location: 'center', left: 60, top: 0, fontSize: 15, block: true, input_value: 3 },
+      { type: 'button', id: 'select', text: 'Select', location: 'center', left: -5, top: 0, fontSize: 15, block: true, input_value: 2 },
+    ];
+  }
+
+  shouldersTop(hasLR2 = false): VPadItem[] {
+    const items: VPadItem[] = [
+      { type: 'button', id: 'btnL', text: 'L', location: 'top', left: 10, top: 0, input_value: 10, bold: true, block: true },
+      { type: 'button', id: 'btnR', text: 'R', location: 'top', left: 270, top: 0, input_value: 11, bold: true, block: true },
+    ];
+    if (hasLR2) {
+      items.push(
+        { type: 'button', id: 'btnL2', text: 'L2', location: 'top', left: 90, top: 0, input_value: 12, bold: true, block: true },
+        { type: 'button', id: 'btnR2', text: 'R2', location: 'top', left: 190, top: 0, input_value: 13, bold: true, block: true },
+      );
+    }
+    return items;
+  }
+
+  diamondRight(): VPadItem[] {
+    return [
+      { type: 'button', id: 'btnX', text: 'X', location: 'right', left: 0, top: 0, input_value: 9, bold: true },
+      { type: 'button', id: 'btnY', text: 'Y', location: 'right', left: 40, top: 40, input_value: 1, bold: true },
+      { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true },
+      { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true },
+    ];
+  }
 
   /** After the vpad mounts, force inline sizes by ID; if missing, find by text label. */
   private inspectVPadOnce(): void {
@@ -1637,11 +1645,12 @@ diamondRight(): VPadItem[] {
     return 'nes';
   }
 
+
   buildTouchLayout(
     system: System,
-    opts: BuildOpts & { segaShowLR?: boolean } // optional flag for Genesis shoulders
+    opts: BuildOpts & { segaShowLR?: boolean; genesisSix?: boolean } // ⟵ add genesisSix
   ): VPadItem[] {
-    const { useJoystick, showControls = true, twoButtonMode, segaShowLR = true } = opts;
+    const { useJoystick, showControls = true, twoButtonMode, segaShowLR = true, genesisSix = false } = opts;
     if (!showControls) return [];
 
     const items: VPadItem[] = [];
@@ -1674,7 +1683,11 @@ diamondRight(): VPadItem[] {
         break;
 
       case 'genesis':
-        items.push(...this.genesisThreeRight());
+        if (genesisSix) {
+          items.push(...this.genesisSixRight());
+        } else {
+          items.push(...this.genesisThreeRight());
+        }
         if (segaShowLR) {
           items.push(...this.shouldersTop(false));
         }
@@ -1689,6 +1702,41 @@ diamondRight(): VPadItem[] {
 
     return items;
   }
+
+
+  private slugifyName(name: string): string {
+    return (name || '')
+      .toLowerCase()
+      .replace(/\.(zip|7z|md|smd|gen|bin|cue|iso|chd)$/g, '') // drop ext if present
+      .replace(/['’]/g, '')                 // remove apostrophes/quotes
+      .replace(/[^a-z0-9]+/g, '-')          // non-alnum -> hyphen
+      .replace(/-+/g, '-')                  // collapse hyphens
+      .replace(/^-|-$/g, '');               // trim hyphens
+  }
+
+  /** Map some common abbreviations/aliases to canonical slugs in our sets. */
+  private canonicalizeGenesisSlug(slug: string): string {
+    // A few helpful aliases
+    const aliasMap: Record<string, string> = {
+      // MK3 naming variations
+      "mk3": "mortal-kombat-3",
+      "ultimate-mortal-kombat-3": "ultimate-mk3",
+      // Street Fighter II variations
+      "street-fighter-ii-special-champion-edition": "street-fighter-2-special-champion-edition",
+      "ssf2": "super-street-fighter-2",
+      // Golden Axe 2
+      "golden-axe-2": "golden-axe-ii",
+    };
+    return aliasMap[slug] ?? slug;
+  }
+
+  private shouldUseGenesisSixButtons(romDisplayName: string): boolean {
+    const slug = this.canonicalizeGenesisSlug(this.slugifyName(romDisplayName));
+    if (GENESIS_FORCE_THREE.has(slug)) return false;
+    if (this.preferSixButtonGenesis) return true;
+    return GENESIS_6BUTTON.has(slug);
+  }
+
   showMenuPanel() {
     this.isMenuPanelOpen = true;
     this.parentRef?.showOverlay();
@@ -1791,9 +1839,34 @@ type System =
   | 'genesis'
   | 'nds';
 
+
 interface BuildOpts {
   useJoystick: boolean;   // your toggle
   showControls?: boolean; // if false, return [] to hide
   twoButtonMode?: boolean;// enlarge A/B (NES/GB/GBC, optionally GBA)
   buttonSize?: number;    // base size tuning knob (default 65~70 visual)
-}
+  genesisSix?: boolean;   // ⟵ add this
+} 
+
+const GENESIS_6BUTTON = new Set([
+  "street-fighter-2-special-champion-edition",
+  "super-street-fighter-2",
+  "mortal-kombat-2",
+  "mortal-kombat-3",
+  "ultimate-mk3",
+  "eternal-champions",
+  "samurai-shodown",
+  "weaponlord",
+  "fatal-fury-2",
+  "fatal-fury-special",
+  "art-of-fighting",
+  "comix-zone",
+  "splatterhouse-3",
+  "ranger-x"
+]);
+
+const GENESIS_FORCE_THREE = new Set<string>([
+  "forgotten-worlds",
+  "golden-axe-ii",
+  "ms-pac-man"
+]);
