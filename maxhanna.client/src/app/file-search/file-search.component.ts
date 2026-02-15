@@ -1259,8 +1259,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     // Use the first extension for the given system (e.g. 'n64' -> 'n64')
     const exts = this.romSystemExtensions[key];
     const ext = (exts && exts.length) ? exts[0] : key;
+    const style = "width:16px;height:16px;vertical-align:middle;";
     // getSystemEmoji expects a filename; pass a dummy name with the extension so FileService extracts it.
-    return this.getSystemEmoji('file.' + ext);
+    return this.getSystemEmoji('file.' + ext, style);
   }
 
   toggleRomSystem(key: string) {
@@ -1351,7 +1352,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     try { this.onFiletypeFilterChange(); } catch { }
   }
   /** Return a small emoji or an <img> icon representing the system inferred from the file extension. */
-  getSystemEmoji(fileName?: string): SafeHtml | string {
+  getSystemEmoji(fileName?: string, styling?: string): SafeHtml | string {
     if (!fileName) return '';
     const ext = this.fileService.getFileExtension(fileName).toLowerCase();
 
@@ -1387,7 +1388,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
     if (iconMap[ext]) {
       const src = iconMap[ext];
-      const html = `<img src="${src}" alt="${ext}" style="width:16px;height:16px;vertical-align:middle;margin-right:6px" />`;
+      const style = styling ? styling : "width:16px;height:16px;vertical-align:middle;margin-right:6px";
+      const html = `<img src="${src}" alt="${ext}" style="${style}" />`;
       return this.sanitizer.bypassSecurityTrustHtml(html);
     }
 
