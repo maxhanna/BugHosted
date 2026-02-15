@@ -5,7 +5,7 @@ export interface N64StateUpload {
   userId: number;
   romName: string;
   filename: string;
-  bytes: Uint8Array; 
+  bytes: Uint8Array;
   startTimeMs?: number;
   saveTimeMs?: number;
   durationSeconds?: number;
@@ -35,7 +35,7 @@ export interface LastInputSelection {
 export class RomService {
   constructor() { }
 
-  async getRomFile(rom: string, userId?: number, fileId?: number):Promise<Blob | null> {
+  async getRomFile(rom: string, userId?: number, fileId?: number): Promise<Blob | null> {
     try {
       const response = await fetch(`/rom/getromfile/${encodeURIComponent(rom)}`, {
         method: 'POST',
@@ -51,20 +51,20 @@ export class RomService {
     }
   }
 
-async getN64SaveByName(romName: string, userId: number): Promise<{ blob: Blob; fileName: string } | null> {
-  const resp = await fetch(`/rom/getn64savebyname/${encodeURIComponent(romName)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(userId)
-  });
-  if (!resp.ok) return null;
+  async getN64SaveByName(romName: string, userId: number): Promise<{ blob: Blob; fileName: string } | null> {
+    const resp = await fetch(`/rom/getn64savebyname/${encodeURIComponent(romName)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userId)
+    });
+    if (!resp.ok) return null;
 
-  const blob = await resp.blob();
-  const cd = resp.headers.get('Content-Disposition') || '';
-  const m = cd.match(/filename\*?=(?:UTF-8''|")?([^";]+)"?/i);
-  const fileName = m ? decodeURIComponent(m[1]) : `${romName.replace(/\.[^.]+$/, '')}.eep`; // fallback
-  return { blob, fileName };
-}  
+    const blob = await resp.blob();
+    const cd = resp.headers.get('Content-Disposition') || '';
+    const m = cd.match(/filename\*?=(?:UTF-8''|")?([^";]+)"?/i);
+    const fileName = m ? decodeURIComponent(m[1]) : `${romName.replace(/\.[^.]+$/, '')}.eep`; // fallback
+    return { blob, fileName };
+  }
 
   async uploadRomFile(userId: number, form: FormData) {
     form.append('userId', JSON.stringify(userId));
@@ -277,39 +277,27 @@ async getN64SaveByName(romName: string, userId: number): Promise<{ blob: Blob; f
     } catch (error: any) {
       return { ok: false, status: 0, errorText: String(error?.message ?? error) };
     }
-  }
+  } 
 
-  // ============================================================================
-  // EmulatorJS Save State Methods
-  // ============================================================================
+  async saveEmulatorJSState(romName: string, userId: number, stateData: Uint8Array<ArrayBufferLike>) {
+    const url = `/rom/saveemulatorjsstate?userId=${userId}&romName=${encodeURIComponent(romName)}`;
 
-  async saveEmulatorJSState(romName: string, userId: number, stateData: Uint8Array): Promise<SaveUploadResponse> {
-    const form = new FormData();
-    const tightAb: ArrayBuffer = this.toTightArrayBuffer(stateData);
-    form.append('file', new File([tightAb], 'savestate.state', { type: 'application/octet-stream' }));
-    form.append('userId', String(userId));
-    form.append('romName', romName);
+    // Ensure ArrayBuffer (not SharedArrayBuffer) by copying
+    const copy = new Uint8Array(stateData.byteLength);
+    copy.set(stateData);
 
-    try {
-      const res = await fetch(`/rom/saveemulatorjsstate`, { method: 'POST', body: form });
-      const status = res.status;
-      const ct = (res.headers.get('content-type') || '').toLowerCase();
+    // Send as ArrayBuffer (BodyInit)
+    const body: ArrayBuffer = copy.buffer; // regular ArrayBuffer
 
-      const readAsText = async () => await res.text();
-      const readAsJson = async () => { try { return await res.json(); } catch { return null; } };
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body
+    });
 
-      if (!res.ok) {
-        const errorBody = ct.includes('application/json') ? await readAsJson() : await readAsText();
-        const errorText = typeof errorBody === 'string' ? errorBody : JSON.stringify(errorBody ?? { error: 'Upload failed' });
-        return { ok: false, status, errorText };
-      }
-
-      const body = ct.includes('application/json') ? await readAsJson() : await readAsText();
-      return { ok: true, status, body };
-    } catch (error: any) {
-      return { ok: false, status: 0, errorText: String(error?.message ?? error) };
-    }
-  }
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  } 
 
   async getEmulatorJSSaveState(romName: string, userId: number): Promise<Blob | null> {
     try {
