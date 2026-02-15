@@ -208,33 +208,33 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       segaShowLR: false,           // keep false to avoid L/R "pills"
       genesisSix: genesisSix,      // ⟵ pass the decision in
     });
- 
-// Bottom-left, small & subtle, close together.
-// NOTE: `location: 'left'` puts them in the left column; `top` values push toward the bottom.
-const speedButtons: VPadItem[] = [
-  {
-    type: 'button',
-    id: 'speed_fast',
-    text: 'Fast',
-    location: 'left',
-    left: 10,       // px from the left edge of the left column
-    top: 190,       // push down; increase if you need them lower on tall screens
-    fontSize: 13,   // smaller text
-    block: false,   // pill-less small button
-    input_value: 27
-  },
-  {
-    type: 'button',
-    id: 'speed_slow',
-    text: 'Slow',
-    location: 'left',
-    left: 62,       // sits next to Fast (≈ 50–60px spacing)
-    top: 190,
-    fontSize: 13,
-    block: false,
-    input_value: 29
-  },
-];
+
+    // Bottom-left, small & subtle, close together.
+    // NOTE: `location: 'left'` puts them in the left column; `top` values push toward the bottom.
+    const speedButtons: VPadItem[] = [
+      {
+        type: 'button',
+        id: 'speed_fast',
+        text: 'Fast',
+        location: 'left',
+        left: 10,       // px from the left edge of the left column
+        top: 190,       // push down; increase if you need them lower on tall screens
+        fontSize: 13,   // smaller text
+        block: false,   // pill-less small button
+        input_value: 27
+      },
+      {
+        type: 'button',
+        id: 'speed_slow',
+        text: 'Slow',
+        location: 'left',
+        left: 62,       // sits next to Fast (≈ 50–60px spacing)
+        top: 190,
+        fontSize: 13,
+        block: false,
+        input_value: 29
+      },
+    ];
 
     window.EJS_VirtualGamepadSettings = vpad.concat(speedButtons);
 
@@ -1495,11 +1495,11 @@ const speedButtons: VPadItem[] = [
     return !!done;
   }
 
- 
-private ensureTouchOverlaySizingCss(): void {
-  if (document.querySelector('style[data-ejs-touch-sizing="1"]')) return;
 
-  const css = ` 
+  private ensureTouchOverlaySizingCss(): void {
+    if (document.querySelector('style[data-ejs-touch-sizing="1"]')) return;
+
+    const css = ` 
 #game #genA, #game #genB, #game #genC {
   width: 96px !important; height: 96px !important; line-height: 96px !important;
   font-size: 34px !important; border-radius: 50% !important;
@@ -1535,11 +1535,11 @@ private ensureTouchOverlaySizingCss(): void {
 #game #gbaB { transform: translate(  -5px,   0px ); }
 `;
 
-  const style = document.createElement('style');
-  style.setAttribute('data-ejs-touch-sizing', '1');
-  style.textContent = css;
-  document.head.appendChild(style);
-} 
+    const style = document.createElement('style');
+    style.setAttribute('data-ejs-touch-sizing', '1');
+    style.textContent = css;
+    document.head.appendChild(style);
+  }
 
   leftMovementArea(useJoystick: boolean): VPadItem {
     return useJoystick
@@ -1570,7 +1570,7 @@ private ensureTouchOverlaySizingCss(): void {
     const B: VPadItem = { type: 'button', id: 'gbaB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true };
     return [B, A];
   }
- 
+
   genesisThreeRight(): VPadItem[] {
     // Genesis/Mega Drive A/B/C mapping (matches EmulatorJS defaults):
     // A = 1, B = 0, C = 8
@@ -1882,7 +1882,7 @@ interface BuildOpts {
   twoButtonMode?: boolean;// enlarge A/B (NES/GB/GBC, optionally GBA)
   buttonSize?: number;    // base size tuning knob (default 65~70 visual)
   genesisSix?: boolean;   // ⟵ add this
-} 
+}
 
 const GENESIS_6BUTTON = new Set([
   "street-fighter-2-special-champion-edition",
