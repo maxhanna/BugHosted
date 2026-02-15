@@ -279,6 +279,34 @@ export class RomService {
     }
   }
 
+  guessSystemFromFileName(fileName: string): string | undefined {
+    if (!fileName) return undefined;
+    const name = fileName.toLowerCase();
+
+    // Clear indicators for specific systems
+    if (name.includes('playstation') || name.includes('ps1') || name.includes('psx') || name.includes('scph') || name.includes('sony')) {
+      return 'ps1';
+    }
+    if (name.includes('segacd') || name.includes('sega cd') || (name.includes('cd') && name.includes('sega'))) {
+      return 'genesis';
+    }
+    if (name.includes('saturn') || name.includes('[ss]') || name.includes('segasaturn')) {
+      return 'saturn';
+    }
+    if (name.includes('dreamcast') || name.includes('[dc]') || name.includes('sega-dreamcast') || name.includes('[gdi]') || name.includes('[cdr]')) {
+      return 'dreamcast';
+    }
+    if (name.includes('turbo') || name.includes('tgcd') || name.includes('pcengine') || name.includes('pc-engine') || name.includes('hu-card') || name.includes('huc')) {
+      return 'tgcd';
+    }
+    // If the filename contains common PlayStation cues (CUE for bin/cue pair)
+    if (name.endsWith('.cue') || name.includes('.cue') || name.includes('cue')) {
+      return 'ps1';
+    }
+
+    // Default: assume PlayStation (PSX) for generic .bin files
+    return 'ps1';
+  }
   /** Ensure bytes become a tight, real ArrayBuffer (never SharedArrayBuffer). */
   private toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
     const buf = bytes.buffer;
@@ -291,8 +319,8 @@ export class RomService {
     // If SharedArrayBuffer (or other ArrayBufferLike), copy to a new ArrayBuffer
     const copy = Uint8Array.from(bytes);
     return copy.buffer; // ArrayBuffer
-  } 
-  
+  }
+
   private supportsCompressionStreams(): boolean {
     return typeof (window as any).CompressionStream !== 'undefined';
   }
@@ -302,7 +330,7 @@ export class RomService {
     const stream = new Blob([this.toArrayBuffer(input)]).stream().pipeThrough(cs);
     const ab = await new Response(stream).arrayBuffer();
     return new Uint8Array(ab);
-  } 
+  }
 
   private async gunzip(input: Uint8Array): Promise<Uint8Array> {
     const ds = new DecompressionStream('gzip');
@@ -312,7 +340,7 @@ export class RomService {
 
     const ab = await new Response(stream).arrayBuffer();
     return new Uint8Array(ab);
-  } 
+  }
 
   async saveEmulatorJSState(
     romName: string,
@@ -370,7 +398,7 @@ export class RomService {
     } catch (error: any) {
       return { ok: false, status: 0, errorText: String(error?.message ?? error) };
     }
-  } 
+  }
 
   async getEmulatorJSSaveState(romName: string, userId: number): Promise<Blob | null> {
     try {

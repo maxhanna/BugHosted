@@ -200,8 +200,28 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       twoButtonMode: (system === 'nes' || system === 'gb' || system === 'gbc'),
       segaShowLR: this.segaShowLR
     });
+    //window.EJS_VirtualGamepadSettings = vpad;
+
+    // 100% spec-compatible, minimal test layout for GBA
+    const vpadKnownGood: any[] = [
+      // D-pad: left must be a percentage string; input order is [UP, DOWN, LEFT, RIGHT] = [4,5,6,7]
+      { type: 'dpad', location: 'left', left: '8%', joystickInput: false, inputValues: [4, 5, 6, 7] },
+
+      // Face buttons: left/top are numbers (px); fontSize is a number (px); id is optional
+      { type: 'button', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true },
+      { type: 'button', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true },
+
+      // Shoulders at top (OK per docs)
+      { type: 'button', text: 'L', location: 'top', left: 10, top: 0, input_value: 10, bold: true, block: true },
+      { type: 'button', text: 'R', location: 'top', left: 270, top: 0, input_value: 11, bold: true, block: true },
+
+      // Start/Select centered, left offset in px allowed (negative fine per docs example)
+      { type: 'button', text: 'Start', id: 'start', location: 'center', left: 60, top: 0, fontSize: 15, block: true, input_value: 3 },
+      { type: 'button', text: 'Select', id: 'select', location: 'center', left: -5, top: 0, fontSize: 15, block: true, input_value: 2 },
+    ];
+    window.EJS_VirtualGamepadSettings = vpadKnownGood;
+
     console.log('[EJS] assigning custom VirtualGamepadSettings', system, vpad);
-    window.EJS_VirtualGamepadSettings = vpad;
 
     // For PlayStation and N64 cores, increase autosave interval to 10 minutes
     // to reduce upload frequency for large save files (e.g. PS1 saves).
@@ -447,6 +467,35 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       // Doom
       'wad': 'prboom'
     };
+    // If the extension is a generic BIN, try to guess the system from filename
+    // and pick a more appropriate core. Default to PSX (`pcsx_rearmed`) when
+    // ambiguous.
+    if (ext === 'bin') {
+      try {
+        const guessed = this.romService?.guessSystemFromFileName(fileName);
+        if (guessed) {
+          // Direct core lookup if we have a direct mapping
+          if (coreMap[guessed]) return coreMap[guessed];
+          // Heuristic fallbacks for common guessed keys
+          switch (guessed) {
+            case 'ps1':
+              return 'pcsx_rearmed';
+            case 'genesis':
+              return 'genesis_plus_gx';
+            case 'tgcd':
+              return 'mednafen_pce';
+            case 'saturn':
+              return 'yabause';
+            case 'dreamcast':
+              return 'null';
+            default:
+              return 'pcsx_rearmed';
+          }
+        }
+      } catch (e) { /* fall through to default */ }
+      return 'pcsx_rearmed';
+    }
+
     return coreMap[ext] || 'mgba';
   }
 

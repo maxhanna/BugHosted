@@ -14,6 +14,7 @@ import { UserService } from '../../services/user.service';
 import { FileComment } from '../../services/datacontracts/file/file-comment';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
+import { RomService } from '../../services/rom.service';
 
 
 @Component({
@@ -120,7 +121,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @ViewChild(MediaViewerComponent) mediaViewerComponent!: MediaViewerComponent;
 
 
-  constructor(private fileService: FileService, private userService: UserService, private todoService: TodoService, private route: ActivatedRoute, private sanitizer: DomSanitizer) {
+  constructor(
+    private fileService: FileService, 
+    private userService: UserService, 
+    private todoService: TodoService, 
+    private romService: RomService,
+    private route: ActivatedRoute, 
+    private sanitizer: DomSanitizer) {
     super();
     this.previousComponent = "Files";
     this.windowScrollHandler = this.debounce(this.onWindowScroll.bind(this), 200);
@@ -1369,6 +1376,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (!fileName) return '';
     const ext = this.fileService.getFileExtension(fileName).toLowerCase();
 
+    // If extension is a generic 'bin', try to guess a more specific system
+    // from the filename (e.g. 'saturn', 'dreamcast', 'segacd', 'psx', etc.).
+    const guessedExtForBin = (ext === 'bin') ? this.romService.guessSystemFromFileName(fileName) : undefined;
+    const effectiveExt = guessedExtForBin ?? ext;
+
     // Prefer image icons for some systems; fall back to emoji when not available
     const iconMap: { [key: string]: string } = {
       'n64': '/assets/n64icon.png',
@@ -1400,10 +1412,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       'gba': '/assets/gbaicon.png'
     };
 
-    if (iconMap[ext]) {
+    if (iconMap[effectiveExt]) {
       const src = iconMap[ext];
       const style = styling ? styling : "width:16px;height:16px;vertical-align:middle;margin-right:6px";
-      const html = `<img src="${src}" alt="${ext}" style="${style}" />`;
+      const html = `<img src="${src}" alt="${effectiveExt}" style="${style}" />`;
       return this.sanitizer.bypassSecurityTrustHtml(html);
     }
 
@@ -1453,6 +1465,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       'wad': '🕹️',
       'ccd': '🕹️'
     }; 
-    return map[ext] ?? '';
+    return map[effectiveExt] ?? '';
   }
 }
