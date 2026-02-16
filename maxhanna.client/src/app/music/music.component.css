@@ -457,8 +457,7 @@ input[type="submit"] {
 @media (max-width: 667px) {
   .playerStack {
     aspect-ratio: auto;
-    height: min(56.25vw, 40vh);  /* 16:9 but capped */ 
-    min-height: 0;   /* don’t force big height on tiny screens */ 
+    height: min(56.25vw, 40vh);  /* 16:9 but capped */  
   }
 } 
 

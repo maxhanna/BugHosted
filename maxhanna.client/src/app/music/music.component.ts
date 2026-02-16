@@ -78,8 +78,11 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   private playerReady = false;  // <- REAL ready state
   private pendingSwitch?: { ids: string[]; index: number; firstId: string };
   private lastPlaylistKey = '';
-  private lastTap = 0;
-
+  private lastTap = 0; 
+  private ytIds: string[] = [];
+  private ytIndex = 0;
+  private switching = false;
+private ytDeadCount = 0;
 
   ytSearchTerm = '';
 
@@ -213,52 +216,19 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     if (!user?.id) {
       await Promise.resolve();
     }
-    await this.refreshPlaylist();
+    await this.refreshPlaylist(); 
+    
     if (this.songs.length && this.songs[0].url) {
-      this.play(this.songs[0].url!);
+      const url = this.songs[0].url!;
+      if (!this.ytReady) this.pendingPlay = { url, fileId: null };
+      else this.play(url);
     }
+
     console.log('[Music] Loaded', this.songs.length, 'songs; page', this.currentPage);
   }
 
-  async next() {
-    if (!this.ytPlayer) return;
-
-    const beforeIdx = this.ytPlayer.getPlaylistIndex?.() ?? -1;
-    const hadPlaylist = (this.ytPlayer.getPlaylist?.() || []).length > 0;
-
-    let advanced = false;
-    try {
-      this.ytPlayer.nextVideo();       // may silently do nothing if no playlist attached
-      await new Promise(r => setTimeout(r, 200)); // let player react
-      const afterIdx = this.ytPlayer.getPlaylistIndex?.() ?? -1;
-      advanced = hadPlaylist && afterIdx !== beforeIdx;
-    } catch {
-      // swallow, we’ll fallback
-    }
-
-    if (!advanced) {
-      this.nextFallback();             // your array-based re-load
-    }
-  }
-
-  async prev() {
-    if (!this.ytPlayer) return;
-
-    const beforeIdx = this.ytPlayer.getPlaylistIndex?.() ?? -1;
-    const hadPlaylist = (this.ytPlayer.getPlaylist?.() || []).length > 0;
-
-    let moved = false;
-    try {
-      this.ytPlayer.previousVideo();
-      await new Promise(r => setTimeout(r, 200));
-      const afterIdx = this.ytPlayer.getPlaylistIndex?.() ?? -1;
-      moved = hadPlaylist && afterIdx !== beforeIdx;
-    } catch { }
-
-    if (!moved) {
-      this.prevFallback();
-    }
-  }
+async next() { this.playByIndex(this.ytIndex + 1); }
+async prev() { this.playByIndex(this.ytIndex - 1); }
 
 
   private consumePendingPlay() {
@@ -376,7 +346,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
     this.startLoading();
     if (!search) {
-      await this.getSongList();
+      await this.getSongList(); 
+      this.rebuildLocalYtQueue(); 
     } else {
       const tmpSongs = await this.todoService.getTodo(user.id, "Music", search);
       this.youtubeSongs = tmpSongs.filter((song: Todo) => this.parentRef?.isYoutubeUrl(song.url));
@@ -507,7 +478,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     }
     else {
       this.currentPage = 1;
-      await this.refreshPlaylist();
+      await this.refreshPlaylist();  
       this.songs = type === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
       this.fileIdPlaylist = type === 'file' ? this.fileSongs.map(song => song.fileId!).filter(id => id !== undefined) : undefined;
     }
@@ -560,15 +531,11 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
 
-    const ids = this.getYoutubeIdsInOrder();
-    const requestedId = this.parseYoutubeId(url!);
-    let index = ids.indexOf(requestedId);
-    if (index < 0) { ids.unshift(requestedId); index = 0; }
-
-    const initialVideoId = ids[index];
-    this.ensureYTPlayerBuilt(initialVideoId, ids, index);
-    //this.rebuildYTPlayer(initialVideoId, ids, index);
-
+const requestedId = this.parseYoutubeId(url!);
+this.rebuildLocalYtQueue(); // ensure queue current
+const idx = this.ytIds.indexOf(requestedId);
+this.playByIndex(idx >= 0 ? idx : 0);
+  
     // Update UI state
     this.currentUrl = url;
     this.currentFileId = null;
@@ -577,8 +544,6 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.keepScreenAwake(true);
     this.isMusicControlsDisplayed(true);
     this.stopLoading();
-
-    console.log("requested switch to:", initialVideoId, "index:", index, "playlist length:", ids.length);
   }
 
 
@@ -950,77 +915,58 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     return !!(this.songs && this.songs.length > 0 && this.isMusicPlaying);
   }
 
-  private rebuildYTPlayer(firstId: string, songIds: string[], index: number) {
-    if (!this.musicVideo?.nativeElement) return;
-    this.playerReady = false;
+  
+private rebuildYTPlayer(firstId: string, _unusedIds: string[], _unusedIndex: number) {
+  if (!this.musicVideo?.nativeElement) return;
+  this.playerReady = false;
 
-    try { this.ytPlayer?.destroy(); } catch { console.warn('[YT] Failed to destroy existing player'); }
+  try { this.ytPlayer?.destroy(); } catch {}
+  this.ytPlayer = undefined;
 
-    this.ngZone.runOutsideAngular(() => {
-      this.ytPlayer = new YT.Player(this.musicVideo.nativeElement as HTMLElement, {
-        videoId: firstId,
-        playerVars: {
-          playsinline: 1,
-          rel: 0,
-          modestbranding: 1,
-          enablejsapi: 1,
-          origin: window.location.origin,
-          controls: 1,
-        },
-        events: {
+  this.ngZone.runOutsideAngular(() => {
+    this.ytPlayer = new YT.Player(this.musicVideo.nativeElement, {
+      videoId: firstId,
+      playerVars: {
+        playsinline: 1,
+        rel: 0,
+        modestbranding: 1,
+        enablejsapi: 1,
+        origin: window.location.origin,
+        controls: 1,
+      },
+      events: {
+        onReady: () => {
+          this.playerReady = true;
 
-          onReady: () => {
-            this.playerReady = true;
-
-            const p = this.pendingSwitch;
-            this.pendingSwitch = undefined;
-
-            const idsToUse = p?.ids ?? songIds;
-            const idxToUse = p?.index ?? index;
-
-            this.lastPlaylistKey = idsToUse.join(',');
-            this.ytPlayer!.loadPlaylist(idsToUse, idxToUse, 0, 'small');
+          // load current selection
+          try {
+            this.ytPlayer!.loadVideoById(firstId);
             this.ytPlayer!.playVideo();
+          } catch {}
 
-            // ✅ If there was a pendingPlay, force switch to it now
-            if (this.pendingPlay?.url) {
-              const id = this.parseYoutubeId(this.pendingPlay.url);
-              this.pendingPlay = undefined;
-              const found = idsToUse.indexOf(id);
-              if (found >= 0) {
-                this.ytPlayer!.playVideoAt(found);
-                this.ytPlayer!.playVideo();
-              } else if (id) {
-                this.ytPlayer!.loadVideoById(id);
-                this.ytPlayer!.playVideo();
-              }
-            }
+          // set attributes
+          try {
+            const iframe = this.ytPlayer!.getIframe() as HTMLIFrameElement;
+            iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+            iframe.setAttribute('referrerpolicy', 'origin-when-cross-origin');
+          } catch {}
 
-            try {
-              const iframe = this.ytPlayer!.getIframe() as HTMLIFrameElement;
-              iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
-              iframe.setAttribute('referrerpolicy', 'origin-when-cross-origin');
-            } catch { }
+          this.ngZone.run(() => this.startYtHealthWatch());
+        },
 
-            // start watchdog inside angular once
-            this.ngZone.run(() => this.startYtHealthWatch());
-          },
-          onStateChange: (e: YT.OnStateChangeEvent) => {
-            if (e.data === YT.PlayerState.ENDED) this.handleEndedFallback();
-            if (e.data === YT.PlayerState.PLAYING) {
-              // Keep currentUrl in sync with what's actually playing (important!)
-              const vid = this.ytPlayer?.getVideoData()?.video_id;
-              if (vid) this.currentUrl = `https://www.youtube.com/watch?v=${vid}`;
-            }
-          },
-          onError: (_e: YT.OnErrorEvent) => this.next(),
-        }
-      });
+        onStateChange: (e) => {
+          if (e.data === YT.PlayerState.ENDED) this.playByIndex(this.ytIndex + 1);
+          if (e.data === YT.PlayerState.PLAYING) {
+            const vid = this.ytPlayer?.getVideoData()?.video_id;
+            if (vid) this.currentUrl = `https://www.youtube.com/watch?v=${vid}`;
+          }
+        },
+
+        onError: () => this.playByIndex(this.ytIndex + 1),
+      }
     });
-
-  }
-
-
+  });
+} 
 
   private ensureYTPlayerBuilt(firstId: string, songIds: string[], index: number) {
     // Build if missing
@@ -1176,6 +1122,14 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.fetchRadioStations();
   }
 
+private rebuildLocalYtQueue() {
+  this.ytIds = this.getYoutubeIdsInOrder();
+  // keep index aligned if something already playing
+  const current = this.ytPlayer?.getVideoData()?.video_id || this.parseYoutubeId(this.currentUrl || '');
+  const idx = current ? this.ytIds.indexOf(current) : -1;
+  if (idx >= 0) this.ytIndex = idx;
+}
+
   async playRadioStation(station: RadioStation) {
     if (!station || !station.url_resolved) {
       alert('Invalid radio station URL');
@@ -1223,33 +1177,45 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.cdr.markForCheck();
   }
 
-  private startYtHealthWatch() {
-    this.stopYtHealthWatch();
-    this.ytHealthTimer = window.setInterval(() => {
-      const iframe = this.ytPlayer?.getIframe?.() as HTMLIFrameElement | undefined;
-      if (!iframe) return;
+private startYtHealthWatch() {
+  this.stopYtHealthWatch();
 
-      const src = iframe.getAttribute('src') || '';
-      if (src.startsWith('chrome-error://') || src.includes('chromewebdata')) {
-        console.warn('[YT] iframe crashed; rebuilding');
-        const ids = this.getYoutubeIdsInOrder();
-        const currentId =
+  this.ytHealthTimer = window.setInterval(() => {
+    if (!this.ytPlayer) return;
+
+    try {
+      // A lightweight call that should work if the bridge is alive
+      this.ytPlayer.getCurrentTime();
+      this.ytDeadCount = 0;
+    } catch {
+      this.ytDeadCount++;
+      console.warn('[YT] health ping failed', this.ytDeadCount);
+
+      // after a couple failures, rebuild
+      if (this.ytDeadCount >= 2) {
+        this.ytDeadCount = 0;
+
+        const id =
           this.ytPlayer?.getVideoData()?.video_id ||
           this.parseYoutubeId(this.currentUrl || '') ||
-          ids[0];
+          this.ytIds[this.ytIndex];
 
-        const idx = Math.max(0, ids.indexOf(currentId));
-        if (ids.length) this.rebuildYTPlayer(ids[idx] || ids[0], ids, idx);
+        if (id) {
+          console.warn('[YT] rebuilding after suspected crash', id);
+          this.rebuildYTPlayer(id, [], 0); // see below, simplified rebuild
+        }
       }
-    }, 5000);
-  }
-
-  private stopYtHealthWatch() {
-    if (this.ytHealthTimer) {
-      clearInterval(this.ytHealthTimer);
-      this.ytHealthTimer = undefined;
     }
+  }, 4000);
+}
+
+private stopYtHealthWatch() {
+  if (this.ytHealthTimer) {
+    clearInterval(this.ytHealthTimer);
+    this.ytHealthTimer = undefined;
   }
+}
+
 
   private parseYoutubeId(url: string): string {
     if (!url) return '';
@@ -1286,6 +1252,34 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     }
     return '';
   }
+  
+private playByIndex(index: number) {
+  if (!this.ytIds.length) return;
+
+  this.ytIndex = (index + this.ytIds.length) % this.ytIds.length;
+  const id = this.ytIds[this.ytIndex];
+
+  // update your URL state
+  this.currentUrl = `https://www.youtube.com/watch?v=${id}`;
+  this.currentFileId = null;
+  this.isMusicPlaying = true;
+
+  // If player not ready, queue it
+  if (!this.ytReady || !this.ytPlayer || !this.playerReady) {
+    this.pendingPlay = { url: this.currentUrl, fileId: null };
+    return;
+  }
+
+  // 🔥 Always direct-load the video
+  try {
+    this.switching = true;
+    this.ytPlayer.loadVideoById(id);
+    this.ytPlayer.playVideo();
+  } finally {
+    setTimeout(() => (this.switching = false), 250);
+  }
+}
+
   async refreshDom() {
     setTimeout(() => {
       this.cdr.markForCheck();
@@ -1295,6 +1289,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     await this.getSongList().then(() => {
       this.updatePaginatedSongs();
       this.cdr.markForCheck();
-    });
+    }); 
+    this.rebuildLocalYtQueue(); 
   }
 }
