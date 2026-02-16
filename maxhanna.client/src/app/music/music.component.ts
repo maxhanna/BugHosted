@@ -76,9 +76,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   private mo?: MutationObserver;
   private ytHealthTimer?: number; 
   private playerReady = false;  // <- REAL ready state
-  private pendingSwitch?: { ids: string[]; index: number; firstId: string };
-  private lastSwitchAt = 0; 
-  private switchTimer?: number; 
+  private pendingSwitch?: { ids: string[]; index: number; firstId: string }; 
   private lastPlaylistKey = ''; 
 private lastTap = 0;
 
@@ -974,20 +972,34 @@ private observePlayerDom() {
           controls: 1,
         },
         events: {
-          onReady: () => {
-            this.playerReady = true; 
-            const p = this.pendingSwitch;
-            this.pendingSwitch = undefined;
+          
+onReady: () => {
+  this.playerReady = true;
 
-            try { 
-              const idsToUse = p?.ids ?? songIds;
-              const idxToUse = p?.index ?? index;
-              this.lastPlaylistKey = idsToUse.join(',');
-              this.ytPlayer!.loadPlaylist(idsToUse, idxToUse, 0, 'small');
-              this.ytPlayer!.playVideo(); 
-            } catch {
-              console.warn('[YT] Failed to load playlist on ready, will rely on pendingSwitch or user action');
-            } 
+  const p = this.pendingSwitch;
+  this.pendingSwitch = undefined;
+
+  const idsToUse = p?.ids ?? songIds;
+  const idxToUse = p?.index ?? index;
+
+  this.lastPlaylistKey = idsToUse.join(',');
+  this.ytPlayer!.loadPlaylist(idsToUse, idxToUse, 0, 'small');
+  this.ytPlayer!.playVideo();
+
+  // ✅ If there was a pendingPlay, force switch to it now
+  if (this.pendingPlay?.url) {
+    const id = this.parseYoutubeId(this.pendingPlay.url);
+    this.pendingPlay = undefined;
+    const found = idsToUse.indexOf(id);
+    if (found >= 0) {
+      this.ytPlayer!.playVideoAt(found);
+      this.ytPlayer!.playVideo();
+    } else if (id) {
+      this.ytPlayer!.loadVideoById(id);
+      this.ytPlayer!.playVideo();
+    }
+  }
+
             try {
               const iframe = this.ytPlayer!.getIframe() as HTMLIFrameElement;
               iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
@@ -1015,27 +1027,71 @@ private observePlayerDom() {
 
 
 private ensureYTPlayerBuilt(firstId: string, songIds: string[], index: number) {
-  
- const now = Date.now();
-  if (now - this.lastTap < 80) return;
-  this.lastTap = now;
-
-  // build if missing
+  // Build if missing
   if (!this.ytPlayer) {
     this.pendingSwitch = { ids: songIds, index, firstId };
     this.rebuildYTPlayer(firstId, songIds, index);
     return;
   }
 
-  // queue if not ready
+  // Queue if player not ready yet
   if (!this.playerReady) {
     this.pendingSwitch = { ids: songIds, index, firstId };
     return;
   }
 
-  // ✅ IMPORTANT: switch immediately (no debounce, no setTimeout)
+  // ✅ Switch immediately (no debounce timer)
   this.switchWithinPlaylist(songIds, index);
 }
+
+private async forceSwitchToId(videoId: string) {
+  if (!this.ytPlayer) return;
+  try {
+    this.ytPlayer.loadVideoById(videoId);
+    this.ytPlayer.playVideo();
+  } catch (e) {
+    console.warn('[YT] forceSwitchToId failed, rebuilding', e);
+    this.rebuildYTPlayer(videoId, this.getYoutubeIdsInOrder(), 0);
+  }
+}
+
+private switchWithinPlaylist(ids: string[], index: number) {
+  if (!this.ytPlayer) return;
+
+  const desiredId = ids[index];
+  const beforeId = this.ytPlayer.getVideoData()?.video_id;
+
+  try {
+    const key = ids.join(',');
+    const pl = this.ytPlayer.getPlaylist?.() || [];
+
+    if (this.lastPlaylistKey === key && pl.length) {
+      this.ytPlayer.playVideoAt(index);
+      this.ytPlayer.playVideo();
+    } else {
+      this.lastPlaylistKey = key;
+      this.ytPlayer.loadPlaylist(ids, index, 0, 'small');
+      this.ytPlayer.playVideo();
+    }
+  } catch (e) {
+    console.warn('[YT] switchWithinPlaylist failed', e);
+    if (desiredId) this.forceSwitchToId(desiredId);
+    return;
+  }
+
+  // ✅ Verify after a short moment: did the player actually change?
+  setTimeout(() => {
+    const afterId = this.ytPlayer?.getVideoData()?.video_id;
+    if (desiredId && afterId && afterId !== desiredId) {
+      console.warn('[YT] playlist command ignored, forcing loadVideoById', { desiredId, afterId });
+      this.forceSwitchToId(desiredId);
+    } else if (desiredId && !afterId) {
+      // sometimes videoData not ready yet, still force
+      this.forceSwitchToId(desiredId);
+    }
+  }, 250);
+}
+
 
 
    
@@ -1075,44 +1131,7 @@ private ensureYTPlayerBuilt(firstId: string, songIds: string[], index: number) {
       }
     }
   }
-
-
-private switchWithinPlaylist(ids: string[], index: number) {
-  console.log('[YT] switchWithinPlaylist', { index, idsLen: ids.length });
-
-  if (!this.ytPlayer) return;
-  const key = ids.join(',');
-
-  try {
-    const pl = this.ytPlayer.getPlaylist?.() || [];
-    console.log('[YT] player playlist len', pl.length, 'keyMatch', this.lastPlaylistKey === key);
-
-    if (this.lastPlaylistKey === key && pl.length) {
-      this.ytPlayer.playVideoAt(index);
-      this.ytPlayer.playVideo();
-      return;
-    }
-
-    this.lastPlaylistKey = key;
-    this.ytPlayer.loadPlaylist(ids, index, 0, 'small');
-    this.ytPlayer.playVideo();
-  } catch (e) {
-    console.warn('[YT] switchWithinPlaylist failed', e);
-    const firstId = ids[index] || ids[0];
-    if (firstId) this.rebuildYTPlayer(firstId, ids, index);
-  }
-}
-
-
-private flushPendingSwitch() {
-  const p = this.pendingSwitch;
-  if (!p || !this.playerReady || !this.ytPlayer) return;
-
-  this.pendingSwitch = undefined;
-
-  // If playlist is already attached, jump directly (more reliable than loadPlaylist every time)
-  this.switchWithinPlaylist(p.ids, p.index);
-} 
+  
   async loadRadioData() {
     this.startLoading();
     this.isLoadingRadio = true;

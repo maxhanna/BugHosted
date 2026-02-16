@@ -3,27 +3,7 @@
     width: unset !important;
   }
 }
-
-.iframeDiv, .mobileIframeDiv { 
-  max-width: 100%;
-  max-height: CALC(var(--vh, 1vh) * 100 - 110px);  
-  top: -25px; 
-  z-index: 2;
-  text-align: center;
-}
-
-.smallIframeDiv {
-  width: 100%;
-  max-width: 480px;
-} 
-
-.mobileIframeDiv {
-  width: 100vw;
-  max-height: calc(100vh - 120px); 
-  margin: 0 auto;
-  background: #000; 
-  overflow: hidden;
-} 
+  
 
 /* Container for YT iframe. Make it a normal block with a guaranteed height */
 .iframeDiv,
@@ -55,24 +35,7 @@
 @media (max-width: 667px) {
   .componentMain { width: unset !important; }
 }
-
-/* Optional: safe-area padding for notch devices */
-@supports (padding: env(safe-area-inset-bottom)) {
-  .mobileIframeDiv {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-}
-
-.mobileIframeDiv {
-  touch-action: manipulation;
-}
-
-/* Respect safe area on iOS notch devices if you have fixed controls at the bottom */
-@supports (padding: env(safe-area-inset-bottom)) {
-  .mobileIframeDiv {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-}
+   
 
 .musicControls {
   width: 100%;
@@ -370,23 +333,7 @@ input[type="submit"] {
 .actionTd { 
   display: flex;
   gap: 5px;
-}
-
-/* Keep element present in DOM but visually hidden while remaining operable.
-   Uses opacity + composited transform to avoid layout/reflow. */
-.visually-hidden-operable {
-  opacity: 0;
-  transition: opacity 120ms linear;
-  will-change: opacity;
-  /* keep pointer events enabled so element remains operable */
-  pointer-events: auto;
-}
-
-/* Utility to hide visually and also disable pointer events when desired */
-.visually-hidden-noninteractive {
-  opacity: 0;
-  pointer-events: none;
-}
+} 
 
 .radioStationItem {
   display: flex;
