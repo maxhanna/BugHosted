@@ -81,9 +81,7 @@
   .mobileIframeDiv {
     padding-bottom: env(safe-area-inset-bottom);
   }
-} 
- 
-
+}
 
 .musicControls {
   width: 100%;
