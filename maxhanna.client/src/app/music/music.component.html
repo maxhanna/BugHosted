@@ -120,16 +120,16 @@
           <!-- YouTube/Files Table -->
           <table id="songListTable" [class]="isEditing.length ? '' : 'mainTable'" id="todoTable" [hidden]="selectedType === 'radio' || !(paginatedSongs && paginatedSongs.length > 0)">
             <tbody>
-              <tr *ngFor="let song of paginatedSongs; trackBy: trackSong" id="songId{{song.id!}}" [class]="isEditing.includes(song.id ?? 0) ? 'popupPanel' : ''">
-                <td [hidden]="!song.id" [style.width]="song.id && isEditing.includes(song.id) ? '' : '100%'">
-                  <span [hidden]="song.id && isEditing.includes(song.id)" class="songTitle" (click)="play(song.url, song.fileId)" >{{song.todo}}</span>
-                  <div [hidden]="!song.id || (song.id && !isEditing.includes(song.id))" class="popupPanelTitle">Edit Song</div>
+              <tr *ngFor="let song of paginatedSongs; trackBy: trackSong" id="songId{{song.id!}}" [class]="isEditing.length > 0 ? 'popupPanel' : ''">
+                <td [hidden]="!song.id" [style.width]="isEditing.length > 0 ? '' : '100%'">
+                  <span [hidden]="isEditing.length > 0" class="songTitle" (click)="play(song.url, song.fileId)" >{{song.todo}}</span>
+                  <div [hidden]="!isEditing.length" class="popupPanelTitle">Edit Song</div>
                   <div>
-                    <span [hidden]="!song.id || (song.id && !isEditing.includes(song.id))">Title:&nbsp;</span>
+                    <span [hidden]="!isEditing.length">Title:&nbsp;</span>
                     <textarea 
                       type=text 
                       id="editSongNameInput" 
-                      [hidden]="!song.id || (song.id && !isEditing.includes(song.id))" 
+                      [hidden]="!isEditing.length" 
                       [value]="song.todo" 
                       style="width:100%"
                       (click)="$event.stopPropagation()" 
@@ -137,11 +137,11 @@
                       (input)="hasEditedSong = true;"></textarea>
                   </div>
                   <div>
-                    <span [hidden]="!song.id || (song.id && !isEditing.includes(song.id))">Url:&nbsp;</span>
+                    <span [hidden]="!isEditing.length">Url:&nbsp;</span>
                     <textarea 
                     type=text 
                     id="editSongUrlInput" 
-                      [hidden]="(!song?.id || (song.id && !isEditing.includes(song.id)))" 
+                      [hidden]="!isEditing.length" 
                       [value]="song.url" 
                       style="width:100%" 
                       (click)="$event.stopPropagation()" 
@@ -151,17 +151,17 @@
                 </td>
                 <td class="actionTd" [hidden]="user || !song.id">
                   <button (click)="editSong(song.id)" class="xxSmallFont cursorPointer" [hidden]="isEditing.length">
-                    {{ (song.id && isEditing.includes(song.id)) ? '💾':'✏️'}}
+                    {{ (isEditing.length > 0) ? '💾':'✏️'}}
                   </button> 
                   <button 
                     (click)="closeEditPopup()" 
                     [title]="'Edit'" 
                     class="cursorPointer closeButton"
-                    [class.hidden-operable]="(song.id && isEditing.includes(song.id)) ? false : true" 
+                    [class.hidden-operable]="(isEditing.length > 0) ? false : true" 
                     id="closeOverlay">
                     💾Update
                   </button>
-                  <button (click)="deleteSong(song.id)" class="cursorPointer" [hidden]="!song?.id || (song.id && !isEditing.includes(song.id))">❌Delete</button>
+                  <button (click)="deleteSong(song.id)" class="cursorPointer" [hidden]="!isEditing.length">❌Delete</button>
                 </td>
               </tr>
             </tbody>
