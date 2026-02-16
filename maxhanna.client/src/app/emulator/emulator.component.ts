@@ -114,8 +114,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.remove_me('EmulatorComponent');
   }
 
-  async safeExit(): Promise<void> {
-    this.prepareForExit();
+  async safeExit(): Promise<void> { 
+    this.clearAutosave();
     if (!this.romName || !this.parentRef?.user?.id) {
       return this.navigateHome();
     }
@@ -1492,12 +1492,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       }, timeoutMs);
     });
   }
-
-  private prepareForExit() {
-    this._exiting = true;
-    this.clearAutosave();
-  }
-
+ 
   /** Stop autosave and wait for any current or final save attempt to complete. */
   private async flushSavesBeforeExit(timeoutMs = 12000): Promise<boolean> {
     this._exiting = true;

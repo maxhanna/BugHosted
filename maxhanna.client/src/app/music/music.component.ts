@@ -74,6 +74,9 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   private locationSub?: SubscriptionLike;
   private radioAudioEl?: HTMLAudioElement;
   private screenLock?: any;
+  private readonly instance = Math.random().toString(16).slice(2);  
+  private mo?: MutationObserver;
+
   ytSearchTerm = '';
 
   @Input() user?: User;
@@ -139,10 +142,46 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   async ngOnInit() {
+    console.log('[Music]', this.instance, 'ngOnInit'); 
     await this.tryInitialLoad();
   }
 
-  ngOnDestroy(): void {
+  async ngAfterViewInit() { 
+    console.log('[Music]', this.instance, 'ngAfterViewInit');
+
+    if (this.user) {
+      this.componentMain.nativeElement.style.padding = 'unset';
+    }
+
+    await this.ensureYouTubeApi();
+
+    if (!(window as any).YT?.Player) {
+      console.error('[Music] YT still undefined after ensureYouTubeApi()');
+      return;
+    }
+
+    this.ytReady = true;
+
+    // If you want to autostart when you already have songs loaded:
+    if (this.songs.length && this.songs[0]?.url) {
+      const ids = this.getYoutubeIdsInOrder();
+      const firstId = this.parseYoutubeId(this.songs[0].url!);
+      let index = ids.indexOf(firstId);
+      if (index < 0) { ids.unshift(firstId); index = 0; }
+
+      // ✅ Recreate the player with URL-level playlist
+      this.rebuildYTPlayer(firstId, ids, index);
+    } else if (this.pendingPlay?.url) {
+      this.consumePendingPlay();
+    }
+    
+  this.observePlayerDom(); 
+  }
+
+  ngOnDestroy(): void { 
+    console.log('[Music]', this.instance, 'ngOnDestroy');
+    console.trace('[Music] destroy stack');
+
     try { this.ytPlayer?.stopVideo(); } catch { console.error("Error stopping YT video"); }
     try { this.ytPlayer?.destroy(); } catch { console.error("Error destroying YT player"); }
     this.ytPlayer = undefined;
@@ -171,6 +210,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       try { this.radioAudioEl.remove(); } catch { }
       this.radioAudioEl = undefined;
     }
+    
+    this.mo?.disconnect(); 
   }
 
 
@@ -197,36 +238,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.play(this.songs[0].url!);
     }
     console.log('[Music] Loaded', this.songs.length, 'songs; page', this.currentPage);
-  }
-
-  async ngAfterViewInit() {
-    if (this.user) {
-      this.componentMain.nativeElement.style.padding = 'unset';
-    }
-
-    await this.ensureYouTubeApi();
-
-    if (!(window as any).YT?.Player) {
-      console.error('[Music] YT still undefined after ensureYouTubeApi()');
-      return;
-    }
-
-    this.ytReady = true;
-
-    // If you want to autostart when you already have songs loaded:
-    if (this.songs.length && this.songs[0]?.url) {
-      const ids = this.getYoutubeIdsInOrder();
-      const firstId = this.parseYoutubeId(this.songs[0].url!);
-      let index = ids.indexOf(firstId);
-      if (index < 0) { ids.unshift(firstId); index = 0; }
-
-      // ✅ Recreate the player with URL-level playlist
-      this.rebuildYTPlayer(firstId, ids, index);
-    } else if (this.pendingPlay?.url) {
-      this.consumePendingPlay();
-    }
-  }
-
+  } 
 
   async next() {
     if (!this.ytPlayer) return;
@@ -769,8 +781,21 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   extractYouTubeVideoId(url: string) {
     const id = this.parseYoutubeId(url);
     return id ? `https://www.youtube.com/watch?v=${id}` : '';
-  }
+  } 
 
+private observePlayerDom() {
+  const el = this.musicVideo?.nativeElement;
+  if (!el) return;
+
+  this.mo = new MutationObserver(() => {
+    const iframe = el.querySelector('iframe');
+    if (!iframe) {
+      console.warn('[YT] iframe missing! DOM likely replaced/cleared');
+    }
+  });
+
+  this.mo.observe(el, { childList: true, subtree: true });
+}
 
   private rotatePlaylistFromId(allIds: string[], startId: string): string[] {
     if (!allIds.length) return [];
@@ -1015,31 +1040,10 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     // Build once
     this.rebuildYTPlayer(firstId, songIds, index);
   }
-
   
   private safeResize = () => {
-    if (!this.ytPlayer) return;
-    if (document.visibilityState !== 'visible') return;
-
-    const hostEl = this.musicVideo?.nativeElement as HTMLElement | undefined;
-    if (!hostEl) return;
-
-    const rect = hostEl.getBoundingClientRect();
-
-    // Skip risky resizes—tiny sizes are known to crash the iframe process
-    const w = Math.round(rect.width || 0);
-    const h = Math.round(rect.height || 0);
-    if (w < 50 || h < 50) {
-      console.debug('[YT] Skipping resize due to tiny size', { w, h });
-      return;
-    }
-
-    try {
-      this.ytPlayer.setSize(w, h);
-      console.log('[YT] Resized player to', { w, h });
-    } catch {
-      console.warn('[YT] Failed to resize player', { w, h });
-    }
+    console.log('[Music] safeResize called -- it is now disabled and does nothing.');
+    return; 
   }; 
 
 

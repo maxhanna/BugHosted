@@ -480,3 +480,22 @@ input[type="submit"] {
   height: 1px;
   overflow: hidden;
 }
+
+/* stable player box */
+.yt-box {
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 200px;      /* optional safety */
+  background: #000;
+  position: relative;
+}
+
+/* YT iframe fills */
+.yt-box iframe {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0;
+}
