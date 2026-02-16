@@ -291,11 +291,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       } catch (e) {
         console.warn('[EJS] onLoadState fetch/apply failed', e);
       }
-    }; 
+    };
     this.applyEjsRunOptions();
     // If the build calls back with the instance, capture it early
     window.EJS_ready = (api: any) => {
-      try { 
+      try {
         this.scanAndTagVpadControls();
 
 
@@ -316,7 +316,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       link.href = '/assets/emulatorjs/data/emulator.min.css';
       link.setAttribute('data-ejs-css', '1');
       document.head.appendChild(link);
-    } 
+    }
     // Ensure menu is closed when the emulator starts
     this.isMenuPanelOpen = false;
     try { this.parentRef?.closeOverlay(); } catch { }
@@ -401,7 +401,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       saveState: false,
       loadState: false,
       screenRecord: false,
-      gamepad: false,
+      gamepad: !this.onMobile(),
       cheat: false,
       volume: false,
       quickSave: true,
@@ -541,7 +541,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     w.EJS_directKeyboardInput = true;   // deliver raw key events to the core
     w.EJS_enableGamepads = true;        // let cores read the gamepad state
     w.EJS_disableAltKey = true;         // avoid Alt being swallowed by browser/UI
-    w.EJS_DEBUG_XX = true;              // debug options
+    w.EJS_fullscreenOnLoad = false;     // start in-window, let user choose fullscreen
+    w.EJS_fullscreen = false;           // start in-window, let user choose fullscreen (legacy option)
+    w.EJS_DEBUG_XX = true;              // debug options 
+    w.EJS_logCoreInfo = true;           // debug options 
+    w.EJS_logVideo = true;              // debug options 
+    w.EJS_logAudio = true;              // debug options 
+    w.EJS_logInput = true;              // debug options 
+    w.EJS_logSaves = true;              // debug options 
     w.EJS_afterStart = () => {
       try {
         const gameEl = document.getElementById('game');
@@ -1502,23 +1509,23 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return !!done;
   }
 
-/** Create or reuse a tiny stylesheet inside the vpad root. */
-private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
-  let style = root.querySelector('style[data-vpad-overrides="min"]') as HTMLStyleElement | null;
-  if (style) return style;
+  /** Create or reuse a tiny stylesheet inside the vpad root. */
+  private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
+    let style = root.querySelector('style[data-vpad-overrides="min"]') as HTMLStyleElement | null;
+    if (style) return style;
 
-  style = document.createElement('style');
-  style.setAttribute('data-vpad-overrides', 'min');
+    style = document.createElement('style');
+    style.setAttribute('data-vpad-overrides', 'min');
 
-  // 🔧 Tweak these two knobs if you want slightly bigger/smaller pills later:
-  const PILL_W = 112;  // px
-  const PILL_H = 76;   // px
-  const FONT   = 30;   // px
+    // 🔧 Tweak these two knobs if you want slightly bigger/smaller pills later:
+    const PILL_W = 112;  // px
+    const PILL_H = 76;   // px
+    const FONT = 30;   // px
 
-  const SEGA   = 72;   // px (Genesis round buttons: A/B/C/X/Y/Z)
-  const SEGA_FONT = 20;
+    const SEGA = 72;   // px (Genesis round buttons: A/B/C/X/Y/Z)
+    const SEGA_FONT = 20;
 
-  style.textContent = `
+    style.textContent = `
 /* ==== Minimal overrides applied to the actual clickable elements we tag ==== */
 
 /* D-pad scale: modest bump */
@@ -1587,64 +1594,85 @@ private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
   .max-pill.is-b { transform: translate(-30px, 18px) !important; }
 }
 `;
-  root.appendChild(style);
-  return style;
-}
-  
-/** Find inner clickable node for a wrapper (works across common skins). */
-private findClickableInside(host: Element | null): HTMLElement | null {
-  if (!host) return null;
-  const inner =
-    host.querySelector('.ejs_button, .ejs-button, button, [role="button"]') as HTMLElement | null
-    || (host.firstElementChild as HTMLElement | null);
-  return (inner as HTMLElement) || (host as HTMLElement);
-}
-
-/** Fallback search by visible label (A/B/Fast/Slow/Start/Select). */
-private findByLabel(root: HTMLElement, labels: string[]): HTMLElement | null {
-  const want = new Set(labels.map(s => s.trim().toUpperCase()));
-  const nodes = root.querySelectorAll('.ejs_button, .ejs-button, button, [role="button"], [class*="button"]');
-  for (const n of Array.from(nodes)) {
-    const el = n as HTMLElement;
-    const txt = (el.textContent || el.getAttribute('aria-label') || el.getAttribute('title') || '')
-      .trim().toUpperCase();
-    if (txt && want.has(txt)) return el;
+    root.appendChild(style);
+    return style;
   }
-  return null;
-}
 
-/** Minimal: tag D-pad, A/B (non-Sega), or Sega circles; plus Fast/Slow and Start/Select. */
-private scanAndTagVpadControls(): void {
-  const root = document.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent') as HTMLElement | null;
-  if (!root) return;
+  /** Find inner clickable node for a wrapper (works across common skins). */
+  private findClickableInside(host: Element | null): HTMLElement | null {
+    if (!host) return null;
+    const inner =
+      host.querySelector('.ejs_button, .ejs-button, button, [role="button"]') as HTMLElement | null
+      || (host.firstElementChild as HTMLElement | null);
+    return (inner as HTMLElement) || (host as HTMLElement);
+  }
 
-  // ensure our minimal stylesheet is present in the vpad root
-  this.ensureVpadStyleSheet(root);
-
-  // D-pad (all systems)
-  const dpad = root.querySelector('.ejs_dpad, .ejs-dpad, [class*="dpad"]') as HTMLElement | null;
-  if (dpad) dpad.classList.add('max-dpad');
-
-  // ---------- Sega detection ----------
-  const hasGenesis = !!(
-    document.getElementById('genA') || document.getElementById('genB') || document.getElementById('genC') ||
-    document.getElementById('genX') || document.getElementById('genY') || document.getElementById('genZ')
-  );
-
-  if (hasGenesis) {
-    // Tag Sega circles and STOP (do not add A/B pills)
-    const ids = ['genA','genB','genC','genX','genY','genZ'];
-    for (const id of ids) {
-      const host = document.getElementById(id);
-      const clickable =
-        this.findClickableInside(host) ||
-        (id.startsWith('gen') ? this.findByLabel(root, [id.slice(3).toUpperCase()]) : null);
-
-      if (clickable) {
-        clickable.classList.remove('max-pill', 'is-a', 'is-b'); // just in case
-        clickable.classList.add('max-sega');
-      }
+  /** Fallback search by visible label (A/B/Fast/Slow/Start/Select). */
+  private findByLabel(root: HTMLElement, labels: string[]): HTMLElement | null {
+    const want = new Set(labels.map(s => s.trim().toUpperCase()));
+    const nodes = root.querySelectorAll('.ejs_button, .ejs-button, button, [role="button"], [class*="button"]');
+    for (const n of Array.from(nodes)) {
+      const el = n as HTMLElement;
+      const txt = (el.textContent || el.getAttribute('aria-label') || el.getAttribute('title') || '')
+        .trim().toUpperCase();
+      if (txt && want.has(txt)) return el;
     }
+    return null;
+  }
+
+  /** Minimal: tag D-pad, A/B (non-Sega), or Sega circles; plus Fast/Slow and Start/Select. */
+  private scanAndTagVpadControls(): void {
+    const root = document.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent') as HTMLElement | null;
+    if (!root) return;
+
+    // ensure our minimal stylesheet is present in the vpad root
+    this.ensureVpadStyleSheet(root);
+
+    // D-pad (all systems)
+    const dpad = root.querySelector('.ejs_dpad, .ejs-dpad, [class*="dpad"]') as HTMLElement | null;
+    if (dpad) dpad.classList.add('max-dpad');
+
+    // ---------- Sega detection ----------
+    const hasGenesis = !!(
+      document.getElementById('genA') || document.getElementById('genB') || document.getElementById('genC') ||
+      document.getElementById('genX') || document.getElementById('genY') || document.getElementById('genZ')
+    );
+
+    if (hasGenesis) {
+      // Tag Sega circles and STOP (do not add A/B pills)
+      const ids = ['genA', 'genB', 'genC', 'genX', 'genY', 'genZ'];
+      for (const id of ids) {
+        const host = document.getElementById(id);
+        const clickable =
+          this.findClickableInside(host) ||
+          (id.startsWith('gen') ? this.findByLabel(root, [id.slice(3).toUpperCase()]) : null);
+
+        if (clickable) {
+          clickable.classList.remove('max-pill', 'is-a', 'is-b'); // just in case
+          clickable.classList.add('max-sega');
+        }
+      }
+
+      // Speed Fast / Slow
+      const fast = this.findClickableInside(document.getElementById('speed_fast')) || this.findByLabel(root, ['FAST']);
+      const slow = this.findClickableInside(document.getElementById('speed_slow')) || this.findByLabel(root, ['SLOW']);
+      if (fast) fast.classList.add('max-rect');
+      if (slow) slow.classList.add('max-rect');
+
+      // Start / Select
+      const start = this.findClickableInside(document.getElementById('start')) || this.findByLabel(root, ['START']);
+      const select = this.findClickableInside(document.getElementById('select')) || this.findByLabel(root, ['SELECT']);
+      if (start) start.classList.add('max-nudge-down');
+      if (select) select.classList.add('max-nudge-down');
+
+      return; // <-- IMPORTANT: do not fall through to pill logic
+    }
+
+    // ---------- Non-Sega A/B pill logic ----------
+    const a = this.findClickableInside(document.getElementById('btnA')) || this.findByLabel(root, ['A']);
+    const b = this.findClickableInside(document.getElementById('btnB')) || this.findByLabel(root, ['B']);
+    if (a) { a.classList.add('max-pill', 'is-a'); }
+    if (b) { b.classList.add('max-pill', 'is-b'); }
 
     // Speed Fast / Slow
     const fast = this.findClickableInside(document.getElementById('speed_fast')) || this.findByLabel(root, ['FAST']);
@@ -1655,30 +1683,9 @@ private scanAndTagVpadControls(): void {
     // Start / Select
     const start = this.findClickableInside(document.getElementById('start')) || this.findByLabel(root, ['START']);
     const select = this.findClickableInside(document.getElementById('select')) || this.findByLabel(root, ['SELECT']);
-    if (start)  start.classList.add('max-nudge-down');
+    if (start) start.classList.add('max-nudge-down');
     if (select) select.classList.add('max-nudge-down');
-
-    return; // <-- IMPORTANT: do not fall through to pill logic
   }
-
-  // ---------- Non-Sega A/B pill logic ----------
-  const a = this.findClickableInside(document.getElementById('btnA')) || this.findByLabel(root, ['A']);
-  const b = this.findClickableInside(document.getElementById('btnB')) || this.findByLabel(root, ['B']);
-  if (a) { a.classList.add('max-pill', 'is-a'); }
-  if (b) { b.classList.add('max-pill', 'is-b'); }
-
-  // Speed Fast / Slow
-  const fast = this.findClickableInside(document.getElementById('speed_fast')) || this.findByLabel(root, ['FAST']);
-  const slow = this.findClickableInside(document.getElementById('speed_slow')) || this.findByLabel(root, ['SLOW']);
-  if (fast) fast.classList.add('max-rect');
-  if (slow) slow.classList.add('max-rect');
-
-  // Start / Select
-  const start = this.findClickableInside(document.getElementById('start')) || this.findByLabel(root, ['START']);
-  const select = this.findClickableInside(document.getElementById('select')) || this.findByLabel(root, ['SELECT']);
-  if (start)  start.classList.add('max-nudge-down');
-  if (select) select.classList.add('max-nudge-down');
-}
 
   leftMovementArea(useJoystick: boolean): VPadItem {
     return useJoystick
@@ -1904,6 +1911,8 @@ declare global {
     EJS_gameParent?: string;
     EJS_language?: string;
     EJS_startOnLoaded?: boolean;
+    EJS_fullscreenOnLoad?: boolean;
+    EJS_fullscreen?: boolean;
     EJS_paths?: { [key: string]: string };
     EJS_volume?: number;
     EJS_lightgun?: boolean;
@@ -1917,6 +1926,11 @@ declare global {
     EJS_enableGamepads?: boolean;
     EJS_disableAltKey?: boolean;
     EJS_DEBUG_XX?: boolean;
+    EJS_logCoreInfo?: boolean;
+    EJS_logSaves?: boolean;
+    EJS_logVideo?: boolean;
+    EJS_logAudio?: boolean;
+    EJS_logInput?: boolean;
     EJS_VirtualGamepadSettings?: any;
     EJS?: any;
     EJS_emulator?: any;

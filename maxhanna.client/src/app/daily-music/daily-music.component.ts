@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, EventEmitter, HostListener, Input, OnInit, Output, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
@@ -18,7 +18,7 @@ export class DailyMusicComponent extends ChildComponent implements OnInit, After
   fileId?: number | undefined = undefined;
   showPopup: boolean = false;
 
-  constructor(private todoService: TodoService) { super(); }
+  constructor(private todoService: TodoService, private cdr: ChangeDetectorRef) { super(); }
 
   async ngOnInit() {
     await this.loadTodayMusic();
@@ -33,6 +33,7 @@ export class DailyMusicComponent extends ChildComponent implements OnInit, After
     try { 
       this.hasData.emit((this.songs?.length ?? 0) > 0); 
     } catch {}
+    this.cdr.detectChanges();
   }
 
   play(url?: string, fileId?: number) {
@@ -56,6 +57,7 @@ export class DailyMusicComponent extends ChildComponent implements OnInit, After
         try {
           if (typeof parent.playYoutubeVideo === 'function') {
             parent.playYoutubeVideo(videoId);
+            this.cdr.detectChanges();
             return;
           }
         } catch (e) {
@@ -74,6 +76,7 @@ export class DailyMusicComponent extends ChildComponent implements OnInit, After
     } catch (e) {
       console.warn('Fallback youtube trigger failed', e);
     }
+    this.cdr.detectChanges();
   }
 
   closeButton() {
@@ -83,5 +86,6 @@ export class DailyMusicComponent extends ChildComponent implements OnInit, After
     if (parent) {
       parent.closeOverlay();
     }
+    this.cdr.detectChanges();
   }
 }
