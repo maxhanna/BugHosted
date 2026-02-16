@@ -14,6 +14,7 @@
   width: 100%;
   background: #000;
   overflow: hidden; 
+  min-height: 200px;
 }
 
 /* If you need sticky behavior, put it on a wrapper above, not the player box */
@@ -89,9 +90,13 @@
 #musicPlayerDiv {
   display: flex;
   flex-direction: column;
-  height: calc(var(--vh, 1vh) * 100 - 235px); /* reuse your existing logic */
+
+  height: calc(100vh - 235px);
+  height: calc(100dvh - 235px);
+
   overflow: hidden; /* IMPORTANT: stop scrolling the whole panel */ 
   max-width: calc(100vw - 10px);
+  min-height: 200px;
 }
 .smallSongList,
 .normalSongList {

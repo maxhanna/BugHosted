@@ -915,6 +915,19 @@ this.playByIndex(idx >= 0 ? idx : 0);
     return !!(this.songs && this.songs.length > 0 && this.isMusicPlaying);
   }
 
+private hardRebuild(id: string) {
+  try { this.ytPlayer?.destroy(); } catch {}
+  this.ytPlayer = undefined;
+  this.playerReady = false;
+
+  // important: clear the container contents
+  if (this.musicVideo?.nativeElement) {
+    this.musicVideo.nativeElement.innerHTML = '';
+  }
+
+  this.rebuildYTPlayer(id, [], 0);
+}
+
   
 private rebuildYTPlayer(firstId: string, _unusedIds: string[], _unusedIndex: number) {
   if (!this.musicVideo?.nativeElement) return;
@@ -1202,7 +1215,7 @@ private startYtHealthWatch() {
 
         if (id) {
           console.warn('[YT] rebuilding after suspected crash', id);
-          this.rebuildYTPlayer(id, [], 0); // see below, simplified rebuild
+          this.hardRebuild(id);
         }
       }
     }
