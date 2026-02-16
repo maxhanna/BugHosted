@@ -1710,7 +1710,7 @@ private scanAndTagVpadControls(): void {
   twoButtonRight(): VPadItem[] {
     // Make B a bit left/below; A a bit right/above (classic layout)
     const B: VPadItem = { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 40, top: 80, input_value: 0, bold: true };
-    const A: VPadItem = { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 81, top: 40, input_value: 8, bold: true };
+    const A: VPadItem = { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 60, top: 20, input_value: 8, bold: true };
     return [B, A];
   }
 
@@ -1745,12 +1745,12 @@ private scanAndTagVpadControls(): void {
   shouldersTop(hasLR2 = false): VPadItem[] {
     const items: VPadItem[] = [
       { type: 'button', id: 'btnL', text: 'L', location: 'top', left: 10, top: 0, input_value: 10, bold: true, block: true },
-      { type: 'button', id: 'btnR', text: 'R', location: 'top', left: 270, top: 0, input_value: 11, bold: true, block: true },
+      { type: 'button', id: 'btnR', text: 'R', location: 'top', right: 10, top: 0, input_value: 11, bold: true, block: true },
     ];
     if (hasLR2) {
       items.push(
         { type: 'button', id: 'btnL2', text: 'L2', location: 'top', left: 90, top: 0, input_value: 12, bold: true, block: true },
-        { type: 'button', id: 'btnR2', text: 'R2', location: 'top', left: 190, top: 0, input_value: 13, bold: true, block: true },
+        { type: 'button', id: 'btnR2', text: 'R2', location: 'top', right: 90, top: 0, input_value: 13, bold: true, block: true },
       );
     }
     return items;
