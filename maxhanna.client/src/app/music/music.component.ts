@@ -75,13 +75,11 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   private readonly instance = Math.random().toString(16).slice(2);
   private mo?: MutationObserver;
   private ytHealthTimer?: number;
-  private playerReady = false;  // <- REAL ready state
-  private pendingSwitch?: { ids: string[]; index: number; firstId: string };
+  private playerReady = false;
+  private firstGestureDone = false;
   private lastPlaylistKey = '';
-  private lastTap = 0;
   private ytIds: string[] = [];
   private ytIndex = 0;
-  private switching = false;
   private ytDeadCount = 0;
 
   ytSearchTerm = '';
@@ -124,6 +122,18 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       try { parent.closeOverlay(); } catch { }
     }
   }
+
+  @HostListener('document:click')
+  onAnyClick() {
+    if (this.firstGestureDone) return;
+    this.firstGestureDone = true;
+
+    try { this.ytPlayer?.unMute(); } catch { }
+
+    // If YouTube is paused after muted-autoplay, start it.
+    try { this.ytPlayer?.playVideo(); } catch { }
+  }
+
 
   @HostListener('document:keydown.escape', ['$event'])
   handleEscapeKey(event: KeyboardEvent) {
@@ -217,13 +227,10 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       await Promise.resolve();
     }
     await this.refreshPlaylist();
-
-    if (this.songs.length && this.songs[0].url) {
+    if (this.songs.length && this.songs[0]?.url) {
       const url = this.songs[0].url!;
-      if (!this.ytReady) this.pendingPlay = { url, fileId: null };
-      else this.play(url);
+      this.pendingPlay = { url, fileId: null };
     }
-
     console.log('[Music] Loaded', this.songs.length, 'songs; page', this.currentPage);
   }
 
@@ -953,8 +960,13 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
             // load current selection
             try {
-              this.ytPlayer!.loadVideoById(firstId);
-              this.ytPlayer!.playVideo();
+              this.ytPlayer!.mute();
+              const firstId =
+                this.parseYoutubeId(this.pendingPlay?.url || this.songs[0]?.url || '');
+              if (firstId) {
+                this.ytPlayer!.loadVideoById(firstId);
+                this.ytPlayer!.playVideo(); // works while muted
+              }
             } catch { }
 
             // set attributes
@@ -984,14 +996,12 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   private ensureYTPlayerBuilt(firstId: string, songIds: string[], index: number) {
     // Build if missing
     if (!this.ytPlayer) {
-      this.pendingSwitch = { ids: songIds, index, firstId };
       this.rebuildYTPlayer(firstId, songIds, index);
       return;
     }
 
     // Queue if player not ready yet
     if (!this.playerReady) {
-      this.pendingSwitch = { ids: songIds, index, firstId };
       return;
     }
 
