@@ -77,7 +77,9 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   private ytHealthTimer?: number; 
   private playerReady = false;  // <- REAL ready state
   private pendingSwitch?: { ids: string[]; index: number; firstId: string };
-  private lastSwitchAt = 0;     // optional debounc
+  private lastSwitchAt = 0; 
+  private switchTimer?: number; 
+  private lastPlaylistKey = '';
 
 
   ytSearchTerm = '';
@@ -174,6 +176,11 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   ngOnDestroy(): void { 
     console.log('[Music]', this.instance, 'ngOnDestroy');
     console.trace('[Music] destroy stack');
+
+    if (this.switchTimer) {
+      clearTimeout(this.switchTimer);
+      this.switchTimer = undefined;
+    }
 
     this.stopYtHealthWatch(); 
     try { this.ytPlayer?.stopVideo(); } catch { console.error("Error stopping YT video"); }
@@ -519,12 +526,16 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     if (!url && !fileId) {
       parent?.showNotification("Url/File can't be empty");
       return;
+    } 
+    
+    if (url) {
+      const requestedId = this.parseYoutubeId(url);
+      const currentId = this.ytPlayer?.getVideoData()?.video_id || this.parseYoutubeId(this.currentUrl || '');
+      if (requestedId && currentId && requestedId === currentId) {
+        return; // actually same video
+      }
     }
 
-    if (url != undefined && url === this.currentUrl) {
-      parent?.showNotification("Already playing this URL");
-      return;
-    }
     if (fileId != undefined && fileId === this.currentFileId) {
       parent?.showNotification("Already playing this file");
       return;
@@ -968,14 +979,15 @@ private observePlayerDom() {
             const p = this.pendingSwitch;
             this.pendingSwitch = undefined;
 
-            try {
-              if (p) {
-                this.ytPlayer!.loadPlaylist(p.ids, p.index, 0, 'small');
-              } else {
-                this.ytPlayer!.loadPlaylist(songIds, index, 0, 'small');
-              }
-              this.ytPlayer!.playVideo();
-            } catch {} 
+            try { 
+              const idsToUse = p?.ids ?? songIds;
+              const idxToUse = p?.index ?? index;
+              this.lastPlaylistKey = idsToUse.join(',');
+              this.ytPlayer!.loadPlaylist(idsToUse, idxToUse, 0, 'small');
+              this.ytPlayer!.playVideo(); 
+            } catch {
+              console.warn('[YT] Failed to load playlist on ready, will rely on pendingSwitch or user action');
+            } 
             try {
               const iframe = this.ytPlayer!.getIframe() as HTMLIFrameElement;
               iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
@@ -1002,37 +1014,33 @@ private observePlayerDom() {
 
 
 private ensureYTPlayerBuilt(firstId: string, songIds: string[], index: number) {
-  // If player doesn't exist, build and queue
+  // build if missing
   if (!this.ytPlayer) {
     this.pendingSwitch = { ids: songIds, index, firstId };
     this.rebuildYTPlayer(firstId, songIds, index);
     return;
   }
 
-  // If player exists but isn't ready yet, queue and exit
+  // queue if not ready
   if (!this.playerReady) {
     this.pendingSwitch = { ids: songIds, index, firstId };
     return;
   }
 
-  // Optional: debounce rapid clicking
+  // trailing debounce (apply latest click after 150ms)
   const now = Date.now();
-  if (now - this.lastSwitchAt < 150) {
-    this.pendingSwitch = { ids: songIds, index, firstId };
-    return;
-  }
+  this.pendingSwitch = { ids: songIds, index, firstId };
+
+  const wait = 150 - (now - this.lastSwitchAt);
   this.lastSwitchAt = now;
 
-  // Normal switching (deterministic)
-  try {
-    this.ytPlayer.loadPlaylist(songIds, index, 0, 'small');
-    this.ytPlayer.playVideo();
-  } catch (e) {
-    console.warn('[YT] switch failed, rebuilding', e);
-    this.pendingSwitch = { ids: songIds, index, firstId };
-    this.rebuildYTPlayer(firstId, songIds, index);
-  }
-} 
+  if (this.switchTimer) window.clearTimeout(this.switchTimer);
+  this.switchTimer = window.setTimeout(() => {
+    this.switchTimer = undefined;
+    this.flushPendingSwitch();
+  }, Math.max(0, wait));
+}
+
    
   private handleEndedFallback() {
     // If there's a playlist attached, normal flow
@@ -1071,6 +1079,40 @@ private ensureYTPlayerBuilt(firstId: string, songIds: string[], index: number) {
     }
   }
 
+private switchWithinPlaylist(ids: string[], index: number) {
+  if (!this.ytPlayer) return;
+
+  const key = ids.join(',');
+
+  try {
+    // If playlist matches what player already has, jump to index
+    if (this.lastPlaylistKey === key && (this.ytPlayer.getPlaylist?.() || []).length) {
+      this.ytPlayer.playVideoAt(index);
+      this.ytPlayer.playVideo();
+      return;
+    }
+
+    // Otherwise load the new playlist
+    this.lastPlaylistKey = key;
+    this.ytPlayer.loadPlaylist(ids, index, 0, 'small');
+    this.ytPlayer.playVideo();
+  } catch (e) {
+    console.warn('[YT] switchWithinPlaylist failed', e);
+    // last resort rebuild
+    const firstId = ids[index] || ids[0];
+    if (firstId) this.rebuildYTPlayer(firstId, ids, index);
+  }
+}
+
+private flushPendingSwitch() {
+  const p = this.pendingSwitch;
+  if (!p || !this.playerReady || !this.ytPlayer) return;
+
+  this.pendingSwitch = undefined;
+
+  // If playlist is already attached, jump directly (more reliable than loadPlaylist every time)
+  this.switchWithinPlaylist(p.ids, p.index);
+} 
   async loadRadioData() {
     this.startLoading();
     this.isLoadingRadio = true;
