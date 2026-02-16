@@ -87,6 +87,10 @@
   width: 100%;
 }
 #musicPlayerDiv {
+  display: flex;
+  flex-direction: column;
+  height: calc(var(--vh, 1vh) * 100 - 235px); /* reuse your existing logic */
+  overflow: hidden; /* IMPORTANT: stop scrolling the whole panel */ 
   max-width: calc(100vw - 10px);
 }
 .smallSongList,
@@ -164,7 +168,8 @@ input[type="submit"] {
   display: flex;
   justify-content: center;
   gap: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 10px; 
+  flex: 0 0 auto; 
 }
  
 .collapsible-header { 
@@ -280,6 +285,11 @@ input[type="submit"] {
   max-width: unset !important;
 }
 
+#songlist {
+  flex: 1 1 auto;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+} 
 
 /* rename to avoid collisions with other global .fullscreen */
 .music-fullscreen {
