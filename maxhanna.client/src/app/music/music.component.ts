@@ -477,7 +477,11 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.stopLoading();
   }
 
-  async deleteSong(id: number) {
+  async deleteSong(id?: number) {
+    if (!id) {
+      this.parentRef?.showNotification("Invalid song ID");
+      return; 
+    }
     if (!confirm("Deleting song. Are you sure?") || !this.parentRef?.user?.id) return;
     this.startLoading();
     await this.todoService.deleteTodo(this.parentRef.user.id, id);

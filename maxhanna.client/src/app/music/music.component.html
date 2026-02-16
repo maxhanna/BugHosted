@@ -161,7 +161,7 @@
                     id="closeOverlay">
                     💾Update
                   </button>
-                  <button (click)="deleteSong(song.id)" class="cursorPointer" [hidden]="!isEditing.includes(song.id)">❌Delete</button>
+                  <button (click)="deleteSong(song.id)" class="cursorPointer" [hidden]="!song?.id || (song.id && !isEditing.includes(song.id))">❌Delete</button>
                 </td>
               </tr>
             </tbody>
