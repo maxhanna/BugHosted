@@ -1,5 +1,5 @@
 <div class="componentMain" [style.paddingTop]="isFullScreen ? '0px' : null">
-  <div class="closeButton" (click)="remove_me('EmulatorComponent');" *ngIf="!isFullScreen"></div>
+  <div class="closeButton" (click)="safeExit();" *ngIf="!isFullScreen"></div>
   <div class="menuButton" (click)="showMenuPanel();" *ngIf="!isFullScreen"></div>
   <div class="componentTitle" *ngIf="!isFullScreen">
     <span class="romNameTitle">{{ romName ? getRomName() : 'Emulator' }}</span>

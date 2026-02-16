@@ -104,47 +104,51 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
 
-  async ngOnDestroy(): Promise<void> {
+
+  ngOnDestroy(): void {
     this._destroyed = true;
-    try { this.clearAutosave(); } catch { }
+    this.clearAutosave();
     if (this.parentRef) {
       this.parentRef.preventShowSecurityPopup = false;
-      try {
-        let shouldSave = false;
-        if (this.romName && this.parentRef?.user?.id) {
-          // If the user saved recently (within 10s), skip prompting and skip save.
-          if (Date.now() - this._lastSaveTime < 10000) {
-            shouldSave = false;
-          } else {
-            shouldSave = window.confirm('Save emulator state before closing?');
-          }
-        }
-
-        if (shouldSave && this.romName && this.parentRef?.user?.id) {
-          try {
-            const u8 = await this.captureSaveOnce(8000);
-            if (u8 && u8.length) {
-              await this.savePendingState(this.parentRef.user.id, this.romName, u8);
-              console.log('[EJS] pending save stored locally for background upload');
-            } else {
-              console.warn('[EJS] captureSaveOnce timed out or returned no data');
-            }
-          } catch (e) {
-            console.warn('[EJS] exit save capture failed', e);
-          }
-          finally {
-            window.location.replace('/');
-          }
-        } else {
-          window.location.replace('/');
-        }
-      } catch {
-        window.location.replace('/');
-      }
-    } else {
-      window.location.replace('/');
     }
+    this.remove_me('EmulatorComponent');
   }
+
+  async safeExit(): Promise<void> {
+    this.prepareForExit();
+    if (!this.romName || !this.parentRef?.user?.id) {
+      return this.navigateHome();
+    }
+
+    // Ask user once
+    const shouldSave = window.confirm('Save emulator state before closing?');
+    if (!shouldSave) {
+      return this.navigateHome();
+    }
+
+    // --- Try a real save (preferred) ---
+    const u8 = await this.captureSaveOnce(5000);
+
+    if (u8 && u8.length) {
+      await this.savePendingState(this.parentRef.user.id, this.romName, u8);
+      console.log('[EJS] exit-save: bytes stored. Will upload in background if needed.');
+      return this.navigateHome();
+    }
+
+    // --- Fallback: store emergency direct save ---
+    console.warn('[EJS] emergency fallback: real save failed, storing partial state');
+    localStorage.setItem('ejs_lastEmergencySave', JSON.stringify({
+      rom: this.romName,
+      ts: Date.now()
+    }));
+
+    return this.navigateHome();
+  }
+
+  private navigateHome() {
+    setTimeout(() => window.location.replace('/'), 0);
+  }
+
 
   async onRomSelected(file: FileEntry) {
     try {
@@ -1475,15 +1479,23 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     } catch (e) { console.warn('[EJS] uploadPendingSavesOnStartup failed', e); }
   }
 
-  // Capture a single save from the emulator (resolves with bytes or null on timeout)
   private captureSaveOnce(timeoutMs = 5000): Promise<Uint8Array | null> {
-    return new Promise((resolve) => {
-      this._captureSaveResolve = (u8: Uint8Array | null) => { resolve(u8 || null); };
-      try { this.callEjsSave(); } catch (e) { resolve(null); this._captureSaveResolve = undefined; }
+    return new Promise(resolve => {
+      this._captureSaveResolve = (u8: Uint8Array | null) => resolve(u8);
+      try { this.callEjsSave(); } catch { resolve(null); }
+
       setTimeout(() => {
-        if (this._captureSaveResolve) { try { this._captureSaveResolve(null); } catch { } this._captureSaveResolve = undefined; }
+        if (this._captureSaveResolve) {
+          this._captureSaveResolve(null);
+          this._captureSaveResolve = undefined;
+        }
       }, timeoutMs);
     });
+  }
+
+  private prepareForExit() {
+    this._exiting = true;
+    this.clearAutosave();
   }
 
   /** Stop autosave and wait for any current or final save attempt to complete. */
