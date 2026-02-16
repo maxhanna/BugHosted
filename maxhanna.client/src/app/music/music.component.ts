@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Input, NgZone, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { Location } from '@angular/common';
 import { ChildComponent } from '../child.component';
 import { Todo } from '../../services/datacontracts/todo';
@@ -17,7 +17,7 @@ import { SubscriptionLike } from 'rxjs';
   styleUrl: './music.component.css',
   standalone: false,
   changeDetection: ChangeDetectionStrategy.OnPush
-})
+}) 
 
 export class MusicComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('titleInput') titleInput!: ElementRef<HTMLInputElement>;
@@ -72,10 +72,9 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   private resizeHandler?: () => void;
   private ro?: ResizeObserver;
   private locationSub?: SubscriptionLike;
-  private radioAudioEl?: HTMLAudioElement;
-  ytSearchTerm = '';
-
-
+  private radioAudioEl?: HTMLAudioElement; 
+private screenLock?: any; 
+  ytSearchTerm = ''; 
 
   @Input() user?: User;
   @Input() smallPlayer = false;
@@ -85,7 +84,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   constructor(private todoService: TodoService,
     private location: Location,
     private radioService: RadioService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private ngZone: NgZone,
   ) {
     super();
     this.locationSub = this.location.subscribe(() => {
@@ -121,14 +121,18 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.closeFullscreen();
       event.preventDefault();
     }
-  }
+  } 
 
-  @HostListener('document:visibilitychange')
-  onVisChange() {
-    if (document.visibilityState === 'visible' && this.isMusicPlaying) {
+@HostListener('document:visibilitychange')
+onVisChange() { 
+  if (document.visibilityState === 'visible') {
+    if (this.isMusicPlaying) {
       try { this.ytPlayer?.playVideo(); } catch { }
     }
+    // Let layout settle, then resize
+    setTimeout(() => this.safeResize(), 120);
   }
+}
 
   async ngOnInit() {
     await this.tryInitialLoad();
@@ -164,29 +168,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.radioAudioEl = undefined;
     }
   }
-
-  private attachResizeHandling() {
-    const hostEl = this.musicVideo.nativeElement as HTMLElement;
-    hostEl.style.display = 'block';
-    hostEl.style.minHeight = '200px';
-
-    const resize = () => {
-      const r = hostEl.getBoundingClientRect();
-      const w = Math.max(300, Math.round(r.width));
-      const h = Math.max(250, Math.round(r.height));
-      try { this.ytPlayer?.setSize(w, h); } catch { }
-    };
-
-    // Save so we can remove later
-    this.resizeHandler = resize;
-    window.addEventListener('resize', resize);
-
-    // ResizeObserver is great for container-size changes
-    this.ro = new ResizeObserver(() => resize());
-    this.ro.observe(hostEl);
-    resize();
-  }
-
+ 
   private detachResizeHandling() {
     if (this.resizeHandler) {
       window.removeEventListener('resize', this.resizeHandler);
@@ -507,13 +489,6 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       }
     }, 50);//allow for adjustment time
 
-    if (type != 'youtube') {
-      if (this.ytPlayer && this.ytPlayer != null) {
-        this.ytPlayer?.destroy();
-        this.ytPlayer = undefined;
-      }
-    }
-
     if (type != 'radio') {
       const iframeDiv = document.getElementById('iframeDiv');
       const existingAudio = iframeDiv?.querySelector('audio');
@@ -580,18 +555,22 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       return;
     }
 
+
     const ids = this.getYoutubeIdsInOrder();
     const requestedId = this.parseYoutubeId(url!);
     let index = ids.indexOf(requestedId);
     if (index < 0) { ids.unshift(requestedId); index = 0; }
-
+    
     const initialVideoId = ids[index];
-    this.rebuildYTPlayer(initialVideoId, ids, index);
+    this.ensureYTPlayerBuilt(initialVideoId, ids, index);
+    //this.rebuildYTPlayer(initialVideoId, ids, index);
 
     // Update UI state
     this.currentUrl = url;
     this.currentFileId = null;
     this.isMusicPlaying = true;
+    this.setupMediaSession();
+    this.keepScreenAwake(true); 
     this.isMusicControlsDisplayed(true);
     this.stopLoading();
 
@@ -599,54 +578,44 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
 
-  randomSong() {
-    // Prefer file playlist when valid IDs exist
-    if (this.selectedType == 'file') {
-      const fileIds = (this.fileIdPlaylist || []).filter(id => id != null) as number[];
-      if (fileIds.length > 0) {
-        const randomFileId = fileIds[Math.floor(Math.random() * fileIds.length)];
-        if (randomFileId != null) {
-          this.play(undefined, randomFileId);
-          return;
-        }
-      }
-    }
-
-    if (this.selectedType == 'youtube') {
-      console.log("Selecting random YouTube song");
-      const parent = this.inputtedParentRef ?? this.parentRef;
-      const randomSong = this.pickRandomSong(this.songs);
-      if (!randomSong) {
-        parent?.showNotification('No songs available to play');
-        return;
-      }
-
-      const ids = this.getYoutubeIdsInOrder();
-      const rndId = this.parseYoutubeId(randomSong.url || '');
-      if (!rndId || !ids.length) {
-        parent?.showNotification('Invalid YouTube ID or empty playlist');
-        return;
-      }
-
-      // ✅ Rotate so the random song is first; then index = 0 always
-      const rotated = this.rotatePlaylistFromId(ids, rndId);
-      console.log("Randomly chosen youtube song:", randomSong.todo, "ID:", rndId);
-
-      // Build straight from rotated list; index = 0
-      this.rebuildYTPlayer(rotated[0], rotated, 0);
-
-      // Update UI state
-      this.currentUrl = randomSong.url;
-      this.currentFileId = null;
-      this.isMusicPlaying = true;
-      this.isMusicControlsDisplayed(true);
-      this.cdr.markForCheck();
+  
+randomSong() {
+  if (this.selectedType === 'file') {
+    const fileIds = (this.fileIdPlaylist || []).filter(id => id != null) as number[];
+    if (fileIds.length) {
+      const randomFileId = fileIds[Math.floor(Math.random() * fileIds.length)];
+      this.play(undefined, randomFileId);
       return;
     }
-
-    console.error("Random song requested but unsupported type:", this.selectedType);
   }
 
+  if (this.selectedType !== 'youtube') return;
+
+  const parent = this.inputtedParentRef ?? this.parentRef;
+  const randomSong = this.pickRandomSong(this.songs);
+  if (!randomSong) {
+    parent?.showNotification('No songs available');
+    return;
+  }
+
+  const ids = this.getYoutubeIdsInOrder();
+  const rndId = this.parseYoutubeId(randomSong.url || '');
+  if (!rndId || !ids.length) {
+    parent?.showNotification('Invalid YouTube ID');
+    return;
+  }
+
+  const rotated = this.rotatePlaylistFromId(ids, rndId);
+
+  // ❗USE ensureYTPlayerBuilt — do NOT rebuild
+  this.ensureYTPlayerBuilt(rotated[0], rotated, 0);
+
+  this.currentUrl = randomSong.url;
+  this.currentFileId = null;
+  this.isMusicPlaying = true;
+  this.isMusicControlsDisplayed(true);
+  this.cdr.markForCheck();
+} 
 
   followLink() {
     if (!this.currentUrl) {
@@ -701,6 +670,22 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     return playlist;
   }
 
+private setupMediaSession() {
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.metadata = new MediaMetadata({ title: 'Music', artist: '', album: '' });
+    navigator.mediaSession.playbackState = 'playing';
+    navigator.mediaSession.setActionHandler('nexttrack', () => this.next());
+    navigator.mediaSession.setActionHandler('previoustrack', () => this.prev());
+  }
+}
+
+async keepScreenAwake(keep: boolean) {
+  try {
+    if (keep) this.screenLock = await (navigator as any).wakeLock?.request('screen');
+    else await this.screenLock?.release();
+  } catch {}
+}
+
   clearInputs() {
     if (this.searchInput) this.searchInput.nativeElement.value = "";
     if (this.titleInput) this.titleInput.nativeElement.value = "";
@@ -731,6 +716,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.fileMediaViewer.resetSelectedFile();
     }
     this.fileIdPlaying = undefined;
+    this.keepScreenAwake(false);
   }
 
   fullscreen() {
@@ -787,8 +773,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     const idx = Math.max(0, allIds.indexOf(startId));
     return allIds.slice(idx).concat(allIds.slice(0, idx));
   }
-
-
+  
   onSearchEnter() {
     clearTimeout(this.debounceTimer);
     this.ytSearchTerm = this.searchInput?.nativeElement.value || '';
@@ -951,80 +936,108 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     return !!(this.songs && this.songs.length > 0 && this.isMusicPlaying);
   }
 
-
-
   private rebuildYTPlayer(firstId: string, songIds: string[], index: number) {
     if (!this.musicVideo?.nativeElement) return;
 
     this.detachResizeHandling();
     try { this.ytPlayer?.destroy(); } catch { console.warn('[YT] Failed to destroy existing player'); }
+    
+    this.ngZone.runOutsideAngular(() => {
+        this.ytPlayer = new YT.Player(this.musicVideo.nativeElement as HTMLElement, {
+          videoId: firstId,
+          playerVars: {
+            playsinline: 1,
+            rel: 0,
+            modestbranding: 1,
+            enablejsapi: 1,
+            origin: window.location.origin,
+            controls: 1,
+          },
+          events: {
+            onReady: () => {
+              try {
+                const iframe = this.ytPlayer!.getIframe() as HTMLIFrameElement;
+                iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+                iframe.setAttribute('referrerpolicy', 'origin-when-cross-origin');
+              } catch {}
 
-    this.ytPlayer = new YT.Player(this.musicVideo.nativeElement as HTMLElement, {
-      videoId: firstId,
-      playerVars: {
-        playsinline: 1,
-        rel: 0,
-        modestbranding: 1,
-        enablejsapi: 1,
-        origin: window.location.origin,
-        controls: 1,
-      },
-      events: {
-        onReady: () => {
-          // (Your iframe host debug log here if you want)
-
-          try {
-            // 🔑 Load the full list at the desired index
-            this.ytPlayer!.loadPlaylist(songIds, index, 0, 'small');
-
-            // Make sure the player advances
-            try { this.ytPlayer!.setLoop(false); } catch { }
-            // Optional, but good hygiene:
-            try { (this.ytPlayer as any).setShuffle?.(false); } catch { }
-
-            this.ytPlayer!.playVideo();
-
-            // Verify and hard-correct if needed
-            setTimeout(() => {
-              const reportedIndex = this.ytPlayer?.getPlaylistIndex?.() ?? -1;
-              if (reportedIndex !== index) {
-                const vid = songIds[index] ?? songIds[0];
-                if (vid) {
-                  this.ytPlayer?.loadVideoById(vid);
-                  this.ytPlayer?.playVideo();
-
-                  // 🔁 Re-attach the playlist after forcing a single video
-                  setTimeout(() => {
-                    try {
-                      // `cuePlaylist` attaches without interrupting playback timing as hard
-                      this.ytPlayer?.cuePlaylist(songIds, index, 0, 'small');
-                    } catch { }
-                  }, 200);
-                }
+              try {
+                this.ytPlayer!.loadPlaylist(songIds, index, 0, 'small');
+                this.ytPlayer!.setLoop(false);
+                (this.ytPlayer as any).setShuffle?.(false);
+                this.ytPlayer!.playVideo();
+              } catch {
+                const vid = songIds[index] ?? firstId;
+                this.ytPlayer?.loadVideoById(vid);
+                this.ytPlayer?.playVideo();
+                setTimeout(() => {
+                  try { this.ytPlayer?.cuePlaylist(songIds, index, 0, 'small'); } catch {}
+                }, 200);
               }
-            }, 300);
-          } catch (e) {
-            // As a last resort: force the chosen id
-            const vid = songIds[index] ?? firstId;
-            this.ytPlayer?.loadVideoById(vid);
-            this.ytPlayer?.playVideo();
 
-            // 🔁 Attach the playlist anyway so the next/prev work
-            setTimeout(() => {
-              try { this.ytPlayer?.cuePlaylist(songIds, index, 0, 'small'); } catch { }
-            }, 200);
+              if (this.ytPlayer?.isMuted()) this.ytPlayer?.unMute();
+              // Re-enter Angular to update flags/UI once
+              this.ngZone.run(() => this.attachResizeHandling());
+            },
+            onStateChange: (e: YT.OnStateChangeEvent) => {
+              if (e.data === YT.PlayerState.ENDED) this.handleEndedFallback();
+            },
+            onError: (_e: YT.OnErrorEvent) => this.next(),
           }
+        });
+      });
 
-          if (this.ytPlayer?.isMuted()) this.ytPlayer?.unMute();
-          this.attachResizeHandling();
-        },
-        onStateChange: (e: YT.OnStateChangeEvent) => {
-          if (e.data === YT.PlayerState.ENDED) this.handleEndedFallback();
-        },
-        onError: (_e: YT.OnErrorEvent) => this.next(),
-      }
-    });
   }
+
+  
+private ensureYTPlayerBuilt(firstId: string, songIds: string[], index: number) {
+  if (this.ytPlayer) {
+    // Already built – just (re)attach playlist & start
+    try {
+      // If a playlist is already attached, make sure we’re on the right index
+      const pl = this.ytPlayer.getPlaylist?.() || [];
+      if (!pl.length) {
+        this.ytPlayer.cuePlaylist(songIds, index, 0, 'small');
+      } else {
+        // Force to the selected video id
+        const vid = songIds[index] ?? songIds[0];
+        if (vid) this.ytPlayer.loadVideoById(vid);
+      }
+      this.ytPlayer.playVideo();
+    } catch { /* swallow */ }
+    return;
+  }
+
+  // Build once
+  this.rebuildYTPlayer(firstId, songIds, index);
+} 
+
+private safeResize = () => {
+  if (document.visibilityState !== 'visible' || !this.ytPlayer) return;
+
+  const hostEl = this.musicVideo.nativeElement as HTMLElement;
+  const r = hostEl.getBoundingClientRect();
+
+  // Guard against zeros while tab is hidden or layout is in flux
+  const w = Math.max(300, Math.round(r.width || 0));
+  const h = Math.max(250, Math.round(r.height || 0));
+  if (w < 2 || h < 2) return;
+
+  try { this.ytPlayer.setSize(w, h); } catch { /* noop */ }
+};
+
+private attachResizeHandling() {
+  const hostEl = this.musicVideo.nativeElement as HTMLElement;
+  hostEl.style.display = 'block';
+  hostEl.style.minHeight = '200px';
+
+  this.resizeHandler = this.safeResize;
+  window.addEventListener('resize', this.resizeHandler);
+
+  this.ro = new ResizeObserver(() => this.safeResize());
+  this.ro.observe(hostEl);
+  this.safeResize();
+}
 
   private handleEndedFallback() {
     // If there's a playlist attached, normal flow

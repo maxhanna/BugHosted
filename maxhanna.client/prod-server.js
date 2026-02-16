@@ -313,8 +313,8 @@ const emulatorIsolation = (req, res, next) => {
   next();
 };
 
-// Angular route that displays Emulator1Component
-app.get(['/emulator', '/Emulator', '/emulator1'], emulatorIsolation, (req, res) => {
+// Angular route that displays EmulatorComponent
+app.get(['/emulator', '/Emulator', '/emulator'], emulatorIsolation, (req, res) => {
   res.sendFile(path.join(config.distPath, 'index.html'));
 });
 

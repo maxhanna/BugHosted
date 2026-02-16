@@ -43,7 +43,7 @@ import { EnderComponent } from './ender/ender.component';
 import { BonesComponent } from './bones/bones.component';
 import { EmulatorN64Component } from './emulator-n64/emulator-n64.component';
 import { EmulatorPS1Component } from './emulator-ps1/emulator-ps1.component';
-import { Emulator1Component } from './emulator-1/emulator-1.component';
+import { EmulatorComponent } from './emulator/emulator.component';
 
 
 @Component({
@@ -86,7 +86,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "👾", title: "Emulation", content: undefined },
     { ownership: 0, icon: "🕹️", title: "N64Emulator", content: undefined },
     { ownership: 0, icon: "🎮", title: "PS1Emulator", content: undefined },
-    { ownership: 0, icon: "1", title: "1Emulator", content: undefined },
+    { ownership: 0, icon: "1️⃣", title: "Emulator", content: undefined },
     { ownership: 0, icon: "⚔️", title: "Array", content: undefined },
     { ownership: 0, icon: "🧠", title: "Wordler", content: undefined },
     { ownership: 0, icon: "🎯", title: "Mastermind", content: undefined },
@@ -298,7 +298,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     },
     {
       ownership: 0,
-      title: '1Emulator',
+      title: 'Emulator',
       content: `Our All-in-1 emulator allows users to play multiple console games directly in their browser! Connect any gamepad and upload your own roms or choose from the ones available!`
     }
   ];
@@ -329,7 +329,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Emulation": EmulationComponent,
     "N64Emulator": EmulatorN64Component,
     "PS1Emulator": EmulatorPS1Component,
-    "1Emulator": Emulator1Component,
+    "Emulator": EmulatorComponent,
     "Array": ArrayComponent,
     "Bug-Wars": NexusComponent,
     "Meta-Bots": MetaComponent,
@@ -424,22 +424,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         else if (this.router.url.includes('Array')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Array');
-        }
-        else if (this.router.url.toLowerCase().includes('n64')) {
-          this.checkAndClearRouterOutlet();
-          this.createComponent('N64Emulator');
-        } 
-        else if (this.router.url.toLowerCase().includes('ps1')) {
-          this.checkAndClearRouterOutlet();
-          this.createComponent('PS1Emulator');
-        } 
-        else if (this.router.url.toLowerCase().includes('1emu')) {
-          this.checkAndClearRouterOutlet();
-          this.createComponent('1Emulator');
         } 
         else if (this.router.url.toLowerCase().includes('emu')) {
           this.checkAndClearRouterOutlet();
-          this.createComponent('Emulation');
+          this.createComponent('Emulator');
         }
         else if (this.router.url.includes('War')) {
           this.checkAndClearRouterOutlet();

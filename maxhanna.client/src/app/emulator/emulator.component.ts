@@ -7,12 +7,12 @@ import { FileService } from '../../services/file.service';
 import { FileSearchComponent } from '../file-search/file-search.component';
 
 @Component({
-  selector: 'app-emulator-1',
-  templateUrl: './emulator-1.component.html',
-  styleUrl: './emulator-1.component.css',
+  selector: 'app-emulator',
+  templateUrl: './emulator.component.html',
+  styleUrl: './emulator.component.css',
   standalone: false
 })
-export class Emulator1Component extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
+export class EmulatorComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild(FileSearchComponent) fileSearchComponent?: FileSearchComponent;
 
   isMenuPanelOpen = false;
@@ -291,19 +291,17 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
       } catch (e) {
         console.warn('[EJS] onLoadState fetch/apply failed', e);
       }
-    };
-
-
+    }; 
     this.applyEjsRunOptions();
     // If the build calls back with the instance, capture it early
-    (window as any).EJS_ready = (api: any) => {
+    window.EJS_ready = (api: any) => {
       try { 
         this.scanAndTagVpadControls();
 
 
-        console.log('EJS_ready: vpad readback=', (window as any).EJS_VirtualGamepadSettings);
+        console.log('EJS_ready: vpad readback=', window.EJS_VirtualGamepadSettings);
 
-        this.emulatorInstance = api || (window as any).EJS || (window as any).EJS_emulator || this.emulatorInstance;
+        this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
         if (this.emulatorInstance?.saveState) {
           this._saveFn = async () => { try { await (this.emulatorInstance as any).saveState(); } catch { } };
         }
@@ -539,10 +537,11 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
 
   private applyEjsRunOptions(): void {
     const w = window as any;
-    w.EJS_defaultOptionsForce = false; // force defaults every run  (docs: config system)
-    w.EJS_directKeyboardInput = true; // deliver raw key events to the core
-    w.EJS_enableGamepads = true;      // let cores read the gamepad state
-    w.EJS_disableAltKey = true;       // avoid Alt being swallowed by browser/UI
+    w.EJS_defaultOptionsForce = false;  // force defaults every run  (docs: config system)
+    w.EJS_directKeyboardInput = true;   // deliver raw key events to the core
+    w.EJS_enableGamepads = true;        // let cores read the gamepad state
+    w.EJS_disableAltKey = true;         // avoid Alt being swallowed by browser/UI
+    w.EJS_DEBUG_XX = true;              // debug options
     w.EJS_afterStart = () => {
       try {
         const gameEl = document.getElementById('game');
@@ -970,7 +969,7 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
     if (this.romName) {
       return this.fileService.getFileWithoutExtension(this.romName);
     }
-    return '1Emulator';
+    return 'Emulator';
   }
 
 
@@ -1704,8 +1703,8 @@ private scanAndTagVpadControls(): void {
 
   twoButtonRight(): VPadItem[] {
     // Make B a bit left/below; A a bit right/above (classic layout)
-    const B: VPadItem = { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 40, top: 80, input_value: 0, bold: true };
-    const A: VPadItem = { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 60, top: 20, input_value: 8, bold: true };
+    const B: VPadItem = { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 20, top: 75, input_value: 0, bold: true };
+    const A: VPadItem = { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 50, top: 10, input_value: 8, bold: true };
     return [B, A];
   }
 
@@ -1877,7 +1876,7 @@ private scanAndTagVpadControls(): void {
   }
 
   private getEmuHomeUrl(): string {
-    return `${location.protocol}//${location.host}/1Emulator`;
+    return `${location.protocol}//${location.host}/Emulator`;
   }
 
   private fullReloadToHome(extraParams?: Record<string, string>): void {
@@ -1917,7 +1916,10 @@ declare global {
     EJS_directKeyboardInput?: boolean;
     EJS_enableGamepads?: boolean;
     EJS_disableAltKey?: boolean;
+    EJS_DEBUG_XX?: boolean;
     EJS_VirtualGamepadSettings?: any;
+    EJS?: any;
+    EJS_emulator?: any;
     EJS_Buttons?: any;
     EJS_afterStart?: () => void;
     EJS_ready?: (api: any) => void;
