@@ -1,10 +1,10 @@
 <div class="componentMain" #componentMain>
-  <div class="closeButton" [class.visually-hidden-operable]="user" (click)="remove_me('MusicComponent');"></div>
-  <div class="menuButton" (click)="showMenuPanel();" [class.visually-hidden-operable]="user"></div>
-  <div class="helpButton" [class.visually-hidden-operable]="user" (click)="openHelpPanel()"></div>
-  <div class="componentTitle" [class.visually-hidden-operable]="user">Music</div>
+  <div class="closeButton" *ngIf="!user" (click)="remove_me('MusicComponent');"></div>
+  <div class="menuButton" (click)="showMenuPanel();" *ngIf="!user"></div>
+  <div class="helpButton" *ngIf="!user" (click)="openHelpPanel()"></div>
+  <div class="componentTitle" *ngIf="!user">Music</div>
 
-  <fieldset [class.visually-hidden-operable]="user">
+  <fieldset *ngIf="!user">
     <legend title="Add to the music list">Add to the music list</legend>
     <div class="addSongInputFieldset">
       <input type="text" #titleInput placeholder="Artist - Song Title" (keyup.enter)="addSong()" />
@@ -22,11 +22,16 @@
   </fieldset> 
   <div id="musicPlayerDiv" [class]="smallPlayer ? 'smallSongList' : 'normalSongList'">
     <div id="iframeDiv" [class]="playerClasses">
-      
       <div class="yt-box">
-        <div id="musicVideo" #musicVideo></div>
+        <div
+          id="musicVideo"
+          #musicVideo
+          class="youtubeFrame"
+          [class.youtube-active]="selectedType === 'youtube' && !fileIdPlaying"
+          [class.youtube-inactive]="!(selectedType === 'youtube' && !fileIdPlaying)"
+        ></div>
       </div>
-
+      
       <app-media-viewer
         #fileMediaViewer
         [class.file-active]="fileIdPlaying"
@@ -43,12 +48,12 @@
         (mediaEndedEvent)="mediaEndedEvent()"
         (finishedLoadingEvent)="mediaViewerFinishedLoading()">
       </app-media-viewer>
-      <button title="Shrink Fullscreen" (click)="closeFullscreen()" id="closeOverlay" [class.visually-hidden-operable]="!isFullscreen">Shrink</button>
+      <button title="Shrink Fullscreen" (click)="closeFullscreen()" id="closeOverlay" *ngIf="isFullscreen">Shrink</button>
     </div>
     <div class="musicControls">
       <label id="stopMusicButton" (click)="stopMusic()" title="Stop">🛑</label>
       <label id="fullscreenMusicButton" (click)="fullscreen()" title="Expand Fullscreen">◼</label>
-      <label id="followLinkButton" [class.visually-hidden-operable]="fileIdPlaylist" (click)="followLink()" title="Open in Youtube">🕸</label>
+      <label id="followLinkButton" *ngIf="!fileIdPlaylist" (click)="followLink()" title="Open in Youtube">🕸</label>
       <label (click)="randomSong()" title="Random Song">⚡</label>
     </div>
 
@@ -57,14 +62,14 @@
         Total: ({{songs.length}})
         <span class="collapse-icon">{{ isSongListCollapsed ? '▼' : '▲' }}</span>
       </div>
-      <div [class.visually-hidden-operable]="isSongListCollapsed">
+      <div *ngIf="!isSongListCollapsed">
         <div style="width:100%; text-align:center;">
           Order: <select id="orderSelect" (change)="reorderTable($event)" #orderSelect>
             <option *ngFor="let order of orders" [value]="order">{{order}}</option>
           </select><br />
           Search: <input placeholder="Keyword" #searchInput (input)="onSearchEnter()" />
           <input type="submit" value="🔍" title="Search Music Playlist" (click)="searchForSong()" />
-          <input type="submit" value="▶️" title="Search YouTube" (click)="showYoutubeSearch()" [class.visually-hidden-operable]="selectedType != 'youtube'" />
+          <input type="submit" value="▶️" title="Search YouTube" (click)="showYoutubeSearch()" *ngIf="selectedType === 'youtube'" />
         </div>
         <div class="musicTypeSelector">
           <label class="smallFont">
@@ -82,7 +87,7 @@
         </div>
         <div class="mainTableContainer">
           <!-- Radio Stations View -->
-          <div [class.visually-hidden-operable]="selectedType !== 'radio'" class="radioStationsContainer">
+          <div *ngIf="selectedType === 'radio'" class="radioStationsContainer">
             <div class="radioFilters">
               <select (change)="onRadioFilterChange('country', $event)" class="radioFilterSelect">
                 <option value="">All Countries</option>
@@ -97,39 +102,39 @@
                 <option *ngFor="let tag of radioTags" [value]="tag.name">{{tag.name}} ({{tag.stationcount}})</option>
               </select>
             </div>
-            <div class="radioStationsList" [class.visually-hidden-operable]="!radioStations || radioStations.length === 0">
+            <div class="radioStationsList" *ngIf="radioStations && radioStations.length > 0">
               <div *ngFor="let station of radioStations" class="radioStationItem" (click)="playRadioStation(station)">
-                <img [class.visually-hidden-operable]="!station.favicon" [src]="station.favicon" class="radioStationIcon" (error)="station.favicon = null" />
+                <img *ngIf="station.favicon" [src]="station.favicon" class="radioStationIcon" (error)="station.favicon = null" />
                 <div class="radioStationInfo">
                   <div class="radioStationName">{{station.name}}</div>
                   <div class="radioStationDetails smallFont">
-                    <span [class.visually-hidden-operable]="!station.country">{{station.country}}</span>
-                    <span [class.visually-hidden-operable]="!station.language"> • {{station.language}}</span>
-                    <span [class.visually-hidden-operable]="!station.tags"> • {{station.tags}}</span>
+                    <span *ngIf="station.country">{{station.country}}</span>
+                    <span *ngIf="station.language"> • {{station.language}}</span>
+                    <span *ngIf="station.tags"> • {{station.tags}}</span>
                   </div>
                 </div>
                 <button class="radioPlayButton" (click)="playRadioStation(station); $event.stopPropagation()">▶️</button>
               </div>
             </div>
-            <div [class.visually-hidden-operable]="!isLoadingRadio" style="text-align: center; padding: 20px;">Loading radio stations...</div>
-            <div [class.visually-hidden-operable]="isLoadingRadio || (radioStations && radioStations.length > 0)" style="text-align: center; padding: 20px;">
+            <div *ngIf="isLoadingRadio" style="text-align: center; padding: 20px;">Loading radio stations...</div>
+            <div *ngIf="!isLoadingRadio && radioStations && radioStations.length === 0" style="text-align: center; padding: 20px;">
               No radio stations found. Try different filters.
             </div>
           </div>
 
           <!-- YouTube/Files Table -->
-          <table id="songListTable" [class]="isEditing.length ? '' : 'mainTable'" id="todoTable" [class.visually-hidden-operable]="selectedType === 'radio' || !(paginatedSongs && paginatedSongs.length > 0)">
+          <table id="songListTable" [class]="isEditing.length ? '' : 'mainTable'" id="todoTable" *ngIf="selectedType !== 'radio' && paginatedSongs && paginatedSongs.length > 0">
             <tbody>
-              <tr *ngFor="let song of paginatedSongs; trackBy: trackSong" id="songId{{song.id!}}" [class]="isEditing.length > 0 ? 'popupPanel' : ''">
-                <td [class.visually-hidden-operable]="!song.id" [style.width]="isEditing.length > 0 ? '' : '100%'">
-                  <span [class.visually-hidden-operable]="isEditing.length > 0" class="songTitle" (click)="play(song.url, song.fileId)" >{{song.todo}}</span>
-                  <div [class.visually-hidden-operable]="!isEditing.length" class="popupPanelTitle">Edit Song</div>
+              <tr *ngFor="let song of paginatedSongs; trackBy: trackSong" id="songId{{song.id!}}" [class]="isEditing.includes(song.id ?? 0) ? 'popupPanel' : ''">
+                <td *ngIf="song.id" [style.width]="isEditing.includes(song.id) ? '' : '100%'">
+                  <span *ngIf="!isEditing.includes(song.id)" class="songTitle" (click)="play(song.url, song.fileId)" >{{song.todo}}</span>
+                  <div *ngIf="isEditing.includes(song.id)" class="popupPanelTitle">Edit Song</div>
                   <div>
-                    <span [class.visually-hidden-operable]="!isEditing.length">Title:&nbsp;</span>
+                    <span *ngIf="isEditing.includes(song.id)">Title:&nbsp;</span>
                     <textarea 
                       type=text 
                       id="editSongNameInput" 
-                      [class.visually-hidden-operable]="!isEditing.length" 
+                      *ngIf="isEditing.includes(song.id)" 
                       [value]="song.todo" 
                       style="width:100%"
                       (click)="$event.stopPropagation()" 
@@ -137,11 +142,11 @@
                       (input)="hasEditedSong = true;"></textarea>
                   </div>
                   <div>
-                    <span [class.visually-hidden-operable]="!isEditing.length">Url:&nbsp;</span>
+                    <span *ngIf="isEditing.includes(song.id)">Url:&nbsp;</span>
                     <textarea 
                     type=text 
                     id="editSongUrlInput" 
-                      [class.visually-hidden-operable]="!isEditing.length" 
+                      *ngIf="isEditing.includes(song.id)" 
                       [value]="song.url" 
                       style="width:100%" 
                       (click)="$event.stopPropagation()" 
@@ -149,24 +154,23 @@
                       (input)="hasEditedSong = true;"></textarea>
                   </div> 
                 </td>
-                <td class="actionTd" [class.visually-hidden-operable]="user || !song.id">
-                  <button (click)="editSong(song.id)" class="xxSmallFont cursorPointer" [class.visually-hidden-operable]="isEditing.length">
-                    {{ (isEditing.length > 0) ? '💾':'✏️'}}
-                  </button> 
+                <td class="actionTd" *ngIf="!user && song.id">
+                  <button (click)="editSong(song.id)" class="xxSmallFont cursorPointer" *ngIf="!isEditing.length">{{ isEditing.includes(song.id) ?
+                    '💾':'✏️'}}</button> 
                   <button 
                     (click)="closeEditPopup()" 
                     [title]="'Edit'" 
                     class="cursorPointer closeButton"
-                    [class.hidden-operable]="(isEditing.length > 0) ? false : true" 
+                    [class.hidden-operable]="isEditing.includes(song.id) ? false : true" 
                     id="closeOverlay">
                     💾Update
                   </button>
-                  <button (click)="deleteSong(song.id)" class="cursorPointer" [class.visually-hidden-operable]="!isEditing.length">❌Delete</button>
+                  <button (click)="deleteSong(song.id)" class="cursorPointer" *ngIf="isEditing.includes(song.id)">❌Delete</button>
                 </td>
               </tr>
             </tbody>
           </table> 
-          <div [class.visually-hidden-operable]="!isShowingYoutubeSearch" class="popupPanel">
+          <div *ngIf="isShowingYoutubeSearch" class="popupPanel">
             <app-youtube-search 
             [inputtedParentRef]="inputtedParentRef ?? parentRef" 
             [keyword]="ytSearchTerm"
@@ -174,14 +178,14 @@
             <button id="closeOverlay" (click)="closeYoutubeSearch()" style="margin-top:10px;">Close</button>
           </div> 
         </div> 
-        <div [class.visually-hidden-operable]="selectedType === 'radio' || !(paginatedSongs && paginatedSongs.length > 0)" class="extraMainDataInfo">
-          <span [class.visually-hidden-operable]="!(paginatedSongs && paginatedSongs.length == 0)">No music added yet!</span>
+        <div *ngIf="selectedType !== 'radio' && ((paginatedSongs && paginatedSongs.length == 0) || searchInput.value != '')" class="extraMainDataInfo">
+          <span *ngIf="paginatedSongs && paginatedSongs.length == 0">No music added yet!</span>
           <button (click)="showYoutubeSearch()">Search Youtube</button>
         </div> 
       </div>
     </div> 
   </div>
-      <div class="pagination-controls" [class.visually-hidden-operable]="songs.length <= itemsPerPage">
+      <div class="pagination-controls" *ngIf="songs.length > itemsPerPage">
         <button [disabled]="currentPage === 1" (click)="goToPreviousPage()" class="pagination-button">
           Previous
         </button>
@@ -198,7 +202,7 @@
 </div>
 
 <!-- Help Popup -->
-<div class="popupPanel" [class.visually-hidden-operable]="!showHelpPopup">
+<div class="popupPanel" *ngIf="showHelpPopup">
   <div class="popupPanelTitle" style="margin-bottom:15px;">
     Music Player Help
   </div>
@@ -262,7 +266,7 @@
   <button id="closeOverlay" class="closeButton" (click)="closeHelpPanel()" style="margin-top:6px;">Close</button>
 </div>
 <!-- Music Menu Popup -->
-<div class="popupPanel" style="overflow: auto;" [class.visually-hidden-operable]="!isMenuPanelOpen">
+<div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle">Music</div>
   <div class="popupPanelContents gradientBackground" style="padding:10px;">
     <app-daily-music [inputtedParentRef]="inputtedParentRef ?? parentRef"></app-daily-music>

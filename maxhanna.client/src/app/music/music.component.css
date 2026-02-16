@@ -497,21 +497,20 @@ input[type="submit"] {
   overflow: hidden;
 }
 
-/* stable player box */
 .yt-box {
   width: 100%;
-  max-width: 100%;
-  aspect-ratio: 16 / 9;
-  min-height: 200px;      /* optional safety */
   background: #000;
+  aspect-ratio: 16 / 9;
+  min-height: 200px; /* safety */
   position: relative;
+  overflow: hidden;
 }
 
-/* YT iframe fills */
-.yt-box iframe {
+#musicVideo iframe {
   position: absolute;
   inset: 0;
   width: 100% !important;
   height: 100% !important;
   border: 0;
+  display: block;
 }

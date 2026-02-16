@@ -68,14 +68,14 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   private ytPlayer?: YT.Player;
   private ytReady = false;
   private pendingPlay?: { url?: string; fileId?: number | null }; // queue if API not ready yet
-  private ytApiPromise?: Promise<void>;
-  private resizeHandler?: () => void;
-  private ro?: ResizeObserver;
+  private ytApiPromise?: Promise<void>; 
   private locationSub?: SubscriptionLike;
   private radioAudioEl?: HTMLAudioElement;
   private screenLock?: any;
   private readonly instance = Math.random().toString(16).slice(2);  
   private mo?: MutationObserver;
+  private ytHealthTimer?: number;
+
 
   ytSearchTerm = '';
 
@@ -131,13 +131,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     if (document.visibilityState === 'visible') {
       if (this.isMusicPlaying) {
         try { this.ytPlayer?.playVideo(); } catch { }
-      }
-      // Let layout settle, then resize 
-      setTimeout(() => {
-        if (document.visibilityState === 'visible') {
-          requestAnimationFrame(() => this.safeResize());
-        }
-      }, 250);
+      } 
     }
   }
 
@@ -182,16 +176,14 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     console.log('[Music]', this.instance, 'ngOnDestroy');
     console.trace('[Music] destroy stack');
 
+    this.stopYtHealthWatch(); 
     try { this.ytPlayer?.stopVideo(); } catch { console.error("Error stopping YT video"); }
     try { this.ytPlayer?.destroy(); } catch { console.error("Error destroying YT player"); }
     this.ytPlayer = undefined;
 
     // Clear pending play queue
     this.pendingPlay = undefined;
-
-    // Tear down resize listeners / observers
-    this.detachResizeHandling();
-
+ 
     // Clear timers
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
@@ -212,19 +204,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     }
     
     this.mo?.disconnect(); 
-  }
-
-
-  private detachResizeHandling() {
-    if (this.resizeHandler) {
-      window.removeEventListener('resize', this.resizeHandler);
-      this.resizeHandler = undefined;
-    }
-    if (this.ro) {
-      try { this.ro.disconnect(); } catch { }
-      this.ro = undefined;
-    }
-  }
+  } 
 
   private async tryInitialLoad() {
     const parent = this.inputtedParentRef ?? this.parentRef;
@@ -739,21 +719,18 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.keepScreenAwake(false);
   }
 
-  fullscreen() {
-    const youtubePopup = document.getElementById('musicVideo');
-    if (youtubePopup) {
-      if (document.fullscreenElement) {
-        document.exitFullscreen();
-      } else {
-        youtubePopup.requestFullscreen().catch(err => {
-          console.error("Error attempting to enable full-screen mode:", err);
-        });
-        this.isFullscreen = true;
-      }
-    } else {
-      console.error("YouTube popup element not found.");
-    }
+  
+fullscreen() {
+  const el = document.getElementById('iframeDiv');
+  if (!el) return;
+
+  if (document.fullscreenElement) {
+    document.exitFullscreen();
+  } else {
+    this.isFullscreen = true;
+    el.requestFullscreen().catch(err => console.error(err));
   }
+} 
 
   closeFullscreen() {
     const youtubePopup = document.getElementById('musicVideo');
@@ -970,9 +947,7 @@ private observePlayerDom() {
   }
 
   private rebuildYTPlayer(firstId: string, songIds: string[], index: number) {
-    if (!this.musicVideo?.nativeElement) return;
-
-    this.detachResizeHandling();
+    if (!this.musicVideo?.nativeElement) return; 
     try { this.ytPlayer?.destroy(); } catch { console.warn('[YT] Failed to destroy existing player'); }
 
     this.ngZone.runOutsideAngular(() => {
@@ -1008,9 +983,10 @@ private observePlayerDom() {
               }, 200);
             }
 
-            if (this.ytPlayer?.isMuted()) this.ytPlayer?.unMute();
-            // Re-enter Angular to update flags/UI once
-            this.ngZone.run(() => this.attachResizeHandling());
+            if (this.ytPlayer?.isMuted()) this.ytPlayer?.unMute();  
+            this.ngZone.run(() => {
+              this.startYtHealthWatch();
+            }); 
           },
           onStateChange: (e: YT.OnStateChangeEvent) => {
             if (e.data === YT.PlayerState.ENDED) this.handleEndedFallback();
@@ -1023,65 +999,25 @@ private observePlayerDom() {
   }
 
 
-  private ensureYTPlayerBuilt(firstId: string, songIds: string[], index: number) {
-    if (this.ytPlayer) {
-      // Already built – just (re)attach playlist & start
-      try {
-        // If a playlist is already attached, make sure we’re on the right index
-        const pl = this.ytPlayer.getPlaylist?.() || [];
-        if (!pl.length) {
-          this.ytPlayer.cuePlaylist(songIds, index, 0, 'small');
-        } else {
-          // Force to the selected video id
-          const vid = songIds[index] ?? songIds[0];
-          if (vid) this.ytPlayer.loadVideoById(vid);
-        }
-        this.ytPlayer.playVideo();
-      } catch { /* swallow */ }
-      return;
-    }
+ 
+private ensureYTPlayerBuilt(firstId: string, songIds: string[], index: number) {
+  if (!this.ytPlayer) {
+    this.rebuildYTPlayer(firstId, songIds, index);
+    return;
+  }
 
-    // Build once
+  try {
+    // Always reset playlist state deterministically
+    this.ytPlayer.loadPlaylist(songIds, index, 0, 'small');
+    this.ytPlayer.setLoop(false);
+    (this.ytPlayer as any).setShuffle?.(false);
+    this.ytPlayer.playVideo();
+  } catch (e) {
+    console.warn('[YT] ensureYTPlayerBuilt failed, rebuilding', e);
     this.rebuildYTPlayer(firstId, songIds, index);
   }
-  
-  private safeResize = () => {
-    console.log('[Music] safeResize called -- it is now disabled and does nothing.');
-    return; 
-  }; 
-
-
-  private attachResizeHandling() {
-    const hostEl = this.musicVideo?.nativeElement as HTMLElement | undefined;
-    if (!hostEl) return;
-
-    // Ensure the container can never be measured as 0x0
-    hostEl.style.display = 'block';
-    hostEl.style.minHeight = '200px';
-
-    // 1) window.resize -> safeResize (once)
-    this.resizeHandler = () => {
-      // Avoid resizing while hidden; delay one frame after visibility
-      if (document.visibilityState !== 'visible') return;
-      requestAnimationFrame(() => this.safeResize());
-    };
-    window.addEventListener('resize', this.resizeHandler, { passive: true });
-
-    // 2) ResizeObserver -> safeResize (once)
-    this.ro = new ResizeObserver(() => {
-      if (document.visibilityState !== 'visible') return;
-      this.safeResize();
-    });
-    this.ro.observe(hostEl);
-
-    // 3) Initial resize after layout settles
-    setTimeout(() => {
-      if (document.visibilityState === 'visible') {
-        requestAnimationFrame(() => this.safeResize());
-      }
-    }, 0);
-  }
-
+} 
+   
   private handleEndedFallback() {
     // If there's a playlist attached, normal flow
     const pl = this.ytPlayer?.getPlaylist?.() || [];
@@ -1209,9 +1145,38 @@ private observePlayerDom() {
     this.stopLoading();
     this.cdr.markForCheck();
   }
+
   mediaViewerFinishedLoading() {
     this.cdr.markForCheck();
   }
+
+private startYtHealthWatch() {
+  this.stopYtHealthWatch();
+  this.ytHealthTimer = window.setInterval(() => {
+    const iframe = this.ytPlayer?.getIframe?.() as HTMLIFrameElement | undefined;
+    if (!iframe) return;
+
+    const src = iframe.getAttribute('src') || '';
+    if (src.startsWith('chrome-error://') || src.includes('chromewebdata')) {
+      console.warn('[YT] iframe crashed; rebuilding');
+      const ids = this.getYoutubeIdsInOrder();
+      const currentId =
+        this.ytPlayer?.getVideoData()?.video_id ||
+        this.parseYoutubeId(this.currentUrl || '') ||
+        ids[0];
+
+      const idx = Math.max(0, ids.indexOf(currentId));
+      if (ids.length) this.rebuildYTPlayer(ids[idx] || ids[0], ids, idx);
+    }
+  }, 5000);
+}
+
+private stopYtHealthWatch() {
+  if (this.ytHealthTimer) {
+    clearInterval(this.ytHealthTimer);
+    this.ytHealthTimer = undefined;
+  }
+}
 
   private parseYoutubeId(url: string): string {
     if (!url) return '';
