@@ -144,14 +144,11 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   async ngAfterViewInit() { 
-    console.log('[Music]', this.instance, 'ngAfterViewInit');
-
+    console.log('[Music]', this.instance, 'ngAfterViewInit'); 
     if (this.user) {
       this.componentMain.nativeElement.style.padding = 'unset';
-    }
-
-    await this.ensureYouTubeApi();
-
+    } 
+    await this.ensureYouTubeApi(); 
     if (!(window as any).YT?.Player) {
       console.error('[Music] YT still undefined after ensureYouTubeApi()');
       return;
