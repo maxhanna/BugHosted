@@ -198,7 +198,7 @@
 </div>
 
 <!-- Help Popup -->
-<div class="popupPanel" [hidden]="!showHelpPopup">
+<div class="popupPanel" [class.visually-hidden-operable]="!showHelpPopup">
   <div class="popupPanelTitle" style="margin-bottom:15px;">
     Music Player Help
   </div>
@@ -262,7 +262,7 @@
   <button id="closeOverlay" class="closeButton" (click)="closeHelpPanel()" style="margin-top:6px;">Close</button>
 </div>
 <!-- Music Menu Popup -->
-<div class="popupPanel" style="overflow: auto;" [hidden]="!isMenuPanelOpen">
+<div class="popupPanel" style="overflow: auto;" [class.visually-hidden-operable]="!isMenuPanelOpen">
   <div class="popupPanelTitle">Music</div>
   <div class="popupPanelContents gradientBackground" style="padding:10px;">
     <app-daily-music [inputtedParentRef]="inputtedParentRef ?? parentRef"></app-daily-music>
