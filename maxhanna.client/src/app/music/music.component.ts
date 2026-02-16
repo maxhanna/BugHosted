@@ -79,7 +79,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   private pendingSwitch?: { ids: string[]; index: number; firstId: string };
   private lastSwitchAt = 0; 
   private switchTimer?: number; 
-  private lastPlaylistKey = '';
+  private lastPlaylistKey = ''; 
+private lastTap = 0;
 
 
   ytSearchTerm = '';
@@ -527,7 +528,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       parent?.showNotification("Url/File can't be empty");
       return;
     } 
-    
+
     if (url) {
       const requestedId = this.parseYoutubeId(url);
       const currentId = this.ytPlayer?.getVideoData()?.video_id || this.parseYoutubeId(this.currentUrl || '');
@@ -584,8 +585,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.isMusicControlsDisplayed(true);
     this.stopLoading();
 
-    console.log("rebuilt player with first:", initialVideoId, "playlist length:", ids.length, "index:", index);
-  }
+console.log("requested switch to:", initialVideoId, "index:", index, "playlist length:", ids.length);  }
 
 
 
@@ -1013,7 +1013,13 @@ private observePlayerDom() {
   }
 
 
+
 private ensureYTPlayerBuilt(firstId: string, songIds: string[], index: number) {
+  
+ const now = Date.now();
+  if (now - this.lastTap < 80) return;
+  this.lastTap = now;
+
   // build if missing
   if (!this.ytPlayer) {
     this.pendingSwitch = { ids: songIds, index, firstId };
@@ -1027,19 +1033,10 @@ private ensureYTPlayerBuilt(firstId: string, songIds: string[], index: number) {
     return;
   }
 
-  // trailing debounce (apply latest click after 150ms)
-  const now = Date.now();
-  this.pendingSwitch = { ids: songIds, index, firstId };
-
-  const wait = 150 - (now - this.lastSwitchAt);
-  this.lastSwitchAt = now;
-
-  if (this.switchTimer) window.clearTimeout(this.switchTimer);
-  this.switchTimer = window.setTimeout(() => {
-    this.switchTimer = undefined;
-    this.flushPendingSwitch();
-  }, Math.max(0, wait));
+  // ✅ IMPORTANT: switch immediately (no debounce, no setTimeout)
+  this.switchWithinPlaylist(songIds, index);
 }
+
 
    
   private handleEndedFallback() {
@@ -1079,30 +1076,33 @@ private ensureYTPlayerBuilt(firstId: string, songIds: string[], index: number) {
     }
   }
 
-private switchWithinPlaylist(ids: string[], index: number) {
-  if (!this.ytPlayer) return;
 
+private switchWithinPlaylist(ids: string[], index: number) {
+  console.log('[YT] switchWithinPlaylist', { index, idsLen: ids.length });
+
+  if (!this.ytPlayer) return;
   const key = ids.join(',');
 
   try {
-    // If playlist matches what player already has, jump to index
-    if (this.lastPlaylistKey === key && (this.ytPlayer.getPlaylist?.() || []).length) {
+    const pl = this.ytPlayer.getPlaylist?.() || [];
+    console.log('[YT] player playlist len', pl.length, 'keyMatch', this.lastPlaylistKey === key);
+
+    if (this.lastPlaylistKey === key && pl.length) {
       this.ytPlayer.playVideoAt(index);
       this.ytPlayer.playVideo();
       return;
     }
 
-    // Otherwise load the new playlist
     this.lastPlaylistKey = key;
     this.ytPlayer.loadPlaylist(ids, index, 0, 'small');
     this.ytPlayer.playVideo();
   } catch (e) {
     console.warn('[YT] switchWithinPlaylist failed', e);
-    // last resort rebuild
     const firstId = ids[index] || ids[0];
     if (firstId) this.rebuildYTPlayer(firstId, ids, index);
   }
 }
+
 
 private flushPendingSwitch() {
   const p = this.pendingSwitch;

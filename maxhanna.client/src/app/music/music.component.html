@@ -20,34 +20,30 @@
       <input type="submit" value="💾" (click)="addSong()" />
     </div>
   </fieldset> 
-  <div id="musicPlayerDiv" [class]="smallPlayer ? 'smallSongList' : 'normalSongList'">
+  <div id="musicPlayerDiv" [class]="smallPlayer ? 'smallSongList' : 'normalSongList'"> 
     <div id="iframeDiv" [class]="playerClasses">
-      <div class="yt-box">
-        <div
-          id="musicVideo"
-          #musicVideo
-          class="youtubeFrame"
+      <div class="playerStack">
+        <div id="musicVideo" #musicVideo
           [class.youtube-active]="selectedType === 'youtube' && !fileIdPlaying"
-          [class.youtube-inactive]="!(selectedType === 'youtube' && !fileIdPlaying)"
-        ></div>
-      </div>
-      
-      <app-media-viewer
-        #fileMediaViewer
-        [class.file-active]="fileIdPlaying"
-        [class.file-inactive]="!fileIdPlaying"
-        [inputtedParentRef]="parentRef"
-        [autoplay]="true"
-        [autoload]="true"
-        [loop]="false"
-        [muted]="false"
-        [showTopics]="false"
-        [showCommentSection]="false"
-        [previousComponent]="'Music'"
-        [displayLoading]="true"
-        (mediaEndedEvent)="mediaEndedEvent()"
-        (finishedLoadingEvent)="mediaViewerFinishedLoading()">
-      </app-media-viewer>
+          [class.youtube-inactive]="!(selectedType === 'youtube' && !fileIdPlaying)">
+        </div> 
+        <app-media-viewer
+          #fileMediaViewer
+          [class.file-active]="fileIdPlaying"
+          [class.file-inactive]="!fileIdPlaying"
+          [inputtedParentRef]="parentRef"
+          [autoplay]="true"
+          [autoload]="true"
+          [loop]="false"
+          [muted]="false"
+          [showTopics]="false"
+          [showCommentSection]="false"
+          [previousComponent]="'Music'"
+          [displayLoading]="true"
+          (mediaEndedEvent)="mediaEndedEvent()"
+          (finishedLoadingEvent)="mediaViewerFinishedLoading()">
+        </app-media-viewer> 
+      </div> 
       <button title="Shrink Fullscreen" (click)="closeFullscreen()" id="closeOverlay" *ngIf="isFullscreen">Shrink</button>
     </div>
     <div class="musicControls">
