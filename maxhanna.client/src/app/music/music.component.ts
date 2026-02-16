@@ -1229,7 +1229,6 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     }
   }
 
-
   private parseYoutubeId(url: string): string {
     if (!url) return '';
     try {
