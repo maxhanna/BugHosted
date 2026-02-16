@@ -14,7 +14,7 @@
   width: 100%;
   background: #000;
   overflow: hidden; 
-  min-height: 200px;
+  height: 200px;
 }
 
 /* If you need sticky behavior, put it on a wrapper above, not the player box */
@@ -96,7 +96,6 @@
 
   overflow: hidden; /* IMPORTANT: stop scrolling the whole panel */ 
   max-width: calc(100vw - 10px);
-  min-height: 200px;
 }
 .smallSongList,
 .normalSongList {
@@ -453,18 +452,11 @@ input[type="submit"] {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  min-height: 200px;
+  height: 200px;
   background: #000;
   overflow: hidden;
 }
-
-
-@media (max-width: 667px) {
-  .playerStack {
-    aspect-ratio: auto;
-    height: min(56.25vw, 40vh);  /* 16:9 but capped */  
-  }
-} 
+ 
 
 #musicVideo,
 .playerStack app-media-viewer {
@@ -478,7 +470,7 @@ input[type="submit"] {
   position: absolute;
   inset: 0;
   width: 100% !important;
-  height: 100% !important;
+  height: 200px !important;
   border: 0;
   display: block;
 }
