@@ -78,11 +78,11 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   private playerReady = false;  // <- REAL ready state
   private pendingSwitch?: { ids: string[]; index: number; firstId: string };
   private lastPlaylistKey = '';
-  private lastTap = 0; 
+  private lastTap = 0;
   private ytIds: string[] = [];
   private ytIndex = 0;
   private switching = false;
-private ytDeadCount = 0;
+  private ytDeadCount = 0;
 
   ytSearchTerm = '';
 
@@ -178,7 +178,7 @@ private ytDeadCount = 0;
   ngOnDestroy(): void {
     console.log('[Music]', this.instance, 'ngOnDestroy');
     console.trace('[Music] destroy stack');
- 
+
     this.stopYtHealthWatch();
     try { this.ytPlayer?.stopVideo(); } catch { console.error("Error stopping YT video"); }
     try { this.ytPlayer?.destroy(); } catch { console.error("Error destroying YT player"); }
@@ -216,8 +216,8 @@ private ytDeadCount = 0;
     if (!user?.id) {
       await Promise.resolve();
     }
-    await this.refreshPlaylist(); 
-    
+    await this.refreshPlaylist();
+
     if (this.songs.length && this.songs[0].url) {
       const url = this.songs[0].url!;
       if (!this.ytReady) this.pendingPlay = { url, fileId: null };
@@ -227,8 +227,8 @@ private ytDeadCount = 0;
     console.log('[Music] Loaded', this.songs.length, 'songs; page', this.currentPage);
   }
 
-async next() { this.playByIndex(this.ytIndex + 1); }
-async prev() { this.playByIndex(this.ytIndex - 1); }
+  async next() { this.playByIndex(this.ytIndex + 1); }
+  async prev() { this.playByIndex(this.ytIndex - 1); }
 
 
   private consumePendingPlay() {
@@ -346,8 +346,8 @@ async prev() { this.playByIndex(this.ytIndex - 1); }
 
     this.startLoading();
     if (!search) {
-      await this.getSongList(); 
-      this.rebuildLocalYtQueue(); 
+      await this.getSongList();
+      this.rebuildLocalYtQueue();
     } else {
       const tmpSongs = await this.todoService.getTodo(user.id, "Music", search);
       this.youtubeSongs = tmpSongs.filter((song: Todo) => this.parentRef?.isYoutubeUrl(song.url));
@@ -478,7 +478,7 @@ async prev() { this.playByIndex(this.ytIndex - 1); }
     }
     else {
       this.currentPage = 1;
-      await this.refreshPlaylist();  
+      await this.refreshPlaylist();
       this.songs = type === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
       this.fileIdPlaylist = type === 'file' ? this.fileSongs.map(song => song.fileId!).filter(id => id !== undefined) : undefined;
     }
@@ -531,11 +531,11 @@ async prev() { this.playByIndex(this.ytIndex - 1); }
     }
 
 
-const requestedId = this.parseYoutubeId(url!);
-this.rebuildLocalYtQueue(); // ensure queue current
-const idx = this.ytIds.indexOf(requestedId);
-this.playByIndex(idx >= 0 ? idx : 0);
-  
+    const requestedId = this.parseYoutubeId(url!);
+    this.rebuildLocalYtQueue(); // ensure queue current
+    const idx = this.ytIds.indexOf(requestedId);
+    this.playByIndex(idx >= 0 ? idx : 0);
+
     // Update UI state
     this.currentUrl = url;
     this.currentFileId = null;
@@ -915,71 +915,71 @@ this.playByIndex(idx >= 0 ? idx : 0);
     return !!(this.songs && this.songs.length > 0 && this.isMusicPlaying);
   }
 
-private hardRebuild(id: string) {
-  try { this.ytPlayer?.destroy(); } catch {}
-  this.ytPlayer = undefined;
-  this.playerReady = false;
+  private hardRebuild(id: string) {
+    try { this.ytPlayer?.destroy(); } catch { }
+    this.ytPlayer = undefined;
+    this.playerReady = false;
 
-  // important: clear the container contents
-  if (this.musicVideo?.nativeElement) {
-    this.musicVideo.nativeElement.innerHTML = '';
+    // important: clear the container contents
+    if (this.musicVideo?.nativeElement) {
+      this.musicVideo.nativeElement.innerHTML = '';
+    }
+
+    this.rebuildYTPlayer(id, [], 0);
   }
 
-  this.rebuildYTPlayer(id, [], 0);
-}
 
-  
-private rebuildYTPlayer(firstId: string, _unusedIds: string[], _unusedIndex: number) {
-  if (!this.musicVideo?.nativeElement) return;
-  this.playerReady = false;
+  private rebuildYTPlayer(firstId: string, _unusedIds: string[], _unusedIndex: number) {
+    if (!this.musicVideo?.nativeElement) return;
+    this.playerReady = false;
 
-  try { this.ytPlayer?.destroy(); } catch {}
-  this.ytPlayer = undefined;
+    try { this.ytPlayer?.destroy(); } catch { }
+    this.ytPlayer = undefined;
 
-  this.ngZone.runOutsideAngular(() => {
-    this.ytPlayer = new YT.Player(this.musicVideo.nativeElement, {
-      videoId: firstId,
-      playerVars: {
-        playsinline: 1,
-        rel: 0,
-        modestbranding: 1,
-        enablejsapi: 1,
-        origin: window.location.origin,
-        controls: 1,
-      },
-      events: {
-        onReady: () => {
-          this.playerReady = true;
-
-          // load current selection
-          try {
-            this.ytPlayer!.loadVideoById(firstId);
-            this.ytPlayer!.playVideo();
-          } catch {}
-
-          // set attributes
-          try {
-            const iframe = this.ytPlayer!.getIframe() as HTMLIFrameElement;
-            iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
-            iframe.setAttribute('referrerpolicy', 'origin-when-cross-origin');
-          } catch {}
-
-          this.ngZone.run(() => this.startYtHealthWatch());
+    this.ngZone.runOutsideAngular(() => {
+      this.ytPlayer = new YT.Player(this.musicVideo.nativeElement, {
+        videoId: firstId,
+        playerVars: {
+          playsinline: 1,
+          rel: 0,
+          modestbranding: 1,
+          enablejsapi: 1,
+          origin: window.location.origin,
+          controls: 1,
         },
+        events: {
+          onReady: () => {
+            this.playerReady = true;
 
-        onStateChange: (e) => {
-          if (e.data === YT.PlayerState.ENDED) this.playByIndex(this.ytIndex + 1);
-          if (e.data === YT.PlayerState.PLAYING) {
-            const vid = this.ytPlayer?.getVideoData()?.video_id;
-            if (vid) this.currentUrl = `https://www.youtube.com/watch?v=${vid}`;
-          }
-        },
+            // load current selection
+            try {
+              this.ytPlayer!.loadVideoById(firstId);
+              this.ytPlayer!.playVideo();
+            } catch { }
 
-        onError: () => this.playByIndex(this.ytIndex + 1),
-      }
+            // set attributes
+            try {
+              const iframe = this.ytPlayer!.getIframe() as HTMLIFrameElement;
+              iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+              iframe.setAttribute('referrerpolicy', 'origin-when-cross-origin');
+            } catch { }
+
+            this.ngZone.run(() => this.startYtHealthWatch());
+          },
+
+          onStateChange: (e) => {
+            if (e.data === YT.PlayerState.ENDED) this.playByIndex(this.ytIndex + 1);
+            if (e.data === YT.PlayerState.PLAYING) {
+              const vid = this.ytPlayer?.getVideoData()?.video_id;
+              if (vid) this.currentUrl = `https://www.youtube.com/watch?v=${vid}`;
+            }
+          },
+
+          onError: () => this.playByIndex(this.ytIndex + 1),
+        }
+      });
     });
-  });
-} 
+  }
 
   private ensureYTPlayerBuilt(firstId: string, songIds: string[], index: number) {
     // Build if missing
@@ -1135,13 +1135,13 @@ private rebuildYTPlayer(firstId: string, _unusedIds: string[], _unusedIndex: num
     this.fetchRadioStations();
   }
 
-private rebuildLocalYtQueue() {
-  this.ytIds = this.getYoutubeIdsInOrder();
-  // keep index aligned if something already playing
-  const current = this.ytPlayer?.getVideoData()?.video_id || this.parseYoutubeId(this.currentUrl || '');
-  const idx = current ? this.ytIds.indexOf(current) : -1;
-  if (idx >= 0) this.ytIndex = idx;
-}
+  private rebuildLocalYtQueue() {
+    this.ytIds = this.getYoutubeIdsInOrder();
+    // keep index aligned if something already playing
+    const current = this.ytPlayer?.getVideoData()?.video_id || this.parseYoutubeId(this.currentUrl || '');
+    const idx = current ? this.ytIds.indexOf(current) : -1;
+    if (idx >= 0) this.ytIndex = idx;
+  }
 
   async playRadioStation(station: RadioStation) {
     if (!station || !station.url_resolved) {
@@ -1190,44 +1190,44 @@ private rebuildLocalYtQueue() {
     this.cdr.markForCheck();
   }
 
-private startYtHealthWatch() {
-  this.stopYtHealthWatch();
+  private startYtHealthWatch() {
+    this.stopYtHealthWatch();
 
-  this.ytHealthTimer = window.setInterval(() => {
-    if (!this.ytPlayer) return;
+    this.ytHealthTimer = window.setInterval(() => {
+      if (!this.ytPlayer) return;
 
-    try {
-      // A lightweight call that should work if the bridge is alive
-      this.ytPlayer.getCurrentTime();
-      this.ytDeadCount = 0;
-    } catch {
-      this.ytDeadCount++;
-      console.warn('[YT] health ping failed', this.ytDeadCount);
-
-      // after a couple failures, rebuild
-      if (this.ytDeadCount >= 2) {
+      try {
+        // A lightweight call that should work if the bridge is alive
+        this.ytPlayer.getCurrentTime();
         this.ytDeadCount = 0;
+      } catch {
+        this.ytDeadCount++;
+        console.warn('[YT] health ping failed', this.ytDeadCount);
 
-        const id =
-          this.ytPlayer?.getVideoData()?.video_id ||
-          this.parseYoutubeId(this.currentUrl || '') ||
-          this.ytIds[this.ytIndex];
+        // after a couple failures, rebuild
+        if (this.ytDeadCount >= 2) {
+          this.ytDeadCount = 0;
 
-        if (id) {
-          console.warn('[YT] rebuilding after suspected crash', id);
-          this.hardRebuild(id);
+          const id =
+            this.ytPlayer?.getVideoData()?.video_id ||
+            this.parseYoutubeId(this.currentUrl || '') ||
+            this.ytIds[this.ytIndex];
+
+          if (id) {
+            console.warn('[YT] rebuilding after suspected crash', id);
+            this.hardRebuild(id);
+          }
         }
       }
-    }
-  }, 4000);
-}
-
-private stopYtHealthWatch() {
-  if (this.ytHealthTimer) {
-    clearInterval(this.ytHealthTimer);
-    this.ytHealthTimer = undefined;
+    }, 4000);
   }
-}
+
+  private stopYtHealthWatch() {
+    if (this.ytHealthTimer) {
+      clearInterval(this.ytHealthTimer);
+      this.ytHealthTimer = undefined;
+    }
+  }
 
 
   private parseYoutubeId(url: string): string {
@@ -1265,33 +1265,33 @@ private stopYtHealthWatch() {
     }
     return '';
   }
-  
-private playByIndex(index: number) {
-  if (!this.ytIds.length) return;
 
-  this.ytIndex = (index + this.ytIds.length) % this.ytIds.length;
-  const id = this.ytIds[this.ytIndex];
+  private playByIndex(index: number) {
+    if (!this.ytIds.length) return;
 
-  // update your URL state
-  this.currentUrl = `https://www.youtube.com/watch?v=${id}`;
-  this.currentFileId = null;
-  this.isMusicPlaying = true;
+    this.ytIndex = (index + this.ytIds.length) % this.ytIds.length;
+    const id = this.ytIds[this.ytIndex];
 
-  // If player not ready, queue it
-  if (!this.ytReady || !this.ytPlayer || !this.playerReady) {
-    this.pendingPlay = { url: this.currentUrl, fileId: null };
-    return;
+    // update your URL state
+    this.currentUrl = `https://www.youtube.com/watch?v=${id}`;
+    this.currentFileId = null;
+    this.isMusicPlaying = true;
+
+    // If player not ready, queue it
+    if (!this.ytReady || !this.ytPlayer || !this.playerReady) {
+      this.pendingPlay = { url: this.currentUrl, fileId: null };
+      return;
+    }
+
+    // 🔥 Always direct-load the video
+    try {
+      this.switching = true;
+      this.ytPlayer.loadVideoById(id);
+      this.ytPlayer.playVideo();
+    } finally {
+      setTimeout(() => (this.switching = false), 250);
+    }
   }
-
-  // 🔥 Always direct-load the video
-  try {
-    this.switching = true;
-    this.ytPlayer.loadVideoById(id);
-    this.ytPlayer.playVideo();
-  } finally {
-    setTimeout(() => (this.switching = false), 250);
-  }
-}
 
   async refreshDom() {
     setTimeout(() => {
@@ -1302,7 +1302,7 @@ private playByIndex(index: number) {
     await this.getSongList().then(() => {
       this.updatePaginatedSongs();
       this.cdr.markForCheck();
-    }); 
-    this.rebuildLocalYtQueue(); 
+    });
+    this.rebuildLocalYtQueue();
   }
 }
