@@ -12,9 +12,8 @@
   display: block;          /* ✅ not flex */
   position: relative;
   width: 100%;
-  background: #000;
-  overflow: hidden; 
-  height: 200px;
+  background: #000; 
+  min-height: 200px;
 }
 
 /* If you need sticky behavior, put it on a wrapper above, not the player box */
@@ -23,9 +22,8 @@
   top: 0;                      /* avoid negative top for predictable layout */
   z-index: 2;
 }
-
-/* Force injected iframe to fill container despite inline 640x360 */
-#musicVideo iframe {
+ 
+iframe {
   width: 100% !important;
   height: 100% !important;
   border: 0;
@@ -469,8 +467,7 @@ input[type="submit"] {
 #musicVideo iframe {
   position: absolute;
   inset: 0;
-  width: 100% !important;
-  height: 200px !important;
+  width: 100% !important; 
   border: 0;
   display: block;
 }
