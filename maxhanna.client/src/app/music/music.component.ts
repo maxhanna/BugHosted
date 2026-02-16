@@ -17,7 +17,7 @@ import { SubscriptionLike } from 'rxjs';
   styleUrl: './music.component.css',
   standalone: false,
   changeDetection: ChangeDetectionStrategy.OnPush
-}) 
+})
 
 export class MusicComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('titleInput') titleInput!: ElementRef<HTMLInputElement>;
@@ -72,9 +72,9 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   private resizeHandler?: () => void;
   private ro?: ResizeObserver;
   private locationSub?: SubscriptionLike;
-  private radioAudioEl?: HTMLAudioElement; 
-private screenLock?: any; 
-  ytSearchTerm = ''; 
+  private radioAudioEl?: HTMLAudioElement;
+  private screenLock?: any;
+  ytSearchTerm = '';
 
   @Input() user?: User;
   @Input() smallPlayer = false;
@@ -121,18 +121,22 @@ private screenLock?: any;
       this.closeFullscreen();
       event.preventDefault();
     }
-  } 
-
-@HostListener('document:visibilitychange')
-onVisChange() { 
-  if (document.visibilityState === 'visible') {
-    if (this.isMusicPlaying) {
-      try { this.ytPlayer?.playVideo(); } catch { }
-    }
-    // Let layout settle, then resize
-    setTimeout(() => this.safeResize(), 120);
   }
-}
+
+  @HostListener('document:visibilitychange')
+  onVisChange() {
+    if (document.visibilityState === 'visible') {
+      if (this.isMusicPlaying) {
+        try { this.ytPlayer?.playVideo(); } catch { }
+      }
+      // Let layout settle, then resize 
+      setTimeout(() => {
+        if (document.visibilityState === 'visible') {
+          requestAnimationFrame(() => this.safeResize());
+        }
+      }, 250);
+    }
+  }
 
   async ngOnInit() {
     await this.tryInitialLoad();
@@ -168,7 +172,8 @@ onVisChange() {
       this.radioAudioEl = undefined;
     }
   }
- 
+
+
   private detachResizeHandling() {
     if (this.resizeHandler) {
       window.removeEventListener('resize', this.resizeHandler);
@@ -179,7 +184,6 @@ onVisChange() {
       this.ro = undefined;
     }
   }
-
 
   private async tryInitialLoad() {
     const parent = this.inputtedParentRef ?? this.parentRef;
@@ -560,7 +564,7 @@ onVisChange() {
     const requestedId = this.parseYoutubeId(url!);
     let index = ids.indexOf(requestedId);
     if (index < 0) { ids.unshift(requestedId); index = 0; }
-    
+
     const initialVideoId = ids[index];
     this.ensureYTPlayerBuilt(initialVideoId, ids, index);
     //this.rebuildYTPlayer(initialVideoId, ids, index);
@@ -570,7 +574,7 @@ onVisChange() {
     this.currentFileId = null;
     this.isMusicPlaying = true;
     this.setupMediaSession();
-    this.keepScreenAwake(true); 
+    this.keepScreenAwake(true);
     this.isMusicControlsDisplayed(true);
     this.stopLoading();
 
@@ -578,44 +582,44 @@ onVisChange() {
   }
 
 
-  
-randomSong() {
-  if (this.selectedType === 'file') {
-    const fileIds = (this.fileIdPlaylist || []).filter(id => id != null) as number[];
-    if (fileIds.length) {
-      const randomFileId = fileIds[Math.floor(Math.random() * fileIds.length)];
-      this.play(undefined, randomFileId);
+
+  randomSong() {
+    if (this.selectedType === 'file') {
+      const fileIds = (this.fileIdPlaylist || []).filter(id => id != null) as number[];
+      if (fileIds.length) {
+        const randomFileId = fileIds[Math.floor(Math.random() * fileIds.length)];
+        this.play(undefined, randomFileId);
+        return;
+      }
+    }
+
+    if (this.selectedType !== 'youtube') return;
+
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const randomSong = this.pickRandomSong(this.songs);
+    if (!randomSong) {
+      parent?.showNotification('No songs available');
       return;
     }
+
+    const ids = this.getYoutubeIdsInOrder();
+    const rndId = this.parseYoutubeId(randomSong.url || '');
+    if (!rndId || !ids.length) {
+      parent?.showNotification('Invalid YouTube ID');
+      return;
+    }
+
+    const rotated = this.rotatePlaylistFromId(ids, rndId);
+
+    // ❗USE ensureYTPlayerBuilt — do NOT rebuild
+    this.ensureYTPlayerBuilt(rotated[0], rotated, 0);
+
+    this.currentUrl = randomSong.url;
+    this.currentFileId = null;
+    this.isMusicPlaying = true;
+    this.isMusicControlsDisplayed(true);
+    this.cdr.markForCheck();
   }
-
-  if (this.selectedType !== 'youtube') return;
-
-  const parent = this.inputtedParentRef ?? this.parentRef;
-  const randomSong = this.pickRandomSong(this.songs);
-  if (!randomSong) {
-    parent?.showNotification('No songs available');
-    return;
-  }
-
-  const ids = this.getYoutubeIdsInOrder();
-  const rndId = this.parseYoutubeId(randomSong.url || '');
-  if (!rndId || !ids.length) {
-    parent?.showNotification('Invalid YouTube ID');
-    return;
-  }
-
-  const rotated = this.rotatePlaylistFromId(ids, rndId);
-
-  // ❗USE ensureYTPlayerBuilt — do NOT rebuild
-  this.ensureYTPlayerBuilt(rotated[0], rotated, 0);
-
-  this.currentUrl = randomSong.url;
-  this.currentFileId = null;
-  this.isMusicPlaying = true;
-  this.isMusicControlsDisplayed(true);
-  this.cdr.markForCheck();
-} 
 
   followLink() {
     if (!this.currentUrl) {
@@ -670,21 +674,21 @@ randomSong() {
     return playlist;
   }
 
-private setupMediaSession() {
-  if ('mediaSession' in navigator) {
-    navigator.mediaSession.metadata = new MediaMetadata({ title: 'Music', artist: '', album: '' });
-    navigator.mediaSession.playbackState = 'playing';
-    navigator.mediaSession.setActionHandler('nexttrack', () => this.next());
-    navigator.mediaSession.setActionHandler('previoustrack', () => this.prev());
+  private setupMediaSession() {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({ title: 'Music', artist: '', album: '' });
+      navigator.mediaSession.playbackState = 'playing';
+      navigator.mediaSession.setActionHandler('nexttrack', () => this.next());
+      navigator.mediaSession.setActionHandler('previoustrack', () => this.prev());
+    }
   }
-}
 
-async keepScreenAwake(keep: boolean) {
-  try {
-    if (keep) this.screenLock = await (navigator as any).wakeLock?.request('screen');
-    else await this.screenLock?.release();
-  } catch {}
-}
+  async keepScreenAwake(keep: boolean) {
+    try {
+      if (keep) this.screenLock = await (navigator as any).wakeLock?.request('screen');
+      else await this.screenLock?.release();
+    } catch { }
+  }
 
   clearInputs() {
     if (this.searchInput) this.searchInput.nativeElement.value = "";
@@ -773,7 +777,7 @@ async keepScreenAwake(keep: boolean) {
     const idx = Math.max(0, allIds.indexOf(startId));
     return allIds.slice(idx).concat(allIds.slice(0, idx));
   }
-  
+
   onSearchEnter() {
     clearTimeout(this.debounceTimer);
     this.ytSearchTerm = this.searchInput?.nativeElement.value || '';
@@ -941,103 +945,134 @@ async keepScreenAwake(keep: boolean) {
 
     this.detachResizeHandling();
     try { this.ytPlayer?.destroy(); } catch { console.warn('[YT] Failed to destroy existing player'); }
-    
+
     this.ngZone.runOutsideAngular(() => {
-        this.ytPlayer = new YT.Player(this.musicVideo.nativeElement as HTMLElement, {
-          videoId: firstId,
-          playerVars: {
-            playsinline: 1,
-            rel: 0,
-            modestbranding: 1,
-            enablejsapi: 1,
-            origin: window.location.origin,
-            controls: 1,
+      this.ytPlayer = new YT.Player(this.musicVideo.nativeElement as HTMLElement, {
+        videoId: firstId,
+        playerVars: {
+          playsinline: 1,
+          rel: 0,
+          modestbranding: 1,
+          enablejsapi: 1,
+          origin: window.location.origin,
+          controls: 1,
+        },
+        events: {
+          onReady: () => {
+            try {
+              const iframe = this.ytPlayer!.getIframe() as HTMLIFrameElement;
+              iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+              iframe.setAttribute('referrerpolicy', 'origin-when-cross-origin');
+            } catch { }
+
+            try {
+              this.ytPlayer!.loadPlaylist(songIds, index, 0, 'small');
+              this.ytPlayer!.setLoop(false);
+              (this.ytPlayer as any).setShuffle?.(false);
+              this.ytPlayer!.playVideo();
+            } catch {
+              const vid = songIds[index] ?? firstId;
+              this.ytPlayer?.loadVideoById(vid);
+              this.ytPlayer?.playVideo();
+              setTimeout(() => {
+                try { this.ytPlayer?.cuePlaylist(songIds, index, 0, 'small'); } catch { }
+              }, 200);
+            }
+
+            if (this.ytPlayer?.isMuted()) this.ytPlayer?.unMute();
+            // Re-enter Angular to update flags/UI once
+            this.ngZone.run(() => this.attachResizeHandling());
           },
-          events: {
-            onReady: () => {
-              try {
-                const iframe = this.ytPlayer!.getIframe() as HTMLIFrameElement;
-                iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
-                iframe.setAttribute('referrerpolicy', 'origin-when-cross-origin');
-              } catch {}
-
-              try {
-                this.ytPlayer!.loadPlaylist(songIds, index, 0, 'small');
-                this.ytPlayer!.setLoop(false);
-                (this.ytPlayer as any).setShuffle?.(false);
-                this.ytPlayer!.playVideo();
-              } catch {
-                const vid = songIds[index] ?? firstId;
-                this.ytPlayer?.loadVideoById(vid);
-                this.ytPlayer?.playVideo();
-                setTimeout(() => {
-                  try { this.ytPlayer?.cuePlaylist(songIds, index, 0, 'small'); } catch {}
-                }, 200);
-              }
-
-              if (this.ytPlayer?.isMuted()) this.ytPlayer?.unMute();
-              // Re-enter Angular to update flags/UI once
-              this.ngZone.run(() => this.attachResizeHandling());
-            },
-            onStateChange: (e: YT.OnStateChangeEvent) => {
-              if (e.data === YT.PlayerState.ENDED) this.handleEndedFallback();
-            },
-            onError: (_e: YT.OnErrorEvent) => this.next(),
-          }
-        });
+          onStateChange: (e: YT.OnStateChangeEvent) => {
+            if (e.data === YT.PlayerState.ENDED) this.handleEndedFallback();
+          },
+          onError: (_e: YT.OnErrorEvent) => this.next(),
+        }
       });
+    });
 
+  }
+
+
+  private ensureYTPlayerBuilt(firstId: string, songIds: string[], index: number) {
+    if (this.ytPlayer) {
+      // Already built – just (re)attach playlist & start
+      try {
+        // If a playlist is already attached, make sure we’re on the right index
+        const pl = this.ytPlayer.getPlaylist?.() || [];
+        if (!pl.length) {
+          this.ytPlayer.cuePlaylist(songIds, index, 0, 'small');
+        } else {
+          // Force to the selected video id
+          const vid = songIds[index] ?? songIds[0];
+          if (vid) this.ytPlayer.loadVideoById(vid);
+        }
+        this.ytPlayer.playVideo();
+      } catch { /* swallow */ }
+      return;
+    }
+
+    // Build once
+    this.rebuildYTPlayer(firstId, songIds, index);
   }
 
   
-private ensureYTPlayerBuilt(firstId: string, songIds: string[], index: number) {
-  if (this.ytPlayer) {
-    // Already built – just (re)attach playlist & start
+  private safeResize = () => {
+    if (!this.ytPlayer) return;
+    if (document.visibilityState !== 'visible') return;
+
+    const hostEl = this.musicVideo?.nativeElement as HTMLElement | undefined;
+    if (!hostEl) return;
+
+    const rect = hostEl.getBoundingClientRect();
+
+    // Skip risky resizes—tiny sizes are known to crash the iframe process
+    const w = Math.round(rect.width || 0);
+    const h = Math.round(rect.height || 0);
+    if (w < 50 || h < 50) {
+      console.debug('[YT] Skipping resize due to tiny size', { w, h });
+      return;
+    }
+
     try {
-      // If a playlist is already attached, make sure we’re on the right index
-      const pl = this.ytPlayer.getPlaylist?.() || [];
-      if (!pl.length) {
-        this.ytPlayer.cuePlaylist(songIds, index, 0, 'small');
-      } else {
-        // Force to the selected video id
-        const vid = songIds[index] ?? songIds[0];
-        if (vid) this.ytPlayer.loadVideoById(vid);
+      this.ytPlayer.setSize(w, h);
+      console.log('[YT] Resized player to', { w, h });
+    } catch {
+      console.warn('[YT] Failed to resize player', { w, h });
+    }
+  }; 
+
+
+  private attachResizeHandling() {
+    const hostEl = this.musicVideo?.nativeElement as HTMLElement | undefined;
+    if (!hostEl) return;
+
+    // Ensure the container can never be measured as 0x0
+    hostEl.style.display = 'block';
+    hostEl.style.minHeight = '200px';
+
+    // 1) window.resize -> safeResize (once)
+    this.resizeHandler = () => {
+      // Avoid resizing while hidden; delay one frame after visibility
+      if (document.visibilityState !== 'visible') return;
+      requestAnimationFrame(() => this.safeResize());
+    };
+    window.addEventListener('resize', this.resizeHandler, { passive: true });
+
+    // 2) ResizeObserver -> safeResize (once)
+    this.ro = new ResizeObserver(() => {
+      if (document.visibilityState !== 'visible') return;
+      this.safeResize();
+    });
+    this.ro.observe(hostEl);
+
+    // 3) Initial resize after layout settles
+    setTimeout(() => {
+      if (document.visibilityState === 'visible') {
+        requestAnimationFrame(() => this.safeResize());
       }
-      this.ytPlayer.playVideo();
-    } catch { /* swallow */ }
-    return;
+    }, 0);
   }
-
-  // Build once
-  this.rebuildYTPlayer(firstId, songIds, index);
-} 
-
-private safeResize = () => {
-  if (document.visibilityState !== 'visible' || !this.ytPlayer) return;
-
-  const hostEl = this.musicVideo.nativeElement as HTMLElement;
-  const r = hostEl.getBoundingClientRect();
-
-  // Guard against zeros while tab is hidden or layout is in flux
-  const w = Math.max(300, Math.round(r.width || 0));
-  const h = Math.max(250, Math.round(r.height || 0));
-  if (w < 2 || h < 2) return;
-
-  try { this.ytPlayer.setSize(w, h); } catch { /* noop */ }
-};
-
-private attachResizeHandling() {
-  const hostEl = this.musicVideo.nativeElement as HTMLElement;
-  hostEl.style.display = 'block';
-  hostEl.style.minHeight = '200px';
-
-  this.resizeHandler = this.safeResize;
-  window.addEventListener('resize', this.resizeHandler);
-
-  this.ro = new ResizeObserver(() => this.safeResize());
-  this.ro.observe(hostEl);
-  this.safeResize();
-}
 
   private handleEndedFallback() {
     // If there's a playlist attached, normal flow
@@ -1075,18 +1110,16 @@ private attachResizeHandling() {
       }
     }
   }
-  // Radio Browser API methods
+
   async loadRadioData() {
     this.startLoading();
     this.isLoadingRadio = true;
     try {
-      // Load countries, languages, and tags
       await Promise.all([
         this.fetchRadioCountries(),
         this.fetchRadioLanguages(),
         this.fetchRadioTags()
       ]);
-      // Load default stations
       await this.fetchRadioStations();
     } catch (error) {
       console.error('Error loading radio data:', error);
@@ -1209,7 +1242,7 @@ private attachResizeHandling() {
   }
   async refreshDom() {
     setTimeout(() => {
-      this.cdr.markForCheck(); 
+      this.cdr.markForCheck();
     }, 50);
   }
   async refreshPlaylist() {
