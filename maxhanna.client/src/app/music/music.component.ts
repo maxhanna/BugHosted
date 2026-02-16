@@ -1292,14 +1292,9 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       return;
     }
 
-    // 🔥 Always direct-load the video
-    try {
-      this.switching = true;
-      this.ytPlayer.loadVideoById(id);
-      this.ytPlayer.playVideo();
-    } finally {
-      setTimeout(() => (this.switching = false), 250);
-    }
+    // 🔥 Always direct-load the video 
+    this.ytPlayer.loadVideoById(id);
+    this.ytPlayer.playVideo(); 
   }
 
   async refreshDom() {
