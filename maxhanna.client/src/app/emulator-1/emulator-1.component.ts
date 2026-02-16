@@ -1591,11 +1591,6 @@ private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
   root.appendChild(style);
   return style;
 }
-
- 
-
- 
-
   
 /** Find inner clickable node for a wrapper (works across common skins). */
 private findClickableInside(host: Element | null): HTMLElement | null {
