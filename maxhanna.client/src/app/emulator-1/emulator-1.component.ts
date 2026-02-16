@@ -217,8 +217,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         id: 'speed_fast',
         text: 'Fast',
         location: 'left',
-        left: 10,       // px from the left edge of the left column
-        top: 190,       // push down; increase if you need them lower on tall screens
+        left: 0,       // px from the left edge of the left column
+        top: 200,       // push down; increase if you need them lower on tall screens
         fontSize: 13,   // smaller text
         block: false,   // pill-less small button
         input_value: 27
@@ -228,8 +228,8 @@ export class Emulator1Component extends ChildComponent implements OnInit, OnDest
         id: 'speed_slow',
         text: 'Slow',
         location: 'left',
-        left: 62,       // sits next to Fast (≈ 50–60px spacing)
-        top: 190,
+        left: 42,       // sits next to Fast (≈ 50–60px spacing)
+        top: 200,
         fontSize: 13,
         block: false,
         input_value: 29
@@ -1570,7 +1570,7 @@ private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
 }
 
 /* Start/Select: drop slightly */
-.max-nudge-down { transform: translateY(10px) !important; }
+.max-nudge-down { transform: translateY(35px) !important; }
 
 /* If wrapper gets the class, keep first child consistent across skins */
 .max-pill > *, .max-rect > * { all: inherit; }
@@ -1584,7 +1584,7 @@ private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
     border-radius: ${(PILL_H - 6) / 2}px !important;
     font-size: ${FONT - 2}px !important;
   }
-  .max-pill.is-a { transform: translate(-20px,  6px) !important; }
+  .max-pill.is-a { transform: translate(-30px,  6px) !important; }
   .max-pill.is-b { transform: translate(-30px, 18px) !important; }
 }
 `;
