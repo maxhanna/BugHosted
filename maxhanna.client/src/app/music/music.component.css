@@ -399,6 +399,22 @@ input[type="submit"] {
   gap: 5px;
 }
 
+/* Keep element present in DOM but visually hidden while remaining operable.
+   Uses opacity + composited transform to avoid layout/reflow. */
+.visually-hidden-operable {
+  opacity: 0;
+  transition: opacity 120ms linear;
+  will-change: opacity;
+  /* keep pointer events enabled so element remains operable */
+  pointer-events: auto;
+}
+
+/* Utility to hide visually and also disable pointer events when desired */
+.visually-hidden-noninteractive {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .radioStationItem {
   display: flex;
   flex-direction: row;

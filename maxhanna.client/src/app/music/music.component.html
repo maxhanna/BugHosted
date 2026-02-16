@@ -1,10 +1,10 @@
 <div class="componentMain" #componentMain>
-  <div class="closeButton" [hidden]="user" (click)="remove_me('MusicComponent');"></div>
-  <div class="menuButton" (click)="showMenuPanel();" [hidden]="user"></div>
-  <div class="helpButton" [hidden]="user" (click)="openHelpPanel()"></div>
-  <div class="componentTitle" [hidden]="user">Music</div>
+  <div class="closeButton" [class.visually-hidden-operable]="user" (click)="remove_me('MusicComponent');"></div>
+  <div class="menuButton" (click)="showMenuPanel();" [class.visually-hidden-operable]="user"></div>
+  <div class="helpButton" [class.visually-hidden-operable]="user" (click)="openHelpPanel()"></div>
+  <div class="componentTitle" [class.visually-hidden-operable]="user">Music</div>
 
-  <fieldset [hidden]="user">
+  <fieldset [class.visually-hidden-operable]="user">
     <legend title="Add to the music list">Add to the music list</legend>
     <div class="addSongInputFieldset">
       <input type="text" #titleInput placeholder="Artist - Song Title" (keyup.enter)="addSong()" />
@@ -43,12 +43,12 @@
         (mediaEndedEvent)="mediaEndedEvent()"
         (finishedLoadingEvent)="mediaViewerFinishedLoading()">
       </app-media-viewer>
-      <button title="Shrink Fullscreen" (click)="closeFullscreen()" id="closeOverlay" [hidden]="!isFullscreen">Shrink</button>
+      <button title="Shrink Fullscreen" (click)="closeFullscreen()" id="closeOverlay" [class.visually-hidden-operable]="!isFullscreen">Shrink</button>
     </div>
     <div class="musicControls">
       <label id="stopMusicButton" (click)="stopMusic()" title="Stop">🛑</label>
       <label id="fullscreenMusicButton" (click)="fullscreen()" title="Expand Fullscreen">◼</label>
-      <label id="followLinkButton" [hidden]="fileIdPlaylist" (click)="followLink()" title="Open in Youtube">🕸</label>
+      <label id="followLinkButton" [class.visually-hidden-operable]="fileIdPlaylist" (click)="followLink()" title="Open in Youtube">🕸</label>
       <label (click)="randomSong()" title="Random Song">⚡</label>
     </div>
 
@@ -57,14 +57,14 @@
         Total: ({{songs.length}})
         <span class="collapse-icon">{{ isSongListCollapsed ? '▼' : '▲' }}</span>
       </div>
-      <div [hidden]="isSongListCollapsed">
+      <div [class.visually-hidden-operable]="isSongListCollapsed">
         <div style="width:100%; text-align:center;">
           Order: <select id="orderSelect" (change)="reorderTable($event)" #orderSelect>
             <option *ngFor="let order of orders" [value]="order">{{order}}</option>
           </select><br />
           Search: <input placeholder="Keyword" #searchInput (input)="onSearchEnter()" />
           <input type="submit" value="🔍" title="Search Music Playlist" (click)="searchForSong()" />
-          <input type="submit" value="▶️" title="Search YouTube" (click)="showYoutubeSearch()" [hidden]="selectedType != 'youtube'" />
+          <input type="submit" value="▶️" title="Search YouTube" (click)="showYoutubeSearch()" [class.visually-hidden-operable]="selectedType != 'youtube'" />
         </div>
         <div class="musicTypeSelector">
           <label class="smallFont">
@@ -82,7 +82,7 @@
         </div>
         <div class="mainTableContainer">
           <!-- Radio Stations View -->
-          <div [hidden]="selectedType !== 'radio'" class="radioStationsContainer">
+          <div [class.visually-hidden-operable]="selectedType !== 'radio'" class="radioStationsContainer">
             <div class="radioFilters">
               <select (change)="onRadioFilterChange('country', $event)" class="radioFilterSelect">
                 <option value="">All Countries</option>
@@ -97,39 +97,39 @@
                 <option *ngFor="let tag of radioTags" [value]="tag.name">{{tag.name}} ({{tag.stationcount}})</option>
               </select>
             </div>
-            <div class="radioStationsList" [hidden]="!radioStations || radioStations.length === 0">
+            <div class="radioStationsList" [class.visually-hidden-operable]="!radioStations || radioStations.length === 0">
               <div *ngFor="let station of radioStations" class="radioStationItem" (click)="playRadioStation(station)">
-                <img [hidden]="!station.favicon" [src]="station.favicon" class="radioStationIcon" (error)="station.favicon = null" />
+                <img [class.visually-hidden-operable]="!station.favicon" [src]="station.favicon" class="radioStationIcon" (error)="station.favicon = null" />
                 <div class="radioStationInfo">
                   <div class="radioStationName">{{station.name}}</div>
                   <div class="radioStationDetails smallFont">
-                    <span [hidden]="!station.country">{{station.country}}</span>
-                    <span [hidden]="!station.language"> • {{station.language}}</span>
-                    <span [hidden]="!station.tags"> • {{station.tags}}</span>
+                    <span [class.visually-hidden-operable]="!station.country">{{station.country}}</span>
+                    <span [class.visually-hidden-operable]="!station.language"> • {{station.language}}</span>
+                    <span [class.visually-hidden-operable]="!station.tags"> • {{station.tags}}</span>
                   </div>
                 </div>
                 <button class="radioPlayButton" (click)="playRadioStation(station); $event.stopPropagation()">▶️</button>
               </div>
             </div>
-            <div [hidden]="!isLoadingRadio" style="text-align: center; padding: 20px;">Loading radio stations...</div>
-            <div [hidden]="isLoadingRadio || (radioStations && radioStations.length > 0)" style="text-align: center; padding: 20px;">
+            <div [class.visually-hidden-operable]="!isLoadingRadio" style="text-align: center; padding: 20px;">Loading radio stations...</div>
+            <div [class.visually-hidden-operable]="isLoadingRadio || (radioStations && radioStations.length > 0)" style="text-align: center; padding: 20px;">
               No radio stations found. Try different filters.
             </div>
           </div>
 
           <!-- YouTube/Files Table -->
-          <table id="songListTable" [class]="isEditing.length ? '' : 'mainTable'" id="todoTable" [hidden]="selectedType === 'radio' || !(paginatedSongs && paginatedSongs.length > 0)">
+          <table id="songListTable" [class]="isEditing.length ? '' : 'mainTable'" id="todoTable" [class.visually-hidden-operable]="selectedType === 'radio' || !(paginatedSongs && paginatedSongs.length > 0)">
             <tbody>
               <tr *ngFor="let song of paginatedSongs; trackBy: trackSong" id="songId{{song.id!}}" [class]="isEditing.length > 0 ? 'popupPanel' : ''">
-                <td [hidden]="!song.id" [style.width]="isEditing.length > 0 ? '' : '100%'">
-                  <span [hidden]="isEditing.length > 0" class="songTitle" (click)="play(song.url, song.fileId)" >{{song.todo}}</span>
-                  <div [hidden]="!isEditing.length" class="popupPanelTitle">Edit Song</div>
+                <td [class.visually-hidden-operable]="!song.id" [style.width]="isEditing.length > 0 ? '' : '100%'">
+                  <span [class.visually-hidden-operable]="isEditing.length > 0" class="songTitle" (click)="play(song.url, song.fileId)" >{{song.todo}}</span>
+                  <div [class.visually-hidden-operable]="!isEditing.length" class="popupPanelTitle">Edit Song</div>
                   <div>
-                    <span [hidden]="!isEditing.length">Title:&nbsp;</span>
+                    <span [class.visually-hidden-operable]="!isEditing.length">Title:&nbsp;</span>
                     <textarea 
                       type=text 
                       id="editSongNameInput" 
-                      [hidden]="!isEditing.length" 
+                      [class.visually-hidden-operable]="!isEditing.length" 
                       [value]="song.todo" 
                       style="width:100%"
                       (click)="$event.stopPropagation()" 
@@ -137,11 +137,11 @@
                       (input)="hasEditedSong = true;"></textarea>
                   </div>
                   <div>
-                    <span [hidden]="!isEditing.length">Url:&nbsp;</span>
+                    <span [class.visually-hidden-operable]="!isEditing.length">Url:&nbsp;</span>
                     <textarea 
                     type=text 
                     id="editSongUrlInput" 
-                      [hidden]="!isEditing.length" 
+                      [class.visually-hidden-operable]="!isEditing.length" 
                       [value]="song.url" 
                       style="width:100%" 
                       (click)="$event.stopPropagation()" 
@@ -149,8 +149,8 @@
                       (input)="hasEditedSong = true;"></textarea>
                   </div> 
                 </td>
-                <td class="actionTd" [hidden]="user || !song.id">
-                  <button (click)="editSong(song.id)" class="xxSmallFont cursorPointer" [hidden]="isEditing.length">
+                <td class="actionTd" [class.visually-hidden-operable]="user || !song.id">
+                  <button (click)="editSong(song.id)" class="xxSmallFont cursorPointer" [class.visually-hidden-operable]="isEditing.length">
                     {{ (isEditing.length > 0) ? '💾':'✏️'}}
                   </button> 
                   <button 
@@ -161,12 +161,12 @@
                     id="closeOverlay">
                     💾Update
                   </button>
-                  <button (click)="deleteSong(song.id)" class="cursorPointer" [hidden]="!isEditing.length">❌Delete</button>
+                  <button (click)="deleteSong(song.id)" class="cursorPointer" [class.visually-hidden-operable]="!isEditing.length">❌Delete</button>
                 </td>
               </tr>
             </tbody>
           </table> 
-          <div [hidden]="!isShowingYoutubeSearch" class="popupPanel">
+          <div [class.visually-hidden-operable]="!isShowingYoutubeSearch" class="popupPanel">
             <app-youtube-search 
             [inputtedParentRef]="inputtedParentRef ?? parentRef" 
             [keyword]="ytSearchTerm"
@@ -174,14 +174,14 @@
             <button id="closeOverlay" (click)="closeYoutubeSearch()" style="margin-top:10px;">Close</button>
           </div> 
         </div> 
-        <div [hidden]="selectedType === 'radio' || !(paginatedSongs && paginatedSongs.length > 0)" class="extraMainDataInfo">
-          <span [hidden]="!(paginatedSongs && paginatedSongs.length == 0)">No music added yet!</span>
+        <div [class.visually-hidden-operable]="selectedType === 'radio' || !(paginatedSongs && paginatedSongs.length > 0)" class="extraMainDataInfo">
+          <span [class.visually-hidden-operable]="!(paginatedSongs && paginatedSongs.length == 0)">No music added yet!</span>
           <button (click)="showYoutubeSearch()">Search Youtube</button>
         </div> 
       </div>
     </div> 
   </div>
-      <div class="pagination-controls" [hidden]="songs.length <= itemsPerPage">
+      <div class="pagination-controls" [class.visually-hidden-operable]="songs.length <= itemsPerPage">
         <button [disabled]="currentPage === 1" (click)="goToPreviousPage()" class="pagination-button">
           Previous
         </button>
