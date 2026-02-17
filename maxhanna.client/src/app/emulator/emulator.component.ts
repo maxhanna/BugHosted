@@ -545,7 +545,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     w.EJS_directKeyboardInput = true;   // deliver raw key events to the core
     w.EJS_enableGamepads = true;        // let cores read the gamepad state
     w.EJS_disableAltKey = true;         // avoid Alt being swallowed by browser/UI
-    w.EJS_fullscreenOnLoad = false;     // start in-window, let user choose fullscreen
+    w.EJS_fullscreenOnLoad = false;     // start in-window, let user choose fullscreen (bad option, to delete)
+    w.EJS_fullscreenOnLoaded = false;   // start in-window, let user choose fullscreen
     w.EJS_fullscreen = false;           // start in-window, let user choose fullscreen (legacy option)
     w.EJS_DEBUG_XX = true;              // debug options 
     w.EJS_logCoreInfo = true;           // debug options 
@@ -1927,6 +1928,7 @@ declare global {
     EJS_language?: string;
     EJS_startOnLoaded?: boolean;
     EJS_fullscreenOnLoad?: boolean;
+    EJS_fullscreenOnLoaded?: boolean;
     EJS_fullscreen?: boolean;
     EJS_paths?: { [key: string]: string };
     EJS_volume?: number;
