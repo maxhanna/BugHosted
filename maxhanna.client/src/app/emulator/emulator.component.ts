@@ -134,7 +134,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     setTimeout(() => window.location.replace('/'), 0);
   }
 
-
   async onRomSelected(file: FileEntry) {
     try {
       await this.loadRomThroughService(file.fileName!, file.id);
@@ -653,19 +652,28 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   async callEjsSave(): Promise<void> {
     console.log('callEjsSave triggered');
+    this.startLoading();
     try {
       // 1) If we discovered a save function, use it
-      if (this._saveFn) { await this._saveFn(); return; }
-      this.startLoading();
+      if (this._saveFn) { 
+        await this._saveFn(); 
+        this.stopLoading();
+        console.log('callEjsSave: used discovered save function');
+        return; 
+      }
       // 2) Preferred: instance API (if later bound)
       if (this.emulatorInstance && typeof (this.emulatorInstance as any).saveState === 'function') {
-        await (this.emulatorInstance as any).saveState(); return;
+        await (this.emulatorInstance as any).saveState(); 
+        this.stopLoading();
+        console.log('callEjsSave: used instance API save function');
+        return;
       }
 
       // 3) Global helper (not present in your build, but keep as fallback)
       if (typeof (window as any).EJS_saveState === 'function') {
         await (window as any).EJS_saveState();
         this.stopLoading();
+        console.log('callEjsSave: used global helper save function');
         return;
       }
 
@@ -676,6 +684,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         if (el && typeof (el as any).saveState === 'function') {
           await (el as any).saveState();
           this.stopLoading();
+          console.log('callEjsSave: used player element save function');
           return;
         }
       }
@@ -684,6 +693,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.stopLoading();
     } catch (e) {
       console.warn('callEjsSave failed', e);
+      this.stopLoading();
     }
   }
 
