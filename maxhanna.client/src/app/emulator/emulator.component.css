@@ -1,23 +1,26 @@
-canvas {
-  width: auto !important;
-  height: calc(100vh - 60px) !important;
-} 
 .romNameTitle { width: calc(100% - 100px); display: block; overflow: hidden; text-overflow: ellipsis; } 
 .uploaderPopupPanel {
   width: calc(100% - 60px);
   min-height: 60vh;
 } 
-#game {
-  /* Prefer min-height and height — some skins read height */
-  min-height: calc(100vh - 60px) !important;
-  height: calc(100vh - 60px) !important;
 
-  /* Let inner content center & scale without constraining parent */
+#game { 
+  min-height: calc(100vh - 60px) !important;
+  height: calc(100vh - 60px) !important; 
   display: block;
   width: 100%;
   max-width: 960px;
   margin: 0 auto;
 }
+
+/* If the browser supports dynamic viewport */
+@supports (height: 100dvh) {
+  #game {
+    min-height: calc(100dvh - 60px);
+    height: calc(100dvh - 60px);
+  }
+}
+
 
 /* Your canvas can size itself; avoid parent → child feedback loops */
 #game canvas {

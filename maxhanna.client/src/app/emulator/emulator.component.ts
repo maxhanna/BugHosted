@@ -561,29 +561,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         (canvas ?? gameEl)?.focus?.();
       } catch { }
     };
-  }
-
-  // bound handler so we can add/remove listeners easily
-  private onFullscreenChangeBound = this.onFullscreenChange.bind(this);
-
-  private onFullscreenChange() {
-    const fsEl = (document as any).fullscreenElement || (document as any).webkitFullscreenElement || null;
-    this.isFullScreen = !!fsEl;
-    // When exiting fullscreen restore layout if necessary
-    if (!this.isFullScreen) {
-      const gameEl = document.getElementById('game');
-      if (gameEl) {
-        if (this.romName) {
-          gameEl.style.height = 'calc(100vh - 60px)';
-          gameEl.style.removeProperty('aspect-ratio');
-        } else {
-          gameEl.style.height = '';
-          gameEl.style.aspectRatio = '4/3';
-        }
-      }
-    }
-    this.cdr.detectChanges();
-  }
+  } 
 
   private async loadSaveStateFromDB(romFileName: string): Promise<Blob | null> {
     if (!this.parentRef?.user?.id) return null;
@@ -790,46 +768,15 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
 
-  /** Keep #game at 100vh - 60px whether EJS or the core tries to resize it. */
-  private lockGameHostHeight(): void {
-    const game = document.getElementById('game');
-    if (!game) return;
-
-    const apply = () => {
-      try {
-        game.style.setProperty('height', 'calc(100vh - 60px)', 'important');
-        game.style.setProperty('min-height', 'calc(100vh - 60px)', 'important');
-        game.style.setProperty('width', '100%', 'important');
-        game.style.setProperty('max-width', '960px', 'important');
-        game.style.setProperty('margin', '0 auto', 'important');
-        // Optional: ensure no inline aspect-ratio sneaks in
-        game.style.removeProperty('aspect-ratio');
-      } catch { }
-    };
-
-    // Initial apply
-    apply();
-
-    // Re-apply if size changes (e.g., orientation, address bar hide/show)
-    try {
-      this._gameSizeObs?.disconnect();
-      this._gameSizeObs = new ResizeObserver(() => apply());
-      this._gameSizeObs.observe(game);
-    } catch { }
-
-    // Re-apply if someone (skin) modifies inline style attributes
-    try {
-      this._gameAttrObs?.disconnect();
-      this._gameAttrObs = new MutationObserver(() => apply());
-      this._gameAttrObs.observe(game, { attributes: true, attributeFilter: ['style'] });
-    } catch { }
-
-    // Re-apply on viewport changes (mobile browser chrome show/hide)
-    try {
-      window.addEventListener('resize', apply, { passive: true });
-      window.addEventListener('orientationchange', apply, { passive: true });
-    } catch { }
+  /** Compute a robust height string for the game host */
+  private getViewportHeightMinusHeader(pxHeader = 60): string {
+    // Prefer dynamic/small viewport units when available (CSS support picks them up).
+    // As a JS fallback, compute a pixel height using visualViewport.
+    const vv = (window as any).visualViewport;
+    const h = Math.round((vv?.height ?? window.innerHeight) - pxHeader);
+    return `${h}px`;
   }
+ 
 
   /** Install wrappers so we can close audio & terminate workers on destroy. Idempotent. */
   private installRuntimeTrackers() {
@@ -922,59 +869,120 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return false;
   }
 
-  /** Force the game container to fill vertical space minus a 60px header. */
-  private setGameScreenHeight(): void {
-    const gameEl = document.getElementById('game');
-    if (!gameEl) return;
-    // Use calc so it responds to viewport changes; remove aspect-ratio to allow full height
-    gameEl.style.height = 'calc(100vh - 60px)';
-    gameEl.style.maxHeight = 'calc(100vh - 60px)';
-    // Keep width at 100% but allow the core renderer to scale
-    gameEl.style.width = '100%';
-    // Remove the aspect ratio so the height takes effect
-    gameEl.style.removeProperty('aspect-ratio');
-  }
 
-  async toggleFullScreen(): Promise<void> {
-    const gameEl = document.getElementById('game');
-    if (!gameEl) return;
+private setGameScreenHeight(): void {
+  const gameEl = document.getElementById('game');
+  if (!gameEl) return;
 
-    try {
-      if (!this.isFullScreen) {
-        // request fullscreen on the game container
-        if ((gameEl as any).requestFullscreen) await (gameEl as any).requestFullscreen();
-        else if ((gameEl as any).webkitRequestFullscreen) await (gameEl as any).webkitRequestFullscreen();
-        this.isFullScreen = true;
-        // ensure sizing in fullscreen
-        gameEl.style.height = 'calc(100vh - 60px)';
+  // Remove any aspect ratio constraints
+  gameEl.style.removeProperty('aspect-ratio');
+
+  // Let CSS handle svh/dvh via @supports; provide a pixel fallback so we still look good
+  gameEl.style.height = this.getViewportHeightMinusHeader(60);
+  gameEl.style.maxHeight = this.getViewportHeightMinusHeader(60);
+  gameEl.style.width = '100%';
+}
+
+private lockGameHostHeight(): void {
+  const game = document.getElementById('game');
+  if (!game) return;
+
+  const apply = () => {
+    const h = this.getViewportHeightMinusHeader(60);
+    game.style.setProperty('height', h, 'important');
+    game.style.setProperty('min-height', h, 'important');
+    game.style.setProperty('width', '100%', 'important');
+    game.style.setProperty('max-width', '960px', 'important');
+    game.style.setProperty('margin', '0 auto', 'important');
+    game.style.removeProperty('aspect-ratio');
+  };
+
+  apply();
+
+  try {
+    this._gameSizeObs?.disconnect();
+    this._gameSizeObs = new ResizeObserver(() => apply());
+    this._gameSizeObs.observe(game);
+  } catch {}
+
+  try {
+    this._gameAttrObs?.disconnect();
+    this._gameAttrObs = new MutationObserver(() => apply());
+    this._gameAttrObs.observe(game, { attributes: true, attributeFilter: ['style'] });
+  } catch {}
+
+  try {
+    window.addEventListener('resize', apply, { passive: true });
+    window.addEventListener('orientationchange', apply, { passive: true });
+    (window as any).visualViewport?.addEventListener?.('resize', apply, { passive: true });
+  } catch {}
+}
+
+private onFullscreenChange() {
+  const fsEl = (document as any).fullscreenElement || (document as any).webkitFullscreenElement || null;
+  this.isFullScreen = !!fsEl;
+
+  const gameEl = document.getElementById('game');
+  if (gameEl) {
+    if (!this.isFullScreen) {
+      // Not fullscreen: respect header
+      if (this.romName) {
+        const h = this.getViewportHeightMinusHeader(60);
+        gameEl.style.height = h;
         gameEl.style.removeProperty('aspect-ratio');
       } else {
-        await this.exitFullScreen();
+        gameEl.style.height = '';
+        gameEl.style.aspectRatio = '4/3';
       }
-    } catch (e) {
-      console.error('Fullscreen request failed', e);
     }
-    this.cdr.detectChanges();
-    // try to focus after toggling
-    await this.waitForEmulatorAndFocus();
   }
+  this.cdr.detectChanges();
+}
+ 
+private onFullscreenChangeBound = this.onFullscreenChange.bind(this); 
+async toggleFullScreen(): Promise<void> {
+  const gameEl = document.getElementById('game');
+  if (!gameEl) return;
 
-  private async exitFullScreen(): Promise<void> {
-    try {
-      if ((document as any).exitFullscreen) await (document as any).exitFullscreen();
-      else if ((document as any).webkitExitFullscreen) await (document as any).webkitExitFullscreen();
-    } catch (e) {
-      // ignore
+  try {
+    if (!this.isFullScreen) {
+      if ((gameEl as any).requestFullscreen) await (gameEl as any).requestFullscreen();
+      else if ((gameEl as any).webkitRequestFullscreen) await (gameEl as any).webkitRequestFullscreen();
+      this.isFullScreen = true;
+
+      // In fullscreen, let the core scale naturally; don't subtract header
+      gameEl.style.height = '100%';
+      gameEl.style.removeProperty('aspect-ratio');
+    } else {
+      await this.exitFullScreen();
     }
-    this.isFullScreen = false;
-    const gameEl = document.getElementById('game');
-    if (gameEl) {
-      gameEl.style.height = this.romName ? 'calc(100vh - 60px)' : '';
-      if (!this.romName) gameEl.style.aspectRatio = '4/3';
-      gameEl.style.removeProperty('max-height');
-    }
-    this.cdr.detectChanges();
+  } catch (e) {
+    console.error('Fullscreen request failed', e);
   }
+  this.cdr.detectChanges();
+  await this.waitForEmulatorAndFocus();
+}
+
+private async exitFullScreen(): Promise<void> {
+  try {
+    if ((document as any).exitFullscreen) await (document as any).exitFullscreen();
+    else if ((document as any).webkitExitFullscreen) await (document as any).webkitExitFullscreen();
+  } catch {}
+  this.isFullScreen = false;
+
+  const gameEl = document.getElementById('game');
+  if (gameEl) {
+    if (this.romName) {
+      const h = this.getViewportHeightMinusHeader(60);
+      gameEl.style.height = h;
+    } else {
+      gameEl.style.height = '';
+      gameEl.style.aspectRatio = '4/3';
+    }
+    gameEl.style.removeProperty('max-height');
+  }
+  this.cdr.detectChanges();
+} 
 
   getRomName(): string {
     if (this.romName) {
