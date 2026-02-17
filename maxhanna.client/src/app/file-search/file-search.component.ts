@@ -1405,6 +1405,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       'ps1': '/assets/ps1icon.png',
       'pbp': '/assets/ps1icon.png',
       'cue': '/assets/ps1icon.png',
+      'chd': '/assets/ps1icon.png',
       'iso': '/assets/ps1icon.png',
       'bin': '/assets/ps1icon.png',
       'gb': '/assets/gbicon.png',
