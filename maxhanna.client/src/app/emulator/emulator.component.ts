@@ -124,9 +124,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const shouldSave = window.confirm('Save emulator state before closing?');
     if (!shouldSave) {
       return this.navigateHome();
-    }
+    } 
+    const ok = await this.flushSavesBeforeExit(12000);
+    console.log('[EJS] safeExit: flushSavesBeforeExit ->', ok);
 
-    await this.callEjsSave(); 
     return this.navigateHome();
   }
 

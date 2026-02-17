@@ -383,7 +383,11 @@ export class RomService {
     form.append('originalSize', String(tight.length));
 
     try {
-      const res = await fetch('/rom/saveemulatorjsstate', { method: 'POST', body: form });
+      const res = await fetch('/rom/saveemulatorjsstate', { 
+        method: 'POST', 
+        body: form, 
+        keepalive: true, 
+      });
       const status = res.status;
       const ct = (res.headers.get('content-type') || '').toLowerCase();
 
