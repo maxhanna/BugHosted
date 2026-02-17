@@ -114,7 +114,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.remove_me('EmulatorComponent');
   }
 
-  async safeExit(): Promise<void> { 
+  async safeExit(): Promise<void> {
     this.clearAutosave();
     if (!this.romName || !this.parentRef?.user?.id) {
       return this.navigateHome();
@@ -124,7 +124,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const shouldSave = window.confirm('Save emulator state before closing?');
     if (!shouldSave) {
       return this.navigateHome();
-    } 
+    }
     const ok = await this.flushSavesBeforeExit(12000);
     console.log('[EJS] safeExit: flushSavesBeforeExit ->', ok);
 
@@ -547,7 +547,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         (canvas ?? gameEl)?.focus?.();
       } catch { }
     };
-  } 
+  }
 
   private async loadSaveStateFromDB(romFileName: string): Promise<Blob | null> {
     if (!this.parentRef?.user?.id) return null;
@@ -651,52 +651,74 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
 
- 
-async callEjsSave(): Promise<void> {
-  console.log('callEjsSave triggered');
-  this.startLoading();
-  try {
-    const w = window as any;
 
-    // ✅ Preferred: returns a Promise<Uint8Array> in 3.0.5+.
-    if (typeof w.EJS_saveState === 'function') {
-      const bytes: Uint8Array = await w.EJS_saveState(); // resolves with state bytes
-      console.log(`[EJS] EJS_saveState returned ${bytes?.length ?? 0} bytes`);
-      await this.uploadSaveBytes(bytes);
-      console.log('callEjsSave: used EJS_saveState -> upload done');
+  async callEjsSave(): Promise<void> {
+    console.log('callEjsSave triggered');
+    this.startLoading();
+    try {
+      const w = window as any;
+
+      // ✅ Preferred: returns a Promise<Uint8Array> in 3.0.5+.
+      if (typeof w.EJS_saveState === 'function') {
+        const bytes: Uint8Array = await w.EJS_saveState(); // resolves with state bytes
+        console.log(`[EJS] EJS_saveState returned ${bytes?.length ?? 0} bytes`);
+        await this.uploadSaveBytes(bytes);
+        console.log('callEjsSave: used EJS_saveState -> upload done');
+        return;
+      }
+
+      // Fallbacks (your current heuristics)
+      if (this._saveFn) { 
+        console.log('[EJS] callEjsSave: using captured save function from instance');
+        await this._saveFn(); 
+        return; 
+      }
+      if (this.emulatorInstance?.saveState) {
+        console.log('[EJS] callEjsSave: using saveState method from captured instance');
+        await this.emulatorInstance.saveState();
+        return;
+      }
+      if (typeof w.EJS_saveState === 'function') { 
+        console.log('[EJS] callEjsSave: using EJS_saveState global function');
+        await w.EJS_saveState(); 
+        return; 
+      }
+      const player = w.EJS_player;
+      if (player) {
+        const el = typeof player === 'string' ? document.querySelector(player) : player;
+        if (el && typeof (el as any).saveState === 'function') { 
+          console.log('[EJS] callEjsSave: using saveState method from EJS_player element');
+          await (el as any).saveState();
+          return; 
+        }
+      }
+
+      console.warn('No known save API found for EmulatorJS; save skipped');
+    } catch (e) {
+      console.warn('callEjsSave failed', e);
+    } finally {
+      this.stopLoading();
+    }
+  }
+
+  private async uploadSaveBytes(u8: Uint8Array) {
+    if (!u8?.length) {
+      console.log('[EJS] uploadSaveBytes: no bytes to upload; skipping');
+      return;
+    }
+    if (!this.parentRef?.user?.id || !this.romName) {
+      console.log('[EJS] uploadSaveBytes: no user or rom; skipping upload');
       return;
     }
 
-    // Fallbacks (your current heuristics)
-    if (this._saveFn) { await this._saveFn(); return; }
-    if (this.emulatorInstance?.saveState) { await this.emulatorInstance.saveState(); return; }
-    if (typeof w.EJS_saveState === 'function') { await w.EJS_saveState(); return; }
-    const player = w.EJS_player;
-    if (player) {
-      const el = typeof player === 'string' ? document.querySelector(player) : player;
-      if (el && typeof (el as any).saveState === 'function') { await (el as any).saveState(); return; }
+    const res = await this.romService.saveEmulatorJSState(this.romName!, this.parentRef.user.id!, u8);
+    if (res.ok) {
+      this._lastSaveTime = Date.now();
+      console.log(`[EJS] Save state uploaded (${u8.length} bytes)`);
+    } else {
+      console.error('[EJS] Save upload failed:', res.errorText);
     }
-
-    console.warn('No known save API found for EmulatorJS; save skipped');
-  } catch (e) {
-    console.warn('callEjsSave failed', e);
-  } finally {
-    this.stopLoading();
   }
-}
-
-private async uploadSaveBytes(u8: Uint8Array) {
-  if (!u8?.length) return;
-  if (!this.parentRef?.user?.id || !this.romName) return;
-
-  const res = await this.romService.saveEmulatorJSState(this.romName!, this.parentRef.user.id!, u8);
-  if (res.ok) {
-    this._lastSaveTime = Date.now();
-    console.log(`[EJS] Save state uploaded (${u8.length} bytes)`);
-  } else {
-    console.error('[EJS] Save upload failed:', res.errorText);
-  }
-}
 
   /** Attempt a save and wait for `onSaveState` callback. Resolves true if saved. */
   private attemptSaveNow(timeoutMs = 5000): Promise<boolean> {
@@ -774,7 +796,7 @@ private async uploadSaveBytes(u8: Uint8Array) {
     const h = Math.round((vv?.height ?? window.innerHeight) - pxHeader);
     return `${h}px`;
   }
- 
+
 
   /** Install wrappers so we can close audio & terminate workers on destroy. Idempotent. */
   private installRuntimeTrackers() {
@@ -868,119 +890,119 @@ private async uploadSaveBytes(u8: Uint8Array) {
   }
 
 
-private setGameScreenHeight(): void {
-  const gameEl = document.getElementById('game');
-  if (!gameEl) return;
+  private setGameScreenHeight(): void {
+    const gameEl = document.getElementById('game');
+    if (!gameEl) return;
 
-  // Remove any aspect ratio constraints
-  gameEl.style.removeProperty('aspect-ratio');
+    // Remove any aspect ratio constraints
+    gameEl.style.removeProperty('aspect-ratio');
 
-  // Let CSS handle svh/dvh via @supports; provide a pixel fallback so we still look good
-  gameEl.style.height = this.getViewportHeightMinusHeader(60);
-  gameEl.style.maxHeight = this.getViewportHeightMinusHeader(60);
-  gameEl.style.width = '100%';
-}
+    // Let CSS handle svh/dvh via @supports; provide a pixel fallback so we still look good
+    gameEl.style.height = this.getViewportHeightMinusHeader(60);
+    gameEl.style.maxHeight = this.getViewportHeightMinusHeader(60);
+    gameEl.style.width = '100%';
+  }
 
-private lockGameHostHeight(): void {
-  const game = document.getElementById('game');
-  if (!game) return;
+  private lockGameHostHeight(): void {
+    const game = document.getElementById('game');
+    if (!game) return;
 
-  const apply = () => {
-    const h = this.getViewportHeightMinusHeader(60);
-    game.style.setProperty('height', h, 'important');
-    game.style.setProperty('min-height', h, 'important');
-    game.style.setProperty('width', '100%', 'important');
-    game.style.setProperty('max-width', '960px', 'important');
-    game.style.setProperty('margin', '0 auto', 'important');
-    game.style.removeProperty('aspect-ratio');
-  };
+    const apply = () => {
+      const h = this.getViewportHeightMinusHeader(60);
+      game.style.setProperty('height', h, 'important');
+      game.style.setProperty('min-height', h, 'important');
+      game.style.setProperty('width', '100%', 'important');
+      game.style.setProperty('max-width', '960px', 'important');
+      game.style.setProperty('margin', '0 auto', 'important');
+      game.style.removeProperty('aspect-ratio');
+    };
 
-  apply();
+    apply();
 
-  try {
-    this._gameSizeObs?.disconnect();
-    this._gameSizeObs = new ResizeObserver(() => apply());
-    this._gameSizeObs.observe(game);
-  } catch {}
+    try {
+      this._gameSizeObs?.disconnect();
+      this._gameSizeObs = new ResizeObserver(() => apply());
+      this._gameSizeObs.observe(game);
+    } catch { }
 
-  try {
-    this._gameAttrObs?.disconnect();
-    this._gameAttrObs = new MutationObserver(() => apply());
-    this._gameAttrObs.observe(game, { attributes: true, attributeFilter: ['style'] });
-  } catch {}
+    try {
+      this._gameAttrObs?.disconnect();
+      this._gameAttrObs = new MutationObserver(() => apply());
+      this._gameAttrObs.observe(game, { attributes: true, attributeFilter: ['style'] });
+    } catch { }
 
-  try {
-    window.addEventListener('resize', apply, { passive: true });
-    window.addEventListener('orientationchange', apply, { passive: true });
-    (window as any).visualViewport?.addEventListener?.('resize', apply, { passive: true });
-  } catch {}
-}
+    try {
+      window.addEventListener('resize', apply, { passive: true });
+      window.addEventListener('orientationchange', apply, { passive: true });
+      (window as any).visualViewport?.addEventListener?.('resize', apply, { passive: true });
+    } catch { }
+  }
 
-private onFullscreenChange() {
-  const fsEl = (document as any).fullscreenElement || (document as any).webkitFullscreenElement || null;
-  this.isFullScreen = !!fsEl;
+  private onFullscreenChange() {
+    const fsEl = (document as any).fullscreenElement || (document as any).webkitFullscreenElement || null;
+    this.isFullScreen = !!fsEl;
 
-  const gameEl = document.getElementById('game');
-  if (gameEl) {
-    if (!this.isFullScreen) {
-      // Not fullscreen: respect header
+    const gameEl = document.getElementById('game');
+    if (gameEl) {
+      if (!this.isFullScreen) {
+        // Not fullscreen: respect header
+        if (this.romName) {
+          const h = this.getViewportHeightMinusHeader(60);
+          gameEl.style.height = h;
+          gameEl.style.removeProperty('aspect-ratio');
+        } else {
+          gameEl.style.height = '';
+          gameEl.style.aspectRatio = '4/3';
+        }
+      }
+    }
+    this.cdr.detectChanges();
+  }
+
+  private onFullscreenChangeBound = this.onFullscreenChange.bind(this);
+  async toggleFullScreen(): Promise<void> {
+    const gameEl = document.getElementById('game');
+    if (!gameEl) return;
+
+    try {
+      if (!this.isFullScreen) {
+        if ((gameEl as any).requestFullscreen) await (gameEl as any).requestFullscreen();
+        else if ((gameEl as any).webkitRequestFullscreen) await (gameEl as any).webkitRequestFullscreen();
+        this.isFullScreen = true;
+
+        // In fullscreen, let the core scale naturally; don't subtract header
+        gameEl.style.height = '100%';
+        gameEl.style.removeProperty('aspect-ratio');
+      } else {
+        await this.exitFullScreen();
+      }
+    } catch (e) {
+      console.error('Fullscreen request failed', e);
+    }
+    this.cdr.detectChanges();
+    await this.waitForEmulatorAndFocus();
+  }
+
+  private async exitFullScreen(): Promise<void> {
+    try {
+      if ((document as any).exitFullscreen) await (document as any).exitFullscreen();
+      else if ((document as any).webkitExitFullscreen) await (document as any).webkitExitFullscreen();
+    } catch { }
+    this.isFullScreen = false;
+
+    const gameEl = document.getElementById('game');
+    if (gameEl) {
       if (this.romName) {
         const h = this.getViewportHeightMinusHeader(60);
         gameEl.style.height = h;
-        gameEl.style.removeProperty('aspect-ratio');
       } else {
         gameEl.style.height = '';
         gameEl.style.aspectRatio = '4/3';
       }
+      gameEl.style.removeProperty('max-height');
     }
+    this.cdr.detectChanges();
   }
-  this.cdr.detectChanges();
-}
- 
-private onFullscreenChangeBound = this.onFullscreenChange.bind(this); 
-async toggleFullScreen(): Promise<void> {
-  const gameEl = document.getElementById('game');
-  if (!gameEl) return;
-
-  try {
-    if (!this.isFullScreen) {
-      if ((gameEl as any).requestFullscreen) await (gameEl as any).requestFullscreen();
-      else if ((gameEl as any).webkitRequestFullscreen) await (gameEl as any).webkitRequestFullscreen();
-      this.isFullScreen = true;
-
-      // In fullscreen, let the core scale naturally; don't subtract header
-      gameEl.style.height = '100%';
-      gameEl.style.removeProperty('aspect-ratio');
-    } else {
-      await this.exitFullScreen();
-    }
-  } catch (e) {
-    console.error('Fullscreen request failed', e);
-  }
-  this.cdr.detectChanges();
-  await this.waitForEmulatorAndFocus();
-}
-
-private async exitFullScreen(): Promise<void> {
-  try {
-    if ((document as any).exitFullscreen) await (document as any).exitFullscreen();
-    else if ((document as any).webkitExitFullscreen) await (document as any).webkitExitFullscreen();
-  } catch {}
-  this.isFullScreen = false;
-
-  const gameEl = document.getElementById('game');
-  if (gameEl) {
-    if (this.romName) {
-      const h = this.getViewportHeightMinusHeader(60);
-      gameEl.style.height = h;
-    } else {
-      gameEl.style.height = '';
-      gameEl.style.aspectRatio = '4/3';
-    }
-    gameEl.style.removeProperty('max-height');
-  }
-  this.cdr.detectChanges();
-} 
 
   getRomName(): string {
     if (this.romName) {
@@ -1498,7 +1520,7 @@ private async exitFullScreen(): Promise<void> {
       }, timeoutMs);
     });
   }
- 
+
   /** Stop autosave and wait for any current or final save attempt to complete. */
   private async flushSavesBeforeExit(timeoutMs = 12000): Promise<boolean> {
     this._exiting = true;
