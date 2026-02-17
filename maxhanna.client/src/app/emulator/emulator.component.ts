@@ -652,8 +652,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-
-
   async callEjsSave(): Promise<void> {
     console.log('callEjsSave triggered');
     this.startLoading();
