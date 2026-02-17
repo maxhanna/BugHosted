@@ -928,7 +928,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (!gameEl) return;
     // Use calc so it responds to viewport changes; remove aspect-ratio to allow full height
     gameEl.style.height = 'calc(100vh - 60px)';
-    gameEl.style.maxHeight = '100vh';
+    gameEl.style.maxHeight = 'calc(100vh - 60px)';
     // Keep width at 100% but allow the core renderer to scale
     gameEl.style.width = '100%';
     // Remove the aspect ratio so the height takes effect
