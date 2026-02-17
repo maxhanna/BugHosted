@@ -2462,25 +2462,36 @@ namespace maxhanna.Server.Controllers
         await conn.OpenAsync(ct).ConfigureAwait(false);
 
         const string sql = @"
-            SELECT 
-                ut.id,
-                ut.background_image,
-                ut.background_color,
-                ut.component_background_color,
-                ut.secondary_component_background_color,
-                ut.font_color,
-                ut.secondary_font_color,
-                ut.third_font_color,
-                ut.main_highlight_color,
-                ut.main_highlight_color_quarter_opacity,
-                ut.link_color,
-                ut.font_size,
-                ut.font_family,
-                ut.name
-            FROM maxhanna.user_theme_selected AS uts
-            INNER JOIN maxhanna.user_theme AS ut ON uts.theme_id = ut.id
-            WHERE uts.user_id = @UserId
-            LIMIT 1;";
+          SELECT 
+            ut.id,
+            ut.background_image,
+            ut.background_color,
+            ut.component_background_color,
+            ut.secondary_component_background_color,
+            ut.font_color,
+            ut.secondary_font_color,
+            ut.third_font_color,
+            ut.main_highlight_color,
+            ut.main_highlight_color_quarter_opacity,
+            ut.link_color,
+            ut.font_size,
+            ut.font_family,
+            ut.name,
+            dpf.id AS bg_id,
+            dpf.file_name AS bg_file_name,
+            dpf.given_file_name AS bg_given_file_name,
+            dpf.folder_path AS bg_folder_path,
+            dpf.is_public AS bg_is_public,
+            dpf.file_type AS bg_file_type,
+            dpf.file_size AS bg_file_size,
+            dpf.width AS bg_width,
+            dpf.height AS bg_height,
+            dpf.upload_date AS bg_upload_date
+          FROM maxhanna.user_theme_selected AS uts
+          INNER JOIN maxhanna.user_theme AS ut ON uts.theme_id = ut.id
+          LEFT JOIN maxhanna.file_uploads dpf ON ut.background_image = dpf.id
+          WHERE uts.user_id = @UserId
+          LIMIT 1;";
 
         await using var cmd = new MySqlCommand(sql, conn)
         {
@@ -2509,7 +2520,30 @@ namespace maxhanna.Server.Controllers
           FileEntry? tmpBackgroundImage = null;
           if (!reader.IsDBNull(ordBgImg))
           {
-            tmpBackgroundImage = new FileEntry(reader.GetInt32(ordBgImg));
+            int ordBgFileName = reader.GetOrdinal("bg_file_name");
+            int ordBgGivenFileName = reader.GetOrdinal("bg_given_file_name");
+            int ordBgFolderPath = reader.GetOrdinal("bg_folder_path");
+            int ordBgIsPublic = reader.GetOrdinal("bg_is_public");
+            int ordBgFileType = reader.GetOrdinal("bg_file_type");
+            int ordBgFileSize = reader.GetOrdinal("bg_file_size");
+            int ordBgWidth = reader.GetOrdinal("bg_width");
+            int ordBgHeight = reader.GetOrdinal("bg_height");
+            int ordBgUploadDate = reader.GetOrdinal("bg_upload_date");
+
+            var bgIdVal = reader.GetInt32(ordBgImg);
+            tmpBackgroundImage = new FileEntry
+            {
+              Id = bgIdVal,
+              FileName = reader.IsDBNull(ordBgFileName) ? null : reader.GetString(ordBgFileName),
+              GivenFileName = reader.IsDBNull(ordBgGivenFileName) ? null : reader.GetString(ordBgGivenFileName),
+              Directory = reader.IsDBNull(ordBgFolderPath) ? null : reader.GetString(ordBgFolderPath),
+              Visibility = reader.IsDBNull(ordBgIsPublic) ? "Public" : (reader.GetBoolean(ordBgIsPublic) ? "Public" : "Private"),
+              FileType = reader.IsDBNull(ordBgFileType) ? null : reader.GetString(ordBgFileType),
+              FileSize = reader.IsDBNull(ordBgFileSize) ? 0 : reader.GetInt32(ordBgFileSize),
+              Width = reader.IsDBNull(ordBgWidth) ? (int?)null : reader.GetInt32(ordBgWidth),
+              Height = reader.IsDBNull(ordBgHeight) ? (int?)null : reader.GetInt32(ordBgHeight),
+              Date = reader.IsDBNull(ordBgUploadDate) ? DateTime.Now : reader.GetDateTime(ordBgUploadDate)
+            };
           }
           var theme = new UserTheme
           {
