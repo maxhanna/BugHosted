@@ -285,9 +285,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // If the build calls back with the instance, capture it early
     window.EJS_ready = (api: any) => {
       try {
-        this.scanAndTagVpadControls();
-
-
+        this.scanAndTagVpadControls(); 
         console.log('EJS_ready: vpad readback=', window.EJS_VirtualGamepadSettings);
 
         this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
@@ -295,6 +293,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           this._saveFn = async () => { try { await (this.emulatorInstance as any).saveState(); } catch { } };
         }
         console.log('[EJS] instance ready hook fired, has saveState?', !!this._saveFn);
+        this.ensureSaveStatePolyfill(); 
       } catch { }
     };
 
@@ -549,6 +548,25 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     };
   }
 
+/** Create EJS_saveState polyfill if the build doesn't expose it. */
+private ensureSaveStatePolyfill() {
+  const w = window as any;
+  if (typeof w.EJS_saveState === 'function') return;
+
+  const gm = (this.emulatorInstance || w.EJS_emulator || w.EJS)?.gameManager;
+  if (gm && typeof gm.getState === 'function') {
+    w.EJS_saveState = async () => {
+      const bytes = await Promise.resolve(gm.getState());
+      // Normalize to Uint8Array
+      return bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes as ArrayBufferLike);
+    };
+    console.log('[EJS] Polyfilled EJS_saveState via gameManager.getState()');
+  } else {
+    console.warn('[EJS] No gameManager.getState() found; cannot polyfill EJS_saveState');
+  }
+}
+
+
   private async loadSaveStateFromDB(romFileName: string): Promise<Blob | null> {
     if (!this.parentRef?.user?.id) {
       console.log('User not logged in; skipping load state from DB');
@@ -652,54 +670,80 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  async callEjsSave(): Promise<void> {
-    console.log('callEjsSave triggered');
-    this.startLoading();
-    try {
-      const w = window as any;
+/** Capture bytes after any save path, then upload. */
+private async postSaveCaptureAndUpload(): Promise<boolean> {
+  try {
+    const w = window as any;
+    const gm = (this.emulatorInstance || w.EJS_emulator || w.EJS)?.gameManager;
 
-      // ✅ Preferred: returns a Promise<Uint8Array> in 3.0.5+.
-      if (typeof w.EJS_saveState === 'function') {
-        const bytes: Uint8Array = await w.EJS_saveState(); // resolves with state bytes
-        console.log(`[EJS] EJS_saveState returned ${bytes?.length ?? 0} bytes`);
-        await this.uploadSaveBytes(bytes);
-        console.log('callEjsSave: used EJS_saveState -> upload done');
-        return;
-      }
-
-      // Fallbacks (your current heuristics)
-      if (this._saveFn) { 
-        console.log('[EJS] callEjsSave: using captured save function from instance');
-        await this._saveFn(); 
-        return; 
-      }
-      if (this.emulatorInstance?.saveState) {
-        console.log('[EJS] callEjsSave: using saveState method from captured instance');
-        await this.emulatorInstance.saveState();
-        return;
-      }
-      if (typeof w.EJS_saveState === 'function') { 
-        console.log('[EJS] callEjsSave: using EJS_saveState global function');
-        await w.EJS_saveState(); 
-        return; 
-      }
-      const player = w.EJS_player;
-      if (player) {
-        const el = typeof player === 'string' ? document.querySelector(player) : player;
-        if (el && typeof (el as any).saveState === 'function') { 
-          console.log('[EJS] callEjsSave: using saveState method from EJS_player element');
-          await (el as any).saveState();
-          return; 
-        }
-      }
-
-      console.warn('No known save API found for EmulatorJS; save skipped');
-    } catch (e) {
-      console.warn('callEjsSave failed', e);
-    } finally {
-      this.stopLoading();
+    // Prefer EJS_saveState if present (native or polyfilled)
+    if (typeof w.EJS_saveState === 'function') {
+      const u8: Uint8Array = await w.EJS_saveState();
+      await this.uploadSaveBytes(u8);
+      return true;
     }
+
+    // Fallback: try the GameManager directly
+    if (gm && typeof gm.getState === 'function') {
+      const raw = await Promise.resolve(gm.getState());
+      const u8 = raw instanceof Uint8Array ? raw : new Uint8Array(raw as ArrayBufferLike);
+      await this.uploadSaveBytes(u8);
+      return true;
+    }
+  } catch (e) {
+    console.warn('[EJS] postSaveCaptureAndUpload failed', e);
   }
+  return false;
+}
+
+async callEjsSave(): Promise<boolean> {
+  console.log('callEjsSave triggered');
+  this.startLoading();
+  try {
+    const w = window as any;
+
+    // 1) Best path: bytes immediately
+    if (typeof w.EJS_saveState === 'function') {
+      const bytes: Uint8Array = await w.EJS_saveState();
+      console.log(`[EJS] EJS_saveState returned ${bytes?.length ?? 0} bytes`);
+      await this.uploadSaveBytes(bytes);
+      console.log('callEjsSave: used EJS_saveState -> upload done');
+      return true;
+    }
+
+    // 2) Fallbacks: trigger any save the build exposes…
+    if (this._saveFn) {
+      console.log('[EJS] callEjsSave: using captured save function from instance');
+      await this._saveFn();
+      // …then capture and upload bytes explicitly
+      return await this.postSaveCaptureAndUpload();
+    }
+
+    if (this.emulatorInstance?.saveState) {
+      console.log('[EJS] callEjsSave: using saveState method from captured instance');
+      await this.emulatorInstance.saveState();
+      return await this.postSaveCaptureAndUpload();
+    }
+
+    const player = w.EJS_player;
+    if (player) {
+      const el = typeof player === 'string' ? document.querySelector(player) : player;
+      if (el && typeof (el as any).saveState === 'function') {
+        console.log('[EJS] callEjsSave: using saveState method from EJS_player element');
+        await (el as any).saveState();
+        return await this.postSaveCaptureAndUpload();
+      }
+    }
+
+    console.warn('No known save API found for EmulatorJS; save skipped');
+    return false;
+  } catch (e) {
+    console.warn('callEjsSave failed', e);
+    return false;
+  } finally {
+    this.stopLoading();
+  }
+}
 
   private async uploadSaveBytes(u8: Uint8Array) {
     if (!u8?.length) {
@@ -1521,28 +1565,27 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     });
   }
 
-  /** Stop autosave and wait for any current or final save attempt to complete. */
-  private async flushSavesBeforeExit(timeoutMs = 12000): Promise<boolean> {
-    this._exiting = true;
-    try { this.clearAutosave(); } catch { }
+  
+/** Stop autosave and do one last direct capture+upload. */
+private async flushSavesBeforeExit(timeoutMs = 12000): Promise<boolean> {
+  this._exiting = true;
+  try { this.clearAutosave(); } catch {}
 
-    // If a save is already in-flight, await it (with a cap).
-    if (this._inFlightSavePromise) {
-      const done = await Promise.race([
-        this._inFlightSavePromise,
-        this.delay(timeoutMs).then(() => false)
-      ]);
-      return !!done;
-    }
-
-    // Otherwise, trigger a save and wait for the EJS callback round trip
-    const attempt = this.attemptSaveNow(Math.min(timeoutMs, 10000));
-    const done = await Promise.race([
-      attempt,
-      this.delay(timeoutMs).then(() => false)
-    ]);
-    return !!done;
+  // If an upload is in flight, await it with a cap.
+  if (this._inFlightSavePromise) {
+    return await Promise.race([
+      this._inFlightSavePromise,
+      this.delay(timeoutMs).then(() => false),
+    ]) as boolean;
   }
+
+  // Direct save & upload (no reliance on onSaveState)
+  const savePromise = this.callEjsSave();
+  return await Promise.race([
+    savePromise,
+    this.delay(timeoutMs).then(() => false),
+  ]);
+} 
 
   /** Create or reuse a tiny stylesheet inside the vpad root. */
   private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
