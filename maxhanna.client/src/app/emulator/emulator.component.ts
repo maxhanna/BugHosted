@@ -651,52 +651,52 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
 
-  async callEjsSave(): Promise<void> {
-    console.log('callEjsSave triggered');
-    this.startLoading();
-    try {
-      // 1) If we discovered a save function, use it
-      if (this._saveFn) { 
-        await this._saveFn(); 
-        this.stopLoading();
-        console.log('callEjsSave: used discovered save function');
-        return; 
-      }
-      // 2) Preferred: instance API (if later bound)
-      if (this.emulatorInstance && typeof (this.emulatorInstance as any).saveState === 'function') {
-        await (this.emulatorInstance as any).saveState(); 
-        this.stopLoading();
-        console.log('callEjsSave: used instance API save function');
-        return;
-      }
+ 
+async callEjsSave(): Promise<void> {
+  console.log('callEjsSave triggered');
+  this.startLoading();
+  try {
+    const w = window as any;
 
-      // 3) Global helper (not present in your build, but keep as fallback)
-      if (typeof (window as any).EJS_saveState === 'function') {
-        await (window as any).EJS_saveState();
-        this.stopLoading();
-        console.log('callEjsSave: used global helper save function');
-        return;
-      }
-
-      // 4) Some skins expose saveState() on the player element
-      const player = (window as any).EJS_player as any;
-      if (player) {
-        const el = typeof player === 'string' ? document.querySelector(player) : player;
-        if (el && typeof (el as any).saveState === 'function') {
-          await (el as any).saveState();
-          this.stopLoading();
-          console.log('callEjsSave: used player element save function');
-          return;
-        }
-      }
-
-      console.warn('No known save API found for EmulatorJS; save skipped');
-      this.stopLoading();
-    } catch (e) {
-      console.warn('callEjsSave failed', e);
-      this.stopLoading();
+    // ✅ Preferred: returns a Promise<Uint8Array> in 3.0.5+.
+    if (typeof w.EJS_saveState === 'function') {
+      const bytes: Uint8Array = await w.EJS_saveState(); // resolves with state bytes
+      console.log(`[EJS] EJS_saveState returned ${bytes?.length ?? 0} bytes`);
+      await this.uploadSaveBytes(bytes);
+      console.log('callEjsSave: used EJS_saveState -> upload done');
+      return;
     }
+
+    // Fallbacks (your current heuristics)
+    if (this._saveFn) { await this._saveFn(); return; }
+    if (this.emulatorInstance?.saveState) { await this.emulatorInstance.saveState(); return; }
+    if (typeof w.EJS_saveState === 'function') { await w.EJS_saveState(); return; }
+    const player = w.EJS_player;
+    if (player) {
+      const el = typeof player === 'string' ? document.querySelector(player) : player;
+      if (el && typeof (el as any).saveState === 'function') { await (el as any).saveState(); return; }
+    }
+
+    console.warn('No known save API found for EmulatorJS; save skipped');
+  } catch (e) {
+    console.warn('callEjsSave failed', e);
+  } finally {
+    this.stopLoading();
   }
+}
+
+private async uploadSaveBytes(u8: Uint8Array) {
+  if (!u8?.length) return;
+  if (!this.parentRef?.user?.id || !this.romName) return;
+
+  const res = await this.romService.saveEmulatorJSState(this.romName!, this.parentRef.user.id!, u8);
+  if (res.ok) {
+    this._lastSaveTime = Date.now();
+    console.log(`[EJS] Save state uploaded (${u8.length} bytes)`);
+  } else {
+    console.error('[EJS] Save upload failed:', res.errorText);
+  }
+}
 
   /** Attempt a save and wait for `onSaveState` callback. Resolves true if saved. */
   private attemptSaveNow(timeoutMs = 5000): Promise<boolean> {
