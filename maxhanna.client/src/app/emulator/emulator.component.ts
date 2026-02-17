@@ -126,22 +126,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       return this.navigateHome();
     }
 
-    // --- Try a real save (preferred) ---
-    const u8 = await this.captureSaveOnce(5000);
-
-    if (u8 && u8.length) {
-      await this.savePendingState(this.parentRef.user.id, this.romName, u8);
-      console.log('[EJS] exit-save: bytes stored. Will upload in background if needed.');
-      return this.navigateHome();
-    }
-
-    // --- Fallback: store emergency direct save ---
-    console.warn('[EJS] emergency fallback: real save failed, storing partial state');
-    localStorage.setItem('ejs_lastEmergencySave', JSON.stringify({
-      rom: this.romName,
-      ts: Date.now()
-    }));
-
+    await this.callEjsSave(); 
     return this.navigateHome();
   }
 
@@ -667,6 +652,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
 
   async callEjsSave(): Promise<void> {
+    console.log('callEjsSave triggered');
     try {
       // 1) If we discovered a save function, use it
       if (this._saveFn) { await this._saveFn(); return; }
