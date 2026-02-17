@@ -550,8 +550,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private async loadSaveStateFromDB(romFileName: string): Promise<Blob | null> {
-    if (!this.parentRef?.user?.id) return null;
-
+    if (!this.parentRef?.user?.id) {
+      console.log('User not logged in; skipping load state from DB');
+      return null;
+    }
     try {
       const response = await this.romService.getEmulatorJSSaveState(romFileName, this.parentRef.user.id);
       if (response instanceof Blob && response.size > 0) {
