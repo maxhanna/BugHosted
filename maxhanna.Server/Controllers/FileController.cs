@@ -1268,7 +1268,7 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
     {
         where += @"
             AND (
-                   LOWER(f.file_name) LIKE CONCAT('%', @FullTextSearch, '%')
+                LOWER(f.file_name) LIKE CONCAT('%', @FullTextSearch, '%')
                 OR LOWER(f.given_file_name) LIKE CONCAT('%', @FullTextSearch, '%')
                 OR LOWER(f.description) LIKE CONCAT('%', @FullTextSearch, '%')
                 OR LOWER(u.username) LIKE CONCAT('%', @FullTextSearch, '%')
