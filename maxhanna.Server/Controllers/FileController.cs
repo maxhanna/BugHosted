@@ -202,85 +202,13 @@ namespace maxhanna.Server.Controllers
           totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
           //end of get total count
 
-          if (fileId.HasValue && page == 1)
+          if (fileId.HasValue)
           {
-            // Get the directory path for the file
-            var directoryCommand = new MySqlCommand(
-                 "SELECT folder_path FROM maxhanna.file_uploads WHERE id = @fileId",
-                 connection);
-            directoryCommand.Parameters.AddWithValue("@fileId", fileId.Value);
-            var directoryReader = directoryCommand.ExecuteReader();
-
-            if (directoryReader.Read())
-            {
-              directory = directoryReader.GetString("folder_path");
-            }
-            directoryReader.Close();
-            (string where, List<MySqlParameter> list) = await GetWhereCondition(search, user, fileId);
-
-            var idQuery = new MySqlCommand($@"
-              SELECT f.id
-              FROM maxhanna.file_uploads f
-              LEFT JOIN users u ON f.user_id = u.id
-              WHERE
-                  {(fileId.HasValue ? " 1=1 " : " f.folder_path = @folderPath ")}
-                  AND (
-                      f.is_public = 1
-                      OR f.user_id = @userId
-                      OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON))
-                  )
-                  {fileTypeCondition}
-                  {visibilityCondition}
-                  {ownershipCondition}
-                  {hiddenCondition}
-                  {favouritesCondition}
-                  {(string.IsNullOrEmpty(search) ? "" : " AND " + (await GetWhereCondition(search, user, fileId)).Item1)}
-              ORDER BY
-                  {(isRomSearch ? "f.last_access DESC" :
-                              !string.IsNullOrEmpty(search)
-                                  ? "MATCH(f.file_name, f.description, f.given_file_name) AGAINST(@FullTextSearch IN NATURAL LANGUAGE MODE) DESC"
-                                  : "f.upload_date DESC")};
-              ", connection);
-
-            // REQUIRED PARAMETERS
-            idQuery.Parameters.AddWithValue("@folderPath", directory);
-            idQuery.Parameters.AddWithValue("@userId", user?.Id ?? 0);
-            idQuery.Parameters.AddWithValue("@showHidden", showHidden ? 1 : 0);
-
-            // FULLTEXT ONLY IF SEARCHING
-            if (!string.IsNullOrEmpty(search)) {
-              idQuery.Parameters.AddWithValue("@FullTextSearch", search);
-            }
-
-            List<int> sortedIds = new();
-            using (var r = idQuery.ExecuteReader())
-            {
-              while (r.Read())
-                sortedIds.Add(r.GetInt32(0));
-            }
-
-            int fileIndex = sortedIds.IndexOf(fileId.Value);
-            page = (fileIndex / pageSize) + 1;
-            offset = Math.Max(0, fileIndex - (pageSize / 2));
-            totalCount = sortedIds.Count;
-
-
-            // Ensure we don't go past the total count
-            // When fileId is specified, include the fileId condition/parameter in the count so totalCount reflects the filtered result
-            var whereTupleForCount = await GetWhereCondition(search, user, fileId);
-            var searchCondForCount = whereTupleForCount.Item1;
-            var extraParamsForCount = whereTupleForCount.Item2;
-            if (fileId.HasValue)
-            {
-              extraParamsForCount.Add(new MySqlParameter("@fileId", fileId.Value));
-            }
-
-
-            if (offset + pageSize > totalCount)
-            {
-              offset = Math.Max(0, totalCount - pageSize);
-            }
+              page = 1;
+              offset = 0;
+              pageSize = 1;
           }
+ 
 
           // When searching, prefer ordering by relevance (MATCH...AGAINST) so nearest matches appear first
           if (!string.IsNullOrWhiteSpace(search))
