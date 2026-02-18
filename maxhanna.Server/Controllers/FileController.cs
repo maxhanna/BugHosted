@@ -1111,116 +1111,111 @@ namespace maxhanna.Server.Controllers
       return nsfwEnabled;
     }
 
-    private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user)
-    {
-      string searchCondition = "";
+private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user)
+{
+    string where = "";
+    var parameters = new List<MySqlParameter>();
 
-      // ---------------------------------------------------------
-      // NSFW FILTER
-      // ---------------------------------------------------------
-      if (!await GetNsfwForUser(user))
-      {
-        searchCondition += @"
+    // ------------------------------------------------------
+    // NSFW FILTER
+    // ------------------------------------------------------
+    if (!await GetNsfwForUser(user))
+    {
+        where += @"
             AND NOT EXISTS (
                 SELECT 1 FROM maxhanna.file_topics ft
                 JOIN maxhanna.topics t ON t.id = ft.topic_id
                 WHERE t.topic = 'NSFW' AND ft.file_id = f.id
             )";
-      }
+    }
 
-      // ---------------------------------------------------------
-      // USER BLOCK FILTER
-      // ---------------------------------------------------------
-      if (user != null)
-      {
-        int userId = user.Id ?? 0;
-        searchCondition += $@"
+    // ------------------------------------------------------
+    // USER BLOCK FILTER
+    // ------------------------------------------------------
+    if (user != null)
+    {
+        where += $@"
             AND NOT EXISTS (
-                SELECT 1 FROM user_blocks ub 
-                WHERE (ub.user_id = {userId} AND ub.blocked_user_id = f.user_id)
-                OR    (ub.user_id = f.user_id AND ub.blocked_user_id = {userId})
+                SELECT 1 FROM user_blocks ub
+                WHERE (ub.user_id = {user.Id} AND ub.blocked_user_id = f.user_id)
+                OR    (ub.user_id = f.user_id AND ub.blocked_user_id = {user.Id})
             )";
-      }
+    }
 
-      // ---------------------------------------------------------
-      // NO SEARCH → early return (still return NSFW + block filters)
-      // ---------------------------------------------------------
-      if (string.IsNullOrWhiteSpace(search))
-        return (searchCondition, new List<MySqlParameter>());
+    // ------------------------------------------------------
+    // NO SEARCH — return basic filters only
+    // ------------------------------------------------------
+    if (string.IsNullOrWhiteSpace(search))
+        return (where, parameters);
 
-      List<MySqlParameter> parameters = new();
+    // ------------------------------------------------------
+    // DETERMINE IF MATCH() SHOULD BE USED
+    // ------------------------------------------------------
+    bool hasFulltextHits = false;
 
-      // ---------------------------------------------------------
-      // DECIDE: FULLTEXT OR LIKE FALLBACK?
-      // ---------------------------------------------------------
-      bool useFulltextOnly = false;
+    try
+    {
+        using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
 
-      try
-      {
-        using (var conn = new MySqlConnection(_connectionString))
-        {
-          await conn.OpenAsync();
-          using (var testCmd = new MySqlCommand(@"
-                SELECT COUNT(*) 
-                FROM maxhanna.file_uploads
-                WHERE MATCH(file_name, description, given_file_name)
-                      AGAINST(@FT IN NATURAL LANGUAGE MODE)
-            ", conn))
-          {
-            testCmd.Parameters.AddWithValue("@FT", search);
-            long? hits = (long?)(await testCmd.ExecuteScalarAsync());
-            useFulltextOnly = hits > 0;
-          }
-        }
-      }
-      catch
-      {
-        // If MATCH fails for any reason, fallback to LIKE logic.
-        useFulltextOnly = false;
-      }
+        using var test = new MySqlCommand(@"
+            SELECT COUNT(*)
+            FROM maxhanna.file_uploads
+            WHERE MATCH(file_name, description, given_file_name)
+                  AGAINST(@FT IN NATURAL LANGUAGE MODE)
+        ", conn);
 
-      parameters.Add(new MySqlParameter("@FullTextSearch", search));
+        test.Parameters.AddWithValue("@FT", search);
 
-      // ---------------------------------------------------------
-      // BUILD SEARCH CONDITION BASED ON MATCH RESULTS
-      // ---------------------------------------------------------
-      if (useFulltextOnly)
-      {
-        searchCondition += @"
+        long hits = Convert.ToInt64(await test.ExecuteScalarAsync());
+        hasFulltextHits = hits > 0;
+    }
+    catch
+    {
+        hasFulltextHits = false;
+    }
+
+    // Bind FullTextSearch parameter (used by idQuery + main SELECT)
+    parameters.Add(new MySqlParameter("@FullTextSearch", search.ToLower()));
+
+    // ------------------------------------------------------
+    // BUILD SEARCH CLAUSE
+    // ------------------------------------------------------
+    if (hasFulltextHits)
+    {
+        where += @"
             AND MATCH(f.file_name, f.description, f.given_file_name)
                 AGAINST (@FullTextSearch IN NATURAL LANGUAGE MODE)";
-      }
-      else
-      {
-        searchCondition += @"
+    }
+    else
+    {
+        where += @"
             AND (
                    LOWER(f.file_name) LIKE CONCAT('%', @FullTextSearch, '%')
                 OR LOWER(f.given_file_name) LIKE CONCAT('%', @FullTextSearch, '%')
                 OR LOWER(f.description) LIKE CONCAT('%', @FullTextSearch, '%')
                 OR LOWER(u.username) LIKE CONCAT('%', @FullTextSearch, '%')
                 OR f.id IN (
-                    SELECT ft.file_id 
-                    FROM maxhanna.file_topics ft
+                    SELECT ft.file_id FROM maxhanna.file_topics ft
                     JOIN maxhanna.topics t ON ft.topic_id = t.id
                     WHERE LOWER(t.topic) LIKE CONCAT('%', @FullTextSearch, '%')
                 )
             )";
-      }
-
-      // ---------------------------------------------------------
-      // ROM SYSTEM SPECIAL RULES
-      // ---------------------------------------------------------
-      var s = search.ToLowerInvariant();
-      if (s.Contains("sega"))
-        searchCondition += " AND f.file_name LIKE '%.md'";
-      else if (s.Contains("nintendo"))
-        searchCondition += " AND f.file_name LIKE '%.nes'";
-      else if (s.Contains("gameboy"))
-        searchCondition += " AND (f.file_name LIKE '%.gbc' OR f.file_name LIKE '%.gba')";
-
-      return (searchCondition, parameters);
     }
 
+    // ------------------------------------------------------
+    // ROM SPECIAL-CASE SEARCHES
+    // ------------------------------------------------------
+    string s = search.ToLower();
+    if (s.Contains("sega"))
+        where += " AND f.file_name LIKE '%.md'";
+    else if (s.Contains("nintendo"))
+        where += " AND f.file_name LIKE '%.nes'";
+    else if (s.Contains("gameboy"))
+        where += " AND (f.file_name LIKE '%.gbc' OR f.file_name LIKE '%.gba')";
+
+    return (where, parameters);
+} 
 
 
     [HttpPost("/File/UpdateFileData", Name = "UpdateFileData")]
