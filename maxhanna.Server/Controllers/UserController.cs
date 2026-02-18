@@ -2586,18 +2586,29 @@ namespace maxhanna.Server.Controllers
         {
           await conn.OpenAsync();
 
-          // SQL query to get the top 20 themes, ordered by popularity
-          string sql = @"
-                SELECT ut.id, ut.user_id, ut.background_image, ut.background_color, ut.component_background_color, 
-                       ut.secondary_component_background_color, ut.font_color, ut.secondary_font_color, ut.third_font_color, 
-                       ut.main_highlight_color, ut.main_highlight_color_quarter_opacity, ut.link_color, ut.font_size, ut.font_family, 
-                       ut.name, COUNT(uts.theme_id) AS popularity
-                FROM maxhanna.user_theme ut
-                LEFT JOIN maxhanna.user_theme_selected uts ON ut.id = uts.theme_id
-                WHERE ut.name LIKE @Search
-                GROUP BY ut.id
-                ORDER BY popularity DESC
-                LIMIT 20;";
+             // SQL query to get the top 20 themes, ordered by popularity
+             string sql = @"
+              SELECT ut.id, ut.user_id, ut.background_image, ut.background_color, ut.component_background_color, 
+                ut.secondary_component_background_color, ut.font_color, ut.secondary_font_color, ut.third_font_color, 
+                ut.main_highlight_color, ut.main_highlight_color_quarter_opacity, ut.link_color, ut.font_size, ut.font_family, 
+                ut.name, COUNT(uts.theme_id) AS popularity,
+                dpf.id AS bg_id,
+                dpf.file_name AS bg_file_name,
+                dpf.given_file_name AS bg_given_file_name,
+                dpf.folder_path AS bg_folder_path,
+                dpf.is_public AS bg_is_public,
+                dpf.file_type AS bg_file_type,
+                dpf.file_size AS bg_file_size,
+                dpf.width AS bg_width,
+                dpf.height AS bg_height,
+                dpf.upload_date AS bg_upload_date
+              FROM maxhanna.user_theme ut
+              LEFT JOIN maxhanna.user_theme_selected uts ON ut.id = uts.theme_id
+              LEFT JOIN maxhanna.file_uploads dpf ON ut.background_image = dpf.id
+              WHERE ut.name LIKE @Search
+              GROUP BY ut.id
+              ORDER BY popularity DESC
+              LIMIT 20;";
 
           MySqlCommand cmd = new MySqlCommand(sql, conn);
 
@@ -2610,8 +2621,36 @@ namespace maxhanna.Server.Controllers
 
             while (reader.Read())
             {
-              int? bgImgId = GetNullableInt(reader, "background_image");
-              FileEntry? tmpBackgroundImage = bgImgId.HasValue ? new FileEntry(bgImgId.Value) : null;
+              FileEntry? tmpBackgroundImage = null;
+              int ordBgId = -1;
+              try { ordBgId = reader.GetOrdinal("bg_id"); } catch { ordBgId = -1; }
+              if (ordBgId >= 0 && !reader.IsDBNull(ordBgId))
+              {
+                int ordFileName = reader.GetOrdinal("bg_file_name");
+                int ordGivenFileName = reader.GetOrdinal("bg_given_file_name");
+                int ordFolderPath = reader.GetOrdinal("bg_folder_path");
+                int ordIsPublic = reader.GetOrdinal("bg_is_public");
+                int ordFileType = reader.GetOrdinal("bg_file_type");
+                int ordFileSize = reader.GetOrdinal("bg_file_size");
+                int ordWidth = reader.GetOrdinal("bg_width");
+                int ordHeight = reader.GetOrdinal("bg_height");
+                int ordUploadDate = reader.GetOrdinal("bg_upload_date");
+
+                var bgIdVal = reader.GetInt32(ordBgId);
+                tmpBackgroundImage = new FileEntry
+                {
+                  Id = bgIdVal,
+                  FileName = reader.IsDBNull(ordFileName) ? null : reader.GetString(ordFileName),
+                  GivenFileName = reader.IsDBNull(ordGivenFileName) ? null : reader.GetString(ordGivenFileName),
+                  Directory = reader.IsDBNull(ordFolderPath) ? null : reader.GetString(ordFolderPath),
+                  Visibility = reader.IsDBNull(ordIsPublic) ? "Public" : (reader.GetBoolean(ordIsPublic) ? "Public" : "Private"),
+                  FileType = reader.IsDBNull(ordFileType) ? null : reader.GetString(ordFileType),
+                  FileSize = reader.IsDBNull(ordFileSize) ? 0 : reader.GetInt32(ordFileSize),
+                  Width = reader.IsDBNull(ordWidth) ? (int?)null : reader.GetInt32(ordWidth),
+                  Height = reader.IsDBNull(ordHeight) ? (int?)null : reader.GetInt32(ordHeight),
+                  Date = reader.IsDBNull(ordUploadDate) ? DateTime.Now : reader.GetDateTime(ordUploadDate)
+                };
+              }
 
               var theme = new UserTheme()
               {
@@ -2664,13 +2703,24 @@ namespace maxhanna.Server.Controllers
         {
           await conn.OpenAsync();
 
-          // SQL query to get the top 20 themes, searching by name (using LIKE)
-          string sql = @"
-                SELECT ut.id, ut.user_id, ut.background_image, ut.background_color, ut.component_background_color, ut.secondary_component_background_color, 
-                       ut.font_color, ut.secondary_font_color, ut.third_font_color, ut.main_highlight_color, ut.main_highlight_color_quarter_opacity, 
-                       ut.link_color, ut.font_size, ut.font_family, ut.name
-                FROM maxhanna.user_theme ut
-                WHERE ut.user_id = @UserId;";
+             // SQL query to get the top 20 themes, searching by name (using LIKE)
+             string sql = @"
+              SELECT ut.id, ut.user_id, ut.background_image, ut.background_color, ut.component_background_color, ut.secondary_component_background_color, 
+                ut.font_color, ut.secondary_font_color, ut.third_font_color, ut.main_highlight_color, ut.main_highlight_color_quarter_opacity, 
+                ut.link_color, ut.font_size, ut.font_family, ut.name,
+                dpf.id AS bg_id,
+                dpf.file_name AS bg_file_name,
+                dpf.given_file_name AS bg_given_file_name,
+                dpf.folder_path AS bg_folder_path,
+                dpf.is_public AS bg_is_public,
+                dpf.file_type AS bg_file_type,
+                dpf.file_size AS bg_file_size,
+                dpf.width AS bg_width,
+                dpf.height AS bg_height,
+                dpf.upload_date AS bg_upload_date
+              FROM maxhanna.user_theme ut
+              LEFT JOIN maxhanna.file_uploads dpf ON ut.background_image = dpf.id
+              WHERE ut.user_id = @UserId;";
 
           MySqlCommand cmd = new MySqlCommand(sql, conn);
 
@@ -2683,8 +2733,36 @@ namespace maxhanna.Server.Controllers
 
             while (reader.Read())
             {
-              int? bgImgId = GetNullableInt(reader, "background_image");
-              FileEntry? tmpBackgroundImage = bgImgId.HasValue ? new FileEntry(bgImgId.Value) : null;
+              FileEntry? tmpBackgroundImage = null;
+              int ordBgId = -1;
+              try { ordBgId = reader.GetOrdinal("bg_id"); } catch { ordBgId = -1; }
+              if (ordBgId >= 0 && !reader.IsDBNull(ordBgId))
+              {
+                int ordFileName = reader.GetOrdinal("bg_file_name");
+                int ordGivenFileName = reader.GetOrdinal("bg_given_file_name");
+                int ordFolderPath = reader.GetOrdinal("bg_folder_path");
+                int ordIsPublic = reader.GetOrdinal("bg_is_public");
+                int ordFileType = reader.GetOrdinal("bg_file_type");
+                int ordFileSize = reader.GetOrdinal("bg_file_size");
+                int ordWidth = reader.GetOrdinal("bg_width");
+                int ordHeight = reader.GetOrdinal("bg_height");
+                int ordUploadDate = reader.GetOrdinal("bg_upload_date");
+
+                var bgIdVal = reader.GetInt32(ordBgId);
+                tmpBackgroundImage = new FileEntry
+                {
+                  Id = bgIdVal,
+                  FileName = reader.IsDBNull(ordFileName) ? null : reader.GetString(ordFileName),
+                  GivenFileName = reader.IsDBNull(ordGivenFileName) ? null : reader.GetString(ordGivenFileName),
+                  Directory = reader.IsDBNull(ordFolderPath) ? null : reader.GetString(ordFolderPath),
+                  Visibility = reader.IsDBNull(ordIsPublic) ? "Public" : (reader.GetBoolean(ordIsPublic) ? "Public" : "Private"),
+                  FileType = reader.IsDBNull(ordFileType) ? null : reader.GetString(ordFileType),
+                  FileSize = reader.IsDBNull(ordFileSize) ? 0 : reader.GetInt32(ordFileSize),
+                  Width = reader.IsDBNull(ordWidth) ? (int?)null : reader.GetInt32(ordWidth),
+                  Height = reader.IsDBNull(ordHeight) ? (int?)null : reader.GetInt32(ordHeight),
+                  Date = reader.IsDBNull(ordUploadDate) ? DateTime.Now : reader.GetDateTime(ordUploadDate)
+                };
+              }
 
               var theme = new UserTheme()
               {
