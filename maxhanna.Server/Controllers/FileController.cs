@@ -365,10 +365,9 @@ LEFT JOIN maxhanna.file_uploads udpfl
 LEFT JOIN maxhanna.comments c 
     ON f.id = c.file_id
 
-WHERE
-    /* Only apply folder_path filter if NOT searching */
-    {(string.IsNullOrEmpty(search) ? "f.folder_path = @folderPath AND" : "1=1")}
 
+WHERE
+    {(fileId.HasValue ? "1=1" : (string.IsNullOrEmpty(search) ? "f.folder_path = @folderPath AND" : "1=1"))}
     (
         f.is_public = 1
         OR f.user_id = @userId
@@ -2001,7 +2000,7 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
       {
         User caller = new User(userId ?? 0);
         // Call GetDirectory with fileId set; pageSize 1 to narrow results
-        DirectoryResults? dir = await GetDirectory(caller, null, null, null, null, 1, 1, fileId, null, false, "Latest", false);
+        DirectoryResults? dir = await GetDirectory(caller, "", null, null, null, 1, 1, fileId, null, false, "Latest", false);
         if (dir != null && dir.Data != null && dir.Data.Count > 0)
         {
           return Ok(dir.Data[0]);
