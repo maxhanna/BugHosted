@@ -166,16 +166,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
 
     this.allowedFileTypes = this.allowedFileTypes.map(type => type.toLowerCase());
-    // If a `fileId` was passed into the component as an @Input, prefer that (parent override).
     if (this.fileId && this.fileId != null) {
       this.fileIdFilter = this.fileId;
       await this.getDirectory(undefined, this.fileId);
       this.replacePageTitleAndDescription();
       return;
     }
-
-    // If route contains a fileId, prefer that single fetch path (avoid double fetches from both
-    // the subscription and the unconditional call below).
+ 
     const routeFileIdParam = this.route.snapshot.paramMap.get('fileId');
     const routeFileId = routeFileIdParam ? +routeFileIdParam : undefined;
     if (routeFileId) {
