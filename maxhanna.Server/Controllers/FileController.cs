@@ -365,7 +365,7 @@ namespace maxhanna.Server.Controllers
 
             
             WHERE 1=1
-                {(fileId.HasValue ? "" : " AND f.folder_path = @folderPath")} 
+                {(fileId.HasValue ? "" : " AND f.folder_path = @folderPath ")} 
                 AND (
                     f.is_public = 1
                     OR f.user_id = @userId
