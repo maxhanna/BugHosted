@@ -120,6 +120,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       return this.navigateHome();
     }
 
+    // If we've saved recently (within 10s), skip asking the user again.
+    const now = Date.now();
+    if (!this._saveInProgress && now - this._lastSaveTime < 10000) {
+      return this.navigateHome();
+    }
+
     // Ask user once
     const shouldSave = window.confirm('Save emulator state before closing?');
     if (!shouldSave) {
