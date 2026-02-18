@@ -200,7 +200,6 @@ namespace maxhanna.Server.Controllers
               countCmd.Parameters.AddWithValue("@fileId", fileId.Value);
           }
           totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
-          //end of get total count
 
           if (fileId.HasValue)
           {
