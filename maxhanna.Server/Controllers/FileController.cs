@@ -107,11 +107,11 @@ namespace maxhanna.Server.Controllers
         string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
         // Unified hidden condition: allow all if explicit showHidden or user setting show_hidden_files = 1, else filter out hidden
         string hiddenCondition = @"
-								AND (
-									@showHidden = 1
-									OR EXISTS (SELECT 1 FROM maxhanna.user_settings us WHERE us.user_id = @userId AND us.show_hidden_files = 1)
-									OR f.id NOT IN (SELECT file_id FROM maxhanna.hidden_files WHERE user_id = @userId)
-								)";
+          AND (
+            @showHidden = 1
+            OR EXISTS (SELECT 1 FROM maxhanna.user_settings us WHERE us.user_id = @userId AND us.show_hidden_files = 1)
+            OR f.id NOT IN (SELECT file_id FROM maxhanna.hidden_files WHERE user_id = @userId)
+          )";
         string favouritesCondition = showFavouritesOnly
           ? " AND f.id IN (SELECT file_id FROM file_favourites WHERE user_id = @userId) "
           : "";
@@ -176,27 +176,27 @@ namespace maxhanna.Server.Controllers
 
             // Get the exact position of the file in the sorted results
             var positionCommand = new MySqlCommand(
-                $@"SELECT COUNT(*) FROM (
-						SELECT f.id, ROW_NUMBER() OVER (
-							{(isRomSearch ? "ORDER BY f.last_access DESC" : (!string.IsNullOrEmpty(search) ? "ORDER BY MATCH(f.file_name, f.description, f.given_file_name) AGAINST(@FullTextSearch IN NATURAL LANGUAGE MODE) DESC" : "ORDER BY f.id DESC"))}
-						) as pos
-						FROM maxhanna.file_uploads f
-                        LEFT JOIN maxhanna.users u ON f.user_id = u.id
-                        LEFT JOIN maxhanna.users uu ON f.last_updated_by_user_id = uu.id
-                        LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
-                        LEFT JOIN maxhanna.user_display_pictures luudp ON luudp.user_id = uu.id
-                        LEFT JOIN maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id
-                        WHERE 
-                            {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
-                            (
-                                f.is_public = 1
-                                OR f.user_id = @userId
-                                OR FIND_IN_SET(@userId, f.shared_with) > 0
-                            )
-                            {fileTypeCondition} 
-                            {visibilityCondition} 
-                            {ownershipCondition} 
-                            {hiddenCondition}
+          $@"SELECT COUNT(*) FROM (
+            SELECT f.id, ROW_NUMBER() OVER (
+              {(isRomSearch ? "ORDER BY f.last_access DESC" : (!string.IsNullOrEmpty(search) ? "ORDER BY MATCH(f.file_name, f.description, f.given_file_name) AGAINST(@FullTextSearch IN NATURAL LANGUAGE MODE) DESC" : "ORDER BY f.id DESC"))}
+            ) as pos
+          FROM maxhanna.file_uploads f
+          LEFT JOIN maxhanna.users u ON f.user_id = u.id
+          LEFT JOIN maxhanna.users uu ON f.last_updated_by_user_id = uu.id
+          LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
+          LEFT JOIN maxhanna.user_display_pictures luudp ON luudp.user_id = uu.id
+          LEFT JOIN maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id
+          WHERE 
+              {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
+              (
+                  f.is_public = 1
+                  OR f.user_id = @userId
+                  OR FIND_IN_SET(@userId, f.shared_with) > 0
+              )
+              {fileTypeCondition} 
+              {visibilityCondition} 
+              {ownershipCondition} 
+              {hiddenCondition}
 							{favouritesCondition}
 							{fileIdCondition}
                             {where}
@@ -259,89 +259,89 @@ namespace maxhanna.Server.Controllers
           (string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user);
 
           var command = new MySqlCommand($@"
-                SELECT 
-    f.id AS fileId,
-    f.file_name,
-    f.folder_path,
-    f.is_public,
-    f.is_folder,
-    f.user_id AS fileUserId,
-    u.username AS fileUsername,
-    udpfl.id AS fileUserDisplayPictureFileId,
-    udpfl.file_name AS fileUserDisplayPictureFileName,
-    udpfl.folder_path AS fileUserDisplayPictureFolderPath,
-    f.shared_with,
-    f.upload_date AS date,
-    f.given_file_name,
-    f.description,
-    f.last_updated AS file_data_updated,
-    f.last_updated_by_user_id AS last_updated_by_user_id,
-    uu.username AS last_updated_by_user_name,
-    luudp.file_id AS last_updated_by_user_name_display_picture_file_id,
-    f.file_type AS file_type,
-    f.file_size AS file_size,
-    f.width AS width,
-    f.height AS height,
-    f.last_access AS last_access,
-	f.access_count AS access_count,
-	(SELECT COUNT(*) FROM file_favourites ff WHERE ff.file_id = f.id) AS favourite_count,
-	(EXISTS(SELECT 1 FROM file_favourites ff2 WHERE ff2.file_id = f.id AND ff2.user_id = @userId)) AS is_favourited,
-    COUNT(c.id) AS comment_count
-FROM
-    maxhanna.file_uploads f 
-LEFT JOIN
-    maxhanna.users u ON f.user_id = u.id
-LEFT JOIN
-    maxhanna.users uu ON f.last_updated_by_user_id = uu.id
-LEFT JOIN
-    maxhanna.user_display_pictures udp ON udp.user_id = u.id
-LEFT JOIN
-    maxhanna.user_display_pictures luudp ON luudp.user_id = uu.id
-LEFT JOIN
-    maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id 
-LEFT JOIN
-    maxhanna.comments c ON f.id = c.file_id
-WHERE
-    {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
-    (
-        f.is_public = 1
-        OR f.user_id = @userId
-        OR FIND_IN_SET(@userId, f.shared_with) > 0
-    )
-    {searchCondition} 
-    {fileTypeCondition} 
-    {visibilityCondition} 
-    {ownershipCondition} 
-    {hiddenCondition} 
-    {favouritesCondition}
-    {fileIdCondition} 
-GROUP BY
-    f.id,
-    f.file_name,
-    f.folder_path,
-    f.is_public,
-    f.is_folder,
-    f.user_id,
-    u.username,
-    udpfl.id,
-    udpfl.file_name,
-    udpfl.folder_path,
-    f.shared_with,
-    f.upload_date,
-    f.given_file_name,
-    f.description,
-    f.last_updated,
-    f.last_updated_by_user_id,
-    uu.username,
-    luudp.file_id,
-    f.file_type,
-    f.file_size,
-    f.width,
-    f.height,
-    f.last_access,
-	f.access_count
-{orderBy}
-LIMIT
+          SELECT 
+            f.id AS fileId,
+            f.file_name,
+            f.folder_path,
+            f.is_public,
+            f.is_folder,
+            f.user_id AS fileUserId,
+            u.username AS fileUsername,
+            udpfl.id AS fileUserDisplayPictureFileId,
+            udpfl.file_name AS fileUserDisplayPictureFileName,
+            udpfl.folder_path AS fileUserDisplayPictureFolderPath,
+            f.shared_with,
+            f.upload_date AS date,
+            f.given_file_name,
+            f.description,
+            f.last_updated AS file_data_updated,
+            f.last_updated_by_user_id AS last_updated_by_user_id,
+            uu.username AS last_updated_by_user_name,
+            luudp.file_id AS last_updated_by_user_name_display_picture_file_id,
+            f.file_type AS file_type,
+            f.file_size AS file_size,
+            f.width AS width,
+            f.height AS height,
+            f.last_access AS last_access,
+          f.access_count AS access_count,
+          (SELECT COUNT(*) FROM file_favourites ff WHERE ff.file_id = f.id) AS favourite_count,
+          (EXISTS(SELECT 1 FROM file_favourites ff2 WHERE ff2.file_id = f.id AND ff2.user_id = @userId)) AS is_favourited,
+            COUNT(c.id) AS comment_count
+        FROM
+            maxhanna.file_uploads f 
+        LEFT JOIN
+            maxhanna.users u ON f.user_id = u.id
+        LEFT JOIN
+            maxhanna.users uu ON f.last_updated_by_user_id = uu.id
+        LEFT JOIN
+            maxhanna.user_display_pictures udp ON udp.user_id = u.id
+        LEFT JOIN
+            maxhanna.user_display_pictures luudp ON luudp.user_id = uu.id
+        LEFT JOIN
+            maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id 
+        LEFT JOIN
+            maxhanna.comments c ON f.id = c.file_id
+        WHERE
+            {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
+            (
+                f.is_public = 1
+                OR f.user_id = @userId
+                OR FIND_IN_SET(@userId, f.shared_with) > 0
+            )
+            {searchCondition} 
+            {fileTypeCondition} 
+            {visibilityCondition} 
+            {ownershipCondition} 
+            {hiddenCondition} 
+            {favouritesCondition}
+            {fileIdCondition} 
+        GROUP BY
+            f.id,
+            f.file_name,
+            f.folder_path,
+            f.is_public,
+            f.is_folder,
+            f.user_id,
+            u.username,
+            udpfl.id,
+            udpfl.file_name,
+            udpfl.folder_path,
+            f.shared_with,
+            f.upload_date,
+            f.given_file_name,
+            f.description,
+            f.last_updated,
+            f.last_updated_by_user_id,
+            uu.username,
+            luudp.file_id,
+            f.file_type,
+            f.file_size,
+            f.width,
+            f.height,
+            f.last_access,
+          f.access_count
+        {orderBy}
+        LIMIT
     @pageSize OFFSET @offset;"
           , connection);
 
@@ -382,15 +382,15 @@ LIMIT
                 Visibility = (reader.IsDBNull("is_public") ? true : reader.GetBoolean("is_public")) ? "Public" : "Private",
                 IsFolder = reader.IsDBNull("is_folder") ? false : reader.GetBoolean("is_folder"),
                 User = new User(
-                              reader.IsDBNull("fileUserId") ? 0 : reader.GetInt32("fileUserId"),
-                              reader.IsDBNull("fileUsername") ? "" : reader.GetString("fileUsername"),
-                              new FileEntry
-                              {
-                                Id = reader.IsDBNull("fileUserDisplayPictureFileId") ? 0 : reader.GetInt32("fileUserDisplayPictureFileId"),
-                                FileName = reader.IsDBNull("fileUserDisplayPictureFileName") ? null : reader.GetString("fileUserDisplayPictureFileName"),
-                                Directory = reader.IsDBNull("fileUserDisplayPictureFolderPath") ? null : reader.GetString("fileUserDisplayPictureFolderPath")
-                              }
-                      ),
+                  reader.IsDBNull("fileUserId") ? 0 : reader.GetInt32("fileUserId"),
+                  reader.IsDBNull("fileUsername") ? "" : reader.GetString("fileUsername"),
+                  new FileEntry
+                  {
+                    Id = reader.IsDBNull("fileUserDisplayPictureFileId") ? 0 : reader.GetInt32("fileUserDisplayPictureFileId"),
+                    FileName = reader.IsDBNull("fileUserDisplayPictureFileName") ? null : reader.GetString("fileUserDisplayPictureFileName"),
+                    Directory = reader.IsDBNull("fileUserDisplayPictureFolderPath") ? null : reader.GetString("fileUserDisplayPictureFolderPath")
+                  }
+                ),
                 SharedWith = reader.IsDBNull("shared_with") ? "" : reader.GetString("shared_with"),
                 Date = reader.IsDBNull("date") ? DateTime.Now : reader.GetDateTime("date"),
                 GivenFileName = reader.IsDBNull("given_file_name") ? null : reader.GetString("given_file_name"),
@@ -626,16 +626,27 @@ LIMIT
           {
             Id = fileEntryId.Value,
             FileName = reader.IsDBNull(reader.GetOrdinal("commentFileEntryName")) ? null : reader.GetString("commentFileEntryName"),
+            GivenFileName = reader.IsDBNull(reader.GetOrdinal("commentFileEntryGivenFileName")) ? (reader.IsDBNull(reader.GetOrdinal("commentFileEntryName")) ? null : reader.GetString("commentFileEntryName")) : reader.GetString("commentFileEntryGivenFileName"),
+            Description = reader.IsDBNull(reader.GetOrdinal("commentFileEntryDescription")) ? null : reader.GetString("commentFileEntryDescription"),
             Directory = reader.IsDBNull(reader.GetOrdinal("commentFileEntryFolderPath")) ? null : reader.GetString("commentFileEntryFolderPath"),
-            Visibility = reader.GetBoolean("commentFileEntryIsPublic") ? "Public" : "Private",
-            IsFolder = reader.GetBoolean("commentFileEntryIsFolder"),
+            Visibility = (reader.IsDBNull(reader.GetOrdinal("commentFileEntryIsPublic")) ? true : reader.GetBoolean("commentFileEntryIsPublic")) ? "Public" : "Private",
+            IsFolder = reader.IsDBNull(reader.GetOrdinal("commentFileEntryIsFolder")) ? false : reader.GetBoolean("commentFileEntryIsFolder"),
             User = new User(
-              reader.GetInt32("commentFileEntryUserId"),
-              reader.GetString("commentFileEntryUserName")
+              reader.IsDBNull(reader.GetOrdinal("commentFileEntryUserId")) ? 0 : reader.GetInt32("commentFileEntryUserId"),
+              reader.IsDBNull(reader.GetOrdinal("commentFileEntryUserName")) ? "" : reader.GetString("commentFileEntryUserName")
             ),
-            Date = reader.GetDateTime("commentFileEntryDate"),
-            FileType = reader.GetString("commentFileEntryType"),
-            FileSize = reader.GetInt32("commentFileEntrySize")
+            Date = reader.IsDBNull(reader.GetOrdinal("commentFileEntryDate")) ? DateTime.Now : reader.GetDateTime("commentFileEntryDate"),
+            LastUpdated = reader.IsDBNull(reader.GetOrdinal("commentFileEntryLastUpdated")) ? (DateTime?)null : reader.GetDateTime("commentFileEntryLastUpdated"),
+            LastUpdatedUserId = reader.IsDBNull(reader.GetOrdinal("commentFileEntryLastUpdatedByUserId")) ? 0 : reader.GetInt32("commentFileEntryLastUpdatedByUserId"),
+            FileType = reader.IsDBNull(reader.GetOrdinal("commentFileEntryType")) ? null : reader.GetString("commentFileEntryType"),
+            FileSize = reader.IsDBNull(reader.GetOrdinal("commentFileEntrySize")) ? 0 : reader.GetInt32("commentFileEntrySize"),
+            Width = reader.IsDBNull(reader.GetOrdinal("commentFileEntryWidth")) ? (int?)null : reader.GetInt32("commentFileEntryWidth"),
+            Height = reader.IsDBNull(reader.GetOrdinal("commentFileEntryHeight")) ? (int?)null : reader.GetInt32("commentFileEntryHeight"),
+            Duration = reader.IsDBNull(reader.GetOrdinal("commentFileEntryDuration")) ? (int?)null : reader.GetInt32("commentFileEntryDuration"),
+            LastAccess = reader.IsDBNull(reader.GetOrdinal("commentFileEntryLastAccess")) ? (DateTime?)null : reader.GetDateTime("commentFileEntryLastAccess"),
+            AccessCount = reader.IsDBNull(reader.GetOrdinal("commentFileEntryAccessCount")) ? 0 : reader.GetInt32("commentFileEntryAccessCount"),
+            FavouriteCount = reader.IsDBNull(reader.GetOrdinal("commentFileEntryFavouriteCount")) ? 0 : reader.GetInt32("commentFileEntryFavouriteCount"),
+            IsFavourited = reader.IsDBNull(reader.GetOrdinal("commentFileEntryIsFavourited")) ? false : reader.GetBoolean("commentFileEntryIsFavourited"),
           };
 
           comment.CommentFiles ??= new List<FileEntry>();
@@ -658,13 +669,14 @@ LIMIT
     }
 
     private DirectoryResults GetDirectoryResults(User? user, string directory,
-     string? search, int page, int pageSize, List<FileEntry> fileEntries, 
-     string favouritesCondition, string fileTypeCondition, string visibilityCondition, 
-     string ownershipCondition, string hiddenCondition, MySqlConnection connection, 
+     string? search, int page, int pageSize, List<FileEntry> fileEntries,
+     string favouritesCondition, string fileTypeCondition, string visibilityCondition,
+     string ownershipCondition, string hiddenCondition, MySqlConnection connection,
      string searchCondition, List<MySqlParameter> extraParameters, int? fileId)
     {
-      
-      if (fileId.HasValue) {
+
+      if (fileId.HasValue)
+      {
         extraParameters.Add(new MySqlParameter("@fileId", fileId.Value));
       }
       int totalCount = GetResultCount(user,
@@ -1128,12 +1140,12 @@ LIMIT
       foreach (var param in extraParameters)
       {
         totalCountCommand.Parameters.Add(param);
-      } 
+      }
       if (fileTypeCondition.Contains("@fileId") || favouritesCondition.Contains("@fileId") || visibilityCondition.Contains("@fileId"))
       {
-          if (!totalCountCommand.Parameters.Contains("@fileId"))
-              totalCountCommand.Parameters.AddWithValue("@fileId", extraParameters.FirstOrDefault(p => p.ParameterName == "@fileId")?.Value ?? DBNull.Value);
-      } 
+        if (!totalCountCommand.Parameters.Contains("@fileId"))
+          totalCountCommand.Parameters.AddWithValue("@fileId", extraParameters.FirstOrDefault(p => p.ParameterName == "@fileId")?.Value ?? DBNull.Value);
+      }
       totalCountCommand.Parameters.AddWithValue("@folderPath", directory);
       totalCountCommand.Parameters.AddWithValue("@userId", user?.Id ?? 0);
       totalCountCommand.Parameters.AddWithValue("@showHidden", 0); // result count always evaluates condition; explicit toggle handled earlier
