@@ -540,68 +540,96 @@ LIMIT @pageSize OFFSET @offset;"
         return StatusCode(500, ex.Message);
       }
     }
-    private static void GetFileComments(List<FileEntry> fileEntries, MySqlConnection connection, List<int> fileIds, List<int> commentIds, List<string> fileIdsParameters)
-    {
-      if (!fileIdsParameters.Any())
+    
+private static void GetFileComments(
+    List<FileEntry> fileEntries,
+    MySqlConnection connection,
+    List<int> fileIds,
+    List<int> commentIds,
+    List<string> fileIdsParameters)
+{
+    if (!fileIdsParameters.Any())
         return;
 
-      var commentsCommand = new MySqlCommand($@"
-				WITH RECURSIVE comment_tree (id) AS (
-				SELECT id
-				FROM maxhanna.comments
-				WHERE file_id IN ({string.Join(", ", fileIdsParameters)})
-				UNION ALL
-				SELECT c.id
-				FROM maxhanna.comments c
-				JOIN comment_tree ct ON c.comment_id = ct.id
-				)
-				SELECT 
-					fc.id AS commentId,
-					fc.file_id AS commentFileId,
-					fc.user_id AS commentUserId,
-					fc.date AS commentDate,
-					fc.city AS commentCity,
-					fc.country AS commentCountry,
-					fc.ip AS commentIp,
-					fc.comment_id as comment_parent_id,
-					uc.username AS commentUsername,
-					ucudp.tag_background_file_id AS commentUserProfileBackgroundPicId,
-					ucudpfu.id AS commentUserDisplayPicId,
-					ucudpfu.file_name AS commentUserDisplayPicFileName,
-					ucudpfu.folder_path AS commentUserDisplayPicFolderPath,
-					fc.comment AS commentText,
-					cf.file_id AS commentFileEntryId,
-					cf2.file_name AS commentFileEntryName,
-					cf2.folder_path AS commentFileEntryFolderPath,
-					cf2.is_public AS commentFileEntryIsPublic,
-					cf2.is_folder AS commentFileEntryIsFolder,
-					cf2.user_id AS commentFileEntryUserId,
-					cfu2.username AS commentFileEntryUserName,
-					cf2.file_type AS commentFileEntryType,
-					cf2.file_size AS commentFileEntrySize,
-					cf2.upload_date AS commentFileEntryDate
-				FROM
-					maxhanna.comments fc
-				LEFT JOIN maxhanna.users uc ON fc.user_id = uc.id
-				LEFT JOIN maxhanna.user_display_pictures ucudp ON ucudp.user_id = uc.id
-				LEFT JOIN maxhanna.file_uploads ucudpfu ON ucudp.file_id = ucudpfu.id
-				LEFT JOIN maxhanna.comment_files cf ON fc.id = cf.comment_id
-				LEFT JOIN maxhanna.file_uploads cf2 ON cf.file_id = cf2.id
-				LEFT JOIN maxhanna.users cfu2 ON cfu2.id = cf2.user_id
-				WHERE fc.id IN (SELECT id FROM comment_tree);", connection);
+    var commentsCommand = new MySqlCommand($@"
+        WITH RECURSIVE comment_tree (id) AS (
+            SELECT id
+            FROM maxhanna.comments
+            WHERE file_id IN ({string.Join(", ", fileIdsParameters)})
+            UNION ALL
+            SELECT c.id
+            FROM maxhanna.comments c
+            JOIN comment_tree ct ON c.comment_id = ct.id
+        )
+        SELECT 
+            -- comment + user (who wrote the comment)
+            fc.id AS commentId,
+            fc.file_id AS commentFileId,
+            fc.user_id AS commentUserId,
+            fc.date AS commentDate,
+            fc.city AS commentCity,
+            fc.country AS commentCountry,
+            fc.ip AS commentIp,
+            fc.comment_id AS comment_parent_id,
+            uc.username AS commentUsername,
 
-      for (int i = 0; i < fileIds.Count; i++)
-      {
+            -- comment author's pictures
+            ucudp.tag_background_file_id AS commentUserProfileBackgroundPicId,
+            ucudpfu.id AS commentUserDisplayPicId,
+            ucudpfu.file_name AS commentUserDisplayPicFileName,
+            ucudpfu.folder_path AS commentUserDisplayPicFolderPath,
+
+            -- comment text
+            fc.comment AS commentText,
+
+            -- attached file on the comment (comment_files -> file_uploads)
+            cf.file_id AS commentFileEntryId,
+            cf2.file_name AS commentFileEntryName,
+            cf2.given_file_name AS commentFileEntryGivenFileName,
+            cf2.description AS commentFileEntryDescription,
+            cf2.folder_path AS commentFileEntryFolderPath,
+            cf2.is_public AS commentFileEntryIsPublic,
+            cf2.is_folder AS commentFileEntryIsFolder,
+            cf2.user_id AS commentFileEntryUserId,
+            cfu2.username AS commentFileEntryUserName,
+            cf2.file_type AS commentFileEntryType,
+            cf2.file_size AS commentFileEntrySize,
+            cf2.upload_date AS commentFileEntryDate,
+            cf2.last_updated AS commentFileEntryLastUpdated,
+            cf2.last_updated_by_user_id AS commentFileEntryLastUpdatedByUserId,
+            cf2.width AS commentFileEntryWidth,
+            cf2.height AS commentFileEntryHeight,
+            cf2.duration AS commentFileEntryDuration,
+            cf2.last_access AS commentFileEntryLastAccess,
+            cf2.access_count AS commentFileEntryAccessCount,
+
+            -- favourites: count is real; is_favourited is 0 here (no @userId in this method)
+            (SELECT COUNT(*) FROM file_favourites ff WHERE ff.file_id = cf2.id) AS commentFileEntryFavouriteCount,
+            CAST(0 AS SIGNED) AS commentFileEntryIsFavourited
+
+        FROM maxhanna.comments fc
+        LEFT JOIN maxhanna.users uc ON fc.user_id = uc.id
+        LEFT JOIN maxhanna.user_display_pictures ucudp ON ucudp.user_id = uc.id
+        LEFT JOIN maxhanna.file_uploads ucudpfu ON ucudp.file_id = ucudpfu.id
+
+        LEFT JOIN maxhanna.comment_files cf ON fc.id = cf.comment_id
+        LEFT JOIN maxhanna.file_uploads cf2 ON cf.file_id = cf2.id
+        LEFT JOIN maxhanna.users cfu2 ON cfu2.id = cf2.user_id
+
+        WHERE fc.id IN (SELECT id FROM comment_tree);", connection);
+
+    for (int i = 0; i < fileIds.Count; i++)
+    {
         commentsCommand.Parameters.AddWithValue($"@fileId{i}", fileIds[i]);
-      }
+    }
 
-      using var reader = commentsCommand.ExecuteReader();
+    using var reader = commentsCommand.ExecuteReader();
 
-      Dictionary<int, FileComment> allCommentsById = new();
-      List<(FileComment comment, int parentId)> childComments = new();
+    Dictionary<int, FileComment> allCommentsById = new();
+    List<(FileComment comment, int parentId)> childComments = new();
 
-      while (reader.Read())
-      {
+    while (reader.Read())
+    {
         var commentId = reader.IsDBNull(reader.GetOrdinal("commentId")) ? 0 : reader.GetInt32("commentId");
         var fileIdValue = reader.IsDBNull(reader.GetOrdinal("commentFileId")) ? 0 : reader.GetInt32("commentFileId");
         var commentCity = reader.IsDBNull(reader.GetOrdinal("commentCity")) ? null : reader.GetString("commentCity");
@@ -618,101 +646,104 @@ LIMIT @pageSize OFFSET @offset;"
         FileComment? comment;
         if (!allCommentsById.TryGetValue(commentId, out comment))
         {
-          comment = new FileComment
-          {
-            Id = commentId,
-            FileId = fileIdValue,
-            CommentId = commentParentId,
-            User = new User(
-              reader.GetInt32("commentUserId"),
-              reader.GetString("commentUsername"),
-              null,
-              new FileEntry
-              {
-                Id = commentUserDisplayPicId ?? 0,
-                FileName = commentUserDisplayPicFileName,
-                Directory = commentUserDisplayPicFolderPath
-              },
-              new FileEntry
-              {
-                Id = commentUserProfileBackgroundPicId ?? 0,
-              },
-              null, null, null
-            ),
-            CommentText = reader.GetString("commentText"),
-            Date = reader.GetDateTime("commentDate"),
-            City = commentCity,
-            Country = commentCountry,
-            Ip = commentIp
-          };
-
-          allCommentsById[comment.Id] = comment;
-          commentIds.Add(commentId);
-
-          if (commentParentId.HasValue)
-          {
-            childComments.Add((comment, commentParentId.Value));
-          }
-
-          var fileEntryMatch = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
-          if (fileEntryMatch != null && !commentParentId.HasValue) // only add root comments to top-level collection
-          {
-            if (fileEntryMatch.FileComments == null)
+            comment = new FileComment
             {
-              fileEntryMatch.FileComments = new List<FileComment>();
+                Id = commentId,
+                FileId = fileIdValue,
+                CommentId = commentParentId,
+                User = new User(
+                    reader.GetInt32("commentUserId"),
+                    reader.GetString("commentUsername"),
+                    null,
+                    new FileEntry
+                    {
+                        Id = commentUserDisplayPicId ?? 0,
+                        FileName = commentUserDisplayPicFileName,
+                        Directory = commentUserDisplayPicFolderPath
+                    },
+                    new FileEntry
+                    {
+                        Id = commentUserProfileBackgroundPicId ?? 0,
+                    },
+                    null, null, null
+                ),
+                CommentText = reader.GetString("commentText"),
+                Date = reader.GetDateTime("commentDate"),
+                City = commentCity,
+                Country = commentCountry,
+                Ip = commentIp
+            };
+
+            allCommentsById[comment.Id] = comment;
+            commentIds.Add(commentId);
+
+            if (commentParentId.HasValue)
+            {
+                childComments.Add((comment, commentParentId.Value));
             }
-            fileEntryMatch.FileComments!.Add(comment);
-          }
+
+            var fileEntryMatch = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
+            if (fileEntryMatch != null && !commentParentId.HasValue) // only add root comments to top-level collection
+            {
+                if (fileEntryMatch.FileComments == null)
+                {
+                    fileEntryMatch.FileComments = new List<FileComment>();
+                }
+                fileEntryMatch.FileComments!.Add(comment);
+            }
         }
+
         var fileEntryId = reader.IsDBNull(reader.GetOrdinal("commentFileEntryId")) ? (int?)null : reader.GetInt32("commentFileEntryId");
 
         if (fileEntryId.HasValue)
         {
-          var fileEntry = new FileEntry
-          {
-            Id = fileEntryId.Value,
-            FileName = reader.IsDBNull(reader.GetOrdinal("commentFileEntryName")) ? null : reader.GetString("commentFileEntryName"),
-            GivenFileName = reader.IsDBNull(reader.GetOrdinal("commentFileEntryGivenFileName")) ? (reader.IsDBNull(reader.GetOrdinal("commentFileEntryName")) ? null : reader.GetString("commentFileEntryName")) : reader.GetString("commentFileEntryGivenFileName"),
-            Description = reader.IsDBNull(reader.GetOrdinal("commentFileEntryDescription")) ? null : reader.GetString("commentFileEntryDescription"),
-            Directory = reader.IsDBNull(reader.GetOrdinal("commentFileEntryFolderPath")) ? null : reader.GetString("commentFileEntryFolderPath"),
-            Visibility = (reader.IsDBNull(reader.GetOrdinal("commentFileEntryIsPublic")) ? true : reader.GetBoolean("commentFileEntryIsPublic")) ? "Public" : "Private",
-            IsFolder = reader.IsDBNull(reader.GetOrdinal("commentFileEntryIsFolder")) ? false : reader.GetBoolean("commentFileEntryIsFolder"),
-            User = new User(
-              reader.IsDBNull(reader.GetOrdinal("commentFileEntryUserId")) ? 0 : reader.GetInt32("commentFileEntryUserId"),
-              reader.IsDBNull(reader.GetOrdinal("commentFileEntryUserName")) ? "" : reader.GetString("commentFileEntryUserName")
-            ),
-            Date = reader.IsDBNull(reader.GetOrdinal("commentFileEntryDate")) ? DateTime.Now : reader.GetDateTime("commentFileEntryDate"),
-            LastUpdated = reader.IsDBNull(reader.GetOrdinal("commentFileEntryLastUpdated")) ? (DateTime?)null : reader.GetDateTime("commentFileEntryLastUpdated"),
-            LastUpdatedUserId = reader.IsDBNull(reader.GetOrdinal("commentFileEntryLastUpdatedByUserId")) ? 0 : reader.GetInt32("commentFileEntryLastUpdatedByUserId"),
-            FileType = reader.IsDBNull(reader.GetOrdinal("commentFileEntryType")) ? null : reader.GetString("commentFileEntryType"),
-            FileSize = reader.IsDBNull(reader.GetOrdinal("commentFileEntrySize")) ? 0 : reader.GetInt32("commentFileEntrySize"),
-            Width = reader.IsDBNull(reader.GetOrdinal("commentFileEntryWidth")) ? (int?)null : reader.GetInt32("commentFileEntryWidth"),
-            Height = reader.IsDBNull(reader.GetOrdinal("commentFileEntryHeight")) ? (int?)null : reader.GetInt32("commentFileEntryHeight"),
-            Duration = reader.IsDBNull(reader.GetOrdinal("commentFileEntryDuration")) ? (int?)null : reader.GetInt32("commentFileEntryDuration"),
-            LastAccess = reader.IsDBNull(reader.GetOrdinal("commentFileEntryLastAccess")) ? (DateTime?)null : reader.GetDateTime("commentFileEntryLastAccess"),
-            AccessCount = reader.IsDBNull(reader.GetOrdinal("commentFileEntryAccessCount")) ? 0 : reader.GetInt32("commentFileEntryAccessCount"),
-            FavouriteCount = reader.IsDBNull(reader.GetOrdinal("commentFileEntryFavouriteCount")) ? 0 : reader.GetInt32("commentFileEntryFavouriteCount"),
-            IsFavourited = reader.IsDBNull(reader.GetOrdinal("commentFileEntryIsFavourited")) ? false : reader.GetBoolean("commentFileEntryIsFavourited"),
-          };
+            var fileEntry = new FileEntry
+            {
+                Id = fileEntryId.Value,
+                FileName = reader.IsDBNull(reader.GetOrdinal("commentFileEntryName")) ? null : reader.GetString("commentFileEntryName"),
+                GivenFileName = reader.IsDBNull(reader.GetOrdinal("commentFileEntryGivenFileName"))
+                    ? (reader.IsDBNull(reader.GetOrdinal("commentFileEntryName")) ? null : reader.GetString("commentFileEntryName"))
+                    : reader.GetString("commentFileEntryGivenFileName"),
+                Description = reader.IsDBNull(reader.GetOrdinal("commentFileEntryDescription")) ? null : reader.GetString("commentFileEntryDescription"),
+                Directory = reader.IsDBNull(reader.GetOrdinal("commentFileEntryFolderPath")) ? null : reader.GetString("commentFileEntryFolderPath"),
+                Visibility = (reader.IsDBNull(reader.GetOrdinal("commentFileEntryIsPublic")) ? true : reader.GetBoolean("commentFileEntryIsPublic")) ? "Public" : "Private",
+                IsFolder = reader.IsDBNull(reader.GetOrdinal("commentFileEntryIsFolder")) ? false : reader.GetBoolean("commentFileEntryIsFolder"),
+                User = new User(
+                    reader.IsDBNull(reader.GetOrdinal("commentFileEntryUserId")) ? 0 : reader.GetInt32("commentFileEntryUserId"),
+                    reader.IsDBNull(reader.GetOrdinal("commentFileEntryUserName")) ? "" : reader.GetString("commentFileEntryUserName")
+                ),
+                Date = reader.IsDBNull(reader.GetOrdinal("commentFileEntryDate")) ? DateTime.Now : reader.GetDateTime("commentFileEntryDate"),
+                LastUpdated = reader.IsDBNull(reader.GetOrdinal("commentFileEntryLastUpdated")) ? (DateTime?)null : reader.GetDateTime("commentFileEntryLastUpdated"),
+                LastUpdatedUserId = reader.IsDBNull(reader.GetOrdinal("commentFileEntryLastUpdatedByUserId")) ? 0 : reader.GetInt32("commentFileEntryLastUpdatedByUserId"),
+                FileType = reader.IsDBNull(reader.GetOrdinal("commentFileEntryType")) ? null : reader.GetString("commentFileEntryType"),
+                FileSize = reader.IsDBNull(reader.GetOrdinal("commentFileEntrySize")) ? 0 : reader.GetInt32("commentFileEntrySize"),
+                Width = reader.IsDBNull(reader.GetOrdinal("commentFileEntryWidth")) ? (int?)null : reader.GetInt32("commentFileEntryWidth"),
+                Height = reader.IsDBNull(reader.GetOrdinal("commentFileEntryHeight")) ? (int?)null : reader.GetInt32("commentFileEntryHeight"),
+                Duration = reader.IsDBNull(reader.GetOrdinal("commentFileEntryDuration")) ? (int?)null : reader.GetInt32("commentFileEntryDuration"),
+                LastAccess = reader.IsDBNull(reader.GetOrdinal("commentFileEntryLastAccess")) ? (DateTime?)null : reader.GetDateTime("commentFileEntryLastAccess"),
+                AccessCount = reader.IsDBNull(reader.GetOrdinal("commentFileEntryAccessCount")) ? 0 : reader.GetInt32("commentFileEntryAccessCount"),
+                FavouriteCount = reader.IsDBNull(reader.GetOrdinal("commentFileEntryFavouriteCount")) ? 0 : reader.GetInt32("commentFileEntryFavouriteCount"),
+                IsFavourited = reader.IsDBNull(reader.GetOrdinal("commentFileEntryIsFavourited")) ? false : reader.GetBoolean("commentFileEntryIsFavourited"),
+            };
 
-          comment.CommentFiles ??= new List<FileEntry>();
-          comment.CommentFiles.Add(fileEntry);
+            comment.CommentFiles ??= new List<FileEntry>();
+            comment.CommentFiles.Add(fileEntry);
         }
-      }
+    }
 
-      // Second pass: assign child comments to their parent
-      foreach (var (comment, parentId) in childComments)
-      {
+    // Second pass: assign child comments to their parent
+    foreach (var (comment, parentId) in childComments)
+    {
         if (allCommentsById.TryGetValue(parentId, out var parent))
         {
-          parent.Comments ??= new List<FileComment>();
-          if (!parent.Comments.Any(c => c.Id == comment.Id))
-          {
-            parent.Comments.Add(comment);
-          }
+            parent.Comments ??= new List<FileComment>();
+            if (!parent.Comments.Any(c => c.Id == comment.Id))
+            {
+                parent.Comments.Add(comment);
+            }
         }
-      }
     }
+} 
 
     private static void GetFileTopics(List<FileEntry> fileEntries, MySqlConnection connection, List<int> fileIds)
     {
