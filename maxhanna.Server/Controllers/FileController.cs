@@ -1107,22 +1107,22 @@ LIMIT
     {
       var totalCountCommand = new MySqlCommand(
           $@"SELECT COUNT(*) 
-                        FROM 
-                            maxhanna.file_uploads f  
-                        LEFT JOIN
-                            maxhanna.users u ON f.user_id = u.id 
-                        WHERE 
-                            {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
-                            ( 
-                                f.is_public = 1 OR 
-                                f.user_id = @userId OR 
-                                FIND_IN_SET(@userId, f.shared_with) > 0
-                            ) 
-                        {searchCondition}
-                        {fileTypeCondition}
-                        {visibilityCondition}
-                        {ownershipCondition}
-                        {hiddenCondition}
+            FROM 
+                maxhanna.file_uploads f  
+            LEFT JOIN
+                maxhanna.users u ON f.user_id = u.id 
+            WHERE 
+                {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
+                ( 
+                    f.is_public = 1 OR 
+                    f.user_id = @userId OR 
+                    FIND_IN_SET(@userId, f.shared_with) > 0
+                ) 
+            {searchCondition}
+            {fileTypeCondition}
+            {visibilityCondition}
+            {ownershipCondition}
+            {hiddenCondition}
 						{favouritesCondition};"
        , connection);
       foreach (var param in extraParameters)
