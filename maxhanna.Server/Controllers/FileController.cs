@@ -449,7 +449,7 @@ LIMIT
               user, directory, search, page, pageSize, fileEntries,
               favouritesCondition, fileTypeCondForCount, // <-- use the combined condition
               visibilityCondition, ownershipCondition, hiddenCondition,
-              connection, searchCondition, extraParameters);
+              connection, searchCondition, extraParameters, fileId);
 
           return result;
         }
@@ -657,9 +657,16 @@ LIMIT
       }
     }
 
-    private DirectoryResults GetDirectoryResults(User? user, string directory, string? search, int page, int pageSize, List<FileEntry> fileEntries, string favouritesCondition, string fileTypeCondition, string visibilityCondition, string ownershipCondition, string hiddenCondition, MySqlConnection connection, string searchCondition, List<MySqlParameter> extraParameters)
+    private DirectoryResults GetDirectoryResults(User? user, string directory,
+     string? search, int page, int pageSize, List<FileEntry> fileEntries, 
+     string favouritesCondition, string fileTypeCondition, string visibilityCondition, 
+     string ownershipCondition, string hiddenCondition, MySqlConnection connection, 
+     string searchCondition, List<MySqlParameter> extraParameters, int? fileId)
     {
-      // Get the total count of files for pagination
+      
+      if (fileId.HasValue) {
+        extraParameters.Add(new MySqlParameter("@fileId", fileId.Value));
+      }
       int totalCount = GetResultCount(user,
         directory, search, favouritesCondition, fileTypeCondition, visibilityCondition,
         ownershipCondition, hiddenCondition, connection, searchCondition,
@@ -1100,39 +1107,33 @@ LIMIT
     {
       var totalCountCommand = new MySqlCommand(
           $@"SELECT COUNT(*) 
-            FROM 
-                maxhanna.file_uploads f  
-            LEFT JOIN
-                maxhanna.users u ON f.user_id = u.id 
-            WHERE 
-                {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
-                ( 
-                    f.is_public = 1 OR 
-                    f.user_id = @userId OR 
-                    FIND_IN_SET(@userId, f.shared_with) > 0
-                ) 
-            {searchCondition}
-            {fileTypeCondition}
-            {visibilityCondition}
-            {ownershipCondition}
-            {hiddenCondition}
+                        FROM 
+                            maxhanna.file_uploads f  
+                        LEFT JOIN
+                            maxhanna.users u ON f.user_id = u.id 
+                        WHERE 
+                            {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
+                            ( 
+                                f.is_public = 1 OR 
+                                f.user_id = @userId OR 
+                                FIND_IN_SET(@userId, f.shared_with) > 0
+                            ) 
+                        {searchCondition}
+                        {fileTypeCondition}
+                        {visibilityCondition}
+                        {ownershipCondition}
+                        {hiddenCondition}
 						{favouritesCondition};"
        , connection);
       foreach (var param in extraParameters)
       {
-        try
-        {
-          var name = param.ParameterName ?? string.Empty;
-          // Ensure parameter name starts with '@' for AddWithValue
-          if (!name.StartsWith("@")) name = "@" + name;
-          totalCountCommand.Parameters.AddWithValue(name, param.Value);
-        }
-        catch
-        {
-          // Fallback: try to add the parameter instance directly
-          try { totalCountCommand.Parameters.Add(param); } catch { }
-        }
-      }
+        totalCountCommand.Parameters.Add(param);
+      } 
+      if (fileTypeCondition.Contains("@fileId") || favouritesCondition.Contains("@fileId") || visibilityCondition.Contains("@fileId"))
+      {
+          if (!totalCountCommand.Parameters.Contains("@fileId"))
+              totalCountCommand.Parameters.AddWithValue("@fileId", extraParameters.FirstOrDefault(p => p.ParameterName == "@fileId")?.Value ?? DBNull.Value);
+      } 
       totalCountCommand.Parameters.AddWithValue("@folderPath", directory);
       totalCountCommand.Parameters.AddWithValue("@userId", user?.Id ?? 0);
       totalCountCommand.Parameters.AddWithValue("@showHidden", 0); // result count always evaluates condition; explicit toggle handled earlier
