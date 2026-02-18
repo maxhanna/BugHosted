@@ -367,7 +367,7 @@ LEFT JOIN maxhanna.comments c
 
 
 WHERE
-    {(fileId.HasValue ? "1=1" : (string.IsNullOrEmpty(search) ? "f.folder_path = @folderPath AND" : "1=1"))}
+    {(fileId.HasValue ? "1=1 AND" : (string.IsNullOrEmpty(search) ? "f.folder_path = @folderPath AND" : "1=1 AND"))}    
     (
         f.is_public = 1
         OR f.user_id = @userId
