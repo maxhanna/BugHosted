@@ -174,7 +174,8 @@ namespace maxhanna.Server.Controllers
             (string where, List<MySqlParameter> list) = await GetWhereCondition(search, user);
 
 
-            var idQuery = new MySqlCommand($@"
+            
+var idQuery = new MySqlCommand($@"
     SELECT f.id
     FROM maxhanna.file_uploads f
     LEFT JOIN users u ON f.user_id = u.id
@@ -189,12 +190,24 @@ namespace maxhanna.Server.Controllers
         {visibilityCondition}
         {ownershipCondition}
         {hiddenCondition}
-        {favouritesCondition} 
+        {favouritesCondition}
+        { (string.IsNullOrEmpty(search) ? "" : " AND " + (await GetWhereCondition(search, user)).Item1 ) }
     ORDER BY
         {(isRomSearch ? "f.last_access DESC" :
-                     !string.IsNullOrEmpty(search) ? "MATCH(f.file_name, f.description, f.given_file_name) AGAINST(@FullTextSearch IN NATURAL LANGUAGE MODE) DESC" :
-                     "f.upload_date DESC")} ;
+         !string.IsNullOrEmpty(search)
+            ? "MATCH(f.file_name, f.description, f.given_file_name) AGAINST(@FullTextSearch IN NATURAL LANGUAGE MODE) DESC"
+            : "f.upload_date DESC")};
 ", connection);
+
+// REQUIRED PARAMETERS
+idQuery.Parameters.AddWithValue("@folderPath", directory);
+idQuery.Parameters.AddWithValue("@userId", user?.Id ?? 0);
+idQuery.Parameters.AddWithValue("@showHidden", showHidden ? 1 : 0);
+
+// FULLTEXT ONLY IF SEARCHING
+if (!string.IsNullOrEmpty(search))
+    idQuery.Parameters.AddWithValue("@FullTextSearch", search);
+
 
             List<int> sortedIds = new();
             using (var r = idQuery.ExecuteReader())
