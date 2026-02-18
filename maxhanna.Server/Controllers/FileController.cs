@@ -174,40 +174,40 @@ namespace maxhanna.Server.Controllers
             (string where, List<MySqlParameter> list) = await GetWhereCondition(search, user);
 
 
-            
-var idQuery = new MySqlCommand($@"
-    SELECT f.id
-    FROM maxhanna.file_uploads f
-    LEFT JOIN users u ON f.user_id = u.id
-    WHERE
-        f.folder_path = @folderPath
-        AND (
-             f.is_public = 1
-             OR f.user_id = @userId
-             OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON))
-        )
-        {fileTypeCondition}
-        {visibilityCondition}
-        {ownershipCondition}
-        {hiddenCondition}
-        {favouritesCondition}
-        { (string.IsNullOrEmpty(search) ? "" : " AND " + (await GetWhereCondition(search, user)).Item1 ) }
-    ORDER BY
-        {(isRomSearch ? "f.last_access DESC" :
-         !string.IsNullOrEmpty(search)
-            ? "MATCH(f.file_name, f.description, f.given_file_name) AGAINST(@FullTextSearch IN NATURAL LANGUAGE MODE) DESC"
-            : "f.upload_date DESC")};
-", connection);
 
-// REQUIRED PARAMETERS
-idQuery.Parameters.AddWithValue("@folderPath", directory);
-idQuery.Parameters.AddWithValue("@userId", user?.Id ?? 0);
-idQuery.Parameters.AddWithValue("@showHidden", showHidden ? 1 : 0);
+            var idQuery = new MySqlCommand($@"
+              SELECT f.id
+              FROM maxhanna.file_uploads f
+              LEFT JOIN users u ON f.user_id = u.id
+              WHERE
+                  f.folder_path = @folderPath
+                  AND (
+                      f.is_public = 1
+                      OR f.user_id = @userId
+                      OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON))
+                  )
+                  {fileTypeCondition}
+                  {visibilityCondition}
+                  {ownershipCondition}
+                  {hiddenCondition}
+                  {favouritesCondition}
+                  {(string.IsNullOrEmpty(search) ? "" : " AND " + (await GetWhereCondition(search, user)).Item1)}
+              ORDER BY
+                  {(isRomSearch ? "f.last_access DESC" :
+                              !string.IsNullOrEmpty(search)
+                                  ? "MATCH(f.file_name, f.description, f.given_file_name) AGAINST(@FullTextSearch IN NATURAL LANGUAGE MODE) DESC"
+                                  : "f.upload_date DESC")};
+              ", connection);
 
-// FULLTEXT ONLY IF SEARCHING
-if (!string.IsNullOrEmpty(search))
-    idQuery.Parameters.AddWithValue("@FullTextSearch", search);
+            // REQUIRED PARAMETERS
+            idQuery.Parameters.AddWithValue("@folderPath", directory);
+            idQuery.Parameters.AddWithValue("@userId", user?.Id ?? 0);
+            idQuery.Parameters.AddWithValue("@showHidden", showHidden ? 1 : 0);
 
+            // FULLTEXT ONLY IF SEARCHING
+            if (!string.IsNullOrEmpty(search)) {
+              idQuery.Parameters.AddWithValue("@FullTextSearch", search);
+            }
 
             List<int> sortedIds = new();
             using (var r = idQuery.ExecuteReader())
