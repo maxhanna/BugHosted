@@ -395,23 +395,58 @@ namespace maxhanna.Server.Controllers
       {
         using var connection = new MySqlConnection(_connectionString);
         connection.Open();
-        var cmd = new MySqlCommand(@"SELECT u.id, u.username, udp.file_id AS displayPictureFileId
-					FROM file_favourites ff
-					JOIN users u ON ff.user_id = u.id
-					LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
-					WHERE ff.file_id = @fileId", connection);
+        var cmd = new MySqlCommand(@"SELECT
+              u.id,
+              u.username,
+              udp.file_id AS displayPictureFileId,
+              udpfu.file_name AS displayPictureFileName,
+              udpfu.given_file_name AS displayPictureGivenFileName,
+              udpfu.folder_path AS displayPictureFolderPath,
+              udpfu.is_public AS displayPictureIsPublic,
+              udpfu.file_type AS displayPictureFileType,
+              udpfu.file_size AS displayPictureFileSize,
+              udpfu.width AS displayPictureWidth,
+              udpfu.height AS displayPictureHeight,
+              udpfu.upload_date AS displayPictureUploadDate,
+              udpfu.last_updated AS displayPictureLastUpdated
+          FROM file_favourites ff
+          JOIN users u ON ff.user_id = u.id
+          LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
+          LEFT JOIN file_uploads udpfu ON udp.file_id = udpfu.id
+          WHERE ff.file_id = @fileId", connection);
         cmd.Parameters.AddWithValue("@fileId", fileId);
         var list = new List<object>();
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
+          // Build enriched display picture FileEntry when available
+          FileEntry? displayPic = null;
+          var dpId = reader.IsDBNull("displayPictureFileId") ? 0 : reader.GetInt32("displayPictureFileId");
+          if (dpId != 0)
+          {
+            displayPic = new FileEntry
+            {
+              Id = dpId,
+              FileName = reader.IsDBNull("displayPictureFileName") ? null : reader.GetString("displayPictureFileName"),
+              GivenFileName = reader.IsDBNull("displayPictureGivenFileName") ? null : reader.GetString("displayPictureGivenFileName"),
+              Directory = reader.IsDBNull("displayPictureFolderPath") ? null : reader.GetString("displayPictureFolderPath"),
+              Visibility = (reader.IsDBNull("displayPictureIsPublic") ? true : reader.GetBoolean("displayPictureIsPublic")) ? "Public" : "Private",
+              FileType = reader.IsDBNull("displayPictureFileType") ? null : reader.GetString("displayPictureFileType"),
+              FileSize = reader.IsDBNull("displayPictureFileSize") ? 0 : reader.GetInt32("displayPictureFileSize"),
+              Width = reader.IsDBNull("displayPictureWidth") ? (int?)null : reader.GetInt32("displayPictureWidth"),
+              Height = reader.IsDBNull("displayPictureHeight") ? (int?)null : reader.GetInt32("displayPictureHeight"),
+              Date = reader.IsDBNull("displayPictureUploadDate") ? new DateTime() : reader.GetDateTime("displayPictureUploadDate"),
+              LastUpdated = reader.IsDBNull("displayPictureLastUpdated") ? (DateTime?)null : reader.GetDateTime("displayPictureLastUpdated")
+            };
+          }
+
           list.Add(
             new User(
               reader.GetInt32("id"),
               reader.IsDBNull("username") ? "" : reader.GetString("username"),
-              reader.IsDBNull("displayPictureFileId") ? null : new FileEntry(reader.GetInt32("displayPictureFileId")
+              displayPic
             )
-          ));
+          );
         }
         return Ok(list);
       }
@@ -454,11 +489,31 @@ private static void GetFileComments(
             fc.comment_id AS comment_parent_id,
             uc.username AS commentUsername,
 
-            -- comment author's pictures
-            ucudp.tag_background_file_id AS commentUserProfileBackgroundPicId,
+            -- comment author's display picture (ucudpfu) and profile background (ucudpbg)
             ucudpfu.id AS commentUserDisplayPicId,
             ucudpfu.file_name AS commentUserDisplayPicFileName,
+            ucudpfu.given_file_name AS commentUserDisplayPicGivenFileName,
             ucudpfu.folder_path AS commentUserDisplayPicFolderPath,
+            ucudpfu.is_public AS commentUserDisplayPicIsPublic,
+            ucudpfu.file_type AS commentUserDisplayPicType,
+            ucudpfu.file_size AS commentUserDisplayPicSize,
+            ucudpfu.width AS commentUserDisplayPicWidth,
+            ucudpfu.height AS commentUserDisplayPicHeight,
+            ucudpfu.upload_date AS commentUserDisplayPicUploadDate,
+            ucudpfu.last_updated AS commentUserDisplayPicLastUpdated,
+
+            ucudp.tag_background_file_id AS commentUserProfileBackgroundPicId,
+            ucudpbg.id AS commentUserProfileBackgroundFileId,
+            ucudpbg.file_name AS commentUserProfileBackgroundFileName,
+            ucudpbg.given_file_name AS commentUserProfileBackgroundGivenFileName,
+            ucudpbg.folder_path AS commentUserProfileBackgroundFolderPath,
+            ucudpbg.is_public AS commentUserProfileBackgroundIsPublic,
+            ucudpbg.file_type AS commentUserProfileBackgroundFileType,
+            ucudpbg.file_size AS commentUserProfileBackgroundFileSize,
+            ucudpbg.width AS commentUserProfileBackgroundWidth,
+            ucudpbg.height AS commentUserProfileBackgroundHeight,
+            ucudpbg.upload_date AS commentUserProfileBackgroundUploadDate,
+            ucudpbg.last_updated AS commentUserProfileBackgroundLastUpdated,
 
             -- comment text
             fc.comment AS commentText,
@@ -492,6 +547,7 @@ private static void GetFileComments(
         LEFT JOIN maxhanna.users uc ON fc.user_id = uc.id
         LEFT JOIN maxhanna.user_display_pictures ucudp ON ucudp.user_id = uc.id
         LEFT JOIN maxhanna.file_uploads ucudpfu ON ucudp.file_id = ucudpfu.id
+        LEFT JOIN maxhanna.file_uploads ucudpbg ON ucudp.tag_background_file_id = ucudpbg.id
 
         LEFT JOIN maxhanna.comment_files cf ON fc.id = cf.comment_id
         LEFT JOIN maxhanna.file_uploads cf2 ON cf.file_id = cf2.id
@@ -523,6 +579,26 @@ private static void GetFileComments(
         var commentUserDisplayPicId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? (int?)null : reader.GetInt32("commentUserDisplayPicId");
         var commentUserDisplayPicFileName = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFileName")) ? null : reader.GetString("commentUserDisplayPicFileName");
         var commentUserDisplayPicFolderPath = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFolderPath")) ? null : reader.GetString("commentUserDisplayPicFolderPath");
+        var commentUserDisplayPicGivenFileName = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicGivenFileName")) ? null : reader.GetString("commentUserDisplayPicGivenFileName");
+        var commentUserDisplayPicIsPublic = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicIsPublic")) ? (bool?)null : reader.GetBoolean("commentUserDisplayPicIsPublic");
+        var commentUserDisplayPicType = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicType")) ? null : reader.GetString("commentUserDisplayPicType");
+        var commentUserDisplayPicSize = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicSize")) ? (int?)null : reader.GetInt32("commentUserDisplayPicSize");
+        var commentUserDisplayPicWidth = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicWidth")) ? (int?)null : reader.GetInt32("commentUserDisplayPicWidth");
+        var commentUserDisplayPicHeight = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicHeight")) ? (int?)null : reader.GetInt32("commentUserDisplayPicHeight");
+        var commentUserDisplayPicUploadDate = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicUploadDate")) ? new DateTime() : reader.GetDateTime("commentUserDisplayPicUploadDate");
+        var commentUserDisplayPicLastUpdated = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicLastUpdated")) ? (DateTime?)null : reader.GetDateTime("commentUserDisplayPicLastUpdated");
+
+        var commentUserProfileBackgroundFileId = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundFileId")) ? (int?)null : reader.GetInt32("commentUserProfileBackgroundFileId");
+        var commentUserProfileBackgroundFileName = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundFileName")) ? null : reader.GetString("commentUserProfileBackgroundFileName");
+        var commentUserProfileBackgroundGivenFileName = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundGivenFileName")) ? null : reader.GetString("commentUserProfileBackgroundGivenFileName");
+        var commentUserProfileBackgroundFolderPath = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundFolderPath")) ? null : reader.GetString("commentUserProfileBackgroundFolderPath");
+        var commentUserProfileBackgroundIsPublic = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundIsPublic")) ? (bool?)null : reader.GetBoolean("commentUserProfileBackgroundIsPublic");
+        var commentUserProfileBackgroundFileType = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundFileType")) ? null : reader.GetString("commentUserProfileBackgroundFileType");
+        var commentUserProfileBackgroundFileSize = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundFileSize")) ? (int?)null : reader.GetInt32("commentUserProfileBackgroundFileSize");
+        var commentUserProfileBackgroundWidth = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundWidth")) ? (int?)null : reader.GetInt32("commentUserProfileBackgroundWidth");
+        var commentUserProfileBackgroundHeight = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundHeight")) ? (int?)null : reader.GetInt32("commentUserProfileBackgroundHeight");
+        var commentUserProfileBackgroundUploadDate = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundUploadDate")) ? new DateTime() : reader.GetDateTime("commentUserProfileBackgroundUploadDate");
+        var commentUserProfileBackgroundLastUpdated = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundLastUpdated")) ? (DateTime?)null : reader.GetDateTime("commentUserProfileBackgroundLastUpdated");
 
         FileComment? comment;
         if (!allCommentsById.TryGetValue(commentId, out comment))
@@ -533,20 +609,38 @@ private static void GetFileComments(
                 FileId = fileIdValue,
                 CommentId = commentParentId,
                 User = new User(
-                    reader.GetInt32("commentUserId"),
-                    reader.GetString("commentUsername"),
-                    null,
-                    new FileEntry
-                    {
-                        Id = commentUserDisplayPicId ?? 0,
-                        FileName = commentUserDisplayPicFileName,
-                        Directory = commentUserDisplayPicFolderPath
-                    },
-                    new FileEntry
-                    {
-                        Id = commentUserProfileBackgroundPicId ?? 0,
-                    },
-                    null, null, null
+                  reader.GetInt32("commentUserId"),
+                  reader.GetString("commentUsername"),
+                  null,
+                  new FileEntry
+                  {
+                    Id = commentUserDisplayPicId ?? 0,
+                    FileName = commentUserDisplayPicFileName,
+                    GivenFileName = commentUserDisplayPicGivenFileName,
+                    Directory = commentUserDisplayPicFolderPath,
+                    Visibility = commentUserDisplayPicIsPublic.HasValue ? (commentUserDisplayPicIsPublic.Value ? "Public" : "Private") : null,
+                    FileType = commentUserDisplayPicType,
+                    FileSize = commentUserDisplayPicSize ?? 0,
+                    Width = commentUserDisplayPicWidth,
+                    Height = commentUserDisplayPicHeight,
+                    Date = commentUserDisplayPicUploadDate,
+                    LastUpdated = commentUserDisplayPicLastUpdated
+                  },
+                  new FileEntry
+                  {
+                    Id = commentUserProfileBackgroundFileId ?? (commentUserProfileBackgroundPicId ?? 0),
+                    FileName = commentUserProfileBackgroundFileName,
+                    GivenFileName = commentUserProfileBackgroundGivenFileName,
+                    Directory = commentUserProfileBackgroundFolderPath,
+                    Visibility = commentUserProfileBackgroundIsPublic.HasValue ? (commentUserProfileBackgroundIsPublic.Value ? "Public" : "Private") : null,
+                    FileType = commentUserProfileBackgroundFileType,
+                    FileSize = commentUserProfileBackgroundFileSize ?? 0,
+                    Width = commentUserProfileBackgroundWidth,
+                    Height = commentUserProfileBackgroundHeight,
+                    Date = commentUserProfileBackgroundUploadDate,
+                    LastUpdated = commentUserProfileBackgroundLastUpdated
+                  },
+                  null, null, null
                 ),
                 CommentText = reader.GetString("commentText"),
                 Date = reader.GetDateTime("commentDate"),
@@ -680,27 +774,56 @@ private static void GetFileComments(
     {
       //_ = _log.Db("Getting reactions");
       // Fetch reactions separately
-      var reactionsCommand = new MySqlCommand($@"
-                        SELECT
-                            r.id AS reaction_id,
-                            r.file_id AS reactionFileId,
-                            r.comment_id AS reactionCommentId,
-                            r.type AS reaction_type,
-                            r.user_id AS reaction_user_id,
-                            ru.username AS reaction_username,
-							udp.file_id as reaction_user_display_picture_id,
-							udp.tag_background_file_id as reaction_user_background_picture_id,
-							r.timestamp as reaction_date
-                        FROM
-                            maxhanna.reactions r
-                        LEFT JOIN
-                            maxhanna.users ru ON r.user_id = ru.id
-                        LEFT JOIN
-                            maxhanna.user_display_pictures udp ON udp.user_id = ru.id 
-                        WHERE 1=1
-                        {(fileIds.Count > 0 ? "AND r.file_id IN (" + string.Join(", ", fileIdsParameters) + ')' : string.Empty)} 
-                        {(commentIds.Count > 0 ? " OR r.comment_id IN (" + string.Join(", ", commentIdsParameters) + ')' : string.Empty)};"
-      , connection);
+        var reactionsCommand = new MySqlCommand($@"
+                SELECT
+                  r.id AS reaction_id,
+                  r.file_id AS reactionFileId,
+                  r.comment_id AS reactionCommentId,
+                  r.type AS reaction_type,
+                  r.user_id AS reaction_user_id,
+                  ru.username AS reaction_username,
+
+                  -- display picture file_uploads (udp.file_id -> udpfl)
+                  udpfl.id AS reaction_user_display_picture_id,
+                  udpfl.file_name AS reaction_user_display_picture_file_name,
+                  udpfl.given_file_name AS reaction_user_display_picture_given_file_name,
+                  udpfl.folder_path AS reaction_user_display_picture_folder_path,
+                  udpfl.is_public AS reaction_user_display_picture_is_public,
+                  udpfl.file_type AS reaction_user_display_picture_file_type,
+                  udpfl.file_size AS reaction_user_display_picture_file_size,
+                  udpfl.width AS reaction_user_display_picture_width,
+                  udpfl.height AS reaction_user_display_picture_height,
+                  udpfl.upload_date AS reaction_user_display_picture_upload_date,
+                  udpfl.last_updated AS reaction_user_display_picture_last_updated,
+
+                  -- background picture file_uploads (udp.tag_background_file_id -> udpbg)
+                  udpbg.id AS reaction_user_background_picture_id,
+                  udpbg.file_name AS reaction_user_background_picture_file_name,
+                  udpbg.given_file_name AS reaction_user_background_picture_given_file_name,
+                  udpbg.folder_path AS reaction_user_background_picture_folder_path,
+                  udpbg.is_public AS reaction_user_background_picture_is_public,
+                  udpbg.file_type AS reaction_user_background_picture_file_type,
+                  udpbg.file_size AS reaction_user_background_picture_file_size,
+                  udpbg.width AS reaction_user_background_picture_width,
+                  udpbg.height AS reaction_user_background_picture_height,
+                  udpbg.upload_date AS reaction_user_background_picture_upload_date,
+                  udpbg.last_updated AS reaction_user_background_picture_last_updated,
+
+                  r.timestamp as reaction_date
+                FROM
+                  maxhanna.reactions r
+                LEFT JOIN
+                  maxhanna.users ru ON r.user_id = ru.id
+                LEFT JOIN
+                  maxhanna.user_display_pictures udp ON udp.user_id = ru.id
+                LEFT JOIN
+                  maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id
+                LEFT JOIN
+                  maxhanna.file_uploads udpbg ON udp.tag_background_file_id = udpbg.id
+                WHERE 1=1
+                {(fileIds.Count > 0 ? "AND r.file_id IN (" + string.Join(", ", fileIdsParameters) + ')' : string.Empty)} 
+                {(commentIds.Count > 0 ? " OR r.comment_id IN (" + string.Join(", ", commentIdsParameters) + ')' : string.Empty)};"
+        , connection);
 
       for (int i = 0; i < commentIds.Count; i++)
       {
@@ -718,8 +841,44 @@ private static void GetFileComments(
           var reactionId = reader.GetInt32("reaction_id");
           var fileIdValue = reader.IsDBNull(reader.GetOrdinal("reactionFileId")) ? 0 : reader.GetInt32("reactionFileId");
           var commentIdValue = reader.IsDBNull(reader.GetOrdinal("reactionCommentId")) ? 0 : reader.GetInt32("reactionCommentId");
-          var udpFileEntry = reader.IsDBNull(reader.GetOrdinal("reaction_user_display_picture_id")) ? null : new FileEntry(reader.GetInt32("reaction_user_display_picture_id"));
-          var udpBgFileEntry = reader.IsDBNull(reader.GetOrdinal("reaction_user_background_picture_id")) ? null : new FileEntry(reader.GetInt32("reaction_user_background_picture_id"));
+          FileEntry? udpFileEntry = null;
+          if (!reader.IsDBNull(reader.GetOrdinal("reaction_user_display_picture_id")))
+          {
+            udpFileEntry = new FileEntry
+            {
+              Id = reader.GetInt32("reaction_user_display_picture_id"),
+              FileName = reader.IsDBNull(reader.GetOrdinal("reaction_user_display_picture_file_name")) ? null : reader.GetString("reaction_user_display_picture_file_name"),
+              GivenFileName = reader.IsDBNull(reader.GetOrdinal("reaction_user_display_picture_given_file_name")) ? null : reader.GetString("reaction_user_display_picture_given_file_name"),
+              Directory = reader.IsDBNull(reader.GetOrdinal("reaction_user_display_picture_folder_path")) ? null : reader.GetString("reaction_user_display_picture_folder_path"),
+              Visibility = (reader.IsDBNull(reader.GetOrdinal("reaction_user_display_picture_is_public")) ? true : reader.GetBoolean("reaction_user_display_picture_is_public")) ? "Public" : "Private",
+              FileType = reader.IsDBNull(reader.GetOrdinal("reaction_user_display_picture_file_type")) ? null : reader.GetString("reaction_user_display_picture_file_type"),
+              FileSize = reader.IsDBNull(reader.GetOrdinal("reaction_user_display_picture_file_size")) ? 0 : reader.GetInt32("reaction_user_display_picture_file_size"),
+              Width = reader.IsDBNull(reader.GetOrdinal("reaction_user_display_picture_width")) ? (int?)null : reader.GetInt32("reaction_user_display_picture_width"),
+              Height = reader.IsDBNull(reader.GetOrdinal("reaction_user_display_picture_height")) ? (int?)null : reader.GetInt32("reaction_user_display_picture_height"),
+              Date = reader.IsDBNull(reader.GetOrdinal("reaction_user_display_picture_upload_date")) ? new DateTime() : reader.GetDateTime("reaction_user_display_picture_upload_date"),
+              LastUpdated = reader.IsDBNull(reader.GetOrdinal("reaction_user_display_picture_last_updated")) ? (DateTime?)null : reader.GetDateTime("reaction_user_display_picture_last_updated")
+            };
+          }
+
+          FileEntry? udpBgFileEntry = null;
+          if (!reader.IsDBNull(reader.GetOrdinal("reaction_user_background_picture_id")))
+          {
+            udpBgFileEntry = new FileEntry
+            {
+              Id = reader.GetInt32("reaction_user_background_picture_id"),
+              FileName = reader.IsDBNull(reader.GetOrdinal("reaction_user_background_picture_file_name")) ? null : reader.GetString("reaction_user_background_picture_file_name"),
+              GivenFileName = reader.IsDBNull(reader.GetOrdinal("reaction_user_background_picture_given_file_name")) ? null : reader.GetString("reaction_user_background_picture_given_file_name"),
+              Directory = reader.IsDBNull(reader.GetOrdinal("reaction_user_background_picture_folder_path")) ? null : reader.GetString("reaction_user_background_picture_folder_path"),
+              Visibility = (reader.IsDBNull(reader.GetOrdinal("reaction_user_background_picture_is_public")) ? true : reader.GetBoolean("reaction_user_background_picture_is_public")) ? "Public" : "Private",
+              FileType = reader.IsDBNull(reader.GetOrdinal("reaction_user_background_picture_file_type")) ? null : reader.GetString("reaction_user_background_picture_file_type"),
+              FileSize = reader.IsDBNull(reader.GetOrdinal("reaction_user_background_picture_file_size")) ? 0 : reader.GetInt32("reaction_user_background_picture_file_size"),
+              Width = reader.IsDBNull(reader.GetOrdinal("reaction_user_background_picture_width")) ? (int?)null : reader.GetInt32("reaction_user_background_picture_width"),
+              Height = reader.IsDBNull(reader.GetOrdinal("reaction_user_background_picture_height")) ? (int?)null : reader.GetInt32("reaction_user_background_picture_height"),
+              Date = reader.IsDBNull(reader.GetOrdinal("reaction_user_background_picture_upload_date")) ? new DateTime() : reader.GetDateTime("reaction_user_background_picture_upload_date"),
+              LastUpdated = reader.IsDBNull(reader.GetOrdinal("reaction_user_background_picture_last_updated")) ? (DateTime?)null : reader.GetDateTime("reaction_user_background_picture_last_updated")
+            };
+          }
+
           var reaction = new Reaction
           {
             Id = reactionId,
@@ -727,7 +886,7 @@ private static void GetFileComments(
             CommentId = commentIdValue != 0 ? commentIdValue : null,
             Type = reader.GetString("reaction_type"),
             Timestamp = reader.GetDateTime("reaction_date"),
-            User = new User(reader.GetInt32("reaction_user_id"), reader.GetString("reaction_username"), udpFileEntry, udpBgFileEntry)
+            User = new User(reader.GetInt32("reaction_user_id"), reader.IsDBNull(reader.GetOrdinal("reaction_username")) ? "" : reader.GetString("reaction_username"), udpFileEntry, udpBgFileEntry)
           };
 
           var fileEntry = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
