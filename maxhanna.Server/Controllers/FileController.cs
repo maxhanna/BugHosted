@@ -171,7 +171,7 @@ namespace maxhanna.Server.Controllers
               FROM maxhanna.file_uploads f
               LEFT JOIN users u ON f.user_id = u.id
               WHERE 
-                  f.folder_path = @folderPath
+                  {(fileId.HasValue ? " 1=1 " : " f.folder_path = @folderPath ")}
                   AND (
                       f.is_public = 1
                       OR f.user_id = @userId
@@ -223,7 +223,7 @@ namespace maxhanna.Server.Controllers
               FROM maxhanna.file_uploads f
               LEFT JOIN users u ON f.user_id = u.id
               WHERE
-                  f.folder_path = @folderPath
+                  {(fileId.HasValue ? " 1=1 " : " f.folder_path = @folderPath ")}
                   AND (
                       f.is_public = 1
                       OR f.user_id = @userId
