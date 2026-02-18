@@ -1100,27 +1100,38 @@ LIMIT
     {
       var totalCountCommand = new MySqlCommand(
           $@"SELECT COUNT(*) 
-                        FROM 
-                            maxhanna.file_uploads f  
-                        LEFT JOIN
-                            maxhanna.users u ON f.user_id = u.id 
-                        WHERE 
-                            {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
-                            ( 
-                                f.is_public = 1 OR 
-                                f.user_id = @userId OR 
-                                FIND_IN_SET(@userId, f.shared_with) > 0
-                            ) 
-                        {searchCondition}
-                        {fileTypeCondition}
-                        {visibilityCondition}
-                        {ownershipCondition}
-                        {hiddenCondition}
+            FROM 
+                maxhanna.file_uploads f  
+            LEFT JOIN
+                maxhanna.users u ON f.user_id = u.id 
+            WHERE 
+                {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
+                ( 
+                    f.is_public = 1 OR 
+                    f.user_id = @userId OR 
+                    FIND_IN_SET(@userId, f.shared_with) > 0
+                ) 
+            {searchCondition}
+            {fileTypeCondition}
+            {visibilityCondition}
+            {ownershipCondition}
+            {hiddenCondition}
 						{favouritesCondition};"
        , connection);
       foreach (var param in extraParameters)
       {
-        totalCountCommand.Parameters.Add(param);
+        try
+        {
+          var name = param.ParameterName ?? string.Empty;
+          // Ensure parameter name starts with '@' for AddWithValue
+          if (!name.StartsWith("@")) name = "@" + name;
+          totalCountCommand.Parameters.AddWithValue(name, param.Value);
+        }
+        catch
+        {
+          // Fallback: try to add the parameter instance directly
+          try { totalCountCommand.Parameters.Add(param); } catch { }
+        }
       }
       totalCountCommand.Parameters.AddWithValue("@folderPath", directory);
       totalCountCommand.Parameters.AddWithValue("@userId", user?.Id ?? 0);
