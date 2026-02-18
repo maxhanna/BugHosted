@@ -168,7 +168,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.allowedFileTypes = this.allowedFileTypes.map(type => type.toLowerCase());
     if (this.fileId && this.fileId != null) {
       this.fileIdFilter = this.fileId;
-      await this.getDirectory(undefined, this.fileId);
+      console.log('[FileSearch] ngOnInit: using @Input fileId', this.fileId);
+      await this.loadFileByIdOnce(this.fileId);
       this.replacePageTitleAndDescription();
       return;
     }
@@ -178,17 +179,20 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (routeFileId) {
       this.fileId = routeFileId;
       this.fileIdFilter = this.fileId;
-      await this.getDirectory(undefined, this.fileId);
+      console.log('[FileSearch] ngOnInit: using route snapshot fileId', this.fileId);
+      await this.loadFileByIdOnce(this.fileId);
       this.replacePageTitleAndDescription();
       return;
     }
 
     this.route.paramMap.subscribe(async (params: any) => {
       const paramFileId = +params.get('fileId');
+      console.log('[FileSearch] route.paramMap event', paramFileId);
       if (paramFileId && paramFileId != null) {
         this.fileId = paramFileId;
         this.fileIdFilter = this.fileId;
-        await this.getDirectory(undefined, this.fileId);
+        console.log('[FileSearch] paramMap handler: invoking getDirectory for fileId', this.fileId);
+        await this.loadFileByIdOnce(this.fileId);
         this.replacePageTitleAndDescription();
         return;
       }
@@ -283,6 +287,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   async getDirectory(file?: string, fileId?: number, append?: boolean) {
     // Prevent re-entrant calls while a fetch is already in progress
     if (this.isLoading) return;
+    console.log('[FileSearch] getDirectory called', { fileArg: file, fileIdArg: fileId, append, isLoading: this.isLoading, currentDirectory: this.currentDirectory });
     this.startLoading();
     let fileTypes: string[] = [];
     const filterArr = this.fileTypeFilter.split(',').map(t => t.trim().toLowerCase()).filter(t => t);
@@ -300,7 +305,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.showData = true;
     try {
       const effectiveFileId = (fileId ?? this.fileIdFilter) as number | undefined;
-      const isFileIdSearch = effectiveFileId !== undefined && effectiveFileId !== null && effectiveFileId !== 0;
+
+      const isFileIdSearch = !!effectiveFileId;
       if (isFileIdSearch && this._savedDirectoryBeforeFileIdSearch == null) {
         this._savedDirectoryBeforeFileIdSearch = this.currentDirectory;
       }
@@ -333,7 +339,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
           // If searching by fileId, do not change the user's current directory —
           // show the matched file(s) while keeping the UI directory context stable.
-          if (!isFileIdSearch) {
+          if (!isFileIdSearch && this.fileIdFilter == null) {
             if (this.directory && this.directory.currentDirectory) {
               this.currentDirectory = this.directory.currentDirectory;
             } else {
@@ -411,6 +417,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.getDirectory();
     }, 1000);
   }
+
+private async loadFileByIdOnce(id: number) {
+    this.fileId = id;
+    this.fileIdFilter = id;
+    await this.getDirectory(undefined, id);
+}
 
   getFileExtension(filename: string) {
     return this.fileService.getFileExtension(filename);
