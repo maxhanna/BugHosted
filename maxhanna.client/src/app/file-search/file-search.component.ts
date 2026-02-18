@@ -258,7 +258,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       const element = document.getElementById('fileIdName' + fileId);
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        element.click();
+        //element.click();
       }
     }, 1000);
   }
