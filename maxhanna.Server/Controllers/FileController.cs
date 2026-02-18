@@ -156,8 +156,7 @@ namespace maxhanna.Server.Controllers
         int offset = (page - 1) * pageSize;
         using (var connection = new MySqlConnection(_connectionString))
         {
-          connection.Open();
-          int filePosition = 0;
+          connection.Open(); 
           if (fileId.HasValue && page == 1)
           {
             // Get the directory path for the file
@@ -174,53 +173,41 @@ namespace maxhanna.Server.Controllers
             directoryReader.Close();
             (string where, List<MySqlParameter> list) = await GetWhereCondition(search, user);
 
-            // Get the exact position of the file in the sorted results
-            var positionCommand = new MySqlCommand(
-          $@"SELECT COUNT(*) FROM (
-            SELECT f.id, ROW_NUMBER() OVER (
-              {(isRomSearch ? "ORDER BY f.last_access DESC" : (!string.IsNullOrEmpty(search) ? "ORDER BY MATCH(f.file_name, f.description, f.given_file_name) AGAINST(@FullTextSearch IN NATURAL LANGUAGE MODE) DESC" : "ORDER BY f.id DESC"))}
-            ) as pos
-          FROM maxhanna.file_uploads f
-          LEFT JOIN maxhanna.users u ON f.user_id = u.id
-          LEFT JOIN maxhanna.users uu ON f.last_updated_by_user_id = uu.id
-          LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
-          LEFT JOIN maxhanna.user_display_pictures luudp ON luudp.user_id = uu.id
-          LEFT JOIN maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id
-          WHERE 
-              {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
-              (
-                  f.is_public = 1
-                  OR f.user_id = @userId
-                  OR FIND_IN_SET(@userId, f.shared_with) > 0
-              )
-              {fileTypeCondition} 
-              {visibilityCondition} 
-              {ownershipCondition} 
-              {hiddenCondition}
-							{favouritesCondition}
-							{fileIdCondition}
-                            {where}
-							) AS numbered_results
-							WHERE id >= @fileId",  // For DESC order we use >=
-                connection);
+              
+var idQuery = new MySqlCommand($@"
+    SELECT f.id
+    FROM maxhanna.file_uploads f
+    LEFT JOIN users u ON f.user_id = u.id
+    WHERE
+        f.folder_path = @folderPath
+        AND (
+             f.is_public = 1
+             OR f.user_id = @userId
+             OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON))
+        )
+        {fileTypeCondition}
+        {visibilityCondition}
+        {ownershipCondition}
+        {hiddenCondition}
+        {favouritesCondition} 
+    ORDER BY
+        {(isRomSearch ? "f.last_access DESC" :
+         !string.IsNullOrEmpty(search) ? "MATCH(f.file_name, f.description, f.given_file_name) AGAINST(@FullTextSearch IN NATURAL LANGUAGE MODE) DESC" :
+         "f.upload_date DESC")} ;
+", connection);
 
-            positionCommand.Parameters.AddWithValue("@folderPath", directory);
-            positionCommand.Parameters.AddWithValue("@fileId", fileId.Value);
-            positionCommand.Parameters.AddWithValue("@userId", user?.Id ?? 0);
-            positionCommand.Parameters.AddWithValue("@showHidden", showHidden ? 1 : 0);
-            foreach (var param in list)
-            {
-              positionCommand.Parameters.Add(param);
-            }
+List<int> sortedIds = new();
+using (var r = idQuery.ExecuteReader())
+{
+    while (r.Read())
+        sortedIds.Add(r.GetInt32(0));
+}
 
-            filePosition = Convert.ToInt32(positionCommand.ExecuteScalar());
+int fileIndex = sortedIds.IndexOf(fileId.Value);
+page = (fileIndex / pageSize) + 1;
+offset = Math.Max(0, fileIndex - (pageSize / 2));
+totalCount = sortedIds.Count;
 
-            // Calculate page with the file centered when possible
-            page = (int)Math.Ceiling((double)filePosition / pageSize);
-
-            // Calculate offset to center the file in the page
-            int desiredPositionInPage = pageSize / 2;
-            offset = Math.Max(0, filePosition - desiredPositionInPage - 1);
 
             // Ensure we don't go past the total count
             // When fileId is specified, include the fileId condition/parameter in the count so totalCount reflects the filtered result
@@ -229,17 +216,9 @@ namespace maxhanna.Server.Controllers
             var extraParamsForCount = whereTupleForCount.Item2;
             if (fileId.HasValue)
             {
-              extraParamsForCount.Add(new MySqlParameter("@fileId", fileId.Value));
-              totalCount = GetResultCount(user, directory, search, favouritesCondition, fileTypeCondition + fileIdCondition,
-                visibilityCondition, ownershipCondition, hiddenCondition,
-                connection, searchCondForCount, extraParamsForCount);
+              extraParamsForCount.Add(new MySqlParameter("@fileId", fileId.Value)); 
             }
-            else
-            {
-              totalCount = GetResultCount(user, directory, search, favouritesCondition, fileTypeCondition,
-                visibilityCondition, ownershipCondition, hiddenCondition,
-                connection, searchCondForCount, extraParamsForCount);
-            }
+            
 
             if (offset + pageSize > totalCount)
             {
@@ -271,6 +250,7 @@ namespace maxhanna.Server.Controllers
             udpfl.file_name AS fileUserDisplayPictureFileName,
             udpfl.folder_path AS fileUserDisplayPictureFolderPath,
             f.shared_with,
+            f.shared_with_json,
             f.upload_date AS date,
             f.given_file_name,
             f.description,
@@ -306,7 +286,7 @@ namespace maxhanna.Server.Controllers
             (
                 f.is_public = 1
                 OR f.user_id = @userId
-                OR FIND_IN_SET(@userId, f.shared_with) > 0
+                OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON))
             )
             {searchCondition} 
             {fileTypeCondition} 
@@ -327,6 +307,7 @@ namespace maxhanna.Server.Controllers
             udpfl.file_name,
             udpfl.folder_path,
             f.shared_with,
+            f.shared_with_json,
             f.upload_date,
             f.given_file_name,
             f.description,
@@ -445,11 +426,14 @@ namespace maxhanna.Server.Controllers
               ? fileTypeCondition + fileIdCondition   // append ' AND f.id = @fileId '
               : fileTypeCondition;
 
-          DirectoryResults result = GetDirectoryResults(
-              user, directory, search, page, pageSize, fileEntries,
-              favouritesCondition, fileTypeCondForCount, // <-- use the combined condition
-              visibilityCondition, ownershipCondition, hiddenCondition,
-              connection, searchCondition, extraParameters, fileId);
+          DirectoryResults result = new DirectoryResults
+          {
+              TotalCount = totalCount,
+              CurrentDirectory = directory.Replace(_baseTarget, ""),
+              Page = page,
+              PageSize = pageSize,
+              Data = fileEntries
+          };
 
           return result;
         }
@@ -666,33 +650,7 @@ namespace maxhanna.Server.Controllers
           }
         }
       }
-    }
-
-    private DirectoryResults GetDirectoryResults(User? user, string directory,
-     string? search, int page, int pageSize, List<FileEntry> fileEntries,
-     string favouritesCondition, string fileTypeCondition, string visibilityCondition,
-     string ownershipCondition, string hiddenCondition, MySqlConnection connection,
-     string searchCondition, List<MySqlParameter> extraParameters, int? fileId)
-    {
-
-      if (fileId.HasValue)
-      {
-        extraParameters.Add(new MySqlParameter("@fileId", fileId.Value));
-      }
-      int totalCount = GetResultCount(user,
-        directory, search, favouritesCondition, fileTypeCondition, visibilityCondition,
-        ownershipCondition, hiddenCondition, connection, searchCondition,
-        extraParameters);
-      var result = new DirectoryResults
-      {
-        TotalCount = totalCount,
-        CurrentDirectory = directory.Replace(_baseTarget, ""),
-        Page = page,
-        PageSize = pageSize,
-        Data = fileEntries
-      };
-      return result;
-    }
+    } 
 
     private static void GetFileTopics(List<FileEntry> fileEntries, MySqlConnection connection, List<int> fileIds)
     {
@@ -1114,49 +1072,7 @@ namespace maxhanna.Server.Controllers
       cleaned = Regex.Replace(cleaned, @"^\d+\s*([).:-])\s*", string.Empty); // numeric bullet variants
       return cleaned.Trim();
     }
-
-    private static int GetResultCount(User? user, string directory, string? search, string favouritesCondition, string fileTypeCondition, string visibilityCondition, string ownershipCondition, string hiddenCondition, MySqlConnection connection, string searchCondition, List<MySqlParameter> extraParameters)
-    {
-      var totalCountCommand = new MySqlCommand(
-          $@"SELECT COUNT(*) 
-            FROM 
-                maxhanna.file_uploads f  
-            LEFT JOIN
-                maxhanna.users u ON f.user_id = u.id 
-            WHERE 
-                {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
-                ( 
-                    f.is_public = 1 OR 
-                    f.user_id = @userId OR 
-                    FIND_IN_SET(@userId, f.shared_with) > 0
-                ) 
-            {searchCondition}
-            {fileTypeCondition}
-            {visibilityCondition}
-            {ownershipCondition}
-            {hiddenCondition}
-						{favouritesCondition};"
-       , connection);
-      foreach (var param in extraParameters)
-      {
-        totalCountCommand.Parameters.Add(param);
-      }
-      if (fileTypeCondition.Contains("@fileId") || favouritesCondition.Contains("@fileId") || visibilityCondition.Contains("@fileId"))
-      {
-        if (!totalCountCommand.Parameters.Contains("@fileId"))
-          totalCountCommand.Parameters.AddWithValue("@fileId", extraParameters.FirstOrDefault(p => p.ParameterName == "@fileId")?.Value ?? DBNull.Value);
-      }
-      totalCountCommand.Parameters.AddWithValue("@folderPath", directory);
-      totalCountCommand.Parameters.AddWithValue("@userId", user?.Id ?? 0);
-      totalCountCommand.Parameters.AddWithValue("@showHidden", 0); // result count always evaluates condition; explicit toggle handled earlier
-      if (!string.IsNullOrEmpty(search))
-      {
-        totalCountCommand.Parameters.AddWithValue("@search", "%" + search + "%"); // Add search parameter
-      }
-      //_ = _log.Db("total count sql : " + totalCountCommand.CommandText);
-      int totalCount = Convert.ToInt32(totalCountCommand.ExecuteScalar());
-      return totalCount;
-    }
+ 
 
     private async Task<bool> GetNsfwForUser(User? user)
     {
@@ -2712,6 +2628,7 @@ namespace maxhanna.Server.Controllers
                         f.user_id, 
                         u.username AS username, 
                         f.shared_with,  
+                        f.shared_with_json,
                         f.upload_date AS date, 
                         fc.id AS commentId, 
                         fc.user_id AS commentUserId, 
@@ -2739,7 +2656,7 @@ namespace maxhanna.Server.Controllers
                         AND (
                             f.is_public = @isPublic OR 
                             f.user_id = @userId OR 
-                            FIND_IN_SET(@userId, f.shared_with) > 0
+                            JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON))
                         ) 
                     GROUP BY 
                         f.id, u.username, f.file_name, f.folder_path, f.file_type, f.is_public, f.is_folder, f.user_id, fc.id, uc.username, fc.comment, f.given_file_name, f.description, f.last_updated, udp.file_id 
@@ -3174,7 +3091,7 @@ namespace maxhanna.Server.Controllers
                 WHERE id = @fileId 
                 AND (
                     shared_with IS NULL 
-                    OR NOT FIND_IN_SET(@user2id, shared_with)
+                    OR NOT JSON_CONTAINS(shared_with_json, CAST(@user2id AS JSON))
                 )";
 
       string selectSql = "SELECT id, folder_path FROM maxhanna.file_uploads WHERE id = @fileId";
