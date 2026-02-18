@@ -18,6 +18,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   isMenuPanelOpen = false;
   isFullScreen = false;
   romName?: string;
+  system?: System;
   isFileUploaderExpanded = false;
   isFaqOpen = false;
   faqItems: { question: string; answerHtml: string; expanded: boolean }[] = [
@@ -189,17 +190,17 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const core = this.detectCore(fileName);
     window.EJS_core = core;
 
-    const system = this.systemFromCore(core);
+    this.system = this.systemFromCore(core);
 
     // Decide six-button for Genesis based on ROM + user preference
     const romDisplayName = this.fileService.getFileWithoutExtension(fileName); // e.g., "Ultimate MK3 (USA)"
-    const genesisSix = (system === 'genesis') ? this.shouldUseGenesisSixButtons(romDisplayName) : false;
+    const genesisSix = (this.system === 'genesis') ? this.shouldUseGenesisSixButtons(romDisplayName) : false;
     this._currentGenesisSix = genesisSix; // for debugging/telemetry if desired
 
-    const vpad = this.buildTouchLayout(system, {
+    const vpad = this.buildTouchLayout(this.system, {
       useJoystick: this.useJoystick,
       showControls: this.showControls,
-      twoButtonMode: (system === 'nes' || system === 'gb' || system === 'gbc'),
+      twoButtonMode: (this.system === 'nes' || this.system === 'gb' || this.system === 'gbc'),
       segaShowLR: false,           // keep false to avoid L/R "pills"
       genesisSix: genesisSix,      // ⟵ pass the decision in
     });
@@ -291,7 +292,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // If the build calls back with the instance, capture it early
     window.EJS_ready = (api: any) => {
       try {
-        this.scanAndTagVpadControls(); 
+        this.scanAndTagVpadControls();
         console.log('EJS_ready: vpad readback=', window.EJS_VirtualGamepadSettings);
 
         this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
@@ -299,7 +300,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           this._saveFn = async () => { try { await (this.emulatorInstance as any).saveState(); } catch { } };
         }
         console.log('[EJS] instance ready hook fired, has saveState?', !!this._saveFn);
-        this.ensureSaveStatePolyfill(); 
+        this.ensureSaveStatePolyfill();
       } catch { }
     };
 
@@ -554,23 +555,23 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     };
   }
 
-/** Create EJS_saveState polyfill if the build doesn't expose it. */
-private ensureSaveStatePolyfill() {
-  const w = window as any;
-  if (typeof w.EJS_saveState === 'function') return;
+  /** Create EJS_saveState polyfill if the build doesn't expose it. */
+  private ensureSaveStatePolyfill() {
+    const w = window as any;
+    if (typeof w.EJS_saveState === 'function') return;
 
-  const gm = (this.emulatorInstance || w.EJS_emulator || w.EJS)?.gameManager;
-  if (gm && typeof gm.getState === 'function') {
-    w.EJS_saveState = async () => {
-      const bytes = await Promise.resolve(gm.getState());
-      // Normalize to Uint8Array
-      return bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes as ArrayBufferLike);
-    };
-    console.log('[EJS] Polyfilled EJS_saveState via gameManager.getState()');
-  } else {
-    console.warn('[EJS] No gameManager.getState() found; cannot polyfill EJS_saveState');
+    const gm = (this.emulatorInstance || w.EJS_emulator || w.EJS)?.gameManager;
+    if (gm && typeof gm.getState === 'function') {
+      w.EJS_saveState = async () => {
+        const bytes = await Promise.resolve(gm.getState());
+        // Normalize to Uint8Array
+        return bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes as ArrayBufferLike);
+      };
+      console.log('[EJS] Polyfilled EJS_saveState via gameManager.getState()');
+    } else {
+      console.warn('[EJS] No gameManager.getState() found; cannot polyfill EJS_saveState');
+    }
   }
-}
 
 
   private async loadSaveStateFromDB(romFileName: string): Promise<Blob | null> {
@@ -676,80 +677,80 @@ private ensureSaveStatePolyfill() {
     }
   }
 
-/** Capture bytes after any save path, then upload. */
-private async postSaveCaptureAndUpload(): Promise<boolean> {
-  try {
-    const w = window as any;
-    const gm = (this.emulatorInstance || w.EJS_emulator || w.EJS)?.gameManager;
+  /** Capture bytes after any save path, then upload. */
+  private async postSaveCaptureAndUpload(): Promise<boolean> {
+    try {
+      const w = window as any;
+      const gm = (this.emulatorInstance || w.EJS_emulator || w.EJS)?.gameManager;
 
-    // Prefer EJS_saveState if present (native or polyfilled)
-    if (typeof w.EJS_saveState === 'function') {
-      const u8: Uint8Array = await w.EJS_saveState();
-      await this.uploadSaveBytes(u8);
-      return true;
-    }
+      // Prefer EJS_saveState if present (native or polyfilled)
+      if (typeof w.EJS_saveState === 'function') {
+        const u8: Uint8Array = await w.EJS_saveState();
+        await this.uploadSaveBytes(u8);
+        return true;
+      }
 
-    // Fallback: try the GameManager directly
-    if (gm && typeof gm.getState === 'function') {
-      const raw = await Promise.resolve(gm.getState());
-      const u8 = raw instanceof Uint8Array ? raw : new Uint8Array(raw as ArrayBufferLike);
-      await this.uploadSaveBytes(u8);
-      return true;
+      // Fallback: try the GameManager directly
+      if (gm && typeof gm.getState === 'function') {
+        const raw = await Promise.resolve(gm.getState());
+        const u8 = raw instanceof Uint8Array ? raw : new Uint8Array(raw as ArrayBufferLike);
+        await this.uploadSaveBytes(u8);
+        return true;
+      }
+    } catch (e) {
+      console.warn('[EJS] postSaveCaptureAndUpload failed', e);
     }
-  } catch (e) {
-    console.warn('[EJS] postSaveCaptureAndUpload failed', e);
+    return false;
   }
-  return false;
-}
 
-async callEjsSave(): Promise<boolean> {
-  console.log('callEjsSave triggered');
-  this.startLoading();
-  try {
-    const w = window as any;
+  async callEjsSave(): Promise<boolean> {
+    console.log('callEjsSave triggered');
+    this.startLoading();
+    try {
+      const w = window as any;
 
-    // 1) Best path: bytes immediately
-    if (typeof w.EJS_saveState === 'function') {
-      const bytes: Uint8Array = await w.EJS_saveState();
-      console.log(`[EJS] EJS_saveState returned ${bytes?.length ?? 0} bytes`);
-      await this.uploadSaveBytes(bytes);
-      console.log('callEjsSave: used EJS_saveState -> upload done');
-      return true;
-    }
+      // 1) Best path: bytes immediately
+      if (typeof w.EJS_saveState === 'function') {
+        const bytes: Uint8Array = await w.EJS_saveState();
+        console.log(`[EJS] EJS_saveState returned ${bytes?.length ?? 0} bytes`);
+        await this.uploadSaveBytes(bytes);
+        console.log('callEjsSave: used EJS_saveState -> upload done');
+        return true;
+      }
 
-    // 2) Fallbacks: trigger any save the build exposes…
-    if (this._saveFn) {
-      console.log('[EJS] callEjsSave: using captured save function from instance');
-      await this._saveFn();
-      // …then capture and upload bytes explicitly
-      return await this.postSaveCaptureAndUpload();
-    }
-
-    if (this.emulatorInstance?.saveState) {
-      console.log('[EJS] callEjsSave: using saveState method from captured instance');
-      await this.emulatorInstance.saveState();
-      return await this.postSaveCaptureAndUpload();
-    }
-
-    const player = w.EJS_player;
-    if (player) {
-      const el = typeof player === 'string' ? document.querySelector(player) : player;
-      if (el && typeof (el as any).saveState === 'function') {
-        console.log('[EJS] callEjsSave: using saveState method from EJS_player element');
-        await (el as any).saveState();
+      // 2) Fallbacks: trigger any save the build exposes…
+      if (this._saveFn) {
+        console.log('[EJS] callEjsSave: using captured save function from instance');
+        await this._saveFn();
+        // …then capture and upload bytes explicitly
         return await this.postSaveCaptureAndUpload();
       }
-    }
 
-    console.warn('No known save API found for EmulatorJS; save skipped');
-    return false;
-  } catch (e) {
-    console.warn('callEjsSave failed', e);
-    return false;
-  } finally {
-    this.stopLoading();
+      if (this.emulatorInstance?.saveState) {
+        console.log('[EJS] callEjsSave: using saveState method from captured instance');
+        await this.emulatorInstance.saveState();
+        return await this.postSaveCaptureAndUpload();
+      }
+
+      const player = w.EJS_player;
+      if (player) {
+        const el = typeof player === 'string' ? document.querySelector(player) : player;
+        if (el && typeof (el as any).saveState === 'function') {
+          console.log('[EJS] callEjsSave: using saveState method from EJS_player element');
+          await (el as any).saveState();
+          return await this.postSaveCaptureAndUpload();
+        }
+      }
+
+      console.warn('No known save API found for EmulatorJS; save skipped');
+      return false;
+    } catch (e) {
+      console.warn('callEjsSave failed', e);
+      return false;
+    } finally {
+      this.stopLoading();
+    }
   }
-}
 
   private async uploadSaveBytes(u8: Uint8Array) {
     if (!u8?.length) {
@@ -1285,9 +1286,6 @@ async callEjsSave(): Promise<boolean> {
     return null;
   }
 
-  /** ---------------- IndexedDB FALLBACKS ---------------- */
-
-  // 1) Prefer localforage if present (many EmulatorJS builds use it)
   private async tryReadSaveFromLocalForage(gameID: string, gameName: string): Promise<Uint8Array | null> {
     try {
       const lf = (window as any).localforage;
@@ -1311,7 +1309,6 @@ async callEjsSave(): Promise<boolean> {
     } catch { return null; }
   }
 
-  // 2) Raw IndexedDB sweep for common DB/store names
   private async tryReadSaveFromIndexedDB(gameID: string, gameName: string): Promise<Uint8Array | null> {
     // First try localforage
     const lfHit = await this.tryReadSaveFromLocalForage(gameID, gameName);
@@ -1320,20 +1317,9 @@ async callEjsSave(): Promise<boolean> {
     const dbCandidates = ['localforage', 'EJS', 'emulatorjs', 'emulatorjs-cache', 'emulator', 'kv', 'storage'];
     const storeCandidates = ['keyvaluepairs', 'keyvalue', 'pairs', 'store', 'ejs', 'data', 'kv'];
 
-    const pickBest = (cands: Array<{ key: string; val: any }>): Uint8Array | null => {
-      let best: Uint8Array | null = null;
-      for (const { val } of cands) {
-        // normalize each
-        // eslint-disable-next-line no-await-in-loop
-        // (make sync for picker; we converted earlier)
-      }
-      return best;
-    };
-
     try {
       let best: Uint8Array | null = null;
 
-      // If browser supports listing DBs, include them
       try {
         const list = (await (indexedDB as any).databases?.()) as { name?: string }[] | undefined;
         if (Array.isArray(list)) {
@@ -1341,7 +1327,6 @@ async callEjsSave(): Promise<boolean> {
         }
       } catch { }
 
-      // Iterate DBs
       const seenDb = new Set<string>();
       for (const dbName of dbCandidates) {
         if (!dbName || seenDb.has(dbName)) continue;
@@ -1358,7 +1343,6 @@ async callEjsSave(): Promise<boolean> {
     } catch { return null; }
   }
 
-  /** Open a DB and iterate stores to find a match; return largest bytes found. */
   private async scanOneIDB(
     dbName: string,
     storeCandidates: string[],
@@ -1369,7 +1353,6 @@ async callEjsSave(): Promise<boolean> {
       open.onsuccess = () => resolve(open.result);
       open.onerror = () => reject(open.error);
       open.onupgradeneeded = () => {
-        // Not creating stores; just resolve with empty
         resolve(open.result);
       };
     });
@@ -1383,7 +1366,6 @@ async callEjsSave(): Promise<boolean> {
       for (const storeName of tryStores) {
         if (!storeName) continue;
         if (!db.objectStoreNames.contains(storeName)) {
-          // skip unknown store names
           continue;
         }
         const tx = db.transaction(storeName, 'readonly');
@@ -1425,8 +1407,6 @@ async callEjsSave(): Promise<boolean> {
     }
   }
 
-
-  /** Wait until a load API is available (EJS_loadState or gameManager.loadState). */
   private async waitForLoadApis(maxMs = 5000): Promise<{
     useEjs: ((u8: Uint8Array) => any) | null,
     useMgr: ((u8: Uint8Array) => any) | null
@@ -1443,7 +1423,6 @@ async callEjsSave(): Promise<boolean> {
     return { useEjs: null, useMgr: null };
   }
 
-  /** Apply a save-state Blob to the running emulator as soon as APIs are ready. */
   private async applySaveStateIfAvailable(saveStateBlob: Blob | null): Promise<boolean> {
     if (!saveStateBlob) return false;
     try {
@@ -1469,11 +1448,11 @@ async callEjsSave(): Promise<boolean> {
     this._inFlightSavePromise = wrapped.then(() => true, () => false);
     return wrapped;
   }
+
   private delay(ms: number) {
     return new Promise<void>(r => setTimeout(r, ms));
   }
 
-  // Ensure bytes become a tight, real ArrayBuffer (never SharedArrayBuffer)
   private toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
     const buf: any = (bytes as any).buffer;
     if (buf instanceof ArrayBuffer) {
@@ -1571,27 +1550,25 @@ async callEjsSave(): Promise<boolean> {
     });
   }
 
-  
-/** Stop autosave and do one last direct capture+upload. */
-private async flushSavesBeforeExit(timeoutMs = 12000): Promise<boolean> {
-  this._exiting = true;
-  try { this.clearAutosave(); } catch {}
+  private async flushSavesBeforeExit(timeoutMs = 12000): Promise<boolean> {
+    this._exiting = true;
+    try { this.clearAutosave(); } catch { }
 
-  // If an upload is in flight, await it with a cap.
-  if (this._inFlightSavePromise) {
+    // If an upload is in flight, await it with a cap.
+    if (this._inFlightSavePromise) {
+      return await Promise.race([
+        this._inFlightSavePromise,
+        this.delay(timeoutMs).then(() => false),
+      ]) as boolean;
+    }
+
+    // Direct save & upload (no reliance on onSaveState)
+    const savePromise = this.callEjsSave();
     return await Promise.race([
-      this._inFlightSavePromise,
+      savePromise,
       this.delay(timeoutMs).then(() => false),
-    ]) as boolean;
+    ]);
   }
-
-  // Direct save & upload (no reliance on onSaveState)
-  const savePromise = this.callEjsSave();
-  return await Promise.race([
-    savePromise,
-    this.delay(timeoutMs).then(() => false),
-  ]);
-} 
 
   /** Create or reuse a tiny stylesheet inside the vpad root. */
   private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
@@ -1602,7 +1579,7 @@ private async flushSavesBeforeExit(timeoutMs = 12000): Promise<boolean> {
     style.setAttribute('data-vpad-overrides', 'min');
 
     // 🔧 Tweak these two knobs if you want slightly bigger/smaller pills later:
-    const PILL_W = 112;  // px
+    const PILL_W = this.system === 'genesis' ? 76 : 112;  // px
     const PILL_H = 76;   // px
     const FONT = 30;   // px
 
@@ -1801,22 +1778,22 @@ private async flushSavesBeforeExit(timeoutMs = 12000): Promise<boolean> {
 
   genesisThreeRight(): VPadItem[] {
     return [
-      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 0, top: 0, input_value: 8, bold: true },
-      { type: 'button', id: 'genB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true },
-      { type: 'button', id: 'genA', text: 'A', location: 'right', left: 40, top: 80, input_value: 1, bold: true },
+      { type: 'button', id: 'genC', text: 'C', location: 'right', left: -80, top: 110, input_value: 8, bold: true },
+      { type: 'button', id: 'genB', text: 'B', location: 'right', left: 0, top: 35, input_value: 0, bold: true },
+      { type: 'button', id: 'genA', text: 'A', location: 'right', left: 70, top: 25, input_value: 1, bold: true },
     ];
   }
 
   genesisSixRight(): VPadItem[] {
     return [
       // Lower row A/B/C
-      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 0, top: 0, input_value: 8, bold: true },
-      { type: 'button', id: 'genB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true },
-      { type: 'button', id: 'genA', text: 'A', location: 'right', left: 40, top: 80, input_value: 1, bold: true },
+      { type: 'button', id: 'genC', text: 'C', location: 'right', left: -80, top: 110, input_value: 8, bold: true },
+      { type: 'button', id: 'genB', text: 'B', location: 'right', left: 0, top: 35, input_value: 0, bold: true },
+      { type: 'button', id: 'genA', text: 'A', location: 'right', left: 70, top: 25, input_value: 1, bold: true },
       // Upper row X/Y/Z (match your build’s scheme)
-      { type: 'button', id: 'genX', text: 'X', location: 'right', left: 0, top: -60, input_value: 10, bold: true },
-      { type: 'button', id: 'genY', text: 'Y', location: 'right', left: 40, top: -20, input_value: 9, bold: true },
-      { type: 'button', id: 'genZ', text: 'Z', location: 'right', left: 81, top: -60, input_value: 11, bold: true },
+      { type: 'button', id: 'genX', text: 'X', location: 'right', left: -60, top: -10, input_value: 10, bold: true },
+      { type: 'button', id: 'genY', text: 'Y', location: 'right', left: 0, top: -30, input_value: 9, bold: true },
+      { type: 'button', id: 'genZ', text: 'Z', location: 'right', left: 60, top: -50, input_value: 11, bold: true },
     ];
   }
 
@@ -1843,10 +1820,10 @@ private async flushSavesBeforeExit(timeoutMs = 12000): Promise<boolean> {
 
   diamondRight(): VPadItem[] {
     return [
-      { type: 'button', id: 'btnX', text: 'X', location: 'right', left: 0, top: 0, input_value: 9, bold: true },
-      { type: 'button', id: 'btnY', text: 'Y', location: 'right', left: 40, top: 40, input_value: 1, bold: true },
-      { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 81, top: 40, input_value: 0, bold: true },
-      { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 80, input_value: 8, bold: true },
+      { type: 'button', id: 'btnX', text: 'X', location: 'right', left: -50, top: 30, input_value: 9, bold: true },
+      { type: 'button', id: 'btnY', text: 'Y', location: 'right', left: -20, top: -20, input_value: 1, bold: true },
+      { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 10, top: 80, input_value: 0, bold: true },
+      { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 50, top: 20, input_value: 8, bold: true },
     ];
   }
 
