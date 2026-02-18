@@ -221,93 +221,52 @@ namespace maxhanna.Server.Controllers
           (string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user, fileId);
           _ = _log.Db($"DEBUG NSFW/Block where: {searchCondition}", user?.Id ?? 0, "FILE", true);
 
-          var command = new MySqlCommand($@"
-            SELECT 
-                f.id AS fileId,
-
-                ANY_VALUE(f.file_name) AS file_name,
-                ANY_VALUE(f.folder_path) AS folder_path,
-                ANY_VALUE(f.is_public) AS is_public,
-                ANY_VALUE(f.is_folder) AS is_folder,
-
-                ANY_VALUE(f.user_id) AS fileUserId,
-                ANY_VALUE(u.username) AS fileUsername,
-
-                ANY_VALUE(udpfl.id) AS fileUserDisplayPictureFileId,
-                ANY_VALUE(udpfl.file_name) AS fileUserDisplayPictureFileName,
-                ANY_VALUE(udpfl.folder_path) AS fileUserDisplayPictureFolderPath,
-
-                ANY_VALUE(f.shared_with) AS shared_with,
-                ANY_VALUE(f.shared_with_json) AS shared_with_json,
-
-                ANY_VALUE(f.upload_date) AS date,
-                ANY_VALUE(f.given_file_name) AS given_file_name,
-                ANY_VALUE(f.description) AS description,
-
-                ANY_VALUE(f.last_updated) AS file_data_updated,
-                ANY_VALUE(f.last_updated_by_user_id) AS last_updated_by_user_id,
-                ANY_VALUE(uu.username) AS last_updated_by_user_name,
-                ANY_VALUE(luudp.file_id) AS last_updated_by_user_name_display_picture_file_id,
-
-                ANY_VALUE(f.file_type) AS file_type,
-                ANY_VALUE(f.file_size) AS file_size,
-                ANY_VALUE(f.width) AS width,
-                ANY_VALUE(f.height) AS height,
-
-                ANY_VALUE(f.last_access) AS last_access,
-                ANY_VALUE(f.access_count) AS access_count,
-
-                (SELECT COUNT(*) 
-                FROM file_favourites ff 
-                WHERE ff.file_id = f.id) AS favourite_count,
-
-                (EXISTS(
-                    SELECT 1 
-                    FROM file_favourites ff2 
-                    WHERE ff2.file_id = f.id AND ff2.user_id = @userId
-                )) AS is_favourited,
-
-                COUNT(c.id) AS comment_count
-
+          var command = new MySqlCommand($@" 
+            SELECT
+              f.id AS fileId,
+              f.file_name,
+              f.folder_path,
+              f.is_public,
+              f.is_folder,
+              f.user_id        AS fileUserId,
+              u.username       AS fileUsername,
+              udpfl.id         AS fileUserDisplayPictureFileId,
+              udpfl.file_name  AS fileUserDisplayPictureFileName,
+              udpfl.folder_path AS fileUserDisplayPictureFolderPath,
+              f.shared_with,
+              f.shared_with_json,
+              f.upload_date    AS date,
+              f.given_file_name,
+              f.description,
+              f.last_updated   AS file_data_updated,
+              f.last_updated_by_user_id,
+              uu.username      AS last_updated_by_user_name,
+              luudp.file_id    AS last_updated_by_user_name_display_picture_file_id,
+              f.file_type,
+              f.file_size,
+              f.width,
+              f.height,
+              f.last_access,
+              f.access_count,
+              (SELECT COUNT(*) FROM file_favourites ff WHERE ff.file_id = f.id) AS favourite_count,
+              EXISTS(SELECT 1 FROM file_favourites ff2 WHERE ff2.file_id = f.id AND ff2.user_id = @userId) AS is_favourited,
+              (SELECT COUNT(*) FROM comments c WHERE c.file_id = f.id) AS comment_count
             FROM maxhanna.file_uploads f
-
-            LEFT JOIN maxhanna.users u 
-                ON f.user_id = u.id
-
-            LEFT JOIN maxhanna.users uu 
-                ON f.last_updated_by_user_id = uu.id
-
-            LEFT JOIN maxhanna.user_display_pictures udp 
-                ON udp.user_id = u.id
-
-            LEFT JOIN maxhanna.user_display_pictures luudp 
-                ON luudp.user_id = uu.id
-
-            LEFT JOIN maxhanna.file_uploads udpfl 
-                ON udp.file_id = udpfl.id 
-
-            LEFT JOIN maxhanna.comments c 
-                ON f.id = c.file_id
-
-
-            
+            LEFT JOIN users u  ON f.user_id = u.id
+            LEFT JOIN users uu ON f.last_updated_by_user_id = uu.id
+            LEFT JOIN user_display_pictures udp  ON udp.user_id = u.id
+            LEFT JOIN user_display_pictures luudp ON luudp.user_id = uu.id
+            LEFT JOIN file_uploads udpfl ON udp.file_id = udpfl.id
             WHERE 1=1
-                {(fileId.HasValue ? "" : " AND f.folder_path = @folderPath ")} 
-                AND (
-                    f.is_public = 1
-                    OR f.user_id = @userId
-                    OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON))
-                ) 
-                {searchCondition}
-                {fileTypeCondition}
-                {visibilityCondition}
-                {ownershipCondition}
-                {hiddenCondition}
-                {favouritesCondition}
-                {fileIdCondition}
-
-            GROUP BY f.id
-
+              {(fileId.HasValue ? "" : " AND f.folder_path = @folderPath ")}
+              AND (f.is_public = 1 OR f.user_id = @userId OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON)))
+              {searchCondition}
+              {fileTypeCondition}
+              {visibilityCondition}
+              {ownershipCondition}
+              {hiddenCondition}
+              {favouritesCondition}
+              {fileIdCondition} 
             {orderBy}
 
             LIMIT @pageSize OFFSET @offset;"
