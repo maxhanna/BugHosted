@@ -1097,76 +1097,117 @@ totalCount = sortedIds.Count;
       }
       return nsfwEnabled;
     }
-    private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user)
+    
+private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user)
+{
+    string searchCondition = "";
+
+    // ---------------------------------------------------------
+    // NSFW FILTER
+    // ---------------------------------------------------------
+    if (!await GetNsfwForUser(user))
     {
-      string searchCondition = "";
-      if (!await GetNsfwForUser(user))
-      {
-        searchCondition += $@"
+        searchCondition += @"
             AND NOT EXISTS (
                 SELECT 1 FROM maxhanna.file_topics ft
                 JOIN maxhanna.topics t ON t.id = ft.topic_id
                 WHERE t.topic = 'NSFW' AND ft.file_id = f.id
             )";
-      }
-      if (user != null)
-      {
-        int userId = user.Id ?? 0;
-        searchCondition += $@" 
-				AND NOT EXISTS (
-					SELECT 1 FROM user_blocks ub 
-					WHERE (ub.user_id = {userId} AND ub.blocked_user_id = f.user_id)
-					OR (ub.user_id = f.user_id AND ub.blocked_user_id = {userId})
-				) ";
-      }
+    }
 
-      if (string.IsNullOrWhiteSpace(search))
+    // ---------------------------------------------------------
+    // USER BLOCK FILTER
+    // ---------------------------------------------------------
+    if (user != null)
+    {
+        int userId = user.Id ?? 0;
+        searchCondition += $@"
+            AND NOT EXISTS (
+                SELECT 1 FROM user_blocks ub 
+                WHERE (ub.user_id = {userId} AND ub.blocked_user_id = f.user_id)
+                OR    (ub.user_id = f.user_id AND ub.blocked_user_id = {userId})
+            )";
+    }
+
+    // ---------------------------------------------------------
+    // NO SEARCH → early return (still return NSFW + block filters)
+    // ---------------------------------------------------------
+    if (string.IsNullOrWhiteSpace(search))
         return (searchCondition, new List<MySqlParameter>());
 
-      List<MySqlParameter> parameters = new();
+    List<MySqlParameter> parameters = new();
 
-      // Use FULLTEXT search for better ranking 
-      searchCondition += $@"
-      AND 
-			( 
-				(
-					MATCH(f.file_name, f.description, f.given_file_name) 
-					AGAINST (@FullTextSearch IN NATURAL LANGUAGE MODE)
-				)
-				OR
-				(
-					LOWER(f.file_name) LIKE CONCAT('%', @FullTextSearch, '%')
-          OR LOWER(f.given_file_name) LIKE CONCAT('%', @FullTextSearch, '%')
-          OR LOWER(f.description) LIKE CONCAT('%', @FullTextSearch, '%')
-          OR LOWER(u.username) LIKE CONCAT('%', @FullTextSearch, '%')
-          OR f.id IN (
-              SELECT ft.file_id 
-              FROM maxhanna.file_topics ft
-              JOIN maxhanna.topics t ON ft.topic_id = t.id
-              WHERE LOWER(t.topic) LIKE CONCAT('%', @FullTextSearch, '%')
-          )
-				)
-			)";
+    // ---------------------------------------------------------
+    // DECIDE: FULLTEXT OR LIKE FALLBACK?
+    // ---------------------------------------------------------
+    bool useFulltextOnly = false;
 
-      parameters.Add(new MySqlParameter("@FullTextSearch", search));
-
-
-      // Special rules for keywords like "sega", "nintendo", "gameboy"
-      if (search.Contains("sega", StringComparison.OrdinalIgnoreCase))
-      {
-        searchCondition += " AND f.file_name LIKE '%.md'";
-      }
-      else if (search.Contains("nintendo", StringComparison.OrdinalIgnoreCase))
-      {
-        searchCondition += " AND f.file_name LIKE '%.nes'";
-      }
-      else if (search.Contains("gameboy", StringComparison.OrdinalIgnoreCase))
-      {
-        searchCondition += " AND (f.file_name LIKE '%.gbc' OR f.file_name LIKE '%.gba')";
-      }
-
-      return (searchCondition, parameters);
+    try
+    {
+        using (var conn = new MySqlConnection(_connectionString))
+        {
+            await conn.OpenAsync();
+            using (var testCmd = new MySqlCommand(@"
+                SELECT COUNT(*) 
+                FROM maxhanna.file_uploads
+                WHERE MATCH(file_name, description, given_file_name)
+                      AGAINST(@FT IN NATURAL LANGUAGE MODE)
+            ", conn))
+            {
+                testCmd.Parameters.AddWithValue("@FT", search);
+                long? hits = (long?)(await testCmd.ExecuteScalarAsync());
+                useFulltextOnly = hits > 0;
+            }
+        }
     }
+    catch
+    {
+        // If MATCH fails for any reason, fallback to LIKE logic.
+        useFulltextOnly = false;
+    }
+
+    parameters.Add(new MySqlParameter("@FullTextSearch", search));
+
+    // ---------------------------------------------------------
+    // BUILD SEARCH CONDITION BASED ON MATCH RESULTS
+    // ---------------------------------------------------------
+    if (useFulltextOnly)
+    {
+        searchCondition += @"
+            AND MATCH(f.file_name, f.description, f.given_file_name)
+                AGAINST (@FullTextSearch IN NATURAL LANGUAGE MODE)";
+    }
+    else
+    {
+        searchCondition += @"
+            AND (
+                   LOWER(f.file_name) LIKE CONCAT('%', @FullTextSearch, '%')
+                OR LOWER(f.given_file_name) LIKE CONCAT('%', @FullTextSearch, '%')
+                OR LOWER(f.description) LIKE CONCAT('%', @FullTextSearch, '%')
+                OR LOWER(u.username) LIKE CONCAT('%', @FullTextSearch, '%')
+                OR f.id IN (
+                    SELECT ft.file_id 
+                    FROM maxhanna.file_topics ft
+                    JOIN maxhanna.topics t ON ft.topic_id = t.id
+                    WHERE LOWER(t.topic) LIKE CONCAT('%', @FullTextSearch, '%')
+                )
+            )";
+    }
+
+    // ---------------------------------------------------------
+    // ROM SYSTEM SPECIAL RULES
+    // ---------------------------------------------------------
+    var s = search.ToLowerInvariant();
+    if (s.Contains("sega"))
+        searchCondition += " AND f.file_name LIKE '%.md'";
+    else if (s.Contains("nintendo"))
+        searchCondition += " AND f.file_name LIKE '%.nes'";
+    else if (s.Contains("gameboy"))
+        searchCondition += " AND (f.file_name LIKE '%.gbc' OR f.file_name LIKE '%.gba')";
+
+    return (searchCondition, parameters);
+}
+
 
 
     [HttpPost("/File/UpdateFileData", Name = "UpdateFileData")]
