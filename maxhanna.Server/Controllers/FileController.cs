@@ -159,45 +159,45 @@ namespace maxhanna.Server.Controllers
         {
           connection.Open();
           
- 
-    (string countSearchCond, List<MySqlParameter> countParams) = 
-        await GetWhereCondition(search, user);
+          //get the total count
+          (string countSearchCond, List<MySqlParameter> countParams) = 
+              await GetWhereCondition(search, user);
 
-    var countCmd = new MySqlCommand($@"
-        SELECT COUNT(*)
-        FROM maxhanna.file_uploads f
-        LEFT JOIN users u ON f.user_id = u.id
-        WHERE 
-            f.folder_path = @folderPath
-            AND (
-                f.is_public = 1
-                OR f.user_id = @userId
-                OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON))
-            )
-            {countSearchCond}
-            {fileTypeCondition}
-            {visibilityCondition}
-            {ownershipCondition}
-            {hiddenCondition}
-            {favouritesCondition}
-            {fileIdCondition}
-    ", connection);
+          var countCmd = new MySqlCommand($@"
+              SELECT COUNT(*)
+              FROM maxhanna.file_uploads f
+              LEFT JOIN users u ON f.user_id = u.id
+              WHERE 
+                  f.folder_path = @folderPath
+                  AND (
+                      f.is_public = 1
+                      OR f.user_id = @userId
+                      OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON))
+                  )
+                  {countSearchCond}
+                  {fileTypeCondition}
+                  {visibilityCondition}
+                  {ownershipCondition}
+                  {hiddenCondition}
+                  {favouritesCondition}
+                  {fileIdCondition}
+          ", connection);
 
-    // Required parameters
-    countCmd.Parameters.AddWithValue("@folderPath", directory);
-    countCmd.Parameters.AddWithValue("@userId", user?.Id ?? 0);
-    countCmd.Parameters.AddWithValue("@showHidden", showHidden ? 1 : 0);
+          // Required parameters
+          countCmd.Parameters.AddWithValue("@folderPath", directory);
+          countCmd.Parameters.AddWithValue("@userId", user?.Id ?? 0);
+          countCmd.Parameters.AddWithValue("@showHidden", showHidden ? 1 : 0);
 
-    // Add search parameters (e.g. @FullTextSearch)
-    foreach (var p in countParams)
-        countCmd.Parameters.Add(p);
+          // Add search parameters (e.g. @FullTextSearch)
+          foreach (var p in countParams)
+              countCmd.Parameters.Add(p);
 
-    // fileId if applicable
-    if (fileId.HasValue)
-        countCmd.Parameters.AddWithValue("@fileId", fileId.Value);
+          // fileId if applicable
+          if (fileId.HasValue)
+              countCmd.Parameters.AddWithValue("@fileId", fileId.Value);
 
-    totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
- 
+          totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+          //end of get total count
 
           if (fileId.HasValue && page == 1)
           {
