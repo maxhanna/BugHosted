@@ -331,7 +331,7 @@ namespace maxhanna.Server.Controllers
             command.Parameters.AddWithValue("@search", "%" + search + "%");
           }
 
-          Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
+          //Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
           using (var reader = command.ExecuteReader())
           {
             while (reader.Read())
@@ -417,7 +417,7 @@ namespace maxhanna.Server.Controllers
             PageSize = pageSize,
             Data = fileEntries
           };
-          _ = _log.Db($"DEBUG GetDirectory: userId={user?.Id}, fileId={fileId}, hiddenCondition={(string.IsNullOrWhiteSpace(hiddenCondition) ? "OFF" : "ON")}", user?.Id ?? 0, "FILE", true);
+          //_ = _log.Db($"DEBUG GetDirectory: userId={user?.Id}, fileId={fileId}, hiddenCondition={(string.IsNullOrWhiteSpace(hiddenCondition) ? "OFF" : "ON")}", user?.Id ?? 0, "FILE", true);
           return result;
         }
       }
