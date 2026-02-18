@@ -67,8 +67,7 @@ namespace maxhanna.Server.Controllers
         {
           directory += "/";
         }
-      }
-      bool isRootDirectory = directory == _baseTarget;
+      } 
       
       if (!ValidatePath(directory!))
       {
@@ -165,7 +164,7 @@ namespace maxhanna.Server.Controllers
           
           //get the total count
           (string countSearchCond, List<MySqlParameter> countParams) = 
-              await GetWhereCondition(search, user);
+              await GetWhereCondition(search, user, fileId);
 
           var countCmd = new MySqlCommand($@"
               SELECT COUNT(*)
@@ -193,13 +192,13 @@ namespace maxhanna.Server.Controllers
           countCmd.Parameters.AddWithValue("@showHidden", showHidden ? 1 : 0);
 
           // Add search parameters (e.g. @FullTextSearch)
-          foreach (var p in countParams)
+          foreach (var p in countParams) {
               countCmd.Parameters.Add(p);
-
+          }
           // fileId if applicable
-          if (fileId.HasValue)
+          if (fileId.HasValue) {
               countCmd.Parameters.AddWithValue("@fileId", fileId.Value);
-
+          }
           totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
           //end of get total count
 
@@ -217,9 +216,7 @@ namespace maxhanna.Server.Controllers
               directory = directoryReader.GetString("folder_path");
             }
             directoryReader.Close();
-            (string where, List<MySqlParameter> list) = await GetWhereCondition(search, user);
-
-
+            (string where, List<MySqlParameter> list) = await GetWhereCondition(search, user, fileId);
 
             var idQuery = new MySqlCommand($@"
               SELECT f.id
@@ -237,7 +234,7 @@ namespace maxhanna.Server.Controllers
                   {ownershipCondition}
                   {hiddenCondition}
                   {favouritesCondition}
-                  {(string.IsNullOrEmpty(search) ? "" : " AND " + (await GetWhereCondition(search, user)).Item1)}
+                  {(string.IsNullOrEmpty(search) ? "" : " AND " + (await GetWhereCondition(search, user, fileId)).Item1)}
               ORDER BY
                   {(isRomSearch ? "f.last_access DESC" :
                               !string.IsNullOrEmpty(search)
@@ -270,7 +267,7 @@ namespace maxhanna.Server.Controllers
 
             // Ensure we don't go past the total count
             // When fileId is specified, include the fileId condition/parameter in the count so totalCount reflects the filtered result
-            var whereTupleForCount = await GetWhereCondition(search, user);
+            var whereTupleForCount = await GetWhereCondition(search, user, fileId);
             var searchCondForCount = whereTupleForCount.Item1;
             var extraParamsForCount = whereTupleForCount.Item2;
             if (fileId.HasValue)
@@ -294,7 +291,8 @@ namespace maxhanna.Server.Controllers
           {
             orderBy = isRomSearch ? " ORDER BY f.last_access DESC " : orderBy;
           }
-          (string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user);
+          (string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user, fileId);
+          _ = _log.Db($"DEBUG NSFW/Block where: {searchCondition}", user?.Id ?? 0, "FILE", true);
 
           var command = new MySqlCommand($@"
          
@@ -497,7 +495,7 @@ LIMIT @pageSize OFFSET @offset;"
             PageSize = pageSize,
             Data = fileEntries
           };
-
+          _ = _log.Db($"DEBUG GetDirectory: userId={user?.Id}, fileId={fileId}, hiddenCondition={(string.IsNullOrWhiteSpace(hiddenCondition) ? "OFF" : "ON")}", user?.Id ?? 0, "FILE", true);
           return result;
         }
       }
@@ -1192,15 +1190,13 @@ private static void GetFileComments(
       return nsfwEnabled;
     }
 
-private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user)
-{
-    string where = "";
-    var parameters = new List<MySqlParameter>();
 
-    // ------------------------------------------------------
+private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user, int? fileId = null) {
+    string where = "";
+    var parameters = new List<MySqlParameter>(); 
+
     // NSFW FILTER
-    // ------------------------------------------------------
-    if (!await GetNsfwForUser(user))
+    if (!fileId.HasValue && !await GetNsfwForUser(user))
     {
         where += @"
             AND NOT EXISTS (
@@ -1294,7 +1290,6 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
         where += " AND f.file_name LIKE '%.nes'";
     else if (s.Contains("gameboy"))
         where += " AND (f.file_name LIKE '%.gbc' OR f.file_name LIKE '%.gba')";
-
     return (where, parameters);
 } 
 
