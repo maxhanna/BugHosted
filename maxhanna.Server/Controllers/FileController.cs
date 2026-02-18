@@ -68,6 +68,8 @@ namespace maxhanna.Server.Controllers
           directory += "/";
         }
       }
+      bool isRootDirectory = directory == _baseTarget;
+      
       if (!ValidatePath(directory!))
       {
         _ = _log.Db($"Directory invalid : {directory}", null, "FILE", true);
@@ -337,7 +339,7 @@ namespace maxhanna.Server.Controllers
         LEFT JOIN
             maxhanna.comments c ON f.id = c.file_id
         WHERE
-            {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
+            {(!string.IsNullOrEmpty(search) ? "" : $"{(isRootDirectory ? "1=1" : "f.folder_path = @folderPath")} AND ")}
             (
                 f.is_public = 1
                 OR f.user_id = @userId
