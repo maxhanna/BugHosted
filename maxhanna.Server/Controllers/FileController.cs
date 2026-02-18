@@ -370,8 +370,7 @@ namespace maxhanna.Server.Controllers
                     f.is_public = 1
                     OR f.user_id = @userId
                     OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON))
-                )
-
+                ) 
                 {searchCondition}
                 {fileTypeCondition}
                 {visibilityCondition}
