@@ -166,7 +166,20 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
 
     this.allowedFileTypes = this.allowedFileTypes.map(type => type.toLowerCase());
-    if (this.fileId) {
+    // If a `fileId` was passed into the component as an @Input, prefer that (parent override).
+    if (this.fileId && this.fileId != null) {
+      this.fileIdFilter = this.fileId;
+      await this.getDirectory(undefined, this.fileId);
+      this.replacePageTitleAndDescription();
+      return;
+    }
+
+    // If route contains a fileId, prefer that single fetch path (avoid double fetches from both
+    // the subscription and the unconditional call below).
+    const routeFileIdParam = this.route.snapshot.paramMap.get('fileId');
+    const routeFileId = routeFileIdParam ? +routeFileIdParam : undefined;
+    if (routeFileId) {
+      this.fileId = routeFileId;
       this.fileIdFilter = this.fileId;
       await this.getDirectory(undefined, this.fileId);
       this.replacePageTitleAndDescription();
@@ -174,14 +187,17 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
 
     this.route.paramMap.subscribe(async (params: any) => {
-      this.fileId = +params.get('fileId');
-      if (this.fileId && this.fileId != null) {
+      const paramFileId = +params.get('fileId');
+      if (paramFileId && paramFileId != null) {
+        this.fileId = paramFileId;
         this.fileIdFilter = this.fileId;
         await this.getDirectory(undefined, this.fileId);
         this.replacePageTitleAndDescription();
         return;
       }
     });
+
+    // No route fileId -> load directory normally
     await this.getDirectory();
   }
 
@@ -268,6 +284,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   async getDirectory(file?: string, fileId?: number, append?: boolean) {
+    // Prevent re-entrant calls while a fetch is already in progress
+    if (this.isLoading) return;
     this.startLoading();
     let fileTypes: string[] = [];
     const filterArr = this.fileTypeFilter.split(',').map(t => t.trim().toLowerCase()).filter(t => t);
