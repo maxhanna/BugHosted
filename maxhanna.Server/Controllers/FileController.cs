@@ -363,8 +363,9 @@ namespace maxhanna.Server.Controllers
                 ON f.id = c.file_id
 
 
-            WHERE
-                {(fileId.HasValue ? "1=1 AND" : (string.IsNullOrEmpty(search) ? "f.folder_path = @folderPath AND" : "1=1 AND"))}    
+            
+            WHERE 1=1
+                {(fileId.HasValue ? "" : " AND f.folder_path = @folderPath")} 
                 (
                     f.is_public = 1
                     OR f.user_id = @userId
