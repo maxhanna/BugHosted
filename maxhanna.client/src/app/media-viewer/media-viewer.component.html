@@ -305,7 +305,7 @@
 
     </div>
     <app-comments *ngIf="(selectedFile || file) && showCommentSection" 
-      [inputtedParentRef]="inputtedParentRef"
+      [inputtedParentRef]="inputtedParentRef ?? parentRef"
       [type]="'File'" 
       [showComments]="showCommentSectionOnLoad" 
       [showCommentsHeader]="showCommentSectionHeader"
