@@ -108,17 +108,13 @@ namespace maxhanna.Server.Controllers
         string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
         string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
         // Unified hidden condition: allow all if explicit showHidden or user setting show_hidden_files = 1, else filter out hidden
-        string hiddenCondition = "";
-        if (fileId.HasValue) {
-            hiddenCondition = "";
-        } else {
-          hiddenCondition = @"
+        string hiddenCondition = fileId.HasValue ? "" : @"
           AND (
             @showHidden = 1
             OR EXISTS (SELECT 1 FROM maxhanna.user_settings us WHERE us.user_id = @userId AND us.show_hidden_files = 1)
             OR f.id NOT IN (SELECT file_id FROM maxhanna.hidden_files WHERE user_id = @userId)
           )"; 
-        }
+     
 
         string favouritesCondition = showFavouritesOnly
           ? " AND f.id IN (SELECT file_id FROM file_favourites WHERE user_id = @userId) "
