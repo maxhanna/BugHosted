@@ -321,12 +321,13 @@ namespace maxhanna.Server.Controllers
                 LastUpdatedUserId = reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id"),
                 Description = reader.IsDBNull("description") ? null : reader.GetString("description"),
                 LastUpdatedBy = new User(
-                      reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id"),
-                      reader.IsDBNull("last_updated_by_user_name") ? "Anonymous" : reader.GetString("last_updated_by_user_name"),
-                      new FileEntry
-                      {
-                        Id = reader.IsDBNull("last_updated_by_user_name_display_picture_file_id") ? 0 : reader.GetInt32("last_updated_by_user_name_display_picture_file_id")
-                      }),
+                  reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id"),
+                  reader.IsDBNull("last_updated_by_user_name") ? "Anonymous" : reader.GetString("last_updated_by_user_name"),
+                  new FileEntry
+                  {
+                    Id = reader.IsDBNull("last_updated_by_user_name_display_picture_file_id") ? 0 : reader.GetInt32("last_updated_by_user_name_display_picture_file_id")
+                  }
+                ),
                 FileType = reader.IsDBNull("file_type") ? "" : reader.GetString("file_type"),
                 FileSize = reader.IsDBNull("file_size") ? 0 : reader.GetInt32("file_size"),
                 Width = reader.IsDBNull("width") ? null : reader.GetInt32("width"),
