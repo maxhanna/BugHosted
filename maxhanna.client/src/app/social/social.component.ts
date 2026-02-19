@@ -59,7 +59,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   abortAttachmentRequestController: AbortController | null = null;
   notifications: String[] = [];
   expanded: string[] = [];
-  expandedStories: number[] = [];
+  minimizedStories: number[] = [];
   attachedSearchTopics: Array<Topic> = [];
   currentPage: number = 1;
   totalPages: number = 1;
@@ -643,18 +643,21 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   // Header-aware toggle that ignores clicks from child elements
   toggleHeaderCollapse(storyId?: number, event?: Event): void {
     if (!storyId) return;
-    if (event && event.target !== event.currentTarget) return;
+    const targetId = (event?.target as HTMLElement)?.id ?? undefined;
+    if (event && event.target !== event.currentTarget && targetId != 'storyDate') {
+      return;
+    } 
 
-    if (this.expandedStories.includes(storyId)) {
-      this.expandedStories = this.expandedStories.filter(x => x != storyId);
+    if (this.minimizedStories.includes(storyId)) {
+      this.minimizedStories = this.minimizedStories.filter(x => x != storyId);
     } else {
-      this.expandedStories.push(storyId); 
+      this.minimizedStories.push(storyId); 
     }
     this.cd.detectChanges();
   }
 
   isStoryExpanded(storyId: number): boolean {
-    return this.expandedStories.includes(storyId);
+    return !this.minimizedStories.includes(storyId);
   }
 
   isExpanded(elementId: string) {
@@ -1103,7 +1106,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         this.parentRef?.showNotification(res.message);
         this.overflowCache = {}; // Reset overflow cache
         this.storyOverflowMap = {}; // Reset story overflow map
-        this.expandedStories = []; // Reset expanded stories
+        this.minimizedStories = []; // Reset expanded stories
         this.getStories();
       }
     });

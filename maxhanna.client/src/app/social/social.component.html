@@ -326,13 +326,15 @@
     <div id="mainTableDiv" [class]="!user ? 'storyContainerWrapper' : ''"
       *ngIf="storyResponse && storyResponse.stories && storyResponse.stories.length > 0">
       <div *ngFor="let story of storyResponse?.stories; let s = index" [id]="'storyDiv'+story.id" class="storyContainer">
-        <div class="storyHeader" (click)="toggleHeaderCollapse(story.id, $event)">
+        <div 
+          class="storyHeader" 
+          (click)="toggleHeaderCollapse(story.id, $event)">
           <span style="padding-right: 10px;display: flex;align-items: center;"
             (click)="viewProfile(story.user, 'Social')">
             <app-user-tag [user]="story.user" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true"
               [displayHoverPicture]="true" [previousComponent]="'Social'"></app-user-tag>
           </span>
-          <div *ngIf="!isLoading && canLoad" class="storyDate" [title]="(story.date?.toString() ?? '')">
+          <div *ngIf="!isLoading && canLoad" class="storyDate" id="storyDate" [title]="(story.date?.toString() ?? '')">
             {{ story.date | timeSince:'minute':true }}
           </div>
           <div class="postOptionButtonWrapper">
@@ -360,7 +362,7 @@
             (click)="toggleCollapse('storyTextContainer'+story.id)">
             <div class="storyContentDiv">
               <div class="storyText"
-                [style.display]="(isEditing.includes(story.id) || isStoryExpanded(story.id)) ? 'none' : 'block'"
+                [style.display]="(isEditing.includes(story.id) || !isStoryExpanded(story.id)) ? 'none' : 'block'"
                 [style.opacity]="isLoading ? 0.5 : 1" 
                 [innerHtml]="getTextForDOM(story.storyText, story.id)"
                 [id]="'storyText' + story.id"></div>
@@ -390,7 +392,7 @@
               </span>
             </div>
             <div
-              *ngIf="story.storyFiles && story.storyFiles.length > 0 && (compactness !== 'yess' || isExpanded('storyTextContainer'+story.id)) && (!hasOverflow('storyTextContainer'+story.id) || (isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id)))"
+              *ngIf="isStoryExpanded(story.id) && story.storyFiles && story.storyFiles.length > 0 && (compactness !== 'yess' || isExpanded('storyTextContainer'+story.id)) && (!hasOverflow('storyTextContainer'+story.id) || (isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id)))"
               class="attachmentsDiv">
               <div *ngFor="let file of story.storyFiles; let i = index"
                 [class]="'attachment ' + (story.storyFiles.length > 1 ? 'multipleAttachments' : 'singleAttachment')">
