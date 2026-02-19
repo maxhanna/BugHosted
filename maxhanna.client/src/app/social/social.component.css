@@ -56,7 +56,6 @@
 
 .storyContainer {
   overflow: hidden;
-  background-color: var(--component-background-color);
   margin-top: 5px;
   min-height: 100px; /* To encourage lazy loading images */
 }
@@ -359,6 +358,7 @@ singleAttachment {
   border-bottom-left-radius: 8px;
   border-bottom-right-radius: 8px;
   border-top: 0;
+  background-color: var(--component-background-color);
 }
 
 .storyContainerWrapper {
