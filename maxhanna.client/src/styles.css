@@ -255,12 +255,7 @@ fieldset {
 
   .mainTableDiv {
     overflow-x: auto;
-  }
-
-  .media {
-    max-width: unset !important;
-  }
-
+  } 
 
   .mainTable td {
     word-wrap: break-word;
