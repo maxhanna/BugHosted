@@ -3,9 +3,15 @@
   width: calc(100% - 60px);
   min-height: 60vh;
 } 
+
+.emuMenuButtonContainer {
+  border-top: 1px solid var(--main-highlight-color);
+  width: 100%;
+}
 .emuMenuButton {
   width: 100%;
   margin-bottom: 10px;
+  display: grid;
 }
 
 #game { 

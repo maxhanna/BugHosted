@@ -38,7 +38,7 @@
     <p *ngIf="romName">Playing: {{ getRomName() }}</p>
   </div>
   
-  <div *ngIf="!isFaqOpen" style="border-top: 1px solid var(--main-highlight-color)">
+  <div *ngIf="!isFaqOpen" class="emuMenuButtonContainer">
     <button  
       (click)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();"
       [disabled]="isLoading"
