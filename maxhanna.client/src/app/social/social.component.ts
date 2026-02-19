@@ -650,6 +650,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     } else {
       this.expandedStories.push(storyId); 
     }
+    this.cd.detectChanges();
   }
 
   isStoryExpanded(storyId: number): boolean {

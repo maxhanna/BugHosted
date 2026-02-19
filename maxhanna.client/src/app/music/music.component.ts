@@ -432,6 +432,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.titleInput.nativeElement.value = '';
       this.urlInput.nativeElement.value = '';
     }
+    this.cdr.detectChanges();
     this.stopLoading();
   }
 
@@ -454,6 +455,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     }
     this.clearInputs();
     this.closeEditPopup(false);
+    this.cdr.detectChanges();
     this.stopLoading();
   }
 
