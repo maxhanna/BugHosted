@@ -34,8 +34,8 @@
   *ngIf="commentList && commentList.length > 0 && (showComments || (comment_id && automaticallyShowSubComments))">
 
   <div *ngFor="let comment of commentList!" class="commentListDiv borderPaddedComment"
-    [style.paddingLeft]="comment_id ? '' : '20px'">
-    <div class="commentContentAndAvatarContainerDiv" [attr.data-timestamp]="comment.date">
+    [style.paddingLeft]="comment_id ? '' : '5px'">
+    <div class="gradientBackground commentContentAndAvatarContainerDiv" [attr.data-timestamp]="comment.date">
       <div style="display: inline-block;">
         <div class="commentAvatar usernameProfileLink">
           <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"

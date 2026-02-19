@@ -239,7 +239,7 @@
 }
 
 .borderPaddedComment {
-    padding: 10px 5px;
+    padding: 0px 5px;
     border: var(--main-border);
     border-radius: 8px; 
     min-width: calc(100% - 50px);
@@ -247,7 +247,7 @@
 
 @media only screen and (max-width:600px) {
   .borderPaddedComment {
-    padding: 5px !important;
+    padding: 0px 5px !important;
     max-width: 600px;
     min-width: calc(100% - 20px);
   }
