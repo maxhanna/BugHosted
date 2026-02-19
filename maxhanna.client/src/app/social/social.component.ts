@@ -59,6 +59,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   abortAttachmentRequestController: AbortController | null = null;
   notifications: String[] = [];
   expanded: string[] = [];
+  expandedStories: number[] = [];
   attachedSearchTopics: Array<Topic> = [];
   currentPage: number = 1;
   totalPages: number = 1;
@@ -639,6 +640,22 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
 
+  // Header-aware toggle that ignores clicks from child elements
+  toggleHeaderCollapse(storyId?: number, event?: Event): void {
+    if (!storyId) return;
+    if (event && event.target !== event.currentTarget) return;
+
+    if (this.expandedStories.includes(storyId)) {
+      this.expandedStories = this.expandedStories.filter(x => x != storyId);
+    } else {
+      this.expandedStories.push(storyId); 
+    }
+  }
+
+  isStoryExpanded(storyId: number): boolean {
+    return this.expandedStories.includes(storyId);
+  }
+
   isExpanded(elementId: string) {
     return this.expanded.includes(elementId);
   }
@@ -1085,7 +1102,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         this.parentRef?.showNotification(res.message);
         this.overflowCache = {}; // Reset overflow cache
         this.storyOverflowMap = {}; // Reset story overflow map
-        this.expanded = []; // Reset expanded stories
+        this.expandedStories = []; // Reset expanded stories
         this.getStories();
       }
     });

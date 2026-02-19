@@ -326,7 +326,7 @@
     <div id="mainTableDiv" [class]="!user ? 'storyContainerWrapper' : ''"
       *ngIf="storyResponse && storyResponse.stories && storyResponse.stories.length > 0">
       <div *ngFor="let story of storyResponse?.stories; let s = index" [id]="'storyDiv'+story.id" class="storyContainer">
-        <div class="storyHeader">
+        <div class="storyHeader" (click)="toggleHeaderCollapse(story.id, $event)">
           <span style="padding-right: 10px;display: flex;align-items: center;"
             (click)="viewProfile(story.user, 'Social')">
             <app-user-tag [user]="story.user" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true"
@@ -353,12 +353,16 @@
         </div>
         <div *ngIf="story && story.id && (story.storyText || isEditing.includes(story.id) || story.storyFiles)"
           class="storyContainerWrapperContainerDiv" [style.opacity]="isLoading ? '20%' : ''">
-          <div *ngIf="story && story.id && (story.storyText || isEditing.includes(story.id))"
+          <div 
+            *ngIf="story && story.id && (story.storyText || isEditing.includes(story.id))"
             [class]="'storyTextContainer' + (!isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id) ? ' collapsed': '')"
-            [id]="'storyTextContainer'+story.id" (click)="toggleCollapse('storyTextContainer'+story.id)">
+            [id]="'storyTextContainer'+story.id" 
+            (click)="toggleCollapse('storyTextContainer'+story.id)">
             <div class="storyContentDiv">
-              <div class="storyText" [style.display]="isEditing.includes(story.id) ? 'none' : 'block'"
-                [style.opacity]="isLoading ? 0.5 : 1" [innerHtml]="getTextForDOM(story.storyText, story.id)"
+              <div class="storyText"
+                [style.display]="(isEditing.includes(story.id) || isStoryExpanded(story.id)) ? 'none' : 'block'"
+                [style.opacity]="isLoading ? 0.5 : 1" 
+                [innerHtml]="getTextForDOM(story.storyText, story.id)"
                 [id]="'storyText' + story.id"></div>
 
               <app-text-input 
