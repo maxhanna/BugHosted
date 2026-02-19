@@ -134,7 +134,8 @@
   flex-wrap: wrap;
   align-content: flex-start;
   align-items: center;
-  justify-content: space-between; 
+  justify-content: space-between;
+  background: linear-gradient(to bottom, var(--main-highlight-color), transparent);
 }
 
 .commentContentAndAvatarContainerDiv button {
@@ -238,8 +239,7 @@
   width: 100%;
 }
 
-.borderPaddedComment {
-    padding: 0px 5px;
+.borderPaddedComment { 
     border: var(--main-border);
     border-radius: 8px; 
     min-width: calc(100% - 50px);
@@ -264,6 +264,7 @@
 
 .commentTextDiv {
   padding-top: 5px;
+  padding-left: 10px;
 }
 
 .toggle-subcomments {
