@@ -993,8 +993,20 @@ namespace maxhanna.Server.Controllers
 					f.description as file_data_description,
 					f.last_updated as file_data_updated,
 					f.upload_date AS file_date, 
-					fu.username AS file_username, 
-					f.user_id AS file_user_id,
+          fu.username AS file_username, 
+          f.user_id AS file_user_id, 
+          fudpfu.id AS file_user_display_picture_file_id,
+          fudpfu.folder_path AS file_user_display_picture_folder,
+          fudpfu.file_name AS file_user_display_picture_filename,
+          fudpfu.file_type AS file_user_display_picture_file_type,
+          fudpfu.is_public AS file_user_display_picture_is_public,
+          fudpfu.given_file_name AS file_user_display_picture_given_file_name,
+          fudpfu.description AS file_user_display_picture_description,
+          fudpfu.last_updated AS file_user_display_picture_last_updated,
+          fudpfu.upload_date AS file_user_display_picture_upload_date,
+          fudpfu.is_folder AS file_user_display_picture_is_folder,
+          fdfu.id AS file_user_display_picture_file_user_id,
+          fdfu.username AS file_user_display_picture_file_user_name,
 					f.last_access AS last_access,
 					f.access_count AS access_count,
 					(SELECT COUNT(*) FROM file_favourites ff WHERE ff.file_id = f.id) AS favourite_count,
@@ -1005,8 +1017,14 @@ namespace maxhanna.Server.Controllers
 					story_files AS sf ON s.id = sf.story_id
 				LEFT JOIN 
 					file_uploads AS f ON sf.file_id = f.id 
-				LEFT JOIN 
-					users AS fu ON f.user_id = fu.id
+        LEFT JOIN 
+          users AS fu ON f.user_id = fu.id
+        LEFT JOIN
+          user_display_pictures AS fudp ON fudp.user_id = fu.id
+        LEFT JOIN
+          file_uploads AS fudpfu ON fudp.file_id = fudpfu.id
+        LEFT JOIN
+          users AS fdfu ON fudpfu.user_id = fdfu.id
 				WHERE 
 					s.id IN (");
 
@@ -1021,10 +1039,15 @@ namespace maxhanna.Server.Controllers
       }
 
       sqlBuilder.AppendLine(@")
-				GROUP BY 
-					s.id, f.id, f.file_name, f.folder_path, f.file_type, f.is_public, f.is_folder, f.shared_with,
-					f.given_file_name, file_data_description, file_data_updated,
-					f.upload_date, fu.username, f.user_id, f.last_access, f.access_count;");
+      GROUP BY 
+        s.id, f.id, f.file_name, f.folder_path, f.file_type, f.is_public, f.is_folder, f.shared_with,
+        f.given_file_name, file_data_description, file_data_updated,
+        f.upload_date, fu.username, f.user_id,
+        file_user_display_picture_file_id, file_user_display_picture_folder, file_user_display_picture_filename,
+        file_user_display_picture_file_type, file_user_display_picture_is_public, file_user_display_picture_given_file_name,
+        file_user_display_picture_description, file_user_display_picture_last_updated, file_user_display_picture_upload_date,
+        file_user_display_picture_is_folder, file_user_display_picture_file_user_id, file_user_display_picture_file_user_name,
+        f.last_access, f.access_count;");
 
       // Execute the SQL query
       using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -1058,10 +1081,8 @@ namespace maxhanna.Server.Controllers
                   FileType = rdr.IsDBNull(rdr.GetOrdinal("file_type")) ? _baseTarget : rdr.GetString("file_type"),
                   Visibility = rdr.GetBoolean("is_public") ? "Public" : "Private",
                   SharedWith = rdr.IsDBNull(rdr.GetOrdinal("shared_with")) ? null : rdr.GetString("shared_with"),
-                  User = new User(
-                        rdr.IsDBNull(rdr.GetOrdinal("file_username")) ? 0 : rdr.GetInt32("file_user_id"),
-                        rdr.IsDBNull(rdr.GetOrdinal("file_username")) ? "Anonymous" : rdr.GetString("file_username")
-                    ),
+                  // Build uploader's display-picture FileEntry (if any) and attach to User
+                  User = null,
                   IsFolder = rdr.GetBoolean("is_folder"),
                   Date = rdr.GetDateTime("file_date"),
                   FileComments = new List<FileComment>(),
@@ -1073,6 +1094,50 @@ namespace maxhanna.Server.Controllers
                   FavouriteCount = rdr.IsDBNull(rdr.GetOrdinal("favourite_count")) ? 0 : rdr.GetInt32("favourite_count"),
                   IsFavourited = rdr.IsDBNull(rdr.GetOrdinal("is_favourited")) ? false : rdr.GetBoolean("is_favourited"),
                 };
+
+                // Build uploader's display-picture FileEntry (if available)
+                FileEntry? uploaderDpFileEntry = null;
+                if (!rdr.IsDBNull(rdr.GetOrdinal("file_user_display_picture_file_id")))
+                {
+                  int uploaderDpId = rdr.GetInt32("file_user_display_picture_file_id");
+                  string? upFolder = rdr.IsDBNull(rdr.GetOrdinal("file_user_display_picture_folder")) ? null : rdr.GetString("file_user_display_picture_folder");
+                  string? upFname = rdr.IsDBNull(rdr.GetOrdinal("file_user_display_picture_filename")) ? null : rdr.GetString("file_user_display_picture_filename");
+                  string? upFtype = rdr.IsDBNull(rdr.GetOrdinal("file_user_display_picture_file_type")) ? null : rdr.GetString("file_user_display_picture_file_type");
+                  bool upIsPublic = !rdr.IsDBNull(rdr.GetOrdinal("file_user_display_picture_is_public")) && rdr.GetBoolean("file_user_display_picture_is_public");
+                  string? upGiven = rdr.IsDBNull(rdr.GetOrdinal("file_user_display_picture_given_file_name")) ? null : rdr.GetString("file_user_display_picture_given_file_name");
+                  string? upDesc = rdr.IsDBNull(rdr.GetOrdinal("file_user_display_picture_description")) ? null : rdr.GetString("file_user_display_picture_description");
+                  DateTime? upLastUpdated = rdr.IsDBNull(rdr.GetOrdinal("file_user_display_picture_last_updated")) ? (DateTime?)null : rdr.GetDateTime("file_user_display_picture_last_updated");
+                  DateTime upUploadDate = rdr.IsDBNull(rdr.GetOrdinal("file_user_display_picture_upload_date")) ? DateTime.MinValue : rdr.GetDateTime("file_user_display_picture_upload_date");
+                  bool upIsFolder = !rdr.IsDBNull(rdr.GetOrdinal("file_user_display_picture_is_folder")) && rdr.GetBoolean("file_user_display_picture_is_folder");
+                  int upFileUserId = rdr.IsDBNull(rdr.GetOrdinal("file_user_display_picture_file_user_id")) ? 0 : rdr.GetInt32("file_user_display_picture_file_user_id");
+                  string upFileUserName = rdr.IsDBNull(rdr.GetOrdinal("file_user_display_picture_file_user_name")) ? "Anonymous" : rdr.GetString("file_user_display_picture_file_user_name");
+
+                  uploaderDpFileEntry = new FileEntry
+                  {
+                    Id = uploaderDpId,
+                    FileName = upFname,
+                    GivenFileName = upGiven,
+                    Description = upDesc,
+                    Directory = upFolder,
+                    FileType = upFtype,
+                    Visibility = upIsPublic ? "Public" : "Private",
+                    IsFolder = upIsFolder,
+                    Date = upUploadDate,
+                    LastUpdated = upLastUpdated,
+                    User = new User(upFileUserId, upFileUserName)
+                  };
+                }
+
+                // Attach the uploader user, including their display picture FileEntry
+                fileEntry.User = new User(
+                      rdr.IsDBNull(rdr.GetOrdinal("file_username")) ? 0 : rdr.GetInt32("file_user_id"),
+                      rdr.IsDBNull(rdr.GetOrdinal("file_username")) ? "Anonymous" : rdr.GetString("file_username"),
+                      null,
+                      uploaderDpFileEntry,
+                      null,
+                      null,
+                      null
+                  );
 
                 story.StoryFiles!.Add(fileEntry);
               }
