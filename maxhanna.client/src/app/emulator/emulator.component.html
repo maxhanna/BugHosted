@@ -37,46 +37,47 @@
     <p>Status: {{ status }}</p>
     <p *ngIf="romName">Playing: {{ getRomName() }}</p>
   </div>
-
-  <div class="optionsStatsDiv" style="margin-bottom:12px;" *ngIf="!isFaqOpen">
-    <div style="font-weight:600; margin-bottom:6px;">Autosave:</div>
-    <div style="display:flex; align-items:center; gap:8px;">
-      <label class="toggle-switch">
-        <input type="checkbox" [checked]="autosave"
-          (change)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();">
-        <span class="slider"></span>
-      </label>
-      <div style="font-size:13px; color:#666;">{{ autosave ? 'On' : 'Off' }}</div>
-    </div>
-  </div>
-  <button *ngIf="romName && !isFaqOpen" (click)="toggleFullScreen()" style="margin-bottom: 10px; width: 100%;"
-    [disabled]="isLoading">
-    {{ isFullScreen ? 'Exit Fullscreen' : 'Enter Fullscreen' }}
-  </button>
-  <button *ngIf="romName && !isFaqOpen" (click)="stopEmulator()" style="margin-bottom: 10px; width: 100%;"
-    [disabled]="isLoading">
-    Stop Emulator & Return to ROM Selection
-  </button>
-  <button *ngIf="!isFaqOpen" (click)="isFaqOpen = !isFaqOpen" style="margin-bottom: 10px; width: 100%;"
-    [disabled]="isLoading">
-    {{isFaqOpen ? 'Hide FAQ' : 'View FAQ'}}
-  </button>
-  <button *ngIf="!isFaqOpen && onMobile() && !romName" (click)="useJoystick = !useJoystick" style="margin-bottom: 10px; width: 100%;"
-    [disabled]="isLoading">
-    {{useJoystick ? 'Disable Joystick' : 'Enable Joystick'}}
-  </button>
-  <button *ngIf="romName && !isFaqOpen" (click)="callEjsSave()" style="margin-bottom: 10px; width: 100%;"
-    [disabled]="isLoading">
-    Manual Save
-  </button>
-
-  <div style="margin-top:10px; margin-bottom:10px;" *ngIf="!isFaqOpen">
-    <app-file-upload [currentDirectory]="'Roms'" [user]="parentRef?.user!" [inputtedParentRef]="parentRef"
-      [uploadButtonText]="'Upload Rom(s)'" [maxSelectedFiles]="100" [allowedFileTypes]="getAllowedRomFileTypesString()"
-      [displayOptionsAndTopicsButtons]="false" (userUploadEvent)="isFileUploaderExpanded = true;"
-      (userCancelEvent)="isFileUploaderExpanded = false;" (finishFileUploadingEvent)="finishFileUploading()">
+  
+  <div *ngIf="!isFaqOpen" style="border-top: 1px solid var(--main-highlight-color)">
+    <button  
+      (click)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();"
+      [disabled]="isLoading">  
+      Autosave: {{ autosave ? 'On' : 'Off' }} 
+    </button> 
+    <button *ngIf="romName" (click)="toggleFullScreen()" style="margin-bottom: 10px; width: 100%;"
+      [disabled]="isLoading">
+      {{ isFullScreen ? 'Exit Fullscreen' : 'Enter Fullscreen' }}
+    </button>
+    <button *ngIf="romName" (click)="stopEmulator()" style="margin-bottom: 10px; width: 100%;"
+      [disabled]="isLoading">
+      Stop Emulator & Return to ROM Selection
+    </button>
+    <button (click)="isFaqOpen = !isFaqOpen" style="margin-bottom: 10px; width: 100%;"
+      [disabled]="isLoading">
+      {{isFaqOpen ? 'Hide FAQ' : 'View FAQ'}}
+    </button>
+    <button *ngIf="onMobile() && !romName" (click)="useJoystick = !useJoystick" style="margin-bottom: 10px; width: 100%;"
+      [disabled]="isLoading">
+      {{useJoystick ? 'Disable Joystick' : 'Enable Joystick'}}
+    </button>
+    <button *ngIf="romName" (click)="callEjsSave()" style="margin-bottom: 10px; width: 100%;"
+      [disabled]="isLoading">
+      Manual Save
+    </button>
+    <app-file-upload *ngIf="!romName"
+      [currentDirectory]="'Roms'" 
+      [user]="parentRef?.user!" 
+      [inputtedParentRef]="parentRef"
+      [uploadButtonText]="'Upload Rom(s)'" 
+      [maxSelectedFiles]="100"
+      [allowedFileTypes]="getAllowedRomFileTypesString()"
+      [displayOptionsAndTopicsButtons]="false" 
+      (userUploadEvent)="isFileUploaderExpanded = true;"
+      (userCancelEvent)="isFileUploaderExpanded = false;"
+      (finishFileUploadingEvent)="finishFileUploading()">
     </app-file-upload>
-  </div>
+  </div> 
+ 
   <!-- FAQ Panel: when open, hide the rest of the menu -->
   <div *ngIf="isFaqOpen" style="max-height:60vh; overflow:auto; padding:6px 4px;">
     <div class="popupPanelTitle">Frequently Asked Questions</div>
@@ -96,5 +97,6 @@
       <button (click)="isFaqOpen = false" style="width:100%;">Back to Menu</button>
     </div>
   </div>
+  
   <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
 </div>

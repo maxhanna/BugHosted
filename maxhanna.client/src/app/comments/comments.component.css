@@ -3,8 +3,6 @@
   margin-top: 5px;
   display: flex;
   justify-content: flex-start;
-  padding: 5px;
-  overflow: auto;
   flex-direction: column;
   flex-wrap: nowrap;
 }
@@ -136,8 +134,7 @@
   flex-wrap: wrap;
   align-content: flex-start;
   align-items: center;
-  justify-content: flex-start;
-  gap: 5px;
+  justify-content: space-between; 
 }
 
 .commentContentAndAvatarContainerDiv button {
@@ -242,7 +239,7 @@
 }
 
 .borderPaddedComment {
-    padding: 10px 0px;
+    padding: 10px 5px;
     border: var(--main-border);
     border-radius: 8px; 
     min-width: calc(100% - 50px);
@@ -260,9 +257,7 @@
   width: CALC(100% - 170px);
 }
 
-.subComment {
-  margin-left: 40px;
-  /* border-left: var(--main-border); */
+.subComment { 
   padding: 6px;
   border-radius: 6px;
 }

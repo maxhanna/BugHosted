@@ -62,8 +62,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   useJoystick = false;     // D-pad (false) vs analog "zone" (true)
   segaShowLR = true;       // show L/R pills on Genesis when desired
   status: string = 'Idle';
-  preferSixButtonGenesis: boolean = true;
-  private _currentGenesisSix: boolean = false;
+  preferSixButtonGenesis: boolean = true; 
   private autosaveInterval: any;
   private romObjectUrl?: string;
   private emulatorInstance?: any;
@@ -195,7 +194,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // Decide six-button for Genesis based on ROM + user preference
     const romDisplayName = this.fileService.getFileWithoutExtension(fileName); // e.g., "Ultimate MK3 (USA)"
     const genesisSix = (this.system === 'genesis') ? this.shouldUseGenesisSixButtons(romDisplayName) : false;
-    this._currentGenesisSix = genesisSix; // for debugging/telemetry if desired
 
     const vpad = this.buildTouchLayout(this.system, {
       useJoystick: this.useJoystick,
@@ -1930,11 +1928,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   showMenuPanel() {
     this.isMenuPanelOpen = true;
+    this.isFaqOpen = false;
     this.parentRef?.showOverlay();
   }
 
   closeMenuPanel() {
     this.isMenuPanelOpen = false;
+    this.isFaqOpen = false;
     this.parentRef?.closeOverlay();
   }
 

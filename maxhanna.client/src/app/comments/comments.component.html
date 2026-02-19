@@ -28,25 +28,28 @@
   — {{ getActiveBreadcrumbSnippet() }}
 </div>
 
-<div class="comments-section" #rootCommentsSection
-  *ngIf="commentList && commentList.length > 0 && (showComments || (comment_id && automaticallyShowSubComments))"
-  [style.maxHeight]="comment_id ? '' : '300px'">
+<div 
+  class="comments-section" 
+  #rootCommentsSection
+  *ngIf="commentList && commentList.length > 0 && (showComments || (comment_id && automaticallyShowSubComments))">
 
   <div *ngFor="let comment of commentList!" class="commentListDiv borderPaddedComment"
     [style.paddingLeft]="comment_id ? '' : '20px'">
     <div class="commentContentAndAvatarContainerDiv" [attr.data-timestamp]="comment.date">
-      <div class="commentAvatar usernameProfileLink">
-        <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"
-          [displayHoverPicture]="true" [previousComponent]="previousComponent"></app-user-tag>
-      </div>
-      <div class="commentDate" [title]="(comment.date?.toString() ?? '').replace('T',' ')">
-        <ng-container *ngIf="onMobile(); else fullTime">
-          {{ (comment.date | timeSince:'minute':true).split(' ')[0] }}
-        </ng-container>
-        <ng-template #fullTime>
-          {{ comment.date | timeSince:'minute':true }}
-        </ng-template>
-      </div>
+      <div style="display: inline-block;">
+        <div class="commentAvatar usernameProfileLink">
+          <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"
+            [displayHoverPicture]="true" [previousComponent]="previousComponent"></app-user-tag>
+        </div>
+        <div class="commentDate" [title]="(comment.date?.toString() ?? '').replace('T',' ')">
+          <ng-container *ngIf="onMobile(); else fullTime">
+            {{ (comment.date | timeSince:'minute':true).split(' ')[0] }}
+          </ng-container>
+          <ng-template #fullTime>
+            {{ comment.date | timeSince:'minute':true }}
+          </ng-template>
+        </div>
+      </div> 
       <div class="commentActions">
         <div class="commentReaction">
           <app-reaction [commentId]="comment.id" [component]="comment" [fileId]="comment.fileId"
