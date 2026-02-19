@@ -170,8 +170,8 @@ namespace maxhanna.Server.Controllers
               SELECT COUNT(*)
               FROM maxhanna.file_uploads f
               LEFT JOIN users u ON f.user_id = u.id
-              WHERE 
-                  {(fileId.HasValue ? " 1=1 " : " f.folder_path = @folderPath ")}
+              WHERE 1=1 
+                  {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
                   AND (
                       f.is_public = 1
                       OR f.user_id = @userId
@@ -258,7 +258,7 @@ namespace maxhanna.Server.Controllers
             LEFT JOIN user_display_pictures luudp ON luudp.user_id = uu.id
             LEFT JOIN file_uploads udpfl ON udp.file_id = udpfl.id
             WHERE 1=1
-              {(fileId.HasValue ? "" : " AND f.folder_path = @folderPath ")}
+              {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
               AND (f.is_public = 1 OR f.user_id = @userId OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON)))
               {searchCondition}
               {fileTypeCondition}
