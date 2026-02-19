@@ -41,30 +41,43 @@
   <div *ngIf="!isFaqOpen" style="border-top: 1px solid var(--main-highlight-color)">
     <button  
       (click)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();"
-      [disabled]="isLoading">  
+      [disabled]="isLoading"
+      class="emuMenuButton">  
       Autosave: {{ autosave ? 'On' : 'Off' }} 
     </button> 
-    <button *ngIf="romName" (click)="toggleFullScreen()" style="margin-bottom: 10px; width: 100%;"
+    <button *ngIf="romName" 
+      (click)="toggleFullScreen()" 
+      class="emuMenuButton" 
       [disabled]="isLoading">
       {{ isFullScreen ? 'Exit Fullscreen' : 'Enter Fullscreen' }}
     </button>
-    <button *ngIf="romName" (click)="stopEmulator()" style="margin-bottom: 10px; width: 100%;"
+    <button *ngIf="romName"
+      (click)="stopEmulator()"
+      class="emuMenuButton"
       [disabled]="isLoading">
       Stop Emulator & Return to ROM Selection
     </button>
-    <button (click)="isFaqOpen = !isFaqOpen" style="margin-bottom: 10px; width: 100%;"
+    <button (click)="isFaqOpen = !isFaqOpen" 
+      class="emuMenuButton" 
       [disabled]="isLoading">
       {{isFaqOpen ? 'Hide FAQ' : 'View FAQ'}}
     </button>
-    <button *ngIf="onMobile() && !romName" (click)="useJoystick = !useJoystick" style="margin-bottom: 10px; width: 100%;"
+    <button 
+      *ngIf="onMobile() && !romName" 
+      (click)="useJoystick = !useJoystick"
+      class="emuMenuButton" 
       [disabled]="isLoading">
       {{useJoystick ? 'Disable Joystick' : 'Enable Joystick'}}
     </button>
-    <button *ngIf="romName" (click)="callEjsSave()" style="margin-bottom: 10px; width: 100%;"
+    <button *ngIf="romName" 
+      (click)="callEjsSave()" 
+      class="emuMenuButton" 
       [disabled]="isLoading">
       Manual Save
     </button>
-    <app-file-upload *ngIf="!romName"
+    <app-file-upload 
+      class="emuMenuButton"
+      *ngIf="!romName"
       [currentDirectory]="'Roms'" 
       [user]="parentRef?.user!" 
       [inputtedParentRef]="parentRef"

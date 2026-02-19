@@ -3,6 +3,10 @@
   width: calc(100% - 60px);
   min-height: 60vh;
 } 
+.emuMenuButton {
+  width: 100%;
+  margin-bottom: 10px;
+}
 
 #game { 
   min-height: calc(100vh - 60px) !important;
