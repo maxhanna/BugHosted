@@ -35,7 +35,7 @@
 
   <div *ngFor="let comment of commentList!" class="commentListDiv borderPaddedComment"
     [style.paddingLeft]="comment_id ? '' : '5px'">
-    <div class="gradientBackground commentContentAndAvatarContainerDiv" [attr.data-timestamp]="comment.date">
+    <div class="gradientBackground commentContentAndAvatarContainerDiv" [attr.data-timestamp]="comment.date" (click)="toggleClosed(comment, $event)">
       <div style="display: inline-block;">
         <div class="commentAvatar usernameProfileLink">
           <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"
@@ -75,7 +75,7 @@
         </div>
       </div>
     </div>
-    <div>
+    <div *ngIf="!closedComments.has(comment.id)">
       <div class="commentContent">
         <div [innerHTML]="createClickableUrls(comment.commentText, comment.id)" [id]="'commentText'+comment.id"
           class="commentTextDiv" [style.display]="editingComments.includes(comment.id) ? 'none': 'block'"></div>

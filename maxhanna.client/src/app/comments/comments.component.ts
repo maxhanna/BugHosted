@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild, AfterViewInit, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild, AfterViewInit, OnChanges, SimpleChanges, OnDestroy } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { CommentService } from '../../services/comment.service';
 import { ChildComponent } from '../child.component';
@@ -19,13 +19,14 @@ import { CurrencyFlagPipe } from '../currency-flag.pipe';
   standalone: false,
   providers: [CurrencyFlagPipe]
 })
-export class CommentsComponent extends ChildComponent implements OnInit, AfterViewInit, OnChanges {
+export class CommentsComponent extends ChildComponent implements OnInit, AfterViewInit, OnChanges, OnDestroy {
   showCommentLoadingOverlay = false;
   isOptionsPanelOpen = false;
   optionsComment: FileComment | undefined;
   editingComments: number[] = []
   selectedFiles: FileEntry[] = [];
   minimizedComments: Set<number> = new Set<number>();
+  closedComments: Set<number> = new Set<number>();
   commentCount = 0;
   activeCommentId: number | null = null;
   breadcrumbComments: FileComment[] = [];
@@ -105,6 +106,12 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     if (changes['commentList']) {
       setTimeout(() => this.decryptCommentsRecursively(this.commentList), 100);
     }
+  }
+
+  ngOnDestroy(): void {
+    try {
+      this.closedComments.clear();
+    } catch { }
   }
 
   getActiveBreadcrumbSnippet(maxLength: number = 140): string {
@@ -635,6 +642,23 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           this.minimizedComments.add(commentId);
         }
       }, 500);
+    }
+  }
+
+  toggleClosed(comment: FileComment, event?: Event) {
+    if (!comment || comment.id === undefined) return;
+    try {
+      if (event && event.target) {
+        const el = event.target as HTMLElement;
+        const interactive = el.closest && el.closest('button, a, app-reaction, app-user-tag, .commentOptionButton, .toggle-subcomments, .comment-reply-button, input, textarea');
+        if (interactive) return; // don't toggle when interacting with controls
+      }
+    } catch { }
+
+    if (this.closedComments.has(comment.id)) {
+      this.closedComments.delete(comment.id);
+    } else {
+      this.closedComments.add(comment.id);
     }
   }
   get filteredComments(): FileComment[] {
