@@ -247,9 +247,18 @@ namespace maxhanna.Server.Controllers
 					s.id AS story_id, 
 					u.id AS user_id, 
 							u.username as username, 
-					udp.file_id AS displayPictureFileId,
-					udpfu.folder_path AS displayPictureFileFolderPath,
-					udpfu.file_name AS displayPictureFileFileName,
+          udp.file_id AS displayPictureFileId,
+          udpfu.folder_path AS displayPictureFileFolderPath,
+          udpfu.file_name AS displayPictureFileFileName,
+          udpfu.file_type AS displayPictureFileFileType,
+          udpfu.is_public AS displayPictureFileIsPublic,
+          udpfu.given_file_name AS displayPictureGivenFileName,
+          udpfu.description AS displayPictureDescription,
+          udpfu.last_updated AS displayPictureLastUpdated,
+          udpfu.upload_date AS displayPictureUploadDate,
+          udpfu.is_folder AS displayPictureIsFolder,
+          dfu.id AS displayPictureFileUserId,
+          dfu.username AS displayPictureFileUserName,
 					s.story_text, s.date, s.city, s.country, s.profile_user_id, s.visibility,
 							CASE 
 									WHEN hs.story_id IS NOT NULL THEN TRUE 
@@ -260,7 +269,8 @@ namespace maxhanna.Server.Controllers
 				FROM stories AS s 
 				JOIN users AS u ON s.user_id = u.id  
 				LEFT JOIN user_display_pictures AS udp ON udp.user_id = u.id 
-				LEFT JOIN file_uploads AS udpfu ON udp.file_id = udpfu.id 
+        LEFT JOIN file_uploads AS udpfu ON udp.file_id = udpfu.id 
+        LEFT JOIN users AS dfu ON udpfu.user_id = dfu.id
 				LEFT JOIN (SELECT story_id, COUNT(id) AS comments_count FROM comments GROUP BY story_id) AS c 
 					ON s.id = c.story_id
 				LEFT JOIN story_metadata AS sm ON s.id = sm.story_id  
@@ -299,9 +309,36 @@ namespace maxhanna.Server.Controllers
               if (!storyDictionary.TryGetValue(storyId, out var story))
               {
                 int? displayPicId = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileId")) ? null : rdr.GetInt32("displayPictureFileId");
-                string? displayPicFolderPath = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFolderPath")) ? null : rdr.GetString("displayPictureFileFolderPath");
-                string? displayPicFileFileName = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFileName")) ? null : rdr.GetString("displayPictureFileFileName");
-                FileEntry? dpFileEntry = displayPicId != null ? new FileEntry { Id = (int)displayPicId, Directory = displayPicFolderPath, FileName = displayPicFileFileName } : null;
+                FileEntry? dpFileEntry = null;
+                if (displayPicId != null)
+                {
+                  string? displayPicFolderPath = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFolderPath")) ? null : rdr.GetString("displayPictureFileFolderPath");
+                  string? displayPicFileFileName = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFileName")) ? null : rdr.GetString("displayPictureFileFileName");
+                  string? displayPicFileType = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFileType")) ? null : rdr.GetString("displayPictureFileFileType");
+                  bool displayPicIsPublic = !rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileIsPublic")) && rdr.GetBoolean("displayPictureFileIsPublic");
+                  string? displayPicGivenFileName = rdr.IsDBNull(rdr.GetOrdinal("displayPictureGivenFileName")) ? null : rdr.GetString("displayPictureGivenFileName");
+                  string? displayPicDescription = rdr.IsDBNull(rdr.GetOrdinal("displayPictureDescription")) ? null : rdr.GetString("displayPictureDescription");
+                  DateTime? displayPicLastUpdated = rdr.IsDBNull(rdr.GetOrdinal("displayPictureLastUpdated")) ? (DateTime?)null : rdr.GetDateTime("displayPictureLastUpdated");
+                  DateTime displayPicUploadDate = rdr.IsDBNull(rdr.GetOrdinal("displayPictureUploadDate")) ? DateTime.MinValue : rdr.GetDateTime("displayPictureUploadDate");
+                  bool displayPicIsFolder = !rdr.IsDBNull(rdr.GetOrdinal("displayPictureIsFolder")) && rdr.GetBoolean("displayPictureIsFolder");
+                  int displayPicFileUserId = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileUserId")) ? 0 : rdr.GetInt32("displayPictureFileUserId");
+                  string displayPicFileUserName = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileUserName")) ? "Anonymous" : rdr.GetString("displayPictureFileUserName");
+
+                  dpFileEntry = new FileEntry
+                  {
+                    Id = (int)displayPicId,
+                    FileName = displayPicFileFileName,
+                    GivenFileName = displayPicGivenFileName,
+                    Description = displayPicDescription,
+                    Directory = displayPicFolderPath,
+                    FileType = displayPicFileType,
+                    Visibility = displayPicIsPublic ? "Public" : "Private",
+                    IsFolder = displayPicIsFolder,
+                    Date = displayPicUploadDate,
+                    LastUpdated = displayPicLastUpdated,
+                    User = new User(displayPicFileUserId, displayPicFileUserName)
+                  };
+                }
                 Metadata? metadata = attachStoryMetadataDbData(rdr);
                 story = new Story
                 {
@@ -356,12 +393,23 @@ namespace maxhanna.Server.Controllers
 				SELECT 
 					pv.id, pv.user_id, pv.component_id, pv.value, pv.timestamp,
 					u.username,
-					udpfu.folder_path AS display_picture_folder,
-					udpfu.file_name AS display_picture_filename
+          udpfu.id AS display_picture_file_id,
+          udpfu.folder_path AS display_picture_folder,
+          udpfu.file_name AS display_picture_filename,
+          udpfu.file_type AS display_picture_file_type,
+          udpfu.is_public AS display_picture_is_public,
+          udpfu.given_file_name AS display_picture_given_file_name,
+          udpfu.description AS display_picture_description,
+          udpfu.last_updated AS display_picture_last_updated,
+          udpfu.upload_date AS display_picture_upload_date,
+          udpfu.is_folder AS display_picture_is_folder,
+          dfu.id AS display_picture_file_user_id,
+          dfu.username AS display_picture_file_user_name
 				FROM poll_votes pv
 				JOIN users u ON pv.user_id = u.id
 				LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
-				LEFT JOIN file_uploads udpfu ON udp.file_id = udpfu.id
+        LEFT JOIN file_uploads udpfu ON udp.file_id = udpfu.id
+        LEFT JOIN users dfu ON udpfu.user_id = dfu.id
 				WHERE pv.component_id IN ({0})
 				ORDER BY pv.timestamp DESC;";
 
@@ -442,6 +490,8 @@ namespace maxhanna.Server.Controllers
                   displayPicPath = $"{pollRdr.GetString("display_picture_folder")}/{pollRdr.GetString("display_picture_filename")}";
                 }
 
+                // We keep PollVote.DisplayPicture as a simple path string (existing DTO). The query includes
+                // richer fields should we want to build a FileEntry later.
                 pollData[componentId].Add(new PollVote
                 {
                   Id = pollRdr.GetInt32("id"),
@@ -806,22 +856,35 @@ namespace maxhanna.Server.Controllers
         return;
       }
       var reactionSql = @"
-				SELECT 
-					r.id AS reaction_id,
-					r.story_id AS story_id,
-					r.user_id AS user_id,
-					r.comment_id AS comment_id,
-					reactionusers.username AS user_name,
-								udp.file_id as user_display_picture_file_id,
-					r.type AS reaction_type,
-					r.timestamp AS reaction_timestamp
-				FROM 
-					reactions AS r
-					LEFT JOIN users AS reactionusers ON r.user_id = reactionusers.id
-					LEFT JOIN user_display_pictures AS udp ON udp.user_id = reactionusers.id 
-				WHERE 
-					r.story_id IN ({0})
-					AND r.comment_id IS NULL ";
+        SELECT 
+          r.id AS reaction_id,
+          r.story_id AS story_id,
+          r.user_id AS user_id,
+          r.comment_id AS comment_id,
+          reactionusers.username AS user_name,
+          udpfu.id AS user_display_picture_file_id,
+          udpfu.folder_path AS user_display_picture_folder,
+          udpfu.file_name AS user_display_picture_filename,
+          udpfu.file_type AS user_display_picture_file_type,
+          udpfu.is_public AS user_display_picture_is_public,
+          udpfu.given_file_name AS user_display_picture_given_file_name,
+          udpfu.description AS user_display_picture_description,
+          udpfu.last_updated AS user_display_picture_last_updated,
+          udpfu.upload_date AS user_display_picture_upload_date,
+          udpfu.is_folder AS user_display_picture_is_folder,
+          dfu.id AS user_display_picture_file_user_id,
+          dfu.username AS user_display_picture_file_user_name,
+          r.type AS reaction_type,
+          r.timestamp AS reaction_timestamp
+        FROM 
+          reactions AS r
+          LEFT JOIN users AS reactionusers ON r.user_id = reactionusers.id
+          LEFT JOIN user_display_pictures AS udp ON udp.user_id = reactionusers.id 
+          LEFT JOIN file_uploads AS udpfu ON udp.file_id = udpfu.id
+          LEFT JOIN users AS dfu ON udpfu.user_id = dfu.id
+        WHERE 
+          r.story_id IN ({0})
+          AND r.comment_id IS NULL ";
 
       var storyIds = string.Join(",", stories.Select(s => s.Id)); // Convert IDs to comma-separated string
 
@@ -842,7 +905,37 @@ namespace maxhanna.Server.Controllers
             while (await rdr.ReadAsync())
             {
               int storyId = rdr.IsDBNull("story_id") ? 0 : rdr.GetInt32("story_id");
-              var udpFileEntry = rdr.IsDBNull("user_display_picture_file_id") ? null : new FileEntry(rdr.GetInt32("user_display_picture_file_id"));
+              FileEntry? udpFileEntry = null;
+              if (!rdr.IsDBNull(rdr.GetOrdinal("user_display_picture_file_id")))
+              {
+                int picId = rdr.GetInt32("user_display_picture_file_id");
+                string? folder = rdr.IsDBNull(rdr.GetOrdinal("user_display_picture_folder")) ? null : rdr.GetString("user_display_picture_folder");
+                string? fname = rdr.IsDBNull(rdr.GetOrdinal("user_display_picture_filename")) ? null : rdr.GetString("user_display_picture_filename");
+                string? ftype = rdr.IsDBNull(rdr.GetOrdinal("user_display_picture_file_type")) ? null : rdr.GetString("user_display_picture_file_type");
+                bool isPublic = !rdr.IsDBNull(rdr.GetOrdinal("user_display_picture_is_public")) && rdr.GetBoolean("user_display_picture_is_public");
+                string? given = rdr.IsDBNull(rdr.GetOrdinal("user_display_picture_given_file_name")) ? null : rdr.GetString("user_display_picture_given_file_name");
+                string? desc = rdr.IsDBNull(rdr.GetOrdinal("user_display_picture_description")) ? null : rdr.GetString("user_display_picture_description");
+                DateTime? lastUpdated = rdr.IsDBNull(rdr.GetOrdinal("user_display_picture_last_updated")) ? (DateTime?)null : rdr.GetDateTime("user_display_picture_last_updated");
+                DateTime uploadDate = rdr.IsDBNull(rdr.GetOrdinal("user_display_picture_upload_date")) ? DateTime.MinValue : rdr.GetDateTime("user_display_picture_upload_date");
+                bool isFolder = !rdr.IsDBNull(rdr.GetOrdinal("user_display_picture_is_folder")) && rdr.GetBoolean("user_display_picture_is_folder");
+                int fileUserId = rdr.IsDBNull(rdr.GetOrdinal("user_display_picture_file_user_id")) ? 0 : rdr.GetInt32("user_display_picture_file_user_id");
+                string fileUserName = rdr.IsDBNull(rdr.GetOrdinal("user_display_picture_file_user_name")) ? "Anonymous" : rdr.GetString("user_display_picture_file_user_name");
+
+                udpFileEntry = new FileEntry
+                {
+                  Id = picId,
+                  FileName = fname,
+                  GivenFileName = given,
+                  Description = desc,
+                  Directory = folder,
+                  FileType = ftype,
+                  Visibility = isPublic ? "Public" : "Private",
+                  IsFolder = isFolder,
+                  Date = uploadDate,
+                  LastUpdated = lastUpdated,
+                  User = new User(fileUserId, fileUserName)
+                };
+              }
               var reaction = new Reaction
               {
                 Id = rdr.IsDBNull("reaction_id") ? 0 : rdr.GetInt32("reaction_id"),
@@ -1038,10 +1131,19 @@ namespace maxhanna.Server.Controllers
 					c.city AS comment_city,
 					c.country AS comment_country,
 					c.ip AS comment_ip,
-					u.username AS comment_username,
-					udpfu.id as profileFileId,
-					udpfu.file_name as profileFileName,
-					udpfu.folder_path as profileFileFolder,
+          u.username AS comment_username,
+          udpfu.id as profileFileId,
+          udpfu.file_name as profileFileName,
+          udpfu.folder_path as profileFileFolder,
+          udpfu.file_type as profileFileFileType,
+          udpfu.is_public as profileFileIsPublic,
+          udpfu.given_file_name as profileFileGivenFileName,
+          udpfu.description as profileFileDescription,
+          udpfu.last_updated as profileFileLastUpdated,
+          udpfu.upload_date as profileFileDate,
+          udpfu.is_folder as profileFileIsFolder,
+          pdfu.id as profileFileUserId,
+          pdfu.username as profileFileUserName,
 					c.comment,
 					c.date,
 					cf.file_id AS comment_file_id,
@@ -1070,8 +1172,10 @@ namespace maxhanna.Server.Controllers
 					users AS u ON c.user_id = u.id
 				LEFT JOIN 
 					user_display_pictures AS udp ON udp.user_id = u.id
-				LEFT JOIN 
-					file_uploads AS udpfu ON udp.file_id = udpfu.id
+        LEFT JOIN 
+          file_uploads AS udpfu ON udp.file_id = udpfu.id
+        LEFT JOIN 
+          users AS pdfu ON udpfu.user_id = pdfu.id
 				LEFT JOIN 
 					comment_files AS cf ON cf.comment_id = c.id
 				LEFT JOIN 
@@ -1131,9 +1235,36 @@ namespace maxhanna.Server.Controllers
               if (comment == null)
               {
                 int? displayPicId = rdr.IsDBNull(rdr.GetOrdinal("profileFileId")) ? null : rdr.GetInt32("profileFileId");
-                string? displayPicFolderPath = rdr.IsDBNull(rdr.GetOrdinal("profileFileFolder")) ? null : rdr.GetString("profileFileFolder");
-                string? displayPicFileFileName = rdr.IsDBNull(rdr.GetOrdinal("profileFileName")) ? null : rdr.GetString("profileFileName");
-                FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId), Directory = displayPicFolderPath, FileName = displayPicFileFileName } : null;
+                FileEntry? dpFileEntry = null;
+                if (displayPicId != null)
+                {
+                  string? displayPicFolderPath = rdr.IsDBNull(rdr.GetOrdinal("profileFileFolder")) ? null : rdr.GetString("profileFileFolder");
+                  string? displayPicFileFileName = rdr.IsDBNull(rdr.GetOrdinal("profileFileName")) ? null : rdr.GetString("profileFileName");
+                  string? displayPicFileType = rdr.IsDBNull(rdr.GetOrdinal("profileFileFileType")) ? null : rdr.GetString("profileFileFileType");
+                  bool displayPicIsPublic = !rdr.IsDBNull(rdr.GetOrdinal("profileFileIsPublic")) && rdr.GetBoolean("profileFileIsPublic");
+                  string? displayPicGivenFileName = rdr.IsDBNull(rdr.GetOrdinal("profileFileGivenFileName")) ? null : rdr.GetString("profileFileGivenFileName");
+                  string? displayPicDescription = rdr.IsDBNull(rdr.GetOrdinal("profileFileDescription")) ? null : rdr.GetString("profileFileDescription");
+                  DateTime? displayPicLastUpdated = rdr.IsDBNull(rdr.GetOrdinal("profileFileLastUpdated")) ? (DateTime?)null : rdr.GetDateTime("profileFileLastUpdated");
+                  DateTime displayPicUploadDate = rdr.IsDBNull(rdr.GetOrdinal("profileFileDate")) ? DateTime.MinValue : rdr.GetDateTime("profileFileDate");
+                  bool displayPicIsFolder = !rdr.IsDBNull(rdr.GetOrdinal("profileFileIsFolder")) && rdr.GetBoolean("profileFileIsFolder");
+                  int displayPicFileUserId = rdr.IsDBNull(rdr.GetOrdinal("profileFileUserId")) ? 0 : rdr.GetInt32("profileFileUserId");
+                  string displayPicFileUserName = rdr.IsDBNull(rdr.GetOrdinal("profileFileUserName")) ? "Anonymous" : rdr.GetString("profileFileUserName");
+
+                  dpFileEntry = new FileEntry
+                  {
+                    Id = (Int32)displayPicId,
+                    FileName = displayPicFileFileName,
+                    GivenFileName = displayPicGivenFileName,
+                    Description = displayPicDescription,
+                    Directory = displayPicFolderPath,
+                    FileType = displayPicFileType,
+                    Visibility = displayPicIsPublic ? "Public" : "Private",
+                    IsFolder = displayPicIsFolder,
+                    Date = displayPicUploadDate,
+                    LastUpdated = displayPicLastUpdated,
+                    User = new User(displayPicFileUserId, displayPicFileUserName)
+                  };
+                }
 
                 comment = new FileComment
                 {
