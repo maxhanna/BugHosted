@@ -11,9 +11,7 @@
 .smallIframeDiv { 
   display: block;          /* ✅ not flex */
   position: relative;
-  width: 100%;
-  background: #000; 
-  min-height: 200px;
+  width: 100%; 
 }
 
 /* If you need sticky behavior, put it on a wrapper above, not the player box */
@@ -87,10 +85,7 @@ iframe {
 }
 #musicPlayerDiv {
   display: flex;
-  flex-direction: column;
-
-  height: calc(100vh - 235px);
-  height: calc(100dvh - 235px);
+  flex-direction: column; 
 
   overflow: hidden; /* IMPORTANT: stop scrolling the whole panel */ 
   max-width: calc(100vw - 10px);
@@ -448,9 +443,7 @@ input[type="submit"] {
 
 .playerStack {
   position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  height: 200px;
+  width: 100%; 
   background: #000;
   overflow: hidden;
 }
