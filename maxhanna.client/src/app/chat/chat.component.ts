@@ -106,10 +106,11 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       } 
     }
     
-    const themeRes = await this.userService.getAllThemes();
-    if (themeRes) { 
-      this.userThemes = themeRes;
-    }
+    this.userService.getAllThemes().then(themeRes => {
+      if (themeRes) { 
+        this.userThemes = themeRes;
+      }
+    });
 
     this.stopLoading();
   }
