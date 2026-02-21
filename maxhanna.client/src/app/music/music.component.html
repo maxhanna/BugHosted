@@ -21,39 +21,28 @@
     </div>
   </fieldset> 
   <div id="musicPlayerDiv" [class]="smallPlayer ? 'smallSongList' : 'normalSongList'"> 
-    <div id="iframeDiv" [class]="playerClasses">
-      <div class="playerStack">
-        <div id="musicVideo" #musicVideo
-          [class.youtube-active]="selectedType === 'youtube' && !fileIdPlaying"
-          [class.youtube-inactive]="!(selectedType === 'youtube' && !fileIdPlaying)">
-        </div> 
-        <app-media-viewer
-          #fileMediaViewer
-          [class.file-active]="fileIdPlaying"
-          [class.file-inactive]="!fileIdPlaying"
-          [inputtedParentRef]="parentRef"
-          [autoplay]="true"
-          [autoload]="true"
-          [loop]="false"
-          [muted]="false"
-          [showTopics]="false"
-          [showCommentSection]="false"
-          [previousComponent]="'Music'"
-          [displayLoading]="true"
-          (mediaEndedEvent)="mediaEndedEvent()"
-          (finishedLoadingEvent)="mediaViewerFinishedLoading()">
-        </app-media-viewer> 
-      </div> 
-      <button title="Shrink Fullscreen" (click)="closeFullscreen()" id="closeOverlay" *ngIf="isFullscreen">Shrink</button>
-    </div>
-    <div class="musicControls">
-      <label id="stopMusicButton" (click)="stopMusic()" title="Stop">🛑</label>
-      <label id="fullscreenMusicButton" (click)="fullscreen()" title="Expand Fullscreen">◼</label>
-      <label id="followLinkButton" *ngIf="!fileIdPlaylist" (click)="followLink()" title="Open in Youtube">🕸</label>
-      <label (click)="randomSong()" title="Random Song">⚡</label>
-    </div>
+    <!-- <div id="iframeDiv" [class]="playerClasses">
+   
+    </div> -->
 
     <div id="songlist">
+        <div class="playerStack">
+          <div id="musicVideo" #musicVideo [class.youtube-active]="selectedType === 'youtube' && !fileIdPlaying"
+            [class.youtube-inactive]="!(selectedType === 'youtube' && !fileIdPlaying)">
+          </div>
+          <app-media-viewer #fileMediaViewer [class.file-active]="fileIdPlaying" [class.file-inactive]="!fileIdPlaying"
+            [inputtedParentRef]="parentRef" [autoplay]="true" [autoload]="true" [loop]="false" [muted]="false"
+            [showTopics]="false" [showCommentSection]="false" [previousComponent]="'Music'" [displayLoading]="true"
+            (mediaEndedEvent)="mediaEndedEvent()" (finishedLoadingEvent)="mediaViewerFinishedLoading()">
+          </app-media-viewer>
+        </div>
+        <button title="Shrink Fullscreen" (click)="closeFullscreen()" id="closeOverlay" *ngIf="isFullscreen">Shrink</button><div class="musicControls">
+          <label id="stopMusicButton" (click)="stopMusic()" title="Stop">🛑</label>
+          <label id="fullscreenMusicButton" (click)="fullscreen()" title="Expand Fullscreen">◼</label>
+          <label id="followLinkButton" *ngIf="!fileIdPlaylist" (click)="followLink()" title="Open in Youtube">🕸</label>
+          <label (click)="randomSong()" title="Random Song">⚡</label>
+        </div>
+
       <div class="collapsible-header" (click)="toggleSongList()">
         Total: ({{songs.length}})
         <span class="collapse-icon">{{ isSongListCollapsed ? '▼' : '▲' }}</span>
