@@ -1022,47 +1022,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
         this.forceSwitchToId(desiredId);
       }
     }, 250);
-  }
-
-
-
-
-  private handleEndedFallback() {
-    // If there's a playlist attached, normal flow
-    const pl = this.ytPlayer?.getPlaylist?.() || [];
-    if (pl.length > 0) {
-      this.next();
-      return;
-    }
-
-    // Fallback: compute next using our own list
-    const ids = this.getYoutubeIdsInOrder();
-    if (!ids.length) return;
-
-    const currentId =
-      this.ytPlayer?.getVideoData()?.video_id ||
-      this.parseYoutubeId(this.currentUrl || '') ||
-      ids[0];
-
-    const idx = Math.max(0, ids.indexOf(currentId));
-    const nextIdx = (idx + 1) % ids.length;
-
-    try {
-      this.ytPlayer?.loadPlaylist(ids, nextIdx, 0, 'small');
-      this.ytPlayer?.playVideo();
-    } catch {
-      // Last-chance single-video advance
-      const nextId = ids[nextIdx];
-      if (nextId) {
-        this.ytPlayer?.loadVideoById(nextId);
-        this.ytPlayer?.playVideo();
-        // Re-attach a playlist for subsequent Next/Prev
-        setTimeout(() => {
-          try { this.ytPlayer?.cuePlaylist(ids, nextIdx, 0, 'small'); } catch { }
-        }, 200);
-      }
-    }
-  }
+  } 
 
   async loadRadioData() {
     this.startLoading();
