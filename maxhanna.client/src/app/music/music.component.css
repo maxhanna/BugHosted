@@ -428,13 +428,13 @@ input[type="submit"] {
   overflow: hidden;
 }
   
-#musicVideo {
+.playerStack {
   height: 0px;
   padding-top: 25px;
   padding-bottom: 56.2%;
   position: relative;
 }
-#musicVideo iframe {
+.playerStack iframe {
   width: 100%;
   height: 100%;
   position: absolute;
