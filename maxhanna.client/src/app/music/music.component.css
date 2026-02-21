@@ -33,13 +33,14 @@ iframe {
 
 /* Mobile tweaks */
 @media (max-width: 667px) {
-  .componentMain { width: unset !important; }
+  .componentMain { width: unset !important; } 
 }
    
 
 .musicControls {
   width: 100%;
   text-align: center;
+  margin-top: 30px;
 }
 
 .musicControls label {
