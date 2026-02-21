@@ -459,12 +459,11 @@ input[type="submit"] {
   inset: 0;
   width: 100%;
   height: 100%;
-}
+} 
 
-#musicVideo iframe {
-  position: absolute;
-  inset: 0;
-  width: 100% !important; 
-  border: 0;
+iframe[src*=youtube] {
   display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  padding-bottom: 10px;
 }

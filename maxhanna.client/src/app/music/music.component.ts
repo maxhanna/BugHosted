@@ -245,37 +245,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.play(url);
     }
   }
-
-  private nextFallback() {
-    const ids = this.getYoutubeIdsInOrder();
-    if (!ids.length) return;
-    const idx = (this.getCurrentIndex(ids) + 1) % ids.length;
-    this.ytPlayer?.loadPlaylist(ids, idx, undefined, 'small');  // array overload
-
-    setTimeout(() => {
-      const pl = this.ytPlayer?.getPlaylist?.() || [];
-      const pi = this.ytPlayer?.getPlaylistIndex?.() ?? 0;
-      console.log('[YT] playlist size:', pl.length, 'index:', pi);
-    }, 500);
-
-    this.ytPlayer?.playVideo();
-  }
-
-  private prevFallback() {
-    const ids = this.getYoutubeIdsInOrder();
-    if (!ids.length) return;
-    const idx = this.getCurrentIndex(ids) - 1;
-    const prevIdx = (idx < 0) ? (ids.length - 1) : idx;
-    this.ytPlayer?.loadPlaylist(ids, prevIdx, undefined, 'small');
-
-    setTimeout(() => {
-      const pl = this.ytPlayer?.getPlaylist?.() || [];
-      const pi = this.ytPlayer?.getPlaylistIndex?.() ?? 0;
-      console.log('[YT] playlist size:', pl.length, 'index:', pi);
-    }, 500);
-
-    this.ytPlayer?.playVideo();
-  }
+  
 
   private ensureYouTubeApi(): Promise<void> {
     if (this.ytApiPromise) return this.ytApiPromise;
@@ -313,13 +283,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       }
     }
     return ids;
-  }
-
-  private getCurrentIndex(ids: string[]): number {
-    const vid = this.ytPlayer?.getVideoData()?.video_id;
-    if (!vid) return 0;
-    return Math.max(0, ids.indexOf(vid));
-  }
+  } 
 
   async getSongList() {
     this.startLoading();

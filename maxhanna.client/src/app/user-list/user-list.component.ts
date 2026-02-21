@@ -94,41 +94,45 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   async getUsers() {
     this.startLoading();
     const user = this.user ?? this.parentRef?.user ?? this.inputtedParentRef?.user ?? new User(0, "Anonymous");
-    if (!this.friendsRadio || this.friendsRadio.nativeElement?.checked) {
-      const fsRes = await this.friendService.getFriends(user.id ?? 0);
-      if (fsRes) {
-        this.users = fsRes;
-      } else {
-        this.users = []; 
-      }
-    }
-    else {
-      const fsRes = await this.userService.getAllUsers(this.parentRef?.user?.id);
-      if (fsRes) {
-        this.users = fsRes;
-      } else {
-        this.messageRows = [];
-        this.users = [];
-      }
-    } 
 
-    await this.chatService.getGroupChats(user.id).then(res => {
-      if (res) {
-        this.messageRows = res;
-      } else {
-        this.messageRows = [];
-      }
-    });
+    // Collect promises conditionally, then await them together
+    const promises: Promise<any>[] = [];
+    let friendsIdx = -1;
+    let allUsersIdx = -1;
+    let groupChatsIdx = -1;
+
+    if (!this.friendsRadio || this.friendsRadio.nativeElement?.checked) {
+      friendsIdx = promises.push(this.friendService.getFriends(user.id ?? 0)) - 1;
+    } else {
+      allUsersIdx = promises.push(this.userService.getAllUsers(this.parentRef?.user?.id)) - 1;
+    }
+
+    // Always request group chats (original logic did this after fetching users)
+    groupChatsIdx = promises.push(this.chatService.getGroupChats(user.id)) - 1;
+
+    const results = await Promise.all(promises);
+
+    // Assign group chats result
+    this.messageRows = (groupChatsIdx >= 0 ? results[groupChatsIdx] : null) ?? [];
+
+    // Assign users based on which promise we queued
+    if (friendsIdx >= 0) {
+      this.users = results[friendsIdx] ?? [];
+    } else if (allUsersIdx >= 0) {
+      this.users = results[allUsersIdx] ?? [];
+    } else {
+      this.users = [];
+    }
 
     if (!this.displayRadioFilters && this.messageRows.length == 0) {
-      const fsRes = await this.userService.getAllUsers(this.parentRef?.user?.id);
-      if (fsRes) {
-        this.users = fsRes;
+      if (allUsersIdx >= 0) {
+        this.users = results[allUsersIdx] ?? [];
       } else {
-        this.messageRows = [];
-        this.users = [];
+        const fsRes = await this.userService.getAllUsers(this.parentRef?.user?.id);
+        this.users = fsRes ?? [];
       }
     }
+
     this.stopLoading();
   }
 
