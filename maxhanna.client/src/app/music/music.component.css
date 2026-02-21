@@ -2,8 +2,7 @@
   .componentMain {
     width: unset !important;
   }
-}
-  
+} 
 
 /* Container for YT iframe. Make it a normal block with a guaranteed height */
 .iframeDiv,
@@ -439,4 +438,23 @@ input[type="submit"] {
   width: 100%;
   height: 100%;
   position: absolute;
+}
+/* Ensure YouTube player never exceeds viewport width on small devices */
+@media only screen and (max-width: 667px) { 
+  #musicVideo,
+  .playerStack>#musicVideo,
+  .playerStack>div {
+    box-sizing: border-box;
+    max-width: 100vw !important;
+    width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  /* Constrain any iframe added by YouTube API */
+  #musicVideo iframe,
+  .playerStack iframe {
+    max-width: 100vw !important;
+    width: 100% !important;
+    height: auto !important;
+  }
 }
