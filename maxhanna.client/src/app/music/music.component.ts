@@ -940,6 +940,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
               const iframe = this.ytPlayer!.getIframe() as HTMLIFrameElement;
               iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
               iframe.setAttribute('referrerpolicy', 'origin-when-cross-origin');
+              iframe.style.setProperty('max-width', '100%', 'important');
             } catch { }
 
             this.ngZone.run(() => this.startYtHealthWatch());
