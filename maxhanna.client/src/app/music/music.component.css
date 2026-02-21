@@ -12,6 +12,7 @@
   display: block;          /* ✅ not flex */
   position: relative;
   width: 100%; 
+  min-height: 200px;
 }
 
 /* If you need sticky behavior, put it on a wrapper above, not the player box */
@@ -26,6 +27,7 @@ iframe {
   height: 100% !important;
   border: 0;
   display: block;
+  min-height: 200px;
 }
 
 /* Mobile tweaks */
@@ -286,6 +288,7 @@ input[type="submit"] {
   flex: 1 1 auto;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
+  min-height: 200px;
 } 
 
 /* rename to avoid collisions with other global .fullscreen */
