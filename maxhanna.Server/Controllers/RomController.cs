@@ -1022,8 +1022,10 @@ ON DUPLICATE KEY UPDATE
         }
       }
     }
+  }
+}
 
-    public class GetEmulatorJSSaveStateRequest
+public class GetEmulatorJSSaveStateRequest
 {
   public int UserId { get; set; }
   public string RomName { get; set; } = string.Empty;
