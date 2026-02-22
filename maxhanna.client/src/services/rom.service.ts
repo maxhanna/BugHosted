@@ -398,19 +398,29 @@ export class RomService {
       });
       const status = res.status;
       const ct = (res.headers.get('content-type') || '').toLowerCase();
-
-      console.debug('[EJS] saveEmulatorJSState response:', { status, res });
-
-      const json = await res.json();
-      const text = await res.text();
-
-      if (!res.ok) {
-        const errorBody = ct.includes('application/json') ? json : text;
-        const errorText = typeof errorBody === 'string' ? errorBody : JSON.stringify(errorBody ?? { error: 'Upload failed' });
-        return { ok: false, status, errorText } as SaveUploadResponse;
+ 
+      // Read body exactly once based on content-type
+      let body: any = null;
+      try {
+        if (ct.includes('application/json')) {
+          body = await res.json(); // consumes body once
+        } else {
+          body = await res.text(); // consumes body once
+        }
+      } catch (readErr) {
+        // If parsing fails, capture raw text as fallback
+        try {
+          body = await res.text();
+        } catch {
+          body = null;
+        }
       }
 
-      const body = ct.includes('application/json') ? json : text;
+      if (!res.ok) {
+        const errorBody = typeof body === 'string' ? body : JSON.stringify(body ?? { error: 'Upload failed' });
+        return { ok: false, status, errorText: errorBody } as SaveUploadResponse;
+      }
+
       return { ok: true, status, body } as SaveUploadResponse;
     } catch (error: any) {
       return { ok: false, status: 0, errorText: String(error?.message ?? error) } as SaveUploadResponse;
