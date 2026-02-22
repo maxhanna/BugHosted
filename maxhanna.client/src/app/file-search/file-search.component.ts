@@ -187,7 +187,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
     this.route.paramMap.subscribe(async (params: any) => {
       const paramFileId = +params.get('fileId');
-      console.log('[FileSearch] route.paramMap event', paramFileId);
+      //console.log('[FileSearch] route.paramMap event', paramFileId);
       if (paramFileId && paramFileId != null) {
         this.fileId = paramFileId;
         this.fileIdFilter = this.fileId;
@@ -287,7 +287,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   async getDirectory(file?: string, fileId?: number, append?: boolean) {
     // Prevent re-entrant calls while a fetch is already in progress
     if (this.isLoading) return;
-    console.log('[FileSearch] getDirectory called', { fileArg: file, fileIdArg: fileId, append, isLoading: this.isLoading, currentDirectory: this.currentDirectory });
+    // console.log('[FileSearch] getDirectory called', { fileArg: file, fileIdArg: fileId, append, isLoading: this.isLoading, currentDirectory: this.currentDirectory });
     this.startLoading();
     let fileTypes: string[] = [];
     const filterArr = this.fileTypeFilter.split(',').map(t => t.trim().toLowerCase()).filter(t => t);

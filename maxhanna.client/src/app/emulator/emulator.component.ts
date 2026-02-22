@@ -272,7 +272,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         throw new Error(`${it.type} missing inputValues`);
       }
     }
-    console.log('[EJS] assigning custom VirtualGamepadSettings', window.EJS_VirtualGamepadSettings);
+    //console.log('[EJS] assigning custom VirtualGamepadSettings', window.EJS_VirtualGamepadSettings);
 
     // For PlayStation and N64 cores, increase autosave interval to 10 minutes
     // to reduce upload frequency for large save files (e.g. PS1 saves).
@@ -323,13 +323,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     window.EJS_ready = (api: any) => {
       try {
         this.scanAndTagVpadControls();
-        console.log('EJS_ready: vpad readback=', window.EJS_VirtualGamepadSettings);
+        // console.log('EJS_ready: vpad readback=', window.EJS_VirtualGamepadSettings);
 
         this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
         if (this.emulatorInstance?.saveState) {
           this._saveFn = async () => { try { await (this.emulatorInstance as any).saveState(); } catch { } };
         }
-        console.log('[EJS] instance ready hook fired, has saveState?', !!this._saveFn);
+        //console.log('[EJS] instance ready hook fired, has saveState?', !!this._saveFn);
         this.ensureSaveStatePolyfill();
       } catch { }
     };
@@ -354,7 +354,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.installRuntimeTrackers();
 
     this.hideEJSMenu();
-    console.log('[EJS] final vpad settings before loader:', JSON.stringify(window.EJS_VirtualGamepadSettings, null, 2));
+    //console.log('[EJS] final vpad settings before loader:', JSON.stringify(window.EJS_VirtualGamepadSettings, null, 2));
 
     // 8) Inject loader.js (it will initialize EmulatorJS)
     if (!window.__ejsLoaderInjected) {
@@ -382,10 +382,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
               this.scanAndTagVpadControls();
 
               try {
-                const ok = await this.applySaveStateIfAvailable(saveStateBlob);
-                if (ok) {
-                  console.log('[EJS] Auto-restored previous session');
-                }
+                const ok = await this.applySaveStateIfAvailable(saveStateBlob); 
               } catch {
                 console.warn('[EJS] Unable to apply save state on startup');
               }
@@ -406,10 +403,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.fullReloadToEmulator();
       return;
     }
-
-    if (saveStateBlob) {
-      console.log('Save state loaded from database');
-    }
+ 
     this.status = 'Running';
     this.stopLoading();
     this.cdr.detectChanges();
@@ -638,7 +632,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const now = Date.now();
     // If a save is already in progress, skip duplicate uploads
     if (this._saveInProgress) {
-      console.log('[EJS] onSaveState: save already in progress; skipping');
+      //console.log('[EJS] onSaveState: save already in progress; skipping');
       if (this._pendingSaveResolve) { try { this._pendingSaveResolve(true); } catch { } this._pendingSaveResolve = undefined; }
       return;
     }
@@ -735,7 +729,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async callEjsSave(): Promise<boolean> {
-    console.log('callEjsSave triggered');
     this.startLoading();
     try {
       const w = window as any;
@@ -743,22 +736,22 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       // 1) Best path: bytes immediately
       if (typeof w.EJS_saveState === 'function') {
         const bytes: Uint8Array = await w.EJS_saveState();
-        console.log(`[EJS] EJS_saveState returned ${bytes?.length ?? 0} bytes`);
+        //console.log(`[EJS] EJS_saveState returned ${bytes?.length ?? 0} bytes`);
         await this.uploadSaveBytes(bytes);
-        console.log('callEjsSave: used EJS_saveState -> upload done');
+        //console.log('callEjsSave: used EJS_saveState -> upload done');
         return true;
       }
 
       // 2) Fallbacks: trigger any save the build exposes…
       if (this._saveFn) {
-        console.log('[EJS] callEjsSave: using captured save function from instance');
+        //console.log('[EJS] callEjsSave: using captured save function from instance');
         await this._saveFn();
         // …then capture and upload bytes explicitly
         return await this.postSaveCaptureAndUpload();
       }
 
       if (this.emulatorInstance?.saveState) {
-        console.log('[EJS] callEjsSave: using saveState method from captured instance');
+        // console.log('[EJS] callEjsSave: using saveState method from captured instance');
         await this.emulatorInstance.saveState();
         return await this.postSaveCaptureAndUpload();
       }
@@ -767,7 +760,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       if (player) {
         const el = typeof player === 'string' ? document.querySelector(player) : player;
         if (el && typeof (el as any).saveState === 'function') {
-          console.log('[EJS] callEjsSave: using saveState method from EJS_player element');
+          //console.log('[EJS] callEjsSave: using saveState method from EJS_player element');
           await (el as any).saveState();
           return await this.postSaveCaptureAndUpload();
         }
@@ -787,11 +780,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const tmpStatus = this.status;
     this.status = 'Sending Data to Server...';
     if (!u8?.length) {
-      console.log('[EJS] uploadSaveBytes: no bytes to upload; skipping');
+      console.warn('[EJS] uploadSaveBytes: no bytes to upload; skipping');
       return false;
     }
     if (!this.parentRef?.user?.id || !this.romName) {
-      console.log('[EJS] uploadSaveBytes: no user or rom; skipping upload');
+      console.warn('[EJS] uploadSaveBytes: no user or rom; skipping upload');
       return false;
     }
 
@@ -806,7 +799,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         const res = await this.romService.saveEmulatorJSState(this.romName!, this.parentRef!.user!.id!, u8);
         if (res.ok) {
           this._lastSaveTime = Date.now();
-          console.log(`[EJS] Save state uploaded (${u8.length} bytes)`);
+          //console.log(`[EJS] Save state uploaded (${u8.length} bytes)`);
           return true;
         } else {
           console.error('[EJS] Save upload failed:', res.errorText);
@@ -857,10 +850,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   setupAutosave() {
     try { this.clearAutosave(); } catch { }
-    if (!this.autosave || !this.romName || !this.parentRef?.user?.id) return;
+    if (!this.autosave || !this.romName || !this.parentRef?.user?.id) return; 
 
-    // Kick a first save after 10s so you can verify quickly
-    // Kick the first autosave after at least 3 minutes (or the configured interval, whichever is larger)
     const kickDelay = Math.max(this.autosaveIntervalTime, 180000);
     this._autosaveKick = setTimeout(() => {
       console.log('[EJS] autosave initial kick after', kickDelay, 'ms');
@@ -868,8 +859,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }, kickDelay);
 
     this.autosaveInterval = setInterval(() => {
-      try {
-        console.log('[EJS] autosave tick');
+      try { 
         this.callEjsSave();
       } catch (e) { console.warn('Autosave call failed', e); }
     }, this.autosaveIntervalTime);
