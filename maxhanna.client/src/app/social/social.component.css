@@ -57,7 +57,8 @@
 .storyContainer {
   overflow: hidden;
   margin-top: 5px;
-  min-height: 100px; /* To encourage lazy loading images */
+  min-height: 100px;
+  /* To encourage lazy loading images */
 }
 
 .storyText {
@@ -80,7 +81,7 @@
   align-items: center;
   flex-wrap: nowrap;
   flex-direction: row;
-  cursor: pointer; 
+  cursor: pointer;
 }
 
 .topicStoryCount {
@@ -158,15 +159,10 @@ singleAttachment {
 .multipleAttachments {
   max-width: 48%;
 }
+
 @media only screen and (max-width : 667px) {
   .multipleAttachments {
     max-width: 99%;
-  }
-}
-
-@media only screen and (min-width : 667px) {
-  .multipleAttachments {
-    max-height: 525px;
   }
 }
 
@@ -371,7 +367,7 @@ singleAttachment {
 }
 
 .storyHeader {
-  display: flex; 
+  display: flex;
   padding-left: 10px;
   padding-right: 10px;
   border: var(--main-border);
@@ -408,13 +404,12 @@ singleAttachment {
 .attachmentsDiv {
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
-  align-content: space-between;
-  justify-content: space-evenly;
-  align-items: center;
-  gap: 40px;
+  gap: 10px;
   margin-top: 5px;
   margin-bottom: 5px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
 }
 
 .expandSpan {
@@ -446,7 +441,7 @@ singleAttachment {
 }
 
 .popupPanelTitle {
-  display: flex; 
+  display: flex;
   justify-content: space-evenly;
 }
 
@@ -584,7 +579,7 @@ singleAttachment {
   align-items: center;
   height: 100%; 
 } */
-  
+
 .postOptionButtonWrapper {
   display: flex;
   flex-wrap: nowrap;
@@ -599,9 +594,9 @@ button.postOptionButtons,
 }
 
 .showPostOptionButton {
-    cursor: pointer; 
-    font-size: small;  
-} 
+  cursor: pointer;
+  font-size: small;
+}
 
 .menuBackButtonSpecial {
   right: 53px;
@@ -616,7 +611,7 @@ button.postOptionButtons,
   position: absolute;
   top: 0px;
 }
-   
+
 .menuPopupPanel.popupPanel {
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   padding: 20px;
@@ -822,7 +817,7 @@ button.postOptionButtons,
   font-size: 1rem;
   font-weight: 500;
   color: var(--primary-font-color);
-} 
+}
 
 .menuPopupMiniOptions {
   display: flex;
@@ -876,7 +871,7 @@ button.postOptionButtons,
 .popupSectionContainer>div:not(:last-child) {
   margin-bottom: 30px;
 }
- 
+
 .showPostFromHelpInfo {
   width: 100%;
   font-size: smaller;
