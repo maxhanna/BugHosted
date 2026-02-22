@@ -847,12 +847,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
             this.status = tmpStatus;
             this.cdr.detectChanges();
           }, 4000);
-        } 
+        }
         if (this.stopEmuSaving) {
           this.fullReloadToEmulator();
         } else if (this.exitSaving) {
-          return this.navigateHome();
-        }
+          this.navigateHome();
+        } 
       }
     })();
 
