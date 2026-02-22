@@ -503,4 +503,5 @@
 }
 .toggle-switch-small {
   font-size: unset;
+  white-space: nowrap;
 }
