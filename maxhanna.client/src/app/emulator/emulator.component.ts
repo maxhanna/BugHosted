@@ -1486,12 +1486,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           const blob: Blob = rec.data;
           const arr = new Uint8Array(await blob.arrayBuffer());
           const res = await this.romService.saveEmulatorJSState(rec.romName, rec.userId, arr);
-          if (res.ok) {
+          if (res) {
             //await this.removePendingSave(rec.id);
             console.log("returned data from saveEmulatorJSState: ", res);
             console.log('[EJS] uploaded pending save for', rec.romName);
           } else {
-            console.warn('[EJS] failed to upload pending save:', res.errorText);
+            console.warn('[EJS] failed to upload pending save:', res);
           }
         } catch (e) { console.warn('[EJS] uploadPendingSavesOnStartup error', e); }
       }
