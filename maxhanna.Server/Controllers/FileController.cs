@@ -219,7 +219,7 @@ namespace maxhanna.Server.Controllers
             orderBy = isRomSearch ? " ORDER BY f.last_access DESC " : orderBy;
           }
           (string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user, fileId);
-          _ = _log.Db($"DEBUG NSFW/Block where: {searchCondition}", user?.Id ?? 0, "FILE", true);
+          //_ = _log.Db($"DEBUG NSFW/Block where: {searchCondition}", user?.Id ?? 0, "FILE", true);
 
           var command = new MySqlCommand($@" 
             SELECT
@@ -1412,7 +1412,7 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
     {
       try
       {
-        Console.WriteLine($"Request received for file: {filePath} by user: {userId}");
+        //Console.WriteLine($"Request received for file: {filePath} by user: {userId}");
 
         // Validate and process file path
         filePath = Path.Combine(_baseTarget, WebUtility.UrlDecode(filePath) ?? "");
