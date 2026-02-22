@@ -76,6 +76,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   private readonly instance = Math.random().toString(16).slice(2);
   private mo?: MutationObserver;
   private ytHealthTimer?: number;
+  private iframeCheckAttempts = 0;
+  private iframeCheckTimer?: number;
   private playerReady = false;
   private firstGestureDone = false;
   private lastPlaylistKey = '';
@@ -1001,6 +1003,39 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
         }
       });
     });
+
+    // Start a short-lived poll to ensure the iframe actually appears in the DOM.
+    // Some environments intermittently fail to inject the iframe; if that happens
+    // do a hard rebuild to force the player back into a working state.
+    this.scheduleIframeCheck(firstId);
+  }
+
+  private scheduleIframeCheck(firstId: string) {
+    try {
+      if (this.iframeCheckTimer) {
+        clearInterval(this.iframeCheckTimer);
+        this.iframeCheckTimer = undefined;
+      }
+    } catch { }
+    this.iframeCheckAttempts = 0;
+    this.iframeCheckTimer = window.setInterval(() => {
+      this.iframeCheckAttempts++;
+      const el = this.musicVideo?.nativeElement;
+      const hasIframe = !!(el && el.querySelector && el.querySelector('iframe'));
+      if (hasIframe) {
+        try { clearInterval(this.iframeCheckTimer!); } catch { }
+        this.iframeCheckTimer = undefined;
+        return;
+      }
+      // after several attempts, give up and hard rebuild
+      if (this.iframeCheckAttempts >= 6) {
+        try { clearInterval(this.iframeCheckTimer!); } catch { }
+        this.iframeCheckTimer = undefined;
+        const id = firstId || this.parseYoutubeId(this.currentUrl || '') || this.ytIds[this.ytIndex];
+        console.warn('[YT] iframe never appeared after rebuild, forcing hardRebuild', id);
+        if (id) this.hardRebuild(id);
+      }
+    }, 300);
   }
 
   private ensureYTPlayerBuilt(firstId: string, songIds: string[], index: number) {
