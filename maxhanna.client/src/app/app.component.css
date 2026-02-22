@@ -72,8 +72,7 @@
 }
 
 #youtubeIframe {
-  width: 98vw;
-  max-width: 800px;
+  min-width: 70vw;
   aspect-ratio: 16 / 9;
   border: none;
 }
