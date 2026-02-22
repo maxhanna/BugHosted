@@ -942,7 +942,7 @@ ON DUPLICATE KEY UPDATE
         Stream dataStream = file.OpenReadStream();
 
         // Decompress if client sent gzip
-        var encoding = form["encoding"]?.ToString() ?? "identity";
+        var encoding = form["encoding"].ToString() ?? "identity";
         if (string.Equals(encoding, "gzip", StringComparison.OrdinalIgnoreCase))
         {
           dataStream = new System.IO.Compression.GZipStream(dataStream, System.IO.Compression.CompressionMode.Decompress);
