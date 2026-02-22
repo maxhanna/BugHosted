@@ -360,7 +360,7 @@ export class RomService {
           bytesToUpload = gz;
           encoding = 'gzip';
         }
-        //console.log('[EJS] savestate sizes:', { raw: tight.length, gz: gz.length, encoding });
+        console.log('[EJS] savestate sizes:', { raw: tight.length, gz: gz.length, encoding });
       } catch (e) {
         console.warn('[EJS] gzip failed, uploading raw', e);
       }
@@ -382,10 +382,14 @@ export class RomService {
     form.append('encoding', encoding);
     form.append('originalSize', String(tight.length));
 
-    try { 
+    try {
+      // keepalive requests are intended for short, small payloads (and
+      // many browsers limit the allowed body size). For large save states
+      // (several MB) using keepalive can cause the request to hang or be
+      // dropped. Only enable keepalive for small uploads.
       const maxKeepalive = 64 * 1024; // 64 KB
       const useKeepalive = ab.byteLength <= maxKeepalive;
-      //if (!useKeepalive) console.debug('[EJS] large upload detected; disabling keepalive', ab.byteLength);
+      if (!useKeepalive) console.debug('[EJS] large upload detected; disabling keepalive', ab.byteLength);
 
       const res = await fetch('/rom/saveemulatorjsstate', {
         method: 'POST',
