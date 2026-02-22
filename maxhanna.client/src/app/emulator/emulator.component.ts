@@ -1964,14 +1964,18 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       return false;
     }
 
-    // Optional: very crude entropy check (real states are never super low-entropy)
-    let zeros = 0;
-    for (let i = 0; i < Math.min(4096, length); i++) if (u8[i] === 0) zeros++;
-    if (zeros > 3500) {
-      console.warn('[EJS] Save state suspiciously low-entropy → skipping');
-      this.parentRef?.showNotification('Save state appears to be low-entropy (too many zeros); it may be corrupt. Upload skipped.');
+    const headZeros = this.countZeros(u8, 0, Math.min(4096, length));
+    const tailZeros = this.countZeros(u8, length - Math.min(8192, length), length);
+
+    const headTooEmpty = headZeros > 4096 * 0.92;
+    const tailTooEmpty = tailZeros > 8192 * 0.94;
+
+    if (headTooEmpty && tailTooEmpty) {
+      // both ends look dead → very likely junk
+      console.warn('[EJS] Both head and tail are extremely low-entropy → skipping');
       return false;
     }
+   
 
     if (this.romName && core) {
       const lastSize = this.lastGoodSaveSize.get(this.romName);
@@ -1993,6 +1997,15 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     return true;
   } 
+
+  countZeros(u8: Uint8Array, start: number, end?: number): number {
+    let zeros = 0;
+    const length = u8.length;
+    for (let i = start; i < (end ?? length); i++) {
+      if (u8[i] === 0) zeros++;
+    }
+    return zeros;
+  }
 
   resetGame() {
     if (!this.romName) return;
