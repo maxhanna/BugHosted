@@ -786,7 +786,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       } finally {
         this._saveInProgress = false;
         this._inFlightSavePromise = undefined;
-        this.status = tmpStatus;
+        this.status = 'Save Complete!';
+        setTimeout(() => {
+          this.status = tmpStatus;
+        }, 3000);
       }
     })();
 
