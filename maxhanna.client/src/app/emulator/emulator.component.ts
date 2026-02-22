@@ -1582,12 +1582,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const FONT = 30;   // px
 
     const SEGA = 72;   // px (Genesis round buttons: A/B/C/X/Y/Z)
-    const SEGA_FONT = 20;
+    const SEGA_FONT = 20; 
 
-    style.textContent = `
-/* ==== Minimal overrides applied to the actual clickable elements we tag ==== */
+    const translateXA = this.system != 'genesis' ? -24 : -36;
+    const translateXB = this.system != 'genesis' ? -36 : 15;
 
-/* D-pad scale: modest bump */
+    style.textContent = `   
 .max-dpad { 
   transform: scale(1.30) !important; 
   transform-origin: center left !important; 
@@ -1607,8 +1607,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 }
 
 /* Separate nudges so they sit nicely; adjust if you want more spacing */
-.max-pill.is-a { transform: translate(-24px,  6px) !important; }  /* A: left & a hair up */
-.max-pill.is-b { transform: translate(-36px, 20px) !important; }  /* B: more left & a bit down */
+.max-pill.is-a { transform: translate(${translateXA}px,  6px) !important; }  /* A: left & a hair up */
+.max-pill.is-b { transform: translate(${translateXB}px, 20px) !important; }  /* B: more left & a bit down */
 
 .max-sega {
   width: ${SEGA}px !important;
