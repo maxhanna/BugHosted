@@ -322,7 +322,7 @@ export class RomService {
   }
 
   private supportsCompressionStreams(): boolean {
-    return false; //typeof (window as any).CompressionStream !== 'undefined';
+    return typeof (window as any).CompressionStream !== 'undefined';
   }
 
   private async gzip(input: Uint8Array): Promise<Uint8Array> {
@@ -350,22 +350,36 @@ export class RomService {
 
     const tight = new Uint8Array(this.toTightArrayBuffer(stateData));
 
-    let bytesToUpload: Uint8Array = tight; 
- 
+    let bytesToUpload: Uint8Array = tight;
+    let encoding: 'gzip' | 'identity' = 'identity';
+
+    if (this.supportsCompressionStreams()) {
+      try {
+        const gz: Uint8Array = await this.gzip(tight);
+        if (gz.length > 0 && gz.length < tight.length * 0.98) {
+          bytesToUpload = gz;
+          encoding = 'gzip';
+        }
+        console.log('[EJS] savestate sizes:', { raw: tight.length, gz: gz.length, encoding });
+      } catch (e) {
+        console.warn('[EJS] gzip failed, uploading raw', e);
+      }
+    }
 
     const form = new FormData();
 
     // ✅ Force to real ArrayBuffer for File() / BlobPart typing
     const ab: ArrayBuffer = this.toArrayBuffer(bytesToUpload);
 
-    const filename = 'savestate.bin';
+    const filename = encoding === 'gzip' ? 'savestate.bin.gz' : 'savestate.bin';
 
     form.append('file', new File([ab], filename, {
-      type: 'application/octet-stream'
+      type: encoding === 'gzip' ? 'application/gzip' : 'application/octet-stream'
     }));
 
     form.append('userId', String(userId));
-    form.append('romName', romName); 
+    form.append('romName', romName);
+    form.append('encoding', encoding);
     form.append('originalSize', String(tight.length));
 
     try {
@@ -406,15 +420,21 @@ export class RomService {
         body: JSON.stringify({ UserId: userId, RomName: romName }),
       });
 
-      if (!response || response == null) return null; 
+      if (!response.ok) return null;
+
+      const enc = (response.headers.get('X-EJS-Encoding') || 'identity').toLowerCase();
+      const encoding: 'gzip' | 'identity' = enc === 'gzip' ? 'gzip' : 'identity';
 
       const blob = await response.blob();
       let u8: Uint8Array = new Uint8Array(await blob.arrayBuffer());
-      
+
+      if (encoding === 'gzip') {
+        u8 = await this.gunzip(u8); // u8 stays Uint8Array ✅
+      }
+
       // Convert to tight ArrayBuffer only at the end
       return new Blob([this.toArrayBuffer(u8)], { type: 'application/octet-stream' });
-    } catch (e) {
-      console.warn('[EJS] getEmulatorJSSaveState failed:', e);
+    } catch {
       return null;
     }
   }
