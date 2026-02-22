@@ -1395,7 +1395,7 @@ private async loadFileByIdOnce(id: number) {
     // Use the first extension for the given system (e.g. 'n64' -> 'n64')
     const exts = this.romSystemExtensions[key];
     const ext = (exts && exts.length) ? exts[0] : key;
-    const style = "width:16px;height:16px;vertical-align:middle;";
+    const style = "width:32px;height:32px;vertical-align:middle;";
     // getSystemEmoji expects a filename; pass a dummy name with the extension so FileService extracts it.
     return this.getSystemEmoji('file.' + ext, style);
   }
