@@ -383,10 +383,18 @@ export class RomService {
     form.append('originalSize', String(tight.length));
 
     try {
-      const res = await fetch('/rom/saveemulatorjsstate', { 
-        method: 'POST', 
-        body: form, 
-        keepalive: true, 
+      // keepalive requests are intended for short, small payloads (and
+      // many browsers limit the allowed body size). For large save states
+      // (several MB) using keepalive can cause the request to hang or be
+      // dropped. Only enable keepalive for small uploads.
+      const maxKeepalive = 64 * 1024; // 64 KB
+      const useKeepalive = ab.byteLength <= maxKeepalive;
+      if (!useKeepalive) console.debug('[EJS] large upload detected; disabling keepalive', ab.byteLength);
+
+      const res = await fetch('/rom/saveemulatorjsstate', {
+        method: 'POST',
+        body: form,
+        ...(useKeepalive ? { keepalive: true } : {}),
       });
       const status = res.status;
       const ct = (res.headers.get('content-type') || '').toLowerCase();

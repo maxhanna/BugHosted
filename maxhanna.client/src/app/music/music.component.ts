@@ -233,6 +233,10 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       }
     } catch (e) { console.debug('[YT] DOM cleanup failed', e); }
 
+    // important: clear the container contents
+    if (this.musicVideo?.nativeElement) {
+      this.musicVideo.nativeElement.innerHTML = '';
+    }
     // clear references
     this.ytPlayer = undefined;
     this.playerReady = false;
@@ -926,16 +930,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   private hardRebuild(id: string) {
-    try { this.ytPlayer?.destroy(); } catch { }
-    this.ytPlayer = undefined;
-    this.playerReady = false;
-
-    // important: clear the container contents
-    if (this.musicVideo?.nativeElement) {
-      this.musicVideo.nativeElement.innerHTML = '';
-    }
-
-    this.rebuildYTPlayer(id, [], 0);
+    this.destroyYTPlayer();   
+    setTimeout(() => this.rebuildYTPlayer(id, [], 0), 100);
   }
 
 
