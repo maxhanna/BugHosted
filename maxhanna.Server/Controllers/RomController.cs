@@ -942,12 +942,14 @@ ON DUPLICATE KEY UPDATE
         // Stream the file (no ToArray!)
         Stream dataStream = file.OpenReadStream();
 
-        // Decompress if client sent gzip
-        // var encoding = form["encoding"].ToString() ?? "identity";
-        // if (string.Equals(encoding, "gzip", StringComparison.OrdinalIgnoreCase))
-        // {
-        //   dataStream = new System.IO.Compression.GZipStream(dataStream, System.IO.Compression.CompressionMode.Decompress);
-        // }
+        // Read the incoming stream into a byte[] (MemoryStream)
+        byte[] stateBytes;
+        using (var ms = new MemoryStream())
+        {
+          await dataStream.CopyToAsync(ms);
+          stateBytes = ms.ToArray();
+        }
+
 
         await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
         await conn.OpenAsync();
@@ -966,13 +968,11 @@ ON DUPLICATE KEY UPDATE
 
         cmd.Parameters.AddWithValue("@UserId", userId);
         cmd.Parameters.AddWithValue("@RomName", romName);
-        cmd.Parameters.AddWithValue("@FileSize", file.Length);
-
-        // ←←← THIS IS THE KEY: stream directly
+        cmd.Parameters.AddWithValue("@FileSize", file.Length); 
         var blobParam = cmd.Parameters.Add("@StateData", MySqlDbType.LongBlob);
-        blobParam.Value = dataStream;
-        blobParam.Size = (int)file.Length;
-
+        blobParam.Value = stateBytes;
+        blobParam.Size = stateBytes.Length;
+        
         await cmd.ExecuteNonQueryAsync();
 
         _ = _log.Db($"EJS save OK: {romName} | {file.Length} bytes | {totalSw.ElapsedMilliseconds}ms", userId, "ROM", true);
