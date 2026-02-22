@@ -420,21 +420,15 @@ export class RomService {
         body: JSON.stringify({ UserId: userId, RomName: romName }),
       });
 
-      if (!response.ok) return null;
-
-      const enc = (response.headers.get('X-EJS-Encoding') || 'identity').toLowerCase();
-      const encoding: 'gzip' | 'identity' = enc === 'gzip' ? 'gzip' : 'identity';
+      if (!response.ok) return null; 
 
       const blob = await response.blob();
       let u8: Uint8Array = new Uint8Array(await blob.arrayBuffer());
-
-      if (encoding === 'gzip') {
-        u8 = await this.gunzip(u8); // u8 stays Uint8Array ✅
-      }
-
+      
       // Convert to tight ArrayBuffer only at the end
       return new Blob([this.toArrayBuffer(u8)], { type: 'application/octet-stream' });
-    } catch {
+    } catch (e) {
+      console.warn('[EJS] getEmulatorJSSaveState failed:', e);
       return null;
     }
   }
