@@ -1616,8 +1616,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 }
 
 /* Separate nudges so they sit nicely; adjust if you want more spacing */
-.max-pill.is-a { transform: translate(${translateXA}px,  6px) !important; }  /* A: left & a hair up */
-.max-pill.is-b { transform: translate(${translateXB}px, 20px) !important; }  /* B: more left & a bit down */
+.max-pill.is-a { transform: translate(${translateXA}px, ${translateYA}px) !important; }  /* A: left & a hair up */
+.max-pill.is-b { transform: translate(${translateXB}px, ${translateYB}px) !important; }  /* B: more left & a bit down */
 
 .max-sega {
   width: ${SEGA}px !important;
@@ -1903,7 +1903,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     return items;
   }
-  
+
   /** Return a soft clamp for render buffer size based on core. */
   private getRenderClampForCore(core: string) {
     const heavy = new Set([
@@ -1980,8 +1980,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // Initial call after a short delay so DOM settles
     setTimeout(() => this.resizeCanvasBuffer(), 300);
   }
- 
-  /* ---------- Small helper to call when emulator is ready ---------- */
+  
   private onEmulatorReadyForSizing() {
     // Bind resize buffer so canvas buffer follows host size
     try { this.bindResizeBuffer(); } catch (e) { console.warn('[EJS] bindResizeBuffer failed', e); }
