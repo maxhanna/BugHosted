@@ -79,6 +79,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private _inFlightSavePromise?: Promise<boolean>;
   private _exiting = false;
   private exitSaving = false;
+  private stopEmuSaving = false;
 
 
   constructor(
@@ -115,21 +116,35 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   async safeExit(): Promise<void> {
     this.clearAutosave();
     if (!this.romName || !this.parentRef?.user?.id) {
-      return this.navigateHome();
+      if (this.stopEmuSaving) { 
+        this.fullReloadToEmulator();
+      } else { 
+        return this.navigateHome();
+      }
     }
 
     // If we've saved recently (within 10s), skip asking the user again.
     const now = Date.now();
     if (!this._saveInProgress && now - this._lastSaveTime < 10000) {
-      return this.navigateHome();
+      if (this.stopEmuSaving) {
+        this.fullReloadToEmulator();
+      } else {
+        return this.navigateHome();
+      }
     }
 
     // Ask user once
     const shouldSave = window.confirm('Save emulator state before closing?');
     if (!shouldSave) {
-      return this.navigateHome();
+      if (this.stopEmuSaving) {
+        this.fullReloadToEmulator();
+      } else {
+        return this.navigateHome();
+      }
     }
-    this.exitSaving = true;  
+    if (!this.stopEmuSaving) {
+      this.exitSaving = true;
+    }
     this.callEjsSave();
   }
 
@@ -151,7 +166,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   private async loadRomThroughService(fileName: string, fileId?: number) {
     if (window.__ejsLoaderInjected) {
-      return this.fullReloadToHome();
+      return this.fullReloadToEmulator();
     }
 
     this.startLoading();
@@ -367,7 +382,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       try { this.uploadPendingSavesOnStartup(); } catch { }
     } else {
       this.stopLoading();
-      this.fullReloadToHome();
+      this.fullReloadToEmulator();
       return;
     }
 
@@ -792,7 +807,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         setTimeout(() => {
           this.status = tmpStatus;
           this.cdr.detectChanges();
-          if (this.exitSaving) {
+          if (this.stopEmuSaving) {
+            this.fullReloadToEmulator();
+          } else {
             return this.navigateHome();
           }
         }, 2000);
@@ -1070,17 +1087,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.startLoading();
     this.cdr.detectChanges();
 
-    if (this.romName && this.parentRef?.user?.id) {
-      const shouldSave = window.confirm('Save emulator state before closing?');
-      if (shouldSave) { await this.flushSavesBeforeExit(12000); }
-    }
-
-    this.clearAutosave();
-    this.isSearchVisible = true;
-    this.romName = undefined;
-    this.stopLoading();
-    this.cdr.detectChanges();
-    this.fullReloadToHome();
+    await this.safeExit(); 
   }
 
   /**
@@ -1952,12 +1959,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (item) item.expanded = !item.expanded;
   }
 
-  private getEmuHomeUrl(): string {
+  private getEmuUrl(): string {
     return `${location.protocol}//${location.host}/Emulator`;
   }
 
-  private fullReloadToHome(extraParams?: Record<string, string>): void {
-    const base = this.getEmuHomeUrl();
+  private fullReloadToEmulator(extraParams?: Record<string, string>): void {
+    const base = this.getEmuUrl();
     const q = extraParams ? `?${new URLSearchParams(extraParams).toString()}` : '';
     window.location.replace(base + q);
   }
