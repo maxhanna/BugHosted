@@ -69,6 +69,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   private ytReady = false;
   private pendingPlay?: { url?: string; fileId?: number | null }; // queue if API not ready yet
   private ytApiPromise?: Promise<void>;
+  private shouldShufflePlaylist = false;
   private locationSub?: SubscriptionLike;
   private radioAudioEl?: HTMLAudioElement;
   private screenLock?: any;
@@ -186,17 +187,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   ngOnDestroy(): void {
-    console.log('[Music]', this.instance, 'ngOnDestroy');
-    console.trace('[Music] destroy stack');
-
-    this.stopYtHealthWatch();
-    try { this.ytPlayer?.stopVideo(); } catch { console.error("Error stopping YT video"); }
-    try { this.ytPlayer?.destroy(); } catch { console.error("Error destroying YT player"); }
-    this.ytPlayer = undefined;
-
-    // Clear pending play queue
-    this.pendingPlay = undefined;
-
+    console.log('[Music]', this.instance, 'ngOnDestroy'); 
+    this.destroyYTPlayer();
     // Clear timers
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
@@ -214,10 +206,37 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       try { this.radioAudioEl.pause(); } catch { }
       try { this.radioAudioEl.remove(); } catch { }
       this.radioAudioEl = undefined;
-    }
-
-    this.mo?.disconnect();
+    } 
   }
+
+  private destroyYTPlayer() {
+    // stop health timers and observers
+    this.stopYtHealthWatch();
+    this.mo?.disconnect();
+
+    // stop playback
+    try { this.ytPlayer?.stopVideo(); } catch (e) { console.debug('[YT] stopVideo failed', e); }
+
+    // destroy the YT player object
+    try { this.ytPlayer?.destroy(); } catch (e) { console.debug('[YT] destroy failed', e); }
+
+    // remove any leftover iframe and clear container
+    try {
+      const container = this.musicVideo?.nativeElement;
+      if (container) {
+        const iframe = container.querySelector('iframe');
+        if (iframe && iframe.parentElement) iframe.parentElement.removeChild(iframe);
+        container.innerHTML = '';
+      }
+    } catch (e) { console.debug('[YT] DOM cleanup failed', e); }
+
+    // clear references
+    this.ytPlayer = undefined;
+    this.playerReady = false;
+    this.pendingPlay = undefined;
+    this.ytDeadCount = 0;
+  }
+
 
   private async tryInitialLoad() {
     const parent = this.inputtedParentRef ?? this.parentRef;
@@ -574,6 +593,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   reorderTable(event?: Event, targetOrder?: string) {
     if (!this.songs || this.songs.length === 0) return;
     const order = event ? (event.target as HTMLSelectElement).value : targetOrder;
+    // Track whether we want the YT player's playlist to be shuffled
+    this.shouldShufflePlaylist = order === 'Random';
     const songsCopy = [...this.songs]; // Create a copy to avoid modifying original
     switch (order) {
       case "Alphanumeric ASC":
@@ -596,7 +617,17 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
         this.songs = songsCopy.sort((a, b) => (a.todo || '').localeCompare(b.todo || ''));
     }
     this.currentPage = 1; // Reset to first page on reorder
+    // If we're dealing with YouTube and want random order, refresh the local queue
+    // and reload the player's playlist so we can call setShuffle on it.
     this.updatePaginatedSongs();
+    if (this.selectedType === 'youtube') {
+      this.rebuildLocalYtQueue();
+      if (this.ytPlayer && this.playerReady && this.ytIds && this.ytIds.length) {
+        try {
+          this.switchWithinPlaylist(this.ytIds, 0);
+        } catch (e) { console.warn('[Music] reload playlist after reorder failed', e); }
+      }
+    }
   }
 
   getPlaylistForYoutubeUrl(url: string): string[] {
@@ -941,6 +972,13 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
               iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
               iframe.setAttribute('referrerpolicy', 'origin-when-cross-origin');
               iframe.style.setProperty('max-width', '100%', 'important');
+              // If we previously requested a shuffled playlist, attempt to apply it
+              try {
+                const anyPlayer = this.ytPlayer as any;
+                if (this.shouldShufflePlaylist && typeof anyPlayer.setShuffle === 'function') {
+                  anyPlayer.setShuffle(true);
+                }
+              } catch { }
             } catch { }
 
             this.ngZone.run(() => this.startYtHealthWatch());
@@ -1004,6 +1042,13 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
         this.lastPlaylistKey = key;
         this.ytPlayer.loadPlaylist(ids, index, 0, 'small');
         this.ytPlayer.playVideo();
+        // Apply shuffle setting if requested and supported by the player API
+        try {
+          const anyPlayer = this.ytPlayer as any;
+          if (this.shouldShufflePlaylist && typeof anyPlayer.setShuffle === 'function') {
+            anyPlayer.setShuffle(true);
+          }
+        } catch (ex) { /* ignore */ }
       }
     } catch (e) {
       console.warn('[YT] switchWithinPlaylist failed', e);
