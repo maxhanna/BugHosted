@@ -568,6 +568,11 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
     const rotated = this.rotatePlaylistFromId(ids, rndId);
 
+    // Update local queue so subsequent playlist navigation continues from the random pick
+    this.ytIds = rotated;
+    this.ytIndex = 0;
+    this.lastPlaylistKey = rotated.join(',');
+
     // ❗USE ensureYTPlayerBuilt — do NOT rebuild
     this.ensureYTPlayerBuilt(rotated[0], rotated, 0);
 
