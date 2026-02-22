@@ -628,7 +628,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private async onSaveState(raw: any) {
     if (this._exiting) { return; }
     const tmpStatus = this.status;
-    this.status = 'Saving State.';
+    this.status = 'Saving State. Please wait... (as change might corrupt save data)';
 
     // If we're trying to capture a single save for exit (fire-and-forget),
     // resolve the capture promise and skip the normal upload path.
