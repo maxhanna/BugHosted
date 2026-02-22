@@ -400,14 +400,17 @@ export class RomService {
       const ct = (res.headers.get('content-type') || '').toLowerCase();
 
       console.debug('[EJS] saveEmulatorJSState response:', { status, res });
-      
+
+      const json = await res.json();       // parse JSON
+      const text = await res.text();       // read as text
+
       if (!res.ok) {
-        const errorBody = ct.includes('application/json') ? await res.json().catch(() => null) : await res.text();
+        const errorBody = ct.includes('application/json') ? json : text;
         const errorText = typeof errorBody === 'string' ? errorBody : JSON.stringify(errorBody ?? { error: 'Upload failed' });
         return { ok: false, status, errorText } as SaveUploadResponse;
-      }
+      }  
 
-      const body = ct.includes('application/json') ? await res.json().catch(() => null) : await res.text();
+      const body = ct.includes('application/json') ? json : text;
       return { ok: true, status, body } as SaveUploadResponse;
     } catch (error: any) {
       return { ok: false, status: 0, errorText: String(error?.message ?? error) } as SaveUploadResponse;
