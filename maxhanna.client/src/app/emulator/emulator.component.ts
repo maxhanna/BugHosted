@@ -1964,6 +1964,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   resetGame() {
+    if (!this.romName) return;
     const confirm = window.confirm('Are you sure you want to reset the game? The next save will overwrite your current progress.');
     if (confirm) { 
       this.fullReloadToEmulator(this.getReloadParamsSkipSave());

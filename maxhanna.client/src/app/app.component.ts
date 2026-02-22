@@ -1,5 +1,6 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ComponentRef, OnDestroy, OnInit, Renderer2, ViewChild, ViewContainerRef } from '@angular/core';
-import { ActivatedRoute, NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { AfterViewInit, ChangeDetectorRef, Component, ComponentRef, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
+import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { Location } from '@angular/common';
 import { CalendarComponent } from './calendar/calendar.component';
 import { FavouritesComponent } from './favourites/favourites.component';
 import { WeatherComponent } from './weather/weather.component';
@@ -16,8 +17,7 @@ import { SocialComponent } from './social/social.component';
 import { NewsComponent } from './news/news.component';
 import { NavigationComponent } from './navigation/navigation.component';
 import { WordlerComponent } from './wordler/wordler.component';
-import { UpdateUserSettingsComponent } from './update-user-settings/update-user-settings.component';
-import { EmulationComponent } from './emulation/emulation.component';
+import { UpdateUserSettingsComponent } from './update-user-settings/update-user-settings.component'; 
 import { ArrayComponent } from './array/array.component';
 import { NexusComponent } from './nexus/nexus.component';
 import { MetaComponent } from './meta/meta.component';
@@ -357,7 +357,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     private meta: Meta,
     private title: Title,
     private changeDetectorRef: ChangeDetectorRef,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private angLocation: Location,
   ) { }
 
   ngOnInit() {
@@ -385,17 +386,20 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         if (this.router.url.includes('Memes')) {
           this.checkAndClearRouterOutlet();
           const memeId = this.router.url.toLowerCase().split('memes/')[1]?.split('?')[0];
+          this.angLocation.replaceState(this.router.url.split('?')[0]);
           this.createComponent("Meme", { "memeId": memeId });
         }
         else if (this.router.url.includes('Social')) {
           this.checkAndClearRouterOutlet();
           const storyId = this.router.url.toLowerCase().split('social/')[1]?.split('?')[0];
+          this.angLocation.replaceState(this.router.url.split('?')[0]);
           this.createComponent("Social", { "storyId": storyId });
         }
         else if (this.router.url.includes('User')) {
           this.checkAndClearRouterOutlet();
           const userId = this.router.url.toLowerCase().split('user/')[1]?.split('?')[0].split('/')[0];
           const storyId = this.router.url.toLowerCase().split('user/')[1]?.split('/')[1];
+          this.angLocation.replaceState(this.router.url.split('?')[0]);
           this.createComponent("User", { "userId": userId, storyId: storyId });
         }
         else if (this.router.url.toLowerCase().includes('emulator')) {
@@ -410,6 +414,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
             if (id && !isNaN(Number(id))) inputs.presetRomId = Number(id);
             if (typeof skip !== 'undefined' && skip !== null) inputs.skipSaveFileRequested = (String(skip).toLowerCase() === 'true' || String(skip) === '1');
             this.checkAndClearRouterOutlet();
+            this.angLocation.replaceState(this.router.url.split('?')[0]);
             this.createComponent('Emulator', inputs);
           } catch (e) {
             this.checkAndClearRouterOutlet();
@@ -419,11 +424,13 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         else if (this.router.url.includes('File') && !this.router.url.includes('Emulator')) {
           this.checkAndClearRouterOutlet();
           const fileId = this.router.url.toLowerCase().split('file/')[1]?.split('?')[0];
+          this.angLocation.replaceState(this.router.url.split('?')[0]);
           this.createComponent("Files", { "fileId": fileId });
         }
         else if (this.router.url.includes('Media')) {
           this.checkAndClearRouterOutlet();
           const fileId = this.router.url.toLowerCase().split('media/')[1]?.split('?')[0];
+          this.angLocation.replaceState(this.router.url.split('?')[0]);
           this.createComponent("MediaViewer", { "fileId": fileId, "isLoadedFromURL": true });
         }
         else if (this.router.url.includes('Crawler')) {
@@ -431,6 +438,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           const url = this.router.url.toLowerCase().split('crawler/')[1]?.split('?')[0];
           if (url) {
             this.createComponent("Crawler", { "url": url });
+            this.angLocation.replaceState(this.router.url.split('?')[0]);
           } else {
             this.createComponent("Crawler");
           }
@@ -512,7 +520,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   }
   checkAndClearRouterOutlet() {
     if (this.outlet) {
-      //console.log("Router outlet is activated, navigating to root to clear it.");
       this.router.navigate(['/']);
       this.router.dispose();
     }
@@ -662,7 +669,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
     return btoa(String.fromCharCode(...combined));
   } 
-  
+
   openModal(isModal?: boolean, hasGamingFont?: boolean) {
     this.isModalOpen = true;
     setTimeout(() => {
