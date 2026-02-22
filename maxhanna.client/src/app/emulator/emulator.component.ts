@@ -78,6 +78,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private _saveInProgress: boolean = false;
   private _inFlightSavePromise?: Promise<boolean>;
   private _exiting = false;
+  
 
   constructor(
     private romService: RomService,
@@ -590,6 +591,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   private async onSaveState(raw: any) {
     if (this._exiting) { return; }
+    
 
     // If we're trying to capture a single save for exit (fire-and-forget),
     // resolve the capture promise and skip the normal upload path.
@@ -653,16 +655,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     this._saveInProgress = true;
     try {
-      // capture as "in-flight"
+      // capture as "in-flight" but route through uploadSaveBytes to dedupe
       await this.trackInFlight((async () => {
-        const result = await this.romService.saveEmulatorJSState(this.romName!, this.parentRef!.user!.id!, u8);
-        if (result.ok) {
-          this._lastSaveTime = Date.now();
-          console.log('Save state saved to database (bytes=', u8.length, ')');
+        const ok = await this.uploadSaveBytes(u8);
+        if (ok) {
           if (this._pendingSaveResolve) { try { this._pendingSaveResolve(true); } catch { } this._pendingSaveResolve = undefined; }
           return true;
         } else {
-          console.error('Save state upload failed:', result.errorText);
           if (this._pendingSaveResolve) { try { this._pendingSaveResolve(false); } catch { } this._pendingSaveResolve = undefined; }
           return false;
         }
@@ -753,20 +752,41 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private async uploadSaveBytes(u8: Uint8Array) {
     if (!u8?.length) {
       console.log('[EJS] uploadSaveBytes: no bytes to upload; skipping');
-      return;
+      return false;
     }
     if (!this.parentRef?.user?.id || !this.romName) {
       console.log('[EJS] uploadSaveBytes: no user or rom; skipping upload');
-      return;
+      return false;
     }
 
-    const res = await this.romService.saveEmulatorJSState(this.romName!, this.parentRef.user.id!, u8);
-    if (res.ok) {
-      this._lastSaveTime = Date.now();
-      console.log(`[EJS] Save state uploaded (${u8.length} bytes)`);
-    } else {
-      console.error('[EJS] Save upload failed:', res.errorText);
+    // If an upload is already in-flight, return the same promise so concurrent
+    // callers will await the same network request instead of issuing duplicates.
+    if (this._inFlightSavePromise) {
+      try { return await this._inFlightSavePromise; } catch { return false; }
     }
+
+    this._inFlightSavePromise = (async () => {
+      this._saveInProgress = true;
+      try {
+        const res = await this.romService.saveEmulatorJSState(this.romName!, this.parentRef!.user!.id!, u8);
+        if (res.ok) {
+          this._lastSaveTime = Date.now();
+          console.log(`[EJS] Save state uploaded (${u8.length} bytes)`);
+          return true;
+        } else {
+          console.error('[EJS] Save upload failed:', res.errorText);
+          return false;
+        }
+      } catch (err) {
+        console.error('[EJS] Save upload exception:', err);
+        return false;
+      } finally {
+        this._saveInProgress = false;
+        this._inFlightSavePromise = undefined;
+      }
+    })();
+
+    return await this._inFlightSavePromise;
   }
 
   /** Attempt a save and wait for `onSaveState` callback. Resolves true if saved. */
