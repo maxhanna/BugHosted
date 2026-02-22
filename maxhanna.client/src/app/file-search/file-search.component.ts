@@ -1386,7 +1386,7 @@ private async loadFileByIdOnce(id: number) {
       case 'nds': return 'NDS';
       case 'nes': return 'NES';
       case 'snes': return 'SNES';
-      case 'genesis': return 'Genesis';
+      case 'genesis': return 'SEGA';
       default: return key.toUpperCase();
     }
   } 
