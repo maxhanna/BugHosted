@@ -28,7 +28,7 @@ const routes: Routes = [
   { path: 'Emulator', component: AppComponent },
   { path: 'N64Emulator', component: AppComponent },
   { path: 'PS1Emulator', component: AppComponent },
-  { path: 'Emulator', component: AppComponent },
+  { path: 'Emulator/:romName/:romId/:skipSaveFile', component: AppComponent },
   { path: 'Emulation', component: AppComponent },
   { path: 'N64Emulation', component: AppComponent },
   { path: 'PS1Emulation', component: AppComponent },

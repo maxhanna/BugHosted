@@ -1,5 +1,5 @@
 
-import { AfterViewInit, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { RomService } from '../../services/rom.service';
@@ -15,12 +15,13 @@ import { FileSearchComponent } from '../file-search/file-search.component';
 export class EmulatorComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild(FileSearchComponent) fileSearchComponent?: FileSearchComponent;
 
+  @Input() presetRomName?: string;
+  @Input() presetRomId?: number | undefined;
+  @Input() skipSaveFileRequested = false;
+
   isMenuPanelOpen = false;
   isFullScreen = false;
   romName?: string;
-  presetRomName?: string;
-  presetRomId?: number | undefined;
-  skipSaveFileRequested = false;
   system?: System;
   isFileUploaderExpanded = false;
   isFaqOpen = false;
@@ -97,27 +98,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (this.parentRef) {
       this.parentRef.preventShowSecurityPopup = true;
       this.parentRef.navigationComponent.stopNotifications();
-    }
-
-    try {
-      const url = new URL(window.location.href);
-      const sp = url.searchParams;
-      const qRom = sp.get('romname') || sp.get('romName') || (window as any).romname || (window as any).romName;
-      const qRomId = sp.get('romId') || sp.get('romID') || (window as any).romId || (window as any).romID;
-      const qSkip = sp.get('skipSaveFile') || (window as any).skipSaveFile;
-
-      if (qRom) {
-        this.presetRomName = String(qRom);
-      }
-      if (qRomId) {
-        const parsed = Number(qRomId);
-        if (!isNaN(parsed)) this.presetRomId = parsed;
-      }
-      if (typeof qSkip !== 'undefined' && qSkip !== null) {
-        const v = String(qSkip).toLowerCase();
-        this.skipSaveFileRequested = v === '1' || v === 'true' || v === 'yes';
-      }
-    } catch (e) { /* ignore URL parsing failures */ }
+    } 
   }
 
   async ngAfterViewInit() {

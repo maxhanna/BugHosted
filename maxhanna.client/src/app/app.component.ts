@@ -397,7 +397,26 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           const storyId = this.router.url.toLowerCase().split('user/')[1]?.split('/')[1];
           this.createComponent("User", { "userId": userId, storyId: storyId });
         }
-        else if (this.router.url.includes('File')) {
+        else if (this.router.url.toLowerCase().includes('emulator')) {
+          // Prioritize emulator routes (supports query params like ?romname=...&romId=...&skipSaveFile=true)
+          try {
+            const url = new URL(window.location.href);
+            const sp = url.searchParams;
+            const rom = sp.get('romname') || sp.get('romName') || undefined;
+            const id = sp.get('romId') || sp.get('romID') || undefined;
+            const skip = sp.get('skipSaveFile') || sp.get('skipsavefile') || undefined;
+            const inputs: any = {};
+            if (rom) inputs.presetRomName = rom;
+            if (id && !isNaN(Number(id))) inputs.presetRomId = Number(id);
+            if (typeof skip !== 'undefined' && skip !== null) inputs.skipSaveFileRequested = (String(skip).toLowerCase() === 'true' || String(skip) === '1');
+            this.checkAndClearRouterOutlet();
+            this.createComponent('Emulator', inputs);
+          } catch (e) {
+            this.checkAndClearRouterOutlet();
+            this.createComponent('Emulator');
+          }
+        }
+        else if (this.router.url.includes('File') && !this.router.url.includes('Emulator')) {
           this.checkAndClearRouterOutlet();
           const fileId = this.router.url.toLowerCase().split('file/')[1]?.split('?')[0];
           this.createComponent("Files", { "fileId": fileId });
