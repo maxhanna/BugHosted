@@ -990,7 +990,7 @@ ON DUPLICATE KEY UPDATE
       using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
       {
         await conn.OpenAsync();
-        var cmd = new MySqlCommand(@"SELECT data, encoding, original_size FROM maxhanna.emulator_save_states
+        var cmd = new MySqlCommand(@"SELECT data, encoding, original_size FROM maxhanna.emulatorjs_save_states
                                      WHERE user_id = @uid AND rom_name = @rom LIMIT 1", conn);
         cmd.Parameters.AddWithValue("@uid", req.UserId);
         cmd.Parameters.AddWithValue("@rom", req.RomName);
