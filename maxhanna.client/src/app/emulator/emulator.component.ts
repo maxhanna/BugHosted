@@ -93,15 +93,15 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private _captureSaveResolve?: (u8: Uint8Array | null) => void;
   private _gameSizeObs?: ResizeObserver;
   private _gameAttrObs?: MutationObserver;
-  private _saveFn?: () => Promise<void>;
-  private _autosaveKick?: any;
+  private _saveFn?: () => Promise<void>; 
   private _lastSaveTime: number = 0;
   private _saveInProgress: boolean = false;
   private _inFlightSavePromise?: Promise<boolean>;
   private _exiting = false;
   private exitSaving = false;
   private stopEmuSaving = false;
-  private lastGoodSaveSize = new Map<string, number>()
+  private lastGoodSaveSize = new Map<string, number>();
+  private gameLoadDate?: Date | undefined;
   
   constructor(
     private romService: RomService,
@@ -207,6 +207,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     this.startLoading();
+    this.gameLoadDate = new Date();
     this.isSearchVisible = false;
     this.status = "Loading Rom - " + this.fileService.getFileWithoutExtension(fileName);
     this.cdr.detectChanges();
@@ -854,25 +855,27 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return await this._inFlightSavePromise;
   } 
 
-  setupAutosave() {
+  setupAutosave() { 
     try { this.clearAutosave(); } catch { }
     if (!this.autosave || !this.romName || !this.parentRef?.user?.id) return; 
-
-    const kickDelay = Math.max(this.autosaveIntervalTime, 180000);
-    this._autosaveKick = setTimeout(() => {
-      console.log('[EJS] autosave initial kick after', kickDelay, 'ms');
-      this.callEjsSave();
-    }, kickDelay);
-
+ 
     this.autosaveInterval = setInterval(() => {
       try { 
+        if (this._saveInProgress) {
+          console.log('[EJS] Autosave skipped: save in progress');
+          return;
+        }
+        const intervalTimeNeeded = Math.max(this.autosaveIntervalTime, 180000);
+        if (this.gameLoadDate && Date.now() - this.gameLoadDate.getTime() < intervalTimeNeeded) {
+          console.log('[EJS] Autosave skipped: game loaded less than ' + (intervalTimeNeeded / 60000) + ' minutes ago');
+          return;
+        }
         this.callEjsSave();
       } catch (e) { console.warn('Autosave call failed', e); }
     }, this.autosaveIntervalTime);
   }
 
-  clearAutosave() {
-    if (this._autosaveKick) { clearTimeout(this._autosaveKick); this._autosaveKick = undefined; }
+  clearAutosave() { 
     if (this.autosaveInterval) { clearInterval(this.autosaveInterval); this.autosaveInterval = undefined; }
     if (this._pendingSaveTimer) { clearTimeout(this._pendingSaveTimer); this._pendingSaveTimer = undefined; }
   }
