@@ -842,15 +842,17 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           this.status = `Save Complete! (took ${ms ? ms/1000 + 's' : 'a moment'})`;
           this.cdr.detectChanges();
         }
-        setTimeout(() => {
-          this.status = tmpStatus;
-          this.cdr.detectChanges();
-          if (this.stopEmuSaving) {
-            this.fullReloadToEmulator();
-          } else if (this.exitSaving) {
-            return this.navigateHome();
-          }
-        }, 2000);
+        if (!this.stopEmuSaving && !this.exitSaving) {
+          setTimeout(() => {
+            this.status = tmpStatus;
+            this.cdr.detectChanges();
+          }, 4000);
+        } 
+        if (this.stopEmuSaving) {
+          this.fullReloadToEmulator();
+        } else if (this.exitSaving) {
+          return this.navigateHome();
+        }
       }
     })();
 
