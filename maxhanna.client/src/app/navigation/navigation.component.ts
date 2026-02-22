@@ -145,23 +145,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    clearInterval(this.cryptoHubInterval);
-    clearInterval(this.calendarInfoInterval);
-    clearInterval(this.wordlerInfoInterval);
-    clearInterval(this.notificationInfoInterval);
-    clearInterval(this.enderInterval);
-    clearInterval(this.nexusInterval);
-    clearInterval(this.metaInterval);
-    clearInterval(this.musicInterval);
-    clearInterval(this.arrayInterval);
-    clearInterval(this.emulationInterval);
-    clearInterval(this.emulationN64Interval);
-    clearInterval(this.socialInterval);
-    clearInterval(this.crawlerInterval);
-    clearInterval(this.artInterval);
-    clearInterval(this.bonesInterval);
-    this.showAppSelectionHelp = false;
-    this.clearNotifications();
+    this.showAppSelectionHelp = false; 
+    this.stopNotifications();
   }
 
   clearNotifications() {
@@ -234,23 +219,27 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   stopNotifications() {
-    console.log("stopping notifs")
-    this.notificationsActive = false;
-    clearInterval(this.notificationInfoInterval);
-    clearInterval(this.cryptoHubInterval);
-    clearInterval(this.calendarInfoInterval);
-    clearInterval(this.wordlerInfoInterval);
-    clearInterval(this.enderInterval);
-    clearInterval(this.bonesInterval);
-    clearInterval(this.nexusInterval);
-    clearInterval(this.metaInterval);
-    clearInterval(this.musicInterval);
-    clearInterval(this.arrayInterval);
-    clearInterval(this.emulationInterval);
-    clearInterval(this.emulationN64Interval);
-    clearInterval(this.artInterval);
-    clearInterval(this.socialInterval);
-    clearInterval(this.crawlerInterval);
+    try { 
+      console.log("stopping notifs")
+      this.notificationsActive = false;
+      clearInterval(this.notificationInfoInterval);
+      clearInterval(this.cryptoHubInterval);
+      clearInterval(this.calendarInfoInterval);
+      clearInterval(this.wordlerInfoInterval);
+      clearInterval(this.enderInterval);
+      clearInterval(this.bonesInterval);
+      clearInterval(this.nexusInterval);
+      clearInterval(this.metaInterval);
+      clearInterval(this.musicInterval);
+      clearInterval(this.arrayInterval);
+      clearInterval(this.emulationInterval);
+      clearInterval(this.emulationN64Interval);
+      clearInterval(this.artInterval);
+      clearInterval(this.socialInterval);
+      clearInterval(this.crawlerInterval);
+    } catch (error) {
+      console.error('Error stopping notifications:', error);
+    }
   }
 
   private debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
@@ -511,7 +500,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getEnderPlayerInfo() {
-    if (!this.notificationsActive) return;
+    if (!this.notificationsActive) {
+      clearInterval(this.enderInterval);
+      return;
+    }
     this.isLoadingEnder = true;
     try {
       const res: any = await this.enderService.getActivePlayers(2);
@@ -546,7 +538,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getNexusPlayerInfo() {
-    if (!this.notificationsActive) return;
+    if (!this.notificationsActive) {
+      clearInterval(this.nexusInterval);
+      return;
+    }
     try {
       const res: any = await this.nexusService.getActivePlayers(2);
       this.nexusActivePlayers = res?.count ?? null;
@@ -578,7 +573,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getBonesPlayerInfo() {
-    if (!this.notificationsActive) return;
+    if (!this.notificationsActive) { 
+      clearInterval(this.bonesInterval);
+      return;
+    }
     this.isLoadingEnder = true;
     try {
       const res: any = await this.bonesService.getActivePlayers(2);
@@ -615,6 +613,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   private async getMetaPlayerInfo() {
     if (!this.notificationsActive) {
+      clearInterval(this.metaInterval);
       return;
     }
     try {
@@ -665,7 +664,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getArrayPlayerInfo() {
-    if (!this.notificationsActive) return;
+    if (!this.notificationsActive) {
+      clearInterval(this.arrayInterval);
+      return;
+    }
     try {
       const res: any = await this.arrayService.getActivePlayers(2);
       this.arrayActivePlayers = res?.count ?? null;

@@ -661,7 +661,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         title == "chat" || title == "meme" || title == "emulation" || title == "social" || title == "bug-wars" || title == "user" || title == "close menu"
       });
       this.parentRef.deleteCookie("user");
-      this.parentRef.clearAllNotifications();
+      this.parentRef.navigationComponent.clearNotifications();
       this.parentRef.user = undefined;
     }
     this.clearForm();

@@ -282,6 +282,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     ]);
     if (longIntervalCores.has(core)) {
       this.autosaveIntervalTime = 10 * 60 * 1000; // 10 minutes
+      console.log(`[EJS] Detected core "${core}", setting autosave interval to 10 minutes to reduce upload frequency for large save files.`);
     } else {
       this.autosaveIntervalTime = 3 * 60 * 1000; // default 3 minutes
     }
@@ -568,12 +569,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     w.EJS_fullscreenOnLoad = false;     // start in-window, let user choose fullscreen (bad option, to delete)
     w.EJS_fullscreenOnLoaded = false;   // start in-window, let user choose fullscreen
     w.EJS_fullscreen = false;           // start in-window, let user choose fullscreen (legacy option)
-    w.EJS_DEBUG_XX = true;              // debug options 
-    w.EJS_logCoreInfo = true;           // debug options 
-    w.EJS_logVideo = true;              // debug options 
-    w.EJS_logAudio = true;              // debug options 
-    w.EJS_logInput = true;              // debug options 
-    w.EJS_logSaves = true;              // debug options 
+    w.EJS_DEBUG_XX = false;              // debug options 
+    w.EJS_logCoreInfo = false;           // debug options 
+    w.EJS_logVideo = false;              // debug options 
+    w.EJS_logAudio = false;              // debug options 
+    w.EJS_logInput = false;              // debug options 
+    w.EJS_logSaves = false;              // debug options 
     w.EJS_afterStart = () => {
       try {
         const gameEl = document.getElementById('game');

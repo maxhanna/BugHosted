@@ -661,19 +661,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     combined.set(new Uint8Array(encrypted), iv.length);
 
     return btoa(String.fromCharCode(...combined));
-  }
-
-  clearAllNotifications() {
-    this.navigationComponent.clearNotifications();
-    this.navigationComponent.ngOnInit();
-  }
-  async getNotifications() {
-    this.navigationComponent.clearNotifications();
-    clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(async () => {
-      await this.navigationComponent.getNotifications();
-    }, 500);
-  }
+  } 
+  
   openModal(isModal?: boolean, hasGamingFont?: boolean) {
     this.isModalOpen = true;
     setTimeout(() => {
