@@ -1584,8 +1584,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const SEGA = 72;   // px (Genesis round buttons: A/B/C/X/Y/Z)
     const SEGA_FONT = 20; 
 
-    const translateXA = this.system != 'genesis' ? -24 : -36;
-    const translateXB = this.system != 'genesis' ? -36 : 15;
+    const translateXA = this.system != 'genesis' ? -24 : 34;
+    const translateXB = this.system != 'genesis' ? -36 : -6;
+
+    const translateYA = this.system != 'genesis' ? 6 : 34;
+    const translateYB = this.system != 'genesis' ? 20 : 0;
 
     style.textContent = `   
 .max-dpad { 
@@ -1778,7 +1781,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   genesisThreeRight(): VPadItem[] {
     return [
-      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 70, top: 25, input_value: 8, bold: true },
+      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 70, top: 5, input_value: 8, bold: true },
       { type: 'button', id: 'genB', text: 'B', location: 'right', left: 0, top: 35, input_value: 0, bold: true },
       { type: 'button', id: 'genA', text: 'A', location: 'right', left: -115, top: 85, input_value: 1, bold: true },
     ];
@@ -1787,7 +1790,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   genesisSixRight(): VPadItem[] {
     return [
       // Lower row A/B/C
-      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 70, top: 25, input_value: 8, bold: true },
+      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 70, top: 5, input_value: 8, bold: true },
       { type: 'button', id: 'genB', text: 'B', location: 'right', left: 0, top: 35, input_value: 0, bold: true },
       { type: 'button', id: 'genA', text: 'A', location: 'right', left: -115, top: 85, input_value: 1, bold: true },
       // Upper row X/Y/Z (match your build’s scheme)
