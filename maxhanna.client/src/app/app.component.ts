@@ -381,6 +381,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   ngAfterViewInit() {
     this.router.events.subscribe(event => {
       if (event instanceof NavigationEnd) {
+        console.log("NavigationEnd:", this.router.url);
         if (this.router.url.includes('Memes')) {
           this.checkAndClearRouterOutlet();
           const memeId = this.router.url.toLowerCase().split('memes/')[1]?.split('?')[0];
