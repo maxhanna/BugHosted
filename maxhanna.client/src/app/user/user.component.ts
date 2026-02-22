@@ -204,7 +204,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.setBackgroundImage();
       }
       if (!this.user) {
-        this.usersCount = await this.userService.getUserCount(); 
+        this.usersCount = await this.userService.getUserCount();
         const lidRes = await this.socialService.getLatestStoryId();
         if (lidRes) {
           this.latestSocialStoryId = parseInt(lidRes);
@@ -256,7 +256,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       this.numberOfArtUploaded = await this.fileService.getNumberOfArt(user.id);
 
       this.numberOfFavouritesCreated = await this.favouriteService.getFavouritesCount(user.id);
-      
+
       this.numberOfReactions = await this.reactionService.getReactionsCount(user.id);
 
       this.numberOfTopEntriesCreated = await this.topService.getEntriesCountByUser(user.id);
@@ -310,7 +310,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   closeEmulationBreakdownPopup() {
-    this.isEmulationBreakdownOpen = false; 
+    this.isEmulationBreakdownOpen = false;
   }
 
 
@@ -446,7 +446,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
           parent.navigationComponent.notificationsActive = true;
           parent.navigationComponent.getNotifications();
         }
-      }, 100); 
+      }, 100);
     }
     if (this.changedTheme) {
       this.parentRef?.navigationComponent.getThemeInfo(this.parentRef.user?.id ?? 0);
@@ -675,7 +675,6 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     }, 100);
   }
 
-
   async acceptFriendshipRequest(request: FriendRequest) {
     const res = await this.friendService.acceptFriendRequest(request.sender.id ?? 0, request.receiver.id ?? 0);
     this.parentRef?.showNotification(res);
@@ -851,7 +850,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       if (tmpUser && tmpUser.username && this.parentRef) {
         tmpUser.pass = undefined;
         this.parentRef.user = tmpUser;
-        this.parentRef.navigationComponent.getThemeInfo(); 
+        this.parentRef.navigationComponent.getThemeInfo();
         this.parentRef.resetUserCookie();
         this.parentRef.showNotification(`Access granted. Welcome ${(fromUserCreation ? 'to BugHosted' : 'back')} ${this.parentRef!.user?.username}`);
         this.parentRef.getLocation();
@@ -877,7 +876,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       this.stopLoading();
     }
   }
-  
+
   async fetchSecurityQuestionsForUsername() {
     const username = this.loginUsername?.nativeElement?.value?.trim();
     if (!username) return this.parentRef?.showNotification('Enter a username first');
@@ -1011,7 +1010,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       parent.closeOverlay();
     }
   }
-  openAboutPanel() { 
+  openAboutPanel() {
     this.loadWordlerData();
     this.loadMetaheroData();
     this.loadSongData();
@@ -1058,7 +1057,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.isBeingFollowedByUser = false;
         return;
       }
-  const tgtFollowRequest = this.friendRequests.find(x => x.sender.id === this.user?.id);
+      const tgtFollowRequest = this.friendRequests.find(x => x.sender.id === this.user?.id);
       if (tgtFollowRequest) {
         this.isBeingFollowedByUser = true;
         return;
