@@ -1,21 +1,22 @@
+<div class="closeButton" (click)="remove_me('UserComponent');"
+  *ngIf="canClose || (!loginOnly && (parentRef?.user || user))"></div>
+<div class="menuButton" (click)="showMenuPanel();" *ngIf="parentRef?.user || user"></div>
+<div *ngIf="previousComponent" [class]="'menuBackButton ' + (parentRef?.user ? 'menuBackButtonSpecial' : '')"
+  (click)="backButtonPressed();"></div>
+<!-- If the social panel is rendered, show a search button here that opens the social component's search popup -->
+<div *ngIf="user?.id && !loginOnly && socialComponent" class="topSearchButtonDiv"
+  (click)="socialComponent.showSearchSocialsPanel()">
+  🔍
+</div>
+<div class="componentTitle" *ngIf="!loginOnly">{{user ? user.username : 'Login'}}</div>
+
+<div *ngIf="parentRef?.user">
+  <app-notifications [minimalInterface]="true" [inputtedParentRef]="parentRef" [previousComponent]="'User'">
+  </app-notifications>
+</div>
+
 <div class="componentMain {{ user ? 'componentMainFullHeight' : ''}}" [style.paddingTop]="loginOnly ? '15px' : ''">
-  <div class="closeButton" (click)="remove_me('UserComponent');"
-    *ngIf="canClose || (!loginOnly && (parentRef?.user || user))"></div>
-  <div class="menuButton" (click)="showMenuPanel();" *ngIf="parentRef?.user || user"></div>
-  <div *ngIf="previousComponent" [class]="'menuBackButton ' + (parentRef?.user ? 'menuBackButtonSpecial' : '')"
-    (click)="backButtonPressed();"></div>
-  <!-- If the social panel is rendered, show a search button here that opens the social component's search popup -->
-  <div *ngIf="user?.id && !loginOnly && socialComponent" class="topSearchButtonDiv"
-    (click)="socialComponent.showSearchSocialsPanel()">
-    🔍
-  </div>
-  <div class="componentTitle" *ngIf="!loginOnly">{{user ? user.username : 'Login'}}</div>
-
-  <div *ngIf="parentRef?.user">
-    <app-notifications [minimalInterface]="true" [inputtedParentRef]="parentRef" [previousComponent]="'User'">
-    </app-notifications>
-  </div>
-
+  
   <div class="profileBackgroundContainer" *ngIf="user?.profileBackgroundPictureFile">
     <app-media-viewer [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"
       [showTopics]="false" [inputtedParentRef]="inputtedParentRef ?? parentRef"
