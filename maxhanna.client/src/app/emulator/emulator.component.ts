@@ -43,7 +43,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     },
     {
       question: "The game runs slowly or stutters.",
-      answerHtml: `Close other heavy apps/tabs, enable hardware acceleration in your browser, and try reducing the emulator rendering resolution if available.`,
+      answerHtml: `Close other heavy apps/tabs, enable hardware acceleration in your browser, and try reducing the emulator rendering resolution or screen size if available.`,
       expanded: false
     },
     {
@@ -84,8 +84,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private _exiting = false;
   private exitSaving = false;
   private stopEmuSaving = false;
-
-
+  
   constructor(
     private romService: RomService,
     private fileService: FileService, 
@@ -144,8 +143,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         return this.navigateHome();
       }
     }
-
-    // Ask user once
+    
     const shouldSave = window.confirm('Save emulator state before closing?');
     if (!shouldSave) {
       if (this.stopEmuSaving) {
@@ -221,12 +219,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const core = this.detectCore(fileName);
     const renderClamp = this.getRenderClampForCore(core);
     (window as any).EJS_renderClamp = renderClamp;  
-    window.EJS_core = core; 
+    window.EJS_core = core;  
+    this.system = this.systemFromCore(core); 
 
-
-    this.system = this.systemFromCore(core);
-
-    // Decide six-button for Genesis based on ROM + user preference
     const romDisplayName = this.fileService.getFileWithoutExtension(fileName); // e.g., "Ultimate MK3 (USA)"
     const genesisSix = (this.system === 'genesis') ? this.shouldUseGenesisSixButtons(romDisplayName) : false;
 
@@ -237,9 +232,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       segaShowLR: false,           // keep false to avoid L/R "pills"
       genesisSix: genesisSix,      // ⟵ pass the decision in
     });
-
-    // Bottom-left, small & subtle, close together.
-    // NOTE: `location: 'left'` puts them in the left column; `top` values push toward the bottom.
+    
     const speedButtons: VPadItem[] = [
       {
         type: 'button',
@@ -413,8 +406,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.stopLoading();
     this.cdr.detectChanges();
   }
-
-  /** Show only Quick Save/Load so we can programmatically trigger saves. */
+ 
   private hideEJSMenu() {
     (window as any).EJS_Buttons = {
       playPause: false,
@@ -526,10 +518,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       'pbp': 'pcsx_rearmed',
       // Doom
       'wad': 'prboom'
-    };
-    // If the extension is a generic BIN, try to guess the system from filename
-    // and pick a more appropriate core. Default to PSX (`pcsx_rearmed`) when
-    // ambiguous.
+    }; 
+
     if (ext === 'bin') {
       try {
         const guessed = this.romService?.guessSystemFromFileName(fileName);
@@ -583,8 +573,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       } catch { }
     };
   }
-
-  /** Create EJS_saveState polyfill if the build doesn't expose it. */
+ 
   private ensureSaveStatePolyfill() {
     const w = window as any;
     if (typeof w.EJS_saveState === 'function') return;
@@ -600,8 +589,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     } else {
       console.warn('[EJS] No gameManager.getState() found; cannot polyfill EJS_saveState');
     }
-  }
-
+  } 
 
   private async loadSaveStateFromDB(romFileName: string): Promise<Blob | null> {
     if (!this.parentRef?.user?.id) {
@@ -652,15 +640,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       || (this.romName ? this.fileService.getFileWithoutExtension(this.romName) : '');
 
     // Helpful diagnostics the first few times
-    this.debugDescribePayload(raw);
-
-    console.log(
-      '[EJS] onSaveState fired.',
-      'user?', !!this.parentRef?.user?.id,
-      'rom?', !!this.romName,
-      'hasPayload?', raw != null,
-      'type=', raw?.constructor?.name ?? typeof raw
-    );
+    //this.debugDescribePayload(raw); 
+    // console.log(
+    //   '[EJS] onSaveState fired.',
+    //   'user?', !!this.parentRef?.user?.id,
+    //   'rom?', !!this.romName,
+    //   'hasPayload?', raw != null,
+    //   'type=', raw?.constructor?.name ?? typeof raw
+    // );
 
     if (!this.parentRef?.user?.id || !this.romName) return;
 
@@ -705,9 +692,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this._saveInProgress = false;
       this.status = tmpStatus;
     }
-  }
+  } 
 
-  /** Capture bytes after any save path, then upload. */
   private async postSaveCaptureAndUpload(): Promise<boolean> {
     try {
       const w = window as any;
@@ -836,22 +822,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     })();
 
     return await this._inFlightSavePromise;
-  }
-
-  /** Attempt a save and wait for `onSaveState` callback. Resolves true if saved. */
-  private attemptSaveNow(timeoutMs = 5000): Promise<boolean> {
-    return new Promise<boolean>((resolve) => {
-      // if no user or rom, nothing to do
-      if (!this.parentRef?.user?.id || !this.romName) return resolve(false);
-      // set pending resolver
-      this._pendingSaveResolve = (v?: any) => { resolve(!!v); };
-      // call save trigger
-      try { this.callEjsSave(); } catch { }
-      // fallback timeout
-      try { this._pendingSaveTimer = setTimeout(() => { if (this._pendingSaveResolve) { this._pendingSaveResolve(false); this._pendingSaveResolve = undefined; } resolve(false); }, timeoutMs); } catch { resolve(false); }
-    });
-  }
-
+  } 
 
   setupAutosave() {
     try { this.clearAutosave(); } catch { }
@@ -895,18 +866,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       // Other
       'wad', 'ccd'
     ];
-  }
-
+  } 
 
   getAllowedRomFileTypesString(): string {
     return this.getAllowedFileTypes().map(e => '.' + e.trim().toLowerCase()).join(',');
   }
-
-
-  /** Compute a robust height string for the game host */
+  
   private getViewportHeightMinusHeader(pxHeader = 60): string {
-    // Prefer dynamic/small viewport units when available (CSS support picks them up).
-    // As a JS fallback, compute a pixel height using visualViewport.
     const vv = (window as any).visualViewport;
     const h = Math.round((vv?.height ?? window.innerHeight) - pxHeader);
     return `${h}px`;
@@ -1084,11 +1050,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     await this.safeExit(); 
   }
-
-  /**
-   * Probe common places where builds expose the running emulator instance or API.
-   * When a .saveState() function is found, cache it in this._saveFn.
-   */
+ 
   private async probeForSaveApi(maxMs = 3000): Promise<void> {
     const start = Date.now();
 
@@ -1145,8 +1107,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     } catch { }
     return null;
   }
-
-  /** Bind the Quick Save UI as our save function (used by autosave/manual save). */
+ 
   private tryBindSaveFromUI(): void {
     const btn = this.findQuickSaveButton();
     if (btn) {
@@ -1160,10 +1121,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     } else {
       console.warn('[EJS] Quick Save button not found; cannot bind UI-based save');
     }
-  }
+  } 
 
-
-  /** ---------------- TYPE GUARDS & CONVERTERS ---------------- */
   private isArrayBuffer(v: any): v is ArrayBuffer {
     return v && typeof v === 'object' && typeof (v as ArrayBuffer).byteLength === 'number' && typeof (v as ArrayBuffer).slice === 'function';
   }
@@ -1182,8 +1141,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
     return out;
   }
-
-  /** ---------------- PAYLOAD INSPECTOR (DEBUG) ---------------- */
+ 
   private debugDescribePayload(raw: any): void {
     try {
       const t = raw?.constructor?.name ?? typeof raw;
@@ -1201,12 +1159,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       console.log('[EJS] payload type:', t, 'keys:', keys, 'peek:', brief);
     } catch { }
   }
-
-  /** ---------------- DEEP NORMALIZER ----------------
-   * Try hard to convert ANY payload into Uint8Array:
-   * - direct types (Uint8Array/ArrayBuffer/Blob/string b64)
-   * - wrapper objects: { buffer }, { data }, { state }, { result }, { save }, { value }, { chunks: [...] }, etc.
-   */
+ 
   private async normalizeSavePayload(payload: any, depth = 0): Promise<Uint8Array | null> {
     try {
       if (!payload) return null;
@@ -1251,8 +1204,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     } catch { }
     return null;
   }
-
-  /** ---------------- localStorage FALLBACK (kept) ---------------- */
+  
   private tryReadSaveFromLocalStorage(gameID: string, gameName: string): Uint8Array | null {
     try {
       const ls = window.localStorage;
@@ -1451,20 +1403,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // also expose a boolean-ish promise for the barrier
     this._inFlightSavePromise = wrapped.then(() => true, () => false);
     return wrapped;
-  }
-
-  private delay(ms: number) {
-    return new Promise<void>(r => setTimeout(r, ms));
-  }
-
-  private toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-    const buf: any = (bytes as any).buffer;
-    if (buf instanceof ArrayBuffer) {
-      return buf.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-    }
-    const copy = Uint8Array.from(bytes);
-    return copy.buffer;
-  }
+  } 
 
   // ---------------- IndexedDB pending-save helpers ----------------
   private async openPendingDb(): Promise<IDBDatabase> {
@@ -1476,22 +1415,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
-  }
-
-  private async savePendingState(userId: number, romName: string, u8: Uint8Array): Promise<number | null> {
-    try {
-      const db = await this.openPendingDb();
-      const tx = db.transaction('pendingSaves', 'readwrite');
-      const store = tx.objectStore('pendingSaves');
-      const ab = this.toArrayBuffer(u8);
-      const blob = new Blob([ab]);
-      const addReq = store.add({ userId, romName, data: blob, ts: Date.now() });
-      return await new Promise<number | null>((resolve) => {
-        addReq.onsuccess = () => { resolve(addReq.result as number); db.close(); };
-        addReq.onerror = () => { resolve(null); db.close(); };
-      });
-    } catch (e) { console.warn('savePendingState failed', e); return null; }
-  }
+  } 
 
   private async getAllPendingSaves(): Promise<Array<any>> {
     try {
@@ -1539,41 +1463,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       }
     } catch (e) { console.warn('[EJS] uploadPendingSavesOnStartup failed', e); }
   }
-
-  private captureSaveOnce(timeoutMs = 5000): Promise<Uint8Array | null> {
-    return new Promise(resolve => {
-      this._captureSaveResolve = (u8: Uint8Array | null) => resolve(u8);
-      try { this.callEjsSave(); } catch { resolve(null); }
-
-      setTimeout(() => {
-        if (this._captureSaveResolve) {
-          this._captureSaveResolve(null);
-          this._captureSaveResolve = undefined;
-        }
-      }, timeoutMs);
-    });
-  }
-
-  private async flushSavesBeforeExit(timeoutMs = 12000): Promise<boolean> {
-    this._exiting = true;
-    try { this.clearAutosave(); } catch { }
-
-    // If an upload is in flight, await it with a cap.
-    if (this._inFlightSavePromise) {
-      return await Promise.race([
-        this._inFlightSavePromise,
-        this.delay(timeoutMs).then(() => false),
-      ]) as boolean;
-    }
-
-    // Direct save & upload (no reliance on onSaveState)
-    const savePromise = this.callEjsSave();
-    return await Promise.race([
-      savePromise,
-      this.delay(timeoutMs).then(() => false),
-    ]);
-  }
-
+ 
   /** Create or reuse a tiny stylesheet inside the vpad root. */
   private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
     let style = root.querySelector('style[data-vpad-overrides="min"]') as HTMLStyleElement | null;
