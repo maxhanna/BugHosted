@@ -1,4 +1,6 @@
-<div class="componentMain" [style.paddingTop]="isFullScreen ? '0px' : null">
+<div class="componentMain" 
+  [style.paddingTop]="isFullScreen ? '0px' : null"
+  [style.width]="romName ? '100vw' : null">
   <div class="closeButton" (click)="safeExit();" *ngIf="!isFullScreen"></div>
   <div class="menuButton" (click)="showMenuPanel();" *ngIf="!isFullScreen"></div>
   <div class="componentTitle" *ngIf="!isFullScreen">
