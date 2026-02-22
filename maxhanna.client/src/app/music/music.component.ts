@@ -78,6 +78,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   private ytHealthTimer?: number;
   private iframeCheckAttempts = 0;
   private iframeCheckTimer?: number;
+  private iframeCheckInProgress = false;
   private playerReady = false;
   private firstGestureDone = false;
   private lastPlaylistKey = '';
@@ -538,9 +539,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.keepScreenAwake(true);
     this.isMusicControlsDisplayed(true);
     this.stopLoading();
-  }
-
-
+  }  
 
   randomSong() {
     if (this.selectedType === 'file') {
@@ -1011,6 +1010,9 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   private scheduleIframeCheck(firstId: string) {
+    // don't start another poller if one is already running
+    if (this.iframeCheckInProgress) return;
+    this.iframeCheckInProgress = true;
     try {
       if (this.iframeCheckTimer) {
         clearInterval(this.iframeCheckTimer);
@@ -1020,17 +1022,25 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.iframeCheckAttempts = 0;
     this.iframeCheckTimer = window.setInterval(() => {
       this.iframeCheckAttempts++;
-      const el = this.musicVideo?.nativeElement;
-      const hasIframe = !!(el && el.querySelector && el.querySelector('iframe'));
-      if (hasIframe) {
+
+      const el = this.musicVideo?.nativeElement as HTMLElement | undefined;
+      const domIframe = el && el.querySelector ? el.querySelector('iframe') : null;
+      const playerIframe = (this.ytPlayer && typeof (this.ytPlayer as any).getIframe === 'function') ? (this.ytPlayer as any).getIframe() : null;
+      const hasIframe = !!domIframe || !!playerIframe;
+
+      // If iframe was inserted or player is ready, cancel polling
+      if (hasIframe || this.playerReady) {
         try { clearInterval(this.iframeCheckTimer!); } catch { }
         this.iframeCheckTimer = undefined;
+        this.iframeCheckInProgress = false;
         return;
       }
+
       // after several attempts, give up and hard rebuild
-      if (this.iframeCheckAttempts >= 6) {
+      if (this.iframeCheckAttempts >= 8) {
         try { clearInterval(this.iframeCheckTimer!); } catch { }
         this.iframeCheckTimer = undefined;
+        this.iframeCheckInProgress = false;
         const id = firstId || this.parseYoutubeId(this.currentUrl || '') || this.ytIds[this.ytIndex];
         console.warn('[YT] iframe never appeared after rebuild, forcing hardRebuild', id);
         if (id) this.hardRebuild(id);
