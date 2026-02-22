@@ -961,7 +961,7 @@ ON DUPLICATE KEY UPDATE
           cmd.Parameters.AddWithValue("@rom", romName);
           cmd.Parameters.AddWithValue("@encoding", encoding); 
           cmd.Parameters.AddWithValue("@FileSize", bytes.Length);
-          cmd.Parameters.AddWithValue("@origSize", (object)originalSize ?? DBNull.Value);
+          cmd.Parameters.AddWithValue("@origSize", (object?)originalSize ?? DBNull.Value);
           cmd.Parameters.Add("@data", MySqlDbType.LongBlob).Value = bytes;
 
           await cmd.ExecuteNonQueryAsync();
@@ -1007,7 +1007,6 @@ ON DUPLICATE KEY UPDATE
           using (var ms = new MemoryStream())
           {
             const int bufferSize = 81920;
-            long bytesRead = 0;
             using (var blobStream = rdr.GetStream(0))
             {
               await blobStream.CopyToAsync(ms, bufferSize);
