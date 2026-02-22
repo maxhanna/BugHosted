@@ -420,7 +420,7 @@ export class RomService {
         body: JSON.stringify({ UserId: userId, RomName: romName }),
       });
 
-      if (!response.ok) return null; 
+      if (!response || response == null) return null; 
 
       const blob = await response.blob();
       let u8: Uint8Array = new Uint8Array(await blob.arrayBuffer());
