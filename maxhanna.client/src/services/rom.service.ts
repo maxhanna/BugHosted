@@ -416,11 +416,12 @@ export class RomService {
         }
       }
 
+      console.log("returning body:", body, res);
+      
       if (!res.ok) {
         const errorBody = typeof body === 'string' ? body : JSON.stringify(body ?? { error: 'Upload failed' });
         return { ok: false, status, errorText: errorBody } as SaveUploadResponse;
       }
-
       return { ok: true, status, body } as SaveUploadResponse;
     } catch (error: any) {
       return { ok: false, status: 0, errorText: String(error?.message ?? error) } as SaveUploadResponse;
