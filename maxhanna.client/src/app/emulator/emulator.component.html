@@ -65,6 +65,11 @@
       [disabled]="isLoading">
       {{isFaqOpen ? 'Hide FAQ' : 'View FAQ'}}
     </button>
+    <button (click)="resetGame()" 
+      class="emuMenuButton" 
+      [disabled]="isLoading">
+      Reset Game
+    </button>
     <button 
       *ngIf="onMobile() && !romName" 
       (click)="useJoystick = !useJoystick"

@@ -1,5 +1,5 @@
 
-import { AfterViewInit, ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { RomService } from '../../services/rom.service';
@@ -18,6 +18,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   isMenuPanelOpen = false;
   isFullScreen = false;
   romName?: string;
+  presetRomName?: string;
+  presetRomId?: number | undefined;
+  skipSaveFileRequested = false;
   system?: System;
   isFileUploaderExpanded = false;
   isFaqOpen = false;
@@ -84,8 +87,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   constructor(
     private romService: RomService,
-    private fileService: FileService,
-    private ngZone: NgZone,
+    private fileService: FileService, 
     private cdr: ChangeDetectorRef
   ) {
     super();
@@ -96,11 +98,39 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.parentRef.preventShowSecurityPopup = true;
       this.parentRef.navigationComponent.stopNotifications();
     }
+
+    try {
+      const url = new URL(window.location.href);
+      const sp = url.searchParams;
+      const qRom = sp.get('romname') || sp.get('romName') || (window as any).romname || (window as any).romName;
+      const qRomId = sp.get('romId') || sp.get('romID') || (window as any).romId || (window as any).romID;
+      const qSkip = sp.get('skipSaveFile') || (window as any).skipSaveFile;
+
+      if (qRom) {
+        this.presetRomName = String(qRom);
+      }
+      if (qRomId) {
+        const parsed = Number(qRomId);
+        if (!isNaN(parsed)) this.presetRomId = parsed;
+      }
+      if (typeof qSkip !== 'undefined' && qSkip !== null) {
+        const v = String(qSkip).toLowerCase();
+        this.skipSaveFileRequested = v === '1' || v === 'true' || v === 'yes';
+      }
+    } catch (e) { /* ignore URL parsing failures */ }
   }
 
   async ngAfterViewInit() {
     this.status = 'Ready - Select a ROM';
     this.cdr.detectChanges(); 
+    // If a preset ROM was provided via query/window, auto-load it now
+    if (this.presetRomName && this.presetRomId) {
+      try {
+        await this.loadRomThroughService(this.presetRomName, this.presetRomId);
+      } catch (e) {
+        console.error('Failed to auto-load preset ROM', e);
+      }
+    }
   }
 
   ngOnDestroy(): void {
@@ -153,8 +183,16 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async onRomSelected(file: FileEntry) {
+    if (!file.id || !file.fileName) {
+      this.status = 'Invalid file selection';
+      this.parentRef?.showNotification('Selected file is missing information.');
+      this.cdr.detectChanges();
+      return;
+    } 
+    this.presetRomId = file.id;
+    this.presetRomName = file.fileName;
     try {
-      await this.loadRomThroughService(file.fileName!, file.id);
+      await this.loadRomThroughService(file.fileName, file.id);
       this.status = 'Running';
     } catch (err) {
       this.status = 'Error loading emulator';
@@ -166,7 +204,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   private async loadRomThroughService(fileName: string, fileId?: number) {
     if (window.__ejsLoaderInjected) {
-      return this.fullReloadToEmulator();
+      this.fullReloadToEmulator();
+      return;
     }
 
     this.startLoading();
@@ -193,8 +232,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.romObjectUrl = URL.createObjectURL(romBlob);
     this.romName = fileName;
 
-    // 4) Try to load existing save state from database
-    const saveStateBlob = await this.loadSaveStateFromDB(fileName);
+    // 4) Try to load existing save state from database (unless explicitly skipped)
+    const saveStateBlob = this.skipSaveFileRequested ? null : await this.loadSaveStateFromDB(fileName);
 
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
     const core = this.detectCore(fileName);
@@ -809,7 +848,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           this.cdr.detectChanges();
           if (this.stopEmuSaving) {
             this.fullReloadToEmulator();
-          } else {
+          } else if (this.exitSaving) {
             return this.navigateHome();
           }
         }, 2000);
@@ -1942,6 +1981,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return GENESIS_6BUTTON.has(slug);
   }
 
+  resetGame() {
+    const confirm = window.confirm('Are you sure you want to reset the game? The next save will overwrite your current progress.');
+    if (confirm) { 
+      this.fullReloadToEmulator(this.getReloadParamsSkipSave());
+    }
+  }
+
   showMenuPanel() {
     this.isMenuPanelOpen = true;
     this.isFaqOpen = false;
@@ -1961,6 +2007,15 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   private getEmuUrl(): string {
     return `${location.protocol}//${location.host}/Emulator`;
+  }
+  
+  private getReloadParamsSkipSave(romName?: string, romId?: number): Record<string,string> {
+    const params: Record<string,string> = { skipSaveFile: 'true' };
+    const name = romName ?? this.presetRomName ?? this.romName;
+    if (name) params['romname'] = name;
+    const id = romId ?? this.presetRomId;
+    if (typeof id !== 'undefined' && id !== null) params['romId'] = String(id);
+    return params;
   }
 
   private fullReloadToEmulator(extraParams?: Record<string, string>): void {
