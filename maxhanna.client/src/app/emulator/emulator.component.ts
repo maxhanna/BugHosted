@@ -1770,7 +1770,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   twoButtonRight(): VPadItem[] {
     // Make B a bit left/below; A a bit right/above (classic layout)
     const B: VPadItem = { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 20, top: 75, input_value: 0, bold: true };
-    const A: VPadItem = { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 50, top: 10, input_value: 8, bold: true };
+    const A: VPadItem = { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 10, input_value: 8, bold: true };
     return [B, A];
   }
 
