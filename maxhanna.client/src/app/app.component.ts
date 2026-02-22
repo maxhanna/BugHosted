@@ -398,7 +398,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           this.createComponent("User", { "userId": userId, storyId: storyId });
         }
         else if (this.router.url.toLowerCase().includes('emulator')) {
-          // Prioritize emulator routes (supports query params like ?romname=...&romId=...&skipSaveFile=true)
           try {
             const url = new URL(window.location.href);
             const sp = url.searchParams;
