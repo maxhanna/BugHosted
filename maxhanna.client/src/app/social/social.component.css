@@ -157,12 +157,16 @@ singleAttachment {
 
 .multipleAttachments {
   max-width: 48%;
-  max-height: 525px;
 }
-
 @media only screen and (max-width : 667px) {
   .multipleAttachments {
     max-width: 99%;
+  }
+}
+
+@media only screen and (min-width : 667px) {
+  .multipleAttachments {
+    max-height: 525px;
   }
 }
 
