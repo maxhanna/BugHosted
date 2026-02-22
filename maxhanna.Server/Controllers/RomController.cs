@@ -5,6 +5,7 @@ using System.Net;
 using maxhanna.Server.Controllers.DataContracts.Rom;
 using System.Data;
 using System.Threading;
+using System.IO.Compression;
 
 namespace maxhanna.Server.Controllers
 {
@@ -936,17 +937,7 @@ ON DUPLICATE KEY UPDATE
 
         var romName = form["romName"].ToString();
         if (string.IsNullOrWhiteSpace(romName))
-          return BadRequest("Missing 'romName'");
-
-        // Stream the file (no ToArray!)
-        Stream dataStream = file.OpenReadStream();
-
-        // Decompress if client sent gzip
-        var encoding = form["encoding"].ToString() ?? "identity";
-        if (string.Equals(encoding, "gzip", StringComparison.OrdinalIgnoreCase))
-        {
-          dataStream = new System.IO.Compression.GZipStream(dataStream, System.IO.Compression.CompressionMode.Decompress);
-        }
+          return BadRequest("Missing 'romName'"); 
 
         await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
         await conn.OpenAsync();
@@ -963,14 +954,34 @@ ON DUPLICATE KEY UPDATE
 
         await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 120 };
 
+
+        Stream dataStream = file.OpenReadStream();
+
+        var encoding = form["encoding"].ToString() ?? "identity";
+        bool isGzipped = string.Equals(encoding, "gzip", StringComparison.OrdinalIgnoreCase);
+
+        if (isGzipped)
+        {
+          // Wrap in GZipStream for decompression
+          dataStream = new GZipStream(dataStream, CompressionMode.Decompress, leaveOpen: false);
+        }
+
+        // Option A: Preferred for large files — read into MemoryStream (buffers in memory)
+        using var memoryStream = new MemoryStream();
+        await dataStream.CopyToAsync(memoryStream);
+        memoryStream.Position = 0;  // rewind
+
+        // Now use the MemoryStream or its byte array
+        var blobParam = cmd.Parameters.Add("@StateData", MySqlDbType.LongBlob);
+        blobParam.Value = memoryStream;               // MySqlConnector supports MemoryStream in recent versions
+                                                      // OR (safer / more compatible):
+                                                      // blobParam.Value = memoryStream.ToArray();  // ← byte[] is always supported
+
+        blobParam.Size = (int)memoryStream.Length;     // or file.Length if you trust it after decompression
+
         cmd.Parameters.AddWithValue("@UserId", userId);
         cmd.Parameters.AddWithValue("@RomName", romName);
-        cmd.Parameters.AddWithValue("@FileSize", file.Length);
-
-        // ←←← THIS IS THE KEY: stream directly
-        var blobParam = cmd.Parameters.Add("@StateData", MySqlDbType.LongBlob);
-        blobParam.Value = dataStream;
-        blobParam.Size = (int)file.Length;
+        cmd.Parameters.AddWithValue("@FileSize", file.Length); 
 
         await cmd.ExecuteNonQueryAsync();
 
