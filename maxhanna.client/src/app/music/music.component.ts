@@ -257,17 +257,42 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       if (w.YT?.Player) { resolve(); return; }
 
       // Set the global ready callback BEFORE injecting the script (prevents race)
-      w.onYouTubeIframeAPIReady = () => resolve();
+      // Preserve any existing handler and chain to it
+      const previousHandler = w.onYouTubeIframeAPIReady;
+      w.onYouTubeIframeAPIReady = () => {
+        try { if (typeof previousHandler === 'function') previousHandler(); } catch { }
+        resolve();
+      };
 
       // Avoid duplicate script inserts
-      const existing = document.querySelector('script[src="https://www.youtube.com/iframe_api"]');
-      if (!existing) {
+      const existing = document.querySelector('script[src="https://www.youtube.com/iframe_api"]') as HTMLScriptElement | null;
+      if (existing) {
+        // If script already present, attach load/error listeners to be robust
+        const onLoad = () => {
+          clearInterval(poll);
+          resolve();
+        };
+        const onError = () => {
+          clearInterval(poll);
+          reject(new Error('Failed to load YouTube IFrame API'));
+        };
+        existing.addEventListener('load', onLoad);
+        existing.addEventListener('error', onError);
+      } else {
         const tag = document.createElement('script');
         tag.src = 'https://www.youtube.com/iframe_api';
         tag.async = true;
         tag.onerror = () => reject(new Error('Failed to load YouTube IFrame API'));
         document.head.appendChild(tag);
       }
+
+      // Poll as a last-resort in case onYouTubeIframeAPIReady isn't called for some reason
+      const poll = setInterval(() => {
+        if ((window as any).YT?.Player) {
+          clearInterval(poll);
+          resolve();
+        }
+      }, 200);
     });
 
     // ✅ Return the promise so `await` actually waits
