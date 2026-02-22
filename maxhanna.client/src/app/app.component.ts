@@ -40,9 +40,7 @@ import { PollService } from '../services/poll.service';
 import { MastermindComponent } from './mastermind/mastermind.component';
 import { ArtComponent } from './art/art.component';
 import { EnderComponent } from './ender/ender.component';
-import { BonesComponent } from './bones/bones.component';
-import { EmulatorN64Component } from './emulator-n64/emulator-n64.component';
-import { EmulatorPS1Component } from './emulator-ps1/emulator-ps1.component';
+import { BonesComponent } from './bones/bones.component'; 
 import { EmulatorComponent } from './emulator/emulator.component';
 
 
@@ -83,10 +81,10 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🎖️", title: "Bug-Wars", content: undefined },
     { ownership: 0, icon: "🤖", title: "Meta-Bots", content: undefined },
     { ownership: 0, icon: "🗨️", title: "Chat", content: undefined },
-    { ownership: 0, icon: "👾", title: "Emulation", content: undefined },
-    { ownership: 0, icon: "🕹️", title: "N64Emulator", content: undefined },
-    { ownership: 0, icon: "🎮", title: "PS1Emulator", content: undefined },
-    { ownership: 0, icon: "1️⃣", title: "Emulator", content: undefined },
+    // { ownership: 0, icon: "👾", title: "Emulation", content: undefined },
+    // { ownership: 0, icon: "🕹️", title: "N64Emulator", content: undefined },
+    // { ownership: 0, icon: "🎮", title: "PS1Emulator", content: undefined },
+    { ownership: 0, icon: "🎮", title: "Emulator", content: undefined },
     { ownership: 0, icon: "⚔️", title: "Array", content: undefined },
     { ownership: 0, icon: "🧠", title: "Wordler", content: undefined },
     { ownership: 0, icon: "🎯", title: "Mastermind", content: undefined },
@@ -286,20 +284,20 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       title: 'Theme',
       content: `Change the site's theme! Share your theme with others or use a theme someone else has shared!`
     },
-    {
-      ownership: 0,
-      title: 'N64Emulator',
-      content: `Our N64 emulator allows users to play Nintendo 64 games directly in their browser! Connect any gamepad and upload your own roms or choose from the ones available!`
-    },
-    {
-      ownership: 0,
-      title: 'PS1Emulator',
-      content: `Our PS1 emulator allows users to play PlayStation 1 games directly in their browser! Connect any gamepad and upload your own roms or choose from the ones available!`
-    },
+    // {
+    //   ownership: 0,
+    //   title: 'N64Emulator',
+    //   content: `Our N64 emulator allows users to play Nintendo 64 games directly in their browser! Connect any gamepad and upload your own roms or choose from the ones available!`
+    // },
+    // {
+    //   ownership: 0,
+    //   title: 'PS1Emulator',
+    //   content: `Our PS1 emulator allows users to play PlayStation 1 games directly in their browser! Connect any gamepad and upload your own roms or choose from the ones available!`
+    // },
     {
       ownership: 0,
       title: 'Emulator',
-      content: `Our All-in-1 emulator allows users to play multiple console games directly in their browser! Connect any gamepad and upload your own roms or choose from the ones available!`
+      content: `Our All-in-1 emulator allows users to play multiple console games directly in their browser! Connect any gamepad and upload your own roms or choose from the ones available! Save your progress and restart from anywhere!`
     }
   ];
 
@@ -325,10 +323,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Todo": TodoComponent,
     "Music": MusicComponent,
     "Notepad": NotepadComponent,
-    "Contacts": ContactsComponent,
-    "Emulation": EmulationComponent,
-    "N64Emulator": EmulatorN64Component,
-    "PS1Emulator": EmulatorPS1Component,
+    "Contacts": ContactsComponent, 
     "Emulator": EmulatorComponent,
     "Array": ArrayComponent,
     "Bug-Wars": NexusComponent,
