@@ -470,8 +470,8 @@
       <span style="width:100%">Filter by system</span>
       <div class="systemFilters">
         <button *ngFor="let s of getSupportedRomSystems()" class="toggle-switch-small" (click)="toggleRomSystem(s)">
-          <span class="xxSmallFont">{{ activeRomSystem === s ? '❌' : '' }}{{" "}}</span>
-          <span class="system-icon" [innerHTML]="getSystemIcon(s)"></span>{{" "}}
+          <span class="xxSmallFont">{{ activeRomSystem === s ? '❌' : '' }}</span>
+          <span class="system-icon" [innerHTML]="getSystemIcon(s)"></span>
           {{ getSystemLabel(s) }}
         </button>
       </div>
