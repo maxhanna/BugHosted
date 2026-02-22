@@ -1973,12 +1973,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       return false;
     }
 
-    if (core === 'mgba' && !this.hasValidMgbaHeader(u8)) {
-      console.warn('[EJS] Save state has invalid mGBA header → skipping');
-      this.parentRef?.showNotification('Save state does not have a valid mGBA header; it may be corrupt or from an incompatible version. Upload skipped.');
-      return false;
-    }
-
     if (this.romName && core) {
       const lastSize = this.lastGoodSaveSize.get(this.romName);
 
@@ -1998,13 +1992,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     return true;
-  }
-
-  private hasValidMgbaHeader(u8: Uint8Array): boolean {
-    // mGBA states usually start with these bytes (from mGBA source) 
-    return u8.length > 16 &&
-      u8[0] === 0x6D && u8[1] === 0x47 && u8[2] === 0x42 && u8[3] === 0x41; // adjust if you see different
-  }
+  } 
 
   resetGame() {
     if (!this.romName) return;
