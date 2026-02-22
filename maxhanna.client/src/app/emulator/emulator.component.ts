@@ -116,6 +116,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   ngOnDestroy(): void {
     this.status = 'Destroying emulator...';
+    if (this._gameSizeObs) { try { this._gameSizeObs.disconnect(); } catch { } this._gameSizeObs = undefined; }
     this._destroyed = true;
     this.clearAutosave();
     if (this.parentRef) {
@@ -218,7 +219,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
     const core = this.detectCore(fileName);
-    window.EJS_core = core;
+    const renderClamp = this.getRenderClampForCore(core);
+    (window as any).EJS_renderClamp = renderClamp;  
+    window.EJS_core = core; 
+
 
     this.system = this.systemFromCore(core);
 
@@ -331,7 +335,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         }
         //console.log('[EJS] instance ready hook fired, has saveState?', !!this._saveFn);
         this.ensureSaveStatePolyfill();
-      } catch { }
+      } catch { console.warn('[EJS] EJS_ready callback failed'); }
+      try { this.onEmulatorReadyForSizing(); } catch { console.warn('[EJS] onEmulatorReadyForSizing failed'); } 
     };
 
     // 6) Ensure CSS present once
@@ -1050,28 +1055,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       window.addEventListener('orientationchange', apply, { passive: true });
       (window as any).visualViewport?.addEventListener?.('resize', apply, { passive: true });
     } catch { }
-  }
-
-  private onFullscreenChange() {
-    const fsEl = (document as any).fullscreenElement || (document as any).webkitFullscreenElement || null;
-    this.isFullScreen = !!fsEl;
-
-    const gameEl = document.getElementById('game');
-    if (gameEl) {
-      if (!this.isFullScreen) {
-        // Not fullscreen: respect header
-        if (this.romName) {
-          const h = this.getViewportHeightMinusHeader(60);
-          gameEl.style.height = h;
-          gameEl.style.removeProperty('aspect-ratio');
-        } else {
-          gameEl.style.height = '';
-          gameEl.style.aspectRatio = '4/3';
-        }
-      }
-    }
-    this.cdr.detectChanges();
-  }
+  } 
  
   async toggleFullScreen(): Promise<void> {
     const gameEl = document.getElementById('game');
@@ -1919,6 +1903,91 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     return items;
   }
+  
+  /** Return a soft clamp for render buffer size based on core. */
+  private getRenderClampForCore(core: string) {
+    const heavy = new Set([
+      'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mupen64plus_next', 'pcsx_rearmed'
+    ]);
+    if (heavy.has(core)) return { maxW: 1280, maxH: 720, maxDPR: 1.5 };
+    // Light cores can go higher
+    return { maxW: 1920, maxH: 1080, maxDPR: 2.0 };
+  }
+
+  /** Resize the canvas drawing buffer (not just CSS) with DPR clamping and per-core clamps. */
+  private resizeCanvasBuffer() {
+    try {
+      const gameEl = document.getElementById('game');
+      if (!gameEl) return;
+      const canvas = gameEl.querySelector('canvas') as HTMLCanvasElement | null;
+      if (!canvas) return;
+
+      // Determine clamp from detected core (fallback to defaults)
+      const core = (window as any).EJS_core || (this.emulatorInstance?.core) || '';
+      const clamp = this.getRenderClampForCore(core);
+
+      // Host size in CSS pixels
+      const rect = gameEl.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+
+      // Cap devicePixelRatio to avoid huge buffers on retina displays
+      const rawDpr = window.devicePixelRatio || 1;
+      const dpr = Math.min(rawDpr, clamp.maxDPR);
+
+      const targetW = Math.min(Math.round(rect.width * dpr), clamp.maxW);
+      const targetH = Math.min(Math.round(rect.height * dpr), clamp.maxH);
+
+      // Only update when different to avoid thrashing
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+
+        // If WebGL, update viewport
+        const gl = (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
+        if (gl && typeof gl.viewport === 'function') gl.viewport(0, 0, targetW, targetH);
+
+        // If emulator exposes a resize hook, call it
+        try {
+          if (typeof (this.emulatorInstance?.onResize) === 'function') {
+            this.emulatorInstance.onResize(targetW, targetH);
+          } else if (typeof (this.emulatorInstance?.gameManager?.onResize) === 'function') {
+            this.emulatorInstance.gameManager.onResize(targetW, targetH);
+          }
+        } catch (e) { /* swallow errors from unknown instances */ }
+      }
+    } catch (e) {
+      console.warn('[EJS] resizeCanvasBuffer failed', e);
+    }
+  }
+
+  /** Bind resize handlers (call once after emulator is initialized). */
+  private bindResizeBuffer() {
+    const apply = () => this.resizeCanvasBuffer();
+    // Passive listeners to avoid blocking
+    window.addEventListener('resize', apply, { passive: true });
+    (window as any).visualViewport?.addEventListener?.('resize', apply, { passive: true });
+
+    // Also observe the #game element for layout changes (optional)
+    try {
+      const gameEl = document.getElementById('game');
+      if (gameEl && typeof ResizeObserver !== 'undefined') {
+        if (this._gameSizeObs) this._gameSizeObs.disconnect();
+        this._gameSizeObs = new ResizeObserver(() => apply());
+        this._gameSizeObs.observe(gameEl);
+      }
+    } catch { /* ignore */ }
+
+    // Initial call after a short delay so DOM settles
+    setTimeout(() => this.resizeCanvasBuffer(), 300);
+  }
+ 
+  /* ---------- Small helper to call when emulator is ready ---------- */
+  private onEmulatorReadyForSizing() {
+    // Bind resize buffer so canvas buffer follows host size
+    try { this.bindResizeBuffer(); } catch (e) { console.warn('[EJS] bindResizeBuffer failed', e); }
+    // Ensure initial sizing
+    try { this.resizeCanvasBuffer(); } catch (e) { console.warn('[EJS] resizeCanvasBuffer failed', e); }
+  } 
 
   private slugifyName(name: string): string {
     return (name || '')
