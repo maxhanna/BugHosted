@@ -322,7 +322,7 @@ export class RomService {
   }
 
   private supportsCompressionStreams(): boolean {
-    return typeof (window as any).CompressionStream !== 'undefined';
+    return false; //typeof (window as any).CompressionStream !== 'undefined';
   }
 
   private async gzip(input: Uint8Array): Promise<Uint8Array> {
