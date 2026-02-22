@@ -34,8 +34,10 @@
 
 /* Your canvas can size itself; avoid parent → child feedback loops */
 #game canvas {
-  max-width: 100%;
-  height: auto; /* keep aspect */
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+  object-fit: contain; 
 }
 
 /* Hide EJS top bar while keeping it in the DOM so we can click buttons programmatically */

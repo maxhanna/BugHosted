@@ -1015,9 +1015,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       game.style.setProperty('height', h, 'important');
       game.style.setProperty('min-height', h, 'important');
       game.style.setProperty('width', '100%', 'important');
-      game.style.setProperty('max-width', '960px', 'important');
+      game.style.setProperty('max-width', '100vw', 'important');
       game.style.setProperty('margin', '0 auto', 'important');
-      game.style.removeProperty('aspect-ratio');
+    //  game.style.removeProperty('aspect-ratio');
     };
 
     apply();
