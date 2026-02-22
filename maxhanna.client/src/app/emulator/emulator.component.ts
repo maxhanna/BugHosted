@@ -629,9 +629,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (this._exiting) { return; }
     const tmpStatus = this.status;
     this.status = 'Saving State. Please wait... (as change might corrupt save data)';
-
-    // If we're trying to capture a single save for exit (fire-and-forget),
-    // resolve the capture promise and skip the normal upload path.
+ 
     if (this._captureSaveResolve) {
       try {
         const cap = await this.normalizeSavePayload(raw);
@@ -687,7 +685,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (!u8 || u8.length === 0) {
       u8 = await this.tryReadSaveFromIndexedDB(gameID, gameName);
     }
-    this.status = "State Captured, Uploading...";
+    this.status = "State Captured. Uploading files to server. Please wait...";
+    this.cdr.detectChanges();
     // 4) If still nothing, bail gracefully (avoid TypeError in romService)
     if (!u8 || u8.length === 0) {
       console.warn('[EJS] Save callback had no bytes and no storage fallback found; skipping upload.');
