@@ -379,8 +379,8 @@ export class RomService {
 
     form.append('userId', String(userId));
     form.append('romName', romName);
-    form.append('encoding', encoding); // 'gzip' or 'identity'
-    form.append('originalSize', String(tight.length)); 
+    form.append('encoding', encoding);
+    form.append('originalSize', String(tight.length));
 
     try {
       // keepalive requests are intended for short, small payloads (and
@@ -411,6 +411,7 @@ export class RomService {
       return { ok: false, status: 0, errorText: String(error?.message ?? error) };
     }
   }
+
   async getEmulatorJSSaveState(romName: string, userId: number): Promise<Blob | null> {
     try {
       const response = await fetch(`/rom/getemulatorjssavestate`, {
@@ -428,13 +429,13 @@ export class RomService {
       let u8: Uint8Array = new Uint8Array(await blob.arrayBuffer());
 
       if (encoding === 'gzip') {
-        // client-side gunzip (existing helper)
-        u8 = await this.gunzip(u8);
+        u8 = await this.gunzip(u8); // u8 stays Uint8Array ✅
       }
 
+      // Convert to tight ArrayBuffer only at the end
       return new Blob([this.toArrayBuffer(u8)], { type: 'application/octet-stream' });
     } catch {
       return null;
     }
-  } 
+  }
 }
