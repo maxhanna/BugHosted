@@ -65,7 +65,8 @@
       [disabled]="isLoading">
       {{isFaqOpen ? 'Hide FAQ' : 'View FAQ'}}
     </button>
-    <button (click)="resetGame()" 
+    <button *ngIf="romName"
+      (click)="resetGame()" 
       class="emuMenuButton" 
       [disabled]="isLoading">
       Reset Game
