@@ -69,7 +69,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     'picodrive': 16 * 1024,    // 32X
 
     // Heavy cores – use conservative minimums
-    'mupen64plus_next': 40 * 1024 * 1024,  // N64 – usually 60–200+ MB
+    'mupen64plus_next': 16 * 1024 * 1024,  // N64 – usually 60–200+ MB
     'mednafen_psx_hw': 1 * 1024 * 1024,   // PS1 (Beetle)
     'pcsx_rearmed': 1 * 1024 * 1024,
     'duckstation': 1 * 1024 * 1024,
