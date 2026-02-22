@@ -815,12 +815,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     this._inFlightSavePromise = (async () => {
       this._saveInProgress = true;
+      let ms = 0;
       let error = undefined;
       try {
         const res = await this.romService.saveEmulatorJSState(this.romName!, this.parentRef!.user!.id!, u8);
         if (res.ok) {
           this._lastSaveTime = Date.now();
           this.lastGoodSaveSize.set(this.romName!, u8.length);
+          ms = res.body?.ms;
           //console.log(`[EJS] Save state uploaded (${u8.length} bytes)`);
           return true;
         } else {
@@ -837,7 +839,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         this._saveInProgress = false;
         this._inFlightSavePromise = undefined;
         if (!error) {
-          this.status = 'Save Complete!';
+          this.status = `Save Complete! (took ${ms ? ms/1000 + 's' : 'a moment'})`;
           this.cdr.detectChanges();
         }
         setTimeout(() => {
@@ -1486,12 +1488,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           const blob: Blob = rec.data;
           const arr = new Uint8Array(await blob.arrayBuffer());
           const res = await this.romService.saveEmulatorJSState(rec.romName, rec.userId, arr);
-          if (res) {
+          if (res.ok) {
             //await this.removePendingSave(rec.id);
             console.log("returned data from saveEmulatorJSState: ", res);
             console.log('[EJS] uploaded pending save for', rec.romName);
           } else {
-            console.warn('[EJS] failed to upload pending save:', res);
+            console.warn('[EJS] failed to upload pending save:', res.errorText);
           }
         } catch (e) { console.warn('[EJS] uploadPendingSavesOnStartup error', e); }
       }

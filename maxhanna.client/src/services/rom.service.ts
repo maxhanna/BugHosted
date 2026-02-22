@@ -420,11 +420,11 @@ export class RomService {
       
       if (!res.ok) {
         const errorBody = typeof body === 'string' ? body : JSON.stringify(body ?? { error: 'Upload failed' });
-        return { ok: false, status, errorText: errorBody } as SaveUploadResponse;
+        return { ok: false, status, errorText: errorBody };
       }
-      return { ok: true, status, body } as SaveUploadResponse;
+      return { ok: true, status, body };
     } catch (error: any) {
-      return { ok: false, status: 0, errorText: String(error?.message ?? error) } as SaveUploadResponse;
+      return { ok: false, status: 0, errorText: String(error?.message ?? error) };
     }
   }
 
