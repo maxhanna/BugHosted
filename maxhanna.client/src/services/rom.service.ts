@@ -348,63 +348,53 @@ export class RomService {
     stateData: Uint8Array
   ): Promise<SaveUploadResponse> {
 
-    const tight = new Uint8Array(this.toTightArrayBuffer(stateData));
-
-    let bytesToUpload: Uint8Array = tight;
+    const originalSize = stateData.length;
+    let bytesToUpload = stateData;
     let encoding: 'gzip' | 'identity' = 'identity';
 
-    if (this.supportsCompressionStreams()) {
+    // Aggressively compress anything > 100 KB (N64 states love gzip)
+    if (originalSize > 100 * 1024 && this.supportsCompressionStreams()) {
       try {
-        const gz: Uint8Array = await this.gzip(tight);
-        if (gz.length > 0 && gz.length < tight.length * 0.98) {
-          bytesToUpload = gz;
+        const gzipped = await this.gzip(stateData);
+        if (gzipped.length < originalSize * 0.92) {   // 8%+ savings = worth it
+          bytesToUpload = gzipped;
           encoding = 'gzip';
+          console.log(`[EJS] Gzipped ${originalSize} → ${gzipped.length} bytes (${Math.round((1 - gzipped.length / originalSize) * 100)}% saved)`);
         }
-        //console.log('[EJS] savestate sizes:', { raw: tight.length, gz: gz.length, encoding });
       } catch (e) {
-        console.warn('[EJS] gzip failed, uploading raw', e);
+        console.warn('[EJS] Gzip failed, sending raw', e);
       }
     }
 
     const form = new FormData();
+    const ab = this.toTightArrayBuffer(bytesToUpload);
 
-    // ✅ Force to real ArrayBuffer for File() / BlobPart typing
-    const ab: ArrayBuffer = this.toArrayBuffer(bytesToUpload);
-
-    const filename = encoding === 'gzip' ? 'savestate.bin.gz' : 'savestate.bin';
-
-    form.append('file', new File([ab], filename, {
+    form.append('file', new File([ab], encoding === 'gzip' ? 'state.gz' : 'state.bin', {
       type: encoding === 'gzip' ? 'application/gzip' : 'application/octet-stream'
     }));
 
     form.append('userId', String(userId));
     form.append('romName', romName);
     form.append('encoding', encoding);
-    form.append('originalSize', String(tight.length));
+    form.append('originalSize', String(originalSize));
 
-    try { 
-      const maxKeepalive = 64 * 1024; // 64 KB
-      const useKeepalive = ab.byteLength <= maxKeepalive;
-      //if (!useKeepalive) console.debug('[EJS] large upload detected; disabling keepalive', ab.byteLength);
-
+    try {
       const res = await fetch('/rom/saveemulatorjsstate', {
         method: 'POST',
         body: form,
-        ...(useKeepalive ? { keepalive: true } : {}),
+        // keepalive only for small saves (browser limits)
+        keepalive: originalSize < 512 * 1024
       });
-      const status = res.status;
-      const ct = (res.headers.get('content-type') || '').toLowerCase();
 
       if (!res.ok) {
-        const errorBody = ct.includes('application/json') ? await res.json().catch(() => null) : await res.text();
-        const errorText = typeof errorBody === 'string' ? errorBody : JSON.stringify(errorBody ?? { error: 'Upload failed' });
-        return { ok: false, status, errorText };
+        const errorText = await res.text().catch(() => 'Upload failed');
+        return { ok: false, status: res.status, errorText };
       }
 
-      const body = ct.includes('application/json') ? await res.json().catch(() => null) : await res.text();
-      return { ok: true, status, body };
+      const body = await res.json().catch(() => ({}));
+      return { ok: true, status: res.status, body };
     } catch (error: any) {
-      return { ok: false, status: 0, errorText: String(error?.message ?? error) };
+      return { ok: false, status: 0, errorText: error?.message ?? String(error) };
     }
   }
 

@@ -915,98 +915,76 @@ ON DUPLICATE KEY UPDATE
       }
     }
 
-    // ---------------------------------------------------------------
-    // POST /Rom/SaveEmulatorJSState  (multipart/form-data)
-    //   form fields: file, userId, romName, encoding?, originalSize?
-    //   Client may gzip the blob and set encoding=gzip.
-    //   Mirrors the proven SaveN64State pattern: read to byte[], pass
-    //   byte[] directly to MySqlConnector (no Stream parameter).
-    // ---------------------------------------------------------------
     [HttpPost("/Rom/SaveEmulatorJSState")]
     [DisableRequestSizeLimit]
     [RequestFormLimits(MultipartBodyLengthLimit = 128 * 1024 * 1024)]
-    public async Task<IActionResult> SaveEmulatorJSState(CancellationToken ct)
+    public async Task<IActionResult> SaveEmulatorJSState()
     {
-      var swAll = System.Diagnostics.Stopwatch.StartNew();
+      var totalSw = System.Diagnostics.Stopwatch.StartNew();
       try
       {
-        // 1) Validate multipart
         if (!Request.HasFormContentType)
           return BadRequest("Expected multipart/form-data");
 
-        // NOTE: Do NOT pass the request CancellationToken (ct) to I/O ops below.
-        // The Express prod-server proxy may signal cancellation before the DB
-        // write completes.  We still want the save to finish server-side.
-        var form = await Request.ReadFormAsync(CancellationToken.None);
+        var form = await Request.ReadFormAsync();
         var file = form.Files.GetFile("file");
-        if (file == null || file.Length <= 0)
-          return BadRequest("Missing 'file' in multipart request.");
+        if (file == null || file.Length == 0)
+          return BadRequest("Missing 'file'");
 
         if (!int.TryParse(form["userId"], out var userId) || userId <= 0)
-          return BadRequest("Missing or invalid 'userId'.");
+          return BadRequest("Invalid 'userId'");
 
         var romName = form["romName"].ToString();
         if (string.IsNullOrWhiteSpace(romName))
-          return BadRequest("Missing 'romName'.");
+          return BadRequest("Missing 'romName'");
 
-        // 2) Read file into byte[] (same pattern as SaveN64State — MySqlConnector needs byte[])
-        byte[] bytes;
-        using (var ms = new MemoryStream())
+        // Stream the file (no ToArray!)
+        Stream dataStream = file.OpenReadStream();
+
+        // Decompress if client sent gzip
+        var encoding = form["encoding"]?.ToString() ?? "identity";
+        if (string.Equals(encoding, "gzip", StringComparison.OrdinalIgnoreCase))
         {
-          await file.CopyToAsync(ms, CancellationToken.None);
-          bytes = ms.ToArray();
+          dataStream = new System.IO.Compression.GZipStream(dataStream, System.IO.Compression.CompressionMode.Decompress);
         }
 
-        // 3) If client sent gzip, decompress so the DB always stores raw state data.
-        //    This keeps GetEmulatorJSSaveState simple (no encoding header needed).
-        var encoding = form["encoding"].ToString();
-        if (string.Equals(encoding, "gzip", StringComparison.OrdinalIgnoreCase) && bytes.Length >= 2
-            && bytes[0] == 0x1F && bytes[1] == 0x8B) // verify gzip magic bytes
-        {
-          using var gzIn = new System.IO.Compression.GZipStream(
-              new MemoryStream(bytes), System.IO.Compression.CompressionMode.Decompress);
-          using var rawMs = new MemoryStream();
-          await gzIn.CopyToAsync(rawMs, CancellationToken.None);
-          bytes = rawMs.ToArray();
-        }
-
-        // 4) UPSERT into MySQL — plain byte[] value, no Prepare() needed
-        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-        await conn.OpenAsync(CancellationToken.None);
+        await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
 
         const string sql = @"
-INSERT INTO emulatorjs_save_states
-  (user_id, rom_name, state_data, file_size, last_updated)
-VALUES
-  (@UserId, @RomName, @StateData, @FileSize, CURRENT_TIMESTAMP)
-ON DUPLICATE KEY UPDATE
-  state_data   = VALUES(state_data),
-  file_size    = VALUES(file_size),
-  last_updated = CURRENT_TIMESTAMP;";
+            INSERT INTO emulatorjs_save_states
+                (user_id, rom_name, state_data, file_size, last_updated)
+            VALUES
+                (@UserId, @RomName, @StateData, @FileSize, CURRENT_TIMESTAMP)
+            ON DUPLICATE KEY UPDATE
+                state_data = VALUES(state_data),
+                file_size = VALUES(file_size),
+                last_updated = CURRENT_TIMESTAMP;";
 
-        using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 180 };
-        cmd.Parameters.Add("@UserId",    MySqlDbType.Int32).Value    = userId;
-        cmd.Parameters.Add("@RomName",   MySqlDbType.VarChar).Value  = romName;
-        cmd.Parameters.Add("@StateData", MySqlDbType.LongBlob).Value = bytes;
-        cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value     = bytes.Length;
+        await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 120 };
 
-        await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+        cmd.Parameters.AddWithValue("@UserId", userId);
+        cmd.Parameters.AddWithValue("@RomName", romName);
+        cmd.Parameters.AddWithValue("@FileSize", file.Length);
 
-        _ = _log.Db($"EJS save OK: user={userId} rom={romName} size={bytes.Length} ms={swAll.ElapsedMilliseconds}", userId, "ROM", true);
+        // ←←← THIS IS THE KEY: stream directly
+        var blobParam = cmd.Parameters.Add("@StateData", MySqlDbType.LongBlob);
+        blobParam.Value = dataStream;
+        blobParam.Size = (int)file.Length;
 
-        return Ok(new { ok = true, userId, romName, fileSize = bytes.Length, ms = swAll.ElapsedMilliseconds });
-      }
-      catch (OperationCanceledException)
-      {
-        _ = _log.Db("SaveEmulatorJSState timed out / canceled", null, "ROM", true);
-        return StatusCode(504, "Timed out saving emulator state");
+        await cmd.ExecuteNonQueryAsync();
+
+        _ = _log.Db($"EJS save OK: {romName} | {file.Length} bytes | {totalSw.ElapsedMilliseconds}ms", userId, "ROM", true);
+
+        return Ok(new { ok = true, fileSize = file.Length, ms = totalSw.ElapsedMilliseconds });
       }
       catch (Exception ex)
       {
         _ = _log.Db("SaveEmulatorJSState error: " + ex.Message, null, "ROM", true);
-        return StatusCode(500, "Error saving emulator state");
+        return StatusCode(500, "Save failed");
       }
     }
+
 
     [HttpPost("/Rom/GetEmulatorJSSaveState")]
     public async Task<IActionResult> GetEmulatorJSSaveState([FromBody] GetEmulatorJSSaveStateRequest req, CancellationToken ct = default)
