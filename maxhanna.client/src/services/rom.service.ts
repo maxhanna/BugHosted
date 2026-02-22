@@ -350,36 +350,22 @@ export class RomService {
 
     const tight = new Uint8Array(this.toTightArrayBuffer(stateData));
 
-    let bytesToUpload: Uint8Array = tight;
-    let encoding: 'gzip' | 'identity' = 'identity';
-
-    if (this.supportsCompressionStreams()) {
-      try {
-        const gz: Uint8Array = await this.gzip(tight);
-        if (gz.length > 0 && gz.length < tight.length * 0.98) {
-          bytesToUpload = gz;
-          encoding = 'gzip';
-        }
-        console.log('[EJS] savestate sizes:', { raw: tight.length, gz: gz.length, encoding });
-      } catch (e) {
-        console.warn('[EJS] gzip failed, uploading raw', e);
-      }
-    }
+    let bytesToUpload: Uint8Array = tight; 
+ 
 
     const form = new FormData();
 
     // ✅ Force to real ArrayBuffer for File() / BlobPart typing
     const ab: ArrayBuffer = this.toArrayBuffer(bytesToUpload);
 
-    const filename = encoding === 'gzip' ? 'savestate.bin.gz' : 'savestate.bin';
+    const filename = 'savestate.bin';
 
     form.append('file', new File([ab], filename, {
-      type: encoding === 'gzip' ? 'application/gzip' : 'application/octet-stream'
+      type: 'application/octet-stream'
     }));
 
     form.append('userId', String(userId));
-    form.append('romName', romName);
-    form.append('encoding', encoding);
+    form.append('romName', romName); 
     form.append('originalSize', String(tight.length));
 
     try {
