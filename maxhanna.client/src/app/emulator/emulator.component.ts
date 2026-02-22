@@ -1050,7 +1050,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (!gameEl) return;
  
     const fsButton = (Array.from(document.querySelectorAll('.ejs_menu_button')) as HTMLButtonElement[])
-      .find(btn => btn.textContent.includes('Enter Fullscreen'));
+      .find(btn => btn?.textContent?.includes('Enter Fullscreen'));
 
     if (fsButton) {
       fsButton.click();
