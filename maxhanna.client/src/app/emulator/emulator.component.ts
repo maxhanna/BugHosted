@@ -591,7 +591,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   private async onSaveState(raw: any) {
     if (this._exiting) { return; }
-    
+    const tmpStatus = this.status;
+    this.status = 'Saving State.';
 
     // If we're trying to capture a single save for exit (fire-and-forget),
     // resolve the capture promise and skip the normal upload path.
@@ -645,11 +646,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (!u8 || u8.length === 0) {
       u8 = await this.tryReadSaveFromIndexedDB(gameID, gameName);
     }
-
+    this.status = "State Captured, Uploading...";
     // 4) If still nothing, bail gracefully (avoid TypeError in romService)
     if (!u8 || u8.length === 0) {
       console.warn('[EJS] Save callback had no bytes and no storage fallback found; skipping upload.');
       if (this._pendingSaveResolve) { try { this._pendingSaveResolve(false); } catch { } this._pendingSaveResolve = undefined; }
+      this.status = tmpStatus;
       return;
     }
 
@@ -671,6 +673,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       if (this._pendingSaveResolve) { try { this._pendingSaveResolve(false); } catch { } this._pendingSaveResolve = undefined; }
     } finally {
       this._saveInProgress = false;
+      this.status = tmpStatus;
     }
   }
 
@@ -750,6 +753,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private async uploadSaveBytes(u8: Uint8Array) {
+    const tmpStatus = this.status;
+    this.status = 'Sending Data to Server...';
     if (!u8?.length) {
       console.log('[EJS] uploadSaveBytes: no bytes to upload; skipping');
       return false;
@@ -758,9 +763,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       console.log('[EJS] uploadSaveBytes: no user or rom; skipping upload');
       return false;
     }
-
-    // If an upload is already in-flight, return the same promise so concurrent
-    // callers will await the same network request instead of issuing duplicates.
+ 
     if (this._inFlightSavePromise) {
       try { return await this._inFlightSavePromise; } catch { return false; }
     }
@@ -783,6 +786,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       } finally {
         this._saveInProgress = false;
         this._inFlightSavePromise = undefined;
+        this.status = tmpStatus;
       }
     })();
 
