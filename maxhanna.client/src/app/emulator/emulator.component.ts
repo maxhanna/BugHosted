@@ -1730,8 +1730,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // ---------- Non-Sega A/B pill logic ----------
     const a = this.findClickableInside(document.getElementById('btnA')) || this.findByLabel(root, ['A']);
     const b = this.findClickableInside(document.getElementById('btnB')) || this.findByLabel(root, ['B']);
+    const c = this.findClickableInside(document.getElementById('btnC')) || this.findByLabel(root, ['C']);
     if (a) { a.classList.add('max-pill', 'is-a'); }
     if (b) { b.classList.add('max-pill', 'is-b'); }
+    if (c) { c.classList.add('max-pill', 'is-c'); }
 
     // Speed Fast / Slow
     const fast = this.findClickableInside(document.getElementById('speed_fast')) || this.findByLabel(root, ['FAST']);
@@ -1776,18 +1778,18 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   genesisThreeRight(): VPadItem[] {
     return [
-      { type: 'button', id: 'genC', text: 'C', location: 'right', left: -80, top: 110, input_value: 8, bold: true },
+      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 70, top: 25, input_value: 8, bold: true },
       { type: 'button', id: 'genB', text: 'B', location: 'right', left: 0, top: 35, input_value: 0, bold: true },
-      { type: 'button', id: 'genA', text: 'A', location: 'right', left: 70, top: 25, input_value: 1, bold: true },
+      { type: 'button', id: 'genA', text: 'A', location: 'right', left: -115, top: 85, input_value: 1, bold: true },
     ];
   }
 
   genesisSixRight(): VPadItem[] {
     return [
       // Lower row A/B/C
-      { type: 'button', id: 'genC', text: 'C', location: 'right', left: -80, top: 110, input_value: 8, bold: true },
+      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 70, top: 25, input_value: 8, bold: true },
       { type: 'button', id: 'genB', text: 'B', location: 'right', left: 0, top: 35, input_value: 0, bold: true },
-      { type: 'button', id: 'genA', text: 'A', location: 'right', left: 70, top: 25, input_value: 1, bold: true },
+      { type: 'button', id: 'genA', text: 'A', location: 'right', left: -115, top: 85, input_value: 1, bold: true },
       // Upper row X/Y/Z (match your build’s scheme)
       { type: 'button', id: 'genX', text: 'X', location: 'right', left: -60, top: -10, input_value: 10, bold: true },
       { type: 'button', id: 'genY', text: 'Y', location: 'right', left: 0, top: -30, input_value: 9, bold: true },
