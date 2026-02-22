@@ -62,7 +62,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   useJoystick = false;     // D-pad (false) vs analog "zone" (true)
   segaShowLR = true;       // show L/R pills on Genesis when desired
   status: string = 'Idle';
-  preferSixButtonGenesis: boolean = true; 
+  preferSixButtonGenesis: boolean = true;
   private autosaveInterval: any;
   private romObjectUrl?: string;
   private emulatorInstance?: any;
@@ -78,7 +78,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private _saveInProgress: boolean = false;
   private _inFlightSavePromise?: Promise<boolean>;
   private _exiting = false;
-  
+  private exitSaving = false;
+
 
   constructor(
     private romService: RomService,
@@ -92,21 +93,17 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   ngOnInit(): void {
     if (this.parentRef) {
       this.parentRef.preventShowSecurityPopup = true;
+      this.parentRef.navigationComponent.stopNotifications();
     }
   }
 
   async ngAfterViewInit() {
-    // EmulatorJS will be initialized when a ROM is selected
     this.status = 'Ready - Select a ROM';
-    this.cdr.detectChanges();
-    // listen for fullscreen changes to keep UI state in sync
-    document.addEventListener('fullscreenchange', this.onFullscreenChangeBound);
-    document.addEventListener('webkitfullscreenchange', this.onFullscreenChangeBound as any);
+    this.cdr.detectChanges(); 
   }
 
-
-
   ngOnDestroy(): void {
+    this.status = 'Destroying emulator...';
     this._destroyed = true;
     this.clearAutosave();
     if (this.parentRef) {
@@ -132,10 +129,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (!shouldSave) {
       return this.navigateHome();
     }
-    const ok = await this.flushSavesBeforeExit(12000);
-    console.log('[EJS] safeExit: flushSavesBeforeExit ->', ok);
-
-    return this.navigateHome();
+    this.exitSaving = true;  
+    this.callEjsSave();
   }
 
   private navigateHome() {
@@ -763,13 +758,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       console.log('[EJS] uploadSaveBytes: no user or rom; skipping upload');
       return false;
     }
- 
+
     if (this._inFlightSavePromise) {
       try { return await this._inFlightSavePromise; } catch { return false; }
     }
 
     this._inFlightSavePromise = (async () => {
       this._saveInProgress = true;
+      let error = undefined;
       try {
         const res = await this.romService.saveEmulatorJSState(this.romName!, this.parentRef!.user!.id!, u8);
         if (res.ok) {
@@ -782,14 +778,24 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         }
       } catch (err) {
         console.error('[EJS] Save upload exception:', err);
+        error = err;
+        this.status = 'Error uploading save!';
+        this.cdr.detectChanges();
         return false;
       } finally {
         this._saveInProgress = false;
         this._inFlightSavePromise = undefined;
-        this.status = 'Save Complete!';
+        if (!error) {
+          this.status = 'Save Complete!';
+          this.cdr.detectChanges();
+        }
         setTimeout(() => {
           this.status = tmpStatus;
-        }, 3000);
+          this.cdr.detectChanges();
+          if (this.exitSaving) {
+            return this.navigateHome();
+          }
+        }, 2000);
       }
     })();
 
@@ -941,10 +947,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   /** Try to focus the emulator's interactive element (canvas/iframe/container). */
   private async waitForEmulatorAndFocus(maxAttempts = 8, delayMs = 200): Promise<boolean> {
     for (let i = 0; i < maxAttempts; i++) {
-      if (this._destroyed) return false;
+      if (this._destroyed) {
+        return false;
+      }
       await new Promise(r => setTimeout(r, delayMs));
       const gameEl = document.getElementById('game');
-      if (!gameEl) continue;
+      if (!gameEl) {
+        continue;
+      }
       // Prefer canvas, then iframe, then any focusable child
       const canvas = gameEl.querySelector('canvas') as HTMLElement | null;
       const iframe = gameEl.querySelector('iframe') as HTMLElement | null;
@@ -1034,50 +1044,17 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
     this.cdr.detectChanges();
   }
-
-  private onFullscreenChangeBound = this.onFullscreenChange.bind(this);
+ 
   async toggleFullScreen(): Promise<void> {
     const gameEl = document.getElementById('game');
     if (!gameEl) return;
+ 
+    const fsButton = (Array.from(document.querySelectorAll('.ejs_menu_button')) as HTMLButtonElement[])
+      .find(btn => btn.textContent.includes('Enter Fullscreen'));
 
-    try {
-      if (!this.isFullScreen) {
-        if ((gameEl as any).requestFullscreen) await (gameEl as any).requestFullscreen();
-        else if ((gameEl as any).webkitRequestFullscreen) await (gameEl as any).webkitRequestFullscreen();
-        this.isFullScreen = true;
-
-        // In fullscreen, let the core scale naturally; don't subtract header
-        gameEl.style.height = '100%';
-        gameEl.style.removeProperty('aspect-ratio');
-      } else {
-        await this.exitFullScreen();
-      }
-    } catch (e) {
-      console.error('Fullscreen request failed', e);
+    if (fsButton) {
+      fsButton.click();
     }
-    this.cdr.detectChanges();
-    await this.waitForEmulatorAndFocus();
-  }
-
-  private async exitFullScreen(): Promise<void> {
-    try {
-      if ((document as any).exitFullscreen) await (document as any).exitFullscreen();
-      else if ((document as any).webkitExitFullscreen) await (document as any).webkitExitFullscreen();
-    } catch { }
-    this.isFullScreen = false;
-
-    const gameEl = document.getElementById('game');
-    if (gameEl) {
-      if (this.romName) {
-        const h = this.getViewportHeightMinusHeader(60);
-        gameEl.style.height = h;
-      } else {
-        gameEl.style.height = '';
-        gameEl.style.aspectRatio = '4/3';
-      }
-      gameEl.style.removeProperty('max-height');
-    }
-    this.cdr.detectChanges();
   }
 
   getRomName(): string {
@@ -1609,7 +1586,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const FONT = 30;   // px
 
     const SEGA = 72;   // px (Genesis round buttons: A/B/C/X/Y/Z)
-    const SEGA_FONT = 20; 
+    const SEGA_FONT = 20;
 
     const translateXA = this.system != 'genesis' ? -24 : 34;
     const translateXB = this.system != 'genesis' ? -36 : -6;
