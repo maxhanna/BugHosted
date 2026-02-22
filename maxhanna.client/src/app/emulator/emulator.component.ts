@@ -59,6 +59,23 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       expanded: false
     }
   ];
+  private readonly MIN_STATE_SIZE: Record<string, number> = {
+    // Light cores
+    'fceumm': 8 * 1024,     // NES
+    'gambatte': 8 * 1024,     // GB/GBC
+    'mgba': 32 * 1024,    // GBA (very reliable floor)
+    'genesis_plus_gx': 16 * 1024,    // Genesis / Master System / GG
+    'snes9x': 64 * 1024,    // SNES (can be ~500 KB+ on later versions)
+    'picodrive': 16 * 1024,    // 32X
+
+    // Heavy cores – use conservative minimums
+    'mupen64plus_next': 40 * 1024 * 1024,  // N64 – usually 60–200+ MB
+    'mednafen_psx_hw': 1 * 1024 * 1024,   // PS1 (Beetle)
+    'pcsx_rearmed': 1 * 1024 * 1024,
+    'duckstation': 1 * 1024 * 1024,
+    'melonds': 512 * 1024,        // DS
+    // add more as you see them in logs
+  };
   isSearchVisible = true;
   autosave = true;
   autosaveIntervalTime: number = 180000; // 3 minutes 
@@ -84,6 +101,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private _exiting = false;
   private exitSaving = false;
   private stopEmuSaving = false;
+  private lastGoodSaveSize = new Map<string, number>()
   
   constructor(
     private romService: RomService,
@@ -349,8 +367,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (gameContainer) {
       gameContainer.innerHTML = '';
     }
-    this.installRuntimeTrackers();
-
+    this.installRuntimeTrackers(); 
     this.hideEJSMenu();
     //console.log('[EJS] final vpad settings before loader:', JSON.stringify(window.EJS_VirtualGamepadSettings, null, 2));
 
@@ -653,7 +670,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     // 1) Try to normalize whatever the callback passed
     let u8: Uint8Array | null = await this.normalizeSavePayload(raw);
-
+    const core = (window as any).EJS_core || '';
+    if (u8 && !this.isValidSaveState(u8, core)) {
+      this.status = 'Save state invalid – not uploading';
+      this.parentRef?.showNotification('Save state data appears invalid; upload skipped.');
+      this.cdr.detectChanges();
+      return;
+    }
     // 2) If callback gave no bytes, try localStorage
     if (!u8 || u8.length === 0) {
       u8 = this.tryReadSaveFromLocalStorage(gameID, gameName);
@@ -768,6 +791,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private async uploadSaveBytes(u8: Uint8Array) {
+    const core = (window as any).EJS_core || '';
+    if (!this.isValidSaveState(u8, core)) {
+      console.error('[EJS] Refusing to upload invalid save state');
+      this.parentRef?.showNotification('Save state data appears invalid; upload skipped.');
+      return false;
+    }
     const tmpStatus = this.status;
     this.status = 'Sending Data to Server...';
     if (!u8?.length) {
@@ -790,6 +819,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         const res = await this.romService.saveEmulatorJSState(this.romName!, this.parentRef!.user!.id!, u8);
         if (res.ok) {
           this._lastSaveTime = Date.now();
+          this.lastGoodSaveSize.set(this.romName!, u8.length);
           //console.log(`[EJS] Save state uploaded (${u8.length} bytes)`);
           return true;
         } else {
@@ -1909,6 +1939,71 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (GENESIS_FORCE_THREE.has(slug)) return false;
     if (this.preferSixButtonGenesis) return true;
     return GENESIS_6BUTTON.has(slug);
+  }
+
+  private isValidSaveState(u8: Uint8Array, core: string): boolean {
+    if (!u8) return false;
+    const length = u8.length;
+    if (length === 0) {
+      console.warn('[EJS] Save state is empty → skipping upload');
+      this.parentRef?.showNotification('Save state is empty; upload skipped');
+      return false;
+    }
+
+    // All-zero = definitely corrupt/empty
+    if (u8.every(b => b === 0)) {
+      console.warn('[EJS] Save state is all zeros → skipping upload');
+      this.parentRef?.showNotification('Save state appears to be empty/corrupt (all zeros); upload skipped');
+      return false;
+    }
+
+    const min = this.MIN_STATE_SIZE[core] ?? 4 * 1024; // safe default
+    if (length < min) {
+      console.warn(`[EJS] Save state too small for core ${core} (${length} bytes < ${min}) → skipping`);
+      this.parentRef?.showNotification(`Save state is smaller than expected for this game/core; it may be corrupt. Upload skipped.`);
+      return false;
+    }
+
+    // Optional: very crude entropy check (real states are never super low-entropy)
+    let zeros = 0;
+    for (let i = 0; i < Math.min(4096, length); i++) if (u8[i] === 0) zeros++;
+    if (zeros > 3500) {
+      console.warn('[EJS] Save state suspiciously low-entropy → skipping');
+      this.parentRef?.showNotification('Save state appears to be low-entropy (too many zeros); it may be corrupt. Upload skipped.');
+      return false;
+    }
+
+    if (core === 'mgba' && !this.hasValidMgbaHeader(u8)) {
+      console.warn('[EJS] Save state has invalid mGBA header → skipping');
+      this.parentRef?.showNotification('Save state does not have a valid mGBA header; it may be corrupt or from an incompatible version. Upload skipped.');
+      return false;
+    }
+
+    if (this.romName && core) {
+      const lastSize = this.lastGoodSaveSize.get(this.romName);
+
+      if (lastSize !== undefined) {
+        if (length < lastSize * 0.3) {
+          console.warn('State size is less than 30% of last good size — skipping');
+          this.parentRef?.showNotification('Save state is significantly smaller than last known good state; it may be corrupt. Upload skipped.');
+          return false;
+        }
+
+        if (length > lastSize * 3) {
+          console.warn('State size is greater than 300% of last good size — skipping');
+          this.parentRef?.showNotification('Save state is significantly larger than last known good state; it may be corrupt. Upload skipped.');
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  private hasValidMgbaHeader(u8: Uint8Array): boolean {
+    // mGBA states usually start with these bytes (from mGBA source) 
+    return u8.length > 16 &&
+      u8[0] === 0x6D && u8[1] === 0x47 && u8[2] === 0x42 && u8[3] === 0x41; // adjust if you see different
   }
 
   resetGame() {
