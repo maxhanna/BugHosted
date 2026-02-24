@@ -19,7 +19,7 @@
           <span *ngIf="!showUserHeader" style="float:right; font-size:0.9em">{{ isModeCollapsed(m) ? '+' : '−' }}</span>
         </div>
         <ng-container *ngIf="!isModeCollapsed(m)">
-          <ng-container *ngIf="groupedByMode[m] && (keys(groupedByMode[m]).length > 0); else emptyMode">
+          <ng-container *ngIf="groupedByMode[m] && (keys(groupedByMode[m]).length > 0)">
             <div *ngFor="let group of groupedByMode[m] | keyvalue: keepOrder" class="difficulty-group">
               <table class="mainTable">
                 <thead>
@@ -53,7 +53,7 @@
             </div>
           </ng-container>
         </ng-container>
-        <ng-template #emptyMode *ngIf="!loading">
+        <ng-template *ngIf="!loading && !(groupedByMode[m] && (keys(groupedByMode[m]).length > 0))">
           <div class="no-scores">
             No{{" "}}
             <app-menu-item style="display: inline-block;" [type]="'Wordler'"
