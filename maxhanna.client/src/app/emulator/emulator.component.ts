@@ -334,7 +334,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         console.warn('[EJS] onLoadState fetch/apply failed', e);
       }
     };
-    this.applyEjsRunOptions();
+    this.applyEjsRunOptions(core);
     // If the build calls back with the instance, capture it early
     window.EJS_ready = (api: any) => {
       try {
@@ -567,7 +567,15 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return coreMap[ext] || 'mgba';
   }
 
-  private applyEjsRunOptions(): void {
+  private applyEjsRunOptions(core: string): void {
+    const rootStyle = getComputedStyle(document.documentElement);
+    const mainHighlight = (rootStyle.getPropertyValue('--main-highlight-color') || '#3a3a3a').trim();
+    const componentBackgroundColor = (rootStyle.getPropertyValue('--component-background-color') || '#3a3a3a').trim();
+    let systemIcon = this.fileSearchComponent?.getSystemIcon(core);
+    if (!systemIcon?.toString().includes("png")) {
+      console.log("system icon missing or not a png for core", core, "icon value:", systemIcon);
+      systemIcon = undefined;
+    }
     const w = window as any;
     w.EJS_defaultOptionsForce = false;  // force defaults every run  (docs: config system)
     w.EJS_directKeyboardInput = true;   // deliver raw key events to the core
@@ -576,12 +584,18 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     w.EJS_fullscreenOnLoad = false;     // start in-window, let user choose fullscreen (bad option, to delete)
     w.EJS_fullscreenOnLoaded = false;   // start in-window, let user choose fullscreen
     w.EJS_fullscreen = false;           // start in-window, let user choose fullscreen (legacy option)
-    w.EJS_DEBUG_XX = false;              // debug options 
-    w.EJS_logCoreInfo = false;           // debug options 
-    w.EJS_logVideo = false;              // debug options 
-    w.EJS_logAudio = false;              // debug options 
-    w.EJS_logInput = false;              // debug options 
-    w.EJS_logSaves = false;              // debug options 
+    w.EJS_threads = true;               // allow cores to use threads if they want (e.g. for async save state capture); you can disable if you have issues with certain browsers/devices
+    w.EJS_color = mainHighlight;        // Sets the main color theme for the emulator
+    w.EJS_backgroundColor = componentBackgroundColor; // Sets the background color for the emulator    
+    if (systemIcon) {
+      w.EJS_backgroundImage = systemIcon; // Sets the background color for the emulator    
+    }
+    w.EJS_DEBUG_XX = false;             // debug options 
+    w.EJS_logCoreInfo = false;          // debug options 
+    w.EJS_logVideo = false;             // debug options 
+    w.EJS_logAudio = false;             // debug options 
+    w.EJS_logInput = false;             // debug options 
+    w.EJS_logSaves = false;             // debug options 
     w.EJS_afterStart = () => {
       try {
         const gameEl = document.getElementById('game');
@@ -2081,6 +2095,10 @@ declare global {
     EJS_fullscreen?: boolean;
     EJS_paths?: { [key: string]: string };
     EJS_volume?: number;
+    EJS_threads?: boolean;
+    EJS_color?: string;
+    EJS_backgroundColor?: string;
+    EJS_backgroundImage?: string;
     EJS_lightgun?: boolean;
     EJS_onSaveState?: (state: Uint8Array) => void;
     EJS_onLoadState?: () => void;
