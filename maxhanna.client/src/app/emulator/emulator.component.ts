@@ -93,7 +93,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private _captureSaveResolve?: (u8: Uint8Array | null) => void;
   private _gameSizeObs?: ResizeObserver;
   private _gameAttrObs?: MutationObserver;
-  private _saveFn?: () => Promise<void>; 
+  private _saveFn?: () => Promise<void>;
   private _lastSaveTime: number = 0;
   private _saveInProgress: boolean = false;
   private _inFlightSavePromise?: Promise<boolean>;
@@ -103,10 +103,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private isExitingAndReturningToEmulator = false;
   private lastGoodSaveSize = new Map<string, number>();
   private gameLoadDate?: Date | undefined;
-  
+
   constructor(
     private romService: RomService,
-    private fileService: FileService, 
+    private fileService: FileService,
     private cdr: ChangeDetectorRef
   ) {
     super();
@@ -125,7 +125,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       const qs = params.toString();
       window.location.replace('/Emulator' + (qs ? '?' + qs : ''));
       return;
-    } 
+    }
 
     if (this.parentRef) {
       this.parentRef.preventShowSecurityPopup = true;
@@ -136,7 +136,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   async ngAfterViewInit() {
     this.status = 'Ready - Select a ROM';
-    this.cdr.detectChanges(); 
+    this.cdr.detectChanges();
     // If a preset ROM was provided via query/window, auto-load it now
     if (this.presetRomName && this.presetRomId) {
       try {
@@ -161,9 +161,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   async safeExit(): Promise<void> {
     this.clearAutosave();
     if (!this.romName || !this.parentRef?.user?.id) {
-      if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) { 
+      if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
         this.fullReloadToEmulator();
-      } else { 
+      } else {
         return this.navigateHome();
       }
     }
@@ -177,7 +177,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         return this.navigateHome();
       }
     }
-    
+
     const shouldSave = window.confirm('Save emulator state before closing?');
     if (!shouldSave) {
       if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
@@ -202,7 +202,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.parentRef?.showNotification('Selected file is missing information.');
       this.cdr.detectChanges();
       return;
-    } 
+    }
     this.presetRomId = file.id;
     this.presetRomName = file.fileName;
     try {
@@ -232,8 +232,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const romBlobOrArray = await this.romService.getRomFile(
       fileName, this.parentRef?.user?.id, fileId,
       (loaded, total) => {
-        const pct = Math.round((loaded / total) * 100);
-        this.status = `Downloading ROM: ${loaded} / ${total} bytes (${pct}%)`;
+        this.displayRomUploadOrDownloadProgress(total, loaded, false);
         this.cdr.detectChanges();
       }
     );
@@ -260,9 +259,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
     const core = this.detectCore(fileName);
     const renderClamp = this.getRenderClampForCore(core);
-    (window as any).EJS_renderClamp = renderClamp;  
-    window.EJS_core = core;  
-    this.system = this.systemFromCore(core); 
+    (window as any).EJS_renderClamp = renderClamp;
+    window.EJS_core = core;
+    this.system = this.systemFromCore(core);
 
     const romDisplayName = this.fileService.getFileWithoutExtension(fileName); // e.g., "Ultimate MK3 (USA)"
     const genesisSix = (this.system === 'genesis') ? this.shouldUseGenesisSixButtons(romDisplayName) : false;
@@ -274,7 +273,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       segaShowLR: false,           // keep false to avoid L/R "pills"
       genesisSix: genesisSix,      // ⟵ pass the decision in
     });
-    
+
     const speedButtons: VPadItem[] = [
       {
         type: 'button',
@@ -371,7 +370,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         //console.log('[EJS] instance ready hook fired, has saveState?', !!this._saveFn);
         this.ensureSaveStatePolyfill();
       } catch { console.warn('[EJS] EJS_ready callback failed'); }
-      try { this.onEmulatorReadyForSizing(); } catch { console.warn('[EJS] onEmulatorReadyForSizing failed'); } 
+      try { this.onEmulatorReadyForSizing(); } catch { console.warn('[EJS] onEmulatorReadyForSizing failed'); }
     };
 
     // 6) Ensure CSS present once
@@ -391,7 +390,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (gameContainer) {
       gameContainer.innerHTML = '';
     }
-    this.installRuntimeTrackers(); 
+    this.installRuntimeTrackers();
     this.hideEJSMenu();
     //console.log('[EJS] final vpad settings before loader:', JSON.stringify(window.EJS_VirtualGamepadSettings, null, 2));
 
@@ -421,7 +420,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
               this.scanAndTagVpadControls();
 
               try {
-                const ok = await this.applySaveStateIfAvailable(saveStateBlob); 
+                const ok = await this.applySaveStateIfAvailable(saveStateBlob);
               } catch {
                 console.warn('[EJS] Unable to apply save state on startup');
               }
@@ -442,12 +441,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.fullReloadToEmulator();
       return;
     }
- 
+
     this.status = 'Running';
     this.stopLoading();
     this.cdr.detectChanges();
   }
- 
   private hideEJSMenu() {
     (window as any).EJS_Buttons = {
       playPause: false,
@@ -650,7 +648,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       } catch { }
     };
   }
- 
+
   private ensureSaveStatePolyfill() {
     const w = window as any;
     if (typeof w.EJS_saveState === 'function') return;
@@ -666,7 +664,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     } else {
       console.warn('[EJS] No gameManager.getState() found; cannot polyfill EJS_saveState');
     }
-  } 
+  }
 
   private async loadSaveStateFromDB(romFileName: string): Promise<Blob | null> {
     if (!this.parentRef?.user?.id) {
@@ -688,7 +686,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (this._exiting) { return; }
     const tmpStatus = this.status;
     this.status = 'Saving State. Please wait... (as change might corrupt save data)';
- 
+
     if (this._captureSaveResolve) {
       try {
         const cap = await this.normalizeSavePayload(raw);
@@ -772,13 +770,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         }
       })());
     } catch (err) {
-      console.error('Failed to save state (bytes=', u8.length, '):', err);
+      const mb = (u8.length / 1024 / 1024).toFixed(2);
+      console.error(`Failed to save state (MB=${mb}):`, err);
       if (this._pendingSaveResolve) { try { this._pendingSaveResolve(false); } catch { } this._pendingSaveResolve = undefined; }
     } finally {
       this._saveInProgress = false;
       this.status = tmpStatus;
     }
-  } 
+  }
 
   private async postSaveCaptureAndUpload(): Promise<boolean> {
     try {
@@ -883,8 +882,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         const res = await this.romService.saveEmulatorJSState(
           this.romName!, this.parentRef!.user!.id!, u8,
           (loaded, total) => {
-            const pct = Math.round((loaded / total) * 100);
-            this.status = `Uploading Save - ${loaded} / ${total} bytes (${pct}%)`;
+            this.displayRomUploadOrDownloadProgress(total, loaded, true);
             this.cdr.detectChanges();
           }
         );
@@ -908,7 +906,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         this._saveInProgress = false;
         this._inFlightSavePromise = undefined;
         if (!error) {
-          this.status = `Save Complete! (took ${ms ? ms/1000 + 's' : 'a moment'})`;
+          this.status = `Save Complete! (took ${ms ? ms / 1000 + 's' : 'a moment'})`;
           this.cdr.detectChanges();
         }
         if (!this.stopEmuSaving && !this.exitSaving && !this.isExitingAndReturningToEmulator) {
@@ -921,19 +919,19 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           this.fullReloadToEmulator();
         } else if (this.exitSaving) {
           this.navigateHome();
-        } 
+        }
       }
     })();
 
     return await this._inFlightSavePromise;
-  } 
+  }
 
-  setupAutosave() { 
+  setupAutosave() {
     try { this.clearAutosave(); } catch { }
-    if (!this.autosave || !this.romName || !this.parentRef?.user?.id) return; 
- 
+    if (!this.autosave || !this.romName || !this.parentRef?.user?.id) return;
+
     this.autosaveInterval = setInterval(() => {
-      try { 
+      try {
         if (this._saveInProgress) {
           console.log('[EJS] Autosave skipped: save in progress');
           return;
@@ -948,7 +946,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }, this.autosaveIntervalTime);
   }
 
-  clearAutosave() { 
+  clearAutosave() {
     if (this.autosaveInterval) { clearInterval(this.autosaveInterval); this.autosaveInterval = undefined; }
     if (this._pendingSaveTimer) { clearTimeout(this._pendingSaveTimer); this._pendingSaveTimer = undefined; }
   }
@@ -972,12 +970,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       // Other
       'wad', 'ccd'
     ];
-  } 
+  }
 
   getAllowedRomFileTypesString(): string {
     return this.getAllowedFileTypes().map(e => '.' + e.trim().toLowerCase()).join(',');
   }
-  
+
   private getViewportHeightMinusHeader(pxHeader = 60): string {
     const vv = (window as any).visualViewport;
     const h = Math.round((vv?.height ?? window.innerHeight) - pxHeader);
@@ -1105,7 +1103,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       game.style.setProperty('width', '100%', 'important');
       game.style.setProperty('max-width', '100vw', 'important');
       game.style.setProperty('margin', '0 auto', 'important');
-    //  game.style.removeProperty('aspect-ratio');
+      //  game.style.removeProperty('aspect-ratio');
     };
 
     apply();
@@ -1127,12 +1125,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       window.addEventListener('orientationchange', apply, { passive: true });
       (window as any).visualViewport?.addEventListener?.('resize', apply, { passive: true });
     } catch { }
-  } 
- 
+  }
+
   async toggleFullScreen(): Promise<void> {
     const gameEl = document.getElementById('game');
     if (!gameEl) return;
- 
+
     const fsButton = (Array.from(document.querySelectorAll('.ejs_menu_button')) as HTMLButtonElement[])
       .find(btn => btn?.textContent?.includes('Enter Fullscreen'));
 
@@ -1155,9 +1153,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.startLoading();
     this.cdr.detectChanges();
 
-    await this.safeExit(); 
+    await this.safeExit();
   }
- 
+
   private async probeForSaveApi(maxMs = 3000): Promise<void> {
     const start = Date.now();
 
@@ -1214,7 +1212,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     } catch { }
     return null;
   }
- 
+
   private tryBindSaveFromUI(): void {
     const btn = this.findQuickSaveButton();
     if (btn) {
@@ -1228,7 +1226,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     } else {
       console.warn('[EJS] Quick Save button not found; cannot bind UI-based save');
     }
-  } 
+  }
 
   private isArrayBuffer(v: any): v is ArrayBuffer {
     return v && typeof v === 'object' && typeof (v as ArrayBuffer).byteLength === 'number' && typeof (v as ArrayBuffer).slice === 'function';
@@ -1248,7 +1246,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
     return out;
   }
- 
+
   private debugDescribePayload(raw: any): void {
     try {
       const t = raw?.constructor?.name ?? typeof raw;
@@ -1266,7 +1264,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       console.log('[EJS] payload type:', t, 'keys:', keys, 'peek:', brief);
     } catch { }
   }
- 
+
   private async normalizeSavePayload(payload: any, depth = 0): Promise<Uint8Array | null> {
     try {
       if (!payload) return null;
@@ -1311,7 +1309,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     } catch { }
     return null;
   }
-  
+
   private tryReadSaveFromLocalStorage(gameID: string, gameName: string): Uint8Array | null {
     try {
       const ls = window.localStorage;
@@ -1510,7 +1508,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // also expose a boolean-ish promise for the barrier
     this._inFlightSavePromise = wrapped.then(() => true, () => false);
     return wrapped;
-  } 
+  }
 
   // ---------------- IndexedDB pending-save helpers ----------------
   private async openPendingDb(): Promise<IDBDatabase> {
@@ -1522,7 +1520,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
-  } 
+  }
 
   private async getAllPendingSaves(): Promise<Array<any>> {
     try {
@@ -1570,7 +1568,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       }
     } catch (e) { console.warn('[EJS] uploadPendingSavesOnStartup failed', e); }
   }
- 
+
   /** Create or reuse a tiny stylesheet inside the vpad root. */
   private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
     let style = root.querySelector('style[data-vpad-overrides="min"]') as HTMLStyleElement | null;
@@ -1984,13 +1982,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // Initial call after a short delay so DOM settles
     setTimeout(() => this.resizeCanvasBuffer(), 300);
   }
-  
+
   private onEmulatorReadyForSizing() {
     // Bind resize buffer so canvas buffer follows host size
     try { this.bindResizeBuffer(); } catch (e) { console.warn('[EJS] bindResizeBuffer failed', e); }
     // Ensure initial sizing
     try { this.resizeCanvasBuffer(); } catch (e) { console.warn('[EJS] resizeCanvasBuffer failed', e); }
-  } 
+  }
 
   private slugifyName(name: string): string {
     return (name || '')
@@ -2060,8 +2058,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         console.warn('[EJS] Both head and tail are extremely low-entropy → skipping');
         return false;
       }
-    } 
-   
+    }
+
 
     if (this.romName && core) {
       const lastSize = this.lastGoodSaveSize.get(this.romName);
@@ -2082,7 +2080,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     return true;
-  } 
+  }
 
   countZeros(u8: Uint8Array, start: number, end?: number): number {
     let zeros = 0;
@@ -2096,7 +2094,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   resetGame() {
     if (!this.romName) return;
     const confirm = window.confirm('Are you sure you want to reset the game? The next save will overwrite your current progress.');
-    if (confirm) { 
+    if (confirm) {
       this.fullReloadToEmulator(this.getReloadParamsSkipSave());
     }
   }
@@ -2117,13 +2115,25 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const item = this.faqItems[index];
     if (item) item.expanded = !item.expanded;
   }
+  
+  private displayRomUploadOrDownloadProgress(total: number, loaded: number, saving?: boolean) {
+    const pct = total > 0 ? Math.round((loaded / total) * 100) : undefined;
+    const loadedMb = (loaded / 1024 / 1024);
+    const totalMb = total && total !== loaded ? (total / 1024 / 1024) : undefined;
+    const msg = saving ? 'Uploading Save' : 'Downloading ROM';
+    if (totalMb) {
+      this.status = `Uploading Save - ${loadedMb.toFixed(2)} / ${totalMb.toFixed(2)} MB (${pct}%)`;
+    } else {
+      this.status = `Uploading Save - ${loadedMb.toFixed(2)} MB`;
+    }
+  }
 
   private getEmuUrl(): string {
     return `${location.protocol}//${location.host}/Emulator`;
   }
-  
-  private getReloadParamsSkipSave(romName?: string, romId?: number): Record<string,string> {
-    const params: Record<string,string> = { skipSaveFile: 'true' };
+
+  private getReloadParamsSkipSave(romName?: string, romId?: number): Record<string, string> {
+    const params: Record<string, string> = { skipSaveFile: 'true' };
     const name = romName ?? this.presetRomName ?? this.romName;
     if (name) params['romname'] = name;
     const id = romId ?? this.presetRomId;
