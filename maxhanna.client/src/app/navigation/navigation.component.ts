@@ -55,6 +55,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   isLoadingEnder = false;
   numberOfNotifications = 0;
   showAppSelectionHelp = false;
+  preventFetchNotifs = false;
   defaultTheme = {
     backgroundColor: '#0e0e0e',
     componentBackgroundColor: '#202020',
@@ -168,7 +169,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getNotifications() {
-    if (this.notificationsActive) return;
+    if (this.notificationsActive || this.preventFetchNotifs) return;
     if (!this._parent || !this._parent.user || this._parent.user.id == 0) return;
     console.log("fetch notifications");
     this.notificationsActive = true;
@@ -222,6 +223,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
     try { 
       console.log("stopping notifs")
       this.notificationsActive = false;
+      this.preventFetchNotifs = true;
+      setTimeout(() => {
+        this.preventFetchNotifs = false;
+      }, 5000);
       clearInterval(this.notificationInfoInterval);
       clearInterval(this.cryptoHubInterval);
       clearInterval(this.calendarInfoInterval);
