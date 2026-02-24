@@ -283,6 +283,14 @@ export class RomService {
     if (!fileName) return undefined;
     const name = fileName.toLowerCase();
 
+    // PSP indicators (check before PS1 to avoid false positives on "playstation portable")
+    if (name.includes('psp') || name.includes('playstation portable') || name.includes('umd')) {
+      return 'psp';
+    }
+    // PSP serial codes (ULUS/ULES/UCUS/UCES/ULJS/ULJM/NPxx-nnnnn)
+    if (/\b(UL[UEJKA]S|UC[UEJKA]S|UL[JA]M|NP[UHEJGA][HGXD])[-_]?\d{5}/i.test(name)) {
+      return 'psp';
+    }
     // Clear indicators for specific systems
     if (name.includes('playstation') || name.includes('ps1') || name.includes('psx') || name.includes('scph') || name.includes('sony')) {
       return 'ps1';

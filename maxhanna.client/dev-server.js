@@ -29,6 +29,14 @@ app.use((req, res, next) => {
   next();
 });
 
+// Cross-Origin Isolation (required for SharedArrayBuffer / EJS_threads)
+// Must be on every response because Angular SPA can client-side-navigate to /emulator.
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
+  next();
+});
+
 // Error handling middleware wrapper
 const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);

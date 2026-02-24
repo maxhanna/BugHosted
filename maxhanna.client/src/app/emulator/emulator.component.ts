@@ -190,7 +190,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.presetRomId = file.id;
     this.presetRomName = file.fileName;
     try {
-      await this.loadRomThroughService(file.fileName, file.id);
+      await this.loadRomThroughService(file.fileName, file.id, file.directory);
       this.status = 'Running';
     } catch (err) {
       this.status = 'Error loading emulator';
@@ -200,7 +200,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  private async loadRomThroughService(fileName: string, fileId?: number) {
+  private async loadRomThroughService(fileName: string, fileId?: number, directory?: string) {
     if (window.__ejsLoaderInjected) {
       this.fullReloadToEmulator();
       return;
@@ -235,7 +235,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const saveStateBlob = this.skipSaveFileRequested ? null : await this.loadSaveStateFromDB(fileName);
 
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
-    const core = this.detectCore(fileName);
+    const core = this.detectCore(fileName, directory);
     const renderClamp = this.getRenderClampForCore(core);
     (window as any).EJS_renderClamp = renderClamp;  
     window.EJS_core = core;  
@@ -478,7 +478,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  private detectCore(fileName: string): string {
+  private detectCore(fileName: string, directory?: string): string {
     const ext = this.fileService.getFileExtension(fileName).toLowerCase();
     const coreMap: { [key: string]: string } = {
       // Game Boy / Game Boy Color
@@ -500,10 +500,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       'gg': 'genesis_plus_gx',
       'sms': 'genesis_plus_gx',
       'md': 'genesis_plus_gx',
-      // PlayStation
+      // PlayStation 1
       'cue': 'mednafen_psx_hw',
       'bin': 'pcsx_rearmed',
-      'iso': 'pcsx_rearmed',
       'chd': 'pcsx_rearmed',
       // Other systems
       'pce': 'mednafen_pce',
@@ -532,19 +531,25 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       'adf': 'puae',
       // Commodore 64
       'd64': 'vice_x64',
-      // PSP
-      'pbp': 'pcsx_rearmed',
       // Doom
       'wad': 'prboom'
-    }; 
+    };
+
+    // ── PSP-exclusive extension ──────────────────────────────────────────
+    if (ext === 'pbp') return 'psp';
+
+    // ── Ambiguous extensions: could be PSP *or* PS1 (or others) ─────────
+    const ambiguousExts = new Set(['iso', 'chd', 'bin', 'cue']);
+    if (ambiguousExts.has(ext)) {
+      if (this.isPspContent(fileName, directory)) return 'psp';
+    }
 
     if (ext === 'bin') {
       try {
         const guessed = this.romService?.guessSystemFromFileName(fileName);
         if (guessed) {
-          // Direct core lookup if we have a direct mapping
+          if (guessed === 'psp') return 'psp';
           if (coreMap[guessed]) return coreMap[guessed];
-          // Heuristic fallbacks for common guessed keys
           switch (guessed) {
             case 'ps1':
               return 'pcsx_rearmed';
@@ -564,7 +569,68 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       return 'pcsx_rearmed';
     }
 
+    // .iso defaults to PS1 if not caught by PSP heuristics above
+    if (ext === 'iso') return 'pcsx_rearmed';
+
     return coreMap[ext] || 'mgba';
+  }
+
+  /**
+   * Multi-layered heuristic to decide whether a ROM is a PSP game.
+   *
+   * Layer 1 – PSP UMD serial codes embedded in the filename
+   *           (ULUS, ULES, UCUS, UCES, ULJS, ULJM, NPUH, NPJH, NPEG, …)
+   * Layer 2 – Explicit "(PSP)" / "[PSP]" tag in the filename
+   * Layer 3 – Known PSP-exclusive franchise keywords that never appeared on PS1
+   */
+  private isPspContent(fileName: string, directory?: string): boolean {
+    const name = fileName.toLowerCase();
+
+    // Layer 1 – UMD serial-code prefixes (Sony's per-region PSP product codes)
+    //   UL** = UMD (Licensed) | UC** = UMD (Classics) | NP** = PlayStation Store
+    const pspSerialRx = /\b(UL[UEJKA]S|UC[UEJKA]S|UL[JA]M|NP[UHEJGA][HGXD])[-_]?\d{5}/i;
+    if (pspSerialRx.test(name)) return true;
+
+    // Layer 2 – explicit platform tag in filename
+    if (/\(psp\)|\[psp\]/i.test(name)) return true;
+
+    // Layer 3 – PSP-exclusive franchise/title keywords unlikely to appear on PS1
+    const pspKeywords = [
+      'liberty city stories',
+      'vice city stories',
+      'crisis core',
+      'dissidia',
+      'birth by sleep',
+      'kingdom hearts bbs',
+      'patapon',
+      'loco roco',
+      'locoroco',
+      'god eater',
+      'phantasy star portable',
+      'jeanne d\'arc',
+      'daxter',
+      'chains of olympus',
+      'ghost of sparta',
+      'peace walker',
+      'portable ops',
+      'lumines',
+      'wipeout pure',
+      'wipeout pulse',
+      'fat princess',
+      'tactics ogre',
+      'valkyria chronicles ii',
+      'valkyria chronicles 2',
+      'persona 3 portable',
+      'ys seven',
+      'ys vs',
+      'trails in the sky',
+      'the 3rd birthday',
+      'monster hunter freedom',
+      'monster hunter portable',
+    ];
+    if (pspKeywords.some(kw => name.includes(kw))) return true;
+
+    return false;
   }
 
   private applyEjsRunOptions(core: string): void {
@@ -1784,6 +1850,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (c.includes('fceumm') || c.includes('nestopia') || c === 'nes') return 'nes';
     if (c.includes('genesis') || c.includes('picodrive') || c.includes('megadrive')) return 'genesis';
     if (c.includes('melonds') || c.includes('desmume') || c.includes('nds')) return 'nds';
+    if (c === 'psp' || c.includes('ppsspp')) return 'psp';
     return 'nes';
   }
 
@@ -1835,6 +1902,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         items.push(...this.startSelectRow());
         break;
 
+      case 'psp':
+        items.push(...this.diamondRight());
+        items.push(...this.shouldersTop(false));
+        items.push(...this.startSelectRow());
+        break;
+
       default:
         items.push(...this.twoButtonRight());
         items.push(...this.startSelectRow());
@@ -1847,7 +1920,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   /** Return a soft clamp for render buffer size based on core. */
   private getRenderClampForCore(core: string) {
     const heavy = new Set([
-      'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mupen64plus_next', 'pcsx_rearmed'
+      'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mupen64plus_next', 'psp'
     ]);
     if (heavy.has(core)) return { maxW: 1280, maxH: 720, maxDPR: 1.5 };
     // Light cores can go higher
@@ -2161,7 +2234,8 @@ type System =
   | 'nes' | 'gb' | 'gbc' | 'gba'
   | 'snes'
   | 'genesis'
-  | 'nds';
+  | 'nds'
+  | 'psp';
 
 
 interface BuildOpts {
