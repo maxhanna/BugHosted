@@ -2148,8 +2148,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async finishFileUploading() {
-    await this.fileSearchComponent?.getDirectory();
-    this.cdr.detectChanges();
+    setTimeout(async () => { 
+      await this.fileSearchComponent?.getDirectory();
+      this.cdr.detectChanges();
+    }, 250);
   }
 }
 
