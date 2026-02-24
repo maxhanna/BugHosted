@@ -576,61 +576,17 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   /**
-   * Multi-layered heuristic to decide whether a ROM is a PSP game.
-   *
-   * Layer 1 – PSP UMD serial codes embedded in the filename
-   *           (ULUS, ULES, UCUS, UCES, ULJS, ULJM, NPUH, NPJH, NPEG, …)
-   * Layer 2 – Explicit "(PSP)" / "[PSP]" tag in the filename
-   * Layer 3 – Known PSP-exclusive franchise keywords that never appeared on PS1
+   * Delegates to romService.guessSystemFromFileName which checks:
+   *  – PSP UMD serial codes (ULUS, ULES, UCUS, UCES, …)
+   *  – Explicit (PSP) / [PSP] tags
+   *  – PSP-exclusive franchise keywords (Liberty City Stories, Crisis Core, …)
    */
-  private isPspContent(fileName: string, directory?: string): boolean {
-    const name = fileName.toLowerCase();
-
-    // Layer 1 – UMD serial-code prefixes (Sony's per-region PSP product codes)
-    //   UL** = UMD (Licensed) | UC** = UMD (Classics) | NP** = PlayStation Store
-    const pspSerialRx = /\b(UL[UEJKA]S|UC[UEJKA]S|UL[JA]M|NP[UHEJGA][HGXD])[-_]?\d{5}/i;
-    if (pspSerialRx.test(name)) return true;
-
-    // Layer 2 – explicit platform tag in filename
-    if (/\(psp\)|\[psp\]/i.test(name)) return true;
-
-    // Layer 3 – PSP-exclusive franchise/title keywords unlikely to appear on PS1
-    const pspKeywords = [
-      'liberty city stories',
-      'vice city stories',
-      'crisis core',
-      'dissidia',
-      'birth by sleep',
-      'kingdom hearts bbs',
-      'patapon',
-      'loco roco',
-      'locoroco',
-      'god eater',
-      'phantasy star portable',
-      'jeanne d\'arc',
-      'daxter',
-      'chains of olympus',
-      'ghost of sparta',
-      'peace walker',
-      'portable ops',
-      'lumines',
-      'wipeout pure',
-      'wipeout pulse',
-      'fat princess',
-      'tactics ogre',
-      'valkyria chronicles ii',
-      'valkyria chronicles 2',
-      'persona 3 portable',
-      'ys seven',
-      'ys vs',
-      'trails in the sky',
-      'the 3rd birthday',
-      'monster hunter freedom',
-      'monster hunter portable',
-    ];
-    if (pspKeywords.some(kw => name.includes(kw))) return true;
-
-    return false;
+  private isPspContent(fileName: string, _directory?: string): boolean {
+    try {
+      return this.romService?.guessSystemFromFileName(fileName) === 'psp';
+    } catch {
+      return false;
+    }
   }
 
   private applyEjsRunOptions(core: string): void {

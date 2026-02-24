@@ -1404,10 +1404,11 @@ private async loadFileByIdOnce(id: number) {
     if (!fileName) return '';
     const ext = this.fileService.getFileExtension(fileName).toLowerCase();
 
-    // If extension is a generic 'bin', try to guess a more specific system
-    // from the filename (e.g. 'saturn', 'dreamcast', 'segacd', 'psx', etc.).
-    const guessedExtForBin = (ext === 'bin') ? this.romService.guessSystemFromFileName(fileName) : undefined;
-    const effectiveExt = guessedExtForBin ?? ext;
+    // For ambiguous extensions (bin, iso, chd, cue, pbp) try to guess a more
+    // specific system from the filename (e.g. 'psp', 'ps1', 'saturn', etc.).
+    const ambiguousExts = new Set(['bin', 'iso', 'chd', 'cue', 'pbp']);
+    const guessedSystem = ambiguousExts.has(ext) ? this.romService.guessSystemFromFileName(fileName) : undefined;
+    const effectiveExt = guessedSystem ?? ext;
 
     // Prefer image icons for some systems; fall back to emoji when not available
     const iconMap: { [key: string]: string } = {
@@ -1432,7 +1433,7 @@ private async loadFileByIdOnce(id: number) {
       'nes': '/assets/nesicon.png',
       'ps1': '/assets/ps1icon.png',
       'psp': '/assets/pspicon.png',
-      'pbp': '/assets/ps1icon.png',
+      'pbp': '/assets/pspicon.png',
       'cue': '/assets/ps1icon.png',
       'chd': '/assets/ps1icon.png',
       'iso': '/assets/ps1icon.png',
@@ -1443,7 +1444,7 @@ private async loadFileByIdOnce(id: number) {
     };
 
     if (iconMap[effectiveExt]) {
-      const src = iconMap[ext];
+      const src = iconMap[effectiveExt];
       const style = styling ? styling : "width:16px;height:16px;vertical-align:middle;margin-right:6px";
       const html = `<img src="${src}" alt="${effectiveExt}" style="${style}" />`;
       return this.sanitizer.bypassSecurityTrustHtml(html);

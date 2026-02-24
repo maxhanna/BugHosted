@@ -291,6 +291,28 @@ export class RomService {
     if (/\b(UL[UEJKA]S|UC[UEJKA]S|UL[JA]M|NP[UHEJGA][HGXD])[-_]?\d{5}/i.test(name)) {
       return 'psp';
     }
+    // Explicit (PSP) / [PSP] platform tag in filename
+    if (/\(psp\)|\[psp\]/i.test(name)) {
+      return 'psp';
+    }
+    // PSP-exclusive file extension
+    if (name.endsWith('.pbp')) {
+      return 'psp';
+    }
+    // PSP-exclusive franchise/title keywords that never appeared on PS1
+    const pspKeywords = [
+      'liberty city stories', 'vice city stories', 'crisis core', 'dissidia',
+      'birth by sleep', 'kingdom hearts bbs', 'patapon', 'loco roco', 'locoroco',
+      'god eater', 'phantasy star portable', 'jeanne d\'arc', 'daxter',
+      'chains of olympus', 'ghost of sparta', 'peace walker', 'portable ops',
+      'lumines', 'wipeout pure', 'wipeout pulse', 'fat princess', 'tactics ogre',
+      'valkyria chronicles ii', 'valkyria chronicles 2', 'persona 3 portable',
+      'ys seven', 'ys vs', 'trails in the sky', 'the 3rd birthday',
+      'monster hunter freedom', 'monster hunter portable',
+    ];
+    if (pspKeywords.some(kw => name.includes(kw))) {
+      return 'psp';
+    }
     // Clear indicators for specific systems
     if (name.includes('playstation') || name.includes('ps1') || name.includes('psx') || name.includes('scph') || name.includes('sony')) {
       return 'ps1';
