@@ -38,7 +38,7 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
   scores: WordlerScore[] = [];
   loading = false;
   error?: string;
-
+  noScoresLoaded = true;
   // grouped by difficulty
   grouped: Record<number, WordlerScore[]> = {};
 
@@ -166,6 +166,7 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
       try {
         const any = Object.values(this.groupedByMode || {}).some(m => Object.keys(m || {}).length > 0);
         this.hasData.emit(any);
+        this.noScoresLoaded = !any;
       } catch { }
     }
   }

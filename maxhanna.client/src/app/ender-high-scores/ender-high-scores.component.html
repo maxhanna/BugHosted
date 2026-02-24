@@ -12,7 +12,7 @@
             <ng-container *ngIf="!isModeCollapsed(m)">
                 <ng-container *ngIf="groupedByMode[m] && hasGroups(m)">
                     <div *ngFor="let group of (groupedByMode[m] | keyvalue)" class="difficulty-group"> 
-                        <ng-container *ngIf="group.value && group.value.length > 0; else emptyGroup">
+                        <ng-container *ngIf="group.value && group.value.length > 0">
                             <div *ngFor="let s of group.value">
                                 <div style="padding:6px; border-bottom:1px solid #333; display:flex; align-items:center; gap:8px;">
                                     <div style="flex:0 0 auto;">

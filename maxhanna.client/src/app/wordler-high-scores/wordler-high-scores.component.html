@@ -70,7 +70,7 @@
       </div>
     </ng-container>
 
-    <ng-template #noScores *ngIf="!loading && !(groupedByMode[m] && (keys(groupedByMode[m]).length > 0))">
+    <ng-template #noScores *ngIf="!loading && noScoresLoaded">
       <div class="no-scores">No scores to show.</div>
     </ng-template>
   </div>
