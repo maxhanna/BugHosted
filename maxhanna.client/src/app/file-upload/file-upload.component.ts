@@ -1,6 +1,6 @@
 import { Component, ElementRef, EventEmitter, Input, OnDestroy, Output, ViewChild } from '@angular/core';
 import { FileService } from '../../services/file.service';
-import { HttpEvent, HttpEventType } from '@angular/common/http';
+import { HttpEventType } from '@angular/common/http';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 import { AppComponent } from '../app.component';
@@ -21,6 +21,7 @@ export class FileUploadComponent implements OnDestroy {
   @Input() allowedFileTypes: string = ''; 
   @Input() maxSelectedFiles: number = 5;
   @Input() displayOptionsAndTopicsButtons: boolean = true;
+  @Input() disableFileCompression: boolean = false;
 
   @Output() userUploadEvent = new EventEmitter<Array<File>>();
   @Output() userUploadFinishedEvent = new EventEmitter<FileEntry[]>();
@@ -149,13 +150,12 @@ export class FileUploadComponent implements OnDestroy {
     const isPublic = (this.showPrivatePublicOption ? this.folderVisibility?.nativeElement.value : true) as boolean;
 
     const directoryInput = (this.currentDirectory || '').replace(/\/+$/, '');
-    const fileNames = Array.from(files).map(file => file.name);
-
+ 
     try {
       filesArray.forEach((file, index) => {
         const formData = new FormData();
         formData.append('files', file);
-        const compress = this.compressCheckbox?.nativeElement?.checked ?? true;
+        const compress = (!this.disableFileCompression && this.compressCheckbox?.nativeElement?.checked) ?? true;
         const uploadReq = this.fileService.uploadFileWithProgress(formData, directoryInput || undefined, isPublic, this.user?.id, compress);
         if (uploadReq) {
           uploadReq.subscribe({

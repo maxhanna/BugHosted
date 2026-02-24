@@ -24,7 +24,7 @@
         <button (click)="displayFileUploadOptions = !displayFileUploadOptions" class="cursorPointer smallFont">
           Options [{{displayFileUploadOptions ? '-' : '+'}}]
         </button>
-        <div *ngIf="displayFileUploadOptions" style="display: flex; flex-direction: column;">
+        <div *ngIf="displayFileUploadOptions && !disableFileCompression" style="display: flex; flex-direction: column;">
           <label><input type="checkbox" #compressCheckbox checked /> Compress Media Files</label>
         </div>
         <button (click)="displayFileUploadTopics = !displayFileUploadTopics" class="cursorPointer smallFont">

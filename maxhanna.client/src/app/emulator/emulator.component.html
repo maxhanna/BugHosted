@@ -94,6 +94,7 @@
       [maxSelectedFiles]="100"
       [allowedFileTypes]="getAllowedRomFileTypesString()"
       [displayOptionsAndTopicsButtons]="false" 
+      [disableCompression]="true"
       (userUploadEvent)="isFileUploaderExpanded = true;"
       (userCancelEvent)="isFileUploaderExpanded = false;"
       (finishFileUploadingEvent)="finishFileUploading()">
