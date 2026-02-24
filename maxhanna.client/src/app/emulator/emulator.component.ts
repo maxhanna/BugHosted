@@ -233,8 +233,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       fileName, this.parentRef?.user?.id, fileId,
       (loaded, total) => {
         const pct = Math.round((loaded / total) * 100);
-        this.status = `Downloading ROM - ${pct}%`;
-        console.log(`Downloading ROM: ${loaded} / ${total} bytes (${pct}%)`);
+        this.status = `Downloading ROM: ${loaded} / ${total} bytes (${pct}%)`;
         this.cdr.detectChanges();
       }
     );
@@ -885,7 +884,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           this.romName!, this.parentRef!.user!.id!, u8,
           (loaded, total) => {
             const pct = Math.round((loaded / total) * 100);
-            this.status = `Uploading Save - ${pct}%`;
+            this.status = `Uploading Save - ${loaded} / ${total} bytes (${pct}%)`;
             this.cdr.detectChanges();
           }
         );
