@@ -272,6 +272,11 @@ namespace maxhanna.Server.Controllers
         }
 
         _ = UpdateLastAccessForRom(fileName, userId, fileId);
+
+        // Expose file size via a custom header so the client can track download
+        // progress even when the Express compression middleware strips Content-Length.
+        Response.Headers.Append("X-File-Size", fileStream.Length.ToString());
+
         return File(fileStream, contentType, Path.GetFileName(filePath));
       }
       catch (Exception ex)

@@ -54,8 +54,13 @@ export class RomService {
 
       // If a progress callback is provided and the response body is streamable,
       // read the body in chunks so we can report download progress.
-      const contentLength = Number(response.headers.get('Content-Length') || '0');
-      if (onProgress && response.body && contentLength > 0) {
+      // NOTE: The Express compression middleware strips Content-Length when it
+      // gzips the response. The backend sends a custom X-File-Size header with
+      // the original (uncompressed) file size that survives the proxy chain.
+      const totalSize =
+        Number(response.headers.get('X-File-Size') || '0') ||
+        Number(response.headers.get('Content-Length') || '0');
+      if (onProgress && response.body) {
         const reader = response.body.getReader();
         const chunks: Uint8Array[] = [];
         let loaded = 0;
@@ -64,7 +69,9 @@ export class RomService {
           if (done) break;
           chunks.push(value);
           loaded += value.length;
-          onProgress(loaded, contentLength);
+          // Report progress; if total is unknown (0), pass loaded as total
+          // so callers can at least show bytes transferred.
+          onProgress(loaded, totalSize || loaded);
         }
         const all = new Uint8Array(loaded);
         let offset = 0;

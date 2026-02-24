@@ -100,6 +100,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private _exiting = false;
   private exitSaving = false;
   private stopEmuSaving = false;
+  private isExitingAndReturningToEmulator = false;
   private lastGoodSaveSize = new Map<string, number>();
   private gameLoadDate?: Date | undefined;
   
@@ -160,7 +161,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   async safeExit(): Promise<void> {
     this.clearAutosave();
     if (!this.romName || !this.parentRef?.user?.id) {
-      if (this.stopEmuSaving) { 
+      if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) { 
         this.fullReloadToEmulator();
       } else { 
         return this.navigateHome();
@@ -170,7 +171,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // If we've saved recently (within 10s), skip asking the user again.
     const now = Date.now();
     if (!this._saveInProgress && now - this._lastSaveTime < 10000) {
-      if (this.stopEmuSaving) {
+      if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
         this.fullReloadToEmulator();
       } else {
         return this.navigateHome();
@@ -179,13 +180,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     
     const shouldSave = window.confirm('Save emulator state before closing?');
     if (!shouldSave) {
-      if (this.stopEmuSaving) {
+      if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
         this.fullReloadToEmulator();
       } else {
         return this.navigateHome();
       }
     }
-    if (!this.stopEmuSaving) {
+    if (!this.stopEmuSaving && !this.isExitingAndReturningToEmulator) {
       this.exitSaving = true;
     }
     this.callEjsSave();
@@ -911,13 +912,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           this.status = `Save Complete! (took ${ms ? ms/1000 + 's' : 'a moment'})`;
           this.cdr.detectChanges();
         }
-        if (!this.stopEmuSaving && !this.exitSaving) {
+        if (!this.stopEmuSaving && !this.exitSaving && !this.isExitingAndReturningToEmulator) {
           setTimeout(() => {
             this.status = tmpStatus;
             this.cdr.detectChanges();
           }, 4000);
         }
-        if (this.stopEmuSaving) {
+        if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
           this.fullReloadToEmulator();
         } else if (this.exitSaving) {
           this.navigateHome();
@@ -1151,6 +1152,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   async stopEmulator() {
     this.status = 'Stopping...';
+    this.isExitingAndReturningToEmulator = true;
     this.startLoading();
     this.cdr.detectChanges();
 
