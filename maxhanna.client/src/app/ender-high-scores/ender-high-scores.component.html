@@ -25,7 +25,7 @@
                                 </div>
                             </div>
                         </ng-container>
-                        <ng-template #emptyGroup *ngIf="!loading">
+                        <ng-template #emptyGroup *ngIf="!loading && !(groupedByMode[m] && hasGroups(m))">
                             <div class="no-scores">
                                 No{{" "}}
                                 <app-menu-item 
