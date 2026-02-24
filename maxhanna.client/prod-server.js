@@ -310,24 +310,27 @@ if (config.enableHelmet) {
 // ============================================================================
 // Cross-Origin Isolation (required for SharedArrayBuffer / EJS_threads)
 // See: https://stackoverflow.com/a/68630724
-// These headers must be on the *document* response. Because this is an Angular
-// SPA the user can land on any URL and later client-side-navigate to /emulator,
-// so we set them globally on every response.
 //   • COOP  = same-origin        → isolates the browsing context group
 //   • COEP  = credentialless      → enables cross-origin isolation while still
 //                                   allowing cross-origin subresources (YouTube
 //                                   embeds, CDN scripts, etc.) that don't ship a
 //                                   Cross-Origin-Resource-Policy header.
 // ============================================================================
-app.use((req, res, next) => {
+const emulatorIsolation = (req, res, next) => {
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
   res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
   next();
+};
+
+// Angular route that displays EmulatorComponent
+app.get(['/emulator', '/Emulator', '/Emulation'], emulatorIsolation, (req, res) => {
+  res.sendFile(path.join(config.distPath, 'index.html'));
 });
 
 // EmulatorJS static assets (WASM, .data, .js)
 app.use(
   ['/assets/emulatorjs', '/assets/emulatorjs/*'],
+  emulatorIsolation,
   express.static(path.join(config.distPath, 'assets', 'emulatorjs'))
 );
 

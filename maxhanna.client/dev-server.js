@@ -30,11 +30,16 @@ app.use((req, res, next) => {
 });
 
 // Cross-Origin Isolation (required for SharedArrayBuffer / EJS_threads)
-// Must be on every response because Angular SPA can client-side-navigate to /emulator.
-app.use((req, res, next) => {
+// Only applied to /emulator route to avoid breaking other pages.
+const emulatorIsolation = (req, res, next) => {
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
   res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
   next();
+};
+app.get(['/emulator', '/Emulator'], emulatorIsolation, (req, res) => {
+  const indexPath = path.join(config.distPath, 'index.html');
+  if (fs.existsSync(indexPath)) { res.sendFile(indexPath); }
+  else { res.status(404).send('index.html not found. Run "npm run build" first.'); }
 });
 
 // Error handling middleware wrapper
