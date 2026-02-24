@@ -494,26 +494,24 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       if (existingAudio) {
         existingAudio.remove();
       }
+      this.currentPage = 1;
+      await this.refreshPlaylist();
+      this.songs = type === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
+      this.fileIdPlaylist = type === 'file' ? this.fileSongs.map(song => song.fileId!).filter(id => id !== undefined) : undefined;
+    } else { 
+      this.loadRadioData();
     }
 
     if (type != 'youtube') {
       this.destroyYTPlayer();
+    } else {
+      this.buildPlayerFromSongs();
     }
 
     if (type != 'file') {
       this.fileIdPlaying = undefined;
       this.fileMediaViewer?.stopAllMedia();
-    }
-
-    if (type === 'radio') {
-      this.loadRadioData();
-    }
-    else {
-      this.currentPage = 1;
-      await this.refreshPlaylist();
-      this.songs = type === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
-      this.fileIdPlaylist = type === 'file' ? this.fileSongs.map(song => song.fileId!).filter(id => id !== undefined) : undefined;
-    }
+    } 
   }
 
 
