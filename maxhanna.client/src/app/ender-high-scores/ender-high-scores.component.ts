@@ -23,7 +23,7 @@ export class EnderHighScoresComponent implements OnInit, OnChanges {
   @Input() inputtedParentRef?: any;
   @Input() headersCollapsed: boolean = false;
   @Input() mode: Mode | Mode[] = 'all';
-
+  loading = false;
   topScores: any[] = [];
 
   // grouped by difficulty-equivalent (for Ender we'll group by hero_id as a pseudo-group or use a single group for now)
@@ -57,25 +57,8 @@ export class EnderHighScoresComponent implements OnInit, OnChanges {
     }
   }
 
-  async loadTopScores() {
-    try {
-      // enderService.getTopScores may return Observable or Promise depending on version;
-      const maybe = this.enderService.getTopScores(this.limit) as any;
-      const res = maybe.subscribe ? await new Promise((resR, rej) => maybe.subscribe((v: any) => resR(v), (err: any) => rej(err))) : await maybe;
-      let scores = res ?? [];
-      if (this.showBestScoresToday) {
-        const today = new Date();
-        const isoToday = today.toISOString().slice(0, 10);
-        scores = scores.filter((s: any) => (s.created_at || '').slice(0, 10) === isoToday);
-      }
-      this.topScores = scores;
-    } catch (err) {
-      console.error('Failed to load ender top scores', err);
-      this.topScores = [];
-    }
-  }
-
   async refresh() {
+    this.loading = true;
     this.topScores = [];
     // clear any previous grouped results so only requested modes are shown
     this.groupedByMode = {
@@ -144,6 +127,7 @@ export class EnderHighScoresComponent implements OnInit, OnChanges {
       const any = Object.values(this.groupedByMode || {}).some(g => Object.keys(g || {}).length > 0);
       this.hasData.emit(any);
     } catch {}
+    this.loading = false;
   }
 
   toggleMode(mode: string) {

@@ -28,12 +28,13 @@ export class MastermindScoresComponent implements OnInit, OnChanges {
 
   bestScores: MastermindScore[] = [];
   bestScoresToday: MastermindScore[] = [];
-
+  loading = false;
   collapsedModes: Record<string, boolean> = {};
 
   constructor(private mastermindService: MastermindService) {}
 
   async ngOnInit() {
+    this.loading = true;
     this.applyHeadersCollapsed();
     if (this.showBestScores) {
       try {
@@ -54,6 +55,8 @@ export class MastermindScoresComponent implements OnInit, OnChanges {
       const has = (this.bestScores?.length ?? 0) > 0 || (this.bestScoresToday?.length ?? 0) > 0;
       this.hasData.emit(has);
     } catch {}
+
+    this.loading = false;
   }
 
   ngOnChanges(changes: SimpleChanges) {

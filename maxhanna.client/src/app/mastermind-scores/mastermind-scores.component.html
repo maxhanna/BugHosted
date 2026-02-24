@@ -64,12 +64,15 @@
             </tbody>
         </table>
     </div>
-    <div *ngIf="!bestScoresToday || bestScoresToday.length === 0">
+    <div *ngIf="!loading && (!bestScoresToday || bestScoresToday.length === 0)">
         No{{" "}}
         <app-menu-item 
             style="display: inline-block;"
             [type]="'Mastermind'" 
             [parentRef]="inputtedParentRef ?? parentRef"></app-menu-item>
         {{" "}}scores to show for today.
+    </div>
+    <div *ngIf="loading">
+        Loading daily Mastermind scores...
     </div>
 </ng-container>

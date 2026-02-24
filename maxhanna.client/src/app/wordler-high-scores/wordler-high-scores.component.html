@@ -53,7 +53,7 @@
             </div>
           </ng-container>
         </ng-container>
-        <ng-template #emptyMode>
+        <ng-template #emptyMode *ngIf="!loading">
           <div class="no-scores">
             No{{" "}}
             <app-menu-item style="display: inline-block;" [type]="'Wordler'"
@@ -61,10 +61,16 @@
             {{" "}}scores to show for {{ m }}.
           </div>
         </ng-template>
+        <div *ngIf="loading">
+          Loading{{" "}}
+          <app-menu-item style="display: inline-block;" [type]="'Wordler'"
+            [parentRef]="inputtedParentRef"></app-menu-item>
+          {{" "}}scores for {{ m }}...
+        </div>
       </div>
     </ng-container>
 
-    <ng-template #noScores>
+    <ng-template #noScores *ngIf="!loading">
       <div class="no-scores">No scores to show.</div>
     </ng-template>
   </div>

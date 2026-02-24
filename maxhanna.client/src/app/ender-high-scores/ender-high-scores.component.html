@@ -39,9 +39,10 @@
                 </ng-container>
             </ng-container>
 
-            <ng-template #emptyMode>
+            <ng-template #emptyMode *ngIf="!loading">
                 <div class="no-scores">No scores to show for {{ m }}.</div>
             </ng-template>
+            <div class="no-scores" *ngIf="loading">Loading scores for {{ m }}...</div>
         </div>
     </div>
 </div>
