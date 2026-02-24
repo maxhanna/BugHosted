@@ -125,7 +125,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       window.location.replace('/Emulator' + (qs ? '?' + qs : ''));
       return;
     } 
-    
+
     if (this.parentRef) {
       this.parentRef.preventShowSecurityPopup = true;
       this.parentRef.navigationComponent.stopNotifications();
@@ -233,6 +233,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       (loaded, total) => {
         const pct = Math.round((loaded / total) * 100);
         this.status = `Downloading ROM - ${pct}%`;
+        console.log(`Downloading ROM: ${loaded} / ${total} bytes (${pct}%)`);
         this.cdr.detectChanges();
       }
     );
