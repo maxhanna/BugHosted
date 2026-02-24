@@ -17,6 +17,7 @@ export class DailyMusicComponent extends ChildComponent implements OnInit, After
   @Output() hasData = new EventEmitter<boolean>();
   fileId?: number | undefined = undefined;
   showPopup: boolean = false;
+  loading = false;
 
   constructor(private todoService: TodoService, private cdr: ChangeDetectorRef) { super(); }
 
@@ -26,6 +27,7 @@ export class DailyMusicComponent extends ChildComponent implements OnInit, After
   ngAfterViewInit() {}
 
   async loadTodayMusic() {
+    this.loading = true;
     const res = await this.todoService.getTodayMusic();
     if (res) { 
       this.songs = res;
@@ -33,6 +35,7 @@ export class DailyMusicComponent extends ChildComponent implements OnInit, After
     try { 
       this.hasData.emit((this.songs?.length ?? 0) > 0); 
     } catch {}
+    this.loading = false;
     this.cdr.detectChanges();
   }
 

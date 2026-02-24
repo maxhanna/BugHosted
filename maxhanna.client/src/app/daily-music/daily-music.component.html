@@ -2,8 +2,11 @@
     <div class="dailyMusicTitle popupPanelTitle" *ngIf="songs?.length">
         Today's Added Music:
     </div>
-    <div *ngIf="songs.length === 0">
+    <div *ngIf="songs.length === 0 && !loading">
         No{{" "}}<app-menu-item [type]="'Music'" [label]="'Songs'" [parentRef]="inputtedParentRef" style="display:inline-block"></app-menu-item>{{" "}} to show for today.
+    </div> 
+    <div *ngIf="songs.length === 0 && loading">
+        Loading{{" "}}<app-menu-item [type]="'Music'" [label]="'Songs'" [parentRef]="inputtedParentRef" style="display:inline-block"></app-menu-item>{{" "}} for today...
     </div>
 
     <table class="mainTable" *ngIf="songs.length > 0">

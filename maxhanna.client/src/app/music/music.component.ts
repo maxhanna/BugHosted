@@ -174,15 +174,9 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
     this.ytReady = true;
 
-    if (!this.ytPlayer && this.songs.length && this.songs[0]?.url) {
-      const ids = this.getYoutubeIdsInOrder();
-      const firstId = this.parseYoutubeId(this.songs[0].url!);
-      let index = ids.indexOf(firstId);
-      if (index < 0) { ids.unshift(firstId); index = 0; }
+    this.buildPlayerFromSongs();
 
-      // ✅ Recreate the player with URL-level playlist
-      this.rebuildYTPlayer(firstId, ids, index);
-    } else if (this.pendingPlay?.url) {
+    if (!this.ytPlayer && this.pendingPlay?.url) {
       this.consumePendingPlay();
     }
 
@@ -242,6 +236,13 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.playerReady = false;
     this.pendingPlay = undefined;
     this.ytDeadCount = 0;
+
+    // clear iframe-check timer
+    if (this.iframeCheckTimer) {
+      clearInterval(this.iframeCheckTimer);
+      this.iframeCheckTimer = undefined;
+    }
+    this.iframeCheckInProgress = false;
   }
 
 
@@ -258,6 +259,11 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.pendingPlay = { url, fileId: null };
     }
     console.log('[Music] Loaded', this.songs.length, 'songs; page', this.currentPage);
+
+    // If the YT API is already loaded (reopen / cached), build the player now.
+    // On first load this is usually a no-op because ngAfterViewInit hasn't set
+    // ytReady yet; on reopens it will be the call that actually creates the player.
+    this.buildPlayerFromSongs();
   }
 
   async next() { this.playByIndex(this.ytIndex + 1); }
@@ -270,6 +276,26 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.pendingPlay = undefined;
       this.play(url);
     }
+  }
+
+  /** Build the YT player from the current song list if both the API and songs are ready. */
+  private buildPlayerFromSongs() {
+    if (!this.ytReady || this.ytPlayer) return;
+    if (!this.songs.length || !this.songs[0]?.url) return;
+    if (!this.musicVideo?.nativeElement) return;
+
+    const ids = this.getYoutubeIdsInOrder();
+    const firstId = this.parseYoutubeId(this.songs[0].url!);
+    let index = ids.indexOf(firstId);
+    if (index < 0) { ids.unshift(firstId); index = 0; }
+
+    this.rebuildYTPlayer(firstId, ids, index);
+
+    // Reflect autoplay in UI state
+    this.currentUrl = this.songs[0].url;
+    this.isMusicPlaying = true;
+    this.isMusicControlsDisplayed(true);
+    this.cdr.markForCheck();
   }
   
 
@@ -330,6 +356,9 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     } finally {
       this.updatePaginatedSongs();   // ensures new reference for paginatedSongs
       this.gotPlaylistEvent.emit([...this.songs]); // emit a new ref as well
+      if (this.selectedType === 'youtube') {
+        this.play(this.songs[0]?.url); // attempt to play first song (if any)
+      }
       this.stopLoading();
       this.cdr.markForCheck();
     }
