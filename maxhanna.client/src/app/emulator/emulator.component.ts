@@ -731,6 +731,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const core = (window as any).EJS_core || '';
     if (u8 && !this.isValidSaveState(u8, core)) {
       this.status = 'Save state invalid – not uploading';
+      setTimeout(() => {
+        this.status = tmpStatus;
+        this.cdr.detectChanges();
+      }, 4000);
       this.parentRef?.showNotification('Save state data appears invalid; upload skipped.');
       this.cdr.detectChanges();
       return;
