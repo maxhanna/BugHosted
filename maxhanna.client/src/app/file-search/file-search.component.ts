@@ -1430,6 +1430,7 @@ private async loadFileByIdOnce(id: number) {
       'nds': '/assets/ndsicon.png',
       'nes': '/assets/nesicon.png',
       'ps1': '/assets/ps1icon.png',
+      'psp': '/assets/pspicon.png',
       'pbp': '/assets/ps1icon.png',
       'cue': '/assets/ps1icon.png',
       'chd': '/assets/ps1icon.png',
