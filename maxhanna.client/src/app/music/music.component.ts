@@ -496,6 +496,10 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       }
     }
 
+    if (type != 'youtube') {
+      this.destroyYTPlayer();
+    }
+
     if (type != 'file') {
       this.fileIdPlaying = undefined;
       this.fileMediaViewer?.stopAllMedia();

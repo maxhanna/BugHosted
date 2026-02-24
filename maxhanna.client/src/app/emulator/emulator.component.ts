@@ -258,7 +258,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const saveStateBlob = this.skipSaveFileRequested ? null : await this.loadSaveStateFromDB(fileName);
 
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
-    const core = this.detectCore(fileName, directory);
+    const core = this.detectCore(fileName);
     const renderClamp = this.getRenderClampForCore(core);
     (window as any).EJS_renderClamp = renderClamp;  
     window.EJS_core = core;  
@@ -501,7 +501,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  private detectCore(fileName: string, directory?: string): string {
+  private detectCore(fileName: string): string {
     const ext = this.fileService.getFileExtension(fileName).toLowerCase();
     const coreMap: { [key: string]: string } = {
       // Game Boy / Game Boy Color
@@ -564,7 +564,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // ── Ambiguous extensions: could be PSP *or* PS1 (or others) ─────────
     const ambiguousExts = new Set(['iso', 'chd', 'bin', 'cue']);
     if (ambiguousExts.has(ext)) {
-      if (this.isPspContent(fileName, directory)) return 'psp';
+      if (this.isPspContent(fileName)) return 'psp';
     }
 
     if (ext === 'bin') {
@@ -604,7 +604,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
    *  – Explicit (PSP) / [PSP] tags
    *  – PSP-exclusive franchise keywords (Liberty City Stories, Crisis Core, …)
    */
-  private isPspContent(fileName: string, _directory?: string): boolean {
+  private isPspContent(fileName: string): boolean {
     try {
       return this.romService?.guessSystemFromFileName(fileName) === 'psp';
     } catch {
@@ -2052,12 +2052,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     const headTooEmpty = headZeros > 4096 * 0.92;
     const tailTooEmpty = tailZeros > 8192 * 0.94;
-
-    if (headTooEmpty && tailTooEmpty) {
-      // both ends look dead → very likely junk
-      console.warn('[EJS] Both head and tail are extremely low-entropy → skipping');
-      return false;
-    }
+    if (this.romName) {
+      const isPsp = this.isPspContent(this.romName);
+      if (headTooEmpty && tailTooEmpty && !isPsp) {
+        // both ends look dead → very likely junk
+        console.warn('[EJS] Both head and tail are extremely low-entropy → skipping');
+        return false;
+      }
+    } 
    
 
     if (this.romName && core) {
