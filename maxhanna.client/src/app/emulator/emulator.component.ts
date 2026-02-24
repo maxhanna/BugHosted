@@ -76,7 +76,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     'melonds': 512 * 1024,        // DS
     // add more as you see them in logs
   };
-  isSearchVisible = true;
+  isSearchVisible = false;
   autosave = true;
   autosaveIntervalTime: number = 180000; // 3 minutes 
   showControls = true;     // show/hide on-screen controls
@@ -130,6 +130,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       window.location.replace('/Emulator' + (qs ? '?' + qs : ''));
       return;
     }
+    this.isSearchVisible = true;
   }
 
   async ngAfterViewInit() {
@@ -227,7 +228,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.cdr.detectChanges();
 
     // 1) Fetch ROM via your existing API
-    const romBlobOrArray = await this.romService.getRomFile(fileName, this.parentRef?.user?.id, fileId);
+    const romBlobOrArray = await this.romService.getRomFile(
+      fileName, this.parentRef?.user?.id, fileId,
+      (loaded, total) => {
+        const pct = Math.round((loaded / total) * 100);
+        this.status = `Downloading ROM - ${pct}%`;
+        this.cdr.detectChanges();
+      }
+    );
 
     // 2) Normalize to Blob
     let romBlob: Blob;
@@ -867,7 +875,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       let ms = 0;
       let error = undefined;
       try {
-        const res = await this.romService.saveEmulatorJSState(this.romName!, this.parentRef!.user!.id!, u8);
+        const res = await this.romService.saveEmulatorJSState(
+          this.romName!, this.parentRef!.user!.id!, u8,
+          (loaded, total) => {
+            const pct = Math.round((loaded / total) * 100);
+            this.status = `Uploading Save - ${pct}%`;
+            this.cdr.detectChanges();
+          }
+        );
         if (res.ok) {
           this._lastSaveTime = Date.now();
           this.lastGoodSaveSize.set(this.romName!, u8.length);
@@ -2114,8 +2129,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     window.location.replace(base + q);
   }
 
-  finishFileUploading() {
-    try { this.fileSearchComponent?.getDirectory(); } catch (e) { }
+  async finishFileUploading() {
+    await this.fileSearchComponent?.getDirectory();
+    this.cdr.detectChanges();
   }
 }
 

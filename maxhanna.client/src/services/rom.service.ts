@@ -35,7 +35,12 @@ export interface LastInputSelection {
 export class RomService {
   constructor() { }
 
-  async getRomFile(rom: string, userId?: number, fileId?: number): Promise<Blob | null> {
+  async getRomFile(
+    rom: string,
+    userId?: number,
+    fileId?: number,
+    onProgress?: (loaded: number, total: number) => void
+  ): Promise<Blob | null> {
     try {
       const response = await fetch(`/rom/getromfile/${encodeURIComponent(rom)}`, {
         method: 'POST',
@@ -44,6 +49,31 @@ export class RomService {
         },
         body: JSON.stringify({ UserId: userId, FileId: fileId }),
       });
+
+      if (!response.ok) return null;
+
+      // If a progress callback is provided and the response body is streamable,
+      // read the body in chunks so we can report download progress.
+      const contentLength = Number(response.headers.get('Content-Length') || '0');
+      if (onProgress && response.body && contentLength > 0) {
+        const reader = response.body.getReader();
+        const chunks: Uint8Array[] = [];
+        let loaded = 0;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          loaded += value.length;
+          onProgress(loaded, contentLength);
+        }
+        const all = new Uint8Array(loaded);
+        let offset = 0;
+        for (const chunk of chunks) {
+          all.set(chunk, offset);
+          offset += chunk.length;
+        }
+        return new Blob([all]);
+      }
 
       return await response.blob();
     } catch (error) {
@@ -375,7 +405,8 @@ export class RomService {
   async saveEmulatorJSState(
     romName: string,
     userId: number,
-    stateData: Uint8Array
+    stateData: Uint8Array,
+    onProgress?: (loaded: number, total: number) => void
   ): Promise<SaveUploadResponse> {
 
     const tight = new Uint8Array(this.toTightArrayBuffer(stateData));
@@ -411,6 +442,12 @@ export class RomService {
     form.append('romName', romName);
     form.append('encoding', encoding);
     form.append('originalSize', String(tight.length));
+
+    // If a progress callback was supplied, use XMLHttpRequest which exposes
+    // upload progress events.  fetch() does not support upload progress.
+    if (onProgress) {
+      return this.uploadWithXhr(form, onProgress);
+    }
 
     try {
       // keepalive requests are intended for short, small payloads (and
@@ -456,6 +493,51 @@ export class RomService {
     } catch (error: any) {
       return { ok: false, status: 0, errorText: String(error?.message ?? error) };
     }
+  }
+
+  /** Upload FormData via XMLHttpRequest so we can track upload progress. */
+  private uploadWithXhr(
+    form: FormData,
+    onProgress: (loaded: number, total: number) => void
+  ): Promise<SaveUploadResponse> {
+    return new Promise<SaveUploadResponse>((resolve) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/rom/saveemulatorjsstate');
+
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          onProgress(e.loaded, e.total);
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        const status = xhr.status;
+        const ct = (xhr.getResponseHeader('content-type') || '').toLowerCase();
+        let body: any = null;
+        try {
+          body = ct.includes('application/json') ? JSON.parse(xhr.responseText) : xhr.responseText;
+        } catch {
+          body = xhr.responseText || null;
+        }
+
+        if (status >= 200 && status < 300) {
+          resolve({ ok: true, status, body });
+        } else {
+          const errorBody = typeof body === 'string' ? body : JSON.stringify(body ?? { error: 'Upload failed' });
+          resolve({ ok: false, status, errorText: errorBody });
+        }
+      });
+
+      xhr.addEventListener('error', () => {
+        resolve({ ok: false, status: 0, errorText: 'Network error during upload' });
+      });
+
+      xhr.addEventListener('abort', () => {
+        resolve({ ok: false, status: 0, errorText: 'Upload aborted' });
+      });
+
+      xhr.send(form);
+    });
   }
 
   async getEmulatorJSSaveState(romName: string, userId: number): Promise<Blob | null> {
