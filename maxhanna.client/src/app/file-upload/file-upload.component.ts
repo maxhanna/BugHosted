@@ -38,6 +38,7 @@ export class FileUploadComponent implements OnDestroy {
   uploadedFileList: FileEntry[] = [];
   duplicateFileNames: string[] = [];
   uploadProgress: { [key: string]: number } = {};
+  uploadErrors: { [key: string]: string } = {};
   isUploading: boolean = false;
   displayListContainer = false;
   displayFileUploadOptions = false;
@@ -102,6 +103,7 @@ export class FileUploadComponent implements OnDestroy {
   }
   cancelFileUpload() { 
     this.uploadProgress = {};
+    this.uploadErrors = {};
     this.isUploading = false;
     this.uploadFileList = [];
     this.fileInput.nativeElement.value = '';
@@ -169,6 +171,9 @@ export class FileUploadComponent implements OnDestroy {
             },
             error: (error) => {
               console.error(`Error uploading ${file.name}:`, error);
+              const msg = error?.error?.message || error?.message || 'Upload failed';
+              this.uploadErrors[file.name] = msg;
+              this.uploadProgress[file.name] = -1;
               this.lastFileUploadedCheck(filesArray, this.uploadedFileList.length);
             }
           });
@@ -199,7 +204,8 @@ export class FileUploadComponent implements OnDestroy {
   }
 
   private lastFileUploadedCheck(filesArray: File[], index: number) {
-    if (filesArray.length == index) {
+    const failedCount = Object.keys(this.uploadErrors).length;
+    if (filesArray.length == index + failedCount) {
       if (this.fileUploadTopics.length > 0) { 
         this.uploadedFileList.forEach(x => {
           x.topics = this.fileUploadTopics;
@@ -217,6 +223,7 @@ export class FileUploadComponent implements OnDestroy {
       }
 
       this.uploadProgress = {};
+      this.uploadErrors = {};
       this.isUploading = false;
       this.uploadFileList = [];
       this.uploadedFileList = [];
@@ -233,8 +240,10 @@ export class FileUploadComponent implements OnDestroy {
 
   getOverallProgress(): number {
     if (this.uploadFileList.length === 0) return 0;
-    this.totalProgress = Object.values(this.uploadProgress).reduce((sum, progress) => sum + progress, 0);
-    return this.totalProgress = Math.round(this.totalProgress / this.uploadFileList.length);
+    const activeFiles = this.uploadFileList.filter(f => !this.uploadErrors[f.name]);
+    if (activeFiles.length === 0) return 100; // all failed → treat as "done"
+    this.totalProgress = activeFiles.reduce((sum, f) => sum + (this.uploadProgress[f.name] || 0), 0);
+    return this.totalProgress = Math.round(this.totalProgress / activeFiles.length);
   }
   onTopicAdded(topics: Topic[]) { 
     this.fileUploadTopics = topics;

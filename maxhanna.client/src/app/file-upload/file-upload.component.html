@@ -54,7 +54,10 @@
           </div>
         </div>
         <span class="progressText">
-          {{uploadProgress[file.name] === 100 ? '✅' : (uploadProgress[file.name] || 0) + '%'}}
+          {{uploadErrors[file.name] ? '❌' : (uploadProgress[file.name] === 100 ? '✅' : (uploadProgress[file.name] || 0) + '%')}}
+        </span>
+        <span *ngIf="uploadErrors[file.name]" class="errorBadge" [title]="uploadErrors[file.name]">
+          FAILED
         </span>
         <span *ngIf="uploadedFileList[i]?.isDuplicate" class="duplicateBadge" title="Duplicate file - existing file kept">
           DUPLICATE

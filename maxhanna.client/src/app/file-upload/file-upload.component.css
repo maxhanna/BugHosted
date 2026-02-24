@@ -214,6 +214,20 @@ button:disabled {
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.4);
 }
 
+.errorBadge {
+  margin-left: 8px;
+  padding: 2px 6px;
+  background: #c0392b;
+  color: #fff;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.4);
+  cursor: help;
+}
+
 .finalizeCloseHint {
   margin-top: -10px;
   margin-bottom: 10px;
