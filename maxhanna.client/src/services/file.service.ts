@@ -47,6 +47,7 @@ export class FileService {
 	nesFileExtensions: string[] = ["nes", "fds"];
 	gbaFileExtensions: string[] = ['gba'];
 	ndsFileExtensions: string[] = ['nds'];
+	pspFileExtensions: string[] = ['psp', 'iso', 'cso', 'pbp'];
 	snesFileExtensions: string[] = ['snes', 'sfc', 'smc'];
 
 	/** Return Genesis/MegaDrive related extensions present in romFileExtensions */
@@ -57,6 +58,10 @@ export class FileService {
 	/** Return Sega-related extensions (alias for Genesis/MegaDrive) present in romFileExtensions */
 	getSegaFileExtensions(): string[] {
 		return Array.from(this.segaFileExtensions);
+	}
+
+  getPspFileExtensions(): string[] {
+		return Array.from(this.pspFileExtensions);
 	}
 
 	/** Return NES (and Famicom) related extensions present in romFileExtensions */

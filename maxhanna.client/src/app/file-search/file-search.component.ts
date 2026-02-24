@@ -1276,7 +1276,8 @@ private async loadFileByIdOnce(id: number) {
       'nds': this.fileService.getNdsFileExtensions(),
       'nes': this.fileService.getNesFileExtensions(),
       'snes': this.fileService.getSnesFileExtensions(),
-      'genesis': this.fileService.getSegaFileExtensions()
+      'genesis': this.fileService.getSegaFileExtensions(),
+      'psp': this.fileService.getPspFileExtensions()
     };
   }
 
