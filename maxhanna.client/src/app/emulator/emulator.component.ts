@@ -2122,9 +2122,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const totalMb = total && total !== loaded ? (total / 1024 / 1024) : undefined;
     const msg = saving ? 'Uploading Save' : 'Downloading ROM';
     if (totalMb) {
-      this.status = `Uploading Save - ${loadedMb.toFixed(2)} / ${totalMb.toFixed(2)} MB (${pct}%)`;
+      this.status = `${msg} - ${loadedMb.toFixed(2)} / ${totalMb.toFixed(2)} MB (${pct}%)`;
     } else {
-      this.status = `Uploading Save - ${loadedMb.toFixed(2)} MB`;
+      this.status = `${msg} - ${loadedMb.toFixed(2)} MB`;
     }
   }
 
