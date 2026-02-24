@@ -115,7 +115,21 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (this.parentRef) {
       this.parentRef.preventShowSecurityPopup = true;
       this.parentRef.navigationComponent.stopNotifications();
-    } 
+    }
+
+    // SharedArrayBuffer (needed by EJS_threads) requires cross-origin isolation.
+    // If the page wasn't served with COOP/COEP headers (e.g. the user opened the
+    // emulator via the in-app navigation instead of a direct /Emulator URL), force
+    // a full page navigation so Express can apply the required headers.
+    if (typeof window !== 'undefined' && !(window as any).crossOriginIsolated) {
+      const params = new URLSearchParams();
+      if (this.presetRomName) params.set('rom', this.presetRomName);
+      if (this.presetRomId != null) params.set('romId', String(this.presetRomId));
+      if (this.skipSaveFileRequested) params.set('skipSaveFile', 'true');
+      const qs = params.toString();
+      window.location.replace('/Emulator' + (qs ? '?' + qs : ''));
+      return;
+    }
   }
 
   async ngAfterViewInit() {
