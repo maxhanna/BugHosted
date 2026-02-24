@@ -3,7 +3,7 @@
   <div *ngIf="error" class="error">{{ error }}</div>
 
   <div *ngIf="!loading && !error">
-    <ng-container *ngIf="modesSelected.length; else noScores">
+    <ng-container *ngIf="modesSelected.length">
       <div *ngFor="let m of modesSelected" class="mode-section">
         <div
           *ngIf="showHeader && ((mode === 'today' && groupedByMode?.[m] && keys(groupedByMode[m]).length > 0) || (mode !== 'today'))"
@@ -70,7 +70,7 @@
       </div>
     </ng-container>
 
-    <ng-template #noScores *ngIf="!loading">
+    <ng-template #noScores *ngIf="!loading && !(groupedByMode[m] && (keys(groupedByMode[m]).length > 0))">
       <div class="no-scores">No scores to show.</div>
     </ng-template>
   </div>
