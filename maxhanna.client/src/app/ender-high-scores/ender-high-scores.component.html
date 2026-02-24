@@ -10,7 +10,7 @@
             </div>
 
             <ng-container *ngIf="!isModeCollapsed(m)">
-                <ng-container *ngIf="groupedByMode[m] && hasGroups(m); else emptyMode">
+                <ng-container *ngIf="groupedByMode[m] && hasGroups(m)">
                     <div *ngFor="let group of (groupedByMode[m] | keyvalue)" class="difficulty-group"> 
                         <ng-container *ngIf="group.value && group.value.length > 0; else emptyGroup">
                             <div *ngFor="let s of group.value">
@@ -25,7 +25,7 @@
                                 </div>
                             </div>
                         </ng-container>
-                        <ng-template #emptyGroup>
+                        <ng-template #emptyGroup *ngIf="!loading">
                             <div class="no-scores">
                                 No{{" "}}
                                 <app-menu-item 
@@ -35,14 +35,17 @@
                                 {{" "}}scores to show for {{ m }}.
                             </div>
                         </ng-template>
+                        <div *ngIf="loading">
+                          Loading{{" "}}
+                          <app-menu-item 
+                              style="display: inline-block;"
+                              [type]="'Ender'" 
+                              [parentRef]="inputtedParentRef ?? parentRef"></app-menu-item>
+                          {{" "}}scores for {{ m }}...
+                        </div>
                     </div>
                 </ng-container>
-            </ng-container>
-
-            <ng-template #emptyMode *ngIf="!loading">
-                <div class="no-scores">No scores to show for {{ m }}.</div>
-            </ng-template>
-            <div class="no-scores" *ngIf="loading">Loading scores for {{ m }}...</div>
+            </ng-container> 
         </div>
     </div>
 </div>
