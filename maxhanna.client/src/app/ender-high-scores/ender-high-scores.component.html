@@ -10,9 +10,9 @@
             </div>
 
             <ng-container *ngIf="!isModeCollapsed(m)">
-                <ng-container *ngIf="groupedByMode[m] && hasGroups(m)">
+                <ng-container *ngIf="groupedByMode[m] && hasGroups(m); else emptyGroup">
                     <div *ngFor="let group of (groupedByMode[m] | keyvalue)" class="difficulty-group"> 
-                        <ng-container *ngIf="group.value && group.value.length > 0">
+                        <ng-container *ngIf="group.value && group.value.length > 0; else emptyGroupForGroup">
                             <div *ngFor="let s of group.value">
                                 <div style="padding:6px; border-bottom:1px solid #333; display:flex; align-items:center; gap:8px;">
                                     <div style="flex:0 0 auto;">
@@ -25,7 +25,8 @@
                                 </div>
                             </div>
                         </ng-container>
-                        <ng-template #emptyGroup *ngIf="!loading && !(groupedByMode[m] && hasGroups(m))">
+
+                        <ng-template #emptyGroupForGroup>
                             <div class="no-scores">
                                 No{{" "}}
                                 <app-menu-item 
@@ -35,16 +36,28 @@
                                 {{" "}}scores to show for {{ m }}.
                             </div>
                         </ng-template>
-                        <div *ngIf="loading">
-                          Loading{{" "}}
-                          <app-menu-item 
-                              style="display: inline-block;"
-                              [type]="'Ender'" 
-                              [parentRef]="inputtedParentRef ?? parentRef"></app-menu-item>
-                          {{" "}}scores for {{ m }}...
-                        </div>
                     </div>
                 </ng-container>
+
+                <div *ngIf="loading">
+                  Loading{{" "}}
+                  <app-menu-item 
+                      style="display: inline-block;"
+                      [type]="'Ender'" 
+                      [parentRef]="inputtedParentRef ?? parentRef"></app-menu-item>
+                  {{" "}}scores for {{ m }}...
+                </div>
+
+                <ng-template #emptyGroup>
+                    <div *ngIf="!loading" class="no-scores">
+                        No{{" "}}
+                        <app-menu-item 
+                            style="display: inline-block;"
+                            [type]="'Ender'" 
+                            [parentRef]="inputtedParentRef ?? parentRef"></app-menu-item>
+                        {{" "}}scores to show for {{ m }}.
+                    </div>
+                </ng-template>
             </ng-container> 
         </div>
     </div>
