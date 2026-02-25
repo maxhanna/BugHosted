@@ -337,7 +337,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     return ids;
   } 
 
-  async getSongList() {
+  async getSongList(playAfterLoad = true) {
     this.startLoading();
     try {
       const parent = this.inputtedParentRef ?? this.parentRef;
@@ -356,7 +356,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     } finally {
       this.updatePaginatedSongs();   // ensures new reference for paginatedSongs
       this.gotPlaylistEvent.emit([...this.songs]); // emit a new ref as well
-      if (this.selectedType === 'youtube') {
+      if (this.selectedType === 'youtube' && playAfterLoad) {
         this.play(this.songs[0]?.url); // attempt to play first song (if any)
       }
       this.stopLoading();
@@ -372,7 +372,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
     this.startLoading();
     if (!search) {
-      await this.getSongList();
+      await this.getSongList(false);
       this.rebuildLocalYtQueue();
     } else {
       const tmpSongs = await this.todoService.getTodo(user.id, "Music", search);
@@ -382,7 +382,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.currentPage = 1; // Reset to first page on search
       this.updatePaginatedSongs();
     }
-    this.reorderTable(undefined, this.orderSelect?.nativeElement.value || 'Newest');
+    this.reorderTable(undefined, this.orderSelect?.nativeElement.value || 'Newest', false);
     this.stopLoading();
   }
 
@@ -631,7 +631,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.stopMusic();
   }
 
-  reorderTable(event?: Event, targetOrder?: string) {
+  reorderTable(event?: Event, targetOrder?: string, playAfterLoad = true) {
     if (!this.songs || this.songs.length === 0) return;
     const order = event ? (event.target as HTMLSelectElement).value : targetOrder;
     // Track whether we want the YT player's playlist to be shuffled
@@ -665,7 +665,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.rebuildLocalYtQueue();
       if (this.ytPlayer && this.playerReady && this.ytIds && this.ytIds.length) {
         try {
-          this.switchWithinPlaylist(this.ytIds, 0);
+          this.switchWithinPlaylist(this.ytIds, 0, playAfterLoad);
         } catch (e) { console.warn('[Music] reload playlist after reorder failed', e); }
       }
     }
@@ -1102,23 +1102,24 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     }
   }
 
-  private switchWithinPlaylist(ids: string[], index: number) {
-    if (!this.ytPlayer) return;
-
-    const desiredId = ids[index];
-    const beforeId = this.ytPlayer.getVideoData()?.video_id;
-
+  private switchWithinPlaylist(ids: string[], index: number, playOnLoad = true) {
+    if (!this.ytPlayer) return; 
+    const desiredId = ids[index]; 
     try {
       const key = ids.join(',');
       const pl = this.ytPlayer.getPlaylist?.() || [];
 
       if (this.lastPlaylistKey === key && pl.length) {
-        this.ytPlayer.playVideoAt(index);
-        this.ytPlayer.playVideo();
+        if (playOnLoad) {
+          this.ytPlayer.playVideoAt(index);
+          this.ytPlayer.playVideo(); 
+        }
       } else {
         this.lastPlaylistKey = key;
         this.ytPlayer.loadPlaylist(ids, index, 0, 'small');
-        this.ytPlayer.playVideo();
+        if (playOnLoad) {
+          this.ytPlayer.playVideo();
+        }
         // Apply shuffle setting if requested and supported by the player API
         try {
           const anyPlayer = this.ytPlayer as any;
@@ -1129,7 +1130,9 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       }
     } catch (e) {
       console.warn('[YT] switchWithinPlaylist failed', e);
-      if (desiredId) this.forceSwitchToId(desiredId);
+      if (desiredId && playOnLoad) { 
+        this.forceSwitchToId(desiredId); 
+      }
       return;
     }
 
