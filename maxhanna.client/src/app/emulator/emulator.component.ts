@@ -19,6 +19,30 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   @Input() presetRomId?: number | undefined;
   @Input() skipSaveFileRequested = false;
 
+
+  private static readonly L_FACE_CROSS = 0;
+  private static readonly L_FACE_CIRCLE = 1;
+  private static readonly L_FACE_SQUARE = 2;
+  private static readonly L_FACE_TRIANGLE = 3;
+  private static readonly L_L1 = 4;
+  private static readonly L_R1 = 5;
+  private static readonly L_L2 = 6;
+  private static readonly L_R2 = 7;
+  private static readonly L_SELECT = 8;
+  private static readonly L_START = 9;
+  private static readonly L_DPAD_UP = 12;
+  private static readonly L_DPAD_DOWN = 13;
+  private static readonly L_DPAD_LEFT = 14;
+  private static readonly L_DPAD_RIGHT = 15;
+  private static readonly L_LS_X_POS = 16;
+  private static readonly L_LS_X_NEG = 17;
+  private static readonly L_LS_Y_POS = 18;
+  private static readonly L_LS_Y_NEG = 19;
+  private static readonly L_RS_X_POS = 20;
+  private static readonly L_RS_X_NEG = 21;
+  private static readonly L_RS_Y_POS = 22;
+  private static readonly L_RS_Y_NEG = 23;
+
   isMenuPanelOpen = false;
   isFullScreen = false;
   romName?: string;
@@ -76,33 +100,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     'melonds': 512 * 1024,        // DS
     // add more as you see them in logs
   };
-
-  /** ---------- Canonical logical indices (EmulatorJS input side) ---------- */
- 
-// Use your canonical index constants everywhere
-private static readonly L_FACE_CROSS = 0;
-private static readonly L_FACE_CIRCLE = 1;
-private static readonly L_FACE_SQUARE = 2;
-private static readonly L_FACE_TRIANGLE = 3;
-private static readonly L_L1 = 4;
-private static readonly L_R1 = 5;
-private static readonly L_L2 = 6;
-private static readonly L_R2 = 7;
-private static readonly L_SELECT = 8;
-private static readonly L_START = 9;
-private static readonly L_DPAD_UP = 12;
-private static readonly L_DPAD_DOWN = 13;
-private static readonly L_DPAD_LEFT = 14;
-private static readonly L_DPAD_RIGHT = 15;
-private static readonly L_LS_X_POS = 16;
-private static readonly L_LS_X_NEG = 17;
-private static readonly L_LS_Y_POS = 18;
-private static readonly L_LS_Y_NEG = 19;
-private static readonly L_RS_X_POS = 20;
-private static readonly L_RS_X_NEG = 21;
-private static readonly L_RS_Y_POS = 22;
-private static readonly L_RS_Y_NEG = 23;
-
   isSearchVisible = false;
   autosave = true;
   autosaveIntervalTime: number = 180000; // 3 minutes 
@@ -390,15 +387,6 @@ private static readonly L_RS_Y_NEG = 23;
         this.scanAndTagVpadControls();
         // console.log('EJS_ready: vpad readback=', window.EJS_VirtualGamepadSettings);
 
-try {
-    const w = window as any;
-    console.log('[EJS] defaultControls (P0):', JSON.stringify(w.EJS_defaultControls?.[0], null, 2));
-
-    // Some builds expose a current map on gameManager/controls
-    const gm = api?.gameManager ?? w.EJS_emulator?.gameManager ?? w.EJS?.gameManager;
-    console.log('[EJS] live controls (if present):', gm?.controls ?? '(no gm.controls)');
-  } catch {}
-
         this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
         if (this.emulatorInstance?.saveState) {
           this._saveFn = async () => { try { await (this.emulatorInstance as any).saveState(); } catch { } };
@@ -428,9 +416,6 @@ try {
     }
     this.installRuntimeTrackers();
     this.hideEJSMenu();
-    //console.log('[EJS] final vpad settings before loader:', JSON.stringify(window.EJS_VirtualGamepadSettings, null, 2));
-    this.seedDualSenseDefaults(core);
-    this.assertEjsControlsShape();
 
     // 8) Inject loader.js (it will initialize EmulatorJS)
     if (!window.__ejsLoaderInjected) {
@@ -1116,263 +1101,7 @@ try {
     return false;
   }
 
-  // Put this helper anywhere in the class (e.g., under getMaxPlayersForSystem)
-  private padPlayerMap(m: Record<number, any>): Record<number, any> {
-    const out: Record<number, any> = { ...m };
-    // Many EJS builds iterate 0..29; make sure every slot exists (empty object is fine)
-    for (let i = 0; i <= 29; i++) if (!(i in out)) out[i] = {};
-    return out;
-  }
 
-  private seedDualSenseDefaults(core: string) {
-    const system = this.systemFromCore(core);
-    const sixBtnGenesis = (system === 'genesis') ? this.preferSixButtonGenesis : false;
-
-    // Decide max players by system
-    const maxPlayers = this.getMaxPlayersForSystem(system, core);
-
-    // Pick per-system map (your existing switch stays the same)…
-    let playerMap: Record<number, { value2: string }>;
-    switch (system) {
-      case 'nes':
-      case 'gb':
-      case 'gbc':
-        playerMap = this.mapNESLike(); break;
-      case 'gba':
-        playerMap = this.mapGBA(); break;
-      case 'snes':
-        playerMap = this.mapSNES(); break;
-      case 'genesis':
-        playerMap = sixBtnGenesis ? this.mapGenesis6() : this.mapGenesis3(); break;
-      case 'nds':
-        playerMap = this.mapNDS(); break;
-      case 'psp':
-        playerMap = this.mapPSP(); break;
-      default:
-        playerMap = this.mapSNES(); break;
-    }
-    if (core === 'mupen64plus_next') playerMap = this.mapN64();
-    if (/(mednafen_psx|pcsx_rearmed|duckstation)/.test(core)) playerMap = this.mapPS1();
-
-    // ✅ Always seed 4 players; pad every player with indices 0..29
-    const seeded: Record<number, any> = {};
-    for (let p = 0; p < 4; p++) {
-      const map = (p < maxPlayers) ? { ...playerMap } : {};
-      seeded[p] = this.padPlayerMap(map);
-    }
-    (window as any).EJS_defaultControls = seeded;
-  }
-
-
-  // Add this helper in the class (e.g., near padPlayerMap)
-  private assertEjsControlsShape(): void {
-    const w = window as any;
-    const controls = w.EJS_defaultControls ?? {};
-    for (let p = 0; p < 4; p++) {
-      if (!controls[p] || typeof controls[p] !== 'object') controls[p] = {};
-      for (let i = 0; i <= 29; i++) if (!(i in controls[p])) controls[p][i] = {};
-    }
-    w.EJS_defaultControls = controls;
-  }
-
-
-  /** Typical maximum local players per system (tune as needed). */
-  private getMaxPlayersForSystem(system: System, core: string): number {
-    switch (system) {
-      case 'nes':
-      case 'gb':
-      case 'gbc':
-      case 'gba':
-        return 2;
-      case 'snes':
-      case 'genesis':
-        // (Multitap/TeamPlayer can be more, but 2 is the practical baseline)
-        return 2;
-      case 'nds':
-      case 'psp':
-        return 1;
-      default:
-        // N64 supports 4; PS1 typically 2
-        if (core === 'mupen64plus_next') return 4;
-        if (/(mednafen_psx|pcsx_rearmed|duckstation)/.test(core)) return 2;
-        return 2;
-    }
-  }
-
-  /** ---------- Common helpers using your canonical indices ---------- */
-  private dpad(): Record<number, { value2: string }> {
-    return {
-      [EmulatorComponent.L_DPAD_UP]: { value2: 'DPAD_UP' },
-      [EmulatorComponent.L_DPAD_DOWN]: { value2: 'DPAD_DOWN' },
-      [EmulatorComponent.L_DPAD_LEFT]: { value2: 'DPAD_LEFT' },
-      [EmulatorComponent.L_DPAD_RIGHT]: { value2: 'DPAD_RIGHT' },
-    };
-  }
-
-  private startSelect(): Record<number, { value2: string }> {
-    return {
-      [EmulatorComponent.L_START]: { value2: 'START' },  // 9
-      [EmulatorComponent.L_SELECT]: { value2: 'SELECT' },  // 8
-    };
-  }
-
-  private leftStick(): Record<number, { value2: string }> {
-    return {
-      [EmulatorComponent.L_LS_X_POS]: { value2: 'LEFT_STICK_X:+1' },
-      [EmulatorComponent.L_LS_X_NEG]: { value2: 'LEFT_STICK_X:-1' },
-      [EmulatorComponent.L_LS_Y_POS]: { value2: 'LEFT_STICK_Y:+1' },
-      [EmulatorComponent.L_LS_Y_NEG]: { value2: 'LEFT_STICK_Y:-1' },
-    };
-  }
-
-  private rightStick(): Record<number, { value2: string }> {
-    return {
-      [EmulatorComponent.L_RS_X_POS]: { value2: 'RIGHT_STICK_X:+1' },
-      [EmulatorComponent.L_RS_X_NEG]: { value2: 'RIGHT_STICK_X:-1' },
-      [EmulatorComponent.L_RS_Y_POS]: { value2: 'RIGHT_STICK_Y:+1' },
-      [EmulatorComponent.L_RS_Y_NEG]: { value2: 'RIGHT_STICK_Y:-1' },
-    };
-  }
-
-  /** ---------- System-specific maps (value2 = DualSense) ----------
-   * BUTTON_1 = Cross, BUTTON_3 = Circle, BUTTON_4 = Square, BUTTON_2 = Triangle
-   */
-
-  /** NES / GB / GBC — two face buttons (B, A) */
-  private mapNESLike(): Record<number, { value2: string }> {
-    return {
-      [EmulatorComponent.L_FACE_CROSS]: { value2: 'BUTTON_1' }, // B → Cross
-      [EmulatorComponent.L_FACE_CIRCLE]: { value2: 'BUTTON_3' }, // A → Circle
-      ...this.dpad(),
-      ...this.startSelect(),
-    };
-  }
-
-  /** GBA — A/B + L/R */
-  private mapGBA(): Record<number, { value2: string }> {
-    return {
-      [EmulatorComponent.L_FACE_CROSS]: { value2: 'BUTTON_1' }, // B
-      [EmulatorComponent.L_FACE_CIRCLE]: { value2: 'BUTTON_3' }, // A
-      [EmulatorComponent.L_L1]: { value2: 'LEFT_TOP_SHOULDER' }, // L
-      [EmulatorComponent.L_R1]: { value2: 'RIGHT_TOP_SHOULDER' }, // R
-      // L2/R2 generally unused on GBA; leave 6/7 unmapped.
-      ...this.dpad(),
-      ...this.startSelect(),
-    };
-  }
-
-  /** SNES — B/A/X/Y + L/R */
-  private mapSNES(): Record<number, { value2: string }> {
-    return {
-      [EmulatorComponent.L_FACE_CROSS]: { value2: 'BUTTON_1' }, // B
-      [EmulatorComponent.L_FACE_CIRCLE]: { value2: 'BUTTON_3' }, // A
-      [EmulatorComponent.L_FACE_SQUARE]: { value2: 'BUTTON_4' }, // Y
-      [EmulatorComponent.L_FACE_TRIANGLE]: { value2: 'BUTTON_2' }, // X
-      [EmulatorComponent.L_L1]: { value2: 'LEFT_TOP_SHOULDER' }, // L
-      [EmulatorComponent.L_R1]: { value2: 'RIGHT_TOP_SHOULDER' }, // R
-      ...this.dpad(),
-      ...this.startSelect(),
-    };
-  }
-
-  /** Genesis (3-button: A/B/C)
-   *  B(south)=Cross(0), C(east)=Circle(1), A(west)=Square(2)
-   */
-  private mapGenesis3(): Record<number, { value2: string }> {
-    return {
-      [EmulatorComponent.L_FACE_CROSS]: { value2: 'BUTTON_1' }, // B
-      [EmulatorComponent.L_FACE_CIRCLE]: { value2: 'BUTTON_3' }, // C
-      [EmulatorComponent.L_FACE_SQUARE]: { value2: 'BUTTON_4' }, // A
-      // Optional: map Mode or extras to L1/R1 if needed
-      ...this.dpad(),
-      ...this.startSelect(),
-    };
-  }
-
-  /** Genesis (6-button: A/B/C + X/Y/Z)
-   *  Lower: B(0)=Cross, C(1)=Circle, A(2)=Square
-   *  Upper: X(3)=Triangle; Y→L1(4), Z→R1(5)
-   */
-  private mapGenesis6(): Record<number, { value2: string }> {
-    return {
-      [EmulatorComponent.L_FACE_CROSS]: { value2: 'BUTTON_1' }, // B
-      [EmulatorComponent.L_FACE_CIRCLE]: { value2: 'BUTTON_3' }, // C
-      [EmulatorComponent.L_FACE_SQUARE]: { value2: 'BUTTON_4' }, // A
-      [EmulatorComponent.L_FACE_TRIANGLE]: { value2: 'BUTTON_2' }, // X
-      [EmulatorComponent.L_L1]: { value2: 'LEFT_TOP_SHOULDER' }, // Y
-      [EmulatorComponent.L_R1]: { value2: 'RIGHT_TOP_SHOULDER' }, // Z
-      ...this.dpad(),
-      ...this.startSelect(),
-    };
-  }
-
-  /** N64 (mupen64plus_next)
-   *  A → Cross(0), B → Square(2), Z → L2(6), L/R → L1/R1 (4/5)
-   *  C-buttons → Right Stick; D-Pad 12..15; Start = 9
-   */
-  private mapN64(): Record<number, { value2: string }> {
-    return {
-      [EmulatorComponent.L_FACE_CROSS]: { value2: 'BUTTON_1' }, // A
-      [EmulatorComponent.L_FACE_SQUARE]: { value2: 'BUTTON_4' }, // B
-      [EmulatorComponent.L_START]: { value2: 'START' },
-      [EmulatorComponent.L_L1]: { value2: 'LEFT_TOP_SHOULDER' }, // L
-      [EmulatorComponent.L_R1]: { value2: 'RIGHT_TOP_SHOULDER' }, // R
-      [EmulatorComponent.L_L2]: { value2: 'LEFT_BOTTOM_SHOULDER' }, // Z
-      // Sticks
-      ...this.leftStick(),  // Analog stick
-      ...this.rightStick(), // C-buttons
-      ...this.dpad(),
-      [EmulatorComponent.L_SELECT]: { value2: 'SELECT' }, // optional (some cores ignore)
-    };
-  }
-
-  /** NDS — B/A/X/Y + L/R */
-  private mapNDS(): Record<number, { value2: string }> {
-    return {
-      [EmulatorComponent.L_FACE_CROSS]: { value2: 'BUTTON_1' }, // B
-      [EmulatorComponent.L_FACE_CIRCLE]: { value2: 'BUTTON_3' }, // A
-      [EmulatorComponent.L_FACE_SQUARE]: { value2: 'BUTTON_4' }, // Y
-      [EmulatorComponent.L_FACE_TRIANGLE]: { value2: 'BUTTON_2' }, // X
-      [EmulatorComponent.L_L1]: { value2: 'LEFT_TOP_SHOULDER' }, // L
-      [EmulatorComponent.L_R1]: { value2: 'RIGHT_TOP_SHOULDER' }, // R
-      ...this.dpad(),
-      ...this.startSelect(),
-    };
-  }
-
-  /** PS1 — native PlayStation layout with your indices */
-  private mapPS1(): Record<number, { value2: string }> {
-    return {
-      [EmulatorComponent.L_FACE_CROSS]: { value2: 'BUTTON_1' }, // Cross
-      [EmulatorComponent.L_FACE_CIRCLE]: { value2: 'BUTTON_3' }, // Circle
-      [EmulatorComponent.L_FACE_SQUARE]: { value2: 'BUTTON_4' }, // Square
-      [EmulatorComponent.L_FACE_TRIANGLE]: { value2: 'BUTTON_2' }, // Triangle
-      [EmulatorComponent.L_L1]: { value2: 'LEFT_TOP_SHOULDER' }, // L1
-      [EmulatorComponent.L_R1]: { value2: 'RIGHT_TOP_SHOULDER' }, // R1
-      [EmulatorComponent.L_L2]: { value2: 'LEFT_BOTTOM_SHOULDER' }, // L2 (6)
-      [EmulatorComponent.L_R2]: { value2: 'RIGHT_BOTTOM_SHOULDER' }, // R2 (7)
-      // L3/R3 optional — many PS1 titles don’t require them; omit to avoid index clash
-      ...this.leftStick(),
-      ...this.rightStick(),
-      ...this.dpad(),
-      ...this.startSelect(),
-    };
-  }
-
-  /** PSP — Cross/Circle/Square/Triangle + L/R */
-  private mapPSP(): Record<number, { value2: string }> {
-    return {
-      [EmulatorComponent.L_FACE_CROSS]: { value2: 'BUTTON_1' },
-      [EmulatorComponent.L_FACE_CIRCLE]: { value2: 'BUTTON_3' },
-      [EmulatorComponent.L_FACE_SQUARE]: { value2: 'BUTTON_4' },
-      [EmulatorComponent.L_FACE_TRIANGLE]: { value2: 'BUTTON_2' },
-      [EmulatorComponent.L_L1]: { value2: 'LEFT_TOP_SHOULDER' }, // L
-      [EmulatorComponent.L_R1]: { value2: 'RIGHT_TOP_SHOULDER' }, // R
-      // PSP lacks L2/R2; leave 6/7 unmapped.
-      ...this.dpad(),
-      ...this.startSelect(),
-    };
-  }
   private setGameScreenHeight(): void {
     const gameEl = document.getElementById('game');
     if (!gameEl) return;
@@ -1829,17 +1558,17 @@ try {
     } catch { return []; }
   }
 
-  private async removePendingSave(id: number): Promise<boolean> {
+  clearEjsControlCaches() {
     try {
-      const db = await this.openPendingDb();
-      const tx = db.transaction('pendingSaves', 'readwrite');
-      const store = tx.objectStore('pendingSaves');
-      const req = store.delete(id);
-      return await new Promise((resolve) => {
-        req.onsuccess = () => { resolve(true); db.close(); };
-        req.onerror = () => { resolve(false); db.close(); };
-      });
-    } catch { return false; }
+      const ls = window.localStorage;
+      for (const k of Object.keys(ls)) {
+        if (/ejs.*control/i.test(k) || /controls?/i.test(k) || /gamepad/i.test(k)) {
+          ls.removeItem(k);
+        }
+      }
+      try { indexedDB.deleteDatabase('ejs'); } catch { }
+      try { indexedDB.deleteDatabase('emulatorjs'); } catch { }
+    } catch { }
   }
 
   // Attempt to upload any pending saves found in IndexedDB. Runs on startup.
@@ -2046,108 +1775,84 @@ try {
     if (select) select.classList.add('max-nudge-down');
   }
 
-leftMovementArea(useJoystick: boolean): VPadItem {
-  return useJoystick
-    ? {
+  leftMovementArea(useJoystick: boolean): VPadItem {
+    return useJoystick
+      ? {
         type: 'zone',
         location: 'left',
         left: '8%',
         top: '50%',
         joystickInput: true,
         color: 'blue',
-        // Up, Down, Left, Right via analog = Y- (up), Y+ (down), X- (left), X+ (right)
-        inputValues: [
-          EmulatorComponent.L_LS_Y_NEG, // 19
-          EmulatorComponent.L_LS_Y_POS, // 18
-          EmulatorComponent.L_LS_X_NEG, // 17
-          EmulatorComponent.L_LS_X_POS, // 16
-        ],
+        inputValues: [19, 18, 17, 16],
       }
-    : {
+      : {
         type: 'dpad',
         location: 'left',
         left: '8%',
         joystickInput: false,
-        inputValues: [
-          EmulatorComponent.L_DPAD_UP,    // 12
-          EmulatorComponent.L_DPAD_DOWN,  // 13
-          EmulatorComponent.L_DPAD_LEFT,  // 14
-          EmulatorComponent.L_DPAD_RIGHT, // 15
-        ],
+        inputValues: [4, 5, 6, 7],
       };
-}
-
-startSelectRow(): VPadItem[] {
-  return [
-    { type: 'button', id: 'start',  text: 'Start',  location: 'center', left: 60,  top: 0, fontSize: 15, block: true, input_value: EmulatorComponent.L_START },  // 9
-    { type: 'button', id: 'select', text: 'Select', location: 'center', left: -5, top: 0, fontSize: 15, block: true, input_value: EmulatorComponent.L_SELECT }, // 8
-  ];
-}
-
-shouldersTop(hasLR2 = false): VPadItem[] {
-  const items: VPadItem[] = [
-    { type: 'button', id: 'btnL',  text: 'L',  location: 'top', left: 10,  top: 0, input_value: EmulatorComponent.L_L1, bold: true, block: true }, // 4
-    { type: 'button', id: 'btnR',  text: 'R',  location: 'top', right: 10, top: 0, input_value: EmulatorComponent.L_R1, bold: true, block: true }, // 5
-  ];
-  if (hasLR2) {
-    items.push(
-      { type: 'button', id: 'btnL2', text: 'L2', location: 'top', left: 90,  top: 0, input_value: EmulatorComponent.L_L2, bold: true, block: true }, // 6
-      { type: 'button', id: 'btnR2', text: 'R2', location: 'top', right: 90, top: 0, input_value: EmulatorComponent.L_R2, bold: true, block: true }, // 7
-    );
   }
-  return items;
-}
 
-twoButtonRight(): VPadItem[] {
-  return [
-    { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 20, top: 75, input_value: EmulatorComponent.L_FACE_CROSS,  bold: true }, // 0
-    { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 10, input_value: EmulatorComponent.L_FACE_CIRCLE, bold: true }, // 1
-  ];
-}
 
-diamondRight(): VPadItem[] {
-  return [
-    { type: 'button', id: 'btnX', text: 'X', location: 'right', left: -50, top: 30, input_value: EmulatorComponent.L_FACE_TRIANGLE, bold: true }, // 3
-    { type: 'button', id: 'btnY', text: 'Y', location: 'right', left: -20, top: -20, input_value: EmulatorComponent.L_FACE_SQUARE,   bold: true }, // 2
-    { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 10,  top: 80, input_value: EmulatorComponent.L_FACE_CROSS,     bold: true }, // 0
-    { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 50,  top: 20, input_value: EmulatorComponent.L_FACE_CIRCLE,    bold: true }, // 1
-  ];
-}
+  twoButtonRight(): VPadItem[] {
+    // Make B a bit left/below; A a bit right/above (classic layout)
+    const B: VPadItem = { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 20, top: 75, input_value: 0, bold: true };
+    const A: VPadItem = { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 10, input_value: 8, bold: true };
+    return [B, A];
+  }
 
-genesisThreeRight(): VPadItem[] {
-  return [
-    { type: 'button', id: 'genC', text: 'C', location: 'right', left: 70,  top: 5,  input_value: EmulatorComponent.L_FACE_CIRCLE, bold: true }, // 1
-    { type: 'button', id: 'genB', text: 'B', location: 'right', left: 0,   top: 35, input_value: EmulatorComponent.L_FACE_CROSS,  bold: true }, // 0
-    { type: 'button', id: 'genA', text: 'A', location: 'right', left: -115, top: 85, input_value: EmulatorComponent.L_FACE_SQUARE, bold: true }, // 2
-  ];
-}
+  genesisThreeRight(): VPadItem[] {
+    return [
+      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 70, top: 5, input_value: 8, bold: true },
+      { type: 'button', id: 'genB', text: 'B', location: 'right', left: 0, top: 35, input_value: 0, bold: true },
+      { type: 'button', id: 'genA', text: 'A', location: 'right', left: -115, top: 85, input_value: 1, bold: true },
+    ];
+  }
 
-genesisSixRight(): VPadItem[] {
-  return [
-    // Lower A/B/C
-    { type: 'button', id: 'genC', text: 'C', location: 'right', left: 70,  top: 5,  input_value: EmulatorComponent.L_FACE_CIRCLE,   bold: true },
-    { type: 'button', id: 'genB', text: 'B', location: 'right', left: 0,   top: 35, input_value: EmulatorComponent.L_FACE_CROSS,    bold: true },
-    { type: 'button', id: 'genA', text: 'A', location: 'right', left: -115, top: 85, input_value: EmulatorComponent.L_FACE_SQUARE,   bold: true },
-    // Upper X/Y/Z
-    { type: 'button', id: 'genX', text: 'X', location: 'right', left: -60, top: -10, input_value: EmulatorComponent.L_FACE_TRIANGLE, bold: true },
-    { type: 'button', id: 'genY', text: 'Y', location: 'right', left: 0,   top: -30, input_value: EmulatorComponent.L_L1,           bold: true },
-    { type: 'button', id: 'genZ', text: 'Z', location: 'right', left: 60,  top: -50, input_value: EmulatorComponent.L_R1,           bold: true },
-  ];
-}
- 
-clearEjsControlCaches() {
-  try {
-    const ls = window.localStorage;
-    for (const k of Object.keys(ls)) {
-      if (/ejs.*control/i.test(k) || /controls?/i.test(k) || /gamepad/i.test(k)) {
-        ls.removeItem(k);
-      }
+  genesisSixRight(): VPadItem[] {
+    return [
+      // Lower row A/B/C
+      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 70, top: 5, input_value: 8, bold: true },
+      { type: 'button', id: 'genB', text: 'B', location: 'right', left: 0, top: 35, input_value: 0, bold: true },
+      { type: 'button', id: 'genA', text: 'A', location: 'right', left: -115, top: 85, input_value: 1, bold: true },
+      // Upper row X/Y/Z (match your build’s scheme)
+      { type: 'button', id: 'genX', text: 'X', location: 'right', left: -60, top: -10, input_value: 10, bold: true },
+      { type: 'button', id: 'genY', text: 'Y', location: 'right', left: 0, top: -30, input_value: 9, bold: true },
+      { type: 'button', id: 'genZ', text: 'Z', location: 'right', left: 60, top: -50, input_value: 11, bold: true },
+    ];
+  }
+
+  startSelectRow(): VPadItem[] {
+    return [
+      { type: 'button', id: 'start', text: 'Start', location: 'center', left: 60, top: 0, fontSize: 15, block: true, input_value: 3 },
+      { type: 'button', id: 'select', text: 'Select', location: 'center', left: -5, top: 0, fontSize: 15, block: true, input_value: 2 },
+    ];
+  }
+
+  shouldersTop(hasLR2 = false): VPadItem[] {
+    const items: VPadItem[] = [
+      { type: 'button', id: 'btnL', text: 'L', location: 'top', left: 10, top: 0, input_value: 10, bold: true, block: true },
+      { type: 'button', id: 'btnR', text: 'R', location: 'top', right: 10, top: 0, input_value: 11, bold: true, block: true },
+    ];
+    if (hasLR2) {
+      items.push(
+        { type: 'button', id: 'btnL2', text: 'L2', location: 'top', left: 90, top: 0, input_value: 12, bold: true, block: true },
+        { type: 'button', id: 'btnR2', text: 'R2', location: 'top', right: 90, top: 0, input_value: 13, bold: true, block: true },
+      );
     }
-    try { indexedDB.deleteDatabase('ejs'); } catch {}
-    try { indexedDB.deleteDatabase('emulatorjs'); } catch {}
-  } catch {}
-}
+    return items;
+  }
 
+  diamondRight(): VPadItem[] {
+    return [
+      { type: 'button', id: 'btnX', text: 'X', location: 'right', left: -50, top: 30, input_value: 9, bold: true },
+      { type: 'button', id: 'btnY', text: 'Y', location: 'right', left: -20, top: -20, input_value: 1, bold: true },
+      { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 10, top: 80, input_value: 0, bold: true },
+      { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 50, top: 20, input_value: 8, bold: true },
+    ];
+  }
 
   systemFromCore(core: string): System {
     const c = core.toLowerCase();
