@@ -949,7 +949,10 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     }
   }
 
-
+  get parentYoutubeSearch(): string | undefined {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    return parent?.getYoutubeSearchKeyword() ?? undefined;
+  }
   get playerClasses(): string {
     const base = this.smallPlayer ? 'smallIframeDiv'
       : this.onMobile() ? 'mobileIframeDiv'
