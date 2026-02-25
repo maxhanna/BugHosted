@@ -1025,6 +1025,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           this._lastSaveTime = Date.now();
           this.lastGoodSaveSize.set(this.romName!, u8.length);
           ms = res.body?.ms;
+          // Reset autosave timer so the next autosave fires after the full interval
+          try { this.setupAutosave(); } catch { }
           //console.log(`[EJS] Save state uploaded (${u8.length} bytes)`);
           return true;
         } else {
