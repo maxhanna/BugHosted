@@ -390,6 +390,15 @@ private static readonly L_RS_Y_NEG = 23;
         this.scanAndTagVpadControls();
         // console.log('EJS_ready: vpad readback=', window.EJS_VirtualGamepadSettings);
 
+try {
+    const w = window as any;
+    console.log('[EJS] defaultControls (P0):', JSON.stringify(w.EJS_defaultControls?.[0], null, 2));
+
+    // Some builds expose a current map on gameManager/controls
+    const gm = api?.gameManager ?? w.EJS_emulator?.gameManager ?? w.EJS?.gameManager;
+    console.log('[EJS] live controls (if present):', gm?.controls ?? '(no gm.controls)');
+  } catch {}
+
         this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
         if (this.emulatorInstance?.saveState) {
           this._saveFn = async () => { try { await (this.emulatorInstance as any).saveState(); } catch { } };
