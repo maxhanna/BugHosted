@@ -51,27 +51,27 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   isFaqOpen = false;
   faqItems: { question: string; answerHtml: string; expanded: boolean }[] = [
     {
-      question: "My controller is connected but doesn't work—what should I do?",
-      answerHtml: `Unpair all controllers from the PC, then pair and test one controller at a time. Multiple paired controllers or leftover Bluetooth pairings can cause input routing conflicts. Also try restarting the browser after pairing.`,
+      question: 'My controller is connected but doesn\'t work — what should I do?',
+      answerHtml: `Unpair all controllers from the PC, then pair and test one controller at a time. Multiple paired controllers or leftover Bluetooth pairings can cause input routing conflicts. Try restarting the browser after pairing. If using a virtual gamepad, confirm the correct mapping in the on-screen controls.`,
       expanded: false
     },
     {
-      question: "I don't hear any audio from the game.",
-      answerHtml: `Check that the browser tab isn't muted, confirm the correct audio output device is selected in your OS, and ensure the emulator volume (in the menu) is not set to zero.`,
+      question: 'I don\'t hear any audio from the game.',
+      answerHtml: `Check that the browser tab isn't muted, confirm the correct audio output device is selected in your OS, and ensure the emulator volume (in the menu) is not set to zero. Some browsers require user gesture before audio will play — try clicking the page first.`,
       expanded: false
     },
     {
-      question: "Save states aren't persisting between sessions.",
-      answerHtml: `Make sure you're logged in and that autosave is enabled. If autosave is off, use the manual save option before closing. Network interruptions can prevent saves from reaching the server.`,
+      question: 'Save states aren\'t persisting between sessions.',
+      answerHtml: `Make sure you're logged in and autosave is enabled. Manual saves are available via the "Manual Save" button which calls the emulator save API. Network interruptions or very large save files (PS1/N64) can delay or prevent uploads.`,
       expanded: false
     },
     {
-      question: "The game runs slowly or stutters.",
-      answerHtml: `Close other heavy apps/tabs, enable hardware acceleration in your browser, and try reducing the emulator rendering resolution or screen size if available.`,
+      question: 'The game runs slowly or stutters.',
+      answerHtml: `Close other heavy apps/tabs, enable hardware acceleration in your browser, and try reducing the emulator rendering size. On low-end devices, disabling on-screen controls or switching to simpler touch layouts can help.`,
       expanded: false
     },
     {
-      question: "What games/systems are available?",
+      question: 'What systems and games are supported?',
       answerHtml: `Available systems include:<ul>
         <li><strong>Nintendo</strong>: Game Boy Advance, Famicom / NES, Virtual Boy, Game Boy, SNES, DS, N64</li>
         <li><strong>Sega</strong>: Master System, Mega Drive / Genesis, Game Gear, Saturn, 32X, CD</li>
@@ -79,7 +79,57 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         <li><strong>Commodore</strong>: Commodore 64, Commodore 128, Amiga, PET, Plus/4, VIC-20</li>
         <li><strong>Other</strong>: PlayStation, PlayStation Portable (PSP), Arcade (MAME/3DO/MAME2003/ColecoVision)</li>
       </ul>
-      Note: Not every ROM for every system may be available — the list above shows supported systems; available games depend on what has been uploaded to the Roms directory.`,
+      The emulator supports a wide set of systems.`,
+      expanded: false
+    },
+    {
+      question: 'What does the "Autosave" button do?',
+      answerHtml: `Toggles automatic periodic saving of the emulator state. (default 3 minutes; increased for large cores like N64/PS1).`,
+      expanded: false
+    },
+    {
+      question: 'What does "Enter Fullscreen" do?',
+      answerHtml: `This hides the surrounding UI for a native fullscreen experience.`,
+      expanded: false
+    },
+    {
+      question: 'What does "Stop Emulator & Return to ROM Selection" do?',
+      answerHtml: `Stops the running emulator, cleans up resources, and returns you to the ROM selection UI so you can choose another game. This calls the component's stop/cleanup logic (stopEmulator()).`,
+      expanded: false
+    },
+    {
+      question: 'What are the two "Reset Game" buttons?',
+      answerHtml: `There are two reset options: "Reset Game (No Save)" restarts the ROM without saving the current state (useful for quick restarts). "Reset Game (Keep Save)" restarts but preserves the current persistent save file so your profile progress remains intact.`,
+      expanded: false
+    },
+    {
+      question: 'What does "Manual Save" do?',
+      answerHtml: `Triggers an immediate save of the current emulator state to the server. Use this before closing if you don\'t rely on autosave.`,
+      expanded: false
+    },
+    {
+      question: 'What does the "Upload Rom(s)" control do?',
+      answerHtml: `Uploads selected ROM files to the server (uploads go to the Roms directory).`,
+      expanded: false
+    },
+    {
+      question: 'What is "Enable/Disable Joystick" on mobile?',
+      answerHtml: `Toggles the touch input mode between a D-pad and an analog joystick-like "zone" layout. The component builds different on-screen layouts depending on this flag (useJoystick) and other settings like two-button mode or Genesis six-button handling.`,
+      expanded: false
+    },
+    {
+      question: 'What are the "Fast" and "Slow" speed buttons?',
+      answerHtml: `Small on-screen buttons are provided for temporary speed toggles.`,
+      expanded: false
+    },
+    {
+      question: 'How are save sizes and autosave intervals handled?',
+      answerHtml: `The component enforces a minimum state size per core and adjusts autosave interval time: default is 3 minutes; for large-save cores like N64/PS1 it increases to 10 minutes to reduce upload frequency and prevent timeouts.`,
+      expanded: false
+    },
+    {
+      question: 'How can I auto-load a preset ROM via URL?',
+      answerHtml: `You can pass query parameters when navigating to /Emulator: use <strong>?rom=FILE_NAME&amp;romId=ID</strong>. The component checks for these and will attempt to load them automatically if provided.`,
       expanded: false
     }
   ];
