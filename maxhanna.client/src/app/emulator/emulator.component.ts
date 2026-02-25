@@ -1078,9 +1078,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
     return false;
   }
-
-
-  /** Seed DualSense defaults per system/core with players P1..Pmax. */
+ 
   private seedDualSenseDefaults(core: string) {
     const system = this.systemFromCore(core); // you already have this
     const sixBtnGenesis = (system === 'genesis') ? this.preferSixButtonGenesis : false;
