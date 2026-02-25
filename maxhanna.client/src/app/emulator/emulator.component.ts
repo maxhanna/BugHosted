@@ -2191,6 +2191,18 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return true;
   }
 
+  remapControls() {
+    let found = false;
+    const buttons = document.getElementsByClassName('.ejs_menu_button') as HTMLCollectionOf<HTMLButtonElement>;
+    Array.from(buttons).forEach((element: HTMLButtonElement) => {
+      if (found) return;
+      if (element.textContent?.includes('Control Settings')) {
+        element.click();
+        found = true;
+      }
+    });  
+  }
+
   countZeros(u8: Uint8Array, start: number, end?: number): number {
     let zeros = 0;
     const length = u8.length;
