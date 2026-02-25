@@ -235,7 +235,9 @@
         Type:
       </div>
       <div class="optionsStatsDescription">
-        {{optionsFile.fileType?.toUpperCase()}} {{optionsFile.isFolder ? 'Folder' : ''}}
+        {{optionsFile.fileType?.toUpperCase()}}
+        {{(getDirectoryName(optionsFile) === 'Roms/' && optionsFile.fileType) ? getSystemEmoji('file.' + optionsFile.fileType) : ''}}
+        {{optionsFile.isFolder ? 'Folder' : ''}}
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.accessCount !== undefined">
@@ -330,7 +332,7 @@
       </div>
       <div class="optionsStatsDescription">
         <div>{{optionsFile.lastAccess | date: 'y/MM/d HH:mm'}}</div>
-        <div>({{daysSinceDate(optionsFile.lastAccess)}})</div>
+        <div class="xSmallFont linkFontColor">({{daysSinceDate(optionsFile.lastAccess)}})</div>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.date">
@@ -339,7 +341,7 @@
       </div>
       <div class="optionsStatsDescription">
         <div>{{optionsFile.date | date: 'y/MM/d HH:mm'}}</div>
-        <div>({{daysSinceDate(optionsFile.date, 'minute')}})</div>
+        <div class="xSmallFont linkFontColor">({{daysSinceDate(optionsFile.date, 'minute')}})</div>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.user">
@@ -357,7 +359,7 @@
       </div>
       <div class="optionsStatsDescription">
         <div>{{optionsFile.lastUpdated | date: 'y/MM/d HH:mm'}}</div>
-        <div>({{daysSinceDate(optionsFile.lastUpdated, 'minute')}})</div>
+        <div class="xSmallFont linkFontColor">({{daysSinceDate(optionsFile.lastUpdated, 'minute')}})</div>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.lastUpdatedBy">
