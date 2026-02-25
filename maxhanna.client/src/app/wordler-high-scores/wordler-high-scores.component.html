@@ -19,7 +19,7 @@
           <span *ngIf="!showUserHeader" style="float:right; font-size:0.9em">{{ isModeCollapsed(m) ? '+' : '−' }}</span>
         </div>
         <ng-container *ngIf="!isModeCollapsed(m)">
-          <ng-container *ngIf="groupedByMode[m] && (keys(groupedByMode[m]).length > 0)">
+          <ng-container *ngIf="groupedByMode[m] && (keys(groupedByMode[m]).length > 0); else emptyGroup">
             <div *ngFor="let group of groupedByMode[m] | keyvalue: keepOrder" class="difficulty-group">
               <table class="mainTable">
                 <thead>
@@ -53,20 +53,22 @@
             </div>
           </ng-container>
         </ng-container>
-        <ng-template *ngIf="!loading && !(groupedByMode[m] && (keys(groupedByMode[m]).length > 0))">
-          <div class="no-scores">
-            No{{" "}}
-            <app-menu-item style="display: inline-block;" [type]="'Wordler'"
-              [parentRef]="inputtedParentRef"></app-menu-item>
-            {{" "}}scores to show for {{ m }}.
-          </div>
-        </ng-template>
+
         <div *ngIf="loading">
           Loading{{" "}}
           <app-menu-item style="display: inline-block;" [type]="'Wordler'"
             [parentRef]="inputtedParentRef"></app-menu-item>
           {{" "}}scores for {{ m }}...
         </div>
+
+        <ng-template #emptyGroup>
+          <div *ngIf="!loading" class="no-scores">
+            No{{" "}}
+            <app-menu-item style="display: inline-block;" [type]="'Wordler'"
+              [parentRef]="inputtedParentRef"></app-menu-item>
+            {{" "}}scores to show for {{ m }}.
+          </div>
+        </ng-template>
       </div>
     </ng-container>
 
