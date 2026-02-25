@@ -393,7 +393,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.installRuntimeTrackers();
     this.hideEJSMenu();
     //console.log('[EJS] final vpad settings before loader:', JSON.stringify(window.EJS_VirtualGamepadSettings, null, 2));
-    this.seedDualSenseDefaults(core);
+    if (core === "mupen64plus_next") {
+      this.seedN64DualSenseDefaults();
+    }
 
     // 8) Inject loader.js (it will initialize EmulatorJS)
     if (!window.__ejsLoaderInjected) {
@@ -1077,242 +1079,50 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
     return false;
-  }
- 
-  private seedDualSenseDefaults(core: string) {
-    const system = this.systemFromCore(core); // you already have this
-    const sixBtnGenesis = (system === 'genesis') ? this.preferSixButtonGenesis : false;
+  } 
 
-    // Decide max players by system (typical)
-    const maxPlayers = this.getMaxPlayersForSystem(system, core);
+private seedN64DualSenseDefaults() { 
+  const mk = () => ({
+    // Face: N64 B (blue) -> Square (West); N64 A (green) -> Cross (South)
+    0:  { value2: 'BUTTON_3' }, // B  -> Square (West)
+    8:  { value2: 'BUTTON_1' }, // A  -> Cross  (South)
 
-    // Build a single-player template per system
-    let playerMap: Record<number, { value2: string }>;
+    // Start -> Options
+    3:  { value2: 'START'    }, // START (Options)
+    // (Optional) Map Select to Create if you want:
+    // 2:  { value2: 'SELECT'   },
 
-    switch (system) {
-      case 'nes':
-      case 'gb':
-      case 'gbc':
-        playerMap = this.mapNESLike();      // A/B + D-pad + Start/Select
-        break;
-      case 'gba':
-        playerMap = this.mapGBA();          // A/B + L/R + D-pad + Start/Select
-        break;
-      case 'snes':
-        playerMap = this.mapSNES();         // A/B/X/Y + L/R + D-pad + Start/Select
-        break;
-      case 'genesis':
-        playerMap = sixBtnGenesis
-          ? this.mapGenesis6()
-          : this.mapGenesis3();
-        break;
-      case 'nds':
-        playerMap = this.mapNDS();          // A/B/X/Y + L/R + D-pad + Start/Select
-        break;
-      case 'psp':
-        playerMap = this.mapPSP();          // Cross/Circle/Square/Triangle + L/R + D-pad + Start/Select
-        break;
-      default:
-        // Treat unknowns as SNES-like (safe default)
-        playerMap = this.mapSNES();
-        break;
-    }
+    // D-Pad
+    4:  { value2: 'DPAD_UP'    },
+    5:  { value2: 'DPAD_DOWN'  },
+    6:  { value2: 'DPAD_LEFT'  },
+    7:  { value2: 'DPAD_RIGHT' },
 
-    // Core-specific overrides:
-    if (core === 'mupen64plus_next') {
-      // N64: A/B, C-buttons on right stick, Z=L2, L/R=L1/R1, analog=left stick
-      playerMap = this.mapN64();
-    }
-    // PS1 cores (duckstation/pcsx_rearmed/mednafen_psx_hw): full PS layout
-    if (/(mednafen_psx|pcsx_rearmed|duckstation)/.test(core)) {
-      playerMap = this.mapPS1();
-    }
+    // Shoulders / Triggers (N64 L/R/Z)
+    10: { value2: 'LEFT_TOP_SHOULDER'  }, // N64 L  -> L1
+    11: { value2: 'RIGHT_TOP_SHOULDER' }, // N64 R  -> R1
+    12: { value2: 'LEFT_BOTTOM_SHOULDER' }, // N64 Z -> L2
 
-    // Seed all players with the same layout
-    const seeded: Record<number, any> = {};
-    for (let p = 0; p < maxPlayers; p++) {
-      // shallow copy is fine (static objects)
-      seeded[p] = { ...playerMap };
-    }
-    (window as any).EJS_defaultControls = seeded;
-  }
+    // Left stick = N64 analog (Control Stick)
+    16: { value2: 'LEFT_STICK_X:+1' }, // Right
+    17: { value2: 'LEFT_STICK_X:-1' }, // Left
+    18: { value2: 'LEFT_STICK_Y:+1' }, // Down
+    19: { value2: 'LEFT_STICK_Y:-1' }, // Up
 
-  /** Typical maximum local players per system (tune as needed). */
-  private getMaxPlayersForSystem(system: System, core: string): number {
-    switch (system) {
-      case 'nes':
-      case 'gb':
-      case 'gbc':
-      case 'gba':
-        return 2;
-      case 'snes':
-      case 'genesis':
-        // (Multitap/TeamPlayer can be more, but 2 is the practical baseline)
-        return 2;
-      case 'nds':
-      case 'psp':
-        return 1;
-      default:
-        // N64 supports 4; PS1 typically 2
-        if (core === 'mupen64plus_next') return 4;
-        if (/(mednafen_psx|pcsx_rearmed|duckstation)/.test(core)) return 2;
-        return 2;
-    }
-  }
+    // Right stick = N64 C-Buttons
+    20: { value2: 'RIGHT_STICK_X:+1' }, // C-Right
+    21: { value2: 'RIGHT_STICK_X:-1' }, // C-Left
+    22: { value2: 'RIGHT_STICK_Y:+1' }, // C-Down
+    23: { value2: 'RIGHT_STICK_Y:-1' }, // C-Up
+  });
 
-  private dpad(): Record<number, { value2: string }> {
-    return {
-      4: { value2: 'DPAD_UP' },
-      5: { value2: 'DPAD_DOWN' },
-      6: { value2: 'DPAD_LEFT' },
-      7: { value2: 'DPAD_RIGHT' },
-    };
-  }
-  private startSelect(): Record<number, { value2: string }> {
-    return {
-      3: { value2: 'START' },   // Options
-      2: { value2: 'SELECT' },  // Create (optional for NES/SNES/PS1 etc.)
-    };
-  }
-  private leftStick(): Record<number, { value2: string }> {
-    return {
-      16: { value2: 'LEFT_STICK_X:+1' },
-      17: { value2: 'LEFT_STICK_X:-1' },
-      18: { value2: 'LEFT_STICK_Y:+1' },
-      19: { value2: 'LEFT_STICK_Y:-1' },
-    };
-  }
-  private rightStick(): Record<number, { value2: string }> {
-    return {
-      20: { value2: 'RIGHT_STICK_X:+1' },
-      21: { value2: 'RIGHT_STICK_X:-1' },
-      22: { value2: 'RIGHT_STICK_Y:+1' },
-      23: { value2: 'RIGHT_STICK_Y:-1' },
-    };
-  }
-  private mapNESLike(): Record<number, { value2: string }> {
-    return {
-      // Face: NES B (south) → Cross; NES A (east) → Circle
-      0: { value2: 'BUTTON_1' }, // B (South)
-      8: { value2: 'BUTTON_3' }, // A (East)
-      ...this.dpad(),
-      ...this.startSelect(),
-    };
-  }
-  private mapGBA(): Record<number, { value2: string }> {
-    return {
-      // GBA B(south)=Cross, A(east)=Circle
-      0: { value2: 'BUTTON_1' }, // B
-      8: { value2: 'BUTTON_3' }, // A
-      10: { value2: 'LEFT_TOP_SHOULDER' }, // L
-      11: { value2: 'RIGHT_TOP_SHOULDER' }, // R
-      ...this.dpad(),
-      ...this.startSelect(),
-    };
-  }
-  private mapSNES(): Record<number, { value2: string }> {
-    return {
-      // SNES B(south)=Cross, A(east)=Circle, Y(west)=Square, X(north)=Triangle
-      0: { value2: 'BUTTON_1' }, // B
-      8: { value2: 'BUTTON_3' }, // A
-      1: { value2: 'BUTTON_4' }, // Y
-      9: { value2: 'BUTTON_2' }, // X
-      10: { value2: 'LEFT_TOP_SHOULDER' }, // L
-      11: { value2: 'RIGHT_TOP_SHOULDER' }, // R
-      ...this.dpad(),
-      ...this.startSelect(),
-    };
-  }
-  private mapGenesis3(): Record<number, { value2: string }> {
-    return {
-      // Common modern layout: B(south)=Cross, C(east)=Circle, A(west)=Square
-      0: { value2: 'BUTTON_1' }, // B
-      8: { value2: 'BUTTON_3' }, // A
-      9: { value2: 'BUTTON_2' }, // X → (optional use as 'C' if you prefer triangle there)
-      // If you want C on a face, map 'C' to BUTTON_2 and drop 9 above.
-      10: { value2: 'LEFT_TOP_SHOULDER' }, // optional: Mode (rare) or extra
-      11: { value2: 'RIGHT_TOP_SHOULDER' }, // optional
-      ...this.dpad(),
-      ...this.startSelect(),
-    };
-  }
-  private mapGenesis6(): Record<number, { value2: string }> {
-    return {
-      // Lower row: B(south)=Cross, C(east)=Circle, A(west)=Square
-      0: { value2: 'BUTTON_1' }, // B
-      8: { value2: 'BUTTON_3' }, // A
-      9: { value2: 'BUTTON_2' }, // X (use as C if you prefer; adjust to taste)
-      // Upper row X/Y/Z → Triangle, L1, R1 (ergonomic reach)
-      1: { value2: 'BUTTON_4' },           // Y (Square on PS, but we repurpose here)
-      10: { value2: 'LEFT_TOP_SHOULDER' }, // map one of X/Y/Z to L1
-      11: { value2: 'RIGHT_TOP_SHOULDER' }, // map one of X/Y/Z to R1
-      ...this.dpad(),
-      ...this.startSelect(),
-    };
-  }
-  private mapN64(): Record<number, { value2: string }> {
-    return {
-      // A/B
-      0: { value2: 'BUTTON_3' }, // B → Square (West)
-      8: { value2: 'BUTTON_1' }, // A → Cross  (South)
-      // Start
-      3: { value2: 'START' },
-      // D-Pad
-      ...this.dpad(),
-      // L/R/Z
-      10: { value2: 'LEFT_TOP_SHOULDER' }, // L
-      11: { value2: 'RIGHT_TOP_SHOULDER' }, // R
-      12: { value2: 'LEFT_BOTTOM_SHOULDER' }, // Z
-      // Left stick = analog
-      ...this.leftStick(),
-      // Right stick = C-buttons
-      ...this.rightStick(), // Right=20 (C→Right), Left=21 (C→Left), Down=22 (C→Down), Up=23 (C→Up)
-    };
-  }
-  private mapNDS(): Record<number, { value2: string }> {
-    return {
-      0: { value2: 'BUTTON_1' }, // B
-      8: { value2: 'BUTTON_3' }, // A
-      1: { value2: 'BUTTON_4' }, // Y
-      9: { value2: 'BUTTON_2' }, // X
-      10: { value2: 'LEFT_TOP_SHOULDER' }, // L
-      11: { value2: 'RIGHT_TOP_SHOULDER' }, // R
-      ...this.dpad(),
-      ...this.startSelect(),
-    };
-  }
-  private mapPS1(): Record<number, { value2: string }> {
-    return {
-      // Use true PS layout
-      0: { value2: 'BUTTON_1' }, // B (Nintendo-named) -> Cross
-      8: { value2: 'BUTTON_3' }, // A -> Circle
-      1: { value2: 'BUTTON_4' }, // Y -> Square
-      9: { value2: 'BUTTON_2' }, // X -> Triangle
-      10: { value2: 'LEFT_TOP_SHOULDER' }, // L1
-      11: { value2: 'RIGHT_TOP_SHOULDER' }, // R1
-      12: { value2: 'LEFT_BOTTOM_SHOULDER' }, // L2
-      13: { value2: 'RIGHT_BOTTOM_SHOULDER' }, // R2
-      14: { value2: 'LEFT_STICK' }, // L3
-      15: { value2: 'RIGHT_STICK' }, // R3
-      ...this.leftStick(),
-      ...this.rightStick(),
-      ...this.dpad(),
-      ...this.startSelect(),
-    };
-  }
-  private mapPSP(): Record<number, { value2: string }> {
-    return {
-      0: { value2: 'BUTTON_1' }, // Cross
-      8: { value2: 'BUTTON_3' }, // Circle
-      1: { value2: 'BUTTON_4' }, // Square
-      9: { value2: 'BUTTON_2' }, // Triangle
-      10: { value2: 'LEFT_TOP_SHOULDER' }, // L
-      11: { value2: 'RIGHT_TOP_SHOULDER' }, // R
-      ...this.dpad(),
-      ...this.startSelect(),
-    };
-  }
-
+  (window as any).EJS_defaultControls = {
+    0: mk(), // Player 1
+    1: mk(), // Player 2 (same layout)
+    2: mk(), 
+    3: mk() 
+  };
+}
 
 
   private setGameScreenHeight(): void {
