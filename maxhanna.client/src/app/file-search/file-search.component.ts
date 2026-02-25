@@ -44,8 +44,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() canDragMove: boolean = true;
   @Input() fileId?: number | undefined = undefined;
   @Input() commentId?: number;
-  @Input() displayTotal = true;
-  @Input() showFileSearchOptions = true;
+  @Input() displayTotal = true; 
   @Input() showSpaceForNotifications = false;
   @Input() showHiddenFiles: boolean = false; // default: do not show hidden files unless user toggles or user setting enables it
   @Input() showTopics: boolean = true;
@@ -232,6 +231,14 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     // Sort option changed
     if (this.sortOption && this.sortOption !== 'Latest') return true; 
     return false;
+  }
+
+  // CSS classes for the top search button, exposed as a string for use with `[class]`
+  get topSearchButtonClass(): string {
+    const classes: string[] = ['topSearchButtonDiv'];
+    if (!this.showSpaceForNotifications) classes.push('noNotificationsSearchDiv');
+    if ((this.activeRomSystems && this.activeRomSystems.length > 0) || this.hasActiveFilters()) classes.push('glowing');
+    return classes.join(' ');
   }
 
   ngOnDestroy() {

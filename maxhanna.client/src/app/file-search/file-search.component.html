@@ -1,6 +1,6 @@
 ﻿<div class="fileActionCommands" *ngIf="!fileSearchMode">
   <span
-    [class]="'topSearchButtonDiv' + ((!showSpaceForNotifications && !showFileSearchOptions) ? ' noNotificationsSearchDiv' : '') + (hasActiveFilters() ? ' glowing' : '')"
+    [class]="topSearchButtonClass"
     (click)="openSearchPanel();" title="Search for Files">
     🔍
   </span>

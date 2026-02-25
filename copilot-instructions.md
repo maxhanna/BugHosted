@@ -1,3 +1,39 @@
+# Copilot Instructions (read before handling requests)
+
+These are project-specific guidelines that must be followed for every change.
+
+## Project environment
+- Angular version: 19.x (see maxhanna.client/package.json dependencies)
+
+## Template & binding rules
+- Do NOT use `ngClass` in templates; prefer string-based `[class]` or explicit class concatenation.
+- Do NOT use `[ngModel]`; use explicit input value bindings such as `[value]` and `(input)` handlers.
+- Use explicit boolean attribute bindings where necessary (e.g. `[disabled]="..."`).
+
+## Coding style rules
+- Never use single-line `if` / `else` statements. Always use block form with curly braces:
+  - Wrong: if (x) doThing();
+  - Correct: if (x) { doThing(); }
+- Always include curly braces for all control-flow statements (`if`, `else`, `for`, `while`, `switch` case blocks where applicable).
+
+## Angular considerations
+- Prefer explicit getters in components for computed template values (e.g., class strings, titles). Keep templates simple.
+- Avoid template expressions that call heavy functions repeatedly; cache values in component properties/getters.
+
+## Template formatting
+- Keep `[class]` expressions readable; prefer a component getter that returns a single spaced class string.
+
+## Accessibility & UX
+- When adding interactive controls, include a `title` attribute for tooltips and a visible label when practical.
+
+## Safety & tests
+- Run `npm run build` (or `ng build`) locally after substantial changes and fix template/TypeScript errors before committing.
+
+## When in doubt
+- Ask the user for clarification rather than making assumptions that change UI behavior.
+
+---
+Keep this file up to date when project conventions change.
 # Copilot Instructions for Code Editing
 
 ## General Workflow
