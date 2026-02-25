@@ -393,6 +393,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.installRuntimeTrackers();
     this.hideEJSMenu();
     //console.log('[EJS] final vpad settings before loader:', JSON.stringify(window.EJS_VirtualGamepadSettings, null, 2));
+    this.seedDefaultControls();
 
     // 8) Inject loader.js (it will initialize EmulatorJS)
     if (!window.__ejsLoaderInjected) {
@@ -1078,6 +1079,67 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return false;
   }
 
+  private seedDefaultControls() {
+    // Helper to build a simple layout (keyboard + standard gamepad)
+    const mk = (kb: any) => ({
+      // Face buttons
+      0: { value: kb.B, value2: 'BUTTON_1' },   // B / South (A on Genesis)
+      1: { value: kb.Y, value2: 'BUTTON_4' },   // Y / West
+      8: { value: kb.A, value2: 'BUTTON_3' },   // A / East
+      9: { value: kb.X, value2: 'BUTTON_2' },   // X / North
+      // Start/Select
+      3: { value: kb.START, value2: 'START' },
+      2: { value: kb.SELECT, value2: 'SELECT' },
+      // D‑pad
+      4: { value: kb.UP, value2: 'DPAD_UP' },
+      5: { value: kb.DOWN, value2: 'DPAD_DOWN' },
+      6: { value: kb.LEFT, value2: 'DPAD_LEFT' },
+      7: { value: kb.RIGHT, value2: 'DPAD_RIGHT' },
+      // Shoulders (map as needed per system)
+      10: { value: kb.L1, value2: 'LEFT_TOP_SHOULDER' },
+      11: { value: kb.R1, value2: 'RIGHT_TOP_SHOULDER' },
+      // (Optional) Emu functions
+      27: { value: kb.FFWD },     // FAST FORWARD
+      29: { value: kb.SLOW },     // SLOW MOTION
+      24: { value: kb.QSAVE },    // QUICK SAVE
+      25: { value: kb.QLOAD },    // QUICK LOAD
+    });
+
+    // Player-specific keyboard defaults (so two KB players can test locally)
+    const P1 = mk({
+      // arrows + ZXAS, Q/W = shoulders
+      UP: 'up arrow', DOWN: 'down arrow', LEFT: 'left arrow', RIGHT: 'right arrow',
+      A: 'z', B: 'x', X: 'a', Y: 's', START: 'enter', SELECT: 'shift', L1: 'q', R1: 'w',
+      QSAVE: '1', QLOAD: '2', FFWD: 'add', SLOW: 'subtract',
+    });
+
+    const P2 = mk({
+      // IJKL + UHYN, O/P = shoulders
+      UP: 'i', DOWN: 'k', LEFT: 'j', RIGHT: 'l',
+      A: 'u', B: 'h', X: 'y', Y: 'n', START: 'numpad1', SELECT: 'numpad2', L1: 'o', R1: 'p',
+      QSAVE: '3', QLOAD: '4', FFWD: 'add', SLOW: 'subtract',
+    });
+
+    const P3 = mk({
+      // Numpad cluster
+      UP: 'numpad8', DOWN: 'numpad5', LEFT: 'numpad4', RIGHT: 'numpad6',
+      A: 'numpad2', B: 'numpad3', X: 'numpad1', Y: 'numpad7',
+      START: 'numpadEnter', SELECT: 'numpadDecimal', L1: 'numpad9', R1: 'numpad0',
+      QSAVE: 'numpadMultiply', QLOAD: 'numpadDivide', FFWD: 'add', SLOW: 'subtract',
+    });
+
+    const P4 = mk({
+      // TFGH + VBCD, R/Y = shoulders
+      UP: 't', DOWN: 'g', LEFT: 'f', RIGHT: 'h',
+      A: 'v', B: 'b', X: 'c', Y: 'd', START: 'm', SELECT: 'comma', L1: 'r', R1: 'y',
+      QSAVE: '5', QLOAD: '6', FFWD: 'add', SLOW: 'subtract',
+    });
+
+    // Expose to EmulatorJS prior to loader.js
+    (window as any).EJS_defaultControls = {
+      0: P1, 1: P2, 2: P3, 3: P4
+    };
+  }
 
   private setGameScreenHeight(): void {
     const gameEl = document.getElementById('game');
@@ -2115,7 +2177,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const item = this.faqItems[index];
     if (item) item.expanded = !item.expanded;
   }
-  
+
   private displayRomUploadOrDownloadProgress(total: number, loaded: number, saving?: boolean) {
     const pct = total > 0 ? Math.round((loaded / total) * 100) : undefined;
     const loadedMb = (loaded / 1024 / 1024);
@@ -2148,7 +2210,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async finishFileUploading() {
-    setTimeout(async () => { 
+    setTimeout(async () => {
       await this.fileSearchComponent?.getDirectory();
       this.cdr.detectChanges();
     }, 250);
