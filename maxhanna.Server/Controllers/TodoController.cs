@@ -90,6 +90,72 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+    [HttpPost("/Todo/GetAll", Name = "GetAllTodos")]
+    public async Task<IActionResult> GetAll([FromBody] int userId)
+    {
+      try
+      {
+        using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+        {
+          await conn.OpenAsync();
+
+          string sql = @"
+                SELECT DISTINCT
+                  t.id,
+                  t.todo,
+                  t.type,
+                  t.url,
+                  t.file_id,
+                  t.date,
+                  t.ownership,
+                  u.username as owner_name
+                FROM todo t
+                JOIN users u ON t.ownership = u.id
+                WHERE
+                  t.ownership = @UserId
+                  OR EXISTS (
+                    SELECT 1 FROM todo_columns tc WHERE tc.column_name = t.type AND tc.user_id = @UserId
+                  )
+                  OR EXISTS (
+                    SELECT 1 FROM todo_columns tc2 WHERE tc2.column_name = t.type AND tc2.shared_with IS NOT NULL AND FIND_IN_SET(@UserIdStr, REPLACE(tc2.shared_with, ' ', '')) > 0
+                  )
+                ORDER BY t.date DESC";
+
+          using (var cmd = new MySqlCommand(sql, conn))
+          {
+            cmd.Parameters.AddWithValue("@UserId", userId);
+            cmd.Parameters.AddWithValue("@UserIdStr", userId.ToString());
+
+            using (var rdr = await cmd.ExecuteReaderAsync())
+            {
+              var entries = new List<Todo>();
+
+              while (await rdr.ReadAsync())
+              {
+                entries.Add(new Todo(
+                  id: rdr.GetInt32(rdr.GetOrdinal("id")),
+                  todo: rdr.GetString(rdr.GetOrdinal("todo")),
+                  type: rdr.GetString(rdr.GetOrdinal("type")),
+                  url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")),
+                  fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
+                  date: rdr.GetDateTime(rdr.GetOrdinal("date")),
+                  ownership: rdr.GetInt32(rdr.GetOrdinal("ownership")),
+                  owner_name: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))
+                ));
+              }
+
+              return Ok(entries);
+            }
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("An error occurred while fetching all todos: " + ex.Message, userId, "TODO", true);
+        return StatusCode(500, "An error occurred while fetching todos.");
+      }
+    }
+
     [HttpPost("/Todo/Create", Name = "CreateTodo")]
     public async Task<IActionResult> Post([FromBody] CreateTodo model)
     {

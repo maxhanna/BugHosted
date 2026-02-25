@@ -1,6 +1,7 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me('TodoComponent');"></div> 
-  <div class="componentTitle">Checklist</div>
+  <div class="menuButton" (click)="showMenuPanel();"></div>
+  <div class="componentTitle">Todo</div>
 
   <div style="display: flex; justify-content: center; align-items: center; gap: 20px"> 
     <select #selectedType class=selectType (change)="typeOnChange()" style="font-size:large">
@@ -214,4 +215,18 @@
     <div class="smallFont thirdFontColor">Non-shareable lists: {{defaultTodoTypes.join(', ')}}</div>
   </div>
 
+</div>
+
+
+<!-- Menu Popup -->
+<div class="menuPopupPanel popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen && !showOnlyPost">
+  <div class="popupPanelTitle" style="margin-bottom:15px;">
+    Menu
+  </div>
+  
+  <div>
+    <button class="smallFont" (click)="exportTodosAsTxt()">Export Todos (.txt)</button>
+    <button class="smallFont" (click)="exportAllTodosAsTxt()">Export All Todos (.txt)</button>
+    <button class="closeButton" id="closeOverlay" (click)="closeMenuPanel()">Close</button>
+  </div>
 </div>

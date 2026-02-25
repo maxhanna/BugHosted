@@ -28,6 +28,23 @@ export class TodoService {
       return null;
     }
   }
+  async getAllTodo(userId: number) {
+    if (!userId) return;
+    try {
+
+      const response = await fetch('/todo/getall', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userId),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
   async getTodayMusic() {
     try {
       const response = await fetch('/todo/todaymusic', {

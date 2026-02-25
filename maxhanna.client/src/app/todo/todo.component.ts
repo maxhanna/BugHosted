@@ -31,6 +31,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   showSharedList = false;
   isExpandedEditFile = false; 
   hasEditedTodo = false;
+  isMenuPanelOpen = false;
   // Polling for shared columns updates
   private sharedPollIntervalMs = 15000; // 15s
   private sharedPollTimer: any = null;
@@ -573,7 +574,97 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     console.log("expandedEditFile", value);
     this.isExpandedEditFile = value;
   }
+  openMenuPanel() {
+    this.isMenuPanelOpen = true;
+    this.parentRef?.showOverlay();
+  }
+  closeMenuPanel() {
+    this.isMenuPanelOpen = false;
+    this.parentRef?.closeOverlay();
+  }
 
+  // Export currently loaded todos to a plain-text .txt file
+  exportTodosAsTxt() {
+    try {
+      const items = (this.todos ?? []).filter(t => !t.deleted);
+      if (!items || items.length === 0) {
+        this.parentRef?.showNotification?.('No todos to export');
+        return;
+      }
+
+      const lines: string[] = items.map(t => {
+        const dateStr = t.date ? (t.date instanceof Date ? t.date.toISOString() : new Date(t.date).toISOString()) : '';
+        const parts = [] as string[];
+        parts.push(`Date: ${dateStr}`);
+        if (t.type) parts.push(`Type: ${t.type}`);
+        parts.push(`Todo: ${t.todo ?? ''}`);
+        if (t.url) parts.push(`URL: ${t.url}`);
+        if (t.fileId) parts.push(`FileId: ${t.fileId}`);
+        return parts.join('\n');
+      });
+
+      const content = lines.join('\n\n----------------------------------------\n\n');
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `todos-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (err) {
+      console.error('Failed to export todos', err);
+      this.parentRef?.showNotification?.('Failed to export todos');
+    }
+  }
+
+  // Export all todos visible to the user by calling the server-side GetAll endpoint
+  async exportAllTodosAsTxt() {
+    try {
+      if (!this.parentRef?.user?.id) {
+        this.parentRef?.showNotification?.('You must be logged in to export all todos');
+        return;
+      }
+
+      this.startLoading();
+      const res = await this.todoService.getAllTodo(this.parentRef.user.id);
+      this.stopLoading();
+
+      if (!res || !Array.isArray(res) || res.length === 0) {
+        this.parentRef?.showNotification?.('No todos returned from server');
+        return;
+      }
+
+      const items = (res as any[]).filter(t => !t.deleted);
+      const lines: string[] = items.map(t => {
+        const dateStr = t.date ? (t.date instanceof Date ? t.date.toISOString() : new Date(t.date).toISOString()) : '';
+        const parts = [] as string[];
+        parts.push(`Date: ${dateStr}`);
+        if (t.type) parts.push(`Type: ${t.type}`);
+        if (t.owner_name) parts.push(`Owner: ${t.owner_name}`);
+        parts.push(`Todo: ${t.todo ?? ''}`);
+        if (t.url) parts.push(`URL: ${t.url}`);
+        if (t.fileId || t.file_id) parts.push(`FileId: ${t.fileId ?? t.file_id}`);
+        return parts.join('\n');
+      });
+
+      const content = lines.join('\n\n----------------------------------------\n\n');
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `todos-all-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (err) {
+      console.error('Failed to export all todos', err);
+      this.parentRef?.showNotification?.('Failed to export all todos');
+      this.stopLoading();
+    }
+  }
   // Ensure per-second countdown ticking
   private ensureResyncTicking() {
     if (this.resyncTickTimer) return; // already ticking
