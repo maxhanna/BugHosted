@@ -656,6 +656,68 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (systemIcon) {
       w.EJS_backgroundImage = systemIcon; // Sets the background color for the emulator    
     }
+    // Default controller mappings for all 4 players.
+    // Player 1 gets keyboard + gamepad; Players 2-4 get gamepad-only (no keyboard conflicts).
+    const gpOnly: Record<number, unknown> = {
+      0: { value: '', value2: 'BUTTON_2' },
+      1: { value: '', value2: 'BUTTON_4' },
+      2: { value: '', value2: 'SELECT' },
+      3: { value: '', value2: 'START' },
+      4: { value: '', value2: 'DPAD_UP' },
+      5: { value: '', value2: 'DPAD_DOWN' },
+      6: { value: '', value2: 'DPAD_LEFT' },
+      7: { value: '', value2: 'DPAD_RIGHT' },
+      8: { value: '', value2: 'BUTTON_1' },
+      9: { value: '', value2: 'BUTTON_3' },
+      10: { value: '', value2: 'LEFT_TOP_SHOULDER' },
+      11: { value: '', value2: 'RIGHT_TOP_SHOULDER' },
+      12: { value: '', value2: 'LEFT_BOTTOM_SHOULDER' },
+      13: { value: '', value2: 'RIGHT_BOTTOM_SHOULDER' },
+      14: { value: '', value2: 'LEFT_STICK' },
+      15: { value: '', value2: 'RIGHT_STICK' },
+      16: { value: '', value2: 'LEFT_STICK_X:+1' },
+      17: { value: '', value2: 'LEFT_STICK_X:-1' },
+      18: { value: '', value2: 'LEFT_STICK_Y:+1' },
+      19: { value: '', value2: 'LEFT_STICK_Y:-1' },
+      20: { value: '', value2: 'RIGHT_STICK_X:+1' },
+      21: { value: '', value2: 'RIGHT_STICK_X:-1' },
+      22: { value: '', value2: 'RIGHT_STICK_Y:+1' },
+      23: { value: '', value2: 'RIGHT_STICK_Y:-1' },
+      24: {}, 25: {}, 26: {}, 27: {}, 28: {}, 29: {},
+    } as Record<number, unknown>;
+    w.EJS_defaultControls = {
+      0: {
+        0: { value: 'x', value2: 'BUTTON_2' },
+        1: { value: 's', value2: 'BUTTON_4' },
+        2: { value: 'v', value2: 'SELECT' },
+        3: { value: 'enter', value2: 'START' },
+        4: { value: 'up arrow', value2: 'DPAD_UP' },
+        5: { value: 'down arrow', value2: 'DPAD_DOWN' },
+        6: { value: 'left arrow', value2: 'DPAD_LEFT' },
+        7: { value: 'right arrow', value2: 'DPAD_RIGHT' },
+        8: { value: 'z', value2: 'BUTTON_1' },
+        9: { value: 'a', value2: 'BUTTON_3' },
+        10: { value: 'q', value2: 'LEFT_TOP_SHOULDER' },
+        11: { value: 'e', value2: 'RIGHT_TOP_SHOULDER' },
+        12: { value: 'tab', value2: 'LEFT_BOTTOM_SHOULDER' },
+        13: { value: 'r', value2: 'RIGHT_BOTTOM_SHOULDER' },
+        14: { value: '', value2: 'LEFT_STICK' },
+        15: { value: '', value2: 'RIGHT_STICK' },
+        16: { value: 'h', value2: 'LEFT_STICK_X:+1' },
+        17: { value: 'f', value2: 'LEFT_STICK_X:-1' },
+        18: { value: 'g', value2: 'LEFT_STICK_Y:+1' },
+        19: { value: 't', value2: 'LEFT_STICK_Y:-1' },
+        20: { value: 'l', value2: 'RIGHT_STICK_X:+1' },
+        21: { value: 'j', value2: 'RIGHT_STICK_X:-1' },
+        22: { value: 'k', value2: 'RIGHT_STICK_Y:+1' },
+        23: { value: 'i', value2: 'RIGHT_STICK_Y:-1' },
+        24: { value: '1' }, 25: { value: '2' }, 26: { value: '3' },
+        27: {}, 28: {}, 29: {},
+      },
+      1: { ...gpOnly },
+      2: { ...gpOnly },
+      3: { ...gpOnly },
+    };
     w.EJS_DEBUG_XX = false;             // debug options 
     w.EJS_logCoreInfo = false;          // debug options 
     w.EJS_logVideo = false;             // debug options 
@@ -2218,6 +2280,7 @@ declare global {
     EJS_logAudio?: boolean;
     EJS_logInput?: boolean;
     EJS_VirtualGamepadSettings?: any;
+    EJS_defaultControls?: any;
     EJS?: any;
     EJS_emulator?: any;
     EJS_Buttons?: any;
