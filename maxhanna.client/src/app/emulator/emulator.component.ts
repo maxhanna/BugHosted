@@ -2176,11 +2176,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return zeros;
   }
 
-  resetGame() {
+  resetGame(skipSave = true): void {
     if (!this.romName) return;
     const confirm = window.confirm('Are you sure you want to reset the game? The next save will overwrite your current progress.');
     if (confirm) {
-      this.fullReloadToEmulator(this.getReloadParamsSkipSave());
+      this.fullReloadToEmulator(this.getReloadParamsSkipSave(skipSave));
     }
   }
 
@@ -2217,11 +2217,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return `${location.protocol}//${location.host}/Emulator`;
   }
 
-  private getReloadParamsSkipSave(romName?: string, romId?: number): Record<string, string> {
-    const params: Record<string, string> = { skipSaveFile: 'true' };
-    const name = romName ?? this.presetRomName ?? this.romName;
+  private getReloadParamsSkipSave(skipSave = true): Record<string, string> {
+    const params: Record<string, string> = { skipSaveFile: skipSave ? 'true' : 'false' };
+    const name = this.presetRomName ?? this.romName;
     if (name) params['romname'] = name;
-    const id = romId ?? this.presetRomId;
+    const id = this.presetRomId;
     if (typeof id !== 'undefined' && id !== null) params['romId'] = String(id);
     return params;
   }

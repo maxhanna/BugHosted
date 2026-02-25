@@ -69,7 +69,13 @@
       (click)="resetGame()" 
       class="emuMenuButton" 
       [disabled]="isLoading">
-      Reset Game
+      Reset Game (No Save)
+    </button>
+    <button *ngIf="romName"
+      (click)="resetGame(false)" 
+      class="emuMenuButton" 
+      [disabled]="isLoading">
+      Reset Game (Keep Save)
     </button>
     <button 
       *ngIf="onMobile() && !romName" 
