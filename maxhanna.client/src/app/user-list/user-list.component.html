@@ -57,14 +57,18 @@
   </div>
   <div *ngFor="let user of users" class="userList" (click)="closeOverlayOnClick(user);">
     <span class="user"> 
+      <span 
+        *ngIf="parentRef?.isUserOnline(user.lastSeen | timeSince:'minute':true)" 
+        class="onlineButton"
+        [title]="'Online Since: ' + (user.lastSeen | timeSince:'minute':true)" 
+        [style.top]="'5px'">
+      </span>
       <app-user-tag [user]="user"
                     [inputtedParentRef]="inputtedParentRef ?? parentRef"
                     [displayMiniTag]="true"
                     [displayHoverPicture]="true"
                     [preventOpenProfile]="true"
-                    [preventExpandPicture]="true"></app-user-tag>  
-      <span *ngIf="parentRef?.isUserOnline(user.lastSeen | timeSince:'minute':true)" class="onlineButton"
-       [title]="'Online Since: ' + (user.lastSeen | timeSince:'minute':true)" [style.top]="'10px'"></span>
+                    [preventExpandPicture]="true"></app-user-tag>   
     </span>
     <span class="chatIcon" *ngIf="getChatNotificationsByUserId(user.id)">
       💬

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild } from '@angular/core'; 
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnChanges, OnInit, AfterViewInit, Output, SimpleChanges, ViewChild } from '@angular/core'; 
 import { CrawlerService } from '../../services/crawler.service';
 import { ChildComponent } from '../child.component';
 import { AppComponent } from '../app.component'; 
@@ -10,7 +10,7 @@ import { AppComponent } from '../app.component';
   standalone: false,  
   changeDetection: ChangeDetectionStrategy.OnPush 
 })
-export class YoutubeSearchComponent extends ChildComponent implements OnChanges { 
+export class YoutubeSearchComponent extends ChildComponent implements OnChanges, OnInit, AfterViewInit { 
   videos: any[] = []; 
   hasSearched = false;
 
@@ -28,6 +28,22 @@ export class YoutubeSearchComponent extends ChildComponent implements OnChanges 
     }
   }
 
+  ngOnInit() { 
+    try { this.parentRef?.notifyYoutubeSearchOpened(); } catch { }
+  }
+
+  ngAfterViewInit() { 
+    try {
+      const parentKeyword = this.parentRef?.getYoutubeSearchKeyword() ?? '';
+      if ((!this.keyword || !this.keyword.trim()) && parentKeyword) {
+        if (this.searchInput && this.searchInput.nativeElement) {
+          this.searchInput.nativeElement.value = parentKeyword;
+        }
+      }
+      this.videos = this.parentRef?.getYoutubeSearchResults() ?? [];
+    } catch (e) { console.error(e); }
+  }
+
   selectVideo(video: any) {
     this.selectVideoEvent.emit(video);
     this.parentRef?.closeOverlay();
@@ -41,6 +57,7 @@ export class YoutubeSearchComponent extends ChildComponent implements OnChanges 
       const result = await this.crawlerService.searchYoutube(keyword);
       if (Array.isArray(result)) {
         this.videos = result;
+        this.parentRef?.setYoutubeSearchResults(keyword, this.videos); 
       }
     } 
     this.hasSearched = true;
