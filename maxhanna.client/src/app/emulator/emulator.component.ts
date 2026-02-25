@@ -2131,21 +2131,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       return false;
     }
 
-    const headZeros = this.countZeros(u8, 0, Math.min(4096, length));
-    const tailZeros = this.countZeros(u8, length - Math.min(8192, length), length);
-
-    const headTooEmpty = headZeros > 4096 * 0.92;
-    const tailTooEmpty = tailZeros > 8192 * 0.94;
-    if (this.romName) {
-      const isPsp = this.isPspContent(this.romName);
-      if (headTooEmpty && tailTooEmpty && !isPsp) {
-        // both ends look dead → very likely junk
-        console.warn('[EJS] Both head and tail are extremely low-entropy → skipping');
-        return false;
-      }
-    }
-
-
     if (this.romName && core) {
       const lastSize = this.lastGoodSaveSize.get(this.romName);
 
