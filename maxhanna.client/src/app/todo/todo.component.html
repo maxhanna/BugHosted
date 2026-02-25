@@ -1,6 +1,6 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me('TodoComponent');"></div> 
-  <div class="menuButton" (click)="showMenuPanel();"></div>
+  <div class="menuButton" (click)="openMenuPanel();"></div>
   <div class="componentTitle">Todo</div>
 
   <div style="display: flex; justify-content: center; align-items: center; gap: 20px"> 
@@ -219,7 +219,7 @@
 
 
 <!-- Menu Popup -->
-<div class="menuPopupPanel popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen && !showOnlyPost">
+<div class="menuPopupPanel popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle" style="margin-bottom:15px;">
     Menu
   </div>
