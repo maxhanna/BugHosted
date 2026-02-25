@@ -2113,7 +2113,7 @@ private dpad(): Record<number, { value2: string }> {
   return {
     [EmulatorComponent.L_DPAD_UP]:    { value2: 'DPAD_UP' },
     [EmulatorComponent.L_DPAD_DOWN]:  { value2: 'DPAD_DOWN' },
-    [ExEmulatorComponent.L_DPAD_LEFT]: { value2: 'DPAD_LEFT' },
+    [EmulatorComponent.L_DPAD_LEFT]: { value2: 'DPAD_LEFT' },
     [EmulatorComponent.L_DPAD_RIGHT]: { value2: 'DPAD_RIGHT' },
   };
 }
@@ -2157,7 +2157,7 @@ private mapSNES(): Record<number, { value2: string }> {
     [EmulatorComponent.L_FACE_SQUARE]:   { value2: 'BUTTON_4' }, // Y
     [EmulatorComponent.L_FACE_TRIANGLE]: { value2: 'BUTTON_2' }, // X
     [EmulatorComponent.L_L1]: { value2: 'LEFT_TOP_SHOULDER' },
-    [ExEmulatorComponent.L_R1]: { value2: 'RIGHT_TOP_SHOULDER' },
+    [EmulatorComponent.L_R1]: { value2: 'RIGHT_TOP_SHOULDER' },
     ...this.dpad(),
     ...this.startSelect(),
   };
@@ -2167,7 +2167,7 @@ private mapGBA(): Record<number, { value2: string }> {
   return {
     [EmulatorComponent.L_FACE_CROSS]:  { value2: 'BUTTON_1' }, // B
     [EmulatorComponent.L_FACE_CIRCLE]: { value2: 'BUTTON_3' }, // A
-    [ExEmulatorComponent.L_L1]: { value2: 'LEFT_TOP_SHOULDER' },
+    [EmulatorComponent.L_L1]: { value2: 'LEFT_TOP_SHOULDER' },
     [EmulatorComponent.L_R1]: { value2: 'RIGHT_TOP_SHOULDER' },
     ...this.dpad(), ...this.startSelect(),
   };
@@ -2184,7 +2184,7 @@ private mapN64(): Record<number, { value2: string }> {
     ...this.leftStick(),   // analog stick
     ...this.rightStick(),  // C-buttons
     ...this.dpad(),
-    [ExEmulatorComponent.L_SELECT]: { value2: 'SELECT' }, // optional
+    [EmulatorComponent.L_SELECT]: { value2: 'SELECT' }, // optional
   };
 }
 /** PS1 */
