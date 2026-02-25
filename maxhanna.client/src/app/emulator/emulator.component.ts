@@ -1077,67 +1077,99 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
     return false;
-  }
+  } 
 
   private seedDefaultControls() {
-    // Helper to build a simple layout (keyboard + standard gamepad)
-    const mk = (kb: any) => ({
-      // Face buttons
-      0: { value: kb.B, value2: 'BUTTON_1' },   // B / South (A on Genesis)
-      1: { value: kb.Y, value2: 'BUTTON_4' },   // Y / West
-      8: { value: kb.A, value2: 'BUTTON_3' },   // A / East
-      9: { value: kb.X, value2: 'BUTTON_2' },   // X / North
-      // Start/Select
-      3: { value: kb.START, value2: 'START' },
-      2: { value: kb.SELECT, value2: 'SELECT' },
-      // D‑pad
+    // Helper to define an A/B/X/Y-style layout using DualSense labels:
+    // Cross(✕)=BUTTON_1, Circle(○)=BUTTON_2, Square(□)=BUTTON_4, Triangle(△)=BUTTON_3
+    // D‑Pad = DPAD_*, Options=START, Create=SELECT, L1/R1 shoulders, L2/R2 triggers, L3/R3 sticks.
+    const mk = (kb: {
+      UP: string, DOWN: string, LEFT: string, RIGHT: string,
+      A: string, B: string, X: string, Y: string,
+      START: string, SELECT: string,
+      L1: string, R1: string, L2?: string, R2?: string, L3?: string, R3?: string,
+      QSAVE?: string, QLOAD?: string, FFWD?: string, SLOW?: string
+    }) => ({
+      // Face buttons (logical indices from docs)
+      0: { value: kb.B, value2: 'BUTTON_1' }, // B = Cross (✕)  → common "South"
+      1: { value: kb.Y, value2: 'BUTTON_4' }, // Y = Square (□) → "West"
+      8: { value: kb.A, value2: 'BUTTON_3' }, // A = Circle (○) → "East"
+      9: { value: kb.X, value2: 'BUTTON_2' }, // X = Triangle (△) → "North"
+
+      // Start / Select
+      3: { value: kb.START, value2: 'START' },  // Options button
+      2: { value: kb.SELECT, value2: 'SELECT' },  // Create button
+
+      // D‑Pad
       4: { value: kb.UP, value2: 'DPAD_UP' },
       5: { value: kb.DOWN, value2: 'DPAD_DOWN' },
       6: { value: kb.LEFT, value2: 'DPAD_LEFT' },
       7: { value: kb.RIGHT, value2: 'DPAD_RIGHT' },
-      // Shoulders (map as needed per system)
-      10: { value: kb.L1, value2: 'LEFT_TOP_SHOULDER' },
-      11: { value: kb.R1, value2: 'RIGHT_TOP_SHOULDER' },
-      // (Optional) Emu functions
-      27: { value: kb.FFWD },     // FAST FORWARD
-      29: { value: kb.SLOW },     // SLOW MOTION
-      24: { value: kb.QSAVE },    // QUICK SAVE
-      25: { value: kb.QLOAD },    // QUICK LOAD
+
+      // Shoulders / Triggers
+      10: { value: kb.L1, value2: 'LEFT_TOP_SHOULDER' },  // L1
+      11: { value: kb.R1, value2: 'RIGHT_TOP_SHOULDER' },  // R1
+      12: { value: kb.L2 ?? '', value2: 'LEFT_BOTTOM_SHOULDER' }, // L2 (analog trigger treated as button)
+      13: { value: kb.R2 ?? '', value2: 'RIGHT_BOTTOM_SHOULDER' }, // R2
+
+      // Stick buttons
+      14: { value: kb.L3 ?? '', value2: 'LEFT_STICK' },  // L3
+      15: { value: kb.R3 ?? '', value2: 'RIGHT_STICK' },  // R3
+
+      // (Optional) Emulator functions
+      24: kb.QSAVE ? { value: kb.QSAVE } : undefined, // Quick Save
+      25: kb.QLOAD ? { value: kb.QLOAD } : undefined, // Quick Load
+      27: kb.FFWD ? { value: kb.FFWD } : undefined, // Fast Forward
+      29: kb.SLOW ? { value: kb.SLOW } : undefined, // Slow Motion
     });
 
-    // Player-specific keyboard defaults (so two KB players can test locally)
+    // Player-specific keyboard fallbacks (so you can test 2–4P locally from one keyboard)
     const P1 = mk({
-      // arrows + ZXAS, Q/W = shoulders
+      // Arrows + ZXAS, Q/W shoulders, Tab/Enter for Select/Start
       UP: 'up arrow', DOWN: 'down arrow', LEFT: 'left arrow', RIGHT: 'right arrow',
-      A: 'z', B: 'x', X: 'a', Y: 's', START: 'enter', SELECT: 'shift', L1: 'q', R1: 'w',
-      QSAVE: '1', QLOAD: '2', FFWD: 'add', SLOW: 'subtract',
+      A: 'z', B: 'x', X: 'a', Y: 's',
+      START: 'enter', SELECT: 'tab',
+      L1: 'q', R1: 'w', L2: '1', R2: '2', L3: '3', R3: '4',
+      QSAVE: 'F5', QLOAD: 'F6', FFWD: 'add', SLOW: 'subtract',
     });
 
     const P2 = mk({
-      // IJKL + UHYN, O/P = shoulders
+      // IJKL + UHYN, O/P shoulders, Num1/Num2 Start/Select
       UP: 'i', DOWN: 'k', LEFT: 'j', RIGHT: 'l',
-      A: 'u', B: 'h', X: 'y', Y: 'n', START: 'numpad1', SELECT: 'numpad2', L1: 'o', R1: 'p',
-      QSAVE: '3', QLOAD: '4', FFWD: 'add', SLOW: 'subtract',
+      A: 'u', B: 'h', X: 'y', Y: 'n',
+      START: 'numpad1', SELECT: 'numpad2',
+      L1: 'o', R1: 'p', L2: '9', R2: '0', L3: '-', R3: '=',
+      QSAVE: 'F7', QLOAD: 'F8', FFWD: 'add', SLOW: 'subtract',
     });
 
     const P3 = mk({
       // Numpad cluster
       UP: 'numpad8', DOWN: 'numpad5', LEFT: 'numpad4', RIGHT: 'numpad6',
       A: 'numpad2', B: 'numpad3', X: 'numpad1', Y: 'numpad7',
-      START: 'numpadEnter', SELECT: 'numpadDecimal', L1: 'numpad9', R1: 'numpad0',
-      QSAVE: 'numpadMultiply', QLOAD: 'numpadDivide', FFWD: 'add', SLOW: 'subtract',
+      START: 'numpadEnter', SELECT: 'numpadDecimal',
+      L1: 'numpad9', R1: 'numpad0', L2: 'numpadMultiply', R2: 'numpadDivide', L3: '[', R3: ']',
+      QSAVE: 'F9', QLOAD: 'F10', FFWD: 'add', SLOW: 'subtract',
     });
 
     const P4 = mk({
-      // TFGH + VBCD, R/Y = shoulders
+      // TFGH + VBCD, R/Y shoulders
       UP: 't', DOWN: 'g', LEFT: 'f', RIGHT: 'h',
-      A: 'v', B: 'b', X: 'c', Y: 'd', START: 'm', SELECT: 'comma', L1: 'r', R1: 'y',
-      QSAVE: '5', QLOAD: '6', FFWD: 'add', SLOW: 'subtract',
+      A: 'v', B: 'b', X: 'c', Y: 'd',
+      START: 'm', SELECT: 'comma',
+      L1: 'r', R1: 'y', L2: ';', R2: "'", L3: '.', R3: '/',
+      QSAVE: 'F11', QLOAD: 'F12', FFWD: 'add', SLOW: 'subtract',
     });
 
-    // Expose to EmulatorJS prior to loader.js
+    // Clean undefineds (optional)
+    const stripUndef = (o: any) => Object.fromEntries(
+      Object.entries(o).filter(([, v]) => v !== undefined)
+    );
+
     (window as any).EJS_defaultControls = {
-      0: P1, 1: P2, 2: P3, 3: P4
+      0: stripUndef(P1),
+      1: stripUndef(P2),
+      2: stripUndef(P3),
+      3: stripUndef(P4),
     };
   }
 
