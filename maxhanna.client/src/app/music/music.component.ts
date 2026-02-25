@@ -362,8 +362,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.stopLoading();
       this.cdr.markForCheck();
     }
-  }
-
+  } 
 
   async searchForSong() {
     const search = this.searchInput?.nativeElement.value || '';
@@ -663,10 +662,15 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.updatePaginatedSongs();
     if (this.selectedType === 'youtube') {
       this.rebuildLocalYtQueue();
-      if (this.ytPlayer && this.playerReady && this.ytIds && this.ytIds.length) {
-        try {
-          this.switchWithinPlaylist(this.ytIds, 0, playAfterLoad);
-        } catch (e) { console.warn('[Music] reload playlist after reorder failed', e); }
+      // Only reload or switch the embedded player's playlist when explicitly
+      // requested (e.g. user selects a song or uses Random). Avoid mutating
+      // the player's playlist during passive operations such as search.
+      if (playAfterLoad) {
+        if (this.ytPlayer && this.playerReady && this.ytIds && this.ytIds.length) {
+          try {
+            this.switchWithinPlaylist(this.ytIds, 0, true);
+          } catch (e) { console.warn('[Music] reload playlist after reorder failed', e); }
+        }
       }
     }
   }
