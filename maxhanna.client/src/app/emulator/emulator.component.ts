@@ -78,34 +78,31 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   };
 
   /** ---------- Canonical logical indices (EmulatorJS input side) ---------- */
-  /** Face buttons */
-  private static readonly L_FACE_CROSS = 0;  // Cross (South)
-  private static readonly L_FACE_CIRCLE = 1;  // Circle (East)
-  private static readonly L_FACE_SQUARE = 2;  // Square (West)
-  private static readonly L_FACE_TRIANGLE = 3;  // Triangle (North) 
-  /** Triggers / shoulders (Z on N64 uses L2 slot = 6) */
-  private static readonly L_L1 = 4;
-  private static readonly L_R1 = 5;
-  private static readonly L_L2 = 6;  // N64: Z
-  private static readonly L_R2 = 7;
-  /** Select / Start */
-  private static readonly L_SELECT = 8;
-  private static readonly L_START = 9;
-  /** D-Pad */
-  private static readonly L_DPAD_UP = 12;
-  private static readonly L_DPAD_DOWN = 13;
-  private static readonly L_DPAD_LEFT = 14;
-  private static readonly L_DPAD_RIGHT = 15;
-  /** Sticks (axes) — unchanged */
-  private static readonly L_LS_X_POS = 16;
-  private static readonly L_LS_X_NEG = 17;
-  private static readonly L_LS_Y_POS = 18;
-  private static readonly L_LS_Y_NEG = 19;
+ 
+// Use your canonical index constants everywhere
+private static readonly L_FACE_CROSS = 0;
+private static readonly L_FACE_CIRCLE = 1;
+private static readonly L_FACE_SQUARE = 2;
+private static readonly L_FACE_TRIANGLE = 3;
+private static readonly L_L1 = 4;
+private static readonly L_R1 = 5;
+private static readonly L_L2 = 6;
+private static readonly L_R2 = 7;
+private static readonly L_SELECT = 8;
+private static readonly L_START = 9;
+private static readonly L_DPAD_UP = 12;
+private static readonly L_DPAD_DOWN = 13;
+private static readonly L_DPAD_LEFT = 14;
+private static readonly L_DPAD_RIGHT = 15;
+private static readonly L_LS_X_POS = 16;
+private static readonly L_LS_X_NEG = 17;
+private static readonly L_LS_Y_POS = 18;
+private static readonly L_LS_Y_NEG = 19;
+private static readonly L_RS_X_POS = 20;
+private static readonly L_RS_X_NEG = 21;
+private static readonly L_RS_Y_POS = 22;
+private static readonly L_RS_Y_NEG = 23;
 
-  private static readonly L_RS_X_POS = 20;
-  private static readonly L_RS_X_NEG = 21;
-  private static readonly L_RS_Y_POS = 22;
-  private static readonly L_RS_Y_NEG = 23;
   isSearchVisible = false;
   autosave = true;
   autosaveIntervalTime: number = 180000; // 3 minutes 
