@@ -297,6 +297,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
       this.inputtedParentRef.closeOverlay();
     }
   }
+  
   replaceReactionType(type?: string) {
     //console.log("Replacing reaction type:", type);
     if (type) {
@@ -304,6 +305,18 @@ export class ReactionComponent extends ChildComponent implements OnInit {
       const reaction = this.reactions.find(r => r.type === t);
       //console.log("Found reaction:", reaction);
       return reaction ? reaction.emoji : '';
+    }
+    //console.log("No reaction type provided, returning empty string.");
+    return '';
+  }
+
+  replaceReactionLabel(type?: string) {
+    //console.log("Replacing reaction type:", type);
+    if (type) {
+      const t = type.toLowerCase();
+      const reaction = this.reactions.find(r => r.type === t);
+      //console.log("Found reaction:", reaction);
+      return reaction ? reaction.label : '';
     }
     //console.log("No reaction type provided, returning empty string.");
     return '';
@@ -322,6 +335,11 @@ export class ReactionComponent extends ChildComponent implements OnInit {
       return this.replaceReactionType(react?.type ?? "");
     }
     return '';
+  }
+  get reactionButtonTitle(): string {
+    const acted = this.userHasReacted();
+    const label = acted ? (this.replaceReactionLabel(this.userReaction) + ' (Change') : 'Add';
+    return label + ' Reaction' + (acted ? ')' : '');
   }
   searchForReaction() {
     const lowerSearch = this.reactionFilter.nativeElement.value.toLowerCase().trim();

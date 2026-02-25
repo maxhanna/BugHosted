@@ -52,7 +52,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   faqItems: { question: string; answerHtml: string; expanded: boolean }[] = [
     {
       question: 'My controller is connected but doesn\'t work — what should I do?',
-      answerHtml: `Unpair all controllers from the PC, then pair and test one controller at a time. Multiple paired controllers or leftover Bluetooth pairings can cause input routing conflicts. Try restarting the browser after pairing. If using a virtual gamepad, confirm the correct mapping in the on-screen controls.`,
+      answerHtml: 
+      `Unpair all controllers from the PC, then pair and test one controller at a time. 
+      Multiple paired controllers or leftover Bluetooth pairings can cause input routing conflicts. 
+      Try restarting the browser after pairing. 
+      If using a virtual gamepad, confirm the correct mapping in the on-screen controls.
+      If using regular gamepads, try re-mapping controls by clicking on the "Remap Controls" button
+      when a rom is loaded, or press the controller button in the emulator to bring up the controls mapping screen.`,
       expanded: false
     },
     {

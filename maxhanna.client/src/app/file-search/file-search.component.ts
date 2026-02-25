@@ -73,7 +73,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   showData = true;
   showShareUserList = false;
   isSearchPanelOpen = false;
-  isSearchOptionsPanelOpen = false;
   isOptionsPanelOpen = false;
   isShowingFileViewers = false;
   isShowingFileFavouriters = false;
@@ -103,7 +102,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   isDisplayingNSFW = false;
   fileTypeFilter = "";
   fileIdFilter?: number | undefined = undefined;
-  activeRomSystem: string | undefined = undefined;
+  activeRomSystems: string[] = [];
   loadingSearch = false;
   private _savedDirectoryBeforeFileIdSearch: string | null = null;
   private windowScrollHandler: Function;
@@ -214,6 +213,30 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     } else {
       console.error('fileContainer is not defined');
     }
+  }
+
+  // Return true if any search/filter option is currently applied
+  public hasActiveFilters(): boolean {
+    // Search terms
+    if (this.searchTerms && this.searchTerms.trim() !== '') return true;
+    // File type text filter
+    if (this.fileTypeFilter && this.fileTypeFilter.trim() !== '') return true;
+    // File ID filter
+    if (this.fileIdFilter !== undefined && this.fileIdFilter !== null) return true;
+    // Visibility / ownership / hidden filters
+    if (this.filter && (this.filter.visibility !== 'all' || this.filter.ownership !== 'all')) return true;
+    // Hidden filter diverges from default behaviour
+    const defaultHidden = this.showHiddenFiles ? 'all' : 'unhidden';
+    if (this.filter.hidden !== defaultHidden) return true;
+    // Toggle filters
+    if (this.showFavouritesOnly || this.showPicturesOnly || this.showVideosOnly) return true;
+    // Rom system filter
+    if (this.activeRomSystems && this.activeRomSystems.length > 0) return true;
+    // Sort option changed
+    if (this.sortOption && this.sortOption !== 'Latest') return true;
+    // NSFW display override
+    if (this.isDisplayingNSFW) return true;
+    return false;
   }
 
   ngOnDestroy() {
@@ -940,21 +963,6 @@ private async loadFileByIdOnce(id: number) {
       parent.closeOverlay();
     }
   }
-  openSearchOptionsPanel() {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent) {
-      parent.showOverlay();
-    }
-    this.isSearchOptionsPanelOpen = true;
-  }
-  closeSearchOptionsPanel() {
-    this.isSearchOptionsPanelOpen = false;
-
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent) {
-      parent.closeOverlay();
-    }
-  }
   isDisplayingPreviousPageButton() {
     return this.totalPages > 1 && this.currentPage != 1
   }
@@ -1293,14 +1301,23 @@ private async loadFileByIdOnce(id: number) {
   }
 
   toggleRomSystem(key: string) {
-    if (this.activeRomSystem === key) {
-      this.activeRomSystem = undefined;
+    const idx = this.activeRomSystems.indexOf(key);
+    if (idx >= 0) {
+      // remove
+      this.activeRomSystems.splice(idx, 1);
+    } else {
+      // add
+      this.activeRomSystems.push(key);
+    }
+
+    if (!this.activeRomSystems || this.activeRomSystems.length === 0) {
       this.fileTypeFilter = '';
       this.onFiletypeFilterChange(true);
       return;
     }
-    this.activeRomSystem = key;
-    const exts = this.romSystemExtensions[key] ?? [key];
+
+    // Build a deduplicated list of extensions from selected systems
+    const exts = Array.from(new Set(this.activeRomSystems.flatMap(k => this.romSystemExtensions[k] ?? [k])));
     this.fileTypeFilter = exts.join(',');
     this.onFiletypeFilterChange(true);
   }
