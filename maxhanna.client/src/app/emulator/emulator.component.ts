@@ -1619,20 +1619,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       });
     } catch { return []; }
   }
-
-  clearEjsControlCaches() {
-    try {
-      const ls = window.localStorage;
-      for (const k of Object.keys(ls)) {
-        if (/ejs.*control/i.test(k) || /controls?/i.test(k) || /gamepad/i.test(k)) {
-          ls.removeItem(k);
-        }
-      }
-      try { indexedDB.deleteDatabase('ejs'); } catch { }
-      try { indexedDB.deleteDatabase('emulatorjs'); } catch { }
-    } catch { }
-  }
-
+  
   // Attempt to upload any pending saves found in IndexedDB. Runs on startup.
   private async uploadPendingSavesOnStartup(): Promise<void> {
     try {
