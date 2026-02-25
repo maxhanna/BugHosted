@@ -24,7 +24,13 @@ export class YoutubeSearchComponent extends ChildComponent implements OnChanges,
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['keyword'] && this.keyword?.trim()) {
-      this.search();
+      if (this.keyword === this.parentRef?.getYoutubeSearchKeyword()) {
+        this.videos = this.parentRef?.getYoutubeSearchResults() ?? [];
+        this.keyword = this.parentRef?.getYoutubeSearchKeyword() ?? '';
+        this.searchInput!.nativeElement.value = this.keyword;
+      } else { 
+        this.search();
+      }
     }
   }
 
