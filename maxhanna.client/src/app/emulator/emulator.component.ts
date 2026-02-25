@@ -2223,6 +2223,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   toggleFaqItem(index: number) {
     const item = this.faqItems[index];
     if (item) item.expanded = !item.expanded;
+  } 
+  
+  // Public accessor for template to show last save time
+  public get lastSaveTime(): Date | null {
+    return this._lastSaveTime && this._lastSaveTime > 0 ? new Date(this._lastSaveTime) : null;
   }
 
   private displayRomUploadOrDownloadProgress(total: number, loaded: number, saving?: boolean) {

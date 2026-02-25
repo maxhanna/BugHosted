@@ -38,7 +38,12 @@
 
   <div style="margin-bottom: 15px;" *ngIf="!isFaqOpen">
     <p>Status: {{ status }}</p>
-    <p *ngIf="romName">Playing: {{ getRomName() }}</p>
+    <p *ngIf="romName">
+      Playing: {{ getRomName() }}
+      <br>
+      <small *ngIf="lastSaveTime">Last save: {{ lastSaveTime | timeSince:'minute' }}</small>
+      <small *ngIf="!lastSaveTime">Last save: none</small>
+    </p>
   </div>
   
   <div *ngIf="!isFaqOpen" class="emuMenuButtonContainer">
