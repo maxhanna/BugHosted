@@ -2046,84 +2046,108 @@ try {
     if (select) select.classList.add('max-nudge-down');
   }
 
-  leftMovementArea(useJoystick: boolean): VPadItem {
-    return useJoystick
-      ? {
+leftMovementArea(useJoystick: boolean): VPadItem {
+  return useJoystick
+    ? {
         type: 'zone',
         location: 'left',
         left: '8%',
         top: '50%',
         joystickInput: true,
         color: 'blue',
-        inputValues: [19, 18, 17, 16],
+        // Up, Down, Left, Right via analog = Y- (up), Y+ (down), X- (left), X+ (right)
+        inputValues: [
+          EmulatorComponent.L_LS_Y_NEG, // 19
+          EmulatorComponent.L_LS_Y_POS, // 18
+          EmulatorComponent.L_LS_X_NEG, // 17
+          EmulatorComponent.L_LS_X_POS, // 16
+        ],
       }
-      : {
+    : {
         type: 'dpad',
         location: 'left',
         left: '8%',
         joystickInput: false,
-        inputValues: [4, 5, 6, 7],
+        inputValues: [
+          EmulatorComponent.L_DPAD_UP,    // 12
+          EmulatorComponent.L_DPAD_DOWN,  // 13
+          EmulatorComponent.L_DPAD_LEFT,  // 14
+          EmulatorComponent.L_DPAD_RIGHT, // 15
+        ],
       };
+}
+
+startSelectRow(): VPadItem[] {
+  return [
+    { type: 'button', id: 'start',  text: 'Start',  location: 'center', left: 60,  top: 0, fontSize: 15, block: true, input_value: EmulatorComponent.L_START },  // 9
+    { type: 'button', id: 'select', text: 'Select', location: 'center', left: -5, top: 0, fontSize: 15, block: true, input_value: EmulatorComponent.L_SELECT }, // 8
+  ];
+}
+
+shouldersTop(hasLR2 = false): VPadItem[] {
+  const items: VPadItem[] = [
+    { type: 'button', id: 'btnL',  text: 'L',  location: 'top', left: 10,  top: 0, input_value: EmulatorComponent.L_L1, bold: true, block: true }, // 4
+    { type: 'button', id: 'btnR',  text: 'R',  location: 'top', right: 10, top: 0, input_value: EmulatorComponent.L_R1, bold: true, block: true }, // 5
+  ];
+  if (hasLR2) {
+    items.push(
+      { type: 'button', id: 'btnL2', text: 'L2', location: 'top', left: 90,  top: 0, input_value: EmulatorComponent.L_L2, bold: true, block: true }, // 6
+      { type: 'button', id: 'btnR2', text: 'R2', location: 'top', right: 90, top: 0, input_value: EmulatorComponent.L_R2, bold: true, block: true }, // 7
+    );
   }
+  return items;
+}
 
+twoButtonRight(): VPadItem[] {
+  return [
+    { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 20, top: 75, input_value: EmulatorComponent.L_FACE_CROSS,  bold: true }, // 0
+    { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 10, input_value: EmulatorComponent.L_FACE_CIRCLE, bold: true }, // 1
+  ];
+}
 
-  twoButtonRight(): VPadItem[] {
-    // Make B a bit left/below; A a bit right/above (classic layout)
-    const B: VPadItem = { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 20, top: 75, input_value: 0, bold: true };
-    const A: VPadItem = { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 10, input_value: 8, bold: true };
-    return [B, A];
-  }
+diamondRight(): VPadItem[] {
+  return [
+    { type: 'button', id: 'btnX', text: 'X', location: 'right', left: -50, top: 30, input_value: EmulatorComponent.L_FACE_TRIANGLE, bold: true }, // 3
+    { type: 'button', id: 'btnY', text: 'Y', location: 'right', left: -20, top: -20, input_value: EmulatorComponent.L_FACE_SQUARE,   bold: true }, // 2
+    { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 10,  top: 80, input_value: EmulatorComponent.L_FACE_CROSS,     bold: true }, // 0
+    { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 50,  top: 20, input_value: EmulatorComponent.L_FACE_CIRCLE,    bold: true }, // 1
+  ];
+}
 
-  genesisThreeRight(): VPadItem[] {
-    return [
-      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 70, top: 5, input_value: 8, bold: true },
-      { type: 'button', id: 'genB', text: 'B', location: 'right', left: 0, top: 35, input_value: 0, bold: true },
-      { type: 'button', id: 'genA', text: 'A', location: 'right', left: -115, top: 85, input_value: 1, bold: true },
-    ];
-  }
+genesisThreeRight(): VPadItem[] {
+  return [
+    { type: 'button', id: 'genC', text: 'C', location: 'right', left: 70,  top: 5,  input_value: EmulatorComponent.L_FACE_CIRCLE, bold: true }, // 1
+    { type: 'button', id: 'genB', text: 'B', location: 'right', left: 0,   top: 35, input_value: EmulatorComponent.L_FACE_CROSS,  bold: true }, // 0
+    { type: 'button', id: 'genA', text: 'A', location: 'right', left: -115, top: 85, input_value: EmulatorComponent.L_FACE_SQUARE, bold: true }, // 2
+  ];
+}
 
-  genesisSixRight(): VPadItem[] {
-    return [
-      // Lower row A/B/C
-      { type: 'button', id: 'genC', text: 'C', location: 'right', left: 70, top: 5, input_value: 8, bold: true },
-      { type: 'button', id: 'genB', text: 'B', location: 'right', left: 0, top: 35, input_value: 0, bold: true },
-      { type: 'button', id: 'genA', text: 'A', location: 'right', left: -115, top: 85, input_value: 1, bold: true },
-      // Upper row X/Y/Z (match your build’s scheme)
-      { type: 'button', id: 'genX', text: 'X', location: 'right', left: -60, top: -10, input_value: 10, bold: true },
-      { type: 'button', id: 'genY', text: 'Y', location: 'right', left: 0, top: -30, input_value: 9, bold: true },
-      { type: 'button', id: 'genZ', text: 'Z', location: 'right', left: 60, top: -50, input_value: 11, bold: true },
-    ];
-  }
-
-  startSelectRow(): VPadItem[] {
-    return [
-      { type: 'button', id: 'start', text: 'Start', location: 'center', left: 60, top: 0, fontSize: 15, block: true, input_value: 3 },
-      { type: 'button', id: 'select', text: 'Select', location: 'center', left: -5, top: 0, fontSize: 15, block: true, input_value: 2 },
-    ];
-  }
-
-  shouldersTop(hasLR2 = false): VPadItem[] {
-    const items: VPadItem[] = [
-      { type: 'button', id: 'btnL', text: 'L', location: 'top', left: 10, top: 0, input_value: 10, bold: true, block: true },
-      { type: 'button', id: 'btnR', text: 'R', location: 'top', right: 10, top: 0, input_value: 11, bold: true, block: true },
-    ];
-    if (hasLR2) {
-      items.push(
-        { type: 'button', id: 'btnL2', text: 'L2', location: 'top', left: 90, top: 0, input_value: 12, bold: true, block: true },
-        { type: 'button', id: 'btnR2', text: 'R2', location: 'top', right: 90, top: 0, input_value: 13, bold: true, block: true },
-      );
+genesisSixRight(): VPadItem[] {
+  return [
+    // Lower A/B/C
+    { type: 'button', id: 'genC', text: 'C', location: 'right', left: 70,  top: 5,  input_value: EmulatorComponent.L_FACE_CIRCLE,   bold: true },
+    { type: 'button', id: 'genB', text: 'B', location: 'right', left: 0,   top: 35, input_value: EmulatorComponent.L_FACE_CROSS,    bold: true },
+    { type: 'button', id: 'genA', text: 'A', location: 'right', left: -115, top: 85, input_value: EmulatorComponent.L_FACE_SQUARE,   bold: true },
+    // Upper X/Y/Z
+    { type: 'button', id: 'genX', text: 'X', location: 'right', left: -60, top: -10, input_value: EmulatorComponent.L_FACE_TRIANGLE, bold: true },
+    { type: 'button', id: 'genY', text: 'Y', location: 'right', left: 0,   top: -30, input_value: EmulatorComponent.L_L1,           bold: true },
+    { type: 'button', id: 'genZ', text: 'Z', location: 'right', left: 60,  top: -50, input_value: EmulatorComponent.L_R1,           bold: true },
+  ];
+}
+ 
+clearEjsControlCaches() {
+  try {
+    const ls = window.localStorage;
+    for (const k of Object.keys(ls)) {
+      if (/ejs.*control/i.test(k) || /controls?/i.test(k) || /gamepad/i.test(k)) {
+        ls.removeItem(k);
+      }
     }
-    return items;
-  }
+    try { indexedDB.deleteDatabase('ejs'); } catch {}
+    try { indexedDB.deleteDatabase('emulatorjs'); } catch {}
+  } catch {}
+}
 
-  diamondRight(): VPadItem[] {
-    return [
-      { type: 'button', id: 'btnX', text: 'X', location: 'right', left: -50, top: 30, input_value: 9, bold: true },
-      { type: 'button', id: 'btnY', text: 'Y', location: 'right', left: -20, top: -20, input_value: 1, bold: true },
-      { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 10, top: 80, input_value: 0, bold: true },
-      { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 50, top: 20, input_value: 8, bold: true },
-    ];
-  }
 
   systemFromCore(core: string): System {
     const c = core.toLowerCase();
