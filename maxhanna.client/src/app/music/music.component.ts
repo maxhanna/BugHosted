@@ -882,7 +882,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.parentRef?.showOverlay();
   }
   showYoutubeSearch() {
-    this.ytSearchTerm = this.searchInput?.nativeElement.value || '';
+    this.ytSearchTerm = this.parentYoutubeSearch ?? this.searchInput?.nativeElement.value ?? '';
     this.isShowingYoutubeSearch = true;
     this.parentRef?.showOverlay();
     this.cdr.markForCheck();
@@ -951,7 +951,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
   get parentYoutubeSearch(): string | undefined {
     const parent = this.inputtedParentRef ?? this.parentRef;
-    return parent?.getYoutubeSearchKeyword() ?? undefined;
+    return parent?.getYoutubeSearchKeyword();
   }
   get playerClasses(): string {
     const base = this.smallPlayer ? 'smallIframeDiv'
