@@ -438,17 +438,8 @@
       </div>
     </div>
 
-    <div class="gradientBackground searchFilesPopupContainer">
-      <div class="filters" *ngIf="showPrivatePublicOption && showData">
-        <div *ngIf="userIsLoggedIn()">
-          <label>
-            Show Hidden Files?:
-            <select (change)="setFilterHidden($event)">
-              <option value="all" [selected]="filter.hidden === 'all'">All</option>
-              <option value="unhidden" [selected]="filter.hidden === 'unhidden'">Unhidden</option>
-            </select>
-          </label>
-        </div>
+    <div class="search-filters spaceAroundFlex">
+      <div class="filters" *ngIf="showPrivatePublicOption && showData"> 
         <div>
           <label>
             Visibility:

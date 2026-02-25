@@ -10,11 +10,23 @@
 
   <!-- ROM File Selector -->
   <div class="gamesContainer{{ !romName ? ' expanded' : '' }}" *ngIf="isSearchVisible">
-    <app-file-search [user]="parentRef?.user" [inputtedParentRef]="parentRef" [currentDirectory]="'Roms/'"
-      [clearAfterSelectFile]="true" [allowedFileTypes]="getAllowedFileTypes()" [showPrivatePublicOption]="false"
-      [showFileSearchOptions]="false" [canChangeDirectory]="false" [canDragMove]="false" [displayFileActions]="true"
-      [displayComments]="false" [displayFileSize]="false" [displayReactions]="false" [showPicturesOnlyToggler]="false"
-      [showVideosOnlyToggler]="false" [showNSFWToggler]="false" [showSystemIcons]="true"
+    <app-file-search [user]="parentRef?.user" 
+      [inputtedParentRef]="parentRef" 
+      [currentDirectory]="'Roms/'"
+      [clearAfterSelectFile]="true" 
+      [allowedFileTypes]="getAllowedFileTypes()" 
+      [showPrivatePublicOption]="true"
+      [showFileSearchOptions]="false" 
+      [canChangeDirectory]="false" 
+      [canDragMove]="false" 
+      [displayFileActions]="true"
+      [displayComments]="false" 
+      [displayFileSize]="false" 
+      [displayReactions]="false" 
+      [showPicturesOnlyToggler]="false"
+      [showVideosOnlyToggler]="false" 
+      [showNSFWToggler]="false" 
+      [showSystemIcons]="true"
       (selectFileEvent)="onRomSelected($event)">
     </app-file-search>
   </div>

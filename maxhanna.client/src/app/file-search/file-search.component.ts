@@ -225,17 +225,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (this.fileIdFilter !== undefined && this.fileIdFilter !== null) return true;
     // Visibility / ownership / hidden filters
     if (this.filter && (this.filter.visibility !== 'all' || this.filter.ownership !== 'all')) return true;
-    // Hidden filter diverges from default behaviour
-    const defaultHidden = this.showHiddenFiles ? 'all' : 'unhidden';
-    if (this.filter.hidden !== defaultHidden) return true;
     // Toggle filters
     if (this.showFavouritesOnly || this.showPicturesOnly || this.showVideosOnly) return true;
     // Rom system filter
     if (this.activeRomSystems && this.activeRomSystems.length > 0) return true;
     // Sort option changed
-    if (this.sortOption && this.sortOption !== 'Latest') return true;
-    // NSFW display override
-    if (this.isDisplayingNSFW) return true;
+    if (this.sortOption && this.sortOption !== 'Latest') return true; 
     return false;
   }
 
