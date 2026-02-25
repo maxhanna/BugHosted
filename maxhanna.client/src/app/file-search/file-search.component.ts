@@ -1398,6 +1398,25 @@ private async loadFileByIdOnce(id: number) {
     this.fileTypeFilter = '';
     try { this.onFiletypeFilterChange(); } catch { }
   } 
+  
+  getVisibilityIcon(vis?: string): string {
+    switch ((vis || '').toLowerCase()) {
+      case 'all':     return '🌍';
+      case 'public':  return '👥';
+      case 'private': return '🔒';
+      default:        return '❓';
+    }
+  }
+  
+  getOwnershipIcon(ownership?: string): string {
+    switch ((ownership || '').toLowerCase()) {
+      case 'all':     return '🌍';
+      case 'others':  return '🧑‍🤝‍🧑';
+      case 'own':     return '👤';
+      default:        return '❓';
+    }
+  }
+
   getSystemLabel(key: string): string {
     switch (key) {
       case 'n64': return 'N64';

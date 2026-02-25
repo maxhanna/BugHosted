@@ -1,7 +1,5 @@
 ﻿<div class="fileActionCommands" *ngIf="!fileSearchMode">
-  <span
-    [class]="topSearchButtonClass"
-    (click)="openSearchPanel();" title="Search for Files">
+  <span [class]="topSearchButtonClass" (click)="openSearchPanel();" title="Search for Files">
     🔍
   </span>
 </div>
@@ -300,8 +298,10 @@
           <select [value]="optionsFile.visibility"
             *ngIf="optionsFile.user?.id == parentRef?.user?.id || optionsFile.user?.id == inputtedParentRef?.user?.id"
             (change)="updateFileVisibility(optionsFile)">
-            <option value="Public" [selected]="optionsFile.visibility == 'Public'">Public</option>
-            <option value="Private" [selected]="optionsFile.visibility == 'Private'">Private</option>
+            <option value="Public" [selected]="optionsFile.visibility == 'Public'">Public{{getVisibilityIcon('Public')}}
+            </option>
+            <option value="Private" [selected]="optionsFile.visibility == 'Private'">
+              Private{{getVisibilityIcon('Private')}}</option>
           </select>
           <span
             *ngIf="optionsFile.user?.id != parentRef?.user?.id && optionsFile.user?.id != inputtedParentRef?.user?.id">{{optionsFile.visibility}}</span>
@@ -438,31 +438,6 @@
       </div>
     </div>
 
-    <div class="search-filters spaceAroundFlex">
-      <div class="filters" *ngIf="showPrivatePublicOption && showData"> 
-        <div>
-          <label>
-            Visibility:
-            <select (change)="setFilterVisibility($event)">
-              <option value="all" [selected]="filter.visibility === 'all'">All</option>
-              <option value="public" [selected]="filter.visibility === 'public'">Public</option>
-              <option value="private" [selected]="filter.visibility === 'private'">Private</option>
-            </select>
-          </label>
-        </div>
-        <div>
-          <label>
-            Ownership:
-            <select (change)="setFilterOwnership($event)">
-              <option value="all" [selected]="filter.ownership === 'all'">All</option>
-              <option value="own" [selected]="filter.ownership === 'own'">Own</option>
-              <option value="others" [selected]="filter.ownership === 'others'">Others</option>
-            </select>
-          </label>
-        </div>
-      </div>
-    </div>
-
     <div *ngIf="isRomsDirectory()" class="spaceAroundFlex">
       <span style="width:100%">Filter by system</span>
       <div class="systemFilters">
@@ -508,35 +483,59 @@
         {{ isDisplayingNSFW ? 'On' : 'Off' }}
       </button>
     </div>
-  </div>
 
-  <button class="closeButton" id="closeOverlay" (click)="closeSearchPanel()">Close</button>
-</div>
+    <div class="spaceAroundFlex" *ngIf="showPrivatePublicOption && showData">
+      <span style="width:100%">
+        Visibility:
+      </span>
+      <select (change)="setFilterVisibility($event)">
+        <option value="all" [selected]="filter.visibility === 'all'">All{{getVisibilityIcon('all')}}</option>
+        <option value="public" [selected]="filter.visibility === 'public'">Public{{getVisibilityIcon('public')}}
+        </option>
+        <option value="private" [selected]="filter.visibility === 'private'">Private{{getVisibilityIcon('private')}}
+        </option>
+      </select>
+    </div>
 
-<!-- File viewers Popup -->
-<div class="popupPanel" *ngIf="isShowingFileViewers">
-  <div class="popupPanelTitle popupPanelContents gradientBackground" style="margin-bottom:15px;">
-    File Viewers
-  </div>
-  <div class="fileViewerDiv">
-    <div *ngFor="let viewer of fileViewers" style="height: 30px;">
-      <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"
-        [previousComponent]="previousComponent" [displayMiniTag]="true"></app-user-tag>
+    <div class="spaceAroundFlex" *ngIf="showPrivatePublicOption && showData">
+      <span style="width:100%">
+        Ownership:
+      </span>
+      <select (change)="setFilterOwnership($event)">
+        <option value="all" [selected]="filter.ownership === 'all'">All{{getOwnershipIcon('all')}}</option>
+        <option value="own" [selected]="filter.ownership === 'own'">Own{{getOwnershipIcon('own')}}</option>
+        <option value="others" [selected]="filter.ownership === 'others'">Others{{getOwnershipIcon('others')}}</option>
+      </select>
+    </div>
+    <div style="margin-top:20px;">
+      <button class="closeButton" id="closeOverlay" (click)="closeSearchPanel()">Close</button>
     </div>
   </div>
-  <button id="closeOverlay" (click)="closeFileViewers()">Close</button>
-</div>
 
-<!-- File favouriters Popup -->
-<div class="popupPanel" *ngIf="isShowingFileFavouriters">
-  <div class="popupPanelTitle popupPanelContents gradientBackground" style="margin-bottom:15px;">
-    File Favouriters
-  </div>
-  <div class="fileViewerDiv">
-    <div *ngFor="let viewer of fileFavouriters" style="height: 30px;">
-      <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"
-        [previousComponent]="previousComponent" [displayMiniTag]="true"></app-user-tag>
+  <!-- File viewers Popup -->
+  <div class="popupPanel" *ngIf="isShowingFileViewers">
+    <div class="popupPanelTitle popupPanelContents gradientBackground" style="margin-bottom:15px;">
+      File Viewers
     </div>
+    <div class="fileViewerDiv">
+      <div *ngFor="let viewer of fileViewers" style="height: 30px;">
+        <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"
+          [previousComponent]="previousComponent" [displayMiniTag]="true"></app-user-tag>
+      </div>
+    </div>
+    <button id="closeOverlay" (click)="closeFileViewers()">Close</button>
   </div>
-  <button id="closeOverlay" (click)="closeFileFavouriters()">Close</button>
-</div>
+
+  <!-- File favouriters Popup -->
+  <div class="popupPanel" *ngIf="isShowingFileFavouriters">
+    <div class="popupPanelTitle popupPanelContents gradientBackground" style="margin-bottom:15px;">
+      File Favouriters
+    </div>
+    <div class="fileViewerDiv">
+      <div *ngFor="let viewer of fileFavouriters" style="height: 30px;">
+        <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"
+          [previousComponent]="previousComponent" [displayMiniTag]="true"></app-user-tag>
+      </div>
+    </div>
+    <button id="closeOverlay" (click)="closeFileFavouriters()">Close</button>
+  </div>
