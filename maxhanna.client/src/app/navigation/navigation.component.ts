@@ -207,6 +207,19 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
     await Promise.allSettled(tasks); 
 
+    // If notifications were paused, shift last-run timestamps forward by the paused duration
+    if (this.notificationsPausedAt) {
+      const pausedDuration = Date.now() - this.notificationsPausedAt;
+      try {
+        for (const k of Object.keys(this.lastRunTimestamps)) {
+          this.lastRunTimestamps[k] = (this.lastRunTimestamps[k] ?? 0) + pausedDuration;
+        }
+      } catch (e) {
+        console.error('Error adjusting lastRunTimestamps after pause', e);
+      }
+      this.notificationsPausedAt = null;
+    }
+
     // Schedule recurring tasks using scheduler that accounts for elapsed pause time
     this.scheduleRecurring('notificationInfo', () => { if (this.notificationsActive) this.getNotificationInfo(); }, 20 * 1000);
     this.scheduleRecurring('cryptoHub', () => { if (this.notificationsActive) this.getCryptoHubInfo(); }, 20 * 60 * 1000);
@@ -281,17 +294,30 @@ export class NavigationComponent implements OnInit, OnDestroy {
       if (existing.interval) clearInterval(existing.interval);
     }
 
-    const last = this.lastRunTimestamps[key] ?? 0;
+    const last = this.lastRunTimestamps.hasOwnProperty(key) ? this.lastRunTimestamps[key] : undefined;
     const now = Date.now();
+
+    // If we've never run this task before, schedule first run after a full interval (do not run immediately)
+    if (last === undefined || last === 0) {
+      const to = setTimeout(() => {
+        try { fn(); } catch (e) { console.error(e); }
+        this.updateLastRunTimestamp(key);
+        const iv = setInterval(() => { try { fn(); } catch (e) { console.error(e); } this.updateLastRunTimestamp(key); }, intervalMs);
+        this.notificationTimers[key] = { interval: iv };
+      }, intervalMs);
+      this.notificationTimers[key] = { timeout: to };
+      return;
+    }
+
     const since = now - last;
     const remaining = intervalMs - since;
 
-    if (remaining <= 0) { 
+    if (remaining <= 0) {
       try { fn(); } catch (e) { console.error(e); }
       this.updateLastRunTimestamp(key);
       const iv = setInterval(() => { try { fn(); } catch (e) { console.error(e); } this.updateLastRunTimestamp(key); }, intervalMs);
       this.notificationTimers[key] = { interval: iv };
-    } else { 
+    } else {
       const to = setTimeout(() => {
         try { fn(); } catch (e) { console.error(e); }
         this.updateLastRunTimestamp(key);
