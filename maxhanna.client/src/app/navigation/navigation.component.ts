@@ -72,6 +72,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     backgroundImage: '',
     name: 'default'
   };
+  notificationsPausedAt: any;
 
   constructor(public _parent: AppComponent,
     private miningService: MiningService,
@@ -241,6 +242,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     try { 
       console.log("stopping notifs")
       this.notificationsActive = false; 
+      this.notificationsPausedAt = Date.now();
       this.preventFetchNotifs = true;
       setTimeout(() => {
         this.preventFetchNotifs = false;
