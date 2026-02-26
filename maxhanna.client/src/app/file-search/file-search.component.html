@@ -513,8 +513,14 @@
         <option value="others" [selected]="filter.ownership === 'others'">Others{{getOwnershipIcon('others')}}</option>
       </select>
     </div>
-    <div style="margin-top:20px;">
-      <button class="closeButton" id="closeOverlay" (click)="closeSearchPanel()">Close</button>
+    <div style="margin-top: 20px; width: 100%; text-align: center;">
+      <button 
+        class="closeButton" 
+        id="closeOverlay" 
+        (click)="closeSearchPanel()" 
+        title="Close the Search Panel">
+        Close
+      </button>
     </div>
   </div>
 

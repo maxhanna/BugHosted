@@ -165,7 +165,7 @@ button:disabled {
   background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
   border: var(--main-border);
   border-radius: 4px;
-  padding: 5px;
+  padding-right: 5px;
   width: calc(100% - 30px);
 }
 

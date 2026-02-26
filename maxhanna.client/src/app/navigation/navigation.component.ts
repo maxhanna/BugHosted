@@ -133,6 +133,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
   crawlerIndexCount: number | null = null;
   private crawlerInterval: any;
 
+  // Track last run timestamps (ms since epoch) for each notification task
+  private lastRunTimestamps: { [key: string]: number } = {};
+  // Store timeout/interval ids for scheduled tasks so they can be cleared/reset
+  private notificationTimers: { [key: string]: { timeout?: any; interval?: any } } = {};
+  // When notifications were paused
+  private notificationsPausedAt?: number | null = null;
+
   notificationsActive = false; // master flag to gate polling
 
   async ngOnInit() {
@@ -202,48 +209,103 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
     await Promise.allSettled(tasks); 
 
-    this.notificationInfoInterval = setInterval(() => { if (this.notificationsActive) this.getNotificationInfo(); }, 20 * 1000); // every minute
-    this.cryptoHubInterval = setInterval(() => { if (this.notificationsActive) this.getCryptoHubInfo(); }, 20 * 60 * 1000); // every 20 minutes
-    this.calendarInfoInterval = setInterval(() => { if (this.notificationsActive) this.getCalendarInfo(); }, 20 * 60 * 1000); // every 20 minutes 
-    this.wordlerInfoInterval = setInterval(() => { if (this.notificationsActive) this.getWordlerStreakInfo(); }, 60 * 60 * 1000); // every hour
-    this.enderInterval = setInterval(() => { if (this.notificationsActive) this.getEnderPlayerInfo(); }, 60 * 1000); // every minute
-    this.bonesInterval = setInterval(() => { if (this.notificationsActive) this.getBonesPlayerInfo(); }, 60 * 1000); // every minute
-    this.nexusInterval = setInterval(() => { if (this.notificationsActive) this.getNexusPlayerInfo(); }, 60 * 1000); // every minute
-    this.metaInterval = setInterval(() => { if (this.notificationsActive) this.getMetaPlayerInfo(); }, 60 * 1000); // every minute
-    this.musicInterval = setInterval(() => { if (this.notificationsActive) this.getMusicInfo(); }, 60 * 60 * 1000); // every hour
-    this.arrayInterval = setInterval(() => { if (this.notificationsActive) this.getArrayPlayerInfo(); }, 60 * 1000); // every minute
-    this.emulationInterval = setInterval(() => { if (this.notificationsActive) this.getEmulationPlayerInfo(); }, 60 * 1000); // every minute
-    this.emulationN64Interval = setInterval(() => { if (this.notificationsActive) this.getN64EmulationPlayerInfo(); }, 60 * 1000); // every minute
-    this.socialInterval = setInterval(() => { if (this.notificationsActive) this.getSocialInfo(); }, 5 * 60 * 1000); // every 5 minutes
-    this.artInterval = setInterval(() => { if (this.notificationsActive) this.getArtInfo(); }, 5 * 60 * 1000); // every 5 minutes
-    this.crawlerInterval = setInterval(() => { if (this.notificationsActive) this.getCrawlerInfo(); }, 60 * 60 * 1000); // every hour
+    // Schedule recurring tasks using scheduler that accounts for elapsed pause time
+    this.scheduleRecurring('notificationInfo', () => { if (this.notificationsActive) this.getNotificationInfo(); }, 20 * 1000);
+    this.scheduleRecurring('cryptoHub', () => { if (this.notificationsActive) this.getCryptoHubInfo(); }, 20 * 60 * 1000);
+    this.scheduleRecurring('calendarInfo', () => { if (this.notificationsActive) this.getCalendarInfo(); }, 20 * 60 * 1000);
+    this.scheduleRecurring('wordler', () => { if (this.notificationsActive) this.getWordlerStreakInfo(); }, 60 * 60 * 1000);
+    this.scheduleRecurring('ender', () => { if (this.notificationsActive) this.getEnderPlayerInfo(); }, 60 * 1000);
+    this.scheduleRecurring('bones', () => { if (this.notificationsActive) this.getBonesPlayerInfo(); }, 60 * 1000);
+    this.scheduleRecurring('nexus', () => { if (this.notificationsActive) this.getNexusPlayerInfo(); }, 60 * 1000);
+    this.scheduleRecurring('meta', () => { if (this.notificationsActive) this.getMetaPlayerInfo(); }, 60 * 1000);
+    this.scheduleRecurring('music', () => { if (this.notificationsActive) this.getMusicInfo(); }, 60 * 60 * 1000);
+    this.scheduleRecurring('array', () => { if (this.notificationsActive) this.getArrayPlayerInfo(); }, 60 * 1000);
+    this.scheduleRecurring('emulation', () => { if (this.notificationsActive) this.getEmulationPlayerInfo(); }, 60 * 1000);
+    this.scheduleRecurring('emulationN64', () => { if (this.notificationsActive) this.getN64EmulationPlayerInfo(); }, 60 * 1000);
+    this.scheduleRecurring('social', () => { if (this.notificationsActive) this.getSocialInfo(); }, 5 * 60 * 1000);
+    this.scheduleRecurring('art', () => { if (this.notificationsActive) this.getArtInfo(); }, 5 * 60 * 1000);
+    this.scheduleRecurring('crawler', () => { if (this.notificationsActive) this.getCrawlerInfo(); }, 60 * 60 * 1000);
   }
 
   stopNotifications() {
     try { 
       console.log("stopping notifs")
       this.notificationsActive = false;
+      // mark pause time so when we resume we can subtract elapsed pause
+      this.notificationsPausedAt = Date.now();
       this.preventFetchNotifs = true;
       setTimeout(() => {
         this.preventFetchNotifs = false;
       }, 5000);
-      clearInterval(this.notificationInfoInterval);
-      clearInterval(this.cryptoHubInterval);
-      clearInterval(this.calendarInfoInterval);
-      clearInterval(this.wordlerInfoInterval);
-      clearInterval(this.enderInterval);
-      clearInterval(this.bonesInterval);
-      clearInterval(this.nexusInterval);
-      clearInterval(this.metaInterval);
-      clearInterval(this.musicInterval);
-      clearInterval(this.arrayInterval);
-      clearInterval(this.emulationInterval);
-      clearInterval(this.emulationN64Interval);
-      clearInterval(this.artInterval);
-      clearInterval(this.socialInterval);
-      clearInterval(this.crawlerInterval);
+
+      // clear any active timers/timeouts/intervals
+      this.clearAllNotificationTimers();
     } catch (error) {
       console.error('Error stopping notifications:', error);
+    }
+  }
+
+  private clearAllNotificationTimers() {
+    try {
+      for (const k of Object.keys(this.notificationTimers)) {
+        const t = this.notificationTimers[k];
+        if (t.timeout) { clearTimeout(t.timeout); }
+        if (t.interval) { clearInterval(t.interval); }
+      }
+    } catch (e) {
+      console.error('Error clearing notification timers', e);
+    }
+
+    // Also clear legacy interval refs for safety
+    try { clearInterval(this.notificationInfoInterval); } catch {}
+    try { clearInterval(this.cryptoHubInterval); } catch {}
+    try { clearInterval(this.calendarInfoInterval); } catch {}
+    try { clearInterval(this.wordlerInfoInterval); } catch {}
+    try { clearInterval(this.enderInterval); } catch {}
+    try { clearInterval(this.bonesInterval); } catch {}
+    try { clearInterval(this.nexusInterval); } catch {}
+    try { clearInterval(this.metaInterval); } catch {}
+    try { clearInterval(this.musicInterval); } catch {}
+    try { clearInterval(this.arrayInterval); } catch {}
+    try { clearInterval(this.emulationInterval); } catch {}
+    try { clearInterval(this.emulationN64Interval); } catch {}
+    try { clearInterval(this.artInterval); } catch {}
+    try { clearInterval(this.socialInterval); } catch {}
+    try { clearInterval(this.crawlerInterval); } catch {}
+
+    this.notificationTimers = {};
+  }
+
+  // Schedule a recurring task that accounts for elapsed time since the last run.
+  // If the task is overdue, it will run immediately and then at normal intervals.
+  private scheduleRecurring(key: string, fn: () => void, intervalMs: number) {
+    // clear existing timers for key
+    const existing = this.notificationTimers[key];
+    if (existing) {
+      if (existing.timeout) clearTimeout(existing.timeout);
+      if (existing.interval) clearInterval(existing.interval);
+    }
+
+    const last = this.lastRunTimestamps[key] ?? 0;
+    const now = Date.now();
+    const since = now - last;
+    const remaining = intervalMs - since;
+
+    if (remaining <= 0) {
+      // overdue: run now then schedule regular interval
+      try { fn(); } catch (e) { console.error(e); }
+      this.lastRunTimestamps[key] = Date.now();
+      const iv = setInterval(() => { try { fn(); } catch (e) { console.error(e); } this.lastRunTimestamps[key] = Date.now(); }, intervalMs);
+      this.notificationTimers[key] = { interval: iv };
+    } else {
+      // schedule first run after remaining then set interval
+      const to = setTimeout(() => {
+        try { fn(); } catch (e) { console.error(e); }
+        this.lastRunTimestamps[key] = Date.now();
+        const iv = setInterval(() => { try { fn(); } catch (e) { console.error(e); } this.lastRunTimestamps[key] = Date.now(); }, intervalMs);
+        this.notificationTimers[key] = { interval: iv };
+      }, remaining);
+      this.notificationTimers[key] = { timeout: to };
     }
   }
 
@@ -340,6 +402,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
       console.error('Error fetching notifications:', error);
     }
     this.isLoadingNotifications = false;
+    // record last run
+    try { this.lastRunTimestamps['notificationInfo'] = Date.now(); } catch {}
   }
 
   async getThemeInfo(userId?: number) {
@@ -359,6 +423,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       console.error('Error fetching theme data:', error);
     }
     this.isLoadingTheme = false;
+    try { this.lastRunTimestamps['theme'] = Date.now(); } catch {}
   }
   private applyDefaultTheme() {
     document.documentElement.style.setProperty('--main-background-image-url', this.defaultTheme.backgroundImage);
@@ -498,6 +563,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         }
       }
       this.isLoadingCryptoHub = false;
+    try { this.lastRunTimestamps['cryptoHub'] = Date.now(); } catch {}
     } catch (error) {
       console.error('Error fetching Crypto Hub data:', error);
       this.isLoadingCryptoHub = false;
@@ -936,6 +1002,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingTheme = false;
     this.isLoadingWordlerStreak = false;
     this.isLoadingCalendar = false;
+    try { this.lastRunTimestamps['calendarInfo'] = Date.now(); } catch {}
   }
 
   private async getNewsCountInfo() {
