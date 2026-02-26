@@ -1,8 +1,7 @@
 export interface YoutubeVideo {
-  VideoId: string;
-  Title: string;
-  Description: string;
-  ThumbnailUrl: string;
+  videoId: string; 
+  description: string;
+  thumbnailUrl: string;
   url: string;
   title: string;
 }
