@@ -10,6 +10,7 @@ import { MediaSelectorComponent } from '../media-selector/media-selector.compone
 import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
 import { AppComponent } from '../app.component';
 import { SubscriptionLike } from 'rxjs';
+import { YoutubeSearchComponent } from '../youtube-search/youtube-search.component';
 
 @Component({
   selector: 'app-music',
@@ -28,6 +29,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   @ViewChild('componentMain') componentMain!: ElementRef<HTMLDivElement>;
   @ViewChild('mediaSelector') mediaSelector!: MediaSelectorComponent;
   @ViewChild('fileMediaViewer') fileMediaViewer!: MediaViewerComponent;
+  @ViewChild('youtubeSearchComponent') youtubeSearchComponent!: YoutubeSearchComponent;
 
   songs: Array<Todo> = [];
   fileSongs: Array<Todo> = [];
@@ -882,7 +884,12 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.parentRef?.showOverlay();
   }
   showYoutubeSearch() {
-    this.ytSearchTerm = this.parentYoutubeSearch ?? this.searchInput?.nativeElement.value ?? '';
+    const searchKeyword = this.parentYoutubeSearch ?? this.searchInput?.nativeElement.value ?? '';
+    this.ytSearchTerm = searchKeyword;
+    if (this.youtubeSearchComponent) {
+      this.youtubeSearchComponent.videos = this.parentYoutubeVideos ?? [];
+      this.youtubeSearchComponent.keyword = searchKeyword;
+    }
     this.isShowingYoutubeSearch = true;
     this.parentRef?.showOverlay();
     this.cdr.markForCheck();
@@ -953,6 +960,12 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     const parent = this.inputtedParentRef ?? this.parentRef;
     return parent?.getYoutubeSearchKeyword();
   }
+
+  get parentYoutubeVideos(): any[] | undefined {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    return parent?.getYoutubeSearchResults();
+  }
+
   get playerClasses(): string {
     const base = this.smallPlayer ? 'smallIframeDiv'
       : this.onMobile() ? 'mobileIframeDiv'

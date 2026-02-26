@@ -156,7 +156,7 @@
             </tbody>
           </table> 
           <div *ngIf="isShowingYoutubeSearch" class="popupPanel">
-            <app-youtube-search 
+            <app-youtube-search #youtubeSearchComponent
               [inputtedParentRef]="inputtedParentRef ?? parentRef" 
               [keyword]="parentYoutubeSearch ?? ytSearchTerm"
               (selectVideoEvent)="selectYoutubeVideoEvent($event)"></app-youtube-search>
