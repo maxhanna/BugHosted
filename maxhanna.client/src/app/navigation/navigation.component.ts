@@ -53,6 +53,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   isLoadingWordlerStreak = false;
   isLoadingCalendar = false;
   isLoadingEnder = false;
+  isLoadingBones = false;
   numberOfNotifications = 0;
   showAppSelectionHelp = false;
   preventFetchNotifs = false;
@@ -137,8 +138,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private lastRunTimestamps: { [key: string]: number } = {};
   // Store timeout/interval ids for scheduled tasks so they can be cleared/reset
   private notificationTimers: { [key: string]: { timeout?: any; interval?: any } } = {};
-  // When notifications were paused
-  private notificationsPausedAt?: number | null = null;
 
   notificationsActive = false; // master flag to gate polling
 
@@ -193,8 +192,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       Promise.resolve(this.getMetaPlayerInfo()),
       Promise.resolve(this.getMusicInfo()),
       Promise.resolve(this.getArrayPlayerInfo()),
-      Promise.resolve(this.getEmulationPlayerInfo()),
-      Promise.resolve(this.getN64EmulationPlayerInfo()),
+      Promise.resolve(this.getEmulationPlayerInfo()), 
       Promise.resolve(this.getSocialInfo()),
       Promise.resolve(this.getArtInfo()),
       Promise.resolve(this.getCrawlerInfo()),
@@ -221,7 +219,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.scheduleRecurring('music', () => { if (this.notificationsActive) this.getMusicInfo(); }, 60 * 60 * 1000);
     this.scheduleRecurring('array', () => { if (this.notificationsActive) this.getArrayPlayerInfo(); }, 60 * 1000);
     this.scheduleRecurring('emulation', () => { if (this.notificationsActive) this.getEmulationPlayerInfo(); }, 60 * 1000);
-    this.scheduleRecurring('emulationN64', () => { if (this.notificationsActive) this.getN64EmulationPlayerInfo(); }, 60 * 1000);
     this.scheduleRecurring('social', () => { if (this.notificationsActive) this.getSocialInfo(); }, 5 * 60 * 1000);
     this.scheduleRecurring('art', () => { if (this.notificationsActive) this.getArtInfo(); }, 5 * 60 * 1000);
     this.scheduleRecurring('crawler', () => { if (this.notificationsActive) this.getCrawlerInfo(); }, 60 * 60 * 1000);
@@ -230,9 +227,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   stopNotifications() {
     try { 
       console.log("stopping notifs")
-      this.notificationsActive = false;
-      // mark pause time so when we resume we can subtract elapsed pause
-      this.notificationsPausedAt = Date.now();
+      this.notificationsActive = false; 
       this.preventFetchNotifs = true;
       setTimeout(() => {
         this.preventFetchNotifs = false;
@@ -291,18 +286,16 @@ export class NavigationComponent implements OnInit, OnDestroy {
     const since = now - last;
     const remaining = intervalMs - since;
 
-    if (remaining <= 0) {
-      // overdue: run now then schedule regular interval
+    if (remaining <= 0) { 
       try { fn(); } catch (e) { console.error(e); }
-      this.lastRunTimestamps[key] = Date.now();
-      const iv = setInterval(() => { try { fn(); } catch (e) { console.error(e); } this.lastRunTimestamps[key] = Date.now(); }, intervalMs);
+      this.updateLastRunTimestamp(key);
+      const iv = setInterval(() => { try { fn(); } catch (e) { console.error(e); } this.updateLastRunTimestamp(key); }, intervalMs);
       this.notificationTimers[key] = { interval: iv };
-    } else {
-      // schedule first run after remaining then set interval
+    } else { 
       const to = setTimeout(() => {
         try { fn(); } catch (e) { console.error(e); }
-        this.lastRunTimestamps[key] = Date.now();
-        const iv = setInterval(() => { try { fn(); } catch (e) { console.error(e); } this.lastRunTimestamps[key] = Date.now(); }, intervalMs);
+        this.updateLastRunTimestamp(key);
+        const iv = setInterval(() => { try { fn(); } catch (e) { console.error(e); } this.updateLastRunTimestamp(key); }, intervalMs);
         this.notificationTimers[key] = { interval: iv };
       }, remaining);
       this.notificationTimers[key] = { timeout: to };
@@ -402,8 +395,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       console.error('Error fetching notifications:', error);
     }
     this.isLoadingNotifications = false;
-    // record last run
-    try { this.lastRunTimestamps['notificationInfo'] = Date.now(); } catch {}
+    this.updateLastRunTimestamp('notificationInfo'); 
   }
 
   async getThemeInfo(userId?: number) {
@@ -423,7 +415,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       console.error('Error fetching theme data:', error);
     }
     this.isLoadingTheme = false;
-    try { this.lastRunTimestamps['theme'] = Date.now(); } catch {}
+    this.updateLastRunTimestamp('theme');
   }
   private applyDefaultTheme() {
     document.documentElement.style.setProperty('--main-background-image-url', this.defaultTheme.backgroundImage);
@@ -562,8 +554,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
           nav.content = lines.join('\n');
         }
       }
-      this.isLoadingCryptoHub = false;
-    try { this.lastRunTimestamps['cryptoHub'] = Date.now(); } catch {}
+      this.isLoadingCryptoHub = false; 
+      this.updateLastRunTimestamp('cryptoHub');
     } catch (error) {
       console.error('Error fetching Crypto Hub data:', error);
       this.isLoadingCryptoHub = false;
@@ -606,6 +598,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       }
     }
     this.isLoadingEnder = false;
+    this.updateLastRunTimestamp('ender');
   }
 
   private async getNexusPlayerInfo() {
@@ -641,6 +634,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         nexusNav.content = parts.join('\n');
       }
     }
+    this.updateLastRunTimestamp('nexus');
   }
 
   private async getBonesPlayerInfo() {
@@ -648,7 +642,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       clearInterval(this.bonesInterval);
       return;
     }
-    this.isLoadingEnder = true;
+    this.isLoadingBones = true;
     try {
       const res: any = await this.bonesService.getActivePlayers(2);
       this.bonesActivePlayers = res?.count ?? null;
@@ -680,6 +674,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       }
     }
     this.isLoadingEnder = false;
+    this.updateLastRunTimestamp('bones');
   }
 
   private async getMetaPlayerInfo() {
@@ -715,6 +710,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         metaNav.content = parts.join('\n');
       }
     }
+    this.updateLastRunTimestamp('meta');
   }
 
   private async getMusicInfo() {
@@ -732,6 +728,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         musicNav.content = this.musicTodoCount && this.musicTodoCount > 0 ? this.shortenCount(this.musicTodoCount) : '';
       }
     }
+    this.updateLastRunTimestamp('music');
   }
 
   private async getArrayPlayerInfo() {
@@ -763,6 +760,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         arrayNav.content = parts.join('\n');
       }
     }
+    this.updateLastRunTimestamp('array');
   }
 
   private async getEmulationPlayerInfo() {
@@ -777,20 +775,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         emuNav.content = this.emulationActivePlayers != null ? this.emulationActivePlayers.toString() : '';
       }
     }
-  }
-
-  private async getN64EmulationPlayerInfo() {
-    if (!this.notificationsActive) return;
-    try {
-      const res: any = await this.romService.getActiveN64Players(2);
-      this.emulationN64ActivePlayers = res?.count ?? null;
-    } catch { this.emulationN64ActivePlayers = null; }
-    if (this._parent?.navigationItems) {
-      const emuNav = this._parent.navigationItems.find(x => x.title === 'N64Emulator');
-      if (emuNav) {
-        emuNav.content = this.emulationN64ActivePlayers != null ? this.emulationN64ActivePlayers.toString() : '';
-      }
-    }
+    this.updateLastRunTimestamp('emulation');
   }
 
   private async getSocialInfo() {
@@ -805,6 +790,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         socialNav.content = this.socialTotalPosts != null ? this.socialTotalPosts.toString() : '';
       }
     }
+    this.updateLastRunTimestamp('social');
   }
 
   private async getCrawlerInfo() {
@@ -820,6 +806,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         crawlerNav.content = this.crawlerIndexCount != null ? this.crawlerIndexCount.toString() : '';
       }
     }
+    this.updateLastRunTimestamp('crawler');
   }
 
   private async getArtInfo() {
@@ -838,6 +825,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         artNav.content = this.artTotalSubmissions != null ? this.artTotalSubmissions.toString() : '';
       }
     } 
+    this.updateLastRunTimestamp('art');
   }
 
   async getWordlerStreakInfo() {
@@ -853,6 +841,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       console.error('Error fetching Wordler streak data:', error);
     }
     this.isLoadingWordlerStreak = false;
+    this.updateLastRunTimestamp('wordler');
   }
 
   toggleMenu() {
@@ -915,6 +904,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     this.debouncedRestartNotifications();
   } 
+
+  updateLastRunTimestamp(key: string) {
+    this.lastRunTimestamps[key] = Date.now();
+  }
+
   applyThemeToCSS(theme: UserTheme) {
     if (theme.backgroundImage) {
       const requesterId = this._parent?.user?.id;
@@ -1002,7 +996,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingTheme = false;
     this.isLoadingWordlerStreak = false;
     this.isLoadingCalendar = false;
-    try { this.lastRunTimestamps['calendarInfo'] = Date.now(); } catch {}
+    this.updateLastRunTimestamp('calendarInfo');
   }
 
   private async getNewsCountInfo() {
