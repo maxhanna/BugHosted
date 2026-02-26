@@ -24,9 +24,10 @@ export class YoutubeSearchComponent extends ChildComponent implements OnChanges,
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['keyword'] && this.keyword?.trim()) {
-      if (this.keyword === this.parentRef?.getYoutubeSearchKeyword()) {
-        this.videos = this.parentRef?.getYoutubeSearchResults() ?? [];
-        this.keyword = this.parentRef?.getYoutubeSearchKeyword() ?? '';
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      if (this.keyword === parent?.getYoutubeSearchKeyword()) {
+        this.videos = parent?.getYoutubeSearchResults() ?? [];
+        this.keyword = parent?.getYoutubeSearchKeyword() ?? '';
         this.searchInput!.nativeElement.value = this.keyword;
       } else { 
         this.search();
@@ -36,26 +37,29 @@ export class YoutubeSearchComponent extends ChildComponent implements OnChanges,
   }
 
   ngOnInit() { 
-    try { this.parentRef?.notifyYoutubeSearchOpened(); } catch { }
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.notifyYoutubeSearchOpened();
     console.log("YouTube Search Component initialized with keyword:", this.keyword);
   }
 
   ngAfterViewInit() { 
     try {
-      const parentKeyword = this.parentRef?.getYoutubeSearchKeyword() ?? '';
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      const parentKeyword = parent?.getYoutubeSearchKeyword() ?? '';
       if ((!this.keyword || !this.keyword.trim()) && parentKeyword) {
         if (this.searchInput && this.searchInput.nativeElement) {
           this.searchInput.nativeElement.value = parentKeyword;
         }
       }
-      this.videos = this.parentRef?.getYoutubeSearchResults() ?? [];
+      this.videos = parent?.getYoutubeSearchResults() ?? [];
     } catch (e) { console.error(e); }
     console.log("YouTube Search Component view initialized. Current keyword:", this.keyword, "Videos count:", this.videos.length);
   }
 
   selectVideo(video: any) {
     this.selectVideoEvent.emit(video);
-    this.parentRef?.closeOverlay();
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay();
   }
 
   async search() {
@@ -66,7 +70,10 @@ export class YoutubeSearchComponent extends ChildComponent implements OnChanges,
       const result = await this.crawlerService.searchYoutube(keyword);
       if (Array.isArray(result)) {
         this.videos = result;
-        this.parentRef?.setYoutubeSearchResults(keyword, this.videos); 
+        const parent = this.inputtedParentRef ?? this.parentRef;
+        if (parent) {
+          parent.setYoutubeSearchResults(keyword, result); 
+        }
       }
     } 
     this.hasSearched = true;
