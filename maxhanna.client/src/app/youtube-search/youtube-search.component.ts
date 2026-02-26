@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Even
 import { CrawlerService } from '../../services/crawler.service';
 import { ChildComponent } from '../child.component';
 import { AppComponent } from '../app.component'; 
+import { YoutubeVideo } from '../../services/datacontracts/youtube';
   
 @Component({
   selector: 'app-youtube-search',
@@ -11,12 +12,12 @@ import { AppComponent } from '../app.component';
   changeDetection: ChangeDetectionStrategy.OnPush 
 })
 export class YoutubeSearchComponent extends ChildComponent implements OnChanges, OnInit, AfterViewInit { 
-  videos: any[] = []; 
+  videos: YoutubeVideo[] = []; 
   hasSearched = false;
 
   @Input() keyword: string = '';
   @Input() inputtedParentRef?: AppComponent;
-  @Output() selectVideoEvent = new EventEmitter<any>();
+  @Output() selectVideoEvent = new EventEmitter<YoutubeVideo>();
   
   @ViewChild('searchInput') searchInput?: ElementRef<HTMLInputElement>;
 
@@ -57,7 +58,7 @@ export class YoutubeSearchComponent extends ChildComponent implements OnChanges,
     } catch (e) { console.error(e); }
   }
 
-  selectVideo(video: any) {
+  selectVideo(video: YoutubeVideo) {
     this.selectVideoEvent.emit(video);
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
@@ -70,7 +71,7 @@ export class YoutubeSearchComponent extends ChildComponent implements OnChanges,
     if (keyword) {
       const result = await this.crawlerService.searchYoutube(keyword);
       if (Array.isArray(result)) {
-        this.videos = result;
+        this.videos = result as YoutubeVideo[];
         const parent = this.inputtedParentRef ?? this.parentRef;
         if (parent) {
           parent.setYoutubeSearchResults(keyword, result); 

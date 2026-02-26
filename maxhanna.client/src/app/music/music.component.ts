@@ -11,6 +11,7 @@ import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
 import { AppComponent } from '../app.component';
 import { SubscriptionLike } from 'rxjs';
 import { YoutubeSearchComponent } from '../youtube-search/youtube-search.component';
+import { YoutubeVideo } from '../../services/datacontracts/youtube';
 
 @Component({
   selector: 'app-music',
@@ -897,7 +898,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.parentRef?.closeOverlay();
     this.cdr.markForCheck();
   }
-  async selectYoutubeVideoEvent(video: any) {
+  async selectYoutubeVideoEvent(video: YoutubeVideo) {
     this.urlInput.nativeElement.value = video.url;
     this.titleInput.nativeElement.value = this.unescapeYoutubeTitle(video.title);
     await this.addSong();
@@ -959,9 +960,9 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     return parent?.getYoutubeSearchKeyword();
   }
 
-  get parentYoutubeVideos(): any[] | undefined {
+  get parentYoutubeVideos(): YoutubeVideo[] {
     const parent = this.inputtedParentRef ?? this.parentRef;
-    return parent?.getYoutubeSearchResults();
+    return parent?.getYoutubeSearchResults() ?? [];
   }
 
   get playerClasses(): string {

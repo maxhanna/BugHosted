@@ -3,4 +3,6 @@ export interface YoutubeVideo {
   Title: string;
   Description: string;
   ThumbnailUrl: string;
+  url: string;
+  title: string;
 }
