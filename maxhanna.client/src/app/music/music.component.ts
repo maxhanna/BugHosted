@@ -884,12 +884,15 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.parentRef?.showOverlay();
   }
   showYoutubeSearch() {
-    const searchKeyword = this.parentYoutubeSearch ?? this.searchInput?.nativeElement.value ?? '';
-    this.ytSearchTerm = searchKeyword;
-    if (this.youtubeSearchComponent) {
-      this.youtubeSearchComponent.videos = this.parentYoutubeVideos ?? [];
-      this.youtubeSearchComponent.keyword = searchKeyword;
-    }
+    setTimeout(() => { 
+      const searchKeyword = this.parentYoutubeSearch ?? this.searchInput?.nativeElement.value ?? '';
+      this.ytSearchTerm = searchKeyword;
+      if (this.youtubeSearchComponent) {
+        this.youtubeSearchComponent.videos = this.parentYoutubeVideos ?? [];
+        this.youtubeSearchComponent.keyword = searchKeyword;
+      }
+      this.cdr.markForCheck();
+    }, 300);
     this.isShowingYoutubeSearch = true;
     this.parentRef?.showOverlay();
     this.cdr.markForCheck();
