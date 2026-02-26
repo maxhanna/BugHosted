@@ -159,12 +159,10 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   async ngOnInit() {
-    console.log('[Music]', this.instance, 'ngOnInit');
     await this.tryInitialLoad();
   }
 
   async ngAfterViewInit() {
-    console.log('[Music]', this.instance, 'ngAfterViewInit');
     if (this.user) {
       this.componentMain.nativeElement.style.padding = 'unset';
     }
@@ -186,7 +184,6 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   ngOnDestroy(): void {
-    console.log('[Music]', this.instance, 'ngOnDestroy'); 
     this.destroyYTPlayer();
     // Clear timers
     if (this.debounceTimer) {
@@ -205,7 +202,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       try { this.radioAudioEl.pause(); } catch { }
       try { this.radioAudioEl.remove(); } catch { }
       this.radioAudioEl = undefined;
-    } 
+    }
   }
 
   private destroyYTPlayer() {
@@ -214,10 +211,14 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.mo?.disconnect();
 
     // stop playback
-    try { this.ytPlayer?.stopVideo(); } catch (e) { console.debug('[YT] stopVideo failed', e); }
+    try { this.ytPlayer?.stopVideo(); } catch (e) {
+      console.error('[YT] stopVideo failed', e);
+    }
 
     // destroy the YT player object
-    try { this.ytPlayer?.destroy(); } catch (e) { console.debug('[YT] destroy failed', e); }
+    try { this.ytPlayer?.destroy(); } catch (e) {
+      console.error('[YT] destroy failed', e);
+    }
 
     // remove any leftover iframe and clear container
     try {
@@ -227,7 +228,9 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
         if (iframe && iframe.parentElement) iframe.parentElement.removeChild(iframe);
         container.innerHTML = '';
       }
-    } catch (e) { console.debug('[YT] DOM cleanup failed', e); }
+    } catch (e) { 
+      console.error('[YT] DOM cleanup failed', e); 
+    }
 
     // important: clear the container contents
     if (this.musicVideo?.nativeElement) {
@@ -260,11 +263,6 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       const url = this.songs[0].url!;
       this.pendingPlay = { url, fileId: null };
     }
-    console.log('[Music] Loaded', this.songs.length, 'songs; page', this.currentPage);
-
-    // If the YT API is already loaded (reopen / cached), build the player now.
-    // On first load this is usually a no-op because ngAfterViewInit hasn't set
-    // ytReady yet; on reopens it will be the call that actually creates the player.
     this.buildPlayerFromSongs();
   }
 
@@ -299,7 +297,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.isMusicControlsDisplayed(true);
     this.cdr.markForCheck();
   }
-  
+
 
   private ensureYouTubeApi(): Promise<void> {
     if (this.ytApiPromise) return this.ytApiPromise;
@@ -337,7 +335,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       }
     }
     return ids;
-  } 
+  }
 
   async getSongList(playAfterLoad = true) {
     this.startLoading();
@@ -364,7 +362,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.stopLoading();
       this.cdr.markForCheck();
     }
-  } 
+  }
 
   async searchForSong() {
     const search = this.searchInput?.nativeElement.value || '';
@@ -388,7 +386,6 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   updatePaginatedSongs() {
-    console.log("Updating paginated songs for page:", this.currentPage, this.songs.length, "total songs");
     this.totalPages = Math.ceil(this.songs.length / this.itemsPerPage) || 1;
     const startIndex = (this.currentPage - 1) * this.itemsPerPage;
 
@@ -485,7 +482,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       try {
         this.stopMusic();
       } catch (e) {
-        console.error(e);
+        console.error("Music Stop Failed", e);
       }
     }, 50);//allow for adjustment time
 
@@ -499,7 +496,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       await this.refreshPlaylist();
       this.songs = type === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
       this.fileIdPlaylist = type === 'file' ? this.fileSongs.map(song => song.fileId!).filter(id => id !== undefined) : undefined;
-    } else { 
+    } else {
       this.loadRadioData();
     }
 
@@ -512,12 +509,11 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     if (type != 'file') {
       this.fileIdPlaying = undefined;
       this.fileMediaViewer?.stopAllMedia();
-    } 
+    }
   }
 
 
   play(url?: string, fileId?: number) {
-    console.log("Play called with url:", url, "fileId:", fileId);
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (!url && !fileId) {
       parent?.showNotification("Url/File can't be empty");
@@ -539,7 +535,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
     if (!this.ytReady && url) {
       this.pendingPlay = { url, fileId: null };
-      console.log("YT API not ready, queuing play for url:", url);
+      console.warn("YT API not ready, queuing play for url:", url);
       return;
     }
     this.startLoading();
@@ -557,7 +553,6 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
           }, 50);
         }
       }, 10);
-      console.log("Playing file with ID:", fileId);
       return;
     }
 
@@ -575,7 +570,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.keepScreenAwake(true);
     this.isMusicControlsDisplayed(true);
     this.stopLoading();
-  }  
+  }
 
   randomSong() {
     if (this.selectedType === 'file') {
@@ -884,14 +879,13 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.parentRef?.showOverlay();
   }
   showYoutubeSearch() {
-    setTimeout(() => { 
-      const searchKeyword = this.parentYoutubeSearch ?? this.searchInput?.nativeElement.value ?? '';
+    setTimeout(() => {
+      const searchKeyword = this.parentYoutubeSearch ?? this.searchInput?.nativeElement?.value ?? '';
       this.ytSearchTerm = searchKeyword;
       if (this.youtubeSearchComponent) {
         this.youtubeSearchComponent.videos = this.parentYoutubeVideos ?? [];
         this.youtubeSearchComponent.keyword = searchKeyword;
       }
-      console.log("[music] Showing YouTube search with keyword:", searchKeyword, "and videos:", this.youtubeSearchComponent?.videos);
       this.cdr.markForCheck();
     }, 300);
     this.isShowingYoutubeSearch = true;
@@ -956,7 +950,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     if (div) {
       div.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else {
-      console.log("Div not found!");
+      console.error("Div not found!");
     }
   }
 
@@ -985,7 +979,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   private hardRebuild(id: string) {
-    this.destroyYTPlayer();   
+    this.destroyYTPlayer();
     setTimeout(() => this.rebuildYTPlayer(id, [], 0), 100);
   }
 
@@ -1127,8 +1121,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   private switchWithinPlaylist(ids: string[], index: number, playOnLoad = true) {
-    if (!this.ytPlayer) return; 
-    const desiredId = ids[index]; 
+    if (!this.ytPlayer) return;
+    const desiredId = ids[index];
     try {
       const key = ids.join(',');
       const pl = this.ytPlayer.getPlaylist?.() || [];
@@ -1136,7 +1130,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       if (this.lastPlaylistKey === key && pl.length) {
         if (playOnLoad) {
           this.ytPlayer.playVideoAt(index);
-          this.ytPlayer.playVideo(); 
+          this.ytPlayer.playVideo();
         }
       } else {
         this.lastPlaylistKey = key;
@@ -1154,8 +1148,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       }
     } catch (e) {
       console.warn('[YT] switchWithinPlaylist failed', e);
-      if (desiredId && playOnLoad) { 
-        this.forceSwitchToId(desiredId); 
+      if (desiredId && playOnLoad) {
+        this.forceSwitchToId(desiredId);
       }
       return;
     }
@@ -1171,7 +1165,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
         this.forceSwitchToId(desiredId);
       }
     }, 250);
-  } 
+  }
 
   async loadRadioData() {
     this.startLoading();
@@ -1370,7 +1364,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
     // 🔥 Always direct-load the video 
     this.ytPlayer.loadVideoById(id);
-    this.ytPlayer.playVideo(); 
+    this.ytPlayer.playVideo();
   }
 
   async refreshDom() {

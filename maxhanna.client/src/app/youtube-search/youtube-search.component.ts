@@ -28,18 +28,20 @@ export class YoutubeSearchComponent extends ChildComponent implements OnChanges,
       if (this.keyword === parent?.getYoutubeSearchKeyword()) {
         this.videos = parent?.getYoutubeSearchResults() ?? [];
         this.keyword = parent?.getYoutubeSearchKeyword() ?? '';
-        this.searchInput!.nativeElement.value = this.keyword;
+        setTimeout(() => { 
+          if (this.searchInput && this.searchInput.nativeElement) {
+            this.searchInput.nativeElement.value = this.keyword;
+          }
+        }, 100);
       } else { 
         this.search();
       }
-    }
-    console.log("YouTube Search Component input changes detected:", changes);
+    } 
   }
 
   ngOnInit() { 
     const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.notifyYoutubeSearchOpened();
-    console.log("YouTube Search Component initialized with keyword:", this.keyword);
+    parent?.notifyYoutubeSearchOpened(); 
   }
 
   ngAfterViewInit() { 
@@ -53,7 +55,6 @@ export class YoutubeSearchComponent extends ChildComponent implements OnChanges,
       }
       this.videos = parent?.getYoutubeSearchResults() ?? [];
     } catch (e) { console.error(e); }
-    console.log("YouTube Search Component view initialized. Current keyword:", this.keyword, "Videos count:", this.videos.length);
   }
 
   selectVideo(video: any) {
@@ -64,8 +65,8 @@ export class YoutubeSearchComponent extends ChildComponent implements OnChanges,
 
   async search() {
     this.startLoading();
-    this.videos = [];
-    const keyword = this.searchInput?.nativeElement.value.trim();
+    this.videos = []; 
+    const keyword = this.searchInput?.nativeElement?.value?.trim();
     if (keyword) {
       const result = await this.crawlerService.searchYoutube(keyword);
       if (Array.isArray(result)) {
