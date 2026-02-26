@@ -24,13 +24,13 @@
 
   <div class="resultsContainer">
     <div *ngFor="let video of videos" class="videoCard">
-      <div class="videoTitleAndImage"> 
+      <div class="videoTitleAndImage gradientBackground"> 
         <div class="videoThumbnailDiv"> 
           <a (click)="inputtedParentRef?.visitExternalLink(video.url)" class="thumbnailLink">
             <img [src]="video.thumbnailUrl" alt="{{ video.title }}" class="videoThumbnail" />
           </a>
         </div>
-        <span>{{ video.title | decodeHtml }}</span>
+        <span class="videoTitleSpan">{{ video.title | decodeHtml }}</span>
       </div>
       <div class="videoDescription">{{ video.description }}</div>
       <div class="buttonRow">

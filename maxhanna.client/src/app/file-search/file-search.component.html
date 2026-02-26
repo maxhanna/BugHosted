@@ -236,7 +236,7 @@
       </div>
       <div class="optionsStatsDescription">
         {{optionsFile.fileType?.toUpperCase()}}
-        {{(getDirectoryName(optionsFile) === 'Roms/' && optionsFile.fileType) ? getSystemEmoji('file.' + optionsFile.fileType) : ''}}
+        <span [innerHTML]="(getDirectoryName(optionsFile) === 'Roms/' && optionsFile.fileType) ? getSystemEmoji('file.' + optionsFile.fileType) : ''"></span>
         {{optionsFile.isFolder ? 'Folder' : ''}}
       </div>
     </div>

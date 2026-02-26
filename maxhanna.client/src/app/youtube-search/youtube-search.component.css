@@ -72,9 +72,14 @@
   display: flex;
   align-items: center;
   align-content: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 10px;
   font-size: x-large;
+}
+
+.videoTitleSpan {
+  text-align: center;
+  width: 100%;
 }
 
 .playlistButton:hover {
