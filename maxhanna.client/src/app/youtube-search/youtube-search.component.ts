@@ -32,10 +32,12 @@ export class YoutubeSearchComponent extends ChildComponent implements OnChanges,
         this.search();
       }
     }
+    console.log("YouTube Search Component input changes detected:", changes);
   }
 
   ngOnInit() { 
     try { this.parentRef?.notifyYoutubeSearchOpened(); } catch { }
+    console.log("YouTube Search Component initialized with keyword:", this.keyword);
   }
 
   ngAfterViewInit() { 
@@ -48,6 +50,7 @@ export class YoutubeSearchComponent extends ChildComponent implements OnChanges,
       }
       this.videos = this.parentRef?.getYoutubeSearchResults() ?? [];
     } catch (e) { console.error(e); }
+    console.log("YouTube Search Component view initialized. Current keyword:", this.keyword, "Videos count:", this.videos.length);
   }
 
   selectVideo(video: any) {

@@ -1801,6 +1801,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     this.youtubeSearchKeyword = (keyword || '').trim();
     this.youtubeSearchResults = Array.isArray(results) ? results : [];
     this.resetYoutubeSearchClearTimer();
+    console.log("YouTube search results updated", { keyword: this.youtubeSearchKeyword, resultsCount: this.youtubeSearchResults.length });
   }
 
   private resetYoutubeSearchClearTimer() { 
@@ -1809,12 +1810,16 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     }  
     this.youtubeSearchClearTimer = 
       setTimeout(() => this.clearYoutubeSearchResults(), 5 * 60 * 1000);
+    console.log("YouTube search results will be cleared after 5 minutes of inactivity.", { keyword: this.youtubeSearchKeyword, resultsCount: this.youtubeSearchResults.length });
   }
 
   clearYoutubeSearchResults() {
+    console.log("Clearing YouTube search results");
     this.youtubeSearchResults = [];
     this.youtubeSearchKeyword = '';
-    try { if (this.youtubeSearchClearTimer) clearTimeout(this.youtubeSearchClearTimer); } catch {}
+    if (this.youtubeSearchClearTimer) {
+      clearTimeout(this.youtubeSearchClearTimer);
+    } 
     this.youtubeSearchClearTimer = undefined;
   }
 

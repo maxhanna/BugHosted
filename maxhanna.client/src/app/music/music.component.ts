@@ -891,6 +891,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
         this.youtubeSearchComponent.videos = this.parentYoutubeVideos ?? [];
         this.youtubeSearchComponent.keyword = searchKeyword;
       }
+      console.log("[music] Showing YouTube search with keyword:", searchKeyword, "and videos:", this.youtubeSearchComponent?.videos);
       this.cdr.markForCheck();
     }, 300);
     this.isShowingYoutubeSearch = true;
