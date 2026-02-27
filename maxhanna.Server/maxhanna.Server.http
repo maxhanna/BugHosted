@@ -184,3 +184,6 @@ Accept: application/json
 POST {{maxhanna.Server_HostAddress}}/Bones/
 Accept: application/json
 ###
+POST {{maxhanna.Server_HostAddress}}/Ratings/
+Accept: application/json
+###
