@@ -25,6 +25,8 @@ export class FileEntry {
   topics?: Array<Topic>;
   favouriteCount?: number;
   isFavourited?: boolean;
+  averageRating?: number;
+  ratingCount?: number;
   // Indicates the upload attempt resulted in an existing server-side file match
   isDuplicate?: boolean;
   isHidden?: boolean;

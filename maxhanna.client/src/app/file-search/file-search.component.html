@@ -107,6 +107,11 @@
                   (click)="getFavouritedBy(file); $event.stopPropagation()">
                   ❤️{{file.favouriteCount}}
                 </div>
+                <div *ngIf="displayRatings && !file.isFolder && file.ratingCount"
+                  class="fileOptionsAction fileOptionsChatBubble coloredBgButton"
+                  (click)="showOptionsPanel(file); $event.stopPropagation()">
+                  ⭐{{file.averageRating | number:'1.1-1'}}
+                </div>
                 <div *ngIf="displayFileActions" (click)="showOptionsPanel(file); $event.stopPropagation();"
                   class="fileOptionsAction fileOptionsCogIcon coloredBgButton"
                   [title]="'Show Options for \'' + (file.givenFileName && file.givenFileName != '' ? file.givenFileName : getFileWithoutExtension(file.fileName ?? '')) + '\' file.'">
@@ -253,6 +258,13 @@
       <div class="optionsStatsHeader">Favourites:</div>
       <div class="optionsStatsDescription cursorPointerUnderlined linkFontColor" (click)="getFavouritedBy(optionsFile)">
         {{optionsFile.favouriteCount}}
+      </div>
+    </div>
+    <div *ngIf="displayRatings && optionsFile?.ratingCount" class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Rating:</div>
+      <div class="optionsStatsDescription">
+        <span *ngFor="let star of [1,2,3,4,5]" [style.color]="star <= (optionsFile.averageRating ?? 0) ? 'gold' : '#555'">&#9733;</span>
+        {{optionsFile.averageRating | number:'1.1-1'}} ({{optionsFile.ratingCount}})
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.fileSize !== undefined">

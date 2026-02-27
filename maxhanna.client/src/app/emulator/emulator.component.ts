@@ -1001,16 +1001,22 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       return false;
     }
     const tmpStatus = this.status;
-    this.status = 'Sending Data to Server...';
     if (!u8?.length) {
       console.warn('[EJS] uploadSaveBytes: no bytes to upload; skipping');
+      this.setTmpStatus("No save data captured; upload skipped.");
       return false;
     }
-    if (!this.parentRef?.user?.id || !this.romName) {
-      console.warn('[EJS] uploadSaveBytes: no user or rom; skipping upload');
+    if (!this.parentRef?.user?.id) {
+      console.warn('[EJS] uploadSaveBytes: no user; skipping upload');
+      this.setTmpStatus("User not logged in; upload skipped.");
+      return false;
+    } 
+    if (!this.romName) {
+      console.warn('[EJS] uploadSaveBytes: no rom; skipping upload');
+      this.setTmpStatus("ROM not identified; upload skipped.");
       return false;
     }
-
+    this.status = 'Sending Data to Server...'; 
     if (this._inFlightSavePromise) {
       try { return await this._inFlightSavePromise; } catch { return false; }
     }
@@ -1037,36 +1043,39 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           return true;
         } else {
           console.error('[EJS] Save upload failed:', res.errorText);
+          this.setTmpStatus("Server rejected save upload; please try again.");
           return false;
         }
       } catch (err) {
         console.error('[EJS] Save upload exception:', err);
         error = err;
-        this.status = 'Error uploading save!';
-        this.cdr.detectChanges();
+        this.setTmpStatus("Error uploading save; please try again."); 
         return false;
       } finally {
         this._saveInProgress = false;
-        this._inFlightSavePromise = undefined;
-        if (!error) {
-          this.status = `Save Complete! (took ${ms ? ms / 1000 + 's' : 'a moment'})`;
-          this.cdr.detectChanges();
-        }
-        if (!this.stopEmuSaving && !this.exitSaving && !this.isExitingAndReturningToEmulator) {
-          setTimeout(() => {
-            this.status = tmpStatus;
-            this.cdr.detectChanges();
-          }, 4000);
-        }
+        this._inFlightSavePromise = undefined; 
+         
         if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
           this.fullReloadToEmulator();
         } else if (this.exitSaving) {
           this.navigateHome();
-        }
+        } else if (!error) { 
+          this.setTmpStatus(`Save Complete! (took ${ms ? ms / 1000 + 's' : 'a moment'})`);
+        } 
       }
     })();
 
     return await this._inFlightSavePromise;
+  }
+
+  setTmpStatus(msg: string) {
+    const tmpStatus = this.status;
+    this.status = msg;
+    this.cdr.detectChanges();
+    setTimeout(() => {
+      this.status = tmpStatus;
+      this.cdr.detectChanges();
+    }, 4000);
   }
 
   setupAutosave() {

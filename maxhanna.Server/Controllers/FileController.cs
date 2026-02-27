@@ -250,7 +250,9 @@ namespace maxhanna.Server.Controllers
               f.access_count,
               (SELECT COUNT(*) FROM file_favourites ff WHERE ff.file_id = f.id) AS favourite_count,
               EXISTS(SELECT 1 FROM file_favourites ff2 WHERE ff2.file_id = f.id AND ff2.user_id = @userId) AS is_favourited,
-              (SELECT COUNT(*) FROM comments c WHERE c.file_id = f.id) AS comment_count
+              (SELECT COUNT(*) FROM comments c WHERE c.file_id = f.id) AS comment_count,
+              (SELECT AVG(r.rating) FROM ratings r WHERE r.file_id = f.id) AS average_rating,
+              (SELECT COUNT(*) FROM ratings r2 WHERE r2.file_id = f.id) AS rating_count
             FROM maxhanna.file_uploads f
             LEFT JOIN users u  ON f.user_id = u.id
             LEFT JOIN users uu ON f.last_updated_by_user_id = uu.id
@@ -336,6 +338,8 @@ namespace maxhanna.Server.Controllers
                 AccessCount = reader.IsDBNull("access_count") ? 0 : reader.GetInt32("access_count"),
                 FavouriteCount = reader.IsDBNull("favourite_count") ? 0 : reader.GetInt32("favourite_count"),
                 IsFavourited = reader.IsDBNull("is_favourited") ? false : reader.GetBoolean("is_favourited"),
+                AverageRating = reader.IsDBNull("average_rating") ? 0 : reader.GetDouble("average_rating"),
+                RatingCount = reader.IsDBNull("rating_count") ? 0 : reader.GetInt32("rating_count"),
               };
 
               fileEntries.Add(fileEntry);

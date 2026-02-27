@@ -30,6 +30,8 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
 		public int AccessCount { get; set; } = 0;
 		public int FavouriteCount { get; set; } = 0;
 		public bool IsFavourited { get; set; } = false;
+		public double AverageRating { get; set; } = 0;
+		public int RatingCount { get; set; } = 0;
 		// Indicates that this entry refers to an already existing file (upload duplicate)
 		public bool IsDuplicate { get; set; } = false;
 

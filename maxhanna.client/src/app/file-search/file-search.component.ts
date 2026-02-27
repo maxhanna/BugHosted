@@ -57,6 +57,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() showNSFWToggler: boolean = true;
   @Input() showHiddenFilesToggler: boolean = true;
   @Input() showSystemIcons: boolean = false;
+  @Input() displayRatings: boolean = false;
   @Output() selectedForDeleteChange = new EventEmitter<number[]>();
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
