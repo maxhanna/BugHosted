@@ -309,9 +309,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   async ngOnInit() {
     this.overrideGetUserMedia();
     this.setupEventListeners();
-    this.enableGamepadMonitoringScoped();
-
-
+    this.enableGamepadMonitoringScoped(); 
+    
     const fullscreenHandler: EventListener = () => {
       if (!document.fullscreenElement) {
         this.canvas.nativeElement.style.height = (this.onMobile() ? '60vh' : '100vh');
