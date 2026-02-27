@@ -39,63 +39,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   @Input() user?: User;
 
-  private notificationInfoInterval: any;
-  private cryptoHubInterval: any;
-  private calendarInfoInterval: any;
-  private wordlerInfoInterval: any;
-  tradeNotifsCount = 0;
-  navbarReady = false;
-  navbarCollapsed: boolean = false;
-  isBTCRising = true;
-  isLoadingNotifications = false;
-  isLoadingTheme = false;
-  isLoadingCryptoHub = false;
-  isLoadingWordlerStreak = false;
-  isLoadingCalendar = false;
-  isLoadingEnder = false;
-  isLoadingBones = false;
-  numberOfNotifications = 0;
-  showAppSelectionHelp = false;
-  preventFetchNotifs = false;
-  defaultTheme = {
-    backgroundColor: '#0e0e0e',
-    componentBackgroundColor: '#202020',
-    secondaryComponentBackgroundColor: '#011300',
-    fontColor: '#b0c2b1',
-    secondaryFontColor: '#ffffff',
-    thirdFontColor: 'cornflowerblue',
-    mainHighlightColor: '#3a3a3a',
-    mainHighlightColorQuarterOpacity: '#a9a9a9',
-    linkColor: 'chartreuse',
-    fontSize: 16,
-    fontFamily: 'Helvetica, Arial',
-    backgroundImage: '',
-    name: 'default'
-  };
-  notificationsPausedAt: any;
-
-  constructor(public _parent: AppComponent,
-    private miningService: MiningService,
-    private calendarService: CalendarService,
-    private weatherService: WeatherService,
-    private coinValueService: CoinValueService,
-    private wordlerService: WordlerService,
-    private userService: UserService,
-    private fileService: FileService,
-    private notificationService: NotificationService,
-    private enderService: EnderService,
-    private bonesService: BonesService,
-    private nexusService: NexusService,
-    private todoService: TodoService,
-    private metaService: MetaService,
-    private arrayService: ArrayService,
-    private romService: RomService,
-    private friendService: FriendService,
-    private socialService: SocialService,
-    private crawlerService: CrawlerService,
-    private newsService: NewsService) 
-    { }
-
   // runtime values for Ender nav item
   enderActivePlayers: number | null = null;
   enderUserRank: { rank?: number | null, score?: number | null, totalPlayers?: number | null } | null = null;
@@ -131,29 +74,78 @@ export class NavigationComponent implements OnInit, OnDestroy {
   // Art stats
   artTotalSubmissions: number | null = null;
   private artInterval: any;
-   // Crawler stats
+  // Crawler stats
   crawlerIndexCount: number | null = null;
   private crawlerInterval: any;
 
-  // Track last run timestamps (ms since epoch) for each notification task
-  private lastRunTimestamps: { [key: string]: number } = {};
-  // Store timeout/interval ids for scheduled tasks so they can be cleared/reset
-  private notificationTimers: { [key: string]: { timeout?: any; interval?: any } } = {};
+  private notificationInfoInterval: any;
+  private cryptoHubInterval: any;
+  private calendarInfoInterval: any;
+  private wordlerInfoInterval: any;
+  tradeNotifsCount = 0;
+  navbarReady = false;
+  navbarCollapsed: boolean = false;
+  isBTCRising = true;
+  isLoadingNotifications = false;
+  isLoadingTheme = false;
+  isLoadingCryptoHub = false;
+  isLoadingWordlerStreak = false;
+  isLoadingCalendar = false;
+  isLoadingEnder = false;
+  isLoadingBones = false;
+  numberOfNotifications = 0;
+  showAppSelectionHelp = false;
+  preventFetchNotifs = false;
+  defaultTheme = {
+    backgroundColor: '#0e0e0e',
+    componentBackgroundColor: '#202020',
+    secondaryComponentBackgroundColor: '#011300',
+    fontColor: '#b0c2b1',
+    secondaryFontColor: '#ffffff',
+    thirdFontColor: 'cornflowerblue',
+    mainHighlightColor: '#3a3a3a',
+    mainHighlightColorQuarterOpacity: '#a9a9a9',
+    linkColor: 'chartreuse',
+    fontSize: 16,
+    fontFamily: 'Helvetica, Arial',
+    backgroundImage: '',
+    name: 'default'
+  };
 
-  notificationsActive = false; // master flag to gate polling
+  constructor(public _parent: AppComponent,
+    private miningService: MiningService,
+    private calendarService: CalendarService,
+    private weatherService: WeatherService,
+    private coinValueService: CoinValueService,
+    private wordlerService: WordlerService,
+    private userService: UserService,
+    private fileService: FileService,
+    private notificationService: NotificationService,
+    private enderService: EnderService,
+    private bonesService: BonesService,
+    private nexusService: NexusService,
+    private todoService: TodoService,
+    private metaService: MetaService,
+    private arrayService: ArrayService,
+    private romService: RomService,
+    private friendService: FriendService,
+    private socialService: SocialService,
+    private crawlerService: CrawlerService,
+    private newsService: NewsService) { }
 
   async ngOnInit() {
     this.navbarReady = true;
 
     setTimeout(() => {
-      if (this.notificationsActive) return;
+      if (this._parent.notificationsActive) return;
       this.getNotifications();
       this.displayAppSelectionHelp();
     }, 100)
   }
 
   ngOnDestroy() {
-    this.showAppSelectionHelp = false; 
+    console.log("destroying navbar, stopping notifications");
+    this.showAppSelectionHelp = false;
     this.stopNotifications();
   }
 
@@ -176,10 +168,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getNotifications() {
-    if (this.notificationsActive || this.preventFetchNotifs) return;
+    if (this._parent.notificationsActive || this.preventFetchNotifs) return;
     if (!this._parent || !this._parent.user || this._parent.user.id == 0) return;
     console.log("fetch notifications");
-    this.notificationsActive = true;
+    this._parent.notificationsActive = true;
 
     const tasks: Promise<unknown>[] = [
       Promise.resolve(this.getCurrentWeatherInfo()),
@@ -193,7 +185,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       Promise.resolve(this.getMetaPlayerInfo()),
       Promise.resolve(this.getMusicInfo()),
       Promise.resolve(this.getArrayPlayerInfo()),
-      Promise.resolve(this.getEmulationPlayerInfo()), 
+      Promise.resolve(this.getEmulationPlayerInfo()),
       Promise.resolve(this.getSocialInfo()),
       Promise.resolve(this.getArtInfo()),
       Promise.resolve(this.getCrawlerInfo()),
@@ -204,45 +196,45 @@ export class NavigationComponent implements OnInit, OnDestroy {
       p.catch(err => {
         console.error('Concurrent task failed:', err);
       })
-    ); 
+    );
 
-    await Promise.allSettled(tasks); 
+    await Promise.allSettled(tasks);
 
     // If notifications were paused, shift last-run timestamps forward by the paused duration
-    if (this.notificationsPausedAt) {
-      const pausedDuration = Date.now() - this.notificationsPausedAt;
+    if (this._parent.notificationsPausedAt) {
+      const pausedDuration = Date.now() - this._parent.notificationsPausedAt;
       try {
-        for (const k of Object.keys(this.lastRunTimestamps)) {
-          this.lastRunTimestamps[k] = (this.lastRunTimestamps[k] ?? 0) + pausedDuration;
+        for (const k of Object.keys(this._parent.lastRunTimestamps)) {
+          this._parent.lastRunTimestamps[k] = (this._parent.lastRunTimestamps[k] ?? 0) + pausedDuration;
         }
       } catch (e) {
         console.error('Error adjusting lastRunTimestamps after pause', e);
       }
-      this.notificationsPausedAt = null;
+      this._parent.notificationsPausedAt = null;
     }
 
     // Schedule recurring tasks using scheduler that accounts for elapsed pause time
-    this.scheduleRecurring('notificationInfo', () => { if (this.notificationsActive) this.getNotificationInfo(); }, 20 * 1000);
-    this.scheduleRecurring('cryptoHub', () => { if (this.notificationsActive) this.getCryptoHubInfo(); }, 20 * 60 * 1000);
-    this.scheduleRecurring('calendarInfo', () => { if (this.notificationsActive) this.getCalendarInfo(); }, 20 * 60 * 1000);
-    this.scheduleRecurring('wordler', () => { if (this.notificationsActive) this.getWordlerStreakInfo(); }, 60 * 60 * 1000);
-    this.scheduleRecurring('ender', () => { if (this.notificationsActive) this.getEnderPlayerInfo(); }, 60 * 1000);
-    this.scheduleRecurring('bones', () => { if (this.notificationsActive) this.getBonesPlayerInfo(); }, 60 * 1000);
-    this.scheduleRecurring('nexus', () => { if (this.notificationsActive) this.getNexusPlayerInfo(); }, 60 * 1000);
-    this.scheduleRecurring('meta', () => { if (this.notificationsActive) this.getMetaPlayerInfo(); }, 60 * 1000);
-    this.scheduleRecurring('music', () => { if (this.notificationsActive) this.getMusicInfo(); }, 60 * 60 * 1000);
-    this.scheduleRecurring('array', () => { if (this.notificationsActive) this.getArrayPlayerInfo(); }, 60 * 1000);
-    this.scheduleRecurring('emulation', () => { if (this.notificationsActive) this.getEmulationPlayerInfo(); }, 60 * 1000);
-    this.scheduleRecurring('social', () => { if (this.notificationsActive) this.getSocialInfo(); }, 5 * 60 * 1000);
-    this.scheduleRecurring('art', () => { if (this.notificationsActive) this.getArtInfo(); }, 5 * 60 * 1000);
-    this.scheduleRecurring('crawler', () => { if (this.notificationsActive) this.getCrawlerInfo(); }, 60 * 60 * 1000);
+    this.scheduleRecurring('notificationInfo', () => { if (this._parent.notificationsActive) this.getNotificationInfo(); }, 20 * 1000);
+    this.scheduleRecurring('cryptoHub', () => { if (this._parent.notificationsActive) this.getCryptoHubInfo(); }, 20 * 60 * 1000);
+    this.scheduleRecurring('calendarInfo', () => { if (this._parent.notificationsActive) this.getCalendarInfo(); }, 20 * 60 * 1000);
+    this.scheduleRecurring('wordler', () => { if (this._parent.notificationsActive) this.getWordlerStreakInfo(); }, 60 * 60 * 1000);
+    this.scheduleRecurring('ender', () => { if (this._parent.notificationsActive) this.getEnderPlayerInfo(); }, 60 * 1000);
+    this.scheduleRecurring('bones', () => { if (this._parent.notificationsActive) this.getBonesPlayerInfo(); }, 60 * 1000);
+    this.scheduleRecurring('nexus', () => { if (this._parent.notificationsActive) this.getNexusPlayerInfo(); }, 60 * 1000);
+    this.scheduleRecurring('meta', () => { if (this._parent.notificationsActive) this.getMetaPlayerInfo(); }, 60 * 1000);
+    this.scheduleRecurring('music', () => { if (this._parent.notificationsActive) this.getMusicInfo(); }, 60 * 60 * 1000);
+    this.scheduleRecurring('array', () => { if (this._parent.notificationsActive) this.getArrayPlayerInfo(); }, 60 * 1000);
+    this.scheduleRecurring('emulation', () => { if (this._parent.notificationsActive) this.getEmulationPlayerInfo(); }, 60 * 1000);
+    this.scheduleRecurring('social', () => { if (this._parent.notificationsActive) this.getSocialInfo(); }, 5 * 60 * 1000);
+    this.scheduleRecurring('art', () => { if (this._parent.notificationsActive) this.getArtInfo(); }, 5 * 60 * 1000);
+    this.scheduleRecurring('crawler', () => { if (this._parent.notificationsActive) this.getCrawlerInfo(); }, 60 * 60 * 1000);
   }
 
   stopNotifications() {
-    try { 
+    try {
       console.log("stopping notifs")
-      this.notificationsActive = false; 
-      this.notificationsPausedAt = Date.now();
+      this._parent.notificationsActive = false;
+      this._parent.notificationsPausedAt = Date.now();
       this.preventFetchNotifs = true;
       setTimeout(() => {
         this.preventFetchNotifs = false;
@@ -257,8 +249,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   private clearAllNotificationTimers() {
     try {
-      for (const k of Object.keys(this.notificationTimers)) {
-        const t = this.notificationTimers[k];
+      for (const k of Object.keys(this._parent.notificationTimers)) {
+        const t = this._parent.notificationTimers[k];
         if (t.timeout) { clearTimeout(t.timeout); }
         if (t.interval) { clearInterval(t.interval); }
       }
@@ -267,36 +259,36 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
 
     // Also clear legacy interval refs for safety
-    try { clearInterval(this.notificationInfoInterval); } catch {}
-    try { clearInterval(this.cryptoHubInterval); } catch {}
-    try { clearInterval(this.calendarInfoInterval); } catch {}
-    try { clearInterval(this.wordlerInfoInterval); } catch {}
-    try { clearInterval(this.enderInterval); } catch {}
-    try { clearInterval(this.bonesInterval); } catch {}
-    try { clearInterval(this.nexusInterval); } catch {}
-    try { clearInterval(this.metaInterval); } catch {}
-    try { clearInterval(this.musicInterval); } catch {}
-    try { clearInterval(this.arrayInterval); } catch {}
-    try { clearInterval(this.emulationInterval); } catch {}
-    try { clearInterval(this.emulationN64Interval); } catch {}
-    try { clearInterval(this.artInterval); } catch {}
-    try { clearInterval(this.socialInterval); } catch {}
-    try { clearInterval(this.crawlerInterval); } catch {}
+    try { clearInterval(this.notificationInfoInterval); } catch { }
+    try { clearInterval(this.cryptoHubInterval); } catch { }
+    try { clearInterval(this.calendarInfoInterval); } catch { }
+    try { clearInterval(this.wordlerInfoInterval); } catch { }
+    try { clearInterval(this.enderInterval); } catch { }
+    try { clearInterval(this.bonesInterval); } catch { }
+    try { clearInterval(this.nexusInterval); } catch { }
+    try { clearInterval(this.metaInterval); } catch { }
+    try { clearInterval(this.musicInterval); } catch { }
+    try { clearInterval(this.arrayInterval); } catch { }
+    try { clearInterval(this.emulationInterval); } catch { }
+    try { clearInterval(this.emulationN64Interval); } catch { }
+    try { clearInterval(this.artInterval); } catch { }
+    try { clearInterval(this.socialInterval); } catch { }
+    try { clearInterval(this.crawlerInterval); } catch { }
 
-    this.notificationTimers = {};
+    this._parent.notificationTimers = {};
   }
 
   // Schedule a recurring task that accounts for elapsed time since the last run.
   // If the task is overdue, it will run immediately and then at normal intervals.
   private scheduleRecurring(key: string, fn: () => void, intervalMs: number) {
     // clear existing timers for key
-    const existing = this.notificationTimers[key];
+    const existing = this._parent.notificationTimers[key];
     if (existing) {
       if (existing.timeout) clearTimeout(existing.timeout);
       if (existing.interval) clearInterval(existing.interval);
     }
 
-    const last = this.lastRunTimestamps.hasOwnProperty(key) ? this.lastRunTimestamps[key] : undefined;
+    const last = this._parent.lastRunTimestamps.hasOwnProperty(key) ? this._parent.lastRunTimestamps[key] : undefined;
     const now = Date.now();
 
     // If we've never run this task before, schedule first run after a full interval (do not run immediately)
@@ -305,9 +297,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
         try { fn(); } catch (e) { console.error(e); }
         this.updateLastRunTimestamp(key);
         const iv = setInterval(() => { try { fn(); } catch (e) { console.error(e); } this.updateLastRunTimestamp(key); }, intervalMs);
-        this.notificationTimers[key] = { interval: iv };
+        this._parent.notificationTimers[key] = { interval: iv };
       }, intervalMs);
-      this.notificationTimers[key] = { timeout: to };
+      this._parent.notificationTimers[key] = { timeout: to };
       return;
     }
 
@@ -318,15 +310,15 @@ export class NavigationComponent implements OnInit, OnDestroy {
       try { fn(); } catch (e) { console.error(e); }
       this.updateLastRunTimestamp(key);
       const iv = setInterval(() => { try { fn(); } catch (e) { console.error(e); } this.updateLastRunTimestamp(key); }, intervalMs);
-      this.notificationTimers[key] = { interval: iv };
+      this._parent.notificationTimers[key] = { interval: iv };
     } else {
       const to = setTimeout(() => {
         try { fn(); } catch (e) { console.error(e); }
         this.updateLastRunTimestamp(key);
         const iv = setInterval(() => { try { fn(); } catch (e) { console.error(e); } this.updateLastRunTimestamp(key); }, intervalMs);
-        this.notificationTimers[key] = { interval: iv };
+        this._parent.notificationTimers[key] = { interval: iv };
       }, remaining);
-      this.notificationTimers[key] = { timeout: to };
+      this._parent.notificationTimers[key] = { timeout: to };
     }
   }
 
@@ -423,7 +415,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       console.error('Error fetching notifications:', error);
     }
     this.isLoadingNotifications = false;
-    this.updateLastRunTimestamp('notificationInfo'); 
+    this.updateLastRunTimestamp('notificationInfo');
   }
 
   async getThemeInfo(userId?: number) {
@@ -541,17 +533,17 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
   }
 
-  async getCryptoHubInfo() { 
+  async getCryptoHubInfo() {
     const nav = this._parent.navigationItems.find(x => x.title === "Crypto-Hub");
     const isCHSelected = this._parent.userSelectedNavigationItems.find(x => x.title === "Crypto-Hub") ? true : false;
     const userId = this._parent?.user?.id;
 
-    if (!isCHSelected || !nav || !userId) { 
+    if (!isCHSelected || !nav || !userId) {
       if (!isCHSelected) { console.error("No CryptoHub selected in nav."); }
       if (!nav) { console.error("No nav to modify."); }
-      if (!userId) { console.error("No user logged in."); } 
-      return; 
-    } 
+      if (!userId) { console.error("No user logged in."); }
+      return;
+    }
 
     try {
       let tmpLocalProfitability = 0;
@@ -570,7 +562,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       if (ceRes) {
         latestCurrencyPriceRespectToCAD = ceRes.rate;
       }
-      const result = await this.coinValueService.getLatestCoinValuesByName("Bitcoin"); 
+      const result = await this.coinValueService.getLatestCoinValuesByName("Bitcoin");
       if (result) {
         const btcToCADRate = result.valueCAD * latestCurrencyPriceRespectToCAD;
         if (nav) {
@@ -582,7 +574,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
           nav.content = lines.join('\n');
         }
       }
-      this.isLoadingCryptoHub = false; 
+      this.isLoadingCryptoHub = false;
       this.updateLastRunTimestamp('cryptoHub');
     } catch (error) {
       console.error('Error fetching Crypto Hub data:', error);
@@ -591,7 +583,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getEnderPlayerInfo() {
-    if (!this.notificationsActive) {
+    if (!this._parent.notificationsActive) {
       clearInterval(this.enderInterval);
       return;
     }
@@ -630,7 +622,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getNexusPlayerInfo() {
-    if (!this.notificationsActive) {
+    if (!this._parent.notificationsActive) {
       clearInterval(this.nexusInterval);
       return;
     }
@@ -666,7 +658,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getBonesPlayerInfo() {
-    if (!this.notificationsActive) { 
+    if (!this._parent.notificationsActive) {
       clearInterval(this.bonesInterval);
       return;
     }
@@ -706,7 +698,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getMetaPlayerInfo() {
-    if (!this.notificationsActive) {
+    if (!this._parent.notificationsActive) {
       clearInterval(this.metaInterval);
       return;
     }
@@ -742,7 +734,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getMusicInfo() {
-    if (!this.notificationsActive) return;
+    if (!this._parent.notificationsActive) return;
     if (!this._parent?.user?.id) return;
     try {
       const res: any = await this.todoService.getTodoCount(this._parent.user.id, 'Music');
@@ -760,7 +752,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getArrayPlayerInfo() {
-    if (!this.notificationsActive) {
+    if (!this._parent.notificationsActive) {
       clearInterval(this.arrayInterval);
       return;
     }
@@ -792,7 +784,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getEmulationPlayerInfo() {
-    if (!this.notificationsActive) return;
+    if (!this._parent.notificationsActive) return;
     try {
       const res: any = await this.romService.getActivePlayers(2);
       this.emulationActivePlayers = res?.count ?? null;
@@ -807,7 +799,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getSocialInfo() {
-    if (!this.notificationsActive) return;
+    if (!this._parent.notificationsActive) return;
     try {
       const res: any = await this.socialService.getTotalPosts();
       this.socialTotalPosts = res?.count ?? null;
@@ -822,7 +814,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getCrawlerInfo() {
-    if (!this.notificationsActive) return;
+    if (!this._parent.notificationsActive) return;
     try {
       const res: any = await this.crawlerService.indexCount();
       const parsed = parseInt(res, 10);
@@ -838,7 +830,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getArtInfo() {
-    if (!this.notificationsActive) return;
+    if (!this._parent.notificationsActive) return;
     if (!this.artTotalSubmissions) {
       try {
         const res: any = await this.fileService.getNumberOfArt();
@@ -852,12 +844,12 @@ export class NavigationComponent implements OnInit, OnDestroy {
       if (artNav) {
         artNav.content = this.artTotalSubmissions != null ? this.artTotalSubmissions.toString() : '';
       }
-    } 
+    }
     this.updateLastRunTimestamp('art');
   }
 
   async getWordlerStreakInfo() {
-    if (!this.notificationsActive) return;
+    if (!this._parent.notificationsActive) return;
     if (!this._parent.user?.id || !this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("wordler"))) { return; }
     this.isLoadingWordlerStreak = true;
     try {
@@ -931,10 +923,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
       }
     }
     this.debouncedRestartNotifications();
-  } 
+  }
 
   updateLastRunTimestamp(key: string) {
-    this.lastRunTimestamps[key] = Date.now();
+    this._parent.lastRunTimestamps[key] = Date.now();
   }
 
   applyThemeToCSS(theme: UserTheme) {

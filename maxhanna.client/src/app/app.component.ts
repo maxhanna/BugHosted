@@ -305,7 +305,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       content: `Our All-in-1 emulator allows users to play multiple console games directly in their browser! Connect any gamepad and upload your own roms or choose from the ones available! Save your progress and restart from anywhere!`
     }
   ];
-
+ 
+  lastRunTimestamps: { [key: string]: number } = {}; 
+  notificationTimers: { [key: string]: { timeout?: any; interval?: any } } = {};
+  notificationsPausedAt: any; 
+  notificationsActive = false; // master flag to gate polling
   location?: { ip: string, city: string, country: string } = undefined;
   sessionToken?: string = undefined;
   userIdCache = new Map<string, number>()

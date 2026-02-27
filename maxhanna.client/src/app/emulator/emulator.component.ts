@@ -304,6 +304,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       romBlob = romBlobOrArray;
     } else {
       this.stopLoading();
+      this.setTmpStatus("Could not retrieve the ROM file.");
       throw new Error('getRomFile errored: expected Blob response');
     }
 
