@@ -168,12 +168,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     private cdr: ChangeDetectorRef
   ) {
     super();
-    if (this.inputtedParentRef) {
-      this.parentRef = this.inputtedParentRef;
-    }
   }
 
   ngOnInit(): void {
+    if (this.inputtedParentRef) {
+      this.parentRef = this.inputtedParentRef;
+    }
     // SharedArrayBuffer (needed by EJS_threads) requires cross-origin isolation.
     // If the page wasn't served with COOP/COEP headers (e.g. the user opened the
     // emulator via the in-app navigation instead of a direct /Emulator URL), force

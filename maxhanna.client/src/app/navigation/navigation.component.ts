@@ -93,6 +93,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   isLoadingCalendar = false;
   isLoadingEnder = false;
   isLoadingBones = false;
+  isThemeApplied = false;
   numberOfNotifications = 0;
   showAppSelectionHelp = false;
   preventFetchNotifs = false;
@@ -134,8 +135,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private newsService: NewsService) { }
 
   async ngOnInit() {
-    this.navbarReady = true;
-
+    this.navbarReady = true; 
+    if (this._parent?.user?.id) {
+      this.getThemeInfo().catch(() => {});
+    } else {
+      this.applyDefaultTheme();
+    }
+    this.isThemeApplied = true;
     setTimeout(() => {
       if (this._parent.notificationsActive) return;
       this.getNotifications();
@@ -419,6 +425,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getThemeInfo(userId?: number) {
+    if (this.isThemeApplied) {
+      console.log('Theme already applied, skipping fetch');
+      return;
+    }
     if (!this._parent?.user?.id && !userId) {
       this.applyDefaultTheme();
       return;

@@ -42,6 +42,7 @@ import { ArtComponent } from './art/art.component';
 import { EnderComponent } from './ender/ender.component';
 import { BonesComponent } from './bones/bones.component';
 import { EmulatorComponent } from './emulator/emulator.component';
+import { EmulationComponent } from './emulation/emulation.component';
 import { YoutubeVideo } from '../services/datacontracts/youtube';
 
 
@@ -334,6 +335,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Notepad": NotepadComponent,
     "Contacts": ContactsComponent,
     "Emulator": EmulatorComponent,
+    "Emulation": EmulationComponent,
     "Array": ArrayComponent,
     "Bug-Wars": NexusComponent,
     "Meta-Bots": MetaComponent,
@@ -512,7 +514,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         "Meme",
         "Chat",
         "Wordler",
-        "Emulation",
+        "Emulator",
         "Files",
         "Crypto-Hub",
         "Favourites",
