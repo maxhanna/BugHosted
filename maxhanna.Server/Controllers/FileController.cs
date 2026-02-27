@@ -2707,12 +2707,11 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
         @"INSERT IGNORE INTO maxhanna.file_uploads 
             (user_id, file_name, upload_date, folder_path, is_public, is_folder, file_size, width, height, last_updated, last_updated_by_user_id, duration)  
           VALUES 
-            (@user_id, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder, @file_size, @width, @height, @uploadDate, @user_id, @duration); 
+            (@user_id, @fileName, UTC_TIMESTAMP(), @folderPath, @isPublic, @isFolder, @file_size, @width, @height, UTC_TIMESTAMP(), @user_id, @duration); 
           SELECT LAST_INSERT_ID();", connection);
 
         command.Parameters.AddWithValue("@user_id", userId);
-        command.Parameters.AddWithValue("@fileName", fileName);
-        command.Parameters.AddWithValue("@uploadDate", uploadDate);
+        command.Parameters.AddWithValue("@fileName", fileName); 
         command.Parameters.AddWithValue("@folderPath", uploadDirectory ?? "");
         command.Parameters.AddWithValue("@isPublic", isPublic);
         command.Parameters.AddWithValue("@width", width);
@@ -2756,6 +2755,7 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
         IsFolder = false,
         FileComments = new List<FileComment>(),
         Date = DateTime.UtcNow,
+        LastAccess = DateTime.UtcNow,
         SharedWith = string.Empty,
         FileType = Path.GetExtension(filePath).TrimStart('.'),
         FileSize = (int)new FileInfo(filePath).Length,
