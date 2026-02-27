@@ -15,6 +15,7 @@ import { FileComment } from '../../services/datacontracts/file/file-comment';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
 import { RomService } from '../../services/rom.service';
+import { RatingsService } from '../../services/ratings.service';
 
 
 @Component({
@@ -125,6 +126,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     private userService: UserService, 
     private todoService: TodoService, 
     private romService: RomService,
+    private ratingsService: RatingsService,
     private route: ActivatedRoute, 
     private sanitizer: DomSanitizer) {
     super();
@@ -1415,6 +1417,23 @@ private async loadFileByIdOnce(id: number) {
       case 'others':  return '🧑‍🤝‍🧑';
       case 'own':     return '👤';
       default:        return '❓';
+    }
+  }
+
+  async rateFile(file: FileEntry, star: number) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user ?? this.user;
+    if (!user?.id) return alert('You must be logged in to rate files.');
+    try {
+      await this.ratingsService.submitRating(user.id, star, file.id);
+      file.averageRating = file.ratingCount
+        ? ((file.averageRating ?? 0) * file.ratingCount + star) / (file.ratingCount + 1)
+        : star;
+      file.ratingCount = (file.ratingCount ?? 0) + 1;
+      this.notifyUser(`Rated ${star} star${star > 1 ? 's' : ''}!`);
+    } catch (ex) {
+      console.error(ex);
+      this.notifyUser('Failed to submit rating.');
     }
   }
 

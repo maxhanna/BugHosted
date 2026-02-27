@@ -260,11 +260,15 @@
         {{optionsFile.favouriteCount}}
       </div>
     </div>
-    <div *ngIf="displayRatings && optionsFile?.ratingCount" class="optionsStatsDiv">
+    <div *ngIf="displayRatings" class="optionsStatsDiv">
       <div class="optionsStatsHeader">Rating:</div>
       <div class="optionsStatsDescription">
-        <span *ngFor="let star of [1,2,3,4,5]" [style.color]="star <= (optionsFile.averageRating ?? 0) ? 'gold' : '#555'">&#9733;</span>
-        {{optionsFile.averageRating | number:'1.1-1'}} ({{optionsFile.ratingCount}})
+        <span *ngFor="let star of [1,2,3,4,5]"
+          class="cursorPointer"
+          [style.color]="star <= (optionsFile.averageRating ?? 0) ? 'gold' : '#555'"
+          (click)="rateFile(optionsFile, star)"
+          title="Rate {{star}} star{{star > 1 ? 's' : ''}}">&#9733;</span>
+        <span *ngIf="optionsFile.ratingCount">{{optionsFile.averageRating | number:'1.1-1'}} ({{optionsFile.ratingCount}})</span>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.fileSize !== undefined">

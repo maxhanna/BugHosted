@@ -7,6 +7,7 @@ import { CrawlerSearchResponse } from '../../services/datacontracts/crawler';
 import { DomSanitizer, Meta, SafeHtml } from '@angular/platform-browser';
 import { AppComponent } from '../app.component';
 import { User } from '../../services/datacontracts/user/user';
+import { RatingsService } from '../../services/ratings.service';
 
 @Component({
   selector: 'app-crawler',
@@ -41,7 +42,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   @Input() inputtedParentRef?: AppComponent;
   @Output() urlSelectedEvent = new EventEmitter<MetaData>();
   @Output() closeSearchEvent = new EventEmitter<void>();
-  constructor(private sanitizer: DomSanitizer, private crawlerService: CrawlerService, private favouriteService: FavouriteService) { super(); }
+  constructor(private sanitizer: DomSanitizer, private crawlerService: CrawlerService, private favouriteService: FavouriteService, private ratingsService: RatingsService) { super(); }
   ngOnInit() {
     this.crawlerService.indexCount().then(res => { if (res) { this.indexCount = parseInt(res); } });
 
@@ -338,6 +339,24 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       console.error('Failed to toggle favourite', err);
     }
   }
+  async rateSearchResult(metadata: MetaData, star: number) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const userId = parent?.user?.id;
+    if (!userId) return alert('You must be logged in to rate.');
+    if (!metadata.id) return alert('Cannot rate this result.');
+    try {
+      await this.ratingsService.submitRating(userId, star, undefined, metadata.id);
+      metadata.averageRating = metadata.ratingCount
+        ? ((metadata.averageRating ?? 0) * metadata.ratingCount + star) / (metadata.ratingCount + 1)
+        : star;
+      metadata.ratingCount = (metadata.ratingCount ?? 0) + 1;
+      parent?.showNotification(`Rated ${star} star${star > 1 ? 's' : ''}!`);
+    } catch (ex) {
+      console.error(ex);
+      parent?.showNotification('Failed to submit rating.');
+    }
+  }
+
   getHttpStatusMeaning(status: number): string {
     switch (status) {
       case 200:

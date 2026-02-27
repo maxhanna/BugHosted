@@ -53,9 +53,15 @@
                 <span class="smallFont" *ngIf="metadata.favouriteCount">[{{metadata.favouriteCount}}]</span>
               </button>
             </div>
-            <div *ngIf="metadata.ratingCount" class="descriptionDiv authorClass">
-              <span *ngFor="let star of [1,2,3,4,5]" [style.color]="star <= (metadata.averageRating ?? 0) ? 'gold' : '#555'">&#9733;</span>
-              {{metadata.averageRating | number:'1.1-1'}} ({{metadata.ratingCount}} rating{{metadata.ratingCount > 1 ? 's' : ''}})
+            <div class="descriptionDiv authorClass">
+              <span *ngFor="let star of [1,2,3,4,5]"
+                class="cursorPointer"
+                [style.color]="star <= (metadata.averageRating ?? 0) ? 'gold' : '#555'"
+                (click)="rateSearchResult(metadata, star)"
+                title="Rate {{star}} star{{star > 1 ? 's' : ''}}">&#9733;</span>
+              <span *ngIf="metadata.ratingCount">
+                {{metadata.averageRating | number:'1.1-1'}} ({{metadata.ratingCount}} rating{{metadata.ratingCount > 1 ? 's' : ''}})
+              </span>
             </div>
             <div *ngIf="metadata.description && !onlySearch" class="descriptionDiv descriptClass" [innerHTML]="getSanitizedDescription(metadata.description)"></div>
             <div *ngIf="metadata.author && !onlySearch" class="descriptionDiv authorClass" [innerHTML]="getSanitizedDescription(metadata.author)"></div>

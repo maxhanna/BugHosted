@@ -46,23 +46,25 @@ export class RatingsService {
       return (error as Error).message;
     }
   }
-  // Replace with actual backend API endpoint
-  private apiUrl = '/api/ratings';
-
-  async submitRating(userId: number, rating: number): Promise<any> {
-    // Example POST request
-    const res = await fetch(this.apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, rating })
-    });
-    return res.json();
-  }
-
-  async getRating(userId: number): Promise<number> {
-    // Example GET request
-    const res = await fetch(`${this.apiUrl}?userId=${userId}`);
-    const data = await res.json();
-    return data.rating;
+  async submitRating(userId: number, rating: number, fileId?: number, searchId?: number): Promise<any> {
+    try {
+      const res = await fetch('/ratings/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          UserId: userId,
+          RatingValue: rating,
+          FileId: fileId ?? null,
+          SearchId: searchId ?? null
+        })
+      });
+      if (!res.ok) {
+        throw new Error(`Error submitting rating: ${res.statusText}`);
+      }
+      return await res.json();
+    } catch (error) {
+      console.error('Failed to submit rating', error);
+      return null;
+    }
   }
 }
