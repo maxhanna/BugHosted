@@ -10,6 +10,7 @@ export interface CrawlerSearchRequest {
 }
 
 export type NormalizedMetaData = MetaData & {
+  id?: number;
   url: string;
   title: string;
   description: string;
@@ -19,6 +20,8 @@ export type NormalizedMetaData = MetaData & {
   httpStatus?: number | undefined;
   favouriteCount?: number | undefined;
   isUserFavourite?: boolean;
+  averageRating?: number | undefined;
+  ratingCount?: number | undefined;
 };
 
 export interface CrawlerSearchResponse {

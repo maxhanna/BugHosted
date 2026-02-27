@@ -418,10 +418,12 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
             if (rom) inputs.presetRomName = rom;
             if (id && !isNaN(Number(id))) inputs.presetRomId = Number(id);
             if (typeof skip !== 'undefined' && skip !== null) inputs.skipSaveFileRequested = (String(skip).toLowerCase() === 'true' || String(skip) === '1');
+            inputs.inputtedParentRef = this;
             this.checkAndClearRouterOutlet();
             this.angLocation.replaceState(this.router.url.split('?')[0]);
             this.createComponent('Emulator', inputs);
           } catch (e) {
+            console.log("Error parsing emulator URL parameters:", e);
             this.checkAndClearRouterOutlet();
             this.createComponent('Emulator');
           }

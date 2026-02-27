@@ -29,6 +29,7 @@ export class Story {
   visibility?: string | undefined;
 } 
 export class MetaData {
+  id?: number;
   url?: string;
   title?: string;
   description?: string;
@@ -38,4 +39,6 @@ export class MetaData {
   httpStatus?: number;
   favouriteCount?: number;
   isUserFavourite?: boolean;
+  averageRating?: number;
+  ratingCount?: number;
 }

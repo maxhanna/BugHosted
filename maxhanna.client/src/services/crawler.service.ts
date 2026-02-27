@@ -53,6 +53,7 @@ export class CrawlerService {
       const json = (await response.json()) as CrawlerSearchResponse;
       const rawResults: MetaData[] = json.Results ?? json.results ?? [];
       const normalizedResults: NormalizedMetaData[] = (rawResults ?? []).map(r => ({
+        id: r.id ?? undefined,
         url: r.url ?? '',
         title: r.title ?? '',
         description: r.description ?? '',
@@ -61,7 +62,9 @@ export class CrawlerService {
         imageUrl: r.imageUrl ?? '',
         httpStatus: r.httpStatus ?? undefined,
         favouriteCount: r.favouriteCount ?? undefined,
-        isUserFavourite: (r as any).isUserFavourite ?? false
+        isUserFavourite: (r as any).isUserFavourite ?? false,
+        averageRating: r.averageRating ?? undefined,
+        ratingCount: r.ratingCount ?? undefined
       }));
 
       json.Results = rawResults;

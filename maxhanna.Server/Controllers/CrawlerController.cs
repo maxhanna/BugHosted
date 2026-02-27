@@ -123,6 +123,7 @@ namespace maxhanna.Server.Controllers
         // Post-process
         var allResults = GetOrderedResultsForWeb(request, results);
         allResults = await AddFavouriteCountsAsync(allResults, request.UserId);
+        allResults = await AddRatingDataAsync(allResults);
 
         // 🔎 Wikipedia fallback: only if NO URL was found AND the query is a keyword.
         // "No URL found" here means no results from DB + quick scrape.
@@ -146,6 +147,7 @@ namespace maxhanna.Server.Controllers
               // Keep your normalization pipeline consistent
               wikiOnly = GetOrderedResultsForWeb(request, wikiOnly);
               wikiOnly = await AddFavouriteCountsAsync(wikiOnly, request.UserId);
+              wikiOnly = await AddRatingDataAsync(wikiOnly);
               _ = _log.Db($"Scraping Wikipedia found results. Including results in search.", null, "CRAWLERCTRL", true);
 
               return Ok(new { Results = wikiOnly, TotalResults = 1 });
@@ -891,6 +893,67 @@ private void BuildUnionSql(
       return searchResults;
     }
 
+    private async Task<List<Metadata>?> AddRatingDataAsync(List<Metadata>? searchResults)
+    {
+      if (searchResults == null || searchResults.Count == 0)
+        return searchResults;
+
+      var ids = searchResults
+          .Where(r => r.Id.HasValue && r.Id.Value > 0)
+          .Select(r => r.Id!.Value)
+          .Distinct()
+          .ToList();
+
+      if (ids.Count == 0) return searchResults;
+
+      var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+      var ratingData = new Dictionary<int, (double avg, int count)>();
+
+      using (var connection = new MySqlConnection(connectionString))
+      {
+        await connection.OpenAsync();
+
+        var parameters = new List<string>();
+        for (int i = 0; i < ids.Count; i++)
+          parameters.Add($"@sid{i}");
+        string inClause = string.Join(",", parameters);
+
+        string query = $@"
+          SELECT search_id, AVG(rating) AS avg_rating, COUNT(*) AS rating_count
+          FROM ratings
+          WHERE search_id IN ({inClause})
+          GROUP BY search_id;";
+
+        using (var command = new MySqlCommand(query, connection))
+        {
+          for (int i = 0; i < ids.Count; i++)
+            command.Parameters.AddWithValue($"@sid{i}", ids[i]);
+
+          using (var reader = await command.ExecuteReaderAsync())
+          {
+            while (await reader.ReadAsync())
+            {
+              int searchId = reader.GetInt32("search_id");
+              double avg = reader.IsDBNull(reader.GetOrdinal("avg_rating")) ? 0 : reader.GetDouble("avg_rating");
+              int count = reader.IsDBNull(reader.GetOrdinal("rating_count")) ? 0 : reader.GetInt32("rating_count");
+              ratingData[searchId] = (avg, count);
+            }
+          }
+        }
+      }
+
+      foreach (var result in searchResults)
+      {
+        if (result.Id.HasValue && ratingData.TryGetValue(result.Id.Value, out var data))
+        {
+          result.AverageRating = data.avg;
+          result.RatingCount = data.count;
+        }
+      }
+
+      return searchResults;
+    }
+
     private async Task<List<Metadata>> ExecuteResultsAsync(
         string connectionString, string sql, Action<MySqlCommand> paramizer, CancellationToken ct)
     {
@@ -905,6 +968,7 @@ private void BuildUnionSql(
       {
         list.Add(new Metadata
         {
+          Id = reader.IsDBNull(reader.GetOrdinal("id")) ? null : reader.GetInt32("id"),
           Url = reader.IsDBNull(reader.GetOrdinal("url")) ? null : reader.GetString("url"),
           Title = reader.IsDBNull(reader.GetOrdinal("title")) ? null : reader.GetString("title"),
           Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description"),

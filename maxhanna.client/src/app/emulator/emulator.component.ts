@@ -5,6 +5,7 @@ import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { RomService } from '../../services/rom.service';
 import { FileService } from '../../services/file.service';
 import { FileSearchComponent } from '../file-search/file-search.component';
+import { AppComponent } from '../app.component';
 
 @Component({
   selector: 'app-emulator',
@@ -18,30 +19,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   @Input() presetRomName?: string;
   @Input() presetRomId?: number | undefined;
   @Input() skipSaveFileRequested = false;
-
-
-  private static readonly L_FACE_CROSS = 0;
-  private static readonly L_FACE_CIRCLE = 1;
-  private static readonly L_FACE_SQUARE = 2;
-  private static readonly L_FACE_TRIANGLE = 3;
-  private static readonly L_L1 = 4;
-  private static readonly L_R1 = 5;
-  private static readonly L_L2 = 6;
-  private static readonly L_R2 = 7;
-  private static readonly L_SELECT = 8;
-  private static readonly L_START = 9;
-  private static readonly L_DPAD_UP = 12;
-  private static readonly L_DPAD_DOWN = 13;
-  private static readonly L_DPAD_LEFT = 14;
-  private static readonly L_DPAD_RIGHT = 15;
-  private static readonly L_LS_X_POS = 16;
-  private static readonly L_LS_X_NEG = 17;
-  private static readonly L_LS_Y_POS = 18;
-  private static readonly L_LS_Y_NEG = 19;
-  private static readonly L_RS_X_POS = 20;
-  private static readonly L_RS_X_NEG = 21;
-  private static readonly L_RS_Y_POS = 22;
-  private static readonly L_RS_Y_NEG = 23;
+  @Input() inputtedParentRef?: AppComponent;
 
   isMenuPanelOpen = false;
   isFullScreen = false;
@@ -190,6 +168,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     private cdr: ChangeDetectorRef
   ) {
     super();
+    if (this.inputtedParentRef) {
+      this.parentRef = this.inputtedParentRef;
+    }
   }
 
   ngOnInit(): void {
@@ -826,7 +807,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private async onSaveState(raw: any) {
     if (this._exiting) { return; }
     const tmpStatus = this.status;
-    this.status = 'Saving State. Please wait... (as change might corrupt save data)';
+    this.status = 'Saving State. Please wait...';
 
     if (this._captureSaveResolve) {
       try {
