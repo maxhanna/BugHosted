@@ -2249,11 +2249,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private displayRomUploadOrDownloadProgress(total: number, loaded: number, saving?: boolean) {
-    const pct = total > 0 ? Math.round((loaded / total) * 100) : undefined;
+    const pct = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : undefined;
     const loadedMb = (loaded / 1024 / 1024);
-    const totalMb = total && total !== loaded ? (total / 1024 / 1024) : undefined;
+    const totalMb = total > 0 ? (total / 1024 / 1024) : undefined;
     const msg = saving ? 'Uploading Save' : 'Downloading ROM';
-    if (totalMb) {
+    if (totalMb !== undefined && pct !== undefined) {
       this.status = `${msg} - ${loadedMb.toFixed(2)} / ${totalMb.toFixed(2)} MB (${pct}%)`;
     } else {
       this.status = `${msg} - ${loadedMb.toFixed(2)} MB`;

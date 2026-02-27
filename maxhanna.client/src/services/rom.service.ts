@@ -453,7 +453,7 @@ export class RomService {
     // If a progress callback was supplied, use XMLHttpRequest which exposes
     // upload progress events.  fetch() does not support upload progress.
     if (onProgress) {
-      return this.uploadWithXhr(form, onProgress);
+      return this.uploadWithXhr(form, onProgress, ab.byteLength);
     }
 
     try {
@@ -505,16 +505,16 @@ export class RomService {
   /** Upload FormData via XMLHttpRequest so we can track upload progress. */
   private uploadWithXhr(
     form: FormData,
-    onProgress: (loaded: number, total: number) => void
+    onProgress: (loaded: number, total: number) => void,
+    knownTotal: number = 0
   ): Promise<SaveUploadResponse> {
     return new Promise<SaveUploadResponse>((resolve) => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/rom/saveemulatorjsstate');
 
       xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-          onProgress(e.loaded, e.total);
-        }
+        const total = e.lengthComputable ? e.total : knownTotal;
+        onProgress(e.loaded, total || e.loaded);
       });
 
       xhr.addEventListener('load', () => {
