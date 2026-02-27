@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { UserService } from '../../services/user.service';
 import { WeatherService } from '../../services/weather.service';
@@ -34,7 +34,7 @@ import { RomService } from '../../services/rom.service';
   styleUrl: './user.component.css',
   standalone: false
 })
-export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
+export class UserComponent extends ChildComponent implements OnInit, AfterViewInit, OnDestroy {
   @Input() user?: User | undefined;
   @Input() userId: number | null = null;
   @Input() storyId: number | undefined = undefined;
@@ -152,28 +152,13 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef
   ) {
     super();
-    setTimeout(() => {
-      this.removeBorderOnSocial();
-    }, 50);
-    setTimeout(() => {
-      this.removeBorderOnSocial();
-    }, 500);
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.setViewportScalability(false);
-  }
-
-  onLoginUsernameInput(event: Event) {
-    try {
-      const val = (event.target as HTMLInputElement).value;
-      this.loginUsernameValue = val ?? '';
-    } catch (e) { this.loginUsernameValue = ''; }
-    this.cdr.detectChanges();
   }
 
   async ngOnInit() {
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
-    }
+    } 
+    this.parentRef?.setViewportScalability(false);
     this.startLoading();
     try {
       if (this.userId) {
@@ -240,6 +225,22 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         }
       } catch (e) { }
     }, 120);
+  }
+
+  ngAfterViewInit() { 
+    setTimeout(() => {
+      this.removeBorderOnSocial();
+    }, 50);
+    setTimeout(() => {
+      this.removeBorderOnSocial();
+    }, 500);
+  }
+  onLoginUsernameInput(event: Event) {
+    try {
+      const val = (event.target as HTMLInputElement).value;
+      this.loginUsernameValue = val ?? '';
+    } catch (e) { this.loginUsernameValue = ''; }
+    this.cdr.detectChanges();
   }
 
   private async loadExtraCounts() {
