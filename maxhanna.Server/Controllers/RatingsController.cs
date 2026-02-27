@@ -1,4 +1,3 @@
-using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 
@@ -6,12 +5,12 @@ namespace maxhanna.Server.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class RatingController : ControllerBase
+    public class RatingsController : ControllerBase
     {
         private readonly IConfiguration _config;
         private readonly Log _log;
 
-        public RatingController(Log log, IConfiguration config)
+        public RatingsController(Log log, IConfiguration config)
         {
             _log = log;
             _config = config;
