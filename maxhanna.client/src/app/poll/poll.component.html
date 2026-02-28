@@ -1,11 +1,11 @@
 <div class="poll-wrapper" *ngIf="pollData">
   <div class="poll-container">
-    <div class="poll-question">{{pollData?.question}}</div>
+    <div class="poll-question">{{pollData.question}}</div>
     <div class="poll-options">
-      <div class="poll-option" *ngFor="let opt of pollData?.options; let i = index">
+      <div class="poll-option" *ngFor="let opt of pollData.options; let i = index">
         <div class="poll-option-interactive">
-          <input type="checkbox" [id]="'poll-option-' + pollData?.pollId + '-' + i" [name]="'poll-options-' + pollData?.pollId" (click)="vote(opt, i)">
-          <label [for]="'poll-option-' + pollData?.pollId + '-' + i" (click)="vote(opt, i)">{{opt}}</label>
+          <input type="checkbox" [id]="'poll-option-' + pollData.pollId + '-' + i" [name]="'poll-options-' + pollData.pollId" (click)="vote(opt, i)">
+          <label [for]="'poll-option-' + pollData.pollId + '-' + i" (click)="vote(opt, i)">{{opt}}</label>
         </div>
       </div>
     </div>
