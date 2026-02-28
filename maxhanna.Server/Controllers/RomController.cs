@@ -870,7 +870,11 @@ ON DUPLICATE KEY UPDATE
           bytes = ms.ToArray();
         }
 
-        // 3) UPSERT into MySQL — plain byte[] value, no Prepare() needed
+        // 3) UPSERT into MySQL
+        //    PrepareAsync() switches MySqlConnector to the binary protocol,
+        //    which sends LONGBLOB bytes raw instead of hex-encoding them.
+        //    For a 16 MB N64 save this roughly halves the data on the wire
+        //    and can cut save time from 50s+ down to a few seconds.
         using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
         await conn.OpenAsync(CancellationToken.None);
 
@@ -888,12 +892,30 @@ ON DUPLICATE KEY UPDATE
         cmd.Parameters.Add("@UserId",    MySqlDbType.Int32).Value    = userId;
         cmd.Parameters.Add("@RomName",   MySqlDbType.VarChar).Value  = romName;
         cmd.Parameters.Add("@StateData", MySqlDbType.LongBlob).Value = bytes;
-        cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value     = bytes.Length;
+        cmd.Parameters.Add("@FileSize",  MySqlDbType.Int32).Value    = bytes.Length;
 
+        await cmd.PrepareAsync(CancellationToken.None);
         await cmd.ExecuteNonQueryAsync(CancellationToken.None);
 
-        // Record play-time (accumulates seconds since last checkpoint)
-        _ = RecordRomPlayTimeAsync(userId, romName);
+        // 4) Record play-time on the same open connection (avoids second connection round-trip)
+        try
+        {
+          const string ptSql = @"UPDATE maxhanna.emulation_play_time 
+            SET duration_seconds = duration_seconds 
+                  + TIMESTAMPDIFF(SECOND, 
+                      GREATEST(start_time, COALESCE(save_time, start_time)), 
+                      UTC_TIMESTAMP()),
+                save_time = UTC_TIMESTAMP()
+            WHERE user_id = @ptUser AND rom_file_name = @ptRom LIMIT 1;";
+          using var ptCmd = new MySqlCommand(ptSql, conn);
+          ptCmd.Parameters.AddWithValue("@ptUser", userId);
+          ptCmd.Parameters.AddWithValue("@ptRom", romName);
+          await ptCmd.ExecuteNonQueryAsync(CancellationToken.None);
+        }
+        catch (Exception ptEx)
+        {
+          _ = _log.Db($"Error recording play-time: {ptEx.Message}", userId, "ROM", true);
+        }
 
         _ = _log.Db($"EJS save OK: user={userId} rom={romName} size={bytes.Length} ms={swAll.ElapsedMilliseconds}", userId, "ROM", true);
 
