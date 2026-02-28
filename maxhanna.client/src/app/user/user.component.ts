@@ -318,6 +318,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   }
 
   closeEmulationBreakdownPopup() {
+    this.parentRef?.closeOverlay();
     this.isEmulationBreakdownOpen = false;
   }
 

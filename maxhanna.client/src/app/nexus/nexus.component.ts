@@ -20,10 +20,10 @@ import { NexusBasesComponent } from '../nexus-bases/nexus-bases.component';
 import { NexusReportsComponent } from '../nexus-reports/nexus-reports.component';
 
 @Component({
-    selector: 'app-nexus',
-    templateUrl: './nexus.component.html',
-    styleUrl: './nexus.component.css',
-    standalone: false
+  selector: 'app-nexus',
+  templateUrl: './nexus.component.html',
+  styleUrl: './nexus.component.css',
+  standalone: false
 })
 export class NexusComponent extends ChildComponent implements OnInit, OnDestroy {
   @Input() centerMapCoords?: { x: number; y: number };
@@ -206,12 +206,12 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     super();
   }
 
-  async ngOnInit() { 
+  async ngOnInit() {
     this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
     this.isUserNew = true;
     this.isUserComponentOpen = (!this.parentRef?.user || this.parentRef.user.id == 0);
     this.warehouseUpgradeLevels = Array.from({ length: 10 }, (_, i) => i + 1);
-    this.nexusService.getEpochRankings().then(res => { if (res) {this.epochRankings = res;}});
+    this.nexusService.getEpochRankings().then(res => { if (res) { this.epochRankings = res; } });
 
     const sessionToken = await this.parentRef?.getSessionToken() ?? "";
     this.loadPictureSrcs(sessionToken);
@@ -219,23 +219,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.playerColors = res;
       if (res[this.parentRef?.user?.id ?? 0]) {
         this.playerColor = res[this.parentRef?.user?.id ?? 0];
-      } 
+      }
     });
     this.loadNexusData();
-
-    // If opened with centerMapCoords, center the map on those coordinates after init
-    if (this.centerMapCoords) {
-      this.nexusBase = { coordsX: this.centerMapCoords.x, coordsY: this.centerMapCoords.y } as NexusBase;
-      this.preventMapScrolling = true;
-      setTimeout(() => {
-        this.toggleScreen('map', true);
-        setTimeout(() => {
-          this.mapComponent?.scrollToCoordinates(this.centerMapCoords!.x, this.centerMapCoords!.y);
-          this.mapComponent?.selectCoordinates(this.centerMapCoords!.x, this.centerMapCoords!.y);
-          this.preventMapScrolling = false;
-        }, 300);
-      }, 150);
-    }
   }
 
   ngOnDestroy() {
@@ -293,6 +279,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
             this.fixMinesSmoke();
             this.isUserNew = false;
             this.isUserComponentOpen = false;
+            this.goToCenteredMapCoordinates();
           }
 
           this.startLoadMapCounter();
@@ -310,8 +297,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     return this.nexusAvailableUnits;
   }
 
-  private startLoadCounter(flag: boolean, durationInMinutes: number, counterType: 'Map' | 'BaseUnits'): void { 
-    if (!flag && !this[`load${counterType}Counter`]) { 
+  private startLoadCounter(flag: boolean, durationInMinutes: number, counterType: 'Map' | 'BaseUnits'): void {
+    if (!flag && !this[`load${counterType}Counter`]) {
       this[`load${counterType}Counter`] = setInterval(() => {
         this[`shouldLoad${counterType}`] = true;
       }, durationInMinutes * 60 * 1000);
@@ -412,19 +399,19 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.nexusAvailableUnits = this.nexusUnits && this.hasAnyUnits(this.nexusUnits) ? { ...this.nexusUnits } : undefined;
 
     const utcNow = new Date().getTime();
-    const uniqueAttacks = new Set<number>(); 
-    this.nexusAttacksSent?.filter(attack => (attack.originCoordsX === this.nexusBase?.coordsX && attack.originCoordsY === this.nexusBase.coordsY)).forEach((attack, index) => { 
+    const uniqueAttacks = new Set<number>();
+    this.nexusAttacksSent?.filter(attack => (attack.originCoordsX === this.nexusBase?.coordsX && attack.originCoordsY === this.nexusBase.coordsY)).forEach((attack, index) => {
       this.adjustUnitTotals(this.nexusAvailableUnits!, attack);
       this.addUnitTotals(this.nexusUnitsOutsideOfBase!, attack);
 
-      if (!this.isMapOpen) { 
+      if (!this.isMapOpen) {
         const startTime = new Date(attack.timestamp).getTime();
         const elapsedTimeInSeconds = Math.floor((utcNow - startTime) / 1000);
         const remainingTimeInSeconds = attack.duration - elapsedTimeInSeconds;
         const coordsMatchOwnBase = (attack.destinationCoordsX === this.nexusBase?.coordsX && attack.destinationCoordsY === this.nexusBase?.coordsY);
         const salt = `${index + 1}. ${coordsMatchOwnBase ? "Returning" : "Attacking"} ${!coordsMatchOwnBase ? `{${attack.destinationCoordsX},${attack.destinationCoordsY}} ${this.getBaseNameForCoords(attack.destinationCoordsX, attack.destinationCoordsY)}` : ''}`;
 
-        if (previousAttackTimers[salt]) { 
+        if (previousAttackTimers[salt]) {
           const existingTimer = previousAttackTimers[salt];
           if (existingTimer.endTime !== remainingTimeInSeconds) {
             existingTimer.endTime = remainingTimeInSeconds;
@@ -434,10 +421,10 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           uniqueAttacks.add(attack.id);
           this.startAttackTimer(salt, remainingTimeInSeconds, attack);
         }
-      } 
+      }
     });
 
-    this.attacksIncomingCount = 0; 
+    this.attacksIncomingCount = 0;
     this.nexusAttacksIncoming?.forEach(attack => {
       if (!(attack.originCoordsX == attack.destinationCoordsX && attack.originCoordsY == attack.destinationCoordsY)) {
         this.attacksIncomingCount++;
@@ -445,7 +432,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       if (attack.originCoordsX === this.nexusBase?.coordsX && attack.originCoordsY === this.nexusBase.coordsY) {
         this.adjustUnitTotals(this.nexusAvailableUnits!, attack);
       } else if (attack.originCoordsX !== attack.destinationCoordsX || attack.originCoordsY !== attack.destinationCoordsY) {
-        if (!this.isMapOpen) {  
+        if (!this.isMapOpen) {
           if ((attack.destinationCoordsX === this.nexusBase?.coordsX && attack.destinationCoordsY === this.nexusBase?.coordsY)) {
             const startTime = new Date(attack.timestamp).getTime();
             const elapsedTimeInSeconds = Math.floor((utcNow - startTime) / 1000);
@@ -459,7 +446,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
               }
               delete previousAttackTimers[salt];
             } else if (!uniqueAttacks.has(attack.id)) {
-              uniqueAttacks.add(attack.id); 
+              uniqueAttacks.add(attack.id);
               this.startDefenceTimer(salt, remainingTimeInSeconds, attack);
             }
           }
@@ -468,7 +455,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     });
 
     let defenceCount = 0;
-    this.defencesIncomingCount = 0; 
+    this.defencesIncomingCount = 0;
     this.nexusDefencesIncoming?.forEach(defence => {
 
       if (!defence.arrived && !(defence.originCoordsX == defence.destinationCoordsX && defence.originCoordsY == defence.destinationCoordsY)) {
@@ -500,7 +487,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       }
     });
 
-    defenceCount = 0; 
+    defenceCount = 0;
     this.nexusDefencesSent?.forEach(defence => {
       if (defence.originCoordsX === this.nexusBase?.coordsX && defence.originCoordsY === this.nexusBase?.coordsY) {
         if (this.nexusAvailableUnits) {
@@ -549,7 +536,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.cleanupUnits();
   }
 
-  clearTimer(timer: NexusTimer) { 
+  clearTimer(timer: NexusTimer) {
     clearTimeout(timer.timeout);
     clearInterval(timer.interval);
   }
@@ -591,13 +578,13 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       const base = this.currentPersonalBases[index];
 
       if (base.user?.id === userId) {
-        if (withUnits) { 
+        if (withUnits) {
           const baseUnits = this.allNexusUnits?.find(x => x.coordsX == base.coordsX && x.coordsY == base.coordsY);
           if (baseUnits && this.hasAnyUnits(baseUnits)) {
             nextBase = base;
             break;
           }
-        } else { 
+        } else {
           nextBase = base;
           break;
         }
@@ -607,9 +594,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (nextBase) {
       this.nexusBase = nextBase;
       this.nexusUnits = undefined;
-      let units = await this.loadNexusData(); 
+      let units = await this.loadNexusData();
       let maxAttempts = this.currentPersonalBases.length;
-      while (withUnits && (!units || !this.hasAnyUnits(units)) && !singleThread) { 
+      while (withUnits && (!units || !this.hasAnyUnits(units)) && !singleThread) {
         await this.navigateBase(forward, withUnits, true);
         units = await this.loadNexusData();
         maxAttempts--;
@@ -617,8 +604,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           this.parentRef?.showNotification("No bases found with units.");
           break;
         }
-      } 
-    } 
+      }
+    }
   }
 
 
@@ -729,7 +716,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     return;
   }
 
-  private async getUnitStats(force?: boolean) { 
+  private async getUnitStats(force?: boolean) {
     if (!this.units) {
       this.units = await this.nexusService.getUnitStats();
       this.glitcherStats = this.units?.find(x => x.unitType == "glitcher") ?? new UnitStats();
@@ -789,7 +776,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     });
   }
 
-  private async updateUnitResearchTimers() { 
+  private async updateUnitResearchTimers() {
     if (!this.unitUpgradeStats) {
       const unitUpgradeStatsRes = await this.nexusService.getUnitUpgradeStats();
       if (unitUpgradeStatsRes) {
@@ -890,7 +877,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
             const buildingMap: any = {
               command_center: () => this.nexusBase!.commandCenterLevel++,
               engineering_bay: () => this.nexusBase!.engineeringBayLevel++,
-              mines: () => { 
+              mines: () => {
                 this.nexusBase!.minesLevel++;
                 this.getMiningSpeedsAndSetMiningSpeed();
                 this.startGoldIncrement();
@@ -943,7 +930,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     // Return if the timer already exists or time is invalid
     if (timerMap[key] || time <= 0 || isNaN(time)) {
       return;
-    } 
+    }
     const endTime = Math.max(1, Math.floor(time));
 
     // Define the timer object
@@ -1146,7 +1133,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       }
 
       this.startLoading();
-      this.reinitializeByType("nexusBaseUpgrades"); 
+      this.reinitializeByType("nexusBaseUpgrades");
       switch (upgrade) {
         case 'mines':
           this.nexusBaseUpgrades!.minesUpgraded = new Date();
@@ -1203,10 +1190,10 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
   }
 
-  private isUpgradeAffordable(upgradeCost: number, upgrade: string): boolean { 
-    if (this.nexusBase && (this.nexusBase.gold - upgradeCost) >= 0) { 
+  private isUpgradeAffordable(upgradeCost: number, upgrade: string): boolean {
+    if (this.nexusBase && (this.nexusBase.gold - upgradeCost) >= 0) {
       return true;
-    } else { 
+    } else {
       this.addNotification(`{${this.nexusBase?.coordsX},${this.nexusBase?.coordsY}} Not enough gold to upgrade ${upgrade}`);
       return false;
     }
@@ -1360,9 +1347,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
   activeAttackTimers(): { unit: string; endTime: number; object: object }[] {
     const activeTimers: { unit: string; endTime: number; object: object }[] = [];
-     
+
     const at = Object.entries(this.attackTimers).filter(([key, value]) => {
-      const attack = value.object as NexusAttackSent; 
+      const attack = value.object as NexusAttackSent;
       return attack.originCoordsX === this.nexusBase?.coordsX && attack.originCoordsY === this.nexusBase?.coordsY;
     });
 
@@ -1377,9 +1364,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   activeDefenceTimers(): { unit: string; endTime: number; object: object }[] {
     const activeTimers: { unit: string; endTime: number; object: object }[] = [];
     this.defenceTimers = Object.fromEntries(Object.entries(this.defenceTimers).sort(([, a], [, b]) => a.endTime - b.endTime));
-     
+
     const at = Object.entries(this.defenceTimers).filter(([key, value]) => {
-      const attack = value.object as NexusAttackSent; 
+      const attack = value.object as NexusAttackSent;
       return (attack.originCoordsX == this.nexusBase?.coordsX && attack.originCoordsY === this.nexusBase?.coordsY) || (attack.destinationCoordsX === this.nexusBase?.coordsX && attack.destinationCoordsY === this.nexusBase?.coordsY);
     });
 
@@ -1403,7 +1390,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       } else {
         this.isUserNew = false
       }
-    }); 
+    });
   }
   openCommandCenter() {
     this.toggleScreen('', false);
@@ -1654,7 +1641,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.startLoading();
     try {
       if (this.isMapOpen && !isOpen) {
-        this.loadNexusData(); 
+        this.loadNexusData();
       }
       this.isMinesOpen = false;
       this.isCommandCenterOpen = false;
@@ -1682,7 +1669,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           this.isMovementOpen = isOpen != undefined ? isOpen : !this.isMovementOpen;
         }, 50);
       }
-      else if (screen == "map") { 
+      else if (screen == "map") {
         this.hideBaseNavForMap = false;
         this.mapComponent?.resetComponentMainWidth();
         setTimeout(() => {
@@ -1699,14 +1686,14 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
                       }
                     }, 10)
                   }
-                }, 50); 
+                }, 50);
               })
             }
             else if (this.mapData && isOpen && !this.mapComponent?.isMapRendered) {
               this.mapComponent?.setMapData();
               setTimeout(() => {
                 if (this.nexusBase && !this.preventMapScrolling && this.mapComponent) {
-                  this.mapComponent.scrollToCoordinates(this.nexusBase.coordsX, this.nexusBase.coordsY); 
+                  this.mapComponent.scrollToCoordinates(this.nexusBase.coordsX, this.nexusBase.coordsY);
                 }
               }, 10);
             }
@@ -1720,7 +1707,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           this.fetchMapData();
         }
         setTimeout(() => {
-          this.isBasesOpen = isOpen != undefined ? isOpen : !this.isBasesOpen; 
+          this.isBasesOpen = isOpen != undefined ? isOpen : !this.isBasesOpen;
         }, 50);
       }
       else if (screen == "support") {
@@ -1728,11 +1715,11 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           this.isSupportOpen = isOpen != undefined ? isOpen : !this.isSupportOpen;
           if (!this.isSupportOpen) {
             this.isBasesOpen = true;
-          } 
+          }
         });
-      } 
+      }
     } catch (ex) {
-      this.addNotification((ex as Error).message); 
+      this.addNotification((ex as Error).message);
     }
 
     this.stopLoading();
@@ -1749,9 +1736,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
   }
   getGlitcherStats() {
-    if (this.units) { 
+    if (this.units) {
       let stats = this.units.find(x => x.unitType == "glitcher");
-      if (stats) { 
+      if (stats) {
         stats.cost = this.numberOfPersonalBases * stats.cost;
         this.numberOfPersonalBases
         return stats;
@@ -1764,7 +1751,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       let notifList = this.parentRef?.notifications;
       if (notifList) {
         let index = notifList.findIndex(x => x.toLowerCase().includes("attack sent to"));
-        if (index !== -1) { 
+        if (index !== -1) {
           notifList[index] = notif;
         } else {
           this.parentRef?.showNotification(notif);
@@ -1776,7 +1763,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       }
     }
   }
-  
+
   toggleUnitScreenFromBaseUnits(unit: string) {
     if (!this.units) return;
     const unitStat = this.units.find(x => x.unitType == unit);
@@ -1834,7 +1821,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       && this.nexusBase) ? true : false;
   }
   shouldShowResources(): boolean {
-    return (!this.isReportsOpen && !this.isMapOpen && !this.isBasesOpen 
+    return (!this.isReportsOpen && !this.isMapOpen && !this.isBasesOpen
       && !this.isSupportOpen && !this.showMoreWarehouseInfo && !this.showMoreFactoryInfo
       && !this.showMoreStarportInfo && !this.showMoreEngineeringBayInfo && !this.isUserNew && !this.isMovementOpen && this.nexusBase) ? true : false;
   }
@@ -1958,7 +1945,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
     try {
       if (attackPayload.switchBase && this.numberOfPersonalBases > 1 && this.nexusAvailableUnits) {
-        this.adjustUnitsFromAttackSent(attackPayload.attack); 
+        this.adjustUnitsFromAttackSent(attackPayload.attack);
         await this.nextBaseWithUnits();
       } else {
         await this.loadNexusData();
@@ -1990,12 +1977,12 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.mapData = this.mapData.map(base => {
         const upgradedBase = res[0].find(upgrade =>
           upgrade.coordsX === base.coordsX && upgrade.coordsY === base.coordsY
-        ); 
+        );
         return upgradedBase ? upgradedBase : base;
       });
       this.currentPersonalBases = this.mapData.filter(x => x.user?.id === this.parentRef?.user?.id);
     }
-    this.nexusBasesComponent.getCurrentBases(); 
+    this.nexusBasesComponent.getCurrentBases();
     this.addNotification(`${res[1]} in ${res[0].length} bases!`);
   }
   async emittedSendBackAttackEvent(attack: object) {
@@ -2127,7 +2114,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       }
       this.playerColor = playerColor;
       this.playerColors[this.parentRef?.user?.id ?? 0] = this.playerColor;
-    } 
+    }
   }
   async fetchMapData() {
     if (!this.mapData || this.numberOfPersonalBases == 0 || this.shouldLoadMap) {
@@ -2147,7 +2134,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
   }
   emittedOpenUserSearch() {
-    this.isUserSearchOpen = true; 
+    this.isUserSearchOpen = true;
     this.parentRef?.showOverlay();
 
     setTimeout(() => {
@@ -2161,8 +2148,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.hideBaseNavForMap = true;
   }
   closeUserSearchOverlay() {
-    this.isUserSearchOpen = false; 
-    this.parentRef?.closeOverlay(); 
+    this.isUserSearchOpen = false;
+    this.parentRef?.closeOverlay();
   }
   searchReports($event?: User) {
     if ($event) {
@@ -2188,7 +2175,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
   groupByEpoch(data: any) {
     const epochSize = 1;
-    return data.reduce((acc:any, item:any) => {
+    return data.reduce((acc: any, item: any) => {
       // Assuming each item has a timestamp property
       const epoch = Math.floor(item.timestamp / epochSize) * epochSize;
       if (!acc[epoch]) {
@@ -2198,6 +2185,18 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       return acc;
     }, {});
   }
+
+  private goToCenteredMapCoordinates() {
+    if (this.centerMapCoords) {
+      this.toggleScreen('map', true);
+      setTimeout(() => {
+        this.mapComponent?.scrollToCoordinates(this.centerMapCoords!.x, this.centerMapCoords!.y);
+        this.mapComponent?.selectCoordinates(this.centerMapCoords!.x, this.centerMapCoords!.y);
+        this.centerMapCoords = undefined;
+      }, 300);
+    }
+  }
+
   getUsersWithSingleRecentBase(mapData: NexusBase[]): number[] {
     const now = new Date();
     const threeDaysAgo = new Date(now.getTime() - (3 * 24 * 60 * 60 * 1000));
