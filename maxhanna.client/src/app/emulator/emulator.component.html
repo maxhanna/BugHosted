@@ -9,7 +9,7 @@
   </div>
 
   <!-- ROM File Selector -->
-  <div class="gamesContainer{{ !romName ? ' expanded' : '' }}" *ngIf="isSearchVisible">
+  <div class="gamesContainer{{ !romName ? ' expanded' : '' }}" *ngIf="isSearchVisible && parentRef">
     <app-file-search [user]="parentRef?.user" 
       [inputtedParentRef]="parentRef" 
       [currentDirectory]="'Roms/'"
