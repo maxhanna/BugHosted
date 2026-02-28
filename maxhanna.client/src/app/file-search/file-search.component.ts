@@ -876,8 +876,10 @@ private async loadFileByIdOnce(id: number) {
     try {
       const res: any = await this.fileService.toggleFavourite(user.id, optionsFile.id);
       if (res) {
+        const added = res.action === "added";
+        let currentCount = optionsFile.favouriteCount ?? 0;
         // server returns updated favourite count and whether user favourited
-        optionsFile.favouriteCount = res.favouriteCount ?? optionsFile.favouriteCount ?? 0;
+        optionsFile.favouriteCount = added ? (currentCount + 1) : Math.max(0, currentCount - 1);
         optionsFile.isFavourited = res.isFavourited ?? !optionsFile.isFavourited;
         // Also update the same file object in the current directory list so the UI updates
         if (this.directory?.data && Array.isArray(this.directory.data)) {
