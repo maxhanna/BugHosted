@@ -2566,7 +2566,7 @@ namespace maxhanna.Server.Controllers
           return Ok(theme);
         }
 
-        return NotFound(new { message = "No theme found for the user." });
+        return NoContent();
       }
       catch (Exception ex)
       {

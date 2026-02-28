@@ -369,6 +369,10 @@ export class RomService {
     // If the filename contains common PlayStation cues (CUE for bin/cue pair)
     if (name.endsWith('.cue') || name.includes('.cue') || name.includes('cue')) {
       return 'ps1';
+    } 
+    // If the filename contains common PlayStation cues (CUE for bin/cue pair)
+    if (name.endsWith('.sfc') || name.includes('.sfc') || name.includes('sfc')) {
+      return 'snes';
     }
 
     // Default: assume PlayStation (PSX) for generic .bin files
