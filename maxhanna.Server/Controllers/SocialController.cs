@@ -149,7 +149,7 @@ namespace maxhanna.Server.Controllers
 										OR s.story_text LIKE CONCAT('%', @searchTerm, '%')
 						OR s.city LIKE CONCAT('%', @searchTerm, '%')
 						OR s.country LIKE CONCAT('%', @searchTerm, '%')
-						OR username LIKE CONCAT('%', @searchTerm, '%')
+						OR u.username LIKE CONCAT('%', @searchTerm, '%')
 					) "
         );
         parameters.Add("@searchTerm", search);
@@ -246,7 +246,7 @@ namespace maxhanna.Server.Controllers
 				SELECT 
 					s.id AS story_id, 
 					u.id AS user_id, 
-							u.username as username, 
+          u.username as username, 
           udp.file_id AS displayPictureFileId,
           udpfu.folder_path AS displayPictureFileFolderPath,
           udpfu.file_name AS displayPictureFileFileName,
