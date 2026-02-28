@@ -63,7 +63,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   arrayUserRank: { rank?: number | null, level?: number | null, totalPlayers?: number | null } | null = null;
   private arrayInterval: any;
   // Emulation stats
-  emulationActivePlayers: number | null = null;
+  emulatorActivePlayers: number | null = null;
   private emulationInterval: any;
   // N64Emulation stats
   emulationN64ActivePlayers: number | null = null;
@@ -76,12 +76,17 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private artInterval: any;
   // Crawler stats
   crawlerIndexCount: number | null = null;
-  private crawlerInterval: any;
-
+  private crawlerInterval: any; 
   private notificationInfoInterval: any;
   private cryptoHubInterval: any;
   private calendarInfoInterval: any;
   private wordlerInfoInterval: any;
+  private time20Secs = 20 * 1000;
+  private time60Secs = 60 * 1000;
+  private time5Mins = 5 * 60 * 1000;
+  private time20Mins = 20 * 60 * 1000;
+  private time60Mins = 60 * 60 * 1000;
+
   tradeNotifsCount = 0;
   navbarReady = false;
   navbarCollapsed: boolean = false;
@@ -191,7 +196,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       Promise.resolve(this.getMetaPlayerInfo()),
       Promise.resolve(this.getMusicInfo()),
       Promise.resolve(this.getArrayPlayerInfo()),
-      Promise.resolve(this.getEmulationPlayerInfo()),
+      Promise.resolve(this.getEmulatorPlayerInfo()),
       Promise.resolve(this.getSocialInfo()),
       Promise.resolve(this.getArtInfo()),
       Promise.resolve(this.getCrawlerInfo()),
@@ -220,20 +225,20 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
 
     // Schedule recurring tasks using scheduler that accounts for elapsed pause time
-    this.scheduleRecurring('notificationInfo', () => { if (this._parent.notificationsActive) this.getNotificationInfo(); }, 20 * 1000);
-    this.scheduleRecurring('cryptoHub', () => { if (this._parent.notificationsActive) this.getCryptoHubInfo(); }, 20 * 60 * 1000);
-    this.scheduleRecurring('calendarInfo', () => { if (this._parent.notificationsActive) this.getCalendarInfo(); }, 20 * 60 * 1000);
-    this.scheduleRecurring('wordler', () => { if (this._parent.notificationsActive) this.getWordlerStreakInfo(); }, 60 * 60 * 1000);
-    this.scheduleRecurring('ender', () => { if (this._parent.notificationsActive) this.getEnderPlayerInfo(); }, 60 * 1000);
-    this.scheduleRecurring('bones', () => { if (this._parent.notificationsActive) this.getBonesPlayerInfo(); }, 60 * 1000);
-    this.scheduleRecurring('nexus', () => { if (this._parent.notificationsActive) this.getNexusPlayerInfo(); }, 60 * 1000);
-    this.scheduleRecurring('meta', () => { if (this._parent.notificationsActive) this.getMetaPlayerInfo(); }, 60 * 1000);
-    this.scheduleRecurring('music', () => { if (this._parent.notificationsActive) this.getMusicInfo(); }, 60 * 60 * 1000);
-    this.scheduleRecurring('array', () => { if (this._parent.notificationsActive) this.getArrayPlayerInfo(); }, 60 * 1000);
-    this.scheduleRecurring('emulation', () => { if (this._parent.notificationsActive) this.getEmulationPlayerInfo(); }, 60 * 1000);
-    this.scheduleRecurring('social', () => { if (this._parent.notificationsActive) this.getSocialInfo(); }, 5 * 60 * 1000);
-    this.scheduleRecurring('art', () => { if (this._parent.notificationsActive) this.getArtInfo(); }, 5 * 60 * 1000);
-    this.scheduleRecurring('crawler', () => { if (this._parent.notificationsActive) this.getCrawlerInfo(); }, 60 * 60 * 1000);
+    this.scheduleRecurring('notificationInfo', () => { if (this._parent.notificationsActive) this.getNotificationInfo(); }, this.time20Secs);
+    this.scheduleRecurring('cryptoHub', () => { if (this._parent.notificationsActive) this.getCryptoHubInfo(); }, this.time20Mins);
+    this.scheduleRecurring('calendarInfo', () => { if (this._parent.notificationsActive) this.getCalendarInfo(); }, this.time20Mins);
+    this.scheduleRecurring('wordler', () => { if (this._parent.notificationsActive) this.getWordlerStreakInfo(); }, this.time60Mins);
+    this.scheduleRecurring('ender', () => { if (this._parent.notificationsActive) this.getEnderPlayerInfo(); }, this.time60Secs);
+    this.scheduleRecurring('bones', () => { if (this._parent.notificationsActive) this.getBonesPlayerInfo(); }, this.time60Secs);
+    this.scheduleRecurring('nexus', () => { if (this._parent.notificationsActive) this.getNexusPlayerInfo(); }, this.time60Secs);
+    this.scheduleRecurring('meta', () => { if (this._parent.notificationsActive) this.getMetaPlayerInfo(); }, this.time60Secs);
+    this.scheduleRecurring('music', () => { if (this._parent.notificationsActive) this.getMusicInfo(); }, this.time60Mins);
+    this.scheduleRecurring('array', () => { if (this._parent.notificationsActive) this.getArrayPlayerInfo(); }, this.time60Secs);
+    this.scheduleRecurring('emulation', () => { if (this._parent.notificationsActive) this.getEmulatorPlayerInfo(); }, this.time60Secs);
+    this.scheduleRecurring('social', () => { if (this._parent.notificationsActive) this.getSocialInfo(); }, this.time60Mins);
+    this.scheduleRecurring('art', () => { if (this._parent.notificationsActive) this.getArtInfo(); }, this.time60Mins);
+    this.scheduleRecurring('crawler', () => { if (this._parent.notificationsActive) this.getCrawlerInfo(); }, this.time60Mins);
   }
 
   stopNotifications() {
@@ -376,6 +381,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!this._parent || !this._parent.user || this.navbarCollapsed) {
       return;
     }
+    if (this._parent.lastRunTimestamps['notificationInfo'] 
+      && Date.now() - this._parent.lastRunTimestamps['notificationInfo'] < this.time20Secs) 
+    {
+      return;
+    }
     this.isLoadingNotifications = true;
     try {
       const res = await this.notificationService.getNotifications(this._parent.user.id ?? 0) as UserNotification[];
@@ -425,6 +435,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getThemeInfo(userId?: number) {
+    if (this._parent.lastRunTimestamps['theme'] && Date.now() - this._parent.lastRunTimestamps['theme'] < this.time20Mins) {
+      console.log('Theme info fetched recently, skipping fetch');
+      return;
+    }
     if (this.isThemeApplied) {
       console.log('Theme already applied, skipping fetch');
       return;
@@ -464,6 +478,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getCalendarInfo() {
+    if (this._parent.lastRunTimestamps['calendarInfo'] 
+      && Date.now() - this._parent.lastRunTimestamps['calendarInfo'] < this.time20Mins) {
+      return;
+    }
     if (!this.user || !this._parent.userSelectedNavigationItems.some(x => x.title === "Calendar")) return;
 
     try {
@@ -528,6 +546,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getCurrentWeatherInfo() {
+    if (this._parent.lastRunTimestamps['weatherInfo'] && Date.now() - this._parent.lastRunTimestamps['weatherInfo'] < this.time20Mins) {
+      return;
+    }
     if (!this._parent.user?.id || !this._parent.userSelectedNavigationItems.find(x => x.title == "Weather")) { return; }
 
     try {
@@ -544,6 +565,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getCryptoHubInfo() {
+    if (this._parent.lastRunTimestamps['cryptoHub'] 
+      && (Date.now() - this._parent.lastRunTimestamps['cryptoHub'] < this.time20Mins)) 
+    {
+      return;
+    }
     const nav = this._parent.navigationItems.find(x => x.title === "Crypto-Hub");
     const isCHSelected = this._parent.userSelectedNavigationItems.find(x => x.title === "Crypto-Hub") ? true : false;
     const userId = this._parent?.user?.id;
@@ -593,6 +619,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getEnderPlayerInfo() {
+    if (this._parent.lastRunTimestamps['ender'] 
+      && Date.now() - this._parent.lastRunTimestamps['ender'] < this.time60Secs) {
+      return;
+    }
     if (!this._parent.notificationsActive) {
       clearInterval(this.enderInterval);
       return;
@@ -636,6 +666,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
       clearInterval(this.nexusInterval);
       return;
     }
+    if (this._parent.lastRunTimestamps['nexus'] 
+      && Date.now() - this._parent.lastRunTimestamps['nexus'] < this.time60Secs) {
+      return;
+    }
     try {
       const res: any = await this.nexusService.getActivePlayers(2);
       this.nexusActivePlayers = res?.count ?? null;
@@ -673,6 +707,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
       return;
     }
     this.isLoadingBones = true;
+    if (this._parent.lastRunTimestamps['bones'] 
+      && Date.now() - this._parent.lastRunTimestamps['bones'] < this.time60Secs) {
+      return;
+    }
     try {
       const res: any = await this.bonesService.getActivePlayers(2);
       this.bonesActivePlayers = res?.count ?? null;
@@ -703,13 +741,17 @@ export class NavigationComponent implements OnInit, OnDestroy {
         bonesNav.content = parts.join('\n');
       }
     }
-    this.isLoadingEnder = false;
+    this.isLoadingBones = false;
     this.updateLastRunTimestamp('bones');
   }
 
   private async getMetaPlayerInfo() {
     if (!this._parent.notificationsActive) {
       clearInterval(this.metaInterval);
+      return;
+    } 
+    if (this._parent.lastRunTimestamps['meta'] 
+      && Date.now() - this._parent.lastRunTimestamps['meta'] < this.time60Secs) {
       return;
     }
     try {
@@ -746,6 +788,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private async getMusicInfo() {
     if (!this._parent.notificationsActive) return;
     if (!this._parent?.user?.id) return;
+    if (this._parent.lastRunTimestamps['music'] 
+      && Date.now() - this._parent.lastRunTimestamps['music'] < this.time60Mins) {
+      return;
+    }
     try {
       const res: any = await this.todoService.getTodoCount(this._parent.user.id, 'Music');
       this.musicTodoCount = res?.count ?? 0;
@@ -764,6 +810,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private async getArrayPlayerInfo() {
     if (!this._parent.notificationsActive) {
       clearInterval(this.arrayInterval);
+      return;
+    }
+    if (this._parent.lastRunTimestamps['array'] 
+      && Date.now() - this._parent.lastRunTimestamps['array'] < this.time60Secs) {
       return;
     }
     try {
@@ -793,23 +843,31 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.updateLastRunTimestamp('array');
   }
 
-  private async getEmulationPlayerInfo() {
+  private async getEmulatorPlayerInfo() {
     if (!this._parent.notificationsActive) return;
+    if (this._parent.lastRunTimestamps['emulator']
+      && Date.now() - this._parent.lastRunTimestamps['emulator'] < this.time60Secs) {
+      return;
+    }
     try {
       const res: any = await this.romService.getActivePlayers(2);
-      this.emulationActivePlayers = res?.count ?? null;
-    } catch { this.emulationActivePlayers = null; }
+      this.emulatorActivePlayers = res?.count ?? null;
+    } catch { this.emulatorActivePlayers = null; }
     if (this._parent?.navigationItems) {
-      const emuNav = this._parent.navigationItems.find(x => x.title === 'Emulation');
+      const emuNav = this._parent.navigationItems.find(x => x.title === 'Emulator');
       if (emuNav) {
-        emuNav.content = this.emulationActivePlayers != null ? this.emulationActivePlayers.toString() : '';
+        emuNav.content = this.emulatorActivePlayers != null ? this.emulatorActivePlayers.toString() : '';
       }
     }
-    this.updateLastRunTimestamp('emulation');
+    this.updateLastRunTimestamp('emulator');
   }
 
   private async getSocialInfo() {
     if (!this._parent.notificationsActive) return;
+    if (this._parent.lastRunTimestamps['social'] 
+      && Date.now() - this._parent.lastRunTimestamps['social'] < this.time60Mins) {
+      return;
+    }
     try {
       const res: any = await this.socialService.getTotalPosts();
       this.socialTotalPosts = res?.count ?? null;
@@ -825,6 +883,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   private async getCrawlerInfo() {
     if (!this._parent.notificationsActive) return;
+    if (this._parent.lastRunTimestamps['crawler']
+      && Date.now() - this._parent.lastRunTimestamps['crawler'] < this.time60Mins) {
+      return;
+    }
     try {
       const res: any = await this.crawlerService.indexCount();
       const parsed = parseInt(res, 10);
@@ -841,6 +903,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   private async getArtInfo() {
     if (!this._parent.notificationsActive) return;
+    if (this._parent.lastRunTimestamps['art'] 
+      && Date.now() - this._parent.lastRunTimestamps['art'] < this.time60Mins) {
+      return;
+    }
     if (!this.artTotalSubmissions) {
       try {
         const res: any = await this.fileService.getNumberOfArt();
@@ -860,6 +926,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   async getWordlerStreakInfo() {
     if (!this._parent.notificationsActive) return;
+    if (this._parent.lastRunTimestamps['wordler'] 
+      && Date.now() - this._parent.lastRunTimestamps['wordler'] < this.time60Mins) {
+      return;
+    }
     if (!this._parent.user?.id || !this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("wordler"))) { return; }
     this.isLoadingWordlerStreak = true;
     try {
