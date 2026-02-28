@@ -1,7 +1,6 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router'; 
-import { AppComponent } from './app.component';
-import { PollIframeHostComponent } from './poll-iframe-host/poll-iframe-host.component';
+import { AppComponent } from './app.component'; 
 import { MediaViewerComponent } from './media-viewer/media-viewer.component'; 
 
 const routes: Routes = [
@@ -30,8 +29,7 @@ const routes: Routes = [
   { path: 'N64Emulator', component: AppComponent },
   { path: 'PS1Emulator', component: AppComponent },
   { path: 'Emulator/:romName/:romId/:skipSaveFile', component: AppComponent },
-  { path: 'Emulation', component: AppComponent },
-  { path: 'Poll-iframe/:payload', component: AppComponent },
+  { path: 'Emulation', component: AppComponent }, 
   { path: 'N64Emulation', component: AppComponent },
   { path: 'PS1Emulation', component: AppComponent },
   { path: 'Emu', component: AppComponent },

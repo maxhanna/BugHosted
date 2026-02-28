@@ -44,7 +44,6 @@ import { BonesComponent } from './bones/bones.component';
 import { EmulatorComponent } from './emulator/emulator.component';
 import { EmulationComponent } from './emulation/emulation.component';
 import { YoutubeVideo } from '../services/datacontracts/youtube';
-import { PollIframeHostComponent } from './poll-iframe-host/poll-iframe-host.component';
 
 
 @Component({
@@ -353,7 +352,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "MediaViewer": MediaViewerComponent,
     "Crawler": CrawlerComponent,
     "Meme": MemeComponent,
-    "Poll-iframe": PollIframeHostComponent,
     "Top100": TopComponent,
     "Ender": EnderComponent,
     "Bones": BonesComponent,
@@ -457,12 +455,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           } else {
             this.createComponent("Crawler");
           }
-        } 
-        else if (this.router.url.includes('Poll-iframe')) {
-          this.checkAndClearRouterOutlet();
-          const payload = this.router.url.toLowerCase().split('iframe/')[1]?.split('?')[0];
-          this.angLocation.replaceState(this.router.url.split('?')[0]);
-          this.createComponent("Poll-iframe", { "payload": payload });
         }
         else if (this.router.url.includes('Array')) {
           this.checkAndClearRouterOutlet();
@@ -1015,19 +1007,18 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         return '<div class="poll-error">Poll needs at least 2 options</div>';
       }
 
-      // Generate poll HTML (we will render it inside an iframe via srcdoc)
+      // Generate poll HTML
       let pollHtml: string = `<div class="poll-container"><div class="poll-question">${question}</div><div class="poll-options">`;
       let hasVoted = false;
       options.forEach((option: string, index: number) => {
         if (!option.includes("votes, ")) {
           const escOption = ('' + option).replace(/'/g, "");
-          // Use parent.document to interact with host page controls from inside iframe
-          const onclick = `parent.document.getElementById('pollCheckId').value='poll-option-${pollId}-${index}';parent.document.getElementById('pollValue').value='${escOption}';parent.document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';parent.document.getElementById('pollComponentId').value='${normalizedComponentId}';parent.document.getElementById('pollCheckClickedButton').click()`;
+          // mark interactive options with an extra class so we can layout checkbox next to text
           pollHtml += `
             <div class="poll-option">
               <div class="poll-option-interactive">
-                <input type="checkbox" value="${option}" id="poll-option-${pollId}-${index}" name="poll-options-${pollId}" onClick="${onclick}">
-                <label for="poll-option-${pollId}-${index}" onClick="${onclick}">${option}</label>
+                <input type="checkbox" value="${option}" id="poll-option-${pollId}-${index}" name="poll-options-${pollId}" onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}-${index}';document.getElementById('pollValue').value='${escOption}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${normalizedComponentId}';document.getElementById('pollCheckClickedButton').click()">
+                <label for="poll-option-${pollId}-${index}" onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}-${index}';document.getElementById('pollValue').value='${escOption}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${normalizedComponentId}';document.getElementById('pollCheckClickedButton').click()">${option}</label>
               </div>
             </div>
           `;
@@ -1051,23 +1042,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
       pollHtml += `</div></div>`;
 
-      // Build a payload object and encode it so the iframe can load the PollIframeHost route
-      const payloadObj = {
-        pollId: pollId,
-        question: question,
-        options: options,
-        normalizedComponentId: normalizedComponentId
-      };
-      try {
-        const json = JSON.stringify(payloadObj);
-        const encoded = btoa(encodeURIComponent(json));
-        return `<iframe class="poll-iframe" style="width:100%;height:220px;border:0;" src="/Poll-iframe?payload=${encoded}" sandbox="allow-same-origin allow-scripts allow-forms" frameborder="0"></iframe>`;
-      } catch (e) {
-        // fallback to inline srcdoc if encoding fails
-        const iframeBody = `<!doctype html><html><head><meta charset="utf-8"><style>body{font-family: Arial, Helvetica, sans-serif;margin:0;padding:10px;color:#111}.poll-container{width:100%}.poll-question{font-weight:700;margin-bottom:8px}.poll-option{margin:6px 0}.poll-option-interactive{display:flex;align-items:center;gap:8px}.poll-option-interactive input{width:18px;height:18px}</style></head><body>${pollHtml}</body></html>`;
-        const escaped = iframeBody.replace(/"/g, '&quot;').replace(/\n/g, ' ');
-        return `<iframe class="poll-iframe" style="width:100%;height:220px;border:0;" srcdoc="${escaped}" sandbox="allow-same-origin allow-scripts allow-forms" frameborder="0"></iframe>`;
-      }
+      return pollHtml.replace(/\n/g, '');
     });
   }
   private htmlEncodeForInput(str: string): string {

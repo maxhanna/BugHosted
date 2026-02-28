@@ -1,7 +1,7 @@
 const { env } = require('process');
 
 const target = env.ASPNETCORE_HTTPS_PORT ? `https://localhost:${env.ASPNETCORE_HTTPS_PORT}` :
-    env.ASPNETCORE_URLS ? env.ASPNETCORE_URLS.split(';')[0] : 'https://localhost:7299';
+  env.ASPNETCORE_URLS ? env.ASPNETCORE_URLS.split(';')[0] : 'https://localhost:7299';
 
 const PROXY_CONFIG = [
   {
@@ -14,7 +14,7 @@ const PROXY_CONFIG = [
       "/notepad",
       "/contact",
       "/user",
-      "/chat", 
+      "/chat",
       "/news",
       "/social",
       "/rom",
@@ -40,7 +40,6 @@ const PROXY_CONFIG = [
       "/search",
       "/bones",
       "/ratings",
-      "/poll-iframe",
     ],
     target,
     changeOrigin: true, // This helps with certain CORS issues and forwards headers correctly 
