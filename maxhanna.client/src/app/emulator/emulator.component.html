@@ -9,7 +9,8 @@
   </div>
  
   <div class="gamesContainer{{ !romName ? ' expanded' : '' }}" *ngIf="isSearchVisible && parentRef">
-    <app-file-search [user]="parentRef?.user" 
+    <app-file-search 
+      [user]="parentRef.user" 
       [inputtedParentRef]="parentRef" 
       [currentDirectory]="'Roms/'"
       [clearAfterSelectFile]="true" 

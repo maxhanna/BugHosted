@@ -94,6 +94,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   isLoadingSocial = false;
   isLoadingCrawler = false;
   isLoadingArt = false;
+  isLoadingWeather = false;
   isThemeApplied = false;
   numberOfNotifications = 0;
   showAppSelectionHelp = false;
@@ -533,7 +534,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       return;
     }
     if (!this._parent.user?.id || !this._parent.userSelectedNavigationItems.find(x => x.title == "Weather")) { return; }
-
+    this.isLoadingWeather = true;
     try {
       const res = await this.weatherService.getWeather(this._parent.user.id);
       if (res?.current.condition.icon && res?.current.condition.icon.includes('weatherapi')) {
@@ -542,9 +543,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
       } else {
         this._parent.navigationItems.filter(x => x.title == "Weather")[0].content = "?";
       }
-    } catch {
-
+    } catch (error) {
+      console.error('Error fetching weather data:', error);
     }
+    this.isLoadingWeather = false;
+    this.updateLastRunTimestamp('weatherInfo');
   }
 
   async getCryptoHubInfo() {
@@ -1105,6 +1108,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingArt = false;
     this.isLoadingArray = false;
     this.isLoadingMusic = false;
+    this.isLoadingWeather = false;
     this.isLoadingNews = false;
   }
 

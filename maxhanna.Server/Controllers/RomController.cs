@@ -77,16 +77,10 @@ namespace maxhanna.Server.Controllers
             continue; // Skip empty files
           }
 
-          var ext = Path.GetExtension(file.FileName)?.ToLowerInvariant() ?? string.Empty;
-          bool isSaveFile = saveExts.Contains(ext);
+          var ext = Path.GetExtension(file.FileName)?.ToLowerInvariant() ?? string.Empty; 
 
           // For user-specific save files, keep your naming convention: <basename>_<userId><ext>
-          string newFilename = "";
-          if (isSaveFile)
-          {
-            string filenameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
-            newFilename = filenameWithoutExtension + "_" + userId + ext.Replace("\\", "/");
-          }
+          string newFilename = ""; 
 
           var filePath = string.IsNullOrEmpty(newFilename) ? file.FileName : newFilename;
           filePath = Path.Combine(_baseTarget, filePath).Replace("\\", "/");
@@ -106,15 +100,13 @@ namespace maxhanna.Server.Controllers
             await connection.OpenAsync();
 
             var fileExists = false;
-            if (!isSaveFile)
-            {
-              var checkCommand = new MySqlCommand("SELECT COUNT(*) FROM maxhanna.file_uploads WHERE file_name = @fileName AND folder_path = @folderPath", connection);
-              checkCommand.Parameters.AddWithValue("@fileName", file.FileName);
-              checkCommand.Parameters.AddWithValue("@folderPath", _baseTarget);
-              fileExists = Convert.ToInt32(await checkCommand.ExecuteScalarAsync()) > 0;
-            }
-
-            if (!fileExists && !isSaveFile)
+            
+            var checkCommand = new MySqlCommand("SELECT COUNT(*) FROM maxhanna.file_uploads WHERE file_name = @fileName AND folder_path = @folderPath", connection);
+            checkCommand.Parameters.AddWithValue("@fileName", file.FileName);
+            checkCommand.Parameters.AddWithValue("@folderPath", _baseTarget);
+            fileExists = Convert.ToInt32(await checkCommand.ExecuteScalarAsync()) > 0;
+             
+            if (!fileExists)
             {
               // Determine file type based on extension
               var extension = Path.GetExtension(file.FileName)?.ToLowerInvariant().Trim('.') ?? string.Empty;
@@ -132,78 +124,10 @@ namespace maxhanna.Server.Controllers
               command.Parameters.AddWithValue("@isFolder", 0);
 
               await command.ExecuteNonQueryAsync();
-              _ = _log.Db($"Uploaded rom file: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}, Type: {fileType}, isSaveFile: {isSaveFile}", userId, "ROM", true);
+              _ = _log.Db($"Uploaded rom file: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}, Type: {fileType}", userId, "ROM", true);
 
-            }
-            else if (isSaveFile)
-            {
-              // Update last_access to reflect current interaction (especially for .sav updates)
-              var updateLastAccess = new MySqlCommand("UPDATE maxhanna.file_uploads SET last_access = UTC_TIMESTAMP(), last_updated = UTC_TIMESTAMP(), last_updated_by_user_id = @user_id WHERE file_name = @fileName AND folder_path = @folderPath LIMIT 1;", connection);
-              updateLastAccess.Parameters.AddWithValue("@fileName", file.FileName);
-              updateLastAccess.Parameters.AddWithValue("@user_id", userId);
-              updateLastAccess.Parameters.AddWithValue("@folderPath", _baseTarget);
-              await updateLastAccess.ExecuteNonQueryAsync();
-              if (!isSaveFile)
-                _ = _log.Db($"Rom file already exists: {(isSaveFile ? newFilename : file.FileName)}, Size: {file.Length} bytes, Path: {filePath}, isSaveFile: {isSaveFile}", userId, "ROM", true);
-            }
-
-            // If this was a save file upload, check for optional timing fields and persist playtime
-            if (isSaveFile)
-            {
-              try
-              {
-                // Form keys expected: startTimeMs, saveTimeMs, durationSeconds
-                long startMs = 0;
-                long saveMs = 0;
-                int durationSeconds = 0;
-                if (Request.Form.ContainsKey("startTimeMs") && long.TryParse(Request.Form["startTimeMs"], out var sm)) startMs = sm;
-                if (Request.Form.ContainsKey("saveTimeMs") && long.TryParse(Request.Form["saveTimeMs"], out var svm)) saveMs = svm;
-                if (Request.Form.ContainsKey("durationSeconds") && int.TryParse(Request.Form["durationSeconds"], out var ds)) durationSeconds = ds;
-
-                // When a user uploads a .sav (save file), only update save_time and duration_seconds.
-                // Do NOT modify start_time or plays here — plays should be incremented when the user
-                // actually selects/starts the ROM for play (handled in RecordRomSelectionAsync).
-                try
-                {
-                  string updateSql = @"UPDATE maxhanna.emulation_play_time
-										SET save_time = UTC_TIMESTAMP(),
-											duration_seconds = IFNULL(duration_seconds, 0) + @DurationSeconds
-										WHERE user_id = @UserId AND rom_file_name = @RomFileName LIMIT 1;";
-
-                  using (var upd = new MySqlCommand(updateSql, connection))
-                  {
-                    upd.Parameters.AddWithValue("@UserId", userId);
-                    upd.Parameters.AddWithValue("@RomFileName", file.FileName);
-                    upd.Parameters.AddWithValue("@SaveMs", saveMs);
-                    upd.Parameters.AddWithValue("@DurationSeconds", durationSeconds);
-                    int rows = await upd.ExecuteNonQueryAsync();
-
-                    if (rows == 0)
-                    {
-                      // No existing row: insert a new record with plays = 0 (since user hasn't started a play session yet)
-                      string insertSql = @"INSERT INTO maxhanna.emulation_play_time (user_id, rom_file_name, start_time, save_time, duration_seconds, plays, created_at)
-												VALUES (@UserId, @RomFileName, UTC_TIMESTAMP(), UTC_TIMESTAMP(), @DurationSeconds, 0, UTC_TIMESTAMP());";
-                      using var ins = new MySqlCommand(insertSql, connection);
-                      ins.Parameters.AddWithValue("@UserId", userId);
-                      ins.Parameters.AddWithValue("@RomFileName", file.FileName);
-                      ins.Parameters.AddWithValue("@SaveMs", saveMs);
-                      ins.Parameters.AddWithValue("@DurationSeconds", durationSeconds);
-                      await ins.ExecuteNonQueryAsync();
-                    }
-                  }
-                }
-                catch (MySqlException mex)
-                {
-                  _ = _log.Db("Error recording playtime on upload (DB error): " + mex.Message, userId, "ROM", true);
-                }
-              }
-              catch (Exception ex)
-              {
-                _ = _log.Db("Error recording playtime on upload: " + ex.Message, userId, "ROM", true);
-              }
-            }
-          }
-
+            } 
+          } 
         }
 
         return Ok("ROM uploaded successfully.");
@@ -825,66 +749,49 @@ ON DUPLICATE KEY UPDATE
           await command.ExecuteNonQueryAsync();
         }
       }
-    }
+    } 
 
-    [HttpPost("/Rom/ActiveN64Players", Name = "Rom_ActiveN64Players")]
-    public async Task<IActionResult> ActiveN64Players([FromBody] int? minutes, CancellationToken ct = default)
+    private async Task RecordRomPlayTimeAsync(int userId, string romFileName)
     {
-      var windowMinutes = Math.Clamp(minutes ?? 2, 1, 24 * 60);
-      var cutoffUtc = DateTime.UtcNow.AddMinutes(-windowMinutes);
+      if (string.IsNullOrWhiteSpace(romFileName) || userId == 0) return; 
 
       try
       {
-        await using var connection = new MySqlConnection(
-            _config.GetValue<string>("ConnectionStrings:maxhanna"));
-        await connection.OpenAsync(ct).ConfigureAwait(false);
-
-        const string sql = @" 
-          SELECT COUNT(*) AS cnt
-          FROM (
-            SELECT ep.user_id
-            FROM maxhanna.emulation_play_time AS ep
-            WHERE ep.user_id IS NOT NULL
-              AND ep.save_time IS NOT NULL
-              AND (ep.save_time >= @cutoff OR ep.start_time >= @cutoff)
-              AND (
-                ep.rom_file_name LIKE '%.sra'
-                  OR ep.rom_file_name LIKE '%.eep' 
-                  OR ep.rom_file_name LIKE '%.fla'
-                  OR ep.rom_file_name LIKE '%.z64'
-                  OR ep.rom_file_name LIKE '%.n64'
-                  OR ep.rom_file_name LIKE '%.v64'
-              )
-          ) AS recent;";
-
-        await using var cmd = new MySqlCommand(sql, connection)
+        using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
         {
-          CommandTimeout = 5
-        };
-        cmd.Parameters.Add("@cutoff", MySqlDbType.DateTime).Value = cutoffUtc;
+          await connection.OpenAsync();
+          // Accumulate the elapsed time since the last checkpoint:
+          //   - GREATEST(start_time, COALESCE(save_time, start_time)) picks whichever
+          //     is more recent: start_time (set on ROM selection) or save_time (set on
+          //     last save). On the first save of a session save_time is stale so
+          //     start_time wins; on subsequent saves save_time wins.
+          //   - duration_seconds is updated BEFORE save_time in the SET clause so the
+          //     old save_time value is used in the TIMESTAMPDIFF calculation.
+          string sql = @"UPDATE maxhanna.emulation_play_time 
+            SET duration_seconds = duration_seconds 
+                  + TIMESTAMPDIFF(SECOND, 
+                      GREATEST(start_time, COALESCE(save_time, start_time)), 
+                      UTC_TIMESTAMP()),
+                save_time = UTC_TIMESTAMP()
+            WHERE user_id = @UserId AND rom_file_name = @RomFileName LIMIT 1;";
 
-        var obj = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
-        int count = (obj == null || obj == DBNull.Value) ? 0 : Convert.ToInt32(obj);
-
-        return Ok(new { count });
+          using (var cmd = new MySqlCommand(sql, connection))
+          {
+            cmd.Parameters.AddWithValue("@UserId", userId);
+            cmd.Parameters.AddWithValue("@RomFileName", romFileName); 
+            await cmd.ExecuteNonQueryAsync();
+          }
+        }
       }
       catch (Exception ex)
       {
-        _ = _log.Db("Rom ActiveN64Players error: " + ex.Message, null, "ROM", true);
-        return StatusCode(500, "Internal server error");
+        _ = _log.Db($"Error in RecordRomPlayTimeAsync: {ex.Message}", userId, "ROM", true);
       }
     }
-
-
+    
     private async Task RecordRomSelectionAsync(int userId, string romFileName)
     {
-      if (string.IsNullOrWhiteSpace(romFileName) || userId == 0) return;
-      var ext = Path.GetExtension(romFileName);
-      if (!n64Extensions.Contains(ext))
-      {
-        string baseName = Path.GetFileNameWithoutExtension(romFileName);
-        romFileName = baseName + ".sav";
-      }
+      if (string.IsNullOrWhiteSpace(romFileName) || userId == 0) return; 
 
       try
       {
@@ -922,10 +829,11 @@ ON DUPLICATE KEY UPDATE
 
     // ---------------------------------------------------------------
     // POST /Rom/SaveEmulatorJSState  (multipart/form-data)
-    //   form fields: file, userId, romName, encoding?, originalSize?
-    //   Client may gzip the blob and set encoding=gzip.
+    //   form fields: file, userId, romName
+    //   Raw (uncompressed) bytes only.
     //   Mirrors the proven SaveN64State pattern: read to byte[], pass
     //   byte[] directly to MySqlConnector (no Stream parameter).
+    //   Also records cumulative play-time via RecordRomPlayTimeAsync.
     // ---------------------------------------------------------------
     [HttpPost("/Rom/SaveEmulatorJSState")]
     [DisableRequestSizeLimit]
@@ -967,14 +875,14 @@ ON DUPLICATE KEY UPDATE
         await conn.OpenAsync(CancellationToken.None);
 
         const string sql = @"
-INSERT INTO emulatorjs_save_states
-  (user_id, rom_name, state_data, file_size, last_updated)
-VALUES
-  (@UserId, @RomName, @StateData, @FileSize, CURRENT_TIMESTAMP)
-ON DUPLICATE KEY UPDATE
-  state_data   = VALUES(state_data),
-  file_size    = VALUES(file_size),
-  last_updated = CURRENT_TIMESTAMP;";
+          INSERT INTO emulatorjs_save_states
+            (user_id, rom_name, state_data, file_size, last_updated)
+          VALUES
+            (@UserId, @RomName, @StateData, @FileSize, CURRENT_TIMESTAMP)
+          ON DUPLICATE KEY UPDATE
+            state_data   = VALUES(state_data),
+            file_size    = VALUES(file_size),
+            last_updated = CURRENT_TIMESTAMP;";
 
         using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 180 };
         cmd.Parameters.Add("@UserId",    MySqlDbType.Int32).Value    = userId;
@@ -983,6 +891,9 @@ ON DUPLICATE KEY UPDATE
         cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value     = bytes.Length;
 
         await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+
+        // Record play-time (accumulates seconds since last checkpoint)
+        _ = RecordRomPlayTimeAsync(userId, romName);
 
         _ = _log.Db($"EJS save OK: user={userId} rom={romName} size={bytes.Length} ms={swAll.ElapsedMilliseconds}", userId, "ROM", true);
 

@@ -62,7 +62,7 @@
         class="onlineButton"
         [title]="'Online Since: ' + (user.lastSeen | timeSince:'minute':true)" 
         [style.top]="'5px'"
-        [style.right]="'-25px'"></span>
+        [style.right]="'-25px'">
       </span>
       <app-user-tag [user]="user"
                     [inputtedParentRef]="inputtedParentRef ?? parentRef"

@@ -154,19 +154,7 @@ export class RomService {
       return await response.json(); // { count }
     } catch { return null; }
   }
-
-  async getActiveN64Players(minutes: number = 2) {
-    try {
-      const response = await fetch('/rom/activen64players', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(minutes)
-      });
-      if (!response.ok) return null;
-      return await response.json(); // { count }
-    } catch { return null; }
-  }
-
+ 
   // Mapping persistence APIs
   async listMappings(userId: number) {
     try {

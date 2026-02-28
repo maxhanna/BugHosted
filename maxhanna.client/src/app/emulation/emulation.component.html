@@ -5,7 +5,7 @@
       'Emulation'}}</span></div>
   <div class="gamesContainer{{ !selectedRomName ? ' expanded' : '' }}{{isLoading ? ' is-disabled' : ''}}"
     *ngIf="isSearchVisible && parentRef">
-    <app-file-search [user]="parentRef?.user" [inputtedParentRef]="parentRef" [currentDirectory]="'Roms/'"
+    <app-file-search [user]="parentRef.user" [inputtedParentRef]="parentRef" [currentDirectory]="'Roms/'"
       [clearAfterSelectFile]="true" [allowedFileTypes]="getAllowedFileTypes()" [showPrivatePublicOption]="false"
       [canChangeDirectory]="false" [canDragMove]="false" [displayFileActions]="true"
       [displayComments]="false" [displayFileSize]="false" [displayReactions]="false" [disabled]="isLoading"
