@@ -887,8 +887,11 @@ private async loadFileByIdOnce(id: number) {
   }
 
   async getFavouritedBy(file: FileEntry) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.closeOverlay();
+    if (this.isShowingFileFavouriters) {
+      this.closeFileFavouriters();
+      return;
+    }
+    const parent = this.inputtedParentRef ?? this.parentRef; 
     try {
       const list: any[] = await this.fileService.getFavouritedBy(file.id);
       this.fileFavouriters = list;
@@ -1218,8 +1221,11 @@ private async loadFileByIdOnce(id: number) {
     }, 50);
   }
   getFileViewers(fileId: number) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.closeOverlay(true);
+    if (this.isShowingFileViewers) {
+      this.closeFileViewers();
+      return;
+    }
+    const parent = this.inputtedParentRef ?? this.parentRef; 
     this.fileService.getFileViewers(fileId).then(res => {
       this.fileViewers = res;
       setTimeout(() => {
