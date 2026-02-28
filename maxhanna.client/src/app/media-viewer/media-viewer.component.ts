@@ -18,7 +18,6 @@ import { TopicsComponent } from '../topics/topics.component';
   standalone: false
 })
 export class MediaViewerComponent extends ChildComponent implements OnInit, OnDestroy, OnChanges {
-
   constructor(private fileService: FileService, private todoService: TodoService) {
     super();
     if (this.file) {
@@ -44,7 +43,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   isEditingFileName = false;
   editingTopics: number[] = [];
   isVideoBuffering = false;
-  // Removed delayed in-view scheduling; fetch will occur immediately upon visibility.
   private hasTriedInitialCachedLoad = false;
 
   @ViewChild('mediaContainer', { static: false }) mediaContainer?: ElementRef;

@@ -14,7 +14,11 @@
     </div>
     <!-- Search -->
     <div *ngIf="(showTopicSelector || user) && !showOnlyPost && !user"
-      [class]="parentRef?.user?.id ? 'topSearchButtonDiv' : 'topSearchButtonDivSpecial'"
+      [class]="
+        (!user && parentRef?.user?.id) ? 'topSearchButtonDiv' 
+        : (!user && !parentRef?.user?.id) ? 'topSearchButtonDivSpecial'
+        : (user && parentRef?.user?.id) ? 'topSearchButtonDiv'
+        : 'topSearchButtonDivSpecial'"
       (click)="showSearchSocialsPanel()">
       🔍
     </div>
