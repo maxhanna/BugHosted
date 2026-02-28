@@ -1,15 +1,5 @@
 .romNameTitle { width: calc(100% - 100px); display: block; overflow: hidden; text-overflow: ellipsis; } 
 
-/* Override global .componentMain which has 'transition: transform 0.8s ease'.
-   That transition causes Chrome to create a compositing layer / containing block,
-   trapping position:fixed popups (from file-search, etc.) inside this element
-   instead of the viewport. Resetting both transition and overflow ensures
-   popups render at viewport level and aren't clipped. */
-.componentMain {
-  transition: none;
-  overflow: visible;
-}
-
 .uploaderPopupPanel {
   width: calc(100% - 60px);
   min-height: 60vh;

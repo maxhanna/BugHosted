@@ -1,5 +1,5 @@
 ﻿
-import { AfterViewInit, Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output, QueryList, ViewChild, ViewChildren } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { FileService } from '../../services/file.service';
 import { DirectoryResults } from '../../services/datacontracts/file/directory-results';
@@ -128,6 +128,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     private romService: RomService,
     private ratingsService: RatingsService,
     private route: ActivatedRoute, 
+    private changeDetectorRef: ChangeDetectorRef, 
     private sanitizer: DomSanitizer) {
     super();
     this.previousComponent = "Files";
@@ -890,9 +891,12 @@ private async loadFileByIdOnce(id: number) {
     parent?.closeOverlay();
     try {
       const list: any[] = await this.fileService.getFavouritedBy(file.id);
-      parent?.showOverlay();
       this.fileFavouriters = list;
-      this.isShowingFileFavouriters = true;
+      setTimeout(() => {
+        this.isShowingFileFavouriters = true; 
+        parent?.showOverlay();
+        this.changeDetectorRef.detectChanges();
+      }, 100);
     } catch (ex) {
       console.error(ex);
       parent?.showOverlay();
@@ -1215,11 +1219,14 @@ private async loadFileByIdOnce(id: number) {
   }
   getFileViewers(fileId: number) {
     const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.closeOverlay();
+    parent?.closeOverlay(true);
     this.fileService.getFileViewers(fileId).then(res => {
-      parent?.showOverlay();
       this.fileViewers = res;
-      this.isShowingFileViewers = true;
+      setTimeout(() => {
+        parent?.showOverlay();
+        this.isShowingFileViewers = true;
+        this.changeDetectorRef.detectChanges();
+      }, 100);
     });
   }
   closeFileViewers() {
