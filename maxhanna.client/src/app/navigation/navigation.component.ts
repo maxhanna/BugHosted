@@ -56,34 +56,21 @@ export class NavigationComponent implements OnInit, OnDestroy {
   metaUserRank: { rank?: number | null, level?: number | null, totalPlayers?: number | null } | null = null;
   private metaInterval: any;
   // music playlist count
-  musicTodoCount: number | null = null;
-  private musicInterval: any;
+  musicTodoCount: number | null = null; 
   // Array game stats
   arrayActivePlayers: number | null = null;
   arrayUserRank: { rank?: number | null, level?: number | null, totalPlayers?: number | null } | null = null;
   private arrayInterval: any;
-  // Emulation stats
-  emulatorActivePlayers: number | null = null;
-  private emulationInterval: any;
-  // N64Emulation stats
-  emulationN64ActivePlayers: number | null = null;
-  private emulationN64Interval: any;
+  // Emulator stats
+  emulatorActivePlayers: number | null = null;  
   // Social stats
-  socialTotalPosts: number | null = null;
-  private socialInterval: any;
+  socialTotalPosts: number | null = null; 
   // Art stats
-  artTotalSubmissions: number | null = null;
-  private artInterval: any;
+  artTotalSubmissions: number | null = null; 
   // Crawler stats
-  crawlerIndexCount: number | null = null;
-  private crawlerInterval: any; 
-  private notificationInfoInterval: any;
-  private cryptoHubInterval: any;
-  private calendarInfoInterval: any;
-  private wordlerInfoInterval: any;
+  crawlerIndexCount: number | null = null; 
   private time20Secs = 20 * 1000;
-  private time60Secs = 60 * 1000;
-  private time5Mins = 5 * 60 * 1000;
+  private time60Secs = 60 * 1000; 
   private time20Mins = 20 * 60 * 1000;
   private time60Mins = 60 * 60 * 1000;
 
@@ -226,6 +213,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
     // Schedule recurring tasks using scheduler that accounts for elapsed pause time
     this.scheduleRecurring('notificationInfo', () => { if (this._parent.notificationsActive) this.getNotificationInfo(); }, this.time20Secs);
+    this.scheduleRecurring('weatherInfo', () => { if (this._parent.notificationsActive) this.getCurrentWeatherInfo(); }, this.time20Mins);
     this.scheduleRecurring('cryptoHub', () => { if (this._parent.notificationsActive) this.getCryptoHubInfo(); }, this.time20Mins);
     this.scheduleRecurring('calendarInfo', () => { if (this._parent.notificationsActive) this.getCalendarInfo(); }, this.time20Mins);
     this.scheduleRecurring('wordler', () => { if (this._parent.notificationsActive) this.getWordlerStreakInfo(); }, this.time60Mins);
@@ -268,24 +256,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     } catch (e) {
       console.error('Error clearing notification timers', e);
     }
-
-    // Also clear legacy interval refs for safety
-    try { clearInterval(this.notificationInfoInterval); } catch { }
-    try { clearInterval(this.cryptoHubInterval); } catch { }
-    try { clearInterval(this.calendarInfoInterval); } catch { }
-    try { clearInterval(this.wordlerInfoInterval); } catch { }
-    try { clearInterval(this.enderInterval); } catch { }
-    try { clearInterval(this.bonesInterval); } catch { }
-    try { clearInterval(this.nexusInterval); } catch { }
-    try { clearInterval(this.metaInterval); } catch { }
-    try { clearInterval(this.musicInterval); } catch { }
-    try { clearInterval(this.arrayInterval); } catch { }
-    try { clearInterval(this.emulationInterval); } catch { }
-    try { clearInterval(this.emulationN64Interval); } catch { }
-    try { clearInterval(this.artInterval); } catch { }
-    try { clearInterval(this.socialInterval); } catch { }
-    try { clearInterval(this.crawlerInterval); } catch { }
-
+ 
     this._parent.notificationTimers = {};
   }
 
@@ -546,7 +517,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getCurrentWeatherInfo() {
-    if (this._parent.lastRunTimestamps['weatherInfo'] && Date.now() - this._parent.lastRunTimestamps['weatherInfo'] < this.time20Mins) {
+    if (this._parent.lastRunTimestamps['weatherInfo'] 
+        && Date.now() - this._parent.lastRunTimestamps['weatherInfo'] < this.time20Mins) 
+    {
       return;
     }
     if (!this._parent.user?.id || !this._parent.userSelectedNavigationItems.find(x => x.title == "Weather")) { return; }
