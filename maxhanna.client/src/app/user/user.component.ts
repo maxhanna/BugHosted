@@ -14,6 +14,7 @@ import { User } from '../../services/datacontracts/user/user';
 import { FriendRequest } from '../../services/datacontracts/friends/friendship-request';
 import { Trophy } from '../../services/datacontracts/user/trophy';
 import { NexusService } from '../../services/nexus.service';
+import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
 import { MetaService } from '../../services/meta.service';
 import { NotificationService } from '../../services/notification.service';
 import { SocialService } from '../../services/social.service';
@@ -109,6 +110,8 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   // Breakdown per game (populated on demand when user clicks)
   emulationGameBreakdown: Array<{ romFileName: string; totalSeconds: number; plays: number }> = [];
   isEmulationBreakdownOpen = false;
+  isNexusBasesPanelOpen = false;
+  nexusBasesForUser: NexusBase[] = [];
   weatherLocation?: { city: string; country: string } = undefined;
   isUserBlocked = false;
   stoppedNotifications: number[] = [];
@@ -314,6 +317,38 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     this.isEmulationBreakdownOpen = false;
   }
 
+  async toggleNexusBases() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = this.user ?? parent?.user;
+    if (!user?.id) return;
+    if (this.isNexusBasesPanelOpen) {
+      this.closeNexusBasesPanel();
+      return;
+    }
+    this.isNexusBasesPanelOpen = true;
+    parent?.showOverlay();
+    try {
+      const mapData = await this.nexusService.getMap();
+      this.nexusBasesForUser = (mapData ?? []).filter((b: NexusBase) => b.user?.id === user.id);
+    } catch (e) {
+      this.nexusBasesForUser = [];
+    }
+  }
+
+  closeNexusBasesPanel() {
+    this.isNexusBasesPanelOpen = false;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay();
+  }
+
+  goToNexusBase(base: NexusBase) {
+    this.closeNexusBasesPanel();
+    this.closeAboutPanel();
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      parent.createComponent('Bug-Wars', { nexusBase: base });
+    }
+  }
 
   private getUserLoginStreak() {
     this.userService.getLoginStreak(this.user?.id ?? 0).then(streakRes => {

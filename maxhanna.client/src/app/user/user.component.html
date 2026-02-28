@@ -492,7 +492,7 @@
               <div class="optionsStatsHeader">
                 <app-menu-item [type]="'Bug-Wars'" [parentRef]="parentRef" [label]="'BugWars Bases:'"></app-menu-item>
               </div>
-              <div class="optionsStatsDescription">
+              <div class="optionsStatsDescription cursorPointerUnderlined linkColor" (click)="toggleNexusBases()">
                 {{numberOfNexusBases}} bases.
               </div>
             </div>
@@ -770,6 +770,32 @@
     </table>
   </div>
   <button id="closeOverlay" (click)="closeEmulationBreakdownPopup()" class="closeButton">Close</button>
+</div>
+
+<div class="popupPanel" *ngIf="isNexusBasesPanelOpen" style="overflow: auto; max-height: 65vh;">
+  <div class="popupPanelTitle">🎖️ Bug-Wars Bases</div>
+  <div class="optionsStatsBreakdown">
+    <div *ngIf="!nexusBasesForUser || nexusBasesForUser.length === 0" class="xxSmallFont">No bases found.</div>
+    <table *ngIf="nexusBasesForUser && nexusBasesForUser.length > 0" class="mainTable">
+      <thead>
+        <tr>
+          <th>Coords</th>
+          <th>Name</th>
+          <th>CC</th>
+          <th>Gold</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let base of nexusBasesForUser" class="cursorPointer" (click)="goToNexusBase(base)" title="Open this base in Bug-Wars">
+          <td class="linkColor">{{'{'+ base.coordsX + ',' + base.coordsY + '}'}}</td>
+          <td>{{ base.baseName ?? '—' }}</td>
+          <td>{{ base.commandCenterLevel }}</td>
+          <td style="color: gold;">{{ base.gold | number:'1.0-0' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <button id="closeOverlay" (click)="closeNexusBasesPanel()" class="closeButton">Close</button>
 </div>
 
  <div class="media-selector-container" *ngIf="showDisplayPictureSelector">
