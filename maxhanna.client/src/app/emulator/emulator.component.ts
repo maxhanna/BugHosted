@@ -1018,10 +1018,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         if (res.ok) {
           this._lastSaveTime = Date.now();
           this.lastGoodSaveSize.set(this.romName!, u8.length);
-          ms = res.body?.ms;
-          // Reset autosave timer so the next autosave fires after the full interval
-          try { this.setupAutosave(); } catch { }
-          //console.log(`[EJS] Save state uploaded (${u8.length} bytes)`);
+          ms = res.body?.ms; 
+          try { this.setupAutosave(); } catch { } 
           return true;
         } else {
           console.error('[EJS] Save upload failed:', res.errorText);
@@ -1031,7 +1029,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       } catch (err) {
         console.error('[EJS] Save upload exception:', err);
         error = err;
-        this.setTmpStatus("Error uploading save; please try again."); 
+        this.setTmpStatus("Error uploading save; please try again.", "Running"); 
         return false;
       } finally {
         this._saveInProgress = false;
@@ -1042,7 +1040,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         } else if (this.exitSaving) {
           this.navigateHome();
         } else if (!error) { 
-          this.setTmpStatus(`Save Complete! (took ${ms ? ms / 1000 + 's' : 'a moment'})`);
+          this.setTmpStatus(`Save Complete! (took ${ms ? ms / 1000 + 's' : 'a moment'})`, "Running");
         } 
       }
     })();
@@ -1050,12 +1048,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return await this._inFlightSavePromise;
   }
 
-  setTmpStatus(msg: string) {
+  setTmpStatus(msg: string, resetString?: string) {
     const tmpStatus = this.status;
     this.status = msg;
     this.cdr.detectChanges();
     setTimeout(() => {
-      this.status = tmpStatus;
+      this.status = resetString ?? tmpStatus;
       this.cdr.detectChanges();
     }, 4000);
   }
