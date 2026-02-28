@@ -80,18 +80,12 @@
       class="emuMenuButton" 
       [disabled]="isLoading">
       {{isFaqOpen ? 'Hide FAQ' : 'View FAQ'}}
-    </button>
+    </button> 
     <button *ngIf="romName"
       (click)="resetGame()" 
       class="emuMenuButton" 
       [disabled]="isLoading">
-      Reset Game (No Save)
-    </button>
-    <button *ngIf="romName"
-      (click)="resetGame(false)" 
-      class="emuMenuButton" 
-      [disabled]="isLoading">
-      Reset Game (Keep Save)
+      Reset Game
     </button>
     <button 
       *ngIf="onMobile() && !romName" 

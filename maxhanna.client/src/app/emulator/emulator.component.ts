@@ -2207,10 +2207,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return zeros;
   }
 
-  resetGame(skipSave = true): void {
-    if (!this.romName) return;
-    const confirm = window.confirm('Are you sure you want to reset the game? The next save will overwrite your current progress.');
-    if (confirm) {
+  resetGame(): void {
+    if (!this.romName) return; 
+    const confirm = window.confirm(
+      `Are you sure you want to reset the game? 
+      \nThe next save will overwrite your current progress.`);
+    if (confirm) { 
+      const skipSave = window.confirm("Reset without any save state?");
       this.fullReloadToEmulator(this.getReloadParamsSkipSave(skipSave));
     }
   }
