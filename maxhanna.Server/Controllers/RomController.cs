@@ -750,45 +750,7 @@ ON DUPLICATE KEY UPDATE
         }
       }
     } 
-
-    private async Task RecordRomPlayTimeAsync(int userId, string romFileName)
-    {
-      if (string.IsNullOrWhiteSpace(romFileName) || userId == 0) return; 
-
-      try
-      {
-        using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-        {
-          await connection.OpenAsync();
-          // Accumulate the elapsed time since the last checkpoint:
-          //   - GREATEST(start_time, COALESCE(save_time, start_time)) picks whichever
-          //     is more recent: start_time (set on ROM selection) or save_time (set on
-          //     last save). On the first save of a session save_time is stale so
-          //     start_time wins; on subsequent saves save_time wins.
-          //   - duration_seconds is updated BEFORE save_time in the SET clause so the
-          //     old save_time value is used in the TIMESTAMPDIFF calculation.
-          string sql = @"UPDATE maxhanna.emulation_play_time 
-            SET duration_seconds = duration_seconds 
-                  + TIMESTAMPDIFF(SECOND, 
-                      GREATEST(start_time, COALESCE(save_time, start_time)), 
-                      UTC_TIMESTAMP()),
-                save_time = UTC_TIMESTAMP()
-            WHERE user_id = @UserId AND rom_file_name = @RomFileName LIMIT 1;";
-
-          using (var cmd = new MySqlCommand(sql, connection))
-          {
-            cmd.Parameters.AddWithValue("@UserId", userId);
-            cmd.Parameters.AddWithValue("@RomFileName", romFileName); 
-            await cmd.ExecuteNonQueryAsync();
-          }
-        }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"Error in RecordRomPlayTimeAsync: {ex.Message}", userId, "ROM", true);
-      }
-    }
-    
+ 
     private async Task RecordRomSelectionAsync(int userId, string romFileName)
     {
       if (string.IsNullOrWhiteSpace(romFileName) || userId == 0) return; 
@@ -901,10 +863,13 @@ ON DUPLICATE KEY UPDATE
         try
         {
           const string ptSql = @"UPDATE maxhanna.emulation_play_time 
-            SET duration_seconds = duration_seconds 
-                  + TIMESTAMPDIFF(SECOND, 
-                      GREATEST(start_time, COALESCE(save_time, start_time)), 
-                      UTC_TIMESTAMP()),
+            SET duration_seconds = COALESCE(duration_seconds, 0) 
+                  + IF(start_time IS NULL AND save_time IS NULL, 0, 
+                       TIMESTAMPDIFF(SECOND, 
+                         IF(save_time IS NULL OR save_time < start_time, start_time, save_time), 
+                         UTC_TIMESTAMP()
+                       )
+                    ),
                 save_time = UTC_TIMESTAMP()
             WHERE user_id = @ptUser AND rom_file_name = @ptRom LIMIT 1;";
           using var ptCmd = new MySqlCommand(ptSql, conn);

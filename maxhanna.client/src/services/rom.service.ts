@@ -51,12 +51,7 @@ export class RomService {
       });
 
       if (!response.ok) return null;
-
-      // If a progress callback is provided and the response body is streamable,
-      // read the body in chunks so we can report download progress.
-      // NOTE: The Express compression middleware strips Content-Length when it
-      // gzips the response. The backend sends a custom X-File-Size header with
-      // the original (uncompressed) file size that survives the proxy chain.
+ 
       const totalSize =
         Number(response.headers.get('X-File-Size') || '0') ||
         Number(response.headers.get('Content-Length') || '0');
@@ -379,17 +374,7 @@ export class RomService {
     const copy = Uint8Array.from(bytes);
     return copy.buffer; // ArrayBuffer
   }
-
-  private async gunzip(input: Uint8Array): Promise<Uint8Array> {
-    const ds = new DecompressionStream('gzip');
-
-    // Convert to real ArrayBuffer so BlobPart typing stays happy
-    const stream = new Blob([this.toArrayBuffer(input)]).stream().pipeThrough(ds);
-
-    const ab = await new Response(stream).arrayBuffer();
-    return new Uint8Array(ab);
-  }
-
+ 
   async saveEmulatorJSState(
     romName: string,
     userId: number,
@@ -397,11 +382,8 @@ export class RomService {
     onProgress?: (loaded: number, total: number) => void
   ): Promise<SaveUploadResponse> {
 
-    const tight = new Uint8Array(this.toTightArrayBuffer(stateData));
-
-    const form = new FormData();
-
-    // Force to real ArrayBuffer for File() / BlobPart typing
+    const tight = new Uint8Array(this.toTightArrayBuffer(stateData)); 
+    const form = new FormData(); 
     const ab: ArrayBuffer = this.toArrayBuffer(tight);
 
     form.append('file', new File([ab], 'savestate.bin', {
@@ -517,17 +499,11 @@ export class RomService {
       });
 
       if (!response.ok) return null;
-
-      const enc = (response.headers.get('X-EJS-Encoding') || 'identity').toLowerCase();
-      const encoding: 'gzip' | 'identity' = enc === 'gzip' ? 'gzip' : 'identity';
+ 
 
       const blob = await response.blob();
       let u8: Uint8Array = new Uint8Array(await blob.arrayBuffer());
-
-      if (encoding === 'gzip') {
-        u8 = await this.gunzip(u8); // u8 stays Uint8Array ✅
-      }
-
+  
       // Convert to tight ArrayBuffer only at the end
       return new Blob([this.toArrayBuffer(u8)], { type: 'application/octet-stream' });
     } catch {
