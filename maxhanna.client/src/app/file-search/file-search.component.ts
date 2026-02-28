@@ -879,6 +879,16 @@ private async loadFileByIdOnce(id: number) {
         // server returns updated favourite count and whether user favourited
         optionsFile.favouriteCount = res.favouriteCount ?? optionsFile.favouriteCount ?? 0;
         optionsFile.isFavourited = res.isFavourited ?? !optionsFile.isFavourited;
+        // Also update the same file object in the current directory list so the UI updates
+        if (this.directory?.data && Array.isArray(this.directory.data)) {
+          const idx = this.directory.data.findIndex(f => f && f.id === optionsFile.id);
+          if (idx !== -1) {
+            this.directory.data[idx].favouriteCount = optionsFile.favouriteCount;
+            this.directory.data[idx].isFavourited = optionsFile.isFavourited;
+          }
+        }
+        // Ensure Angular picks up the changes
+        try { this.changeDetectorRef.detectChanges(); } catch {}
       }
     } catch (ex) {
       console.error(ex);
