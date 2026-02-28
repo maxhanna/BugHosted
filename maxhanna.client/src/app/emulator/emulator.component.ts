@@ -675,8 +675,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const rootStyle = getComputedStyle(document.documentElement);
     const mainHighlight = (rootStyle.getPropertyValue('--main-highlight-color') || '#3a3a3a').trim();
     const componentBackgroundColor = (rootStyle.getPropertyValue('--component-background-color') || '#3a3a3a').trim();
-    let systemIcon = this.fileSearchComponent?.getSystemIconUrl(this.romService.guessSystemFromFileName(this.romName ?? '') ?? "") ?? undefined;
-    if (!systemIcon || !systemIcon.includes("png")) {
+    let systemIcon = this.fileSearchComponent?.getSystemIcon(this.romService.guessSystemFromFileName(this.romName ?? '') ?? "") ?? undefined;
+    if (!systemIcon?.toString().includes("png")) {
       console.log("system icon missing or not a png for rom", "icon value:", systemIcon);
       systemIcon = undefined;
     }
@@ -701,10 +701,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       1: { value: '', value2: 'BUTTON_3' },
       2: { value: '', value2: 'SELECT' },
       3: { value: '', value2: 'START' },
-      4: { value: '', value2: 'DPAD_UP' },
-      5: { value: '', value2: 'DPAD_DOWN' },
-      6: { value: '', value2: 'DPAD_LEFT' },
-      7: { value: '', value2: 'DPAD_RIGHT' },
+      4: { value: '', value2: 'RIGHT_STICK_Y:+1' },
+      5: { value: '', value2: 'RIGHT_STICK_Y:-1' },
+      6: { value: '', value2: 'RIGHT_STICK_X:-1' },
+      7: { value: '', value2: 'RIGHT_STICK_X:+1' },
       8: { value: '', value2: 'BUTTON_2' },
       9: { value: '', value2: 'BUTTON_4' },
       10: { value: '', value2: 'LEFT_TOP_SHOULDER' },
@@ -717,10 +717,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       17: { value: '', value2: 'LEFT_STICK_X:-1' },
       18: { value: '', value2: 'LEFT_STICK_Y:+1' },
       19: { value: '', value2: 'LEFT_STICK_Y:-1' },
-      20: { value: '', value2: 'RIGHT_STICK_X:+1' },
-      21: { value: '', value2: 'RIGHT_STICK_X:-1' },
-      22: { value: '', value2: 'RIGHT_STICK_Y:+1' },
-      23: { value: '', value2: 'RIGHT_STICK_Y:-1' },
+      20: { value: '', value2: 'DPAD_RIGHT' },
+      21: { value: '', value2: 'DPAD_LEFT' },
+      22: { value: '', value2: 'DPAD_UP' },
+      23: { value: '', value2: 'DPAD_DOWN' },
       24: {}, 25: {}, 26: {}, 27: {}, 28: {}, 29: {},
     } as Record<number, unknown>;
     w.EJS_defaultControls = {
@@ -729,10 +729,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         1: { value: 's', value2: 'BUTTON_3' },
         2: { value: 'v', value2: 'SELECT' },
         3: { value: 'enter', value2: 'START' },
-        4: { value: 'up arrow', value2: 'RIGHT_STICK_X:+1' },
-        5: { value: 'down arrow', value2: 'RIGHT_STICK_X:-1' },
-        6: { value: 'left arrow', value2: 'RIGHT_STICK_Y:+1' },
-        7: { value: 'right arrow', value2: 'RIGHT_STICK_Y:-1' },
+        4: { value: 'up arrow', value2: 'RIGHT_STICK_Y:+1' },
+        5: { value: 'down arrow', value2: 'RIGHT_STICK_Y:-1' },
+        6: { value: 'left arrow', value2: 'RIGHT_STICK_X:-1' },
+        7: { value: 'right arrow', value2: 'RIGHT_STICK_X:+1' },
         8: { value: 'z', value2: 'BUTTON_2' },
         9: { value: 'a', value2: 'BUTTON_4' },
         10: { value: 'q', value2: 'LEFT_TOP_SHOULDER' },
@@ -745,10 +745,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         17: { value: 'f', value2: 'LEFT_STICK_X:-1' },
         18: { value: 'g', value2: 'LEFT_STICK_Y:+1' },
         19: { value: 't', value2: 'LEFT_STICK_Y:-1' },
-        20: { value: 'l', value2: 'DPAD_UP' },
-        21: { value: 'j', value2: 'DPAD_DOWN' },
-        22: { value: 'k', value2: 'DPAD_LEFT' },
-        23: { value: 'i', value2: 'DPAD_RIGHT' },
+        20: { value: 'l', value2: 'DPAD_RIGHT' },
+        21: { value: 'j', value2: 'DPAD_LEFT' },
+        22: { value: 'k', value2: 'DPAD_UP' },
+        23: { value: 'i', value2: 'DPAD_DOWN' },
         24: { value: '1' }, 25: { value: '2' }, 26: { value: '3' },
         27: {}, 28: {}, 29: {},
       },
