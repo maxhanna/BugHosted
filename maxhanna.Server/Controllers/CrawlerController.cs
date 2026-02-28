@@ -41,8 +41,8 @@ namespace maxhanna.Server.Controllers
 
       request.Url = request.Url?.ToLower();
 
-      // ✅ Local timeout: cancel everything if > 30s
-      using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+      // ✅ Local timeout: cancel everything if > 2 minutes
+      using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
       var ct = cts.Token;
 
       try

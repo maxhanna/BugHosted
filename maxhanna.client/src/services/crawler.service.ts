@@ -27,7 +27,7 @@ export class CrawlerService {
     };
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 32000); // 32s client timeout
+    const timeout = setTimeout(() => controller.abort(), 2*60*1000); // 2m client timeout
 
     try {
       const response = await fetch(`/crawler/searchurl`, {

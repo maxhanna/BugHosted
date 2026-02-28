@@ -6,8 +6,7 @@ using maxhanna.Server.Controllers;
 using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
-using MySqlConnector;
-using Microsoft.Extensions.Hosting;
+using MySqlConnector; 
 
 var builder = WebApplication.CreateBuilder(args);
 
