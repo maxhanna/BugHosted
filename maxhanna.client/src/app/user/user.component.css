@@ -553,6 +553,14 @@
   align-items: flex-end;
 }
 
+.optionsStatsBreakdown {
+  width: calc(100% - 10px);
+  white-space: break-spaces;
+  overflow: auto; 
+  padding: 5px;
+  font-size: small;
+}
+
 .optionsStatsBreakdownValue {
   padding: 5px;
 }

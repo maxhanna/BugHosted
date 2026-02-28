@@ -22,16 +22,43 @@ namespace maxhanna.Server.Controllers
             var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
             using var conn = new MySqlConnection(connectionString);
             await conn.OpenAsync();
-            string sql = @"INSERT INTO ratings (user_id, rating, file_id, search_id, timestamp) VALUES (@UserId, @Rating, @FileId, @SearchId, UTC_TIMESTAMP())";
-            using var cmd = new MySqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue("@UserId", rating.UserId ?? (object)DBNull.Value);
-            cmd.Parameters.AddWithValue("@Rating", rating.RatingValue);
-            cmd.Parameters.AddWithValue("@FileId", rating.FileId ?? (object)DBNull.Value);
-            cmd.Parameters.AddWithValue("@SearchId", rating.SearchId ?? (object)DBNull.Value);
+
             try
             {
+                // If we have a user and a file, try to update existing rating for that user/file
+                if (rating.UserId.HasValue && rating.FileId.HasValue)
+                {
+                    const string updateSql = @"UPDATE ratings SET rating = @Rating, timestamp = UTC_TIMESTAMP() WHERE user_id = @UserId AND file_id = @FileId";
+                    using var upd = new MySqlCommand(updateSql, conn);
+                    upd.Parameters.AddWithValue("@UserId", rating.UserId.Value);
+                    upd.Parameters.AddWithValue("@FileId", rating.FileId.Value);
+                    upd.Parameters.AddWithValue("@Rating", rating.RatingValue);
+                    var rows = await upd.ExecuteNonQueryAsync();
+                    if (rows > 0) return Ok(new { success = true, replaced = true });
+                }
+
+                // If we have a user and a search rating, try to update existing rating for that user/search
+                if (rating.UserId.HasValue && rating.SearchId.HasValue)
+                {
+                    const string updateSearchSql = @"UPDATE ratings SET rating = @Rating, timestamp = UTC_TIMESTAMP() WHERE user_id = @UserId AND search_id = @SearchId";
+                    using var upd2 = new MySqlCommand(updateSearchSql, conn);
+                    upd2.Parameters.AddWithValue("@UserId", rating.UserId.Value);
+                    upd2.Parameters.AddWithValue("@SearchId", rating.SearchId.Value);
+                    upd2.Parameters.AddWithValue("@Rating", rating.RatingValue);
+                    var rows2 = await upd2.ExecuteNonQueryAsync();
+                    if (rows2 > 0) return Ok(new { success = true, replaced = true });
+                }
+
+                // No existing rating found (or no identifying keys), insert a new row
+                string sql = @"INSERT INTO ratings (user_id, rating, file_id, search_id, timestamp) VALUES (@UserId, @Rating, @FileId, @SearchId, UTC_TIMESTAMP())";
+                using var cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@UserId", rating.UserId ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@Rating", rating.RatingValue);
+                cmd.Parameters.AddWithValue("@FileId", rating.FileId ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@SearchId", rating.SearchId ?? (object)DBNull.Value);
+
                 await cmd.ExecuteNonQueryAsync();
-                return Ok(new { success = true });
+                return Ok(new { success = true, replaced = false });
             }
             catch (Exception ex)
             {

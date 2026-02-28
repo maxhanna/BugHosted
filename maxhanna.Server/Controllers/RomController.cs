@@ -448,7 +448,7 @@ ON DUPLICATE KEY UPDATE
         using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
         {
           await connection.OpenAsync();
-          string sql = @"SELECT rom_file_name, IFNULL(SUM(duration_seconds),0) AS totalSeconds, IFNULL(SUM(plays),0) AS plays FROM maxhanna.emulation_play_time WHERE user_id = @UserId GROUP BY rom_file_name ORDER BY totalSeconds DESC;";
+          string sql = @"SELECT rom_file_name, IFNULL(SUM(duration_seconds),0) AS totalSeconds, IFNULL(SUM(plays),0) AS plays FROM maxhanna.emulation_play_time WHERE user_id = @UserId GROUP BY rom_file_name ORDER BY totalSeconds DESC, plays DESC;";
           var cmd = new MySqlCommand(sql, connection);
           cmd.Parameters.AddWithValue("@UserId", userId);
           using (var reader = await cmd.ExecuteReaderAsync())

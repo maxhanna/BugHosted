@@ -238,6 +238,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       this.removeBorderOnSocial();
     }, 500);
   }
+  
   onLoginUsernameInput(event: Event) {
     try {
       const val = (event.target as HTMLInputElement).value;
@@ -298,9 +299,11 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       parent?.closeOverlay();
       return;
     }
-    // Open popup, show overlay and fetch breakdown
-    this.isEmulationBreakdownOpen = true;
-    parent?.showOverlay();
+    this.closeAboutPanel();
+    setTimeout(() => {
+      this.isEmulationBreakdownOpen = true;
+      parent?.showOverlay();
+    }, 200);
     try {
       const data = await this.romService.getUserEmulationBreakdown(this.user.id);
       if (Array.isArray(data)) {
@@ -310,6 +313,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       }
     } catch (e) {
       this.emulationGameBreakdown = [];
+      console.log("Failed to load emulation breakdown for user:", e);
     }
   }
 
@@ -325,13 +329,17 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       this.closeNexusBasesPanel();
       return;
     }
-    this.isNexusBasesPanelOpen = true;
-    parent?.showOverlay();
+    this.closeAboutPanel();
+    setTimeout(() => {
+      this.isNexusBasesPanelOpen = true;
+      parent?.showOverlay();
+    }, 200);
     try {
       const mapData = await this.nexusService.getMap();
       this.nexusBasesForUser = (mapData ?? []).filter((b: NexusBase) => b.user?.id === user.id);
     } catch (e) {
       this.nexusBasesForUser = [];
+      console.log("Failed to load nexus bases for user:", e);
     }
   }
 
@@ -343,10 +351,9 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
 
   goToNexusBase(base: NexusBase) {
     this.closeNexusBasesPanel();
-    this.closeAboutPanel();
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
-      parent.createComponent('Bug-Wars', { nexusBase: base });
+      parent.createComponent('Bug-Wars', { centerMapCoords: { x: base.coordsX, y: base.coordsY } });
     }
   }
 

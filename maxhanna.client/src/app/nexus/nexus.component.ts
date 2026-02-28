@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { AttackEventPayload } from '../../services/datacontracts/nexus/attack-event-payload';
 import { MiningSpeed } from '../../services/datacontracts/nexus/mining-speed';
 import { NexusAttackSent } from '../../services/datacontracts/nexus/nexus-attack-sent';
@@ -26,6 +26,7 @@ import { NexusReportsComponent } from '../nexus-reports/nexus-reports.component'
     standalone: false
 })
 export class NexusComponent extends ChildComponent implements OnInit, OnDestroy {
+  @Input() centerMapCoords?: { x: number; y: number };
   serverDown? = false;
   notifications: string[] = [];
   isUserComponentOpen = true;
@@ -221,6 +222,20 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       } 
     });
     this.loadNexusData();
+
+    // If opened with centerMapCoords, center the map on those coordinates after init
+    if (this.centerMapCoords) {
+      this.nexusBase = { coordsX: this.centerMapCoords.x, coordsY: this.centerMapCoords.y } as NexusBase;
+      this.preventMapScrolling = true;
+      setTimeout(() => {
+        this.toggleScreen('map', true);
+        setTimeout(() => {
+          this.mapComponent?.scrollToCoordinates(this.centerMapCoords!.x, this.centerMapCoords!.y);
+          this.mapComponent?.selectCoordinates(this.centerMapCoords!.x, this.centerMapCoords!.y);
+          this.preventMapScrolling = false;
+        }, 300);
+      }, 150);
+    }
   }
 
   ngOnDestroy() {

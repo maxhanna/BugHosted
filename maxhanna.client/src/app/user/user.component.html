@@ -781,16 +781,14 @@
         <tr>
           <th>Coords</th>
           <th>Name</th>
-          <th>CC</th>
-          <th>Gold</th>
+          <th>CC Level</th> 
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let base of nexusBasesForUser" class="cursorPointer" (click)="goToNexusBase(base)" title="Open this base in Bug-Wars">
           <td class="linkColor">{{'{'+ base.coordsX + ',' + base.coordsY + '}'}}</td>
           <td>{{ base.baseName ?? '—' }}</td>
-          <td>{{ base.commandCenterLevel }}</td>
-          <td style="color: gold;">{{ base.gold | number:'1.0-0' }}</td>
+          <td>{{ base.commandCenterLevel }}</td> 
         </tr>
       </tbody>
     </table>
