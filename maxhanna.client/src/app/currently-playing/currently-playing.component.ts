@@ -32,7 +32,7 @@ export class CurrentlyPlayingComponent implements OnInit {
     const g = (game || '').toString().toLowerCase();
     if (g === 'nexus' || g === 'bug-wars') return 'Bug-Wars';
     if (g === 'meta' || g === 'meta-bots') return 'Meta-Bots';
-    if (g === 'emulation' || g === 'emu') return 'Emulation';
+    if (g === 'emulation' || g === 'emu') return 'Emulator';
     if (g === 'array') return 'Array';
     if (g === 'wordler') return 'Wordler';
     if (g === 'mastermind') return 'Mastermind';

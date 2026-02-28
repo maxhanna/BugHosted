@@ -903,6 +903,9 @@ private async loadFileByIdOnce(id: number) {
       this.closeFileFavouriters();
       return;
     }
+    if (this.isOptionsPanelOpen) {
+      this.closeOptionsPanel();
+    }
     const parent = this.inputtedParentRef ?? this.parentRef; 
     try {
       const list: any[] = await this.fileService.getFavouritedBy(file.id);
@@ -1235,6 +1238,9 @@ private async loadFileByIdOnce(id: number) {
     if (this.isShowingFileViewers) {
       this.closeFileViewers();
       return;
+    }
+    if (this.isOptionsPanelOpen) {
+      this.closeOptionsPanel();
     }
     const parent = this.inputtedParentRef ?? this.parentRef; 
     this.fileService.getFileViewers(fileId).then(res => {
