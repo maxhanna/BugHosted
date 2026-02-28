@@ -85,6 +85,15 @@ export class NavigationComponent implements OnInit, OnDestroy {
   isLoadingCalendar = false;
   isLoadingEnder = false;
   isLoadingBones = false;
+  isLoadingNexus = false;
+  isLoadingEmulator = false;
+  isLoadingMeta = false;
+  isLoadingArray = false;
+  isLoadingMusic = false;
+  isLoadingNews = false;
+  isLoadingSocial = false;
+  isLoadingCrawler = false;
+  isLoadingArt = false;
   isThemeApplied = false;
   numberOfNotifications = 0;
   showAppSelectionHelp = false;
@@ -227,6 +236,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.scheduleRecurring('social', () => { if (this._parent.notificationsActive) this.getSocialInfo(); }, this.time60Mins);
     this.scheduleRecurring('art', () => { if (this._parent.notificationsActive) this.getArtInfo(); }, this.time60Mins);
     this.scheduleRecurring('crawler', () => { if (this._parent.notificationsActive) this.getCrawlerInfo(); }, this.time60Mins);
+    this.scheduleRecurring('newsCount', () => { if (this._parent.notificationsActive) this.getNewsCountInfo(); }, this.time60Mins);
   }
 
   stopNotifications() {
@@ -643,6 +653,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['nexus'] < this.time60Secs) {
       return;
     }
+    this.isLoadingNexus = true;
     try {
       const res: any = await this.nexusService.getActivePlayers(2);
       this.nexusActivePlayers = res?.count ?? null;
@@ -671,6 +682,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         nexusNav.content = parts.join('\n');
       }
     }
+    this.isLoadingNexus = false;
     this.updateLastRunTimestamp('nexus');
   }
 
@@ -727,6 +739,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['meta'] < this.time60Secs) {
       return;
     }
+    this.isLoadingMeta = true;
     try {
       const res: any = await this.metaService.getActivePlayers(2);
       this.metaActivePlayers = res?.count ?? null;
@@ -755,6 +768,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         metaNav.content = parts.join('\n');
       }
     }
+    this.isLoadingMeta = false;
     this.updateLastRunTimestamp('meta');
   }
 
@@ -765,6 +779,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['music'] < this.time60Mins) {
       return;
     }
+    this.isLoadingMusic = true;
     try {
       const res: any = await this.todoService.getTodoCount(this._parent.user.id, 'Music');
       this.musicTodoCount = res?.count ?? 0;
@@ -777,6 +792,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         musicNav.content = this.musicTodoCount && this.musicTodoCount > 0 ? this.shortenCount(this.musicTodoCount) : '';
       }
     }
+    this.isLoadingMusic = false;
     this.updateLastRunTimestamp('music');
   }
 
@@ -789,6 +805,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['array'] < this.time60Secs) {
       return;
     }
+    this.isLoadingArray = true;
     try {
       const res: any = await this.arrayService.getActivePlayers(2);
       this.arrayActivePlayers = res?.count ?? null;
@@ -813,6 +830,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         arrayNav.content = parts.join('\n');
       }
     }
+    this.isLoadingArray = false;
     this.updateLastRunTimestamp('array');
   }
 
@@ -822,6 +840,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['emulator'] < this.time60Secs) {
       return;
     }
+    this.isLoadingEmulator = true;
     try {
       const res: any = await this.romService.getActivePlayers(2);
       this.emulatorActivePlayers = res?.count ?? null;
@@ -832,6 +851,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         emuNav.content = this.emulatorActivePlayers != null ? this.emulatorActivePlayers.toString() : '';
       }
     }
+    this.isLoadingEmulator = false;
     this.updateLastRunTimestamp('emulator');
   }
 
@@ -841,6 +861,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['social'] < this.time60Mins) {
       return;
     }
+    this.isLoadingSocial = true;
     try {
       const res: any = await this.socialService.getTotalPosts();
       this.socialTotalPosts = res?.count ?? null;
@@ -851,6 +872,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         socialNav.content = this.socialTotalPosts != null ? this.socialTotalPosts.toString() : '';
       }
     }
+    this.isLoadingSocial = false;
     this.updateLastRunTimestamp('social');
   }
 
@@ -860,6 +882,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['crawler'] < this.time60Mins) {
       return;
     }
+    this.isLoadingCrawler = true;
     try {
       const res: any = await this.crawlerService.indexCount();
       const parsed = parseInt(res, 10);
@@ -871,6 +894,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         crawlerNav.content = this.crawlerIndexCount != null ? this.crawlerIndexCount.toString() : '';
       }
     }
+    this.isLoadingCrawler = false;
     this.updateLastRunTimestamp('crawler');
   }
 
@@ -880,6 +904,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['art'] < this.time60Mins) {
       return;
     }
+    this.isLoadingArt = true;
     if (!this.artTotalSubmissions) {
       try {
         const res: any = await this.fileService.getNumberOfArt();
@@ -894,6 +919,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         artNav.content = this.artTotalSubmissions != null ? this.artTotalSubmissions.toString() : '';
       }
     }
+    this.isLoadingArt = false;
     this.updateLastRunTimestamp('art');
   }
 
@@ -1069,11 +1095,26 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingTheme = false;
     this.isLoadingWordlerStreak = false;
     this.isLoadingCalendar = false;
-    this.updateLastRunTimestamp('calendarInfo');
+    this.isLoadingBones = false;
+    this.isLoadingEnder = false; 
+    this.isLoadingNexus = false;
+    this.isLoadingMeta = false;
+    this.isLoadingEmulator = false;
+    this.isLoadingSocial = false;
+    this.isLoadingCrawler = false;
+    this.isLoadingArt = false;
+    this.isLoadingArray = false;
+    this.isLoadingMusic = false;
+    this.isLoadingNews = false;
   }
 
   private async getNewsCountInfo() {
+    if (this._parent.lastRunTimestamps['newsCount']
+        && Date.now() - this._parent.lastRunTimestamps['newsCount'] < this.time60Mins) {
+      return;
+    }
     if (!this._parent || !this._parent.user || this.navbarCollapsed) return;
+    this.isLoadingNews = true;
     try {
       const count = await this.newsService.getNewsCount();
       if (this._parent?.navigationItems) {
@@ -1085,6 +1126,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     } catch (err) {
       console.error('Error fetching news count:', err);
     }
+    this.isLoadingNews = false;
+    this.updateLastRunTimestamp('newsCount');
   }
   private shortenCount(value: number): string {
     if (value === null || value === undefined) return '';
