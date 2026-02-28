@@ -21,6 +21,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   @Input() skipSaveFileRequested = false;
   @Input() inputtedParentRef?: AppComponent;
 
+  isShowingLoginPanel = false;
   isMenuPanelOpen = false;
   isFullScreen = false;
   romName?: string;
@@ -174,20 +175,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
     }
-    // SharedArrayBuffer (needed by EJS_threads) requires cross-origin isolation.
-    // If the page wasn't served with COOP/COEP headers (e.g. the user opened the
-    // emulator via the in-app navigation instead of a direct /Emulator URL), force
-    // a full page navigation so Express can apply the required headers.
-    if (typeof window !== 'undefined' && !(window as any).crossOriginIsolated) {
-      const params = new URLSearchParams();
-      if (this.presetRomName) params.set('rom', this.presetRomName);
-      if (this.presetRomId != null) params.set('romId', String(this.presetRomId));
-      if (this.skipSaveFileRequested) params.set('skipSaveFile', 'true');
-      const qs = params.toString();
-      window.location.replace('/Emulator' + (qs ? '?' + qs : ''));
-      return;
+    if (!this.parentRef?.user?.id) {
+      this.autosave = false;
     }
-
+    this.ensureLoadedViaRoute();
     if (this.parentRef) {
       this.parentRef.preventShowSecurityPopup = true;
       this.parentRef.navigationComponent.stopNotifications();
@@ -255,6 +246,22 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   private navigateHome() {
     setTimeout(() => window.location.replace('/'), 0);
+  }
+
+  ensureLoadedViaRoute(): void {
+    // SharedArrayBuffer (needed by EJS_threads) requires cross-origin isolation.
+    // If the page wasn't served with COOP/COEP headers (e.g. the user opened the
+    // emulator via the in-app navigation instead of a direct /Emulator URL), force
+    // a full page navigation so Express can apply the required headers.
+    if (typeof window !== 'undefined' && !(window as any).crossOriginIsolated) {
+      const params = new URLSearchParams();
+      if (this.presetRomName) params.set('rom', this.presetRomName);
+      if (this.presetRomId != null) params.set('romId', String(this.presetRomId));
+      if (this.skipSaveFileRequested) params.set('skipSaveFile', 'true');
+      const qs = params.toString();
+      window.location.replace('/Emulator' + (qs ? '?' + qs : ''));
+      return;
+    }
   }
 
   async onRomSelected(file: FileEntry) {
@@ -982,7 +989,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.parentRef?.showNotification('Save state data appears invalid; upload skipped.');
       return false;
     }
-    const tmpStatus = this.status;
     if (!u8?.length) {
       console.warn('[EJS] uploadSaveBytes: no bytes to upload; skipping');
       this.setTmpStatus("No save data captured; upload skipped.");
@@ -991,6 +997,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (!this.parentRef?.user?.id) {
       console.warn('[EJS] uploadSaveBytes: no user; skipping upload');
       this.setTmpStatus("User not logged in; upload skipped.");
+      this.openLoginPanel();
       return false;
     } 
     if (!this.romName) {
@@ -2276,6 +2283,18 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       await this.fileSearchComponent?.getDirectory();
       this.cdr.detectChanges();
     }, 250);
+  }
+
+  openLoginPanel() {
+    this.isShowingLoginPanel = true;
+    this.parentRef?.showOverlay();
+    this.cdr.detectChanges();
+  }
+
+  closeLoginPanel(event?: any) {
+    this.isShowingLoginPanel = false;
+    this.parentRef?.closeOverlay();
+    this.cdr.detectChanges();
   }
 }
 

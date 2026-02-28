@@ -147,3 +147,13 @@
   
   <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
 </div>
+
+<div class="popupPanel" *ngIf="isShowingLoginPanel">
+  <app-user [loginOnly]="true" [inputtedParentRef]="parentRef" [canClose]="false"
+  (closeUserComponentEvent)="closeLoginPanel($event)"
+  [loginReasonMessage]="'You must log-in to save your progress on the server.'"></app-user>
+
+  <div>
+    <button id="closeOverlay" (click)="closeLoginPanel($event)" class="closeButton">Close</button>
+  </div>
+</div>
