@@ -91,6 +91,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Output() finishedLoadingEvent = new EventEmitter<void>();
 
   async ngOnInit() {
+    if (this.inputtedParentRef) {
+      this.parentRef = this.inputtedParentRef;
+    }
     this.debugLog('ngOnInit start', { isLoadedFromURL: this.isLoadedFromURL, autoload: this.autoload, fileId: this.fileId, hasFileObj: !!this.file, fileSrc: this.fileSrc });
     if (this.isLoadedFromURL) {
       const componentContainers = document.getElementsByClassName("componentContainer");
@@ -148,7 +151,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (urlContainsMedia && (file?.fileName || file?.givenFileName)) {
       this.selectedFileName = file.givenFileName ?? file.fileName ?? 'MediaViewer';
       if (file) {
-        this.inputtedParentRef?.replacePageTitleAndDescription(this.selectedFileName, this.selectedFileName);
+        this.parentRef?.replacePageTitleAndDescription(this.selectedFileName, this.selectedFileName);
       }
     }
   }
@@ -169,7 +172,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       return;
     }
 
-    const parentRef = this.parentRef || this.inputtedParentRef;
+    const parentRef = this.parentRef;
 
     if (this.fileId) {
       // Preserve existing file data if available, otherwise create minimal entry
@@ -211,7 +214,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   private setFileSrcByParentRefValue(id: number) {
     this.muteOtherVideos();
     try {
-      this.selectedFileSrc = this.parentRef?.pictureSrcs[id].value ?? this.inputtedParentRef!.pictureSrcs[id].value;
+      this.selectedFileSrc = this.parentRef?.pictureSrcs[id].value;
       this.debugLog('setFileSrcByParentRefValue succeeded', { id });
     } catch (ex) {
       this.debugLog('setFileSrcByParentRefValue failed (likely sparse array access)', { id, error: ex });
@@ -328,7 +331,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
   createUserProfileComponent(user?: User) {
     if (!user) { return alert("you must select a user!"); }
-    setTimeout(() => { this.inputtedParentRef?.createComponent("User", { "user": user }); }, 1);
+    setTimeout(() => { this.parentRef?.createComponent("User", { "user": user }); }, 1);
   }
 
   // Parse comma-separated user ids from selectedFile.sharedWith into an array of numbers
@@ -352,7 +355,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
     this.isLoading = true;
     this.fileId = fileId;
-    const parent = this.inputtedParentRef ?? this.parentRef;
+    const parent = this.parentRef;
     if (parent && parent.pictureSrcs && parent.pictureSrcs.find(x => x.key == fileId + '')) {
       this.showThumbnail = true;
       this.selectedFileSrc = parent.pictureSrcs.find(x => x.key == fileId + '')!.value;
@@ -440,16 +443,23 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       return;
     }
     this.startLoading();
-    const res = await this.fileService.updateFileData(this.user?.id ?? this.inputtedParentRef?.user?.id ?? 0, { FileId: file.id, GivenFileName: fileName, Description: '', LastUpdatedBy: this.user || this.inputtedParentRef?.user || new User(0, "Anonymous") });
+    const res = await this.fileService.updateFileData(
+      this.user?.id ?? this.parentRef?.user?.id ?? 0, 
+      { FileId: file.id, 
+        GivenFileName: fileName, 
+        Description: '', 
+        LastUpdatedBy: this.user || this.parentRef?.user || new User(0, "Anonymous") 
+      }
+    );
     if (res) {
-      this.inputtedParentRef?.showNotification(res);
+      this.parentRef?.showNotification(res);
       file.givenFileName = fileName;
       this.isEditingFileName = false;
     }
     this.stopLoading();
   }
   async removeTopicFromFile(topic: Topic, file: FileEntry) {
-    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    const user = this.parentRef?.user;
     if (user) {
       file.topics = file.topics?.filter(x => x.id != topic.id);
       await this.fileService.editTopics(user, file, file.topics ?? []);
@@ -466,7 +476,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
   }
   async editFileTopicInDB(topics: Topic[], file: FileEntry) {
-    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    const user = this.parentRef?.user;
     if (user) {
       await this.fileService.editTopics(user, file, topics);
       this.editingTopics = this.editingTopics.filter(x => x != file.id);
@@ -506,7 +516,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
     overlay.style.display = 'block';
 
-    const parent = this.inputtedParentRef ?? this.parentRef;
+    const parent = this.parentRef;
     if (parent) {
       parent.hideBodyOverflow();
     }
@@ -533,13 +543,13 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (!confirm(`Download ${file.givenFileName ?? file.fileName}?`)) {
       return;
     }
-    const parent = this.inputtedParentRef ?? this.parentRef;
+    const parent = this.parentRef;
     if (!parent) return;
 
     let directoryValue = this.currentDirectory;
     if (!directoryValue) {
 
-      const requesterId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id;
+      const requesterId = this.parentRef?.user?.id;
       const fileEntry = await this.fileService.getFileEntryById(file.id, requesterId);
       if (fileEntry) {
         directoryValue = fileEntry.directory;
@@ -554,7 +564,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.startLoading();
       this.emittedNotification.emit(`Downloading ${file.fileName}`);
 
-      const response = await this.fileService.getFile(target, undefined, this.parentRef?.user ?? this.inputtedParentRef?.user);
+      const response = await this.fileService.getFile(target, undefined, this.parentRef?.user);
       const blob = new Blob([(response?.blob)!], { type: 'application/octet-stream' });
 
       const a = document.createElement('a');
@@ -635,7 +645,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     return this.fileService.formatFileSize(bytes, decimalPoint);
   }
   getDirectoryName(file: FileEntry): string {
-    const parent = this.inputtedParentRef ?? this.parentRef;
+    const parent = this.parentRef;
     if (parent) {
       return parent?.getDirectoryName(file);
     } else return '.';
@@ -674,7 +684,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
   showMediaInformationButtonClicked() {
     this.isShowingMediaInformation = !this.isShowingMediaInformation;
-    const parent = this.inputtedParentRef ?? this.parentRef;
+    const parent = this.parentRef;
     if (this.isShowingMediaInformation) {
       parent?.showOverlay();
     } else {
@@ -683,14 +693,14 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     console.log(this.selectedFile);
   }
   closeMediaInformationButtonClicked() {
-    const parent = this.inputtedParentRef ?? this.parentRef;
+    const parent = this.parentRef;
     if (this.isShowingMediaInformation) {
       parent?.closeOverlay();
     }
     setTimeout(() => { this.isShowingMediaInformation = false; }, 50);
   }
   getFileViewers(fileId: number) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
+    const parent = this.parentRef;
     parent?.closeOverlay();
     this.fileService.getFileViewers(fileId).then(res => {
       parent?.showOverlay();
@@ -699,7 +709,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     });
   }
   async getFavouritedBy(fileId: number) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
+    const parent = this.parentRef;
     parent?.closeOverlay();
     try {
       const list: any[] = await this.fileService.getFavouritedBy(fileId);
@@ -709,18 +719,18 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     } catch (ex) {
       console.error(ex);
       parent?.showOverlay();
-      this.inputtedParentRef?.showNotification?.('Failed to get favourited by list');
+      this.parentRef?.showNotification?.('Failed to get favourited by list');
     }
   }
   closeFileViewers() {
     this.isShowingFileViewers = false;
-    const parent = this.inputtedParentRef ?? this.parentRef;
+    const parent = this.parentRef;
     this.fileViewers = undefined;
     parent?.closeOverlay();
   }
   closeFileFavouriters() {
     this.isShowingFileFavouriters = false;
-    const parent = this.inputtedParentRef ?? this.parentRef;
+    const parent = this.parentRef;
     this.fileFavouriters = undefined;
     parent?.closeOverlay();
   }
@@ -740,7 +750,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     this.isVideoBuffering = true;
   }
   async toggleFavourite(file: FileEntry) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
+    const parent = this.parentRef;
     const user = parent?.user;
     if (!user?.id) { return alert('You must be logged in to favourite files.'); }
     try {
@@ -764,7 +774,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     return this.fileService.videoFileExtensions.includes(fileType) || this.fileService.audioFileExtensions.includes(fileType);
   }
   async addFileToMusicPlaylist(fileEntry: FileEntry) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
+    const parent = this.parentRef;
     const user = parent?.user;
     if (!user?.id || !fileEntry || !fileEntry.id) {
       return alert("Error: Cannot add file to music playlist without logging in or a valid file entry.");
@@ -855,7 +865,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
 
     // Restore body overflow if you hid it
-    const parent = this.inputtedParentRef ?? this.parentRef;
+    const parent = this.parentRef;
     parent?.restoreBodyOverflow?.();
 
     window.removeEventListener('popstate', this.handleBackButton);
@@ -912,7 +922,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       return;
     }
     const targetId = this.fileId || (this.file ? (Array.isArray(this.file) ? this.file[0]?.id : this.file.id) : undefined);
-    const parentRef = this.parentRef || this.inputtedParentRef;
+    const parentRef = this.parentRef;
     if (targetId && parentRef && parentRef.pictureSrcs && parentRef.pictureSrcs[targetId] && parentRef.pictureSrcs[targetId].value) {
       this.debugLog('tryLoadFromCacheFastPath found cached value; loading immediately', { targetId });
       this.fetchFileSrc();
