@@ -1,0 +1,8 @@
+.poll-wrapper {
+  width: 100%;
+}
+.poll-iframe {
+  width: 100%;
+  height: 220px;
+  border: none;
+}
