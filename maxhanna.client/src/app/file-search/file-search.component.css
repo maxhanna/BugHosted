@@ -488,6 +488,10 @@
 
 .fileSharedWith {
   display: flex;
+  max-height: 20px;
+  overflow: hidden;
+  align-items: center;
+  justify-content: center;
 }
 
 .disabled {
