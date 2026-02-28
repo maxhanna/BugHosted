@@ -1053,7 +1053,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       try {
         const json = JSON.stringify(payloadObj);
         const encoded = btoa(encodeURIComponent(json));
-        return `<iframe class="poll-iframe" style="width:100%;height:220px;border:0;" src="/poll-frame?payload=${encoded}" sandbox="allow-same-origin allow-scripts allow-forms" frameborder="0"></iframe>`;
+        return `<iframe class="poll-iframe" style="width:100%;height:220px;border:0;" src="/poll-iframe?payload=${encoded}" sandbox="allow-same-origin allow-scripts allow-forms" frameborder="0"></iframe>`;
       } catch (e) {
         // fallback to inline srcdoc if encoding fails
         const iframeBody = `<!doctype html><html><head><meta charset="utf-8"><style>body{font-family: Arial, Helvetica, sans-serif;margin:0;padding:10px;color:#111}.poll-container{width:100%}.poll-question{font-weight:700;margin-bottom:8px}.poll-option{margin:6px 0}.poll-option-interactive{display:flex;align-items:center;gap:8px}.poll-option-interactive input{width:18px;height:18px}</style></head><body>${pollHtml}</body></html>`;

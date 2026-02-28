@@ -31,7 +31,7 @@ const routes: Routes = [
   { path: 'PS1Emulator', component: AppComponent },
   { path: 'Emulator/:romName/:romId/:skipSaveFile', component: AppComponent },
   { path: 'Emulation', component: AppComponent },
-  { path: 'poll-frame', component: PollIframeHostComponent },
+  { path: 'poll-iframe', component: PollIframeHostComponent },
   { path: 'N64Emulation', component: AppComponent },
   { path: 'PS1Emulation', component: AppComponent },
   { path: 'Emu', component: AppComponent },
