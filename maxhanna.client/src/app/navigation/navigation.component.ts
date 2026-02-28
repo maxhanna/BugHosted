@@ -435,11 +435,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getThemeInfo(userId?: number) {
-    if (this._parent.lastRunTimestamps['theme'] && Date.now() - this._parent.lastRunTimestamps['theme'] < this.time20Mins) {
+    if (!userId && this._parent.lastRunTimestamps['theme'] && Date.now() - this._parent.lastRunTimestamps['theme'] < this.time20Mins) {
       console.log('Theme info fetched recently, skipping fetch');
       return;
     }
-    if (this.isThemeApplied) {
+    if (!userId && this.isThemeApplied) {
       console.log('Theme already applied, skipping fetch');
       return;
     }
