@@ -675,8 +675,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const rootStyle = getComputedStyle(document.documentElement);
     const mainHighlight = (rootStyle.getPropertyValue('--main-highlight-color') || '#3a3a3a').trim();
     const componentBackgroundColor = (rootStyle.getPropertyValue('--component-background-color') || '#3a3a3a').trim();
-    let systemIcon = this.fileSearchComponent?.getSystemIcon(this.romService.guessSystemFromFileName(this.romName ?? '') ?? "") ?? undefined;
-    if (!systemIcon?.toString().includes("png")) {
+    let systemIcon = this.fileSearchComponent?.getSystemIconUrl(this.romService.guessSystemFromFileName(this.romName ?? '') ?? "") ?? undefined;
+    if (!systemIcon || !systemIcon.includes("png")) {
       console.log("system icon missing or not a png for rom", "icon value:", systemIcon);
       systemIcon = undefined;
     }

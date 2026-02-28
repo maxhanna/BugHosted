@@ -1488,17 +1488,22 @@ private async loadFileByIdOnce(id: number) {
     // getSystemEmoji expects a filename; pass a dummy name with the extension so FileService extracts it.
     return this.getSystemEmoji('file.' + ext, style);
   }
-  getSystemEmoji(fileName?: string, styling?: string): SafeHtml | string {
-    if (!fileName) return '';
-    const ext = this.fileService.getFileExtension(fileName).toLowerCase();
 
-    // For ambiguous extensions (bin, iso, chd, cue, pbp) try to guess a more
-    // specific system from the filename (e.g. 'psp', 'ps1', 'saturn', etc.).
+  /**
+   * Returns the raw icon URL for a given system key (e.g. 'n64' -> '/assets/n64icon.png').
+   * This is a helper for callers that need the plain src string instead of HTML.
+   */
+  getSystemIconUrl(key: string): string | undefined {
+    if (!key) return undefined;
+    const exts = this.romSystemExtensions[key];
+    const ext = (exts && exts.length) ? exts[0] : key;
+    // Determine effective extension (reuse the same heuristics as getSystemEmoji)
+    const fileName = 'file.' + ext;
+    const rawExt = this.fileService.getFileExtension(fileName).toLowerCase();
     const ambiguousExts = new Set(['bin', 'iso', 'chd', 'cue', 'pbp']);
-    const guessedSystem = ambiguousExts.has(ext) ? this.romService.guessSystemFromFileName(fileName) : undefined;
-    const effectiveExt = guessedSystem ?? ext;
+    const guessedSystem = ambiguousExts.has(rawExt) ? this.romService.guessSystemFromFileName(fileName) : undefined;
+    const effectiveExt = guessedSystem ?? rawExt;
 
-    // Prefer image icons for some systems; fall back to emoji when not available
     const iconMap: { [key: string]: string } = {
       'n64': '/assets/n64icon.png',
       'z64': '/assets/n64icon.png',
@@ -1531,10 +1536,17 @@ private async loadFileByIdOnce(id: number) {
       'gba': '/assets/gbaicon.png'
     };
 
-    if (iconMap[effectiveExt]) {
-      const src = iconMap[effectiveExt];
+    return iconMap[effectiveExt];
+  }
+  getSystemEmoji(fileName?: string, styling?: string): SafeHtml | string {
+    if (!fileName) return '';
+    const ext = this.fileService.getFileExtension(fileName).toLowerCase();
+    const fileUrl = this.getSystemIconUrl(fileName);
+
+    if (fileUrl) {
+      const src = fileUrl;
       const style = styling ? styling : "width:16px;height:16px;vertical-align:middle;margin-right:6px";
-      const html = `<img src="${src}" alt="${effectiveExt}" style="${style}" />`;
+      const html = `<img src="${src}" alt="${ext}" style="${style}" />`;
       return this.sanitizer.bypassSecurityTrustHtml(html);
     }
 
