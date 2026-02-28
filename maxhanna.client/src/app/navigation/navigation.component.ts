@@ -481,6 +481,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       console.error('Error fetching calendar data:', error);
     } finally {
       this.isLoadingCalendar = false;
+      this.updateLastRunTimestamp('calendarInfo');
     }
   }
 
