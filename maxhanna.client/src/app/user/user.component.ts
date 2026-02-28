@@ -238,7 +238,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       this.removeBorderOnSocial();
     }, 500);
   }
-  
+
   onLoginUsernameInput(event: Event) {
     try {
       const val = (event.target as HTMLInputElement).value;
@@ -894,7 +894,9 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       if (tmpUser && tmpUser.username && this.parentRef) {
         tmpUser.pass = undefined;
         this.parentRef.user = tmpUser;
-        this.parentRef.navigationComponent.getThemeInfo();
+        setTimeout(() => {
+          this.parentRef?.navigationComponent.getThemeInfo();
+        }, 50);
         this.parentRef.resetUserCookie();
         this.parentRef.showNotification(`Access granted. Welcome ${(fromUserCreation ? 'to BugHosted' : 'back')} ${this.parentRef!.user?.username}`);
         this.parentRef.getLocation();
