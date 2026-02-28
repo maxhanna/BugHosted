@@ -28,25 +28,69 @@ namespace maxhanna.Server.Controllers
                 // If we have a user and a file, try to update existing rating for that user/file
                 if (rating.UserId.HasValue && rating.FileId.HasValue)
                 {
-                    const string updateSql = @"UPDATE ratings SET rating = @Rating, timestamp = UTC_TIMESTAMP() WHERE user_id = @UserId AND file_id = @FileId";
-                    using var upd = new MySqlCommand(updateSql, conn);
-                    upd.Parameters.AddWithValue("@UserId", rating.UserId.Value);
-                    upd.Parameters.AddWithValue("@FileId", rating.FileId.Value);
-                    upd.Parameters.AddWithValue("@Rating", rating.RatingValue);
-                    var rows = await upd.ExecuteNonQueryAsync();
-                    if (rows > 0) return Ok(new { success = true, replaced = true });
+                    const string selectSql = @"SELECT rating FROM ratings WHERE user_id = @UserId AND file_id = @FileId LIMIT 1";
+                    using var sel = new MySqlCommand(selectSql, conn);
+                    sel.Parameters.AddWithValue("@UserId", rating.UserId.Value);
+                    sel.Parameters.AddWithValue("@FileId", rating.FileId.Value);
+                    var existingObj = await sel.ExecuteScalarAsync();
+                    if (existingObj != null && existingObj != DBNull.Value)
+                    {
+                        var existingRating = Convert.ToInt32(existingObj);
+                        if (existingRating == rating.RatingValue)
+                        {
+                            // Same rating posted twice — treat as delete (toggle off)
+                            const string deleteSql = @"DELETE FROM ratings WHERE user_id = @UserId AND file_id = @FileId";
+                            using var del = new MySqlCommand(deleteSql, conn);
+                            del.Parameters.AddWithValue("@UserId", rating.UserId.Value);
+                            del.Parameters.AddWithValue("@FileId", rating.FileId.Value);
+                            await del.ExecuteNonQueryAsync();
+                            return Ok(new { success = true, deleted = true });
+                        }
+                        else
+                        {
+                            const string updateSql = @"UPDATE ratings SET rating = @Rating, timestamp = UTC_TIMESTAMP() WHERE user_id = @UserId AND file_id = @FileId";
+                            using var upd = new MySqlCommand(updateSql, conn);
+                            upd.Parameters.AddWithValue("@UserId", rating.UserId.Value);
+                            upd.Parameters.AddWithValue("@FileId", rating.FileId.Value);
+                            upd.Parameters.AddWithValue("@Rating", rating.RatingValue);
+                            var rows = await upd.ExecuteNonQueryAsync();
+                            if (rows > 0) return Ok(new { success = true, replaced = true });
+                        }
+                    }
                 }
 
                 // If we have a user and a search rating, try to update existing rating for that user/search
                 if (rating.UserId.HasValue && rating.SearchId.HasValue)
                 {
-                    const string updateSearchSql = @"UPDATE ratings SET rating = @Rating, timestamp = UTC_TIMESTAMP() WHERE user_id = @UserId AND search_id = @SearchId";
-                    using var upd2 = new MySqlCommand(updateSearchSql, conn);
-                    upd2.Parameters.AddWithValue("@UserId", rating.UserId.Value);
-                    upd2.Parameters.AddWithValue("@SearchId", rating.SearchId.Value);
-                    upd2.Parameters.AddWithValue("@Rating", rating.RatingValue);
-                    var rows2 = await upd2.ExecuteNonQueryAsync();
-                    if (rows2 > 0) return Ok(new { success = true, replaced = true });
+                    const string selectSearchSql = @"SELECT rating FROM ratings WHERE user_id = @UserId AND search_id = @SearchId LIMIT 1";
+                    using var sel2 = new MySqlCommand(selectSearchSql, conn);
+                    sel2.Parameters.AddWithValue("@UserId", rating.UserId.Value);
+                    sel2.Parameters.AddWithValue("@SearchId", rating.SearchId.Value);
+                    var existingObj2 = await sel2.ExecuteScalarAsync();
+                    if (existingObj2 != null && existingObj2 != DBNull.Value)
+                    {
+                        var existingRating2 = Convert.ToInt32(existingObj2);
+                        if (existingRating2 == rating.RatingValue)
+                        {
+                            // Same rating posted twice — delete
+                            const string deleteSearchSql = @"DELETE FROM ratings WHERE user_id = @UserId AND search_id = @SearchId";
+                            using var del2 = new MySqlCommand(deleteSearchSql, conn);
+                            del2.Parameters.AddWithValue("@UserId", rating.UserId.Value);
+                            del2.Parameters.AddWithValue("@SearchId", rating.SearchId.Value);
+                            await del2.ExecuteNonQueryAsync();
+                            return Ok(new { success = true, deleted = true });
+                        }
+                        else
+                        {
+                            const string updateSearchSql = @"UPDATE ratings SET rating = @Rating, timestamp = UTC_TIMESTAMP() WHERE user_id = @UserId AND search_id = @SearchId";
+                            using var upd2 = new MySqlCommand(updateSearchSql, conn);
+                            upd2.Parameters.AddWithValue("@UserId", rating.UserId.Value);
+                            upd2.Parameters.AddWithValue("@SearchId", rating.SearchId.Value);
+                            upd2.Parameters.AddWithValue("@Rating", rating.RatingValue);
+                            var rows2 = await upd2.ExecuteNonQueryAsync();
+                            if (rows2 > 0) return Ok(new { success = true, replaced = true });
+                        }
+                    }
                 }
 
                 // No existing rating found (or no identifying keys), insert a new row
