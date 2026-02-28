@@ -27,6 +27,7 @@
         <div *ngFor="let fav of favorites"
           [title]="fav.url"
           class="favouriteDiv"
+          [class.glowing]="fav.isGlowing"
           [style.border]="showEditLinks && fav.isUserFavourite ? '1px solid' : ''"
           [style.boxShadow]="showEditLinks && fav.isUserFavourite ? '1px 1px 4px var(--main-link-color)' : ''">
           <a (click)="visitExternalLink(fav)" href="{{fav.url}}" target="_blank" [title]="fav.url">

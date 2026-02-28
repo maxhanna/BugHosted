@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Favourite } from '../../services/datacontracts/favourite/favourite';
 import { FavouriteService } from '../../services/favourite.service';
@@ -14,7 +14,7 @@ import { CrawlerSearchResponse } from '../../services/datacontracts/crawler';
   styleUrl: './favourites.component.css',
   standalone: false
 })
-export class FavouritesComponent extends ChildComponent implements OnInit {
+export class FavouritesComponent extends ChildComponent implements OnInit, OnDestroy {
   @ViewChild('linkInput') linkInput!: ElementRef<HTMLInputElement>;
   @ViewChild('editingUrlInput') editingUrlInput!: ElementRef<HTMLInputElement>;
   @ViewChild('editingImageUrlInput') editingImageUrlInput!: ElementRef<HTMLInputElement>;
@@ -41,12 +41,23 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   selectedMeta?: MetaData;
   numberOfPages = 0;
 
+  private glowTimers = new Map<number, any>();
+
   constructor(
     private favoriteService: FavouriteService,
     private crawlerService: CrawlerService,
-    private userService: UserService
+    private userService: UserService,
+    private cdr: ChangeDetectorRef
   ) {
     super();
+  }
+
+  ngOnDestroy(): void {
+    // Clear any outstanding timers
+    for (const t of this.glowTimers.values()) {
+      clearTimeout(t);
+    }
+    this.glowTimers.clear();
   }
 
   ngOnInit() {
@@ -100,6 +111,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
     this.favorites = this.favorites.filter(x => x.id !== fav.id);
     this.editingFavourite = undefined;
     this.closeEditPanel();
+    this.clearGlowTimerForFavourite(fav.id);
     this.stopLoading();
   }
 
@@ -113,6 +125,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
       this.parentRef?.showNotification(res);
     }
     this.favorites = this.favorites.filter(x => x.id !== fav.id);
+    this.clearGlowTimerForFavourite(fav.id);
     this.stopLoading();
   }
 
@@ -129,10 +142,23 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
       const res = await this.favoriteService.addFavourite(user.id, fav.id);
       if (res) {
         this.parentRef?.showNotification(res);
-      }
+      } 
       this.favorites = this.favorites.map(f =>
-        f.id === fav.id ? { ...f, isUserFavourite: true } : f
+        f.id === fav.id ? { ...f, isUserFavourite: true, isGlowing: true, hasHalo: true } : f
       );
+      this.cdr.detectChanges();
+      // clear any existing timers for this fav
+      this.clearGlowTimerForFavourite(fav.id);
+      // glow timer (5s)
+      const glowTimer = setTimeout(() => {
+        const idx = this.favorites.findIndex(x => x.id === fav.id);
+        if (idx >= 0) {
+          (this.favorites[idx] as any).isGlowing = false;
+          this.cdr.detectChanges();
+        }
+        this.glowTimers.delete(fav.id);
+      }, 5000);
+      this.glowTimers.set(fav.id, glowTimer);
     } else {
       const linkUrl = this.linkInput.nativeElement.value;
       let imageUrl = "";
@@ -199,18 +225,39 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
         tmpFav.modifiedBy = user.id;
         tmpFav.userCount = 1;
         tmpFav.isUserFavourite = true;
-
+        tmpFav.isGlowing = true;
         this.favorites.unshift(tmpFav);
+        this.cdr.detectChanges();
+        // clear any existing timers
+        this.clearGlowTimerForFavourite(tmpFav.id);
+        const glowTimer2 = setTimeout(() => {
+          const idx = this.favorites.findIndex(x => x.id === tmpFav.id);
+          if (idx >= 0) {
+            (this.favorites[idx] as any).isGlowing = false;
+            this.cdr.detectChanges();
+          }
+          this.glowTimers.delete(tmpFav.id);
+        }, 5000);
+        this.glowTimers.set(tmpFav.id, glowTimer2);
         this.parentRef?.showNotification(res.message);
         // clear selectedMeta after use
         this.selectedMeta = undefined;
       }
     }
-
-    this.resetInputs();
-    this.showNameImageInput = false;
-    this.linkInput.nativeElement.value = "";
+    setTimeout(() => {
+      this.resetSearch();
+    }, 4000);
+    this.resetInputs(); 
     this.stopLoading();
+  }
+
+  private clearGlowTimerForFavourite(id: number) {
+    const g = this.glowTimers.get(id);
+    if (g) {
+      clearTimeout(g);
+      this.glowTimers.delete(id);
+    }
+    
   }
 
   private resetInputs() {
@@ -347,6 +394,17 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
     this.isMenuPanelOpen = false;
     this.parentRef?.closeOverlay();
   }
+
+  resetSearch() {
+    this.linkInput.nativeElement.value = "";
+    this.showNameImageInput = false;
+    this.showEditLinks = false;
+    this.isSearchingUrl = false;
+    this.isSearchingUrls = false;
+    this.currentVisibility = 'yours';
+    this.loadFavorites();
+  }
+
   urlSelectedEvent(meta: MetaData) {
     setTimeout(() => {
         this.linkInput.nativeElement.value = meta.url ?? ""; 

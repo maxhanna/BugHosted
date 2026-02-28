@@ -11,6 +11,7 @@ export class Favourite {
   userCount: number;
   accessCount: number;
   isUserFavourite?: boolean;
+  isGlowing?: boolean;
 
   constructor(data: Partial<Favourite> = {}) { 
     this.id = data.id ?? 0;
@@ -25,5 +26,6 @@ export class Favourite {
     this.lastAddedDate = data.lastAddedDate ? new Date(data.lastAddedDate) : new Date();
     this.accessCount = data.accessCount ? data.accessCount : 0;
     this.isUserFavourite = data.isUserFavourite ? data.isUserFavourite : false;
+    this.isGlowing = data.isGlowing ?? false;
   }
 }
