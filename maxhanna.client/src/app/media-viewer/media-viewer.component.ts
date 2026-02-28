@@ -769,8 +769,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
   isVideoOrAudio(fileEntry: FileEntry) {
     let fileType = fileEntry.fileType ?? this.fileService.getFileExtension(fileEntry.fileName ?? '');
-    fileType = fileType.replace(".", "");
-    console.log(fileType);
+    fileType = fileType.replace(".", ""); 
     return this.fileService.videoFileExtensions.includes(fileType) || this.fileService.audioFileExtensions.includes(fileType);
   }
   async addFileToMusicPlaylist(fileEntry: FileEntry) {
