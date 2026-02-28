@@ -275,3 +275,11 @@
     max-width: calc(100% - 10px);
   }
 }
+
+.notificationIconSlot2 {
+  right: 160px !important;
+}
+
+.notificationIconSlot3 {
+  right: 212px !important;
+}

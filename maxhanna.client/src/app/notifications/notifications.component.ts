@@ -29,6 +29,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
 
   @Input() minimalInterface? = false;
   @Input() inputtedParentRef?: AppComponent;
+  @Input() notificationIconSlot : 1 | 2 | 3 = 1;
 
   showNotifications = false;
   notifications?: UserNotification[] = [];
@@ -526,6 +527,18 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     if (this.filterCategory === 'All') return this.paginatedNotifications;
     if (this.filterCategory === 'Unread') return this.paginatedNotifications.filter(n => !n.isRead);
     return this.paginatedNotifications.filter(n => this.getNotificationCategory(n) === this.filterCategory);
+  }
+  get topIconClass() {
+    let className = 'notificationTopButton ';
+    if (this.notifications && this.notifications.length > 0 && this.unreadNotifications > 0) {
+      className += 'glowing';
+    }
+    if (this.notificationIconSlot === 2) {
+      className += 'notificationIconSlot2';
+    } else if (this.notificationIconSlot === 3) {
+      className += 'notificationIconSlot3';
+    }
+    return className;
   }
   onFilterChange(event: Event): void {
     this.currentPage = 1;

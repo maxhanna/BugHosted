@@ -1,6 +1,6 @@
 <div *ngIf="minimalInterface" class="cursorPointer" (click)="toggleNotifications()">
   <span
-    [class]="'notificationTopButton ' + (notifications && notifications.length > 0 && unreadNotifications > 0 ? 'glowing' : '')">🔔</span>
+    [class]="getTopIconClass()">🔔</span>
 </div>
 
 <div [class]="minimalInterface ? 'popupPanel minimalPopupPanel' : 'componentMain'"

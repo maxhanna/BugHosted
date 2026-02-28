@@ -2,7 +2,10 @@
   <div class="closeButton" (click)="remove_me('FileComponent');" *ngIf="!user"></div>
   <div class="menuButton" (click)="showMenuPanel();"></div>
   <div class="componentTitle" *ngIf="!user">Files</div>
-
+  <div *ngIf="parentRef?.user?.id">
+    <app-notifications [minimalInterface]="true" [inputtedParentRef]="parentRef"
+      [previousComponent]="'Files'" [notificationIconSlot]="2"></app-notifications>
+  </div>
   <div class="massDeleteControls" *ngIf="massDeleteMode" style="margin:8px 0; text-align: center;">
     <button (click)="confirmMassDelete()" class="dangerButton">❌Delete Selected ({{ fileSearchComponent.selectedCount() || 0 }})</button>
     <button (click)="cancelMassDelete()">Cancel Mass Delete</button>
