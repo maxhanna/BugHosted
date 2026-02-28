@@ -1,31 +1,17 @@
-<div class="componentMain" 
-  [style.paddingTop]="isFullScreen ? '0px' : null"
-  [style.width]="romName ? '100vw' : null"
+<div class="componentMain" [style.paddingTop]="isFullScreen ? '0px' : null" [style.width]="romName ? '100vw' : null"
   [style.minWidth]="'300px'">
   <div class="closeButton" (click)="safeExit();" *ngIf="!isFullScreen"></div>
   <div class="menuButton" (click)="showMenuPanel();" *ngIf="!isFullScreen"></div>
   <div class="componentTitle" *ngIf="!isFullScreen">
     <span class="romNameTitle">{{ romName ? getRomName() : 'Emulator' }}</span>
   </div>
- 
+
   <div class="gamesContainer{{ !romName ? ' expanded' : '' }}" *ngIf="isSearchVisible && parentRef">
-    <app-file-search 
-      [user]="parentRef.user" 
-      [inputtedParentRef]="parentRef" 
-      [currentDirectory]="'Roms/'"
-      [clearAfterSelectFile]="true" 
-      [allowedFileTypes]="getAllowedFileTypes()" 
-      [showPrivatePublicOption]="true"
-      [canChangeDirectory]="false" 
-      [canDragMove]="false" 
-      [displayFileActions]="true"
-      [displayComments]="false" 
-      [displayFileSize]="false" 
-      [displayReactions]="false" 
-      [showPicturesOnlyToggler]="false"
-      [showVideosOnlyToggler]="false" 
-      [showNSFWToggler]="false" 
-      [showSystemIcons]="true"
+    <app-file-search [user]="parentRef.user" [inputtedParentRef]="parentRef" [currentDirectory]="'Roms/'"
+      [clearAfterSelectFile]="true" [allowedFileTypes]="getAllowedFileTypes()" [showPrivatePublicOption]="true"
+      [canChangeDirectory]="false" [canDragMove]="false" [displayFileActions]="true" [displayComments]="false"
+      [displayFileSize]="false" [displayReactions]="false" [showPicturesOnlyToggler]="false"
+      [showVideosOnlyToggler]="false" [showNSFWToggler]="false" [showSystemIcons]="true"
       (selectFileEvent)="onRomSelected($event)">
     </app-file-search>
   </div>
@@ -56,79 +42,48 @@
       <small *ngIf="!lastSaveTime">Last save: none</small>
     </p>
   </div>
-  
+
   <div *ngIf="!isFaqOpen" class="emuMenuButtonContainer">
-    <button  
-      (click)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();"
-      [disabled]="isLoading"
-      class="emuMenuButton">  
-      Autosave: {{ autosave ? 'On' : 'Off' }} 
-    </button> 
-    <button *ngIf="romName" 
-      (click)="toggleFullScreen()" 
-      class="emuMenuButton" 
-      [disabled]="isLoading">
+    <button (click)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();" [disabled]="isLoading"
+      class="emuMenuButton">
+      Autosave: {{ autosave ? 'On' : 'Off' }}
+    </button>
+    <button *ngIf="romName" (click)="toggleFullScreen()" class="emuMenuButton" [disabled]="isLoading">
       Enter Fullscreen
     </button>
-    <button *ngIf="romName"
-      (click)="stopEmulator()"
-      class="emuMenuButton"
-      [disabled]="isLoading">
+    <button *ngIf="romName" (click)="stopEmulator()" class="emuMenuButton" [disabled]="isLoading">
       Stop Emulator & Return to ROM Selection
     </button>
-    <button (click)="isFaqOpen = !isFaqOpen" 
-      class="emuMenuButton" 
-      [disabled]="isLoading">
+    <button (click)="isFaqOpen = !isFaqOpen" class="emuMenuButton" [disabled]="isLoading">
       {{isFaqOpen ? 'Hide FAQ' : 'View FAQ'}}
-    </button> 
-    <button *ngIf="romName"
-      (click)="resetGame()" 
-      class="emuMenuButton" 
-      [disabled]="isLoading">
+    </button>
+    <button *ngIf="romName" (click)="resetGame()" class="emuMenuButton" [disabled]="isLoading">
       Reset Game
     </button>
-    <button 
-      *ngIf="onMobile() && !romName" 
-      (click)="useJoystick = !useJoystick"
-      class="emuMenuButton" 
+    <button *ngIf="onMobile() && !romName" (click)="useJoystick = !useJoystick" class="emuMenuButton"
       [disabled]="isLoading">
       {{useJoystick ? 'Disable Joystick' : 'Enable Joystick'}}
-    </button> 
-    <button 
-      *ngIf="!onMobile() && romName" 
-      (click)="remapControls()"
-      class="emuMenuButton" 
-      [disabled]="isLoading">
+    </button>
+    <button *ngIf="!onMobile() && romName" (click)="remapControls()" class="emuMenuButton" [disabled]="isLoading">
       Remap Controls
-    </button> 
-    <button *ngIf="romName" 
-      (click)="callEjsSave()" 
-      class="emuMenuButton" 
-      [disabled]="isLoading">
+    </button>
+    <button *ngIf="romName" (click)="callEjsSave()" class="emuMenuButton" [disabled]="isLoading">
       Manual Save
     </button>
-    <app-file-upload 
-      class="emuMenuButton"
-      *ngIf="!romName"
-      [currentDirectory]="'Roms'" 
-      [user]="parentRef?.user!" 
-      [inputtedParentRef]="parentRef"
-      [uploadButtonText]="'Upload Rom(s)'" 
-      [maxSelectedFiles]="100"
-      [allowedFileTypes]="getAllowedRomFileTypesString()"
-      [displayOptionsAndTopicsButtons]="false" 
-      [disableFileCompression]="true"
-      (userUploadEvent)="isFileUploaderExpanded = true;"
-      (userCancelEvent)="isFileUploaderExpanded = false;"
-      (finishFileUploadingEvent)="finishFileUploading()">
+    <app-file-upload class="emuMenuButton" *ngIf="!romName" [currentDirectory]="'Roms'" [user]="parentRef?.user!"
+      [inputtedParentRef]="parentRef" [uploadButtonText]="'Upload Rom(s)'" [maxSelectedFiles]="100"
+      [allowedFileTypes]="getAllowedRomFileTypesString()" [displayOptionsAndTopicsButtons]="false"
+      [disableFileCompression]="true" (userUploadEvent)="isFileUploaderExpanded = true;"
+      (userCancelEvent)="isFileUploaderExpanded = false;" (finishFileUploadingEvent)="finishFileUploading()">
     </app-file-upload>
-  </div> 
- 
+  </div>
+
   <!-- FAQ Panel: when open, hide the rest of the menu -->
   <div *ngIf="isFaqOpen" style="max-height:60vh; overflow:auto; padding:6px 4px;">
     <div class="popupPanelTitle">Frequently Asked Questions</div>
-    <div style="max-height:40vh; overflow: auto;"> 
-      <div *ngFor="let item of faqItems; let i = index" style="border-bottom:1px solid var(--main-highlight-color); padding:8px 4px;">
+    <div style="max-height:40vh; overflow: auto;">
+      <div *ngFor="let item of faqItems; let i = index"
+        style="border-bottom:1px solid var(--main-highlight-color); padding:8px 4px;">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
           <div style="font-weight:600;">{{ item.question }}</div>
           <button (click)="toggleFaqItem(i)" style="font-size:12px; padding:6px 8px;">
@@ -144,16 +99,17 @@
       <button (click)="isFaqOpen = false" style="width:100%;">Back to Menu</button>
     </div>
   </div>
-  
+
   <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
 </div>
 
 <div class="popupPanel" *ngIf="isShowingLoginPanel">
   <app-user [loginOnly]="true" [inputtedParentRef]="parentRef" [canClose]="false"
-  (closeUserComponentEvent)="closeLoginPanel($event)"
-  [loginReasonMessage]="'You must log-in to save your progress on the server.'"></app-user>
+    (closeUserComponentEvent)="closeLoginPanel($event)"
+    [loginReasonMessage]="'You must log-in to save your progress on the server.'">
+  </app-user>
 
-  <div>
+  <div style="margin-top: 15px; width:100%; text-align: center;">
     <button id="closeOverlay" (click)="closeLoginPanel($event)" class="closeButton">Close</button>
   </div>
 </div>
