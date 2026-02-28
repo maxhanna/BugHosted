@@ -962,20 +962,7 @@ ON DUPLICATE KEY UPDATE
           bytes = ms.ToArray();
         }
 
-        // 3) If client sent gzip, decompress so the DB always stores raw state data.
-        //    This keeps GetEmulatorJSSaveState simple (no encoding header needed).
-        var encoding = form["encoding"].ToString();
-        if (string.Equals(encoding, "gzip", StringComparison.OrdinalIgnoreCase) && bytes.Length >= 2
-            && bytes[0] == 0x1F && bytes[1] == 0x8B) // verify gzip magic bytes
-        {
-          using var gzIn = new System.IO.Compression.GZipStream(
-              new MemoryStream(bytes), System.IO.Compression.CompressionMode.Decompress);
-          using var rawMs = new MemoryStream();
-          await gzIn.CopyToAsync(rawMs, CancellationToken.None);
-          bytes = rawMs.ToArray();
-        }
-
-        // 4) UPSERT into MySQL — plain byte[] value, no Prepare() needed
+        // 3) UPSERT into MySQL — plain byte[] value, no Prepare() needed
         using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
         await conn.OpenAsync(CancellationToken.None);
 

@@ -61,7 +61,8 @@
         *ngIf="parentRef?.isUserOnline(user.lastSeen | timeSince:'minute':true)" 
         class="onlineButton"
         [title]="'Online Since: ' + (user.lastSeen | timeSince:'minute':true)" 
-        [style.top]="'5px'">
+        [style.top]="'5px'"
+        [style.right]="'-25px'"></span>
       </span>
       <app-user-tag [user]="user"
                     [inputtedParentRef]="inputtedParentRef ?? parentRef"
@@ -98,8 +99,12 @@
                           [preventOpenProfile]="true"
                           [preventExpandPicture]="true"
                           [displayOnlyAvatar]="true"></app-user-tag>
-            <span *ngIf="parentRef?.isUserOnline(user.lastSeen | timeSince:'minute':true)" class="onlineButton"
-              [title]="'Online Since: ' + (user.lastSeen | timeSince:'minute':true)" [style.top]="'-20px'" [style.right]="'-10px'"></span>
+            <span 
+              *ngIf="parentRef?.isUserOnline(user.lastSeen | timeSince:'minute':true)" 
+              class="onlineButton"
+              [title]="'Online Since: ' + (user.lastSeen | timeSince:'minute':true)" 
+              [style.top]="'-20px'" 
+              [style.right]="'-25px'"></span>
           </span>
         </div>
         <span *ngFor="let user of removeSelfFromReceivers(row.receiver); let i = index; let last = last">

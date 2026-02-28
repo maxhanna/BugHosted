@@ -392,17 +392,6 @@ export class RomService {
     return copy.buffer; // ArrayBuffer
   }
 
-  private supportsCompressionStreams(): boolean {
-    return typeof (window as any).CompressionStream !== 'undefined';
-  }
-
-  private async gzip(input: Uint8Array): Promise<Uint8Array> {
-    const cs = new CompressionStream('gzip');
-    const stream = new Blob([this.toArrayBuffer(input)]).stream().pipeThrough(cs);
-    const ab = await new Response(stream).arrayBuffer();
-    return new Uint8Array(ab);
-  }
-
   private async gunzip(input: Uint8Array): Promise<Uint8Array> {
     const ds = new DecompressionStream('gzip');
 
@@ -422,37 +411,17 @@ export class RomService {
 
     const tight = new Uint8Array(this.toTightArrayBuffer(stateData));
 
-    let bytesToUpload: Uint8Array = tight;
-    let encoding: 'gzip' | 'identity' = 'identity';
-
-    if (this.supportsCompressionStreams()) {
-      try {
-        const gz: Uint8Array = await this.gzip(tight);
-        if (gz.length > 0 && gz.length < tight.length * 0.98) {
-          bytesToUpload = gz;
-          encoding = 'gzip';
-        }
-        console.log('[EJS] savestate sizes:', { raw: tight.length, gz: gz.length, encoding });
-      } catch (e) {
-        console.warn('[EJS] gzip failed, uploading raw', e);
-      }
-    }
-
     const form = new FormData();
 
-    // ✅ Force to real ArrayBuffer for File() / BlobPart typing
-    const ab: ArrayBuffer = this.toArrayBuffer(bytesToUpload);
+    // Force to real ArrayBuffer for File() / BlobPart typing
+    const ab: ArrayBuffer = this.toArrayBuffer(tight);
 
-    const filename = encoding === 'gzip' ? 'savestate.bin.gz' : 'savestate.bin';
-
-    form.append('file', new File([ab], filename, {
-      type: encoding === 'gzip' ? 'application/gzip' : 'application/octet-stream'
+    form.append('file', new File([ab], 'savestate.bin', {
+      type: 'application/octet-stream'
     }));
 
     form.append('userId', String(userId));
     form.append('romName', romName);
-    form.append('encoding', encoding);
-    form.append('originalSize', String(tight.length));
 
     // If a progress callback was supplied, use XMLHttpRequest which exposes
     // upload progress events.  fetch() does not support upload progress.
