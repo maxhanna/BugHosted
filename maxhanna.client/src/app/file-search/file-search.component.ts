@@ -1596,6 +1596,6 @@ private async loadFileByIdOnce(id: number) {
       'wad': '🕹️',
       'ccd': '🕹️'
     }; 
-    return map[effectiveExt] ?? '';
+    return map[ext] ?? '';
   }
 }
