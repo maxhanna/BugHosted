@@ -697,16 +697,16 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // Default controller mappings for all 4 players.
     // Player 1 gets keyboard + gamepad; Players 2-4 get gamepad-only (no keyboard conflicts).
     const gpOnly: Record<number, unknown> = {
-      0: { value: '', value2: 'BUTTON_2' },
-      1: { value: '', value2: 'BUTTON_4' },
+      0: { value: '', value2: 'BUTTON_1' },
+      1: { value: '', value2: 'BUTTON_3' },
       2: { value: '', value2: 'SELECT' },
       3: { value: '', value2: 'START' },
       4: { value: '', value2: 'DPAD_UP' },
       5: { value: '', value2: 'DPAD_DOWN' },
       6: { value: '', value2: 'DPAD_LEFT' },
       7: { value: '', value2: 'DPAD_RIGHT' },
-      8: { value: '', value2: 'BUTTON_1' },
-      9: { value: '', value2: 'BUTTON_3' },
+      8: { value: '', value2: 'BUTTON_2' },
+      9: { value: '', value2: 'BUTTON_4' },
       10: { value: '', value2: 'LEFT_TOP_SHOULDER' },
       11: { value: '', value2: 'RIGHT_TOP_SHOULDER' },
       12: { value: '', value2: 'LEFT_BOTTOM_SHOULDER' },
