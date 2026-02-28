@@ -529,16 +529,18 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     return this.paginatedNotifications.filter(n => this.getNotificationCategory(n) === this.filterCategory);
   }
   get topIconClass() {
-    let className = 'notificationTopButton ';
+    let classList = [];
     if (this.notifications && this.notifications.length > 0 && this.unreadNotifications > 0) {
-      className += 'glowing';
+      classList.push("glowing");
     }
     if (this.notificationIconSlot === 2) {
-      className += 'notificationIconSlot2';
+      classList.push('notificationIconSlot2');
     } else if (this.notificationIconSlot === 3) {
-      className += 'notificationIconSlot3';
+      classList.push('notificationIconSlot3');
+    } else {
+      classList.push('notificationTopButton');
     }
-    return className;
+    return classList.join(' ');
   }
   onFilterChange(event: Event): void {
     this.currentPage = 1;

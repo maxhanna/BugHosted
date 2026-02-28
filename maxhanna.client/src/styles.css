@@ -129,6 +129,8 @@ fieldset {
 .menuBackButton::before,
 .helpButton::before,
 .notificationTopButton,
+.notificationIconSlot2,
+.notificationIconSlot3,
 .topSearchButtonDiv,
 .topSearchButtonDivSpecial {
   position: absolute;
@@ -180,6 +182,8 @@ fieldset {
 .closeButton:active::before,
 .menuButton:active::before,
 .notificationTopButton:active,
+.notificationIconSlot2:active,
+.notificationIconSlot3:active,
 .topSearchButtonDiv:active,
 .helpButton:active::before {
   border: 2px inset black;
@@ -189,9 +193,14 @@ fieldset {
   height: 43px;
 }
 
+.notificationTopButton,
+.notificationIconSlot2,
+.notificationIconSlot3 {
+  text-shadow: 1px 1px var(--main-link-color);
+}
+
 .notificationTopButton {
   right: 106px !important;
-  text-shadow: 1px 1px var(--main-link-color);
 }
 
 .topSearchButtonDiv {
