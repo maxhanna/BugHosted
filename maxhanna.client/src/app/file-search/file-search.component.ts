@@ -901,8 +901,7 @@ private async loadFileByIdOnce(id: number) {
         this.changeDetectorRef.detectChanges();
       }, 100);
     } catch (ex) {
-      console.error(ex);
-      parent?.showOverlay();
+      console.error(ex); 
       this.notifyUser('Failed to fetch favourites');
     }
   }
