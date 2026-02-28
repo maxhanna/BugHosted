@@ -11,20 +11,23 @@
     <button (click)="cancelMassDelete()">Cancel Mass Delete</button>
   </div>
 
-  <app-user-list (userClickEvent)="shareFile($event);" [user]="parentRef?.user!" *ngIf="isSharePanelExpanded && !user"></app-user-list>
-
- 
-  <app-file-search [user]="parentRef?.user"
-                   [inputtedParentRef]="parentRef"
-                   [maxResults]="100"
-                   [fileId]="fileId"
-                   [commentId]="commentId"
-                   [displayComments]="true"
-                   [captureNotifications]="true"
-                   [massDeleteMode]="massDeleteMode"
-                   [displayRatings]="true"
-                   (currentDirectoryChangeEvent)="changeDirectoryEvent($event)"
-                   (userNotificationEvent)="uploadNotification($event);">
+  <app-user-list 
+    (userClickEvent)="shareFile($event);" 
+    [user]="parentRef?.user!" 
+    *ngIf="isSharePanelExpanded && !user">
+  </app-user-list>
+  <app-file-search 
+    [user]="parentRef?.user"
+    [inputtedParentRef]="parentRef"
+    [maxResults]="100"
+    [fileId]="fileId"
+    [commentId]="commentId"
+    [displayComments]="true"
+    [captureNotifications]="true"
+    [massDeleteMode]="massDeleteMode"
+    [displayRatings]="true"
+    (currentDirectoryChangeEvent)="changeDirectoryEvent($event)"
+    (userNotificationEvent)="uploadNotification($event);">
   </app-file-search>
 </div>
 
