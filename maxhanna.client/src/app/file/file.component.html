@@ -40,16 +40,17 @@
     <button (click)="showMakeDirectoryPrompt=true;" title="Make a New Folder" *ngIf="!showMakeDirectoryPrompt">📂New Folder</button>
     <button (click)="enableMassDeleteMode()" title="Enable Mass Delete" *ngIf="!massDeleteMode">❌Mass Delete</button>
 
-    <app-file-upload (userUploadEvent)="uploadInitiate();"
-                      (userUploadFinishedEvent)="uploadFinished($event)"
-                      (userNotificationEvent)="uploadNotification($event);"
-                      (userCancelEvent)="cancelMakeDirectoryOrFile();"
-                      [currentDirectory]="currentDirectory"
-                      [user]="parentRef?.user!"
-                      [inputtedParentRef]="parentRef"
-                      [uploadButtonText]="'Upload File(s)'"
-                      [showPrivatePublicOption]="isUploadInitiate ? true : false"
-                      *ngIf="canUploadToFolder() && !showMakeDirectoryPrompt">
+    <app-file-upload 
+      (userUploadEvent)="uploadInitiate();"
+      (userUploadFinishedEvent)="uploadFinished($event)"
+      (userNotificationEvent)="uploadNotification($event);"
+      (userCancelEvent)="cancelMakeDirectoryOrFile();"
+      [currentDirectory]="currentDirectory"
+      [user]="parentRef?.user!"
+      [inputtedParentRef]="parentRef"
+      [uploadButtonText]="'Upload File(s)'"
+      [showPrivatePublicOption]="isUploadInitiate ? true : false"
+      *ngIf="canUploadToFolder() && !showMakeDirectoryPrompt">
     </app-file-upload>
 
     <div *ngIf="showMakeDirectoryPrompt">
