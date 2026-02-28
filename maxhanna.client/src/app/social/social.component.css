@@ -881,3 +881,10 @@ button.postOptionButtons,
 .showPostFromHelpInfo strong {
   color: var(--secondary-font-color);
 }
+
+.showPostFromHelpInfoButton {
+  font-size: xx-small;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--main-link-color);
+}
