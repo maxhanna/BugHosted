@@ -65,7 +65,7 @@ export class TitleBarComponent implements OnInit, OnChanges {
     if ((this.showHelp === undefined) && this.hasHelp) {
       this.showHelp = true;
     }
-    if ((this.showBack === undefined) && this.hasBack) {
+    if ((this.showBack === undefined) && this.hasBack && this.previousComponent) {
       this.showBack = true;
     }
     if ((this.showSearch === undefined) && this.hasSearch) {
