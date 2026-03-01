@@ -1,6 +1,11 @@
 ﻿<div class="componentMain">
-  <app-title-bar [title]="'Files'" [hasNotifications]="!!parentRef?.user?.id" [hasSearch]="true"
-    [hasClose]="!user" (showMenuClicked)="showMenuPanel()" (closeButtonClicked)="remove_me('FileComponent');">
+  <app-title-bar
+    [title]="'Files'" 
+    [hasNotifications]="!!parentRef?.user?.id" 
+    [hasSearch]="true"
+    [hasClose]="!user" 
+    (showMenuClicked)="showMenuPanel()" 
+    (closeButtonClicked)="remove_me('FileComponent');">
   </app-title-bar>
 
   <div class="massDeleteControls" *ngIf="massDeleteMode" style="margin:8px 0; text-align: center;">
