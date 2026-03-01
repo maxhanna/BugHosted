@@ -103,6 +103,7 @@ import { BonesHighScoresComponent } from './bones-high-scores/bones-high-scores.
 import { NewUsersComponent } from './new-users/new-users.component';
 import { CurrentlyPlayingComponent } from './currently-playing/currently-playing.component';
 import { EmulatorComponent } from './emulator/emulator.component';
+import { TitleBarComponent } from './title-bar/title-bar.component';
 
 @NgModule({
   declarations: [
@@ -191,6 +192,7 @@ import { EmulatorComponent } from './emulator/emulator.component';
     EmulatorComponent,
     NewUsersComponent,
     CurrentlyPlayingComponent,
+    TitleBarComponent,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,

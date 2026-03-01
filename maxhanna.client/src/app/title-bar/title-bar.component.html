@@ -1,0 +1,11 @@
+<div class="componentTitle"> 
+
+  <div [attr.title]="title">
+    <span class="title-text">{{ title }}</span>
+  </div>
+
+  <div>
+    <ng-content select="[title-bar-right]"></ng-content>
+    <app-notifications *ngIf="hasNotifications" [minimalInterface]="true"></app-notifications>
+  </div>
+</div>
