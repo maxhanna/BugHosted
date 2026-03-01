@@ -160,8 +160,7 @@ fieldset {
   right: 103px;
 }
 
-.searchButton { 
-  right: 159px;
+.searchButton {
   text-shadow: 1px 1px var(--main-link-color);
   z-index: 1;
 }
