@@ -69,6 +69,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer");
     clearInterval(this.indexUpdateTimer);
     this.parentRef?.removeResizeListener();
+    this.stopLoading();
   }
 
   fillSiteExample() {

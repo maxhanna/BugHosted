@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
 import { AppComponent } from '../app.component';
 
 @Component({
@@ -7,7 +7,7 @@ import { AppComponent } from '../app.component';
   styleUrls: ['./title-bar.component.css'],
   standalone: false
 })
-export class TitleBarComponent implements OnInit {
+export class TitleBarComponent implements OnInit, OnChanges {
   @Input() inputtedParentRef: AppComponent | undefined;
   @Input() title: string | undefined;
   @Input() showTitle: boolean = true;
@@ -38,10 +38,19 @@ export class TitleBarComponent implements OnInit {
   fullyLoaded = false;
 
   ngOnInit(): void {
-    this.hasMenu = this.isShowMenuBound; 
+    this.initialize();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    // Re-run initialization when any @Input() changes after init
+    this.initialize();
+  }
+
+  private initialize(): void {
+    this.hasMenu = this.isShowMenuBound;
     this.hasClose = this.isCloseButtonBound;
     this.hasHelp = this.isShowHelpBound;
-    this.hasBack = this.isBackButtonBound; 
+    this.hasBack = this.isBackButtonBound;
     this.hasSearch = this.isShowSearchBound;
     this.hasRefresh = this.isRefreshBound;
     if (!this.inputtedParentRef && this.hasNotifications) {
@@ -50,13 +59,13 @@ export class TitleBarComponent implements OnInit {
     this.fullyLoaded = true;
     if ((this.showMenu === undefined) && this.hasMenu) {
       this.showMenu = true;
-    } 
+    }
     if ((this.showClose === undefined) && this.hasClose) {
       this.showClose = true;
     }
     if ((this.showHelp === undefined) && this.hasHelp) {
       this.showHelp = true;
-    } 
+    }
     if ((this.showBack === undefined) && this.hasBack) {
       this.showBack = true;
     }
@@ -69,7 +78,8 @@ export class TitleBarComponent implements OnInit {
     if ((this.showNotifications === undefined) && this.hasNotifications) {
       this.showNotifications = true;
     }
-
+    // reset cached classes so titleSpanClass recalculates
+    this.classes = "";
   }
 
   get isShowMenuBound(): boolean {
