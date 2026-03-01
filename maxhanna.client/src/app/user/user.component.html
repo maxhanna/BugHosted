@@ -4,7 +4,7 @@
   [hasMenu]="parentRef?.user || user" 
   [hasClose]="canClose || (!loginOnly && (parentRef?.user || user))"
   [hasSearch]="user?.id && !loginOnly && socialComponent"
-  [hasOwnSearch]="true"
+  [showOwnSearch]="true"
   [hasNotifications]="!!parentRef?.user?.id"
   [inputtedParentRef]="parentRef"
   [previousComponent]="'User'"
