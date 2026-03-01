@@ -2186,19 +2186,11 @@ public class KrakenService
   {
     string buyOrSell = to == "USDC" ? "Sell" : "Buy";
     if (strategy == "HFT" && buyOrSell == "Buy") { return; }
-
-    const string createNotificationSql = @"
-			INSERT INTO maxhanna.notifications 
-				(user_id, text, date)
-			VALUES 
-				(@UserId, @Content, UTC_TIMESTAMP());";
-    await using var createNotificationCmd = new MySqlCommand(createNotificationSql, conn);
-    createNotificationCmd.Parameters.AddWithValue("@UserId", userId);
+  
     decimal tradeValue = Convert.ToDecimal(amount) * currentCoinPriceInUSDC;
     string content;
     string toCoinName = CoinNameMap.TryGetValue(to, out var toname) ? toname : to;
     string fromCoinName = CoinNameMap.TryGetValue(from, out var fromname) ? fromname : from;
-
     if (buyOrSell == "Buy")
     { // Buy: Spent [USDC], Bought [Coin]
       content = $"Executed Trade: Buy {amount} {toCoinName}, Cost: {tradeValue:F2}$ @ ${currentCoinPriceInUSDC}/{to.Replace("XBT", "BTC").Replace("XDG", "Doge")} ({strategy});";
@@ -2207,9 +2199,22 @@ public class KrakenService
     { // Sell: Sold [Coin], Received [USDC]
       content = $"Executed Trade: Sold {amount} {fromCoinName}, Received {tradeValue:F2}$ @ ${currentCoinPriceInUSDC}/{from.Replace("XBT", "BTC").Replace("XDG", "Doge")} ({strategy})";
     }
-    createNotificationCmd.Parameters.AddWithValue("@Content", content);
+    _ = NotifyUser(content, userId, conn);
+  }
+
+  
+  private async Task NotifyUser(string notification, int userId, MySqlConnection conn)
+  { 
+    const string createNotificationSql = @"
+			INSERT INTO maxhanna.notifications 
+				(user_id, text, date)
+			VALUES 
+				(@UserId, @Content, UTC_TIMESTAMP());";
+    await using var createNotificationCmd = new MySqlCommand(createNotificationSql, conn);
+    createNotificationCmd.Parameters.AddWithValue("@UserId", userId);  
+    createNotificationCmd.Parameters.AddWithValue("@Content", notification);
     await createNotificationCmd.ExecuteNonQueryAsync();
-    _ = SendFirebaseNotifications(userId, content);
+    _ = SendFirebaseNotifications(userId, notification);
   }
 
   private async Task SendFirebaseNotifications(int userId, string passedMessage)
@@ -2438,9 +2443,9 @@ public class KrakenService
   }
 
  
-  public async Task<bool> GetCooldownStatus(int userId, int expiryMinutes = 15)
+  public async Task<string?> GetCooldownStatus(int userId, int expiryMinutes = 15)
   {
-    if (userId <= 0) return false;
+    if (userId <= 0) return null;
 
     try
     {
@@ -2448,7 +2453,7 @@ public class KrakenService
       await conn.OpenAsync();
 
       const string selectSql = @"
-        SELECT cooldown_started
+        SELECT cooldown_started, reason
         FROM maxhanna.tradebot_cooldowns
         WHERE user_id = @UserId
         LIMIT 1;";
@@ -2457,13 +2462,21 @@ public class KrakenService
       {
         cmd.Parameters.AddWithValue("@UserId", userId);
 
-        var obj = await cmd.ExecuteScalarAsync();
-        if (obj == null || obj == DBNull.Value)
+        using var reader = await cmd.ExecuteReaderAsync();
+        if (!await reader.ReadAsync())
         {
-          return false;
+          return null;
         }
 
-        DateTime started = Convert.ToDateTime(obj);
+        var startedObj = reader["cooldown_started"];
+        var reasonObj = reader["reason"];
+
+        if (startedObj == null || startedObj == DBNull.Value)
+        {
+          return null;
+        }
+
+        DateTime started = Convert.ToDateTime(startedObj);
         var age = DateTime.UtcNow - started;
         if (age.TotalMinutes > expiryMinutes)
         {
@@ -2478,31 +2491,33 @@ public class KrakenService
           {
             _ = _log.Db($"⚠️Failed to remove expired cooldown for user {userId}: {ex.Message}", userId, "TRADE", viewErrorDebugLogs);
           }
-          return false;
+          return null;
         }
 
-        // Still within cooldown window
-        return true;
+        // Still within cooldown window — return the persisted reason (may be null)
+        if (reasonObj == null || reasonObj == DBNull.Value) return null;
+        return reasonObj.ToString();
       }
     }
     catch (MySqlException ex)
     {
-      // If the cooldown table doesn't exist or other DB error, log and return false (no cooldown)
+      // If the cooldown table doesn't exist or other DB error, log and return null (no cooldown)
       _ = _log.Db($"⚠️GetCooldownStatus DB error: {ex.Message}", userId, "TRADE", viewErrorDebugLogs);
-      return false;
+      return null;
     }
     catch (Exception ex)
     {
       _ = _log.Db($"⚠️GetCooldownStatus error: {ex.Message}", userId, "TRADE", viewErrorDebugLogs);
-      return false;
+      return null;
     }
   }
 
   /// <summary>
   /// Set a cooldown flag for the given user. Creates or updates a single row
-  /// in `maxhanna.tradebot_cooldowns` with the current UTC timestamp.
+  /// in `maxhanna.tradebot_cooldowns` with the current UTC timestamp and optional reason.
+  /// Returns the persisted `reason` value (or null) after the upsert.
   /// </summary>
-  public async Task<bool> SetCooldown(int userId)
+  public async Task<bool> SetCooldown(int userId, string? reason = null)
   {
     if (userId <= 0) return false;
 
@@ -2512,14 +2527,19 @@ public class KrakenService
       await conn.OpenAsync();
 
       const string upsertSql = @"
-        INSERT INTO maxhanna.tradebot_cooldowns (user_id, cooldown_started)
-        VALUES (@UserId, UTC_TIMESTAMP())
-        ON DUPLICATE KEY UPDATE cooldown_started = UTC_TIMESTAMP();";
+        INSERT INTO maxhanna.tradebot_cooldowns (user_id, cooldown_started, reason)
+        VALUES (@UserId, UTC_TIMESTAMP(), @Reason)
+        ON DUPLICATE KEY UPDATE cooldown_started = UTC_TIMESTAMP(), reason = COALESCE(@Reason, reason);";
 
-      using var cmd = new MySqlCommand(upsertSql, conn);
-      cmd.Parameters.AddWithValue("@UserId", userId);
-      var rows = await cmd.ExecuteNonQueryAsync();
-      return rows >= 0;
+      using (var cmd = new MySqlCommand(upsertSql, conn))
+      {
+        cmd.Parameters.AddWithValue("@UserId", userId);
+        cmd.Parameters.AddWithValue("@Reason", (object?)reason ?? DBNull.Value);
+        await cmd.ExecuteNonQueryAsync();
+      } 
+      
+      _ = NotifyUser(reason ?? "", userId, conn);
+      return true;
     }
     catch (Exception ex)
     {
@@ -2527,6 +2547,8 @@ public class KrakenService
       return false;
     }
   }
+
+
 
   private async Task<decimal?> IsSystemUpToDate(int userId, string coin, decimal coinPriceUSDC)
   {
@@ -3622,6 +3644,7 @@ ON DUPLICATE KEY UPDATE
           ? string.Join(", ", errorArray.ToObject<List<string>>() ?? new List<string>())
           : string.Empty;
         _ = _log.Db($"Kraken API error: {errorMessages}. Url: {urlPath}. User: {userId}", userId, "TRADE", viewErrorDebugLogs);
+        await SetCooldown(userId, errorMessages);
         return null;
       }
       return responseObject;
@@ -5767,6 +5790,12 @@ ON DUPLICATE KEY UPDATE
         var timeSince = _log.GetTimeSince(minutesSinceLastTrade, true);
         _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Last trade: {timeSince}.", userId, "TRADE", viewDebugLogs);
       }
+    }
+    string? cooldownReason = await GetCooldownStatus(userId);
+    if (cooldownReason != null)
+    {
+      _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User is currently in cooldown: {cooldownReason}. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
+      return true;
     }
 
     return false;
