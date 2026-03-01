@@ -59,6 +59,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() showHiddenFilesToggler: boolean = true;
   @Input() showSystemIcons: boolean = false;
   @Input() displayRatings: boolean = false;
+  @Input() searchButtonSlot = 2 as SlotNumber;
   @Output() selectedForDeleteChange = new EventEmitter<number[]>();
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
@@ -300,8 +301,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   // CSS classes for the top search button, exposed as a string for use with `[class]`
   get topSearchButtonClass(): string {
     const classes: string[] = ['searchButton'];
-    if (!this.showSpaceForNotifications) classes.push('noNotificationsSearchDiv');
-    if ((this.activeRomSystems && this.activeRomSystems.length > 0) || this.hasActiveFilters()) classes.push('glowing');
+    if ((this.activeRomSystems && this.activeRomSystems.length > 0) || this.hasActiveFilters()) { 
+      classes.push('glowing');
+    }
     return classes.join(' ');
   }
 
@@ -1660,3 +1662,5 @@ private async loadFileByIdOnce(id: number) {
     return map[ext] ?? '';
   }
 }
+
+type SlotNumber = 0 | 1 | 2 | 3 | 4 | 5;
