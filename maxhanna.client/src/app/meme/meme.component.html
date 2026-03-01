@@ -2,32 +2,34 @@
   <app-title-bar [title]="'Meme'" 
     [hasSearch]="true" 
     [hasNotifications]="!!parentRef?.user?.id"
+    [hasSearch]="true"
+    [showSearch]="false"
     [inputtedParentRef]="parentRef"
     (menuClicked)="showMenuPanel()" 
     (closeClicked)="remove_me('MemeComponent')">
   </app-title-bar>
   <div class="memeResultsDiv">
-      
-    <app-file-search #fileSearchComponent
-                     [inputtedParentRef]="parentRef"
-                     [user]="parentRef?.user"
-                     [currentDirectory]="'Meme/'"
-                     [maxResults]="iPhone ? 8 : 20"
-                     [canChangeDirectory]="false"
-                     [canDragMove]="false"
-                     [showPrivatePublicOption]="false"
-                     [displayFileType]="false"
-                     [displayFileSize]="false"
-                     [showTopics]="true"
-                     [fileId]="memeId"
-                     [autoload]="memeId ? false : true"
-                     [displayTotal]="false" 
-                     [showSpaceForNotifications]="parentRef?.user?.id ? true : false"
-                     [currentPage]="currentMemePage" 
-                     [previousComponent]="'Meme'"
-                     [displayRatings]="true"
-                     [captureNotifications]="true"
-                     (userNotificationEvent)="uploadNotification($event);">
+    <app-file-search 
+      #fileSearchComponent
+      [inputtedParentRef]="parentRef"
+      [user]="parentRef?.user"
+      [currentDirectory]="'Meme/'"
+      [maxResults]="iPhone ? 8 : 20"
+      [canChangeDirectory]="false"
+      [canDragMove]="false"
+      [showPrivatePublicOption]="false"
+      [displayFileType]="false"
+      [displayFileSize]="false"
+      [showTopics]="true"
+      [fileId]="memeId"
+      [autoload]="memeId ? false : true"
+      [displayTotal]="false" 
+      [showSpaceForNotifications]="parentRef?.user?.id ? true : false"
+      [currentPage]="currentMemePage" 
+      [previousComponent]="'Meme'"
+      [displayRatings]="true"
+      [captureNotifications]="true"
+      (userNotificationEvent)="uploadNotification($event);">
     </app-file-search> 
   </div>
 </div>
