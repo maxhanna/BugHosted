@@ -1290,4 +1290,16 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       this.isTrophyExpanded = true;
     }, 50);
   }
+  get componentMainClass(): string {
+    if (this.loginOnly) {
+      return "";
+    }
+
+    let classes = ["componentMain"];
+    if (this.user) { 
+      classes.push("componentMainFullHeight");
+    }
+
+    return classes.join(" ");
+  }
 }

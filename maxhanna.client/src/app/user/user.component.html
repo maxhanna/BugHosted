@@ -15,7 +15,7 @@
   (closeClicked)="remove_me('UserComponent');">
 </app-title-bar>
    
-<div class="componentMain {{ user ? 'componentMainFullHeight' : ''}}" [style.paddingTop]="loginOnly ? '15px' : ''">
+<div [class]="componentMainClass" [style.paddingTop]="loginOnly ? '15px' : ''">
   
   <div class="profileBackgroundContainer" *ngIf="user?.profileBackgroundPictureFile">
     <app-media-viewer [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"
