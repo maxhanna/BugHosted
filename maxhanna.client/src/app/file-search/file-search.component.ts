@@ -119,6 +119,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @ViewChild('fileContainer') fileContainer!: ElementRef;
   @ViewChildren('fileNameDiv') fileHeaders!: QueryList<ElementRef>;
   @ViewChildren('nsfwCheckmark') nsfwCheckmark!: ElementRef<HTMLInputElement>;
+  @ViewChildren('visibilitySelect') visibilitySelect!: ElementRef<HTMLInputElement>;
 
   @ViewChild(MediaViewerComponent) mediaViewerComponent!: MediaViewerComponent;
 
@@ -138,6 +139,17 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.containerScrollHandler = this.debounce(this.onContainerScroll.bind(this), 200);
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
+    }
+  }
+
+  setVisibility() {
+    if (!this.visibilityDropdownFile || !this.visibilitySelect?.nativeElement) {
+      console.error('Visibility dropdown file or select element is not defined');
+      return;
+    }
+    const visiblity = this.visibilitySelect.nativeElement.value;
+    if (visiblity) {
+      this.visibilityDropdownFile.visibility = visiblity;
     }
   }
 

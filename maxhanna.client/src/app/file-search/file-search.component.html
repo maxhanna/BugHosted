@@ -575,7 +575,7 @@
     <div class="popupPanelTitle">Change File Visibility</div>
     <div class="popupPanelActions">
       <label for="visibilitySelect">Visibility:</label>
-      <select id="visibilitySelect" [value]="visibilityDropdownFile.visibility" (change)="visibilityDropdownFile.visibility = $event.target.value">
+      <select id="visibilitySelect" #visibilitySelect [value]="visibilityDropdownFile.visibility" (change)="onVisibilitySelect()">
         <option value="Public">Public</option>
         <option value="Private">Private</option>
       </select>
