@@ -22,6 +22,10 @@ export class TitleBarComponent implements OnInit {
   ngOnInit(): void { 
   }
 
+  get notificationIconSlot() {
+    return Math.max(0, this.numberOfItems - 1) as 0 | 1 | 2 | 3 | 4 | 5;
+  }
+
   get titleSpanClass(): string {
     if (this.classes) { 
       return this.classes;

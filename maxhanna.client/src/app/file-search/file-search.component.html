@@ -117,7 +117,8 @@
                   [title]="'Show Options for \'' + (file.givenFileName && file.givenFileName != '' ? file.givenFileName : getFileWithoutExtension(file.fileName ?? '')) + '\' file.'">
                   ⚙️
                 </div>
-                <div class="typeTd fileOptionsAction" (click)="selectFile(file); $event.stopPropagation();"
+                <div class="typeTd fileOptionsAction"
+                  (click)="(file.user?.id == parentRef?.user?.id ? openVisibilityDropdown(file) : selectFile(file)); $event.stopPropagation();"
                   *ngIf="displayFileType && file.visibility == 'Private'" title="This is a private file.">
                   🔒
                 </div>
@@ -567,4 +568,18 @@
       </div>
     </div>
     <button id="closeOverlay" (click)="closeFileFavouriters()">Close</button>
+  </div>
+  
+  <!-- Visibility Dropdown Popup -->
+  <div class="popupPanel" *ngIf="isVisibilityDropdownOpen && visibilityDropdownFile">
+    <div class="popupPanelTitle">Change File Visibility</div>
+    <div class="popupPanelActions">
+      <label for="visibilitySelect">Visibility:</label>
+      <select id="visibilitySelect" [(ngModel)]="visibilityDropdownFile.visibility">
+        <option value="Public">Public</option>
+        <option value="Private">Private</option>
+      </select>
+      <button (click)="setFileVisibility(visibilityDropdownFile!, visibilityDropdownFile!.visibility)">Save</button>
+      <button (click)="closeVisibilityDropdown()">Cancel</button>
+    </div>
   </div>

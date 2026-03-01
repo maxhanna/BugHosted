@@ -77,6 +77,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   isOptionsPanelOpen = false;
   isShowingFileViewers = false;
   isShowingFileFavouriters = false;
+  isVisibilityDropdownOpen = false;
+  visibilityDropdownFile: FileEntry | null = null;
   showCommentsInOpenedFiles: number[] = [];
   fileViewers?: User[] | undefined;
   fileFavouriters?: User[] | undefined;
@@ -137,6 +139,26 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
     }
+  }
+
+  openVisibilityDropdown(file: FileEntry) {
+    this.visibilityDropdownFile = file;
+    this.isVisibilityDropdownOpen = true;
+  }
+
+  closeVisibilityDropdown() {
+    this.isVisibilityDropdownOpen = false;
+    this.visibilityDropdownFile = null;
+  }
+
+  setFileVisibility(file: FileEntry, visibility: string) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    file.visibility = visibility;
+    const user = parent?.user ?? new User(0, 'Anonymous');
+    this.fileService.updateFileVisibility(user?.id ?? 0, file.visibility == 'Private' ? false : true, file.id).then(res => {
+      parent?.showNotification(res ?? 'File visibility updated.');
+      this.closeVisibilityDropdown();
+    });
   }
 
   // Parse comma-separated user ids from optionsFile.sharedWith
