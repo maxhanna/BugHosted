@@ -191,11 +191,9 @@ fieldset {
 
 .notificationTopButton {
   text-shadow: 1px 1px var(--main-link-color);
-}
-
-.notificationTopButton {
-  right: 106px !important;
-}
+  z-index: 1;
+  right: 106px;
+} 
 
 .topSearchButtonDiv {
   right: 159px;
