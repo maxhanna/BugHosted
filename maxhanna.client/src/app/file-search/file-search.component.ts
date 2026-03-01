@@ -142,7 +142,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
 
-  setVisibility() {
+  onVisibilitySelect() {
     if (!this.visibilityDropdownFile || !this.visibilitySelect?.nativeElement) {
       console.error('Visibility dropdown file or select element is not defined');
       return;
