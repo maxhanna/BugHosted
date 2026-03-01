@@ -27,19 +27,7 @@ namespace maxhanna.Server.Services
 			{
 				_ = _log.Db("Connection string 'maxhanna' missing; NexusUnitBackgroundService disabled.", null, "NEXUS_UNIT_SVC", true);
 			}
-		}
-		// private void ConfigureServices(IServiceCollection services)
-		// {
-		// 	// Configure logging
-		// 	services.AddLogging(configure => configure.AddConsole())
-		// 					.Configure<LoggerFilterOptions>(options => options.MinLevel = LogLevel.Information);
-
-		// 	// Configure configuration
-		// 	services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
-		// 			.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-		// 			.Build());
-		// }
-
+		} 
 		protected override Task ExecuteAsync(CancellationToken stoppingToken)
 		{
 			if (!_enabled)
@@ -84,7 +72,7 @@ namespace maxhanna.Server.Services
 
 				using var scope = _serviceProvider.CreateScope();
 				// Create a controller instance within the scope so any scoped services it uses get fresh lifetimes
-				var nexusController = ActivatorUtilities.CreateInstance<NexusController>(scope.ServiceProvider, _log, _config);
+				var nexusController = ActivatorUtilities.CreateInstance<NexusController>(scope.ServiceProvider, _log, _config ?? new ConfigurationBuilder().Build());
 				await nexusController.UpdateNexusUnitTrainingCompletes();
 			}
 			catch (Exception ex)
