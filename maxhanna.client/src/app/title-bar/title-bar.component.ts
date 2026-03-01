@@ -12,13 +12,19 @@ export class TitleBarComponent implements OnInit {
   @Input() title: string | undefined;
   @Input() showTitle: boolean = true;
   @Input() hasNotifications: boolean = false;
+  @Input() showNotifications?: boolean;
   @Input() hasSearch: boolean = false;
-  @Input() showOwnSearch: boolean = false;
+  @Input() showSearch?: boolean;
   @Input() hasClose: boolean = true;
+  @Input() showClose?: boolean;
   @Input() hasMenu: boolean = true;
+  @Input() showMenu?: boolean;
   @Input() hasBack: boolean = false;
+  @Input() showBack?: boolean;
   @Input() hasHelp: boolean = false;
+  @Input() showHelp?: boolean;
   @Input() hasRefresh: boolean = false;
+  @Input() showRefresh?: boolean;
   @Input() previousComponent: string | undefined;
   @Output() closeClicked = new EventEmitter<void>();
   @Output() menuClicked = new EventEmitter<void>();
@@ -42,6 +48,28 @@ export class TitleBarComponent implements OnInit {
       this.hasNotifications = false;
     }
     this.fullyLoaded = true;
+    if ((this.showMenu === undefined) && this.hasMenu) {
+      this.showMenu = true;
+    } 
+    if ((this.showClose === undefined) && this.hasClose) {
+      this.showClose = true;
+    }
+    if ((this.showHelp === undefined) && this.hasHelp) {
+      this.showHelp = true;
+    } 
+    if ((this.showBack === undefined) && this.hasBack) {
+      this.showBack = true;
+    }
+    if ((this.showSearch === undefined) && this.hasSearch) {
+      this.showSearch = true;
+    }
+    if ((this.showRefresh === undefined) && this.hasRefresh) {
+      this.showRefresh = true;
+    }
+    if ((this.showNotifications === undefined) && this.hasNotifications) {
+      this.showNotifications = true;
+    }
+
   }
 
   get isShowMenuBound(): boolean {
