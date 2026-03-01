@@ -83,14 +83,17 @@ namespace maxhanna.Server.Controllers
           AddParametersToCrawlerQuery(request, pageSize, offset, searchAll, cmd, siteDomain, siteKeywords);
         };
 
-        // 🔁 Kick off quick scrape in parallel (best effort)
+        // 🔁 Kick off quick scrape in parallel (best effort).
+        // Use a shared collector so we can include whatever has been scraped so far
+        // when database results are ready, and let the scraping continue asynchronously.
         Task<List<Metadata>> quickScrapeTask = Task.FromResult(new List<Metadata>());
+        var sharedScraped = new System.Collections.Concurrent.ConcurrentBag<Metadata>();
         bool shouldScrape = (request.SkipScrape != true) && (request.Url?.Trim() != "*");
         List<string> urlVariants = new();
         if (shouldScrape)
         {
           urlVariants = GetUrlVariants(request);
-          quickScrapeTask = ScrapeQuickAsync(urlVariants, TimeSpan.FromSeconds(5), ct);
+          quickScrapeTask = ScrapeQuickAsync(urlVariants, TimeSpan.FromSeconds(5), ct, sharedScraped);
         }
 
         // ⚙️ Run results and count concurrently (two separate connections)
@@ -104,20 +107,39 @@ namespace maxhanna.Server.Controllers
 
         _ = _log.Db($"Found {results.Count} results before merging quick scrape", null, "CRAWLERCTRL", true);
 
-        // Small grace to incorporate scraped results if they are almost done (no noticeable wait)
+        // Collect whatever the quick scraper has produced so far (non-blocking).
         int scrapedResults = 0;
         if (shouldScrape)
         {
-          await Task.WhenAny(quickScrapeTask, Task.Delay(250, ct));
-          if (quickScrapeTask.IsCompletedSuccessfully)
+          try
           {
-            var scraped = quickScrapeTask.Result;
-            if (scraped?.Count > 0)
+            var scrapedNow = sharedScraped.ToArray();
+            if (scrapedNow?.Length > 0)
             {
-              results.AddRange(scraped);
-              scrapedResults = scraped.Count;
+              // Avoid duplicates by URL
+              var existingUrls = new HashSet<string>(results.Where(r => !string.IsNullOrEmpty(r.Url)).Select(r => r.Url!), StringComparer.OrdinalIgnoreCase);
+              var toAdd = scrapedNow.Where(s => !string.IsNullOrEmpty(s.Url) && !existingUrls.Contains(s.Url)).ToList();
+              if (toAdd.Count > 0)
+              {
+                results.AddRange(toAdd);
+                scrapedResults = toAdd.Count;
+              }
             }
           }
+          catch (Exception ex)
+          {
+            _ = _log.Db($"Merging quick scrape partial results failed: {ex.Message}", null, "CRAWLERCTRL", true);
+          }
+
+          // Let the scraping continue in background; observe exceptions to avoid unobserved task faults.
+          _ = quickScrapeTask.ContinueWith(t =>
+          {
+            if (t.IsFaulted)
+            {
+              _ = _log.Db($"Quick scrape task faulted: {t.Exception?.GetBaseException().Message}", null, "CRAWLERCTRL", true);
+            }
+            // Optionally persist final scraped results if needed
+          }, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.RunContinuationsAsynchronously);
         }
 
         // Post-process
@@ -991,7 +1013,7 @@ private void BuildUnionSql(
       return await cmd.ExecuteScalarAsync(ct);
     }
 
-    private async Task<List<Metadata>> ScrapeQuickAsync(IEnumerable<string> variants, TimeSpan perVariantBudget, CancellationToken ct)
+    private async Task<List<Metadata>> ScrapeQuickAsync(IEnumerable<string> variants, TimeSpan perVariantBudget, CancellationToken ct, System.Collections.Concurrent.ConcurrentBag<Metadata>? collector = null)
     {
       var scrapeTasks = variants.Select(async v =>
       {
@@ -1010,6 +1032,8 @@ private void BuildUnionSql(
             {
               // Normalize URL relative to the variant
               m.Url = new Uri(new Uri(v), m.Url).ToString().TrimEnd('/');
+              // Push partial result to shared collector if present
+              try { collector?.Add(m); } catch { }
               return m;
             }
           }
