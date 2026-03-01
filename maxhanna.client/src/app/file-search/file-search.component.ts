@@ -299,7 +299,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   // CSS classes for the top search button, exposed as a string for use with `[class]`
   get topSearchButtonClass(): string {
-    const classes: string[] = ['topSearchButtonDiv'];
+    const classes: string[] = ['searchButton'];
     if (!this.showSpaceForNotifications) classes.push('noNotificationsSearchDiv');
     if ((this.activeRomSystems && this.activeRomSystems.length > 0) || this.hasActiveFilters()) classes.push('glowing');
     return classes.join(' ');
