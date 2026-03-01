@@ -5,11 +5,22 @@
     (closeClicked)="remove_me('ContactsComponent');">
   </app-title-bar>
 
-  <button class="newContactButton" (click)="showNewContactForm = !showNewContactForm;" title="New Contact">🆕🧑</button>
+  <button 
+    class="newContactButton" 
+    (click)="showNewContactForm = !showNewContactForm;" 
+    title="New Contact">
+    🆕🧑
+  </button>
   <div class="newContactForm" *ngIf="showNewContactForm">
     <!-- Button to open a floating user-picker popup (reuses app-user-list) -->
     <div style="margin-bottom:8px">
-      <button type="button" (click)="openUserPicker()" title="Import from user">🔍 Import from user</button>
+      <button 
+        type="button" 
+        style="cursor:pointer" 
+        (click)="openUserPicker()" 
+        title="Import from user">
+        🔍 Import from user
+      </button>
     </div>
 
     <div class="popupPanel" *ngIf="showUserPickerPopup">

@@ -51,6 +51,7 @@
 
 .newContactButton {
   font-size: 20px;
+  cursor: pointer;
 }
 
 .mainTable tbody tr:hover {
