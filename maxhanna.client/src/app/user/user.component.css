@@ -4,6 +4,10 @@
   height: calc(100dvh - 115px)
 }
 
+.componentMainFullHeight {
+  margin-top: 50px;
+}
+
 .componentTitle {
   position: sticky !important;
 }
