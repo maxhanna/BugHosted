@@ -115,23 +115,23 @@ export class TitleBarComponent implements OnInit, OnChanges {
     }
     let tmpNumberOfItems = this.numberOfItems as SlotNumber;
     if (this.showNotifications) {
-      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as SlotNumber;
+      tmpNumberOfItems = Math.max(0, tmpNumberOfItems - 1) as SlotNumber;
     }
     if (this.hasBack && (!this.showBack || !this.previousComponent)) {
-      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as SlotNumber;
+      tmpNumberOfItems = Math.max(0, tmpNumberOfItems - 1) as SlotNumber;
     }
     if (this.hasClose && !this.showClose) {
-      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as SlotNumber;
+      tmpNumberOfItems = Math.max(0, tmpNumberOfItems - 1) as SlotNumber;
     }
     if (this.hasRefresh && !this.showRefresh) {
-      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as SlotNumber;
+      tmpNumberOfItems = Math.max(0, tmpNumberOfItems - 1) as SlotNumber;
     }
     if (this.hasMenu && !this.showMenu) {
-      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as SlotNumber;
+      tmpNumberOfItems = Math.max(0, tmpNumberOfItems - 1) as SlotNumber;
     }
     if (this.hasSearch && !this.showSearch) {
-      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as SlotNumber;
-    }  
+      tmpNumberOfItems = Math.max(0, tmpNumberOfItems - 1) as SlotNumber;
+    }
     console.log(`
       Calculated notification icon slot: ${tmpNumberOfItems} 
       based on numberOfItems: ${this.numberOfItems}
