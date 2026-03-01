@@ -2,6 +2,7 @@
   <app-title-bar 
     [title]="!isTradePanelOpen ? 'Crypto Hub' : 'Trade Bots'"  
     [hasMenu]="!isTradePanelOpen"
+    [showMenu]="!isTradePanelOpen"
     (menuClicked)="showMenuPanel()"
     (closeClicked)="isTradePanelOpen ? closeTradeFullscreen() : remove_me('CryptoHubComponent');">
   </app-title-bar>
