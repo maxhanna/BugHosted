@@ -2207,9 +2207,9 @@ public class KrakenService
   {
     const string createNotificationSql = @"
 			INSERT INTO maxhanna.notifications 
-				(user_id, text, date)
+				(user_id, from_user_id, text, date)
 			VALUES 
-				(@UserId, @Content, UTC_TIMESTAMP());";
+				(@UserId, @UserId, @Content, UTC_TIMESTAMP());";
     await using var createNotificationCmd = new MySqlCommand(createNotificationSql, conn);
     createNotificationCmd.Parameters.AddWithValue("@UserId", userId);
     createNotificationCmd.Parameters.AddWithValue("@Content", notification);
@@ -2537,8 +2537,11 @@ public class KrakenService
         cmd.Parameters.AddWithValue("@Reason", (object?)reason ?? DBNull.Value);
         await cmd.ExecuteNonQueryAsync();
       }
-
-      _ = NotifyUser(reason ?? "", userId, conn);
+      string tmpContent = "KrakenService Cooldown set.";
+      if (!string.IsNullOrEmpty(reason)) {
+        tmpContent += $" Reason: {reason}";
+      }
+      _ = NotifyUser(tmpContent, userId, conn);
       return true;
     }
     catch (Exception ex)
