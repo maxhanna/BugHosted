@@ -1,10 +1,11 @@
 ﻿using maxhanna.Server.Controllers;
+using Microsoft.Extensions.DependencyInjection;
 namespace maxhanna.Server.Services
 {
 	public class NexusUnitBackgroundService : BackgroundService
 	{
 		private readonly IConfiguration? _config;
-		// private readonly IServiceProvider? _serviceProvider;
+		private readonly IServiceProvider? _serviceProvider;
 		private readonly Log _log;
 
 		private readonly bool _enabled;
@@ -14,17 +15,18 @@ namespace maxhanna.Server.Services
 		private int timerDuration = 1;
 
 
-		public NexusUnitBackgroundService(IConfiguration config, Log log)
+		public NexusUnitBackgroundService(IConfiguration config, Log log, IServiceProvider serviceProvider)
 		{
 			_config = config;
 			_log = log;
+			_serviceProvider = serviceProvider;
 
 			var cs = _config?.GetValue<string>("ConnectionStrings:maxhanna");
 			_enabled = !string.IsNullOrWhiteSpace(cs);
 			if (!_enabled)
 			{
 				_ = _log.Db("Connection string 'maxhanna' missing; NexusUnitBackgroundService disabled.", null, "NEXUS_UNIT_SVC", true);
-      }
+			}
 		}
 		// private void ConfigureServices(IServiceCollection services)
 		// {
@@ -69,9 +71,27 @@ namespace maxhanna.Server.Services
 
 		private async Task LoadAndScheduleExistingPurchases(CancellationToken stoppingToken)
 		{
+			try
+			{
+				if (_serviceProvider == null)
+				{
+					// No DI scope available — skip execution to avoid creating controller
+					// outside of DI (which can cause shared/pooled DB resources to be reused
+					// across threads and trigger concurrent read errors).
+					_ = _log.Db("⚠️NexusUnitBackgroundService: IServiceProvider unavailable; skipping scheduled work.", null, "NEXUS_UNIT_SVC", true);
+					return;
+				}
 
-			var nexusController = new NexusController(_log, _config);
-			await nexusController.UpdateNexusUnitTrainingCompletes();
+				using var scope = _serviceProvider.CreateScope();
+				// Create a controller instance within the scope so any scoped services it uses get fresh lifetimes
+				var nexusController = ActivatorUtilities.CreateInstance<NexusController>(scope.ServiceProvider, _log, _config);
+				await nexusController.UpdateNexusUnitTrainingCompletes();
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"⚠️NexusUnitBackgroundService failed in LoadAndScheduleExistingPurchases: {ex.Message}", null, "NEXUS_UNIT_SVC", true);
+				// Do not rethrow — keep background service running
+			}
 		}
 
 		public override void Dispose()
