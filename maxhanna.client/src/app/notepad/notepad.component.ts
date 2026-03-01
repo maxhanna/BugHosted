@@ -20,6 +20,7 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   @ViewChild('shareNoteButton') shareNoteButton!: ElementRef<HTMLInputElement>;
   @ViewChild('deleteNoteButton') deleteNoteButton!: ElementRef<HTMLInputElement>;
   @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('notesCarousel') notesCarousel!: ElementRef<HTMLDivElement>;
    
   @Input() inputtedSearch?: string;
 
@@ -81,6 +82,24 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
         this.parentRef?.closeOverlay();
       }
     } catch { }
+  }
+
+  onNotesWheel(event: WheelEvent) {
+    try {
+      // If shiftKey is held, let default horizontal scroll happen
+      if (event.shiftKey) return;
+      const el = this.notesCarousel?.nativeElement;
+      if (!el) return;
+      // Prevent vertical page scroll and translate to horizontal scroll
+      event.preventDefault();
+      // Use deltaY (vertical wheel) primarily; invert for natural feel
+      const delta = event.deltaY || event.deltaX || 0;
+      // Adjust sensitivity if needed
+      const SCROLL_MULTIPLIER = 1;
+      el.scrollBy({ left: delta * SCROLL_MULTIPLIER, behavior: 'auto' });
+    } catch (e) {
+      // swallow errors
+    }
   }
   closeCarouselPopup() {
     this.isCarouselPopped = false; 

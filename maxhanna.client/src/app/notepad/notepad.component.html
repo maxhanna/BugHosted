@@ -52,11 +52,12 @@
     <button (click)="search()">🔍</button>
     <button (click)="toggleCarouselPopup()">{{ isCarouselPopped ? 'Close Notes' : 'Pop Notes' }}</button>
   </div>
-  <div [style.gap]="isCarouselPopped ? '5px' : ''"
-    [class]="isCarouselPopped ? 'popupPanel poppedUpCarouselleArea' : 'notesCarousel'">
+  <div #notesCarousel [style.gap]="isCarouselPopped ? '5px' : ''"
+    [class]="isCarouselPopped ? 'popupPanel poppedUpCarouselleArea' : 'notesCarousel'"
+    (wheel)="onNotesWheel($event)">
     <div [class]="isCarouselPopped ? 'poppedUpCarouselleArea poppedUpCarouselleList' : ''">
       <label *ngFor="let note of notes" (click)="getNote(note.id!); closeCarouselPopup();">{{ note.note }}</label>
     </div>
     <button *ngIf="isCarouselPopped" class="closeButton" (click)="closeCarouselPopup()" id="closeOverlay">Close</button>
-  </div> 
+  </div>
 </div>
