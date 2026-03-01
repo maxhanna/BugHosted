@@ -13,7 +13,7 @@
     [hasSearch]="!!((showTopicSelector || !!user) && !showOnlyPost && !!!user)"
     [showSearch]="!!((showTopicSelector || !!user) && !showOnlyPost && !!!user)"
     [inputtedParentRef]="parentRef"
-    [previousComponent]="!!(!user && !showOnlyPost && !!previousComponent) ? 'Social' : null"
+    [previousComponent]="!!(!user && !showOnlyPost && !!previousComponent) ? 'Social' : undefined"
     (backClicked)="backButtonPressed()"
     (menuClicked)="showMenuPanel()" 
     (searchClicked)="showSearchSocialsPanel()"
