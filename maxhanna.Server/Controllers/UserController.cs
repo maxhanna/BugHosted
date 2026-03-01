@@ -1395,7 +1395,7 @@ namespace maxhanna.Server.Controllers
             city = data?.City,
             country = data?.Country
           };
-
+          _ = _log.Db($"Logged IP : {result.ip}, City: {result.city}, Country: {result.country}", null, "USER", true); 
           return Ok(result);
         }
         catch (Exception ex)

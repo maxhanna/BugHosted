@@ -42,7 +42,6 @@ export class TitleBarComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    // Re-run initialization when any @Input() changes after init
     this.initialize();
   }
 
