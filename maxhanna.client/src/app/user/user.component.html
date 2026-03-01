@@ -1,9 +1,9 @@
 <app-title-bar 
   [title]="user ? user.username : 'Login'"
   [showTitle]="!loginOnly"
-  [hasMenu]="parentRef?.user || user" 
-  [hasClose]="canClose || (!loginOnly && (parentRef?.user || user))"
-  [hasSearch]="user?.id && !loginOnly && socialComponent"
+  [hasMenu]="!!(parentRef?.user || user)" 
+  [hasClose]="!!(canClose || (!loginOnly && (parentRef?.user || user)))"
+  [hasSearch]="!!(user?.id && !loginOnly && socialComponent)"
   [showOwnSearch]="true"
   [hasNotifications]="!!parentRef?.user?.id"
   [inputtedParentRef]="parentRef"

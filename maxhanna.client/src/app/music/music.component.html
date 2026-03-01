@@ -1,11 +1,11 @@
 <div class="componentMain" #componentMain>
-  <div class="closeButton" *ngIf="!user" (click)="remove_me('MusicComponent');"></div>
-  <div class="menuButton" (click)="showMenuPanel();" *ngIf="!user"></div>
-  <div class="helpButton" *ngIf="!user" (click)="openHelpPanel()"></div>
-  <div class="componentTitle" *ngIf="!user"></div> 
   <app-title-bar 
     [title]="!user ? 'Music' : ''" 
-    (menuClicked)="openMenuPanel()"
+    [hasMenu]="!!!user"
+    [hasClose]="!!!user"
+    [hasHelp]="!!!user"
+    [showTitle]="!!!user"
+    (menuClicked)="showMenuPanel()"
     (closeClicked)="remove_me('MusicComponent');"
     (helpClicked)="openHelpPanel();">
   </app-title-bar>

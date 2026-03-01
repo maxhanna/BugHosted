@@ -1,11 +1,11 @@
 <div class="componentMain" #componentMain>
   <app-title-bar 
     [title]="!user && !showOnlyPost ? 'Social' : ''" 
-    [hasMenu]="!user && !showOnlyPost" 
-    [hasClose]="!user && !showOnlyPost"
-    [hasBack]="!user && !showOnlyPost && previousComponent"
-    [hasNotifications]="showTopicSelector && parentRef?.user?.id && !showOnlyPost"
-    [hasSearch]="(showTopicSelector || user) && !showOnlyPost && !user"
+    [hasMenu]="!!(!user && !showOnlyPost)" 
+    [hasClose]="!!(!user && !showOnlyPost)"
+    [hasBack]="!!(!user && !showOnlyPost && previousComponent)"
+    [hasNotifications]="!!(showTopicSelector && parentRef?.user?.id && !showOnlyPost)"
+    [hasSearch]="!!((showTopicSelector || user) && !showOnlyPost && !user)"
     [showOwnSearch]="true"
     [inputtedParentRef]="parentRef"
     [previousComponent]="'Social'"
