@@ -4,6 +4,7 @@
     *ngIf="!isFullScreen" 
     [title]="romName ? getRomName() : 'Emulator'" 
     [hasSearch]="true"
+    [showSearch]="false"
     [inputtedParentRef]="parentRef"
     (menuClicked)="showMenuPanel()" 
     (closeClicked)="safeExit()">
