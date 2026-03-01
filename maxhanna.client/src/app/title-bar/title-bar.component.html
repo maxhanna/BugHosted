@@ -1,11 +1,10 @@
+<div class="closeButton" (click)="closeButtonClicked.emit()" *ngIf="hasClose"></div>
+<div class="menuButton" (click)="showMenuClicked.emit();" *ngIf="hasMenu"></div> 
 <div class="componentTitle"> 
-
-  <div [attr.title]="title">
-    <span class="title-text">{{ title }}</span>
-  </div>
-
-  <div>
-    <ng-content select="[title-bar-right]"></ng-content>
-    <app-notifications *ngIf="hasNotifications" [minimalInterface]="true"></app-notifications>
-  </div>
+  <span [class]="titleSpanClass">{{ title }}</span> 
 </div>
+
+<app-notifications 
+  *ngIf="hasNotifications" 
+  [minimalInterface]="true"
+  [notificationIconSlot]="numberOfItems"></app-notifications>

@@ -1,32 +1,19 @@
 ﻿<div class="componentMain">
-  <div class="closeButton" (click)="remove_me('FileComponent');" *ngIf="!user"></div>
-  <div class="menuButton" (click)="showMenuPanel();"></div>
-  <div class="componentTitle" *ngIf="!user">Files</div>
-  <div *ngIf="parentRef?.user?.id">
-    <app-notifications [minimalInterface]="true" [inputtedParentRef]="parentRef"
-      [previousComponent]="'Files'" [notificationIconSlot]="2"></app-notifications>
-  </div>
+  <app-title-bar *ngIf="!isFullScreen" [title]="'Files'" [hasNotifications]="!!parentRef?.user?.id" [hasSearch]="true"
+    [hasClose]="!user" (showMenuClicked)="showMenuPanel()" (closeButtonClicked)="remove_me('FileComponent');">
+  </app-title-bar>
+
   <div class="massDeleteControls" *ngIf="massDeleteMode" style="margin:8px 0; text-align: center;">
-    <button (click)="confirmMassDelete()" class="dangerButton">❌Delete Selected ({{ fileSearchComponent.selectedCount() || 0 }})</button>
+    <button (click)="confirmMassDelete()" class="dangerButton">❌Delete Selected ({{ fileSearchComponent.selectedCount()
+      || 0 }})</button>
     <button (click)="cancelMassDelete()">Cancel Mass Delete</button>
   </div>
 
-  <app-user-list 
-    (userClickEvent)="shareFile($event);" 
-    [user]="parentRef?.user!" 
-    *ngIf="isSharePanelExpanded && !user">
+  <app-user-list (userClickEvent)="shareFile($event);" [user]="parentRef?.user!" *ngIf="isSharePanelExpanded && !user">
   </app-user-list>
-  <app-file-search 
-    [user]="parentRef?.user"
-    [inputtedParentRef]="parentRef"
-    [maxResults]="100"
-    [fileId]="fileId"
-    [commentId]="commentId"
-    [displayComments]="true"
-    [captureNotifications]="true"
-    [massDeleteMode]="massDeleteMode"
-    [displayRatings]="true"
-    (currentDirectoryChangeEvent)="changeDirectoryEvent($event)"
+  <app-file-search [user]="parentRef?.user" [inputtedParentRef]="parentRef" [maxResults]="100" [fileId]="fileId"
+    [commentId]="commentId" [displayComments]="true" [captureNotifications]="true" [massDeleteMode]="massDeleteMode"
+    [displayRatings]="true" (currentDirectoryChangeEvent)="changeDirectoryEvent($event)"
     (userNotificationEvent)="uploadNotification($event);">
   </app-file-search>
 </div>
@@ -35,21 +22,16 @@
 <div class="popupPanel" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle" style="margin-bottom:15px;">
     File Menu
-  </div> 
-  <div *ngIf="!user && canUploadToFolder()" class="uploadAndNewFolderButtonDiv"> 
-    <button (click)="showMakeDirectoryPrompt=true;" title="Make a New Folder" *ngIf="!showMakeDirectoryPrompt">📂New Folder</button>
+  </div>
+  <div *ngIf="!user && canUploadToFolder()" class="uploadAndNewFolderButtonDiv">
+    <button (click)="showMakeDirectoryPrompt=true;" title="Make a New Folder" *ngIf="!showMakeDirectoryPrompt">📂New
+      Folder</button>
     <button (click)="enableMassDeleteMode()" title="Enable Mass Delete" *ngIf="!massDeleteMode">❌Mass Delete</button>
 
-    <app-file-upload 
-      (userUploadEvent)="uploadInitiate();"
-      (userUploadFinishedEvent)="uploadFinished($event)"
-      (userNotificationEvent)="uploadNotification($event);"
-      (userCancelEvent)="cancelMakeDirectoryOrFile();"
-      [currentDirectory]="currentDirectory"
-      [user]="parentRef?.user!"
-      [inputtedParentRef]="parentRef"
-      [uploadButtonText]="'Upload File(s)'"
-      [showPrivatePublicOption]="isUploadInitiate ? true : false"
+    <app-file-upload (userUploadEvent)="uploadInitiate();" (userUploadFinishedEvent)="uploadFinished($event)"
+      (userNotificationEvent)="uploadNotification($event);" (userCancelEvent)="cancelMakeDirectoryOrFile();"
+      [currentDirectory]="currentDirectory" [user]="parentRef?.user!" [inputtedParentRef]="parentRef"
+      [uploadButtonText]="'Upload File(s)'" [showPrivatePublicOption]="isUploadInitiate ? true : false"
       *ngIf="canUploadToFolder() && !showMakeDirectoryPrompt">
     </app-file-upload>
 
@@ -64,7 +46,7 @@
       <button (click)="makeDirectory()">Create Folder</button>
       <button (click)="cancelMakeDirectoryOrFile()">Cancel</button>
     </div>
-  </div>  
+  </div>
 
   <div style="margin-top: 15px;">
     <div class="popupPanelTitle">

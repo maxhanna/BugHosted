@@ -29,7 +29,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
 
   @Input() minimalInterface? = false;
   @Input() inputtedParentRef?: AppComponent;
-  @Input() notificationIconSlot : 1 | 2 | 3 = 1;
+  @Input() notificationIconSlot : 0 | 1 | 2 | 3 = 1;
 
   showNotifications = false;
   notifications?: UserNotification[] = [];
@@ -533,13 +533,9 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     if (this.notifications && this.notifications.length > 0 && this.unreadNotifications > 0) {
       classList.push("glowing");
     }
-    if (this.notificationIconSlot === 2) {
-      classList.push('notificationIconSlot2');
-    } else if (this.notificationIconSlot === 3) {
-      classList.push('notificationIconSlot3');
-    } else {
-      classList.push('notificationTopButton');
-    }
+    classList.push(`notificationTopButtonSlot${this.notificationIconSlot}`);
+    classList.push('notificationTopButton');
+     
     return classList.join(' ');
   }
   onFilterChange(event: Event): void {

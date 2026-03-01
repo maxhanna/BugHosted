@@ -1,7 +1,8 @@
-.title-text {
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-weight: 600;
-}
+.titleSpan { display: block; overflow: hidden; text-overflow: ellipsis; } 
+.sizeOf0 { width: calc(100% - 50px); }
+.sizeOf1 { width: calc(100% - 100px); }
+.sizeOf2 { width: calc(100% - 150px); }
+.sizeOf3 { width: calc(100% - 200px); }
+.sizeOf4 { width: calc(100% - 250px); }
+.sizeOf5 { width: calc(100% - 300px); }
+.sizeOf6 { width: calc(100% - 350px); }

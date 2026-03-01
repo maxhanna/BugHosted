@@ -1,10 +1,9 @@
 <div class="componentMain" [style.paddingTop]="isFullScreen ? '0px' : null" [style.width]="romName ? '100vw' : null"
   [style.minWidth]="'300px'">
-  <div class="closeButton" (click)="safeExit();" *ngIf="!isFullScreen"></div>
-  <div class="menuButton" (click)="showMenuPanel();" *ngIf="!isFullScreen"></div>
-  <div class="componentTitle" *ngIf="!isFullScreen">
-    <span class="romNameTitle">{{ romName ? getRomName() : 'Emulator' }}</span>
-  </div>
+  <app-title-bar *ngIf="!isFullScreen" [title]="romName ? getRomName() : 'Emulator'" [hasSearch]="true"
+    (showMenuClicked)="showMenuPanel()" (closeButtonClicked)="safeExit()">
+  </app-title-bar>
+
 
   <div class="gamesContainer{{ !romName ? ' expanded' : '' }}" *ngIf="isSearchVisible && parentRef">
     <app-file-search [user]="parentRef.user" [inputtedParentRef]="parentRef" [currentDirectory]="'Roms/'"

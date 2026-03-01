@@ -4,6 +4,22 @@
   }
 }
 
+.notificationTopButtonSlot0 {
+  right: 52px !important;
+} 
+
+.notificationTopButtonSlot0 {
+  right: 104px !important;
+}
+
+.notificationTopButtonSlot2 {
+  right: 160px !important;
+}
+
+.notificationTopButtonSlot3 {
+  right: 212px !important;
+}
+
 .deleteNotificationButton,
 .readNotificationButton {
   width: 65px;
@@ -274,12 +290,4 @@
   .filter-container input {
     max-width: calc(100% - 10px);
   }
-}
-
-.notificationIconSlot2 {
-  right: 160px !important;
-}
-
-.notificationIconSlot3 {
-  right: 212px !important;
 }
