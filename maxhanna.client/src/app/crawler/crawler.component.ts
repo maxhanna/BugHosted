@@ -37,6 +37,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
 
   @ViewChild('pageSizeDropdown') pageSizeDropdown!: ElementRef<HTMLSelectElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('keywordsInput') keywordsInput!: ElementRef<HTMLInputElement>;
   @Input() url: string = '';
   @Input() onlySearch: boolean = false;
   @Input() inputtedParentRef?: AppComponent;
@@ -109,22 +110,50 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     this.favouritedByList = [];
   }
   async searchUrl(skipScrape?: boolean) {
+    const url = this.urlInput.nativeElement.value?.trim();
+    if (!url) return;
+    if (!this.isValidUrl(url)) {
+      alert('Invalid URL. Please include http:// or https:// and a valid domain.');
+      return;
+    }
+    await this.doSearch(url, true, skipScrape);
+  }
+
+  async searchKeywords(skipScrape?: boolean) {
+    const keywords = this.keywordsInput.nativeElement.value;
+    await this.doSearch(keywords, false, skipScrape);
+  }
+
+  private isValidUrl(url: string): boolean {
+    try {
+      const u = new URL(url);
+      if (!(u.protocol === 'http:' || u.protocol === 'https:')) return false;
+      const host = u.hostname;
+      if (!host) return false;
+      if (host === 'localhost') return true;
+      return host.indexOf('.') > 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  private async doSearch(query: string, isExact: boolean, skipScrape?: boolean) {
     (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer");
     this.error = '';
-    const url = this.urlInput.nativeElement.value;
-    if (url != this.lastSearch) {
+    const value = query;
+    if (value != this.lastSearch) {
       this.currentPage = 1;
     }
 
-    this.lastSearch = url;
+    this.lastSearch = value;
     const currentPage = this.currentPage;
     const pageSize = this.pageSize;
     this.startLoading();
     this.hasSearched = true;
 
-    if (url) {
+    if (value) {
       const userId = (this.inputtedParentRef ?? this.parentRef)?.user?.id;
-      let res = await this.crawlerService.searchUrl(url, currentPage, pageSize, undefined, skipScrape, userId);     
+      let res = await this.crawlerService.searchUrl(value, currentPage, pageSize, isExact, skipScrape, userId);
       if ((res as any)?.error) {
         this.error = (res as any).error;
         this.totalResults = 0;
@@ -133,7 +162,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
         this.groupedResults = [];
         this.stopLoading();
         return;
-      } 
+      }
       if (res && (res as CrawlerSearchResponse).totalResults != 0) {
         res = (res as CrawlerSearchResponse);
         this.totalResults = res.totalResults;
@@ -143,7 +172,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
 
         this.sortResults(groupedResults);
       } else {
-        this.error = "No data from given URL.";
+        this.error = isExact ? "No data from given URL." : "No results for those keywords.";
         this.totalResults = 0;
         this.totalPages = 0;
         this.searchMetadata = [];
@@ -158,7 +187,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     }
     this.stopLoading();
     setTimeout(() => {
-      document.getElementsByClassName("metadataSearchWrapper")[0].scrollTop = 0;
+      (document.getElementsByClassName("metadataSearchWrapper")[0] as HTMLElement).scrollTop = 0;
     }, 100);
   }
 

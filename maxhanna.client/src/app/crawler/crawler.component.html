@@ -23,8 +23,14 @@
         <button (click)="onPageChange(currentPage + 1)" [disabled]="currentPage >= totalPages">Next</button>
       </div>
       <div [class]="!onlySearch ? 'crawlerInputs' : 'searchOnlyCrawlerInputs'">
-        <input #urlInput type="text" placeholder="e.g. site:www.example.com keywords" (keydown.enter)="searchUrl()" />
-        <button (click)="searchUrl()" [disabled]="isLoading">🔍{{!onMobile() ? 'Crawl' : ''}}</button>
+        <input #urlInput type="text" placeholder="e.g. https://www.example.com/path" (keydown.enter)="searchUrl()"
+          [disabled]="keywordsInput?.value && keywordsInput.value.trim()" />
+        <button (click)="searchUrl()" [disabled]="isLoading || !(urlInput?.value && urlInput.value.trim())">🔍{{!onMobile() ? 'Crawl' : ''}}</button>
+
+        <input #keywordsInput type="text" placeholder="keywords (search title/description/url)"
+          (keydown.enter)="searchKeywords()" [disabled]="urlInput?.value && urlInput.value.trim()" />
+        <button (click)="searchKeywords()" [disabled]="isLoading || !(keywordsInput?.value && keywordsInput.value.trim())">🔎{{!onMobile() ? 'Keywords' : ''}}</button>
+
         <button (click)="addWithoutSearch()" [disabled]="isLoading || !(urlInput?.value && urlInput.value.trim())"
           *ngIf="onlySearch" title="Add without searching">＋</button>
       </div>
