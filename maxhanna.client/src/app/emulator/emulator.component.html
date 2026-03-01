@@ -1,7 +1,12 @@
 <div class="componentMain" [style.paddingTop]="isFullScreen ? '0px' : null" [style.width]="romName ? '100vw' : null"
   [style.minWidth]="'300px'">
-  <app-title-bar *ngIf="!isFullScreen" [title]="romName ? getRomName() : 'Emulator'" [hasSearch]="true"
-    (showMenuClicked)="showMenuPanel()" (closeButtonClicked)="safeExit()">
+  <app-title-bar 
+    *ngIf="!isFullScreen" 
+    [title]="romName ? getRomName() : 'Emulator'" 
+    [hasSearch]="true"
+    [inputtedParentRef]="parentRef"
+    (menuClicked)="showMenuPanel()" 
+    (closeClicked)="safeExit()">
   </app-title-bar>
 
 

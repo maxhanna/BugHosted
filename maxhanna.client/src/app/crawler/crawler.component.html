@@ -1,30 +1,29 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me('Crawler')"  *ngIf="!onlySearch"></div>
-  <div class="menuButton" (click)="showMenuPanel();" *ngIf="!onlySearch"></div>
-  <div class="componentTitle" *ngIf="!onlySearch">Crawler</div>
+  <app-title-bar [title]="!onlySearch ? 'Crawler' : ''" [hasMenu]="!onlySearch" [hasClose]="!onlySearch"
+    (menuClicked)="showMenuPanel()" (closeClicked)="remove_me('Crawler');">
+  </app-title-bar>
+
   <div class="xxSmallFont nbDiv" [style.margin-Top]="onlySearch ? '-20px' : ''">
     <div *ngIf="!searchMetadata.length && !onMobile() && !onlySearch">Total indexes: {{indexCount}}</div>
     <div *ngIf="searchMetadata?.length && !onMobile() && !onlySearch">Search results: {{totalResults}}</div>
   </div>
-  <div class="crawler-container"
-   [style.opacity]="isLoading ? 0.5 : 1" 
-   [style.position]="onlySearch ? 'relative' : ''"
-   [style.top]="onlySearch ? '-35px' : ''">
+  <div class="crawler-container" [style.opacity]="isLoading ? 0.5 : 1" [style.position]="onlySearch ? 'relative' : ''"
+    [style.top]="onlySearch ? '-35px' : ''">
     <div style="text-align: center;">
       <div [class]="!onlySearch ? 'crawlerInputs' : ''" *ngIf="totalPages > 1" style="margin-bottom:10px">
         <button (click)="onPageChange(currentPage - 1)" [disabled]="currentPage <= 1">Previous</button>
         <span>Page {{ currentPage }} of {{ totalPages }}</span>
         <button (click)="onPageChange(currentPage + 1)" [disabled]="currentPage >= totalPages">Next</button>
       </div>
-        <div [class]="!onlySearch ? 'crawlerInputs' : 'searchOnlyCrawlerInputs'">
-          <input #urlInput type="text" placeholder="e.g. site:www.example.com keywords" (keydown.enter)="searchUrl()" />
-          <button (click)="searchUrl()" [disabled]="isLoading">🔍{{!onMobile() ? 'Crawl' : ''}}</button>
-          <button (click)="addWithoutSearch()" 
-            [disabled]="isLoading || !(urlInput?.value && urlInput.value.trim())" 
-            *ngIf="onlySearch"
-            title="Add without searching">＋</button>
-        </div>
-        <div *ngIf="!hasSearched && !onlySearch" class="siteHelperTip smallFont">Tip: use <span (click)="fillSiteExample()" class="cursorPointerUnderlined linkFontColor">"site:domain.com keywords"</span> to restrict results to a single domain.</div>
+      <div [class]="!onlySearch ? 'crawlerInputs' : 'searchOnlyCrawlerInputs'">
+        <input #urlInput type="text" placeholder="e.g. site:www.example.com keywords" (keydown.enter)="searchUrl()" />
+        <button (click)="searchUrl()" [disabled]="isLoading">🔍{{!onMobile() ? 'Crawl' : ''}}</button>
+        <button (click)="addWithoutSearch()" [disabled]="isLoading || !(urlInput?.value && urlInput.value.trim())"
+          *ngIf="onlySearch" title="Add without searching">＋</button>
+      </div>
+      <div *ngIf="!hasSearched && !onlySearch" class="siteHelperTip smallFont">Tip: use <span
+          (click)="fillSiteExample()" class="cursorPointerUnderlined linkFontColor">"site:domain.com keywords"</span> to
+        restrict results to a single domain.</div>
     </div>
 
     <div *ngIf="isLoading" class="loadingNotificationDiv">Loading...</div>
@@ -35,57 +34,57 @@
         <div class="groupDomainTitle">
           {{ group.domain }}
         </div>
-        <div *ngFor="let metadata of group.links; let i = index" [class]="(group.showSubdomains || i === 0) ? 'groupLinkWrapperDiv' : ''">
+        <div *ngFor="let metadata of group.links; let i = index"
+          [class]="(group.showSubdomains || i === 0) ? 'groupLinkWrapperDiv' : ''">
           <div class="groupLinkDataWrapperDiv" *ngIf="group.showSubdomains || i === 0">
             <div *ngIf="metadata.title" class="descriptionDiv titleClass cursorPointerUnderlined">
-              <a *ngIf="metadata.url" (click)="visitExternalLink(metadata.url)" [attr.href]="!onlySearch ? metadata.url : null"
-                [attr.target]="!onlySearch ? '_blank' : null" [innerHTML]="getSanitizedDescription(metadata.title)">
+              <a *ngIf="metadata.url" (click)="visitExternalLink(metadata.url)"
+                [attr.href]="!onlySearch ? metadata.url : null" [attr.target]="!onlySearch ? '_blank' : null"
+                [innerHTML]="getSanitizedDescription(metadata.title)">
               </a>
             </div>
             <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
               <a (click)="visitExternalLink(metadata.url)" [attr.href]="!onlySearch ? metadata.url : null"
-               [attr.target]="!onlySearch ? '_blank' : null">{{ metadata.url }}</a>
+                [attr.target]="!onlySearch ? '_blank' : null">{{ metadata.url }}</a>
               <button (click)="addFavourite(metadata)"
-                      [title]="metadata.isUserFavourite ? 'Remove from Favourites' : 'Add to Favourites'"
-                      *ngIf="!onlySearch" class="favouriteToggleButton">
+                [title]="metadata.isUserFavourite ? 'Remove from Favourites' : 'Add to Favourites'" *ngIf="!onlySearch"
+                class="favouriteToggleButton">
                 <span *ngIf="metadata.isUserFavourite">💖</span>
                 <span *ngIf="!metadata.isUserFavourite">🤍</span>
                 <span class="smallFont" *ngIf="metadata.favouriteCount">[{{metadata.favouriteCount}}]</span>
               </button>
             </div>
             <div class="descriptionDiv authorClass">
-              <span *ngFor="let star of [1,2,3,4,5]"
-                class="cursorPointer"
+              <span *ngFor="let star of [1,2,3,4,5]" class="cursorPointer"
                 [style.color]="star <= (metadata.averageRating ?? 0) ? 'gold' : '#555'"
                 (click)="rateSearchResult(metadata, star)"
                 title="Rate {{star}} star{{star > 1 ? 's' : ''}}">&#9733;</span>
               <span *ngIf="metadata.ratingCount">
-                {{metadata.averageRating | number:'1.1-1'}} ({{metadata.ratingCount}} rating{{metadata.ratingCount > 1 ? 's' : ''}})
+                {{metadata.averageRating | number:'1.1-1'}} ({{metadata.ratingCount}} rating{{metadata.ratingCount > 1 ?
+                's' : ''}})
               </span>
             </div>
-            <div *ngIf="metadata.description && !onlySearch" class="descriptionDiv descriptClass" [innerHTML]="getSanitizedDescription(metadata.description)"></div>
-            <div *ngIf="metadata.author && !onlySearch" class="descriptionDiv authorClass" [innerHTML]="getSanitizedDescription(metadata.author)"></div>
+            <div *ngIf="metadata.description && !onlySearch" class="descriptionDiv descriptClass"
+              [innerHTML]="getSanitizedDescription(metadata.description)"></div>
+            <div *ngIf="metadata.author && !onlySearch" class="descriptionDiv authorClass"
+              [innerHTML]="getSanitizedDescription(metadata.author)"></div>
             <div *ngIf="metadata.httpStatus" class="descriptionDiv authorClass">
-              {{ metadata.httpStatus }}  {{ getHttpStatusMeaning(metadata.httpStatus) }}
+              {{ metadata.httpStatus }} {{ getHttpStatusMeaning(metadata.httpStatus) }}
             </div>
-            <div *ngIf="metadata.favouriteCount" 
-              (click)="openFavouritedByPanel(metadata.url)"
-              class="descriptionDiv keywordsClass cursorPointerUnderlined linkColor" 
+            <div *ngIf="metadata.favouriteCount" (click)="openFavouritedByPanel(metadata.url)"
+              class="descriptionDiv keywordsClass cursorPointerUnderlined linkColor"
               [title]="'Favourited by ' + metadata.favouriteCount + ' users'">
-              ❤️ Favourited by {{metadata.favouriteCount}} User{{metadata.favouriteCount > 1 ? 's' : ''}}. 
+              ❤️ Favourited by {{metadata.favouriteCount}} User{{metadata.favouriteCount > 1 ? 's' : ''}}.
             </div>
-            <div *ngIf="metadata.keywords" class="descriptionDiv keywordsClass" [innerHTML]="getSanitizedDescription(metadata.keywords)"></div>
+            <div *ngIf="metadata.keywords" class="descriptionDiv keywordsClass"
+              [innerHTML]="getSanitizedDescription(metadata.keywords)"></div>
           </div>
           <div class="imageUrlPictureDiv" *ngIf="group.showSubdomains || i === 0">
             <a *ngIf="metadata.imageUrl && (i === 0 || metadata.imageUrl !== group.links[0].imageUrl)"
-               (click)="visitExternalLink(metadata.url)"
-               [title]="metadata.title"
-               [attr.href]="!onlySearch ? metadata.url : null"
-               [attr.target]="!onlySearch ? '_blank' : null">
-              <img [src]="metadata.imageUrl"
-                   [attr.loading]="'lazy'"
-                   [title]="metadata.title"
-                   (error)="metadata.imageUrl = ''" />
+              (click)="visitExternalLink(metadata.url)" [title]="metadata.title"
+              [attr.href]="!onlySearch ? metadata.url : null" [attr.target]="!onlySearch ? '_blank' : null">
+              <img [src]="metadata.imageUrl" [attr.loading]="'lazy'" [title]="metadata.title"
+                (error)="metadata.imageUrl = ''" />
             </a>
           </div>
         </div>
@@ -97,13 +96,17 @@
         <button *ngIf="totalPages > 1 && currentPage < totalPages" (click)="onPageChange()">Load More Results</button>
       </div>
     </div>
-    <div *ngIf="searchMetadata?.length == 0 && !error && !isLoading" class="smallFont nbDiv"> 
+    <div *ngIf="searchMetadata?.length == 0 && !error && !isLoading" class="smallFont nbDiv">
       <div *ngIf="!onlySearch" (click)="seeNew()" class="cursorPointerUnderlined">See the latest indexes.</div>
-      <div *ngIf="onlySearch" class="siteHelperTip smallFont xxSmallFont" style="margin: 20px 20px;">Tip: use <span (click)="fillSiteExample()" class="cursorPointerUnderlined linkFontColor">"site:domain.com keywords"</span> to restrict results to a single domain.</div>
-    </div> 
+      <div *ngIf="onlySearch" class="siteHelperTip smallFont xxSmallFont" style="margin: 20px 20px;">Tip: use <span
+          (click)="fillSiteExample()" class="cursorPointerUnderlined linkFontColor">"site:domain.com keywords"</span> to
+        restrict results to a single domain.</div>
+    </div>
   </div>
-  <div *ngIf="!searchMetadata.length && (onMobile() || onlySearch)" class="xxSmallFont">Total indexes: {{indexCount}}</div>
-  <div *ngIf="searchMetadata?.length && (onMobile() || onlySearch)" class="xxSmallFont">Search results: {{totalResults}}</div>
+  <div *ngIf="!searchMetadata.length && (onMobile() || onlySearch)" class="xxSmallFont">Total indexes: {{indexCount}}
+  </div>
+  <div *ngIf="searchMetadata?.length && (onMobile() || onlySearch)" class="xxSmallFont">Search results: {{totalResults}}
+  </div>
 </div>
 
 <!-- Menu Popup -->
@@ -115,7 +118,9 @@
       <option *ngFor="let size of pageSizes" [value]="size" [selected]="size === pageSize">{{ size }}</option>
     </select>
   </div>
-  <div *ngIf="!onlySearch" class="siteHelperTip smallFont" style="margin: 12px 20px;">Tip: use <span (click)="fillSiteExample()" class="cursorPointerUnderlined linkFontColor">"site:domain.com keywords"</span> to restrict results to a single domain.</div>
+  <div *ngIf="!onlySearch" class="siteHelperTip smallFont" style="margin: 12px 20px;">Tip: use <span
+      (click)="fillSiteExample()" class="cursorPointerUnderlined linkFontColor">"site:domain.com keywords"</span> to
+    restrict results to a single domain.</div>
   <div class="popupPanelTitle">Database Nerd Stats:</div>
   <div *ngIf="isLoading" class="optionsStatsWrapperDiv">
     <div class="optionsStatsDiv">
@@ -140,7 +145,7 @@
       <div class="optionsStatsDescription">
         {{storageStats.totalRows}}
       </div>
-    </div> 
+    </div>
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">Days of Data:</div>
       <div class="optionsStatsDescription">
@@ -166,8 +171,8 @@
       </div>
     </div>
   </div>
-  <div>Note: You can index your website by searching for it.</div>  
-  <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button> 
+  <div>Note: You can index your website by searching for it.</div>
+  <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
 </div>
 
 <!-- Favourited By Popup -->
@@ -176,7 +181,8 @@
   <div style="padding: 12px; max-height: 50vh; overflow: auto;">
     <div *ngIf="favouritedByList && favouritedByList.length > 0; else noFavourites">
       <div *ngFor="let u of favouritedByList" style="margin-bottom:8px;">
-        <app-user-tag [user]="u" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true"></app-user-tag>
+        <app-user-tag [user]="u" [inputtedParentRef]="inputtedParentRef ?? parentRef"
+          [displayMiniTag]="true"></app-user-tag>
       </div>
     </div>
     <ng-template #noFavourites>

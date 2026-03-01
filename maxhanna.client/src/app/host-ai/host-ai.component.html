@@ -1,8 +1,10 @@
-<div class="componentMain">
-  <div class="closeButton" (click)="remove_me('HostAiComponent');"></div>
-  <div class="menuButton" (click)="showMenuPanel();"></div>
-  <div class="helpButton" (click)="showHelpPopup()" title="Help"></div>
-  <div class="componentTitle">{{this.hostName}}</div>
+<div class="componentMain"> 
+  <app-title-bar 
+    [title]="hostName"
+    (helpClicked)="showHelpPopup()"
+    (menuClicked)="showMenuPanel()"
+    (closeClicked)="remove_me('HostAiComponent');">
+  </app-title-bar>
 
   <div class="chat-container" #chatContainer>
     <div class="chat-box" *ngIf="chatMessages && chatMessages.length > 0">

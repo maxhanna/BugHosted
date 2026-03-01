@@ -129,8 +129,8 @@ fieldset {
 .menuBackButton::before,
 .helpButton::before,
 .notificationTopButton,
-.topSearchButtonDiv,
-.topSearchButtonDivSpecial {
+.searchButton 
+{
   position: absolute;
   top: 0px;
   width: 50px;
@@ -160,6 +160,16 @@ fieldset {
   right: 103px;
 }
 
+.searchButton { 
+  right: 159px;
+  text-shadow: 1px 1px var(--main-link-color);
+  z-index: 1;
+}
+
+.searchButton::before {
+  content: '🔍'; 
+}
+
 .menuBackButton::before {
   content: '⤺';
   right: 106px;
@@ -180,7 +190,7 @@ fieldset {
 .closeButton:active::before,
 .menuButton:active::before,
 .notificationTopButton:active, 
-.topSearchButtonDiv:active,
+.searchButton:active,
 .helpButton:active::before {
   border: 2px inset black;
   transform: translateY(2px);
@@ -194,22 +204,7 @@ fieldset {
   z-index: 1;
   right: 106px;
 } 
-
-.topSearchButtonDiv {
-  right: 159px;
-  text-shadow: 1px 1px var(--main-link-color);
-  z-index: 1;
-}
-
-.topSearchButtonDivSpecial {
-  right: 106px;
-  text-shadow: 1px 1px var(--main-link-color);
-}
-
-.topBackButtonDivSpecial {
-  right: 53px;
-}
-
+ 
 .componentTitle {
   padding-left: 10px;
   width: calc(100% - 10px);

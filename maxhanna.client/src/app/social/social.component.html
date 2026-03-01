@@ -1,27 +1,21 @@
 <div class="componentMain" #componentMain>
-  <div *ngIf="!user && !showOnlyPost">
-    <div class="closeButton" (click)="remove_me('SocialComponent');"></div>
-    <div class="menuButton" (click)="showMenuPanel();"></div>
-    <div *ngIf="previousComponent"
-      [class]="'menuBackButton ' + (parentRef?.user?.id ? 'menuBackButtonSpecialUser' : 'menuBackButtonSpecial')"
-      (click)="backButtonPressed();"></div>
-    <div class="componentTitle"><span>Social</span></div>
-  </div>
-  <div [class]="user ? 'embeddedSocialComponentsContent' : 'socialComponentContents'">
-    <div *ngIf="showTopicSelector && parentRef?.user?.id && !showOnlyPost">
-      <app-notifications [minimalInterface]="true" [inputtedParentRef]="parentRef"
-        [previousComponent]="'Social'"></app-notifications>
-    </div>
-    <!-- Search -->
-    <div *ngIf="(showTopicSelector || user) && !showOnlyPost && !user"
-      [class]="
-        (!user && parentRef?.user?.id) ? 'topSearchButtonDiv' 
-        : (!user && !parentRef?.user?.id) ? 'topSearchButtonDivSpecial'
-        : (user && parentRef?.user?.id) ? 'topSearchButtonDiv'
-        : 'topSearchButtonDivSpecial'"
-      (click)="showSearchSocialsPanel()">
-      🔍
-    </div>
+  <app-title-bar 
+    [title]="!user && !showOnlyPost ? 'Social' : ''" 
+    [hasMenu]="!user && !showOnlyPost" 
+    [hasClose]="!user && !showOnlyPost"
+    [hasBack]="!user && !showOnlyPost && previousComponent"
+    [hasNotifications]="showTopicSelector && parentRef?.user?.id && !showOnlyPost"
+    [hasSearch]="(showTopicSelector || user) && !showOnlyPost && !user"
+    [showOwnSearch]="true"
+    [inputtedParentRef]="parentRef"
+    [previousComponent]="'Social'"
+    (backClicked)="backButtonPressed()"
+    (menuClicked)="showMenuPanel()" 
+    (searchClicked)="showSearchSocialsPanel()"
+    (closeClicked)="remove_me('SocialComponent');">
+  </app-title-bar>
+
+  <div [class]="user ? 'embeddedSocialComponentsContent' : 'socialComponentContents'"> 
     <!-- Search Popup -->
     <div class="popupPanel" *ngIf="isSearchSocialsPanelOpen">
       <div class="popupPanelTitle">Search the Socials</div>

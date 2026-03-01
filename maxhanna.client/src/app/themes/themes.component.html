@@ -1,6 +1,8 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me('ThemeComponent')"></div>
-  <div class="componentTitle">Theme</div>
+  <app-title-bar 
+    [title]="'Theme'"
+    (closeClicked)="remove_me('ThemeComponent');">
+  </app-title-bar>
 
   <div class="themeSelectorDivWrapper">
     <div class="themeSelectorDiv">

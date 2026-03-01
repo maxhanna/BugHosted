@@ -1,7 +1,9 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me('TodoComponent');"></div> 
-  <div class="menuButton" (click)="openMenuPanel();"></div>
-  <div class="componentTitle">Todo</div>
+  <app-title-bar 
+    [title]="'Todo'" 
+    (menuClicked)="openMenuPanel()"
+    (closeClicked)="remove_me('TodoComponent');">
+  </app-title-bar>
 
   <div style="display: flex; justify-content: center; align-items: center; gap: 20px"> 
     <select #selectedType class=selectType (change)="typeOnChange()" style="font-size:large">

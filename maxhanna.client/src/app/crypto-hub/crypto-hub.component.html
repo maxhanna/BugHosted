@@ -1,7 +1,11 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="isTradePanelOpen ? closeTradeFullscreen() : remove_me('CryptoHubComponent');"></div>
-  <div class="menuButton" (click)="showMenuPanel();" *ngIf="!isTradePanelOpen"></div>
-  <div class="componentTitle">{{!isTradePanelOpen ? 'Crypto Hub' : 'Trade Bots'}}</div>
+  <app-title-bar 
+    [title]="!isTradePanelOpen ? 'Crypto Hub' : 'Trade Bots'"  
+    [hasMenu]="!isTradePanelOpen"
+    (menuClicked)="showMenuPanel()"
+    (closeClicked)="isTradePanelOpen ? closeTradeFullscreen() : remove_me('CryptoHubComponent');">
+  </app-title-bar>
+
   <div [class]="noMining ? 'noMiningHubSection' : !isTradePanelOpen ? 'hubSection' : ''"
     [style.display]="isTradePanelOpen ? 'none' : 'block'">
     <div class="cryptoHubConverterAndCoinWatchWrapper" [style.display]="isTradePanelOpen ? 'none' : 'flex'">

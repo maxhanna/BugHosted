@@ -2,7 +2,14 @@
   <div class="closeButton" *ngIf="!user" (click)="remove_me('MusicComponent');"></div>
   <div class="menuButton" (click)="showMenuPanel();" *ngIf="!user"></div>
   <div class="helpButton" *ngIf="!user" (click)="openHelpPanel()"></div>
-  <div class="componentTitle" *ngIf="!user">Music</div>
+  <div class="componentTitle" *ngIf="!user"></div> 
+  <app-title-bar 
+    [title]="!user ? 'Music' : ''" 
+    (menuClicked)="openMenuPanel()"
+    (closeClicked)="remove_me('MusicComponent');"
+    (helpClicked)="openHelpPanel();">
+  </app-title-bar>
+
 
   <fieldset *ngIf="!user">
     <legend title="Add to the music list">Add to the music list</legend>

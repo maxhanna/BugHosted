@@ -4,9 +4,13 @@
 
 <div [class]="minimalInterface ? 'popupPanel minimalPopupPanel' : 'componentMain'"
   *ngIf="!minimalInterface || showNotifications">
-  <div class="closeButton" (click)="removeMe('Notifications')" *ngIf="!minimalInterface"></div>
-  <div class="refreshButton" (click)="ngOnInit();" *ngIf="!minimalInterface"></div>
-  <div class="componentTitle" *ngIf="!minimalInterface">Notifications</div>
+  <app-title-bar 
+    [title]="!minimalInterface ? 'Notifications' : ''"
+    [hasClose]="!minimalInterface" 
+    [hasRefresh]="!minimalInterface"
+    (refreshClicked)="ngOnInit()"
+    (closeClicked)="remove_me('Notifications');">
+  </app-title-bar>
 
   <div class="notificationsDisplay" [style.width]="minimalInterface ? 'CALC(100% - 15px);' : ''">
     <div>

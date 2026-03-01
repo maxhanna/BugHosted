@@ -1,7 +1,9 @@
 <div class=componentMain>
-  <div class="closeButton" (click)="remove_me('CalendarComponent');"></div>
-  <div class="menuButton" (click)="showMenuPanel();"></div>
-  <div class="componentTitle">Calendar</div>
+  <app-title-bar 
+    [title]="'Calendar'" 
+    (menuClicked)="showMenuPanel()"
+    (closeClicked)="remove_me('CalendarComponent');">
+  </app-title-bar>
 
   <table class="calendarMonthTable">
     <tr>

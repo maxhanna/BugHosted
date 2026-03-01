@@ -1,6 +1,9 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me('NewsComponent');"></div> 
-  <div class="componentTitle">News</div>
+  <app-title-bar 
+    [title]="'News'"  
+    (closeClicked)="remove_me('NewsComponent');">
+  </app-title-bar>
+
   <div class="topSearchDiv defaultSearchTopDiv">
     <table>
       <tr>

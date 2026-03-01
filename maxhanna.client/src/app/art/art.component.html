@@ -1,7 +1,10 @@
-<div class="componentMain">
-	<div class="closeButton" (click)="remove_me('Art')"></div>
-	<div class="menuButton" (click)="showMenuPanel();"></div>
-	<div class="componentTitle">Art</div>
+<div class="componentMain"> 
+  <app-title-bar
+    [title]="'Art'"  
+    [hasSearch]="true"
+    (menuClicked)="showMenuPanel()" 
+    (closeClicked)="remove_me('ArtComponent');">
+  </app-title-bar>
 
 	<div class="artResultsDiv">
 		<app-file-search #fileSearchComponent

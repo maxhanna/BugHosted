@@ -1,8 +1,9 @@
 <div class="componentMain" #componentMain>
-  <div class="closeButton" (click)="remove_me('BonesComponent');"></div>
-  <!--<div class="refreshButton" (click)="ngOnInit();"></div>-->
-  <div class="componentTitle">Bones</div>
-  <div class="menuButton" (click)="showMenuPanel()"></div>
+  <app-title-bar 
+    [title]="'Bones'"
+    (menuClicked)="showMenuPanel()"
+    (closeClicked)="remove_me('BonesComponent');">
+  </app-title-bar>
 
   <div [style.display]="isLoading ? 'block' : 'none'" class="loadingModal">The game is loading...</div>
   <div [style.display]="serverDown ? 'block' : 'none'" class="serverDownMessage">We are sorry, server is currently down.

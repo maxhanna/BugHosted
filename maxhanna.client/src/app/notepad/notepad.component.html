@@ -1,63 +1,68 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me('NotepadComponent');"></div> 
-  <div class="componentTitle">Notepad</div>
-  <div class="popupPanel" *ngIf="isPanelExpanded"> 
-    <div class="sharedWithWrapperDiv">
-      <div class="popupPanelTitle">
-        Share Note (id# {{ noteId.value }})? 
-        <div *ngIf="splitNoteOwnershipUsers && splitNoteOwnershipUsers.length > 0" class="smallFont">Currently shared with:</div>
-      </div>
-      <div *ngFor="let user of splitNoteOwnershipUsers" class="sharedUserRow">
-        <app-user-tag [user]="user" 
-        [inputtedParentRef]="parentRef" 
-        [displayMiniTag]="true"
-        [previousComponent]="'Notepad'"></app-user-tag>
-      <button *ngIf="isOriginalOwner()" class="unshareButton" (click)="user.id && unshareUser(user.id)">Unshare</button>
-      </div>
-    </div>
-    <app-user-list (userClickEvent)="shareNote($event);"
-                   [user]="parentRef?.user!"
-                   [sharingSearch]="true"
-                   [inputtedParentRef]="parentRef">
-    </app-user-list>
-  </div>
-
-  <!-- Auto-sync prompt: offer to save before the automatic sync runs -->
-  <div class="popupPanel" *ngIf="showAutoSyncPrompt">
-    <div class="popupPanelTitle">Auto-sync</div>
-    <div style="padding:12px;">
-      <div>Your current note has unsaved changes.</div>
-      <div>Would you like to save your changes before syncing with the server?</div>
-    </div>
-    <div style="display:flex; gap:8px; padding:12px; justify-content:flex-end;">
-      <button (click)="autoSyncSaveNow()">Save & Sync</button>
-      <button (click)="autoSyncDontSave()">Don't Save (Sync)</button>
-      <button (click)="dismissAutoSyncPrompt()">Cancel</button>
-    </div>
-  </div>
-
+  <app-title-bar 
+    [title]="'Notepad'" 
+    [inputtedParentRef]="parentRef"
+    (closeClicked)="remove_me('NotepadComponent');">
+  </app-title-bar>
 
   <textarea #noteInput class="noteInputTextArea" (input)="handleNoteInputChange()" required></textarea>
   <fieldset class="buttonFields">
-    <small  class="autoSyncedIndicator" *ngIf="lastSyncedAt">Auto-synced at {{ lastSyncedAt | date:'mediumTime' }}</small>
-    <input type="submit" value="💾" (click)="addNote(); noteAddButton.disabled=true;" #noteAddButton title="Save Note" />
+    <small class="autoSyncedIndicator" *ngIf="lastSyncedAt">Auto-synced at {{ lastSyncedAt | date:'mediumTime'
+      }}</small>
+    <input type="submit" value="💾" (click)="addNote(); noteAddButton.disabled=true;" #noteAddButton
+      title="Save Note" />
     <input type="submit" value="↗️" (click)="shareNoteButtonClick()" #shareNoteButton title="Share Note" />
     <input type="submit" value="🆕" (click)="clearInputs()" #newNoteButton title="New Note" />
     <input type="submit" value="❌" (click)="deleteNote()" #deleteNoteButton title="Delete Note" />
     <input type="hidden" value="" #noteId />
-  </fieldset> 
-  
-  <div *ngIf="(notes && notes.length > 0) || (searchInput && searchInput.nativeElement && searchInput.nativeElement.value)" class="searchBar">
+  </fieldset>
+
+  <div
+    *ngIf="(notes && notes.length > 0) || (searchInput && searchInput.nativeElement && searchInput.nativeElement.value)"
+    class="searchBar">
     <input placeholder="Search" #searchInput (keyup)="search()" />
     <button (click)="search()">🔍</button>
     <button (click)="toggleCarouselPopup()">{{ isCarouselPopped ? 'Close Notes' : 'Pop Notes' }}</button>
   </div>
   <div #notesCarousel [style.gap]="isCarouselPopped ? '5px' : ''"
-    [class]="isCarouselPopped ? 'popupPanel poppedUpCarouselleArea' : 'notesCarousel'"
-    (wheel)="onNotesWheel($event)">
+    [class]="isCarouselPopped ? 'popupPanel poppedUpCarouselleArea' : 'notesCarousel'" (wheel)="onNotesWheel($event)">
     <div [class]="isCarouselPopped ? 'poppedUpCarouselleArea poppedUpCarouselleList' : ''">
       <label *ngFor="let note of notes" (click)="getNote(note.id!); closeCarouselPopup();">{{ note.note }}</label>
     </div>
     <button *ngIf="isCarouselPopped" class="closeButton" (click)="closeCarouselPopup()" id="closeOverlay">Close</button>
+  </div>
+</div>
+
+
+<div class="popupPanel" *ngIf="isPanelExpanded">
+  <div class="sharedWithWrapperDiv">
+    <div class="popupPanelTitle">
+      Share Note (id# {{ noteId.value }})?
+      <div *ngIf="splitNoteOwnershipUsers && splitNoteOwnershipUsers.length > 0" class="smallFont">Currently shared
+        with:</div>
+    </div>
+    <div *ngFor="let user of splitNoteOwnershipUsers" class="sharedUserRow">
+      <app-user-tag [user]="user" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
+        [previousComponent]="'Notepad'"></app-user-tag>
+      <button *ngIf="isOriginalOwner()" class="unshareButton" (click)="user.id && unshareUser(user.id)">Unshare</button>
+    </div>
+  </div>
+  <app-user-list (userClickEvent)="shareNote($event);" [user]="parentRef?.user!" [sharingSearch]="true"
+    [inputtedParentRef]="parentRef">
+  </app-user-list>
+</div>
+
+<!-- Auto-sync prompt: offer to save before the automatic sync runs -->
+<div class="popupPanel" *ngIf="showAutoSyncPrompt">
+  <div class="popupPanelTitle">Auto-sync</div>
+  <div style="padding:12px;">
+    <div>Your current note has unsaved changes.</div>
+    <div>Would you like to save your changes before syncing with the server?</div>
+  </div>
+  <div style="display:flex; gap:8px; padding:12px; justify-content:flex-end;">
+    <button (click)="autoSyncSaveNow()">Save & Sync</button>
+    <button (click)="autoSyncDontSave()">Don't Save (Sync)</button>
+    <button (click)="dismissAutoSyncPrompt()">Cancel</button>
   </div>
 </div>

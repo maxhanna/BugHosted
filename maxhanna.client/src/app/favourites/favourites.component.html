@@ -1,7 +1,9 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me('FavouritesComponent');"></div>
-  <div class="componentTitle">Favourites</div>
-  <div class="menuButton" (click)="showMenuPanel();"></div>
+  <app-title-bar 
+    [title]="'Favourites'"
+    (menuClicked)="showMenuPanel()"
+    (closeClicked)="remove_me('FavouritesComponent');">
+  </app-title-bar>
 
   <div class="popupPanelTitle favouritesTitle">
     Add/Share your Favorites

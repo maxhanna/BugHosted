@@ -1,7 +1,9 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me('ContactsComponent');"></div>
-  <div class="refreshButton" (click)="ngOnInit();"></div>
-  <div class="componentTitle">Contacts</div>
+  <app-title-bar 
+    [title]="'Contacts'"  
+    (refreshClicked)="ngOnInit();"
+    (closeClicked)="remove_me('ContactsComponent');">
+  </app-title-bar>
 
   <button class="newContactButton" (click)="showNewContactForm = !showNewContactForm;" title="New Contact">🆕🧑</button>
   <div class="newContactForm" *ngIf="showNewContactForm">

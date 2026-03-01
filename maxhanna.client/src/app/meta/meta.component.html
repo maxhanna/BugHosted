@@ -1,8 +1,9 @@
 <div class="componentMain" #componentMain>
-  <div class="closeButton" (click)="remove_me('MetaComponent');"></div>
-  <!--<div class="refreshButton" (click)="ngOnInit();"></div>-->
-  <div class="componentTitle">Meta-Bots</div>
-  <div class="menuButton" (click)="showMenuPanel()"></div>
+  <app-title-bar
+    [title]="'Meta-Bots'"  
+    (menuClicked)="showMenuPanel()" 
+    (closeClicked)="remove_me('MetaComponent');">
+  </app-title-bar>
  
   <div [style.display]="isLoading ? 'block' : 'none'" class="loadingModal">The game is loading...</div>
   <div [style.display]="serverDown ? 'block' : 'none'">We are sorry, server is currently down. Please be patient while we bring it back online.</div> 

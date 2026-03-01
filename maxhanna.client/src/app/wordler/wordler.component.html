@@ -1,7 +1,9 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me('WordlerComponent');"></div>
-  <div class="menuButton" (click)="showMenuPanel();"></div>
-  <div class="componentTitle">Wordler</div>
+  <app-title-bar
+    [title]="'Wordler'"  
+    (menuClicked)="showMenuPanel()" 
+    (closeClicked)="remove_me('WordlerComponent');">
+  </app-title-bar>
 
   <div>
     <div class="wordlerTitleDiv" *ngIf="!isMenuPanelOpen">

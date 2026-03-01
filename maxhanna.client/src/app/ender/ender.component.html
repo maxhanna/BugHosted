@@ -1,7 +1,10 @@
 ﻿<div class="componentMain" #componentMain>
-  <div class="closeButton" (click)="remove_me('EnderComponent');"></div>
-  <div class="menuButton" (click)="showMenuPanel()"></div>
-  <div class="componentTitle">Ender</div>
+  <app-title-bar 
+    [title]="'Ender'"
+    (menuClicked)="showMenuPanel()"
+    (closeClicked)="remove_me('EnderComponent');">
+  </app-title-bar>
+
   <div class="gameCanvasContainer">
     <canvas #gameCanvas id="gameCanvas" class="gameCanvas" width=320 height="220"></canvas>
   </div>

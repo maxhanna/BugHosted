@@ -1,10 +1,13 @@
-<div class="closeButton" (click)="closeButtonClicked.emit()" *ngIf="hasClose"></div>
-<div class="menuButton" (click)="showMenuClicked.emit();" *ngIf="hasMenu"></div> 
-<div class="componentTitle"> 
-  <span [class]="titleSpanClass">{{ title }}</span> 
-</div>
-
+<div class="closeButton" title="Close" (click)="closeButtonClicked.emit()" *ngIf="hasClose"></div>
+<div class="refreshButton" title="Refresh" (click)="refreshButtonClicked.emit()" *ngIf="hasRefresh"></div>
+<div class="menuButton" title="Open Menu" (click)="showMenuClicked.emit();" *ngIf="hasMenu"></div> 
+<div class="helpButton" title="Show Help" (click)="showHelpClicked.emit()" *ngIf="hasHelp"></div>
+<div class="searchButton" title="Show Search" (click)="showSearchClicked.emit()" *ngIf="hasSearch && showOwnSearch"></div>
+<div class="menuBackButton" title="Back to User List" (click)="backClicked.emit();" *ngIf="hasBack"></div>
+<div class="componentTitle" *ngIf="showTitle"><span [class]="titleSpanClass">{{ title }}</span></div>
 <app-notifications 
   *ngIf="hasNotifications" 
   [minimalInterface]="true"
+  [inputtedParentRef]="inputtedParentRef"
+  [previousComponent]="previousComponent"
   [notificationIconSlot]="notificationIconSlot"></app-notifications>

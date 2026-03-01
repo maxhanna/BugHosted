@@ -1,14 +1,11 @@
-<div class="componentMain">
-  <div class="closeButton" (click)="remove_me('MemeComponent')"></div>
-  <div class="menuButton" (click)="showMenuPanel();"></div>
-  <div class="componentTitle">Meme</div>
-   
-  <app-notifications *ngIf="parentRef?.user?.id"
-                      [minimalInterface]="true"
-                      [inputtedParentRef]="parentRef"
-                      [previousComponent]="'Meme'">
-  </app-notifications>
- 
+<div class="componentMain">  
+  <app-title-bar [title]="'Meme'" 
+    [hasSearch]="true" 
+    [hasNotifications]="!!parentRef?.user?.id"
+    [inputtedParentRef]="parentRef"
+    (menuClicked)="showMenuPanel()" 
+    (closeClicked)="remove_me('MemeComponent')">
+  </app-title-bar>
   <div class="memeResultsDiv">
       
     <app-file-search #fileSearchComponent

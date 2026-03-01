@@ -1,126 +1,121 @@
 <div class="componentMain">
-    <div class="closeButton" (click)="remove_me('MastermindComponent')"></div>
-    <div class="menuButton" (click)="showMenuPanel();"></div>
-    <div class="componentTitle">Mastermind</div>
-    <div *ngIf="!gameStarted && !gameOver" class="gameLogo">
-        <div class="logo-bar">
-            <!-- Logo container (max 100x100) -->
-            <div class="logo">
-                <span class="icon">🎯</span>
-                <span class="text">Mastermind</span>
-                <span class="bg-emojis">🧠🟦🟨🟥🟩🟪</span>
-            </div>
-        </div>
+  <app-title-bar [title]="'Mastermind'" (menuClicked)="showMenuPanel()"
+    (closeClicked)="remove_me('MastermindComponent');">
+  </app-title-bar> 
+  
+  <div *ngIf="!gameStarted && !gameOver" class="gameLogo">
+    <div class="logo-bar">
+      <!-- Logo container (max 100x100) -->
+      <div class="logo">
+        <span class="icon">🎯</span>
+        <span class="text">Mastermind</span>
+        <span class="bg-emojis">🧠🟦🟨🟥🟩🟪</span>
+      </div>
     </div>
-    <div *ngIf="!gameStarted && !gameOver && !isLoading" class="gameExplanation gradientBackground">
-        <b>How to Play Mastermind:</b>
-        <div class="explainerContainer">
-            Try to guess the secret color code!<br>
-            Each guess gives feedback:<br>
-            <ul style="margin:8px 0 0 18px;">
-                <li><b>Black</b> peg: Correct color in the correct position.</li>
-                <li><b>White</b> peg: Correct color, wrong position.</li>
-            </ul>
-            Crack the code in as few tries and as little time as possible.<br>
-            <i>Choose your difficulty below and start the game!</i>
-        </div>
+  </div>
+  <div *ngIf="!gameStarted && !gameOver && !isLoading" class="gameExplanation gradientBackground">
+    <b>How to Play Mastermind:</b>
+    <div class="explainerContainer">
+      Try to guess the secret color code!<br>
+      Each guess gives feedback:<br>
+      <ul style="margin:8px 0 0 18px;">
+        <li><b>Black</b> peg: Correct color in the correct position.</li>
+        <li><b>White</b> peg: Correct color, wrong position.</li>
+      </ul>
+      Crack the code in as few tries and as little time as possible.<br>
+      <i>Choose your difficulty below and start the game!</i>
     </div>
-    <div class="difficultyPickerWrapper" *ngIf="!gameStarted && !gameOver && !isLoading">
-        <div class="difficulty-picker">
-            <label for="difficulty" style="font-weight:500;margin-right:8px;">Difficulty:</label>
-            <select #difficultyDropdown id="difficulty" (change)="onDifficultyChange($event)">
-                <option value="easy" [selected]="selectedDifficulty === 'easy'">Color Sleuth (Easy)</option>
-                <option value="medium" [selected]="selectedDifficulty === 'medium'">Cipher Master (Medium)</option>
-                <option value="hard" [selected]="selectedDifficulty === 'hard'">Quantum Enigma (Hard)</option>
-            </select>
-        </div>
-        <button (click)="startNewGame()">Start Game</button>
+  </div>
+  <div class="difficultyPickerWrapper" *ngIf="!gameStarted && !gameOver && !isLoading">
+    <div class="difficulty-picker">
+      <label for="difficulty" style="font-weight:500;margin-right:8px;">Difficulty:</label>
+      <select #difficultyDropdown id="difficulty" (change)="onDifficultyChange($event)">
+        <option value="easy" [selected]="selectedDifficulty === 'easy'">Color Sleuth (Easy)</option>
+        <option value="medium" [selected]="selectedDifficulty === 'medium'">Cipher Master (Medium)</option>
+        <option value="hard" [selected]="selectedDifficulty === 'hard'">Quantum Enigma (Hard)</option>
+      </select>
     </div>
-    <div class="difficultyPickerWrapper" style="margin-top:10px;" *ngIf="!gameStarted && !gameOver && !isLoading">
-        <app-share-button [inputtedParentRef]="parentRef" [link]="'Mastermind'"></app-share-button>
+    <button (click)="startNewGame()">Start Game</button>
+  </div>
+  <div class="difficultyPickerWrapper" style="margin-top:10px;" *ngIf="!gameStarted && !gameOver && !isLoading">
+    <app-share-button [inputtedParentRef]="parentRef" [link]="'Mastermind'"></app-share-button>
+  </div>
+  <div class="scoreWrapper gradientBackground" *ngIf="!gameStarted && !gameOver && !isLoading">
+    <app-mastermind-scores [showBestScores]="false" [showBestScoresToday]="true" [showHeaderTitles]="false"
+      [parentRef]="parentRef">
+    </app-mastermind-scores>
+  </div>
+  <div *ngIf="isLoading" class="smallTitleHeader">Loading...</div>
+  <div *ngIf="gameOver" class="victoryText">
+    <div *ngIf="gameWon" class="win">You cracked the code!</div>
+    <div *ngIf="!gameWon" class="lose">
+      Out of tries! The code was:
+      <span *ngFor="let c of sequence" [style.background]="c" class="peg">{{c}}</span>
     </div>
-    <div class="scoreWrapper gradientBackground" *ngIf="!gameStarted && !gameOver && !isLoading">
-        <app-mastermind-scores 
-            [showBestScores]="false" 
-            [showBestScoresToday]="true" 
-            [showHeaderTitles]="false"
-            [parentRef]="parentRef">
-        </app-mastermind-scores>
-    </div> 
-    <div *ngIf="isLoading" class="smallTitleHeader">Loading...</div>
-    <div *ngIf="gameOver" class="victoryText">
-        <div *ngIf="gameWon" class="win">You cracked the code!</div>
-        <div *ngIf="!gameWon" class="lose">
-            Out of tries! The code was:
-            <span *ngFor="let c of sequence" [style.background]="c" class="peg">{{c}}</span>
-        </div>
-        <button (click)="startNewGame()">Play Again?</button>
+    <button (click)="startNewGame()">Play Again?</button>
+  </div>
+  <div *ngIf="gameStarted && !gameOver && !isLoading">
+    <div class="smallTitleHeader">Tries left: {{triesLeft}}</div>
+    <div class="guess-row guess-submit-row">
+      <span *ngFor="let color of currentGuess; let i = index" class="color-square selectable-peg"
+        (click)="cycleColor(i)" [style.background]="!color ? '#eee' : (emojiSet === 'none' ? color : 'transparent')"
+        [style.border]="!color ? '2px dashed #aaa' : (emojiSet === 'none' ? '2px solid ' + color : '2px solid #aaa')">
+        <ng-container *ngIf="!color">
+          <span style="color:#888;">?</span>
+        </ng-container>
+        <ng-container *ngIf="color && emojiSet !== 'none'">
+          <span [class]="'emoji-peg' + (sequenceLength >= 6 ? ' emoji-peg-smaller' : '')" [title]="color">
+            {{getColorEmoji(color)}}
+          </span>
+        </ng-container>
+        <ng-container *ngIf="color && emojiSet === 'none'">
+          <!-- fallback: colored div, already handled by background -->
+        </ng-container>
+      </span>
+      <button (click)="submitGuess()" class="submitGuessButton">Submit</button>
     </div>
-    <div *ngIf="gameStarted && !gameOver && !isLoading">
-        <div class="smallTitleHeader">Tries left: {{triesLeft}}</div>
-        <div class="guess-row guess-submit-row">
-            <span *ngFor="let color of currentGuess; let i = index" 
-                class="color-square selectable-peg" 
-                (click)="cycleColor(i)"
-                [style.background]="!color ? '#eee' : (emojiSet === 'none' ? color : 'transparent')"
-                [style.border]="!color ? '2px dashed #aaa' : (emojiSet === 'none' ? '2px solid ' + color : '2px solid #aaa')">
-                <ng-container *ngIf="!color">
-                    <span style="color:#888;">?</span>
-                </ng-container>
-                <ng-container *ngIf="color && emojiSet !== 'none'">
-                    <span [class]="'emoji-peg' + (sequenceLength >= 6 ? ' emoji-peg-smaller' : '')" [title]="color">
-                        {{getColorEmoji(color)}}
-                    </span>
-                </ng-container>
-                <ng-container *ngIf="color && emojiSet === 'none'">
-                    <!-- fallback: colored div, already handled by background -->
-                </ng-container>
-            </span>
-            <button (click)="submitGuess()" class="submitGuessButton">Submit</button> 
-        </div>
+  </div>
+  <div class="guesses">
+    <div *ngIf="guesses && guesses.length > 0" class="smallTitleHeader">Guess History:</div>
+    <div *ngFor="let guess of guesses.slice().reverse(); let i = index" class="guess-row">
+      <div *ngIf="emojiSet !== 'none'; else fallbackColors" class="guess-submit-row">
+        <span *ngFor="let c of guess.colors" class="pegSlotSpan">
+          <span [class]="'emoji-peg' + (sequenceLength >= 6 ? ' emoji-peg-smaller' : '')"
+            [title]="c">{{getColorEmoji(c)}}</span>
+        </span>
+        <span class="feedback-grid">
+          <span *ngFor="let peg of getFeedbackPegs(guess.feedback.black, guess.feedback.white); let idx = index">
+            <span *ngIf="peg === 'black'" class="feedback-peg black"></span>
+            <span *ngIf="peg === 'white'" class="feedback-peg white"></span>
+          </span>
+        </span>
+      </div>
+      <ng-template #fallbackColors class="guess-submit-row">
+        <span *ngFor="let c of guess.colors" [style.background]="c" class="peg"></span>
+        <span class="feedback-grid">
+          <span *ngFor="let peg of getFeedbackPegs(guess.feedback.black, guess.feedback.white); let idx = index"
+            class="feedback-peg" [class]="peg" [style.gridRow]="getPegRow(idx, sequenceLength)"
+            [style.gridColumn]="getPegCol(idx, sequenceLength)"></span>
+        </span>
+      </ng-template>
     </div>
-    <div class="guesses">
-        <div *ngIf="guesses && guesses.length > 0" class="smallTitleHeader">Guess History:</div>
-        <div *ngFor="let guess of guesses.slice().reverse(); let i = index" class="guess-row">
-            <div *ngIf="emojiSet !== 'none'; else fallbackColors" class="guess-submit-row">
-                <span *ngFor="let c of guess.colors" class="pegSlotSpan">
-                    <span [class]="'emoji-peg' + (sequenceLength >= 6 ? ' emoji-peg-smaller' : '')" [title]="c">{{getColorEmoji(c)}}</span>
-                </span>
-                <span class="feedback-grid">
-                    <span *ngFor="let peg of getFeedbackPegs(guess.feedback.black, guess.feedback.white); let idx = index">
-                        <span *ngIf="peg === 'black'" class="feedback-peg black"></span>
-                        <span *ngIf="peg === 'white'" class="feedback-peg white"></span>
-                    </span>
-                </span>
-            </div>
-            <ng-template #fallbackColors class="guess-submit-row">
-                <span *ngFor="let c of guess.colors" [style.background]="c" class="peg"></span>
-                <span class="feedback-grid">
-                    <span *ngFor="let peg of getFeedbackPegs(guess.feedback.black, guess.feedback.white); let idx = index"
-                          class="feedback-peg"
-                          [class]="peg"
-                          [style.gridRow]="getPegRow(idx, sequenceLength)"
-                          [style.gridColumn]="getPegCol(idx, sequenceLength)"></span>
-                </span>
-            </ng-template>
-        </div>
-    </div>
-    <div style="margin-top:20px; text-align: center;" *ngIf="gameStarted && !isLoading">
-        <button (click)="exitGame()" class="exitGameButton">
-            ❌Exit Game
-        </button>
-        <app-share-button [inputtedParentRef]="parentRef" [link]="'Mastermind'"></app-share-button>
-    </div>
+  </div>
+  <div style="margin-top:20px; text-align: center;" *ngIf="gameStarted && !isLoading">
+    <button (click)="exitGame()" class="exitGameButton">
+      ❌Exit Game
+    </button>
+    <app-share-button [inputtedParentRef]="parentRef" [link]="'Mastermind'"></app-share-button>
+  </div>
 </div>
 
 <!-- Menu Popup -->
 <div class="popupPanel mmPopup" *ngIf="isMenuPanelOpen">
-    <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
-        Mastermind Menu
-    </div>
-    <div class="popupPanelContents">
-        <app-mastermind-scores [showBestScores]="true" [showBestScoresToday]="true" [parentRef]="parentRef">
-        </app-mastermind-scores>
-    </div>
-    <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
+  <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
+    Mastermind Menu
+  </div>
+  <div class="popupPanelContents">
+    <app-mastermind-scores [showBestScores]="true" [showBestScoresToday]="true" [parentRef]="parentRef">
+    </app-mastermind-scores>
+  </div>
+  <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
 </div>

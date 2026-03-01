@@ -1,7 +1,11 @@
 <div class=componentMain>
-  <div class="menuButton" (click)="openMenu();"></div>
-  <div class="closeButton" (click)="mapComponent?.zoomedOut ? mapComponent?.zoomIn() : isMapOpen ? toggleScreen('map', false) : isSupportOpen ? toggleScreen('support', false) : isBasesOpen ? toggleScreen('bases', false) : isReportsOpen ? toggleScreen('reports', false) : isMovementOpen ? toggleScreen('movement', false) : remove_me('NexusComponent');"></div>
-  <div class="componentTitle">Bug Wars</div>
+  <app-title-bar
+    [title]="'Bug Wars'"
+    [inputtedParentRef]="parentRef"
+    (menuClicked)="openMenu()" 
+    (closeClicked)="mapComponent?.zoomedOut ? mapComponent?.zoomIn() : isMapOpen ? toggleScreen('map', false) : isSupportOpen ? toggleScreen('support', false) : isBasesOpen ? toggleScreen('bases', false) : isReportsOpen ? toggleScreen('reports', false) : isMovementOpen ? toggleScreen('movement', false) : remove_me('NexusComponent');">
+  </app-title-bar>
+  
   <div *ngIf="serverDown">We are sorry, server is currently down. Please be patient while we bring it back online.</div>
   <div *ngIf="!serverDown && !isUserComponentOpen && parentRef && parentRef.user && isUserNew && !isLoading"
     class="centeredText">
