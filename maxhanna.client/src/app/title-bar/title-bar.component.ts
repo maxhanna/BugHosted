@@ -114,6 +114,21 @@ export class TitleBarComponent implements OnInit, OnChanges {
     if (this.showNotifications) {
       tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as 0 | 1 | 2 | 3 | 4 | 5;
     }
+    if (this.hasBack && !this.showBack) {
+      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as 0 | 1 | 2 | 3 | 4 | 5;
+    }
+    if (this.hasClose && !this.showClose) {
+      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as 0 | 1 | 2 | 3 | 4 | 5;
+    }
+    if (this.hasRefresh && !this.showRefresh) {
+      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as 0 | 1 | 2 | 3 | 4 | 5;
+    }
+    if (this.hasMenu && !this.showMenu) {
+      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as 0 | 1 | 2 | 3 | 4 | 5;
+    }
+    if (this.hasSearch && !this.showSearch) {
+      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as 0 | 1 | 2 | 3 | 4 | 5;
+    } 
     return tmpNumberOfItems as 0 | 1 | 2 | 3 | 4 | 5;
   }
 
