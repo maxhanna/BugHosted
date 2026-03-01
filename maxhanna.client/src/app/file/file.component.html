@@ -1,5 +1,5 @@
 ﻿<div class="componentMain">
-  <app-title-bar *ngIf="!isFullScreen" [title]="'Files'" [hasNotifications]="!!parentRef?.user?.id" [hasSearch]="true"
+  <app-title-bar [title]="'Files'" [hasNotifications]="!!parentRef?.user?.id" [hasSearch]="true"
     [hasClose]="!user" (showMenuClicked)="showMenuPanel()" (closeButtonClicked)="remove_me('FileComponent');">
   </app-title-bar>
 

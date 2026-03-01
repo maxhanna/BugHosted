@@ -29,7 +29,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
 
   @Input() minimalInterface? = false;
   @Input() inputtedParentRef?: AppComponent;
-  @Input() notificationIconSlot : 0 | 1 | 2 | 3 = 1;
+  @Input() notificationIconSlot : 0 | 1 | 2 | 3 | 4 | 5 = 1;
 
   showNotifications = false;
   notifications?: UserNotification[] = [];
