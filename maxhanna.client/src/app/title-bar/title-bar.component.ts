@@ -196,7 +196,7 @@ export class TitleBarComponent implements OnInit, OnChanges {
     if (this.showRefresh) count++;
     if (this.showBack) count++;
     if (this.showHelp) count++;
-    const px = (count * 50) + (count * 2);
+    const px = (count * 50) + (count * 3.25);
     return `${px}px`;
   }
 }
