@@ -2186,7 +2186,7 @@ public class KrakenService
   {
     string buyOrSell = to == "USDC" ? "Sell" : "Buy";
     if (strategy == "HFT" && buyOrSell == "Buy") { return; }
-  
+
     decimal tradeValue = Convert.ToDecimal(amount) * currentCoinPriceInUSDC;
     string content;
     string toCoinName = CoinNameMap.TryGetValue(to, out var toname) ? toname : to;
@@ -2202,16 +2202,16 @@ public class KrakenService
     _ = NotifyUser(content, userId, conn);
   }
 
-  
+
   private async Task NotifyUser(string notification, int userId, MySqlConnection conn)
-  { 
+  {
     const string createNotificationSql = @"
 			INSERT INTO maxhanna.notifications 
 				(user_id, text, date)
 			VALUES 
 				(@UserId, @Content, UTC_TIMESTAMP());";
     await using var createNotificationCmd = new MySqlCommand(createNotificationSql, conn);
-    createNotificationCmd.Parameters.AddWithValue("@UserId", userId);  
+    createNotificationCmd.Parameters.AddWithValue("@UserId", userId);
     createNotificationCmd.Parameters.AddWithValue("@Content", notification);
     await createNotificationCmd.ExecuteNonQueryAsync();
     _ = SendFirebaseNotifications(userId, notification);
@@ -2442,7 +2442,7 @@ public class KrakenService
     }
   }
 
- 
+
   public async Task<string?> GetCooldownStatus(int userId, int expiryMinutes = 15)
   {
     if (userId <= 0) return null;
@@ -2536,8 +2536,8 @@ public class KrakenService
         cmd.Parameters.AddWithValue("@UserId", userId);
         cmd.Parameters.AddWithValue("@Reason", (object?)reason ?? DBNull.Value);
         await cmd.ExecuteNonQueryAsync();
-      } 
-      
+      }
+
       _ = NotifyUser(reason ?? "", userId, conn);
       return true;
     }
@@ -2547,8 +2547,6 @@ public class KrakenService
       return false;
     }
   }
-
-
 
   private async Task<decimal?> IsSystemUpToDate(int userId, string coin, decimal coinPriceUSDC)
   {
