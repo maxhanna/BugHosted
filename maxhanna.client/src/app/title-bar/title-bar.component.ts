@@ -110,7 +110,11 @@ export class TitleBarComponent implements OnInit, OnChanges {
   }
 
   get notificationIconSlot() {
-    return Math.max(0, this.numberOfItems - 1) as 0 | 1 | 2 | 3 | 4 | 5;
+    let tmpNumberOfItems = this.numberOfItems;
+    if (this.showNotifications) {
+      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as 0 | 1 | 2 | 3 | 4 | 5;
+    }
+    return tmpNumberOfItems as 0 | 1 | 2 | 3 | 4 | 5;
   }
 
   get titleSpanClass(): string {
