@@ -33,7 +33,7 @@ export class TitleBarComponent implements OnInit, OnChanges {
   @Output() refreshClicked = new EventEmitter<void>();
   @Output() backClicked = new EventEmitter<void>();
 
-  numberOfItems = 1 as 0 | 1 | 2 | 3 | 4 | 5;
+  numberOfItems = 1 as SlotNumber;
   classes = "";
   fullyLoaded = false;
 
@@ -109,27 +109,50 @@ export class TitleBarComponent implements OnInit, OnChanges {
     return (this.closeClicked?.observers?.length ?? 0) > 0;
   }
 
-  get notificationIconSlot() {
-    let tmpNumberOfItems = this.numberOfItems;
+  get notificationIconSlot() : SlotNumber {
+    if (this.numberOfItems === 0) {
+      return 0;
+    }
+    let tmpNumberOfItems = this.numberOfItems as SlotNumber;
     if (this.showNotifications) {
-      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as 0 | 1 | 2 | 3 | 4 | 5;
+      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as SlotNumber;
     }
     if (this.hasBack && (!this.showBack || !this.previousComponent)) {
-      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as 0 | 1 | 2 | 3 | 4 | 5;
+      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as SlotNumber;
     }
     if (this.hasClose && !this.showClose) {
-      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as 0 | 1 | 2 | 3 | 4 | 5;
+      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as SlotNumber;
     }
     if (this.hasRefresh && !this.showRefresh) {
-      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as 0 | 1 | 2 | 3 | 4 | 5;
+      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as SlotNumber;
     }
     if (this.hasMenu && !this.showMenu) {
-      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as 0 | 1 | 2 | 3 | 4 | 5;
+      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as SlotNumber;
     }
     if (this.hasSearch && !this.showSearch) {
-      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as 0 | 1 | 2 | 3 | 4 | 5;
+      tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as SlotNumber;
     }  
-    return tmpNumberOfItems as 0 | 1 | 2 | 3 | 4 | 5;
+    console.log(`
+      Calculated notification icon slot: ${tmpNumberOfItems} 
+      based on numberOfItems: ${this.numberOfItems}
+      showNotifications: ${this.showNotifications},
+      hasBack: ${this.hasBack}, 
+      showBack: ${this.showBack}, 
+      previousComponent: ${this.previousComponent},
+      hasClose: ${this.hasClose}, 
+      showClose: ${this.showClose},
+      hasRefresh: ${this.hasRefresh}, 
+      showRefresh: ${this.showRefresh},
+      hasMenu: ${this.hasMenu}, 
+      showMenu: ${this.showMenu},
+      hasSearch: ${this.hasSearch}, 
+      showSearch: ${this.showSearch},
+      showTitle: ${this.showTitle},
+      title: ${this.title},
+      showHelp: ${this.showHelp},
+      hasHelp: ${this.hasHelp}
+    `);
+    return tmpNumberOfItems as SlotNumber;
   }
 
   get titleSpanClass(): string {
@@ -177,3 +200,5 @@ export class TitleBarComponent implements OnInit, OnChanges {
     return `${px}px`;
   }
 }
+
+type SlotNumber = 0 | 1 | 2 | 3 | 4 | 5;
