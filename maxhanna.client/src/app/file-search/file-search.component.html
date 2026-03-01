@@ -314,11 +314,13 @@
       </div>
       <div class="optionsStatsDescription">
         <span>
-          <select [value]="optionsFile.visibility"
+          <select 
+            [value]="optionsFile.visibility"
+            #optionsFileVisibilitySelect
             *ngIf="optionsFile.user?.id == parentRef?.user?.id || optionsFile.user?.id == inputtedParentRef?.user?.id"
-            (change)="updateFileVisibility(optionsFile)">
-            <option value="Public" [selected]="optionsFile.visibility == 'Public'">Public{{getVisibilityIcon('Public')}}
-            </option>
+            (change)="onVisibilitySelect(optionsFile)">
+            <option value="Public" [selected]="optionsFile.visibility == 'Public'">
+              Public{{getVisibilityIcon('Public')}}</option>
             <option value="Private" [selected]="optionsFile.visibility == 'Private'">
               Private{{getVisibilityIcon('Private')}}</option>
           </select>
@@ -578,8 +580,7 @@
       <select id="visibilitySelect" #visibilitySelect [value]="visibilityDropdownFile.visibility" (change)="onVisibilitySelect()">
         <option value="Public">Public</option>
         <option value="Private">Private</option>
-      </select>
-      <button (click)="setFileVisibility()">Save</button>
+      </select> 
       <button (click)="closeVisibilityDropdown()">Cancel</button>
     </div>
   </div>

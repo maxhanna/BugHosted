@@ -120,6 +120,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @ViewChildren('fileNameDiv') fileHeaders!: QueryList<ElementRef>;
   @ViewChildren('nsfwCheckmark') nsfwCheckmark!: ElementRef<HTMLInputElement>;
   @ViewChildren('visibilitySelect') visibilitySelect!: ElementRef<HTMLInputElement>;
+  @ViewChildren('optionsFileVisibilitySelect') optionsFileVisibilitySelect!: ElementRef<HTMLInputElement>;
 
   @ViewChild(MediaViewerComponent) mediaViewerComponent!: MediaViewerComponent;
 
@@ -142,15 +143,35 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
 
-  onVisibilitySelect() {
-    if (!this.visibilityDropdownFile || !this.visibilitySelect?.nativeElement) {
+  onVisibilitySelect(file?: FileEntry) {
+    const targetFile = file ?? this.visibilityDropdownFile;
+    if (!targetFile) {
       console.error('Visibility dropdown file or select element is not defined');
       return;
     }
-    const visiblity = this.visibilitySelect.nativeElement.value;
-    if (visiblity) {
-      this.visibilityDropdownFile.visibility = visiblity;
+    let visibility = undefined;
+    if (!file && this.visibilitySelect?.nativeElement) {
+      visibility = this.visibilitySelect.nativeElement.value;
     }
+    else if (file && this.optionsFileVisibilitySelect?.nativeElement) {
+      visibility = this.optionsFileVisibilitySelect.nativeElement.value;
+    }
+
+    if (!visibility) {
+      console.error('Visibility select element is not defined');
+      return;
+    } 
+    if (visibility) {
+      if (!file && this.visibilityDropdownFile) {
+        this.visibilityDropdownFile.visibility = visibility;
+        this.setFileVisibility(this.visibilityDropdownFile, visibility);
+        this.closeVisibilityDropdown();
+      }
+      else if (file) {
+        file.visibility = visibility;
+        this.setFileVisibility(file, visibility);
+      }
+    } 
   }
 
   openVisibilityDropdown(file: FileEntry) {
@@ -165,14 +186,16 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.parentRef?.closeOverlay();
   }
 
-  setFileVisibility() {
-    if (!this.visibilityDropdownFile) return;
+  setFileVisibility(file?: FileEntry, visibility?: string) {
     const parent = this.inputtedParentRef ?? this.parentRef; 
+    const targetFile = file ?? this.visibilityDropdownFile;
+    const targetVisibility = visibility ?? (!file ? this.visibilityDropdownFile?.visibility : undefined);
+    if (!targetFile || !targetVisibility) return;
+    const isVisible = targetVisibility.toLowerCase() == 'private' ? false : true;
+
     const user = parent?.user ?? new User(0, 'Anonymous');
-    const isVisible = this.visibilityDropdownFile.visibility == 'Private' ? false : true;
-    this.fileService.updateFileVisibility(user?.id ?? 0, isVisible, this.visibilityDropdownFile.id).then(res => {
+    this.fileService.updateFileVisibility(user?.id ?? 0, isVisible, targetFile.id).then(res => {
       parent?.showNotification(res ?? 'File visibility updated.');
-      this.closeVisibilityDropdown();
     });
   }
 
@@ -1095,7 +1118,8 @@ private async loadFileByIdOnce(id: number) {
       return parent?.getDirectoryName(file);
     } else return '.';
   }
-  updateFileVisibility(file: FileEntry) {
+
+  toggleFileVisibility(file: FileEntry) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     file.visibility = file.visibility == "Private" ? "Public" : "Private";
     const user = parent?.user ?? new User(0, "Anonymous");
