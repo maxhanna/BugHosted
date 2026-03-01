@@ -114,7 +114,7 @@ export class TitleBarComponent implements OnInit, OnChanges {
     if (this.showNotifications) {
       tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as 0 | 1 | 2 | 3 | 4 | 5;
     }
-    if (this.hasBack && !this.showBack) {
+    if (this.hasBack && (!this.showBack || !this.previousComponent)) {
       tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as 0 | 1 | 2 | 3 | 4 | 5;
     }
     if (this.hasClose && !this.showClose) {
@@ -128,7 +128,7 @@ export class TitleBarComponent implements OnInit, OnChanges {
     }
     if (this.hasSearch && !this.showSearch) {
       tmpNumberOfItems = Math.max(0, tmpNumberOfItems--) as 0 | 1 | 2 | 3 | 4 | 5;
-    } 
+    }  
     return tmpNumberOfItems as 0 | 1 | 2 | 3 | 4 | 5;
   }
 
