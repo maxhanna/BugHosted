@@ -28,6 +28,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   system?: System;
   isFileUploaderExpanded = false;
   isFaqOpen = false;
+  wasMenuOpenBeforeLoggingIn = false;
   faqItems: { question: string; answerHtml: string; expanded: boolean }[] = [
     {
       question: 'My controller is connected but doesn\'t work — what should I do?',
@@ -2286,15 +2287,25 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   openLoginPanel() {
-    this.isShowingLoginPanel = true;
-    this.parentRef?.showOverlay();
-    this.cdr.detectChanges();
+    this.closeMenuPanel();
+    this.wasMenuOpenBeforeLoggingIn = true;
+    setTimeout(() => {
+      this.isShowingLoginPanel = true;
+      this.parentRef?.showOverlay();
+      this.cdr.detectChanges();
+    }, 100);
   }
 
   closeLoginPanel(event?: any) {
     this.isShowingLoginPanel = false;
     this.parentRef?.closeOverlay();
     this.cdr.detectChanges();
+    if (this.wasMenuOpenBeforeLoggingIn) {
+      setTimeout(() => {
+        this.showMenuPanel();
+        this.wasMenuOpenBeforeLoggingIn = false;
+      }, 100);
+    }
   }
 }
 
