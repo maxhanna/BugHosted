@@ -144,4 +144,23 @@ export class TitleBarComponent implements OnInit, OnChanges {
     this.classes = classes.join(' ');
     return this.classes;
   }
+
+  /**
+   * Compute the CSS `right` property for the search input when visible.
+   * Each visible control on the right side contributes 50px.
+   * Examples: menu+close => 100px, no menu => 50px, menu+close+refresh => 150px.
+   */
+  get searchRight(): string {
+    if (!this.showSearch) return '0px';
+    let count = 0;
+    // Controls typically rendered on the right side
+    if (this.showMenu) count++;
+    if (this.showClose) count++;
+    if (this.showRefresh) count++;
+    if (this.showBack) count++;
+    if (this.showHelp) count++;
+    if (this.showNotifications) count++;
+    const px = (count * 50) + (count * 2);
+    return `${px}px`;
+  }
 }
