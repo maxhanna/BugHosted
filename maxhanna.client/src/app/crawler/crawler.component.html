@@ -1,6 +1,13 @@
 <div class="componentMain">
-  <app-title-bar [title]="!onlySearch ? 'Crawler' : ''" [hasMenu]="!onlySearch" [hasClose]="!onlySearch"
-    (menuClicked)="showMenuPanel()" (closeClicked)="remove_me('Crawler');">
+  <app-title-bar 
+    [title]="!onlySearch ? 'Crawler' : ''" 
+    [showTitle]="!onlySearch"
+    [hasMenu]="!onlySearch" 
+    [showMenu]="!onlySearch"
+    [hasClose]="!onlySearch"
+    [showClose]="!onlySearch"
+    (menuClicked)="showMenuPanel()" 
+    (closeClicked)="remove_me('Crawler');">
   </app-title-bar>
 
   <div class="xxSmallFont nbDiv" [style.margin-Top]="onlySearch ? '-20px' : ''">
