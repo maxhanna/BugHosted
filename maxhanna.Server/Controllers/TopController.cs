@@ -41,9 +41,8 @@ namespace maxhanna.Server.Controllers
 				await conn.OpenAsync();
 
 				string sql = @"
-					SELECT te.id, te.entry, te.category, te.url, te.text, te.user_id, te.created_at, sr.image_url , te.file_id
-					FROM maxhanna.top_entries AS te 
-					LEFT JOIN maxhanna.search_results AS sr ON LOWER(sr.url) = te.url ";
+					SELECT te.id, te.entry, te.category, te.url, te.text, te.user_id, te.created_at, te.img_url, te.file_id
+					FROM maxhanna.top_entries AS te ";
 
 				var likeConditions = new List<string>();
 				if (request != null && request.Length > 0)
@@ -79,7 +78,7 @@ namespace maxhanna.Server.Controllers
 							Category = reader.GetString(reader.GetOrdinal("category")),
 							Text = reader.IsDBNull(reader.GetOrdinal("text")) ? null : reader.GetString(reader.GetOrdinal("text")),
 							Url = reader.IsDBNull(reader.GetOrdinal("url")) ? null : reader.GetString(reader.GetOrdinal("url")),
-							ImgUrl = reader.IsDBNull(reader.GetOrdinal("image_url")) ? null : reader.GetString(reader.GetOrdinal("image_url")),
+							ImgUrl = reader.IsDBNull(reader.GetOrdinal("img_url")) ? null : reader.GetString(reader.GetOrdinal("img_url")),
 							FileId = reader.IsDBNull(reader.GetOrdinal("file_id")) ? (int?)null : reader.GetInt32(reader.GetOrdinal("file_id")),
 							UserId = reader.IsDBNull(reader.GetOrdinal("user_id")) ? (int?)null : reader.GetInt32(reader.GetOrdinal("user_id")),
 							CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
@@ -329,9 +328,26 @@ namespace maxhanna.Server.Controllers
 						   .Select(t => t.TopicText)
 						   .ToArray();
 
+				// Try to resolve an image_url from search_results for the provided URL and store it on the top_entries row
+				string? resolvedImageUrl = null;
+				if (!string.IsNullOrEmpty(req.Url))
+				{
+					using (MySqlCommand imgCmd = new MySqlCommand("SELECT image_url FROM maxhanna.search_results WHERE LOWER(url) = LOWER(@url) AND image_url IS NOT NULL AND image_url <> '' LIMIT 1", conn))
+					{
+						imgCmd.Parameters.AddWithValue("@url", req.Url);
+						var imgObj = await imgCmd.ExecuteScalarAsync();
+						if (imgObj != null && imgObj != DBNull.Value)
+						{
+							resolvedImageUrl = imgObj.ToString();
+						}
+					}
+				}
+
 				string sql = @"
-					INSERT INTO maxhanna.top_entries (entry, category, url, text, file_id, user_id, created_at)
-					VALUES (@entry, @category, @url, @text, @picture, @userId, UTC_TIMESTAMP())";
+					INSERT INTO maxhanna.top_entries 
+			(entry, category, url, text, file_id, user_id, img_url, created_at)
+					VALUES 
+			(@entry, @category, @url, @text, @picture, @userId, @imgUrl, UTC_TIMESTAMP())";
 
 				using MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@entry", req.Entry);
@@ -340,6 +356,7 @@ namespace maxhanna.Server.Controllers
 				cmd.Parameters.AddWithValue("@picture", req.Picture ?? (object)DBNull.Value);
 				cmd.Parameters.AddWithValue("@url", req.Url ?? (object)DBNull.Value);
 				cmd.Parameters.AddWithValue("@userId", req.UserId ?? (object)DBNull.Value);
+				cmd.Parameters.AddWithValue("@imgUrl", resolvedImageUrl ?? (object)DBNull.Value);
 
 				int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
