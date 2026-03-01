@@ -977,6 +977,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       return false;
     } catch (e) {
       console.warn('callEjsSave failed', e);
+      this.parentRef?.showNotification('Error during save; please try again later.');
       return false;
     } finally {
       this.stopLoading();
@@ -1032,12 +1033,18 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         } else {
           console.error('[EJS] Save upload failed:', res.errorText);
           this.setTmpStatus("Server rejected save upload; please try again.");
+          if (!this.isMenuPanelOpen) {
+            this.parentRef?.showNotification('Server rejected save upload; please try again.');
+          }
           return false;
         }
       } catch (err) {
         console.error('[EJS] Save upload exception:', err);
         error = err;
-        this.setTmpStatus("Error uploading save; please try again.", "Running"); 
+        this.setTmpStatus("Error uploading save; please try again.", "Running");
+        if (!this.isMenuPanelOpen) {
+          this.parentRef?.showNotification('Error uploading save; please try again later.');
+        }
         return false;
       } finally {
         this._saveInProgress = false;
