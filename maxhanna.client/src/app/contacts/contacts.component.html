@@ -55,7 +55,7 @@
     </table>
   </div>
 
-  <div *ngIf="contacts && contacts.length > 0" class="contactsDiv">
+  <div *ngIf="contacts && contacts.length > 0 && !showNewContactForm" class="contactsDiv">
     <table class="mainTable">
       <thead>
         <tr>
