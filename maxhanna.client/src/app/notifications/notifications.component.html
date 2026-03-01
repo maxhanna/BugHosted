@@ -76,12 +76,12 @@
       <div class="notificationsListSubContainer">
         <div *ngFor="let notification of filteredNotifications"
           [class]="'notificationListItem' + (!notification.isRead ? ' gradientBackground' : '')">
-          <div class="nliLeftDiv" *ngIf="!notification?.text?.includes('Executed Trade')
+          <div class="nliLeftDiv" *ngIf="!(notification?.text?.includes('Executed Trade') || notification?.text?.includes('KrakenService'))
                                         && !notification?.text?.includes('lightcycle was displaced')">
             <app-user-tag [user]="notification.fromUser" [inputtedParentRef]="inputtedParentRef ?? parentRef"
               [previousComponent]="previousComponent" [displayHoverPicture]="true"></app-user-tag>
           </div>
-          <div class="nliLeftDiv" *ngIf="notification?.text?.includes('Executed Trade')">
+          <div class="nliLeftDiv" *ngIf="notification?.text?.includes('Executed Trade') || notification?.text?.includes('KrakenService')">
             <span class="largeAvatar cursorPointer" (click)="notificationTextClick(notification)">&#x20BF;</span>
           </div>
           <div class="nliLeftDiv" *ngIf="notification?.text?.includes('lightcycle was displaced')">

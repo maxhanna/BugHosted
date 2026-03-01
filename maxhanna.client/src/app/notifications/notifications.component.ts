@@ -214,7 +214,8 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       selectedCoin = "Ethereum";
     }
     console.log("opening crypto hub with ", selectedCoin);
-    this.createComponent("Crypto-Hub", { currentSelectedCoin: selectedCoin });
+    const options = selectedCoin ? { currentSelectedCoin: selectedCoin } : {};
+    this.createComponent("Crypto-Hub", options);
   }
   goToChat(notification?: UserNotification) {
     if (!notification?.chatId) return alert("Error: Must select a user to chat!");
@@ -353,7 +354,8 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   notificationTextClick(notification: UserNotification) {
     if (!notification.isRead) {
       this.read(notification, true);
-      if (notification.text?.includes('Executed Trade') && this.parentRef?.navigationComponent) {
+      if ((notification.text?.includes('Executed Trade') || notification.text?.includes('KrakenService'))
+          && this.parentRef?.navigationComponent) {
         this.parentRef.navigationComponent.tradeNotifsCount--;
       }
     }
@@ -370,7 +372,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       this.parentRef?.createComponent('Ender');
     } else if (notification?.text?.toLowerCase().includes('shared a note') || notification?.text?.toLowerCase().includes('a note was shared') || notification?.text?.toLowerCase().includes('note was shared')) {
       this.parentRef?.createComponent('Notepad');
-    } else if (notification.text?.includes('Executed Trade')) {
+    } else if (notification.text?.includes('Executed Trade') || notification.text?.includes('KrakenService')) {
       this.goToCryptoHub(notification);
     } else if (notification.fileId) {
       this.goToFileId(notification)
@@ -513,7 +515,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     const text = notification.text?.toLowerCase() || '';
 
     if (text.includes('you were slain by') || text.includes('you died') || text.includes('you killed')) return 'Bones';
-    if (text.includes('executed trade')) return 'Crypto-Hub';
+    if (text.includes('executed trade') || text.includes('krakenservice')) return 'Crypto-Hub';
     if (text.includes('chat')) return 'Chat';
     if (!text.includes('profile') && (text.includes('post') || text.includes('comment'))) return 'Social';
     if (text.includes('profile') || text.includes('friend request') || text.includes('following')) return 'User';
