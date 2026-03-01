@@ -575,11 +575,11 @@
     <div class="popupPanelTitle">Change File Visibility</div>
     <div class="popupPanelActions">
       <label for="visibilitySelect">Visibility:</label>
-      <select id="visibilitySelect" [(ngModel)]="visibilityDropdownFile.visibility">
+      <select id="visibilitySelect" [value]="visibilityDropdownFile.visibility" (change)="visibilityDropdownFile.visibility = $event.target.value">
         <option value="Public">Public</option>
         <option value="Private">Private</option>
       </select>
-      <button (click)="setFileVisibility(visibilityDropdownFile!, visibilityDropdownFile!.visibility)">Save</button>
+      <button (click)="setFileVisibility()">Save</button>
       <button (click)="closeVisibilityDropdown()">Cancel</button>
     </div>
   </div>

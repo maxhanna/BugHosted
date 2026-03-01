@@ -144,18 +144,21 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   openVisibilityDropdown(file: FileEntry) {
     this.visibilityDropdownFile = file;
     this.isVisibilityDropdownOpen = true;
+    this.parentRef?.showOverlay();
   }
 
   closeVisibilityDropdown() {
     this.isVisibilityDropdownOpen = false;
     this.visibilityDropdownFile = null;
+    this.parentRef?.closeOverlay();
   }
 
-  setFileVisibility(file: FileEntry, visibility: string) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    file.visibility = visibility;
+  setFileVisibility() {
+    if (!this.visibilityDropdownFile) return;
+    const parent = this.inputtedParentRef ?? this.parentRef; 
     const user = parent?.user ?? new User(0, 'Anonymous');
-    this.fileService.updateFileVisibility(user?.id ?? 0, file.visibility == 'Private' ? false : true, file.id).then(res => {
+    const isVisible = this.visibilityDropdownFile.visibility == 'Private' ? false : true;
+    this.fileService.updateFileVisibility(user?.id ?? 0, isVisible, this.visibilityDropdownFile.id).then(res => {
       parent?.showNotification(res ?? 'File visibility updated.');
       this.closeVisibilityDropdown();
     });
