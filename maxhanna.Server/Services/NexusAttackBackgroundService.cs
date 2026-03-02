@@ -3,6 +3,7 @@ using maxhanna.Server.Controllers.DataContracts.Nexus;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using MySqlConnector;
 using System.Collections.Concurrent;
+using System.Threading.Channels;
 
 namespace maxhanna.Server.Services
 {
@@ -10,11 +11,11 @@ namespace maxhanna.Server.Services
 	{
 		private readonly ConcurrentDictionary<int, Timer> _timers = new ConcurrentDictionary<int, Timer>();
 		private readonly ConcurrentQueue<int> _attackQueue = new ConcurrentQueue<int>();
+		private readonly Channel<int> _attackChannel = Channel.CreateUnbounded<int>(new UnboundedChannelOptions { SingleReader = true });
 		private readonly IConfiguration _config;
 		private readonly string _connectionString; 
 		private readonly Log _log;
 		private Timer? _checkForNewAttacksTimer;
-		private Timer _processAttackQueueTimer;
 
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10);
 
@@ -23,7 +24,8 @@ namespace maxhanna.Server.Services
 			_config = config;
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? ""; 
 			_log = log;
-			_processAttackQueueTimer = new Timer(ProcessAttackQueue, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(100)); 
+			// Use a channel to queue attacks and a single reader to avoid overlapping timer callbacks.
+			// The channel reader is started in ExecuteAsync.
 		}
 
 		public void ScheduleAttack(int attackId, TimeSpan delay, Action<int> callback)
@@ -51,14 +53,8 @@ namespace maxhanna.Server.Services
 		{
 			if (_attackQueue.Contains(attackId)) return;
 			_attackQueue.Enqueue(attackId);
-		}
-
-		private async void ProcessAttackQueue(object? state)
-		{
-			if (_attackQueue.TryDequeue(out var attackId))
-			{
-				await ProcessAttack(attackId);
-			}
+			// Push into channel for processing; TryWrite avoids awaiting from timer callbacks
+			_ = _attackChannel.Writer.TryWrite(attackId);
 		}
 
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -71,6 +67,34 @@ namespace maxhanna.Server.Services
 					TimeSpan.FromSeconds(20),
 					TimeSpan.FromSeconds(20)
 			);
+
+			// Start channel reader to process queued attacks. Single reader prevents overlapping timer callbacks.
+			_ = Task.Run(async () =>
+			{
+				var reader = _attackChannel.Reader;
+				try
+				{
+					while (await reader.WaitToReadAsync(stoppingToken))
+					{
+						while (reader.TryRead(out var attackId))
+						{
+							// Run processing in background task; ProcessAttack itself uses semaphore to limit concurrency
+							_ = Task.Run(async () =>
+							{
+								try
+								{
+									await ProcessAttack(attackId);
+								}
+								catch (Exception ex)
+								{
+									Console.WriteLine("Attack processing worker exception: " + ex.Message);
+								}
+							});
+						}
+					}
+				}
+				catch (OperationCanceledException) { }
+			}, stoppingToken);
 		}
 
 		private async Task CheckForNewAttacks(CancellationToken stoppingToken)
@@ -216,7 +240,8 @@ namespace maxhanna.Server.Services
 				timer.Dispose();
 			}
 			_checkForNewAttacksTimer?.Dispose();
-			_processAttackQueueTimer.Dispose();
+			// Complete the channel so the background reader can finish
+			try { _attackChannel.Writer.Complete(); } catch { }
 			_semaphore.Dispose();
 			base.Dispose();
 		}
