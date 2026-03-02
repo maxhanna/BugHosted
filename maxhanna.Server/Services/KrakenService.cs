@@ -2480,9 +2480,9 @@ public class KrakenService
         var age = DateTime.UtcNow - started;
         if (age.TotalMinutes > expiryMinutes)
         {
-          // Expired: remove the cooldown flag
           try
-          {
+          { 
+            await reader.CloseAsync();  
             using var delCmd = new MySqlCommand(@"DELETE FROM maxhanna.tradebot_cooldowns WHERE user_id = @UserId;", conn);
             delCmd.Parameters.AddWithValue("@UserId", userId);
             await delCmd.ExecuteNonQueryAsync();
