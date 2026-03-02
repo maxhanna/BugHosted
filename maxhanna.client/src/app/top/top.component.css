@@ -220,7 +220,8 @@ textarea.form-control {
 
 .crawlerPopupPanel {
     max-height: calc(var(--vh, 1vh) * 80);
-    object-fit: contain;
+    object-fit: contain; 
+    padding-top: 10px;
 }
 
 .green {

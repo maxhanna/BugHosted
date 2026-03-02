@@ -9,8 +9,13 @@
       Choose a topic:
     </div>
   </div>
-  <app-topics #topicComponent [attachedTopics]="topicInputted" [isDropdown]="true" [user]="parentRef?.user"
-    [parent]="parentRef" (topicAdded)="onTopicAdded($event)" (topicClicked)="onTopicAdded($event)">
+  <app-topics #topicComponent 
+    [attachedTopics]="topicInputted" 
+    [isDropdown]="true" 
+    [user]="parentRef?.user"
+    [parent]="parentRef" 
+    (topicAdded)="onTopicAdded($event)" 
+    (topicClicked)="onTopicAdded($event)">
   </app-topics>
 
   <div class="add-entry-form" *ngIf="topicInputted && topicInputted.length > 0">
@@ -40,8 +45,13 @@
   </div>
 
   <div *ngIf="isSearchingUrl" class="popupPanel crawlerPopupPanel">
-    <app-crawler [url]="urlInput.nativeElement.value" [onlySearch]="true" [inputtedParentRef]="parentRef"
-      (urlSelectedEvent)="urlSelectedEvent($event)" (closeSearchEvent)="closeSearchEvent()"></app-crawler>
+    <app-crawler 
+      [style.maxWidth]="'calc(100% - 20px)'"
+      [url]="urlInput.nativeElement.value" 
+      [onlySearch]="true" 
+      [inputtedParentRef]="parentRef"
+      (urlSelectedEvent)="urlSelectedEvent($event)" 
+      (closeSearchEvent)="closeSearchEvent()"></app-crawler>
     <button id="closeOverlay" (click)="closeSearchPanel()">Cancel</button>
   </div>
 

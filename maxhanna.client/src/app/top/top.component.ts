@@ -44,9 +44,9 @@ export class TopComponent extends ChildComponent implements OnInit {
     super();
   }
 
-  ngOnInit() {
-    const topicsFromUrl = this.getTopicsFromUrl();
-
+  ngOnInit() { 
+    this.startLoading();
+    const topicsFromUrl = this.getTopicsFromUrl(); 
     if (topicsFromUrl.length > 0) {
       setTimeout(() => {
         this.processUrlTopics(topicsFromUrl).then(() => {
@@ -59,8 +59,8 @@ export class TopComponent extends ChildComponent implements OnInit {
       if (res) {
         this.topCategories = res;
       }
-    });
-
+    }); 
+    this.stopLoading();
   }
 
   private getTopicsFromUrl(): string[] {
@@ -133,25 +133,25 @@ export class TopComponent extends ChildComponent implements OnInit {
   }
 
   onTopicAdded(topics: Topic[]) {
-    if (!this.topicInputted) {
-      this.topicInputted = [];
-    }
+    // if (!this.topicInputted) {
+    //   this.topicInputted = [];
+    // }
 
-    for (let topic of topics) {
-      let found = false;
+    // for (let topic of topics) {
+    //   let found = false;
 
-      for (let i = 0; i < this.topicInputted.length; i++) {
-        if (this.topicInputted[i].id === topic.id) {
-          this.topicInputted.splice(i, 1);
-          found = true;
-          break;
-        }
-      }
+    //   for (let i = 0; i < this.topicInputted.length; i++) {
+    //     if (this.topicInputted[i].id === topic.id) {
+    //       this.topicInputted.splice(i, 1);
+    //       found = true;
+    //       break;
+    //     }
+    //   }
 
-      if (!found) {
-        this.topicInputted.push(topic);
-      }
-    }
+    //   if (!found) {
+    //     this.topicInputted.push(topic);
+    //   }
+    // }
     console.log(topics, this.topicInputted);
     setTimeout(() => { this.loadTopEntries(); }, 50);
   }
@@ -237,6 +237,7 @@ export class TopComponent extends ChildComponent implements OnInit {
   searchUrl() {
     if (this.urlInput.nativeElement.value) {
       this.isSearchingUrl = true;
+      this.parentRef?.showOverlay();
     }
   }
   searchUrlForEdit() {
@@ -252,6 +253,7 @@ export class TopComponent extends ChildComponent implements OnInit {
     } else {
       this.urlInput.nativeElement.value = meta.url ?? "";
       this.isSearchingUrl = false;
+      this.parentRef?.closeOverlay();
     }
   }
   closeSearchPanel() {
@@ -259,6 +261,7 @@ export class TopComponent extends ChildComponent implements OnInit {
       this.isSearchingUrlForEdit = false;
     } else {
       this.isSearchingUrl = false;
+      this.parentRef?.closeOverlay();
     }
   }
   closeSearchEvent() {
