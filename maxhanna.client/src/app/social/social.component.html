@@ -342,9 +342,15 @@
           </div>
           <div class="postOptionButtonWrapper">
             <span class="postOptionButtons">
-              <app-reaction [storyId]="story.id" [user]="parentRef?.user" [inputtedParentRef]="parentRef"
-                [userProfileId]="userProfileId" [component]="story" [showSpan]="false"
-                [currentReactions]="story.reactions" [previousComponent]="'Social'"></app-reaction>
+              <app-reaction 
+                [storyId]="story.id" 
+                [user]="parentRef?.user" 
+                [inputtedParentRef]="parentRef"
+                [userProfileId]="userProfileId" 
+                [component]="story" 
+                [showSpan]="false"
+                [currentReactions]="story.reactions" 
+                [previousComponent]="'Social'"></app-reaction>
             </span> 
             <button *ngIf="story.visibility === 'self'" class="postOptionButtons showPostOptionButton coloredBgButton"
               title="Visible to you only" (click)="maybeShowStoryOptionsPanel(story)">🔒</button>
@@ -443,7 +449,8 @@
             <app-comments *ngIf="story" 
               [inputtedParentRef]="parentRef" 
               [type]="'Social'"
-              [showComments]="openedStoryComments.includes(story?.id ?? 0)" [showCommentsHeader]="true"
+              [showComments]="openedStoryComments.includes(story?.id ?? 0)" 
+              [showCommentsHeader]="true"
               [component_id]="story.id!" 
               [component]="story" 
               [userProfile]="user"

@@ -132,26 +132,26 @@ export class TitleBarComponent implements OnInit, OnChanges {
     if (this.hasSearch && !this.showSearch) {
       tmpNumberOfItems = Math.max(0, tmpNumberOfItems - 1) as SlotNumber;
     }
-    console.log(`
-      Calculated notification icon slot: ${tmpNumberOfItems} 
-      based on numberOfItems: ${this.numberOfItems}
-      showNotifications: ${this.showNotifications},
-      hasBack: ${this.hasBack}, 
-      showBack: ${this.showBack}, 
-      previousComponent: ${this.previousComponent},
-      hasClose: ${this.hasClose}, 
-      showClose: ${this.showClose},
-      hasRefresh: ${this.hasRefresh}, 
-      showRefresh: ${this.showRefresh},
-      hasMenu: ${this.hasMenu}, 
-      showMenu: ${this.showMenu},
-      hasSearch: ${this.hasSearch}, 
-      showSearch: ${this.showSearch},
-      showTitle: ${this.showTitle},
-      title: ${this.title},
-      showHelp: ${this.showHelp},
-      hasHelp: ${this.hasHelp}
-    `);
+    // console.log(`
+    //   Calculated notification icon slot: ${tmpNumberOfItems} 
+    //   based on numberOfItems: ${this.numberOfItems}
+    //   showNotifications: ${this.showNotifications},
+    //   hasBack: ${this.hasBack}, 
+    //   showBack: ${this.showBack}, 
+    //   previousComponent: ${this.previousComponent},
+    //   hasClose: ${this.hasClose}, 
+    //   showClose: ${this.showClose},
+    //   hasRefresh: ${this.hasRefresh}, 
+    //   showRefresh: ${this.showRefresh},
+    //   hasMenu: ${this.hasMenu}, 
+    //   showMenu: ${this.showMenu},
+    //   hasSearch: ${this.hasSearch}, 
+    //   showSearch: ${this.showSearch},
+    //   showTitle: ${this.showTitle},
+    //   title: ${this.title},
+    //   showHelp: ${this.showHelp},
+    //   hasHelp: ${this.hasHelp}
+    // `);
     return tmpNumberOfItems as SlotNumber;
   }
 

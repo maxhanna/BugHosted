@@ -138,8 +138,15 @@ export class ReactionComponent extends ChildComponent implements OnInit {
     if (!confirm('Delete your reaction?')) return;
     const res: any = await this.reactionService.deleteReaction(reaction.id, this.user?.id ?? 0);
     if (res === true || res === 'true') {
-      this.currentReactions = this.currentReactions?.filter(r => r.id !== reaction.id) ?? [];
-      this.filteredCurrentReactions = this.currentReactions ?? [];
+      const newList = this.currentReactions?.filter(r => r.id !== reaction.id) ?? [];
+      this.currentReactions = newList;
+      this.filteredCurrentReactions = newList;
+      // // If a parent component object was provided, update its reactions property
+      // try {
+      //   if (this.component && (this.commentId || this.fileId || this.storyId || this.messageId)) {
+      //     (this.component as any).reactions = newList;
+      //   }
+      // } catch { }
     } else { 
       this.notificationService.createNotifications({ fromUserId: this.user?.id ?? 0, message: 'Could not delete reaction', toUserIds: [] });
     }
@@ -164,10 +171,14 @@ export class ReactionComponent extends ChildComponent implements OnInit {
       if (res) {
         tmpReaction.id = parseInt(res);
 
-        if (!this.currentReactions) {
-          this.currentReactions = [];
-        }
-        this.currentReactions.unshift(tmpReaction);
+        const newList = [tmpReaction, ...(this.currentReactions ?? [])];
+        this.currentReactions = newList;
+        // // If a parent component object was provided, assign its reactions to the new array
+        // try {
+        //   if (this.component && (this.commentId || this.fileId || this.storyId || this.messageId)) {
+        //     (this.component as any).reactions = newList;
+        //   }
+        // } catch { }
         this.getReactionsListDisplay();
       }
     });

@@ -33,15 +33,14 @@ namespace maxhanna.Server.Controllers
 
 					// Always insert a new reaction record (do not overwrite prior reactions by the same user)
 					var commandStr = @" INSERT INTO reactions (user_id, comment_id, story_id, message_id, file_id, timestamp, type)
-		                            VALUES (@userId, @commentId, @storyId, @messageId, @fileId, @timestamp, @type);";
+		                            VALUES (@userId, @commentId, @storyId, @messageId, @fileId, UTC_TIMESTAMP(), @type);";
 
 					var command = new MySqlCommand(commandStr, connection);
 					command.Parameters.AddWithValue("@userId", reactionRequest.User?.Id ?? 0);
 					command.Parameters.AddWithValue("@commentId", reactionRequest.CommentId);
 					command.Parameters.AddWithValue("@fileId", reactionRequest.FileId);
 					command.Parameters.AddWithValue("@storyId", reactionRequest.StoryId);
-					command.Parameters.AddWithValue("@messageId", reactionRequest.MessageId);
-					command.Parameters.AddWithValue("@timestamp", DateTime.UtcNow);
+					command.Parameters.AddWithValue("@messageId", reactionRequest.MessageId); 
 					command.Parameters.AddWithValue("@type", reactionRequest.Type);
 					command.Parameters.AddWithValue("@comment", "Reacted");
 

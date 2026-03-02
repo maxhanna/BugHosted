@@ -51,9 +51,15 @@
       </div> 
       <div class="commentActions">
         <div class="commentReaction">
-          <app-reaction [commentId]="comment.id" [component]="comment" [fileId]="comment.fileId"
-            [storyId]="comment.storyId" [userProfileId]="userProfile?.id" [user]="inputtedParentRef?.user"
-            [inputtedParentRef]="inputtedParentRef" [currentReactions]="comment.reactions"
+          <app-reaction 
+            [commentId]="comment.id" 
+            [component]="comment" 
+            [fileId]="comment.fileId"
+            [storyId]="comment.storyId" 
+            [userProfileId]="userProfile?.id" 
+            [user]="inputtedParentRef?.user"
+            [inputtedParentRef]="inputtedParentRef" 
+            [currentReactions]="comment.reactions"
             [previousComponent]="previousComponent">
           </app-reaction>
         </div>
