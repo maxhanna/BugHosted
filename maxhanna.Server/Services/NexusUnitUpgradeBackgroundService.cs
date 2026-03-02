@@ -9,6 +9,7 @@ namespace maxhanna.Server.Services
 	public class NexusUnitUpgradeBackgroundService : BackgroundService
 	{
 		private readonly ConcurrentDictionary<int, Timer> _timers = new ConcurrentDictionary<int, Timer>();
+		private readonly ConcurrentDictionary<int, byte> _queuedUpgrades = new ConcurrentDictionary<int, byte>();
 		private readonly ConcurrentQueue<int> _upgradeQueue = new ConcurrentQueue<int>();
 		private readonly IConfiguration _config;
 		private readonly string _connectionString;
@@ -18,6 +19,7 @@ namespace maxhanna.Server.Services
 		private const int TimedCheckEveryXSeconds = 60;
 		private const int QueueProcessingInterval = 5;
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10); // limit to 10 concurrent connections
+		private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);
 
 		public NexusUnitUpgradeBackgroundService(IConfiguration config, Log log)
 		{
@@ -55,15 +57,22 @@ namespace maxhanna.Server.Services
 		}
 		public void EnqueueUpgrade(int upgradeId)
 		{
-			if (_upgradeQueue.Contains(upgradeId)) return;
+			if (!_queuedUpgrades.TryAdd(upgradeId, 0)) return;
 			_upgradeQueue.Enqueue(upgradeId);
 			ProcessQueue(true);
 		}
-		private void ProcessQueue(object? state)
+		private async void ProcessQueue(object? state)
 		{
-			if (_upgradeQueue.TryDequeue(out int upgradeId))
+			try
 			{
-				ProcessUnitUpgrade(upgradeId);
+				if (_upgradeQueue.TryDequeue(out int upgradeId))
+				{
+					await ProcessUnitUpgradeAsync(upgradeId);
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"⚠️NexusUnitUpgradeBackgroundService ProcessQueue failed: {ex.Message}", null, "NUUS", true);
 			}
 		}
 		protected override Task ExecuteAsync(CancellationToken stoppingToken)
@@ -84,6 +93,10 @@ namespace maxhanna.Server.Services
 			{
 				await LoadAndScheduleExistingUnitUpgrades(stoppingToken);
 			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"⚠️NexusUnitUpgradeBackgroundService CheckForNewUnitUpgrades failed: {ex.Message}", null, "NUUS", true);
+			}
 			finally
 			{
 				if (!stoppingToken.IsCancellationRequested)
@@ -95,8 +108,11 @@ namespace maxhanna.Server.Services
 
 		private async Task LoadAndScheduleExistingUnitUpgrades(CancellationToken stoppingToken)
 		{
-			await using (var conn = new MySqlConnection(_connectionString))
+			if (!await _loadLock.WaitAsync(0)) return; // Skip if already loading
+			try
 			{
+				await using (var conn = new MySqlConnection(_connectionString))
+				{
 				await conn.OpenAsync(stoppingToken);
 
 				string query = @"
@@ -146,6 +162,11 @@ namespace maxhanna.Server.Services
 						EnqueueUpgrade(upgradeId);
 					}
 				}
+				}
+			}
+			finally
+			{
+				_loadLock.Release();
 			}
 		}
 
@@ -197,7 +218,7 @@ namespace maxhanna.Server.Services
 		}
 
 
-		public async void ProcessUnitUpgrade(int unitUpgradeId)
+		public async Task ProcessUnitUpgradeAsync(int unitUpgradeId)
 		{
 			await _semaphore.WaitAsync(); 
 			try
@@ -215,13 +236,13 @@ namespace maxhanna.Server.Services
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db(ex.Message, null, "NUUS", true);
+				_ = _log.Db($"⚠️ProcessUnitUpgrade exception for ID {unitUpgradeId}: {ex.Message}", null, "NUUS", true);
 			}
 			finally
 			{
+				_queuedUpgrades.TryRemove(unitUpgradeId, out _);
 				_semaphore.Release();
 			}
-
 		}
 
 
@@ -232,6 +253,7 @@ namespace maxhanna.Server.Services
 				timer.Dispose();
 			}
 			_checkForNewUnitUpgradesTimer?.Dispose(); 
+			_loadLock.Dispose();
 			_semaphore.Dispose();
 			base.Dispose();
 		}

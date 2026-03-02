@@ -13,6 +13,7 @@ namespace maxhanna.Server.Services
 		private Timer? _checkForNewUnitsTimer; 
 
 		private int timerDuration = 1;
+		private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);
 
 
 		public NexusUnitBackgroundService(IConfiguration config, Log log, IServiceProvider serviceProvider)
@@ -59,6 +60,7 @@ namespace maxhanna.Server.Services
 
 		private async Task LoadAndScheduleExistingPurchases(CancellationToken stoppingToken)
 		{
+			if (!await _loadLock.WaitAsync(0)) return; // Skip if already loading
 			try
 			{
 				if (_serviceProvider == null)
@@ -80,12 +82,17 @@ namespace maxhanna.Server.Services
 				_ = _log.Db($"⚠️NexusUnitBackgroundService failed in LoadAndScheduleExistingPurchases: {ex.Message}", null, "NEXUS_UNIT_SVC", true);
 				// Do not rethrow — keep background service running
 			}
+			finally
+			{
+				_loadLock.Release();
+			}
 		}
 
 		public override void Dispose()
 		{ 
 			_checkForNewUnitsTimer?.Change(Timeout.Infinite, Timeout.Infinite); 
 			_checkForNewUnitsTimer?.Dispose();
+			_loadLock.Dispose();
 			base.Dispose();
 		}
 	}

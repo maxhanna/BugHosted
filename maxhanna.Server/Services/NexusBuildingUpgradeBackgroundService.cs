@@ -8,6 +8,7 @@ namespace maxhanna.Server.Services
 		// private readonly IServiceProvider _serviceProvider;
 		private readonly Log _log;
 		private Timer? _checkForNewUpgradesTimer;
+		private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);
 
 
 
@@ -40,6 +41,10 @@ namespace maxhanna.Server.Services
 			{
 				await LoadAndScheduleExistingUpgrades();
 			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"⚠️NexusBuildingUpgradeBackgroundService CheckForNewUpgrades failed: {ex.Message}", null, "NBUS", true);
+			}
 			finally
 			{
 				if (!stoppingToken.IsCancellationRequested)
@@ -50,9 +55,16 @@ namespace maxhanna.Server.Services
 		}
 		private async Task LoadAndScheduleExistingUpgrades()
 		{
-
-			var nexusController = new NexusController(_log, _config);
-			await nexusController.UpdateNexusBuildings();
+			if (!await _loadLock.WaitAsync(0)) return; // Skip if already loading
+			try
+			{
+				var nexusController = new NexusController(_log, _config);
+				await nexusController.UpdateNexusBuildings();
+			}
+			finally
+			{
+				_loadLock.Release();
+			}
 		}
 
 		private void ConfigureServices(IServiceCollection services)
@@ -72,6 +84,7 @@ namespace maxhanna.Server.Services
 			{ 
 				_checkForNewUpgradesTimer.Dispose();
 			}
+			_loadLock.Dispose();
 			base.Dispose();
 		}
 	}

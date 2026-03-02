@@ -9,6 +9,7 @@ namespace maxhanna.Server.Services
 	public class NexusDefenceBackgroundService : BackgroundService
 	{
 		private readonly ConcurrentDictionary<int, Timer> _timers = new ConcurrentDictionary<int, Timer>();
+		private readonly ConcurrentDictionary<int, byte> _queuedDefences = new ConcurrentDictionary<int, byte>();
 		private readonly ConcurrentQueue<int> _defenceQueue = new ConcurrentQueue<int>();
 
 		private readonly string _connectionString;
@@ -19,6 +20,7 @@ namespace maxhanna.Server.Services
 		private Timer _processDefenceQueueTimer;
 
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10);
+		private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);
 
 		public NexusDefenceBackgroundService(IConfiguration config, Log log)
 		{
@@ -43,15 +45,29 @@ namespace maxhanna.Server.Services
 
 		public void AddDefenceToQueue(int defenceId)
 		{
-			if (_defenceQueue.Contains(defenceId)) return;
+			if (!_queuedDefences.TryAdd(defenceId, 0)) return;
 			_defenceQueue.Enqueue(defenceId);
 		}
 
 		private async void ProcessDefenceQueue(object? state)
 		{
-			if (_defenceQueue.TryDequeue(out var defenceId))
+			try
 			{
-				await ProcessDefence(defenceId);
+				if (_defenceQueue.TryDequeue(out var defenceId))
+				{
+					try
+					{
+						await ProcessDefence(defenceId);
+					}
+					finally
+					{
+						_queuedDefences.TryRemove(defenceId, out _);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"⚠️NexusDefenceBackgroundService ProcessDefenceQueue failed: {ex.Message}", null, "NDBS", true);
 			}
 		}
 
@@ -61,6 +77,13 @@ namespace maxhanna.Server.Services
 			{
 				return;
 			}
+
+			// Cap delay to prevent Timer overflow (max ~24.8 days)
+			if (delay > TimeSpan.FromMilliseconds(int.MaxValue - 1))
+			{
+				delay = TimeSpan.FromMilliseconds(int.MaxValue - 1);
+			}
+
 			var timer = new Timer(state =>
 			{
 				var id = (state != null ? (int)state : -1);
@@ -78,7 +101,14 @@ namespace maxhanna.Server.Services
 
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 		{
-			await LoadAndScheduleExistingDefences();
+			try
+			{
+				await LoadAndScheduleExistingDefences();
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"⚠️NexusDefenceBackgroundService initial load failed: {ex.Message}", null, "NDBS", true);
+			}
 
 			_checkForNewDefencesTimer = new Timer(
 					async _ => await CheckForNewDefences(stoppingToken),
@@ -96,6 +126,10 @@ namespace maxhanna.Server.Services
 			{
 				await LoadAndScheduleExistingDefences();
 			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"⚠️NexusDefenceBackgroundService CheckForNewDefences failed: {ex.Message}", null, "NDBS", true);
+			}
 			finally
 			{
 				if (!stoppingToken.IsCancellationRequested)
@@ -107,8 +141,11 @@ namespace maxhanna.Server.Services
 
 		private async Task LoadAndScheduleExistingDefences()
 		{
-			await using var conn = new MySqlConnection(_connectionString);
-			await conn.OpenAsync();
+			if (!await _loadLock.WaitAsync(0)) return; // Skip if already loading
+			try
+			{
+				await using var conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
 
 			const string query = "SELECT id, timestamp, duration FROM nexus_defences_sent WHERE arrived = 0";
 			await using var cmd = new MySqlCommand(query, conn);
@@ -142,6 +179,11 @@ namespace maxhanna.Server.Services
 
 					AddDefenceToQueue(defenceId);
 				}
+			}
+			}
+			finally
+			{
+				_loadLock.Release();
 			}
 		}
 
@@ -229,6 +271,7 @@ namespace maxhanna.Server.Services
 			{
 				timer.Dispose();
 			}
+			_loadLock.Dispose();
 			_semaphore.Dispose();
 			_checkForNewDefencesTimer?.Dispose();
 			_processDefenceQueueTimer?.Dispose();

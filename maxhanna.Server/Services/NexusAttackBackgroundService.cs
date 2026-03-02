@@ -10,7 +10,7 @@ namespace maxhanna.Server.Services
 	public class NexusAttackBackgroundService : BackgroundService
 	{
 		private readonly ConcurrentDictionary<int, Timer> _timers = new ConcurrentDictionary<int, Timer>();
-		private readonly ConcurrentQueue<int> _attackQueue = new ConcurrentQueue<int>();
+		private readonly ConcurrentDictionary<int, byte> _queuedAttacks = new ConcurrentDictionary<int, byte>();
 		private readonly Channel<int> _attackChannel = Channel.CreateUnbounded<int>(new UnboundedChannelOptions { SingleReader = true });
 		private readonly IConfiguration _config;
 		private readonly string _connectionString; 
@@ -18,6 +18,7 @@ namespace maxhanna.Server.Services
 		private Timer? _checkForNewAttacksTimer;
 
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10);
+		private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);
 
 		public NexusAttackBackgroundService(IConfiguration config, Log log)
 		{
@@ -34,6 +35,13 @@ namespace maxhanna.Server.Services
 			{
 				return;
 			}
+
+			// Cap delay to prevent Timer overflow (max ~24.8 days)
+			if (delay > TimeSpan.FromMilliseconds(int.MaxValue - 1))
+			{
+				delay = TimeSpan.FromMilliseconds(int.MaxValue - 1);
+			}
+
 			var timer = new Timer(state =>
 			{
 				var id = state != null ? (int)state : -1;
@@ -51,15 +59,21 @@ namespace maxhanna.Server.Services
 
 		public void AddAttackToQueue(int attackId)
 		{
-			if (_attackQueue.Contains(attackId)) return;
-			_attackQueue.Enqueue(attackId);
+			if (!_queuedAttacks.TryAdd(attackId, 0)) return;
 			// Push into channel for processing; TryWrite avoids awaiting from timer callbacks
 			_ = _attackChannel.Writer.TryWrite(attackId);
 		}
 
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 		{
-			await LoadAndScheduleExistingAttacks();
+			try
+			{
+				await LoadAndScheduleExistingAttacks();
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"⚠️NexusAttackBackgroundService initial load failed: {ex.Message}", null, "NABS", true);
+			}
 
 			_checkForNewAttacksTimer = new Timer(
 					async _ => await CheckForNewAttacks(stoppingToken),
@@ -104,6 +118,10 @@ namespace maxhanna.Server.Services
 			{
 				await LoadAndScheduleExistingAttacks();
 			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"⚠️NexusAttackBackgroundService CheckForNewAttacks failed: {ex.Message}", null, "NABS", true);
+			}
 			finally
 			{
 				if (!stoppingToken.IsCancellationRequested)
@@ -115,37 +133,45 @@ namespace maxhanna.Server.Services
 
 		private async Task LoadAndScheduleExistingAttacks()
 		{
-			var attacks = new List<(int attackId, TimeSpan delay)>();
-
-			await using var conn = new MySqlConnection(_connectionString);
-			await conn.OpenAsync();
-
-			string query = "SELECT id, timestamp, duration FROM nexus_attacks_sent";
-			await using var cmd = new MySqlCommand(query, conn);
-			await using var reader = await cmd.ExecuteReaderAsync();
-
-			while (await reader.ReadAsync())
+			if (!await _loadLock.WaitAsync(0)) return; // Skip if already loading
+			try
 			{
-				int attackId = reader.GetInt32("id");
-				DateTime timestamp = reader.GetDateTime("timestamp");
-				int duration = reader.GetInt32("duration");
+				var attacks = new List<(int attackId, TimeSpan delay)>();
 
-				TimeSpan delay = timestamp.AddSeconds(duration) - DateTime.Now;
+				await using var conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
 
-				attacks.Add((attackId, delay));
+				string query = "SELECT id, timestamp, duration FROM nexus_attacks_sent";
+				await using var cmd = new MySqlCommand(query, conn);
+				await using var reader = await cmd.ExecuteReaderAsync();
+
+				while (await reader.ReadAsync())
+				{
+					int attackId = reader.GetInt32("id");
+					DateTime timestamp = reader.GetDateTime("timestamp");
+					int duration = reader.GetInt32("duration");
+
+					TimeSpan delay = timestamp.AddSeconds(duration) - DateTime.Now;
+
+					attacks.Add((attackId, delay));
+				}
+				await reader.CloseAsync();
+				await conn.CloseAsync();
+				foreach (var (attackId, delay) in attacks)
+				{
+					if (delay > TimeSpan.Zero)
+					{
+						ScheduleAttack(attackId, delay, AddAttackToQueue);
+					}
+					else
+					{
+						AddAttackToQueue(attackId);
+					}
+				}
 			}
-			await reader.CloseAsync();
-			await conn.CloseAsync();
-			foreach (var (attackId, delay) in attacks)
+			finally
 			{
-				if (delay > TimeSpan.Zero)
-				{
-					ScheduleAttack(attackId, delay, AddAttackToQueue);
-				}
-				else
-				{
-					AddAttackToQueue(attackId);
-				}
+				_loadLock.Release();
 			}
 		}
 
@@ -209,7 +235,6 @@ namespace maxhanna.Server.Services
 			await _semaphore.WaitAsync();
 			try
 			{
-				//Console.WriteLine($"Processing attack with ID: {attackId}");
 				NexusBase? nexus = await GetNexusBaseByAttackId(attackId);
 				if (nexus != null)
 				{
@@ -218,18 +243,18 @@ namespace maxhanna.Server.Services
 				}
 				else
 				{
-					Console.WriteLine($"No NexusBase found for attack ID: {attackId}");
+					_ = _log.Db($"No NexusBase found for attack ID: {attackId}", null, "NABS", true);
 				}
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine("ProcessAttack Excpetion : " + ex.Message);
+				_ = _log.Db($"⚠️ProcessAttack exception for ID {attackId}: {ex.Message}", null, "NABS", true);
 			}
 			finally
 			{
+				_queuedAttacks.TryRemove(attackId, out _);
 				_semaphore.Release();
 			}
-
 		}
 
 
@@ -242,6 +267,7 @@ namespace maxhanna.Server.Services
 			_checkForNewAttacksTimer?.Dispose();
 			// Complete the channel so the background reader can finish
 			try { _attackChannel.Writer.Complete(); } catch { }
+			_loadLock.Dispose();
 			_semaphore.Dispose();
 			base.Dispose();
 		}

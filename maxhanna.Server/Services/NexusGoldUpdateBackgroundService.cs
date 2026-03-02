@@ -12,6 +12,7 @@ namespace maxhanna.Server.Services
 		private int timerDuration = 20;
 
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10);
+		private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);
 
 
 		public NexusGoldUpdateBackgroundService(IConfiguration config, Log log)
@@ -33,6 +34,10 @@ namespace maxhanna.Server.Services
 			{
 				await ProcessNexusGold();
 			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"⚠️NexusGoldUpdateBackgroundService CheckForNewUpdates failed: {ex.Message}", null, "NGUS", true);
+			}
 			finally
 			{
 				_checkForNewBaseUpdates?.Change(TimeSpan.FromSeconds(timerDuration), TimeSpan.FromSeconds(timerDuration));
@@ -53,26 +58,33 @@ namespace maxhanna.Server.Services
 
 		public async Task ProcessNexusGold()
 		{
-			await _semaphore.WaitAsync();
-
+			if (!await _loadLock.WaitAsync(0)) return; // Skip if already processing
 			try
 			{
-				var nexusController = new NexusController(_log, _config);
-				int basesUpdated = await nexusController.UpdateNexusGold();
-				//Console.WriteLine($"Updated gold for {basesUpdated} bases.");
-			}
-			catch (Exception ex)
-			{
-				Console.WriteLine(ex.Message);
+				await _semaphore.WaitAsync();
+				try
+				{
+					var nexusController = new NexusController(_log, _config);
+					int basesUpdated = await nexusController.UpdateNexusGold();
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db($"⚠️NexusGoldUpdateBackgroundService ProcessNexusGold failed: {ex.Message}", null, "NGUS", true);
+				}
+				finally
+				{
+					_semaphore.Release();
+				}
 			}
 			finally
 			{
-				_semaphore.Release();
+				_loadLock.Release();
 			}
 		}
 		public override void Dispose()
 		{
 			_checkForNewBaseUpdates?.Dispose();
+			_loadLock.Dispose();
 			_semaphore.Dispose();
 			base.Dispose();
 		}
