@@ -34,6 +34,8 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   // Favourite popup state
   isFavouritedByPanelOpen: boolean = false;
   favouritedByList: User[] = [];
+  isUrlDisabled: boolean = false;
+  isKeywordsDisabled: boolean = false;
 
   @ViewChild('pageSizeDropdown') pageSizeDropdown!: ElementRef<HTMLSelectElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
@@ -57,6 +59,15 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
         this.url = "";
         this.searchUrl();
       }
+      // initialize disabled flags based on any prefilled values
+      try {
+        const u = this.urlInput?.nativeElement?.value?.trim();
+        const k = this.keywordsInput?.nativeElement?.value?.trim();
+        this.isKeywordsDisabled = !!(u && u.length > 0);
+        this.isUrlDisabled = !!(k && k.length > 0);
+      } catch (e) {
+        // ignore if elements not ready
+      }
       this.urlInput.nativeElement.focus();
     }, 1);
 
@@ -76,9 +87,34 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   fillSiteExample() {
     try {
       this.urlInput.nativeElement.value = 'site:www.example.com keywords';
+      this.onUrlInput();
       this.urlInput.nativeElement.focus();
     } catch (e) {
       console.error('Could not fill site example', e);
+    }
+  }
+
+  onUrlInput() {
+    try {
+      const val = this.urlInput?.nativeElement?.value ?? '';
+      this.isKeywordsDisabled = !!(val && val.trim().length > 0);
+      if (!this.isKeywordsDisabled) {
+        this.isUrlDisabled = false;
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  onKeywordsInput() {
+    try {
+      const val = this.keywordsInput?.nativeElement?.value ?? '';
+      this.isUrlDisabled = !!(val && val.trim().length > 0);
+      if (!this.isUrlDisabled) {
+        this.isKeywordsDisabled = false;
+      }
+    } catch (e) {
+      // ignore
     }
   }
   visitExternalLink(url?: string) {
@@ -110,12 +146,30 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     this.favouritedByList = [];
   }
   async searchUrl(skipScrape?: boolean) {
-    const url = this.urlInput.nativeElement.value?.trim();
-    if (!url) return;
+    const raw = this.urlInput.nativeElement.value?.trim();
+    if (!raw) return;
+
+    // Preserve special site: queries and wildcard search
+    if (raw.startsWith('site:')) {
+      await this.doSearch(raw, false, skipScrape);
+      return;
+    }
+    if (raw === '*') {
+      await this.doSearch(raw, false, skipScrape);
+      return;
+    }
+
+    // Ensure http/https present; if missing, default to https://
+    let url = raw;
+    if (!/^https?:\/\//i.test(url)) {
+      url = 'https://' + url;
+    }
+
     if (!this.isValidUrl(url)) {
       alert('Invalid URL. Please include http:// or https:// and a valid domain.');
       return;
     }
+
     await this.doSearch(url, true, skipScrape);
   }
 

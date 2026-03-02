@@ -24,11 +24,11 @@
       </div>
       <div [class]="!onlySearch ? 'crawlerInputs' : 'searchOnlyCrawlerInputs'">
         <input #urlInput type="text" placeholder="e.g. https://www.example.com/path" (keydown.enter)="searchUrl()"
-          [disabled]="keywordsInput?.value && keywordsInput.value.trim()" />
+          (input)="onUrlInput()" [disabled]="isUrlDisabled" />
         <button (click)="searchUrl()" [disabled]="isLoading || !(urlInput?.value && urlInput.value.trim())">🔍{{!onMobile() ? 'Crawl' : ''}}</button>
 
         <input #keywordsInput type="text" placeholder="keywords (search title/description/url)"
-          (keydown.enter)="searchKeywords()" [disabled]="urlInput?.value && urlInput.value.trim()" />
+          (keydown.enter)="searchKeywords()" (input)="onKeywordsInput()" [disabled]="isKeywordsDisabled" />
         <button (click)="searchKeywords()" [disabled]="isLoading || !(keywordsInput?.value && keywordsInput.value.trim())">🔎{{!onMobile() ? 'Keywords' : ''}}</button>
 
         <button (click)="addWithoutSearch()" [disabled]="isLoading || !(urlInput?.value && urlInput.value.trim())"
