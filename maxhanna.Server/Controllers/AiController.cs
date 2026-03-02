@@ -594,7 +594,12 @@ namespace maxhanna.Server.Controllers
           if (pngThumbs.Count == 0)
           {
             double durationSec = file.Duration.GetValueOrDefault(10);
-            var capturePoints = (durationSec > 2) ? new[] { 0.3, 0.6 } : new[] { 0.5 };
+            var capturePoints = new[] { 0.3, 0.6 };
+            if (durationSec < 2)
+            { 
+              double t = Math.Min(0.0, durationSec - 0.01);
+              capturePoints = new[] { t };
+            }
 
             foreach (var t in capturePoints)
             {
