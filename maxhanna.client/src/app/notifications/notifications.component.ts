@@ -540,6 +540,14 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
      
     return classList.join(' ');
   }
+  get notificationContainerClass(): string {
+    let classList = [];
+    if (this.minimalInterface) {
+      classList.push('notificationsList');
+      classList.push('notificationsListContainer');
+    }
+    return classList.join(' ');
+  }
   onFilterChange(event: Event): void {
     this.currentPage = 1;
     const select = event.target as HTMLSelectElement;
