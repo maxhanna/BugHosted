@@ -42,7 +42,6 @@ import { ArtComponent } from './art/art.component';
 import { EnderComponent } from './ender/ender.component';
 import { BonesComponent } from './bones/bones.component';
 import { EmulatorComponent } from './emulator/emulator.component';
-import { EmulationComponent } from './emulation/emulation.component';
 import { YoutubeVideo } from '../services/datacontracts/youtube';
 
 
@@ -87,9 +86,6 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🎖️", title: "Bug-Wars", content: undefined },
     { ownership: 0, icon: "🤖", title: "Meta-Bots", content: undefined },
     { ownership: 0, icon: "🗨️", title: "Chat", content: undefined },
-    // { ownership: 0, icon: "👾", title: "Emulation", content: undefined },
-    // { ownership: 0, icon: "🕹️", title: "N64Emulator", content: undefined },
-    // { ownership: 0, icon: "🎮", title: "PS1Emulator", content: undefined },
     { ownership: 0, icon: "🎮", title: "Emulator", content: undefined },
     { ownership: 0, icon: "⚔️", title: "Array", content: undefined },
     { ownership: 0, icon: "🧠", title: "Wordler", content: undefined },
@@ -275,41 +271,33 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   The further you go down the array, the more experience you gain.
   Find items to make you stronger!
   Fight other players for glory!`
-    },
-    {
-      ownership: 0,
-      title: 'Emulation',
-      content: `Our emulator allows users to play Gameboy (Color), Gameboy Advance, Nintendo, Super
-  Nintendo, Sega and more!
-  Simply upload roms and enjoy the autosaving feature! The game will automatically be saved to our
-  servers.
-  You may now restart from anywhere with any device!(Supports joysticks and fullscreen mode!)`
-    },
+    }, 
     {
       ownership: 0,
       title: 'Theme',
       content: `Change the site's theme! Share your theme with others or use a theme someone else has shared!`
     },
-    // {
-    //   ownership: 0,
-    //   title: 'N64Emulator',
-    //   content: `Our N64 emulator allows users to play Nintendo 64 games directly in their browser! Connect any gamepad and upload your own roms or choose from the ones available!`
-    // },
-    // {
-    //   ownership: 0,
-    //   title: 'PS1Emulator',
-    //   content: `Our PS1 emulator allows users to play PlayStation 1 games directly in their browser! Connect any gamepad and upload your own roms or choose from the ones available!`
-    // },
     {
       ownership: 0,
       title: 'Emulator',
-      content: `Our All-in-1 emulator allows users to play multiple console games directly in their browser! Connect any gamepad and upload your own roms or choose from the ones available! Save your progress and restart from anywhere!`
+      content: `Our emulator emulates multiple game consoles directly in your browser! Featuring:
+      <ul>
+        <li>Keeps track of your saved progress right on the server! Pick up and play from anywhere or any device as long as you are logged in.</li>
+        <li>Supports mobile and desktop devices (any OS).</li>
+        <li>Supports multiple gamepads and controllers, keyboard or direct-touch mode (for mobile devices).</li>
+      </ul>
+      <small>
+        Currently supported systems: 3DO, Arcade, Atari 2600, Atari 5200, Atari 7800, Atari Jaguar, Atari Lynx,
+        ColecoVision, Commodore 64, Commodore 128, Commodore Amiga, Commodore PET, Commodore Plus4, Commodore VIC-20, MAME 2003,
+        NES-Famicom, Nintendo 64, Nintendo DS, Nintendo Game Boy Advance, Nintendo Game Boy, PlayStation, PSP, Sega 32X, Sega CD,
+        Sega Game Gear, Sega Master System, Sega Mega Drive, Sega Saturn, SNES-Super Famicom, Virtual Boy
+      </small>`
     }
   ];
- 
-  lastRunTimestamps: { [key: string]: number } = {}; 
+
+  lastRunTimestamps: { [key: string]: number } = {};
   notificationTimers: { [key: string]: { timeout?: any; interval?: any } } = {};
-  notificationsPausedAt: any; 
+  notificationsPausedAt: any;
   notificationsActive = false; // master flag to gate polling
   location?: { ip: string, city: string, country: string } = undefined;
   sessionToken?: string = undefined;
@@ -335,7 +323,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Notepad": NotepadComponent,
     "Contacts": ContactsComponent,
     "Emulator": EmulatorComponent,
-    "Emulation": EmulationComponent,
     "Array": ArrayComponent,
     "Bug-Wars": NexusComponent,
     "Meta-Bots": MetaComponent,
