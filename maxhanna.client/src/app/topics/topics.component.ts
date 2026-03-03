@@ -133,6 +133,12 @@ export class TopicsComponent extends ChildComponent {
       this.isDropdownShowing = false;
     }
   }
+
+  removeTopic(topic: Topic) {
+    this.attachedTopics = this.attachedTopics?.filter(t => t.topicText.toLowerCase() != topic.topicText.toLowerCase());
+    this.topicAdded.emit(this.attachedTopics ?? []);
+  }
+
   searchInputClick() {
     if (this.isDropdown) {
       if (this.newTopic && this.newTopic.nativeElement.value.trim() != '') {

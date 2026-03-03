@@ -13,7 +13,7 @@
     <span *ngFor="let topic of attachedTopics" class="matchingTopic"
       (click)="topicClicked.emit([topic])">
       {{topic.topicText}}
-      <button class="coloredBgButton" *ngIf="isDropdown">❌</button>
+      <button class="coloredBgButton" *ngIf="isDropdown" (click)="removeTopic(topic)">❌</button>
     </span>
   </div>
 </div>

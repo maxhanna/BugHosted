@@ -133,28 +133,11 @@ export class TopComponent extends ChildComponent implements OnInit {
   }
 
   onTopicAdded(topics: Topic[]) {
-    // if (!this.topicInputted) {
-    //   this.topicInputted = [];
-    // }
-
-    // for (let topic of topics) {
-    //   let found = false;
-
-    //   for (let i = 0; i < this.topicInputted.length; i++) {
-    //     if (this.topicInputted[i].id === topic.id) {
-    //       this.topicInputted.splice(i, 1);
-    //       found = true;
-    //       break;
-    //     }
-    //   }
-
-    //   if (!found) {
-    //     this.topicInputted.push(topic);
-    //   }
-    // }
+    this.topicInputted = topics;  
     console.log(topics, this.topicInputted);
     setTimeout(() => { this.loadTopEntries(); }, 50);
   }
+
   addToTop() {
     if (!this.topicInputted) return alert("You must select a topic!");
     if (!this.titleInput.nativeElement.value.trim()) return alert("Title is required!");
