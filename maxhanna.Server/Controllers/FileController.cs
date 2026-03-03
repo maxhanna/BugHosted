@@ -894,7 +894,8 @@ private static void GetFileComments(
           };
 
           var fileEntry = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
-          if (fileEntry != null)
+          // Only attach to the file when the reaction is not for a comment
+          if (fileEntry != null && commentIdValue == 0)
           {
             if (fileEntry.Reactions == null)
             {

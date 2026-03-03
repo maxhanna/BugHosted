@@ -521,8 +521,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
     this.setupBackButtonListener();
     this.setupEscapeKeyListener();
-  }
-
+  } 
 
   shrink() {
     // Stop overlay media first
@@ -534,9 +533,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       container.src = this.selectedFileSrc;
       container.load();
     }
-  }
-
-
+  } 
+  
   async download(file: FileEntry, force: boolean) {
     if (!confirm(`Download ${file.givenFileName ?? file.fileName}?`)) {
       return;
