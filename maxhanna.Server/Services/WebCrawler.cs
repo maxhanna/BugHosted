@@ -2120,7 +2120,7 @@ public class WebCrawler
       int slashIdx = original.IndexOf('/');
       remainderPart = slashIdx >= 0 ? original.Substring(slashIdx) : string.Empty;
     }
-
+    remainderPart = remainderPart.TrimEnd().TrimEnd('/');
     return $"{schemeLower}://{hostLower}{portPart}{remainderPart}";
   }
 
