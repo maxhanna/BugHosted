@@ -106,13 +106,8 @@ namespace maxhanna.Server.Controllers
         bool isRomSearch = DetermineIfRomSearch(normalizedFileTypes);
         string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
         string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
-        // Unified hidden condition: allow all if explicit showHidden or user setting show_hidden_files = 1, else filter out hidden
-        string hiddenCondition = fileId.HasValue ? "" : @"
-          AND (
-            @showHidden = 1
-            OR EXISTS (SELECT 1 FROM maxhanna.user_settings us WHERE us.user_id = @userId AND us.show_hidden_files = 1)
-            OR f.id NOT IN (SELECT file_id FROM maxhanna.hidden_files WHERE user_id = @userId)
-          )"; 
+        // Hidden condition is pre-evaluated below after connection.Open() to avoid per-row subqueries
+        string hiddenCondition = ""; // will be set after connection opens
      
 
         string favouritesCondition = showFavouritesOnly
@@ -161,10 +156,37 @@ namespace maxhanna.Server.Controllers
         using (var connection = new MySqlConnection(_connectionString))
         {
           connection.Open();
-          
+
+          // ── Pre-compute user display settings ONCE (avoids extra DB round-trips) ──
+          bool nsfwAllowed = await GetNsfwForUser(user);
+
+          // Pre-evaluate hidden condition: single scalar check instead of per-row OR subqueries
+          if (!fileId.HasValue && !showHidden)
+          {
+            bool userWantsHidden = false;
+            if ((user?.Id ?? 0) > 0)
+            {
+              using var settingsCmd = new MySqlCommand(
+                "SELECT show_hidden_files FROM maxhanna.user_settings WHERE user_id = @uid LIMIT 1", connection);
+              settingsCmd.Parameters.AddWithValue("@uid", user!.Id);
+              var settingsResult = await settingsCmd.ExecuteScalarAsync();
+              if (settingsResult != null && settingsResult != DBNull.Value && Convert.ToInt32(settingsResult) == 1) {
+                userWantsHidden = true;
+              }
+            }
+            if (!userWantsHidden)
+            {
+              hiddenCondition = " AND NOT EXISTS (SELECT 1 FROM maxhanna.hidden_files hf WHERE hf.user_id = @userId AND hf.file_id = f.id) ";
+            }
+          }
+
+          // ── Build search/filter WHERE clause ONCE, reuse for both count & main queries ──
+          (string searchCondition, List<MySqlParameter> baseSearchParams) =
+              await GetWhereCondition(search, user, fileId, connection, nsfwAllowed);
+
           //get the total count
-          (string countSearchCond, List<MySqlParameter> countParams) = 
-              await GetWhereCondition(search, user, fileId);
+          var countParams = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
+          string countSearchCond = searchCondition;
 
           var countCmd = new MySqlCommand($@"
               SELECT COUNT(*)
@@ -189,7 +211,6 @@ namespace maxhanna.Server.Controllers
           // Required parameters
           countCmd.Parameters.AddWithValue("@folderPath", directory);
           countCmd.Parameters.AddWithValue("@userId", user?.Id ?? 0);
-          countCmd.Parameters.AddWithValue("@showHidden", showHidden ? 1 : 0);
 
           // Add search parameters (e.g. @FullTextSearch)
           foreach (var p in countParams) {
@@ -218,8 +239,8 @@ namespace maxhanna.Server.Controllers
           {
             orderBy = isRomSearch ? " ORDER BY f.last_access DESC " : orderBy;
           }
-          (string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user, fileId);
-          //_ = _log.Db($"DEBUG NSFW/Block where: {searchCondition}", user?.Id ?? 0, "FILE", true);
+          // Reuse pre-computed search condition (clone parameters for this command)
+          var extraParameters = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
 
           var command = new MySqlCommand($@" 
             SELECT
@@ -280,7 +301,6 @@ namespace maxhanna.Server.Controllers
           }
           command.Parameters.AddWithValue("@folderPath", directory);
           command.Parameters.AddWithValue("@userId", user?.Id ?? 0);
-          command.Parameters.AddWithValue("@showHidden", showHidden ? 1 : 0);
           command.Parameters.AddWithValue("@pageSize", pageSize);
           command.Parameters.AddWithValue("@offset", offset);
           if (fileId.HasValue)
@@ -1223,12 +1243,13 @@ private static void GetFileComments(
     }
 
 
-private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user, int? fileId = null) {
+private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user, int? fileId = null, MySqlConnection? existingConnection = null, bool? precomputedNsfw = null) {
     string where = "";
     var parameters = new List<MySqlParameter>(); 
 
     // NSFW FILTER
-    if (!fileId.HasValue && !await GetNsfwForUser(user))
+    bool showNsfw = precomputedNsfw ?? await GetNsfwForUser(user);
+    if (!fileId.HasValue && !showNsfw)
     {
         where += @"
             AND NOT EXISTS (
@@ -1264,20 +1285,40 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
 
     try
     {
-        using var conn = new MySqlConnection(_connectionString);
-        await conn.OpenAsync();
+        // Reuse existing connection if available to avoid connection-open overhead
+        bool disposeConn = false;
+        MySqlConnection conn;
+        if (existingConnection != null && existingConnection.State == System.Data.ConnectionState.Open)
+        {
+            conn = existingConnection;
+        }
+        else
+        {
+            conn = new MySqlConnection(_connectionString);
+            await conn.OpenAsync();
+            disposeConn = true;
+        }
+        try
+        {
+            // Use EXISTS + LIMIT 1 instead of COUNT(*) — stops at first match
+            using var test = new MySqlCommand(@"
+                SELECT EXISTS(
+                    SELECT 1 FROM maxhanna.file_uploads
+                    WHERE MATCH(file_name, description, given_file_name)
+                          AGAINST(@FT IN NATURAL LANGUAGE MODE)
+                    LIMIT 1
+                )
+            ", conn);
 
-        using var test = new MySqlCommand(@"
-            SELECT COUNT(*)
-            FROM maxhanna.file_uploads
-            WHERE MATCH(file_name, description, given_file_name)
-                  AGAINST(@FT IN NATURAL LANGUAGE MODE)
-        ", conn);
+            test.Parameters.AddWithValue("@FT", search);
 
-        test.Parameters.AddWithValue("@FT", search);
-
-        long hits = Convert.ToInt64(await test.ExecuteScalarAsync());
-        hasFulltextHits = hits > 0;
+            var result = await test.ExecuteScalarAsync();
+            hasFulltextHits = Convert.ToInt64(result ?? 0) > 0;
+        }
+        finally
+        {
+            if (disposeConn) conn.Dispose();
+        }
     }
     catch
     {
