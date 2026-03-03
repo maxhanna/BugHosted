@@ -39,30 +39,7 @@ namespace maxhanna.Server.Controllers
       _config = config;
       _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
       FFmpeg.SetExecutablesPath("E:\\ffmpeg-latest-win64-static\\bin");
-    }
-
-    // Helper: recursively search for a comment by id across file entries
-    private static FileComment? FindCommentInFileEntries(List<FileEntry> fileEntries, int commentId)
-    {
-      foreach (var fe in fileEntries)
-      {
-        var found = FindCommentRecursive(fe.FileComments, commentId);
-        if (found != null) return found;
-      }
-      return null;
-    }
-
-    private static FileComment? FindCommentRecursive(List<FileComment>? comments, int commentId)
-    {
-      if (comments == null) return null;
-      foreach (var c in comments)
-      {
-        if (c.Id == commentId) return c;
-        var child = FindCommentRecursive(c.Comments, commentId);
-        if (child != null) return child;
-      }
-      return null;
-    }
+    } 
 
     [HttpPost("/File/GetDirectory/", Name = "GetDirectory")]
     public async Task<DirectoryResults?> GetDirectory(
@@ -3451,7 +3428,28 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
         return StatusCode(500, "An error occurred while toggling favorite.");
       }
     }
+ 
+    private static FileComment? FindCommentInFileEntries(List<FileEntry> fileEntries, int commentId)
+    {
+      foreach (var fe in fileEntries)
+      {
+        var found = FindCommentRecursive(fe.FileComments, commentId);
+        if (found != null) return found;
+      }
+      return null;
+    }
 
+    private static FileComment? FindCommentRecursive(List<FileComment>? comments, int commentId)
+    {
+      if (comments == null) return null;
+      foreach (var c in comments)
+      {
+        if (c.Id == commentId) return c;
+        var child = FindCommentRecursive(c.Comments, commentId);
+        if (child != null) return child;
+      }
+      return null;
+    }
 
     private async Task UpdateFilePathInDatabase(string oldFilePath, string newFilePath)
     {
