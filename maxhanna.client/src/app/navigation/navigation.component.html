@@ -103,8 +103,28 @@
     </div>
   </ng-container>
 </div>
-<div class="loading-notification-container" (click)="closeNotifications()"
-  *ngIf="isLoadingNotifications || isLoadingTheme || isLoadingCryptoHub || isLoadingWordlerStreak || isLoadingCalendar">
+<div 
+  class="loading-notification-container" 
+  (click)="closeNotifications()"
+  *ngIf="notificationsServerDown 
+    || isLoadingNotifications 
+    || isLoadingTheme 
+    || isLoadingCryptoHub 
+    || isLoadingWordlerStreak 
+    || isLoadingCalendar
+    || isLoadingEnder
+    || isLoadingBones
+    || isLoadingMeta
+    || isLoadingNexus
+    || isLoadingEmulator
+    || isLoadingMusic
+    || isLoadingNews
+    || isLoadingArt
+    || isLoadingWeather
+    || isLoadingArray
+    || isLoadingCrawler
+    || isLoadingSocial">
+  <div *ngIf="notificationsServerDown" class="loadingNotification">Server down</div>
   <div *ngIf="isLoadingNotifications" class="loadingNotification">Loading Notifications...</div>
   <div *ngIf="isLoadingTheme" class="loadingNotification">Loading Theme...</div>
   <div *ngIf="isLoadingCryptoHub" class="loadingNotification">Loading Crypto Hub...</div>

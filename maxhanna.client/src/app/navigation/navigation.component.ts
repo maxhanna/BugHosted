@@ -99,6 +99,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
   numberOfNotifications = 0;
   showAppSelectionHelp = false;
   preventFetchNotifs = false;
+  consecutiveNotificationFetchFailures = 0;
+  notificationsServerDown = false;
+  notificationTimeoutMs = 30 * 1000; // 30 seconds
+  private notificationServerCheckInterval: any;
   defaultTheme = {
     backgroundColor: '#0e0e0e',
     componentBackgroundColor: '#202020',
@@ -176,6 +180,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getNotifications() {
+    if (this.notificationsServerDown) return; // when server down for notifications, skip fetching
     if (this._parent.notificationsActive || this.preventFetchNotifs) return;
     if (!this._parent || !this._parent.user || this._parent.user.id == 0) return;
     console.log("fetch notifications");
@@ -370,7 +375,18 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     this.isLoadingNotifications = true;
     try {
-      const res = await this.notificationService.getNotifications(this._parent.user.id ?? 0) as UserNotification[];
+      // race the notification fetch against a timeout to detect slow or hung server
+      const timeoutPromise = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timeout')), this.notificationTimeoutMs));
+      const res = await Promise.race([
+        this.notificationService.getNotifications(this._parent.user.id ?? 0) as Promise<UserNotification[]>,
+        timeoutPromise
+      ]) as UserNotification[];
+
+      // If fetch succeeded after previously being marked server-down, recover
+      if (this.notificationsServerDown) {
+        this.resetNotificationsServerDown();
+      }
+
       if (res) {
         const currentTradeNotifsCount = res.filter(x => x.text?.includes("Executed Trade") && x.isRead == false).length;
         const latestTradeNotif = res.find(x => x.text?.includes("Executed Trade") && x.isRead == false);
@@ -411,9 +427,47 @@ export class NavigationComponent implements OnInit, OnDestroy {
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
+      // treat timeout or repeated errors as server-down for notifications
+      this.consecutiveNotificationFetchFailures++;
+      if (this.consecutiveNotificationFetchFailures >= 1 && !this.notificationsServerDown) {
+        this.announceNotificationsServerDown();
+      }
     }
     this.isLoadingNotifications = false;
     this.updateLastRunTimestamp('notificationInfo');
+  }
+
+  private announceNotificationsServerDown() {
+    this.notificationsServerDown = true;
+    this.preventFetchNotifs = true;
+    this.clearNotifications();
+    // show server down message in UI and as a transient notification
+    try { this._parent.showNotification('Server down'); } catch (e) { }
+
+    // start periodic check to see when server is back up
+    if (this.notificationServerCheckInterval) clearInterval(this.notificationServerCheckInterval);
+    this.notificationServerCheckInterval = setInterval(async () => {
+      try {
+        const up = await this._parent?.isServerUp();
+        if (up && up > 0) {
+          // recovered
+          this.resetNotificationsServerDown();
+          // resume fetching
+          this.getNotifications();
+        }
+      } catch (e) {
+        // ignore and keep polling
+      }
+    }, 30000);
+  }
+
+  private resetNotificationsServerDown() {
+    const wasDown = !!this.notificationsServerDown;
+    this.notificationsServerDown = false;
+    this.preventFetchNotifs = false;
+    this.consecutiveNotificationFetchFailures = 0;
+    if (this.notificationServerCheckInterval) { clearInterval(this.notificationServerCheckInterval); this.notificationServerCheckInterval = null; }
+    return wasDown;
   }
 
   async getThemeInfo(userId?: number) {
