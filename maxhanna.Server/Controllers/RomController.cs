@@ -351,7 +351,6 @@ ON DUPLICATE KEY UPDATE
       return File(data, "application/octet-stream", fileName);
     }
 
-
     [HttpPost("/Rom/ActivePlayers", Name = "Rom_ActivePlayers")]
     public async Task<IActionResult> ActivePlayers([FromBody] int? minutes, CancellationToken ct = default)
     {
@@ -370,8 +369,10 @@ ON DUPLICATE KEY UPDATE
               SELECT ep.user_id
               FROM maxhanna.emulation_play_time AS ep
               WHERE ep.user_id IS NOT NULL
-                AND ep.save_time IS NOT NULL
-                AND ep.save_time >= @cutoff
+                AND (
+                      (ep.save_time IS NOT NULL AND ep.save_time >= @cutoff)
+                      OR (ep.start_time IS NOT NULL AND ep.start_time >= @cutoff)
+                    )
             ) AS recent;";
 
         await using var cmd = new MySqlCommand(sql, connection)
@@ -391,8 +392,6 @@ ON DUPLICATE KEY UPDATE
         return StatusCode(500, "Internal server error");
       }
     }
-
-
 
     [HttpGet("/Rom/UserStats/{userId}")]
     public async Task<IActionResult> UserStats(int userId)

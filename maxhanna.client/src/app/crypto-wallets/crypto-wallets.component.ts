@@ -150,6 +150,21 @@ export class CryptoWalletsComponent extends ChildComponent implements OnInit {
   getTotalWalletBalance() {
     return (parseFloat(this.currentlySelectedCurrency?.totalBalance ?? "0")) * (this.currentlySelectedCurrency?.fiatRate ?? 1)
   }
+
+  getTotalFiatValue(): number {
+    if (this.isDiscreete) return 0;
+    if (!this.wallet || !this.wallet.length) return 0;
+    let total = 0;
+    for (const w of this.wallet) {
+      try {
+        const v: any = this.getTotalCurrencyDisplayValue(w);
+        const n = Number(v ?? 0);
+        if (!isNaN(n)) total += n;
+      } catch {
+      }
+    }
+    return total;
+  }
   toggleWallet(currency?: string) {
     if (!currency) return;
     this.expandedWalletCurrency = this.expandedWalletCurrency === currency ? null : currency;
