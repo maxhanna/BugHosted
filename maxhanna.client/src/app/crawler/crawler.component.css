@@ -62,22 +62,22 @@
   display: flex;
   flex-direction: column;
   word-break: break-all;
+  margin-right: 20px;
+  margin-bottom: 20px;
 }
 
-@media only screen and (max-width:800px) {
-  .metadataSearchDiv {
-    margin-top: 22px;
-  }
-}
-@media only screen and (min-width:800px) {
-  .metadataSearchDiv {
-    margin: 22px;
-  }
+.metadataSearchDiv:hover {
+  box-shadow: 3px 2px 6px var(--main-highlight-color-quarter-opacity);
+  border: var(--main-highlight-color);
 }
 
+.metadataSearchDiv:first-of-type {
+  margin-top: 20px;
+}
+  
 
 .metadataSearchWrapper {
-  max-height: CALC(var(--vh, 1vh)* 100 - 155px);
+  max-height: CALC(var(--vh, 1vh)* 100 - 200px);
   overflow: auto;
 }
 
@@ -156,9 +156,7 @@
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  margin-top: 5px;   
-  border-top: var(--main-border);
-  border-top-width: 50%;
+  margin-top: 5px;    
 }
 
 .groupLinkDataWrapperDiv {
@@ -173,3 +171,6 @@
   padding-top: 5px;
 }
 
+.pageTitleLink {
+  color: var(--third-font-color);
+}

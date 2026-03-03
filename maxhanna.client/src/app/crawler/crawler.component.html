@@ -47,7 +47,7 @@
 
     <div *ngIf="error" class="error-message">{{ error }}</div>
     <div class="metadataSearchWrapper" [style.max-Height]="onlySearch ? '30vh' : ''">
-      <div *ngFor="let group of groupedResults" class="metadataSearchDiv">
+      <div *ngFor="let group of groupedResults" class="metadataSearchDiv gradientBackground">
         <div class="groupDomainTitle">
           {{ group.domain }}
         </div>
@@ -55,8 +55,11 @@
           [class]="(group.showSubdomains || i === 0) ? 'groupLinkWrapperDiv' : ''">
           <div class="groupLinkDataWrapperDiv" *ngIf="group.showSubdomains || i === 0">
             <div *ngIf="metadata.title" class="descriptionDiv titleClass cursorPointerUnderlined">
-              <a *ngIf="metadata.url" (click)="visitExternalLink(metadata.url)"
-                [attr.href]="!onlySearch ? metadata.url : null" [attr.target]="!onlySearch ? '_blank' : null"
+              <a *ngIf="metadata.url" 
+                class="pageTitleLink"
+                (click)="visitExternalLink(metadata.url)"
+                [attr.href]="!onlySearch ? metadata.url : null" 
+                [attr.target]="!onlySearch ? '_blank' : null"
                 [innerHTML]="getSanitizedDescription(metadata.title)">
               </a>
             </div>
