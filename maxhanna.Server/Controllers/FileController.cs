@@ -41,6 +41,29 @@ namespace maxhanna.Server.Controllers
       FFmpeg.SetExecutablesPath("E:\\ffmpeg-latest-win64-static\\bin");
     }
 
+    // Helper: recursively search for a comment by id across file entries
+    private static FileComment? FindCommentInFileEntries(List<FileEntry> fileEntries, int commentId)
+    {
+      foreach (var fe in fileEntries)
+      {
+        var found = FindCommentRecursive(fe.FileComments, commentId);
+        if (found != null) return found;
+      }
+      return null;
+    }
+
+    private static FileComment? FindCommentRecursive(List<FileComment>? comments, int commentId)
+    {
+      if (comments == null) return null;
+      foreach (var c in comments)
+      {
+        if (c.Id == commentId) return c;
+        var child = FindCommentRecursive(c.Comments, commentId);
+        if (child != null) return child;
+      }
+      return null;
+    }
+
     [HttpPost("/File/GetDirectory/", Name = "GetDirectory")]
     public async Task<DirectoryResults?> GetDirectory(
     [FromBody] User? user,
@@ -904,26 +927,12 @@ private static void GetFileComments(
             fileEntry.Reactions.Add(reaction);
           }
 
-          var commentEntry = new FileComment();
-          commentEntry.Id = 0;
-          for (var x = 0; x < fileEntries.Count; x++)
-          {
-            if (fileEntries[x].FileComments != null)
-            {
-              if (fileEntries[x].FileComments!.Find(x => x.Id == commentIdValue) != null)
-              {
-                commentEntry = fileEntries[x].FileComments!.Find(x => x.Id == commentIdValue)!;
-                break;
-              }
-            }
-          }
+          // Find the comment recursively (comments can be nested)
+          var commentEntry = FindCommentInFileEntries(fileEntries, commentIdValue);
 
-          if (commentEntry.Id != 0)
+          if (commentEntry != null)
           {
-            if (commentEntry.Reactions == null)
-            {
-              commentEntry.Reactions = new List<Reaction>();
-            }
+            commentEntry.Reactions ??= new List<Reaction>();
             commentEntry.Reactions.Add(reaction);
           }
         }
