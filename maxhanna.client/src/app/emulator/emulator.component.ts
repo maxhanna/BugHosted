@@ -32,8 +32,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   faqItems: { question: string; answerHtml: string; expanded: boolean }[] = [
     {
       question: 'My controller is connected but doesn\'t work — what should I do?',
-      answerHtml: 
-      `Unpair all controllers from the PC, then pair and test one controller at a time. 
+      answerHtml:
+        `Unpair all controllers from the PC, then pair and test one controller at a time. 
       Multiple paired controllers or leftover Bluetooth pairings can cause input routing conflicts. 
       Try restarting the browser after pairing. 
       If using a virtual gamepad, confirm the correct mapping in the on-screen controls.
@@ -984,7 +984,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.stopLoading();
     }
   }
- 
+
   private tempHideEjsMenu(durationMs: number = 5000): void {
     try {
       const intervalMs = 100;
@@ -1098,13 +1098,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.setTmpStatus("User not logged in; upload skipped.");
       this.openLoginPanel();
       return false;
-    } 
+    }
     if (!this.romName) {
       console.warn('[EJS] uploadSaveBytes: no rom; skipping upload');
       this.setTmpStatus("ROM not identified; upload skipped.");
       return false;
     }
-    this.status = 'Sending Data to Server...'; 
+    this.status = 'Sending Data to Server...';
     if (this._inFlightSavePromise) {
       try { return await this._inFlightSavePromise; } catch { return false; }
     }
@@ -1124,8 +1124,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         if (res.ok) {
           this._lastSaveTime = Date.now();
           this.lastGoodSaveSize.set(this.romName!, u8.length);
-          ms = res.body?.ms; 
-          try { this.setupAutosave(); } catch { } 
+          ms = res.body?.ms;
+          try { this.setupAutosave(); } catch { }
           return true;
         } else {
           console.error('[EJS] Save upload failed:', res.errorText);
@@ -1145,15 +1145,15 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         return false;
       } finally {
         this._saveInProgress = false;
-        this._inFlightSavePromise = undefined; 
-         
+        this._inFlightSavePromise = undefined;
+
         if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
           this.fullReloadToEmulator();
         } else if (this.exitSaving) {
           this.navigateHome();
-        } else if (!error) { 
+        } else if (!error) {
           this.setTmpStatus(`Save Complete! (took ${ms ? ms / 1000 + 's' : 'a moment'})`, "Running");
-        } 
+        }
       }
     })();
 
@@ -1778,7 +1778,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       });
     } catch { return []; }
   }
-  
+
   // Attempt to upload any pending saves found in IndexedDB. Runs on startup.
   private async uploadPendingSavesOnStartup(): Promise<void> {
     try {
@@ -2296,14 +2296,15 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     return true;
-  } 
+  }
 
   remapControls(): void {
     this.tmpShowEjsMenu();
     setTimeout(() => {
       const buttons = document.querySelectorAll<HTMLButtonElement>('button.ejs_menu_button');
-      for (const btn of Array.from(buttons)) { 
-        const label = btn.querySelector('.ejs_menu_text')?.textContent?.trim()
+      for (const btn of Array.from(buttons)) {
+        const label =
+          btn.querySelector('.ejs_menu_text')?.textContent?.trim()
           ?? btn.textContent?.trim()
           ?? '';
 
@@ -2313,9 +2314,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         }
       }
 
-      console.warn('Control Settings button not found in menu; cannot remap controls.'); 
-    }, 1000); 
-  } 
+      console.warn('Control Settings button not found in menu; cannot remap controls.');
+    }, 1000);
+  }
 
   countZeros(u8: Uint8Array, start: number, end?: number): number {
     let zeros = 0;
@@ -2327,11 +2328,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   resetGame(): void {
-    if (!this.romName) return; 
+    if (!this.romName) return;
     const confirm = window.confirm(
       `Are you sure you want to reset the game? 
       \nThe next save will overwrite your current progress.`);
-    if (confirm) { 
+    if (confirm) {
       const skipSave = window.confirm("Reset without any save state?");
       this.fullReloadToEmulator(this.getReloadParamsSkipSave(skipSave));
     }
@@ -2352,8 +2353,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   toggleFaqItem(index: number) {
     const item = this.faqItems[index];
     if (item) item.expanded = !item.expanded;
-  } 
-  
+  }
+
   // Public accessor for template to show last save time
   public get lastSaveTime(): Date | null {
     return this._lastSaveTime && this._lastSaveTime > 0 ? new Date(this._lastSaveTime) : null;
