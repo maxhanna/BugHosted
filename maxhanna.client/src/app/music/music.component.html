@@ -26,11 +26,7 @@
       <input type="submit" value="💾" (click)="addSong()" />
     </div>
   </fieldset> 
-  <div id="musicPlayerDiv" [class]="smallPlayer ? 'smallSongList' : 'normalSongList'"> 
-    <!-- <div id="iframeDiv" [class]="playerClasses">
-   
-    </div> -->
-
+  <div id="musicPlayerDiv" [class]="smallPlayer ? 'smallSongList' : 'normalSongList'">
     <div id="songlist">
         <div class="playerStack">
           <div id="musicVideo" #musicVideo [class.youtube-active]="selectedType === 'youtube' && !fileIdPlaying"
@@ -54,25 +50,33 @@
         <span class="collapse-icon">{{ isSongListCollapsed ? '▼' : '▲' }}</span>
       </div>
       <div *ngIf="!isSongListCollapsed">
-        <div style="width:100%; text-align:center;">
-          Order: <select id="orderSelect" (change)="reorderTable($event)" #orderSelect>
-            <option *ngFor="let order of orders" [value]="order">{{order}}</option>
-          </select>
-          Playlist: <select id="playlistSelect" (change)="onPlaylistChange($event)">
-            <option value="">All Songs</option>
-            <option *ngFor="let pl of playlists" [value]="pl.id" [selected]="pl.id === selectedPlaylistId">{{pl.name}}</option>
-          </select>
-          <button (click)="createPlaylist()" title="Create New Playlist" class="playlistBtn">➕</button>
-          <div class="playlistActions" *ngIf="selectedPlaylistId && !user">
-            <button (click)="toggleEditPlaylist()" class="playlistBtn" [title]="isEditingPlaylist ? 'Cancel Edit' : 'Edit Playlist'">{{isEditingPlaylist ? '❌Cancel' : '✏️Edit'}}</button>
-            <button (click)="savePlaylist()" *ngIf="isEditingPlaylist" class="playlistBtn" title="Save Playlist">💾Save</button>
-            <button (click)="renamePlaylist()" class="playlistBtn" title="Rename Playlist">✏️Rename</button>
-            <button (click)="deletePlaylist()" class="playlistBtn" title="Delete Playlist">🗑️Delete</button>
+        <div class="listSelectors">
+          <div> 
+            Order: 
+            <select id="orderSelect" (change)="reorderTable($event)" #orderSelect>
+              <option *ngFor="let order of orders" [value]="order">{{order}}</option>
+            </select>
           </div>
-          <br />
-          Search: <input placeholder="Keyword" #searchInput (input)="onSearchEnter()" />
-          <input type="submit" value="🔍" title="Search Music Playlist" (click)="searchForSong()" />
-          <input type="submit" value="▶️" title="Search YouTube" (click)="showYoutubeSearch()" *ngIf="selectedType === 'youtube'" />
+          <div>
+            Playlist: 
+            <select id="playlistSelect" (change)="onPlaylistChange($event)">
+              <option value="">All Songs</option>
+              <option *ngFor="let pl of playlists" [value]="pl.id" [selected]="pl.id === selectedPlaylistId">{{pl.name}}</option>
+            </select>
+            <button (click)="createPlaylist()" title="Create New Playlist" class="playlistBtn">➕</button>
+            <div class="playlistActions" *ngIf="selectedPlaylistId && !user">
+              <button (click)="toggleEditPlaylist()" class="playlistBtn" [title]="isEditingPlaylist ? 'Cancel Edit' : 'Edit Playlist'">{{isEditingPlaylist ? '❌Cancel' : '✏️Edit'}}</button>
+              <button (click)="savePlaylist()" *ngIf="isEditingPlaylist" class="playlistBtn" title="Save Playlist">💾Save</button>
+              <button (click)="renamePlaylist()" class="playlistBtn" title="Rename Playlist">✏️Rename</button>
+              <button (click)="deletePlaylist()" class="playlistBtn" title="Delete Playlist">🗑️Delete</button>
+            </div>
+          </div> 
+          <div>
+            Search: 
+            <input placeholder="Keyword" #searchInput (input)="onSearchEnter()" />
+            <input type="submit" value="🔍" title="Search Music Playlist" (click)="searchForSong()" />
+            <input type="submit" value="▶️" title="Search YouTube" (click)="showYoutubeSearch()" *ngIf="selectedType === 'youtube'" />
+          </div> 
         </div>
         <div class="musicTypeSelector">
           <label class="smallFont">
