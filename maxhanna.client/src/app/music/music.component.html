@@ -57,7 +57,19 @@
         <div style="width:100%; text-align:center;">
           Order: <select id="orderSelect" (change)="reorderTable($event)" #orderSelect>
             <option *ngFor="let order of orders" [value]="order">{{order}}</option>
-          </select><br />
+          </select>
+          Playlist: <select id="playlistSelect" (change)="onPlaylistChange($event)">
+            <option value="">All Songs</option>
+            <option *ngFor="let pl of playlists" [value]="pl.id" [selected]="pl.id === selectedPlaylistId">{{pl.name}}</option>
+          </select>
+          <button (click)="createPlaylist()" title="Create New Playlist" class="playlistBtn">➕</button>
+          <div class="playlistActions" *ngIf="selectedPlaylistId && !user">
+            <button (click)="toggleEditPlaylist()" class="playlistBtn" [title]="isEditingPlaylist ? 'Cancel Edit' : 'Edit Playlist'">{{isEditingPlaylist ? '❌Cancel' : '✏️Edit'}}</button>
+            <button (click)="savePlaylist()" *ngIf="isEditingPlaylist" class="playlistBtn" title="Save Playlist">💾Save</button>
+            <button (click)="renamePlaylist()" class="playlistBtn" title="Rename Playlist">✏️Rename</button>
+            <button (click)="deletePlaylist()" class="playlistBtn" title="Delete Playlist">🗑️Delete</button>
+          </div>
+          <br />
           Search: <input placeholder="Keyword" #searchInput (input)="onSearchEnter()" />
           <input type="submit" value="🔍" title="Search Music Playlist" (click)="searchForSong()" />
           <input type="submit" value="▶️" title="Search YouTube" (click)="showYoutubeSearch()" *ngIf="selectedType === 'youtube'" />
@@ -117,6 +129,9 @@
           <table id="songListTable" [class]="isEditing.length ? '' : 'mainTable'" id="todoTable" *ngIf="selectedType !== 'radio' && paginatedSongs && paginatedSongs.length > 0">
             <tbody>
               <tr *ngFor="let song of paginatedSongs; trackBy: trackSong" id="songId{{song.id!}}" [class]="isEditing.includes(song.id ?? 0) ? 'popupPanel' : ''">
+                <td *ngIf="song.id && isEditingPlaylist" class="playlistCheckTd">
+                  <input type="checkbox" [checked]="isSongInPlaylist(song.id)" (change)="toggleSongInPlaylist(song.id)" (click)="$event.stopPropagation()" />
+                </td>
                 <td *ngIf="song.id" [style.width]="isEditing.includes(song.id) ? '' : '100%'">
                   <span *ngIf="!isEditing.includes(song.id)" class="songTitle" (click)="play(song.url, song.fileId)" >{{song.todo}}</span>
                   <div *ngIf="isEditing.includes(song.id)" class="popupPanelTitle">Edit Song</div>

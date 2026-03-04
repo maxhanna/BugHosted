@@ -426,4 +426,33 @@ input[type="submit"] {
   width: 1px;
   height: 1px;
   overflow: hidden;
+}
+
+/* ───── Playlist Controls ───── */
+
+.playlistActions {
+  display: inline-flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.playlistBtn {
+  cursor: pointer;
+  border: var(--main-border);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 0.85em;
+}
+
+.playlistCheckTd {
+  width: 28px;
+  min-width: 28px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.playlistCheckTd input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 } 

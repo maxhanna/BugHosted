@@ -1133,6 +1133,196 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+    // ───────────────── Music Playlists ─────────────────
+
+    [HttpPost("/Todo/Playlist/GetAll", Name = "GetMusicPlaylists")]
+    public async Task<IActionResult> GetMusicPlaylists([FromBody] int userId)
+    {
+      try
+      {
+        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        string sql = "SELECT id, name, user_id, date FROM music_playlists WHERE user_id = @UserId ORDER BY name ASC";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@UserId", userId);
+
+        using var rdr = await cmd.ExecuteReaderAsync();
+        var playlists = new List<DataContracts.Todos.MusicPlaylist>();
+        while (await rdr.ReadAsync())
+        {
+          playlists.Add(new DataContracts.Todos.MusicPlaylist(
+            id: rdr.GetInt32(rdr.GetOrdinal("id")),
+            name: rdr.GetString(rdr.GetOrdinal("name")),
+            userId: rdr.GetInt32(rdr.GetOrdinal("user_id")),
+            date: rdr.GetDateTime(rdr.GetOrdinal("date"))
+          ));
+        }
+        return Ok(playlists);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error fetching music playlists: " + ex.Message, userId, "TODO", true);
+        return StatusCode(500, "An error occurred while fetching playlists.");
+      }
+    }
+
+    [HttpPost("/Todo/Playlist/Create", Name = "CreateMusicPlaylist")]
+    public async Task<IActionResult> CreateMusicPlaylist([FromBody] DataContracts.Todos.CreateMusicPlaylistRequest req)
+    {
+      try
+      {
+        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        string sql = @"INSERT INTO music_playlists (name, user_id, date) VALUES (@Name, @UserId, UTC_TIMESTAMP());
+                       SELECT LAST_INSERT_ID();";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Name", req.name);
+        cmd.Parameters.AddWithValue("@UserId", req.userId);
+
+        var result = await cmd.ExecuteScalarAsync();
+        if (result != null)
+          return Ok(result);
+
+        return StatusCode(500, "Failed to create playlist.");
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error creating music playlist: " + ex.Message, req.userId, "TODO", true);
+        return StatusCode(500, "An error occurred while creating playlist.");
+      }
+    }
+
+    [HttpPost("/Todo/Playlist/Delete", Name = "DeleteMusicPlaylist")]
+    public async Task<IActionResult> DeleteMusicPlaylist([FromBody] DataContracts.Todos.DeleteMusicPlaylistRequest req)
+    {
+      try
+      {
+        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        string sql = "DELETE FROM music_playlists WHERE id = @Id AND user_id = @UserId";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Id", req.playlistId);
+        cmd.Parameters.AddWithValue("@UserId", req.userId);
+
+        var rows = await cmd.ExecuteNonQueryAsync();
+        return rows > 0 ? Ok("Playlist deleted.") : StatusCode(404, "Playlist not found.");
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error deleting music playlist: " + ex.Message, req.userId, "TODO", true);
+        return StatusCode(500, "An error occurred while deleting playlist.");
+      }
+    }
+
+    [HttpPost("/Todo/Playlist/Rename", Name = "RenameMusicPlaylist")]
+    public async Task<IActionResult> RenameMusicPlaylist([FromBody] DataContracts.Todos.RenameMusicPlaylistRequest req)
+    {
+      try
+      {
+        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        string sql = "UPDATE music_playlists SET name = @Name WHERE id = @Id AND user_id = @UserId";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Name", req.name);
+        cmd.Parameters.AddWithValue("@Id", req.playlistId);
+        cmd.Parameters.AddWithValue("@UserId", req.userId);
+
+        var rows = await cmd.ExecuteNonQueryAsync();
+        return rows > 0 ? Ok("Playlist renamed.") : StatusCode(404, "Playlist not found.");
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error renaming music playlist: " + ex.Message, req.userId, "TODO", true);
+        return StatusCode(500, "An error occurred while renaming playlist.");
+      }
+    }
+
+    [HttpPost("/Todo/Playlist/SaveEntries", Name = "SaveMusicPlaylistEntries")]
+    public async Task<IActionResult> SaveMusicPlaylistEntries([FromBody] DataContracts.Todos.SaveMusicPlaylistEntriesRequest req)
+    {
+      try
+      {
+        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+        using var transaction = await conn.BeginTransactionAsync();
+
+        // Clear existing entries for this playlist
+        string deleteSql = "DELETE FROM music_playlist_entries WHERE playlist_id = @PlaylistId";
+        using (var delCmd = new MySqlCommand(deleteSql, conn, transaction))
+        {
+          delCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
+          await delCmd.ExecuteNonQueryAsync();
+        }
+
+        // Insert new entries
+        for (int i = 0; i < req.todoIds.Count; i++)
+        {
+          string insertSql = @"INSERT INTO music_playlist_entries (playlist_id, todo_id, sort_order, date_added) 
+                               VALUES (@PlaylistId, @TodoId, @SortOrder, UTC_TIMESTAMP())";
+          using var insCmd = new MySqlCommand(insertSql, conn, transaction);
+          insCmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
+          insCmd.Parameters.AddWithValue("@TodoId", req.todoIds[i]);
+          insCmd.Parameters.AddWithValue("@SortOrder", i);
+          await insCmd.ExecuteNonQueryAsync();
+        }
+
+        await transaction.CommitAsync();
+        return Ok("Playlist entries saved.");
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error saving playlist entries: " + ex.Message, req.userId, "TODO", true);
+        return StatusCode(500, "An error occurred while saving playlist entries.");
+      }
+    }
+
+    [HttpPost("/Todo/Playlist/GetEntries", Name = "GetMusicPlaylistEntries")]
+    public async Task<IActionResult> GetMusicPlaylistEntries([FromBody] DataContracts.Todos.GetMusicPlaylistEntriesRequest req)
+    {
+      try
+      {
+        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        string sql = @"
+          SELECT t.id, t.todo, t.type, t.url, t.file_id, t.date, t.ownership, u.username as owner_name
+          FROM music_playlist_entries mpe
+          JOIN todo t ON t.id = mpe.todo_id
+          JOIN users u ON t.ownership = u.id
+          WHERE mpe.playlist_id = @PlaylistId
+          ORDER BY mpe.sort_order ASC";
+
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@PlaylistId", req.playlistId);
+
+        using var rdr = await cmd.ExecuteReaderAsync();
+        var entries = new List<Todo>();
+        while (await rdr.ReadAsync())
+        {
+          entries.Add(new Todo(
+            id: rdr.GetInt32(rdr.GetOrdinal("id")),
+            todo: rdr.GetString(rdr.GetOrdinal("todo")),
+            type: rdr.GetString(rdr.GetOrdinal("type")),
+            url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")),
+            fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
+            date: rdr.GetDateTime(rdr.GetOrdinal("date")),
+            ownership: rdr.GetInt32(rdr.GetOrdinal("ownership")),
+            owner_name: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))
+          ));
+        }
+        return Ok(entries);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error fetching playlist entries: " + ex.Message, req.userId, "TODO", true);
+        return StatusCode(500, "An error occurred while fetching playlist entries.");
+      }
+    }
+
   }
 }
 public class SharedColumnDto

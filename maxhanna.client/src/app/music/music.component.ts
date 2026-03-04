@@ -2,6 +2,7 @@ import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, E
 import { Location } from '@angular/common';
 import { ChildComponent } from '../child.component';
 import { Todo } from '../../services/datacontracts/todo';
+import { MusicPlaylist } from '../../services/datacontracts/music-playlist';
 import { TodoService } from '../../services/todo.service';
 import { RadioService, RadioCountry, RadioLanguage, RadioTag, RadioStation } from '../../services/radio.service';
 import { User } from '../../services/datacontracts/user/user';
@@ -52,6 +53,13 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   isShowingYoutubeSearch = false;
   hasEditedSong = false;
   isMenuPanelOpen = false;
+
+  // Playlist properties
+  playlists: MusicPlaylist[] = [];
+  selectedPlaylistId: number | null = null;
+  isEditingPlaylist = false;
+  playlistSelectedSongIds: Set<number> = new Set();
+  allSongsCache: Array<Todo> = [];
 
   // Radio properties
   radioStations: RadioStation[] = [];
@@ -259,6 +267,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     if (!user?.id) {
       await Promise.resolve();
     }
+    await this.loadPlaylists();
     await this.refreshPlaylist();
     if (this.songs.length && this.songs[0]?.url) {
       const url = this.songs[0].url!;
@@ -1379,5 +1388,188 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.cdr.markForCheck();
     });
     this.rebuildLocalYtQueue();
+  }
+
+  // ───────────── Playlist Management ─────────────
+
+  async loadPlaylists() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = this.user ?? parent?.user;
+    if (!user?.id) return;
+    const result = await this.todoService.getMusicPlaylists(user.id);
+    if (result) {
+      this.playlists = result;
+      this.cdr.markForCheck();
+    }
+  }
+
+  async onPlaylistChange(event: Event) {
+    const value = (event.target as HTMLSelectElement).value;
+    this.selectedPlaylistId = value ? parseInt(value, 10) : null;
+    this.isEditingPlaylist = false;
+    this.playlistSelectedSongIds.clear();
+
+    if (this.selectedPlaylistId) {
+      await this.loadPlaylistSongs();
+    } else {
+      await this.refreshPlaylist();
+    }
+  }
+
+  private async loadPlaylistSongs() {
+    if (!this.selectedPlaylistId) return;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = this.user ?? parent?.user;
+    if (!user?.id) return;
+
+    this.startLoading();
+    const entries = await this.todoService.getMusicPlaylistEntries(user.id, this.selectedPlaylistId);
+    if (entries) {
+      this.youtubeSongs = entries.filter((song: Todo) => parent?.isYoutubeUrl(song.url));
+      this.fileSongs = entries.filter((song: Todo) => !parent?.isYoutubeUrl(song.url));
+      this.songs = this.selectedType === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
+      this.currentPage = 1;
+      this.updatePaginatedSongs();
+      this.rebuildLocalYtQueue();
+      this.gotPlaylistEvent.emit([...this.songs]);
+    }
+    this.stopLoading();
+    this.cdr.markForCheck();
+  }
+
+  async createPlaylist() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user?.id) {
+      parent?.showNotification('You must be logged in to create a playlist.');
+      return;
+    }
+    const name = prompt('Enter playlist name:');
+    if (!name || !name.trim()) return;
+
+    const result = await this.todoService.createMusicPlaylist(user.id, name.trim());
+    if (result) {
+      await this.loadPlaylists();
+      // Auto-select the newly created playlist
+      const newId = parseInt(result, 10);
+      if (!isNaN(newId)) {
+        this.selectedPlaylistId = newId;
+      }
+      parent?.showNotification('Playlist created!');
+      this.cdr.markForCheck();
+    }
+  }
+
+  async deletePlaylist() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user?.id || !this.selectedPlaylistId) return;
+    if (!confirm('Delete this playlist? This cannot be undone.')) return;
+
+    await this.todoService.deleteMusicPlaylist(user.id, this.selectedPlaylistId);
+    this.selectedPlaylistId = null;
+    this.isEditingPlaylist = false;
+    this.playlistSelectedSongIds.clear();
+    await this.loadPlaylists();
+    await this.refreshPlaylist();
+    parent?.showNotification('Playlist deleted.');
+    this.cdr.markForCheck();
+  }
+
+  async renamePlaylist() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user?.id || !this.selectedPlaylistId) return;
+
+    const currentPlaylist = this.playlists.find(p => p.id === this.selectedPlaylistId);
+    const newName = prompt('New playlist name:', currentPlaylist?.name ?? '');
+    if (!newName || !newName.trim()) return;
+
+    await this.todoService.renameMusicPlaylist(user.id, this.selectedPlaylistId, newName.trim());
+    await this.loadPlaylists();
+    parent?.showNotification('Playlist renamed.');
+    this.cdr.markForCheck();
+  }
+
+  toggleEditPlaylist() {
+    if (!this.selectedPlaylistId) return;
+    this.isEditingPlaylist = !this.isEditingPlaylist;
+
+    if (this.isEditingPlaylist) {
+      // Cache all songs and pre-check songs already in the playlist
+      this.allSongsCache = [...this.songs];
+      // Load full song list so user can pick from all songs
+      this.loadAllSongsForPlaylistEdit();
+    } else {
+      this.playlistSelectedSongIds.clear();
+    }
+    this.cdr.markForCheck();
+  }
+
+  private async loadAllSongsForPlaylistEdit() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = this.user ?? parent?.user;
+    if (!user?.id) return;
+
+    this.startLoading();
+
+    // Get the full song list (all music)
+    const allSongs = await this.todoService.getTodo(user.id, 'Music');
+    if (!allSongs) { this.stopLoading(); return; }
+
+    this.youtubeSongs = allSongs.filter((song: Todo) => parent?.isYoutubeUrl(song.url));
+    this.fileSongs = allSongs.filter((song: Todo) => !parent?.isYoutubeUrl(song.url));
+    this.songs = this.selectedType === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
+    this.currentPage = 1;
+    this.updatePaginatedSongs();
+
+    // Pre-check songs that are already in the playlist
+    if (this.selectedPlaylistId) {
+      const existing = await this.todoService.getMusicPlaylistEntries(user.id, this.selectedPlaylistId);
+      if (existing) {
+        this.playlistSelectedSongIds = new Set(existing.map((e: Todo) => e.id!).filter(id => id != null));
+      }
+    }
+
+    this.stopLoading();
+    this.cdr.markForCheck();
+  }
+
+  toggleSongInPlaylist(songId: number) {
+    if (this.playlistSelectedSongIds.has(songId)) {
+      this.playlistSelectedSongIds.delete(songId);
+    } else {
+      this.playlistSelectedSongIds.add(songId);
+    }
+    this.cdr.markForCheck();
+  }
+
+  isSongInPlaylist(songId: number): boolean {
+    return this.playlistSelectedSongIds.has(songId);
+  }
+
+  async savePlaylist() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user?.id || !this.selectedPlaylistId) return;
+
+    const todoIds = Array.from(this.playlistSelectedSongIds);
+    this.startLoading();
+    const result = await this.todoService.saveMusicPlaylistEntries(user.id, this.selectedPlaylistId, todoIds);
+    if (result) {
+      parent?.showNotification('Playlist saved!');
+    }
+    this.isEditingPlaylist = false;
+    this.playlistSelectedSongIds.clear();
+
+    // Reload the playlist songs
+    await this.loadPlaylistSongs();
+    this.stopLoading();
+    this.cdr.markForCheck();
+  }
+
+  get selectedPlaylistName(): string {
+    const pl = this.playlists.find(p => p.id === this.selectedPlaylistId);
+    return pl?.name ?? '';
   }
 }
