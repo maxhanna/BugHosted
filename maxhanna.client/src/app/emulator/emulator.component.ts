@@ -10,7 +10,7 @@ import { AppComponent } from '../app.component';
 @Component({
   selector: 'app-emulator',
   templateUrl: './emulator.component.html',
-  styleUrl: './emulator.component.css',
+  styleUrls: ['./emulator.component.css'],
   standalone: false
 })
 export class EmulatorComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
@@ -936,6 +936,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async callEjsSave(): Promise<boolean> {
+    this.tempHideEjsMenu(5000);
     this.startLoading();
     try {
       const w = window as any;
@@ -981,6 +982,65 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       return false;
     } finally {
       this.stopLoading();
+    }
+  }
+ 
+  private tempHideEjsMenu(durationMs: number = 5000): void {
+    try {
+      const intervalMs = 100;
+      const maxWait = 1000;
+      let waited = 0;
+      const saved = new Set<HTMLElement>();
+
+      const hideOnce = (): boolean => {
+        const els = Array.from(document.querySelectorAll('.ejs_menu_bar:not(.ejs_menu_bar_hidden)')) as HTMLElement[];
+        if (!els || els.length === 0) return false;
+        els.forEach(el => {
+          if (!el.dataset['ejsOriginalStyle']) {
+            el.dataset['ejsOriginalStyle'] = el.getAttribute('style') ?? '';
+          }
+          // apply visual hiding while keeping element in DOM and operable by JS
+          el.style.transition = 'transform 0.12s ease, opacity 0.12s ease';
+          el.style.transform = 'translateY(-9999px)';
+          el.style.opacity = '0';
+          el.style.pointerEvents = 'none';
+          saved.add(el);
+        });
+        return true;
+      };
+
+      const attempt = () => {
+        if (hideOnce()) {
+          // restore after durationMs
+          setTimeout(() => {
+            saved.forEach(el => {
+              try {
+                // restore original inline style if present
+                const orig = el.dataset['ejsOriginalStyle'] ?? '';
+                if (orig) {
+                  el.setAttribute('style', orig);
+                } else {
+                  // clear our temporary properties
+                  el.style.transition = '';
+                  el.style.transform = '';
+                  el.style.opacity = '';
+                  el.style.pointerEvents = '';
+                }
+                delete el.dataset['ejsOriginalStyle'];
+              } catch { }
+            });
+          }, durationMs);
+        } else {
+          waited += intervalMs;
+          if (waited < maxWait) {
+            setTimeout(attempt, intervalMs);
+          }
+        }
+      };
+
+      attempt();
+    } catch (e) {
+      console.warn('tempHideEjsMenu failed', e);
     }
   }
 
