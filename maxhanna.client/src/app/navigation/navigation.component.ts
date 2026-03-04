@@ -452,7 +452,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       try {
         const up = await this._parent?.isServerUp();
         if (up && up > 0) {
-          // recovered
+          this.preventFetchNotifs = false;
           this.resetNotificationsServerDown();
           // resume fetching
           this.debouncedRestartNotifications();
