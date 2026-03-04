@@ -40,8 +40,10 @@
             <input id="emojiFilter" #emojiFilter placeholder="🔍Search" (input)="searchForEmoji(emojiFilter.value)" />
         </div>
         <div class="emojiFilterContainer">
-            <span *ngFor="let emoji of filteredEmojis | keyvalue" (click)="insertEmoji(emoji.value)"
-                style="cursor: pointer; font-size: 24px; margin: 5px;" [title]="emoji.key">
+            <span *ngFor="let emoji of filteredEmojis | keyvalue" 
+              (click)="insertEmoji(emoji.value)"
+              class="emojiOption" 
+              [title]="emoji.key">
                 {{ emoji.value }}
             </span>
         </div>
