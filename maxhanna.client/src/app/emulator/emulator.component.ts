@@ -1044,7 +1044,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  /** Temporarily reveal EJS menu bars by removing the hidden class, then restore it. */
   private tmpShowEjsMenu(durationMs: number = 5000): void {
     try {
       const intervalMs = 100;
