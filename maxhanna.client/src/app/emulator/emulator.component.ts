@@ -2301,7 +2301,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   remapControls(): void {
     this.tmpShowEjsMenu();
     setTimeout(() => {
-      const buttons = document.querySelectorAll<HTMLButtonElement>('button.ejs_menu_button') as NodeListOf<HTMLButtonElement>;
+      const buttons = document.querySelectorAll<HTMLButtonElement>('button.ejs_menu_button');
       for (const btn of Array.from(buttons)) { 
         const label = btn.querySelector('.ejs_menu_text')?.textContent?.trim()
           ?? btn.textContent?.trim()
