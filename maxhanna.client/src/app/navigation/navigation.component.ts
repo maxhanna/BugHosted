@@ -438,9 +438,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private announceNotificationsServerDown() {
+    this.closeNotifications();
     this.notificationsServerDown = true;
-    this.preventFetchNotifs = true;
-    this.clearNotifications();
+    this.preventFetchNotifs = true; 
     // show server down message in UI and as a transient notification
     try { this._parent.showNotification('Server down'); } catch (e) { }
 
@@ -458,7 +458,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       } catch (e) {
         // ignore and keep polling
       }
-    }, 30000);
+    }, 10000);
   }
 
   private resetNotificationsServerDown() {
@@ -1165,6 +1165,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingMusic = false;
     this.isLoadingWeather = false;
     this.isLoadingNews = false;
+    this.notificationsServerDown = false;
   }
 
   private async getNewsCountInfo() {
