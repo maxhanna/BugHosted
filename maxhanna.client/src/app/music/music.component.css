@@ -464,3 +464,11 @@ input[type="submit"] {
   align-items: center; 
   justify-content: center;
 }
+
+.orderAndPlaylistSelectors {
+  display: flex;
+  flex-wrap: wrap;
+  max-width: 400px;
+  justify-content: center;
+  align-items: center;
+}

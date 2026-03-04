@@ -51,26 +51,29 @@
       </div>
       <div *ngIf="!isSongListCollapsed">
         <div class="listSelectors">
-          <div> 
-            Order: 
-            <select id="orderSelect" (change)="reorderTable($event)" #orderSelect>
-              <option *ngFor="let order of orders" [value]="order">{{order}}</option>
-            </select>
-          </div>
-          <div>
-            Playlist: 
-            <select id="playlistSelect" (change)="onPlaylistChange($event)">
-              <option value="">All Songs</option>
-              <option *ngFor="let pl of playlists" [value]="pl.id" [selected]="pl.id === selectedPlaylistId">{{pl.name}}</option>
-            </select>
-            <button (click)="createPlaylist()" title="Create New Playlist" class="playlistBtn">➕</button>
-            <div class="playlistActions" *ngIf="selectedPlaylistId && !user">
-              <button (click)="toggleEditPlaylist()" class="playlistBtn" [title]="isEditingPlaylist ? 'Cancel Edit' : 'Edit Playlist'">{{isEditingPlaylist ? '❌Cancel' : '✏️Edit'}}</button>
-              <button (click)="savePlaylist()" *ngIf="isEditingPlaylist" class="playlistBtn" title="Save Playlist">💾Save</button>
-              <button (click)="renamePlaylist()" class="playlistBtn" title="Rename Playlist">✏️Rename</button>
-              <button (click)="deletePlaylist()" class="playlistBtn" title="Delete Playlist">🗑️Delete</button>
+          <div class="orderAndPlaylistSelectors">
+            <div> 
+              Order: 
+              <select id="orderSelect" (change)="reorderTable($event)" #orderSelect>
+                <option *ngFor="let order of orders" [value]="order">{{order}}</option>
+              </select>
             </div>
-          </div> 
+            <div>
+              Playlist: 
+              <select id="playlistSelect" (change)="onPlaylistChange($event)">
+                <option value="">All Songs</option>
+                <option *ngFor="let pl of playlists" [value]="pl.id" [selected]="pl.id === selectedPlaylistId">{{pl.name}}</option>
+              </select>
+              <button (click)="createPlaylist()" title="Create New Playlist" class="playlistBtn">➕</button>
+              <div class="playlistActions" *ngIf="selectedPlaylistId && !user">
+                <button (click)="toggleEditPlaylist()" class="playlistBtn" [title]="isEditingPlaylist ? 'Cancel Edit' : 'Edit Playlist'">{{isEditingPlaylist ? '❌Cancel' : '✏️Edit'}}</button>
+                <button (click)="savePlaylist()" *ngIf="isEditingPlaylist" class="playlistBtn" title="Save Playlist">💾Save</button>
+                <button (click)="renamePlaylist()" class="playlistBtn" title="Rename Playlist">✏️Rename</button>
+                <button (click)="deletePlaylist()" class="playlistBtn" title="Delete Playlist">🗑️Delete</button>
+              </div>
+            </div>
+          </div>
+          
           <div>
             Search: 
             <input placeholder="Keyword" #searchInput (input)="onSearchEnter()" />
