@@ -1044,6 +1044,44 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
+  /** Temporarily reveal EJS menu bars by removing the hidden class, then restore it. */
+  private tmpShowEjsMenu(durationMs: number = 5000): void {
+    try {
+      const intervalMs = 100;
+      const maxWait = 1000;
+      let waited = 0;
+      const shown = new Set<HTMLElement>();
+
+      const showOnce = (): boolean => {
+        const els = Array.from(document.querySelectorAll('.ejs_menu_bar.ejs_menu_bar_hidden')) as HTMLElement[];
+        if (!els || els.length === 0) return false;
+        els.forEach(el => {
+          try { el.classList.remove('ejs_menu_bar_hidden'); } catch { }
+          shown.add(el);
+        });
+        return true;
+      };
+
+      const attemptShow = () => {
+        if (showOnce()) {
+          // restore hidden class after duration
+          setTimeout(() => {
+            shown.forEach(el => {
+              try { el.classList.add('ejs_menu_bar_hidden'); } catch { }
+            });
+          }, durationMs);
+        } else {
+          waited += intervalMs;
+          if (waited < maxWait) setTimeout(attemptShow, intervalMs);
+        }
+      };
+
+      attemptShow();
+    } catch (e) {
+      console.warn('tmpShowEjsMenu failed', e);
+    }
+  }
+
   private async uploadSaveBytes(u8: Uint8Array) {
     const core = (window as any).EJS_core || '';
     if (!this.isValidSaveState(u8, core)) {
@@ -2259,19 +2297,26 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     return true;
-  }
+  } 
 
-  remapControls() {
-    let found = false;
-    const buttons = document.getElementsByClassName('.ejs_menu_button') as HTMLCollectionOf<HTMLButtonElement>;
-    Array.from(buttons).forEach((element: HTMLButtonElement) => {
-      if (found) return;
-      if (element.textContent?.includes('Control Settings')) {
-        element.click();
-        found = true;
+  remapControls(): void {
+    this.tmpShowEjsMenu();
+    setTimeout(() => {
+      const buttons = document.querySelectorAll<HTMLButtonElement>('button.ejs_menu_button') as NodeListOf<HTMLButtonElement>;
+      for (const btn of Array.from(buttons)) { 
+        const label = btn.querySelector('.ejs_menu_text')?.textContent?.trim()
+          ?? btn.textContent?.trim()
+          ?? '';
+
+        if (label.includes('Control Settings')) {
+          btn.click();
+          return;
+        }
       }
-    });  
-  }
+
+      console.warn('Control Settings button not found in menu; cannot remap controls.'); 
+    }, 1000); 
+  } 
 
   countZeros(u8: Uint8Array, start: number, end?: number): number {
     let zeros = 0;
