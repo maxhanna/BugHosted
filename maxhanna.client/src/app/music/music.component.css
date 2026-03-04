@@ -2,25 +2,27 @@
   .componentMain {
     width: unset !important;
   }
-} 
+}
 
 /* Container for YT iframe. Make it a normal block with a guaranteed height */
 .iframeDiv,
 .mobileIframeDiv,
-.smallIframeDiv { 
-  display: block;          /* ✅ not flex */
+.smallIframeDiv {
+  display: block;
+  /* ✅ not flex */
   position: relative;
-  width: 100%; 
+  width: 100%;
   min-height: 200px;
 }
 
 /* If you need sticky behavior, put it on a wrapper above, not the player box */
 .playerStickyWrapper {
   position: sticky;
-  top: 0;                      /* avoid negative top for predictable layout */
+  top: 0;
+  /* avoid negative top for predictable layout */
   z-index: 2;
 }
- 
+
 iframe {
   width: 100% !important;
   height: 100% !important;
@@ -32,9 +34,11 @@ iframe {
 
 /* Mobile tweaks */
 @media (max-width: 667px) {
-  .componentMain { width: unset !important; } 
+  .componentMain {
+    width: unset !important;
+  }
 }
-   
+
 
 .musicControls {
   width: 100%;
@@ -57,26 +61,29 @@ iframe {
 .musicTypeSelector {
   width: 100%;
   display: flex;
-  align-items: center;  
+  align-items: center;
   justify-content: center;
   gap: 15px;
   margin-bottom: 3px;
-} 
+}
 
 .musicTypeSelector label {
-  display: inline-block; 
-  cursor: pointer; 
+  display: inline-block;
+  cursor: pointer;
   text-align: center;
   margin: 4px;
 }
+
 .mainTable tr {
   background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
   border: var(--main-border);
   border-radius: 4px;
 }
+
 .mainTable tr:hover {
-  transform: scale(1.01); 
+  transform: scale(1.01);
 }
+
 .mainTableDiv {
   max-height: 50%;
   overflow: auto;
@@ -86,13 +93,16 @@ iframe {
   display: block;
   width: 100%;
 }
+
 #musicPlayerDiv {
   display: flex;
-  flex-direction: column; 
+  flex-direction: column;
 
-  overflow: hidden; /* IMPORTANT: stop scrolling the whole panel */ 
+  overflow: hidden;
+  /* IMPORTANT: stop scrolling the whole panel */
   max-width: calc(100vw - 10px);
 }
+
 .smallSongList,
 .normalSongList {
   overflow: hidden;
@@ -101,19 +111,20 @@ iframe {
 
 .smallSongList {
   height: 300px;
-} 
- 
+}
+
 .youtube-active {
   opacity: 1;
   pointer-events: auto;
   transition: opacity 150ms ease-in-out;
 }
+
 .youtube-inactive {
   opacity: 0;
-  pointer-events: none; 
+  pointer-events: none;
   transition: opacity 150ms ease-in-out;
 }
- 
+
 .file-active {
   opacity: 1;
   pointer-events: auto;
@@ -121,6 +132,7 @@ iframe {
   z-index: 3;
   transition: opacity 150ms ease-in-out;
 }
+
 .file-inactive {
   opacity: 0;
   pointer-events: none;
@@ -133,51 +145,53 @@ iframe {
 .normalSongList {
   height: CALC(var(--vh, 1vh) * 100 - 235px);
 }
+
 @media only screen and (min-width:400px) {
   .normalSongList {
     height: CALC(var(--vh, 1vh) * 100 - 210px);
   }
 }
+
 @media only screen and (min-width:600px) {
   .normalSongList {
     height: CALC(var(--vh, 1vh) * 100 - 185px);
   }
-} 
+}
 
 fieldset {
   border: var(--main-border);
   border-radius: 5px;
-  padding: 10px; 
+  padding: 10px;
 }
 
 legend {
-  font-size: 1.1em; 
+  font-size: 1.1em;
 }
 
 input[type="text"],
-input[type="submit"] { 
+input[type="submit"] {
   border-radius: 3px;
   border: var(--main-border);
 }
 
 input[type="submit"] {
-  cursor: pointer; 
-} 
+  cursor: pointer;
+}
 
 .musicControls {
   display: flex;
   justify-content: center;
   gap: 10px;
-  margin-bottom: 10px; 
-  flex: 0 0 auto; 
+  margin-bottom: 10px;
+  flex: 0 0 auto;
 }
- 
-.collapsible-header { 
+
+.collapsible-header {
   cursor: pointer;
-  display: flex; 
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px; 
+  gap: 5px;
   border-radius: 5px;
   transition: background-color 0.2s;
 }
@@ -189,7 +203,7 @@ input[type="submit"] {
 
 .collapse-icon {
   font-size: 0.8em;
-} 
+}
 
 .pagination-controls {
   display: flex;
@@ -204,6 +218,7 @@ input[type="submit"] {
     align-items: center;
   }
 }
+
 @media only screen and (min-device-width:600px) {
   .pagination-controls {
     gap: 10px;
@@ -213,17 +228,17 @@ input[type="submit"] {
 .pagination-button {
   padding: 5px 10px;
   border: var(--main-border);
-  border-radius: 3px; 
-  cursor: pointer; 
+  border-radius: 3px;
+  cursor: pointer;
 }
 
 .pagination-button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
-} 
+}
 
 .pagination-info {
-  font-size: 0.9em; 
+  font-size: 0.9em;
 }
 
 .subtleInfoSpan {
@@ -274,14 +289,14 @@ input[type="submit"] {
   flex-wrap: wrap;
   gap: 3px;
   padding-right: 50px;
-  padding-left: 50px; 
+  padding-left: 50px;
 }
 
 #editSongNameInput {
   width: calc(100% - 15px) !important;
-  border: var(--main-border); 
+  border: var(--main-border);
   padding: 5px;
-  font-size: 0.9em; 
+  font-size: 0.9em;
   max-width: unset !important;
 }
 
@@ -290,17 +305,18 @@ input[type="submit"] {
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   min-height: 200px;
-} 
+}
 
 /* rename to avoid collisions with other global .fullscreen */
 .music-fullscreen {
   position: fixed !important;
-  inset: 0 !important;  /* shorthand for top/right/bottom/left: 0 */
+  inset: 0 !important;
+  /* shorthand for top/right/bottom/left: 0 */
   width: 100vw !important;
   height: 100vh !important;
   background: #000;
   z-index: 9999;
-} 
+}
 
 /* ensure popupPanel does NOT override our sizing */
 .popupPanel.music-fullscreen {
@@ -308,7 +324,7 @@ input[type="submit"] {
   position: fixed !important;
   inset: 0 !important;
   width: 100vw !important;
-  height: 100vh !important; 
+  height: 100vh !important;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -331,20 +347,23 @@ input[type="submit"] {
   margin-top: 10px;
   margin-bottom: 8px;
 }
+
 .mainTableContainer {
   padding-left: 10px;
   padding-right: 10px;
 }
+
 .extraMainDataInfo {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 5px;
 }
-.actionTd { 
+
+.actionTd {
   display: flex;
   gap: 5px;
-} 
+}
 
 .radioStationItem {
   display: flex;
@@ -370,6 +389,7 @@ input[type="submit"] {
   border: var(--main-border);
   flex-shrink: 0;
 }
+
 .radioStationInfo {
   flex: 1;
   min-width: 0;
@@ -393,6 +413,7 @@ input[type="submit"] {
   display: block;
   white-space: break-spaces;
 }
+
 .radioStationInfo {
   flex: 1;
   min-width: 0;
@@ -412,7 +433,7 @@ input[type="submit"] {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-} 
+}
 
 .radioFilters {
   text-align: center;
@@ -440,8 +461,6 @@ input[type="submit"] {
   cursor: pointer;
   border: var(--main-border);
   border-radius: 3px;
-  padding: 2px 6px;
-  font-size: 0.85em;
 }
 
 .playlistCheckTd {
@@ -455,13 +474,13 @@ input[type="submit"] {
   width: 16px;
   height: 16px;
   cursor: pointer;
-} 
+}
 
 .listSelectors {
-  width:100%; 
-  display:flex; 
-  flex-direction: column; 
-  align-items: center; 
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
 }
 
@@ -469,7 +488,12 @@ input[type="submit"] {
   display: flex;
   flex-wrap: wrap;
   max-width: 400px;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   align-content: center;
+  gap: 5px;
+}
+
+.selectorDiv { 
+  text-align: center;
 }
