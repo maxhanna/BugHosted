@@ -751,11 +751,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
       clearInterval(this.bonesInterval);
       return;
     }
-    this.isLoadingBones = true;
     if (this._parent.lastRunTimestamps['bones'] 
       && Date.now() - this._parent.lastRunTimestamps['bones'] < this.time60Secs) {
       return;
     }
+    this.isLoadingBones = true;
     try {
       const res: any = await this.bonesService.getActivePlayers(2);
       this.bonesActivePlayers = res?.count ?? null;
