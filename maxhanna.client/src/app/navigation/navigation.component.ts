@@ -439,6 +439,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   private announceNotificationsServerDown() {
     this.closeNotifications();
+    this.clearNotifications();
+    this.stopNotifications();
     this.notificationsServerDown = true;
     this.preventFetchNotifs = true; 
     // show server down message in UI and as a transient notification
@@ -453,7 +455,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
           // recovered
           this.resetNotificationsServerDown();
           // resume fetching
-          this.getNotifications();
+          this.debouncedRestartNotifications();
         }
       } catch (e) {
         // ignore and keep polling
