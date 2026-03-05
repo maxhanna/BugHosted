@@ -2560,23 +2560,29 @@ const GENESIS_FORCE_THREE = new Set<string>([
 // PSP PERFORMANCE PATCH
 // -------------------------------
 function applyPSPPerformanceTweak() { 
-  // UNIVERSAL PSP SPEEDUP PATCH (works even when api is undefined)
-  if ((window as any).EJS_core === "psp") {
-    console.log("[PSP] Applying universal speed uncap...");
+  
+if ((window as any).EJS_core !== "psp") return;
 
-    const w = window as any;
+  console.log("[PSP] Applying safe timing mode uncap...");
 
-    // Patch RAF to simulate a higher refresh rate
-    const originalRAF = w.requestAnimationFrame;
-
-    w.requestAnimationFrame = function (cb: any) {
-      // Run the callback *twice* per frame for ~120 Hz internal timing
-      originalRAF(() => cb(performance.now()));
-      return originalRAF(() => cb(performance.now()));
-    };
-
-    console.log("[PSP] RAF patched for double-speed timing");
-  } else {
-    console.log("[PSP] Not applying speed uncap (core is not PSP)");
+  // EmulatorJS exposes the module through window.EJS_emulator.module
+  const mod = (window as any).EJS_emulator?.module;
+  if (!mod) {
+    console.warn("[PSP] No EJS module found for timing patch");
+    return;
   }
+
+  try {
+    // 0 = RAF (vsync)
+    // 1 = setTimeout (uncapped)
+    if (mod._emscripten_set_main_loop_timing) {
+      mod._emscripten_set_main_loop_timing(1, 0); 
+      console.log("[PSP] Timing switched to setTimeout (uncapped)");
+    } else {
+      console.warn("[PSP] Timing function not available in this build");
+    }
+  } catch (err) {
+    console.warn("[PSP] Timing uncap failed:", err);
+  }
+
 }
