@@ -434,7 +434,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         this.scanAndTagVpadControls();
         this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
 
-        applyPSPPerformanceTweak(api);
+        applyPSPPerformanceTweak();
 
         // Moment you captured save function originally
         if (this.emulatorInstance?.saveState) {
@@ -2559,45 +2559,24 @@ const GENESIS_FORCE_THREE = new Set<string>([
 // -------------------------------
 // PSP PERFORMANCE PATCH
 // -------------------------------
-function applyPSPPerformanceTweak(api: any) {
+function applyPSPPerformanceTweak() { 
+  // UNIVERSAL PSP SPEEDUP PATCH (works even when api is undefined)
+  if ((window as any).EJS_core === "psp") {
+    console.log("[PSP] Applying universal speed uncap...");
 
-  try {
-    const core = (window as any).EJS_core || "";
-    if (core === "psp" || core === "ppsspp") {
-      console.log("[PSP] Applying classic PSP performance patch...");
+    const w = window as any;
 
-      // Classic PPSSPP APIs
-      const psp = api;
+    // Patch RAF to simulate a higher refresh rate
+    const originalRAF = w.requestAnimationFrame;
 
-      if (!psp) {
-        console.warn("[PSP] PSP API missing");
-      } else {
-        // 1) Remove throttle entirely
-        if ("setFastForwarding" in psp) {
-          psp.setFastForwarding(true);
-          console.log("[PSP] FastForwarding ON");
-        }
+    w.requestAnimationFrame = function (cb: any) {
+      // Run the callback *twice* per frame for ~120 Hz internal timing
+      originalRAF(() => cb(performance.now()));
+      return originalRAF(() => cb(performance.now()));
+    };
 
-        // 2) Increase emulation speed (200% recommended)
-        if ("setSpeed" in psp) {
-          psp.setSpeed(200); // 200% internal emulation speed
-          console.log("[PSP] Speed set to 200%");
-        }
-
-        // 3) Disable internal throttling systems if exposed
-        if ("throttle" in psp) {
-          psp.throttle = false;
-          console.log("[PSP] Internal throttle disabled");
-        }
-
-        // 4) Some builds expose maxFPS; try disabling limit
-        if ("maxFPS" in psp) {
-          psp.maxFPS = 0;
-          console.log("[PSP] maxFPS set to 0 (uncapped)");
-        }
-      }
-    }
-  } catch (err) {
-    console.warn("[PSP] Classic performance patch failed:", err);
+    console.log("[PSP] RAF patched for double-speed timing");
+  } else {
+    console.log("[PSP] Not applying speed uncap (core is not PSP)");
   }
 }
