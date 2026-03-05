@@ -1,5 +1,7 @@
 {
   "dependencies": {
+    "@emulatorjs/core-ppsspp": "^4.2.3",
+    "@emulatorjs/cores": "^4.2.3",
     "chart.js": "^4.4.3",
     "firebase": "^11.1.0",
     "ng2-charts": "^6.0.1",
