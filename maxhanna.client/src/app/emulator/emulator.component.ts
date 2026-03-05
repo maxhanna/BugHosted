@@ -428,28 +428,28 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     };
     this.applyEjsRunOptions();
     // If the build calls back with the instance, capture it early
-   
-window.EJS_ready = (api: any) => {
-  try {
-    this.scanAndTagVpadControls();
-    this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
 
-    applyPSPPerformanceTweak(api);
+    window.EJS_ready = (api: any) => {
+      try {
+        this.scanAndTagVpadControls();
+        this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
 
-    // Moment you captured save function originally
-    if (this.emulatorInstance?.saveState) {
-      this._saveFn = async () => {
-        try { await (this.emulatorInstance as any).saveState(); } catch {}
-      };
-    }
+        applyPSPPerformanceTweak(api);
 
-    this.ensureSaveStatePolyfill();
-  } catch {
-    console.warn('[EJS] EJS_ready callback failed');
-  }
+        // Moment you captured save function originally
+        if (this.emulatorInstance?.saveState) {
+          this._saveFn = async () => {
+            try { await (this.emulatorInstance as any).saveState(); } catch { }
+          };
+        }
 
-  try { this.onEmulatorReadyForSizing(); } catch { console.warn('[EJS] onEmulatorReadyForSizing failed'); }
-};
+        this.ensureSaveStatePolyfill();
+      } catch {
+        console.warn('[EJS] EJS_ready callback failed');
+      }
+
+      try { this.onEmulatorReadyForSizing(); } catch { console.warn('[EJS] onEmulatorReadyForSizing failed'); }
+    };
 
     // 6) Ensure CSS present once
     if (!document.querySelector('link[data-ejs-css="1"]')) {
@@ -2560,41 +2560,44 @@ const GENESIS_FORCE_THREE = new Set<string>([
 // PSP PERFORMANCE PATCH
 // -------------------------------
 function applyPSPPerformanceTweak(api: any) {
+
   try {
     const core = (window as any).EJS_core || "";
     if (core === "psp" || core === "ppsspp") {
-      console.log("[PSP] Applying performance patch (uncap speed + disable throttle)");
+      console.log("[PSP] Applying classic PSP performance patch...");
 
-      const psp = api?.ppsspp?._core;
-      if (psp) {
-        // Uncap speed: 2x recommended; 3x ok on fast CPUs
-        if (typeof psp.setSpeedFactor === "function") {
-          psp.setSpeedFactor(2.0);
-          console.log("[PSP] Speed factor set to 2.0x");
-        }
+      // Classic PPSSPP APIs
+      const psp = api;
 
-        // Disable FPS limit
-        if (typeof psp.setForceMaxFPS === "function") {
-          psp.setForceMaxFPS(0);
-          console.log("[PSP] Max FPS limit disabled");
-        }
-
-        // Aggressive frame skip helps low-end devices
-        if (typeof psp.setFrameskipType === "function") {
-          psp.setFrameskipType(2);
-          console.log("[PSP] Frameskip set to aggressive");
-        }
-
-        // Remove internal timing throttle
-        if (typeof psp.setVSync === "function") {
-          psp.setVSync(false);
-          console.log("[PSP] Internal vsync disabled (if supported)");
-        }
+      if (!psp) {
+        console.warn("[PSP] PSP API missing");
       } else {
-        console.warn("[PSP] Could not find PPSSPP _core to apply performance patch");
+        // 1) Remove throttle entirely
+        if ("setFastForwarding" in psp) {
+          psp.setFastForwarding(true);
+          console.log("[PSP] FastForwarding ON");
+        }
+
+        // 2) Increase emulation speed (200% recommended)
+        if ("setSpeed" in psp) {
+          psp.setSpeed(200); // 200% internal emulation speed
+          console.log("[PSP] Speed set to 200%");
+        }
+
+        // 3) Disable internal throttling systems if exposed
+        if ("throttle" in psp) {
+          psp.throttle = false;
+          console.log("[PSP] Internal throttle disabled");
+        }
+
+        // 4) Some builds expose maxFPS; try disabling limit
+        if ("maxFPS" in psp) {
+          psp.maxFPS = 0;
+          console.log("[PSP] maxFPS set to 0 (uncapped)");
+        }
       }
     }
-  } catch (e) {
-    console.warn("[PSP] Failed to apply PSP performance patch", e);
+  } catch (err) {
+    console.warn("[PSP] Classic performance patch failed:", err);
   }
 }
