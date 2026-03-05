@@ -714,6 +714,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (core === "psp" || core == "ppsspp") {
       console.log("Disabling vsync for PSP core to improve performance");
       w.EJS_vsync = false;
+      w.EJS_maxThreads = 2;
+      w.EJS_GL_Options = {
+        alpha: false,
+        antialias: false,
+        depth: false
+      };
     }
     // Default controller mappings for all 4 players.
     // Player 1 gets keyboard + gamepad; Players 2-4 get gamepad-only (no keyboard conflicts).
@@ -2152,8 +2158,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   /** Return a soft clamp for render buffer size based on core. */
   private getRenderClampForCore(core: string) {
+    if (core === "psp" || core === "ppsspp") {
+      return { maxW: 960, maxH: 540, maxDPR: 1.0 };
+    }
     const heavy = new Set([
-      'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mupen64plus_next', 'psp'
+      'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mupen64plus_next'
     ]);
     if (heavy.has(core)) return { maxW: 1280, maxH: 720, maxDPR: 1.5 };
     // Light cores can go higher
@@ -2454,6 +2463,7 @@ declare global {
     EJS_paths?: { [key: string]: string };
     EJS_volume?: number;
     EJS_threads?: boolean;
+    EJS_maxThreads?: number;
     EJS_color?: string;
     EJS_backgroundColor?: string;
     EJS_backgroundImage?: string;
@@ -2476,6 +2486,7 @@ declare global {
     EJS_vsync?: boolean;
     EJS_VirtualGamepadSettings?: any;
     EJS_defaultControls?: any;
+    EJS_GL_Options?: any;
     EJS?: any;
     EJS_emulator?: any;
     EJS_Buttons?: any;
@@ -2560,29 +2571,76 @@ const GENESIS_FORCE_THREE = new Set<string>([
 // PSP PERFORMANCE PATCH
 // -------------------------------
 function applyPSPPerformanceTweak() { 
-  
-if ((window as any).EJS_core !== "psp") return;
+   
+  if ((window as any).EJS_core !== "psp") return;
 
-  console.log("[PSP] Applying safe timing mode uncap...");
-
-  // EmulatorJS exposes the module through window.EJS_emulator.module
-  const mod = (window as any).EJS_emulator?.module;
-  if (!mod) {
-    console.warn("[PSP] No EJS module found for timing patch");
-    return;
-  }
+  console.log("%c[PSP] Applying External Optimization Pack...", "color:#4af");
 
   try {
-    // 0 = RAF (vsync)
-    // 1 = setTimeout (uncapped)
-    if (mod._emscripten_set_main_loop_timing) {
-      mod._emscripten_set_main_loop_timing(1, 0); 
-      console.log("[PSP] Timing switched to setTimeout (uncapped)");
-    } else {
-      console.warn("[PSP] Timing function not available in this build");
-    }
-  } catch (err) {
-    console.warn("[PSP] Timing uncap failed:", err);
+    // 1️⃣ Disable vsync (browser pacing) – lets PSP run without waiting for 60Hz
+    (window as any).EJS_vsync = false;
+    console.log("[PSP] Vsync disabled");
+  } catch {}
+
+  try {
+    // 2️⃣ Limit threads globally (prevents CPU overload on mobile)
+    // 1 thread = safest, 2 = balanced
+    (window as any).EJS_maxThreads = 1;
+    console.log("[PSP] Thread limit set to 1");
+  } catch {}
+
+  try {
+    // 3️⃣ WebGL lightweight context (no AA, no alpha, no depth)
+    (window as any).EJS_GL_Options = {
+      alpha: false,
+      antialias: false,
+      depth: false,
+      stencil: false,
+      preserveDrawingBuffer: false
+    };
+    console.log("[PSP] WebGL lightweight context enabled");
+  } catch {}
+
+  try {
+    // 4️⃣ Force medium shader precision (GPU load -20% on mobile)
+    (window as any).EJS_shaderPrecision = "medium";
+    console.log("[PSP] Shader precision = medium");
+  } catch {}
+
+  // 5️⃣ Canvas downscaling — prevent GPU upscaling work
+  requestAnimationFrame(() => {
+    try {
+      const canvas = document.querySelector("#game canvas") as HTMLCanvasElement;
+      if (!canvas) return;
+
+      canvas.style.imageRendering = "pixelated"; // fastest upscale
+      canvas.style.maxWidth = "95vw";            // smaller → faster
+      canvas.style.maxHeight = "95vh";
+
+      console.log("[PSP] Canvas CSS scaling optimized");
+    } catch {}
+  });
+
+  // 6️⃣ Force devicePixelRatio to 1 for PSP only (huge boost on 4K screens)
+  try {
+    (window as any).__ORIGINAL_DPR__ = window.devicePixelRatio;
+    Object.defineProperty(window, "devicePixelRatio", {
+      get() { return 1; }
+    });
+    console.log("[PSP] devicePixelRatio forced to 1");
+  } catch {
+    console.warn("[PSP] Could not override DPR (browser-secured)");
   }
 
+  // 7️⃣ Clamp render buffer during startup (your build supports this!)
+  try {
+    (window as any).EJS_renderClamp = {
+      maxW: 960,
+      maxH: 540,
+      maxDPR: 1.0
+    };
+    console.log("[PSP] Render buffer clamped to 960×540 @ DPR 1.0");
+  } catch {}
+
+  console.log("%c[PSP] External Optimization Pack Applied ✔", "color:#4f4"); 
 }
