@@ -702,6 +702,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (systemIcon) {
       w.EJS_backgroundImage = systemIcon; // Sets the background color for the emulator    
     }
+    const core = this.detectCore(this.romName ?? '');
+    if (core === "psp" || core == "ppsspp") {
+      w.EJS_vsync = false;
+    }
     // Default controller mappings for all 4 players.
     // Player 1 gets keyboard + gamepad; Players 2-4 get gamepad-only (no keyboard conflicts).
     const gpOnly: Record<number, unknown> = {
@@ -764,9 +768,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       2: { ...gpOnly },
       3: { ...gpOnly },
     };
-    w.EJS_DEBUG_XX = false;             // debug options 
-    w.EJS_logCoreInfo = false;          // debug options 
-    w.EJS_logVideo = false;             // debug options 
+    w.EJS_DEBUG_XX = true;             // debug options 
+    w.EJS_logCoreInfo = true;          // debug options 
+    w.EJS_logVideo = true;             // debug options 
     w.EJS_logAudio = false;             // debug options 
     w.EJS_logInput = false;             // debug options 
     w.EJS_logSaves = false;             // debug options 
@@ -2460,6 +2464,7 @@ declare global {
     EJS_logVideo?: boolean;
     EJS_logAudio?: boolean;
     EJS_logInput?: boolean;
+    EJS_vsync?: boolean;
     EJS_VirtualGamepadSettings?: any;
     EJS_defaultControls?: any;
     EJS?: any;
