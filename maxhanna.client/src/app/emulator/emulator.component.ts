@@ -428,20 +428,28 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     };
     this.applyEjsRunOptions();
     // If the build calls back with the instance, capture it early
-    window.EJS_ready = (api: any) => {
-      try {
-        this.scanAndTagVpadControls();
-        // console.log('EJS_ready: vpad readback=', window.EJS_VirtualGamepadSettings);
+   
+window.EJS_ready = (api: any) => {
+  try {
+    this.scanAndTagVpadControls();
+    this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
 
-        this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
-        if (this.emulatorInstance?.saveState) {
-          this._saveFn = async () => { try { await (this.emulatorInstance as any).saveState(); } catch { } };
-        }
-        //console.log('[EJS] instance ready hook fired, has saveState?', !!this._saveFn);
-        this.ensureSaveStatePolyfill();
-      } catch { console.warn('[EJS] EJS_ready callback failed'); }
-      try { this.onEmulatorReadyForSizing(); } catch { console.warn('[EJS] onEmulatorReadyForSizing failed'); }
-    };
+    applyPSPPerformanceTweak(api);
+
+    // Moment you captured save function originally
+    if (this.emulatorInstance?.saveState) {
+      this._saveFn = async () => {
+        try { await (this.emulatorInstance as any).saveState(); } catch {}
+      };
+    }
+
+    this.ensureSaveStatePolyfill();
+  } catch {
+    console.warn('[EJS] EJS_ready callback failed');
+  }
+
+  try { this.onEmulatorReadyForSizing(); } catch { console.warn('[EJS] onEmulatorReadyForSizing failed'); }
+};
 
     // 6) Ensure CSS present once
     if (!document.querySelector('link[data-ejs-css="1"]')) {
@@ -704,6 +712,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
     const core = this.detectCore(this.romName ?? '');
     if (core === "psp" || core == "ppsspp") {
+      console.log("Disabling vsync for PSP core to improve performance");
       w.EJS_vsync = false;
     }
     // Default controller mappings for all 4 players.
@@ -2546,3 +2555,46 @@ const GENESIS_FORCE_THREE = new Set<string>([
   "golden-axe-ii",
   "ms-pac-man"
 ]);
+
+// -------------------------------
+// PSP PERFORMANCE PATCH
+// -------------------------------
+function applyPSPPerformanceTweak(api: any) {
+  try {
+    const core = (window as any).EJS_core || "";
+    if (core === "psp" || core === "ppsspp") {
+      console.log("[PSP] Applying performance patch (uncap speed + disable throttle)");
+
+      const psp = api?.ppsspp?._core;
+      if (psp) {
+        // Uncap speed: 2x recommended; 3x ok on fast CPUs
+        if (typeof psp.setSpeedFactor === "function") {
+          psp.setSpeedFactor(2.0);
+          console.log("[PSP] Speed factor set to 2.0x");
+        }
+
+        // Disable FPS limit
+        if (typeof psp.setForceMaxFPS === "function") {
+          psp.setForceMaxFPS(0);
+          console.log("[PSP] Max FPS limit disabled");
+        }
+
+        // Aggressive frame skip helps low-end devices
+        if (typeof psp.setFrameskipType === "function") {
+          psp.setFrameskipType(2);
+          console.log("[PSP] Frameskip set to aggressive");
+        }
+
+        // Remove internal timing throttle
+        if (typeof psp.setVSync === "function") {
+          psp.setVSync(false);
+          console.log("[PSP] Internal vsync disabled (if supported)");
+        }
+      } else {
+        console.warn("[PSP] Could not find PPSSPP _core to apply performance patch");
+      }
+    }
+  } catch (e) {
+    console.warn("[PSP] Failed to apply PSP performance patch", e);
+  }
+}
