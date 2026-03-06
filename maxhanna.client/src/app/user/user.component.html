@@ -189,27 +189,29 @@
               {{loginReasonMessage ? loginReasonMessage : "Remember to log in to save your progress!"}}
             </div>
 
-            <div class="loginDiv">
-              <input type="text" 
-                id="loginInput" 
-                placeholder="Username" 
-                #loginUsername 
+            <form class="loginDiv" (submit)="login()" #loginForm="ngForm">
+              <input type="text"
+                id="loginInput"
+                name="username"
+                placeholder="Username"
+                #loginUsername
                 (input)="onLoginUsernameInput($event)"
                 (keydown.enter)="login()"
                 [disabled]="isLoading" />
-              <input type="password" 
-                id="passwordInput" 
-                placeholder="Password" 
+              <input type="password"
+                id="passwordInput"
+                name="password"
+                placeholder="Password"
                 #loginPassword
-                (keydown.enter)="login()" 
+                (keydown.enter)="login()"
                 [disabled]="isLoading"/>
               <div>
-                <input type="submit" value="🔑 Login" (click)="login()" [disabled]="isLoading" />
-                <input type="submit" value="👤➕ Create User" (click)="createUser()" [disabled]="isLoading" />
-                <input type="submit" value="👤➕ Guest" (click)="createUser(true)" [disabled]="isLoading" />
+                <input type="submit" value="🔑 Login" [disabled]="isLoading" />
+                <input type="button" value="👤➕ Create User" (click)="createUser()" [disabled]="isLoading" />
+                <input type="button" value="👤➕ Guest" (click)="createUser(true)" [disabled]="isLoading" />
                 <input *ngIf="(loginUsernameValue ?? '').length > 0" type="button" value="🔐 Reset Password" (click)="fetchSecurityQuestionsForUsername()" [disabled]="isLoading" />
               </div>
-            </div>
+            </form>
           </div>
           <div *ngIf="showSecurityQuestionsPanel" class="securityQuestionsPanel" style="margin-top:10px;">
             <div class="popupPanelTitle">Answer Security Questions</div>
