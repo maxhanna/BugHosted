@@ -779,7 +779,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         'ppsspp_skip_gpu_readbacks':      'disabled',
         'ppsspp_lazy_texture_caching':    'enabled',
         'ppsspp_disable_range_culling':   'disabled',
-        'ppsspp_lower_resolution_for_effects': 'disabled',
+        'ppsspp_lower_resolution_for_effects': 'balanced',
 
         // Texture quality — all minimum
         'ppsspp_texture_anisotropic_filtering': 'disabled',
@@ -798,7 +798,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         // Rendering pipeline
         'ppsspp_gpu_hardware_transform':  'enabled',
         'ppsspp_software_skinning':       'enabled',
-        'ppsspp_inflight_frames':         'Up to 2',
+        'ppsspp_inflight_frames':         'Up to 1',
         'ppsspp_detect_vsync_swap_interval':'disabled',
         'ppsspp_backend':                 'auto',
         'ppsspp_mulitsample_level':       'Disabled',
@@ -898,7 +898,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const w = window as any;
     if (typeof w.EJS_saveState === 'function') return;
 
-    const gm = (this.emulatorInstance || w.EJS_emulator || w.EJS)?.gameManager;
+
+    const ejs = (window as any).EJS_emulator || (window as any).EJS;
+    const gm = ejs?.gameManager || (window as any).EJS_GameManager;
     if (gm && typeof gm.getState === 'function') {
       w.EJS_saveState = async () => {
         const bytes = await Promise.resolve(gm.getState());
@@ -1027,8 +1029,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private async postSaveCaptureAndUpload(): Promise<boolean> {
     try {
       const w = window as any;
-      const gm = (this.emulatorInstance || w.EJS_emulator || w.EJS)?.gameManager;
-
+      const ejs = (window as any).EJS_emulator || (window as any).EJS;
+      const gm = ejs?.gameManager || (window as any).EJS_GameManager; 
       // Prefer EJS_saveState if present (native or polyfilled)
       if (typeof w.EJS_saveState === 'function') {
         const u8: Uint8Array = await w.EJS_saveState();
@@ -2253,8 +2255,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   /** Return a soft clamp for render buffer size based on core. */
   private getRenderClampForCore(core: string) {
-    if (core === "psp" || core === "ppsspp") {
-      return { maxW: 960, maxH: 540, maxDPR: 1.0 };
+    if (core === "psp" || core === "ppsspp") { 
+    return { maxW: 640, maxH: 360, maxDPR: 1.0 };
     }
     const heavy = new Set([
       'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mupen64plus_next'
@@ -2580,10 +2582,18 @@ private async onEmulatorReadyForSizing() {
     }
   }
 
+private async stabilizePspCanvasSize(ms = 2000) {
+  const start = performance.now();
+  while (performance.now() - start < ms) {
+    this.resizeCanvasBuffer();     // your clamp
+    await new Promise(r => setTimeout(r, 100));
+  }
+}
+
   applyPSPPerformanceTweak() {
     const core = (window as any).EJS_core;
     if (core !== 'psp' && core !== 'ppsspp') return;
-
+setTimeout(() => { void this.stabilizePspCanvasSize(2000); }, 500);
     console.log('%c[PSP] Applying post-boot performance tweaks…', 'color:#4af');
 
     // 1️⃣ Canvas downscaling — prevent GPU upscaling work
@@ -2618,12 +2628,9 @@ private async onEmulatorReadyForSizing() {
     try {
       const emu = (window as any).EJS_emulator ?? this.emulatorInstance;
       
-      const gm =
-        window.EJS_emulator?.gameManager ||
-        window.EJS?.gameManager ||
-        window.EJS?.EJS?.gameManager ||
-        window.EJS_GameManager ||               // sometimes exposed
-        window.__EJS__?.gameManager;            // rare, depends on wrapper
+      const ejs = (window as any).EJS_emulator || (window as any).EJS;
+      const gm = ejs?.gameManager || (window as any).EJS_GameManager;
+
 
       if (gm) {
         // Fast-forward: removes all artificial frame-pacing / sleep between frames
@@ -2654,6 +2661,9 @@ private async onEmulatorReadyForSizing() {
           gm.setVariable('ppsspp_texture_filtering', 'Nearest');
           gm.setVariable('ppsspp_spline_quality', 'Low');
           gm.setVariable('ppsspp_cache_iso', 'enabled');
+
+          gm.setVariable('ppsspp_lower_resolution_for_effects', 'Balanced');
+          gm.setVariable('ppsspp_inflight_frames', 'Up to 1');
           console.log('[PSP] Core variables pushed via gameManager');
         }
       }
