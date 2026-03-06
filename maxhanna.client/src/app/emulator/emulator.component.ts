@@ -748,16 +748,17 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       // ── PPSSPP performance-critical core options ──
       // These MUST be set before loader.js runs so the core starts with them.
       w.EJS_defaultOptions = {
-        // CPU — interpreter is the only option in WASM, but fast-memory helps
-        'ppsspp_cpu_core':                'Interpreter',
+        // CPU — IR Interpreter is significantly faster than plain Interpreter in WASM
+        // (JIT is unavailable in WASM; IR Interpreter compiles to intermediate representation first)
+        'ppsspp_cpu_core':                'IR Interpreter',
         'ppsspp_fast_memory':             'enabled',
         'ppsspp_ignore_bad_memory_access':'enabled',
         'ppsspp_io_timing_method':        'Fast',
         'ppsspp_force_lag_sync':          'disabled',
-        'ppsspp_locked_cpu_speed':        'disabled',
+        'ppsspp_locked_cpu_speed':        '222MHz',   // prevent games from boosting to 333MHz — reduces emulation work
 
         // Frameskip — essential for playable speed in software rendering
-        'ppsspp_frameskip':               '1',
+        'ppsspp_frameskip':               '3',        // skip 3 of every 4 frames for max speed
         'ppsspp_frameskiptype':           'Number of frames',
         'ppsspp_auto_frameskip':          'enabled',
         'ppsspp_frame_duplication':        'enabled',
@@ -771,7 +772,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         'ppsspp_skip_gpu_readbacks':      'disabled',   // can cause visual glitches in GTA LCS
         'ppsspp_lazy_texture_caching':    'enabled',
         'ppsspp_disable_range_culling':   'disabled',
-        'ppsspp_lower_resolution_for_effects': 'Off',    // valid values: Off, 1/2, 1/4, 1/8
+        'ppsspp_lower_resolution_for_effects': 'disabled',
 
         // Texture quality — drop to minimum for speed
         'ppsspp_texture_anisotropic_filtering': 'disabled',
@@ -2568,7 +2569,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         ?? (window as any).EJS_emulator?.gameManager
         ?? (window as any).EJS?.gameManager;
       if (gm && typeof gm.setVariable === 'function') {
-        gm.setVariable('ppsspp_frameskip', '1');
+        gm.setVariable('ppsspp_cpu_core', 'IR Interpreter');
+        gm.setVariable('ppsspp_locked_cpu_speed', '222MHz');
+        gm.setVariable('ppsspp_frameskip', '3');
         gm.setVariable('ppsspp_auto_frameskip', 'enabled');
         gm.setVariable('ppsspp_skip_buffer_effects', 'disabled');
         gm.setVariable('ppsspp_skip_gpu_readbacks', 'disabled');
@@ -2576,7 +2579,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         gm.setVariable('ppsspp_texture_anisotropic_filtering', 'disabled');
         gm.setVariable('ppsspp_texture_filtering', 'Nearest');
         gm.setVariable('ppsspp_spline_quality', 'Low');
-        gm.setVariable('ppsspp_lower_resolution_for_effects', 'Off');
+        gm.setVariable('ppsspp_lower_resolution_for_effects', 'disabled');
         gm.setVariable('ppsspp_cache_iso', 'enabled');
         console.log('[PSP] Runtime core variables pushed via gameManager');
       }
