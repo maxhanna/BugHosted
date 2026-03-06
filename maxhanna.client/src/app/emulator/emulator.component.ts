@@ -144,73 +144,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   segaShowLR = true;       // show L/R pills on Genesis when desired
   status: string = 'Idle';
   preferSixButtonGenesis: boolean = true;
-  loadWithoutSave = false;
-  // Centralized PSP performance/options map — used by both run-time defaults
-  // and post-boot tweaks so there is a single source of truth.
-  private readonly PSP_DEFAULT_OPTIONS: Record<string, string> = {
-    // EmulatorJS-level speed settings
-    // 'fastForward':                    'enabled',
-    // 'ff-ratio':                       'unlimited',
-    'vsync':                          'disabled',
-
-    // PPSSPP core options
-    'ppsspp_cpu_core':                'JIT',
-    // 'ppsspp_fast_memory':             'enabled',
-    // 'ppsspp_ignore_bad_memory_access':'enabled',
-    // 'ppsspp_io_timing_method':        'Fast',
-    // 'ppsspp_force_lag_sync':          'disabled',
-    'ppsspp_locked_cpu_speed':        '333MHz',
-
-    // Frameskip
-    // 'ppsspp_frameskip':               '5',
-    // 'ppsspp_frameskiptype':           'Number of frames',
-    // 'ppsspp_auto_frameskip':          'enabled',
-    // 'ppsspp_frame_duplication':       'enabled',
-
-    // Resolution
-    'ppsspp_internal_resolution':     '480x272',
-    'ppsspp_software_rendering':      'disabled',
-
-    // GPU shortcuts
-    // 'ppsspp_skip_buffer_effects':     'disabled',
-    // 'ppsspp_skip_gpu_readbacks':      'disabled',
-    // 'ppsspp_lazy_texture_caching':    'enabled',
-    // 'ppsspp_disable_range_culling':   'disabled',
-    // 'ppsspp_lower_resolution_for_effects': 'disabled',
-
-    // Texture quality
-    // 'ppsspp_texture_anisotropic_filtering': 'disabled',
-    // 'ppsspp_texture_filtering':       'Nearest',
-    // 'ppsspp_texture_scaling_level':   'disabled',
-    // 'ppsspp_texture_scaling_type':    'xbrz',
-    // 'ppsspp_texture_deposterize':     'disabled',
-    // 'ppsspp_texture_shader':          'disabled',
-    // 'ppsspp_smart_2d_texture_filtering':'disabled',
-    // 'ppsspp_texture_replacement':     'disabled',
-
-    // Spline / tesselation
-    // 'ppsspp_spline_quality':          'Low',
-    // 'ppsspp_hardware_tesselation':    'disabled',
-
-    // Rendering pipeline
-    // 'ppsspp_gpu_hardware_transform':  'enabled',
-    // 'ppsspp_software_skinning':       'enabled',
-    // 'ppsspp_inflight_frames':         'Up to 2',
-    // 'ppsspp_detect_vsync_swap_interval':'disabled',
-    // 'ppsspp_backend':                 'auto',
-    // 'ppsspp_mulitsample_level':       'Disabled',
-    // 'ppsspp_cropto16x9':              'enabled',
-
-    // Misc
-    // 'ppsspp_memstick_inserted':       'enabled',
-    // 'ppsspp_cache_iso':               'enabled',
-    // 'ppsspp_cheats':                  'disabled',
-    // 'ppsspp_psp_model':               'psp_2000_3000',
-    // 'ppsspp_language':                'Automatic',
-    // 'ppsspp_button_preference':       'Cross',
-    // 'ppsspp_analog_is_circular':      'disabled',
-    // 'ppsspp_enable_wlan':             'disabled',
-  };
+  loadWithoutSave = false; 
   private autosaveInterval: any;
   private romObjectUrl?: string;
   private emulatorInstance?: any;
@@ -838,7 +772,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       // ── PPSSPP performance-critical core options ──
       // These MUST be set before loader.js runs so the core starts with them.
         // Use the centralized map so tests/tweaks remain in a single place.
-        w.EJS_defaultOptions = Object.assign({}, this.PSP_DEFAULT_OPTIONS);
+        w.EJS_defaultOptions = Object.assign({}, PSP_DEFAULT_OPTIONS);
       w.EJS_defaultOptionsForce = true; // force our perf defaults over any saved prefs
     }
     // Default controller mappings for all 4 players.
@@ -2672,7 +2606,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
 
       if (gm) {
-        const opts = this.PSP_DEFAULT_OPTIONS;
+        const opts = PSP_DEFAULT_OPTIONS;
         // fast-forward ratio
         if (typeof gm.setFastForwardRatio === 'function') {
           try {
@@ -2835,3 +2769,68 @@ const GENESIS_FORCE_THREE = new Set<string>([
   "golden-axe-ii",
   "ms-pac-man"
 ]); 
+
+const PSP_DEFAULT_OPTIONS: Record<string, string> = {
+    // EmulatorJS-level speed settings
+    // 'fastForward':                    'enabled',
+    // 'ff-ratio':                       'unlimited',
+    'vsync':                          'disabled',
+
+    // PPSSPP core options
+    'ppsspp_cpu_core':                'JIT',
+    // 'ppsspp_fast_memory':             'enabled',
+    // 'ppsspp_ignore_bad_memory_access':'enabled',
+    // 'ppsspp_io_timing_method':        'Fast',
+    // 'ppsspp_force_lag_sync':          'disabled',
+    'ppsspp_locked_cpu_speed':        '333MHz',
+
+    // Frameskip
+    // 'ppsspp_frameskip':               '5',
+    // 'ppsspp_frameskiptype':           'Number of frames',
+    // 'ppsspp_auto_frameskip':          'enabled',
+    // 'ppsspp_frame_duplication':       'enabled',
+
+    // Resolution
+    'ppsspp_internal_resolution':     '480x272',
+    'ppsspp_software_rendering':      'disabled',
+
+    // GPU shortcuts
+    // 'ppsspp_skip_buffer_effects':     'disabled',
+    // 'ppsspp_skip_gpu_readbacks':      'disabled',
+    // 'ppsspp_lazy_texture_caching':    'enabled',
+    // 'ppsspp_disable_range_culling':   'disabled',
+    // 'ppsspp_lower_resolution_for_effects': 'disabled',
+
+    // Texture quality
+    // 'ppsspp_texture_anisotropic_filtering': 'disabled',
+    // 'ppsspp_texture_filtering':       'Nearest',
+    // 'ppsspp_texture_scaling_level':   'disabled',
+    // 'ppsspp_texture_scaling_type':    'xbrz',
+    // 'ppsspp_texture_deposterize':     'disabled',
+    // 'ppsspp_texture_shader':          'disabled',
+    // 'ppsspp_smart_2d_texture_filtering':'disabled',
+    // 'ppsspp_texture_replacement':     'disabled',
+
+    // Spline / tesselation
+    // 'ppsspp_spline_quality':          'Low',
+    // 'ppsspp_hardware_tesselation':    'disabled',
+
+    // Rendering pipeline
+    // 'ppsspp_gpu_hardware_transform':  'enabled',
+    // 'ppsspp_software_skinning':       'enabled',
+    // 'ppsspp_inflight_frames':         'Up to 2',
+    // 'ppsspp_detect_vsync_swap_interval':'disabled',
+    // 'ppsspp_backend':                 'auto',
+    // 'ppsspp_mulitsample_level':       'Disabled',
+    // 'ppsspp_cropto16x9':              'enabled',
+
+    // Misc
+    // 'ppsspp_memstick_inserted':       'enabled',
+    // 'ppsspp_cache_iso':               'enabled',
+    // 'ppsspp_cheats':                  'disabled',
+    // 'ppsspp_psp_model':               'psp_2000_3000',
+    // 'ppsspp_language':                'Automatic',
+    // 'ppsspp_button_preference':       'Cross',
+    // 'ppsspp_analog_is_circular':      'disabled',
+    // 'ppsspp_enable_wlan':             'disabled',
+  };
