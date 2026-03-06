@@ -762,7 +762,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         'ppsspp_ignore_bad_memory_access':'enabled',
         'ppsspp_io_timing_method':        'Fast',
         'ppsspp_force_lag_sync':          'disabled',
-        'ppsspp_locked_cpu_speed':        '222MHz',
+        'ppsspp_locked_cpu_speed':        '333MHz',
 
         // Frameskip — render only every 6th frame; auto_frameskip can go higher when needed
         'ppsspp_frameskip':               '0',
