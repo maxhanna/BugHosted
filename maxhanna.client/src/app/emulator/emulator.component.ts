@@ -724,7 +724,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       w.EJS_GL_Options = {
         alpha: false,
         antialias: false,
-        depth: false
+        depth: true
       };
 
       // ── Force our defaults by disabling localStorage for PSP ──
@@ -757,7 +757,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
         // ── PPSSPP core options ──
         // CPU — only 'Interpreter' is available in this WASM build (JIT/IR not compiled in)
-        'ppsspp_cpu_core':                'IR Interpreter',
+        'ppsspp_cpu_core':                'IR JIT',
         'ppsspp_fast_memory':             'enabled',
         'ppsspp_ignore_bad_memory_access':'enabled',
         'ppsspp_io_timing_method':        'Fast',
@@ -765,7 +765,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         'ppsspp_locked_cpu_speed':        '333MHz',
 
         // Frameskip — render only every 6th frame; auto_frameskip can go higher when needed
-        'ppsspp_frameskip':               '0',
+        'ppsspp_frameskip':               'disabled',
         'ppsspp_frameskiptype':           'Number of frames',
         'ppsspp_auto_frameskip':          'enabled',
         'ppsspp_frame_duplication':        'disabled',
@@ -2596,9 +2596,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     //    (these are EJS-level controls, not core variables — must use the direct methods)
     try {
       const emu = (window as any).EJS_emulator ?? this.emulatorInstance;
-      const gm = emu?.gameManager
-        ?? (window as any).EJS_emulator?.gameManager
-        ?? (window as any).EJS?.gameManager;
+      
+      const gm =
+        window.EJS_emulator?.gameManager ||
+        window.EJS?.gameManager ||
+        window.EJS?.EJS?.gameManager ||
+        window.EJS_GameManager ||               // sometimes exposed
+        window.__EJS__?.gameManager;            // rare, depends on wrapper
+
       if (gm) {
         // Fast-forward: removes all artificial frame-pacing / sleep between frames
         if (typeof gm.setFastForwardRatio === 'function') {
@@ -2616,10 +2621,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         }
         // Push core variables
         if (typeof gm.setVariable === 'function') {
-          gm.setVariable('ppsspp_cpu_core', 'IR Interpreter');
+          gm.setVariable('ppsspp_cpu_core', 'IR JIT');
           gm.setVariable('ppsspp_locked_cpu_speed', '333MHz'); 
 
-          gm.setVariable('ppsspp_frameskip', '1');              // or 0 if you can
+          gm.setVariable('ppsspp_frameskip', 'disabled');              // or 0 if you can
           gm.setVariable('ppsspp_auto_frameskip', 'enabled');   // ok
           gm.setVariable('ppsspp_frame_duplication', 'disabled');
 
@@ -2685,6 +2690,8 @@ declare global {
     EJS?: any;
     EJS_emulator?: any;
     EJS_Buttons?: any;
+    EJS_GameManager?: any;
+    __EJS__?: any;
     EJS_afterStart?: () => void;
     EJS_ready?: (api: any) => void;
   }
