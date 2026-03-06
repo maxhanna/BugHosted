@@ -780,7 +780,7 @@ private async waitForGameManager(maxMs = 5000) {
         'ppsspp_locked_cpu_speed': '333MHz',
 
         // Frameskip — render only every 6th frame; auto_frameskip can go higher when needed
-        'ppsspp_frameskip': 'disabled',
+        'ppsspp_frameskip': '1',
         'ppsspp_frameskiptype': 'Number of frames',
         'ppsspp_auto_frameskip': 'enabled',
         'ppsspp_frame_duplication': 'disabled',
@@ -791,7 +791,7 @@ private async waitForGameManager(maxMs = 5000) {
 
         // GPU shortcuts
         'ppsspp_skip_buffer_effects': 'enabled',
-        'ppsspp_skip_gpu_readbacks': 'disabled',
+        'ppsspp_skip_gpu_readbacks': 'enabled',
         'ppsspp_lazy_texture_caching': 'enabled',
         'ppsspp_disable_range_culling': 'disabled',
         'ppsspp_lower_resolution_for_effects': 'Balanced',
@@ -2668,9 +2668,11 @@ const gm = await this.waitForGameManager(5000);
           gm.setVariable('ppsspp_cpu_core', 'JIT');
           gm.setVariable('ppsspp_locked_cpu_speed', '333MHz');
 
-          gm.setVariable('ppsspp_frameskip', 'disabled');              // or 0 if you can
-          gm.setVariable('ppsspp_auto_frameskip', 'enabled');   // ok
-          gm.setVariable('ppsspp_frame_duplication', 'disabled');
+
+gm.setVariable('ppsspp_frameskip', '1');
+gm.setVariable('ppsspp_auto_frameskip', 'enabled');
+gm.setVariable('ppsspp_frame_duplication', 'disabled');
+
 
           gm.setVariable('ppsspp_lazy_texture_caching', 'enabled');
           gm.setVariable('ppsspp_texture_anisotropic_filtering', 'disabled');
