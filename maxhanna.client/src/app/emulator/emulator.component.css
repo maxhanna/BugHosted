@@ -29,8 +29,8 @@
 #game canvas {
   width: 100% !important;
   height: 100% !important;
-  max-height: 480px;
-  max-width: 272px;
+  max-height: 480px !important;
+  max-width: 272px !important;
   display: block;
   object-fit: contain;
   image-rendering: pixelated;
