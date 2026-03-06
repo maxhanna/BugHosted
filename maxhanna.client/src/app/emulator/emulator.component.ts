@@ -795,7 +795,7 @@ private async waitForGameManager(maxMs = 5000) {
         'ppsspp_software_rendering': 'disabled',
 
         // GPU shortcuts
-        'ppsspp_skip_buffer_effects': 'enabled',
+        'ppsspp_skip_buffer_effects': 'disabled',
         'ppsspp_skip_gpu_readbacks': 'disabled',
         'ppsspp_lazy_texture_caching': 'enabled',
         'ppsspp_disable_range_culling': 'disabled',
