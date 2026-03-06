@@ -152,7 +152,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private _pendingSaveTimer?: any;
   private _captureSaveResolve?: (u8: Uint8Array | null) => void;
   private _gameSizeObs?: ResizeObserver;
- // private _gameAttrObs?: MutationObserver;
+  // private _gameAttrObs?: MutationObserver;
   private _saveFn?: () => Promise<void>;
   private _lastSaveTime: number = 0;
   private _saveInProgress: boolean = false;
@@ -396,9 +396,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.autosaveIntervalTime = 3 * 60 * 1000; // default 3 minutes
     }
     window.EJS_player = "#game";
-    window.EJS_pathtodata = "/assets/emulatorjs/data/";
-    window.EJS_coreUrl = "/assets/emulatorjs/data/cores/";
 
+    if (core === 'psp' || core === 'ppsspp') {
+      window.EJS_pathtodata = "https://cdn.emulatorjs.org/stable/data/";
+      window.EJS_coreUrl = "https://cdn.emulatorjs.org/stable/data/cores/";
+    } else {
+      window.EJS_pathtodata = "/assets/emulatorjs/data/";
+      window.EJS_coreUrl = "/assets/emulatorjs/data/cores/";
+    }
     // ❗ BIOS: set ONLY if required by the selected core; otherwise blank
     window.EJS_biosUrl = this.getBiosUrlForCore(core) ?? "";  // <— key fix
     window.EJS_softLoad = false; // TEMP: ensure full boot path for every run
@@ -434,7 +439,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       try {
         this.scanAndTagVpadControls();
         this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
-  
+
         console.log("[EJS] ready api:", api);
         console.log("[EJS] core:", window.EJS_core);
         console.log("[EJS] gameManager:", api?.gameManager);
@@ -534,8 +539,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       restart: false,
       mute: false,
       settings: false,
-      fullscreen: false,
-      quit: false,
+      fullscreen: false, 
       saveState: false,
       loadState: false,
       screenRecord: false,
@@ -751,68 +755,68 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         // ── EmulatorJS-level speed settings (handled by handleSpecialOptions) ──
         // Fast-forward removes ALL artificial frame pacing — critical because
         // the SW renderer already runs far below real-time, so any waiting is wasted.
-        'fastForward':                    'disabled',
-        'ff-ratio':                       '1.0',  // uncapped speed
-        'vsync':                          'disabled',   // don't sync to display refresh
+        'fastForward': 'disabled',
+        'ff-ratio': '1.0',  // uncapped speed
+        'vsync': 'disabled',   // don't sync to display refresh
 
         // ── PPSSPP core options ──
         // CPU — only 'Interpreter' is available in this WASM build (JIT/IR not compiled in)
-        'ppsspp_cpu_core':                'JIT',
-        'ppsspp_fast_memory':             'enabled',
-        'ppsspp_ignore_bad_memory_access':'enabled',
-        'ppsspp_io_timing_method':        'Fast',
-        'ppsspp_force_lag_sync':          'disabled',
-        'ppsspp_locked_cpu_speed':        '333MHz',
+        'ppsspp_cpu_core': 'JIT',
+        'ppsspp_fast_memory': 'enabled',
+        'ppsspp_ignore_bad_memory_access': 'enabled',
+        'ppsspp_io_timing_method': 'Fast',
+        'ppsspp_force_lag_sync': 'disabled',
+        'ppsspp_locked_cpu_speed': '333MHz',
 
         // Frameskip — render only every 6th frame; auto_frameskip can go higher when needed
-        'ppsspp_frameskip':               'disabled',
-        'ppsspp_frameskiptype':           'Number of frames',
-        'ppsspp_auto_frameskip':          'enabled',
-        'ppsspp_frame_duplication':        'disabled',
+        'ppsspp_frameskip': 'disabled',
+        'ppsspp_frameskiptype': 'Number of frames',
+        'ppsspp_auto_frameskip': 'enabled',
+        'ppsspp_frame_duplication': 'disabled',
 
         // Resolution — native PSP only
-        'ppsspp_internal_resolution':     '480x272',
-        'ppsspp_software_rendering':      'disabled',
+        'ppsspp_internal_resolution': '480x272',
+        'ppsspp_software_rendering': 'disabled',
 
         // GPU shortcuts
-        'ppsspp_skip_buffer_effects':     'enabled',
-        'ppsspp_skip_gpu_readbacks':      'disabled',
-        'ppsspp_lazy_texture_caching':    'enabled',
-        'ppsspp_disable_range_culling':   'disabled',
-        'ppsspp_lower_resolution_for_effects': 'balanced',
+        'ppsspp_skip_buffer_effects': 'enabled',
+        'ppsspp_skip_gpu_readbacks': 'disabled',
+        'ppsspp_lazy_texture_caching': 'enabled',
+        'ppsspp_disable_range_culling': 'disabled',
+        'ppsspp_lower_resolution_for_effects': 'Balanced',
 
         // Texture quality — all minimum
         'ppsspp_texture_anisotropic_filtering': 'disabled',
-        'ppsspp_texture_filtering':       'Nearest',
-        'ppsspp_texture_scaling_level':   'disabled',
-        'ppsspp_texture_scaling_type':    'xbrz',
-        'ppsspp_texture_deposterize':     'disabled',
-        'ppsspp_texture_shader':          'disabled',
-        'ppsspp_smart_2d_texture_filtering':'disabled',
-        'ppsspp_texture_replacement':     'disabled',
+        'ppsspp_texture_filtering': 'Nearest',
+        'ppsspp_texture_scaling_level': 'disabled',
+        'ppsspp_texture_scaling_type': 'xbrz',
+        'ppsspp_texture_deposterize': 'disabled',
+        'ppsspp_texture_shader': 'disabled',
+        'ppsspp_smart_2d_texture_filtering': 'disabled',
+        'ppsspp_texture_replacement': 'disabled',
 
         // Spline / tesselation
-        'ppsspp_spline_quality':          'Low',
-        'ppsspp_hardware_tesselation':    'disabled',
+        'ppsspp_spline_quality': 'Low',
+        'ppsspp_hardware_tesselation': 'disabled',
 
         // Rendering pipeline
-        'ppsspp_gpu_hardware_transform':  'enabled',
-        'ppsspp_software_skinning':       'enabled',
-        'ppsspp_inflight_frames':         'Up to 1',
-        'ppsspp_detect_vsync_swap_interval':'disabled',
-        'ppsspp_backend':                 'auto',
-        'ppsspp_mulitsample_level':       'Disabled',
-        'ppsspp_cropto16x9':              'enabled',
+        'ppsspp_gpu_hardware_transform': 'enabled',
+        'ppsspp_software_skinning': 'enabled',
+        'ppsspp_inflight_frames': 'Up to 1',
+        'ppsspp_detect_vsync_swap_interval': 'disabled',
+        'ppsspp_backend': 'auto',
+        'ppsspp_mulitsample_level': 'Disabled',
+        'ppsspp_cropto16x9': 'enabled',
 
         // Misc
-        'ppsspp_memstick_inserted':       'enabled',
-        'ppsspp_cache_iso':               'enabled',
-        'ppsspp_cheats':                  'disabled',
-        'ppsspp_psp_model':               'psp_2000_3000',
-        'ppsspp_language':                'Automatic',
-        'ppsspp_button_preference':       'Cross',
-        'ppsspp_analog_is_circular':      'disabled',
-        'ppsspp_enable_wlan':             'disabled',
+        'ppsspp_memstick_inserted': 'enabled',
+        'ppsspp_cache_iso': 'enabled',
+        'ppsspp_cheats': 'disabled',
+        'ppsspp_psp_model': 'psp_2000_3000',
+        'ppsspp_language': 'Automatic',
+        'ppsspp_button_preference': 'Cross',
+        'ppsspp_analog_is_circular': 'disabled',
+        'ppsspp_enable_wlan': 'disabled',
       };
       w.EJS_defaultOptionsForce = true; // force our perf defaults over any saved prefs
     }
@@ -1030,7 +1034,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     try {
       const w = window as any;
       const ejs = (window as any).EJS_emulator || (window as any).EJS;
-      const gm = ejs?.gameManager || (window as any).EJS_GameManager; 
+      const gm = ejs?.gameManager || (window as any).EJS_GameManager;
       // Prefer EJS_saveState if present (native or polyfilled)
       if (typeof w.EJS_saveState === 'function') {
         const u8: Uint8Array = await w.EJS_saveState();
@@ -2255,8 +2259,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   /** Return a soft clamp for render buffer size based on core. */
   private getRenderClampForCore(core: string) {
-    if (core === "psp" || core === "ppsspp") { 
-    return { maxW: 640, maxH: 360, maxDPR: 1.0 };
+    if (core === "psp" || core === "ppsspp") {
+      return { maxW: 640, maxH: 360, maxDPR: 1.0 };
     }
     const heavy = new Set([
       'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mupen64plus_next'
@@ -2276,39 +2280,39 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
       // Determine clamp from detected core (fallback to defaults)
       const core = (window as any).EJS_core || (this.emulatorInstance?.core) || '';
-      
-if (core === "ppsspp" || core === "psp") {
-  const PSP_ASPECT = 480 / 272;
-  const rect = gameEl.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) return;
 
-  let fitW = rect.width;
-  let fitH = rect.width / PSP_ASPECT;
-  if (fitH > rect.height) {
-    fitH = rect.height;
-    fitW = rect.height * PSP_ASPECT;
-  }
+      if (core === "ppsspp" || core === "psp") {
+        const PSP_ASPECT = 480 / 272;
+        const rect = gameEl.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
 
-  const clamp = this.getRenderClampForCore(core);
-  const dpr = Math.min(window.devicePixelRatio || 1, clamp.maxDPR);
-  const targetW = Math.min(Math.round(fitW * dpr), clamp.maxW);
-  const targetH = Math.min(Math.round(fitH * dpr), clamp.maxH);
+        let fitW = rect.width;
+        let fitH = rect.width / PSP_ASPECT;
+        if (fitH > rect.height) {
+          fitH = rect.height;
+          fitW = rect.height * PSP_ASPECT;
+        }
 
-  // ✅ APPLY (you were missing this)
-  if (canvas.width !== targetW || canvas.height !== targetH) {
-    canvas.width = targetW;
-    canvas.height = targetH;
+        const clamp = this.getRenderClampForCore(core);
+        const dpr = Math.min(window.devicePixelRatio || 1, clamp.maxDPR);
+        const targetW = Math.min(Math.round(fitW * dpr), clamp.maxW);
+        const targetH = Math.min(Math.round(fitH * dpr), clamp.maxH);
 
-    const gl =
-      canvas.getContext('webgl2') ||
-      canvas.getContext('webgl') ||
-      canvas.getContext('experimental-webgl');
+        // ✅ APPLY (you were missing this)
+        if (canvas.width !== targetW || canvas.height !== targetH) {
+          canvas.width = targetW;
+          canvas.height = targetH;
 
-    (gl as any)?.viewport?.(0, 0, targetW, targetH);
-  }
+          const gl =
+            canvas.getContext('webgl2') ||
+            canvas.getContext('webgl') ||
+            canvas.getContext('experimental-webgl');
 
-  return;
-}
+          (gl as any)?.viewport?.(0, 0, targetW, targetH);
+        }
+
+        return;
+      }
 
       const clamp = this.getRenderClampForCore(core);
 
@@ -2346,21 +2350,21 @@ if (core === "ppsspp" || core === "psp") {
     }
   }
 
-private async waitForCanvas(maxMs = 1500) {
-  const start = Date.now();
-  while (Date.now() - start < maxMs) {
-    const canvas = document.querySelector('#game canvas') as HTMLCanvasElement | null;
-    if (canvas) return canvas;
-    await new Promise(r => setTimeout(r, 50));
+  private async waitForCanvas(maxMs = 1500) {
+    const start = Date.now();
+    while (Date.now() - start < maxMs) {
+      const canvas = document.querySelector('#game canvas') as HTMLCanvasElement | null;
+      if (canvas) return canvas;
+      await new Promise(r => setTimeout(r, 50));
+    }
+    return null;
   }
-  return null;
-}
 
-private async onEmulatorReadyForSizing() {
-  const canvas = await this.waitForCanvas();
-  if (canvas) this.resizeCanvasBuffer();
-  this.bindResizeBuffer();
-}
+  private async onEmulatorReadyForSizing() {
+    const canvas = await this.waitForCanvas();
+    if (canvas) this.resizeCanvasBuffer();
+    this.bindResizeBuffer();
+  }
 
   /** Bind resize handlers (call once after emulator is initialized). */
   private bindResizeBuffer() {
@@ -2382,7 +2386,7 @@ private async onEmulatorReadyForSizing() {
     // Initial call after a short delay so DOM settles
     setTimeout(() => this.resizeCanvasBuffer(), 300);
   }
- 
+
   private slugifyName(name: string): string {
     return (name || '')
       .toLowerCase()
@@ -2582,18 +2586,18 @@ private async onEmulatorReadyForSizing() {
     }
   }
 
-private async stabilizePspCanvasSize(ms = 2000) {
-  const start = performance.now();
-  while (performance.now() - start < ms) {
-    this.resizeCanvasBuffer();     // your clamp
-    await new Promise(r => setTimeout(r, 100));
+  private async stabilizePspCanvasSize(ms = 2000) {
+    const start = performance.now();
+    while (performance.now() - start < ms) {
+      this.resizeCanvasBuffer();     // your clamp
+      await new Promise(r => setTimeout(r, 100));
+    }
   }
-}
 
   applyPSPPerformanceTweak() {
     const core = (window as any).EJS_core;
     if (core !== 'psp' && core !== 'ppsspp') return;
-setTimeout(() => { void this.stabilizePspCanvasSize(2000); }, 500);
+    setTimeout(() => { void this.stabilizePspCanvasSize(2000); }, 500);
     console.log('%c[PSP] Applying post-boot performance tweaks…', 'color:#4af');
 
     // 1️⃣ Canvas downscaling — prevent GPU upscaling work
@@ -2602,7 +2606,7 @@ setTimeout(() => { void this.stabilizePspCanvasSize(2000); }, 500);
         const canvas = document.querySelector('#game canvas') as HTMLCanvasElement;
         if (!canvas) return;
         canvas.style.imageRendering = 'pixelated';
-        canvas.style.maxWidth  = '95vw';
+        canvas.style.maxWidth = '95vw';
         canvas.style.maxHeight = '95vh';
       } catch { }
     });
@@ -2619,15 +2623,13 @@ setTimeout(() => { void this.stabilizePspCanvasSize(2000); }, 500);
     // } catch { }
 
     // 3️⃣ Clamp render buffer
-    try {
-      (window as any).EJS_renderClamp = { maxW: 960, maxH: 540, maxDPR: 1.0 };
-    } catch { }
+    (window as any).EJS_renderClamp = { maxW: 640, maxH: 360, maxDPR: 1.0 };
 
     // 4️⃣ Activate fast-forward + disable vsync directly via gameManager APIs
     //    (these are EJS-level controls, not core variables — must use the direct methods)
     try {
       const emu = (window as any).EJS_emulator ?? this.emulatorInstance;
-      
+
       const ejs = (window as any).EJS_emulator || (window as any).EJS;
       const gm = ejs?.gameManager || (window as any).EJS_GameManager;
 
@@ -2635,7 +2637,7 @@ setTimeout(() => { void this.stabilizePspCanvasSize(2000); }, 500);
       if (gm) {
         // Fast-forward: removes all artificial frame-pacing / sleep between frames
         if (typeof gm.setFastForwardRatio === 'function') {
-         // gm.setFastForwardRatio(0); // 0 = unlimited
+          // gm.setFastForwardRatio(0); // 0 = unlimited
         }
         if (typeof gm.toggleFastForward === 'function') {
           //gm.toggleFastForward(1);   // 1 = enable
@@ -2650,7 +2652,7 @@ setTimeout(() => { void this.stabilizePspCanvasSize(2000); }, 500);
         // Push core variables
         if (typeof gm.setVariable === 'function') {
           gm.setVariable('ppsspp_cpu_core', 'JIT');
-          gm.setVariable('ppsspp_locked_cpu_speed', '333MHz'); 
+          gm.setVariable('ppsspp_locked_cpu_speed', '333MHz');
 
           gm.setVariable('ppsspp_frameskip', 'disabled');              // or 0 if you can
           gm.setVariable('ppsspp_auto_frameskip', 'enabled');   // ok
