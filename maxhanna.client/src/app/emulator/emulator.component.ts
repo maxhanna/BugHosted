@@ -119,6 +119,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       expanded: false
     }
   ];
+
+  private readonly AMBIGUOUS_EXTS = new Set(
+    CORE_REGISTRY.flatMap(e => e.maybeExts ?? [])
+  );
+
   private readonly MIN_STATE_SIZE: Record<string, number> = {
     // Light cores
     'fceumm': 8 * 1024,     // NES
@@ -168,8 +173,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private stopEmuSaving = false;
   private isExitingAndReturningToEmulator = false;
   private lastGoodSaveSize = new Map<string, number>();
-  private gameLoadDate?: Date | undefined; 
-private readonly SYS_PICK_KEY = 'emu:preferredCoreByExt';
+  private gameLoadDate?: Date | undefined;
+  private readonly SYS_PICK_KEY = 'emu:preferredCoreByExt';
 
   constructor(
     private romService: RomService,
@@ -281,15 +286,15 @@ private readonly SYS_PICK_KEY = 'emu:preferredCoreByExt';
     }
     this.presetRomId = file.id;
     this.presetRomName = file.fileName;
- 
+
     if (this.isAmbiguousFile(file.fileName)) {
-      this.systemCandidates = this.getSystemCandidatesForFile(file.fileName); 
+      this.systemCandidates = this.getSystemCandidatesForFile(file.fileName);
       this.selectedSystemCore = undefined;
       const ext = this.fileService.getFileExtension(file.fileName);
       const preferred = this.loadPreferredCore(ext);
       if (preferred) {
         this.selectedSystemCore = preferred;
-      } else { 
+      } else {
         this._pendingFileToLoad = { fileName: file.fileName, fileId: file.id, directory: file.directory };
         this.isSystemSelectPanelOpen = true;
       }
@@ -297,7 +302,7 @@ private readonly SYS_PICK_KEY = 'emu:preferredCoreByExt';
       this.cdr.detectChanges();
       if (!this.selectedSystemCore) {
         return;
-      } 
+      }
     }
 
 
@@ -357,8 +362,9 @@ private readonly SYS_PICK_KEY = 'emu:preferredCoreByExt';
         : await this.loadSaveStateFromDB(fileName);
 
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
-    const core = forcedCore ?? this.detectCoreEnhanced(fileName); 
+    const core = this.detectCoreEnhanced(fileName);
     (this as any).currentCore = core;
+
     const renderClamp = this.getRenderClampForCore(core);
     (window as any).EJS_renderClamp = renderClamp;
     window.EJS_core = core;
@@ -623,7 +629,7 @@ private readonly SYS_PICK_KEY = 'emu:preferredCoreByExt';
         return undefined;
     }
   }
-  
+
 
   private applyEjsRunOptions(): void {
     const rootStyle = getComputedStyle(document.documentElement);
@@ -2310,23 +2316,23 @@ private readonly SYS_PICK_KEY = 'emu:preferredCoreByExt';
     return true;
   }
 
-  
-private savePreferredCore(ext: string, core: string) {
-  try {
-    const raw = localStorage.getItem(this.SYS_PICK_KEY) || '{}';
-    const obj = JSON.parse(raw);
-    obj[ext] = core;
-    localStorage.setItem(this.SYS_PICK_KEY, JSON.stringify(obj));
-  } catch {}
-}
 
-private loadPreferredCore(ext: string): string | null {
-  try {
-    const raw = localStorage.getItem(this.SYS_PICK_KEY) || '{}';
-    const obj = JSON.parse(raw);
-    return obj?.[ext] ?? null;
-  } catch { return null; }
-}
+  private savePreferredCore(ext: string, core: string) {
+    try {
+      const raw = localStorage.getItem(this.SYS_PICK_KEY) || '{}';
+      const obj = JSON.parse(raw);
+      obj[ext] = core;
+      localStorage.setItem(this.SYS_PICK_KEY, JSON.stringify(obj));
+    } catch { }
+  }
+
+  private loadPreferredCore(ext: string): string | null {
+    try {
+      const raw = localStorage.getItem(this.SYS_PICK_KEY) || '{}';
+      const obj = JSON.parse(raw);
+      return obj?.[ext] ?? null;
+    } catch { return null; }
+  }
 
 
   remapControls(): void {
@@ -2557,137 +2563,156 @@ private loadPreferredCore(ext: string): string | null {
     console.log('%c[PSP] Post-boot tweaks applied ✔', 'color:#4f4');
   }
 
-  
-private isAmbiguousFile(fileName: string): boolean {
-  const ext = this.normExt(fileName, n => this.fileService.getFileExtension(n));
-  const ambiguous = new Set(CORE_REGISTRY.flatMap(e => e.maybeExts ?? []));
-  return ambiguous.has(ext);
-}
 
-private getSystemCandidatesForFile(fileName: string): SystemCandidate[] {
-  const ext = this.normExt(fileName, n => this.fileService.getFileExtension(n));
 
-  const candidates: SystemCandidate[] = [
-    { label: 'Auto-detect (recommended)', core: undefined }
-  ];
-
-  // Add registry matches for this ext
-  const matches = CORE_REGISTRY
-    .filter(e => (e.maybeExts ?? []).includes(ext) || (e.exts ?? []).includes(ext))
-    .map(e => ({ label: e.label, core: e.core }));
-
-  // Deduplicate by core id + label
-  const seen = new Set<string>();
-  for (const m of matches) {
-    const key = `${m.core}|${m.label}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      candidates.push(m);
-    }
+  private isAmbiguousFile(fileName: string): boolean {
+    const ext = this.normExt(fileName, n => this.fileService.getFileExtension(n));
+    return this.AMBIGUOUS_EXTS.has(ext);
   }
 
-  // Bubble up best guess (romService guess, then regex hint)
-  let guessedCore: string | null = null;
 
-  try {
-    const guessedSystem = this.romService?.guessSystemFromFileName(fileName);
-    guessedCore = this.systemToCore(guessedSystem);
-  } catch {}
+  private getSystemCandidatesForFile(fileName: string): SystemCandidate[] {
+    const ext = this.normExt(fileName, n => this.fileService.getFileExtension(n));
 
-  if (!guessedCore) {
-    // try hint regexes
-    const hintHit = CORE_REGISTRY.find(e =>
-      (e.maybeExts ?? []).includes(ext) && e.hints?.some(r => r.test(fileName))
-    );
-    guessedCore = hintHit?.core ?? null;
-  }
+    const candidates: SystemCandidate[] = [
+      { label: 'Auto-detect (recommended)', core: undefined }
+    ];
 
-  if (guessedCore) {
-    const idx = candidates.findIndex(c => this.normCore(c.core) === this.normCore(guessedCore));
-    if (idx > 1) {
-      const [hit] = candidates.splice(idx, 1);
-      candidates.splice(1, 0, hit);
-    }
-  }
+    // Add registry matches for this ext
+    const matches = CORE_REGISTRY
+      .filter(e => (e.maybeExts ?? []).includes(ext) || (e.exts ?? []).includes(ext))
+      .map(e => ({ label: e.label, core: e.core }));
 
-  return candidates;
-}
-
-
-private detectCoreEnhanced(fileName: string, forcedCore?: string): string {
-  if (forcedCore) return forcedCore;
-
-  const ext = this.normExt(fileName, n => this.fileService.getFileExtension(n));
-
-  // 1) Confident extension mapping (fast path)
-  for (const entry of CORE_REGISTRY) {
-    if (entry.exts?.includes(ext)) return entry.core;
-  }
-
-  // 2) Ambiguous extensions: use your existing guesser + registry hints
-  const ambiguousExts = new Set(
-    CORE_REGISTRY.flatMap(e => e.maybeExts ?? [])
-  );
-
-  if (ambiguousExts.has(ext)) {
-    // 2a) Your service guess (best)
-    try {
-      const guessed = this.romService?.guessSystemFromFileName(fileName);
-      const guessedCore = this.systemToCore(guessed);
-      if (guessedCore) return guessedCore;
-    } catch {}
-
-    // 2b) Regex hint match (good)
-    for (const entry of CORE_REGISTRY) {
-      if ((entry.maybeExts ?? []).includes(ext) && entry.hints?.some(r => r.test(fileName))) {
-        return entry.core;
+    // Deduplicate by core id + label
+    const seen = new Set<string>();
+    for (const m of matches) {
+      const key = `${m.core}|${m.label}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        candidates.push(m);
       }
     }
 
-    // 2c) fallback for ambiguous ext
-    // If it's ISO, PSP is common; if cue, PS1 accurate is safe; if bin, Genesis is common but PS1 too
-    if (ext === 'cue') return 'mednafen_psx_hw';
-    if (ext === 'iso') return 'pcsx_rearmed';
-    if (ext === 'bin') return 'genesis_plus_gx';
-    if (ext === 'chd') return 'pcsx_rearmed';
+    // Bubble up best guess (romService guess, then regex hint)
+    let guessedCore: string | null = null;
+
+    try {
+      const guessedSystem = this.romService?.guessSystemFromFileName(fileName);
+      guessedCore = this.systemToCore(guessedSystem);
+    } catch { }
+
+    if (!guessedCore) {
+      // try hint regexes
+      const hintHit = CORE_REGISTRY.find(e =>
+        (e.maybeExts ?? []).includes(ext) && e.hints?.some(r => r.test(fileName))
+      );
+      guessedCore = hintHit?.core ?? null;
+    }
+
+    if (guessedCore) {
+      const idx = candidates.findIndex(c => this.normCore(c.core) === this.normCore(guessedCore));
+      if (idx > 1) {
+        const [hit] = candidates.splice(idx, 1);
+        candidates.splice(1, 0, hit);
+      }
+    }
+
+    return this.sortCandidatesByExt(ext, candidates);
   }
 
-  // 3) Final fallback
-  return 'mgba';
-}
 
-/** Map your romService guess strings to a core id. Expand this as your guesser grows. */
-private systemToCore(guessed?: string | null): string | null {
-  const g = (guessed || '').toLowerCase();
-  switch (g) {
-    case 'psp': return 'psp';
-    case 'ps1':
-    case 'psx': return 'pcsx_rearmed';
-    case 'saturn': return 'yabause';
-    case 'segacd':
-    case 'sega_cd': return 'genesis_plus_gx';
-    case 'genesis':
-    case 'megadrive': return 'genesis_plus_gx';
-    case '3do': return 'opera';
-    case 'n64': return 'mupen64plus_next';
-    case 'nds': return 'melonds';
-    case 'snes': return 'snes9x';
-    case 'nes': return 'fceumm';
-    case 'gba': return 'mgba';
-    case 'gb':
-    case 'gbc': return 'gambatte';
-    case 'vb': return 'mednafen_vb';
-    default: return null;
+  private detectCoreEnhanced(fileName: string, forcedCore?: string): string {
+    if (forcedCore) return forcedCore;
+
+    const ext = this.normExt(fileName, n => this.fileService.getFileExtension(n));
+
+    // 1) Confident extension mapping (fast path)
+    for (const entry of CORE_REGISTRY) {
+      if (entry.exts?.includes(ext)) return entry.core;
+    }
+
+    // 2) Ambiguous extensions: use your existing guesser + registry hints
+    const ambiguousExts = new Set(
+      CORE_REGISTRY.flatMap(e => e.maybeExts ?? [])
+    );
+
+    if (ambiguousExts.has(ext)) {
+      // 2a) Your service guess (best)
+      try {
+        const guessed = this.romService?.guessSystemFromFileName(fileName);
+        const guessedCore = this.systemToCore(guessed);
+        if (guessedCore) return guessedCore;
+      } catch { }
+
+      // 2b) Regex hint match (good)
+      for (const entry of CORE_REGISTRY) {
+        if ((entry.maybeExts ?? []).includes(ext) && entry.hints?.some(r => r.test(fileName))) {
+          return entry.core;
+        }
+      }
+
+      // 2c) fallback for ambiguous ext
+      // If it's ISO, PSP is common; if cue, PS1 accurate is safe; if bin, Genesis is common but PS1 too
+      if (ext === 'cue') return 'mednafen_psx_hw';
+      if (ext === 'iso') return 'pcsx_rearmed';
+      if (ext === 'bin') return 'genesis_plus_gx';
+      if (ext === 'chd') return 'pcsx_rearmed';
+    }
+
+    // 3) Final fallback
+    return 'mgba';
   }
-}
+
+  /** Map your romService guess strings to a core id. Expand this as your guesser grows. */
+  private systemToCore(guessed?: string | null): string | null {
+    const g = (guessed || '').toLowerCase();
+    switch (g) {
+      case 'psp': return 'psp';
+      case 'ps1':
+      case 'psx': return 'pcsx_rearmed';
+      case 'saturn': return 'yabause';
+      case 'segacd':
+      case 'sega_cd': return 'genesis_plus_gx';
+      case 'genesis':
+      case 'megadrive': return 'genesis_plus_gx';
+      case '3do': return 'opera';
+      case 'n64': return 'mupen64plus_next';
+      case 'nds': return 'melonds';
+      case 'snes': return 'snes9x';
+      case 'nes': return 'fceumm';
+      case 'gba': return 'mgba';
+      case 'gb':
+      case 'gbc': return 'gambatte';
+      case 'vb': return 'mednafen_vb';
+      default: return null;
+    }
+  }
 
   normExt(fileName: string, getExt: (n: string) => string): string {
-  return (getExt(fileName) || '').toLowerCase().trim().replace(/^\./, '');
-}
+    return (getExt(fileName) || '').toLowerCase().trim().replace(/^\./, '');
+  }
 
   normCore(core?: string | null): string {
-  return String(core || '').toLowerCase().trim();
-}
+    return String(core || '').toLowerCase().trim();
+  }
+
+  private sortCandidatesByExt(ext: string, list: SystemCandidate[]): SystemCandidate[] {
+    const orderByExt: Record<string, string[]> = {
+      iso: ['psp', 'pcsx_rearmed', 'mednafen_psx_hw', 'yabause', 'genesis_plus_gx', 'opera'],
+      cue: ['mednafen_psx_hw', 'pcsx_rearmed', 'genesis_plus_gx', 'yabause', 'mednafen_pce', 'mednafen_pcfx'],
+      chd: ['pcsx_rearmed', 'mednafen_psx_hw', 'yabause', 'genesis_plus_gx', 'opera'],
+      bin: ['genesis_plus_gx', 'pcsx_rearmed', 'mednafen_psx_hw', 'yabause', 'mednafen_pce'],
+    };
+
+    const preferred = orderByExt[ext] ?? [];
+    const rank = (core?: string) => {
+      if (!core) return -1; // Auto stays first
+      const i = preferred.indexOf(core);
+      return i === -1 ? 999 : i;
+    };
+
+    return [...list].sort((a, b) => rank(a.core) - rank(b.core));
+  }
 
   // Confirm selection from system-chooser popup and proceed to load
   confirmSystemSelection() {
@@ -2723,151 +2748,7 @@ private systemToCore(guessed?: string | null): string | null {
 
 type SystemCandidate = { label: string; core?: string };
 
-// Core IDs you likely want to standardize on
-const CORE = {
-  // Nintendo
-  NES: 'fceumm',
-  SNES: 'snes9x',
-  GB: 'gambatte',
-  GBA: 'mgba',
-  NDS: 'melonds',
-  N64: 'mupen64plus_next',
-  VB: 'mednafen_vb',
 
-  // Sony
-  PS1_FAST: 'pcsx_rearmed',
-  PS1_ACCURATE: 'mednafen_psx_hw',
-  PSP: 'psp', // (your EmulatorJS/RA wrapper uses this id)
-
-  // Sega
-  GENESIS: 'genesis_plus_gx',
-  SEGA32X: 'picodrive',
-  SEGASATURN: 'yabause',   // or 'kronos' if your build provides it
-  SEGA_CD: 'genesis_plus_gx', // (Genesis family)
-
-  // 3DO
-  THREEDO: 'opera',
-
-  // Arcade
-  MAME2003P: 'mame2003_plus',
-  FBNEO: 'fbneo',
-
-  // Atari
-  A2600: 'stella2014',
-  A5200: 'a5200',          // depends on your build; verify actual core id
-  A7800: 'prosystem',
-  LYNX: 'handy',
-  JAGUAR: 'virtualjaguar',
-
-  // Coleco
-  COLECO: 'gearcoleco',
-
-  // Commodore
-  C64: 'vice_x64',
-  C128: 'vice_x128',
-  PET: 'vice_xpet',
-  PLUS4: 'vice_xplus4',
-  VIC20: 'vice_xvic',
-  AMIGA: 'puae',
-
-  // PC-FX
-  PCFX: 'mednafen_pcfx',
-
-  // PCE / TG16
-  PCE: 'mednafen_pce',
-} as const;
-
-const AMBIGUOUS_CORE_CHOICES: Record<string, SystemCandidate[]> = {
-  // ---- Disc-like containers ----
-
-  iso: [
-    { label: 'Auto-detect (recommended)', core: undefined },
-    { label: 'PSP', core: CORE.PSP },
-    { label: 'PlayStation (PS1) – Fast', core: CORE.PS1_FAST },
-    { label: 'PlayStation (PS1) – Accurate', core: CORE.PS1_ACCURATE },
-    { label: 'Sega Saturn', core: CORE.SEGASATURN },
-    { label: 'Sega CD', core: CORE.SEGA_CD },
-    { label: '3DO', core: CORE.THREEDO },
-  ],
-
-  chd: [
-    { label: 'Auto-detect (recommended)', core: undefined },
-    { label: 'PlayStation (PS1) – Fast', core: CORE.PS1_FAST },
-    { label: 'PlayStation (PS1) – Accurate', core: CORE.PS1_ACCURATE },
-    { label: 'Sega Saturn', core: CORE.SEGASATURN },
-    { label: 'Sega CD', core: CORE.SEGA_CD },
-    { label: '3DO', core: CORE.THREEDO },
-  ],
-
-  cue: [
-    { label: 'Auto-detect (recommended)', core: undefined },
-    { label: 'PlayStation (PS1) – Accurate', core: CORE.PS1_ACCURATE },
-    { label: 'PlayStation (PS1) – Fast', core: CORE.PS1_FAST },
-    { label: 'Sega CD', core: CORE.SEGA_CD },
-    { label: 'Sega Saturn', core: CORE.SEGASATURN },
-    { label: 'TurboGrafx-CD / PC Engine CD', core: CORE.PCE },
-    { label: 'PC-FX', core: CORE.PCFX },
-  ],
-
-  bin: [
-    { label: 'Auto-detect (recommended)', core: undefined },
-    { label: 'Sega Mega Drive / Genesis', core: CORE.GENESIS },
-    { label: 'Sega CD (track)', core: CORE.SEGA_CD },
-    { label: 'PlayStation (PS1) – Fast', core: CORE.PS1_FAST },
-    { label: 'PlayStation (PS1) – Accurate', core: CORE.PS1_ACCURATE },
-    { label: 'Sega Saturn (track)', core: CORE.SEGASATURN },
-    { label: 'TurboGrafx-CD / PC Engine CD (track)', core: CORE.PCE },
-  ],
-
-  img: [
-    { label: 'Auto-detect (recommended)', core: undefined },
-    { label: 'PlayStation (PS1)', core: CORE.PS1_FAST },
-    { label: 'Sega Saturn', core: CORE.SEGASATURN },
-    { label: 'Sega CD', core: CORE.SEGA_CD },
-  ],
-
-  ccd: [
-    { label: 'Auto-detect (recommended)', core: undefined },
-    { label: 'PlayStation (PS1)', core: CORE.PS1_FAST },
-    { label: 'PlayStation (PS1) – Accurate', core: CORE.PS1_ACCURATE },
-    { label: 'PC-FX', core: CORE.PCFX },
-  ],
-
-  mdf: [
-    { label: 'Auto-detect (recommended)', core: undefined },
-    { label: 'PlayStation (PS1)', core: CORE.PS1_FAST },
-    { label: 'Sega Saturn', core: CORE.SEGASATURN },
-    { label: 'Sega CD', core: CORE.SEGA_CD },
-  ],
-
-  mds: [
-    { label: 'Auto-detect (recommended)', core: undefined },
-    { label: 'PlayStation (PS1)', core: CORE.PS1_FAST },
-    { label: 'Sega Saturn', core: CORE.SEGASATURN },
-    { label: 'Sega CD', core: CORE.SEGA_CD },
-  ],
-
-  nrg: [
-    { label: 'Auto-detect (recommended)', core: undefined },
-    { label: 'PlayStation (PS1)', core: CORE.PS1_FAST },
-    { label: 'Sega Saturn', core: CORE.SEGASATURN },
-    { label: 'Sega CD', core: CORE.SEGA_CD },
-  ],
-
-  // ---- Compressed containers (optional: ambiguous only if you inspect contents) ----
-  zip: [
-    { label: 'Auto-detect (recommended)', core: undefined },
-    { label: 'Arcade (MAME 2003+)', core: CORE.MAME2003P },
-    { label: 'Arcade (FBNeo)', core: CORE.FBNEO },
-    // You can add "Console ZIP" options later if you implement archive inspection
-  ],
-
-  '7z': [
-    { label: 'Auto-detect (recommended)', core: undefined },
-    { label: 'Arcade (MAME 2003+)', core: CORE.MAME2003P },
-    { label: 'Arcade (FBNeo)', core: CORE.FBNEO },
-  ],
-};
 
 type CoreId = string;
 
@@ -2884,27 +2765,27 @@ type CoreDescriptor = {
 
 const CORE_REGISTRY: CoreDescriptor[] = [
   // --- Sony ---
-  { core: 'psp', label: 'PSP', exts: ['pbp'], maybeExts: ['iso'] , hints: [/ULUS\d{5}/i, /ULES\d{5}/i, /\bPSP\b/i] },
-  { core: 'pcsx_rearmed', label: 'PlayStation (PS1) – Fast', exts: ['bin','chd'], maybeExts: ['iso','cue','img','ccd','mdf','mds','nrg'], hints: [/SLUS\d{5}/i, /SLES\d{5}/i, /\bPSX\b|\bPS1\b|\bPlayStation\b/i] },
-  { core: 'mednafen_psx_hw', label: 'PlayStation (PS1) – Accurate', exts: ['cue'], maybeExts: ['iso','bin','chd','img','ccd','mdf','mds','nrg'], hints: [/SLUS\d{5}/i, /SLES\d{5}/i] },
+  { core: 'psp', label: 'PSP', exts: ['pbp'], maybeExts: ['iso'], hints: [/ULUS\d{5}/i, /ULES\d{5}/i, /\bPSP\b/i] },
+  { core: 'pcsx_rearmed', label: 'PlayStation (PS1) – Fast', exts: ['bin', 'chd'], maybeExts: ['iso', 'cue', 'img', 'ccd', 'mdf', 'mds', 'nrg'], hints: [/SLUS\d{5}/i, /SLES\d{5}/i, /\bPSX\b|\bPS1\b|\bPlayStation\b/i] },
+  { core: 'mednafen_psx_hw', label: 'PlayStation (PS1) – Accurate', exts: ['cue'], maybeExts: ['iso', 'bin', 'chd', 'img', 'ccd', 'mdf', 'mds', 'nrg'], hints: [/SLUS\d{5}/i, /SLES\d{5}/i] },
 
   // --- Sega ---
-  { core: 'genesis_plus_gx', label: 'Sega Mega Drive / Genesis', exts: ['smd','gen','md'], maybeExts: ['bin'], hints: [/\bGENESIS\b|\bMEGADRIVE\b|\bMD\b/i] },
-  { core: 'genesis_plus_gx', label: 'Sega CD / Mega-CD', exts: [], maybeExts: ['cue','bin','chd','iso'], hints: [/\bSEGA\s?CD\b|\bMEGA\s?CD\b/i] },
+  { core: 'genesis_plus_gx', label: 'Sega Mega Drive / Genesis', exts: ['smd', 'gen', 'md'], maybeExts: ['bin'], hints: [/\bGENESIS\b|\bMEGADRIVE\b|\bMD\b/i] },
+  { core: 'genesis_plus_gx', label: 'Sega CD / Mega-CD', exts: [], maybeExts: ['cue', 'bin', 'chd', 'iso'], hints: [/\bSEGA\s?CD\b|\bMEGA\s?CD\b/i] },
   { core: 'picodrive', label: 'Sega 32X', exts: ['32x'], maybeExts: [], hints: [/\b32X\b/i] },
-  { core: 'yabause', label: 'Sega Saturn', exts: [], maybeExts: ['cue','chd','iso','bin'], hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
+  { core: 'yabause', label: 'Sega Saturn', exts: [], maybeExts: ['cue', 'chd', 'iso', 'bin'], hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
 
   // --- 3DO ---
-  { core: 'opera', label: '3DO', exts: [], maybeExts: ['iso','chd','cue'], hints: [/\b3DO\b/i] },
+  { core: 'opera', label: '3DO', exts: [], maybeExts: ['iso', 'chd', 'cue'], hints: [/\b3DO\b/i] },
 
   // --- Nintendo ---
-  { core: 'mupen64plus_next', label: 'Nintendo 64', exts: ['n64','z64','v64'], maybeExts: [], hints: [/\bN64\b/i] },
+  { core: 'mupen64plus_next', label: 'Nintendo 64', exts: ['n64', 'z64', 'v64'], maybeExts: [], hints: [/\bN64\b/i] },
   { core: 'melonds', label: 'Nintendo DS', exts: ['nds'], maybeExts: [], hints: [/\bNDS\b|\bDS\b/i] },
   { core: 'mgba', label: 'Game Boy Advance', exts: ['gba'], maybeExts: [], hints: [/\bGBA\b/i] },
-  { core: 'gambatte', label: 'Game Boy / Game Boy Color', exts: ['gb','gbc'], maybeExts: [], hints: [/\bGBC\b|\bGB\b/i] },
+  { core: 'gambatte', label: 'Game Boy / Game Boy Color', exts: ['gb', 'gbc'], maybeExts: [], hints: [/\bGBC\b|\bGB\b/i] },
   { core: 'fceumm', label: 'NES / Famicom', exts: ['nes'], maybeExts: [], hints: [/\bNES\b|\bFAMICOM\b/i] },
-  { core: 'snes9x', label: 'SNES / Super Famicom', exts: ['snes','sfc'], maybeExts: [], hints: [/\bSNES\b|\bSFC\b/i] },
-  { core: 'mednafen_vb', label: 'Virtual Boy', exts: ['vb','vboy'], maybeExts: [], hints: [/\bVIRTUAL\s?BOY\b|\bVB\b/i] },
+  { core: 'snes9x', label: 'SNES / Super Famicom', exts: ['snes', 'sfc'], maybeExts: [], hints: [/\bSNES\b|\bSFC\b/i] },
+  { core: 'mednafen_vb', label: 'Virtual Boy', exts: ['vb', 'vboy'], maybeExts: [], hints: [/\bVIRTUAL\s?BOY\b|\bVB\b/i] },
 
   // --- Arcade ---
   { core: 'mame2003_plus', label: 'Arcade (MAME 2003+)', exts: ['zip'], maybeExts: ['7z'], hints: [/\bMAME\b|\bARCADE\b/i] },
@@ -3100,7 +2981,7 @@ const PSP_DEFAULT_OPTIONS: Record<string, string> = {
   // 'ppsspp_software_skinning':       'enabled',
   // 'ppsspp_inflight_frames':         'Up to 2',
   // 'ppsspp_detect_vsync_swap_interval':'disabled',
-  'ppsspp_backend': 'vulkan',
+  //'ppsspp_backend': 'vulkan',
   // 'ppsspp_mulitsample_level':       'Disabled',
   // 'ppsspp_cropto16x9':              'enabled',
 
