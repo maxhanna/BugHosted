@@ -725,6 +725,25 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         antialias: false,
         depth: false
       };
+
+      // ── Force our defaults by disabling localStorage for PSP ──
+      // EmulatorJS's getCoreSettings() lets localStorage override EJS_defaultOptions.
+      // For PSP, performance settings are critical — we MUST force them every time.
+      w.EJS_disableLocalStorage = true;
+
+      // Also clear any stale PSP localStorage entries from previous sessions
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('ejs-') && key.includes('-psp-')) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+        if (keysToRemove.length) console.log('[PSP] Cleared', keysToRemove.length, 'stale localStorage entries');
+      } catch { /* private browsing or no localStorage */ }
+
       // ── PPSSPP performance-critical core options ──
       // These MUST be set before loader.js runs so the core starts with them.
       w.EJS_defaultOptions = {
@@ -2596,7 +2615,7 @@ declare global {
     __ejsLoaderInjected?: boolean;
     __EJS_ALIVE__?: boolean;
     EJS_defaultOptionsForce?: boolean;
-    EJS_defaultOptions?: Record<string, string>;
+    EJS_defaultOptions?: Record<string, string | number>;
     EJS_disableLocalStorage?: boolean;
     EJS_directKeyboardInput?: boolean;
     EJS_enableGamepads?: boolean;
