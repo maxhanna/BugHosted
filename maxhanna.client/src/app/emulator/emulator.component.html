@@ -75,6 +75,9 @@
     <button *ngIf="romName" (click)="callEjsSave()" class="emuMenuButton" [disabled]="isLoading">
       Manual Save
     </button>
+    <button *ngIf="!romName" (click)="toggleLoadWithoutSave()" class="emuMenuButton" [disabled]="isLoading">
+      Load ROMs {{loadWithoutSave ? 'without Save' : 'with Save'}}
+    </button>
     <app-file-upload class="emuMenuButton" *ngIf="!romName" [currentDirectory]="'Roms'" [user]="parentRef?.user!"
       [inputtedParentRef]="parentRef" [uploadButtonText]="'Upload Rom(s)'" [maxSelectedFiles]="100"
       [allowedFileTypes]="getAllowedRomFileTypesString()" [displayOptionsAndTopicsButtons]="false"

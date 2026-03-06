@@ -144,6 +144,73 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   segaShowLR = true;       // show L/R pills on Genesis when desired
   status: string = 'Idle';
   preferSixButtonGenesis: boolean = true;
+  loadWithoutSave = false;
+  // Centralized PSP performance/options map — used by both run-time defaults
+  // and post-boot tweaks so there is a single source of truth.
+  private readonly PSP_DEFAULT_OPTIONS: Record<string, string> = {
+    // EmulatorJS-level speed settings
+    'fastForward':                    'enabled',
+    'ff-ratio':                       'unlimited',
+    'vsync':                          'disabled',
+
+    // PPSSPP core options
+    'ppsspp_cpu_core':                'Interpreter',
+    'ppsspp_fast_memory':             'enabled',
+    'ppsspp_ignore_bad_memory_access':'enabled',
+    'ppsspp_io_timing_method':        'Fast',
+    'ppsspp_force_lag_sync':          'disabled',
+    'ppsspp_locked_cpu_speed':        '222MHz',
+
+    // Frameskip
+    'ppsspp_frameskip':               '5',
+    'ppsspp_frameskiptype':           'Number of frames',
+    'ppsspp_auto_frameskip':          'enabled',
+    'ppsspp_frame_duplication':       'enabled',
+
+    // Resolution
+    'ppsspp_internal_resolution':     '480x272',
+    'ppsspp_software_rendering':      'disabled',
+
+    // GPU shortcuts
+    'ppsspp_skip_buffer_effects':     'disabled',
+    'ppsspp_skip_gpu_readbacks':      'disabled',
+    'ppsspp_lazy_texture_caching':    'enabled',
+    'ppsspp_disable_range_culling':   'disabled',
+    'ppsspp_lower_resolution_for_effects': 'disabled',
+
+    // Texture quality
+    'ppsspp_texture_anisotropic_filtering': 'disabled',
+    'ppsspp_texture_filtering':       'Nearest',
+    'ppsspp_texture_scaling_level':   'disabled',
+    'ppsspp_texture_scaling_type':    'xbrz',
+    'ppsspp_texture_deposterize':     'disabled',
+    'ppsspp_texture_shader':          'disabled',
+    'ppsspp_smart_2d_texture_filtering':'disabled',
+    'ppsspp_texture_replacement':     'disabled',
+
+    // Spline / tesselation
+    'ppsspp_spline_quality':          'Low',
+    'ppsspp_hardware_tesselation':    'disabled',
+
+    // Rendering pipeline
+    'ppsspp_gpu_hardware_transform':  'enabled',
+    'ppsspp_software_skinning':       'enabled',
+    'ppsspp_inflight_frames':         'Up to 2',
+    'ppsspp_detect_vsync_swap_interval':'disabled',
+    'ppsspp_backend':                 'auto',
+    'ppsspp_mulitsample_level':       'Disabled',
+    'ppsspp_cropto16x9':              'enabled',
+
+    // Misc
+    'ppsspp_memstick_inserted':       'enabled',
+    'ppsspp_cache_iso':               'enabled',
+    'ppsspp_cheats':                  'disabled',
+    'ppsspp_psp_model':               'psp_2000_3000',
+    'ppsspp_language':                'Automatic',
+    'ppsspp_button_preference':       'Cross',
+    'ppsspp_analog_is_circular':      'disabled',
+    'ppsspp_enable_wlan':             'disabled',
+  };
   private autosaveInterval: any;
   private romObjectUrl?: string;
   private emulatorInstance?: any;
@@ -324,7 +391,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.romName = fileName;
 
     // 4) Try to load existing save state from database (unless explicitly skipped)
-    const saveStateBlob = this.skipSaveFileRequested ? null : await this.loadSaveStateFromDB(fileName);
+    const saveStateBlob = 
+      (this.skipSaveFileRequested || this.loadWithoutSave) 
+      ? null 
+      : await this.loadSaveStateFromDB(fileName);
 
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
     const core = this.detectCore(fileName);
@@ -485,12 +555,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (!window.__ejsLoaderInjected) {
       await new Promise<void>((resolve, reject) => {
         const s = document.createElement('script');
-const useCdn = (window.EJS_core === 'psp' || window.EJS_core === 'ppsspp');
+        const useCdn = (window.EJS_core === 'psp' || window.EJS_core === 'ppsspp');
 
-s.src = useCdn
-  ? 'https://cdn.emulatorjs.org/stable/data/loader.js'
-  : '/assets/emulatorjs/data/loader.js';
- 
+        s.src = useCdn
+          ? 'https://cdn.emulatorjs.org/stable/data/loader.js'
+          : '/assets/emulatorjs/data/loader.js';
+
         s.async = false;
         s.defer = false;
         s.setAttribute('data-ejs-loader', '1');
@@ -544,7 +614,7 @@ s.src = useCdn
       restart: false,
       mute: false,
       settings: false,
-      fullscreen: false, 
+      fullscreen: false,
       saveState: false,
       loadState: false,
       screenRecord: false,
@@ -557,16 +627,16 @@ s.src = useCdn
     };
   }
 
-private async waitForGameManager(maxMs = 5000) {
-  const start = performance.now();
-  while (performance.now() - start < maxMs) {
-    const ejs = (window as any).EJS_emulator || (window as any).EJS;
-    const gm = ejs?.gameManager || (window as any).EJS_GameManager;
-    if (gm) return gm;
-    await new Promise(r => setTimeout(r, 100));
+  private async waitForGameManager(maxMs = 5000) {
+    const start = performance.now();
+    while (performance.now() - start < maxMs) {
+      const ejs = (window as any).EJS_emulator || (window as any).EJS;
+      const gm = ejs?.gameManager || (window as any).EJS_GameManager;
+      if (gm) return gm;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    return null;
   }
-  return null;
-}
 
 
   /**
@@ -767,73 +837,8 @@ private async waitForGameManager(maxMs = 5000) {
 
       // ── PPSSPP performance-critical core options ──
       // These MUST be set before loader.js runs so the core starts with them.
-      w.EJS_defaultOptions = {
-        // ── EmulatorJS-level speed settings (handled by handleSpecialOptions) ──
-        // Fast-forward removes ALL artificial frame pacing — critical because
-        // the SW renderer already runs far below real-time, so any waiting is wasted.
-        'fastForward': 'disabled',
-        'ff-ratio': '1.0',  // uncapped speed
-        'vsync': 'disabled',   // don't sync to display refresh
-
-        // ── PPSSPP core options ──
-        // CPU — only 'Interpreter' is available in this WASM build (JIT/IR not compiled in)
-        'ppsspp_cpu_core': 'JIT',
-        'ppsspp_fast_memory': 'enabled',
-        'ppsspp_ignore_bad_memory_access': 'enabled',
-        'ppsspp_io_timing_method': 'Fast',
-        'ppsspp_force_lag_sync': 'disabled',
-        'ppsspp_locked_cpu_speed': '333MHz',
-
-        // Frameskip — render only every 6th frame; auto_frameskip can go higher when needed
-        'ppsspp_frameskip': '1',
-        'ppsspp_frameskiptype': 'Number of frames',
-        'ppsspp_auto_frameskip': 'enabled',
-        'ppsspp_frame_duplication': 'disabled',
-
-        // Resolution — native PSP only
-        'ppsspp_internal_resolution': '480x272',
-        'ppsspp_software_rendering': 'disabled',
-
-        // GPU shortcuts
-        'ppsspp_skip_buffer_effects': 'disabled',
-        'ppsspp_skip_gpu_readbacks': 'disabled',
-        'ppsspp_lazy_texture_caching': 'enabled',
-        'ppsspp_disable_range_culling': 'disabled',
-        'ppsspp_lower_resolution_for_effects': 'Balanced',
-
-        // Texture quality — all minimum
-        'ppsspp_texture_anisotropic_filtering': 'disabled',
-        'ppsspp_texture_filtering': 'Nearest',
-        'ppsspp_texture_scaling_level': 'disabled',
-        'ppsspp_texture_scaling_type': 'xbrz',
-        'ppsspp_texture_deposterize': 'disabled',
-        'ppsspp_texture_shader': 'disabled',
-        'ppsspp_smart_2d_texture_filtering': 'disabled',
-        'ppsspp_texture_replacement': 'disabled',
-
-        // Spline / tesselation
-        'ppsspp_spline_quality': 'Low',
-        'ppsspp_hardware_tesselation': 'disabled',
-
-        // Rendering pipeline
-        'ppsspp_gpu_hardware_transform': 'enabled',
-        'ppsspp_software_skinning': 'enabled',
-        'ppsspp_inflight_frames': 'Up to 1',
-        'ppsspp_detect_vsync_swap_interval': 'disabled',
-        'ppsspp_backend': 'auto',
-        'ppsspp_mulitsample_level': 'Disabled',
-        'ppsspp_cropto16x9': 'enabled',
-
-        // Misc
-        'ppsspp_memstick_inserted': 'enabled',
-        'ppsspp_cache_iso': 'enabled',
-        'ppsspp_cheats': 'disabled',
-        'ppsspp_psp_model': 'psp_2000_3000',
-        'ppsspp_language': 'Automatic',
-        'ppsspp_button_preference': 'Cross',
-        'ppsspp_analog_is_circular': 'disabled',
-        'ppsspp_enable_wlan': 'disabled',
-      };
+        // Use the centralized map so tests/tweaks remain in a single place.
+        w.EJS_defaultOptions = Object.assign({}, this.PSP_DEFAULT_OPTIONS);
       w.EJS_defaultOptionsForce = true; // force our perf defaults over any saved prefs
     }
     // Default controller mappings for all 4 players.
@@ -921,7 +926,7 @@ private async waitForGameManager(maxMs = 5000) {
 
     const ejs = (window as any).EJS_emulator || (window as any).EJS;
 
-const gm = await this.waitForGameManager(5000);
+    const gm = await this.waitForGameManager(5000);
     if (gm && typeof gm.getState === 'function') {
       w.EJS_saveState = async () => {
         const bytes = await Promise.resolve(gm.getState());
@@ -1052,7 +1057,7 @@ const gm = await this.waitForGameManager(5000);
       const w = window as any;
       const ejs = (window as any).EJS_emulator || (window as any).EJS;
 
-const gm = await this.waitForGameManager(5000);
+      const gm = await this.waitForGameManager(5000);
       // Prefer EJS_saveState if present (native or polyfilled)
       if (typeof w.EJS_saveState === 'function') {
         const u8: Uint8Array = await w.EJS_saveState();
@@ -2297,15 +2302,15 @@ const gm = await this.waitForGameManager(5000);
       if (!canvas) return;
 
       // Determine clamp from detected core (fallback to defaults)
-   
-const coreRaw =
-  (this as any).currentCore ||
-  (window as any).EJS_core ||
-  (this.emulatorInstance?.core) ||
-  '';
 
-const core = String(coreRaw).toLowerCase();
-const isPsp = core.includes('psp') || core.includes('ppsspp');
+      const coreRaw =
+        (this as any).currentCore ||
+        (window as any).EJS_core ||
+        (this.emulatorInstance?.core) ||
+        '';
+
+      const core = String(coreRaw).toLowerCase();
+      const isPsp = core.includes('psp') || core.includes('ppsspp');
 
 
       if (isPsp) {
@@ -2445,6 +2450,10 @@ const isPsp = core.includes('psp') || core.includes('ppsspp');
     if (GENESIS_FORCE_THREE.has(slug)) return false;
     if (this.preferSixButtonGenesis) return true;
     return GENESIS_6BUTTON.has(slug);
+  }
+
+  toggleLoadWithoutSave() {
+    this.loadWithoutSave = !this.loadWithoutSave;
   }
 
   private isValidSaveState(u8: Uint8Array, core: string): boolean {
@@ -2659,43 +2668,38 @@ const isPsp = core.includes('psp') || core.includes('ppsspp');
 
       const ejs = (window as any).EJS_emulator || (window as any).EJS;
 
-const gm = await this.waitForGameManager(5000);
+      const gm = await this.waitForGameManager(5000);
 
 
       if (gm) {
-        // Fast-forward: removes all artificial frame-pacing / sleep between frames
+        const opts = this.PSP_DEFAULT_OPTIONS;
+        // fast-forward ratio
         if (typeof gm.setFastForwardRatio === 'function') {
-          // gm.setFastForwardRatio(0); // 0 = unlimited
+          try {
+            const v = opts['ff-ratio'];
+            if (v === 'unlimited') gm.setFastForwardRatio(0);
+            else if (!isNaN(Number(v))) gm.setFastForwardRatio(Number(v));
+          } catch { }
         }
+        // toggle fast-forward
         if (typeof gm.toggleFastForward === 'function') {
-          //gm.toggleFastForward(1);   // 1 = enable
-          if (emu) emu.isFastForward = false;
-          console.log('[PSP] Fast-forward enabled (unlimited ratio)');
+          try {
+            if (opts['fastForward'] === 'enabled') gm.toggleFastForward(1);
+          } catch { }
+          if (emu) emu.isFastForward = true;
+          console.log('[PSP] Fast-forward enabled (per options)');
         }
-        // Disable vsync so RetroArch doesn't wait for display refresh
+        // set vsync
         if (typeof gm.setVSync === 'function') {
-          gm.setVSync(false);
-          console.log('[PSP] VSync disabled in RetroArch');
+          try { gm.setVSync(opts['vsync'] === 'disabled' ? false : true); } catch { }
+          console.log('[PSP] VSync set (per options)');
         }
-        // Push core variables
+        // Push core variables (skip EmulatorJS-level controls)
         if (typeof gm.setVariable === 'function') {
-          gm.setVariable('ppsspp_cpu_core', 'JIT');
-          gm.setVariable('ppsspp_locked_cpu_speed', '333MHz');
-
-
-gm.setVariable('ppsspp_frameskip', '1');
-gm.setVariable('ppsspp_auto_frameskip', 'enabled');
-gm.setVariable('ppsspp_frame_duplication', 'disabled');
-gm.setVariable('ppsspp_skip_gpu_readbacks', 'disabled');
-
-          gm.setVariable('ppsspp_lazy_texture_caching', 'enabled');
-          gm.setVariable('ppsspp_texture_anisotropic_filtering', 'disabled');
-          gm.setVariable('ppsspp_texture_filtering', 'Nearest');
-          gm.setVariable('ppsspp_spline_quality', 'Low');
-          gm.setVariable('ppsspp_cache_iso', 'enabled');
-
-          gm.setVariable('ppsspp_lower_resolution_for_effects', 'Balanced');
-          gm.setVariable('ppsspp_inflight_frames', 'Up to 1');
+          for (const [k, v] of Object.entries(opts)) {
+            if (k === 'fastForward' || k === 'ff-ratio' || k === 'vsync') continue;
+            try { gm.setVariable(k, String(v)); } catch { }
+          }
           console.log('[PSP] Core variables pushed via gameManager');
         }
       }
