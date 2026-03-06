@@ -757,7 +757,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
         // ── PPSSPP core options ──
         // CPU — only 'Interpreter' is available in this WASM build (JIT/IR not compiled in)
-        'ppsspp_cpu_core':                'IR JIT',
+        'ppsspp_cpu_core':                'JIT',
         'ppsspp_fast_memory':             'enabled',
         'ppsspp_ignore_bad_memory_access':'enabled',
         'ppsspp_io_timing_method':        'Fast',
@@ -2327,7 +2327,7 @@ if (core === "ppsspp" || core === "psp") {
         canvas.height = targetH;
 
         // If WebGL, update viewport
-        const gl = (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
+        const gl = (canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
         if (gl && typeof gl.viewport === 'function') gl.viewport(0, 0, targetW, targetH);
 
         // If emulator exposes a resize hook, call it
@@ -2642,7 +2642,7 @@ private async onEmulatorReadyForSizing() {
         }
         // Push core variables
         if (typeof gm.setVariable === 'function') {
-          gm.setVariable('ppsspp_cpu_core', 'IR JIT');
+          gm.setVariable('ppsspp_cpu_core', 'JIT');
           gm.setVariable('ppsspp_locked_cpu_speed', '333MHz'); 
 
           gm.setVariable('ppsspp_frameskip', 'disabled');              // or 0 if you can
