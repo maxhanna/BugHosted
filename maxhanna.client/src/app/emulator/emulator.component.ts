@@ -751,8 +751,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         // ── EmulatorJS-level speed settings (handled by handleSpecialOptions) ──
         // Fast-forward removes ALL artificial frame pacing — critical because
         // the SW renderer already runs far below real-time, so any waiting is wasted.
-        'fastForward':                    'enabled',
-        'ff-ratio':                       'unlimited',  // uncapped speed
+        'fastForward':                    'disabled',
+        'ff-ratio':                       '1.0',  // uncapped speed
         'vsync':                          'disabled',   // don't sync to display refresh
 
         // ── PPSSPP core options ──
@@ -765,10 +765,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         'ppsspp_locked_cpu_speed':        '222MHz',
 
         // Frameskip — render only every 6th frame; auto_frameskip can go higher when needed
-        'ppsspp_frameskip':               '5',
+        'ppsspp_frameskip':               '0',
         'ppsspp_frameskiptype':           'Number of frames',
         'ppsspp_auto_frameskip':          'enabled',
-        'ppsspp_frame_duplication':        'enabled',
+        'ppsspp_frame_duplication':        'disabled',
 
         // Resolution — native PSP only
         'ppsspp_internal_resolution':     '480x272',
@@ -2580,11 +2580,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       if (gm) {
         // Fast-forward: removes all artificial frame-pacing / sleep between frames
         if (typeof gm.setFastForwardRatio === 'function') {
-          gm.setFastForwardRatio(0); // 0 = unlimited
+         // gm.setFastForwardRatio(0); // 0 = unlimited
         }
         if (typeof gm.toggleFastForward === 'function') {
-          gm.toggleFastForward(1);   // 1 = enable
-          if (emu) emu.isFastForward = true;
+          //gm.toggleFastForward(1);   // 1 = enable
+          if (emu) emu.isFastForward = false;
           console.log('[PSP] Fast-forward enabled (unlimited ratio)');
         }
         // Disable vsync so RetroArch doesn't wait for display refresh
@@ -2594,7 +2594,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         }
         // Push core variables
         if (typeof gm.setVariable === 'function') {
-          gm.setVariable('ppsspp_locked_cpu_speed', '222MHz');
+          gm.setVariable('ppsspp_locked_cpu_speed', '333MHz');
           gm.setVariable('ppsspp_frameskip', '5');
           gm.setVariable('ppsspp_auto_frameskip', 'enabled');
           gm.setVariable('ppsspp_lazy_texture_caching', 'enabled');

@@ -27,8 +27,8 @@
 
 /* Ensure canvas fills the host element and preserves aspect */
 #game canvas {
-  width: 100% !important;
-  height: 100% !important;
+  /* width: 100% !important;
+  height: 100% !important; */
   display: block;
   object-fit: contain;
   image-rendering: pixelated;
