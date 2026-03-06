@@ -148,6 +148,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private autosaveInterval: any;
   private romObjectUrl?: string;
   private emulatorInstance?: any;
+  // System selection helpers for ambiguous extensions (iso/bin/cue/chd)
+  isSystemSelectPanelOpen = false;
+  systemCandidates: Array<{ label: string; core?: string }> = [];
+  selectedSystemCore?: string | null = null;
+  private _pendingFileToLoad?: { fileName: string; fileId?: number; directory?: string } | null = null;
   private _destroyed = false;
   private _pendingSaveResolve?: (v?: any) => void;
   private _pendingSaveTimer?: any;
@@ -275,6 +280,20 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
     this.presetRomId = file.id;
     this.presetRomName = file.fileName;
+
+    const ext = this.fileService.getFileExtension(file.fileName).toLowerCase();
+    const ambiguousExts = new Set(Object.keys(AMBIGUOUS_CORE_CHOICES));
+
+    if (ambiguousExts.has(ext)) {
+      this.systemCandidates = this.getSystemCandidatesForFile(file.fileName);
+      this.selectedSystemCore = undefined;
+      this._pendingFileToLoad = { fileName: file.fileName, fileId: file.id, directory: file.directory };
+      this.isSystemSelectPanelOpen = true;
+      this.cdr.detectChanges();
+      return;
+    }
+
+
     try {
       await this.loadRomThroughService(file.fileName, file.id, file.directory);
       this.status = 'Running';
@@ -286,7 +305,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  private async loadRomThroughService(fileName: string, fileId?: number, directory?: string) {
+  private async loadRomThroughService(fileName: string, fileId?: number, directory?: string, forcedCore?: string | undefined) {
     if (window.__ejsLoaderInjected) {
       this.fullReloadToEmulator();
       return;
@@ -331,7 +350,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         : await this.loadSaveStateFromDB(fileName);
 
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
-    const core = this.detectCore(fileName);
+    const core = forcedCore ?? this.detectCore(fileName);
     const renderClamp = this.getRenderClampForCore(core);
     (window as any).EJS_renderClamp = renderClamp;
     window.EJS_core = core;
@@ -2621,7 +2640,119 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     console.log('%c[PSP] Post-boot tweaks applied ✔', 'color:#4f4');
   }
+
+  private getSystemCandidatesForFile(fileName: string): Array<{ label: string; core?: string }> {
+    const ext = this.fileService.getFileExtension(fileName).toLowerCase();
+    const base = AMBIGUOUS_CORE_CHOICES[ext];
+    if (!base) return [];
+
+    // Clone so we can reorder without mutating constant
+    const candidates = [...base];
+
+    // If your romService can guess, bubble that option up (after auto)
+    let guessedCore: string | null = null;
+    try {
+      const guessedSystem = this.romService?.guessSystemFromFileName(fileName);
+      // translate guessed system string -> core
+      if (guessedSystem === 'psp') guessedCore = 'psp';
+      else if (guessedSystem === 'ps1') guessedCore = 'pcsx_rearmed';
+      else if (guessedSystem === 'genesis') guessedCore = 'genesis_plus_gx';
+      else if (guessedSystem === 'pcfx') guessedCore = 'mednafen_pcfx';
+    } catch { }
+
+    if (guessedCore) {
+      const idx = candidates.findIndex(c => c.core === guessedCore);
+      if (idx > 1) {
+        // keep index 0 as Auto; move guessed to index 1
+        const [hit] = candidates.splice(idx, 1);
+        candidates.splice(1, 0, hit);
+      }
+    }
+
+    return candidates;
+  }
+
+  // Confirm selection from system-chooser popup and proceed to load
+  confirmSystemSelection() {
+    if (!this._pendingFileToLoad) return;
+    const pending = this._pendingFileToLoad;
+    this.isSystemSelectPanelOpen = false;
+    this.parentRef?.closeOverlay();
+    const forced = this.selectedSystemCore ?? undefined;
+    this._pendingFileToLoad = null;
+    // Kick off loading — ignore returned promise here, UI updates handled by caller
+    void this.loadRomThroughService(pending.fileName, pending.fileId, pending.directory, forced).then(() => {
+      this.status = 'Running';
+      this.cdr.detectChanges();
+    }).catch(e => {
+      this.status = 'Error loading emulator';
+      console.error(e);
+      this.cdr.detectChanges();
+    });
+  }
+
+  cancelSystemSelection() {
+    this.isSystemSelectPanelOpen = false;
+    this._pendingFileToLoad = null;
+    this.systemCandidates = [];
+    this.selectedSystemCore = undefined;
+    this.cdr.detectChanges();
+  }
 }
+
+type SystemCandidate = { label: string; core?: string };
+
+const AMBIGUOUS_CORE_CHOICES: Record<string, SystemCandidate[]> = {
+  // Disc images often used by PS1 or PSP
+  iso: [
+    { label: 'Auto-detect (recommended)', core: undefined },
+    { label: 'PSP', core: 'psp' },
+    { label: 'PlayStation (PS1) - Fast', core: 'pcsx_rearmed' },
+    { label: 'PlayStation (PS1) - Accurate', core: 'mednafen_psx_hw' },
+  ],
+
+  // CHD usually PS1 in your supported set; you can still offer PSP if you want,
+  // but most PSP content is .iso/.pbp, so I'd omit PSP for CHD.
+  chd: [
+    { label: 'Auto-detect (recommended)', core: undefined },
+    { label: 'PlayStation (PS1) - Fast', core: 'pcsx_rearmed' },
+    { label: 'PlayStation (PS1) - Accurate', core: 'mednafen_psx_hw' },
+    // Optional if you want Sega CD support under Genesis:
+    { label: 'Sega CD / Genesis family', core: 'genesis_plus_gx' },
+  ],
+
+  // .cue typically pairs with .bin. Could be PS1 or Sega CD (Genesis family).
+  cue: [
+    { label: 'Auto-detect (recommended)', core: undefined },
+    { label: 'PlayStation (PS1) - Accurate', core: 'mednafen_psx_hw' },
+    { label: 'PlayStation (PS1) - Fast', core: 'pcsx_rearmed' },
+    { label: 'Sega CD / Genesis family', core: 'genesis_plus_gx' },
+  ],
+
+  // .bin is the big one: Genesis ROMs + PS1 tracks + Sega CD tracks.
+  bin: [
+    { label: 'Auto-detect (recommended)', core: undefined },
+    { label: 'Genesis / Mega Drive', core: 'genesis_plus_gx' },
+    { label: 'PlayStation (PS1) - Fast', core: 'pcsx_rearmed' },
+    { label: 'PlayStation (PS1) - Accurate', core: 'mednafen_psx_hw' },
+    { label: 'PSP (rare as .bin)', core: 'psp' }, // optional
+  ],
+
+  // CloneCD: commonly PS1, but you map .ccd to PC-FX. Offer both.
+  ccd: [
+    { label: 'Auto-detect (recommended)', core: undefined },
+    { label: 'PlayStation (PS1) - Fast', core: 'pcsx_rearmed' },
+    { label: 'PlayStation (PS1) - Accurate', core: 'mednafen_psx_hw' },
+    { label: 'PC-FX', core: 'mednafen_pcfx' },
+  ],
+
+  // If you decide to accept .img later (not in your allowed list currently)
+  img: [
+    { label: 'Auto-detect (recommended)', core: undefined },
+    { label: 'PlayStation (PS1)', core: 'pcsx_rearmed' },
+    { label: 'Sega CD / Genesis family', core: 'genesis_plus_gx' },
+  ],
+};
 
 declare global {
   interface Window {

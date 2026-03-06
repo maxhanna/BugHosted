@@ -121,3 +121,18 @@
     <button id="closeOverlay" (click)="closeLoginPanel($event)" class="closeButton">Close</button>
   </div>
 </div>
+
+<!-- System selection for ambiguous image files (iso/bin/cue/chd) -->
+<div class="popupPanel" *ngIf="isSystemSelectPanelOpen">
+  <div class="popupPanelTitle">Select System For Image</div>
+  <div style="padding:8px;">
+    <div style="margin-bottom:8px;">The selected file has an ambiguous extension. Please choose the intended system:</div>
+    <select [(ngModel)]="selectedSystemCore">
+      <option *ngFor="let opt of systemCandidates" [ngValue]="opt.core">{{opt.label}}</option>
+    </select>
+    <div style="margin-top:12px; display:flex; gap:8px;">
+      <button (click)="confirmSystemSelection()">Continue</button>
+      <button (click)="cancelSystemSelection()" class="closeButton" id="closeOverlay">Cancel</button>
+    </div>
+  </div>
+</div>
