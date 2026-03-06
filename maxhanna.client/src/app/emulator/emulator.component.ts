@@ -2297,9 +2297,18 @@ const gm = await this.waitForGameManager(5000);
       if (!canvas) return;
 
       // Determine clamp from detected core (fallback to defaults)
-      const core = (window as any).EJS_core || (this.emulatorInstance?.core) || '';
+   
+const coreRaw =
+  (this as any).currentCore ||
+  (window as any).EJS_core ||
+  (this.emulatorInstance?.core) ||
+  '';
 
-      if (core === "ppsspp" || core === "psp") {
+const core = String(coreRaw).toLowerCase();
+const isPsp = core.includes('psp') || core.includes('ppsspp');
+
+
+      if (isPsp) {
         const PSP_ASPECT = 480 / 272;
         const rect = gameEl.getBoundingClientRect();
         if (rect.width <= 0 || rect.height <= 0) return;
