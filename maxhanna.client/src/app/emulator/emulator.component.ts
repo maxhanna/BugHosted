@@ -357,7 +357,8 @@ private readonly SYS_PICK_KEY = 'emu:preferredCoreByExt';
         : await this.loadSaveStateFromDB(fileName);
 
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
-    const core = forcedCore ?? this.detectCoreEnhanced(fileName);
+    const core = forcedCore ?? this.detectCoreEnhanced(fileName); 
+    (this as any).currentCore = core;
     const renderClamp = this.getRenderClampForCore(core);
     (window as any).EJS_renderClamp = renderClamp;
     window.EJS_core = core;
@@ -2121,7 +2122,6 @@ private readonly SYS_PICK_KEY = 'emu:preferredCoreByExt';
 
       const core = String(coreRaw).toLowerCase();
       const isPsp = core.includes('psp') || core.includes('ppsspp');
-
 
       if (isPsp) {
         const PSP_ASPECT = 480 / 272;
