@@ -2774,7 +2774,7 @@ const PSP_DEFAULT_OPTIONS: Record<string, string> = {
     // EmulatorJS-level speed settings
     // 'fastForward':                    'enabled',
     // 'ff-ratio':                       'unlimited',
-    'vsync':                          'disabled',
+    'vsync':                          'Disabled',
 
     // PPSSPP core options
     'ppsspp_cpu_core':                'JIT',
