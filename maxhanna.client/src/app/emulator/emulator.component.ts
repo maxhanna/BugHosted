@@ -485,7 +485,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (!window.__ejsLoaderInjected) {
       await new Promise<void>((resolve, reject) => {
         const s = document.createElement('script');
-        s.src = `/assets/emulatorjs/data/loader.js`;
+const useCdn = (window.EJS_core === 'psp' || window.EJS_core === 'ppsspp');
+
+s.src = useCdn
+  ? 'https://cdn.emulatorjs.org/stable/data/loader.js'
+  : '/assets/emulatorjs/data/loader.js';
+ 
         s.async = false;
         s.defer = false;
         s.setAttribute('data-ejs-loader', '1');
