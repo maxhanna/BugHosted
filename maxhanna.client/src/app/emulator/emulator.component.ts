@@ -732,37 +732,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       w.EJS_backgroundImage = systemIcon; // Sets the background color for the emulator    
     }
     const core = this.detectCore(this.romName ?? '');
-    if (core === "psp" || core == "ppsspp") { 
-      w.EJS_vsync = false; 
-      w.EJS_GL_Options = {
-        alpha: false,
-        antialias: false,
-        depth: true
-      };
-
-      // ── Force our defaults by disabling localStorage for PSP ──
-      // EmulatorJS's getCoreSettings() lets localStorage override EJS_defaultOptions.
-      // For PSP, performance settings are critical — we MUST force them every time.
-      w.EJS_disableLocalStorage = true;
-
-      // Also clear any stale PSP localStorage entries from previous sessions
-      try {
-        const keysToRemove: string[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.startsWith('ejs-') && key.includes('-psp-')) {
-            keysToRemove.push(key);
-          }
-        }
-        keysToRemove.forEach(k => localStorage.removeItem(k));
-        if (keysToRemove.length) console.log('[PSP] Cleared', keysToRemove.length, 'stale localStorage entries');
-      } catch { /* private browsing or no localStorage */ }
-
-      // ── PPSSPP performance-critical core options ──
-      // These MUST be set before loader.js runs so the core starts with them.
-      // Use the centralized map so tests/tweaks remain in a single place.
-      w.EJS_defaultOptions = Object.assign({}, PSP_DEFAULT_OPTIONS);
-      w.EJS_defaultOptionsForce = true; // force our perf defaults over any saved prefs
+    if (core === "psp" || core == "ppsspp") {
+      this.applyPSPCoreSettings(w); // force our perf defaults over any saved prefs
     }
     // Default controller mappings for all 4 players.
     // Player 1 gets keyboard + gamepad; Players 2-4 get gamepad-only (no keyboard conflicts).
@@ -2551,6 +2522,26 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.resizeCanvasBuffer();     // your clamp
       await new Promise(r => setTimeout(r, 100));
     }
+  }
+
+  applyPSPCoreSettings(w: any) {
+    w.EJS_vsync = false;
+    w.EJS_GL_Options = {
+      alpha: false,
+      antialias: false,
+      depth: true
+    };
+
+    // ── Force our defaults by disabling localStorage for PSP ──
+    // EmulatorJS's getCoreSettings() lets localStorage override EJS_defaultOptions.
+    // For PSP, performance settings are critical — we MUST force them every time.
+    w.EJS_disableLocalStorage = true;
+
+    // ── PPSSPP performance-critical core options ──
+    // These MUST be set before loader.js runs so the core starts with them.
+    // Use the centralized map so tests/tweaks remain in a single place.
+    w.EJS_defaultOptions = Object.assign({}, PSP_DEFAULT_OPTIONS);
+    w.EJS_defaultOptionsForce = true;
   }
 
   async applyPSPPerformanceTweak() {
