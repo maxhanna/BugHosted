@@ -1,0 +1,9 @@
+
+{
+  "files": {
+    "wasm": "ppsspp-thread-wasm.data",
+    "js": "ppsspp.js",
+    "worker": "ppsspp.worker.js",
+    "assets": "ppsspp-assets.zip"
+  }
+}

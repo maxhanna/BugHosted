@@ -2274,28 +2274,40 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
       // Determine clamp from detected core (fallback to defaults)
       const core = (window as any).EJS_core || (this.emulatorInstance?.core) || '';
-      if (core === "ppsspp" || core === "psp") {
-        console.log('[EJS] Detected PSP core; applying conservative 960x540 buffer clamp for performance');
-              
-        const PSP_ASPECT = 480 / 272; // ~1.7647
+      
+if (core === "ppsspp" || core === "psp") {
+  const PSP_ASPECT = 480 / 272;
+  const rect = gameEl.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
 
-        const rect = gameEl.getBoundingClientRect();
-        let w = rect.width;
-        let h = rect.height;
+  let fitW = rect.width;
+  let fitH = rect.width / PSP_ASPECT;
+  if (fitH > rect.height) {
+    fitH = rect.height;
+    fitW = rect.height * PSP_ASPECT;
+  }
 
-        // Fit a PSP rectangle inside the host rect
-        let fitW = w;
-        let fitH = w / PSP_ASPECT;
-        if (fitH > h) {
-          fitH = h;
-          fitW = h * PSP_ASPECT;
-        }
-        const clamp = this.getRenderClampForCore(core); 
-        const dpr = Math.min(window.devicePixelRatio || 1, clamp.maxDPR);
-        const targetW = Math.min(Math.round(fitW * dpr), clamp.maxW);
-        const targetH = Math.min(Math.round(fitH * dpr), clamp.maxH);
-        return;
-      }
+  const clamp = this.getRenderClampForCore(core);
+  const dpr = Math.min(window.devicePixelRatio || 1, clamp.maxDPR);
+  const targetW = Math.min(Math.round(fitW * dpr), clamp.maxW);
+  const targetH = Math.min(Math.round(fitH * dpr), clamp.maxH);
+
+  // ✅ APPLY (you were missing this)
+  if (canvas.width !== targetW || canvas.height !== targetH) {
+    canvas.width = targetW;
+    canvas.height = targetH;
+
+    const gl =
+      canvas.getContext('webgl2') ||
+      canvas.getContext('webgl') ||
+      canvas.getContext('experimental-webgl');
+
+    (gl as any)?.viewport?.(0, 0, targetW, targetH);
+  }
+
+  return;
+}
+
       const clamp = this.getRenderClampForCore(core);
 
       // Host size in CSS pixels
@@ -2332,6 +2344,22 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
+private async waitForCanvas(maxMs = 1500) {
+  const start = Date.now();
+  while (Date.now() - start < maxMs) {
+    const canvas = document.querySelector('#game canvas') as HTMLCanvasElement | null;
+    if (canvas) return canvas;
+    await new Promise(r => setTimeout(r, 50));
+  }
+  return null;
+}
+
+private async onEmulatorReadyForSizing() {
+  const canvas = await this.waitForCanvas();
+  if (canvas) this.resizeCanvasBuffer();
+  this.bindResizeBuffer();
+}
+
   /** Bind resize handlers (call once after emulator is initialized). */
   private bindResizeBuffer() {
     const apply = () => this.resizeCanvasBuffer();
@@ -2352,14 +2380,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // Initial call after a short delay so DOM settles
     setTimeout(() => this.resizeCanvasBuffer(), 300);
   }
-
-  private onEmulatorReadyForSizing() {
-    // Bind resize buffer so canvas buffer follows host size
-    try { this.bindResizeBuffer(); } catch (e) { console.warn('[EJS] bindResizeBuffer failed', e); }
-    // Ensure initial sizing
-    try { this.resizeCanvasBuffer(); } catch (e) { console.warn('[EJS] resizeCanvasBuffer failed', e); }
-  }
-
+ 
   private slugifyName(name: string): string {
     return (name || '')
       .toLowerCase()
