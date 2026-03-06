@@ -552,6 +552,17 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     };
   }
 
+private async waitForGameManager(maxMs = 5000) {
+  const start = performance.now();
+  while (performance.now() - start < maxMs) {
+    const ejs = (window as any).EJS_emulator || (window as any).EJS;
+    const gm = ejs?.gameManager || (window as any).EJS_GameManager;
+    if (gm) return gm;
+    await new Promise(r => setTimeout(r, 100));
+  }
+  return null;
+}
+
 
   /**
    * Return a BIOS/firmware URL when the selected core requires one.
@@ -898,13 +909,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     };
   }
 
-  private ensureSaveStatePolyfill() {
+  private async ensureSaveStatePolyfill() {
     const w = window as any;
     if (typeof w.EJS_saveState === 'function') return;
 
 
     const ejs = (window as any).EJS_emulator || (window as any).EJS;
-    const gm = ejs?.gameManager || (window as any).EJS_GameManager;
+
+const gm = await this.waitForGameManager(5000);
     if (gm && typeof gm.getState === 'function') {
       w.EJS_saveState = async () => {
         const bytes = await Promise.resolve(gm.getState());
@@ -1034,7 +1046,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     try {
       const w = window as any;
       const ejs = (window as any).EJS_emulator || (window as any).EJS;
-      const gm = ejs?.gameManager || (window as any).EJS_GameManager;
+
+const gm = await this.waitForGameManager(5000);
       // Prefer EJS_saveState if present (native or polyfilled)
       if (typeof w.EJS_saveState === 'function') {
         const u8: Uint8Array = await w.EJS_saveState();
@@ -2594,7 +2607,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  applyPSPPerformanceTweak() {
+  async applyPSPPerformanceTweak() {
     const core = (window as any).EJS_core;
     if (core !== 'psp' && core !== 'ppsspp') return;
     setTimeout(() => { void this.stabilizePspCanvasSize(2000); }, 500);
@@ -2631,7 +2644,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       const emu = (window as any).EJS_emulator ?? this.emulatorInstance;
 
       const ejs = (window as any).EJS_emulator || (window as any).EJS;
-      const gm = ejs?.gameManager || (window as any).EJS_GameManager;
+
+const gm = await this.waitForGameManager(5000);
 
 
       if (gm) {
