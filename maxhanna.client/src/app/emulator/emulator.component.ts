@@ -317,6 +317,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
+  onSystemSelectChange(ev: Event) {
+    const val = (ev.target as HTMLSelectElement).value;
+    this.selectedSystemCore = val || null;
+  }
+
   private async loadRomThroughService(fileName: string, fileId?: number, directory?: string, forcedCore?: string | undefined) {
     if (window.__ejsLoaderInjected) {
       this.fullReloadToEmulator();
@@ -2933,13 +2938,14 @@ const GENESIS_FORCE_THREE = new Set<string>([
 
 const PSP_DEFAULT_OPTIONS: Record<string, string> = {
   // EmulatorJS-level speed settings
+  'rewind':                    'disabled',
   // 'fastForward':                    'enabled',
   // 'ff-ratio':                       'unlimited',
   'vsync': 'Disabled',
 
   // PPSSPP core options
   'ppsspp_cpu_core': 'JIT',
-  // 'ppsspp_fast_memory':             'enabled',
+  'ppsspp_fast_memory':             'enabled',
   // 'ppsspp_ignore_bad_memory_access':'enabled',
   // 'ppsspp_io_timing_method':        'Fast',
   // 'ppsspp_force_lag_sync':          'disabled',

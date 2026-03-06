@@ -127,8 +127,8 @@
   <div class="popupPanelTitle">Select System For Image</div>
   <div style="padding:8px;">
     <div style="margin-bottom:8px;">Please choose the intended system:</div>
-    <select [(ngModel)]="selectedSystemCore">
-      <option *ngFor="let opt of systemCandidates" [ngValue]="opt.core">{{opt.label}}</option>
+    <select [value]="selectedSystemCore" (change)="onSystemSelectChange($event)">
+      <option *ngFor="let opt of systemCandidates" [value]="opt.core">{{opt.label}}</option>
     </select>
     <div style="margin-top:12px; display:flex; gap:8px;">
       <button (click)="confirmSystemSelection()">Continue</button>
