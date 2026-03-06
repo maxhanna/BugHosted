@@ -748,33 +748,40 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       // ── PPSSPP performance-critical core options ──
       // These MUST be set before loader.js runs so the core starts with them.
       w.EJS_defaultOptions = {
-        // CPU — IR Interpreter is significantly faster than plain Interpreter in WASM
-        // (JIT is unavailable in WASM; IR Interpreter compiles to intermediate representation first)
-        'ppsspp_cpu_core':                'IR Interpreter',
+        // ── EmulatorJS-level speed settings (handled by handleSpecialOptions) ──
+        // Fast-forward removes ALL artificial frame pacing — critical because
+        // the SW renderer already runs far below real-time, so any waiting is wasted.
+        'fastForward':                    'enabled',
+        'ff-ratio':                       'unlimited',  // uncapped speed
+        'vsync':                          'disabled',   // don't sync to display refresh
+
+        // ── PPSSPP core options ──
+        // CPU — only 'Interpreter' is available in this WASM build (JIT/IR not compiled in)
+        'ppsspp_cpu_core':                'Interpreter',
         'ppsspp_fast_memory':             'enabled',
         'ppsspp_ignore_bad_memory_access':'enabled',
         'ppsspp_io_timing_method':        'Fast',
         'ppsspp_force_lag_sync':          'disabled',
-        'ppsspp_locked_cpu_speed':        '222MHz',   // prevent games from boosting to 333MHz — reduces emulation work
+        'ppsspp_locked_cpu_speed':        '222MHz',
 
-        // Frameskip — essential for playable speed in software rendering
-        'ppsspp_frameskip':               '3',        // skip 3 of every 4 frames for max speed
+        // Frameskip — render only every 6th frame; auto_frameskip can go higher when needed
+        'ppsspp_frameskip':               '5',
         'ppsspp_frameskiptype':           'Number of frames',
         'ppsspp_auto_frameskip':          'enabled',
         'ppsspp_frame_duplication':        'enabled',
 
-        // Resolution — keep native PSP resolution to minimise GPU work
+        // Resolution — native PSP only
         'ppsspp_internal_resolution':     '480x272',
         'ppsspp_software_rendering':      'disabled',
 
-        // GPU skip / cache shortcuts
-        'ppsspp_skip_buffer_effects':     'disabled',   // MUST be disabled — GTA LCS goes black-screen without framebuffer effects
-        'ppsspp_skip_gpu_readbacks':      'disabled',   // can cause visual glitches in GTA LCS
+        // GPU shortcuts
+        'ppsspp_skip_buffer_effects':     'disabled',
+        'ppsspp_skip_gpu_readbacks':      'disabled',
         'ppsspp_lazy_texture_caching':    'enabled',
         'ppsspp_disable_range_culling':   'disabled',
         'ppsspp_lower_resolution_for_effects': 'disabled',
 
-        // Texture quality — drop to minimum for speed
+        // Texture quality — all minimum
         'ppsspp_texture_anisotropic_filtering': 'disabled',
         'ppsspp_texture_filtering':       'Nearest',
         'ppsspp_texture_scaling_level':   'disabled',
@@ -784,7 +791,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         'ppsspp_smart_2d_texture_filtering':'disabled',
         'ppsspp_texture_replacement':     'disabled',
 
-        // Spline / tesselation — lower quality saves CPU
+        // Spline / tesselation
         'ppsspp_spline_quality':          'Low',
         'ppsspp_hardware_tesselation':    'disabled',
 
@@ -2563,25 +2570,40 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       (window as any).EJS_renderClamp = { maxW: 960, maxH: 540, maxDPR: 1.0 };
     } catch { }
 
-    // 4️⃣ If gameManager is already available, push perf-critical variables now
+    // 4️⃣ Activate fast-forward + disable vsync directly via gameManager APIs
+    //    (these are EJS-level controls, not core variables — must use the direct methods)
     try {
-      const gm = this.emulatorInstance?.gameManager
+      const emu = (window as any).EJS_emulator ?? this.emulatorInstance;
+      const gm = emu?.gameManager
         ?? (window as any).EJS_emulator?.gameManager
         ?? (window as any).EJS?.gameManager;
-      if (gm && typeof gm.setVariable === 'function') {
-        gm.setVariable('ppsspp_cpu_core', 'IR Interpreter');
-        gm.setVariable('ppsspp_locked_cpu_speed', '222MHz');
-        gm.setVariable('ppsspp_frameskip', '3');
-        gm.setVariable('ppsspp_auto_frameskip', 'enabled');
-        gm.setVariable('ppsspp_skip_buffer_effects', 'disabled');
-        gm.setVariable('ppsspp_skip_gpu_readbacks', 'disabled');
-        gm.setVariable('ppsspp_lazy_texture_caching', 'enabled');
-        gm.setVariable('ppsspp_texture_anisotropic_filtering', 'disabled');
-        gm.setVariable('ppsspp_texture_filtering', 'Nearest');
-        gm.setVariable('ppsspp_spline_quality', 'Low');
-        gm.setVariable('ppsspp_lower_resolution_for_effects', 'disabled');
-        gm.setVariable('ppsspp_cache_iso', 'enabled');
-        console.log('[PSP] Runtime core variables pushed via gameManager');
+      if (gm) {
+        // Fast-forward: removes all artificial frame-pacing / sleep between frames
+        if (typeof gm.setFastForwardRatio === 'function') {
+          gm.setFastForwardRatio(0); // 0 = unlimited
+        }
+        if (typeof gm.toggleFastForward === 'function') {
+          gm.toggleFastForward(1);   // 1 = enable
+          if (emu) emu.isFastForward = true;
+          console.log('[PSP] Fast-forward enabled (unlimited ratio)');
+        }
+        // Disable vsync so RetroArch doesn't wait for display refresh
+        if (typeof gm.setVSync === 'function') {
+          gm.setVSync(false);
+          console.log('[PSP] VSync disabled in RetroArch');
+        }
+        // Push core variables
+        if (typeof gm.setVariable === 'function') {
+          gm.setVariable('ppsspp_locked_cpu_speed', '222MHz');
+          gm.setVariable('ppsspp_frameskip', '5');
+          gm.setVariable('ppsspp_auto_frameskip', 'enabled');
+          gm.setVariable('ppsspp_lazy_texture_caching', 'enabled');
+          gm.setVariable('ppsspp_texture_anisotropic_filtering', 'disabled');
+          gm.setVariable('ppsspp_texture_filtering', 'Nearest');
+          gm.setVariable('ppsspp_spline_quality', 'Low');
+          gm.setVariable('ppsspp_cache_iso', 'enabled');
+          console.log('[PSP] Core variables pushed via gameManager');
+        }
       }
     } catch { }
 
