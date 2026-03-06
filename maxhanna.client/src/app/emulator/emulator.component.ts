@@ -757,7 +757,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
         // ── PPSSPP core options ──
         // CPU — only 'Interpreter' is available in this WASM build (JIT/IR not compiled in)
-        'ppsspp_cpu_core':                'Interpreter',
+        'ppsspp_cpu_core':                'IR Interpreter',
         'ppsspp_fast_memory':             'enabled',
         'ppsspp_ignore_bad_memory_access':'enabled',
         'ppsspp_io_timing_method':        'Fast',
@@ -2616,6 +2616,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         }
         // Push core variables
         if (typeof gm.setVariable === 'function') {
+          gm.setVariable('ppsspp_cpu_core', 'IR Interpreter');
           gm.setVariable('ppsspp_locked_cpu_speed', '333MHz'); 
 
           gm.setVariable('ppsspp_frameskip', '1');              // or 0 if you can
