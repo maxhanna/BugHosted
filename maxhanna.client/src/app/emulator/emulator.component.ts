@@ -386,7 +386,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // to reduce upload frequency for large save files (e.g. PS1 saves).
     const longIntervalCores = new Set([
       'mupen64plus_next', // N64
-      'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mednafen_psx' // PSX variants
+      'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mednafen_psx', // PSX variants
+      'psp', 'ppsspp' // PSP — save states can be ~40 MB+
     ]);
     if (longIntervalCores.has(core)) {
       this.autosaveIntervalTime = 10 * 60 * 1000; // 10 minutes
@@ -433,9 +434,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       try {
         this.scanAndTagVpadControls();
         this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
-
-
-        this.reportPSPCore();
+  
+        console.log("[EJS] ready api:", api);
+        console.log("[EJS] core:", window.EJS_core);
+        console.log("[EJS] gameManager:", api?.gameManager);
 
         this.applyPSPPerformanceTweak();
 
@@ -723,6 +725,68 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         antialias: false,
         depth: false
       };
+      // ── PPSSPP performance-critical core options ──
+      // These MUST be set before loader.js runs so the core starts with them.
+      w.EJS_defaultOptions = {
+        // CPU — interpreter is the only option in WASM, but fast-memory helps
+        'ppsspp_cpu_core':                'Interpreter',
+        'ppsspp_fast_memory':             'enabled',
+        'ppsspp_ignore_bad_memory_access':'enabled',
+        'ppsspp_io_timing_method':        'Fast',
+        'ppsspp_force_lag_sync':          'disabled',
+        'ppsspp_locked_cpu_speed':        'disabled',
+
+        // Frameskip — essential for playable speed in software rendering
+        'ppsspp_frameskip':               '1',
+        'ppsspp_frameskiptype':           'Number of frames',
+        'ppsspp_auto_frameskip':          'enabled',
+        'ppsspp_frame_duplication':        'enabled',
+
+        // Resolution — keep native PSP resolution to minimise GPU work
+        'ppsspp_internal_resolution':     '480x272',
+        'ppsspp_software_rendering':      'disabled',
+
+        // GPU skip / cache shortcuts — huge win for software backend
+        'ppsspp_skip_buffer_effects':     'enabled',
+        'ppsspp_skip_gpu_readbacks':      'enabled',
+        'ppsspp_lazy_texture_caching':    'enabled',
+        'ppsspp_disable_range_culling':   'disabled',
+        'ppsspp_lower_resolution_for_effects': 'enabled',
+
+        // Texture quality — drop to minimum for speed
+        'ppsspp_texture_anisotropic_filtering': 'disabled',
+        'ppsspp_texture_filtering':       'Nearest',
+        'ppsspp_texture_scaling_level':   'disabled',
+        'ppsspp_texture_scaling_type':    'xbrz',
+        'ppsspp_texture_deposterize':     'disabled',
+        'ppsspp_texture_shader':          'disabled',
+        'ppsspp_smart_2d_texture_filtering':'disabled',
+        'ppsspp_texture_replacement':     'disabled',
+
+        // Spline / tesselation — lower quality saves CPU
+        'ppsspp_spline_quality':          'Low',
+        'ppsspp_hardware_tesselation':    'disabled',
+
+        // Rendering pipeline
+        'ppsspp_gpu_hardware_transform':  'enabled',
+        'ppsspp_software_skinning':       'enabled',
+        'ppsspp_inflight_frames':         'Up to 2',
+        'ppsspp_detect_vsync_swap_interval':'disabled',
+        'ppsspp_backend':                 'auto',
+        'ppsspp_mulitsample_level':       'Disabled',
+        'ppsspp_cropto16x9':              'enabled',
+
+        // Misc
+        'ppsspp_memstick_inserted':       'enabled',
+        'ppsspp_cache_iso':               'enabled',
+        'ppsspp_cheats':                  'disabled',
+        'ppsspp_psp_model':               'psp_2000_3000',
+        'ppsspp_language':                'Automatic',
+        'ppsspp_button_preference':       'Cross',
+        'ppsspp_analog_is_circular':      'disabled',
+        'ppsspp_enable_wlan':             'disabled',
+      };
+      w.EJS_defaultOptionsForce = true; // force our perf defaults over any saved prefs
     }
     // Default controller mappings for all 4 players.
     // Player 1 gets keyboard + gamepad; Players 2-4 get gamepad-only (no keyboard conflicts).
@@ -2445,125 +2509,61 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-reportPSPCore() {
-  const w = window as any;
-  const emu = w.EJS_emulator || w.EJS;
+  applyPSPPerformanceTweak() {
+    const core = (window as any).EJS_core;
+    if (core !== 'psp' && core !== 'ppsspp') return;
 
-  console.group("%c[PSP] Runtime Core Report", "color:#4af;font-weight:bold");
+    console.log('%c[PSP] Applying post-boot performance tweaks…', 'color:#4af');
 
-  console.log("EJS_core =", w.EJS_core);
-
-  // real PPSSPP wasm file detection
-  const wasmUrl =
-    emu?.module?.wasmBinaryFile ||
-    emu?.module?.wasmUrl ||
-    emu?.wasmUrl ||
-    (w.Module && w.Module.wasmBinaryFile);
-
-  console.log("WASM URL:", wasmUrl || "unknown");
-
-  const hasModule = !!emu?.module;
-  console.log("Has module:", hasModule);
-
-  // detect PPSSPP-specific exports (these exist only in real PPSSPP)
-  const mod = emu?.module;
-  const isPPSSPP =
-    !!mod?._Java_org_ppsspp_ppsspp_NativeRenderer_displayInit ||
-    !!mod?._SetConfigOption ||
-    !!mod?._pspInit ||
-    !!mod?._DisplayInitialize;
-
-  console.log("Is PPSSPP core:", isPPSSPP ? "YES" : "NO (interpreter fallback)");
-
-  console.groupEnd();
-    
-  setTimeout(() => {
-    console.log("[PSP] Active core:", window.EJS_emulator?.coreName);
-    console.log("[PSP] Module:", window.EJS_emulator?.module);
-    console.log("[PSP] WASM file:", window.EJS_emulator?.module?.wasmBinaryFile);
-  }, 1000);
-
-}
-applyPSPPerformanceTweak() { 
-   
-  if ((window as any).EJS_core !== "psp") return;
-
-  window.EJS_paths = {
-    "psp": "cores/psp/"
-  }; 
-  window.EJS_coreUrl = "/assets/emulatorjs/data/cores/";
-  window.EJS_core = "psp";
-
-  console.log("%c[PSP] Applying External Optimization Pack...", "color:#4af");
-
-  try {
-    // 1️⃣ Disable vsync (browser pacing) – lets PSP run without waiting for 60Hz
-    (window as any).EJS_vsync = false;
-    console.log("[PSP] Vsync disabled");
-  } catch {}
-
-  try {
-    // 2️⃣ Limit threads globally (prevents CPU overload on mobile)
-    // 1 thread = safest, 2 = balanced
-    (window as any).EJS_maxThreads = 1;
-    console.log("[PSP] Thread limit set to 1");
-  } catch {}
-
-  try {
-    // 3️⃣ WebGL lightweight context (no AA, no alpha, no depth)
-    (window as any).EJS_GL_Options = {
-      alpha: false,
-      antialias: false,
-      depth: false,
-      stencil: false,
-      preserveDrawingBuffer: false
-    };
-    console.log("[PSP] WebGL lightweight context enabled");
-  } catch {}
-
-  try {
-    // 4️⃣ Force medium shader precision (GPU load -20% on mobile)
-    (window as any).EJS_shaderPrecision = "medium";
-    console.log("[PSP] Shader precision = medium");
-  } catch {}
-
-  // 5️⃣ Canvas downscaling — prevent GPU upscaling work
-  requestAnimationFrame(() => {
-    try {
-      const canvas = document.querySelector("#game canvas") as HTMLCanvasElement;
-      if (!canvas) return;
-
-      canvas.style.imageRendering = "pixelated"; // fastest upscale
-      canvas.style.maxWidth = "95vw";            // smaller → faster
-      canvas.style.maxHeight = "95vh";
-
-      console.log("[PSP] Canvas CSS scaling optimized");
-    } catch {}
-  });
-
-  // 6️⃣ Force devicePixelRatio to 1 for PSP only (huge boost on 4K screens)
-  try {
-    (window as any).__ORIGINAL_DPR__ = window.devicePixelRatio;
-    Object.defineProperty(window, "devicePixelRatio", {
-      get() { return 1; }
+    // 1️⃣ Canvas downscaling — prevent GPU upscaling work
+    requestAnimationFrame(() => {
+      try {
+        const canvas = document.querySelector('#game canvas') as HTMLCanvasElement;
+        if (!canvas) return;
+        canvas.style.imageRendering = 'pixelated';
+        canvas.style.maxWidth  = '95vw';
+        canvas.style.maxHeight = '95vh';
+      } catch { }
     });
-    console.log("[PSP] devicePixelRatio forced to 1");
-  } catch {
-    console.warn("[PSP] Could not override DPR (browser-secured)");
+
+    // 2️⃣ Force devicePixelRatio to 1 for PSP (big win on high-DPI screens)
+    try {
+      if (window.devicePixelRatio > 1) {
+        (window as any).__ORIGINAL_DPR__ = window.devicePixelRatio;
+        Object.defineProperty(window, 'devicePixelRatio', {
+          get() { return 1; },
+          configurable: true
+        });
+      }
+    } catch { }
+
+    // 3️⃣ Clamp render buffer
+    try {
+      (window as any).EJS_renderClamp = { maxW: 960, maxH: 540, maxDPR: 1.0 };
+    } catch { }
+
+    // 4️⃣ If gameManager is already available, push perf-critical variables now
+    try {
+      const gm = this.emulatorInstance?.gameManager
+        ?? (window as any).EJS_emulator?.gameManager
+        ?? (window as any).EJS?.gameManager;
+      if (gm && typeof gm.setVariable === 'function') {
+        gm.setVariable('ppsspp_frameskip', '1');
+        gm.setVariable('ppsspp_auto_frameskip', 'enabled');
+        gm.setVariable('ppsspp_skip_buffer_effects', 'enabled');
+        gm.setVariable('ppsspp_skip_gpu_readbacks', 'enabled');
+        gm.setVariable('ppsspp_lazy_texture_caching', 'enabled');
+        gm.setVariable('ppsspp_texture_anisotropic_filtering', 'disabled');
+        gm.setVariable('ppsspp_texture_filtering', 'Nearest');
+        gm.setVariable('ppsspp_spline_quality', 'Low');
+        gm.setVariable('ppsspp_lower_resolution_for_effects', 'enabled');
+        gm.setVariable('ppsspp_cache_iso', 'enabled');
+        console.log('[PSP] Runtime core variables pushed via gameManager');
+      }
+    } catch { }
+
+    console.log('%c[PSP] Post-boot tweaks applied ✔', 'color:#4f4');
   }
-
-  // 7️⃣ Clamp render buffer during startup (your build supports this!)
-  try {
-    (window as any).EJS_renderClamp = {
-      maxW: 960,
-      maxH: 540,
-      maxDPR: 1.0
-    };
-    console.log("[PSP] Render buffer clamped to 960×540 @ DPR 1.0");
-  } catch {}
-
-  console.log("%c[PSP] External Optimization Pack Applied ✔", "color:#4f4"); 
-}
 }
 
 declare global {
@@ -2596,6 +2596,7 @@ declare global {
     __ejsLoaderInjected?: boolean;
     __EJS_ALIVE__?: boolean;
     EJS_defaultOptionsForce?: boolean;
+    EJS_defaultOptions?: Record<string, string>;
     EJS_disableLocalStorage?: boolean;
     EJS_directKeyboardInput?: boolean;
     EJS_enableGamepads?: boolean;
