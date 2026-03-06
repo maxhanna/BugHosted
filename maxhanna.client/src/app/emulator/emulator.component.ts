@@ -144,7 +144,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   segaShowLR = true;       // show L/R pills on Genesis when desired
   status: string = 'Idle';
   preferSixButtonGenesis: boolean = true;
-  loadWithoutSave = false; 
+  loadWithoutSave = false;
   private autosaveInterval: any;
   private romObjectUrl?: string;
   private emulatorInstance?: any;
@@ -325,10 +325,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.romName = fileName;
 
     // 4) Try to load existing save state from database (unless explicitly skipped)
-    const saveStateBlob = 
-      (this.skipSaveFileRequested || this.loadWithoutSave) 
-      ? null 
-      : await this.loadSaveStateFromDB(fileName);
+    const saveStateBlob =
+      (this.skipSaveFileRequested || this.loadWithoutSave)
+        ? null
+        : await this.loadSaveStateFromDB(fileName);
 
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
     const core = this.detectCore(fileName);
@@ -395,7 +395,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     ]);
     if (longIntervalCores.has(core)) {
       this.autosaveIntervalTime = 10 * 60 * 1000; // 10 minutes
-      console.log(`[EJS] Detected core "${core}", setting autosave interval to 10 minutes to reduce upload frequency for large save files.`);
+      //console.log(`[EJS] Detected core "${core}", setting autosave interval to 10 minutes to reduce upload frequency for large save files.`);
     } else {
       this.autosaveIntervalTime = 3 * 60 * 1000; // default 3 minutes
     }
@@ -444,9 +444,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         this.scanAndTagVpadControls();
         this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
 
-        console.log("[EJS] ready api:", api);
-        console.log("[EJS] core:", window.EJS_core);
-        console.log("[EJS] gameManager:", api?.gameManager);
 
         this.applyPSPPerformanceTweak();
 
@@ -501,10 +498,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         s.onload = () => {
           window.__ejsLoaderInjected = true;
 
-          setTimeout(() => {
-            const roots = document.querySelectorAll('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent');
-            console.log('[EJS] vpad roots detected:', roots.length, roots);
-          }, 1000);
+          // setTimeout(() => {
+          //   const roots = document.querySelectorAll('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent');
+          //   console.log('[EJS] vpad roots detected:', roots.length, roots);
+          // }, 1000);
 
           requestAnimationFrame(() => {
             this.setGameScreenHeight();
@@ -572,12 +569,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return null;
   }
 
-
-  /**
-   * Return a BIOS/firmware URL when the selected core requires one.
-   * Return `undefined` when no BIOS is required (caller will fall back to empty string).
-   * Keep this list minimal and explicit — prefer per-ROM overrides for unusual cases.
-   */
   private getBiosUrlForCore(core: string): string | undefined {
     switch (core) {
       // PlayStation (common BIOS used by many PS1 cores)
@@ -723,7 +714,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const componentBackgroundColor = (rootStyle.getPropertyValue('--component-background-color') || '#3a3a3a').trim();
     let systemIcon = this.fileSearchComponent?.getSystemIcon(this.romService.guessSystemFromFileName(this.romName ?? '') ?? "") ?? undefined;
     if (!systemIcon?.toString().includes("png")) {
-      console.log("system icon missing or not a png for rom", "icon value:", systemIcon);
+      console.error("system icon missing or not a png for rom", "icon value:", systemIcon);
       systemIcon = undefined;
     }
     const w = window as any;
@@ -741,10 +732,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       w.EJS_backgroundImage = systemIcon; // Sets the background color for the emulator    
     }
     const core = this.detectCore(this.romName ?? '');
-    if (core === "psp" || core == "ppsspp") {
-      console.log("Disabling vsync for PSP core to improve performance");
-      w.EJS_vsync = false;
-      w.EJS_maxThreads = 2;
+    if (core === "psp" || core == "ppsspp") { 
+      w.EJS_vsync = false; 
       w.EJS_GL_Options = {
         alpha: false,
         antialias: false,
@@ -771,8 +760,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
       // ── PPSSPP performance-critical core options ──
       // These MUST be set before loader.js runs so the core starts with them.
-        // Use the centralized map so tests/tweaks remain in a single place.
-        w.EJS_defaultOptions = Object.assign({}, PSP_DEFAULT_OPTIONS);
+      // Use the centralized map so tests/tweaks remain in a single place.
+      w.EJS_defaultOptions = Object.assign({}, PSP_DEFAULT_OPTIONS);
       w.EJS_defaultOptionsForce = true; // force our perf defaults over any saved prefs
     }
     // Default controller mappings for all 4 players.
@@ -2768,69 +2757,69 @@ const GENESIS_FORCE_THREE = new Set<string>([
   "forgotten-worlds",
   "golden-axe-ii",
   "ms-pac-man"
-]); 
+]);
 
 const PSP_DEFAULT_OPTIONS: Record<string, string> = {
-    // EmulatorJS-level speed settings
-    // 'fastForward':                    'enabled',
-    // 'ff-ratio':                       'unlimited',
-    'vsync':                          'Disabled',
+  // EmulatorJS-level speed settings
+  // 'fastForward':                    'enabled',
+  // 'ff-ratio':                       'unlimited',
+  'vsync': 'Disabled',
 
-    // PPSSPP core options
-    'ppsspp_cpu_core':                'JIT',
-    // 'ppsspp_fast_memory':             'enabled',
-    // 'ppsspp_ignore_bad_memory_access':'enabled',
-    // 'ppsspp_io_timing_method':        'Fast',
-    // 'ppsspp_force_lag_sync':          'disabled',
-    'ppsspp_locked_cpu_speed':        '333MHz',
+  // PPSSPP core options
+  'ppsspp_cpu_core': 'JIT',
+  // 'ppsspp_fast_memory':             'enabled',
+  // 'ppsspp_ignore_bad_memory_access':'enabled',
+  // 'ppsspp_io_timing_method':        'Fast',
+  // 'ppsspp_force_lag_sync':          'disabled',
+  'ppsspp_locked_cpu_speed': '333MHz',
 
-    // Frameskip
-    // 'ppsspp_frameskip':               '5',
-    // 'ppsspp_frameskiptype':           'Number of frames',
-    // 'ppsspp_auto_frameskip':          'enabled',
-    // 'ppsspp_frame_duplication':       'enabled',
+  // Frameskip
+  // 'ppsspp_frameskip':               '5',
+  // 'ppsspp_frameskiptype':           'Number of frames',
+  // 'ppsspp_auto_frameskip':          'enabled',
+  // 'ppsspp_frame_duplication':       'enabled',
 
-    // Resolution
-    'ppsspp_internal_resolution':     '480x272',
-    'ppsspp_software_rendering':      'disabled',
+  // Resolution
+  'ppsspp_internal_resolution': '480x272',
+  'ppsspp_software_rendering': 'disabled',
 
-    // GPU shortcuts
-    // 'ppsspp_skip_buffer_effects':     'disabled',
-    // 'ppsspp_skip_gpu_readbacks':      'disabled',
-    // 'ppsspp_lazy_texture_caching':    'enabled',
-    // 'ppsspp_disable_range_culling':   'disabled',
-    // 'ppsspp_lower_resolution_for_effects': 'disabled',
+  // GPU shortcuts
+  // 'ppsspp_skip_buffer_effects':     'disabled',
+  // 'ppsspp_skip_gpu_readbacks':      'disabled',
+  'ppsspp_lazy_texture_caching': 'enabled',
+  // 'ppsspp_disable_range_culling':   'disabled',
+  // 'ppsspp_lower_resolution_for_effects': 'disabled',
 
-    // Texture quality
-    // 'ppsspp_texture_anisotropic_filtering': 'disabled',
-    // 'ppsspp_texture_filtering':       'Nearest',
-    // 'ppsspp_texture_scaling_level':   'disabled',
-    // 'ppsspp_texture_scaling_type':    'xbrz',
-    // 'ppsspp_texture_deposterize':     'disabled',
-    // 'ppsspp_texture_shader':          'disabled',
-    // 'ppsspp_smart_2d_texture_filtering':'disabled',
-    // 'ppsspp_texture_replacement':     'disabled',
+  // Texture quality
+  // 'ppsspp_texture_anisotropic_filtering': 'disabled',
+  // 'ppsspp_texture_filtering':       'Nearest',
+  // 'ppsspp_texture_scaling_level':   'disabled',
+  // 'ppsspp_texture_scaling_type':    'xbrz',
+  // 'ppsspp_texture_deposterize':     'disabled',
+  // 'ppsspp_texture_shader':          'disabled',
+  // 'ppsspp_smart_2d_texture_filtering':'disabled',
+  // 'ppsspp_texture_replacement':     'disabled',
 
-    // Spline / tesselation
-    // 'ppsspp_spline_quality':          'Low',
-    // 'ppsspp_hardware_tesselation':    'disabled',
+  // Spline / tesselation
+  // 'ppsspp_spline_quality':          'Low',
+  // 'ppsspp_hardware_tesselation':    'disabled',
 
-    // Rendering pipeline
-    // 'ppsspp_gpu_hardware_transform':  'enabled',
-    // 'ppsspp_software_skinning':       'enabled',
-    // 'ppsspp_inflight_frames':         'Up to 2',
-    // 'ppsspp_detect_vsync_swap_interval':'disabled',
-    // 'ppsspp_backend':                 'auto',
-    // 'ppsspp_mulitsample_level':       'Disabled',
-    // 'ppsspp_cropto16x9':              'enabled',
+  // Rendering pipeline
+  'ppsspp_gpu_hardware_transform': 'enabled',
+  // 'ppsspp_software_skinning':       'enabled',
+  // 'ppsspp_inflight_frames':         'Up to 2',
+  // 'ppsspp_detect_vsync_swap_interval':'disabled',
+  'ppsspp_backend': 'vulkan',
+  // 'ppsspp_mulitsample_level':       'Disabled',
+  // 'ppsspp_cropto16x9':              'enabled',
 
-    // Misc
-    // 'ppsspp_memstick_inserted':       'enabled',
-    // 'ppsspp_cache_iso':               'enabled',
-    // 'ppsspp_cheats':                  'disabled',
-    // 'ppsspp_psp_model':               'psp_2000_3000',
-    // 'ppsspp_language':                'Automatic',
-    // 'ppsspp_button_preference':       'Cross',
-    // 'ppsspp_analog_is_circular':      'disabled',
-    // 'ppsspp_enable_wlan':             'disabled',
-  };
+  // Misc
+  // 'ppsspp_memstick_inserted':       'enabled',
+  // 'ppsspp_cache_iso':               'enabled',
+  // 'ppsspp_cheats':                  'disabled',
+  // 'ppsspp_psp_model':               'psp_2000_3000',
+  // 'ppsspp_language':                'Automatic',
+  // 'ppsspp_button_preference':       'Cross',
+  // 'ppsspp_analog_is_circular':      'disabled',
+  // 'ppsspp_enable_wlan':             'disabled',
+};
