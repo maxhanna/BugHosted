@@ -38,6 +38,7 @@
     "@angular/platform-browser": "^19.2.4",
     "@angular/platform-browser-dynamic": "^19.2.4",
     "@angular/router": "^19.2.4",
+    "@emulatorjs/core-ppsspp": "^4.2.3",
     "chart.js": "^4.4.3",
     "firebase": "^12.4.0",
     "jest-editor-support": "*",
