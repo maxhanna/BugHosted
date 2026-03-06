@@ -28,6 +28,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   system?: System;
   isFileUploaderExpanded = false;
   isFaqOpen = false;
+  isSystemSelectPanelOpen = false;
   wasMenuOpenBeforeLoggingIn = false;
   faqItems: { question: string; answerHtml: string; expanded: boolean }[] = [
     {
@@ -152,9 +153,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   loadWithoutSave = false;
   private autosaveInterval: any;
   private romObjectUrl?: string;
-  private emulatorInstance?: any;
-  // System selection helpers for ambiguous extensions (iso/bin/cue/chd)
-  isSystemSelectPanelOpen = false;
+  private emulatorInstance?: any; 
   systemCandidates: Array<{ label: string; core?: string }> = [];
   selectedSystemCore?: string | null = null;
   private _pendingFileToLoad?: { fileName: string; fileId?: number; directory?: string } | null = null;
@@ -297,6 +296,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       } else {
         this._pendingFileToLoad = { fileName: file.fileName, fileId: file.id, directory: file.directory };
         this.isSystemSelectPanelOpen = true;
+        this.parentRef?.showOverlay();
       }
 
       this.cdr.detectChanges();
@@ -1322,13 +1322,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this._gameSizeObs = new ResizeObserver(() => apply());
       this._gameSizeObs.observe(game);
     } catch { }
-
-    // try {
-    //   this._gameAttrObs?.disconnect();
-    //   this._gameAttrObs = new MutationObserver(() => apply());
-    //   this._gameAttrObs.observe(game, { attributes: true, attributeFilter: ['style'] });
-    // } catch { }
-
     try {
       window.addEventListener('resize', apply, { passive: true });
       window.addEventListener('orientationchange', apply, { passive: true });
@@ -2744,6 +2737,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   cancelSystemSelection() {
     this.isSystemSelectPanelOpen = false;
+    this.parentRef?.closeOverlay();
     this._pendingFileToLoad = null;
     this.systemCandidates = [];
     this.selectedSystemCore = undefined;
@@ -2938,14 +2932,14 @@ const GENESIS_FORCE_THREE = new Set<string>([
 
 const PSP_DEFAULT_OPTIONS: Record<string, string> = {
   // EmulatorJS-level speed settings
-  'rewind':                    'disabled',
+  'rewindEnabled': 'Disabled',
   // 'fastForward':                    'enabled',
   // 'ff-ratio':                       'unlimited',
   'vsync': 'Disabled',
 
   // PPSSPP core options
   'ppsspp_cpu_core': 'JIT',
-  'ppsspp_fast_memory':             'enabled',
+  'ppsspp_fast_memory': 'enabled',
   // 'ppsspp_ignore_bad_memory_access':'enabled',
   // 'ppsspp_io_timing_method':        'Fast',
   // 'ppsspp_force_lag_sync':          'disabled',
