@@ -27,14 +27,13 @@
 
 /* Ensure canvas fills the host element and preserves aspect */
 #game canvas {
+
   width: 100% !important;
   height: 100% !important;
-  max-height: 480px !important;
-  max-width: 272px !important;
-  display: block;
-  object-fit: contain;
+  max-width: 480px !important;
+  max-height: 272px !important;
   image-rendering: pixelated;
-  /* good for retro pixel clarity */
+
 }
 
 /* If the browser supports dynamic viewport */

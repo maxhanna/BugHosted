@@ -152,7 +152,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private _pendingSaveTimer?: any;
   private _captureSaveResolve?: (u8: Uint8Array | null) => void;
   private _gameSizeObs?: ResizeObserver;
-  private _gameAttrObs?: MutationObserver;
+ // private _gameAttrObs?: MutationObserver;
   private _saveFn?: () => Promise<void>;
   private _lastSaveTime: number = 0;
   private _saveInProgress: boolean = false;
@@ -775,7 +775,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         'ppsspp_software_rendering':      'disabled',
 
         // GPU shortcuts
-        'ppsspp_skip_buffer_effects':     'disabled',
+        'ppsspp_skip_buffer_effects':     'enabled',
         'ppsspp_skip_gpu_readbacks':      'disabled',
         'ppsspp_lazy_texture_caching':    'enabled',
         'ppsspp_disable_range_culling':   'disabled',
@@ -1472,11 +1472,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this._gameSizeObs.observe(game);
     } catch { }
 
-    try {
-      this._gameAttrObs?.disconnect();
-      this._gameAttrObs = new MutationObserver(() => apply());
-      this._gameAttrObs.observe(game, { attributes: true, attributeFilter: ['style'] });
-    } catch { }
+    // try {
+    //   this._gameAttrObs?.disconnect();
+    //   this._gameAttrObs = new MutationObserver(() => apply());
+    //   this._gameAttrObs.observe(game, { attributes: true, attributeFilter: ['style'] });
+    // } catch { }
 
     try {
       window.addEventListener('resize', apply, { passive: true });
@@ -2274,6 +2274,28 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
       // Determine clamp from detected core (fallback to defaults)
       const core = (window as any).EJS_core || (this.emulatorInstance?.core) || '';
+      if (core === "ppsspp" || core === "psp") {
+        console.log('[EJS] Detected PSP core; applying conservative 960x540 buffer clamp for performance');
+              
+        const PSP_ASPECT = 480 / 272; // ~1.7647
+
+        const rect = gameEl.getBoundingClientRect();
+        let w = rect.width;
+        let h = rect.height;
+
+        // Fit a PSP rectangle inside the host rect
+        let fitW = w;
+        let fitH = w / PSP_ASPECT;
+        if (fitH > h) {
+          fitH = h;
+          fitW = h * PSP_ASPECT;
+        }
+        const clamp = this.getRenderClampForCore(core); 
+        const dpr = Math.min(window.devicePixelRatio || 1, clamp.maxDPR);
+        const targetW = Math.min(Math.round(fitW * dpr), clamp.maxW);
+        const targetH = Math.min(Math.round(fitH * dpr), clamp.maxH);
+        return;
+      }
       const clamp = this.getRenderClampForCore(core);
 
       // Host size in CSS pixels
@@ -2555,15 +2577,15 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     });
 
     // 2️⃣ Force devicePixelRatio to 1 for PSP (big win on high-DPI screens)
-    try {
-      if (window.devicePixelRatio > 1) {
-        (window as any).__ORIGINAL_DPR__ = window.devicePixelRatio;
-        Object.defineProperty(window, 'devicePixelRatio', {
-          get() { return 1; },
-          configurable: true
-        });
-      }
-    } catch { }
+    // try {
+    //   if (window.devicePixelRatio > 1) {
+    //     (window as any).__ORIGINAL_DPR__ = window.devicePixelRatio;
+    //     Object.defineProperty(window, 'devicePixelRatio', {
+    //       get() { return 1; },
+    //       configurable: true
+    //     });
+    //   }
+    // } catch { }
 
     // 3️⃣ Clamp render buffer
     try {
@@ -2594,9 +2616,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         }
         // Push core variables
         if (typeof gm.setVariable === 'function') {
-          gm.setVariable('ppsspp_locked_cpu_speed', '333MHz');
-          gm.setVariable('ppsspp_frameskip', '5');
-          gm.setVariable('ppsspp_auto_frameskip', 'enabled');
+          gm.setVariable('ppsspp_locked_cpu_speed', '333MHz'); 
+
+          gm.setVariable('ppsspp_frameskip', '1');              // or 0 if you can
+          gm.setVariable('ppsspp_auto_frameskip', 'enabled');   // ok
+          gm.setVariable('ppsspp_frame_duplication', 'disabled');
+
           gm.setVariable('ppsspp_lazy_texture_caching', 'enabled');
           gm.setVariable('ppsspp_texture_anisotropic_filtering', 'disabled');
           gm.setVariable('ppsspp_texture_filtering', 'Nearest');
