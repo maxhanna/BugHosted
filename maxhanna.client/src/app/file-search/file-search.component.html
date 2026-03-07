@@ -181,13 +181,8 @@
   <div *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.igdbName && !optionsFile.isFolder"
     class="romMetaPanel">
 
-    <div class="romMetaHeader">🎮 <strong>{{ optionsFile.romMetadata?.igdbName }}</strong> Metadata
-      <span style="float:right; font-size:0.9em;">
-        <button title="Request metadata reset" (click)="incrementResetVoteForOptionsFile()" style="margin-left:8px">↻
-          Reset</button>
-        <span *ngIf="optionsFile.romMetadata?.resetVotes !== undefined" style="margin-left:8px">Votes: {{
-          optionsFile.romMetadata?.resetVotes }}</span>
-      </span>
+    <div class="romMetaHeader">
+      🎮 <strong>{{ optionsFile.romMetadata?.igdbName }}</strong> Metadata
     </div>
 
     <div *ngIf="optionsFile.romMetadata?.totalRatingCount" class="romMetaLine">
@@ -242,7 +237,12 @@
     <div *ngIf="optionsFile?.romMetadata?.firstReleaseDateUnix as d" class="romMetaLine">
       <strong>Release:</strong> {{ unixSecondsToDate(d) | date:'y/MM/d' }}
     </div>
-
+    <span class="xxSmallFont">
+      <button title="Request metadata reset" (click)="incrementResetVoteForOptionsFile()" style="margin-left:8px">↻
+        Reset</button>
+      <span *ngIf="optionsFile.romMetadata?.resetVotes !== undefined" style="margin-left:8px">Votes: {{
+        optionsFile.romMetadata?.resetVotes }}</span>
+    </span>
   </div>
 
   <div class="popupPanelActions">
