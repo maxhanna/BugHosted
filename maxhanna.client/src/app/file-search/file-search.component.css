@@ -394,7 +394,7 @@
   color: #666;
   background: rgba(255, 255, 255, 0.9);
   padding: 0 8px;
-} 
+}
 
 .filter-group {
   margin-bottom: 15px;
@@ -456,7 +456,7 @@
 }
 
 .trending-list {
-  text-align:center;
+  text-align: center;
 }
 
 #fileid-input {
@@ -513,6 +513,7 @@
   justify-items: stretch;
   grid-template-columns: 110px 110px;
 }
+
 .toggle-switch-small {
   font-size: unset;
   white-space: nowrap;
@@ -527,12 +528,13 @@
 }
 
 .romThumb {
-  width: 34px;
-  height: 34px;
+  max-height: 150px;
+  max-width: 150px;
   object-fit: cover;
   border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.15);
-  box-shadow: 0 0 6px rgba(0,0,0,0.3);
+  border: 1px solid rgba(255, 255, 255, .15);
+  box-shadow: 0 0 6px #0000004d;
+  cursor: pointer;
 }
 
 .romTitleText {
@@ -574,7 +576,7 @@
   max-width: 100%;
   border-radius: 10px;
   object-fit: cover;
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .romMetaGrid {
@@ -588,7 +590,17 @@
   aspect-ratio: 16 / 9;
   object-fit: cover;
   border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Large preview image styling */
+.imagePreviewLarge {
+  max-width: 95vw;
+  max-height: 80vh;
+  width: auto;
+  height: auto;
+  border-radius: 8px;
+  object-fit: contain;
 }
 
 .romMetaLinks {
@@ -596,5 +608,44 @@
   flex-direction: column;
   gap: 6px;
   max-height: 160px;
+  overflow: auto;
+}
+
+/* Options stats wrapper (used in the options popup). Ensure it is visible and scrolls when content is large */
+.optionsStatsWrapperDiv,
+.fileOptionsStatsWrapperDiv {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  box-sizing: border-box;
+  max-height: 55vh;
+  overflow: auto;
+  width: 100%;
+}
+
+.optionsStatsDiv {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
+  padding-bottom: 6px;
+}
+
+.optionsStatsHeader {
+  font-weight: 700;
+  min-width: 120px;
+  color: var(--secondary-font-color);
+}
+
+.optionsStatsDescription {
+  flex: 1 1 auto;
+  color: var(--main-font-color);
+  word-break: break-word;
+}
+
+/* Limit rom metadata height so options stats remain visible */
+.romMetaPanel {
+  max-height: 45vh;
   overflow: auto;
 }

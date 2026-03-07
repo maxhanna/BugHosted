@@ -87,13 +87,15 @@
 
                 <span *ngIf="!isEditing.includes(file.id)" class="fileFolderNameSpan {{file.isFolder ? 'folder' : ''}}"
                   (click)="!disabled && selectFile(file);" [id]="'fileIdName'+file.id">
+                  <span>
+                    {{ file.isFolder ? '📁' : '' }}
+                    <span [innerHTML]="showSystemIcons ? getSystemEmoji(file.fileName ?? '') : ''"></span>
 
-                  {{ file.isFolder ? '📁' : '' }}
-                  <span [innerHTML]="showSystemIcons ? getSystemEmoji(file.fileName ?? '') : ''"></span>
-
-                  <span class="romTitleText">
-                    {{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}
+                    <span class="romTitleText">
+                      {{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}
+                    </span>
                   </span>
+
 
                   <!-- ✅ inline ROM thumbs -->
                   <span *ngIf="shouldShowRomMetadata() && !file.isFolder && file.romInlineThumbs?.length"
@@ -104,7 +106,6 @@
                       (error)="hideBrokenImg($event)" />
                   </span>
                 </span>
-
               </span>
               <div class="fileExtras fileOptionsActionWrapper">
                 <app-reaction *ngIf="displayReactions && !file.isFolder" [user]="user"
@@ -206,10 +207,10 @@
       <div class="romMetaSectionTitle">Screenshots / Art</div>
       <div class="romMetaGrid">
         <img *ngFor="let img of safeJsonArray(optionsFile.romMetadata?.screenshotsJson).slice(0, 12)" class="romMetaImg"
-          [src]="img" loading="lazy" (error)="hideBrokenImg($event)" />
+          [src]="img" loading="lazy" (error)="hideBrokenImg($event)" (click)="openImagePreview(img, $event)" />
 
         <img *ngFor="let img of safeJsonArray(optionsFile.romMetadata?.artworksJson).slice(0, 8)" class="romMetaImg"
-          [src]="img" loading="lazy" (error)="hideBrokenImg($event)" />
+          [src]="img" loading="lazy" (error)="hideBrokenImg($event)" (click)="openImagePreview(img, $event)" />
       </div>
     </div>
 
@@ -217,7 +218,7 @@
       <div class="romMetaSectionTitle">Videos</div>
       <div class="romMetaLinks">
         <a *ngFor="let v of safeJsonArray(optionsFile.romMetadata?.videosJson).slice(0, 6)" [href]="v" target="_blank"
-          rel="noopener">
+          rel="noopener" (click)="onVideoLinkClick(v, $event)">
           ▶️ {{ v }}
         </a>
       </div>
@@ -258,12 +259,14 @@
       ➕ Add To Music Playlist
     </button>
   </div>
+
   <div *ngIf="optionsFile && optionsFile.id && editingTopics.includes(optionsFile.id)">
     <app-topics #topicComponent [isDropdown]="true" [user]="inputtedParentRef?.user ?? parentRef?.user"
       [parent]="inputtedParentRef ?? parentRef" [attachedTopics]="optionsFile.topics"
       (topicAdded)="editFileTopicInDB($event, optionsFile)">
     </app-topics>
   </div>
+
   <div class="optionsStatsWrapperDiv gradientBackground fileOptionsStatsWrapperDiv">
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">Id:</div>
@@ -648,4 +651,13 @@
     </select>
     <button (click)="closeVisibilityDropdown()">Cancel</button>
   </div>
+</div>
+
+<!-- Image preview popup -->
+<div class="popupPanel" *ngIf="isShowingImagePreview">
+  <div class="popupPanelTitle">Preview</div>
+  <div style="padding:12px; text-align:center; max-height:70vh; overflow:auto;">
+    <img [src]="imagePreviewUrl" class="imagePreviewLarge" loading="lazy" />
+  </div>
+  <button id="closeOverlay" (click)="closeImagePreview()" class="closeButton">Close</button>
 </div>

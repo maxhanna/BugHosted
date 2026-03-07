@@ -79,6 +79,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   isOptionsPanelOpen = false;
   isShowingFileViewers = false;
   isShowingFileFavouriters = false;
+  // Image preview state
+  isShowingImagePreview = false;
+  imagePreviewUrl?: string | null = null;
   isVisibilityDropdownOpen = false;
   visibilityDropdownFile: FileEntry | null = null;
   showCommentsInOpenedFiles: number[] = [];
@@ -1728,6 +1731,46 @@ private pickInlineThumbs(file: FileEntry): string[] {
 
   return thumbs.slice(0, 2);
 }
+
+  // If a video link is clicked in the options panel, attempt to play via parentRef for YouTube links
+  onVideoLinkClick(url: string, ev: Event) {
+    try {
+      const videoId = this.extractYouTubeId(url);
+      if (videoId && this.parentRef && typeof (this.parentRef as any).playYoutubeVideo === 'function') {
+        ev.preventDefault();
+        (this.parentRef as any).playYoutubeVideo(videoId);
+        return;
+      }
+    } catch (e) {
+      // fall through to default behavior
+    }
+    // let the link open normally if not handled
+  }
+
+  openImagePreview(url: string, ev?: Event) {
+    if (ev) ev.preventDefault();
+    if (!url) return;
+    if (this.isOptionsPanelOpen) this.closeOptionsPanel();
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.showOverlay();
+    this.imagePreviewUrl = url;
+    this.isShowingImagePreview = true;
+    this.changeDetectorRef.detectChanges();
+  }
+
+  closeImagePreview() {
+    this.isShowingImagePreview = false;
+    this.imagePreviewUrl = null;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay();
+  }
+
+  private extractYouTubeId(url: string): string | null {
+    if (!url) return null;
+    // common YouTube URL forms: youtu.be/ID, youtube.com/watch?v=ID, youtube.com/embed/ID
+    const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : null;
+  }
 
 }
 
