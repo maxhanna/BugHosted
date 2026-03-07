@@ -1747,6 +1747,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   onVideoLinkClick(url: string, ev: Event) {
+    if (this.showRomMetadata) {
+      this.parentRef?.visitExternalLink(url, false, true);
+      return;
+    }
     this.closeOptionsPanel();
     const videoId = this.fileService.parseYoutubeId(url);
     console.debug('onVideoLinkClick', { url, videoId, hasParent: !!this.parentRef });

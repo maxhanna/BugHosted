@@ -1176,45 +1176,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   }
   getYouTubeVideoId(url?: string): string | null {
     if (!url) return null;
-
-    try {
-      const parsedUrl = new URL(url);
-      const hostname = parsedUrl.hostname;
-
-      // Handle youtu.be URLs (shortened)
-      if (hostname === 'youtu.be') {
-        return parsedUrl.pathname.slice(1).split(/[?&#]/)[0];
-      }
-
-      // Handle YouTube mobile URLs
-      if (hostname === 'm.youtube.com') {
-        const mobileId = parsedUrl.searchParams.get('v');
-        if (mobileId) return mobileId;
-      }
-
-      // Handle standard YouTube URLs
-      if (['www.youtube.com', 'youtube.com'].includes(hostname)) {
-        // Check for /embed/ URLs
-        if (parsedUrl.pathname.startsWith('/embed/')) {
-          return parsedUrl.pathname.split('/')[2];
-        }
-
-        // Check for /watch URLs
-        if (parsedUrl.pathname.startsWith('/watch')) {
-          const vParam = parsedUrl.searchParams.get('v');
-          if (vParam) return vParam.split(/[?&#]/)[0];
-        }
-
-        // Check for /v/ URLs (older format)
-        if (parsedUrl.pathname.startsWith('/v/')) {
-          return parsedUrl.pathname.split('/')[2];
-        }
-      }
-
-      return null;
-    } catch (e) {
-      return null;
-    }
+    return this.fileService.parseYoutubeId(url);
   }
   createComponentButtonClicked() {
     const title = (document.getElementById("componentCreateName") as HTMLInputElement).value;
@@ -1225,11 +1187,13 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     (document.getElementById("hiddenUrlToVisit") as HTMLInputElement).value = "";
     this.indexLink(url);
   }
-  visitExternalLink(url?: string) {
+  visitExternalLink(url?: string, index = true, forceNewTab = false) {
     if (!url) return;
-    this.indexLink(url);
+    if (index) { 
+      this.indexLink(url);
+    }
 
-    if (this.isYoutubeUrl(url)) {
+    if (!forceNewTab && this.isYoutubeUrl(url)) {
       const videoId = this.getYouTubeVideoId(url);
       if (videoId) {
         this.playYoutubeVideo(videoId);
