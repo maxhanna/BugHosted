@@ -13,6 +13,7 @@ namespace maxhanna.Server.Services
   {
     private readonly string _apiKey;
     private readonly string _coinwatchUrl = "https://api.livecoinwatch.com/coins/list";
+    private readonly string _romFolder = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Roms/";
     private readonly string _connectionString;
     private readonly HttpClient _httpClient;
     private readonly WebCrawler _webCrawler;
@@ -2708,11 +2709,11 @@ ON DUPLICATE KEY UPDATE
   await conn.OpenAsync(ct);
 
   // Pull ROM candidates (only /roms, and avoid recently OK rows)
-  const string pickSql = @"
+  var pickSql = @"
 SELECT fu.id, fu.file_name
 FROM maxhanna.file_uploads fu
 LEFT JOIN maxhanna.rom_igdb_enrichment r ON r.file_id = fu.id
-WHERE fu.folder_path = '/roms'
+WHERE fu.folder_path = @FolderPath
   AND fu.is_folder = 0
   AND fu.file_name IS NOT NULL
   AND (
@@ -2726,6 +2727,7 @@ LIMIT @lim;";
   var roms = new List<(int id, string fileName)>();
   await using (var cmd = new MySqlCommand(pickSql, conn))
   {
+    cmd.Parameters.AddWithValue("@FolderPath", _romFolder);
     cmd.Parameters.AddWithValue("@lim", batchSize);
     await using var r = await cmd.ExecuteReaderAsync(ct);
     while (await r.ReadAsync(ct))
