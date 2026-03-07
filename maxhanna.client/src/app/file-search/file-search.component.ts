@@ -559,7 +559,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       if (!file.isFolder) {
         this.download(file, false, true)
       } else {
-        this.currentPage = this.defaultCurrentPage;
+        this.goToFirstPage();
         this.currentDirectory += file.fileName + "/";
         this.getDirectory(file.fileName);
       }
@@ -844,7 +844,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.search.nativeElement.value = '';
     }
     const target = this.moveUpOneLevel();
-    this.currentPage = this.defaultCurrentPage;
+    this.goToFirstPage();
     this.currentDirectory = target;
     this.getDirectory();
   }
@@ -1293,7 +1293,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
       this.searchTerms = this.popupSearch.nativeElement.value.trim();
-      this.currentPage = this.defaultCurrentPage;
+      this.goToFirstPage();
       await this.getDirectory();
       // record search as user typed and executed
       try {
@@ -1376,7 +1376,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   showPicturesToggled() {
     this.showPicturesOnly = !this.showPicturesOnly;
-    this.currentPage = this.defaultCurrentPage;
+    this.goToFirstPage();
     if (!this.showPicturesOnly) {
       this.clearFileTypeFilter();
     } else {
@@ -1387,7 +1387,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   showVideosToggled() {
     this.showVideosOnly = !this.showVideosOnly;
-    this.currentPage = this.defaultCurrentPage;
+    this.goToFirstPage();
     if (!this.showVideosOnly) {
       this.clearFileTypeFilter();
     } else {
@@ -1459,10 +1459,16 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   showFavouritesToggled() {
     this.showFavouritesOnly = !this.showFavouritesOnly;
-    this.currentPage = this.defaultCurrentPage;
-    this.debounceSearch();
+    this.goToFirstPage();
+    setTimeout(() => {
+      this.debounceSearch(); 
+    }, 100);
   }
 
+  goToFirstPage() {
+    this.scrollToTop();
+    this.currentPage = this.defaultCurrentPage;
+  }
   notifyUser(message: string) {
     this.userNotificationEvent.emit(message);
     if (!this.captureNotifications) {
@@ -1499,13 +1505,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       parent?.showNotification("Can't change directory.");
       return;
     }
-    this.currentPage = this.defaultCurrentPage;
+    this.goToFirstPage();
     this.currentDirectory = directory;
     this.currentDirectoryChangeEvent.emit(this.currentDirectory);
     this.getDirectory();
   }
   onFiletypeFilterChange(setFilterInput = false) {
-    this.currentPage = this.defaultCurrentPage;
+    this.goToFirstPage();
     if (setFilterInput) {
       this.fileTypeFilterInput.nativeElement.value = this.fileTypeFilter;
     } else {
