@@ -100,7 +100,7 @@
                   <!-- ✅ inline ROM thumbs: single thumb on mobile, full strip on desktop -->
                   <span *ngIf="shouldShowRomMetadata() && file && !file.isFolder && (file.romInlineThumbs?.length ?? 0) > 0"
                     class="romThumbStrip" title="Show ROM artwork"
-                    (click)="$event.stopPropagation(); optionsFile = file;">
+                    (click)="$event.stopPropagation(); onMobile() ? showOptionsPanel(file) : (optionsFile = file);">
 
                     <ng-container *ngIf="onMobile() && (file?.romInlineThumbs?.length ?? 0) > 0; else desktopThumbnails">
                       <img class="romThumb" [src]="file.romInlineThumbs && file.romInlineThumbs.length ? file.romInlineThumbs[0] : ''" loading="lazy"
