@@ -102,7 +102,7 @@
                     class="romThumbStrip" title="Show ROM artwork"
                     (click)="$event.stopPropagation(); optionsFile = file;">
 
-                    <ng-container *ngIf="onMobile(); else desktopThumbnails">
+                    <ng-container *ngIf="onMobile() && file?.romInlineThumbs[0]; else desktopThumbnails">
                       <img class="romThumb" [src]="file.romInlineThumbs[0]" loading="lazy"
                         (error)="hideBrokenImg($event)" />
                     </ng-container>
