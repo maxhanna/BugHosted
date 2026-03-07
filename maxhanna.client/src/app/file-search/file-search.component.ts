@@ -1763,7 +1763,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     // let the link open normally if not handled
   }
 
-  openImagePreview(url: string, ev?: Event) {
+  openImagePreview(url?: string, ev?: Event) {
     if (ev) ev.preventDefault();
     if (!url) return;
     if (this.isOptionsPanelOpen) this.closeOptionsPanel();
