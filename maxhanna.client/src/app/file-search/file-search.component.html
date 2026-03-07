@@ -213,11 +213,10 @@
     <div *ngIf="safeJsonArray(optionsFile.romMetadata?.videosJson).length" class="romMetaSection">
       <div class="romMetaSectionTitle">Videos</div>
       <div class="romMetaLinks">
-        <span 
-          *ngFor="let v of safeJsonArray(optionsFile.romMetadata?.videosJson).slice(0, 6)" 
-          (click)="onVideoLinkClick(v, $event)">
+        <a [href]="v"  target="_blank" (click)="onVideoLinkClick(v, $event)"
+          *ngFor="let v of safeJsonArray(optionsFile.romMetadata?.videosJson).slice(0, 6)">
           ▶️ {{ v }}
-        </span>
+        </a>
       </div>
     </div>
 
