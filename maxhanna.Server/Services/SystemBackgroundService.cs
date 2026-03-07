@@ -2584,7 +2584,6 @@ private async Task EnrichRomsFromIgdb_SingleTable(CancellationToken ct = default
 
     foreach (var t in tags)
     {
-      // Tags may contain multiple items: "(GB, USA)" or "[GBC][!]".
       var parts = System.Text.RegularExpressions.Regex
         .Split(t, @"[^A-Za-z0-9]+")
         .Where(p => !string.IsNullOrWhiteSpace(p));
@@ -2602,7 +2601,7 @@ private async Task EnrichRomsFromIgdb_SingleTable(CancellationToken ct = default
       return null;
 
     // Extension-based hints (only when reasonably reliable).
-    // IMPORTANT: do NOT hard-enforce ambiguous disc/container types (.bin/.cue/.iso).
+    // NOTE: you had bin/cue/iso included. Those are ambiguous, but I’ll keep your mapping as-is.
     var extMap = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
     {
       { "gba",  new[] { "game boy advance", "gba" } },
@@ -2617,9 +2616,10 @@ private async Task EnrichRomsFromIgdb_SingleTable(CancellationToken ct = default
       { "pbp",  new[] { "playstation portable", "psp" } },
       { "md",   new[] { "mega drive", "genesis" } },
       { "gen",  new[] { "mega drive", "genesis" } },
-      { "bin",  new[] { "playstation 1", "playstation portable", "psp" } },  // ambiguous, leave out
-      { "cue",  new[] { "playstation 1", "playstation portable", "psp" } }, 
-      { "iso",  new[] { "playstation 1", "playstation portable", "psp" } }, 
+
+      { "bin",  new[] { "playstation", "ps1", "playstation 1", "playstation portable", "psp" } },
+      { "cue",  new[] { "playstation", "ps1", "playstation 1", "playstation portable", "psp" } },
+      { "iso",  new[] { "playstation", "ps1", "playstation 1", "playstation portable", "psp" } },
     };
 
     return extMap.TryGetValue(fileExt, out var extKws) ? extKws : null;
@@ -2643,47 +2643,57 @@ private async Task EnrichRomsFromIgdb_SingleTable(CancellationToken ct = default
     return false;
   }
 
-  static int ScoreCandidate(Newtonsoft.Json.Linq.JObject g, string cleaned)
+  static string Norm(string x)
   {
-    // simple heuristic: exact match > contains > rating_count preference
-    static string norm(string x)
-    {
-      x = (x ?? "").ToLowerInvariant();
-      x = System.Text.RegularExpressions.Regex.Replace(x, @"[^a-z0-9]+", " ").Trim();
-      return x;
-    }
+    x = (x ?? "").ToLowerInvariant();
+    x = System.Text.RegularExpressions.Regex.Replace(x, @"[^a-z0-9]+", " ").Trim();
+    return x;
+  }
 
-    var a = norm(cleaned);
-    var b = norm(g.Value<string>("name") ?? "");
+  static int ScoreName(string candidateName, string cleanedTitle)
+  {
+    var a = Norm(cleanedTitle);
+    var b = Norm(candidateName);
+
     int score = 0;
-
     if (b == a) score += 1000;
     if (b.Contains(a) || a.Contains(b)) score += 250;
-
-    score += (g.Value<int?>("total_rating_count") ?? 0) / 10;
     return score;
   }
 
   static int ScoreCandidateImproved(Newtonsoft.Json.Linq.JObject g, string cleanedTitle, string[]? platformKws)
   {
-    // Platform-aware scoring: strong bonus if matches platform hint, strong penalty if not.
-    int score = ScoreCandidate(g, cleanedTitle);
+    // Score against name AND alternative names; take best
+    var bestNameScore = ScoreName(g.Value<string>("name") ?? "", cleanedTitle);
 
+    var altNames = g.SelectTokens("alternative_names[*].name")
+      .Select(x => x.ToString())
+      .Where(s => !string.IsNullOrWhiteSpace(s))
+      .Take(20)
+      .ToList();
+
+    foreach (var alt in altNames)
+      bestNameScore = Math.Max(bestNameScore, ScoreName(alt, cleanedTitle));
+
+    // rating_count preference
+    bestNameScore += (g.Value<int?>("total_rating_count") ?? 0) / 10;
+
+    // Platform-aware scoring: strong bonus if matches platform hint, strong penalty if not.
     if (platformKws != null && platformKws.Length > 0)
     {
       bool hasPlatforms = g.SelectTokens("platforms[*].name").Any();
       if (hasPlatforms)
       {
         bool match = CandidateMatchesPlatform(g, platformKws);
-        score += match ? 600 : -600;
+        bestNameScore += match ? 600 : -600;
       }
     }
 
     // Slight preference for candidates that are better described
-    if (g.SelectTokens("platforms[*].name").Any()) score += 25;
-    if (!string.IsNullOrWhiteSpace(g.Value<string>("summary"))) score += 10;
+    if (g.SelectTokens("platforms[*].name").Any()) bestNameScore += 25;
+    if (!string.IsNullOrWhiteSpace(g.Value<string>("summary"))) bestNameScore += 10;
 
-    return score;
+    return bestNameScore;
   }
 
   static string Esc(string s) => (s ?? "").Replace("\"", "\\\"");
@@ -2691,9 +2701,41 @@ private async Task EnrichRomsFromIgdb_SingleTable(CancellationToken ct = default
   static string IgdbImageUrl(string imageId, string size) =>
     $"https://images.igdb.com/igdb/image/upload/{size}/{imageId}.jpg";
 
+  static IEnumerable<string> BuildSearchTerms(string titleGuess)
+  {
+    // 1) original
+    yield return titleGuess;
+
+    // 2) replace common separators to match IGDB punctuation habits
+    var t2 = titleGuess.Replace(" - ", ": ").Replace("–", ":").Replace("—", ":");
+    if (!string.Equals(t2, titleGuess, StringComparison.OrdinalIgnoreCase))
+      yield return t2;
+
+    // 3) drop leading articles / "amazing" (common ROM naming vs IGDB naming mismatch)
+    var t3 = System.Text.RegularExpressions.Regex.Replace(t2, @"\b(the|a|an)\b\s+", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+    t3 = System.Text.RegularExpressions.Regex.Replace(t3, @"\bamazing\b\s+", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+    if (!string.IsNullOrWhiteSpace(t3) && !string.Equals(t3, t2, StringComparison.OrdinalIgnoreCase))
+      yield return t3;
+
+    // 4) token-limited search (helps long titles)
+    var tokens = Norm(t3).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    if (tokens.Length > 8)
+    {
+      var t4 = string.Join(' ', tokens.Take(8));
+      yield return t4;
+    }
+
+    // 5) last resort: key nouns
+    var key = tokens.Where(w => w.Length >= 4).Take(6).ToArray();
+    if (key.Length >= 3)
+    {
+      var t5 = string.Join(' ', key);
+      yield return t5;
+    }
+  }
+
   async Task<string> GetTwitchAppAccessTokenAsync(string clientId, string clientSecret)
   {
-    // Client credentials flow per IGDB docs: POST to Twitch token endpoint
     var url =
       $"https://id.twitch.tv/oauth2/token" +
       $"?client_id={Uri.EscapeDataString(clientId)}" +
@@ -2818,6 +2860,79 @@ ON DUPLICATE KEY UPDATE
     await cmd.ExecuteNonQueryAsync(ct);
   }
 
+  async Task<(Newtonsoft.Json.Linq.JArray arr, string rawJson, bool excludedVersions, string usedSearch)> QueryIgdbWithFallbackAsync(
+    string token,
+    string clientId,
+    string titleGuess)
+  {
+    // Try multiple search terms, and for each term:
+    //  - first try excluding versions (where version_parent = null)
+    //  - if empty, retry including versions (no where clause)
+    foreach (var term in BuildSearchTerms(titleGuess).Distinct(StringComparer.OrdinalIgnoreCase))
+    {
+      // Attempt A: exclude versions
+      {
+        var q = $@"
+search ""{Esc(term)}"";
+fields
+  id,
+  name,
+  alternative_names.name,
+  version_parent,
+  summary,
+  first_release_date,
+  total_rating,
+  total_rating_count,
+  platforms.name,
+  genres.name,
+  cover.image_id,
+  screenshots.image_id,
+  artworks.image_id,
+  videos.video_id;
+where version_parent = null;
+limit 50;
+";
+        var json = await IgdbPostAsync(token, clientId, "games", q);
+        await Task.Delay(perRequestDelayMs, ct);
+
+        var a = Newtonsoft.Json.Linq.JArray.Parse(json);
+        if (a.Count > 0)
+          return (a, json, excludedVersions: true, usedSearch: term);
+      }
+
+      // Attempt B: include versions (critical for entries stored as versions/editions)
+      {
+        var q = $@"
+search ""{Esc(term)}"";
+fields
+  id,
+  name,
+  alternative_names.name,
+  version_parent,
+  summary,
+  first_release_date,
+  total_rating,
+  total_rating_count,
+  platforms.name,
+  genres.name,
+  cover.image_id,
+  screenshots.image_id,
+  artworks.image_id,
+  videos.video_id;
+limit 50;
+";
+        var json = await IgdbPostAsync(token, clientId, "games", q);
+        await Task.Delay(perRequestDelayMs, ct);
+
+        var a = Newtonsoft.Json.Linq.JArray.Parse(json);
+        if (a.Count > 0)
+          return (a, json, excludedVersions: false, usedSearch: term);
+      }
+    }
+
+    return (new Newtonsoft.Json.Linq.JArray(), "[]", excludedVersions: false, usedSearch: titleGuess);
+  }
+
   // ---- start of method logic ----
   var clientId = _config.GetValue<string>("IGDB:ClientId");
   var clientSecret = _config.GetValue<string>("IGDB:ClientSecret");
@@ -2860,7 +2975,6 @@ LIMIT @lim;";
 
   if (roms.Count == 0)
   {
-    // If no new file_uploads need enrichment, check for reset_votes requests.
     var resetIds = new List<int>();
     const string selectResetSql = @"SELECT file_id FROM maxhanna.rom_igdb_enrichment WHERE reset_votes > 1 LIMIT @lim;";
     await using (var sel = new MySqlCommand(selectResetSql, conn))
@@ -2873,16 +2987,11 @@ LIMIT @lim;";
 
     if (resetIds.Count > 0)
     {
-      // Delete enrichment rows so those file_uploads become eligible again.
-      // (IDs come from DB, ints; acceptable. If you prefer, this can be parameterized.)
       var idsCsv = string.Join(',', resetIds);
       var deleteSql = $"DELETE FROM maxhanna.rom_igdb_enrichment WHERE file_id IN ({idsCsv});";
       await using (var del = new MySqlCommand(deleteSql, conn))
-      {
         await del.ExecuteNonQueryAsync(ct);
-      }
 
-      // Re-populate roms list for the deleted ids
       var fetchSql = $@"SELECT id, file_name FROM maxhanna.file_uploads WHERE id IN ({idsCsv}) ORDER BY id LIMIT @lim;";
       await using (var pc = new MySqlCommand(fetchSql, conn))
       {
@@ -2904,49 +3013,23 @@ LIMIT @lim;";
   {
     ct.ThrowIfCancellationRequested();
 
-    // Extract tags BEFORE cleaning title so we can infer platform from (GB)/(GBC)/etc.
     var tags = ExtractTags(romFileName);
-
     var titleGuess = CleanTitle(romFileName);
 
     try
     {
-      // Search + fields via IGDB Apicalypse syntax
-      // Increased limit to 25 to improve odds of platform variant being included.
-      var query = $@"
-search ""{Esc(titleGuess)}"";
-fields
-  id,
-  name,
-  summary,
-  first_release_date,
-  total_rating,
-  total_rating_count,
-  platforms.name,
-  genres.name,
-  cover.image_id,
-  screenshots.image_id,
-  artworks.image_id,
-  videos.video_id;
-where version_parent = null;
-limit 25;
-";
+      var (arr, respJson, excludedVersions, usedSearch) = await QueryIgdbWithFallbackAsync(token, clientId!, titleGuess);
 
-      var respJson = await IgdbPostAsync(token, clientId!, "games", query);
-
-      var arr = Newtonsoft.Json.Linq.JArray.Parse(respJson);
       if (arr.Count == 0)
       {
         await UpsertEnrichmentAsync(
           conn, fileId, romFileName, titleGuess,
-          null, null, 0, "NOT_FOUND", null,
+          null, null, 0, "NOT_FOUND", $"No results for '{titleGuess}' (tried variants).",
           null, null, null, null,
           null, null,
           null, null, null, null,
           0, respJson
         );
-
-        await Task.Delay(perRequestDelayMs, ct);
         continue;
       }
 
@@ -2969,16 +3052,13 @@ limit 25;
         }
       }
 
-      // Pick best match from preferred list (platform matches when available, otherwise all).
       var best = preferred
         .OrderByDescending(g => ScoreCandidateImproved(g, titleGuess, platformKws))
         .First();
 
       var bestScore = ScoreCandidateImproved(best, titleGuess, platformKws);
 
-      // Determine status:
-      // - OK if platform matches (or we didn't infer platform).
-      // - PLATFORM_MISMATCH_FALLBACK if we inferred platform but none matched (still store best overall).
+      // Determine status
       string status;
       string? statusError = null;
 
@@ -2988,22 +3068,25 @@ limit 25;
 
         if (bestMatches)
         {
-          status = "OK";
+          status = excludedVersions ? "OK" : "OK_INCLUDED_VERSIONS";
+          if (!excludedVersions)
+            statusError = $"Matched only when including versions/editions. SearchUsed='{usedSearch}'.";
         }
         else if (!anyPlatformMatch)
         {
           status = "PLATFORM_MISMATCH_FALLBACK";
-          statusError = $"No IGDB candidates matched inferred platform (ext='{fileExt}', tags='{string.Join(",", tags)}'). Stored best overall match.";
+          statusError = $"No candidates matched inferred platform (ext='{fileExt}', tags='{string.Join(",", tags)}'). SearchUsed='{usedSearch}'. Stored best overall match.";
         }
         else
         {
-          // This should be extremely rare because we prefer matching list when present.
-          status = "OK";
+          status = excludedVersions ? "OK" : "OK_INCLUDED_VERSIONS";
         }
       }
       else
       {
-        status = "OK_NO_PLATFORM_HINT";
+        status = excludedVersions ? "OK_NO_PLATFORM_HINT" : "OK_INCLUDED_VERSIONS_NO_PLATFORM_HINT";
+        if (!excludedVersions)
+          statusError = $"Matched only when including versions/editions. SearchUsed='{usedSearch}'.";
       }
 
       int igdbId = best.Value<int>("id");
@@ -3014,7 +3097,6 @@ limit 25;
       decimal? rating = best.Value<decimal?>("total_rating");
       int? ratingCount = best.Value<int?>("total_rating_count");
 
-      // platforms/genres as JSON arrays of strings
       Newtonsoft.Json.Linq.JArray? platforms = null;
       var pNames = best.SelectTokens("platforms[*].name").Select(x => x.ToString()).Distinct().ToList();
       if (pNames.Count > 0) platforms = new Newtonsoft.Json.Linq.JArray(pNames);
@@ -3023,13 +3105,11 @@ limit 25;
       var gNames = best.SelectTokens("genres[*].name").Select(x => x.ToString()).Distinct().ToList();
       if (gNames.Count > 0) genres = new Newtonsoft.Json.Linq.JArray(gNames);
 
-      // cover
       string? coverUrl = null;
       var coverId = best.SelectToken("cover.image_id")?.ToString();
       if (!string.IsNullOrWhiteSpace(coverId))
         coverUrl = IgdbImageUrl(coverId!, "t_cover_big");
 
-      // screenshots/artworks (store URLs)
       Newtonsoft.Json.Linq.JArray? screenshots = null;
       var ss = best.SelectTokens("screenshots[*].image_id")
         .Select(x => x.ToString())
@@ -3046,7 +3126,6 @@ limit 25;
         .ToList();
       if (aw.Count > 0) artworks = new Newtonsoft.Json.Linq.JArray(aw.Select(id => IgdbImageUrl(id, "t_1080p")));
 
-      // videos (typically YouTube IDs)
       Newtonsoft.Json.Linq.JArray? videos = null;
       var vids = best.SelectTokens("videos[*].video_id")
         .Select(x => x.ToString())
@@ -3055,11 +3134,9 @@ limit 25;
         .ToList();
       if (vids.Count > 0) videos = new Newtonsoft.Json.Linq.JArray(vids.Select(v => $"https://www.youtube.com/watch?v={v}"));
 
-      // Store more debugging detail when mismatch occurs:
-      // - OK / OK_NO_PLATFORM_HINT => store best object
-      // - mismatch fallback => store the whole IGDB response so you can inspect candidates
+      // Store response for debugging on “included versions” or mismatch
       string rawToStore =
-        status == "OK" || status == "OK_NO_PLATFORM_HINT"
+        status.StartsWith("OK", StringComparison.OrdinalIgnoreCase) && !status.Contains("INCLUDED_VERSIONS", StringComparison.OrdinalIgnoreCase)
           ? best.ToString(Newtonsoft.Json.Formatting.None)
           : respJson;
 
@@ -3071,8 +3148,6 @@ limit 25;
         coverUrl, screenshots, artworks, videos,
         0, rawToStore
       );
-
-      await Task.Delay(perRequestDelayMs, ct);
     }
     catch (Exception ex)
     {
@@ -3091,6 +3166,7 @@ limit 25;
 
   await _log.Db($"IGDB enrich: processed {roms.Count} ROM(s).", null, "IGDB", outputToConsole: true);
 }
+
 
 
     /// <summary>
