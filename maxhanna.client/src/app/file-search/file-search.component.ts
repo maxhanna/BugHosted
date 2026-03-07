@@ -1505,6 +1505,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.getDirectory();
   }
   onFiletypeFilterChange(setFilterInput = false) {
+    this.currentPage = this.defaultCurrentPage;
     if (setFilterInput) {
       this.fileTypeFilterInput.nativeElement.value = this.fileTypeFilter;
     } else {
