@@ -143,7 +143,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // add more as you see them in logs
   };
   isSearchVisible = false;
-  displayRomMetadataDesktop = false;
   autosave = true;
   autosaveIntervalTime: number = 180000; // 3 minutes 
   showControls = true;     // show/hide on-screen controls
@@ -197,17 +196,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.parentRef.navigationComponent.stopNotifications();
     }
     this.isSearchVisible = true;
-    this.updateDisplayRomMetadataDesktop();
   }
 
 
-  private updateDisplayRomMetadataDesktop() {
-    try {
-      this.displayRomMetadataDesktop = !this.onMobile() && (window?.innerWidth ?? 0) >= 1000;
-    } catch (e) {
-      this.displayRomMetadataDesktop = false;
-    }
-  }
 
   async ngAfterViewInit() {
     this.status = 'Ready - Select a ROM';

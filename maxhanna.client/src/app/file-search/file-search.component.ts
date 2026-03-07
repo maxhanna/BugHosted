@@ -211,6 +211,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     } else {
       console.error('fileContainer is not defined');
     }
+    this.updateDisplayRomMetadataDesktop();
   }
 
   onVisibilitySelect(file?: FileEntry) {
@@ -244,6 +245,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
 
+  private updateDisplayRomMetadataDesktop() {
+    try {
+      this.displayRomMetadataDesktop = !this.onMobile() && (window?.innerWidth ?? 0) >= 1000;
+    } catch (e) {
+      this.displayRomMetadataDesktop = false;
+    }
+  }
   openVisibilityDropdown(file: FileEntry) {
     this.visibilityDropdownFile = file;
     this.isVisibilityDropdownOpen = true;
