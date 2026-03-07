@@ -216,8 +216,9 @@
           <strong>Release:</strong> {{ unixSecondsToDate(d) | date:'y/MM/d' }}
         </div>
 
-        <div style="margin-top:6px;">
+        <div style="margin-top:6px; display:flex; gap:8px;">
           <button title="Close" (click)="closeOptionsPanel()">Close</button>
+          <button title="OK" (click)="optionsFile = undefined">OK</button>
         </div>
       </div>
     </div>
