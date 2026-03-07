@@ -187,7 +187,7 @@ namespace maxhanna.Server.Controllers
           bool hasWikipedia = allResults.Any(r =>
             r.Url?.Contains("wikipedia.org/wiki/", StringComparison.OrdinalIgnoreCase) == true);
 
-          if (IsKeywordQuery(request.Url) && !hasWikipedia)
+          if (IsKeywordQuery(request.Url) && !hasWikipedia && !searchAll)
           {
             _ = ScrapeWikipediaAsync(request.Url!.Trim());
           }
