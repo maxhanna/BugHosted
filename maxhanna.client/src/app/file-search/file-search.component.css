@@ -621,13 +621,17 @@
 
 /* Inline metadata panel styles */
 .inlineMetaPanel {
-  position: relative;
+  position: sticky;
+  top: 12px;
+  align-self: flex-start;
   border-left: var(--main-border);
   padding-left: 12px;
   margin-left: 12px;
   max-width: 420px;
   width: 35%;
   min-width: 300px;
+  height: calc(100vh - 120px);
+  overflow: auto;
 }
 
 .romMetaPanelInline {
@@ -638,6 +642,23 @@
 
 @media only screen and (max-width: 1000px) {
   .inlineMetaPanel { display: none; }
+}
+
+/* Layout helper when showing ROM metadata and file list side-by-side */
+.flexForRoms {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+/* Ensure file table grows and is scrollable while metadata stays sticky */
+#fileTable {
+  flex: 1 1 auto;
+}
+
+.directoryDisplayDiv {
+  flex: 1 1 auto;
+  overflow: auto;
 }
 
 .flexForRoms {
