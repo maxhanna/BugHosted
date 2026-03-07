@@ -13,6 +13,7 @@ import { AppComponent } from '../app.component';
 import { SubscriptionLike } from 'rxjs';
 import { YoutubeSearchComponent } from '../youtube-search/youtube-search.component';
 import { YoutubeVideo } from '../../services/datacontracts/youtube';
+import { FileService } from '../../services/file.service';
 
 @Component({
   selector: 'app-music',
@@ -107,6 +108,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   constructor(private todoService: TodoService,
     private location: Location,
     private radioService: RadioService,
+    private fileService: FileService,
     private cdr: ChangeDetectorRef,
     private ngZone: NgZone,
   ) {
@@ -1320,39 +1322,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   private parseYoutubeId(url: string): string {
-    if (!url) return '';
-    try {
-      const u = new URL(url);
-      const host = u.hostname.replace('www.', '');
-
-      // youtu.be/<id>
-      if (host === 'youtu.be') {
-        // path is "/<id>" possibly followed by segments; strip query/fragment
-        const id = u.pathname.split('/').filter(Boolean)[0] || '';
-        return id.split('?')[0].split('#')[0];
-      }
-
-      // youtube.com/watch?v=<id>
-      const v = u.searchParams.get('v');
-      if (v && /^[a-zA-Z0-9_-]{11}$/.test(v)) return v;
-
-      // youtube.com/embed/<id>
-      const embed = u.pathname.match(/\/embed\/([a-zA-Z0-9_-]{11})/);
-      if (embed) return embed[1];
-
-      // youtube.com/shorts/<id>
-      const shorts = u.pathname.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
-      if (shorts) return shorts[1];
-    } catch {
-      // Fallback regex if URL constructor fails
-      const m =
-        url.match(/[?&]v=([a-zA-Z0-9_-]{11})/) ||
-        url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/) ||
-        url.match(/\/embed\/([a-zA-Z0-9_-]{11})/) ||
-        url.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
-      if (m) return m[1];
-    }
-    return '';
+    return this.fileService.parseYoutubeId(url);
   }
 
   private playByIndex(index: number) {

@@ -1748,19 +1748,17 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     return thumbs.slice(0, 2);
   }
 
-  // If a video link is clicked in the options panel, attempt to play via parentRef for YouTube links
   onVideoLinkClick(url: string, ev: Event) {
     try {
-      const videoId = this.extractYouTubeId(url);
-      if (videoId && this.parentRef && typeof (this.parentRef as any).playYoutubeVideo === 'function') {
+      const videoId = this.fileService.parseYoutubeId(url);
+      if (videoId && this.parentRef) {
         ev.preventDefault();
-        (this.parentRef as any).playYoutubeVideo(videoId);
+        this.parentRef.playYoutubeVideo(videoId);
         return;
       }
     } catch (e) {
-      // fall through to default behavior
+      console.error('Error handling video link click', e);
     }
-    // let the link open normally if not handled
   }
 
   openImagePreview(url?: string, ev?: Event) {
@@ -1780,14 +1778,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
   }
-
-  private extractYouTubeId(url: string): string | null {
-    if (!url) return null;
-    // common YouTube URL forms: youtu.be/ID, youtube.com/watch?v=ID, youtube.com/embed/ID
-    const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
-    return m ? m[1] : null;
-  }
-
 }
 
 type SlotNumber = 0 | 1 | 2 | 3 | 4 | 5;

@@ -23,5 +23,8 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
     public string? ScreenshotsJson { get; set; }
     public string? ArtworksJson { get; set; }
     public string? VideosJson { get; set; }
+    public string? PlatformsJson { get; set; }
+    public string? GenresJson { get; set; }
+    public int? ResetVotes { get; set; }
   }
 }

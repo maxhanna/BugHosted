@@ -282,6 +282,9 @@ namespace maxhanna.Server.Controllers
               , rigdb.screenshots_json    AS romScreenshotsJson
               , rigdb.artworks_json       AS romArtworksJson
               , rigdb.videos_json         AS romVideosJson 
+              , rigdb.platforms_json      AS romPlatformsJson
+              , rigdb.genres_json         AS romGenresJson
+              , rigdb.reset_votes         AS romResetVotes
               ," : "")}
               (SELECT COUNT(*) FROM file_favourites ff WHERE ff.file_id = f.id) AS favourite_count,
               EXISTS(SELECT 1 FROM file_favourites ff2 WHERE ff2.file_id = f.id AND ff2.user_id = @userId) AS is_favourited,
@@ -393,6 +396,9 @@ namespace maxhanna.Server.Controllers
                   ScreenshotsJson = reader.IsDBNull("romScreenshotsJson") ? null : reader.GetString("romScreenshotsJson"),
                   ArtworksJson = reader.IsDBNull("romArtworksJson") ? null : reader.GetString("romArtworksJson"),
                   VideosJson = reader.IsDBNull("romVideosJson") ? null : reader.GetString("romVideosJson"),
+                  PlatformsJson = reader.IsDBNull("romPlatformsJson") ? null : reader.GetString("romPlatformsJson"),
+                  GenresJson = reader.IsDBNull("romGenresJson") ? null : reader.GetString("romGenresJson"),
+                  ResetVotes = reader.IsDBNull("romResetVotes") ? (int?)0 : reader.GetInt32("romResetVotes"),
                 }
                 : null 
               };
