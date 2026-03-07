@@ -2725,10 +2725,34 @@ static int[]? InferPlatformIds(string fileExt, IReadOnlyList<string> tags)
     return x;
   }
 
+  // Normalize names from either filename or IGDB for fair comparison.
+  static string CleanComparison(string s)
+  {
+    if (string.IsNullOrWhiteSpace(s)) return "";
+    // Strip version tokens: (v1.2.3), [v1.2], v.13.5, r.11, etc.
+    s = System.Text.RegularExpressions.Regex.Replace(s, @"\(\s*[vVrR]\.?\d+(?:\.\d+)*\s*\)", " ");
+    s = System.Text.RegularExpressions.Regex.Replace(s, @"\[\s*[vVrR]\.?\d+(?:\.\d+)*\s*\]", " ");
+    s = System.Text.RegularExpressions.Regex.Replace(s, @"(?<=^|[\s_\-\.\\/])[vVrR]\.?\d+(?:\.\d+)*(?=$|[\s_\-\.\\/])", " ");
+
+    // Remove bracketed tokens and parentheses content
+    s = System.Text.RegularExpressions.Regex.Replace(s, @"\[[^\]]*\]|\([^\)]*\)", " ");
+
+    // Normalize letter-dot acronyms: "S.W.A.R.M." -> "SWARM"
+    s = System.Text.RegularExpressions.Regex.Replace(s, @"\b(?:[A-Za-z]\.){2,}[A-Za-z]?\b", m => m.Value.Replace(".", ""));
+
+    // Replace common separators with spaces so both sides compare the same
+    s = s.Replace("_", " ").Replace("-", " ").Replace("/", " ").Replace("\\", " ").Replace(".", " ");
+
+    // Trim non-alphanumeric from ends and collapse spaces
+    s = System.Text.RegularExpressions.Regex.Replace(s, @"^\W+|\W+$", "");
+    s = System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ").Trim();
+    return s;
+  }
+
   static int ScoreName(string candidateName, string cleanedTitle)
   {
-    var a = Norm(cleanedTitle);
-    var b = Norm(candidateName);
+      var a = Norm(CleanComparison(cleanedTitle));
+      var b = Norm(CleanComparison(candidateName));
 
     int score = 0;
     if (b == a) score += 1000;
