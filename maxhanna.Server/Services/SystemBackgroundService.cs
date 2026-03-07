@@ -25,7 +25,6 @@ namespace maxhanna.Server.Services
     private readonly MiningApi _miningApiService = new MiningApi();
     private readonly Log _log;
     private readonly IConfiguration _config; // needed for apiKey 
-    private readonly RomMetadataService _romMetadataService;
     private Timer _tenSecondTimer;
     private Timer _halfMinuteTimer;
     private Timer _minuteTimer;
@@ -49,8 +48,7 @@ namespace maxhanna.Server.Services
     private readonly string _memeDirectory = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/";
 
     public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, AiController aiController,
-      KrakenService krakenService, NewsService newsService, ProfitCalculationService profitService, TradeIndicatorService indicatorService,
-      RomMetadataService romMetadataService)
+      KrakenService krakenService, NewsService newsService, ProfitCalculationService profitService, TradeIndicatorService indicatorService)
     {
       _config = config;
       _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna")!;
@@ -63,7 +61,6 @@ namespace maxhanna.Server.Services
       _newsService = newsService;
       _profitService = profitService;
       _indicatorService = indicatorService;
-      _romMetadataService = romMetadataService;
 
       _tenSecondTimer = new Timer(async _ => await Run10SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
       _halfMinuteTimer = new Timer(async _ => await Run30SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
@@ -166,7 +163,7 @@ namespace maxhanna.Server.Services
     private async Task RunOneMinuteTasks()
     {
       //await _aiController.AnalyzeAndRenameFile(); 
-      await _romMetadataService.EnrichRomsFromIgdb_SingleTable();
+      await EnrichRomsFromIgdb_SingleTable();
     }
     private async Task RunFiveMinuteTasks()
     {
@@ -223,7 +220,7 @@ namespace maxhanna.Server.Services
       await DeleteOldNews();
       await DeleteOldCoinMarketCaps();
       await DeleteOldEnderScores();
-      await _romMetadataService.EnrichRomsFromIgdb_SingleTable();
+      await EnrichRomsFromIgdb_SingleTable();
       await _newsService.CreateDailyCryptoNewsStoryAsync();
       await _newsService.CreateDailyNewsStoryAsync();
       await _newsService.PostDailyMemeAsync();
@@ -2528,7 +2525,773 @@ namespace maxhanna.Server.Services
       }
     }
 
-// EnrichRomsFromIgdb_SingleTable moved to RomMetadataService
+private async Task EnrichRomsFromIgdb_SingleTable(CancellationToken ct = default)
+{
+  // IGDB: 4 req/sec and 8 open requests max. Keep it sequential with a small delay.
+  const int batchSize = 25;
+  const int perRequestDelayMs = 300;
+
+  // ---- local helpers (kept inside this ONE method) ----
+
+static string CleanTitle(string fileName)
+{
+  var stem = Path.GetFileNameWithoutExtension(fileName) ?? fileName;
+
+  // Strip common version tokens first: (v1.2.3), [v1.2], v.13.5, r.11, -v1.2, _v1.2, .v1.2
+  stem = System.Text.RegularExpressions.Regex.Replace(stem, @"\(\s*[vVrR]\.?\u005c\d+(?:\.\d+)*\s*\)", " ");
+  stem = System.Text.RegularExpressions.Regex.Replace(stem, @"\[\s*[vVrR]\.?\u005c\d+(?:\.\d+)*\s*\]", " ");
+  stem = System.Text.RegularExpressions.Regex.Replace(stem, @"(?<=^|[\s_\-\.])[vVrR]\.?\d+(?:\.\d+)*(?=$|[\s_\-\.])", " ");
+
+  // Remove trailing hash-system tags like " # GBC", " # GB", etc.
+  // (Your filenames are using "# GBC" not "(GBC)" or "[GBC]")
+  stem = System.Text.RegularExpressions.Regex.Replace(
+    stem,
+    @"\s*#\s*(GB|GBC|GBA|NES|SNES|SFC|N64|NDS|PSX|PS1|PSP|GEN|MD|MAME)\s*$",
+    " ",
+    System.Text.RegularExpressions.RegexOptions.IgnoreCase
+  );
+
+  // Strip common ROM tags: (USA), [!], (Rev A), etc.
+  stem = System.Text.RegularExpressions.Regex.Replace(stem, @"\[[^\]]*\]|\([^\)]*\)", " ");
+
+  // Normalize letter-dot acronyms: "S.W.A.R.M." -> "SWARM"
+  stem = System.Text.RegularExpressions.Regex.Replace(
+    stem,
+    @"\b(?:[A-Za-z]\.){2,}[A-Za-z]?\b",
+    m => m.Value.Replace(".", "")
+  );
+
+  // Remove stray separators often used in romsets
+  stem = stem.Replace("_", " ").Replace("  ", " ");
+
+  stem = System.Text.RegularExpressions.Regex.Replace(stem, @"\s+", " ").Trim();
+  return stem;
+}
+
+
+static IReadOnlyList<string> ExtractTags(string fileName)
+{
+  var tags = new List<string>();
+  var stem = Path.GetFileNameWithoutExtension(fileName) ?? fileName;
+
+  // Pull tokens like (GB), [GBC], etc.
+  foreach (System.Text.RegularExpressions.Match m in
+           System.Text.RegularExpressions.Regex.Matches(stem, @"\(([^)]*)\)|\[([^\]]*)\]"))
+  {
+    var val = (m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value) ?? "";
+    val = val.Trim();
+    if (!string.IsNullOrWhiteSpace(val))
+      tags.Add(val);
+  }
+
+  // ALSO support "# GBC" / "# GB" style tags (common in your dataset)
+  var hashMatch = System.Text.RegularExpressions.Regex.Match(
+    stem,
+    @"#\s*(GB|GBC|GBA|NES|SNES|SFC|N64|NDS|PSX|PS1|PSP|GEN|MD|MAME)\b",
+    System.Text.RegularExpressions.RegexOptions.IgnoreCase
+  );
+
+  if (hashMatch.Success)
+    tags.Add(hashMatch.Groups[1].Value.Trim());
+
+  return tags;
+}
+
+static int[]? InferPlatformIds(string fileExt, IReadOnlyList<string> tags)
+{
+  // Prefer explicit tags
+  string tag = tags
+    .SelectMany(t => System.Text.RegularExpressions.Regex.Split(t, @"[^A-Za-z0-9]+"))
+    .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) ?? "";
+
+  // IGDB platform IDs (validated by your own saved rows):
+  // Game Boy Color = 22, Game Boy = 33, Nintendo 64 = 4, PlayStation = 7, Dreamcast = 23, PC = 6
+  // (You can expand these as you confirm IDs in your data.)
+  var tagMap = new Dictionary<string, int[]>(StringComparer.OrdinalIgnoreCase)
+  {
+    ["GBC"] = new[] { 22 },
+    ["GB"]  = new[] { 33 },
+    ["N64"] = new[] { 4 },
+    ["PS1"] = new[] { 7 },
+    ["PSX"] = new[] { 7 },
+  };
+
+  if (!string.IsNullOrWhiteSpace(tag) && tagMap.TryGetValue(tag, out var tagIds))
+    return tagIds;
+
+  // Extension-based
+  var extMap = new Dictionary<string, int[]>(StringComparer.OrdinalIgnoreCase)
+  {
+    ["gbc"] = new[] { 22 },
+    ["gb"]  = new[] { 33 },
+    // keep ambiguous types unfiltered:
+    // ["bin"] = ...
+    // ["cue"] = ...
+    // ["iso"] = ...
+  };
+
+  return extMap.TryGetValue(fileExt, out var extIds) ? extIds : null;
+}
+
+
+  static bool IsArchiveExt(string ext) => ext is "zip" or "7z" or "rar";
+
+  static string[]? InferPlatformKeywords(string fileExt, IReadOnlyList<string> tags)
+  {
+    // Prefer explicit tags if present (ROM-scene shorthand).
+    var tagMap = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+    {
+      { "GB",   new[] { "game boy" } },
+      { "GBC",  new[] { "game boy color", "game boy" } },
+      { "GBA",  new[] { "game boy advance", "gba" } },
+      { "NES",  new[] { "nintendo entertainment system", "nes", "famicom" } },
+      { "SNES", new[] { "super nintendo", "snes", "super famicom" } },
+      { "SFC",  new[] { "super nintendo", "snes", "super famicom" } },
+      { "N64",  new[] { "nintendo 64", "n64" } },
+      { "NDS",  new[] { "nintendo ds", "nds" } },
+      { "PSX",  new[] { "playstation", "ps1", "playstation 1" } },
+      { "PS1",  new[] { "playstation", "ps1", "playstation 1" } },
+      { "PSP",  new[] { "playstation portable", "psp" } },
+      { "GEN",  new[] { "genesis", "mega drive" } },
+      { "MD",   new[] { "mega drive", "genesis" } },
+      { "MAME", new[] { "arcade", "mame" } }
+    };
+
+    foreach (var t in tags)
+    {
+      var parts = System.Text.RegularExpressions.Regex
+        .Split(t, @"[^A-Za-z0-9]+")
+        .Where(p => !string.IsNullOrWhiteSpace(p));
+
+      foreach (var p in parts)
+      {
+        var key = p.Trim();
+        if (tagMap.TryGetValue(key, out var kws))
+          return kws;
+      }
+    }
+
+    // If it’s an archive (zip/7z/rar) and no tags, we can’t infer platform reliably.
+    if (IsArchiveExt(fileExt))
+      return null;
+
+    // Extension-based hints (only when reasonably reliable).
+    // NOTE: you had bin/cue/iso included. Those are ambiguous, but I’ll keep your mapping as-is.
+    var extMap = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+    {
+      { "gba",  new[] { "game boy advance", "gba" } },
+      { "gb",   new[] { "game boy" } },
+      { "gbc",  new[] { "game boy color", "game boy" } },
+      { "nes",  new[] { "nintendo entertainment system", "nes", "famicom" } },
+      { "snes", new[] { "super nintendo", "snes", "super famicom" } },
+      { "sfc",  new[] { "super nintendo", "snes", "super famicom" } },
+      { "n64",  new[] { "nintendo 64", "n64" } },
+      { "nds",  new[] { "nintendo ds", "nds" } },
+      { "psp",  new[] { "playstation portable", "psp" } },
+      { "pbp",  new[] { "playstation portable", "psp" } },
+      { "md",   new[] { "mega drive", "genesis" } },
+      { "gen",  new[] { "mega drive", "genesis" } },
+
+      { "bin",  new[] { "playstation", "ps1", "playstation 1", "playstation portable", "psp" } },
+      { "cue",  new[] { "playstation", "ps1", "playstation 1", "playstation portable", "psp" } },
+      { "iso",  new[] { "playstation", "ps1", "playstation 1", "playstation portable", "psp" } },
+    };
+
+    return extMap.TryGetValue(fileExt, out var extKws) ? extKws : null;
+  }
+
+  static bool CandidateMatchesPlatform(Newtonsoft.Json.Linq.JObject c, string[] kws)
+  {
+    var pnames = c.SelectTokens("platforms[*].name")
+      .Select(x => x.ToString())
+      .Where(s => !string.IsNullOrWhiteSpace(s))
+      .Select(s => s.ToLowerInvariant())
+      .ToList();
+
+    if (pnames.Count == 0) return false;
+
+    foreach (var pname in pnames)
+      foreach (var kw in kws)
+        if (pname.Contains(kw, StringComparison.OrdinalIgnoreCase))
+          return true;
+
+    return false;
+  }
+
+  static string Norm(string x)
+  {
+    x = (x ?? "").ToLowerInvariant();
+    x = System.Text.RegularExpressions.Regex.Replace(x, @"[^a-z0-9]+", " ").Trim();
+    return x;
+  }
+
+  static int ScoreName(string candidateName, string cleanedTitle)
+  {
+    var a = Norm(cleanedTitle);
+    var b = Norm(candidateName);
+
+    int score = 0;
+    if (b == a) score += 1000;
+    if (b.Contains(a) || a.Contains(b)) score += 250;
+    return score;
+  }
+
+  static int ScoreCandidateImproved(Newtonsoft.Json.Linq.JObject g, string cleanedTitle, string[]? platformKws)
+  {
+    // Score against name AND alternative names; take best
+    var bestNameScore = ScoreName(g.Value<string>("name") ?? "", cleanedTitle);
+
+    var altNames = g.SelectTokens("alternative_names[*].name")
+      .Select(x => x.ToString())
+      .Where(s => !string.IsNullOrWhiteSpace(s))
+      .Take(20)
+      .ToList();
+
+    foreach (var alt in altNames)
+      bestNameScore = Math.Max(bestNameScore, ScoreName(alt, cleanedTitle));
+
+    // rating_count preference
+    bestNameScore += (g.Value<int?>("total_rating_count") ?? 0) / 10;
+
+    // Platform-aware scoring: strong bonus if matches platform hint, strong penalty if not.
+    if (platformKws != null && platformKws.Length > 0)
+    {
+      bool hasPlatforms = g.SelectTokens("platforms[*].name").Any();
+      if (hasPlatforms)
+      {
+        bool match = CandidateMatchesPlatform(g, platformKws);
+        bestNameScore += match ? 600 : -600;
+      }
+    }
+
+    // Slight preference for candidates that are better described
+    if (g.SelectTokens("platforms[*].name").Any()) bestNameScore += 25;
+    if (!string.IsNullOrWhiteSpace(g.Value<string>("summary"))) bestNameScore += 10;
+
+    return bestNameScore;
+  }
+
+  static string Esc(string s) => (s ?? "").Replace("\"", "\\\"");
+
+  static string IgdbImageUrl(string imageId, string size) =>
+    $"https://images.igdb.com/igdb/image/upload/{size}/{imageId}.jpg";
+
+  static IEnumerable<string> BuildSearchTerms(string titleGuess)
+  {
+    // 1) original
+    yield return titleGuess;
+
+    // 2) replace common separators to match IGDB punctuation habits
+    var t2 = titleGuess.Replace(" - ", ": ").Replace("–", ":").Replace("—", ":");
+    if (!string.Equals(t2, titleGuess, StringComparison.OrdinalIgnoreCase))
+      yield return t2;
+
+    // 3) drop leading articles / "amazing" (common ROM naming vs IGDB naming mismatch)
+    var t3 = System.Text.RegularExpressions.Regex.Replace(t2, @"\b(the|a|an)\b\s+", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+    t3 = System.Text.RegularExpressions.Regex.Replace(t3, @"\bamazing\b\s+", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+    if (!string.IsNullOrWhiteSpace(t3) && !string.Equals(t3, t2, StringComparison.OrdinalIgnoreCase))
+      yield return t3;
+
+    // 4) token-limited search (helps long titles)
+    var tokens = Norm(t3).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    if (tokens.Length > 8)
+    {
+      var t4 = string.Join(' ', tokens.Take(8));
+      yield return t4;
+    }
+
+    // 5) last resort: key nouns
+    var key = tokens.Where(w => w.Length >= 4).Take(6).ToArray();
+    if (key.Length >= 3)
+    {
+      var t5 = string.Join(' ', key);
+      yield return t5;
+    }
+  }
+
+  async Task<string> GetTwitchAppAccessTokenAsync(string clientId, string clientSecret)
+  {
+    var url =
+      $"https://id.twitch.tv/oauth2/token" +
+      $"?client_id={Uri.EscapeDataString(clientId)}" +
+      $"&client_secret={Uri.EscapeDataString(clientSecret)}" +
+      $"&grant_type=client_credentials";
+
+    using var resp = await _httpClient.PostAsync(url, content: null, ct);
+    resp.EnsureSuccessStatusCode();
+    var json = await resp.Content.ReadAsStringAsync(ct);
+    var o = Newtonsoft.Json.Linq.JObject.Parse(json);
+    return o["access_token"]?.ToString() ?? throw new Exception("No access_token in token response");
+  }
+
+  async Task<string> IgdbPostAsync(string token, string clientId, string endpoint, string body)
+  {
+    using var req = new HttpRequestMessage(HttpMethod.Post, $"https://api.igdb.com/v4/{endpoint}");
+    req.Headers.Add("Client-ID", clientId);
+    req.Headers.Add("Authorization", $"Bearer {token}");
+    req.Headers.Add("Accept", "application/json");
+    req.Content = new StringContent(body, Encoding.UTF8, "text/plain");
+
+    using var resp = await _httpClient.SendAsync(req, ct);
+    if ((int)resp.StatusCode == 429)
+      throw new Exception("IGDB rate limit hit (429) — slow down.");
+
+    resp.EnsureSuccessStatusCode();
+    return await resp.Content.ReadAsStringAsync(ct);
+  }
+
+  async Task UpsertEnrichmentAsync(
+    MySqlConnection conn,
+    int fileId,
+    string romFileName,
+    string romTitleGuess,
+    int? igdbGameId,
+    string? igdbName,
+    int matchScore,
+    string status,
+    string? error,
+    string? summary,
+    long? firstReleaseDate,
+    decimal? totalRating,
+    int? totalRatingCount,
+    Newtonsoft.Json.Linq.JArray? platforms,
+    Newtonsoft.Json.Linq.JArray? genres,
+    string? coverUrl,
+    Newtonsoft.Json.Linq.JArray? screenshots,
+    Newtonsoft.Json.Linq.JArray? artworks,
+    Newtonsoft.Json.Linq.JArray? videos,
+    int resetVotes,
+    string? rawJson)
+  {
+    const string sql = @"
+INSERT INTO maxhanna.rom_igdb_enrichment (
+  file_id, rom_file_name, rom_title_guess,
+  igdb_game_id, igdb_name, match_score,
+  status, error,
+  summary, first_release_date, total_rating, total_rating_count,
+  platforms_json, genres_json,
+  cover_url, screenshots_json, artworks_json, videos_json,
+  reset_votes, raw_json, fetched_at
+)
+VALUES (
+  @file_id, @rom_file_name, @rom_title_guess,
+  @igdb_game_id, @igdb_name, @match_score,
+  @status, @error,
+  @summary, @first_release_date, @total_rating, @total_rating_count,
+  @platforms_json, @genres_json,
+  @cover_url, @screenshots_json, @artworks_json, @videos_json,
+  @reset_votes, @raw_json, UTC_TIMESTAMP()
+)
+ON DUPLICATE KEY UPDATE
+  rom_file_name      = VALUES(rom_file_name),
+  rom_title_guess    = VALUES(rom_title_guess),
+  igdb_game_id       = VALUES(igdb_game_id),
+  igdb_name          = VALUES(igdb_name),
+  match_score        = VALUES(match_score),
+  status             = VALUES(status),
+  error              = VALUES(error),
+  summary            = VALUES(summary),
+  first_release_date = VALUES(first_release_date),
+  total_rating       = VALUES(total_rating),
+  total_rating_count = VALUES(total_rating_count),
+  platforms_json     = VALUES(platforms_json),
+  genres_json        = VALUES(genres_json),
+  cover_url          = VALUES(cover_url),
+  screenshots_json   = VALUES(screenshots_json),
+  artworks_json      = VALUES(artworks_json),
+  videos_json        = VALUES(videos_json),
+  reset_votes        = VALUES(reset_votes),
+  raw_json           = VALUES(raw_json),
+  fetched_at         = VALUES(fetched_at);";
+
+    await using var cmd = new MySqlCommand(sql, conn);
+    cmd.Parameters.AddWithValue("@file_id", fileId);
+    cmd.Parameters.AddWithValue("@rom_file_name", romFileName);
+    cmd.Parameters.AddWithValue("@rom_title_guess", romTitleGuess);
+
+    cmd.Parameters.AddWithValue("@igdb_game_id", (object?)igdbGameId ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@igdb_name", (object?)igdbName ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@match_score", matchScore);
+
+    cmd.Parameters.AddWithValue("@status", status);
+    cmd.Parameters.AddWithValue("@error", (object?)error ?? DBNull.Value);
+
+    cmd.Parameters.AddWithValue("@summary", (object?)summary ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@first_release_date", (object?)firstReleaseDate ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@total_rating", (object?)totalRating ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@total_rating_count", (object?)totalRatingCount ?? DBNull.Value);
+
+    cmd.Parameters.AddWithValue("@platforms_json", (object?)platforms?.ToString(Newtonsoft.Json.Formatting.None) ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@genres_json", (object?)genres?.ToString(Newtonsoft.Json.Formatting.None) ?? DBNull.Value);
+
+    cmd.Parameters.AddWithValue("@cover_url", (object?)coverUrl ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@screenshots_json", (object?)screenshots?.ToString(Newtonsoft.Json.Formatting.None) ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@artworks_json", (object?)artworks?.ToString(Newtonsoft.Json.Formatting.None) ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@videos_json", (object?)videos?.ToString(Newtonsoft.Json.Formatting.None) ?? DBNull.Value);
+
+    cmd.Parameters.AddWithValue("@reset_votes", resetVotes);
+    cmd.Parameters.AddWithValue("@raw_json", (object?)rawJson ?? DBNull.Value);
+
+    await cmd.ExecuteNonQueryAsync(ct);
+  }
+
+  async Task<(Newtonsoft.Json.Linq.JArray arr, string rawJson, bool excludedVersions, string usedSearch)> QueryIgdbWithFallbackAsync(
+    string token,
+    string clientId,
+    string titleGuess)
+  {
+    // Try multiple search terms, and for each term:
+    //  - first try excluding versions (where version_parent = null)
+    //  - if empty, retry including versions (no where clause)
+    foreach (var term in BuildSearchTerms(titleGuess).Distinct(StringComparer.OrdinalIgnoreCase))
+    {
+      // Attempt A: exclude versions
+      {
+        var q = $@"
+search ""{Esc(term)}"";
+fields
+  id,
+  name,
+  alternative_names.name,
+  version_parent,
+  summary,
+  first_release_date,
+  total_rating,
+  total_rating_count,
+  platforms.name,
+  genres.name,
+  cover.image_id,
+  screenshots.image_id,
+  artworks.image_id,
+  videos.video_id;
+where version_parent = null;
+limit 50;
+";
+        var json = await IgdbPostAsync(token, clientId, "games", q);
+        await Task.Delay(perRequestDelayMs, ct);
+
+        var a = Newtonsoft.Json.Linq.JArray.Parse(json);
+        if (a.Count > 0)
+          return (a, json, excludedVersions: true, usedSearch: term);
+      }
+
+      // Attempt B: include versions (critical for entries stored as versions/editions)
+      {
+        var q = $@"
+search ""{Esc(term)}"";
+fields
+  id,
+  name,
+  alternative_names.name,
+  version_parent,
+  summary,
+  first_release_date,
+  total_rating,
+  total_rating_count,
+  platforms.name,
+  genres.name,
+  cover.image_id,
+  screenshots.image_id,
+  artworks.image_id,
+  videos.video_id;
+limit 50;
+";
+        var json = await IgdbPostAsync(token, clientId, "games", q);
+        await Task.Delay(perRequestDelayMs, ct);
+
+        var a = Newtonsoft.Json.Linq.JArray.Parse(json);
+        if (a.Count > 0)
+          return (a, json, excludedVersions: false, usedSearch: term);
+      }
+    }
+
+    return (new Newtonsoft.Json.Linq.JArray(), "[]", excludedVersions: false, usedSearch: titleGuess);
+  }
+
+  // ---- start of method logic ----
+  var clientId = _config.GetValue<string>("IGDB:ClientId");
+  var clientSecret = _config.GetValue<string>("IGDB:ClientSecret");
+  if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret))
+  {
+    await _log.Db("IGDB credentials missing in config (IGDB:ClientId / IGDB:ClientSecret).", null, "IGDB", true);
+    return;
+  }
+
+  var token = await GetTwitchAppAccessTokenAsync(clientId!, clientSecret!);
+
+  await using var conn = new MySqlConnection(_connectionString);
+  await conn.OpenAsync(ct);
+
+  // Pull ROM candidates (only /roms, and avoid recently OK rows)
+  var pickSql = @"
+SELECT fu.id, fu.file_name
+FROM maxhanna.file_uploads fu
+LEFT JOIN maxhanna.rom_igdb_enrichment r ON r.file_id = fu.id
+WHERE fu.folder_path = @FolderPath
+  AND fu.is_folder = 0
+  AND fu.file_name IS NOT NULL
+  AND (
+    r.file_id IS NULL
+    OR r.status <> 'OK'
+    OR r.fetched_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY)
+  )
+ORDER BY fu.id
+LIMIT @lim;";
+
+  var roms = new List<(int id, string fileName)>();
+  await using (var cmd = new MySqlCommand(pickSql, conn))
+  {
+    cmd.Parameters.AddWithValue("@FolderPath", _romFolder);
+    cmd.Parameters.AddWithValue("@lim", batchSize);
+    await using var r = await cmd.ExecuteReaderAsync(ct);
+    while (await r.ReadAsync(ct))
+      roms.Add((r.GetInt32("id"), r.GetString("file_name")));
+  }
+
+  if (roms.Count == 0)
+  {
+    var resetIds = new List<int>();
+    const string selectResetSql = @"SELECT file_id FROM maxhanna.rom_igdb_enrichment WHERE reset_votes > 1 LIMIT @lim;";
+    await using (var sel = new MySqlCommand(selectResetSql, conn))
+    {
+      sel.Parameters.AddWithValue("@lim", batchSize);
+      await using var rr = await sel.ExecuteReaderAsync(ct);
+      while (await rr.ReadAsync(ct))
+        resetIds.Add(rr.GetInt32(0));
+    }
+
+    if (resetIds.Count > 0)
+    {
+      var idsCsv = string.Join(',', resetIds);
+      var deleteSql = $"DELETE FROM maxhanna.rom_igdb_enrichment WHERE file_id IN ({idsCsv});";
+      await using (var del = new MySqlCommand(deleteSql, conn))
+        await del.ExecuteNonQueryAsync(ct);
+
+      var fetchSql = $@"SELECT id, file_name FROM maxhanna.file_uploads WHERE id IN ({idsCsv}) ORDER BY id LIMIT @lim;";
+      await using (var pc = new MySqlCommand(fetchSql, conn))
+      {
+        pc.Parameters.AddWithValue("@lim", batchSize);
+        await using var r2 = await pc.ExecuteReaderAsync(ct);
+        while (await r2.ReadAsync(ct))
+          roms.Add((r2.GetInt32("id"), r2.GetString("file_name")));
+      }
+    }
+
+    if (roms.Count == 0)
+    {
+      await _log.Db("IGDB enrich: no ROMs to process.", null, "IGDB", outputToConsole: true);
+      return;
+    }
+  }
+
+  foreach (var (fileId, romFileName) in roms)
+  {
+    ct.ThrowIfCancellationRequested();
+
+    var tags = ExtractTags(romFileName);
+    var titleGuess = CleanTitle(romFileName);
+
+    try
+    {
+      var (arr, respJson, excludedVersions, usedSearch) = await QueryIgdbWithFallbackAsync(token, clientId!, titleGuess);
+
+      if (arr.Count == 0)
+      {
+        await UpsertEnrichmentAsync(
+          conn, fileId, romFileName, titleGuess,
+          null, null, 0, "NOT_FOUND", $"No results for '{titleGuess}' (tried variants).",
+          null, null, null, null,
+          null, null,
+          null, null, null, null,
+          0, respJson
+        );
+        continue;
+      }
+
+var fileExt = Path.GetExtension(romFileName)?.TrimStart('.')?.ToLowerInvariant() ?? string.Empty;
+var platformIds = InferPlatformIds(fileExt, tags);
+var platformWhere = (platformIds != null && platformIds.Length > 0)
+  ? $" & platforms = ({string.Join(",", platformIds)})"
+  : "";
+
+var query = $@"
+search ""{Esc(titleGuess)}"";
+fields
+  id,
+  name,
+  alternative_names.name,
+  summary,
+  first_release_date,
+  total_rating,
+  total_rating_count,
+  platforms.name,
+  genres.name,
+  cover.image_id,
+  screenshots.image_id,
+  artworks.image_id,
+  videos.video_id;
+
+// First try: exclude versions AND restrict platform if we can
+where version_parent = null{platformWhere};
+limit 50;
+";
+ var platformKws = InferPlatformKeywords(fileExt, tags);
+
+if (arr.Count == 0 && platformWhere.Length > 0)
+{
+  var query2 = $@"
+search ""{Esc(titleGuess)}"";
+fields id,name,alternative_names.name,summary,first_release_date,total_rating,total_rating_count,
+  platforms.name,genres.name,cover.image_id,screenshots.image_id,artworks.image_id,videos.video_id;
+where version_parent = null;
+limit 50;
+";
+  respJson = await IgdbPostAsync(token, clientId!, "games", query2);
+  arr = Newtonsoft.Json.Linq.JArray.Parse(respJson);
+}
+
+if (arr.Count == 0)
+{
+  var query3 = $@"
+search ""{Esc(titleGuess)}"";
+fields id,name,alternative_names.name,summary,first_release_date,total_rating,total_rating_count,
+  platforms.name,genres.name,cover.image_id,screenshots.image_id,artworks.image_id,videos.video_id;
+limit 50;
+";
+  respJson = await IgdbPostAsync(token, clientId!, "games", query3);
+  arr = Newtonsoft.Json.Linq.JArray.Parse(respJson);
+}
+
+      var candidates = arr.OfType<Newtonsoft.Json.Linq.JObject>().ToList();
+
+      // Prefer platform matches if we can infer platform AND any candidate matches.
+      List<Newtonsoft.Json.Linq.JObject> preferred = candidates;
+      bool anyPlatformMatch = false;
+
+      if (platformKws != null && platformKws.Length > 0)
+      {
+        var matching = candidates.Where(c => CandidateMatchesPlatform(c, platformKws)).ToList();
+        if (matching.Count > 0)
+        {
+          preferred = matching;
+          anyPlatformMatch = true;
+        }
+      }
+
+      var best = preferred
+        .OrderByDescending(g => ScoreCandidateImproved(g, titleGuess, platformKws))
+        .First();
+
+      var bestScore = ScoreCandidateImproved(best, titleGuess, platformKws);
+
+      // Determine status
+      string status;
+      string? statusError = null;
+
+      if (platformKws != null && platformKws.Length > 0)
+      {
+        bool bestMatches = CandidateMatchesPlatform(best, platformKws);
+
+        if (bestMatches)
+        {
+          status = excludedVersions ? "OK" : "OK_INCLUDED_VERSIONS";
+          if (!excludedVersions)
+            statusError = $"Matched only when including versions/editions. SearchUsed='{usedSearch}'.";
+        }
+        else if (!anyPlatformMatch)
+        {
+          status = "PLATFORM_MISMATCH_FALLBACK";
+          statusError = $"No candidates matched inferred platform (ext='{fileExt}', tags='{string.Join(",", tags)}'). SearchUsed='{usedSearch}'. Stored best overall match.";
+        }
+        else
+        {
+          status = excludedVersions ? "OK" : "OK_INCLUDED_VERSIONS";
+        }
+      }
+      else
+      {
+        status = excludedVersions ? "OK_NO_PLATFORM_HINT" : "OK_INCLUDED_VERSIONS_NO_PLATFORM_HINT";
+        if (!excludedVersions)
+          statusError = $"Matched only when including versions/editions. SearchUsed='{usedSearch}'.";
+      }
+
+      int igdbId = best.Value<int>("id");
+      string igdbName = best.Value<string>("name") ?? titleGuess;
+
+      string? summary = best.Value<string>("summary");
+      long? firstRelease = best.Value<long?>("first_release_date");
+      decimal? rating = best.Value<decimal?>("total_rating");
+      int? ratingCount = best.Value<int?>("total_rating_count");
+
+      Newtonsoft.Json.Linq.JArray? platforms = null;
+      var pNames = best.SelectTokens("platforms[*].name").Select(x => x.ToString()).Distinct().ToList();
+      if (pNames.Count > 0) platforms = new Newtonsoft.Json.Linq.JArray(pNames);
+
+      Newtonsoft.Json.Linq.JArray? genres = null;
+      var gNames = best.SelectTokens("genres[*].name").Select(x => x.ToString()).Distinct().ToList();
+      if (gNames.Count > 0) genres = new Newtonsoft.Json.Linq.JArray(gNames);
+
+      string? coverUrl = null;
+      var coverId = best.SelectToken("cover.image_id")?.ToString();
+      if (!string.IsNullOrWhiteSpace(coverId))
+        coverUrl = IgdbImageUrl(coverId!, "t_cover_big");
+
+      Newtonsoft.Json.Linq.JArray? screenshots = null;
+      var ss = best.SelectTokens("screenshots[*].image_id")
+        .Select(x => x.ToString())
+        .Where(s => !string.IsNullOrWhiteSpace(s))
+        .Take(10)
+        .ToList();
+      if (ss.Count > 0) screenshots = new Newtonsoft.Json.Linq.JArray(ss.Select(id => IgdbImageUrl(id, "t_1080p")));
+
+      Newtonsoft.Json.Linq.JArray? artworks = null;
+      var aw = best.SelectTokens("artworks[*].image_id")
+        .Select(x => x.ToString())
+        .Where(s => !string.IsNullOrWhiteSpace(s))
+        .Take(6)
+        .ToList();
+      if (aw.Count > 0) artworks = new Newtonsoft.Json.Linq.JArray(aw.Select(id => IgdbImageUrl(id, "t_1080p")));
+
+      Newtonsoft.Json.Linq.JArray? videos = null;
+      var vids = best.SelectTokens("videos[*].video_id")
+        .Select(x => x.ToString())
+        .Where(s => !string.IsNullOrWhiteSpace(s))
+        .Take(3)
+        .ToList();
+      if (vids.Count > 0) videos = new Newtonsoft.Json.Linq.JArray(vids.Select(v => $"https://www.youtube.com/watch?v={v}"));
+
+      // Store response for debugging on “included versions” or mismatch
+      string rawToStore =
+        status.StartsWith("OK", StringComparison.OrdinalIgnoreCase) && !status.Contains("INCLUDED_VERSIONS", StringComparison.OrdinalIgnoreCase)
+          ? best.ToString(Newtonsoft.Json.Formatting.None)
+          : respJson;
+
+      await UpsertEnrichmentAsync(
+        conn, fileId, romFileName, titleGuess,
+        igdbId, igdbName, bestScore, status, statusError,
+        summary, firstRelease, rating, ratingCount,
+        platforms, genres,
+        coverUrl, screenshots, artworks, videos,
+        0, rawToStore
+      );
+    }
+    catch (Exception ex)
+    {
+      await UpsertEnrichmentAsync(
+        conn, fileId, romFileName, titleGuess,
+        null, null, 0, "ERROR", ex.Message,
+        null, null, null, null,
+        null, null,
+        null, null, null, null,
+        0, null
+      );
+
+      await Task.Delay(500, ct);
+    }
+  }
+
+  await _log.Db($"IGDB enrich: processed {roms.Count} ROM(s).", null, "IGDB", outputToConsole: true);
+}
 
 
 
