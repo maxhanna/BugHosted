@@ -11,7 +11,7 @@ namespace maxhanna.Server.Services
 		private Timer? _checkForNewBaseUpdates;
 		private int timerDuration = 20;
 
-		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10);
+		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(2);
 		private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);
 
 

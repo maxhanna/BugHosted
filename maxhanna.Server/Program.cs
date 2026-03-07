@@ -49,6 +49,7 @@ builder.Services.AddSingleton<NewsService>();
 builder.Services.AddSingleton<ProfitCalculationService>();
 builder.Services.AddSingleton<TradeIndicatorService>();
 builder.Services.AddSingleton<KrakenService>();
+builder.Services.AddSingleton<RomEnrichmentService>();
 builder.WebHost.ConfigureKestrel(options =>
 {
 		options.Limits.MaxRequestBodySize = long.MaxValue;

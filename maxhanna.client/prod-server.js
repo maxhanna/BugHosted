@@ -770,7 +770,12 @@ server.on('error', (err) => {
 });
 
 server.on('clientError', (err, socket) => {
-  console.error(chalk.red(`[Client Error:${new Date().toLocaleTimeString('en-CA', { hour12: false })}]`), err.message);
+  if (!err.message.includes('ECONNRESET')
+      && !err.message.includes('SSL routines')
+      && !err.message.includes('socket hang up')
+  ) {
+    console.error(chalk.red(`[Client Error:${new Date().toLocaleTimeString('en-CA', { hour12: false })}]`), err.message);
+  }
   if (socket.writable) {
     socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
   }

@@ -18,7 +18,7 @@ namespace maxhanna.Server.Services
 		private Timer _checkForNewUnitUpgradesTimer;
 		private const int TimedCheckEveryXSeconds = 60;
 		private const int QueueProcessingInterval = 5;
-		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10); // limit to 10 concurrent connections
+		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(2); // limit to 2 concurrent connections
 		private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);
 
 		public NexusUnitUpgradeBackgroundService(IConfiguration config, Log log)
