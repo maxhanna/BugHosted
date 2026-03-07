@@ -639,3 +639,13 @@
 @media only screen and (max-width: 1000px) {
   .inlineMetaPanel { display: none; }
 }
+
+.flexForRoms {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  justify-content: flex-start;
+  align-content: flex-start;
+}

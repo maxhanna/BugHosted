@@ -59,7 +59,7 @@
   </div>
 
   <!-- Main Data -->
-  <div [class]="fileSearchMode ? 'inPopupComponent' : ''">
+  <div [class]="fileSearchMode ? 'inPopupComponent' : shouldShowRomMetadataDesktop ? ' flexForRoms ' : ''">
     <div id="fileTable">
       <div *ngIf="showUpFolderRow && canChangeDirectory && !search?.nativeElement?.value">
         <div (click)="previousDirectory()" class="upOneFolder" title="Up one folder" (drop)="onDrop('...')"
