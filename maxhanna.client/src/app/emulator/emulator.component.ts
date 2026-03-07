@@ -371,7 +371,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
     const core = this.detectCoreEnhanced(fileName);
     (this as any).currentCore = core;
-
+    console.log(`[EmulatorComponent] Detected core "${core}" for file "${fileName}" (ext: "${this.fileService.getFileExtension(fileName)}")`);
     const renderClamp = this.getRenderClampForCore(core);
     (window as any).EJS_renderClamp = renderClamp;
     window.EJS_core = core;
@@ -2578,11 +2578,16 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       { label: 'Auto-detect (recommended)', core: undefined }
     ];
 
-    // Add registry matches for this ext
-    const matches = CORE_REGISTRY
-      .filter(e => (e.maybeExts ?? []).includes(ext) || (e.exts ?? []).includes(ext))
-      .map(e => ({ label: e.label, core: e.core }));
-
+    // Add registry matches for this ext. If the file is a .zip, offer all possible systems
+    // because zip archives can contain many different ROM types.
+    let matches = [] as { label: string; core?: string }[];
+    if (ext === 'zip') {
+      matches = CORE_REGISTRY.map(e => ({ label: e.label, core: e.core }));
+    } else {
+      matches = CORE_REGISTRY
+        .filter(e => (e.maybeExts ?? []).includes(ext) || (e.exts ?? []).includes(ext))
+        .map(e => ({ label: e.label, core: e.core }));
+    }
     // Deduplicate by core id + label
     const seen = new Set<string>();
     for (const m of matches) {
