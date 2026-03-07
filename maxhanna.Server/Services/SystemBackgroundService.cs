@@ -2532,21 +2532,56 @@ private async Task EnrichRomsFromIgdb_SingleTable(CancellationToken ct = default
   const int perRequestDelayMs = 300;
 
   // ---- local helpers (kept inside this ONE method) ----
+
+  static string Esc(string s) => (s ?? "").Replace("\"", "\\\"");
+
+  static string IgdbImageUrl(string imageId, string size) =>
+    $"https://images.igdb.com/igdb/image/upload/{size}/{imageId}.jpg";
+
+  static string Norm(string x)
+  {
+    x = (x ?? "").ToLowerInvariant();
+    x = System.Text.RegularExpressions.Regex.Replace(x, @"[^a-z0-9]+", " ").Trim();
+    return x;
+  }
+
+  static bool IsArchiveExt(string ext) => ext is "zip" or "7z" or "rar";
+
   static string CleanTitle(string fileName)
   {
     var stem = Path.GetFileNameWithoutExtension(fileName) ?? fileName;
-    // strip common ROM tags: (USA), [!], (Rev A), (GB), [GBC], etc.
+
+    // Remove trailing hash-system tags like " # GBC", " # GB", etc.
+    stem = System.Text.RegularExpressions.Regex.Replace(
+      stem,
+      @"\s*#\s*(GB|GBC|GBA|NES|SNES|SFC|N64|NDS|PSX|PS1|PS2|PS3|PS4|PS5|PSP|GC|GCM|GBA|GEN|MD|SMS|GG|SAT|DC|PC|XBOX|X360|XONE|XSX|WII|WIIU|SWITCH|NS|3DS|DS|N64|NGC|MAME)\s*$",
+      " ",
+      System.Text.RegularExpressions.RegexOptions.IgnoreCase
+    );
+
+    // Strip common ROM tags: (USA), [!], (Rev A), etc.
     stem = System.Text.RegularExpressions.Regex.Replace(stem, @"\[[^\]]*\]|\([^\)]*\)", " ");
+
+    // Normalize letter-dot acronyms: "S.W.A.R.M." -> "SWARM"
+    stem = System.Text.RegularExpressions.Regex.Replace(
+      stem,
+      @"\b(?:[A-Za-z]\.){2,}[A-Za-z]?\b",
+      m => m.Value.Replace(".", "")
+    );
+
+    // Common separators used in romsets
+    stem = stem.Replace("_", " ");
+
     stem = System.Text.RegularExpressions.Regex.Replace(stem, @"\s+", " ").Trim();
     return stem;
   }
 
   static IReadOnlyList<string> ExtractTags(string fileName)
   {
-    // Pull tokens like (GB), [GBC], (PSX) BEFORE CleanTitle strips them.
     var tags = new List<string>();
     var stem = Path.GetFileNameWithoutExtension(fileName) ?? fileName;
 
+    // Pull tokens like (GB), [GBC], (USA), etc.
     foreach (System.Text.RegularExpressions.Match m in
              System.Text.RegularExpressions.Regex.Matches(stem, @"\(([^)]*)\)|\[([^\]]*)\]"))
     {
@@ -2556,10 +2591,71 @@ private async Task EnrichRomsFromIgdb_SingleTable(CancellationToken ct = default
         tags.Add(val);
     }
 
+    // ALSO support "# GBC" / "# GB" style tags (common in your dataset)
+    var hashMatch = System.Text.RegularExpressions.Regex.Match(
+      stem,
+      @"#\s*([A-Za-z0-9]+)\b",
+      System.Text.RegularExpressions.RegexOptions.IgnoreCase
+    );
+
+    if (hashMatch.Success)
+      tags.Add(hashMatch.Groups[1].Value.Trim());
+
     return tags;
   }
 
-  static bool IsArchiveExt(string ext) => ext is "zip" or "7z" or "rar";
+  static bool IsGarbageTagToken(string token)
+  {
+    if (string.IsNullOrWhiteSpace(token)) return true;
+
+    token = token.Trim().ToLowerInvariant();
+
+    // Regions / languages / dumps / revisions / misc junk
+    var garbage = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+      "usa","u","us","europe","eur","eu","pal","ntsc","ntscu","ntsc-j","ntscj",
+      "japan","jpn","jp","j","asia","australia","aus","world","w","korea","kor","kr","china","cn",
+      "en","fr","de","es","it","nl","pt","sv","no","da","fi","pl","ru","zh","ja",
+      "rev","reva","rev1","rev2","v1","v1.0","v1.1","v2","v2.0",
+      "proto","prototype","beta","sample","demo","preview",
+      "hack","hacked","trainer","crack","cracked","fix","fixed","patched","patch",
+      "good","bad","best","alt","alt1","alt2",
+      "sram","sav","save","battery","batterysave",
+      "pirate","unl","unlicensed",
+      "virtualconsole","vc",
+      "sfc","smc", // often file-type-ish in tags, not system intent here
+      "gbcompatible","gb","gbc", // handled separately as system codes, but keep in mind
+      "sgb","sgbenhanced","color","enhanced"
+    };
+
+    // Strings like "En,Fr,De" become tokens: en fr de (all garbage)
+    if (garbage.Contains(token)) return true;
+
+    // Pure numbers / dates
+    if (System.Text.RegularExpressions.Regex.IsMatch(token, @"^\d+$")) return true;
+
+    return false;
+  }
+
+  static IEnumerable<string> ExtractSystemCodes(string fileExt, IReadOnlyList<string> tags)
+  {
+    // Candidates from extension first (strong signal)
+    if (!string.IsNullOrWhiteSpace(fileExt))
+      yield return fileExt.Trim().ToUpperInvariant();
+
+    // Then from tags: split by non-alnum and keep only relevant tokens
+    foreach (var t in tags)
+    {
+      foreach (var raw in System.Text.RegularExpressions.Regex.Split(t, @"[^A-Za-z0-9]+"))
+      {
+        var token = raw?.Trim();
+        if (string.IsNullOrWhiteSpace(token)) continue;
+        if (IsGarbageTagToken(token)) continue;
+
+        yield return token.ToUpperInvariant();
+      }
+    }
+  }
 
   static string[]? InferPlatformKeywords(string fileExt, IReadOnlyList<string> tags)
   {
@@ -2574,55 +2670,40 @@ private async Task EnrichRomsFromIgdb_SingleTable(CancellationToken ct = default
       { "SFC",  new[] { "super nintendo", "snes", "super famicom" } },
       { "N64",  new[] { "nintendo 64", "n64" } },
       { "NDS",  new[] { "nintendo ds", "nds" } },
+      { "DS",   new[] { "nintendo ds", "nds" } },
+      { "3DS",  new[] { "nintendo 3ds" } },
       { "PSX",  new[] { "playstation", "ps1", "playstation 1" } },
       { "PS1",  new[] { "playstation", "ps1", "playstation 1" } },
+      { "PS2",  new[] { "playstation 2", "ps2" } },
+      { "PS3",  new[] { "playstation 3", "ps3" } },
+      { "PS4",  new[] { "playstation 4", "ps4" } },
+      { "PS5",  new[] { "playstation 5", "ps5" } },
       { "PSP",  new[] { "playstation portable", "psp" } },
+      { "GC",   new[] { "gamecube", "nintendo gamecube" } },
+      { "NGC",  new[] { "gamecube", "nintendo gamecube" } },
       { "GEN",  new[] { "genesis", "mega drive" } },
       { "MD",   new[] { "mega drive", "genesis" } },
+      { "DC",   new[] { "dreamcast" } },
+      { "SAT",  new[] { "saturn", "sega saturn" } },
+      { "GG",   new[] { "game gear" } },
+      { "SMS",  new[] { "master system" } },
       { "MAME", new[] { "arcade", "mame" } }
     };
 
-    foreach (var t in tags)
-    {
-      var parts = System.Text.RegularExpressions.Regex
-        .Split(t, @"[^A-Za-z0-9]+")
-        .Where(p => !string.IsNullOrWhiteSpace(p));
+    // Check tags
+    foreach (var code in ExtractSystemCodes(fileExt, tags))
+      if (tagMap.TryGetValue(code, out var kws))
+        return kws;
 
-      foreach (var p in parts)
-      {
-        var key = p.Trim();
-        if (tagMap.TryGetValue(key, out var kws))
-          return kws;
-      }
-    }
-
-    // If it’s an archive (zip/7z/rar) and no tags, we can’t infer platform reliably.
+    // Archives with no useful tags => unknown
     if (IsArchiveExt(fileExt))
       return null;
 
-    // Extension-based hints (only when reasonably reliable).
-    // NOTE: you had bin/cue/iso included. Those are ambiguous, but I’ll keep your mapping as-is.
-    var extMap = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
-    {
-      { "gba",  new[] { "game boy advance", "gba" } },
-      { "gb",   new[] { "game boy" } },
-      { "gbc",  new[] { "game boy color", "game boy" } },
-      { "nes",  new[] { "nintendo entertainment system", "nes", "famicom" } },
-      { "snes", new[] { "super nintendo", "snes", "super famicom" } },
-      { "sfc",  new[] { "super nintendo", "snes", "super famicom" } },
-      { "n64",  new[] { "nintendo 64", "n64" } },
-      { "nds",  new[] { "nintendo ds", "nds" } },
-      { "psp",  new[] { "playstation portable", "psp" } },
-      { "pbp",  new[] { "playstation portable", "psp" } },
-      { "md",   new[] { "mega drive", "genesis" } },
-      { "gen",  new[] { "mega drive", "genesis" } },
+    // Extension fallback
+    if (tagMap.TryGetValue(fileExt, out var extKws))
+      return extKws;
 
-      { "bin",  new[] { "playstation", "ps1", "playstation 1", "playstation portable", "psp" } },
-      { "cue",  new[] { "playstation", "ps1", "playstation 1", "playstation portable", "psp" } },
-      { "iso",  new[] { "playstation", "ps1", "playstation 1", "playstation portable", "psp" } },
-    };
-
-    return extMap.TryGetValue(fileExt, out var extKws) ? extKws : null;
+    return null;
   }
 
   static bool CandidateMatchesPlatform(Newtonsoft.Json.Linq.JObject c, string[] kws)
@@ -2641,13 +2722,6 @@ private async Task EnrichRomsFromIgdb_SingleTable(CancellationToken ct = default
           return true;
 
     return false;
-  }
-
-  static string Norm(string x)
-  {
-    x = (x ?? "").ToLowerInvariant();
-    x = System.Text.RegularExpressions.Regex.Replace(x, @"[^a-z0-9]+", " ").Trim();
-    return x;
   }
 
   static int ScoreName(string candidateName, string cleanedTitle)
@@ -2669,7 +2743,7 @@ private async Task EnrichRomsFromIgdb_SingleTable(CancellationToken ct = default
     var altNames = g.SelectTokens("alternative_names[*].name")
       .Select(x => x.ToString())
       .Where(s => !string.IsNullOrWhiteSpace(s))
-      .Take(20)
+      .Take(30)
       .ToList();
 
     foreach (var alt in altNames)
@@ -2678,7 +2752,7 @@ private async Task EnrichRomsFromIgdb_SingleTable(CancellationToken ct = default
     // rating_count preference
     bestNameScore += (g.Value<int?>("total_rating_count") ?? 0) / 10;
 
-    // Platform-aware scoring: strong bonus if matches platform hint, strong penalty if not.
+    // Platform-aware scoring
     if (platformKws != null && platformKws.Length > 0)
     {
       bool hasPlatforms = g.SelectTokens("platforms[*].name").Any();
@@ -2696,42 +2770,31 @@ private async Task EnrichRomsFromIgdb_SingleTable(CancellationToken ct = default
     return bestNameScore;
   }
 
-  static string Esc(string s) => (s ?? "").Replace("\"", "\\\"");
-
-  static string IgdbImageUrl(string imageId, string size) =>
-    $"https://images.igdb.com/igdb/image/upload/{size}/{imageId}.jpg";
-
   static IEnumerable<string> BuildSearchTerms(string titleGuess)
   {
-    // 1) original
+    // original
     yield return titleGuess;
 
-    // 2) replace common separators to match IGDB punctuation habits
+    // punctuation variants
     var t2 = titleGuess.Replace(" - ", ": ").Replace("–", ":").Replace("—", ":");
     if (!string.Equals(t2, titleGuess, StringComparison.OrdinalIgnoreCase))
       yield return t2;
 
-    // 3) drop leading articles / "amazing" (common ROM naming vs IGDB naming mismatch)
+    // drop leading articles / "amazing"
     var t3 = System.Text.RegularExpressions.Regex.Replace(t2, @"\b(the|a|an)\b\s+", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
     t3 = System.Text.RegularExpressions.Regex.Replace(t3, @"\bamazing\b\s+", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
     if (!string.IsNullOrWhiteSpace(t3) && !string.Equals(t3, t2, StringComparison.OrdinalIgnoreCase))
       yield return t3;
 
-    // 4) token-limited search (helps long titles)
+    // token-limited search
     var tokens = Norm(t3).Split(' ', StringSplitOptions.RemoveEmptyEntries);
-    if (tokens.Length > 8)
-    {
-      var t4 = string.Join(' ', tokens.Take(8));
-      yield return t4;
-    }
+    if (tokens.Length > 9)
+      yield return string.Join(' ', tokens.Take(9));
 
-    // 5) last resort: key nouns
-    var key = tokens.Where(w => w.Length >= 4).Take(6).ToArray();
+    // key nouns
+    var key = tokens.Where(w => w.Length >= 4).Take(7).ToArray();
     if (key.Length >= 3)
-    {
-      var t5 = string.Join(' ', key);
-      yield return t5;
-    }
+      yield return string.Join(' ', key);
   }
 
   async Task<string> GetTwitchAppAccessTokenAsync(string clientId, string clientSecret)
@@ -2860,77 +2923,276 @@ ON DUPLICATE KEY UPDATE
     await cmd.ExecuteNonQueryAsync(ct);
   }
 
-  async Task<(Newtonsoft.Json.Linq.JArray arr, string rawJson, bool excludedVersions, string usedSearch)> QueryIgdbWithFallbackAsync(
-    string token,
-    string clientId,
-    string titleGuess)
+  // --- Dynamic IGDB platform-id resolver (cached) ---
+  var platformIdCache = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+  static string? SystemCodeToPlatformSearch(string code)
   {
-    // Try multiple search terms, and for each term:
-    //  - first try excluding versions (where version_parent = null)
-    //  - if empty, retry including versions (no where clause)
-    foreach (var term in BuildSearchTerms(titleGuess).Distinct(StringComparer.OrdinalIgnoreCase))
+    code = (code ?? "").Trim().ToUpperInvariant();
+    return code switch
     {
-      // Attempt A: exclude versions
-      {
-        var q = $@"
-search ""{Esc(term)}"";
-fields
-  id,
-  name,
-  alternative_names.name,
-  version_parent,
-  summary,
-  first_release_date,
-  total_rating,
-  total_rating_count,
-  platforms.name,
-  genres.name,
-  cover.image_id,
-  screenshots.image_id,
-  artworks.image_id,
-  videos.video_id;
-where version_parent = null;
-limit 50;
+      "GB" => "Game Boy",
+      "GBC" => "Game Boy Color",
+      "GBA" => "Game Boy Advance",
+      "NES" => "Nintendo Entertainment System",
+      "SNES" => "Super Nintendo Entertainment System",
+      "SFC" => "Super Nintendo Entertainment System",
+      "N64" => "Nintendo 64",
+      "NDS" => "Nintendo DS",
+      "DS" => "Nintendo DS",
+      "3DS" => "Nintendo 3DS",
+      "GC" => "Nintendo GameCube",
+      "NGC" => "Nintendo GameCube",
+      "GCM" => "Nintendo GameCube",
+      "PS1" => "PlayStation",
+      "PSX" => "PlayStation",
+      "PS2" => "PlayStation 2",
+      "PS3" => "PlayStation 3",
+      "PS4" => "PlayStation 4",
+      "PS5" => "PlayStation 5",
+      "PSP" => "PlayStation Portable",
+      "DC" => "Dreamcast",
+      "SAT" => "Sega Saturn",
+      "GEN" => "Sega Mega Drive/Genesis",
+      "MD" => "Sega Mega Drive/Genesis",
+      "SMS" => "Sega Master System",
+      "GG" => "Sega Game Gear",
+      "WII" => "Wii",
+      "WIIU" => "Wii U",
+      "SWITCH" => "Nintendo Switch",
+      "NS" => "Nintendo Switch",
+      "XBOX" => "Xbox",
+      "X360" => "Xbox 360",
+      "XONE" => "Xbox One",
+      "XSX" => "Xbox Series X|S",
+      "PC" => "PC (Microsoft Windows)",
+      _ => null
+    };
+  }
+
+  async Task<int?> ResolvePlatformIdAsync(string token, string clientId, string accessToken)
+  {
+    token = token.Trim();
+    if (platformIdCache.TryGetValue(token, out var cached))
+      return cached;
+
+    // Hardcode a few known ones from YOUR own successful rows (fast path)
+    // (These are safe because they're already in your DB outputs.)
+    var fast = token.ToUpperInvariant() switch
+    {
+      "GBC" => 22,
+      "GB" => 33,
+      "N64" => 4,
+      "PS1" => 7,
+      "PSX" => 7,
+      "PC" => 6,
+      "DC" => 23,
+      "PS2" => 8,
+      "PS3" => 9,
+      "PS4" => 48,
+      "PS5" => 167,
+      "XBOX" => 11, // you have Xbox in rows
+      "X360" => 12, // you have Xbox 360 in rows
+      "GC" => 21,   // you have Nintendo GameCube in rows
+      "3DS" => 37,  // you have Nintendo 3DS in rows
+      "SWITCH" => 130, // you have Nintendo Switch in rows
+      _ => -1
+    };
+
+    if (fast != -1)
+    {
+      platformIdCache[token] = fast;
+      return fast;
+    }
+
+    // Otherwise: query IGDB /platforms by search (cached)
+    var searchName = SystemCodeToPlatformSearch(token) ?? token;
+
+    var q = $@"
+search ""{Esc(searchName)}"";
+fields id,name;
+limit 10;
 ";
-        var json = await IgdbPostAsync(token, clientId, "games", q);
-        await Task.Delay(perRequestDelayMs, ct);
+    var json = await IgdbPostAsync(accessToken, clientId, "platforms", q);
+    await Task.Delay(perRequestDelayMs, ct);
 
-        var a = Newtonsoft.Json.Linq.JArray.Parse(json);
-        if (a.Count > 0)
-          return (a, json, excludedVersions: true, usedSearch: term);
-      }
+    var arr = Newtonsoft.Json.Linq.JArray.Parse(json);
+    if (arr.Count == 0) return null;
 
-      // Attempt B: include versions (critical for entries stored as versions/editions)
+    // Pick best by normalized name similarity
+    int bestId = 0;
+    int bestScore = int.MinValue;
+
+    foreach (var obj in arr.OfType<Newtonsoft.Json.Linq.JObject>())
+    {
+      var name = obj.Value<string>("name") ?? "";
+      var id = obj.Value<int?>("id") ?? 0;
+      if (id == 0) continue;
+
+      // Score: exact/contains of searchName vs returned name
+      var a = Norm(searchName);
+      var b = Norm(name);
+      int score = 0;
+      if (a == b) score += 1000;
+      if (b.Contains(a) || a.Contains(b)) score += 250;
+
+      if (score > bestScore)
       {
-        var q = $@"
-search ""{Esc(term)}"";
-fields
-  id,
-  name,
-  alternative_names.name,
-  version_parent,
-  summary,
-  first_release_date,
-  total_rating,
-  total_rating_count,
-  platforms.name,
-  genres.name,
-  cover.image_id,
-  screenshots.image_id,
-  artworks.image_id,
-  videos.video_id;
-limit 50;
-";
-        var json = await IgdbPostAsync(token, clientId, "games", q);
-        await Task.Delay(perRequestDelayMs, ct);
-
-        var a = Newtonsoft.Json.Linq.JArray.Parse(json);
-        if (a.Count > 0)
-          return (a, json, excludedVersions: false, usedSearch: term);
+        bestScore = score;
+        bestId = id;
       }
     }
 
-    return (new Newtonsoft.Json.Linq.JArray(), "[]", excludedVersions: false, usedSearch: titleGuess);
+    if (bestId == 0) return null;
+
+    platformIdCache[token] = bestId;
+    return bestId;
+  }
+
+  async Task<int[]?> InferPlatformIdsAsync(string fileExt, IReadOnlyList<string> tags, string clientId, string accessToken)
+  {
+    // Normalize extension
+    fileExt = (fileExt ?? "").Trim().TrimStart('.').ToUpperInvariant();
+
+    // Collect possible system codes from ext + tags, but discard garbage
+    var codes = ExtractSystemCodes(fileExt, tags)
+      .Select(c => c.Trim().ToUpperInvariant())
+      .Where(c => !string.IsNullOrWhiteSpace(c))
+      .Where(c => !IsGarbageTagToken(c))
+      .Distinct(StringComparer.OrdinalIgnoreCase)
+      .ToList();
+
+    // Archive ext is not meaningful
+    if (IsArchiveExt(fileExt))
+    {
+      codes.Remove("ZIP");
+      codes.Remove("7Z");
+      codes.Remove("RAR");
+    }
+
+    // Map some file extensions directly (common for gb/gbc/gba)
+    // (these are "system codes" too)
+    if (fileExt is "GBC" or "GB" or "GBA" or "N64" or "NES" or "SNES" or "SFC" or "NDS" or "3DS")
+    {
+      if (!codes.Contains(fileExt))
+        codes.Insert(0, fileExt);
+    }
+
+    // Try to resolve the first meaningful code into a platform id.
+    // If multiple codes are present, resolve all and return array for IGDB "(id1,id2)" filtering.
+    var ids = new List<int>();
+
+    foreach (var code in codes.Take(3)) // don’t spam; 3 is plenty
+    {
+      var id = await ResolvePlatformIdAsync(code, clientId, accessToken);
+      if (id.HasValue && id.Value > 0)
+        ids.Add(id.Value);
+    }
+
+    return ids.Count > 0 ? ids.Distinct().ToArray() : null;
+  }
+
+  async Task<(Newtonsoft.Json.Linq.JArray arr, string rawJson, bool excludedVersions, bool usedPlatformFilter, string usedSearch)> QueryIgdbWithFallbackAsync(
+    string token,
+    string clientId,
+    string titleGuess,
+    int[]? platformIds)
+  {
+    // Helper to build a games query
+    string BuildQuery(string term, bool excludeVersions, bool usePlatformFilter)
+    {
+      var where = "";
+      if (excludeVersions)
+        where = "where version_parent = null";
+      else
+        where = ""; // no where clause
+
+      if (usePlatformFilter && platformIds != null && platformIds.Length > 0)
+      {
+        // Apicalypse: platforms = (id1,id2) means contains ANY of these values
+        var p = string.Join(",", platformIds);
+        where = string.IsNullOrWhiteSpace(where)
+          ? $"where platforms = ({p})"
+          : $"{where} & platforms = ({p})";
+      }
+
+      // Final semicolons
+      if (!string.IsNullOrWhiteSpace(where))
+        where += ";";
+
+      return $@"
+search ""{Esc(term)}"";
+fields
+  id,
+  name,
+  alternative_names.name,
+  version_parent,
+  summary,
+  first_release_date,
+  total_rating,
+  total_rating_count,
+  platforms.name,
+  genres.name,
+  cover.image_id,
+  screenshots.image_id,
+  artworks.image_id,
+  videos.video_id;
+{where}
+limit 50;
+";
+    }
+
+    // For each search term:
+    // 1) exclude versions + platform filter (if possible)
+    // 2) exclude versions without platform filter
+    // 3) include versions + platform filter
+    // 4) include versions without platform filter
+    foreach (var term in BuildSearchTerms(titleGuess).Distinct(StringComparer.OrdinalIgnoreCase))
+    {
+      // A: exclude versions + platform filter
+      if (platformIds != null && platformIds.Length > 0)
+      {
+        var q = BuildQuery(term, excludeVersions: true, usePlatformFilter: true);
+        var json = await IgdbPostAsync(token, clientId, "games", q);
+        await Task.Delay(perRequestDelayMs, ct);
+        var a = Newtonsoft.Json.Linq.JArray.Parse(json);
+        if (a.Count > 0)
+          return (a, json, excludedVersions: true, usedPlatformFilter: true, usedSearch: term);
+      }
+
+      // B: exclude versions (no platform filter)
+      {
+        var q = BuildQuery(term, excludeVersions: true, usePlatformFilter: false);
+        var json = await IgdbPostAsync(token, clientId, "games", q);
+        await Task.Delay(perRequestDelayMs, ct);
+        var a = Newtonsoft.Json.Linq.JArray.Parse(json);
+        if (a.Count > 0)
+          return (a, json, excludedVersions: true, usedPlatformFilter: false, usedSearch: term);
+      }
+
+      // C: include versions + platform filter
+      if (platformIds != null && platformIds.Length > 0)
+      {
+        var q = BuildQuery(term, excludeVersions: false, usePlatformFilter: true);
+        var json = await IgdbPostAsync(token, clientId, "games", q);
+        await Task.Delay(perRequestDelayMs, ct);
+        var a = Newtonsoft.Json.Linq.JArray.Parse(json);
+        if (a.Count > 0)
+          return (a, json, excludedVersions: false, usedPlatformFilter: true, usedSearch: term);
+      }
+
+      // D: include versions (no platform filter)
+      {
+        var q = BuildQuery(term, excludeVersions: false, usePlatformFilter: false);
+        var json = await IgdbPostAsync(token, clientId, "games", q);
+        await Task.Delay(perRequestDelayMs, ct);
+        var a = Newtonsoft.Json.Linq.JArray.Parse(json);
+        if (a.Count > 0)
+          return (a, json, excludedVersions: false, usedPlatformFilter: false, usedSearch: term);
+      }
+    }
+
+    return (new Newtonsoft.Json.Linq.JArray(), "[]", excludedVersions: false, usedPlatformFilter: false, usedSearch: titleGuess);
   }
 
   // ---- start of method logic ----
@@ -3016,9 +3278,16 @@ LIMIT @lim;";
     var tags = ExtractTags(romFileName);
     var titleGuess = CleanTitle(romFileName);
 
+    var fileExt = Path.GetExtension(romFileName)?.TrimStart('.')?.ToLowerInvariant() ?? string.Empty;
+    var platformKws = InferPlatformKeywords(fileExt, tags);
+
     try
     {
-      var (arr, respJson, excludedVersions, usedSearch) = await QueryIgdbWithFallbackAsync(token, clientId!, titleGuess);
+      // Resolve platform IDs robustly (ignoring garbage tags); cached; minimal extra requests
+      var platformIds = await InferPlatformIdsAsync(fileExt, tags, clientId!, token);
+
+      var (arr, respJson, excludedVersions, usedPlatformFilter, usedSearch) =
+        await QueryIgdbWithFallbackAsync(token, clientId!, titleGuess, platformIds);
 
       if (arr.Count == 0)
       {
@@ -3033,12 +3302,9 @@ LIMIT @lim;";
         continue;
       }
 
-      var fileExt = Path.GetExtension(romFileName)?.TrimStart('.')?.ToLowerInvariant() ?? string.Empty;
-      var platformKws = InferPlatformKeywords(fileExt, tags);
-
       var candidates = arr.OfType<Newtonsoft.Json.Linq.JObject>().ToList();
 
-      // Prefer platform matches if we can infer platform AND any candidate matches.
+      // Prefer platform matches by platform name keywords (secondary safety net)
       List<Newtonsoft.Json.Linq.JObject> preferred = candidates;
       bool anyPlatformMatch = false;
 
@@ -3068,14 +3334,21 @@ LIMIT @lim;";
 
         if (bestMatches)
         {
-          status = excludedVersions ? "OK" : "OK_INCLUDED_VERSIONS";
+          status =
+            excludedVersions
+              ? (usedPlatformFilter ? "OK" : "OK_NO_PLATFORM_FILTER")
+              : (usedPlatformFilter ? "OK_INCLUDED_VERSIONS" : "OK_INCLUDED_VERSIONS_NO_PLATFORM_FILTER");
+
           if (!excludedVersions)
             statusError = $"Matched only when including versions/editions. SearchUsed='{usedSearch}'.";
+          if (!usedPlatformFilter && platformIds != null && platformIds.Length > 0)
+            statusError = (statusError == null ? "" : statusError + " ")
+                          + $"Platform filter could not be applied successfully; usedSearch='{usedSearch}'.";
         }
         else if (!anyPlatformMatch)
         {
           status = "PLATFORM_MISMATCH_FALLBACK";
-          statusError = $"No candidates matched inferred platform (ext='{fileExt}', tags='{string.Join(",", tags)}'). SearchUsed='{usedSearch}'. Stored best overall match.";
+          statusError = $"No candidates matched inferred platform. ext='{fileExt}', tags='{string.Join(",", tags)}', searchUsed='{usedSearch}'. Stored best overall match.";
         }
         else
         {
@@ -3084,7 +3357,11 @@ LIMIT @lim;";
       }
       else
       {
-        status = excludedVersions ? "OK_NO_PLATFORM_HINT" : "OK_INCLUDED_VERSIONS_NO_PLATFORM_HINT";
+        status =
+          excludedVersions
+            ? (usedPlatformFilter ? "OK_NO_PLATFORM_HINT" : "OK_NO_PLATFORM_HINT_NO_PLATFORM_FILTER")
+            : (usedPlatformFilter ? "OK_INCLUDED_VERSIONS_NO_PLATFORM_HINT" : "OK_INCLUDED_VERSIONS_NO_PLATFORM_HINT_NO_PLATFORM_FILTER");
+
         if (!excludedVersions)
           statusError = $"Matched only when including versions/editions. SearchUsed='{usedSearch}'.";
       }
@@ -3134,9 +3411,9 @@ LIMIT @lim;";
         .ToList();
       if (vids.Count > 0) videos = new Newtonsoft.Json.Linq.JArray(vids.Select(v => $"https://www.youtube.com/watch?v={v}"));
 
-      // Store response for debugging on “included versions” or mismatch
+      // Store response for debugging on included versions, mismatches, or lack of platform filter
       string rawToStore =
-        status.StartsWith("OK", StringComparison.OrdinalIgnoreCase) && !status.Contains("INCLUDED_VERSIONS", StringComparison.OrdinalIgnoreCase)
+        status == "OK"
           ? best.ToString(Newtonsoft.Json.Formatting.None)
           : respJson;
 
