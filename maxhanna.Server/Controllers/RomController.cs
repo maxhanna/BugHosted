@@ -31,11 +31,11 @@ namespace maxhanna.Server.Controllers
         await using var tx = await conn.BeginTransactionAsync();
 
         const string updateSql = @"
-      UPDATE maxhanna.rom_igdb_enrichment
-      SET reset_votes = COALESCE(reset_votes, 0) + 1,
-          fetched_at = UTC_TIMESTAMP()
-      WHERE file_id = @file_id;
-      ";
+          UPDATE maxhanna.rom_igdb_enrichment
+          SET reset_votes = COALESCE(reset_votes, 0) + 1,
+              fetched_at = UTC_TIMESTAMP()
+          WHERE file_id = @file_id;
+          ";
 
         using (var cmd = new MySqlCommand(updateSql, conn, tx))
         {

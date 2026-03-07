@@ -1144,11 +1144,14 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   playYoutubeVideo(videoId?: string) {
     this.showOverlay();
     this.isShowingYoutubePopup = true;
-
+    console.log("Playing YouTube video with ID:", videoId);
     videoId = videoId ?? (document.getElementById('youtubeVideoIdInput') as HTMLInputElement).value;
     setTimeout(() => {
       let target = document.getElementById(`youtubeIframe`) as HTMLIFrameElement;
-      if (!target || !videoId) return;
+      if (!target || !videoId) {
+        console.error("YouTube iframe or video ID not found.");
+        return;
+      }
       target.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1`;
     }, 50);
   }
