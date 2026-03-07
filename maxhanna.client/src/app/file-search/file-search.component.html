@@ -178,13 +178,9 @@
   </div>
 
 
-  <div *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata && !optionsFile.isFolder" class="romMetaPanel">
+  <div *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.igdbName && !optionsFile.isFolder" class="romMetaPanel">
 
-    <div class="romMetaHeader">🎮 ROM Metadata</div>
-
-    <div *ngIf="optionsFile.romMetadata?.igdbName" class="romMetaLine">
-      <strong>IGDB:</strong> {{ optionsFile.romMetadata?.igdbName }}
-    </div>
+    <div class="romMetaHeader">🎮 <strong>{{ optionsFile.romMetadata?.igdbName }}</strong> Metadata</div>
 
     <div *ngIf="optionsFile.romMetadata?.totalRatingCount" class="romMetaLine">
       <strong>Rating:</strong>
