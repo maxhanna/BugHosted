@@ -246,10 +246,16 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   private updateDisplayRomMetadataDesktop() {
+    if (!this.displayRomMetadataDesktop || !this.showRomMetadata) {
+      console.log('Not displaying ROM metadata on desktop: displayRomMetadataDesktop or showRomMetadata is false');
+      return;
+    }
+
     try {
       this.displayRomMetadataDesktop = !this.onMobile() && (window?.innerWidth ?? 0) >= 1000;
     } catch (e) {
       this.displayRomMetadataDesktop = false;
+      console.error('Error determining displayRomMetadataDesktop', e);
     }
   }
   openVisibilityDropdown(file: FileEntry) {
@@ -948,11 +954,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.closeOptionsPanel();
       return;
     }
-    this.isOptionsPanelOpen = true;
-    this.optionsFile = file;
     const parent = this.inputtedParentRef ?? this.parentRef;
+    this.optionsFile = file;
     // If we're rendering the metadata inline on desktop, don't show the global overlay.
     if (parent && !this.displayRomMetadataDesktop) {
+      this.isOptionsPanelOpen = true;
       parent.showOverlay();
     }
   }
@@ -1470,7 +1476,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.showFavouritesOnly = !this.showFavouritesOnly;
     this.goToFirstPage();
     setTimeout(() => {
-      this.debounceSearch(); 
+      this.debounceSearch();
     }, 100);
   }
 
