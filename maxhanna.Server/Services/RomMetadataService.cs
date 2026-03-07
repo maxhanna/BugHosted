@@ -303,7 +303,6 @@ namespace maxhanna.Server.Services
     public async Task EnrichRomsFromIgdb_SingleTable(CancellationToken ct = default)
     {
       const int batchSize = 25;
-      const int perRequestDelayMs = 300;
 
       var clientId = _config.GetValue<string>("IGDB:ClientId");
       var clientSecret = _config.GetValue<string>("IGDB:ClientSecret");
