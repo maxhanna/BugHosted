@@ -1716,8 +1716,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     } catch {
       return [];
     }
-  }
-
+  } 
 
   async incrementResetVoteForOptionsFile() {
     if (!this.optionsFile || !this.optionsFile.id) return;
