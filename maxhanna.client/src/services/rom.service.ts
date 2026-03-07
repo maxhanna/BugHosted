@@ -185,6 +185,26 @@ export class RomService {
     if (name.includes('saturn') || name.includes('[ss]') || name.includes('segasaturn')) {
       return 'saturn';
     }
+
+    // Sega Saturn title keywords (improve detection for ambiguous ISOs/zips)
+    const saturnKeywords = [
+      'sonic jam',
+      'panzer dragoon',
+      'panzer dragoon saga',
+      'panzer dragoon zwei',
+      'burning rangers',
+      'guardian heroes',
+      'dragon force',
+      'shining force iii',
+      'shining force 3',
+      'saturn bomberman',
+      'enemy zero',
+      'nights into dreams',
+      'radiant silvergun'
+    ];
+    if (saturnKeywords.some(kw => name.includes(kw))) {
+      return 'saturn';
+    }
     if (name.includes('dreamcast') || name.includes('[dc]') || name.includes('sega-dreamcast') || name.includes('[gdi]') || name.includes('[cdr]')) {
       return 'dreamcast';
     }
