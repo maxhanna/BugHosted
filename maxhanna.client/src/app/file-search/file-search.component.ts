@@ -1748,17 +1748,20 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   onVideoLinkClick(url: string, ev: Event) {
-    try {
-      const videoId = this.fileService.parseYoutubeId(url);
-      console.debug('onVideoLinkClick', { url, videoId, hasParent: !!this.parentRef });
-      if (videoId && this.parentRef) {
-        ev.preventDefault();
-        this.parentRef.playYoutubeVideo(videoId);
-        return;
+    this.closeOptionsPanel();
+    const videoId = this.fileService.parseYoutubeId(url);
+    console.debug('onVideoLinkClick', { url, videoId, hasParent: !!this.parentRef });
+    ev.preventDefault();
+    setTimeout(() => {
+      try {
+        if (videoId && this.parentRef) {
+          this.parentRef.playYoutubeVideo(videoId);
+          return;
+        }
+      } catch (e) {
+        console.error('Error handling video link click', e);
       }
-    } catch (e) {
-      console.error('Error handling video link click', e);
-    }
+    }, 500);
   }
 
   openImagePreview(url?: string, ev?: Event) {
