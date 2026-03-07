@@ -577,7 +577,7 @@ LIMIT @lim;";
             catch { /* ignore parse errors and continue */ }
           }
         }
-        catch (Exception ex)
+        catch
         {
           // continue trying other search variants
           await Task.Delay(perRequestDelayMs, ct);
@@ -613,37 +613,36 @@ LIMIT @lim;";
     {
       const string sql = @"
 INSERT INTO maxhanna.rom_igdb_enrichment
-  (file_id, file_name, title_guess, igdb_id, igdb_name, best_score, status, status_error,
-   summary, first_release, rating, rating_count, platforms, genres, cover_url, screenshots, artworks, videos, reset_votes, fetched_at, raw_json)
+  (file_id, title_guess, igdb_game_id, igdb_name, best_score, status, status_error,
+   summary, first_release_date, total_rating, total_rating_count, platforms_json, genres_json, cover_url, screenshots_json, artworks_json, videos_json, reset_votes, fetched_at, raw_json)
 VALUES
-  (@file_id, @file_name, @title_guess, @igdb_id, @igdb_name, @best_score, @status, @status_error,
-   @summary, @first_release, @rating, @rating_count, @platforms, @genres, @cover_url, @screenshots, @artworks, @videos, @reset_votes, UTC_TIMESTAMP(), @raw_json)
+  (@file_id, @title_guess, @igdb_game_id, @igdb_name, @best_score, @status, @status_error,
+   @summary, @first_release_date, @total_rating, @total_rating_count, @platforms_json, @genres_json, @cover_url, @screenshots_json, @artworks_json, @videos_json, @reset_votes, UTC_TIMESTAMP(), @raw_json)
 ON DUPLICATE KEY UPDATE
-  file_name = VALUES(file_name), title_guess = VALUES(title_guess), igdb_id = VALUES(igdb_id), igdb_name = VALUES(igdb_name),
+  title_guess = VALUES(title_guess), igdb_game_id = VALUES(igdb_game_id), igdb_name = VALUES(igdb_name),
   best_score = VALUES(best_score), status = VALUES(status), status_error = VALUES(status_error),
-  summary = VALUES(summary), first_release = VALUES(first_release), rating = VALUES(rating), rating_count = VALUES(rating_count),
-  platforms = VALUES(platforms), genres = VALUES(genres), cover_url = VALUES(cover_url), screenshots = VALUES(screenshots), artworks = VALUES(artworks), videos = VALUES(videos),
+  summary = VALUES(summary), first_release_date = VALUES(first_release_date), total_rating = VALUES(total_rating), total_rating_count = VALUES(total_rating_count),
+  platforms_json = VALUES(platforms_json), genres_json = VALUES(genres_json), cover_url = VALUES(cover_url), screenshots_json = VALUES(screenshots_json), artworks_json = VALUES(artworks_json), videos_json = VALUES(videos_json),
   reset_votes = VALUES(reset_votes), fetched_at = UTC_TIMESTAMP(), raw_json = VALUES(raw_json);";
 
       await using var cmd = new MySqlCommand(sql, conn);
       cmd.Parameters.AddWithValue("@file_id", fileId);
-      cmd.Parameters.AddWithValue("@file_name", fileName ?? (object)DBNull.Value);
       cmd.Parameters.AddWithValue("@title_guess", titleGuess ?? (object)DBNull.Value);
-      cmd.Parameters.AddWithValue("@igdb_id", igdbId.HasValue ? (object)igdbId.Value : DBNull.Value);
+      cmd.Parameters.AddWithValue("@igdb_game_id", igdbId.HasValue ? (object)igdbId.Value : DBNull.Value);
       cmd.Parameters.AddWithValue("@igdb_name", igdbName ?? (object)DBNull.Value);
       cmd.Parameters.AddWithValue("@best_score", bestScore);
       cmd.Parameters.AddWithValue("@status", status ?? (object)DBNull.Value);
       cmd.Parameters.AddWithValue("@status_error", statusError ?? (object)DBNull.Value);
       cmd.Parameters.AddWithValue("@summary", summary ?? (object)DBNull.Value);
-      cmd.Parameters.AddWithValue("@first_release", firstRelease.HasValue ? (object)DateTimeOffset.FromUnixTimeSeconds(firstRelease.Value).UtcDateTime : DBNull.Value);
-      cmd.Parameters.AddWithValue("@rating", rating.HasValue ? (object)rating.Value : DBNull.Value);
-      cmd.Parameters.AddWithValue("@rating_count", ratingCount.HasValue ? (object)ratingCount.Value : DBNull.Value);
-      cmd.Parameters.AddWithValue("@platforms", platforms != null ? (object)platforms.ToString(Newtonsoft.Json.Formatting.None) : DBNull.Value);
-      cmd.Parameters.AddWithValue("@genres", genres != null ? (object)genres.ToString(Newtonsoft.Json.Formatting.None) : DBNull.Value);
+      cmd.Parameters.AddWithValue("@first_release_date", firstRelease.HasValue ? (object)firstRelease.Value : DBNull.Value);
+      cmd.Parameters.AddWithValue("@total_rating", rating.HasValue ? (object)rating.Value : DBNull.Value);
+      cmd.Parameters.AddWithValue("@total_rating_count", ratingCount.HasValue ? (object)ratingCount.Value : DBNull.Value);
+      cmd.Parameters.AddWithValue("@platforms_json", platforms != null ? (object)platforms.ToString(Newtonsoft.Json.Formatting.None) : DBNull.Value);
+      cmd.Parameters.AddWithValue("@genres_json", genres != null ? (object)genres.ToString(Newtonsoft.Json.Formatting.None) : DBNull.Value);
       cmd.Parameters.AddWithValue("@cover_url", coverUrl ?? (object)DBNull.Value);
-      cmd.Parameters.AddWithValue("@screenshots", screenshots != null ? (object)screenshots.ToString(Newtonsoft.Json.Formatting.None) : DBNull.Value);
-      cmd.Parameters.AddWithValue("@artworks", artworks != null ? (object)artworks.ToString(Newtonsoft.Json.Formatting.None) : DBNull.Value);
-      cmd.Parameters.AddWithValue("@videos", videos != null ? (object)videos.ToString(Newtonsoft.Json.Formatting.None) : DBNull.Value);
+      cmd.Parameters.AddWithValue("@screenshots_json", screenshots != null ? (object)screenshots.ToString(Newtonsoft.Json.Formatting.None) : DBNull.Value);
+      cmd.Parameters.AddWithValue("@artworks_json", artworks != null ? (object)artworks.ToString(Newtonsoft.Json.Formatting.None) : DBNull.Value);
+      cmd.Parameters.AddWithValue("@videos_json", videos != null ? (object)videos.ToString(Newtonsoft.Json.Formatting.None) : DBNull.Value);
       cmd.Parameters.AddWithValue("@reset_votes", resetVotes);
       cmd.Parameters.AddWithValue("@raw_json", rawJson ?? (object)DBNull.Value);
 
