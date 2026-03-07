@@ -237,7 +237,7 @@
     <div *ngIf="optionsFile?.romMetadata?.firstReleaseDateUnix as d" class="romMetaLine">
       <strong>Release:</strong> {{ unixSecondsToDate(d) | date:'y/MM/d' }}
     </div>
-    <span class="xxSmallFont">
+    <span class="xSmallFont">
       <button title="Request metadata reset" (click)="incrementResetVoteForOptionsFile()" style="margin-left:8px">↻
         Reset</button>
       <span *ngIf="optionsFile.romMetadata?.resetVotes !== undefined" style="margin-left:8px">Votes: {{
