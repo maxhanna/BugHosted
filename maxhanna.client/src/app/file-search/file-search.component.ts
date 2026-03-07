@@ -1750,6 +1750,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   onVideoLinkClick(url: string, ev: Event) {
     try {
       const videoId = this.fileService.parseYoutubeId(url);
+      console.debug('onVideoLinkClick', { url, videoId, hasParent: !!this.parentRef });
       if (videoId && this.parentRef) {
         ev.preventDefault();
         this.parentRef.playYoutubeVideo(videoId);

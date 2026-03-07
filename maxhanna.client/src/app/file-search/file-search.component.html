@@ -182,7 +182,7 @@
     class="romMetaPanel">
 
     <div class="romMetaHeader">
-      🎮 <strong>{{ optionsFile.romMetadata?.igdbName }}</strong> Metadata
+      🎮 <strong>{{ optionsFile.romMetadata?.igdbName }}</strong>
     </div>
 
     <div *ngIf="optionsFile.romMetadata?.totalRatingCount" class="romMetaLine">
@@ -213,9 +213,9 @@
     <div *ngIf="safeJsonArray(optionsFile.romMetadata?.videosJson).length" class="romMetaSection">
       <div class="romMetaSectionTitle">Videos</div>
       <div class="romMetaLinks">
-        <a *ngFor="let v of safeJsonArray(optionsFile.romMetadata?.videosJson).slice(0, 6)" (click)="onVideoLinkClick(v, $event)">
+        <span *ngFor="let v of safeJsonArray(optionsFile.romMetadata?.videosJson).slice(0, 6)" (click)="onVideoLinkClick(v, $event)">
           ▶️ {{ v }}
-        </a>
+        </span>
       </div>
     </div>
 
