@@ -618,3 +618,24 @@
   max-height: 45vh;
   overflow: auto;
 }
+
+/* Inline metadata panel styles */
+.inlineMetaPanel {
+  position: relative;
+  border-left: var(--main-border);
+  padding-left: 12px;
+  margin-left: 12px;
+  max-width: 420px;
+  width: 35%;
+  min-width: 300px;
+}
+
+.romMetaPanelInline {
+  background: var(--popup-bg, rgba(0,0,0,0.04));
+  padding: 10px;
+  border-radius: 8px;
+}
+
+@media only screen and (max-width: 1000px) {
+  .inlineMetaPanel { display: none; }
+}

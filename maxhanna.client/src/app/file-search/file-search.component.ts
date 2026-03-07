@@ -48,6 +48,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() displayTotal = true;
   @Input() showSpaceForNotifications = false;
   @Input() showRomMetadata = false;
+  @Input() displayRomMetadataDesktop: boolean = false;
   @Input() showHiddenFiles: boolean = false; // default: do not show hidden files unless user toggles or user setting enables it
   @Input() showTopics: boolean = true;
   @Input() captureNotifications: boolean = false;
@@ -942,8 +943,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.isOptionsPanelOpen = true;
     this.optionsFile = file;
     const parent = this.inputtedParentRef ?? this.parentRef;
-
-    if (parent) {
+    // If we're rendering the metadata inline on desktop, don't show the global overlay.
+    if (parent && !this.displayRomMetadataDesktop) {
       parent.showOverlay();
     }
   }

@@ -163,6 +163,64 @@
         </div>
       </div>
     </div>
+    <!-- Inline metadata panel for desktop -->
+    <div *ngIf="displayRomMetadataDesktop && shouldShowRomMetadata() && isOptionsPanelOpen && optionsFile && !onMobile()"
+      class="inlineMetaPanel">
+      <div class="romMetaPanelInline">
+        <div class="romMetaHeader">🎮 <strong>{{ optionsFile.romMetadata?.igdbName }}</strong></div>
+
+        <div *ngIf="optionsFile.romMetadata?.totalRatingCount" class="romMetaLine">
+          <strong>Rating:</strong>
+          {{ optionsFile.romMetadata?.totalRating | number:'1.1-1' }} ({{ optionsFile.romMetadata?.totalRatingCount }})
+        </div>
+
+        <div class="romMetaSection"
+          *ngIf="safeJsonArray(optionsFile.romMetadata?.screenshotsJson).length || safeJsonArray(optionsFile.romMetadata?.artworksJson).length">
+          <div class="romMetaSectionTitle">Screenshots / Art</div>
+          <div class="romMetaGrid">
+            <img *ngFor="let img of safeJsonArray(optionsFile.romMetadata?.screenshotsJson).slice(0, 12)" class="romMetaImg"
+              [src]="img" loading="lazy" (error)="hideBrokenImg($event)" (click)="openImagePreview(img, $event)" />
+
+            <img *ngFor="let img of safeJsonArray(optionsFile.romMetadata?.artworksJson).slice(0, 8)" class="romMetaImg"
+              [src]="img" loading="lazy" (error)="hideBrokenImg($event)" (click)="openImagePreview(img, $event)" />
+          </div>
+        </div>
+
+        <div *ngIf="optionsFile.romMetadata?.coverUrl" class="romMetaSection">
+          <div class="romMetaSectionTitle">Cover</div>
+          <img class="romMetaCover" [src]="optionsFile.romMetadata?.coverUrl" loading="lazy" (error)="hideBrokenImg($event)"
+            (click)="openImagePreview(optionsFile.romMetadata?.coverUrl, $event)" />
+        </div>
+
+        <div *ngIf="safeJsonArray(optionsFile.romMetadata?.videosJson).length" class="romMetaSection">
+          <div class="romMetaSectionTitle">Videos</div>
+          <div class="romMetaLinks">
+            <a [href]="v"  target="_blank" (click)="onVideoLinkClick(v, $event)"
+              *ngFor="let v of safeJsonArray(optionsFile.romMetadata?.videosJson).slice(0, 6)">▶️ {{ v }}</a>
+          </div>
+        </div>
+
+        <div *ngIf="optionsFile.romMetadata?.summary" class="romMetaSummary">
+          {{ optionsFile.romMetadata?.summary }}
+        </div>
+
+        <div *ngIf="(optionsFile.romMetadata?.platforms?.length) || (optionsFile.romMetadata?.genres?.length)" class="romMetaLine">
+          <strong>Platforms:</strong>
+          <span *ngFor="let p of optionsFile.romMetadata?.platforms; let i = index">{{p}}{{i < (optionsFile.romMetadata?.platforms?.length ?? 0) - 1 ? ', ' : '' }}</span>
+          <br *ngIf="optionsFile.romMetadata?.genres?.length" />
+          <strong *ngIf="optionsFile.romMetadata?.genres?.length">Genres:</strong>
+          <span *ngFor="let g of optionsFile.romMetadata?.genres; let i = index">{{g}}{{i < (optionsFile.romMetadata?.genres?.length ?? 0) - 1 ? ', ' : '' }}</span>
+        </div>
+
+        <div *ngIf="optionsFile?.romMetadata?.firstReleaseDateUnix as d" class="romMetaLine">
+          <strong>Release:</strong> {{ unixSecondsToDate(d) | date:'y/MM/d' }}
+        </div>
+
+        <div style="margin-top:6px;">
+          <button title="Close" (click)="closeOptionsPanel()">Close</button>
+        </div>
+      </div>
+    </div>
     <div *ngIf="isLoading">
       Loading Data...
     </div>
