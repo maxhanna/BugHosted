@@ -2525,105 +2525,228 @@ namespace maxhanna.Server.Services
       }
     }
 
-    private async Task EnrichRomsFromIgdb_SingleTable(CancellationToken ct = default)
+private async Task EnrichRomsFromIgdb_SingleTable(CancellationToken ct = default)
+{
+  // IGDB: 4 req/sec and 8 open requests max. Keep it sequential with a small delay.
+  const int batchSize = 25;
+  const int perRequestDelayMs = 300;
+
+  // ---- local helpers (kept inside this ONE method) ----
+  static string CleanTitle(string fileName)
+  {
+    var stem = Path.GetFileNameWithoutExtension(fileName) ?? fileName;
+    // strip common ROM tags: (USA), [!], (Rev A), (GB), [GBC], etc.
+    stem = System.Text.RegularExpressions.Regex.Replace(stem, @"\[[^\]]*\]|\([^\)]*\)", " ");
+    stem = System.Text.RegularExpressions.Regex.Replace(stem, @"\s+", " ").Trim();
+    return stem;
+  }
+
+  static IReadOnlyList<string> ExtractTags(string fileName)
+  {
+    // Pull tokens like (GB), [GBC], (PSX) BEFORE CleanTitle strips them.
+    var tags = new List<string>();
+    var stem = Path.GetFileNameWithoutExtension(fileName) ?? fileName;
+
+    foreach (System.Text.RegularExpressions.Match m in
+             System.Text.RegularExpressions.Regex.Matches(stem, @"\(([^)]*)\)|\[([^\]]*)\]"))
     {
-      // IGDB: 4 req/sec and 8 open requests max (avoid concurrency; use small delay). [1](https://www.reddit.com/r/RetroArch/comments/18ysjpt/opengles3_context_but_retroarch_is_compiled/)
-      const int batchSize = 25;
-      const int perRequestDelayMs = 300;
+      var val = (m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value) ?? "";
+      val = val.Trim();
+      if (!string.IsNullOrWhiteSpace(val))
+        tags.Add(val);
+    }
 
-      // ---- local helpers (kept inside this ONE method) ----
-      static string CleanTitle(string fileName)
+    return tags;
+  }
+
+  static bool IsArchiveExt(string ext) => ext is "zip" or "7z" or "rar";
+
+  static string[]? InferPlatformKeywords(string fileExt, IReadOnlyList<string> tags)
+  {
+    // Prefer explicit tags if present (ROM-scene shorthand).
+    var tagMap = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+    {
+      { "GB",   new[] { "game boy" } },
+      { "GBC",  new[] { "game boy color", "game boy" } },
+      { "GBA",  new[] { "game boy advance", "gba" } },
+      { "NES",  new[] { "nintendo entertainment system", "nes", "famicom" } },
+      { "SNES", new[] { "super nintendo", "snes", "super famicom" } },
+      { "SFC",  new[] { "super nintendo", "snes", "super famicom" } },
+      { "N64",  new[] { "nintendo 64", "n64" } },
+      { "NDS",  new[] { "nintendo ds", "nds" } },
+      { "PSX",  new[] { "playstation", "ps1", "playstation 1" } },
+      { "PS1",  new[] { "playstation", "ps1", "playstation 1" } },
+      { "PSP",  new[] { "playstation portable", "psp" } },
+      { "GEN",  new[] { "genesis", "mega drive" } },
+      { "MD",   new[] { "mega drive", "genesis" } },
+      { "MAME", new[] { "arcade", "mame" } }
+    };
+
+    foreach (var t in tags)
+    {
+      // Tags may contain multiple items: "(GB, USA)" or "[GBC][!]".
+      var parts = System.Text.RegularExpressions.Regex
+        .Split(t, @"[^A-Za-z0-9]+")
+        .Where(p => !string.IsNullOrWhiteSpace(p));
+
+      foreach (var p in parts)
       {
-        var stem = Path.GetFileNameWithoutExtension(fileName) ?? fileName;
-        // strip common ROM tags: (USA), [!], (Rev A), etc.
-        stem = System.Text.RegularExpressions.Regex.Replace(stem, @"\[[^\]]*\]|\([^\)]*\)", " ");
-        stem = System.Text.RegularExpressions.Regex.Replace(stem, @"\s+", " ").Trim();
-        return stem;
+        var key = p.Trim();
+        if (tagMap.TryGetValue(key, out var kws))
+          return kws;
       }
+    }
 
-      static string Esc(string s) => (s ?? "").Replace("\"", "\\\"");
+    // If it’s an archive (zip/7z/rar) and no tags, we can’t infer platform reliably.
+    if (IsArchiveExt(fileExt))
+      return null;
 
-      static string IgdbImageUrl(string imageId, string size) =>
-        $"https://images.igdb.com/igdb/image/upload/{size}/{imageId}.jpg"; // image_id -> URL [2](https://www.jsdelivr.com/package/npm/@emulatorjs/emulatorjs)[1](https://www.reddit.com/r/RetroArch/comments/18ysjpt/opengles3_context_but_retroarch_is_compiled/)
+    // Extension-based hints (only when reasonably reliable).
+    // IMPORTANT: do NOT hard-enforce ambiguous disc/container types (.bin/.cue/.iso).
+    var extMap = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+    {
+      { "gba",  new[] { "game boy advance", "gba" } },
+      { "gb",   new[] { "game boy" } },
+      { "gbc",  new[] { "game boy color", "game boy" } },
+      { "nes",  new[] { "nintendo entertainment system", "nes", "famicom" } },
+      { "snes", new[] { "super nintendo", "snes", "super famicom" } },
+      { "sfc",  new[] { "super nintendo", "snes", "super famicom" } },
+      { "n64",  new[] { "nintendo 64", "n64" } },
+      { "nds",  new[] { "nintendo ds", "nds" } },
+      { "psp",  new[] { "playstation portable", "psp" } },
+      { "pbp",  new[] { "playstation portable", "psp" } },
+      { "md",   new[] { "mega drive", "genesis" } },
+      { "gen",  new[] { "mega drive", "genesis" } },
+      { "bin",  new[] { "playstation 1", "playstation portable", "psp" } },  // ambiguous, leave out
+      { "cue",  new[] { "playstation 1", "playstation portable", "psp" } }, 
+      { "iso",  new[] { "playstation 1", "playstation portable", "psp" } }, 
+    };
 
-      static int ScoreCandidate(Newtonsoft.Json.Linq.JObject g, string cleaned)
+    return extMap.TryGetValue(fileExt, out var extKws) ? extKws : null;
+  }
+
+  static bool CandidateMatchesPlatform(Newtonsoft.Json.Linq.JObject c, string[] kws)
+  {
+    var pnames = c.SelectTokens("platforms[*].name")
+      .Select(x => x.ToString())
+      .Where(s => !string.IsNullOrWhiteSpace(s))
+      .Select(s => s.ToLowerInvariant())
+      .ToList();
+
+    if (pnames.Count == 0) return false;
+
+    foreach (var pname in pnames)
+      foreach (var kw in kws)
+        if (pname.Contains(kw, StringComparison.OrdinalIgnoreCase))
+          return true;
+
+    return false;
+  }
+
+  static int ScoreCandidate(Newtonsoft.Json.Linq.JObject g, string cleaned)
+  {
+    // simple heuristic: exact match > contains > rating_count preference
+    static string norm(string x)
+    {
+      x = (x ?? "").ToLowerInvariant();
+      x = System.Text.RegularExpressions.Regex.Replace(x, @"[^a-z0-9]+", " ").Trim();
+      return x;
+    }
+
+    var a = norm(cleaned);
+    var b = norm(g.Value<string>("name") ?? "");
+    int score = 0;
+
+    if (b == a) score += 1000;
+    if (b.Contains(a) || a.Contains(b)) score += 250;
+
+    score += (g.Value<int?>("total_rating_count") ?? 0) / 10;
+    return score;
+  }
+
+  static int ScoreCandidateImproved(Newtonsoft.Json.Linq.JObject g, string cleanedTitle, string[]? platformKws)
+  {
+    // Platform-aware scoring: strong bonus if matches platform hint, strong penalty if not.
+    int score = ScoreCandidate(g, cleanedTitle);
+
+    if (platformKws != null && platformKws.Length > 0)
+    {
+      bool hasPlatforms = g.SelectTokens("platforms[*].name").Any();
+      if (hasPlatforms)
       {
-        // simple heuristic: exact match > contains > rating_count preference
-        string norm(string x)
-        {
-          x = (x ?? "").ToLowerInvariant();
-          x = System.Text.RegularExpressions.Regex.Replace(x, @"[^a-z0-9]+", " ").Trim();
-          return x;
-        }
-
-        var a = norm(cleaned);
-        var b = norm(g.Value<string>("name") ?? "");
-        int score = 0;
-
-        if (b == a) score += 1000;
-        if (b.Contains(a) || a.Contains(b)) score += 250;
-
-        score += (g.Value<int?>("total_rating_count") ?? 0) / 10;
-        return score;
+        bool match = CandidateMatchesPlatform(g, platformKws);
+        score += match ? 600 : -600;
       }
+    }
 
-      async Task<string> GetTwitchAppAccessTokenAsync(string clientId, string clientSecret)
-      {
-        // Client credentials flow per IGDB docs: POST to Twitch token endpoint [1](https://www.reddit.com/r/RetroArch/comments/18ysjpt/opengles3_context_but_retroarch_is_compiled/)
-        var url =
-          $"https://id.twitch.tv/oauth2/token" +
-          $"?client_id={Uri.EscapeDataString(clientId)}" +
-          $"&client_secret={Uri.EscapeDataString(clientSecret)}" +
-          $"&grant_type=client_credentials";
+    // Slight preference for candidates that are better described
+    if (g.SelectTokens("platforms[*].name").Any()) score += 25;
+    if (!string.IsNullOrWhiteSpace(g.Value<string>("summary"))) score += 10;
 
-        using var resp = await _httpClient.PostAsync(url, content: null, ct);
-        resp.EnsureSuccessStatusCode();
-        var json = await resp.Content.ReadAsStringAsync(ct);
-        var o = Newtonsoft.Json.Linq.JObject.Parse(json);
-        return o["access_token"]?.ToString() ?? throw new Exception("No access_token in token response");
-      }
+    return score;
+  }
 
-      async Task<string> IgdbPostAsync(string token, string clientId, string endpoint, string body)
-      {
-        // IGDB requests are POST with Client-ID and Authorization headers [1](https://www.reddit.com/r/RetroArch/comments/18ysjpt/opengles3_context_but_retroarch_is_compiled/)
-        using var req = new HttpRequestMessage(HttpMethod.Post, $"https://api.igdb.com/v4/{endpoint}");
-        req.Headers.Add("Client-ID", clientId);
-        req.Headers.Add("Authorization", $"Bearer {token}");
-        req.Headers.Add("Accept", "application/json");
-        req.Content = new StringContent(body, Encoding.UTF8, "text/plain");
+  static string Esc(string s) => (s ?? "").Replace("\"", "\\\"");
 
-        using var resp = await _httpClient.SendAsync(req, ct);
-        if ((int)resp.StatusCode == 429)
-          throw new Exception("IGDB rate limit hit (429) — slow down."); // 4 req/sec [1](https://www.reddit.com/r/RetroArch/comments/18ysjpt/opengles3_context_but_retroarch_is_compiled/)
+  static string IgdbImageUrl(string imageId, string size) =>
+    $"https://images.igdb.com/igdb/image/upload/{size}/{imageId}.jpg";
 
-        resp.EnsureSuccessStatusCode();
-        return await resp.Content.ReadAsStringAsync(ct);
-      }
+  async Task<string> GetTwitchAppAccessTokenAsync(string clientId, string clientSecret)
+  {
+    // Client credentials flow per IGDB docs: POST to Twitch token endpoint
+    var url =
+      $"https://id.twitch.tv/oauth2/token" +
+      $"?client_id={Uri.EscapeDataString(clientId)}" +
+      $"&client_secret={Uri.EscapeDataString(clientSecret)}" +
+      $"&grant_type=client_credentials";
 
-      async Task UpsertEnrichmentAsync(
-        MySqlConnection conn,
-        int fileId,
-        string romFileName,
-        string romTitleGuess,
-        int? igdbGameId,
-        string? igdbName,
-        int matchScore,
-        string status,
-        string? error,
-        string? summary,
-        long? firstReleaseDate,
-        decimal? totalRating,
-        int? totalRatingCount,
-        Newtonsoft.Json.Linq.JArray? platforms,
-        Newtonsoft.Json.Linq.JArray? genres,
-        string? coverUrl,
-        Newtonsoft.Json.Linq.JArray? screenshots,
-        Newtonsoft.Json.Linq.JArray? artworks,
-        Newtonsoft.Json.Linq.JArray? videos,
-        int resetVotes,
-        string? rawJson)
-      {
-        const string sql = @"
+    using var resp = await _httpClient.PostAsync(url, content: null, ct);
+    resp.EnsureSuccessStatusCode();
+    var json = await resp.Content.ReadAsStringAsync(ct);
+    var o = Newtonsoft.Json.Linq.JObject.Parse(json);
+    return o["access_token"]?.ToString() ?? throw new Exception("No access_token in token response");
+  }
+
+  async Task<string> IgdbPostAsync(string token, string clientId, string endpoint, string body)
+  {
+    using var req = new HttpRequestMessage(HttpMethod.Post, $"https://api.igdb.com/v4/{endpoint}");
+    req.Headers.Add("Client-ID", clientId);
+    req.Headers.Add("Authorization", $"Bearer {token}");
+    req.Headers.Add("Accept", "application/json");
+    req.Content = new StringContent(body, Encoding.UTF8, "text/plain");
+
+    using var resp = await _httpClient.SendAsync(req, ct);
+    if ((int)resp.StatusCode == 429)
+      throw new Exception("IGDB rate limit hit (429) — slow down.");
+
+    resp.EnsureSuccessStatusCode();
+    return await resp.Content.ReadAsStringAsync(ct);
+  }
+
+  async Task UpsertEnrichmentAsync(
+    MySqlConnection conn,
+    int fileId,
+    string romFileName,
+    string romTitleGuess,
+    int? igdbGameId,
+    string? igdbName,
+    int matchScore,
+    string status,
+    string? error,
+    string? summary,
+    long? firstReleaseDate,
+    decimal? totalRating,
+    int? totalRatingCount,
+    Newtonsoft.Json.Linq.JArray? platforms,
+    Newtonsoft.Json.Linq.JArray? genres,
+    string? coverUrl,
+    Newtonsoft.Json.Linq.JArray? screenshots,
+    Newtonsoft.Json.Linq.JArray? artworks,
+    Newtonsoft.Json.Linq.JArray? videos,
+    int resetVotes,
+    string? rawJson)
+  {
+    const string sql = @"
 INSERT INTO maxhanna.rom_igdb_enrichment (
   file_id, rom_file_name, rom_title_guess,
   igdb_game_id, igdb_name, match_score,
@@ -2664,55 +2787,53 @@ ON DUPLICATE KEY UPDATE
   raw_json           = VALUES(raw_json),
   fetched_at         = VALUES(fetched_at);";
 
-        await using var cmd = new MySqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@file_id", fileId);
-        cmd.Parameters.AddWithValue("@rom_file_name", romFileName);
-        cmd.Parameters.AddWithValue("@rom_title_guess", romTitleGuess);
+    await using var cmd = new MySqlCommand(sql, conn);
+    cmd.Parameters.AddWithValue("@file_id", fileId);
+    cmd.Parameters.AddWithValue("@rom_file_name", romFileName);
+    cmd.Parameters.AddWithValue("@rom_title_guess", romTitleGuess);
 
-        cmd.Parameters.AddWithValue("@igdb_game_id", (object?)igdbGameId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@igdb_name", (object?)igdbName ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@match_score", matchScore);
+    cmd.Parameters.AddWithValue("@igdb_game_id", (object?)igdbGameId ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@igdb_name", (object?)igdbName ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@match_score", matchScore);
 
-        cmd.Parameters.AddWithValue("@status", status);
-        cmd.Parameters.AddWithValue("@error", (object?)error ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@status", status);
+    cmd.Parameters.AddWithValue("@error", (object?)error ?? DBNull.Value);
 
-        cmd.Parameters.AddWithValue("@summary", (object?)summary ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@first_release_date", (object?)firstReleaseDate ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@total_rating", (object?)totalRating ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@total_rating_count", (object?)totalRatingCount ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@summary", (object?)summary ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@first_release_date", (object?)firstReleaseDate ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@total_rating", (object?)totalRating ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@total_rating_count", (object?)totalRatingCount ?? DBNull.Value);
 
-        cmd.Parameters.AddWithValue("@platforms_json", (object?)platforms?.ToString(Newtonsoft.Json.Formatting.None) ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@genres_json", (object?)genres?.ToString(Newtonsoft.Json.Formatting.None) ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@platforms_json", (object?)platforms?.ToString(Newtonsoft.Json.Formatting.None) ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@genres_json", (object?)genres?.ToString(Newtonsoft.Json.Formatting.None) ?? DBNull.Value);
 
-        cmd.Parameters.AddWithValue("@cover_url", (object?)coverUrl ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@screenshots_json", (object?)screenshots?.ToString(Newtonsoft.Json.Formatting.None) ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@artworks_json", (object?)artworks?.ToString(Newtonsoft.Json.Formatting.None) ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@videos_json", (object?)videos?.ToString(Newtonsoft.Json.Formatting.None) ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@cover_url", (object?)coverUrl ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@screenshots_json", (object?)screenshots?.ToString(Newtonsoft.Json.Formatting.None) ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@artworks_json", (object?)artworks?.ToString(Newtonsoft.Json.Formatting.None) ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@videos_json", (object?)videos?.ToString(Newtonsoft.Json.Formatting.None) ?? DBNull.Value);
 
-        cmd.Parameters.AddWithValue("@reset_votes", resetVotes);
-        cmd.Parameters.AddWithValue("@raw_json", (object?)rawJson ?? DBNull.Value);
+    cmd.Parameters.AddWithValue("@reset_votes", resetVotes);
+    cmd.Parameters.AddWithValue("@raw_json", (object?)rawJson ?? DBNull.Value);
 
-        await cmd.ExecuteNonQueryAsync(ct);
-      }
+    await cmd.ExecuteNonQueryAsync(ct);
+  }
 
-      // ---- start of method logic ----
+  // ---- start of method logic ----
+  var clientId = _config.GetValue<string>("IGDB:ClientId");
+  var clientSecret = _config.GetValue<string>("IGDB:ClientSecret");
+  if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret))
+  {
+    await _log.Db("IGDB credentials missing in config (IGDB:ClientId / IGDB:ClientSecret).", null, "IGDB", true);
+    return;
+  }
 
-      var clientId = _config.GetValue<string>("IGDB:ClientId");
-      var clientSecret = _config.GetValue<string>("IGDB:ClientSecret");
-      if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret))
-      {
-        await _log.Db("IGDB credentials missing in config (IGDB:ClientId / IGDB:ClientSecret).", null, "IGDB", true);
-        return;
-      }
+  var token = await GetTwitchAppAccessTokenAsync(clientId!, clientSecret!);
 
-      // Token via Twitch client credentials (as required by IGDB) [1](https://www.reddit.com/r/RetroArch/comments/18ysjpt/opengles3_context_but_retroarch_is_compiled/)
-      var token = await GetTwitchAppAccessTokenAsync(clientId!, clientSecret!);
+  await using var conn = new MySqlConnection(_connectionString);
+  await conn.OpenAsync(ct);
 
-      await using var conn = new MySqlConnection(_connectionString);
-      await conn.OpenAsync(ct);
-
-      // Pull ROM candidates (only /roms, and avoid recently OK rows)
-      var pickSql = @"
+  // Pull ROM candidates (only /roms, and avoid recently OK rows)
+  var pickSql = @"
 SELECT fu.id, fu.file_name
 FROM maxhanna.file_uploads fu
 LEFT JOIN maxhanna.rom_igdb_enrichment r ON r.file_id = fu.id
@@ -2727,69 +2848,72 @@ WHERE fu.folder_path = @FolderPath
 ORDER BY fu.id
 LIMIT @lim;";
 
-      var roms = new List<(int id, string fileName)>();
-      await using (var cmd = new MySqlCommand(pickSql, conn))
+  var roms = new List<(int id, string fileName)>();
+  await using (var cmd = new MySqlCommand(pickSql, conn))
+  {
+    cmd.Parameters.AddWithValue("@FolderPath", _romFolder);
+    cmd.Parameters.AddWithValue("@lim", batchSize);
+    await using var r = await cmd.ExecuteReaderAsync(ct);
+    while (await r.ReadAsync(ct))
+      roms.Add((r.GetInt32("id"), r.GetString("file_name")));
+  }
+
+  if (roms.Count == 0)
+  {
+    // If no new file_uploads need enrichment, check for reset_votes requests.
+    var resetIds = new List<int>();
+    const string selectResetSql = @"SELECT file_id FROM maxhanna.rom_igdb_enrichment WHERE reset_votes > 1 LIMIT @lim;";
+    await using (var sel = new MySqlCommand(selectResetSql, conn))
+    {
+      sel.Parameters.AddWithValue("@lim", batchSize);
+      await using var rr = await sel.ExecuteReaderAsync(ct);
+      while (await rr.ReadAsync(ct))
+        resetIds.Add(rr.GetInt32(0));
+    }
+
+    if (resetIds.Count > 0)
+    {
+      // Delete enrichment rows so those file_uploads become eligible again.
+      // (IDs come from DB, ints; acceptable. If you prefer, this can be parameterized.)
+      var idsCsv = string.Join(',', resetIds);
+      var deleteSql = $"DELETE FROM maxhanna.rom_igdb_enrichment WHERE file_id IN ({idsCsv});";
+      await using (var del = new MySqlCommand(deleteSql, conn))
       {
-        cmd.Parameters.AddWithValue("@FolderPath", _romFolder);
-        cmd.Parameters.AddWithValue("@lim", batchSize);
-        await using var r = await cmd.ExecuteReaderAsync(ct);
-        while (await r.ReadAsync(ct))
-          roms.Add((r.GetInt32("id"), r.GetString("file_name")));
+        await del.ExecuteNonQueryAsync(ct);
       }
 
-      if (roms.Count == 0)
+      // Re-populate roms list for the deleted ids
+      var fetchSql = $@"SELECT id, file_name FROM maxhanna.file_uploads WHERE id IN ({idsCsv}) ORDER BY id LIMIT @lim;";
+      await using (var pc = new MySqlCommand(fetchSql, conn))
       {
-        // If no new file_uploads need enrichment, check for previously-enriched rows
-        // that have high reset_votes (users requested a reset). Delete those entries
-        // so they will be re-processed.
-        var resetIds = new List<int>();
-        const string selectResetSql = @"SELECT file_id FROM maxhanna.rom_igdb_enrichment WHERE reset_votes > 1 LIMIT @lim;";
-        await using (var sel = new MySqlCommand(selectResetSql, conn))
-        {
-          sel.Parameters.AddWithValue("@lim", batchSize);
-          await using var rr = await sel.ExecuteReaderAsync(ct);
-          while (await rr.ReadAsync(ct))
-            resetIds.Add(rr.GetInt32(0));
-        }
-
-        if (resetIds.Count > 0)
-        {
-          // Delete those enrichment rows so the file_uploads entries become eligible again
-          var idsCsv = string.Join(',', resetIds);
-          var deleteSql = $"DELETE FROM maxhanna.rom_igdb_enrichment WHERE file_id IN ({idsCsv});";
-          await using (var del = new MySqlCommand(deleteSql, conn))
-          {
-            await del.ExecuteNonQueryAsync(ct);
-          }
-
-          // Re-populate roms list for the deleted ids
-          var fetchSql = $@"SELECT id, file_name FROM maxhanna.file_uploads WHERE id IN ({idsCsv}) ORDER BY id LIMIT @lim;";
-          await using (var pc = new MySqlCommand(fetchSql, conn))
-          {
-            pc.Parameters.AddWithValue("@lim", batchSize);
-            await using var r2 = await pc.ExecuteReaderAsync(ct);
-            while (await r2.ReadAsync(ct))
-              roms.Add((r2.GetInt32("id"), r2.GetString("file_name")));
-          }
-        }
-
-        if (roms.Count == 0)
-        {
-          await _log.Db("IGDB enrich: no ROMs to process.", null, "IGDB", outputToConsole: true);
-          return;
-        }
+        pc.Parameters.AddWithValue("@lim", batchSize);
+        await using var r2 = await pc.ExecuteReaderAsync(ct);
+        while (await r2.ReadAsync(ct))
+          roms.Add((r2.GetInt32("id"), r2.GetString("file_name")));
       }
+    }
 
-      foreach (var (fileId, romFileName) in roms)
-      {
-        ct.ThrowIfCancellationRequested();
+    if (roms.Count == 0)
+    {
+      await _log.Db("IGDB enrich: no ROMs to process.", null, "IGDB", outputToConsole: true);
+      return;
+    }
+  }
 
-        var titleGuess = CleanTitle(romFileName);
+  foreach (var (fileId, romFileName) in roms)
+  {
+    ct.ThrowIfCancellationRequested();
 
-        try
-        {
-          // IGDB query is sent in the POST body (Apicalypse syntax) [1](https://www.reddit.com/r/RetroArch/comments/18ysjpt/opengles3_context_but_retroarch_is_compiled/)
-          var query = $@"
+    // Extract tags BEFORE cleaning title so we can infer platform from (GB)/(GBC)/etc.
+    var tags = ExtractTags(romFileName);
+
+    var titleGuess = CleanTitle(romFileName);
+
+    try
+    {
+      // Search + fields via IGDB Apicalypse syntax
+      // Increased limit to 25 to improve odds of platform variant being included.
+      var query = $@"
 search ""{Esc(titleGuess)}"";
 fields
   id,
@@ -2805,156 +2929,168 @@ fields
   artworks.image_id,
   videos.video_id;
 where version_parent = null;
-limit 10;
+limit 25;
 ";
 
-          var respJson = await IgdbPostAsync(token, clientId!, "games", query);
+      var respJson = await IgdbPostAsync(token, clientId!, "games", query);
 
-          var arr = Newtonsoft.Json.Linq.JArray.Parse(respJson);
-          if (arr.Count == 0)
-          {
-            await UpsertEnrichmentAsync(
-              conn, fileId, romFileName, titleGuess,
-              null, null, 0, "NOT_FOUND", null,
-              null, null, null, null,
-              null, null,
-              null, null, null, null,
-              0, respJson
-            );
-
-            await Task.Delay(perRequestDelayMs, ct);
-            continue;
-          }
-
-          // attempt to prefer candidates whose reported platforms match the ROM file extension
-          var fileExt = Path.GetExtension(romFileName)?.TrimStart('.')?.ToLowerInvariant() ?? string.Empty;
-
-          var extToPlatformKeywords = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+      var arr = Newtonsoft.Json.Linq.JArray.Parse(respJson);
+      if (arr.Count == 0)
       {
-        { "gba", new[] { "game boy advance", "gba" } },
-        { "gb", new[] { "game boy" } },
-        { "gbc", new[] { "game boy color", "game boy" } },
-        { "nes", new[] { "nintendo entertainment system", "nes", "famicom" } },
-        { "snes", new[] { "super nintendo", "snes", "super famicom" } },
-        { "sfc", new[] { "super nintendo", "snes", "super famicom" } },
-        { "n64", new[] { "nintendo 64", "n64" } },
-        { "nds", new[] { "nintendo ds", "nds" } },
-        { "psp", new[] { "playstation portable", "psp" } },
-        { "pbp", new[] { "playstation portable", "psp" } },
-        { "bin", new[] { "playstation", "ps1", "playstation 1", "nintendo 64", "n64" } },
-        { "iso", new[] { "playstation", "ps1", "playstation 1", "sega cd", "mega cd", "nintendo" } },
-        { "cue", new[] { "playstation", "ps1", "sega cd", "mega cd" } },
-        { "md", new[] { "mega drive", "genesis" } },
-        { "gen", new[] { "mega drive", "genesis" } },
-        { "zip", new[] { "arcade", "mame" } }
-      };
+        await UpsertEnrichmentAsync(
+          conn, fileId, romFileName, titleGuess,
+          null, null, 0, "NOT_FOUND", null,
+          null, null, null, null,
+          null, null,
+          null, null, null, null,
+          0, respJson
+        );
 
-          var candidates = arr.OfType<Newtonsoft.Json.Linq.JObject>().ToList();
+        await Task.Delay(perRequestDelayMs, ct);
+        continue;
+      }
 
-          if (!string.IsNullOrEmpty(fileExt) && extToPlatformKeywords.TryGetValue(fileExt, out var keywords))
-          {
-            var filtered = candidates.Where(c =>
-            {
-              var pnames = c.SelectTokens("platforms[*].name").Select(x => x.ToString()).Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.ToLowerInvariant()).ToList();
-              if (pnames.Count == 0) return false;
-              foreach (var pname in pnames)
-                foreach (var kw in keywords)
-                  if (pname.Contains(kw, StringComparison.OrdinalIgnoreCase))
-                    return true;
-              return false;
-            }).ToList();
+      var fileExt = Path.GetExtension(romFileName)?.TrimStart('.')?.ToLowerInvariant() ?? string.Empty;
+      var platformKws = InferPlatformKeywords(fileExt, tags);
 
-            if (filtered.Count == 0)
-            {
-              // no candidates had matching platform names for this file extension; record and continue
-              await UpsertEnrichmentAsync(
-                conn, fileId, romFileName, titleGuess,
-                null, null, 0, "NO_PLATFORM_MATCH", $"No IGDB candidate platforms matched file extension '{fileExt}'",
-                null, null, null, null,
-                null, null,
-                null, null, null, null,
-                0, respJson
-              );
+      var candidates = arr.OfType<Newtonsoft.Json.Linq.JObject>().ToList();
 
-              await Task.Delay(perRequestDelayMs, ct);
-              continue;
-            }
+      // Prefer platform matches if we can infer platform AND any candidate matches.
+      List<Newtonsoft.Json.Linq.JObject> preferred = candidates;
+      bool anyPlatformMatch = false;
 
-            candidates = filtered;
-          }
-
-          // pick best match from filtered (or all) candidates
-          var best = candidates
-                        .OrderByDescending(g => ScoreCandidate(g, titleGuess))
-                        .First();
-
-          var bestScore = ScoreCandidate(best, titleGuess);
-
-          int igdbId = best.Value<int>("id");
-          string igdbName = best.Value<string>("name") ?? titleGuess;
-
-          string? summary = best.Value<string>("summary");
-          long? firstRelease = best.Value<long?>("first_release_date");
-          decimal? rating = best.Value<decimal?>("total_rating");
-          int? ratingCount = best.Value<int?>("total_rating_count");
-
-          // platforms/genres as JSON arrays of strings
-          Newtonsoft.Json.Linq.JArray? platforms = null;
-          var pNames = best.SelectTokens("platforms[*].name").Select(x => x.ToString()).Distinct().ToList();
-          if (pNames.Count > 0) platforms = new Newtonsoft.Json.Linq.JArray(pNames);
-
-          Newtonsoft.Json.Linq.JArray? genres = null;
-          var gNames = best.SelectTokens("genres[*].name").Select(x => x.ToString()).Distinct().ToList();
-          if (gNames.Count > 0) genres = new Newtonsoft.Json.Linq.JArray(gNames);
-
-          // cover
-          string? coverUrl = null;
-          var coverId = best.SelectToken("cover.image_id")?.ToString();
-          if (!string.IsNullOrWhiteSpace(coverId))
-            coverUrl = IgdbImageUrl(coverId!, "t_cover_big"); // build from image_id [2](https://www.jsdelivr.com/package/npm/@emulatorjs/emulatorjs)[1](https://www.reddit.com/r/RetroArch/comments/18ysjpt/opengles3_context_but_retroarch_is_compiled/)
-
-          // screenshots/artworks (store URLs)
-          Newtonsoft.Json.Linq.JArray? screenshots = null;
-          var ss = best.SelectTokens("screenshots[*].image_id").Select(x => x.ToString()).Where(s => !string.IsNullOrWhiteSpace(s)).Take(10).ToList();
-          if (ss.Count > 0) screenshots = new Newtonsoft.Json.Linq.JArray(ss.Select(id => IgdbImageUrl(id, "t_1080p")));
-
-          Newtonsoft.Json.Linq.JArray? artworks = null;
-          var aw = best.SelectTokens("artworks[*].image_id").Select(x => x.ToString()).Where(s => !string.IsNullOrWhiteSpace(s)).Take(6).ToList();
-          if (aw.Count > 0) artworks = new Newtonsoft.Json.Linq.JArray(aw.Select(id => IgdbImageUrl(id, "t_1080p")));
-
-          // videos (typically YouTube IDs)
-          Newtonsoft.Json.Linq.JArray? videos = null;
-          var vids = best.SelectTokens("videos[*].video_id").Select(x => x.ToString()).Where(s => !string.IsNullOrWhiteSpace(s)).Take(3).ToList();
-          if (vids.Count > 0) videos = new Newtonsoft.Json.Linq.JArray(vids.Select(v => $"https://www.youtube.com/watch?v={v}"));
-
-          await UpsertEnrichmentAsync(
-            conn, fileId, romFileName, titleGuess,
-            igdbId, igdbName, bestScore, "OK", null,
-            summary, firstRelease, rating, ratingCount,
-            platforms, genres,
-            coverUrl, screenshots, artworks, videos,
-            0, best.ToString(Newtonsoft.Json.Formatting.None)
-          );
-
-          await Task.Delay(perRequestDelayMs, ct); // throttle to stay under 4 req/sec [1](https://www.reddit.com/r/RetroArch/comments/18ysjpt/opengles3_context_but_retroarch_is_compiled/)
-        }
-        catch (Exception ex)
+      if (platformKws != null && platformKws.Length > 0)
+      {
+        var matching = candidates.Where(c => CandidateMatchesPlatform(c, platformKws)).ToList();
+        if (matching.Count > 0)
         {
-          await UpsertEnrichmentAsync(
-            conn, fileId, romFileName, titleGuess,
-            null, null, 0, "ERROR", ex.Message,
-            null, null, null, null,
-            null, null,
-            null, null, null, null,
-            0, null
-          );
-
-          await Task.Delay(500, ct);
+          preferred = matching;
+          anyPlatformMatch = true;
         }
       }
 
-      await _log.Db($"IGDB enrich: processed {roms.Count} ROM(s).", null, "IGDB", outputToConsole: true);
+      // Pick best match from preferred list (platform matches when available, otherwise all).
+      var best = preferred
+        .OrderByDescending(g => ScoreCandidateImproved(g, titleGuess, platformKws))
+        .First();
+
+      var bestScore = ScoreCandidateImproved(best, titleGuess, platformKws);
+
+      // Determine status:
+      // - OK if platform matches (or we didn't infer platform).
+      // - PLATFORM_MISMATCH_FALLBACK if we inferred platform but none matched (still store best overall).
+      string status;
+      string? statusError = null;
+
+      if (platformKws != null && platformKws.Length > 0)
+      {
+        bool bestMatches = CandidateMatchesPlatform(best, platformKws);
+
+        if (bestMatches)
+        {
+          status = "OK";
+        }
+        else if (!anyPlatformMatch)
+        {
+          status = "PLATFORM_MISMATCH_FALLBACK";
+          statusError = $"No IGDB candidates matched inferred platform (ext='{fileExt}', tags='{string.Join(",", tags)}'). Stored best overall match.";
+        }
+        else
+        {
+          // This should be extremely rare because we prefer matching list when present.
+          status = "OK";
+        }
+      }
+      else
+      {
+        status = "OK_NO_PLATFORM_HINT";
+      }
+
+      int igdbId = best.Value<int>("id");
+      string igdbName = best.Value<string>("name") ?? titleGuess;
+
+      string? summary = best.Value<string>("summary");
+      long? firstRelease = best.Value<long?>("first_release_date");
+      decimal? rating = best.Value<decimal?>("total_rating");
+      int? ratingCount = best.Value<int?>("total_rating_count");
+
+      // platforms/genres as JSON arrays of strings
+      Newtonsoft.Json.Linq.JArray? platforms = null;
+      var pNames = best.SelectTokens("platforms[*].name").Select(x => x.ToString()).Distinct().ToList();
+      if (pNames.Count > 0) platforms = new Newtonsoft.Json.Linq.JArray(pNames);
+
+      Newtonsoft.Json.Linq.JArray? genres = null;
+      var gNames = best.SelectTokens("genres[*].name").Select(x => x.ToString()).Distinct().ToList();
+      if (gNames.Count > 0) genres = new Newtonsoft.Json.Linq.JArray(gNames);
+
+      // cover
+      string? coverUrl = null;
+      var coverId = best.SelectToken("cover.image_id")?.ToString();
+      if (!string.IsNullOrWhiteSpace(coverId))
+        coverUrl = IgdbImageUrl(coverId!, "t_cover_big");
+
+      // screenshots/artworks (store URLs)
+      Newtonsoft.Json.Linq.JArray? screenshots = null;
+      var ss = best.SelectTokens("screenshots[*].image_id")
+        .Select(x => x.ToString())
+        .Where(s => !string.IsNullOrWhiteSpace(s))
+        .Take(10)
+        .ToList();
+      if (ss.Count > 0) screenshots = new Newtonsoft.Json.Linq.JArray(ss.Select(id => IgdbImageUrl(id, "t_1080p")));
+
+      Newtonsoft.Json.Linq.JArray? artworks = null;
+      var aw = best.SelectTokens("artworks[*].image_id")
+        .Select(x => x.ToString())
+        .Where(s => !string.IsNullOrWhiteSpace(s))
+        .Take(6)
+        .ToList();
+      if (aw.Count > 0) artworks = new Newtonsoft.Json.Linq.JArray(aw.Select(id => IgdbImageUrl(id, "t_1080p")));
+
+      // videos (typically YouTube IDs)
+      Newtonsoft.Json.Linq.JArray? videos = null;
+      var vids = best.SelectTokens("videos[*].video_id")
+        .Select(x => x.ToString())
+        .Where(s => !string.IsNullOrWhiteSpace(s))
+        .Take(3)
+        .ToList();
+      if (vids.Count > 0) videos = new Newtonsoft.Json.Linq.JArray(vids.Select(v => $"https://www.youtube.com/watch?v={v}"));
+
+      // Store more debugging detail when mismatch occurs:
+      // - OK / OK_NO_PLATFORM_HINT => store best object
+      // - mismatch fallback => store the whole IGDB response so you can inspect candidates
+      string rawToStore =
+        status == "OK" || status == "OK_NO_PLATFORM_HINT"
+          ? best.ToString(Newtonsoft.Json.Formatting.None)
+          : respJson;
+
+      await UpsertEnrichmentAsync(
+        conn, fileId, romFileName, titleGuess,
+        igdbId, igdbName, bestScore, status, statusError,
+        summary, firstRelease, rating, ratingCount,
+        platforms, genres,
+        coverUrl, screenshots, artworks, videos,
+        0, rawToStore
+      );
+
+      await Task.Delay(perRequestDelayMs, ct);
     }
+    catch (Exception ex)
+    {
+      await UpsertEnrichmentAsync(
+        conn, fileId, romFileName, titleGuess,
+        null, null, 0, "ERROR", ex.Message,
+        null, null, null, null,
+        null, null,
+        null, null, null, null,
+        0, null
+      );
+
+      await Task.Delay(500, ct);
+    }
+  }
+
+  await _log.Db($"IGDB enrich: processed {roms.Count} ROM(s).", null, "IGDB", outputToConsole: true);
+}
 
 
     /// <summary>
