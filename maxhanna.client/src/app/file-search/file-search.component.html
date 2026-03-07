@@ -100,7 +100,7 @@
                   <!-- ✅ inline ROM thumbs -->
                   <span *ngIf="shouldShowRomMetadata() && !file.isFolder && file.romInlineThumbs?.length"
                     class="romThumbStrip" title="Show ROM artwork"
-                    (click)="$event.stopPropagation(); showOptionsPanel(file);">
+                    (click)="$event.stopPropagation(); optionsFile = file;">
 
                     <img *ngFor="let img of file.romInlineThumbs" class="romThumb" [src]="img" loading="lazy"
                       (error)="hideBrokenImg($event)" />

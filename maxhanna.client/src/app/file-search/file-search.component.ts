@@ -957,7 +957,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     const parent = this.inputtedParentRef ?? this.parentRef;
     this.optionsFile = file;
     // If we're rendering the metadata inline on desktop, don't show the global overlay.
-    if (parent && !this.displayRomMetadataDesktop) {
+    if (parent) {
       this.isOptionsPanelOpen = true;
       parent.showOverlay();
     }
