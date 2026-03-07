@@ -438,32 +438,33 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         includeRomMetadata
       ).then(res => {
         if (append && this.directory && this.directory.data) {
-          this.directory.data = this.directory.data.concat(
-            res.data.filter(
-              (d: FileEntry) =>
-                !this.directory?.data?.some(
-                  (existingData) => existingData.id === d.id
-                )
-            )
+          // Normalize and derive thumbnails for newly-appended items before merging
+          const newItems = (res.data || []).filter((d: FileEntry) =>
+            !this.directory?.data?.some((existingData) => existingData.id === d.id)
           );
+
+          if (this.shouldShowRomMetadata() && newItems.length) {
+            for (const f of newItems) {
+              this.normalizeRomMetadata(f);
+            }
+          }
+
+          this.directory.data = this.directory.data.concat(newItems);
+
+          // If an optionsFile is currently selected, re-link it to the instance in directory.data
+          if (this.optionsFile) {
+            const linked = this.directory.data.find(d => d.id === this.optionsFile?.id);
+            if (linked) {
+              this.optionsFile = linked;
+              try { this.changeDetectorRef.detectChanges(); } catch {}
+            }
+          }
         } else {
           this.directory = res;
 
           if (this.shouldShowRomMetadata() && this.directory?.data?.length) {
             for (const f of this.directory.data) {
-              if (!f || f.isFolder) continue;
-              if (!f.romMetadata) continue;
-
-              // Normalize json string fields into arrays on the metadata object (optional convenience)
-              const md = f.romMetadata;
-              (md as any).screenshots = this.safeJsonArray(md.screenshotsJson);
-              (md as any).artworks = this.safeJsonArray(md.artworksJson);
-              (md as any).videos = this.safeJsonArray(md.videosJson);
-              (md as any).platforms = this.safeJsonArray((md as any).platformsJson ?? md.platformsJson);
-              (md as any).genres = this.safeJsonArray((md as any).genresJson ?? md.genresJson);
-
-              // Derived thumbnails for list view
-              f.romInlineThumbs = this.pickInlineThumbs(f);
+              this.normalizeRomMetadata(f);
             }
           }
 
@@ -540,6 +541,23 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.notifyUser((error as Error).message);
     }
     this.stopLoading();
+  }
+
+  // Helper: normalize rom metadata fields and derive inline thumbnails for a file entry
+  private normalizeRomMetadata(f: FileEntry | undefined | null): void {
+    if (!f || f.isFolder) return;
+    if (!f.romMetadata) return;
+    try {
+      const md: any = f.romMetadata;
+      md.screenshots = this.safeJsonArray(md.screenshotsJson);
+      md.artworks = this.safeJsonArray(md.artworksJson);
+      md.videos = this.safeJsonArray(md.videosJson);
+      md.platforms = this.safeJsonArray(md.platformsJson ?? md.platformsJson);
+      md.genres = this.safeJsonArray(md.genresJson ?? md.genresJson);
+      f.romInlineThumbs = this.pickInlineThumbs(f);
+    } catch (e) {
+      console.error('normalizeRomMetadata failed', e);
+    }
   }
 
   debounceSearch() {
