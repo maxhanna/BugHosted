@@ -104,38 +104,38 @@ if (externalAssetsRoot && fs.existsSync(externalAssetsRoot)) {
 }
 
 
-// --- PS1 aliases at root so hardcoded relative fetch() works ---
-const ps1AssetsPath = path.join(__dirname, 'src', 'assets', 'ps1');
-function sendStatic(res, absPath) {
-  res.set('X-Content-Type-Options', 'nosniff');
-  if (absPath.endsWith('.wasm')) res.type('application/wasm');
-  else if (absPath.endsWith('.js')) res.type('application/javascript; charset=utf-8');
-  res.sendFile(absPath);
-}
+// // --- PS1 aliases at root so hardcoded relative fetch() works ---
+// const ps1AssetsPath = path.join(__dirname, 'src', 'assets', 'ps1');
+// function sendStatic(res, absPath) {
+//   res.set('X-Content-Type-Options', 'nosniff');
+//   if (absPath.endsWith('.wasm')) res.type('application/wasm');
+//   else if (absPath.endsWith('.js')) res.type('application/javascript; charset=utf-8');
+//   res.sendFile(absPath);
+// }
 
-app.get('/wasmpsx.min.js', (req, res) => {
-  const p = path.join(ps1AssetsPath, 'wasmpsx.min.js');
-  if (!fs.existsSync(p)) return res.status(404).end('Not found');
-  sendStatic(res, p);
-});
+// app.get('/wasmpsx.min.js', (req, res) => {
+//   const p = path.join(ps1AssetsPath, 'wasmpsx.min.js');
+//   if (!fs.existsSync(p)) return res.status(404).end('Not found');
+//   sendStatic(res, p);
+// });
 
-app.get('/wasmpsx_ww.wasm', (req, res) => {
-  const p = path.join(ps1AssetsPath, 'wasmpsx_ww.wasm'); // ← your exact filename
-  if (!fs.existsSync(p)) return res.status(404).end('Not found');
-  sendStatic(res, p);
-});
+// app.get('/wasmpsx_ww.wasm', (req, res) => {
+//   const p = path.join(ps1AssetsPath, 'wasmpsx_ww.wasm'); // ← your exact filename
+//   if (!fs.existsSync(p)) return res.status(404).end('Not found');
+//   sendStatic(res, p);
+// });
 
-app.get('/wasmpsx_worker.js', (req, res) => {
-  const p = path.join(ps1AssetsPath, 'wasmpsx_worker.js');
-  if (!fs.existsSync(p)) return res.status(404).end('Not found');
-  sendStatic(res, p);
-});
+// app.get('/wasmpsx_worker.js', (req, res) => {
+//   const p = path.join(ps1AssetsPath, 'wasmpsx_worker.js');
+//   if (!fs.existsSync(p)) return res.status(404).end('Not found');
+//   sendStatic(res, p);
+// });
 
-app.get('/wasmpsx_worker.wasm', (req, res) => {
-  const p = path.join(ps1AssetsPath, 'wasmpsx_worker.wasm');
-  if (!fs.existsSync(p)) return res.status(404).end('Not found');
-  sendStatic(res, p);
-});
+// app.get('/wasmpsx_worker.wasm', (req, res) => {
+//   const p = path.join(ps1AssetsPath, 'wasmpsx_worker.wasm');
+//   if (!fs.existsSync(p)) return res.status(404).end('Not found');
+//   sendStatic(res, p);
+// });
 
 
 // Serve Uploads folder separately to avoid SPA fallback
