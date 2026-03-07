@@ -33,6 +33,7 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient<maxhanna.Server.Helpers.NewsHttpClient>();
+builder.Services.AddSingleton<RomMetadataService>();
 builder.Services.AddHostedService<SystemBackgroundService>();
 builder.Services.AddHostedService<NexusAttackBackgroundService>();
 builder.Services.AddHostedService<NexusGoldUpdateBackgroundService>();
