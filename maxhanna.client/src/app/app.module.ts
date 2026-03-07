@@ -33,7 +33,6 @@ import { MediaViewerComponent } from './media-viewer/media-viewer.component';
 import { FileSearchComponent } from './file-search/file-search.component';
 import { UpdateUserSettingsComponent } from './update-user-settings/update-user-settings.component';
 import { CommentsComponent } from './comments/comments.component';
-import { EmulationComponent } from './emulation/emulation.component';
 import { UserTagComponent } from './user-tag/user-tag.component';
 import { LineGraphComponent } from './line-graph/line-graph.component';
 import { ReactionComponent } from './reaction/reaction.component';
@@ -95,8 +94,6 @@ import { WordlerHighScoresComponent } from './wordler-high-scores/wordler-high-s
 import { CryptoNewsArticlesComponent } from './crypto-news-articles/crypto-news-articles.component';
 import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
 import { BonesComponent } from './bones/bones.component';
-import { EmulatorN64Component } from './emulator-n64/emulator-n64.component';
-import { EmulatorPS1Component } from './emulator-ps1/emulator-ps1.component';
 import { DailyMusicComponent } from './daily-music/daily-music.component';
 import { ProfileWidgetsComponent } from './profile-widgets/profile-widgets.component';
 import { BonesHighScoresComponent } from './bones-high-scores/bones-high-scores.component';
@@ -133,7 +130,6 @@ import { TitleBarComponent } from './title-bar/title-bar.component';
     UpdateUserSettingsComponent,
     CommentsComponent,
     MediaSelectorComponent,
-    EmulationComponent,
     UserTagComponent,
     ReactionComponent,
     ArrayComponent,
@@ -187,8 +183,6 @@ import { TitleBarComponent } from './title-bar/title-bar.component';
     WordlerHighScoresComponent,
     DailyMusicComponent,
     ProfileWidgetsComponent,
-    EmulatorN64Component,
-    EmulatorPS1Component,
     EmulatorComponent,
     NewUsersComponent,
     CurrentlyPlayingComponent,

@@ -81,37 +81,7 @@ export class RomService {
     } catch (error) {
       return null;
     }
-  }
-
-  async getN64SaveByName(romName: string, userId: number): Promise<{ blob: Blob; fileName: string } | null> {
-    const resp = await fetch(`/rom/getn64savebyname/${encodeURIComponent(romName)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(userId)
-    });
-    if (!resp.ok) return null;
-
-    const blob = await resp.blob();
-    const cd = resp.headers.get('Content-Disposition') || '';
-    const m = cd.match(/filename\*?=(?:UTF-8''|")?([^";]+)"?/i);
-    const fileName = m ? decodeURIComponent(m[1]) : `${romName.replace(/\.[^.]+$/, '')}.eep`; // fallback
-    return { blob, fileName };
-  }
-
-  async uploadRomFile(userId: number, form: FormData) {
-    form.append('userId', JSON.stringify(userId));
-
-    try {
-      const response = await fetch(`/rom/uploadrom/`, {
-        method: 'POST',
-        body: form,
-      });
-
-      return await response.json();
-    } catch (error) {
-      return null;
-    }
-  }
+  } 
 
   getFileExtension(file: string) {
     return file.lastIndexOf('.') !== -1 ? file.split('.').pop() : null;
@@ -163,155 +133,13 @@ export class RomService {
       return null;
     }
   }
-
-  // Mapping persistence APIs
-  async listMappings(userId: number) {
-    try {
-      const res = await fetch('/rom/getmappings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userId)
-      });
-      if (!res.ok) return null;
-      return await res.json(); // array of names
-    } catch {
-      return null;
-    }
-  }
-
-  async getMapping(userId: number, name: string) {
-    try {
-      const req = { UserId: userId, Name: name };
-      const res = await fetch('/rom/getmapping', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(req)
-      });
-      if (!res.ok) return null;
-      return await res.json(); // mapping object
-    } catch {
-      return null;
-    }
-  }
-
-  async saveMapping(userId: number, name: string, mapping: any) {
-    try {
-      const req = { UserId: userId, Name: name, Mapping: mapping };
-      const res = await fetch('/rom/savemapping', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(req)
-      });
-      const status = res.status;
-      if (!res.ok) {
-        // return status and text for caller to inspect (e.g. 403 limit reached)
-        const txt = await res.text();
-        return { ok: false, status, text: txt };
-      }
-      const body = await res.json();
-      return { ok: true, status, body };
-    } catch {
-      return null;
-    }
-  }
-
-  async deleteMapping(userId: number, name: string) {
-    try {
-      const req = { UserId: userId, Name: name };
-      const res = await fetch('/rom/deletemapping', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(req)
-      });
-      if (!res.ok) return null;
-      return await res.json();
-    } catch {
-      return null;
-    }
-  }
-
-  async getLastInputSelection(userId: number, romToken: string): Promise<LastInputSelection | null> {
-    try {
-      const req = { UserId: userId, RomToken: romToken };
-      const res = await fetch('/rom/getlastinputselection', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(req)
-      });
-      if (!res.ok) return null;
-      return await res.json();
-    } catch {
-      return null;
-    }
-  }
-
-  async saveLastInputSelection(payload: LastInputSelection): Promise<{ ok: boolean; status: number; text?: string }> {
-    try {
-      const res = await fetch('/rom/savelastinputselection', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          UserId: payload.userId,
-          RomToken: payload.romToken,
-          MappingName: payload.mappingName ?? null,
-          GamepadId: payload.gamepadId ?? null
-        })
-      });
-      const status = res.status;
-      if (!res.ok) {
-        const text = await res.text().catch(() => undefined);
-        return { ok: false, status, text };
-      }
-      return { ok: true, status };
-    } catch (e: any) {
-      return { ok: false, status: 0, text: String(e?.message ?? e) };
-    }
-  }
-
+ 
   /** Normalize input into a tight ArrayBuffer (no offset/extra bytes). */
   private toTightArrayBuffer(input: ArrayBuffer | ArrayBufferView): ArrayBuffer {
     if (input instanceof ArrayBuffer) return input;
     const view = input as ArrayBufferView;
     return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer;
-  }
-
-  async saveN64State(req: N64StateUpload): Promise<SaveUploadResponse> {
-    const form = new FormData();
-    // NOTE: req.romName must be provided by caller
-    if (!(req as any).romName) {
-      return { ok: false, status: 0, errorText: 'romName is required on N64StateUpload' };
-    }
-
-    const tightAb: ArrayBuffer = this.toTightArrayBuffer(req.bytes);
-    form.append('file', new File([tightAb], req.filename, { type: 'application/octet-stream' }));
-    form.append('userId', String(req.userId));
-    form.append('romName', (req as any).romName as string); // typed as any to be drop-in safe
-    form.append('filename', req.filename);
-
-    if (typeof req.startTimeMs === 'number') form.append('startTimeMs', String(req.startTimeMs));
-    if (typeof req.saveTimeMs === 'number') form.append('saveTimeMs', String(req.saveTimeMs));
-    if (typeof req.durationSeconds === 'number') form.append('durationSeconds', String(req.durationSeconds));
-
-    try {
-      const res = await fetch(`/rom/saven64state`, { method: 'POST', body: form });
-      const status = res.status;
-      const ct = (res.headers.get('content-type') || '').toLowerCase();
-
-      const readAsText = async () => await res.text();
-      const readAsJson = async () => { try { return await res.json(); } catch { return null; } };
-
-      if (!res.ok) {
-        const errorBody = ct.includes('application/json') ? await readAsJson() : await readAsText();
-        const errorText = typeof errorBody === 'string' ? errorBody : JSON.stringify(errorBody ?? { error: 'Upload failed' });
-        return { ok: false, status, errorText };
-      }
-
-      const body = ct.includes('application/json') ? await readAsJson() : await readAsText();
-      return { ok: true, status, body };
-    } catch (error: any) {
-      return { ok: false, status: 0, errorText: String(error?.message ?? error) };
-    }
-  }
+  } 
 
   guessSystemFromFileName(fileName: string): string | undefined {
     if (!fileName) return undefined;
