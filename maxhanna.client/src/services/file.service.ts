@@ -94,51 +94,55 @@ export class FileService {
 		return Array.from(this.ps1FileExtensions);
 	}
 
-	async getDirectory(
-		dir: string,
-		visibility: string,
-		ownership: string,
-		user?: User,
-		page?: number,
-		pageSize?: number,
-		search?: string,
-		fileId?: number,
-		fileType?: Array<string>,
-		showHidden?: boolean,
-		sortOption?: string,
-		showFavouritesOnly?: boolean
-	) {
-		// Create a URLSearchParams object
-		const params = new URLSearchParams();
+async getDirectory(
+  dir: string,
+  visibility: string,
+  ownership: string,
+  user?: User,
+  page?: number,
+  pageSize?: number,
+  search?: string,
+  fileId?: number,
+  fileType?: Array<string>,
+  showHidden?: boolean,
+  sortOption?: string,
+  showFavouritesOnly?: boolean,
+  includeRomMetadata?: boolean // ✅ NEW
+) {
+  const params = new URLSearchParams();
 
-		// Add parameters dynamically
-		params.append('directory', dir || '');
-		params.append('visibility', visibility || '');
-		params.append('ownership', ownership || '');
-		params.append('page', page ? page.toString() : '1');
-		params.append('pageSize', pageSize ? pageSize.toString() : '100');
-		params.append('sortOption', sortOption ? sortOption : 'Latest');
-		params.append('showFavouritesOnly', showFavouritesOnly ? showFavouritesOnly.toString() + '' : 'false');
-		if (search) params.append('search', search);
-		if (fileId) params.append('fileId', fileId.toString());
-		if (fileType) params.append('fileType', fileType.join(','));
-		if (showHidden !== undefined) params.append('showHidden', showHidden.toString());
+  params.append('directory', dir || '');
+  params.append('visibility', visibility || '');
+  params.append('ownership', ownership || '');
+  params.append('page', page ? page.toString() : '1');
+  params.append('pageSize', pageSize ? pageSize.toString() : '100');
+  params.append('sortOption', sortOption ? sortOption : 'Latest');
+  params.append('showFavouritesOnly', showFavouritesOnly ? String(showFavouritesOnly) : 'false');
 
-		try {
-			const response = await fetch(`/file/getdirectory?${params.toString()}`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify(user),
-			});
+  if (search) params.append('search', search);
+  if (fileId) params.append('fileId', fileId.toString());
+  if (fileType) params.append('fileType', fileType.join(','));
+  if (showHidden !== undefined) params.append('showHidden', showHidden.toString());
 
-			return await response.json();
-		} catch (error) {
-			console.error('Error fetching directory:', error);
-			return null;
-		}
-	}
+  // ✅ add this
+  if (includeRomMetadata !== undefined) {
+    params.append('includeRomMetadata', includeRomMetadata.toString());
+  }
+
+  try {
+    const response = await fetch(`/file/getdirectory?${params.toString()}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(user),
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching directory:', error);
+    return null;
+  }
+}
+
 	async updateFileData(userId: number, fileData: { FileId: number, GivenFileName: string, Description: string, LastUpdatedBy: User }) {
 		try {
 			const response = await fetch(`/file/updatefiledata`, {

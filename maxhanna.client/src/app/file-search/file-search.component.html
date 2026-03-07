@@ -1,9 +1,6 @@
 ﻿<div class="fileActionCommands" *ngIf="!fileSearchMode">
-  <span 
-  [class]="topSearchButtonClass" 
-  [style.right]="(searchButtonSlot * 50) + (searchButtonSlot * 3) + 'px'"
-  (click)="openSearchPanel();" 
-  title="Search for Files"></span>
+  <span [class]="topSearchButtonClass" [style.right]="(searchButtonSlot * 50) + (searchButtonSlot * 3) + 'px'"
+    (click)="openSearchPanel();" title="Search for Files"></span>
 </div>
 
 <div *ngIf="showShareUserList" class="popupPanel" #shareUserListDiv>
@@ -86,12 +83,28 @@
                   (keyup)="editFileKeyUp($event, file.id)" (click)="$event.stopPropagation()"
                   [id]="'editFileNameInput'+file.id" />
 
+
+
                 <span *ngIf="!isEditing.includes(file.id)" class="fileFolderNameSpan {{file.isFolder ? 'folder' : ''}}"
                   (click)="!disabled && selectFile(file);" [id]="'fileIdName'+file.id">
+
                   {{ file.isFolder ? '📁' : '' }}
                   <span [innerHTML]="showSystemIcons ? getSystemEmoji(file.fileName ?? '') : ''"></span>
-                  {{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}
+
+                  <span class="romTitleText">
+                    {{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}
+                  </span>
+
+                  <!-- ✅ inline ROM thumbs -->
+                  <span *ngIf="shouldShowRomMetadata() && !file.isFolder && file.romInlineThumbs?.length"
+                    class="romThumbStrip" title="Show ROM artwork"
+                    (click)="$event.stopPropagation(); showOptionsPanel(file);">
+
+                    <img *ngFor="let img of file.romInlineThumbs" class="romThumb" [src]="img" loading="lazy"
+                      (error)="hideBrokenImg($event)" />
+                  </span>
                 </span>
+
               </span>
               <div class="fileExtras fileOptionsActionWrapper">
                 <app-reaction *ngIf="displayReactions && !file.isFolder" [user]="user"
@@ -162,6 +175,60 @@
   <div class="popupPanelTitle">
     File Options
   </div>
+
+
+  <div *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata && !optionsFile.isFolder" class="romMetaPanel">
+
+    <div class="romMetaHeader">🎮 ROM Metadata</div>
+
+    <div *ngIf="optionsFile.romMetadata?.igdbName" class="romMetaLine">
+      <strong>IGDB:</strong> {{ optionsFile.romMetadata?.igdbName }}
+    </div>
+
+    <div *ngIf="optionsFile.romMetadata?.totalRatingCount" class="romMetaLine">
+      <strong>Rating:</strong>
+      {{ optionsFile.romMetadata?.totalRating | number:'1.1-1' }}
+      ({{ optionsFile.romMetadata?.totalRatingCount }})
+    </div>
+
+    <div *ngIf="optionsFile.romMetadata?.summary" class="romMetaSummary">
+      {{ optionsFile.romMetadata?.summary }}
+    </div>
+
+    <div *ngIf="optionsFile.romMetadata?.coverUrl" class="romMetaSection">
+      <div class="romMetaSectionTitle">Cover</div>
+      <img class="romMetaCover" [src]="optionsFile.romMetadata?.coverUrl" loading="lazy"
+        (error)="hideBrokenImg($event)" />
+    </div>
+
+    <div class="romMetaSection"
+      *ngIf="safeJsonArray(optionsFile.romMetadata?.screenshotsJson).length || safeJsonArray(optionsFile.romMetadata?.artworksJson).length">
+      <div class="romMetaSectionTitle">Screenshots / Art</div>
+      <div class="romMetaGrid">
+        <img *ngFor="let img of safeJsonArray(optionsFile.romMetadata?.screenshotsJson).slice(0, 12)" class="romMetaImg"
+          [src]="img" loading="lazy" (error)="hideBrokenImg($event)" />
+
+        <img *ngFor="let img of safeJsonArray(optionsFile.romMetadata?.artworksJson).slice(0, 8)" class="romMetaImg"
+          [src]="img" loading="lazy" (error)="hideBrokenImg($event)" />
+      </div>
+    </div>
+
+    <div *ngIf="safeJsonArray(optionsFile.romMetadata?.videosJson).length" class="romMetaSection">
+      <div class="romMetaSectionTitle">Videos</div>
+      <div class="romMetaLinks">
+        <a *ngFor="let v of safeJsonArray(optionsFile.romMetadata?.videosJson).slice(0, 6)" [href]="v" target="_blank"
+          rel="noopener">
+          ▶️ {{ v }}
+        </a>
+      </div>
+    </div>
+
+    <div *ngIf="optionsFile?.romMetadata?.firstReleaseDateUnix as d" class="romMetaLine">
+      <strong>Release:</strong> {{ unixSecondsToDate(d) | date:'y/MM/d' }}
+    </div>
+
+  </div>
+
   <div class="popupPanelActions">
     <button title="Edit File Name" (click)="startEditingFileName(optionsFile.id);"
       *ngIf="shouldShowEditButton(optionsFile)">
@@ -244,7 +311,8 @@
       </div>
       <div class="optionsStatsDescription">
         {{optionsFile.fileType?.toUpperCase()}}
-        <span [innerHTML]="(getDirectoryName(optionsFile) === 'Roms/' && optionsFile.fileType) ? getSystemEmoji('file.' + optionsFile.fileType) : ''"></span>
+        <span
+          [innerHTML]="(getDirectoryName(optionsFile) === 'Roms/' && optionsFile.fileType) ? getSystemEmoji('file.' + optionsFile.fileType) : ''"></span>
         {{optionsFile.isFolder ? 'Folder' : ''}}
       </div>
     </div>
@@ -266,12 +334,11 @@
     <div *ngIf="displayRatings" class="optionsStatsDiv">
       <div class="optionsStatsHeader">Rating:</div>
       <div class="optionsStatsDescription">
-        <span *ngFor="let star of [1,2,3,4,5]"
-          class="cursorPointer"
+        <span *ngFor="let star of [1,2,3,4,5]" class="cursorPointer"
           [style.color]="star <= (optionsFile.averageRating ?? 0) ? 'gold' : '#555'"
-          (click)="rateFile(optionsFile, star)"
-          title="Rate {{star}} star{{star > 1 ? 's' : ''}}">&#9733;</span>
-        <span *ngIf="optionsFile.ratingCount">{{optionsFile.averageRating | number:'1.1-1'}} ({{optionsFile.ratingCount}})</span>
+          (click)="rateFile(optionsFile, star)" title="Rate {{star}} star{{star > 1 ? 's' : ''}}">&#9733;</span>
+        <span *ngIf="optionsFile.ratingCount">{{optionsFile.averageRating | number:'1.1-1'}}
+          ({{optionsFile.ratingCount}})</span>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.fileSize !== undefined">
@@ -316,9 +383,7 @@
       </div>
       <div class="optionsStatsDescription">
         <span>
-          <select 
-            [value]="optionsFile.visibility"
-            #optionsFileVisibilitySelect
+          <select [value]="optionsFile.visibility" #optionsFileVisibilitySelect
             *ngIf="optionsFile.user?.id == parentRef?.user?.id || optionsFile.user?.id == inputtedParentRef?.user?.id"
             (change)="onVisibilitySelect(optionsFile)">
             <option value="Public" [selected]="optionsFile.visibility == 'Public'">
@@ -326,7 +391,8 @@
             <option value="Private" [selected]="optionsFile.visibility == 'Private'">
               Private{{getVisibilityIcon('Private')}}</option>
           </select>
-          <span *ngIf="optionsFile.user?.id != parentRef?.user?.id && optionsFile.user?.id != inputtedParentRef?.user?.id">
+          <span
+            *ngIf="optionsFile.user?.id != parentRef?.user?.id && optionsFile.user?.id != inputtedParentRef?.user?.id">
             {{optionsFile.visibility}}{{getVisibilityIcon(optionsFile.visibility)}}
           </span>
           <span *ngIf="optionsFile.visibility == 'Private'" class="private" title="This is a private file.">🔒</span>
@@ -535,11 +601,7 @@
       </select>
     </div>
     <div style="margin-top: 20px; width: 100%; text-align: center;">
-      <button 
-        class="closeButton" 
-        id="closeOverlay" 
-        (click)="closeSearchPanel()" 
-        title="Close the Search Panel">
+      <button class="closeButton" id="closeOverlay" (click)="closeSearchPanel()" title="Close the Search Panel">
         Close
       </button>
     </div>
@@ -547,42 +609,43 @@
 </div>
 
 <!-- File viewers Popup -->
-  <div class="popupPanel" *ngIf="isShowingFileViewers">
-    <div class="popupPanelTitle popupPanelContents gradientBackground" style="margin-bottom:15px;">
-      File Viewers
-    </div>
-    <div class="fileViewerDiv">
-      <div *ngFor="let viewer of fileViewers" style="height: 30px;">
-        <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"
-          [previousComponent]="previousComponent" [displayMiniTag]="true"></app-user-tag>
-      </div>
-    </div>
-    <button id="closeOverlay" (click)="closeFileViewers()">Close</button>
+<div class="popupPanel" *ngIf="isShowingFileViewers">
+  <div class="popupPanelTitle popupPanelContents gradientBackground" style="margin-bottom:15px;">
+    File Viewers
   </div>
+  <div class="fileViewerDiv">
+    <div *ngFor="let viewer of fileViewers" style="height: 30px;">
+      <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"
+        [previousComponent]="previousComponent" [displayMiniTag]="true"></app-user-tag>
+    </div>
+  </div>
+  <button id="closeOverlay" (click)="closeFileViewers()">Close</button>
+</div>
 
-  <!-- File favouriters Popup -->
-  <div class="popupPanel" *ngIf="isShowingFileFavouriters">
-    <div class="popupPanelTitle popupPanelContents gradientBackground" style="margin-bottom:15px;">
-      File Favouriters
-    </div>
-    <div class="fileViewerDiv">
-      <div *ngFor="let viewer of fileFavouriters" style="height: 30px;">
-        <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"
-          [previousComponent]="previousComponent" [displayMiniTag]="true"></app-user-tag>
-      </div>
-    </div>
-    <button id="closeOverlay" (click)="closeFileFavouriters()">Close</button>
+<!-- File favouriters Popup -->
+<div class="popupPanel" *ngIf="isShowingFileFavouriters">
+  <div class="popupPanelTitle popupPanelContents gradientBackground" style="margin-bottom:15px;">
+    File Favouriters
   </div>
-  
-  <!-- Visibility Dropdown Popup -->
-  <div class="popupPanel" *ngIf="isVisibilityDropdownOpen && visibilityDropdownFile">
-    <div class="popupPanelTitle">Change File Visibility</div>
-    <div class="popupPanelActions">
-      <label for="visibilitySelect">Visibility:</label>
-      <select id="visibilitySelect" #visibilitySelect [value]="visibilityDropdownFile.visibility" (change)="onVisibilitySelect()">
-        <option value="Public">Public</option>
-        <option value="Private">Private</option>
-      </select> 
-      <button (click)="closeVisibilityDropdown()">Cancel</button>
+  <div class="fileViewerDiv">
+    <div *ngFor="let viewer of fileFavouriters" style="height: 30px;">
+      <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"
+        [previousComponent]="previousComponent" [displayMiniTag]="true"></app-user-tag>
     </div>
   </div>
+  <button id="closeOverlay" (click)="closeFileFavouriters()">Close</button>
+</div>
+
+<!-- Visibility Dropdown Popup -->
+<div class="popupPanel" *ngIf="isVisibilityDropdownOpen && visibilityDropdownFile">
+  <div class="popupPanelTitle">Change File Visibility</div>
+  <div class="popupPanelActions">
+    <label for="visibilitySelect">Visibility:</label>
+    <select id="visibilitySelect" #visibilitySelect [value]="visibilityDropdownFile.visibility"
+      (change)="onVisibilitySelect()">
+      <option value="Public">Public</option>
+      <option value="Private">Private</option>
+    </select>
+    <button (click)="closeVisibilityDropdown()">Cancel</button>
+  </div>
+</div>

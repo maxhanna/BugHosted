@@ -43,18 +43,20 @@ namespace maxhanna.Server.Controllers
 
     [HttpPost("/File/GetDirectory/", Name = "GetDirectory")]
     public async Task<DirectoryResults?> GetDirectory(
-    [FromBody] User? user,
-    [FromQuery] string? directory,
-    [FromQuery] string? visibility,
-    [FromQuery] string? ownership,
-    [FromQuery] string? search,
-    [FromQuery] int page = 1,
-    [FromQuery] int pageSize = 10,
-    [FromQuery] int? fileId = null,
-    [FromQuery] List<string>? fileType = null,
-    [FromQuery] bool showHidden = false,
-    [FromQuery] string sortOption = "Latest",
-    [FromQuery] bool showFavouritesOnly = false)
+      [FromBody] User? user,
+      [FromQuery] string? directory,
+      [FromQuery] string? visibility,
+      [FromQuery] string? ownership,
+      [FromQuery] string? search,
+      [FromQuery] int page = 1,
+      [FromQuery] int pageSize = 10,
+      [FromQuery] int? fileId = null,
+      [FromQuery] List<string>? fileType = null,
+      [FromQuery] bool showHidden = false,
+      [FromQuery] string sortOption = "Latest",
+      [FromQuery] bool showFavouritesOnly = false,
+      [FromQuery] bool includeRomMetadata = false
+    )
     {
       if (string.IsNullOrEmpty(directory))
       {
@@ -269,6 +271,18 @@ namespace maxhanna.Server.Controllers
               f.height,
               f.last_access,
               f.access_count,
+              {(includeRomMetadata ? @"   
+              rigdb.igdb_game_id        AS romIgdbGameId
+              , rigdb.igdb_name           AS romIgdbName
+              , rigdb.summary             AS romSummary
+              , rigdb.first_release_date  AS romFirstReleaseDateUnix
+              , rigdb.total_rating        AS romTotalRating
+              , rigdb.total_rating_count  AS romTotalRatingCount
+              , rigdb.cover_url           AS romCoverUrl
+              , rigdb.screenshots_json    AS romScreenshotsJson
+              , rigdb.artworks_json       AS romArtworksJson
+              , rigdb.videos_json         AS romVideosJson 
+              ," : "")}
               (SELECT COUNT(*) FROM file_favourites ff WHERE ff.file_id = f.id) AS favourite_count,
               EXISTS(SELECT 1 FROM file_favourites ff2 WHERE ff2.file_id = f.id AND ff2.user_id = @userId) AS is_favourited,
               (SELECT COUNT(*) FROM comments c WHERE c.file_id = f.id) AS comment_count,
@@ -279,7 +293,8 @@ namespace maxhanna.Server.Controllers
             LEFT JOIN users uu ON f.last_updated_by_user_id = uu.id
             LEFT JOIN user_display_pictures udp  ON udp.user_id = u.id
             LEFT JOIN user_display_pictures luudp ON luudp.user_id = uu.id
-            LEFT JOIN file_uploads udpfl ON udp.file_id = udpfl.id
+            LEFT JOIN file_uploads udpfl ON udp.file_id = udpfl.id 
+            {(includeRomMetadata ? " LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id " : "")}
             WHERE 1=1
               {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
               AND (f.is_public = 1 OR f.user_id = @userId OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON)))
@@ -360,6 +375,26 @@ namespace maxhanna.Server.Controllers
                 IsFavourited = reader.IsDBNull("is_favourited") ? false : reader.GetBoolean("is_favourited"),
                 AverageRating = reader.IsDBNull("average_rating") ? 0 : reader.GetDouble("average_rating"),
                 RatingCount = reader.IsDBNull("rating_count") ? 0 : reader.GetInt32("rating_count"),
+                RomMetadata = includeRomMetadata ? new RomMetadata
+                {
+                  IgdbGameId = reader.IsDBNull("romIgdbGameId") ? (int?)null : reader.GetInt32("romIgdbGameId"),
+                  IgdbName = reader.IsDBNull("romIgdbName") ? null : reader.GetString("romIgdbName"),
+                  Summary = reader.IsDBNull("romSummary") ? null : reader.GetString("romSummary"),
+
+                  // ✅ BIGINT unix seconds safe read
+                  FirstReleaseDateUnix = reader.IsDBNull("romFirstReleaseDateUnix")
+                    ? (long?)null
+                    : reader.GetInt64("romFirstReleaseDateUnix"),
+
+                  TotalRating = reader.IsDBNull("romTotalRating") ? (double?)null : reader.GetDouble("romTotalRating"),
+                  TotalRatingCount = reader.IsDBNull("romTotalRatingCount") ? (int?)null : reader.GetInt32("romTotalRatingCount"),
+
+                  CoverUrl = reader.IsDBNull("romCoverUrl") ? null : reader.GetString("romCoverUrl"),
+                  ScreenshotsJson = reader.IsDBNull("romScreenshotsJson") ? null : reader.GetString("romScreenshotsJson"),
+                  ArtworksJson = reader.IsDBNull("romArtworksJson") ? null : reader.GetString("romArtworksJson"),
+                  VideosJson = reader.IsDBNull("romVideosJson") ? null : reader.GetString("romVideosJson"),
+                }
+                : null 
               };
 
               fileEntries.Add(fileEntry);

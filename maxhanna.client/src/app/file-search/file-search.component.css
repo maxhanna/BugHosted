@@ -517,3 +517,84 @@
   font-size: unset;
   white-space: nowrap;
 }
+
+/* Inline thumbs next to ROM name */
+.romThumbStrip {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: 10px;
+  align-items: center;
+}
+
+.romThumb {
+  width: 34px;
+  height: 34px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.15);
+  box-shadow: 0 0 6px rgba(0,0,0,0.3);
+}
+
+.romTitleText {
+  margin-left: 4px;
+}
+
+/* Options popup ROM metadata panel */
+.romMetaPanel {
+  margin-top: 14px;
+  padding: 10px;
+  border: var(--main-border);
+  border-radius: 10px;
+}
+
+.romMetaHeader {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.romMetaLine {
+  font-size: small;
+  margin-bottom: 4px;
+}
+
+.romMetaSummary {
+  font-size: small;
+  opacity: 0.9;
+  margin: 8px 0 10px 0;
+  line-height: 1.25rem;
+}
+
+.romMetaSectionTitle {
+  font-weight: 600;
+  margin: 10px 0 6px 0;
+}
+
+.romMetaCover {
+  width: 180px;
+  max-width: 100%;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+.romMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.romMetaImg {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+.romMetaLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 160px;
+  overflow: auto;
+}

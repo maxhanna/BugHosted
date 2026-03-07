@@ -35,6 +35,9 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
 		// Indicates that this entry refers to an already existing file (upload duplicate)
 		public bool IsDuplicate { get; set; } = false;
 
+    public RomMetadata? RomMetadata { get; set; }
+
+
 		public FileEntry() { }
 		public FileEntry(int id)
 		{

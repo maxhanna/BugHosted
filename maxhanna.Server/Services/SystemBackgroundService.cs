@@ -2736,7 +2736,7 @@ LIMIT @lim;";
 
   if (roms.Count == 0)
   {
-    await _log.Db("IGDB enrich: no ROMs to process.", null, "IGDB", outputToConsole: false);
+    await _log.Db("IGDB enrich: no ROMs to process.", null, "IGDB", outputToConsole: true);
     return;
   }
 
@@ -2917,7 +2917,7 @@ limit 10;
 
         if (id is null || string.IsNullOrWhiteSpace(fileName))
         {
-          await _log.Db("FileNameCleanup: no candidate found.", null, "SYSTEM", outputToConsole: false);
+          await _log.Db("FileNameCleanup: no candidate found.", null, "SYSTEM", outputToConsole: true);
           return;
         }
 
@@ -2929,7 +2929,7 @@ limit 10;
 
         if (string.IsNullOrWhiteSpace(human))
         {
-          await _log.Db($"FileNameCleanup: empty result after cleaning id={id}, name='{fileName}'. Skipping.", id, "SYSTEM", true);
+          await _log.Db($"FileNameCleanup: empty result after cleaning id={id}, name='{fileName}'. Skipping.", id, "SYSTEM", outputToConsole: true);
           return;
         }
 
@@ -2937,7 +2937,7 @@ limit 10;
         var originalStem = Path.GetFileNameWithoutExtension(fileName) ?? "";
         if (human.Equals(originalStem, StringComparison.Ordinal))
         {
-          await _log.Db($"FileNameCleanup: cleaned stem equals original for id={id}. Skipping.", id, "SYSTEM", false);
+          await _log.Db($"FileNameCleanup: cleaned stem equals original for id={id}. Skipping.", id, "SYSTEM", true);
           return;
         }
 

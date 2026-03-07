@@ -47,6 +47,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() commentId?: number;
   @Input() displayTotal = true; 
   @Input() showSpaceForNotifications = false;
+  @Input() showRomMetadata = false;
   @Input() showHiddenFiles: boolean = false; // default: do not show hidden files unless user toggles or user setting enables it
   @Input() showTopics: boolean = true;
   @Input() captureNotifications: boolean = false;
@@ -402,6 +403,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this._savedDirectoryBeforeFileIdSearch = this.currentDirectory;
       }
 
+      const includeRomMetadata = this.shouldShowRomMetadata();
+
       await this.fileService.getDirectory(
         this.currentDirectory,
         this.filter.visibility,
@@ -414,7 +417,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         fileTypes,
         this.filter.hidden == 'all' ? true : false,
         this.sortOption,
-        this.showFavouritesOnly
+        this.showFavouritesOnly,
+        includeRomMetadata 
       ).then(res => {
         if (append && this.directory && this.directory.data) {
           this.directory.data = this.directory.data.concat(
@@ -427,6 +431,23 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           );
         } else {
           this.directory = res;
+
+if (this.shouldShowRomMetadata() && this.directory?.data?.length) {
+  for (const f of this.directory.data) {
+    if (!f || f.isFolder) continue;
+    if (!f.romMetadata) continue;
+
+    // Normalize json string fields into arrays on the metadata object (optional convenience)
+    const md = f.romMetadata;
+    (md as any).screenshots = this.safeJsonArray(md.screenshotsJson);
+    (md as any).artworks = this.safeJsonArray(md.artworksJson);
+    (md as any).videos = this.safeJsonArray(md.videosJson);
+
+    // Derived thumbnails for list view
+    f.romInlineThumbs = this.pickInlineThumbs(f);
+  }
+}
+
 
           // If searching by fileId, do not change the user's current directory —
           // show the matched file(s) while keeping the UI directory context stable.
@@ -1387,9 +1408,21 @@ private async loadFileByIdOnce(id: number) {
     };
   }
 
-  isRomsDirectory(): boolean {
-    return (this.currentDirectory ?? '').toLowerCase() === 'roms/';
-  }
+ 
+isRomsDirectory(): boolean {
+  return (this.currentDirectory ?? '').toLowerCase().endsWith('roms/');
+}
+
+hideBrokenImg(e: Event): void {
+  const img = e?.target as HTMLImageElement | null;
+  if (img) img.style.display = 'none';
+}
+
+unixSecondsToDate(sec?: number | null): Date | null {
+  if (!sec) return null;
+  return new Date(sec * 1000);
+}
+
 
   getSupportedRomSystems(): string[] {
     const candidates = Object.keys(this.romSystemExtensions);
@@ -1661,6 +1694,41 @@ private async loadFileByIdOnce(id: number) {
     }; 
     return map[ext] ?? '';
   }
+  
+shouldShowRomMetadata(): boolean {
+  return this.showRomMetadata && this.isRomsDirectory();
+} 
+
+public safeJsonArray(value: any): string[] {
+  try {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.filter(x => typeof x === 'string');
+    if (typeof value === 'string') {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.filter(x => typeof x === 'string') : [];
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+private pickInlineThumbs(file: FileEntry): string[] {
+  const md = file.romMetadata;
+  if (!md) return [];
+
+  const thumbs: string[] = [];
+  if (md.coverUrl) thumbs.push(md.coverUrl);
+
+  const ss = this.safeJsonArray(md.screenshotsJson);
+  const aw = this.safeJsonArray(md.artworksJson);
+
+  if (thumbs.length < 2 && ss.length) thumbs.push(ss[0]);
+  if (thumbs.length < 2 && aw.length) thumbs.push(aw[0]);
+
+  return thumbs.slice(0, 2);
+}
+
 }
 
 type SlotNumber = 0 | 1 | 2 | 3 | 4 | 5;

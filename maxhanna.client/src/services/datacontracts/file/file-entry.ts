@@ -2,6 +2,9 @@ import { Reaction } from "../reactions/reaction";
 import { Topic } from "../topics/topic";
 import { User } from "../user/user";
 import { FileComment } from "./file-comment";
+
+import { RomMetadata } from "./rom-metadata";
+
 export class FileEntry {
   id: number;
   fileName?: string;
@@ -30,6 +33,13 @@ export class FileEntry {
   // Indicates the upload attempt resulted in an existing server-side file match
   isDuplicate?: boolean;
   isHidden?: boolean;
+
+  // ---- ROM Metadata (optional, from rom_igdb_enrichment join) ---- 
+  romMetadata?: RomMetadata;
+
+  // UI-only derived field
+  romInlineThumbs?: string[]; 
+
 
   constructor(id: number, fileName?: string, directory?: string, visibility?: string, sharedWith?: string,
     user?: User, isFolder?: boolean, comments?: Array<FileComment>, date?: Date,
