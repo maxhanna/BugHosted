@@ -45,7 +45,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() canDragMove: boolean = true;
   @Input() fileId?: number | undefined = undefined;
   @Input() commentId?: number;
-  @Input() displayTotal = true; 
+  @Input() displayTotal = true;
   @Input() showSpaceForNotifications = false;
   @Input() showRomMetadata = false;
   @Input() showHiddenFiles: boolean = false; // default: do not show hidden files unless user toggles or user setting enables it
@@ -131,13 +131,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
 
   constructor(
-    private fileService: FileService, 
-    private userService: UserService, 
-    private todoService: TodoService, 
+    private fileService: FileService,
+    private userService: UserService,
+    private todoService: TodoService,
     private romService: RomService,
     private ratingsService: RatingsService,
-    private route: ActivatedRoute, 
-    private changeDetectorRef: ChangeDetectorRef, 
+    private route: ActivatedRoute,
+    private changeDetectorRef: ChangeDetectorRef,
     private sanitizer: DomSanitizer) {
     super();
     this.previousComponent = "Files";
@@ -165,7 +165,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (!visibility) {
       console.error('Visibility select element is not defined');
       return;
-    } 
+    }
     if (visibility) {
       if (!file && this.visibilityDropdownFile) {
         this.visibilityDropdownFile.visibility = visibility;
@@ -176,7 +176,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         file.visibility = visibility;
         this.setFileVisibility(file, visibility);
       }
-    } 
+    }
   }
 
   openVisibilityDropdown(file: FileEntry) {
@@ -192,7 +192,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   setFileVisibility(file?: FileEntry, visibility?: string) {
-    const parent = this.inputtedParentRef ?? this.parentRef; 
+    const parent = this.inputtedParentRef ?? this.parentRef;
     const targetFile = file ?? this.visibilityDropdownFile;
     const targetVisibility = visibility ?? (!file ? this.visibilityDropdownFile?.visibility : undefined);
     if (!targetFile || !targetVisibility) return;
@@ -240,7 +240,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.replacePageTitleAndDescription();
       return;
     }
- 
+
     const routeFileIdParam = this.route.snapshot.paramMap.get('fileId');
     const routeFileId = routeFileIdParam ? +routeFileIdParam : undefined;
     if (routeFileId) {
@@ -298,14 +298,14 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     // Rom system filter
     if (this.activeRomSystems && this.activeRomSystems.length > 0) return true;
     // Sort option changed
-    if (this.sortOption && this.sortOption !== 'Latest') return true; 
+    if (this.sortOption && this.sortOption !== 'Latest') return true;
     return false;
   }
 
   // CSS classes for the top search button, exposed as a string for use with `[class]`
   get topSearchButtonClass(): string {
     const classes: string[] = ['searchButton'];
-    if ((this.activeRomSystems && this.activeRomSystems.length > 0) || this.hasActiveFilters()) { 
+    if ((this.activeRomSystems && this.activeRomSystems.length > 0) || this.hasActiveFilters()) {
       classes.push('glowing');
     }
     return classes.join(' ');
@@ -421,7 +421,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.filter.hidden == 'all' ? true : false,
         this.sortOption,
         this.showFavouritesOnly,
-        includeRomMetadata 
+        includeRomMetadata
       ).then(res => {
         if (append && this.directory && this.directory.data) {
           this.directory.data = this.directory.data.concat(
@@ -435,21 +435,23 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         } else {
           this.directory = res;
 
-if (this.shouldShowRomMetadata() && this.directory?.data?.length) {
-  for (const f of this.directory.data) {
-    if (!f || f.isFolder) continue;
-    if (!f.romMetadata) continue;
+          if (this.shouldShowRomMetadata() && this.directory?.data?.length) {
+            for (const f of this.directory.data) {
+              if (!f || f.isFolder) continue;
+              if (!f.romMetadata) continue;
 
-    // Normalize json string fields into arrays on the metadata object (optional convenience)
-    const md = f.romMetadata;
-    (md as any).screenshots = this.safeJsonArray(md.screenshotsJson);
-    (md as any).artworks = this.safeJsonArray(md.artworksJson);
-    (md as any).videos = this.safeJsonArray(md.videosJson);
+              // Normalize json string fields into arrays on the metadata object (optional convenience)
+              const md = f.romMetadata;
+              (md as any).screenshots = this.safeJsonArray(md.screenshotsJson);
+              (md as any).artworks = this.safeJsonArray(md.artworksJson);
+              (md as any).videos = this.safeJsonArray(md.videosJson);
+              (md as any).platforms = this.safeJsonArray((md as any).platformsJson ?? md.platformsJson);
+              (md as any).genres = this.safeJsonArray((md as any).genresJson ?? md.genresJson);
 
-    // Derived thumbnails for list view
-    f.romInlineThumbs = this.pickInlineThumbs(f);
-  }
-}
+              // Derived thumbnails for list view
+              f.romInlineThumbs = this.pickInlineThumbs(f);
+            }
+          }
 
 
           // If searching by fileId, do not change the user's current directory —
@@ -533,11 +535,11 @@ if (this.shouldShowRomMetadata() && this.directory?.data?.length) {
     }, 1000);
   }
 
-private async loadFileByIdOnce(id: number) {
+  private async loadFileByIdOnce(id: number) {
     this.fileId = id;
     this.fileIdFilter = id;
     await this.getDirectory(undefined, id);
-}
+  }
 
   getFileExtension(filename: string) {
     return this.fileService.getFileExtension(filename);
@@ -976,7 +978,7 @@ private async loadFileByIdOnce(id: number) {
           }
         }
         // Ensure Angular picks up the changes
-        try { this.changeDetectorRef.detectChanges(); } catch {}
+        try { this.changeDetectorRef.detectChanges(); } catch { }
       }
     } catch (ex) {
       console.error(ex);
@@ -992,17 +994,17 @@ private async loadFileByIdOnce(id: number) {
     if (this.isOptionsPanelOpen) {
       this.closeOptionsPanel();
     }
-    const parent = this.inputtedParentRef ?? this.parentRef; 
+    const parent = this.inputtedParentRef ?? this.parentRef;
     try {
       const list: any[] = await this.fileService.getFavouritedBy(file.id);
       this.fileFavouriters = list;
       setTimeout(() => {
-        this.isShowingFileFavouriters = true; 
+        this.isShowingFileFavouriters = true;
         parent?.showOverlay();
         this.changeDetectorRef.detectChanges();
       }, 100);
     } catch (ex) {
-      console.error(ex); 
+      console.error(ex);
       this.notifyUser('Failed to fetch favourites');
     }
   }
@@ -1329,7 +1331,7 @@ private async loadFileByIdOnce(id: number) {
     if (this.isOptionsPanelOpen) {
       this.closeOptionsPanel();
     }
-    const parent = this.inputtedParentRef ?? this.parentRef; 
+    const parent = this.inputtedParentRef ?? this.parentRef;
     this.fileService.getFileViewers(fileId).then(res => {
       this.fileViewers = res;
       setTimeout(() => {
@@ -1411,20 +1413,20 @@ private async loadFileByIdOnce(id: number) {
     };
   }
 
- 
-isRomsDirectory(): boolean {
-  return (this.currentDirectory ?? '').toLowerCase().endsWith('roms/');
-}
 
-hideBrokenImg(e: Event): void {
-  const img = e?.target as HTMLImageElement | null;
-  if (img) img.style.display = 'none';
-}
+  isRomsDirectory(): boolean {
+    return (this.currentDirectory ?? '').toLowerCase().endsWith('roms/');
+  }
 
-unixSecondsToDate(sec?: number | null): Date | null {
-  if (!sec) return null;
-  return new Date(sec * 1000);
-}
+  hideBrokenImg(e: Event): void {
+    const img = e?.target as HTMLImageElement | null;
+    if (img) img.style.display = 'none';
+  }
+
+  unixSecondsToDate(sec?: number | null): Date | null {
+    if (!sec) return null;
+    return new Date(sec * 1000);
+  }
 
 
   getSupportedRomSystems(): string[] {
@@ -1529,23 +1531,23 @@ unixSecondsToDate(sec?: number | null): Date | null {
     } catch { }
     this.fileTypeFilter = '';
     try { this.onFiletypeFilterChange(); } catch { }
-  } 
-  
+  }
+
   getVisibilityIcon(vis?: string): string {
     switch ((vis || '').toLowerCase()) {
-      case 'all':     return '🌍';
-      case 'public':  return '👥';
+      case 'all': return '🌍';
+      case 'public': return '👥';
       case 'private': return '🔒';
-      default:        return '❓';
+      default: return '❓';
     }
   }
-  
+
   getOwnershipIcon(ownership?: string): string {
     switch ((ownership || '').toLowerCase()) {
-      case 'all':     return '🌍';
-      case 'others':  return '🧑‍🤝‍🧑';
-      case 'own':     return '👤';
-      default:        return '❓';
+      case 'all': return '🌍';
+      case 'others': return '🧑‍🤝‍🧑';
+      case 'own': return '👤';
+      default: return '❓';
     }
   }
 
@@ -1577,7 +1579,7 @@ unixSecondsToDate(sec?: number | null): Date | null {
       case 'genesis': return 'SEGA';
       default: return key.toUpperCase();
     }
-  } 
+  }
   getSystemIcon(key: string): SafeHtml | string {
     if (!key) return '';
     // Use the first extension for the given system (e.g. 'n64' -> 'n64')
@@ -1694,43 +1696,57 @@ unixSecondsToDate(sec?: number | null): Date | null {
       'zip': '🕹️',
       'wad': '🕹️',
       'ccd': '🕹️'
-    }; 
+    };
     return map[ext] ?? '';
   }
-  
-shouldShowRomMetadata(): boolean {
-  return this.showRomMetadata && this.isRomsDirectory();
-} 
 
-public safeJsonArray(value: any): string[] {
-  try {
-    if (!value) return [];
-    if (Array.isArray(value)) return value.filter(x => typeof x === 'string');
-    if (typeof value === 'string') {
-      const parsed = JSON.parse(value);
-      return Array.isArray(parsed) ? parsed.filter(x => typeof x === 'string') : [];
-    }
-    return [];
-  } catch {
-    return [];
+  shouldShowRomMetadata(): boolean {
+    return this.showRomMetadata && this.isRomsDirectory();
   }
-}
 
-private pickInlineThumbs(file: FileEntry): string[] {
-  const md = file.romMetadata;
-  if (!md) return [];
+  public safeJsonArray(value: any): string[] {
+    try {
+      if (!value) return [];
+      if (Array.isArray(value)) return value.filter(x => typeof x === 'string');
+      if (typeof value === 'string') {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed.filter(x => typeof x === 'string') : [];
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  }
 
-  const thumbs: string[] = [];
-  if (md.coverUrl) thumbs.push(md.coverUrl);
 
-  const ss = this.safeJsonArray(md.screenshotsJson);
-  const aw = this.safeJsonArray(md.artworksJson);
+  async incrementResetVoteForOptionsFile() {
+    if (!this.optionsFile || !this.optionsFile.id) return;
+    try {
+      const res: any = await this.romService.incrementResetVote(this.optionsFile.id);
+      if (res && typeof res.resetVotes === 'number') {
+        if (!this.optionsFile.romMetadata) this.optionsFile.romMetadata = {} as any;
+        (this.optionsFile.romMetadata as any).resetVotes = res.resetVotes;
+        this.changeDetectorRef.markForCheck();
+      }
+    } catch (e) {
+      console.error('incrementResetVote error', e);
+    }
+  }
+  private pickInlineThumbs(file: FileEntry): string[] {
+    const md = file.romMetadata;
+    if (!md) return [];
 
-  if (thumbs.length < 2 && ss.length) thumbs.push(ss[0]);
-  if (thumbs.length < 2 && aw.length) thumbs.push(aw[0]);
+    const thumbs: string[] = [];
+    if (md.coverUrl) thumbs.push(md.coverUrl);
 
-  return thumbs.slice(0, 2);
-}
+    const ss = this.safeJsonArray(md.screenshotsJson);
+    const aw = this.safeJsonArray(md.artworksJson);
+
+    if (thumbs.length < 2 && ss.length) thumbs.push(ss[0]);
+    if (thumbs.length < 2 && aw.length) thumbs.push(aw[0]);
+
+    return thumbs.slice(0, 2);
+  }
 
   // If a video link is clicked in the options panel, attempt to play via parentRef for YouTube links
   onVideoLinkClick(url: string, ev: Event) {

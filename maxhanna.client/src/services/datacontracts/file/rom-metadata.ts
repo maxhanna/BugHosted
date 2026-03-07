@@ -16,4 +16,11 @@ export class RomMetadata {
   screenshotsJson?: string | string[];
   artworksJson?: string | string[];
   videosJson?: string | string[];
+  // parsed convenience arrays (populated client-side)
+  platformsJson?: string | string[];
+  genresJson?: string | string[];
+  platforms?: string[];
+  genres?: string[];
+  // how many users requested a reset for this enrichment
+  resetVotes?: number;
 }

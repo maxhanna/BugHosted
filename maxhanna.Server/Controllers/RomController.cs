@@ -44,6 +44,46 @@ namespace maxhanna.Server.Controllers
       _config = config;
     }
 
+    [HttpPost("/Rom/IncrementResetVote", Name = "Rom_IncrementResetVote")]
+    public async Task<IActionResult> IncrementResetVote([FromBody] int fileId)
+    {
+      if (fileId <= 0) return BadRequest("Invalid fileId");
+      try
+      {
+        using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+        await using var tx = await conn.BeginTransactionAsync();
+
+        const string upsertSql = @"
+INSERT INTO maxhanna.rom_igdb_enrichment (file_id, reset_votes, fetched_at)
+VALUES (@file_id, 1, UTC_TIMESTAMP())
+ON DUPLICATE KEY UPDATE reset_votes = COALESCE(reset_votes, 0) + 1, fetched_at = VALUES(fetched_at);
+";
+
+        using (var cmd = new MySqlCommand(upsertSql, conn, tx))
+        {
+          cmd.Parameters.AddWithValue("@file_id", fileId);
+          await cmd.ExecuteNonQueryAsync();
+        }
+
+        int resetVotes = 0;
+        using (var getCmd = new MySqlCommand("SELECT reset_votes FROM maxhanna.rom_igdb_enrichment WHERE file_id = @file_id", conn, tx))
+        {
+          getCmd.Parameters.AddWithValue("@file_id", fileId);
+          var o = await getCmd.ExecuteScalarAsync();
+          if (o != null && o != DBNull.Value) resetVotes = Convert.ToInt32(o);
+        }
+
+        await tx.CommitAsync();
+        return Ok(new { ok = true, fileId, resetVotes });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("IncrementResetVote error: " + ex.Message, null, "ROM", true);
+        return StatusCode(500, "Internal error");
+      }
+    }
+
     [HttpPost("/Rom/Uploadrom", Name = "Uploadrom")]
     public async Task<IActionResult> UploadRom()
     {
@@ -77,10 +117,10 @@ namespace maxhanna.Server.Controllers
             continue; // Skip empty files
           }
 
-          var ext = Path.GetExtension(file.FileName)?.ToLowerInvariant() ?? string.Empty; 
+          var ext = Path.GetExtension(file.FileName)?.ToLowerInvariant() ?? string.Empty;
 
           // For user-specific save files, keep your naming convention: <basename>_<userId><ext>
-          string newFilename = ""; 
+          string newFilename = "";
 
           var filePath = string.IsNullOrEmpty(newFilename) ? file.FileName : newFilename;
           filePath = Path.Combine(_baseTarget, filePath).Replace("\\", "/");
@@ -100,12 +140,12 @@ namespace maxhanna.Server.Controllers
             await connection.OpenAsync();
 
             var fileExists = false;
-            
+
             var checkCommand = new MySqlCommand("SELECT COUNT(*) FROM maxhanna.file_uploads WHERE file_name = @fileName AND folder_path = @folderPath", connection);
             checkCommand.Parameters.AddWithValue("@fileName", file.FileName);
             checkCommand.Parameters.AddWithValue("@folderPath", _baseTarget);
             fileExists = Convert.ToInt32(await checkCommand.ExecuteScalarAsync()) > 0;
-             
+
             if (!fileExists)
             {
               // Determine file type based on extension
@@ -126,8 +166,8 @@ namespace maxhanna.Server.Controllers
               await command.ExecuteNonQueryAsync();
               _ = _log.Db($"Uploaded rom file: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}, Type: {fileType}", userId, "ROM", true);
 
-            } 
-          } 
+            }
+          }
         }
 
         return Ok("ROM uploaded successfully.");
@@ -748,11 +788,11 @@ ON DUPLICATE KEY UPDATE
           await command.ExecuteNonQueryAsync();
         }
       }
-    } 
- 
+    }
+
     private async Task RecordRomSelectionAsync(int userId, string romFileName)
     {
-      if (string.IsNullOrWhiteSpace(romFileName) || userId == 0) return; 
+      if (string.IsNullOrWhiteSpace(romFileName) || userId == 0) return;
 
       try
       {
@@ -850,10 +890,10 @@ ON DUPLICATE KEY UPDATE
             last_updated = CURRENT_TIMESTAMP;";
 
         using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 180 };
-        cmd.Parameters.Add("@UserId",    MySqlDbType.Int32).Value    = userId;
-        cmd.Parameters.Add("@RomName",   MySqlDbType.VarChar).Value  = romName;
+        cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
+        cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = romName;
         cmd.Parameters.Add("@StateData", MySqlDbType.LongBlob).Value = bytes;
-        cmd.Parameters.Add("@FileSize",  MySqlDbType.Int32).Value    = bytes.Length;
+        cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value = bytes.Length;
 
         await cmd.PrepareAsync(CancellationToken.None);
         await cmd.ExecuteNonQueryAsync(CancellationToken.None);

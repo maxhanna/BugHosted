@@ -51,7 +51,7 @@ export class RomService {
       });
 
       if (!response.ok) return null;
- 
+
       const totalSize =
         Number(response.headers.get('X-File-Size') || '0') ||
         Number(response.headers.get('Content-Length') || '0');
@@ -149,7 +149,21 @@ export class RomService {
       return await response.json(); // { count }
     } catch { return null; }
   }
- 
+
+  async incrementResetVote(fileId: number): Promise<{ ok: boolean; resetVotes?: number } | null> {
+    try {
+      const res = await fetch('/rom/incrementresetvote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fileId)
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
   // Mapping persistence APIs
   async listMappings(userId: number) {
     try {
@@ -352,7 +366,7 @@ export class RomService {
     // If the filename contains common PlayStation cues (CUE for bin/cue pair)
     if (name.endsWith('.cue') || name.includes('.cue') || name.includes('cue')) {
       return 'ps1';
-    } 
+    }
     // If the filename contains common PlayStation cues (CUE for bin/cue pair)
     if (name.endsWith('.sfc') || name.includes('.sfc') || name.includes('sfc')) {
       return 'snes';
@@ -374,7 +388,7 @@ export class RomService {
     const copy = Uint8Array.from(bytes);
     return copy.buffer; // ArrayBuffer
   }
- 
+
   async saveEmulatorJSState(
     romName: string,
     userId: number,
@@ -382,8 +396,8 @@ export class RomService {
     onProgress?: (loaded: number, total: number) => void
   ): Promise<SaveUploadResponse> {
 
-    const tight = new Uint8Array(this.toTightArrayBuffer(stateData)); 
-    const form = new FormData(); 
+    const tight = new Uint8Array(this.toTightArrayBuffer(stateData));
+    const form = new FormData();
     const ab: ArrayBuffer = this.toArrayBuffer(tight);
 
     form.append('file', new File([ab], 'savestate.bin', {
@@ -415,7 +429,7 @@ export class RomService {
       });
       const status = res.status;
       const ct = (res.headers.get('content-type') || '').toLowerCase();
- 
+
       // Read body exactly once based on content-type
       let body: any = null;
       try {
@@ -434,7 +448,7 @@ export class RomService {
       }
 
       console.log("returning body:", body, res);
-      
+
       if (!res.ok) {
         const errorBody = typeof body === 'string' ? body : JSON.stringify(body ?? { error: 'Upload failed' });
         return { ok: false, status, errorText: errorBody };
@@ -499,11 +513,11 @@ export class RomService {
       });
 
       if (!response.ok) return null;
- 
+
 
       const blob = await response.blob();
       let u8: Uint8Array = new Uint8Array(await blob.arrayBuffer());
-  
+
       // Convert to tight ArrayBuffer only at the end
       return new Blob([this.toArrayBuffer(u8)], { type: 'application/octet-stream' });
     } catch {

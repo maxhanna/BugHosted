@@ -178,9 +178,17 @@
   </div>
 
 
-  <div *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.igdbName && !optionsFile.isFolder" class="romMetaPanel">
+  <div *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.igdbName && !optionsFile.isFolder"
+    class="romMetaPanel">
 
-    <div class="romMetaHeader">🎮 <strong>{{ optionsFile.romMetadata?.igdbName }}</strong> Metadata</div>
+    <div class="romMetaHeader">🎮 <strong>{{ optionsFile.romMetadata?.igdbName }}</strong> Metadata
+      <span style="float:right; font-size:0.9em;">
+        <button title="Request metadata reset" (click)="incrementResetVoteForOptionsFile()" style="margin-left:8px">↻
+          Reset</button>
+        <span *ngIf="optionsFile.romMetadata?.resetVotes !== undefined" style="margin-left:8px">Votes: {{
+          optionsFile.romMetadata?.resetVotes }}</span>
+      </span>
+    </div>
 
     <div *ngIf="optionsFile.romMetadata?.totalRatingCount" class="romMetaLine">
       <strong>Rating:</strong>
@@ -188,15 +196,6 @@
       ({{ optionsFile.romMetadata?.totalRatingCount }})
     </div>
 
-    <div *ngIf="optionsFile.romMetadata?.summary" class="romMetaSummary">
-      {{ optionsFile.romMetadata?.summary }}
-    </div>
-
-    <div *ngIf="optionsFile.romMetadata?.coverUrl" class="romMetaSection">
-      <div class="romMetaSectionTitle">Cover</div>
-      <img class="romMetaCover" [src]="optionsFile.romMetadata?.coverUrl" loading="lazy" (error)="hideBrokenImg($event)"
-        (click)="openImagePreview(optionsFile.romMetadata?.coverUrl, $event)" />
-    </div>
 
     <div class="romMetaSection"
       *ngIf="safeJsonArray(optionsFile.romMetadata?.screenshotsJson).length || safeJsonArray(optionsFile.romMetadata?.artworksJson).length">
@@ -210,6 +209,12 @@
       </div>
     </div>
 
+    <div *ngIf="optionsFile.romMetadata?.coverUrl" class="romMetaSection">
+      <div class="romMetaSectionTitle">Cover</div>
+      <img class="romMetaCover" [src]="optionsFile.romMetadata?.coverUrl" loading="lazy" (error)="hideBrokenImg($event)"
+        (click)="openImagePreview(optionsFile.romMetadata?.coverUrl, $event)" />
+    </div>
+
     <div *ngIf="safeJsonArray(optionsFile.romMetadata?.videosJson).length" class="romMetaSection">
       <div class="romMetaSectionTitle">Videos</div>
       <div class="romMetaLinks">
@@ -218,6 +223,21 @@
           ▶️ {{ v }}
         </a>
       </div>
+    </div>
+
+    <div *ngIf="optionsFile.romMetadata?.summary" class="romMetaSummary">
+      {{ optionsFile.romMetadata?.summary }}
+    </div>
+
+    <div *ngIf="(optionsFile.romMetadata?.platforms?.length) || (optionsFile.romMetadata?.genres?.length)"
+      class="romMetaLine">
+      <strong>Platforms:</strong>
+      <span *ngFor="let p of optionsFile.romMetadata?.platforms; let i = index">{{p}}{{i <
+          (optionsFile.romMetadata?.platforms?.length ?? 0) - 1 ? ', ' : '' }}</span>
+          <br *ngIf="optionsFile.romMetadata?.genres?.length" />
+          <strong *ngIf="optionsFile.romMetadata?.genres?.length">Genres:</strong>
+          <span *ngFor="let g of optionsFile.romMetadata?.genres; let i = index">{{g}}{{i <
+              (optionsFile.romMetadata?.genres?.length ?? 0) - 1 ? ', ' : '' }}</span>
     </div>
 
     <div *ngIf="optionsFile?.romMetadata?.firstReleaseDateUnix as d" class="romMetaLine">
