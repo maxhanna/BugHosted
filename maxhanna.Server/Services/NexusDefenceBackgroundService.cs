@@ -19,7 +19,7 @@ namespace maxhanna.Server.Services
 		private Timer? _checkForNewDefencesTimer;
 		private Timer _processDefenceQueueTimer;
 
-		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(2);
+		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
 		private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);
 
 		public NexusDefenceBackgroundService(IConfiguration config, Log log)

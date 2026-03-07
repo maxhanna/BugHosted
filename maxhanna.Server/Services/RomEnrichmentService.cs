@@ -41,6 +41,10 @@ namespace maxhanna.Server.Services
       {
         await EnrichRomsFromIgdb(ct);
       }
+      catch(Exception ex)
+      {
+        await _log.Db($"IGDB enrichment failed: {ex.Message}", null, "IGDB", outputToConsole: true);
+      }
       finally
       {
         _runLock.Release();
@@ -55,7 +59,7 @@ namespace maxhanna.Server.Services
       // IGDB: 4 req/sec and 8 open requests max. Keep it sequential with a small delay.
       const int batchSize = 25;
       const int perRequestDelayMs = 300;
-
+      _ = _log.Db("Starting IGDB enrichment pass...", null, "IGDB", outputToConsole: true);
       // ---- local helpers ----
 
       static string CleanTitle(string fileName)
@@ -621,6 +625,7 @@ LIMIT @lim;";
 
           var tags = ExtractTags(romFileName);
           var titleGuess = CleanTitle(romFileName);
+          _ = _log.Db($"Cleaning title from filename: {romFileName} to {titleGuess}", null, "IGDB", outputToConsole: true);
 
           // Open a short-lived connection for each file's upsert so we don't hold a
           // connection across the IGDB HTTP round-trips.

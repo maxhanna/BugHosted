@@ -553,6 +553,7 @@
 .romMetaHeader {
   font-weight: 700;
   margin-bottom: 8px;
+  text-align: center;
 }
 
 .romMetaLine {
@@ -589,7 +590,6 @@
 
 .romMetaImg {
   width: 100%;
-  aspect-ratio: 16 / 9;
   object-fit: cover;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -610,7 +610,6 @@
   flex-direction: column;
   gap: 6px;
   max-height: 160px;
-  overflow: auto;
 }
   
 /* Limit rom metadata height so options stats remain visible */

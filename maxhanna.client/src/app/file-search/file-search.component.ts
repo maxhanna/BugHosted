@@ -113,6 +113,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   fileIdFilter?: number | undefined = undefined;
   activeRomSystems: string[] = [];
   loadingSearch = false;
+  showMetadataInOptionsPanel = true;
   private _savedDirectoryBeforeFileIdSearch: string | null = null;
   private windowScrollHandler: Function;
   private containerScrollHandler: Function;
@@ -1605,8 +1606,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       console.error(ex);
       this.notifyUser('Failed to submit rating.');
     }
-  }
-
+  } 
+  
   getSystemLabel(key: string): string {
     switch (key) {
       case 'n64': return 'N64';
