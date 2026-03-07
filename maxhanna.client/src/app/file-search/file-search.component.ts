@@ -143,8 +143,72 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.previousComponent = "Files";
     this.windowScrollHandler = this.debounce(this.onWindowScroll.bind(this), 200);
     this.containerScrollHandler = this.debounce(this.onContainerScroll.bind(this), 200);
+  }
+  async ngOnInit() {
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
+    }
+    const user = this.parentRef?.user;
+    if (user?.id) {
+      this.userService.getUserSettings(user.id).then(res => {
+        if (res) {
+          this.isDisplayingNSFW = res.nsfwEnabled ?? false;
+          if (res.showHiddenFiles !== undefined) {
+            this.showHiddenFiles = res.showHiddenFiles;
+            this.filter.hidden = this.showHiddenFiles ? 'all' : 'unhidden';
+          }
+        }
+      });
+    }
+
+    this.allowedFileTypes = this.allowedFileTypes.map(type => type.toLowerCase());
+    if (this.fileId && this.fileId != null) {
+      this.fileIdFilter = this.fileId;
+      console.log('[FileSearch] ngOnInit: using @Input fileId', this.fileId);
+      await this.loadFileByIdOnce(this.fileId);
+      this.replacePageTitleAndDescription();
+      return;
+    }
+
+    const routeFileIdParam = this.route.snapshot.paramMap.get('fileId');
+    const routeFileId = routeFileIdParam ? +routeFileIdParam : undefined;
+    if (routeFileId) {
+      this.fileId = routeFileId;
+      this.fileIdFilter = this.fileId;
+      console.log('[FileSearch] ngOnInit: using route snapshot fileId', this.fileId);
+      await this.loadFileByIdOnce(this.fileId);
+      this.replacePageTitleAndDescription();
+      return;
+    }
+
+    this.route.paramMap.subscribe(async (params: any) => {
+      const paramFileId = +params.get('fileId');
+      //console.log('[FileSearch] route.paramMap event', paramFileId);
+      if (paramFileId && paramFileId != null) {
+        this.fileId = paramFileId;
+        this.fileIdFilter = this.fileId;
+        console.log('[FileSearch] paramMap handler: invoking getDirectory for fileId', this.fileId);
+        await this.loadFileByIdOnce(this.fileId);
+        this.replacePageTitleAndDescription();
+        return;
+      }
+    });
+
+    // No route fileId -> load directory normally
+    await this.getDirectory();
+  }
+
+  ngAfterViewInit() {
+    // Attach window scroll listener
+    window.addEventListener('scroll', this.windowScrollHandler as EventListener);
+    // console.log('Window scroll event listener registered');
+
+    // Attach container scroll listener if fileContainer exists
+    if (this.fileContainer?.nativeElement) {
+      this.fileContainer.nativeElement.addEventListener('scroll', this.containerScrollHandler as EventListener);
+      // console.log('fileContainer scroll event listener registered');
+    } else {
+      console.error('fileContainer is not defined');
     }
   }
 
@@ -215,71 +279,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         .map(s => Number(s));
     } catch (e) {
       return [];
-    }
-  }
-
-  async ngOnInit() {
-    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
-    if (user?.id) {
-      this.userService.getUserSettings(user.id).then(res => {
-        if (res) {
-          this.isDisplayingNSFW = res.nsfwEnabled ?? false;
-          if (res.showHiddenFiles !== undefined) {
-            this.showHiddenFiles = res.showHiddenFiles;
-            this.filter.hidden = this.showHiddenFiles ? 'all' : 'unhidden';
-          }
-        }
-      });
-    }
-
-    this.allowedFileTypes = this.allowedFileTypes.map(type => type.toLowerCase());
-    if (this.fileId && this.fileId != null) {
-      this.fileIdFilter = this.fileId;
-      console.log('[FileSearch] ngOnInit: using @Input fileId', this.fileId);
-      await this.loadFileByIdOnce(this.fileId);
-      this.replacePageTitleAndDescription();
-      return;
-    }
-
-    const routeFileIdParam = this.route.snapshot.paramMap.get('fileId');
-    const routeFileId = routeFileIdParam ? +routeFileIdParam : undefined;
-    if (routeFileId) {
-      this.fileId = routeFileId;
-      this.fileIdFilter = this.fileId;
-      console.log('[FileSearch] ngOnInit: using route snapshot fileId', this.fileId);
-      await this.loadFileByIdOnce(this.fileId);
-      this.replacePageTitleAndDescription();
-      return;
-    }
-
-    this.route.paramMap.subscribe(async (params: any) => {
-      const paramFileId = +params.get('fileId');
-      //console.log('[FileSearch] route.paramMap event', paramFileId);
-      if (paramFileId && paramFileId != null) {
-        this.fileId = paramFileId;
-        this.fileIdFilter = this.fileId;
-        console.log('[FileSearch] paramMap handler: invoking getDirectory for fileId', this.fileId);
-        await this.loadFileByIdOnce(this.fileId);
-        this.replacePageTitleAndDescription();
-        return;
-      }
-    });
-
-    // No route fileId -> load directory normally
-    await this.getDirectory();
-  }
-
-  ngAfterViewInit() {
-    // Attach window scroll listener
-    window.addEventListener('scroll', this.windowScrollHandler as EventListener);
-    // console.log('Window scroll event listener registered');
-
-    // Attach container scroll listener if fileContainer exists
-    if (this.fileContainer?.nativeElement) {
-      this.fileContainer.nativeElement.addEventListener('scroll', this.containerScrollHandler as EventListener);
-      // console.log('fileContainer scroll event listener registered');
-    } else {
-      console.error('fileContainer is not defined');
     }
   }
 
@@ -1716,7 +1715,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     } catch {
       return [];
     }
-  } 
+  }
 
   async incrementResetVoteForOptionsFile() {
     if (!this.optionsFile || !this.optionsFile.id) return;
