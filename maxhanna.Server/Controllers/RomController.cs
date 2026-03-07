@@ -31,10 +31,15 @@ namespace maxhanna.Server.Controllers
         await using var tx = await conn.BeginTransactionAsync();
 
         const string upsertSql = @"
-INSERT INTO maxhanna.rom_igdb_enrichment (file_id, reset_votes, fetched_at)
-VALUES (@file_id, 1, UTC_TIMESTAMP())
-ON DUPLICATE KEY UPDATE reset_votes = COALESCE(reset_votes, 0) + 1, fetched_at = VALUES(fetched_at);
-";
+      INSERT INTO maxhanna.rom_igdb_enrichment (file_id, rom_file_name, reset_votes, fetched_at)
+      VALUES (
+        @file_id,
+        (SELECT file_name FROM maxhanna.file_uploads WHERE id = @file_id LIMIT 1),
+        1,
+        UTC_TIMESTAMP()
+      )
+      ON DUPLICATE KEY UPDATE reset_votes = COALESCE(reset_votes, 0) + 1, fetched_at = VALUES(fetched_at);
+      ";
 
         using (var cmd = new MySqlCommand(upsertSql, conn, tx))
         {
