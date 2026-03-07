@@ -577,6 +577,7 @@
   border-radius: 10px;
   object-fit: cover;
   border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
 }
 
 .romMetaGrid {
@@ -610,40 +611,7 @@
   max-height: 160px;
   overflow: auto;
 }
-
-/* Options stats wrapper (used in the options popup). Ensure it is visible and scrolls when content is large */
-.optionsStatsWrapperDiv,
-.fileOptionsStatsWrapperDiv {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px;
-  box-sizing: border-box;
-  max-height: 55vh;
-  overflow: auto;
-  width: 100%;
-}
-
-.optionsStatsDiv {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
-  padding-bottom: 6px;
-}
-
-.optionsStatsHeader {
-  font-weight: 700;
-  min-width: 120px;
-  color: var(--secondary-font-color);
-}
-
-.optionsStatsDescription {
-  flex: 1 1 auto;
-  color: var(--main-font-color);
-  word-break: break-word;
-}
-
+  
 /* Limit rom metadata height so options stats remain visible */
 .romMetaPanel {
   max-height: 45vh;

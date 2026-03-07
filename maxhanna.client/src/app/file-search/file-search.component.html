@@ -198,8 +198,8 @@
 
     <div *ngIf="optionsFile.romMetadata?.coverUrl" class="romMetaSection">
       <div class="romMetaSectionTitle">Cover</div>
-      <img class="romMetaCover" [src]="optionsFile.romMetadata?.coverUrl" loading="lazy"
-        (error)="hideBrokenImg($event)" />
+      <img class="romMetaCover" [src]="optionsFile.romMetadata?.coverUrl" loading="lazy" (error)="hideBrokenImg($event)"
+        (click)="openImagePreview(optionsFile.romMetadata?.coverUrl, $event)" />
     </div>
 
     <div class="romMetaSection"
