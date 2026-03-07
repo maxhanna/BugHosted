@@ -157,16 +157,21 @@ namespace maxhanna.Server.Services
           { "GBC",  new[] { "game boy color", "game boy" } },
           { "GBA",  new[] { "game boy advance", "gba" } },
           { "NES",  new[] { "nintendo entertainment system", "nes", "famicom" } },
-          { "SNES", new[] { "super nintendo", "snes", "super famicom" } },
-          { "SFC",  new[] { "super nintendo", "snes", "super famicom" } },
+          { "SNES", new[] { "super nintendo", "super nintendo entertainment system", "snes", "super famicom" } },
+          { "SFC",  new[] { "super nintendo", "super nintendo entertainment system", "snes", "super famicom" } },
           { "N64",  new[] { "nintendo 64", "n64" } },
           { "NDS",  new[] { "nintendo ds", "nds" } },
           { "PSX",  new[] { "playstation", "ps1", "playstation 1" } },
           { "PS1",  new[] { "playstation", "ps1", "playstation 1" } },
           { "PSP",  new[] { "playstation portable", "psp" } },
           { "GEN",  new[] { "genesis", "mega drive" } },
-          { "MD",   new[] { "mega drive", "genesis" } },
-          { "MAME", new[] { "arcade", "mame" } }
+          { "MD",   new[] { "mega drive", "genesis", "sega mega drive/genesis" } },
+          { "MAME", new[] { "arcade", "mame" } },
+          { "SAT", new[] { "sega saturn", "saturn" } },
+          { "SATURN", new[] { "sega saturn", "saturn" } },
+          { "SS", new[] { "sega saturn", "saturn" } },
+          { "GG", new[] { "sega game gear", "game gear", "gamegear" } },
+          { "GAMEGEAR", new[] { "sega game gear", "game gear", "gamegear" } }
         };
 
         foreach (var t in tags)
@@ -203,6 +208,7 @@ namespace maxhanna.Server.Services
           { "bin",  new[] { "playstation", "ps1", "playstation 1", "playstation portable", "psp" } },
           { "cue",  new[] { "playstation", "ps1", "playstation 1", "playstation portable", "psp" } },
           { "iso",  new[] { "playstation", "ps1", "playstation 1", "playstation portable", "psp" } },
+          { "gg",   new[] { "sega game gear", "game gear" } },
         };
 
         return extMap.TryGetValue(fileExt, out var extKws) ? extKws : null;

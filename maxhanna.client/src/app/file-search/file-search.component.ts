@@ -1607,7 +1607,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.notifyUser('Failed to submit rating.');
     }
   } 
-  
+
   getSystemLabel(key: string): string {
     switch (key) {
       case 'n64': return 'N64';
@@ -1741,7 +1741,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   shouldShowRomMetadata(): boolean {
-    return this.showRomMetadata && this.isRomsDirectory();
+    return this.showRomMetadata 
+      && this.isRomsDirectory() 
+      && (this.directory?.data ?? []).length > 0;
   }
 
   public safeJsonArray(value: any): string[] {

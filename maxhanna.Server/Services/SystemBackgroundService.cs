@@ -165,7 +165,6 @@ namespace maxhanna.Server.Services
     private async Task RunOneMinuteTasks()
     {
       //await _aiController.AnalyzeAndRenameFile(); 
-      await _romEnrichmentService.RunAsync();
     }
     private async Task RunFiveMinuteTasks()
     {
