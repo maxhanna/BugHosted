@@ -2,7 +2,7 @@
   [style.paddingTop]="isFullScreen ? '0px' : null"
   [style.width]="romName ? '100vw' : null"
   [style.minWidth]="'300px'"
-  [style.opacity]="(!romName && !onMobile()) ? '95%' : ''">
+  [style.opacity]="(!romName && !onMobile() && !parentRef?.isShowingOverlay) ? '95%' : ''">
   <app-title-bar 
     *ngIf="!isFullScreen" 
     [title]="romName ? getRomName() : 'Emulator'" 
