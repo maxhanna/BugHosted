@@ -655,11 +655,17 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'pcsx_rearmed': // if you ever switch PSX cores
       case 'duckstation':
       case 'mednafen_psx':
-        return '/assets/emulatorjs/data/cores/bios/scph5501.bin';
+        return '/assets/emulatorjs/data/cores/scph5501.bin';
 
       // Nintendo DS firmware
       case 'melonds':
         return '/assets/emulatorjs/data/cores/bios/nds/firmware.bin';
+
+      case 'yabause':
+      case 'segaSaturn':
+      case 'sega_saturn':
+        // Point to the BIOS you added in step 1
+        return '/assets/emulatorjs/data/cores/saturn_bios.bin';
 
       // NeoGeo / arcade BIOS packs (only for specific ROM sets)
       case 'fbneo':
