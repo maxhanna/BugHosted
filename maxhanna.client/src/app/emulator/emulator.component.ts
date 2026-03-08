@@ -420,11 +420,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const renderClamp = this.getRenderClampForCore(core);
     (window as any).EJS_renderClamp = renderClamp;
     window.EJS_core = core;
-    this.system = this.systemFromCore(core);
+    this.system = this.systemFromCore(core); 
 
     const romDisplayName = this.fileService.getFileWithoutExtension(fileName); // e.g., "Ultimate MK3 (USA)"
     this.applyGamepadControlSettings(romDisplayName, core, this.system);
-
     // For PlayStation and N64 cores, increase autosave interval to 10 minutes
     // to reduce upload frequency for large save files (e.g. PS1 saves).
     const longIntervalCores = new Set([
@@ -469,7 +468,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         console.warn('[EJS] onLoadState fetch/apply failed', e);
       }
     };
-    this.applyEjsRunOptions();
+    this.applyEjsRunOptions(this.system, core);
     // If the build calls back with the instance, capture it early
 
     window.EJS_ready = (api: any) => {
@@ -605,27 +604,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       },
     ];
 
-    window.EJS_VirtualGamepadSettings = vpad.concat(speedButtons);
-
-    // For Sega Saturn cores, swap left/right joystick inputs so the virtual
-    // gamepad's left joystick sends the inputs that would normally come from
-    // the right joystick and vice-versa. This is a best-effort swap that looks
-    // for joystick-enabled entries in the generated VirtualGamepadSettings.
-    if (core && (core.includes('sega_saturn') || core.includes('segaSaturn') || core.includes('yabause') || core.includes('saturn'))) {
-      try {
-        const vgs = (window as any).EJS_VirtualGamepadSettings as any[] | undefined;
-        if (Array.isArray(vgs)) {
-          const leftIdx = vgs.findIndex(i => i && i.location === 'left' && !!i.joystickInput);
-          const rightIdx = vgs.findIndex(i => i && i.location === 'right' && !!i.joystickInput);
-          if (leftIdx > -1 && rightIdx > -1) {
-            const tmp = vgs[leftIdx].inputValues;
-            vgs[leftIdx].inputValues = vgs[rightIdx].inputValues;
-            vgs[rightIdx].inputValues = tmp;
-            (window as any).EJS_VirtualGamepadSettings = vgs;
-          }
-        }
-      } catch { console.error('Failed to swap Saturn joystick inputs'); }
-    }
+    window.EJS_VirtualGamepadSettings = vpad.concat(speedButtons); 
 
     // Safety assert (keeps you from silently falling back)
     for (const it of window.EJS_VirtualGamepadSettings) {
@@ -704,7 +683,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
 
-  private applyEjsRunOptions(): void {
+  private applyEjsRunOptions(system: System, core: string | undefined): void {
     const rootStyle = getComputedStyle(document.documentElement);
     const mainHighlight = (rootStyle.getPropertyValue('--main-highlight-color') || '#3a3a3a').trim();
     const componentBackgroundColor = (rootStyle.getPropertyValue('--component-background-color') || '#3a3a3a').trim();
@@ -727,21 +706,27 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (systemIcon) {
       w.EJS_backgroundImage = systemIcon; // Sets the background color for the emulator    
     }
-    const core = this.detectCoreEnhanced(this.romName ?? '', this._forcedCore);
     if (core === "psp" || core == "ppsspp") {
       this.applyPSPCoreSettings(w); // force our perf defaults over any saved prefs
     }
     // Default controller mappings for all 4 players.
     // Player 1 gets keyboard + gamepad; Players 2-4 get gamepad-only (no keyboard conflicts).
+    const rightStickValues = {
+      "UP": system === "saturn" || core === "yabause" ? 'DPAD_UP' : 'RIGHT_STICK_Y:-1',
+      "DOWN": system === "saturn" || core === "yabause" ? 'DPAD_DOWN' : 'RIGHT_STICK_Y:+1',
+      "LEFT": system === "saturn" || core === "yabause" ? 'DPAD_LEFT' : 'RIGHT_STICK_X:-1', 
+      "RIGHT": system === "saturn" || core === "yabause" ? 'DPAD_RIGHT' : 'RIGHT_STICK_X:+1'
+    };
+
     const gpOnly: Record<number, unknown> = {
       0: { value: '', value2: 'BUTTON_1' },
       1: { value: '', value2: 'BUTTON_3' },
       2: { value: '', value2: 'SELECT' },
       3: { value: '', value2: 'START' },
-      4: { value: '', value2: 'RIGHT_STICK_Y:-1' },
-      5: { value: '', value2: 'RIGHT_STICK_Y:+1' },
-      6: { value: '', value2: 'RIGHT_STICK_X:-1' },
-      7: { value: '', value2: 'RIGHT_STICK_X:+1' },
+      4: { value: '', value2: rightStickValues["UP"] },
+      5: { value: '', value2: rightStickValues["DOWN"] },
+      6: { value: '', value2: rightStickValues["LEFT"] },
+      7: { value: '', value2: rightStickValues["RIGHT"] },
       8: { value: '', value2: 'BUTTON_2' },
       9: { value: '', value2: 'BUTTON_4' },
       10: { value: '', value2: 'LEFT_TOP_SHOULDER' },
@@ -766,10 +751,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         1: { value: 's', value2: 'BUTTON_3' },
         2: { value: 'v', value2: 'SELECT' },
         3: { value: 'enter', value2: 'START' },
-        4: { value: 'up arrow', value2: 'RIGHT_STICK_Y:-1' },
-        5: { value: 'down arrow', value2: 'RIGHT_STICK_Y:+1' },
-        6: { value: 'left arrow', value2: 'RIGHT_STICK_X:-1' },
-        7: { value: 'right arrow', value2: 'RIGHT_STICK_X:+1' },
+        4: { value: 'up arrow', value2: rightStickValues["UP"] },
+        5: { value: 'down arrow', value2: rightStickValues["DOWN"] },
+        6: { value: 'left arrow', value2: rightStickValues["LEFT"] },
+        7: { value: 'right arrow', value2: rightStickValues["RIGHT"] },
         8: { value: 'z', value2: 'BUTTON_2' },
         9: { value: 'a', value2: 'BUTTON_4' },
         10: { value: 'q', value2: 'LEFT_TOP_SHOULDER' },
@@ -793,6 +778,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       2: { ...gpOnly },
       3: { ...gpOnly },
     };
+    if (system === "saturn" || core === "yabause") {
+
+    }
     w.EJS_DEBUG_XX = true;             // debug options 
     w.EJS_logCoreInfo = true;          // debug options 
     w.EJS_logVideo = true;             // debug options 
