@@ -512,7 +512,7 @@
 .systemFilters {
   display: grid;
   justify-items: stretch;
-  grid-template-columns: 110px 110px;
+  grid-template-columns: 135px 110px;
 }
 
 .toggle-switch-small {
