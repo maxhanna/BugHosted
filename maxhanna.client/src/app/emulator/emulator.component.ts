@@ -3016,7 +3016,12 @@ type System =
   | 'snes'
   | 'genesis'
   | 'nds'
-  | 'psp';
+  | 'psp'
+  | 'saturn' 
+  | 'sega_cd'
+  | '3do'
+  | 'n64'
+  | 'ps1';
 
 
 interface BuildOpts {
