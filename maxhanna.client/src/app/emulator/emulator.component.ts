@@ -460,6 +460,26 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     window.EJS_VirtualGamepadSettings = vpad.concat(speedButtons);
 
+    // For Sega Saturn cores, swap left/right joystick inputs so the virtual
+    // gamepad's left joystick sends the inputs that would normally come from
+    // the right joystick and vice-versa. This is a best-effort swap that looks
+    // for joystick-enabled entries in the generated VirtualGamepadSettings.
+    if (core && (core.includes('sega_saturn') || core.includes('segaSaturn') || core.includes('yabause') || core.includes('saturn'))) {
+      try {
+        const vgs = (window as any).EJS_VirtualGamepadSettings as any[] | undefined;
+        if (Array.isArray(vgs)) {
+          const leftIdx = vgs.findIndex(i => i && i.location === 'left' && !!i.joystickInput);
+          const rightIdx = vgs.findIndex(i => i && i.location === 'right' && !!i.joystickInput);
+          if (leftIdx > -1 && rightIdx > -1) {
+            const tmp = vgs[leftIdx].inputValues;
+            vgs[leftIdx].inputValues = vgs[rightIdx].inputValues;
+            vgs[rightIdx].inputValues = tmp;
+            (window as any).EJS_VirtualGamepadSettings = vgs;
+          }
+        }
+      } catch { console.error('Failed to swap Saturn joystick inputs'); }
+    }
+
     // Safety assert (keeps you from silently falling back)
     for (const it of window.EJS_VirtualGamepadSettings) {
       if (it.type === 'button') {
