@@ -11,6 +11,54 @@ import { Topic } from './datacontracts/topics/topic';
 export class FileService {
   constructor(private http: HttpClient) { }
 
+  // System-specific title keywords to help disambiguate ambiguous file extensions
+  private n64TitleKeywords: string[] = [
+    'ocarina of time', 'majora', 'majoras mask', 'goldeneye', 'super mario 64', 'mario 64', 'banjo kazooie', 'conker', 'paper mario', 'donkey kong 64', 'perfect dark'
+  ];
+
+  private ps1TitleKeywords: string[] = [
+    'final fantasy vii', 'metal gear solid', 'gran turismo', 'resident evil', 'silent hill', 'tekken', 'tomb raider', 'crash bandicoot', 'spyro', 'vagrant story'
+  ];
+
+  private pspTitleKeywords: string[] = [
+    'liberty city stories', 'vice city stories', 'crisis core', 'dissidia',
+    'birth by sleep', 'kingdom hearts bbs', 'patapon', 'loco roco', 'locoroco',
+    'god eater', 'phantasy star portable', "jeanne d'arc", 'daxter',
+    'chains of olympus', 'ghost of sparta', 'peace walker', 'portable ops',
+    'lumines', 'wipeout pure', 'wipeout pulse', 'fat princess', 'tactics ogre',
+    'valkyria chronicles ii', 'valkyria chronicles 2', 'persona 3 portable',
+    'ys seven', 'ys vs', 'trails in the sky', 'the 3rd birthday',
+    'monster hunter freedom', 'monster hunter portable'
+  ];
+
+  private saturnTitleKeywords: string[] = [
+    'sonic jam', 'panzer dragoon', 'panzer dragoon saga', 'panzer dragoon zwei', 'burning rangers', 'guardian heroes', 'dragon force', 'shining force iii', 'shining force 3', 'saturn bomberman', 'enemy zero', 'nights into dreams', 'radiant silvergun'
+  ];
+
+  private snesTitleKeywords: string[] = [
+    'chrono trigger', 'secret of mana', 'super mario world', 'donkey kong country', 'earthbound', 'legend of zelda a link to the past', 'zelda a link to the past'
+  ];
+
+  private nesTitleKeywords: string[] = [
+    'super mario bros', 'the legend of zelda', 'zelda ii', 'metroid', 'castlevania', 'mega man'
+  ];
+
+  private gbaTitleKeywords: string[] = [
+    'pokemon ruby', 'pokemon sapphire', 'pokemon emerald', 'pokemon fire red', 'pokemon leaf green', 'metroid fusion', 'advance wars', 'mario kart advance'
+  ];
+
+  private genesisTitleKeywords: string[] = [
+    'sonic the hedgehog', 'streets of rage', 'shining in the darkness', 'golden axe', 'mortal kombat'
+  ];
+
+  private ndsTitleKeywords: string[] = [
+    'new super mario bros', 'pokemon diamond', 'pokemon pearl', 'pokemon platinum', 'professor layton'
+  ];
+
+  private dreamcastTitleKeywords: string[] = [
+    'shenmue', 'sonic adventure', 'crazy taxi', 'jet set radio', 'powerstone'
+  ];
+
   videoFileExtensions = [
     "mp4", "mov", "avi", "wmv", "webm", "flv", "mkv", "m4v", "mpg", "mpeg", "3gp", "3g2", "asf", "rm",
     "rmvb", "swf", "vob", "ts", "mts", "m2ts", "mxf", "ogv", "divx", "xvid", "dv", "drc", "f4v", "f4p",
@@ -98,6 +146,36 @@ export class FileService {
   /** Return PlayStation 1 extensions (delegates to explicit array) */
   getPs1FileExtensions(): string[] {
     return Array.from(this.ps1FileExtensions);
+  }
+
+  getN64TitleKeywords(): string[] { return Array.from(this.n64TitleKeywords); }
+  getPs1TitleKeywords(): string[] { return Array.from(this.ps1TitleKeywords); }
+  getPspTitleKeywords(): string[] { return Array.from(this.pspTitleKeywords); }
+  getSaturnTitleKeywords(): string[] { return Array.from(this.saturnTitleKeywords); }
+  getSnesTitleKeywords(): string[] { return Array.from(this.snesTitleKeywords); }
+  getNesTitleKeywords(): string[] { return Array.from(this.nesTitleKeywords); }
+  getGbaTitleKeywords(): string[] { return Array.from(this.gbaTitleKeywords); }
+  getGenesisTitleKeywords(): string[] { return Array.from(this.genesisTitleKeywords); }
+  getNdsTitleKeywords(): string[] { return Array.from(this.ndsTitleKeywords); }
+  getDreamcastTitleKeywords(): string[] { return Array.from(this.dreamcastTitleKeywords); }
+
+  /** Try to guess system by matching known title keywords in filename. */
+  guessSystemFromTitle(fileName: string): string | undefined {
+    if (!fileName) return undefined;
+    const name = fileName.toLowerCase();
+
+    if (this.n64TitleKeywords.some(k => name.includes(k))) return 'n64';
+    if (this.pspTitleKeywords.some(k => name.includes(k))) return 'psp';
+    if (this.ps1TitleKeywords.some(k => name.includes(k))) return 'ps1';
+    if (this.saturnTitleKeywords.some(k => name.includes(k))) return 'saturn';
+    if (this.snesTitleKeywords.some(k => name.includes(k))) return 'snes';
+    if (this.nesTitleKeywords.some(k => name.includes(k))) return 'nes';
+    if (this.gbaTitleKeywords.some(k => name.includes(k))) return 'gba';
+    if (this.genesisTitleKeywords.some(k => name.includes(k))) return 'genesis';
+    if (this.ndsTitleKeywords.some(k => name.includes(k))) return 'nds';
+    if (this.dreamcastTitleKeywords.some(k => name.includes(k))) return 'dreamcast';
+
+    return undefined;
   }
 
   async getDirectory(

@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { FileService } from './file.service';
 
 
 export interface N64StateUpload {
@@ -33,7 +34,7 @@ export interface LastInputSelection {
   providedIn: 'root'
 })
 export class RomService {
-  constructor() { }
+  constructor(private fileService: FileService) { }
 
   async getRomFile(
     rom: string,
@@ -185,6 +186,10 @@ export class RomService {
     if (!fileName) return undefined;
     const name = fileName.toLowerCase();
 
+    // Quick title-based guess: check known title keywords first
+    const titleGuess = this.fileService.guessSystemFromTitle(name);
+    if (titleGuess) return titleGuess;
+
     // PSP indicators (check before PS1 to avoid false positives on "playstation portable")
     if (name.includes('psp') || name.includes('playstation portable') || name.includes('umd')) {
       return 'psp';
@@ -201,20 +206,6 @@ export class RomService {
     if (name.endsWith('.pbp')) {
       return 'psp';
     }
-    // PSP-exclusive franchise/title keywords that never appeared on PS1
-    const pspKeywords = [
-      'liberty city stories', 'vice city stories', 'crisis core', 'dissidia',
-      'birth by sleep', 'kingdom hearts bbs', 'patapon', 'loco roco', 'locoroco',
-      'god eater', 'phantasy star portable', 'jeanne d\'arc', 'daxter',
-      'chains of olympus', 'ghost of sparta', 'peace walker', 'portable ops',
-      'lumines', 'wipeout pure', 'wipeout pulse', 'fat princess', 'tactics ogre',
-      'valkyria chronicles ii', 'valkyria chronicles 2', 'persona 3 portable',
-      'ys seven', 'ys vs', 'trails in the sky', 'the 3rd birthday',
-      'monster hunter freedom', 'monster hunter portable',
-    ];
-    if (pspKeywords.some(kw => name.includes(kw))) {
-      return 'psp';
-    }
     // Clear indicators for specific systems
     if (name.includes('playstation') || name.includes('ps1') || name.includes('psx') || name.includes('scph') || name.includes('sony')) {
       return 'ps1';
@@ -226,25 +217,7 @@ export class RomService {
       return 'saturn';
     }
 
-    // Sega Saturn title keywords (improve detection for ambiguous ISOs/zips)
-    const saturnKeywords = [
-      'sonic jam',
-      'panzer dragoon',
-      'panzer dragoon saga',
-      'panzer dragoon zwei',
-      'burning rangers',
-      'guardian heroes',
-      'dragon force',
-      'shining force iii',
-      'shining force 3',
-      'saturn bomberman',
-      'enemy zero',
-      'nights into dreams',
-      'radiant silvergun'
-    ];
-    if (saturnKeywords.some(kw => name.includes(kw))) {
-      return 'saturn';
-    }
+    // If title-based guess pointed to Saturn it would have returned earlier
     if (name.includes('dreamcast') || name.includes('[dc]') || name.includes('sega-dreamcast') || name.includes('[gdi]') || name.includes('[cdr]')) {
       return 'dreamcast';
     }
