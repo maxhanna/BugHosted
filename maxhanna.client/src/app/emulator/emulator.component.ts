@@ -350,6 +350,22 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const effectiveForcedCore = forcedCore ?? this._forcedCore;
     if (effectiveForcedCore) this._forcedCore = effectiveForcedCore;
 
+    // If a forced core was selected and we have a fileId, persist a system override
+    // only if the DB doesn't already have one. Best-effort and non-blocking to
+    // avoid delaying emulator startup.
+    if (fileId != null && effectiveForcedCore) {
+      (async () => {
+        try {
+          const db = await this.romService.getSystemOverride(fileId);
+          if (!db) {
+            await this.romService.setSystemOverride(fileId, effectiveForcedCore);
+          }
+        } catch (e) {
+          console.error('Failed to persist system override', e);
+        }
+      })();
+    }
+
     if (window.__ejsLoaderInjected) {
       const reloadParams: Record<string, string> = {};
       if (fileName) reloadParams['romname'] = fileName;

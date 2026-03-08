@@ -190,6 +190,7 @@ namespace maxhanna.Server.Services
     private async Task RunHourlyTasks()
     {
       await AssignTrophies();
+      await _romEnrichmentService.RunAsync();
       await _aiController.ProvideMarketAnalysis();
       await _log.DeleteOldLogs();
     }
@@ -221,7 +222,6 @@ namespace maxhanna.Server.Services
       await DeleteOldNews();
       await DeleteOldCoinMarketCaps();
       await DeleteOldEnderScores();
-      await _romEnrichmentService.RunAsync();
       await _newsService.CreateDailyCryptoNewsStoryAsync();
       await _newsService.CreateDailyNewsStoryAsync();
       await _newsService.PostDailyMemeAsync();
