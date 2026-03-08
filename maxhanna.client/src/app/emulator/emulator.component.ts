@@ -154,7 +154,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   loadWithoutSave = false;
   private autosaveInterval: any;
   private romObjectUrl?: string;
-  private emulatorInstance?: any; 
+  private emulatorInstance?: any;
   systemCandidates: Array<{ label: string; core?: string }> = [];
   selectedSystemCore?: string | null = null;
   /** The core explicitly chosen by the user (via system-select panel or DB override). */
@@ -423,73 +423,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.system = this.systemFromCore(core);
 
     const romDisplayName = this.fileService.getFileWithoutExtension(fileName); // e.g., "Ultimate MK3 (USA)"
-    const genesisSix = (this.system === 'genesis') ? this.shouldUseGenesisSixButtons(romDisplayName) : false;
-
-    const vpad = this.buildTouchLayout(this.system, {
-      useJoystick: this.useJoystick,
-      showControls: this.showControls,
-      twoButtonMode: (this.system === 'nes' || this.system === 'gb' || this.system === 'gbc'),
-      segaShowLR: false,           // keep false to avoid L/R "pills"
-      genesisSix: genesisSix,      // ⟵ pass the decision in
-    });
-
-    const speedButtons: VPadItem[] = [
-      {
-        type: 'button',
-        id: 'speed_fast',
-        text: 'Fast',
-        location: 'left',
-        left: 0,       // px from the left edge of the left column
-        top: 200,       // push down; increase if you need them lower on tall screens
-        fontSize: 13,   // smaller text
-        block: false,   // pill-less small button
-        input_value: 27
-      },
-      {
-        type: 'button',
-        id: 'speed_slow',
-        text: 'Slow',
-        location: 'left',
-        left: 42,       // sits next to Fast (≈ 50–60px spacing)
-        top: 200,
-        fontSize: 13,
-        block: false,
-        input_value: 29
-      },
-    ];
-
-    window.EJS_VirtualGamepadSettings = vpad.concat(speedButtons);
-
-    // For Sega Saturn cores, swap left/right joystick inputs so the virtual
-    // gamepad's left joystick sends the inputs that would normally come from
-    // the right joystick and vice-versa. This is a best-effort swap that looks
-    // for joystick-enabled entries in the generated VirtualGamepadSettings.
-    if (core && (core.includes('sega_saturn') || core.includes('segaSaturn') || core.includes('yabause') || core.includes('saturn'))) {
-      try {
-        const vgs = (window as any).EJS_VirtualGamepadSettings as any[] | undefined;
-        if (Array.isArray(vgs)) {
-          const leftIdx = vgs.findIndex(i => i && i.location === 'left' && !!i.joystickInput);
-          const rightIdx = vgs.findIndex(i => i && i.location === 'right' && !!i.joystickInput);
-          if (leftIdx > -1 && rightIdx > -1) {
-            const tmp = vgs[leftIdx].inputValues;
-            vgs[leftIdx].inputValues = vgs[rightIdx].inputValues;
-            vgs[rightIdx].inputValues = tmp;
-            (window as any).EJS_VirtualGamepadSettings = vgs;
-          }
-        }
-      } catch { console.error('Failed to swap Saturn joystick inputs'); }
-    }
-
-    // Safety assert (keeps you from silently falling back)
-    for (const it of window.EJS_VirtualGamepadSettings) {
-      if (it.type === 'button') {
-        if (!('id' in it)) throw new Error(`Missing id on button "${it.text}"`);
-        if (typeof (it as any).input_value === 'undefined') throw new Error(`Missing input_value on button "${it.text}"`);
-      } else if ((it.type === 'dpad' || it.type === 'zone') && !it.inputValues) {
-        throw new Error(`${it.type} missing inputValues`);
-      }
-    }
-    //console.log('[EJS] assigning custom VirtualGamepadSettings', window.EJS_VirtualGamepadSettings);
+    this.applyGamepadControlSettings(romDisplayName, core, this.system);
 
     // For PlayStation and N64 cores, increase autosave interval to 10 minutes
     // to reduce upload frequency for large save files (e.g. PS1 saves).
@@ -506,18 +440,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
     window.EJS_player = "#game";
 
-    if (core === 'psp' 
-        || core === 'ppsspp' 
-        || core === 'yabause'
-        || core === 'sega_saturn'
-        || core === 'segaSaturn'
-    ) {
-      window.EJS_pathtodata = "https://cdn.emulatorjs.org/stable/data/";
-      window.EJS_coreUrl = "https://cdn.emulatorjs.org/stable/data/cores/";
-    } else {
-      window.EJS_pathtodata = "/assets/emulatorjs/data/";
-      window.EJS_coreUrl = "/assets/emulatorjs/data/cores/";
-    }
+    this.setCoreAndDataFileLocations(core);
     // ❗ BIOS: set ONLY if required by the selected core; otherwise blank
     window.EJS_biosUrl = this.getBiosUrlForCore(core) ?? "";  // <— key fix
     window.EJS_softLoad = false; // TEMP: ensure full boot path for every run
@@ -596,16 +519,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (!window.__ejsLoaderInjected) {
       await new Promise<void>((resolve, reject) => {
         const s = document.createElement('script');
-        const useCdn = (window.EJS_core === 'psp' 
-          || window.EJS_core === 'ppsspp' 
-          || window.EJS_core === 'yabause'
-          || window.EJS_core === 'sega_saturn'
-          || window.EJS_core === 'segaSaturn'
-        );
-
-        s.src = useCdn
-          ? 'https://cdn.emulatorjs.org/stable/data/loader.js'
-          : '/assets/emulatorjs/data/loader.js';
+        this.setLoaderFileLocation(s);
 
         s.async = false;
         s.defer = false;
@@ -654,6 +568,77 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.stopLoading();
     this.cdr.detectChanges();
   }
+
+  private applyGamepadControlSettings(romDisplayName: string, core: string, system: System | undefined) {
+    const genesisSix = (system === 'genesis') ? this.shouldUseGenesisSixButtons(romDisplayName) : false;
+
+    const vpad = this.buildTouchLayout((system ?? ('gba' as System)), {
+      useJoystick: this.useJoystick,
+      showControls: this.showControls,
+      twoButtonMode: (system === 'nes' || system === 'gb' || system === 'gbc'),
+      segaShowLR: false, // keep false to avoid L/R "pills"
+      genesisSix: genesisSix, // ⟵ pass the decision in
+    });
+
+    const speedButtons: VPadItem[] = [
+      {
+        type: 'button',
+        id: 'speed_fast',
+        text: 'Fast',
+        location: 'left',
+        left: 0, // px from the left edge of the left column
+        top: 200, // push down; increase if you need them lower on tall screens
+        fontSize: 13, // smaller text
+        block: false, // pill-less small button
+        input_value: 27
+      },
+      {
+        type: 'button',
+        id: 'speed_slow',
+        text: 'Slow',
+        location: 'left',
+        left: 42, // sits next to Fast (≈ 50–60px spacing)
+        top: 200,
+        fontSize: 13,
+        block: false,
+        input_value: 29
+      },
+    ];
+
+    window.EJS_VirtualGamepadSettings = vpad.concat(speedButtons);
+
+    // For Sega Saturn cores, swap left/right joystick inputs so the virtual
+    // gamepad's left joystick sends the inputs that would normally come from
+    // the right joystick and vice-versa. This is a best-effort swap that looks
+    // for joystick-enabled entries in the generated VirtualGamepadSettings.
+    if (core && (core.includes('sega_saturn') || core.includes('segaSaturn') || core.includes('yabause') || core.includes('saturn'))) {
+      try {
+        const vgs = (window as any).EJS_VirtualGamepadSettings as any[] | undefined;
+        if (Array.isArray(vgs)) {
+          const leftIdx = vgs.findIndex(i => i && i.location === 'left' && !!i.joystickInput);
+          const rightIdx = vgs.findIndex(i => i && i.location === 'right' && !!i.joystickInput);
+          if (leftIdx > -1 && rightIdx > -1) {
+            const tmp = vgs[leftIdx].inputValues;
+            vgs[leftIdx].inputValues = vgs[rightIdx].inputValues;
+            vgs[rightIdx].inputValues = tmp;
+            (window as any).EJS_VirtualGamepadSettings = vgs;
+          }
+        }
+      } catch { console.error('Failed to swap Saturn joystick inputs'); }
+    }
+
+    // Safety assert (keeps you from silently falling back)
+    for (const it of window.EJS_VirtualGamepadSettings) {
+      if (it.type === 'button') {
+        if (!('id' in it)) throw new Error(`Missing id on button "${it.text}"`);
+        if (typeof (it as any).input_value === 'undefined') throw new Error(`Missing input_value on button "${it.text}"`);
+      } else if ((it.type === 'dpad' || it.type === 'zone') && !it.inputValues) {
+        throw new Error(`${it.type} missing inputValues`);
+      }
+    }
+    console.log('[EJS] assigning custom VirtualGamepadSettings', window.EJS_VirtualGamepadSettings);
+  }
+
   private hideEJSMenu() {
     (window as any).EJS_Buttons = {
       playPause: false,
@@ -2846,6 +2831,38 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.selectedSystemCore = undefined;
     this.cdr.detectChanges();
   }
+
+  setLoaderFileLocation(s: HTMLScriptElement) {
+    // const useCdn = (window.EJS_core === 'psp'
+    //   || window.EJS_core === 'ppsspp'
+    //   || window.EJS_core === 'yabause'
+    //   || window.EJS_core === 'sega_saturn'
+    //   || window.EJS_core === 'segaSaturn'
+    // );
+
+    // s.src = useCdn
+    //   ? 'https://cdn.emulatorjs.org/stable/data/loader.js'
+    //   : '/assets/emulatorjs/data/loader.js';
+    s.src = '/assets/emulatorjs/data/loader.js';
+  }
+
+  setCoreAndDataFileLocations(core: string) {
+    // if (core === 'psp'
+    //   || core === 'ppsspp'
+    //   || core === 'yabause'
+    //   || core === 'sega_saturn'
+    //   || core === 'segaSaturn') {
+    //   window.EJS_pathtodata = "https://cdn.emulatorjs.org/stable/data/";
+    //   window.EJS_coreUrl = "https://cdn.emulatorjs.org/stable/data/cores/";
+    // } else {
+    //   window.EJS_pathtodata = "/assets/emulatorjs/data/";
+    //   window.EJS_coreUrl = "/assets/emulatorjs/data/cores/";
+    // }
+
+    window.EJS_pathtodata = "/assets/emulatorjs/data/";
+    window.EJS_coreUrl = "/assets/emulatorjs/data/cores/";
+  }
+
 }
 
 type SystemCandidate = { label: string; core?: string };
