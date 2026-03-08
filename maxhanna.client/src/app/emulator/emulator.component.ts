@@ -18,6 +18,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   @Input() presetRomName?: string;
   @Input() presetRomId?: number | undefined;
+  @Input() presetForcedCore?: string;
   @Input() skipSaveFileRequested = false;
   @Input() inputtedParentRef?: AppComponent;
 
@@ -156,6 +157,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private emulatorInstance?: any; 
   systemCandidates: Array<{ label: string; core?: string }> = [];
   selectedSystemCore?: string | null = null;
+  /** The core explicitly chosen by the user (via system-select panel or DB override). */
+  private _forcedCore?: string;
   private _pendingFileToLoad?: { fileName: string; fileId?: number; directory?: string } | null = null;
   private _destroyed = false;
   private _pendingSaveResolve?: (v?: any) => void;
@@ -206,7 +209,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // If a preset ROM was provided via query/window, auto-load it now
     if (this.presetRomName && this.presetRomId) {
       try {
-        await this.loadRomThroughService(this.presetRomName, this.presetRomId);
+        if (this.presetForcedCore) this._forcedCore = this.presetForcedCore;
+        await this.loadRomThroughService(this.presetRomName, this.presetRomId, undefined, this.presetForcedCore);
       } catch (e) {
         console.error('Failed to auto-load preset ROM', e);
       }
@@ -272,6 +276,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       if (this.presetRomName) params.set('rom', this.presetRomName);
       if (this.presetRomId != null) params.set('romId', String(this.presetRomId));
       if (this.skipSaveFileRequested) params.set('skipSaveFile', 'true');
+      if (this.presetForcedCore || this._forcedCore) params.set('forcedCore', (this.presetForcedCore || this._forcedCore)!);
       const qs = params.toString();
       window.location.replace('/Emulator' + (qs ? '?' + qs : ''));
       return;
@@ -291,11 +296,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (this.isAmbiguousFile(file.fileName)) {
       this.systemCandidates = this.getSystemCandidatesForFile(file.fileName);
       this.selectedSystemCore = undefined;
+      this._forcedCore = undefined;
 
       // 1) Check DB-persisted system override (from rom_system_overrides via romMetadata.actualSystem)
       const dbOverride = file.romMetadata?.actualSystem;
       if (dbOverride) {
         this.selectedSystemCore = dbOverride;
+        this._forcedCore = dbOverride;
       }
 
       // 2) Fall back to localStorage per-extension preference
@@ -304,6 +311,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         const preferred = this.loadPreferredCore(ext);
         if (preferred) {
           this.selectedSystemCore = preferred;
+          this._forcedCore = preferred;
         }
       }
 
@@ -338,8 +346,16 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private async loadRomThroughService(fileName: string, fileId?: number, directory?: string, forcedCore?: string | undefined) {
+    // Use the instance-level forced core as a fallback
+    const effectiveForcedCore = forcedCore ?? this._forcedCore;
+    if (effectiveForcedCore) this._forcedCore = effectiveForcedCore;
+
     if (window.__ejsLoaderInjected) {
-      this.fullReloadToEmulator();
+      const reloadParams: Record<string, string> = {};
+      if (fileName) reloadParams['romname'] = fileName;
+      if (fileId != null) reloadParams['romId'] = String(fileId);
+      if (effectiveForcedCore) reloadParams['forcedCore'] = effectiveForcedCore;
+      this.fullReloadToEmulator(Object.keys(reloadParams).length ? reloadParams : undefined);
       return;
     }
 
@@ -382,9 +398,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         : await this.loadSaveStateFromDB(fileName);
 
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
-    const core = this.detectCoreEnhanced(fileName, forcedCore);
+    const core = this.detectCoreEnhanced(fileName, effectiveForcedCore);
     (this as any).currentCore = core;
-    console.log(`[EmulatorComponent] Detected core "${core}" for file "${fileName}" (ext: "${this.fileService.getFileExtension(fileName)}") forcedCore=${forcedCore ?? 'none'}`);
+    console.log(`[EmulatorComponent] Detected core "${core}" for file "${fileName}" (ext: "${this.fileService.getFileExtension(fileName)}") forcedCore=${effectiveForcedCore ?? 'none'}`);
     const renderClamp = this.getRenderClampForCore(core);
     (window as any).EJS_renderClamp = renderClamp;
     window.EJS_core = core;
@@ -674,7 +690,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (systemIcon) {
       w.EJS_backgroundImage = systemIcon; // Sets the background color for the emulator    
     }
-    const core = this.detectCoreEnhanced(this.romName ?? '');
+    const core = this.detectCoreEnhanced(this.romName ?? '', this._forcedCore);
     if (core === "psp" || core == "ppsspp") {
       this.applyPSPCoreSettings(w); // force our perf defaults over any saved prefs
     }
@@ -2736,9 +2752,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   confirmSystemSelection() {
     if (!this._pendingFileToLoad) return;
     const pending = this._pendingFileToLoad;
+    // ★ Capture the selected core BEFORE closeOverlay().
+    //   closeOverlay() finds #closeOverlay buttons and clicks them, which triggers
+    //   cancelSystemSelection() and would clear selectedSystemCore.
+    const forced = this.selectedSystemCore ?? undefined;
+    this._forcedCore = forced;
+    this._pendingFileToLoad = null;
     this.isSystemSelectPanelOpen = false;
     this.parentRef?.closeOverlay();
-    const forced = this.selectedSystemCore ?? undefined;
     if (forced) {
       const ext = this.fileService.getFileExtension(pending.fileName);
       this.savePreferredCore(ext, forced);
@@ -2747,7 +2768,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         this.romService.setSystemOverride(pending.fileId, forced).catch(() => { /* best-effort */ });
       }
     }
-    this._pendingFileToLoad = null;
     // Kick off loading — ignore returned promise here, UI updates handled by caller
     void this.loadRomThroughService(pending.fileName, pending.fileId, pending.directory, forced).then(() => {
       this.status = 'Running';
@@ -2760,9 +2780,16 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   cancelSystemSelection() {
+    // Guard: if _pendingFileToLoad is already null, confirmSystemSelection already
+    // handled this — don't clobber state (closeOverlay clicks #closeOverlay buttons).
+    if (!this._pendingFileToLoad) {
+      this.isSystemSelectPanelOpen = false;
+      return;
+    }
     this.isSystemSelectPanelOpen = false;
     this.parentRef?.closeOverlay();
     this._pendingFileToLoad = null;
+    this._forcedCore = undefined;
     this.systemCandidates = [];
     this.selectedSystemCore = undefined;
     this.cdr.detectChanges();

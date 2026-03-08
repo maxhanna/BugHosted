@@ -407,10 +407,12 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
             const rom = sp.get('romname') || sp.get('romName') || undefined;
             const id = sp.get('romId') || sp.get('romID') || undefined;
             const skip = sp.get('skipSaveFile') || sp.get('skipsavefile') || undefined;
+            const core = sp.get('forcedCore') || sp.get('forcedcore') || undefined;
             const inputs: any = {};
             if (rom) inputs.presetRomName = rom;
             if (id && !isNaN(Number(id))) inputs.presetRomId = Number(id);
             if (typeof skip !== 'undefined' && skip !== null) inputs.skipSaveFileRequested = (String(skip).toLowerCase() === 'true' || String(skip) === '1');
+            if (core) inputs.presetForcedCore = core;
             inputs.inputtedParentRef = this;
             this.checkAndClearRouterOutlet();
             this.angLocation.replaceState(this.router.url.split('?')[0]);
