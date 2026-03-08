@@ -1,3 +1,8 @@
+.componentMain {
+  height: calc(var(--vh, 1vh) * 100 - 60px);
+  height: calc(100dvh - 60px); 
+}
+
 .romNameTitle { width: calc(100% - 100px); display: block; overflow: hidden; text-overflow: ellipsis; } 
 
 .uploaderPopupPanel {
