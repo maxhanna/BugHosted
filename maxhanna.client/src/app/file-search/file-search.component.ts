@@ -114,6 +114,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   activeRomSystems: string[] = [];
   loadingSearch = false;
   showMetadataInOptionsPanel = true;
+  wasOptionsPanelOpen = false;
+  isFirstLoad = true;
   private _savedDirectoryBeforeFileIdSearch: string | null = null;
   private windowScrollHandler: Function;
   private containerScrollHandler: Function;
@@ -541,6 +543,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     } catch (error) {
       this.notifyUser((error as Error).message);
     }
+    this.isFirstLoad = false;
     this.stopLoading();
   }
 
@@ -978,12 +981,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     // If we're rendering the metadata inline on desktop, don't show the global overlay.
     if (parent) {
       this.isOptionsPanelOpen = true;
+      this.wasOptionsPanelOpen = true;
       parent.showOverlay();
     }
   }
-  closeOptionsPanel() {
+  closeOptionsPanel(resetFile = true) {
     this.isOptionsPanelOpen = false;
-    this.optionsFile = undefined;
+    if (resetFile) {
+      this.optionsFile = undefined;
+    }
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
       parent.closeOverlay();
@@ -1634,8 +1640,39 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
    * Returns the raw icon URL for a given system key (e.g. 'n64' -> '/assets/n64icon.png').
    * This is a helper for callers that need the plain src string instead of HTML.
    */
-  getSystemIconUrl(key: string): string | undefined {
+  getSystemIconUrl(key: string, actualSystem?: string): string | undefined {
     if (!key) return undefined;
+
+    // If a DB-persisted core override exists, map it directly to an icon
+    if (actualSystem) {
+      const coreIconMap: { [core: string]: string } = {
+        'pcsx_rearmed':     '/assets/ps1icon.png',
+        'mednafen_psx_hw':  '/assets/ps1icon.png',
+        'duckstation':      '/assets/ps1icon.png',
+        'mednafen_psx':     '/assets/ps1icon.png',
+        'ppsspp':           '/assets/pspicon.png',
+        'yabause':          '/assets/saturnicon.png',
+        'genesis_plus_gx':  '/assets/segaicon.png',
+        'picodrive':        '/assets/segaicon.png',
+        'opera':            '/assets/ps1icon.png',
+        'mupen64plus_next': '/assets/n64icon.png',
+        'melonds':          '/assets/ndsicon.png',
+        'mgba':             '/assets/gbaicon.png',
+        'gambatte':         '/assets/gbicon.png',
+        'fceumm':           '/assets/nesicon.png',
+        'snes9x':           '/assets/snesicon.png',
+        'mednafen_vb':      '/assets/nesicon.png',
+        'mame2003_plus':    '/assets/atariicon.png',
+        'fbneo':            '/assets/atariicon.png',
+        'stella2014':       '/assets/atariicon.png',
+        'prosystem':        '/assets/atariicon.png',
+        'handy':            '/assets/atariicon.png',
+        'virtualjaguar':    '/assets/atariicon.png',
+      };
+      const mapped = coreIconMap[actualSystem];
+      if (mapped) return mapped;
+    }
+
     const exts = this.romSystemExtensions[key];
     const ext = (exts && exts.length) ? exts[0] : key;
     // Determine effective extension (reuse the same heuristics as getSystemEmoji)
@@ -1679,10 +1716,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
     return iconMap[effectiveExt];
   }
-  getSystemEmoji(fileName?: string, styling?: string): SafeHtml | string {
+  getSystemEmoji(fileName?: string, styling?: string, actualSystem?: string): SafeHtml | string {
     if (!fileName) return '';
     const ext = this.fileService.getFileExtension(fileName).toLowerCase();
-    const fileUrl = this.getSystemIconUrl(fileName);
+    const fileUrl = this.getSystemIconUrl(fileName, actualSystem);
 
     if (fileUrl) {
       const src = fileUrl;
@@ -1743,7 +1780,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   shouldShowRomMetadata(): boolean {
     return this.showRomMetadata 
       && this.isRomsDirectory() 
-      && (this.directory?.data ?? []).length > 0;
+      && (this.isFirstLoad || (this.directory?.data ?? []).length > 0);
   }
 
   public safeJsonArray(value: any): string[] {
@@ -1813,7 +1850,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   openImagePreview(url?: string, ev?: Event) {
     if (ev) ev.preventDefault();
     if (!url) return;
-    if (this.isOptionsPanelOpen) this.closeOptionsPanel();
+    const tmpWasOpen = this.wasOptionsPanelOpen;
+    if (this.isOptionsPanelOpen) {
+      this.closeOptionsPanel(false);
+    }
+    this.wasOptionsPanelOpen = tmpWasOpen;
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.showOverlay();
     this.imagePreviewUrl = url;
@@ -1826,6 +1867,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.imagePreviewUrl = null;
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
+    if (this.wasOptionsPanelOpen && this.optionsFile) {
+      setTimeout(() => {
+        if (this.optionsFile) { 
+          this.showOptionsPanel(this.optionsFile);
+        }
+      }, 200);
+    }
   }
 }
 

@@ -133,6 +133,31 @@ export class RomService {
       return null;
     }
   }
+
+  async setSystemOverride(fileId: number, systemCore: string): Promise<{ ok: boolean } | null> {
+    try {
+      const res = await fetch('/rom/setsystemoverride', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId, systemCore })
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  async getSystemOverride(fileId: number): Promise<string | null> {
+    try {
+      const res = await fetch(`/rom/getsystemoverride/${fileId}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data?.systemCore ?? null;
+    } catch {
+      return null;
+    }
+  }
  
   /** Normalize input into a tight ArrayBuffer (no offset/extra bytes). */
   private toTightArrayBuffer(input: ArrayBuffer | ArrayBufferView): ArrayBuffer {

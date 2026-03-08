@@ -19,5 +19,6 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
     public string? PlatformsJson { get; set; }
     public string? GenresJson { get; set; }
     public int? ResetVotes { get; set; }
+    public string? ActualSystem { get; set; }
   }
 }

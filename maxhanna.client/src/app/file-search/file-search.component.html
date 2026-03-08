@@ -90,7 +90,7 @@
                   (click)="!disabled && selectFile(file);" [id]="'fileIdName'+file.id">
                   <span>
                     {{ file.isFolder ? '📁' : '' }}
-                    <span [innerHTML]="showSystemIcons ? getSystemEmoji(file.fileName ?? '') : ''"></span>
+                    <span [innerHTML]="showSystemIcons ? getSystemEmoji(file.fileName ?? '', undefined, file.romMetadata?.actualSystem) : ''"></span>
 
                     <span class="romTitleText">
                       {{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}
@@ -409,7 +409,7 @@
       <div class="optionsStatsDescription">
         {{optionsFile.fileType?.toUpperCase()}}
         <span
-          [innerHTML]="(getDirectoryName(optionsFile) === 'Roms/' && optionsFile.fileType) ? getSystemEmoji('file.' + optionsFile.fileType) : ''"></span>
+          [innerHTML]="(getDirectoryName(optionsFile) === 'Roms/' && optionsFile.fileType) ? getSystemEmoji('file.' + optionsFile.fileType, undefined, optionsFile.romMetadata?.actualSystem) : ''"></span>
         {{optionsFile.isFolder ? 'Folder' : ''}}
       </div>
     </div>

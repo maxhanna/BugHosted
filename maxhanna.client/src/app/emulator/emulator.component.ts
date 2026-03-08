@@ -291,11 +291,24 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (this.isAmbiguousFile(file.fileName)) {
       this.systemCandidates = this.getSystemCandidatesForFile(file.fileName);
       this.selectedSystemCore = undefined;
-      const ext = this.fileService.getFileExtension(file.fileName);
-      const preferred = this.loadPreferredCore(ext);
-      if (preferred) {
-        this.selectedSystemCore = preferred;
-      } else {
+
+      // 1) Check DB-persisted system override (from rom_system_overrides via romMetadata.actualSystem)
+      const dbOverride = file.romMetadata?.actualSystem;
+      if (dbOverride) {
+        this.selectedSystemCore = dbOverride;
+      }
+
+      // 2) Fall back to localStorage per-extension preference
+      if (!this.selectedSystemCore) {
+        const ext = this.fileService.getFileExtension(file.fileName);
+        const preferred = this.loadPreferredCore(ext);
+        if (preferred) {
+          this.selectedSystemCore = preferred;
+        }
+      }
+
+      // 3) If still no selection, show the system selection panel
+      if (!this.selectedSystemCore) {
         this._pendingFileToLoad = { fileName: file.fileName, fileId: file.id, directory: file.directory };
         this.isSystemSelectPanelOpen = true;
         this.parentRef?.showOverlay();
@@ -309,7 +322,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
 
     try {
-      await this.loadRomThroughService(file.fileName, file.id, file.directory);
+      await this.loadRomThroughService(file.fileName, file.id, file.directory, this.selectedSystemCore ?? undefined);
       this.status = 'Running';
     } catch (err) {
       this.status = 'Error loading emulator';
@@ -369,9 +382,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         : await this.loadSaveStateFromDB(fileName);
 
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
-    const core = this.detectCoreEnhanced(fileName);
+    const core = this.detectCoreEnhanced(fileName, forcedCore);
     (this as any).currentCore = core;
-    console.log(`[EmulatorComponent] Detected core "${core}" for file "${fileName}" (ext: "${this.fileService.getFileExtension(fileName)}")`);
+    console.log(`[EmulatorComponent] Detected core "${core}" for file "${fileName}" (ext: "${this.fileService.getFileExtension(fileName)}") forcedCore=${forcedCore ?? 'none'}`);
     const renderClamp = this.getRenderClampForCore(core);
     (window as any).EJS_renderClamp = renderClamp;
     window.EJS_core = core;
@@ -2729,6 +2742,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (forced) {
       const ext = this.fileService.getFileExtension(pending.fileName);
       this.savePreferredCore(ext, forced);
+      // Persist the system override to the database so it's used for icons and future loads
+      if (pending.fileId) {
+        this.romService.setSystemOverride(pending.fileId, forced).catch(() => { /* best-effort */ });
+      }
     }
     this._pendingFileToLoad = null;
     // Kick off loading — ignore returned promise here, UI updates handled by caller

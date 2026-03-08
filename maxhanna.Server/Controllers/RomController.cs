@@ -491,6 +491,73 @@ namespace maxhanna.Server.Controllers
         return StatusCode(500, "Error retrieving save state");
       }
     }
+
+    /// <summary>
+    /// Saves (upserts) the user's system/core override for a ROM file.
+    /// This persists which emulator core should be used for this particular file,
+    /// overriding the auto-detection logic.
+    /// </summary>
+    [HttpPost("/Rom/SetSystemOverride", Name = "Rom_SetSystemOverride")]
+    public async Task<IActionResult> SetSystemOverride([FromBody] SetSystemOverrideRequest req)
+    {
+      if (req.FileId <= 0 || string.IsNullOrWhiteSpace(req.SystemCore))
+        return BadRequest("Invalid fileId or systemCore");
+
+      try
+      {
+        await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        const string sql = @"
+          INSERT INTO maxhanna.rom_system_overrides (file_id, system_core, updated_at)
+          VALUES (@FileId, @SystemCore, UTC_TIMESTAMP())
+          ON DUPLICATE KEY UPDATE
+            system_core = VALUES(system_core),
+            updated_at  = UTC_TIMESTAMP();";
+
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@FileId", req.FileId);
+        cmd.Parameters.AddWithValue("@SystemCore", req.SystemCore);
+        await cmd.ExecuteNonQueryAsync();
+
+        return Ok(new { ok = true, fileId = req.FileId, systemCore = req.SystemCore });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("SetSystemOverride error: " + ex.Message, null, "ROM", true);
+        return StatusCode(500, "Internal error");
+      }
+    }
+
+    /// <summary>
+    /// Gets the saved system/core override for a ROM file, if any.
+    /// </summary>
+    [HttpGet("/Rom/GetSystemOverride/{fileId}")]
+    public async Task<IActionResult> GetSystemOverride(int fileId)
+    {
+      if (fileId <= 0) return BadRequest("Invalid fileId");
+
+      try
+      {
+        await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        const string sql = @"SELECT system_core FROM maxhanna.rom_system_overrides WHERE file_id = @FileId;";
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@FileId", fileId);
+        var result = await cmd.ExecuteScalarAsync();
+
+        if (result == null || result == DBNull.Value)
+          return Ok(new { fileId, systemCore = (string?)null });
+
+        return Ok(new { fileId, systemCore = result.ToString() });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("GetSystemOverride error: " + ex.Message, null, "ROM", true);
+        return StatusCode(500, "Internal error");
+      }
+    }
   }
 }
 public class GetEmulatorJSSaveStateRequest
@@ -503,4 +570,10 @@ public class GetRomFileRequest
 {
   public int? UserId { get; set; }
   public int? FileId { get; set; }
+}
+
+public class SetSystemOverrideRequest
+{
+  public int FileId { get; set; }
+  public string SystemCore { get; set; } = string.Empty;
 }
