@@ -659,7 +659,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
       // Nintendo DS firmware
       case 'melonds':
-        return '/assets/emulatorjs/data/cores/bios/nds/firmware.bin';
+        return '/assets/emulatorjs/data/cores/melonds-wasm.data';
 
       case 'yabause':
       case 'segaSaturn':
