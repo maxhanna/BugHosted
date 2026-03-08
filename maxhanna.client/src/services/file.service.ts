@@ -159,24 +159,6 @@ export class FileService {
   getNdsTitleKeywords(): string[] { return Array.from(this.ndsTitleKeywords); }
   getDreamcastTitleKeywords(): string[] { return Array.from(this.dreamcastTitleKeywords); }
 
-  /** Try to guess system by matching known title keywords in filename. */
-  guessSystemFromTitle(fileName: string): string | undefined {
-    if (!fileName) return undefined;
-    const name = fileName.toLowerCase();
-
-    if (this.n64TitleKeywords.some(k => name.includes(k))) return 'n64';
-    if (this.pspTitleKeywords.some(k => name.includes(k))) return 'psp';
-    if (this.ps1TitleKeywords.some(k => name.includes(k))) return 'ps1';
-    if (this.saturnTitleKeywords.some(k => name.includes(k))) return 'saturn';
-    if (this.snesTitleKeywords.some(k => name.includes(k))) return 'snes';
-    if (this.nesTitleKeywords.some(k => name.includes(k))) return 'nes';
-    if (this.gbaTitleKeywords.some(k => name.includes(k))) return 'gba';
-    if (this.genesisTitleKeywords.some(k => name.includes(k))) return 'genesis';
-    if (this.ndsTitleKeywords.some(k => name.includes(k))) return 'nds';
-    if (this.dreamcastTitleKeywords.some(k => name.includes(k))) return 'dreamcast';
-
-    return undefined;
-  }
 
   async getDirectory(
     dir: string,
@@ -796,6 +778,51 @@ export class FileService {
     });
   }
 
+  // Convert a stored bios/core identifier or generic system token into a human-friendly name.
+  // Examples: 'yabause' -> 'Sega Saturn', 'mednafen_psx_hw' -> 'PlayStation'.
+  getSystemFromBios(systemOrBios?: string | null | undefined): string | undefined {
+    if (!systemOrBios) return undefined;
+    const s = String(systemOrBios).toLowerCase();
+
+    if (s.includes('psx') || s.includes('ps1') || s.includes('mednafen_psx') || s.includes('pcsx') || s.includes('duckstation')) return 'PlayStation';
+    if (s === 'psp' || s.includes('ppsspp') || s.includes('psp')) return 'PlayStation Portable (PSP)';
+    if (s.includes('mupen64') || s.includes('n64')) return 'Nintendo 64';
+    if (s.includes('snes')) return 'Super Nintendo (SNES)';
+    if (s.includes('fceumm') || s.includes('nes') || s === 'nestopia') return 'Nintendo (NES)';
+    if (s.includes('mgba') || s.includes('gba')) return 'Game Boy Advance (GBA)';
+    if (s.includes('gambatte') || s.includes('gbc') || s === 'gb') return 'Game Boy / GBC';
+    if (s.includes('genesis') || s.includes('megadrive') || s.includes('picodrive')) return 'Sega Genesis / Mega Drive';
+    if (s.includes('dreamcast') || s.includes('dc') || s.includes('reicast')) return 'Sega Dreamcast';
+    if (s.includes('saturn') || s.includes('yabause') || s.includes('sega_saturn') || s.includes('segaSaturn')) return 'Sega Saturn';
+    if (s.includes('melonds') || s.includes('nds') || s.includes('desmume')) return 'Nintendo DS';
+    if (s.includes('tgcd') || s.includes('pcengine') || s.includes('hu')) return 'TurboGrafx / PC Engine';
+
+    try {
+      const cleaned = systemOrBios.replace(/_/g, ' ');
+      return cleaned.split(' ').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+    } catch {
+      return systemOrBios;
+    }
+  }
+
+  /** Try to guess system by matching known title keywords in filename. */
+  guessSystemFromTitle(fileName: string): string | undefined {
+    if (!fileName) return undefined;
+    const name = fileName.toLowerCase();
+
+    if (this.n64TitleKeywords.some(k => name.includes(k))) return 'n64';
+    if (this.pspTitleKeywords.some(k => name.includes(k))) return 'psp';
+    if (this.ps1TitleKeywords.some(k => name.includes(k))) return 'ps1';
+    if (this.saturnTitleKeywords.some(k => name.includes(k))) return 'saturn';
+    if (this.snesTitleKeywords.some(k => name.includes(k))) return 'snes';
+    if (this.nesTitleKeywords.some(k => name.includes(k))) return 'nes';
+    if (this.gbaTitleKeywords.some(k => name.includes(k))) return 'gba';
+    if (this.genesisTitleKeywords.some(k => name.includes(k))) return 'genesis';
+    if (this.ndsTitleKeywords.some(k => name.includes(k))) return 'nds';
+    if (this.dreamcastTitleKeywords.some(k => name.includes(k))) return 'dreamcast';
+
+    return undefined;
+  }
   parseYoutubeId(url: string): string {
     if (!url) return '';
     try {

@@ -430,7 +430,7 @@
         <span class="system-override-icon"
           [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:20px;height:20px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata?.actualSystem)">
         </span>
-        {{ optionsFile.romMetadata?.actualSystem?.replace('_', ' ') | titlecase }}
+        {{ fileService.getSystemFromBios(optionsFile.romMetadata?.actualSystem) }}
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.accessCount !== undefined">
