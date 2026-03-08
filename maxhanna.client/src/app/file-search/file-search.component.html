@@ -74,7 +74,8 @@
           <div class="draggableDiv" draggable="true" (dragstart)="onDragStart($event, file.fileName ?? '')">
             <div class="fileNameDiv {{ file.isFolder ? 'folder' : '' }}" (dragover)="onDragOver($event)"
               (drop)="onDrop(file.fileName ?? '')" [id]="'fileIdDiv'+file.id"
-              [attr.data-content]="file?.givenFileName ?? file?.fileName ?? ''">
+              [attr.data-content]="file?.givenFileName ?? file?.fileName ?? ''"
+              (mouseenter)="handleFileHoverEnter($event, file)" (mouseleave)="handleFileHoverLeave($event)">
               <span class="fileNameWrapperSpan">
                 <input *ngIf="massDeleteMode" type="checkbox" [checked]="selectedForDelete.has(file.id)"
                   (click)="toggleSelectForDelete(file, $event)" />

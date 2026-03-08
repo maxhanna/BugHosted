@@ -116,6 +116,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   showMetadataInOptionsPanel = true;
   wasOptionsPanelOpen = false;
   isFirstLoad = true;
+  private _componentMainPrevStyle: string | null = null;
   private _savedDirectoryBeforeFileIdSearch: string | null = null;
   private windowScrollHandler: Function;
   private containerScrollHandler: Function;
@@ -1824,6 +1825,113 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (thumbs.length < 2 && aw.length) thumbs.push(aw[0]);
 
     return thumbs.slice(0, 2);
+  }
+
+  // Hover handlers: when displaying rom metadata on desktop, create a
+  // fading overlay inside the emulator's `.componentMain` so changes are
+  // limited to the Emulator page and smoothly transition.
+  private _hoverOverlayEl: HTMLElement | null = null;
+  private _hoverOverlayHost: HTMLElement | null = null;
+  private _componentMainPrevPosition: string | null = null;
+
+  handleFileHoverEnter(ev: Event, file: FileEntry) {
+    try {
+      if (!this.displayRomMetadataDesktop || !this.shouldShowRomMetadata()) return;
+      if (!file || file.isFolder) return;
+
+      const img = (file.romInlineThumbs && file.romInlineThumbs.length) ? file.romInlineThumbs[0]
+        : (file.romMetadata?.coverUrl ?? null);
+      if (!img) return;
+
+      const target = ev?.currentTarget as HTMLElement | null || ev?.target as HTMLElement | null;
+      if (!target) return;
+
+      // Find the emulator's gamesContainer ancestor, then its componentMain host.
+      const gamesContainer = target.closest('.gamesContainer');
+      if (!gamesContainer) return; // not inside emulator page
+      const host = gamesContainer.closest('.componentMain') as HTMLElement | null;
+      if (!host) return; // unexpected
+
+      // If overlay already exists for a different host, remove it first.
+      if (this._hoverOverlayEl && this._hoverOverlayHost && this._hoverOverlayHost !== host) {
+        this._hoverOverlayEl.remove();
+        this._hoverOverlayEl = null;
+        this._hoverOverlayHost = null;
+      }
+
+      // Ensure host is positioned so absolute overlay aligns correctly
+      const computed = getComputedStyle(host);
+      if (computed.position === 'static') {
+        this._componentMainPrevPosition = host.style.position ?? '';
+        host.style.position = 'relative';
+      } else {
+        this._componentMainPrevPosition = null;
+      }
+
+      // Reuse overlay if present
+      let overlay = this._hoverOverlayEl;
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'rom-hover-bg';
+        overlay.style.position = 'absolute';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.right = '0';
+        overlay.style.bottom = '0';
+        overlay.style.pointerEvents = 'none';
+        overlay.style.backgroundSize = 'cover';
+        overlay.style.backgroundPosition = 'center center';
+        overlay.style.backgroundRepeat = 'no-repeat';
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 300ms ease';
+        // Place behind content
+        overlay.style.zIndex = '-1';
+        // Insert as first child so it sits under other content
+        host.insertBefore(overlay, host.firstChild);
+        this._hoverOverlayEl = overlay;
+        this._hoverOverlayHost = host;
+      }
+
+      // Update image and fade in
+      overlay.style.backgroundImage = `url('${img}')`;
+      // Force reflow then fade in
+      void overlay.offsetWidth;
+      overlay.style.opacity = '1';
+    } catch (e) {
+      console.error('handleFileHoverEnter failed', e);
+    }
+  }
+
+  handleFileHoverLeave(ev: Event) {
+    try {
+      const target = ev?.currentTarget as HTMLElement | null || ev?.target as HTMLElement | null;
+      const gamesContainer = target ? target.closest('.gamesContainer') : null;
+      const host = gamesContainer ? gamesContainer.closest('.componentMain') as HTMLElement | null : null;
+
+      // Only remove overlay if it belongs to this host (safety)
+      if (this._hoverOverlayEl && this._hoverOverlayHost && (!host || host === this._hoverOverlayHost)) {
+        const overlay = this._hoverOverlayEl;
+        overlay.style.opacity = '0';
+        // Remove after transition
+        const cleanup = () => {
+          try {
+            overlay.removeEventListener('transitionend', cleanup);
+            if (overlay.parentElement) overlay.parentElement.removeChild(overlay);
+          } catch { }
+          if (this._hoverOverlayHost && this._componentMainPrevPosition !== null) {
+            this._hoverOverlayHost.style.position = this._componentMainPrevPosition || '';
+          }
+          this._hoverOverlayEl = null;
+          this._hoverOverlayHost = null;
+          this._componentMainPrevPosition = null;
+        };
+        overlay.addEventListener('transitionend', cleanup);
+        // Fallback in case transitionend doesn't fire
+        setTimeout(cleanup, 400);
+      }
+    } catch (e) {
+      console.error('handleFileHoverLeave failed', e);
+    }
   }
 
   onVideoLinkClick(url: string, ev: Event) {
