@@ -332,7 +332,7 @@
       *ngIf="shouldShowEditButton(optionsFile)">
       ✏️Edit File Name
     </button>
-    <button title="Clear System Override" (click)="clearSystemOverride(optionsFile)"
+    <button [title]="'Clear System Override ('+optionsFile.romMetadata?.actualSystem+')'" (click)="clearSystemOverride(optionsFile)"
       *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.actualSystem">
       🧹 Clear System Override
       <span *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.actualSystem"
