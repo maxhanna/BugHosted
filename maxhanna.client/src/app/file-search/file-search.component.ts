@@ -996,6 +996,38 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       parent.closeOverlay();
     }
   }
+
+  // Clear persisted system override for a file and update UI
+  async clearSystemOverride(file?: FileEntry) {
+    if (!file || !file.id) return;
+    try {
+      this.startLoading();
+      const res = await this.romService.clearSystemOverride(file.id as number);
+      if (res) {
+        if (file.romMetadata) {
+          (file.romMetadata as any).actualSystem = null;
+        }
+        if (this.optionsFile && this.optionsFile.id === file.id && this.optionsFile.romMetadata) {
+          (this.optionsFile.romMetadata as any).actualSystem = null;
+        }
+        if (this.directory && this.directory.data) {
+          const idx = this.directory.data.findIndex(d => d && d.id === file.id);
+          if (idx !== -1 && this.directory.data[idx].romMetadata) {
+            (this.directory.data[idx].romMetadata as any).actualSystem = null;
+          }
+        }
+        try { this.changeDetectorRef.markForCheck(); } catch { }
+        this.notifyUser('System override cleared.');
+      } else {
+        this.notifyUser('Failed to clear system override.');
+      }
+    } catch (e) {
+      console.error('clearSystemOverride error', e);
+      this.notifyUser('Error clearing system override');
+    } finally {
+      this.stopLoading();
+    }
+  }
   async addToFavourites(optionsFile: FileEntry) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user ?? this.user;

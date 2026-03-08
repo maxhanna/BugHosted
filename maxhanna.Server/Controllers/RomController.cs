@@ -558,6 +558,33 @@ namespace maxhanna.Server.Controllers
         return StatusCode(500, "Internal error");
       }
     }
+
+    /// <summary>
+    /// Clears (deletes) the saved system/core override for a ROM file.
+    /// </summary>
+    [HttpPost("/Rom/ClearSystemOverride", Name = "Rom_ClearSystemOverride")]
+    public async Task<IActionResult> ClearSystemOverride([FromBody] int fileId)
+    {
+      if (fileId <= 0) return BadRequest("Invalid fileId");
+
+      try
+      {
+        await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        const string sql = @"DELETE FROM maxhanna.rom_system_overrides WHERE file_id = @FileId;";
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@FileId", fileId);
+        await cmd.ExecuteNonQueryAsync();
+
+        return Ok(new { ok = true, fileId });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("ClearSystemOverride error: " + ex.Message, null, "ROM", true);
+        return StatusCode(500, "Internal error");
+      }
+    }
   }
 }
 public class GetEmulatorJSSaveStateRequest
