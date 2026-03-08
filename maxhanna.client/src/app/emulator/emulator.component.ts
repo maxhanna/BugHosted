@@ -470,7 +470,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
     window.EJS_player = "#game";
 
-    if (core === 'psp' || core === 'ppsspp') {
+    if (core === 'psp' 
+        || core === 'ppsspp' 
+        || core === 'yabause'
+        || core === 'sega_saturn'
+        || core === 'segaSaturn'
+    ) {
       window.EJS_pathtodata = "https://cdn.emulatorjs.org/stable/data/";
       window.EJS_coreUrl = "https://cdn.emulatorjs.org/stable/data/cores/";
     } else {
