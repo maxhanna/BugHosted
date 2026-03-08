@@ -1851,9 +1851,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         return;
       }
 
-      const host = target.closest('.componentMain') as HTMLElement | null;
+      const host = target.closest('.componentContainer') as HTMLElement | null;
       if (!host) {
-        console.log('[HoverEnter] no .componentMain host found');
+        console.log('[HoverEnter] no .componentContainer host found');
         return; // unexpected
       }
 
