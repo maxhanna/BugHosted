@@ -1000,7 +1000,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   // Clear persisted system override for a file and update UI
   async clearSystemOverride(file?: FileEntry) {
-    if (!file || !file.id) return;
+    if (!file || !file.id) { return; }
+    if (!confirm(`Clear system override for ${file.fileName}?`)) { return; }
     try {
       this.startLoading();
       const res = await this.romService.clearSystemOverride(file.id as number);
