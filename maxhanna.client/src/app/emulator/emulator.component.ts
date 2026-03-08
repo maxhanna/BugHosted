@@ -555,7 +555,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (!window.__ejsLoaderInjected) {
       await new Promise<void>((resolve, reject) => {
         const s = document.createElement('script');
-        const useCdn = (window.EJS_core === 'psp' || window.EJS_core === 'ppsspp');
+        const useCdn = (window.EJS_core === 'psp' 
+          || window.EJS_core === 'ppsspp' 
+          || window.EJS_core === 'yabause'
+          || window.EJS_core === 'sega_saturn'
+          || window.EJS_core === 'segaSaturn'
+        );
 
         s.src = useCdn
           ? 'https://cdn.emulatorjs.org/stable/data/loader.js'
