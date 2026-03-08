@@ -305,21 +305,32 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         this._forcedCore = dbOverride;
       }
 
-      // 2) Fall back to localStorage per-extension preference
-      if (!this.selectedSystemCore) {
-        const ext = this.fileService.getFileExtension(file.fileName);
-        const preferred = this.loadPreferredCore(ext);
-        if (preferred) {
-          this.selectedSystemCore = preferred;
-          this._forcedCore = preferred;
-        }
-      }
+      // Determine extension once
+      const ext = this.fileService.getFileExtension(file.fileName);
 
-      // 3) If still no selection, show the system selection panel
-      if (!this.selectedSystemCore) {
+      // Special-case: if the file is a .zip, always prompt the user to choose a system
+      // via the system-picker panel unless the DB has an actualSystem override.
+      // Do NOT fall back to localStorage per-extension preference for .zip files.
+      if (!this.selectedSystemCore && ext === 'zip' && !dbOverride) {
         this._pendingFileToLoad = { fileName: file.fileName, fileId: file.id, directory: file.directory };
         this.isSystemSelectPanelOpen = true;
         this.parentRef?.showOverlay();
+      } else {
+        // 2) Fall back to localStorage per-extension preference (non-zip or DB-overridden)
+        if (!this.selectedSystemCore) {
+          const preferred = this.loadPreferredCore(ext);
+          if (preferred) {
+            this.selectedSystemCore = preferred;
+            this._forcedCore = preferred;
+          }
+        }
+
+        // 3) If still no selection, show the system selection panel
+        if (!this.selectedSystemCore) {
+          this._pendingFileToLoad = { fileName: file.fileName, fileId: file.id, directory: file.directory };
+          this.isSystemSelectPanelOpen = true;
+          this.parentRef?.showOverlay();
+        }
       }
 
       this.cdr.detectChanges();
