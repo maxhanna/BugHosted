@@ -298,7 +298,9 @@ namespace maxhanna.Server.Controllers
             LEFT JOIN user_display_pictures udp  ON udp.user_id = u.id
             LEFT JOIN user_display_pictures luudp ON luudp.user_id = uu.id
             LEFT JOIN file_uploads udpfl ON udp.file_id = udpfl.id 
-            {(includeRomMetadata ? " LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
+            {(includeRomMetadata ? @" 
+            LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
+            LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
             WHERE 1=1
               {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
               AND (f.is_public = 1 OR f.user_id = @userId OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON)))
