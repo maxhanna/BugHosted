@@ -1450,6 +1450,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       'snes': this.fileService.getSnesFileExtensions(),
       'genesis': this.fileService.getSegaFileExtensions(),
       'psp': this.fileService.getPspFileExtensions()
+      ,'saturn': this.fileService.getSaturnFileExtensions()
     };
   }
 

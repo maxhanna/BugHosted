@@ -49,6 +49,7 @@ export class FileService {
   ndsFileExtensions: string[] = ['nds'];
   pspFileExtensions: string[] = ['psp', 'iso', 'cso', 'pbp'];
   snesFileExtensions: string[] = ['snes', 'sfc', 'smc'];
+  saturnFileExtensions: string[] = ['cue', 'chd', 'iso', 'bin'];
 
   /** Return Genesis/MegaDrive related extensions present in romFileExtensions */
   getGenesisFileExtensions(): string[] {
@@ -62,6 +63,11 @@ export class FileService {
 
   getPspFileExtensions(): string[] {
     return Array.from(this.pspFileExtensions);
+  }
+
+  /** Return Saturn-related extensions (commonly ambiguous: cue, chd, iso, bin) */
+  getSaturnFileExtensions(): string[] {
+    return Array.from(this.saturnFileExtensions);
   }
 
   /** Return NES (and Famicom) related extensions present in romFileExtensions */

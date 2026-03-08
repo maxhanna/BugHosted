@@ -93,7 +93,9 @@
                     {{ file.isFolder ? '📁' : '' }}
                     <span [innerHTML]="showSystemIcons ? getSystemEmoji(file.fileName ?? '', undefined, file.romMetadata?.actualSystem) : ''"></span>
 
-                    <span class="romTitleText">
+                    <span 
+                      [style.fontSize]="shouldShowRomMetadata() && file.romMetadata?.igdbName ? 'x-large' : ''"
+                      class="romTitleText">
                       {{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}
                     </span>
                   </span>
