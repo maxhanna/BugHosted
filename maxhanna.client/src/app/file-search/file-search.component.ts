@@ -1836,24 +1836,32 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   handleFileHoverEnter(ev: Event, file: FileEntry) {
     try {
+      console.log('[HoverEnter] start', { displayRomMetadataDesktop: this.displayRomMetadataDesktop, shouldShow: this.shouldShowRomMetadata() });
       if (!this.displayRomMetadataDesktop || !this.shouldShowRomMetadata()) return;
       if (!file || file.isFolder) return;
 
       const img = (file.romInlineThumbs && file.romInlineThumbs.length) ? file.romInlineThumbs[0]
         : (file.romMetadata?.coverUrl ?? null);
+      console.log('[HoverEnter] resolved img', img, { fileId: file?.id, fileName: file?.fileName });
       if (!img) return;
 
       const target = ev?.currentTarget as HTMLElement | null || ev?.target as HTMLElement | null;
-      if (!target) return;
+      if (!target) {
+        console.log('[HoverEnter] no target');
+        return;
+      }
 
-      // Find the emulator's gamesContainer ancestor, then its componentMain host.
-      const gamesContainer = target.closest('.gamesContainer');
-      if (!gamesContainer) return; // not inside emulator page
-      const host = gamesContainer.closest('.componentMain') as HTMLElement | null;
-      if (!host) return; // unexpected
+      const host = target.closest('.componentMain') as HTMLElement | null;
+      if (!host) {
+        console.log('[HoverEnter] no .componentMain host found');
+        return; // unexpected
+      }
+
+      console.log('[HoverEnter] host found', host);
 
       // If overlay already exists for a different host, remove it first.
       if (this._hoverOverlayEl && this._hoverOverlayHost && this._hoverOverlayHost !== host) {
+        console.log('[HoverEnter] removing overlay from different host');
         this._hoverOverlayEl.remove();
         this._hoverOverlayEl = null;
         this._hoverOverlayHost = null;
@@ -1861,9 +1869,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
       // Ensure host is positioned so absolute overlay aligns correctly
       const computed = getComputedStyle(host);
+      console.log('[HoverEnter] host computed.position', computed.position);
       if (computed.position === 'static') {
         this._componentMainPrevPosition = host.style.position ?? '';
         host.style.position = 'relative';
+        console.log('[HoverEnter] set host.position=relative (prev saved)');
       } else {
         this._componentMainPrevPosition = null;
       }
@@ -1871,6 +1881,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       // Reuse overlay if present
       let overlay = this._hoverOverlayEl;
       if (!overlay) {
+        console.log('[HoverEnter] creating overlay element');
         overlay = document.createElement('div');
         overlay.className = 'rom-hover-bg';
         overlay.style.position = 'absolute';
@@ -1890,13 +1901,24 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         host.insertBefore(overlay, host.firstChild);
         this._hoverOverlayEl = overlay;
         this._hoverOverlayHost = host;
+        overlay.addEventListener('transitionend', () => {
+          console.log('[HoverEnter] overlay transitionend');
+        });
+      } else {
+        console.log('[HoverEnter] reusing existing overlay', overlay);
       }
 
       // Update image and fade in
-      overlay.style.backgroundImage = `url('${img}')`;
+      try {
+        overlay.style.backgroundImage = `url('${img}')`;
+        console.log('[HoverEnter] set backgroundImage', overlay.style.backgroundImage);
+      } catch (bgErr) {
+        console.error('[HoverEnter] failed to set backgroundImage', bgErr);
+      }
       // Force reflow then fade in
       void overlay.offsetWidth;
       overlay.style.opacity = '1';
+      console.log('[HoverEnter] faded in overlay');
     } catch (e) {
       console.error('handleFileHoverEnter failed', e);
     }
@@ -1904,22 +1926,27 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   handleFileHoverLeave(ev: Event) {
     try {
+      console.log('[HoverLeave] start');
       const target = ev?.currentTarget as HTMLElement | null || ev?.target as HTMLElement | null;
       const gamesContainer = target ? target.closest('.gamesContainer') : null;
       const host = gamesContainer ? gamesContainer.closest('.componentMain') as HTMLElement | null : null;
+      console.log('[HoverLeave] host resolved', host, { hoverHost: this._hoverOverlayHost });
 
       // Only remove overlay if it belongs to this host (safety)
       if (this._hoverOverlayEl && this._hoverOverlayHost && (!host || host === this._hoverOverlayHost)) {
         const overlay = this._hoverOverlayEl;
+        console.log('[HoverLeave] fading out overlay');
         overlay.style.opacity = '0';
         // Remove after transition
         const cleanup = () => {
           try {
             overlay.removeEventListener('transitionend', cleanup);
             if (overlay.parentElement) overlay.parentElement.removeChild(overlay);
+            console.log('[HoverLeave] removed overlay from DOM');
           } catch { }
           if (this._hoverOverlayHost && this._componentMainPrevPosition !== null) {
             this._hoverOverlayHost.style.position = this._componentMainPrevPosition || '';
+            console.log('[HoverLeave] restored host position', this._componentMainPrevPosition);
           }
           this._hoverOverlayEl = null;
           this._hoverOverlayHost = null;
@@ -1927,7 +1954,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         };
         overlay.addEventListener('transitionend', cleanup);
         // Fallback in case transitionend doesn't fire
-        setTimeout(cleanup, 400);
+        setTimeout(() => {
+          console.log('[HoverLeave] fallback cleanup timeout');
+          cleanup();
+        }, 400);
+      } else {
+        console.log('[HoverLeave] no overlay to remove or host mismatch');
       }
     } catch (e) {
       console.error('handleFileHoverLeave failed', e);
