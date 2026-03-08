@@ -1713,7 +1713,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     const fileName = 'file.' + ext;
     const rawExt = this.fileService.getFileExtension(fileName).toLowerCase();
     const ambiguousExts = new Set(['bin', 'iso', 'chd', 'cue', 'pbp']);
-    const guessedSystem = ambiguousExts.has(rawExt) ? this.romService.guessSystemFromFileName(fileName) : undefined;
+    // Prefer title-based guessing from FileService (covers known system-specific titles).
+    const titleGuess = this.fileService.guessSystemFromTitle(fileName);
+    const guessedSystem = titleGuess ?? (ambiguousExts.has(rawExt) ? this.romService.guessSystemFromFileName(fileName) : undefined);
     const effectiveExt = guessedSystem ?? rawExt;
 
     const iconMap: { [key: string]: string } = {
@@ -1740,6 +1742,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       'psp': '/assets/pspicon.png',
       'pbp': '/assets/pspicon.png',
       'cue': '/assets/ps1icon.png',
+      'psx': '/assets/ps1icon.png',
+      'playstation': '/assets/ps1icon.png',
+      // Sega family
+      'saturn': '/assets/saturnicon.png',
+      'dreamcast': '/assets/segaicon.png',
+      'genesis': '/assets/segaicon.png',
+      'sega': '/assets/segaicon.png',
       'chd': '/assets/ps1icon.png',
       'iso': '/assets/ps1icon.png',
       'bin': '/assets/ps1icon.png',
