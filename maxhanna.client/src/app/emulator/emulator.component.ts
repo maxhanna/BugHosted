@@ -248,7 +248,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    const shouldSave = window.confirm('Save emulator state before closing?');
+    const shouldSave = window.confirm('Save state before closing?');
     if (!shouldSave) {
       if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
         this.fullReloadToEmulator();
@@ -2891,8 +2891,7 @@ type CoreDescriptor = {
 const CORE_REGISTRY: CoreDescriptor[] = [
   // --- Sony ---
   { core: 'psp', label: 'PSP', exts: ['pbp'], maybeExts: ['iso'], hints: [/ULUS\d{5}/i, /ULES\d{5}/i, /\bPSP\b/i] },
-  { core: 'pcsx_rearmed', label: 'PlayStation (PS1) – Fast', exts: ['bin', 'chd'], maybeExts: ['iso', 'cue', 'img', 'ccd', 'mdf', 'mds', 'nrg'], hints: [/SLUS\d{5}/i, /SLES\d{5}/i, /\bPSX\b|\bPS1\b|\bPlayStation\b/i] },
-  { core: 'mednafen_psx_hw', label: 'PlayStation (PS1) – Accurate', exts: ['cue'], maybeExts: ['iso', 'bin', 'chd', 'img', 'ccd', 'mdf', 'mds', 'nrg'], hints: [/SLUS\d{5}/i, /SLES\d{5}/i] },
+  { core: 'pcsx_rearmed', label: 'PlayStation (PS1)', exts: ['bin', 'chd', 'cue'], maybeExts: ['iso', 'img', 'ccd', 'mdf', 'mds', 'nrg'], hints: [/SLUS\d{5}/i, /SLES\d{5}/i, /\bPSX\b|\bPS1\b|\bPlayStation\b/i] },
 
   // --- Sega ---
   { core: 'genesis_plus_gx', label: 'Sega Mega Drive / Genesis', exts: ['smd', 'gen', 'md'], maybeExts: ['bin'], hints: [/\bGENESIS\b|\bMEGADRIVE\b|\bMD\b/i] },
