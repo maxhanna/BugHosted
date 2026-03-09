@@ -609,6 +609,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
   previousPage() {
+    if (this.pageLocked) {return;}
     if (this.currentPage > 1) {
       this.currentPage--;
       this.getDirectory().then(() => { this.scrollToTop(); });
@@ -616,6 +617,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   async nextPage() {
+    if (this.pageLocked) {return;}
     if (this.currentPage < this.totalPages) {
       this.currentPage++;
       await this.getDirectory().then(() => { this.scrollToTop(); });
@@ -623,6 +625,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
   async appendNextPage() {
+    if (this.pageLocked) {return;}
     if (this.currentPage < this.totalPages) {
       console.log("Appending next page...");
       this.currentPage++;
