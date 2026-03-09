@@ -1,45 +1,27 @@
-<div class="componentMain" 
-  [style.paddingTop]="isFullScreen ? '0px' : null"
-  [style.width]="romName ? '100vw' : null"
-  [style.minWidth]="'300px'"
-  [style.opacity]="(!romName && !onMobile() && !parentRef?.isShowingOverlay) ? '95%' : ''">
-  <app-title-bar 
-    *ngIf="!isFullScreen" 
-    [title]="romName ? getRomName() : 'Emulator'" 
-    [hasSearch]="true"
-    [showSearch]="false"
-    [inputtedParentRef]="parentRef"
-    (menuClicked)="showMenuPanel()" 
-    (closeClicked)="safeExit()">
+<div class="componentMain" [style.paddingTop]="isFullScreen ? '0px' : null" [style.width]="romName ? '100vw' : null"
+  [style.minWidth]="'300px'" [style.opacity]="(!romName && !onMobile() && !parentRef?.isShowingOverlay) ? '95%' : ''">
+  <app-title-bar *ngIf="!isFullScreen" [title]="romName ? getRomName() : 'Emulator'" [hasSearch]="true"
+    [showSearch]="false" [inputtedParentRef]="parentRef" (menuClicked)="showMenuPanel()" (closeClicked)="safeExit()">
   </app-title-bar>
 
+  <!-- Status Display -->
+  <div *ngIf="!romName && isLoading" style="text-align: center; padding: 20px; color: #666;">
+    {{ status }}
+  </div>
 
   <div class="gamesContainer{{ !romName ? ' expanded' : '' }}" *ngIf="isSearchVisible && parentRef">
-    <app-file-search [user]="parentRef.user" 
-      [inputtedParentRef]="parentRef" 
-      [currentDirectory]="'Roms/'"
-      [clearAfterSelectFile]="true" [allowedFileTypes]="getAllowedFileTypes()" 
-      [showPrivatePublicOption]="true"
-      [canChangeDirectory]="false" [canDragMove]="false" [displayFileActions]="true" 
-      [displayComments]="false"
-      [displayFileSize]="false" [displayReactions]="false" 
-      [showPicturesOnlyToggler]="false"
-      [showVideosOnlyToggler]="false" 
-      [showNSFWToggler]="false" [showSystemIcons]="true"
-      [showRomMetadata]="true"
-      [displayRomMetadataDesktop]="true"
-      (selectFileEvent)="onRomSelected($event)">
+    <app-file-search [user]="parentRef.user" [inputtedParentRef]="parentRef" [currentDirectory]="'Roms/'"
+      [clearAfterSelectFile]="true" [allowedFileTypes]="getAllowedFileTypes()" [showPrivatePublicOption]="true"
+      [canChangeDirectory]="false" [canDragMove]="false" [displayFileActions]="true" [displayComments]="false"
+      [displayFileSize]="false" [displayReactions]="false" [showPicturesOnlyToggler]="false"
+      [showVideosOnlyToggler]="false" [showNSFWToggler]="false" [showSystemIcons]="true" [showRomMetadata]="true"
+      [displayRomMetadataDesktop]="true" (selectFileEvent)="onRomSelected($event)">
     </app-file-search>
   </div>
 
   <!-- EmulatorJS Container -->
   <div id="game" [style.width]="'100%'" [style.max-width]="'960px'" [style.height]="'calc(100vh - 60px)'"
     [style.aspect-ratio]="null" [style.margin]="'auto'" [style.display]="romName ? 'block' : 'none'">
-  </div>
-
-  <!-- Status Display -->
-  <div *ngIf="!romName && isLoading" style="text-align: center; padding: 20px; color: #666;">
-    {{ status }}
   </div>
 </div>
 
