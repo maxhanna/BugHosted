@@ -116,6 +116,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   showMetadataInOptionsPanel = true;
   wasOptionsPanelOpen = false;
   isFirstLoad = true;
+  pageLocked = false;
   private _componentMainPrevStyle: string | null = null;
   private _savedDirectoryBeforeFileIdSearch: string | null = null;
   private windowScrollHandler: Function;
@@ -399,10 +400,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   async getDirectory(file?: string, fileId?: number, append?: boolean) {
-    // Prevent re-entrant calls while a fetch is already in progress
-    if (this.isLoading) return;
+    if (this.isLoading || this.pageLocked) return;
     // console.log('[FileSearch] getDirectory called', { fileArg: file, fileIdArg: fileId, append, isLoading: this.isLoading, currentDirectory: this.currentDirectory });
     this.startLoading();
+    this.pageLocked = true;
     let fileTypes: string[] = [];
     const filterArr = this.fileTypeFilter.split(',').map(t => t.trim().toLowerCase()).filter(t => t);
     if (this.allowedFileTypes && this.allowedFileTypes.length > 0) {
@@ -461,7 +462,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
             const linked = this.directory.data.find(d => d.id === this.optionsFile?.id);
             if (linked) {
               this.optionsFile = linked;
-              try { this.changeDetectorRef.detectChanges(); } catch {}
+              try { this.changeDetectorRef.detectChanges(); } catch { }
             }
           }
         } else {
@@ -540,7 +541,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         if (!isFileIdSearch && this._savedDirectoryBeforeFileIdSearch != null) {
           this._savedDirectoryBeforeFileIdSearch = null;
         }
-
+        
+        setTimeout(() => {
+          this.pageLocked = false; 
+        }, 1000);
       });
     } catch (error) {
       this.notifyUser((error as Error).message);
@@ -1484,7 +1488,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       'snes': this.fileService.getSnesFileExtensions(),
       'genesis': this.fileService.getSegaFileExtensions(),
       'psp': this.fileService.getPspFileExtensions()
-      ,'saturn': this.fileService.getSaturnFileExtensions()
+      , 'saturn': this.fileService.getSaturnFileExtensions()
     };
   }
 
@@ -1648,7 +1652,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       console.error(ex);
       this.notifyUser('Failed to submit rating.');
     }
-  } 
+  }
 
   getSystemLabel(key: string): string {
     switch (key) {
@@ -1682,28 +1686,28 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     // If a DB-persisted core override exists, map it directly to an icon
     if (actualSystem) {
       const coreIconMap: { [core: string]: string } = {
-        'pcsx_rearmed':     '/assets/ps1icon.png',
-        'mednafen_psx_hw':  '/assets/ps1icon.png',
-        'duckstation':      '/assets/ps1icon.png',
-        'mednafen_psx':     '/assets/ps1icon.png',
-        'ppsspp':           '/assets/pspicon.png',
-        'yabause':          '/assets/saturnicon.png',
-        'genesis_plus_gx':  '/assets/segaicon.png',
-        'picodrive':        '/assets/segaicon.png',
-        'opera':            '/assets/ps1icon.png',
+        'pcsx_rearmed': '/assets/ps1icon.png',
+        'mednafen_psx_hw': '/assets/ps1icon.png',
+        'duckstation': '/assets/ps1icon.png',
+        'mednafen_psx': '/assets/ps1icon.png',
+        'ppsspp': '/assets/pspicon.png',
+        'yabause': '/assets/saturnicon.png',
+        'genesis_plus_gx': '/assets/segaicon.png',
+        'picodrive': '/assets/segaicon.png',
+        'opera': '/assets/ps1icon.png',
         'mupen64plus_next': '/assets/n64icon.png',
-        'melonds':          '/assets/ndsicon.png',
-        'mgba':             '/assets/gbaicon.png',
-        'gambatte':         '/assets/gbicon.png',
-        'fceumm':           '/assets/nesicon.png',
-        'snes9x':           '/assets/snesicon.png',
-        'mednafen_vb':      '/assets/nesicon.png',
-        'mame2003_plus':    '/assets/atariicon.png',
-        'fbneo':            '/assets/atariicon.png',
-        'stella2014':       '/assets/atariicon.png',
-        'prosystem':        '/assets/atariicon.png',
-        'handy':            '/assets/atariicon.png',
-        'virtualjaguar':    '/assets/atariicon.png',
+        'melonds': '/assets/ndsicon.png',
+        'mgba': '/assets/gbaicon.png',
+        'gambatte': '/assets/gbicon.png',
+        'fceumm': '/assets/nesicon.png',
+        'snes9x': '/assets/snesicon.png',
+        'mednafen_vb': '/assets/nesicon.png',
+        'mame2003_plus': '/assets/atariicon.png',
+        'fbneo': '/assets/atariicon.png',
+        'stella2014': '/assets/atariicon.png',
+        'prosystem': '/assets/atariicon.png',
+        'handy': '/assets/atariicon.png',
+        'virtualjaguar': '/assets/atariicon.png',
       };
       const mapped = coreIconMap[actualSystem];
       if (mapped) return mapped;
@@ -1742,14 +1746,14 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       'nes': '/assets/nesicon.png',
       'ps1': '/assets/ps1icon.png',
       'psp': '/assets/pspicon.png',
-      'pbp': '/assets/pspicon.png', 
+      'pbp': '/assets/pspicon.png',
       'psx': '/assets/ps1icon.png',
       'playstation': '/assets/ps1icon.png',
       // Sega family
       'saturn': '/assets/saturnicon.png',
       'dreamcast': '/assets/segaicon.png',
       'genesis': '/assets/segaicon.png',
-      'sega': '/assets/segaicon.png', 
+      'sega': '/assets/segaicon.png',
       'gb': '/assets/gbicon.png',
       'gbc': '/assets/gbicon.png',
       'gba': '/assets/gbaicon.png'
@@ -1819,8 +1823,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   shouldShowRomMetadata(): boolean {
-    return this.showRomMetadata 
-      && this.isRomsDirectory() 
+    return this.showRomMetadata
+      && this.isRomsDirectory()
       && (this.isFirstLoad || (this.directory?.data ?? []).length > 0);
   }
 
@@ -1931,7 +1935,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         host.insertBefore(overlay, host.firstChild);
         this._hoverOverlayEl = overlay;
         this._hoverOverlayHost = host;
-      } 
+      }
 
       // Update image and fade in
       try {
@@ -1961,7 +1965,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         const cleanup = () => {
           try {
             overlay.removeEventListener('transitionend', cleanup);
-            if (overlay.parentElement) { 
+            if (overlay.parentElement) {
               overlay.parentElement.removeChild(overlay);
             }
           } catch { }
@@ -2026,7 +2030,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     parent?.closeOverlay();
     if (this.wasOptionsPanelOpen && this.optionsFile) {
       setTimeout(() => {
-        if (this.optionsFile) { 
+        if (this.optionsFile) {
           this.showOptionsPanel(this.optionsFile);
         }
       }, 200);
