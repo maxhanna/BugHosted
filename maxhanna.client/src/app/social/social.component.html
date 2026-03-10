@@ -396,9 +396,7 @@
             <div class="textExpanderDiv"
               *ngIf="!isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id)"
               (click)="toggleCollapse('storyTextContainer'+story.id)">
-              <span class="smallExpander">
-                Expand
-              </span>
+              <span class="smallExpander">Expand</span>
             </div>
             <div
               *ngIf="isStoryExpanded(story.id) && story.storyFiles && story.storyFiles.length > 0 && (compactness !== 'yess' || isExpanded('storyTextContainer'+story.id)) && (!hasOverflow('storyTextContainer'+story.id) || (isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id)))"
