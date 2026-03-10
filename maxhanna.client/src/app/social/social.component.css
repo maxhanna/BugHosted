@@ -308,7 +308,7 @@ singleAttachment {
   text-overflow: ellipsis;
   overflow: hidden;
   font-size: smaller;
-  box-shadow: 0px 30px 33px -33px var(--primary-font-color);
+  box-shadow: 0 20px 35px -35px var(--primary-font-color);
   cursor: pointer;
 }
 
@@ -433,6 +433,11 @@ singleAttachment {
 .smallExpander {
   width: 110px;
   text-align: center;
+}
+
+.smallExpander:hover {
+  color: var(--secondary-font-color);
+  text-decoration: underline; 
 }
 
 .reactionsSpan {
