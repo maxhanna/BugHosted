@@ -580,14 +580,18 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private applyGamepadControlSettings(romDisplayName: string, core: string, system: System | undefined) {
-    const genesisSix = (system === 'genesis') ? this.shouldUseGenesisSixButtons(romDisplayName) : false;
+    let useSix = true;
+    if (this.system === 'genesis') {
+      useSix = this.shouldUseGenesisSixButtons(this.fileService.getFileWithoutExtension(romDisplayName));
+      this.applyGenesisControllerOptions(core, useSix);
+    }
 
     const vpad = this.buildTouchLayout((system ?? ('gba' as System)), {
       useJoystick: this.useJoystick,
       showControls: this.showControls,
       twoButtonMode: (system === 'nes' || system === 'gb' || system === 'gbc'),
       segaShowLR: false, // keep false to avoid L/R "pills"
-      genesisSix: genesisSix, // ⟵ pass the decision in
+      genesisSix: useSix, // ⟵ pass the decision in
     });
 
     const speedButtons: VPadItem[] = [
@@ -763,42 +767,44 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       23: { value: '', value2: 'DPAD_DOWN' },
       24: {}, 25: {}, 26: {}, 27: {}, 28: {}, 29: {},
     } as Record<number, unknown>;
-    w.EJS_defaultControls = {
-      0: {
-        0: { value: 'x', value2: 'BUTTON_1' },
-        1: { value: 's', value2: 'BUTTON_3' },
-        2: { value: 'v', value2: 'SELECT' },
-        3: { value: 'enter', value2: 'START' },
-        4: { value: 'up arrow', value2: leftStickValues["UP"] },
-        5: { value: 'down arrow', value2: leftStickValues["DOWN"] },
-        6: { value: 'left arrow', value2: leftStickValues["LEFT"] },
-        7: { value: 'right arrow', value2: leftStickValues["RIGHT"] },
-        8: { value: 'z', value2: 'BUTTON_2' },
-        9: { value: 'a', value2: 'BUTTON_4' },
-        10: { value: 'q', value2: 'LEFT_TOP_SHOULDER' },
-        11: { value: 'e', value2: 'RIGHT_TOP_SHOULDER' },
-        12: { value: 'tab', value2: 'LEFT_BOTTOM_SHOULDER' },
-        13: { value: 'r', value2: 'RIGHT_BOTTOM_SHOULDER' },
-        14: { value: '', value2: 'LEFT_STICK' },
-        15: { value: '', value2: 'RIGHT_STICK' },
-        16: { value: 'h', value2: rightStickValues["RIGHT"] },
-        17: { value: 'f', value2: rightStickValues["LEFT"] },
-        18: { value: 'g', value2: rightStickValues["DOWN"] },
-        19: { value: 't', value2: rightStickValues["UP"] },
-        20: { value: 'l', value2: 'DPAD_RIGHT' },
-        21: { value: 'j', value2: 'DPAD_LEFT' },
-        22: { value: 'k', value2: 'DPAD_UP' },
-        23: { value: 'i', value2: 'DPAD_DOWN' },
-        24: { value: '1' }, 25: { value: '2' }, 26: { value: '3' },
-        27: {}, 28: {}, 29: {},
-      },
-      1: { ...gpOnly },
-      2: { ...gpOnly },
-      3: { ...gpOnly },
-    };
-    if (system === "saturn" || core === "yabause") {
-
+    if (system !== 'genesis') {
+      w.EJS_defaultControls = {
+        0: {
+          0: { value: 'x', value2: 'BUTTON_1' },
+          1: { value: 's', value2: 'BUTTON_3' },
+          2: { value: 'v', value2: 'SELECT' },
+          3: { value: 'enter', value2: 'START' },
+          4: { value: 'up arrow', value2: leftStickValues["UP"] },
+          5: { value: 'down arrow', value2: leftStickValues["DOWN"] },
+          6: { value: 'left arrow', value2: leftStickValues["LEFT"] },
+          7: { value: 'right arrow', value2: leftStickValues["RIGHT"] },
+          8: { value: 'z', value2: 'BUTTON_2' },
+          9: { value: 'a', value2: 'BUTTON_4' },
+          10: { value: 'q', value2: 'LEFT_TOP_SHOULDER' },
+          11: { value: 'e', value2: 'RIGHT_TOP_SHOULDER' },
+          12: { value: 'tab', value2: 'LEFT_BOTTOM_SHOULDER' },
+          13: { value: 'r', value2: 'RIGHT_BOTTOM_SHOULDER' },
+          14: { value: '', value2: 'LEFT_STICK' },
+          15: { value: '', value2: 'RIGHT_STICK' },
+          16: { value: 'h', value2: rightStickValues["RIGHT"] },
+          17: { value: 'f', value2: rightStickValues["LEFT"] },
+          18: { value: 'g', value2: rightStickValues["DOWN"] },
+          19: { value: 't', value2: rightStickValues["UP"] },
+          20: { value: 'l', value2: 'DPAD_RIGHT' },
+          21: { value: 'j', value2: 'DPAD_LEFT' },
+          22: { value: 'k', value2: 'DPAD_UP' },
+          23: { value: 'i', value2: 'DPAD_DOWN' },
+          24: { value: '1' }, 25: { value: '2' }, 26: { value: '3' },
+          27: {}, 28: {}, 29: {},
+        },
+        1: { ...gpOnly },
+        2: { ...gpOnly },
+        3: { ...gpOnly },
+      };
+    } else { 
+      try { delete w.EJS_defaultControls; } catch {}
     }
+
     w.EJS_DEBUG_XX = true;             // debug options 
     w.EJS_logCoreInfo = true;          // debug options 
     w.EJS_logVideo = true;             // debug options 
@@ -2332,6 +2338,27 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     };
     return aliasMap[slug] ?? slug;
   }
+
+  
+/** Enforce Genesis controller type (3- or 6-button) at core level. */
+private applyGenesisControllerOptions(core: string, useSix: boolean) {
+  const w = window as any;
+  w.EJS_defaultOptions ||= {};
+
+  if (core === 'genesis_plus_gx') {
+    // Genesis Plus GX core variable names
+    w.EJS_defaultOptions['genesis_plus_gx_controller1'] = useSix ? '6 button pad' : '3 button pad';
+    w.EJS_defaultOptions['genesis_plus_gx_controller2'] = '3 button pad';
+  } else if (core === 'picodrive') {
+    // PicoDrive core variable names
+    w.EJS_defaultOptions['picodrive_input1'] = useSix ? '6 button pad' : '3 button pad';
+    w.EJS_defaultOptions['picodrive_input2'] = '3 button pad';
+  }
+
+  // Make sure our core options win over saved local settings
+  w.EJS_defaultOptionsForce = true;
+}
+
 
   private shouldUseGenesisSixButtons(romDisplayName: string): boolean {
     const slug = this.canonicalizeGenesisSlug(this.slugifyName(romDisplayName));
