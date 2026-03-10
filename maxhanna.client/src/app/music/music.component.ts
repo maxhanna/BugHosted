@@ -286,7 +286,9 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     if (this.pendingPlay?.url && this.ytReady) {
       const { url } = this.pendingPlay;
       this.pendingPlay = undefined;
-      this.play(url);
+      if (url) {
+        this.play(url); 
+      }
     }
   }
 
@@ -368,7 +370,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     } finally {
       this.updatePaginatedSongs();   // ensures new reference for paginatedSongs
       this.gotPlaylistEvent.emit([...this.songs]); // emit a new ref as well
-      if (this.selectedType === 'youtube' && playAfterLoad) {
+      if (this.selectedType === 'youtube' && playAfterLoad && this.songs[0]?.url) {
         this.play(this.songs[0]?.url); // attempt to play first song (if any)
       }
       this.stopLoading();
