@@ -282,8 +282,8 @@ public class TradeController : ControllerBase
 		try
 		{
 			if (userId != 1 && !await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			List<Dictionary<string, object?>>? result = await _log.GetLogs(userId, "TRADE", 1);
-			string lastLog = result?.FirstOrDefault()?["comment"]?.ToString() ?? "No logs found.";
+			List<LogDto>? result = await _log.GetLogs(userId, "TRADE", 1);
+			string lastLog = result?.FirstOrDefault()?.Comment?.ToString() ?? "No logs found.";
 			return Ok(lastLog);
 		}
 		catch (Exception ex)
