@@ -41,12 +41,11 @@ public class Log
       sb.AppendLine("  AND user_id = @UserId");
     if (!string.IsNullOrWhiteSpace(component))
       sb.AppendLine("  AND component = @Component");
-
-    var booleanKeywords = BuildBooleanQuery(keywords);
-    bool hasKeywords = !string.IsNullOrEmpty(booleanKeywords);
+ 
+    bool hasKeywords = !string.IsNullOrEmpty(keywords);
     if (hasKeywords)
     {
-      sb.AppendLine("  AND MATCH(comment) AGAINST (@Keywords IN BOOLEAN MODE)");
+      sb.AppendLine("  AND comment LIKE CONCAT('%', @Keywords, '%')");
     }
     try
     {
@@ -98,20 +97,8 @@ public class Log
     }
 
     return list;
-  }
-
-
-  static string? BuildBooleanQuery(string? raw)
-  {
-    if (string.IsNullOrWhiteSpace(raw)) return null;
-    var tokens = raw
-        .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-        .Where(t => t.Length >= 3)
-        .Select(t => "+" + t + "*");
-    var q = string.Join(" ", tokens);
-    return string.IsNullOrWhiteSpace(q) ? null : q;
-  }
-
+  } 
+  
   public async Task<int> GetLogsCount(int? userId = null, string? component = null, string keywords = "")
   {
     var sql = new StringBuilder("SELECT COUNT(*) FROM maxhanna.logs WHERE 1=1");
@@ -125,10 +112,9 @@ public class Log
     {
       sql.Append(" AND component = @Component ");
     }
- 
-    var booleanKeywords = BuildBooleanQuery(keywords);
-    if (booleanKeywords != null) {
-        sql.Append(" AND MATCH(comment) AGAINST (@Keywords IN BOOLEAN MODE) ");
+  
+    if (!string.IsNullOrEmpty(keywords)) {
+      sql.Append(" AND comment LIKE CONCAT('%', @Keywords, '%') ");
     }
 
     try
