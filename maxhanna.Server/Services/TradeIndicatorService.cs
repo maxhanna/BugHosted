@@ -79,8 +79,7 @@ namespace maxhanna.Server.Services
 
           overallSuccess &= success;
 
-          _ = _log.Db($"Trade indicators updated for {coin.pair}: {(success ? "success" : "failed")}",
-                 null, "TISVC", outputToConsole: true);
+          //_ = _log.Db($"Trade indicators updated for {coin.pair}: {(success ? "success" : "failed")}", null, "TISVC", outputToConsole: true);
 
           if (coin != _coinPairs[^1])
           {
@@ -133,7 +132,7 @@ namespace maxhanna.Server.Services
 
       if (result != null && result != DBNull.Value)
       {
-        _ = _log.Db($"Trade indicators for {fromCoin}/{toCoin} updated within last 5 minutes, skipping update",  null, "TISVC", outputToConsole: true);
+        //_ = _log.Db($"Trade indicators for {fromCoin}/{toCoin} updated within last 5 minutes, skipping update",  null, "TISVC", outputToConsole: true);
         return false;
       }
       return true;
@@ -145,10 +144,10 @@ namespace maxhanna.Server.Services
       var sw = Stopwatch.StartNew();
       try
       {
-        _ = _log.Db($"TISVC: Starting {stepName} for {pair}", null, "TISVC", true);
+       // _ = _log.Db($"TISVC: Starting {stepName} for {pair}", null, "TISVC", true);
         bool result = await stepFunc();
         sw.Stop();
-        _ = _log.Db($"TISVC: Completed {stepName} for {pair} in {sw.ElapsedMilliseconds}ms (success={result})", null, "TISVC", true);
+        //_ = _log.Db($"TISVC: Completed {stepName} for {pair} in {sw.ElapsedMilliseconds}ms (success={result})", null, "TISVC", true);
         return result;
       }
       catch (Exception ex)

@@ -148,7 +148,7 @@ namespace maxhanna.Server.Controllers
 
         // Log the full payload for debugging
         var payloadJson = JsonSerializer.Serialize(requestBody);
-        _ = _log.Db($"Ollama payload: {payloadJson}", null, "AiController", true);
+       // _ = _log.Db($"Ollama payload: {payloadJson}", null, "AiController", true);
 
         using var httpReq = new HttpRequestMessage(HttpMethod.Post, url)
         {
@@ -412,7 +412,7 @@ namespace maxhanna.Server.Controllers
     /// </summary>
     public async Task<bool> ProvideMarketAnalysis()
     {
-      _ = _log.Db("Providing Market Sentiment Analysis for the last 3 hours...", null, "AIController", outputToConsole: true);
+     // _ = _log.Db("Providing Market Sentiment Analysis for the last 3 hours...", null, "AIController", outputToConsole: true);
       try
       {
         var newsBlob = await GetLatestNewsDescriptionsAsync();
@@ -434,7 +434,7 @@ namespace maxhanna.Server.Controllers
           if (await reader.ReadAsync())
           {
             // Already exists, no need to insert again
-            _ = _log.Db("Market Sentiment Analysis for the last 3 hours already provided. Skipping.", null, "AIController", outputToConsole: true);
+           // _ = _log.Db("Market Sentiment Analysis for the last 3 hours already provided. Skipping.", null, "AIController", outputToConsole: true);
             return true;
           }
         }
@@ -544,12 +544,11 @@ namespace maxhanna.Server.Controllers
           cmd.Parameters.AddWithValue("@id", mediaFile.Id);
           await cmd.ExecuteNonQueryAsync();
           await UpdateSitemapEntry(mediaFile.Id, newName, newName);
-          _ = _log.Db($"Changed filename: {mediaFile.FileName} → {newName}",
-                 null, "AiController", true);
+        //  _ = _log.Db($"Changed filename: {mediaFile.FileName} → {newName}", null, "AiController", true);
           return newName;
         }
 
-        _ = _log.Db($"Media analysis returned: {description}.", null, "AiController", true);
+    // _ = _log.Db($"Media analysis returned: {description}.", null, "AiController", true);
         return description;
       }
       catch (Exception ex)
@@ -621,7 +620,7 @@ namespace maxhanna.Server.Controllers
                   var jpgBytes = await System.IO.File.ReadAllBytesAsync(jpgPath);
                   var pngBytes = await ConvertImageBytesToPngAsync(jpgBytes, shortSide);
                   pngThumbs.Add(pngBytes);
-                  _ = _log.Db($"Created video thumbnail (fallback PNG): {jpgPath} → {pngBytes.Length} bytes", null, "AiController", true);
+              //   _ = _log.Db($"Created video thumbnail (fallback PNG): {jpgPath} → {pngBytes.Length} bytes", null, "AiController", true);
                 }
                 else
                 {
@@ -639,7 +638,7 @@ namespace maxhanna.Server.Controllers
           {
             var pngBytes = await ConvertImageFileToPngAsync(filePath, shortSide);
             pngThumbs.Add(pngBytes);
-            _ = _log.Db($"Converted image to PNG: {filePath} → {pngBytes.Length} bytes", null, "AiController", true);
+           // _ = _log.Db($"Converted image to PNG: {filePath} → {pngBytes.Length} bytes", null, "AiController", true);
           }
           catch (Exception ex)
           {
@@ -714,7 +713,7 @@ namespace maxhanna.Server.Controllers
             resized.Add(smaller);
           }
           validated = resized;
-          _ = _log.Db($"Downscaled thumbnails to short side {newShortSide}. New combined size: {SumBytes(validated)} bytes.", null, "AiController", true);
+        //  _ = _log.Db($"Downscaled thumbnails to short side {newShortSide}. New combined size: {SumBytes(validated)} bytes.", null, "AiController", true);
         }
 
         // Convert to clean base64 and (IMPORTANT) keep all available thumbnails up to configured max
@@ -729,7 +728,7 @@ namespace maxhanna.Server.Controllers
           return string.Empty;
         }
 
-        _ = _log.Db($"Thumbnails ready: {base64ImagesClean.Count}, combined size: {SumBytes(validated)} bytes.", null, "AiController", true);
+       // _ = _log.Db($"Thumbnails ready: {base64ImagesClean.Count}, combined size: {SumBytes(validated)} bytes.", null, "AiController", true);
 
         // Build prompt (keep your existing helpers)
         string prompt = detailed ? BuildDetailedPrompt(base64ImagesClean.Count > 1) : BuildConcisePrompt();
@@ -1095,7 +1094,7 @@ Constraints:
       }
       try
       {
-        _ = _log.Db("Analyzing and renaming a random file.", null, "AiController", true);
+       // _ = _log.Db("Analyzing and renaming a random file.", null, "AiController", true);
 
         // Get random file meeting criteria
         FileEntry? fileToRename = null;
@@ -1147,7 +1146,7 @@ Constraints:
         }
         if (fileToRename == null)
         {
-          _ = _log.Db("No suitable files to rename. Aborted.", null, "AiController", true);
+         // _ = _log.Db("No suitable files to rename. Aborted.", null, "AiController", true);
           return Ok(new { Message = "No suitable files found for renaming." });
         }
 
@@ -1553,7 +1552,7 @@ Constraints:
             // Convert to PNG & resize to targetShortSide
             var png = await ConvertImageBytesToPngAsync(bytes, targetShortSide);
             results.Add(png);
-            _ = _log.Db($"Loaded video thumbnail: {path} → {png.Length} bytes", null, "AiController", true);
+           // _ = _log.Db($"Loaded video thumbnail: {path} → {png.Length} bytes", null, "AiController", true);
           }
           catch (Exception ex)
           {

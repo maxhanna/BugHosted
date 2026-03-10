@@ -135,7 +135,7 @@ namespace maxhanna.Server.Controllers
     [HttpPost("/Bones", Name = "Bones_GetHero")]
     public async Task<IActionResult> GetHero([FromBody] int userId)
     {
-      _ = _log.Db("Get hero " + userId, userId, "BONES", true);
+      //_ = _log.Db("Get hero " + userId, userId, "BONES", true);
       using var connection = new MySqlConnection(_connectionString);
       await connection.OpenAsync();
       using var transaction = connection.BeginTransaction();
@@ -3478,7 +3478,7 @@ ORDER BY p.created DESC;";
           partyIds.Add(killerHeroId);
         }
         // Debug: log who will receive EXP and how much
-        await _log.Db($"AwardEncounterKillExp: killer={killerHeroId} encounterLevel={encounterLevel} party=[{string.Join(',', partyIds)}]", killerHeroId, "BONES", true);
+       // await _log.Db($"AwardEncounterKillExp: killer={killerHeroId} encounterLevel={encounterLevel} party=[{string.Join(',', partyIds)}]", killerHeroId, "BONES", true);
         string idsCsv = string.Join(',', partyIds);
 
         // Fetch current levels for each hero so we can scale awarded EXP per-player

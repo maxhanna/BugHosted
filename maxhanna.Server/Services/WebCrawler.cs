@@ -280,7 +280,7 @@ public class WebCrawler
     // Ensure only one scrape operation runs at a time 
     if (isBackgroundScrapeRunning)
     {
-      _ = _log.Db("Scrape operation already in progress", null, "CRAWLER", outputToConsole: true);
+      //_ = _log.Db("Scrape operation already in progress", null, "CRAWLER", outputToConsole: true);
       return;
     }
     isBackgroundScrapeRunning = true;
@@ -1473,7 +1473,9 @@ public class WebCrawler
           {
             _lastRequestTime = DateTime.Now;
             Metadata? metaData = null;
-            _ = _log.Db($"({delayedUrlsQueue.Count()}#{urlsToScrapeQueue.Count()}) Scraping: " + $"{ShortenUrl(url)}", null, "CRAWLER", true);
+           // _ = _log.Db($"({delayedUrlsQueue.Count()}#{urlsToScrapeQueue.Count()}) Scraping: " + $"{ShortenUrl(url)}", null, "CRAWLER", true);
+            Console.WriteLine($"({delayedUrlsQueue.Count()}#{urlsToScrapeQueue.Count()}) Scraping: " + $"{ShortenUrl(url)}");
+            
             metaData = await ScrapeUrlData(url);
             if (metaData != null && !IsMetadataCompletelyEmpty(metaData))
             {
