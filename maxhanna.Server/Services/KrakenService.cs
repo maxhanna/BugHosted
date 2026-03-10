@@ -1096,7 +1096,7 @@ public class KrakenService
       }
 
       int numberOfTradesToday = await NumberOfTradesToday(userId, from, strategy);
-      _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has traded {tmpCoin} {numberOfTradesToday} times today.", userId, "TRADE", viewDebugLogs);
+      //_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has traded {tmpCoin} {numberOfTradesToday} times today.", userId, "TRADE", viewDebugLogs);
 
       if (strategy != "HFT" && buyOrSell.ToLower() == "buy")
       {
@@ -1127,7 +1127,7 @@ public class KrakenService
   }
   private async Task<Dictionary<string, decimal>?> GetBalanceFromDatabase(int userId, string coin, string strategy)
   {
-    _ = _log.Db($"({coin}:{userId}:{strategy}) Getting balance from database for {coin} (strategy: {strategy}).", userId, "TRADE", viewDebugLogs);
+    //_ = _log.Db($"({coin}:{userId}:{strategy}) Getting balance from database for {coin} (strategy: {strategy}).", userId, "TRADE", viewDebugLogs);
 
     if (string.IsNullOrEmpty(coin))
     {
@@ -1310,7 +1310,7 @@ public class KrakenService
       Dictionary<string, decimal>? dbBalance = await GetBalanceFromDatabase(userId, coin, strategy);
       if (dbBalance != null)
       {
-        _ = _log.Db($"({coin}:{userId}:{strategy}) Returned cached balance from database.", userId, "TRADE", viewDebugLogs);
+      //  _ = _log.Db($"({coin}:{userId}:{strategy}) Returned cached balance from database.", userId, "TRADE", viewDebugLogs);
         return dbBalance;
       }
       // Fetch the balance response as a dictionary
@@ -5768,13 +5768,13 @@ ON DUPLICATE KEY UPDATE
       int tradeCooldownSeconds = 20;
       if (secondsSinceLastTrade != null && secondsSinceLastTrade < tradeCooldownSeconds)
       {
-        _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User is in cooldown for another {(tradeCooldownSeconds - secondsSinceLastTrade)} seconds. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
+       // _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User is in cooldown for another {(tradeCooldownSeconds - secondsSinceLastTrade)} seconds. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
         return true;
       }
       else if (secondsSinceLastTrade != null)
       {
         var timeSince = _log.GetTimeSince(secondsSinceLastTrade, true, true);
-        _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Last trade: {timeSince}.", userId, "TRADE", viewDebugLogs);
+       // _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Last trade: {timeSince}.", userId, "TRADE", viewDebugLogs);
       }
     }
     else
@@ -5783,19 +5783,19 @@ ON DUPLICATE KEY UPDATE
       int tradeCooldownMinutes = 15;
       if (minutesSinceLastTrade != null && minutesSinceLastTrade < tradeCooldownMinutes)
       {
-        _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User is in cooldown for another {(tradeCooldownMinutes - minutesSinceLastTrade)} minutes. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
+        //_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User is in cooldown for another {(tradeCooldownMinutes - minutesSinceLastTrade)} minutes. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
         return true;
       }
       else if (minutesSinceLastTrade != null)
       {
         var timeSince = _log.GetTimeSince(minutesSinceLastTrade, true);
-        _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Last trade: {timeSince}.", userId, "TRADE", viewDebugLogs);
+        //_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Last trade: {timeSince}.", userId, "TRADE", viewDebugLogs);
       }
     }
     string? cooldownReason = await GetCooldownStatus(userId);
     if (cooldownReason != null)
     {
-      _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User is currently in cooldown: {cooldownReason}. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
+      //_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User is currently in cooldown: {cooldownReason}. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
       return true;
     }
 
