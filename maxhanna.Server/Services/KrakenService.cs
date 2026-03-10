@@ -38,7 +38,7 @@ public class KrakenService
   private static readonly TimeSpan _rateLimitDuration = TimeSpan.FromMinutes(1);
   private readonly Dictionary<string, (decimal Atr, DateTime Timestamp)> _atrCache = new();
 
-  public readonly bool viewDebugLogs = false;
+  public readonly bool viewDebugLogs = true;
   public readonly bool viewErrorDebugLogs = true;
   public KrakenService(IConfiguration config, Log log)
   {
