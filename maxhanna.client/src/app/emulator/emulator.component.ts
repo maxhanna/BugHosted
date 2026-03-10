@@ -487,7 +487,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         this.scanAndTagVpadControls();
         this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
 
-
+        try { this.ensureIframeGamepadPermission(); } catch {}  
         this.applyPSPPerformanceTweak();
 
         // Moment you captured save function originally
@@ -535,12 +535,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         s.defer = false;
         s.setAttribute('data-ejs-loader', '1');
         s.onload = () => {
-          window.__ejsLoaderInjected = true;
-
-          // setTimeout(() => {
-          //   const roots = document.querySelectorAll('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent');
-          //   console.log('[EJS] vpad roots detected:', roots.length, roots);
-          // }, 1000);
+          window.__ejsLoaderInjected = true; 
+          try { this.ensureIframeGamepadPermission(); } catch {} 
 
           requestAnimationFrame(() => {
             this.setGameScreenHeight();
@@ -953,6 +949,37 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.status = tmpStatus;
     }
   }
+
+/** Ensure the emulator iframe is allowed to use Gamepad/Fullscreen/Autoplay. */
+private ensureIframeGamepadPermission() {
+  const trySet = () => {
+    const iframe = document.querySelector('#game iframe') as HTMLIFrameElement | null;
+    if (!iframe) return false;
+
+    // Grant permissions to the frame (Chromium/Safari honor 'allow')
+    const want = 'gamepad *; fullscreen *; autoplay *';
+    const prev = (iframe.getAttribute('allow') || '').trim();
+    if (!prev.includes('gamepad')) {
+      iframe.setAttribute('allow', prev ? `${prev}; ${want}` : want);
+    }
+
+    // If a strict sandbox is present, relax minimal bits required
+    const sb = iframe.getAttribute('sandbox') || '';
+    if (sb && !/allow-scripts/.test(sb)) {
+      iframe.setAttribute('sandbox', `${sb} allow-scripts`.trim());
+    }
+    if (sb && !/allow-same-origin/.test(sb)) {
+      iframe.setAttribute('sandbox', `${sb} allow-same-origin`.trim());
+    }
+    return true;
+  };
+
+  // The iframe appears after loader runs; poll briefly until it exists.
+  let tries = 0;
+  const id = setInterval(() => {
+    if (trySet() || ++tries > 50) clearInterval(id);
+  }, 100);
+}
 
   private async postSaveCaptureAndUpload(): Promise<boolean> {
     try {
@@ -2339,25 +2366,24 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return aliasMap[slug] ?? slug;
   }
 
-  
-/** Enforce Genesis controller type (3- or 6-button) at core level. */
+ 
+/** Push Genesis controller type into the core before loader runs. */
 private applyGenesisControllerOptions(core: string, useSix: boolean) {
   const w = window as any;
   w.EJS_defaultOptions ||= {};
 
   if (core === 'genesis_plus_gx') {
-    // Genesis Plus GX core variable names
     w.EJS_defaultOptions['genesis_plus_gx_controller1'] = useSix ? '6 button pad' : '3 button pad';
     w.EJS_defaultOptions['genesis_plus_gx_controller2'] = '3 button pad';
   } else if (core === 'picodrive') {
-    // PicoDrive core variable names
+    // PicoDrive uses different option keys
     w.EJS_defaultOptions['picodrive_input1'] = useSix ? '6 button pad' : '3 button pad';
     w.EJS_defaultOptions['picodrive_input2'] = '3 button pad';
   }
 
-  // Make sure our core options win over saved local settings
+  // Let our defaults win over any saved local prefs for this boot
   w.EJS_defaultOptionsForce = true;
-}
+} 
 
 
   private shouldUseGenesisSixButtons(romDisplayName: string): boolean {
