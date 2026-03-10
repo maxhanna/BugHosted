@@ -9,6 +9,8 @@ import { Topic } from './datacontracts/topics/topic';
   providedIn: 'root'
 })
 export class FileService {
+  // Controller to allow cancelling an in-flight getDirectory() request
+  private _getDirectoryAbortController: AbortController | null = null;
   constructor(private http: HttpClient) { }
 
   // System-specific title keywords to help disambiguate ambiguous file extensions
@@ -196,16 +198,37 @@ export class FileService {
     }
 
     try {
+      // Abort any previous getDirectory request so callers always receive
+      // the most-recent response.
+      try {
+        this._getDirectoryAbortController?.abort();
+      } catch { }
+      this._getDirectoryAbortController = new AbortController();
+
       const response = await fetch(`/file/getdirectory?${params.toString()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(user),
+        signal: this._getDirectoryAbortController.signal,
       });
 
       return await response.json();
-    } catch (error) {
+    } catch (error: any) {
+      // If the request was explicitly aborted, rethrow so callers can
+      // handle it specially (and avoid showing error UI for expected cancels).
+      if (error && (error.name === 'AbortError' || error.message === 'The user aborted a request.')) {
+        throw error;
+      }
       console.error('Error fetching directory:', error);
       return null;
+    } finally {
+      // clear controller reference if it belongs to the completed/failed request
+      // (don't clear if it was replaced by a newer request)
+      try {
+        if (this._getDirectoryAbortController && this._getDirectoryAbortController.signal.aborted) {
+          this._getDirectoryAbortController = null;
+        }
+      } catch { }
     }
   }
 

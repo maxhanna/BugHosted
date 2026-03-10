@@ -546,8 +546,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           this.pageLocked = false; 
         }, 1000);
       });
-    } catch (error) {
-      this.notifyUser((error as Error).message);
+    } catch (error: any) {
+      // Ignore aborted requests - these are expected when a newer request is issued
+      if (error && (error.name === 'AbortError' || error.message === 'The user aborted a request.')) {
+        console.debug('getDirectory() request aborted');
+      } else {
+        this.notifyUser((error as Error).message);
+      }
     }
     this.isFirstLoad = false;
     this.stopLoading();
