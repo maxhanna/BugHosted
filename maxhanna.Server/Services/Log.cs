@@ -223,7 +223,8 @@ public class Log
         await Task.Delay(50, ct);
       }
 
-      _ = Db($"Deleted {totalDeleted} old log(s)", null, "SYSTEM", true);
+      //_ = Db($"Deleted {totalDeleted} old log(s)", null, "SYSTEM", true);
+      Console.WriteLine($"Deleted {totalDeleted} old log(s)");
       return true;
     }
     catch (Exception ex)
