@@ -197,8 +197,7 @@ public class Log
   }
   public async Task<bool> DeleteOldLogs(CancellationToken ct = default)
   {
-    const int batchSize = 1000; // tune: 1k–20k depending on row size & I/O
-    var cutoff = DateTime.UtcNow.AddDays(-1);
+    const int batchSize = 1000; // tune: 1k–20k depending on row size & I/O 
 
     try
     {
@@ -210,21 +209,9 @@ public class Log
       // Use a loop to delete in batches until nothing left
       while (true)
       {
-        const string batchSql = @"
-              DELETE FROM maxhanna.logs
-              WHERE id IN (
-                SELECT id
-                FROM (
-                  SELECT id
-                  FROM maxhanna.logs
-                  WHERE `timestamp` < @cutoff
-                  ORDER BY `timestamp` ASC, id ASC
-                  LIMIT @lim
-                ) x
-              );";
+        const string batchSql = @"DELETE FROM maxhanna.logs LIMIT @lim";
 
-        await using var cmd = new MySqlCommand(batchSql, conn) { CommandTimeout = 30 };
-        cmd.Parameters.Add("@cutoff", MySqlDbType.DateTime).Value = cutoff;
+        await using var cmd = new MySqlCommand(batchSql, conn) { CommandTimeout = 30 }; 
         cmd.Parameters.Add("@lim", MySqlDbType.Int32).Value = batchSize;
 
         var affected = await cmd.ExecuteNonQueryAsync(ct);
