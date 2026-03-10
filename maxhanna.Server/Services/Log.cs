@@ -27,9 +27,9 @@ public class Log
 
 
 
-  public async Task<List<Dictionary<string, object?>>> GetLogs(int? userId = null, string? component = null, int limit = 1000, string keywords = "", int page = 1, CancellationToken ct = default)
+  public async Task<List<LogDto>> GetLogs(int? userId = null, string? component = null, int limit = 1000, string keywords = "", int page = 1, CancellationToken ct = default)
   {
-    var logs = new List<Dictionary<string, object?>>(Math.Min(Math.Max(limit, 1), 5000));
+    var list = new List<LogDto>(limit);
     int offset = (page - 1) * limit;
 
     // Build WHERE + ORDER BY with deterministic order
@@ -42,13 +42,12 @@ public class Log
     if (!string.IsNullOrWhiteSpace(component))
       sb.AppendLine("  AND component = @Component");
 
-    bool hasKeywords = !string.IsNullOrWhiteSpace(keywords);
+    var booleanKeywords = BuildBooleanQuery(keywords);
+    bool hasKeywords = !string.IsNullOrEmpty(booleanKeywords);
     if (hasKeywords)
     {
       sb.AppendLine("  AND MATCH(comment) AGAINST (@Keywords IN BOOLEAN MODE)");
     }
-    sb.AppendLine(" ORDER BY timestamp DESC LIMIT @Limit OFFSET @Offset;");
-
     try
     {
       await using var conn = new MySqlConnection(_config.GetConnectionString("maxhanna"));
@@ -56,10 +55,11 @@ public class Log
 
       await using var cmd = new MySqlCommand(sb.ToString(), conn)
       {
-        CommandTimeout = 15
+        CommandTimeout = 30
       };
-      cmd.Parameters.AddWithValue("@Limit", limit);
-      cmd.Parameters.AddWithValue("@Offset", offset);
+
+      cmd.Parameters.Add("@Limit", MySqlDbType.Int32).Value = limit;
+      cmd.Parameters.Add("@Offset", MySqlDbType.Int32).Value = offset;
 
       if (userId.HasValue)
       {
@@ -84,16 +84,12 @@ public class Log
 
       while (await reader.ReadAsync(ct))
       {
-        var logEntry = new Dictionary<string, object?>(4)
-        {
-          ["id"] = reader.IsDBNull(ordId) ? null : reader.GetInt32(ordId),
-          ["comment"] = reader.IsDBNull(ordComment) ? null : reader.GetString(ordComment),
-          ["component"] = reader.IsDBNull(ordComponent) ? null : reader.GetString(ordComponent),
-          ["user_id"] = reader.IsDBNull(ordUserId) ? null : reader.GetInt32(ordUserId),
-          ["timestamp"] = reader.IsDBNull(ordTs) ? null : reader.GetDateTime(ordTs).ToString("o") // ISO 8601
-        };
-
-        logs.Add(logEntry);
+        list.Add(new LogDto(
+          Id: reader.GetInt32(ordId),
+          Comment: reader.IsDBNull(ordComment) ? null : reader.GetString(ordComment),
+          Component: reader.GetString(ordComponent),
+          UserId: reader.IsDBNull(ordUserId) ? null : reader.GetInt32(ordUserId),
+          TimestampUtc: reader.GetDateTime(ordTs)));
       }
     }
     catch (Exception ex)
@@ -101,9 +97,20 @@ public class Log
       Console.WriteLine("GetLogs Exception: " + ex.Message);
     }
 
-    return logs;
+    return list;
   }
 
+
+  static string? BuildBooleanQuery(string? raw)
+  {
+    if (string.IsNullOrWhiteSpace(raw)) return null;
+    var tokens = raw
+        .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Where(t => t.Length >= 3)
+        .Select(t => "+" + t + "*");
+    var q = string.Join(" ", tokens);
+    return string.IsNullOrWhiteSpace(q) ? null : q;
+  }
 
   public async Task<int> GetLogsCount(int? userId = null, string? component = null, string keywords = "")
   {
@@ -118,10 +125,10 @@ public class Log
     {
       sql.Append(" AND component = @Component ");
     }
-
-    if (!string.IsNullOrEmpty(keywords))
-    {
-      sql.Append(" AND comment LIKE CONCAT('%', @Keywords, '%') ");
+ 
+    var booleanKeywords = BuildBooleanQuery(keywords);
+    if (booleanKeywords != null) {
+        sql.Append(" AND MATCH(comment) AGAINST (@Keywords IN BOOLEAN MODE) ");
     }
 
     try
@@ -475,3 +482,10 @@ public class Log
     }
   }
 }
+
+public sealed record LogDto(
+    int Id,
+    string? Comment,
+    string Component,
+    int? UserId,
+    DateTime TimestampUtc);

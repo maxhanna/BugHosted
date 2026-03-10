@@ -33,6 +33,14 @@ public static class FileNameCleaner
         var ext = Path.GetExtension(fileName);
         var stem = Path.GetFileNameWithoutExtension(fileName) ?? "";
 
+        stem = stem.Replace("-", " ").Replace("_", " ");
+
+        // Remove long numeric sequences (5+ digits)
+        stem = Regex.Replace(stem, @"\b\d{5,}\b", "");
+
+        // Collapse multiple spaces
+        stem = Regex.Replace(stem, @"\s+", " ").Trim();
+
         // Replace dashes/underscores with spaces (preserve original letters’ case)
         stem = DashUnderscoreToSpace.Replace(stem, " ");
 
@@ -51,5 +59,5 @@ public static class FileNameCleaner
             stem = Path.GetFileNameWithoutExtension(fileName) ?? "";
 
         return stem;
-    }
+    }  
 }

@@ -1113,10 +1113,11 @@ Constraints:
               AND (
                 -- 1) Simple structured names with no dashes or spaces, but with a dot
                 (
-                  file_name LIKE '%.%' AND file_name NOT LIKE '%-%' AND file_name NOT LIKE '% %'
+                  file_name LIKE '%.%' AND file_name NOT LIKE '% %'
                   AND (
                       REGEXP_LIKE(file_name, '^[0-9]+[.][A-Za-z0-9]+$', 'i')      -- Pure numeric + extension
                     OR REGEXP_LIKE(file_name, '^[A-Za-z0-9]+_[A-Za-z0-9]+[.][A-Za-z0-9]+$', 'i') -- two segments with underscore + ext
+                    OR REGEXP_LIKE(file_name, '^[0-9]+-[0-9]+[.][A-Za-z0-9]+$', 'i') -- two segments with dash + ext
                   )
                 )
                 -- 2) FB/IMG/VID camera-like names (case-insensitive)
