@@ -431,7 +431,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const renderClamp = this.getRenderClampForCore(core);
     (window as any).EJS_renderClamp = renderClamp;
     window.EJS_core = core;
-    this.system = this.systemFromCore(core); 
+    this.system = this.systemFromCore(core);
 
     const romDisplayName = this.fileService.getFileWithoutExtension(fileName); // e.g., "Ultimate MK3 (USA)"
     this.applyGamepadControlSettings(romDisplayName, core, this.system);
@@ -487,7 +487,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         this.scanAndTagVpadControls();
         this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
 
-        try { this.ensureIframeGamepadPermission(); } catch {}  
+        try { this.ensureIframeGamepadPermission(); } catch { }
         this.applyPSPPerformanceTweak();
 
         // Moment you captured save function originally
@@ -535,8 +535,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         s.defer = false;
         s.setAttribute('data-ejs-loader', '1');
         s.onload = () => {
-          window.__ejsLoaderInjected = true; 
-          try { this.ensureIframeGamepadPermission(); } catch {} 
+          window.__ejsLoaderInjected = true;
+          try { this.ensureIframeGamepadPermission(); } catch { }
 
           requestAnimationFrame(() => {
             this.setGameScreenHeight();
@@ -615,7 +615,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       },
     ];
 
-    window.EJS_VirtualGamepadSettings = vpad.concat(speedButtons); 
+    window.EJS_VirtualGamepadSettings = vpad.concat(speedButtons);
 
     // Safety assert (keeps you from silently falling back)
     for (const it of window.EJS_VirtualGamepadSettings) {
@@ -725,15 +725,15 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const rightStickValues = {
       "UP": system === "saturn" || core === "yabause" ? 'DPAD_UP' : 'RIGHT_STICK_Y:-1',
       "DOWN": system === "saturn" || core === "yabause" ? 'DPAD_DOWN' : 'RIGHT_STICK_Y:+1',
-      "LEFT": system === "saturn" || core === "yabause" ? 'DPAD_LEFT' : 'RIGHT_STICK_X:-1', 
+      "LEFT": system === "saturn" || core === "yabause" ? 'DPAD_LEFT' : 'RIGHT_STICK_X:-1',
       "RIGHT": system === "saturn" || core === "yabause" ? 'DPAD_RIGHT' : 'RIGHT_STICK_X:+1'
     };
 
     const leftStickValues = {
-      "UP": system === "saturn" || core === "yabause" ? 'DPAD_UP' :  'LEFT_STICK_Y:-1',
+      "UP": system === "saturn" || core === "yabause" ? 'DPAD_UP' : 'LEFT_STICK_Y:-1',
       "DOWN": system === "saturn" || core === "yabause" ? 'DPAD_DOWN' : 'LEFT_STICK_Y:+1',
-      "LEFT": system === "saturn" || core === "yabause" ? 'DPAD_LEFT' :  'LEFT_STICK_X:-1', 
-      "RIGHT": system === "saturn" || core === "yabause" ? 'DPAD_RIGHT' :  'LEFT_STICK_X:+1'
+      "LEFT": system === "saturn" || core === "yabause" ? 'DPAD_LEFT' : 'LEFT_STICK_X:-1',
+      "RIGHT": system === "saturn" || core === "yabause" ? 'DPAD_RIGHT' : 'LEFT_STICK_X:+1'
     };
 
     const gpOnly: Record<number, unknown> = {
@@ -797,8 +797,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         2: { ...gpOnly },
         3: { ...gpOnly },
       };
-    } else { 
-      try { delete w.EJS_defaultControls; } catch {}
+    } else {
+      try { delete w.EJS_defaultControls; } catch { }
     }
 
     w.EJS_DEBUG_XX = true;             // debug options 
@@ -950,36 +950,36 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-/** Ensure the emulator iframe is allowed to use Gamepad/Fullscreen/Autoplay. */
-private ensureIframeGamepadPermission() {
-  const trySet = () => {
-    const iframe = document.querySelector('#game iframe') as HTMLIFrameElement | null;
-    if (!iframe) return false;
+  /** Ensure the emulator iframe is allowed to use Gamepad/Fullscreen/Autoplay. */
+  private ensureIframeGamepadPermission() {
+    const trySet = () => {
+      const iframe = document.querySelector('#game iframe') as HTMLIFrameElement | null;
+      if (!iframe) return false;
 
-    // Grant permissions to the frame (Chromium/Safari honor 'allow')
-    const want = 'gamepad *; fullscreen *; autoplay *';
-    const prev = (iframe.getAttribute('allow') || '').trim();
-    if (!prev.includes('gamepad')) {
-      iframe.setAttribute('allow', prev ? `${prev}; ${want}` : want);
-    }
+      // Grant permissions to the frame (Chromium/Safari honor 'allow')
+      const want = 'gamepad *; fullscreen *; autoplay *';
+      const prev = (iframe.getAttribute('allow') || '').trim();
+      if (!prev.includes('gamepad')) {
+        iframe.setAttribute('allow', prev ? `${prev}; ${want}` : want);
+      }
 
-    // If a strict sandbox is present, relax minimal bits required
-    const sb = iframe.getAttribute('sandbox') || '';
-    if (sb && !/allow-scripts/.test(sb)) {
-      iframe.setAttribute('sandbox', `${sb} allow-scripts`.trim());
-    }
-    if (sb && !/allow-same-origin/.test(sb)) {
-      iframe.setAttribute('sandbox', `${sb} allow-same-origin`.trim());
-    }
-    return true;
-  };
+      // If a strict sandbox is present, relax minimal bits required
+      const sb = iframe.getAttribute('sandbox') || '';
+      if (sb && !/allow-scripts/.test(sb)) {
+        iframe.setAttribute('sandbox', `${sb} allow-scripts`.trim());
+      }
+      if (sb && !/allow-same-origin/.test(sb)) {
+        iframe.setAttribute('sandbox', `${sb} allow-same-origin`.trim());
+      }
+      return true;
+    };
 
-  // The iframe appears after loader runs; poll briefly until it exists.
-  let tries = 0;
-  const id = setInterval(() => {
-    if (trySet() || ++tries > 50) clearInterval(id);
-  }, 100);
-}
+    // The iframe appears after loader runs; poll briefly until it exists.
+    let tries = 0;
+    const id = setInterval(() => {
+      if (trySet() || ++tries > 50) clearInterval(id);
+    }, 100);
+  }
 
   private async postSaveCaptureAndUpload(): Promise<boolean> {
     try {
@@ -2366,24 +2366,24 @@ private ensureIframeGamepadPermission() {
     return aliasMap[slug] ?? slug;
   }
 
- 
-/** Push Genesis controller type into the core before loader runs. */
-private applyGenesisControllerOptions(core: string, useSix: boolean) {
-  const w = window as any;
-  w.EJS_defaultOptions ||= {};
 
-  if (core === 'genesis_plus_gx') {
-    w.EJS_defaultOptions['genesis_plus_gx_controller1'] = useSix ? '6 button pad' : '3 button pad';
-    w.EJS_defaultOptions['genesis_plus_gx_controller2'] = '3 button pad';
-  } else if (core === 'picodrive') {
-    // PicoDrive uses different option keys
-    w.EJS_defaultOptions['picodrive_input1'] = useSix ? '6 button pad' : '3 button pad';
-    w.EJS_defaultOptions['picodrive_input2'] = '3 button pad';
+  /** Push Genesis controller type into the core before loader runs. */
+  private applyGenesisControllerOptions(core: string, useSix: boolean) {
+    const w = window as any;
+    w.EJS_defaultOptions ||= {};
+
+    if (core === 'genesis_plus_gx') {
+      w.EJS_defaultOptions['genesis_plus_gx_controller1'] = useSix ? '6 button pad' : '3 button pad';
+      w.EJS_defaultOptions['genesis_plus_gx_controller2'] = '3 button pad';
+    } else if (core === 'picodrive') {
+      // PicoDrive uses different option keys
+      w.EJS_defaultOptions['picodrive_input1'] = useSix ? '6 button pad' : '3 button pad';
+      w.EJS_defaultOptions['picodrive_input2'] = '3 button pad';
+    }
+
+    // Let our defaults win over any saved local prefs for this boot
+    w.EJS_defaultOptionsForce = true;
   }
-
-  // Let our defaults win over any saved local prefs for this boot
-  w.EJS_defaultOptionsForce = true;
-} 
 
 
   private shouldUseGenesisSixButtons(romDisplayName: string): boolean {
@@ -3075,7 +3075,7 @@ type System =
   | 'genesis'
   | 'nds'
   | 'psp'
-  | 'saturn' 
+  | 'saturn'
   | 'sega_cd'
   | '3do'
   | 'n64'
