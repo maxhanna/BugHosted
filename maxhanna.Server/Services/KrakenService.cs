@@ -67,7 +67,7 @@ public class KrakenService
     TradeRecord? lastTrade = await GetLastTrade(userId, coin, strategy);
     if (lastTrade == null)
     {
-      _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No trade history.", userId, "TRADE", viewDebugLogs);
+      //_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No trade history.", userId, "TRADE", viewDebugLogs);
       isFirstTradeEver = true;
     }
     decimal? coinPriceUSDC = await GetCoinPriceToUSDC(userId, coin, keys);
