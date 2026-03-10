@@ -4298,6 +4298,9 @@ ON DUPLICATE KEY UPDATE
   }
   private async Task<(decimal? buyPrice, decimal currentSpread, decimal spreadNeeded)> GetClosestUnmatchedBuyAsync(int userId, string coinSymbol, string strategy, decimal currentPrice, decimal threshold)
   {
+    // Only consider buys below current price (profitable direction for selling).
+    // Order by buy_price DESC so the highest buy price below current is first —
+    // that's the one closest to becoming matchable with a small price increase.
     const string sql = @"
 			SELECT CAST(coin_price_usdc AS DECIMAL(20,10)) AS buy_price
 			FROM trade_history
@@ -4307,7 +4310,8 @@ ON DUPLICATE KEY UPDATE
 			AND from_currency = 'USDC'
 			AND matching_trade_id IS NULL
 			AND is_reserved = 0
-			ORDER BY ((@CurrentPrice - CAST(coin_price_usdc AS DECIMAL(20,10))) / CAST(coin_price_usdc AS DECIMAL(20,10))) DESC
+			AND CAST(coin_price_usdc AS DECIMAL(20,10)) < @CurrentPrice
+			ORDER BY CAST(coin_price_usdc AS DECIMAL(20,10)) DESC
 			LIMIT 1;";
     try
     {
