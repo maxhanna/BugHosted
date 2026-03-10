@@ -431,7 +431,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const renderClamp = this.getRenderClampForCore(core);
     (window as any).EJS_renderClamp = renderClamp;
     window.EJS_core = core;
-    this.system = this.systemFromCore(core);
+    // Explicitly set the control scheme so EmulatorJS uses the correct button
+    // layout. Without this, genesis_plus_gx resolves to "segaMS" (2 buttons)
+    // instead of "segaMD" (6 buttons) because segaMS appears first in the
+    // EmulatorJS getCores() iteration order.
+    window.EJS_controlScheme = this.ejsControlSchemeForCore(core);
+    this.system = this.systemFromCore(core); 
 
     const romDisplayName = this.fileService.getFileWithoutExtension(fileName); // e.g., "Ultimate MK3 (USA)"
     this.applyGamepadControlSettings(romDisplayName, core, this.system);
@@ -487,11 +492,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         this.scanAndTagVpadControls();
         this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
 
-        // Map P1 to real controller and make it MD 6-button
-        try { this.ensureIframeGamepadPermission(); } catch {}
-        try { (window as any).EJS_gamepadPlayerMap = { 0: 0, 1: 1, 2: 2, 3: 3 }; } catch {}
-        this.forceGenesisSixButtonOnP1().catch(() => {});
- 
+
         this.applyPSPPerformanceTweak();
 
         // Moment you captured save function originally
@@ -540,7 +541,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         s.setAttribute('data-ejs-loader', '1');
         s.onload = () => {
           window.__ejsLoaderInjected = true;
-          try { this.ensureIframeGamepadPermission(); } catch { }
+
+          // setTimeout(() => {
+          //   const roots = document.querySelectorAll('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent');
+          //   console.log('[EJS] vpad roots detected:', roots.length, roots);
+          // }, 1000);
 
           requestAnimationFrame(() => {
             this.setGameScreenHeight();
@@ -580,25 +585,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private applyGamepadControlSettings(romDisplayName: string, core: string, system: System | undefined) {
-    let useSix = true;
-  
-    if (this.system === 'genesis') {
-      useSix = this.shouldUseGenesisSixButtons(romDisplayName);
-      const w = window as any;
-      w.EJS_defaultOptions ||= {};
-      w.EJS_defaultOptions['genesis_plus_gx_controller1'] = useSix ? '6 button pad' : '3 button pad';
-      w.EJS_defaultOptions['genesis_plus_gx_controller2'] = '3 button pad';
-      w.EJS_defaultOptions['input_libretro_device_p1'] = useSix ? 'MD 6 button pad' : 'MD 3 button pad';
-      w.EJS_defaultOptionsForce = true;
-    }
-
+    const genesisSix = (system === 'genesis') ? this.shouldUseGenesisSixButtons(romDisplayName) : false;
 
     const vpad = this.buildTouchLayout((system ?? ('gba' as System)), {
       useJoystick: this.useJoystick,
       showControls: this.showControls,
       twoButtonMode: (system === 'nes' || system === 'gb' || system === 'gbc'),
       segaShowLR: false, // keep false to avoid L/R "pills"
-      genesisSix: useSix, // ⟵ pass the decision in
+      genesisSix: genesisSix, // ⟵ pass the decision in
     });
 
     const speedButtons: VPadItem[] = [
@@ -626,7 +620,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       },
     ];
 
-    window.EJS_VirtualGamepadSettings = vpad.concat(speedButtons);
+    window.EJS_VirtualGamepadSettings = vpad.concat(speedButtons); 
 
     // Safety assert (keeps you from silently falling back)
     for (const it of window.EJS_VirtualGamepadSettings) {
@@ -715,7 +709,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       systemIcon = undefined;
     }
     const w = window as any;
-   // w.EJS_defaultOptionsForce = false;  // force defaults every run  (docs: config system)
+    w.EJS_defaultOptionsForce = false;  // force defaults every run  (docs: config system)
     w.EJS_directKeyboardInput = true;   // deliver raw key events to the core
     w.EJS_enableGamepads = true;        // let cores read the gamepad state
     w.EJS_disableAltKey = true;         // avoid Alt being swallowed by browser/UI
@@ -736,15 +730,15 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const rightStickValues = {
       "UP": system === "saturn" || core === "yabause" ? 'DPAD_UP' : 'RIGHT_STICK_Y:-1',
       "DOWN": system === "saturn" || core === "yabause" ? 'DPAD_DOWN' : 'RIGHT_STICK_Y:+1',
-      "LEFT": system === "saturn" || core === "yabause" ? 'DPAD_LEFT' : 'RIGHT_STICK_X:-1',
+      "LEFT": system === "saturn" || core === "yabause" ? 'DPAD_LEFT' : 'RIGHT_STICK_X:-1', 
       "RIGHT": system === "saturn" || core === "yabause" ? 'DPAD_RIGHT' : 'RIGHT_STICK_X:+1'
     };
 
     const leftStickValues = {
-      "UP": system === "saturn" || core === "yabause" ? 'DPAD_UP' : 'LEFT_STICK_Y:-1',
+      "UP": system === "saturn" || core === "yabause" ? 'DPAD_UP' :  'LEFT_STICK_Y:-1',
       "DOWN": system === "saturn" || core === "yabause" ? 'DPAD_DOWN' : 'LEFT_STICK_Y:+1',
-      "LEFT": system === "saturn" || core === "yabause" ? 'DPAD_LEFT' : 'LEFT_STICK_X:-1',
-      "RIGHT": system === "saturn" || core === "yabause" ? 'DPAD_RIGHT' : 'LEFT_STICK_X:+1'
+      "LEFT": system === "saturn" || core === "yabause" ? 'DPAD_LEFT' :  'LEFT_STICK_X:-1', 
+      "RIGHT": system === "saturn" || core === "yabause" ? 'DPAD_RIGHT' :  'LEFT_STICK_X:+1'
     };
 
     const gpOnly: Record<number, unknown> = {
@@ -774,44 +768,42 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       23: { value: '', value2: 'DPAD_DOWN' },
       24: {}, 25: {}, 26: {}, 27: {}, 28: {}, 29: {},
     } as Record<number, unknown>;
-    if (system !== 'genesis') {
-      w.EJS_defaultControls = {
-        0: {
-          0: { value: 'x', value2: 'BUTTON_1' },
-          1: { value: 's', value2: 'BUTTON_3' },
-          2: { value: 'v', value2: 'SELECT' },
-          3: { value: 'enter', value2: 'START' },
-          4: { value: 'up arrow', value2: leftStickValues["UP"] },
-          5: { value: 'down arrow', value2: leftStickValues["DOWN"] },
-          6: { value: 'left arrow', value2: leftStickValues["LEFT"] },
-          7: { value: 'right arrow', value2: leftStickValues["RIGHT"] },
-          8: { value: 'z', value2: 'BUTTON_2' },
-          9: { value: 'a', value2: 'BUTTON_4' },
-          10: { value: 'q', value2: 'LEFT_TOP_SHOULDER' },
-          11: { value: 'e', value2: 'RIGHT_TOP_SHOULDER' },
-          12: { value: 'tab', value2: 'LEFT_BOTTOM_SHOULDER' },
-          13: { value: 'r', value2: 'RIGHT_BOTTOM_SHOULDER' },
-          14: { value: '', value2: 'LEFT_STICK' },
-          15: { value: '', value2: 'RIGHT_STICK' },
-          16: { value: 'h', value2: rightStickValues["RIGHT"] },
-          17: { value: 'f', value2: rightStickValues["LEFT"] },
-          18: { value: 'g', value2: rightStickValues["DOWN"] },
-          19: { value: 't', value2: rightStickValues["UP"] },
-          20: { value: 'l', value2: 'DPAD_RIGHT' },
-          21: { value: 'j', value2: 'DPAD_LEFT' },
-          22: { value: 'k', value2: 'DPAD_UP' },
-          23: { value: 'i', value2: 'DPAD_DOWN' },
-          24: { value: '1' }, 25: { value: '2' }, 26: { value: '3' },
-          27: {}, 28: {}, 29: {},
-        },
-        1: { ...gpOnly },
-        2: { ...gpOnly },
-        3: { ...gpOnly },
-      };
-    } else {
-      try { delete w.EJS_defaultControls; } catch { }
-    }
+    w.EJS_defaultControls = {
+      0: {
+        0: { value: 'x', value2: 'BUTTON_1' },
+        1: { value: 's', value2: 'BUTTON_3' },
+        2: { value: 'v', value2: 'SELECT' },
+        3: { value: 'enter', value2: 'START' },
+        4: { value: 'up arrow', value2: leftStickValues["UP"] },
+        5: { value: 'down arrow', value2: leftStickValues["DOWN"] },
+        6: { value: 'left arrow', value2: leftStickValues["LEFT"] },
+        7: { value: 'right arrow', value2: leftStickValues["RIGHT"] },
+        8: { value: 'z', value2: 'BUTTON_2' },
+        9: { value: 'a', value2: 'BUTTON_4' },
+        10: { value: 'q', value2: 'LEFT_TOP_SHOULDER' },
+        11: { value: 'e', value2: 'RIGHT_TOP_SHOULDER' },
+        12: { value: 'tab', value2: 'LEFT_BOTTOM_SHOULDER' },
+        13: { value: 'r', value2: 'RIGHT_BOTTOM_SHOULDER' },
+        14: { value: '', value2: 'LEFT_STICK' },
+        15: { value: '', value2: 'RIGHT_STICK' },
+        16: { value: 'h', value2: rightStickValues["RIGHT"] },
+        17: { value: 'f', value2: rightStickValues["LEFT"] },
+        18: { value: 'g', value2: rightStickValues["DOWN"] },
+        19: { value: 't', value2: rightStickValues["UP"] },
+        20: { value: 'l', value2: 'DPAD_RIGHT' },
+        21: { value: 'j', value2: 'DPAD_LEFT' },
+        22: { value: 'k', value2: 'DPAD_UP' },
+        23: { value: 'i', value2: 'DPAD_DOWN' },
+        24: { value: '1' }, 25: { value: '2' }, 26: { value: '3' },
+        27: {}, 28: {}, 29: {},
+      },
+      1: { ...gpOnly },
+      2: { ...gpOnly },
+      3: { ...gpOnly },
+    };
+    if (system === "saturn" || core === "yabause") {
 
+    }
     w.EJS_DEBUG_XX = true;             // debug options 
     w.EJS_logCoreInfo = true;          // debug options 
     w.EJS_logVideo = true;             // debug options 
@@ -959,37 +951,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this._saveInProgress = false;
       this.status = tmpStatus;
     }
-  }
-
-  /** Ensure the emulator iframe is allowed to use Gamepad/Fullscreen/Autoplay. */
-  private ensureIframeGamepadPermission() {
-    const trySet = () => {
-      const iframe = document.querySelector('#game iframe') as HTMLIFrameElement | null;
-      if (!iframe) return false;
-
-      // Grant permissions to the frame (Chromium/Safari honor 'allow')
-      const want = 'gamepad *; fullscreen *; autoplay *';
-      const prev = (iframe.getAttribute('allow') || '').trim();
-      if (!prev.includes('gamepad')) {
-        iframe.setAttribute('allow', prev ? `${prev}; ${want}` : want);
-      }
-
-      // If a strict sandbox is present, relax minimal bits required
-      const sb = iframe.getAttribute('sandbox') || '';
-      if (sb && !/allow-scripts/.test(sb)) {
-        iframe.setAttribute('sandbox', `${sb} allow-scripts`.trim());
-      }
-      if (sb && !/allow-same-origin/.test(sb)) {
-        iframe.setAttribute('sandbox', `${sb} allow-same-origin`.trim());
-      }
-      return true;
-    };
-
-    // The iframe appears after loader runs; poll briefly until it exists.
-    let tries = 0;
-    const id = setInterval(() => {
-      if (trySet() || ++tries > 50) clearInterval(id);
-    }, 100);
   }
 
   private async postSaveCaptureAndUpload(): Promise<boolean> {
@@ -2377,69 +2338,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return aliasMap[slug] ?? slug;
   }
 
-/** Try all known ways to make P1 a Genesis 6-button pad. */
-private async forceGenesisSixButtonOnP1() {
-  const gm = await this.waitForGameManager(5000);
-  if (!gm) return;
-
-  // 1) Many EJS builds expose this with numeric libretro device IDs:
-  //    769 = MD 6 Button, 513 = MD 3 Button, 1 = generic Joypad.
-  try {
-    if (typeof (gm as any).setControllerPortDevice === 'function') {
-      (gm as any).setControllerPortDevice(0, 769);
-      console.log('[EJS] setControllerPortDevice(P1, MD6) applied');
-      return;
-    }
-  } catch {}
-
-  // 2) Some expose by string name:
-  try {
-    if (typeof (gm as any).setControllerDevice === 'function') {
-      (gm as any).setControllerDevice(0, 'MD 6 Button');
-      console.log('[EJS] setControllerDevice(P1, "MD 6 Button") applied');
-      return;
-    }
-  } catch {}
-
-  // 3) As a fallback, push the common RetroArch variable for P1 device:
-  try {
-    if (typeof (gm as any).setVariable === 'function') {
-      // Values vary by build; these two are the usual strings
-      (gm as any).setVariable('input_libretro_device_p1', 'MD 6 button pad');
-      (gm as any).setVariable('input_player1_device_type', 'MD 6 button pad');
-      console.log('[EJS] input_libretro_device_p1="MD 6 button pad" pushed');
-    }
-  } catch {}
-
-  // 4) Absolute fallback: set the core-specific key *and* re-force defaults
-  try {
-    const w = window as any;
-    w.EJS_defaultOptions ||= {};
-    w.EJS_defaultOptions['genesis_plus_gx_controller1'] = '6 button pad';
-    w.EJS_defaultOptionsForce = true;
-    console.log('[EJS] Forced default option genesis_plus_gx_controller1="6 button pad"');
-  } catch {}
-} 
-
-  /** Push Genesis controller type into the core before loader runs. */
-  private applyGenesisControllerOptions(core: string, useSix: boolean) {
-    const w = window as any;
-    w.EJS_defaultOptions ||= {};
-
-    if (core === 'genesis_plus_gx') {
-      w.EJS_defaultOptions['genesis_plus_gx_controller1'] = useSix ? '6 button pad' : '3 button pad';
-      w.EJS_defaultOptions['genesis_plus_gx_controller2'] = '3 button pad';
-    } else if (core === 'picodrive') {
-      // PicoDrive uses different option keys
-      w.EJS_defaultOptions['picodrive_input1'] = useSix ? '6 button pad' : '3 button pad';
-      w.EJS_defaultOptions['picodrive_input2'] = '3 button pad';
-    }
-
-    // Let our defaults win over any saved local prefs for this boot
-    w.EJS_defaultOptionsForce = true;
-  }
-
-
   private shouldUseGenesisSixButtons(romDisplayName: string): boolean {
     const slug = this.canonicalizeGenesisSlug(this.slugifyName(romDisplayName));
     if (GENESIS_FORCE_THREE.has(slug)) return false;
@@ -2959,6 +2857,24 @@ private async forceGenesisSixButtonOnP1() {
     s.src = '/assets/emulatorjs/data/loader.js';
   }
 
+  /**
+   * Map our internal core id to the EmulatorJS "control scheme" system key.
+   * EmulatorJS resolves the control scheme via getCore(true) which iterates
+   * getCores() and picks the FIRST system whose core-list contains the value.
+   * For genesis_plus_gx this incorrectly lands on "segaMS" (Master System,
+   * 2 buttons) instead of "segaMD" (Mega Drive, 6 buttons).
+   * By explicitly returning the right key here we bypass that ambiguity.
+   */
+  private ejsControlSchemeForCore(core: string): string | undefined {
+    switch (core) {
+      case 'genesis_plus_gx': return 'segaMD';
+      case 'picodrive':       return 'sega32x';
+      case 'yabause':         return 'segaSaturn';
+      case 'smsplus':         return 'segaMS';
+      default:                return undefined; // let EmulatorJS derive it
+    }
+  }
+
   setCoreAndDataFileLocations(core: string) {
     // if (core === 'psp'
     //   || core === 'ppsspp'
@@ -3039,6 +2955,7 @@ declare global {
   interface Window {
     EJS_player?: string | HTMLElement;
     EJS_core?: string;
+    EJS_controlScheme?: string;
     EJS_pathtodata?: string;
     EJS_coreUrl?: string;
     EJS_biosUrl?: string;
@@ -3129,7 +3046,7 @@ type System =
   | 'genesis'
   | 'nds'
   | 'psp'
-  | 'saturn'
+  | 'saturn' 
   | 'sega_cd'
   | '3do'
   | 'n64'
