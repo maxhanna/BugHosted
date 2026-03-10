@@ -268,7 +268,11 @@ public class KrakenService
     TradeRecord? reservedTransaction = await GetLatestReservedTransaction(userId, tmpCoin, strategy, coinPriceUSDC, spreadThreshold);
     if (matchingBuyOrderId == null && reservedTransaction == null)
     {
-      _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching buy or reserve transactions at this depth. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
+      (decimal? closestBuyPrice, decimal closestSpread, decimal spreadNeeded) = await GetClosestUnmatchedBuyAsync(userId, tmpCoin, strategy, coinPriceUSDC, spreadThreshold);
+      string closestMsg = closestBuyPrice.HasValue
+        ? $" Closest unmatched buy: {closestBuyPrice:F4} (spread: {closestSpread:P2}, need {spreadNeeded:P2} more to match)."
+        : " No open buy orders found.";
+      _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching buy or reserve transactions at this depth. Trade Cancelled.{closestMsg}", userId, "TRADE", viewDebugLogs);
       return false;
     }
     else
@@ -315,7 +319,11 @@ public class KrakenService
     }
     else
     {
-      _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching open positions at this depth. Waiting.", userId, "TRADE", viewDebugLogs);
+      (decimal? closestBuyPrice, decimal closestSpread, decimal spreadNeeded) = await GetClosestUnmatchedBuyAsync(userId, tmpCoin, strategy, currentPrice, _TradeThreshold);
+      string closestMsg = closestBuyPrice.HasValue
+        ? $" Closest unmatched buy: {closestBuyPrice:F4} (spread: {closestSpread:P2}, need {spreadNeeded:P2} more to match)."
+        : " No open buy orders found.";
+      _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching open positions at this depth. Waiting.{closestMsg}", userId, "TRADE", viewDebugLogs);
     }
     return false;
   }
@@ -4288,6 +4296,44 @@ ON DUPLICATE KEY UPDATE
     }
     return momentumStrategy;
   }
+  private async Task<(decimal? buyPrice, decimal currentSpread, decimal spreadNeeded)> GetClosestUnmatchedBuyAsync(int userId, string coinSymbol, string strategy, decimal currentPrice, decimal threshold)
+  {
+    const string sql = @"
+			SELECT CAST(coin_price_usdc AS DECIMAL(20,10)) AS buy_price
+			FROM trade_history
+			WHERE user_id = @UserId
+			AND strategy = @Strategy
+			AND to_currency = @CoinSymbol
+			AND from_currency = 'USDC'
+			AND matching_trade_id IS NULL
+			AND is_reserved = 0
+			ORDER BY ((@CurrentPrice - CAST(coin_price_usdc AS DECIMAL(20,10))) / CAST(coin_price_usdc AS DECIMAL(20,10))) DESC
+			LIMIT 1;";
+    try
+    {
+      await using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+      await conn.OpenAsync();
+      await using var cmd = new MySqlCommand(sql, conn);
+      cmd.Parameters.AddWithValue("@UserId", userId);
+      cmd.Parameters.AddWithValue("@Strategy", strategy);
+      cmd.Parameters.AddWithValue("@CoinSymbol", coinSymbol);
+      cmd.Parameters.AddWithValue("@CurrentPrice", currentPrice);
+      var result = await cmd.ExecuteScalarAsync();
+      if (result != null && result != DBNull.Value)
+      {
+        decimal buyPrice = Convert.ToDecimal(result);
+        decimal currentSpread = buyPrice > 0 ? (currentPrice - buyPrice) / buyPrice : 0m;
+        decimal spreadNeeded = Math.Max(0m, threshold - currentSpread);
+        return (buyPrice, currentSpread, spreadNeeded);
+      }
+    }
+    catch (Exception ex)
+    {
+      _ = _log.Db($"({coinSymbol}:{userId}:{strategy}) Error fetching closest unmatched buy: {ex.Message}", userId, "TRADE", viewDebugLogs);
+    }
+    return (null, 0m, 0m);
+  }
+
   private async Task<int?> FindMatchingBuyOrders(int userId, string coinSymbol, string strategy, decimal sellPrice, MySqlConnection? conn = null)
   {
     bool shouldDisposeConnection = conn == null;
