@@ -487,7 +487,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         this.scanAndTagVpadControls();
         this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
 
-        try { this.ensureIframeGamepadPermission(); } catch { }
+        // Map P1 to real controller and make it MD 6-button
+        try { this.ensureIframeGamepadPermission(); } catch {}
+        try { (window as any).EJS_gamepadPlayerMap = { 0: 0, 1: 1, 2: 2, 3: 3 }; } catch {}
+        this.forceGenesisSixButtonOnP1().catch(() => {});
+ 
         this.applyPSPPerformanceTweak();
 
         // Moment you captured save function originally
@@ -577,10 +581,17 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   private applyGamepadControlSettings(romDisplayName: string, core: string, system: System | undefined) {
     let useSix = true;
+  
     if (this.system === 'genesis') {
-      useSix = this.shouldUseGenesisSixButtons(this.fileService.getFileWithoutExtension(romDisplayName));
-      this.applyGenesisControllerOptions(core, useSix);
+      useSix = this.shouldUseGenesisSixButtons(romDisplayName);
+      const w = window as any;
+      w.EJS_defaultOptions ||= {};
+      w.EJS_defaultOptions['genesis_plus_gx_controller1'] = useSix ? '6 button pad' : '3 button pad';
+      w.EJS_defaultOptions['genesis_plus_gx_controller2'] = '3 button pad';
+      w.EJS_defaultOptions['input_libretro_device_p1'] = useSix ? 'MD 6 button pad' : 'MD 3 button pad';
+      w.EJS_defaultOptionsForce = true;
     }
+
 
     const vpad = this.buildTouchLayout((system ?? ('gba' as System)), {
       useJoystick: this.useJoystick,
@@ -704,7 +715,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       systemIcon = undefined;
     }
     const w = window as any;
-    w.EJS_defaultOptionsForce = false;  // force defaults every run  (docs: config system)
+   // w.EJS_defaultOptionsForce = false;  // force defaults every run  (docs: config system)
     w.EJS_directKeyboardInput = true;   // deliver raw key events to the core
     w.EJS_enableGamepads = true;        // let cores read the gamepad state
     w.EJS_disableAltKey = true;         // avoid Alt being swallowed by browser/UI
@@ -2366,6 +2377,49 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return aliasMap[slug] ?? slug;
   }
 
+/** Try all known ways to make P1 a Genesis 6-button pad. */
+private async forceGenesisSixButtonOnP1() {
+  const gm = await this.waitForGameManager(5000);
+  if (!gm) return;
+
+  // 1) Many EJS builds expose this with numeric libretro device IDs:
+  //    769 = MD 6 Button, 513 = MD 3 Button, 1 = generic Joypad.
+  try {
+    if (typeof (gm as any).setControllerPortDevice === 'function') {
+      (gm as any).setControllerPortDevice(0, 769);
+      console.log('[EJS] setControllerPortDevice(P1, MD6) applied');
+      return;
+    }
+  } catch {}
+
+  // 2) Some expose by string name:
+  try {
+    if (typeof (gm as any).setControllerDevice === 'function') {
+      (gm as any).setControllerDevice(0, 'MD 6 Button');
+      console.log('[EJS] setControllerDevice(P1, "MD 6 Button") applied');
+      return;
+    }
+  } catch {}
+
+  // 3) As a fallback, push the common RetroArch variable for P1 device:
+  try {
+    if (typeof (gm as any).setVariable === 'function') {
+      // Values vary by build; these two are the usual strings
+      (gm as any).setVariable('input_libretro_device_p1', 'MD 6 button pad');
+      (gm as any).setVariable('input_player1_device_type', 'MD 6 button pad');
+      console.log('[EJS] input_libretro_device_p1="MD 6 button pad" pushed');
+    }
+  } catch {}
+
+  // 4) Absolute fallback: set the core-specific key *and* re-force defaults
+  try {
+    const w = window as any;
+    w.EJS_defaultOptions ||= {};
+    w.EJS_defaultOptions['genesis_plus_gx_controller1'] = '6 button pad';
+    w.EJS_defaultOptionsForce = true;
+    console.log('[EJS] Forced default option genesis_plus_gx_controller1="6 button pad"');
+  } catch {}
+} 
 
   /** Push Genesis controller type into the core before loader runs. */
   private applyGenesisControllerOptions(core: string, useSix: boolean) {

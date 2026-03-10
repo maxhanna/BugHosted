@@ -587,8 +587,9 @@
   </div>
   <div class="searchFilesPopupContainer">
     <div class="search-input-group">
-      <input #popupSearch (input)="changeSearchTermsFromPopup()" class="search-input"
-        placeholder="Search {{ currentDirectory }}..." [value]="searchTerms" />
+      <input #popupSearch class="search-input"
+        placeholder="Search {{ currentDirectory }}..." [value]="searchTerms" /> 
+      <input type="button" (click)="changeSearchTermsFromPopup()" value="🔍" class="search-clear-button" />
       <input type="button" (click)="clearPopupSearch()" value="❌" class="search-clear-button" />
       <span class="search-results-count">{{ directory?.totalCount || 0 }} results</span>
     </div>
