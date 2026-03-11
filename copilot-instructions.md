@@ -71,6 +71,10 @@ Keep this file up to date when project conventions change.
 - If adding multiple related helper methods, group them together near other helpers (still placed at the end) and add a short comment header describing their purpose.
 - For TypeScript/Angular components follow the same approach: append new component methods/properties to the end of the class in the TypeScript file.
 
+## Variable & Function Placement Convention
+- Place loose component properties/variables (e.g., flags like `showTableView`, configuration constants, and public properties used by the template) near the top of the class, alongside other field declarations.
+- Place newly added functions and helper methods at the bottom of the class (still inside the class body), after existing methods and getters. This keeps the declaration area (fields) separate from behavior (methods) and reduces churn in the file header.
+
 ## Error Handling
 - After every edit, check for compile and lint errors.
 - If errors are found, fix them before proceeding with further changes.

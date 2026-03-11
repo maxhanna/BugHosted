@@ -25,7 +25,9 @@
   <div class="topLinks">
     <div *ngIf="favorites.length > 0">
       <div class="miniTitle">{{ showingLatestLinks ? 'Latest' : 'Your' }} Links:</div>
-      <div class="favouriteListWrapper">
+
+      <!-- Block view (existing) -->
+      <div class="favouriteListWrapper" *ngIf="!showTableView">
         <div *ngFor="let fav of displayedFavorites"
           [title]="fav.url"
           class="favouriteDiv"
@@ -53,6 +55,38 @@
           </div>
         </div>
       </div>
+
+      <!-- Table view -->
+      <div *ngIf="showTableView" class="favouritesTableWrapper">
+        <table class="favouritesTable">
+          <thead>
+            <tr>
+              <th>Id</th>
+              <th>Title</th>
+              <th>URL</th>
+              <th>Users</th>
+              <th>Accessed</th>
+              <th>Created By</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let fav of displayedFavorites">
+              <td>{{fav.id}}</td>
+              <td>{{fav.name}}</td>
+              <td><a href="{{fav.url}}" target="_blank" (click)="$event.stopPropagation(); visitExternalLink(fav)">{{fav.url}}</a></td>
+              <td>{{fav.userCount}}</td>
+              <td>{{fav.accessCount}}</td>
+              <td>{{fav.createdBy}}</td>
+              <td>
+                <button (click)="addLink(fav)" [disabled]="isIncludedInFavourites(fav)" title="Add">➕</button>
+                <button *ngIf="showEditLinks && fav.isUserFavourite" (click)="openEditPanel(fav)" title="Edit">✏️</button>
+                <button *ngIf="showEditLinks && fav.isUserFavourite" (click)="deleteFav(fav)" title="Delete">❌</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
   <div class="linkOptionButtons">
@@ -60,6 +94,9 @@
       [value]="filterText" (input)="onFilterInput($event)" title="Filter favourites" style="margin-right:8px;" />
     <button (click)="showEditLinks = !showEditLinks" class="cursorPointer" *ngIf="!showingLatestLinks">
       {{showEditLinks ? 'Done ' : ''}}Edit{{showEditLinks ? 'ing' : ''}}{{showEditLinks ? '' : ' Links'}}
+    </button>
+    <button (click)="toggleView()" class="cursorPointer" style="margin-left:8px;">
+      {{ showTableView ? 'Block View' : 'Table View' }}
     </button>
     <select class="cursorPointer" (change)="orderChanged($event, $any($event.target).value)" *ngIf=" !isSearchingUrls" [value]="currentOrder">
       <option value="recent">Latest</option>

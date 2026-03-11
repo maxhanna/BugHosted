@@ -41,6 +41,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   selectedMeta?: MetaData;
   numberOfPages = 0;
   filterText: string = '';
+  showTableView: boolean = false;
 
   constructor(
     private favoriteService: FavouriteService,
@@ -387,5 +388,9 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
       if (name.includes(ft) || url.includes(ft) || imageUrl.includes(ft)) { return true; }
       return false;
     });
+  }
+  
+  toggleView() {
+    this.showTableView = !this.showTableView;
   }
 }
