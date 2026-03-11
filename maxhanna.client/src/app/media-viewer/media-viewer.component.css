@@ -178,3 +178,29 @@
 .fileSharedWith {
   display: flex;
 }
+
+/* Border and toggle button for media information when loaded from URL */
+.bordered {
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 4px;
+  padding: 8px;
+  background-color: var(--component-background-color, transparent);
+}
+
+.mediaInfoToggleWrapper {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.mediaInfoToggleButton {
+  background: var(--button-background, #f0f0f0);
+  border: 1px solid rgba(0,0,0,0.08);
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.mediaInfoToggleButton:hover {
+  filter: brightness(0.98);
+}

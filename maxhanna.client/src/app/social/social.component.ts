@@ -225,6 +225,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const parent = this.parentRef;
     if (!parent?.user?.id) { return alert("Error: Cannot delete a post unless logged in or the post belongs to you."); }
     if (!confirm("Are you sure you want to delete this post?")) return;
+    this.startLoading();
     const sessionToken = await parent.getSessionToken();
     const res = await this.socialService.deleteStory(parent.user.id, story, sessionToken);
     if (res) {
@@ -234,6 +235,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       }
     }
     this.closeStoryOptionsPanel();
+    this.stopLoading();
   }
   async edit(story: Story) {
     if (this.isEditing.includes(story.id ?? 0)) {
@@ -271,11 +273,13 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const ogMessage = message + "";
     story.storyText = this.encryptionService.encryptContent(message, story.user.id + "");
     if (document.getElementById('storyText' + story.id) && this.parentRef?.user?.id) {
+      this.startLoading();
       this.parentRef.updateLastSeen();
       const sessionToken = await this.parentRef.getSessionToken();
       await this.socialService.editStory(this.parentRef.user.id, story, sessionToken);
       this.isEditing = this.isEditing.filter(x => x != story.id);
       setTimeout(() => { story.storyText = ogMessage }, 10);
+      this.stopLoading();
     }
   }
   

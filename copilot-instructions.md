@@ -6,6 +6,7 @@ These are project-specific guidelines that must be followed for every change.
 - Angular version: 19.x (see maxhanna.client/package.json dependencies)
 
 ## Template & binding rules
+- IMPORTANT: this Angular version does NOT support `ngClass`. Do NOT use `ngClass` in templates; prefer string-based `[class]` or explicit boolean class bindings (e.g. `[class.foo]="cond"`). Always remember this.
 - Do NOT use `ngClass` in templates; prefer string-based `[class]` or explicit class concatenation.
 - Do NOT use `[ngModel]`; use explicit input value bindings such as `[value]` and `(input)` handlers.
 - Use explicit boolean attribute bindings where necessary (e.g. `[disabled]="..."`).

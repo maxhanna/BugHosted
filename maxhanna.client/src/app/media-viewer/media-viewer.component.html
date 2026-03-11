@@ -73,8 +73,13 @@
     [parent]="parentRef" [attachedTopics]="file?.topics ?? selectedFile?.topics"
     (topicClicked)="topicClicked($event)">
   </app-topics>
-  <div [style]="isShowingMediaInformation ? 'padding:20px;' : 'width:100%'"
-    [class]="isShowingMediaInformation ? 'popupPanel' : ''">
+  <div *ngIf="isLoadedFromURL" class="mediaInfoToggleWrapper">
+    <button class="mediaInfoToggleButton" (click)="isShowingMediaInformation = !isShowingMediaInformation">
+      {{ isShowingMediaInformation ? 'Hide Info' : 'Show Info' }}
+    </button>
+  </div>
+  <div [class.popupPanel]="isShowingMediaInformation" [class.bordered]="isLoadedFromURL"
+    [style]="isShowingMediaInformation ? 'padding:20px;' : 'width:100%'">
     <div
       *ngIf="(isShowingMediaInformation && selectedFile) || (isLoadedFromURL && selectedFile && (selectedFile.fileName || selectedFile.givenFileName))"
       class="optionsStatsWrapperDiv">

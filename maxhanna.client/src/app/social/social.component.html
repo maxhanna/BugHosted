@@ -167,6 +167,7 @@
       <div style="text-align: center; margin-bottom: 8px;">
         <button (click)="copyAllText(optionStory.id)" title="Copy all text">📋 Copy Text</button>
         <button 
+          [disabled]="isLoading"
           (click)="edit(optionStory)"
           title="Edit Post Text"
           *ngIf="optionStory.user?.id == parentRef?.user?.id">
@@ -176,11 +177,13 @@
           (click)="copyLink(optionStory.id)" 
           title="Share Link">📋 Share Post</button>
         <button
+          [disabled]="isLoading"
           (click)="hide(optionStory)"
           *ngIf="parentRef?.user?.id">
           {{optionStory.hidden ? '🙉 Unhide' : '🙈 Hide'}} Post
         </button>
         <button 
+          [disabled]="isLoading"
           (click)="delete(optionStory)" 
           *ngIf="(optionStory.user?.id == parentRef?.user?.id) || (userProfileId && userProfileId == parentRef?.user?.id) || (parentRef?.user?.id == 1 || parent?.user?.id == 1)"
           title="Delete Post">

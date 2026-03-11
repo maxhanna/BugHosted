@@ -526,11 +526,11 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       }, 50);
       return;
     } else {
-      const todoDiv = document.getElementById('todoNo' + id) as HTMLDivElement;
       const text = (document.getElementById("todoEditingTextarea") as HTMLTextAreaElement).value.trim();
       const url = (document.getElementById('todoEditingUrlTextarea') as HTMLTextAreaElement).value.trim();
       const fileId = this.todoEditingFile.selectedFiles[0]?.id ?? undefined;
-
+      this.isEditing = this.isEditing.filter(x => x.id !== id);
+      this.startLoading();
       try {
         await this.todoService.editTodo(id, text, url, fileId).then(res => {
           if (res) {
@@ -545,11 +545,12 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
           this.todos[todoIndex].url = url;
           this.todos[todoIndex].fileId = fileId;
         }
-        this.isEditing = this.isEditing.filter(x => x.id !== id);
         this.resumeSharedPollingIfNeeded();
       } catch (error) {
         console.error("Error updating todo:", error);
         this.parentRef?.showNotification("Failed to update todo");
+      } finally {
+        this.stopLoading();
       }
     }
   }
