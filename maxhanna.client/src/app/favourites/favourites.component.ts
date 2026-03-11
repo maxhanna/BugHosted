@@ -40,6 +40,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   isSearchingUrl = false;
   selectedMeta?: MetaData;
   numberOfPages = 0;
+  filterText: string = '';
 
   constructor(
     private favoriteService: FavouriteService,
@@ -151,15 +152,15 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
         if (!targetData) {
           const userId = this.parentRef?.user?.id;
           let cRes = await this.crawlerService.searchUrl(tmpLinkUrl, undefined, undefined, exactMatch, undefined, userId);
-          
+
           if ((cRes as any)?.error) {
-            const error = (cRes as any).error; 
+            const error = (cRes as any).error;
             this.parentRef?.showNotification(error);
             this.stopLoading();
             return;
           }
-          
-          cRes = cRes as CrawlerSearchResponse;  
+
+          cRes = cRes as CrawlerSearchResponse;
           if (cRes && cRes.results && cRes.results.length > 0 && (!exactMatch ? cRes.results[0].url.includes(tmpLinkUrl) : true)) {
             targetData = cRes.results[0];
           }
@@ -349,7 +350,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   }
   urlSelectedEvent(meta: MetaData) {
     setTimeout(() => {
-        this.linkInput.nativeElement.value = meta.url ?? ""; 
+      this.linkInput.nativeElement.value = meta.url ?? "";
     }, 500);
     if (this.isSearchingEditUrl) {
       this.editingUrlInput.nativeElement.value = meta.url ?? "";
@@ -363,5 +364,28 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
       this.selectedMeta = meta;
       this.closeSearchPopup();
     }
+  }
+
+  onFilterInput(event: any) {
+    this.filterText = (event && (event.target?.value ?? event.srcElement?.value)) || '';
+  }
+
+  // Getter used by the template to display filtered favourites
+  get displayedFavorites(): Favourite[] {
+    const ft = (this.filterText || '').toString().trim().toLowerCase();
+    if (!ft) {
+      return this.favorites;
+    }
+    return this.favorites.filter(f => {
+      if (!f) { return false; }
+      const idStr = f.id ? f.id.toString() : '';
+      const createdByStr = f.createdBy ? f.createdBy.toString() : '';
+      const name = (f.name || '').toString().toLowerCase();
+      const url = (f.url || '').toString().toLowerCase();
+      const imageUrl = (f.imageUrl || '').toString().toLowerCase();
+      if (idStr.includes(ft) || createdByStr.includes(ft)) { return true; }
+      if (name.includes(ft) || url.includes(ft) || imageUrl.includes(ft)) { return true; }
+      return false;
+    });
   }
 }

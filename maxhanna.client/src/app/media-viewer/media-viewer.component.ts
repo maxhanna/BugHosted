@@ -43,6 +43,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   isEditingFileName = false;
   editingTopics: number[] = [];
   isVideoBuffering = false;
+  isMediaInformationToggled = false;
   private hasTriedInitialCachedLoad = false;
 
   @ViewChild('mediaContainer', { static: false }) mediaContainer?: ElementRef;
@@ -118,7 +119,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.tryLoadFromCacheFastPath();
     }
   }
-  
+
   ngOnDestroy() {
     try { this.stopAllMedia(); } catch { }
     try {
@@ -157,7 +158,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   async fetchFileSrc() {
     this.debugLog('fetchFileSrc invoked', { fileId: this.fileId, hasFileObj: !!this.file, fileSrcInput: this.fileSrc, alreadySelectedSrc: !!this.selectedFileSrc });
     if (this.selectedFileSrc) return; // already set
-    if (!this.autoload) return; 
+    if (!this.autoload) return;
 
     this.isLoading = true;
     await this.waitForPaint();
@@ -218,7 +219,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.debugLog('setFileSrcByParentRefValue failed (likely sparse array access)', { id, error: ex });
     }
   }
-  
+
   private async waitForPaint() {
     await new Promise(requestAnimationFrame);
   }
@@ -365,7 +366,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
 
     if (!this.selectedFile?.givenFileName && !this.selectedFile?.fileName) {
-      this.debugLog('setFileSrcById no givenFileName/fileName, fetching file entry metadata'); 
+      this.debugLog('setFileSrcById no givenFileName/fileName, fetching file entry metadata');
       const requesterId = parent?.user?.id;
       await this.fileService.getFileEntryById(fileId, requesterId).then(res => {
         if (res) {
@@ -409,14 +410,14 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
           this.finishedLoadingEvent.emit();
           this.isLoading = false;
         };
-        
+
         reader.readAsDataURL(blob);
       });
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
         console.error(error);
         this.emittedNotification.emit((error as Error).message);
-        this.isLoading = false;        
+        this.isLoading = false;
       }
     } finally {
       this.isLoading = false;
@@ -442,11 +443,12 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
     this.startLoading();
     const res = await this.fileService.updateFileData(
-      this.user?.id ?? this.parentRef?.user?.id ?? 0, 
-      { FileId: file.id, 
-        GivenFileName: fileName, 
-        Description: '', 
-        LastUpdatedBy: this.user || this.parentRef?.user || new User(0, "Anonymous") 
+      this.user?.id ?? this.parentRef?.user?.id ?? 0,
+      {
+        FileId: file.id,
+        GivenFileName: fileName,
+        Description: '',
+        LastUpdatedBy: this.user || this.parentRef?.user || new User(0, "Anonymous")
       }
     );
     if (res) {
@@ -521,7 +523,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
     this.setupBackButtonListener();
     this.setupEscapeKeyListener();
-  } 
+  }
 
   shrink() {
     // Stop overlay media first
@@ -533,8 +535,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       container.src = this.selectedFileSrc;
       container.load();
     }
-  } 
-  
+  }
+
   async download(file: FileEntry, force: boolean) {
     if (!confirm(`Download ${file.givenFileName ?? file.fileName}?`)) {
       return;
@@ -765,7 +767,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
   isVideoOrAudio(fileEntry: FileEntry) {
     let fileType = fileEntry.fileType ?? this.fileService.getFileExtension(fileEntry.fileName ?? '');
-    fileType = fileType.replace(".", ""); 
+    fileType = fileType.replace(".", "");
     return this.fileService.videoFileExtensions.includes(fileType) || this.fileService.audioFileExtensions.includes(fileType);
   }
   async addFileToMusicPlaylist(fileEntry: FileEntry) {

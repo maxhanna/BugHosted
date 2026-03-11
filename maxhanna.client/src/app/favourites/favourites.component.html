@@ -26,7 +26,7 @@
     <div *ngIf="favorites.length > 0">
       <div class="miniTitle">{{ showingLatestLinks ? 'Latest' : 'Your' }} Links:</div>
       <div class="favouriteListWrapper">
-        <div *ngFor="let fav of favorites"
+        <div *ngFor="let fav of displayedFavorites"
           [title]="fav.url"
           class="favouriteDiv"
           [class.glowing]="fav.isGlowing"
@@ -56,6 +56,8 @@
     </div>
   </div>
   <div class="linkOptionButtons">
+    <input class="filterInput cursorPointer" placeholder="Filter by user id, title, url..."
+      [value]="filterText" (input)="onFilterInput($event)" title="Filter favourites" style="margin-right:8px;" />
     <button (click)="showEditLinks = !showEditLinks" class="cursorPointer" *ngIf="!showingLatestLinks">
       {{showEditLinks ? 'Done ' : ''}}Edit{{showEditLinks ? 'ing' : ''}}{{showEditLinks ? '' : ' Links'}}
     </button>
