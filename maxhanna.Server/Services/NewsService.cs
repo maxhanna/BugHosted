@@ -507,8 +507,8 @@ public class NewsService
   {
     try
     {
-      int numberOfArticles = await GetNewsCountInLast24HoursAsync();
-      if (numberOfArticles < 50)
+      // Fast pre-check: verify we have at least 20 recent articles (last 24h)
+      if (!await HasAtleast20NewsArticlesIn24HrsAsync())
       {
         return;
       }
@@ -1181,10 +1181,9 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
   {
     try
     {
-      int numberOfArticles = await GetNewsCountInLast24HoursAsync();
-      if (numberOfArticles < 50)
+      // Fast pre-check: verify we have at least 20 recent articles (last 24h)
+      if (!await HasAtleast20NewsArticlesIn24HrsAsync())
       {
-        //	await _log.Db("Not enough articles saved yet.", null, "NEWSSERVICE", true); 
         return;
       }
 
@@ -1415,6 +1414,48 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
       // Log any errors
       await _log.Db($"Error retrieving story count: {ex.Message}", null, "NEWSSERVICE", outputToConsole: true);
       return 0; // Return 0 in case of an error
+    }
+  }
+
+  /// <summary>
+  /// Fast check whether there are at least 20 articles saved within the last 24 hours.
+  /// This selects the latest 20 saved_at timestamps (fast with proper index) and then
+  /// checks whether the 20th-most-recent timestamp is within the past 24 hours.
+  /// </summary>
+  public async Task<bool> HasAtleast20NewsArticlesIn24HrsAsync()
+  {
+    try
+    {
+      using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      await conn.OpenAsync();
+
+      // Get the most recent 20 timestamps. This avoids a full table scan and relies on
+      // an index on `saved_at` (if present) to be fast.
+      const string sql = @"SELECT saved_at FROM news_headlines ORDER BY saved_at DESC LIMIT 20;";
+      await using var cmd = new MySqlCommand(sql, conn);
+      var timestamps = new List<DateTime>();
+      await using var reader = await cmd.ExecuteReaderAsync();
+      while (await reader.ReadAsync())
+      {
+        if (!reader.IsDBNull(0))
+        {
+          // Use UTC assumption for saved_at column
+          var dt = reader.GetDateTime(0);
+          timestamps.Add(DateTime.SpecifyKind(dt, DateTimeKind.Utc));
+        }
+      }
+
+      if (timestamps.Count < 20) return false;
+
+      // The 20th-most-recent item is the last in the list
+      var twentieth = timestamps[timestamps.Count - 1];
+      var cutoff = DateTime.UtcNow.AddHours(-24);
+      return twentieth >= cutoff;
+    }
+    catch (Exception ex)
+    {
+      await _log.Db($"Error in HasAtleast20NewsArticlesIn24HrsAsync: {ex.Message}", null, "NEWSSERVICE", outputToConsole: true);
+      return false;
     }
   }
   private class MemeInfo
