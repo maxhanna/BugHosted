@@ -76,8 +76,8 @@
           <div class="selectorDiv">
             Search: 
             <input placeholder="Keyword" #searchInput (keyup.enter)="onSearchEnter()" />
-            <input type="submit" value="🔍" title="Search Music Playlist" (click)="searchForSong()" />
-            <input type="submit" value="▶️" title="Search YouTube" (click)="showYoutubeSearch()" *ngIf="selectedType === 'youtube'" />
+            <input type="button" value="🔍" title="Search Music Playlist" (click)="searchForSong()" />
+            <input type="button" value="▶️" title="Search YouTube" (click)="showYoutubeSearch()" *ngIf="selectedType === 'youtube'" />
           </div> 
         </div>
         <div class="musicTypeSelector">
