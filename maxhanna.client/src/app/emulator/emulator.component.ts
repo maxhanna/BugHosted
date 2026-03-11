@@ -174,6 +174,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private exitSaving = false;
   private stopEmuSaving = false;
   private isExitingAndReturningToEmulator = false;
+  private _ejsReady = false;
   private lastGoodSaveSize = new Map<string, number>();
   private gameLoadDate?: Date | undefined;
   private readonly SYS_PICK_KEY = 'emu:preferredCoreByExt';
@@ -221,6 +222,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.status = 'Destroying emulator...';
     if (this._gameSizeObs) { try { this._gameSizeObs.disconnect(); } catch { } this._gameSizeObs = undefined; }
     this._destroyed = true;
+    this._ejsReady = false;
     this.clearAutosave();
     if (this.parentRef) {
       this.parentRef.preventShowSecurityPopup = false;
@@ -489,6 +491,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     window.EJS_ready = (api: any) => {
       try {
+        this._ejsReady = true;
         this.scanAndTagVpadControls();
         this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
 
@@ -1769,11 +1772,56 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (!saveStateBlob) return false;
     try {
       const u8 = new Uint8Array(await saveStateBlob.arrayBuffer());
-      const { useEjs, useMgr } = await this.waitForLoadApis(6000);
-      if (useEjs) { await Promise.resolve(useEjs(u8)); console.log('[EJS] Loaded state via EJS_loadState'); return true; }
-      if (useMgr) { await Promise.resolve(useMgr(u8)); console.log('[EJS] Loaded state via gameManager.loadState'); return true; }
-      console.warn('[EJS] No load API available; could not apply save state.');
-      return false;
+      const core = (window as any).EJS_core || '';
+
+      // Heavy cores (PS1, N64, PSP) go through a lengthy BIOS / boot
+      // sequence after the load-state API first appears.  Loading a state
+      // before that sequence completes causes the ongoing boot to silently
+      // overwrite the restored state, so the game starts from the beginning.
+      const heavyCores = new Set([
+        'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mednafen_psx',
+        'mupen64plus_next',
+        'psp', 'ppsspp'
+      ]);
+      const isHeavy = heavyCores.has(core);
+
+      // 1) Wait for EJS_ready to fire (set by the EJS_ready callback).
+      //    This guarantees the emulator API + gameManager actually exist.
+      if (!this._ejsReady) {
+        const readyTimeout = isHeavy ? 30000 : 12000;
+        const start = Date.now();
+        while (!this._ejsReady && Date.now() - start < readyTimeout) {
+          await new Promise(r => setTimeout(r, 200));
+        }
+        if (!this._ejsReady) {
+          console.warn('[EJS] Timed out waiting for EJS_ready; cannot apply save state.');
+          return false;
+        }
+      }
+
+      // 2) Now find the load API (should be almost instant since EJS_ready already fired).
+      const { useEjs, useMgr } = await this.waitForLoadApis(isHeavy ? 15000 : 6000);
+      const loadFn = useEjs || useMgr;
+      if (!loadFn) {
+        console.warn('[EJS] No load API available; could not apply save state.');
+        return false;
+      }
+
+      // 3) For heavy cores, let the BIOS / boot sequence finish before
+      //    injecting the state.  Without this delay the boot overwrites
+      //    the state we just loaded.
+      if (isHeavy) {
+        console.log('[EJS] Heavy core detected — waiting for BIOS/boot to finish before loading state…');
+        this.status = 'Waiting for BIOS to finish before restoring save…';
+        this.cdr.detectChanges();
+        await new Promise(r => setTimeout(r, 6000));
+      }
+
+      await Promise.resolve(loadFn(u8));
+      console.log('[EJS] Loaded state via', useEjs ? 'EJS_loadState' : 'gameManager.loadState');
+      this.status = 'Running';
+      this.cdr.detectChanges();
+      return true;
     } catch (e) {
       console.warn('[EJS] applySaveStateIfAvailable failed', e);
       return false;
