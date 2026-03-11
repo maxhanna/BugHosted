@@ -659,8 +659,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private async waitForGameManager(maxMs = 5000) {
     const start = performance.now();
     while (performance.now() - start < maxMs) {
-      const ejs = (window as any).EJS_emulator || (window as any).EJS;
-      const gm = ejs?.gameManager || (window as any).EJS_GameManager;
+      const gm =
+        this.emulatorInstance?.gameManager
+        || ((window as any).EJS_emulator || (window as any).EJS)?.gameManager
+        || (window as any).EJS_GameManager;
       if (gm) return gm;
       await new Promise(r => setTimeout(r, 100));
     }
@@ -1775,9 +1777,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       const core = (window as any).EJS_core || '';
 
       // Heavy cores (PS1, N64, PSP) go through a lengthy BIOS / boot
-      // sequence after the load-state API first appears.  Loading a state
-      // before that sequence completes causes the ongoing boot to silently
-      // overwrite the restored state, so the game starts from the beginning.
+      // sequence.  The WASM module and gameManager become available long
+      // before RetroArch actually finishes loading the ROM + BIOS.
+      // Calling gameManager.loadState() before that causes a WASM
+      // "function signature mismatch" crash because internal function
+      // tables aren't populated yet.  We must wait for the core to
+      // report that it supports states before we try.
       const heavyCores = new Set([
         'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mednafen_psx',
         'mupen64plus_next',
@@ -1786,7 +1791,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       const isHeavy = heavyCores.has(core);
 
       // 1) Wait for EJS_ready to fire (set by the EJS_ready callback).
-      //    This guarantees the emulator API + gameManager actually exist.
+      //    This guarantees the emulator JS wrapper is ready.
       if (!this._ejsReady) {
         const readyTimeout = isHeavy ? 30000 : 12000;
         const start = Date.now();
@@ -1799,29 +1804,88 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         }
       }
 
-      // 2) Now find the load API (should be almost instant since EJS_ready already fired).
-      const { useEjs, useMgr } = await this.waitForLoadApis(isHeavy ? 15000 : 6000);
-      const loadFn = useEjs || useMgr;
-      if (!loadFn) {
-        console.warn('[EJS] No load API available; could not apply save state.');
-        return false;
-      }
-
-      // 3) For heavy cores, let the BIOS / boot sequence finish before
-      //    injecting the state.  Without this delay the boot overwrites
-      //    the state we just loaded.
+      // 2) For heavy cores, wait for the RetroArch core to actually
+      //    finish initializing by polling supportsStates().  This
+      //    returns 1 only after the core's retro_serialize_size()
+      //    works, which means the function tables are populated.
       if (isHeavy) {
-        console.log('[EJS] Heavy core detected — waiting for BIOS/boot to finish before loading state…');
-        this.status = 'Waiting for BIOS to finish before restoring save…';
+        this.status = 'Waiting for core to initialize before restoring save…';
         this.cdr.detectChanges();
-        await new Promise(r => setTimeout(r, 6000));
+        console.log('[EJS] Heavy core detected — polling supportsStates() until core is ready…');
+
+        const maxWaitMs = 60000;
+        const start = Date.now();
+        let coreReady = false;
+
+        while (Date.now() - start < maxWaitMs && !this._destroyed) {
+          try {
+            const gm = await this.waitForGameManager(2000);
+            if (gm?.functions?.supportsStates?.() === 1) {
+              coreReady = true;
+              break;
+            }
+          } catch { /* core not ready yet, keep polling */ }
+          await new Promise(r => setTimeout(r, 1000));
+        }
+
+        if (!coreReady) {
+          console.warn('[EJS] Core did not report state support within 60 s — trying load anyway…');
+        } else {
+          console.log(`[EJS] Core reports supportsStates=1 after ${Date.now() - start} ms`);
+        }
+
+        // Extra grace period: let a few frames render so the core is
+        // fully stable before we inject the state.
+        await new Promise(r => setTimeout(r, 2000));
       }
 
-      await Promise.resolve(loadFn(u8));
-      console.log('[EJS] Loaded state via', useEjs ? 'EJS_loadState' : 'gameManager.loadState');
+      // 3) Try to load the state, with retries for heavy cores in case
+      //    the core needs a little more time.
+      const maxRetries = isHeavy ? 5 : 2;
+      const retryDelayMs = 3000;
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        if (this._destroyed) return false;
+
+        try {
+          // Prefer gameManager.loadState (writes to FS, calls WASM)
+          const gm = await this.waitForGameManager(2000);
+          if (gm && typeof gm.loadState === 'function') {
+            gm.loadState(u8);
+            console.log(`[EJS] Loaded state via gameManager.loadState (attempt ${attempt})`);
+            this.status = 'Running';
+            this.cdr.detectChanges();
+            return true;
+          }
+
+          // Fallback: global EJS_loadState
+          const w = window as any;
+          if (typeof w.EJS_loadState === 'function') {
+            await Promise.resolve(w.EJS_loadState(u8));
+            console.log(`[EJS] Loaded state via EJS_loadState (attempt ${attempt})`);
+            this.status = 'Running';
+            this.cdr.detectChanges();
+            return true;
+          }
+
+          console.warn('[EJS] No load API available; could not apply save state.');
+          this.status = 'Running';
+          this.cdr.detectChanges();
+          return false;
+        } catch (e) {
+          console.warn(`[EJS] loadState attempt ${attempt}/${maxRetries} failed:`, e);
+          if (attempt < maxRetries) {
+            this.status = `Save restore failed, retrying… (${attempt}/${maxRetries})`;
+            this.cdr.detectChanges();
+            await new Promise(r => setTimeout(r, retryDelayMs));
+          }
+        }
+      }
+
+      console.warn('[EJS] All loadState attempts exhausted; save state not loaded.');
       this.status = 'Running';
       this.cdr.detectChanges();
-      return true;
+      return false;
     } catch (e) {
       console.warn('[EJS] applySaveStateIfAvailable failed', e);
       return false;
