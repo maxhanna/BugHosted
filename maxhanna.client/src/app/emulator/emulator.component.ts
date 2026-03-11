@@ -1841,7 +1841,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
       // 3) Try to load the state, with retries for heavy cores in case
       //    the core needs a little more time.
-      const maxRetries = isHeavy ? 5 : 2;
+      const maxRetries = isHeavy ? 10 : 5;
       const retryDelayMs = 3000;
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
