@@ -8,7 +8,7 @@
   --secondary-component-background-color: #011300;
   --table-thead-color: var(--main-highlight-color);
   --main-font-family: Helvetica, Arial;
-  --title-font-family: 'Gill Sans', Verdana, sans-serif;
+  --title-font-family: 'Courier New', Arial, sans-serif; /*'Gill Sans', Verdana, sans-serif;*/
   --section-font-family: 'Courier New', Arial, sans-serif;
   --main-font-color: #b0c2b1;
   --main-link-color: chartreuse;
