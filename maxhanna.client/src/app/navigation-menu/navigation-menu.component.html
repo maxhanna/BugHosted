@@ -1,9 +1,6 @@
 <div class="nav-menu-wrapper" [class.collapsed]="collapsed">
-	<div class="nav-menu-header">
-		<button class="collapseBtn" (click)="toggleCollapse()">{{ collapsed ? '>>>' : '<<<' }}</button>
-	</div>
 	<div class="nav-menu" [class.collapsed]="collapsed">
-		<div class="nav-menu-scroll" *ngIf="!collapsed">
+		<div class="nav-menu-scroll">
 			<div *ngFor="let item of _parent.navigationItems" class="nav-row" (click)="goTo(item.title, $event)" [title]="item.title">
 			<span class="nav-icon">
 				<ng-container *ngIf="item.title === 'Weather'">

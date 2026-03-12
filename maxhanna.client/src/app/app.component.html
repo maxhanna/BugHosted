@@ -20,7 +20,10 @@
       *ngIf="isLeftPanelIncluded"
       [style.max-width]="isLeftPanelHidden ? '36px' : '40vw'"
       [style.width]="isLeftPanelHidden ? '36px' : ''">
-      <app-navigation-menu [collapsed]="isLeftPanelHidden" (collapsedClicked)="isLeftPanelHidden = $event"></app-navigation-menu>
+      <div style="display:flex; justify-content:flex-end; padding:6px 8px;">
+        <button class="leftPanelCollapseBtn" (click)="isLeftPanelHidden = !isLeftPanelHidden" title="Toggle navigation">{{ isLeftPanelHidden ? '>>>' : '<<<' }}</button>
+      </div>
+      <app-navigation-menu [collapsed]="isLeftPanelHidden"></app-navigation-menu>
     </div>
 
     <div class="componentContainer" style="flex:1 1 auto; max-width:100vw; box-sizing:border-box;">
