@@ -6,7 +6,7 @@
 	will-change: transform;
 }
 .nav-menu-wrapper.collapsed { 
-	transform: translateX(-220px);
+	transform: translateX(-160px);
 	width: 36px;
   overflow: hidden;
 }
@@ -18,7 +18,7 @@
 	will-change: transform;
 }
 .nav-menu.collapsed {
-	transform: translateX(-220px);
+	transform: translateX(-160px);
 	width: 36px;
 	opacity: 0.98;
 }
