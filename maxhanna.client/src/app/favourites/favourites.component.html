@@ -121,9 +121,12 @@
 
 <!-- User picker popup -->
 <div class="popupPanel" *ngIf="isUserPickerOpen">
-  <div class="popupPanelTitle">Select User</div>
   <div style="max-height:40vh; overflow: auto">
-    <app-user-list (userClickEvent)="userSelected($event)" [searchOnly]="true" [inputtedParentRef]="parentRef"></app-user-list>
+    <app-user-list 
+      (userClickEvent)="userSelected($event)" 
+      [searchOnly]="true" 
+      [openDirectlyToSearch]="true"
+      [inputtedParentRef]="parentRef"></app-user-list>
   </div>
   <button id="closeOverlay" class="closeButton" (click)="closeUserPicker()">Close</button>
 </div>

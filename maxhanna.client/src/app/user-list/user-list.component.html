@@ -1,8 +1,8 @@
 <!-- Search Popup -->
 <!-- <div class="{{searchOnly ? '' : 'popupPanel searchPopup'}}" *ngIf="isSearchPanelOpen"> -->
-<div class="popupPanelTitle" *ngIf="isSearchPanelOpen">Search Users</div>
+<div class="popupPanelTitle" *ngIf="isSearchPanelOpen || openDirectlyToSearch">Search Users</div>
   <div class="searchDiv" [style.display]="searchOnly ? 'inline-flex' : 'flex'">
-  <div *ngIf="isSearchPanelOpen">
+  <div *ngIf="isSearchPanelOpen || openDirectlyToSearch">
     <div>
       <input #searchInput (keyup)="searchUsers()" placeholder="🔍Search for Users" /> 
     </div>
@@ -19,12 +19,12 @@
     </label>
   </div> 
   <div> 
-    <button (click)="openSearchPanel()" class="searchUsersSpan" title="Search All Users" *ngIf="!isSearchPanelOpen">🔍Search</button>
-    <button (click)="closeSearchPanel()" class="searchUsersSpan" title="Cancel" *ngIf="!sharingSearch && isSearchPanelOpen">❌Cancel</button>
+    <button (click)="openSearchPanel()" class="searchUsersSpan" title="Search All Users" *ngIf="!isSearchPanelOpen && !openDirectlyToSearch">🔍Search</button>
+    <button (click)="closeSearchPanel()" class="searchUsersSpan" title="Cancel" *ngIf="!sharingSearch && (isSearchPanelOpen || openDirectlyToSearch)">❌Cancel</button>
     <button (click)="closeSearchPanel()" class="searchUsersSpan" title="Cancel" *ngIf="sharingSearch" id="closeOverlay">❌Cancel</button>
   </div>
 </div>
-<div class="searchPopupUserListWrapper" *ngIf="isSearchPanelOpen" [class]="sharingSearch ? 'sharingSearchUserList' : ''" >
+<div class="searchPopupUserListWrapper" *ngIf="isSearchPanelOpen || openDirectlyToSearch" [class]="sharingSearch ? 'sharingSearchUserList' : ''" >
   <div>
     Result(s): {{ usersSearched.length }}
   </div>

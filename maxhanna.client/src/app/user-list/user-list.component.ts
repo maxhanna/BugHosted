@@ -26,6 +26,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   @Input() hidePreviousMessages: boolean = false;
   @Input() displayRadioFilters: boolean = false;
   @Input() contactsOnly: boolean = false;
+  @Input() openDirectlyToSearch: boolean = false;
   @Output() userClickEvent = new EventEmitter<User | undefined>();
   @Output() userSelectClickEvent = new EventEmitter<User[] | undefined>();
   @Output() groupChatEvent = new EventEmitter<User[] | undefined>();
