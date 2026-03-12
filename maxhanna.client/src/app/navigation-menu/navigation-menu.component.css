@@ -1,12 +1,35 @@
 /* Compact vertical navigation menu styles */
 .nav-menu-wrapper {
 	width: 260px;
+	position: relative;
 }
 .nav-menu {
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
+	transition: transform .28s ease, width .28s ease, opacity .28s ease;
+	will-change: transform;
 }
+.nav-menu.collapsed {
+	transform: translateX(-220px);
+	width: 36px;
+	opacity: 0.98;
+}
+.nav-menu-header {
+	display:flex;
+	justify-content:flex-end;
+	padding:6px 8px;
+}
+.collapseBtn {
+	background: var(--secondary-component-background-color, #222);
+	color: var(--secondary-font-color, #fff);
+	border: none;
+	border-radius: 4px;
+	padding: 4px 8px;
+	cursor: pointer;
+	transition: background .12s ease, transform .12s ease;
+}
+.collapseBtn:hover { transform: translateX(-2px); }
 .nav-row {
 	display: flex;
 	align-items: center;
@@ -47,4 +70,15 @@
 }
 .nav-text { flex: 1; font-size: 14px; color: var(--secondary-font-color, #fff); }
 .nav-badge { background: var(--main-highlight-color, #3a3a3a); color: var(--secondary-font-color, #fff); padding: 3px 8px; border-radius: 12px; font-size: 12px; }
+
+/* scrolling container for menu items limited to viewport height */
+.nav-menu-scroll {
+	max-height: calc(100vh - 56px);
+	overflow: auto;
+	padding-right: 6px;
+}
+
+/* small visual when collapsed: ensure the wrapper remains small and clickable */
+.nav-menu-wrapper .nav-menu.collapsed .nav-row { display: none; }
+.nav-menu-wrapper .nav-menu.collapsed .nav-icon, .nav-menu-wrapper .nav-menu.collapsed .nav-badge { display: none; }
 

@@ -9,6 +9,8 @@ import { AppComponent } from '../app.component';
 })
 export class NavigationMenuComponent {
   @Input() user?: any;
+  // collapsed state for the left menu
+  collapsed: boolean = false;
 
   constructor(public _parent: AppComponent) {}
 
@@ -34,5 +36,9 @@ export class NavigationMenuComponent {
 
   menuIconsIncludes(title: string) {
     return this._parent.userSelectedNavigationItems?.some((x: any) => x.title == title);
+  }
+
+  toggleCollapse() {
+    this.collapsed = !this.collapsed;
   }
 }
