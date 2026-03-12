@@ -16,9 +16,9 @@
 				</ng-container>
 
 				<!-- Icon badge (uses parent's precomputed content) -->
-				<span class="nav-icon-badge" *ngIf="item.content && item.content.trim()">
+				<!-- <span class="nav-icon-badge" *ngIf="item.content && item.content.trim()">
 					{{ (item.content || '') | countShorten:item.title }}
-				</span>
+				</span> -->
 			</span>
 			<span class="nav-text">{{ item.title }}</span>
 			<span class="nav-badge" *ngIf="item.content && item.content.trim()">
