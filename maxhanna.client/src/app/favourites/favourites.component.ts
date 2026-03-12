@@ -40,7 +40,12 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   isSearchingUrl = false;
   selectedMeta?: MetaData;
   numberOfPages = 0;
-  filterText: string = '';
+  // General text filter (title, url, id, etc.)
+  generalFilter: string = '';
+  // Selected user to filter by (from user picker)
+  selectedUser?: User;
+  // Controls whether the user picker popup is open
+  isUserPickerOpen: boolean = false;
   showTableView: boolean = false;
 
   constructor(
@@ -368,17 +373,19 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   }
 
   onFilterInput(event: any) {
-    this.filterText = (event && (event.target?.value ?? event.srcElement?.value)) || '';
+    this.generalFilter = (event && (event.target?.value ?? event.srcElement?.value)) || '';
   }
 
   // Getter used by the template to display filtered favourites
   get displayedFavorites(): Favourite[] {
-    const ft = (this.filterText || '').toString().trim().toLowerCase();
-    if (!ft) {
-      return this.favorites;
-    }
+    const ft = (this.generalFilter || '').toString().trim().toLowerCase();
     return this.favorites.filter(f => {
       if (!f) { return false; }
+      // If a user is selected, only include favourites created by that user
+      if (this.selectedUser && this.selectedUser.id) {
+        if (f.createdBy !== this.selectedUser.id) { return false; }
+      }
+      if (!ft) { return true; }
       const idStr = f.id ? f.id.toString() : '';
       const createdByStr = f.createdBy ? f.createdBy.toString() : '';
       const name = (f.name || '').toString().toLowerCase();
@@ -388,6 +395,24 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
       if (name.includes(ft) || url.includes(ft) || imageUrl.includes(ft)) { return true; }
       return false;
     });
+  }
+
+  // Open the user-picker popup
+  openUserPicker() {
+    this.isUserPickerOpen = true;
+    this.parentRef?.showOverlay();
+  }
+
+  // Close the user-picker popup
+  closeUserPicker() {
+    this.isUserPickerOpen = false;
+    this.parentRef?.closeOverlay();
+  }
+
+  // Called when `app-user-list` emits a selection
+  userSelected(user?: User) {
+    this.selectedUser = user;
+    this.closeUserPicker();
   }
   
   toggleView() {

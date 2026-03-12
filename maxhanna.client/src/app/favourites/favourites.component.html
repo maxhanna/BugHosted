@@ -88,8 +88,14 @@
     </div>
   </div>
   <div class="linkOptionButtons">
-    <input class="filterInput cursorPointer" placeholder="Filter by user id, title, url..."
-      [value]="filterText" (input)="onFilterInput($event)" title="Filter favourites" style="margin-right:8px;" />
+    <input class="filterInput cursorPointer" placeholder="Filter by title, url, id..."
+      [value]="generalFilter" (input)="onFilterInput($event)" title="General filter" style="margin-right:8px;" />
+
+    <!-- User filter: opens user picker popup -->
+    <button class="cursorPointer" (click)="openUserPicker()" title="Filter by user" style="margin-right:8px;">
+      {{ selectedUser ? (selectedUser.username || selectedUser.displayName || 'User') : 'Filter by user' }}
+    </button>
+    <button *ngIf="selectedUser" class="cursorPointer" (click)="selectedUser = undefined" title="Clear user filter" style="margin-right:8px;">✖️</button>
     <button (click)="showEditLinks = !showEditLinks" class="cursorPointer" *ngIf="!showingLatestLinks">
       {{ showEditLinks ? 'Done' : '✏️ Edit Links' }}
     </button>
@@ -111,6 +117,15 @@
       <option value="others">👥 Others</option>
     </select>
   </div>
+</div>
+
+<!-- User picker popup -->
+<div class="popupPanel" *ngIf="isUserPickerOpen">
+  <div class="popupPanelTitle">Select User</div>
+  <div style="max-height:40vh; overflow: auto">
+    <app-user-list (userClickEvent)="userSelected($event)" [searchOnly]="true" [inputtedParentRef]="parentRef"></app-user-list>
+  </div>
+  <button id="closeOverlay" class="closeButton" (click)="closeUserPicker()">Close</button>
 </div>
 
 <!-- Edit Favourite Popup -->
