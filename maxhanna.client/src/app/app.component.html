@@ -16,9 +16,11 @@
   <app-modal *ngIf="isModalOpen" (close)="closeModal()" [isCloseButtonVisible]="isModalCloseVisible" [isModal]="isModal" #modalComponent></app-modal>
   
   <div class="mainLayout" style="display:flex; max-width:100vw; box-sizing:border-box;">
-    <div class="leftPanel" *ngIf="isDesktop && (extendedNavigationComponents.includes(currentComponent + 'Component') || extendedNavigationComponents.includes(currentComponent))"
-      style="flex: 0 0 auto; max-width:40vw; width:320px; box-sizing:border-box; overflow:auto;">
-      <app-navigation-menu></app-navigation-menu>
+    <div class="leftPanel" 
+      *ngIf="isDesktop && !isLeftPanelHidden && !(excludedExtendedNavigationComponents.includes(currentComponent + 'Component') || excludedExtendedNavigationComponents.includes(currentComponent))"
+      [style.max-width]="isLeftPanelHidden ? '0px' : '40vw'"
+      [style.width]="isLeftPanelHidden ? '0px' : ''">
+      <app-navigation-menu (collapsedClicked)="isLeftPanelHidden = $event"></app-navigation-menu>
     </div>
 
     <div class="componentContainer" style="flex:1 1 auto; max-width:100vw; box-sizing:border-box;">

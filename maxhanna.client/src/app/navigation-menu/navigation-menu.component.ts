@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { AppComponent } from '../app.component';
 
 @Component({
@@ -8,8 +8,8 @@ import { AppComponent } from '../app.component';
   standalone: false
 })
 export class NavigationMenuComponent {
-  @Input() user?: any;
-  // collapsed state for the left menu
+  @Input() user?: any; 
+  @Output() collapsedClicked = new EventEmitter<boolean>();
   collapsed: boolean = false;
 
   constructor(public _parent: AppComponent) {}
@@ -40,5 +40,6 @@ export class NavigationMenuComponent {
 
   toggleCollapse() {
     this.collapsed = !this.collapsed;
+    this.collapsedClicked.emit(this.collapsed);
   }
 }

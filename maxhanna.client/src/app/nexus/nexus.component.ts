@@ -215,12 +215,15 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
     const sessionToken = await this.parentRef?.getSessionToken() ?? "";
     this.loadPictureSrcs(sessionToken);
-    this.nexusService.getPlayerColor(this.parentRef?.user?.id ?? 0).then(res => {
-      this.playerColors = res;
-      if (res[this.parentRef?.user?.id ?? 0]) {
-        this.playerColor = res[this.parentRef?.user?.id ?? 0];
-      }
-    });
+    if (this.parentRef?.user?.id) {
+      this.nexusService.getPlayerColor(this.parentRef?.user?.id ?? 0).then(res => {
+        this.playerColors = res;
+        if (res[this.parentRef?.user?.id ?? 0]) {
+          this.playerColor = res[this.parentRef?.user?.id ?? 0];
+        }
+      });
+    }
+
     this.loadNexusData();
   }
 

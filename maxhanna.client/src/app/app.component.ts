@@ -61,24 +61,17 @@ export class AppComponent implements OnInit, AfterViewInit {
   notifications: string[] = [];
   // Whether the current device is considered desktop (used to show left panel)
   isDesktop: boolean = (typeof window !== 'undefined') ? window.innerWidth >= 1024 : false;
-  // Components for which the extended left navigation panel should be shown on desktop
-  extendedNavigationComponents: string[] = [
-    'SocialComponent',
-    'UserComponent',
-    'MusicComponent',
-    'FileComponent',
-    'ChatComponent',
-    'MemeComponent',
-    'NewsComponent',
-    'CalendarComponent',
-    'ContactsComponent',
-    'NotepadComponent',
-    'TodoComponent',
-    'FavouritesComponent',
+  // Components for which the extended left navigation panel should NOT be shown on desktop
+  excludedExtendedNavigationComponents: string[] = [
+    'EmulatorComponent',
+    'NexusComponent',
+    'BonesComponent',
+    'MetaComponent'
   ];
   showMainContent = true;
   isModalOpen = false;
   isModal = true;
+  isLeftPanelHidden = false;
   isModalCloseVisible = true;
   isShowingYoutubePopup = false;
   isShowingOverlay = false;

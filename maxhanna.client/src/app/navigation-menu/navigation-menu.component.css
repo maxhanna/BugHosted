@@ -1,7 +1,14 @@
 /* Compact vertical navigation menu styles */
 .nav-menu-wrapper {
 	width: 260px;
-	position: relative;
+	position: relative; 
+	transition: transform .28s ease, width .28s ease, opacity .28s ease;
+	will-change: transform;
+}
+.nav-menu-wrapper.collapsed { 
+	transform: translateX(-220px);
+	width: 36px;
+  overflow: hidden;
 }
 .nav-menu {
 	display: flex;
