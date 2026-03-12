@@ -8,9 +8,8 @@ import { AppComponent } from '../app.component';
   standalone: false
 })
 export class NavigationMenuComponent {
-  @Input() user?: any; 
+  @Input() collapsed: boolean = false;
   @Output() collapsedClicked = new EventEmitter<boolean>();
-  collapsed: boolean = false;
 
   constructor(public _parent: AppComponent) {}
 

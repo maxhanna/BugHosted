@@ -19,7 +19,8 @@
     <div class="leftPanel" 
       *ngIf="isLeftPanelIncluded"
       [style.max-width]="isLeftPanelHidden ? '36px' : '40vw'"
-      [style.width]="isLeftPanelHidden ? '36px' : ''">
+      [style.width]="isLeftPanelHidden ? '36px' : ''"
+      [collapsed]="isLeftPanelHidden">
       <app-navigation-menu (collapsedClicked)="isLeftPanelHidden = $event"></app-navigation-menu>
     </div>
 
