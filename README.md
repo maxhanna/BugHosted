@@ -1,6 +1,6 @@
 # BugHosted
 
-A platform that fuses: social networking, games, emulation, AI assistance, file hosting, tools, a crypto operations hub, a web crawler/search layer, music, chat and everything is encrypted for maximum privacy.
+A platform that fuses: social networking, games, emulation, AI assistance, file hosting, tools, a crypto operations hub, a web crawler/search layer, music, chat and everything is encrypted for maximum privacy. It is open source but the main contributor is Max Hanna.
 
 ### Core Pillars
 * Create, share, chat, meme, post, rank, vote, notify.
