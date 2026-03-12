@@ -1,7 +1,7 @@
 <div class="nav-menu-wrapper" [class.collapsed]="collapsed">
 	<div class="nav-menu" [class.collapsed]="collapsed">
 		<div class="nav-menu-scroll">
-			<div *ngFor="let item of _parent.navigationItems" class="nav-row" (click)="goTo(item.title, $event)" [title]="item.title">
+			<div *ngFor="let item of filteredNavItems" class="nav-row" (click)="goTo(item.title, $event)" [title]="item.title">
 			<span class="nav-icon">
 				<ng-container *ngIf="item.title === 'Weather'">
 					<ng-container *ngIf="item.icon && item.icon !== '☀️'">

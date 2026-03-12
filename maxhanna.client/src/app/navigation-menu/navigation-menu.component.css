@@ -26,17 +26,7 @@
 	display:flex;
 	justify-content:flex-end;
 	padding:6px 8px;
-}
-.collapseBtn {
-	background: var(--secondary-component-background-color, #222);
-	color: var(--secondary-font-color, #fff);
-	border: none;
-	border-radius: 4px;
-	padding: 4px 8px;
-	cursor: pointer;
-	transition: background .12s ease, transform .12s ease;
-}
-.collapseBtn:hover { transform: translateX(-2px); }
+} 
 .nav-row {
 	display: flex;
 	align-items: center;

@@ -36,5 +36,11 @@ export class NavigationMenuComponent {
     return this._parent.userSelectedNavigationItems?.some((x: any) => x.title == title);
   }
 
-  // Collapse is controlled by the parent (`app.component.ts`)
+  get filteredNavItems() {
+    return this._parent.navigationItems.filter(
+      (item: any) => {
+        item.title !== 'Help';
+      }
+    );
+  }
 }

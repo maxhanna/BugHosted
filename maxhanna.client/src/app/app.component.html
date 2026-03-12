@@ -20,8 +20,11 @@
       *ngIf="isLeftPanelIncluded"
       [style.max-width]="isLeftPanelHidden ? '36px' : '40vw'"
       [style.width]="isLeftPanelHidden ? '36px' : ''">
-      <div style="display:flex; justify-content:flex-end; padding:6px 8px;">
-        <button class="leftPanelCollapseBtn" (click)="isLeftPanelHidden = !isLeftPanelHidden" title="Toggle navigation">{{ isLeftPanelHidden ? '>>>' : '<<<' }}</button>
+      <div class="leftPanelHeader">
+        <button 
+          class="leftPanelCollapseBtn" 
+          (click)="isLeftPanelHidden = !isLeftPanelHidden" 
+          title="Toggle navigation">{{ isLeftPanelHidden ? '>>>' : '<<<' }}</button>
       </div>
       <app-navigation-menu [collapsed]="isLeftPanelHidden"></app-navigation-menu>
     </div>

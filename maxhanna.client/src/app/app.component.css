@@ -1,5 +1,5 @@
 .componentContainer {
-  display: flex; 
+  display: flex;
   flex-wrap: wrap;
   justify-content: space-evenly;
   align-items: flex-start;
@@ -47,20 +47,22 @@
   border: 2px solid var(--main-link-color);
   font-size: larger;
 }
+
 .notifClosePopupButtonDiv {
   position: relative;
   top: -20px;
-  left: calc(100% - 5px); 
+  left: calc(100% - 5px);
   width: 0px;
   height: 0px;
 }
+
 .closePopupBtn {
   background: transparent;
   border: none;
   font-size: 1.6rem;
   color: var(--main-text-color);
   cursor: pointer;
-  transition: transform 0.2s ease; 
+  transition: transform 0.2s ease;
 }
 
 .closePopupBtn:hover {
@@ -85,7 +87,7 @@
 
 .popupContent {
   width: 100%;
-} 
+}
 
 .userTagPopupPanel {
   max-width: 200px;
@@ -118,10 +120,12 @@
 
 }
 
-.popupUserTagInfo {  
+.popupUserTagInfo {
   background: rgba(255, 255, 255, 0.4);
-  padding: 4px 8px; /* Adjust as needed */
-  border-radius: 4px; /* Optional: rounded corners */
+  padding: 4px 8px;
+  /* Adjust as needed */
+  border-radius: 4px;
+  /* Optional: rounded corners */
 }
 
 .popupUserTagAvatarAndName {
@@ -133,4 +137,25 @@
   max-width: 75px;
   white-space: normal;
   word-wrap: break-word;
+}
+
+.leftPanelCollapseBtn {
+  background: var(--secondary-component-background-color, #222);
+  color: var(--secondary-font-color, #fff);
+  border: none;
+  border-radius: 4px;
+  font-size: xx-small;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: background .12s ease, transform .12s ease;
+}
+
+.leftPanelCollapseBtn:hover {
+  transform: translateX(-2px);
+}
+
+.leftPanelHeader {
+  display:flex;
+  justify-content:flex-end;
+  padding:6px 8px;
 }
