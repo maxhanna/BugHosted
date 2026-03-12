@@ -64,7 +64,17 @@ export class AppComponent implements OnInit, AfterViewInit {
   // Components for which the extended left navigation panel should be shown on desktop
   extendedNavigationComponents: string[] = [
     'SocialComponent',
-    'UserComponent'
+    'UserComponent',
+    'MusicComponent',
+    'FileComponent',
+    'ChatComponent',
+    'MemeComponent',
+    'NewsComponent',
+    'CalendarComponent',
+    'ContactsComponent',
+    'NotepadComponent',
+    'TodoComponent',
+    'FavouritesComponent',
   ];
   showMainContent = true;
   isModalOpen = false;

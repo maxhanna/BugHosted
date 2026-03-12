@@ -93,7 +93,7 @@
 
     <!-- User filter: opens user picker popup -->
     <button class="cursorPointer" (click)="openUserPicker()" title="Filter by user" style="margin-right:8px;">
-      {{ selectedUser ? (selectedUser.username || selectedUser.displayName || 'User') : 'Filter by user' }}
+      {{ selectedUser ? (selectedUser.username || 'User') : 'Filter by user' }}
     </button>
     <button *ngIf="selectedUser" class="cursorPointer" (click)="selectedUser = undefined" title="Clear user filter" style="margin-right:8px;">✖️</button>
     <button (click)="showEditLinks = !showEditLinks" class="cursorPointer" *ngIf="!showingLatestLinks">
