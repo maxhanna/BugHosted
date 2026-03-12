@@ -1,6 +1,6 @@
 # BugHosted
 
-A living sandbox platform that fuses: social networking, competitive mini‑games, retro console emulation, AI assistance, on‑site file hosting, realtime strategy (Bug‑Wars), creative tools, a crypto operations hub, a web crawler/search layer, and daily brain games—under one extensible UI shell.
+A platform that fuses: social networking, games, emulation, AI assistance, file hosting, tools, a crypto operations hub, a web crawler/search layer, music, chat and everything is encrypted for maximum privacy.
 
 ### Core Pillars
 * Create, share, chat, meme, post, rank, vote, notify.
