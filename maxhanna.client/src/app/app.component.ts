@@ -59,6 +59,13 @@ export class AppComponent implements OnInit, AfterViewInit {
   @ViewChild(ModalComponent) modalComponent!: ModalComponent;
   @ViewChild(MediaViewerComponent) userTagPopupMediaViewer!: MediaViewerComponent;
   notifications: string[] = [];
+  // Whether the current device is considered desktop (used to show left panel)
+  isDesktop: boolean = (typeof window !== 'undefined') ? window.innerWidth >= 1024 : false;
+  // Components for which the extended left navigation panel should be shown on desktop
+  extendedNavigationComponents: string[] = [
+    'SocialComponent',
+    'UserComponent'
+  ];
   showMainContent = true;
   isModalOpen = false;
   isModal = true;
@@ -709,6 +716,15 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   updateHeight() {
     const vh = window.innerHeight * 0.01;
     document.documentElement.style.setProperty('--vh', `${vh}px`);
+    // update desktop detection based on viewport width
+    try {
+      const prev = this.isDesktop;
+      this.isDesktop = window.innerWidth >= 1024;
+      if (prev !== this.isDesktop) {
+        // trigger change detection when layout mode changes
+        try { this.changeDetectorRef.detectChanges(); } catch { }
+      }
+    } catch { }
   }
   hideBodyOverflow() {
     document.body.style.overflow = "hidden";

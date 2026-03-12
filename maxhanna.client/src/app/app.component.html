@@ -14,10 +14,17 @@
 
   <app-navigation [user]="user"></app-navigation>
   <app-modal *ngIf="isModalOpen" (close)="closeModal()" [isCloseButtonVisible]="isModalCloseVisible" [isModal]="isModal" #modalComponent></app-modal>
+  
+  <div class="mainLayout" style="display:flex; max-width:100vw; box-sizing:border-box;">
+    <div class="leftPanel" *ngIf="isDesktop && (extendedNavigationComponents.includes(currentComponent + 'Component') || extendedNavigationComponents.includes(currentComponent))"
+      style="flex: 0 0 auto; max-width:40vw; width:320px; box-sizing:border-box; overflow:auto;">
+      <app-navigation-menu></app-navigation-menu>
+    </div>
 
-  <div class="componentContainer">
-    <ng-template #viewContainerRef>
-    </ng-template>
+    <div class="componentContainer" style="flex:1 1 auto; max-width:100vw; box-sizing:border-box;">
+      <ng-template #viewContainerRef>
+      </ng-template>
+    </div>
   </div>
 </router-outlet>
 <div class="overlay" *ngIf="isShowingOverlay" (click)="closeOverlay()"></div>

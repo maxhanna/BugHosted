@@ -4,7 +4,8 @@ import { AppComponent } from '../app.component';
 @Component({
   selector: 'app-navigation-menu',
   templateUrl: './navigation-menu.component.html',
-  styleUrls: ['./navigation-menu.component.css']
+  styleUrls: ['./navigation-menu.component.css'],
+  standalone: false
 })
 export class NavigationMenuComponent {
   @Input() user?: any;
