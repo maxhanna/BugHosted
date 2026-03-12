@@ -5,7 +5,7 @@
 }
 
 .componentMain {
-  width: 98vw;
+  max-width: 98vw;
   display: flex;
   flex-direction: column;
   background-color: transparent !important;
