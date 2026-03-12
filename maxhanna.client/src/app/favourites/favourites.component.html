@@ -61,7 +61,6 @@
         <table class="favouritesTable">
           <thead>
             <tr>
-              <th>Id</th>
               <th>Title</th>
               <th>URL</th>
               <th>Users</th>
@@ -72,7 +71,6 @@
           </thead>
           <tbody>
             <tr *ngFor="let fav of displayedFavorites">
-              <td>{{fav.id}}</td>
               <td>{{fav.name}}</td>
               <td><a href="{{fav.url}}" target="_blank" (click)="$event.stopPropagation(); visitExternalLink(fav)">{{fav.url}}</a></td>
               <td>{{fav.userCount}}</td>
@@ -93,10 +91,10 @@
     <input class="filterInput cursorPointer" placeholder="Filter by user id, title, url..."
       [value]="filterText" (input)="onFilterInput($event)" title="Filter favourites" style="margin-right:8px;" />
     <button (click)="showEditLinks = !showEditLinks" class="cursorPointer" *ngIf="!showingLatestLinks">
-      {{showEditLinks ? 'Done ' : ''}}Edit{{showEditLinks ? 'ing' : ''}}{{showEditLinks ? '' : ' Links'}}
+      {{ showEditLinks ? 'Done' : '✏️ Edit Links' }}
     </button>
     <button (click)="toggleView()" class="cursorPointer" style="margin-left:8px;">
-      {{ showTableView ? 'Block View' : 'Table View' }}
+      {{ showTableView ? '🔳 Block View' : '🔲 Table View' }}
     </button>
     <select class="cursorPointer" (change)="orderChanged($event, $any($event.target).value)" *ngIf=" !isSearchingUrls" [value]="currentOrder">
       <option value="recent">Latest</option>
@@ -109,8 +107,8 @@
       <option value="url">URL (A → Z)</option>
     </select>
     <select class="cursorPointer" (change)="visibilityChanged($event, $any($event.target).value)" *ngIf=" !isSearchingUrls" [value]="currentVisibility" style="margin-left:8px;">
-      <option value="yours">Yours</option>
-      <option value="others">Others</option>
+      <option value="yours">👤 Yours</option>
+      <option value="others">👥 Others</option>
     </select>
   </div>
 </div>

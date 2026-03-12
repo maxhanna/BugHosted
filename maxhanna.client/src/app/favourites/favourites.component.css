@@ -13,6 +13,18 @@
   background-color: var(--main-highlight-color);
 }
 
+@media only screen and (max-width : 330px) {
+  .topLinks {
+    max-height: CALC(var(--vh, 1vh) * 100 - 400px);
+  }
+}
+
+@media only screen and (min-width: 330px) and (max-width : 610px) {
+  .topLinks {
+    max-height: CALC(var(--vh, 1vh) * 100 - 330px);
+  }
+}
+
 .favouritesTitle {
   text-align: center;
 }
@@ -33,7 +45,7 @@
 .favouriteDiv:active {
   transform: translateY(2px);
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
-} 
+}
 
 .favName {
   width: 125px;
@@ -58,7 +70,7 @@
   align-content: center;
   border: var(--main-border);
   border-radius: 4px;
-  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color)); 
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
   box-shadow: 3px 2px 6px var(--main-highlight-color-quarter-opacity);
 }
 
@@ -159,6 +171,7 @@
   padding: 5px;
   text-align: center;
 }
+
 /* Add to your component's CSS or global styles */
 .optionsStatsDescription input {
   padding-right: 30px;
@@ -181,6 +194,7 @@
 .search-icon-button:hover {
   color: #333;
 }
+
 .search-input-container {
   position: relative;
   display: inline-block;
@@ -217,4 +231,13 @@
   text-align: right;
   width: calc(100% - 20px);
   display: block;
+}
+
+.favouritesTable tbody tr td {
+  transition: box-shadow .12s ease, text-decoration .12s ease;
+}
+
+.favouritesTable tbody tr:hover td {
+  text-decoration: underline dotted;
+  box-shadow: 1px 1px 6px rgba(0, 0, 0, 0.12);
 }

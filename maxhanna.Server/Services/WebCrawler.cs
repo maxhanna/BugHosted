@@ -652,6 +652,13 @@ public class WebCrawler
 
   public async Task SaveSearchResult(string domain, Metadata metadata)
   {
+    if (metadata?.Description?.ToLower().Contains("bughosted") == true
+     || metadata?.Title?.ToLower().Contains("bughosted") == true)
+    {
+      _ = _log.Db($"Skipping save for {domain} due to bughosted in title/description", null, "CRAWLER", true);
+      return;
+    }
+    
     try
     {
       var cs = _config.GetValue<string>("ConnectionStrings:maxhanna");
