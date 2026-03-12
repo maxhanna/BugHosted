@@ -35,10 +35,7 @@ MMORPG module (in development).
 Direct and group messaging system.
 
 ### Emulation
-Web emulator for multiple retro consoles with autosave.
-
-### N64 Emulation
-The N64 emulation component runs N64 ROMs in-browser with save/load support, keyboard/controller input mapping, and basic performance tuning for modern browsers.
+Web emulator for multiple retro consoles with autosave. Play the latest emulators including PS1, PSP and Nintendo 64. Also supports all the retro consoles like Sega Saturn, NES and Atari.
 
 ### Array
 Progression corridor: descend, gain XP, items, PvP.
