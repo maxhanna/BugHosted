@@ -10,6 +10,7 @@ import {
 import { AppRoutingModule } from './app-routing.module';
 import { CalendarComponent } from './calendar/calendar.component';
 import { NavigationComponent } from './navigation/navigation.component';
+import { NavigationMenuComponent } from './navigation-menu/navigation-menu.component';
 import { FavouritesComponent } from './favourites/favourites.component';
 import { WeatherComponent } from './weather/weather.component';
 import { FileComponent } from './file/file.component';
@@ -107,6 +108,7 @@ import { TitleBarComponent } from './title-bar/title-bar.component';
     AppComponent,
     CalendarComponent,
     NavigationComponent,
+    NavigationMenuComponent,
     FavouritesComponent,
     WeatherComponent,
     FileComponent,

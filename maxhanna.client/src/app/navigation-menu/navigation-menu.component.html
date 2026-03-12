@@ -1,0 +1,29 @@
+<div class="nav-menu-wrapper">
+	<div class="nav-menu">
+		<div *ngFor="let item of _parent.navigationItems" class="nav-row" (click)="goTo(item.title, $event)" [title]="item.title">
+			<span class="nav-icon">
+				<ng-container *ngIf="item.title === 'Weather'">
+					<ng-container *ngIf="item.icon && item.icon !== '☀️'">
+						<img [src]="item.icon" alt="{{item.title}}" class="nav-icon-img" *ngIf="item.icon" />
+					</ng-container>
+					<ng-container *ngIf="!item.icon || item.icon === '☀️'">
+						{{ _parent.originalWeatherIcon || '☀️' }}
+					</ng-container>
+				</ng-container>
+				<ng-container *ngIf="item.title !== 'Weather'">
+					{{ item.icon ? (item.icon.length > 3 ? item.icon.substring(0,3) : item.icon) : '' }}
+				</ng-container>
+
+				<!-- Icon badge (uses parent's precomputed content) -->
+				<span class="nav-icon-badge" *ngIf="item.content && item.content.trim()">
+					{{ (item.content || '') | countShorten:item.title }}
+				</span>
+			</span>
+			<span class="nav-text">{{ item.title }}</span>
+			<span class="nav-badge" *ngIf="item.content && item.content.trim()">
+				{{ (item.content || '') | countShorten:item.title }}
+			</span>
+		</div>
+	</div>
+</div>
+
