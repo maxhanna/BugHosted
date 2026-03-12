@@ -298,7 +298,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     if (!notification) {
       this.scrollToTopNotification();
     }
-    parent.navigationComponent.setNotificationNumber(this.unreadNotifications);
+    parent.navigationComponent?.setNotificationNumber(this.unreadNotifications);
   }
   async read(notification?: UserNotification, forceRead: boolean = false) {
     const parent = this.inputtedParentRef ?? this.parentRef;
@@ -348,7 +348,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     }
 
     this.updateCategories(false);
-    parent.navigationComponent.setNotificationNumber(this.unreadNotifications, notification);
+    parent.navigationComponent?.setNotificationNumber(this.unreadNotifications, notification);
   }
 
   notificationTextClick(notification: UserNotification) {

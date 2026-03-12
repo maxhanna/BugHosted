@@ -287,7 +287,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   restoreDefaultSettings(updateServer = true) {
-    if (!this.parentRef?.navigationComponent.defaultTheme) return;
+    if (!this.parentRef?.navigationComponent?.defaultTheme) return;
     document.documentElement.style.setProperty('--main-background-image-url', this.parentRef.navigationComponent.defaultTheme.backgroundImage);
     document.body.style.backgroundImage = ``;
     document.documentElement.style.setProperty('--main-bg-color', this.parentRef.navigationComponent.defaultTheme.backgroundColor);

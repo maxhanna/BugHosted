@@ -197,7 +197,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.ensureLoadedViaRoute();
     if (this.parentRef) {
       this.parentRef.preventShowSecurityPopup = true;
-      this.parentRef.navigationComponent.stopNotifications();
+      this.parentRef.navigationComponent?.stopNotifications();
     }
     this.isSearchVisible = true;
   }

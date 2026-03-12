@@ -388,7 +388,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     if (this.user?.id != this.parentRef?.user?.id && this.user?.id !== undefined) {
       const theme = await this.userService.getTheme(this.user?.id);
       if (theme) {
-        this.parentRef?.navigationComponent.getThemeInfo(this.user.id ?? 0);
+        this.parentRef?.navigationComponent?.getThemeInfo(this.user.id ?? 0);
         this.changedTheme = true;
       }
     }
@@ -493,7 +493,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       }, 100);
     }
     if (this.changedTheme) {
-      this.parentRef?.navigationComponent.getThemeInfo(this.parentRef.user?.id ?? 0);
+      this.parentRef?.navigationComponent?.getThemeInfo(this.parentRef.user?.id ?? 0);
       this.restoreBackground();
     }
   }
@@ -705,7 +705,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
         title == "chat" || title == "meme" || title == "emulation" || title == "social" || title == "bug-wars" || title == "user" || title == "close menu"
       });
       this.parentRef.deleteCookie("user");
-      this.parentRef.navigationComponent.clearNotifications();
+      this.parentRef.navigationComponent?.clearNotifications();
       this.parentRef.user = undefined;
     }
     this.clearForm();
@@ -854,7 +854,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
           parent?.getLocation();
           setTimeout(() => {
             if (parent) {
-              parent.navigationComponent.displayAppSelectionHelp(true);
+              parent.navigationComponent?.displayAppSelectionHelp(true);
             }
             this.remove_me("User");
           }, 50);
@@ -895,7 +895,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
         tmpUser.pass = undefined;
         this.parentRef.user = tmpUser;
         setTimeout(() => {
-          this.parentRef?.navigationComponent.getThemeInfo();
+          this.parentRef?.navigationComponent?.getThemeInfo();
         }, 50);
         this.parentRef.resetUserCookie();
         this.parentRef.showNotification(`Access granted. Welcome ${(fromUserCreation ? 'to BugHosted' : 'back')} ${this.parentRef!.user?.username}`);
