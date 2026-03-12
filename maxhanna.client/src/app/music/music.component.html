@@ -38,20 +38,21 @@
             (mediaEndedEvent)="mediaEndedEvent()" (finishedLoadingEvent)="mediaViewerFinishedLoading()">
           </app-media-viewer>
         </div>
-        <button title="Shrink Fullscreen" (click)="closeFullscreen()" id="closeOverlay" *ngIf="isFullscreen">Shrink</button><div class="musicControls">
+        <button title="Shrink Fullscreen" (click)="closeFullscreen()" id="closeOverlay" *ngIf="isFullscreen">Shrink</button>
+        <div class="musicControls" *ngIf="selectedType != 'radio'">
           <label id="stopMusicButton" (click)="stopMusic()" title="Stop">🛑</label>
           <label id="fullscreenMusicButton" (click)="fullscreen()" title="Expand Fullscreen">◼</label>
           <label id="followLinkButton" *ngIf="!fileIdPlaylist" (click)="followLink()" title="Open in Youtube">🕸</label>
           <label (click)="randomSong()" title="Random Song">⚡</label>
         </div>
 
-      <div class="collapsible-header" (click)="toggleSongList()">
+      <div class="collapsible-header" (click)="toggleSongList()" *ngIf="selectedType != 'radio'">
         Total: ({{songs.length}})
         <span class="collapse-icon">{{ isSongListCollapsed ? '▼' : '▲' }}</span>
       </div>
       <div *ngIf="!isSongListCollapsed">
         <div class="listSelectors">
-          <div class="orderAndPlaylistSelectors">
+          <div class="orderAndPlaylistSelectors" *ngIf="selectedType != 'radio'">
             <div class="selectorDiv"> 
               Order: 
               <select id="orderSelect" (change)="reorderTable($event)" #orderSelect>
@@ -73,7 +74,7 @@
               </div>
             </div>
           </div> 
-          <div class="selectorDiv">
+          <div class="selectorDiv" *ngIf="selectedType != 'radio'">
             Search: 
             <input placeholder="Keyword" #searchInput (keyup.enter)="onSearchEnter()" />
             <input type="button" value="🔍" title="Search Music Playlist" (click)="searchForSong()" />
