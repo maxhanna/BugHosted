@@ -1809,6 +1809,12 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   getYoutubeSearchKeyword(): string | undefined {
     return this.youtubeSearchKeyword != '' ? this.youtubeSearchKeyword : undefined;
   }
+  get isLeftPanelIncluded(): boolean {
+    return this.isDesktop  
+      && this.navigationComponent.navbarCollapsed
+      && !(this.excludedExtendedNavigationComponents.includes(this.currentComponent + 'Component') 
+          || this.excludedExtendedNavigationComponents.includes(this.currentComponent));
+  }
 
   notifyYoutubeSearchOpened() {
     if (this.youtubeSearchResults && this.youtubeSearchResults.length) {
