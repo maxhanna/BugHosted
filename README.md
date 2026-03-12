@@ -1,6 +1,6 @@
 # BugHosted
 
-A living sandbox platform that fuses: social networking, competitive mini‑games, retro console emulation, AI assistance, on‑site file hosting, realtime strategy (Bug‑Wars), creative tools, a crypto operations hub, a web crawler/search layer, and daily brain games—under one extensible UI shell.
+A platform that fuses: social networking, games, emulation, AI assistance, file hosting, tools, a crypto operations hub, a web crawler/search layer, music, chat and everything is encrypted for maximum privacy. It is open source but the main contributor is Max Hanna.
 
 ### Core Pillars
 * Create, share, chat, meme, post, rank, vote, notify.
@@ -35,10 +35,7 @@ MMORPG module (in development).
 Direct and group messaging system.
 
 ### Emulation
-Web emulator for multiple retro consoles with autosave.
-
-### N64 Emulation
-The N64 emulation component runs N64 ROMs in-browser with save/load support, keyboard/controller input mapping, and basic performance tuning for modern browsers.
+Web emulator for multiple retro consoles with autosave. Play the latest emulators including PS1, PSP and Nintendo 64. Also supports all the retro consoles like Sega Saturn, NES and Atari.
 
 ### Array
 Progression corridor: descend, gain XP, items, PvP.
