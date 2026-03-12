@@ -18,8 +18,8 @@
   <div class="mainLayout" style="display:flex; max-width:100vw; box-sizing:border-box;">
     <div class="leftPanel" 
       *ngIf="isLeftPanelIncluded"
-      [style.max-width]="isLeftPanelHidden ? '0px' : '40vw'"
-      [style.width]="isLeftPanelHidden ? '0px' : ''">
+      [style.max-width]="isLeftPanelHidden ? '36px' : '40vw'"
+      [style.width]="isLeftPanelHidden ? '36px' : ''">
       <app-navigation-menu (collapsedClicked)="isLeftPanelHidden = $event"></app-navigation-menu>
     </div>
 

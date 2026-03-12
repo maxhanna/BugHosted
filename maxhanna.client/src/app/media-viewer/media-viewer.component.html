@@ -78,7 +78,7 @@
       {{ isMediaInformationToggled ? 'Hide Info' : 'Show Info' }}
     </button>
   </div>
-  <div *ngIf="isMediaInformationToggled"
+  <div *ngIf="!isLoadedFromURL || (isLoadedFromURL && isMediaInformationToggled)"
     [class.popupPanel]="isShowingMediaInformation" 
     [class.bordered]="isLoadedFromURL"
     [style]="isShowingMediaInformation ? 'padding:20px;' : 'width:100%'">
