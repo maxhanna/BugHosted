@@ -1,22 +1,20 @@
-<app-title-bar 
-  [title]="user ? user.username : 'Login'"
-  [showTitle]="!loginOnly"
-  [hasMenu]="!!(parentRef?.user || user)" 
-  [showMenu]="!!(parentRef?.user || user)"
-  [hasClose]="!!(canClose || (!loginOnly && (parentRef?.user || user)))"
-  [showClose]="!!(canClose || (!loginOnly && (parentRef?.user || user)))"
-  [hasSearch]="!!(user?.id && !loginOnly && socialComponent)"
-  [showSearch]="!!(user?.id && !loginOnly && socialComponent)"
-  [hasNotifications]="!!parentRef?.user?.id"
-  [inputtedParentRef]="parentRef"
-  [previousComponent]="'User'"
-  (searchClicked)="socialComponent.showSearchSocialsPanel()"
-  (menuClicked)="showMenuPanel()"
-  (closeClicked)="remove_me('UserComponent');">
-</app-title-bar>
-   
 <div [class]="componentMainClass" [style.paddingTop]="loginOnly ? '15px' : ''">
-  
+  <app-title-bar [title]="user ? user.username : 'Login'" 
+    [showTitle]="!loginOnly"
+    [hasMenu]="!!(parentRef?.user || user)" 
+    [showMenu]="!!(parentRef?.user || user)"
+    [hasClose]="!!(canClose || (!loginOnly && (parentRef?.user || user)))"
+    [showClose]="!!(canClose || (!loginOnly && (parentRef?.user || user)))"
+    [hasSearch]="!!(user?.id && !loginOnly && socialComponent)"
+    [showSearch]="!!(user?.id && !loginOnly && socialComponent)" 
+    [hasNotifications]="!!parentRef?.user?.id"
+    [inputtedParentRef]="parentRef" 
+    [previousComponent]="'User'"
+    (searchClicked)="socialComponent.showSearchSocialsPanel()" 
+    (menuClicked)="showMenuPanel()"
+    (closeClicked)="remove_me('UserComponent');">
+  </app-title-bar>
+
   <div class="profileBackgroundContainer" *ngIf="user?.profileBackgroundPictureFile">
     <app-media-viewer [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"
       [showTopics]="false" [inputtedParentRef]="inputtedParentRef ?? parentRef"
@@ -48,7 +46,8 @@
           <div class="profileHeaderUserDescription" *ngIf="user?.about?.description">
             {{user?.about?.description}}
           </div>
-          <div class="profileHeaderUserDescription" *ngIf="user?.about?.birthday && isBirthdayToday(user?.about?.birthday)">
+          <div class="profileHeaderUserDescription"
+            *ngIf="user?.about?.birthday && isBirthdayToday(user?.about?.birthday)">
             🎂 Birthday: {{ user?.about?.birthday | date: 'MM/d' }}
           </div>
           <div class="profileHeaderUserDescription profileHeaderWebsite" *ngIf="user?.about?.website">
@@ -69,12 +68,12 @@
           <div class="seperatedUserHeader blackFontColor linkHighlights">
             <div class="xxSmallFont" title="Last Seen">Last Seen: </div>
             <div>
-              <span *ngIf="user && user.lastSeen && isUserOnline(user.lastSeen | timeSince:'minute':true)" class="cursorPointer"
-                [title]="user.lastSeen | timeSince:'minute':true">
+              <span *ngIf="user && user.lastSeen && isUserOnline(user.lastSeen | timeSince:'minute':true)"
+                class="cursorPointer" [title]="user.lastSeen | timeSince:'minute':true">
                 <span class="onlineButton" title="Online"></span> Online
               </span>
-              <span *ngIf="user && user.lastSeen && !isUserOnline(user.lastSeen | timeSince:'minute':true)" class="smallFont"
-                [title]="user.lastSeen">
+              <span *ngIf="user && user.lastSeen && !isUserOnline(user.lastSeen | timeSince:'minute':true)"
+                class="smallFont" [title]="user.lastSeen">
                 {{ user.lastSeen | timeSince:'minute':true }}
               </span>
               <span *ngIf="!user?.lastSeen">
@@ -190,26 +189,16 @@
             </div>
 
             <form class="loginDiv" (submit)="login()" #loginForm>
-              <input type="text"
-                id="loginInput"
-                name="username"
-                placeholder="Username"
-                #loginUsername
-                (input)="onLoginUsernameInput($event)"
-                (keydown.enter)="login()"
-                [disabled]="isLoading" />
-              <input type="password"
-                id="passwordInput"
-                name="password"
-                placeholder="Password"
-                #loginPassword
-                (keydown.enter)="login()"
-                [disabled]="isLoading"/>
+              <input type="text" id="loginInput" name="username" placeholder="Username" #loginUsername
+                (input)="onLoginUsernameInput($event)" (keydown.enter)="login()" [disabled]="isLoading" />
+              <input type="password" id="passwordInput" name="password" placeholder="Password" #loginPassword
+                (keydown.enter)="login()" [disabled]="isLoading" />
               <div>
                 <input type="submit" value="🔑 Login" [disabled]="isLoading" />
                 <input type="button" value="👤➕ Create User" (click)="createUser()" [disabled]="isLoading" />
                 <input type="button" value="👤➕ Guest" (click)="createUser(true)" [disabled]="isLoading" />
-                <input *ngIf="(loginUsernameValue ?? '').length > 0" type="button" value="🔐 Reset Password" (click)="fetchSecurityQuestionsForUsername()" [disabled]="isLoading" />
+                <input *ngIf="(loginUsernameValue ?? '').length > 0" type="button" value="🔐 Reset Password"
+                  (click)="fetchSecurityQuestionsForUsername()" [disabled]="isLoading" />
               </div>
             </form>
           </div>
@@ -217,7 +206,8 @@
             <div class="popupPanelTitle">Answer Security Questions</div>
             <div *ngFor="let q of securityQuestions; let i = index" class="securityQuestionDescriptionSection">
               <div>{{i+1}}. {{q}}</div>
-              <div><input type="password" [value]="securityAnswers[i]" (input)="securityAnswers[i] = $any($event.target).value" placeholder="Answer" /></div>
+              <div><input type="password" [value]="securityAnswers[i]"
+                  (input)="securityAnswers[i] = $any($event.target).value" placeholder="Answer" /></div>
             </div>
             <div style="margin-top:8px;"><button (click)="submitSecurityAnswers()">Submit Answers & Reset</button></div>
           </div>
@@ -226,15 +216,13 @@
       </div>
     </div>
     <!-- LATEST MEME -->
-    <div *ngIf="!user?.id && !loginOnly && !isLoading" class="memeAndWordlerWrapper" [class]="onMobile() ? 'gradientBackground':''">
+    <div *ngIf="!user?.id && !loginOnly && !isLoading" class="memeAndWordlerWrapper"
+      [class]="onMobile() ? 'gradientBackground':''">
       <div *ngIf="latestMeme">
         <div class="popupPanelTitle" style="margin-top: 15px;">
           <app-menu-item [type]="'Meme'" [parentRef]="parentRef" [label]="'Latest Meme:'"></app-menu-item>
         </div>
-        <app-media-viewer
-          [file]="latestMeme" 
-          [inputtedParentRef]="parentRef"
-          [canScroll]="false"></app-media-viewer>
+        <app-media-viewer [file]="latestMeme" [inputtedParentRef]="parentRef" [canScroll]="false"></app-media-viewer>
       </div>
       <div style="margin-top:20px;">
         <app-profile-widgets [parentRef]="parentRef"></app-profile-widgets>
@@ -382,8 +370,8 @@
               <div class="optionsStatsDescription">
                 <a [href]="user?.about?.website" (click)="visitLink(user?.about?.website)">{{user?.about?.website}}</a>
               </div>
-            </div> 
-            
+            </div>
+
             <div class="optionsStatsDiv" *ngIf="user?.about?.birthday">
               <div class="optionsStatsHeader">
                 Birthday :
@@ -436,7 +424,8 @@
                 <app-menu-item [type]="'Emulation'" [parentRef]="parentRef"
                   [label]="'Emulation total time played:'"></app-menu-item>
               </div>
-              <div class="optionsStatsDescription cursorPointerUnderlined linkColor" (click)="toggleEmulationBreakdown()">
+              <div class="optionsStatsDescription cursorPointerUnderlined linkColor"
+                (click)="toggleEmulationBreakdown()">
                 {{ emulationTotalTimeSeconds/3600 }} hours
               </div>
             </div>
@@ -446,7 +435,8 @@
                 <app-menu-item [type]="'Emulation'" [parentRef]="parentRef"
                   [label]="'Top game played:'"></app-menu-item>
               </div>
-              <div class="optionsStatsDescription cursorPointerUnderlined linkColor" (click)="toggleEmulationBreakdown()">
+              <div class="optionsStatsDescription cursorPointerUnderlined linkColor"
+                (click)="toggleEmulationBreakdown()">
                 <span class="clickableLink" title="Click to view all games">
                   {{ topEmulationGameName.replace('.sav', '') }}
                 </span>
@@ -590,12 +580,10 @@
   </div>
   <div>
     <button id="closeOverlay" (click)="closeAboutPanel()" class="closeButton">Close</button>
-    <button 
-      *ngIf="parentRef?.user?.id === 1 && user && user.id != 1"
-      style="margin-left:12px"
+    <button *ngIf="parentRef?.user?.id === 1 && user && user.id != 1" style="margin-left:12px"
       (click)="adminResetPassword(user.id)">
       Reset Password
-    </button>    
+    </button>
   </div>
 </div>
 
@@ -752,8 +740,10 @@
 <div class="popupPanel" *ngIf="isEmulationBreakdownOpen" style="overflow: auto; max-height: 65vh;">
   <div class="popupPanelTitle">🎮 Emulation Breakdown</div>
   <div class="optionsStatsBreakdown">
-    <div *ngIf="!emulationGameBreakdown || emulationGameBreakdown.length === 0" class="xxSmallFont">No games found.</div>
-    <table *ngIf="emulationGameBreakdown && emulationGameBreakdown.length > 0" class="mainTable" id="emulationBreakdownTable">
+    <div *ngIf="!emulationGameBreakdown || emulationGameBreakdown.length === 0" class="xxSmallFont">No games found.
+    </div>
+    <table *ngIf="emulationGameBreakdown && emulationGameBreakdown.length > 0" class="mainTable"
+      id="emulationBreakdownTable">
       <thead>
         <tr>
           <th (click)="sortTable($event)">Game</th>
@@ -782,14 +772,15 @@
         <tr>
           <th>Coords</th>
           <th>Name</th>
-          <th>CC Level</th> 
+          <th>CC Level</th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let base of nexusBasesForUser" class="cursorPointer" (click)="goToNexusBase(base)" title="Open this base in Bug-Wars">
+        <tr *ngFor="let base of nexusBasesForUser" class="cursorPointer" (click)="goToNexusBase(base)"
+          title="Open this base in Bug-Wars">
           <td class="linkColor">{{'{'+ base.coordsX + ',' + base.coordsY + '}'}}</td>
           <td>{{ base.baseName ?? '—' }}</td>
-          <td>{{ base.commandCenterLevel }}</td> 
+          <td>{{ base.commandCenterLevel }}</td>
         </tr>
       </tbody>
     </table>
@@ -797,7 +788,7 @@
   <button id="closeOverlay" (click)="closeNexusBasesPanel()" class="closeButton">Close</button>
 </div>
 
- <div class="media-selector-container" *ngIf="showDisplayPictureSelector">
+<div class="media-selector-container" *ngIf="showDisplayPictureSelector">
   <app-media-selector #displayPictureSelector [maxSelectedFiles]="1" [inputtedParentRef]="parentRef"
     [user]="parentRef?.user" [currentDirectory]="'Users/'+parentRef?.user?.username"
     (selectFileEvent)="avatarSelected($event)">

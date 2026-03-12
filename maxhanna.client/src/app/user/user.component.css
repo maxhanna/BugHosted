@@ -2,7 +2,6 @@
 .componentMainFullHeight {
   height: CALC(var(--vh, 1vh) * 100 - 115px);
   height: calc(100dvh - 115px);
-  margin-top: 50px;
 }
 
 .componentTitle {
