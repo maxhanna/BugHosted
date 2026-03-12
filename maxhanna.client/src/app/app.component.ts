@@ -623,7 +623,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     this.isShowingUserTagPopup = false;
   }
 
-
   async resetUserCookie() {
     this.deleteCookie("user");
     this.deleteCookie("BHUserToken");

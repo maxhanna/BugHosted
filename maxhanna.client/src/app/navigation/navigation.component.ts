@@ -1060,6 +1060,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       if (this.toggleNavButton && this.toggleNavButton.nativeElement.style.display == "block") {
         this.toggleMenu();
       }
+      this._parent.currentComponent = '';
     }
     this.debouncedRestartNotifications();
   }
