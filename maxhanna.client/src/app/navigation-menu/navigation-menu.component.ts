@@ -37,10 +37,6 @@ export class NavigationMenuComponent {
   }
 
   get filteredNavItems() {
-    return this._parent.navigationItems.filter(
-      (item: any) => {
-        item.title !== 'Help';
-      }
-    );
+    return (this._parent?.navigationItems ?? []).filter((item: any) => item?.title !== 'Help');
   }
 }
