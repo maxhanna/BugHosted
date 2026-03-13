@@ -733,18 +733,19 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
     // Default controller mappings for all 4 players.
     // Player 1 gets keyboard + gamepad; Players 2-4 get gamepad-only (no keyboard conflicts).
+    const isDPADCentric = (['nes','snes','gb','gbc','gba','genesis','saturn','sega_cd','3do','nds'] as string[]).includes(system ?? '') || core === 'yabause';
     const rightStickValues = {
-      "UP": system === "saturn" || core === "yabause" ? 'DPAD_UP' : 'RIGHT_STICK_Y:-1',
-      "DOWN": system === "saturn" || core === "yabause" ? 'DPAD_DOWN' : 'RIGHT_STICK_Y:+1',
-      "LEFT": system === "saturn" || core === "yabause" ? 'DPAD_LEFT' : 'RIGHT_STICK_X:-1', 
-      "RIGHT": system === "saturn" || core === "yabause" ? 'DPAD_RIGHT' : 'RIGHT_STICK_X:+1'
+      "UP": isDPADCentric ? 'DPAD_UP' : 'RIGHT_STICK_Y:-1',
+      "DOWN": isDPADCentric ? 'DPAD_DOWN' : 'RIGHT_STICK_Y:+1',
+      "LEFT": isDPADCentric ? 'DPAD_LEFT' : 'RIGHT_STICK_X:-1', 
+      "RIGHT": isDPADCentric ? 'DPAD_RIGHT' : 'RIGHT_STICK_X:+1'
     };
 
     const leftStickValues = {
-      "UP": system === "saturn" || core === "yabause" ? 'DPAD_UP' :  'LEFT_STICK_Y:-1',
-      "DOWN": system === "saturn" || core === "yabause" ? 'DPAD_DOWN' : 'LEFT_STICK_Y:+1',
-      "LEFT": system === "saturn" || core === "yabause" ? 'DPAD_LEFT' :  'LEFT_STICK_X:-1', 
-      "RIGHT": system === "saturn" || core === "yabause" ? 'DPAD_RIGHT' :  'LEFT_STICK_X:+1'
+      "UP": isDPADCentric ? 'DPAD_UP' :  'LEFT_STICK_Y:-1',
+      "DOWN": isDPADCentric ? 'DPAD_DOWN' : 'LEFT_STICK_Y:+1',
+      "LEFT": isDPADCentric ? 'DPAD_LEFT' :  'LEFT_STICK_X:-1', 
+      "RIGHT": isDPADCentric ? 'DPAD_RIGHT' :  'LEFT_STICK_X:+1'
     };
 
     const gpOnly: Record<number, unknown> = {
