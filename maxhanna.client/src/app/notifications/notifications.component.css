@@ -9,6 +9,12 @@
   }
 }
 
+@media only screen and (max-width: 900px) {
+  .notificationsListMobile {
+    max-height: calc(100vh - 330px);
+  }
+}
+
 .notificationTopButtonSlot0 { right: 52px !important; }  
 .notificationTopButtonSlot1 { right: 104px !important; } 
 .notificationTopButtonSlot2 { right: 159px !important; } 

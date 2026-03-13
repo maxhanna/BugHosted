@@ -73,7 +73,7 @@
         </div>
       </div>
 
-      <div>
+      <div [class]="onMobile() && !minimalInterface ? 'notificationsListMobile' : ''">
         <div *ngFor="let notification of filteredNotifications"
           [class]="'notificationListItem' + (!notification.isRead ? ' gradientBackground' : '')">
           <div class="nliLeftDiv" *ngIf="!(notification?.text?.includes('Executed Trade') || notification?.text?.includes('KrakenService'))
