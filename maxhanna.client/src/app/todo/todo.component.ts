@@ -232,6 +232,20 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     this.mediaSelector.removeAllFiles();
     this.selectedFile = undefined;
 
+    // If we're currently viewing the main "Todo" list, increment the navigation counter
+    try {
+      const currentType = this.selectedType?.nativeElement?.value || this.todoTypes[0];
+      if (currentType === 'Todo' && this.parentRef?.navigationItems) {
+        const todoNav = this.parentRef.navigationItems.find((x: any) => x.title === 'Todo');
+        if (todoNav) {
+          const curr = parseInt(todoNav.content as any) || 0;
+          todoNav.content = (curr + 1) > 0 ? (curr + 1).toString() : '';
+        }
+      }
+    } catch (e) {
+      console.error('Failed to update nav todo count after add', e);
+    }
+
     this.ngOnInit();
     this.stopLoading();
   }
@@ -244,6 +258,21 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       tmpTodo.deleted = true;
     } 
     await this.closeEditPopup(false);
+    // If we're currently viewing the main "Todo" list, decrement the navigation counter
+    try {
+      const currentType = this.selectedType?.nativeElement?.value || this.todoTypes[0];
+      if (currentType === 'Todo' && this.parentRef?.navigationItems) {
+        const todoNav = this.parentRef.navigationItems.find((x: any) => x.title === 'Todo');
+        if (todoNav) {
+          const curr = parseInt(todoNav.content as any) || 0;
+          const next = Math.max(0, curr - 1);
+          todoNav.content = next > 0 ? next.toString() : '';
+        }
+      }
+    } catch (e) {
+      console.error('Failed to update nav todo count after delete', e);
+    }
+
     this.todoCount--;
     this.clearInputs();
     this.stopLoading();
