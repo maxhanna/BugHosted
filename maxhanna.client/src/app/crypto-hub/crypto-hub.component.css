@@ -6,7 +6,7 @@ button {
 }
 
 .componentMain {
-  width: 99vw;
+  width: 100%;
   height: CALC(var(--vh, 1vh) * 100 - 60px);
   overflow: auto;
   display: flex;
