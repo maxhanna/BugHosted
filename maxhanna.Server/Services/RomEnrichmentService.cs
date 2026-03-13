@@ -536,8 +536,8 @@ limit 50;
 
       // --- Phase 1: files in file_uploads that have NO enrichment row yet (highest priority) ---
       const string pickNewSql = @"
-SELECT fu.id, fu.file_name
-FROM maxhanna.file_uploads fu
+    SELECT fu.id, fu.file_name, fu.given_file_name
+    FROM maxhanna.file_uploads fu
 LEFT JOIN maxhanna.rom_igdb_enrichment r ON r.file_id = fu.id
 WHERE fu.is_folder = 0
   AND fu.file_name IS NOT NULL
@@ -556,7 +556,7 @@ LIMIT @lim;";
       //   c) fetched_at older than 30 days (stale refresh)
       // Delete the old enrichment row so the upsert creates a fresh one.
       const string pickRedoSql = @"
-SELECT r.file_id, fu.file_name
+    SELECT r.file_id, fu.file_name, fu.given_file_name
 FROM maxhanna.rom_igdb_enrichment r
 JOIN maxhanna.file_uploads fu ON fu.id = r.file_id
 WHERE (
@@ -577,7 +577,7 @@ LIMIT @lim;";
       {
         ct.ThrowIfCancellationRequested();
 
-        var roms = new List<(int id, string fileName)>();
+        var roms = new List<(int id, string fileName, string? givenFileName)>();
 
         // Open a fresh connection per batch to avoid holding one for the entire run.
         await using (var conn = new MySqlConnection(_connectionString))
@@ -593,7 +593,12 @@ LIMIT @lim;";
               cmd.Parameters.AddWithValue("@lim", batchSize);
               await using var r = await cmd.ExecuteReaderAsync(ct);
               while (await r.ReadAsync(ct))
-                roms.Add((r.GetInt32("id"), r.GetString("file_name")));
+              {
+                var id = r.GetInt32("id");
+                var fn = r.IsDBNull(r.GetOrdinal("file_name")) ? string.Empty : r.GetString("file_name");
+                var given = r.IsDBNull(r.GetOrdinal("given_file_name")) ? null : r.GetString("given_file_name");
+                roms.Add((id, fn, given));
+              }
             }
 
             if (roms.Count == 0)
@@ -603,13 +608,18 @@ LIMIT @lim;";
           if (phase1Done && roms.Count == 0)
           {
             // Phase 2 — redo errored / reset-voted / stale
-            var redoIds = new List<(int id, string fileName)>();
+            var redoIds = new List<(int id, string fileName, string? givenFileName)>();
             await using (var cmd2 = new MySqlCommand(pickRedoSql, conn))
             {
               cmd2.Parameters.AddWithValue("@lim", batchSize);
               await using var rr = await cmd2.ExecuteReaderAsync(ct);
               while (await rr.ReadAsync(ct))
-                redoIds.Add((rr.GetInt32("file_id"), rr.GetString("file_name")));
+              {
+                var id = rr.GetInt32("file_id");
+                var fn = rr.IsDBNull(rr.GetOrdinal("file_name")) ? string.Empty : rr.GetString("file_name");
+                var given = rr.IsDBNull(rr.GetOrdinal("given_file_name")) ? null : rr.GetString("given_file_name");
+                redoIds.Add((id, fn, given));
+              }
             }
 
             if (redoIds.Count == 0)
@@ -620,24 +630,53 @@ LIMIT @lim;";
             await using (var del = new MySqlCommand(
               $"DELETE FROM maxhanna.rom_igdb_enrichment WHERE file_id IN ({idsCsv});", conn))
               await del.ExecuteNonQueryAsync(ct);
-
-            roms.AddRange(redoIds);
+            // carry through given_file_name for redo candidates
+            roms.AddRange(redoIds.Select(x => (x.id, x.fileName, x.givenFileName)));
           }
         } // connection returned to pool
 
-        foreach (var (fileId, romFileName) in roms)
+        foreach (var (fileId, romFileName, romGivenFileName) in roms)
         {
           ct.ThrowIfCancellationRequested();
+          // Prefer tags extracted from given file name if present, otherwise from stored file name
+          var tags = ExtractTags(romGivenFileName ?? romFileName);
 
-          var tags = ExtractTags(romFileName);
           var titleGuess = CleanTitle(romFileName);
-          _ = _log.Db($"Cleaning title from filename: {romFileName} to {titleGuess}", null, "IGDB", outputToConsole: true);
+          string? givenTitleGuess = string.IsNullOrWhiteSpace(romGivenFileName) ? null : CleanTitle(romGivenFileName!);
+          _ = _log.Db($"Cleaning title from filename: {romFileName} to {titleGuess}{(givenTitleGuess != null ? ('/' + givenTitleGuess) : "")}", null, "IGDB", outputToConsole: true);
 
           // Open a short-lived connection for each file's upsert so we don't hold a
           // connection across the IGDB HTTP round-trips.
           try
           {
-            var (arr, respJson, excludedVersions, usedSearch) = await QueryIgdbWithFallbackAsync(token, clientId!, titleGuess);
+            // Query IGDB using the stored file name, and if a given file name exists, query that too and merge results.
+            var (arr, respJson, excludedVersions, usedSearch) = await QueryIgdbWithFallbackAsync(token, clientId, titleGuess);
+
+            if (!string.IsNullOrWhiteSpace(givenTitleGuess))
+            {
+              try
+              {
+                var (arr2, respJson2, excluded2, usedSearch2) = await QueryIgdbWithFallbackAsync(token, clientId, givenTitleGuess);
+                // merge arr2 into arr, avoiding duplicate game ids
+                var ids = new HashSet<int>(arr.OfType<Newtonsoft.Json.Linq.JObject>().Select(o => o.Value<int>("id")));
+                foreach (var tok in arr2.OfType<Newtonsoft.Json.Linq.JObject>())
+                {
+                  var id = tok.Value<int>("id");
+                  if (!ids.Contains(id))
+                  {
+                    arr.Add(tok);
+                    ids.Add(id);
+                  }
+                }
+                // concatenate raw JSON for debugging/storage
+                respJson = respJson == "[]" ? respJson2 : (respJson + "\n" + respJson2);
+                excludedVersions = excludedVersions && excluded2;
+              }
+              catch (Exception ex)
+              {
+                _ = _log.Db($"IGDB query for given file name failed: {ex.Message}", null, "IGDB", outputToConsole: true);
+              }
+            }
 
             if (arr.Count == 0)
             {
