@@ -22,6 +22,7 @@
   --nexus-gamescreen-height: 275px;
   --nexus-gamescreen-width: 350px;
   --main-background-image-url: '';
+  --gradient-background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
 }
 
 
@@ -524,7 +525,7 @@ fieldset {
 }
 
 .gradientBackground {
-  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+  background: var(--gradient-background);
 }
 
 .highlightBackgroundColor {

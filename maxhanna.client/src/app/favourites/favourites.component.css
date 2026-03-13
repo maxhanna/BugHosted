@@ -239,7 +239,42 @@
   transition: box-shadow .12s ease, text-decoration .12s ease;
 }
 
+.favouritesTable tbody tr:hover {
+  background: var(--gradient-background);
+}
+
 .favouritesTable tbody tr:hover td {
   text-decoration: underline dotted;
   box-shadow: 1px 1px 6px rgba(0, 0, 0, 0.12);
+}
+
+/* Prevent breaking inside words — only allow breaks on whitespace */
+.favouritesTable th, .favouritesTable td {
+  word-break: normal;
+  overflow-wrap: normal;
+  white-space: normal;
+}
+
+/* Site icon in table rows */
+.siteIconCell {
+  padding: 6px;
+  vertical-align: middle;
+  text-align: center;
+}
+.siteIcon {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  object-fit: cover;
+  display: inline-block;
+}
+.titleCell .titleMain {
+  font-weight: 600;
+}
+.mobileUrl {
+  font-size: 0.85em;
+  color: var(--third-font-color);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
