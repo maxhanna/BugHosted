@@ -48,10 +48,6 @@ button {
   text-align: center;
 }
 
-.graphContainerDiv {
-  max-width: 40vw;
-}
-
 .noMiningHubSection {
   display: inline-flex;
   flex-direction: column;
@@ -137,6 +133,7 @@ button {
   flex-wrap: wrap;
   align-content: center;
   justify-content: center;
+  max-width: 80vw;
 }
 
 .cryptoHubConverterAndCoinWatchWrapper table th {
@@ -408,20 +405,19 @@ div:not(.trade-panel-controls) .button-wrapper {
   max-height: CALC(var(--vh, 1vh) * 100 - 150px);
   overflow: auto;
 }
-
 @media (max-width: 768px) {
   .live-trade-view-container {
-    max-height: CALC(var(--vh, 1vh) * 100 - 315px);
+      max-height: CALC(var(--vh, 1vh) * 100 - 315px);
   }
 }
-
+ 
 .trade-info-column {
   transition: width 0.25s ease;
   overflow: hidden;
   cursor: pointer;
   padding: 10px;
 }
-
+ 
 .trade-info-column.collapsed {
   width: 0px;
   height: 0px;
@@ -966,7 +962,7 @@ div:not(.trade-panel-controls) .button-wrapper {
 
 .button-wrapper {
   margin-bottom: 10px;
-}
+} 
 
 .tradebotInfoPanelContainer {
   display: flex;
