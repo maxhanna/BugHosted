@@ -242,10 +242,10 @@ namespace maxhanna.Server.Services
       static string CleanComparison(string s)
       {
         if (string.IsNullOrWhiteSpace(s)) return "";
+        s = System.Text.RegularExpressions.Regex.Replace(s, "\\([^)]*\\)|\\[[^\\]]*\\]", " ");
         s = System.Text.RegularExpressions.Regex.Replace(s, @"\(\s*[vVrR]\.?\d+(?:\.\d+)*\s*\)", " ");
         s = System.Text.RegularExpressions.Regex.Replace(s, @"\[\s*[vVrR]\.?\d+(?:\.\d+)*\s*\]", " ");
         s = System.Text.RegularExpressions.Regex.Replace(s, @"(?<=^|[\s_\-\.\\/])[vVrR]\.?\d+(?:\.\d+)*(?=$|[\s_\-\.\\/])", " ");
-        s = System.Text.RegularExpressions.Regex.Replace(s, @"\[[^\]]*\]|\([^\)]*\)", " ");
         s = System.Text.RegularExpressions.Regex.Replace(s, @"\b(?:[A-Za-z]\.){2,}[A-Za-z]?\b", m => m.Value.Replace(".", ""));
         s = s.Replace("_", " ").Replace("-", " ").Replace("/", " ").Replace("\\", " ").Replace(".", " ");
         s = System.Text.RegularExpressions.Regex.Replace(s, @"^\W+|\W+$", "");
