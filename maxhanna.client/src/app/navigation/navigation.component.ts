@@ -38,37 +38,28 @@ export class NavigationComponent implements OnInit, OnDestroy {
   @ViewChild('toggleNavButton') toggleNavButton!: ElementRef<HTMLElement>;
 
   @Input() user?: User;
-
-  // runtime values for Ender nav item
+ 
   enderActivePlayers: number | null = null;
   enderUserRank: { rank?: number | null, score?: number | null, totalPlayers?: number | null } | null = null;
-  private enderInterval: any;
-  // runtime values for Bones nav item
+  private enderInterval: any; 
   bonesActivePlayers: number | null = null;
   bonesUserRank: { rank?: number | null, level?: number | null, totalPlayers?: number | null } | null = null;
-  private bonesInterval: any;
-  // runtime values for Nexus (Bug-Wars)
+  private bonesInterval: any; 
   nexusActivePlayers: number | null = null;
   nexusUserRank: { rank?: number | null, baseCount?: number | null, totalPlayers?: number | null } | null = null;
-  private nexusInterval: any;
-  // runtime values for Meta-Bots
+  private nexusInterval: any; 
   metaActivePlayers: number | null = null;
   metaUserRank: { rank?: number | null, level?: number | null, totalPlayers?: number | null } | null = null;
-  private metaInterval: any;
-  // music playlist count
-  musicTodoCount: number | null = null; 
-  // Array game stats
+  private metaInterval: any; 
+  musicTodoCount: number | null = null;  
   arrayActivePlayers: number | null = null;
   arrayUserRank: { rank?: number | null, level?: number | null, totalPlayers?: number | null } | null = null;
-  private arrayInterval: any;
-  // Emulator stats
-  emulatorActivePlayers: number | null = null;  
-  // Social stats
-  socialTotalPosts: number | null = null; 
-  // Art stats
-  artTotalSubmissions: number | null = null; 
-  // Crawler stats
+  private arrayInterval: any; 
+  emulatorActivePlayers: number | null = null;   
+  socialTotalPosts: number | null = null;  
+  artTotalSubmissions: number | null = null;  
   crawlerIndexCount: number | null = null; 
+  todoCount: number | null = null;
   private time20Secs = 20 * 1000;
   private time60Secs = 60 * 1000; 
   private time20Mins = 20 * 60 * 1000;
@@ -90,6 +81,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   isLoadingMeta = false;
   isLoadingArray = false;
   isLoadingMusic = false;
+  isLoadingTodo = false;
   isLoadingNews = false;
   isLoadingSocial = false;
   isLoadingCrawler = false;
@@ -133,7 +125,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private nexusService: NexusService,
     private todoService: TodoService,
     private metaService: MetaService,
-    private arrayService: ArrayService,
+    private arrayService: ArrayService, 
     private romService: RomService,
     private friendService: FriendService,
     private socialService: SocialService,
@@ -197,6 +189,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       Promise.resolve(this.getNexusPlayerInfo()),
       Promise.resolve(this.getMetaPlayerInfo()),
       Promise.resolve(this.getMusicInfo()),
+      Promise.resolve(this.getTodoInfo()),
       Promise.resolve(this.getArrayPlayerInfo()),
       Promise.resolve(this.getEmulatorPlayerInfo()),
       Promise.resolve(this.getSocialInfo()),
@@ -237,6 +230,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.scheduleRecurring('nexus', () => { if (this._parent.notificationsActive) this.getNexusPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('meta', () => { if (this._parent.notificationsActive) this.getMetaPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('music', () => { if (this._parent.notificationsActive) this.getMusicInfo(); }, this.time60Mins);
+    this.scheduleRecurring('todo', () => { if (this._parent.notificationsActive) this.getTodoInfo(); }, this.time60Mins);
     this.scheduleRecurring('array', () => { if (this._parent.notificationsActive) this.getArrayPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('emulation', () => { if (this._parent.notificationsActive) this.getEmulatorPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('social', () => { if (this._parent.notificationsActive) this.getSocialInfo(); }, this.time60Mins);
@@ -854,6 +848,30 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     this.isLoadingMusic = false;
     this.updateLastRunTimestamp('music');
+  } 
+  
+  private async getTodoInfo() {
+    if (!this._parent.notificationsActive) return;
+    if (!this._parent?.user?.id) return;
+    if (this._parent.lastRunTimestamps['todo'] 
+      && Date.now() - this._parent.lastRunTimestamps['todo'] < this.time60Mins) {
+      return;
+    }
+    this.isLoadingTodo = true;
+    try {
+      const res: any = await this.todoService.getTodoCount(this._parent.user.id, 'Todo');
+      this.todoCount = res?.count ?? 0;
+    } catch {
+      this.todoCount = null;
+    }
+    if (this._parent?.navigationItems) {
+      const todoNav = this._parent.navigationItems.find(x => x.title === 'Todo');
+      if (todoNav) {
+        todoNav.content = this.todoCount && this.todoCount > 0 ? this.shortenCount(this.todoCount) : '';
+      }
+    }
+    this.isLoadingTodo = false;
+    this.updateLastRunTimestamp('todo');
   }
 
   private async getArrayPlayerInfo() {
@@ -1147,30 +1165,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
       }
     }
   }
-  descriptionsExist(item: string) {
-    return this._parent.navigationItemDescriptions.some((x: MenuItem) => x.title == item);
-  }
-  closeNotifications() {
-    this.isLoadingCryptoHub = false;
-    this.isLoadingNotifications = false;
-    this.isLoadingTheme = false;
-    this.isLoadingWordlerStreak = false;
-    this.isLoadingCalendar = false;
-    this.isLoadingBones = false;
-    this.isLoadingEnder = false; 
-    this.isLoadingNexus = false;
-    this.isLoadingMeta = false;
-    this.isLoadingEmulator = false;
-    this.isLoadingSocial = false;
-    this.isLoadingCrawler = false;
-    this.isLoadingArt = false;
-    this.isLoadingArray = false;
-    this.isLoadingMusic = false;
-    this.isLoadingWeather = false;
-    this.isLoadingNews = false;
-    this.notificationsServerDown = false;
-  }
-
   private async getNewsCountInfo() {
     if (this._parent.lastRunTimestamps['newsCount']
         && Date.now() - this._parent.lastRunTimestamps['newsCount'] < this.time60Mins) {
@@ -1206,4 +1200,28 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (num >= thousand) return format(num / thousand, 'K');
     return num.toFixed(0);
   }
+  descriptionsExist(item: string) {
+    return this._parent.navigationItemDescriptions.some((x: MenuItem) => x.title == item);
+  }
+  closeNotifications() {
+    this.isLoadingCryptoHub = false;
+    this.isLoadingNotifications = false;
+    this.isLoadingTheme = false;
+    this.isLoadingWordlerStreak = false;
+    this.isLoadingCalendar = false;
+    this.isLoadingBones = false;
+    this.isLoadingEnder = false; 
+    this.isLoadingNexus = false;
+    this.isLoadingMeta = false;
+    this.isLoadingEmulator = false;
+    this.isLoadingSocial = false;
+    this.isLoadingCrawler = false;
+    this.isLoadingArt = false;
+    this.isLoadingArray = false;
+    this.isLoadingMusic = false;
+    this.isLoadingTodo = false;
+    this.isLoadingWeather = false;
+    this.isLoadingNews = false;
+    this.notificationsServerDown = false;
+  } 
 }
