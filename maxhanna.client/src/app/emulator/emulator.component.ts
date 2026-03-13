@@ -477,9 +477,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     window.EJS_softLoad = false; // TEMP: ensure full boot path for every run
     window.EJS_gameUrl = this.romObjectUrl;
     const _ejs_gameKey = `${core}:${this.fileService.getFileWithoutExtension(fileName)}`;
-    window.EJS_gameID = _ejs_gameKey;
-    // deterministic numeric id for the core:filename value (same across clients)
-    window.EJS_gameIDInt = this.stableStringToIntId(_ejs_gameKey);
+    // EJS_gameID MUST be a number — emulator.js hides the netplay button
+    // when typeof config.gameId !== "number".
+    window.EJS_gameID = this.stableStringToIntId(_ejs_gameKey);
+    window.EJS_gameIDKey = _ejs_gameKey; // string key kept for debugging
     window.EJS_gameName = this.fileService.getFileWithoutExtension(this.romName ?? '');
     window.EJS_netplayServer = 'https://bughosted.com:3000';
     window.EJS_netplayUrl = window.EJS_netplayServer;
@@ -728,10 +729,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const rootStyle = getComputedStyle(document.documentElement);
     const mainHighlight = (rootStyle.getPropertyValue('--main-highlight-color') || '#3a3a3a').trim();
     const componentBackgroundColor = (rootStyle.getPropertyValue('--component-background-color') || '#3a3a3a').trim();
-    let systemIcon = this.fileSearchComponent?.getSystemIcon(this.romService.guessSystemFromFileName(this.romName ?? '') ?? "") ?? undefined;
-    if (!systemIcon?.toString().includes("png")) {
-      console.error("system icon missing or not a png for rom", "icon value:", systemIcon);
-      systemIcon = undefined;
+    // Use the core name for a reliable icon lookup (coreIconMap), falling back to
+    // extension-based guessing via the rom filename.
+    let systemIcon: string | undefined =
+      this.fileSearchComponent?.getSystemIconUrl(this.romName ?? '', core) ?? undefined;
+    if (!systemIcon) {
+      // Last resort: try extension-based lookup from the rom filename itself
+      systemIcon = this.fileSearchComponent?.getSystemIconUrl(this.romName ?? '') ?? undefined;
     }
     const w = window as any;
     w.EJS_defaultOptionsForce = false;  // force defaults every run  (docs: config system)
@@ -908,7 +912,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       if (this._pendingSaveResolve) { try { this._pendingSaveResolve(true); } catch { } this._pendingSaveResolve = undefined; }
       return;
     }
-    const gameID = (window as any).EJS_gameID || '';
+    const gameID = (window as any).EJS_gameIDKey || String((window as any).EJS_gameID ?? '');
     const gameName = (window as any).EJS_gameName
       || (this.romName ? this.fileService.getFileWithoutExtension(this.romName) : '');
 
@@ -3100,8 +3104,8 @@ declare global {
     EJS_biosUrl?: string;
     EJS_gameUrl?: string;
     EJS_softLoad?: boolean;
-    EJS_gameID?: string;
-    EJS_gameIDInt?: number;
+    EJS_gameID?: number;
+    EJS_gameIDKey?: string;
     EJS_gameName?: string;
     EJS_gameParent?: string;
     EJS_language?: string;
