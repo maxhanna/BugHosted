@@ -62,14 +62,48 @@ namespace maxhanna.Server.Services
       _ = _log.Db("Starting IGDB enrichment pass...", null, "IGDB", outputToConsole: true);
       // ---- local helpers ----
 
+      static string StripDiacritics(string text)
+      {
+        var normalized = text.Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder(normalized.Length);
+        foreach (var c in normalized)
+        {
+          if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c)
+              != System.Globalization.UnicodeCategory.NonSpacingMark)
+            sb.Append(c);
+        }
+        return sb.ToString().Normalize(NormalizationForm.FormC);
+      }
+
+      static int LevenshteinDistance(string s, string t)
+      {
+        int n = s.Length, m = t.Length;
+        var d = new int[n + 1, m + 1];
+        for (int i = 0; i <= n; i++) d[i, 0] = i;
+        for (int j = 0; j <= m; j++) d[0, j] = j;
+        for (int i = 1; i <= n; i++)
+          for (int j = 1; j <= m; j++)
+            d[i, j] = Math.Min(
+              Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
+              d[i - 1, j - 1] + (s[i - 1] == t[j - 1] ? 0 : 1));
+        return d[n, m];
+      }
+
       static string CleanTitle(string fileName)
       {
         var stem = Path.GetFileNameWithoutExtension(fileName) ?? fileName;
 
-        // Strip version tokens: (v1.2.3), [v1.2], v.13.5, r.11, -v1.2, _v1.2, .v1.2
-        stem = System.Text.RegularExpressions.Regex.Replace(stem, @"\(\s*[vVrR]\.?\d+(?:\.\d+)*\s*\)", " ");
-        stem = System.Text.RegularExpressions.Regex.Replace(stem, @"\[\s*[vVrR]\.?\d+(?:\.\d+)*\s*\]", " ");
-        stem = System.Text.RegularExpressions.Regex.Replace(stem, @"(?<=^|[\s_\-\.])[vVrR]\.?\d+(?:\.\d+)*(?=$|[\s_\-\.])", " ");
+        // Strip diacritics early: é→e, ü→u, ñ→n, etc.
+        stem = StripDiacritics(stem);
+
+        // Strip version tokens in parens/brackets: (v1.2.3), [v26-02-26], (r11)
+        stem = System.Text.RegularExpressions.Regex.Replace(stem, @"\(\s*[vVrR]\.?\d+(?:[\.\-]\d+)*[a-zA-Z]*\s*\)", " ");
+        stem = System.Text.RegularExpressions.Regex.Replace(stem, @"\[\s*[vVrR]\.?\d+(?:[\.\-]\d+)*[a-zA-Z]*\s*\]", " ");
+        // Standalone version tokens: v26-02-26, v1.2.3, r.11, v2beta
+        stem = System.Text.RegularExpressions.Regex.Replace(stem, @"(?<=^|[\s_\-\.])[vVrR]\.?\d+(?:[\.\-]\d+)*[a-zA-Z]*(?=$|[\s_\-\.])", " ");
+
+        // Strip trailing bare date-like suffixes: "title 26-02-26", "title 2024-01-15"
+        stem = System.Text.RegularExpressions.Regex.Replace(stem, @"\s+\d{1,4}[\-\.]\d{1,2}[\-\.]\d{1,4}\s*$", " ");
 
         // Remove trailing hash-system tags like " # GBC", " # GB", etc.
         stem = System.Text.RegularExpressions.Regex.Replace(
@@ -89,7 +123,7 @@ namespace maxhanna.Server.Services
           m => m.Value.Replace(".", "")
         );
 
-        stem = stem.Replace("_", " ").Replace("  ", " ");
+        stem = stem.Replace("_", " ");
         stem = System.Text.RegularExpressions.Regex.Replace(stem, @"\s+", " ").Trim();
         return stem;
       }
@@ -234,7 +268,7 @@ namespace maxhanna.Server.Services
 
       static string Norm(string x)
       {
-        x = (x ?? "").ToLowerInvariant();
+        x = StripDiacritics(x ?? "").ToLowerInvariant();
         x = System.Text.RegularExpressions.Regex.Replace(x, @"[^a-z0-9]+", " ").Trim();
         return x;
       }
@@ -242,10 +276,12 @@ namespace maxhanna.Server.Services
       static string CleanComparison(string s)
       {
         if (string.IsNullOrWhiteSpace(s)) return "";
+        s = StripDiacritics(s);
         s = System.Text.RegularExpressions.Regex.Replace(s, "\\([^)]*\\)|\\[[^\\]]*\\]", " ");
-        s = System.Text.RegularExpressions.Regex.Replace(s, @"\(\s*[vVrR]\.?\d+(?:\.\d+)*\s*\)", " ");
-        s = System.Text.RegularExpressions.Regex.Replace(s, @"\[\s*[vVrR]\.?\d+(?:\.\d+)*\s*\]", " ");
-        s = System.Text.RegularExpressions.Regex.Replace(s, @"(?<=^|[\s_\-\.\\/])[vVrR]\.?\d+(?:\.\d+)*(?=$|[\s_\-\.\\/])", " ");
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"\(\s*[vVrR]\.?\d+(?:[\.\-]\d+)*[a-zA-Z]*\s*\)", " ");
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"\[\s*[vVrR]\.?\d+(?:[\.\-]\d+)*[a-zA-Z]*\s*\]", " ");
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"(?<=^|[\s_\-\.\\/])[vVrR]\.?\d+(?:[\.\-]\d+)*[a-zA-Z]*(?=$|[\s_\-\.\\/])", " ");
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"\s+\d{1,4}[\-\.]\d{1,2}[\-\.]\d{1,4}\s*$", " ");
         s = System.Text.RegularExpressions.Regex.Replace(s, @"\b(?:[A-Za-z]\.){2,}[A-Za-z]?\b", m => m.Value.Replace(".", ""));
         s = s.Replace("_", " ").Replace("-", " ").Replace("/", " ").Replace("\\", " ").Replace(".", " ");
         s = System.Text.RegularExpressions.Regex.Replace(s, @"^\W+|\W+$", "");
@@ -258,9 +294,43 @@ namespace maxhanna.Server.Services
         var a = Norm(CleanComparison(cleanedTitle));
         var b = Norm(CleanComparison(candidateName));
 
+        if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b))
+          return 0;
+
         int score = 0;
+
+        // Exact normalized match
         if (b == a) score += 1000;
+
+        // Substring containment
         if (b.Contains(a) || a.Contains(b)) score += 250;
+
+        // Word-level Jaccard overlap
+        var wordsA = new HashSet<string>(a.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        var wordsB = new HashSet<string>(b.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        if (wordsA.Count > 0 && wordsB.Count > 0)
+        {
+          int intersection = wordsA.Intersect(wordsB).Count();
+          int union = wordsA.Union(wordsB).Count();
+          double jaccard = (double)intersection / union;
+          score += (int)(jaccard * 500);
+
+          // Bonus if one title's words are a complete subset of the other
+          int minCount = Math.Min(wordsA.Count, wordsB.Count);
+          if (minCount > 0 && intersection == minCount)
+            score += 200;
+        }
+
+        // Levenshtein similarity bonus for reasonably short strings
+        if (a.Length <= 50 && b.Length <= 50)
+        {
+          int maxLen = Math.Max(a.Length, b.Length);
+          int dist = LevenshteinDistance(a, b);
+          double similarity = 1.0 - ((double)dist / maxLen);
+          if (similarity >= 0.75)
+            score += (int)(similarity * 200);
+        }
+
         return score;
       }
 
@@ -645,18 +715,23 @@ LIMIT @lim;";
           string? givenTitleGuess = string.IsNullOrWhiteSpace(romGivenFileName) ? null : CleanTitle(romGivenFileName!);
           _ = _log.Db($"Cleaning title from filename: {romFileName} to {titleGuess}{(givenTitleGuess != null ? ('/' + givenTitleGuess) : "")}", null, "IGDB", outputToConsole: true);
 
+          // Prioritize given file name for IGDB search; fall back to stored file name.
+          var primaryTitle = givenTitleGuess ?? titleGuess;
+          var secondaryTitle = givenTitleGuess != null
+            && !string.Equals(givenTitleGuess, titleGuess, StringComparison.OrdinalIgnoreCase)
+            ? titleGuess : null;
+
           // Open a short-lived connection for each file's upsert so we don't hold a
           // connection across the IGDB HTTP round-trips.
           try
           {
-            // Query IGDB using the stored file name, and if a given file name exists, query that too and merge results.
-            var (arr, respJson, excludedVersions, usedSearch) = await QueryIgdbWithFallbackAsync(token, clientId, titleGuess);
+            var (arr, respJson, excludedVersions, usedSearch) = await QueryIgdbWithFallbackAsync(token, clientId, primaryTitle);
 
-            if (!string.IsNullOrWhiteSpace(givenTitleGuess))
+            if (!string.IsNullOrWhiteSpace(secondaryTitle))
             {
               try
               {
-                var (arr2, respJson2, excluded2, usedSearch2) = await QueryIgdbWithFallbackAsync(token, clientId, givenTitleGuess);
+                var (arr2, respJson2, excluded2, usedSearch2) = await QueryIgdbWithFallbackAsync(token, clientId, secondaryTitle);
                 // merge arr2 into arr, avoiding duplicate game ids
                 var ids = new HashSet<int>(arr.OfType<Newtonsoft.Json.Linq.JObject>().Select(o => o.Value<int>("id")));
                 foreach (var tok in arr2.OfType<Newtonsoft.Json.Linq.JObject>())
@@ -674,7 +749,7 @@ LIMIT @lim;";
               }
               catch (Exception ex)
               {
-                _ = _log.Db($"IGDB query for given file name failed: {ex.Message}", null, "IGDB", outputToConsole: true);
+                _ = _log.Db($"IGDB query for secondary title failed: {ex.Message}", null, "IGDB", outputToConsole: true);
               }
             }
 
@@ -684,8 +759,8 @@ LIMIT @lim;";
               {
                 await upsertConn.OpenAsync(ct);
                 await UpsertEnrichmentAsync(
-                  upsertConn, fileId, romFileName, titleGuess,
-                  null, null, 0, "NOT_FOUND", $"No results for '{titleGuess}' (tried variants).",
+                  upsertConn, fileId, romFileName, primaryTitle,
+                  null, null, 0, "NOT_FOUND", $"No results for '{primaryTitle}'{(secondaryTitle != null ? $" or '{secondaryTitle}'" : "")} (tried variants).",
                   null, null, null, null,
                   null, null,
                   null, null, null, null,
@@ -721,10 +796,10 @@ LIMIT @lim;";
             }
 
             var best = preferred
-              .OrderByDescending(g => ScoreCandidateImproved(g, titleGuess, platformKws))
+              .OrderByDescending(g => ScoreCandidateImproved(g, primaryTitle, platformKws))
               .First();
 
-            var bestScore = ScoreCandidateImproved(best, titleGuess, platformKws);
+            var bestScore = ScoreCandidateImproved(best, primaryTitle, platformKws);
 
             // Determine status
             string status;
@@ -758,7 +833,7 @@ LIMIT @lim;";
             }
 
             int igdbId = best.Value<int>("id");
-            string igdbName = best.Value<string>("name") ?? titleGuess;
+            string igdbName = best.Value<string>("name") ?? primaryTitle;
 
             string? summary = best.Value<string>("summary");
             long? firstRelease = best.Value<long?>("first_release_date");
@@ -811,7 +886,7 @@ LIMIT @lim;";
             {
               await upsertConn.OpenAsync(ct);
               await UpsertEnrichmentAsync(
-                upsertConn, fileId, romFileName, titleGuess,
+                upsertConn, fileId, romFileName, primaryTitle,
                 igdbId, igdbName, bestScore, status, statusError,
                 summary, firstRelease, rating, ratingCount,
                 platforms, genres,
@@ -830,7 +905,7 @@ LIMIT @lim;";
               {
                 await errConn.OpenAsync(ct);
                 await UpsertEnrichmentAsync(
-                  errConn, fileId, romFileName, titleGuess,
+                  errConn, fileId, romFileName, primaryTitle,
                   null, null, 0, "ERROR", ex.Message,
                   null, null, null, null,
                   null, null,
