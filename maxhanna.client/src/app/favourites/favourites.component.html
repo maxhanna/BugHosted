@@ -106,7 +106,7 @@
     <button *ngIf="selectedUser" 
       class="cursorPointer" 
       (click)="selectedUser = undefined" 
-      [title]="'Clear user filter' + (selectedUser?.username ? (' ' + selectedUser.username) : '')"
+      [title]="'Clear user filter' + ' ' + selectedUser.username"
       style="margin-right:8px;">✖️</button>
     <button (click)="showEditLinks = !showEditLinks" class="cursorPointer" *ngIf="!showingLatestLinks">
       {{ showEditLinks ? '❌ Stop Editing' : '✏️ Edit Links' }}
