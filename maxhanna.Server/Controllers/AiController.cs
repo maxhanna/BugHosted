@@ -1110,7 +1110,7 @@ Constraints:
               AND folder_path = @MemeFolder
               AND file_type IN ('jpg','jpeg','png','gif','bmp','webp','mp4','mov','webm','avi','mkv','flv')
               AND (
-                -- 1) Simple structured names with no dashes or spaces, but with a dot
+                
                 (
                   file_name LIKE '%.%' AND file_name NOT LIKE '% %'
                   AND (
@@ -1119,12 +1119,8 @@ Constraints:
                     OR REGEXP_LIKE(file_name, '^[0-9]+-[0-9]+[.][A-Za-z0-9]+$', 'i') -- two segments with dash + ext
                   )
                 )
-                -- 2) FB/IMG/VID camera-like names (case-insensitive)
-                OR REGEXP_LIKE(file_name, '^FB_IMG_[0-9]+[.][A-Za-z0-9]+$', 'i')
-                OR REGEXP_LIKE(file_name, '^IMG_[0-9]+[.][A-Za-z0-9]+$', 'i')
-                OR REGEXP_LIKE(file_name, '^VID_[0-9]+[.][A-Za-z0-9]+$', 'i')
-                -- 3) Reddit-style names: RDT_YYYYMMDD_<bigNumber>.<ext> (case-insensitive)
-                OR REGEXP_LIKE(file_name, '^RDT_[0-9]{8}_[0-9]{9,}[.][A-Za-z0-9]+$', 'i')
+                
+                OR REGEXP_LIKE(file_name, '^(FB_IMG_|IMG_|VID_|RDT_)', 'i')
               )
             ORDER BY RAND()
 						LIMIT 1;";

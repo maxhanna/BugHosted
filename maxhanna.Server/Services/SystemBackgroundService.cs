@@ -2560,6 +2560,7 @@ namespace maxhanna.Server.Services
               OR file_name REGEXP '.*[0-9]{5,}$'              -- long numeric tail without extension
               OR file_name REGEXP '.*(-|_).*(-|_).*(-|_).*'   -- several separators imply slug
               OR file_name REGEXP '(-|_)[0-9]{5,}(\.[A-Za-z0-9]+)?$' -- hyphen/underscore followed by long number (with optional extension)
+              OR file_name REGEXP '(-.*){5,}' -- filenames containing 5 or more hyphens (treat as slug-heavy)
             )
           ORDER BY id
           LIMIT 1;";
