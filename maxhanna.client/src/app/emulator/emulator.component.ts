@@ -464,6 +464,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     window.EJS_gameUrl = this.romObjectUrl;
     window.EJS_gameID = `${core}:${this.fileService.getFileWithoutExtension(fileName)}`;
     window.EJS_gameName = this.fileService.getFileWithoutExtension(this.romName ?? '');
+    window.EJS_netplayServer = 'http://bughosted.com:3000';
     window.EJS_startOnLoaded = true;
     window.EJS_volume = 0.5;
     window.EJS_lightgun = false;
@@ -3092,6 +3093,7 @@ declare global {
     EJS_paths?: { [key: string]: string };
     EJS_volume?: number;
     EJS_threads?: boolean;
+    EJS_netplayServer?: string;
     EJS_maxThreads?: number;
     EJS_color?: string;
     EJS_backgroundColor?: string;
