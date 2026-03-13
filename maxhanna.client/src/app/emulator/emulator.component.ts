@@ -481,7 +481,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // deterministic numeric id for the core:filename value (same across clients)
     window.EJS_gameIDInt = this.stableStringToIntId(_ejs_gameKey);
     window.EJS_gameName = this.fileService.getFileWithoutExtension(this.romName ?? '');
-    window.EJS_netplayServer = 'https://bughosted.com:3000';
+    window.EJS_netplayServer = 'http://bughosted.com:3000';
     window.EJS_netplayUrl = window.EJS_netplayServer;
     window.EJS_startOnLoaded = true;
     window.EJS_volume = 0.5;
