@@ -1002,7 +1002,8 @@ Write 1–2 short phrases (max 12 words each) that:
 • If text is visible, paraphrase the joke without quoting exactly.
 
 Constraints:
-• Output should look like a meme filename.
+• Output should look like a meme filename. 
+• Maximum 240 characters. 
 • No tags, placeholders, markup, hashtags, emojis, underscores or quotes.
 • Avoid meta phrases (e.g., “this image shows”, “caption reads”).
 • Keep it in English and ASCII only.";
@@ -1019,6 +1020,7 @@ Constraints:
       return @"Write one short, funny phrase (8–12 words) that feels like a meme filename.
 Constraints:
 • Use underscores instead of spaces.
+• Maximum 240 characters. 
 • No tags, placeholders, markup, hashtags, emojis, underscores or quotes.
 • Avoid meta phrases (“image/post that says”, “caption reads”).
 • Keep it in English and ASCII only.";
@@ -1195,19 +1197,17 @@ Constraints:
     {
       if (string.IsNullOrWhiteSpace(name))
         name = "media-file";
-
-      // Remove invalid characters
+ 
       var invalidChars = Path.GetInvalidFileNameChars();
       var sanitized = new string(name
         .Where(c => !invalidChars.Contains(c))
         .ToArray());
-
-      // Ensure max length of 240 + extension
-      // int maxLength = 240 - (extension?.Length ?? 0);
-      // if (sanitized.Length > maxLength)
-      //   sanitized = sanitized.Substring(0, maxLength);
-
-      // Remove trailing periods/dashes
+ 
+      int maxLength = 240 - (extension?.Length ?? 0);
+      if (sanitized.Length > maxLength) {
+        sanitized = sanitized.Substring(0, maxLength);
+      }
+      
       sanitized = sanitized.TrimEnd('.', '-', ' ');
 
       return $"{sanitized}";
