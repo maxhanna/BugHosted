@@ -12,6 +12,7 @@
 @media only screen and (max-width: 900px) {
   .notificationsListMobile {
     max-height: calc(100vh - 330px);
+    overflow: auto;
   }
 }
 
