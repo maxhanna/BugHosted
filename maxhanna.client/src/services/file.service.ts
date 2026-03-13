@@ -85,7 +85,7 @@ export class FileService {
     "sgx", "vb", "ws", "wsc", "gba", "gbc", "gb", "gen", "md", "smd", "32x", "sms", "gg", "nes", "fds",
     "sfc", "smc", "snes", "nds", "n64", "z64", "v64", "gcm", "iso", "cdi", "chd", "cue", "ccd", "mdf",
     "pbp", "bin", "img", "dsk", "adf", "st", "ipf", "d64", "t64", "tap", "prg", "crt", "g64", "nib",
-    "d81", "d82", "atr", "xfd", "cas", "sap", "tzx", "pzx", "zx"
+    "d81", "d82", "atr", "xfd", "cas", "sap", "tzx", "pzx", "zx", "fig"
   ];
 
   n64FileExtensions = ["z64", "n64", "v64"];
@@ -98,7 +98,7 @@ export class FileService {
   gbaFileExtensions: string[] = ['gba'];
   ndsFileExtensions: string[] = ['nds'];
   pspFileExtensions: string[] = ['psp', 'iso', 'cso', 'pbp'];
-  snesFileExtensions: string[] = ['snes', 'sfc', 'smc'];
+  snesFileExtensions: string[] = ['snes', 'sfc', 'smc', 'fig'];
   saturnFileExtensions: string[] = ['cue', 'chd', 'iso', 'bin'];
 
   /** Return Genesis/MegaDrive related extensions present in romFileExtensions */
