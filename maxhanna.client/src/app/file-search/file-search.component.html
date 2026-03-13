@@ -319,8 +319,11 @@
         <strong>Release:</strong> {{ unixSecondsToDate(d) | date:'y/MM/d' }}
       </div>
       <span class="xSmallFont">
-        <button title="Request metadata reset" (click)="incrementResetVoteForOptionsFile()" style="margin-left:8px">↻
-          Reset</button>
+        <button title="Request metadata reset" 
+          (click)="incrementResetVoteForOptionsFile()" 
+          style="margin-left:8px">
+          ↻ Reset
+        </button>
         <span *ngIf="optionsFile.romMetadata?.resetVotes !== undefined" style="margin-left:8px">Votes: {{
           optionsFile.romMetadata?.resetVotes }}</span>
       </span>
@@ -573,6 +576,15 @@
       <div class="optionsStatsDescription">
         <app-user-tag [user]="optionsFile.lastUpdatedBy" [inputtedParentRef]="parentRef ?? inputtedParentRef"
           [displayMiniTag]="true" [displayHoverPicture]="true" [previousComponent]="previousComponent"></app-user-tag>
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="!shouldShowRomMetadata()">
+      <div class="optionsStatsHeader">Reset ROM Metadata?</div>
+      <div class="optionsStatsDescription"> 
+        <button title="Request metadata reset" (click)="incrementResetVoteForOptionsFile()" style="margin-left:8px">
+          ↻ Reset
+        </button>
+        <span *ngIf="optionsFile.romMetadata?.resetVotes !== undefined" style="margin-left:8px">Votes: {{ optionsFile.romMetadata?.resetVotes }}</span>
       </div>
     </div>
   </div>

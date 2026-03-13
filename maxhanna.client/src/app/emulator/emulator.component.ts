@@ -588,7 +588,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private applyGamepadControlSettings(romDisplayName: string, core: string, system: System | undefined) {
-    const genesisSix = (system === 'genesis') ? this.shouldUseGenesisSixButtons(romDisplayName) : false;
+    // Enable six-button layout for Genesis and Saturn on mobile
+    const genesisSix = this.shouldUseGenesisSixButtons(romDisplayName, system);
 
     const vpad = this.buildTouchLayout((system ?? ('gba' as System)), {
       useJoystick: this.useJoystick,
@@ -2260,6 +2261,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         break;
 
       case 'genesis':
+      case 'saturn':
         if (genesisSix) {
           items.push(...this.genesisSixRight());
         } else {
@@ -2450,11 +2452,16 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return aliasMap[slug] ?? slug;
   }
 
-  private shouldUseGenesisSixButtons(romDisplayName: string): boolean {
-    const slug = this.canonicalizeGenesisSlug(this.slugifyName(romDisplayName));
-    if (GENESIS_FORCE_THREE.has(slug)) return false;
-    if (this.preferSixButtonGenesis) return true;
-    return GENESIS_6BUTTON.has(slug);
+  private shouldUseGenesisSixButtons(romDisplayName: string, system?: System): boolean {
+    if (system === 'genesis') {
+      const slug = this.canonicalizeGenesisSlug(this.slugifyName(romDisplayName));
+      if (GENESIS_FORCE_THREE.has(slug)) return false;
+      if (this.preferSixButtonGenesis) return true;
+      return GENESIS_6BUTTON.has(slug);
+    } else if (system === 'saturn') {
+      return true;
+    }
+    return false;
   }
 
   toggleLoadWithoutSave() {

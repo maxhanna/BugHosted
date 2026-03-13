@@ -378,8 +378,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     }
   }
 
-  async searchForSong() {
-    const search = this.searchInput?.nativeElement.value || '';
+  async searchForSong(passedValue?: string) {
+    const search = (typeof passedValue === 'string' ? passedValue : this.searchInput?.nativeElement.value) || '';
     const user = this.user ?? this.parentRef?.user;
     if (!user?.id) return;
 
@@ -893,6 +893,13 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     this.parentRef?.showOverlay();
   }
   showYoutubeSearch() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const mainInputValue = this.searchInput?.nativeElement?.value ?? '';
+    const parentKeyword = parent?.getYoutubeSearchKeyword() ?? undefined;
+    if (parentKeyword && parentKeyword !== mainInputValue) {
+      parent?.clearYoutubeSearchResults();
+    }
+
     setTimeout(() => {
       const searchKeyword = this.parentYoutubeSearch ?? this.searchInput?.nativeElement?.value ?? '';
       this.ytSearchTerm = searchKeyword;

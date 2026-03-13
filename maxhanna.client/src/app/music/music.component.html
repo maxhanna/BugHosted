@@ -77,7 +77,7 @@
           <div class="selectorDiv" *ngIf="selectedType != 'radio'">
             Search: 
             <input placeholder="Keyword" #searchInput (keyup.enter)="onSearchEnter()" />
-            <input type="button" value="🔍" title="Search Music Playlist" (click)="searchForSong()" />
+            <button type="button" title="Search Music Playlist" (click)="searchForSong(searchInput?.value)">🔍</button>
             <input type="button" value="▶️" title="Search YouTube" (click)="showYoutubeSearch()" *ngIf="selectedType === 'youtube'" />
           </div> 
         </div>
