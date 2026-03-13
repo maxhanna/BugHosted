@@ -253,8 +253,7 @@
 <div class="popupPanel" *ngIf="isOptionsPanelOpen && optionsFile">
   <div class="popupPanelTitle">
     File Options
-  </div>
-
+  </div> 
 
   <div *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.igdbName && !optionsFile.isFolder"
     class="romMetaPanel">
@@ -578,7 +577,7 @@
           [displayMiniTag]="true" [displayHoverPicture]="true" [previousComponent]="previousComponent"></app-user-tag>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="!shouldShowRomMetadata()">
+    <div class="optionsStatsDiv" *ngIf="shouldShowRomMetadata() && !optionsFile?.romMetadata?.igdbName && !optionsFile.isFolder">
       <div class="optionsStatsHeader">Reset ROM Metadata?</div>
       <div class="optionsStatsDescription"> 
         <button title="Request metadata reset" (click)="incrementResetVoteForOptionsFile()" style="margin-left:8px">
