@@ -674,6 +674,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       quickSave: true,
       quickLoad: true,
       screenshot: true,
+      netplay: true,
     };
   }
 
@@ -835,6 +836,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     }
     w.EJS_DEBUG_XX = true;             // debug options 
+    w.EJS_EXPERIMENTAL_NETPLAY = true; // required alongside EJS_DEBUG_XX for netplay
     w.EJS_logCoreInfo = true;          // debug options 
     w.EJS_logVideo = true;             // debug options 
     w.EJS_logAudio = false;             // debug options 
@@ -3134,6 +3136,7 @@ declare global {
     EJS_enableGamepads?: boolean;
     EJS_disableAltKey?: boolean;
     EJS_DEBUG_XX?: boolean;
+    EJS_EXPERIMENTAL_NETPLAY?: boolean;
     EJS_logCoreInfo?: boolean;
     EJS_logSaves?: boolean;
     EJS_logVideo?: boolean;

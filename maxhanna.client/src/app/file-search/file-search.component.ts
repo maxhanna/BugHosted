@@ -1716,6 +1716,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         'prosystem': '/assets/atariicon.png',
         'handy': '/assets/atariicon.png',
         'virtualjaguar': '/assets/atariicon.png',
+        'saturn': '/assets/saturnicon.png',
       };
       const mapped = coreIconMap[actualSystem];
       if (mapped) return mapped;
