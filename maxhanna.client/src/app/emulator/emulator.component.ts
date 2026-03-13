@@ -482,7 +482,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     window.EJS_gameID = this.stableStringToIntId(_ejs_gameKey);
     window.EJS_gameIDKey = _ejs_gameKey; // string key kept for debugging
     window.EJS_gameName = this.fileService.getFileWithoutExtension(this.romName ?? '');
-    window.EJS_netplayServer = 'https://bughosted.com:3000';
+    // Netplay: use same-origin path so it shares the existing HTTPS certificate
+    // and doesn't need a separate port / firewall rule.
+    // The prod-server.js embeds the netplay Socket.IO server on namespace /netplay.
+    window.EJS_netplayServer = `${window.location.origin}/netplay`;
     window.EJS_netplayUrl = window.EJS_netplayServer;
     window.EJS_startOnLoaded = true;
     window.EJS_volume = 0.5;

@@ -26,6 +26,7 @@ const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const chalk = require('chalk');
+const netplay = require('./netplay-server');
 
 // Configuration
 const config = {
@@ -629,6 +630,12 @@ if (config.nodeEnv === 'development' && fs.existsSync(assetsPath)) {
 }
 
 // ============================================================================
+// EmulatorJS Netplay (same-origin — no extra port / certificate needed)
+// The Socket.IO server is attached to the main HTTPS server below.
+// ============================================================================
+netplay.registerRoutes(app);
+
+// ============================================================================
 // SPA Fallback
 // ============================================================================
 
@@ -753,6 +760,9 @@ if (config.useHttps) {
 } else {
   server = http.createServer(app);
 }
+
+// Attach EmulatorJS Netplay Socket.IO to the same HTTPS server
+netplay.attachSocket(server);
 
 // Server event handlers
 server.on('error', (err) => {
