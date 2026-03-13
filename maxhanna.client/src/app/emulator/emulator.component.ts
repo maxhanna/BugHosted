@@ -187,6 +187,20 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     super();
   }
 
+  /**
+   * Deterministic 32-bit unsigned integer derived from a string.
+   * Uses FNV-1a 32-bit algorithm with Math.imul for consistent behavior across engines.
+   * Returns a positive integer that will be identical for the same input string on every client.
+   */
+  private stableStringToIntId(s: string): number {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    return h >>> 0;
+  }
+
   ngOnInit(): void {
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
@@ -462,9 +476,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     window.EJS_biosUrl = this.getBiosUrlForCore(core) ?? "";  // <— key fix
     window.EJS_softLoad = false; // TEMP: ensure full boot path for every run
     window.EJS_gameUrl = this.romObjectUrl;
-    window.EJS_gameID = `${core}:${this.fileService.getFileWithoutExtension(fileName)}`;
+    const _ejs_gameKey = `${core}:${this.fileService.getFileWithoutExtension(fileName)}`;
+    window.EJS_gameID = _ejs_gameKey;
+    // deterministic numeric id for the core:filename value (same across clients)
+    window.EJS_gameIDInt = this.stableStringToIntId(_ejs_gameKey);
     window.EJS_gameName = this.fileService.getFileWithoutExtension(this.romName ?? '');
-    window.EJS_netplayServer = 'http://bughosted.com:3000';
+    window.EJS_netplayServer = 'https://bughosted.com:3000';
     window.EJS_netplayUrl = window.EJS_netplayServer;
     window.EJS_startOnLoaded = true;
     window.EJS_volume = 0.5;
@@ -642,20 +659,20 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   private hideEJSMenu() {
     (window as any).EJS_Buttons = {
-      playPause: false,
+      playPause: true,
       restart: false,
-      mute: false,
-      settings: false,
+      mute: true,
+      settings: true,
       fullscreen: false,
       saveState: false,
       loadState: false,
       screenRecord: false,
       gamepad: !this.onMobile(),
-      cheat: false,
+      cheat: true,
       volume: false,
       quickSave: true,
       quickLoad: true,
-      screenshot: false,
+      screenshot: true,
     };
   }
 
@@ -3084,6 +3101,7 @@ declare global {
     EJS_gameUrl?: string;
     EJS_softLoad?: boolean;
     EJS_gameID?: string;
+    EJS_gameIDInt?: number;
     EJS_gameName?: string;
     EJS_gameParent?: string;
     EJS_language?: string;
