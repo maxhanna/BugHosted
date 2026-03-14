@@ -81,7 +81,12 @@ function attachSocket(httpServer) {
   // default path (/socket.io), minimal config.
   io = new SocketIOServer(httpServer, {
     cors: {
-      origin: '*',
+      origin: [
+        'https://bughosted.com',
+        'https://www.bughosted.com',
+        'http://localhost:5173',
+        'http://localhost:3000'
+      ],
       methods: ['GET', 'POST'],
       credentials: true,
     },

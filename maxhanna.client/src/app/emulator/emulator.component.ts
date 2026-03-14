@@ -488,6 +488,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // namespace — exactly like the upstream EmulatorJS-Netplay server.js.
     window.EJS_netplayServer = window.location.origin;
     window.EJS_netplayUrl = window.EJS_netplayServer;
+    window.EJS_netplayICEServers = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun.nextcloud.com:3478' },
+      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+  ];
     window.EJS_startOnLoaded = true;
     window.EJS_volume = 0.5;
     window.EJS_lightgun = false;
@@ -3124,6 +3132,7 @@ declare global {
     EJS_threads?: boolean;
     EJS_netplayServer?: string;
     EJS_netplayUrl?: string;
+    EJS_netplayICEServers?: any;
     EJS_maxThreads?: number;
     EJS_color?: string;
     EJS_backgroundColor?: string;
@@ -3138,7 +3147,8 @@ declare global {
     EJS_disableLocalStorage?: boolean;
     EJS_directKeyboardInput?: boolean;
     EJS_enableGamepads?: boolean;
-    EJS_disableAltKey?: boolean;
+    EJS_disableAltKey?: boolean; 
+    EJS_webrtcConfig?: any;
     EJS_DEBUG_XX?: boolean;
     EJS_EXPERIMENTAL_NETPLAY?: boolean;
     EJS_logCoreInfo?: boolean;
