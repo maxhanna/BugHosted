@@ -65,6 +65,7 @@
   opacity: 0 !important;
   pointer-events: none !important;
 }
-.ejs_control_set_button {
+.ejs_button, .ejs_control_set_button {
+  background-color: var(--component-background-color) !important;
   color: var(--main-font-color) !important;
 }
