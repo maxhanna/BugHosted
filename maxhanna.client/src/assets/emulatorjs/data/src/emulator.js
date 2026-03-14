@@ -5717,7 +5717,7 @@ class EmulatorJS {
             //console.log(fps);
             //lastTime = newTime;
             //frame syncing - working
-            //control syncing - broken
+            //control syncing - fixed (was broken: frame-0 crash + syncing flag never cleared)
             this.netplay.currentFrame = parseInt(this.gameManager.getFrameNum()) - this.netplay.init_frame;
             if (!this.isNetplay) return;
             if (this.netplay.owner) {
@@ -5729,14 +5729,17 @@ class EmulatorJS {
                 }) : to_send.push({ frame: i + 10 });
                 this.netplay.sendMessage({ "sync-control": to_send });
             } else {
-                if (this.netplay.currentFrame <= 0 || this.netplay.inputsData[this.netplay.currentFrame]) {
+                const frameData = this.netplay.inputsData[this.netplay.currentFrame];
+                if (this.netplay.currentFrame <= 0 || frameData) {
                     this.netplay.wait = false;
+                    this.netplay.syncing = false;
                     this.play();
-                    this.netplay.inputsData[this.netplay.currentFrame].forEach((value) => {
-                        if (!value.connected_input) return;
-                        console.log(value.connected_input);
-                        this.gameManager.functions.simulateInput(value.connected_input[0], value.connected_input[1], value.connected_input[2]);
-                    })
+                    if (frameData) {
+                        frameData.forEach((value) => {
+                            if (!value.connected_input) return;
+                            this.gameManager.functions.simulateInput(value.connected_input[0], value.connected_input[1], value.connected_input[2]);
+                        })
+                    }
                 } else if (!this.netplay.syncing) {
                     console.log("sync");
                     this.pause(true);
