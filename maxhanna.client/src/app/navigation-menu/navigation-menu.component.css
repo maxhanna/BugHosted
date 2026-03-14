@@ -70,7 +70,8 @@
 /* scrolling container for menu items limited to viewport height */
 .nav-menu-scroll {
 	max-height: calc(100vh - 56px);
-	overflow: auto;
+	overflow-y: auto;
+	overflow-x: hidden;
 	padding-right: 6px;
 }
 
