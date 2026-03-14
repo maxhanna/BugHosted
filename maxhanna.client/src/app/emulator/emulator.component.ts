@@ -758,7 +758,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   private applyEjsRunOptions(system: System, core: string | undefined): void {
     const rootStyle = getComputedStyle(document.documentElement);
-    const mainHighlight = (rootStyle.getPropertyValue('--main-highlight-color') || '#3a3a3a').trim();
+    //const mainHighlight = (rootStyle.getPropertyValue('--main-highlight-color') || '#3a3a3a').trim();
     const componentBackgroundColor = (rootStyle.getPropertyValue('--component-background-color') || '#3a3a3a').trim();
     // Use the core name for a reliable icon lookup (coreIconMap), falling back to
     // extension-based guessing via the rom filename.
@@ -777,7 +777,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     w.EJS_fullscreenOnLoaded = false;   // start in-window, let user choose fullscreen
     w.EJS_fullscreen = false;           // start in-window, let user choose fullscreen (legacy option)
     w.EJS_threads = true;               // allow cores to use threads if they want (e.g. for async save state capture); you can disable if you have issues with certain browsers/devices
-    w.EJS_color = mainHighlight;        // Sets the main color theme for the emulator
+    w.EJS_color = componentBackgroundColor;        // Sets the main color theme for the emulator
     w.EJS_backgroundColor = componentBackgroundColor; // Sets the background color for the emulator    
     if (systemIcon) {
       w.EJS_backgroundImage = systemIcon; // Sets the background color for the emulator    
@@ -867,8 +867,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
     w.EJS_DEBUG_XX = true;             // debug options 
     w.EJS_EXPERIMENTAL_NETPLAY = true; // required alongside EJS_DEBUG_XX for netplay
-    w.EJS_logCoreInfo = true;          // debug options 
-    w.EJS_logVideo = true;             // debug options 
+    w.EJS_logCoreInfo = false;          // debug options 
+    w.EJS_logVideo = false;             // debug options 
     w.EJS_logAudio = false;             // debug options 
     w.EJS_logInput = false;             // debug options 
     w.EJS_logSaves = false;             // debug options 
