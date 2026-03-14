@@ -1940,11 +1940,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       }
 
       console.warn('[EJS] All loadState attempts exhausted; save state not loaded.');
+      this.parentRef?.showNotification('Could not restore save state; starting game without it.');
       this.status = 'Running';
       this.cdr.detectChanges();
       return false;
     } catch (e) {
       console.warn('[EJS] applySaveStateIfAvailable failed', e);
+      this.parentRef?.showNotification('Error applying save state; starting game without it.');
       return false;
     }
   }
