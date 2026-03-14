@@ -1,6 +1,5 @@
 /* Compact vertical navigation menu styles */
-.nav-menu-wrapper {
-	width: 260px;
+.nav-menu-wrapper { 
 	position: relative; 
 	transition: transform .28s ease, width .28s ease, opacity .28s ease;
 	will-change: transform;

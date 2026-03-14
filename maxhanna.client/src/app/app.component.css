@@ -169,7 +169,8 @@
 
 .leftPanel {
   box-sizing: border-box;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .leftPanelResizer {
