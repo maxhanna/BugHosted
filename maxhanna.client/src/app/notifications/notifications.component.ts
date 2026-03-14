@@ -187,6 +187,25 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   goToFileId(notification: UserNotification) {
     //this.location.replaceState("/File/" + notification.fileId);
     if (!notification.isRead) { this.read(notification, true); }
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    // If a Files/FileSearch component is already open, update it instead of trying to create a second instance (prevents UI glitches)
+    if (parent && parent.componentsReferences && parent.componentsReferences.length > 0) {
+      const existing = parent.componentsReferences.find(cr => cr && cr.instance && typeof (cr.instance as any).getDirectory === 'function');
+      if (existing) {
+        try {
+          const inst: any = existing.instance;
+          inst.fileId = notification.fileId;
+          inst.commentId = notification.commentId;
+          // call getDirectory to trigger loading by fileId
+          inst.getDirectory(undefined, notification.fileId);
+          this.showNotifications = false;
+          return;
+        } catch (e) {
+          // fallthrough to createComponent if update fails
+          console.error('Failed to update existing Files component:', e);
+        }
+      }
+    }
     this.createComponent("Files", { "fileId": notification.fileId, "commentId": notification.commentId, "previousComponent": this.previousComponent });
   }
   goToStoryId(notification: UserNotification) {
