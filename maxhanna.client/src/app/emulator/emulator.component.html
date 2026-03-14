@@ -44,7 +44,14 @@
   <div *ngIf="!isFaqOpen" class="emuMenuButtonContainer">
     <button (click)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();" [disabled]="isLoading"
       class="emuMenuButton">
-      Autosave: {{ autosave ? 'On' : 'Off' }}
+      Autosave:{{" "}}{{ autosave ? 'On' : 'Off' }}
+    </button>
+    <button *ngIf="!romName" (click)="toggleLoadWithoutSave()" class="emuMenuButton" [disabled]="isLoading">
+      Save States:{{" "}}{{loadWithoutSave ? 'Do not load' : 'Load with ROMs' }}
+    </button>
+    <button *ngIf="onMobile() && !romName" (click)="useJoystick = !useJoystick" class="emuMenuButton"
+      [disabled]="isLoading">
+      Joystick:{{" "}}{{useJoystick ? 'Enabled' : 'Disabled'}}
     </button>
     <button *ngIf="romName" (click)="toggleFullScreen()" class="emuMenuButton" [disabled]="isLoading">
       Enter Fullscreen
@@ -57,19 +64,12 @@
     </button>
     <button *ngIf="romName" (click)="resetGame()" class="emuMenuButton" [disabled]="isLoading">
       Reset Game
-    </button>
-    <button *ngIf="onMobile() && !romName" (click)="useJoystick = !useJoystick" class="emuMenuButton"
-      [disabled]="isLoading">
-      {{useJoystick ? 'Disable Joystick' : 'Enable Joystick'}}
-    </button>
+    </button> 
     <button *ngIf="!onMobile() && romName" (click)="remapControls()" class="emuMenuButton" [disabled]="isLoading">
       Remap Controls
     </button>
     <button *ngIf="romName" (click)="callEjsSave()" class="emuMenuButton" [disabled]="isLoading">
       Manual Save
-    </button>
-    <button *ngIf="!romName" (click)="toggleLoadWithoutSave()" class="emuMenuButton" [disabled]="isLoading">
-      Load ROMs {{loadWithoutSave ? 'without Save' : 'with Save'}}
     </button>
     <app-file-upload class="emuMenuButton" *ngIf="!romName" [currentDirectory]="'Roms'" [user]="parentRef?.user!"
       [inputtedParentRef]="parentRef" [uploadButtonText]="'Upload Rom(s)'" [maxSelectedFiles]="100"

@@ -44,18 +44,17 @@ export class TopComponent extends ChildComponent implements OnInit {
     super();
   }
 
-  ngOnInit() { 
+  async ngOnInit() { 
     this.startLoading();
     const topicsFromUrl = this.getTopicsFromUrl(); 
     if (topicsFromUrl.length > 0) {
-      setTimeout(() => {
-        this.processUrlTopics(topicsFromUrl).then(() => {
-        });
+      setTimeout(async () => {
+        await this.processUrlTopics(topicsFromUrl);
       }, 50);
     } else {
       this.loadTopEntries();
     }
-    this.topService.getTopCategories().then((res: any) => {
+    await this.topService.getTopCategories().then((res: any) => {
       if (res) {
         this.topCategories = res;
       }
@@ -109,11 +108,11 @@ export class TopComponent extends ChildComponent implements OnInit {
     this.loadTopEntries();
   }
 
-  loadTopEntries() {
+  async loadTopEntries() {
     this.startLoading();
     this.errorMessage = null;
 
-    this.topService.getTop(this.topicInputted).then(
+    await this.topService.getTop(this.topicInputted).then(
       (res) => {
         this.topEntries = res || [];
         setTimeout(() => {
@@ -132,17 +131,17 @@ export class TopComponent extends ChildComponent implements OnInit {
     );
   }
 
-  onTopicAdded(topics: Topic[]) {
+  async onTopicAdded(topics: Topic[]) {
     this.topicInputted = topics;  
     console.log(topics, this.topicInputted);
-    setTimeout(() => { this.loadTopEntries(); }, 50);
+    setTimeout(async () => { await this.loadTopEntries(); }, 50);
   }
 
-  addToTop() {
+  async addToTop() {
     if (!this.topicInputted) return alert("You must select a topic!");
     if (!this.titleInput.nativeElement.value.trim()) return alert("Title is required!");
-
-    this.topService.addEntryToCategory(
+    this.startLoading();
+    await this.topService.addEntryToCategory(
       this.topicInputted,
       this.titleInput.nativeElement.value,
       this.urlInput.nativeElement.value,
@@ -150,40 +149,45 @@ export class TopComponent extends ChildComponent implements OnInit {
       this.fileSelector?.selectedFiles[0]?.id,
       this.parentRef?.user?.id ?? 0
     ).then(
-      (res) => {
+      async (res) => {
         this.parentRef?.showNotification(res.message);
         this.titleInput.nativeElement.value = '';
         this.urlInput.nativeElement.value = '';
         this.textInput.nativeElement.value = '';
         this.fileSelector?.removeAllFiles();
-        this.loadTopEntries(); // Refresh the list after adding
+        await this.loadTopEntries(); // Refresh the list after adding
       },
       (err) => {
         this.parentRef?.showNotification('Failed to add entry');
         console.error(err);
       }
     );
+    this.stopLoading();
   }
 
-  upvote(entry: any) {
-    this.topService.vote(entry.id, this.parentRef?.user?.id ?? 0, true).then(res => {
+  async upvote(entry: any) {
+    this.startLoading();
+    await this.topService.vote(entry.id, this.parentRef?.user?.id ?? 0, true).then(async res => {
       if (res.success) {
         this.parentRef?.showNotification("Voted successfully");
-        this.loadTopEntries();
+        await this.loadTopEntries();
       } else {
         this.parentRef?.showNotification("Error, please try again");
       }
     });
+    this.stopLoading();
   }
-  downvote(entry: any) {
-    this.topService.vote(entry.id, this.parentRef?.user?.id ?? 0, false).then(res => {
+  async downvote(entry: any) {
+    this.startLoading();
+    await this.topService.vote(entry.id, this.parentRef?.user?.id ?? 0, false).then(async res => {
       if (res.success) {
         this.parentRef?.showNotification("Voted successfully");
-        this.loadTopEntries();
+        await this.loadTopEntries();
       } else {
         this.parentRef?.showNotification("Error, please try again");
       }
     });
+    this.stopLoading();
   }
   edit(entry: any) {
     this.isEditPanelOpen = true;
@@ -196,19 +200,20 @@ export class TopComponent extends ChildComponent implements OnInit {
     this.parentRef?.closeOverlay();
     this.isSearchingUrlForEdit = false;
   }
-  editTop() {
-    this.topService.editTop(
+  async editTop() {
+    this.startLoading();
+    await this.topService.editTop(
       this.editingEntry.id,
       this.titleEditInput.nativeElement.value,
       this.urlEditInput.nativeElement.value,
       this.textEditInput.nativeElement.value,
       this.editFileSelector.selectedFiles[0]?.id
-    ).then(res => {
+    ).then(async res => {
       if (res.message) {
         this.parentRef?.showNotification(res.message);
       }
       if (res.success) {
-        this.loadTopEntries();
+        await this.loadTopEntries();
         this.closeEditPanel();
         this.editFileSelector.removeAllFiles();
         this.titleEditInput.nativeElement.value = '';
@@ -216,6 +221,7 @@ export class TopComponent extends ChildComponent implements OnInit {
         this.textEditInput.nativeElement.value = '';
       }
     })
+    this.stopLoading();
   }
   searchUrl() {
     if (this.urlInput.nativeElement.value) {
@@ -259,16 +265,17 @@ export class TopComponent extends ChildComponent implements OnInit {
     if (!categoryString) return [];
     return categoryString.split(',');
   }
-  addClickedTopic(category: string) {
-    // Remove any existing topic input
+  async addClickedTopic(category: string) {
+    this.startLoading();
     const trimmedCategory = category.trim();
     if (!this.topicComponent.attachedTopics?.find(x => x.topicText == trimmedCategory)) {
-      this.topicService.getTopics(trimmedCategory, this.parentRef?.user).then(res => {
+      await this.topicService.getTopics(trimmedCategory, this.parentRef?.user).then(async res => {
         if (res) {
-          this.onTopicAdded(res);
+          await this.onTopicAdded(res);
         }
       })
     }
+    this.stopLoading();
   }
   closeMenuPanel() {
     this.parentRef?.closeOverlay();

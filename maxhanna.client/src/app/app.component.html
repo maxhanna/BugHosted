@@ -18,8 +18,9 @@
   <div class="mainLayout" style="display:flex; max-width:100vw; box-sizing:border-box;">
     <div class="leftPanel" 
       *ngIf="isLeftPanelIncluded"
-      [style.max-width]="isLeftPanelHidden ? '36px' : '40vw'"
-      [style.width]="isLeftPanelHidden ? '36px' : ''">
+      [style.width.px]="isLeftPanelHidden ? leftPanelCollapsedWidth : leftPanelWidth"
+      [style.min-width.px]="isLeftPanelHidden ? leftPanelCollapsedWidth : minLeftPanelWidth"
+      [style.max-width.px]="isLeftPanelHidden ? leftPanelCollapsedWidth : maxLeftPanelWidth">
       <div class="leftPanelHeader">
         <button 
           class="leftPanelCollapseBtn" 
@@ -27,6 +28,10 @@
           title="Toggle navigation">{{ isLeftPanelHidden ? '>>>' : '<<<' }}</button>
       </div>
       <app-navigation-menu [collapsed]="isLeftPanelHidden"></app-navigation-menu>
+    </div>
+    <!-- Resizer handle -->
+    <div *ngIf="isLeftPanelIncluded && !isLeftPanelHidden" class="leftPanelResizer" 
+      (mousedown)="onLeftResizerDown($event)" (touchstart)="onLeftResizerDown($event)">
     </div>
 
     <div class="componentContainer" style="flex:1 1 auto; max-width:100vw; box-sizing:border-box;">

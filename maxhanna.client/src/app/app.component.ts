@@ -74,6 +74,14 @@ export class AppComponent implements OnInit, AfterViewInit {
   isModalOpen = false;
   isModal = true;
   isLeftPanelHidden = false;
+  // Adjustable left panel width (pixels)
+  leftPanelWidth = 0;
+  leftPanelCollapsedWidth = 36;
+  minLeftPanelWidth = 180;
+  maxLeftPanelWidth = 800;
+  private _isResizingLeftPanel = false;
+  private _resizeStartX = 0;
+  private _resizeStartWidth = 0;
   isModalCloseVisible = true;
   isShowingYoutubePopup = false;
   isShowingOverlay = false;
@@ -386,6 +394,16 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         });
     }
     this.updateLastSeenPeriodically();
+    // initialize left panel width from saved value or default 40vw
+    try {
+      const saved = window.localStorage.getItem('leftPanelWidth');
+      if (saved) {
+        this.leftPanelWidth = parseInt(saved, 10);
+      } else {
+        this.leftPanelWidth = Math.max(this.minLeftPanelWidth, Math.floor((window.innerWidth || 1200) * 0.4));
+      }
+      this.maxLeftPanelWidth = Math.max(this.leftPanelWidth, Math.floor((window.innerWidth || 1200) * 0.8));
+    } catch { this.leftPanelWidth = Math.max(this.minLeftPanelWidth, 350); }
   }
 
   ngAfterViewInit() {
@@ -1821,6 +1839,38 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     if (this.youtubeSearchResults && this.youtubeSearchResults.length) {
       this.resetYoutubeSearchClearTimer();
     }
+  }
+
+  // ----- Left panel resize handlers -----
+  onLeftResizerDown(event: MouseEvent | TouchEvent) {
+    event.preventDefault();
+    const clientX = (event as TouchEvent).touches ? (event as TouchEvent).touches[0].clientX : (event as MouseEvent).clientX;
+    this._isResizingLeftPanel = true;
+    this._resizeStartX = clientX;
+    this._resizeStartWidth = this.leftPanelWidth;
+    window.addEventListener('mousemove', this._onLeftResizerMove);
+    window.addEventListener('mouseup', this._onLeftResizerUp);
+    window.addEventListener('touchmove', this._onLeftResizerMove, { passive: false });
+    window.addEventListener('touchend', this._onLeftResizerUp);
+  }
+
+  private _onLeftResizerMove = (e: MouseEvent | TouchEvent) => {
+    if (!this._isResizingLeftPanel) return;
+    const clientX = (e as TouchEvent).touches ? (e as TouchEvent).touches[0].clientX : (e as MouseEvent).clientX;
+    const delta = clientX - this._resizeStartX;
+    let newWidth = this._resizeStartWidth + delta;
+    newWidth = Math.max(this.minLeftPanelWidth, Math.min(this.maxLeftPanelWidth, newWidth));
+    this.leftPanelWidth = Math.round(newWidth);
+    try { window.localStorage.setItem('leftPanelWidth', String(this.leftPanelWidth)); } catch { }
+    this.changeDetectorRef.markForCheck();
+  }
+
+  private _onLeftResizerUp = (_: MouseEvent | TouchEvent) => {
+    this._isResizingLeftPanel = false;
+    window.removeEventListener('mousemove', this._onLeftResizerMove);
+    window.removeEventListener('mouseup', this._onLeftResizerUp);
+    window.removeEventListener('touchmove', this._onLeftResizerMove);
+    window.removeEventListener('touchend', this._onLeftResizerUp);
   }
 
   fullscreenYoutubePopup() {

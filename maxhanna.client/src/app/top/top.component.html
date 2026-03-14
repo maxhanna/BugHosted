@@ -20,11 +20,11 @@
 
   <div class="add-entry-form" *ngIf="topicInputted && topicInputted.length > 0">
     <div class="categoryTitle">Add entry:</div>
-    <input type="text" #titleInput placeholder="Title" class="form-input" />
+    <input type="text" #titleInput placeholder="Title" class="form-input" [disabled]="isLoading" />
     <div class="url-input-container">
       <input type="text" #urlInput placeholder="URL (optional)" class="form-input url-input"
-        (input)="onUrlInputChange($event)" />
-      <button (click)="searchUrl()" class="url-search-button" *ngIf="!isSearchingUrl && urlInput.value.trim().length">
+        (input)="onUrlInputChange($event)" [disabled]="isLoading" />
+      <button (click)="searchUrl()" class="url-search-button" *ngIf="!isSearchingUrl && urlInput.value.trim().length" [disabled]="isLoading">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="8"></circle>
@@ -33,7 +33,7 @@
       </button>
     </div>
     <div>
-      <textarea #textInput placeholder="Description (optional)" class="form-input"></textarea>
+      <textarea #textInput placeholder="Description (optional)" class="form-input" [disabled]="isLoading"></textarea>
     </div>
     <div class="picture-input-container">
       <span>Picture (Optional):</span>
@@ -41,7 +41,7 @@
           [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
           [user]="parentRef?.user" [maxSelectedFiles]="1" #fileSelector></app-media-selector></span>
     </div>
-    <button (click)="addToTop()" class="add-button">Add</button>
+    <button (click)="addToTop()" class="add-button" [disabled]="isLoading">Add</button>
   </div>
 
   <div *ngIf="isSearchingUrl" class="popupPanel crawlerPopupPanel">
@@ -101,9 +101,11 @@
       </div>
 
       <button (click)="upvote(entry)"
+        [disabled]="isLoading"
         [class]="(parentRef?.user?.id && entry.upvoters.includes(parentRef?.user?.id)) ? 'green' : ''">Upvote
         ({{entry.upvotes}})</button>
       <button (click)="downvote(entry)"
+        [disabled]="isLoading"
         [class]="(parentRef?.user?.id && entry.downvoters.includes(parentRef?.user?.id)) ? 'red' : ''">Downvote
         ({{entry.downvotes}})</button>
       <button (click)="edit(entry)" *ngIf="parentRef?.user?.id == entry.userId">Edit</button>
