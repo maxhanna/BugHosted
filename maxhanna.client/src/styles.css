@@ -688,6 +688,10 @@ fieldset {
   cursor: default;
 }
 
+.optionsStatsDescription select {
+  cursor: pointer;
+}
+
 @media only screen and (min-width : 667px) {
 
   .optionsStatsDescription,
