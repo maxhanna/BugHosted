@@ -78,7 +78,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   leftPanelWidth = 0;
   leftPanelCollapsedWidth = 36;
   minLeftPanelWidth = 180;
-  maxLeftPanelWidth = 800;
+  maxLeftPanelWidth = 260;
   private _isResizingLeftPanel = false;
   private _resizeStartX = 0;
   private _resizeStartWidth = 0;
