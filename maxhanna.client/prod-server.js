@@ -76,6 +76,14 @@ try {
   console.log(chalk.yellow(`Could not list files in dist path: ${err.message}`));
 } 
 
+// ============================================================================
+// EmulatorJS Netplay — register the /list route EARLY, before any middleware.
+// This mirrors the upstream EmulatorJS-Netplay server.js which has NO
+// middleware at all — the route must not pass through Helmet, compression,
+// rate limiting, or any proxy that could interfere with the JSON response.
+// ============================================================================
+netplay.registerRoutes(app);
+
 // ========= External Game Assets (served outside dist) ========= 
 const externalAssetsRoot = path.join(__dirname, 'src', 'assets');
 
@@ -628,12 +636,6 @@ if (config.nodeEnv === 'development' && fs.existsSync(assetsPath)) {
   }));
   console.log(chalk.gray(`✓ Serving /assets from (dev): ${assetsPath}`));
 }
-
-// ============================================================================
-// EmulatorJS Netplay (same-origin — no extra port / certificate needed)
-// The Socket.IO server is attached to the main HTTPS server below.
-// ============================================================================
-netplay.registerRoutes(app);
 
 // ============================================================================
 // SPA Fallback

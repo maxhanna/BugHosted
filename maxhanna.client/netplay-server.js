@@ -14,12 +14,18 @@
  * Usage (in prod-server.js):
  *
  *   const netplay = require('./netplay-server');
- *   netplay.registerRoutes(app);            // before SPA fallback
+ *   netplay.registerRoutes(app);            // EARLY — before any middleware
  *   // ... create `server` ...
  *   netplay.attachSocket(server);           // after server creation
  */
 
 const chalk = require('chalk');
+
+// ---- Simple logger with timestamps (matches standalone server.js style) ----
+const ts = () => new Date().toISOString().replace('T', ' ').replace('Z', '');
+function log(...args) {
+  console.log(chalk.dim(`[${ts()}]`), chalk.cyan('[Netplay]'), ...args);
+}
 
 // ---- Shared state (module-scoped) ----
 let rooms = {};
@@ -32,7 +38,7 @@ const getClientIp = (socket) => {
   return socket.handshake.headers['x-real-ip'] || socket.handshake.address;
 };
 
-// ---- Express routes (call before SPA fallback) ----
+// ---- Express routes (call BEFORE any middleware) ----
 function registerRoutes(app) {
   /**
    * GET /list?game_id=<id>
@@ -70,7 +76,7 @@ function registerRoutes(app) {
     res.json(openRooms);
   });
 
-  console.log(chalk.gray('✓ Netplay route registered: GET /list'));
+  log(chalk.green('✓ Netplay route registered: GET /list'));
 }
 
 // ---- Socket.IO attachment (call after httpServer is created) ----
@@ -78,15 +84,15 @@ function attachSocket(httpServer) {
   const { Server: SocketIOServer } = require('socket.io');
 
   // Match the upstream server.js options exactly — default namespace,
-  // default path (/socket.io), minimal config.
+  // default path (/socket.io), CORS origin: '*'.
+  //
+  // The upstream EmulatorJS-Netplay server.js uses `origin: '*'`.
+  // A restrictive origin list can silently break Socket.IO handshakes
+  // when the client sends an Origin that doesn't exactly match
+  // (e.g. http vs https, www vs non-www, mobile browser quirks).
   io = new SocketIOServer(httpServer, {
     cors: {
-      origin: [
-        'https://bughosted.com',
-        'https://www.bughosted.com',
-        'http://localhost:5173',
-        'http://localhost:3000'
-      ],
+      origin: '*',
       methods: ['GET', 'POST'],
       credentials: true,
     },
@@ -104,6 +110,8 @@ function attachSocket(httpServer) {
   // ---- Default namespace — identical to upstream server.js ----
   io.on('connection', (socket) => {
     const clientIp = getClientIp(socket);
+    const ua = (socket.handshake.headers['user-agent'] || '').slice(0, 120);
+    log(chalk.green('➕ connect'), chalk.yellow(socket.id), 'from', clientIp, chalk.dim(ua));
 
     // ---- open-room ----
     socket.on('open-room', (data, callback) => {
@@ -145,6 +153,15 @@ function attachSocket(httpServer) {
       socket.join(sessionId);
       socket.sessionId = sessionId;
       socket.playerId = playerId;
+
+      log(chalk.green('📦 open-room'),
+        'session=', sessionId,
+        'ownerSocket=', socket.id,
+        'playerId=', playerId,
+        'gameId=', gameId,
+        'roomName=', roomName,
+        'maxPlayers=', maxPlayers);
+
       io.to(sessionId).emit('users-updated', rooms[sessionId].players);
       callback(null);
     });
@@ -184,6 +201,12 @@ function attachSocket(httpServer) {
       socket.join(sessionId);
       socket.sessionId = sessionId;
       socket.playerId = playerId;
+
+      log(chalk.green('🚪 join-room'),
+        'session=', sessionId,
+        'socket=', socket.id,
+        'playerId=', playerId,
+        'playerName=', playerName);
 
       io.to(sessionId).emit('users-updated', room.players);
 
@@ -256,9 +279,7 @@ function attachSocket(httpServer) {
     });
   });
 
-  console.log(
-    chalk.green('✓ EmulatorJS Netplay server attached (default namespace /)')
-  );
+  log(chalk.green('✓ EmulatorJS Netplay server attached (default namespace /)'));
 }
 
 // ---- Shared disconnect / leave logic ----
@@ -268,6 +289,9 @@ function handlePlayerLeave(socket) {
 
   if (!sessionId || !playerId) return;
   if (!rooms[sessionId]) return;
+
+  log(chalk.magenta('➖ disconnect/leave'), chalk.yellow(socket.id),
+    'room=', sessionId, 'player=', playerId);
 
   delete rooms[sessionId].players[playerId];
   rooms[sessionId].peers = rooms[sessionId].peers.filter(
@@ -285,6 +309,9 @@ function handlePlayerLeave(socket) {
       const newOwnerId =
         rooms[sessionId].players[remainingPlayers[0]].socketId;
       rooms[sessionId].owner = newOwnerId;
+
+      log(chalk.yellow('👑 owner transferred'), 'room=', sessionId, 'newOwner=', newOwnerId);
+
       rooms[sessionId].peers = rooms[sessionId].peers.map((peer) => {
         if (peer.source === socket.id) {
           return { source: newOwnerId, target: peer.target };
