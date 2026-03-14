@@ -2,7 +2,9 @@
   [style.paddingTop]="isFullScreen ? '0px' : null" 
   [style.width]="romName ? '100vw' : null"
   [style.minWidth]="'300px'" 
-  [style.padding-top]="!romName && !onMobile() && !parentRef?.isShowingOverlay ? '40px' : null"
+  [style.display]="!romName && !onMobile() && !parentRef?.isShowingOverlay ? 'flex' : null"
+  [style.justify-content]="!romName && !onMobile() && !parentRef?.isShowingOverlay ? 'center' : null"
+  [style.padding-top]="!romName && !onMobile() && !parentRef?.isShowingOverlay ? '50px' : null"
   [style.backgroundColor]="!romName && !onMobile() && !parentRef?.isShowingOverlay ? 'unset' : null"
   [style.opacity]="(!romName && !onMobile() && !parentRef?.isShowingOverlay) ? '95%' : ''">
   <app-title-bar *ngIf="!isFullScreen" [title]="romName ? getRomName() : 'Emulator'" [hasSearch]="true"
