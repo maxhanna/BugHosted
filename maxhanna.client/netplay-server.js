@@ -83,19 +83,20 @@ function registerRoutes(app) {
 function attachSocket(httpServer) {
   const { Server: SocketIOServer } = require('socket.io');
 
-  // Match the upstream server.js options exactly — default namespace,
-  // default path (/socket.io), CORS origin: '*'.
+  // Match the upstream server.js — default namespace, default path (/socket.io).
   //
-  // The upstream EmulatorJS-Netplay server.js uses `origin: '*'`.
-  // A restrictive origin list can silently break Socket.IO handshakes
-  // when the client sends an Origin that doesn't exactly match
-  // (e.g. http vs https, www vs non-www, mobile browser quirks).
+  // CRITICAL: maxHttpBufferSize must be large enough for game-state sync.
+  // When player 2 joins, the host sends the ENTIRE emulator save state
+  // (N64 = 16 MB+, PS1 = several MB, SNES = ~500 KB) as a single
+  // Socket.IO message.  The default limit is only 1 MB — exceeding it
+  // makes engine.io force-disconnect the sender, killing both players.
   io = new SocketIOServer(httpServer, {
     cors: {
       origin: '*',
       methods: ['GET', 'POST'],
       credentials: true,
     },
+    maxHttpBufferSize: 100 * 1024 * 1024,  // 100 MB — handles any save state
   });
 
   // Periodically clean up empty rooms
@@ -274,7 +275,9 @@ function attachSocket(httpServer) {
     });
 
     // ---- disconnect ----
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason) => {
+      log(chalk.red('⚡ disconnect'), chalk.yellow(socket.id), 'reason:', reason,
+        'room:', socket.sessionId || '-', 'player:', socket.playerId || '-');
       handlePlayerLeave(socket);
     });
   });

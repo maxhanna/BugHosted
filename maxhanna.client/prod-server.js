@@ -463,7 +463,9 @@ app.use(
 
     // If you stream (SSE or chunked) from backend -> client, this helps:
     selfHandleResponse: false, // allow streaming passthrough
-    ws: true, // if you ever do websockets on ai routes
+    // ws: true — REMOVED: http-proxy-middleware's WebSocket upgrade handler
+    // conflicts with Socket.IO's upgrade handler on the same HTTPS server,
+    // potentially intercepting or destroying Socket.IO WebSocket connections.
 
     onProxyReq: (proxyReq, req, res) => {
       req._startTime = Date.now();
