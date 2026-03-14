@@ -188,12 +188,14 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     //this.location.replaceState("/File/" + notification.fileId);
     if (!notification.isRead) { this.read(notification, true); }
     const parent = this.inputtedParentRef ?? this.parentRef;
-    // If a Files/FileSearch component is already open, update it instead of trying to create a second instance (prevents UI glitches)
-    if (parent && parent.componentsReferences && parent.componentsReferences.length > 0) {
-      const existing = parent.componentsReferences.find(cr => cr && cr.instance && typeof (cr.instance as any).getDirectory === 'function');
+    const currentComponent = parent?.componentsReferences[0];
+    console.log("Current top component instance:", currentComponent?.instance, parent?.componentsReferences);
+    if (currentComponent && typeof currentComponent.instance.getDirectory === 'function') {
+      const existing = currentComponent.instance;
       if (existing) {
+        console.log("Attempting to update existing Files component with new fileId and commentId");
         try {
-          const inst: any = existing.instance;
+          const inst: any = existing;
           inst.fileId = notification.fileId;
           inst.commentId = notification.commentId;
           // call getDirectory to trigger loading by fileId
@@ -206,6 +208,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
         }
       }
     }
+  
     this.createComponent("Files", { "fileId": notification.fileId, "commentId": notification.commentId, "previousComponent": this.previousComponent });
   }
   goToStoryId(notification: UserNotification) {

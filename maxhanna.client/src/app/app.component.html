@@ -15,9 +15,10 @@
   <app-navigation [user]="user"></app-navigation>
   <app-modal *ngIf="isModalOpen" (close)="closeModal()" [isCloseButtonVisible]="isModalCloseVisible" [isModal]="isModal" #modalComponent></app-modal>
   
-  <div class="mainLayout" style="display:flex; max-width:100vw; box-sizing:border-box;">
+  <div class="mainLayout">
     <div class="leftPanel" 
       *ngIf="isLeftPanelIncluded"
+      [style.overflow.x]="'hidden'"
       [style.width.px]="isLeftPanelHidden ? leftPanelCollapsedWidth : leftPanelWidth"
       [style.min-width.px]="isLeftPanelHidden ? leftPanelCollapsedWidth : minLeftPanelWidth"
       [style.max-width.px]="isLeftPanelHidden ? leftPanelCollapsedWidth : maxLeftPanelWidth">
