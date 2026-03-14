@@ -91,7 +91,7 @@
                   (click)="!disabled && selectFile(file);" [id]="'fileIdName'+file.id">
                   <span>
                     {{ file.isFolder ? '📁' : '' }}
-                    <span [innerHTML]="showSystemIcons ? getFileIcon(file) : ''"></span>
+                    <span [innerHTML]="(showSystemIcons && !file.isFolder) ? getFileIcon(file) : ''"></span>
 
                     <span 
                       [style.fontSize]="shouldShowRomMetadata() && !onMobile() ? 'x-large' : ''"
