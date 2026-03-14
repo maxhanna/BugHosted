@@ -41,26 +41,26 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() displayFileActions: boolean = true;
   @Input() displayComments: boolean = true;
   @Input() displayReactions: boolean = true;
+  @Input() displayPicturesOnlyToggler: boolean = true;
+  @Input() displayVideosOnlyToggler: boolean = true;
+  @Input() displayNSFWToggler: boolean = true;
+  @Input() displayHiddenFilesToggler: boolean = true;
+  @Input() displaySystemIcons: boolean = false;
+  @Input() displayRatings: boolean = false;
+  @Input() displayRomMetadata = false;
+  @Input() displayRomMetadataDesktop: boolean = false;
   @Input() autoload: boolean = false;
   @Input() canDragMove: boolean = true;
   @Input() fileId?: number | undefined = undefined;
   @Input() commentId?: number;
   @Input() displayTotal = true;
   @Input() showSpaceForNotifications = false;
-  @Input() showRomMetadata = false;
-  @Input() displayRomMetadataDesktop: boolean = false;
   @Input() showHiddenFiles: boolean = false; // default: do not show hidden files unless user toggles or user setting enables it
   @Input() showTopics: boolean = true;
   @Input() captureNotifications: boolean = false;
   @Input() currentPage = this.defaultCurrentPage;
   @Input() massDeleteMode: boolean = false;
   @Input() disabled = false;
-  @Input() showPicturesOnlyToggler: boolean = true;
-  @Input() showVideosOnlyToggler: boolean = true;
-  @Input() showNSFWToggler: boolean = true;
-  @Input() showHiddenFilesToggler: boolean = true;
-  @Input() showSystemIcons: boolean = false;
-  @Input() displayRatings: boolean = false;
   @Input() searchButtonSlot = 2 as SlotNumber;
   @Output() selectedForDeleteChange = new EventEmitter<number[]>();
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
@@ -252,7 +252,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   private updateDisplayRomMetadataDesktop() {
-    if (!this.displayRomMetadataDesktop || !this.showRomMetadata) {
+    if (!this.displayRomMetadataDesktop || !this.displayRomMetadata) {
       console.log('Not displaying ROM metadata on desktop: displayRomMetadataDesktop or showRomMetadata is false');
       return;
     }
@@ -1877,7 +1877,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   shouldShowRomMetadata(): boolean {
-    return this.showRomMetadata
+    return this.displayRomMetadata
       && this.isRomsDirectory()
       && (this.isFirstLoad || (this.directory?.data ?? []).length > 0);
   }
@@ -2042,7 +2042,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   onVideoLinkClick(url: string, ev: Event) {
-    if (this.showRomMetadata) {
+    if (this.displayRomMetadata) {
       this.parentRef?.visitExternalLink(url, false, true);
       return;
     }

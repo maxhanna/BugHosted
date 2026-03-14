@@ -15,14 +15,6 @@ import { getMessaging, getToken } from "firebase/messaging";
 export class NotificationsComponent extends ChildComponent implements OnInit, OnDestroy, OnChanges {
   constructor(private notificationService: NotificationService) {
     super();
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent?.user?.id) { //only allow notifications pushed if user is logged in.
-      try {
-        this.requestNotificationPermission();
-      } catch (e) {
-        console.log("error configuring firebase: ", e);
-      }
-    }
   }
 
   @Input() minimalInterface? = false;
@@ -46,13 +38,25 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
 
   private pollingInterval: any;
 
-  ngOnInit() {
+  async ngOnInit() {
     if (this.inputtedParentRef && !this.parentRef) {
       this.parentRef = this.inputtedParentRef;
     }
-    this.getNotifications();
-    this.startPolling();
-    this.scrollToTopNotification();
+    this.startLoading();
+    if (this.parentRef?.user?.id) { //only allow notifications pushed if user is logged in.
+      try {
+        this.requestNotificationPermission();
+      } catch (e) {
+        console.log("error configuring firebase: ", e);
+      }
+    }
+
+    await this.getNotifications();
+    setTimeout(() => { 
+      this.startPolling();
+      this.scrollToTopNotification();
+    }, 500);
+    this.stopLoading();
   }
 
   ngOnDestroy() {
@@ -225,6 +229,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
             inst.fileSearchComponent.getDirectory(undefined, notification.fileId);
           }
           this.showNotifications = false;
+          this.parentRef?.closeOverlay();
           return;
         } catch (e) {
           // fallthrough to createComponent if update fails

@@ -91,7 +91,7 @@
                   (click)="!disabled && selectFile(file);" [id]="'fileIdName'+file.id">
                   <span>
                     {{ file.isFolder ? '📁' : '' }}
-                    <span [innerHTML]="(showSystemIcons && !file.isFolder) ? getFileIcon(file) : ''"></span>
+                    <span [innerHTML]="(displaySystemIcons && !file.isFolder) ? getFileIcon(file) : ''"></span>
 
                     <span 
                       [style.fontSize]="shouldShowRomMetadata() && !onMobile() ? 'x-large' : ''"
@@ -678,28 +678,28 @@
       </button>
     </div>
 
-    <div class="spaceAroundFlex" *ngIf="showPicturesOnlyToggler">
+    <div class="spaceAroundFlex" *ngIf="displayPicturesOnlyToggler">
       <span style="width:100%">Show pictures only?</span>
       <button class="toggle-switch" (click)="showPicturesToggled()">
         {{ showPicturesOnly ? 'On' : 'Off' }}
       </button>
     </div>
 
-    <div class="spaceAroundFlex" *ngIf="showVideosOnlyToggler">
+    <div class="spaceAroundFlex" *ngIf="displayVideosOnlyToggler">
       <span style="width:100%">Show videos only?</span>
       <button class="toggle-switch" (click)="showVideosToggled()">
         {{ showVideosOnly ? 'On' : 'Off' }}
       </button>
     </div>
 
-    <div class="spaceAroundFlex" *ngIf="showHiddenFilesToggler && userIsLoggedIn()">
+    <div class="spaceAroundFlex" *ngIf="displayHiddenFilesToggler && userIsLoggedIn()">
       <span style="width:100%">Show hidden files?</span>
       <button class="toggle-switch" (click)="toggleShowHiddenFilesButton()">
         {{ showHiddenFiles ? 'On' : 'Off' }}
       </button>
     </div>
 
-    <div class="spaceAroundFlex" *ngIf="showNSFWToggler && userIsLoggedIn()">
+    <div class="spaceAroundFlex" *ngIf="displayNSFWToggler && userIsLoggedIn()">
       <span style="width:100%">Show NSFW?</span>
       <button class="toggle-switch" (click)="toggleNSFW()">
         {{ isDisplayingNSFW ? 'On' : 'Off' }}

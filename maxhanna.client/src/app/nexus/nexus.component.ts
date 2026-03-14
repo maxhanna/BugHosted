@@ -224,7 +224,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       });
     }
 
-    this.loadNexusData();
+    await this.loadNexusData();
   }
 
   ngOnDestroy() {
@@ -334,17 +334,14 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           }
 
           this.startLoadMapCounter();
-          this.startLoadBaseUnitsCounter();
-          this.stopLoading();
-        } else {
-          this.stopLoading();
-        }
+          this.startLoadBaseUnitsCounter();  
+        }  
       });
     } catch (ex) {
       this.addNotification((ex as Error).message);
       console.log(ex);
-      this.stopLoading();
     }
+    this.stopLoading();
     return this.nexusAvailableUnits;
   }
 
