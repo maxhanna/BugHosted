@@ -8,7 +8,7 @@
 
 <div class="fileListContainer" #fileListContainer *ngIf="displayListContainer" [class]="displayListContainer ? 'open' : ''">
 
-  <div *ngIf="showPrivatePublicOption && !getOverallProgress()">
+  <div *ngIf="displayPrivatePublicOption && !getOverallProgress()">
     <span>Select file(s) visibility:</span>
     <select #folderVisibility>
       <option [value]="true">Public</option>

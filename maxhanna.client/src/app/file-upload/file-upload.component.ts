@@ -17,7 +17,7 @@ export class FileUploadComponent implements OnDestroy {
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
   @Input() uploadButtonText: string = '';
-  @Input() showPrivatePublicOption: boolean = true;
+  @Input() displayPrivatePublicOption: boolean = true;
   @Input() allowedFileTypes: string = ''; 
   @Input() maxSelectedFiles: number = 5;
   @Input() displayOptionsAndTopicsButtons: boolean = true;
@@ -149,7 +149,7 @@ export class FileUploadComponent implements OnDestroy {
     this.inputtedParentRef?.updateLastSeen();
     const filesArray = Array.from(files);
 
-    const isPublic = (this.showPrivatePublicOption ? this.folderVisibility?.nativeElement.value : true) as boolean;
+    const isPublic = (this.displayPrivatePublicOption ? this.folderVisibility?.nativeElement.value : true) as boolean;
 
     const directoryInput = (this.currentDirectory || '').replace(/\/+$/, '');
  

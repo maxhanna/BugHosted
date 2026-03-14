@@ -42,7 +42,7 @@
     <app-file-upload (userUploadEvent)="uploadInitiate();" (userUploadFinishedEvent)="uploadFinished($event)"
       (userNotificationEvent)="uploadNotification($event);" (userCancelEvent)="cancelMakeDirectoryOrFile();"
       [currentDirectory]="currentDirectory" [user]="parentRef?.user!" [inputtedParentRef]="parentRef"
-      [uploadButtonText]="'Upload File(s)'" [showPrivatePublicOption]="isUploadInitiate ? true : false"
+      [uploadButtonText]="'Upload File(s)'" [displayPrivatePublicOption]="isUploadInitiate ? true : false"
       *ngIf="canUploadToFolder() && !showMakeDirectoryPrompt">
     </app-file-upload>
 

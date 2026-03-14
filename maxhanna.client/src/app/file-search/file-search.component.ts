@@ -31,7 +31,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() allowedFileTypes: string[] = [];
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
-  @Input() showPrivatePublicOption: boolean = true;
+  @Input() displayPrivatePublicOption: boolean = true;
   @Input() maxResults: number = 50;
   @Input() fileSearchMode: boolean = false;
   @Input() canChangeDirectory: boolean = true;
