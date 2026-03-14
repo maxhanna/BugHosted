@@ -1,5 +1,5 @@
 .componentMain {
-  width: 90vw;
+  min-width: 50vw;
   height: CALC(var(--vh, 1vh) * 100 - 60px);
 }
 
