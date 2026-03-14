@@ -1,3 +1,4 @@
+using System;
 using maxhanna.Server.Controllers.DataContracts.Todos;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
@@ -26,30 +27,31 @@ namespace maxhanna.Server.Controllers
           await conn.OpenAsync();
 
           string sql = $@"
-				SELECT DISTINCT 
-					t.id, 
-					t.todo, 
-					t.type, 
-					t.url, 
-					t.file_id, 
-					t.date, 
-					t.ownership,
-					u.username as owner_name
-				FROM 
-					todo t
-				JOIN users u ON t.ownership = u.id
-				WHERE  
-					t.type = @Type
-					AND (
-						t.ownership = @UserId
-						OR (
-							t.type IN (
-								SELECT column_name FROM todo_columns 
-							)
-						)
-					)
-					{(string.IsNullOrEmpty(search) ? "" : " AND t.todo LIKE CONCAT('%', @Search, '%')")} 
-					ORDER BY t.date DESC";
+        SELECT DISTINCT 
+          t.id, 
+          t.todo, 
+          t.type, 
+          t.url, 
+          t.file_id, 
+          t.date, 
+          t.ownership,
+          u.username as owner_name
+        FROM 
+          todo t
+        LEFT JOIN users u ON t.ownership = u.id
+        WHERE  
+          t.type = @Type
+          AND (
+            t.ownership = @UserId
+            OR (
+              t.type IN (
+                SELECT column_name FROM todo_columns 
+              )
+            )
+            OR (@Type = 'music' AND t.ownership IS NULL)
+          )
+          {(string.IsNullOrEmpty(search) ? "" : " AND t.todo LIKE CONCAT('%', @Search, '%')")} 
+          ORDER BY t.date DESC";
 
           using (var cmd = new MySqlCommand(sql, conn))
           {
@@ -73,7 +75,7 @@ namespace maxhanna.Server.Controllers
                   url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")),
                   fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
                   date: rdr.GetDateTime(rdr.GetOrdinal("date")),
-                  ownership: rdr.GetInt32(rdr.GetOrdinal("ownership")),
+                  ownership: rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("ownership")),
                   owner_name: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))
                 ));
               }
@@ -110,7 +112,7 @@ namespace maxhanna.Server.Controllers
                   t.ownership,
                   u.username as owner_name
                 FROM todo t
-                JOIN users u ON t.ownership = u.id
+                LEFT JOIN users u ON t.ownership = u.id
                 WHERE
                   t.ownership = @UserId
                   OR EXISTS (
@@ -119,6 +121,7 @@ namespace maxhanna.Server.Controllers
                   OR EXISTS (
                     SELECT 1 FROM todo_columns tc2 WHERE tc2.column_name = t.type AND tc2.shared_with IS NOT NULL AND FIND_IN_SET(@UserIdStr, REPLACE(tc2.shared_with, ' ', '')) > 0
                   )
+                  OR (t.type = 'music' AND t.ownership IS NULL)
                 ORDER BY t.date DESC";
 
           using (var cmd = new MySqlCommand(sql, conn))
@@ -139,7 +142,7 @@ namespace maxhanna.Server.Controllers
                   url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")),
                   fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
                   date: rdr.GetDateTime(rdr.GetOrdinal("date")),
-                  ownership: rdr.GetInt32(rdr.GetOrdinal("ownership")),
+                  ownership: rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("ownership")),
                   owner_name: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))
                 ));
               }
@@ -162,34 +165,56 @@ namespace maxhanna.Server.Controllers
       MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
       try
       {
-        conn.Open();
+        await conn.OpenAsync();
+
+        // Allow anonymous (no userId / userId <= 0) to create todos only when type == "music".
+        if ((model.userId <= 0) && !string.Equals(model.todo?.type, "music", StringComparison.OrdinalIgnoreCase))
+        {
+          return BadRequest("UserId is required for non-music todos.");
+        }
+
         string sql = @"
                     INSERT INTO 
                         maxhanna.todo (todo, type, url, file_id, ownership, date) 
                     VALUES 
                         (@Todo, @Type, @Url, @FileId, @Owner, UTC_TIMESTAMP());
                     SELECT LAST_INSERT_ID();";
-        MySqlCommand cmd = new MySqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@Todo", model.todo.todo);
-        cmd.Parameters.AddWithValue("@Type", model.todo.type);
-        cmd.Parameters.AddWithValue("@Url", model.todo.url);
-        cmd.Parameters.AddWithValue("@FileId", model.todo.fileId);
-        cmd.Parameters.AddWithValue("@Owner", model.userId);
-        var result = await cmd.ExecuteScalarAsync();
-        if (result != null)
+
+        using (MySqlCommand cmd = new MySqlCommand(sql, conn))
         {
-          return Ok(result);
-        }
-        else
-        {
-          _ = _log.Db("Post Returned 500", model.userId, "TODO", true);
-          return StatusCode(500, "Failed to insert data");
+          cmd.Parameters.AddWithValue("@Todo", model.todo?.todo ?? string.Empty);
+          cmd.Parameters.AddWithValue("@Type", model.todo?.type ?? string.Empty);
+
+          object urlValue = string.IsNullOrEmpty(model.todo?.url) ? DBNull.Value : (object)model.todo.url;
+          cmd.Parameters.AddWithValue("@Url", urlValue);
+
+          object fileIdValue = model.todo?.fileId == null ? DBNull.Value : (object)model.todo.fileId;
+          cmd.Parameters.AddWithValue("@FileId", fileIdValue);
+
+          // If userId <= 0 and type is music, store NULL ownership to denote anonymous
+          object ownerValue = model.userId > 0 ? (object)model.userId : DBNull.Value;
+          cmd.Parameters.AddWithValue("@Owner", ownerValue);
+
+          var result = await cmd.ExecuteScalarAsync();
+          if (result != null)
+          {
+            return Ok(result);
+          }
+          else
+          {
+            _ = _log.Db("Post Returned 500", model.userId, "TODO", true);
+            return StatusCode(500, "Failed to insert data");
+          }
         }
       }
       catch (Exception ex)
       {
-        _ = _log.Db("An error occurred while processing the POST request." + ex.Message, model.userId, "TODO", true);
+        _ = _log.Db("An error occurred while processing the POST request." + ex.Message, model?.userId, "TODO", true);
         return StatusCode(500, "An error occurred while processing the request.");
+      }
+      finally
+      {
+        try { conn.Close(); } catch { }
       }
     }
 
@@ -841,7 +866,7 @@ namespace maxhanna.Server.Controllers
                   url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")),
                   fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
                   date: rdr.GetDateTime(rdr.GetOrdinal("date")),
-                  ownership: rdr.GetInt32(rdr.GetOrdinal("ownership"))
+                  ownership: rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("ownership"))
                 );
                 if (seenTodos.Contains(todo.todo))
                 {
@@ -1292,7 +1317,7 @@ namespace maxhanna.Server.Controllers
           SELECT t.id, t.todo, t.type, t.url, t.file_id, t.date, t.ownership, u.username as owner_name
           FROM music_playlist_entries mpe
           JOIN todo t ON t.id = mpe.todo_id
-          JOIN users u ON t.ownership = u.id
+          LEFT JOIN users u ON t.ownership = u.id
           WHERE mpe.playlist_id = @PlaylistId
           ORDER BY mpe.sort_order ASC";
 
@@ -1310,7 +1335,7 @@ namespace maxhanna.Server.Controllers
             url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")),
             fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
             date: rdr.GetDateTime(rdr.GetOrdinal("date")),
-            ownership: rdr.GetInt32(rdr.GetOrdinal("ownership")),
+            ownership: rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("ownership")),
             owner_name: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))
           ));
         }

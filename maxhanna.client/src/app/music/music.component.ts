@@ -396,6 +396,9 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.updatePaginatedSongs();
     }
     this.reorderTable(undefined, this.orderSelect?.nativeElement.value || 'Newest', false);
+    setTimeout(() => {
+      this.cdr.detectChanges();
+    }, 50);
     this.stopLoading();
   }
 
@@ -432,10 +435,6 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       alert("Can't add song on another person's list");
       return;
     }
-    if (!this.parentRef?.user?.id) {
-      alert("You must be logged in to add to the music list.");
-      return;
-    }
     const title = this.titleInput.nativeElement.value;
     if (!title || title.trim() === "") {
       alert("Title cannot be empty!");
@@ -453,7 +452,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     tmpTodo.todo = title.trim();
     tmpTodo.fileId = this.selectedFile?.id;
     tmpTodo.date = new Date(); // Ensure date is set for sorting
-    const resTodo = await this.todoService.createTodo(this.parentRef.user.id, tmpTodo);
+    const resTodo = await this.todoService.createTodo(this.parentRef?.user?.id ?? 0, tmpTodo);
     if (resTodo) {
       tmpTodo.id = parseInt(resTodo);
       this.selectedFile = undefined;
@@ -817,7 +816,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     clearTimeout(this.debounceTimer);
     this.ytSearchTerm = this.searchInput?.nativeElement.value || '';
     this.debounceTimer = setTimeout(() => {
-      this.searchForSong();
+      this.searchForSong(this.ytSearchTerm);
     }, 100);
   }
 

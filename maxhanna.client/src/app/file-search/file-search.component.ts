@@ -1831,6 +1831,51 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     return map[ext] ?? '';
   }
 
+  /**
+   * Returns an icon for a given FileEntry.
+   * - For ROMs (Roms/ directory or romMetadata present) it will return the system icon via `getSystemEmoji`.
+   * - For other files it returns an <img> tag if a known asset exists, otherwise falls back to an emoji.
+   */
+  getFileIcon(file?: FileEntry): SafeHtml | string {
+    if (!file) return '';
+    if (file.isFolder) return ''; // folders already show 📁 elsewhere
+
+    // If this looks like a ROM, delegate to existing system icon logic
+    const dir = this.getDirectoryName(file);
+    if (dir === 'Roms/' || file.romMetadata) {
+      return this.getSystemEmoji('file.' + (file.fileType ?? ''), undefined, file.romMetadata?.actualSystem);
+    }
+
+    const fileName = file.fileName ?? '';
+    const ext = (this.fileService.getFileExtension(fileName) || '').toLowerCase();
+
+    // Known extension -> asset mapping (keep empty for non-ROM files so we don't reuse emulator icons)
+    // ROM/system icons are handled by `getSystemEmoji` / `getSystemIconUrl` already.
+    const extAssetMap: { [key: string]: string } = {};
+
+    const asset = extAssetMap[ext];
+    if (asset) {
+      const html = `<img src="${asset}" alt="${ext}" style="width:16px;height:16px;vertical-align:middle;margin-right:6px" />`;
+      return this.sanitizer.bypassSecurityTrustHtml(html);
+    }
+
+    // Emoji fallback mapping for common types
+    const fallback: { [key: string]: string } = {
+      'png': '🖼️', 'jpg': '🖼️', 'jpeg': '🖼️', 'gif': '🖼️', 'webp': '🖼️', 'svg': '🖼️',
+      'pdf': '📄', 'txt': '📄', 'md': '📄', 'doc': '📄', 'docx': '📄',
+      'xls': '📊', 'xlsx': '📊',
+      'csv': '📑',
+      'mp3': '🎵', 'wav': '🎵',
+      'mp4': '🎞️', 'mov': '🎞️', 'webm': '🎞️', 'mkv': '🎞️',
+      'zip': '🗜️', 'rar': '🗜️', '7z': '🗜️',
+      'apk': '📦',
+      'json': '🔧', 'xml': '🔧'
+    };
+
+    const emoji = fallback[ext] ?? '📎';
+    return this.sanitizer.bypassSecurityTrustHtml(`<span style="margin-right:6px">${emoji}</span>`);
+  }
+
   shouldShowRomMetadata(): boolean {
     return this.showRomMetadata
       && this.isRomsDirectory()
