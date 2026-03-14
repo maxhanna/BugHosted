@@ -72,11 +72,21 @@ function attachSocket(httpServer) {
   const { Server: SocketIOServer } = require('socket.io');
 
   io = new SocketIOServer(httpServer, {
+    path: '/socket.io',          // default — explicit for clarity
     cors: {
       origin: '*',
       methods: ['GET', 'POST'],
       credentials: true,
     },
+    // Prefer WebSocket to avoid HTTP long-polling overhead for 60 fps sync
+    transports: ['websocket', 'polling'],
+    // Allow large state-sync payloads (save states can be several MB)
+    maxHttpBufferSize: 50 * 1024 * 1024,   // 50 MB
+    // Disable per-message deflate to reduce CPU for high-frequency small msgs
+    perMessageDeflate: false,
+    // Increase ping interval / timeout so connections survive brief stalls
+    pingInterval: 25000,
+    pingTimeout: 60000,
   });
 
   // Periodically clean up empty rooms
@@ -218,23 +228,45 @@ function attachSocket(httpServer) {
     });
 
     // ---- data-message ----
+    // The host broadcasts sync-control frames to every other player each tick.
+    // Clients send their own inputs to the host via data-message too.
+    //
+    // We manually iterate room members instead of relying on socket.to(room)
+    // because the namespace socket's room set can silently drift when
+    // Socket.IO re-uses a Manager for multiple namespaces.
     socket.on('data-message', (data) => {
-      if (socket.sessionId) {
-        socket.to(socket.sessionId).emit('data-message', data);
+      const sid = socket.sessionId;
+      if (!sid || !rooms[sid]) return;
+      // Deliver to every *other* socket in the room
+      for (const pid in rooms[sid].players) {
+        const target = rooms[sid].players[pid].socketId;
+        if (target === socket.id) continue;           // skip sender
+        const targetSock = nsp.sockets.get(target);
+        if (targetSock) targetSock.emit('data-message', data);
       }
     });
 
     // ---- snapshot ----
     socket.on('snapshot', (data) => {
-      if (socket.sessionId) {
-        socket.to(socket.sessionId).emit('snapshot', data);
+      const sid = socket.sessionId;
+      if (!sid || !rooms[sid]) return;
+      for (const pid in rooms[sid].players) {
+        const target = rooms[sid].players[pid].socketId;
+        if (target === socket.id) continue;
+        const targetSock = nsp.sockets.get(target);
+        if (targetSock) targetSock.emit('snapshot', data);
       }
     });
 
     // ---- input ----
     socket.on('input', (data) => {
-      if (socket.sessionId) {
-        socket.to(socket.sessionId).emit('input', data);
+      const sid = socket.sessionId;
+      if (!sid || !rooms[sid]) return;
+      for (const pid in rooms[sid].players) {
+        const target = rooms[sid].players[pid].socketId;
+        if (target === socket.id) continue;
+        const targetSock = nsp.sockets.get(target);
+        if (targetSock) targetSock.emit('input', data);
       }
     });
 
