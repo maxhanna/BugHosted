@@ -63,19 +63,6 @@
   height: 0px;
 }
 
-.closePopupBtn {
-  background: transparent;
-  border: none;
-  font-size: 1.6rem;
-  color: var(--main-text-color);
-  cursor: pointer;
-  transition: transform 0.2s ease;
-}
-
-.closePopupBtn:hover {
-  transform: rotate(90deg);
-}
-
 .notificationBubble:not(:first-of-type) {
   margin-top: 20px;
 }

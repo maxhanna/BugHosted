@@ -75,6 +75,33 @@ textarea {
   font-size: var(--main-font-size);
 }
 
+  /* Ensure inline meta panel can position absolute children */
+  .romMetaPanelInline {
+    position: relative;
+  }
+
+  /* Small close button for inline metadata panels */
+  .closePopupBtn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: rgba(0,0,0,0.35);
+    color: var(--secondary-font-color);
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    z-index: 3;
+  }
+  .closePopupBtn:hover {
+    background: rgba(255,255,255,0.06);
+  }
+
 a:visited,
 .linkedComponent {
   color: var(--main-link-color);
@@ -1009,4 +1036,20 @@ fieldset {
   .spoiler .spoiler__content {
     transition: none;
   }
+}
+
+.closePopupBtn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: transparent;
+  border: none;
+  font-size: 1.6rem;
+  color: var(--main-text-color);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.closePopupBtn:hover {
+  transform: rotate(90deg);
 }
