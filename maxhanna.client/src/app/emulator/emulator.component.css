@@ -1,12 +1,13 @@
 .componentMain {
-  height: calc(100vh - 60px);
-  height: calc(var(--vh, 1vh) * 100 - 60px);
-  height: calc(100dvh - 60px);
-  overflow: hidden;
+  height: calc(100vh - 50px);
+  height: calc(var(--vh, 1vh) * 100 - 50px);
+  height: calc(100dvh - 50px);
+  overflow: hidden;  
 }
 
 .gamesContainer {
   max-width: 85vw;
+  background-color: var(--component-background-color);
 }
 
 .romNameTitle {

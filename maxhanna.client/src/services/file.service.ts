@@ -19,7 +19,7 @@ export class FileService {
   ];
 
   private ps1TitleKeywords: string[] = [
-    'final fantasy vii', 'metal gear solid', 'gran turismo', 'silent hill', 'tekken', 'crash bandicoot', 'spyro', 'vagrant story'
+    'final fantasy vii', 'metal gear solid', 'gran turismo', 'silent hill', 'tekken', 'crash bandicoot', 'spyro','spyro - year of the dragon', 'vagrant story'
   ];
 
   private pspTitleKeywords: string[] = [
