@@ -431,7 +431,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.updateLastRunTimestamp('notificationInfo');
   }
 
-  private announceNotificationsServerDown() {
+  announceNotificationsServerDown() {
     this.closeNotifications();
     this.clearNotifications();
     this.stopNotifications();

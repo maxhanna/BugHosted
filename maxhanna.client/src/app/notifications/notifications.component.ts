@@ -71,15 +71,35 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   private async getNotifications() {
     if (this.parentRef?.user?.id) {
       this.startLoading();
-      await this.notificationService.getNotifications(this.parentRef.user.id).then(res => {
+      try {
+        const timeoutMs = 20 * 1000; // 20 seconds
+        const timeoutPromise = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeoutMs));
+
+        const res = await Promise.race([
+          this.notificationService.getNotifications(this.parentRef.user.id) as Promise<UserNotification[]>,
+          timeoutPromise
+        ]) as UserNotification[];
+
         if (res) {
           this.notifications = res;
           this.unreadNotifications = this.notifications?.filter(x => x.isRead == false).length;
           this.updateCategories(false);
           this.updatePagination();
         }
-      });
-      this.stopLoading();
+      } catch (error) {
+        console.error('Error fetching notifications or timeout:', error);
+        // On timeout or error, activate server-down mechanisms via parent's navigation component
+        const parent = this.inputtedParentRef ?? this.parentRef;
+        try {
+          if (parent?.navigationComponent) { 
+            parent.navigationComponent.announceNotificationsServerDown(); 
+          } 
+        } catch (e) {
+          console.error('Error activating server-down mechanism:', e);
+        }
+      } finally {
+        this.stopLoading();
+      }
     }
   }
   private startPolling() {
@@ -190,7 +210,10 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     const parent = this.inputtedParentRef ?? this.parentRef;
     const currentComponent = parent?.componentsReferences[0];
     console.log("Current top component instance:", currentComponent?.instance, parent?.componentsReferences);
-    if (currentComponent && typeof currentComponent.instance.getDirectory === 'function') {
+    if (currentComponent 
+        && (typeof currentComponent.instance.getDirectory === 'function'
+            || typeof currentComponent.instance.fileSearchComponent?.getDirectory === 'function'
+        )) {
       const existing = currentComponent.instance;
       if (existing) {
         console.log("Attempting to update existing Files component with new fileId and commentId");
@@ -198,8 +221,11 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
           const inst: any = existing;
           inst.fileId = notification.fileId;
           inst.commentId = notification.commentId;
-          // call getDirectory to trigger loading by fileId
-          inst.getDirectory(undefined, notification.fileId);
+          if (typeof inst.getDirectory === 'function') {
+            inst.getDirectory(undefined, notification.fileId);
+          } else if (typeof inst.fileSearchComponent?.getDirectory === 'function') {
+            inst.fileSearchComponent.getDirectory(undefined, notification.fileId);
+          }
           this.showNotifications = false;
           return;
         } catch (e) {
