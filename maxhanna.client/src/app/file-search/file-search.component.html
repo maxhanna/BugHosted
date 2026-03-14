@@ -57,7 +57,12 @@
 
     Total: {{ directory ? directory.totalCount : 0 }}
   </div>
-
+  <div *ngIf="isLoading">
+      Loading Data...
+    </div>
+    <div *ngIf="!isLoading && directory && directory.totalCount == 0">
+      Empty.
+  </div>
   <!-- Main Data -->
   <div
     [class]="fileSearchMode ? 'inPopupComponent' : (displayRomMetadataDesktop && shouldShowRomMetadata() ? 'flexForRoms' : '')">
@@ -241,13 +246,7 @@
           <button title="Close" (click)="closeOptionsPanel()">Close</button>
         </div>
       </div>
-    </div>
-    <div *ngIf="isLoading">
-      Loading Data...
-    </div>
-    <div *ngIf="!isLoading && directory && directory.totalCount == 0">
-      Empty.
-    </div>
+    </div> 
   </div>
 </div>
 <!-- File Options Popup -->

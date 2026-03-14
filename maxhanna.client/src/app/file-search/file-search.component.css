@@ -621,11 +621,7 @@
 /* Inline metadata panel styles */
 .inlineMetaPanel {
   position: sticky;
-  top: 12px;
-  align-self: flex-start;
-  border-left: var(--main-border);
-  padding-left: 12px;
-  margin-left: 12px;
+  top: 12px; 
   max-width: 420px;
   width: 35%;
   min-width: 300px;
@@ -644,11 +640,10 @@
     display: none;
   }
 }
+ 
 
 .flexForRoms {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
+  display: flex; 
 }
 
 #fileTable {
@@ -662,14 +657,4 @@
   flex: 1 1 auto;
   overflow: auto;
   background: var(--component-background-color);
-}
-
-.flexForRoms {
-  display: flex;
-  align-items: flex-start;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: flex-start;
-  justify-content: flex-start;
-  align-content: flex-start;
 }
