@@ -51,24 +51,25 @@
 
       <div *ngIf="displaySearch && !maxFilesReached" class="fileSearchDiv">
         <app-file-search #fileSearchComponent
-                         [user]="user"
-                         [inputtedParentRef]="inputtedParentRef"
-                         [currentDirectory]="currentDirectory"
-                         [clearAfterSelectFile]="true"
-                         [showPrivatePublicOption]="false"
-                         [maxResults]="10"
-                         [canChangeDirectory]="true"
-                         [fileSearchMode]="true"
-                         [displayFileType]="false"
-                         [displayFileSize]="false"
-                         [displayFileData]="false"
-                         [displayFileActions]="false"
-                         [displayReactions]="false"
-                         [displayComments]="false" 
-                         [autoload]="true"
-                         (expandClickedEvent)="expandClickedEvent($event)"
-                         (selectFileEvent)="selectFile($event)"
-                         (currentDirectoryChangeEvent)="directoryChanged($event)">
+          [user]="user"
+          [inputtedParentRef]="inputtedParentRef"
+          [currentDirectory]="currentDirectory"
+          [clearAfterSelectFile]="true"
+          [showPrivatePublicOption]="false"
+          [maxResults]="10"
+          [canChangeDirectory]="true"
+          [fileSearchMode]="true"
+          [displayFileType]="false"
+          [displayFileSize]="false"
+          [displayFileData]="false"
+          [displayFileActions]="false"
+          [displaySystemIcons]="true"
+          [displayReactions]="false"
+          [displayComments]="false" 
+          [autoload]="true"
+          (expandClickedEvent)="expandClickedEvent($event)"
+          (selectFileEvent)="selectFile($event)"
+          (currentDirectoryChangeEvent)="directoryChanged($event)">
         </app-file-search>
       </div>
 
