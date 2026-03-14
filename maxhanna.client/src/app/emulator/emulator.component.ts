@@ -452,7 +452,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // instead of "segaMD" (6 buttons) because segaMS appears first in the
     // EmulatorJS getCores() iteration order.
     window.EJS_controlScheme = this.ejsControlSchemeForCore(core);
-    this.system = this.systemFromCore(core); 
+    this.system = this.systemFromCore(core);
 
     const romDisplayName = this.fileService.getFileWithoutExtension(fileName); // e.g., "Ultimate MK3 (USA)"
     this.applyGamepadControlSettings(romDisplayName, core, this.system);
@@ -495,7 +495,25 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       { urls: 'stun:stun.nextcloud.com:3478' },
       { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
       { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
-  ];
+    ];
+
+    // Minimal (STUN-only; for dev)
+    window.EJS_iceServers = [
+      { urls: 'stun:stun.l.google.com:19302' }
+    ];
+
+    // Or full config — many builds also honor this:
+    window.EJS_webrtcConfig = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        {
+          urls: ['turns:turn.example.com:5349', 'turn:turn.example.com:3478'],
+          username: 'netplay-user',
+          credential: 'a-very-strong-password'
+        }
+      ],
+    };
+
     window.EJS_startOnLoaded = true;
     window.EJS_volume = 0.5;
     window.EJS_lightgun = false;
@@ -656,7 +674,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       },
     ];
 
-    window.EJS_VirtualGamepadSettings = vpad.concat(speedButtons); 
+    window.EJS_VirtualGamepadSettings = vpad.concat(speedButtons);
 
     // Safety assert (keeps you from silently falling back)
     for (const it of window.EJS_VirtualGamepadSettings) {
@@ -769,19 +787,19 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
     // Default controller mappings for all 4 players.
     // Player 1 gets keyboard + gamepad; Players 2-4 get gamepad-only (no keyboard conflicts).
-    const isDPADCentric = (['nes','snes','gb','gbc','gba','genesis','saturn','sega_cd','3do','nds'] as string[]).includes(system ?? '') || core === 'yabause';
+    const isDPADCentric = (['nes', 'snes', 'gb', 'gbc', 'gba', 'genesis', 'saturn', 'sega_cd', '3do', 'nds'] as string[]).includes(system ?? '') || core === 'yabause';
     const rightStickValues = {
       "UP": isDPADCentric ? 'DPAD_UP' : 'RIGHT_STICK_Y:-1',
       "DOWN": isDPADCentric ? 'DPAD_DOWN' : 'RIGHT_STICK_Y:+1',
-      "LEFT": isDPADCentric ? 'DPAD_LEFT' : 'RIGHT_STICK_X:-1', 
+      "LEFT": isDPADCentric ? 'DPAD_LEFT' : 'RIGHT_STICK_X:-1',
       "RIGHT": isDPADCentric ? 'DPAD_RIGHT' : 'RIGHT_STICK_X:+1'
     };
 
     const leftStickValues = {
-      "UP": isDPADCentric ? 'DPAD_UP' :  'LEFT_STICK_Y:-1',
+      "UP": isDPADCentric ? 'DPAD_UP' : 'LEFT_STICK_Y:-1',
       "DOWN": isDPADCentric ? 'DPAD_DOWN' : 'LEFT_STICK_Y:+1',
-      "LEFT": isDPADCentric ? 'DPAD_LEFT' :  'LEFT_STICK_X:-1', 
-      "RIGHT": isDPADCentric ? 'DPAD_RIGHT' :  'LEFT_STICK_X:+1'
+      "LEFT": isDPADCentric ? 'DPAD_LEFT' : 'LEFT_STICK_X:-1',
+      "RIGHT": isDPADCentric ? 'DPAD_RIGHT' : 'LEFT_STICK_X:+1'
     };
 
     const gpOnly: Record<number, unknown> = {
@@ -3025,10 +3043,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private ejsControlSchemeForCore(core: string): string | undefined {
     switch (core) {
       case 'genesis_plus_gx': return 'segaMD';
-      case 'picodrive':       return 'sega32x';
-      case 'yabause':         return 'segaSaturn';
-      case 'smsplus':         return 'segaMS';
-      default:                return undefined; // let EmulatorJS derive it
+      case 'picodrive': return 'sega32x';
+      case 'yabause': return 'segaSaturn';
+      case 'smsplus': return 'segaMS';
+      default: return undefined; // let EmulatorJS derive it
     }
   }
 
@@ -3147,8 +3165,9 @@ declare global {
     EJS_disableLocalStorage?: boolean;
     EJS_directKeyboardInput?: boolean;
     EJS_enableGamepads?: boolean;
-    EJS_disableAltKey?: boolean; 
+    EJS_disableAltKey?: boolean;
     EJS_webrtcConfig?: any;
+    EJS_iceServers?: any;
     EJS_DEBUG_XX?: boolean;
     EJS_EXPERIMENTAL_NETPLAY?: boolean;
     EJS_logCoreInfo?: boolean;
@@ -3209,7 +3228,7 @@ type System =
   | 'genesis'
   | 'nds'
   | 'psp'
-  | 'saturn' 
+  | 'saturn'
   | 'sega_cd'
   | '3do'
   | 'n64'
