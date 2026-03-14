@@ -5635,12 +5635,6 @@ class EmulatorJS {
                 data["sync-control"].forEach((value) => {
                     let inFrame = parseInt(value.frame);
                     let frame = this.netplay.currentFrame;
-                    // Always initialise frame slots so the client's postMainLoop
-                    // sees a (possibly empty) array for idle frames.  Without this,
-                    // idle frames leave inputsData[frame] undefined and the client
-                    // enters an infinite re-sync loop ("control syncing - broken").
-                    this.netplay.inputsData[inFrame] || (this.netplay.inputsData[inFrame] = []);
-                    this.netplay.inputsData[frame] || (this.netplay.inputsData[frame] = []);
                     if (!value.connected_input || value.connected_input[0] < 0) return;
                     //if (value.connected_input[0] === this.netplay.getUserIndex(this.netplay.playerID)) return;
                     console.log(value, inFrame, frame);
@@ -5648,6 +5642,8 @@ class EmulatorJS {
                         inFrame++;
                         this.gameManager.functions.simulateInput(value.connected_input[0], value.connected_input[1], value.connected_input[2]);
                     }
+                    this.netplay.inputsData[inFrame] || (this.netplay.inputsData[inFrame] = []);
+                    this.netplay.inputsData[frame] || (this.netplay.inputsData[frame] = []);
                     if (this.netplay.owner) {
                         this.netplay.inputsData[frame].push(value);
                         this.gameManager.functions.simulateInput(value.connected_input[0], value.connected_input[1], value.connected_input[2]);
@@ -5717,7 +5713,7 @@ class EmulatorJS {
             //console.log(fps);
             //lastTime = newTime;
             //frame syncing - working
-            //control syncing - fixed (was broken: frame-0 crash + syncing flag never cleared)
+            //control syncing - broken
             this.netplay.currentFrame = parseInt(this.gameManager.getFrameNum()) - this.netplay.init_frame;
             if (!this.isNetplay) return;
             if (this.netplay.owner) {
@@ -5729,17 +5725,14 @@ class EmulatorJS {
                 }) : to_send.push({ frame: i + 10 });
                 this.netplay.sendMessage({ "sync-control": to_send });
             } else {
-                const frameData = this.netplay.inputsData[this.netplay.currentFrame];
-                if (this.netplay.currentFrame <= 0 || frameData) {
+                if (this.netplay.currentFrame <= 0 || this.netplay.inputsData[this.netplay.currentFrame]) {
                     this.netplay.wait = false;
-                    this.netplay.syncing = false;
                     this.play();
-                    if (frameData) {
-                        frameData.forEach((value) => {
-                            if (!value.connected_input) return;
-                            this.gameManager.functions.simulateInput(value.connected_input[0], value.connected_input[1], value.connected_input[2]);
-                        })
-                    }
+                    this.netplay.inputsData[this.netplay.currentFrame].forEach((value) => {
+                        if (!value.connected_input) return;
+                        console.log(value.connected_input);
+                        this.gameManager.functions.simulateInput(value.connected_input[0], value.connected_input[1], value.connected_input[2]);
+                    })
                 } else if (!this.netplay.syncing) {
                     console.log("sync");
                     this.pause(true);
