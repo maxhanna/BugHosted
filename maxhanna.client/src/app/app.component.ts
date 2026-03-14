@@ -70,6 +70,10 @@ export class AppComponent implements OnInit, AfterViewInit {
     'UpdateUserSettingsComponent',
     'Notifications',
   ];
+  flexedNavigationComponents: string[] = [
+    'EmulatorComponent',
+    'ChatComponent', 
+  ];
   showMainContent = true;
   isModalOpen = false;
   isModal = true;
@@ -98,6 +102,9 @@ export class AppComponent implements OnInit, AfterViewInit {
   youtubeSearchKeyword: string = '';
   private youtubeSearchClearTimer?: any; 
   componentsReferences = Array<ComponentRef<any>>();
+  // In-memory cache of recent poll results to avoid frequent server calls
+  pollResultsCache = new Map<string, { results: any; timestamp: number }>();
+  pollResultsCacheTtlMs = 30000; // 30s TTL
   private lastLastSeenUpdate: number | null = null;
   navigationItems: MenuItem[] = [
     { ownership: 0, icon: "🌍", title: "Social", content: undefined },
@@ -325,6 +332,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   pollQuestion = "";
   pollResults: any = null;
   private isPollLoading = false;
+  private pollMutationObserver: MutationObserver | null = null;
+  private pollTotalsDebounceTimer: any = null;
   isShowingUserTagPopup = false;
   isShowingSecurityPopup = false;
   preventShowSecurityPopup = false;
@@ -394,6 +403,33 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         });
     }
     this.updateLastSeenPeriodically();
+    // start a MutationObserver to refresh poll totals once when poll elements are added to the DOM
+    try {
+      this.pollMutationObserver = new MutationObserver((mutations) => {
+        let found = false;
+        for (const m of mutations) {
+          for (const n of Array.from(m.addedNodes)) {
+            try {
+              const el = n as HTMLElement;
+              if (!el) continue;
+              if (el.matches && el.matches('.poll-container[data-component-id]:not([data-poll-fetched])')) found = true;
+              if (el.querySelector && el.querySelector('.poll-container[data-component-id]:not([data-poll-fetched])')) found = true;
+            } catch { }
+          }
+        }
+        if (found) {
+          if (this.pollTotalsDebounceTimer) clearTimeout(this.pollTotalsDebounceTimer);
+          this.pollTotalsDebounceTimer = setTimeout(() => {
+            this.refreshPollTotalsForContainers();
+          }, 50);
+        }
+      });
+      if (document && document.body) {
+        this.pollMutationObserver.observe(document.body, { childList: true, subtree: true });
+      }
+      // For any polls already present on first render, do a one-time refresh shortly after init
+      setTimeout(() => this.refreshPollTotalsForContainers(), 250);
+    } catch {}
     // initialize left panel width from saved value or default 40vw
     try {
       const saved = window.localStorage.getItem('leftPanelWidth');
@@ -404,6 +440,16 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       }
       this.maxLeftPanelWidth = Math.max(this.leftPanelWidth, Math.floor((window.innerWidth || 1200) * 0.8));
     } catch { this.leftPanelWidth = Math.max(this.minLeftPanelWidth, 350); }
+  }
+
+  ngOnDestroy() {
+    try {
+      if (this.pollMutationObserver) {
+        this.pollMutationObserver.disconnect();
+        this.pollMutationObserver = null;
+      }
+    } catch {}
+    try { if (this.pollTotalsDebounceTimer) clearTimeout(this.pollTotalsDebounceTimer); } catch {}
   }
 
   ngAfterViewInit() {
@@ -587,6 +633,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     childComponent.unique_key = ++this.child_unique_key;
     childComponent.parentRef = this;
 
+    // Apply inputs to newly created component
     if (inputs) {
       Object.keys(inputs).forEach(key => {
         childComponent[key] = inputs[key];
@@ -1033,8 +1080,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         return '<div class="poll-error">Poll needs at least 2 options</div>';
       }
 
-      // Generate poll HTML
-      let pollHtml: string = `<div class="poll-container"><div class="poll-question">${question}</div><div class="poll-options">`;
+      // Generate poll HTML (include data-component-id so totals can be refreshed later)
+      let pollHtml: string = `<div class="poll-container" data-component-id="${normalizedComponentId}"><div class="poll-question">${question}</div><div class="poll-options">`;
       let hasVoted = false;
       options.forEach((option: string, index: number) => {
         if (!option.includes("votes, ")) {
@@ -1066,7 +1113,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         }
       });
 
-      pollHtml += `</div></div>`;
+      pollHtml += `</div>`;
+
+      // Append a poll-total placeholder so we can show the number of votes cast before revealing option breakdowns
+      pollHtml += `<div class="poll-total">Votes cast: <span class="poll-total-count">0</span></div></div>`;
 
       return pollHtml.replace(/\n/g, '');
     });
@@ -1456,6 +1506,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       try {
         const res = await this.pollService.vote(this.user?.id ?? 0, checkValue ?? '', componentId);
         this.pollResults = res;
+        try { const cacheKey = componentId ?? initialComponentId ?? ''; if (cacheKey) this.pollResultsCache.set(cacheKey, { results: res, timestamp: Date.now() }); } catch {}
         this.pollChecked = true;
         this.pollQuestion = pollQuestion;
         // Render results immediately in-place so users see results instead of clickable options
@@ -1515,7 +1566,9 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           });
 
           pollHtml += `</div><div class="poll-total">Total Votes: ${total}</div></div>`;
+          try { this.pollResultsCache.set(componentId, { results: this.pollResults, timestamp: Date.now() }); } catch {}
           container.innerHTML = pollHtml;
+          try { container.setAttribute('data-poll-fetched', '1'); } catch {}
         }
       }
     } catch (err) {
@@ -1540,6 +1593,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         `<div class="poll-question">${this.escapeHtml(question || '')}</div><div class="poll-options">`;
 
       const total = results.totalVoters ?? 0;
+      try { this.pollResultsCache.set(componentId, { results: results, timestamp: Date.now() }); } catch {}
       (results.options || []).forEach((option: any, index: number) => {
         const voteCount = option.voteCount ?? 0;
         const percentage = total > 0 ? Math.round((voteCount / total) * 100) : 0;
@@ -1555,6 +1609,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
       pollHtml += `</div><div class="poll-total">Total Votes: ${total}</div></div>`;
       container.innerHTML = pollHtml;
+      try { container.setAttribute('data-poll-fetched', '1'); } catch {}
     } catch (err) {
       console.error('Error rendering poll results in DOM', err);
     }
@@ -1624,6 +1679,43 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     }
   }
 
+  // Refresh poll totals for any inline poll containers so users can see how many votes have been cast
+  // without exposing option-level results until they vote.
+  private async refreshPollTotalsForContainers() {
+    try {
+      const containers = Array.from(document.querySelectorAll('.poll-container[data-component-id]')) as HTMLElement[];
+      for (const container of containers) {
+        try {
+          const compId = container.getAttribute('data-component-id') || '';
+          if (!compId) continue;
+          // find the total count element inside this container
+          const totalEl = container.querySelector('.poll-total-count') as HTMLElement | null;
+          if (!totalEl) continue;
+          // Skip if we've already fetched totals for this container
+          if (container.hasAttribute('data-poll-fetched')) continue;
+
+          // Check cache first
+          const cached = this.pollResultsCache.get(compId);
+          if (cached && (Date.now() - cached.timestamp) < (this.pollResultsCacheTtlMs)) {
+            const cres = cached.results;
+            if (cres && typeof cres.TotalVoters !== 'undefined') totalEl.textContent = String(cres.TotalVoters ?? 0);
+            container.setAttribute('data-poll-fetched', '1');
+            continue;
+          }
+
+          const res = await this.pollService.getResults(compId);
+          if (res && typeof res.TotalVoters !== 'undefined') {
+            totalEl.textContent = String(res.TotalVoters ?? 0);
+            try { this.pollResultsCache.set(compId, { results: res, timestamp: Date.now() }); } catch {}
+            container.setAttribute('data-poll-fetched', '1');
+          }
+        } catch (inner) { /* ignore per-container errors */ }
+      }
+    } catch (err) {
+      console.error('Error refreshing poll totals:', err);
+    }
+  }
+
   private escapeHtml(input: string): string {
     return input?.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')?.replace(/"/g, '&quot;') || '';
   }
@@ -1643,6 +1735,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       // (strip any "(X votes, Y%)" suffixes), then rebuild the interactive poll HTML (checkboxes)
       // and decrement the displayed total votes by 1 if present.
       try {
+        try { this.pollResultsCache.delete(componentId); } catch {}
         const container = document.getElementById(componentId);
         if (container) {
           const qEl = container.querySelector('.poll-question') as HTMLElement | null;
@@ -1684,6 +1777,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
           pollHtml += `</div>`;
           container.innerHTML = pollHtml;
+          try { container.setAttribute('data-poll-fetched', '1'); } catch {}
         }
       } catch (domErr) {
         console.error('Error updating poll DOM after delete:', domErr);
@@ -1833,6 +1927,12 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       && (this.navigationComponent?.navbarCollapsed ?? false)
       && !(this.excludedExtendedNavigationComponents.includes(this.currentComponent + 'Component') 
           || this.excludedExtendedNavigationComponents.includes(this.currentComponent));
+  }
+  get isFlexPanel(): boolean {
+    return this.isDesktop  
+      && (this.navigationComponent?.navbarCollapsed ?? false)
+      && !(this.flexedNavigationComponents.includes(this.currentComponent + 'Component') 
+          || this.flexedNavigationComponents.includes(this.currentComponent));
   }
 
   notifyYoutubeSearchOpened() {

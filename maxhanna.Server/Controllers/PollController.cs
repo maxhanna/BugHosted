@@ -221,6 +221,26 @@ namespace maxhanna.Server.Controllers
 
 			return Ok(response);
 		}
+
+		[HttpGet("/Poll/Results", Name = "PollResults")]
+		public async Task<IActionResult> PollResults([FromQuery] string componentId)
+		{
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				conn.Open();
+				return await GetPollResults(componentId, conn);
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while fetching poll results. " + ex.Message, null, "POLL", true);
+				return StatusCode(500, "An error occurred while fetching poll results.");
+			}
+			finally
+			{
+				conn.Close();
+			}
+		}
  
 		public class VoteRequest
 		{

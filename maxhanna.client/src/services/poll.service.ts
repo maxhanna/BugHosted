@@ -34,4 +34,19 @@ export class PollService {
       return 'An error occurred while deleting the vote.';
     }
   }
+  async getResults(component_id: string) {
+    try {
+      const url = `/poll/results?componentId=${encodeURIComponent(component_id)}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
 }

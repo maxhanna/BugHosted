@@ -5,6 +5,10 @@
   overflow: hidden;
 }
 
+.gamesContainer {
+  max-width: 85vw;
+}
+
 .romNameTitle {
   width: calc(100% - 100px);
   display: block;
