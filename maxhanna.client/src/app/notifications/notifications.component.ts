@@ -2,11 +2,9 @@ import { Component, Input, OnChanges, OnDestroy, OnInit } from '@angular/core';
 import { NotificationService } from '../../services/notification.service';
 import { ChildComponent } from '../child.component';
 import { UserNotification } from '../../services/datacontracts/notification/user-notification';
-import { Location } from '@angular/common';
 import { AppComponent } from '../app.component';
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken } from "firebase/messaging";
-import { CommentService } from '../../services/comment.service';
 
 @Component({
   selector: 'app-notifications',
@@ -15,7 +13,7 @@ import { CommentService } from '../../services/comment.service';
   standalone: false
 })
 export class NotificationsComponent extends ChildComponent implements OnInit, OnDestroy, OnChanges {
-  constructor(private notificationService: NotificationService, private commentService: CommentService, private location: Location) {
+  constructor(private notificationService: NotificationService) {
     super();
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent?.user?.id) { //only allow notifications pushed if user is logged in.
