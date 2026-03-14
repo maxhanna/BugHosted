@@ -72,20 +72,16 @@ export class AppComponent implements OnInit, AfterViewInit {
   ];
   flexedNavigationComponents: string[] = [
     'EmulatorComponent',
-    'ChatComponent', 
+    'ChatComponent',
   ];
   showMainContent = true;
   isModalOpen = false;
   isModal = true;
   isLeftPanelHidden = false;
-  // Adjustable left panel width (pixels)
   leftPanelWidth = 0;
   leftPanelCollapsedWidth = 36;
   minLeftPanelWidth = 180;
   maxLeftPanelWidth = 260;
-  private _isResizingLeftPanel = false;
-  private _resizeStartX = 0;
-  private _resizeStartWidth = 0;
   isModalCloseVisible = true;
   isShowingYoutubePopup = false;
   isShowingOverlay = false;
@@ -100,11 +96,8 @@ export class AppComponent implements OnInit, AfterViewInit {
   emojiMap: { [key: string]: string } = { "<3": "❤️", ":blush:": "😊", ":smiley:": "😃", ":)": "🙂", ":-)": "🙂", ":smile:": "😄", ":grin:": "😁", ":D": "😁", ":-D": "😁", ":laughing:": "😆", ":sweat_smile:": "😅", ":joy:": "😂", ":rofl:": "🤣", ":relaxed:": "☺️", ":yum:": "😋", ":sunglasses:": "😎", ":heart_eyes:": "😍", ":kissing_heart:": "😘", ":kissing:": "😗", ":kissing_smiling_eyes:": "😙", ":kissing_closed_eyes:": "😚", ":stuck_out_tongue:": "😛", ":stuck_out_tongue_winking_eye:": "😜", ":stuck_out_tongue_closed_eyes:": "😝", ":money_mouth_face:": "🤑", ":hugging_face:": "🤗", ":nerd_face:": "🤓", ":thinking_face:": "🤔", ":zipper_mouth_face:": "🤐", ":raised_eyebrow:": "🤨", ":neutral_face:": "😐", ":expressionless:": "😑", ":no_mouth:": "😶", ":smirk:": "😏", ":unamused:": "😒", ":roll_eyes:": "🙄", ":grimacing:": "😬", ":lying_face:": "🤥", ":relieved:": "😌", ":pensive:": "😔", ":sleepy:": "😪", ":drooling_face:": "🤤", ":sleeping:": "😴", ":mask:": "😷", ":face_with_thermometer:": "🤒", ":face_with_head_bandage:": "🤕", ":nauseated_face:": "🤢", ":face_vomiting:": "🤮", ":sneezing_face:": "🤧", ":hot_face:": "🥵", ":cold_face:": "🥶", ":woozy_face:": "🥴", ":dizzy_face:": "😵", ":exploding_head:": "🤯", ":cowboy_hat_face:": "🤠", ":partying_face:": "🥳", ":disguised_face:": "🥸", ":smiling_face_with_tear:": "🥲", ":shushing_face:": "🤫", ":face_with_symbols_on_mouth:": "🤬", ":face_with_hand_over_mouth:": "🤭", ":face_with_monocle:": "🧐", ":star_struck:": "🤩", ":zany_face:": "🤪", ":face_with_raised_eyebrow:": "🤨", ":face_with_spiral_eyes:": "😵‍💫", ":face_with_peeking_eye:": "🫣", ":saluting_face:": "🫡", ":face_with_diagonal_mouth:": "🫤", ":dotted_line_face:": "🫥", ":face_with_open_eyes_and_hand_over_mouth:": "🫢", ":face_with_open_mouth:": "😮", ":face_with_rolling_eyes:": "🙄", ":face_with_steam_from_nose:": "😤", ":face_with_medical_mask:": "😷", ":face_with_crossed_out_eyes:": "😵‍💫", ":wave:": "👋", ":raised_hand:": "✋", ":raised_back_of_hand:": "🤚", ":hand_with_fingers_splayed:": "🖐️", ":vulcan_salute:": "🖖", ":ok_hand:": "👌", ":pinching_hand:": "🤏", ":victory_hand:": "✌️", ":crossed_fingers:": "🤞", ":love_you_gesture:": "🤟", ":sign_of_the_horns:": "🤘", ":call_me_hand:": "🤙", ":point_left:": "👈", ":point_right:": "👉", ":point_up:": "☝️", ":point_down:": "👇", ":middle_finger:": "🖕", ":thumbsup:": "👍", ":thumbsdown:": "👎", ":raised_fist:": "✊", ":fist:": "👊", ":fist_left:": "🤛", ":fist_right:": "🤜", ":clap:": "👏", ":open_hands:": "👐", ":palms_up_together:": "🤲", ":handshake:": "🤝", ":pray:": "🙏", ":writing_hand:": "✍️", ":crayon:": "✏️", ":nail_care:": "💅", ":selfie:": "🤳", ":muscle:": "💪", ":mechanical_arm:": "🦾", ":mechanical_leg:": "🦿", ":leg:": "🦵", ":foot:": "🦶", ":ear:": "👂", ":nose:": "👃", ":brain:": "🧠", ":tooth:": "🦷", ":bone:": "🦴", ":eyes:": "👀", ":eye:": "👁️", ":tongue:": "👅", ":lips:": "👄", ":baby:": "👶", ":child:": "🧒", ":boy:": "👦", ":girl:": "👧", ":adult:": "🧑", ":person:": "🧑", ":man:": "👨", ":woman:": "👩", ":older_adult:": "🧓", ":older_man:": "👴", ":older_woman:": "👵", ":blonde_person:": "👱", ":bearded_person:": "🧔", ":man_with_beard:": "🧔‍♂️", ":woman_with_beard:": "🧔‍♀️", ":red_haired_person:": "👨‍🦰", ":curly_haired_person:": "👨‍🦱", ":bald_person:": "👨‍🦲", ":white_haired_person:": "👨‍🦳", ":person_in_tuxedo:": "🤵", ":bride_with_veil:": "👰", ":pregnant_woman:": "🤰", ":breast_feeding:": "🤱", ":angel:": "👼", ":santa:": "🎅", ":mrs_claus:": "🤶", ":mage:": "🧙", ":fairy:": "🧚", ":vampire:": "🧛", ":merperson:": "🧜", ":elf:": "🧝", ":genie:": "🧞", ":zombie:": "🧟", ":person_frowning:": "🙍", ":person_pouting:": "🙎", ":person_gesturing_no:": "🙅", ":person_gesturing_ok:": "🙆", ":person_tipping_hand:": "💁", ":person_raising_hand:": "🙋", ":deaf_person:": "🧏", ":person_bowing:": "🙇", ":person_facepalming:": "🤦", ":person_shrugging:": "🤷", ":person_standing:": "🧍", ":person_kneeling:": "🧎", ":person_running:": "🏃", ":person_walking:": "🚶", ":person_lifting_weights:": "🏋️", ":person_cycling:": "🚴", ":person_swimming:": "🏊", ":person_playing_water_polo:": "🤽", ":person_playing_handball:": "🤾", ":person_juggling:": "🤹", ":person_in_lotus_position:": "🧘", ":person_in_steamy_room:": "🧖", ":person_climbing:": "🧗", ":person_in_motorized_wheelchair:": "🦽", ":person_in_manual_wheelchair:": "🦼", ":person_with_probing_cane:": "🦯", ":person_with_white_cane:": "🦯", ":person_with_crown:": "🫅", ":person_with_veil:": "👰", ":superhero:": "🦸", ":supervillain:": "🦹", ":ninja:": "🥷", ":construction_worker:": "👷", ":guard:": "💂", ":detective:": "🕵️", ":health_worker:": "🧑‍⚕️", ":farmer:": "🧑‍🌾", ":cook:": "🧑‍🍳", ":student:": "🧑‍🎓", ":singer:": "🧑‍🎤", ":artist:": "🧑‍🎨", ":teacher:": "🧑‍🏫", ":factory_worker:": "🧑‍🏭", ":technologist:": "🧑‍💻", ":office_worker:": "🧑‍💼", ":mechanic:": "🧑‍🔧", ":scientist:": "🧑‍🔬", ":astronaut:": "🧑‍🚀", ":firefighter:": "🧑‍🚒", ":pilot:": "🧑‍✈️", ":judge:": "🧑‍⚖️", ":person_with_heart:": "💑", ":couple_with_heart:": "💏", ":two_men_holding_hands:": "👬", ":two_women_holding_hands:": "👭", ":family:": "👪", ":people_hugging:": "🫂", ":footprints:": "👣", ":monkey_face:": "🐵", ":monkey:": "🐒", ":gorilla:": "🦍", ":orangutan:": "🦧", ":dog:": "🐶", ":cat:": "🐱", ":mouse:": "🐭", ":hamster:": "🐹", ":rabbit:": "🐰", ":fox:": "🦊", ":bear:": "🐻", ":panda:": "🐼", ":polar_bear:": "🐻‍❄️", ":koala:": "🐨", ":tiger:": "🐯", ":lion:": "🦁", ":cow:": "🐮", ":pig:": "🐷", ":frog:": "🐸", ":squid:": "🦑", ":octopus:": "🐙", ":shrimp:": "🦐", ":crab:": "🦀", ":lobster:": "🦞", ":blowfish:": "🐡", ":tropical_fish:": "🐠", ":fish:": "🐟", ":dolphin:": "🐬", ":whale:": "🐋", ":shark:": "🦈", ":crocodile:": "🐊", ":turtle:": "🐢", ":snake:": "🐍", ":dragon_face:": "🐲", ":dragon:": "🐉", ":sauropod:": "🦕", ":t-rex:": "🦖", ":whale2:": "🐋", ":seal:": "🦭", ":fly:": "🪰", ":worm:": "🪱", ":bug:": "🐛", ":ant:": "🐜", ":honeybee:": "🐝", ":beetle:": "🪲", ":ladybug:": "🐞", ":cricket:": "🦗", ":cockroach:": "🪳", ":spider:": "🕷️", ":scorpion:": "🦂", ":mosquito:": "🦟", ":microbe:": "🦠", ":bouquet:": "💐", ":cherry_blossom:": "🌸", ":white_flower:": "💮", ":rosette:": "🏵️", ":rose:": "🌹", ":wilted_flower:": "🥀", ":hibiscus:": "🌺", ":sunflower:": "🌻", ":blossom:": "🌼", ":tulip:": "🌷", ":seedling:": "🌱", ":potted_plant:": "🪴", ":evergreen_tree:": "🌲", ":deciduous_tree:": "🌳", ":palm_tree:": "🌴", ":cactus:": "🌵", ":ear_of_rice:": "🌾", ":herb:": "🌿", ":shamrock:": "☘️", ":four_leaf_clover:": "🍀", ":maple_leaf:": "🍁", ":fallen_leaf:": "🍂", ":leaves:": "🍃", ":mushroom:": "🍄", ":chestnut:": "🌰", ":coral:": "🪸", ":shell:": "🐚", ":rock:": "🪨", ":wood:": "🪵", ":feather:": "🪶", ":paw_prints:": "🐾", ":green_apple:": "🍏", ":red_apple:": "🍎", ":pear:": "🍐", ":tangerine:": "🍊", ":lemon:": "🍋", ":banana:": "🍌", ":watermelon:": "🍉", ":grapes:": "🍇", ":strawberry:": "🍓", ":melon:": "🍈", ":cherries:": "🍒", ":peach:": "🍑", ":mango:": "🥭", ":pineapple:": "🍍", ":coconut:": "🥥", ":kiwi_fruit:": "🥝", ":tomato:": "🍅", ":eggplant:": "🍆", ":avocado:": "🥑", ":broccoli:": "🥦", ":leafy_green:": "🥬", ":cucumber:": "🥒", ":hot_pepper:": "🌶️", ":corn:": "🌽", ":carrot:": "🥕", ":garlic:": "🧄", ":onion:": "🧅", ":potato:": "🥔", ":sweet_potato:": "🍠", ":croissant:": "🥐", ":baguette_bread:": "🥖", ":bread:": "🍞", ":pretzel:": "🥨", ":cheese:": "🧀", ":egg:": "🥚", ":cooking:": "🍳", ":pancakes:": "🥞", ":waffle:": "🧇", ":bacon:": "🥓", ":cut_of_meat:": "🥩", ":poultry_leg:": "🍗", ":meat_on_bone:": "🍖", ":hotdog:": "🌭", ":hamburger:": "🍔", ":fries:": "🍟", ":pizza:": "🍕", ":sandwich:": "🥪", ":taco:": "🌮", ":burrito:": "🌯", ":stuffed_flatbread:": "🥙", ":falafel:": "🧆", ":shallow_pan_of_food:": "🥘", ":stew:": "🍲", ":bowl_with_spoon:": "🥣", ":green_salad:": "🥗", ":popcorn:": "🍿", ":butter:": "🧈", ":salt:": "🧂", ":canned_food:": "🥫", ":bento:": "🍱", ":rice_cracker:": "🍘", ":rice_ball:": "🍙", ":rice:": "🍚", ":curry:": "🍛", ":ramen:": "🍜", ":spaghetti:": "🍝", ":oden:": "🍢", ":sushi:": "🍣", ":fried_shrimp:": "🍤", ":fish_cake:": "🍥", ":moon_cake:": "🥮", ":dango:": "🍡", ":dumpling:": "🥟", ":fortune_cookie:": "🥠", ":takeout_box:": "🥡", ":icecream:": "🍦", ":shaved_ice:": "🍧", ":ice_cream:": "🍨", ":doughnut:": "🍩", ":cookie:": "🍪", ":birthday:": "🎂", ":cake:": "🍰", ":cupcake:": "🧁", ":pie:": "🥧", ":chocolate_bar:": "🍫", ":candy:": "🍬", ":lollipop:": "🍭", ":custard:": "🍮", ":honey_pot:": "🍯", ":baby_bottle:": "🍼", ":glass_of_milk:": "🥛", ":coffee:": "☕", ":tea:": "🍵", ":sake:": "🍶", ":champagne:": "🍾", ":wine_glass:": "🍷", ":cocktail:": "🍸", ":tropical_drink:": "🍹", ":beer:": "🍺", ":beers:": "🍻", ":clinking_glasses:": "🥂", ":tumbler_glass:": "🥃", ":cup_with_straw:": "🥤", ":bubble_tea:": "🧋", ":beverage_box:": "🧃", ":mate:": "🧉", ":ice_cube:": "🧊", ":chopsticks:": "🥢", ":fork_and_knife_with_plate:": "🍽️", ":fork_and_knife:": "🍴", ":spoon:": "🥄", ":knife:": "🔪", ":amphora:": "🏺", ":grinning:": "😀", ":wink:": "😉", ";)": "😉", ";-)": "😉", ":confused:": "😕", ":upside_down_face:": "🙃", ":disappointed:": "😞", ":frowning:": "🙁", ":persevere:": "😣", ":confounded:": "😖", ":fearful:": "😨", ":cold_sweat:": "😰", ":scream:": "😱", ":angry:": "😡", ":rage:": "😡", ":cry:": "😢", ":sob:": "😭", ":joy_cat:": "😹", ":smiling_imp:": "😈", ":imp:": "👿", ":alien:": "👽", ":robot_face:": "🤖", ":wink2:": "😉", ":yawning_face:": "🥱", ":ghost:": "👻", ":clown_face:": "🤡", ":wolf:": "🐺", ":bee:": "🐝", ":butterfly:": "🦋", ":snail:": "🐌", ":flamingo:": "🦩", ":parrot:": "🦜", ":eagle:": "🦅", ":penguin:": "🐧", ":chicken:": "🐔", ":duck:": "🦆", ":swan:": "🦢", ":owl:": "🦉", ":bat:": "🦇", ":camel:": "🐪", ":llama:": "🦙", ":zebra:": "🦓", ":horse:": "🐎", ":unicorn:": "🦄", ":giraffe:": "🦒", ":elephant:": "🐘", ":rhinoceros:": "🦏", ":hippopotamus:": "🐋", ":dog2:": "🐕‍🦺", ":cow2:": "🐂", ":apple:": "🍎", ":cherry:": "🍒", ":papaya:": "🍑", ":chili_pepper:": "🌶️", ":peanuts:": "🥜", ":cashew:": "🌰", ":zucchini:": "🥒", ":bell_pepper:": "🫑", ":pine_nut:": "🌰", ":pomegranate:": "🍎", ":fig:": "🍇", ":whiskey:": "🥃", ":milk_glass:": "🥛", ":hot_chocolate:": "🍫", ":smoothie:": "🍹", ":milkshake:": "🍦", ":car:": "🚗", ":bus:": "🚌", ":truck:": "🚚", ":airplane:": "✈️", ":helicopter:": "🚁", ":rocket:": "🚀", ":boat:": "🚤", ":ship:": "🚢", ":train:": "🚆", ":subway:": "🚇", ":tram:": "🚊", ":train2:": "🚋", ":bicycle:": "🚲", ":skateboard:": "🛹", ":roller_coaster:": "🎢", ":carriage:": "🚃", ":police_car:": "🚓", ":fire_engine:": "🚒", ":ambulance:": "🚑", ":taxi:": "🚖", ":minibus:": "🚐", ":rickshaw:": "🛺", ":trolleybus:": "🚎", ":scooter:": "🛴", ":sailing_ship:": "⛵", ":house:": "🏠", ":house_with_garden:": "🏡", ":school:": "🏫", ":office:": "🏢", ":hospital:": "🏥", ":bank:": "🏦", ":atm:": "🏧", ":church:": "⛪", ":mosque:": "🕌", ":synagogue:": "🕍", ":wedding:": "💒", ":department_store:": "🏬", ":shopping_cart:": "🛒", ":factory:": "🏭", ":museum:": "🏛️", ":art_gallery:": "🖼️", ":stadium:": "🏟️", ":stadium_with_pitch:": "⚽", ":tent:": "⛺", ":cityscape:": "🏙️", ":desert:": "🏜️", ":mountain:": "🏔️", ":volcano:": "🌋", ":sunny:": "☀️", ":cloud:": "☁️", ":rainbow:": "🌈", ":snowflake:": "❄️", ":snowman:": "⛄", ":zap:": "⚡", ":cyclone:": "🌀", ":fog:": "🌫️", ":earth_africa:": "🌍", ":earth_americas:": "🌎", ":earth_asia:": "🌏", ":mountain_snow:": "🏔️", ":sunrise:": "🌅", ":sunset:": "🌇", ":stars:": "🌟", ":milky_way:": "🌌", ":comet:": "☄️", ":moon:": "🌙", ":new_moon:": "🌑", ":waxing_crescent_moon:": "🌒", ":first_quarter_moon:": "🌓", ":waxing_gibbous_moon:": "🌔", ":us:": "🇺🇸", ":canada:": "🇨🇦", ":uk:": "🇬🇧", ":germany:": "🇩🇪", ":france:": "🇫🇷", ":spain:": "🇪🇸", ":italy:": "🇮🇹", ":australia:": "🇦🇺", ":mexico:": "🇲🇽", ":brazil:": "🇧🇷", ":india:": "🇮🇳", ":china:": "🇨🇳", ":japan:": "🇯🇵", ":south_korea:": "🇰🇷", ":south_africa:": "🇿🇦", ":argentina:": "🇦🇷", ":russia:": "🇷🇺", ":sweden:": "🇸🇪", ":norway:": "🇳🇴", ":denmark:": "🇩🇰", ":finland:": "🇫🇮", ":netherlands:": "🇳🇱", ":belgium:": "🇧🇪", ":guitar:": "🎸", ":piano:": "🎹", ":violin:": "🎻", ":drum:": "🥁", ":microphone:": "🎤", ":musical_note:": "🎵", ":headphones:": "🎧", ":trophy:": "🏆", ":medal:": "🏅", ":chess_pawn:": "♟️", ":checkered_flag:": "🏁", ":sports_medal:": "🥇", ":film_projector:": "📽️", ":movie_camera:": "🎥", ":clapper:": "🎬", ":ticket:": "🎫", ":camera:": "📷", ":flashlight:": "🔦", ":hourglass:": "⏳", ":game_die:": "🎲", ":domino:": "🁸", ":magnet:": "🧲", ":scissors:": "✂️", ":globe_with_meridians:": "🌐", ":electric_plug:": "🔌", ":light_bulb:": "💡", ":gear:": "⚙️", ":wrench:": "🔧", ":hammer:": "🔨", ":lock:": "🔒", ":key:": "🔑", }
   youtubeSearchResults: YoutubeVideo[] = [];
   youtubeSearchKeyword: string = '';
-  private youtubeSearchClearTimer?: any; 
+  private youtubeSearchClearTimer?: any;
   componentsReferences = Array<ComponentRef<any>>();
-  // In-memory cache of recent poll results to avoid frequent server calls
-  pollResultsCache = new Map<string, { results: any; timestamp: number }>();
-  pollResultsCacheTtlMs = 30000; // 30s TTL
   private lastLastSeenUpdate: number | null = null;
   navigationItems: MenuItem[] = [
     { ownership: 0, icon: "🌍", title: "Social", content: undefined },
@@ -297,7 +290,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   The further you go down the array, the more experience you gain.
   Find items to make you stronger!
   Fight other players for glory!`
-    }, 
+    },
     {
       ownership: 0,
       title: 'Theme',
@@ -332,8 +325,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   pollQuestion = "";
   pollResults: any = null;
   private isPollLoading = false;
-  private pollMutationObserver: MutationObserver | null = null;
-  private pollTotalsDebounceTimer: any = null;
   isShowingUserTagPopup = false;
   isShowingSecurityPopup = false;
   preventShowSecurityPopup = false;
@@ -403,35 +394,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         });
     }
     this.updateLastSeenPeriodically();
-    // start a MutationObserver to refresh poll totals once when poll elements are added to the DOM
-    try {
-      this.pollMutationObserver = new MutationObserver((mutations) => {
-        let found = false;
-        for (const m of mutations) {
-          for (const n of Array.from(m.addedNodes)) {
-            try {
-              const el = n as HTMLElement;
-              if (!el) continue;
-              if (el.matches && el.matches('.poll-container[data-component-id]:not([data-poll-fetched])')) found = true;
-              if (el.querySelector && el.querySelector('.poll-container[data-component-id]:not([data-poll-fetched])')) found = true;
-            } catch { }
-          }
-        }
-        if (found) {
-          if (this.pollTotalsDebounceTimer) clearTimeout(this.pollTotalsDebounceTimer);
-          this.pollTotalsDebounceTimer = setTimeout(() => {
-            this.refreshPollTotalsForContainers();
-          }, 50);
-        }
-      });
-      if (document && document.body) {
-        this.pollMutationObserver.observe(document.body, { childList: true, subtree: true });
-      }
-      // For any polls already present on first render, do a one-time refresh shortly after init
-      setTimeout(() => this.refreshPollTotalsForContainers(), 250);
-    } catch {}
     // initialize left panel width from saved value or default 40vw
-    try {
+      try {
       const saved = window.localStorage.getItem('leftPanelWidth');
       if (saved) {
         this.leftPanelWidth = parseInt(saved, 10);
@@ -440,16 +404,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       }
       this.maxLeftPanelWidth = Math.max(this.leftPanelWidth, Math.floor((window.innerWidth || 1200) * 0.8));
     } catch { this.leftPanelWidth = Math.max(this.minLeftPanelWidth, 350); }
-  }
-
-  ngOnDestroy() {
-    try {
-      if (this.pollMutationObserver) {
-        this.pollMutationObserver.disconnect();
-        this.pollMutationObserver = null;
-      }
-    } catch {}
-    try { if (this.pollTotalsDebounceTimer) clearTimeout(this.pollTotalsDebounceTimer); } catch {}
   }
 
   ngAfterViewInit() {
@@ -633,7 +587,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     childComponent.unique_key = ++this.child_unique_key;
     childComponent.parentRef = this;
 
-    // Apply inputs to newly created component
     if (inputs) {
       Object.keys(inputs).forEach(key => {
         childComponent[key] = inputs[key];
@@ -1080,8 +1033,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         return '<div class="poll-error">Poll needs at least 2 options</div>';
       }
 
-      // Generate poll HTML (include data-component-id so totals can be refreshed later)
-      let pollHtml: string = `<div class="poll-container" data-component-id="${normalizedComponentId}"><div class="poll-question">${question}</div><div class="poll-options">`;
+      // Generate poll HTML
+      let pollHtml: string = `<div class="poll-container"><div class="poll-question">${question}</div><div class="poll-options">`;
       let hasVoted = false;
       options.forEach((option: string, index: number) => {
         if (!option.includes("votes, ")) {
@@ -1113,10 +1066,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         }
       });
 
-      pollHtml += `</div>`;
-
-      // Append a poll-total placeholder so we can show the number of votes cast before revealing option breakdowns
-      pollHtml += `<div class="poll-total">Votes cast: <span class="poll-total-count">0</span></div></div>`;
+      pollHtml += `</div></div>`;
 
       return pollHtml.replace(/\n/g, '');
     });
@@ -1278,7 +1228,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   }
   visitExternalLink(url?: string, index = true, forceNewTab = false) {
     if (!url) return;
-    if (index) { 
+    if (index) {
       this.indexLink(url);
     }
 
@@ -1506,7 +1456,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       try {
         const res = await this.pollService.vote(this.user?.id ?? 0, checkValue ?? '', componentId);
         this.pollResults = res;
-        try { const cacheKey = componentId ?? initialComponentId ?? ''; if (cacheKey) this.pollResultsCache.set(cacheKey, { results: res, timestamp: Date.now() }); } catch {}
         this.pollChecked = true;
         this.pollQuestion = pollQuestion;
         // Render results immediately in-place so users see results instead of clickable options
@@ -1566,9 +1515,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           });
 
           pollHtml += `</div><div class="poll-total">Total Votes: ${total}</div></div>`;
-          try { this.pollResultsCache.set(componentId, { results: this.pollResults, timestamp: Date.now() }); } catch {}
           container.innerHTML = pollHtml;
-          try { container.setAttribute('data-poll-fetched', '1'); } catch {}
         }
       }
     } catch (err) {
@@ -1593,7 +1540,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         `<div class="poll-question">${this.escapeHtml(question || '')}</div><div class="poll-options">`;
 
       const total = results.totalVoters ?? 0;
-      try { this.pollResultsCache.set(componentId, { results: results, timestamp: Date.now() }); } catch {}
       (results.options || []).forEach((option: any, index: number) => {
         const voteCount = option.voteCount ?? 0;
         const percentage = total > 0 ? Math.round((voteCount / total) * 100) : 0;
@@ -1609,7 +1555,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
       pollHtml += `</div><div class="poll-total">Total Votes: ${total}</div></div>`;
       container.innerHTML = pollHtml;
-      try { container.setAttribute('data-poll-fetched', '1'); } catch {}
     } catch (err) {
       console.error('Error rendering poll results in DOM', err);
     }
@@ -1679,43 +1624,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     }
   }
 
-  // Refresh poll totals for any inline poll containers so users can see how many votes have been cast
-  // without exposing option-level results until they vote.
-  private async refreshPollTotalsForContainers() {
-    try {
-      const containers = Array.from(document.querySelectorAll('.poll-container[data-component-id]')) as HTMLElement[];
-      for (const container of containers) {
-        try {
-          const compId = container.getAttribute('data-component-id') || '';
-          if (!compId) continue;
-          // find the total count element inside this container
-          const totalEl = container.querySelector('.poll-total-count') as HTMLElement | null;
-          if (!totalEl) continue;
-          // Skip if we've already fetched totals for this container
-          if (container.hasAttribute('data-poll-fetched')) continue;
-
-          // Check cache first
-          const cached = this.pollResultsCache.get(compId);
-          if (cached && (Date.now() - cached.timestamp) < (this.pollResultsCacheTtlMs)) {
-            const cres = cached.results;
-            if (cres && typeof cres.TotalVoters !== 'undefined') totalEl.textContent = String(cres.TotalVoters ?? 0);
-            container.setAttribute('data-poll-fetched', '1');
-            continue;
-          }
-
-          const res = await this.pollService.getResults(compId);
-          if (res && typeof res.TotalVoters !== 'undefined') {
-            totalEl.textContent = String(res.TotalVoters ?? 0);
-            try { this.pollResultsCache.set(compId, { results: res, timestamp: Date.now() }); } catch {}
-            container.setAttribute('data-poll-fetched', '1');
-          }
-        } catch (inner) { /* ignore per-container errors */ }
-      }
-    } catch (err) {
-      console.error('Error refreshing poll totals:', err);
-    }
-  }
-
   private escapeHtml(input: string): string {
     return input?.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')?.replace(/"/g, '&quot;') || '';
   }
@@ -1735,7 +1643,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       // (strip any "(X votes, Y%)" suffixes), then rebuild the interactive poll HTML (checkboxes)
       // and decrement the displayed total votes by 1 if present.
       try {
-        try { this.pollResultsCache.delete(componentId); } catch {}
         const container = document.getElementById(componentId);
         if (container) {
           const qEl = container.querySelector('.poll-question') as HTMLElement | null;
@@ -1777,7 +1684,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
           pollHtml += `</div>`;
           container.innerHTML = pollHtml;
-          try { container.setAttribute('data-poll-fetched', '1'); } catch {}
         }
       } catch (domErr) {
         console.error('Error updating poll DOM after delete:', domErr);
@@ -1923,54 +1829,22 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     return this.youtubeSearchKeyword != '' ? this.youtubeSearchKeyword : undefined;
   }
   get isLeftPanelIncluded(): boolean {
-    return this.isDesktop  
+    return this.isDesktop
       && (this.navigationComponent?.navbarCollapsed ?? false)
-      && !(this.excludedExtendedNavigationComponents.includes(this.currentComponent + 'Component') 
-          || this.excludedExtendedNavigationComponents.includes(this.currentComponent));
-  }
-  get isFlexPanel(): boolean {
-    return this.isDesktop  
-      && (this.navigationComponent?.navbarCollapsed ?? false)
-      && !(this.flexedNavigationComponents.includes(this.currentComponent + 'Component') 
-          || this.flexedNavigationComponents.includes(this.currentComponent));
+      && !(this.excludedExtendedNavigationComponents.includes(this.currentComponent + 'Component')
+        || this.excludedExtendedNavigationComponents.includes(this.currentComponent));
   }
 
+  get isFlexPanel(): boolean {
+    return this.isDesktop
+      && (this.navigationComponent?.navbarCollapsed ?? false)
+      && !(this.flexedNavigationComponents.includes(this.currentComponent + 'Component')
+        || this.flexedNavigationComponents.includes(this.currentComponent));
+  }
   notifyYoutubeSearchOpened() {
     if (this.youtubeSearchResults && this.youtubeSearchResults.length) {
       this.resetYoutubeSearchClearTimer();
     }
-  }
-
-  // ----- Left panel resize handlers -----
-  onLeftResizerDown(event: MouseEvent | TouchEvent) {
-    event.preventDefault();
-    const clientX = (event as TouchEvent).touches ? (event as TouchEvent).touches[0].clientX : (event as MouseEvent).clientX;
-    this._isResizingLeftPanel = true;
-    this._resizeStartX = clientX;
-    this._resizeStartWidth = this.leftPanelWidth;
-    window.addEventListener('mousemove', this._onLeftResizerMove);
-    window.addEventListener('mouseup', this._onLeftResizerUp);
-    window.addEventListener('touchmove', this._onLeftResizerMove, { passive: false });
-    window.addEventListener('touchend', this._onLeftResizerUp);
-  }
-
-  private _onLeftResizerMove = (e: MouseEvent | TouchEvent) => {
-    if (!this._isResizingLeftPanel) return;
-    const clientX = (e as TouchEvent).touches ? (e as TouchEvent).touches[0].clientX : (e as MouseEvent).clientX;
-    const delta = clientX - this._resizeStartX;
-    let newWidth = this._resizeStartWidth + delta;
-    newWidth = Math.max(this.minLeftPanelWidth, Math.min(this.maxLeftPanelWidth, newWidth));
-    this.leftPanelWidth = Math.round(newWidth);
-    try { window.localStorage.setItem('leftPanelWidth', String(this.leftPanelWidth)); } catch { }
-    this.changeDetectorRef.markForCheck();
-  }
-
-  private _onLeftResizerUp = (_: MouseEvent | TouchEvent) => {
-    this._isResizingLeftPanel = false;
-    window.removeEventListener('mousemove', this._onLeftResizerMove);
-    window.removeEventListener('mouseup', this._onLeftResizerUp);
-    window.removeEventListener('touchmove', this._onLeftResizerMove);
-    window.removeEventListener('touchend', this._onLeftResizerUp);
   }
 
   fullscreenYoutubePopup() {
