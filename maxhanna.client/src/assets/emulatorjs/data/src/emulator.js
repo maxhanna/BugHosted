@@ -5635,6 +5635,11 @@ class EmulatorJS {
                 data["sync-control"].forEach((value) => {
                     let inFrame = parseInt(value.frame);
                     let frame = this.netplay.currentFrame;
+                    // Always create the inputsData slot, even for idle (no-input) frames.
+                    // The host sends { frame: N } with no connected_input when nobody
+                    // pressed anything.  Without this, postMainLoop never sees data
+                    // for those frames and the non-owner freezes.
+                    this.netplay.inputsData[inFrame] || (this.netplay.inputsData[inFrame] = []);
                     if (!value.connected_input || value.connected_input[0] < 0) return;
                     //if (value.connected_input[0] === this.netplay.getUserIndex(this.netplay.playerID)) return;
                     console.log(value, inFrame, frame);
@@ -5736,11 +5741,12 @@ class EmulatorJS {
                             this.gameManager.functions.simulateInput(value.connected_input[0], value.connected_input[1], value.connected_input[2]);
                         })
                     }
-                } else if (!this.netplay.syncing) {
-                    console.log("sync");
-                    this.pause(true);
-                    this.netplay.sendMessage({ sync: true });
-                    this.netplay.syncing = true;
+                } else {
+                    // No data for this frame yet — keep running.
+                    // The host sends frames with a +10 offset, so the first ~10
+                    // frames after every sync won't have data.  Pausing/re-syncing
+                    // here traps the client in an infinite sync loop.
+                    this.play();
                 }
             }
             if (this.netplay.currentFrame % 100 === 0) {
