@@ -3,7 +3,7 @@
     [title]="'Bug Wars'"
     [inputtedParentRef]="parentRef"
     (menuClicked)="openMenu()" 
-    (closeClicked)="mapComponent?.zoomedOut ? mapComponent?.zoomIn() : isMapOpen ? toggleScreen('map', false) : isSupportOpen ? toggleScreen('support', false) : isBasesOpen ? toggleScreen('bases', false) : isReportsOpen ? toggleScreen('reports', false) : isMovementOpen ? toggleScreen('movement', false) : remove_me('NexusComponent');">
+    (closeClicked)="onCloseClick()">
   </app-title-bar>
   
   <div *ngIf="serverDown">We are sorry, server is currently down. Please be patient while we bring it back online.</div>

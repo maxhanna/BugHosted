@@ -231,6 +231,54 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.stopGoldIncrement();
   }
 
+  // Centralized close handler for the title-bar close button.
+  // If the Command Center screen is open, just close it. Otherwise fall back
+  // to previous behavior: zoom map in if zoomed out, close open screens, or
+  // remove the Nexus component entirely.
+  onCloseClick() {
+    try {
+      if (this.isCommandCenterOpen) {
+        this.isCommandCenterOpen = false;
+        return;
+      }
+
+      if (this.mapComponent?.zoomedOut) {
+        this.mapComponent?.zoomIn();
+        return;
+      }
+
+      if (this.isMapOpen) {
+        this.toggleScreen('map', false);
+        return;
+      }
+
+      if (this.isSupportOpen) {
+        this.toggleScreen('support', false);
+        return;
+      }
+
+      if (this.isBasesOpen) {
+        this.toggleScreen('bases', false);
+        return;
+      }
+
+      if (this.isReportsOpen) {
+        this.toggleScreen('reports', false);
+        return;
+      }
+
+      if (this.isMovementOpen) {
+        this.toggleScreen('movement', false);
+        return;
+      }
+
+      // Default: close the Nexus component
+      this.remove_me('NexusComponent');
+    } catch (ex) {
+      console.error('onCloseClick error', ex);
+    }
+  }
+
   async start() {
     if (!this.parentRef?.user?.id) { return alert("You must be logged in to play!"); }
     const startRes = await this.nexusService.start(this.parentRef.user.id);
