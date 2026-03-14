@@ -637,6 +637,10 @@
           <option value="Z-A" [selected]="sortOption === 'Z-A'">Name (Z → A)</option>
         </select>
       </div>
+
+      <div >
+
+      </div>
       <div class="filter-group">
         <label for="filetype-input" class="filter-label">Filetype:</label>
         <div class="fInputFlexDiv">
@@ -671,63 +675,89 @@
       </div>
     </div>
 
-    <div *ngIf="userIsLoggedIn()" class="spaceAroundFlex">
-      <span style="width:100%">Show favourites only?</span>
-      <button class="toggle-switch" (click)="showFavouritesToggled()">
-        {{ showFavouritesOnly ? 'On' : 'Off' }}
-      </button>
+
+    <div class="optionsStatsDiv" *ngIf="userIsLoggedIn()">
+      <div class="optionsStatsHeader">
+        Show favourites only?
+      </div>
+      <div class="optionsStatsDescription"> 
+        <button class="toggle-switch" (click)="showFavouritesToggled()">
+          {{ showFavouritesOnly ? 'On' : 'Off' }}
+        </button>
+      </div>
     </div>
 
-    <div class="spaceAroundFlex" *ngIf="displayPicturesOnlyToggler">
-      <span style="width:100%">Show pictures only?</span>
-      <button class="toggle-switch" (click)="showPicturesToggled()">
-        {{ showPicturesOnly ? 'On' : 'Off' }}
-      </button>
+    
+    <div class="optionsStatsDiv" *ngIf="displayPicturesOnlyToggler">
+      <div class="optionsStatsHeader">
+        Show pictures only?
+      </div>
+      <div class="optionsStatsDescription"> 
+        <button class="toggle-switch" (click)="showPicturesToggled()">
+          {{ showPicturesOnly ? 'On' : 'Off' }}
+        </button>
+      </div>
+    </div>
+  
+    <div class="optionsStatsDiv" *ngIf="displayVideosOnlyToggler">
+      <div class="optionsStatsHeader">
+        Show videos only?
+      </div>
+      <div class="optionsStatsDescription">
+        <button class="toggle-switch" (click)="showVideosToggled()">
+          {{ showVideosOnly ? 'On' : 'Off' }}
+        </button>
+      </div>
     </div>
 
-    <div class="spaceAroundFlex" *ngIf="displayVideosOnlyToggler">
-      <span style="width:100%">Show videos only?</span>
-      <button class="toggle-switch" (click)="showVideosToggled()">
-        {{ showVideosOnly ? 'On' : 'Off' }}
-      </button>
+    <div class="optionsStatsDiv" *ngIf="displayHiddenFilesToggler && userIsLoggedIn()">
+      <div class="optionsStatsHeader">
+        Show hidden files?
+      </div>
+      <div class="optionsStatsDescription">
+        <button class="toggle-switch" (click)="toggleShowHiddenFilesButton()">
+          {{ showHiddenFiles ? 'On' : 'Off' }}
+        </button>
+      </div>
     </div>
 
-    <div class="spaceAroundFlex" *ngIf="displayHiddenFilesToggler && userIsLoggedIn()">
-      <span style="width:100%">Show hidden files?</span>
-      <button class="toggle-switch" (click)="toggleShowHiddenFilesButton()">
-        {{ showHiddenFiles ? 'On' : 'Off' }}
-      </button>
+    <div class="optionsStatsDiv" *ngIf="displayNSFWToggler && userIsLoggedIn()">
+      <div class="optionsStatsHeader">
+        Show NSFW?
+      </div>
+      <div class="optionsStatsDescription">
+        <button class="toggle-switch" (click)="toggleNSFW()">
+          {{ isDisplayingNSFW ? 'On' : 'Off' }}
+        </button>
+      </div>
     </div>
 
-    <div class="spaceAroundFlex" *ngIf="displayNSFWToggler && userIsLoggedIn()">
-      <span style="width:100%">Show NSFW?</span>
-      <button class="toggle-switch" (click)="toggleNSFW()">
-        {{ isDisplayingNSFW ? 'On' : 'Off' }}
-      </button>
-    </div>
-
-    <div class="spaceAroundFlex" *ngIf="displayPrivatePublicOption && showData">
-      <span style="width:100%">
+    <div class="optionsStatsDiv" *ngIf="displayPrivatePublicOption && showData">
+      <div class="optionsStatsHeader">
         Visibility:
-      </span>
-      <select (change)="setFilterVisibility($event)">
-        <option value="all" [selected]="filter.visibility === 'all'">All{{getVisibilityIcon('all')}}</option>
-        <option value="public" [selected]="filter.visibility === 'public'">Public{{getVisibilityIcon('public')}}
-        </option>
-        <option value="private" [selected]="filter.visibility === 'private'">Private{{getVisibilityIcon('private')}}
-        </option>
-      </select>
+      </div>
+      <div class="optionsStatsDescription">
+        <select (change)="setFilterVisibility($event)">
+          <option value="all" [selected]="filter.visibility === 'all'">All{{getVisibilityIcon('all')}}</option>
+          <option value="public" [selected]="filter.visibility === 'public'">Public{{getVisibilityIcon('public')}}
+          </option>
+          <option value="private" [selected]="filter.visibility === 'private'">Private{{getVisibilityIcon('private')}}
+          </option>
+        </select>
+      </div>
     </div>
 
-    <div class="spaceAroundFlex" *ngIf="displayPrivatePublicOption && showData">
-      <span style="width:100%">
+    <div class="optionsStatsDiv" *ngIf="displayPrivatePublicOption && showData">
+      <div class="optionsStatsHeader">
         Ownership:
-      </span>
-      <select (change)="setFilterOwnership($event)">
-        <option value="all" [selected]="filter.ownership === 'all'">All{{getOwnershipIcon('all')}}</option>
-        <option value="own" [selected]="filter.ownership === 'own'">Own{{getOwnershipIcon('own')}}</option>
-        <option value="others" [selected]="filter.ownership === 'others'">Others{{getOwnershipIcon('others')}}</option>
-      </select>
+      </div>
+      <div class="optionsStatsDescription">
+        <select (change)="setFilterOwnership($event)">
+          <option value="all" [selected]="filter.ownership === 'all'">All{{getOwnershipIcon('all')}}</option>
+          <option value="own" [selected]="filter.ownership === 'own'">Own{{getOwnershipIcon('own')}}</option>
+          <option value="others" [selected]="filter.ownership === 'others'">Others{{getOwnershipIcon('others')}}</option>
+        </select>
+      </div>
     </div>
     <div style="margin-top: 20px; width: 100%; text-align: center;">
       <button class="closeButton" id="closeOverlay" (click)="closeSearchPanel()" title="Close the Search Panel">
