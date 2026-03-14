@@ -19,7 +19,7 @@
     <div class="leftPanel" 
       *ngIf="isLeftPanelIncluded"
       [style.overflow.x]="'hidden'"
-      [style.width.px]="isLeftPanelHidden ? leftPanelCollapsedWidth : leftPanelWidth"
+      [style.width.px]="isLeftPanelHidden ? leftPanelCollapsedWidth : undefined"
       [style.min-width.px]="isLeftPanelHidden ? leftPanelCollapsedWidth : minLeftPanelWidth"
       [style.max-width.px]="isLeftPanelHidden ? leftPanelCollapsedWidth : maxLeftPanelWidth">
       <div class="leftPanelHeader">
