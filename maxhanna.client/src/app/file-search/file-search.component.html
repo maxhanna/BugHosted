@@ -173,7 +173,8 @@
           </div>
         </ng-container>
         <div *ngIf="!isLoading && currentPage < totalPages && directory?.data?.length">
-          <button (click)="appendNextPage(); $event.preventDefault()">Load More Results</button>
+          <button appInView (inView)="appendNextPage(); $event.preventDefault()"
+            (click)="appendNextPage(); $event.preventDefault()">Load More Results</button>
         </div>
       </div>
     </div>
