@@ -46,8 +46,8 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   blockedUsers: User[] = [];
   hasNhApiKeys?: boolean;
   hasKrakenKeys?: boolean;
-  displayPictureFile?: FileEntry = this.parentRef?.user?.displayPictureFile;
-  profileBackgroundPictureFile?: FileEntry = this.parentRef?.user?.profileBackgroundPictureFile;
+  displayPictureFile?: FileEntry;
+  profileBackgroundPictureFile?: FileEntry;
   expandedIconTitle: string | null = null;
 
   isKrakenHelpPanelShowing = false;
@@ -86,7 +86,8 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   @ViewChild('updatedDescription') updatedDescription!: ElementRef<HTMLInputElement>;
   @ViewChild('selectedCurrencyDropdown') selectedCurrencyDropdown!: ElementRef<HTMLSelectElement>;
 
-  @ViewChild(MediaSelectorComponent) displayPictureSelector!: MediaSelectorComponent;
+  @ViewChild('displayPictureSelector') displayPictureSelector!: MediaSelectorComponent;
+  @ViewChild('profileBackgroundPictureSelector') profileBackgroundPictureSelector!: MediaSelectorComponent;
   @ViewChild(MediaViewerComponent) displayPictureViewer!: MediaViewerComponent;
 
 
@@ -133,6 +134,10 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       this.isWeatherLocationToggled = true;
       this.getWeatherLocation();
     }
+
+    // Preload current display/profile background files so media selector reflects existing selection
+    this.displayPictureFile = user?.displayPictureFile ?? undefined;
+    this.profileBackgroundPictureFile = user?.profileBackgroundPictureFile ?? undefined;
   }
   async getNicehashApiKeys() {
     const user = this.parentRef?.user;
@@ -310,9 +315,15 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
 
   async profileBackgroundSelected(files: FileEntry[]) {
     const targetParent = this.inputtedParentRef ?? this.parentRef;
-    if (files && files.length > 0 && targetParent?.user?.id) {
-      await this.userService.updateProfileBackgroundPicture(targetParent.user.id, files[0].id);
-      targetParent.user.profileBackgroundPictureFile = files[0];
+    if (targetParent?.user?.id) {
+      if (files && files.length > 0) {
+        await this.userService.updateProfileBackgroundPicture(targetParent.user.id, files[0].id);
+        targetParent.user.profileBackgroundPictureFile = files[0];
+      } else {
+        // empty selection -> clear profile background (server accepts fileId=0 to clear)
+        await this.userService.updateProfileBackgroundPicture(targetParent.user.id, 0);
+        targetParent.user.profileBackgroundPictureFile = undefined as any;
+      }
       targetParent.deleteCookie("user");
       targetParent.setCookie("user", JSON.stringify(targetParent.user), 10);
       this.ngOnInit();
@@ -321,9 +332,15 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
 
   async avatarSelected(files: FileEntry[]) {
     const targetParent = this.inputtedParentRef ?? this.parentRef;
-    if (files && files.length > 0 && targetParent?.user?.id) {
-      await this.userService.updateDisplayPicture(targetParent.user.id, files[0].id);
-      targetParent.user.displayPictureFile = files[0];
+    if (targetParent?.user?.id) {
+      if (files && files.length > 0) {
+        await this.userService.updateDisplayPicture(targetParent.user.id, files[0].id);
+        targetParent.user.displayPictureFile = files[0];
+      } else {
+        // empty selection -> clear display picture
+        await this.userService.updateDisplayPicture(targetParent.user.id, 0);
+        targetParent.user.displayPictureFile = undefined as any;
+      }
       targetParent.deleteCookie("user");
       targetParent.setCookie("user", JSON.stringify(targetParent.user), 10);
       this.ngOnInit();

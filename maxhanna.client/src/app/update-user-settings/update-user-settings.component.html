@@ -67,6 +67,7 @@
         <div>
           <app-media-selector #displayPictureSelector [uploadButtonText]="'Upload Display Picture'" [maxSelectedFiles]="1"
             [inputtedParentRef]="parentRef" [user]="parentRef?.user" [currentDirectory]="'Users/'+parentRef?.user?.username"
+            [selectedFiles]="displayPictureFile ? [displayPictureFile] : []"
             (selectFileEvent)="avatarSelected($event)">
           </app-media-selector>
         </div>
@@ -90,6 +91,7 @@
         <div>
           <app-media-selector #profileBackgroundPictureSelector [uploadButtonText]="'Upload Background Picture'" [maxSelectedFiles]="1"
             [inputtedParentRef]="parentRef" [user]="parentRef?.user" [currentDirectory]="'Users/'+parentRef?.user?.username"
+            [selectedFiles]="profileBackgroundPictureFile ? [profileBackgroundPictureFile] : []"
             (selectFileEvent)="profileBackgroundSelected($event)">
           </app-media-selector>
         </div>

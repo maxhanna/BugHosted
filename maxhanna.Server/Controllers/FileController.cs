@@ -239,7 +239,13 @@ namespace maxhanna.Server.Controllers
           }
           else
           {
-            orderBy = isRomSearch ? " ORDER BY f.last_access DESC " : orderBy;
+            // Only apply the ROM-specific default ordering when no explicit sort option was provided
+            // (prevents overriding a user's chosen sortOption).
+            if (string.IsNullOrWhiteSpace(orderBy) && isRomSearch)
+            {
+              orderBy = "ORDER BY f.last_access DESC";
+            }
+            // otherwise keep the orderBy chosen from the sortOption switch above
           }
           // Reuse pre-computed search condition (clone parameters for this command)
           var extraParameters = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();

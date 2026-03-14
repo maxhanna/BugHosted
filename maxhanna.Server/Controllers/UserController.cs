@@ -1532,18 +1532,16 @@ namespace maxhanna.Server.Controllers
       {
         conn.Open();
 
-        string checkUserSql = $@"
+        string checkUserSql = @"
                     INSERT INTO maxhanna.user_display_pictures (user_id, file_id)
-                    VALUES (@userId, @fileId)
-                    ON DUPLICATE KEY UPDATE file_id = VALUES(file_id);
+                    VALUES (@userId, NULLIF(@fileId, 0))
+                    ON DUPLICATE KEY UPDATE file_id = NULLIF(@fileId, 0);
                 ";
         MySqlCommand checkUserCmd = new MySqlCommand(checkUserSql, conn);
         checkUserCmd.Parameters.AddWithValue("@userId", request.UserId);
         checkUserCmd.Parameters.AddWithValue("@fileId", request.FileId);
-        using (var reader = await checkUserCmd.ExecuteReaderAsync())
-        {
-          return Ok();
-        }
+        await checkUserCmd.ExecuteNonQueryAsync();
+        return Ok();
       }
       catch (Exception ex)
       {
@@ -1565,11 +1563,11 @@ namespace maxhanna.Server.Controllers
       {
         conn.Open();
 
-        string checkUserSql = $@"
-                    INSERT INTO maxhanna.user_display_pictures (user_id, tag_background_file_id)
-                    VALUES (@userId, @fileId)
-                    ON DUPLICATE KEY UPDATE tag_background_file_id = VALUES(tag_background_file_id);
-                ";
+        string checkUserSql = @"
+              INSERT INTO maxhanna.user_display_pictures (user_id, tag_background_file_id)
+              VALUES (@userId, NULLIF(@fileId, 0))
+              ON DUPLICATE KEY UPDATE tag_background_file_id = NULLIF(@fileId, 0);
+          ";
         MySqlCommand updateCmd = new MySqlCommand(checkUserSql, conn);
         updateCmd.Parameters.AddWithValue("@userId", request.UserId);
         updateCmd.Parameters.AddWithValue("@fileId", request.FileId);
