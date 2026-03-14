@@ -2,9 +2,14 @@
  * EmulatorJS Netplay Server — embedded module
  * Based on: https://github.com/EmulatorJS/EmulatorJS-Netplay  (Apache-2.0)
  *
- * Instead of running as a standalone server on a separate port, this module
- * attaches Socket.IO to the *existing* HTTPS server and adds a single Express
- * route so the EmulatorJS client can discover rooms.
+ * This is a near-exact copy of the upstream server.js, adapted to run as a
+ * module inside the existing Express / HTTPS server instead of on its own port.
+ *
+ * IMPORTANT: The EmulatorJS client does `io(netplayUrl)`.  When the URL has
+ * NO path component (e.g. "https://bughosted.com") Socket.IO connects to the
+ * DEFAULT namespace "/".  The upstream server.js also uses the default namespace.
+ * We MUST do the same — using a custom namespace like "/netplay" changes
+ * socket-id scoping, room broadcast behaviour and breaks the client relay.
  *
  * Usage (in prod-server.js):
  *
@@ -30,10 +35,11 @@ const getClientIp = (socket) => {
 // ---- Express routes (call before SPA fallback) ----
 function registerRoutes(app) {
   /**
-   * GET /netplay/list?game_id=<id>
+   * GET /list?game_id=<id>
    * Returns open rooms filtered by game_id.
+   * This matches the upstream EmulatorJS-Netplay server.js exactly.
    */
-  app.get('/netplay/list', (req, res) => {
+  app.get('/list', (req, res) => {
     const gameId = req.query.game_id;
     const openRooms = Object.keys(rooms)
       .filter((sessionId) => {
@@ -64,29 +70,21 @@ function registerRoutes(app) {
     res.json(openRooms);
   });
 
-  console.log(chalk.gray('✓ Netplay route registered: GET /netplay/list'));
+  console.log(chalk.gray('✓ Netplay route registered: GET /list'));
 }
 
 // ---- Socket.IO attachment (call after httpServer is created) ----
 function attachSocket(httpServer) {
   const { Server: SocketIOServer } = require('socket.io');
 
+  // Match the upstream server.js options exactly — default namespace,
+  // default path (/socket.io), minimal config.
   io = new SocketIOServer(httpServer, {
-    path: '/socket.io',          // default — explicit for clarity
     cors: {
       origin: '*',
       methods: ['GET', 'POST'],
       credentials: true,
     },
-    // Prefer WebSocket to avoid HTTP long-polling overhead for 60 fps sync
-    transports: ['websocket', 'polling'],
-    // Allow large state-sync payloads (save states can be several MB)
-    maxHttpBufferSize: 50 * 1024 * 1024,   // 50 MB
-    // Disable per-message deflate to reduce CPU for high-frequency small msgs
-    perMessageDeflate: false,
-    // Increase ping interval / timeout so connections survive brief stalls
-    pingInterval: 25000,
-    pingTimeout: 60000,
   });
 
   // Periodically clean up empty rooms
@@ -98,10 +96,8 @@ function attachSocket(httpServer) {
     }
   }, 60000);
 
-  // Use the /netplay namespace so it doesn't collide with anything else
-  const nsp = io.of('/netplay');
-
-  nsp.on('connection', (socket) => {
+  // ---- Default namespace — identical to upstream server.js ----
+  io.on('connection', (socket) => {
     const clientIp = getClientIp(socket);
 
     // ---- open-room ----
@@ -144,7 +140,7 @@ function attachSocket(httpServer) {
       socket.join(sessionId);
       socket.sessionId = sessionId;
       socket.playerId = playerId;
-      nsp.to(sessionId).emit('users-updated', rooms[sessionId].players);
+      io.to(sessionId).emit('users-updated', rooms[sessionId].players);
       callback(null);
     });
 
@@ -184,7 +180,7 @@ function attachSocket(httpServer) {
       socket.sessionId = sessionId;
       socket.playerId = playerId;
 
-      nsp.to(sessionId).emit('users-updated', room.players);
+      io.to(sessionId).emit('users-updated', room.players);
 
       if (typeof callback === 'function') {
         callback(null, room.players);
@@ -193,7 +189,7 @@ function attachSocket(httpServer) {
 
     // ---- leave-room ----
     socket.on('leave-room', () => {
-      handlePlayerLeave(socket, nsp);
+      handlePlayerLeave(socket);
     });
 
     // ---- webrtc-signal ----
@@ -207,7 +203,7 @@ function attachSocket(httpServer) {
         }
 
         if (requestRenegotiate) {
-          const targetSocket = nsp.sockets.get(target);
+          const targetSocket = io.sockets.sockets.get(target);
           if (targetSocket) {
             targetSocket.emit('webrtc-signal', {
               sender: socket.id,
@@ -215,7 +211,7 @@ function attachSocket(httpServer) {
             });
           }
         } else {
-          nsp.to(target).emit('webrtc-signal', {
+          io.to(target).emit('webrtc-signal', {
             sender: socket.id,
             candidate,
             offer,
@@ -228,61 +224,40 @@ function attachSocket(httpServer) {
     });
 
     // ---- data-message ----
-    // The host broadcasts sync-control frames to every other player each tick.
-    // Clients send their own inputs to the host via data-message too.
-    //
-    // We manually iterate room members instead of relying on socket.to(room)
-    // because the namespace socket's room set can silently drift when
-    // Socket.IO re-uses a Manager for multiple namespaces.
+    // Matches upstream: socket.to(room) broadcasts to everyone else in room
     socket.on('data-message', (data) => {
-      const sid = socket.sessionId;
-      if (!sid || !rooms[sid]) return;
-      // Deliver to every *other* socket in the room
-      for (const pid in rooms[sid].players) {
-        const target = rooms[sid].players[pid].socketId;
-        if (target === socket.id) continue;           // skip sender
-        const targetSock = nsp.sockets.get(target);
-        if (targetSock) targetSock.emit('data-message', data);
+      if (socket.sessionId) {
+        socket.to(socket.sessionId).emit('data-message', data);
       }
     });
 
     // ---- snapshot ----
     socket.on('snapshot', (data) => {
-      const sid = socket.sessionId;
-      if (!sid || !rooms[sid]) return;
-      for (const pid in rooms[sid].players) {
-        const target = rooms[sid].players[pid].socketId;
-        if (target === socket.id) continue;
-        const targetSock = nsp.sockets.get(target);
-        if (targetSock) targetSock.emit('snapshot', data);
+      if (socket.sessionId) {
+        socket.to(socket.sessionId).emit('snapshot', data);
       }
     });
 
     // ---- input ----
     socket.on('input', (data) => {
-      const sid = socket.sessionId;
-      if (!sid || !rooms[sid]) return;
-      for (const pid in rooms[sid].players) {
-        const target = rooms[sid].players[pid].socketId;
-        if (target === socket.id) continue;
-        const targetSock = nsp.sockets.get(target);
-        if (targetSock) targetSock.emit('input', data);
+      if (socket.sessionId) {
+        socket.to(socket.sessionId).emit('input', data);
       }
     });
 
     // ---- disconnect ----
     socket.on('disconnect', () => {
-      handlePlayerLeave(socket, nsp);
+      handlePlayerLeave(socket);
     });
   });
 
   console.log(
-    chalk.green('✓ EmulatorJS Netplay server attached (Socket.IO namespace: /netplay)')
+    chalk.green('✓ EmulatorJS Netplay server attached (default namespace /)')
   );
 }
 
 // ---- Shared disconnect / leave logic ----
-function handlePlayerLeave(socket, nsp) {
+function handlePlayerLeave(socket) {
   const sessionId = socket.sessionId;
   const playerId = socket.playerId;
 
@@ -294,7 +269,7 @@ function handlePlayerLeave(socket, nsp) {
     (peer) => peer.source !== socket.id && peer.target !== socket.id
   );
 
-  nsp.to(sessionId).emit('users-updated', rooms[sessionId].players);
+  io.to(sessionId).emit('users-updated', rooms[sessionId].players);
 
   if (Object.keys(rooms[sessionId].players).length === 0) {
     delete rooms[sessionId];
@@ -312,12 +287,12 @@ function handlePlayerLeave(socket, nsp) {
         return peer;
       });
       if (rooms[sessionId].peers.length > 0) {
-        nsp.to(newOwnerId).emit('webrtc-signal', {
+        io.to(newOwnerId).emit('webrtc-signal', {
           target: rooms[sessionId].peers[0].target,
           requestRenegotiate: true,
         });
       }
-      nsp.to(sessionId).emit('users-updated', rooms[sessionId].players);
+      io.to(sessionId).emit('users-updated', rooms[sessionId].players);
     }
   }
 
