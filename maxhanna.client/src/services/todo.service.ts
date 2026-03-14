@@ -8,7 +8,6 @@ import { MusicPlaylist } from './datacontracts/music-playlist';
 })
 export class TodoService {
   async getTodo(userId: number, type: string, search?: string) {
-    if (!userId) return;
     try {
       let params = new URLSearchParams({ type: type });
       if (search) {
@@ -29,7 +28,6 @@ export class TodoService {
     }
   }
   async getAllTodo(userId: number) {
-    if (!userId) return;
     try {
 
       const response = await fetch('/todo/getall', {
@@ -59,7 +57,6 @@ export class TodoService {
     }
   }
   async getTodoCount(userId: number, type: string, search?: string) {
-    if (!userId) return;
     try {
       let params = new URLSearchParams({ type: type });
       if (search) {

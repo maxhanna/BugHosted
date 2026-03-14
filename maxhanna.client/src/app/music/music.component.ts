@@ -263,12 +263,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
 
   private async tryInitialLoad() {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    const user = this.user ?? parent?.user;
-
-    if (!user?.id) {
-      await Promise.resolve();
-    }
+    const parent = this.inputtedParentRef ?? this.parentRef; 
+ 
     await this.loadPlaylists();
     await this.refreshPlaylist();
     if (this.songs.length && this.songs[0]?.url) {
@@ -356,9 +352,9 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     try {
       const parent = this.inputtedParentRef ?? this.parentRef;
       const user = this.user ?? parent?.user;
-      if (!user?.id || !parent) return;
+      if (!parent) return;
 
-      const tmpSongs = await this.todoService.getTodo(user.id, 'Music');
+      const tmpSongs = await this.todoService.getTodo(user?.id ?? 0, 'Music');
 
       // Build fresh arrays (new references)
       this.youtubeSongs = tmpSongs.filter((song: Todo) => parent.isYoutubeUrl(song.url));
@@ -380,15 +376,14 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
   async searchForSong(passedValue?: string) {
     const search = (typeof passedValue === 'string' ? passedValue : this.searchInput?.nativeElement.value) || '';
-    const user = this.user ?? this.parentRef?.user;
-    if (!user?.id) return;
+    const user = this.user ?? this.parentRef?.user; 
 
     this.startLoading();
     if (!search) {
       await this.getSongList(false);
       this.rebuildLocalYtQueue();
     } else {
-      const tmpSongs = await this.todoService.getTodo(user.id, "Music", search);
+      const tmpSongs = await this.todoService.getTodo(user?.id ?? 0, "Music", search);
       this.youtubeSongs = tmpSongs.filter((song: Todo) => this.parentRef?.isYoutubeUrl(song.url));
       this.fileSongs = tmpSongs.filter((song: Todo) => !this.parentRef?.isYoutubeUrl(song.url));
       this.songs = this.selectedType === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
@@ -471,9 +466,9 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
       this.parentRef?.showNotification("Invalid song ID");
       return;
     }
-    if (!confirm("Deleting song. Are you sure?") || !this.parentRef?.user?.id) return;
+    if (!confirm("Deleting song. Are you sure?")) return;
     this.startLoading();
-    await this.todoService.deleteTodo(this.parentRef.user.id, id);
+    await this.todoService.deleteTodo(this.parentRef?.user?.id ?? 0, id);
     const index = this.songs.findIndex(song => song.id === id);
     if (index !== -1) {
       this.songs.splice(index, 1);
@@ -1486,13 +1481,12 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
   private async loadAllSongsForPlaylistEdit() {
     const parent = this.inputtedParentRef ?? this.parentRef;
-    const user = this.user ?? parent?.user;
-    if (!user?.id) return;
+    const user = this.user ?? parent?.user; 
 
     this.startLoading();
 
     // Get the full song list (all music)
-    const allSongs = await this.todoService.getTodo(user.id, 'Music');
+    const allSongs = await this.todoService.getTodo(user?.id ?? 0, 'Music');
     if (!allSongs) { this.stopLoading(); return; }
 
     this.youtubeSongs = allSongs.filter((song: Todo) => parent?.isYoutubeUrl(song.url));
@@ -1503,7 +1497,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
     // Pre-check songs that are already in the playlist
     if (this.selectedPlaylistId) {
-      const existing = await this.todoService.getMusicPlaylistEntries(user.id, this.selectedPlaylistId);
+      const existing = await this.todoService.getMusicPlaylistEntries(user?.id ?? 0, this.selectedPlaylistId);
       if (existing) {
         this.playlistSelectedSongIds = new Set(existing.map((e: Todo) => e.id!).filter(id => id != null));
       }

@@ -192,7 +192,7 @@ namespace maxhanna.Server.Controllers
           cmd.Parameters.AddWithValue("@FileId", fileIdValue);
 
           // If userId <= 0 and type is music, store NULL ownership to denote anonymous
-          object ownerValue = model.userId > 0 ? (object)model.userId : DBNull.Value;
+          object ownerValue = model.userId > 0 ? (object)model.userId : 0;
           cmd.Parameters.AddWithValue("@Owner", ownerValue);
 
           var result = await cmd.ExecuteScalarAsync();

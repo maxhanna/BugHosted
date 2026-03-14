@@ -827,15 +827,14 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getMusicInfo() {
-    if (!this._parent.notificationsActive) return;
-    if (!this._parent?.user?.id) return;
+    if (!this._parent.notificationsActive) return; 
     if (this._parent.lastRunTimestamps['music'] 
       && Date.now() - this._parent.lastRunTimestamps['music'] < this.time60Mins) {
       return;
     }
     this.isLoadingMusic = true;
     try {
-      const res: any = await this.todoService.getTodoCount(this._parent.user.id, 'Music');
+      const res: any = await this.todoService.getTodoCount(this._parent?.user?.id ?? 0, 'Music');
       this.musicTodoCount = res?.count ?? 0;
     } catch {
       this.musicTodoCount = null;
