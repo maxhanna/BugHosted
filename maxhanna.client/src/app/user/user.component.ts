@@ -124,6 +124,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   latestMeme?: FileEntry = undefined;
   changedTheme = false;
   private originalBackgroundColor: string | null = null;
+  private hostComponentMainEl: HTMLDivElement | null = null;
   isDisplayPicturePanelOpen: boolean = false;
   showDisplayPictureSelector = false;
   showBackgroundPictureSelector = false;
@@ -152,7 +153,8 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     private topService: TopService,
     private romService: RomService,
     private reactionService: ReactionService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private elRef: ElementRef
   ) {
     super();
   }
@@ -237,6 +239,22 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     setTimeout(() => {
       this.removeBorderOnSocial();
     }, 500);
+    // If this component is being shown for a specific user or a logged-in user exists,
+    // remove the background on the nearest host '.componentMain' for this component only.
+    setTimeout(() => {
+      try {
+        const userExists = !!(this.user || this.parentRef?.user);
+        if (!userExists) return;
+        const hostEl = (this.elRef && this.elRef.nativeElement) ? (this.elRef.nativeElement.closest ? this.elRef.nativeElement.closest('.componentMain') : null) as HTMLDivElement | null : null;
+        const targetEl = hostEl ?? document.querySelector('.componentMain') as HTMLDivElement | null;
+        if (!targetEl) return;
+        this.hostComponentMainEl = targetEl;
+        if (this.originalBackgroundColor === null) {
+          this.originalBackgroundColor = targetEl.style.backgroundColor ?? '';
+        }
+        targetEl.style.setProperty('background-color', 'unset', 'important');
+      } catch (e) { }
+    }, 60);
   }
 
   onLoginUsernameInput(event: Event) {
@@ -446,23 +464,28 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
 
   private setBackgroundImage() {
     if (this.user?.profileBackgroundPictureFile?.id && !this.loginOnly) {
-      const element = document.querySelector('.componentMain') as HTMLDivElement;
+      const hostEl = (this.elRef && this.elRef.nativeElement && this.elRef.nativeElement.closest) ? (this.elRef.nativeElement.closest('.componentMain') as HTMLDivElement | null) : null;
+      const element = hostEl ?? document.querySelector('.componentMain') as HTMLDivElement | null;
       if (element) {
-        // Store original value first
-        this.originalBackgroundColor = element.style.backgroundColor;
+        this.hostComponentMainEl = element;
+        if (this.originalBackgroundColor === null) {
+          this.originalBackgroundColor = element.style.backgroundColor ?? '';
+        }
         element.style.setProperty('background-color', 'unset', 'important');
       }
     }
   }
 
   private restoreBackground() {
-    const element = document.querySelector('.componentMain') as HTMLDivElement;
+    const element = this.hostComponentMainEl ?? (document.querySelector('.componentMain') as HTMLDivElement | null);
     if (element && this.originalBackgroundColor !== null) {
       if (this.originalBackgroundColor) {
         element.style.setProperty('background-color', this.originalBackgroundColor, 'important');
       } else {
         element.style.removeProperty('background-color');
       }
+      this.hostComponentMainEl = null;
+      this.originalBackgroundColor = null;
     }
   }
 
@@ -496,6 +519,8 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       this.parentRef?.navigationComponent?.getThemeInfo(this.parentRef.user?.id ?? 0);
       this.restoreBackground();
     }
+    // Always attempt to restore any background we modified for this component.
+    try { this.restoreBackground(); } catch (e) { }
   }
 
   override remove_me(title: string) {
