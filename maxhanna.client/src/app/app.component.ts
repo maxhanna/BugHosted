@@ -436,7 +436,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       if (saved) {
         this.leftPanelWidth = parseInt(saved, 10);
       } else {
-        this.leftPanelWidth = Math.max(this.minLeftPanelWidth, Math.floor((window.innerWidth || 1200) * 0.4));
+        this.leftPanelWidth = Math.max(this.minLeftPanelWidth, 260);
       }
       this.maxLeftPanelWidth = Math.max(this.leftPanelWidth, Math.floor((window.innerWidth || 1200) * 0.8));
     } catch { this.leftPanelWidth = Math.max(this.minLeftPanelWidth, 350); }
