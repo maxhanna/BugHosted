@@ -5,7 +5,7 @@
 }
 
 .noBackgroundColor {
-  background-color: unset !important;
+  background-color: transparent !important;
 }
 
 .componentTitle {
