@@ -375,3 +375,4 @@ FodyWeavers.xsd
 maxhanna.client/bughosted_com.csr
 maxhanna.client/bughosted_com.key
 maxhanna.client/src/assets/ender/*
+/maxhanna.client/src/assets/emulatorjs/data/cores/*
