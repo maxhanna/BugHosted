@@ -2814,18 +2814,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         canvas.style.maxHeight = '95vh';
       } catch { }
     });
-
-    // 2️⃣ Force devicePixelRatio to 1 for PSP (big win on high-DPI screens)
-    // try {
-    //   if (window.devicePixelRatio > 1) {
-    //     (window as any).__ORIGINAL_DPR__ = window.devicePixelRatio;
-    //     Object.defineProperty(window, 'devicePixelRatio', {
-    //       get() { return 1; },
-    //       configurable: true
-    //     });
-    //   }
-    // } catch { }
-
+ 
     // 3️⃣ Clamp render buffer
     (window as any).EJS_renderClamp = { maxW: 640, maxH: 360, maxDPR: 1.0 };
 
@@ -3132,9 +3121,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   confirmSystemSelection() {
     if (!this._pendingFileToLoad) return;
     const pending = this._pendingFileToLoad;
-    // ★ Capture the selected core BEFORE closeOverlay().
-    //   closeOverlay() finds #closeOverlay buttons and clicks them, which triggers
-    //   cancelSystemSelection() and would clear selectedSystemCore.
+    
     const forced = this.selectedSystemCore ?? undefined;
     this._forcedCore = forced;
     this._pendingFileToLoad = null;
@@ -3160,8 +3147,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   cancelSystemSelection() {
-    // Guard: if _pendingFileToLoad is already null, confirmSystemSelection already
-    // handled this — don't clobber state (closeOverlay clicks #closeOverlay buttons).
     if (!this._pendingFileToLoad) {
       this.isSystemSelectPanelOpen = false;
       return;
@@ -3173,137 +3158,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.systemCandidates = [];
     this.selectedSystemCore = undefined;
     this.cdr.detectChanges();
-  }
-
-
-  private async preloadMelondsBiosBytes(): Promise<void> {
-    const w = window as any;
-    const core = String(w.EJS_core || '').toLowerCase();
-    if (core !== 'melonds' && core !== 'nds') return;
-
-    const base = '/assets/emulatorjs/data/cores/dsbios';
-    const files = ['bios7.bin', 'bios9.bin', 'firmware.bin', 'dsi_firmware.bin', 'dsi_bios7.bin', 'dsi_bios9.bin', 'dsi_nand.bin'];
-
-    w.__melondsBiosCache = w.__melondsBiosCache || {};
-
-    for (const name of files) {
-      // Reuse cached bytes if already fetched on this page load
-      if (w.__melondsBiosCache[name] instanceof Uint8Array && w.__melondsBiosCache[name].length > 0) {
-        console.log(`[melonDS] using cached ${name}: ${w.__melondsBiosCache[name].length} bytes`);
-        continue;
-      }
-
-      const url = `${base}/${name}`;
-      const res = await fetch(url, { cache: 'no-store' });
-
-      if (!res.ok) {
-        throw new Error(`[melonDS] Failed to fetch BIOS asset: ${url} (${res.status})`);
-      }
-
-      const ab = await res.arrayBuffer();
-      const u8 = new Uint8Array(ab);
-
-      if (!u8.length) {
-        throw new Error(`[melonDS] BIOS asset is empty: ${url}`);
-      }
-
-      w.__melondsBiosCache[name] = u8;
-      console.log(`[melonDS] fetched ${name}: ${u8.length} bytes from ${url}`);
-    }
-  }
-
-  /**
-   * Write melonDS BIOS files into the Emscripten FS that EmulatorJS actually uses.
-   *
-   * EmulatorJS creates its own internal Module (with a fresh empty preRun[]),
-   * so window.Module.preRun hooks are ignored. Instead we:
-   *   1. Tell EmulatorJS about the files via EJS_externalFiles (it downloads & places them in FS).
-   *   2. Poll for window.EJS_emulator?.Module?.FS and write from our pre-fetched cache
-   *      (covers the gap between FS init and core start).
-   *   3. Also write inside EJS_ready as a late fallback.
-   */
-  private installMelondsBiosIntoModule(): void {
-    const w = window as any;
-    const core = String(w.EJS_core || '').toLowerCase();
-    if (core !== 'melonds' && core !== 'nds') return;
-
-    const biosCache: Record<string, Uint8Array> = w.__melondsBiosCache || {};
-    const biosNames = ['bios7.bin', 'bios9.bin', 'firmware.bin'];
-    const dsiBiosNames = ['dsi_firmware.bin', 'dsi_bios7.bin', 'dsi_bios9.bin', 'dsi_nand.bin'];
-    const allBiosNames = [...biosNames, ...dsiBiosNames];
-
-    // Don't set a single EJS_biosUrl – melonDS needs multiple files.
-    w.EJS_biosUrl = '';
-
-    // --- Strategy 1: EJS_externalFiles --------------------------------
-    // EmulatorJS loader.js reads window.EJS_externalFiles and downloads
-    // each entry into the Emscripten FS before the core starts.
-    // Map every cached BIOS file to its HTTP URL so EJS handles placement.
-    const base = '/assets/emulatorjs/data/cores/dsbios';
-    const extFiles: Record<string, string> = {};
-    for (const name of allBiosNames) {
-      if (biosCache[name] instanceof Uint8Array && biosCache[name].length > 0) {
-        extFiles[`/${name}`] = `${base}/${name}`;
-      }
-    }
-    if (Object.keys(extFiles).length > 0) {
-      w.EJS_externalFiles = { ...(w.EJS_externalFiles || {}), ...extFiles };
-      console.log('[melonDS] EJS_externalFiles set:', Object.keys(extFiles));
-    }
-
-    // --- Strategy 2: FS polling (from pre-fetched byte cache) ---------
-    // Aggressively poll for the real Emscripten FS and write BIOS files
-    // as soon as it becomes available (before the core calls retro_load_game).
-    if (w.__melondsBiosPollInstalled) return;
-    w.__melondsBiosPollInstalled = true;
-
-    let biosWritten = false;
-
-    const findFS = (): any =>
-      w.EJS_emulator?.Module?.FS
-      || w.EJS_emulator?.gameManager?.FS
-      || w.EJS?.Module?.FS
-      || null; // intentionally skip window.FS / window.Module – those are NOT the core's FS
-
-    const writeBiosToFS = (FS: any, label: string): boolean => {
-      if (!FS || typeof FS.writeFile !== 'function') return false;
-      let wrote = 0;
-      for (const name of allBiosNames) {
-        const bytes = biosCache[name];
-        if (!(bytes instanceof Uint8Array) || bytes.length === 0) continue;
-        try {
-          try { if (FS.analyzePath?.(`/${name}`)?.exists) FS.unlink(`/${name}`); } catch { }
-          FS.writeFile(`/${name}`, bytes);
-          wrote++;
-          console.log(`[melonDS] ${label}: wrote /${name} (${bytes.length} bytes)`);
-        } catch (e) {
-          console.error(`[melonDS] ${label}: failed to write /${name}`, e);
-        }
-      }
-      if (wrote > 0) {
-        try { console.log(`[melonDS] ${label}: FS root:`, FS.readdir('/')); } catch { }
-      }
-      return wrote > 0;
-    };
-
-    // Poll every 25 ms, give up after 30 s
-    const pollId = setInterval(() => {
-      if (biosWritten) { clearInterval(pollId); return; }
-      const FS = findFS();
-      if (FS) {
-        biosWritten = writeBiosToFS(FS, 'FS-poll');
-        if (biosWritten) clearInterval(pollId);
-      }
-    }, 25);
-    setTimeout(() => clearInterval(pollId), 30_000);
-
-    // --- Strategy 3: EJS_ready fallback --------------------------------
-    // Stash a helper the EJS_ready callback can invoke (set later in loadRomThroughService).
-    w.__melondsBiosWriteFn = (api: any) => {
-      if (biosWritten) return;
-      const FS = api?.Module?.FS || api?.gameManager?.FS || findFS();
-      if (FS) biosWritten = writeBiosToFS(FS, 'EJS_ready');
-    };
   }
 
 

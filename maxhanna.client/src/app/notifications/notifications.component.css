@@ -301,3 +301,6 @@
     max-width: calc(100% - 10px);
   }
 }
+.usernameProfileLink {
+  color: var(--main-link-color);
+}
