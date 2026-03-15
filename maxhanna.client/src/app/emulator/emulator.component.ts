@@ -455,7 +455,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     console.log(`[EmulatorComponent] Detected core "${core}" for file "${fileName}" (ext: "${this.fileService.getFileExtension(fileName)}") forcedCore=${effectiveForcedCore ?? 'none'}`);
     const renderClamp = this.getRenderClampForCore(core);
     (window as any).EJS_renderClamp = renderClamp;
-    window.EJS_core = core; 
+    window.EJS_core = core;
     window.EJS_controlScheme = this.ejsControlSchemeForCore(core);
     this.system = this.systemFromCore(core);
 
@@ -681,7 +681,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     switch (core) {
       // PlayStation (common BIOS used by many PS1 cores)
       case 'mednafen_psx_hw':
-      case 'pcsx_rearmed':  
+      case 'pcsx_rearmed':
       case 'duckstation':
       case 'mednafen_psx':
         return '/assets/emulatorjs/data/cores/scph5501.bin';
@@ -710,9 +710,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
 
   private applyEjsRunOptions(system: System, core: string): void {
-    
+
     window.EJS_player = "#game";
- 
+
     // ❗ BIOS: set ONLY if required by the selected core; otherwise blank
     window.EJS_biosUrl = this.getBiosUrlForCore(core) ?? "";  // <— key fix
     this.configureMelondsBiosPreload(core, window);
@@ -886,8 +886,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     w.EJS_logAudio = false;             // debug options 
     w.EJS_logInput = false;             // debug options 
     w.EJS_logSaves = false;             // debug options  
-    w.EJS_paths = { 
-      bios:   '/assets/emulatorjs/data/cores/',
+    w.EJS_paths = {
+      bios: '/assets/emulatorjs/data/cores/',
       system: '/assets/emulatorjs/data/cores/',
     };
     w.EJS_pathtodata = '/assets/emulatorjs/data/';
@@ -1301,14 +1301,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (!this.autosave || !this.romName || !this.parentRef?.user?.id) return;
 
     const core = (window as any).EJS_core || '';
-    const bootDelayMs = (core === 'melonds') ? 10_000 : 0; 
+    const bootDelayMs = (core === 'melonds') ? 10_000 : 0;
     this.autosaveInterval = setInterval(() => {
       try {
         if (this._saveInProgress) return;
         const needed = Math.max(this.autosaveIntervalTime, 180000) + bootDelayMs;
         if (this.gameLoadDate && Date.now() - this.gameLoadDate.getTime() < needed) return;
         this.callEjsSave();
-      } catch {}
+      } catch { }
     }, this.autosaveIntervalTime);
   }
 
@@ -3034,7 +3034,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     for (const s of this.AMBIGUOUS_EXTS) {
       ambiguousExts.add(s);
     }
-    
+
     if (ambiguousExts.has(ext)) {
       // 2a) Your service guess (best)
       try {
@@ -3160,53 +3160,53 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.cdr.detectChanges();
   }
 
-private configureMelondsBiosPreload(core: string, window: any): void { 
-  // Support both explicit "melonds" and generic "nds"
-  if (core !== 'melonds' && core !== 'nds') return;
+  private configureMelondsBiosPreload(core: string, window: any): void {
+    // Support both explicit "melonds" and generic "nds"
+    if (core !== 'melonds' && core !== 'nds') return;
 
-  const biosBase = '/assets/emulatorjs/data/cores';
-  const biosFiles = [
-    { name: 'bios7.bin', url: `${biosBase}/bios7.bin` },
-    { name: 'bios9.bin', url: `${biosBase}/bios9.bin` },
-    { name: 'firmware.bin', url: `${biosBase}/firmware.bin` },
-  ];
+    const biosBase = '/assets/emulatorjs/data/cores';
+    const biosFiles = [
+      { name: 'bios7.bin', url: `${biosBase}/bios7.bin` },
+      { name: 'bios9.bin', url: `${biosBase}/bios9.bin` },
+      { name: 'firmware.bin', url: `${biosBase}/firmware.bin` },
+    ];
 
-  // melonDS needs multiple BIOS files by exact filename in the system dir.
-  // Do NOT rely on EJS_biosUrl for this core.
-  window.EJS_biosUrl = '';
+    // melonDS needs multiple BIOS files by exact filename in the system dir.
+    // Do NOT rely on EJS_biosUrl for this core.
+    window.EJS_biosUrl = '';
 
-  // Hook into the Emscripten module before the core starts.
-  window.Module = window.Module || {};
+    // Hook into the Emscripten module before the core starts.
+    window.Module = window.Module || {};
 
-  const existingPreRun = Array.isArray(window.Module.preRun)
-    ? window.Module.preRun
-    : (window.Module.preRun ? [window.Module.preRun] : []);
+    const existingPreRun = Array.isArray(window.Module.preRun)
+      ? window.Module.preRun
+      : (window.Module.preRun ? [window.Module.preRun] : []);
 
-  window.Module.preRun = existingPreRun;
+    window.Module.preRun = existingPreRun;
 
-  window.Module.preRun.push(() => {
-    const FS = window.FS || window.Module?.FS;
-    if (!FS || typeof FS.createPreloadedFile !== 'function') {
-      console.error('[melonDS] FS.createPreloadedFile not available during preRun');
-      return;
-    }
-
-    for (const file of biosFiles) {
-      try {
-        // Mount each BIOS into the virtual root "/" where libretro is looking
-        FS.createPreloadedFile('/', file.name, file.url, true, false);
-        console.log(`[melonDS] Preloading ${file.url} -> /${file.name}`);
-      } catch (err) {
-        console.error(`[melonDS] Failed preloading ${file.name}`, err);
+    window.Module.preRun.push(() => {
+      const FS = window.FS || window.Module?.FS;
+      if (!FS || typeof FS.createPreloadedFile !== 'function') {
+        console.error('[melonDS] FS.createPreloadedFile not available during preRun');
+        return;
       }
-    }
-  });
-}
 
-  setLoaderFileLocation(s: HTMLScriptElement) { 
+      for (const file of biosFiles) {
+        try {
+          // Mount each BIOS into the virtual root "/" where libretro is looking
+          FS.createPreloadedFile('/', file.name, file.url, true, false);
+          console.log(`[melonDS] Preloading ${file.url} -> /${file.name}`);
+        } catch (err) {
+          console.error(`[melonDS] Failed preloading ${file.name}`, err);
+        }
+      }
+    });
+  }
+
+  setLoaderFileLocation(s: HTMLScriptElement) {
     s.src = '/assets/emulatorjs/data/loader.js';
   }
- 
+
   private ejsControlSchemeForCore(core: string): string | undefined {
     switch (core) {
       case 'genesis_plus_gx': return 'segaMD';
@@ -3215,7 +3215,7 @@ private configureMelondsBiosPreload(core: string, window: any): void {
       case 'smsplus': return 'segaMS';
       default: return undefined; // let EmulatorJS derive it
     }
-  } 
+  }
 }
 
 type SystemCandidate = { label: string; core?: string };
