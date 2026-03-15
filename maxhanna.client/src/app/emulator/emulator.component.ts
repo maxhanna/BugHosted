@@ -3164,11 +3164,15 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // Support both explicit "melonds" and generic "nds"
     if (core !== 'melonds' && core !== 'nds') return;
 
-    const biosBase = '/assets/emulatorjs/data/cores';
+    const biosBase = '/assets/emulatorjs/data/cores/dsbios';
     const biosFiles = [
       { name: 'bios7.bin', url: `${biosBase}/bios7.bin` },
       { name: 'bios9.bin', url: `${biosBase}/bios9.bin` },
       { name: 'firmware.bin', url: `${biosBase}/firmware.bin` },
+      { name: 'dsi_firmware.bin', url: `${biosBase}/dsi_firmware.bin` },
+      { name: 'dsi_bios7.bin', url: `${biosBase}/dsi_bios7.bin` },
+      { name: 'dsi_bios9.bin', url: `${biosBase}/dsi_bios9.bin` },
+      { name: 'dsi_nand.bin', url: `${biosBase}/dsi_nand.bin` },
     ];
 
     // melonDS needs multiple BIOS files by exact filename in the system dir.
