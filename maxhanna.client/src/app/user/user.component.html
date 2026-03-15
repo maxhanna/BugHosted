@@ -791,7 +791,7 @@
 <div class="media-selector-container" *ngIf="showDisplayPictureSelector">
   <app-media-selector #displayPictureSelector [maxSelectedFiles]="1" [inputtedParentRef]="parentRef"
     [user]="parentRef?.user" [currentDirectory]="'Users/'+parentRef?.user?.username"
-    [selectedFiles]="user && user.displayPictureFile ? [user.displayPictureFile] : (parentRef?.user && parentRef.user.displayPictureFile ? [parentRef.user.displayPictureFile] : [])"
+    [selectedFiles]="(parentRef && parentRef.user && parentRef.user.displayPictureFile != undefined) ? [parentRef.user.displayPictureFile] : []"
     (selectFileEvent)="avatarSelected($event)">
   </app-media-selector>
 </div>
@@ -799,7 +799,7 @@
 <div class="media-selector-container" *ngIf="showBackgroundPictureSelector">
   <app-media-selector #backgroundPictureSelector [maxSelectedFiles]="1" [inputtedParentRef]="parentRef"
     [user]="parentRef?.user" [currentDirectory]="'Users/'+parentRef?.user?.username"
-    [selectedFiles]="user && user.profileBackgroundPictureFile ? [user.profileBackgroundPictureFile] : (parentRef?.user && parentRef.user.profileBackgroundPictureFile ? [parentRef.user.profileBackgroundPictureFile] : [])"
+    [selectedFiles]="(parentRef && parentRef.user && parentRef.user.profileBackgroundPictureFile != undefined) ? [parentRef.user.profileBackgroundPictureFile] : []"
     (selectFileEvent)="profileBackgroundSelected($event)">
   </app-media-selector>
 </div>
