@@ -247,6 +247,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this._destroyed = true;
     this._ejsReady = false;
     this.clearAutosave();
+    // Clean up melonDS BIOS injection state for next load
+    try {
+      delete (window as any).__melondsBiosPollInstalled;
+      delete (window as any).__melondsBiosWriteFn;
+    } catch { }
     if (this.parentRef) {
       this.parentRef.preventShowSecurityPopup = false;
     }
@@ -455,17 +460,15 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     console.log(`[EmulatorComponent] Detected core "${core}" for file "${fileName}" (ext: "${this.fileService.getFileExtension(fileName)}") forcedCore=${effectiveForcedCore ?? 'none'}`);
     const renderClamp = this.getRenderClampForCore(core);
     (window as any).EJS_renderClamp = renderClamp;
- 
-    
     window.EJS_core = core;
     window.EJS_controlScheme = this.ejsControlSchemeForCore(core);
     this.system = this.systemFromCore(core);
 
-    // IMPORTANT: fetch and stage melonDS BIOS files before loader.js is injected
-    if (core === 'melonds' || core === 'nds') {
-      await this.preloadMelondsBiosBytes();
-      this.installMelondsBiosIntoModule();
-    }
+    // // IMPORTANT: fetch and stage melonDS BIOS files before loader.js is injected
+    // if (core === 'melonds' || core === 'nds') {
+    //   await this.preloadMelondsBiosBytes();
+    //   this.installMelondsBiosIntoModule();
+    // }
 
 
     const romDisplayName = this.fileService.getFileWithoutExtension(fileName); // e.g., "Ultimate MK3 (USA)"
@@ -510,6 +513,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         this.scanAndTagVpadControls();
         this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
 
+        // Late-write melonDS BIOS into the real Emscripten FS (fallback)
+        try { (window as any).__melondsBiosWriteFn?.(window.EJS_emulator); } catch { }
 
         this.applyPSPPerformanceTweak();
 
@@ -698,7 +703,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       // Nintendo DS firmware
       case 'melonds':
       case 'nds':
-        return undefined;
+        return '/assets/emulatorjs/data/cores/dsbios.zip';
 
       case 'yabause':
       case 'segaSaturn':
@@ -3085,6 +3090,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case '3do': return 'opera';
       case 'n64': return 'mupen64plus_next';
       case 'nds': return 'melonds';
+      case 'nintendods': return 'melonds';
+      case 'ndsi': return 'melonds';
       case 'snes': return 'snes9x';
       case 'nes': return 'fceumm';
       case 'gba': return 'mgba';
@@ -3168,103 +3175,136 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.cdr.detectChanges();
   }
 
-  
-private async preloadMelondsBiosBytes(): Promise<void> {
-  const w = window as any;
-  const core = String(w.EJS_core || '').toLowerCase();
-  if (core !== 'melonds' && core !== 'nds') return;
 
-  const base = '/assets/emulatorjs/data/cores/dsbios';
-  const files = ['bios7.bin', 'bios9.bin', 'firmware.bin', 'dsi_firmware.bin', 'dsi_bios7.bin', 'dsi_bios9.bin', 'dsi_nand.bin'];
+  private async preloadMelondsBiosBytes(): Promise<void> {
+    const w = window as any;
+    const core = String(w.EJS_core || '').toLowerCase();
+    if (core !== 'melonds' && core !== 'nds') return;
 
-  w.__melondsBiosCache = w.__melondsBiosCache || {};
+    const base = '/assets/emulatorjs/data/cores/dsbios';
+    const files = ['bios7.bin', 'bios9.bin', 'firmware.bin', 'dsi_firmware.bin', 'dsi_bios7.bin', 'dsi_bios9.bin', 'dsi_nand.bin'];
 
-  for (const name of files) {
-    // Reuse cached bytes if already fetched on this page load
-    if (w.__melondsBiosCache[name] instanceof Uint8Array && w.__melondsBiosCache[name].length > 0) {
-      console.log(`[melonDS] using cached ${name}: ${w.__melondsBiosCache[name].length} bytes`);
-      continue;
-    }
+    w.__melondsBiosCache = w.__melondsBiosCache || {};
 
-    const url = `${base}/${name}`;
-    const res = await fetch(url, { cache: 'no-store' });
-
-    if (!res.ok) {
-      throw new Error(`[melonDS] Failed to fetch BIOS asset: ${url} (${res.status})`);
-    }
-
-    const ab = await res.arrayBuffer();
-    const u8 = new Uint8Array(ab);
-
-    if (!u8.length) {
-      throw new Error(`[melonDS] BIOS asset is empty: ${url}`);
-    }
-
-    w.__melondsBiosCache[name] = u8;
-    console.log(`[melonDS] fetched ${name}: ${u8.length} bytes from ${url}`);
-  }
-}
-
-private installMelondsBiosIntoModule(): void {
-  const w = window as any;
-  const core = String(w.EJS_core || '').toLowerCase();
-  if (core !== 'melonds' && core !== 'nds') return;
-
-  const biosCache: Record<string, Uint8Array> = w.__melondsBiosCache || {};
-
-  // melonDS uses multiple files; don't use a single BIOS URL
-  w.EJS_biosUrl = '';
-
-  w.Module = w.Module || {};
-
-  const existingPreRun = Array.isArray(w.Module.preRun)
-    ? w.Module.preRun
-    : (w.Module.preRun ? [w.Module.preRun] : []);
-
-  w.Module.preRun = existingPreRun;
-
-  // Avoid pushing duplicate hooks on the same page lifecycle
-  if (w.__melondsBiosPreRunInstalled) {
-    return;
-  }
-  w.__melondsBiosPreRunInstalled = true;
-
-  w.Module.preRun.push(() => {
-    const FS = w.FS || w.Module?.FS;
-    if (!FS || typeof FS.writeFile !== 'function') {
-      console.error('[melonDS] FS.writeFile not available during preRun');
-      return;
-    }
-
-    const writeOne = (name: string) => {
-      const bytes = biosCache[name];
-      if (!(bytes instanceof Uint8Array) || bytes.length === 0) {
-        console.error(`[melonDS] Missing cached BIOS bytes for ${name}`);
-        return;
+    for (const name of files) {
+      // Reuse cached bytes if already fetched on this page load
+      if (w.__melondsBiosCache[name] instanceof Uint8Array && w.__melondsBiosCache[name].length > 0) {
+        console.log(`[melonDS] using cached ${name}: ${w.__melondsBiosCache[name].length} bytes`);
+        continue;
       }
 
-      try {
-        const existing = FS.analyzePath?.(`/${name}`);
-        if (existing?.exists) {
-          try { FS.unlink(`/${name}`); } catch {}
-        }
-      } catch {}
+      const url = `${base}/${name}`;
+      const res = await fetch(url, { cache: 'no-store' });
 
-      FS.writeFile(`/${name}`, bytes, { canRead: true, canWrite: false });
-      console.log(`[melonDS] mounted /${name} (${bytes.length} bytes)`);
+      if (!res.ok) {
+        throw new Error(`[melonDS] Failed to fetch BIOS asset: ${url} (${res.status})`);
+      }
+
+      const ab = await res.arrayBuffer();
+      const u8 = new Uint8Array(ab);
+
+      if (!u8.length) {
+        throw new Error(`[melonDS] BIOS asset is empty: ${url}`);
+      }
+
+      w.__melondsBiosCache[name] = u8;
+      console.log(`[melonDS] fetched ${name}: ${u8.length} bytes from ${url}`);
+    }
+  }
+
+  /**
+   * Write melonDS BIOS files into the Emscripten FS that EmulatorJS actually uses.
+   *
+   * EmulatorJS creates its own internal Module (with a fresh empty preRun[]),
+   * so window.Module.preRun hooks are ignored. Instead we:
+   *   1. Tell EmulatorJS about the files via EJS_externalFiles (it downloads & places them in FS).
+   *   2. Poll for window.EJS_emulator?.Module?.FS and write from our pre-fetched cache
+   *      (covers the gap between FS init and core start).
+   *   3. Also write inside EJS_ready as a late fallback.
+   */
+  private installMelondsBiosIntoModule(): void {
+    const w = window as any;
+    const core = String(w.EJS_core || '').toLowerCase();
+    if (core !== 'melonds' && core !== 'nds') return;
+
+    const biosCache: Record<string, Uint8Array> = w.__melondsBiosCache || {};
+    const biosNames = ['bios7.bin', 'bios9.bin', 'firmware.bin'];
+    const dsiBiosNames = ['dsi_firmware.bin', 'dsi_bios7.bin', 'dsi_bios9.bin', 'dsi_nand.bin'];
+    const allBiosNames = [...biosNames, ...dsiBiosNames];
+
+    // Don't set a single EJS_biosUrl – melonDS needs multiple files.
+    w.EJS_biosUrl = '';
+
+    // --- Strategy 1: EJS_externalFiles --------------------------------
+    // EmulatorJS loader.js reads window.EJS_externalFiles and downloads
+    // each entry into the Emscripten FS before the core starts.
+    // Map every cached BIOS file to its HTTP URL so EJS handles placement.
+    const base = '/assets/emulatorjs/data/cores/dsbios';
+    const extFiles: Record<string, string> = {};
+    for (const name of allBiosNames) {
+      if (biosCache[name] instanceof Uint8Array && biosCache[name].length > 0) {
+        extFiles[`/${name}`] = `${base}/${name}`;
+      }
+    }
+    if (Object.keys(extFiles).length > 0) {
+      w.EJS_externalFiles = { ...(w.EJS_externalFiles || {}), ...extFiles };
+      console.log('[melonDS] EJS_externalFiles set:', Object.keys(extFiles));
+    }
+
+    // --- Strategy 2: FS polling (from pre-fetched byte cache) ---------
+    // Aggressively poll for the real Emscripten FS and write BIOS files
+    // as soon as it becomes available (before the core calls retro_load_game).
+    if (w.__melondsBiosPollInstalled) return;
+    w.__melondsBiosPollInstalled = true;
+
+    let biosWritten = false;
+
+    const findFS = (): any =>
+      w.EJS_emulator?.Module?.FS
+      || w.EJS_emulator?.gameManager?.FS
+      || w.EJS?.Module?.FS
+      || null; // intentionally skip window.FS / window.Module – those are NOT the core's FS
+
+    const writeBiosToFS = (FS: any, label: string): boolean => {
+      if (!FS || typeof FS.writeFile !== 'function') return false;
+      let wrote = 0;
+      for (const name of allBiosNames) {
+        const bytes = biosCache[name];
+        if (!(bytes instanceof Uint8Array) || bytes.length === 0) continue;
+        try {
+          try { if (FS.analyzePath?.(`/${name}`)?.exists) FS.unlink(`/${name}`); } catch { }
+          FS.writeFile(`/${name}`, bytes);
+          wrote++;
+          console.log(`[melonDS] ${label}: wrote /${name} (${bytes.length} bytes)`);
+        } catch (e) {
+          console.error(`[melonDS] ${label}: failed to write /${name}`, e);
+        }
+      }
+      if (wrote > 0) {
+        try { console.log(`[melonDS] ${label}: FS root:`, FS.readdir('/')); } catch { }
+      }
+      return wrote > 0;
     };
 
-    writeOne('bios7.bin');
-    writeOne('bios9.bin');
-    writeOne('firmware.bin');
+    // Poll every 25 ms, give up after 30 s
+    const pollId = setInterval(() => {
+      if (biosWritten) { clearInterval(pollId); return; }
+      const FS = findFS();
+      if (FS) {
+        biosWritten = writeBiosToFS(FS, 'FS-poll');
+        if (biosWritten) clearInterval(pollId);
+      }
+    }, 25);
+    setTimeout(() => clearInterval(pollId), 30_000);
 
-    try {
-      console.log('[melonDS] FS root entries:', FS.readdir('/'));
-    } catch (e) {
-      console.warn('[melonDS] Could not list FS root', e);
-    }
-  });
-}
+    // --- Strategy 3: EJS_ready fallback --------------------------------
+    // Stash a helper the EJS_ready callback can invoke (set later in loadRomThroughService).
+    w.__melondsBiosWriteFn = (api: any) => {
+      if (biosWritten) return;
+      const FS = api?.Module?.FS || api?.gameManager?.FS || findFS();
+      if (FS) biosWritten = writeBiosToFS(FS, 'EJS_ready');
+    };
+  }
 
 
   setLoaderFileLocation(s: HTMLScriptElement) {
@@ -3284,18 +3324,13 @@ private installMelondsBiosIntoModule(): void {
 
 type SystemCandidate = { label: string; core?: string };
 
-
-
 type CoreId = string;
 
 type CoreDescriptor = {
   core: CoreId;
   label: string;
-  // extensions that are confidently this system
   exts?: string[];
-  // extensions that might be this system (only used for chooser)
   maybeExts?: string[];
-  // filename heuristics to “bubble up” this candidate for ambiguous files
   hints?: RegExp[];
 };
 
@@ -3359,8 +3394,11 @@ declare global {
     __EJS__?: any;
     __melondsBiosCache?: Record<string, Uint8Array>;
     __melondsBiosPreRunInstalled?: boolean;
+    __melondsBiosPollInstalled?: boolean;
+    __melondsBiosWriteFn?: (api: any) => void;
+    EJS_externalFiles?: Record<string, string>;
     Module?: any;
-    FS?: any; 
+    FS?: any;
     EJS_afterStart?: () => void;
     EJS_ready?: (api: any) => void;
   }
