@@ -119,7 +119,7 @@ fieldset {
 
 @media only screen and (max-width : 667px) {
   .componentMain {
-    width: calc(99vw - 10px) !important
+    width: 100%;
   }
 }
 

@@ -6,8 +6,18 @@
 }
 
 .gamesContainer {
-  max-width: 85vw;
   background-color: var(--component-background-color);
+}
+
+@media only screen and (max-width : 667px) { 
+  .gamesContainer {
+    width: 100%; 
+  }
+}
+@media only screen and (min-width : 667px) { 
+  .gamesContainer {
+    max-width: 85vw; 
+  }
 }
 
 .romNameTitle {

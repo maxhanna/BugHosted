@@ -4,8 +4,7 @@
   }
 }
 
-.componentMain {
-  max-width: 98vw;
+.componentMain { 
   display: flex;
   flex-direction: column;
   background-color: transparent !important;
