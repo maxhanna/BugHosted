@@ -6,7 +6,9 @@
     <div *ngFor="let notif of notifications"
          title="Click to clear notifications"
          class="notificationBubble">
-        <div class="notifClosePopupButtonDiv"><button class="closePopupBtn" (click)="notifications = [];" title="Clear Notifications">×</button></div>
+        <div class="notifClosePopupButtonDiv">
+          <button class="closePopupBtn" (click)="notifications = [];" title="Clear Notifications">×</button>
+        </div>
         <div>🪲{{notif}}</div>
     </div>
   </div>

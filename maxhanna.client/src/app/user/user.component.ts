@@ -153,8 +153,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     private topService: TopService,
     private romService: RomService,
     private reactionService: ReactionService,
-    private cdr: ChangeDetectorRef,
-    private elRef: ElementRef
+    private cdr: ChangeDetectorRef, 
   ) {
     super();
   }
@@ -190,8 +189,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
         if (this.user.id == this.parentRef?.user?.id && this.user.id != 0 && this.user.id !== undefined) {
           this.notificationService.getStoppedNotifications(this.user.id).then(res => this.stoppedNotifications = res);
         }
-        this.changeTheme();
-        this.setBackgroundImage();
+        this.changeTheme(); 
       }
       if (!this.user) {
         this.usersCount = await this.userService.getUserCount();
@@ -238,23 +236,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     }, 50);
     setTimeout(() => {
       this.removeBorderOnSocial();
-    }, 500);
-    // If this component is being shown for a specific user or a logged-in user exists,
-    // remove the background on the nearest host '.componentMain' for this component only.
-    setTimeout(() => {
-      try {
-        const userExists = !!(this.user || this.parentRef?.user);
-        if (!userExists) return;
-        const hostEl = (this.elRef && this.elRef.nativeElement) ? (this.elRef.nativeElement.closest ? this.elRef.nativeElement.closest('.componentMain') : null) as HTMLDivElement | null : null;
-        const targetEl = hostEl ?? document.querySelector('.componentMain') as HTMLDivElement | null;
-        if (!targetEl) return;
-        this.hostComponentMainEl = targetEl;
-        if (this.originalBackgroundColor === null) {
-          this.originalBackgroundColor = targetEl.style.backgroundColor ?? '';
-        }
-        targetEl.style.setProperty('background-color', 'unset', 'important');
-      } catch (e) { }
-    }, 60);
+    }, 500); 
   }
 
   onLoginUsernameInput(event: Event) {
@@ -461,21 +443,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       menuButton.style.setProperty('text-shadow', '1px 1px var(--main-link-color)');
     }
   }
-
-  private setBackgroundImage() {
-    if (this.user?.profileBackgroundPictureFile?.id && !this.loginOnly) {
-      const hostEl = (this.elRef && this.elRef.nativeElement && this.elRef.nativeElement.closest) ? (this.elRef.nativeElement.closest('.componentMain') as HTMLDivElement | null) : null;
-      const element = hostEl ?? document.querySelector('.componentMain') as HTMLDivElement | null;
-      if (element) {
-        this.hostComponentMainEl = element;
-        if (this.originalBackgroundColor === null) {
-          this.originalBackgroundColor = element.style.backgroundColor ?? '';
-        }
-        element.style.setProperty('background-color', 'unset', 'important');
-      }
-    }
-  }
-
+ 
   private restoreBackground() {
     const element = this.hostComponentMainEl ?? (document.querySelector('.componentMain') as HTMLDivElement | null);
     if (element && this.originalBackgroundColor !== null) {
@@ -1281,9 +1249,15 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   }
   async avatarSelected(files: FileEntry[]) {
     const targetParent = this.parentRef ?? this.inputtedParentRef;
-    if (files && files.length > 0 && targetParent?.user?.id) {
-      await this.userService.updateDisplayPicture(targetParent.user.id, files[0].id);
-      targetParent.user.displayPictureFile = files[0];
+    if (targetParent?.user?.id) {
+      if (files && files.length > 0) {
+        await this.userService.updateDisplayPicture(targetParent.user.id, files[0].id);
+        targetParent.user.displayPictureFile = files[0];
+      } else {
+        // No files selected -> user removed the display picture. Clear the DB column.
+        await this.userService.updateDisplayPicture(targetParent.user.id, 0);
+        targetParent.user.displayPictureFile = undefined as any;
+      }
       targetParent.deleteCookie("user");
       targetParent.setCookie("user", JSON.stringify(targetParent.user), 10);
       setTimeout(() => { this.ngOnInit(); }, 100);
@@ -1293,9 +1267,15 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   }
   async profileBackgroundSelected(files: FileEntry[]) {
     const targetParent = this.parentRef ?? this.inputtedParentRef;
-    if (files && files.length > 0 && targetParent?.user?.id) {
-      await this.userService.updateProfileBackgroundPicture(targetParent.user.id, files[0].id);
-      targetParent.user.profileBackgroundPictureFile = files[0];
+    if (targetParent?.user?.id) {
+      if (files && files.length > 0) {
+        await this.userService.updateProfileBackgroundPicture(targetParent.user.id, files[0].id);
+        targetParent.user.profileBackgroundPictureFile = files[0];
+      } else {
+        // No files selected -> user removed the profile background picture. Clear the DB column.
+        await this.userService.updateProfileBackgroundPicture(targetParent.user.id, 0);
+        targetParent.user.profileBackgroundPictureFile = undefined as any;
+      }
       targetParent.deleteCookie("user");
       targetParent.setCookie("user", JSON.stringify(targetParent.user), 10);
       setTimeout(() => { this.ngOnInit(); }, 100);
@@ -1320,9 +1300,12 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       return "";
     }
 
-    let classes = ["componentMain"];
+    let classes = ["componentMain", "noBackgroundColor"];
     if (this.user) { 
       classes.push("componentMainFullHeight");
+    }
+    if (!this.user && !this.parentRef) {
+      classes = classes.filter(x => x !== "noBackgroundColor");
     }
 
     return classes.join(" ");

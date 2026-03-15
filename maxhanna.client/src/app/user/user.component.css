@@ -4,6 +4,10 @@
   height: calc(100dvh - 60px);
 }
 
+.noBackgroundColor {
+  background-color: unset !important;
+}
+
 .componentTitle {
   position: sticky !important;
 }
