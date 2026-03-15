@@ -1304,7 +1304,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     if (this.user) { 
       classes.push("componentMainFullHeight");
     }
-    if (!this.user && !this.parentRef) {
+    if (!this.user || !this.parentRef) {
       classes = classes.filter(x => x !== "noBackgroundColor");
     }
 
