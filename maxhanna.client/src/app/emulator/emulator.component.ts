@@ -6,6 +6,7 @@ import { RomService } from '../../services/rom.service';
 import { FileService } from '../../services/file.service';
 import { FileSearchComponent } from '../file-search/file-search.component';
 import { AppComponent } from '../app.component';
+import { VPadItem, System, BuildOpts, SystemCandidate, CoreDescriptor, CoreId, MIN_STATE_SIZE, FAQ_ITEMS, GENESIS_6BUTTON, GENESIS_FORCE_THREE, PSP_DEFAULT_OPTIONS } from './emulator-types';
 
 @Component({
   selector: 'app-emulator',
@@ -31,115 +32,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   isFaqOpen = false;
   isSystemSelectPanelOpen = false;
   wasMenuOpenBeforeLoggingIn = false;
-  faqItems: { question: string; answerHtml: string; expanded: boolean }[] = [
-    {
-      question: 'My controller is connected but doesn\'t work — what should I do?',
-      answerHtml:
-        `Unpair all controllers from the PC, then pair and test one controller at a time. 
-      Multiple paired controllers or leftover Bluetooth pairings can cause input routing conflicts. 
-      Try restarting the browser after pairing. 
-      If using a virtual gamepad, confirm the correct mapping in the on-screen controls.
-      If using regular gamepads, try re-mapping controls by clicking on the "Remap Controls" button
-      when a rom is loaded, or press the controller button in the emulator to bring up the controls mapping screen.`,
-      expanded: false
-    },
-    {
-      question: 'I don\'t hear any audio from the game.',
-      answerHtml: `Check that the browser tab isn't muted, confirm the correct audio output device is selected in your OS, and ensure the emulator volume (in the menu) is not set to zero. Some browsers require user gesture before audio will play — try clicking the page first.`,
-      expanded: false
-    },
-    {
-      question: 'Save states aren\'t persisting between sessions.',
-      answerHtml: `Make sure you're logged in and autosave is enabled. Manual saves are available via the "Manual Save" button which calls the emulator save API. Network interruptions or very large save files (PS1/N64) can delay or prevent uploads.`,
-      expanded: false
-    },
-    {
-      question: 'The game runs slowly or stutters.',
-      answerHtml: `Close other heavy apps/tabs, enable hardware acceleration in your browser, and try reducing the emulator rendering size. On low-end devices, disabling on-screen controls or switching to simpler touch layouts can help.`,
-      expanded: false
-    },
-    {
-      question: 'What systems and games are supported?',
-      answerHtml: `Available systems include:<ul>
-        <li><strong>Nintendo</strong>: Game Boy Advance, Famicom / NES, Virtual Boy, Game Boy, SNES, DS, N64</li>
-        <li><strong>Sega</strong>: Master System, Mega Drive / Genesis, Game Gear, Saturn, 32X, CD</li>
-        <li><strong>Atari</strong>: 2600, 5200, 7800, Lynx, Jaguar</li>
-        <li><strong>Commodore</strong>: Commodore 64, Commodore 128, Amiga, PET, Plus/4, VIC-20</li>
-        <li><strong>Other</strong>: PlayStation, PlayStation Portable (PSP), Arcade (MAME/3DO/MAME2003/ColecoVision)</li>
-      </ul>
-      The emulator supports a wide set of systems.`,
-      expanded: false
-    },
-    {
-      question: 'What does the "Autosave" button do?',
-      answerHtml: `Toggles automatic periodic saving of the emulator state. (default 3 minutes; increased for large cores like N64/PS1).`,
-      expanded: false
-    },
-    {
-      question: 'What does "Enter Fullscreen" do?',
-      answerHtml: `This hides the surrounding UI for a native fullscreen experience.`,
-      expanded: false
-    },
-    {
-      question: 'What does "Stop Emulator & Return to ROM Selection" do?',
-      answerHtml: `Stops the running emulator, cleans up resources, and returns you to the ROM selection UI so you can choose another game. This calls the component's stop/cleanup logic (stopEmulator()).`,
-      expanded: false
-    },
-    {
-      question: 'What are the two "Reset Game" buttons?',
-      answerHtml: `There are two reset options: "Reset Game (No Save)" restarts the ROM without saving the current state (useful for quick restarts). "Reset Game (Keep Save)" restarts but preserves the current persistent save file so your profile progress remains intact.`,
-      expanded: false
-    },
-    {
-      question: 'What does "Manual Save" do?',
-      answerHtml: `Triggers an immediate save of the current emulator state to the server. Use this before closing if you don\'t rely on autosave.`,
-      expanded: false
-    },
-    {
-      question: 'What does the "Upload Rom(s)" control do?',
-      answerHtml: `Uploads selected ROM files to the server (uploads go to the Roms directory).`,
-      expanded: false
-    },
-    {
-      question: 'What is "Enable/Disable Joystick" on mobile?',
-      answerHtml: `Toggles the touch input mode between a D-pad and an analog joystick-like "zone" layout. The component builds different on-screen layouts depending on this flag (useJoystick) and other settings like two-button mode or Genesis six-button handling.`,
-      expanded: false
-    },
-    {
-      question: 'What are the "Fast" and "Slow" speed buttons?',
-      answerHtml: `Small on-screen buttons are provided for temporary speed toggles.`,
-      expanded: false
-    },
-    {
-      question: 'How are save sizes and autosave intervals handled?',
-      answerHtml: `The component enforces a minimum state size per core and adjusts autosave interval time: default is 3 minutes; for large-save cores like N64/PS1 it increases to 10 minutes to reduce upload frequency and prevent timeouts.`,
-      expanded: false
-    },
-    {
-      question: 'How can I auto-load a preset ROM via URL?',
-      answerHtml: `You can pass query parameters when navigating to /Emulator: use <strong>?rom=FILE_NAME&amp;romId=ID</strong>. The component checks for these and will attempt to load them automatically if provided.`,
-      expanded: false
-    }
-  ];
+  faqItems = FAQ_ITEMS;
 
 
-  private readonly MIN_STATE_SIZE: Record<string, number> = {
-    // Light cores
-    'fceumm': 8 * 1024,     // NES
-    'gambatte': 8 * 1024,     // GB/GBC
-    'mgba': 32 * 1024,    // GBA (very reliable floor)
-    'genesis_plus_gx': 16 * 1024,    // Genesis / Master System / GG
-    'snes9x': 64 * 1024,    // SNES (can be ~500 KB+ on later versions)
-    'picodrive': 16 * 1024,    // 32X
-
-    // Heavy cores – use conservative minimums
-    'mupen64plus_next': 16 * 1024 * 1024,  // N64 – usually 60–200+ MB
-    'mednafen_psx_hw': 1 * 1024 * 1024,   // PS1 (Beetle)
-    'pcsx_rearmed': 1 * 1024 * 1024,
-    'duckstation': 1 * 1024 * 1024,
-    'melonds': 512 * 1024,        // DS
-    // add more as you see them in logs
-  };
+  
   isSearchVisible = false;
   autosave = true;
   autosaveIntervalTime: number = 180000; // 3 minutes 
@@ -179,7 +75,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private lastGoodSaveSize = new Map<string, number>();
   private gameLoadDate?: Date | undefined;
   private readonly SYS_PICK_KEY = 'emu:preferredCoreByExt';
-
+  private readonly heavyCores = new Set([
+    'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mednafen_psx',
+    'mupen64plus_next', 'nds', 'melonDS', 'melonds',
+    'psp', 'ppsspp'
+  ]);
   constructor(
     private romService: RomService,
     private fileService: FileService,
@@ -189,19 +89,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.CORE_REGISTRY = this.buildCoreRegistry(this.fileService);
   }
 
-  /**
-   * Deterministic 32-bit unsigned integer derived from a string.
-   * Uses FNV-1a 32-bit algorithm with Math.imul for consistent behavior across engines.
-   * Returns a positive integer that will be identical for the same input string on every client.
-   */
-  private stableStringToIntId(s: string): number {
-    let h = 2166136261 >>> 0;
-    for (let i = 0; i < s.length; i++) {
-      h ^= s.charCodeAt(i);
-      h = Math.imul(h, 16777619) >>> 0;
-    }
-    return h >>> 0;
-  }
 
   ngOnInit(): void {
     if (this.inputtedParentRef) {
@@ -557,8 +444,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (!window.__ejsLoaderInjected) {
       await new Promise<void>((resolve, reject) => {
         const s = document.createElement('script');
-        this.setLoaderFileLocation(s);
-
+        s.src = '/assets/emulatorjs/data/loader.js';
         s.async = false;
         s.defer = false;
         s.setAttribute('data-ejs-loader', '1');
@@ -1927,20 +1813,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     try {
       const u8 = new Uint8Array(await saveStateBlob.arrayBuffer());
       const core = (window as any).EJS_core || '';
-
-      // Heavy cores (PS1, N64, PSP) go through a lengthy BIOS / boot
-      // sequence.  The WASM module and gameManager become available long
-      // before RetroArch actually finishes loading the ROM + BIOS.
-      // Calling gameManager.loadState() before that causes a WASM
-      // "function signature mismatch" crash because internal function
-      // tables aren't populated yet.  We must wait for the core to
-      // report that it supports states before we try.
-      const heavyCores = new Set([
-        'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mednafen_psx',
-        'mupen64plus_next', 'nds', 'melonDS', 'melonds',
-        'psp', 'ppsspp'
-      ]);
-      const isHeavy = heavyCores.has(core);
+ 
+      const isHeavy = this.heavyCores.has(core);
 
       // 1) Wait for EJS_ready to fire (set by the EJS_ready callback).
       //    This guarantees the emulator JS wrapper is ready.
@@ -2453,10 +2327,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (core === "psp" || core === "ppsspp") {
       return { maxW: 640, maxH: 360, maxDPR: 1.0 };
     }
-    const heavy = new Set([
-      'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mupen64plus_next'
-    ]);
-    if (heavy.has(core)) return { maxW: 1280, maxH: 720, maxDPR: 1.5 };
+  
+    if (this.heavyCores.has(core)) return { maxW: 1280, maxH: 720, maxDPR: 1.5 };
     // Light cores can go higher
     return { maxW: 1920, maxH: 1080, maxDPR: 2.0 };
   }
@@ -2650,7 +2522,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       return false;
     }
 
-    const min = this.MIN_STATE_SIZE[core] ?? 4 * 1024; // safe default
+    const min = MIN_STATE_SIZE[core] ?? 4 * 1024; // safe default
     if (length < min) {
       console.warn(`[EJS] Save state too small for core ${core} (${length} bytes < ${min}) → skipping`);
       this.parentRef?.showNotification(`Save state is smaller than expected for this game/core; it may be corrupt. Upload skipped.`);
@@ -3208,10 +3080,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.selectedSystemCore = undefined;
     this.cdr.detectChanges();
   }
-
-
-  setLoaderFileLocation(s: HTMLScriptElement) {
-    s.src = '/assets/emulatorjs/data/loader.js';
+ 
+  private stableStringToIntId(s: string): number {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    return h >>> 0;
   }
 
   private ejsControlSchemeForCore(core: string): string | undefined {
@@ -3225,227 +3101,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 }
 
-type SystemCandidate = { label: string; core?: string };
-
-type CoreId = string;
-
-type CoreDescriptor = {
-  core: CoreId;
-  label: string;
-  exts?: string[];
-  maybeExts?: string[];
-  hints?: RegExp[];
-};
-
-declare global {
-  interface Window {
-    EJS_player?: string | HTMLElement;
-    EJS_core?: string;
-    EJS_controlScheme?: string;
-    EJS_pathtodata?: string;
-    EJS_coreUrl?: string;
-    EJS_biosUrl?: string;
-    EJS_gameUrl?: string;
-    EJS_softLoad?: boolean;
-    EJS_gameID?: number;
-    EJS_gameIDKey?: string;
-    EJS_gameName?: string;
-    EJS_gameParent?: string;
-    EJS_language?: string;
-    EJS_startOnLoaded?: boolean;
-    EJS_fullscreenOnLoad?: boolean;
-    EJS_fullscreenOnLoaded?: boolean;
-    EJS_fullscreen?: boolean;
-    EJS_paths?: { [key: string]: string };
-    EJS_volume?: number;
-    EJS_threads?: boolean;
-    EJS_netplayServer?: string;
-    EJS_netplayUrl?: string;
-    EJS_netplayICEServers?: any;
-    EJS_maxThreads?: number;
-    EJS_color?: string;
-    EJS_backgroundColor?: string;
-    EJS_backgroundImage?: string;
-    EJS_lightgun?: boolean;
-    EJS_onSaveState?: (state: Uint8Array) => void;
-    EJS_onLoadState?: () => void;
-    __ejsLoaderInjected?: boolean;
-    __EJS_ALIVE__?: boolean;
-    EJS_defaultOptionsForce?: boolean;
-    EJS_defaultOptions?: Record<string, string | number>;
-    EJS_disableLocalStorage?: boolean;
-    EJS_directKeyboardInput?: boolean;
-    EJS_enableGamepads?: boolean;
-    EJS_disableAltKey?: boolean;
-    EJS_webrtcConfig?: any;
-    EJS_iceServers?: any;
-    EJS_DEBUG_XX?: boolean;
-    EJS_EXPERIMENTAL_NETPLAY?: boolean;
-    EJS_logCoreInfo?: boolean;
-    EJS_logSaves?: boolean;
-    EJS_logVideo?: boolean;
-    EJS_logAudio?: boolean;
-    EJS_logInput?: boolean;
-    EJS_vsync?: boolean;
-    EJS_VirtualGamepadSettings?: any;
-    EJS_defaultControls?: any;
-    EJS_GL_Options?: any;
-    EJS?: any;
-    EJS_emulator?: any;
-    EJS_Buttons?: any;
-    EJS_GameManager?: any;
-    __EJS__?: any;
-    __melondsBiosCache?: Record<string, Uint8Array>;
-    __melondsBiosPreRunInstalled?: boolean;
-    __melondsBiosPollInstalled?: boolean;
-    __melondsBiosWriteFn?: (api: any) => void;
-    EJS_externalFiles?: Record<string, string>;
-    Module?: any;
-    FS?: any;
-    EJS_afterStart?: () => void;
-    EJS_ready?: (api: any) => void;
-  }
-}
-
-type VPadItem =
-  | {
-    type: 'button';
-    text: string;
-    id?: string;
-    location: 'left' | 'right' | 'center' | 'top';
-    left?: number;     // px number
-    right?: number;    // px number
-    top?: number;      // px number
-    fontSize?: number; // px number
-    bold?: boolean;
-    block?: boolean;
-    input_value: number;
-  }
-  | {
-    type: 'dpad';
-    location: 'left' | 'right' | 'center' | 'top';
-    left?: string;     // percent string: '8%'
-    right?: string;    // percent string
-    joystickInput?: boolean;
-    inputValues: [number, number, number, number];
-  }
-  | {
-    type: 'zone';
-    location: 'left' | 'right' | 'center' | 'top';
-    left?: string;     // percent string
-    right?: string;    // percent string
-    top?: string;      // percent string
-    joystickInput: true;
-    color?: string;
-    inputValues: [number, number, number, number];
-  };
-
-type System =
-  | 'nes' | 'gb' | 'gbc' | 'gba'
-  | 'snes'
-  | 'genesis'
-  | 'nds'
-  | 'psp'
-  | 'saturn'
-  | 'sega_cd'
-  | '3do'
-  | 'n64'
-  | 'ps1';
+// Core descriptor types moved to `emulator-types.ts`
 
 
-interface BuildOpts {
-  useJoystick: boolean;   // your toggle
-  showControls?: boolean; // if false, return [] to hide
-  twoButtonMode?: boolean;// enlarge A/B (NES/GB/GBC, optionally GBA)
-  buttonSize?: number;    // base size tuning knob (default 65~70 visual)
-  genesisSix?: boolean;   // ⟵ add this
-}
-
-const GENESIS_6BUTTON = new Set([
-  "street-fighter-2-special-champion-edition",
-  "super-street-fighter-2",
-  "mortal-kombat-2",
-  "mortal-kombat-3",
-  "ultimate-mk3",
-  "eternal-champions",
-  "samurai-shodown",
-  "weaponlord",
-  "fatal-fury-2",
-  "fatal-fury-special",
-  "art-of-fighting",
-  "comix-zone",
-  "splatterhouse-3",
-  "ranger-x"
-]);
-
-const GENESIS_FORCE_THREE = new Set<string>([
-  "forgotten-worlds",
-  "golden-axe-ii",
-  "ms-pac-man"
-]);
-
-const PSP_DEFAULT_OPTIONS: Record<string, string> = {
-  // EmulatorJS-level speed settings
-  'rewindEnabled': 'Disabled',
-  // 'fastForward':                    'enabled',
-  // 'ff-ratio':                       'unlimited',
-  'vsync': 'Disabled',
-
-  // PPSSPP core options
-  'ppsspp_cpu_core': 'JIT',
-  'ppsspp_fast_memory': 'enabled',
-  // 'ppsspp_ignore_bad_memory_access':'enabled',
-  // 'ppsspp_io_timing_method':        'Fast',
-  // 'ppsspp_force_lag_sync':          'disabled',
-  'ppsspp_locked_cpu_speed': '333MHz',
-
-  // Frameskip
-  // 'ppsspp_frameskip':               '5',
-  // 'ppsspp_frameskiptype':           'Number of frames',
-  // 'ppsspp_auto_frameskip':          'enabled',
-  // 'ppsspp_frame_duplication':       'enabled',
-
-  // Resolution
-  'ppsspp_internal_resolution': '480x272',
-  'ppsspp_software_rendering': 'disabled',
-
-  // GPU shortcuts
-  // 'ppsspp_skip_buffer_effects':     'disabled',
-  // 'ppsspp_skip_gpu_readbacks':      'disabled',
-  'ppsspp_lazy_texture_caching': 'enabled',
-  // 'ppsspp_disable_range_culling':   'disabled',
-  // 'ppsspp_lower_resolution_for_effects': 'disabled',
-
-  // Texture quality
-  // 'ppsspp_texture_anisotropic_filtering': 'disabled',
-  // 'ppsspp_texture_filtering':       'Nearest',
-  // 'ppsspp_texture_scaling_level':   'disabled',
-  // 'ppsspp_texture_scaling_type':    'xbrz',
-  // 'ppsspp_texture_deposterize':     'disabled',
-  // 'ppsspp_texture_shader':          'disabled',
-  // 'ppsspp_smart_2d_texture_filtering':'disabled',
-  // 'ppsspp_texture_replacement':     'disabled',
-
-  // Spline / tesselation
-  // 'ppsspp_spline_quality':          'Low',
-  // 'ppsspp_hardware_tesselation':    'disabled',
-
-  // Rendering pipeline
-  'ppsspp_gpu_hardware_transform': 'enabled',
-  // 'ppsspp_software_skinning':       'enabled',
-  // 'ppsspp_inflight_frames':         'Up to 2',
-  // 'ppsspp_detect_vsync_swap_interval':'disabled',
-  //'ppsspp_backend': 'vulkan',
-  // 'ppsspp_mulitsample_level':       'Disabled',
-  // 'ppsspp_cropto16x9':              'enabled',
-
-  // Misc
-  // 'ppsspp_memstick_inserted':       'enabled',
-  // 'ppsspp_cache_iso':               'enabled',
-  // 'ppsspp_cheats':                  'disabled',
-  // 'ppsspp_psp_model':               'psp_2000_3000',
-  // 'ppsspp_language':                'Automatic',
-  // 'ppsspp_button_preference':       'Cross',
-  // 'ppsspp_analog_is_circular':      'disabled',
-  // 'ppsspp_enable_wlan':             'disabled',
-};
