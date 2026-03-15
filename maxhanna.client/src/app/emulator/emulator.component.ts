@@ -455,9 +455,18 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     console.log(`[EmulatorComponent] Detected core "${core}" for file "${fileName}" (ext: "${this.fileService.getFileExtension(fileName)}") forcedCore=${effectiveForcedCore ?? 'none'}`);
     const renderClamp = this.getRenderClampForCore(core);
     (window as any).EJS_renderClamp = renderClamp;
+ 
+    
     window.EJS_core = core;
     window.EJS_controlScheme = this.ejsControlSchemeForCore(core);
     this.system = this.systemFromCore(core);
+
+    // IMPORTANT: fetch and stage melonDS BIOS files before loader.js is injected
+    if (core === 'melonds' || core === 'nds') {
+      await this.preloadMelondsBiosBytes();
+      this.installMelondsBiosIntoModule();
+    }
+
 
     const romDisplayName = this.fileService.getFileWithoutExtension(fileName); // e.g., "Ultimate MK3 (USA)"
     this.applyGamepadControlSettings(romDisplayName, core, this.system);
@@ -714,9 +723,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     window.EJS_player = "#game";
 
     // ❗ BIOS: set ONLY if required by the selected core; otherwise blank
-    window.EJS_biosUrl = this.getBiosUrlForCore(core) ?? "";  // <— key fix
-    this.configureMelondsBiosPreload(core, window);
-    window.EJS_softLoad = false; // TEMP: ensure full boot path for every run
+    window.EJS_biosUrl = this.getBiosUrlForCore(core) ?? "";
+    window.EJS_softLoad = false;
     window.EJS_gameUrl = this.romObjectUrl;
     const _ejs_gameKey = `${core}:${this.fileService.getFileWithoutExtension(this.romName ?? '')}`;
     // EJS_gameID MUST be a number — emulator.js hides the netplay button
@@ -3160,52 +3168,104 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.cdr.detectChanges();
   }
 
-  private configureMelondsBiosPreload(core: string, window: any): void {
-    // Support both explicit "melonds" and generic "nds"
-    if (core !== 'melonds' && core !== 'nds') return;
+  
+private async preloadMelondsBiosBytes(): Promise<void> {
+  const w = window as any;
+  const core = String(w.EJS_core || '').toLowerCase();
+  if (core !== 'melonds' && core !== 'nds') return;
 
-    const biosBase = '/assets/emulatorjs/data/cores/dsbios';
-    const biosFiles = [
-      { name: 'bios7.bin', url: `${biosBase}/bios7.bin` },
-      { name: 'bios9.bin', url: `${biosBase}/bios9.bin` },
-      { name: 'firmware.bin', url: `${biosBase}/firmware.bin` },
-      { name: 'dsi_firmware.bin', url: `${biosBase}/dsi_firmware.bin` },
-      { name: 'dsi_bios7.bin', url: `${biosBase}/dsi_bios7.bin` },
-      { name: 'dsi_bios9.bin', url: `${biosBase}/dsi_bios9.bin` },
-      { name: 'dsi_nand.bin', url: `${biosBase}/dsi_nand.bin` },
-    ];
+  const base = '/assets/emulatorjs/data/cores/dsbios';
+  const files = ['bios7.bin', 'bios9.bin', 'firmware.bin', 'dsi_firmware.bin', 'dsi_bios7.bin', 'dsi_bios9.bin', 'dsi_nand.bin'];
 
-    // melonDS needs multiple BIOS files by exact filename in the system dir.
-    // Do NOT rely on EJS_biosUrl for this core.
-    window.EJS_biosUrl = '';
+  w.__melondsBiosCache = w.__melondsBiosCache || {};
 
-    // Hook into the Emscripten module before the core starts.
-    window.Module = window.Module || {};
+  for (const name of files) {
+    // Reuse cached bytes if already fetched on this page load
+    if (w.__melondsBiosCache[name] instanceof Uint8Array && w.__melondsBiosCache[name].length > 0) {
+      console.log(`[melonDS] using cached ${name}: ${w.__melondsBiosCache[name].length} bytes`);
+      continue;
+    }
 
-    const existingPreRun = Array.isArray(window.Module.preRun)
-      ? window.Module.preRun
-      : (window.Module.preRun ? [window.Module.preRun] : []);
+    const url = `${base}/${name}`;
+    const res = await fetch(url, { cache: 'no-store' });
 
-    window.Module.preRun = existingPreRun;
+    if (!res.ok) {
+      throw new Error(`[melonDS] Failed to fetch BIOS asset: ${url} (${res.status})`);
+    }
 
-    window.Module.preRun.push(() => {
-      const FS = window.FS || window.Module?.FS;
-      if (!FS || typeof FS.createPreloadedFile !== 'function') {
-        console.error('[melonDS] FS.createPreloadedFile not available during preRun');
+    const ab = await res.arrayBuffer();
+    const u8 = new Uint8Array(ab);
+
+    if (!u8.length) {
+      throw new Error(`[melonDS] BIOS asset is empty: ${url}`);
+    }
+
+    w.__melondsBiosCache[name] = u8;
+    console.log(`[melonDS] fetched ${name}: ${u8.length} bytes from ${url}`);
+  }
+}
+
+private installMelondsBiosIntoModule(): void {
+  const w = window as any;
+  const core = String(w.EJS_core || '').toLowerCase();
+  if (core !== 'melonds' && core !== 'nds') return;
+
+  const biosCache: Record<string, Uint8Array> = w.__melondsBiosCache || {};
+
+  // melonDS uses multiple files; don't use a single BIOS URL
+  w.EJS_biosUrl = '';
+
+  w.Module = w.Module || {};
+
+  const existingPreRun = Array.isArray(w.Module.preRun)
+    ? w.Module.preRun
+    : (w.Module.preRun ? [w.Module.preRun] : []);
+
+  w.Module.preRun = existingPreRun;
+
+  // Avoid pushing duplicate hooks on the same page lifecycle
+  if (w.__melondsBiosPreRunInstalled) {
+    return;
+  }
+  w.__melondsBiosPreRunInstalled = true;
+
+  w.Module.preRun.push(() => {
+    const FS = w.FS || w.Module?.FS;
+    if (!FS || typeof FS.writeFile !== 'function') {
+      console.error('[melonDS] FS.writeFile not available during preRun');
+      return;
+    }
+
+    const writeOne = (name: string) => {
+      const bytes = biosCache[name];
+      if (!(bytes instanceof Uint8Array) || bytes.length === 0) {
+        console.error(`[melonDS] Missing cached BIOS bytes for ${name}`);
         return;
       }
 
-      for (const file of biosFiles) {
-        try {
-          // Mount each BIOS into the virtual root "/" where libretro is looking
-          FS.createPreloadedFile('/', file.name, file.url, true, false);
-          console.log(`[melonDS] Preloading ${file.url} -> /${file.name}`);
-        } catch (err) {
-          console.error(`[melonDS] Failed preloading ${file.name}`, err);
+      try {
+        const existing = FS.analyzePath?.(`/${name}`);
+        if (existing?.exists) {
+          try { FS.unlink(`/${name}`); } catch {}
         }
-      }
-    });
-  }
+      } catch {}
+
+      FS.writeFile(`/${name}`, bytes, { canRead: true, canWrite: false });
+      console.log(`[melonDS] mounted /${name} (${bytes.length} bytes)`);
+    };
+
+    writeOne('bios7.bin');
+    writeOne('bios9.bin');
+    writeOne('firmware.bin');
+
+    try {
+      console.log('[melonDS] FS root entries:', FS.readdir('/'));
+    } catch (e) {
+      console.warn('[melonDS] Could not list FS root', e);
+    }
+  });
+}
+
 
   setLoaderFileLocation(s: HTMLScriptElement) {
     s.src = '/assets/emulatorjs/data/loader.js';
@@ -3297,6 +3357,10 @@ declare global {
     EJS_Buttons?: any;
     EJS_GameManager?: any;
     __EJS__?: any;
+    __melondsBiosCache?: Record<string, Uint8Array>;
+    __melondsBiosPreRunInstalled?: boolean;
+    Module?: any;
+    FS?: any; 
     EJS_afterStart?: () => void;
     EJS_ready?: (api: any) => void;
   }
