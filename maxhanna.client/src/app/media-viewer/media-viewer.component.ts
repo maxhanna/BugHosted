@@ -615,6 +615,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   otherFileExtensionsIncludes(ext?: string) {
     if (!ext) {
       return false;
+    } else if (ext.includes("zip")) {
+      return true;
     }
     return !this.videoFileExtensionsIncludes(ext) && !this.audioFileExtensionsIncludes(ext) && !this.imageFileExtensionsIncludes(ext);
   }

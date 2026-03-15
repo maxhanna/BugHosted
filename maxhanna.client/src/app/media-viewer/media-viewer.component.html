@@ -43,11 +43,11 @@
         (play)="togglePlay(mediaContainer)" (ended)="onMediaEnded()" class="audio media">
         Your browser does not support the audio element.
       </audio>
-      <div *ngIf="otherFileExtensionsIncludes(this.selectedFileExtension)">
+      <div *ngIf="otherFileExtensionsIncludes(this.selectedFileExtension ?? this.selectedFile.fileType)">
         <div class="filetype"
-          *ngIf="displayExpander && !audioFileExtensionsIncludes(this.selectedFileExtension) && !otherFileExtensionsIncludes(this.selectedFileExtension)">
+          *ngIf="displayExpander && !audioFileExtensionsIncludes(this.selectedFileExtension ?? this.selectedFile.fileType) && !otherFileExtensionsIncludes(this.selectedFileExtension ?? this.selectedFile.fileType)">
           <span class="cursorPointerUnderlined"
-            (click)="expandFile({url: selectedFile, extension: selectedFileExtension})" title="Expand">Expand
+            (click)="expandFile({url: selectedFile, extension: selectedFileExtension ?? this.selectedFile.fileType})" title="Expand">Expand
             {{fileType}} ◻️</span>
         </div>
         <div class="filetype" *ngIf="displayExtraInfo">
@@ -57,10 +57,10 @@
           </span>
           <span class="notification">{{ selectedFile?.date | date: 'MMMM d, y h:mm a' }}</span>
         </div>
-        <div class="filetype" *ngIf="displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension)">
+        <div class="filetype" *ngIf="displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension ?? this.selectedFile.fileType)">
           <app-share-button *ngIf="displayExtraInfo" [inputtedParentRef]="parentRef" [link]="getFileLink()"></app-share-button>
           <button (click)="download(selectedFile, true)"
-            *ngIf="selectedFile && (displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension))"
+            *ngIf="selectedFile && (displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension ?? this.selectedFile.fileType))"
             [title]="'Download ' + (selectedFile.givenFileName ?? selectedFile.fileName ?? '')">📥Download {{
             shortenFilename(selectedFile.givenFileName ?? selectedFile.fileName ?? '') }}</button>
         </div>
