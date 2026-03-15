@@ -1170,6 +1170,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   async searchFiles(topic: string) {
     this.searchTerms = topic;
+    this.currentPage = 1;
+    this.scrollToTop();
+    this.closeSearchPanel();
     await this.getDirectory();
     try {
       const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
@@ -1386,6 +1389,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
         await this.fileService.recordSearch(this.searchTerms, 'file', user?.id);
       } catch { }
+      this.scrollToTop();
       this.loadingSearch = false;
     }, 500);
   }
