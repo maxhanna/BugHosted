@@ -705,6 +705,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'nds':
         return '/assets/emulatorjs/data/cores/dsbios.zip';
 
+      // Sony PSP
+      case 'psp':
+      case 'ppsspp':
+        return '/assets/emulatorjs/data/cores/PPSSPP.zip';
+
       case 'yabause':
       case 'segaSaturn':
       case 'sega_saturn':
