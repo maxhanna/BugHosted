@@ -1753,6 +1753,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       'sms': '/assets/segaicon.png',
       'md': '/assets/segaicon.png',
       'snes': '/assets/snesicon.png',
+      'fig': '/assets/snesicon.png',
+      'smc': '/assets/snesicon.png',
       'sfc': '/assets/snesicon.png',
       'nds': '/assets/ndsicon.png',
       'nes': '/assets/nesicon.png',

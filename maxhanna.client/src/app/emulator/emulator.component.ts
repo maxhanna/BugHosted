@@ -455,11 +455,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     console.log(`[EmulatorComponent] Detected core "${core}" for file "${fileName}" (ext: "${this.fileService.getFileExtension(fileName)}") forcedCore=${effectiveForcedCore ?? 'none'}`);
     const renderClamp = this.getRenderClampForCore(core);
     (window as any).EJS_renderClamp = renderClamp;
-    window.EJS_core = core;
-    // Explicitly set the control scheme so EmulatorJS uses the correct button
-    // layout. Without this, genesis_plus_gx resolves to "segaMS" (2 buttons)
-    // instead of "segaMD" (6 buttons) because segaMS appears first in the
-    // EmulatorJS getCores() iteration order.
+    window.EJS_core = core; 
     window.EJS_controlScheme = this.ejsControlSchemeForCore(core);
     this.system = this.systemFromCore(core);
 
@@ -478,66 +474,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     } else {
       this.autosaveIntervalTime = 3 * 60 * 1000; // default 3 minutes
     }
-    window.EJS_player = "#game";
-
-    this.setCoreAndDataFileLocations(core);
-    // ❗ BIOS: set ONLY if required by the selected core; otherwise blank
-    window.EJS_biosUrl = this.getBiosUrlForCore(core) ?? "";  // <— key fix
-    window.EJS_softLoad = false; // TEMP: ensure full boot path for every run
-    window.EJS_gameUrl = this.romObjectUrl;
-    const _ejs_gameKey = `${core}:${this.fileService.getFileWithoutExtension(fileName)}`;
-    // EJS_gameID MUST be a number — emulator.js hides the netplay button
-    // when typeof config.gameId !== "number".
-    window.EJS_gameID = this.stableStringToIntId(_ejs_gameKey);
-    window.EJS_gameIDKey = _ejs_gameKey; // string key kept for debugging
-    window.EJS_gameName = this.fileService.getFileWithoutExtension(this.romName ?? '');
-    // Netplay: use same-origin so it shares the existing HTTPS certificate
-    // and doesn't need a separate port / firewall rule.
-    // The prod-server.js embeds the netplay Socket.IO server on the default
-    // namespace — exactly like the upstream EmulatorJS-Netplay server.js.
-    window.EJS_netplayServer = window.location.origin;
-    window.EJS_netplayUrl = window.EJS_netplayServer;
-    window.EJS_netplayICEServers = [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun.nextcloud.com:3478' },
-      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
-    ];
-
-    // Minimal (STUN-only; for dev)
-    window.EJS_iceServers = [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun.nextcloud.com:3478' },
-      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
-    ];
-
-    // Or full config — many builds also honor this:
-    window.EJS_webrtcConfig = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        {
-          urls: ['turns:turn.example.com:5349', 'turn:turn.example.com:3478'],
-          username: 'netplay-user',
-          credential: 'a-very-strong-password'
-        },
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun.nextcloud.com:3478' },
-        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
-      ],
-    };
-
-    window.EJS_startOnLoaded = true;
-    window.EJS_volume = 0.5;
-    window.EJS_lightgun = false;
-    window.__EJS_ALIVE__ = true;
     // Optional callbacks (ok to keep)
     window.EJS_onSaveState = (state: Uint8Array) => this.onSaveState(state);
     window.EJS_onLoadState = async () => {
@@ -752,6 +688,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
       // Nintendo DS firmware
       case 'melonds':
+      case 'nds':
         return undefined;
 
       case 'yabause':
@@ -772,7 +709,68 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
 
-  private applyEjsRunOptions(system: System, core: string | undefined): void {
+  private applyEjsRunOptions(system: System, core: string): void {
+    
+    window.EJS_player = "#game";
+ 
+    // ❗ BIOS: set ONLY if required by the selected core; otherwise blank
+    window.EJS_biosUrl = this.getBiosUrlForCore(core) ?? "";  // <— key fix
+    this.configureMelondsBiosPreload(core, window);
+    window.EJS_softLoad = false; // TEMP: ensure full boot path for every run
+    window.EJS_gameUrl = this.romObjectUrl;
+    const _ejs_gameKey = `${core}:${this.fileService.getFileWithoutExtension(this.romName ?? '')}`;
+    // EJS_gameID MUST be a number — emulator.js hides the netplay button
+    // when typeof config.gameId !== "number".
+    window.EJS_gameID = this.stableStringToIntId(_ejs_gameKey);
+    window.EJS_gameIDKey = _ejs_gameKey; // string key kept for debugging
+    window.EJS_gameName = this.fileService.getFileWithoutExtension(this.romName ?? '');
+    // Netplay: use same-origin so it shares the existing HTTPS certificate
+    // and doesn't need a separate port / firewall rule.
+    // The prod-server.js embeds the netplay Socket.IO server on the default
+    // namespace — exactly like the upstream EmulatorJS-Netplay server.js.
+    window.EJS_netplayServer = window.location.origin;
+    window.EJS_netplayUrl = window.EJS_netplayServer;
+    window.EJS_netplayICEServers = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun.nextcloud.com:3478' },
+      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+    ];
+
+    // Minimal (STUN-only; for dev)
+    window.EJS_iceServers = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun.nextcloud.com:3478' },
+      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+    ];
+
+    // Or full config — many builds also honor this:
+    window.EJS_webrtcConfig = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        {
+          urls: ['turns:turn.example.com:5349', 'turn:turn.example.com:3478'],
+          username: 'netplay-user',
+          credential: 'a-very-strong-password'
+        },
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun.nextcloud.com:3478' },
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+      ],
+    };
+
+    window.EJS_startOnLoaded = true;
+    window.EJS_volume = 0.5;
+    window.EJS_lightgun = false;
+    window.__EJS_ALIVE__ = true;
     const rootStyle = getComputedStyle(document.documentElement);
     //const mainHighlight = (rootStyle.getPropertyValue('--main-highlight-color') || '#3a3a3a').trim();
     const componentBackgroundColor = (rootStyle.getPropertyValue('--component-background-color') || '#3a3a3a').trim();
@@ -892,6 +890,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       bios:   '/assets/emulatorjs/data/cores/',
       system: '/assets/emulatorjs/data/cores/',
     };
+    w.EJS_pathtodata = '/assets/emulatorjs/data/';
 
     w.EJS_afterStart = () => {
       try {
@@ -3161,28 +3160,53 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.cdr.detectChanges();
   }
 
-  setLoaderFileLocation(s: HTMLScriptElement) {
-    // const useCdn = (window.EJS_core === 'psp'
-    //   || window.EJS_core === 'ppsspp'
-    //   || window.EJS_core === 'yabause'
-    //   || window.EJS_core === 'sega_saturn'
-    //   || window.EJS_core === 'segaSaturn'
-    // );
+private configureMelondsBiosPreload(core: string, window: any): void { 
+  // Support both explicit "melonds" and generic "nds"
+  if (core !== 'melonds' && core !== 'nds') return;
 
-    // s.src = useCdn
-    //   ? 'https://cdn.emulatorjs.org/stable/data/loader.js'
-    //   : '/assets/emulatorjs/data/loader.js';
+  const biosBase = '/assets/emulatorjs/data/cores';
+  const biosFiles = [
+    { name: 'bios7.bin', url: `${biosBase}/bios7.bin` },
+    { name: 'bios9.bin', url: `${biosBase}/bios9.bin` },
+    { name: 'firmware.bin', url: `${biosBase}/firmware.bin` },
+  ];
+
+  // melonDS needs multiple BIOS files by exact filename in the system dir.
+  // Do NOT rely on EJS_biosUrl for this core.
+  window.EJS_biosUrl = '';
+
+  // Hook into the Emscripten module before the core starts.
+  window.Module = window.Module || {};
+
+  const existingPreRun = Array.isArray(window.Module.preRun)
+    ? window.Module.preRun
+    : (window.Module.preRun ? [window.Module.preRun] : []);
+
+  window.Module.preRun = existingPreRun;
+
+  window.Module.preRun.push(() => {
+    const FS = window.FS || window.Module?.FS;
+    if (!FS || typeof FS.createPreloadedFile !== 'function') {
+      console.error('[melonDS] FS.createPreloadedFile not available during preRun');
+      return;
+    }
+
+    for (const file of biosFiles) {
+      try {
+        // Mount each BIOS into the virtual root "/" where libretro is looking
+        FS.createPreloadedFile('/', file.name, file.url, true, false);
+        console.log(`[melonDS] Preloading ${file.url} -> /${file.name}`);
+      } catch (err) {
+        console.error(`[melonDS] Failed preloading ${file.name}`, err);
+      }
+    }
+  });
+}
+
+  setLoaderFileLocation(s: HTMLScriptElement) { 
     s.src = '/assets/emulatorjs/data/loader.js';
   }
-
-  /**
-   * Map our internal core id to the EmulatorJS "control scheme" system key.
-   * EmulatorJS resolves the control scheme via getCore(true) which iterates
-   * getCores() and picks the FIRST system whose core-list contains the value.
-   * For genesis_plus_gx this incorrectly lands on "segaMS" (Master System,
-   * 2 buttons) instead of "segaMD" (Mega Drive, 6 buttons).
-   * By explicitly returning the right key here we bypass that ambiguity.
-   */
+ 
   private ejsControlSchemeForCore(core: string): string | undefined {
     switch (core) {
       case 'genesis_plus_gx': return 'segaMD';
@@ -3191,25 +3215,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'smsplus': return 'segaMS';
       default: return undefined; // let EmulatorJS derive it
     }
-  }
-
-  setCoreAndDataFileLocations(core: string) {
-    // if (core === 'psp'
-    //   || core === 'ppsspp'
-    //   || core === 'yabause'
-    //   || core === 'sega_saturn'
-    //   || core === 'segaSaturn') {
-    //   window.EJS_pathtodata = "https://cdn.emulatorjs.org/stable/data/";
-    //   window.EJS_coreUrl = "https://cdn.emulatorjs.org/stable/data/cores/";
-    // } else {
-    //   window.EJS_pathtodata = "/assets/emulatorjs/data/";
-    //   window.EJS_coreUrl = "/assets/emulatorjs/data/cores/";
-    // }
-
-    window.EJS_pathtodata = "/assets/emulatorjs/data/";
-    window.EJS_coreUrl = "/assets/emulatorjs/data/cores/";
-  }
-
+  } 
 }
 
 type SystemCandidate = { label: string; core?: string };
