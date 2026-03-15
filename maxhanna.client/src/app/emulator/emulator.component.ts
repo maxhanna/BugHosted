@@ -568,7 +568,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'pcsx_rearmed':
       case 'duckstation':
       case 'mednafen_psx':
-        return '/assets/emulatorjs/data/cores/scph5501.bin';
+        return '/assets/emulatorjs/data/cores/PSX.zip';
 
       // Nintendo DS firmware
       case 'melonds':
