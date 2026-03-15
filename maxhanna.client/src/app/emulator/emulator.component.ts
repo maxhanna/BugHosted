@@ -1888,7 +1888,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       // report that it supports states before we try.
       const heavyCores = new Set([
         'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mednafen_psx',
-        'mupen64plus_next',
+        'mupen64plus_next', 'nds', 'melonDS', 'melonds',
         'psp', 'ppsspp'
       ]);
       const isHeavy = heavyCores.has(core);
@@ -1896,7 +1896,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       // 1) Wait for EJS_ready to fire (set by the EJS_ready callback).
       //    This guarantees the emulator JS wrapper is ready.
       if (!this._ejsReady) {
-        const readyTimeout = isHeavy ? 30000 : 12000;
+        const readyTimeout = isHeavy ? 120000 : 30000;
         const start = Date.now();
         while (!this._ejsReady && Date.now() - start < readyTimeout) {
           await new Promise(r => setTimeout(r, 200));
