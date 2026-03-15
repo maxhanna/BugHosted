@@ -122,9 +122,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   ];
 
-  private readonly AMBIGUOUS_EXTS = new Set(
-    CORE_REGISTRY.flatMap(e => e.maybeExts ?? [])
-  );
 
   private readonly MIN_STATE_SIZE: Record<string, number> = {
     // Light cores
@@ -165,6 +162,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private _pendingSaveTimer?: any;
   private _captureSaveResolve?: (u8: Uint8Array | null) => void;
   private _gameSizeObs?: ResizeObserver;
+  private _onResize?: () => void;
+  private _onVVResize?: () => void;
+  private _onOrientation?: () => void;
+
   // private _gameAttrObs?: MutationObserver;
   private _saveFn?: () => Promise<void>;
   private _lastSaveTime: number = 0;
@@ -185,6 +186,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     private cdr: ChangeDetectorRef
   ) {
     super();
+    this.CORE_REGISTRY = this.buildCoreRegistry(this.fileService);
   }
 
   /**
@@ -234,7 +236,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   ngOnDestroy(): void {
     this.status = 'Destroying emulator...';
-    if (this._gameSizeObs) { try { this._gameSizeObs.disconnect(); } catch { } this._gameSizeObs = undefined; }
+
+    try {
+      if (this._onResize) window.removeEventListener('resize', this._onResize);
+      if (this._onOrientation) window.removeEventListener('orientationchange', this._onOrientation);
+      if (this._onVVResize) (window as any).visualViewport?.removeEventListener?.('resize', this._onVVResize);
+      if (this._gameSizeObs) { this._gameSizeObs.disconnect(); }
+    } catch { console.error('Error removing resize listeners'); }
+
     this._destroyed = true;
     this._ejsReady = false;
     this.clearAutosave();
@@ -499,7 +508,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     // Minimal (STUN-only; for dev)
     window.EJS_iceServers = [
-      { urls: 'stun:stun.l.google.com:19302' }
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun.nextcloud.com:3478' },
+      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
     ];
 
     // Or full config — many builds also honor this:
@@ -510,7 +524,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           urls: ['turns:turn.example.com:5349', 'turn:turn.example.com:3478'],
           username: 'netplay-user',
           credential: 'a-very-strong-password'
-        }
+        },
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun.nextcloud.com:3478' },
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
       ],
     };
 
@@ -725,14 +745,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     switch (core) {
       // PlayStation (common BIOS used by many PS1 cores)
       case 'mednafen_psx_hw':
-      case 'pcsx_rearmed': // if you ever switch PSX cores
+      case 'pcsx_rearmed':  
       case 'duckstation':
       case 'mednafen_psx':
         return '/assets/emulatorjs/data/cores/scph5501.bin';
 
       // Nintendo DS firmware
       case 'melonds':
-        return '/assets/emulatorjs/data/cores/melonds-wasm.data';
+        return undefined;
 
       case 'yabause':
       case 'segaSaturn':
@@ -743,10 +763,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       // NeoGeo / arcade BIOS packs (only for specific ROM sets)
       case 'fbneo':
       case 'mame2003_plus':
-        // If you need NeoGeo BIOS support, place a zip or appropriate files here and
-        // return the path to it. Default is to return undefined so cores that don't
-        // need BIOS won't get confused.
-        // return '/assets/emulatorjs/data/cores/bios/neogeo.zip';
         return undefined;
 
       // By default, do not supply a BIOS URL — caller will treat undefined as "no BIOS".
@@ -871,7 +887,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     w.EJS_logVideo = false;             // debug options 
     w.EJS_logAudio = false;             // debug options 
     w.EJS_logInput = false;             // debug options 
-    w.EJS_logSaves = false;             // debug options 
+    w.EJS_logSaves = false;             // debug options  
+    w.EJS_paths = { 
+      bios:   '/assets/emulatorjs/data/cores/',
+      system: '/assets/emulatorjs/data/cores/',
+    };
+
     w.EJS_afterStart = () => {
       try {
         const gameEl = document.getElementById('game');
@@ -1280,19 +1301,15 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     try { this.clearAutosave(); } catch { }
     if (!this.autosave || !this.romName || !this.parentRef?.user?.id) return;
 
+    const core = (window as any).EJS_core || '';
+    const bootDelayMs = (core === 'melonds') ? 10_000 : 0; 
     this.autosaveInterval = setInterval(() => {
       try {
-        if (this._saveInProgress) {
-          console.log('[EJS] Autosave skipped: save in progress');
-          return;
-        }
-        const intervalTimeNeeded = Math.max(this.autosaveIntervalTime, 180000);
-        if (this.gameLoadDate && Date.now() - this.gameLoadDate.getTime() < intervalTimeNeeded) {
-          console.log('[EJS] Autosave skipped: game loaded less than ' + (intervalTimeNeeded / 60000) + ' minutes ago');
-          return;
-        }
+        if (this._saveInProgress) return;
+        const needed = Math.max(this.autosaveIntervalTime, 180000) + bootDelayMs;
+        if (this.gameLoadDate && Date.now() - this.gameLoadDate.getTime() < needed) return;
         this.callEjsSave();
-      } catch (e) { console.warn('Autosave call failed', e); }
+      } catch {}
     }, this.autosaveIntervalTime);
   }
 
@@ -1302,24 +1319,41 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   getAllowedFileTypes(): string[] {
-    return [
-      // Nintendo
-      'gba', 'gbc', 'gb', 'nes', 'snes', 'sfc', 'n64', 'z64', 'v64', 'nds',
-      // Sega
-      'smd', 'gen', 'bin', '32x', 'gg', 'sms', 'md',
-      // PlayStation
-      'cue', 'iso', 'chd', 'pbp',
-      // Other Handhelds
-      'pce', 'ngp', 'ngc', 'ws', 'wsc', 'lnx',
-      // Atari
-      'col', 'a26', 'a78', 'jag',
-      // Computer Systems
-      'adf', 'd64', 'exe', 'com', 'bat',
-      // Arcade
-      'zip',
-      // Other
-      'wad', 'ccd'
-    ];
+    const set = new Set<string>();
+
+    // Base ROM list from FileService
+    try {
+      (this.fileService.romFileExtensions || []).forEach(e => set.add((e || '').toString().trim().toLowerCase()));
+
+      // Add system-specific groups (use getters where available)
+      (this.fileService.getSegaFileExtensions() || []).forEach(e => set.add((e || '').toString().trim().toLowerCase()));
+      (this.fileService.getGenesisFileExtensions ? this.fileService.getGenesisFileExtensions() : []).forEach(e => set.add((e || '').toString().trim().toLowerCase()));
+      (this.fileService.getPs1FileExtensions ? this.fileService.getPs1FileExtensions() : []).forEach(e => set.add((e || '').toString().trim().toLowerCase()));
+      (this.fileService.getPspFileExtensions ? this.fileService.getPspFileExtensions() : []).forEach(e => set.add((e || '').toString().trim().toLowerCase()));
+      (this.fileService.getSaturnFileExtensions ? this.fileService.getSaturnFileExtensions() : []).forEach(e => set.add((e || '').toString().trim().toLowerCase()));
+      (this.fileService.getNesFileExtensions ? this.fileService.getNesFileExtensions() : []).forEach(e => set.add((e || '').toString().trim().toLowerCase()));
+      (this.fileService.getGbaFileExtensions ? this.fileService.getGbaFileExtensions() : []).forEach(e => set.add((e || '').toString().trim().toLowerCase()));
+      (this.fileService.getNdsFileExtensions ? this.fileService.getNdsFileExtensions() : []).forEach(e => set.add((e || '').toString().trim().toLowerCase()));
+      (this.fileService.getSnesFileExtensions ? this.fileService.getSnesFileExtensions() : []).forEach(e => set.add((e || '').toString().trim().toLowerCase()));
+      (this.fileService.getN64FileExtensions ? this.fileService.getN64FileExtensions() : []).forEach(e => set.add((e || '').toString().trim().toLowerCase()));
+
+      // Include a few common ambiguous/aux extensions that are useful for the emulator UI
+      ['zip', 'wad', 'ccd', 'bin', 'iso', 'cue', 'chd', 'pbp'].forEach(e => set.add(e));
+    } catch (err) {
+      // Fallback to the previous hardcoded list if anything goes wrong
+      return [
+        'gba', 'gbc', 'gb', 'nes', 'snes', 'sfc', 'n64', 'z64', 'v64', 'nds',
+        'smd', 'gen', 'bin', '32x', 'gg', 'sms', 'md',
+        'cue', 'iso', 'chd', 'pbp',
+        'pce', 'ngp', 'ngc', 'ws', 'wsc', 'lnx',
+        'col', 'a26', 'a78', 'jag',
+        'adf', 'd64', 'exe', 'com', 'bat',
+        'zip',
+        'wad', 'ccd'
+      ];
+    }
+
+    return Array.from(set.values());
   }
 
   getAllowedRomFileTypesString(): string {
@@ -1987,19 +2021,26 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     } catch { return []; }
   }
 
-  // Attempt to upload any pending saves found in IndexedDB. Runs on startup.
+  private async removePendingSave(id: number): Promise<void> {
+    try {
+      const db = await this.openPendingDb();
+      const tx = db.transaction('pendingSaves', 'readwrite');
+      tx.objectStore('pendingSaves').delete(id);
+      await new Promise<void>((res) => { tx.oncomplete = () => { db.close(); res(); }; tx.onerror = () => { db.close(); res(); }; });
+    } catch { }
+  }
+
   private async uploadPendingSavesOnStartup(): Promise<void> {
     try {
       const pending = await this.getAllPendingSaves();
-      if (!pending || !pending.length) return;
+      if (!pending?.length) return;
       for (const rec of pending) {
         try {
-          const blob: Blob = rec.data;
-          const arr = new Uint8Array(await blob.arrayBuffer());
+          const arr = new Uint8Array(await (rec.data as Blob).arrayBuffer());
           const res = await this.romService.saveEmulatorJSState(rec.romName, rec.userId, arr);
           if (res.ok) {
-            //await this.removePendingSave(rec.id); 
-            console.log('[EJS] uploaded pending save for', rec.romName);
+            await this.removePendingSave(rec.id); // <-- remove after success
+            console.log('[EJS] uploaded & cleared pending save for', rec.romName);
           } else {
             console.warn('[EJS] failed to upload pending save:', res.errorText);
           }
@@ -2466,9 +2507,15 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   /** Bind resize handlers (call once after emulator is initialized). */
   private bindResizeBuffer() {
     const apply = () => this.resizeCanvasBuffer();
-    // Passive listeners to avoid blocking
-    window.addEventListener('resize', apply, { passive: true });
-    (window as any).visualViewport?.addEventListener?.('resize', apply, { passive: true });
+    this._onResize = () => apply();
+    this._onOrientation = () => apply();
+    this._onVVResize = () => apply();
+
+    // Passive listeners to avoid blocking 
+    window.addEventListener('resize', this._onResize, { passive: true });
+    window.addEventListener('orientationchange', this._onOrientation, { passive: true });
+    (window as any).visualViewport?.addEventListener?.('resize', this._onVVResize, { passive: true });
+
 
     // Also observe the #game element for layout changes (optional)
     try {
@@ -2818,6 +2865,99 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
 
+  private CORE_REGISTRY: CoreDescriptor[] = [];   // instance-level
+
+  /** Build the registry using FileService, once. */
+  private buildCoreRegistry(fs: FileService): CoreDescriptor[] {
+    // Helpers to union arrays with dedupe
+    const uniq = <T>(arr: T[]) => Array.from(new Set(arr));
+    const plus = (a: string[], b: string[]) => uniq([...a, ...b]);
+
+    // Pull canonical lists from FileService
+    const exNES = fs.getNesFileExtensions();       // ['nes','fds']
+    const exSNES = fs.getSnesFileExtensions();      // ['snes','sfc','smc','fig']  (+ we'll add a few)
+    const exGBA = fs.getGbaFileExtensions();       // ['gba']
+    const exGBx = ['gb', 'gbc'];                    // (service provides via getters for keywords; extensions are simple)
+    const exN64 = fs.getN64FileExtensions();       // ['z64','n64','v64']
+    const exNDS = fs.getNdsFileExtensions();       // ['nds']
+    const exPSP = fs.getPspFileExtensions();       // ['psp','iso','cso','pbp']
+    const exPS1 = fs.getPs1FileExtensions();       // ['bin','cue','iso','chd','pbp']
+    const exSAT = fs.getSaturnFileExtensions();    // ['cue','chd','iso','bin']
+    const exGEN = fs.getGenesisFileExtensions();   // ['smd','gen','32x','gg','sms','md']
+
+    // Extra SNES formats commonly seen with libretro (Snes9x)
+    const exSNESExtra = ['swc', 'bs', 'st']; // confirmed in libretro Snes9x docs [1](https://docs.libretro.com/library/snes9x/)
+
+    // Arcade
+    const exArc = ['zip'];          // MAME2003+, FBNeo
+    const exArcMaybe = ['7z'];      // often used in FBNeo/MAME sets
+
+    // Multi-system disc formats to be treated as ambiguous
+    const exAmbig = uniq([
+      ...exPS1, ...exPSP, ...exSAT,
+      'iso', 'bin', 'cue', 'chd', 'img', 'ccd', 'mdf', 'mds', 'nrg'
+    ]);
+
+    // Dreamcast (Flycast, experimental): common formats
+    const exDC = ['cdi', 'gdi', 'chd', 'cue', 'bin', 'elf', 'zip', '7z']; // libretro flycast supports these; WASM core required [5](https://docs.libretro.com/library/flycast/)
+
+    // 3DO (Opera): typical images
+    const ex3DO = ['iso', 'chd', 'cue']; // Opera libretro core supports these in common setups
+
+    // Quake III (vitaQuake 3) – loads .pk3
+    const exQ3 = ['pk3']; // from vitaquake3 *.info (supported_extensions="pk3") [2](https://sources.debian.org/src/libretro-core-info/1.14.0-1/vitaquake3_libretro.info/)
+
+    return [
+      // --- Sony ---
+      { core: 'psp', label: 'PSP', exts: ['pbp'], maybeExts: plus([], exPSP), hints: [/ULUS\d{5}/i, /ULES\d{5}/i, /\bPSP\b/i] },
+      { core: 'pcsx_rearmed', label: 'PlayStation (PS1)', exts: uniq(['bin', 'cue', 'chd']), maybeExts: plus(['iso', 'img', 'ccd', 'mdf', 'mds', 'nrg'], exPS1), hints: [/SLUS\d{5}/i, /SLES\d{5}/i, /\bPSX\b|\bPS1\b|\bPlayStation\b/i] },
+
+      // --- Sega ---
+      { core: 'genesis_plus_gx', label: 'Sega Mega Drive / Genesis', exts: exGEN, maybeExts: ['bin'], hints: [/\bGENESIS\b|\bMEGADRIVE\b|\bMD\b/i] },
+      { core: 'genesis_plus_gx', label: 'Sega CD / Mega‑CD', exts: [], maybeExts: exSAT, hints: [/\bSEGA\s?CD\b|\bMEGA\s?CD\b/i] },
+      { core: 'picodrive', label: 'Sega 32X', exts: ['32x'], maybeExts: [], hints: [/\b32X\b/i] },
+      { core: 'yabause', label: 'Sega Saturn', exts: [], maybeExts: exSAT, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
+
+      // --- 3DO ---
+      { core: 'opera', label: '3DO', exts: [], maybeExts: ex3DO, hints: [/\b3DO\b/i] },
+
+      // --- Nintendo ---
+      { core: 'mupen64plus_next', label: 'Nintendo 64', exts: exN64, maybeExts: [], hints: [/\bN64\b/i] },
+      { core: 'melonds', label: 'Nintendo DS (melonDS)', exts: exNDS, maybeExts: [], hints: [/\bNDS\b|\bDS\b/i] },
+      { core: 'desmume', label: 'Nintendo DS (DeSmuME)', exts: exNDS, maybeExts: [], hints: [/\bNDS\b|\bDS\b/i] },
+      { core: 'mgba', label: 'Game Boy Advance', exts: exGBA, maybeExts: [], hints: [/\bGBA\b/i] },
+      { core: 'gambatte', label: 'Game Boy / Game Boy Color', exts: exGBx, maybeExts: [], hints: [/\bGBC\b|\bGB\b/i] },
+      { core: 'fceumm', label: 'NES / Famicom', exts: exNES, maybeExts: [], hints: [/\bNES\b|\bFAMICOM\b/i] },
+      { core: 'snes9x', label: 'SNES / Super Famicom', exts: plus(exSNES, exSNESExtra), maybeExts: [], hints: [/\bSNES\b|\bSFC\b/i] },
+
+      { core: 'mednafen_vb', label: 'Virtual Boy', exts: ['vb', 'vboy'], maybeExts: [], hints: [/\bVIRTUAL\s?BOY\b|\bVB\b/i] },
+
+      // --- Arcade ---
+      { core: 'mame2003_plus', label: 'Arcade (MAME 2003+)', exts: exArc, maybeExts: exArcMaybe, hints: [/\bMAME\b|\bARCADE\b/i] },
+      { core: 'fbneo', label: 'Arcade (FBNeo)', exts: exArc, maybeExts: exArcMaybe, hints: [/\bFBNEO\b|\bNEOGEO\b/i] },
+
+      // --- Atari ---
+      { core: 'stella2014', label: 'Atari 2600', exts: ['a26'], maybeExts: ['zip'], hints: [/\b2600\b/i] },
+      { core: 'prosystem', label: 'Atari 7800', exts: ['a78'], maybeExts: ['zip'], hints: [/\b7800\b/i] },
+      { core: 'handy', label: 'Atari Lynx', exts: ['lnx'], maybeExts: ['zip'], hints: [/\bLYNX\b/i] },
+      { core: 'virtualjaguar', label: 'Atari Jaguar', exts: ['jag'], maybeExts: ['zip'], hints: [/\bJAGUAR\b/i] },
+
+      // --- Coleco / Commodore / Amiga ---
+      { core: 'gearcoleco', label: 'ColecoVision', exts: ['col'], maybeExts: ['zip'], hints: [/\bCOLECO\b/i] },
+      { core: 'vice_x64', label: 'Commodore 64', exts: ['d64'], maybeExts: [], hints: [/\bC64\b/i] },
+      { core: 'puae', label: 'Commodore Amiga', exts: ['adf'], maybeExts: [], hints: [/\bAMIGA\b/i] },
+
+      // --- Experimental (available only if you actually ship the WASM core files) ---
+      { core: 'flycast', label: 'Sega Dreamcast (Flycast) — experimental', exts: exDC, maybeExts: [], hints: [/\bDREAMCAST\b|\bNAOMI\b/i] },  // WASM port required [6](https://github.com/nasomers/flycast-wasm)
+      { core: 'vitaquake3', label: 'Quake III Arena (vitaQuake 3)', exts: exQ3, maybeExts: [], hints: [/pak0\.pk3/i] }, // loads *.pk3 [2](https://sources.debian.org/src/libretro-core-info/1.14.0-1/vitaquake3_libretro.info/)
+    ];
+  }
+
+  /** Central place for ambiguous extensions (chooser-first). */
+  private readonly AMBIGUOUS_EXTS = new Set<string>([
+    'zip', '7z', 'bin', 'cue', 'iso', 'chd', 'img', 'ccd', 'mdf', 'mds', 'nrg', 'gdi', 'cdi'
+  ]);
+
 
   private isAmbiguousFile(fileName: string): boolean {
     const ext = this.normExt(fileName, n => this.fileService.getFileExtension(n));
@@ -2836,9 +2976,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // because zip archives can contain many different ROM types.
     let matches = [] as { label: string; core?: string }[];
     if (ext === 'zip') {
-      matches = CORE_REGISTRY.map(e => ({ label: e.label, core: e.core }));
+      matches = this.CORE_REGISTRY.map(e => ({ label: e.label, core: e.core }));
     } else {
-      matches = CORE_REGISTRY
+      matches = this.CORE_REGISTRY
         .filter(e => (e.maybeExts ?? []).includes(ext) || (e.exts ?? []).includes(ext))
         .map(e => ({ label: e.label, core: e.core }));
     }
@@ -2862,7 +3002,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     if (!guessedCore) {
       // try hint regexes
-      const hintHit = CORE_REGISTRY.find(e =>
+      const hintHit = this.CORE_REGISTRY.find(e =>
         (e.maybeExts ?? []).includes(ext) && e.hints?.some(r => r.test(fileName))
       );
       guessedCore = hintHit?.core ?? null;
@@ -2886,15 +3026,16 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const ext = this.normExt(fileName, n => this.fileService.getFileExtension(n));
 
     // 1) Confident extension mapping (fast path)
-    for (const entry of CORE_REGISTRY) {
+    for (const entry of this.CORE_REGISTRY) {
       if (entry.exts?.includes(ext)) return entry.core;
     }
 
-    // 2) Ambiguous extensions: use your existing guesser + registry hints
-    const ambiguousExts = new Set(
-      CORE_REGISTRY.flatMap(e => e.maybeExts ?? [])
-    );
-
+    // 2) Ambiguous extensions: use your existing guesser + registry hints 
+    const ambiguousExts = new Set(this.CORE_REGISTRY.flatMap(e => e.maybeExts ?? []));
+    for (const s of this.AMBIGUOUS_EXTS) {
+      ambiguousExts.add(s);
+    }
+    
     if (ambiguousExts.has(ext)) {
       // 2a) Your service guess (best)
       try {
@@ -2904,7 +3045,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       } catch { }
 
       // 2b) Regex hint match (good)
-      for (const entry of CORE_REGISTRY) {
+      for (const entry of this.CORE_REGISTRY) {
         if ((entry.maybeExts ?? []).includes(ext) && entry.hints?.some(r => r.test(fileName))) {
           return entry.core;
         }
@@ -3087,46 +3228,6 @@ type CoreDescriptor = {
   // filename heuristics to “bubble up” this candidate for ambiguous files
   hints?: RegExp[];
 };
-
-const CORE_REGISTRY: CoreDescriptor[] = [
-  // --- Sony ---
-  { core: 'psp', label: 'PSP', exts: ['pbp'], maybeExts: ['iso'], hints: [/ULUS\d{5}/i, /ULES\d{5}/i, /\bPSP\b/i] },
-  { core: 'pcsx_rearmed', label: 'PlayStation (PS1)', exts: ['bin', 'chd', 'cue'], maybeExts: ['iso', 'img', 'ccd', 'mdf', 'mds', 'nrg'], hints: [/SLUS\d{5}/i, /SLES\d{5}/i, /\bPSX\b|\bPS1\b|\bPlayStation\b/i] },
-
-  // --- Sega ---
-  { core: 'genesis_plus_gx', label: 'Sega Mega Drive / Genesis', exts: ['smd', 'gen', 'md'], maybeExts: ['bin'], hints: [/\bGENESIS\b|\bMEGADRIVE\b|\bMD\b/i] },
-  { core: 'genesis_plus_gx', label: 'Sega CD / Mega-CD', exts: [], maybeExts: ['cue', 'bin', 'chd', 'iso'], hints: [/\bSEGA\s?CD\b|\bMEGA\s?CD\b/i] },
-  { core: 'picodrive', label: 'Sega 32X', exts: ['32x'], maybeExts: [], hints: [/\b32X\b/i] },
-  { core: 'yabause', label: 'Sega Saturn', exts: [], maybeExts: ['cue', 'chd', 'iso', 'bin'], hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
-
-  // --- 3DO ---
-  { core: 'opera', label: '3DO', exts: [], maybeExts: ['iso', 'chd', 'cue'], hints: [/\b3DO\b/i] },
-
-  // --- Nintendo ---
-  { core: 'mupen64plus_next', label: 'Nintendo 64', exts: ['n64', 'z64', 'v64'], maybeExts: [], hints: [/\bN64\b/i] },
-  { core: 'melonds', label: 'Nintendo DS', exts: ['nds'], maybeExts: [], hints: [/\bNDS\b|\bDS\b/i] },
-  { core: 'mgba', label: 'Game Boy Advance', exts: ['gba'], maybeExts: [], hints: [/\bGBA\b/i] },
-  { core: 'gambatte', label: 'Game Boy / Game Boy Color', exts: ['gb', 'gbc'], maybeExts: [], hints: [/\bGBC\b|\bGB\b/i] },
-  { core: 'fceumm', label: 'NES / Famicom', exts: ['nes'], maybeExts: [], hints: [/\bNES\b|\bFAMICOM\b/i] },
-  { core: 'snes9x', label: 'SNES / Super Famicom', exts: ['snes', 'sfc'], maybeExts: [], hints: [/\bSNES\b|\bSFC\b/i] },
-  { core: 'mednafen_vb', label: 'Virtual Boy', exts: ['vb', 'vboy'], maybeExts: [], hints: [/\bVIRTUAL\s?BOY\b|\bVB\b/i] },
-
-  // --- Arcade ---
-  { core: 'mame2003_plus', label: 'Arcade (MAME 2003+)', exts: ['zip'], maybeExts: ['7z'], hints: [/\bMAME\b|\bARCADE\b/i] },
-  { core: 'fbneo', label: 'Arcade (FBNeo)', exts: ['zip'], maybeExts: ['7z'], hints: [/\bFBNEO\b|\bNEOGEO\b/i] },
-
-  // --- Atari ---
-  { core: 'stella2014', label: 'Atari 2600', exts: ['a26'], maybeExts: ['zip'], hints: [/\b2600\b/i] },
-  { core: 'prosystem', label: 'Atari 7800', exts: ['a78'], maybeExts: ['zip'], hints: [/\b7800\b/i] },
-  { core: 'handy', label: 'Atari Lynx', exts: ['lnx'], maybeExts: ['zip'], hints: [/\bLYNX\b/i] },
-  { core: 'virtualjaguar', label: 'Atari Jaguar', exts: ['jag'], maybeExts: ['zip'], hints: [/\bJAGUAR\b/i] },
-
-  // --- Coleco / Commodore / Amiga ---
-  { core: 'gearcoleco', label: 'ColecoVision', exts: ['col'], maybeExts: ['zip'], hints: [/\bCOLECO\b/i] },
-  { core: 'vice_x64', label: 'Commodore 64', exts: ['d64'], maybeExts: [], hints: [/\bC64\b/i] },
-  { core: 'puae', label: 'Commodore Amiga', exts: ['adf'], maybeExts: [], hints: [/\bAMIGA\b/i] },
-];
-
 
 declare global {
   interface Window {

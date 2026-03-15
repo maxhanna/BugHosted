@@ -89,16 +89,14 @@ export class FileService {
   ];
 
   n64FileExtensions = ["z64", "n64", "v64"];
-
   ps1FileExtensions = ["bin", "cue", "iso", "chd", "pbp"];
-
   genesisFileExtensions: string[] = ["smd", "gen", "32x", "gg", "sms", "md"];
   segaFileExtensions: string[] = ["smd", "gen", "32x", "gg", "sms", "md"];
   nesFileExtensions: string[] = ["nes", "fds"];
   gbaFileExtensions: string[] = ['gba'];
   ndsFileExtensions: string[] = ['nds'];
   pspFileExtensions: string[] = ['psp', 'iso', 'cso', 'pbp'];
-  snesFileExtensions: string[] = ['snes', 'sfc', 'smc', 'fig'];
+  snesFileExtensions: string[] = ['snes', 'sfc', 'smc', 'fig', 'swc', 'bs', 'st'];
   saturnFileExtensions: string[] = ['cue', 'chd', 'iso', 'bin'];
 
   /** Return Genesis/MegaDrive related extensions present in romFileExtensions */
