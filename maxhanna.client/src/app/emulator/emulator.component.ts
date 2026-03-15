@@ -705,6 +705,50 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'nds':
         return '/assets/emulatorjs/data/cores/dsbios.zip';
 
+      // SNES (Snes9x)
+      case 'snes9x':
+        return '/assets/emulatorjs/data/cores/Snes9x.zip';
+
+      // Dreamcast / NAOMI (Flycast)
+      case 'flycast':
+      case 'dreamcast':
+      case 'naomi':
+        return '/assets/emulatorjs/data/cores/NAOMI.zip';
+
+      // Atari 7800 (ProSystem)
+      case 'prosystem':
+        return '/assets/emulatorjs/data/cores/PROSYSTEM.zip';
+
+      // 3DO (Opera core)
+      case 'opera':
+      case '3do':
+        return '/assets/emulatorjs/data/cores/3DO.zip';
+
+      // Sega Mega Drive / Genesis (BlastEm pack)
+      case 'genesis_plus_gx':
+      case 'genesis':
+      case 'megadrive':
+      case 'blastem':
+        return '/assets/emulatorjs/data/cores/BLASTEM.zip';
+
+      // PlayStation 2 (LR-PCSX2 / PS2 pack)
+      case 'pcsx2':
+      case 'ps2':
+      case 'lrps2':
+        return '/assets/emulatorjs/data/cores/LRPS2.zip';
+
+      // GameCube / Wii (Dolphin)
+      case 'dolphin':
+      case 'gamecube':
+      case 'gc':
+      case 'wii':
+        return '/assets/emulatorjs/data/cores/DOLPHIN.zip';
+
+      // Game Boy Advance (mGBA)
+      case 'mgba':
+      case 'gba':
+        return '/assets/emulatorjs/data/cores/MGBA.zip';
+
       // Sony PSP
       case 'psp':
       case 'ppsspp':
