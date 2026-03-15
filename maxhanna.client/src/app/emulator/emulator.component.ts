@@ -33,9 +33,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   isSystemSelectPanelOpen = false;
   wasMenuOpenBeforeLoggingIn = false;
   faqItems = FAQ_ITEMS;
-
-
-  
   isSearchVisible = false;
   autosave = true;
   autosaveIntervalTime: number = 180000; // 3 minutes 
@@ -351,13 +348,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     window.EJS_controlScheme = this.ejsControlSchemeForCore(core);
     this.system = this.systemFromCore(core);
 
-    // // IMPORTANT: fetch and stage melonDS BIOS files before loader.js is injected
-    // if (core === 'melonds' || core === 'nds') {
-    //   await this.preloadMelondsBiosBytes();
-    //   this.installMelondsBiosIntoModule();
-    // }
-
-
     const romDisplayName = this.fileService.getFileWithoutExtension(fileName); // e.g., "Ultimate MK3 (USA)"
     this.applyGamepadControlSettings(romDisplayName, core, this.system);
     // For PlayStation and N64 cores, increase autosave interval to 10 minutes
@@ -450,12 +440,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         s.setAttribute('data-ejs-loader', '1');
         s.onload = () => {
           window.__ejsLoaderInjected = true;
-
-          // setTimeout(() => {
-          //   const roots = document.querySelectorAll('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent');
-          //   console.log('[EJS] vpad roots detected:', roots.length, roots);
-          // }, 1000);
-
           requestAnimationFrame(() => {
             this.setGameScreenHeight();
             // a second rAF can make it even smoother: 
@@ -667,15 +651,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     window.EJS_softLoad = false;
     window.EJS_gameUrl = this.romObjectUrl;
     const _ejs_gameKey = `${core}:${this.fileService.getFileWithoutExtension(this.romName ?? '')}`;
-    // EJS_gameID MUST be a number — emulator.js hides the netplay button
-    // when typeof config.gameId !== "number".
     window.EJS_gameID = this.stableStringToIntId(_ejs_gameKey);
     window.EJS_gameIDKey = _ejs_gameKey; // string key kept for debugging
     window.EJS_gameName = this.fileService.getFileWithoutExtension(this.romName ?? '');
-    // Netplay: use same-origin so it shares the existing HTTPS certificate
-    // and doesn't need a separate port / firewall rule.
-    // The prod-server.js embeds the netplay Socket.IO server on the default
-    // namespace — exactly like the upstream EmulatorJS-Netplay server.js.
     window.EJS_netplayServer = window.location.origin;
     window.EJS_netplayUrl = window.EJS_netplayServer;
     window.EJS_netplayICEServers = [
@@ -720,10 +698,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     window.EJS_lightgun = false;
     window.__EJS_ALIVE__ = true;
     const rootStyle = getComputedStyle(document.documentElement);
-    //const mainHighlight = (rootStyle.getPropertyValue('--main-highlight-color') || '#3a3a3a').trim();
     const componentBackgroundColor = (rootStyle.getPropertyValue('--component-background-color') || '#3a3a3a').trim();
-    // Use the core name for a reliable icon lookup (coreIconMap), falling back to
-    // extension-based guessing via the rom filename.
     let systemIcon: string | undefined =
       this.fileSearchComponent?.getSystemIconUrl(this.romName ?? '', core) ?? undefined;
     if (!systemIcon) {
@@ -742,7 +717,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     w.EJS_color = componentBackgroundColor;        // Sets the main color theme for the emulator
     w.EJS_backgroundColor = componentBackgroundColor; // Sets the background color for the emulator    
     if (systemIcon) {
-      w.EJS_backgroundImage = systemIcon; // Sets the background color for the emulator    
+      w.EJS_backgroundImage = systemIcon;  
     }
     if (core === "psp" || core == "ppsspp") {
       this.applyPSPCoreSettings(w); // force our perf defaults over any saved prefs
@@ -1813,7 +1788,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     try {
       const u8 = new Uint8Array(await saveStateBlob.arrayBuffer());
       const core = (window as any).EJS_core || '';
- 
+
       const isHeavy = this.heavyCores.has(core);
 
       // 1) Wait for EJS_ready to fire (set by the EJS_ready callback).
@@ -2327,7 +2302,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (core === "psp" || core === "ppsspp") {
       return { maxW: 640, maxH: 360, maxDPR: 1.0 };
     }
-  
+
     if (this.heavyCores.has(core)) return { maxW: 1280, maxH: 720, maxDPR: 1.5 };
     // Light cores can go higher
     return { maxW: 1920, maxH: 1080, maxDPR: 2.0 };
@@ -2735,7 +2710,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         canvas.style.maxHeight = '95vh';
       } catch { }
     });
- 
+
     // 3️⃣ Clamp render buffer
     (window as any).EJS_renderClamp = { maxW: 640, maxH: 360, maxDPR: 1.0 };
 
@@ -3042,7 +3017,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   confirmSystemSelection() {
     if (!this._pendingFileToLoad) return;
     const pending = this._pendingFileToLoad;
-    
+
     const forced = this.selectedSystemCore ?? undefined;
     this._forcedCore = forced;
     this._pendingFileToLoad = null;
@@ -3080,7 +3055,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.selectedSystemCore = undefined;
     this.cdr.detectChanges();
   }
- 
+
   private stableStringToIntId(s: string): number {
     let h = 2166136261 >>> 0;
     for (let i = 0; i < s.length; i++) {
@@ -3100,7 +3075,3 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 }
-
-// Core descriptor types moved to `emulator-types.ts`
-
-
