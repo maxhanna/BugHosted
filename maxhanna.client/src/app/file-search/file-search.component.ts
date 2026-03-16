@@ -427,6 +427,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
       const includeRomMetadata = this.shouldShowRomMetadata();
 
+      // Default to Last Access (recent first) for ROM folders when no other sort option provided
+      let sortToUse = this.sortOption && this.sortOption.trim() !== '' ? this.sortOption : '';
+      const cur = (this.currentDirectory ?? '').toLowerCase();
+      if (!sortToUse && /\broms?\b/.test(cur)) {
+        sortToUse = 'Last Access';
+        this.sortOption = sortToUse;
+      }
+      
+
       await this.fileService.getDirectory(
         this.currentDirectory,
         this.filter.visibility,
@@ -438,7 +447,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         effectiveFileId,
         fileTypes,
         this.filter.hidden == 'all' ? true : false,
-        this.sortOption,
+        sortToUse,
         this.showFavouritesOnly,
         includeRomMetadata
       ).then(res => {

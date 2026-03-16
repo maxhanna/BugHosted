@@ -142,6 +142,9 @@ namespace maxhanna.Server.Controllers
           case "Last Updated DESC":
             orderBy = "ORDER BY f.last_updated DESC";
             break;
+          case "Last Access":
+            orderBy = "ORDER BY f.last_access DESC, date DESC";
+            break;
           case "Most Comments":
             orderBy = "ORDER BY comment_count DESC";
             break;
