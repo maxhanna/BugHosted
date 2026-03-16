@@ -8,17 +8,8 @@
   height: CALC(var(--vh, 1vh) * 100);
   overflow: hidden;
 }
-/* 
+ 
 @media only screen and (max-width:800px) {
-  #selectMediaDiv {
-    width: CALC(100vw - 4px);
-    height: CALC(var(--vh, 1vh) * 100);
-  } */
-
-  /* #selectMediaDiv.open {
-    transform: unset !important;
-  } */
-
   .attachmentChoiceContainer {
     max-height: CALC(var(--vh, 1vh) * 100 - 170px) !important;
     min-height: 60vh;
