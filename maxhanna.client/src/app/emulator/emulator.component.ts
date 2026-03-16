@@ -100,9 +100,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.parentRef.navigationComponent?.stopNotifications();
     }
     this.isSearchVisible = true;
-  }
-
-
+  } 
 
   async ngAfterViewInit() {
     this.status = 'Ready - Select a ROM';

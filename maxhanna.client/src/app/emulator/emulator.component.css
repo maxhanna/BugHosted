@@ -17,6 +17,12 @@
 @media only screen and (min-width : 667px) { 
   .gamesContainer {
     max-width: 85vw; 
+    overflow: auto;
+    border-top-left-radius: 16px;
+    margin-top: 15px;
+    margin-bottom: 15px;
+    margin-right: 10px;
+    border-bottom-left-radius: 16px;
   }
 }
 
@@ -83,4 +89,8 @@
 .ejs_button, .ejs_control_set_button {
   background-color: var(--component-background-color) !important;
   color: var(--main-font-color) !important;
+}
+
+:host ::ng-deep #fileContainer {
+  max-height: calc(var(--vh, 1vh) * 100 - 130px) !important;
 }

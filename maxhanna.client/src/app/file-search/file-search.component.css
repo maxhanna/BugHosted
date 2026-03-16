@@ -191,7 +191,7 @@
   overflow: auto;
   display: flex;
   flex-direction: column;
-  max-height: CALC(var(--vh, 1vh) * 100 - 100px);
+  /* max-height: CALC(var(--vh, 1vh) * 100 - 100px); */
 }
 
 .draggableDiv {

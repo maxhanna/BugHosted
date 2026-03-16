@@ -3,8 +3,6 @@
   flex-wrap: wrap;
   flex-direction: column;
   justify-content: space-evenly;
-  align-items: flex-start;
-  align-content: flex-start;
   overflow: hidden;
 }
 .mainLayout {
