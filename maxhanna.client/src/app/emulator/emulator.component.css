@@ -26,6 +26,17 @@
   }
 }
 
+@media only screen and (min-width : 667px) { 
+  :host ::ng-deep #fileContainer {
+    max-height: calc(var(--vh, 1vh) * 100 - 130px) !important;
+  }
+
+  :host ::ng-deep .flexForRoms {
+    height: calc(100vh - 160px) !important;
+    overflow: hidden !important;
+  }
+}
+
 .romNameTitle {
   width: calc(100% - 100px);
   display: block;
@@ -73,8 +84,7 @@
   #game {
     height: calc(100dvh - 60px);
   }
-}
-
+} 
 
 /* Hide EJS top bar while keeping it in the DOM so we can click buttons programmatically */
 #game .ejs-toolbar,
@@ -89,13 +99,4 @@
 .ejs_button, .ejs_control_set_button {
   background-color: var(--component-background-color) !important;
   color: var(--main-font-color) !important;
-}
-
-:host ::ng-deep #fileContainer {
-  max-height: calc(var(--vh, 1vh) * 100 - 130px) !important;
-}
-
-:host ::ng-deep .flexForRoms {
-  height: calc(100vh - 160px) !important;
-  overflow: hidden !important;
 }
