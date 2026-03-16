@@ -18,8 +18,7 @@
 @media only screen and (min-width : 667px) { 
   .gamesContainer {
     max-width: 85vw; 
-    border-radius: 16px; 
-    border-top-right-radius: unset;
+    border-radius: 16px;  
     margin-top: 15px;
     margin-bottom: 15px;
     margin-right: 10px;
@@ -34,6 +33,10 @@
   :host ::ng-deep .flexForRoms {
     height: calc(100vh - 160px) !important;
     overflow: hidden !important;
+  }
+
+  :host ::ng-deep .directoryDisplayDiv {
+    max-height: calc(100vh - 170px) !important; 
   }
 }
 
