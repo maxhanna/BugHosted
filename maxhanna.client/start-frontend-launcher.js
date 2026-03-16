@@ -119,7 +119,7 @@ async function runBuildIfNeeded() {
           }
         }, 10000);
         
-        // And wait another 3 seconds after the kill before checking files
+        // And wait another 10 seconds after the kill before checking files
         setTimeout(() => {
           if (!hasResolved) {
             hasResolved = true;
@@ -147,7 +147,7 @@ async function runBuildIfNeeded() {
               resolve(true);
             }
           }
-        }, 5000);  // Total 5 seconds wait
+        }, 10000);  // Total 10 seconds wait
       }
     });
 
