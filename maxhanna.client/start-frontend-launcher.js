@@ -107,47 +107,67 @@ async function runBuildIfNeeded() {
       if (str.includes('Output location:') && !buildCompleted) {
         buildCompleted = true;
         writeLog('[Build] Build complete detected (Output location printed)');
-        writeLog('[Build] Waiting 10 seconds for all files to be written to disk...');
-        
-        // Wait 10 seconds before killing so files can fully flush to disk
+
+        // Configurable kill and retry timings
+        const killDelayMs = parseInt(process.env.FRONTEND_BUILD_KILL_DELAY_MS || '5000', 10);
+        const flushTimeoutMs = parseInt(process.env.FRONTEND_BUILD_FLUSH_TIMEOUT_MS || '30000', 10);
+        const checkIntervalMs = parseInt(process.env.FRONTEND_BUILD_CHECK_INTERVAL_MS || '1000', 10);
+
+        writeLog(`[Build] Will attempt to detect index.html for up to ${flushTimeoutMs}ms, killing build after ${killDelayMs}ms`);
+
+        // Try to kill the build process shortly after detection to allow it to exit
         setTimeout(() => {
-          writeLog('[Build] Now killing build process...');
+          writeLog('[Build] Attempting to kill build process...');
           try {
             child.kill('SIGTERM');
           } catch (e) {
             writeLog('[Build] Could not kill child, but proceeding anyway');
           }
-        }, 10000);
-        
-        // And wait another 10 seconds after the kill before checking files
-        setTimeout(() => {
-          if (!hasResolved) {
-            hasResolved = true;
-            
-            // Debug: list what's actually in the dist folder
-            try {
-              const distContents = fs.readdirSync(distRoot);
-              writeLog('[Build] Dist folder contents:', distContents);
-              const browserPath = path.join(distRoot, 'browser');
-              if (fs.existsSync(browserPath)) {
-                const browserContents = fs.readdirSync(browserPath);
-                writeLog('[Build] Browser folder contents:', browserContents);
-              }
-            } catch (e) {
-              writeLog('[Build] Error listing dist:', e && e.message ? e.message : e);
-            }
-            
+        }, killDelayMs);
+
+        // Retry loop: check for the generated index.html until timeout
+        const start = Date.now();
+        const retryHandle = setInterval(() => {
+          try {
             if (fs.existsSync(browserIndex)) {
-              indexPath = browserIndex;
-              writeLog('[Build] index.html found, resolving');
-              resolve(true);
-            } else {
-              writeLog('[Build] index.html not found after build, but proceeding anyway - prod-server will handle fallback');
-              // Even if index.html isn't there, proceed - prod-server has fallback logic
-              resolve(true);
+              if (!hasResolved) {
+                hasResolved = true;
+                indexPath = browserIndex;
+                writeLog('[Build] index.html found, resolving');
+                clearInterval(retryHandle);
+                resolve(true);
+              }
+              return;
             }
+
+            // Optional debug: list dist contents occasionally (every 5s)
+            const elapsed = Date.now() - start;
+            if (elapsed % 5000 < checkIntervalMs) {
+              try {
+                const distContents = fs.readdirSync(distRoot);
+                writeLog('[Build] Dist folder contents (retry):', distContents);
+                const browserPath = path.join(distRoot, 'browser');
+                if (fs.existsSync(browserPath)) {
+                  const browserContents = fs.readdirSync(browserPath);
+                  writeLog('[Build] Browser folder contents (retry):', browserContents);
+                }
+              } catch (e) {
+                writeLog('[Build] Error listing dist during retry:', e && e.message ? e.message : e);
+              }
+            }
+
+            if (elapsed >= flushTimeoutMs) {
+              clearInterval(retryHandle);
+              if (!hasResolved) {
+                hasResolved = true;
+                writeLog('[Build] index.html not found after retry timeout, proceeding anyway - prod-server will handle fallback');
+                resolve(true);
+              }
+            }
+          } catch (e) {
+            writeLog('[Build] Error during retry check:', e && e.message ? e.message : e);
           }
-        }, 10000);  // Total 10 seconds wait
+        }, checkIntervalMs);
       }
     });
 
