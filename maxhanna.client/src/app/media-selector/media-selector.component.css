@@ -7,6 +7,8 @@
   width: CALC(100vw - 4px);
   height: CALC(var(--vh, 1vh) * 100);
   overflow: hidden;
+  top: 0;
+  left: 0;
 }
  
 @media only screen and (max-width:800px) {
