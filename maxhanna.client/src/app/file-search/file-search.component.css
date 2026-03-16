@@ -318,7 +318,7 @@
 }
 
 .smallerDataDiv {
-  max-height: calc((var(--vh, 1vh) * 50) - 100px);
+  /* max-height: calc((var(--vh, 1vh) * 50) - 100px); */
   overflow: auto;
 }
 
@@ -648,7 +648,7 @@
 }
 
 #fileTable {
-  max-height: CALC(var(--vh, 1vh) * 100 - 130px);
+  /* max-height: CALC(var(--vh, 1vh) * 100 - 130px); */
   overflow: auto;
   flex: 1 1 auto;
   background: var(--component-background-color);

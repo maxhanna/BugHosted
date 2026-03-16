@@ -15,10 +15,8 @@
   </button>
 </div>
 
-<div [class]="fileSearchMode && !onMobile() ? 'smallerDataDiv' : fileSearchMode && onMobile() ? 'biggerDataDiv' : ''"
-  #fileContainer [id]="!fileSearchMode ? 'fileContainer' : ''">
-  <div style="display:flex; flex-direction: row-reverse; justify-content: space-between;">
-
+<div #fileContainer [id]="!fileSearchMode ? 'fileContainer' : ''">
+  <div style="display:flex; flex-direction: row-reverse; justify-content: space-between;"> 
     <!-- Page Controls -->
     <div class="topPageControls">
       <span *ngIf="isDisplayingPreviousPageButton()">
@@ -35,7 +33,6 @@
         </span>
       </span>
     </div>
-
     <div *ngIf="displayTotal && !search?.nativeElement?.value" class="totalDisplay">
       <span class="currentDirectorySpan" *ngIf="!search?.nativeElement?.value">
         Current Directory:
@@ -56,10 +53,11 @@
             </ng-container>
           </ng-container>
         </span>
-      </span>
-
-      Total: {{ directory ? directory.totalCount : 0 }}
+      </span> 
     </div>
+    <div> 
+      Total: {{ directory ? directory.totalCount : 0 }}
+    </div> 
   </div>
 
   <div *ngIf="isLoading">
