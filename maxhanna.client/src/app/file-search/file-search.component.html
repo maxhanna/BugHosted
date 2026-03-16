@@ -15,53 +15,58 @@
   </button>
 </div>
 
-<!-- Page Controls -->
-<div class="topPageControls">
-  <span *ngIf="isDisplayingPreviousPageButton()">
-    <span (click)="previousPage()" class="cursorPointer">
-      ⬅️
-    </span>
-  </span>
-  <span *ngIf="totalPages > 1" class="totalPageDisplay">{{currentPage}}{{displayTotal ? '/' + totalPages : ''}}</span>
-  <input *ngIf="fileSearchMode" #search (keyup)="changeSearchTermsFromSearchInput()" placeholder="🔍Search Files" />
-  <span *ngIf="isDisplayingTotalPagesButton()">
-    <span (click)="nextPage()" class="cursorPointer">
-      ➡️
-    </span>
-  </span>
-</div>
-
 <div [class]="fileSearchMode && !onMobile() ? 'smallerDataDiv' : fileSearchMode && onMobile() ? 'biggerDataDiv' : ''"
   #fileContainer [id]="!fileSearchMode ? 'fileContainer' : ''">
-  <div *ngIf="displayTotal && !search?.nativeElement?.value" class="totalDisplay">
-    <span class="currentDirectorySpan" *ngIf="!search?.nativeElement?.value">
-      Current Directory:
-      <span>
-        <ng-container *ngIf="currentDirectory === ''; else rootLink">
-          <span>./</span>
-        </ng-container>
-        <ng-template #rootLink>
-          <a (click)="navigateToDirectory('')" class="cursorPointer">./</a>
-        </ng-template>
-        <ng-container *ngFor="let segment of getBreadcrumbSegments(); let i = index">
-          <ng-container *ngIf="i < getBreadcrumbSegments().length - 1">
-            <a (click)="navigateToDirectory(getBreadcrumbPath(i))" class="cursorPointer">{{segment}}</a>
-            <span>/</span>
-          </ng-container>
-          <ng-container *ngIf="i === getBreadcrumbSegments().length - 1">
-            <span>{{segment}}</span>
-          </ng-container>
-        </ng-container>
-      </span>
-    </span>
+  <div style="display:flex; flex-direction: row-reverse; justify-content: space-between;">
 
-    Total: {{ directory ? directory.totalCount : 0 }}
-  </div>
-  <div *ngIf="isLoading">
-      Loading Data...
+    <!-- Page Controls -->
+    <div class="topPageControls">
+      <span *ngIf="isDisplayingPreviousPageButton()">
+        <span (click)="previousPage()" class="cursorPointer">
+          ⬅️
+        </span>
+      </span>
+      <span *ngIf="totalPages > 1" class="totalPageDisplay">{{currentPage}}{{displayTotal ? '/' + totalPages :
+        ''}}</span>
+      <input *ngIf="fileSearchMode" #search (keyup)="changeSearchTermsFromSearchInput()" placeholder="🔍Search Files" />
+      <span *ngIf="isDisplayingTotalPagesButton()">
+        <span (click)="nextPage()" class="cursorPointer">
+          ➡️
+        </span>
+      </span>
     </div>
-    <div *ngIf="!isLoading && directory && directory.totalCount == 0">
-      Empty.
+
+    <div *ngIf="displayTotal && !search?.nativeElement?.value" class="totalDisplay">
+      <span class="currentDirectorySpan" *ngIf="!search?.nativeElement?.value">
+        Current Directory:
+        <span>
+          <ng-container *ngIf="currentDirectory === ''; else rootLink">
+            <span>./</span>
+          </ng-container>
+          <ng-template #rootLink>
+            <a (click)="navigateToDirectory('')" class="cursorPointer">./</a>
+          </ng-template>
+          <ng-container *ngFor="let segment of getBreadcrumbSegments(); let i = index">
+            <ng-container *ngIf="i < getBreadcrumbSegments().length - 1">
+              <a (click)="navigateToDirectory(getBreadcrumbPath(i))" class="cursorPointer">{{segment}}</a>
+              <span>/</span>
+            </ng-container>
+            <ng-container *ngIf="i === getBreadcrumbSegments().length - 1">
+              <span>{{segment}}</span>
+            </ng-container>
+          </ng-container>
+        </span>
+      </span>
+
+      Total: {{ directory ? directory.totalCount : 0 }}
+    </div>
+  </div>
+
+  <div *ngIf="isLoading">
+    Loading Data...
+  </div>
+  <div *ngIf="!isLoading && directory && directory.totalCount == 0">
+    Empty.
   </div>
   <!-- Main Data -->
   <div
@@ -98,8 +103,7 @@
                     {{ file.isFolder ? '📁' : '' }}
                     <span [innerHTML]="(displaySystemIcons && !file.isFolder) ? getFileIcon(file) : ''"></span>
 
-                    <span 
-                      [style.fontSize]="shouldShowRomMetadata() && !onMobile() ? 'x-large' : ''"
+                    <span [style.fontSize]="shouldShowRomMetadata() && !onMobile() ? 'x-large' : ''"
                       class="romTitleText">
                       {{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}
                     </span>
@@ -178,8 +182,8 @@
           </div>
         </ng-container>
         <div *ngIf="!isLoading && currentPage < totalPages && directory?.data?.length">
-          <button appInView (inView)="appendNextPage();"
-            (click)="appendNextPage(); $event.preventDefault()">Load More Results</button>
+          <button appInView (inView)="appendNextPage();" (click)="appendNextPage(); $event.preventDefault()">Load More
+            Results</button>
         </div>
       </div>
     </div>
@@ -247,14 +251,14 @@
           <button title="Close" (click)="closeOptionsPanel()">Close</button>
         </div>
       </div>
-    </div> 
+    </div>
   </div>
 </div>
 <!-- File Options Popup -->
 <div class="popupPanel" *ngIf="isOptionsPanelOpen && optionsFile">
   <div class="popupPanelTitle">
     File Options
-  </div> 
+  </div>
 
   <div *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.igdbName && !optionsFile.isFolder"
     class="romMetaPanel">
@@ -319,9 +323,7 @@
         <strong>Release:</strong> {{ unixSecondsToDate(d) | date:'y/MM/d' }}
       </div>
       <span class="xSmallFont">
-        <button title="Request metadata reset" 
-          (click)="incrementResetVoteForOptionsFile()" 
-          style="margin-left:8px">
+        <button title="Request metadata reset" (click)="incrementResetVoteForOptionsFile()" style="margin-left:8px">
           ↻ Reset
         </button>
         <span *ngIf="optionsFile.romMetadata?.resetVotes !== undefined" style="margin-left:8px">Votes: {{
@@ -335,11 +337,11 @@
       *ngIf="shouldShowEditButton(optionsFile)">
       ✏️Edit File Name
     </button>
-    <button [title]="'Clear System Override ('+optionsFile.romMetadata?.actualSystem+')'" (click)="clearSystemOverride(optionsFile)"
+    <button [title]="'Clear System Override ('+optionsFile.romMetadata?.actualSystem+')'"
+      (click)="clearSystemOverride(optionsFile)"
       *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.actualSystem">
       🧹 Clear System Override
-      <span *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.actualSystem"
-        class="system-override-icon"
+      <span *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.actualSystem" class="system-override-icon"
         [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata?.actualSystem)">
       </span>
     </button>
@@ -578,13 +580,15 @@
           [displayMiniTag]="true" [displayHoverPicture]="true" [previousComponent]="previousComponent"></app-user-tag>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="shouldShowRomMetadata() && !optionsFile?.romMetadata?.igdbName && !optionsFile.isFolder">
+    <div class="optionsStatsDiv"
+      *ngIf="shouldShowRomMetadata() && !optionsFile?.romMetadata?.igdbName && !optionsFile.isFolder">
       <div class="optionsStatsHeader">Reset ROM Metadata?</div>
-      <div class="optionsStatsDescription"> 
+      <div class="optionsStatsDescription">
         <button title="Request metadata reset" (click)="incrementResetVoteForOptionsFile()" style="margin-left:8px">
           ↻ Reset
         </button>
-        <span *ngIf="optionsFile.romMetadata?.resetVotes !== undefined" style="margin-left:8px">Votes: {{ optionsFile.romMetadata?.resetVotes }}</span>
+        <span *ngIf="optionsFile.romMetadata?.resetVotes !== undefined" style="margin-left:8px">Votes: {{
+          optionsFile.romMetadata?.resetVotes }}</span>
       </div>
     </div>
   </div>
@@ -599,9 +603,8 @@
   </div>
   <div class="searchFilesPopupContainer">
     <div class="search-input-group">
-      <input #popupSearch class="search-input"
-        (keyup.enter)="changeSearchTermsFromPopup()"
-        placeholder="Search {{ currentDirectory }}..." [value]="searchTerms" /> 
+      <input #popupSearch class="search-input" (keyup.enter)="changeSearchTermsFromPopup()"
+        placeholder="Search {{ currentDirectory }}..." [value]="searchTerms" />
       <input type="button" (click)="changeSearchTermsFromPopup()" value="🔍" class="search-clear-button" />
       <input type="button" (click)="clearPopupSearch()" value="❌" class="search-clear-button" />
       <span class="search-results-count">{{ directory?.totalCount || 0 }} results</span>
@@ -641,7 +644,7 @@
         </select>
       </div>
 
-      <div >
+      <div>
 
       </div>
       <div class="filter-group">
@@ -683,25 +686,25 @@
       <div class="optionsStatsHeader">
         Show favourites only?
       </div>
-      <div class="optionsStatsDescription"> 
+      <div class="optionsStatsDescription">
         <button class="toggle-switch" (click)="showFavouritesToggled()">
           {{ showFavouritesOnly ? 'On' : 'Off' }}
         </button>
       </div>
     </div>
 
-    
+
     <div class="optionsStatsDiv" *ngIf="displayPicturesOnlyToggler">
       <div class="optionsStatsHeader">
         Show pictures only?
       </div>
-      <div class="optionsStatsDescription"> 
+      <div class="optionsStatsDescription">
         <button class="toggle-switch" (click)="showPicturesToggled()">
           {{ showPicturesOnly ? 'On' : 'Off' }}
         </button>
       </div>
     </div>
-  
+
     <div class="optionsStatsDiv" *ngIf="displayVideosOnlyToggler">
       <div class="optionsStatsHeader">
         Show videos only?
@@ -758,7 +761,8 @@
         <select (change)="setFilterOwnership($event)">
           <option value="all" [selected]="filter.ownership === 'all'">All{{getOwnershipIcon('all')}}</option>
           <option value="own" [selected]="filter.ownership === 'own'">Own{{getOwnershipIcon('own')}}</option>
-          <option value="others" [selected]="filter.ownership === 'others'">Others{{getOwnershipIcon('others')}}</option>
+          <option value="others" [selected]="filter.ownership === 'others'">Others{{getOwnershipIcon('others')}}
+          </option>
         </select>
       </div>
     </div>
