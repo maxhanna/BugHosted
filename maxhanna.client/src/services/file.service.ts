@@ -182,7 +182,7 @@ export class FileService {
     params.append('ownership', ownership || '');
     params.append('page', page ? page.toString() : '1');
     params.append('pageSize', pageSize ? pageSize.toString() : '100');
-    params.append('sortOption', sortOption ? sortOption : 'Latest');
+    params.append('sortOption', sortOption ? sortOption : '');
     params.append('showFavouritesOnly', showFavouritesOnly ? String(showFavouritesOnly) : 'false');
 
     if (search) params.append('search', search);
