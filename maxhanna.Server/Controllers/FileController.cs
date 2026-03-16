@@ -244,6 +244,9 @@ namespace maxhanna.Server.Controllers
             if (string.IsNullOrWhiteSpace(orderBy) && isRomSearch)
             {
               orderBy = "ORDER BY f.last_access DESC";
+            } else if (string.IsNullOrWhiteSpace(orderBy))
+            {
+              orderBy = "ORDER BY date DESC";
             }
             // otherwise keep the orderBy chosen from the sortOption switch above
           }

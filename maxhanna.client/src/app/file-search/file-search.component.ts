@@ -72,7 +72,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   showPicturesOnly = false;
   showVideosOnly = false;
   trendingSearches: string[] = [];
-  sortOption: string = 'Latest';
+  sortOption: string = '';
   showData = true;
   showShareUserList = false;
   isSearchPanelOpen = false;
