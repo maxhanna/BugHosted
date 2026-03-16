@@ -68,7 +68,6 @@ export class AppComponent implements OnInit, AfterViewInit {
     'BonesComponent',
     'MetaComponent',
     'UpdateUserSettingsComponent',
-    'Notifications',
   ];
   flexedNavigationComponents: string[] = [
     'EmulatorComponent',

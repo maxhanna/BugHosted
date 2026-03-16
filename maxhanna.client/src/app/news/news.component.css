@@ -1,5 +1,4 @@
-.componentMain {
-  max-width: 800px;
+.componentMain { 
   overflow: auto;
   position: relative;
 }
