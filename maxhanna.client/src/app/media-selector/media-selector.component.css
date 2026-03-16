@@ -3,24 +3,21 @@
   position: fixed;
   background: var(--secondary-component-background-color);
   border: var(--main-border);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  /* width: CALC(100vw - 4px); */
-  width: CALC(75vw - 4px);
-  height: CALC(var(--vh, 1vh) * 55);
-  top: 0;
-  left: 0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); 
+  width: CALC(100vw - 4px);
+  height: CALC(var(--vh, 1vh) * 100);
   overflow: hidden;
 }
-
+/* 
 @media only screen and (max-width:800px) {
   #selectMediaDiv {
     width: CALC(100vw - 4px);
     height: CALC(var(--vh, 1vh) * 100);
-  }
+  } */
 
-  #selectMediaDiv.open {
+  /* #selectMediaDiv.open {
     transform: unset !important;
-  }
+  } */
 
   .attachmentChoiceContainer {
     max-height: CALC(var(--vh, 1vh) * 100 - 170px) !important;
@@ -36,7 +33,7 @@
   align-items: center;
   z-index: 30;
   border-radius: 8px;
-  transform: translate(15vw, 25vh);
+  /* transform: translate(15vw, 25vh); */
 }
 
 .smallContainerForMedia {

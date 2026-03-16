@@ -316,21 +316,7 @@
   width: 100%;
   margin-bottom: 15px;
 }
-
-.smallerDataDiv {
-  /* max-height: calc((var(--vh, 1vh) * 50) - 100px); */
-  overflow: auto;
-}
-
-.biggerDataDiv {
-  max-height: 85vh;
-  overflow: auto;
-}
-
-
-
-
-
+ 
 .search-popup-card {
   width: calc(90% - 42px);
   max-width: 500px;
