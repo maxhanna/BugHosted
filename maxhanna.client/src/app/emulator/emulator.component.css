@@ -18,11 +18,10 @@
   .gamesContainer {
     max-width: 85vw; 
     overflow: auto;
-    border-top-left-radius: 16px;
+    border-radius: 16px; 
     margin-top: 15px;
     margin-bottom: 15px;
     margin-right: 10px;
-    border-bottom-left-radius: 16px;
   }
 }
 
