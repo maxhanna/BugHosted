@@ -96,6 +96,7 @@ async function runBuildIfNeeded() {
 
     let buildCompleted = false;
     let hasResolved = false;
+    let killRequested = false;
     
     // Capture stdout to detect completion messages
     child.stdout?.on('data', (data) => {
@@ -119,9 +120,14 @@ async function runBuildIfNeeded() {
         setTimeout(() => {
           writeLog('[Build] Attempting to kill build process...');
           try {
-            child.kill('SIGTERM');
+            killRequested = true;
+            const killResult = child.kill('SIGTERM');
+            writeLog('[Build] Kill signal sent (SIGTERM). Result:', killResult, 'child.killed:', child.killed);
+            if (!killResult) {
+              writeLog('[Build] Kill signal did not report success (process may have already exited)');
+            }
           } catch (e) {
-            writeLog('[Build] Could not kill child, but proceeding anyway');
+            writeLog('[Build] Could not kill child, but proceeding anyway:', e && e.message ? e.message : e);
           }
         }, killDelayMs);
 
@@ -198,12 +204,25 @@ async function runBuildIfNeeded() {
     child.on('exit', (code, signal) => {
       clearTimeout(timeoutHandle);
       writeLog('[Build] Process exited with code:', code, 'signal:', signal);
+
+      if (killRequested) {
+        if (signal === 'SIGTERM' || signal === 'SIGKILL' || code === null) {
+          writeLog('[Build] Confirmed build process terminated after kill request');
+        } else {
+          writeLog('[Build] Build process exited after kill request with code:', code, 'signal:', signal);
+        }
+      }
+
       // If we've already resolved from the stdout completion detection, ignore this
       // (code will be null when killed by signal, which is expected and OK)
       if (!hasResolved && code !== 0 && code !== null) {
         hasResolved = true;
         reject(new Error(`Build failed with exit code ${code}`));
       }
+    });
+
+    child.on('close', (code, signal) => {
+      writeLog('[Build] Process close event code:', code, 'signal:', signal);
     });
   });
 }
