@@ -94,3 +94,8 @@
 :host ::ng-deep #fileContainer {
   max-height: calc(var(--vh, 1vh) * 100 - 130px) !important;
 }
+
+:host ::ng-deep .flexForRoms {
+  height: calc(100vh - 160px) !important;
+  overflow: hidden !important;
+}
