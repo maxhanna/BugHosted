@@ -21,6 +21,7 @@
 
 .inPopupComponent {
   max-height: CALC(var(--vh, 1vh) * 100 - 100px);
+  overflow: auto;
 }
 
 .tableDiv {
@@ -644,4 +645,13 @@
   flex: 1 1 auto;
   overflow: auto;
   background: var(--component-background-color);
+}
+
+.directoryTotalPageControls {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: space-between;
+  padding: 0px 20px;
+  align-content: center;
+  align-items: center;
 }

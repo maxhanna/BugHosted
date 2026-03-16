@@ -19,6 +19,7 @@
     max-width: 85vw; 
     overflow: auto;
     border-radius: 16px; 
+    border-top-right-radius: unset;
     margin-top: 15px;
     margin-bottom: 15px;
     margin-right: 10px;
