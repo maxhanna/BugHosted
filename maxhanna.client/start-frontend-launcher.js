@@ -111,7 +111,7 @@ async function runBuildIfNeeded() {
 
         // Configurable kill and retry timings
         const killDelayMs = parseInt(process.env.FRONTEND_BUILD_KILL_DELAY_MS || '5000', 10);
-        const flushTimeoutMs = parseInt(process.env.FRONTEND_BUILD_FLUSH_TIMEOUT_MS || '30000', 10);
+        const flushTimeoutMs = parseInt(process.env.FRONTEND_BUILD_FLUSH_TIMEOUT_MS || '60000', 10);
         const checkIntervalMs = parseInt(process.env.FRONTEND_BUILD_CHECK_INTERVAL_MS || '1000', 10);
 
         writeLog(`[Build] Will attempt to detect index.html for up to ${flushTimeoutMs}ms, killing build after ${killDelayMs}ms`);
