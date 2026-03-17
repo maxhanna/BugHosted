@@ -33,7 +33,7 @@
       (mousedown)="onLeftResizerDown($event)" (touchstart)="onLeftResizerDown($event)">
     </div>
 
-    <div [class]="'componentContainer' + (isFlexPanel ? ' componentContainerFlexed' : '')" style="flex:1 1 auto; max-width:100vw; box-sizing:border-box;">
+    <div [class]="'componentContainer' + (isFlexPanel ? ' componentContainerFlexed' : '') + (isCenteredComponent ? ' componentContainerCentered' : '')" style="flex:1 1 auto; max-width:100vw; box-sizing:border-box;">
       <ng-template #viewContainerRef>
       </ng-template>
     </div>

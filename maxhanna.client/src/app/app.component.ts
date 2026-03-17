@@ -73,6 +73,14 @@ export class AppComponent implements OnInit, AfterViewInit {
     'EmulatorComponent',
     'ChatComponent',
   ];
+  centeredComponents : string[] = [
+    "CalendarComponent",
+    "WeatherComponent",
+    "MastermindComponent",
+    "WorlderComponent",
+    "ArrayComponent",
+    "NexusComponent",
+  ];
   showMainContent = true;
   isModalOpen = false;
   isModal = true;
@@ -1841,6 +1849,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       && (this.navigationComponent?.navbarCollapsed ?? false)
       && !(this.flexedNavigationComponents.includes(this.currentComponent + 'Component')
         || this.flexedNavigationComponents.includes(this.currentComponent));
+  }
+  
+  get isCenteredComponent(): boolean {
+    return this.centeredComponents.includes(this.currentComponent + 'Component') 
+      || this.centeredComponents.includes(this.currentComponent);
   }
  
   onLeftResizerDown(event: MouseEvent | TouchEvent) {

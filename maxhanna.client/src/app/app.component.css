@@ -5,6 +5,11 @@
   justify-content: space-evenly;
   overflow: hidden;
 }
+
+.componentContainerCentered {
+  justify-content: center;
+}
+
 .mainLayout {
   overflow: hidden;
   display: flex;
