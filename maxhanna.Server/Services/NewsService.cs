@@ -114,7 +114,7 @@ public class NewsService
   };
 
   // Words that should cause an article to be skipped entirely when indexing/saving
-  private static readonly string[] DirtyWords = new[] { "casino" };
+  private static readonly string[] DirtyWords = new[] { "casino", "weight-loss", "free spins" };
 
 
   // Negative sentiment keywords (expanded for financial & crypto-related negative events)
