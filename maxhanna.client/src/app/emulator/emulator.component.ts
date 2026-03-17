@@ -616,6 +616,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       // Game Boy Advance (mGBA)
       case 'mgba':
       case 'gba':
+      case 'gbc':
+      case 'gbx':
+      case 'gb':
         return '/assets/emulatorjs/data/cores/MGBA.zip';
 
       // Sony PSP
@@ -2886,7 +2889,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       { core: 'desmume', label: 'Nintendo DS (DeSmuME)', exts: exNDS, maybeExts: [], hints: [/\bNDS\b|\bDS\b/i] },
       { core: 'dolphin', label: 'GameCube / Wii (Dolphin)', exts: [], maybeExts: ['zip'], hints: [/\bGAMECUBE\b|\bDOLPHIN\b|\bGC\b|\bWII\b/i] },
       { core: 'mgba', label: 'Game Boy Advance', exts: exGBA, maybeExts: [], hints: [/\bGBA\b/i] },
-      { core: 'gambatte', label: 'Game Boy / Game Boy Color', exts: exGBx, maybeExts: [], hints: [/\bGBC\b|\bGB\b/i] },
+      { core: 'mgba', label: 'Game Boy Advance', exts: exGBx, maybeExts: [], hints: [/\bGBA\b/i] },
+      { core: 'mgba', label: 'Game Boy / Game Boy Color', exts: exGBx, maybeExts: [], hints: [/\bGBC\b|\bGB\b/i] },
       { core: 'fceumm', label: 'NES / Famicom', exts: exNES, maybeExts: [], hints: [/\bNES\b|\bFAMICOM\b/i] },
       { core: 'snes9x', label: 'SNES / Super Famicom', exts: plus(exSNES, exSNESExtra), maybeExts: [], hints: [/\bSNES\b|\bSFC\b/i] },
 
@@ -3046,7 +3050,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'nes': return 'fceumm';
       case 'gba': return 'mgba';
       case 'gb':
-      case 'gbc': return 'gambatte';
+      case 'gbc': return 'mgba';
       case 'vb': return 'mednafen_vb';
       default: return null;
     }
