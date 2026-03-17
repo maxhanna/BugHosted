@@ -6,7 +6,7 @@
 }
 
 .componentContainerCentered {
-  justify-content: center;
+  align-items: center;
 }
 
 .mainLayout {
