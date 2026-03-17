@@ -318,9 +318,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     // Rom system filter
     if (this.activeRomSystems && this.activeRomSystems.length > 0) return true;
     // Sort option changed
-    if (this.sortOption 
-      && (!this.currentDirectory?.toLowerCase().includes('/roms') ? this.sortOption !== 'Latest' : true)
-      && (this.currentDirectory?.toLowerCase().includes('/roms') ? this.sortOption !== 'Last Access' : true)) {
+    if ((!this.currentDirectory?.toLowerCase().includes('roms') ? this.sortOption !== 'Latest' : true)
+      && (this.currentDirectory?.toLowerCase().includes('roms') ? (this.sortOption !== 'Last Access' && this.sortOption !== '') : true)) {
       return true;
     }
     return false;
@@ -439,7 +438,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         sortToUse = 'Last Access';
         this.sortOption = sortToUse;
       }
-      
+
 
       await this.fileService.getDirectory(
         this.currentDirectory,
@@ -485,7 +484,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
               this.normalizeRomMetadata(f);
             }
           }
- 
+
           if (!isFileIdSearch && this.fileIdFilter == null) {
             if (this.directory && this.directory.currentDirectory) {
               this.currentDirectory = this.directory.currentDirectory;
@@ -550,9 +549,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         if (!isFileIdSearch && this._savedDirectoryBeforeFileIdSearch != null) {
           this._savedDirectoryBeforeFileIdSearch = null;
         }
-        
+
         setTimeout(() => {
-          this.pageLocked = false; 
+          this.pageLocked = false;
         }, 1000);
       });
     } catch (error: any) {
@@ -623,7 +622,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
   async previousPage() {
-    if (this.pageLocked) {return;}
+    if (this.pageLocked) { return; }
     if (this.currentPage > 1) {
       this.currentPage--;
       await this.getDirectory().then(() => { this.scrollToTop(); });
@@ -631,14 +630,14 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   async nextPage() {
-    if (this.pageLocked) {return;}
+    if (this.pageLocked) { return; }
     if (this.currentPage < this.totalPages) {
       this.currentPage++;
-      await this.getDirectory().then(() => { this.scrollToTop(); }); 
+      await this.getDirectory().then(() => { this.scrollToTop(); });
     }
   }
   async appendNextPage() {
-    if (this.pageLocked) {return;}
+    if (this.pageLocked) { return; }
     if (this.currentPage < this.totalPages) {
       console.log("Appending next page...");
       this.currentPage++;
