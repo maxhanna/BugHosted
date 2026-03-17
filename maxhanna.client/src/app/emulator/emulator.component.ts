@@ -30,6 +30,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   system?: System;
   isFileUploaderExpanded = false;
   isFaqOpen = false;
+  // Reset modal state
+  isResetModalOpen = false;
+  saveBeforeReset = true;
   isSystemSelectPanelOpen = false;
   wasMenuOpenBeforeLoggingIn = false;
   faqItems = FAQ_ITEMS;
@@ -2609,13 +2612,25 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   resetGame(): void {
     if (!this.romName) return;
-    const confirm = window.confirm(
-      `Are you sure you want to reset the game? 
-      \nThe next save will overwrite your current progress.`);
-    if (confirm) {
-      const skipSave = window.confirm("Reset without any save state?");
-      this.fullReloadToEmulator(this.getReloadParamsSkipSave(skipSave));
-    }
+    this.closeMenuPanel();
+    setTimeout(() => {
+      this.saveBeforeReset = true; // default to saving
+      this.isResetModalOpen = true;
+      this.parentRef?.showOverlay();
+    }, 300);
+  }
+
+  performReset(): void {
+    // perform the reset using the selected save option
+    const skipSave = !this.saveBeforeReset;
+    this.isResetModalOpen = false;
+    this.parentRef?.closeOverlay();
+    this.fullReloadToEmulator(this.getReloadParamsSkipSave(skipSave));
+  }
+
+  cancelReset(): void {
+    this.isResetModalOpen = false;
+    this.parentRef?.closeOverlay();
   }
 
   showMenuPanel() {
