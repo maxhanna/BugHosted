@@ -2823,6 +2823,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       { core: 'mupen64plus_next', label: 'Nintendo 64', exts: exN64, maybeExts: [], hints: [/\bN64\b/i] },
       { core: 'melonds', label: 'Nintendo DS (melonDS)', exts: exNDS, maybeExts: [], hints: [/\bNDS\b|\bDS\b/i] },
       { core: 'desmume', label: 'Nintendo DS (DeSmuME)', exts: exNDS, maybeExts: [], hints: [/\bNDS\b|\bDS\b/i] },
+      { core: 'dolphin', label: 'GameCube / Wii (Dolphin)', exts: [], maybeExts: ['zip'], hints: [/\bGAMECUBE\b|\bDOLPHIN\b|\bGC\b|\bWII\b/i] },
       { core: 'mgba', label: 'Game Boy Advance', exts: exGBA, maybeExts: [], hints: [/\bGBA\b/i] },
       { core: 'gambatte', label: 'Game Boy / Game Boy Color', exts: exGBx, maybeExts: [], hints: [/\bGBC\b|\bGB\b/i] },
       { core: 'fceumm', label: 'NES / Famicom', exts: exNES, maybeExts: [], hints: [/\bNES\b|\bFAMICOM\b/i] },
@@ -2975,6 +2976,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'megadrive': return 'genesis_plus_gx';
       case '3do': return 'opera';
       case 'n64': return 'mupen64plus_next';
+      case 'gamecube': return 'dolphin';
+      case 'gc': return 'dolphin';
       case 'nds': return 'melonds';
       case 'nintendods': return 'melonds';
       case 'ndsi': return 'melonds';
