@@ -43,34 +43,6 @@
           <input type="checkbox" #pushNotificationsCheckmark [checked]="isPushNotificationsEnabled"
             (click)="updatePushNotifications()" />
         </div>
-      </div>
-      <!-- Profile picture -->
-      <div class="sectionDescriptionSection profilePictureSectionContainer">
-        <div>
-          Attach your profile picture:
-          <div class="avatar" *ngIf="!this.parentRef?.user!.displayPictureFile">
-            <span class="avatarBug">🪲</span>
-            <span class="avatarBust">👤</span>
-          </div>
-          <div *ngIf="this.parentRef?.user?.displayPictureFile?.id" class="displayPictureContainerDiv">
-            <div class="xxSmallFont">Current picture:</div>
-            <div class="avatar">
-              <app-media-viewer #displayPictureViewer [displayExpander]="false" [displayExtraInfo]="false"
-                [showCommentSection]="false"
-                [file]="this.inputtedParentRef?.user?.displayPictureFile ?? this.parentRef?.user!.displayPictureFile"
-                [currentDirectory]="this.parentRef?.user!.displayPictureFile!.directory" [user]="parentRef!.user"
-                [inputtedParentRef]="parentRef!" [previousComponent]="'UpdateUserSettings'">
-              </app-media-viewer>
-            </div>
-          </div>
-        </div>
-        <div>
-          <app-media-selector #displayPictureSelector [uploadButtonText]="'Upload Display Picture'" [maxSelectedFiles]="1"
-            [inputtedParentRef]="parentRef" [user]="parentRef?.user" [currentDirectory]="'Users/'+parentRef?.user?.username"
-            [selectedFiles]="displayPictureFile ? [displayPictureFile] : []"
-            (selectFileEvent)="avatarSelected($event)">
-          </app-media-selector>
-        </div>
       </div> 
       <!-- SECRET QUESTIONS (Password Reset) -->
       <div class="">
@@ -104,7 +76,7 @@
       </div>
     </div>
 
-        <!--USERNAME / PASSWORD-->
+    <!--USERNAME / PASSWORD-->
     <div (click)="isProfilePicturesToggled = !isProfilePicturesToggled"
       *ngIf="!showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user"
       class="sectionHeaderDiv">
@@ -116,7 +88,34 @@
       </div> 
     </div>
     <!-- Background Picture -->
-    <div *ngIf="isProfilePicturesToggled">
+    <div *ngIf="isProfilePicturesToggled"> 
+      <div class="sectionDescriptionSection profilePictureSectionContainer">
+        <div>
+          Attach your profile picture:
+          <div class="avatar" *ngIf="!this.parentRef?.user!.displayPictureFile">
+            <span class="avatarBug">🪲</span>
+            <span class="avatarBust">👤</span>
+          </div>
+          <div *ngIf="this.parentRef?.user?.displayPictureFile?.id" class="displayPictureContainerDiv">
+            <div class="xxSmallFont">Current picture:</div>
+            <div class="avatar">
+              <app-media-viewer #displayPictureViewer [displayExpander]="false" [displayExtraInfo]="false"
+                [showCommentSection]="false"
+                [file]="this.inputtedParentRef?.user?.displayPictureFile ?? this.parentRef?.user!.displayPictureFile"
+                [currentDirectory]="this.parentRef?.user!.displayPictureFile!.directory" [user]="parentRef!.user"
+                [inputtedParentRef]="parentRef!" [previousComponent]="'UpdateUserSettings'">
+              </app-media-viewer>
+            </div>
+          </div>
+        </div>
+        <div>
+          <app-media-selector #displayPictureSelector [uploadButtonText]="'Upload Display Picture'" [maxSelectedFiles]="1"
+            [inputtedParentRef]="parentRef" [user]="parentRef?.user" [currentDirectory]="'Users/'+parentRef?.user?.username"
+            [selectedFiles]="displayPictureFile ? [displayPictureFile] : []"
+            (selectFileEvent)="avatarSelected($event)">
+          </app-media-selector>
+        </div>
+      </div> 
       <div class="sectionDescriptionSection profilePictureSectionContainer">
         <div>
           Attach your profile background picture: 

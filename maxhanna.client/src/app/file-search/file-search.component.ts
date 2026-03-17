@@ -318,7 +318,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     // Rom system filter
     if (this.activeRomSystems && this.activeRomSystems.length > 0) return true;
     // Sort option changed
-    if ((!this.currentDirectory?.toLowerCase().includes('roms') ? this.sortOption !== 'Latest' : true)
+    if ((!this.currentDirectory?.toLowerCase().includes('roms') ? this.sortOption !== 'Latest' : false)
       && (this.currentDirectory?.toLowerCase().includes('roms') ? (this.sortOption !== 'Last Access' && this.sortOption !== '') : true)) {
       return true;
     }

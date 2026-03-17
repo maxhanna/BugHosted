@@ -1,5 +1,4 @@
-.componentMain {
-  max-width: 500px;
+.componentMain { 
   min-width: 320px;
   max-height: CALC(var(--vh, 1vh) * 100 - 60px);
 }
@@ -174,6 +173,8 @@ td {
 
 .profilePictureSectionContainer {
   padding: 15px;
+  width: auto;
+  max-height: 450px;
 }
 
 .displayPictureContainerDiv {
