@@ -49,7 +49,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   displayPictureFile?: FileEntry;
   profileBackgroundPictureFile?: FileEntry;
   expandedIconTitle: string | null = null;
-
+  isProfilePicturesToggled = false;
   isKrakenHelpPanelShowing = false;
   isDisplayingNSFW = false;
   isPushNotificationsEnabled? = false;
