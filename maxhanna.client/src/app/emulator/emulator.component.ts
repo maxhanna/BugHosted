@@ -826,50 +826,48 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const w = window as any;
     if (typeof w.EJS_saveState === 'function') return;
 
-    // Poll for gameManager.getState to appear (up to 15s for heavy cores)
     const gm = await this.waitForGameManager(15000);
-    if (gm && typeof gm.getState === 'function') {
-      // The polyfill retries getState() internally because
-      // supportsStates() can return 1 before the Module's
-      // EmulatorJSGetState JS function is actually injected.
+    if (!gm) {
+      console.warn('[EJS] No gameManager found; cannot polyfill EJS_saveState');
+      return;
+    }
+
+    // The upgraded emulator.min.js (commit 0636bd7f) changed getState() to
+    // call Module.EmulatorJSGetState, but our WASM core .data files are
+    // from the older version and only export the "save_state_info" C function.
+    // Monkey-patch getState() back to the old cwrap-based implementation
+    // so it works with the cores we actually ship.
+    const mod = gm.Module;
+    if (mod && typeof mod.cwrap === 'function' && typeof mod.EmulatorJSGetState !== 'function') {
+      try {
+        const saveStateInfoFn = mod.cwrap('save_state_info', 'string', []);
+        gm.getState = function () {
+          const state = saveStateInfoFn().split('|');
+          if (state[2] !== '1') {
+            console.error(state[0]);
+            throw new Error(state[0]);
+          }
+          const size = parseInt(state[0]);
+          const dataStart = parseInt(state[1]);
+          const data = mod.HEAPU8.subarray(dataStart, dataStart + size);
+          return new Uint8Array(data);
+        };
+        console.log('[EJS] Patched gameManager.getState() → save_state_info cwrap (old-core compat)');
+      } catch (e) {
+        console.warn('[EJS] Failed to patch getState():', e);
+      }
+    }
+
+    if (typeof gm.getState === 'function') {
       w.EJS_saveState = async (): Promise<Uint8Array> => {
-        // Re-fetch gameManager in case the reference changed
         const mgr = this.emulatorInstance?.gameManager
           || ((window as any).EJS_emulator || (window as any).EJS)?.gameManager
           || (window as any).EJS_GameManager
           || gm;
-
-        // Retry getState() up to ~60s. The WASM Module.EmulatorJSGetState
-        // function is injected asynchronously after the core finishes
-        // booting (especially slow for DS/PSX/N64 due to BIOS sequences).
-        const maxWait = 60000;
-        const retryDelay = 2000;
-        const start = Date.now();
-
-        while (Date.now() - start < maxWait) {
-          try {
-            const bytes = await Promise.resolve(mgr.getState());
-            // Success — return normalised bytes
-            return bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes as ArrayBufferLike);
-          } catch (e: any) {
-            const msg = e?.message || String(e);
-            // If the error is the known "not a function" one, the core
-            // isn't ready yet — wait and retry.
-            if (msg.includes('is not a function') || msg.includes('not yet')) {
-              console.log(`[EJS] getState() not ready yet (${Math.round((Date.now() - start) / 1000)}s elapsed), retrying…`);
-              await new Promise(r => setTimeout(r, retryDelay));
-              continue;
-            }
-            // Any other error is unexpected — bail.
-            console.warn('[EJS] getState() threw unexpected error:', e);
-            return new Uint8Array(0);
-          }
-        }
-
-        console.warn('[EJS] getState() still not available after 60 s; save skipped');
-        return new Uint8Array(0);
+        const bytes = await Promise.resolve(mgr.getState());
+        return bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes as ArrayBufferLike);
       };
-      console.log('[EJS] Polyfilled EJS_saveState via gameManager.getState() (with retry guard)');
+      console.log('[EJS] Polyfilled EJS_saveState via gameManager.getState()');
     } else {
       console.warn('[EJS] No gameManager.getState() found; cannot polyfill EJS_saveState');
     }
@@ -1027,72 +1025,43 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   async callEjsSave(): Promise<boolean> {
     this.tempHideEjsMenu(5000);
     this.startLoading();
-
-    const maxAttempts = 3;
-    const retryDelayMs = 2000;
-
     try {
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-          const w = window as any;
+      const w = window as any;
 
-          // 1) Best path: bytes immediately via polyfilled EJS_saveState
-          if (typeof w.EJS_saveState === 'function') {
-            const bytes: Uint8Array = await w.EJS_saveState();
-            if (bytes && bytes.length > 0) {
-              await this.uploadSaveBytes(bytes);
-              return true;
-            }
-            // Zero-length means core wasn't ready; fall through to retry
-            console.warn(`[EJS] callEjsSave attempt ${attempt}: EJS_saveState returned empty (core not ready?)`);
-          }
-
-          // 2) Fallback: trigger any save the build exposes…
-          if (this._saveFn) {
-            await this._saveFn();
-            const ok = await this.postSaveCaptureAndUpload();
-            if (ok) return true;
-          }
-
-          if (this.emulatorInstance?.saveState) {
-            await this.emulatorInstance.saveState();
-            const ok = await this.postSaveCaptureAndUpload();
-            if (ok) return true;
-          }
-
-          const player = w.EJS_player;
-          if (player) {
-            const el = typeof player === 'string' ? document.querySelector(player) : player;
-            if (el && typeof (el as any).saveState === 'function') {
-              await (el as any).saveState();
-              const ok = await this.postSaveCaptureAndUpload();
-              if (ok) return true;
-            }
-          }
-
-          // No API found yet; retry after delay
-          if (attempt < maxAttempts) {
-            console.warn(`[EJS] callEjsSave attempt ${attempt}/${maxAttempts}: no save API ready, retrying in ${retryDelayMs}ms…`);
-            await new Promise(r => setTimeout(r, retryDelayMs));
-            // Re-probe for the save API in case it appeared
-            await this.probeForSaveApi(2000);
-            await this.ensureSaveStatePolyfill();
-          }
-        } catch (e) {
-          console.warn(`[EJS] callEjsSave attempt ${attempt}/${maxAttempts} failed:`, e);
-          if (attempt < maxAttempts) {
-            await new Promise(r => setTimeout(r, retryDelayMs));
-            // Re-probe in case the API just wasn't ready
-            try { await this.probeForSaveApi(2000); } catch { }
-            try { await this.ensureSaveStatePolyfill(); } catch { }
-          } else {
-            this.parentRef?.showNotification('Error during save; please try again later.');
-            return false;
-          }
+      // 1) Best path: bytes immediately via polyfilled EJS_saveState
+      if (typeof w.EJS_saveState === 'function') {
+        const bytes: Uint8Array = await w.EJS_saveState();
+        if (bytes && bytes.length > 0) {
+          await this.uploadSaveBytes(bytes);
+          return true;
         }
       }
 
-      console.warn('[EJS] callEjsSave: all attempts exhausted; save skipped');
+      // 2) Fallbacks: trigger any save the build exposes…
+      if (this._saveFn) {
+        await this._saveFn();
+        return await this.postSaveCaptureAndUpload();
+      }
+
+      if (this.emulatorInstance?.saveState) {
+        await this.emulatorInstance.saveState();
+        return await this.postSaveCaptureAndUpload();
+      }
+
+      const player = w.EJS_player;
+      if (player) {
+        const el = typeof player === 'string' ? document.querySelector(player) : player;
+        if (el && typeof (el as any).saveState === 'function') {
+          await (el as any).saveState();
+          return await this.postSaveCaptureAndUpload();
+        }
+      }
+
+      console.warn('No known save API found for EmulatorJS; save skipped');
+      return false;
+    } catch (e) {
+      console.warn('callEjsSave failed', e);
+      this.parentRef?.showNotification('Error during save; please try again later.');
       return false;
     } finally {
       this.stopLoading();
