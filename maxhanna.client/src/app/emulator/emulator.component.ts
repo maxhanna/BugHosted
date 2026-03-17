@@ -430,6 +430,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     // 8) Inject loader.js (it will initialize EmulatorJS)
     if (!window.__ejsLoaderInjected) {
+      try { (window as any).EJS_DEBUG_XX = true; } catch { }
       await new Promise<void>((resolve, reject) => {
         const s = document.createElement('script');
         s.src = '/assets/emulatorjs/data/loader.js';
@@ -437,10 +438,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         s.defer = false;
         s.setAttribute('data-ejs-loader', '1');
         s.onload = () => {
-          window.__ejsLoaderInjected = true;
+          try { (window as any).__ejsLoaderInjected = true; } catch { }
           requestAnimationFrame(() => {
             this.setGameScreenHeight();
-            // a second rAF can make it even smoother: 
             requestAnimationFrame(async () => {
               await this.waitForEmulatorAndFocus();
               await this.probeForSaveApi();
@@ -457,13 +457,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           });
           resolve();
         };
-        s.onerror = () => reject(new Error('Failed to load EmulatorJS loader.js'));
+        s.onerror = (ev) => {
+          console.error('Failed to load /assets/emulatorjs/data/loader.js', ev);
+          reject(new Error('Failed to load EmulatorJS loader.js'));
+        };
         document.body.appendChild(s);
       });
-      // start autosave loop if enabled
-      try { this.setupAutosave(); } catch { }
-      // Kick off background uploader for any pending exit saves
-      try { this.uploadPendingSavesOnStartup(); } catch { }
     } else {
       this.stopLoading();
       this.fullReloadToEmulator();
