@@ -320,7 +320,10 @@
         <strong>Release:</strong> {{ unixSecondsToDate(d) | date:'y/MM/d' }}
       </div>
       <span class="xSmallFont">
-        <button title="Request metadata reset" (click)="incrementResetVoteForOptionsFile()" style="margin-left:8px">
+        <button title="Request metadata reset" 
+          [disabled]="isLoading"
+          (click)="incrementResetVoteForOptionsFile()" 
+          style="margin-left:8px">
           ↻ Reset
         </button>
         <span *ngIf="optionsFile.romMetadata?.resetVotes !== undefined" style="margin-left:8px">Votes: {{
@@ -331,11 +334,13 @@
 
   <div class="popupPanelActions">
     <button title="Edit File Name" (click)="startEditingFileName(optionsFile.id);"
+      [disabled]="isLoading"
       *ngIf="shouldShowEditButton(optionsFile)">
       ✏️Edit File Name
     </button>
     <button [title]="'Clear System Override ('+optionsFile.romMetadata?.actualSystem+')'"
       (click)="clearSystemOverride(optionsFile)"
+      [disabled]="isLoading"
       *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.actualSystem">
       🧹 Clear System Override
       <span *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.actualSystem" class="system-override-icon"
@@ -343,25 +348,30 @@
       </span>
     </button>
     <button title="Share File"
+      [disabled]="isLoading"
       (click)="(optionsFile.visibility?.toLowerCase() == 'private' ? shareFileInitiate(optionsFile) : shareLink(optionsFile));">
       ↗️Share {{optionsFile.visibility?.toLowerCase() == 'private' ? 'with Users' : 'Link'}}
     </button>
-    <button title="Download File" (click)="download(optionsFile, true);" *ngIf="!optionsFile.isFolder">
+    <button title="Download File" 
+      (click)="download(optionsFile, true);" 
+      [disabled]="isLoading"
+      *ngIf="!optionsFile.isFolder">
       📥Download
     </button>
     <button title="Delete File" (click)="delete(optionsFile);"
+      [disabled]="isLoading"
       *ngIf="shouldShowEditButton(optionsFile) || (parentRef?.user?.id == 1 || inputtedParentRef?.user?.id == 1)">
       ❌Delete
     </button>
-    <button title="Hide File" (click)="hide(optionsFile);" *ngIf="userIsLoggedIn()">
+    <button title="Hide File" (click)="hide(optionsFile);" *ngIf="userIsLoggedIn()" [disabled]="isLoading">
       🙈{{optionsFile.isHidden ? "Un":""}}Hide
     </button>
-    <button (click)="addToFavourites(optionsFile)" *ngIf="userIsLoggedIn()"
+    <button (click)="addToFavourites(optionsFile)" *ngIf="userIsLoggedIn()" [disabled]="isLoading"
       [title]="optionsFile.isFavourited ? ('Remove from favourites') : ('Add ' + (optionsFile.givenFileName ?? optionsFile.fileName) + ' to favourites')">
       <span *ngIf="!optionsFile.isFavourited">❤️ Add To Favourites</span>
       <span *ngIf="optionsFile.isFavourited">🧡 Remove From Favourites</span>
     </button>
-    <button *ngIf="isVideoFile(optionsFile) && userIsLoggedIn()" (click)="addFileToMusicPlaylist(optionsFile)"
+    <button *ngIf="isVideoFile(optionsFile) && userIsLoggedIn()" [disabled]="isLoading" (click)="addFileToMusicPlaylist(optionsFile)"
       title="Add '{{optionsFile.givenFileName ?? optionsFile.fileName}}' to music playlist.">
       ➕ Add To Music Playlist
     </button>
@@ -581,7 +591,10 @@
       *ngIf="shouldShowRomMetadata() && !optionsFile?.romMetadata?.igdbName && !optionsFile.isFolder">
       <div class="optionsStatsHeader">Reset ROM Metadata?</div>
       <div class="optionsStatsDescription">
-        <button title="Request metadata reset" (click)="incrementResetVoteForOptionsFile()" style="margin-left:8px">
+        <button title="Request metadata reset" 
+          [disabled]="isLoading"
+          (click)="incrementResetVoteForOptionsFile()" 
+          style="margin-left:8px">
           ↻ Reset
         </button>
         <span *ngIf="optionsFile.romMetadata?.resetVotes !== undefined" style="margin-left:8px">Votes: {{

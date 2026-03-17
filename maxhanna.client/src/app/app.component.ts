@@ -69,9 +69,10 @@ export class AppComponent implements OnInit, AfterViewInit {
     'MetaComponent',
     'UpdateUserSettingsComponent',
   ];
-  flexedNavigationComponents: string[] = [
+  unflexedNavigationComponents: string[] = [
     'EmulatorComponent',
     'ChatComponent',
+    'NotepadComponent',
   ];
   centeredComponents : string[] = [
     "CalendarComponent",
@@ -1847,8 +1848,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   get isFlexPanel(): boolean {
     return this.isDesktop
       && (this.navigationComponent?.navbarCollapsed ?? false)
-      && !(this.flexedNavigationComponents.includes(this.currentComponent + 'Component')
-        || this.flexedNavigationComponents.includes(this.currentComponent));
+      && !(
+        this.unflexedNavigationComponents.includes(this.currentComponent + 'Component')
+        || this.unflexedNavigationComponents.includes(this.currentComponent)
+      );
   }
   
   get isCenteredComponent(): boolean {
