@@ -427,7 +427,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     // 8) Inject loader.js (it will initialize EmulatorJS)
     if (!window.__ejsLoaderInjected) {
-      try { (window as any).EJS_DEBUG_XX = true; } catch { }
       await new Promise<void>((resolve, reject) => {
         const s = document.createElement('script');
         s.src = '/assets/emulatorjs/data/loader.js';
