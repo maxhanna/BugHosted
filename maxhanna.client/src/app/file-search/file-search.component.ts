@@ -16,6 +16,7 @@ import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
 import { RomService } from '../../services/rom.service';
 import { RatingsService } from '../../services/ratings.service';
+import e from 'express';
 
 @Component({
   selector: 'app-file-search',
@@ -469,7 +470,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
           this.directory.data = this.directory.data.concat(newItems);
 
-          // If an optionsFile is currently selected, re-link it to the instance in directory.data
           if (this.optionsFile) {
             const linked = this.directory.data.find(d => d.id === this.optionsFile?.id);
             if (linked) {
@@ -485,10 +485,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
               this.normalizeRomMetadata(f);
             }
           }
-
-
-          // If searching by fileId, do not change the user's current directory —
-          // show the matched file(s) while keeping the UI directory context stable.
+ 
           if (!isFileIdSearch && this.fileIdFilter == null) {
             if (this.directory && this.directory.currentDirectory) {
               this.currentDirectory = this.directory.currentDirectory;
@@ -589,8 +586,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   debounceSearch() {
     clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
-      this.getDirectory();
+    this.debounceTimer = setTimeout(async () => {
+      await this.getDirectory().then(() => { this.scrollToTop(); });
     }, 1000);
   }
 
@@ -625,11 +622,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       }
     }
   }
-  previousPage() {
+  async previousPage() {
     if (this.pageLocked) {return;}
     if (this.currentPage > 1) {
       this.currentPage--;
-      this.getDirectory().then(() => { this.scrollToTop(); });
+      await this.getDirectory().then(() => { this.scrollToTop(); });
     }
   }
 
@@ -637,8 +634,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (this.pageLocked) {return;}
     if (this.currentPage < this.totalPages) {
       this.currentPage++;
-      await this.getDirectory().then(() => { this.scrollToTop(); });
-
+      await this.getDirectory().then(() => { this.scrollToTop(); }); 
     }
   }
   async appendNextPage() {
@@ -646,7 +642,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (this.currentPage < this.totalPages) {
       console.log("Appending next page...");
       this.currentPage++;
-      this.getDirectory(undefined, undefined, true);
+      await this.getDirectory(undefined, undefined, true);
     }
   }
 
@@ -1322,8 +1318,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       } else { 
         const container2 = document.getElementById("fileContainer");
         if (container2) {
-          container2.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } 
+          container2.scrollIntoView({ behavior: 'smooth', block: 'start' }); 
+        } else { 
+          const container3 = document.getElementsByClassName("inPopupComponent")[0];
+          if (container3) {
+            container3.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
       }
     }, 100);
 
