@@ -194,7 +194,6 @@
   overflow: auto;
   display: flex;
   flex-direction: column;
-  /* max-height: CALC(var(--vh, 1vh) * 100 - 100px); */
 }
 
 .draggableDiv {
@@ -319,7 +318,7 @@
   width: 100%;
   margin-bottom: 15px;
 }
- 
+
 .search-popup-card {
   width: calc(90% - 42px);
   max-width: 500px;
@@ -611,7 +610,7 @@
 /* Inline metadata panel styles */
 .inlineMetaPanel {
   position: sticky;
-  top: 12px; 
+  top: 12px;
   max-width: 420px;
   width: 35%;
   min-width: 300px;
@@ -630,10 +629,10 @@
     display: none;
   }
 }
- 
+
 
 .flexForRoms {
-  display: flex; 
+  display: flex;
 }
 
 #fileTable {
@@ -653,7 +652,9 @@
   display: flex;
   flex-direction: row-reverse;
   justify-content: space-between;
-  padding: 0px 20px;
+  padding: 0 20px;
   align-content: center;
   align-items: center;
+  max-width: 100vw;
+  flex-wrap: wrap;
 }

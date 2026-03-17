@@ -23,7 +23,7 @@
   flex-direction: column;
   flex-wrap: nowrap;
   align-content: center;
-  align-items: center;
+  /* align-items: center; */
   z-index: 30;
   border-radius: 8px;
   /* transform: translate(15vw, 25vh); */
@@ -145,7 +145,15 @@
   align-items: center;
   width: 96%;
   gap: 35px;
-  margin-top: 30px;
+  margin-top: 15px;
   margin-left: auto;
   margin-right: auto;
+}
+
+
+@media only screen and (max-width : 667px) { 
+  :host ::ng-deep .directoryDisplayDiv {
+    max-height: calc(100vh - 140px) !important; 
+    max-height: calc(100dvh - 140px) !important; 
+  }
 }

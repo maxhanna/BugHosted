@@ -91,10 +91,7 @@
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  /* padding: 15px; */
   border: var(--main-border);
-  /* border-radius: 8px;
-  overflow: hidden; */
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
@@ -120,9 +117,7 @@
 .popupUserTagInfo {
   background: rgba(255, 255, 255, 0.4);
   padding: 4px 8px;
-  /* Adjust as needed */
   border-radius: 4px;
-  /* Optional: rounded corners */
 }
 
 .popupUserTagAvatarAndName {
