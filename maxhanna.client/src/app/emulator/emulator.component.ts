@@ -381,6 +381,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     window.EJS_ready = (api: any) => {
       try {
+        (window as any).EJS_DEBUG_XX = false;
+        (window as any).EJS_EXPERIMENTAL_NETPLAY = false;
         this._ejsReady = true;
         this.scanAndTagVpadControls();
         this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
@@ -799,8 +801,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (system === "saturn" || core === "yabause") {
 
     }
-    w.EJS_DEBUG_XX = true;             // debug options 
-    w.EJS_EXPERIMENTAL_NETPLAY = true; // required alongside EJS_DEBUG_XX for netplay
+    w.EJS_DEBUG_XX = false;            // MUST be false here so loader.js loads emulator.min.js (ES module)
+    w.EJS_EXPERIMENTAL_NETPLAY = false; // will be enabled after loader.js finishes (in EJS_ready)
     w.EJS_logCoreInfo = false;          // debug options 
     w.EJS_logVideo = false;             // debug options 
     w.EJS_logAudio = false;             // debug options 
