@@ -826,8 +826,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // Poll for gameManager.getState to appear (up to 15s for heavy cores)
     const gm = await this.waitForGameManager(15000);
     if (gm && typeof gm.getState === 'function') {
-      // The polyfill guards every call with supportsStates() so we never
-      // invoke getState() before the WASM module has finished initializing.
+      // The polyfill retries getState() internally because
+      // supportsStates() can return 1 before the Module's
+      // EmulatorJSGetState JS function is actually injected.
       w.EJS_saveState = async (): Promise<Uint8Array> => {
         // Re-fetch gameManager in case the reference changed
         const mgr = this.emulatorInstance?.gameManager
@@ -835,34 +836,37 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           || (window as any).EJS_GameManager
           || gm;
 
-        // Wait for the core to report state support (up to 30s)
-        const maxWait = 30000;
+        // Retry getState() up to ~60s. The WASM Module.EmulatorJSGetState
+        // function is injected asynchronously after the core finishes
+        // booting (especially slow for DS/PSX/N64 due to BIOS sequences).
+        const maxWait = 60000;
+        const retryDelay = 2000;
         const start = Date.now();
+
         while (Date.now() - start < maxWait) {
           try {
-            if (mgr?.functions?.supportsStates?.() === 1 ||
-                mgr?.supportsStates?.()) {
-              break;
+            const bytes = await Promise.resolve(mgr.getState());
+            // Success — return normalised bytes
+            return bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes as ArrayBufferLike);
+          } catch (e: any) {
+            const msg = e?.message || String(e);
+            // If the error is the known "not a function" one, the core
+            // isn't ready yet — wait and retry.
+            if (msg.includes('is not a function') || msg.includes('not yet')) {
+              console.log(`[EJS] getState() not ready yet (${Math.round((Date.now() - start) / 1000)}s elapsed), retrying…`);
+              await new Promise(r => setTimeout(r, retryDelay));
+              continue;
             }
-          } catch { /* not ready yet */ }
-          await new Promise(r => setTimeout(r, 500));
-        }
-
-        // Final check before calling getState
-        try {
-          if (!(mgr?.functions?.supportsStates?.() === 1 || mgr?.supportsStates?.())) {
-            console.warn('[EJS] Core does not support states yet; save skipped');
+            // Any other error is unexpected — bail.
+            console.warn('[EJS] getState() threw unexpected error:', e);
             return new Uint8Array(0);
           }
-        } catch {
-          console.warn('[EJS] supportsStates check threw; save skipped');
-          return new Uint8Array(0);
         }
 
-        const bytes = await Promise.resolve(mgr.getState());
-        return bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes as ArrayBufferLike);
+        console.warn('[EJS] getState() still not available after 60 s; save skipped');
+        return new Uint8Array(0);
       };
-      console.log('[EJS] Polyfilled EJS_saveState via gameManager.getState() (with supportsStates guard)');
+      console.log('[EJS] Polyfilled EJS_saveState via gameManager.getState() (with retry guard)');
     } else {
       console.warn('[EJS] No gameManager.getState() found; cannot polyfill EJS_saveState');
     }
@@ -987,15 +991,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
       const gm = await this.waitForGameManager(5000);
 
-      // Guard: ensure the WASM core actually supports states before trying
-      try {
-        if (gm && !(gm?.functions?.supportsStates?.() === 1 || gm?.supportsStates?.())) {
-          console.warn('[EJS] postSaveCaptureAndUpload: core does not support states yet');
-          return false;
-        }
-      } catch { /* supportsStates not available, proceed cautiously */ }
-
-      // Prefer EJS_saveState if present (native or polyfilled)
+      // Prefer EJS_saveState if present (native or polyfilled — it has
+      // its own internal retry logic for the "not a function" error).
       if (typeof w.EJS_saveState === 'function') {
         const u8: Uint8Array = await w.EJS_saveState();
         if (u8 && u8.length > 0) {
@@ -1005,13 +1002,17 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         return false;
       }
 
-      // Fallback: try the GameManager directly
+      // Fallback: try the GameManager directly (with catch for unready core)
       if (gm && typeof gm.getState === 'function') {
-        const raw = await Promise.resolve(gm.getState());
-        const u8 = raw instanceof Uint8Array ? raw : new Uint8Array(raw as ArrayBufferLike);
-        if (u8 && u8.length > 0) {
-          await this.uploadSaveBytes(u8);
-          return true;
+        try {
+          const raw = await Promise.resolve(gm.getState());
+          const u8 = raw instanceof Uint8Array ? raw : new Uint8Array(raw as ArrayBufferLike);
+          if (u8 && u8.length > 0) {
+            await this.uploadSaveBytes(u8);
+            return true;
+          }
+        } catch (innerErr: any) {
+          console.warn('[EJS] postSaveCaptureAndUpload: getState() not ready:', innerErr?.message || innerErr);
         }
       }
     } catch (e) {
