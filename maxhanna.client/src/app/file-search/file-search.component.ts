@@ -1316,13 +1316,14 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   scrollToTop() {
     setTimeout(() => {
-      const container2 = document.getElementById("fileContainer");
-      if (container2) {
-        container2.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
       const container = document.getElementsByClassName("directoryDisplayDiv")[0];
       if (container) {
         container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else { 
+        const container2 = document.getElementById("fileContainer");
+        if (container2) {
+          container2.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } 
       }
     }, 100);
 
