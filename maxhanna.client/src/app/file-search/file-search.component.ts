@@ -1312,22 +1312,48 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   scrollToTop() {
     setTimeout(() => {
-      const container = document.getElementsByClassName("directoryDisplayDiv")[0];
-      if (container) {
-        container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else { 
-        const container2 = document.getElementById("fileContainer");
-        if (container2) {
-          container2.scrollIntoView({ behavior: 'smooth', block: 'start' }); 
-        } else { 
-          const container3 = document.getElementsByClassName("inPopupComponent")[0];
-          if (container3) {
-            container3.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const selectors = [
+        '.directoryDisplayDiv',
+        '#fileContainer',
+        '.inPopupComponent'
+      ];
+
+      // Helper: find nearest ancestor that is scrollable
+      const getScrollParent = (node: Node | null): HTMLElement | null => {
+        while (node && node !== document.body && node !== document.documentElement) {
+          if (node instanceof HTMLElement) {
+            const style = getComputedStyle(node);
+            const overflowY = style.overflowY;
+            if (overflowY === 'auto' || overflowY === 'scroll' || node.scrollHeight > node.clientHeight) {
+              return node;
+            }
+          }
+          node = node.parentNode;
+        }
+        return document.scrollingElement as HTMLElement | null ?? document.body;
+      };
+
+      for (const sel of selectors) {
+        const el = document.querySelector(sel) as HTMLElement | null;
+        if (!el) continue;
+
+        // If the element itself is scrollable, scroll it. Otherwise scroll the nearest scrollable ancestor.
+        const style = getComputedStyle(el);
+        const isScrollable = (style.overflowY === 'auto' || style.overflowY === 'scroll' || el.scrollHeight > el.clientHeight);
+        if (isScrollable) {
+          try { el.scrollTo({ top: 0, behavior: 'smooth' }); } catch { el.scrollTop = 0; }
+        } else {
+          const parent = getScrollParent(el.parentNode);
+          if (parent) {
+            try { parent.scrollTo({ top: 0, behavior: 'smooth' }); } catch { parent.scrollTop = 0; }
+          } else {
+            // Fallback to scrolling element into view
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
         }
+        return;
       }
     }, 100);
-
   }
   scrollToNext(): void {
     let allComps = document.getElementsByClassName("fileNameDiv");

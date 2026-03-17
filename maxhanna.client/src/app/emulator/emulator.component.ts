@@ -75,7 +75,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private readonly heavyCores = new Set([
     'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mednafen_psx',
     'mupen64plus_next', 'nds', 'melonDS', 'melonds',
-    'psp', 'ppsspp'
+    'psp', 'ppsspp', 'dolphin'
   ]);
   constructor(
     private romService: RomService,
