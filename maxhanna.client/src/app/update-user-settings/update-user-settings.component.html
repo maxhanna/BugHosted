@@ -38,6 +38,33 @@
       </div>
     </div>
 
+      <!--Push Notifications-->
+    <div (click)="isPushNotificationsToggled = !isPushNotificationsToggled"
+      *ngIf="!showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user"
+      class="sectionHeaderDiv">
+      <div class="sectionHeaderLabel popupPanelTitle">
+        <div>
+          <span class="helperSpanTitle" title="Enable or disable push notifications."></span>
+        </div>
+        <div class="settingsSectionHeaderTitle">Push Notifications</div>
+      </div> 
+    </div>
+    <div *ngIf="isPushNotificationsToggled" class="sectionDescriptionDiv"> 
+      <div class="sectionDescriptionSection">
+        <div>
+          Push Notifications:
+          <div class="xSmallFont">Push notifications deliver real-time alerts to your device 
+            or browser (for mentions, messages, and important activity). 
+            Enable to receive instant updates; disable to stop them.
+          </div>
+        </div>
+        <div>
+          <input type="checkbox" #pushNotificationsCheckmark [checked]="isPushNotificationsEnabled"
+            (click)="updatePushNotifications()" />
+        </div>
+      </div>
+    </div>
+
     <!-- SECRET QUESTIONS (Password Reset) -->
     <div (click)="toggleSecurityQuestions()" class="sectionHeaderDiv">
       <div class="sectionHeaderLabel popupPanelTitle">

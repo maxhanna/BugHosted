@@ -34,6 +34,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   isBlockedUsersToggled = false;
   isDeleteAccountToggled = false;
   isBTCWalletAddressesToggled = false;
+  isPushNotificationsToggled = false;
   isAboutToggled = false;
   showAddBTCWalletAddressInput = false;
   isApiKeysToggled = false;
