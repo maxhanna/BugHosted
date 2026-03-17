@@ -100,7 +100,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.parentRef.navigationComponent?.stopNotifications();
     }
     this.isSearchVisible = true;
-  } 
+  }
 
   async ngAfterViewInit() {
     this.status = 'Ready - Select a ROM';
@@ -219,10 +219,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
       // Determine extension once
       const ext = this.fileService.getFileExtension(file.fileName);
-
-      // Special-case: if the file is a .zip, always prompt the user to choose a system
-      // via the system-picker panel unless the DB has an actualSystem override.
-      // Do NOT fall back to localStorage per-extension preference for .zip files.
+ 
       if (!this.selectedSystemCore && ext === 'zip' && !dbOverride) {
         this._pendingFileToLoad = { fileName: file.fileName, fileId: file.id, directory: file.directory };
         this.isSystemSelectPanelOpen = true;
@@ -418,7 +415,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
     // Ensure menu is closed when the emulator starts
     this.isMenuPanelOpen = false;
-    try { this.parentRef?.closeOverlay(); } catch { }
+    this.parentRef?.closeOverlay();
 
     // 7) Clear existing game container
     const gameContainer = document.getElementById('game');
@@ -468,6 +465,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.fullReloadToEmulator();
       return;
     }
+
+    // Start autosave loop and upload any pending saves (best-effort)
+    try { this.setupAutosave(); } catch { console.error('Failed to set up autosave'); }
+    try { this.uploadPendingSavesOnStartup(); } catch { console.error('Failed to upload pending saves on startup'); }
 
     this.status = 'Running';
     this.stopLoading();
@@ -714,7 +715,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     w.EJS_color = componentBackgroundColor;        // Sets the main color theme for the emulator
     w.EJS_backgroundColor = componentBackgroundColor; // Sets the background color for the emulator    
     if (systemIcon) {
-      w.EJS_backgroundImage = systemIcon;  
+      w.EJS_backgroundImage = systemIcon;
     }
     if (core === "psp" || core == "ppsspp") {
       this.applyPSPCoreSettings(w); // force our perf defaults over any saved prefs
