@@ -305,6 +305,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.cdr.detectChanges();
 
     // 1) Fetch ROM via your existing API
+    // Start save-state fetch concurrently (if applicable) so both can run in parallel.
+    let saveStatePromise: Promise<Blob | null> | null = null;
+    if (!(this.skipSaveFileRequested || this.loadWithoutSave)) {
+      saveStatePromise = this.loadSaveStateFromDB(fileName);
+    }
+
     const romBlobOrArray = await this.romService.getRomFile(
       fileName, this.parentRef?.user?.id, fileId,
       (loaded, total) => {
@@ -330,11 +336,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.romObjectUrl = URL.createObjectURL(romBlob);
     this.romName = fileName;
 
-    // 4) Try to load existing save state from database (unless explicitly skipped)
-    const saveStateBlob =
-      (this.skipSaveFileRequested || this.loadWithoutSave)
-        ? null
-        : await this.loadSaveStateFromDB(fileName);
+    // 4) Await save-state fetch (started earlier) unless explicitly skipped
+    const saveStateBlob = saveStatePromise ? await saveStatePromise : null;
 
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
     const core = this.detectCoreEnhanced(fileName, effectiveForcedCore);
