@@ -39,6 +39,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   showAddBTCWalletAddressInput = false;
   isApiKeysToggled = false;
   showOnlyApiKeys = false;
+  showOnlyAccountSection = false;
   selectableIcons: MenuItem[] = [];
   btcWalletAddresses?: string[];
   notifications: string[] = [];

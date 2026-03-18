@@ -834,12 +834,13 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.isShowingUserTagPopup = true;
     }, 500);
   }
-  openUserSettings(previousComponent?: string) {
+  openUserSettings(previousComponent?: string, showOnlyAccountSection? : boolean, showOnlySelectableMenuItems?: boolean) {
     this.createComponent('UpdateUserSettings', {
-      showOnlySelectableMenuItems: false,
-      areSelectableMenuItemsExplained: false,
+      previousComponent: previousComponent,
       inputtedParentRef: this,
-      previousComponent: previousComponent
+      showOnlySelectableMenuItems: showOnlySelectableMenuItems ?? false,
+      areSelectableMenuItemsExplained: false,
+      showOnlyAccountSection: showOnlyAccountSection ?? false
     });
   }
   setViewportScalability(scalable?: boolean) {
@@ -858,9 +859,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     if (!token) {
       this.passwordResetResultMessage = 'Invalid reset link.';
       this.passwordResetResultSuccess = false;
-      this.isShowingPasswordResetResult = true;
-      this.showOverlay();
-      this.createComponent('User');
+      this.isShowingPasswordResetResult = true; 
+      this.openUserSettings('UserComponent', true);
       return;
     }
     try {
@@ -873,8 +873,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.passwordResetResultSuccess = false;
     }
     this.isShowingPasswordResetResult = true;
-    this.showOverlay();
-    this.createComponent('User');
+    this.openUserSettings('UserComponent', true);
   }
 
   closePasswordResetResultPopup() {

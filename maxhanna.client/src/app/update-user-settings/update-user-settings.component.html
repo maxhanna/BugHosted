@@ -18,7 +18,7 @@
           *ngIf="isGeneralToggled">💾Save Account Settings</button>
       </div>
     </div>
-    <div *ngIf="isGeneralToggled" class="sectionDescriptionDiv">
+    <div *ngIf="isGeneralToggled || showOnlyAccountSection" class="sectionDescriptionDiv">
       <div class="sectionDescriptionSection">
         <div>Name:</div>
         <div><input type="text" placeholder="New Username" #updatedUsername [value]="parentRef!.user!.username" /></div>
@@ -57,7 +57,9 @@
     </div>
 
     <!-- SECRET QUESTIONS (Password Reset) -->
-    <div (click)="toggleSecurityQuestions()" class="sectionHeaderDiv">
+    <div *ngIf="!showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user"
+      (click)="toggleSecurityQuestions()" 
+      class="sectionHeaderDiv">
       <div class="sectionHeaderLabel popupPanelTitle">
         <div>
           <span class="helperSpanTitle"
@@ -90,7 +92,7 @@
 
     <!--Profile Background pictures-->
     <div (click)="isProfilePicturesToggled = !isProfilePicturesToggled"
-      *ngIf="!showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user"
+      *ngIf="!showOnlyAccountSection && !showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user"
       class="sectionHeaderDiv">
       <div class="sectionHeaderLabel popupPanelTitle">
         <div>
@@ -155,7 +157,7 @@
 
     <!--ABOUT-->
     <div (click)="isAboutToggled = !isAboutToggled"
-      *ngIf="!showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user"
+      *ngIf="!showOnlyAccountSection && !showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user"
       class="sectionHeaderDiv">
       <div class="sectionHeaderLabel popupPanelTitle">
         <div>
@@ -216,7 +218,7 @@
     </div>
     <!-- LOCATION -->
     <div (click)="isWeatherLocationToggled = !isWeatherLocationToggled; getWeatherLocation()"
-      *ngIf="!showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlySelectableMenuItems"
+      *ngIf="!showOnlyAccountSection && !showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlySelectableMenuItems"
       class="sectionHeaderDiv">
       <div class="sectionHeaderLabel popupPanelTitle">
         <div>
@@ -245,7 +247,7 @@ but you can also set your own City for a more precise location."></span>
 
     <!-- BLOCKED USERS -->
     <div (click)="isBlockedUsersToggled = !isBlockedUsersToggled; getBlockedUsers()"
-      *ngIf="!showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlySelectableMenuItems && !showOnlyWeatherLocation"
+      *ngIf="!showOnlyAccountSection && !showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlySelectableMenuItems && !showOnlyWeatherLocation"
       class="sectionHeaderDiv">
       <div class="sectionHeaderLabel popupPanelTitle">
         <div>
@@ -272,7 +274,7 @@ but you can also set your own City for a more precise location."></span>
 
     <!-- MENU ICONS -->
     <div (click)="showOnlySelectableMenuItems ? '' : getMenuIcons()" class="sectionHeaderDiv"
-      *ngIf="!showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation">
+      *ngIf="!showOnlyAccountSection && !showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation">
       <div *ngIf="!showOnlySelectableMenuItems || isMenuIconsToggled" class="sectionHeaderLabel popupPanelTitle">
         <div>
           <span class="helperSpanTitle" title="Add / Remove icons from your menu."></span>
@@ -309,7 +311,7 @@ but you can also set your own City for a more precise location."></span>
 
     <div
       (click)="(showOnlyApiKeys ? '' : (isApiKeysToggled = !isApiKeysToggled)); getNicehashApiKeys(); getKrakenApiKeys()"
-      *ngIf="(showOnlyApiKeys || (!showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user))"
+      *ngIf="(showOnlyApiKeys || (!showOnlyAccountSection && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user))"
       class="sectionHeaderDiv">
 
       <div class="sectionHeaderLabel popupPanelTitle">
@@ -387,7 +389,7 @@ but you can also set your own City for a more precise location."></span>
 
     <!--BTC Wallet Addresses-->
     <div (click)="isBTCWalletAddressesToggled = !isBTCWalletAddressesToggled; getBTCWalletAddresses()"
-      *ngIf="!showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user"
+      *ngIf="!showOnlyAccountSection && !showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user"
       class="sectionHeaderDiv">
       <div class="sectionHeaderLabel popupPanelTitle">
         <div><span class="helperSpanTitle" title="Keep track of your BTC Wallet address here."></span></div>
@@ -415,7 +417,7 @@ but you can also set your own City for a more precise location."></span>
 
     <!--Delete Account-->
     <div (click)="isDeleteAccountToggled = !isDeleteAccountToggled"
-      *ngIf="!showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user"
+      *ngIf="!showOnlyAccountSection && !showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user"
       class="sectionHeaderDiv">
       <div class="sectionHeaderLabel popupPanelTitle">
         <div><span class="helperSpanTitle" title="Delete your account"></span></div>
