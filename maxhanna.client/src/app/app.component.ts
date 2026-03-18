@@ -882,6 +882,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         setTimeout(() => {
           this.openUserSettings('User', true);
           setTimeout(() => { 
+            this.showOverlay();
             this.isShowingPasswordResetResult = true;
           }, 500);
         }, 500);
@@ -889,6 +890,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         console.log('Auto-login after password reset failed:', e);
       }
     } else { 
+      this.showOverlay();
       this.isShowingPasswordResetResult = true;
     }
   }
