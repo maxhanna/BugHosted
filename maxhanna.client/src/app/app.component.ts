@@ -875,17 +875,21 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.passwordResetResultMessage = 'An error occurred while resetting your password.';
       this.passwordResetResultSuccess = false;
     }
-    this.isShowingPasswordResetResult = true;
  
     if (success && this.passwordResetResultSuccess && username) {
       try {
         await this.login(username, "", false, true); 
         setTimeout(() => {
           this.openUserSettings('User', true);
+          setTimeout(() => { 
+            this.isShowingPasswordResetResult = true;
+          }, 500);
         }, 500);
       } catch (e) {
         console.log('Auto-login after password reset failed:', e);
       }
+    } else { 
+      this.isShowingPasswordResetResult = true;
     }
   }
 
