@@ -864,11 +864,13 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.isShowingPasswordResetResult = true; 
       return;
     }
+    let success = false;
     try {
       const response = await this.userService.resetPasswordWithToken(token);
       const result = await response.json();
       this.passwordResetResultMessage = result?.message ?? (response.ok ? 'Password reset successfully.' : 'Failed to reset password.');
       this.passwordResetResultSuccess = response.ok;
+      success = response.ok;
     } catch {
       this.passwordResetResultMessage = 'An error occurred while resetting your password.';
       this.passwordResetResultSuccess = false;
@@ -876,16 +878,16 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     this.isShowingPasswordResetResult = true;
 
     // Auto-login with the blank password (password was just reset to empty)
-    if (this.passwordResetResultSuccess && username) {
+    if (success && this.passwordResetResultSuccess && username) {
       try {
-        await this.login(username, "", false, true);
+        await this.login(username, "", false, true); 
+        setTimeout(() => {
+          this.openUserSettings('User', true);
+        }, 500);
       } catch (e) {
         console.log('Auto-login after password reset failed:', e);
       }
     }
-    setTimeout(() => {
-      this.openUserSettings('User', true);
-    }, 500);
   }
 
   async login(username: string, password: string, fromUserCreation?: boolean, fromPasswordReset?: boolean) {
