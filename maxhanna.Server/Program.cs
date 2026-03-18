@@ -41,6 +41,7 @@ builder.Services.AddHostedService<NexusBuildingUpgradeBackgroundService>();
 builder.Services.AddHostedService<NexusUnitBackgroundService>(); 
 builder.Services.AddHostedService<NexusDefenceBackgroundService>();
 builder.Services.AddHttpClient<KrakenService>();
+builder.Services.AddHttpClient<maxhanna.Server.Services.EmailService>();
 builder.Services.AddHttpClient<WebCrawler>();
 builder.Services.AddSingleton<Log>();
 builder.Services.AddSingleton<WebCrawler>();
@@ -49,6 +50,7 @@ builder.Services.AddSingleton<NewsService>();
 builder.Services.AddSingleton<ProfitCalculationService>();
 builder.Services.AddSingleton<TradeIndicatorService>();
 builder.Services.AddSingleton<KrakenService>();
+builder.Services.AddSingleton<maxhanna.Server.Services.EmailService>();
 builder.Services.AddSingleton<RomEnrichmentService>();
 builder.WebHost.ConfigureKestrel(options =>
 {

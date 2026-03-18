@@ -148,6 +148,14 @@
     <button class="closeButton" id="closeOverlay" (click)="closeSecurityPopup()">Close</button>
     <button (click)="updateLastSeen(); closeSecurityPopup();">Refresh</button></div>
 </div>
+<!-- Password Reset Result POPUP PANEL -->
+<div class="popupPanel securityPopup" *ngIf="isShowingPasswordResetResult">
+  <div class="popupPanelTitle">🔐 Password Reset</div>
+  <div [style.color]="passwordResetResultSuccess ? 'green' : 'red'">{{ passwordResetResultMessage }}</div>
+  <div style="margin-top: 10px;">
+    <button class="closeButton" id="closeOverlay" (click)="closePasswordResetResultPopup()">Close</button>
+  </div>
+</div>
 
 <input type="hidden" id="hiddenUrlToVisit" />
 <button style="width:0px;height:0px;display:none;" id="hiddenUrlToVisitButton"

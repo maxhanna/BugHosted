@@ -196,9 +196,11 @@
               <div>
                 <input type="submit" value="🔑 Login" [disabled]="isLoading" />
                 <input type="button" value="👤➕ Create User" (click)="createUser()" [disabled]="isLoading" />
-                <input type="button" value="👤➕ Guest" (click)="createUser(true)" [disabled]="isLoading" />
+                <input *ngIf="(loginUsernameValue ?? '').length === 0" type="button" value="👤➕ Guest" (click)="createUser(true)" [disabled]="isLoading" />
                 <input *ngIf="(loginUsernameValue ?? '').length > 0" type="button" value="🔐 Reset Password"
                   (click)="fetchSecurityQuestionsForUsername()" [disabled]="isLoading" />
+                <input *ngIf="loginUsernameHasEmail" type="button" value="📧 Email Reset"
+                  (click)="sendPasswordResetEmail()" [disabled]="isLoading" />
               </div>
             </form>
           </div>

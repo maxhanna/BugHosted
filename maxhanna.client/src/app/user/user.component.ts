@@ -134,6 +134,8 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   securityAnswers: string[] = [];
   securityTargetUserId: number | null = null;
   loginUsernameValue: string = '';
+  loginUsernameHasEmail: boolean = false;
+  emailCheckDebounce: any = null;
 
   constructor(private userService: UserService,
     private nexusService: NexusService,
@@ -244,6 +246,15 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       const val = (event.target as HTMLInputElement).value;
       this.loginUsernameValue = val ?? '';
     } catch (e) { this.loginUsernameValue = ''; }
+    // Debounce check for email
+    this.loginUsernameHasEmail = false;
+    if (this.emailCheckDebounce) clearTimeout(this.emailCheckDebounce);
+    if (this.loginUsernameValue.length > 0) {
+      this.emailCheckDebounce = setTimeout(async () => {
+        this.loginUsernameHasEmail = await this.userService.checkUserHasEmail(this.loginUsernameValue);
+        this.cdr.detectChanges();
+      }, 500);
+    }
     this.cdr.detectChanges();
   }
 
@@ -989,6 +1000,27 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       }
     } catch (e) {
       parent.showNotification('Error resetting password');
+    } finally {
+      this.stopLoading();
+    }
+  }
+
+  async sendPasswordResetEmail() {
+    const username = this.loginUsername?.nativeElement?.value?.trim();
+    if (!username) {
+      this.parentRef?.showNotification('Enter a username first');
+      return;
+    }
+    this.startLoading();
+    try {
+      const res = await this.userService.sendPasswordResetEmail(username);
+      if (res?.message) {
+        this.parentRef?.showNotification(res.message);
+      } else {
+        this.parentRef?.showNotification('Failed to send reset email.');
+      }
+    } catch {
+      this.parentRef?.showNotification('Error sending reset email.');
     } finally {
       this.stopLoading();
     }

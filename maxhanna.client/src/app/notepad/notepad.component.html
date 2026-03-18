@@ -7,16 +7,33 @@
   </app-title-bar>
 
   <textarea #noteInput class="noteInputTextArea" (input)="handleNoteInputChange()" required></textarea>
-  <fieldset class="buttonFields">
-    <small class="autoSyncedIndicator" *ngIf="lastSyncedAt">Auto-synced at {{ lastSyncedAt | date:'mediumTime'
-      }}</small>
-    <input type="submit" value="💾" (click)="addNote(); noteAddButton.disabled=true;" #noteAddButton
-      title="Save Note" />
-    <input type="submit" value="↗️" (click)="shareNoteButtonClick()" #shareNoteButton title="Share Note" />
-    <input type="submit" value="🆕" (click)="clearInputs()" #newNoteButton title="New Note" />
-    <input type="submit" value="❌" (click)="deleteNote()" #deleteNoteButton title="Delete Note" />
-    <input type="hidden" value="" #noteId />
-  </fieldset>
+  <div style="display:flex; justify-content: space-between;">
+    <div>
+      Shared With:
+      <div *ngIf="splitNoteOwnershipUsers && splitNoteOwnershipUsers.length > 0; else noSharedUsers">
+        <div *ngFor="let user of splitNoteOwnershipUsers">
+          <app-user-tag [user]="user" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
+            [previousComponent]="'Notepad'"></app-user-tag>
+        </div>
+        <ng-template #noSharedUsers>
+          <span>Only you</span>
+        </ng-template>
+      </div>
+    </div>
+    <div>
+      <fieldset class="buttonFields">
+        <small class="autoSyncedIndicator" *ngIf="lastSyncedAt">Auto-synced at {{ lastSyncedAt | date:'mediumTime'
+          }}</small>
+        <input type="submit" value="💾" (click)="addNote(); noteAddButton.disabled=true;" #noteAddButton
+          title="Save Note" />
+        <input type="submit" value="↗️" (click)="shareNoteButtonClick()" #shareNoteButton title="Share Note" />
+        <input type="submit" value="🆕" (click)="clearInputs()" #newNoteButton title="New Note" />
+        <input type="submit" value="❌" (click)="deleteNote()" #deleteNoteButton title="Delete Note" />
+        <input type="hidden" value="" #noteId />
+      </fieldset>
+    </div>
+  </div>
+  
 
   <div
     *ngIf="(notes && notes.length > 0) || (searchInput && searchInput.nativeElement && searchInput.nativeElement.value)"

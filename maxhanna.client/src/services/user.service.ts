@@ -790,4 +790,31 @@ export class UserService {
       return null;
     }
   }
+
+  async checkUserHasEmail(username: string): Promise<boolean> {
+    try {
+      const response = await fetch('/user/checkuserhasemail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(username),
+      });
+      if (!response.ok) return false;
+      return await response.json();
+    } catch {
+      return false;
+    }
+  }
+
+  async sendPasswordResetEmail(username: string) {
+    try {
+      const response = await fetch('/user/sendpasswordresetemail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(username),
+      });
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
 }

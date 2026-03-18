@@ -340,7 +340,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   isShowingSecurityPopup = false;
   preventShowSecurityPopup = false;
   popupUserTagUser?: User;
-  isSpeaking = false;
+  isSpeaking = false; 
+  isShowingPasswordResetResult = false;
+  passwordResetResultMessage = '';
+  passwordResetResultSuccess = false;
   private securityTimeout: any = null;
   private componentMap: { [key: string]: any; } = {
     "Navigation": NavigationComponent,
@@ -431,6 +434,12 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           const storyId = this.router.url.toLowerCase().split('social/')[1]?.split('?')[0];
           this.angLocation.replaceState(this.router.url.split('?')[0]);
           this.createComponent("Social", { "storyId": storyId });
+        }
+        else if (this.router.url.includes('ResetPassword')) {
+          this.checkAndClearRouterOutlet();
+          const token = this.router.url.split('ResetPassword/')[1]?.split('?')[0];
+          this.angLocation.replaceState(this.router.url.split('?')[0]);
+          this.handlePasswordResetFromEmail(token);
         }
         else if (this.router.url.includes('User')) {
           this.checkAndClearRouterOutlet();
@@ -844,6 +853,36 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.meta.updateTag({ name: 'viewport', content: `width=device-width, initial-scale=1.0, user-scalable=no` });
     }
   }
+
+  async handlePasswordResetFromEmail(token: string) {
+    if (!token) {
+      this.passwordResetResultMessage = 'Invalid reset link.';
+      this.passwordResetResultSuccess = false;
+      this.isShowingPasswordResetResult = true;
+      this.createComponent('User');
+      return;
+    }
+    try {
+      const response = await fetch('/user/resetpasswordbyemail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(token),
+      });
+      const result = await response.json();
+      this.passwordResetResultMessage = result?.message ?? (response.ok ? 'Password reset successfully.' : 'Failed to reset password.');
+      this.passwordResetResultSuccess = response.ok;
+    } catch {
+      this.passwordResetResultMessage = 'An error occurred while resetting your password.';
+      this.passwordResetResultSuccess = false;
+    }
+    this.isShowingPasswordResetResult = true;
+    this.createComponent('User');
+  }
+
+  closePasswordResetResultPopup() {
+    this.isShowingPasswordResetResult = false;
+  }
+
   showNotification(text?: string) {
     if (!text) { return; }
     else {

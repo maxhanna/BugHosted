@@ -20,13 +20,15 @@ namespace maxhanna.Server.Controllers
     private readonly IConfiguration _config;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly string _baseTarget;
+    private readonly maxhanna.Server.Services.EmailService _emailService;
 
-    public UserController(IHttpClientFactory httpClientFactory, Log log, IConfiguration config)
+    public UserController(IHttpClientFactory httpClientFactory, Log log, IConfiguration config, maxhanna.Server.Services.EmailService emailService)
     {
       _httpClientFactory = httpClientFactory;
       _log = log;
       _config = config;
       _baseTarget = _config.GetValue<string>("ConnectionStrings:baseUploadPath") ?? "";
+      _emailService = emailService;
     }
 
 
@@ -478,6 +480,168 @@ namespace maxhanna.Server.Controllers
       finally
       {
         try { conn.Close(); } catch { }
+      }
+    }
+
+    [HttpPost("/User/SendPasswordResetEmail", Name = "SendPasswordResetEmail")]
+    public async Task<IActionResult> SendPasswordResetEmail([FromBody] string username)
+    {
+      if (string.IsNullOrWhiteSpace(username)) return BadRequest("Username is required.");
+
+      var cs = _config?.GetConnectionString("maxhanna") ?? _config?.GetValue<string>("ConnectionStrings:maxhanna");
+      if (string.IsNullOrWhiteSpace(cs)) return StatusCode(500, "Missing DB connection string");
+
+      try
+      {
+        await using var conn = new MySqlConnection(cs);
+        await conn.OpenAsync();
+
+        const string sql = @"SELECT u.id, ua.email FROM maxhanna.users u
+          LEFT JOIN maxhanna.user_about ua ON ua.user_id = u.id
+          WHERE LOWER(u.username) = LOWER(@Username)";
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Username", username.Trim());
+
+        int userId = 0;
+        string? email = null;
+        await using (var reader = await cmd.ExecuteReaderAsync())
+        {
+          if (!reader.Read()) return NotFound(new { message = "User not found." });
+          userId = reader.GetInt32("id");
+          email = reader.IsDBNull(reader.GetOrdinal("email")) ? null : reader.GetString("email");
+        }
+
+        if (string.IsNullOrWhiteSpace(email))
+          return BadRequest(new { message = "No email address configured for this user." });
+
+        // Generate a time-limited encrypted token containing the user ID
+        var keyBase64 = _config?.GetValue<string>("PasswordResetEncryptionKey:Key");
+        if (string.IsNullOrWhiteSpace(keyBase64))
+          return StatusCode(500, "Encryption key not configured.");
+
+        var key = Convert.FromBase64String(keyBase64);
+        // Payload: userId|utcTimestamp
+        var payload = $"{userId}|{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+        string token;
+        using (var aes = System.Security.Cryptography.Aes.Create())
+        {
+          aes.Key = key;
+          aes.Mode = CipherMode.CBC;
+          aes.GenerateIV();
+          using var encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
+          var plainBytes = Encoding.UTF8.GetBytes(payload);
+          var cipher = encryptor.TransformFinalBlock(plainBytes, 0, plainBytes.Length);
+          var combined = new byte[aes.IV.Length + cipher.Length];
+          Buffer.BlockCopy(aes.IV, 0, combined, 0, aes.IV.Length);
+          Buffer.BlockCopy(cipher, 0, combined, aes.IV.Length, cipher.Length);
+          token = Convert.ToBase64String(combined)
+            .Replace("+", "-").Replace("/", "_").Replace("=", ""); // URL-safe base64
+        }
+
+        var resetLink = $"https://bughosted.com/ResetPassword/{token}";
+        var subject = "BugHosted Password Reset";
+        var body = $"Hello,\n\nA password reset was requested for your BugHosted account.\n\n" +
+                   $"Click the following link to reset your password:\n{resetLink}\n\n" +
+                   $"This link will expire in 1 hour.\n\n" +
+                   $"If you did not request this, you can safely ignore this email.";
+
+        var sent = await _emailService.SendEmailAsync(email, subject, body);
+        if (!sent)
+          return StatusCode(500, new { message = "Failed to send reset email. Please try again later." });
+
+        _ = _log.Db($"Password reset email sent to {email} for user {userId}.", userId, "USER", true);
+        return Ok(new { message = "Password reset email sent. Check your inbox." });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("SendPasswordResetEmail failed: " + ex.Message, null, "USER", true);
+        return StatusCode(500, new { message = "Error sending password reset email." });
+      }
+    }
+
+    [HttpPost("/User/ResetPasswordByEmail", Name = "ResetPasswordByEmail")]
+    public async Task<IActionResult> ResetPasswordByEmail([FromBody] string token)
+    {
+      if (string.IsNullOrWhiteSpace(token)) return BadRequest(new { message = "Token is required." });
+
+      var keyBase64 = _config?.GetValue<string>("PasswordResetEncryptionKey:Key");
+      if (string.IsNullOrWhiteSpace(keyBase64))
+        return StatusCode(500, new { message = "Encryption key not configured." });
+
+      int userId;
+      try
+      {
+        // Restore URL-safe base64 to standard base64
+        var b64 = token.Replace("-", "+").Replace("_", "/");
+        switch (b64.Length % 4)
+        {
+          case 2: b64 += "=="; break;
+          case 3: b64 += "="; break;
+        }
+        var combined = Convert.FromBase64String(b64);
+        var key = Convert.FromBase64String(keyBase64);
+
+        using var aes = System.Security.Cryptography.Aes.Create();
+        aes.Key = key;
+        aes.Mode = CipherMode.CBC;
+        var iv = new byte[16];
+        var cipher = new byte[combined.Length - 16];
+        Buffer.BlockCopy(combined, 0, iv, 0, 16);
+        Buffer.BlockCopy(combined, 16, cipher, 0, cipher.Length);
+        aes.IV = iv;
+
+        using var decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
+        var plainBytes = decryptor.TransformFinalBlock(cipher, 0, cipher.Length);
+        var payload = Encoding.UTF8.GetString(plainBytes);
+
+        var parts = payload.Split('|');
+        if (parts.Length != 2 || !int.TryParse(parts[0], out userId))
+          return BadRequest(new { message = "Invalid reset token." });
+
+        if (!long.TryParse(parts[1], out var timestamp))
+          return BadRequest(new { message = "Invalid reset token." });
+
+        var tokenTime = DateTimeOffset.FromUnixTimeSeconds(timestamp);
+        if (DateTimeOffset.UtcNow - tokenTime > TimeSpan.FromHours(1))
+          return BadRequest(new { message = "This reset link has expired. Please request a new one." });
+      }
+      catch
+      {
+        return BadRequest(new { message = "Invalid or corrupted reset token." });
+      }
+
+      var resetOk = await ResetPasswordInternal(userId);
+      if (!resetOk)
+        return StatusCode(500, new { message = "Failed to reset password." });
+
+      _ = _log.Db($"Password reset via email token for user {userId}.", userId, "USER", true);
+      return Ok(new { message = "Password has been reset successfully. You can now log in with a blank password and set a new one." });
+    }
+
+    [HttpPost("/User/CheckUserHasEmail", Name = "CheckUserHasEmail")]
+    public async Task<IActionResult> CheckUserHasEmail([FromBody] string username)
+    {
+      if (string.IsNullOrWhiteSpace(username)) return BadRequest(false);
+
+      var cs = _config?.GetConnectionString("maxhanna") ?? _config?.GetValue<string>("ConnectionStrings:maxhanna");
+      if (string.IsNullOrWhiteSpace(cs)) return StatusCode(500, false);
+
+      try
+      {
+        await using var conn = new MySqlConnection(cs);
+        await conn.OpenAsync();
+        const string sql = @"SELECT ua.email FROM maxhanna.users u
+          LEFT JOIN maxhanna.user_about ua ON ua.user_id = u.id
+          WHERE LOWER(u.username) = LOWER(@Username)";
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Username", username.Trim());
+        var result = await cmd.ExecuteScalarAsync();
+        var hasEmail = result != null && result != DBNull.Value && !string.IsNullOrWhiteSpace(result.ToString());
+        return Ok(hasEmail);
+      }
+      catch
+      {
+        return StatusCode(500, false);
       }
     }
 

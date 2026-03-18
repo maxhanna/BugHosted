@@ -37,6 +37,7 @@ const routes: Routes = [
   { path: 'Ender', component: AppComponent },
   { path: 'Bones', component: AppComponent },
   { path: 'Mastermind', component: AppComponent },
+  { path: 'ResetPassword/:token', component: AppComponent },
 ];
 
 @NgModule({
