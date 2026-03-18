@@ -17,7 +17,7 @@ namespace maxhanna.Server.Services
             _apiKey = config["Mailgun:ApiKey"] ?? throw new ArgumentNullException("Mailgun:ApiKey is not configured.");
             _sendingKey = config["Mailgun:SendingKey"] ?? throw new ArgumentNullException("Mailgun:SendingKey is not configured.");
             _baseUrl = config["Mailgun:BaseURL"] ?? "https://api.mailgun.net";
-            _sandboxUrl = config["Mailgun:SandboxURL"] ?? throw new ArgumentNullException("Mailgun:SandboxURL is not configured.");
+            _sandboxUrl = "bughosted.com";//config["Mailgun:SandboxURL"] ?? throw new ArgumentNullException("Mailgun:SandboxURL is not configured.");
             _log = log;
             _httpClient = httpClient;
             _httpClient.BaseAddress = new Uri(_baseUrl);
