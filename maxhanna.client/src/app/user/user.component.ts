@@ -798,14 +798,8 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     this.profileControls.nativeElement.selectedIndex = 0;
   }
 
-
   openSettingsPanel() {
-    this.parentRef?.createComponent('UpdateUserSettings', {
-      showOnlySelectableMenuItems: false,
-      areSelectableMenuItemsExplained: false,
-      inputtedParentRef: this.parentRef,
-      previousComponent: "User"
-    });
+    this.parentRef?.openUserSettings("User");
   }
 
   async addFriend(userToAdd: User) {
