@@ -862,6 +862,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.passwordResetResultMessage = 'Invalid reset link.';
       this.passwordResetResultSuccess = false;
       this.isShowingPasswordResetResult = true; 
+      this.showOverlay();
       return;
     }
     let success = false;
