@@ -14,8 +14,8 @@
         <div class="settingsSectionHeaderTitle">Account</div>
       </div>
       <div style="text-align:right;">
-        <button (click)="updateUser()" title="Update settings" [disabled]="!isGeneralToggled"
-          *ngIf="isGeneralToggled">💾Save Account Settings</button>
+        <button (click)="updateUser()" title="Update settings" [disabled]="!isGeneralToggled && !showOnlyAccountSection"
+          *ngIf="isGeneralToggled || showOnlyAccountSection">💾Save Account Settings</button>
       </div>
     </div>
     <div *ngIf="isGeneralToggled || showOnlyAccountSection" class="sectionDescriptionDiv">
