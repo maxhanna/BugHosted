@@ -876,8 +876,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.passwordResetResultSuccess = false;
     }
     this.isShowingPasswordResetResult = true;
-
-    // Auto-login with the blank password (password was just reset to empty)
+ 
     if (success && this.passwordResetResultSuccess && username) {
       try {
         await this.login(username, "", false, true); 
