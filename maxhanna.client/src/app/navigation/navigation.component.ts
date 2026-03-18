@@ -136,10 +136,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.navbarReady = true; 
     if (this._parent?.user?.id) {
       this.getThemeInfo().catch(() => {});
+      this.isThemeApplied = true;
     } else {
       this.applyDefaultTheme();
     }
-    this.isThemeApplied = true;
     setTimeout(() => {
       if (this._parent.notificationsActive) return;
       this.getNotifications();
