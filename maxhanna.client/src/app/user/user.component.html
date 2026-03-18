@@ -188,7 +188,7 @@
               {{loginReasonMessage ? loginReasonMessage : "Remember to log in to save your progress!"}}
             </div>
 
-            <form class="loginDiv" (submit)="login()" #loginForm>
+            <form class="loginDiv" (submit)="onFormSubmit($event)" #loginForm>
               <input type="text" id="loginInput" name="username" placeholder="Username" #loginUsername
                 (input)="onLoginUsernameInput($event)" (keydown.enter)="login()" [disabled]="isLoading" />
               <input type="password" id="passwordInput" name="password" placeholder="Password" #loginPassword

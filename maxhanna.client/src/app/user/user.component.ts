@@ -155,7 +155,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     private topService: TopService,
     private romService: RomService,
     private reactionService: ReactionService,
-    private cdr: ChangeDetectorRef, 
+    private cdr: ChangeDetectorRef,
   ) {
     super();
   }
@@ -163,7 +163,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   async ngOnInit() {
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
-    } 
+    }
     this.parentRef?.setViewportScalability(false);
     this.startLoading();
     try {
@@ -191,7 +191,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
         if (this.user.id == this.parentRef?.user?.id && this.user.id != 0 && this.user.id !== undefined) {
           this.notificationService.getStoppedNotifications(this.user.id).then(res => this.stoppedNotifications = res);
         }
-        this.changeTheme(); 
+        this.changeTheme();
       }
       if (!this.user) {
         this.usersCount = await this.userService.getUserCount();
@@ -232,13 +232,13 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     }, 120);
   }
 
-  ngAfterViewInit() { 
+  ngAfterViewInit() {
     setTimeout(() => {
       this.removeBorderOnSocial();
     }, 50);
     setTimeout(() => {
       this.removeBorderOnSocial();
-    }, 500); 
+    }, 500);
   }
 
   onLoginUsernameInput(event: Event) {
@@ -256,6 +256,11 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       }, 500);
     }
     this.cdr.detectChanges();
+  }
+
+  onFormSubmit(event: Event) {
+    event.preventDefault();
+    this.login();
   }
 
   private async loadExtraCounts() {
@@ -454,7 +459,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       menuButton.style.setProperty('text-shadow', '1px 1px var(--main-link-color)');
     }
   }
- 
+
   private restoreBackground() {
     const element = this.hostComponentMainEl ?? (document.querySelector('.componentMain') as HTMLDivElement | null);
     if (element && this.originalBackgroundColor !== null) {
@@ -1333,7 +1338,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     }
 
     let classes = ["componentMain", "noBackgroundColor"];
-    if (this.user) { 
+    if (this.user) {
       classes.push("componentMainFullHeight");
     }
     if (!this.user || !this.parentRef) {
