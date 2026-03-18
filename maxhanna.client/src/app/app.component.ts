@@ -878,7 +878,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     // Auto-login with the blank password (password was just reset to empty)
     if (this.passwordResetResultSuccess && username) {
       try {
-        await this.login(username, "");
+        await this.login(username, "", false, true);
       } catch (e) {
         console.log('Auto-login after password reset failed:', e);
       }
@@ -888,7 +888,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     }, 500);
   }
 
-  async login(username: string, password: string) {
+  async login(username: string, password: string, fromUserCreation?: boolean, fromPasswordReset?: boolean) {
     const tmpUser = await this.userService.login(username, password) as User;
     if (tmpUser && tmpUser.username) {
       tmpUser.pass = undefined;
@@ -897,10 +897,9 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         this?.navigationComponent?.getThemeInfo();
       }, 50);
       this.resetUserCookie();
-      this.showNotification(`Welcome back ${this.user?.username}. Please set a new password.`);
+      this.showNotification(`Welcome ${fromUserCreation ? 'to BugHosted' : 'back'} ${this.user?.username}.${fromPasswordReset ? ' Please set a new password.' : ''}`);
       this.getLocation();
-      this.getSessionToken();
-              this.resetNavigationAppSelectionHelp(); 
+      this.getSessionToken(); 
       this.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser.id);
     }
     return this.user;

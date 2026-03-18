@@ -890,7 +890,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       tmpUserName = guest;
     }
     try {
-      const tmpUser = await this.parentRef?.login(tmpUserName, this.loginPassword.nativeElement.value) as User;
+      const tmpUser = await this.parentRef?.login(tmpUserName, this.loginPassword.nativeElement.value, fromUserCreation) as User;
       if (tmpUser && tmpUser.username) { 
         this.resetNavigationAppSelectionHelp();
         if (this.loginOnly) {
