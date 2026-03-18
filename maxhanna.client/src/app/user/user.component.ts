@@ -119,8 +119,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   filter = {
     hidden: this.showHiddenFiles ? 'yes' : 'no',
   };
-  latestSocialStoryId?: number = undefined;
-  wordlerHighScores?: any = undefined;
+  latestSocialStoryId?: number = undefined; 
   latestMeme?: FileEntry = undefined;
   changedTheme = false;
   private originalBackgroundColor: string | null = null;
@@ -198,8 +197,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
         const lidRes = await this.socialService.getLatestStoryId();
         if (lidRes) {
           this.latestSocialStoryId = parseInt(lidRes);
-        }
-        this.wordlerHighScores = await this.wordlerService.getAllScores();
+        } 
         const lmRes = await this.fileService.getLatestMeme();
         if (lmRes) {
           this.latestMeme = lmRes as FileEntry;
@@ -914,6 +912,10 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
         this.resetNavigationAppSelectionHelp();
         if (this.loginOnly) {
           this.closeUserComponentEvent.emit(tmpUser);
+        } else {
+           this.parentRef.navigationComponent?.getNotifications().then(() => {
+            this.parentRef?.navigationComponent?.stopNotifications();
+           });
         }
         this.latestSocialStoryId = undefined;
         success = true;
