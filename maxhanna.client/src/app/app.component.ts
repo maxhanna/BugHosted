@@ -438,7 +438,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         else if (this.router.url.includes('ResetPassword')) {
           this.checkAndClearRouterOutlet();
           const token = this.router.url.split('ResetPassword/')[1]?.split('?')[0];
-          this.angLocation.replaceState(this.router.url.split('?')[0]);
+          this.angLocation.replaceState(this.router.url.split('/')[0]);
           this.handlePasswordResetFromEmail(token);
         }
         else if (this.router.url.includes('User')) {
@@ -859,6 +859,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.passwordResetResultMessage = 'Invalid reset link.';
       this.passwordResetResultSuccess = false;
       this.isShowingPasswordResetResult = true;
+      this.showOverlay();
       this.createComponent('User');
       return;
     }
@@ -872,6 +873,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.passwordResetResultSuccess = false;
     }
     this.isShowingPasswordResetResult = true;
+    this.showOverlay();
     this.createComponent('User');
   }
 
@@ -879,6 +881,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     this.isShowingPasswordResetResult = false;
     this.passwordResetResultMessage = '';
     this.passwordResetResultSuccess = false;
+    this.closeOverlay();
   }
 
   showNotification(text?: string) {
