@@ -437,9 +437,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         }
         else if (this.router.url.includes('ResetPassword')) {
           this.checkAndClearRouterOutlet();
-          const token = this.router.url.split('ResetPassword/')[1]?.split('?')[0];
+          const parts = this.router.url.split('ResetPassword/')[1]?.split('?')[0];
+          const token = parts?.split('/')[0];
+          const username = parts?.split('/')[1] ? decodeURIComponent(parts.split('/')[1]) : undefined;
           this.angLocation.replaceState(this.router.url.split('/')[0]);
-          this.handlePasswordResetFromEmail(token);
+          this.handlePasswordResetFromEmail(token, username);
         }
         else if (this.router.url.includes('User')) {
           this.checkAndClearRouterOutlet();
@@ -855,12 +857,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     }
   }
 
-  async handlePasswordResetFromEmail(token: string) {
+  async handlePasswordResetFromEmail(token: string, username?: string) {
     if (!token) {
       this.passwordResetResultMessage = 'Invalid reset link.';
       this.passwordResetResultSuccess = false;
       this.isShowingPasswordResetResult = true; 
-      this.openUserSettings('User', true);
       return;
     }
     try {
@@ -873,6 +874,28 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.passwordResetResultSuccess = false;
     }
     this.isShowingPasswordResetResult = true;
+
+    // Auto-login with the blank password (password was just reset to empty)
+    if (this.passwordResetResultSuccess && username) {
+      try {
+        const tmpUser = await this.userService.login(username, "") as User;
+        if (tmpUser && tmpUser.username) {
+          tmpUser.pass = undefined;
+          this.user = tmpUser;
+          setTimeout(() => {
+            this?.navigationComponent?.getThemeInfo();
+          }, 50);
+          this.resetUserCookie();
+          this.showNotification(`Welcome back ${this.user?.username}. Please set a new password.`);
+          this.getLocation();
+          this.getSessionToken();
+          this.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser.id);
+        }
+      } catch (e) {
+        console.log('Auto-login after password reset failed:', e);
+      }
+    }
+
     this.openUserSettings('User', true);
   }
 

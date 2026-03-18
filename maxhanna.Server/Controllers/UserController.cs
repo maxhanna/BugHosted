@@ -534,7 +534,7 @@ namespace maxhanna.Server.Controllers
           await insertCmd.ExecuteNonQueryAsync();
         }
 
-        var resetLink = $"https://bughosted.com/ResetPassword/{token}";
+        var resetLink = $"https://bughosted.com/ResetPassword/{token}/{Uri.EscapeDataString(username.Trim())}";
         var subject = "BugHosted Password Reset";
         var body = $"Hello,\n\nA password reset was requested for your BugHosted account.\n\n" +
                    $"Click the following link to reset your password:\n{resetLink}\n\n" +
