@@ -890,24 +890,13 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       tmpUserName = guest;
     }
     try {
-      const tmpUser = await this.userService.login(tmpUserName, this.loginPassword.nativeElement.value) as User;
-
-      if (tmpUser && tmpUser.username && this.parentRef) {
-        tmpUser.pass = undefined;
-        this.parentRef.user = tmpUser;
-        setTimeout(() => {
-          this.parentRef?.navigationComponent?.getThemeInfo();
-        }, 50);
-        this.parentRef.resetUserCookie();
-        this.parentRef.showNotification(`Access granted. Welcome ${(fromUserCreation ? 'to BugHosted' : 'back')} ${this.parentRef!.user?.username}`);
-        this.parentRef.getLocation();
-        this.parentRef.getSessionToken();
-        this.parentRef.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser.id);
+      const tmpUser = await this.parentRef?.login(tmpUserName, this.loginPassword.nativeElement.value) as User;
+      if (tmpUser && tmpUser.username) { 
         this.resetNavigationAppSelectionHelp();
         if (this.loginOnly) {
           this.closeUserComponentEvent.emit(tmpUser);
         } else {
-           this.parentRef.navigationComponent?.getNotifications().then(() => {
+           this.parentRef?.navigationComponent?.getNotifications().then(() => {
             this.parentRef?.navigationComponent?.stopNotifications();
            });
         }
@@ -915,8 +904,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
         success = true;
       } else {
         this.parentRef?.showNotification("Access denied");
-      }
-
+      } 
     } catch (e) {
       this.parentRef?.showNotification("Login error: " + e);
     } finally {

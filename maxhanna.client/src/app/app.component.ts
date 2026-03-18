@@ -878,25 +878,32 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     // Auto-login with the blank password (password was just reset to empty)
     if (this.passwordResetResultSuccess && username) {
       try {
-        const tmpUser = await this.userService.login(username, "") as User;
-        if (tmpUser && tmpUser.username) {
-          tmpUser.pass = undefined;
-          this.user = tmpUser;
-          setTimeout(() => {
-            this?.navigationComponent?.getThemeInfo();
-          }, 50);
-          this.resetUserCookie();
-          this.showNotification(`Welcome back ${this.user?.username}. Please set a new password.`);
-          this.getLocation();
-          this.getSessionToken();
-          this.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser.id);
-        }
+        await this.login(username, "");
       } catch (e) {
         console.log('Auto-login after password reset failed:', e);
       }
     }
+    setTimeout(() => {
+      this.openUserSettings('User', true);
+    }, 500);
+  }
 
-    this.openUserSettings('User', true);
+  async login(username: string, password: string) {
+    const tmpUser = await this.userService.login(username, password) as User;
+    if (tmpUser && tmpUser.username) {
+      tmpUser.pass = undefined;
+      this.user = tmpUser;
+      setTimeout(() => {
+        this?.navigationComponent?.getThemeInfo();
+      }, 50);
+      this.resetUserCookie();
+      this.showNotification(`Welcome back ${this.user?.username}. Please set a new password.`);
+      this.getLocation();
+      this.getSessionToken();
+              this.resetNavigationAppSelectionHelp(); 
+      this.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser.id);
+    }
+    return this.user;
   }
 
   closePasswordResetResultPopup() {
