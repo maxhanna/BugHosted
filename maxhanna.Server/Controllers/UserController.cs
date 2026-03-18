@@ -615,7 +615,7 @@ namespace maxhanna.Server.Controllers
           return StatusCode(500, new { message = "Failed to reset password." });
 
         _ = _log.Db($"Password reset via email token for user {userId}.", userId, "USER", true);
-        return Ok(new { message = "Password has been reset successfully. You can now log in with a blank password and set a new one." });
+        return Ok(new { message = "Password has been reset successfully. You can now set a new one or log in with a blank password." });
       }
       catch (Exception ex)
       {
