@@ -804,7 +804,14 @@ export class UserService {
       return false;
     }
   }
-
+  async resetPasswordWithToken(token: string): Promise<Response> {
+    const response = await fetch('/user/resetpasswordbyemail', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(token),
+    });
+    return response;
+  }
   async sendPasswordResetEmail(username: string) {
     try {
       const response = await fetch('/user/sendpasswordresetemail', {

@@ -863,11 +863,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       return;
     }
     try {
-      const response = await fetch('/user/resetpasswordbyemail', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(token),
-      });
+      const response = await this.userService.resetPasswordWithToken(token);
       const result = await response.json();
       this.passwordResetResultMessage = result?.message ?? (response.ok ? 'Password reset successfully.' : 'Failed to reset password.');
       this.passwordResetResultSuccess = response.ok;
@@ -881,6 +877,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
   closePasswordResetResultPopup() {
     this.isShowingPasswordResetResult = false;
+    this.passwordResetResultMessage = '';
+    this.passwordResetResultSuccess = false;
   }
 
   showNotification(text?: string) {
