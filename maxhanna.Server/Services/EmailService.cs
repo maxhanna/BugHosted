@@ -7,6 +7,7 @@ namespace maxhanna.Server.Services
     {
         private readonly HttpClient _httpClient;
         private readonly string _apiKey;
+        private readonly string _sendingKey;
         private readonly string _baseUrl;
         private readonly string _sandboxUrl;
         private readonly Log _log;
@@ -14,13 +15,15 @@ namespace maxhanna.Server.Services
         public EmailService(IConfiguration config, Log log, HttpClient httpClient)
         {
             _apiKey = config["Mailgun:ApiKey"] ?? throw new ArgumentNullException("Mailgun:ApiKey is not configured.");
+            _sendingKey = config["Mailgun:SendingKey"] ?? throw new ArgumentNullException("Mailgun:SendingKey is not configured.");
             _baseUrl = config["Mailgun:BaseURL"] ?? "https://api.mailgun.net/v3";
             _sandboxUrl = config["Mailgun:SandboxURL"] ?? throw new ArgumentNullException("Mailgun:SandboxURL is not configured.");
             _log = log;
             _httpClient = httpClient;
             _httpClient.BaseAddress = new Uri(_baseUrl);
 
-            var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"api:{_apiKey}"));
+            // Use the domain-specific Sending Key for email operations (more restrictive than the master API key)
+            var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"api:{_sendingKey}"));
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
         }
 
