@@ -23,7 +23,7 @@ namespace maxhanna.Server.Services
             _httpClient.BaseAddress = new Uri(_baseUrl);
 
             // Use the domain-specific Sending Key for email operations (more restrictive than the master API key)
-            var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"api:{_sendingKey}"));
+            var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"api:{_apiKey}"));
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
         }
 
