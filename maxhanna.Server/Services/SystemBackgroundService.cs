@@ -227,6 +227,7 @@ namespace maxhanna.Server.Services
       await _newsService.PostDailyMemeAsync();
       await _newsService.CreateDailyMusicStoryAsync();
       await CleanupOldFavourites();
+      await DeleteExpiredPasswordResetTokens();
       await _log.BackupDatabase();
     }
 
@@ -2105,6 +2106,33 @@ namespace maxhanna.Server.Services
       catch (Exception ex)
       {
         _ = _log.Db("CleanupOldFavourites failure: " + ex.Message, null, "SYSTEM", true);
+      }
+    }
+
+    /// <summary>
+    /// Daily cleanup: delete password reset tokens that expired more than 24 hours ago
+    /// (preserves any tokens that are still within their expiry window).
+    /// Also deletes any used tokens older than 24 hours.
+    /// </summary>
+    private async Task DeleteExpiredPasswordResetTokens()
+    {
+      try
+      {
+        await using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
+        const string sql = @"DELETE FROM maxhanna.password_reset_tokens
+          WHERE expires_utc < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY)
+             OR (used_utc IS NOT NULL AND used_utc < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY));";
+        await using var cmd = new MySqlCommand(sql, conn);
+        int deleted = Convert.ToInt32(await cmd.ExecuteNonQueryAsync());
+        if (deleted > 0)
+        {
+          _ = _log.Db($"DeleteExpiredPasswordResetTokens removed {deleted} rows", null, "SYSTEM", outputToConsole: true);
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("DeleteExpiredPasswordResetTokens failure: " + ex.Message, null, "SYSTEM", true);
       }
     }
 

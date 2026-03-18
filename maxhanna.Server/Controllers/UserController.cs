@@ -506,7 +506,7 @@ namespace maxhanna.Server.Controllers
         string? email = null;
         await using (var reader = await cmd.ExecuteReaderAsync())
         {
-          if (!reader.Read()) return NotFound(new { message = "User not found." });
+          if (!reader.Read()) return NotFound(new { message = "If the account exists, we’ve sent you an email" });
           userId = reader.GetInt32("id");
           email = reader.IsDBNull(reader.GetOrdinal("email")) ? null : reader.GetString("email");
         }
@@ -514,28 +514,24 @@ namespace maxhanna.Server.Controllers
         if (string.IsNullOrWhiteSpace(email))
           return BadRequest(new { message = "No email address configured for this user." });
 
-        // Generate a time-limited encrypted token containing the user ID
-        var keyBase64 = _config?.GetValue<string>("PasswordResetEncryptionKey:Key");
-        if (string.IsNullOrWhiteSpace(keyBase64))
-          return StatusCode(500, "Encryption key not configured.");
+        // Generate a cryptographically random, single-use token (OWASP-compliant)
+        var tokenBytes = RandomNumberGenerator.GetBytes(32);
+        var token = Convert.ToBase64String(tokenBytes)
+          .Replace("+", "-").Replace("/", "_").Replace("=", ""); // URL-safe base64
 
-        var key = Convert.FromBase64String(keyBase64);
-        // Payload: userId|utcTimestamp
-        var payload = $"{userId}|{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
-        string token;
-        using (var aes = System.Security.Cryptography.Aes.Create())
+        // Store only the SHA-256 hash of the token in the database
+        var tokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
+        var expiresUtc = DateTime.UtcNow.AddHours(1);
+
+        const string insertTokenSql = @"INSERT INTO maxhanna.password_reset_tokens
+          (user_id, token_hash, created_utc, expires_utc)
+          VALUES (@UserId, @TokenHash, UTC_TIMESTAMP(), @ExpiresUtc)";
+        await using (var insertCmd = new MySqlCommand(insertTokenSql, conn))
         {
-          aes.Key = key;
-          aes.Mode = CipherMode.CBC;
-          aes.GenerateIV();
-          using var encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
-          var plainBytes = Encoding.UTF8.GetBytes(payload);
-          var cipher = encryptor.TransformFinalBlock(plainBytes, 0, plainBytes.Length);
-          var combined = new byte[aes.IV.Length + cipher.Length];
-          Buffer.BlockCopy(aes.IV, 0, combined, 0, aes.IV.Length);
-          Buffer.BlockCopy(cipher, 0, combined, aes.IV.Length, cipher.Length);
-          token = Convert.ToBase64String(combined)
-            .Replace("+", "-").Replace("/", "_").Replace("=", ""); // URL-safe base64
+          insertCmd.Parameters.AddWithValue("@UserId", userId);
+          insertCmd.Parameters.AddWithValue("@TokenHash", tokenHash);
+          insertCmd.Parameters.AddWithValue("@ExpiresUtc", expiresUtc);
+          await insertCmd.ExecuteNonQueryAsync();
         }
 
         var resetLink = $"https://bughosted.com/ResetPassword/{token}";
@@ -550,7 +546,7 @@ namespace maxhanna.Server.Controllers
           return StatusCode(500, new { message = "Failed to send reset email. Please try again later." });
 
         _ = _log.Db($"Password reset email sent to {email} for user {userId}.", userId, "USER", true);
-        return Ok(new { message = "Password reset email sent. Check your inbox." });
+        return Ok(new { message = "If the account exists, we’ve sent you an email" });
       }
       catch (Exception ex)
       {
@@ -564,58 +560,68 @@ namespace maxhanna.Server.Controllers
     {
       if (string.IsNullOrWhiteSpace(token)) return BadRequest(new { message = "Token is required." });
 
-      var keyBase64 = _config?.GetValue<string>("PasswordResetEncryptionKey:Key");
-      if (string.IsNullOrWhiteSpace(keyBase64))
-        return StatusCode(500, new { message = "Encryption key not configured." });
+      var cs = _config?.GetConnectionString("maxhanna") ?? _config?.GetValue<string>("ConnectionStrings:maxhanna");
+      if (string.IsNullOrWhiteSpace(cs))
+        return StatusCode(500, new { message = "Missing DB connection string" });
 
-      int userId;
+      // Hash the presented token and look it up
+      var tokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
+
       try
       {
-        // Restore URL-safe base64 to standard base64
-        var b64 = token.Replace("-", "+").Replace("_", "/");
-        switch (b64.Length % 4)
+        await using var conn = new MySqlConnection(cs);
+        await conn.OpenAsync();
+
+        const string lookupSql = @"SELECT id, user_id, expires_utc, used_utc
+          FROM maxhanna.password_reset_tokens
+          WHERE token_hash = @TokenHash
+          LIMIT 1";
+        await using var cmd = new MySqlCommand(lookupSql, conn);
+        cmd.Parameters.AddWithValue("@TokenHash", tokenHash);
+
+        long rowId;
+        int userId;
+        DateTime expiresUtc;
+        DateTime? usedUtc;
+
+        await using (var reader = await cmd.ExecuteReaderAsync())
         {
-          case 2: b64 += "=="; break;
-          case 3: b64 += "="; break;
+          if (!reader.Read())
+            return BadRequest(new { message = "Invalid reset token." });
+
+          rowId = reader.GetInt64("id");
+          userId = reader.GetInt32("user_id");
+          expiresUtc = reader.GetDateTime("expires_utc");
+          usedUtc = reader.IsDBNull(reader.GetOrdinal("used_utc")) ? null : reader.GetDateTime("used_utc");
         }
-        var combined = Convert.FromBase64String(b64);
-        var key = Convert.FromBase64String(keyBase64);
 
-        using var aes = System.Security.Cryptography.Aes.Create();
-        aes.Key = key;
-        aes.Mode = CipherMode.CBC;
-        var iv = new byte[16];
-        var cipher = new byte[combined.Length - 16];
-        Buffer.BlockCopy(combined, 0, iv, 0, 16);
-        Buffer.BlockCopy(combined, 16, cipher, 0, cipher.Length);
-        aes.IV = iv;
+        if (usedUtc.HasValue)
+          return BadRequest(new { message = "This reset link has already been used." });
 
-        using var decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
-        var plainBytes = decryptor.TransformFinalBlock(cipher, 0, cipher.Length);
-        var payload = Encoding.UTF8.GetString(plainBytes);
-
-        var parts = payload.Split('|');
-        if (parts.Length != 2 || !int.TryParse(parts[0], out userId))
-          return BadRequest(new { message = "Invalid reset token." });
-
-        if (!long.TryParse(parts[1], out var timestamp))
-          return BadRequest(new { message = "Invalid reset token." });
-
-        var tokenTime = DateTimeOffset.FromUnixTimeSeconds(timestamp);
-        if (DateTimeOffset.UtcNow - tokenTime > TimeSpan.FromHours(1))
+        if (DateTime.UtcNow > expiresUtc)
           return BadRequest(new { message = "This reset link has expired. Please request a new one." });
+
+        // Mark token as used (single-use)
+        const string markUsedSql = @"UPDATE maxhanna.password_reset_tokens
+          SET used_utc = UTC_TIMESTAMP() WHERE id = @Id";
+        await using (var markCmd = new MySqlCommand(markUsedSql, conn))
+        {
+          markCmd.Parameters.AddWithValue("@Id", rowId);
+          await markCmd.ExecuteNonQueryAsync();
+        }
+
+        var resetOk = await ResetPasswordInternal(userId);
+        if (!resetOk)
+          return StatusCode(500, new { message = "Failed to reset password." });
+
+        _ = _log.Db($"Password reset via email token for user {userId}.", userId, "USER", true);
+        return Ok(new { message = "Password has been reset successfully. You can now log in with a blank password and set a new one." });
       }
-      catch
+      catch (Exception ex)
       {
+        _ = _log.Db("ResetPasswordByEmail failed: " + ex.Message, null, "USER", true);
         return BadRequest(new { message = "Invalid or corrupted reset token." });
       }
-
-      var resetOk = await ResetPasswordInternal(userId);
-      if (!resetOk)
-        return StatusCode(500, new { message = "Failed to reset password." });
-
-      _ = _log.Db($"Password reset via email token for user {userId}.", userId, "USER", true);
-      return Ok(new { message = "Password has been reset successfully. You can now log in with a blank password and set a new one." });
     }
 
     [HttpPost("/User/CheckUserHasEmail", Name = "CheckUserHasEmail")]
