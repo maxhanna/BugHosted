@@ -209,7 +209,14 @@ export class FileComponent extends ChildComponent implements OnInit, OnDestroy {
       const userId = this.parentRef?.user?.id ?? 0;
       const res = await this.fileService.massDelete(userId, ids);
       this.parentRef?.showNotification(res ?? "Deleted selected items.");
-      try { await this.fileSearchComponent?.getDirectory(); } catch {}
+      try {
+        if (this.fileSearchComponent) {
+          this.fileSearchComponent.currentPage = 1;
+          await this.fileSearchComponent.getDirectory().then(() => {
+            this.fileSearchComponent.scrollToTop();
+          }); 
+        }
+      } catch {}
       this.cancelMassDelete();
     } catch (ex) { console.error(ex); this.parentRef?.showNotification("Mass delete failed."); }
     this.stopLoading();

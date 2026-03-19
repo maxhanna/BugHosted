@@ -3136,7 +3136,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
   
-  showSaveConfirmPanel(message?: string): Promise<'save' | 'dontSave' | 'cancel'> {
+  async showSaveConfirmPanel(message?: string): Promise<'save' | 'dontSave' | 'cancel'> {
     this.saveConfirmMessage = message || '';
     this.isSaveConfirmPanelOpen = true;
     this.parentRef?.showOverlay();
