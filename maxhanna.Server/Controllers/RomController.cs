@@ -301,9 +301,12 @@ namespace maxhanna.Server.Controllers
           await connection.OpenAsync();
 
           string sql = @"
-                INSERT INTO file_access (file_id, user_id)
-                VALUES (@FileId, @UserId)
-                ON DUPLICATE KEY UPDATE file_id = VALUES(file_id);
+                INSERT INTO file_access (file_id, user_id, last_access)
+                VALUES (@FileId, @UserId, UTC_TIMESTAMP())
+                ON DUPLICATE KEY UPDATE 
+                file_id = VALUES(file_id), 
+                last_access = VALUES(last_access),
+                access_count = access_count + 1;
             ";
 
           await using var command = new MySqlCommand(sql, connection);

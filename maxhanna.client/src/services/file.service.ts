@@ -4,6 +4,7 @@ import { Observable } from 'rxjs/internal/Observable';
 import { User } from './datacontracts/user/user';
 import { FileEntry } from './datacontracts/file/file-entry';
 import { Topic } from './datacontracts/topics/topic';
+import { FileAccessLog } from './datacontracts/file/file-access-log';
 
 @Injectable({
   providedIn: 'root'
@@ -396,7 +397,7 @@ export class FileService {
     }
   }
 
-  async getFileViewers(fileId: number) {
+  async getFileViewers(fileId: number): Promise<FileAccessLog[] | undefined> {
     try {
       const response = await fetch(`/file/getfileviewers`, {
         method: 'POST',
@@ -410,7 +411,7 @@ export class FileService {
         throw new Error(`Error: ${response.status} - ${response.statusText}`);
       }
 
-      return await response.json();
+      return await response.json() as FileAccessLog[];
     } catch (error) {
       throw error;
     }

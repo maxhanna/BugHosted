@@ -39,7 +39,7 @@ namespace maxhanna.Server.Controllers
       _config = config;
       _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
       FFmpeg.SetExecutablesPath("E:\\ffmpeg-latest-win64-static\\bin");
-    } 
+    }
 
     [HttpPost("/File/GetDirectory/", Name = "GetDirectory")]
     public async Task<DirectoryResults?> GetDirectory(
@@ -69,8 +69,8 @@ namespace maxhanna.Server.Controllers
         {
           directory += "/";
         }
-      } 
-      
+      }
+
       if (!ValidatePath(directory!))
       {
         _ = _log.Db($"Directory invalid : {directory}", null, "FILE", true);
@@ -110,7 +110,7 @@ namespace maxhanna.Server.Controllers
         string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
         // Hidden condition is pre-evaluated below after connection.Open() to avoid per-row subqueries
         string hiddenCondition = ""; // will be set after connection opens
-     
+
 
         string favouritesCondition = showFavouritesOnly
           ? " AND f.id IN (SELECT file_id FROM file_favourites WHERE user_id = @userId) "
@@ -157,7 +157,7 @@ namespace maxhanna.Server.Controllers
 
         }
         int offset = (page - 1) * pageSize;
-        
+
         using (var connection = new MySqlConnection(_connectionString))
         {
           connection.Open();
@@ -175,7 +175,8 @@ namespace maxhanna.Server.Controllers
                 "SELECT show_hidden_files FROM maxhanna.user_settings WHERE user_id = @uid LIMIT 1", connection);
               settingsCmd.Parameters.AddWithValue("@uid", user!.Id);
               var settingsResult = await settingsCmd.ExecuteScalarAsync();
-              if (settingsResult != null && settingsResult != DBNull.Value && Convert.ToInt32(settingsResult) == 1) {
+              if (settingsResult != null && settingsResult != DBNull.Value && Convert.ToInt32(settingsResult) == 1)
+              {
                 userWantsHidden = true;
               }
             }
@@ -218,22 +219,24 @@ namespace maxhanna.Server.Controllers
           countCmd.Parameters.AddWithValue("@userId", user?.Id ?? 0);
 
           // Add search parameters (e.g. @FullTextSearch)
-          foreach (var p in countParams) {
-              countCmd.Parameters.Add(p);
+          foreach (var p in countParams)
+          {
+            countCmd.Parameters.Add(p);
           }
           // fileId if applicable
-          if (fileId.HasValue) {
-              countCmd.Parameters.AddWithValue("@fileId", fileId.Value);
+          if (fileId.HasValue)
+          {
+            countCmd.Parameters.AddWithValue("@fileId", fileId.Value);
           }
           totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
 
           if (fileId.HasValue)
           {
-              page = 1;
-              offset = 0;
-              pageSize = 1;
+            page = 1;
+            offset = 0;
+            pageSize = 1;
           }
- 
+
 
           // When searching, prefer ordering by relevance (MATCH...AGAINST) so nearest matches appear first
           if (!string.IsNullOrWhiteSpace(search))
@@ -247,7 +250,8 @@ namespace maxhanna.Server.Controllers
             if (string.IsNullOrWhiteSpace(orderBy) && isRomSearch)
             {
               orderBy = "ORDER BY f.last_access DESC";
-            } else if (string.IsNullOrWhiteSpace(orderBy))
+            }
+            else if (string.IsNullOrWhiteSpace(orderBy))
             {
               orderBy = "ORDER BY date DESC";
             }
@@ -416,7 +420,7 @@ namespace maxhanna.Server.Controllers
                   ResetVotes = reader.IsDBNull("romResetVotes") ? (int?)0 : reader.GetInt32("romResetVotes"),
                   ActualSystem = reader.IsDBNull("romActualSystem") ? null : reader.GetString("romActualSystem"),
                 }
-                : null 
+                : null
               };
 
               fileEntries.Add(fileEntry);
@@ -537,18 +541,18 @@ namespace maxhanna.Server.Controllers
         return StatusCode(500, ex.Message);
       }
     }
-    
-private static void GetFileComments(
-    List<FileEntry> fileEntries,
-    MySqlConnection connection,
-    List<int> fileIds,
-    List<int> commentIds,
-    List<string> fileIdsParameters)
-{
-    if (!fileIdsParameters.Any())
+
+    private static void GetFileComments(
+        List<FileEntry> fileEntries,
+        MySqlConnection connection,
+        List<int> fileIds,
+        List<int> commentIds,
+        List<string> fileIdsParameters)
+    {
+      if (!fileIdsParameters.Any())
         return;
 
-    var commentsCommand = new MySqlCommand($@"
+      var commentsCommand = new MySqlCommand($@"
         WITH RECURSIVE comment_tree (id) AS (
             SELECT id
             FROM maxhanna.comments
@@ -636,18 +640,18 @@ private static void GetFileComments(
 
         WHERE fc.id IN (SELECT id FROM comment_tree);", connection);
 
-    for (int i = 0; i < fileIds.Count; i++)
-    {
+      for (int i = 0; i < fileIds.Count; i++)
+      {
         commentsCommand.Parameters.AddWithValue($"@fileId{i}", fileIds[i]);
-    }
+      }
 
-    using var reader = commentsCommand.ExecuteReader();
+      using var reader = commentsCommand.ExecuteReader();
 
-    Dictionary<int, FileComment> allCommentsById = new();
-    List<(FileComment comment, int parentId)> childComments = new();
+      Dictionary<int, FileComment> allCommentsById = new();
+      List<(FileComment comment, int parentId)> childComments = new();
 
-    while (reader.Read())
-    {
+      while (reader.Read())
+      {
         var commentId = reader.IsDBNull(reader.GetOrdinal("commentId")) ? 0 : reader.GetInt32("commentId");
         var fileIdValue = reader.IsDBNull(reader.GetOrdinal("commentFileId")) ? 0 : reader.GetInt32("commentFileId");
         var commentCity = reader.IsDBNull(reader.GetOrdinal("commentCity")) ? null : reader.GetString("commentCity");
@@ -684,122 +688,122 @@ private static void GetFileComments(
         FileComment? comment;
         if (!allCommentsById.TryGetValue(commentId, out comment))
         {
-            comment = new FileComment
-            {
-                Id = commentId,
-                FileId = fileIdValue,
-                CommentId = commentParentId,
-                User = new User(
-                  reader.GetInt32("commentUserId"),
-                  reader.GetString("commentUsername"),
-                  null,
-                  new FileEntry
-                  {
-                    Id = commentUserDisplayPicId ?? 0,
-                    FileName = commentUserDisplayPicFileName,
-                    GivenFileName = commentUserDisplayPicGivenFileName,
-                    Directory = commentUserDisplayPicFolderPath,
-                    Visibility = commentUserDisplayPicIsPublic.HasValue ? (commentUserDisplayPicIsPublic.Value ? "Public" : "Private") : null,
-                    FileType = commentUserDisplayPicType,
-                    FileSize = commentUserDisplayPicSize ?? 0,
-                    Width = commentUserDisplayPicWidth,
-                    Height = commentUserDisplayPicHeight,
-                    Date = commentUserDisplayPicUploadDate,
-                    LastUpdated = commentUserDisplayPicLastUpdated
-                  },
-                  new FileEntry
-                  {
-                    Id = commentUserProfileBackgroundFileId ?? (commentUserProfileBackgroundPicId ?? 0),
-                    FileName = commentUserProfileBackgroundFileName,
-                    GivenFileName = commentUserProfileBackgroundGivenFileName,
-                    Directory = commentUserProfileBackgroundFolderPath,
-                    Visibility = commentUserProfileBackgroundIsPublic.HasValue ? (commentUserProfileBackgroundIsPublic.Value ? "Public" : "Private") : null,
-                    FileType = commentUserProfileBackgroundFileType,
-                    FileSize = commentUserProfileBackgroundFileSize ?? 0,
-                    Width = commentUserProfileBackgroundWidth,
-                    Height = commentUserProfileBackgroundHeight,
-                    Date = commentUserProfileBackgroundUploadDate,
-                    LastUpdated = commentUserProfileBackgroundLastUpdated
-                  },
-                  null, null, null
-                ),
-                CommentText = reader.GetString("commentText"),
-                Date = reader.GetDateTime("commentDate"),
-                City = commentCity,
-                Country = commentCountry,
-                Ip = commentIp
-            };
-
-            allCommentsById[comment.Id] = comment;
-            commentIds.Add(commentId);
-
-            if (commentParentId.HasValue)
-            {
-                childComments.Add((comment, commentParentId.Value));
-            }
-
-            var fileEntryMatch = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
-            if (fileEntryMatch != null && !commentParentId.HasValue) // only add root comments to top-level collection
-            {
-                if (fileEntryMatch.FileComments == null)
+          comment = new FileComment
+          {
+            Id = commentId,
+            FileId = fileIdValue,
+            CommentId = commentParentId,
+            User = new User(
+                reader.GetInt32("commentUserId"),
+                reader.GetString("commentUsername"),
+                null,
+                new FileEntry
                 {
-                    fileEntryMatch.FileComments = new List<FileComment>();
-                }
-                fileEntryMatch.FileComments!.Add(comment);
+                  Id = commentUserDisplayPicId ?? 0,
+                  FileName = commentUserDisplayPicFileName,
+                  GivenFileName = commentUserDisplayPicGivenFileName,
+                  Directory = commentUserDisplayPicFolderPath,
+                  Visibility = commentUserDisplayPicIsPublic.HasValue ? (commentUserDisplayPicIsPublic.Value ? "Public" : "Private") : null,
+                  FileType = commentUserDisplayPicType,
+                  FileSize = commentUserDisplayPicSize ?? 0,
+                  Width = commentUserDisplayPicWidth,
+                  Height = commentUserDisplayPicHeight,
+                  Date = commentUserDisplayPicUploadDate,
+                  LastUpdated = commentUserDisplayPicLastUpdated
+                },
+                new FileEntry
+                {
+                  Id = commentUserProfileBackgroundFileId ?? (commentUserProfileBackgroundPicId ?? 0),
+                  FileName = commentUserProfileBackgroundFileName,
+                  GivenFileName = commentUserProfileBackgroundGivenFileName,
+                  Directory = commentUserProfileBackgroundFolderPath,
+                  Visibility = commentUserProfileBackgroundIsPublic.HasValue ? (commentUserProfileBackgroundIsPublic.Value ? "Public" : "Private") : null,
+                  FileType = commentUserProfileBackgroundFileType,
+                  FileSize = commentUserProfileBackgroundFileSize ?? 0,
+                  Width = commentUserProfileBackgroundWidth,
+                  Height = commentUserProfileBackgroundHeight,
+                  Date = commentUserProfileBackgroundUploadDate,
+                  LastUpdated = commentUserProfileBackgroundLastUpdated
+                },
+                null, null, null
+              ),
+            CommentText = reader.GetString("commentText"),
+            Date = reader.GetDateTime("commentDate"),
+            City = commentCity,
+            Country = commentCountry,
+            Ip = commentIp
+          };
+
+          allCommentsById[comment.Id] = comment;
+          commentIds.Add(commentId);
+
+          if (commentParentId.HasValue)
+          {
+            childComments.Add((comment, commentParentId.Value));
+          }
+
+          var fileEntryMatch = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
+          if (fileEntryMatch != null && !commentParentId.HasValue) // only add root comments to top-level collection
+          {
+            if (fileEntryMatch.FileComments == null)
+            {
+              fileEntryMatch.FileComments = new List<FileComment>();
             }
+            fileEntryMatch.FileComments!.Add(comment);
+          }
         }
 
         var fileEntryId = reader.IsDBNull(reader.GetOrdinal("commentFileEntryId")) ? (int?)null : reader.GetInt32("commentFileEntryId");
 
         if (fileEntryId.HasValue)
         {
-            var fileEntry = new FileEntry
-            {
-                Id = fileEntryId.Value,
-                FileName = reader.IsDBNull(reader.GetOrdinal("commentFileEntryName")) ? null : reader.GetString("commentFileEntryName"),
-                GivenFileName = reader.IsDBNull(reader.GetOrdinal("commentFileEntryGivenFileName"))
-                    ? (reader.IsDBNull(reader.GetOrdinal("commentFileEntryName")) ? null : reader.GetString("commentFileEntryName"))
-                    : reader.GetString("commentFileEntryGivenFileName"),
-                Description = reader.IsDBNull(reader.GetOrdinal("commentFileEntryDescription")) ? null : reader.GetString("commentFileEntryDescription"),
-                Directory = reader.IsDBNull(reader.GetOrdinal("commentFileEntryFolderPath")) ? null : reader.GetString("commentFileEntryFolderPath"),
-                Visibility = (reader.IsDBNull(reader.GetOrdinal("commentFileEntryIsPublic")) ? true : reader.GetBoolean("commentFileEntryIsPublic")) ? "Public" : "Private",
-                IsFolder = reader.IsDBNull(reader.GetOrdinal("commentFileEntryIsFolder")) ? false : reader.GetBoolean("commentFileEntryIsFolder"),
-                User = new User(
-                    reader.IsDBNull(reader.GetOrdinal("commentFileEntryUserId")) ? 0 : reader.GetInt32("commentFileEntryUserId"),
-                    reader.IsDBNull(reader.GetOrdinal("commentFileEntryUserName")) ? "" : reader.GetString("commentFileEntryUserName")
-                ),
-                Date = reader.IsDBNull(reader.GetOrdinal("commentFileEntryDate")) ? DateTime.Now : reader.GetDateTime("commentFileEntryDate"),
-                LastUpdated = reader.IsDBNull(reader.GetOrdinal("commentFileEntryLastUpdated")) ? (DateTime?)null : reader.GetDateTime("commentFileEntryLastUpdated"),
-                LastUpdatedUserId = reader.IsDBNull(reader.GetOrdinal("commentFileEntryLastUpdatedByUserId")) ? 0 : reader.GetInt32("commentFileEntryLastUpdatedByUserId"),
-                FileType = reader.IsDBNull(reader.GetOrdinal("commentFileEntryType")) ? null : reader.GetString("commentFileEntryType"),
-                FileSize = reader.IsDBNull(reader.GetOrdinal("commentFileEntrySize")) ? 0 : reader.GetInt32("commentFileEntrySize"),
-                Width = reader.IsDBNull(reader.GetOrdinal("commentFileEntryWidth")) ? (int?)null : reader.GetInt32("commentFileEntryWidth"),
-                Height = reader.IsDBNull(reader.GetOrdinal("commentFileEntryHeight")) ? (int?)null : reader.GetInt32("commentFileEntryHeight"),
-                Duration = reader.IsDBNull(reader.GetOrdinal("commentFileEntryDuration")) ? (int?)null : reader.GetInt32("commentFileEntryDuration"),
-                LastAccess = reader.IsDBNull(reader.GetOrdinal("commentFileEntryLastAccess")) ? (DateTime?)null : reader.GetDateTime("commentFileEntryLastAccess"),
-                AccessCount = reader.IsDBNull(reader.GetOrdinal("commentFileEntryAccessCount")) ? 0 : reader.GetInt32("commentFileEntryAccessCount"),
-                FavouriteCount = reader.IsDBNull(reader.GetOrdinal("commentFileEntryFavouriteCount")) ? 0 : reader.GetInt32("commentFileEntryFavouriteCount"),
-                IsFavourited = reader.IsDBNull(reader.GetOrdinal("commentFileEntryIsFavourited")) ? false : reader.GetBoolean("commentFileEntryIsFavourited"),
-            };
+          var fileEntry = new FileEntry
+          {
+            Id = fileEntryId.Value,
+            FileName = reader.IsDBNull(reader.GetOrdinal("commentFileEntryName")) ? null : reader.GetString("commentFileEntryName"),
+            GivenFileName = reader.IsDBNull(reader.GetOrdinal("commentFileEntryGivenFileName"))
+                  ? (reader.IsDBNull(reader.GetOrdinal("commentFileEntryName")) ? null : reader.GetString("commentFileEntryName"))
+                  : reader.GetString("commentFileEntryGivenFileName"),
+            Description = reader.IsDBNull(reader.GetOrdinal("commentFileEntryDescription")) ? null : reader.GetString("commentFileEntryDescription"),
+            Directory = reader.IsDBNull(reader.GetOrdinal("commentFileEntryFolderPath")) ? null : reader.GetString("commentFileEntryFolderPath"),
+            Visibility = (reader.IsDBNull(reader.GetOrdinal("commentFileEntryIsPublic")) ? true : reader.GetBoolean("commentFileEntryIsPublic")) ? "Public" : "Private",
+            IsFolder = reader.IsDBNull(reader.GetOrdinal("commentFileEntryIsFolder")) ? false : reader.GetBoolean("commentFileEntryIsFolder"),
+            User = new User(
+                  reader.IsDBNull(reader.GetOrdinal("commentFileEntryUserId")) ? 0 : reader.GetInt32("commentFileEntryUserId"),
+                  reader.IsDBNull(reader.GetOrdinal("commentFileEntryUserName")) ? "" : reader.GetString("commentFileEntryUserName")
+              ),
+            Date = reader.IsDBNull(reader.GetOrdinal("commentFileEntryDate")) ? DateTime.Now : reader.GetDateTime("commentFileEntryDate"),
+            LastUpdated = reader.IsDBNull(reader.GetOrdinal("commentFileEntryLastUpdated")) ? (DateTime?)null : reader.GetDateTime("commentFileEntryLastUpdated"),
+            LastUpdatedUserId = reader.IsDBNull(reader.GetOrdinal("commentFileEntryLastUpdatedByUserId")) ? 0 : reader.GetInt32("commentFileEntryLastUpdatedByUserId"),
+            FileType = reader.IsDBNull(reader.GetOrdinal("commentFileEntryType")) ? null : reader.GetString("commentFileEntryType"),
+            FileSize = reader.IsDBNull(reader.GetOrdinal("commentFileEntrySize")) ? 0 : reader.GetInt32("commentFileEntrySize"),
+            Width = reader.IsDBNull(reader.GetOrdinal("commentFileEntryWidth")) ? (int?)null : reader.GetInt32("commentFileEntryWidth"),
+            Height = reader.IsDBNull(reader.GetOrdinal("commentFileEntryHeight")) ? (int?)null : reader.GetInt32("commentFileEntryHeight"),
+            Duration = reader.IsDBNull(reader.GetOrdinal("commentFileEntryDuration")) ? (int?)null : reader.GetInt32("commentFileEntryDuration"),
+            LastAccess = reader.IsDBNull(reader.GetOrdinal("commentFileEntryLastAccess")) ? (DateTime?)null : reader.GetDateTime("commentFileEntryLastAccess"),
+            AccessCount = reader.IsDBNull(reader.GetOrdinal("commentFileEntryAccessCount")) ? 0 : reader.GetInt32("commentFileEntryAccessCount"),
+            FavouriteCount = reader.IsDBNull(reader.GetOrdinal("commentFileEntryFavouriteCount")) ? 0 : reader.GetInt32("commentFileEntryFavouriteCount"),
+            IsFavourited = reader.IsDBNull(reader.GetOrdinal("commentFileEntryIsFavourited")) ? false : reader.GetBoolean("commentFileEntryIsFavourited"),
+          };
 
-            comment.CommentFiles ??= new List<FileEntry>();
-            comment.CommentFiles.Add(fileEntry);
+          comment.CommentFiles ??= new List<FileEntry>();
+          comment.CommentFiles.Add(fileEntry);
         }
-    }
+      }
 
-    // Second pass: assign child comments to their parent
-    foreach (var (comment, parentId) in childComments)
-    {
+      // Second pass: assign child comments to their parent
+      foreach (var (comment, parentId) in childComments)
+      {
         if (allCommentsById.TryGetValue(parentId, out var parent))
         {
-            parent.Comments ??= new List<FileComment>();
-            if (!parent.Comments.Any(c => c.Id == comment.Id))
-            {
-                parent.Comments.Add(comment);
-            }
+          parent.Comments ??= new List<FileComment>();
+          if (!parent.Comments.Any(c => c.Id == comment.Id))
+          {
+            parent.Comments.Add(comment);
+          }
         }
+      }
     }
-} 
 
     private static void GetFileTopics(List<FileEntry> fileEntries, MySqlConnection connection, List<int> fileIds)
     {
@@ -855,7 +859,7 @@ private static void GetFileComments(
     {
       //_ = _log.Db("Getting reactions");
       // Fetch reactions separately
-        var reactionsCommand = new MySqlCommand($@"
+      var reactionsCommand = new MySqlCommand($@"
                 SELECT
                   r.id AS reaction_id,
                   r.file_id AS reactionFileId,
@@ -904,7 +908,7 @@ private static void GetFileComments(
                 WHERE 1=1
                 {(fileIds.Count > 0 ? "AND r.file_id IN (" + string.Join(", ", fileIdsParameters) + ')' : string.Empty)} 
                 {(commentIds.Count > 0 ? " OR r.comment_id IN (" + string.Join(", ", commentIdsParameters) + ')' : string.Empty)};"
-        , connection);
+      , connection);
 
       for (int i = 0; i < commentIds.Count; i++)
       {
@@ -1300,65 +1304,66 @@ private static void GetFileComments(
     }
 
 
-private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user, int? fileId = null, MySqlConnection? existingConnection = null, bool? precomputedNsfw = null) {
-    string where = "";
-    var parameters = new List<MySqlParameter>(); 
-
-    // NSFW FILTER
-    bool showNsfw = precomputedNsfw ?? await GetNsfwForUser(user);
-    if (!fileId.HasValue && !showNsfw)
+    private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user, int? fileId = null, MySqlConnection? existingConnection = null, bool? precomputedNsfw = null)
     {
+      string where = "";
+      var parameters = new List<MySqlParameter>();
+
+      // NSFW FILTER
+      bool showNsfw = precomputedNsfw ?? await GetNsfwForUser(user);
+      if (!fileId.HasValue && !showNsfw)
+      {
         where += @"
             AND NOT EXISTS (
                 SELECT 1 FROM maxhanna.file_topics ft
                 JOIN maxhanna.topics t ON t.id = ft.topic_id
                 WHERE t.topic = 'NSFW' AND ft.file_id = f.id
             )";
-    }
+      }
 
-    // ------------------------------------------------------
-    // USER BLOCK FILTER
-    // ------------------------------------------------------
-    if (user != null)
-    {
+      // ------------------------------------------------------
+      // USER BLOCK FILTER
+      // ------------------------------------------------------
+      if (user != null)
+      {
         where += $@"
             AND NOT EXISTS (
                 SELECT 1 FROM user_blocks ub
                 WHERE (ub.user_id = {user.Id} AND ub.blocked_user_id = f.user_id)
                 OR    (ub.user_id = f.user_id AND ub.blocked_user_id = {user.Id})
             )";
-    }
+      }
 
-    // ------------------------------------------------------
-    // NO SEARCH — return basic filters only
-    // ------------------------------------------------------
-    if (string.IsNullOrWhiteSpace(search))
+      // ------------------------------------------------------
+      // NO SEARCH — return basic filters only
+      // ------------------------------------------------------
+      if (string.IsNullOrWhiteSpace(search))
         return (where, parameters);
 
-    // ------------------------------------------------------
-    // DETERMINE IF MATCH() SHOULD BE USED
-    // ------------------------------------------------------
-    bool hasFulltextHits = false;
+      // ------------------------------------------------------
+      // DETERMINE IF MATCH() SHOULD BE USED
+      // ------------------------------------------------------
+      bool hasFulltextHits = false;
 
-    try
-    {
+      try
+      {
         // Reuse existing connection if available to avoid connection-open overhead
         bool disposeConn = false;
         MySqlConnection conn;
         if (existingConnection != null && existingConnection.State == System.Data.ConnectionState.Open)
         {
-            conn = existingConnection;
+          conn = existingConnection;
         }
         else
         {
-            conn = new MySqlConnection(_connectionString);
-            await conn.OpenAsync();
-            disposeConn = true;
+          conn = new MySqlConnection(_connectionString);
+          await conn.OpenAsync();
+          disposeConn = true;
         }
         try
         {
-            // Use EXISTS + LIMIT 1 instead of COUNT(*) — stops at first match
-            using var test = new MySqlCommand(@"
+          // Use EXISTS + LIMIT 1 instead of COUNT(*) — stops at first match
+          using var test = new MySqlCommand(@"
                 SELECT EXISTS(
                     SELECT 1 FROM maxhanna.file_uploads
                     WHERE MATCH(file_name, description, given_file_name)
@@ -1367,35 +1372,35 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
                 )
             ", conn);
 
-            test.Parameters.AddWithValue("@FT", search);
+          test.Parameters.AddWithValue("@FT", search);
 
-            var result = await test.ExecuteScalarAsync();
-            hasFulltextHits = Convert.ToInt64(result ?? 0) > 0;
+          var result = await test.ExecuteScalarAsync();
+          hasFulltextHits = Convert.ToInt64(result ?? 0) > 0;
         }
         finally
         {
-            if (disposeConn) conn.Dispose();
+          if (disposeConn) conn.Dispose();
         }
-    }
-    catch
-    {
+      }
+      catch
+      {
         hasFulltextHits = false;
-    }
+      }
 
-    // Bind FullTextSearch parameter (used by idQuery + main SELECT)
-    parameters.Add(new MySqlParameter("@FullTextSearch", search.ToLower()));
+      // Bind FullTextSearch parameter (used by idQuery + main SELECT)
+      parameters.Add(new MySqlParameter("@FullTextSearch", search.ToLower()));
 
-    // ------------------------------------------------------
-    // BUILD SEARCH CLAUSE
-    // ------------------------------------------------------
-    if (hasFulltextHits)
-    {
+      // ------------------------------------------------------
+      // BUILD SEARCH CLAUSE
+      // ------------------------------------------------------
+      if (hasFulltextHits)
+      {
         where += @"
             AND MATCH(f.file_name, f.description, f.given_file_name)
                 AGAINST (@FullTextSearch IN NATURAL LANGUAGE MODE)";
-    }
-    else
-    {
+      }
+      else
+      {
         where += @"
             AND (
                 LOWER(f.file_name) LIKE CONCAT('%', @FullTextSearch, '%')
@@ -1408,20 +1413,20 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
                     WHERE LOWER(t.topic) LIKE CONCAT('%', @FullTextSearch, '%')
                 )
             )";
-    }
+      }
 
-    // ------------------------------------------------------
-    // ROM SPECIAL-CASE SEARCHES
-    // ------------------------------------------------------
-    string s = search.ToLower();
-    if (s.Contains("sega"))
+      // ------------------------------------------------------
+      // ROM SPECIAL-CASE SEARCHES
+      // ------------------------------------------------------
+      string s = search.ToLower();
+      if (s.Contains("sega"))
         where += " AND f.file_name LIKE '%.md'";
-    else if (s.Contains("nintendo"))
+      else if (s.Contains("nintendo"))
         where += " AND f.file_name LIKE '%.nes'";
-    else if (s.Contains("gameboy"))
+      else if (s.Contains("gameboy"))
         where += " AND (f.file_name LIKE '%.gbc' OR f.file_name LIKE '%.gba')";
-    return (where, parameters);
-} 
+      return (where, parameters);
+    }
 
 
     [HttpPost("/File/UpdateFileData", Name = "UpdateFileData")]
@@ -1556,21 +1561,24 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
               {
                 Console.WriteLine("No records updated in file_uploads - file not registered?");
               }
- 
+
               var insertCmd = new MySqlCommand(@"
-                INSERT INTO file_access (file_id, user_id)
-                SELECT id, @UserId 
+                INSERT INTO file_access (file_id, user_id, last_access)
+                SELECT id, @UserId, UTC_TIMESTAMP()
                 FROM file_uploads 
                 WHERE file_name = @FileName 
                 AND folder_path = @FolderPath
-                ON DUPLICATE KEY UPDATE file_id = VALUES(file_id)",
+                ON DUPLICATE KEY UPDATE 
+                file_id = VALUES(file_id),
+                last_access = VALUES(last_access),
+                access_count = access_count + 1;",
                 connection, transaction);
 
               insertCmd.Parameters.AddWithValue("@FileName", fileName);
               insertCmd.Parameters.AddWithValue("@FolderPath", folderPath);
               insertCmd.Parameters.AddWithValue("@UserId", userId ?? 0);
 
-              int rowsInserted = await insertCmd.ExecuteNonQueryAsync(); 
+              int rowsInserted = await insertCmd.ExecuteNonQueryAsync();
 
               await transaction.CommitAsync();
             }
@@ -1667,16 +1675,19 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
 
                 // Record user access if userId is provided 
                 var accessCommand = new MySqlCommand(@"
-                  INSERT INTO maxhanna.file_access (file_id, user_id)
-                  VALUES (@fileId, @userId)
-                  ON DUPLICATE KEY UPDATE file_id = @fileId",
+                  INSERT INTO maxhanna.file_access (file_id, user_id, last_access)
+                  VALUES (@fileId, @userId, UTC_TIMESTAMP())
+                  ON DUPLICATE KEY UPDATE 
+                  file_id = @fileId, 
+                  last_access = UTC_TIMESTAMP(), 
+                  access_count = access_count + 1;",
                   connection, transaction);
 
                 accessCommand.Parameters.AddWithValue("@fileId", fileId);
                 accessCommand.Parameters.AddWithValue("@userId", userId ?? 0);
 
                 await accessCommand.ExecuteNonQueryAsync();
-                 
+
 
                 // Commit transaction if everything succeeded
                 await transaction.CommitAsync();
@@ -1739,9 +1750,12 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
 
             // Record per-user access if provided 
             var insertCmd = new MySqlCommand(@"
-              INSERT INTO maxhanna.file_access (file_id, user_id)
-              VALUES (@fileId, @userId)
-              ON DUPLICATE KEY UPDATE file_id = VALUES(file_id);", connection, transaction);
+              INSERT INTO maxhanna.file_access (file_id, user_id, last_access)
+              VALUES (@fileId, @userId, UTC_TIMESTAMP())
+              ON DUPLICATE KEY UPDATE 
+              file_id = VALUES(file_id), 
+              last_access = VALUES(last_access),
+              access_count = access_count + 1;", connection, transaction);
 
             insertCmd.Parameters.AddWithValue("@fileId", request.FileId);
             insertCmd.Parameters.AddWithValue("@userId", request.UserId ?? 0);
@@ -1930,7 +1944,7 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
     [HttpPost("/File/GetFileViewers", Name = "GetFileViewers")]
     public async Task<IActionResult> GetFileViewers([FromBody] int fileId)
     {
-      List<User> users = new List<User>();
+      List<FileAccessLog> accesses = new List<FileAccessLog>();
       try
       {
         using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -1939,7 +1953,13 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
 
           // Query to get the latest meme ID
           string query = @"
-						SELECT fa.user_id, u.username, udp.file_id as display_picture_id, udp.tag_background_file_id as background_picture_id
+						SELECT 
+              fa.user_id, 
+              fa.last_access,
+              fa.access_count,
+              u.username, 
+              udp.file_id as display_picture_id, 
+              udp.tag_background_file_id as background_picture_id,
 						FROM file_access AS fa
 						LEFT JOIN users AS u ON u.id = fa.user_id
 						LEFT JOIN user_display_pictures AS udp ON udp.user_id = fa.user_id
@@ -1952,13 +1972,18 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
             {
               while (await reader.ReadAsync())
               {
-                users.Add(new User
-                {
-                  Id = reader.GetInt32("user_id"),
-                  Username = reader.GetString("username"),
-                  DisplayPictureFile = reader.IsDBNull("display_picture_id") ? null : new FileEntry(reader.GetInt32("display_picture_id")),
-                  ProfileBackgroundPictureFile = reader.IsDBNull("background_picture_id") ? null : new FileEntry(reader.GetInt32("background_picture_id"))
-                });
+                accesses.Add(new FileAccessLog(
+                  FileId: fileId,
+                  LastAccess: reader.IsDBNull(reader.GetOrdinal("last_access")) ? (DateTime?)null : reader.GetDateTime("last_access"),
+                  AccessCount: reader.IsDBNull(reader.GetOrdinal("access_count")) ? (int?)null : reader.GetInt32("access_count"),
+                  User: new User
+                  {
+                    Id = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id"),
+                    Username = reader.IsDBNull(reader.GetOrdinal("username")) ? "" : reader.GetString("username"),
+                    DisplayPictureFile = reader.IsDBNull(reader.GetOrdinal("display_picture_id")) ? null : new FileEntry(reader.GetInt32("display_picture_id")),
+                    ProfileBackgroundPictureFile = reader.IsDBNull(reader.GetOrdinal("background_picture_id")) ? null : new FileEntry(reader.GetInt32("background_picture_id"))
+                  }
+                ));
               }
             }
           }
@@ -1969,7 +1994,7 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
         _ = _log.Db($"An error occurred while getting file viewers for FileID {fileId}: {ex.Message}", 0, "FILE", true);
         return StatusCode(500, "An error occurred while getting file viewers for FileID {fileId}");
       }
-      return Ok(users);
+      return Ok(accesses);
     }
 
     [HttpPost("/File/Upload", Name = "Upload")]
@@ -2787,7 +2812,7 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
           SELECT LAST_INSERT_ID();", connection);
 
         command.Parameters.AddWithValue("@user_id", userId);
-        command.Parameters.AddWithValue("@fileName", fileName); 
+        command.Parameters.AddWithValue("@fileName", fileName);
         command.Parameters.AddWithValue("@folderPath", uploadDirectory ?? "");
         command.Parameters.AddWithValue("@isPublic", isPublic);
         command.Parameters.AddWithValue("@width", width);
@@ -3517,7 +3542,7 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
         return StatusCode(500, "An error occurred while toggling favorite.");
       }
     }
- 
+
     private static FileComment? FindCommentInFileEntries(List<FileEntry> fileEntries, int commentId)
     {
       foreach (var fe in fileEntries)
@@ -3913,5 +3938,21 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
           return "application/octet-stream";
       }
     }
+  }
+}
+
+public class FileAccessLog
+{
+  public int FileId { get; set; }
+  public DateTime? LastAccess { get; set; }
+  public int? AccessCount { get; set; }
+  public User User { get; set; }
+
+  public FileAccessLog(int FileId, DateTime? LastAccess, int? AccessCount, User User)
+  {
+    this.FileId = FileId;
+    this.LastAccess = LastAccess;
+    this.AccessCount = AccessCount;
+    this.User = User;
   }
 }

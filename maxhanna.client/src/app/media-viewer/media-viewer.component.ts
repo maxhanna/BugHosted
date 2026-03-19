@@ -9,6 +9,7 @@ import { Topic } from '../../services/datacontracts/topics/topic';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
 import { TopicsComponent } from '../topics/topics.component';
+import { FileAccessLog } from '../../services/datacontracts/file/file-access-log';
 
 
 @Component({
@@ -24,7 +25,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.selectedFile = this.file;
     }
   }
-  fileViewers?: User[] | undefined;
+  fileViewers?: FileAccessLog[] | undefined;
   fileFavouriters?: User[] | undefined;
   selectedFileExtension?: string = undefined;
   selectedFileSrc?: string = undefined;

@@ -17,6 +17,7 @@ import { TodoService } from '../../services/todo.service';
 import { RomService } from '../../services/rom.service';
 import { RatingsService } from '../../services/ratings.service';
 import e from 'express';
+import { FileAccessLog } from '../../services/datacontracts/file/file-access-log';
 
 @Component({
   selector: 'app-file-search',
@@ -85,7 +86,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   isVisibilityDropdownOpen = false;
   visibilityDropdownFile: FileEntry | null = null;
   showCommentsInOpenedFiles: number[] = [];
-  fileViewers?: User[] | undefined;
+  fileViewers?: FileAccessLog[] | undefined;
   fileFavouriters?: User[] | undefined;
   optionsFile: FileEntry | undefined;
   directory?: DirectoryResults;
