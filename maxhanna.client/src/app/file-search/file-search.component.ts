@@ -114,10 +114,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   activeRomSystems: string[] = [];
   loadingSearch = false;
   showMetadataInOptionsPanel = true;
-  wasOptionsPanelOpen = false;
   isFirstLoad = true;
   pageLocked = false;
-  private _componentMainPrevStyle: string | null = null;
   private _savedDirectoryBeforeFileIdSearch: string | null = null;
   private windowScrollHandler: Function;
   private containerScrollHandler: Function;
@@ -1002,7 +1000,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     // If we're rendering the metadata inline on desktop, don't show the global overlay.
     if (parent) {
       this.isOptionsPanelOpen = true;
-      this.wasOptionsPanelOpen = true;
       parent.showOverlay();
     }
   }
@@ -2110,30 +2107,21 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   openImagePreview(url?: string, ev?: Event) {
     if (ev) ev.preventDefault();
     if (!url) return;
-    const tmpWasOpen = this.wasOptionsPanelOpen;
     if (this.isOptionsPanelOpen) {
-      this.closeOptionsPanel(false);
+      this.closeOptionsPanel();
     }
-    this.wasOptionsPanelOpen = tmpWasOpen;
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.showOverlay();
-    this.imagePreviewUrl = url;
-    this.isShowingImagePreview = true;
+    setTimeout(() => {
+      this.parentRef?.showOverlay();
+      this.imagePreviewUrl = url;
+      this.isShowingImagePreview = true;
+    }, 50);
     this.changeDetectorRef.detectChanges();
   }
 
   closeImagePreview() {
     this.isShowingImagePreview = false;
     this.imagePreviewUrl = null;
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.closeOverlay();
-    if (this.wasOptionsPanelOpen && this.optionsFile) {
-      setTimeout(() => {
-        if (this.optionsFile) {
-          this.showOptionsPanel(this.optionsFile);
-        }
-      }, 200);
-    }
+    this.parentRef?.closeOverlay();
   }
 }
 

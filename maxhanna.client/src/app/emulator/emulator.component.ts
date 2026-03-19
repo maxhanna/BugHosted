@@ -168,9 +168,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     const result = await this.showSaveConfirmPanel('Do you want to save your progress before closing?');
     if (result === 'cancel') {
+      console.log("cancel pressed");
       return;
     }
     if (result === 'dontSave') {
+      console.log("dontsave pressed");
       if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
         this.fullReloadToEmulator();
       } else {
