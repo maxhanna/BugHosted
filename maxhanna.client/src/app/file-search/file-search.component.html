@@ -347,10 +347,14 @@
         [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata?.actualSystem)">
       </span>
     </button>
+    <app-share-button *ngIf="optionsFile.visibility?.toLowerCase() !== 'private'"
+      [link]="shareLink"
+      [isExternalLink]="currentDirectory === '/Roms'"></app-share-button>
     <button title="Share File"
+      *ngIf="optionsFile.visibility?.toLowerCase() === 'private'"
       [disabled]="isLoading"
-      (click)="(optionsFile.visibility?.toLowerCase() == 'private' ? shareFileInitiate(optionsFile) : shareLink(optionsFile));">
-      ↗️Share {{optionsFile.visibility?.toLowerCase() == 'private' ? 'with Users' : 'Link'}}
+      (click)="shareFileInitiate(optionsFile);">
+      ↗️Share with Users
     </button>
     <button title="Download File" 
       (click)="download(optionsFile, true);" 

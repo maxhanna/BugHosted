@@ -1139,18 +1139,19 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (!this.openedFiles.includes(file.id)) {
       this.openedFiles.push(file.id);
     }
-  }
-  shareLink(fileEntry: FileEntry) {
-    const link = `https://bughosted.com/${fileEntry.directory?.includes("Meme") ? 'Memes' : 'File'}/${fileEntry.id}`;
-    try {
-      navigator.clipboard.writeText(link);
-      this.emittedNotification(`${link} copied to clipboard!`);
-    } catch {
-      this.emittedNotification("Error: Unable to share link!");
-      console.log("Error: Unable to share link!");
+  } 
+  get shareLink(): string {
+    const fileEntry = this.optionsFile;
+    if (!fileEntry) return '';
+    if (this.currentDirectory === '/Roms') {
+      const reloadParams: Record<string, string> = {};
+      reloadParams['romname'] = fileEntry.fileName ?? "";
+      reloadParams['romId'] = String(fileEntry.id);
+      reloadParams['skipSaveFile'] = "false";
+      return `https://bughosted.com/Emulator?${new URLSearchParams(reloadParams).toString()}`;
     }
-    this.closeOptionsPanel();
-  }
+    return `https://bughosted.com/${fileEntry.directory?.includes("Meme") ? 'Memes' : 'File'}/${fileEntry.id}`;
+  } 
   openSearchPanel() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
