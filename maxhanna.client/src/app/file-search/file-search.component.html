@@ -351,7 +351,6 @@
       [link]="shareLink"
       [isExternalLink]="currentDirectory === '/Roms'"></app-share-button>
     <app-share-button *ngIf="optionsFile.visibility?.toLowerCase() === 'private'"
-      [link]=""
       [isExternalLink]="false"
       [text]="'↗️Share with Users'"
       [callback]="shareFileInitiate(optionsFile)"></app-share-button>
