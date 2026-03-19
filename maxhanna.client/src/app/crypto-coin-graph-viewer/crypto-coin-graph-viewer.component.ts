@@ -42,11 +42,8 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
     is_reserved: boolean | undefined,
   }[] = undefined;
   tradebotTradeValuesForMainGraph: { timestamp: string | Date; priceCAD: number; tradeValueCAD: number; type: string }[] = [];
-  private pollingInterval: any;
   private timeouts: any[] = [];
   private destroyed = false;
-  timeLeft = 120;
-  defaultTimeLeft = 120;
 
   ngOnInit() {
   }
@@ -54,25 +51,11 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
   ngOnChanges(changes: SimpleChanges) {
     if (changes['currentSelectedCoin'] && changes['currentSelectedCoin'].currentValue !== changes['currentSelectedCoin'].previousValue) {
       this.changeTimePeriodEventOnBTCHistoricalGraph(this.lineGraphInitialPeriod);
-    }
-
-    // Pause/resume polling when parent toggles isPaused
-    if (changes['isPaused'] && changes['isPaused'].currentValue !== changes['isPaused'].previousValue) {
-      if (changes['isPaused'].currentValue === true) {
-        this.stopPolling();
-      } else {
-        // resume polling only if current period is short (<=24h) where polling is desired
-        const hours = this.tradeService.convertTimePeriodToHours(this.lineGraphInitialPeriod);
-        if (hours <= 24) {
-          this.startPolling();
-        }
-      }
-    }
+    } 
   }
 
   ngOnDestroy(): void {
-    this.destroyed = true;
-    this.stopPolling();
+    this.destroyed = true; 
     this.timeouts.forEach(t => clearTimeout(t));
     this.timeouts = [];
   }
@@ -84,8 +67,7 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
   }
 
   async changeTimePeriodEventOnBTCHistoricalGraph(periodSelected: string) {
-    this.startLoading();
-    this.stopPolling();
+    this.startLoading(); 
     this.lineGraphInitialPeriod = periodSelected as "5min" | "15min" | "1h" | "6h" | "12h" | "1d" | "2d" | "5d" | "1m" | "2m" | "3m" | "6m" | "1y" | "2y" | "3y" | "5y" | "max";
     const hours = this.tradeService.convertTimePeriodToHours(periodSelected);
     const session = await this.inputtedParentRef.getSessionToken();
@@ -100,12 +82,7 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
             console.warn(`Invalid valueCAD for BTC: ${x.valueCAD}`);
             x.valueCAD = 0;
           }
-        });
-        if (hours <= 24) {
-          this.startPolling();
-        } else {
-          this.timeLeft = 999;
-        }
+        }); 
       }
       this.safeDetectChanges();
     });
@@ -187,26 +164,7 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
       this.safeDetectChanges();
     }, 50);
   }
-  startPolling() {
-    // Do not start polling if the component is paused or already polling
-    if (this.isPaused) return;
-    if (this.pollingInterval) return;
-    if (this.destroyed) return;
-
-    this.timeLeft = this.defaultTimeLeft;
-    this.pollingInterval = setInterval(async () => {
-      if (this.isPaused) return; // skip ticks while paused
-      this.timeLeft--;
-      if (this.timeLeft == 0) {
-        this.timeLeft = this.defaultTimeLeft;
-        this.changeTimePeriodEventOnBTCHistoricalGraph(this.lineGraphComponent.selectedPeriod);
-      } else {
-        this.safeDetectChanges();
-      }
-    }, 1000 * 1);
-  }
-  stopPolling() {
-    clearInterval(this.pollingInterval);
-    this.pollingInterval = undefined;
+  fetchData() {
+    this.changeTimePeriodEventOnBTCHistoricalGraph(this.lineGraphComponent.selectedPeriod);
   }
 }

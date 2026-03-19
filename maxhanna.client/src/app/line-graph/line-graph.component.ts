@@ -45,7 +45,7 @@ export class LineGraphComponent implements OnInit, OnChanges, AfterViewInit, OnD
   @Output() changeTimePeriodEvent = new EventEmitter<any>();
   @Input() isDotModeData1 = false;
   @Input() isDotModeData2 = false;
-  @Input() timeLeft?: number;
+  @Output() onRefreshEvent = new EventEmitter<void>();
 
   lineChartData: any[] = [];
   lineChartLabels: any[] = [];
@@ -63,7 +63,9 @@ export class LineGraphComponent implements OnInit, OnChanges, AfterViewInit, OnD
   showCountdown: boolean = true;
   showRefreshControls: boolean = false;
   autoRefresh: boolean = false;
-  private refreshInterval: any = null;
+  private refreshInterval: any = null; 
+  timeLeft = 120;
+  defaultTimeLeft = 120;
 
   @ViewChild('periodSelect') periodSelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('canvasDiv') canvasDiv!: ElementRef<HTMLDivElement>;
@@ -1132,11 +1134,9 @@ export class LineGraphComponent implements OnInit, OnChanges, AfterViewInit, OnD
 
   onManualRefresh() {
     this.showRefreshControls = false;
-    this.showCountdown = true;
-    // Reset timer (set to your desired countdown, e.g., 10)
+    this.showCountdown = true; 
     this.timeLeft = 10;
-    this.startCountdown();
-    // Call your data refresh logic here
+    this.startCountdown(); 
     this.refreshData();
   }
 
@@ -1148,8 +1148,6 @@ export class LineGraphComponent implements OnInit, OnChanges, AfterViewInit, OnD
   }
 
   refreshData() {
-    // Implement your data refresh logic here
-    // Example: this.updateGraph(this.data);
-    // You may want to emit an event or call a service
+    this.onRefreshEvent.emit();
   }
 }
