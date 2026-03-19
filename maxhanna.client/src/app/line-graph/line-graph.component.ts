@@ -1099,6 +1099,14 @@ export class LineGraphComponent implements OnInit, OnChanges, AfterViewInit, OnD
 
   
   setupRefreshLogic() {
+    // If no parent handler, disable polling
+    if (!this.onRefreshEvent.observers || this.onRefreshEvent.observers.length === 0) {
+      this.showCountdown = false;
+      this.showRefreshControls = false;
+      this.autoRefresh = false;
+      if (this.refreshInterval) clearInterval(this.refreshInterval);
+      return;
+    }
     if (typeof this.timeLeft !== 'number') return;
     if (this.timeLeft === 999) {
       this.showCountdown = false;
