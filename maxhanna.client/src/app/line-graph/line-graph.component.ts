@@ -63,7 +63,7 @@ export class LineGraphComponent implements OnInit, OnChanges, AfterViewInit, OnD
   showCountdown: boolean = true;
   showRefreshControls: boolean = false;
   autoRefresh: boolean = false;
-  private refreshInterval: any = null; 
+  private refreshInterval: any = null;
   timeLeft = 120;
   defaultTimeLeft = 120;
 
@@ -81,7 +81,7 @@ export class LineGraphComponent implements OnInit, OnChanges, AfterViewInit, OnD
   sliderMaxValue: number = 0;
   isShowingOptions = false;
   private readonly minSeparation: number = 1000; // 1 second 
-  
+
   ngOnInit() {
     if (!this.selectedPeriod) {
       if (this.type === "Volume") {
@@ -1097,7 +1097,6 @@ export class LineGraphComponent implements OnInit, OnChanges, AfterViewInit, OnD
     }
   }
 
-  
   setupRefreshLogic() {
     // If no parent handler, disable polling
     if (!this.onRefreshEvent.observers || this.onRefreshEvent.observers.length === 0) {
