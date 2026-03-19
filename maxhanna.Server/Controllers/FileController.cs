@@ -1959,7 +1959,7 @@ namespace maxhanna.Server.Controllers
               fa.access_count,
               u.username, 
               udp.file_id as display_picture_id, 
-              udp.tag_background_file_id as background_picture_id,
+              udp.tag_background_file_id as background_picture_id
 						FROM file_access AS fa
 						LEFT JOIN users AS u ON u.id = fa.user_id
 						LEFT JOIN user_display_pictures AS udp ON udp.user_id = fa.user_id
