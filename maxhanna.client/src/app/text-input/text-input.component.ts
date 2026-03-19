@@ -215,7 +215,8 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     console.log("topic clicked");
   }
 
-  onFavouriteTopicClicked(topic: Topic) {
+  onAddTopicClicked(topic: Topic) {
+    console.log("Topic clicked: ", [...this.attachedTopics, topic]);
     return this.onTopicClicked([...this.attachedTopics, topic]);
   }
 
@@ -793,7 +794,9 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     this.highlightTopicsButton = this.getButtonHighlightState();
   }
   clickedTopicRank(event: TopicRank) {
-    this.topicClicked.emit([{ id: event.topicId, topicText: event.topicName } as Topic]);
+    const tmpTopic = { id: event.topicId, topicText: event.topicName } as Topic;
+    this.topicClicked.emit([tmpTopic]);
+    this.onAddTopicClicked(tmpTopic);
     this.closeTopicsPanel();
     this.highlightTopicsButton = this.getButtonHighlightState();
   }

@@ -109,7 +109,7 @@
             <div class="topTopicTitle" *ngIf="showTopicSelector">
                 Favourite Topics:
             </div>
-            <div *ngFor="let topic of favTopics" (click)="onFavouriteTopicClicked(topic);" class="topicsGrid">
+            <div *ngFor="let topic of favTopics" (click)="onAddTopicClicked(topic);" class="topicsGrid">
                 <span class="matchingTopic">
                   {{topic.topicText}}
                   <span class="coloredBgButton" (click)="removeFavTopic(topic); $event.stopPropagation();">❌</span>
@@ -134,7 +134,7 @@
             <div class="topTopicTitle" *ngIf="showTopicSelector">
                 Ignored Topics: <span *ngIf="ignoredTopics?.length == 0" class="thirdFontColor">No ignored topics.</span>
             </div>
-            <div *ngFor="let topic of ignoredTopics" (click)="clickedTopic([topic])" class="topicsGrid">
+            <div *ngFor="let topic of ignoredTopics" (click)="onAddTopicClicked(topic)" class="topicsGrid">
                 <span class="matchingTopic">
                     {{topic.topicText}}
                     <span class="coloredBgButton"
