@@ -135,9 +135,15 @@
   <div class="popupPanelTitle">
     Chat Members
   </div>
+  <div style="margin-bottom: 8px; text-align: right;">
+    <label style="cursor:pointer;">
+      <input type="checkbox" [checked]="showMiniTag" (change)="onMiniTagToggle($event)" style="vertical-align: middle; margin-right: 4px;" />
+      Mini Tag
+    </label>
+  </div>
   <div class="addChatMembersList gradientBackground">
     <div *ngFor="let chatMember of currentChatUsers" class="addChatMemberLi">
-      <app-user-tag [user]="chatMember" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"
+      <app-user-tag [user]="chatMember" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="showMiniTag"
         [displayHoverPicture]="true" [previousComponent]="'Chat'"></app-user-tag>
     </div>
   </div>

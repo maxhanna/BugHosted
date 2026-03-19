@@ -1,3 +1,7 @@
+  onMiniTagToggle(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.showMiniTag = input.checked;
+  }
 import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { ChatService } from '../../services/chat.service';
@@ -22,6 +26,7 @@ import { FileService } from '../../services/file.service';
   standalone: false
 })
 export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
+  showMiniTag: boolean = true;
   users: Array<User> = [];
   isPanelExpanded: boolean = true;
   currentChatUsers: User[] | undefined = undefined;
