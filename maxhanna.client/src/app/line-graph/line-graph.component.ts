@@ -972,15 +972,15 @@ export class LineGraphComponent implements OnInit, OnChanges, AfterViewInit, OnD
 
   getGraphTitle(): string {
     if (this.type === 'Volume') {
-      return this.selectedPeriod ? `Volume (${this.formatPeriodDisplay()})` : 'Volume';
+      return 'Volume';
     }
     if (this.type === 'MACD') {
-      return this.selectedPeriod ? `MACD (${this.selectedCoin} • ${this.formatPeriodDisplay()})` : `MACD (${this.selectedCoin})`;
+      return `MACD (${this.selectedCoin})`;
     }
     if (this.graphTitle) {
       return this.selectedCoin.includes('->')
-        ? `$Bitcoin/${'$' + this.selectedCurrency} Value` + this.getPeriodSuffix()
-        : this.graphTitle + this.getPeriodSuffix();
+        ? `$Bitcoin/${'$' + this.selectedCurrency} Value`
+        : this.graphTitle;
     }
 
     const coinPart = this.selectedCoin ? `$${this.selectedCoin}` : '';
@@ -988,12 +988,8 @@ export class LineGraphComponent implements OnInit, OnChanges, AfterViewInit, OnD
 
     return (coinPart
       ? `${coinPart}/${currencyPart} Over Time`
-      : `Historical Data (${currencyPart})`) + this.getPeriodSuffix();
-  }
-
-  private getPeriodSuffix(): string {
-    return this.selectedPeriod ? ` • ${this.formatPeriodDisplay()}` : '';
-  }
+      : `Historical Data (${currencyPart})`);
+  } 
 
   formatPeriodDisplay(): string {
     const period = this.selectedPeriod;
