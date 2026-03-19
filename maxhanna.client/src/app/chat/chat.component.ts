@@ -43,7 +43,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   currentChatUserThemeId: number | null = null;
   userThemes: UserTheme[] = [];
   private fileEntryCache: Map<number, FileEntry | null> = new Map();
-  // store the page's theme state before entering a chat so we can restore it on exit
   private _preChatThemeClasses: string[] | null = null;
   private _preChatCssVars: { [key: string]: string | null } | null = null;
   app?: any;

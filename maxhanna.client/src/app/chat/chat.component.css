@@ -206,8 +206,14 @@
   overflow: auto;
   gap: 10px;
   width: calc(100% - 20px);
+  max-width: 400px;
   border: var(--main-border);
   border-radius: 8px;
+}
+
+.tiledChatMemberList { 
+  display: flex; 
+  flex-wrap: wrap;
 }
 
 .addChatMemberLi {
