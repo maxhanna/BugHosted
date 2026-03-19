@@ -469,7 +469,7 @@
               </span>
             </div>
 
-            <div *ngIf="isTradePanelOpen">
+            <div *ngIf="isTradePanelOpen && canShowTradePanelInfo()">
               <app-crypto-top-traders [inputtedParentRef]="parentRef"></app-crypto-top-traders>
             </div>
 
