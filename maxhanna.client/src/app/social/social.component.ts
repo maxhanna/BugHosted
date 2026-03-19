@@ -573,15 +573,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.scrollToStory(); 
   }
   topicClicked(topics?: Topic[]) { 
-    if (topics) {
-      for (let topic of topics) {
-        if (this.attachedTopics.find(x => x.id == topic.id)) {
-          this.attachedTopics = this.attachedTopics.filter(x => x.id != topic.id);
-        } else {
-          this.attachedTopics.push(topic);
-        }
-      } 
-    }
+    this.attachedTopics = topics ?? [];
     this.currentPage = 1; 
     this.onTopicAdded(this.attachedTopics);
     this.scrollToStory();
