@@ -1,7 +1,6 @@
-import { Component, ElementRef, EventEmitter, Input, Output, OnChanges, OnInit, ViewChild, SimpleChanges } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, Output, OnChanges, OnInit, ViewChild, SimpleChanges, OnDestroy, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BaseChartDirective } from 'ng2-charts';
-import { CoinValue } from '../../services/datacontracts/crypto/coin-value';
 import { ExchangeRate } from '../../services/datacontracts/crypto/exchange-rate';
 import { ChartType } from 'chart.js';
 
@@ -20,7 +19,7 @@ interface MacdDataPoint {
   styleUrl: './line-graph.component.css',
   imports: [BaseChartDirective, CommonModule]
 })
-export class LineGraphComponent implements OnInit, OnChanges {
+export class LineGraphComponent implements OnInit, OnChanges, AfterViewInit, OnDestroy {
   @Input() data: any[] = [];
   @Input() data2: any[] = [];
   @Input() selectedCoin: string = '';
@@ -61,6 +60,10 @@ export class LineGraphComponent implements OnInit, OnChanges {
     ? ['line', 'bar', 'radar', 'doughnut', 'pie', 'polarArea', 'scatter', 'bubble']
     : ['line', 'bar', 'radar', 'doughnut', 'pie', 'polarArea'];
   currentSecondaryData: { priceCAD: number | null, tradeValueCAD: string | null, type: string }[] = [];
+  showCountdown: boolean = true;
+  showRefreshControls: boolean = false;
+  autoRefresh: boolean = false;
+  private refreshInterval: any = null;
 
   @ViewChild('periodSelect') periodSelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('canvasDiv') canvasDiv!: ElementRef<HTMLDivElement>;
@@ -75,16 +78,8 @@ export class LineGraphComponent implements OnInit, OnChanges {
   sliderMinValue: number = 0;
   sliderMaxValue: number = 0;
   isShowingOptions = false;
-  private readonly minSeparation: number = 1000; // 1 second
-
-  get formattedSliderMin(): string {
-    return this.formatTimestamp(new Date(this.sliderMinValue).toISOString(), true);
-  }
-
-  get formattedSliderMax(): string {
-    return this.formatTimestamp(new Date(this.sliderMaxValue).toISOString(), true);
-  }
-
+  private readonly minSeparation: number = 1000; // 1 second 
+  
   ngOnInit() {
     if (!this.selectedPeriod) {
       if (this.type === "Volume") {
@@ -125,6 +120,22 @@ export class LineGraphComponent implements OnInit, OnChanges {
       this.updateChartWithAverage();
       this.updateGraph(this.data);
     }
+  }
+
+  ngAfterViewInit() {
+    this.setupRefreshLogic();
+  }
+
+  ngOnDestroy() {
+    if (this.refreshInterval) clearInterval(this.refreshInterval);
+  }
+
+  get formattedSliderMin(): string {
+    return this.formatTimestamp(new Date(this.sliderMinValue).toISOString(), true);
+  }
+
+  get formattedSliderMax(): string {
+    return this.formatTimestamp(new Date(this.sliderMaxValue).toISOString(), true);
   }
 
   initializeSlider() {
@@ -1082,5 +1093,63 @@ export class LineGraphComponent implements OnInit, OnChanges {
     } else {
       console.warn('canvasDiv is not available');
     }
+  }
+
+  
+  setupRefreshLogic() {
+    if (typeof this.timeLeft !== 'number') return;
+    if (this.timeLeft === 999) {
+      this.showCountdown = false;
+      this.showRefreshControls = false;
+      return;
+    }
+    if (this.timeLeft === 0) {
+      this.showCountdown = false;
+      this.showRefreshControls = true;
+    } else {
+      this.showCountdown = true;
+      this.showRefreshControls = false;
+      this.startCountdown();
+    }
+  }
+
+  startCountdown() {
+    if (this.refreshInterval) clearInterval(this.refreshInterval);
+    this.refreshInterval = setInterval(() => {
+      if (typeof this.timeLeft !== 'number') return;
+      if (this.timeLeft > 0) {
+        this.timeLeft!--;
+        if (this.timeLeft === 0) {
+          this.showCountdown = false;
+          this.showRefreshControls = true;
+          if (this.autoRefresh) {
+            this.onManualRefresh();
+          }
+        }
+      }
+    }, 1000);
+  }
+
+  onManualRefresh() {
+    this.showRefreshControls = false;
+    this.showCountdown = true;
+    // Reset timer (set to your desired countdown, e.g., 10)
+    this.timeLeft = 10;
+    this.startCountdown();
+    // Call your data refresh logic here
+    this.refreshData();
+  }
+
+  onAutoRefreshToggle(event: Event) {
+    this.autoRefresh = (event.target as HTMLInputElement).checked;
+    if (this.autoRefresh && this.timeLeft === 0) {
+      this.onManualRefresh();
+    }
+  }
+
+  refreshData() {
+    // Implement your data refresh logic here
+    // Example: this.updateGraph(this.data);
+    // You may want to emit an event or call a service
   }
 }

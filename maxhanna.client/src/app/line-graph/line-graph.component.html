@@ -1,8 +1,15 @@
 <div class="graphContainer {{fullscreenMode ? 'popupPanel fullscreenPopupPanel' : ''}}">
   <div class="graphTitle sectionName gradientBackground">
     {{ getGraphTitle() }}{{" "}}
-    <span *ngIf="timeLeft && timeLeft !== 999" class="xxSmallFont">
+    <span *ngIf="showCountdown && timeLeft && timeLeft !== 999" class="xxSmallFont">
       (Refresh in {{ timeLeft }}s)
+    </span>
+    <span *ngIf="showRefreshControls && timeLeft === 0" class="xxSmallFont">
+      <button (click)="onManualRefresh()">Refresh</button>
+      <label style="margin-left:8px; cursor:pointer;">
+        <input type="checkbox" [checked]="autoRefresh" (change)="onAutoRefreshToggle($event)" style="vertical-align:middle; margin-right:4px;" />
+        Auto-refresh
+      </label>
     </span>
     <span *ngIf="timeLeft === 999" class="xxSmallFont">
       (Refresh disabled)
