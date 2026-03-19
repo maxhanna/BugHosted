@@ -350,12 +350,17 @@
     <app-share-button *ngIf="optionsFile.visibility?.toLowerCase() !== 'private'"
       [link]="shareLink"
       [isExternalLink]="currentDirectory === '/Roms'"></app-share-button>
-    <button title="Share File"
+    <app-share-button *ngIf="optionsFile.visibility?.toLowerCase() === 'private'"
+      [link]=""
+      [isExternalLink]="false"
+      [text]="'↗️Share with Users'"
+      [callback]="shareFileInitiate(optionsFile)"></app-share-button>
+    <!-- <button title="Share File"
       *ngIf="optionsFile.visibility?.toLowerCase() === 'private'"
       [disabled]="isLoading"
       (click)="shareFileInitiate(optionsFile);">
       ↗️Share with Users
-    </button>
+    </button> -->
     <button title="Download File" 
       (click)="download(optionsFile, true);" 
       [disabled]="isLoading"

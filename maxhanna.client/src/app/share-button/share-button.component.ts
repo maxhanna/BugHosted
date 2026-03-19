@@ -10,24 +10,34 @@ import { AppComponent } from '../app.component';
 export class ShareButtonComponent {
   constructor() {}
   @Input() link = "";
+  @Input() text = "📋Share";
   @Input() isExternalLink = false;
   @Input() inputtedParentRef?: AppComponent;
+  @Input() callback?: () => void;
   @Output() linkCopiedEvent = new EventEmitter<void>();
 
   copyLink() { 
-    const link = 
-      (this.isExternalLink || this.link.includes("bughosted.com") || this.link.includes("://")) 
-      ? this.link 
-      : `https://bughosted.com/${this.link}`;
+    let link = "";
+    if (this.link) { 
+      link = 
+        (this.isExternalLink || this.link.includes("bughosted.com") || this.link.includes("://")) 
+        ? this.link 
+        : `https://bughosted.com/${this.link}`;
+      navigator.clipboard.writeText(link).then(() => {
+        this.inputtedParentRef?.showNotification('Link copied to clipboard!');
+        if (!this.inputtedParentRef) {
+          alert('Link copied to clipboard!');
+        }
+      }).catch(err => {
+        this.inputtedParentRef?.showNotification('Failed to copy link!');
+      });
+    }
+    
+    if (this.callback) {
+      this.callback();
+    }
+    this.linkCopiedEvent.emit();
     this.inputtedParentRef?.closeOverlay();
-    navigator.clipboard.writeText(link).then(() => {
-      this.inputtedParentRef?.showNotification('Link copied to clipboard!');
-      if (!this.inputtedParentRef) {
-        alert('Link copied to clipboard!');
-      }
-      this.linkCopiedEvent.emit();
-    }).catch(err => {
-      this.inputtedParentRef?.showNotification('Failed to copy link!');
-    });
+    
   }
 }
