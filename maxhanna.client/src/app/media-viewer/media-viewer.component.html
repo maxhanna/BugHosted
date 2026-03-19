@@ -335,10 +335,10 @@
     File Viewers
   </div>
   <div class="fileViewerDiv">
-    <div *ngFor="let viewer of fileViewers" style="height: 30px;">
+    <div *ngFor="let viewer of fileViewers" class="fileViewerLi">
       <app-user-tag [user]="viewer.user" [inputtedParentRef]="parentRef" [displayHoverPicture]="true"
         [previousComponent]="previousComponent" [displayMiniTag]="true"></app-user-tag>
-      ({{viewer.accessCount}})
+      <span>({{viewer.accessCount}})</span>
     </div>
   </div>
   <button id="closeOverlay" (click)="closeFileViewers()">Close</button>
@@ -350,7 +350,7 @@
     File Favouriters
   </div>
   <div class="fileViewerDiv">
-    <div *ngFor="let viewer of fileFavouriters" style="height: 30px;">
+    <div *ngFor="let viewer of fileFavouriters" class="fileViewerLi">
       <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef" [displayHoverPicture]="true"
         [previousComponent]="previousComponent" [displayMiniTag]="true"></app-user-tag>
     </div>

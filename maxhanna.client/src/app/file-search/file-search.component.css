@@ -319,6 +319,12 @@
   margin-bottom: 15px;
 }
 
+.fileViewerLi {
+  height: 30px;
+  display: flex;
+  justify-content: space-between;
+}
+
 .search-popup-card {
   width: calc(90% - 42px);
   max-width: 500px;
