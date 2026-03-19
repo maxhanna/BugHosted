@@ -15,7 +15,10 @@ export class ShareButtonComponent {
   @Output() linkCopiedEvent = new EventEmitter<void>();
 
   copyLink() { 
-    const link = this.isExternalLink ? this.link : `https://bughosted.com/${this.link}`;
+    const link = 
+      (this.isExternalLink || this.link.includes("bughosted.com") || this.link.includes("://")) 
+      ? this.link 
+      : `https://bughosted.com/${this.link}`;
     this.inputtedParentRef?.closeOverlay();
     navigator.clipboard.writeText(link).then(() => {
       this.inputtedParentRef?.showNotification('Link copied to clipboard!');
