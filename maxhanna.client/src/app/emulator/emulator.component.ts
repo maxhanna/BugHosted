@@ -23,6 +23,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   @Input() skipSaveFileRequested = false;
   @Input() inputtedParentRef?: AppComponent;
 
+  isSaveConfirmPanelOpen = false;
+  saveConfirmMessage = '';
+  private _saveConfirmResolve?: (result: 'save' | 'dontSave' | 'cancel') => void;
   isShowingLoginPanel = false;
   isMenuPanelOpen = false;
   isFullScreen = false;
@@ -163,8 +166,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    const shouldSave = window.confirm('Save state before closing?');
-    if (!shouldSave) {
+    const result = await this.showSaveConfirmPanel('Do you want to save your progress before closing?');
+    if (result === 'cancel') {
+      return;
+    }
+    if (result === 'dontSave') {
       if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
         this.fullReloadToEmulator();
       } else {
@@ -222,7 +228,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
       // Determine extension once
       const ext = this.fileService.getFileExtension(file.fileName);
- 
+
       if (!this.selectedSystemCore && ext === 'zip' && !dbOverride) {
         this._pendingFileToLoad = { fileName: file.fileName, fileId: file.id, directory: file.directory };
         this.isSystemSelectPanelOpen = true;
@@ -3125,6 +3131,26 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'yabause': return 'segaSaturn';
       case 'smsplus': return 'segaMS';
       default: return undefined; // let EmulatorJS derive it
+    }
+  }
+  
+  showSaveConfirmPanel(message?: string): Promise<'save' | 'dontSave' | 'cancel'> {
+    this.saveConfirmMessage = message || '';
+    this.isSaveConfirmPanelOpen = true;
+    this.parentRef?.showOverlay();
+    return new Promise(resolve => {
+      this._saveConfirmResolve = (result) => {
+        this.isSaveConfirmPanelOpen = false;
+        this.parentRef?.closeOverlay();
+        resolve(result);
+      };
+    });
+  }
+
+  handleSaveConfirm(result: 'save' | 'dontSave' | 'cancel') {
+    if (this._saveConfirmResolve) {
+      this._saveConfirmResolve(result);
+      this._saveConfirmResolve = undefined;
     }
   }
 }

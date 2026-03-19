@@ -137,6 +137,19 @@
   </div>
 </div>
 
+<!-- Save Progress Confirmation Panel -->
+<div class="popupPanel" *ngIf="isSaveConfirmPanelOpen">
+  <div class="popupPanelTitle">Save Progress?</div>
+  <div style="padding:8px;">
+    <p>{{ saveConfirmMessage || 'Do you want to save your progress before continuing?' }}</p>
+    <div style="display:flex; gap:8px; margin-top:12px; justify-content:center;">
+      <button (click)="handleSaveConfirm('save')">Save</button>
+      <button (click)="handleSaveConfirm('dontSave')">Don\'t Save</button>
+      <button (click)="handleSaveConfirm('cancel')" class="closeButton" id="closeOverlay">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- Reset confirmation modal -->
 <div class="popupPanel" *ngIf="isResetModalOpen">
   <div class="popupPanelTitle">Confirm Reset</div>
