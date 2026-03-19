@@ -104,3 +104,9 @@
   background-color: var(--component-background-color) !important;
   color: var(--main-font-color) !important;
 }
+
+@media only screen and (max-width : 667px) { 
+  .menuPanel { 
+    z-index: 1000 !important;
+  }
+}
