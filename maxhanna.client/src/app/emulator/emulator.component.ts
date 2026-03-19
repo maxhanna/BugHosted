@@ -24,8 +24,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   @Input() inputtedParentRef?: AppComponent;
 
   isSaveConfirmPanelOpen = false;
-  saveConfirmMessage = '';
-  private _saveConfirmResolve?: (result: 'save' | 'dontSave' | 'cancel') => void;
+  saveConfirmMessage = ''; 
   isShowingLoginPanel = false;
   isMenuPanelOpen = false;
   isFullScreen = false;
@@ -166,13 +165,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    const result = await this.showSaveConfirmPanel('Do you want to save your progress before closing?');
-    if (result === 'cancel') {
-      console.log("cancel pressed");
-      return;
-    }
-    if (result === 'dontSave') {
-      console.log("dontsave pressed");
+    const shouldSave = window.confirm('Save state before closing?');
+    if (!shouldSave) {
       if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
         this.fullReloadToEmulator();
       } else {
@@ -3134,25 +3128,5 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'smsplus': return 'segaMS';
       default: return undefined; // let EmulatorJS derive it
     }
-  }
-  
-  async showSaveConfirmPanel(message?: string): Promise<'save' | 'dontSave' | 'cancel'> {
-    this.saveConfirmMessage = message || '';
-    this.isSaveConfirmPanelOpen = true;
-    this.parentRef?.showOverlay();
-    return new Promise(resolve => {
-      this._saveConfirmResolve = (result) => {
-        this.isSaveConfirmPanelOpen = false;
-        this.parentRef?.closeOverlay();
-        resolve(result);
-      };
-    });
-  }
-
-  handleSaveConfirm(result: 'save' | 'dontSave' | 'cancel') {
-    if (this._saveConfirmResolve) {
-      this._saveConfirmResolve(result);
-      this._saveConfirmResolve = undefined;
-    }
-  }
+  } 
 }
