@@ -215,6 +215,10 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     console.log("topic clicked");
   }
 
+  onFavouriteTopicClicked(topic: Topic) {
+    return this.onTopicClicked([...this.attachedTopics, topic]);
+  }
+
   async post() {
     // Debounce / guard: ignore if a post is already in progress or last post was very recent
     const now = Date.now();
@@ -804,7 +808,10 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     parent?.closeOverlay();
   }
   getButtonHighlightState(): boolean {
-    return this.type == "Social" && !this.profileUser && !(this.attachedTopics && this.attachedTopics.length > 0);
+    return this.type == "Social"
+     && !this.profileUser 
+     && !(this.attachedTopics && this.attachedTopics.length > 0)
+     && (this.textarea.value.trim().length > 0 || (this.attachedFiles && this.attachedFiles.length > 0));
   }
 
   onVisibilityChange(event: Event) {
