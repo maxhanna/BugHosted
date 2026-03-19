@@ -382,7 +382,7 @@
               </button>
             </div>
           </div>
-          <div *ngIf="tradeBotStartedSince">
+          <div *ngIf="tradeBotStartedSince && canShowTradePanelInfo()">
             <div *ngIf="getActiveTradeBots().length > 0">
               <ng-container *ngIf="groupedBotsDisplay() as botGroups">
                 <ul *ngIf="!isTradePanelOpen">
@@ -408,9 +408,7 @@
               <p>No active trade bots.</p>
             </div>
           </div>
-          <div>
-            <!-- <div *ngIf="hasKrakenApi">Average Buy Price: <span class="thirdFontColor smallFont">{{formatToCanadianCurrency(weightedAveragePrices[0])}}</span></div>
-              <div *ngIf="hasKrakenApi">Average Sell Price: <span class="thirdFontColor smallFont">{{formatToCanadianCurrency(weightedAveragePrices[1])}}</span></div> -->
+          <div *ngIf="canShowTradePanelInfo()"> 
             <div *ngIf="lastTradebotTrade && lastTradebotTrade['value']">
               <span class="sectionName">Last:&nbsp;</span>
               <span>
@@ -442,7 +440,8 @@
                 <span *ngIf="!lastTradebotTrade" class="smallFont">No trades.</span>
               </span>
             </div>
-            <div *ngIf="lastLogEntry && canShowTradePanelInfo()"
+
+            <div *ngIf="lastLogEntry"
               [ngClass]="{'logScreen': !showingTradeLogs, 'bold': true}">
               <span class="sectionName">Log:&nbsp;</span> <span [ngClass]="{
                 'thirdFontColor': true,
@@ -451,6 +450,7 @@
                 'cursorPointerUnderlined': !showingTradeLogs
               }" (click)="onSmallLogClick(); $event.stopPropagation();">{{lastLogEntry}}</span>
             </div>
+
             <div *ngIf="isTradePanelOpen && selectedCurrency">
               <span class="sectionName">Current Prices:&nbsp;</span>
               <span class="smallFont">
@@ -462,18 +462,18 @@
               </span>
             </div>
 
-            <div *ngIf="isTradePanelOpen && numberOfTrades && canShowTradePanelInfo()">
+            <div *ngIf="isTradePanelOpen && numberOfTrades">
               <span class="sectionName">Number of Trades:&nbsp;</span>
               <span class="smallFont thirdFontColor">
                 {{ numberOfTrades }}
               </span>
             </div>
 
-            <div *ngIf="isTradePanelOpen && canShowTradePanelInfo()">
+            <div *ngIf="isTradePanelOpen">
               <app-crypto-top-traders [inputtedParentRef]="parentRef"></app-crypto-top-traders>
-            </div>
-
+            </div> 
           </div>
+
           <span class="cursorPointerUnderlined" (click)="createUpdateUserComponent();"
             *ngIf="!hasKrakenApi && parentRef?.user?.id"> Set Up Kraken API Keys </span>
           <span class="cursorPointerUnderlined" (click)="createUserComponent();"
