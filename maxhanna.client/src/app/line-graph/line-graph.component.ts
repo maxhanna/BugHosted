@@ -1134,9 +1134,9 @@ export class LineGraphComponent implements OnInit, OnChanges, AfterViewInit, OnD
 
   onManualRefresh() {
     this.showRefreshControls = false;
-    this.showCountdown = true; 
-    this.timeLeft = 10;
-    this.startCountdown(); 
+    this.showCountdown = true;
+    this.timeLeft = this.defaultTimeLeft;
+    this.startCountdown();
     this.refreshData();
   }
 
