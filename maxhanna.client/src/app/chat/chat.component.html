@@ -141,8 +141,8 @@
       Mini Tag
     </label>
   </div>
-  <div class="addChatMembersList gradientBackground" [class.tiledChatMemberList]="showMiniTag">
-    <div *ngFor="let chatMember of currentChatUsers" [class.addChatMemberLi]="!showMiniTag">
+  <div class="addChatMembersList gradientBackground" [class.tiledChatMemberList]="!showMiniTag">
+    <div *ngFor="let chatMember of currentChatUsers" [class.addChatMemberLi]="showMiniTag">
       <app-user-tag [user]="chatMember" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="showMiniTag"
         [displayHoverPicture]="true" [previousComponent]="'Chat'"></app-user-tag>
     </div>
