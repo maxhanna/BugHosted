@@ -1143,7 +1143,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   get shareLink(): string {
     const fileEntry = this.optionsFile;
     if (!fileEntry) return '';
-    if (this.currentDirectory === '/Roms') {
+    if (this.currentDirectory === '/Roms' && this.displayRomMetadata) {
       const reloadParams: Record<string, string> = {};
       reloadParams['romname'] = fileEntry.fileName ?? "";
       reloadParams['romId'] = String(fileEntry.id);
