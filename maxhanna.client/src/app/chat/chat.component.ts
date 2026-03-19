@@ -1,7 +1,3 @@
-  onMiniTagToggle(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.showMiniTag = input.checked;
-  }
 import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { ChatService } from '../../services/chat.service';
@@ -1137,5 +1133,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   private encodePath(path: string): string {
     // Encode each segment separately to keep slashes intact
     return path.split('/').map(s => encodeURIComponent(s)).join('/');
+  }  
+  
+  onMiniTagToggle(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.showMiniTag = input.checked;
   }
 }
