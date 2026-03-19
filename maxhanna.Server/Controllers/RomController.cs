@@ -294,7 +294,7 @@ namespace maxhanna.Server.Controllers
       }
 
       // Second: insert into file_access if we have userId and fileId
-      if (userId.HasValue && fileId.HasValue)
+      if (fileId.HasValue)
       {
         await using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
         {
@@ -308,7 +308,7 @@ namespace maxhanna.Server.Controllers
 
           await using var command = new MySqlCommand(sql, connection);
           command.Parameters.AddWithValue("@FileId", fileId.Value);
-          command.Parameters.AddWithValue("@UserId", userId.Value);
+          command.Parameters.AddWithValue("@UserId", userId ?? 0);
 
           await command.ExecuteNonQueryAsync();
         }

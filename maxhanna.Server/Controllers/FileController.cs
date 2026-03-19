@@ -1556,24 +1556,21 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
               {
                 Console.WriteLine("No records updated in file_uploads - file not registered?");
               }
+ 
+              var insertCmd = new MySqlCommand(@"
+                INSERT INTO file_access (file_id, user_id)
+                SELECT id, @UserId 
+                FROM file_uploads 
+                WHERE file_name = @FileName 
+                AND folder_path = @FolderPath
+                ON DUPLICATE KEY UPDATE file_id = VALUES(file_id)",
+                connection, transaction);
 
-              if (userId.HasValue)
-              {
-                var insertCmd = new MySqlCommand(@"
-									INSERT INTO file_access (file_id, user_id)
-									SELECT id, @UserId 
-									FROM file_uploads 
-									WHERE file_name = @FileName 
-									AND folder_path = @FolderPath
-									ON DUPLICATE KEY UPDATE file_id = VALUES(file_id)",
-                  connection, transaction);
+              insertCmd.Parameters.AddWithValue("@FileName", fileName);
+              insertCmd.Parameters.AddWithValue("@FolderPath", folderPath);
+              insertCmd.Parameters.AddWithValue("@UserId", userId ?? 0);
 
-                insertCmd.Parameters.AddWithValue("@FileName", fileName);
-                insertCmd.Parameters.AddWithValue("@FolderPath", folderPath);
-                insertCmd.Parameters.AddWithValue("@UserId", userId.Value);
-
-                int rowsInserted = await insertCmd.ExecuteNonQueryAsync();
-              }
+              int rowsInserted = await insertCmd.ExecuteNonQueryAsync(); 
 
               await transaction.CommitAsync();
             }
@@ -1668,20 +1665,18 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
                 // Close the first reader before executing next command
                 await reader.CloseAsync();
 
-                // Record user access if userId is provided
-                if (userId != null)
-                {
-                  var accessCommand = new MySqlCommand(@"
-										INSERT INTO maxhanna.file_access (file_id, user_id)
-										VALUES (@fileId, @userId)
-										ON DUPLICATE KEY UPDATE file_id = @fileId",
-                    connection, transaction);
+                // Record user access if userId is provided 
+                var accessCommand = new MySqlCommand(@"
+                  INSERT INTO maxhanna.file_access (file_id, user_id)
+                  VALUES (@fileId, @userId)
+                  ON DUPLICATE KEY UPDATE file_id = @fileId",
+                  connection, transaction);
 
-                  accessCommand.Parameters.AddWithValue("@fileId", fileId);
-                  accessCommand.Parameters.AddWithValue("@userId", userId.Value);
+                accessCommand.Parameters.AddWithValue("@fileId", fileId);
+                accessCommand.Parameters.AddWithValue("@userId", userId ?? 0);
 
-                  await accessCommand.ExecuteNonQueryAsync();
-                }
+                await accessCommand.ExecuteNonQueryAsync();
+                 
 
                 // Commit transaction if everything succeeded
                 await transaction.CommitAsync();
@@ -1742,19 +1737,15 @@ private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? sea
             updateCmd.Parameters.AddWithValue("@fileId", request.FileId);
             await updateCmd.ExecuteNonQueryAsync();
 
-            // Record per-user access if provided
-            if (request.UserId.HasValue)
-            {
-              var insertCmd = new MySqlCommand(@"
-								INSERT INTO maxhanna.file_access (file_id, user_id)
-								VALUES (@fileId, @userId)
-								ON DUPLICATE KEY UPDATE file_id = VALUES(file_id);", connection, transaction);
+            // Record per-user access if provided 
+            var insertCmd = new MySqlCommand(@"
+              INSERT INTO maxhanna.file_access (file_id, user_id)
+              VALUES (@fileId, @userId)
+              ON DUPLICATE KEY UPDATE file_id = VALUES(file_id);", connection, transaction);
 
-              insertCmd.Parameters.AddWithValue("@fileId", request.FileId);
-              insertCmd.Parameters.AddWithValue("@userId", request.UserId.Value);
-              await insertCmd.ExecuteNonQueryAsync();
-            }
-
+            insertCmd.Parameters.AddWithValue("@fileId", request.FileId);
+            insertCmd.Parameters.AddWithValue("@userId", request.UserId ?? 0);
+            await insertCmd.ExecuteNonQueryAsync();
             await transaction.CommitAsync();
           }
         }
