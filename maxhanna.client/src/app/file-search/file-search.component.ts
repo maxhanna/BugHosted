@@ -80,7 +80,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   isOptionsPanelOpen = false;
   isShowingFileViewers = false;
   isShowingFileFavouriters = false;
-  // Image preview state
   isShowingImagePreview = false;
   imagePreviewUrl?: string | null = null;
   isVisibilityDropdownOpen = false;
@@ -317,7 +316,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (this.activeRomSystems && this.activeRomSystems.length > 0) return true;
     // Sort option changed
     if ((!this.currentDirectory?.toLowerCase().includes('roms') ? this.sortOption !== 'Latest' : false)
-      && (this.currentDirectory?.toLowerCase().includes('roms') ? (this.sortOption !== 'Last Access' && this.sortOption !== '') : true)) {
+      && (this.currentDirectory?.toLowerCase().includes('roms') ? (this.sortOption !== 'Last Access' && this.sortOption !== '') : false)) {
       return true;
     }
     return false;
