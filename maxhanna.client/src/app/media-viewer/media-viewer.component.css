@@ -106,9 +106,9 @@
   font-size: xx-small;
 }
 
-.fileDataDiv {
+/* .fileDataDiv {
   width: 100vw;
-}
+} */
 
 .fileDataComponentBackground {
   background-color: var(--component-background-color);
