@@ -71,9 +71,6 @@
   <app-topics *ngIf="showTopics" [isDropdown]="false" [user]="parentRef?.user" [parent]="parentRef"
     [attachedTopics]="file?.topics ?? selectedFile?.topics" (topicClicked)="topicClicked($event)">
   </app-topics>
-  <div *ngIf="isLoadedFromURL" class="mediaInfoToggleWrapper">
-    <a (click)="toggleIsMediaInformationToggled()">ℹ️Info</a>
-  </div>
   <div *ngIf="!isLoadedFromURL || (isLoadedFromURL && isMediaInformationToggled)"
     [class.popupPanel]="isShowingMediaInformation" 
     [class.bordered]="isLoadedFromURL"

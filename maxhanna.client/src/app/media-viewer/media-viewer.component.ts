@@ -100,6 +100,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       for (let i = 0; i < componentContainers.length; i++) {
         (componentContainers[i] as HTMLDivElement).style.backgroundColor = "var(--component-background-color)";
       }
+      this.showMediaInformation = true;
     }
     if (this.forceInviewLoad) {
       this.debugLog("forcing load");
@@ -682,17 +683,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       : baseName.substring(0, firstPartLength) + '...' + baseName.slice(-lastPartLength);
 
     return truncatedBaseName + extension;
-  }
-  toggleIsMediaInformationToggled() {
-    this.isMediaInformationToggled = !this.isMediaInformationToggled;
-    if (this.isMediaInformationToggled) {
-      this.showMediaInformationButtonClicked();
-    } else {
-      this.closeMediaInformationButtonClicked();
-    }
-  }
+  } 
   showMediaInformationButtonClicked() {
     this.isShowingMediaInformation = !this.isShowingMediaInformation;
+    this.isMediaInformationToggled = this.isShowingMediaInformation;
     const parent = this.parentRef;
     if (this.isShowingMediaInformation) {
       parent?.showOverlay();
@@ -707,7 +701,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
     setTimeout(() => { 
       this.isShowingMediaInformation = false;
-      this.isMediaInformationToggled = false;
+      this.isMediaInformationToggled = this.isShowingMediaInformation;
     }, 50);
   }
   getFileViewers(fileId: number) {
