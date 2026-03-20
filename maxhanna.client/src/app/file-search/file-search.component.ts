@@ -131,6 +131,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @ViewChildren('optionsFileVisibilitySelect') optionsFileVisibilitySelect!: ElementRef<HTMLInputElement>;
 
   @ViewChild(MediaViewerComponent) mediaViewerComponent!: MediaViewerComponent;
+  @ViewChild('directoryDisplayDiv') directoryDisplayDivRef?: ElementRef<HTMLDivElement>;
 
 
   constructor(
@@ -215,6 +216,33 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       console.error('fileContainer is not defined');
     }
     this.updateDisplayRomMetadataDesktop();
+  }
+  
+  ngAfterViewChecked() {
+    if (this.directoryDisplayDivRef?.nativeElement) {
+      const el = this.directoryDisplayDivRef.nativeElement;
+      const computed = window.getComputedStyle(el);
+      let maxHeight = computed.getPropertyValue('max-height');
+      // Only handle px values
+      if (maxHeight && maxHeight.endsWith('px')) {
+        let px = parseFloat(maxHeight);
+        if (!isNaN(px)) {
+          if (!this.showUpFolderRow) {
+            // Add 30px if not already added
+            if (!el.dataset['maxHeightAdjusted'] || el.dataset['maxHeightAdjusted'] !== 'added') {
+              el.style.maxHeight = (px + 30) + 'px';
+              el.dataset['maxHeightAdjusted'] = 'added';
+            }
+          } else {
+            // Subtract 30px if not already subtracted
+            if (el.dataset['maxHeightAdjusted'] === 'added') {
+              el.style.maxHeight = (px - 30) + 'px';
+              el.dataset['maxHeightAdjusted'] = '';
+            }
+          }
+        }
+      }
+    }
   }
 
   onVisibilitySelect(file?: FileEntry) {
