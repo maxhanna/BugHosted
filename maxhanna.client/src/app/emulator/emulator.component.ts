@@ -249,9 +249,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       if (!this.selectedSystemCore) {
         return;
       }
-    }
-
-
+    } 
+    
     try {
       await this.loadRomThroughService(file.fileName, file.id, file.directory, this.selectedSystemCore ?? undefined);
       this.status = 'Running';
@@ -271,11 +270,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private async loadRomThroughService(fileName: string, fileId?: number, directory?: string, forcedCore?: Core | undefined) {
     // Use the instance-level forced core as a fallback
     const effectiveForcedCore = forcedCore ?? this._forcedCore;
-    if (effectiveForcedCore) this._forcedCore = effectiveForcedCore;
-
-    // If a forced core was selected and we have a fileId, persist a system override
-    // only if the DB doesn't already have one. Best-effort and non-blocking to
-    // avoid delaying emulator startup.
+    if (effectiveForcedCore) this._forcedCore = effectiveForcedCore; 
     if (fileId != null && effectiveForcedCore) {
       (async () => {
         try {
@@ -355,7 +350,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     } else {
       this.autosaveIntervalTime = 3 * 60 * 1000; // default 3 minutes
     }
-    
+
     // Optional callbacks (ok to keep)
     window.EJS_onSaveState = (state: Uint8Array) => this.onSaveState(state);
     window.EJS_onLoadState = async () => {

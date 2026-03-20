@@ -632,6 +632,7 @@ export class FileService {
       reader.onerror = reject;
     });
   }
+  /* Returns the file extension from a given file name without the dot */
   getFileExtension(file: string) {
     if (!file) return '';
     return file.lastIndexOf('.') !== -1 ? file.split('.').pop() ?? '' : '';
