@@ -10,8 +10,13 @@
 
 @media only screen and (min-width : 667px) { 
   :host ::ng-deep .directoryDisplayDiv {
-    max-height: calc(100vh - 100px) !important; 
-    max-height: calc(100dvh - 100px) !important; 
+    max-height: calc(100vh - 130px) !important; 
+    max-height: calc(100dvh - 130px) !important; 
+  }
+  
+  :host ::ng-deep .directoryDisplayDivLoading {
+    max-height: calc(100vh - 140px) !important; 
+    max-height: calc(100dvh - 140px) !important; 
   }
 }
 

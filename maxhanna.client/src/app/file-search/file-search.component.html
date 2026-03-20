@@ -76,7 +76,10 @@
         </div>
       </div>
 
-      <div *ngIf="directory && directory.totalCount! > 0" class="directoryDisplayDiv{{disabled? ' disabled' : ''}}">
+      <div *ngIf="directory && directory.totalCount! > 0" 
+        class="directoryDisplayDiv"
+        [class.disabled]="disabled"
+        [class.directoryDisplayDivLoading]="isLoading">
         <ng-container *ngFor="let file of directory.data; let i = index">
           <div class="draggableDiv" draggable="true" (dragstart)="onDragStart($event, file.fileName ?? '')">
             <div class="fileNameDiv {{ file.isFolder ? 'folder' : '' }}" (dragover)="onDragOver($event)"
