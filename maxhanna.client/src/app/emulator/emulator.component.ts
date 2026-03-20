@@ -726,18 +726,59 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
  
     const isDPADCentric = (system && (['nes', 'snes', 'gb', 'gbc', 'gba', 'genesis', 'saturn', 'sega_cd', '3do', 'nds'] as string[]).includes(system)) || core === 'yabause';
+    const isLeftAndRightJoystickInverted = (system && ['n64'].includes(system));
     const rightStickValues = {
-      "UP": isDPADCentric ? 'DPAD_UP' : 'RIGHT_STICK_Y:-1',
-      "DOWN": isDPADCentric ? 'DPAD_DOWN' : 'RIGHT_STICK_Y:+1',
-      "LEFT": isDPADCentric ? 'DPAD_LEFT' : 'RIGHT_STICK_X:-1',
-      "RIGHT": isDPADCentric ? 'DPAD_RIGHT' : 'RIGHT_STICK_X:+1'
+      "UP": 
+        isDPADCentric 
+        ? 'DPAD_UP' 
+        : isLeftAndRightJoystickInverted 
+          ? 'LEFT_STICK_Y:-1' 
+          : 'RIGHT_STICK_Y:-1',
+      "DOWN": 
+        isDPADCentric 
+        ? 'DPAD_DOWN' 
+        : isLeftAndRightJoystickInverted 
+          ? 'LEFT_STICK_Y:+1' 
+          : 'RIGHT_STICK_Y:+1',
+      "LEFT": 
+        isDPADCentric 
+        ? 'DPAD_LEFT' 
+        : isLeftAndRightJoystickInverted
+          ? 'LEFT_STICK_X:-1' 
+          : 'RIGHT_STICK_X:-1',
+      "RIGHT": 
+        isDPADCentric 
+        ? 'DPAD_RIGHT' 
+        : isLeftAndRightJoystickInverted 
+          ? 'LEFT_STICK_X:+1' 
+          : 'RIGHT_STICK_X:+1'
     };
 
     const leftStickValues = {
-      "UP": isDPADCentric ? 'DPAD_UP' : 'LEFT_STICK_Y:-1',
-      "DOWN": isDPADCentric ? 'DPAD_DOWN' : 'LEFT_STICK_Y:+1',
-      "LEFT": isDPADCentric ? 'DPAD_LEFT' : 'LEFT_STICK_X:-1',
-      "RIGHT": isDPADCentric ? 'DPAD_RIGHT' : 'LEFT_STICK_X:+1'
+      "UP": 
+        isDPADCentric 
+        ? 'DPAD_UP' 
+        : isLeftAndRightJoystickInverted 
+          ? 'RIGHT_STICK_Y:-1' 
+          : 'LEFT_STICK_Y:-1',
+      "DOWN": 
+        isDPADCentric 
+        ? 'DPAD_DOWN' 
+        : isLeftAndRightJoystickInverted 
+          ? 'RIGHT_STICK_Y:+1' 
+          : 'LEFT_STICK_Y:+1',
+      "LEFT": 
+        isDPADCentric 
+        ? 'DPAD_LEFT' 
+        : isLeftAndRightJoystickInverted 
+          ? 'RIGHT_STICK_X:-1' 
+          : 'LEFT_STICK_X:-1',
+      "RIGHT": 
+        isDPADCentric 
+        ? 'DPAD_RIGHT' 
+        : isLeftAndRightJoystickInverted 
+          ? 'RIGHT_STICK_X:+1' 
+          : 'LEFT_STICK_X:+1'
     };
 
     console.log(`[EJS] Configuring controls for system="${system}" core="${core}" isDPADCentric=${isDPADCentric}`);
