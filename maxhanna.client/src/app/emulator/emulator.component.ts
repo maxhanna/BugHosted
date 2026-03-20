@@ -529,7 +529,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         throw new Error(`${it.type} missing inputValues`);
       }
     }
-    console.log('[EJS] assigning custom VirtualGamepadSettings', window.EJS_VirtualGamepadSettings);
+    console.log('%c[EJS] assigning custom VirtualGamepadSettings ✔', 'color:#4f4', window.EJS_VirtualGamepadSettings,);
   }
 
   private hideEJSMenu() {
@@ -858,7 +858,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           const data = mod.HEAPU8.subarray(dataStart, dataStart + size);
           return new Uint8Array(data);
         };
-        console.log('[EJS] Patched gameManager.getState() → save_state_info cwrap (old-core compat)');
+       // console.log('[EJS] Patched gameManager.getState() → save_state_info cwrap (old-core compat)');
       } catch (e) {
         console.warn('[EJS] Failed to patch getState():', e);
       }
@@ -873,7 +873,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         const bytes = await Promise.resolve(mgr.getState());
         return bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes as ArrayBufferLike);
       };
-      console.log('[EJS] Polyfilled EJS_saveState via gameManager.getState()');
+     // console.log('[EJS] Polyfilled EJS_saveState via gameManager.getState()');
     } else {
       console.warn('[EJS] No gameManager.getState() found; cannot polyfill EJS_saveState');
     }
@@ -917,7 +917,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
     // Rate-limit saves to once per 10s
     if (!this._destroyed && now - this._lastSaveTime < 10000) {
-      console.log('[EJS] onSaveState: recent save detected (<10s); skipping upload');
+      //console.log('[EJS] onSaveState: recent save detected (<10s); skipping upload');
       if (this._pendingSaveResolve) { try { this._pendingSaveResolve(true); } catch { } this._pendingSaveResolve = undefined; }
       return;
     }
@@ -1561,7 +1561,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           if (document.body.contains(btn)) btn.click();
         } catch { }
       };
-      console.log('[EJS] save API bound to Quick Save button');
+      //console.log('[EJS] save API bound to Quick Save button');
     } else {
       console.warn('[EJS] Quick Save button not found; cannot bind UI-based save');
     }
@@ -1584,25 +1584,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const out = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
     return out;
-  }
-
-  private debugDescribePayload(raw: any): void {
-    try {
-      const t = raw?.constructor?.name ?? typeof raw;
-      const keys = raw && typeof raw === 'object' ? Object.keys(raw).slice(0, 12) : [];
-      const brief: Record<string, any> = {};
-      for (const k of keys) {
-        const v = (raw as any)[k];
-        brief[k] =
-          v instanceof Blob ? `Blob(${(v as Blob).size} bytes)` :
-            this.isArrayBuffer(v) ? `ArrayBuffer(${(v as ArrayBuffer).byteLength})` :
-              this.isTypedArray(v) ? `TypedArray(${(v as Uint8Array).byteLength})` :
-                typeof v === 'string' ? `str(${Math.min(v.length, 64)} chars)` :
-                  typeof v;
-      }
-      console.log('[EJS] payload type:', t, 'keys:', keys, 'peek:', brief);
-    } catch { }
-  }
+  } 
 
   private async normalizeSavePayload(payload: any, depth = 0): Promise<Uint8Array | null> {
     try {
@@ -1663,7 +1645,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         if (/^data:.*;base64,/.test(v) || /^[A-Za-z0-9+/=\s]+$/.test(v)) {
           try {
             const u8 = this.base64ToU8(v);
-            if (u8.length) { console.log('[EJS] localStorage savestate (b64) at', k, 'bytes=', u8.length); return u8; }
+            if (u8.length) { 
+              //console.log('[EJS] localStorage savestate (b64) at', k, 'bytes=', u8.length); 
+              return u8;
+            }
           } catch { }
         }
       }
@@ -1674,11 +1659,17 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           const obj = JSON.parse(v);
           if (obj && Array.isArray(obj.data)) {
             const u8 = new Uint8Array(obj.data);
-            if (u8.length) { console.log('[EJS] localStorage savestate JSON(data[]) at', k, 'bytes=', u8.length); return u8; }
+            if (u8.length) { 
+              //console.log('[EJS] localStorage savestate JSON(data[]) at', k, 'bytes=', u8.length);
+              return u8; 
+            }
           }
           if (obj && typeof obj.buffer === 'string') {
             const u8 = this.base64ToU8(obj.buffer);
-            if (u8.length) { console.log('[EJS] localStorage savestate JSON(buffer b64) at', k, 'bytes=', u8.length); return u8; }
+            if (u8.length) { 
+              //console.log('[EJS] localStorage savestate JSON(buffer b64) at', k, 'bytes=', u8.length); 
+              return u8; 
+            }
           }
         } catch { }
       }
@@ -1704,7 +1695,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         if (!u8 || !u8.length) continue;
         if (!best || u8.length > best.length) best = u8; // pick largest
       }
-      if (best) console.log('[EJS] IDB (localforage) savestate bytes=', best.length);
+      //if (best) console.log('[EJS] IDB (localforage) savestate bytes=', best.length);
       return best || null;
     } catch { return null; }
   }
@@ -1738,7 +1729,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         if (u8 && (!best || u8.length > best.length)) best = u8;
       }
 
-      if (best) console.log('[EJS] IDB savestate bytes=', best.length);
+     // if (best) console.log('[EJS] IDB savestate bytes=', best.length);
       return best;
     } catch { return null; }
   }
@@ -1852,7 +1843,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       if (isHeavy) {
         this.status = 'Waiting for core to initialize before restoring save…';
         this.cdr.detectChanges();
-        console.log('[EJS] Heavy core detected — polling supportsStates() until core is ready…');
+       // console.log('[EJS] Heavy core detected — polling supportsStates() until core is ready…');
 
         const maxWaitMs = 60000;
         const start = Date.now();
@@ -1893,7 +1884,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           const gm = await this.waitForGameManager(2000);
           if (gm && typeof gm.loadState === 'function') {
             gm.loadState(u8);
-            console.log(`[EJS] Loaded state via gameManager.loadState (attempt ${attempt})`);
+           // console.log(`[EJS] Loaded state via gameManager.loadState (attempt ${attempt})`);
             this.status = 'Running';
             this.cdr.detectChanges();
             return true;
@@ -1903,7 +1894,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           const w = window as any;
           if (typeof w.EJS_loadState === 'function') {
             await Promise.resolve(w.EJS_loadState(u8));
-            console.log(`[EJS] Loaded state via EJS_loadState (attempt ${attempt})`);
+          //  console.log(`[EJS] Loaded state via EJS_loadState (attempt ${attempt})`);
             this.status = 'Running';
             this.cdr.detectChanges();
             return true;
@@ -1990,7 +1981,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           const res = await this.romService.saveEmulatorJSState(rec.romName, rec.userId, arr);
           if (res.ok) {
             await this.removePendingSave(rec.id); // <-- remove after success
-            console.log('[EJS] uploaded & cleared pending save for', rec.romName);
+           // console.log('[EJS] uploaded & cleared pending save for', rec.romName);
           } else {
             console.warn('[EJS] failed to upload pending save:', res.errorText);
           }
@@ -2750,7 +2741,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const core = (window as any).EJS_core;
     if (core !== 'psp' && core !== 'ppsspp') return;
     setTimeout(() => { void this.stabilizePspCanvasSize(2000); }, 500);
-    console.log('%c[PSP] Applying post-boot performance tweaks…', 'color:#4af');
+   // console.log('%c[PSP] Applying post-boot performance tweaks…', 'color:#4af');
 
     // 1️⃣ Canvas downscaling — prevent GPU upscaling work
     requestAnimationFrame(() => {
@@ -2792,12 +2783,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
             if (opts['fastForward'] === 'enabled') gm.toggleFastForward(1);
           } catch { }
           if (emu) emu.isFastForward = true;
-          console.log('[PSP] Fast-forward enabled (per options)');
+          //console.log('[PSP] Fast-forward enabled (per options)');
         }
         // set vsync
         if (typeof gm.setVSync === 'function') {
           try { gm.setVSync(opts['vsync'] === 'disabled' ? false : true); } catch { }
-          console.log('[PSP] VSync set (per options)');
+          //console.log('[PSP] VSync set (per options)');
         }
         // Push core variables (skip EmulatorJS-level controls)
         if (typeof gm.setVariable === 'function' || typeof gm === 'object') {
@@ -2805,12 +2796,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
             if (k === 'fastForward' || k === 'ff-ratio' || k === 'vsync') continue;
             try { gm.setVariable(k, String(v)); } catch { }
           }
-          console.log('[PSP] Core variables pushed via gameManager');
+          //console.log('[PSP] Core variables pushed via gameManager');
         }
       }
     } catch { }
 
-    console.log('%c[PSP] Post-boot tweaks applied ✔', 'color:#4f4');
+    //console.log('%c[PSP] Post-boot tweaks applied ✔', 'color:#4f4');
   }
 
 
