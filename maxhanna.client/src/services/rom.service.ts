@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { FileService } from './file.service';
+import { System } from '../app/emulator/emulator-types';
 
 
 export interface N64StateUpload {
@@ -182,7 +183,7 @@ export class RomService {
     return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer;
   } 
 
-  guessSystemFromFileName(fileName: string): string | undefined {
+  guessSystemFromFileName(fileName: string): System | undefined {
     if (!fileName) return undefined;
     const name = fileName.toLowerCase();
 
@@ -220,10 +221,7 @@ export class RomService {
     // If title-based guess pointed to Saturn it would have returned earlier
     if (name.includes('dreamcast') || name.includes('[dc]') || name.includes('sega-dreamcast') || name.includes('[gdi]') || name.includes('[cdr]')) {
       return 'dreamcast';
-    }
-    if (name.includes('turbo') || name.includes('tgcd') || name.includes('pcengine') || name.includes('pc-engine') || name.includes('hu-card') || name.includes('huc')) {
-      return 'tgcd';
-    }
+    } 
     // If the filename contains common PlayStation cues (CUE for bin/cue pair)
     if (name.endsWith('.cue') || name.includes('.cue') || name.includes('cue')) {
       return 'ps1';

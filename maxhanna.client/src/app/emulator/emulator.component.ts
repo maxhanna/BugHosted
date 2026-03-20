@@ -2949,7 +2949,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     try {
       const guessedSystem = this.romService?.guessSystemFromFileName(fileName);
-      guessedCore = this.systemToCore(guessedSystem);
+      guessedCore = this.systemToCore(guessedSystem as System);
     } catch { }
 
     if (!guessedCore) {
@@ -3016,8 +3016,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   /** Map your romService guess strings to a core id. Expand this as your guesser grows. */
-  private systemToCore(guessed?: string | null): string | null {
-    const g = (guessed || '').toLowerCase();
+  private systemToCore(guessed?: System): string | null {
+    const g = (guessed ?? "").toLowerCase();
     switch (g) {
       case 'psp': return 'psp';
       case 'ps1':

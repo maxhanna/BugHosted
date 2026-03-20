@@ -5,6 +5,7 @@ import { User } from './datacontracts/user/user';
 import { FileEntry } from './datacontracts/file/file-entry';
 import { Topic } from './datacontracts/topics/topic';
 import { FileAccessLog } from './datacontracts/file/file-access-log';
+import { System } from '../app/emulator/emulator-types';
 
 @Injectable({
   providedIn: 'root'
@@ -828,7 +829,7 @@ export class FileService {
   }
 
   /** Try to guess system by matching known title keywords in filename. */
-  guessSystemFromTitle(fileName: string): string | undefined {
+  guessSystemFromTitle(fileName: string): System | undefined {
     if (!fileName) return undefined;
     const name = fileName.toLowerCase();
 
