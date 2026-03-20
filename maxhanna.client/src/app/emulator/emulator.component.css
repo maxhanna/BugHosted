@@ -2,7 +2,7 @@
   min-width: 320px;
   height: calc(100vh - 60px);
   height: calc(100dvh - 60px);
-  overflow: hidden;  
+  overflow: hidden;
 }
 
 .gamesContainer {
@@ -10,22 +10,23 @@
   overflow: auto;
 }
 
-@media only screen and (max-width : 667px) { 
+@media only screen and (max-width : 667px) {
   .gamesContainer {
-    width: 100%; 
+    width: 100%;
   }
 }
-@media only screen and (min-width : 667px) { 
+
+@media only screen and (min-width : 667px) {
   .gamesContainer {
-    max-width: 85vw; 
-    border-radius: 16px;  
+    max-width: 85vw;
+    border-radius: 16px;
     margin-top: 15px;
     margin-bottom: 15px;
     margin-right: 10px;
   }
 }
 
-@media only screen and (min-width : 667px) { 
+@media only screen and (min-width : 667px) {
   :host ::ng-deep #fileContainer {
     max-height: calc(100vh - 130px) !important;
     max-height: calc(100dvh - 130px) !important;
@@ -38,12 +39,8 @@
   }
 
   :host ::ng-deep .directoryDisplayDiv {
-    max-height: calc(100vh - 170px) !important; 
-    max-height: calc(100dvh - 170px) !important; 
-  }
-  :host ::ng-deep .directoryDisplayDivLoading {
-    max-height: calc(100vh - 190px) !important; 
-    max-height: calc(100dvh - 190px) !important; 
+    max-height: calc(100vh - 170px) !important;
+    max-height: calc(100dvh - 170px) !important;
   }
 }
 
@@ -94,7 +91,7 @@
   #game {
     height: calc(100dvh - 60px);
   }
-} 
+}
 
 /* Hide EJS top bar while keeping it in the DOM so we can click buttons programmatically */
 #game .ejs-toolbar,
@@ -106,13 +103,15 @@
   opacity: 0 !important;
   pointer-events: none !important;
 }
-.ejs_button, .ejs_control_set_button {
+
+.ejs_button,
+.ejs_control_set_button {
   background-color: var(--component-background-color) !important;
   color: var(--main-font-color) !important;
 }
 
-@media only screen and (max-width : 667px) { 
-  .menuPanel { 
+@media only screen and (max-width : 667px) {
+  .menuPanel {
     z-index: 1000 !important;
   }
 }

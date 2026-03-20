@@ -16,7 +16,7 @@
 </div>
 
 <div #fileContainer [id]="!fileSearchMode ? 'fileContainer' : ''">
-  <div class="directoryTotalPageControls"> 
+  <div class="directoryTotalPageControls">
     <!-- Page Controls -->
     <div class="topPageControls">
       <span *ngIf="isDisplayingPreviousPageButton()">
@@ -53,18 +53,19 @@
             </ng-container>
           </ng-container>
         </span>
-      </span> 
+      </span>
       <span class="currentDirectorySpan" *ngIf="isLoading">Loading Data...</span>
     </div>
-    <div> 
+    <div>
       Total: {{ directory ? directory.totalCount : 0 }}
-    </div> 
+    </div>
   </div>
   <div *ngIf="!isLoading && directory && directory.totalCount == 0">
     Empty.
   </div>
   <!-- Main Data -->
-  <div [class]="fileSearchMode ? 'inPopupComponent' : (displayRomMetadataDesktop && shouldShowRomMetadata() ? 'flexForRoms' : '')">
+  <div
+    [class]="fileSearchMode ? 'inPopupComponent' : (displayRomMetadataDesktop && shouldShowRomMetadata() ? 'flexForRoms' : '')">
     <div id="fileTable">
       <div *ngIf="showUpFolderRow && canChangeDirectory && !search?.nativeElement?.value">
         <div (click)="previousDirectory()" class="upOneFolder" title="Up one folder" (drop)="onDrop('...')"
@@ -73,11 +74,8 @@
         </div>
       </div>
 
-      <div *ngIf="directory && directory.totalCount! > 0" 
-        #directoryDisplayDiv
-        class="directoryDisplayDiv"
-        [class.disabled]="disabled"
-        [class.directoryDisplayDivLoading]="isLoading">
+      <div *ngIf="directory && directory.totalCount! > 0" #directoryDisplayDiv class="directoryDisplayDiv"
+        [class.disabled]="disabled">
         <ng-container *ngFor="let file of directory.data; let i = index">
           <div class="draggableDiv" draggable="true" (dragstart)="onDragStart($event, file.fileName ?? '')">
             <div class="fileNameDiv {{ file.isFolder ? 'folder' : '' }}" (dragover)="onDragOver($event)"
@@ -321,9 +319,7 @@
         <strong>Release:</strong> {{ unixSecondsToDate(d) | date:'y/MM/d' }}
       </div>
       <span class="xSmallFont">
-        <button title="Request metadata reset" 
-          [disabled]="isLoading"
-          (click)="incrementResetVoteForOptionsFile()" 
+        <button title="Request metadata reset" [disabled]="isLoading" (click)="incrementResetVoteForOptionsFile()"
           style="margin-left:8px">
           ↻ Reset
         </button>
@@ -334,41 +330,33 @@
   </div>
 
   <div class="popupPanelActions">
-    <button title="Edit File Name" (click)="startEditingFileName(optionsFile.id);"
-      [disabled]="isLoading"
+    <button title="Edit File Name" (click)="startEditingFileName(optionsFile.id);" [disabled]="isLoading"
       *ngIf="shouldShowEditButton(optionsFile)">
       ✏️Edit File Name
     </button>
     <button [title]="'Clear System Override ('+optionsFile.romMetadata?.actualSystem+')'"
-      (click)="clearSystemOverride(optionsFile)"
-      [disabled]="isLoading"
+      (click)="clearSystemOverride(optionsFile)" [disabled]="isLoading"
       *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.actualSystem">
       🧹 Clear System Override
       <span *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.actualSystem" class="system-override-icon"
         [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata?.actualSystem)">
       </span>
     </button>
-    <app-share-button *ngIf="optionsFile.visibility?.toLowerCase() !== 'private'"
-      [link]="shareLink"
+    <app-share-button *ngIf="optionsFile.visibility?.toLowerCase() !== 'private'" [link]="shareLink"
       [isExternalLink]="isInRomDirectory"></app-share-button>
-    <app-share-button *ngIf="optionsFile.visibility?.toLowerCase() === 'private'"
-      [isExternalLink]="false"
-      [text]="'↗️Share with Users'"
-      [callback]="shareFileInitiate(optionsFile)"></app-share-button>
+    <app-share-button *ngIf="optionsFile.visibility?.toLowerCase() === 'private'" [isExternalLink]="false"
+      [text]="'↗️Share with Users'" [callback]="shareFileInitiate(optionsFile)"></app-share-button>
     <!-- <button title="Share File"
       *ngIf="optionsFile.visibility?.toLowerCase() === 'private'"
       [disabled]="isLoading"
       (click)="shareFileInitiate(optionsFile);">
       ↗️Share with Users
     </button> -->
-    <button title="Download File" 
-      (click)="download(optionsFile, true);" 
-      [disabled]="isLoading"
+    <button title="Download File" (click)="download(optionsFile, true);" [disabled]="isLoading"
       *ngIf="!optionsFile.isFolder">
       📥Download
     </button>
-    <button title="Delete File" (click)="delete(optionsFile);"
-      [disabled]="isLoading"
+    <button title="Delete File" (click)="delete(optionsFile);" [disabled]="isLoading"
       *ngIf="shouldShowEditButton(optionsFile) || (parentRef?.user?.id == 1 || inputtedParentRef?.user?.id == 1)">
       ❌Delete
     </button>
@@ -380,7 +368,8 @@
       <span *ngIf="!optionsFile.isFavourited">❤️ Add To Favourites</span>
       <span *ngIf="optionsFile.isFavourited">🧡 Remove From Favourites</span>
     </button>
-    <button *ngIf="isVideoFile(optionsFile) && userIsLoggedIn()" [disabled]="isLoading" (click)="addFileToMusicPlaylist(optionsFile)"
+    <button *ngIf="isVideoFile(optionsFile) && userIsLoggedIn()" [disabled]="isLoading"
+      (click)="addFileToMusicPlaylist(optionsFile)"
       title="Add '{{optionsFile.givenFileName ?? optionsFile.fileName}}' to music playlist.">
       ➕ Add To Music Playlist
     </button>
@@ -600,9 +589,7 @@
       *ngIf="shouldShowRomMetadata() && !optionsFile?.romMetadata?.igdbName && !optionsFile.isFolder">
       <div class="optionsStatsHeader">Reset ROM Metadata?</div>
       <div class="optionsStatsDescription">
-        <button title="Request metadata reset" 
-          [disabled]="isLoading"
-          (click)="incrementResetVoteForOptionsFile()" 
+        <button title="Request metadata reset" [disabled]="isLoading" (click)="incrementResetVoteForOptionsFile()"
           style="margin-left:8px">
           ↻ Reset
         </button>
@@ -800,8 +787,8 @@
   </div>
   <div class="fileViewerDiv">
     <div *ngFor="let viewer of fileViewers" class="fileViewerLi">
-      <app-user-tag [user]="viewer.user" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"
-        [previousComponent]="previousComponent" [displayMiniTag]="true"></app-user-tag>
+      <app-user-tag [user]="viewer.user" [inputtedParentRef]="parentRef ?? inputtedParentRef"
+        [displayHoverPicture]="true" [previousComponent]="previousComponent" [displayMiniTag]="true"></app-user-tag>
       <span>
         ({{viewer.accessCount}})
       </span>

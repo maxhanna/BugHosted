@@ -1,16 +1,12 @@
 .componentMain {
-  min-width: 50vw; 
+  min-width: 50vw;
   box-sizing: border-box;
 }
 
-@media only screen and (min-width : 667px) { 
+@media only screen and (min-width : 667px) {
   :host ::ng-deep .directoryDisplayDiv {
-    max-height: calc(100vh - 100px) !important; 
-    max-height: calc(100dvh - 100px) !important; 
-  }
-  :host ::ng-deep .directoryDisplayDivLoading {
-    max-height: calc(100vh - 110px) !important; 
-    max-height: calc(100dvh - 110px) !important; 
+    max-height: calc(100vh - 100px) !important;
+    max-height: calc(100dvh - 100px) !important;
   }
 }
 
@@ -22,35 +18,35 @@ button {
   max-height: CALC(100vh - 60px);
   max-height: CALC(100dvh - 60px);
   overflow: auto;
-} 
-  
+}
+
 @media only screen and (min-width:800px) {
   .componentMain {
-    width: 100%; 
+    width: 100%;
   }
 }
 
 
-  @media only screen and (max-width:800px) {
-    .componentMain {
-      width: 99vw;
-    } 
+@media only screen and (max-width:800px) {
+  .componentMain {
+    width: 99vw;
   }
+}
 
 
-    .loadMoreResultsDiv button {
-      font-size: 30px;
-      font-family: var(--title-font-family);
-    }
+.loadMoreResultsDiv button {
+  font-size: 30px;
+  font-family: var(--title-font-family);
+}
 
 .fileUploadInputs {
   margin: 20px;
 }
- 
+
 .popupPanelContents {
   padding: 20px;
 }
- 
+
 
 .browsingInstructions {
   border-top: 1px solid var(--main-border-color);

@@ -3,7 +3,7 @@
   position: fixed;
   background: var(--secondary-component-background-color);
   border: var(--main-border);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); 
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   width: CALC(100vw - 4px);
   height: 100vh;
   height: 100dvh;
@@ -11,7 +11,7 @@
   top: 0;
   left: 0;
 }
- 
+
 @media only screen and (max-width:800px) {
   .attachmentChoiceContainer {
     max-height: CALC(100vh - 170px) !important;
@@ -153,13 +153,9 @@
 }
 
 
-@media only screen and (max-width : 667px) { 
+@media only screen and (max-width : 667px) {
   :host ::ng-deep .directoryDisplayDiv {
-    max-height: calc(100vh - 140px) !important; 
-    max-height: calc(100dvh - 140px) !important; 
-  }
-  :host ::ng-deep .directoryDisplayDivLoading {
-    max-height: calc(100vh - 150px) !important; 
-    max-height: calc(100dvh - 150px) !important; 
+    max-height: calc(100vh - 140px) !important;
+    max-height: calc(100dvh - 140px) !important;
   }
 }
