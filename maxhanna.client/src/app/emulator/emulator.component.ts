@@ -1336,7 +1336,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       (this.fileService.getN64FileExtensions ? this.fileService.getN64FileExtensions() : []).forEach(e => set.add((e || '').toString().trim().toLowerCase()));
 
       // Include a few common ambiguous/aux extensions that are useful for the emulator UI
-      ['zip', 'wad', 'ccd', 'bin', 'iso', 'cue', 'chd', 'pbp'].forEach(e => set.add(e));
+      ['zip', '7z', 'wad', 'ccd', 'bin', 'iso', 'cue', 'chd', 'pbp'].forEach(e => set.add(e));
     } catch (err) {
       // Fallback to the previous hardcoded list if anything goes wrong
       return [
@@ -1346,7 +1346,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         'pce', 'ngp', 'ngc', 'ws', 'wsc', 'lnx',
         'col', 'a26', 'a78', 'jag',
         'adf', 'd64', 'exe', 'com', 'bat',
-        'zip',
+        'zip', '7z',
         'wad', 'ccd'
       ];
     }
@@ -2886,7 +2886,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // Multi-system disc formats to be treated as ambiguous
     const exAmbig = uniq([
       ...exPS1, ...exPSP, ...exSAT,
-      'iso', 'bin', 'cue', 'chd', 'img', 'ccd', 'mdf', 'mds', 'nrg'
+      ...this.AMBIGUOUS_EXTS
     ]);
 
     // Dreamcast (Flycast, experimental): common formats
@@ -2901,7 +2901,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return [
       // --- Sony ---
       { core: 'psp', label: 'PSP', exts: ['pbp'], maybeExts: plus([], exPSP), hints: [/ULUS\d{5}/i, /ULES\d{5}/i, /\bPSP\b/i] },
-      { core: 'pcsx_rearmed', label: 'PlayStation (PS1)', exts: uniq(['bin', 'cue', 'chd']), maybeExts: plus(['iso', 'img', 'ccd', 'mdf', 'mds', 'nrg'], exPS1), hints: [/SLUS\d{5}/i, /SLES\d{5}/i, /\bPSX\b|\bPS1\b|\bPlayStation\b/i] },
+      { core: 'pcsx_rearmed', label: 'PlayStation (PS1)', exts: uniq(['bin', 'cue', 'chd']), maybeExts: exAmbig, hints: [/SLUS\d{5}/i, /SLES\d{5}/i, /\bPSX\b|\bPS1\b|\bPlayStation\b/i] },
 
       // --- Sega ---
       { core: 'genesis_plus_gx', label: 'Sega Mega Drive / Genesis', exts: exGEN, maybeExts: ['bin'], hints: [/\bGENESIS\b|\bMEGADRIVE\b|\bMD\b/i] },
@@ -2916,7 +2916,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       { core: 'mupen64plus_next', label: 'Nintendo 64', exts: exN64, maybeExts: [], hints: [/\bN64\b/i] },
       { core: 'melonds', label: 'Nintendo DS (melonDS)', exts: exNDS, maybeExts: [], hints: [/\bNDS\b|\bDS\b/i] },
       { core: 'desmume', label: 'Nintendo DS (DeSmuME)', exts: exNDS, maybeExts: [], hints: [/\bNDS\b|\bDS\b/i] },
-      { core: 'dolphin', label: 'GameCube / Wii (Dolphin)', exts: [], maybeExts: ['zip'], hints: [/\bGAMECUBE\b|\bDOLPHIN\b|\bGC\b|\bWII\b/i] },
+      { core: 'dolphin', label: 'GameCube / Wii (Dolphin)', exts: [], maybeExts: exAmbig, hints: [/\bGAMECUBE\b|\bDOLPHIN\b|\bGC\b|\bWII\b/i] },
       { core: 'mgba', label: 'Game Boy Advance', exts: exGBA, maybeExts: [], hints: [/\bGBA\b/i] },
       { core: 'mgba', label: 'Game Boy Advance', exts: exGBx, maybeExts: [], hints: [/\bGBA\b/i] },
       { core: 'mgba', label: 'Game Boy / Game Boy Color', exts: exGBx, maybeExts: [], hints: [/\bGBC\b|\bGB\b/i] },
@@ -2930,18 +2930,18 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       { core: 'fbneo', label: 'Arcade (FBNeo)', exts: exArc, maybeExts: exArcMaybe, hints: [/\bFBNEO\b|\bNEOGEO\b/i] },
 
       // --- Atari ---
-      { core: 'stella2014', label: 'Atari 2600', exts: ['a26'], maybeExts: ['zip'], hints: [/\b2600\b/i] },
-      { core: 'prosystem', label: 'Atari 7800', exts: ['a78'], maybeExts: ['zip'], hints: [/\b7800\b/i] },
-      { core: 'handy', label: 'Atari Lynx', exts: ['lnx'], maybeExts: ['zip'], hints: [/\bLYNX\b/i] },
-      { core: 'virtualjaguar', label: 'Atari Jaguar', exts: ['jag'], maybeExts: ['zip'], hints: [/\bJAGUAR\b/i] },
+      { core: 'stella2014', label: 'Atari 2600', exts: ['a26'], maybeExts: exAmbig, hints: [/\b2600\b/i] },
+      { core: 'prosystem', label: 'Atari 7800', exts: ['a78'], maybeExts: exAmbig, hints: [/\b7800\b/i] },
+      { core: 'handy', label: 'Atari Lynx', exts: ['lnx'], maybeExts: exAmbig, hints: [/\bLYNX\b/i] },
+      { core: 'virtualjaguar', label: 'Atari Jaguar', exts: ['jag'], maybeExts: exAmbig, hints: [/\bJAGUAR\b/i] },
 
       // --- Coleco / Commodore / Amiga ---
-      { core: 'gearcoleco', label: 'ColecoVision', exts: ['col'], maybeExts: ['zip'], hints: [/\bCOLECO\b/i] },
+      { core: 'gearcoleco', label: 'ColecoVision', exts: ['col'], maybeExts: exAmbig, hints: [/\bCOLECO\b/i] },
       { core: 'vice_x64', label: 'Commodore 64', exts: ['d64'], maybeExts: [], hints: [/\bC64\b/i] },
       { core: 'puae', label: 'Commodore Amiga', exts: ['adf'], maybeExts: [], hints: [/\bAMIGA\b/i] },
 
       // --- Experimental (available only if you actually ship the WASM core files) ---
-      { core: 'flycast', label: 'Sega Dreamcast (Flycast) — experimental', exts: exDC, maybeExts: [], hints: [/\bDREAMCAST\b|\bNAOMI\b/i] },  // WASM port required [6](https://github.com/nasomers/flycast-wasm)
+      { core: 'flycast', label: 'Sega Dreamcast (Flycast)', exts: exDC, maybeExts: exAmbig, hints: [/\bDREAMCAST\b|\bNAOMI\b/i] },  // WASM port required [6](https://github.com/nasomers/flycast-wasm)
       { core: 'vitaquake3', label: 'Quake III Arena (vitaQuake 3)', exts: exQ3, maybeExts: [], hints: [/pak0\.pk3/i] }, // loads *.pk3 [2](https://sources.debian.org/src/libretro-core-info/1.14.0-1/vitaquake3_libretro.info/)
     ];
   }
