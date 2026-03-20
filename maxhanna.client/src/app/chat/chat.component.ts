@@ -80,7 +80,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
     }
-    this.parentRef?.addResizeListener();
   }
 
   async ngOnInit() {
@@ -116,7 +115,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    this.parentRef?.removeResizeListener();
     this.currentChatUsers = undefined;
     clearInterval(this.pollingInterval);
     clearInterval(this.inviewDebounceTimeout);
@@ -577,7 +575,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     }
     setTimeout(() => {
       const parent = this.parentRef ?? this.inputtedParentRef;
-      parent?.addResizeListener();
       parent?.updateLastSeen();
     }, 50);
 

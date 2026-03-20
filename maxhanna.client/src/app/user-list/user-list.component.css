@@ -100,7 +100,8 @@
 }
 
 .searchPopup {
-  max-height: CALC(var(--vh, 1vh) * 100 - 60px);
+  max-height: CALC(100vh - 60px);
+  max-height: CALC(100dvh - 60px);
 }
 
 .onlineButton {

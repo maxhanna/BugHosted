@@ -1,20 +1,24 @@
 .componentMain {
   max-width: 400px;
-  height: CALC(var(--vh, 1vh) * 100 - 60px);
+  height: CALC(100vh - 60px);
+  height: CALC(100dvh - 60px);
 }
 
 .rankingDiv {
-  max-height: CALC(var(--vh, 1vh) * 100 - 650px);
+  max-height: CALC(100vh - 650px);
+  max-height: CALC(100dvh - 650px);
   min-height: 100px;
   overflow: auto;
   width: 100%;
   text-align: left;
 }
   .rankingDiv.expanded {
-    max-height: CALC(var(--vh, 1vh) * 80);
+    max-height: 80vh;
+    max-height: 80dvh;
   }
 .rankingDivOffNexus {
-  max-height: CALC(var(--vh, 1vh)* 100 - 550px);
+  max-height: CALC(100vh - 550px);
+  max-height: CALC(100dvh - 550px);
 }
 
 .radar {
@@ -153,7 +157,8 @@
   position: fixed;
   top: 0;
   left: 0; 
-  height: CALC(var(--vh, 1vh) * 100 - 50px);
+  height: CALC(100vh - 50px);
+  height: CALC(100dvh - 50px);
   background: var(--secondary-component-background-color);
   z-index: 4 !important;
   border-radius: 8px;

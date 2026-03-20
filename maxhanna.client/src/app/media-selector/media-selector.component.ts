@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, OnDestroy, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
@@ -12,7 +12,7 @@ import { FileSearchComponent } from '../file-search/file-search.component';
   styleUrl: './media-selector.component.css',
   standalone: false
 })
-export class MediaSelectorComponent implements OnDestroy {
+export class MediaSelectorComponent {
   displaySearchButton = false;
   displaySearch = false;
   maxFilesReached = false;
@@ -39,16 +39,8 @@ export class MediaSelectorComponent implements OnDestroy {
   @ViewChild(FileSearchComponent) fileSearchComponent!: FileSearchComponent;
 
 
-  constructor() {
-    this.inputtedParentRef?.addResizeListener();
-  }
-
-  ngOnDestroy() {
-    this.inputtedParentRef?.removeResizeListener();
-    document.body.style.overflow = 'auto';
-    document.documentElement.style.overflow = 'auto';
-  }
-
+  constructor() {}
+  
   toggleMediaChoices() {
     if (this.closeInitialPopup) {
       this.inputtedParentRef?.closeOverlay();

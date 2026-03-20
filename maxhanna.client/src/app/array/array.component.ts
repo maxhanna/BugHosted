@@ -51,7 +51,6 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
     if (this.parentRef && this.parentRef.user) {
       this.isUserComponentClosed = true;
     }
-    this.parentRef?.addResizeListener();
     await this.refreshHeroData();
     await this.refreshActivePlayers();
     this.activePlayersInterval = setInterval(() => this.refreshActivePlayers(), 60000);
@@ -62,7 +61,6 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   ngOnDestroy() {
-    this.parentRef?.removeResizeListener();
     if (this.ladderRefreshInterval) {
       clearInterval(this.ladderRefreshInterval);
     }

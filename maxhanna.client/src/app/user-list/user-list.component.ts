@@ -5,15 +5,15 @@ import { ChatService } from '../../services/chat.service';
 import { ChildComponent } from '../child.component';
 import { User } from '../../services/datacontracts/user/user';
 import { AppComponent } from '../app.component';
-import { FriendService } from '../../services/friend.service'; 
-import { Message } from '../../services/datacontracts/chat/message'; 
+import { FriendService } from '../../services/friend.service';
+import { Message } from '../../services/datacontracts/chat/message';
 
 
 @Component({
-    selector: 'app-user-list',
-    templateUrl: './user-list.component.html',
-    styleUrl: './user-list.component.css',
-    standalone: false
+  selector: 'app-user-list',
+  templateUrl: './user-list.component.html',
+  styleUrl: './user-list.component.css',
+  standalone: false
 })
 export class UserListComponent extends ChildComponent implements OnInit, OnDestroy {
   @Input() user?: User;
@@ -35,8 +35,8 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   @ViewChild('allUsersRadio') allUsersRadio!: ElementRef<HTMLInputElement>;
   @ViewChild('friendsRadio') friendsRadio!: ElementRef<HTMLInputElement>;
 
-  isSearchPanelOpen = false; 
-  isFriendsChecked: boolean = true; 
+  isSearchPanelOpen = false;
+  isFriendsChecked: boolean = true;
   private chatInfoInterval: any;
   users: Array<User> = [];
   usersSearched: Array<User> = [];
@@ -48,9 +48,9 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
 
 
   constructor(private userService: UserService, private chatService: ChatService, private friendService: FriendService, private injector: Injector) {
-    super(); 
+    super();
   }
-  async ngOnInit() { 
+  async ngOnInit() {
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
     }
@@ -59,7 +59,6 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     this.startLoading();
-    this.parentRef?.addResizeListener();
     if (!this.searchOnly) {
       const chatNotifPromise = this.getChatNotifications();
       const usersPromise = this.getUsers();
@@ -76,20 +75,19 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async ngOnDestroy() {
-    clearInterval(this.chatInfoInterval); 
-    this.parentRef?.removeResizeListener();
+    clearInterval(this.chatInfoInterval);
   }
 
-  async searchUsers() { 
+  async searchUsers() {
     this.startLoading();
     let search = undefined;
     if (this.searchInput.nativeElement.value.trim() != '') {
       search = this.searchInput.nativeElement.value.trim();
-    } 
+    }
     const fsRes = await this.userService.getAllUsers(this.inputtedParentRef?.user?.id ?? this.parentRef?.user?.id, search);
     if (fsRes) {
       this.usersSearched = fsRes;
-    } else { 
+    } else {
       this.usersSearched = [];
     }
     this.stopLoading();
@@ -174,9 +172,9 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
 
   getChatNotificationsByUserId(userId?: number) {
     if (!userId || !this.chatNotifications) return;
-    if (userId == 1) { 
+    if (userId == 1) {
     }
-    const tgtMessage = this.messageRows.find(x => x.receiver.some(r => r.id === userId) && x.receiver.length == 2 && x.receiver[0]); 
+    const tgtMessage = this.messageRows.find(x => x.receiver.some(r => r.id === userId) && x.receiver.length == 2 && x.receiver[0]);
     const tmpChatNotif = this.chatNotifications.find(x => x.chatId == tgtMessage?.chatId);
     if (this.chatNotifications && tmpChatNotif) {
       return tmpChatNotif.count;
@@ -213,13 +211,13 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
       });
     }
   }
- 
+
   async filterUsers() {
     this.startLoading();
     this.isFriendsChecked = this.friendsRadio?.nativeElement.checked || false;
     if (this.searchInput && this.searchInput.nativeElement) {
       this.searchInput.nativeElement.value = "";
-    } 
+    }
     await this.getUsers();
     this.stopLoading();
   }
@@ -231,27 +229,27 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   }
   closeSearchPanel() {
     console.log("close search poanel");
-    if (!this.sharingSearch) { 
+    if (!this.sharingSearch) {
       this.isSearchPanelOpen = false;
     } else {
       this.userClickEvent.emit();
     }
-    this.usersSearched = []; 
+    this.usersSearched = [];
   }
   getCommaSeparatedGroupChatUserNames(users: User | User[], includeCurrentUser?: boolean): string {
     return this.chatService.getCommaSeparatedGroupChatUserNames(users, this.user, includeCurrentUser);
   }
   removeSelfFromReceivers(users?: User[]) {
     if (!users) return users;
-    if (users.length == 2 && users[0].id === users[1].id) { 
+    if (users.length == 2 && users[0].id === users[1].id) {
       return [users[0]];
     }
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user ?? new User(0, "Anonymous");
 
-    const tmpUserList = users.filter(x => x.id != user.id && user.username?.toLowerCase() != "unknown"); 
+    const tmpUserList = users.filter(x => x.id != user.id && user.username?.toLowerCase() != "unknown");
     return tmpUserList.filter((user, index, self) =>
-      index === self.findIndex(u => u.id === user.id) 
-    );  
+      index === self.findIndex(u => u.id === user.id)
+    );
   }
   getOnlineUserCount() {
     const parent = this.inputtedParentRef ?? this.parentRef;
@@ -276,7 +274,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
         if (receiver.lastSeen) {
           const timeSinceValue = this.timeSinceTransform(receiver.lastSeen);
           if (parent?.isUserOnline(timeSinceValue)) {
-            onlineReceivers.add(receiver.id ?? 0); 
+            onlineReceivers.add(receiver.id ?? 0);
           }
         }
       });

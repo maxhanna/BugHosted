@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { NewsService } from '../../services/news.service';
 import { Article, ArticlesResult, Statuses } from '../../services/datacontracts/news/news-data';
@@ -10,7 +10,7 @@ import { NotepadService } from '../../services/notepad.service';
     styleUrl: './news.component.css',
     standalone: false
 })
-export class NewsComponent extends ChildComponent implements OnInit, OnDestroy {
+export class NewsComponent extends ChildComponent implements OnInit {
   newsArticles?: undefined | ArticlesResult;
   selectedArticle?: Article;
   notifications: string[] = [];
@@ -54,12 +54,6 @@ export class NewsComponent extends ChildComponent implements OnInit, OnDestroy {
     if (!preventLoadNews) { 
       this.loadNews(); 
     }
-
-    this.parentRef?.addResizeListener();
-  }
-
-  ngOnDestroy() {
-    this.parentRef?.removeResizeListener();
   }
 
   async loadNews(data?: ArticlesResult) { 

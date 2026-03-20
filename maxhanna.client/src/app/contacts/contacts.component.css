@@ -1,5 +1,6 @@
 .componentMain {
-  max-height: CALC(var(--vh, 1vh) * 100 - 60px);
+  max-height: CALC(100vh - 60px);
+  max-height: CALC(100dvh - 60px);
   min-width: 200px;
 }
 
@@ -67,6 +68,7 @@ td {
 
 .contactsDiv {
   max-width: 100%;
-  max-height: CALC(var(--vh, 1vh) * 70);
+  max-height: 70vh;
+  max-height: 70dvh;
   overflow: auto;
 }

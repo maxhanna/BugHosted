@@ -1,5 +1,6 @@
 .componentMain {
-    height: calc(var(--vh, 1vh) * 100 - 60px); 
+    height: calc(100vh - 60px); 
+    height: calc(100dvh - 60px); 
 }
 
   
@@ -219,7 +220,8 @@ textarea.form-control {
 }
 
 .crawlerPopupPanel {
-    max-height: calc(var(--vh, 1vh) * 80);
+    max-height: 80vh;
+    max-height: 80dvh;
     object-fit: contain; 
     padding-top: 10px;
 }

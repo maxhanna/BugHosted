@@ -40,7 +40,6 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     super();
   }
   async ngOnInit() {
-    this.parentRef?.addResizeListener();
     await this.getNotepad();
     if (this.inputtedSearch) {
       this.search();
@@ -49,7 +48,6 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   }
   ngOnDestroy() {  
     this.stopSharedNotePolling(); 
-    this.parentRef?.removeResizeListener();
   }
   clearInputs() {
     if (!this.noteInput) { return; }

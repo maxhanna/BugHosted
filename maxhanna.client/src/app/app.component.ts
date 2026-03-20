@@ -396,7 +396,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     if (this.getCookie("user")) {
       this.user = JSON.parse(this.getCookie("user"));
     }
-    this.updateHeight();
     this.getSelectedMenuItems()
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/firebase-messaging-sw.js')
@@ -623,7 +622,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   removeComponent(key: number) {
     if (!this.VCR || this.VCR.length < 1) return;
     this.replacePageTitleAndDescription("Bug Hosted", "Bug Hosted");
-    this.removeResizeListener();
     history.pushState({ page: "" }, "", "/");
 
     const componentRef = this.componentsReferences.find(
@@ -754,19 +752,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     setTimeout(() => {
       this.modalComponent.setModalHeader(msg);
     }, 100);
-  }
-  updateHeight() {
-    const vh = window.innerHeight * 0.01;
-    document.documentElement.style.setProperty('--vh', `${vh}px`);
-    // update desktop detection based on viewport width
-    try {
-      const prev = this.isDesktop;
-      this.isDesktop = window.innerWidth >= 1024;
-      if (prev !== this.isDesktop) {
-        // trigger change detection when layout mode changes
-        try { this.changeDetectorRef.detectChanges(); } catch { }
-      }
-    } catch { }
   }
   hideBodyOverflow() {
     document.body.style.overflow = "hidden";
@@ -1255,16 +1240,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       return ".";
     }
     return base ?? "";
-  }
-  addResizeListener() {
-    window.removeEventListener('resize', this.updateHeight);
-    setTimeout(() => {
-      this.updateHeight();
-      window.addEventListener('resize', this.updateHeight);
-    }, 10);
-  }
-  removeResizeListener() {
-    window.removeEventListener('resize', this.updateHeight);
   }
   playYoutubeVideo(videoId?: string) {
     this.showOverlay();

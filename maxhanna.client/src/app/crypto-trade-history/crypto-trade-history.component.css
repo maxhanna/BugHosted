@@ -43,7 +43,8 @@
 }
 
 .tradeDataTable {
-    height: CALC(var(--vh, 1vh) * 100 - 360px);
+    height: CALC(100vh - 360px);
+    height: CALC(100dvh - 360px);
     overflow: auto; 
     border: var(--main-border);
     border-radius: 4px;
@@ -52,7 +53,8 @@
 @media only screen and (max-width : 600px) {
     .tradeDataTable {
         height: unset !important;
-        max-height: CALC(var(--vh, 1vh) * 100 - 315px); 
+        max-height: CALC(100vh - 315px); 
+        max-height: CALC(100dvh - 315px); 
     }
 }
 

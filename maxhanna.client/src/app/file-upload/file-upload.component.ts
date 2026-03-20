@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, OnDestroy, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { FileService } from '../../services/file.service';
 import { HttpEventType } from '@angular/common/http';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
@@ -12,7 +12,9 @@ import { Topic } from '../../services/datacontracts/topics/topic';
     styleUrl: './file-upload.component.css',
     standalone: false
 })
-export class FileUploadComponent implements OnDestroy {
+export class FileUploadComponent {
+  constructor(private fileService: FileService) {}
+  
   @Input() currentDirectory = '';
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
@@ -43,18 +45,9 @@ export class FileUploadComponent implements OnDestroy {
   displayListContainer = false;
   displayFileUploadOptions = false;
   displayFileUploadTopics = false;
-  totalProgress? = 0;
-
-  fileUploadTopics: Topic[] = [];
-
+  totalProgress? = 0; 
+  fileUploadTopics: Topic[] = []; 
   preventDisplayClose = false;
-  constructor(private fileService: FileService) {
-    this.inputtedParentRef?.addResizeListener();
-  }
-
-  ngOnDestroy() {
-    this.inputtedParentRef?.removeResizeListener();
-  }
 
   uploadInitiate() {
     if (this.fileInput && this.fileInput.nativeElement && this.fileInput.nativeElement.files) {

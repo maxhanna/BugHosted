@@ -4,7 +4,8 @@
   justify-content: flex-start;
   overflow: hidden;
   width: 400px;
-  height: CALC(var(--vh, 1vh) * 100 - 60px);
+  height: CALC(100vh - 60px);
+  height: CALC(100dvh - 60px);
 }
  
 
@@ -468,19 +469,21 @@
 
 .mapComponentDiv {
   overflow: hidden;
-  height: CALC(var(--vh, 1vh) * 100 - 100px);
+  height: CALC(100vh - 100px);
+  height: CALC(100dvh - 100px);
 }
 
 .baseListComponentDiv {
   display: block;
-  height: CALC(var(--vh, 1vh) * 100 - 100px);
+  height: CALC(100vh - 100px);
+  height: CALC(100dvh - 100px);
 }
 
 .battleReportComponentDiv {
   display: flex;
   width: 100%;
   border-bottom: var(--main-border);
-  height: CALC(var(--vh, 1vh) * 100 - 100px);
+  height: CALC(100dvh - 100px);
 }
 
 .upgradesTableDiv {
@@ -897,7 +900,8 @@
   align-items: center;
 }
 .movementResearchAndUnitsDiv {
-  height: CALC(var(--vh, 1vh) * 100 - 40px - var(--nexus-gamescreen-height));
+  height: CALC(100vh - 40px - var(--nexus-gamescreen-height));
+  height: CALC(100dvh - 40px - var(--nexus-gamescreen-height));
   overflow: auto;
 } 
 .unitUpgradeStatsTable {

@@ -300,7 +300,8 @@
   font-style: italic;
 }
 .bottomActionDiv {
-  height: CALC(var(--vh, 1vh) * 100 - 275px - 85px);
+  height: CALC(100vh - 275px - 85px);
+  height: CALC(100dvh - 275px - 85px);
   display: flex;
   flex-direction: column;
   align-content: stretch;
@@ -320,7 +321,8 @@
   left: 0px;
   z-index: 1;
   width: 100%;
-  height: CALC(var(--vh, 1vh) * 100 - 85px);
+  height: CALC(100vh - 85px);
+  height: CALC(100dvh - 85px);
   overflow: auto;
   display: flex;
   flex-flow: column;

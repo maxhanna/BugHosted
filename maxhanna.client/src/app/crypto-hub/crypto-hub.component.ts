@@ -230,7 +230,6 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   async ngOnInit() {
     this.startLoading();
     try {
-      this.parentRef?.addResizeListener();
       this.startSingleLineLogPolling();
       await this.getUserCurrency();
       this.getCurrencyNames();
@@ -509,7 +508,6 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   ngOnDestroy() { 
     this.stopAutoScroll();
     this.stopSingleLineLogPolling();
-    this.parentRef?.removeResizeListener();
   }
   private async getIsTradebotStarted() {
     const parent = this.parentRef;

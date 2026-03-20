@@ -1,6 +1,7 @@
 .componentMain { 
   min-width: 320px;
-  max-height: CALC(var(--vh, 1vh) * 100 - 60px);
+  max-height: CALC(100vh - 60px);
+  max-height: CALC(100dvh - 60px);
 }
 
 @media only screen and (min-width: 0px) and (max-width: 700px) {

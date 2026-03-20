@@ -118,7 +118,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.storyId) {
       this.openedStoryComments.push(this.storyId);
     }
-    this.parentRef?.addResizeListener();
 
     const user = this.parentRef?.user;
     if (user && user.id) {

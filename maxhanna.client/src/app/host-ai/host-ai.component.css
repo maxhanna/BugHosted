@@ -1,34 +1,40 @@
 .componentMain {
   min-width: 50vw;
-  height: CALC(var(--vh, 1vh) * 100 - 60px);
+  height: CALC(100vh - 60px);
+  height: CALC(100dvh - 60px);
 }
 
 .chat-container {
-  height: CALC(var(--vh, 1vh) * 100 - 60px);   
+  height: CALC(100vh - 60px);
+  height: CALC(100dvh - 60px);
   display: flex;
   flex-direction: column;
   flex-wrap: nowrap;
   justify-content: space-between;
   align-content: space-around;
-  align-items: stretch; 
+  align-items: stretch;
 }
- 
 
-  .chat-container .input-container {
-    flex-grow: 1; /* Let the input container take up available space */
-    display: flex;
-    flex-direction: row;
-  }
 
-    .chat-container .input-container textarea {
-      flex-grow: 1; /* Let the textarea expand within the input container */
-      min-height: 40px; /* Set a minimum height to prevent it from shrinking too much */
-    }
+.chat-container .input-container {
+  flex-grow: 1;
+  /* Let the input container take up available space */
+  display: flex;
+  flex-direction: row;
+}
+
+.chat-container .input-container textarea {
+  flex-grow: 1;
+  /* Let the textarea expand within the input container */
+  min-height: 40px;
+  /* Set a minimum height to prevent it from shrinking too much */
+}
 
 
 .chat-box {
-  height: CALC(var(--vh, 1vh) * 100 - 114px);
-  overflow-y: auto; 
+  height: CALC(100vh - 114px);
+  height: CALC(100dvh - 114px);
+  overflow-y: auto;
   padding-left: 30px;
   padding-right: 30px;
 }
@@ -40,18 +46,21 @@
   word-break: break-word;
 }
 
-  .message pre, .message code {
-    word-break: break-word;
-  }
-    .message pre ::ng-deep *, .message code ::ng-deep * {
-      word-break: break-word;
-    }
+.message pre,
+.message code {
+  word-break: break-word;
+}
+
+.message pre ::ng-deep *,
+.message code ::ng-deep * {
+  word-break: break-word;
+}
 
 
 .input-container {
   display: flex;
   flex-direction: row;
-  height:35px;
+  height: 35px;
 }
 
 textarea {
@@ -62,62 +71,69 @@ textarea {
 }
 
 button {
-  padding: 10px;  
-  cursor: pointer; 
+  padding: 10px;
+  cursor: pointer;
 }
 
- 
+
 .hr {
   border-bottom: 1px solid white;
   margin: 20px;
 }
+
 pre {
-  background: #2d2d2d; 
+  background: #2d2d2d;
   padding: 10px;
   border-radius: 5px;
   overflow-x: auto;
   font-family: monospace;
-  white-space: pre-wrap; /* Preserve formatting */
+  white-space: pre-wrap;
+  /* Preserve formatting */
   line-height: 1.5;
 }
 
 code {
   font-family: monospace;
-  display: block; /* Ensure block-level formatting */
+  display: block;
+  /* Ensure block-level formatting */
 }
 
-ol, ul {
+ol,
+ul {
   padding-left: 20px;
 }
 
-.textAreaOptionsDiv { 
+.textAreaOptionsDiv {
   display: flex;
   gap: 10px;
   padding: 10px;
   margin: 5px;
 }
 
-  .textAreaOptionsDiv pre {
-    background: unset;
-    padding: unset;
-    line-height: unset;
-  }
- 
+.textAreaOptionsDiv pre {
+  background: unset;
+  padding: unset;
+  line-height: unset;
+}
+
 .loadingResponseDiv {
-  margin:20px;
+  margin: 20px;
   padding: 20px;
   font-weight: bolder;
-  font-size: small; 
+  font-size: small;
 }
+
 .chat-image {
   max-width: 100%;
   height: auto;
   border-radius: 8px;
   margin-top: 10px;
 }
+
 .emptyHostAiMessage {
   font-size: xx-large;
-  height: CALC(var(--vh, 1vh)* 100 - 146px);
+  height: CALC(100vh - 146px);
+  height: CALC(100dvh - 146px);
   overflow-y: auto;
   padding-left: 30px;
   padding-right: 30px;
@@ -139,8 +155,8 @@ ol, ul {
   align-items: center;
   justify-content: center;
 }
- 
-.help-popup { 
+
+.help-popup {
   padding: 20px;
   border-radius: 10px;
   max-width: 600px;
@@ -161,7 +177,8 @@ ol, ul {
 }
 
 .help-section h4 {
-  color: var(--secondary-font-color);;
+  color: var(--secondary-font-color);
+  ;
   margin-bottom: 10px;
 }
 
@@ -173,9 +190,9 @@ ol, ul {
   margin-bottom: 8px;
 }
 
-.close-button {   
+.close-button {
   margin-top: 10px;
-} 
+}
 
 
 .message sup {

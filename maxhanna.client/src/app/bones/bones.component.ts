@@ -170,7 +170,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   async ngOnInit() {
     this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
     this.parentRef?.setViewportScalability(false);
-    this.parentRef?.addResizeListener();
     this.canvas = this.gameCanvas.nativeElement;
     this.ctx = this.canvas.getContext("2d")!;
     if (!this.parentRef?.user?.id) {
@@ -201,7 +200,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.mainScene.destroy();
     this.gameLoop.stop();
     this.parentRef?.setViewportScalability(true);
-    this.parentRef?.removeResizeListener();
     // clear any outstanding chat timers
     for (const entry of this.heroMessageExpiryTimers.values()) { try { if (entry?.timer) clearTimeout(entry.timer); } catch { } }
     this.heroMessageExpiryTimers.clear();

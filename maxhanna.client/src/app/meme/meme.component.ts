@@ -1,4 +1,4 @@
-import { OnInit, Component, ElementRef, Input, ViewChild, OnDestroy } from '@angular/core';
+import { Component, ElementRef, Input, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component'; 
 import { ActivatedRoute } from '@angular/router'; 
 import { FileSearchComponent } from '../file-search/file-search.component';
@@ -13,7 +13,7 @@ import { UserService } from '../../services/user.service';
     styleUrl: './meme.component.css',
     standalone: false
 })
-export class MemeComponent extends ChildComponent implements OnInit, OnDestroy  { 
+export class MemeComponent extends ChildComponent { 
   notifications: string[] = [];
   topTopics: TopicRank[] = [];  
   isMenuPanelOpen = false;
@@ -33,14 +33,7 @@ export class MemeComponent extends ChildComponent implements OnInit, OnDestroy  
       this.memeId = +params.get('memeId');
     });
     this.topicService.getTopFileTopics().then(res => { if (res) { this.topTopics = res; } }); 
-  }
-
-  ngOnInit() {
-    this.parentRef?.addResizeListener();
-  }
-  ngOnDestroy() {
-    this.parentRef?.removeResizeListener();
-  }
+  } 
 
   uploadFinished(files: FileEntry[]) { 
     this.fileSearchComponent.handleUploadedFiles(files); 

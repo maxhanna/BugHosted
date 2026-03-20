@@ -5,7 +5,8 @@
 .topLinks {
   align-content: center;
   text-align: center;
-  max-height: CALC(var(--vh, 1vh) * 100 - 201px);
+  max-height: CALC(100vh - 201px);
+  max-height: CALC(100dvh - 201px);
   overflow: auto;
   border: var(--main-border);
   margin: 10px;
@@ -15,13 +16,15 @@
 
 @media only screen and (max-width : 330px) {
   .topLinks {
-    max-height: CALC(var(--vh, 1vh) * 100 - 400px);
+    max-height: CALC(100vh - 400px);
+    max-height: CALC(100dvh - 400px);
   }
 }
 
 @media only screen and (min-width: 330px) and (max-width : 610px) {
   .topLinks {
-    max-height: CALC(var(--vh, 1vh) * 100 - 330px);
+    max-height: CALC(100vh - 330px);
+    max-height: CALC(100dvh - 330px);
   }
 }
 

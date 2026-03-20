@@ -71,7 +71,8 @@ button {
 }
 
 .emojiFilterContainer {
-  max-height: CALC(var(--vh, 1vh) * 70);
+  max-height: 70vh;
+  max-height: 70dvh;
   overflow: auto;
   display: flex;
   flex-wrap: wrap;

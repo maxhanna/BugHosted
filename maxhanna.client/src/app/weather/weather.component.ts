@@ -2,12 +2,6 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { ChildComponent } from '../child.component'; 
 import { WeatherService } from '../../services/weather.service';
 import { WeatherResponse } from '../../services/datacontracts/weather/weather-response';
-interface WeatherForecast {
-  date: string;
-  temperatureC: number;
-  temperatureF: number;
-  summary: string;
-}
 
 @Component({
     selector: 'app-weather',
@@ -30,13 +24,11 @@ export class WeatherComponent extends ChildComponent implements OnInit, OnDestro
   constructor(private weatherService: WeatherService) { super(); }
 
   ngOnInit() {
-    this.parentRef?.addResizeListener();
     this.getForecasts();
     this.getLocation();
     this.startTabRotation();
   }
   ngOnDestroy() {
-    this.parentRef?.removeResizeListener();
     this.stopTabRotation();
   }
   async getLocation() {

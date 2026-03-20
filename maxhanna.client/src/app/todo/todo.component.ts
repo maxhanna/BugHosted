@@ -87,7 +87,6 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     }
   }
   async ngOnInit() {
-    this.parentRef?.addResizeListener();
     this.startLoading();
     await this.getTodoInfo();
     if (this.parentRef?.user?.id) {
@@ -124,7 +123,6 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     this.stopLoading();
   }
   ngOnDestroy() {
-    this.parentRef?.removeResizeListener();
     this.stopSharedPolling();
   }
 

@@ -1,5 +1,6 @@
 .componentMain {
-  max-height: CALC(var(--vh, 1vh)* 100 - 60px);
+  max-height: CALC(100vh - 60px);
+  max-height: CALC(100dvh - 60px);
   overflow: auto;
   white-space: break-spaces;
 }
@@ -77,7 +78,8 @@
   
 
 .metadataSearchWrapper {
-  max-height: CALC(var(--vh, 1vh)* 100 - 200px);
+  max-height: CALC(100vh - 200px);
+  max-height: CALC(100dvh - 200px);
   overflow: auto;
 }
 

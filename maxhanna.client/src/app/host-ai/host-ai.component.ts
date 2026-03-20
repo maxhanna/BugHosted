@@ -1,4 +1,4 @@
-import { Component, ViewChild, ElementRef, OnDestroy, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, ViewChild, ElementRef, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { AiService } from '../../services/ai.service';
 import { ChildComponent } from '../child.component';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
@@ -15,10 +15,14 @@ export class AIMessage { sender?: string; message: any };
   styleUrl: './host-ai.component.css',
   standalone: false
 })
-export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy {
+export class HostAiComponent extends ChildComponent implements OnDestroy {
+  constructor(
+    private aiService: AiService, 
+    private cdr: ChangeDetectorRef
+  ) { super(); }
+
   selectedFile?: FileEntry;
   isShowingHelpPopup: boolean = false;
-  constructor(private aiService: AiService, private sanitizer: DomSanitizer, private cdr: ChangeDetectorRef) { super(); }
   userMessage: string = '';
   chatMessages: AIMessage[] = [];
   hostName: string = "Host";
@@ -36,13 +40,8 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
   @ViewChild('chatContainer') chatContainer!: ElementRef<HTMLDivElement>;
   @ViewChild(SpeechRecognitionComponent) speechRecognitionComponent?: SpeechRecognitionComponent;
   @ViewChild(MediaSelectorComponent) fileSelector?: MediaSelectorComponent;
-
-  ngOnInit() {
-    this.parentRef?.addResizeListener();
-  }
-
-  ngOnDestroy() {
-    this.parentRef?.removeResizeListener();
+ 
+  ngOnDestroy() { 
     if (this.speechRecognitionComponent) {
       this.speechRecognitionComponent.stopListening();
     }

@@ -50,7 +50,8 @@
   gap: 20px;
   font-size: xx-large;
   line-height: 50px;
-  height: CALC(var(--vh, 1vh) * 70);
+  height: 70vh;
+  height: 70dvh;
   overflow: auto;
   border: var(--main-border);
   border-radius: 8px;

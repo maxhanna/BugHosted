@@ -37,8 +37,6 @@ import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 import { Bot } from './objects/Bot/bot';
 import { Character } from './objects/character';
 import { UndergroundLevel3 } from './levels/underground-level3';
-import { SpriteTextString } from './objects/SpriteTextString/sprite-text-string';
-import { GameObject, HUD } from './objects/game-object';
 import { ChatSpriteTextString } from './objects/SpriteTextString/chat-sprite-text-string';
 
 @Component({
@@ -57,8 +55,10 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
     super();
     this.hero = {} as Hero;
     this.metaHero = {} as MetaHero;
-    this.mainScene = new Main({ position: new Vector2(0, 0), heroId: this.metaHero.id, 
-      metaHero: this.metaHero, hero: this.hero, partyMembers: this.partyMembers });
+    this.mainScene = new Main({
+      position: new Vector2(0, 0), heroId: this.metaHero.id,
+      metaHero: this.metaHero, hero: this.hero, partyMembers: this.partyMembers
+    });
     subscribeToMainGameEvents(this);
   }
   canvas!: HTMLCanvasElement;
@@ -66,7 +66,6 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
   pollSeconds = 1;
   isUserComponentOpen = false;
   isMenuPanelOpen = false;
-
   mainScene?: any;
   metaHero: MetaHero;
   hero?: Hero;
@@ -86,16 +85,13 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
   serverDown? = false;
   topMetabots: any[] = [];
   topHeroes: any[] = [];
-
-
-  private currentChatTextbox?: ChatSpriteTextString | undefined; 
+  private currentChatTextbox?: ChatSpriteTextString | undefined;
   private pollingInterval: any;
 
   async ngOnInit() {
     metaResources.ensureLoaded();
     this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
     this.parentRef?.setViewportScalability(false);
-    this.parentRef?.addResizeListener();
     this.canvas = this.gameCanvas.nativeElement;
     this.ctx = this.canvas.getContext("2d")!;
     if (!this.parentRef?.user) {
@@ -117,7 +113,6 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
     this.gameLoop.stop();
     this.remove_me('MetaComponent');
     this.parentRef?.setViewportScalability(true);
-    this.parentRef?.removeResizeListener();
   }
 
   ngAfterViewInit() {
@@ -141,10 +136,10 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
   }
   gameLoop = new GameLoop(this.update, this.render);
 
-  async pollForChanges() { 
-    if (!this.hero?.id && this.parentRef?.user?.id) { 
+  async pollForChanges() {
+    if (!this.hero?.id && this.parentRef?.user?.id) {
       const rz = await this.metaService.getHero(this.parentRef.user.id);
-      if (rz) { 
+      if (rz) {
         this.partyMembers = await this.metaService.getPartyMembers(rz.id) ?? [];
         this.mainScene.partyMembers = this.partyMembers;
         this.mainScene.inventory.partyMembers = this.partyMembers;
@@ -274,7 +269,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
             //put on mask
             existingHero.destroy();
             this.addHeroToScene(hero);
-          } 
+          }
         }
         else {
           existingHero = this.addHeroToScene(hero);
@@ -303,7 +298,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
   }
 
   private addHeroToScene(hero: MetaHero) {
-    console.log("add hero to scene" , hero);
+    console.log("add hero to scene", hero);
     const tmpHero = new Hero({
       id: hero.id,
       name: hero.name ?? "Anon",
@@ -322,16 +317,16 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
       if (this.isStartMenuOpened) {
         this.hero.isLocked = true;
       }
-    } 
+    }
     //tmpHero.metabots?.forEach((bot: MetaBot) => { bot.colorSwap = tmpHero.colorSwap;  })
-    this.mainScene.level?.addChild(tmpHero); 
+    this.mainScene.level?.addChild(tmpHero);
     return tmpHero;
   }
 
   private addBotToScene(metaHero: any, bot: MetaBot) {
-    if (this.mainScene.level?.children.some((x: any) => x.id === bot.id)) { return bot; } 
+    if (this.mainScene.level?.children.some((x: any) => x.id === bot.id)) { return bot; }
     if (metaHero && metaHero.metabots && metaHero.metabots.length > 0) {
-      let tgtBot = metaHero.metabots.find((x : any) => x.id === bot.id);
+      let tgtBot = metaHero.metabots.find((x: any) => x.id === bot.id);
       if (tgtBot) {
         tgtBot.isDeployed = true;
       }
@@ -344,7 +339,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
       name: bot.name ?? "Bot",
       spriteName: "botFrame",
       position: new Vector2(metaHero.position.x + gridCells(1), metaHero.position.y + gridCells(1)),
-      colorSwap: (metaHero.color ? new ColorSwap([0, 160, 200], hexToRgb(metaHero.color)) : 
+      colorSwap: (metaHero.color ? new ColorSwap([0, 160, 200], hexToRgb(metaHero.color)) :
         metaHero.colorSwap ? metaHero.colorSwap : undefined),
       isDeployed: true,
       isEnemy: true,
@@ -401,10 +396,10 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
       existingHero.latestMessage = "";
     }
   }
-  displayChatMessage() { 
+  displayChatMessage() {
     if (this.chat.length >= 10) {
-      this.chat.pop();  
-    } 
+      this.chat.pop();
+    }
     if (this.currentChatTextbox) {
       this.currentChatTextbox.destroy();
     }
@@ -412,7 +407,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
     this.latestMessagesMap.clear();
     let latestMessages: string[] = [];
     const twentySecondsAgo = new Date(Date.now() - 20000);
-    
+
     this.chat.forEach((message: MetaChat) => {
       const timestampDate = message.timestamp ? new Date(message.timestamp) : undefined;
 
@@ -430,7 +425,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
       string: latestMessages,
       objectSubject: this.metaHero
     });
-    this.mainScene.level.addChild(this.currentChatTextbox);  
+    this.mainScene.level.addChild(this.currentChatTextbox);
   }
 
   private async reinitializeHero(rz: MetaHero, skipDataFetch?: boolean) {
@@ -447,24 +442,24 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
       rz.speed,
       rz.map,
       rz.metabots,
-      rz.color, 
+      rz.color,
       rz.mask);
-      this.hero.isLocked = this.isStartMenuOpened || this.isShopMenuOpened;
+    this.hero.isLocked = this.isStartMenuOpened || this.isShopMenuOpened;
     this.mainScene.setHeroId(this.metaHero.id);
-    this.mainScene.hero = this.hero; 
+    this.mainScene.hero = this.hero;
     this.mainScene.metaHero = this.metaHero;
     storyFlags.flags = new Map<string, boolean>();
 
     if (!!skipDataFetch == false) {
       //console.log("initialize inv after reinitializeHero");
       await this.reinitializeInventoryData(true);
-    } 
+    }
     const level = this.getLevelFromLevelName(rz.map);
 
     if (level) {
       this.mainScene.setLevel(level);
     }
- 
+
     if (this.metaHero.metabots) {
       for (let i = 0; i < this.metaHero.metabots.length; i++) {
         if (this.metaHero.metabots[i].isDeployed == true) {
@@ -472,7 +467,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
           break;
         }
       }
-    } 
+    }
 
     this.mainScene.camera.centerPositionOnTarget(this.metaHero.position);
   }
@@ -510,7 +505,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
           events.emit("INVENTORY_UPDATED", invItem);
         }
       }
-      if (!this.isShopMenuOpened && !skipParty) { 
+      if (!this.isShopMenuOpened && !skipParty) {
         this.mainScene.inventory.renderParty();
       }
     });
@@ -527,7 +522,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
       if (item.category === "botFrame") {
         const bot = this.mainScene?.level?.children?.find((x: Bot) => x.heroId == this.metaHero.id && x.name === item.name);
         const metaBot = this.metaHero.metabots.find(bot => bot.name === invItem.name);
-        if (bot && metaBot) { 
+        if (bot && metaBot) {
           metaBot.hp = bot.hp;
           metaBot.level = bot.level;
           metaBot.isDeployed = bot.isDeployed;
@@ -599,7 +594,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
     this.metaHero.color = this.colorInput.nativeElement.value;
     this.colorInput.nativeElement.style.display = "none";
     this.parentRef?.closeModal();
-    if (this.parentRef) { 
+    if (this.parentRef) {
       this.parentRef.isModal = true;
     }
     await this.reinitializeHero(this.metaHero);
@@ -630,7 +625,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
       this.stopLoading();
     }, 500);
   }
-  
+
   async showMenuPanel() {
     if (this.isMenuPanelOpen) {
       this.closeMenuPanel();
@@ -640,7 +635,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
     if (this.parentRef) {
       this.parentRef.showOverlay();
     }
-    
+
     try {
       this.topMetabots = await this.metaService.getMetabotHighscores(50) ?? [];
     } catch (e) { this.topMetabots = []; }

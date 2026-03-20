@@ -50,7 +50,6 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     this.crawlerService.indexCount().then(res => { if (res) { this.indexCount = parseInt(res); } });
 
     if (!this.onlySearch) {
-      this.parentRef?.addResizeListener();
       (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.add("centeredContainer");
     }
     setTimeout(() => {
@@ -80,7 +79,6 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   ngOnDestroy() {
     (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer");
     clearInterval(this.indexUpdateTimer);
-    this.parentRef?.removeResizeListener();
     this.stopLoading();
   }
 
