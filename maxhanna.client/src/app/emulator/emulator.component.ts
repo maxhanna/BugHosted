@@ -582,7 +582,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'flycast':
       case 'dreamcast':
       case 'naomi':
-        return '/assets/emulatorjs/data/cores/NAOMI.zip';
+        return '/assets/emulatorjs/data/cores/FLYCAST.zip';
 
       // Atari 7800 (ProSystem)
       case 'prosystem':
@@ -1336,9 +1336,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       (this.fileService.getN64FileExtensions ? this.fileService.getN64FileExtensions() : []).forEach(e => set.add((e || '').toString().trim().toLowerCase()));
 
       // Include a few common ambiguous/aux extensions that are useful for the emulator UI
-      ['zip', '7z', 'wad', 'ccd', 'bin', 'iso', 'cue', 'chd', 'pbp'].forEach(e => set.add(e));
+      this.AMBIGUOUS_EXTS.forEach(e => set.add(e));
     } catch (err) {
-      // Fallback to the previous hardcoded list if anything goes wrong
+      console.error('Error building allowed file types list; falling back to hardcoded list', err);
       return [
         'gba', 'gbc', 'gb', 'nes', 'snes', 'sfc', 'n64', 'z64', 'v64', 'nds',
         'smd', 'gen', 'bin', '32x', 'gg', 'sms', 'md',
@@ -2299,6 +2299,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (c === 'psp' || c.includes('ppsspp')) return 'psp';
     if (c.includes('mupen64')) return 'n64';
     if (c.includes('yabause')) return 'saturn';
+    if (c.includes('flycast') || c.includes('naomi')) return 'dreamcast';
     if (c.includes('pcsx')) return 'ps1';
     if (c.includes('dolphin')) return 'gamecube';
     if (c.includes('mame') || c.includes('fbplus')) return 'arcade';
@@ -2904,18 +2905,18 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       { core: 'pcsx_rearmed', label: 'PlayStation (PS1)', exts: uniq(['bin', 'cue', 'chd']), maybeExts: exAmbig, hints: [/SLUS\d{5}/i, /SLES\d{5}/i, /\bPSX\b|\bPS1\b|\bPlayStation\b/i] },
 
       // --- Sega ---
-      { core: 'genesis_plus_gx', label: 'Sega Mega Drive / Genesis', exts: exGEN, maybeExts: ['bin'], hints: [/\bGENESIS\b|\bMEGADRIVE\b|\bMD\b/i] },
-      { core: 'genesis_plus_gx', label: 'Sega CD / Mega‑CD', exts: [], maybeExts: exSAT, hints: [/\bSEGA\s?CD\b|\bMEGA\s?CD\b/i] },
-      { core: 'picodrive', label: 'Sega 32X', exts: ['32x'], maybeExts: [], hints: [/\b32X\b/i] },
-      { core: 'yabause', label: 'Sega Saturn', exts: [], maybeExts: exSAT, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
+      { core: 'genesis_plus_gx', label: 'Sega Mega Drive / Genesis', exts: exGEN, maybeExts: exAmbig, hints: [/\bGENESIS\b|\bMEGADRIVE\b|\bMD\b/i] },
+      { core: 'genesis_plus_gx', label: 'Sega CD / Mega‑CD', exts: [], maybeExts: exAmbig, hints: [/\bSEGA\s?CD\b|\bMEGA\s?CD\b/i] },
+      { core: 'picodrive', label: 'Sega 32X', exts: ['32x'], maybeExts: exAmbig, hints: [/\b32X\b/i] },
+      { core: 'yabause', label: 'Sega Saturn', exts: [], maybeExts: exAmbig, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
 
       // --- 3DO ---
       { core: 'opera', label: '3DO', exts: [], maybeExts: ex3DO, hints: [/\b3DO\b/i] },
 
       // --- Nintendo ---
-      { core: 'mupen64plus_next', label: 'Nintendo 64', exts: exN64, maybeExts: [], hints: [/\bN64\b/i] },
-      { core: 'melonds', label: 'Nintendo DS (melonDS)', exts: exNDS, maybeExts: [], hints: [/\bNDS\b|\bDS\b/i] },
-      { core: 'desmume', label: 'Nintendo DS (DeSmuME)', exts: exNDS, maybeExts: [], hints: [/\bNDS\b|\bDS\b/i] },
+      { core: 'mupen64plus_next', label: 'Nintendo 64', exts: exN64, maybeExts: exAmbig, hints: [/\bN64\b/i] },
+      { core: 'melonds', label: 'Nintendo DS (melonDS)', exts: exNDS, maybeExts: exAmbig, hints: [/\bNDS\b|\bDS\b/i] },
+      { core: 'desmume', label: 'Nintendo DS (DeSmuME)', exts: exNDS, maybeExts: exAmbig, hints: [/\bNDS\b|\bDS\b/i] },
       { core: 'dolphin', label: 'GameCube / Wii (Dolphin)', exts: [], maybeExts: exAmbig, hints: [/\bGAMECUBE\b|\bDOLPHIN\b|\bGC\b|\bWII\b/i] },
       { core: 'mgba', label: 'Game Boy Advance', exts: exGBA, maybeExts: [], hints: [/\bGBA\b/i] },
       { core: 'mgba', label: 'Game Boy Advance', exts: exGBx, maybeExts: [], hints: [/\bGBA\b/i] },
@@ -2948,7 +2949,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   /** Central place for ambiguous extensions (chooser-first). */
   private readonly AMBIGUOUS_EXTS = new Set<string>([
-    'zip', '7z', 'bin', 'cue', 'iso', 'chd', 'img', 'ccd', 'mdf', 'mds', 'nrg', 'gdi', 'cdi'
+    'zip', '7z', 'bin', 'cue', 'iso', 'chd', 'img', 'ccd', 'mdf', 'mds', 'nrg', 'gdi', 'cdi', 'pdp'
   ]);
 
 
@@ -3064,6 +3065,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'ps1':
       case 'psx': return 'pcsx_rearmed';
       case 'saturn': return 'yabause';
+      case 'dreamcast': return 'flycast';
       case 'segacd':
       case 'sega_cd': return 'genesis_plus_gx';
       case 'genesis':
