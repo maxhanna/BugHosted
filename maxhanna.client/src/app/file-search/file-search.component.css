@@ -539,10 +539,13 @@
 
 /* Options popup ROM metadata panel */
 .romMetaPanel {
+  max-height: 45vh;
+  overflow: auto;
   margin-top: 14px;
   padding: 10px;
   border: var(--main-border);
   border-radius: 10px;
+  width: calc(100% - 50px);
 }
 
 .romMetaHeader {
@@ -606,13 +609,7 @@
   gap: 6px;
   max-height: 160px;
 }
-
-/* Limit rom metadata height so options stats remain visible */
-.romMetaPanel {
-  max-height: 45vh;
-  overflow: auto;
-}
-
+ 
 /* Inline metadata panel styles */
 .inlineMetaPanel {
   position: sticky;
