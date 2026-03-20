@@ -158,4 +158,8 @@
     max-height: calc(100vh - 140px) !important; 
     max-height: calc(100dvh - 140px) !important; 
   }
+  :host ::ng-deep .directoryDisplayDivLoading {
+    max-height: calc(100vh - 150px) !important; 
+    max-height: calc(100dvh - 150px) !important; 
+  }
 }

@@ -41,6 +41,10 @@
     max-height: calc(100vh - 170px) !important; 
     max-height: calc(100dvh - 170px) !important; 
   }
+  :host ::ng-deep .directoryDisplayDivLoading {
+    max-height: calc(100vh - 180px) !important; 
+    max-height: calc(100dvh - 180px) !important; 
+  }
 }
 
 .romNameTitle {
