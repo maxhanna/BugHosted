@@ -339,7 +339,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
     const core = this.detectCoreEnhanced(fileName, effectiveForcedCore);
     (this as any).currentCore = core;
-    console.log(`[EmulatorComponent] Detected core "${core}" for file "${fileName}" (ext: "${this.fileService.getFileExtension(fileName)}") forcedCore=${effectiveForcedCore ?? 'none'}`);
+    console.log(`%c[EJS] Detected core "${core}" for file "${fileName}" (ext: "${this.fileService.getFileExtension(fileName)}") forcedCore=${effectiveForcedCore ?? 'none'}`, 'color:#4af');
     const renderClamp = this.getRenderClampForCore(core);
     (window as any).EJS_renderClamp = renderClamp;
     window.EJS_core = core;
