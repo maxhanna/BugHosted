@@ -51,9 +51,22 @@ export type System =
   | 'psp'
   | 'saturn'
   | 'sega_cd'
+  | 'dreamcast'
+  | 'wonderswan' | 'wonderswan_color'
+  | 'virtual_boy'
+  | 'gamegear'
+  | 'master_system'
   | '3do'
   | 'n64'
-  | 'ps1';
+  | 'ps1' | 'ps2' | 'ps3' | 'ps4' | 'ps5'
+  | 'gamecube'
+  | 'wii' | 'wiiu'
+  | 'xbox' | 'xbox_360' | 'xbox_one' | 'xbox_series_x'
+  | 'coleco'
+  | 'dos'
+  | 'atari_2600' | 'atari_5200' | 'atari_7800' | 'atari_lynx' | 'atari_jaguar' | 'atari'
+  | 'c64' | 'c128' | 'amiga' | 'pet' | 'plus4' | 'vic20'
+  | 'arcade';
 
 export interface BuildOpts {
   useJoystick: boolean;

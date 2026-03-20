@@ -2256,6 +2256,21 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (c.includes('genesis') || c.includes('picodrive') || c.includes('megadrive')) return 'genesis';
     if (c.includes('melonds') || c.includes('desmume') || c.includes('nds')) return 'nds';
     if (c === 'psp' || c.includes('ppsspp')) return 'psp';
+    if (c.includes('mupen64')) return 'n64';
+    if (c.includes('yabause')) return 'saturn';
+    if (c.includes('pcsx')) return 'ps1';
+    if (c.includes('dolphin')) return 'gamecube';
+    if (c.includes('mame') || c.includes('fbplus')) return 'arcade';
+    if (c.includes('cps') || c.includes('neogeo')) return 'arcade'; 
+    if (c.includes('dosbox')) return 'dos'; 
+    if (c.includes('wiiu') || c.includes('citra')) return 'wiiu';
+    if (c.includes('ps2') || c.includes('pcsx2')) return 'ps2';
+    if (c.includes('xbox') || c.includes('xenia')) return 'xbox';
+    if (c.includes('nesbox')) return 'nes';
+    if (c.includes('arcade')) return 'arcade';
+    if (c.includes('atari')) return 'atari';
+    if (c.includes('coleco')) return 'coleco'; 
+    if (c.includes('c64') || c.includes('commodore')) return 'c64';
     return 'nes';
   }
 
