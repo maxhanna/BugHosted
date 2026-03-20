@@ -301,6 +301,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
 
+  get isInRomDirectory(): boolean {
+    return (this.currentDirectory ?? '').toLowerCase().endsWith('roms/');
+  }
+
   // Return true if any search/filter option is currently applied
   public hasActiveFilters(): boolean {
     // Search terms
@@ -316,12 +320,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     // Rom system filter
     if (this.activeRomSystems && this.activeRomSystems.length > 0) return true;
     // Sort option changed
-    if (!this.currentDirectory?.toLowerCase().includes('roms')) {
+    if (!this.isInRomDirectory) {
       if (this.sortOption !== 'Latest' && this.sortOption !== '') {
         return true;
       }
     }
-    if (this.currentDirectory?.toLowerCase().includes('roms')) {
+    if (this.isInRomDirectory) {
       if (this.sortOption !== 'Last Access' && this.sortOption !== '') {
         return true;
       }
@@ -1143,7 +1147,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   get shareLink(): string {
     const fileEntry = this.optionsFile;
     if (!fileEntry) return '';
-    if (this.currentDirectory === '/Roms' && this.displayRomMetadata) {
+    if (this.isInRomDirectory && this.displayRomMetadata) {
       const reloadParams: Record<string, string> = {};
       reloadParams['romname'] = fileEntry.fileName ?? "";
       reloadParams['romId'] = String(fileEntry.id);
@@ -1546,12 +1550,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       , 'saturn': this.fileService.getSaturnFileExtensions()
     };
   }
-
-
-  isRomsDirectory(): boolean {
-    return (this.currentDirectory ?? '').toLowerCase().endsWith('roms/');
-  }
-
+ 
   hideBrokenImg(e: Event): void {
     const img = e?.target as HTMLImageElement | null;
     if (img) img.style.display = 'none';
@@ -1927,7 +1926,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   shouldShowRomMetadata(): boolean {
     return this.displayRomMetadata
-      && this.isRomsDirectory()
+      && this.isInRomDirectory
       && (this.isFirstLoad || (this.directory?.data ?? []).length > 0);
   }
 

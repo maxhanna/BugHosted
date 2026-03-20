@@ -349,7 +349,7 @@
     </button>
     <app-share-button *ngIf="optionsFile.visibility?.toLowerCase() !== 'private'"
       [link]="shareLink"
-      [isExternalLink]="currentDirectory === '/Roms'"></app-share-button>
+      [isExternalLink]="isInRomDirectory"></app-share-button>
     <app-share-button *ngIf="optionsFile.visibility?.toLowerCase() === 'private'"
       [isExternalLink]="false"
       [text]="'↗️Share with Users'"
@@ -688,7 +688,7 @@
       </div>
     </div>
 
-    <div *ngIf="isRomsDirectory()" class="spaceAroundFlex">
+    <div *ngIf="isInRomDirectory" class="spaceAroundFlex">
       <span style="width:100%">Filter by system</span>
       <div class="systemFilters">
         <button *ngFor="let s of getSupportedRomSystems()" class="toggle-switch-small" (click)="toggleRomSystem(s)">
