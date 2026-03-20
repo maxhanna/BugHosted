@@ -637,6 +637,8 @@ export class FileService {
     if (!file) return '';
     return file.lastIndexOf('.') !== -1 ? file.split('.').pop() ?? '' : '';
   }
+
+  /** Returns the file name without its extension (without the dot) */
   getFileWithoutExtension(file: string) {
     if (file) {
       const lastPeriodIndex = file.lastIndexOf('.');
