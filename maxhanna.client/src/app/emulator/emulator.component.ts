@@ -729,9 +729,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (core === "psp" || core == "ppsspp") {
       this.applyPSPCoreSettings(w); // force our perf defaults over any saved prefs
     }
-    // Default controller mappings for all 4 players.
-    // Player 1 gets keyboard + gamepad; Players 2-4 get gamepad-only (no keyboard conflicts).
-    const isDPADCentric = (['nes', 'snes', 'gb', 'gbc', 'gba', 'genesis', 'saturn', 'sega_cd', '3do', 'nds'] as string[]).includes(system ?? '') || core === 'yabause';
+ 
+    const isDPADCentric = (system && (['nes', 'snes', 'gb', 'gbc', 'gba', 'genesis', 'saturn', 'sega_cd', '3do', 'nds'] as string[]).includes(system)) || core === 'yabause';
     const rightStickValues = {
       "UP": isDPADCentric ? 'DPAD_UP' : 'RIGHT_STICK_Y:-1',
       "DOWN": isDPADCentric ? 'DPAD_DOWN' : 'RIGHT_STICK_Y:+1',
@@ -745,6 +744,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       "LEFT": isDPADCentric ? 'DPAD_LEFT' : 'LEFT_STICK_X:-1',
       "RIGHT": isDPADCentric ? 'DPAD_RIGHT' : 'LEFT_STICK_X:+1'
     };
+
+    console.log(`[EJS] Configuring controls for system="${system}" core="${core}" isDPADCentric=${isDPADCentric}`);
 
     const gpOnly: Record<number, unknown> = {
       0: { value: '', value2: 'BUTTON_1' },
