@@ -1,3 +1,4 @@
+import { Core } from "../../../app/emulator/emulator-types";
 
 export class RomMetadata {
   igdbGameId?: number;
@@ -24,5 +25,5 @@ export class RomMetadata {
   // how many users requested a reset for this enrichment
   resetVotes?: number;
   // user-selected system/core override (from rom_system_overrides table)
-  actualSystem?: string;
+  actualSystem?: Core;
 }

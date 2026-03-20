@@ -1,9 +1,7 @@
-export type SystemCandidate = { label: string; core?: string };
-
-export type CoreId = string;
-
+export type SystemCandidate = { label: string; core?: Core };
+ 
 export type CoreDescriptor = {
-  core: CoreId;
+  core: Core;
   label: string;
   exts?: string[];
   maybeExts?: string[];
@@ -67,6 +65,61 @@ export type System =
   | 'atari_2600' | 'atari_5200' | 'atari_7800' | 'atari_lynx' | 'atari_jaguar' | 'atari'
   | 'c64' | 'c128' | 'amiga' | 'pet' | 'plus4' | 'vic20'
   | 'arcade';
+  
+export type Core =
+  | 'fceumm'
+  | 'gambatte'
+  | 'mgba'
+  | 'genesis_plus_gx'
+  | 'snes9x'
+  | 'picodrive'
+  | 'mupen64plus_next'
+  | 'mednafen_psx'
+  | 'mednafen_psx_hw'
+  | 'pcsx_rearmed'
+  | 'duckstation'
+  | 'melonds'
+  | 'melonDS'
+  | 'nds'
+  | 'psp'
+  | 'ppsspp'
+  | 'dolphin'
+  | 'flycast'
+  | 'dreamcast'
+  | 'naomi'
+  | 'prosystem'
+  | 'opera'
+  | '3do'
+  | 'genesis'
+  | 'megadrive'
+  | 'blastem'
+  | 'pcsx2'
+  | 'ps2'
+  | 'lrps2'
+  | 'gamecube'
+  | 'gc'
+  | 'wii'
+  | 'gba'
+  | 'gbc'
+  | 'gbx'
+  | 'gb'
+  | 'yabause'
+  | 'segaSaturn'
+  | 'sega_saturn'
+  | 'fbneo'
+  | 'mame2003_plus'
+  | 'sega_saturn'
+  | 'fbneo'
+  | 'desmume'
+  | 'mednafen_vb'
+  | 'stella2014'
+  | 'handy'
+  | 'virtualjaguar'
+  | 'gearcoleco'
+  | 'puae'
+  | 'vitaquake3'
+  | 'vice_x64'
+  | 'mame2003_plus';
 
 export interface BuildOpts {
   useJoystick: boolean;

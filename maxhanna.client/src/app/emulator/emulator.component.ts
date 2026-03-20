@@ -8,7 +8,7 @@ import { FileSearchComponent } from '../file-search/file-search.component';
 import { AppComponent } from '../app.component';
 import { VPadItem, System, BuildOpts, SystemCandidate, CoreDescriptor, 
   MIN_STATE_SIZE, FAQ_ITEMS, GENESIS_6BUTTON, GENESIS_FORCE_THREE,
-  PSP_DEFAULT_OPTIONS } from './emulator-types';
+  PSP_DEFAULT_OPTIONS, Core } from './emulator-types';
 
 @Component({
   selector: 'app-emulator',
@@ -21,7 +21,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   @Input() presetRomName?: string;
   @Input() presetRomId?: number | undefined;
-  @Input() presetForcedCore?: string;
+  @Input() presetForcedCore?: Core;
   @Input() skipSaveFileRequested = false;
   @Input() inputtedParentRef?: AppComponent;
 
@@ -52,10 +52,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private autosaveInterval: any;
   private romObjectUrl?: string;
   private emulatorInstance?: any;
-  systemCandidates: Array<{ label: string; core?: string }> = [];
-  selectedSystemCore?: string | null = null;
+  systemCandidates: Array<{ label: string; core?: Core }> = [];
+  selectedSystemCore?: Core | null = null;
   /** The core explicitly chosen by the user (via system-select panel or DB override). */
-  private _forcedCore?: string;
+  private _forcedCore?: Core;
   private _pendingFileToLoad?: { fileName: string; fileId?: number; directory?: string } | null = null;
   private _destroyed = false;
   private _pendingSaveResolve?: (v?: any) => void;
@@ -79,7 +79,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private lastGoodSaveSize = new Map<string, number>();
   private gameLoadDate?: Date | undefined;
   private readonly SYS_PICK_KEY = 'emu:preferredCoreByExt';
-  private readonly heavyCores = new Set([
+  private readonly heavyCores = new Set<Core>([
     'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mednafen_psx',
     'mupen64plus_next', 'nds', 'melonDS', 'melonds',
     'psp', 'ppsspp', 'dolphin'
@@ -264,11 +264,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   onSystemSelectChange(ev: Event) {
-    const val = (ev.target as HTMLSelectElement).value;
+    const val = (ev.target as HTMLSelectElement).value as Core;
     this.selectedSystemCore = val || null;
   }
 
-  private async loadRomThroughService(fileName: string, fileId?: number, directory?: string, forcedCore?: string | undefined) {
+  private async loadRomThroughService(fileName: string, fileId?: number, directory?: string, forcedCore?: Core | undefined) {
     // Use the instance-level forced core as a fallback
     const effectiveForcedCore = forcedCore ?? this._forcedCore;
     if (effectiveForcedCore) this._forcedCore = effectiveForcedCore;
@@ -560,7 +560,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return null;
   }
 
-  private getBiosUrlForCore(core: string): string | undefined {
+  private getBiosUrlForCore(core: Core): string | undefined {
     switch (core) {
       // PlayStation (common BIOS used by many PS1 cores)
       case 'mednafen_psx_hw':
@@ -644,7 +644,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
 
-  private applyEjsRunOptions(system: System, core: string): void {
+  private applyEjsRunOptions(system: System, core: Core): void {
 
     window.EJS_player = "#game";
 
@@ -2339,7 +2339,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   /** Return a soft clamp for render buffer size based on core. */
-  private getRenderClampForCore(core: string) {
+  private getRenderClampForCore(core: Core) {
     if (core === "psp" || core === "ppsspp") {
       return { maxW: 640, maxH: 360, maxDPR: 1.0 };
     }
@@ -2365,7 +2365,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         (this.emulatorInstance?.core) ||
         '';
 
-      const core = String(coreRaw).toLowerCase();
+      const core = String(coreRaw).toLowerCase() as Core;
       const isPsp = core.includes('psp') || core.includes('ppsspp');
 
       if (isPsp) {
@@ -2576,7 +2576,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     } catch { }
   }
 
-  private loadPreferredCore(ext: string): string | null {
+  private loadPreferredCore(ext: string): Core | null {
     try {
       const raw = localStorage.getItem(this.SYS_PICK_KEY) || '{}';
       const obj = JSON.parse(raw);
@@ -2926,7 +2926,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     // Add registry matches for this ext. If the file is a .zip, offer all possible systems
     // because zip archives can contain many different ROM types.
-    let matches = [] as { label: string; core?: string }[];
+    let matches = [] as { label: string; core?: Core }[];
     if (ext === 'zip') {
       matches = this.CORE_REGISTRY.map(e => ({ label: e.label, core: e.core }));
     } else {
@@ -2945,7 +2945,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     // Bubble up best guess (romService guess, then regex hint)
-    let guessedCore: string | null = null;
+    let guessedCore: Core | null = null;
 
     try {
       const guessedSystem = this.romService?.guessSystemFromFileName(fileName);
@@ -2972,7 +2972,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
 
-  private detectCoreEnhanced(fileName: string, forcedCore?: string): string {
+  private detectCoreEnhanced(fileName: string, forcedCore?: Core): Core {
     if (forcedCore) return forcedCore;
 
     const ext = this.normExt(fileName, n => this.fileService.getFileExtension(n));
@@ -3016,7 +3016,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   /** Map your romService guess strings to a core id. Expand this as your guesser grows. */
-  private systemToCore(guessed?: System): string | null {
+  private systemToCore(guessed?: System): Core | null {
     const g = (guessed ?? "").toLowerCase();
     switch (g) {
       case 'psp': return 'psp';
