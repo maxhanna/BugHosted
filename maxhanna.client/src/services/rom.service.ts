@@ -3,31 +3,11 @@ import { FileService } from './file.service';
 import { System } from '../app/emulator/emulator-types';
 
 
-export interface N64StateUpload {
-  userId: number;
-  romName: string;
-  filename: string;
-  bytes: Uint8Array;
-  startTimeMs?: number;
-  saveTimeMs?: number;
-  durationSeconds?: number;
-}
-
 export interface SaveUploadResponse {
   ok: boolean;
   status: number;
   body?: any;
   errorText?: string;
-}
-
-// shared contract (can live in a common contracts folder)
-/** Keyed by (userId, romToken) */
-export interface LastInputSelection {
-  userId: number;
-  romToken: string;
-  mappingName?: string | null;
-  gamepadId?: string | null;
-  updatedAtMs?: number;
 }
 
 
