@@ -781,7 +781,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           : 'LEFT_STICK_X:+1'
     };
 
-    console.log(`[EJS] Configuring controls for system="${system}" core="${core}" isDPADCentric=${isDPADCentric}`);
+    console.log(`%c[EJS] Configuring controls for system="${system}" core="${core}" isDPADCentric=${isDPADCentric} isLeftAndRightJoystickInverted=${isLeftAndRightJoystickInverted}`, 'color: orange; font-weight: bold;', { rightStickValues, leftStickValues });
 
     const gpOnly: Record<number, unknown> = {
       0: { value: '', value2: 'BUTTON_1' },
