@@ -252,10 +252,6 @@ declare global {
     EJS_Buttons?: any;
     EJS_GameManager?: any;
     __EJS__?: any;
-    __melondsBiosCache?: Record<string, Uint8Array>;
-    __melondsBiosPreRunInstalled?: boolean;
-    __melondsBiosPollInstalled?: boolean;
-    __melondsBiosWriteFn?: (api: any) => void;
     EJS_externalFiles?: Record<string, string>;
     Module?: any;
     FS?: any;

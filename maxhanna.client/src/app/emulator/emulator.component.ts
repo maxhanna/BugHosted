@@ -1,12 +1,14 @@
 
-import { AfterViewInit, ChangeDetectorRef, Component, HostListener, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { RomService } from '../../services/rom.service';
 import { FileService } from '../../services/file.service';
 import { FileSearchComponent } from '../file-search/file-search.component';
 import { AppComponent } from '../app.component';
-import { VPadItem, System, BuildOpts, SystemCandidate, CoreDescriptor, CoreId, MIN_STATE_SIZE, FAQ_ITEMS, GENESIS_6BUTTON, GENESIS_FORCE_THREE, PSP_DEFAULT_OPTIONS } from './emulator-types';
+import { VPadItem, System, BuildOpts, SystemCandidate, CoreDescriptor, 
+  MIN_STATE_SIZE, FAQ_ITEMS, GENESIS_6BUTTON, GENESIS_FORCE_THREE,
+  PSP_DEFAULT_OPTIONS } from './emulator-types';
 
 @Component({
   selector: 'app-emulator',
@@ -134,11 +136,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this._destroyed = true;
     this._ejsReady = false;
     this.clearAutosave();
-    // Clean up melonDS BIOS injection state for next load
-    try {
-      delete (window as any).__melondsBiosPollInstalled;
-      delete (window as any).__melondsBiosWriteFn;
-    } catch { }
+    
     if (this.parentRef) {
       this.parentRef.preventShowSecurityPopup = false;
     }
@@ -391,10 +389,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         this._ejsReady = true;
         this.scanAndTagVpadControls();
         this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
-
-        // Late-write melonDS BIOS into the real Emscripten FS (fallback)
-        try { (window as any).__melondsBiosWriteFn?.(window.EJS_emulator); } catch { }
-
+ 
         this.applyPSPPerformanceTweak();
 
         // Moment you captured save function originally
