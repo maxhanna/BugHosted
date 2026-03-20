@@ -34,7 +34,7 @@
       </span>
     </div>
     <div *ngIf="displayTotal && !search?.nativeElement?.value" class="totalDisplay">
-      <span class="currentDirectorySpan" *ngIf="!search?.nativeElement?.value">
+      <span class="currentDirectorySpan" *ngIf="!search?.nativeElement?.value && !isLoading">
         Current Directory:
         <span>
           <ng-container *ngIf="currentDirectory === ''; else rootLink">
@@ -54,14 +54,11 @@
           </ng-container>
         </span>
       </span> 
+      <span class="currentDirectorySpan" *ngIf="isLoading">Loading Data...</span>
     </div>
     <div> 
       Total: {{ directory ? directory.totalCount : 0 }}
     </div> 
-  </div>
-
-  <div *ngIf="isLoading">
-    Loading Data...
   </div>
   <div *ngIf="!isLoading && directory && directory.totalCount == 0">
     Empty.
