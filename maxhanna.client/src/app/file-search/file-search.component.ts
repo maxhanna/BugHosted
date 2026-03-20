@@ -227,7 +227,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       if (maxHeight && maxHeight.endsWith('px')) {
         let px = parseFloat(maxHeight);
         if (!isNaN(px)) {
-          if (this.showUpFolderRow && this.canChangeDirectory) {
+          if (this.showUpFolderRow && this.canChangeDirectory && !this.fileSearchMode) {
             // Add 50px if not already added
             if (!el.dataset['maxHeightAdjusted'] || el.dataset['maxHeightAdjusted'] !== 'added') {
               el.style.setProperty('max-height', (px - 50) + 'px', 'important');
