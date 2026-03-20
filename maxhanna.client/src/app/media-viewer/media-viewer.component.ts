@@ -683,6 +683,14 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
     return truncatedBaseName + extension;
   }
+  toggleIsMediaInformationToggled() {
+    this.isMediaInformationToggled = !this.isMediaInformationToggled;
+    if (this.isMediaInformationToggled) {
+      this.showMediaInformationButtonClicked();
+    } else {
+      this.closeMediaInformationButtonClicked();
+    }
+  }
   showMediaInformationButtonClicked() {
     this.isShowingMediaInformation = !this.isShowingMediaInformation;
     const parent = this.parentRef;
@@ -691,7 +699,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     } else {
       parent?.closeOverlay();
     }
-    console.log(this.selectedFile);
   }
   closeMediaInformationButtonClicked() {
     const parent = this.parentRef;

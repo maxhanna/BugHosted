@@ -64,19 +64,19 @@
         </div>
       </div>
     </div>
-    <div *ngIf="showMediaInformation" class="cursorPointer xxSmallFont showInfoSpan" title="Information"><a
-        (click)="showMediaInformationButtonClicked()">ℹ️Info</a></div>
+    <div *ngIf="showMediaInformation" class="cursorPointer xxSmallFont showInfoSpan" title="Information">
+      <a (click)="showMediaInformationButtonClicked()">ℹ️Info</a>
+    </div>
   </div>
   <app-topics *ngIf="showTopics" [isDropdown]="false" [user]="parentRef?.user" [parent]="parentRef"
     [attachedTopics]="file?.topics ?? selectedFile?.topics" (topicClicked)="topicClicked($event)">
   </app-topics>
   <div *ngIf="isLoadedFromURL" class="mediaInfoToggleWrapper">
-    <button class="mediaInfoToggleButton" (click)="isMediaInformationToggled = !isMediaInformationToggled">
-      {{ isMediaInformationToggled ? 'Hide Info' : 'Show Info' }}
-    </button>
+    <a (click)="toggleIsMediaInformationToggled()">ℹ️Info</a>
   </div>
   <div *ngIf="!isLoadedFromURL || (isLoadedFromURL && isMediaInformationToggled)"
-    [class.popupPanel]="isShowingMediaInformation" [class.bordered]="isLoadedFromURL"
+    [class.popupPanel]="isShowingMediaInformation" 
+    [class.bordered]="isLoadedFromURL"
     [style]="isShowingMediaInformation ? 'padding:20px;' : 'width:100%'">
     <div
       *ngIf="(isShowingMediaInformation && selectedFile) || (isLoadedFromURL && selectedFile && (selectedFile.fileName || selectedFile.givenFileName))"
