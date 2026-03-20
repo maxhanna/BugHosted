@@ -1768,6 +1768,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         'ppsspp': '/assets/pspicon.png',
         'yabause': '/assets/saturnicon.png',
         'genesis_plus_gx': '/assets/segaicon.png',
+        'dreamcast': '/assets/segaicon.png',
+        'naomi': '/assets/segaicon.png',
+        'flycast': '/assets/segaicon.png',
         'picodrive': '/assets/segaicon.png',
         'opera': '/assets/ps1icon.png',
         'mupen64plus_next': '/assets/n64icon.png',
@@ -1873,6 +1876,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       '32x': '🟦',
       'gg': '🔵',
       'sms': '🔵',
+      'dreamcast': '🔵',
+      'flycast': '🔵',
+      'naomi': '🔵',
 
       // Atari
       'a78': '🕹️',

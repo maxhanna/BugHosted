@@ -815,7 +815,7 @@ export class FileService {
     if (s.includes('mgba') || s.includes('gba')) return 'Game Boy Advance (GBA)';
     if (s.includes('gambatte') || s.includes('gbc') || s === 'gb') return 'Game Boy / GBC';
     if (s.includes('genesis') || s.includes('megadrive') || s.includes('picodrive')) return 'Sega Genesis / Mega Drive';
-    if (s.includes('dreamcast') || s.includes('dc') || s.includes('reicast')) return 'Sega Dreamcast';
+    if (s.includes('dreamcast') || s.includes('dc') || s.includes('flycast')|| s.includes('naomi') || s.includes('reicast')) return 'Sega Dreamcast';
     if (s.includes('saturn') || s.includes('yabause') || s.includes('sega_saturn') || s.includes('segaSaturn')) return 'Sega Saturn';
     if (s.includes('melonds') || s.includes('nds') || s.includes('desmume')) return 'Nintendo DS';
     if (s.includes('tgcd') || s.includes('pcengine') || s.includes('hu')) return 'TurboGrafx / PC Engine';
