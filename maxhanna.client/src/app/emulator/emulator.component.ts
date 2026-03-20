@@ -222,8 +222,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
       // Determine extension once
       const ext = this.fileService.getFileExtension(file.fileName);
-
-      if (!this.selectedSystemCore && ext === 'zip' && !dbOverride) {
+      if (!this.selectedSystemCore && this.AMBIGUOUS_EXTS.has(ext) && !dbOverride) {
         this._pendingFileToLoad = { fileName: file.fileName, fileId: file.id, directory: file.directory };
         this.isSystemSelectPanelOpen = true;
         this.parentRef?.showOverlay();
@@ -250,7 +249,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         return;
       }
     } 
-    
+
     try {
       await this.loadRomThroughService(file.fileName, file.id, file.directory, this.selectedSystemCore ?? undefined);
       this.status = 'Running';
