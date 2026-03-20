@@ -1,15 +1,9 @@
-<div *ngIf="isLoadedFromURL" class="fileDataDiv fileDataComponentBackground">
-  <div class="componentTitle">
-    <div class="closeButton" (click)="remove_me('MediaViewerComponent');"></div>
-    <div class="componentTitle"><span><a href="https://bughosted.com">BugHosted</a> Media</span></div>
-  </div>
-</div>
-<div 
-  [id]="'mediaContainer'+fileId" 
-  #mediaRoot
+<app-title-bar *ngIf="isLoadedFromURL" [title]="'Bughosted Media'" [inputtedParentRef]="parentRef"
+  (closeClicked)="remove_me('MediaViewerComponent');">
+</app-title-bar>
+<div [id]="'mediaContainer'+fileId" #mediaRoot
   [class]="'mediaContainerWrapperDiv ' + (isLoadedFromURL ? 'fileDataDiv' : '')"
-  [style.margin-top]="isLoadedFromURL ? '60px' : '0px'" 
-  appInView (inView)="onInView($event)">
+  [style.margin-top]="isLoadedFromURL ? '60px' : '0px'" appInView (inView)="onInView($event)">
   <!-- Fullscreen Overlay -->
   <div #fullscreenOverlay class="fullscreen-overlay"
     (click)="imageFileExtensionsIncludes(this.selectedFileExtension) ? shrink() : ''">
@@ -26,7 +20,8 @@
     <div *ngIf="!autoload" class="noAutoLoadDiv" (click)="forceLoad()">
       <span class="clickToLoadText">Click here to load media</span>
     </div>
-    <div *ngIf="isLoading && (autoload || !selectedFileSrc || displayLoading)" style="min-height:50px; min-width: 50px;">
+    <div *ngIf="isLoading && (autoload || !selectedFileSrc || displayLoading)"
+      style="min-height:50px; min-width: 50px;">
       Loading Media...
     </div>
     <div *ngIf="autoload && selectedFileSrc != ''" class="mediaDiv">
@@ -47,7 +42,8 @@
         <div class="filetype"
           *ngIf="displayExpander && !audioFileExtensionsIncludes(this.selectedFileExtension ?? this.selectedFile?.fileType) && !otherFileExtensionsIncludes(this.selectedFileExtension ?? this.selectedFile?.fileType)">
           <span class="cursorPointerUnderlined"
-            (click)="expandFile({url: selectedFile, extension: selectedFileExtension ?? this.selectedFile?.fileType})" title="Expand">Expand
+            (click)="expandFile({url: selectedFile, extension: selectedFileExtension ?? this.selectedFile?.fileType})"
+            title="Expand">Expand
             {{fileType}} ◻️</span>
         </div>
         <div class="filetype" *ngIf="displayExtraInfo">
@@ -57,8 +53,10 @@
           </span>
           <span class="notification">{{ selectedFile?.date | date: 'MMMM d, y h:mm a' }}</span>
         </div>
-        <div class="filetype" *ngIf="displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension ?? this.selectedFile?.fileType)">
-          <app-share-button *ngIf="displayExtraInfo" [inputtedParentRef]="parentRef" [link]="getFileLink()"></app-share-button>
+        <div class="filetype"
+          *ngIf="displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension ?? this.selectedFile?.fileType)">
+          <app-share-button *ngIf="displayExtraInfo" [inputtedParentRef]="parentRef"
+            [link]="getFileLink()"></app-share-button>
           <button (click)="download(selectedFile, true)"
             *ngIf="selectedFile && (displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension ?? this.selectedFile?.fileType))"
             [title]="'Download ' + (selectedFile.givenFileName ?? selectedFile.fileName ?? '')">📥Download {{
@@ -69,9 +67,8 @@
     <div *ngIf="showMediaInformation" class="cursorPointer xxSmallFont showInfoSpan" title="Information"><a
         (click)="showMediaInformationButtonClicked()">ℹ️Info</a></div>
   </div>
-  <app-topics *ngIf="showTopics" [isDropdown]="false" [user]="parentRef?.user"
-    [parent]="parentRef" [attachedTopics]="file?.topics ?? selectedFile?.topics"
-    (topicClicked)="topicClicked($event)">
+  <app-topics *ngIf="showTopics" [isDropdown]="false" [user]="parentRef?.user" [parent]="parentRef"
+    [attachedTopics]="file?.topics ?? selectedFile?.topics" (topicClicked)="topicClicked($event)">
   </app-topics>
   <div *ngIf="isLoadedFromURL" class="mediaInfoToggleWrapper">
     <button class="mediaInfoToggleButton" (click)="isMediaInformationToggled = !isMediaInformationToggled">
@@ -79,8 +76,7 @@
     </button>
   </div>
   <div *ngIf="!isLoadedFromURL || (isLoadedFromURL && isMediaInformationToggled)"
-    [class.popupPanel]="isShowingMediaInformation" 
-    [class.bordered]="isLoadedFromURL"
+    [class.popupPanel]="isShowingMediaInformation" [class.bordered]="isLoadedFromURL"
     [style]="isShowingMediaInformation ? 'padding:20px;' : 'width:100%'">
     <div
       *ngIf="(isShowingMediaInformation && selectedFile) || (isLoadedFromURL && selectedFile && (selectedFile.fileName || selectedFile.givenFileName))"
@@ -127,7 +123,8 @@
           Favourites:
         </div>
         <div class="optionsStatsDescription cursorPointerUnderlined linkFontColor">
-          <span class="cursorPointer" (click)="getFavouritedBy(selectedFile.id)">{{selectedFile.favouriteCount ?? 0}}</span>
+          <span class="cursorPointer" (click)="getFavouritedBy(selectedFile.id)">{{selectedFile.favouriteCount ??
+            0}}</span>
           <span *ngIf="parentRef?.user?.id" style="margin-left:8px;">
             <button (click)="toggleFavourite(selectedFile)"
               [title]="selectedFile.isFavourited ? ('Remove from favourites') : ('Add ' + (selectedFile.givenFileName ?? selectedFile.fileName) + ' to favourites')">
@@ -136,7 +133,7 @@
             </button>
           </span>
         </div>
-      </div> 
+      </div>
 
       <div class="optionsStatsDiv">
         <div class="optionsStatsHeader">
@@ -149,14 +146,13 @@
 
       <div class="optionsStatsDiv">
         <div class="optionsStatsHeader">
-          Topics<span
-            *ngIf="selectedFile.user?.id == parentRef?.user?.id || parentRef?.user?.id == 1"
+          Topics<span *ngIf="selectedFile.user?.id == parentRef?.user?.id || parentRef?.user?.id == 1"
             (click)="editFileTopic(selectedFile)" class="cursorPointer" title="Edit File Topics">✏️</span>:
         </div>
         <div class="optionsStatsDescription">
           <app-topics #topicComponent *ngIf="editingTopics.includes(selectedFile.id)" [isDropdown]="true"
-            [user]="parentRef?.user" [parent]="parentRef"
-            [attachedTopics]="selectedFile.topics" (topicAdded)="editFileTopicInDB($event, selectedFile)">
+            [user]="parentRef?.user" [parent]="parentRef" [attachedTopics]="selectedFile.topics"
+            (topicAdded)="editFileTopicInDB($event, selectedFile)">
           </app-topics>
           <span *ngFor="let topic of selectedFile.topics" class="matchingTopic">
             {{topic.topicText}}
@@ -216,14 +212,12 @@
         </div>
         <div class="optionsStatsDescription">
           <span>
-            <select [value]="selectedFile.visibility"
-              [disabled]="selectedFile.user?.id != parentRef?.user?.id"
+            <select [value]="selectedFile.visibility" [disabled]="selectedFile.user?.id != parentRef?.user?.id"
               *ngIf="selectedFile.user?.id == parentRef?.user?.id">
               <option value="Public" [selected]="selectedFile.visibility == 'Public'">Public</option>
               <option value="Private" [selected]="selectedFile.visibility == 'Private'">Private</option>
             </select>
-            <span
-              *ngIf="selectedFile.user?.id != parentRef?.user?.id">{{selectedFile.visibility}}</span>
+            <span *ngIf="selectedFile.user?.id != parentRef?.user?.id">{{selectedFile.visibility}}</span>
             <span *ngIf="selectedFile.visibility == 'Private'" class="private" title="This is a private file.">🔒</span>
           </span>
         </div>
@@ -236,7 +230,8 @@
           <!-- If sharedWith is a comma-separated list of user ids, render an app-user-tag for each id -->
           <ng-container *ngIf="sharedWithIds.length > 0">
             <span *ngFor="let uid of sharedWithIds" style="margin-right:8px;">
-              <app-user-tag [userId]="uid" [hideName]="true" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+              <app-user-tag [userId]="uid" [hideName]="true" [inputtedParentRef]="parentRef"
+                [displayMiniTag]="true"></app-user-tag>
             </span>
           </ng-container>
           <span *ngIf="sharedWithIds.length == 0">{{selectedFile.sharedWith}}</span>
@@ -263,9 +258,8 @@
           Created By:
         </div>
         <div class="optionsStatsDescription">
-          <app-user-tag *ngIf="selectedFile.user" [user]="selectedFile.user"
-            [inputtedParentRef]="parentRef" [displayMiniTag]="true" [displayHoverPicture]="true"
-            [previousComponent]="previousComponent"></app-user-tag>
+          <app-user-tag *ngIf="selectedFile.user" [user]="selectedFile.user" [inputtedParentRef]="parentRef"
+            [displayMiniTag]="true" [displayHoverPicture]="true" [previousComponent]="previousComponent"></app-user-tag>
         </div>
       </div>
       <div class="optionsStatsDiv" *ngIf="selectedFile.lastUpdated && selectedFile.lastUpdated !== selectedFile.date">
@@ -287,46 +281,39 @@
             [previousComponent]="previousComponent"></app-user-tag>
         </div>
       </div>
-    <div class="optionsStatsDiv" *ngIf="selectedFile && isVideoOrAudio(selectedFile)">
-      <div class="optionsStatsHeader">
-        Add To Music Playlist:
+      <div class="optionsStatsDiv" *ngIf="selectedFile && isVideoOrAudio(selectedFile)">
+        <div class="optionsStatsHeader">
+          Add To Music Playlist:
+        </div>
+        <div class="optionsStatsDescription">
+          <button *ngIf="parentRef?.user?.id" (click)="addFileToMusicPlaylist(selectedFile)"
+            title="Add '{{selectedFile.givenFileName ?? selectedFile.fileName}}' to music playlist.">
+            ➕ Add To Music Playlist
+          </button>
+          <span *ngIf="!parentRef?.user?.id">You must be logged in.</span>
+        </div>
       </div>
-      <div class="optionsStatsDescription">
-        <button *ngIf="parentRef?.user?.id" (click)="addFileToMusicPlaylist(selectedFile)"
-          title="Add '{{selectedFile.givenFileName ?? selectedFile.fileName}}' to music playlist.">
-          ➕ Add To Music Playlist
-        </button>
-        <span *ngIf="!parentRef?.user?.id">You must be logged in.</span>
-      </div>
+      <div class="optionsStatsDiv" *ngIf="selectedFile">
+        <div class="optionsStatsHeader">
+          Share:
+        </div>
+        <div class="optionsStatsDescription">
+          <app-share-button [inputtedParentRef]="parentRef" [link]="getFileLink(selectedFile)"></app-share-button>
+        </div>
+      </div> 
+    </div> 
+    <div *ngIf="isShowingMediaInformation">
+      <button id="closeOverlay" (click)="closeMediaInformationButtonClicked();">Close</button>
     </div>
-    <div class="optionsStatsDiv" *ngIf="selectedFile">
-      <div class="optionsStatsHeader">
-        Share:
-      </div>
-      <div class="optionsStatsDescription">
-        <app-share-button [inputtedParentRef]="parentRef" [link]="getFileLink(selectedFile)"></app-share-button>
-      </div>
-    </div>
-
-
-    </div>
-    <app-comments *ngIf="(selectedFile || file) && showCommentSection" 
-      [inputtedParentRef]="parentRef"
-      [type]="'File'" 
-      [showComments]="showCommentSectionOnLoad" 
-      [showCommentsHeader]="showCommentSectionHeader"
-      [component_id]="selectedFile?.id || file?.id ?? 0" 
-      [component]="selectedFile || file"
-      [commentList]="file?.fileComments ?? selectedFile?.fileComments ?? []" 
-      [previousComponent]="previousComponent"
-      [fileId]="fileId ?? file?.id ?? selectedFile?.id ?? file?.id"
-      [scrollToCommentId]="commentId"
-      (commentAddedEvent)="commentAddedEvent($event)"
-      (commentHeaderClickedEvent)="commentHeaderClickedEvent.emit($event)">
-    </app-comments>
-    <div *ngIf="isShowingMediaInformation"><button id="closeOverlay"
-        (click)="closeMediaInformationButtonClicked();">Close</button></div>
   </div>
+  <app-comments *ngIf="(selectedFile || file) && showCommentSection" [inputtedParentRef]="parentRef" [type]="'File'"
+    [showComments]="showCommentSectionOnLoad" [showCommentsHeader]="showCommentSectionHeader"
+    [component_id]="selectedFile?.id || file?.id ?? 0" [component]="selectedFile || file"
+    [commentList]="file?.fileComments ?? selectedFile?.fileComments ?? []" [previousComponent]="previousComponent"
+    [fileId]="fileId ?? file?.id ?? selectedFile?.id ?? file?.id" [scrollToCommentId]="commentId"
+    (commentAddedEvent)="commentAddedEvent($event)"
+    (commentHeaderClickedEvent)="commentHeaderClickedEvent.emit($event)">
+  </app-comments>
 </div>
 
 <!-- File viewers Popup -->

@@ -68,6 +68,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     'BonesComponent',
     'MetaComponent',
     'UpdateUserSettingsComponent',
+    'MediaViewerComponent',
   ];
   unflexedNavigationComponents: string[] = [
     'EmulatorComponent',
@@ -830,6 +831,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       showOnlyAccountSection: showOnlyAccountSection ?? false
     });
   }
+
   setViewportScalability(scalable?: boolean) {
     if (scalable === undefined) {
       scalable = true;

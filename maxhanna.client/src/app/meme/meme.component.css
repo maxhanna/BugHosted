@@ -3,6 +3,13 @@
   box-sizing: border-box;
 }
 
+@media only screen and (min-width : 667px) { 
+  :host ::ng-deep .directoryDisplayDiv {
+    max-height: calc(100vh - 100px) !important; 
+    max-height: calc(100dvh - 100px) !important; 
+  }
+}
+
 button {
   cursor: pointer;
 }

@@ -1,19 +1,28 @@
 .componentMain {
   min-width: 375px;
 }
+
 @media only screen and (max-width : 400px) {
   .componentMain {
-      min-width: 300px;
+    min-width: 300px;
   }
 }
+
+@media only screen and (min-width : 667px) { 
+  :host ::ng-deep .directoryDisplayDiv {
+    max-height: calc(100vh - 100px) !important; 
+    max-height: calc(100dvh - 100px) !important; 
+  }
+}
+
 .folder {
   color: black;
   cursor: pointer;
 }
 
-  .folder::before {
-    content: '📁';
-  }
+.folder::before {
+  content: '📁';
+}
 
 
 .thumbnailArea {
@@ -27,16 +36,16 @@
   margin-right: auto;
 }
 
-  .thumbnailArea img {
-    max-width: 100%;
-    max-height: 100%;
-  }
+.thumbnailArea img {
+  max-width: 100%;
+  max-height: 100%;
+}
 
-  .thumbnailArea button {
-    margin-left: auto;
-    margin-right: auto;
-    cursor: pointer;
-  }
+.thumbnailArea button {
+  margin-left: auto;
+  margin-right: auto;
+  cursor: pointer;
+}
 
 .thumbnailTitle {
   position: relative;
@@ -44,13 +53,13 @@
   width: 100%;
 }
 
-  .thumbnailTitle span {
-    width: CALC(100% - 30px);
-    overflow-x: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    display: inline-block;
-  }
+.thumbnailTitle span {
+  width: CALC(100% - 30px);
+  overflow-x: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+}
 
 .closeImageButton {
   display: inline-block;
@@ -59,53 +68,53 @@
   height: 25px;
 }
 
-  .closeImageButton::before {
-    font-size: 18px;
-    line-height: 25px;
-    z-index: 2;
-    border: 2px outset black;
-    text-align: center;
-    padding-left: 0px;
-  }
+.closeImageButton::before {
+  font-size: 18px;
+  line-height: 25px;
+  z-index: 2;
+  border: 2px outset black;
+  text-align: center;
+  padding-left: 0px;
+}
 
-  .closeImageButton:active::before {
-    border: 2px inset black;
-  }
+.closeImageButton:active::before {
+  border: 2px inset black;
+}
 
-  .closeImageButton::before {
-    content: '❌';
-  }
+.closeImageButton::before {
+  content: '❌';
+}
 
 .downloadImageButton {
   margin-left: auto;
   margin-right: auto;
 }
 
-  .downloadImageButton::before {
-    font-size: 18px;
-    line-height: 25px;
-    z-index: 2;
-    border: 2px outset black;
-    text-align: center;
-    padding-left: 0px;
-  }
+.downloadImageButton::before {
+  font-size: 18px;
+  line-height: 25px;
+  z-index: 2;
+  border: 2px outset black;
+  text-align: center;
+  padding-left: 0px;
+}
 
-  .downloadImageButton:active::before {
-    border: 2px inset black;
-  }
+.downloadImageButton:active::before {
+  border: 2px inset black;
+}
 
-  .downloadImageButton::before {
-    content: '⏬';
-    right: 0px;
-  }
+.downloadImageButton::before {
+  content: '⏬';
+  right: 0px;
+}
 
 tr[draggable] {
   cursor: move;
 }
 
-  tr[draggable]:hover {
-    background-color: #f0f0f0;
-  }
+tr[draggable]:hover {
+  background-color: #f0f0f0;
+}
 
 
 .disabled-overlay {
@@ -122,14 +131,18 @@ tr[draggable] {
 }
 
 .disabled {
-  pointer-events: none; /* Disable pointer events for the disabled elements */
+  pointer-events: none;
+  /* Disable pointer events for the disabled elements */
 }
 
 .uploadFileNames {
   max-width: 300px;
-  white-space: nowrap; /* Prevent wrapping */
-  overflow: hidden; /* Hide overflow */
-  text-overflow: ellipsis; /* Add ellipsis */
+  white-space: nowrap;
+  /* Prevent wrapping */
+  overflow: hidden;
+  /* Hide overflow */
+  text-overflow: ellipsis;
+  /* Add ellipsis */
 }
 
 .uploadOrCreateDirectoryDiv {
@@ -141,11 +154,12 @@ tr[draggable] {
   text-align: right;
 }
 
-  .fileActionsTd input {
-    display: inline-block;
-  }
+.fileActionsTd input {
+  display: inline-block;
+}
 
-.thumbnailImage, .thumbnailVideo {
+.thumbnailImage,
+.thumbnailVideo {
   width: 100%;
   height: 100%;
   max-width: 500px;
@@ -177,9 +191,9 @@ tr[draggable] {
   align-items: center;
   cursor: default;
 }
- 
+
 .uploadAndNewFolderButtonDiv {
-  display: flex; 
+  display: flex;
 }
 
 .topTopicsDiv {
