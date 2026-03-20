@@ -228,15 +228,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         let px = parseFloat(maxHeight);
         if (!isNaN(px)) {
           if (!this.showUpFolderRow) {
-            // Add 30px if not already added
+            // Add 50px if not already added
             if (!el.dataset['maxHeightAdjusted'] || el.dataset['maxHeightAdjusted'] !== 'added') {
-              el.style.maxHeight = (px + 30) + 'px';
+              el.style.setProperty('max-height', (px + 50) + 'px', 'important');
               el.dataset['maxHeightAdjusted'] = 'added';
             }
           } else {
-            // Subtract 30px if not already subtracted
+            // Subtract 50px if not already subtracted
             if (el.dataset['maxHeightAdjusted'] === 'added') {
-              el.style.maxHeight = (px - 30) + 'px';
+              el.style.setProperty('max-height', (px - 50) + 'px', 'important');
               el.dataset['maxHeightAdjusted'] = '';
             }
           }
