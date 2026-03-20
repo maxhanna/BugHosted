@@ -348,19 +348,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     const romDisplayName = this.fileService.getFileWithoutExtension(fileName); // e.g., "Ultimate MK3 (USA)"
     this.applyGamepadControlSettings(romDisplayName, core, this.system);
-    // For PlayStation and N64 cores, increase autosave interval to 10 minutes
-    // to reduce upload frequency for large save files (e.g. PS1 saves).
-    const longIntervalCores = new Set([
-      'mupen64plus_next', // N64
-      'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mednafen_psx', // PSX variants
-      'psp', 'ppsspp' // PSP — save states can be ~40 MB+
-    ]);
-    if (longIntervalCores.has(core)) {
+   
+    if (this.heavyCores.has(core)) {
       this.autosaveIntervalTime = 10 * 60 * 1000; // 10 minutes
       //console.log(`[EJS] Detected core "${core}", setting autosave interval to 10 minutes to reduce upload frequency for large save files.`);
     } else {
       this.autosaveIntervalTime = 3 * 60 * 1000; // default 3 minutes
     }
+    
     // Optional callbacks (ok to keep)
     window.EJS_onSaveState = (state: Uint8Array) => this.onSaveState(state);
     window.EJS_onLoadState = async () => {
@@ -407,14 +402,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       try { this.onEmulatorReadyForSizing(); } catch { console.warn('[EJS] onEmulatorReadyForSizing failed'); }
     };
 
-    // 6) Ensure CSS present once
-    if (!document.querySelector('link[data-ejs-css="1"]')) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = '/assets/emulatorjs/data/emulator.min.css';
-      link.setAttribute('data-ejs-css', '1');
-      document.head.appendChild(link);
-    }
+    // // 6) Ensure CSS present once
+    // if (!document.querySelector('link[data-ejs-css="1"]')) {
+    //   const link = document.createElement('link');
+    //   link.rel = 'stylesheet';
+    //   link.href = '/assets/emulatorjs/data/emulator.min.css';
+    //   link.setAttribute('data-ejs-css', '1');
+    //   document.head.appendChild(link);
+    // }
     // Ensure menu is closed when the emulator starts
     this.isMenuPanelOpen = false;
     this.parentRef?.closeOverlay();
