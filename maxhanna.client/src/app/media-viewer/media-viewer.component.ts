@@ -705,7 +705,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (this.isShowingMediaInformation) {
       parent?.closeOverlay();
     }
-    setTimeout(() => { this.isShowingMediaInformation = false; }, 50);
+    setTimeout(() => { 
+      this.isShowingMediaInformation = false;
+      this.isMediaInformationToggled = false;
+    }, 50);
   }
   getFileViewers(fileId: number) {
     const parent = this.parentRef;
