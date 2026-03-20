@@ -578,11 +578,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'snes9x':
         return '/assets/emulatorjs/data/cores/Snes9x.zip';
 
-      // Dreamcast / NAOMI (Flycast)
+      // Dreamcast (Flycast)
       case 'flycast':
       case 'dreamcast':
-      case 'naomi':
         return '/assets/emulatorjs/data/cores/FLYCAST.zip';
+        
+      // Dreamcast (Naomi)
+      case 'naomi':
+        return '/assets/emulatorjs/data/cores/NAOMI.zip';
 
       // Atari 7800 (ProSystem)
       case 'prosystem':
