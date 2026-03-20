@@ -35,7 +35,7 @@
     </div>
     <div *ngIf="displayTotal && !search?.nativeElement?.value" class="totalDisplay">
       <span class="currentDirectorySpan" *ngIf="!search?.nativeElement?.value && !isLoading">
-        Current Directory:
+        {{ !onMobile() ? 'Current Directory: ' : '' }}
         <span>
           <ng-container *ngIf="currentDirectory === ''; else rootLink">
             <span>./</span>
