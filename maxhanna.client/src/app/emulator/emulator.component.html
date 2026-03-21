@@ -169,8 +169,9 @@
       <span>Re-load {{ skipLoadingSave ? 'without' : 'with' }} saved state.</span>
     </label>
     <div style="display:flex; gap:8px; margin-top:12px;">
-      <button (click)="performReset()">Confirm Reset</button>
-      <button class="closeButton" id="closeOverlay" (click)="cancelReset()">Cancel</button>
+      <button (click)="performReset()" class="enhancedButton">Confirm Reset</button>
+      <button class="enhancedButton" (click)="cancelReset()">Cancel</button>
+      <button class="closeButton" id="closeOverlay" (click)="cancelReset()"></button>
     </div>
   </div>
 </div>
