@@ -24,10 +24,7 @@
           ⬅️
         </span>
       </span>
-      <span 
-        *ngIf="totalPages > 1" 
-        class="totalPageDisplay"
-        [class.smallFont]="onMobile()">
+      <span *ngIf="totalPages > 1" class="totalPageDisplay" [class.smallFont]="onMobile()">
         {{currentPage}}{{displayTotal ? '/' + totalPages : ''}}
       </span>
       <input *ngIf="fileSearchMode" #search (keyup)="changeSearchTermsFromSearchInput()" placeholder="🔍Search Files" />
@@ -96,7 +93,7 @@
                   [placeholder]="file?.givenFileName ?? (file && file.fileName ? file.fileName.split('.')[0]! : 'New file name')"
                   [value]="" [style.display]="isEditing.includes(file.id) ? 'inline-block':'none' "
                   (keyup)="editFileKeyUp($event, file.id)" (click)="$event.stopPropagation()"
-                  [id]="'editFileNameInput'+file.id" /> 
+                  [id]="'editFileNameInput'+file.id" />
 
                 <span *ngIf="!isEditing.includes(file.id)" class="fileFolderNameSpan {{file.isFolder ? 'folder' : ''}}"
                   (click)="!disabled && selectFile(file);" [id]="'fileIdName'+file.id">
@@ -421,7 +418,7 @@
           </span>
         </span>
       </div>
-    </div> 
+    </div>
     <div class="optionsStatsDiv" *ngIf="!optionsFile.isFolder">
       <div class="optionsStatsHeader">
         Notes ({{ optionsFile.notesCount ?? 0 }}):
@@ -796,12 +793,14 @@
   </div>
   <div class="fileViewerDiv">
     <div *ngFor="let viewer of fileViewers" class="fileViewerLi">
-      <app-user-tag [user]="viewer.user" [inputtedParentRef]="parentRef ?? inputtedParentRef"
-        [displayHoverPicture]="true" [previousComponent]="previousComponent" [displayMiniTag]="true"></app-user-tag>
       <span>
         ({{viewer.accessCount}})
       </span>
+      <span>
+        <app-user-tag [user]="viewer.user" [inputtedParentRef]="parentRef ?? inputtedParentRef"
+          [displayHoverPicture]="true" [previousComponent]="previousComponent" [displayMiniTag]="true"></app-user-tag>
     </div>
+    </span>
   </div>
   <button id="closeOverlay" (click)="closeFileViewers()">Close</button>
 </div>
@@ -852,10 +851,11 @@
     <div *ngIf="fileNotes.length === 0" style="padding:12px; text-align:center; opacity:0.7;">
       No notes yet. Be the first to add one!
     </div>
-    <div *ngFor="let n of fileNotes" class="optionsStatsDiv" style="margin-bottom:8px; padding:8px; border-bottom:1px solid rgba(255,255,255,0.1);">
+    <div *ngFor="let n of fileNotes" class="optionsStatsDiv"
+      style="margin-bottom:8px; padding:8px; border-bottom:1px solid rgba(255,255,255,0.1);">
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-        <app-user-tag [user]="n.user" [inputtedParentRef]="parentRef ?? inputtedParentRef"
-          [displayMiniTag]="true" [displayHoverPicture]="true" [previousComponent]="previousComponent"></app-user-tag>
+        <app-user-tag [user]="n.user" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"
+          [displayHoverPicture]="true" [previousComponent]="previousComponent"></app-user-tag>
         <button *ngIf="canDeleteNote(n)" (click)="deleteNote(n.user?.id ?? 0)" [disabled]="isLoading"
           title="Delete this note" style="margin-left:auto; font-size:0.8em;">
           ❌
