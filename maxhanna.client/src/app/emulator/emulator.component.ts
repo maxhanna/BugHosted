@@ -2616,10 +2616,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async finishFileUploading() {
+    console.log('Finished uploading file, refreshing directory in file search component');
     setTimeout(async () => {
       await this.fileSearchComponent?.getDirectory();
       this.cdr.detectChanges();
-    }, 250);
+    }, 1500);
   }
 
   openLoginPanel() {
