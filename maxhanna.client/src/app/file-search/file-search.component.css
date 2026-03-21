@@ -325,7 +325,12 @@
   justify-content: space-between;
   width: 100%;
   flex-direction: row-reverse;
+  border-bottom: 1px dotted var(--main-font-color);
+}
+
+.fileViewerLi:hover {
   border-bottom: 1px dotted var(--main-link-color);
+  padding: 0px 10px;
 }
 
 .search-popup-card {
