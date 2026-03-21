@@ -149,11 +149,10 @@
         class="enhancedButton"
         *ngIf="saveConfirmType === 'saveAndExit' || saveConfirmType === 'saveAndReset'">
         Don't Save
-      </button>
-      <button (click)="handleSaveConfirm('cancel')" class="enhancedButton">
+      </button> 
+      <button (click)="handleSaveConfirm('cancel')" class="closeButton enhancedButton" id="closeOverlay">
         Cancel
       </button>
-      <button (click)="handleSaveConfirm('cancel')" class="closeButton enhancedButton" id="closeOverlay"></button>
     </div>
   </div>
 </div>
@@ -170,8 +169,7 @@
     </label>
     <div style="display:flex; gap:8px; margin-top:12px;">
       <button (click)="performReset()" class="enhancedButton">Confirm Reset</button>
-      <button class="enhancedButton" (click)="cancelReset()">Cancel</button>
-      <button class="closeButton" id="closeOverlay" (click)="cancelReset()"></button>
+      <button class="closeButton enhancedButton" id="closeOverlay" (click)="cancelReset()">Cancel</button>
     </div>
   </div>
 </div>

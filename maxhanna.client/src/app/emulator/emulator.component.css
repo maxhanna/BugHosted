@@ -71,7 +71,7 @@
 } 
 
 .emuMenuButton, 
-:host ::ng-deep .emuMenuButtonContainer button {
+:host ::ng-deep .emuMenuButtonContainer .uploadButton {
   width: 75%;
   max-width: 300px;
   margin-bottom: 10px;

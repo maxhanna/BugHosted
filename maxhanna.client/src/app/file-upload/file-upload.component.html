@@ -1,7 +1,8 @@
-<button type="submit"
-        [class]="getOverallProgress() == 100 ? 'finalizingButton' : ''"
-        (click)="uploadSubmitClicked()"
-        title="Upload file(s)">
+<button type="submit".
+  class="uploadButton"
+  [class]="getOverallProgress() == 100 ? 'finalizingButton' : ''"
+  (click)="uploadSubmitClicked()"
+  title="Upload file(s)">
   {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') : (uploadFileList.length > 0 ? '✅' : '⏫' + uploadButtonText)}}
 </button>
 <input #fileInput type="file" (change)="uploadInitiate()" [accept]="allowedFileTypes" style="visibility: hidden; position: absolute; width:1px;" multiple />
