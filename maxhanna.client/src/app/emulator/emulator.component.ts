@@ -23,7 +23,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   @Input() presetRomName?: string;
   @Input() presetRomId?: number | undefined;
-  @Input() presetForcedCore?: Core;
+  @Input() presetForcedCore?: Core | null | undefined;
   @Input() skipSaveFileRequested = false;
   @Input() inputtedParentRef?: AppComponent;
 
@@ -117,7 +117,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (this.presetRomName && this.presetRomId) {
       try {
         if (this.presetForcedCore) this._forcedCore = this.presetForcedCore;
-        await this.loadRomThroughService(this.presetRomName, this.presetRomId, undefined, this.presetForcedCore);
+        await this.loadRomThroughService(this.presetRomName, this.presetRomId, this.presetForcedCore);
       } catch (e) {
         console.error('Failed to auto-load preset ROM', e);
       }
@@ -244,10 +244,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       if (!this.selectedSystemCore) {
         return;
       }
-    }
-
+    } 
+    this.presetForcedCore = this.selectedSystemCore;
     try {
-      await this.loadRomThroughService(file.fileName, file.id, file.directory, this.selectedSystemCore ?? undefined);
+      await this.loadRomThroughService(file.fileName, file.id, this.selectedSystemCore ?? undefined);
       this.status = 'Running';
     } catch (err) {
       this.status = 'Error loading emulator';
@@ -262,7 +262,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.selectedSystemCore = val || null;
   }
 
-  private async loadRomThroughService(fileName: string, fileId?: number, directory?: string, forcedCore?: Core | undefined) {
+  private async loadRomThroughService(fileName: string, fileId?: number, forcedCore?: Core | null | undefined) {
     // Use the instance-level forced core as a fallback
     const effectiveForcedCore = forcedCore ?? this._forcedCore;
     if (effectiveForcedCore) this._forcedCore = effectiveForcedCore;
@@ -1986,6 +1986,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   .ejs_cheat_heading {
     color: var(--main-font-color) !important;
   }
+  .ejs_cheat_parent {
+    background-color: var(--component-background-color) !important;
+    color: var(--main-font-color) !important;
+  }
 }
 `;
     root.appendChild(style);
@@ -2667,7 +2671,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
     // Kick off loading — ignore returned promise here, UI updates handled by caller
-    void this.loadRomThroughService(pending.fileName, pending.fileId, pending.directory, forced).then(() => {
+    void this.loadRomThroughService(pending.fileName, pending.fileId, forced).then(() => {
       this.status = 'Running';
       this.cdr.detectChanges();
     }).catch(e => {

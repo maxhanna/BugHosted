@@ -118,8 +118,7 @@ export type Core =
   | 'gearcoleco'
   | 'puae'
   | 'vitaquake3'
-  | 'vice_x64'
-  | 'mame2003_plus';
+  | 'vice_x64';
 
 export interface BuildOpts {
   useJoystick: boolean;
