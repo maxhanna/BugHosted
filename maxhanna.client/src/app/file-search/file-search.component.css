@@ -661,3 +661,10 @@
   max-width: 100vw;
   flex-wrap: wrap;
 }
+
+.noteDiv { 
+  padding-left: 4px; 
+  word-break: break-word;
+  max-height: 100px;
+  overflow: auto;
+}
