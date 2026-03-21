@@ -102,6 +102,9 @@ export class FileService {
   snesFileExtensions: string[] = ['snes', 'sfc', 'smc', 'fig', 'swc', 'bs', 'st'];
   saturnFileExtensions: string[] = ['cue', 'chd', 'iso', 'bin'];
 
+  getRomFileExtensions(): string[] {
+    return Array.from(this.romFileExtensions);
+  }
   /** Return Genesis/MegaDrive related extensions present in romFileExtensions */
   getGenesisFileExtensions(): string[] {
     return Array.from(this.genesisFileExtensions);

@@ -1675,7 +1675,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       'snes': this.fileService.getSnesFileExtensions(),
       'genesis': this.fileService.getSegaFileExtensions(),
       'psp': this.fileService.getPspFileExtensions(),
-      'saturn': this.fileService.getSaturnFileExtensions()
+      'saturn': this.fileService.getSaturnFileExtensions(),
+      'gamecube': this.fileService.getRomFileExtensions(),
+      'dreamcast': this.fileService.getRomFileExtensions(),
     };
   }
  
@@ -1720,7 +1722,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   async onSystemFilterClick(key: string) {
-    if (key.toLowerCase() === 'saturn' || key.toLowerCase() === 'ps1' || key.toLowerCase() === 'psx') {
+    if (key.toLowerCase() === 'saturn' 
+      || key.toLowerCase() === 'ps1' 
+      || key.toLowerCase() === 'psx'
+      || key.toLowerCase() === 'dreamcast'
+      || key.toLowerCase() === 'gamecube'
+      || key.toLowerCase() === 'psp') {
       this.activeRomSystems = [key];
       this.fileTypeFilter = '';
       this.goToFirstPage();
@@ -1731,6 +1738,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           systemKey = 'yabause';
         } else if (key.toLowerCase() === 'ps1' || key.toLowerCase() === 'psx') {
           systemKey = 'pcsx_rearmed';
+        } else if (key.toLowerCase() === 'psp') {
+          systemKey = 'psp';
+        } else if (key.toLowerCase() === 'dreamcast') {
+          systemKey = 'flycast';
+        } else if (key.toLowerCase() === 'gamecube') {
+          systemKey = 'dolphin';
         }
         if (systemKey) {
           await this.getDirectoryWithActualSystem(systemKey as Core); 
