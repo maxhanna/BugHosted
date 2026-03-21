@@ -792,13 +792,13 @@
     File Viewers
   </div>
   <div class="fileViewerDiv">
-    <div *ngFor="let viewer of fileViewers" class="fileViewerLi">
-      <span>
-        ({{viewer.accessCount}})
-      </span>
+    <div *ngFor="let viewer of fileViewers" class="fileViewerLi"> 
       <span>
         <app-user-tag [user]="viewer.user" [inputtedParentRef]="parentRef ?? inputtedParentRef"
           [displayHoverPicture]="true" [previousComponent]="previousComponent" [displayMiniTag]="true"></app-user-tag>
+      </span>
+            <span>
+        ({{viewer.accessCount}})
       </span>
     </div>
   </div>

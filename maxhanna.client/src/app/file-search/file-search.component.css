@@ -323,6 +323,9 @@
   height: 30px;
   display: flex;
   justify-content: space-between;
+  width: 100%;
+  flex-direction: row-reverse;
+  border-bottom: 1px dotted var(--main-link-color);
 }
 
 .search-popup-card {
@@ -608,7 +611,7 @@
   flex-direction: column;
   gap: 6px;
 }
- 
+
 /* Inline metadata panel styles */
 .inlineMetaPanel {
   position: sticky;
@@ -661,8 +664,8 @@
   flex-wrap: wrap;
 }
 
-.noteDiv { 
-  padding-left: 4px; 
+.noteDiv {
+  padding-left: 4px;
   word-break: break-word;
   max-height: 100px;
   overflow: auto;
