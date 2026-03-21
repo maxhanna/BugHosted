@@ -32,7 +32,10 @@ namespace maxhanna.Server.Controllers
         "nes", "fds", "sfc", "smc", "snes", "nds",
         "z64", "n64", "v64", "bin", "zip"
     };
-
+    private readonly HashSet<string> cores = new HashSet<string> {
+        "yabause", "pcsx_rearmed", "psp", "flycast", "dolphin"
+    }; 
+    
     public FileController(Log log, IConfiguration config)
     {
       _log = log;
@@ -56,7 +59,7 @@ namespace maxhanna.Server.Controllers
       [FromQuery] string sortOption = "Latest",
       [FromQuery] bool showFavouritesOnly = false,
       [FromQuery] bool includeRomMetadata = false,
-      [FromQuery] string? actualSystem = null
+      [FromQuery] List<string>? actualCore = null
     )
     {
       if (string.IsNullOrEmpty(directory))
@@ -96,6 +99,20 @@ namespace maxhanna.Server.Controllers
             }
           }
         }
+        var normalizedActualCores = new List<string>();
+        if (actualCore != null && actualCore.Any())
+        {
+          foreach (var asys in actualCore)
+          {
+            if (string.IsNullOrWhiteSpace(asys)) continue;
+            var parts = asys.Split(',', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var p in parts)
+            {
+              var v = p.Trim();
+              if (!string.IsNullOrEmpty(v)) normalizedActualCores.Add(v);
+            }
+          }
+        }
 
         string fileTypeCondition = string.Empty;
         if (normalizedFileTypes.Any())
@@ -105,8 +122,19 @@ namespace maxhanna.Server.Controllers
           var replaced = string.Join(",", sanitized);
           fileTypeCondition = " AND LOWER(f.file_type) IN (" + replaced + ") ";
         }
+
+        string actualSystemCondition = string.Empty;
+        if (normalizedActualCores.Any())
+        {
+          var sanitized = normalizedActualCores.Select(
+            asys => cores.Contains(asys) ? "'" + (asys ?? string.Empty).ToLower().Replace("'", "''") + "'" : ""
+          ).ToArray();
+          var replaced = string.Join(",", sanitized);
+          actualSystemCondition = " AND LOWER(rso.system_core) IN (" + replaced + ") ";
+        }
+        
         string fileIdCondition = fileId.HasValue ? " AND f.id = @fileId" : "";
-        bool isRomSearch = DetermineIfRomSearch(normalizedFileTypes);
+        bool isRomSearch = !string.IsNullOrWhiteSpace(actualSystemCondition) || DetermineIfRomSearch(normalizedFileTypes);
         string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
         string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
         // Hidden condition is pre-evaluated below after connection.Open() to avoid per-row subqueries
@@ -199,10 +227,9 @@ namespace maxhanna.Server.Controllers
               SELECT COUNT(*)
               FROM maxhanna.file_uploads f
               LEFT JOIN users u ON f.user_id = u.id
-              {(!string.IsNullOrWhiteSpace(actualSystem) ? " LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
+              {(actualCore?.Count > 0 ? " LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
               WHERE 1=1 
                   {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
-                  {(!string.IsNullOrWhiteSpace(actualSystem) ? " AND rso.system_core = @actualSystem " : "")}
                   AND (
                       f.is_public = 1
                       OR f.user_id = @userId
@@ -210,6 +237,7 @@ namespace maxhanna.Server.Controllers
                   )
                   {countSearchCond}
                   {fileTypeCondition}
+                  {actualSystemCondition}
                   {visibilityCondition}
                   {ownershipCondition}
                   {hiddenCondition}
@@ -220,10 +248,7 @@ namespace maxhanna.Server.Controllers
           // Required parameters
           countCmd.Parameters.AddWithValue("@folderPath", directory);
           countCmd.Parameters.AddWithValue("@userId", user?.Id ?? 0);
-          if (!string.IsNullOrWhiteSpace(actualSystem))
-          {
-            countCmd.Parameters.AddWithValue("@actualSystem", actualSystem);
-          }
+ 
 
           // Add search parameters (e.g. @FullTextSearch)
           foreach (var p in countParams)
@@ -295,7 +320,7 @@ namespace maxhanna.Server.Controllers
               f.last_access,
               f.access_count,
               f.notes,
-              {(includeRomMetadata || !string.IsNullOrWhiteSpace(actualSystem) ? @"   
+              {(includeRomMetadata || (actualCore?.Count > 0) ? @"   
               rigdb.igdb_game_id        AS romIgdbGameId
               , rigdb.igdb_name           AS romIgdbName
               , rigdb.summary             AS romSummary
@@ -322,15 +347,15 @@ namespace maxhanna.Server.Controllers
             LEFT JOIN user_display_pictures udp  ON udp.user_id = u.id
             LEFT JOIN user_display_pictures luudp ON luudp.user_id = uu.id
             LEFT JOIN file_uploads udpfl ON udp.file_id = udpfl.id 
-            {(includeRomMetadata || !string.IsNullOrWhiteSpace(actualSystem) ? @" 
+            {(includeRomMetadata || (actualCore?.Count > 0) ? @" 
             LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
             LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
             WHERE 1=1
               {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
-              {(!string.IsNullOrWhiteSpace(actualSystem) ? " AND rso.system_core = @actualSystem " : "")}
               AND (f.is_public = 1 OR f.user_id = @userId OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON)))
               {searchCondition}
               {fileTypeCondition}
+              {actualSystemCondition}
               {visibilityCondition}
               {ownershipCondition}
               {hiddenCondition}
@@ -356,12 +381,7 @@ namespace maxhanna.Server.Controllers
           if (!string.IsNullOrEmpty(search))
           {
             command.Parameters.AddWithValue("@search", "%" + search + "%");
-          }
-          if (!string.IsNullOrEmpty(actualSystem))
-          {
-            command.Parameters.AddWithValue("@actualSystem", actualSystem);
-          }
-
+          } 
           //Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
           var rawNotesByFileId = new Dictionary<int, List<(int UserId, string? Note)>>();
           using (var reader = command.ExecuteReader())

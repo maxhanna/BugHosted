@@ -76,7 +76,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   showVideosOnly = false;
   trendingSearches: string[] = [];
   sortOption: string = '';
-  actualSystemFilter?: string;
+  actualSystemFilter?: string[];
   showData = true;
   showShareUserList = false;
   isSearchPanelOpen = false;
@@ -1697,7 +1697,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
 
-  toggleRomSystem(key: string) {
+  async toggleRomSystem(key: string) {
     // Default behavior for non-Saturn systems
     const idx = this.activeRomSystems.indexOf(key);
     if (idx >= 0) {
@@ -1756,7 +1756,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   async getDirectoryWithActualSystem(actualSystem: Core) {
-    this.actualSystemFilter = actualSystem;
+    if (this.actualSystemFilter?.includes(actualSystem)) {
+      this.actualSystemFilter = this.actualSystemFilter.filter(s => s !== actualSystem);
+    } else {
+      if (!this.actualSystemFilter) {
+        this.actualSystemFilter = [];
+       }
+      this.actualSystemFilter?.push(actualSystem);
+    }
+ 
     await this.getDirectory();
     this.stopLoading();
   }

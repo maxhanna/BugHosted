@@ -180,7 +180,7 @@ export class FileService {
     sortOption?: string,
     showFavouritesOnly?: boolean,
     includeRomMetadata?: boolean, // ✅ NEW
-    actualSystem?: string
+    actualSystem?: string[]
   ) {
     const params = new URLSearchParams();
 
@@ -202,7 +202,7 @@ export class FileService {
       params.append('includeRomMetadata', includeRomMetadata.toString());
     }
     if (actualSystem) {
-      params.append('actualSystem', actualSystem);
+      params.append('actualSystem', actualSystem.join(','));
     }
 
     try {
