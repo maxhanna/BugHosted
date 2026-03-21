@@ -14,7 +14,7 @@
   </div>
 
   <div class="gamesContainer" *ngIf="isSearchVisible && parentRef">
-    <app-file-search [user]="parentRef.user" [inputtedParentRef]="parentRef" [currentDirectory]="'Roms/'"
+    <app-file-search #fileSearchComponent [user]="parentRef.user" [inputtedParentRef]="parentRef" [currentDirectory]="'Roms/'"
       [clearAfterSelectFile]="true" [allowedFileTypes]="getAllowedFileTypes()" [displayPrivatePublicOption]="true"
       [canChangeDirectory]="false" [canDragMove]="false" [displayFileActions]="true" [displayComments]="false"
       [displayFileSize]="false" [displayReactions]="false" [displayPicturesOnlyToggler]="false"
@@ -79,11 +79,18 @@
     <button *ngIf="romName" (click)="callEjsSave()" class="emuMenuButton" [disabled]="isLoading">
       Manual Save
     </button>
-    <app-file-upload class="emuMenuButton" *ngIf="!romName" [currentDirectory]="'Roms'" [user]="parentRef?.user!"
-      [inputtedParentRef]="parentRef" [uploadButtonText]="'Upload Rom(s)'" [maxSelectedFiles]="100"
-      [allowedFileTypes]="getAllowedRomFileTypesString()" [displayOptionsAndTopicsButtons]="false"
-      [disableFileCompression]="true" (userUploadEvent)="isFileUploaderExpanded = true;"
-      (userCancelEvent)="isFileUploaderExpanded = false;" (finishFileUploadingEvent)="finishFileUploading()">
+    <app-file-upload class="emuMenuButton" *ngIf="!romName" 
+      [currentDirectory]="'Roms'" 
+      [user]="parentRef?.user!"
+      [inputtedParentRef]="parentRef" 
+      [uploadButtonText]="'Upload Rom(s)'" 
+      [maxSelectedFiles]="100"
+      [allowedFileTypes]="getAllowedRomFileTypesString()" 
+      [displayOptionsAndTopicsButtons]="false"
+      [disableFileCompression]="true" 
+      (userUploadEvent)="isFileUploaderExpanded = true;"
+      (userCancelEvent)="isFileUploaderExpanded = false;" 
+      (finishFileUploadingEvent)="finishFileUploading()">
     </app-file-upload>
   </div>
 

@@ -421,6 +421,16 @@
           </span>
         </span>
       </div>
+    </div> 
+    <div class="optionsStatsDiv" *ngIf="!optionsFile.isFolder">
+      <div class="optionsStatsHeader">
+        Notes ({{ optionsFile.notesCount ?? 0 }}):
+      </div>
+      <div class="optionsStatsDescription">
+        <button (click)="showFileNotes(optionsFile)" [disabled]="isLoading" title="View and manage notes for this file">
+          📝 View Notes
+        </button>
+      </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.fileType || optionsFile.isFolder">
       <div class="optionsStatsHeader">
@@ -582,16 +592,6 @@
       <div class="optionsStatsDescription">
         <app-user-tag [user]="optionsFile.lastUpdatedBy" [inputtedParentRef]="parentRef ?? inputtedParentRef"
           [displayMiniTag]="true" [displayHoverPicture]="true" [previousComponent]="previousComponent"></app-user-tag>
-      </div>
-    </div>
-    <div class="optionsStatsDiv" *ngIf="!optionsFile.isFolder">
-      <div class="optionsStatsHeader">
-        Notes ({{ optionsFile.notesCount ?? 0 }}):
-      </div>
-      <div class="optionsStatsDescription">
-        <button (click)="showFileNotes(optionsFile)" [disabled]="isLoading" title="View and manage notes for this file">
-          📝 View Notes
-        </button>
       </div>
     </div>
     <div class="optionsStatsDiv"
