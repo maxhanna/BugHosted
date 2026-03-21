@@ -115,3 +115,15 @@
     z-index: 1000 !important;
   }
 }
+
+.checkbox-indicator {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: var(--main-border);
+  border-radius: 3px;
+  vertical-align: -2px;
+}
+.checkbox-indicator.checked {
+  background: var(--main-highlight-color);
+}

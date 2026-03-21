@@ -1,8 +1,5 @@
-<div class="componentMain" 
-  [style.paddingTop]="isFullScreen ? '0px' : null" 
-  [style.width]="romName ? '100vw' : null"
-  [style.minWidth]="'300px'" 
-  [style.display]="!romName && !onMobile() && !parentRef?.isShowingOverlay ? 'flex' : null"
+<div class="componentMain" [style.paddingTop]="isFullScreen ? '0px' : null" [style.width]="romName ? '100vw' : null"
+  [style.minWidth]="'300px'" [style.display]="!romName && !onMobile() && !parentRef?.isShowingOverlay ? 'flex' : null"
   [style.justify-content]="!romName && !onMobile() && !parentRef?.isShowingOverlay ? 'center' : null"
   [style.padding-top]="!romName && !onMobile() && !parentRef?.isShowingOverlay ? '50px' : null"
   [style.backgroundColor]="!romName && !onMobile() && !parentRef?.isShowingOverlay ? 'unset' : null"
@@ -21,8 +18,8 @@
       [clearAfterSelectFile]="true" [allowedFileTypes]="getAllowedFileTypes()" [displayPrivatePublicOption]="true"
       [canChangeDirectory]="false" [canDragMove]="false" [displayFileActions]="true" [displayComments]="false"
       [displayFileSize]="false" [displayReactions]="false" [displayPicturesOnlyToggler]="false"
-      [displayVideosOnlyToggler]="false" [displayNSFWToggler]="false" [displaySystemIcons]="true" [displayRomMetadata]="true"
-      [displayRomMetadataDesktop]="true" (selectFileEvent)="onRomSelected($event)">
+      [displayVideosOnlyToggler]="false" [displayNSFWToggler]="false" [displaySystemIcons]="true"
+      [displayRomMetadata]="true" [displayRomMetadataDesktop]="true" (selectFileEvent)="onRomSelected($event)">
     </app-file-search>
   </div>
 
@@ -52,13 +49,18 @@
     <button (click)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();" [disabled]="isLoading"
       class="emuMenuButton">
       Autosave:{{" "}}{{ autosave ? 'On' : 'Off' }}
+      <span class="checkbox-indicator" [class.checked]="autosave" aria-hidden="true" style="margin-left: 5px;"></span>
     </button>
     <button *ngIf="!romName" (click)="toggleLoadWithoutSave()" class="emuMenuButton" [disabled]="isLoading">
       Save States:{{" "}}{{loadWithoutSave ? 'Do not load' : 'Load with ROMs' }}
+      <span class="checkbox-indicator" [class.checked]="loadWithoutSave" aria-hidden="true"
+        style="margin-left: 5px;"></span>
     </button>
     <button *ngIf="onMobile() && !romName" (click)="useJoystick = !useJoystick" class="emuMenuButton"
       [disabled]="isLoading">
       Joystick:{{" "}}{{useJoystick ? 'Enabled' : 'Disabled'}}
+      <span class="checkbox-indicator" [class.checked]="useJoystick" aria-hidden="true"
+        style="margin-left: 5px;"></span>
     </button>
     <button *ngIf="romName" (click)="toggleFullScreen()" class="emuMenuButton" [disabled]="isLoading">
       Enter Fullscreen
@@ -67,11 +69,11 @@
       Stop Emulator & Return to ROM Selection
     </button>
     <button (click)="isFaqOpen = !isFaqOpen" class="emuMenuButton" [disabled]="isLoading">
-      {{isFaqOpen ? 'Hide FAQ' : 'View FAQ'}}
+      {{isFaqOpen ? 'Hide FAQ' : 'FAQ'}}
     </button>
     <button *ngIf="romName" (click)="resetGame()" class="emuMenuButton" [disabled]="isLoading">
       Reset Game
-    </button> 
+    </button>
     <button *ngIf="!onMobile() && romName" (click)="remapControls()" class="emuMenuButton" [disabled]="isLoading">
       Remap Controls
     </button>
@@ -144,7 +146,7 @@
     <p>{{ saveConfirmMessage || 'Do you want to save your progress before continuing?' }}</p>
     <div style="display:flex; gap:8px; margin-top:12px; justify-content:center;">
       <button (click)="handleSaveConfirm('save')">Save</button>
-      <button (click)="handleSaveConfirm('dontSave')" 
+      <button (click)="handleSaveConfirm('dontSave')"
         *ngIf="saveConfirmType === 'saveAndExit' || saveConfirmType === 'saveAndReset'">
         Don't Save
       </button>
@@ -159,10 +161,7 @@
   <div style="padding:8px;">
     <p>Are you sure you want to reset the game? This will reload the emulator and may overwrite current progress.</p>
     <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">
-      <input
-        #skipLoadingSaveCheckbox
-        type="checkbox"
-        [checked]="skipLoadingSave"
+      <input #skipLoadingSaveCheckbox type="checkbox" [checked]="skipLoadingSave"
         (change)="skipLoadingSave = skipLoadingSaveCheckbox.checked" />
       <span>Re-load {{ skipLoadingSave ? 'without' : 'with' }} saved state.</span>
     </label>
@@ -171,4 +170,4 @@
       <button class="closeButton" id="closeOverlay" (click)="cancelReset()">Cancel</button>
     </div>
   </div>
-</div> 
+</div>
