@@ -430,11 +430,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
               this.tryBindSaveFromUI();
               this.scanAndTagVpadControls();
 
-              // try {
-              //   const ok = await this.applySaveStateIfAvailable(saveStateBlob);
-              // } catch {
-              //   console.warn('[EJS] Unable to apply save state on startup');
-              // }
+              try {
+                const ok = await this.applySaveStateIfAvailable(saveStateBlob);
+              } catch {
+                console.warn('[EJS] Unable to apply save state on startup');
+              }
               this.lockGameHostHeight();
             });
           });
@@ -712,6 +712,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
     if (core === "psp" || core == "ppsspp") {
       this.applyPSPCoreSettings(w); // force our perf defaults over any saved prefs
+    }
+    if (core === 'mupen64plus_next' || system === 'n64') {
+      this.applyN64CoreSettings(w);
     }
     if (this.onMobile() && (core === 'melonds' || core === 'nds' || core === 'desmume')) {
       this.applyNDSCoreSettingsForMobile(w);
@@ -2733,6 +2736,16 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.cdr.detectChanges();
   }
 
+  applyN64CoreSettings(w: any) {
+    // Force WebGL2 for N64 cores. The report JSON (cores/reports/mupen64plus_next.json)
+    // specifies defaultWebGL2:true, but if the fetch fails at runtime the emulator
+    // falls back to the legacy (WebGL1) WASM binary which crashes with
+    // "memory access out of bounds" / "table index is out of bounds" errors.
+    // Setting webgl2Enabled via defaultOptions ensures the non-legacy WASM is used.
+    w.EJS_defaultOptions = Object.assign({}, w.EJS_defaultOptions || {}, {
+      'webgl2Enabled': 'enabled'
+    });
+  }
   applyPSPCoreSettings(w: any) {
     w.EJS_vsync = false;
     w.EJS_GL_Options = {
