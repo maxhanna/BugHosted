@@ -20,15 +20,19 @@
     <!-- Page Controls -->
     <div class="topPageControls">
       <span *ngIf="isDisplayingPreviousPageButton()">
-        <span (click)="previousPage()" class="cursorPointer">
+        <span (click)="previousPage()" class="cursorPointer" [class.smallFont]="onMobile()">
           ⬅️
         </span>
       </span>
-      <span *ngIf="totalPages > 1" class="totalPageDisplay">{{currentPage}}{{displayTotal ? '/' + totalPages :
-        ''}}</span>
+      <span 
+        *ngIf="totalPages > 1" 
+        class="totalPageDisplay"
+        [class.smallFont]="onMobile()">
+        {{currentPage}}{{displayTotal ? '/' + totalPages : ''}}
+      </span>
       <input *ngIf="fileSearchMode" #search (keyup)="changeSearchTermsFromSearchInput()" placeholder="🔍Search Files" />
       <span *ngIf="isDisplayingTotalPagesButton()">
-        <span (click)="nextPage()" class="cursorPointer">
+        <span (click)="nextPage()" class="cursorPointer" [class.smallFont]="onMobile()">
           ➡️
         </span>
       </span>
@@ -59,7 +63,7 @@
     <div *ngIf="!displayTotal && isLoading && !search?.nativeElement?.value" class="currentDirectorySpan">
       Loading Data...
     </div>
-    <div>
+    <div [class.smallFont]="onMobile()">
       Total: {{ directory ? directory.totalCount : 0 }}
     </div>
   </div>
