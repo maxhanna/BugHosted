@@ -135,16 +135,7 @@
 
 .checkbox-indicator.checked {
   background: var(--main-highlight-color);
-}
-
-.checkbox-indicator.checked::after {
-  content: "✓";            /* or "✔" or even "☑" */
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  color: var(--main-check-color, currentColor);
-}
+} 
 
 .loadingContainerStatus {
   background-color: var(--main-highlight-color-quarter-opacity);

@@ -32,7 +32,6 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   allThemes?: UserTheme[];
   myThemes?: UserTheme[];
   showDeleteConfirm: boolean = false;
-
   isSearching = false
   originalThemeId = 0;
   warnUserToSave = false;

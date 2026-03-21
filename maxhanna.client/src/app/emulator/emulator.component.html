@@ -9,8 +9,8 @@
   </app-title-bar>
 
   <!-- Status Display -->
-  <div *ngIf="!romName && isLoading" class="loadingContainerStatus">
-    {{ status }}
+  <div *ngIf="!romName && isLoading">
+    <span class="loadingContainerStatus">{{ status }}</span>
   </div>
 
   <div class="gamesContainer" *ngIf="isSearchVisible && parentRef">
