@@ -16,9 +16,17 @@
       <option [value]="false">Private</option>
     </select>
   </div>
-  <div class="uploadFilesTitle">{{isUploading ? 'Uploading' : 'Upload'}} <span class="secondaryFontColor">{{uploadFileList.length}}</span> files to
-    <span class="thirdFontColor bold italics">{{currentDirectory && currentDirectory != ''
-    ? currentDirectory : '/'}}</span>{{isUploading ? '...' : '?'}}</div>
+  <div class="uploadFilesTitle">
+    <span class="forceRegularFontColor">
+      {{isUploading ? 'Uploading' : 'Upload'}}
+    </span>
+    {{" "}}<span class="secondaryFontColor">{{uploadFileList.length}}</span> 
+    {{" "}}<span class="forceRegularFontColor">files to</span>
+    {{" "}}<span class="thirdFontColor bold italics">
+      {{currentDirectory && currentDirectory != '' ? currentDirectory : '/'}}
+    </span>
+    {{" "}}<span class="forceRegularFontColor">{{isUploading ? '...' : '?'}}</span>
+  </div>
   <div style="margin-top:35px; width: 100%;">  
     <div class="uploadFileActionWrapper" *ngIf="!isUploading">
       <div class="uploadFileActionDiv" *ngIf="displayOptionsAndTopicsButtons">

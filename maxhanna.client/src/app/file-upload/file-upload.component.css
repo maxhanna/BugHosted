@@ -70,6 +70,7 @@ button:disabled {
 
 .uploadFilesTitle {
   font-family: var(--title-font-family);
+  color: var(--main-font-color);
   width: calc(100% - 24px);
   font-size: large;
   gap: 35px;
@@ -81,6 +82,10 @@ button:disabled {
   border-top-right-radius: 8px;
   padding: 10px;
   background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+}
+
+.forceRegularFontColor {
+  color: var(--main-font-color) !important;
 }
 
 .fileListContainer {
