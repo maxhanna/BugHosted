@@ -37,7 +37,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   romName?: string;
   system?: System;
   isFileUploaderExpanded = false;
-  isFaqOpen = false; 
+  isFaqOpen = false;
   isResetModalOpen = false;
   skipLoadingSave = true;
   isSystemSelectPanelOpen = false;
@@ -67,7 +67,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private _onResize?: () => void;
   private _onVVResize?: () => void;
   private _onOrientation?: () => void;
-  private CORE_REGISTRY: CoreDescriptor[] = []; 
+  private CORE_REGISTRY: CoreDescriptor[] = [];
   private _saveFn?: () => Promise<void>;
   private _lastSaveTime: number = 0;
   private _saveInProgress: boolean = false;
@@ -712,7 +712,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (core === "psp" || core == "ppsspp") {
       this.applyPSPCoreSettings(w); // force our perf defaults over any saved prefs
     }
-
+    if (this.onMobile() && (core === 'melonds' || core === 'nds' || core === 'desmume')) {
+      this.applyNDSCoreSettingsForMobile(w);
+    }
+    if (core === 'mupen64plus_next' || system === 'n64') {
+      this.applyN64CoreSettings(w);
+    }
     const isDPADCentric = (system && (['nes', 'snes', 'gb', 'gbc', 'gba', 'genesis', 'saturn', 'sega_cd', '3do', 'nds'] as string[]).includes(system)) || core === 'yabause';
     const isLeftAndRightJoystickInverted = (system && ['n64'].includes(system));
     const rightStickValues = {
@@ -2259,6 +2264,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       return { maxW: 640, maxH: 360, maxDPR: 1.0 };
     }
 
+    if (this.onMobile() && (core === 'melonds' || core === 'nds' || core === 'desmume')) {
+      return { maxW: 512, maxH: 384, maxDPR: 1.25 };
+    }
+
     if (this.heavyCores.has(core)) return { maxW: 1280, maxH: 720, maxDPR: 1.5 };
     // Light cores can go higher
     return { maxW: 1920, maxH: 1080, maxDPR: 2.0 };
@@ -2681,7 +2690,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.saveConfirmCallback = callback;
     setTimeout(() => {
       this.isSaveConfirmPanelOpen = true;
-      this.parentRef?.showOverlay(); 
+      this.parentRef?.showOverlay();
       this.cdr.detectChanges();
     }, 100);
   }
@@ -2737,7 +2746,32 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     w.EJS_defaultOptions = Object.assign({}, PSP_DEFAULT_OPTIONS);
     w.EJS_defaultOptionsForce = true;
   }
-
+  applyNDSCoreSettingsForMobile(w: any) {
+    w.EJS_GL_Options = {
+      alpha: false,
+      antialias: false,
+      depth: false,
+      stencil: false,
+      preserveDrawingBuffer: false,
+      powerPreference: 'high-performance'
+    };
+    w.EJS_vsync = false;
+    w.EJS_disableLocalStorage = true; // avoid extra storage churn 
+  }
+  applyN64CoreSettings(w: any) { 
+    w.EJS_GL_Options = {
+      alpha: false,
+      antialias: false,
+      depth: true,         // N64 does need depth; true is OK
+      stencil: false,
+      preserveDrawingBuffer: false,
+      powerPreference: 'high-performance',
+      // If your build supports it, you can hint a version:
+      // preferWebGLVersion: 1,   // <- optional flag in some EJS builds
+    };
+    // If your EJS build exposes a version force:
+    // w.EJS_forceWebGLVersion = 1; // fall back to WebGL1 on flaky devices  
+  }
   async applyPSPPerformanceTweak() {
     const core = (window as any).EJS_core;
     if (core !== 'psp' && core !== 'ppsspp') return;
@@ -3141,7 +3175,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       console.warn('tmpShowEjsMenu failed', e);
     }
   }
-  
+
   private stableStringToIntId(s: string): number {
     let h = 2166136261 >>> 0;
     for (let i = 0; i < s.length; i++) {
