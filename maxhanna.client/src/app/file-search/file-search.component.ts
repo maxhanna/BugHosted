@@ -17,6 +17,7 @@ import { TodoService } from '../../services/todo.service';
 import { RomService } from '../../services/rom.service';
 import { RatingsService } from '../../services/ratings.service';
 import { FileAccessLog } from '../../services/datacontracts/file/file-access-log';
+import { FileNote } from '../../services/datacontracts/file/file-note';
 
 @Component({
   selector: 'app-file-search',
@@ -113,6 +114,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   activeRomSystems: string[] = [];
   loadingSearch = false;
   showMetadataInOptionsPanel = true;
+  isShowingFileNotes = false;
+  fileNotes: FileNote[] = [];
+  notesFile: FileEntry | undefined;
   isFirstLoad = true;
   pageLocked = false;
   private _savedDirectoryBeforeFileIdSearch: string | null = null;
@@ -1510,6 +1514,102 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
   }
+
+  async showFileNotes(file: FileEntry) {
+    if (this.isShowingFileNotes) {
+      this.closeFileNotes();
+      return;
+    }
+    if (this.isOptionsPanelOpen) {
+      this.closeOptionsPanel(false);
+    }
+    this.notesFile = file;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    try {
+      this.fileNotes = (file.notes ?? []).slice();
+      setTimeout(() => {
+        parent?.showOverlay();
+        this.isShowingFileNotes = true;
+        this.changeDetectorRef.detectChanges();
+      }, 100);
+    } catch (ex) {
+      console.error(ex);
+      this.notifyUser('Failed to fetch notes');
+    }
+  }
+
+  closeFileNotes() {
+    this.isShowingFileNotes = false;
+    this.notesFile = undefined;
+    this.fileNotes = [];
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay();
+  }
+
+  async addNote(textarea: HTMLTextAreaElement) {
+    if (!this.user || !this.notesFile) return;
+    const noteText = textarea.value.trim();
+    if (!noteText) return;
+    this.startLoading();
+    const res = await this.fileService.addFileNote(this.user.id ?? 0, this.notesFile.id, noteText);
+    if (res) {
+      this.notifyUser(res);
+      const existingIndex = this.fileNotes.findIndex(n => n.user?.id === this.user?.id);
+      const nextNote = new FileNote(this.user, noteText);
+      if (existingIndex >= 0) {
+        this.fileNotes[existingIndex] = nextNote;
+      } else {
+        this.fileNotes.push(nextNote);
+      }
+      textarea.value = '';
+      // Update the notes count on the file entry in the directory listing
+      const local = this.directory?.data?.find(d => d.id === this.notesFile?.id);
+      if (local) {
+        local.notes = this.fileNotes.slice();
+        local.notesCount = this.fileNotes.length;
+      }
+      if (this.optionsFile?.id === this.notesFile.id) {
+        this.optionsFile.notes = this.fileNotes.slice();
+        this.optionsFile.notesCount = this.fileNotes.length;
+      }
+      if (this.notesFile) {
+        this.notesFile.notes = this.fileNotes.slice();
+        this.notesFile.notesCount = this.fileNotes.length;
+      }
+    }
+    this.stopLoading();
+  }
+
+  async deleteNote(targetUserId: number) {
+    if (!this.user || !this.notesFile) return;
+    this.startLoading();
+    const res = await this.fileService.deleteFileNote(this.user.id ?? 0, this.notesFile.id, targetUserId);
+    if (res) {
+      this.notifyUser(res);
+      this.fileNotes = this.fileNotes.filter(n => n.user?.id !== targetUserId);
+      const local = this.directory?.data?.find(d => d.id === this.notesFile?.id);
+      if (local) {
+        local.notes = this.fileNotes.slice();
+        local.notesCount = this.fileNotes.length;
+      }
+      if (this.optionsFile?.id === this.notesFile.id) {
+        this.optionsFile.notes = this.fileNotes.slice();
+        this.optionsFile.notesCount = this.fileNotes.length;
+      }
+      if (this.notesFile) {
+        this.notesFile.notes = this.fileNotes.slice();
+        this.notesFile.notesCount = this.fileNotes.length;
+      }
+    }
+    this.stopLoading();
+  }
+
+  canDeleteNote(note: FileNote): boolean {
+    if (!this.user) return false;
+    // Users can delete their own notes, admin (id=1) can delete any
+    return note.user?.id === this.user.id || this.user.id === 1;
+  }
+
   isVideoFile(fileEntry: FileEntry) {
     let fileType = fileEntry.fileType ?? this.fileService.getFileExtension(fileEntry.fileName ?? '');
     fileType = fileType.replace(".", "");

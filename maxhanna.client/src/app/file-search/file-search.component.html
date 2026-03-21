@@ -96,9 +96,7 @@
                   [placeholder]="file?.givenFileName ?? (file && file.fileName ? file.fileName.split('.')[0]! : 'New file name')"
                   [value]="" [style.display]="isEditing.includes(file.id) ? 'inline-block':'none' "
                   (keyup)="editFileKeyUp($event, file.id)" (click)="$event.stopPropagation()"
-                  [id]="'editFileNameInput'+file.id" />
-
-
+                  [id]="'editFileNameInput'+file.id" /> 
 
                 <span *ngIf="!isEditing.includes(file.id)" class="fileFolderNameSpan {{file.isFolder ? 'folder' : ''}}"
                   (click)="!disabled && selectFile(file);" [id]="'fileIdName'+file.id">
@@ -586,6 +584,16 @@
           [displayMiniTag]="true" [displayHoverPicture]="true" [previousComponent]="previousComponent"></app-user-tag>
       </div>
     </div>
+    <div class="optionsStatsDiv" *ngIf="!optionsFile.isFolder">
+      <div class="optionsStatsHeader">
+        Notes ({{ optionsFile.notesCount ?? 0 }}):
+      </div>
+      <div class="optionsStatsDescription">
+        <button (click)="showFileNotes(optionsFile)" [disabled]="isLoading" title="View and manage notes for this file">
+          📝 View Notes
+        </button>
+      </div>
+    </div>
     <div class="optionsStatsDiv"
       *ngIf="shouldShowRomMetadata() && !optionsFile?.romMetadata?.igdbName && !optionsFile.isFolder">
       <div class="optionsStatsHeader">Reset ROM Metadata?</div>
@@ -833,4 +841,37 @@
     <img [src]="imagePreviewUrl" class="imagePreviewLarge" loading="lazy" />
   </div>
   <button id="closeOverlay" (click)="closeImagePreview()" class="closeButton">Close</button>
+</div>
+
+<!-- File Notes Popup -->
+<div class="popupPanel" *ngIf="isShowingFileNotes && notesFile">
+  <div class="popupPanelTitle">
+    📝 Notes for {{ notesFile.givenFileName ?? notesFile.fileName }}
+  </div>
+  <div style="max-height:50vh; overflow:auto; width:100%;">
+    <div *ngIf="fileNotes.length === 0" style="padding:12px; text-align:center; opacity:0.7;">
+      No notes yet. Be the first to add one!
+    </div>
+    <div *ngFor="let n of fileNotes" class="optionsStatsDiv" style="margin-bottom:8px; padding:8px; border-bottom:1px solid rgba(255,255,255,0.1);">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+        <app-user-tag [user]="n.user" [inputtedParentRef]="parentRef ?? inputtedParentRef"
+          [displayMiniTag]="true" [displayHoverPicture]="true" [previousComponent]="previousComponent"></app-user-tag>
+        <button *ngIf="canDeleteNote(n)" (click)="deleteNote(n.user?.id ?? 0)" [disabled]="isLoading"
+          title="Delete this note" style="margin-left:auto; font-size:0.8em;">
+          ❌
+        </button>
+      </div>
+      <div style="padding-left:4px; white-space:pre-wrap; word-break:break-word;">
+        {{ n.note }}
+      </div>
+    </div>
+  </div>
+  <div *ngIf="user" style="width:100%; margin-top:12px;">
+    <textarea #noteInput placeholder="Write a note..." rows="3"
+      style="width:100%; box-sizing:border-box; resize:vertical;"></textarea>
+    <button (click)="addNote(noteInput)" [disabled]="isLoading" style="margin-top:6px;">
+      💾 Save Note
+    </button>
+  </div>
+  <button id="closeOverlay" (click)="closeFileNotes()" class="closeButton" style="margin-top:8px;">Close</button>
 </div>

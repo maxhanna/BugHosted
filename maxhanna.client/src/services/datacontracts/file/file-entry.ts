@@ -4,6 +4,7 @@ import { User } from "../user/user";
 import { FileComment } from "./file-comment";
 
 import { RomMetadata } from "./rom-metadata";
+import { FileNote } from "./file-note";
 
 export class FileEntry {
   id: number;
@@ -33,6 +34,8 @@ export class FileEntry {
   // Indicates the upload attempt resulted in an existing server-side file match
   isDuplicate?: boolean;
   isHidden?: boolean;
+  notes?: Array<FileNote>;
+  notesCount?: number;
 
   // ---- ROM Metadata (optional, from rom_igdb_enrichment join) ---- 
   romMetadata?: RomMetadata;

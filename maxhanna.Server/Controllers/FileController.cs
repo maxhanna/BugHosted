@@ -287,6 +287,7 @@ namespace maxhanna.Server.Controllers
               f.height,
               f.last_access,
               f.access_count,
+              f.notes,
               {(includeRomMetadata ? @"   
               rigdb.igdb_game_id        AS romIgdbGameId
               , rigdb.igdb_name           AS romIgdbName
@@ -350,11 +351,15 @@ namespace maxhanna.Server.Controllers
           }
 
           //Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
+          var rawNotesByFileId = new Dictionary<int, List<(int UserId, string? Note)>>();
           using (var reader = command.ExecuteReader())
           {
             while (reader.Read())
             {
               var fileIdValue = reader.IsDBNull("fileId") ? 0 : reader.GetInt32("fileId");
+              var notesJson = reader.IsDBNull("notes") ? null : reader.GetString("notes");
+              var parsedNotes = ParseRawFileNotes(notesJson);
+              rawNotesByFileId[fileIdValue] = parsedNotes;
 
               var fileEntry = new FileEntry
               {
@@ -393,6 +398,8 @@ namespace maxhanna.Server.Controllers
                 Height = reader.IsDBNull("height") ? null : reader.GetInt32("height"),
                 LastAccess = reader.IsDBNull("last_access") ? null : reader.GetDateTime("last_access"),
                 AccessCount = reader.IsDBNull("access_count") ? 0 : reader.GetInt32("access_count"),
+                Notes = new List<FileNote>(),
+                NotesCount = parsedNotes.Count,
                 FavouriteCount = reader.IsDBNull("favourite_count") ? 0 : reader.GetInt32("favourite_count"),
                 IsFavourited = reader.IsDBNull("is_favourited") ? false : reader.GetBoolean("is_favourited"),
                 AverageRating = reader.IsDBNull("average_rating") ? 0 : reader.GetDouble("average_rating"),
@@ -426,6 +433,8 @@ namespace maxhanna.Server.Controllers
               fileEntries.Add(fileEntry);
             }
           }
+
+          await PopulateFileEntryNotesAsync(fileEntries, rawNotesByFileId, connection);
 
           // Rest of the method remains the same...
           var fileIds = fileEntries.Select(f => f.Id).ToList();
@@ -3937,6 +3946,226 @@ namespace maxhanna.Server.Controllers
           return "image/png";
         default:
           return "application/octet-stream";
+      }
+    }
+
+    private int CountJsonArrayItems(string? json)
+    {
+      if (string.IsNullOrWhiteSpace(json)) return 0;
+      try
+      {
+        var arr = Newtonsoft.Json.Linq.JArray.Parse(json);
+        return arr.Count;
+      }
+      catch { return 0; }
+    }
+
+    private List<(int UserId, string? Note)> ParseRawFileNotes(string? notesJson)
+    {
+      var result = new List<(int UserId, string? Note)>();
+      if (string.IsNullOrWhiteSpace(notesJson)) return result;
+      try
+      {
+        var arr = Newtonsoft.Json.Linq.JArray.Parse(notesJson);
+        foreach (var item in arr)
+        {
+          int userId = (int)(item["userId"] ?? 0);
+          string? note = (string?)item["note"];
+          result.Add((userId, note));
+        }
+      }
+      catch { }
+      return result;
+    }
+
+    private async Task PopulateFileEntryNotesAsync(
+      List<FileEntry> fileEntries,
+      Dictionary<int, List<(int UserId, string? Note)>> rawNotesByFileId,
+      MySqlConnection connection)
+    {
+      if (fileEntries.Count == 0) return;
+
+      var userIds = rawNotesByFileId
+        .Values
+        .SelectMany(x => x)
+        .Select(x => x.UserId)
+        .Where(id => id > 0)
+        .Distinct()
+        .ToList();
+
+      var usersById = new Dictionary<int, User>();
+
+      if (userIds.Count > 0)
+      {
+        var userIdParams = userIds.Select((_, i) => $"@userId{i}").ToList();
+        var cmd = new MySqlCommand($@"
+          SELECT
+            u.id,
+            u.username,
+            udpfl.id AS userDisplayPictureFileId,
+            udpfl.file_name AS userDisplayPictureFileName,
+            udpfl.folder_path AS userDisplayPictureFolderPath
+          FROM users u
+          LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
+          LEFT JOIN file_uploads udpfl ON udp.file_id = udpfl.id
+          WHERE u.id IN ({string.Join(", ", userIdParams)})", connection);
+
+        for (int i = 0; i < userIds.Count; i++)
+        {
+          cmd.Parameters.AddWithValue($"@userId{i}", userIds[i]);
+        }
+
+        using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+          var uid = reader.IsDBNull("id") ? 0 : reader.GetInt32("id");
+          usersById[uid] = new User(
+            uid,
+            reader.IsDBNull("username") ? "Anonymous" : reader.GetString("username"),
+            new FileEntry
+            {
+              Id = reader.IsDBNull("userDisplayPictureFileId") ? 0 : reader.GetInt32("userDisplayPictureFileId"),
+              FileName = reader.IsDBNull("userDisplayPictureFileName") ? null : reader.GetString("userDisplayPictureFileName"),
+              Directory = reader.IsDBNull("userDisplayPictureFolderPath") ? null : reader.GetString("userDisplayPictureFolderPath")
+            }
+          );
+        }
+      }
+
+      foreach (var fileEntry in fileEntries)
+      {
+        if (!rawNotesByFileId.TryGetValue(fileEntry.Id, out var rawNotes) || rawNotes.Count == 0)
+        {
+          fileEntry.Notes = new List<FileNote>();
+          fileEntry.NotesCount = 0;
+          continue;
+        }
+
+        fileEntry.Notes = rawNotes
+          .Select(r => new FileNote(usersById.TryGetValue(r.UserId, out var u) ? u : new User(r.UserId), r.Note))
+          .ToList();
+        fileEntry.NotesCount = fileEntry.Notes.Count;
+      }
+    }
+
+    [HttpPost("/File/GetFileNotes", Name = "GetFileNotes")]
+    public async Task<IActionResult> GetFileNotes([FromBody] int fileId)
+    {
+      try
+      {
+        using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        var command = new MySqlCommand(
+          "SELECT notes FROM maxhanna.file_uploads WHERE id = @fileId", connection);
+        command.Parameters.AddWithValue("@fileId", fileId);
+
+        var notesJson = (await command.ExecuteScalarAsync()) as string;
+        var rawNotesByFileId = new Dictionary<int, List<(int UserId, string? Note)>>
+        {
+          [fileId] = ParseRawFileNotes(notesJson)
+        };
+
+        var entry = new FileEntry { Id = fileId, Notes = new List<FileNote>(), NotesCount = 0 };
+        await PopulateFileEntryNotesAsync(new List<FileEntry> { entry }, rawNotesByFileId, connection);
+        return Ok(entry.Notes ?? new List<FileNote>());
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error fetching file notes: {ex.Message}", null, "FILE", true);
+        return StatusCode(500, "An error occurred while fetching file notes.");
+      }
+    }
+
+    [HttpPost("/File/AddFileNote", Name = "AddFileNote")]
+    public async Task<IActionResult> AddFileNote([FromBody] AddFileNoteRequest request)
+    {
+      try
+      {
+        using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        // Read existing notes
+        var readCmd = new MySqlCommand(
+          "SELECT notes FROM maxhanna.file_uploads WHERE id = @fileId", connection);
+        readCmd.Parameters.AddWithValue("@fileId", request.FileId);
+        var existingJson = (await readCmd.ExecuteScalarAsync()) as string;
+
+        var notes = string.IsNullOrWhiteSpace(existingJson)
+          ? new Newtonsoft.Json.Linq.JArray()
+          : Newtonsoft.Json.Linq.JArray.Parse(existingJson);
+
+        // Remove any existing note from this user (one note per user)
+        var toRemove = notes
+          .Where(n => (int)(n["userId"] ?? 0) == request.UserId)
+          .ToList();
+        foreach (var item in toRemove) item.Remove();
+
+        // Add the new note
+        if (!string.IsNullOrWhiteSpace(request.Note))
+        {
+          notes.Add(new Newtonsoft.Json.Linq.JObject
+          {
+            ["userId"] = request.UserId,
+            ["note"] = request.Note
+          });
+        }
+
+        // Save back
+        var updateCmd = new MySqlCommand(@"
+          UPDATE maxhanna.file_uploads
+          SET notes = @notes
+          WHERE id = @fileId", connection);
+        updateCmd.Parameters.AddWithValue("@notes", notes.Count > 0 ? notes.ToString(Newtonsoft.Json.Formatting.None) : (object)DBNull.Value);
+        updateCmd.Parameters.AddWithValue("@fileId", request.FileId);
+        await updateCmd.ExecuteNonQueryAsync();
+
+        return Ok("Note saved successfully.");
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error adding file note: {ex.Message}", request.UserId, "FILE", true);
+        return StatusCode(500, "An error occurred while saving the note.");
+      }
+    }
+
+    [HttpPost("/File/DeleteFileNote", Name = "DeleteFileNote")]
+    public async Task<IActionResult> DeleteFileNote([FromBody] DeleteFileNoteRequest request)
+    {
+      try
+      {
+        using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        var readCmd = new MySqlCommand(
+          "SELECT notes FROM maxhanna.file_uploads WHERE id = @fileId", connection);
+        readCmd.Parameters.AddWithValue("@fileId", request.FileId);
+        var existingJson = (await readCmd.ExecuteScalarAsync()) as string;
+
+        if (string.IsNullOrWhiteSpace(existingJson))
+          return Ok("No notes to delete.");
+
+        var notes = Newtonsoft.Json.Linq.JArray.Parse(existingJson);
+
+        var toRemove = notes
+          .Where(n => (int)(n["userId"] ?? 0) == request.TargetUserId)
+          .ToList();
+        foreach (var item in toRemove) item.Remove();
+
+        var updateCmd = new MySqlCommand(@"
+          UPDATE maxhanna.file_uploads
+          SET notes = @notes
+          WHERE id = @fileId", connection);
+        updateCmd.Parameters.AddWithValue("@notes", notes.Count > 0 ? notes.ToString(Newtonsoft.Json.Formatting.None) : (object)DBNull.Value);
+        updateCmd.Parameters.AddWithValue("@fileId", request.FileId);
+        await updateCmd.ExecuteNonQueryAsync();
+
+        return Ok("Note deleted successfully.");
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error deleting file note: {ex.Message}", request.UserId, "FILE", true);
+        return StatusCode(500, "An error occurred while deleting the note.");
       }
     }
   }

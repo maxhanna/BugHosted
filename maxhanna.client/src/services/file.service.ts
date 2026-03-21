@@ -5,6 +5,7 @@ import { User } from './datacontracts/user/user';
 import { FileEntry } from './datacontracts/file/file-entry';
 import { Topic } from './datacontracts/topics/topic';
 import { FileAccessLog } from './datacontracts/file/file-access-log';
+import { FileNote } from './datacontracts/file/file-note';
 import { System } from '../app/emulator/emulator-types';
 
 @Injectable({
@@ -883,5 +884,48 @@ export class FileService {
       if (m) return m[1];
     }
     return '';
+  }
+
+  async getFileNotes(fileId: number): Promise<FileNote[]> {
+    try {
+      const response = await fetch('/file/getfilenotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fileId),
+      });
+      if (!response.ok) throw new Error(`Error: ${response.status}`);
+      return await response.json() as FileNote[];
+    } catch (error) {
+      console.error(error);
+      return [];
+    }
+  }
+
+  async addFileNote(userId: number, fileId: number, note: string): Promise<string | null> {
+    try {
+      const response = await fetch('/file/addfilenote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, fileId, note }),
+      });
+      return await response.text();
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  }
+
+  async deleteFileNote(userId: number, fileId: number, targetUserId: number): Promise<string | null> {
+    try {
+      const response = await fetch('/file/deletefilenote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, fileId, targetUserId }),
+      });
+      return await response.text();
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
   }
 }
