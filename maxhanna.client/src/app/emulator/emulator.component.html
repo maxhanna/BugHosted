@@ -144,12 +144,16 @@
   <div style="padding:8px;">
     <p>{{ saveConfirmMessage || 'Do you want to save your progress before continuing?' }}</p>
     <div style="display:flex; gap:8px; margin-top:12px; justify-content:center;">
-      <button (click)="handleSaveConfirm('save')">Save</button>
-      <button (click)="handleSaveConfirm('dontSave')"
+      <button (click)="handleSaveConfirm('save')" class="enhancedButton">Save</button>
+      <button (click)="handleSaveConfirm('dontSave')" 
+        class="enhancedButton"
         *ngIf="saveConfirmType === 'saveAndExit' || saveConfirmType === 'saveAndReset'">
         Don't Save
       </button>
-      <button (click)="handleSaveConfirm('cancel')" class="closeButton" id="closeOverlay">Cancel</button>
+      <button (click)="handleSaveConfirm('cancel')" class="enhancedButton">
+        Cancel
+      </button>
+      <button (click)="handleSaveConfirm('cancel')" class="closeButton enhancedButton" id="closeOverlay"></button>
     </div>
   </div>
 </div>
