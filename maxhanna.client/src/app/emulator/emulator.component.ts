@@ -390,16 +390,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       }
 
       try { this.onEmulatorReadyForSizing(); } catch { console.warn('[EJS] onEmulatorReadyForSizing failed'); }
-    };
+    }; 
 
-    // // 6) Ensure CSS present once
-    // if (!document.querySelector('link[data-ejs-css="1"]')) {
-    //   const link = document.createElement('link');
-    //   link.rel = 'stylesheet';
-    //   link.href = '/assets/emulatorjs/data/emulator.min.css';
-    //   link.setAttribute('data-ejs-css', '1');
-    //   document.head.appendChild(link);
-    // }
     // Ensure menu is closed when the emulator starts
     this.isMenuPanelOpen = false;
     this.parentRef?.closeOverlay();
@@ -1990,7 +1982,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     font-size: ${FONT - 2}px !important;
   }
   .max-pill.is-a { transform: translate(-30px,  6px) !important; }
-  .max-pill.is-b { transform: translate(-30px, 18px) !important; }
+  .max-pill.is-b { transform: translate(-30px, 18px) !important; } 
+  .ejs_cheat_heading {
+    color: var(--main-font-color) !important;
+  }
 }
 `;
     root.appendChild(style);
