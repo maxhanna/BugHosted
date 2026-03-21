@@ -138,17 +138,20 @@
 </div>
 
 <!-- Save Progress Confirmation Panel -->
-<!-- <div class="popupPanel" *ngIf="isSaveConfirmPanelOpen">
+<div class="popupPanel" *ngIf="isSaveConfirmPanelOpen">
   <div class="popupPanelTitle">Save Progress?</div>
   <div style="padding:8px;">
     <p>{{ saveConfirmMessage || 'Do you want to save your progress before continuing?' }}</p>
     <div style="display:flex; gap:8px; margin-top:12px; justify-content:center;">
       <button (click)="handleSaveConfirm('save')">Save</button>
-      <button (click)="handleSaveConfirm('dontSave')">Don't Save</button>
+      <button (click)="handleSaveConfirm('dontSave')" 
+        *ngIf="saveConfirmType === 'saveAndExit' || saveConfirmType === 'saveAndReset'">
+        Don't Save
+      </button>
       <button (click)="handleSaveConfirm('cancel')" class="closeButton" id="closeOverlay">Cancel</button>
     </div>
   </div>
-</div> -->
+</div>
 
 <!-- Reset confirmation modal -->
 <div class="popupPanel" *ngIf="isResetModalOpen">
@@ -156,12 +159,16 @@
   <div style="padding:8px;">
     <p>Are you sure you want to reset the game? This will reload the emulator and may overwrite current progress.</p>
     <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">
-      <input type="checkbox" [checked]="saveBeforeReset" (click)="saveBeforeReset = !saveBeforeReset" />
-      <span>Save state before resetting</span>
+      <input
+        #skipLoadingSaveCheckbox
+        type="checkbox"
+        [checked]="skipLoadingSave"
+        (change)="skipLoadingSave = skipLoadingSaveCheckbox.checked" />
+      <span>Re-load {{ skipLoadingSave ? 'without' : 'with' }} saved state.</span>
     </label>
     <div style="display:flex; gap:8px; margin-top:12px;">
       <button (click)="performReset()">Confirm Reset</button>
       <button class="closeButton" id="closeOverlay" (click)="cancelReset()">Cancel</button>
     </div>
   </div>
-</div>
+</div> 

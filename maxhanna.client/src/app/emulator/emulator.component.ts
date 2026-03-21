@@ -6,9 +6,11 @@ import { RomService } from '../../services/rom.service';
 import { FileService } from '../../services/file.service';
 import { FileSearchComponent } from '../file-search/file-search.component';
 import { AppComponent } from '../app.component';
-import { VPadItem, System, BuildOpts, SystemCandidate, CoreDescriptor, 
+import {
+  VPadItem, System, BuildOpts, SystemCandidate, CoreDescriptor,
   MIN_STATE_SIZE, FAQ_ITEMS, GENESIS_6BUTTON, GENESIS_FORCE_THREE,
-  PSP_DEFAULT_OPTIONS, Core } from './emulator-types';
+  PSP_DEFAULT_OPTIONS, Core
+} from './emulator-types';
 
 @Component({
   selector: 'app-emulator',
@@ -26,17 +28,18 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   @Input() inputtedParentRef?: AppComponent;
 
   isSaveConfirmPanelOpen = false;
-  saveConfirmMessage = ''; 
+  saveConfirmType: 'saveAndExit' | 'saveAndReset' | 'save' | undefined;
+  saveConfirmMessage?: string;
+  saveConfirmCallback?: Function;
   isShowingLoginPanel = false;
   isMenuPanelOpen = false;
   isFullScreen = false;
   romName?: string;
   system?: System;
   isFileUploaderExpanded = false;
-  isFaqOpen = false;
-  // Reset modal state
+  isFaqOpen = false; 
   isResetModalOpen = false;
-  saveBeforeReset = true;
+  skipLoadingSave = true;
   isSystemSelectPanelOpen = false;
   wasMenuOpenBeforeLoggingIn = false;
   faqItems = FAQ_ITEMS;
@@ -49,12 +52,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   status: string = 'Idle';
   preferSixButtonGenesis: boolean = true;
   loadWithoutSave = false;
+  systemCandidates: Array<{ label: string; core?: Core }> = [];
+  selectedSystemCore?: Core | null = null;
   private autosaveInterval: any;
   private romObjectUrl?: string;
   private emulatorInstance?: any;
-  systemCandidates: Array<{ label: string; core?: Core }> = [];
-  selectedSystemCore?: Core | null = null;
-  /** The core explicitly chosen by the user (via system-select panel or DB override). */
   private _forcedCore?: Core;
   private _pendingFileToLoad?: { fileName: string; fileId?: number; directory?: string } | null = null;
   private _destroyed = false;
@@ -65,8 +67,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private _onResize?: () => void;
   private _onVVResize?: () => void;
   private _onOrientation?: () => void;
-
-  // private _gameAttrObs?: MutationObserver;
+  private CORE_REGISTRY: CoreDescriptor[] = []; 
   private _saveFn?: () => Promise<void>;
   private _lastSaveTime: number = 0;
   private _saveInProgress: boolean = false;
@@ -136,7 +137,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this._destroyed = true;
     this._ejsReady = false;
     this.clearAutosave();
-    
+
     if (this.parentRef) {
       this.parentRef.preventShowSecurityPopup = false;
     }
@@ -163,18 +164,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    const shouldSave = window.confirm('Save state before closing?');
-    if (!shouldSave) {
-      if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
-        this.fullReloadToEmulator();
-      } else {
-        return this.navigateHome();
-      }
+    let callback = undefined;
+    if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
+      callback = this.fullReloadToEmulator();
+    } else {
+      callback = this.navigateHome();
     }
-    if (!this.stopEmuSaving && !this.isExitingAndReturningToEmulator) {
-      this.exitSaving = true;
-    }
-    this.callEjsSave();
+    this.openSaveConfirm('saveAndExit', 'Save state before closing?', callback);
   }
 
   private navigateHome() {
@@ -248,7 +244,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       if (!this.selectedSystemCore) {
         return;
       }
-    } 
+    }
 
     try {
       await this.loadRomThroughService(file.fileName, file.id, file.directory, this.selectedSystemCore ?? undefined);
@@ -269,7 +265,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private async loadRomThroughService(fileName: string, fileId?: number, directory?: string, forcedCore?: Core | undefined) {
     // Use the instance-level forced core as a fallback
     const effectiveForcedCore = forcedCore ?? this._forcedCore;
-    if (effectiveForcedCore) this._forcedCore = effectiveForcedCore; 
+    if (effectiveForcedCore) this._forcedCore = effectiveForcedCore;
     if (fileId != null && effectiveForcedCore) {
       (async () => {
         try {
@@ -342,7 +338,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     const romDisplayName = this.fileService.getFileWithoutExtension(fileName); // e.g., "Ultimate MK3 (USA)"
     this.applyGamepadControlSettings(romDisplayName, core, this.system);
-   
+
     if (this.heavyCores.has(core)) {
       this.autosaveIntervalTime = 10 * 60 * 1000; // 10 minutes
       //console.log(`[EJS] Detected core "${core}", setting autosave interval to 10 minutes to reduce upload frequency for large save files.`);
@@ -378,7 +374,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         this._ejsReady = true;
         this.scanAndTagVpadControls();
         this.emulatorInstance = api || window.EJS || window.EJS_emulator || this.emulatorInstance;
- 
+
         this.applyPSPPerformanceTweak();
 
         // Moment you captured save function originally
@@ -571,7 +567,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'flycast':
       case 'dreamcast':
         return '/assets/emulatorjs/data/cores/FLYCAST.zip';
-        
+
       // Dreamcast (Naomi)
       case 'naomi':
         return '/assets/emulatorjs/data/cores/NAOMI.zip';
@@ -716,61 +712,61 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (core === "psp" || core == "ppsspp") {
       this.applyPSPCoreSettings(w); // force our perf defaults over any saved prefs
     }
- 
+
     const isDPADCentric = (system && (['nes', 'snes', 'gb', 'gbc', 'gba', 'genesis', 'saturn', 'sega_cd', '3do', 'nds'] as string[]).includes(system)) || core === 'yabause';
     const isLeftAndRightJoystickInverted = (system && ['n64'].includes(system));
     const rightStickValues = {
-      "UP": 
-        isDPADCentric 
-        ? 'DPAD_UP' 
-        : isLeftAndRightJoystickInverted 
-          ? 'LEFT_STICK_Y:-1' 
-          : 'RIGHT_STICK_Y:-1',
-      "DOWN": 
-        isDPADCentric 
-        ? 'DPAD_DOWN' 
-        : isLeftAndRightJoystickInverted 
-          ? 'LEFT_STICK_Y:+1' 
-          : 'RIGHT_STICK_Y:+1',
-      "LEFT": 
-        isDPADCentric 
-        ? 'DPAD_LEFT' 
-        : isLeftAndRightJoystickInverted
-          ? 'LEFT_STICK_X:-1' 
-          : 'RIGHT_STICK_X:-1',
-      "RIGHT": 
-        isDPADCentric 
-        ? 'DPAD_RIGHT' 
-        : isLeftAndRightJoystickInverted 
-          ? 'LEFT_STICK_X:+1' 
-          : 'RIGHT_STICK_X:+1'
+      "UP":
+        isDPADCentric
+          ? 'DPAD_UP'
+          : isLeftAndRightJoystickInverted
+            ? 'LEFT_STICK_Y:-1'
+            : 'RIGHT_STICK_Y:-1',
+      "DOWN":
+        isDPADCentric
+          ? 'DPAD_DOWN'
+          : isLeftAndRightJoystickInverted
+            ? 'LEFT_STICK_Y:+1'
+            : 'RIGHT_STICK_Y:+1',
+      "LEFT":
+        isDPADCentric
+          ? 'DPAD_LEFT'
+          : isLeftAndRightJoystickInverted
+            ? 'LEFT_STICK_X:-1'
+            : 'RIGHT_STICK_X:-1',
+      "RIGHT":
+        isDPADCentric
+          ? 'DPAD_RIGHT'
+          : isLeftAndRightJoystickInverted
+            ? 'LEFT_STICK_X:+1'
+            : 'RIGHT_STICK_X:+1'
     };
 
     const leftStickValues = {
-      "UP": 
-        isDPADCentric 
-        ? 'DPAD_UP' 
-        : isLeftAndRightJoystickInverted 
-          ? 'RIGHT_STICK_Y:-1' 
-          : 'LEFT_STICK_Y:-1',
-      "DOWN": 
-        isDPADCentric 
-        ? 'DPAD_DOWN' 
-        : isLeftAndRightJoystickInverted 
-          ? 'RIGHT_STICK_Y:+1' 
-          : 'LEFT_STICK_Y:+1',
-      "LEFT": 
-        isDPADCentric 
-        ? 'DPAD_LEFT' 
-        : isLeftAndRightJoystickInverted 
-          ? 'RIGHT_STICK_X:-1' 
-          : 'LEFT_STICK_X:-1',
-      "RIGHT": 
-        isDPADCentric 
-        ? 'DPAD_RIGHT' 
-        : isLeftAndRightJoystickInverted 
-          ? 'RIGHT_STICK_X:+1' 
-          : 'LEFT_STICK_X:+1'
+      "UP":
+        isDPADCentric
+          ? 'DPAD_UP'
+          : isLeftAndRightJoystickInverted
+            ? 'RIGHT_STICK_Y:-1'
+            : 'LEFT_STICK_Y:-1',
+      "DOWN":
+        isDPADCentric
+          ? 'DPAD_DOWN'
+          : isLeftAndRightJoystickInverted
+            ? 'RIGHT_STICK_Y:+1'
+            : 'LEFT_STICK_Y:+1',
+      "LEFT":
+        isDPADCentric
+          ? 'DPAD_LEFT'
+          : isLeftAndRightJoystickInverted
+            ? 'RIGHT_STICK_X:-1'
+            : 'LEFT_STICK_X:-1',
+      "RIGHT":
+        isDPADCentric
+          ? 'DPAD_RIGHT'
+          : isLeftAndRightJoystickInverted
+            ? 'RIGHT_STICK_X:+1'
+            : 'LEFT_STICK_X:+1'
     };
 
     console.log(`%c[EJS] Configuring controls for system="${system}" core="${core}" isDPADCentric=${isDPADCentric} isLeftAndRightJoystickInverted=${isLeftAndRightJoystickInverted}`, 'color: orange; font-weight: bold;', { rightStickValues, leftStickValues });
@@ -886,7 +882,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           const data = mod.HEAPU8.subarray(dataStart, dataStart + size);
           return new Uint8Array(data);
         };
-       // console.log('[EJS] Patched gameManager.getState() → save_state_info cwrap (old-core compat)');
+        // console.log('[EJS] Patched gameManager.getState() → save_state_info cwrap (old-core compat)');
       } catch (e) {
         console.warn('[EJS] Failed to patch getState():', e);
       }
@@ -901,7 +897,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         const bytes = await Promise.resolve(mgr.getState());
         return bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes as ArrayBufferLike);
       };
-     // console.log('[EJS] Polyfilled EJS_saveState via gameManager.getState()');
+      // console.log('[EJS] Polyfilled EJS_saveState via gameManager.getState()');
     } else {
       console.warn('[EJS] No gameManager.getState() found; cannot polyfill EJS_saveState');
     }
@@ -1102,101 +1098,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  private tempHideEjsMenu(durationMs: number = 5000): void {
-    try {
-      const intervalMs = 100;
-      const maxWait = 1000;
-      let waited = 0;
-      const saved = new Set<HTMLElement>();
-
-      const hideOnce = (): boolean => {
-        const els = Array.from(document.querySelectorAll('.ejs_menu_bar:not(.ejs_menu_bar_hidden)')) as HTMLElement[];
-        if (!els || els.length === 0) return false;
-        els.forEach(el => {
-          if (!el.dataset['ejsOriginalStyle']) {
-            el.dataset['ejsOriginalStyle'] = el.getAttribute('style') ?? '';
-          }
-          // apply visual hiding while keeping element in DOM and operable by JS
-          el.style.transition = 'transform 0.12s ease, opacity 0.12s ease';
-          el.style.transform = 'translateY(-9999px)';
-          el.style.opacity = '0';
-          el.style.pointerEvents = 'none';
-          saved.add(el);
-        });
-        return true;
-      };
-
-      const attempt = () => {
-        if (hideOnce()) {
-          // restore after durationMs
-          setTimeout(() => {
-            saved.forEach(el => {
-              try {
-                // restore original inline style if present
-                const orig = el.dataset['ejsOriginalStyle'] ?? '';
-                if (orig) {
-                  el.setAttribute('style', orig);
-                } else {
-                  // clear our temporary properties
-                  el.style.transition = '';
-                  el.style.transform = '';
-                  el.style.opacity = '';
-                  el.style.pointerEvents = '';
-                }
-                delete el.dataset['ejsOriginalStyle'];
-              } catch { }
-            });
-          }, durationMs);
-        } else {
-          waited += intervalMs;
-          if (waited < maxWait) {
-            setTimeout(attempt, intervalMs);
-          }
-        }
-      };
-
-      attempt();
-    } catch (e) {
-      console.warn('tempHideEjsMenu failed', e);
-    }
-  }
-
-  private tmpShowEjsMenu(durationMs: number = 5000): void {
-    try {
-      const intervalMs = 100;
-      const maxWait = 1000;
-      let waited = 0;
-      const shown = new Set<HTMLElement>();
-
-      const showOnce = (): boolean => {
-        const els = Array.from(document.querySelectorAll('.ejs_menu_bar.ejs_menu_bar_hidden')) as HTMLElement[];
-        if (!els || els.length === 0) return false;
-        els.forEach(el => {
-          try { el.classList.remove('ejs_menu_bar_hidden'); } catch { }
-          shown.add(el);
-        });
-        return true;
-      };
-
-      const attemptShow = () => {
-        if (showOnce()) {
-          // restore hidden class after duration
-          setTimeout(() => {
-            shown.forEach(el => {
-              try { el.classList.add('ejs_menu_bar_hidden'); } catch { }
-            });
-          }, durationMs);
-        } else {
-          waited += intervalMs;
-          if (waited < maxWait) setTimeout(attemptShow, intervalMs);
-        }
-      };
-
-      attemptShow();
-    } catch (e) {
-      console.warn('tmpShowEjsMenu failed', e);
-    }
-  }
 
   private async uploadSaveBytes(u8: Uint8Array) {
     const core = (window as any).EJS_core || '';
@@ -1612,7 +1513,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const out = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
     return out;
-  } 
+  }
 
   private async normalizeSavePayload(payload: any, depth = 0): Promise<Uint8Array | null> {
     try {
@@ -1673,7 +1574,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         if (/^data:.*;base64,/.test(v) || /^[A-Za-z0-9+/=\s]+$/.test(v)) {
           try {
             const u8 = this.base64ToU8(v);
-            if (u8.length) { 
+            if (u8.length) {
               //console.log('[EJS] localStorage savestate (b64) at', k, 'bytes=', u8.length); 
               return u8;
             }
@@ -1687,16 +1588,16 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           const obj = JSON.parse(v);
           if (obj && Array.isArray(obj.data)) {
             const u8 = new Uint8Array(obj.data);
-            if (u8.length) { 
+            if (u8.length) {
               //console.log('[EJS] localStorage savestate JSON(data[]) at', k, 'bytes=', u8.length);
-              return u8; 
+              return u8;
             }
           }
           if (obj && typeof obj.buffer === 'string') {
             const u8 = this.base64ToU8(obj.buffer);
-            if (u8.length) { 
+            if (u8.length) {
               //console.log('[EJS] localStorage savestate JSON(buffer b64) at', k, 'bytes=', u8.length); 
-              return u8; 
+              return u8;
             }
           }
         } catch { }
@@ -1757,7 +1658,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         if (u8 && (!best || u8.length > best.length)) best = u8;
       }
 
-     // if (best) console.log('[EJS] IDB savestate bytes=', best.length);
       return best;
     } catch { return null; }
   }
@@ -1849,9 +1749,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       const core = (window as any).EJS_core || '';
 
       const isHeavy = this.heavyCores.has(core);
-
-      // 1) Wait for EJS_ready to fire (set by the EJS_ready callback).
-      //    This guarantees the emulator JS wrapper is ready.
       if (!this._ejsReady) {
         const readyTimeout = isHeavy ? 120000 : 30000;
         const start = Date.now();
@@ -1864,14 +1761,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         }
       }
 
-      // 2) For heavy cores, wait for the RetroArch core to actually
-      //    finish initializing by polling supportsStates().  This
-      //    returns 1 only after the core's retro_serialize_size()
-      //    works, which means the function tables are populated.
       if (isHeavy) {
         this.status = 'Waiting for core to initialize before restoring save…';
         this.cdr.detectChanges();
-       // console.log('[EJS] Heavy core detected — polling supportsStates() until core is ready…');
 
         const maxWaitMs = 60000;
         const start = Date.now();
@@ -1893,14 +1785,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         } else {
           console.log(`[EJS] Core reports supportsStates=1 after ${Date.now() - start} ms`);
         }
-
-        // Extra grace period: let a few frames render so the core is
-        // fully stable before we inject the state.
         await new Promise(r => setTimeout(r, 2000));
       }
 
-      // 3) Try to load the state, with retries for heavy cores in case
-      //    the core needs a little more time.
       const maxRetries = isHeavy ? 10 : 5;
       const retryDelayMs = 3000;
 
@@ -1908,21 +1795,17 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         if (this._destroyed) return false;
 
         try {
-          // Prefer gameManager.loadState (writes to FS, calls WASM)
           const gm = await this.waitForGameManager(2000);
           if (gm && typeof gm.loadState === 'function') {
             gm.loadState(u8);
-           // console.log(`[EJS] Loaded state via gameManager.loadState (attempt ${attempt})`);
             this.status = 'Running';
             this.cdr.detectChanges();
             return true;
           }
 
-          // Fallback: global EJS_loadState
           const w = window as any;
           if (typeof w.EJS_loadState === 'function') {
             await Promise.resolve(w.EJS_loadState(u8));
-          //  console.log(`[EJS] Loaded state via EJS_loadState (attempt ${attempt})`);
             this.status = 'Running';
             this.cdr.detectChanges();
             return true;
@@ -2009,7 +1892,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
           const res = await this.romService.saveEmulatorJSState(rec.romName, rec.userId, arr);
           if (res.ok) {
             await this.removePendingSave(rec.id); // <-- remove after success
-           // console.log('[EJS] uploaded & cleared pending save for', rec.romName);
           } else {
             console.warn('[EJS] failed to upload pending save:', res.errorText);
           }
@@ -2295,15 +2177,15 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (c.includes('pcsx')) return 'ps1';
     if (c.includes('dolphin')) return 'gamecube';
     if (c.includes('mame') || c.includes('fbplus')) return 'arcade';
-    if (c.includes('cps') || c.includes('neogeo')) return 'arcade'; 
-    if (c.includes('dosbox')) return 'dos'; 
+    if (c.includes('cps') || c.includes('neogeo')) return 'arcade';
+    if (c.includes('dosbox')) return 'dos';
     if (c.includes('wiiu') || c.includes('citra')) return 'wiiu';
     if (c.includes('ps2') || c.includes('pcsx2')) return 'ps2';
     if (c.includes('xbox') || c.includes('xenia')) return 'xbox';
     if (c.includes('nesbox')) return 'nes';
     if (c.includes('arcade')) return 'arcade';
     if (c.includes('atari')) return 'atari';
-    if (c.includes('coleco')) return 'coleco'; 
+    if (c.includes('coleco')) return 'coleco';
     if (c.includes('c64') || c.includes('commodore')) return 'c64';
     return 'nes';
   }
@@ -2652,7 +2534,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (!this.romName) return;
     this.closeMenuPanel();
     setTimeout(() => {
-      this.saveBeforeReset = true; // default to saving
+      this.skipLoadingSave = true; // default to saving
       this.isResetModalOpen = true;
       this.parentRef?.showOverlay();
     }, 300);
@@ -2660,10 +2542,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   performReset(): void {
     // perform the reset using the selected save option
-    const skipSave = !this.saveBeforeReset;
+    const skipLoadingSave = !this.skipLoadingSave;
     this.isResetModalOpen = false;
     this.parentRef?.closeOverlay();
-    this.fullReloadToEmulator(this.getReloadParamsSkipSave(skipSave));
+    this.fullReloadToEmulator(this.getReloadParamsSkipLoadingSaveFile(skipLoadingSave));
   }
 
   cancelReset(): void {
@@ -2709,7 +2591,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return `${location.protocol}//${location.host}/Emulator`;
   }
 
-  private getReloadParamsSkipSave(skipSave = true): Record<string, string> {
+  private getReloadParamsSkipLoadingSaveFile(skipSave = true): Record<string, string> {
     const params: Record<string, string> = { skipSaveFile: skipSave ? 'true' : 'false' };
     const name = this.presetRomName ?? this.romName;
     if (name) params['romname'] = name;
@@ -2761,6 +2643,85 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
+  // Confirm selection from system-chooser popup and proceed to load
+  confirmSystemSelection() {
+    if (!this._pendingFileToLoad) return;
+    const pending = this._pendingFileToLoad;
+
+    const forced = this.selectedSystemCore ?? undefined;
+    this._forcedCore = forced;
+    this._pendingFileToLoad = null;
+    this.isSystemSelectPanelOpen = false;
+    this.parentRef?.closeOverlay();
+    if (forced) {
+      const ext = this.fileService.getFileExtension(pending.fileName);
+      this.savePreferredCore(ext, forced);
+      // Persist the system override to the database so it's used for icons and future loads
+      if (pending.fileId) {
+        this.romService.setSystemOverride(pending.fileId, forced).catch(() => { /* best-effort */ });
+      }
+    }
+    // Kick off loading — ignore returned promise here, UI updates handled by caller
+    void this.loadRomThroughService(pending.fileName, pending.fileId, pending.directory, forced).then(() => {
+      this.status = 'Running';
+      this.cdr.detectChanges();
+    }).catch(e => {
+      this.status = 'Error loading emulator';
+      console.error(e);
+      this.cdr.detectChanges();
+    });
+  }
+
+  openSaveConfirm(type: typeof this.saveConfirmType, message?: string, callback?: any) {
+    if (!type) {
+      type = 'save';
+    }
+    this.saveConfirmType = type;
+    this.saveConfirmMessage = message;
+    this.saveConfirmCallback = callback;
+    this.isSaveConfirmPanelOpen = true;
+    this.parentRef?.showOverlay();
+  }
+
+  async handleSaveConfirm(result: 'save' | 'dontSave' | 'cancel') {
+    this.isSaveConfirmPanelOpen = false;
+    this.saveConfirmType = undefined;
+    this.saveConfirmMessage = undefined;
+    this.parentRef?.closeOverlay();
+    if (result === 'cancel') {
+      return;
+    }
+    else if (result === 'save') {
+      await this.callEjsSave();
+    }
+    if (this.saveConfirmCallback && typeof this.saveConfirmCallback === 'function') {
+      try {
+        this.saveConfirmCallback();
+      } catch (e) {
+        console.error('Error in save confirm callback:', e);
+      } finally {
+        this.saveConfirmCallback = undefined;
+      }
+    } else {
+      this.saveConfirmCallback = undefined;
+      console.error('Save confirm callback is not a function or is undefined');
+    }
+  }
+
+  cancelSystemSelection() {
+    if (!this._pendingFileToLoad) {
+      this.isSystemSelectPanelOpen = false;
+      return;
+    }
+    this.isSystemSelectPanelOpen = false;
+    this.parentRef?.closeOverlay();
+    this._pendingFileToLoad = null;
+    this._forcedCore = undefined;
+    this.systemCandidates = [];
+    this.selectedSystemCore = undefined;
+    this.cdr.detectChanges();
+  }
+
   applyPSPCoreSettings(w: any) {
     w.EJS_vsync = false;
     w.EJS_GL_Options = {
@@ -2768,15 +2729,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       antialias: false,
       depth: true
     };
-
-    // ── Force our defaults by disabling localStorage for PSP ──
-    // EmulatorJS's getCoreSettings() lets localStorage override EJS_defaultOptions.
-    // For PSP, performance settings are critical — we MUST force them every time.
     w.EJS_disableLocalStorage = true;
-
-    // ── PPSSPP performance-critical core options ──
-    // These MUST be set before loader.js runs so the core starts with them.
-    // Use the centralized map so tests/tweaks remain in a single place.
     w.EJS_defaultOptions = Object.assign({}, PSP_DEFAULT_OPTIONS);
     w.EJS_defaultOptionsForce = true;
   }
@@ -2785,9 +2738,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const core = (window as any).EJS_core;
     if (core !== 'psp' && core !== 'ppsspp') return;
     setTimeout(() => { void this.stabilizePspCanvasSize(2000); }, 500);
-   // console.log('%c[PSP] Applying post-boot performance tweaks…', 'color:#4af');
-
-    // 1️⃣ Canvas downscaling — prevent GPU upscaling work
+    // console.log('%c[PSP] Applying post-boot performance tweaks…', 'color:#4af'); 
     requestAnimationFrame(() => {
       try {
         const canvas = document.querySelector('#game canvas') as HTMLCanvasElement;
@@ -2798,22 +2749,16 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       } catch { }
     });
 
-    // 3️⃣ Clamp render buffer
     (window as any).EJS_renderClamp = { maxW: 640, maxH: 360, maxDPR: 1.0 };
 
-    // 4️⃣ Activate fast-forward + disable vsync directly via gameManager APIs
-    //    (these are EJS-level controls, not core variables — must use the direct methods)
+
     try {
       const emu = (window as any).EJS_emulator ?? this.emulatorInstance;
-
-      const ejs = (window as any).EJS_emulator || (window as any).EJS;
-
       const gm = await this.waitForGameManager(5000);
 
 
       if (gm) {
         const opts = PSP_DEFAULT_OPTIONS;
-        // fast-forward ratio
         if (typeof gm.setFastForwardRatio === 'function') {
           try {
             const v = opts['ff-ratio'];
@@ -2821,35 +2766,26 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
             else if (!isNaN(Number(v))) gm.setFastForwardRatio(Number(v));
           } catch { }
         }
-        // toggle fast-forward
         if (typeof gm.toggleFastForward === 'function') {
           try {
             if (opts['fastForward'] === 'enabled') gm.toggleFastForward(1);
           } catch { }
           if (emu) emu.isFastForward = true;
-          //console.log('[PSP] Fast-forward enabled (per options)');
         }
         // set vsync
         if (typeof gm.setVSync === 'function') {
           try { gm.setVSync(opts['vsync'] === 'disabled' ? false : true); } catch { }
-          //console.log('[PSP] VSync set (per options)');
         }
-        // Push core variables (skip EmulatorJS-level controls)
         if (typeof gm.setVariable === 'function' || typeof gm === 'object') {
           for (const [k, v] of Object.entries(opts)) {
             if (k === 'fastForward' || k === 'ff-ratio' || k === 'vsync') continue;
             try { gm.setVariable(k, String(v)); } catch { }
           }
-          //console.log('[PSP] Core variables pushed via gameManager');
         }
       }
     } catch { }
-
     //console.log('%c[PSP] Post-boot tweaks applied ✔', 'color:#4f4');
   }
-
-
-  private CORE_REGISTRY: CoreDescriptor[] = [];   // instance-level
 
   /** Build the registry using FileService, once. */
   private buildCoreRegistry(fs: FileService): CoreDescriptor[] {
@@ -3079,11 +3015,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  normExt(fileName: string, getExt: (n: string) => string): string {
+  private normExt(fileName: string, getExt: (n: string) => string): string {
     return (getExt(fileName) || '').toLowerCase().trim().replace(/^\./, '');
   }
 
-  normCore(core?: string | null): string {
+  private normCore(core?: string | null): string {
     return String(core || '').toLowerCase().trim();
   }
 
@@ -3105,49 +3041,103 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return [...list].sort((a, b) => rank(a.core) - rank(b.core));
   }
 
-  // Confirm selection from system-chooser popup and proceed to load
-  confirmSystemSelection() {
-    if (!this._pendingFileToLoad) return;
-    const pending = this._pendingFileToLoad;
 
-    const forced = this.selectedSystemCore ?? undefined;
-    this._forcedCore = forced;
-    this._pendingFileToLoad = null;
-    this.isSystemSelectPanelOpen = false;
-    this.parentRef?.closeOverlay();
-    if (forced) {
-      const ext = this.fileService.getFileExtension(pending.fileName);
-      this.savePreferredCore(ext, forced);
-      // Persist the system override to the database so it's used for icons and future loads
-      if (pending.fileId) {
-        this.romService.setSystemOverride(pending.fileId, forced).catch(() => { /* best-effort */ });
-      }
+  private tempHideEjsMenu(durationMs: number = 5000): void {
+    try {
+      const intervalMs = 100;
+      const maxWait = 1000;
+      let waited = 0;
+      const saved = new Set<HTMLElement>();
+
+      const hideOnce = (): boolean => {
+        const els = Array.from(document.querySelectorAll('.ejs_menu_bar:not(.ejs_menu_bar_hidden)')) as HTMLElement[];
+        if (!els || els.length === 0) return false;
+        els.forEach(el => {
+          if (!el.dataset['ejsOriginalStyle']) {
+            el.dataset['ejsOriginalStyle'] = el.getAttribute('style') ?? '';
+          }
+          // apply visual hiding while keeping element in DOM and operable by JS
+          el.style.transition = 'transform 0.12s ease, opacity 0.12s ease';
+          el.style.transform = 'translateY(-9999px)';
+          el.style.opacity = '0';
+          el.style.pointerEvents = 'none';
+          saved.add(el);
+        });
+        return true;
+      };
+
+      const attempt = () => {
+        if (hideOnce()) {
+          // restore after durationMs
+          setTimeout(() => {
+            saved.forEach(el => {
+              try {
+                // restore original inline style if present
+                const orig = el.dataset['ejsOriginalStyle'] ?? '';
+                if (orig) {
+                  el.setAttribute('style', orig);
+                } else {
+                  // clear our temporary properties
+                  el.style.transition = '';
+                  el.style.transform = '';
+                  el.style.opacity = '';
+                  el.style.pointerEvents = '';
+                }
+                delete el.dataset['ejsOriginalStyle'];
+              } catch { }
+            });
+          }, durationMs);
+        } else {
+          waited += intervalMs;
+          if (waited < maxWait) {
+            setTimeout(attempt, intervalMs);
+          }
+        }
+      };
+
+      attempt();
+    } catch (e) {
+      console.warn('tempHideEjsMenu failed', e);
     }
-    // Kick off loading — ignore returned promise here, UI updates handled by caller
-    void this.loadRomThroughService(pending.fileName, pending.fileId, pending.directory, forced).then(() => {
-      this.status = 'Running';
-      this.cdr.detectChanges();
-    }).catch(e => {
-      this.status = 'Error loading emulator';
-      console.error(e);
-      this.cdr.detectChanges();
-    });
   }
 
-  cancelSystemSelection() {
-    if (!this._pendingFileToLoad) {
-      this.isSystemSelectPanelOpen = false;
-      return;
-    }
-    this.isSystemSelectPanelOpen = false;
-    this.parentRef?.closeOverlay();
-    this._pendingFileToLoad = null;
-    this._forcedCore = undefined;
-    this.systemCandidates = [];
-    this.selectedSystemCore = undefined;
-    this.cdr.detectChanges();
-  }
+  private tmpShowEjsMenu(durationMs: number = 5000): void {
+    try {
+      const intervalMs = 100;
+      const maxWait = 1000;
+      let waited = 0;
+      const shown = new Set<HTMLElement>();
 
+      const showOnce = (): boolean => {
+        const els = Array.from(document.querySelectorAll('.ejs_menu_bar.ejs_menu_bar_hidden')) as HTMLElement[];
+        if (!els || els.length === 0) return false;
+        els.forEach(el => {
+          try { el.classList.remove('ejs_menu_bar_hidden'); } catch { }
+          shown.add(el);
+        });
+        return true;
+      };
+
+      const attemptShow = () => {
+        if (showOnce()) {
+          // restore hidden class after duration
+          setTimeout(() => {
+            shown.forEach(el => {
+              try { el.classList.add('ejs_menu_bar_hidden'); } catch { }
+            });
+          }, durationMs);
+        } else {
+          waited += intervalMs;
+          if (waited < maxWait) setTimeout(attemptShow, intervalMs);
+        }
+      };
+
+      attemptShow();
+    } catch (e) {
+      console.warn('tmpShowEjsMenu failed', e);
+    }
+  }
+  
   private stableStringToIntId(s: string): number {
     let h = 2166136261 >>> 0;
     for (let i = 0; i < s.length; i++) {
@@ -3165,5 +3155,5 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'smsplus': return 'segaMS';
       default: return undefined; // let EmulatorJS derive it
     }
-  } 
+  }
 }

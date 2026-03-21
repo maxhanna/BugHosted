@@ -1,5 +1,5 @@
 export type SystemCandidate = { label: string; core?: Core };
- 
+
 export type CoreDescriptor = {
   core: Core;
   label: string;
