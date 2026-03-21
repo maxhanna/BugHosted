@@ -159,6 +159,7 @@ button:disabled {
 }
 
 .fileUploadLineDiv {
+  color: var(--main-link-color);
   position: relative;
   display: flex;
   align-items: center;
