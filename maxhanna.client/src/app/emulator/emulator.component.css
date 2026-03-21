@@ -59,12 +59,22 @@
 .emuMenuButtonContainer {
   border-top: 1px solid var(--main-highlight-color);
   width: 100%;
+  text-align: center;
+  padding-top: 15px;
+  box-shadow: 2px 2px 13px 1px var(--component-background-color);
+  margin-bottom: 15px;
 }
 
 .emuMenuButton {
-  width: 100%;
+  width: 75%;
+  max-width: 300px;
   margin-bottom: 10px;
-  display: grid;
+  border-radius: 5px;
+}
+.emuMenuButton:hover {
+  background-color: var(--main-font-color);
+  color: var(--component-background-color);
+  box-shadow: 1px 1px 5px 1px var(--main-font-color);
 }
 
 #game {
@@ -76,8 +86,7 @@
   margin: 0 auto;
   display: block;
 }
-
-/* Ensure canvas fills the host element and preserves aspect */
+ 
 #game canvas {
   width: 100% !important;
   height: 100% !important;
@@ -85,8 +94,7 @@
   max-height: 272px !important;
   image-rendering: pixelated;
 }
-
-/* If the browser supports dynamic viewport */
+ 
 @supports (height: 100dvh) {
   #game {
     height: calc(100dvh - 60px);
@@ -124,6 +132,23 @@
   border-radius: 3px;
   vertical-align: -2px;
 }
+
 .checkbox-indicator.checked {
   background: var(--main-highlight-color);
+}
+
+.checkbox-indicator.checked::after {
+  content: "✓";            /* or "✔" or even "☑" */
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--main-check-color, currentColor);
+}
+
+.loadingContainerStatus {
+  background-color: var(--main-highlight-color-quarter-opacity);
+  text-align: center;
+  padding: 20px;
+  color: var(--secondary-font-color);
 }

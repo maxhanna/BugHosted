@@ -8,10 +8,10 @@ import { MediaSelectorComponent } from '../media-selector/media-selector.compone
 import { UserTheme } from '../../services/datacontracts/chat/chat-theme';
 
 @Component({
-    selector: 'app-themes',
-    templateUrl: './themes.component.html',
-    styleUrl: './themes.component.css',
-    standalone: false
+  selector: 'app-themes',
+  templateUrl: './themes.component.html',
+  styleUrl: './themes.component.css',
+  standalone: false
 })
 export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy {
   @ViewChild('backgroundColor') backgroundColor!: ElementRef;
@@ -32,7 +32,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   allThemes?: UserTheme[];
   myThemes?: UserTheme[];
   showDeleteConfirm: boolean = false;
- 
+
   isSearching = false
   originalThemeId = 0;
   warnUserToSave = false;
@@ -85,7 +85,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
           this.userSelectedTheme = res;
           this.originalThemeId = this.userSelectedTheme?.id ?? 0;
           this.themeNameInput.nativeElement.value = (this.userSelectedTheme?.name ? this.userSelectedTheme.name : "Default");
-          
+
           this.replenishBackroundImageSelection(res, true);
         }
       });
@@ -99,7 +99,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
       });
 
       this.userService.getAllUserThemes(this.parentRef.user.id).then(res => {
-        if (res ) {
+        if (res) {
           this.myThemes = res;
         } else {
           this.myThemes = [];
@@ -119,7 +119,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   // Update CSS variables dynamically
-  updateCSS(variable: string, event?: Event, variableValue?: any) { 
+  updateCSS(variable: string, event?: Event, variableValue?: any) {
     if (!event && !variableValue) return;
 
     const target = event?.target as HTMLInputElement;
@@ -138,7 +138,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     } else {
       document.documentElement.style.removeProperty(variable);
     }
-    if (!this.blockWarnThemeChange) { 
+    if (!this.blockWarnThemeChange) {
       this.warnUserToSave = true;
     }
   }
@@ -181,7 +181,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     let tmpFileId = undefined;
     if (this.attachedFiles && this.attachedFiles[0] && this.attachedFiles[0].id) {
       tmpFileId = this.attachedFiles[0].id;
-    } 
+    }
 
     const theme: any = {
       id: this.userSelectedTheme?.id,
@@ -297,7 +297,8 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     document.documentElement.style.setProperty('--secondary-font-color', this.parentRef.navigationComponent.defaultTheme.secondaryFontColor);
     document.documentElement.style.setProperty('--third-font-color', this.parentRef.navigationComponent.defaultTheme.thirdFontColor);
     document.documentElement.style.setProperty('--main-highlight-color', this.parentRef.navigationComponent.defaultTheme.mainHighlightColor);
-    document.documentElement.style.setProperty('--main-highlight-color-quarter-opacity', this.parentRef.navigationComponent.defaultTheme.mainHighlightColorQuarterOpacity);
+    const eightDigit = this.hexWithAlpha(this.parentRef.navigationComponent.defaultTheme.mainHighlightColorQuarterOpacity, 0.87);
+    document.documentElement.style.setProperty('--main-highlight-color-quarter-opacity', eightDigit);
     document.documentElement.style.setProperty('--main-link-color', this.parentRef.navigationComponent.defaultTheme.linkColor);
     document.documentElement.style.setProperty('--main-font-size', `${this.parentRef.navigationComponent.defaultTheme.fontSize}px`);
     document.documentElement.style.setProperty('--main-font-family', this.parentRef.navigationComponent.defaultTheme.fontFamily);
@@ -310,22 +311,22 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     this.componentBackgroundColor.nativeElement.value = this.parentRef.navigationComponent.defaultTheme.componentBackgroundColor;
     this.secondaryComponentBackgroundColor.nativeElement.value = this.parentRef.navigationComponent.defaultTheme.secondaryComponentBackgroundColor;
     this.fontColor.nativeElement.value = this.parentRef.navigationComponent.defaultTheme.fontColor;
-    this.secondaryFontColor.nativeElement.value = this.parentRef.navigationComponent.defaultTheme.secondaryFontColor; 
+    this.secondaryFontColor.nativeElement.value = this.parentRef.navigationComponent.defaultTheme.secondaryFontColor;
     this.mainHighlightColor.nativeElement.value = this.parentRef.navigationComponent.defaultTheme.mainHighlightColor;
     this.mainHighlightColorQuarterOpacity.nativeElement.value = this.parentRef.navigationComponent.defaultTheme.mainHighlightColorQuarterOpacity;
-    this.fontSize.nativeElement.value = this.parentRef.navigationComponent.defaultTheme.fontSize; 
+    this.fontSize.nativeElement.value = this.parentRef.navigationComponent.defaultTheme.fontSize;
 
     const thirdFontColorHex = this.getHexFromColorName(this.parentRef.navigationComponent.defaultTheme.thirdFontColor);
     this.thirdFontColor.nativeElement.value = thirdFontColorHex;
 
-    const linkHex = this.getHexFromColorName(this.parentRef.navigationComponent.defaultTheme.linkColor); 
+    const linkHex = this.getHexFromColorName(this.parentRef.navigationComponent.defaultTheme.linkColor);
     this.linkColor.nativeElement.value = linkHex;
 
 
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
       const user = this.parentRef?.user;
-      if (user && user.id && updateServer) { 
+      if (user && user.id && updateServer) {
         this.userService.deleteUserSelectedTheme(user.id).then(res => {
           if (res) {
             this.parentRef?.showNotification(res.message);
@@ -352,18 +353,18 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   onThemeChange(event: any): void {
-    const selectedId = event.target.value; 
+    const selectedId = event.target.value;
     this.changeThemeById(selectedId, event.target.id);
   }
 
-  changeThemeById(selectedId: number, targetId?: string) { 
+  changeThemeById(selectedId: number, targetId?: string) {
     let selectedTheme = this.myThemes?.find(theme => theme.id == selectedId);
     if (!selectedTheme) {
       selectedTheme = this.allThemes?.find(theme => theme.id == selectedId);
     }
     this.userSelectedTheme = selectedTheme;
     this.mediaSelector.removeAllFiles();
-    
+
     if (!selectedTheme) {
       this.restoreDefaultSettings(false);
       return
@@ -398,7 +399,8 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     this.updateCSS('--secondary-font-color', undefined, selectedTheme.secondaryFontColor);
     this.updateCSS('--third-font-color', undefined, selectedTheme.thirdFontColor);
     this.updateCSS('--main-highlight-color', undefined, selectedTheme.mainHighlightColor);
-    this.updateCSS('--main-highlight-color-quarter-opacity', undefined, selectedTheme.mainHighlightColorQuarterOpacity);
+    const eightDigit = this.hexWithAlpha(selectedTheme.mainHighlightColorQuarterOpacity, 0.87);
+    this.updateCSS('--main-highlight-color-quarter-opacity', undefined, eightDigit);
     this.updateCSS('--main-link-color', undefined, selectedTheme.linkColor);
     this.updateCSS('--main-font-size', undefined, `${selectedTheme.fontSize}px`);
     this.updateCSS('--main-font-family', undefined, selectedTheme.fontFamily);
@@ -425,7 +427,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
       }, 10);
     }
     setTimeout(() => {
-      this.warnUserToSave = (this.userSelectedTheme?.id !== this.originalThemeId);   
+      this.warnUserToSave = (this.userSelectedTheme?.id !== this.originalThemeId);
     }, 50); // timeout to make sure this is done after updateCSS. 
   }
   openFontFamily() {
@@ -440,13 +442,13 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   themeSearch() {
     const search = this.themeSearchInput.nativeElement.value;
     clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => { 
+    this.debounceTimer = setTimeout(() => {
       if (search) {
-        this.userService.getAllThemes(search).then((res: (UserTheme[] | null))=> {
-          if (res) { 
+        this.userService.getAllThemes(search).then((res: (UserTheme[] | null)) => {
+          if (res) {
             this.allThemes = res;
-          } else { 
-            this.parentRef?.showNotification("No themes found."); 
+          } else {
+            this.parentRef?.showNotification("No themes found.");
             this.allThemes = [];
           }
         });
@@ -456,14 +458,14 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
         this.userService.getAllThemes('').then(res => {
           if (res) {
             this.allThemes = res;
-          } else { 
-            this.parentRef?.showNotification("No theme found."); 
+          } else {
+            this.parentRef?.showNotification("No theme found.");
             this.allThemes = [];
           }
         });
         this.isSearching = false;
       }
-    }, 500);  
+    }, 500);
   }
 
   private replenishBackroundImageSelection(res: UserTheme, blockSavePrompt = false) {
@@ -477,7 +479,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
 
-  private selectBackgroundImage(feRes: FileEntry, blockSavePrompt: boolean = false) { 
+  private selectBackgroundImage(feRes: FileEntry, blockSavePrompt: boolean = false) {
     this.attachedFiles = [];
     this.mediaSelector.removeAllFiles();
     this.mediaSelector.selectFile(feRes);
@@ -489,5 +491,16 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     setTimeout(() => {
       document.getElementById("closeOverlay")?.click();
     }, 5);
+  }
+
+  hexWithAlpha(hex?: string | undefined | null, alpha?: number): string | null {
+    if (!hex || !alpha) return null;
+    const a = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
+    const aa = a.toString(16).padStart(2, '0');
+    // Normalize to #RRGGBB first
+    let h = hex.replace('#', '').trim();
+    if (h.length === 3) h = h.split('').map(c => c + c).join('');
+    if (h.length !== 6) throw new Error(`Invalid hex color: ${hex}`);
+    return `#${h}${aa}`;
   }
 }

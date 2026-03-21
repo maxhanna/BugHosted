@@ -1418,7 +1418,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   async stopEmulator() {
     this.status = 'Stopping...';
     this.isExitingAndReturningToEmulator = true;
-    this.startLoading();
     this.cdr.detectChanges();
 
     await this.safeExit();
@@ -2676,11 +2675,15 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (!type) {
       type = 'save';
     }
+    this.closeMenuPanel();
     this.saveConfirmType = type;
     this.saveConfirmMessage = message;
     this.saveConfirmCallback = callback;
-    this.isSaveConfirmPanelOpen = true;
-    this.parentRef?.showOverlay();
+    setTimeout(() => {
+      this.isSaveConfirmPanelOpen = true;
+      this.parentRef?.showOverlay(); 
+      this.cdr.detectChanges();
+    }, 100);
   }
 
   async handleSaveConfirm(result: 'save' | 'dontSave' | 'cancel') {
@@ -2689,6 +2692,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.saveConfirmMessage = undefined;
     this.parentRef?.closeOverlay();
     if (result === 'cancel') {
+      this.setTmpStatus('Action cancelled.');
       return;
     }
     else if (result === 'save') {

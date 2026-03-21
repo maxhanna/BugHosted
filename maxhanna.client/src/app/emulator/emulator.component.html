@@ -9,7 +9,7 @@
   </app-title-bar>
 
   <!-- Status Display -->
-  <div *ngIf="!romName && isLoading" style="text-align: center; padding: 20px; color: #666;">
+  <div *ngIf="!romName && isLoading" class="loadingContainerStatus">
     {{ status }}
   </div>
 
@@ -36,13 +36,12 @@
   </div>
 
   <div style="margin-bottom: 15px;" *ngIf="!isFaqOpen">
-    <p>Status: {{ status }}</p>
-    <p *ngIf="romName">
-      Playing: {{ getRomName() }}
-      <br>
-      <small *ngIf="lastSaveTime">Last save: {{ lastSaveTime | timeSince:'minute' }}</small>
-      <small *ngIf="!lastSaveTime">Last save: none</small>
-    </p>
+    <span class="secondaryFontColor">Status: {{ status }}</span>
+    <br>
+    <span *ngIf="romName">Playing: {{ getRomName() }}</span>
+    <br>
+    <small *ngIf="lastSaveTime && romName" class="thirdFontColor">Last save: {{ lastSaveTime | timeSince:'minute' }}</small>
+    <small *ngIf="!lastSaveTime && romName" class="thirdFontColor">Last save: none</small>
   </div>
 
   <div *ngIf="!isFaqOpen" class="emuMenuButtonContainer">

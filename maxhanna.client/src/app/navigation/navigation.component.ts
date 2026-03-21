@@ -38,30 +38,30 @@ export class NavigationComponent implements OnInit, OnDestroy {
   @ViewChild('toggleNavButton') toggleNavButton!: ElementRef<HTMLElement>;
 
   @Input() user?: User;
- 
+
   enderActivePlayers: number | null = null;
   enderUserRank: { rank?: number | null, score?: number | null, totalPlayers?: number | null } | null = null;
-  private enderInterval: any; 
+  private enderInterval: any;
   bonesActivePlayers: number | null = null;
   bonesUserRank: { rank?: number | null, level?: number | null, totalPlayers?: number | null } | null = null;
-  private bonesInterval: any; 
+  private bonesInterval: any;
   nexusActivePlayers: number | null = null;
   nexusUserRank: { rank?: number | null, baseCount?: number | null, totalPlayers?: number | null } | null = null;
-  private nexusInterval: any; 
+  private nexusInterval: any;
   metaActivePlayers: number | null = null;
   metaUserRank: { rank?: number | null, level?: number | null, totalPlayers?: number | null } | null = null;
-  private metaInterval: any; 
-  musicTodoCount: number | null = null;  
+  private metaInterval: any;
+  musicTodoCount: number | null = null;
   arrayActivePlayers: number | null = null;
   arrayUserRank: { rank?: number | null, level?: number | null, totalPlayers?: number | null } | null = null;
-  private arrayInterval: any; 
-  emulatorActivePlayers: number | null = null;   
-  socialTotalPosts: number | null = null;  
-  artTotalSubmissions: number | null = null;  
-  crawlerIndexCount: number | null = null; 
+  private arrayInterval: any;
+  emulatorActivePlayers: number | null = null;
+  socialTotalPosts: number | null = null;
+  artTotalSubmissions: number | null = null;
+  crawlerIndexCount: number | null = null;
   todoCount: number | null = null;
   private time20Secs = 20 * 1000;
-  private time60Secs = 60 * 1000; 
+  private time60Secs = 60 * 1000;
   private time20Mins = 20 * 60 * 1000;
   private time60Mins = 60 * 60 * 1000;
 
@@ -125,7 +125,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private nexusService: NexusService,
     private todoService: TodoService,
     private metaService: MetaService,
-    private arrayService: ArrayService, 
+    private arrayService: ArrayService,
     private romService: RomService,
     private friendService: FriendService,
     private socialService: SocialService,
@@ -133,9 +133,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private newsService: NewsService) { }
 
   async ngOnInit() {
-    this.navbarReady = true; 
+    this.navbarReady = true;
     if (this._parent?.user?.id) {
-      this.getThemeInfo().catch(() => {});
+      this.getThemeInfo().catch(() => { });
       this.isThemeApplied = true;
     } else {
       this.applyDefaultTheme();
@@ -266,7 +266,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     } catch (e) {
       console.error('Error clearing notification timers', e);
     }
- 
+
     this._parent.notificationTimers = {};
   }
 
@@ -362,9 +362,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!this._parent || !this._parent.user || this.navbarCollapsed) {
       return;
     }
-    if (this._parent.lastRunTimestamps['notificationInfo'] 
-      && Date.now() - this._parent.lastRunTimestamps['notificationInfo'] < this.time20Secs) 
-    {
+    if (this._parent.lastRunTimestamps['notificationInfo']
+      && Date.now() - this._parent.lastRunTimestamps['notificationInfo'] < this.time20Secs) {
       return;
     }
     this.isLoadingNotifications = true;
@@ -436,7 +435,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.clearNotifications();
     this.stopNotifications();
     this.notificationsServerDown = true;
-    this.preventFetchNotifs = true; 
+    this.preventFetchNotifs = true;
     // show server down message in UI and as a transient notification
     try { this._parent.showNotification('Server down'); } catch (e) { }
 
@@ -510,7 +509,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getCalendarInfo() {
-    if (this._parent.lastRunTimestamps['calendarInfo'] 
+    if (this._parent.lastRunTimestamps['calendarInfo']
       && Date.now() - this._parent.lastRunTimestamps['calendarInfo'] < this.time20Mins) {
       return;
     }
@@ -579,9 +578,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getCurrentWeatherInfo() {
-    if (this._parent.lastRunTimestamps['weatherInfo'] 
-        && Date.now() - this._parent.lastRunTimestamps['weatherInfo'] < this.time20Mins) 
-    {
+    if (this._parent.lastRunTimestamps['weatherInfo']
+      && Date.now() - this._parent.lastRunTimestamps['weatherInfo'] < this.time20Mins) {
       return;
     }
     if (!this._parent.user?.id || !this._parent.userSelectedNavigationItems.find(x => x.title == "Weather")) { return; }
@@ -602,9 +600,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getCryptoHubInfo() {
-    if (this._parent.lastRunTimestamps['cryptoHub'] 
-      && (Date.now() - this._parent.lastRunTimestamps['cryptoHub'] < this.time20Mins)) 
-    {
+    if (this._parent.lastRunTimestamps['cryptoHub']
+      && (Date.now() - this._parent.lastRunTimestamps['cryptoHub'] < this.time20Mins)) {
       return;
     }
     const nav = this._parent.navigationItems.find(x => x.title === "Crypto-Hub");
@@ -656,7 +653,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getEnderPlayerInfo() {
-    if (this._parent.lastRunTimestamps['ender'] 
+    if (this._parent.lastRunTimestamps['ender']
       && Date.now() - this._parent.lastRunTimestamps['ender'] < this.time60Secs) {
       return;
     }
@@ -703,7 +700,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       clearInterval(this.nexusInterval);
       return;
     }
-    if (this._parent.lastRunTimestamps['nexus'] 
+    if (this._parent.lastRunTimestamps['nexus']
       && Date.now() - this._parent.lastRunTimestamps['nexus'] < this.time60Secs) {
       return;
     }
@@ -745,7 +742,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       clearInterval(this.bonesInterval);
       return;
     }
-    if (this._parent.lastRunTimestamps['bones'] 
+    if (this._parent.lastRunTimestamps['bones']
       && Date.now() - this._parent.lastRunTimestamps['bones'] < this.time60Secs) {
       return;
     }
@@ -788,8 +785,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!this._parent.notificationsActive) {
       clearInterval(this.metaInterval);
       return;
-    } 
-    if (this._parent.lastRunTimestamps['meta'] 
+    }
+    if (this._parent.lastRunTimestamps['meta']
       && Date.now() - this._parent.lastRunTimestamps['meta'] < this.time60Secs) {
       return;
     }
@@ -827,8 +824,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getMusicInfo() {
-    if (!this._parent.notificationsActive) return; 
-    if (this._parent.lastRunTimestamps['music'] 
+    if (!this._parent.notificationsActive) return;
+    if (this._parent.lastRunTimestamps['music']
       && Date.now() - this._parent.lastRunTimestamps['music'] < this.time60Mins) {
       return;
     }
@@ -847,12 +844,12 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     this.isLoadingMusic = false;
     this.updateLastRunTimestamp('music');
-  } 
-  
+  }
+
   private async getTodoInfo() {
     if (!this._parent.notificationsActive) return;
     if (!this._parent?.user?.id) return;
-    if (this._parent.lastRunTimestamps['todo'] 
+    if (this._parent.lastRunTimestamps['todo']
       && Date.now() - this._parent.lastRunTimestamps['todo'] < this.time60Mins) {
       return;
     }
@@ -878,7 +875,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       clearInterval(this.arrayInterval);
       return;
     }
-    if (this._parent.lastRunTimestamps['array'] 
+    if (this._parent.lastRunTimestamps['array']
       && Date.now() - this._parent.lastRunTimestamps['array'] < this.time60Secs) {
       return;
     }
@@ -934,7 +931,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   private async getSocialInfo() {
     if (!this._parent.notificationsActive) return;
-    if (this._parent.lastRunTimestamps['social'] 
+    if (this._parent.lastRunTimestamps['social']
       && Date.now() - this._parent.lastRunTimestamps['social'] < this.time60Mins) {
       return;
     }
@@ -977,7 +974,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   private async getArtInfo() {
     if (!this._parent.notificationsActive) return;
-    if (this._parent.lastRunTimestamps['art'] 
+    if (this._parent.lastRunTimestamps['art']
       && Date.now() - this._parent.lastRunTimestamps['art'] < this.time60Mins) {
       return;
     }
@@ -1002,7 +999,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   async getWordlerStreakInfo() {
     if (!this._parent.notificationsActive) return;
-    if (this._parent.lastRunTimestamps['wordler'] 
+    if (this._parent.lastRunTimestamps['wordler']
       && Date.now() - this._parent.lastRunTimestamps['wordler'] < this.time60Mins) {
       return;
     }
@@ -1119,7 +1116,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
       document.documentElement.style.setProperty('--main-highlight-color', theme.mainHighlightColor);
     }
     if (theme.mainHighlightColorQuarterOpacity) {
-      document.documentElement.style.setProperty('--main-highlight-color-quarter-opacity', theme.mainHighlightColorQuarterOpacity);
+      const eightDigit = this.hexWithAlpha(theme.mainHighlightColorQuarterOpacity, 0.87);
+      document.documentElement.style.setProperty('--main-highlight-color-quarter-opacity', eightDigit);
     }
     if (theme.componentBackgroundColor) {
       document.documentElement.style.setProperty('--component-background-color', theme.componentBackgroundColor);
@@ -1166,7 +1164,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
   private async getNewsCountInfo() {
     if (this._parent.lastRunTimestamps['newsCount']
-        && Date.now() - this._parent.lastRunTimestamps['newsCount'] < this.time60Mins) {
+      && Date.now() - this._parent.lastRunTimestamps['newsCount'] < this.time60Mins) {
       return;
     }
     if (!this._parent || !this._parent.user || this.navbarCollapsed) return;
@@ -1209,7 +1207,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingWordlerStreak = false;
     this.isLoadingCalendar = false;
     this.isLoadingBones = false;
-    this.isLoadingEnder = false; 
+    this.isLoadingEnder = false;
     this.isLoadingNexus = false;
     this.isLoadingMeta = false;
     this.isLoadingEmulator = false;
@@ -1222,5 +1220,16 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingWeather = false;
     this.isLoadingNews = false;
     this.notificationsServerDown = false;
+  }
+
+  hexWithAlpha(hex: string, alpha: number): string {
+    // Clamp and convert alpha to 0–255
+    const a = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
+    const aa = a.toString(16).padStart(2, '0');
+    // Normalize to #RRGGBB first
+    let h = hex.replace('#', '').trim();
+    if (h.length === 3) h = h.split('').map(c => c + c).join('');
+    if (h.length !== 6) throw new Error(`Invalid hex color: ${hex}`);
+    return `#${h}${aa}`;
   } 
 }
