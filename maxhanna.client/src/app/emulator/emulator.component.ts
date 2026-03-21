@@ -30,7 +30,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   isSaveConfirmPanelOpen = false;
   saveConfirmType: 'saveAndExit' | 'saveAndReset' | 'save' | undefined;
   saveConfirmMessage?: string;
-  saveConfirmCallback?: Function;
+  saveConfirmCallback?: () => void;
   isShowingLoginPanel = false;
   isMenuPanelOpen = false;
   isFullScreen = false;
@@ -164,11 +164,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
 
-    let callback = undefined;
+    let callback: () => void;
     if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
-      callback = this.fullReloadToEmulator();
+      callback = this.fullReloadToEmulator;
     } else {
-      callback = this.navigateHome();
+      callback = this.navigateHome;
     }
     this.openSaveConfirm('saveAndExit', 'Save state before closing?', callback);
   }
