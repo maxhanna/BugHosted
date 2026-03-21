@@ -206,7 +206,7 @@ export class FileUploadComponent {
       }
 
       if (this.user?.id && this.currentDirectory.toLowerCase().includes("meme")) {
-        this.fileService.notifyFollowersFileUploaded(this.user.id, this.uploadedFileList[0].id, this.uploadedFileList.length); 
+        this.fileService.notifyFollowersFileUploaded(this.user.id, this.user.username ?? "Anonymous", this.uploadedFileList[0].id, this.uploadedFileList.length); 
       }
       this.userUploadFinishedEvent.emit(this.uploadedFileList);
       this.userNotificationEvent.emit(`Finished uploading ${this.uploadedFileList.length} files.`);

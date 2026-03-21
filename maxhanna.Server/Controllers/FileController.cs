@@ -2385,7 +2385,7 @@ namespace maxhanna.Server.Controllers
             }
 
             // Send push notifications (if implemented)
-            await SendFileUploadPushNotifications(req.UserId, validFollowerIds, req.FileId, notificationText);
+            await SendFileUploadPushNotifications(req.UserId, req.UserName, validFollowerIds, req.FileId, notificationText);
           }
 
           Console.WriteLine($"Notified {validFollowerIds.Count} followers");
@@ -2399,7 +2399,7 @@ namespace maxhanna.Server.Controllers
       }
     }
 
-    private async Task SendFileUploadPushNotifications(int fromUserId, List<int> followerIds, int fileId, string message)
+    private async Task SendFileUploadPushNotifications(int fromUserId, string fromUserName, List<int> followerIds, int fileId, string message)
     {
       foreach (var followerId in followerIds)
       {
@@ -2409,14 +2409,15 @@ namespace maxhanna.Server.Controllers
           {
             Notification = new FirebaseAdmin.Messaging.Notification()
             {
-              Title = $"New File Uploaded by UserId: {fromUserId}",
+              Title = $"New File Uploaded by {fromUserName}",
               Body = message,
-              ImageUrl = "https://www.bughosted.com/assets/logo.jpg"
+              ImageUrl = "https://bughosted.com/assets/Uploads/Max/logo.jpg"
             },
             Data = new Dictionary<string, string>
             {
               { "fileId", fileId.ToString() },
               { "fromUserId", fromUserId.ToString() },
+              { "fromUserName", fromUserName },
               { "type", "file_upload" }
             },
             Topic = $"notification{followerId}"

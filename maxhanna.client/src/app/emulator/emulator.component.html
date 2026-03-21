@@ -52,7 +52,7 @@
     </button>
     <button *ngIf="!romName" (click)="toggleLoadWithoutSave()" class="emuMenuButton" [disabled]="isLoading">
       Save States:{{" "}}{{loadWithoutSave ? 'Do not load' : 'Load with ROMs' }}
-      <span class="checkbox-indicator" [class.checked]="loadWithoutSave" aria-hidden="true"
+      <span class="checkbox-indicator" [class.checked]="!loadWithoutSave" aria-hidden="true"
         style="margin-left: 5px;"></span>
     </button>
     <button *ngIf="onMobile() && !romName" (click)="useJoystick = !useJoystick" class="emuMenuButton"

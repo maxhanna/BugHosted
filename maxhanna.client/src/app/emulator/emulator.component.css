@@ -142,4 +142,7 @@
   text-align: center;
   padding: 20px;
   color: var(--secondary-font-color);
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }

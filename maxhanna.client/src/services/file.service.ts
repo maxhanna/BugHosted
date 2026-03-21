@@ -594,14 +594,14 @@ export class FileService {
       return null;
     }
   }
-  async notifyFollowersFileUploaded(userId: number, fileId: number, fileCount?: number) {
+  async notifyFollowersFileUploaded(userId: number, userName: string, fileId: number, fileCount?: number) {
     try {
       const response = await fetch(`/file/notifyfollowersfileuploaded`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ UserId: userId, FileId: fileId, FileCount: fileCount ?? 1 }),
+        body: JSON.stringify({ UserId: userId, UserName: userName, FileId: fileId, FileCount: fileCount ?? 1 }),
       });
 
       return await response.json();
