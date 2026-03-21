@@ -1219,7 +1219,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     await this.getDirectory();
     try {
       const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
-      await this.fileService.recordSearch(topic, 'file', user?.id);
+      if (topic && topic.trim() !== '') {
+        await this.fileService.recordSearch(topic, 'file', user?.id);
+      }
     } catch { }
   }
   async fileTopicClicked(topics: Topic[]) {
@@ -1462,7 +1464,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       // record search as user typed and executed
       try {
         const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
-        await this.fileService.recordSearch(this.searchTerms, 'file', user?.id);
+        if (this.searchTerms && this.searchTerms.trim() !== '') {
+          await this.fileService.recordSearch(this.searchTerms, 'file', user?.id);
+        }
       } catch { }
       this.scrollToTop();
       this.loadingSearch = false;
@@ -1715,14 +1719,19 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   async onSystemFilterClick(key: string) {
-    if (key.toLowerCase() === 'saturn') {
-      // Special Saturn filter: only show files with RomMetadata.ActualSystem === 'saturn'
+    if (key.toLowerCase() === 'saturn' || key.toLowerCase() === 'ps1' || key.toLowerCase() === 'psx') {
       this.activeRomSystems = [key];
       this.fileTypeFilter = '';
       this.goToFirstPage();
       this.startLoading();
       try {
-        await this.getDirectoryWithActualSystem('saturn');
+        let systemKey = undefined;
+        if (key.toLowerCase() === 'saturn') {
+          systemKey = 'yabause';
+        } else if (key.toLowerCase() === 'ps1' || key.toLowerCase() === 'psx') {
+          systemKey = 'pcsx_rearmed';
+        }
+        await this.getDirectoryWithActualSystem("yabause");
       } finally {
         this.stopLoading();
       }
