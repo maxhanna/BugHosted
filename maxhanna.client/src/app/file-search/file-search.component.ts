@@ -18,6 +18,7 @@ import { RomService } from '../../services/rom.service';
 import { RatingsService } from '../../services/ratings.service';
 import { FileAccessLog } from '../../services/datacontracts/file/file-access-log';
 import { FileNote } from '../../services/datacontracts/file/file-note';
+import { Core } from '../emulator/emulator-types';
 
 @Component({
   selector: 'app-file-search',
@@ -1731,7 +1732,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         } else if (key.toLowerCase() === 'ps1' || key.toLowerCase() === 'psx') {
           systemKey = 'pcsx_rearmed';
         }
-        await this.getDirectoryWithActualSystem("yabause");
+        if (systemKey) {
+          await this.getDirectoryWithActualSystem(systemKey as Core); 
+        } else {
+          this.toggleRomSystem(key);
+        }
       } finally {
         this.stopLoading();
       }
@@ -1740,7 +1745,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
 
-  async getDirectoryWithActualSystem(actualSystem: string) {
+  async getDirectoryWithActualSystem(actualSystem: Core) {
     this.actualSystemFilter = actualSystem;
     await this.getDirectory();
     this.stopLoading();
