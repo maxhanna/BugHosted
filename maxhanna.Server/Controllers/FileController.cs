@@ -55,7 +55,8 @@ namespace maxhanna.Server.Controllers
       [FromQuery] bool showHidden = false,
       [FromQuery] string sortOption = "Latest",
       [FromQuery] bool showFavouritesOnly = false,
-      [FromQuery] bool includeRomMetadata = false
+      [FromQuery] bool includeRomMetadata = false,
+      [FromQuery] string? actualSystem = null
     )
     {
       if (string.IsNullOrEmpty(directory))
@@ -198,8 +199,10 @@ namespace maxhanna.Server.Controllers
               SELECT COUNT(*)
               FROM maxhanna.file_uploads f
               LEFT JOIN users u ON f.user_id = u.id
+              {(!string.IsNullOrWhiteSpace(actualSystem) ? " LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
               WHERE 1=1 
                   {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
+                  {(!string.IsNullOrWhiteSpace(actualSystem) ? " AND rso.system_core = @actualSystem " : "")}
                   AND (
                       f.is_public = 1
                       OR f.user_id = @userId
@@ -217,6 +220,10 @@ namespace maxhanna.Server.Controllers
           // Required parameters
           countCmd.Parameters.AddWithValue("@folderPath", directory);
           countCmd.Parameters.AddWithValue("@userId", user?.Id ?? 0);
+          if (!string.IsNullOrWhiteSpace(actualSystem))
+          {
+            countCmd.Parameters.AddWithValue("@actualSystem", actualSystem);
+          }
 
           // Add search parameters (e.g. @FullTextSearch)
           foreach (var p in countParams)
@@ -288,7 +295,7 @@ namespace maxhanna.Server.Controllers
               f.last_access,
               f.access_count,
               f.notes,
-              {(includeRomMetadata ? @"   
+              {(includeRomMetadata || !string.IsNullOrWhiteSpace(actualSystem) ? @"   
               rigdb.igdb_game_id        AS romIgdbGameId
               , rigdb.igdb_name           AS romIgdbName
               , rigdb.summary             AS romSummary
@@ -315,11 +322,12 @@ namespace maxhanna.Server.Controllers
             LEFT JOIN user_display_pictures udp  ON udp.user_id = u.id
             LEFT JOIN user_display_pictures luudp ON luudp.user_id = uu.id
             LEFT JOIN file_uploads udpfl ON udp.file_id = udpfl.id 
-            {(includeRomMetadata ? @" 
+            {(includeRomMetadata || !string.IsNullOrWhiteSpace(actualSystem) ? @" 
             LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
             LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
             WHERE 1=1
               {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
+              {(!string.IsNullOrWhiteSpace(actualSystem) ? " AND rso.system_core = @actualSystem " : "")}
               AND (f.is_public = 1 OR f.user_id = @userId OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON)))
               {searchCondition}
               {fileTypeCondition}
@@ -348,6 +356,10 @@ namespace maxhanna.Server.Controllers
           if (!string.IsNullOrEmpty(search))
           {
             command.Parameters.AddWithValue("@search", "%" + search + "%");
+          }
+          if (!string.IsNullOrEmpty(actualSystem))
+          {
+            command.Parameters.AddWithValue("@actualSystem", actualSystem);
           }
 
           //Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);

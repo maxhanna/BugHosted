@@ -75,6 +75,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   showVideosOnly = false;
   trendingSearches: string[] = [];
   sortOption: string = '';
+  actualSystemFilter?: string;
   showData = true;
   showShareUserList = false;
   isSearchPanelOpen = false;
@@ -486,7 +487,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.filter.hidden == 'all' ? true : false,
         sortToUse,
         this.showFavouritesOnly,
-        includeRomMetadata
+        includeRomMetadata,
+        this.actualSystemFilter
       ).then(res => {
         if (append && this.directory && this.directory.data) {
           // Normalize and derive thumbnails for newly-appended items before merging
@@ -1667,8 +1669,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       'nes': this.fileService.getNesFileExtensions(),
       'snes': this.fileService.getSnesFileExtensions(),
       'genesis': this.fileService.getSegaFileExtensions(),
-      'psp': this.fileService.getPspFileExtensions()
-      , 'saturn': this.fileService.getSaturnFileExtensions()
+      'psp': this.fileService.getPspFileExtensions(),
+      'saturn': this.fileService.getSaturnFileExtensions()
     };
   }
  
@@ -1690,13 +1692,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     return candidates.filter(k => this.romSystemExtensions[k].some(ext => lowerAllowed.includes(ext)));
   }
 
+
   toggleRomSystem(key: string) {
+    // Default behavior for non-Saturn systems
     const idx = this.activeRomSystems.indexOf(key);
     if (idx >= 0) {
-      // remove
       this.activeRomSystems.splice(idx, 1);
     } else {
-      // add
       this.activeRomSystems.push(key);
     }
 
@@ -1706,10 +1708,33 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       return;
     }
 
-    // Build a deduplicated list of extensions from selected systems
     const exts = Array.from(new Set(this.activeRomSystems.flatMap(k => this.romSystemExtensions[k] ?? [k])));
     this.fileTypeFilter = exts.join(',');
+    this.actualSystemFilter = undefined;
     this.onFiletypeFilterChange(true);
+  }
+
+  async onSystemFilterClick(key: string) {
+    if (key.toLowerCase() === 'saturn') {
+      // Special Saturn filter: only show files with RomMetadata.ActualSystem === 'saturn'
+      this.activeRomSystems = [key];
+      this.fileTypeFilter = '';
+      this.goToFirstPage();
+      this.startLoading();
+      try {
+        await this.getDirectoryWithActualSystem('saturn');
+      } finally {
+        this.stopLoading();
+      }
+    } else {
+      this.toggleRomSystem(key);
+    }
+  }
+
+  async getDirectoryWithActualSystem(actualSystem: string) {
+    this.actualSystemFilter = actualSystem;
+    await this.getDirectory();
+    this.stopLoading();
   }
 
   showFavouritesToggled() {

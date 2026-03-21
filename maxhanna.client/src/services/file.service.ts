@@ -176,7 +176,8 @@ export class FileService {
     showHidden?: boolean,
     sortOption?: string,
     showFavouritesOnly?: boolean,
-    includeRomMetadata?: boolean // ✅ NEW
+    includeRomMetadata?: boolean, // ✅ NEW
+    actualSystem?: string
   ) {
     const params = new URLSearchParams();
 
@@ -196,6 +197,9 @@ export class FileService {
     // ✅ add this
     if (includeRomMetadata !== undefined) {
       params.append('includeRomMetadata', includeRomMetadata.toString());
+    }
+    if (actualSystem) {
+      params.append('actualSystem', actualSystem);
     }
 
     try {
