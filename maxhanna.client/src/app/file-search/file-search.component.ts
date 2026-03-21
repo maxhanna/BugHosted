@@ -1662,9 +1662,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
 
-
-  // Map logical system keys to extensions understood by the file filter.
-  // Use arrays from FileService where available to keep a single source of truth.
   private get romSystemExtensions(): { [key: string]: string[] } {
     return {
       'n64': (this.fileService.n64FileExtensions && this.fileService.n64FileExtensions.length) ? this.fileService.n64FileExtensions : ['n64', 'z64', 'v64'],
