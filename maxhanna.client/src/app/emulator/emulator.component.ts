@@ -703,7 +703,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     w.EJS_fullscreenOnLoad = false;     // start in-window, let user choose fullscreen (bad option, to delete)
     w.EJS_fullscreenOnLoaded = false;   // start in-window, let user choose fullscreen
     w.EJS_fullscreen = false;           // start in-window, let user choose fullscreen (legacy option)
-    w.EJS_threads = true;               // allow cores to use threads if they want (e.g. for async save state capture); you can disable if you have issues with certain browsers/devices
+    const canUseThreads = this.canUseThreads(core, system);
+    w.EJS_threads = canUseThreads;               // allow cores to use threads if they want (e.g. for async save state capture); you can disable if you have issues with certain browsers/devices
     w.EJS_color = componentBackgroundColor;        // Sets the main color theme for the emulator
     w.EJS_backgroundColor = componentBackgroundColor; // Sets the background color for the emulator    
     if (systemIcon) {
@@ -714,10 +715,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
     if (this.onMobile() && (core === 'melonds' || core === 'nds' || core === 'desmume')) {
       this.applyNDSCoreSettingsForMobile(w);
-    }
-    if (core === 'mupen64plus_next' || system === 'n64') {
-      this.applyN64CoreSettings(w);
-    }
+    } 
     const isDPADCentric = (system && (['nes', 'snes', 'gb', 'gbc', 'gba', 'genesis', 'saturn', 'sega_cd', '3do', 'nds'] as string[]).includes(system)) || core === 'yabause';
     const isLeftAndRightJoystickInverted = (system && ['n64'].includes(system));
     const rightStickValues = {
@@ -2758,20 +2756,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     w.EJS_vsync = false;
     w.EJS_disableLocalStorage = true; // avoid extra storage churn 
   }
-  applyN64CoreSettings(w: any) { 
-    w.EJS_GL_Options = {
-      alpha: false,
-      antialias: false,
-      depth: true,         // N64 does need depth; true is OK
-      stencil: false,
-      preserveDrawingBuffer: false,
-      powerPreference: 'high-performance',
-      // If your build supports it, you can hint a version:
-      // preferWebGLVersion: 1,   // <- optional flag in some EJS builds
-    };
-    // If your EJS build exposes a version force:
-    // w.EJS_forceWebGLVersion = 1; // fall back to WebGL1 on flaky devices  
-  }
+ 
   async applyPSPPerformanceTweak() {
     const core = (window as any).EJS_core;
     if (core !== 'psp' && core !== 'ppsspp') return;
@@ -3193,5 +3178,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'smsplus': return 'segaMS';
       default: return undefined; // let EmulatorJS derive it
     }
+  }
+
+  private canUseThreads(core: Core, system: System): boolean {
+    if (system === 'psp' || core === 'psp' || core === 'ppsspp') {
+      return true;
+    }
+    return false;
   }
 }
