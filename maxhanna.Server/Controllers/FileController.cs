@@ -99,6 +99,7 @@ namespace maxhanna.Server.Controllers
             }
           }
         }
+
         var normalizedActualCores = new List<string>();
         if (actualCore != null && actualCore.Any())
         {
@@ -132,6 +133,8 @@ namespace maxhanna.Server.Controllers
           var replaced = string.Join(",", sanitized);
           actualSystemCondition = " AND LOWER(rso.system_core) IN (" + replaced + ") ";
         }
+
+        Console.WriteLine($"DEBUG GetDirectory: fileTypeCondition: {fileTypeCondition}, actualSystemCondition: {actualSystemCondition}, showHidden: {showHidden}, showFavouritesOnly: {showFavouritesOnly}, sortOption: {sortOption}, includeRomMetadata: {includeRomMetadata}, fileId: {(fileId.HasValue ? fileId.Value.ToString() : "null")}");
         
         string fileIdCondition = fileId.HasValue ? " AND f.id = @fileId" : "";
         bool isRomSearch = !string.IsNullOrWhiteSpace(actualSystemCondition) || DetermineIfRomSearch(normalizedFileTypes);
@@ -382,7 +385,7 @@ namespace maxhanna.Server.Controllers
           {
             command.Parameters.AddWithValue("@search", "%" + search + "%");
           } 
-          //Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
+          Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
           var rawNotesByFileId = new Dictionary<int, List<(int UserId, string? Note)>>();
           using (var reader = command.ExecuteReader())
           {
