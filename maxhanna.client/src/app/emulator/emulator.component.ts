@@ -327,7 +327,7 @@ private _lastCanvasBufH = 0;
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
     const core = this.detectCoreEnhanced(fileName, effectiveForcedCore);
     (this as any).currentCore = core;
-    console.log(`%c[EJS] Detected core "${core}" for file "${fileName}" (ext: "${this.fileService.getFileExtension(fileName)}") forcedCore=${effectiveForcedCore ?? 'none'}`, 'color:#4af');
+    console.log(`%c[EMU] Detected core "${core}" for file "${fileName}" (ext: "${this.fileService.getFileExtension(fileName)}") forcedCore=${effectiveForcedCore ?? 'none'}`, 'color:#4af');
     const renderClamp = this.getRenderClampForCore(core);
     (window as any).EJS_renderClamp = renderClamp;
     window.EJS_core = core;
@@ -339,7 +339,7 @@ private _lastCanvasBufH = 0;
 
     if (this.heavyCores.has(core)) {
       this.autosaveIntervalTime = 10 * 60 * 1000; // 10 minutes
-      //console.log(`[EJS] Detected core "${core}", setting autosave interval to 10 minutes to reduce upload frequency for large save files.`);
+      //console.log(`[EMU] Detected core "${core}", setting autosave interval to 10 minutes to reduce upload frequency for large save files.`);
     } else {
       this.autosaveIntervalTime = 3 * 60 * 1000; // default 3 minutes
     }
@@ -351,15 +351,15 @@ private _lastCanvasBufH = 0;
         if (!this.parentRef?.user?.id || !this.romName) return;
         // Reuse your existing service to fetch latest server state
         const blob = await this.loadSaveStateFromDB(this.romName);
-        if (!blob) { console.warn('[EJS] No cloud save found to load'); return; }
+        if (!blob) { console.warn('[EMU] No cloud save found to load'); return; }
 
         const u8 = new Uint8Array(await blob.arrayBuffer());
         const { useEjs, useMgr } = await this.waitForLoadApis(4000);
         if (useEjs) return useEjs(u8);
         if (useMgr) return useMgr(u8);
-        console.warn('[EJS] No load API available on load button press');
+        console.warn('[EMU] No load API available on load button press');
       } catch (e) {
-        console.warn('[EJS] onLoadState fetch/apply failed', e);
+        console.warn('[EMU] onLoadState fetch/apply failed', e);
       }
     };
     this.applyEjsRunOptions(this.system, core);
@@ -384,10 +384,10 @@ private _lastCanvasBufH = 0;
 
         this.ensureSaveStatePolyfill();
       } catch {
-        console.warn('[EJS] EJS_ready callback failed');
+        console.warn('[EMU] EJS_ready callback failed');
       }
 
-      try { this.onEmulatorReadyForSizing(); } catch { console.warn('[EJS] onEmulatorReadyForSizing failed'); }
+      try { this.onEmulatorReadyForSizing(); } catch { console.warn('[EMU] onEmulatorReadyForSizing failed'); }
     }; 
 
     // Ensure menu is closed when the emulator starts
@@ -423,7 +423,7 @@ private _lastCanvasBufH = 0;
               try {
                 const ok = await this.applySaveStateIfAvailable(saveStateBlob);
               } catch {
-                console.warn('[EJS] Unable to apply save state on startup');
+                console.warn('[EMU] Unable to apply save state on startup');
               }
               this.lockGameHostHeight();
             });
@@ -499,7 +499,7 @@ private _lastCanvasBufH = 0;
         throw new Error(`${it.type} missing inputValues`);
       }
     }
-    console.log('%c[EJS] assigning custom VirtualGamepadSettings ✔', 'color:#4f4', window.EJS_VirtualGamepadSettings,);
+    console.log('%c[EMU] assigning custom VirtualGamepadSettings ✔', 'color:#4f4', window.EJS_VirtualGamepadSettings,);
   }
 
   private hideEJSMenu() {
@@ -772,7 +772,7 @@ private _lastCanvasBufH = 0;
             : 'LEFT_STICK_X:+1'
     };
 
-    console.log(`%c[EJS] Configuring controls for system="${system}" core="${core}" isDPADCentric=${isDPADCentric} isLeftAndRightJoystickInverted=${isLeftAndRightJoystickInverted}`, 'color: orange; font-weight: bold;', { rightStickValues, leftStickValues });
+    console.log(`%c[EMU] Configuring controls for system="${system}" core="${core}" isDPADCentric=${isDPADCentric} isLeftAndRightJoystickInverted=${isLeftAndRightJoystickInverted}`, 'color: orange; font-weight: bold;', { rightStickValues, leftStickValues });
 
     const gpOnly: Record<number, unknown> = {
       0: { value: '', value2: 'BUTTON_1' },
@@ -861,7 +861,7 @@ private _lastCanvasBufH = 0;
 
     const gm = await this.waitForGameManager(15000);
     if (!gm) {
-      console.warn('[EJS] No gameManager found; cannot polyfill EJS_saveState');
+      console.warn('[EMU] No gameManager found; cannot polyfill EJS_saveState');
       return;
     }
 
@@ -885,9 +885,9 @@ private _lastCanvasBufH = 0;
           const data = mod.HEAPU8.subarray(dataStart, dataStart + size);
           return new Uint8Array(data);
         };
-        // console.log('[EJS] Patched gameManager.getState() → save_state_info cwrap (old-core compat)');
+        // console.log('[EMU] Patched gameManager.getState() → save_state_info cwrap (old-core compat)');
       } catch (e) {
-        console.warn('[EJS] Failed to patch getState():', e);
+        console.warn('[EMU] Failed to patch getState():', e);
       }
     }
 
@@ -900,9 +900,9 @@ private _lastCanvasBufH = 0;
         const bytes = await Promise.resolve(mgr.getState());
         return bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes as ArrayBufferLike);
       };
-      // console.log('[EJS] Polyfilled EJS_saveState via gameManager.getState()');
+      // console.log('[EMU] Polyfilled EJS_saveState via gameManager.getState()');
     } else {
-      console.warn('[EJS] No gameManager.getState() found; cannot polyfill EJS_saveState');
+      console.warn('[EMU] No gameManager.getState() found; cannot polyfill EJS_saveState');
     }
   }
 
@@ -938,13 +938,13 @@ private _lastCanvasBufH = 0;
     const now = Date.now();
     // If a save is already in progress, skip duplicate uploads
     if (this._saveInProgress) {
-      //console.log('[EJS] onSaveState: save already in progress; skipping');
+      //console.log('[EMU] onSaveState: save already in progress; skipping');
       if (this._pendingSaveResolve) { try { this._pendingSaveResolve(true); } catch { } this._pendingSaveResolve = undefined; }
       return;
     }
     // Rate-limit saves to once per 10s
     if (!this._destroyed && now - this._lastSaveTime < 10000) {
-      //console.log('[EJS] onSaveState: recent save detected (<10s); skipping upload');
+      //console.log('[EMU] onSaveState: recent save detected (<10s); skipping upload');
       if (this._pendingSaveResolve) { try { this._pendingSaveResolve(true); } catch { } this._pendingSaveResolve = undefined; }
       return;
     }
@@ -955,7 +955,7 @@ private _lastCanvasBufH = 0;
     // Helpful diagnostics the first few times
     //this.debugDescribePayload(raw); 
     // console.log(
-    //   '[EJS] onSaveState fired.',
+    //   '[EMU] onSaveState fired.',
     //   'user?', !!this.parentRef?.user?.id,
     //   'rom?', !!this.romName,
     //   'hasPayload?', raw != null,
@@ -990,7 +990,7 @@ private _lastCanvasBufH = 0;
     this.cdr.detectChanges();
     // 4) If still nothing, bail gracefully (avoid TypeError in romService)
     if (!u8 || u8.length === 0) {
-      console.warn('[EJS] Save callback had no bytes and no storage fallback found; skipping upload.');
+      console.warn('[EMU] Save callback had no bytes and no storage fallback found; skipping upload.');
       if (this._pendingSaveResolve) { try { this._pendingSaveResolve(false); } catch { } this._pendingSaveResolve = undefined; }
       this.status = tmpStatus;
       return;
@@ -1046,11 +1046,11 @@ private _lastCanvasBufH = 0;
             return true;
           }
         } catch (innerErr: any) {
-          console.warn('[EJS] postSaveCaptureAndUpload: getState() not ready:', innerErr?.message || innerErr);
+          console.warn('[EMU] postSaveCaptureAndUpload: getState() not ready:', innerErr?.message || innerErr);
         }
       }
     } catch (e) {
-      console.warn('[EJS] postSaveCaptureAndUpload failed', e);
+      console.warn('[EMU] postSaveCaptureAndUpload failed', e);
     }
     return false;
   }
@@ -1104,23 +1104,23 @@ private _lastCanvasBufH = 0;
   private async uploadSaveBytes(u8: Uint8Array) {
     const core = (window as any).EJS_core || '';
     if (!this.isValidSaveState(u8, core)) {
-      console.error('[EJS] Refusing to upload invalid save state');
+      console.error('[EMU] Refusing to upload invalid save state');
       this.parentRef?.showNotification('Save state data appears invalid; upload skipped.');
       return false;
     }
     if (!u8?.length) {
-      console.warn('[EJS] uploadSaveBytes: no bytes to upload; skipping');
+      console.warn('[EMU] uploadSaveBytes: no bytes to upload; skipping');
       this.setTmpStatus("No save data captured; upload skipped.");
       return false;
     }
     if (!this.parentRef?.user?.id) {
-      console.warn('[EJS] uploadSaveBytes: no user; skipping upload');
+      console.warn('[EMU] uploadSaveBytes: no user; skipping upload');
       this.setTmpStatus("User not logged in; upload skipped.");
       this.openLoginPanel();
       return false;
     }
     if (!this.romName) {
-      console.warn('[EJS] uploadSaveBytes: no rom; skipping upload');
+      console.warn('[EMU] uploadSaveBytes: no rom; skipping upload');
       this.setTmpStatus("ROM not identified; upload skipped.");
       return false;
     }
@@ -1148,7 +1148,7 @@ private _lastCanvasBufH = 0;
           try { this.setupAutosave(); } catch { }
           return true;
         } else {
-          console.error('[EJS] Save upload failed:', res.errorText);
+          console.error('[EMU] Save upload failed:', res.errorText);
           this.setTmpStatus("Server rejected save upload; please try again.");
           if (!this.isMenuPanelOpen) {
             this.parentRef?.showNotification('Server rejected save upload; please try again.');
@@ -1156,7 +1156,7 @@ private _lastCanvasBufH = 0;
           return false;
         }
       } catch (err) {
-        console.error('[EJS] Save upload exception:', err);
+        console.error('[EMU] Save upload exception:', err);
         error = err;
         this.setTmpStatus("Error uploading save; please try again.", "Running");
         if (!this.isMenuPanelOpen) {
@@ -1432,7 +1432,7 @@ private _lastCanvasBufH = 0;
       try {
         if (obj && typeof obj.saveState === 'function') {
           this._saveFn = async () => { try { await obj.saveState(); } catch { } };
-          console.log('[EJS] save API bound from', obj);
+          console.log('[EMU] save API bound from', obj);
           return true;
         }
       } catch { }
@@ -1491,9 +1491,9 @@ private _lastCanvasBufH = 0;
           if (document.body.contains(btn)) btn.click();
         } catch { }
       };
-      //console.log('[EJS] save API bound to Quick Save button');
+      //console.log('[EMU] save API bound to Quick Save button');
     } else {
-      console.warn('[EJS] Quick Save button not found; cannot bind UI-based save');
+      console.warn('[EMU] Quick Save button not found; cannot bind UI-based save');
     }
   }
 
@@ -1576,7 +1576,7 @@ private _lastCanvasBufH = 0;
           try {
             const u8 = this.base64ToU8(v);
             if (u8.length) {
-              //console.log('[EJS] localStorage savestate (b64) at', k, 'bytes=', u8.length); 
+              //console.log('[EMU] localStorage savestate (b64) at', k, 'bytes=', u8.length); 
               return u8;
             }
           } catch { }
@@ -1590,14 +1590,14 @@ private _lastCanvasBufH = 0;
           if (obj && Array.isArray(obj.data)) {
             const u8 = new Uint8Array(obj.data);
             if (u8.length) {
-              //console.log('[EJS] localStorage savestate JSON(data[]) at', k, 'bytes=', u8.length);
+              //console.log('[EMU] localStorage savestate JSON(data[]) at', k, 'bytes=', u8.length);
               return u8;
             }
           }
           if (obj && typeof obj.buffer === 'string') {
             const u8 = this.base64ToU8(obj.buffer);
             if (u8.length) {
-              //console.log('[EJS] localStorage savestate JSON(buffer b64) at', k, 'bytes=', u8.length); 
+              //console.log('[EMU] localStorage savestate JSON(buffer b64) at', k, 'bytes=', u8.length); 
               return u8;
             }
           }
@@ -1625,7 +1625,7 @@ private _lastCanvasBufH = 0;
         if (!u8 || !u8.length) continue;
         if (!best || u8.length > best.length) best = u8; // pick largest
       }
-      //if (best) console.log('[EJS] IDB (localforage) savestate bytes=', best.length);
+      //if (best) console.log('[EMU] IDB (localforage) savestate bytes=', best.length);
       return best || null;
     } catch { return null; }
   }
@@ -1757,7 +1757,7 @@ private _lastCanvasBufH = 0;
           await new Promise(r => setTimeout(r, 200));
         }
         if (!this._ejsReady) {
-          console.warn('[EJS] Timed out waiting for EJS_ready; cannot apply save state.');
+          console.warn('[EMU] Timed out waiting for EJS_ready; cannot apply save state.');
           return false;
         }
       }
@@ -1782,9 +1782,9 @@ private _lastCanvasBufH = 0;
         }
 
         if (!coreReady) {
-          console.warn('[EJS] Core did not report state support within 60 s — trying load anyway…');
+          console.warn('[EMU] Core did not report state support within 60 s — trying load anyway…');
         } else {
-          console.log(`[EJS] Core reports supportsStates=1 after ${Date.now() - start} ms`);
+          console.log(`[EMU] Core reports supportsStates=1 after ${Date.now() - start} ms`);
         }
         await new Promise(r => setTimeout(r, 2000));
       }
@@ -1812,12 +1812,12 @@ private _lastCanvasBufH = 0;
             return true;
           }
 
-          console.warn('[EJS] No load API available; could not apply save state.');
+          console.warn('[EMU] No load API available; could not apply save state.');
           this.status = 'Running';
           this.cdr.detectChanges();
           return false;
         } catch (e) {
-          console.warn(`[EJS] loadState attempt ${attempt}/${maxRetries} failed:`, e);
+          console.warn(`[EMU] loadState attempt ${attempt}/${maxRetries} failed:`, e);
           if (attempt < maxRetries) {
             this.status = `Save restore failed, retrying… (${attempt}/${maxRetries})`;
             this.cdr.detectChanges();
@@ -1826,13 +1826,13 @@ private _lastCanvasBufH = 0;
         }
       }
 
-      console.warn('[EJS] All loadState attempts exhausted; save state not loaded.');
+      console.warn('[EMU] All loadState attempts exhausted; save state not loaded.');
       this.parentRef?.showNotification('Could not restore save state; starting game without it.');
       this.status = 'Running';
       this.cdr.detectChanges();
       return false;
     } catch (e) {
-      console.warn('[EJS] applySaveStateIfAvailable failed', e);
+      console.warn('[EMU] applySaveStateIfAvailable failed', e);
       this.parentRef?.showNotification('Error applying save state; starting game without it.');
       return false;
     }
@@ -1894,11 +1894,11 @@ private _lastCanvasBufH = 0;
           if (res.ok) {
             await this.removePendingSave(rec.id); // <-- remove after success
           } else {
-            console.warn('[EJS] failed to upload pending save:', res.errorText);
+            console.warn('[EMU] failed to upload pending save:', res.errorText);
           }
-        } catch (e) { console.warn('[EJS] uploadPendingSavesOnStartup error', e); }
+        } catch (e) { console.warn('[EMU] uploadPendingSavesOnStartup error', e); }
       }
-    } catch (e) { console.warn('[EJS] uploadPendingSavesOnStartup failed', e); }
+    } catch (e) { console.warn('[EMU] uploadPendingSavesOnStartup failed', e); }
   }
 
   /** Create or reuse a tiny stylesheet inside the vpad root. */
@@ -2374,7 +2374,7 @@ private _lastCanvasBufH = 0;
         } catch (e) { /* swallow errors from unknown instances */ }
       }
     } catch (e) {
-      console.warn('[EJS] resizeCanvasBuffer failed', e);
+      console.warn('[EMU] resizeCanvasBuffer failed', e);
     }
   }
 
@@ -2472,21 +2472,21 @@ private _lastCanvasBufH = 0;
     if (!u8) return false;
     const length = u8.length;
     if (length === 0) {
-      console.warn('[EJS] Save state is empty → skipping upload');
+      console.warn('[EMU] Save state is empty → skipping upload');
       this.parentRef?.showNotification('Save state is empty; upload skipped');
       return false;
     }
 
     // All-zero = definitely corrupt/empty
     if (u8.every(b => b === 0)) {
-      console.warn('[EJS] Save state is all zeros → skipping upload');
+      console.warn('[EMU] Save state is all zeros → skipping upload');
       this.parentRef?.showNotification('Save state appears to be empty/corrupt (all zeros); upload skipped');
       return false;
     }
 
     const min = MIN_STATE_SIZE[core] ?? 4 * 1024; // safe default
     if (length < min) {
-      console.warn(`[EJS] Save state too small for core ${core} (${length} bytes < ${min}) → skipping`);
+      console.warn(`[EMU] Save state too small for core ${core} (${length} bytes < ${min}) → skipping`);
       this.parentRef?.showNotification(`Save state is smaller than expected for this game/core; it may be corrupt. Upload skipped.`);
       return false;
     }
@@ -3227,7 +3227,7 @@ private _lastCanvasBufH = 0;
   } 
     
   private forceCanvasRelayout(): void { 
-    console.log('Forcing canvas relayout');
+    console.log('%c[EMU] Forcing canvas relayout ✔', 'color:#4af');
     window.dispatchEvent(new Event('resize'));
   } 
 
