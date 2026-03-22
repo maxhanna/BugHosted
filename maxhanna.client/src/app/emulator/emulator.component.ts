@@ -53,10 +53,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   preferSixButtonGenesis: boolean = true;
   loadWithoutSave = false;
   systemCandidates: Array<{ label: string; core?: Core }> = [];
-  selectedSystemCore?: Core | null = null; 
-private _resizeRaf?: number;
-private _lastCanvasCssW = 0;
-private _lastCanvasCssH = 0;
+  selectedSystemCore?: Core | null = null;  
 private _lastCanvasBufW = 0;
 private _lastCanvasBufH = 0; 
   private autosaveInterval: any;
@@ -67,11 +64,7 @@ private _lastCanvasBufH = 0;
   private _destroyed = false;
   private _pendingSaveResolve?: (v?: any) => void;
   private _pendingSaveTimer?: any;
-  private _captureSaveResolve?: (u8: Uint8Array | null) => void;
-  // private _gameSizeObs?: ResizeObserver;
-  // private _onResize?: () => void;
-  // private _onVVResize?: () => void;
-  // private _onOrientation?: () => void;
+  private _captureSaveResolve?: (u8: Uint8Array | null) => void; 
   private CORE_REGISTRY: CoreDescriptor[] = [];
   private _saveFn?: () => Promise<void>;
   private _lastSaveTime: number = 0;
@@ -87,7 +80,7 @@ private _lastCanvasBufH = 0;
   private readonly SYS_PICK_KEY = 'emu:preferredCoreByExt';
   private readonly heavyCores = new Set<Core>([
     'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mednafen_psx',
-    'mupen64plus_next', 'nds', 'melonDS', 'melonds',
+    'mupen64plus_next', 'nds', 'melonDS', 'melonds', 'desmume', 'desmume2015',
     'psp', 'ppsspp', 'dolphin', 'flycast', 'naomi'
   ]);
   constructor(
@@ -556,6 +549,10 @@ private _lastCanvasBufH = 0;
       case 'nds':
         return '/assets/emulatorjs/data/cores/dsbios.zip';
 
+      case 'desmume':
+      case 'desmume2015':
+        return '/assets/emulatorjs/data/cores/DESMUME.zip';
+
       // SNES (Snes9x)
       case 'snes9x':
         return '/assets/emulatorjs/data/cores/Snes9x.zip';
@@ -621,6 +618,9 @@ private _lastCanvasBufH = 0;
       case 'fbneo':
       case 'mame2003_plus':
         return undefined;
+
+      case 'dosbox': 
+        return '/assets/emulatorjs/data/cores/DOSBOX.zip';
 
       // By default, do not supply a BIOS URL — caller will treat undefined as "no BIOS".
       default:
@@ -2755,11 +2755,6 @@ private _lastCanvasBufH = 0;
   }
 
   applyN64CoreSettings(w: any) {
-    // Force WebGL2 for N64 cores. The report JSON (cores/reports/mupen64plus_next.json)
-    // specifies defaultWebGL2:true, but if the fetch fails at runtime the emulator
-    // falls back to the legacy (WebGL1) WASM binary which crashes with
-    // "memory access out of bounds" / "table index is out of bounds" errors.
-    // Setting webgl2Enabled via defaultOptions ensures the non-legacy WASM is used.
     w.EJS_defaultOptions = Object.assign({}, w.EJS_defaultOptions || {}, {
       'webgl2Enabled': 'enabled'
     });
@@ -2913,7 +2908,7 @@ applyNDSCoreSettingsForMobile(w: any) {
       // --- Nintendo ---
       { core: 'mupen64plus_next', label: 'Nintendo 64', exts: exN64, maybeExts: exAmbig, hints: [/\bN64\b/i] },
       { core: 'melonds', label: 'Nintendo DS (melonDS)', exts: exNDS, maybeExts: exAmbig, hints: [/\bNDS\b|\bDS\b/i] },
-      { core: 'desmume', label: 'Nintendo DS (DeSmuME)', exts: exNDS, maybeExts: exAmbig, hints: [/\bNDS\b|\bDS\b/i] },
+      { core: 'desmume2015', label: 'Nintendo DS (DeSmuME)', exts: exNDS, maybeExts: exAmbig, hints: [/\bNDS\b|\bDS\b/i] },
       { core: 'dolphin', label: 'GameCube / Wii (Dolphin)', exts: [], maybeExts: exAmbig, hints: [/\bGAMECUBE\b|\bDOLPHIN\b|\bGC\b|\bWII\b/i] },
       { core: 'mgba', label: 'Game Boy Advance', exts: exGBA, maybeExts: [], hints: [/\bGBA\b/i] },
       { core: 'mgba', label: 'Game Boy Advance', exts: exGBx, maybeExts: [], hints: [/\bGBA\b/i] },
@@ -3071,15 +3066,16 @@ applyNDSCoreSettingsForMobile(w: any) {
       case 'n64': return 'mupen64plus_next';
       case 'gamecube': return 'dolphin';
       case 'gc': return 'dolphin';
-      case 'nds': return 'melonds';
-      case 'nintendods': return 'melonds';
-      case 'ndsi': return 'melonds';
+      case 'nds': return this.onMobile() ? 'desmume2015' : 'melonds';
+      case 'nintendods': return this.onMobile() ? 'desmume2015' : 'melonds';
+      case 'ndsi': return this.onMobile() ? 'desmume2015' : 'melonds';
       case 'snes': return 'snes9x';
       case 'nes': return 'fceumm';
       case 'gba': return 'mgba';
       case 'gb':
       case 'gbc': return 'mgba';
       case 'vb': return 'mednafen_vb';
+      case 'dos': return 'dosbox';
       default: return null;
     }
   }

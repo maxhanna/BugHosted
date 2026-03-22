@@ -117,6 +117,7 @@ export type Core =
   | 'virtualjaguar'
   | 'gearcoleco'
   | 'puae'
+  | 'dosbox'
   | 'vitaquake3'
   | 'vice_x64';
 
