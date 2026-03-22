@@ -1913,40 +1913,41 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
    */
   getSystemIconUrl(key: string, actualSystem?: string): string | undefined {
     if (!key) return undefined;
-
+    let base = '/assets/';
     // If a DB-persisted core override exists, map it directly to an icon
     if (actualSystem) {
       const coreIconMap: { [core: string]: string } = {
-        'pcsx_rearmed': '/assets/ps1icon.png',
-        'mednafen_psx_hw': '/assets/ps1icon.png',
-        'duckstation': '/assets/ps1icon.png',
-        'mednafen_psx': '/assets/ps1icon.png',
-        'ppsspp': '/assets/pspicon.png',
-        'yabause': '/assets/saturnicon.png',
-        'genesis_plus_gx': '/assets/segaicon.png',
-        'dreamcast': '/assets/dreamcasticon.png',
-        'naomi': '/assets/dreamcasticon.png',
-        'flycast': '/assets/dreamcasticon.png',
-        'picodrive': '/assets/segaicon.png',
-        'opera': '/assets/ps1icon.png',
-        'mupen64plus_next': '/assets/n64icon.png',
-        'melonds': '/assets/ndsicon.png',
-        'mgba': '/assets/gbaicon.png',
-        'gambatte': '/assets/gbicon.png',
-        'fceumm': '/assets/nesicon.png',
-        'snes9x': '/assets/snesicon.png',
-        'mednafen_vb': '/assets/nesicon.png',
-        'mame2003_plus': '/assets/atariicon.png',
-        'fbneo': '/assets/atariicon.png',
-        'stella2014': '/assets/atariicon.png',
-        'prosystem': '/assets/atariicon.png',
-        'handy': '/assets/atariicon.png',
-        'virtualjaguar': '/assets/atariicon.png',
-        'saturn': '/assets/saturnicon.png',
-        'dolphin': '/assets/gcicon.png',
+        'pcsx_rearmed': 'ps1icon.png',
+        'mednafen_psx_hw': 'ps1icon.png',
+        'duckstation': 'ps1icon.png',
+        'mednafen_psx': 'ps1icon.png',
+        'ppsspp': 'pspicon.png',
+        'yabause': 'saturnicon.png',
+        'genesis_plus_gx': 'segaicon.png',
+        'dreamcast': 'dreamcasticon.png',
+        'naomi': 'dreamcasticon.png',
+        'flycast': 'dreamcasticon.png',
+        'picodrive': 'segaicon.png',
+        'opera': 'ps1icon.png',
+        'mupen64plus_next': 'n64icon.png',
+        'melonds': 'ndsicon.png',
+        'mgba': 'gbaicon.png',
+        'gambatte': 'gbicon.png',
+        'fceumm': 'nesicon.png',
+        'snes9x': 'snesicon.png',
+        'mednafen_vb': 'nesicon.png',
+        'mame2003_plus': 'atariicon.png',
+        'fbneo': 'atariicon.png',
+        'stella2014': 'atariicon.png',
+        'prosystem': 'atariicon.png',
+        'handy': 'atariicon.png',
+        'virtualjaguar': 'atariicon.png',
+        'saturn': 'saturnicon.png',
+        'gamecube': 'gcicon.png',
+        'dolphin': 'gcicon.png',
       };
       const mapped = coreIconMap[actualSystem];
-      if (mapped) return mapped;
+      if (mapped) return base + mapped;
     }
 
     const exts = this.romSystemExtensions[key];
@@ -1961,45 +1962,44 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     const effectiveExt = guessedSystem ?? rawExt;
 
     const iconMap: { [key: string]: string } = {
-      'n64': '/assets/n64icon.png',
-      'z64': '/assets/n64icon.png',
-      'v64': '/assets/n64icon.png',
-      'a78': '/assets/atariicon.png',
-      '2600': '/assets/atariicon.png',
-      '5200': '/assets/atariicon.png',
-      '7800': '/assets/atariicon.png',
-      'lynx': '/assets/atariicon.png',
-      'jag': '/assets/atariicon.png',
-      'smd': '/assets/segaicon.png',
-      'gen': '/assets/segaicon.png',
-      '32x': '/assets/segaicon.png',
-      'gg': '/assets/segaicon.png',
-      'sms': '/assets/segaicon.png',
-      'md': '/assets/segaicon.png',
-      'snes': '/assets/snesicon.png',
-      'fig': '/assets/snesicon.png',
-      'smc': '/assets/snesicon.png',
-      'sfc': '/assets/snesicon.png',
-      'nds': '/assets/ndsicon.png',
-      'nes': '/assets/nesicon.png',
-      'ps1': '/assets/ps1icon.png',
-      'psp': '/assets/pspicon.png',
-      'pbp': '/assets/pspicon.png',
-      'psx': '/assets/ps1icon.png',
-      'playstation': '/assets/ps1icon.png',
-      // Sega family
-      'saturn': '/assets/saturnicon.png',
-      'dreamcast': '/assets/dreamcasticon.png',
-      'genesis': '/assets/segaicon.png',
-      'gamecube': '/assets/gcicon.png',
-      'gc': '/assets/gcicon.png',
-      'sega': '/assets/segaicon.png',
-      'gb': '/assets/gbicon.png',
-      'gbc': '/assets/gbicon.png',
-      'gba': '/assets/gbaicon.png'
+      'n64': 'n64icon.png',
+      'z64': 'n64icon.png',
+      'v64': 'n64icon.png',
+      'a78': 'atariicon.png',
+      '2600': 'atariicon.png',
+      '5200': 'atariicon.png',
+      '7800': 'atariicon.png',
+      'lynx': 'atariicon.png',
+      'jag': 'atariicon.png',
+      'smd': 'segaicon.png',
+      'gen': 'segaicon.png',
+      '32x': 'segaicon.png',
+      'gg': 'segaicon.png',
+      'sms': 'segaicon.png',
+      'md': 'segaicon.png',
+      'snes': 'snesicon.png',
+      'fig': 'snesicon.png',
+      'smc': 'snesicon.png',
+      'sfc': 'snesicon.png',
+      'nds': 'ndsicon.png',
+      'nes': 'nesicon.png',
+      'ps1': 'ps1icon.png',
+      'psp': 'pspicon.png',
+      'pbp': 'pspicon.png',
+      'psx': 'ps1icon.png',
+      'playstation': 'ps1icon.png',
+      'saturn': 'saturnicon.png',
+      'dreamcast': 'dreamcasticon.png',
+      'genesis': 'segaicon.png',
+      'gamecube': 'gcicon.png',
+      'gc': 'gcicon.png',
+      'sega': 'segaicon.png',
+      'gb': 'gbicon.png',
+      'gbc': 'gbicon.png',
+      'gba': 'gbaicon.png'
     };
 
-    return iconMap[effectiveExt];
+    return base + iconMap[effectiveExt];
   }
   getSystemEmoji(fileName?: string, styling?: string, actualSystem?: string): SafeHtml | string {
     if (!fileName) return '';
