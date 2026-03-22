@@ -373,6 +373,9 @@
       title="Add '{{optionsFile.givenFileName ?? optionsFile.fileName}}' to music playlist.">
       ➕ Add To Music Playlist
     </button>
+    <button (click)="showFileNotes(optionsFile)" [disabled]="isLoading" title="View and manage notes for this file">
+      📝 {{ optionsFile.notesCount ? `(${optionsFile.notesCount})` : '' }} View Notes
+    </button>
   </div>
 
   <div *ngIf="optionsFile && optionsFile.id && editingTopics.includes(optionsFile.id)">
@@ -422,17 +425,7 @@
           </span>
         </span>
       </div>
-    </div>
-    <div class="optionsStatsDiv" *ngIf="!optionsFile.isFolder">
-      <div class="optionsStatsHeader">
-        Notes ({{ optionsFile.notesCount ?? 0 }}):
-      </div>
-      <div class="optionsStatsDescription">
-        <button (click)="showFileNotes(optionsFile)" [disabled]="isLoading" title="View and manage notes for this file">
-          📝 View Notes
-        </button>
-      </div>
-    </div>
+    </div> 
     <div class="optionsStatsDiv" *ngIf="optionsFile.fileType || optionsFile.isFolder">
       <div class="optionsStatsHeader">
         Type:
