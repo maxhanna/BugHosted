@@ -216,7 +216,7 @@ private _lastCanvasBufH = 0;
 
       // Determine extension once
       const ext = this.fileService.getFileExtension(file.fileName);
-      if (!this.selectedSystemCore && this.AMBIGUOUS_EXTS.has(ext) && !dbOverride) {
+      if (!this.selectedSystemCore && this.fileService.getAmbiguousRomExtensions().includes(ext) && !dbOverride) {
         this._pendingFileToLoad = { fileName: file.fileName, fileId: file.id, directory: file.directory };
         this.isSystemSelectPanelOpen = true;
         this.parentRef?.showOverlay();
@@ -1236,7 +1236,7 @@ private _lastCanvasBufH = 0;
       (this.fileService.getN64FileExtensions ? this.fileService.getN64FileExtensions() : []).forEach(e => set.add((e || '').toString().trim().toLowerCase()));
 
       // Include a few common ambiguous/aux extensions that are useful for the emulator UI
-      this.AMBIGUOUS_EXTS.forEach(e => set.add(e));
+      this.fileService.getAmbiguousRomExtensions().forEach(e => set.add(e));
     } catch (err) {
       console.error('Error building allowed file types list; falling back to hardcoded list', err);
       return [
@@ -2888,7 +2888,7 @@ private _lastCanvasBufH = 0;
     // Multi-system disc formats to be treated as ambiguous
     const exAmbig = uniq([
       ...exPS1, ...exPSP, ...exSAT,
-      ...this.AMBIGUOUS_EXTS
+      ...fs.getAmbiguousRomExtensions()
     ]);
 
     // Dreamcast (Flycast, experimental): common formats
@@ -2945,17 +2945,11 @@ private _lastCanvasBufH = 0;
       { core: 'flycast', label: 'Sega Dreamcast (Flycast)', exts: exDC, maybeExts: exAmbig, hints: [/\bDREAMCAST\b|\bNAOMI\b/i] },  // WASM port required [6](https://github.com/nasomers/flycast-wasm)
       { core: 'vitaquake3', label: 'Quake III Arena (vitaQuake 3)', exts: exQ3, maybeExts: [], hints: [/pak0\.pk3/i] }, // loads *.pk3 [2](https://sources.debian.org/src/libretro-core-info/1.14.0-1/vitaquake3_libretro.info/)
     ];
-  }
-
-  /** Central place for ambiguous extensions (chooser-first). */
-  private readonly AMBIGUOUS_EXTS = new Set<string>([
-    'zip', '7z', 'bin', 'cue', 'iso', 'chd', 'img', 'ccd', 'mdf', 'mds', 'nrg', 'gdi', 'cdi', 'pdp'
-  ]);
-
+  } 
 
   private isAmbiguousFile(fileName: string): boolean {
     const ext = this.normExt(fileName, n => this.fileService.getFileExtension(n));
-    return this.AMBIGUOUS_EXTS.has(ext);
+    return this.fileService.getAmbiguousRomExtensions().includes(ext);
   }
 
 
@@ -3026,7 +3020,7 @@ private _lastCanvasBufH = 0;
 
     // 2) Ambiguous extensions: use your existing guesser + registry hints 
     const ambiguousExts = new Set(this.CORE_REGISTRY.flatMap(e => e.maybeExts ?? []));
-    for (const s of this.AMBIGUOUS_EXTS) {
+    for (const s of this.fileService.getAmbiguousRomExtensions()) {
       ambiguousExts.add(s);
     }
 

@@ -101,7 +101,8 @@ export class FileService {
   pspFileExtensions: string[] = ['psp', 'iso', 'cso', 'pbp'];
   snesFileExtensions: string[] = ['snes', 'sfc', 'smc', 'fig', 'swc', 'bs', 'st'];
   saturnFileExtensions: string[] = ['cue', 'chd', 'iso', 'bin'];
-
+  ambiguousRomExtensions: string[] = ['zip', '7z', 'bin', 'cue', 'iso', 'chd', 'img', 'ccd', 'mdf', 'mds', 'nrg', 'gdi', 'cdi', 'pdp']; 
+ 
   getRomFileExtensions(): string[] {
     const all = [
       this.romFileExtensions,
@@ -114,7 +115,8 @@ export class FileService {
       this.ndsFileExtensions,
       this.pspFileExtensions,
       this.snesFileExtensions,
-      this.saturnFileExtensions
+      this.saturnFileExtensions,
+      this.ambiguousRomExtensions
     ];
     return Array.from(new Set(all.flat()));
   }
@@ -165,6 +167,11 @@ export class FileService {
   /** Return PlayStation 1 extensions (delegates to explicit array) */
   getPs1FileExtensions(): string[] {
     return Array.from(this.ps1FileExtensions);
+  }
+
+  /** Return Ambiguous rom extensions (delegates to explicit array) */
+  getAmbiguousRomExtensions(): string[] {
+    return Array.from(this.ambiguousRomExtensions);
   }
 
   getN64TitleKeywords(): string[] { return Array.from(this.n64TitleKeywords); }
