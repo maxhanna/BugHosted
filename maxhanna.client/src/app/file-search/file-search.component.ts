@@ -223,7 +223,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
     this.updateDisplayRomMetadataDesktop();
   }
-  
+
   ngAfterViewChecked() {
     if (this.directoryDisplayDivRef?.nativeElement) {
       const el = this.directoryDisplayDivRef.nativeElement;
@@ -1171,7 +1171,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (!this.openedFiles.includes(file.id)) {
       this.openedFiles.push(file.id);
     }
-  } 
+  }
   get shareLink(): string {
     const fileEntry = this.optionsFile;
     if (!fileEntry) return '';
@@ -1183,7 +1183,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       return `https://bughosted.com/Emulator?${new URLSearchParams(reloadParams).toString()}`;
     }
     return `https://bughosted.com/${fileEntry.directory?.includes("Meme") ? 'Memes' : 'File'}/${fileEntry.id}`;
-  } 
+  }
   openSearchPanel() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
@@ -1677,7 +1677,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       'dreamcast': this.fileService.getRomFileExtensions(),
     };
   }
- 
+
   hideBrokenImg(e: Event): void {
     const img = e?.target as HTMLImageElement | null;
     if (img) img.style.display = 'none';
@@ -1710,71 +1710,17 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.fileTypeFilter = '';
       this.onFiletypeFilterChange(true);
       return;
-    } 
+    }
     const exts = Array.from(new Set(this.activeRomSystems.flatMap(k => this.romSystemExtensions[k] ?? [k])));
-    this.fileTypeFilter = exts.join(','); 
+    this.fileTypeFilter = exts.join(',');
     this.onFiletypeFilterChange(true);
-  }
-
-  /**
-   * Helper to map a system key to its core/system value for filtering.
-   * This centralizes the mapping logic for reuse.
-   */
-  getSystemCoreFromKey(key: string): Core | undefined {
-    const k = key.toLowerCase();
-    // --- Sony ---
-    if (k === 'psp') return 'psp';
-    if (k === 'ps1' || k === 'psx' || k.includes('playstation')) return 'pcsx_rearmed';
-
-    // --- Sega ---
-    if (k === 'genesis' || k.includes('megadrive') || k === 'md') return 'genesis_plus_gx';
-    if (k === 'sega cd' || k === 'megacd' || k === 'mega-cd') return 'genesis_plus_gx';
-    if (k === '32x') return 'picodrive';
-    if (k === 'saturn') return 'yabause';
-    if (k === 'dreamcast') return 'flycast';
-
-    // --- 3DO ---
-    if (k === '3do') return 'opera';
-
-    // --- Nintendo ---
-    if (k === 'n64' || k.includes('nintendo 64')) return 'mupen64plus_next';
-    if (k === 'nds' || k.includes('ds') || k === 'desmume') return 'desmume2015';
-    if (k === 'melonds') return 'melonds';
-    if (k === 'gamecube' || k === 'gc' || k === 'wii' || k === 'dolphin') return 'dolphin';
-    if (k === 'gba' || k.includes('game boy advance')) return 'mgba';
-    if (k === 'gb' || k === 'gbc' || k.includes('game boy color')) return 'mgba';
-    if (k === 'fceumm' || k === 'nes' || k.includes('famicom')) return 'fceumm';
-    if (k === 'snes' || k === 'sfc' || k.includes('super nintendo') || k.includes('super famicom')) return 'snes9x';
-
-    if (k === 'virtual boy' || k === 'vb' || k === 'vboy') return 'mednafen_vb';
-
-    // --- Arcade ---
-    if (k === 'mame' || k.includes('arcade')) return 'mame2003_plus';
-    if (k === 'fbneo' || k === 'neogeo') return 'fbneo';
-
-    // --- Atari ---
-    if (k === 'atari 2600' || k === '2600' || k === 'a26') return 'stella2014';
-    if (k === 'atari 7800' || k === '7800' || k === 'a78') return 'prosystem';
-    if (k === 'lynx' || k === 'atari lynx' || k === 'lnx') return 'handy';
-    if (k === 'jaguar' || k === 'atari jaguar' || k === 'jag') return 'virtualjaguar';
-
-    // --- Coleco / Commodore / Amiga ---
-    if (k === 'colecovision' || k === 'coleco' || k === 'col') return 'gearcoleco';
-    if (k === 'commodore 64' || k === 'c64' || k === 'd64') return 'vice_x64';
-    if (k === 'amiga' || k === 'commodore amiga' || k === 'adf') return 'puae';
-
-    // --- Experimental ---
-    if (k === 'flycast') return 'flycast';
-    if (k === 'vitaquake3' || k === 'quake iii' || k === 'pk3') return 'vitaquake3';
-
-    return undefined;
   }
 
   async onSystemFilterClick(key: string) {
     this.goToFirstPage();
     this.startLoading();
     try {
-      const systemKey = this.getSystemCoreFromKey(key);
+      const systemKey = this.fileService.getSystemCoreFromKey(key);
       if (systemKey) {
         this.setActualCoreFilter(systemKey as Core);
       }
@@ -1790,7 +1736,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     } else {
       if (!this.actualCoreFilter) {
         this.actualCoreFilter = [];
-       }
+      }
       this.actualCoreFilter?.push(coreToAdd);
     }
   }

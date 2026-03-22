@@ -6,7 +6,7 @@ import { FileEntry } from './datacontracts/file/file-entry';
 import { Topic } from './datacontracts/topics/topic';
 import { FileAccessLog } from './datacontracts/file/file-access-log';
 import { FileNote } from './datacontracts/file/file-note';
-import { System } from '../app/emulator/emulator-types';
+import { Core, System } from '../app/emulator/emulator-types';
 
 @Injectable({
   providedIn: 'root'
@@ -857,6 +857,57 @@ export class FileService {
 
     return undefined;
   }
+  
+  getSystemCoreFromKey(key: string): Core | undefined {
+    const k = key.toLowerCase();
+    // --- Sony ---
+    if (k === 'psp') return 'psp';
+    if (k === 'ps1' || k === 'psx' || k.includes('playstation')) return 'pcsx_rearmed';
+
+    // --- Sega ---
+    if (k === 'genesis' || k.includes('megadrive') || k === 'md') return 'genesis_plus_gx';
+    if (k === 'sega cd' || k === 'megacd' || k === 'mega-cd') return 'genesis_plus_gx';
+    if (k === '32x') return 'picodrive';
+    if (k === 'saturn') return 'yabause';
+    if (k === 'dreamcast') return 'flycast';
+
+    // --- 3DO ---
+    if (k === '3do') return 'opera';
+
+    // --- Nintendo ---
+    if (k === 'n64' || k.includes('nintendo 64')) return 'mupen64plus_next';
+    if (k === 'nds' || k.includes('ds') || k === 'desmume') return 'desmume2015';
+    if (k === 'melonds') return 'melonds';
+    if (k === 'gamecube' || k === 'gc' || k === 'wii' || k === 'dolphin') return 'dolphin';
+    if (k === 'gba' || k.includes('game boy advance')) return 'mgba';
+    if (k === 'gb' || k === 'gbc' || k.includes('game boy color')) return 'mgba';
+    if (k === 'fceumm' || k === 'nes' || k.includes('famicom')) return 'fceumm';
+    if (k === 'snes' || k === 'sfc' || k.includes('super nintendo') || k.includes('super famicom')) return 'snes9x';
+
+    if (k === 'virtual boy' || k === 'vb' || k === 'vboy') return 'mednafen_vb';
+
+    // --- Arcade ---
+    if (k === 'mame' || k.includes('arcade')) return 'mame2003_plus';
+    if (k === 'fbneo' || k === 'neogeo') return 'fbneo';
+
+    // --- Atari ---
+    if (k === 'atari 2600' || k === '2600' || k === 'a26') return 'stella2014';
+    if (k === 'atari 7800' || k === '7800' || k === 'a78') return 'prosystem';
+    if (k === 'lynx' || k === 'atari lynx' || k === 'lnx') return 'handy';
+    if (k === 'jaguar' || k === 'atari jaguar' || k === 'jag') return 'virtualjaguar';
+
+    // --- Coleco / Commodore / Amiga ---
+    if (k === 'colecovision' || k === 'coleco' || k === 'col') return 'gearcoleco';
+    if (k === 'commodore 64' || k === 'c64' || k === 'd64') return 'vice_x64';
+    if (k === 'amiga' || k === 'commodore amiga' || k === 'adf') return 'puae';
+
+    // --- Experimental ---
+    if (k === 'flycast') return 'flycast';
+    if (k === 'vitaquake3' || k === 'quake iii' || k === 'pk3') return 'vitaquake3';
+
+    return undefined;
+  }
+    
   parseYoutubeId(url: string): string {
     if (!url) return '';
     try {
