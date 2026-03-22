@@ -115,29 +115,12 @@ namespace maxhanna.Server.Controllers
           }
         }
 
-        string fileTypeCondition = string.Empty;
-        if (normalizedFileTypes.Any())
-        {
-          // sanitize and lower the file type values for SQL IN clause
-          var sanitized = normalizedFileTypes.Select(ft => "'" + (ft ?? string.Empty).ToLower().Replace("'", "''") + "'").ToArray();
-          var replaced = string.Join(",", sanitized);
-          fileTypeCondition = " AND LOWER(f.file_type) IN (" + replaced + ") ";
-        }
+        string combinedTypeCoreCondition = BuildFileTypeAndCoreCondition(normalizedFileTypes, normalizedActualCores, cores);
 
-        string actualSystemCondition = string.Empty;
-        if (normalizedActualCores.Any())
-        {
-          var sanitized = normalizedActualCores.Select(
-            asys => cores.Contains(asys) ? "'" + (asys ?? string.Empty).ToLower().Replace("'", "''") + "'" : ""
-          ).ToArray();
-          var replaced = string.Join(",", sanitized);
-          actualSystemCondition = " AND LOWER(rso.system_core) IN (" + replaced + ") ";
-        }
-
-        Console.WriteLine($"DEBUG GetDirectory: fileTypeCondition: {fileTypeCondition}, actualSystemCondition: {actualSystemCondition}, showHidden: {showHidden}, showFavouritesOnly: {showFavouritesOnly}, sortOption: {sortOption}, includeRomMetadata: {includeRomMetadata}, fileId: {(fileId.HasValue ? fileId.Value.ToString() : "null")}");
+        Console.WriteLine($"DEBUG GetDirectory: combinedTypeCoreCondition: {combinedTypeCoreCondition}, showHidden: {showHidden}, showFavouritesOnly: {showFavouritesOnly}, sortOption: {sortOption}, includeRomMetadata: {includeRomMetadata}, fileId: {(fileId.HasValue ? fileId.Value.ToString() : "null")}");
         
         string fileIdCondition = fileId.HasValue ? " AND f.id = @fileId" : "";
-        bool isRomSearch = !string.IsNullOrWhiteSpace(actualSystemCondition) || DetermineIfRomSearch(normalizedFileTypes);
+        bool isRomSearch = !(actualCore?.Count > 0) || includeRomMetadata;
         string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
         string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
         // Hidden condition is pre-evaluated below after connection.Open() to avoid per-row subqueries
@@ -226,27 +209,26 @@ namespace maxhanna.Server.Controllers
           var countParams = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
           string countSearchCond = searchCondition;
 
-          var countCmd = new MySqlCommand($@"
+            var countCmd = new MySqlCommand($@"
               SELECT COUNT(*)
               FROM maxhanna.file_uploads f
               LEFT JOIN users u ON f.user_id = u.id
               {(actualCore?.Count > 0 ? " LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
               WHERE 1=1 
-                  {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
-                  AND (
-                      f.is_public = 1
-                      OR f.user_id = @userId
-                      OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON))
-                  )
-                  {countSearchCond}
-                  {fileTypeCondition}
-                  {actualSystemCondition}
-                  {visibilityCondition}
-                  {ownershipCondition}
-                  {hiddenCondition}
-                  {favouritesCondition}
-                  {fileIdCondition}
-          ", connection);
+                {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
+                AND (
+                  f.is_public = 1
+                  OR f.user_id = @userId
+                  OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON))
+                )
+                {countSearchCond}
+                {combinedTypeCoreCondition}
+                {visibilityCondition}
+                {ownershipCondition}
+                {hiddenCondition}
+                {favouritesCondition}
+                {fileIdCondition}
+            ", connection);
 
           // Required parameters
           countCmd.Parameters.AddWithValue("@folderPath", directory);
@@ -357,8 +339,7 @@ namespace maxhanna.Server.Controllers
               {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
               AND (f.is_public = 1 OR f.user_id = @userId OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON)))
               {searchCondition}
-              {fileTypeCondition}
-              {actualSystemCondition}
+              {combinedTypeCoreCondition}
               {visibilityCondition}
               {ownershipCondition}
               {hiddenCondition}
@@ -493,10 +474,6 @@ namespace maxhanna.Server.Controllers
 
           GetFileReactions(fileEntries, connection, fileIds, commentIds, fileIdsParameters, commentIdsParameters);
           GetFileTopics(fileEntries, connection, fileIds);
-
-          var fileTypeCondForCount = fileId.HasValue
-              ? fileTypeCondition + fileIdCondition   // append ' AND f.id = @fileId '
-              : fileTypeCondition;
 
           DirectoryResults result = new DirectoryResults
           {
@@ -3901,7 +3878,40 @@ namespace maxhanna.Server.Controllers
       // Combine the relative path with the file name and return the full URL
       return $"https://bughosted.com/assets/{Path.Combine(relativePath, fileName).Replace(Path.DirectorySeparatorChar, '/')}";
     }
+// Returns a single SQL condition string for file type and core filters
+  private static string BuildFileTypeAndCoreCondition(List<string> normalizedFileTypes, List<string> normalizedActualCores, HashSet<string> cores)
+  {
+    if (!normalizedFileTypes.Any() && !normalizedActualCores.Any())
+      return string.Empty;
 
+    string fileTypeCondition = string.Empty;
+    string actualSystemCondition = string.Empty;
+
+    if (normalizedFileTypes.Any())
+    {
+      var sanitized = normalizedFileTypes.Select(ft => "'" + (ft ?? string.Empty).ToLower().Replace("'", "''") + "'").ToArray();
+      var replaced = string.Join(",", sanitized);
+      string parenthesesNeeded = normalizedActualCores.Any() ? "(" : "";
+      fileTypeCondition = $" {parenthesesNeeded} AND LOWER(f.file_type) IN ({replaced}) ";
+    }
+
+    if (normalizedActualCores.Any())
+    {
+      var sanitized = normalizedActualCores.Select(
+        asys => cores.Contains(asys) ? "'" + (asys ?? string.Empty).ToLower().Replace("'", "''") + "'" : ""
+      ).Where(s => !string.IsNullOrEmpty(s)).ToArray();
+      if (sanitized.Length > 0)
+      {
+        var replaced = string.Join(",", sanitized);
+        string seperator = normalizedFileTypes.Any() ? " OR " : " AND ";
+        actualSystemCondition = $"{seperator} LOWER(rso.system_core) IN ({replaced}) ";
+      }
+    }
+    string parenthesesNeeded2 = normalizedActualCores.Any() && normalizedFileTypes.Any() ? ")" : "";
+    actualSystemCondition = $"{actualSystemCondition} {parenthesesNeeded2}";
+
+    return fileTypeCondition + actualSystemCondition;
+  }
     private void MoveDirectory(string sourceDirectory, string destinationDirectory)
     {
       string directoryName = new DirectoryInfo(sourceDirectory).Name;
