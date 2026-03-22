@@ -1101,7 +1101,6 @@ private _lastCanvasBufH = 0;
     }
   }
 
-
   private async uploadSaveBytes(u8: Uint8Array) {
     const core = (window as any).EJS_core || '';
     if (!this.isValidSaveState(u8, core)) {
