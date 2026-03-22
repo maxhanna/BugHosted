@@ -119,7 +119,7 @@
   <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
 </div>
 
-<div class="popupPanel" *ngIf="isShowingLoginPanel">
+<div class="popupPanel menuPanel" *ngIf="isShowingLoginPanel">
   <app-user [loginOnly]="true" [inputtedParentRef]="parentRef" [canClose]="false"
     (closeUserComponentEvent)="closeLoginPanel($event)"
     [loginReasonMessage]="'You must log-in to save your progress on the server.'">
@@ -131,7 +131,7 @@
 </div>
 
 <!-- System selection for ambiguous image files (iso/bin/cue/chd) -->
-<div class="popupPanel" *ngIf="isSystemSelectPanelOpen">
+<div class="popupPanel menuPanel" *ngIf="isSystemSelectPanelOpen">
   <div class="popupPanelTitle">Select System For Image</div>
   <div style="padding:8px;">
     <div style="margin-bottom:8px;">Please choose the intended system:</div>
@@ -146,7 +146,7 @@
 </div>
 
 <!-- Save Progress Confirmation Panel -->
-<div class="popupPanel" *ngIf="isSaveConfirmPanelOpen">
+<div class="popupPanel menuPanel" *ngIf="isSaveConfirmPanelOpen">
   <div class="popupPanelTitle">Save Progress?</div>
   <div style="padding:8px;">
     <p>{{ saveConfirmMessage || 'Do you want to save your progress before continuing?' }}</p>
@@ -165,7 +165,7 @@
 </div>
 
 <!-- Reset confirmation modal -->
-<div class="popupPanel" *ngIf="isResetModalOpen">
+<div class="popupPanel menuPanel" *ngIf="isResetModalOpen">
   <div class="popupPanelTitle">Confirm Reset</div>
   <div style="padding:8px;">
     <p>Are you sure you want to reset the game? This will reload the emulator and may overwrite current progress.</p>

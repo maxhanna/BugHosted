@@ -2775,18 +2775,25 @@ private _lastCanvasBufH = 0;
     w.EJS_defaultOptions = Object.assign({}, PSP_DEFAULT_OPTIONS);
     w.EJS_defaultOptionsForce = true;
   }
-  applyNDSCoreSettingsForMobile(w: any) {
-    w.EJS_GL_Options = {
-      alpha: false,
-      antialias: false,
-      depth: false,
-      stencil: false,
-      preserveDrawingBuffer: false,
-      powerPreference: 'high-performance'
-    };
-    w.EJS_vsync = false;
-    w.EJS_disableLocalStorage = true; // avoid extra storage churn 
-  }
+
+applyNDSCoreSettingsForMobile(w: any) {
+  w.EJS_GL_Options = {
+    alpha: false,
+    antialias: false,
+    depth: false,
+    stencil: false,
+    preserveDrawingBuffer: false,
+    premultipliedAlpha: false,
+    desynchronized: true, // try this; safe to A/B test
+    powerPreference: 'high-performance'
+  };
+
+  w.EJS_vsync = false; 
+  w.EJS_disableLocalStorage = true; 
+  w.EJS_disableDatabases = true; 
+  w.EJS_backgroundImage = '';
+  w.EJS_backgroundBlur = false;
+}
  
   // private scheduleResizeCanvasBuffer = () => {
   //   if (this._resizeRaf) cancelAnimationFrame(this._resizeRaf);
