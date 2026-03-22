@@ -683,7 +683,7 @@
     </div>
 
     <div *ngIf="isInRomDirectory" class="spaceAroundFlex spaceAroundSystemFilters">
-      <span style="width:100%">Filter by system</span>
+      <span style="width:100%">Filter by system:</span>
       <div class="systemFilters">
         <button *ngFor="let s of getSupportedRomSystems()" class="toggle-switch-small" 
           [title]="getSystemLabel(s).title"

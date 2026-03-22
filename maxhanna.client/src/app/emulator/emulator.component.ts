@@ -263,7 +263,9 @@ private _lastCanvasBufH = 0;
   private async loadRomThroughService(fileName: string, fileId?: number, forcedCore?: Core | null | undefined) {
     // Use the instance-level forced core as a fallback
     const effectiveForcedCore = forcedCore ?? this._forcedCore;
-    if (effectiveForcedCore) this._forcedCore = effectiveForcedCore;
+    if (effectiveForcedCore) {
+      this._forcedCore = effectiveForcedCore;
+    }
     if (fileId != null && effectiveForcedCore) {
       (async () => {
         try {
@@ -326,6 +328,9 @@ private _lastCanvasBufH = 0;
 
     // 5) Configure EmulatorJS globals BEFORE adding loader.js
     const core = this.detectCoreEnhanced(fileName, effectiveForcedCore);
+    if (!effectiveForcedCore && core && fileId) {
+      await this.romService.setSystemOverride(fileId, core);
+    }
     (this as any).currentCore = core;
     console.log(`%c[EMU] Detected core "${core}" for file "${fileName}" (ext: "${this.fileService.getFileExtension(fileName)}") forcedCore=${effectiveForcedCore ?? 'none'}`, 'color:#4af');
     const renderClamp = this.getRenderClampForCore(core);
