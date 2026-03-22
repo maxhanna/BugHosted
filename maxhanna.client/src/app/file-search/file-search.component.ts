@@ -76,7 +76,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   showVideosOnly = false;
   trendingSearches: string[] = [];
   sortOption: string = '';
-  actualSystemFilter?: string[];
+  actualCoreFilter?: string[];
   showData = true;
   showShareUserList = false;
   isSearchPanelOpen = false;
@@ -489,7 +489,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         sortToUse,
         this.showFavouritesOnly,
         includeRomMetadata,
-        this.actualSystemFilter
+        this.actualCoreFilter
       ).then(res => {
         if (append && this.directory && this.directory.data) {
           // Normalize and derive thumbnails for newly-appended items before merging
@@ -1697,7 +1697,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
 
-  async toggleRomSystem(key: string) {
+  async toggleRomSystem(key: string, isCoreSet = false) {
     // Default behavior for non-Saturn systems
     const idx = this.activeRomSystems.indexOf(key);
     if (idx >= 0) {
@@ -1711,62 +1711,49 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.onFiletypeFilterChange(true);
       return;
     }
-
-    const exts = Array.from(new Set(this.activeRomSystems.flatMap(k => this.romSystemExtensions[k] ?? [k])));
-    this.fileTypeFilter = exts.join(',');
-    this.actualSystemFilter = undefined;
+    if (!isCoreSet) {
+      const exts = Array.from(new Set(this.activeRomSystems.flatMap(k => this.romSystemExtensions[k] ?? [k])));
+      this.fileTypeFilter = exts.join(',');
+    }
     this.onFiletypeFilterChange(true);
   }
 
   async onSystemFilterClick(key: string) {
-    if (key.toLowerCase() === 'saturn' 
-      || key.toLowerCase() === 'ps1' 
-      || key.toLowerCase() === 'psx'
-      || key.toLowerCase() === 'dreamcast'
-      || key.toLowerCase() === 'gamecube'
-      || key.toLowerCase() === 'psp') {
-      this.activeRomSystems = [key];
-      this.fileTypeFilter = '';
-      this.goToFirstPage();
-      this.startLoading();
-      try {
-        let systemKey = undefined;
-        if (key.toLowerCase() === 'saturn') {
-          systemKey = 'yabause';
-        } else if (key.toLowerCase() === 'ps1' || key.toLowerCase() === 'psx') {
-          systemKey = 'pcsx_rearmed';
-        } else if (key.toLowerCase() === 'psp') {
-          systemKey = 'psp';
-        } else if (key.toLowerCase() === 'dreamcast') {
-          systemKey = 'flycast';
-        } else if (key.toLowerCase() === 'gamecube') {
-          systemKey = 'dolphin';
-        }
-        if (systemKey) {
-          await this.getDirectoryWithActualSystem(systemKey as Core); 
-        } else {
-          this.toggleRomSystem(key);
-        }
-      } finally {
-        this.stopLoading();
+    this.goToFirstPage();
+    this.startLoading();
+    let isCoreSet = false;
+    try {
+      let systemKey = undefined;
+      if (key.toLowerCase() === 'saturn') {
+        systemKey = 'yabause';
+      } else if (key.toLowerCase() === 'ps1' || key.toLowerCase() === 'psx') {
+        systemKey = 'pcsx_rearmed';
+      } else if (key.toLowerCase() === 'psp') {
+        systemKey = 'psp';
+      } else if (key.toLowerCase() === 'dreamcast') {
+        systemKey = 'flycast';
+      } else if (key.toLowerCase() === 'gamecube') {
+        systemKey = 'dolphin';
       }
-    } else {
-      this.toggleRomSystem(key);
-    }
+      if (systemKey) {
+        isCoreSet = true;
+        this.setActualCoreFilter(systemKey as Core); 
+      }  
+    } finally {
+      this.toggleRomSystem(key, isCoreSet);
+      this.stopLoading();
+    } 
   }
 
-  async getDirectoryWithActualSystem(actualSystem: Core) {
-    if (this.actualSystemFilter?.includes(actualSystem)) {
-      this.actualSystemFilter = this.actualSystemFilter.filter(s => s !== actualSystem);
+  setActualCoreFilter(coreToAdd: Core) {
+    if (this.actualCoreFilter?.includes(coreToAdd)) {
+      this.actualCoreFilter = this.actualCoreFilter.filter(s => s !== coreToAdd);
     } else {
-      if (!this.actualSystemFilter) {
-        this.actualSystemFilter = [];
+      if (!this.actualCoreFilter) {
+        this.actualCoreFilter = [];
        }
-      this.actualSystemFilter?.push(actualSystem);
+      this.actualCoreFilter?.push(coreToAdd);
     }
- 
-    await this.getDirectory();
-    this.stopLoading();
   }
 
   showFavouritesToggled() {
