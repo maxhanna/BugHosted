@@ -103,7 +103,20 @@ export class FileService {
   saturnFileExtensions: string[] = ['cue', 'chd', 'iso', 'bin'];
 
   getRomFileExtensions(): string[] {
-    return Array.from(this.romFileExtensions);
+    const all = [
+      this.romFileExtensions,
+      this.n64FileExtensions,
+      this.ps1FileExtensions,
+      this.genesisFileExtensions,
+      this.segaFileExtensions,
+      this.nesFileExtensions,
+      this.gbaFileExtensions,
+      this.ndsFileExtensions,
+      this.pspFileExtensions,
+      this.snesFileExtensions,
+      this.saturnFileExtensions
+    ];
+    return Array.from(new Set(all.flat()));
   }
   /** Return Genesis/MegaDrive related extensions present in romFileExtensions */
   getGenesisFileExtensions(): string[] {
@@ -164,7 +177,6 @@ export class FileService {
   getGenesisTitleKeywords(): string[] { return Array.from(this.genesisTitleKeywords); }
   getNdsTitleKeywords(): string[] { return Array.from(this.ndsTitleKeywords); }
   getDreamcastTitleKeywords(): string[] { return Array.from(this.dreamcastTitleKeywords); }
-
 
   async getDirectory(
     dir: string,

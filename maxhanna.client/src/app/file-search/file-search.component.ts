@@ -1986,6 +1986,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
     return base + iconMap[effectiveExt];
   }
+  
   getSystemEmoji(fileName?: string, styling?: string, actualSystem?: string): SafeHtml | string {
     if (!fileName) return '';
     const ext = this.fileService.getFileExtension(fileName).toLowerCase();

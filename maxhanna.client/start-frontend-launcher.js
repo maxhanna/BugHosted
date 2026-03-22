@@ -161,7 +161,7 @@ async function runBuildIfNeeded() {
                 writeLog('[Build] Error listing dist during retry:', e && e.message ? e.message : e);
               }
             } else { 
-              writeLog('[Build] index.html not found yet, retrying... elapsed:', elapsed, 'ms');
+              writeLog('[Build] Time Elapsed:', elapsed, 'ms');
             }
 
             if (elapsed >= flushTimeoutMs) {
