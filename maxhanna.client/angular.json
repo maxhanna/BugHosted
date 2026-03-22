@@ -33,19 +33,13 @@
             "assets": [
               "src/favicon.ico",
               "src/sitemap.xml",
-              "src/robots.txt",
-              "src/assets/n64icon.png",
-              "src/assets/saturnicon.png",
-              "src/assets/pspicon.png",
-              "src/assets/ps1icon.png",
-              "src/assets/gbicon.png",
-              "src/assets/gbaicon.png",
-              "src/assets/atariicon.png",
-              "src/assets/nesicon.png",
-              "src/assets/snesicon.png",
-              "src/assets/segaicon.png",
-              "src/assets/ndsicon.png",
-              "src/firebase-messaging-sw.js",  
+              "src/robots.txt", 
+              "src/firebase-messaging-sw.js",   
+              {
+                "glob": "*.png",
+                "input": "src/assets",
+                "output": "assets"
+              },
               {
                 "glob": "**/*",
                 "input": "src/assets/emulatorjs/data",
