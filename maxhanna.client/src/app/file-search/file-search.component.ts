@@ -492,7 +492,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.actualCoreFilter
       ).then(res => {
         const noData = !res;
-        if (append && this.directory && this.directory.data) {
+        if (res && append && this.directory && this.directory.data) {
           // Normalize and derive thumbnails for newly-appended items before merging
           const newItems = (res.data || []).filter((d: FileEntry) =>
             !this.directory?.data?.some((existingData) => existingData.id === d.id)
@@ -513,7 +513,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
               try { this.changeDetectorRef.detectChanges(); } catch { }
             }
           }
-        } else {
+        } else if (res) {
           this.directory = res;
 
           if (this.shouldShowRomMetadata() && this.directory?.data?.length) {

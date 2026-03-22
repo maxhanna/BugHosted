@@ -7,6 +7,7 @@ import { Topic } from './datacontracts/topics/topic';
 import { FileAccessLog } from './datacontracts/file/file-access-log';
 import { FileNote } from './datacontracts/file/file-note';
 import { Core, System } from '../app/emulator/emulator-types';
+import { DirectoryResults } from './datacontracts/file/directory-results';
 
 @Injectable({
   providedIn: 'root'
@@ -200,7 +201,7 @@ export class FileService {
     showFavouritesOnly?: boolean,
     includeRomMetadata?: boolean, // ✅ NEW
     actualCore?: string[]
-  ) {
+  ) : Promise<DirectoryResults | null> {
     const params = new URLSearchParams();
 
     params.append('directory', dir || '');
@@ -238,7 +239,10 @@ export class FileService {
         body: JSON.stringify(user),
         signal: this._getDirectoryAbortController.signal,
       });
-
+      if (!response.ok) {
+        console.error(`Error fetching directory: ${response.status} ${response.statusText}`);
+        return null;
+      }
       return await response.json();
     } catch (error: any) {
       // If the request was explicitly aborted, rethrow so callers can
