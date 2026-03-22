@@ -712,10 +712,10 @@ private _lastCanvasBufH = 0;
     }
     if (core === 'mupen64plus_next' || system === 'n64') {
       this.applyN64CoreSettings(w);
-    }
-    if (this.onMobile() && (core === 'melonds' || core === 'nds' || core === 'desmume')) {
-      this.applyNDSCoreSettingsForMobile(w);
     } 
+    // if (this.onMobile() && (core === 'melonds' || core === 'nds' || core === 'desmume' || core === 'desmume2015')) {
+    //   this.applyNDSCoreSettingsForMobile(w);
+    // } 
     const isDPADCentric = (system && (['nes', 'snes', 'gb', 'gbc', 'gba', 'genesis', 'saturn', 'sega_cd', '3do', 'nds'] as string[]).includes(system)) || core === 'yabause';
     const isLeftAndRightJoystickInverted = (system && ['n64'].includes(system));
     const rightStickValues = {
@@ -2391,7 +2391,12 @@ private _lastCanvasBufH = 0;
 
   private async onEmulatorReadyForSizing() {
     const canvas = await this.waitForCanvas();
-    if (canvas) this.resizeCanvasBuffer();
+    if (canvas) {
+      this.resizeCanvasBuffer(); 
+      setTimeout(() => {
+        this.forceCanvasRelayout();
+      }, 5000); 
+    } 
    // this.bindResizeBuffer();
   }
 
@@ -2771,24 +2776,24 @@ private _lastCanvasBufH = 0;
     w.EJS_defaultOptionsForce = true;
   }
 
-applyNDSCoreSettingsForMobile(w: any) {
-  w.EJS_GL_Options = {
-    alpha: false,
-    antialias: false,
-    depth: false,
-    stencil: false,
-    preserveDrawingBuffer: false,
-    premultipliedAlpha: false,
-    desynchronized: true, // try this; safe to A/B test
-    powerPreference: 'high-performance'
-  };
+// applyNDSCoreSettingsForMobile(w: any) {
+//   w.EJS_GL_Options = {
+//     alpha: false,
+//     antialias: false,
+//     depth: false,
+//     stencil: false,
+//     preserveDrawingBuffer: false,
+//     premultipliedAlpha: false,
+//     desynchronized: true, // try this; safe to A/B test
+//     powerPreference: 'high-performance'
+//   };
 
-  w.EJS_vsync = false; 
-  w.EJS_disableLocalStorage = true; 
-  w.EJS_disableDatabases = true; 
-  w.EJS_backgroundImage = '';
-  w.EJS_backgroundBlur = false;
-}
+//   w.EJS_vsync = false; 
+//   w.EJS_disableLocalStorage = true; 
+//   w.EJS_disableDatabases = true; 
+//   w.EJS_backgroundImage = '';
+//   w.EJS_backgroundBlur = false;
+// }
  
   // private scheduleResizeCanvasBuffer = () => {
   //   if (this._resizeRaf) cancelAnimationFrame(this._resizeRaf);
@@ -3220,7 +3225,12 @@ applyNDSCoreSettingsForMobile(w: any) {
       case 'smsplus': return 'segaMS';
       default: return undefined; // let EmulatorJS derive it
     }
-  }
+  } 
+    
+  private forceCanvasRelayout(): void { 
+    console.log('Forcing canvas relayout');
+    window.dispatchEvent(new Event('resize'));
+  } 
 
   private canUseThreads(core: Core, system: System): boolean {
     if (system === 'psp' || core === 'psp' || core === 'ppsspp') {
