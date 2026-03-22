@@ -482,7 +482,7 @@
     </div>
     <div class="mainTableDiv emptyPage"
       *ngIf="storyResponse && storyResponse.stories && storyResponse.stories.length == 0">
-      It's quiet here...
+      {{ isLoading ? "Loading..." : "It's quiet here..." }}
     </div>
     <div class="mainTableDiv emptyPage" *ngIf="!storyResponse && isLoading">
       Loading...

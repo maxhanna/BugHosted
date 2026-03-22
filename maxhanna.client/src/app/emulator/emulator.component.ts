@@ -2907,9 +2907,8 @@ applyNDSCoreSettingsForMobile(w: any) {
 
       // --- Nintendo ---
       { core: 'mupen64plus_next', label: 'Nintendo 64', exts: exN64, maybeExts: exAmbig, hints: [/\bN64\b/i] },
-      this.onMobile() 
-      ? { core: 'desmume2015', label: 'Nintendo DS (DeSmuME)', exts: exNDS, maybeExts: exAmbig, hints: [/\bNDS\b|\bDS\b/i] }
-      : { core: 'melonds', label: 'Nintendo DS (melonDS)', exts: exNDS, maybeExts: exAmbig, hints: [/\bNDS\b|\bDS\b/i] }, 
+      { core: 'desmume2015', label: 'Nintendo DS (DeSmuME)', exts: exNDS, maybeExts: exAmbig, hints: [/\bNDS\b|\bDS\b/i] },
+      { core: 'melonds', label: 'Nintendo DS (melonDS)', exts: exNDS, maybeExts: exAmbig, hints: [/\bNDS\b|\bDS\b/i] },
       { core: 'dolphin', label: 'GameCube / Wii (Dolphin)', exts: [], maybeExts: exAmbig, hints: [/\bGAMECUBE\b|\bDOLPHIN\b|\bGC\b|\bWII\b/i] },
       { core: 'mgba', label: 'Game Boy Advance', exts: exGBA, maybeExts: [], hints: [/\bGBA\b/i] },
       { core: 'mgba', label: 'Game Boy Advance', exts: exGBx, maybeExts: [], hints: [/\bGBA\b/i] },
@@ -3067,9 +3066,9 @@ applyNDSCoreSettingsForMobile(w: any) {
       case 'n64': return 'mupen64plus_next';
       case 'gamecube': return 'dolphin';
       case 'gc': return 'dolphin';
-      case 'nds': return this.onMobile() ? 'desmume2015' : 'melonds';
-      case 'nintendods': return this.onMobile() ? 'desmume2015' : 'melonds';
-      case 'ndsi': return this.onMobile() ? 'desmume2015' : 'melonds';
+      case 'nds': return 'desmume2015';
+      case 'nintendods': return 'desmume2015';
+      case 'ndsi': return 'desmume2015';
       case 'snes': return 'snes9x';
       case 'nes': return 'fceumm';
       case 'gba': return 'mgba';
