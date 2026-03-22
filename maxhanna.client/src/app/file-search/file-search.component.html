@@ -191,7 +191,7 @@
       <div class="romMetaPanelInline">
         <button class="closePopupBtn" title="Close" (click)="closeOptionsPanel()">×</button>
         <div class="romMetaHeader">
-          🎮 <strong>{{ optionsFile.romMetadata?.igdbName }}</strong>
+          <span [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata?.actualSystem) || '🎮'"></span> <strong>{{ optionsFile.romMetadata?.igdbName }}</strong>
         </div>
 
         <div *ngIf="optionsFile.romMetadata?.totalRatingCount" class="romMetaLine">
@@ -262,7 +262,8 @@
     class="romMetaPanel">
 
     <div class="romMetaHeader" (click)="showMetadataInOptionsPanel = !showMetadataInOptionsPanel">
-      🎮 <strong>{{ optionsFile.romMetadata?.igdbName }}</strong>
+      <span [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata?.actualSystem) || '🎮'"></span>
+      {{" "}}<strong>{{ optionsFile.romMetadata?.igdbName }}</strong>
     </div>
 
     <div *ngIf="showMetadataInOptionsPanel">
@@ -338,7 +339,10 @@
     </button>
     <button [title]="'Clear System Override ('+optionsFile.romMetadata?.actualSystem+')'"
       (click)="clearSystemOverride(optionsFile)" [disabled]="isLoading"
-      *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.actualSystem">
+      *ngIf="shouldShowRomMetadata() 
+        && optionsFile
+        && optionsFile.romMetadata?.actualSystem 
+        && (optionsFile.user?.id === parentRef?.user?.id)">
       🧹 Clear System Override
       <span *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.actualSystem" class="system-override-icon"
         [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata?.actualSystem)">
