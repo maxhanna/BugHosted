@@ -110,7 +110,7 @@ export type Core =
   | 'mame2003_plus'
   | 'sega_saturn'
   | 'fbneo'
-  | 'desmume'
+  | 'desmume' | 'desmume2015'
   | 'mednafen_vb'
   | 'stella2014'
   | 'handy'

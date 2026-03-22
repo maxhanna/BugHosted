@@ -53,7 +53,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   preferSixButtonGenesis: boolean = true;
   loadWithoutSave = false;
   systemCandidates: Array<{ label: string; core?: Core }> = [];
-  selectedSystemCore?: Core | null = null;
+  selectedSystemCore?: Core | null = null; 
+private _resizeRaf?: number;
+private _lastCanvasCssW = 0;
+private _lastCanvasCssH = 0;
+private _lastCanvasBufW = 0;
+private _lastCanvasBufH = 0; 
   private autosaveInterval: any;
   private romObjectUrl?: string;
   private emulatorInstance?: any;
@@ -63,10 +68,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private _pendingSaveResolve?: (v?: any) => void;
   private _pendingSaveTimer?: any;
   private _captureSaveResolve?: (u8: Uint8Array | null) => void;
-  private _gameSizeObs?: ResizeObserver;
-  private _onResize?: () => void;
-  private _onVVResize?: () => void;
-  private _onOrientation?: () => void;
+  // private _gameSizeObs?: ResizeObserver;
+  // private _onResize?: () => void;
+  // private _onVVResize?: () => void;
+  // private _onOrientation?: () => void;
   private CORE_REGISTRY: CoreDescriptor[] = [];
   private _saveFn?: () => Promise<void>;
   private _lastSaveTime: number = 0;
@@ -128,10 +133,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.status = 'Destroying emulator...';
 
     try {
-      if (this._onResize) window.removeEventListener('resize', this._onResize);
-      if (this._onOrientation) window.removeEventListener('orientationchange', this._onOrientation);
-      if (this._onVVResize) (window as any).visualViewport?.removeEventListener?.('resize', this._onVVResize);
-      if (this._gameSizeObs) { this._gameSizeObs.disconnect(); }
+      // if (this._onResize) window.removeEventListener('resize', this._onResize);
+      // if (this._onOrientation) window.removeEventListener('orientationchange', this._onOrientation);
+      // if (this._onVVResize) (window as any).visualViewport?.removeEventListener?.('resize', this._onVVResize);
+      // if (this._gameSizeObs) { this._gameSizeObs.disconnect(); }
     } catch { console.error('Error removing resize listeners'); }
 
     this._destroyed = true;
@@ -1381,16 +1386,16 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     apply();
 
-    try {
-      this._gameSizeObs?.disconnect();
-      this._gameSizeObs = new ResizeObserver(() => apply());
-      this._gameSizeObs.observe(game);
-    } catch { }
-    try {
-      window.addEventListener('resize', apply, { passive: true });
-      window.addEventListener('orientationchange', apply, { passive: true });
-      (window as any).visualViewport?.addEventListener?.('resize', apply, { passive: true });
-    } catch { }
+    // try {
+    //   this._gameSizeObs?.disconnect();
+    //   this._gameSizeObs = new ResizeObserver(() => apply());
+    //   this._gameSizeObs.observe(game);
+    // } catch { }
+    // try {
+    //   window.addEventListener('resize', apply, { passive: true });
+    //   window.addEventListener('orientationchange', apply, { passive: true });
+    //   (window as any).visualViewport?.addEventListener?.('resize', apply, { passive: true });
+    // } catch { }
   }
 
   async toggleFullScreen(): Promise<void> {
@@ -2262,10 +2267,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private getRenderClampForCore(core: Core) {
     if (core === "psp" || core === "ppsspp") {
       return { maxW: 640, maxH: 360, maxDPR: 1.0 };
-    }
-
-    if (this.onMobile() && (core === 'melonds' || core === 'nds' || core === 'desmume')) {
-      return { maxW: 512, maxH: 384, maxDPR: 1.25 };
+    } 
+    
+    if (this.onMobile() && (core === 'melonds' || core === 'nds' || core === 'desmume' || core === 'desmume2015')) {
+      return { maxW: 256, maxH: 384, maxDPR: 1.0 };
     }
 
     if (this.heavyCores.has(core)) return { maxW: 1280, maxH: 720, maxDPR: 1.5 };
@@ -2374,35 +2379,35 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private async onEmulatorReadyForSizing() {
     const canvas = await this.waitForCanvas();
     if (canvas) this.resizeCanvasBuffer();
-    this.bindResizeBuffer();
+   // this.bindResizeBuffer();
   }
 
   /** Bind resize handlers (call once after emulator is initialized). */
-  private bindResizeBuffer() {
-    const apply = () => this.resizeCanvasBuffer();
-    this._onResize = () => apply();
-    this._onOrientation = () => apply();
-    this._onVVResize = () => apply();
+  // private bindResizeBuffer() {
+  //   const apply = () => this.resizeCanvasBuffer();
+  //   this._onResize = () => apply();
+  //   this._onOrientation = () => apply();
+  //   this._onVVResize = () => apply();
 
-    // Passive listeners to avoid blocking 
-    window.addEventListener('resize', this._onResize, { passive: true });
-    window.addEventListener('orientationchange', this._onOrientation, { passive: true });
-    (window as any).visualViewport?.addEventListener?.('resize', this._onVVResize, { passive: true });
+  //   // Passive listeners to avoid blocking 
+  //   window.addEventListener('resize', this._onResize, { passive: true });
+  //   window.addEventListener('orientationchange', this._onOrientation, { passive: true });
+  //   (window as any).visualViewport?.addEventListener?.('resize', this._onVVResize, { passive: true });
 
 
-    // Also observe the #game element for layout changes (optional)
-    try {
-      const gameEl = document.getElementById('game');
-      if (gameEl && typeof ResizeObserver !== 'undefined') {
-        if (this._gameSizeObs) this._gameSizeObs.disconnect();
-        this._gameSizeObs = new ResizeObserver(() => apply());
-        this._gameSizeObs.observe(gameEl);
-      }
-    } catch { /* ignore */ }
+  //   // Also observe the #game element for layout changes (optional)
+  //   try {
+  //     const gameEl = document.getElementById('game');
+  //     if (gameEl && typeof ResizeObserver !== 'undefined') {
+  //       if (this._gameSizeObs) this._gameSizeObs.disconnect();
+  //       this._gameSizeObs = new ResizeObserver(() => apply());
+  //       this._gameSizeObs.observe(gameEl);
+  //     }
+  //   } catch { /* ignore */ }
 
-    // Initial call after a short delay so DOM settles
-    setTimeout(() => this.resizeCanvasBuffer(), 300);
-  }
+  //   // Initial call after a short delay so DOM settles
+  //   setTimeout(() => this.resizeCanvasBuffer(), 300);
+  // }
 
   private slugifyName(name: string): string {
     return (name || '')
@@ -2770,6 +2775,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     w.EJS_disableLocalStorage = true; // avoid extra storage churn 
   }
  
+  // private scheduleResizeCanvasBuffer = () => {
+  //   if (this._resizeRaf) cancelAnimationFrame(this._resizeRaf);
+  //   this._resizeRaf = requestAnimationFrame(() => {
+  //     this._resizeRaf = undefined;
+  //     this.resizeCanvasBuffer();
+  //   });
+  // };
+
   async applyPSPPerformanceTweak() {
     const core = (window as any).EJS_core;
     if (core !== 'psp' && core !== 'ppsspp') return;
