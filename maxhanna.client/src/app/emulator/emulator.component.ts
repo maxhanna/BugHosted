@@ -2314,6 +2314,13 @@ private _lastCanvasBufH = 0;
         const targetW = Math.min(Math.round(fitW * dpr), clamp.maxW);
         const targetH = Math.min(Math.round(fitH * dpr), clamp.maxH);
 
+        if (targetW === this._lastCanvasBufW && targetH === this._lastCanvasBufH) {
+          return;
+        }
+
+        this._lastCanvasBufW = targetW;
+        this._lastCanvasBufH = targetH;
+
         // ✅ APPLY (you were missing this)
         if (canvas.width !== targetW || canvas.height !== targetH) {
           canvas.width = targetW;
@@ -2342,6 +2349,12 @@ private _lastCanvasBufH = 0;
 
       const targetW = Math.min(Math.round(rect.width * dpr), clamp.maxW);
       const targetH = Math.min(Math.round(rect.height * dpr), clamp.maxH);
+
+      if (targetW === this._lastCanvasBufW && targetH === this._lastCanvasBufH) {
+        return;
+      }
+      this._lastCanvasBufW = targetW;
+      this._lastCanvasBufH = targetH;
 
       // Only update when different to avoid thrashing
       if (canvas.width !== targetW || canvas.height !== targetH) {
