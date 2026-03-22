@@ -243,6 +243,9 @@ export class FileService {
         console.error(`Error fetching directory: ${response.status} ${response.statusText}`);
         return null;
       }
+      if (response.status === 204) {
+        return null;
+      }
       return await response.json();
     } catch (error: any) {
       // If the request was explicitly aborted, rethrow so callers can
