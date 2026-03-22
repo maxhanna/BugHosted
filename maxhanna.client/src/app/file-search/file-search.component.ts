@@ -1881,7 +1881,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       case 'nds': return 'NDS';
       case 'nes': return 'NES';
       case 'snes': return 'SNES';
-      case 'genesis': return 'SEGA';
+      case 'genesis': return 'SEGA'; 
       default: return key.toUpperCase();
     }
   }
@@ -1912,9 +1912,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         'ppsspp': '/assets/pspicon.png',
         'yabause': '/assets/saturnicon.png',
         'genesis_plus_gx': '/assets/segaicon.png',
-        'dreamcast': '/assets/segaicon.png',
-        'naomi': '/assets/segaicon.png',
-        'flycast': '/assets/segaicon.png',
+        'dreamcast': '/assets/dreamacsticon.png',
+        'naomi': '/assets/dreamacsticon.png',
+        'flycast': '/assets/dreamacsticon.png',
         'picodrive': '/assets/segaicon.png',
         'opera': '/assets/ps1icon.png',
         'mupen64plus_next': '/assets/n64icon.png',
@@ -1931,6 +1931,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         'handy': '/assets/atariicon.png',
         'virtualjaguar': '/assets/atariicon.png',
         'saturn': '/assets/saturnicon.png',
+        'dolphin': '/assets/gcicon.png',
       };
       const mapped = coreIconMap[actualSystem];
       if (mapped) return mapped;
@@ -1976,8 +1977,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       'playstation': '/assets/ps1icon.png',
       // Sega family
       'saturn': '/assets/saturnicon.png',
-      'dreamcast': '/assets/segaicon.png',
+      'dreamcast': '/assets/dreamcasticon.png',
       'genesis': '/assets/segaicon.png',
+      'gamecube': '/assets/gcicon.png',
+      'gc': '/assets/gcicon.png',
       'sega': '/assets/segaicon.png',
       'gb': '/assets/gbicon.png',
       'gbc': '/assets/gbicon.png',

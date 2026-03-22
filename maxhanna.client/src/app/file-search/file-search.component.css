@@ -512,6 +512,11 @@
   padding-top: 3px;
 }
 
+.spaceAroundSystemFilters {
+  flex-direction: column;
+  margin-bottom: 15px;
+}
+
 .systemFilters {
   display: grid;
   justify-items: stretch;
