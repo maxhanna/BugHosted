@@ -97,31 +97,10 @@ async function runBuildIfNeeded() {
     let buildCompleted = false;
     let hasResolved = false;
     let killRequested = false;
-    
-    // Function to parse and display Angular build progress
-    function displayBuildProgress(str) {
-      // Angular CLI progress lines often look like:
-      // "✔ Browser application bundle generation complete."
-      // "Generating browser application bundles (phase: ...)..."
-      // "✔ ... - ...%"
-      // We'll look for lines with percent or known phases
-      const percentMatch = str.match(/(\d{1,3})%/);
-      if (percentMatch) {
-        process.stdout.write(`\r[Build Progress] ${percentMatch[1]}%        `);
-        return;
-      }
-      // Look for known Angular CLI progress phrases
-      const phaseMatch = str.match(/(Generating browser application bundles|Browser application bundle generation complete|Initial Chunk Files|Chunk Names|Build at:|\u2714)/i);
-      if (phaseMatch) {
-        process.stdout.write(`\r[Build Progress] ${phaseMatch[1]}...        `);
-        return;
-      }
-    }
-
+     
     // Capture stdout to detect completion messages
     child.stdout?.on('data', (data) => {
       const str = data.toString();
-      displayBuildProgress(str); // Show progress if possible
       process.stdout.write(str);  // Echo to console
       writeLog('[Build stdout]', str);
       
@@ -181,6 +160,8 @@ async function runBuildIfNeeded() {
               } catch (e) {
                 writeLog('[Build] Error listing dist during retry:', e && e.message ? e.message : e);
               }
+            } else { 
+              writeLog('[Build] index.html not found yet, retrying... elapsed:', elapsed, 'ms');
             }
 
             if (elapsed >= flushTimeoutMs) {
