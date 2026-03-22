@@ -126,10 +126,6 @@ private _lastCanvasBufH = 0;
     this.status = 'Destroying emulator...';
 
     try {
-      // if (this._onResize) window.removeEventListener('resize', this._onResize);
-      // if (this._onOrientation) window.removeEventListener('orientationchange', this._onOrientation);
-      // if (this._onVVResize) (window as any).visualViewport?.removeEventListener?.('resize', this._onVVResize);
-      // if (this._gameSizeObs) { this._gameSizeObs.disconnect(); }
     } catch { console.error('Error removing resize listeners'); }
 
     this._destroyed = true;
@@ -870,11 +866,6 @@ private _lastCanvasBufH = 0;
       return;
     }
 
-    // The upgraded emulator.min.js (commit 0636bd7f) changed getState() to
-    // call Module.EmulatorJSGetState, but our WASM core .data files are
-    // from the older version and only export the "save_state_info" C function.
-    // Monkey-patch getState() back to the old cwrap-based implementation
-    // so it works with the cores we actually ship.
     const mod = gm.Module;
     if (mod && typeof mod.cwrap === 'function' && typeof mod.EmulatorJSGetState !== 'function') {
       try {
@@ -928,13 +919,16 @@ private _lastCanvasBufH = 0;
   }
 
   private async onSaveState(raw: any) {
-    if (this._exiting) { return; }
+    console.debug('[EMU DEBUG] onSaveState called', { raw });
+    if (this._exiting) { console.debug('[EMU DEBUG] onSaveState: exiting, abort'); return; }
     const tmpStatus = this.status;
     this.status = 'Saving State. Please wait...';
 
     if (this._captureSaveResolve) {
+      console.debug('[EMU DEBUG] onSaveState: _captureSaveResolve branch');
       try {
         const cap = await this.normalizeSavePayload(raw);
+        console.debug('[EMU DEBUG] onSaveState: normalized payload for capture', { cap });
         this._captureSaveResolve(cap || null);
       } catch { try { this._captureSaveResolve(null); } catch { } }
       this._captureSaveResolve = undefined;
@@ -943,12 +937,14 @@ private _lastCanvasBufH = 0;
     const now = Date.now();
     // If a save is already in progress, skip duplicate uploads
     if (this._saveInProgress) {
+      console.debug('[EMU DEBUG] onSaveState: save already in progress, skipping');
       //console.log('[EMU] onSaveState: save already in progress; skipping');
       if (this._pendingSaveResolve) { try { this._pendingSaveResolve(true); } catch { } this._pendingSaveResolve = undefined; }
       return;
     }
     // Rate-limit saves to once per 10s
     if (!this._destroyed && now - this._lastSaveTime < 10000) {
+      console.debug('[EMU DEBUG] onSaveState: recent save detected (<10s), skipping');
       //console.log('[EMU] onSaveState: recent save detected (<10s); skipping upload');
       if (this._pendingSaveResolve) { try { this._pendingSaveResolve(true); } catch { } this._pendingSaveResolve = undefined; }
       return;
@@ -957,22 +953,14 @@ private _lastCanvasBufH = 0;
     const gameName = (window as any).EJS_gameName
       || (this.romName ? this.fileService.getFileWithoutExtension(this.romName) : '');
 
-    // Helpful diagnostics the first few times
-    //this.debugDescribePayload(raw); 
-    // console.log(
-    //   '[EMU] onSaveState fired.',
-    //   'user?', !!this.parentRef?.user?.id,
-    //   'rom?', !!this.romName,
-    //   'hasPayload?', raw != null,
-    //   'type=', raw?.constructor?.name ?? typeof raw
-    // );
-
     if (!this.parentRef?.user?.id || !this.romName) return;
 
     // 1) Try to normalize whatever the callback passed
     let u8: Uint8Array | null = await this.normalizeSavePayload(raw);
+    console.debug('[EMU DEBUG] onSaveState: after normalizeSavePayload', { u8 });
     const core = (window as any).EJS_core || '';
     if (u8 && !this.isValidSaveState(u8, core)) {
+      console.debug('[EMU DEBUG] onSaveState: save state invalid, not uploading', { u8, core });
       this.status = 'Save state invalid – not uploading';
       setTimeout(() => {
         this.status = tmpStatus;
@@ -984,18 +972,22 @@ private _lastCanvasBufH = 0;
     }
     // 2) If callback gave no bytes, try localStorage
     if (!u8 || u8.length === 0) {
+      console.debug('[EMU DEBUG] onSaveState: trying localStorage fallback');
       u8 = this.tryReadSaveFromLocalStorage(gameID, gameName);
+      console.debug('[EMU DEBUG] onSaveState: after tryReadSaveFromLocalStorage', { u8 });
     }
 
     // 3) If still nothing, try IndexedDB (localforage/known DBs)
     if (!u8 || u8.length === 0) {
+      console.debug('[EMU DEBUG] onSaveState: trying IndexedDB fallback');
       u8 = await this.tryReadSaveFromIndexedDB(gameID, gameName);
+      console.debug('[EMU DEBUG] onSaveState: after tryReadSaveFromIndexedDB', { u8 });
     }
     this.status = "State Captured. Uploading files to server. Please wait...";
     this.cdr.detectChanges();
     // 4) If still nothing, bail gracefully (avoid TypeError in romService)
     if (!u8 || u8.length === 0) {
-      console.warn('[EMU] Save callback had no bytes and no storage fallback found; skipping upload.');
+      console.warn('[EMU DEBUG] Save callback had no bytes and no storage fallback found; skipping upload.');
       if (this._pendingSaveResolve) { try { this._pendingSaveResolve(false); } catch { } this._pendingSaveResolve = undefined; }
       this.status = tmpStatus;
       return;
@@ -1003,9 +995,11 @@ private _lastCanvasBufH = 0;
 
     this._saveInProgress = true;
     try {
+      console.debug('[EMU DEBUG] onSaveState: calling uploadSaveBytes', { u8 });
       // capture as "in-flight" but route through uploadSaveBytes to dedupe
       await this.trackInFlight((async () => {
         const ok = await this.uploadSaveBytes(u8);
+        console.debug('[EMU DEBUG] onSaveState: uploadSaveBytes result', { ok });
         if (ok) {
           if (this._pendingSaveResolve) { try { this._pendingSaveResolve(true); } catch { } this._pendingSaveResolve = undefined; }
           return true;
@@ -1025,6 +1019,7 @@ private _lastCanvasBufH = 0;
   }
 
   private async postSaveCaptureAndUpload(): Promise<boolean> {
+    console.debug('[EMU DEBUG] postSaveCaptureAndUpload called');
     try {
       const w = window as any;
 
@@ -1033,8 +1028,10 @@ private _lastCanvasBufH = 0;
       // Prefer EJS_saveState if present (native or polyfilled — it has
       // its own internal retry logic for the "not a function" error).
       if (typeof w.EJS_saveState === 'function') {
+        console.debug('[EMU DEBUG] postSaveCaptureAndUpload: using EJS_saveState');
         const u8: Uint8Array = await w.EJS_saveState();
         if (u8 && u8.length > 0) {
+          console.debug('[EMU DEBUG] postSaveCaptureAndUpload: got bytes from EJS_saveState', { u8 });
           await this.uploadSaveBytes(u8);
           return true;
         }
@@ -1043,10 +1040,12 @@ private _lastCanvasBufH = 0;
 
       // Fallback: try the GameManager directly (with catch for unready core)
       if (gm && typeof gm.getState === 'function') {
+        console.debug('[EMU DEBUG] postSaveCaptureAndUpload: using gm.getState');
         try {
           const raw = await Promise.resolve(gm.getState());
           const u8 = raw instanceof Uint8Array ? raw : new Uint8Array(raw as ArrayBufferLike);
           if (u8 && u8.length > 0) {
+            console.debug('[EMU DEBUG] postSaveCaptureAndUpload: got bytes from gm.getState', { u8 });
             await this.uploadSaveBytes(u8);
             return true;
           }
@@ -1061,6 +1060,7 @@ private _lastCanvasBufH = 0;
   }
 
   async callEjsSave(): Promise<boolean> {
+    console.debug('[EMU DEBUG] callEjsSave called');
     this.tempHideEjsMenu(5000);
     this.startLoading();
     try {
@@ -1068,8 +1068,10 @@ private _lastCanvasBufH = 0;
 
       // 1) Best path: bytes immediately via polyfilled EJS_saveState
       if (typeof w.EJS_saveState === 'function') {
+        console.debug('[EMU DEBUG] callEjsSave: using EJS_saveState');
         const bytes: Uint8Array = await w.EJS_saveState();
         if (bytes && bytes.length > 0) {
+          console.debug('[EMU DEBUG] callEjsSave: got bytes from EJS_saveState', { bytes });
           await this.uploadSaveBytes(bytes);
           return true;
         }
@@ -1077,25 +1079,34 @@ private _lastCanvasBufH = 0;
 
       // 2) Fallbacks: trigger any save the build exposes…
       if (this._saveFn) {
+        console.debug('[EMU DEBUG] callEjsSave: using _saveFn');
         await this._saveFn();
-        return await this.postSaveCaptureAndUpload();
+        const result = await this.postSaveCaptureAndUpload();
+        console.debug('[EMU DEBUG] callEjsSave: postSaveCaptureAndUpload result', { result });
+        return result;
       }
 
       if (this.emulatorInstance?.saveState) {
+        console.debug('[EMU DEBUG] callEjsSave: using emulatorInstance.saveState');
         await this.emulatorInstance.saveState();
-        return await this.postSaveCaptureAndUpload();
+        const result = await this.postSaveCaptureAndUpload();
+        console.debug('[EMU DEBUG] callEjsSave: postSaveCaptureAndUpload result', { result });
+        return result;
       }
 
       const player = w.EJS_player;
       if (player) {
+        console.debug('[EMU DEBUG] callEjsSave: using EJS_player.saveState');
         const el = typeof player === 'string' ? document.querySelector(player) : player;
         if (el && typeof (el as any).saveState === 'function') {
           await (el as any).saveState();
-          return await this.postSaveCaptureAndUpload();
+          const result = await this.postSaveCaptureAndUpload();
+          console.debug('[EMU DEBUG] callEjsSave: postSaveCaptureAndUpload result', { result });
+          return result;
         }
       }
 
-      console.warn('No known save API found for EmulatorJS; save skipped');
+      console.warn('[EMU DEBUG] No known save API found for EmulatorJS; save skipped');
       return false;
     } catch (e) {
       console.warn('callEjsSave failed', e);
@@ -1107,30 +1118,36 @@ private _lastCanvasBufH = 0;
   }
 
   private async uploadSaveBytes(u8: Uint8Array) {
+    console.debug('[EMU DEBUG] uploadSaveBytes called', { u8 });
     const core = (window as any).EJS_core || '';
     if (!this.isValidSaveState(u8, core)) {
+      console.debug('[EMU DEBUG] uploadSaveBytes: invalid save state', { u8, core });
       console.error('[EMU] Refusing to upload invalid save state');
       this.parentRef?.showNotification('Save state data appears invalid; upload skipped.');
       return false;
     }
     if (!u8?.length) {
+      console.debug('[EMU DEBUG] uploadSaveBytes: no bytes to upload');
       console.warn('[EMU] uploadSaveBytes: no bytes to upload; skipping');
       this.setTmpStatus("No save data captured; upload skipped.");
       return false;
     }
     if (!this.parentRef?.user?.id) {
+      console.debug('[EMU DEBUG] uploadSaveBytes: no user');
       console.warn('[EMU] uploadSaveBytes: no user; skipping upload');
       this.setTmpStatus("User not logged in; upload skipped.");
       this.openLoginPanel();
       return false;
     }
     if (!this.romName) {
+      console.debug('[EMU DEBUG] uploadSaveBytes: no romName');
       console.warn('[EMU] uploadSaveBytes: no rom; skipping upload');
       this.setTmpStatus("ROM not identified; upload skipped.");
       return false;
     }
     this.status = 'Sending Data to Server...';
     if (this._inFlightSavePromise) {
+      console.debug('[EMU DEBUG] uploadSaveBytes: _inFlightSavePromise already exists');
       try { return await this._inFlightSavePromise; } catch { return false; }
     }
 
@@ -1363,12 +1380,8 @@ private _lastCanvasBufH = 0;
 
   private setGameScreenHeight(): void {
     const gameEl = document.getElementById('game');
-    if (!gameEl) return;
-
-    // Remove any aspect ratio constraints
-    gameEl.style.removeProperty('aspect-ratio');
-
-    // Let CSS handle svh/dvh via @supports; provide a pixel fallback so we still look good
+    if (!gameEl) return; 
+    gameEl.style.removeProperty('aspect-ratio'); 
     gameEl.style.height = this.getViewportHeightMinusHeader(60);
     gameEl.style.maxHeight = this.getViewportHeightMinusHeader(60);
     gameEl.style.width = '100%';
@@ -1384,22 +1397,10 @@ private _lastCanvasBufH = 0;
       game.style.setProperty('min-height', h, 'important');
       game.style.setProperty('width', '100%', 'important');
       game.style.setProperty('max-width', '100vw', 'important');
-      game.style.setProperty('margin', '0 auto', 'important');
-      //  game.style.removeProperty('aspect-ratio');
+      game.style.setProperty('margin', '0 auto', 'important'); 
     };
 
-    apply();
-
-    // try {
-    //   this._gameSizeObs?.disconnect();
-    //   this._gameSizeObs = new ResizeObserver(() => apply());
-    //   this._gameSizeObs.observe(game);
-    // } catch { }
-    // try {
-    //   window.addEventListener('resize', apply, { passive: true });
-    //   window.addEventListener('orientationchange', apply, { passive: true });
-    //   (window as any).visualViewport?.addEventListener?.('resize', apply, { passive: true });
-    // } catch { }
+    apply(); 
   }
 
   async toggleFullScreen(): Promise<void> {
@@ -1466,18 +1467,14 @@ private _lastCanvasBufH = 0;
       await new Promise(r => setTimeout(r, 100));
     }
   }
+
   /** Try to locate the Quick Save button in the EJS toolbar. */
   private findQuickSaveButton(): HTMLButtonElement | null {
     try {
       const root = document.getElementById('game');
-      if (!root) return null;
-
-      // Common patterns seen across EJS skins
-      // 1) A button with a data attribute for the action:
+      if (!root) return null; 
       let btn = root.querySelector<HTMLButtonElement>('[data-action="quickSave"]');
-      if (btn) return btn;
-
-      // 2) Buttons with a title/aria-label that mentions save
+      if (btn) return btn; 
       const candidates = Array.from(root.querySelectorAll<HTMLButtonElement>('button, [role="button"]'));
       for (const el of candidates) {
         const t = (el.getAttribute('title') || el.getAttribute('aria-label') || el.textContent || '').toLowerCase();
@@ -1490,13 +1487,11 @@ private _lastCanvasBufH = 0;
   private tryBindSaveFromUI(): void {
     const btn = this.findQuickSaveButton();
     if (btn) {
-      this._saveFn = async () => {
-        try {
-          // Ensure the button is still in the DOM before clicking
-          if (document.body.contains(btn)) btn.click();
-        } catch { }
-      };
-      //console.log('[EMU] save API bound to Quick Save button');
+      this._saveFn = async () => { 
+        if (document.body.contains(btn)) {
+          btn.click();
+        } 
+      }; 
     } else {
       console.warn('[EMU] Quick Save button not found; cannot bind UI-based save');
     }
@@ -1540,8 +1535,7 @@ private _lastCanvasBufH = 0;
             if (sub && sub.length) return sub;
           }
         }
-
-        // chunks: [...]  -> concat
+ 
         if (Array.isArray(payload.chunks) && payload.chunks.length) {
           const parts: Uint8Array[] = [];
           for (const c of payload.chunks) {
@@ -1556,8 +1550,7 @@ private _lastCanvasBufH = 0;
             return out;
           }
         }
-
-        // array-like
+ 
         if (typeof (payload as any).byteLength === 'number') {
           return new Uint8Array(payload as ArrayLike<number>);
         }
@@ -1573,15 +1566,13 @@ private _lastCanvasBufH = 0;
       const candidates = keys
         .filter(k => /ejs|state|save|quick/i.test(k) && (k.includes(gameID) || k.includes(gameName) || /quick/i.test(k)))
         .map(k => ({ k, v: ls.getItem(k) ?? '' }));
-
-      // b64 or data:...;base64,...
+ 
       for (const { k, v } of candidates) {
         if (!v) continue;
         if (/^data:.*;base64,/.test(v) || /^[A-Za-z0-9+/=\s]+$/.test(v)) {
           try {
             const u8 = this.base64ToU8(v);
             if (u8.length) {
-              //console.log('[EMU] localStorage savestate (b64) at', k, 'bytes=', u8.length); 
               return u8;
             }
           } catch { }

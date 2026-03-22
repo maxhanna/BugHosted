@@ -491,6 +491,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         includeRomMetadata,
         this.actualCoreFilter
       ).then(res => {
+        const noData = !res;
         if (append && this.directory && this.directory.data) {
           // Normalize and derive thumbnails for newly-appended items before merging
           const newItems = (res.data || []).filter((d: FileEntry) =>
@@ -524,7 +525,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           if (!isFileIdSearch && this.fileIdFilter == null) {
             if (this.directory && this.directory.currentDirectory) {
               this.currentDirectory = this.directory.currentDirectory;
-            } else {
+            } else if (!noData) {
               this.currentDirectory = '';
             }
             this.currentDirectoryChangeEvent.emit(this.currentDirectory);
@@ -1882,6 +1883,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         return { label: key.toUpperCase(), title: key };
     }
   }
+
   getSystemIcon(key: string): SafeHtml | string {
     if (!key) return '';
     // Use the first extension for the given system (e.g. 'n64' -> 'n64')
@@ -1986,7 +1988,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
     return base + iconMap[effectiveExt];
   }
-  
+
   getSystemEmoji(fileName?: string, styling?: string, actualSystem?: string): SafeHtml | string {
     if (!fileName) return '';
     const ext = this.fileService.getFileExtension(fileName).toLowerCase();
