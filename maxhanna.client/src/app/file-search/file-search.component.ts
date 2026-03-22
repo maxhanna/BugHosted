@@ -1873,16 +1873,28 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
 
-  getSystemLabel(key: string): string {
+  getSystemLabel(key: string): { label: string, title: string } {
     switch (key) {
-      case 'n64': return 'N64';
-      case 'ps1': return 'PS1';
-      case 'gba': return 'GBA';
-      case 'nds': return 'NDS';
-      case 'nes': return 'NES';
-      case 'snes': return 'SNES';
-      case 'genesis': return 'SEGA'; 
-      default: return key.toUpperCase();
+      case 'n64':
+        return { label: 'N64', title: 'Nintendo 64' };
+      case 'ps1':
+        return { label: 'PS1', title: 'PlayStation 1' };
+      case 'gba':
+        return { label: 'GBA', title: 'Game Boy Advance' };
+      case 'nds':
+        return { label: 'NDS', title: 'Nintendo DS' };
+      case 'nes':
+        return { label: 'NES', title: 'Nintendo Entertainment System' };
+      case 'snes':
+        return { label: 'SNES', title: 'Super Nintendo Entertainment System' };
+      case 'genesis':
+        return { label: 'SEGA', title: 'Sega Genesis' };
+      case 'dreamcast':
+        return { label: 'DC', title: 'Sega Dreamcast' };
+      case 'gamecube':
+        return { label: 'GC', title: 'Nintendo GameCube' };
+      default:
+        return { label: key.toUpperCase(), title: key };
     }
   }
   getSystemIcon(key: string): SafeHtml | string {

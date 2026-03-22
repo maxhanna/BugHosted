@@ -685,10 +685,12 @@
     <div *ngIf="isInRomDirectory" class="spaceAroundFlex spaceAroundSystemFilters">
       <span style="width:100%">Filter by system</span>
       <div class="systemFilters">
-        <button *ngFor="let s of getSupportedRomSystems()" class="toggle-switch-small" (click)="onSystemFilterClick(s)">
+        <button *ngFor="let s of getSupportedRomSystems()" class="toggle-switch-small" 
+          [title]="getSystemLabel(s).title"
+          (click)="onSystemFilterClick(s)">
           <span class="xxSmallFont">{{ activeRomSystems.includes(s) ? '❌' : '' }}</span>
           <span class="system-icon" [innerHTML]="getSystemEmoji(s, undefined, s)"></span>
-          {{ getSystemLabel(s) }}
+          {{ getSystemLabel(s).label }}
         </button>
       </div>
     </div>
