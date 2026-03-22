@@ -3886,15 +3886,12 @@ namespace maxhanna.Server.Controllers
 
       string fileTypeCondition = string.Empty;
       string actualSystemCondition = string.Empty;
-      bool bothPresent = normalizedFileTypes.Any() && normalizedActualCores.Any();
 
       if (normalizedFileTypes.Any())
       {
         var sanitized = normalizedFileTypes.Select(ft => "'" + (ft ?? string.Empty).ToLower().Replace("'", "''") + "'").ToArray();
         var replaced = string.Join(",", sanitized);
-        // Only add parenthesis if both fileType and actualCore are present
-        string parenthesesNeeded = bothPresent ? "(" : "";
-        fileTypeCondition = $"{parenthesesNeeded} AND LOWER(f.file_type) IN ({replaced}) ";
+        fileTypeCondition = $"AND LOWER(f.file_type) IN ({replaced}) ";
       }
 
       if (normalizedActualCores.Any())
@@ -3905,16 +3902,22 @@ namespace maxhanna.Server.Controllers
         if (sanitized.Length > 0)
         {
           var replaced = string.Join(",", sanitized);
-          string seperator = normalizedFileTypes.Any() ? " OR " : " AND ";
-          actualSystemCondition = $"{seperator} LOWER(rso.system_core) IN ({replaced}) ";
+          actualSystemCondition = $"AND LOWER(rso.system_core) IN ({replaced}) ";
         }
       }
-      // Only add closing parenthesis if both are present
-      string parenthesesNeeded2 = bothPresent ? ")" : "";
-      actualSystemCondition = $"{actualSystemCondition}{parenthesesNeeded2}";
 
-      // Remove leading/trailing whitespace to avoid SQL syntax issues
-      return (fileTypeCondition + actualSystemCondition).Trim();
+      // If both are present, join with OR inside parentheses
+      if (!string.IsNullOrWhiteSpace(fileTypeCondition) && !string.IsNullOrWhiteSpace(actualSystemCondition))
+      {
+        // Remove leading ANDs for inner conditions
+        var ft = fileTypeCondition.Trim();
+        var ac = actualSystemCondition.Trim();
+        if (ft.StartsWith("AND ")) ft = ft.Substring(4);
+        if (ac.StartsWith("AND ")) ac = ac.Substring(4);
+        return $"AND ( {ft} OR {ac} ) ";
+      }
+      // Otherwise, just return whichever is present
+      return fileTypeCondition + actualSystemCondition;
     }
     private void MoveDirectory(string sourceDirectory, string destinationDirectory)
     {
