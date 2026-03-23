@@ -385,44 +385,7 @@ private void BuildUnionSql(
   // Generic (non-site): exact equals, domain prefix, FT (includes URL), and compact URL branch
   resultsSql = @"
     SELECT id, url, title, description, author, keywords, image_url, response_code
-    FROM (
-        -- 0) exact url equals
-        SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
-               0 AS `rnk`, NULL AS `ft_score`
-        FROM search_results sr
-        WHERE sr.url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
-          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-
-        UNION ALL
-
-        -- 1) domain prefix (left-anchored LIKE)
-        SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
-               1 AS `rnk`, NULL AS `ft_score`
-        FROM search_results sr
-        WHERE (
-               sr.url LIKE CONCAT('https://',     @baseDomain, '%')
-            OR sr.url LIKE CONCAT('https://www.', @baseDomain, '%')
-            OR sr.url LIKE CONCAT('http://',      @baseDomain, '%')
-            OR sr.url LIKE CONCAT('http://www.',  @baseDomain, '%')
-            OR sr.url LIKE CONCAT(@baseDomain, '%')
-            OR sr.url IN (
-                  CONCAT('https://',     @baseDomain),
-                  CONCAT('https://',     @baseDomain, '/'),
-                  CONCAT('https://www.', @baseDomain),
-                  CONCAT('https://www.', @baseDomain, '/'),
-                  CONCAT('http://',      @baseDomain),
-                  CONCAT('http://',      @baseDomain, '/'),
-                  CONCAT('http://www.',  @baseDomain),
-                  CONCAT('http://www.',  @baseDomain, '/'),
-                  CONCAT(@baseDomain),
-                  CONCAT(@baseDomain, '/')
-              )
-        )
-          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-
-        UNION ALL
-        
-        -- 2) fulltext on metadata + URL (BOOLEAN MODE)
+    FROM (  
         SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
                2 AS `rnk`,
                MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url)
@@ -432,59 +395,14 @@ private void BuildUnionSql(
           AND MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url)
                 AGAINST (@searchBoolean IN BOOLEAN MODE)
           AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-
-        UNION ALL
-        
-        -- 3) compact URL contains compacted query (robust: strips percent-encodings)
-        SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
-              3 AS `rnk`, NULL AS `ft_score`
-        FROM search_results sr
-        WHERE
-          -- Strip all percent-encoded bytes, then keep only a-z0-9
-          REGEXP_REPLACE(
-            REGEXP_REPLACE(LOWER(sr.url), '%[0-9a-f]{2}', ''),
-            '[^a-z0-9]', ''
-          ) LIKE @searchCompactLike
-          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-
+ 
     ) AS u
     ORDER BY u.`rnk` ASC, u.`ft_score` DESC, u.id DESC
     LIMIT @pageSize OFFSET @offset;";
 
   countSql = @"
     SELECT COUNT(DISTINCT id) AS total
-    FROM (
-        SELECT sr.id
-        FROM search_results sr
-        WHERE sr.url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
-          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-
-        UNION ALL
-
-        SELECT sr.id
-        FROM search_results sr
-        WHERE (
-               sr.url LIKE CONCAT('https://',     @baseDomain, '%')
-            OR sr.url LIKE CONCAT('https://www.', @baseDomain, '%')
-            OR sr.url LIKE CONCAT('http://',      @baseDomain, '%')
-            OR sr.url LIKE CONCAT('http://www.',  @baseDomain, '%')
-            OR sr.url LIKE CONCAT(@baseDomain, '%')
-            OR sr.url IN (
-                  CONCAT('https://',     @baseDomain),
-                  CONCAT('https://',     @baseDomain, '/'),
-                  CONCAT('https://www.', @baseDomain),
-                  CONCAT('https://www.', @baseDomain, '/'),
-                  CONCAT('http://',      @baseDomain),
-                  CONCAT('http://',      @baseDomain, '/'),
-                  CONCAT('http://www.',  @baseDomain),
-                  CONCAT('http://www.',  @baseDomain, '/'),
-                  CONCAT(@baseDomain),
-                  CONCAT(@baseDomain, '/')
-              )
-        )
-          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-
-        UNION ALL
+    FROM ( 
 
         SELECT sr.id
         FROM search_results sr
@@ -492,17 +410,7 @@ private void BuildUnionSql(
           AND MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url)
                 AGAINST (@searchBoolean IN BOOLEAN MODE)
           AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-
-        UNION ALL
-        
-        SELECT sr.id
-        FROM search_results sr
-        WHERE REGEXP_REPLACE(
-                REGEXP_REPLACE(LOWER(sr.url), '%[0-9a-f]{2}', ''),
-                '[^a-z0-9]', ''
-              ) LIKE @searchCompactLike
-          AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
-
+ 
     ) AS c;";
 }
 
