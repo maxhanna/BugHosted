@@ -395,7 +395,6 @@ private void BuildUnionSql(
           AND MATCH(sr.title, sr.description, sr.author, sr.keywords, sr.url)
                 AGAINST (@searchBoolean IN BOOLEAN MODE)
           AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
- 
     ) AS u
     ORDER BY u.`rnk` ASC, u.`ft_score` DESC, u.id DESC
     LIMIT @pageSize OFFSET @offset;";
