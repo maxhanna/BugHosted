@@ -343,8 +343,12 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   }
   get reactionButtonTitle(): string {
     const acted = this.userHasReacted();
-    const label = acted ? (this.replaceReactionLabel(this.userReaction) + ' (Change') : 'Add';
-    return label + ' Reaction' + (acted ? ')' : '');
+ 
+    if (acted) {
+      return `Change Reaction (${this.replaceReactionLabel(this.userReaction)})`;
+    } else {
+      return 'Add Reaction';
+    }
   }
   searchForReaction() {
     const lowerSearch = this.reactionFilter.nativeElement.value.toLowerCase().trim();
