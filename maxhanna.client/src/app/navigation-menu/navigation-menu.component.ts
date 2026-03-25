@@ -15,9 +15,7 @@ export class NavigationMenuComponent {
   goTo(title: string, event?: any) {
     try {
       if (title === 'UpdateUserSettings') {
-        this._parent.createComponent(title, { inputtedParentRef: this._parent, areSelectableMenuItemsExplained: true, showOnlySelectableMenuItems: true });
-      } else if (title.toLowerCase() !== 'help') {
-        this._parent.createComponent(title);
+        this._parent.createComponent(title, { inputtedParentRef: this._parent });
       } else {
         this._parent.createComponent(title);
       }
