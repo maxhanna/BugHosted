@@ -1986,7 +1986,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       'gba': 'gbaicon.png'
     };
 
-    return base + iconMap[effectiveExt];
+    if (iconMap[effectiveExt]) {
+      return base + iconMap[effectiveExt];
+    } else {
+      return undefined;
+    }
   }
 
   getSystemEmoji(fileName?: string, styling?: string, actualSystem?: string): SafeHtml | string {
@@ -2069,17 +2073,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
 
     const fileName = file.fileName ?? '';
-    const ext = (this.fileService.getFileExtension(fileName) || '').toLowerCase();
-
-    // Known extension -> asset mapping (keep empty for non-ROM files so we don't reuse emulator icons)
-    // ROM/system icons are handled by `getSystemEmoji` / `getSystemIconUrl` already.
-    const extAssetMap: { [key: string]: string } = {};
-
-    const asset = extAssetMap[ext];
-    if (asset) {
-      const html = `<img src="${asset}" alt="${ext}" style="width:16px;height:16px;vertical-align:middle;margin-right:6px" />`;
-      return this.sanitizer.bypassSecurityTrustHtml(html);
-    }
+    const ext = (this.fileService.getFileExtension(fileName) || '').toLowerCase(); 
 
     // Emoji fallback mapping for common types
     const fallback: { [key: string]: string } = {
