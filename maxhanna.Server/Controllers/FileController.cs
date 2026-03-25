@@ -117,7 +117,7 @@ namespace maxhanna.Server.Controllers
 
         string combinedTypeCoreCondition = BuildFileTypeAndCoreCondition(normalizedFileTypes, normalizedActualCores, cores);
 
-        Console.WriteLine($"DEBUG GetDirectory: combinedTypeCoreCondition: {combinedTypeCoreCondition}, showHidden: {showHidden}, showFavouritesOnly: {showFavouritesOnly}, sortOption: {sortOption}, includeRomMetadata: {includeRomMetadata}, fileId: {(fileId.HasValue ? fileId.Value.ToString() : "null")}");
+        //Console.WriteLine($"DEBUG GetDirectory: combinedTypeCoreCondition: {combinedTypeCoreCondition}, showHidden: {showHidden}, showFavouritesOnly: {showFavouritesOnly}, sortOption: {sortOption}, includeRomMetadata: {includeRomMetadata}, fileId: {(fileId.HasValue ? fileId.Value.ToString() : "null")}");
 
         string fileIdCondition = fileId.HasValue ? " AND f.id = @fileId" : "";
         bool isRomSearch = !(actualCore?.Count > 0) || includeRomMetadata;
@@ -366,7 +366,7 @@ namespace maxhanna.Server.Controllers
           {
             command.Parameters.AddWithValue("@search", "%" + search + "%");
           }
-          Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
+          //Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
           var rawNotesByFileId = new Dictionary<int, List<(int UserId, string? Note)>>();
           using (var reader = command.ExecuteReader())
           {
