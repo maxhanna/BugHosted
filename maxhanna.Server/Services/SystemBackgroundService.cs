@@ -175,7 +175,7 @@ namespace maxhanna.Server.Services
       await FetchAndStoreCoinValues();
       _miningApiService.UpdateWalletInDB(_config, _log);
       lastWasCrypto = !lastWasCrypto;
-      List<maxhanna.Server.Controllers.DataContracts.News.Article> topHeadlines = await _newsService.GetAndSaveTopQuarterHourlyHeadlines(!lastWasCrypto ? "Cryptocurrency" : null);
+      List<maxhanna.Server.Controllers.DataContracts.News.Article>? topHeadlines = await _newsService.GetAndSaveTopQuarterHourlyHeadlines(!lastWasCrypto ? "Cryptocurrency" : null);
       //await _profitService.CalculateDailyProfits();
       if (!_indicatorService.IsUpdating)
       {

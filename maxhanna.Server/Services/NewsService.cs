@@ -255,7 +255,7 @@ public class NewsService
     }
     return null;
   }
-  public async Task<List<maxhanna.Server.Controllers.DataContracts.News.Article>> GetAndSaveTopQuarterHourlyHeadlines(string? keyword)
+  public async Task<List<maxhanna.Server.Controllers.DataContracts.News.Article>?> GetAndSaveTopQuarterHourlyHeadlines(string? keyword)
   {
     const int articlesToTake = 60;
     try
