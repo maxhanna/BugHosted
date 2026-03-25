@@ -53,9 +53,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   preferSixButtonGenesis: boolean = true;
   loadWithoutSave = false;
   systemCandidates: Array<{ label: string; core?: Core }> = [];
-  selectedSystemCore?: Core | null = null;  
-private _lastCanvasBufW = 0;
-private _lastCanvasBufH = 0; 
+  selectedSystemCore?: Core | null = null;
+  private _lastCanvasBufW = 0;
+  private _lastCanvasBufH = 0;
   private autosaveInterval: any;
   private romObjectUrl?: string;
   private emulatorInstance?: any;
@@ -64,7 +64,7 @@ private _lastCanvasBufH = 0;
   private _destroyed = false;
   private _pendingSaveResolve?: (v?: any) => void;
   private _pendingSaveTimer?: any;
-  private _captureSaveResolve?: (u8: Uint8Array | null) => void; 
+  private _captureSaveResolve?: (u8: Uint8Array | null) => void;
   private CORE_REGISTRY: CoreDescriptor[] = [];
   private _saveFn?: () => Promise<void>;
   private _lastSaveTime: number = 0;
@@ -238,7 +238,7 @@ private _lastCanvasBufH = 0;
       if (!this.selectedSystemCore) {
         return;
       }
-    } 
+    }
     this.presetForcedCore = this.selectedSystemCore;
     try {
       await this.loadRomThroughService(file.fileName, file.id, this.selectedSystemCore ?? undefined);
@@ -389,7 +389,7 @@ private _lastCanvasBufH = 0;
       }
 
       try { this.onEmulatorReadyForSizing(); } catch { console.warn('[EMU] onEmulatorReadyForSizing failed'); }
-    }; 
+    };
 
     // Ensure menu is closed when the emulator starts
     this.isMenuPanelOpen = false;
@@ -620,7 +620,7 @@ private _lastCanvasBufH = 0;
       case 'mame2003_plus':
         return undefined;
 
-      case 'dosbox': 
+      case 'dosbox':
         return '/assets/emulatorjs/data/cores/DOSBOX.zip';
 
       // By default, do not supply a BIOS URL — caller will treat undefined as "no BIOS".
@@ -713,10 +713,10 @@ private _lastCanvasBufH = 0;
     }
     if (core === 'mupen64plus_next' || system === 'n64') {
       this.applyN64CoreSettings(w);
-    } 
-    // if (this.onMobile() && (core === 'melonds' || core === 'nds' || core === 'desmume' || core === 'desmume2015')) {
-    //   this.applyNDSCoreSettingsForMobile(w);
-    // } 
+    }
+    if (this.onMobile() && (core === 'melonds' || core === 'nds' || core === 'desmume' || core === 'desmume2015')) {
+      this.applyNDSCoreSettingsForMobile(w);
+    }
     const isDPADCentric = (system && (['nes', 'snes', 'gb', 'gbc', 'gba', 'genesis', 'saturn', 'sega_cd', '3do', 'nds'] as string[]).includes(system)) || core === 'yabause';
     const isLeftAndRightJoystickInverted = (system && ['n64'].includes(system));
     const rightStickValues = {
@@ -1380,8 +1380,8 @@ private _lastCanvasBufH = 0;
 
   private setGameScreenHeight(): void {
     const gameEl = document.getElementById('game');
-    if (!gameEl) return; 
-    gameEl.style.removeProperty('aspect-ratio'); 
+    if (!gameEl) return;
+    gameEl.style.removeProperty('aspect-ratio');
     gameEl.style.height = this.getViewportHeightMinusHeader(60);
     gameEl.style.maxHeight = this.getViewportHeightMinusHeader(60);
     gameEl.style.width = '100%';
@@ -1397,10 +1397,10 @@ private _lastCanvasBufH = 0;
       game.style.setProperty('min-height', h, 'important');
       game.style.setProperty('width', '100%', 'important');
       game.style.setProperty('max-width', '100vw', 'important');
-      game.style.setProperty('margin', '0 auto', 'important'); 
+      game.style.setProperty('margin', '0 auto', 'important');
     };
 
-    apply(); 
+    apply();
   }
 
   async toggleFullScreen(): Promise<void> {
@@ -1472,9 +1472,9 @@ private _lastCanvasBufH = 0;
   private findQuickSaveButton(): HTMLButtonElement | null {
     try {
       const root = document.getElementById('game');
-      if (!root) return null; 
+      if (!root) return null;
       let btn = root.querySelector<HTMLButtonElement>('[data-action="quickSave"]');
-      if (btn) return btn; 
+      if (btn) return btn;
       const candidates = Array.from(root.querySelectorAll<HTMLButtonElement>('button, [role="button"]'));
       for (const el of candidates) {
         const t = (el.getAttribute('title') || el.getAttribute('aria-label') || el.textContent || '').toLowerCase();
@@ -1487,11 +1487,11 @@ private _lastCanvasBufH = 0;
   private tryBindSaveFromUI(): void {
     const btn = this.findQuickSaveButton();
     if (btn) {
-      this._saveFn = async () => { 
+      this._saveFn = async () => {
         if (document.body.contains(btn)) {
           btn.click();
-        } 
-      }; 
+        }
+      };
     } else {
       console.warn('[EMU] Quick Save button not found; cannot bind UI-based save');
     }
@@ -1535,7 +1535,7 @@ private _lastCanvasBufH = 0;
             if (sub && sub.length) return sub;
           }
         }
- 
+
         if (Array.isArray(payload.chunks) && payload.chunks.length) {
           const parts: Uint8Array[] = [];
           for (const c of payload.chunks) {
@@ -1550,7 +1550,7 @@ private _lastCanvasBufH = 0;
             return out;
           }
         }
- 
+
         if (typeof (payload as any).byteLength === 'number') {
           return new Uint8Array(payload as ArrayLike<number>);
         }
@@ -1566,7 +1566,7 @@ private _lastCanvasBufH = 0;
       const candidates = keys
         .filter(k => /ejs|state|save|quick/i.test(k) && (k.includes(gameID) || k.includes(gameName) || /quick/i.test(k)))
         .map(k => ({ k, v: ls.getItem(k) ?? '' }));
- 
+
       for (const { k, v } of candidates) {
         if (!v) continue;
         if (/^data:.*;base64,/.test(v) || /^[A-Za-z0-9+/=\s]+$/.test(v)) {
@@ -2262,8 +2262,8 @@ private _lastCanvasBufH = 0;
   private getRenderClampForCore(core: Core) {
     if (core === "psp" || core === "ppsspp") {
       return { maxW: 640, maxH: 360, maxDPR: 1.0 };
-    } 
-    
+    }
+
     if (this.onMobile() && (core === 'melonds' || core === 'nds' || core === 'desmume' || core === 'desmume2015')) {
       return { maxW: 256, maxH: 384, maxDPR: 1.0 };
     }
@@ -2387,12 +2387,12 @@ private _lastCanvasBufH = 0;
   private async onEmulatorReadyForSizing() {
     const canvas = await this.waitForCanvas();
     if (canvas) {
-      this.resizeCanvasBuffer(); 
+      this.resizeCanvasBuffer();
       setTimeout(() => {
         this.forceCanvasRelayout();
-      }, 5000); 
-    } 
-   // this.bindResizeBuffer();
+      }, 5000);
+    }
+    // this.bindResizeBuffer();
   }
 
   /** Bind resize handlers (call once after emulator is initialized). */
@@ -2771,32 +2771,24 @@ private _lastCanvasBufH = 0;
     w.EJS_defaultOptionsForce = true;
   }
 
-// applyNDSCoreSettingsForMobile(w: any) {
-//   w.EJS_GL_Options = {
-//     alpha: false,
-//     antialias: false,
-//     depth: false,
-//     stencil: false,
-//     preserveDrawingBuffer: false,
-//     premultipliedAlpha: false,
-//     desynchronized: true, // try this; safe to A/B test
-//     powerPreference: 'high-performance'
-//   };
+  applyNDSCoreSettingsForMobile(w: any) {
+    w.EJS_GL_Options = {
+      alpha: false,
+      antialias: false,
+      depth: false,
+      stencil: false,
+      preserveDrawingBuffer: false,
+      premultipliedAlpha: false,
+      desynchronized: true, // try this; safe to A/B test
+      powerPreference: 'high-performance'
+    };
 
-//   w.EJS_vsync = false; 
-//   w.EJS_disableLocalStorage = true; 
-//   w.EJS_disableDatabases = true; 
-//   w.EJS_backgroundImage = '';
-//   w.EJS_backgroundBlur = false;
-// }
- 
-  // private scheduleResizeCanvasBuffer = () => {
-  //   if (this._resizeRaf) cancelAnimationFrame(this._resizeRaf);
-  //   this._resizeRaf = requestAnimationFrame(() => {
-  //     this._resizeRaf = undefined;
-  //     this.resizeCanvasBuffer();
-  //   });
-  // };
+    w.EJS_vsync = false;
+    w.EJS_disableLocalStorage = true;
+    w.EJS_disableDatabases = true;
+    w.EJS_backgroundImage = '';
+    w.EJS_backgroundBlur = false;
+  } 
 
   async applyPSPPerformanceTweak() {
     const core = (window as any).EJS_core;
@@ -2936,7 +2928,7 @@ private _lastCanvasBufH = 0;
       { core: 'flycast', label: 'Sega Dreamcast (Flycast)', exts: exDC, maybeExts: exAmbig, hints: [/\bDREAMCAST\b|\bNAOMI\b/i] },  // WASM port required [6](https://github.com/nasomers/flycast-wasm)
       { core: 'vitaquake3', label: 'Quake III Arena (vitaQuake 3)', exts: exQ3, maybeExts: [], hints: [/pak0\.pk3/i] }, // loads *.pk3 [2](https://sources.debian.org/src/libretro-core-info/1.14.0-1/vitaquake3_libretro.info/)
     ];
-  } 
+  }
 
   private isAmbiguousFile(fileName: string): boolean {
     const ext = this.normExt(fileName, n => this.fileService.getFileExtension(n));
@@ -3213,12 +3205,12 @@ private _lastCanvasBufH = 0;
       case 'smsplus': return 'segaMS';
       default: return undefined; // let EmulatorJS derive it
     }
-  } 
-    
-  private forceCanvasRelayout(): void { 
+  }
+
+  private forceCanvasRelayout(): void {
     console.log('%c[EMU] Forcing canvas relayout ✔', 'color:#4af');
     window.dispatchEvent(new Event('resize'));
-  } 
+  }
 
   private canUseThreads(core: Core, system: System): boolean {
     if (system === 'psp' || core === 'psp' || core === 'ppsspp') {
