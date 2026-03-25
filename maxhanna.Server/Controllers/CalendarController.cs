@@ -48,16 +48,16 @@ namespace maxhanna.Server.Controllers
 									OR (Type IN ('Annually','Birthday','Milestone','Newyears','Christmas','Anniversary') AND MONTH(Date) = MONTH(@StartDate)) -- annually same month
 									OR (Type = 'Daily') -- daily
 								)
-							UNION
-							SELECT user_id AS Id,
-											'Birthday' AS Type,
-											description AS Note,
-											birthday AS Date,
-											@Owner AS Ownership
-							FROM user_about
-							WHERE user_id = @Owner
-								AND MONTH(birthday) = MONTH(@StartDate)
-								AND DAY(birthday) = DAY(@StartDate);
+						UNION
+						SELECT user_id AS Id,
+									'Birthday' AS Type,
+									description AS Note,
+									birthday AS Date,
+									@Owner AS Ownership
+						FROM user_about
+						WHERE user_id = @Owner
+							AND MONTH(birthday) = MONTH(@StartDate)
+							AND DAY(birthday) = DAY(@StartDate);
 					";
 
 					using (var cmd = new MySqlCommand(sql, conn))
@@ -80,10 +80,25 @@ namespace maxhanna.Server.Controllers
 				// Return the SQL-selected entries directly (query includes recurring templates and birthday union)
 				return Ok(entries);
 			}
+			catch (MySqlException ex)
+			{
+				_ = _log.Db("Database error while fetching calendar entries: " + ex.Message, userId, "CALENDAR");
+				return StatusCode(503, "Database error while fetching calendar entries.");
+			}
+			catch (ArgumentException ex)
+			{
+				_ = _log.Db("Invalid argument while fetching calendar entries: " + ex.Message, userId, "CALENDAR");
+				return BadRequest("Invalid request parameters.");
+			}
+			catch (OperationCanceledException)
+			{
+				_ = _log.Db("Calendar fetch operation cancelled.", userId, "CALENDAR");
+				return StatusCode(499, "Client closed request.");
+			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while fetching calendar entries. " + ex.Message, userId, "CALENDAR");
-				return StatusCode(500, "An error occurred while fetching calendar entries.");
+				_ = _log.Db("An unexpected error occurred while fetching calendar entries. " + ex.Message, userId, "CALENDAR");
+				return StatusCode(500, "An unexpected error occurred while fetching calendar entries.");
 			}
 		}
 
@@ -106,9 +121,24 @@ namespace maxhanna.Server.Controllers
 				return Ok();
 
 			}
+			catch (MySqlException ex)
+			{
+				_ = _log.Db("Database error while creating calendar entry: " + ex.Message, null, "CALENDAR");
+				return StatusCode(503, "Database error while creating calendar entry.");
+			}
+			catch (ArgumentNullException ex)
+			{
+				_ = _log.Db("Missing required field in calendar entry: " + ex.Message, null, "CALENDAR");
+				return BadRequest("Missing required field in request.");
+			}
+			catch (ArgumentException ex)
+			{
+				_ = _log.Db("Invalid data for calendar entry: " + ex.Message, null, "CALENDAR");
+				return BadRequest("Invalid data in request.");
+			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while processing the POST request." + ex.Message, null);
+				_ = _log.Db("An unexpected error occurred while processing the POST request." + ex.Message, null, "CALENDAR");
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
@@ -140,9 +170,19 @@ namespace maxhanna.Server.Controllers
 					return NotFound();
 				}
 			}
+			catch (MySqlException ex)
+			{
+				_ = _log.Db("Database error while deleting calendar entry: " + ex.Message, userId, "CALENDAR");
+				return StatusCode(503, "Database error while deleting calendar entry.");
+			}
+			catch (ArgumentException ex)
+			{
+				_ = _log.Db("Invalid argument while deleting calendar entry: " + ex.Message, userId, "CALENDAR");
+				return BadRequest("Invalid request parameters.");
+			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while processing the DELETE request. " + ex.Message, userId, "CALENDAR");
+				_ = _log.Db("An unexpected error occurred while processing the DELETE request. " + ex.Message, userId, "CALENDAR");
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
@@ -159,12 +199,12 @@ namespace maxhanna.Server.Controllers
 			{
 				conn.Open();
 				string sql = @"
-					UPDATE maxhanna.calendar
-					SET Type = @Type,
-						Note = @Note,
-						Date = @Date
-					WHERE Id = @Id AND Ownership = @Owner
-					LIMIT 1;";
+						UPDATE maxhanna.calendar
+						SET Type = @Type,
+							Note = @Note,
+							Date = @Date
+						WHERE Id = @Id AND Ownership = @Owner
+						LIMIT 1;";
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@Type", req.calendarEntry.Type);
 				cmd.Parameters.AddWithValue("@Note", req.calendarEntry.Note);
@@ -175,9 +215,19 @@ namespace maxhanna.Server.Controllers
 				if (rows > 0) return Ok();
 				return NotFound();
 			}
+			catch (MySqlException ex)
+			{
+				_ = _log.Db("Database error while editing calendar entry: " + ex.Message, req.userId, "CALENDAR");
+				return StatusCode(503, "Database error while editing calendar entry.");
+			}
+			catch (ArgumentException ex)
+			{
+				_ = _log.Db("Invalid argument while editing calendar entry: " + ex.Message, req.userId, "CALENDAR");
+				return BadRequest("Invalid request parameters.");
+			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while processing the Edit request." + ex.Message, req.userId, "CALENDAR");
+				_ = _log.Db("An unexpected error occurred while processing the Edit request." + ex.Message, req.userId, "CALENDAR");
 				return StatusCode(500, "An error occurred while processing the edit request.");
 			}
 			finally

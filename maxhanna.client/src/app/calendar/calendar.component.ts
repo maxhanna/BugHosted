@@ -65,6 +65,14 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       this.years.push(i);
     }
   }
+  private formatError(err: any): string {
+    if (!err) return 'Unknown error';
+    if (typeof err === 'string') return err;
+    if (err.message) return err.message;
+    if (err.status && err.message) return `${err.status}: ${err.message}`;
+    try { return JSON.stringify(err); } catch { return String(err); }
+  }
+
 
   async ngOnInit() {
     this.now = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -186,8 +194,9 @@ export class CalendarComponent extends ChildComponent implements OnInit {
         this.isEditingEntry = this.isEditingEntry.filter(x => x.id !== id);
         await this.refreshCalendar();
       } catch (error) {
-        console.error('Error updating calendar entry:', error);
-        this.parentRef?.showNotification('Failed to update calendar entry');
+        const msg = this.formatError(error);
+        console.error('Error updating calendar entry:', msg);
+        this.parentRef?.showNotification('Failed to update calendar entry: ' + msg);
       } finally { 
         this.closeEditPopupCalendar();
       }
@@ -328,7 +337,9 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       const to = new Date(Date.UTC(this.now.getUTCFullYear(), this.now.getUTCMonth() + 1, 0, 0, 0, 0, 0));
       this.calendarEntries = await this.calendarService.getCalendarEntries(this.parentRef?.user?.id, from, to);
     } catch (error) {
-      console.error("Error fetching calendar entries:", error);
+      const msg = this.formatError(error);
+      console.error("Error fetching calendar entries:", msg);
+      this.parentRef?.showNotification('Failed to fetch calendar entries: ' + msg);
     }
   }
   async deleteCalendarEntry(cal: CalendarEntry) {
@@ -341,7 +352,9 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       this.setCalendarDates(this.now);
       this.closeEditPopupCalendar();
     } catch (error) {
-      console.error("Error deleting calendar entry:", error);
+      const msg = this.formatError(error);
+      console.error("Error deleting calendar entry:", msg);
+      this.parentRef?.showNotification('Failed to delete calendar entry: ' + msg);
       throw error;
     }
   }
@@ -350,16 +363,22 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       const tmpCalendarEntry = this.prepareNewCalendarEntry();
 
       this.startLoading();
-      await this.calendarService.createCalendarEntries(this.parentRef?.user?.id, tmpCalendarEntry);
-
-      this.updateCalendarDaysWithNewEntry(tmpCalendarEntry);
-
-      await this.refreshCalendar();
-
-      this.clearInputValues();
-      this.stopLoading();
+      const res = await this.calendarService.createCalendarEntries(this.parentRef?.user?.id, tmpCalendarEntry);
+      if (!res) {
+        this.parentRef?.showNotification('Failed to create calendar entry');
+        this.stopLoading();
+        return;
+      } else { 
+        this.updateCalendarDaysWithNewEntry(tmpCalendarEntry); 
+        await this.refreshCalendar(); 
+        this.clearInputValues();
+        this.stopLoading();
+      } 
     } catch (error) {
-      console.error(error);
+      const msg = this.formatError(error);
+      console.error(msg);
+      this.parentRef?.showNotification('Failed to create calendar entry: ' + msg);
+      this.stopLoading();
     }
   }
 

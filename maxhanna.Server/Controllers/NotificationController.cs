@@ -350,7 +350,7 @@ namespace maxhanna.Server.Controllers
 				await conn.OpenAsync();
 				await UpdateLastSeen(conn, request);
 				await ResolveParentCommentAsync(conn, request);
-				
+
 				if (await TryResolveStoryNotification(conn, request))
 				{
 					notificationProcessed = true;
@@ -434,7 +434,7 @@ namespace maxhanna.Server.Controllers
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
-				conn.Open();  
+				conn.Open();
 				string sql = "DELETE FROM maxhanna.user_prevent_notification WHERE user_id = @UserId AND from_user_id = @FromUserId LIMIT 1;";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
@@ -552,12 +552,12 @@ namespace maxhanna.Server.Controllers
 
 			using var reader = await cmd.ExecuteReaderAsync();
 			if (await reader.ReadAsync())
-			{ 
+			{
 				if (!reader.IsDBNull(reader.GetOrdinal("file_id")))
 				{
 					request.FileId = reader.GetInt32("file_id");
 				}
- 
+
 				if (!reader.IsDBNull(reader.GetOrdinal("story_id")))
 				{
 					request.StoryId = reader.GetInt32("story_id");
@@ -579,12 +579,12 @@ namespace maxhanna.Server.Controllers
 					ownerId = await GetStoryOwnerId(conn, request.StoryId.Value, request.FromUserId);
 					if (ownerId != null)
 					{
-						await NotifyStoryOwner(conn, request, ownerId.Value); 
+						await NotifyStoryOwner(conn, request, ownerId.Value);
 						if (request.ToUserIds != null)
 						{
 							request.ToUserIds = request.ToUserIds.Where(id => id != ownerId.Value).ToArray();
 						}
-					} 
+					}
 				}
 
 				// 2. Notify any remaining mentioned users
@@ -839,7 +839,7 @@ namespace maxhanna.Server.Controllers
 
 		private async Task<bool> TryResolveCommentNotification(MySqlConnection conn, NotificationRequest request)
 		{
-            if (request.CommentId == null || request.CommentId <= 0) return false;
+			if (request.CommentId == null || request.CommentId <= 0) return false;
 
 			bool hasStory = request.StoryId.HasValue && request.StoryId > 0;
 			bool hasFile = request.FileId.HasValue && request.FileId > 0;
@@ -903,12 +903,12 @@ namespace maxhanna.Server.Controllers
 				userIdsToNotify.UnionWith(mentionedUsers);
 			}
 
-				// 4. Insert notifications for all unique users
-				if (userIdsToNotify.Any())
-				{
-					string userIds = string.Join(",", userIdsToNotify);
+			// 4. Insert notifications for all unique users
+			if (userIdsToNotify.Any())
+			{
+				string userIds = string.Join(",", userIdsToNotify);
 
-					string insertNotificationsSql = $@"
+				string insertNotificationsSql = $@"
             INSERT INTO maxhanna.notifications 
                 (user_id, from_user_id, comment_id, text, date, user_profile_id{(hasFile ? ", file_id" : "")}{(hasStory ? ", story_id" : "")})
             SELECT 
@@ -920,7 +920,7 @@ namespace maxhanna.Server.Controllers
                 WHERE user_id = users.id 
                 AND comment_id = @comment_id
             )";
- 
+
 				using (var cmd = new MySqlCommand(insertNotificationsSql, conn))
 				{
 					cmd.Parameters.AddWithValue("@user_id", request.FromUserId);
@@ -1183,7 +1183,7 @@ namespace maxhanna.Server.Controllers
 			return sendFirebaseNotification;
 		}
 		private async Task<bool> ShouldSendFirebaseNotificationForChat(MySqlConnection conn, NotificationRequest request)
-		{ 
+		{
 			foreach (var receiverUserId in request.ToUserIds)
 			{
 				if (receiverUserId == request.FromUserId) continue;
@@ -1197,7 +1197,7 @@ namespace maxhanna.Server.Controllers
 
 				using (var checkCommand = new MySqlCommand(checkSql, conn))
 				{
-					checkCommand.Parameters.AddWithValue("@Receiver", receiverUserId); 
+					checkCommand.Parameters.AddWithValue("@Receiver", receiverUserId);
 					var count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync());
 
 					if (count <= 1)
@@ -1210,7 +1210,26 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task SendFirebaseNotifications(NotificationRequest request)
 		{
-			var tmpMessage = request.Message ?? "Notification from Bughosted.com";
+			string username = "Anonymous";
+			using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+			{
+				await conn.OpenAsync();
+				string followersSql = @"SELECT username FROM users WHERE id = @senderId LIMIT 1;";
+				using (var cmd = new MySqlCommand(followersSql, conn))
+				{
+					cmd.Parameters.AddWithValue("@senderId", request.FromUserId);
+					using (var reader = await cmd.ExecuteReaderAsync())
+					{
+						while (await reader.ReadAsync())
+						{
+							username = reader.GetString("username");
+						}
+					}
+				}
+			}
+
+			var tmpMessage = request.Message ?? $"Notification from {username} at Bughosted.com";
+			tmpMessage = tmpMessage.Replace(request.FromUserId.ToString(), username);
 			var usersWithoutAnon = request.ToUserIds.Where(x => x != 0).ToList();
 
 			foreach (int tmpUserId in usersWithoutAnon)
@@ -1243,7 +1262,7 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 		}
-		
+
 		private static string RemoveQuotedBlocks(string message)
 		{
 			string pattern = @"\[Quoting[^\]]*?\]:.*?(?=(\[Quoting|\z))";
@@ -1330,7 +1349,7 @@ namespace maxhanna.Server.Controllers
 				var validFollowers = new List<int>();
 				foreach (var followerId in followerIds)
 				{
-					if (followerId != request.FromUserId 
+					if (followerId != request.FromUserId
 						&& await CanUserNotifyAsync(request.FromUserId, followerId))
 					{
 						validFollowers.Add(followerId);

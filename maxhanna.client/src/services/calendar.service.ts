@@ -19,7 +19,7 @@ export class CalendarService {
         body: JSON.stringify(userId),
       });
 
-      return await response.json();
+      return await this.handleResponse(response);
     } catch (error) {
       return null;
     }
@@ -36,8 +36,7 @@ export class CalendarService {
         },
         body: JSON.stringify({ userId, calendarEntry }),
       });
-
-      return await response.json();
+      return await this.handleResponse(response);
     } catch (error) {
       return null;
     }
@@ -54,7 +53,7 @@ export class CalendarService {
         body: JSON.stringify({ userId, calendarEntry }),
       });
 
-      return await response.json();
+      return await this.handleResponse(response);
     } catch (error) {
       return null;
     }
@@ -71,9 +70,16 @@ export class CalendarService {
         body: JSON.stringify(userId),
       });
 
-      return await response.json();
+      return await this.handleResponse(response);
     } catch (error) {
       return null;
     }
+  }
+  private async handleResponse(response: Response) {
+    const status = response.status;
+    let body: any = null;
+    try { body = await response.json(); } catch { body = await response.text().catch(() => null); }
+    if (!response.ok) throw { status, message: body?.message ?? body ?? response.statusText };
+    return body;
   }
 }
