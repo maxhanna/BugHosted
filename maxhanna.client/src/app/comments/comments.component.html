@@ -38,7 +38,7 @@
       <div class="commentAvatarAndDate">
         <div class="commentAvatar usernameProfileLink">
           <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"
-            [displayHoverPicture]="true" [previousComponent]="previousComponent"></app-user-tag>
+            [displayHoverPicture]="true"></app-user-tag>
         </div>
         <div class="commentDate" [title]="(comment.date?.toString() ?? '').replace('T',' ')">
           <ng-container *ngIf="onMobile(); else fullTime">
@@ -59,8 +59,7 @@
             [userProfileId]="userProfile?.id" 
             [user]="inputtedParentRef?.user"
             [inputtedParentRef]="inputtedParentRef" 
-            [currentReactions]="comment.reactions"
-            [previousComponent]="previousComponent">
+            [currentReactions]="comment.reactions">
           </app-reaction>
         </div>
         <button class="commentOptionButton coloredBgButton" (click)="showOptionsPanel(comment)">
@@ -96,8 +95,7 @@
             [showCommentSection]="false" 
             [showMediaInformation]="true" 
             [showTopics]="false"
-            [displayLoading]="true"
-            [previousComponent]="previousComponent">
+            [displayLoading]="true">
           </app-media-viewer>
         </div>
         <div class="commentInputArea">

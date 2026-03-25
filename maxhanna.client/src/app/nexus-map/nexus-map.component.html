@@ -93,8 +93,7 @@
   <div class="infoContainer" *ngIf="isReportsHidden">
     <div class="tileInfoDiv">
       <div *ngIf="selectedNexusBase?.user">
-        <app-user-tag [user]="selectedNexusBase.user" [inputtedParentRef]="inputtedParentRef"
-          [previousComponent]="'Bug-Wars'" (userLoaded)="userTagLoaded($event)"></app-user-tag>
+        <app-user-tag [user]="selectedNexusBase.user" [inputtedParentRef]="inputtedParentRef" (userLoaded)="userTagLoaded($event)"></app-user-tag>
       </div>
       <div>
         <button

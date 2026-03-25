@@ -20,7 +20,7 @@
       <div class="instructionTitle smallFont" *ngIf="wordlerBestStreakOverall">
         All-time Best Daily Streak ({{wordlerBestStreakOverall.streak}}) By :
         <app-user-tag [userId]="wordlerBestStreakOverall.userId" [inputtedParentRef]="parentRef"
-          [displayHoverPicture]="true" [displayMiniTag]="true" [previousComponent]="'Wordler'"></app-user-tag>
+          [displayHoverPicture]="true" [displayMiniTag]="true"></app-user-tag>
       </div>
       <div class="notification">You get {{numberOfTries}} tries to guess today's word.</div>
       <div class="notification">Succeed or fail, you must wait until tomorrow to try again.</div>

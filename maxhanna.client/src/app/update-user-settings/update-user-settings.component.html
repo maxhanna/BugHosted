@@ -117,7 +117,7 @@
                 [showCommentSection]="false"
                 [file]="this.inputtedParentRef?.user?.displayPictureFile ?? this.parentRef?.user!.displayPictureFile"
                 [currentDirectory]="this.parentRef?.user!.displayPictureFile!.directory" [user]="parentRef!.user"
-                [inputtedParentRef]="parentRef!" [previousComponent]="'UpdateUserSettings'">
+                [inputtedParentRef]="parentRef!">
               </app-media-viewer>
             </div>
           </div>
@@ -139,7 +139,7 @@
               <app-media-viewer #backgroundPictureViewer [displayExpander]="false" [displayExtraInfo]="false"
                 [showCommentSection]="false"
                 [file]="this.inputtedParentRef?.user?.profileBackgroundPictureFile ?? this.parentRef?.user!.profileBackgroundPictureFile"
-                [user]="parentRef!.user" [inputtedParentRef]="parentRef!" [previousComponent]="'UpdateUserSettings'">
+                [user]="parentRef!.user" [inputtedParentRef]="parentRef!">
               </app-media-viewer>
             </div>
           </div>
@@ -260,7 +260,7 @@ but you can also set your own City for a more precise location."></span>
       <div class="sectionDescriptionSection" *ngFor="let user of blockedUsers">
         <div>
           <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef" [displayHoverPicture]="true"
-            [displayMiniTag]="true" [previousComponent]="'UpdateUserSettings'"></app-user-tag>
+            [displayMiniTag]="true"></app-user-tag>
         </div>
         <div style="display:flex;">
           <button (click)="unblock(user)" title="Unblock">❌</button>

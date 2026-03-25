@@ -95,7 +95,7 @@
             (error)="entry.imgUrl = ''" class="clickable-image" (click)="expandPictureEvent(entry.imgUrl)" />
           <app-media-viewer *ngIf="entry.fileId" [fileId]="entry.fileId" [inputtedParentRef]="parentRef"
             [displayExtraInfo]="false" [showCommentSection]="false" [displayExpander]="false"
-            [previousComponent]="previousComponent ?? 'Top'" [blockExpand]="true"
+            [blockExpand]="true"
             (expandClickedEvent)="expandPictureEvent($event)"></app-media-viewer>
         </div>
       </div>
@@ -222,7 +222,7 @@
 
     <!-- Media Viewer -->
     <app-media-viewer *ngIf="expandedFileId" [fileId]="expandedFileId" [inputtedParentRef]="parentRef"
-      [displayExtraInfo]="false" [showCommentSection]="false" [displayExpander]="false" [previousComponent]="'Top'"
+      [displayExtraInfo]="false" [showCommentSection]="false" [displayExpander]="false"
       [blockExpand]="true">
     </app-media-viewer>
 

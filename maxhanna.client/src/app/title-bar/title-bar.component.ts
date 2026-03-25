@@ -24,8 +24,7 @@ export class TitleBarComponent implements OnInit, OnChanges {
   @Input() hasHelp: boolean = false;
   @Input() showHelp?: boolean;
   @Input() hasRefresh: boolean = false;
-  @Input() showRefresh?: boolean;
-  @Input() previousComponent: string | undefined;
+  @Input() showRefresh?: boolean; 
   @Output() closeClicked = new EventEmitter<void>();
   @Output() menuClicked = new EventEmitter<void>();
   @Output() helpClicked = new EventEmitter<void>();
@@ -67,10 +66,10 @@ export class TitleBarComponent implements OnInit, OnChanges {
       this.showHelp = true;
     }
 
-    if ((this.showBack === undefined) && this.hasBack && this.previousComponent) {
+    if ((this.showBack === undefined) && this.hasBack) {
       this.showBack = true;
     }
-    if (this.hasBack && !this.previousComponent) {
+    if (this.hasBack) {
       this.showBack = false;
     } 
     if ((this.showSearch === undefined) && this.hasSearch) {
@@ -122,7 +121,7 @@ export class TitleBarComponent implements OnInit, OnChanges {
     if (this.showNotifications) {
       tmpNumberOfItems = Math.max(0, tmpNumberOfItems - 1) as SlotNumber;
     }
-    if (this.hasBack && (!this.showBack || !this.previousComponent)) {
+    if (this.hasBack && (!this.showBack)) {
       tmpNumberOfItems = Math.max(0, tmpNumberOfItems - 1) as SlotNumber;
     }
     if (this.hasClose && !this.showClose) {

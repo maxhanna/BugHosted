@@ -150,8 +150,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     private route: ActivatedRoute,
     private changeDetectorRef: ChangeDetectorRef,
     private sanitizer: DomSanitizer) {
-    super();
-    this.previousComponent = "Files";
+    super(); 
     this.windowScrollHandler = this.debounce(this.onWindowScroll.bind(this), 200);
     this.containerScrollHandler = this.debounce(this.onContainerScroll.bind(this), 200);
   }

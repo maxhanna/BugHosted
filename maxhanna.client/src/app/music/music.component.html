@@ -34,7 +34,7 @@
           </div>
           <app-media-viewer #fileMediaViewer [class.file-active]="fileIdPlaying" [class.file-inactive]="!fileIdPlaying"
             [inputtedParentRef]="parentRef" [autoplay]="true" [autoload]="true" [loop]="false" [muted]="false"
-            [showTopics]="false" [showCommentSection]="false" [previousComponent]="'Music'" [displayLoading]="true"
+            [showTopics]="false" [showCommentSection]="false" [displayLoading]="true"
             (mediaEndedEvent)="mediaEndedEvent()" (finishedLoadingEvent)="mediaViewerFinishedLoading()">
           </app-media-viewer>
         </div>

@@ -6,8 +6,7 @@
            : trophy.name == 'Owner' ? 'crimson'
            : 'default'">
                 <app-media-viewer [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"
-                    [showTopics]="false" [file]="trophy.file" [inputtedParentRef]="inputtedParentRef ?? parentRef"
-                    [previousComponent]="previousComponent ?? 'User'">
+                    [showTopics]="false" [file]="trophy.file" [inputtedParentRef]="inputtedParentRef ?? parentRef">
                 </app-media-viewer>
             </div>
             <div class="thirdFontColor" [title]="trophyDescriptions[trophy.name] || 'No description available'">

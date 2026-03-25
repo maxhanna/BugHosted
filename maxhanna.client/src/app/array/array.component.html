@@ -17,7 +17,7 @@
             [inputtedParentRef]="parentRef"
             [hideName]="true" 
             [displayTinyPicture]="true"
-            [previousComponent]="'Array'"></app-user-tag>
+           ></app-user-tag>
         </div>
       </div>
     </div>
@@ -28,7 +28,7 @@
         <div *ngFor="let item of inventory.items" class="inventoryItem">
           <app-media-viewer [file]="item.file" [currentDirectory]="item?.file?.directory"
             [inputtedParentRef]="parentRef" [displayExtraInfo]="false" [showCommentSection]="false"
-            [user]="parentRef?.user" [autoplay]="true" [blockExpand]="true" [displayExpander]="false" [previousComponent]="'Array'">
+            [user]="parentRef?.user" [autoplay]="true" [blockExpand]="true" [displayExpander]="false">
           </app-media-viewer>
         </div>
       </div>
@@ -49,19 +49,19 @@
       <div *ngIf="hero && randomLocationPicture && !isNexusPosition(hero.position!)" class="locationPicture">
         <app-media-viewer [file]="randomLocationPicture" [currentDirectory]="randomLocationPicture.directory"
           [inputtedParentRef]="parentRef" [displayExtraInfo]="false" [showCommentSection]="false"
-          [user]="parentRef?.user" [autoplay]="true" [blockExpand]="true" [displayExpander]="false" [previousComponent]="'Array'">
+          [user]="parentRef?.user" [autoplay]="true" [blockExpand]="true" [displayExpander]="false">
         </app-media-viewer>
       </div>
       <div *ngIf="hero && randomNexusPicture && isNexusPosition(hero.position!)" class="locationPicture">
         <app-media-viewer [file]="randomNexusPicture" [currentDirectory]="randomNexusPicture.directory"
           [inputtedParentRef]="parentRef" [displayExtraInfo]="false" [showCommentSection]="false"
-          [user]="parentRef?.user" [autoplay]="true" [blockExpand]="true" [displayExpander]="false" [previousComponent]="'Array'">
+          [user]="parentRef?.user" [autoplay]="true" [blockExpand]="true" [displayExpander]="false">
         </app-media-viewer>
       </div>
       <div *ngIf="hero && randomInventoryPicture && isInventoryOpen" class="locationPicture">
         <app-media-viewer [file]="randomInventoryPicture" [currentDirectory]="randomInventoryPicture.directory"
           [inputtedParentRef]="parentRef" [displayExtraInfo]="false" [showCommentSection]="false"
-          [user]="parentRef?.user" [autoplay]="true" [blockExpand]="true" [displayExpander]="false" [previousComponent]="'Array'">
+          [user]="parentRef?.user" [autoplay]="true" [blockExpand]="true" [displayExpander]="false">
         </app-media-viewer>
       </div>
     </div>
@@ -70,8 +70,7 @@
     <div class="deathMessage">You have died!</div>
     <div>Killed by :</div>
     <div>
-      <app-user-tag [user]="graveyardHero.killer" [inputtedParentRef]="parentRef"
-        [previousComponent]="'Array'"></app-user-tag>
+      <app-user-tag [user]="graveyardHero.killer" [inputtedParentRef]="parentRef"></app-user-tag>
     </div>
     <div class="actionButtons">
       <button (click)="resurrect()">Resurrect</button>
@@ -105,7 +104,7 @@
       <tbody *ngFor="let hero of allPlayerHeros">
         <tr *ngIf="hero && hero.level">
           <td class="miniUserTag">
-            <app-user-tag [user]="hero.user" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [previousComponent]="'Array'"></app-user-tag>
+            <app-user-tag [user]="hero.user" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
           </td>
           <td>
             <span title="Hero Level">🦸</span>: {{hero.level}}

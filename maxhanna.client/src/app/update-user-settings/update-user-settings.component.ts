@@ -701,8 +701,10 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     }
   }
   closeThisComponent() {
-    if (this.previousComponent) {
-      this.parentRef?.createComponent(this.previousComponent);
+
+    const tmpPrevComponent = this.parentRef?.previousComponent[this.parentRef.previousComponent.length - 2];
+    if (tmpPrevComponent) {
+      this.parentRef?.createComponent(tmpPrevComponent.componentType, tmpPrevComponent.inputs);
     }
     else if (!this.showOnlySelectableMenuItems) {
       this.parentRef?.createComponent('User');

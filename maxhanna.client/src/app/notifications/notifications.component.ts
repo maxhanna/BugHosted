@@ -239,15 +239,15 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       }
     }
   
-    this.createComponent("Files", { "fileId": notification.fileId, "commentId": notification.commentId, "previousComponent": this.previousComponent });
+    this.createComponent("Files", { "fileId": notification.fileId, "commentId": notification.commentId });
   }
   goToStoryId(notification: UserNotification) {
     if (notification.userProfileId) {
       //this.location.replaceState("/User/" + notification.userProfileId);
-      this.createComponent("User", { "userId": notification.userProfileId, "previousComponent": this.previousComponent });
+      this.createComponent("User", { "userId": notification.userProfileId });
     } else {
       //this.location.replaceState("/Social/" + notification.storyId);
-      this.createComponent("Social", { "storyId": notification.storyId, "commentId": notification.commentId, "previousComponent": this.previousComponent });
+      this.createComponent("Social", { "storyId": notification.storyId, "commentId": notification.commentId });
     }
     if (!notification.isRead) { this.read(notification, true); }
   }
@@ -286,7 +286,6 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
         "userId": userProfileId,
         "storyId": storyId,
         "commentId": commentId,
-        "previousComponent": this.previousComponent,
       });
     }
   }
@@ -436,9 +435,15 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     } else if (notification.chatId) {
       this.goToChat(notification);
     } else if (notification?.text?.toLowerCase().includes("following")) {
-      this.viewProfile(notification.fromUser, this.previousComponent);
+      this.viewProfile(notification.fromUser, 
+        this.parentRef?.previousComponent[this.parentRef?.previousComponent?.length - 2].componentType,
+        this.parentRef?.previousComponent[this.parentRef?.previousComponent?.length - 2].inputs
+      );
     } else if (notification?.text?.toLowerCase().includes("friend request")) {
-      this.viewProfile(notification.fromUser, this.previousComponent);
+      this.viewProfile(notification.fromUser, 
+        this.parentRef?.previousComponent[this.parentRef?.previousComponent?.length - 2].componentType,
+        this.parentRef?.previousComponent[this.parentRef?.previousComponent?.length - 2].inputs
+      );
     }
   }
 

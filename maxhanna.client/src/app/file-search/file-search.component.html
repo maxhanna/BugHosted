@@ -130,7 +130,7 @@
               <div class="fileExtras fileOptionsActionWrapper">
                 <app-reaction *ngIf="displayReactions && !file.isFolder" [user]="user"
                   [inputtedParentRef]="inputtedParentRef ?? parentRef" [currentReactions]="file.reactions"
-                  [component]="file" [fileId]="file.id" [previousComponent]="previousComponent"
+                  [component]="file" [fileId]="file.id" 
                   (click)="$event.stopPropagation()">
                 </app-reaction>
                 <div *ngIf="displayComments && !file.isFolder"
@@ -169,7 +169,7 @@
                 [showCommentSectionOnLoad]="fileId ? true:false || showCommentsInOpenedFiles.includes(file.id)"
                 [showCommentSectionHeader]="fileSearchMode ? false : displayComments" [showTopics]="showTopics"
                 [inputtedParentRef]="inputtedParentRef" [canScroll]="fileId ? true : false" [displayExpander]="false"
-                [displayExtraInfo]="false" [previousComponent]="previousComponent" [commentId]="commentId"
+                [displayExtraInfo]="false"  [commentId]="commentId"
                 [fileId]="file.id" [displayLoading]="true" (emittedNotification)="emittedNotification($event)"
                 (commentHeaderClickedEvent)="addOrRemoveIdFromOpenedComments(file.id, $event)"
                 (expandClickedEvent)="expandClickedEvent.emit($event)" (topicClickedEvent)="fileTopicClicked($event)"
@@ -569,7 +569,7 @@
       </div>
       <div class="optionsStatsDescription">
         <app-user-tag [user]="optionsFile.user" [inputtedParentRef]="parentRef ?? inputtedParentRef"
-          [displayMiniTag]="true" [displayHoverPicture]="true" [previousComponent]="previousComponent"></app-user-tag>
+          [displayMiniTag]="true" [displayHoverPicture]="true" ></app-user-tag>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.lastUpdatedBy && optionsFile.lastUpdated !== optionsFile.date">
@@ -587,7 +587,7 @@
       </div>
       <div class="optionsStatsDescription">
         <app-user-tag [user]="optionsFile.lastUpdatedBy" [inputtedParentRef]="parentRef ?? inputtedParentRef"
-          [displayMiniTag]="true" [displayHoverPicture]="true" [previousComponent]="previousComponent"></app-user-tag>
+          [displayMiniTag]="true" [displayHoverPicture]="true" ></app-user-tag>
       </div>
     </div>
     <div class="optionsStatsDiv"
@@ -796,7 +796,7 @@
     <div *ngFor="let viewer of fileViewers" class="fileViewerLi">
       <span>
         <app-user-tag [user]="viewer.user" [inputtedParentRef]="parentRef ?? inputtedParentRef"
-          [displayHoverPicture]="true" [previousComponent]="previousComponent" [displayMiniTag]="true"></app-user-tag>
+          [displayHoverPicture]="true"  [displayMiniTag]="true"></app-user-tag>
       </span>
       <span>
         ({{viewer.accessCount}})
@@ -814,7 +814,7 @@
   <div class="fileViewerDiv">
     <div *ngFor="let viewer of fileFavouriters" class="fileViewerLi">
       <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"
-        [previousComponent]="previousComponent" [displayMiniTag]="true"></app-user-tag>
+         [displayMiniTag]="true"></app-user-tag>
     </div>
   </div>
   <button id="closeOverlay" (click)="closeFileFavouriters()">Close</button>
@@ -856,7 +856,7 @@
       style="margin-bottom:8px; padding:8px; border-bottom:1px solid rgba(255,255,255,0.1);">
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
         <app-user-tag [user]="n.user" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"
-          [displayHoverPicture]="true" [previousComponent]="previousComponent"></app-user-tag>
+          [displayHoverPicture]="true" ></app-user-tag>
         <button *ngIf="canDeleteNote(n)" (click)="deleteNote(n.user?.id ?? 0)" [disabled]="isLoading"
           title="Delete this note" style="margin-left:auto; font-size:0.8em;">
           ❌

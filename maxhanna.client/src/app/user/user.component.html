@@ -8,8 +8,7 @@
     [hasSearch]="!!(user?.id && !loginOnly && socialComponent)"
     [showSearch]="!!(user?.id && !loginOnly && socialComponent)" 
     [hasNotifications]="!!parentRef?.user?.id"
-    [inputtedParentRef]="parentRef" 
-    [previousComponent]="'User'"
+    [inputtedParentRef]="parentRef"  
     (searchClicked)="socialComponent.showSearchSocialsPanel()" 
     (menuClicked)="showMenuPanel()"
     (closeClicked)="remove_me('UserComponent');">
@@ -18,7 +17,7 @@
   <div class="profileBackgroundContainer" *ngIf="user?.profileBackgroundPictureFile">
     <app-media-viewer [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"
       [showTopics]="false" [inputtedParentRef]="inputtedParentRef ?? parentRef"
-      [file]="user?.profileBackgroundPictureFile" [previousComponent]="previousComponent ?? 'User'">
+      [file]="user?.profileBackgroundPictureFile">
     </app-media-viewer>
   </div>
 
@@ -31,7 +30,7 @@
             [displayExtraInfo]="false" [showTopics]="false" [showCommentSection]="false"
             [inputtedParentRef]="inputtedParentRef ?? parentRef" [file]="user.displayPictureFile"
             [blockExpand]="user && user.id == parentRef.user?.id" [currentDirectory]="user.displayPictureFile.directory"
-            [user]="user" [previousComponent]="previousComponent ?? 'User'">
+            [user]="user">
           </app-media-viewer>
           <div [class]="'profileHeaderInfo blackFontColor linkHighlights' + (onMobile() ? ' smallFont' : '')"
             [title]="user.username">{{user.username}}</div>
@@ -137,7 +136,7 @@
               (click)="showTrophies()">
               <app-media-viewer [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"
                 [showTopics]="false" [blockExpand]="true" [file]="trophies[0].file"
-                [inputtedParentRef]="inputtedParentRef ?? parentRef" [previousComponent]="previousComponent ?? 'User'">
+                [inputtedParentRef]="inputtedParentRef ?? parentRef">
               </app-media-viewer>
             </div>
             <div class="profileLink" (click)="openAboutPanel()" *ngIf="user && user.id != parentRef?.user?.id"
@@ -171,8 +170,7 @@
         <div *ngIf="!parentRef?.user">
           <div class="bughostedHeader">
             <div class="emptyUserTagLogo" *ngIf="!loginOnly">
-              <app-user-tag [displayEmptyAvatar]="true" [previousComponent]="previousComponent ?? 'User'"
-                [hideName]="true"></app-user-tag>
+              <app-user-tag [displayEmptyAvatar]="true" [hideName]="true"></app-user-tag>
             </div>
             <div class="bugHostedLogo" *ngIf="!loginOnly">
               BugH_sted
@@ -283,16 +281,16 @@
 
       <div class="aboutPictureContainer">
         <app-media-viewer [fileId]="6373" [inputtedParentRef]="parentRef" [displayExtraInfo]="false"
-          [showCommentSection]="false" [displayExpander]="false" [previousComponent]="previousComponent ?? 'User'">
+          [showCommentSection]="false" [displayExpander]="false">
         </app-media-viewer>
         <app-media-viewer [fileId]="6374" [inputtedParentRef]="parentRef" [displayExtraInfo]="false"
-          [showCommentSection]="false" [displayExpander]="false" [previousComponent]="previousComponent ?? 'User'">
+          [showCommentSection]="false" [displayExpander]="false">
         </app-media-viewer>
         <app-media-viewer [fileId]="6375" [inputtedParentRef]="parentRef" [displayExtraInfo]="false"
-          [showCommentSection]="false" [displayExpander]="false" [previousComponent]="previousComponent ?? 'User'">
+          [showCommentSection]="false" [displayExpander]="false">
         </app-media-viewer>
         <app-media-viewer [fileId]="6376" [inputtedParentRef]="parentRef" [displayExtraInfo]="false"
-          [showCommentSection]="false" [displayExpander]="false" [previousComponent]="previousComponent ?? 'User'">
+          [showCommentSection]="false" [displayExpander]="false">
         </app-media-viewer>
         <app-media-viewer [fileId]="6380" [inputtedParentRef]="parentRef" [displayExtraInfo]="false"
           [showCommentSection]="false" [displayExpander]="false">
@@ -561,8 +559,7 @@
           <span class="cursorPointerUnderlined">Trophies ({{trophies?.length ?? 0}})</span>
         </label>
         <div *ngIf="isTrophyExpanded">
-          <app-user-trophies [inputtedParentRef]="inputtedParentRef ?? parentRef" [trophies]="trophies"
-            [previousComponent]="previousComponent">
+          <app-user-trophies [inputtedParentRef]="inputtedParentRef ?? parentRef" [trophies]="trophies">
           </app-user-trophies>
         </div>
       </div>
@@ -605,8 +602,7 @@
     <div *ngIf="friends" class="friendsListWrapperDiv">
       <div *ngFor="let friend of friends" class="friendsListDiv">
         <div (click)="viewProfile(friend, 'User')" class="usernameProfileLink">
-          <app-user-tag [user]="friend" [inputtedParentRef]="parentRef" [displayHoverPicture]="true"
-            [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
+          <app-user-tag [user]="friend" [inputtedParentRef]="parentRef" [displayHoverPicture]="true"></app-user-tag>
         </div>
       </div>
 
@@ -625,7 +621,7 @@
     <div *ngFor="let friendReq of friendRequestsSent" class="friendsListDiv friendsRequestReceivedList">
       <div class="usernameProfileLink">
         <app-user-tag [user]="friendReq.receiver" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
-          [displayHoverPicture]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
+          [displayHoverPicture]="true"></app-user-tag>
       </div>
       <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id">
         <button (click)="preventNotifications(friendReq)" class="cursorPointer" title="Prevent Notifications"
@@ -647,7 +643,7 @@
     <div *ngFor="let friendReq of friendRequestsReceived" class="friendsListDiv friendsRequestReceivedList">
       <div class="usernameProfileLink">
         <app-user-tag [user]="friendReq.sender" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
-          [displayHoverPicture]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
+          [displayHoverPicture]="true"></app-user-tag>
       </div>
       <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id">
         <button (click)="acceptFriendshipRequest(friendReq)" class="cursorPointer" title="Follow Back User">➕</button>
@@ -663,7 +659,7 @@
       <div *ngFor="let friend of friends" class="friendsListDiv deletingFriendsList">
         <div>
           <app-user-tag [user]="friend" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
-            [displayHoverPicture]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
+            [displayHoverPicture]="true"></app-user-tag>
         </div>
         <div *ngIf="!userId || userId == parentRef?.user?.id">
           <span title="Remove Friend" (click)="removeFriend(friend)" class="cursorPointer">
@@ -725,7 +721,7 @@
       <span *ngIf="parentRef?.user?.profileBackgroundPictureFile">
         <app-media-viewer #backgroundPictureViewer [displayExpander]="false" [displayExtraInfo]="false"
           [showTopics]="false" [showCommentSection]="false" [file]="parentRef?.user?.profileBackgroundPictureFile"
-          [user]="parentRef?.user" [inputtedParentRef]="parentRef" [previousComponent]="'User'">
+          [user]="parentRef?.user" [inputtedParentRef]="parentRef">
         </app-media-viewer>
       </span>
       <span *ngIf="!parentRef?.user?.profileBackgroundPictureFile" class="smallFont cursorPointerUnderlined"

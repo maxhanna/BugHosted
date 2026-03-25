@@ -106,6 +106,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   youtubeSearchResults: YoutubeVideo[] = [];
   youtubeSearchKeyword: string = '';
   componentsReferences = Array<ComponentRef<any>>();
+  previousComponent: {componentType: string, inputs?: { [key: string]: any; }}[] = [];
   private youtubeSearchClearTimer?: any;
   private lastLastSeenUpdate: number | null = null;
   private _isResizingLeftPanel = false;
@@ -602,6 +603,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     }
 
     this.removeAllComponents();
+    this.previousComponent.push({ componentType: componentType, inputs: inputs });
 
     const childComponentRef = this.VCR.createComponent(componentClass);
     let childComponent: any = childComponentRef.instance;

@@ -14,7 +14,7 @@ export class ChildComponent {
   isLoading = false;
   debounceTimer: any;
   filteredEmojis: { [key: string]: string } = { ...this.parentRef?.emojiMap }; 
-  @Input() previousComponent?: string | undefined;
+  // @Input() previousComponent?: string | undefined;
 
   remove_me(componentTitle: string) {
     this.isLoading = false;
@@ -25,14 +25,13 @@ export class ChildComponent {
     }
   }
   backButtonPressed() {
-    if (this.previousComponent && this.parentRef) {
-      this.previousComponent = this.parentRef.currentComponentParameters && this.parentRef.currentComponentParameters['previousComponent'] ? this.parentRef.currentComponentParameters['previousComponent'] : this.previousComponent;
-      const prev = this.parentRef.currentComponent;
-      //console.log(this.parentRef.currentComponent, this.parentRef.currentComponentParameters, this.previousComponent);
-      const params = this.parentRef.currentComponentParameters && this.parentRef.currentComponentParameters['userId'] ? { "previousComponent": prev, "userId": this.parentRef.currentComponentParameters['userId'] } : undefined;
-      this.parentRef.currentComponentParameters = undefined;
-
-      this.parentRef.createComponent(this.previousComponent ?? "", params ?? { "previousComponent": prev }); 
+    if (this.parentRef && this.parentRef.previousComponent.length > 1) {
+      const tmpPrevComponent = this.parentRef.previousComponent[this.parentRef.previousComponent.length - 2];
+      if (tmpPrevComponent) {
+        const previousComponent = tmpPrevComponent.componentType;
+        const params = tmpPrevComponent.inputs;
+        this.parentRef.createComponent(previousComponent ?? "", params);
+      }
     }
   }
   onMobile() {

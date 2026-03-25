@@ -24,7 +24,7 @@
                             (click)="openMapEmitter.emit(item.originCoordsX + ',' + item.originCoordsY)">
                             ({{ item.originCoordsX }}, {{ item.originCoordsY }})
                             <app-user-tag [user]="item.originUser" [inputtedParentRef]="inputtedParentRef"
-                                [previousComponent]="'BugWars'" [displayMiniTag]="true"
+                                [displayMiniTag]="true"
                                 [displayHoverPicture]="true"></app-user-tag>
                         </span>
                         <span class="movement-arrow">➔</span>
@@ -32,7 +32,7 @@
                             (click)="openMapEmitter.emit(item.destinationCoordsX + ',' + item.destinationCoordsY)">
                             ({{ item.destinationCoordsX }}, {{ item.destinationCoordsY }})
                             <app-user-tag [user]="item.destinationUser" [inputtedParentRef]="inputtedParentRef"
-                                [previousComponent]="'BugWars'" [displayMiniTag]="true"
+                                [displayMiniTag]="true"
                                 [displayHoverPicture]="true"></app-user-tag>
                         </span>
                         <span class="movement-eta" [class.urgent]="item.duration < 60">

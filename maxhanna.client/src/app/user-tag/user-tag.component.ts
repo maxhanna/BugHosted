@@ -152,6 +152,8 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
     }
 
     // Default behaviour: open in-app profile component
-    this.viewProfile(this.user, this.previousComponent);
+    this.viewProfile(this.user, 
+      this.parentRef?.previousComponent[this.parentRef?.previousComponent.length - 2].componentType || '', 
+      this.parentRef?.previousComponent[this.parentRef?.previousComponent.length - 2].inputs);
   }
 }

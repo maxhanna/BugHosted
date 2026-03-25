@@ -44,7 +44,7 @@
           <!-- Profile tag on left for receiver, right for sender -->
           <div class="profileTag">
             <div class="usernameProfileLink">
-              <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef" [previousComponent]="'Chat'"
+              <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef"
                 [displayHoverPicture]="true" [containUsername]="true"></app-user-tag>
             </div>
           </div>
@@ -84,15 +84,14 @@
                 [autoplay]="false" 
                 [autoload]="true"
                 [showTopics]="false" 
-                [displayLoading]="true"
-                [previousComponent]="'Chat'">
+                [displayLoading]="true" >
               </app-media-viewer>
             </div>
 
             <div class="reactionDiv">
               <app-reaction [messageId]="message.id" [user]="parentRef?.user" [component]="message"
                 [inputtedParentRef]="parentRef" [currentReactions]="message.reactions"
-                [previousComponent]="'Chat'"></app-reaction>
+               ></app-reaction>
               <button *ngIf="!isEditing.length" title="Quote Chat Message" (click)="quote(message)"
                 class="coloredBgButton">🗨️</button>
               <button
@@ -144,7 +143,7 @@
   <div class="addChatMembersList gradientBackground" [class.tiledChatMemberList]="!showMiniTag">
     <div *ngFor="let chatMember of currentChatUsers" [class.addChatMemberLi]="showMiniTag">
       <app-user-tag [user]="chatMember" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="showMiniTag"
-        [displayHoverPicture]="true" [previousComponent]="'Chat'"></app-user-tag>
+        [displayHoverPicture]="true"></app-user-tag>
     </div>
   </div>
   <div style="width: 100%; margin-top: 5px; text-align: center; max-height: 250px; overflow: auto">
