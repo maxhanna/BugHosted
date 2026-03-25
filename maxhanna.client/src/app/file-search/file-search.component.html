@@ -355,7 +355,7 @@
     <button title="Download File" (click)="download(optionsFile, true);" [disabled]="isLoading"
       *ngIf="!optionsFile.isFolder">
       📥Download
-      {{" "}}({{ optionsFile.fileSize | fileSize }})
+      {{" "}}({{ (optionsFile.fileSize ?? 0) | fileSize }})
       {{" "}}<span class="xxSmallFont">{{optionsFile.accessCount}}</span>
     </button>
     <button title="Delete File" (click)="delete(optionsFile);" [disabled]="isLoading"
@@ -618,7 +618,7 @@
         placeholder="Search {{ currentDirectory }}..." [value]="searchTerms" />
       <input type="button" (click)="changeSearchTermsFromPopup()" value="🔍" class="search-clear-button" />
       <input type="button" (click)="clearPopupSearch()" value="❌" class="search-clear-button" />
-      <span class="search-results-count">{{ directory?.totalCount || 0 }} results</span>
+      <span class="search-results-count" (click)="popupSearch.focus()">{{ directory?.totalCount || 0 }} results</span>
     </div>
     <div *ngIf="loadingSearch" style="text-align: center; width:100%; margin-bottom: 10px">Loading...</div>
     <div class="search-tips gradientBackground">

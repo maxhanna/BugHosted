@@ -61,7 +61,7 @@
             *ngIf="selectedFile && (displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension ?? this.selectedFile?.fileType))"
             [title]="'Download ' + (selectedFile.givenFileName ?? selectedFile.fileName ?? '')">
             📥Download {{ shortenFilename(selectedFile.givenFileName ?? selectedFile.fileName ?? '') }}
-            {{" "}}({{ selectedFile.fileSize | fileSize }})
+            {{" "}}({{ (selectedFile.fileSize ?? 0) | fileSize }})
             {{" "}}<span class="xxSmallFont">{{selectedFile.accessCount}}</span>
           </button>
         </div>
