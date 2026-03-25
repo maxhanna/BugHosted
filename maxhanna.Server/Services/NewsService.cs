@@ -255,7 +255,7 @@ public class NewsService
     }
     return null;
   }
-  public async Task<bool> GetAndSaveTopQuarterHourlyHeadlines(string? keyword)
+  public async Task<List<maxhanna.Server.Controllers.DataContracts.News.Article>> GetAndSaveTopQuarterHourlyHeadlines(string? keyword)
   {
     const int articlesToTake = 60;
     try
@@ -271,7 +271,7 @@ public class NewsService
         if (count > 0)
         {
           await _log.Db("Already fetched recent news headlines. Waiting for the next interval.", null, "NEWSSERVICE", true);
-          return false;
+          return null;
         }
       }
 
@@ -280,7 +280,7 @@ public class NewsService
       if (articlesResult?.Status != NewsStatuses.Ok || articlesResult.Articles == null)
       {
         await _log.Db("Failed to fetch top headlines", null, "NEWSSERVICE", outputToConsole: true);
-        return false;
+        return null;
       }
 
       var top60 = articlesResult.Articles.Take(articlesToTake).ToList();
@@ -322,15 +322,15 @@ public class NewsService
         {
           await _log.Db("Failed to save sentiment score: " + ex.Message, null, "NEWSSERVICE", outputToConsole: true);
         }
-        return true;
+        return articlesResult.Articles;
       }
 
-      return false;
+      return articlesResult.Articles;
     }
     catch (Exception ex)
     {
       await _log.Db($"Critical error in GetAndSaveTopHeadlines: {ex.Message}", null, "NEWSSERVICE", outputToConsole: true);
-      return false;
+      return null;
     }
   }
 

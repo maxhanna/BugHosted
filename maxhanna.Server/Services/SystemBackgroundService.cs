@@ -175,7 +175,7 @@ namespace maxhanna.Server.Services
       await FetchAndStoreCoinValues();
       _miningApiService.UpdateWalletInDB(_config, _log);
       lastWasCrypto = !lastWasCrypto;
-      await _newsService.GetAndSaveTopQuarterHourlyHeadlines(!lastWasCrypto ? "Cryptocurrency" : null);
+      List<maxhanna.Server.Controllers.DataContracts.News.Article> topHeadlines = await _newsService.GetAndSaveTopQuarterHourlyHeadlines(!lastWasCrypto ? "Cryptocurrency" : null);
       //await _profitService.CalculateDailyProfits();
       if (!_indicatorService.IsUpdating)
       {
@@ -184,6 +184,15 @@ namespace maxhanna.Server.Services
       else
       {
         _ = _log.Db("Skipping indicator update - already in progress", null, "TISVC", outputToConsole: true);
+      }
+
+      if (topHeadlines != null)
+      {
+        foreach (var article in topHeadlines)
+        {
+          if (article.Url == null) { continue; }
+          _ = _webCrawler.StartScrapingAsync(article.Url);
+        }
       }
     }
 
