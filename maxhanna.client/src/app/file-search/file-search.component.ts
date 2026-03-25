@@ -1898,8 +1898,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
    * Returns the raw icon URL for a given system key (e.g. 'n64' -> '/assets/n64icon.png').
    * This is a helper for callers that need the plain src string instead of HTML.
    */
-  getSystemIconUrl(key: string, actualSystem?: string): string | undefined {
-    if (!key) return undefined;
+  getSystemIconUrl(extension: string, actualSystem?: string): string | undefined {
     let base = '/assets/';
     // If a DB-persisted core override exists, map it directly to an icon
     if (actualSystem) {
@@ -1936,17 +1935,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       const mapped = coreIconMap[actualSystem];
       if (mapped) return base + mapped;
     }
-
-    const exts = this.romSystemExtensions[key];
-    const ext = (exts && exts.length) ? exts[0] : key;
-    // Determine effective extension (reuse the same heuristics as getSystemEmoji)
-    const fileName = 'file.' + ext;
-    const rawExt = this.fileService.getFileExtension(fileName).toLowerCase();
-    const ambiguousExts = new Set(['bin', 'iso', 'chd', 'cue', 'pbp']);
-    // Prefer title-based guessing from FileService (covers known system-specific titles).
-    const titleGuess = this.fileService.guessSystemFromTitle(fileName);
-    const guessedSystem = titleGuess ?? (ambiguousExts.has(rawExt) ? this.romService.guessSystemFromFileName(fileName) : undefined);
-    const effectiveExt = guessedSystem ?? rawExt;
+    if (!extension) return undefined;
 
     const iconMap: { [key: string]: string } = {
       'n64': 'n64icon.png',
@@ -1986,17 +1975,17 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       'gba': 'gbaicon.png'
     };
 
-    if (iconMap[effectiveExt]) {
-      return base + iconMap[effectiveExt];
+    if (iconMap[extension.toLowerCase()]) {
+      return base + iconMap[extension.toLowerCase()];
     } else {
       return undefined;
     }
   }
 
-  getSystemEmoji(fileName?: string, styling?: string, actualSystem?: string): SafeHtml | string {
+  getSystemEmoji(fileName?: string, styling?: string, actualSystem?: Core): SafeHtml | string {
     if (!fileName) return '';
     const ext = this.fileService.getFileExtension(fileName).toLowerCase();
-    const fileUrl = this.getSystemIconUrl(fileName, actualSystem);
+    const fileUrl = this.getSystemIconUrl(ext, actualSystem);
 
     if (fileUrl) {
       const src = fileUrl;

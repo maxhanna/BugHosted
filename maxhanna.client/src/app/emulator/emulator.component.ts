@@ -687,12 +687,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     window.__EJS_ALIVE__ = true;
     const rootStyle = getComputedStyle(document.documentElement);
     const componentBackgroundColor = (rootStyle.getPropertyValue('--component-background-color') || '#3a3a3a').trim();
-    let systemIcon: string | undefined =
-      this.fileSearchComponent?.getSystemIconUrl(this.romName ?? '', core) ?? undefined;
-    if (!systemIcon) {
-      // Last resort: try extension-based lookup from the rom filename itself
-      systemIcon = this.fileSearchComponent?.getSystemIconUrl(this.romName ?? '') ?? undefined;
-    }
+    const fileExt = this.fileService.getFileExtension(this.romName ?? '');
+    let systemIcon: string | undefined = this.fileSearchComponent?.getSystemIconUrl(fileExt, core) ?? undefined;
+ 
     const w = window as any;
     w.EJS_defaultOptionsForce = false;  // force defaults every run  (docs: config system)
     w.EJS_directKeyboardInput = true;   // deliver raw key events to the core
