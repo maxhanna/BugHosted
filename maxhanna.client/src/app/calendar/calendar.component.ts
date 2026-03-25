@@ -363,17 +363,12 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       const tmpCalendarEntry = this.prepareNewCalendarEntry();
 
       this.startLoading();
-      const res = await this.calendarService.createCalendarEntries(this.parentRef?.user?.id, tmpCalendarEntry);
-      if (!res) {
-        this.parentRef?.showNotification('Failed to create calendar entry');
-        this.stopLoading();
-        return;
-      } else { 
-        this.updateCalendarDaysWithNewEntry(tmpCalendarEntry); 
-        await this.refreshCalendar(); 
-        this.clearInputValues();
-        this.stopLoading();
-      } 
+      await this.calendarService.createCalendarEntries(this.parentRef?.user?.id, tmpCalendarEntry);
+      this.updateCalendarDaysWithNewEntry(tmpCalendarEntry); 
+      await this.refreshCalendar(); 
+      this.clearInputValues();
+      this.stopLoading();
+     
     } catch (error) {
       const msg = this.formatError(error);
       console.error(msg);
