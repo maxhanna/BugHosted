@@ -995,6 +995,9 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   }
 
   async sendPasswordResetEmail() {
+    if (!confirm('Send password reset email?')) {
+      return;
+    }
     const username = this.loginUsername?.nativeElement?.value?.trim();
     if (!username) {
       this.parentRef?.showNotification('Enter a username first');
