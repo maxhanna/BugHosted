@@ -513,8 +513,8 @@
 }
 
 .imagePreviewPopup {
-  width: calc(100vw - 90px);
-  width: calc(100dvw - 90px);
+  max-width: calc(100vw - 90px);
+  max-width: calc(100dvw - 90px);
 }
 
 .spaceAroundSystemFilters {
