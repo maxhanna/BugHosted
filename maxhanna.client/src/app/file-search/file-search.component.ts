@@ -1982,7 +1982,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
 
-  getSystemEmoji(fileName?: string, styling?: string, actualSystem?: Core): SafeHtml | string {
+  getSystemEmoji(fileName?: string, styling?: string, actualSystem?: string): SafeHtml | string {
     if (!fileName) return '';
     const ext = this.fileService.getFileExtension(fileName).toLowerCase();
     const fileUrl = this.getSystemIconUrl(ext, actualSystem);
