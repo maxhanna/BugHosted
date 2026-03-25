@@ -382,7 +382,7 @@
               </button>
             </div>
           </div>
-          <div *ngIf="tradeBotStartedSince && canShowTradePanelInfo()">
+          <div *ngIf="tradeBotStartedSince">
             <div *ngIf="getActiveTradeBots().length > 0">
               <ng-container *ngIf="groupedBotsDisplay() as botGroups">
                 <ul *ngIf="!isTradePanelOpen">
@@ -408,7 +408,7 @@
               <p>No active trade bots.</p>
             </div>
           </div>
-          <div *ngIf="canShowTradePanelInfo()"> 
+          <div> 
             <div *ngIf="lastTradebotTrade && lastTradebotTrade['value']">
               <span class="sectionName">Last:&nbsp;</span>
               <span>

@@ -310,7 +310,7 @@ namespace maxhanna.Server.Services
 			const string sql = @"
                 SELECT u.id 
                 FROM users u
-                JOIN trade_bot_status tbs ON u.id = tbs.user_id AND tbs.is_running_btc_usdc = 1
+                JOIN trade_bot_status tbs ON u.id = tbs.user_id AND tbs.is_running = 1
                 JOIN user_kraken_api_keys ukak ON u.id = ukak.user_id
                 WHERE ukak.api_key IS NOT NULL 
                 AND ukak.api_key != ''

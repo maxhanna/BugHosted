@@ -1545,12 +1545,14 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     console.log("showTradeLiveView", this.isTradeLiveViewShowing);
     this.closeTradeDivs();
     this.isTradeLiveViewShowing = true;
+    this.isTradeInfoHidden = true;
   }
   hideTradeLiveView() {
     this.isTradeLiveViewShowing = false;
   }
   async checkBalance() { 
     if (!this.isTradePanelOpen) return;
+    this.isTradeInfoHidden = true;
     this.isTradebotBalanceShowing = true;
   }
   closeTradeDivs() {
@@ -1590,6 +1592,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     selectedCurrency = selectedCurrency.replace("BTC", "XBT");
     this.closeTradeDivs();
     this.showingTradeSettings = !tmpStatus;
+    this.isTradeInfoHidden = true;
 
     if (this.showingTradeSettings) {
       await this.getLastCoinConfigurationUpdated(selectedCurrency, "USDC", selectedStrategy);
@@ -1639,6 +1642,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       this.openTradeFullscreen();
       setTimeout(() => {
         this.showTradeLogs();
+        this.isTradeInfoHidden = true;
       });
       return;
     }
