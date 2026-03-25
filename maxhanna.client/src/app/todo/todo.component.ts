@@ -29,7 +29,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   todoPlaceholder = "";
   selectedFile?: FileEntry;
   showSharedList = false;
-  isExpandedEditFile = false; 
+  isExpandedEditFile = false;
   hasEditedTodo = false;
   isMenuPanelOpen = false;
   // Polling for shared columns updates
@@ -107,14 +107,14 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       await this.todoService.getSharedColumns(this.parentRef.user.id).then(res => {
         if (res) {
           // Normalize server response keys (handle PascalCase from server or camelCase)
-              this.sharedColumns = (res as any[]).map((r: any) => ({
-                ownerId: r.ownerId ?? r.OwnerId,
-                columnName: r.columnName ?? r.ColumnName,
-                sharedWith: r.sharedWith ?? r.SharedWith ?? '',
-                ownerName: r.ownerName ?? r.OwnerName ?? '',
-                shareDirection: r.shareDirection ?? r.ShareDirection ?? '',
-                ownerColumnId: r.ownerColumnId ?? r.OwnerColumnId ?? r.OwnerColumnId
-              }));
+          this.sharedColumns = (res as any[]).map((r: any) => ({
+            ownerId: r.ownerId ?? r.OwnerId,
+            columnName: r.columnName ?? r.ColumnName,
+            sharedWith: r.sharedWith ?? r.SharedWith ?? '',
+            ownerName: r.ownerName ?? r.OwnerName ?? '',
+            shareDirection: r.shareDirection ?? r.ShareDirection ?? '',
+            ownerColumnId: r.ownerColumnId ?? r.OwnerColumnId ?? r.OwnerColumnId
+          }));
         }
       });
     }
@@ -133,13 +133,13 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     if (isShared) {
       this.resyncCountdown = Math.floor(this.sharedPollIntervalMs / 1000);
       this.sharedPollTimer = setInterval(async () => {
-        if (!this.parentRef?.user?.id) return; 
-        await this.getTodoInfo();  
-      }, this.sharedPollIntervalMs); 
+        if (!this.parentRef?.user?.id) return;
+        await this.getTodoInfo();
+      }, this.sharedPollIntervalMs);
       this.ensureResyncTicking();
-    } else { 
+    } else {
       this.resyncCountdown = 0;
-    }  
+    }
   }
 
   private getIsShared(type: string) {
@@ -198,15 +198,15 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
 
       if (!this.isEditing?.length) {
         const terms = this.searchInput ? this.searchInput.nativeElement.value : "";
-        const search = (!terms || terms.trim() == "") ? undefined : terms; 
+        const search = (!terms || terms.trim() == "") ? undefined : terms;
         const type = this.selectedType?.nativeElement.value || this.todoTypes[0];
         const res = await this.todoService.getTodo(this.parentRef.user.id, type, search);
         this.todos = res;
         this.todoCount = this.todos?.length;
-        this.stopLoading(); 
+        this.stopLoading();
         this.startSharedPolling();
       }
-      
+
     } catch (error) {
       console.error("Error fetching calendar entries:", error);
     }
@@ -250,11 +250,11 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   async deleteTodo(id: number) {
     if (!this.parentRef?.user?.id) return;
     this.startLoading();
-    await this.todoService.deleteTodo(this.parentRef.user.id, id); 
+    await this.todoService.deleteTodo(this.parentRef.user.id, id);
     const tmpTodo = this.todos.filter(x => x.id == id)[0];
     if (tmpTodo) {
       tmpTodo.deleted = true;
-    } 
+    }
     await this.closeEditPopup(false);
     // If we're currently viewing the main "Todo" list, decrement the navigation counter
     try {
@@ -509,8 +509,8 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     }
 
     // Find a shared column entry where the owner is not the current user
-  const currentUserId = this.parentRef?.user?.id ?? 0;
-  const shared = this.sharedColumns.find((c: any) => c.columnName === columnName && c.ownerId && c.ownerId !== currentUserId);
+    const currentUserId = this.parentRef?.user?.id ?? 0;
+    const shared = this.sharedColumns.find((c: any) => c.columnName === columnName && c.ownerId && c.ownerId !== currentUserId);
     if (shared) {
       try {
         const ownerColumnId = shared.ownerColumnId ?? shared.OwnerColumnId ?? shared.OwnerColumnId;
@@ -537,7 +537,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     this.isShareListPanelOpen = true;
   }
   async editTodo(todo?: Todo) {
-    if (!todo || !todo.id) return; 
+    if (!todo || !todo.id) return;
     this.hasEditedTodo = false;
     const id = todo.id;
     if (!this.isEditing.find(x => x.id == todo.id)) {
@@ -585,20 +585,20 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
       this.startLoading();
-      if (this.hasEditedTodo && shouldEdit) { 
+      if (this.hasEditedTodo && shouldEdit) {
         await this.editTodo(this.isEditing[0]);
       } else {
         this.isEditing = [];
         this.resumeSharedPollingIfNeeded();
       }
-      
-      if (this.parentRef) { 
+
+      if (this.parentRef) {
         this.parentRef.closeOverlay(false);
       }
       this.stopLoading();
-    }, 50); 
+    }, 50);
   }
-  expandedEditFile(value : boolean) {
+  expandedEditFile(value: boolean) {
     console.log("expandedEditFile", value);
     this.isExpandedEditFile = value;
   }

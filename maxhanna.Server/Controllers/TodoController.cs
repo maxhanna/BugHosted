@@ -255,7 +255,7 @@ namespace maxhanna.Server.Controllers
         cmd.Parameters.AddWithValue("@FileId", fileIdValue);
 
         var result = await cmd.ExecuteScalarAsync();
-        return Ok($"{req.id} Edit successful.");
+        return Ok($"Edit successful.");
       }
       catch (Exception ex)
       {
