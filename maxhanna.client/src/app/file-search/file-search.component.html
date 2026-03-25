@@ -107,7 +107,6 @@
                     </span>
                   </span>
 
-
                   <!-- ✅ inline ROM thumbs: single thumb on mobile, full strip on desktop -->
                   <span
                     *ngIf="shouldShowRomMetadata() && file && !file.isFolder && (file.romInlineThumbs?.length ?? 0) > 0"
@@ -180,8 +179,9 @@
           </div>
         </ng-container>
         <div *ngIf="!isLoading && currentPage < totalPages && directory?.data?.length">
-          <button appInView (inView)="appendNextPage();" (click)="appendNextPage(); $event.preventDefault()">Load More
-            Results</button>
+          <button appInView (inView)="appendNextPage();" (click)="appendNextPage(); $event.preventDefault()">
+            Load More Results
+          </button>
         </div>
       </div>
     </div>
@@ -355,6 +355,8 @@
     <button title="Download File" (click)="download(optionsFile, true);" [disabled]="isLoading"
       *ngIf="!optionsFile.isFolder">
       📥Download
+      {{" "}}({{ optionsFile.fileSize | fileSize }})
+      {{" "}}<span class="xxSmallFont">{{optionsFile.accessCount}}</span>
     </button>
     <button title="Delete File" (click)="delete(optionsFile);" [disabled]="isLoading"
       *ngIf="shouldShowEditButton(optionsFile) || (parentRef?.user?.id == 1 || inputtedParentRef?.user?.id == 1)">
