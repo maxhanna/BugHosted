@@ -488,6 +488,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.filter.hidden == 'all' ? true : false,
         sortToUse,
         this.showFavouritesOnly,
+        this.isInRomDirectory ? true : false,
         includeRomMetadata,
         this.actualCoreFilter
       ).then(res => {

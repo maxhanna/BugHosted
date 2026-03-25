@@ -199,6 +199,7 @@ export class FileService {
     showHidden?: boolean,
     sortOption?: string,
     showFavouritesOnly?: boolean,
+    forceSameDirectory?: boolean,
     includeRomMetadata?: boolean, // ✅ NEW
     actualCore?: string[]
   ) : Promise<DirectoryResults | null> {
@@ -211,6 +212,7 @@ export class FileService {
     params.append('pageSize', pageSize ? pageSize.toString() : '100');
     params.append('sortOption', sortOption ? sortOption : '');
     params.append('showFavouritesOnly', showFavouritesOnly ? String(showFavouritesOnly) : 'false');
+    params.append('forceSameDirectory', forceSameDirectory ? String(forceSameDirectory) : 'false');
 
     if (search) params.append('search', search);
     if (fileId) params.append('fileId', fileId.toString());
@@ -226,8 +228,6 @@ export class FileService {
     }
 
     try {
-      // Abort any previous getDirectory request so callers always receive
-      // the most-recent response.
       try {
         this._getDirectoryAbortController?.abort();
       } catch { }

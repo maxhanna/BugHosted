@@ -58,6 +58,7 @@ namespace maxhanna.Server.Controllers
       [FromQuery] bool showHidden = false,
       [FromQuery] string sortOption = "Latest",
       [FromQuery] bool showFavouritesOnly = false,
+      [FromQuery] bool forceSameDirectory = false,
       [FromQuery] bool includeRomMetadata = false,
       [FromQuery] List<string>? actualCore = null
     )
@@ -203,7 +204,7 @@ namespace maxhanna.Server.Controllers
 
           // ── Build search/filter WHERE clause ONCE, reuse for both count & main queries ──
           (string searchCondition, List<MySqlParameter> baseSearchParams) =
-              await GetWhereCondition(search, user, fileId, connection, nsfwAllowed);
+              await GetWhereCondition(search, user, fileId, nsfwAllowed, forceSameDirectory, directory, connection);
 
           //get the total count
           var countParams = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
@@ -1325,10 +1326,17 @@ namespace maxhanna.Server.Controllers
     }
 
 
-    private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user, int? fileId = null, MySqlConnection? existingConnection = null, bool? precomputedNsfw = null)
+    private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user, int? fileId = null, bool? precomputedNsfw = null, bool? forceSameDirectory = null, string? directory = null, MySqlConnection? existingConnection = null)
     {
       string where = "";
       var parameters = new List<MySqlParameter>();
+
+      // Force Same Directory
+      if (forceSameDirectory == true && !string.IsNullOrEmpty(directory))
+      {
+        where += " AND f.folder_path = @Directory";
+        parameters.Add(new MySqlParameter("@Directory", directory));
+      }
 
       // NSFW FILTER
       bool showNsfw = precomputedNsfw ?? await GetNsfwForUser(user);
