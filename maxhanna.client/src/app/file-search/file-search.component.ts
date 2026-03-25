@@ -57,6 +57,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() commentId?: number;
   @Input() displayTotal = true;
   @Input() showSpaceForNotifications = false;
+  @Input() forceSameDirectory: boolean = false;
   @Input() showHiddenFiles: boolean = false; // default: do not show hidden files unless user toggles or user setting enables it
   @Input() showTopics: boolean = true;
   @Input() captureNotifications: boolean = false;
@@ -488,7 +489,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.filter.hidden == 'all' ? true : false,
         sortToUse,
         this.showFavouritesOnly,
-        this.isInRomDirectory ? true : false,
+        this.forceSameDirectory,
         includeRomMetadata,
         this.actualCoreFilter
       ).then(res => {
