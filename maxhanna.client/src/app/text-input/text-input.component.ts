@@ -393,7 +393,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
           const notificationData: any = {
             fromUserId: user.id,
             toUserIds: mentionedUserIds,
-            message: "You were mentioned!",
+            message: "You were mentioned by " + (user?.username ?? 'Anonymous') + "!",
             userProfileId: ids?.userProfileId ?? undefined,
             storyId: storyIdToUse,
             fileId: ids?.fileId ?? results.results?.fileId ?? (isFile ? this.commentParent?.id : undefined),
@@ -469,7 +469,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         this.notificationService.createNotifications({
           fromUserId: user?.id ?? 0,
           toUserIds: this.currentChatUsers!.filter(x => x.id != (user?.id ?? 0)).map(x => x.id ?? 0),
-          message: 'New chat message!',
+          message: 'New chat message from ' + (user?.username ?? 'Anonymous') + '!',
           chatId: this.chatId
         });
       }
