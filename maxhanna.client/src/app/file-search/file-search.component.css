@@ -72,7 +72,7 @@
 .topPageControls {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
   gap: clamp(10px, 3vw, 30px);
   font-size: x-large;
