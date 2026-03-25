@@ -512,6 +512,11 @@
   padding-top: 3px;
 }
 
+.imagePreviewPopup {
+  width: calc(100vw - 90px);
+  width: calc(100dvw - 90px);
+}
+
 .spaceAroundSystemFilters {
   flex-direction: column;
   margin-bottom: 15px;
