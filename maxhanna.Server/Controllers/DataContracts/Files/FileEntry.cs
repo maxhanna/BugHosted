@@ -32,13 +32,10 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
 		public bool IsFavourited { get; set; } = false;
 		public double AverageRating { get; set; } = 0;
 		public int RatingCount { get; set; } = 0;
-		// Indicates that this entry refers to an already existing file (upload duplicate)
 		public bool IsDuplicate { get; set; } = false;
 		public List<FileNote>? Notes { get; set; }
 		public int NotesCount { get; set; } = 0;
-
-    public RomMetadata? RomMetadata { get; set; }
-
+		public RomMetadata? RomMetadata { get; set; } 
 
 		public FileEntry() { }
 		public FileEntry(int id)
