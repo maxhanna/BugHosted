@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, OnDestroy, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output } from '@angular/core';
 import { NotificationService } from '../../services/notification.service';
 import { ChildComponent } from '../child.component';
 import { UserNotification } from '../../services/datacontracts/notification/user-notification';
@@ -20,6 +20,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   @Input() minimalInterface? = false;
   @Input() inputtedParentRef?: AppComponent;
   @Input() notificationIconSlot : 0 | 1 | 2 | 3 | 4 | 5 = 1;
+  @Output() notificationRead: EventEmitter<void> = new EventEmitter<void>();
 
   showNotifications = false;
   notifications?: UserNotification[] = [];
@@ -399,6 +400,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     }
 
     this.updateCategories(false);
+    this.notificationRead.emit();
     parent.navigationComponent?.setNotificationNumber(this.unreadNotifications, notification);
   }
 

@@ -32,6 +32,7 @@ export class TitleBarComponent implements OnInit, OnChanges {
   @Output() searchClicked = new EventEmitter<void>();
   @Output() refreshClicked = new EventEmitter<void>();
   @Output() backClicked = new EventEmitter<void>();
+  @Output() notificationRead = new EventEmitter<void>();
 
   numberOfItems = 1 as SlotNumber;
   classes = "";
@@ -83,6 +84,10 @@ export class TitleBarComponent implements OnInit, OnChanges {
     }
     // reset cached classes so titleSpanClass recalculates
     this.classes = "";
+  }
+
+  notificationReadEmitted(): void {
+    this.notificationRead.emit();
   }
 
   get isShowMenuBound(): boolean {

@@ -16,4 +16,6 @@
   [minimalInterface]="true"
   [inputtedParentRef]="inputtedParentRef"
   [previousComponent]="previousComponent"
-  [notificationIconSlot]="notificationIconSlot"></app-notifications>
+  [notificationIconSlot]="notificationIconSlot"
+  (notificationRead)="notificationReadEmitted()">
+</app-notifications>

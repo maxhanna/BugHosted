@@ -176,6 +176,8 @@ td {
   padding: 15px;
   width: auto;
   max-height: 450px;
+  overflow: auto;
+  flex-wrap: wrap;
 }
 
 .displayPictureContainerDiv {

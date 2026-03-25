@@ -1211,4 +1211,10 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       }, 1000);
     }
   }
+
+  refreshDOM() {
+    setTimeout(() => {
+      this.cd.detectChanges();
+    }, 50);
+  }
 }

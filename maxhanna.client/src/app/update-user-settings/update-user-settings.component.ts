@@ -497,7 +497,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       this.coinService.getBTCWallet(user.id, sessionToken).then((res: MiningWalletResponse) => {
         if (res) {
           res?.currencies?.forEach(x => {
-            if (x.address) {
+            if (x.address && x.address != 'Nicehash' && x.address != 'Kraken') {
               this.btcWalletAddresses?.push(x.address);
             }
           });
