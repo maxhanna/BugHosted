@@ -199,46 +199,52 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.presetRomId = file.id;
     this.presetRomName = file.fileName;
 
-    if (this.isAmbiguousFile(file.fileName)) {
-      this.systemCandidates = this.getSystemCandidatesForFile(file.fileName);
-      this.selectedSystemCore = undefined;
-      this._forcedCore = undefined;
+    // Always build candidate list for this file. If there are multiple real
+    // candidates (beyond the 'Auto-detect' entry) prompt the user to choose.
+    this.systemCandidates = this.getSystemCandidatesForFile(file.fileName);
+    this.selectedSystemCore = undefined;
+    this._forcedCore = undefined;
 
-      // 1) Check DB-persisted system override (from rom_system_overrides via romMetadata.actualSystem)
-      const dbOverride = file.romMetadata?.actualSystem;
-      if (dbOverride) {
-        this.selectedSystemCore = dbOverride;
-        this._forcedCore = dbOverride;
-      }
+    // 1) Check DB-persisted system override (from rom_system_overrides via romMetadata.actualSystem)
+    const dbOverride = file.romMetadata?.actualSystem;
+    if (dbOverride) {
+      this.selectedSystemCore = dbOverride;
+      this._forcedCore = dbOverride;
+    }
 
-      // Determine extension once
-      const ext = this.fileService.getFileExtension(file.fileName);
-      if (!this.selectedSystemCore && this.fileService.getAmbiguousRomExtensions().includes(ext) && !dbOverride) {
-        this._pendingFileToLoad = { fileName: file.fileName, fileId: file.id, directory: file.directory };
-        this.isSystemSelectPanelOpen = true;
-        this.parentRef?.showOverlay();
-      } else {
-        // 2) Fall back to localStorage per-extension preference (non-zip or DB-overridden)
-        if (!this.selectedSystemCore) {
-          const preferred = this.loadPreferredCore(ext);
-          if (preferred) {
-            this.selectedSystemCore = preferred;
-            this._forcedCore = preferred;
-          }
-        }
+    // If there are multiple candidate choices (excluding the Auto-detect option),
+    // prompt the user to pick a system. The candidate list always includes the
+    // 'Auto-detect' entry at index 0, so more than 2 entries means multiple
+    // concrete choices.
+    const ext = this.fileService.getFileExtension(file.fileName);
+    const multipleChoices = (this.systemCandidates.length > 2);
 
-        // 3) If still no selection, show the system selection panel
-        if (!this.selectedSystemCore) {
-          this._pendingFileToLoad = { fileName: file.fileName, fileId: file.id, directory: file.directory };
-          this.isSystemSelectPanelOpen = true;
-          this.parentRef?.showOverlay();
-        }
-      }
-
+    if (multipleChoices && !this.selectedSystemCore) {
+      this._pendingFileToLoad = { fileName: file.fileName, fileId: file.id, directory: file.directory };
+      this.isSystemSelectPanelOpen = true;
+      this.parentRef?.showOverlay();
       this.cdr.detectChanges();
-      if (!this.selectedSystemCore) {
-        return;
+      return;
+    }
+
+    // If no DB override and we still don't have a selection, fall back to
+    // per-extension preference (e.g., user saved choice in localStorage).
+    if (!this.selectedSystemCore) {
+      const preferred = this.loadPreferredCore(ext);
+      if (preferred) {
+        this.selectedSystemCore = preferred;
+        this._forcedCore = preferred;
       }
+    }
+
+    // If the extension is in the ambiguous list (older behaviour) and we still
+    // don't have a selection, show the chooser as a final fallback.
+    if (!this.selectedSystemCore && this.fileService.getAmbiguousRomExtensions().includes(ext)) {
+      this._pendingFileToLoad = { fileName: file.fileName, fileId: file.id, directory: file.directory };
+      this.isSystemSelectPanelOpen = true;
+      this.parentRef?.showOverlay();
+      this.cdr.detectChanges();
+      return;
     }
     this.presetForcedCore = this.selectedSystemCore;
     try {
