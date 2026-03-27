@@ -2175,6 +2175,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (c.includes('gambatte') || c.includes('gbc') || c === 'gb') return 'gbc';
     if (c.includes('fceumm') || c.includes('nestopia') || c === 'nes') return 'nes';
     if (c.includes('genesis') || c.includes('picodrive') || c.includes('megadrive')) return 'genesis';
+    if (c.includes('smsplus')) return 'sega_master_system';
     if (c.includes('melonds') || c.includes('desmume') || c.includes('nds')) return 'nds';
     if (c === 'psp' || c.includes('ppsspp')) return 'psp';
     if (c.includes('mupen64')) return 'n64';
@@ -2396,33 +2397,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
     // this.bindResizeBuffer();
   }
-
-  /** Bind resize handlers (call once after emulator is initialized). */
-  // private bindResizeBuffer() {
-  //   const apply = () => this.resizeCanvasBuffer();
-  //   this._onResize = () => apply();
-  //   this._onOrientation = () => apply();
-  //   this._onVVResize = () => apply();
-
-  //   // Passive listeners to avoid blocking 
-  //   window.addEventListener('resize', this._onResize, { passive: true });
-  //   window.addEventListener('orientationchange', this._onOrientation, { passive: true });
-  //   (window as any).visualViewport?.addEventListener?.('resize', this._onVVResize, { passive: true });
-
-
-  //   // Also observe the #game element for layout changes (optional)
-  //   try {
-  //     const gameEl = document.getElementById('game');
-  //     if (gameEl && typeof ResizeObserver !== 'undefined') {
-  //       if (this._gameSizeObs) this._gameSizeObs.disconnect();
-  //       this._gameSizeObs = new ResizeObserver(() => apply());
-  //       this._gameSizeObs.observe(gameEl);
-  //     }
-  //   } catch { /* ignore */ }
-
-  //   // Initial call after a short delay so DOM settles
-  //   setTimeout(() => this.resizeCanvasBuffer(), 300);
-  // }
+ 
 
   private slugifyName(name: string): string {
     return (name || '')
@@ -2892,7 +2867,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
       // --- Sega ---
       { core: 'genesis_plus_gx', label: 'Sega Mega Drive / Genesis', exts: exGEN, maybeExts: exAmbig, hints: [/\bGENESIS\b|\bMEGADRIVE\b|\bMD\b/i] },
-      { core: 'smsplus', label: 'Sega Master System', exts: ['sms'], maybeExts: exAmbig, hints: [/\bMASTERSYSTEM\b|\bSMS\b/i] },
+      { core: 'smsplus', label: 'Sega Master System', exts: ['sms', 'smc'], maybeExts: exAmbig, hints: [/\bMASTERSYSTEM\b|\bSMS\b/i] },
       { core: 'genesis_plus_gx', label: 'Sega CD / Mega‑CD', exts: [], maybeExts: exAmbig, hints: [/\bSEGA\s?CD\b|\bMEGA\s?CD\b/i] },
       { core: 'picodrive', label: 'Sega 32X', exts: ['32x'], maybeExts: exAmbig, hints: [/\b32X\b/i] },
       { core: 'yabause', label: 'Sega Saturn', exts: [], maybeExts: exAmbig, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
