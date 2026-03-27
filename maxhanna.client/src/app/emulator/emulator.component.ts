@@ -3065,7 +3065,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       cue: ['mednafen_psx_hw', 'pcsx_rearmed', 'genesis_plus_gx', 'yabause', 'mednafen_pce', 'mednafen_pcfx'],
       chd: ['pcsx_rearmed', 'mednafen_psx_hw', 'yabause', 'genesis_plus_gx', 'opera'],
       bin: ['genesis_plus_gx', 'pcsx_rearmed', 'mednafen_psx_hw', 'yabause', 'mednafen_pce'],
-      sms: ['snes9x', 'smsplus'],
+      sms: ['snes9x', 'smsplus', 'genesis_plus_gx'],
+      smc: ['snes9x', 'smsplus', 'genesis_plus_gx'],
     };
 
     const preferred = orderByExt[ext] ?? [];
@@ -3186,7 +3187,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   private ejsControlSchemeForCore(core: string): string | undefined {
     switch (core) {
-      case 'genesis_plus_gx': return 'segaMD';
+      case 'genesis_plus_gx': return 'sega_genesis';
       case 'smsplus': return 'sega_master_system';
       case 'picodrive': return 'sega32x';
       case 'yabause': return 'segaSaturn';
