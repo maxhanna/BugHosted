@@ -582,8 +582,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'genesis':
       case 'megadrive':
       case 'blastem':
-      case 'segaMS':
         return '/assets/emulatorjs/data/cores/BLASTEM.zip';
+
+      case 'segaMS':
+      case 'smsplus':
+        return '/assets/emulatorjs/data/cores/SMSPLUS.zip';
 
       // PlayStation 2 (LR-PCSX2 / PS2 pack)
       case 'pcsx2':
@@ -2889,6 +2892,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
       // --- Sega ---
       { core: 'genesis_plus_gx', label: 'Sega Mega Drive / Genesis', exts: exGEN, maybeExts: exAmbig, hints: [/\bGENESIS\b|\bMEGADRIVE\b|\bMD\b/i] },
+      { core: 'smsplus', label: 'Sega Master System', exts: ['sms'], maybeExts: exAmbig, hints: [/\bMASTERSYSTEM\b|\bSMS\b/i] },
       { core: 'genesis_plus_gx', label: 'Sega CD / Mega‑CD', exts: [], maybeExts: exAmbig, hints: [/\bSEGA\s?CD\b|\bMEGA\s?CD\b/i] },
       { core: 'picodrive', label: 'Sega 32X', exts: ['32x'], maybeExts: exAmbig, hints: [/\b32X\b/i] },
       { core: 'yabause', label: 'Sega Saturn', exts: [], maybeExts: exAmbig, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
@@ -3042,6 +3046,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'psx': return 'pcsx_rearmed';
       case 'saturn': return 'yabause';
       case 'dreamcast': return 'naomi';
+      case 'segaMS': return 'smsplus';
+      case 'sega_master_system': return 'smsplus';
       case 'segacd':
       case 'sega_cd': return 'genesis_plus_gx';
       case 'genesis':
@@ -3078,6 +3084,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       cue: ['mednafen_psx_hw', 'pcsx_rearmed', 'genesis_plus_gx', 'yabause', 'mednafen_pce', 'mednafen_pcfx'],
       chd: ['pcsx_rearmed', 'mednafen_psx_hw', 'yabause', 'genesis_plus_gx', 'opera'],
       bin: ['genesis_plus_gx', 'pcsx_rearmed', 'mednafen_psx_hw', 'yabause', 'mednafen_pce'],
+      sms: ['snes9x', 'smsplus'],
     };
 
     const preferred = orderByExt[ext] ?? [];
@@ -3199,6 +3206,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private ejsControlSchemeForCore(core: string): string | undefined {
     switch (core) {
       case 'genesis_plus_gx': return 'segaMD';
+      case 'smsplus': return 'sega_master_system';
       case 'picodrive': return 'sega32x';
       case 'yabause': return 'segaSaturn';
       case 'smsplus': return 'segaMS';
