@@ -716,6 +716,16 @@
       </div>
     </div>
 
+    <div class="optionsStatsDiv" *ngIf="userIsLoggedIn()">
+      <div class="optionsStatsHeader">
+        Display as {{displayAsTable ? 'Table' : 'List'}}?
+      </div>
+      <div class="optionsStatsDescription">
+        <button class="toggle-switch" (click)="displayAsTable = !displayAsTable">
+          {{ displayAsTable ? 'Table' : 'List' }}
+        </button>
+      </div>
+    </div>
 
     <div class="optionsStatsDiv" *ngIf="userIsLoggedIn()">
       <div class="optionsStatsHeader">
