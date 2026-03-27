@@ -26,6 +26,10 @@
   }
 }
 
+.tableViewGamesContainer {
+  width: 85vw;
+}
+
 @media only screen and (min-width : 667px) {
   :host ::ng-deep #fileContainer {
     max-height: calc(100vh - 130px) !important;

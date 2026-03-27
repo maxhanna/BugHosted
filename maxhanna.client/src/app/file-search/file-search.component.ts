@@ -71,6 +71,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
   @Output() userNotificationEvent = new EventEmitter<string>();
   @Output() expandClickedEvent = new EventEmitter<FileEntry>();
+  @Output() tableViewClickedEvent = new EventEmitter<boolean>();
 
   selectedForDelete: Set<number> = new Set<number>();
   showFavouritesOnly = false;
@@ -1742,6 +1743,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       }
       this.actualCoreFilter?.push(coreToAdd);
     }
+  }
+
+  toggleDisplayAsTable() {
+    this.displayAsTable = !this.displayAsTable;
+    this.tableViewClickedEvent.emit(this.displayAsTable);
   }
 
   showFavouritesToggled() {

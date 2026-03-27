@@ -54,6 +54,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   loadWithoutSave = false;
   systemCandidates: Array<{ label: string; core?: Core }> = [];
   selectedSystemCore?: Core | null = null;
+  displayAsTable = true;
   private _lastCanvasBufW = 0;
   private _lastCanvasBufH = 0;
   private autosaveInterval: any;
@@ -2818,6 +2819,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       }
     } catch { }
     //console.log('%c[PSP] Post-boot tweaks applied ✔', 'color:#4f4');
+  }
+
+  toggleDisplayAsTable(display: boolean):void {
+    this.displayAsTable = display;
   }
 
   /** Build the registry using FileService, once. */

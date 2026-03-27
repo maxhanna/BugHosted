@@ -718,11 +718,11 @@
 
     <div class="optionsStatsDiv" *ngIf="userIsLoggedIn()">
       <div class="optionsStatsHeader">
-        Display as {{displayAsTable ? 'Table' : 'List'}}?
+        Display as Table?
       </div>
       <div class="optionsStatsDescription">
-        <button class="toggle-switch" (click)="displayAsTable = !displayAsTable">
-          {{ displayAsTable ? 'Table' : 'List' }}
+        <button class="toggle-switch" (click)="toggleDisplayAsTable()">
+          {{ displayAsTable ? 'On' : 'Off' }}
         </button>
       </div>
     </div>
