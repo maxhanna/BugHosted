@@ -92,7 +92,7 @@ export type Core =
   | '3do'
   | 'genesis'
   | 'megadrive'
-  | 'blastem'
+  | 'blastem' | 'segaMS'
   | 'pcsx2'
   | 'ps2'
   | 'lrps2'

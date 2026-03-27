@@ -561,7 +561,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       // Dreamcast (Flycast)
       case 'flycast':
       case 'dreamcast':
-        return '/assets/emulatorjs/data/cores/FLYCAST.zip';
+        return '/assets/emulatorjs/data/cores/NAOMI.zip';
+       // return '/assets/emulatorjs/data/cores/FLYCAST.zip';
 
       // Dreamcast (Naomi)
       case 'naomi':
@@ -581,6 +582,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'genesis':
       case 'megadrive':
       case 'blastem':
+      case 'segaMS':
         return '/assets/emulatorjs/data/cores/BLASTEM.zip';
 
       // PlayStation 2 (LR-PCSX2 / PS2 pack)
@@ -3039,7 +3041,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'ps1':
       case 'psx': return 'pcsx_rearmed';
       case 'saturn': return 'yabause';
-      case 'dreamcast': return 'flycast';
+      case 'dreamcast': return 'naomi';
       case 'segacd':
       case 'sega_cd': return 'genesis_plus_gx';
       case 'genesis':

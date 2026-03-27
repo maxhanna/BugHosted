@@ -94,15 +94,15 @@ export class FileService {
 
   n64FileExtensions = ["z64", "n64", "v64"];
   ps1FileExtensions = ["bin", "cue", "iso", "chd", "pbp"];
-  genesisFileExtensions: string[] = ["smd", "gen", "32x", "gg", "sms", "md"];
-  segaFileExtensions: string[] = ["smd", "gen", "32x", "gg", "sms", "md"];
+  genesisFileExtensions: string[] = ["smd", "gen", "smc", "32x", "gg", "sms", "md"];
+  segaFileExtensions: string[] = ["smd", "gen", "smc", "32x", "gg", "sms", "md"];
   nesFileExtensions: string[] = ["nes", "fds"];
   gbaFileExtensions: string[] = ['gba'];
   ndsFileExtensions: string[] = ['nds'];
   pspFileExtensions: string[] = ['psp', 'iso', 'cso', 'pbp'];
   snesFileExtensions: string[] = ['snes', 'sfc', 'smc', 'fig', 'swc', 'bs', 'st'];
   saturnFileExtensions: string[] = ['cue', 'chd', 'iso', 'bin'];
-  ambiguousRomExtensions: string[] = ['zip', '7z', 'bin', 'cue', 'iso', 'chd', 'img', 'ccd', 'mdf', 'mds', 'nrg', 'gdi', 'cdi', 'pdp']; 
+  ambiguousRomExtensions: string[] = ['zip', '7z', 'bin', 'cue', 'iso', 'chd', 'img', 'ccd', 'mdf', 'mds', 'nrg', 'gdi', 'cdi', 'pdp', 'smc']; 
  
   getRomFileExtensions(): string[] {
     const all = [
