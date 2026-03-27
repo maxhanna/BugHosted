@@ -50,6 +50,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() displaySystemIcons: boolean = false;
   @Input() displayRatings: boolean = false;
   @Input() displayRomMetadata = false;
+  @Input() displayAsTable: boolean = true;
   @Input() displayRomMetadataDesktop: boolean = false;
   @Input() autoload: boolean = false;
   @Input() canDragMove: boolean = true;

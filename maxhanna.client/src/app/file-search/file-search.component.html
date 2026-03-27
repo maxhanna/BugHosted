@@ -80,104 +80,126 @@
 
       <div *ngIf="directory && directory.totalCount! > 0" #directoryDisplayDiv class="directoryDisplayDiv"
         [class.disabled]="disabled">
-        <ng-container *ngFor="let file of directory.data; let i = index">
-          <div class="draggableDiv" draggable="true" (dragstart)="onDragStart($event, file.fileName ?? '')">
-            <div class="fileNameDiv {{ file.isFolder ? 'folder' : '' }}" (dragover)="onDragOver($event)"
-              (drop)="onDrop(file.fileName ?? '')" [id]="'fileIdDiv'+file.id"
-              [attr.data-content]="file?.givenFileName ?? file?.fileName ?? ''"
-              (mouseenter)="handleFileHoverEnter($event, file)" (mouseleave)="handleFileHoverLeave($event)">
-              <span class="fileNameWrapperSpan">
-                <input *ngIf="massDeleteMode" type="checkbox" [checked]="selectedForDelete.has(file.id)"
-                  (click)="toggleSelectForDelete(file, $event)" />
-                <input type="text"
-                  [placeholder]="file?.givenFileName ?? (file && file.fileName ? file.fileName.split('.')[0]! : 'New file name')"
-                  [value]="" [style.display]="isEditing.includes(file.id) ? 'inline-block':'none' "
-                  (keyup)="editFileKeyUp($event, file.id)" (click)="$event.stopPropagation()"
-                  [id]="'editFileNameInput'+file.id" />
+        <ng-container *ngIf="displayAsTable; else gridView">
+          <ng-container *ngFor="let file of directory.data; let i = index">
+            <div class="draggableDiv" draggable="true" (dragstart)="onDragStart($event, file.fileName ?? '')">
+              <div class="fileNameDiv {{ file.isFolder ? 'folder' : '' }}" (dragover)="onDragOver($event)"
+                (drop)="onDrop(file.fileName ?? '')" [id]="'fileIdDiv'+file.id"
+                [attr.data-content]="file?.givenFileName ?? file?.fileName ?? ''"
+                (mouseenter)="handleFileHoverEnter($event, file)" (mouseleave)="handleFileHoverLeave($event)">
+                <span class="fileNameWrapperSpan">
+                  <input *ngIf="massDeleteMode" type="checkbox" [checked]="selectedForDelete.has(file.id)"
+                    (click)="toggleSelectForDelete(file, $event)" />
+                  <input type="text"
+                    [placeholder]="file?.givenFileName ?? (file && file.fileName ? file.fileName.split('.')[0]! : 'New file name')"
+                    [value]="" [style.display]="isEditing.includes(file.id) ? 'inline-block':'none' "
+                    (keyup)="editFileKeyUp($event, file.id)" (click)="$event.stopPropagation()"
+                    [id]="'editFileNameInput'+file.id" />
 
-                <span *ngIf="!isEditing.includes(file.id)" class="fileFolderNameSpan {{file.isFolder ? 'folder' : ''}}"
-                  (click)="!disabled && selectFile(file);" [id]="'fileIdName'+file.id">
-                  <span>
-                    {{ file.isFolder ? '📁' : '' }}
-                    <span [innerHTML]="(displaySystemIcons && !file.isFolder) ? getFileIcon(file) : ''"></span>
+                  <span *ngIf="!isEditing.includes(file.id)" class="fileFolderNameSpan {{file.isFolder ? 'folder' : ''}}"
+                    (click)="!disabled && selectFile(file);" [id]="'fileIdName'+file.id">
+                    <span>
+                      {{ file.isFolder ? '📁' : '' }}
+                      <span [innerHTML]="(displaySystemIcons && !file.isFolder) ? getFileIcon(file) : ''"></span>
 
-                    <span [style.fontSize]="shouldShowRomMetadata() && !onMobile() ? 'x-large' : ''"
-                      class="romTitleText">
-                      {{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}
+                      <span [style.fontSize]="shouldShowRomMetadata() && !onMobile() ? 'x-large' : ''"
+                        class="romTitleText">
+                        {{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}
+                      </span>
+                    </span>
+
+                    <!-- ✅ inline ROM thumbs: single thumb on mobile, full strip on desktop -->
+                    <span
+                      *ngIf="shouldShowRomMetadata() && file && !file.isFolder && (file.romInlineThumbs?.length ?? 0) > 0"
+                      class="romThumbStrip" title="Show ROM artwork"
+                      (click)="$event.stopPropagation(); onMobile() ? showOptionsPanel(file) : (optionsFile = file);">
+
+                      <ng-container
+                        *ngIf="onMobile() && (file?.romInlineThumbs?.length ?? 0) > 0; else desktopThumbnails">
+                        <img class="romThumb"
+                          [src]="file.romInlineThumbs && file.romInlineThumbs.length ? file.romInlineThumbs[0] : ''"
+                          loading="lazy" (error)="hideBrokenImg($event)" />
+                      </ng-container>
+
+                      <ng-template #desktopThumbnails>
+                        <img *ngFor="let img of file.romInlineThumbs" class="romThumb" [src]="img" loading="lazy"
+                          (error)="hideBrokenImg($event)" />
+                      </ng-template>
                     </span>
                   </span>
-
-                  <!-- ✅ inline ROM thumbs: single thumb on mobile, full strip on desktop -->
-                  <span
-                    *ngIf="shouldShowRomMetadata() && file && !file.isFolder && (file.romInlineThumbs?.length ?? 0) > 0"
-                    class="romThumbStrip" title="Show ROM artwork"
-                    (click)="$event.stopPropagation(); onMobile() ? showOptionsPanel(file) : (optionsFile = file);">
-
-                    <ng-container
-                      *ngIf="onMobile() && (file?.romInlineThumbs?.length ?? 0) > 0; else desktopThumbnails">
-                      <img class="romThumb"
-                        [src]="file.romInlineThumbs && file.romInlineThumbs.length ? file.romInlineThumbs[0] : ''"
-                        loading="lazy" (error)="hideBrokenImg($event)" />
-                    </ng-container>
-
-                    <ng-template #desktopThumbnails>
-                      <img *ngFor="let img of file.romInlineThumbs" class="romThumb" [src]="img" loading="lazy"
-                        (error)="hideBrokenImg($event)" />
-                    </ng-template>
-                  </span>
                 </span>
-              </span>
-              <div class="fileExtras fileOptionsActionWrapper">
-                <app-reaction *ngIf="displayReactions && !file.isFolder" [user]="user"
-                  [inputtedParentRef]="inputtedParentRef ?? parentRef" [currentReactions]="file.reactions"
-                  [component]="file" [fileId]="file.id" 
-                  (click)="$event.stopPropagation()">
-                </app-reaction>
-                <div *ngIf="displayComments && !file.isFolder"
-                  class="fileOptionsAction fileOptionsChatBubble coloredBgButton"
-                  (click)="openFileWithComments(file); $event.stopPropagation()">
-                  🗨️{{getTotalCommentCount(file.fileComments)}}
-                </div>
-                <div *ngIf="!file.isFolder && file.favouriteCount"
-                  class="fileOptionsAction fileOptionsChatBubble coloredBgButton"
-                  (click)="getFavouritedBy(file); $event.stopPropagation()">
-                  ❤️{{file.favouriteCount}}
-                </div>
-                <div *ngIf="displayRatings && !file.isFolder && file.ratingCount"
-                  class="fileOptionsAction fileOptionsChatBubble coloredBgButton"
-                  (click)="showOptionsPanel(file); $event.stopPropagation()">
-                  ⭐{{file.averageRating | number:'1.1-1'}}
-                </div>
-                <div *ngIf="displayFileActions" (click)="showOptionsPanel(file); $event.stopPropagation();"
-                  class="fileOptionsAction fileOptionsCogIcon coloredBgButton"
-                  [title]="'Show Options for \'' + (file.givenFileName && file.givenFileName != '' ? file.givenFileName : getFileWithoutExtension(file.fileName ?? '')) + '\' file.'">
-                  ⚙️
-                </div>
-                <div class="typeTd fileOptionsAction"
-                  (click)="(file.user?.id == parentRef?.user?.id ? openVisibilityDropdown(file) : selectFile(file)); $event.stopPropagation();"
-                  *ngIf="displayFileType && file.visibility == 'Private'" title="This is a private file.">
-                  🔒
+                <div class="fileExtras fileOptionsActionWrapper">
+                  <app-reaction *ngIf="displayReactions && !file.isFolder" [user]="user"
+                    [inputtedParentRef]="inputtedParentRef ?? parentRef" [currentReactions]="file.reactions"
+                    [component]="file" [fileId]="file.id" 
+                    (click)="$event.stopPropagation()">
+                  </app-reaction>
+                  <div *ngIf="displayComments && !file.isFolder"
+                    class="fileOptionsAction fileOptionsChatBubble coloredBgButton"
+                    (click)="openFileWithComments(file); $event.stopPropagation()">
+                    🗨️{{getTotalCommentCount(file.fileComments)}}
+                  </div>
+                  <div *ngIf="!file.isFolder && file.favouriteCount"
+                    class="fileOptionsAction fileOptionsChatBubble coloredBgButton"
+                    (click)="getFavouritedBy(file); $event.stopPropagation()">
+                    ❤️{{file.favouriteCount}}
+                  </div>
+                  <div *ngIf="displayRatings && !file.isFolder && file.ratingCount"
+                    class="fileOptionsAction fileOptionsChatBubble coloredBgButton"
+                    (click)="showOptionsPanel(file); $event.stopPropagation()">
+                    ⭐{{file.averageRating | number:'1.1-1'}}
+                  </div>
+                  <div *ngIf="displayFileActions" (click)="showOptionsPanel(file); $event.stopPropagation();"
+                    class="fileOptionsAction fileOptionsCogIcon coloredBgButton"
+                    [title]="'Show Options for \'' + (file.givenFileName && file.givenFileName != '' ? file.givenFileName : getFileWithoutExtension(file.fileName ?? '')) + '\' file.'">
+                    ⚙️
+                  </div>
+                  <div class="typeTd fileOptionsAction"
+                    (click)="(file.user?.id == parentRef?.user?.id ? openVisibilityDropdown(file) : selectFile(file)); $event.stopPropagation();"
+                    *ngIf="displayFileType && file.visibility == 'Private'" title="This is a private file.">
+                    🔒
+                  </div>
                 </div>
               </div>
+              <div *ngIf="!file.isFolder && !(file.isHidden && !showHiddenFiles) &&
+                   (
+                    (!autoload && viewMediaFile && openedFiles.includes(file.id)) || autoload || ((fileId ?? 0) == file.id)
+                   )" class="mediaViewDiv" (click)="selectFileNoPropagation($event, file);">
+                <app-media-viewer #mediaViewerComponent [user]="user" [file]="file" [autoplay]="true"
+                  [blockExpand]="fileSearchMode ? true : false" [showCommentSection]="true"
+                  [showCommentSectionOnLoad]="fileId ? true:false || showCommentsInOpenedFiles.includes(file.id)"
+                  [showCommentSectionHeader]="fileSearchMode ? false : displayComments" [showTopics]="showTopics"
+                  [inputtedParentRef]="inputtedParentRef" [canScroll]="fileId ? true : false" [displayExpander]="false"
+                  [displayExtraInfo]="false"  [commentId]="commentId"
+                  [fileId]="file.id" [displayLoading]="true" (emittedNotification)="emittedNotification($event)"
+                  (commentHeaderClickedEvent)="addOrRemoveIdFromOpenedComments(file.id, $event)"
+                  (expandClickedEvent)="expandClickedEvent.emit($event)" (topicClickedEvent)="fileTopicClicked($event)"
+                  class="mediaViewer">
+                </app-media-viewer>
+              </div>
             </div>
-            <div *ngIf="!file.isFolder && !(file.isHidden && !showHiddenFiles) &&
-                 (
-                  (!autoload && viewMediaFile && openedFiles.includes(file.id)) || autoload || ((fileId ?? 0) == file.id)
-                 )" class="mediaViewDiv" (click)="selectFileNoPropagation($event, file);">
-              <app-media-viewer #mediaViewerComponent [user]="user" [file]="file" [autoplay]="true"
-                [blockExpand]="fileSearchMode ? true : false" [showCommentSection]="true"
-                [showCommentSectionOnLoad]="fileId ? true:false || showCommentsInOpenedFiles.includes(file.id)"
-                [showCommentSectionHeader]="fileSearchMode ? false : displayComments" [showTopics]="showTopics"
-                [inputtedParentRef]="inputtedParentRef" [canScroll]="fileId ? true : false" [displayExpander]="false"
-                [displayExtraInfo]="false"  [commentId]="commentId"
-                [fileId]="file.id" [displayLoading]="true" (emittedNotification)="emittedNotification($event)"
-                (commentHeaderClickedEvent)="addOrRemoveIdFromOpenedComments(file.id, $event)"
-                (expandClickedEvent)="expandClickedEvent.emit($event)" (topicClickedEvent)="fileTopicClicked($event)"
-                class="mediaViewer">
-              </app-media-viewer>
+          </ng-container>
+        </ng-container>
+
+        <ng-template #gridView>
+          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:12px; padding:8px;">
+            <div *ngFor="let file of directory.data" class="gridItem" style="display:flex; flex-direction:column; gap:6px;">
+              <div class="gridThumbWrapper" (click)="!file.isFolder && selectFile(file)" style="cursor:pointer;">
+                <ng-container *ngIf="shouldShowRomMetadata() && file.romInlineThumbs?.length > 0">
+                  <img [src]="file.romInlineThumbs[0]" loading="lazy" (error)="hideBrokenImg($event)"
+                    style="width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:6px; border:1px solid rgba(255,255,255,0.08);" />
+                </ng-container>
+                <ng-container *ngIf="!(shouldShowRomMetadata() && file.romInlineThumbs?.length > 0)">
+                  <div style="width:100%; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; border-radius:6px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); padding:6px;"> 
+                    <span style="text-align:center; font-size:small;">{{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}</span>
+                  </div>
+                </ng-container>
+              </div>
+              <div style="text-align:center; font-size:small; word-break:break-word;">{{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}</div>
             </div>
           </div>
-        </ng-container>
+        </ng-template>
+        
         <div *ngIf="!isLoading && currentPage < totalPages && directory?.data?.length">
           <button appInView (inView)="appendNextPage();" (click)="appendNextPage(); $event.preventDefault()">
             Load More Results
