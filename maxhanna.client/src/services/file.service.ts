@@ -897,7 +897,9 @@ export class FileService {
     if (k === 'sega master system' || k === 'sega_ms' || k === 'sega_master_system' || k === 'master_system') return 'smsplus';
     if (k === '32x') return 'picodrive';
     if (k === 'saturn') return 'yabause';
-    if (k === 'dreamcast') return 'flycast';
+    //if (k === 'dreamcast') return 'flycast';
+    if (k === 'dreamcast') return 'naomi';
+    if (k === 'naomi') return 'naomi';
 
     // --- 3DO ---
     if (k === '3do') return 'opera';

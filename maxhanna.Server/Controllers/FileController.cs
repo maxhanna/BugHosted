@@ -33,7 +33,7 @@ namespace maxhanna.Server.Controllers
         "z64", "n64", "v64", "bin", "zip"
     };
     private readonly HashSet<string> cores = new HashSet<string> {
-        "yabause", "pcsx_rearmed", "psp", "flycast", "dolphin"
+        "yabause", "pcsx_rearmed", "psp", "flycast", "dolphin", "naomi", "genesis_plus_gx", "picodrive", "smsplus", "mupen64plus_next", "fceumm", "nestopia", "melonds"
     };
 
     public FileController(Log log, IConfiguration config)

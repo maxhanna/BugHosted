@@ -2903,7 +2903,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       { core: 'puae', label: 'Commodore Amiga', exts: ['adf'], maybeExts: [], hints: [/\bAMIGA\b/i] },
 
       // --- Experimental (available only if you actually ship the WASM core files) ---
-      { core: 'flycast', label: 'Sega Dreamcast (Flycast)', exts: exDC, maybeExts: exAmbig, hints: [/\bDREAMCAST\b|\bNAOMI\b/i] },  // WASM port required [6](https://github.com/nasomers/flycast-wasm)
+      { core: 'naomi', label: 'Sega Dreamcast (Naomi)', exts: exDC, maybeExts: exAmbig, hints: [/\bDREAMCAST\b|\bNAOMI\b/i] },  // WASM port required [6](https://github.com/nasomers/flycast-wasm)
+      //{ core: 'flycast', label: 'Sega Dreamcast (Flycast)', exts: exDC, maybeExts: exAmbig, hints: [/\bDREAMCAST\b|\bNAOMI\b/i] },  // WASM port required [6](https://github.com/nasomers/flycast-wasm)
       { core: 'vitaquake3', label: 'Quake III Arena (vitaQuake 3)', exts: exQ3, maybeExts: [], hints: [/pak0\.pk3/i] }, // loads *.pk3 [2](https://sources.debian.org/src/libretro-core-info/1.14.0-1/vitaquake3_libretro.info/)
     ];
   }
