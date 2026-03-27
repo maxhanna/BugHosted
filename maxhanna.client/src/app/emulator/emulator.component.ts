@@ -2871,8 +2871,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       { core: 'pcsx_rearmed', label: 'PlayStation (PS1)', exts: uniq(['bin', 'cue', 'chd']), maybeExts: exAmbig, hints: [/SLUS\d{5}/i, /SLES\d{5}/i, /\bPSX\b|\bPS1\b|\bPlayStation\b/i] },
 
       // --- Sega ---
-      { core: 'genesis_plus_gx', label: 'Sega Mega Drive / Genesis', exts: exGEN, maybeExts: exAmbig, hints: [/\bGENESIS\b|\bMEGADRIVE\b|\bMD\b/i] },
       { core: 'smsplus', label: 'Sega Master System', exts: ['sms', 'smc'], maybeExts: exAmbig, hints: [/\bMASTERSYSTEM\b|\bSMS\b/i] },
+      { core: 'genesis_plus_gx', label: 'Sega Mega Drive / Genesis', exts: exGEN, maybeExts: exAmbig, hints: [/\bGENESIS\b|\bMEGADRIVE\b|\bMD\b/i] },
       { core: 'genesis_plus_gx', label: 'Sega CD / Mega‑CD', exts: [], maybeExts: exAmbig, hints: [/\bSEGA\s?CD\b|\bMEGA\s?CD\b/i] },
       { core: 'picodrive', label: 'Sega 32X', exts: ['32x'], maybeExts: exAmbig, hints: [/\b32X\b/i] },
       { core: 'yabause', label: 'Sega Saturn', exts: [], maybeExts: exAmbig, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
@@ -3190,7 +3190,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'smsplus': return 'sega_master_system';
       case 'picodrive': return 'sega32x';
       case 'yabause': return 'segaSaturn';
-      case 'smsplus': return 'segaMS';
       default: return undefined; // let EmulatorJS derive it
     }
   }
