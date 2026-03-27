@@ -14,7 +14,7 @@
   </div>
 
   <div class="gamesContainer" 
-    [class.tableViewGamesContainer]="displayAsTable"
+    [class.gridViewGamesContainer]="!displayAsTable"
     *ngIf="isSearchVisible && parentRef">
     <app-file-search #fileSearchComponent [user]="parentRef.user" [inputtedParentRef]="parentRef" [currentDirectory]="'Roms/'"
       [clearAfterSelectFile]="true" [allowedFileTypes]="getAllowedFileTypes()" [displayPrivatePublicOption]="true"
