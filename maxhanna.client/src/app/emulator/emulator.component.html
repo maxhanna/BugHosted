@@ -135,7 +135,7 @@
 
 <!-- System selection for ambiguous image files (iso/bin/cue/chd) -->
 <div class="popupPanel menuPanel" *ngIf="isSystemSelectPanelOpen">
-  <div class="popupPanelTitle">Select System For Image</div>
+  <div class="popupPanelTitle">Select System For {{ selectedROMFile?.fileName }}</div>
   <div style="padding:8px;">
     <div style="margin-bottom:8px;">Please choose the intended system:</div>
     <select [value]="selectedSystemCore" (change)="onSystemSelectChange($event)">

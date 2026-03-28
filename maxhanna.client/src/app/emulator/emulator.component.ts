@@ -208,10 +208,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this._forcedCore = undefined;
 
     // 1) Check DB-persisted system override (from rom_system_overrides via romMetadata.actualSystem)
-    const dbOverride = file.romMetadata?.actualSystem;
-    if (dbOverride) {
-      this.selectedSystemCore = dbOverride;
-      this._forcedCore = dbOverride;
+    const actualSystem = file.romMetadata?.actualSystem;
+    if (actualSystem) {
+      this.selectedSystemCore = actualSystem;
+      this._forcedCore = actualSystem;
     }
 
     // If there are multiple candidate choices (excluding the Auto-detect option),
@@ -229,7 +229,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       return;
     }
 
-    // If no DB override and we still don't have a selection, fall back to
     // per-extension preference (e.g., user saved choice in localStorage).
     if (!this.selectedSystemCore) {
       const preferred = this.loadPreferredCore(ext);
@@ -238,9 +237,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         this._forcedCore = preferred;
       }
     }
-
-    // If the extension is in the ambiguous list (older behaviour) and we still
-    // don't have a selection, show the chooser as a final fallback.
+    
     if (!this.selectedSystemCore && this.fileService.getAmbiguousRomExtensions().includes(ext)) {
       this._pendingFileToLoad = { fileName: file.fileName, fileId: file.id, directory: file.directory };
       this.isSystemSelectPanelOpen = true;
@@ -248,7 +245,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.cdr.detectChanges();
       return;
     }
+
     this.presetForcedCore = this.selectedSystemCore;
+    if (this.selectedSystemCore && this.selectedROMFile.id && !this.selectedROMFile.romMetadata?.actualSystem) {
+      this.romService.setSystemOverride(this.selectedROMFile.id, this.selectedSystemCore).catch(() => { 
+        console.error('Failed to persist system override'); 
+      });
+    }
+
     try {
       await this.loadRomThroughService(file.fileName, file.id, this.selectedSystemCore ?? undefined);
       this.status = 'Running';
