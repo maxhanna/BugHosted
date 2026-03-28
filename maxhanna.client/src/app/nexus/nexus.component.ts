@@ -207,24 +207,34 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   async ngOnInit() {
-    this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
-    this.isUserNew = true;
-    this.isUserComponentOpen = (!this.parentRef?.user || this.parentRef.user.id == 0);
-    this.warehouseUpgradeLevels = Array.from({ length: 10 }, (_, i) => i + 1);
-    this.nexusService.getEpochRankings().then(res => { if (res) { this.epochRankings = res; } });
+    this.startLoading();
+    try {
+      this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
+      this.isUserNew = true;
+      this.isUserComponentOpen = (!this.parentRef?.user || this.parentRef.user.id == 0);
+      this.warehouseUpgradeLevels = Array.from({ length: 10 }, (_, i) => i + 1);
+      await this.nexusService.getEpochRankings().then(res => { if (res) { this.epochRankings = res; } });
 
-    const sessionToken = await this.parentRef?.getSessionToken() ?? "";
-    this.loadPictureSrcs(sessionToken);
-    if (this.parentRef?.user?.id) {
-      this.nexusService.getPlayerColor(this.parentRef?.user?.id ?? 0).then(res => {
-        this.playerColors = res;
-        if (res[this.parentRef?.user?.id ?? 0]) {
-          this.playerColor = res[this.parentRef?.user?.id ?? 0];
-        }
-      });
+      const sessionToken = await this.parentRef?.getSessionToken() ?? "";
+      await this.loadPictureSrcs(sessionToken);
+      if (this.parentRef?.user?.id) {
+        await this.nexusService.getPlayerColor(this.parentRef?.user?.id ?? 0).then(res => {
+          this.playerColors = res;
+          if (res[this.parentRef?.user?.id ?? 0]) {
+            this.playerColor = res[this.parentRef?.user?.id ?? 0];
+          }
+        });
+      }
+      await this.loadNexusData();
+    }
+    catch (ex) {
+      this.parentRef?.showNotification("Error loading Data: " + (ex as Error).message);
+      console.error(ex);
+    }
+    finally {
+      this.stopLoading();
     }
 
-    await this.loadNexusData();
   }
 
   ngOnDestroy() {
