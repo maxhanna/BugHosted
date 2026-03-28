@@ -131,6 +131,7 @@
   margin: 5px;
   font-size: smaller;
   font-weight: bold;
+  border-radius: 16px;
 }
 
 .linkOptionButtons {
@@ -238,6 +239,10 @@
   display: block;
 }
 
+.favouritesTable {
+  border-collapse: collapse;
+}
+
 .favouritesTable tbody tr td {
   transition: box-shadow .12s ease, text-decoration .12s ease;
 }
@@ -252,7 +257,8 @@
 }
 
 /* Prevent breaking inside words — only allow breaks on whitespace */
-.favouritesTable th, .favouritesTable td {
+.favouritesTable th,
+.favouritesTable td {
   word-break: normal;
   overflow-wrap: normal;
   white-space: normal;
@@ -264,6 +270,7 @@
   vertical-align: middle;
   text-align: center;
 }
+
 .siteIcon {
   width: 24px;
   height: 24px;
@@ -271,13 +278,21 @@
   object-fit: cover;
   display: inline-block;
 }
+
 .titleCell .titleMain {
   font-weight: 600;
 }
+
 .mobileUrl {
   font-size: 0.85em;
   color: var(--third-font-color);
   margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.stickyTableHeader {
+  position: sticky;
+  top: 00;
+  background: var(--gradient-background);
 }

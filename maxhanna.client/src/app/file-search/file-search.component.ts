@@ -124,6 +124,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   notesFile: FileEntry | undefined;
   isFirstLoad = true;
   pageLocked = false;
+  private _hoverOverlayEl: HTMLElement | null = null;
+  private _hoverOverlayHost: HTMLElement | null = null;
+  private _componentMainPrevPosition: string | null = null;
   private _savedDirectoryBeforeFileIdSearch: string | null = null;
   private windowScrollHandler: Function;
   private containerScrollHandler: Function;
@@ -2139,14 +2142,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (thumbs.length < 2 && aw.length) thumbs.push(aw[0]);
 
     return thumbs.slice(0, 2);
-  }
-
-  // Hover handlers: when displaying rom metadata on desktop, create a
-  // fading overlay inside the emulator's `.componentMain` so changes are
-  // limited to the Emulator page and smoothly transition.
-  private _hoverOverlayEl: HTMLElement | null = null;
-  private _hoverOverlayHost: HTMLElement | null = null;
-  private _componentMainPrevPosition: string | null = null;
+  } 
 
   handleFileHoverEnter(ev: Event, file: FileEntry) {
     try {

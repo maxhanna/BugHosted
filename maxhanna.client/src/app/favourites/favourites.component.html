@@ -24,7 +24,7 @@
   </div>
   <div class="topLinks">
     <div *ngIf="favorites.length > 0">
-      <div class="miniTitle">{{ showingLatestLinks ? 'Latest' : 'Your' }} Links:</div>
+      <div class="miniTitle gradientBackground">{{ showingLatestLinks ? 'Latest' : 'Your' }} Links:</div>
 
       <!-- Block view (existing) -->
       <div class="favouriteListWrapper" *ngIf="!showTableView">
@@ -59,14 +59,13 @@
       <!-- Table view -->
       <div *ngIf="showTableView" class="favouritesTableWrapper">
         <table class="favouritesTable">
-          <thead>
+          <thead class="stickyTableHeader">
             <tr>
               <th style="width:32px"></th>
-              <th>Title</th>
-                <th *ngIf="!onMobile()">URL</th>
-              <th>Users</th>
-              <th>Accessed</th>
-              <th>Created By</th>
+              <th>Title</th> 
+              <th *ngIf="!onMobile()">Users</th>
+              <th *ngIf="!onMobile()">Accessed</th>
+              <th *ngIf="!onMobile()">Created By</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -77,13 +76,14 @@
                 <div *ngIf="!fav.imageUrl" class="siteIcon emptyFavImage"></div>
               </td>
               <td class="titleCell">
-                <div class="titleMain">{{fav.name && fav.name.trim() ? fav.name : fav.url}}</div>
-                <div *ngIf="onMobile()" class="mobileUrl">{{fav.url}}</div>
-              </td>
-              <td *ngIf="!onMobile()"><a href="{{fav.url}}" target="_blank" (click)="$event.stopPropagation(); visitExternalLink(fav)">{{fav.url}}</a></td>
-              <td>{{fav.userCount}}</td>
-              <td>{{fav.accessCount}}</td>
-              <td>{{fav.createdBy}}</td>
+                <div class="titleMain" (click)="$event.stopPropagation(); visitExternalLink(fav)">{{fav.name && fav.name.trim() ? fav.name : ''}}</div>
+                <div>
+                  <a href="{{fav.url}}" target="_blank" (click)="$event.stopPropagation(); visitExternalLink(fav)">{{fav.url}}</a>
+                </div>
+              </td> 
+              <td *ngIf="!onMobile()">{{fav.userCount}}</td>
+              <td *ngIf="!onMobile()">{{fav.accessCount}}</td>
+              <td *ngIf="!onMobile()">{{fav.createdBy}}</td>
               <td>
                 <button (click)="addLink(fav)" [disabled]="isIncludedInFavourites(fav)" title="Add">➕</button>
                 <button *ngIf="showEditLinks && fav.isUserFavourite" (click)="openEditPanel(fav)" title="Edit">✏️</button>
