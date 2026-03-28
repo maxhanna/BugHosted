@@ -35,6 +35,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   isMenuPanelOpen = false;
   isFullScreen = false;
   romName?: string;
+  selectedROMFile?: FileEntry;
   system?: System;
   isFileUploaderExpanded = false;
   isFaqOpen = false;
@@ -198,6 +199,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
     this.presetRomId = file.id;
     this.presetRomName = file.fileName;
+    this.selectedROMFile = file;
 
     // Always build candidate list for this file. If there are multiple real
     // candidates (beyond the 'Auto-detect' entry) prompt the user to choose.
@@ -1425,6 +1427,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   getRomName(): string {
+    if (this.selectedROMFile) {
+      return this.fileService.getFileWithoutExtension(this.selectedROMFile.givenFileName ?? this.selectedROMFile.fileName ?? '');
+    }
     if (this.romName) {
       return this.fileService.getFileWithoutExtension(this.romName);
     }

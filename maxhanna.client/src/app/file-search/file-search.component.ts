@@ -1711,12 +1711,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
 
     if (!this.activeRomSystems || this.activeRomSystems.length === 0) {
-      this.fileTypeFilter = '';
+   //   this.fileTypeFilter = '';
       this.onFiletypeFilterChange(true);
       return;
     }
-    const exts = Array.from(new Set(this.activeRomSystems.flatMap(k => this.romSystemExtensions[k] ?? [k])));
-    this.fileTypeFilter = exts.join(',');
+    // const exts = Array.from(new Set(this.activeRomSystems.flatMap(k => this.romSystemExtensions[k] ?? [k])));
+    // this.fileTypeFilter = exts.join(',');
     this.onFiletypeFilterChange(true);
   }
 
