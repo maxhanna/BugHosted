@@ -1934,9 +1934,17 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         'saturn': base+'saturnicon.png',
         'gamecube': base+'gcicon.png',
         'dolphin': base+'gcicon.png',
+        'n64': base+'n64icon.png',
+        'ps1': base+'ps1icon.png',
+        'gba': base+'gbaicon.png',
+        'nds': base+'ndsicon.png',
+        'nes': base+'nesicon.png',
+        'snes': base+'snesicon.png',
+        'genesis': base+'segaicon.png',
+        'psp': base+'pspicon.png'
       };
       const mapped = coreIconMap[actualSystem];
-      if (mapped) return base + mapped;
+      if (mapped) return mapped;
     }
     if (!extension) return undefined;
 
@@ -1965,8 +1973,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       'ps1': base+'ps1icon.png',
       'psp': base+'pspicon.png',
       'pbp': base+'pspicon.png',
-      'psx': base+'ps1icon.png',
-      'playstation': base+'ps1icon.png',
+      'psx': base + 'ps1icon.png',
+      'playstation': base + 'ps1icon.png', 
       'saturn': base+'saturnicon.png',
       'dreamcast': base+'dreamcasticon.png',
       'genesis': base+'segaicon.png',
@@ -1979,7 +1987,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     };
 
     if (iconMap[extension.toLowerCase()]) {
-      return base + iconMap[extension.toLowerCase()];
+      return iconMap[extension.toLowerCase()];
     } else {
       return undefined;
     }
