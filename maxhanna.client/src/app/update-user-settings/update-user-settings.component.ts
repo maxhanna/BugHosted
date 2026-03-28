@@ -181,9 +181,13 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       });
     }
   }
-  async blockedUserSelected(user: User) {
+  async blockedUserSelected(user?: User) {
     if (!this.parentRef?.user?.id) {
       alert("You must be logged in to block users!");
+      return;
+    }
+    if (!user) {
+      alert("No user selected!");
       return;
     }
     if (user.id == this.parentRef.user.id) {
