@@ -175,8 +175,8 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     const user = this.parentRef?.user;
     if (!user || !user?.id) return alert("You must be logged in to save your theme.");
 
-    const name = this.themeNameInput.nativeElement.value;
-    if (name.toLowerCase() == "default" && this.warnUserToSave) {
+    const name = this.themeNameInput.nativeElement.value.trim();
+    if (name === "" || name.toLowerCase() == "default" && this.warnUserToSave) {
       this.themeNameInput.nativeElement.focus();
       return alert("Please enter a valid theme name.");
     }

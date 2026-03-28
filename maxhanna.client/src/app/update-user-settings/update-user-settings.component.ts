@@ -56,6 +56,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   isDisplayingNSFW = false;
   isPushNotificationsEnabled? = false;
   isSecurityQuestionsToggled = false;
+  showAddBlockedUserPopup = false;
   cachedSecurityQuestions?: Array<{ question: string; answer?: string }> = undefined;
   app?: any;
   messaging?: any;
@@ -97,6 +98,9 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     super();
   }
   async ngOnInit() {
+    if (this.inputtedParentRef) {
+      this.parentRef = this.inputtedParentRef;
+    }
     this.selectableIcons = this.parentRef!.navigationItems
       .filter(x => x.title !== 'Close Menu' && x.title !== 'User' && x.title !== 'UpdateUserSettings')
       .sort((a, b) => a.title.localeCompare(b.title));
@@ -176,6 +180,26 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
         this.krakenApiKey.nativeElement.value = '';
       });
     }
+  }
+  async blockedUserSelected(user: User) {
+    if (!this.parentRef?.user?.id) {
+      alert("You must be logged in to block users!");
+      return;
+    }
+    if (user.id == this.parentRef.user.id) {
+      alert("You cannot block yourself!");
+      return;
+    }
+    if (!confirm(`Are you sure you want to block ${user.username}? This will prevent them from interacting with you.`)) {
+      return;
+    }
+    this.startLoading();
+    await this.userService.blockUser(this.parentRef?.user?.id ?? 0, user.id ?? 0).then(res => {
+      if (res) { 
+        this.parentRef?.showNotification(res);
+      }
+      this.stopLoading();
+    });
   }
   async getUniqueCurrencyNames() {
     try {

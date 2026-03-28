@@ -267,6 +267,22 @@ but you can also set your own City for a more precise location."></span>
         </div>
       </div>
 
+      <div>
+        <button (click)="showAddBlockedUserPopup = true">Add a Blocked User</button>
+      </div>
+      <div class="popupPanel" *ngIf="showAddBlockedUserPopup">
+        <div style="max-height:50vh; overflow: auto;">
+          <app-user-list 
+            (userClickEvent)="blockedUserSelected($event)" 
+            [searchOnly]="true" 
+            [openDirectlyToSearch]="true"
+            [inputtedParentRef]="parentRef">
+          </app-user-list>
+        </div>
+        <div style="margin-top: 15px; width:100%; text-align: center;">
+          <button id="closeOverlay" (click)="showAddBlockedUserPopup = false" class="closeButton">Close</button>
+      </div>
+
       <div *ngIf="!blockedUsers || blockedUsers.length == 0">
         No blocked users.
       </div>
