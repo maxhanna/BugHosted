@@ -96,7 +96,8 @@
                     (keyup)="editFileKeyUp($event, file.id)" (click)="$event.stopPropagation()"
                     [id]="'editFileNameInput'+file.id" />
 
-                  <span *ngIf="!isEditing.includes(file.id)" class="fileFolderNameSpan {{file.isFolder ? 'folder' : ''}}"
+                  <span *ngIf="!isEditing.includes(file.id)"
+                    class="fileFolderNameSpan {{file.isFolder ? 'folder' : ''}}"
                     (click)="!disabled && selectFile(file);" [id]="'fileIdName'+file.id">
                     <span>
                       {{ file.isFolder ? '📁' : '' }}
@@ -131,8 +132,7 @@
                 <div class="fileExtras fileOptionsActionWrapper">
                   <app-reaction *ngIf="displayReactions && !file.isFolder" [user]="user"
                     [inputtedParentRef]="inputtedParentRef ?? parentRef" [currentReactions]="file.reactions"
-                    [component]="file" [fileId]="file.id" 
-                    (click)="$event.stopPropagation()">
+                    [component]="file" [fileId]="file.id" (click)="$event.stopPropagation()">
                   </app-reaction>
                   <div *ngIf="displayComments && !file.isFolder"
                     class="fileOptionsAction fileOptionsChatBubble coloredBgButton"
@@ -170,8 +170,8 @@
                   [showCommentSectionOnLoad]="fileId ? true:false || showCommentsInOpenedFiles.includes(file.id)"
                   [showCommentSectionHeader]="fileSearchMode ? false : displayComments" [showTopics]="showTopics"
                   [inputtedParentRef]="inputtedParentRef" [canScroll]="fileId ? true : false" [displayExpander]="false"
-                  [displayExtraInfo]="false"  [commentId]="commentId"
-                  [fileId]="file.id" [displayLoading]="true" (emittedNotification)="emittedNotification($event)"
+                  [displayExtraInfo]="false" [commentId]="commentId" [fileId]="file.id" [displayLoading]="true"
+                  (emittedNotification)="emittedNotification($event)"
                   (commentHeaderClickedEvent)="addOrRemoveIdFromOpenedComments(file.id, $event)"
                   (expandClickedEvent)="expandClickedEvent.emit($event)" (topicClickedEvent)="fileTopicClicked($event)"
                   class="mediaViewer">
@@ -182,24 +182,32 @@
         </ng-container>
 
         <ng-template #gridView>
-          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:12px; padding:8px;">
-            <div *ngFor="let file of directory.data" class="gridItem" style="display:flex; flex-direction:column; gap:6px;">
+          <div
+            style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:12px; padding:8px;">
+            <div *ngFor="let file of directory.data" class="gridItem"
+              style="display:flex; flex-direction:column; gap:6px;">
               <div class="gridThumbWrapper" (click)="!file.isFolder && selectFile(file)" style="cursor:pointer;">
-                <ng-container *ngIf="shouldShowRomMetadata() && file && file.romInlineThumbs && file.romInlineThumbs.length > 0">
-                  <img *ngIf="file && file.romInlineThumbs[0]" [src]="file.romInlineThumbs[0]" loading="lazy" (error)="hideBrokenImg($event)"
+                <ng-container
+                  *ngIf="shouldShowRomMetadata() && file && file.romInlineThumbs && file.romInlineThumbs.length > 0">
+                  <img *ngIf="file && file.romInlineThumbs[0]" [src]="file.romInlineThumbs[0]" loading="lazy"
+                    (error)="hideBrokenImg($event)"
                     style="width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:6px; border:1px solid rgba(255,255,255,0.08);" />
                 </ng-container>
-                <ng-container *ngIf="!(shouldShowRomMetadata() && file && file.romInlineThumbs && file.romInlineThumbs.length > 0)">
-                  <div style="width:100%; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; border-radius:6px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); padding:6px;"> 
-                    <span style="text-align:center; font-size:small;">{{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}</span>
+                <ng-container
+                  *ngIf="!(shouldShowRomMetadata() && file && file.romInlineThumbs && file.romInlineThumbs.length > 0)">
+                  <div
+                    style="width:100%; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; border-radius:6px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); padding:6px;">
+                    <span style="text-align:center; font-size:small;">{{ file?.givenFileName ??
+                      getFileWithoutExtension(file.fileName ?? '') }}</span>
                   </div>
                 </ng-container>
               </div>
-              <div style="text-align:center; font-size:small; word-break:break-word;">{{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}</div>
+              <div style="text-align:center; font-size:small; word-break:break-word;">{{ file?.givenFileName ??
+                getFileWithoutExtension(file.fileName ?? '') }}</div>
             </div>
           </div>
         </ng-template>
-        
+
         <div *ngIf="!isLoading && currentPage < totalPages && directory?.data?.length">
           <button appInView (inView)="appendNextPage();" (click)="appendNextPage(); $event.preventDefault()">
             Load More Results
@@ -213,7 +221,9 @@
       <div class="romMetaPanelInline">
         <button class="closePopupBtn" title="Close" (click)="closeOptionsPanel()">×</button>
         <div class="romMetaHeader">
-          <span [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata?.actualSystem) || '🎮'"></span> <strong>{{ optionsFile.romMetadata?.igdbName }}</strong>
+          <span
+            [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata?.actualSystem) || '🎮'"></span>
+          <strong>{{ optionsFile.romMetadata?.igdbName }}</strong>
         </div>
 
         <div *ngIf="optionsFile.romMetadata?.totalRatingCount" class="romMetaLine">
@@ -284,7 +294,8 @@
     class="romMetaPanel">
 
     <div class="romMetaHeader" (click)="showMetadataInOptionsPanel = !showMetadataInOptionsPanel">
-      <span [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata?.actualSystem) || '🎮'"></span>
+      <span
+        [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata?.actualSystem) || '🎮'"></span>
       {{" "}}<strong>{{ optionsFile.romMetadata?.igdbName }}</strong>
     </div>
 
@@ -360,8 +371,7 @@
       ✏️Edit File Name
     </button>
     <button [title]="'Clear System Override ('+optionsFile.romMetadata?.actualSystem+')'"
-      (click)="clearSystemOverride(optionsFile)" [disabled]="isLoading"
-      *ngIf="shouldShowRomMetadata() 
+      (click)="clearSystemOverride(optionsFile)" [disabled]="isLoading" *ngIf="shouldShowRomMetadata() 
         && optionsFile
         && optionsFile.romMetadata?.actualSystem 
         && (optionsFile.user?.id === parentRef?.user?.id)">
@@ -449,7 +459,7 @@
           </span>
         </span>
       </div>
-    </div> 
+    </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.fileType || optionsFile.isFolder">
       <div class="optionsStatsHeader">
         Type:
@@ -591,7 +601,7 @@
       </div>
       <div class="optionsStatsDescription">
         <app-user-tag [user]="optionsFile.user" [inputtedParentRef]="parentRef ?? inputtedParentRef"
-          [displayMiniTag]="true" [displayHoverPicture]="true" ></app-user-tag>
+          [displayMiniTag]="true" [displayHoverPicture]="true"></app-user-tag>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.lastUpdatedBy && optionsFile.lastUpdated !== optionsFile.date">
@@ -609,7 +619,7 @@
       </div>
       <div class="optionsStatsDescription">
         <app-user-tag [user]="optionsFile.lastUpdatedBy" [inputtedParentRef]="parentRef ?? inputtedParentRef"
-          [displayMiniTag]="true" [displayHoverPicture]="true" ></app-user-tag>
+          [displayMiniTag]="true" [displayHoverPicture]="true"></app-user-tag>
       </div>
     </div>
     <div class="optionsStatsDiv"
@@ -706,23 +716,11 @@
     <div *ngIf="isInRomDirectory" class="spaceAroundFlex spaceAroundSystemFilters">
       <span style="width:100%">Filter by system:</span>
       <div class="systemFilters">
-        <button *ngFor="let s of getSupportedRomSystems()" class="toggle-switch-small" 
-          [title]="getSystemLabel(s).title"
+        <button *ngFor="let s of getSupportedRomSystems()" class="toggle-switch-small" [title]="getSystemLabel(s).title"
           (click)="onSystemFilterClick(s)">
           <span class="xxSmallFont">{{ activeRomSystems.includes(s) ? '❌' : '' }}</span>
           <span class="system-icon" [innerHTML]="getSystemEmoji(s, undefined, s)"></span>
           {{ getSystemLabel(s).label }}
-        </button>
-      </div>
-    </div>
-
-    <div class="optionsStatsDiv" *ngIf="userIsLoggedIn()">
-      <div class="optionsStatsHeader">
-        Display as Table?
-      </div>
-      <div class="optionsStatsDescription">
-        <button class="toggle-switch" (click)="toggleDisplayAsTable()">
-          {{ displayAsTable ? 'On' : 'Off' }}
         </button>
       </div>
     </div>
@@ -783,6 +781,17 @@
       </div>
     </div>
 
+    <div class="optionsStatsDiv" *ngIf="userIsLoggedIn()">
+      <div class="optionsStatsHeader">
+        Display as Table?
+      </div>
+      <div class="optionsStatsDescription">
+        <button class="toggle-switch" (click)="toggleDisplayAsTable()">
+          {{ displayAsTable ? 'On' : 'Off' }}
+        </button>
+      </div>
+    </div>
+
     <div class="optionsStatsDiv" *ngIf="displayPrivatePublicOption && showData">
       <div class="optionsStatsHeader">
         Visibility:
@@ -828,7 +837,7 @@
     <div *ngFor="let viewer of fileViewers" class="fileViewerLi">
       <span>
         <app-user-tag [user]="viewer.user" [inputtedParentRef]="parentRef ?? inputtedParentRef"
-          [displayHoverPicture]="true"  [displayMiniTag]="true"></app-user-tag>
+          [displayHoverPicture]="true" [displayMiniTag]="true"></app-user-tag>
       </span>
       <span>
         ({{viewer.accessCount}})
@@ -846,7 +855,7 @@
   <div class="fileViewerDiv">
     <div *ngFor="let viewer of fileFavouriters" class="fileViewerLi">
       <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"
-         [displayMiniTag]="true"></app-user-tag>
+        [displayMiniTag]="true"></app-user-tag>
     </div>
   </div>
   <button id="closeOverlay" (click)="closeFileFavouriters()">Close</button>
@@ -888,7 +897,7 @@
       style="margin-bottom:8px; padding:8px; border-bottom:1px solid rgba(255,255,255,0.1);">
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
         <app-user-tag [user]="n.user" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"
-          [displayHoverPicture]="true" ></app-user-tag>
+          [displayHoverPicture]="true"></app-user-tag>
         <button *ngIf="canDeleteNote(n)" (click)="deleteNote(n.user?.id ?? 0)" [disabled]="isLoading"
           title="Delete this note" style="margin-left:auto; font-size:0.8em;">
           ❌

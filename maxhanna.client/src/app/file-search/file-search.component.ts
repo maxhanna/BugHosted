@@ -1700,27 +1700,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     return candidates.filter(k => this.romSystemExtensions[k].some(ext => lowerAllowed.includes(ext)));
   }
 
-
-  async toggleRomSystem(key: string) {
-    // Default behavior for non-Saturn systems
-    const idx = this.activeRomSystems.indexOf(key);
-    if (idx >= 0) {
-      this.activeRomSystems.splice(idx, 1);
-    } else {
-      this.activeRomSystems.push(key);
-    }
-
-    if (!this.activeRomSystems || this.activeRomSystems.length === 0) {
-      this.fileTypeFilter = '';
-      this.onFiletypeFilterChange(true);
-      return;
-    }
-    
-    const exts = Array.from(new Set(this.activeRomSystems.flatMap(k => this.romSystemExtensions[k] ?? [k])));
-    this.fileTypeFilter = exts.join(',');
-    this.onFiletypeFilterChange(true);
-  }
-
+ 
   async onSystemFilterClick(key: string) {
     this.goToFirstPage();
     this.startLoading();
@@ -1730,7 +1710,21 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.setActualCoreFilter(systemKey as Core);
       }
     } finally {
-      this.toggleRomSystem(key);
+      const idx = this.activeRomSystems.indexOf(key);
+      if (idx >= 0) {
+        this.activeRomSystems.splice(idx, 1);
+      } else {
+        this.activeRomSystems.push(key);
+      }
+      // if (!this.activeRomSystems || this.activeRomSystems.length === 0) {
+      //   this.fileTypeFilter = '';
+      //   this.onFiletypeFilterChange(true);
+      //   return;
+      // }
+
+      // const exts = Array.from(new Set(this.activeRomSystems.flatMap(k => this.romSystemExtensions[k] ?? [k])));
+      // this.fileTypeFilter = exts.join(',');
+      // this.onFiletypeFilterChange(true);
       this.stopLoading();
     }
   }
@@ -1912,34 +1906,34 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     // If a DB-persisted core override exists, map it directly to an icon
     if (actualSystem) {
       const coreIconMap: { [core: string]: string } = {
-        'pcsx_rearmed': 'ps1icon.png',
-        'mednafen_psx_hw': 'ps1icon.png',
-        'duckstation': 'ps1icon.png',
-        'mednafen_psx': 'ps1icon.png',
-        'ppsspp': 'pspicon.png',
-        'yabause': 'saturnicon.png',
-        'genesis_plus_gx': 'segaicon.png',
-        'dreamcast': 'dreamcasticon.png',
-        'naomi': 'dreamcasticon.png',
-        'flycast': 'dreamcasticon.png',
-        'picodrive': 'segaicon.png',
-        'opera': 'ps1icon.png',
-        'mupen64plus_next': 'n64icon.png',
-        'melonds': 'ndsicon.png',
-        'mgba': 'gbaicon.png',
-        'gambatte': 'gbicon.png',
-        'fceumm': 'nesicon.png',
-        'snes9x': 'snesicon.png',
-        'mednafen_vb': 'nesicon.png',
-        'mame2003_plus': 'atariicon.png',
-        'fbneo': 'atariicon.png',
-        'stella2014': 'atariicon.png',
-        'prosystem': 'atariicon.png',
-        'handy': 'atariicon.png',
-        'virtualjaguar': 'atariicon.png',
-        'saturn': 'saturnicon.png',
-        'gamecube': 'gcicon.png',
-        'dolphin': 'gcicon.png',
+        'pcsx_rearmed': base+'ps1icon.png',
+        'mednafen_psx_hw': base+'ps1icon.png',
+        'duckstation': base+'ps1icon.png',
+        'mednafen_psx': base+'ps1icon.png',
+        'ppsspp': base+'pspicon.png',
+        'yabause': base+'saturnicon.png',
+        'genesis_plus_gx': base+'segaicon.png',
+        'dreamcast': base+'dreamcasticon.png',
+        'naomi': base+'dreamcasticon.png',
+        'flycast': base+'dreamcasticon.png',
+        'picodrive': base+'segaicon.png',
+        'opera': base+'ps1icon.png',
+        'mupen64plus_next': base+'n64icon.png',
+        'melonds': base+'ndsicon.png',
+        'mgba': base+'gbaicon.png',
+        'gambatte': base+'gbicon.png',
+        'fceumm': base+'nesicon.png',
+        'snes9x': base+'snesicon.png',
+        'mednafen_vb': base+'nesicon.png',
+        'mame2003_plus': base+'atariicon.png',
+        'fbneo': base+'atariicon.png',
+        'stella2014': base+'atariicon.png',
+        'prosystem': base+'atariicon.png',
+        'handy': base+'atariicon.png',
+        'virtualjaguar': base+'atariicon.png',
+        'saturn': base+'saturnicon.png',
+        'gamecube': base+'gcicon.png',
+        'dolphin': base+'gcicon.png',
       };
       const mapped = coreIconMap[actualSystem];
       if (mapped) return base + mapped;
@@ -1947,41 +1941,41 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (!extension) return undefined;
 
     const iconMap: { [key: string]: string } = {
-      'n64': 'n64icon.png',
-      'z64': 'n64icon.png',
-      'v64': 'n64icon.png',
-      'a78': 'atariicon.png',
-      '2600': 'atariicon.png',
-      '5200': 'atariicon.png',
-      '7800': 'atariicon.png',
-      'lynx': 'atariicon.png',
-      'jag': 'atariicon.png',
-      'smd': 'segaicon.png',
-      'gen': 'segaicon.png',
-      '32x': 'segaicon.png',
-      'gg': 'segaicon.png',
-      'sms': 'segaicon.png',
-      'md': 'segaicon.png',
-      'snes': 'snesicon.png',
-      'fig': 'snesicon.png',
-      'smc': 'snesicon.png',
-      'sfc': 'snesicon.png',
-      'nds': 'ndsicon.png',
-      'nes': 'nesicon.png',
-      'ps1': 'ps1icon.png',
-      'psp': 'pspicon.png',
-      'pbp': 'pspicon.png',
-      'psx': 'ps1icon.png',
-      'playstation': 'ps1icon.png',
-      'saturn': 'saturnicon.png',
-      'dreamcast': 'dreamcasticon.png',
-      'genesis': 'segaicon.png',
-      'gamecube': 'gcicon.png',
-      'gc': 'gcicon.png',
-      'sega': 'segaicon.png',
-      'gb': 'gbicon.png',
-      'gbc': 'gbicon.png',
-      'gba': 'gbaicon.png'
+      'n64': base+'n64icon.png',
+      'z64': base+'n64icon.png',
+      'v64': base+'n64icon.png',
+      'a78': base+'atariicon.png',
+      '2600': base+'atariicon.png',
+      '5200': base+'atariicon.png',
+      '7800': base+'atariicon.png',
+      'lynx': base+'atariicon.png',
+      'jag': base+'atariicon.png',
+      'smd': base+'segaicon.png',
+      'gen': base+'segaicon.png',
+      '32x': base+'segaicon.png',
+      'gg': base+'segaicon.png',
+      'sms': base+'segaicon.png',
+      'md': base+'segaicon.png',
+      'snes': base+'snesicon.png',
+      'fig': base+'snesicon.png',
+      'smc': base+'snesicon.png',
+      'sfc': base+'snesicon.png',
+      'nds': base+'ndsicon.png',
+      'nes': base+'nesicon.png',
+      'ps1': base+'ps1icon.png',
+      'psp': base+'pspicon.png',
+      'pbp': base+'pspicon.png',
+      'psx': base+'ps1icon.png',
+      'playstation': base+'ps1icon.png',
+      'saturn': base+'saturnicon.png',
+      'dreamcast': base+'dreamcasticon.png',
+      'genesis': base+'segaicon.png',
+      'gamecube': base+'gcicon.png',
+      'gc': base+'gcicon.png',
+      'sega': base+'segaicon.png',
+      'gb': base+'gbicon.png',
+      'gbc': base+'gbicon.png',
+      'gba': base+'gbaicon.png'
     };
 
     if (iconMap[extension.toLowerCase()]) {
