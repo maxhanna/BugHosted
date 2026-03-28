@@ -3899,7 +3899,7 @@ namespace maxhanna.Server.Controllers
       {
         var sanitized = normalizedFileTypes.Select(ft => "'" + (ft ?? string.Empty).ToLower().Replace("'", "''") + "'").ToArray();
         var replaced = string.Join(",", sanitized);
-        fileTypeCondition = $"AND LOWER(f.file_type) IN ({replaced}) ";
+        fileTypeCondition = $" AND LOWER(f.file_type) IN ({replaced}) ";
       }
 
       if (normalizedActualCores.Any())
@@ -3910,20 +3910,20 @@ namespace maxhanna.Server.Controllers
         if (sanitized.Length > 0)
         {
           var replaced = string.Join(",", sanitized);
-          actualSystemCondition = $"AND LOWER(rso.system_core) IN ({replaced}) ";
+          actualSystemCondition = $" AND LOWER(rso.system_core) IN ({replaced}) ";
         }
       }
 
       // If both are present, join with OR inside parentheses
-      if (!string.IsNullOrWhiteSpace(fileTypeCondition) && !string.IsNullOrWhiteSpace(actualSystemCondition))
-      {
-        // Remove leading ANDs for inner conditions
-        var ft = fileTypeCondition.Trim();
-        var ac = actualSystemCondition.Trim();
-        if (ft.StartsWith("AND ")) ft = ft.Substring(4);
-        if (ac.StartsWith("AND ")) ac = ac.Substring(4);
-        return $"AND ( {ft} OR {ac} ) ";
-      }
+      // if (!string.IsNullOrWhiteSpace(fileTypeCondition) && !string.IsNullOrWhiteSpace(actualSystemCondition))
+      // {
+      //   // Remove leading ANDs for inner conditions
+      //   var ft = fileTypeCondition.Trim();
+      //   var ac = actualSystemCondition.Trim();
+      //   if (ft.StartsWith("AND ")) ft = ft.Substring(4);
+      //   if (ac.StartsWith("AND ")) ac = ac.Substring(4);
+      //   return $"AND ( {ft} OR {ac} ) ";
+      // }
       // Otherwise, just return whichever is present
       return fileTypeCondition + actualSystemCondition;
     }
