@@ -6,6 +6,7 @@ import { UserService } from '../../services/user.service';
 import { FileService } from '../../services/file.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { UserTheme } from '../../services/datacontracts/chat/chat-theme';
+import { User } from '../../services/datacontracts/user/user';
 
 @Component({
   selector: 'app-themes',
@@ -29,6 +30,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   @ViewChild('mediaSelector') mediaSelector!: MediaSelectorComponent;
   attachedFiles?: FileEntry[];
   userSelectedTheme?: UserTheme;
+  selectedThemeCreator?: User;
   allThemes?: UserTheme[];
   myThemes?: UserTheme[];
   showDeleteConfirm: boolean = false;
@@ -137,9 +139,11 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     } else {
       document.documentElement.style.removeProperty(variable);
     }
-    if (!this.blockWarnThemeChange) {
-      this.warnUserToSave = true;
-    }
+      if (!this.blockWarnThemeChange) {
+        this.warnUserToSave = true;
+        // once the theme is edited, hide the original creator info
+        this.selectedThemeCreator = undefined;
+      }
   }
 
   getComputedStyleValue(variable: string) {
@@ -321,6 +325,8 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     const linkHex = this.getHexFromColorName(this.parentRef.navigationComponent.defaultTheme.linkColor);
     this.linkColor.nativeElement.value = linkHex;
 
+    this.selectedThemeCreator = undefined;
+
 
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
@@ -357,15 +363,19 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   changeThemeById(selectedId: number, targetId?: string) {
+    // prevent programmatic updates from marking the theme as edited
+    this.blockWarnThemeChange = true;
     let selectedTheme = this.myThemes?.find(theme => theme.id == selectedId);
     if (!selectedTheme) {
       selectedTheme = this.allThemes?.find(theme => theme.id == selectedId);
     }
     this.userSelectedTheme = selectedTheme;
+    this.selectedThemeCreator = undefined;
     this.mediaSelector.removeAllFiles();
 
     if (!selectedTheme) {
       this.restoreDefaultSettings(false);
+      this.selectedThemeCreator = undefined;
       return
     };
 
@@ -426,7 +436,19 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
       }, 10);
     }
     setTimeout(() => {
-      this.warnUserToSave = (this.userSelectedTheme?.id !== this.originalThemeId);
+      // selection is not an edit yet
+      this.blockWarnThemeChange = false;
+      this.warnUserToSave = false;
+
+      // show creator for themes that have an associated user and are not edited
+      const creatorUserId = this.userSelectedTheme?.userId;
+      if (creatorUserId) {
+        this.userService.getUserById(creatorUserId).then(u => {
+          if (u && !this.warnUserToSave) {
+            this.selectedThemeCreator = u ?? undefined;
+          }
+        });
+      }
     }, 50); // timeout to make sure this is done after updateCSS. 
   }
   openFontFamily() {

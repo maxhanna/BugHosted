@@ -604,6 +604,9 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
     this.removeAllComponents();
     this.previousComponent.push({ componentType: componentType, inputs: inputs });
+    if (this.previousComponent.length > 5) {
+      this.previousComponent.shift();
+    }
 
     const childComponentRef = this.VCR.createComponent(componentClass);
     let childComponent: any = childComponentRef.instance;

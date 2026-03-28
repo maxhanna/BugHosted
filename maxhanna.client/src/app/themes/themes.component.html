@@ -4,6 +4,11 @@
     (closeClicked)="remove_me('ThemeComponent');">
   </app-title-bar>
 
+  <div *ngIf="userSelectedTheme && selectedThemeCreator && !warnUserToSave" class="theme-creator">
+    Saved by:
+      <app-user-tag [user]="selectedThemeCreator" [inputtedParentRef]="parentRef"></app-user-tag>
+  </div>
+
   <div class="themeSelectorDivWrapper">
     <div class="themeSelectorDiv">
       <label>Background Image:</label>
