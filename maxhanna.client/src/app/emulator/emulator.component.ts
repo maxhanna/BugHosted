@@ -559,9 +559,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         return '/assets/emulatorjs/data/cores/PSX.zip';
 
       //Nintendo 64
-      case 'mupen64plus_next':
       case 'parallel_n64':
         return '/assets/emulatorjs/data/cores/PARALLEL64.zip';
+      case 'mupen64plus_next':
+        return '/assets/emulatorjs/data/cores/MUPEN64PLUSNEXT.zip';
 
       // Nintendo DS firmware
       case 'melonds':
@@ -2902,7 +2903,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
       // --- Nintendo ---
       { core: 'parallel_n64', label: 'Nintendo 64 (parallel_n64)', exts: exN64, maybeExts: exAmbig, hints: [/\bN64\b/i] },
-      { core: 'mupen64plus_next', label: 'Nintendo 64 (Mupen64Plus)', exts: exN64, maybeExts: exAmbig, hints: [/\bN64\b/i] },
+  //    { core: 'mupen64plus_next', label: 'Nintendo 64 (Mupen64Plus)', exts: exN64, maybeExts: exAmbig, hints: [/\bN64\b/i] },
       { core: 'desmume2015', label: 'Nintendo DS (DeSmuME)', exts: exNDS, maybeExts: exAmbig, hints: [/\bNDS\b|\bDS\b/i] },
       { core: 'melonds', label: 'Nintendo DS (melonDS)', exts: exNDS, maybeExts: exAmbig, hints: [/\bNDS\b|\bDS\b/i] },
       { core: 'dolphin', label: 'GameCube / Wii (Dolphin)', exts: [], maybeExts: exAmbig, hints: [/\bGAMECUBE\b|\bDOLPHIN\b|\bGC\b|\bWII\b/i] },
