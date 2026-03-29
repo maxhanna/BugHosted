@@ -633,7 +633,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'segaSaturn':
       case 'sega_saturn':
         // Point to the BIOS you added in step 1
-        return '/assets/emulatorjs/data/cores/saturn_bios.bin';
+        return '/assets/emulatorjs/data/cores/SATURNYABAUSE.zip';
       case 'beetle_saturn':
         return '/assets/emulatorjs/data/cores/SATURNBEETLE.zip';
       case 'kronos_saturn':
