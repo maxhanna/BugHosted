@@ -433,12 +433,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
               await this.probeForSaveApi();
               this.tryBindSaveFromUI();
               this.scanAndTagVpadControls();
-
-              try {
-                const ok = await this.applySaveStateIfAvailable(saveStateBlob);
-              } catch {
-                console.warn('[EMU] Unable to apply save state on startup');
-              }
+              
+              await this.applySaveStateIfAvailable(saveStateBlob); 
               this.lockGameHostHeight();
             });
           });
