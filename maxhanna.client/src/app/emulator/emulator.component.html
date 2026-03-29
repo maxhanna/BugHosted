@@ -93,7 +93,7 @@
       [disableFileCompression]="true" 
       (userUploadEvent)="isFileUploaderExpanded = true;"
       (userCancelEvent)="isFileUploaderExpanded = false;" 
-      (userUploadFinishedEvent)="finishFileUploading()">
+      (userUploadFinishedEvent)="finishFileUploading($event)">
     </app-file-upload>
   </div>
 

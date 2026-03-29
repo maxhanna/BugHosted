@@ -626,6 +626,50 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
 
+  /** Insert newly uploaded files at the top of the current directory listing.
+   *  Keeps folders at the absolute top and avoids duplicating existing items.
+   */
+  public placeNewFilesOnTop(files?: FileEntry[] | null): void {
+    if (!files || files.length === 0) return;
+    if (!this.directory || !Array.isArray(this.directory.data)) return;
+    this.goToFirstPage();
+
+    const existing: FileEntry[] = this.directory.data || [];
+    const existingIds = new Set<number | undefined>(existing.map(f => f?.id));
+    const newFiles = files.filter(f => f && !existingIds.has(f.id));
+    if (!newFiles.length) return;
+
+    // Normalize rom metadata for new files when appropriate
+    if (this.shouldShowRomMetadata()) {
+      for (const f of newFiles) {
+        try { this.normalizeRomMetadata(f); } catch { }
+      }
+    }
+
+    // Ensure date fields are Date objects and normalized to local time (same logic as getDirectory)
+    for (const data of newFiles) {
+      try {
+        if (!data.date) { data.date = new Date(); }
+        if (typeof data.date === 'string') { data.date = new Date(data.date); }
+        data.date = new Date((data.date as Date).getTime() - (data.date as Date).getTimezoneOffset() * 60000);
+
+        if (!data.lastAccess) { data.lastAccess = new Date(); }
+        if (typeof data.lastAccess === 'string') { data.lastAccess = new Date(data.lastAccess as any); }
+        data.lastAccess = new Date((data.lastAccess as Date).getTime() - (data.lastAccess as Date).getTimezoneOffset() * 60000);
+
+        if (!data.lastUpdated) { data.lastUpdated = new Date(); }
+        if (typeof data.lastUpdated === 'string') { data.lastUpdated = new Date(data.lastUpdated as any); }
+        data.lastUpdated = new Date((data.lastUpdated as Date).getTime() - (data.lastUpdated as Date).getTimezoneOffset() * 60000);
+      } catch { /* ignore date conversion errors for robustness */ }
+    }
+
+    const folders = existing.filter(d => d.isFolder);
+    const others = existing.filter(d => !d.isFolder);
+    this.directory.data = folders.concat(newFiles, others);
+
+    try { this.changeDetectorRef.detectChanges(); } catch { }
+  }
+
   debounceSearch() {
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
@@ -954,10 +998,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     const target = event.target as HTMLSelectElement;
     this.filter.ownership = target.value;
     this.getDirectory();
-  }
-
-  async handleUploadedFiles(files: FileEntry[]) {
-    await this.getDirectory();
   }
 
   toggleSelectForDelete(file: FileEntry, event?: Event) {
