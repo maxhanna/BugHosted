@@ -479,18 +479,38 @@ namespace maxhanna.Server.Controllers
         await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
         await conn.OpenAsync(ct);
 
-        // UNIQUE(user_id, rom_name) guarantees at most one row; ORDER BY ... LIMIT 1 is unnecessary work.
-        string sql = $"SELECT state_data FROM emulatorjs_save_states WHERE user_id=@UserId AND rom_name=@RomName {(!string.IsNullOrWhiteSpace(req.Core) ? " AND core=@Core" : "")};";
+        // Try exact core match if provided. If not found, fall back to core IS NULL.
+        string sql = $"SELECT state_data FROM emulatorjs_save_states WHERE user_id=@UserId AND rom_name=@RomName {(!string.IsNullOrWhiteSpace(req.Core) ? " AND core=@Core" : "")} ;";
         await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 120 };
         cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = req.UserId;
         cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = req.RomName;
-        cmd.Parameters.Add("@Core", MySqlDbType.VarChar).Value = string.IsNullOrWhiteSpace(req.Core) ? (object)DBNull.Value : req.Core;
+        if (!string.IsNullOrWhiteSpace(req.Core))
+          cmd.Parameters.Add("@Core", MySqlDbType.VarChar).Value = req.Core;
 
-        await using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, ct);
-        if (!await reader.ReadAsync(ct)) return NotFound();
+        var result = await cmd.ExecuteScalarAsync(ct);
+        if (result != null && result != DBNull.Value)
+        {
+          var bytes = (byte[])result;
+          return File(bytes, "application/octet-stream", "savestate.state");
+        }
 
-        var bytes = await reader.GetFieldValueAsync<byte[]>(0, ct);
-        return File(bytes, "application/octet-stream", "savestate.state");
+        // If a core was specified but no matching row found, try a NULL-core fallback.
+        if (!string.IsNullOrWhiteSpace(req.Core))
+        {
+          const string fallbackSql = "SELECT state_data FROM emulatorjs_save_states WHERE user_id=@UserId AND rom_name=@RomName AND core IS NULL;";
+          await using var fallbackCmd = new MySqlCommand(fallbackSql, conn) { CommandTimeout = 120 };
+          fallbackCmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = req.UserId;
+          fallbackCmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = req.RomName;
+
+          var fallbackResult = await fallbackCmd.ExecuteScalarAsync(ct);
+          if (fallbackResult != null && fallbackResult != DBNull.Value)
+          {
+            var bytes = (byte[])fallbackResult;
+            return File(bytes, "application/octet-stream", "savestate.state");
+          }
+        }
+
+        return NotFound();
       }
       catch (Exception ex)
       {
