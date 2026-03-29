@@ -76,7 +76,7 @@
                 <div *ngIf="!fav.imageUrl" class="siteIcon emptyFavImage"></div>
               </td>
               <td class="titleCell">
-                <div class="titleMain" (click)="$event.stopPropagation(); visitExternalLink(fav)">{{fav.name && fav.name.trim() ? fav.name : ''}}</div>
+                <div class="titleMain" (click)="$event.stopPropagation(); visitExternalLink(fav, true)">{{fav.name && fav.name.trim() ? fav.name : ''}}</div>
                 <div>
                   <a href="{{fav.url}}" target="_blank" (click)="$event.stopPropagation(); visitExternalLink(fav)">{{fav.url}}</a>
                 </div>

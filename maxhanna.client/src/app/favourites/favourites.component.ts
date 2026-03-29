@@ -323,9 +323,12 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
     this.loadFavorites(this.linkInput?.nativeElement?.value ?? '');
   }
 
-  visitExternalLink(fav: Favourite) {
+  visitExternalLink(fav: Favourite, openInNewTab: boolean = false) {
     this.favoriteService.visit(fav.id);
     this.parentRef?.indexLink(fav.url);
+    if (openInNewTab) {
+      this.parentRef?.visitExternalLink(fav.url, false);
+    }
   }
 
   orderChanged(event?: any, value?: string) {
