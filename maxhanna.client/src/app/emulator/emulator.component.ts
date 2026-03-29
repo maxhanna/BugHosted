@@ -1772,7 +1772,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private async applySaveStateIfAvailable(saveStateBlob: Blob | null): Promise<boolean> {
-    if (!saveStateBlob) return false;
+    if (!saveStateBlob) {
+      console.log('[EMU] No save state blob provided; skipping save state application.');
+      return false;
+    }
     try {
       const u8 = new Uint8Array(await saveStateBlob.arrayBuffer());
       const core = (window as any).EJS_core || '';
