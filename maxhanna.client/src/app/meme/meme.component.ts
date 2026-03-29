@@ -36,7 +36,7 @@ export class MemeComponent extends ChildComponent {
   } 
 
   uploadFinished(files: FileEntry[]) { 
-    this.fileSearchComponent.handleUploadedFiles(files); 
+    this.fileSearchComponent.placeNewFilesOnTop(files); 
   }
   uploadNotification(event: string) {
     this.parentRef?.showNotification(event);   
