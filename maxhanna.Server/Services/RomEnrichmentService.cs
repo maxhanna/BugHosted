@@ -89,6 +89,54 @@ namespace maxhanna.Server.Services
         return d[n, m];
       }
 
+      static bool IsLikelyTag(string token)
+      {
+        if (string.IsNullOrWhiteSpace(token)) return true;
+        var t = token.Trim();
+
+        // Strip surrounding punctuation
+        t = System.Text.RegularExpressions.Regex.Replace(t, "^[\\W_]+|[\\W_]+$", "");
+        if (string.IsNullOrWhiteSpace(t)) return true;
+
+        // Obvious noise: explicit marker tokens
+        if (t.Contains("!")) return true;
+
+        // Date-like: 26-02-26, 2024.01.15
+        if (System.Text.RegularExpressions.Regex.IsMatch(t, @"^\\d{1,4}[\\-\\.]\\d{1,2}[\\-\\.]\\d{1,4}$")) return true;
+
+        // Size tokens like 2M, 512K, 1.44MB
+        if (System.Text.RegularExpressions.Regex.IsMatch(t, @"^\\d+(?:\\.\\d+)?\\s*(?:kb|mb|k|m)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase)) return true;
+
+        // Disk/part/CD tags: disk 4, CD1, part2
+        if (System.Text.RegularExpressions.Regex.IsMatch(t, @"^(?:disk|disc|cd|cdrom|side|part|volume|vol|diskette)\\b.*\\d", System.Text.RegularExpressions.RegexOptions.IgnoreCase)) return true;
+
+        // Revision/version tokens
+        if (System.Text.RegularExpressions.Regex.IsMatch(t, @"^(?:rev(?:ision)?|version|v)\\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase)) return true;
+
+        // Hack/demo/translation/etc.
+        if (System.Text.RegularExpressions.Regex.IsMatch(t, @"^(?:hack(?:ed)?|trainer|translated|translation|unl|unofficial|proto(?:type)?|beta|demo|fixed|fix|patch|modified|cracked|repack)\\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase)) return true;
+
+        // Short platform/region codes
+        var up = t.Trim().TrimEnd('.').ToUpperInvariant();
+        var platformCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+          "GB","GBC","GBA","NES","SNES","SFC","N64","NDS","PSX","PS1","PSP","GEN","MD","MAME","SAT","SS","GG","PC","CD"
+        };
+        var regionCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+          "JAPAN","JPN","USA","US","EUROPE","EU","PAL","NTSC","ASIA","KOR","KOREA","ENG","EN","FR","DEU","GER","ES","ESP","ITA"
+        };
+        if (platformCodes.Contains(up) || regionCodes.Contains(up)) return true;
+
+        // Pure numeric or numeric+M/K tokens
+        if (System.Text.RegularExpressions.Regex.IsMatch(t, @"^\\d+(?:[mMkK])?$$")) return true;
+
+        // Very short tokens likely codes
+        if (t.Length <= 2 && System.Text.RegularExpressions.Regex.IsMatch(t, "^[A-Za-z0-9]{1,2}$")) return true;
+
+        return false;
+      }
+
       static string CleanTitle(string fileName)
       {
         var stem = Path.GetFileNameWithoutExtension(fileName) ?? fileName;
@@ -113,8 +161,16 @@ namespace maxhanna.Server.Services
           System.Text.RegularExpressions.RegexOptions.IgnoreCase
         );
 
-        // Strip common ROM tags: (USA), [!], (Rev A), etc.
-        stem = System.Text.RegularExpressions.Regex.Replace(stem, @"\[[^\]]*\]|\([^\)]*\)", " ");
+        // Strip common ROM tags: (USA), [!], (Rev A), etc. — remove only tag-like bracketed content
+        stem = System.Text.RegularExpressions.Regex.Replace(
+          stem,
+          @"\(([^)]*)\)|\[(.*?)\]",
+          m =>
+          {
+            var inner = m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value;
+            return IsLikelyTag(inner) ? " " : m.Value;
+          }
+        );
 
         // Normalize letter-dot acronyms: "S.W.A.R.M." -> "SWARM"
         stem = System.Text.RegularExpressions.Regex.Replace(
@@ -277,7 +333,15 @@ namespace maxhanna.Server.Services
       {
         if (string.IsNullOrWhiteSpace(s)) return "";
         s = StripDiacritics(s);
-        s = System.Text.RegularExpressions.Regex.Replace(s, "\\([^)]*\\)|\\[[^\\]]*\\]", " ");
+        s = System.Text.RegularExpressions.Regex.Replace(
+          s,
+          @"\(([^)]*)\)|\[(.*?)\]",
+          m =>
+          {
+            var inner = m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value;
+            return IsLikelyTag(inner) ? " " : m.Value;
+          }
+        );
         s = System.Text.RegularExpressions.Regex.Replace(s, @"\(\s*[vVrR]\.?\d+(?:[\.\-]\d+)*[a-zA-Z]*\s*\)", " ");
         s = System.Text.RegularExpressions.Regex.Replace(s, @"\[\s*[vVrR]\.?\d+(?:[\.\-]\d+)*[a-zA-Z]*\s*\]", " ");
         s = System.Text.RegularExpressions.Regex.Replace(s, @"(?<=^|[\s_\-\.\\/])[vVrR]\.?\d+(?:[\.\-]\d+)*[a-zA-Z]*(?=$|[\s_\-\.\\/])", " ");
