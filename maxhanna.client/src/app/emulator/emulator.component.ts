@@ -637,7 +637,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'segaSaturn':
       case 'sega_saturn':
         // Point to the BIOS you added in step 1
-        return '/assets/emulatorjs/data/cores/SATURNYABAUSE.zip';
+        return '/assets/emulatorjs/data/cores/saturn_bios.bin';
       case 'beetle_saturn':
         return '/assets/emulatorjs/data/cores/SATURNBEETLE.zip';
       case 'kronos_saturn':
@@ -2904,9 +2904,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       { core: 'genesis_plus_gx', label: 'Sega Mega Drive / Genesis', exts: exGEN, maybeExts: exAmbig, hints: [/\bGENESIS\b|\bMEGADRIVE\b|\bMD\b/i] },
       { core: 'genesis_plus_gx', label: 'Sega CD / Mega‑CD', exts: [], maybeExts: exAmbig, hints: [/\bSEGA\s?CD\b|\bMEGA\s?CD\b/i] },
       { core: 'picodrive', label: 'Sega 32X', exts: ['32x'], maybeExts: exAmbig, hints: [/\b32X\b/i] },
-      { core: 'yabause', label: 'Sega Saturn (Yabause)', exts: [], maybeExts: exAmbig, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
-      { core: 'beetle_saturn', label: 'Sega Saturn (Beetle)', exts: [], maybeExts: exAmbig, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
-      { core: 'kronos_saturn', label: 'Sega Saturn (Kronos)', exts: [], maybeExts: exAmbig, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
+      { core: 'yabause', label: 'Sega Saturn', exts: [], maybeExts: exAmbig, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
+     // { core: 'beetle_saturn', label: 'Sega Saturn (Beetle)', exts: [], maybeExts: exAmbig, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
+     // { core: 'kronos_saturn', label: 'Sega Saturn (Kronos)', exts: [], maybeExts: exAmbig, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
 
       // --- 3DO ---
       { core: 'opera', label: '3DO', exts: [], maybeExts: ex3DO, hints: [/\b3DO\b/i] },
