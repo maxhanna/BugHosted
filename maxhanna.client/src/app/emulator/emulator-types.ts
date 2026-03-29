@@ -74,6 +74,7 @@ export type Core =
   | 'snes9x'
   | 'picodrive'
   | 'mupen64plus_next'
+  | 'parallel_n64'
   | 'mednafen_psx'
   | 'mednafen_psx_hw'
   | 'pcsx_rearmed'

@@ -3,18 +3,6 @@
     (click)="openSearchPanel();" title="Search for Files"></span>
 </div>
 
-<div *ngIf="showShareUserList" class="popupPanel" #shareUserListDiv>
-  <div class="popupPanelTitle">Share File?</div>
-  <div style="margin-bottom: 10px">{{selectedSharedFile?.givenFileName ?? selectedSharedFile?.fileName ?? ''}}</div>
-  <div class="shareUserList">
-    <app-user-list (userClickEvent)="shareFile($event);" [user]="user!"
-      [inputtedParentRef]="inputtedParentRef ?? parentRef"></app-user-list>
-  </div>
-  <button class="closeButton" id="closeOverlay" style="margin-top:10px;" (click)="closeShareUserList()">
-    Close
-  </button>
-</div>
-
 <div #fileContainer [id]="!fileSearchMode ? 'fileContainer' : ''">
   <div class="directoryTotalPageControls">
     <!-- Page Controls -->
@@ -284,6 +272,7 @@
     </div>
   </div>
 </div>
+
 <!-- File Options Popup -->
 <div class="popupPanel" *ngIf="isOptionsPanelOpen && optionsFile">
   <div class="popupPanelTitle">
@@ -916,4 +905,16 @@
     </button>
   </div>
   <button id="closeOverlay" (click)="closeFileNotes()" class="closeButton" style="margin-top:8px;">Close</button>
+</div>
+
+<div *ngIf="showShareUserList" class="popupPanel" #shareUserListDiv>
+  <div class="popupPanelTitle">Share File?</div>
+  <div style="margin-bottom: 10px">{{selectedSharedFile?.givenFileName ?? selectedSharedFile?.fileName ?? ''}}</div>
+  <div class="shareUserList">
+    <app-user-list (userClickEvent)="shareFile($event);" [user]="user!"
+      [inputtedParentRef]="inputtedParentRef ?? parentRef"></app-user-list>
+  </div>
+  <button class="closeButton" id="closeOverlay" style="margin-top:10px;" (click)="closeShareUserList()">
+    Close
+  </button>
 </div>

@@ -82,7 +82,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private readonly SYS_PICK_KEY = 'emu:preferredCoreByExt';
   private readonly heavyCores = new Set<Core>([
     'mednafen_psx_hw', 'pcsx_rearmed', 'duckstation', 'mednafen_psx',
-    'mupen64plus_next', 'nds', 'melonDS', 'melonds', 'desmume', 'desmume2015',
+    'mupen64plus_next', 'parallel_n64', 'nds', 'melonDS', 'melonds', 'desmume', 'desmume2015',
     'psp', 'ppsspp', 'dolphin', 'flycast', 'naomi'
   ]);
   constructor(
@@ -551,12 +551,17 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   private getBiosUrlForCore(core: Core): string | undefined {
     switch (core) {
-      // PlayStation (common BIOS used by many PS1 cores)
+      // PlayStation 1
       case 'mednafen_psx_hw':
       case 'pcsx_rearmed':
       case 'duckstation':
       case 'mednafen_psx':
         return '/assets/emulatorjs/data/cores/PSX.zip';
+
+      //Nintendo 64
+      case 'mupen64plus_next':
+      case 'parallel_n64':
+        return '/assets/emulatorjs/data/cores/PARALLEL64.zip';
 
       // Nintendo DS firmware
       case 'melonds':
@@ -726,7 +731,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (core === "psp" || core == "ppsspp") {
       this.applyPSPCoreSettings(w); // force our perf defaults over any saved prefs
     }
-    if (core === 'mupen64plus_next' || system === 'n64') {
+    if (core === 'mupen64plus_next' || core === 'parallel_n64' || system === 'n64') {
       this.applyN64CoreSettings(w);
     }
     if (this.onMobile() && (core === 'melonds' || core === 'nds' || core === 'desmume' || core === 'desmume2015')) {
@@ -2194,7 +2199,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (c.includes('smsplus')) return 'sega_master_system';
     if (c.includes('melonds') || c.includes('desmume') || c.includes('nds')) return 'nds';
     if (c === 'psp' || c.includes('ppsspp')) return 'psp';
-    if (c.includes('mupen64')) return 'n64';
+    if (c.includes('mupen64') || c.includes('parallel_n64')) return 'n64';
     if (c.includes('yabause')) return 'saturn';
     if (c.includes('flycast') || c.includes('naomi')) return 'dreamcast';
     if (c.includes('pcsx')) return 'ps1';
@@ -2896,7 +2901,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       { core: 'opera', label: '3DO', exts: [], maybeExts: ex3DO, hints: [/\b3DO\b/i] },
 
       // --- Nintendo ---
-      { core: 'mupen64plus_next', label: 'Nintendo 64', exts: exN64, maybeExts: exAmbig, hints: [/\bN64\b/i] },
+      { core: 'parallel_n64', label: 'Nintendo 64 (parallel_n64)', exts: exN64, maybeExts: exAmbig, hints: [/\bN64\b/i] },
+      { core: 'mupen64plus_next', label: 'Nintendo 64 (Mupen64Plus)', exts: exN64, maybeExts: exAmbig, hints: [/\bN64\b/i] },
       { core: 'desmume2015', label: 'Nintendo DS (DeSmuME)', exts: exNDS, maybeExts: exAmbig, hints: [/\bNDS\b|\bDS\b/i] },
       { core: 'melonds', label: 'Nintendo DS (melonDS)', exts: exNDS, maybeExts: exAmbig, hints: [/\bNDS\b|\bDS\b/i] },
       { core: 'dolphin', label: 'GameCube / Wii (Dolphin)', exts: [], maybeExts: exAmbig, hints: [/\bGAMECUBE\b|\bDOLPHIN\b|\bGC\b|\bWII\b/i] },
@@ -3049,7 +3055,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'genesis':
       case 'megadrive': return 'genesis_plus_gx';
       case '3do': return 'opera';
-      case 'n64': return 'mupen64plus_next';
+      case 'n64': return 'parallel_n64';
       case 'gamecube': return 'dolphin';
       case 'gc': return 'dolphin';
       case 'nds': return 'desmume2015';

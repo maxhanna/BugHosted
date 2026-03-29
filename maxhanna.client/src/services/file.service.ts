@@ -846,7 +846,7 @@ export class FileService {
 
     if (s.includes('psx') || s.includes('ps1') || s.includes('mednafen_psx') || s.includes('pcsx') || s.includes('duckstation')) return 'PlayStation';
     if (s === 'psp' || s.includes('ppsspp') || s.includes('psp')) return 'PlayStation Portable (PSP)';
-    if (s.includes('mupen64') || s.includes('n64')) return 'Nintendo 64';
+    if (s.includes('mupen64') || s.includes('parallel_n64') || s.includes('n64')) return 'Nintendo 64';
     if (s.includes('snes')) return 'Super Nintendo (SNES)';
     if (s.includes('fceumm') || s.includes('nes') || s === 'nestopia') return 'Nintendo (NES)';
     if (s.includes('mgba') || s.includes('gba')) return 'Game Boy Advance (GBA)';
@@ -905,7 +905,7 @@ export class FileService {
     if (k === '3do') return 'opera';
 
     // --- Nintendo ---
-    if (k === 'n64' || k.includes('nintendo 64')) return 'mupen64plus_next';
+    if (k === 'n64' || k.includes('nintendo 64')) return 'parallel_n64';
     if (k === 'nds' || k.includes('ds') || k === 'desmume') return 'desmume2015';
     if (k === 'melonds') return 'melonds';
     if (k === 'gamecube' || k === 'gc' || k === 'wii' || k === 'dolphin') return 'dolphin';
