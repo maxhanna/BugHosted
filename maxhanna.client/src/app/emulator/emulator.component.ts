@@ -307,7 +307,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const romBlobOrArray = await this.romService.getRomFile(
       fileName, this.parentRef?.user?.id, fileId,
       (loaded, total) => {
-        this.displayRomUploadOrDownloadProgress(total, loaded, false);
+        this.displayRomUploadOrDownloadProgress(total, loaded, false, fileName);
         this.cdr.detectChanges();
       }
     );
@@ -2603,11 +2603,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return this._lastSaveTime && this._lastSaveTime > 0 ? new Date(this._lastSaveTime) : null;
   }
 
-  private displayRomUploadOrDownloadProgress(total: number, loaded: number, saving?: boolean) {
+  private displayRomUploadOrDownloadProgress(total: number, loaded: number, saving?: boolean, fileName?: string): void {
     const pct = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : undefined;
     const loadedMb = (loaded / 1024 / 1024);
     const totalMb = total > 0 ? (total / 1024 / 1024) : undefined;
-    const msg = saving ? 'Uploading Save' : 'Downloading ROM';
+    const msg = saving ? 'Uploading Save' : 'Downloading ROM ' + (fileName ? `(${fileName})` : '');
     if (totalMb !== undefined && pct !== undefined) {
       this.status = `${msg} - ${loadedMb.toFixed(2)} / ${totalMb.toFixed(2)} MB (${pct}%)`;
     } else {
