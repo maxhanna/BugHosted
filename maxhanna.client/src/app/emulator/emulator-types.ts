@@ -104,7 +104,7 @@ export type Core =
   | 'gbc'
   | 'gbx'
   | 'gb'
-  | 'yabause'
+  | 'yabause' | 'beetle_saturn' | 'kronos_saturn'
   | 'segaSaturn'
   | 'sega_saturn'
   | 'fbneo'

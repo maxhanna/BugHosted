@@ -72,6 +72,8 @@ namespace maxhanna.Server.Controllers
 , "gbx"
 , "gb"
 , "yabause"
+, "beetle_saturn"
+, "kronos_saturn"
 , "segaSaturn"
 , "sega_saturn"
 , "fbneo"

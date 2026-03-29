@@ -637,7 +637,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'segaSaturn':
       case 'sega_saturn':
         // Point to the BIOS you added in step 1
-        return '/assets/emulatorjs/data/cores/saturn_bios.bin';
+        return '/assets/emulatorjs/data/cores/SATURNYABAUSE.zip';
+      case 'beetle_saturn':
+        return '/assets/emulatorjs/data/cores/SATURNBEETLE.zip';
+      case 'kronos_saturn':
+        return '/assets/emulatorjs/data/cores/SATURNKRONOS.zip';
 
       // NeoGeo / arcade BIOS packs (only for specific ROM sets)
       case 'fbneo':
@@ -738,7 +742,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (this.onMobile() && (core === 'melonds' || core === 'nds' || core === 'desmume' || core === 'desmume2015')) {
       this.applyNDSCoreSettingsForMobile(w);
     }
-    const isDPADCentric = (system && (['nes', 'snes', 'gb', 'gbc', 'gba', 'genesis', 'saturn', 'sega_cd', '3do', 'nds'] as string[]).includes(system)) || core === 'yabause';
+    const isDPADCentric = (system && (['nes', 'snes', 'gb', 'gbc', 'gba', 'genesis', 'saturn', 'sega_cd', '3do', 'nds'] as string[]).includes(system)) 
+      || core === 'yabause' || core === 'beetle_saturn' || core === 'kronos_saturn';
     const isLeftAndRightJoystickInverted = (system && ['n64'].includes(system));
     const rightStickValues = {
       "UP":
@@ -2899,7 +2904,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       { core: 'genesis_plus_gx', label: 'Sega Mega Drive / Genesis', exts: exGEN, maybeExts: exAmbig, hints: [/\bGENESIS\b|\bMEGADRIVE\b|\bMD\b/i] },
       { core: 'genesis_plus_gx', label: 'Sega CD / Mega‑CD', exts: [], maybeExts: exAmbig, hints: [/\bSEGA\s?CD\b|\bMEGA\s?CD\b/i] },
       { core: 'picodrive', label: 'Sega 32X', exts: ['32x'], maybeExts: exAmbig, hints: [/\b32X\b/i] },
-      { core: 'yabause', label: 'Sega Saturn', exts: [], maybeExts: exAmbig, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
+      { core: 'yabause', label: 'Sega Saturn (Yabause)', exts: [], maybeExts: exAmbig, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
+      { core: 'beetle_saturn', label: 'Sega Saturn (Beetle)', exts: [], maybeExts: exAmbig, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
+      { core: 'kronos_saturn', label: 'Sega Saturn (Kronos)', exts: [], maybeExts: exAmbig, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
 
       // --- 3DO ---
       { core: 'opera', label: '3DO', exts: [], maybeExts: ex3DO, hints: [/\b3DO\b/i] },
@@ -3216,6 +3223,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'smsplus': return 'sega_master_system';
       case 'picodrive': return 'sega32x';
       case 'yabause': return 'segaSaturn';
+      case 'beetle_saturn': return 'segaSaturn';
+      case 'kronos_saturn': return 'segaSaturn';
       default: return undefined; // let EmulatorJS derive it
     }
   }
