@@ -241,6 +241,7 @@
 
 .favouritesTable {
   border-collapse: collapse;
+  width: 100%;
 }
 
 .favouritesTable tbody tr td {
@@ -264,6 +265,10 @@
   white-space: normal;
 }
 
+.favouritesTable tbody tr {
+  border: var(--main-border);
+}
+
 /* Site icon in table rows */
 .siteIconCell {
   padding: 6px;
@@ -281,6 +286,11 @@
 
 .titleCell .titleMain {
   font-weight: 600;
+  font-size: x-large;
+  text-decoration: underline;
+  text-decoration-color: var(--main-link-color);
+  cursor: pointer;
+  padding: 10px;
 }
 
 .mobileUrl {
