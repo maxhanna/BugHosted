@@ -388,6 +388,7 @@ namespace maxhanna.Server.Controllers
           return BadRequest("Missing or invalid 'userId'.");
 
         var romName = form["romName"].ToString();
+        var core = form["core"].ToString();
         if (string.IsNullOrWhiteSpace(romName))
           return BadRequest("Missing 'romName'.");
 
@@ -409,10 +410,11 @@ namespace maxhanna.Server.Controllers
 
         const string sql = @"
           INSERT INTO emulatorjs_save_states
-            (user_id, rom_name, state_data, file_size, last_updated)
+            (user_id, rom_name, state_data, file_size, last_updated, core)
           VALUES
-            (@UserId, @RomName, @StateData, @FileSize, CURRENT_TIMESTAMP)
+            (@UserId, @RomName, @StateData, @FileSize, CURRENT_TIMESTAMP, @Core)
           ON DUPLICATE KEY UPDATE
+            core         = VALUES(core),
             state_data   = VALUES(state_data),
             file_size    = VALUES(file_size),
             last_updated = CURRENT_TIMESTAMP;";
@@ -422,6 +424,7 @@ namespace maxhanna.Server.Controllers
         cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = romName;
         cmd.Parameters.Add("@StateData", MySqlDbType.LongBlob).Value = bytes;
         cmd.Parameters.Add("@FileSize", MySqlDbType.Int32).Value = bytes.Length;
+        cmd.Parameters.Add("@Core", MySqlDbType.VarChar).Value = string.IsNullOrWhiteSpace(core) ? (object)DBNull.Value : core;
 
         await cmd.PrepareAsync(CancellationToken.None);
         await cmd.ExecuteNonQueryAsync(CancellationToken.None);
@@ -477,10 +480,11 @@ namespace maxhanna.Server.Controllers
         await conn.OpenAsync(ct);
 
         // UNIQUE(user_id, rom_name) guarantees at most one row; ORDER BY ... LIMIT 1 is unnecessary work.
-        const string sql = @"SELECT state_data FROM emulatorjs_save_states WHERE user_id=@UserId AND rom_name=@RomName;";
+        string sql = $"SELECT state_data FROM emulatorjs_save_states WHERE user_id=@UserId AND rom_name=@RomName {(!string.IsNullOrWhiteSpace(req.Core) ? " AND core=@Core" : "")};";
         await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 120 };
         cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = req.UserId;
         cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = req.RomName;
+        cmd.Parameters.Add("@Core", MySqlDbType.VarChar).Value = string.IsNullOrWhiteSpace(req.Core) ? (object)DBNull.Value : req.Core;
 
         await using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, ct);
         if (!await reader.ReadAsync(ct)) return NotFound();
@@ -594,6 +598,7 @@ public class GetEmulatorJSSaveStateRequest
 {
   public int UserId { get; set; }
   public string RomName { get; set; } = string.Empty;
+  public string? Core { get; set; } = string.Empty;
 }
 
 public class GetRomFileRequest

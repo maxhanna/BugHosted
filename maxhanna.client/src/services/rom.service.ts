@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { FileService } from './file.service';
-import { System } from '../app/emulator/emulator-types';
+import { Core, System } from '../app/emulator/emulator-types';
 
 
 export interface SaveUploadResponse {
@@ -231,6 +231,7 @@ export class RomService {
   async saveEmulatorJSState(
     romName: string,
     userId: number,
+    core: Core | undefined,
     stateData: Uint8Array,
     onProgress?: (loaded: number, total: number) => void
   ): Promise<SaveUploadResponse> {
@@ -245,7 +246,7 @@ export class RomService {
 
     form.append('userId', String(userId));
     form.append('romName', romName);
-
+    if (core) form.append('core', core);
     // If a progress callback was supplied, use XMLHttpRequest which exposes
     // upload progress events.  fetch() does not support upload progress.
     if (onProgress) {
@@ -343,12 +344,12 @@ export class RomService {
     });
   }
 
-  async getEmulatorJSSaveState(romName: string, userId: number): Promise<Blob | null> {
+  async getEmulatorJSSaveState(romName: string, userId: number, core?: Core): Promise<Blob | null> {
     try {
       const response = await fetch(`/rom/getemulatorjssavestate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ UserId: userId, RomName: romName }),
+        body: JSON.stringify({ UserId: userId, RomName: romName, Core: core }),
       });
 
       if (!response.ok) return null;

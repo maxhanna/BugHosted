@@ -929,7 +929,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       return null;
     }
     try {
-      const response = await this.romService.getEmulatorJSSaveState(romFileName, this.parentRef.user.id);
+      const response = await this.romService.getEmulatorJSSaveState(romFileName, this.parentRef.user.id, this.selectedSystemCore ?? undefined);
       if (response instanceof Blob && response.size > 0) {
         return response;
       }
@@ -1178,7 +1178,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       let error = undefined;
       try {
         const res = await this.romService.saveEmulatorJSState(
-          this.romName!, this.parentRef!.user!.id!, u8,
+          this.romName!, 
+          this.parentRef!.user!.id!, 
+          this.selectedSystemCore ?? undefined, 
+          u8,
           (loaded, total) => {
             this.displayRomUploadOrDownloadProgress(total, loaded, true);
             this.cdr.detectChanges();
@@ -1910,7 +1913,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       for (const rec of pending) {
         try {
           const arr = new Uint8Array(await (rec.data as Blob).arrayBuffer());
-          const res = await this.romService.saveEmulatorJSState(rec.romName, rec.userId, arr);
+          const res = await this.romService.saveEmulatorJSState(rec.romName, rec.userId, this.selectedSystemCore ?? undefined, arr);
           if (res.ok) {
             await this.removePendingSave(rec.id); // <-- remove after success
           } else {
