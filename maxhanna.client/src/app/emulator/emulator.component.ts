@@ -660,6 +660,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     // ❗ BIOS: set ONLY if required by the selected core; otherwise blank
     window.EJS_biosUrl = this.getBiosUrlForCore(core) ?? "";
+    if (window.EJS_biosUrl) {
+      console.log(`%c[EMU] Core "${core}" requires BIOS, setting EJS_biosUrl to "${window.EJS_biosUrl}"`, 'color:#4af');
+    } else {
+      console.log(`%c[EMU] Core "${core}" does not require a BIOS, leaving EJS_biosUrl blank`, 'color:#4af');
+    }
     window.EJS_softLoad = false;
     window.EJS_gameUrl = this.romObjectUrl;
     const _ejs_gameKey = `${core}:${this.fileService.getFileWithoutExtension(this.romName ?? '')}`;
