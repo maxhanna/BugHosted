@@ -77,7 +77,7 @@ export class ArtComponent extends ChildComponent implements OnInit {
   }
 
   uploadFinished(files: FileEntry[]) {
-    this.fileSearchComponent.handleUploadedFiles(files);
+    this.fileSearchComponent.placeNewFilesOnTop(files);
   }
   uploadNotification(event: string) {
     this.parentRef?.showNotification(event);

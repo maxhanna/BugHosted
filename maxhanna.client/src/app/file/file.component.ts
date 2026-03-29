@@ -73,7 +73,7 @@ export class FileComponent extends ChildComponent implements OnInit {
   }
   
   uploadFinished(newFiles: FileEntry[]) { 
-    this.fileSearchComponent.handleUploadedFiles(newFiles.flatMap(fileArray => fileArray));  
+    this.fileSearchComponent.placeNewFilesOnTop(newFiles.flatMap(fileArray => fileArray));  
   }
   async shareFile(userToShareWith?: User) {
     if (!userToShareWith?.id || !this.parentRef?.user?.id) return;
