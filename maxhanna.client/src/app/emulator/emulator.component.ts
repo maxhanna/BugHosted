@@ -2193,8 +2193,16 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return items;
   }
 
-  diamondRight(): VPadItem[] {
-    return [
+  diamondRight(forPS = false): VPadItem[] {
+    // Accept a playstation flag to use PS symbols
+    return forPS ? [
+      // PlayStation: △ (triangle), ○ (circle), × (cross), □ (square)
+      { type: 'button', id: 'btnTriangle', text: '△', location: 'right', left: -50, top: 30, input_value: 3, bold: true },
+      { type: 'button', id: 'btnCircle',   text: '○', location: 'right', left: 50, top: 20, input_value: 1, bold: true },
+      { type: 'button', id: 'btnCross',    text: '×', location: 'right', left: 10, top: 80, input_value: 0, bold: true },
+      { type: 'button', id: 'btnSquare',   text: '□', location: 'right', left: -20, top: -20, input_value: 2, bold: true },
+    ] : [
+      // Default: SNES/GBA style
       { type: 'button', id: 'btnX', text: 'X', location: 'right', left: -50, top: 30, input_value: 9, bold: true },
       { type: 'button', id: 'btnY', text: 'Y', location: 'right', left: -20, top: -20, input_value: 1, bold: true },
       { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 10, top: 80, input_value: 0, bold: true },
@@ -2277,6 +2285,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         if (segaShowLR) {
           items.push(...this.shouldersTop(false));
         }
+        items.push(...this.startSelectRow());
+        break;
+
+      case 'ps1':
+        items.push(...this.diamondRight(true));
+        items.push(...this.shouldersTop(true)); // L1/R1 + L2/R2 for PlayStation
         items.push(...this.startSelectRow());
         break;
 
