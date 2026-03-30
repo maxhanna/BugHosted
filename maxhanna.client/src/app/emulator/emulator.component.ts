@@ -2295,7 +2295,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         break;
 
       case 'psp':
-        items.push(...this.diamondRight());
+        items.push(...this.diamondRight(true));
         items.push(...this.shouldersTop(false));
         items.push(...this.startSelectRow());
         break;
