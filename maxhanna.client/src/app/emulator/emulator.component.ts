@@ -2197,10 +2197,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // Accept a playstation flag to use PS symbols
     return forPS ? [
       // PlayStation: △ (triangle), ○ (circle), × (cross), □ (square)
-      { type: 'button', id: 'btnTriangle', text: '△', location: 'right', left: -50, top: 30, input_value: 3, bold: true },
+      { type: 'button', id: 'btnTriangle', text: '△', location: 'right', left: -15, top: -20, input_value: 9, bold: true },
       { type: 'button', id: 'btnCircle',   text: '○', location: 'right', left: 50, top: 20, input_value: 1, bold: true },
       { type: 'button', id: 'btnCross',    text: '×', location: 'right', left: 10, top: 80, input_value: 0, bold: true },
-      { type: 'button', id: 'btnSquare',   text: '□', location: 'right', left: -20, top: -20, input_value: 2, bold: true },
+      { type: 'button', id: 'btnSquare',   text: '□', location: 'right', left: -50, top: 30, input_value: 8, bold: true },
     ] : [
       // Default: SNES/GBA style
       { type: 'button', id: 'btnX', text: 'X', location: 'right', left: -50, top: 30, input_value: 9, bold: true },
