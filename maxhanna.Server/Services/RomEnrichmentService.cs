@@ -108,7 +108,7 @@ namespace maxhanna.Server.Services
         if (System.Text.RegularExpressions.Regex.IsMatch(t, @"^\\d+(?:\\.\\d+)?\\s*(?:kb|mb|k|m)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase)) return true;
 
         // Disk/part/CD tags: disk 4, CD1, part2
-        if (System.Text.RegularExpressions.Regex.IsMatch(t, @"^(?:disk|disc|cd|cdrom|side|part|volume|vol|diskette)\\b.*\\d", System.Text.RegularExpressions.RegexOptions.IgnoreCase)) return true;
+        if (System.Text.RegularExpressions.Regex.IsMatch(t, @"^(?:disk|disc|cd|cdrom|side|track|part|volume|vol|diskette)\\b.*\\d", System.Text.RegularExpressions.RegexOptions.IgnoreCase)) return true;
 
         // Revision/version tokens
         if (System.Text.RegularExpressions.Regex.IsMatch(t, @"^(?:rev(?:ision)?|version|v)\\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase)) return true;
@@ -124,7 +124,7 @@ namespace maxhanna.Server.Services
         };
         var regionCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-          "JAPAN","JPN","USA","US","EUROPE","EU","PAL","NTSC","ASIA","KOR","KOREA","ENG","EN","FR","DEU","GER","ES","ESP","ITA"
+          "JAPAN","JPN","USA","US","EUROPE","EU","PAL","NTSC","ASIA","KOR","KOREA","ENG","EN","FR","DEU","GER","ES","ESP","ITA", "RE", "2M", "1M", "512K", "J", "U", "E"
         };
         if (platformCodes.Contains(up) || regionCodes.Contains(up)) return true;
 
