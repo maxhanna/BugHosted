@@ -15,8 +15,48 @@ import { DirectoryResults } from './datacontracts/file/directory-results';
 export class FileService {
   // Controller to allow cancelling an in-flight getDirectory() request
   private _getDirectoryAbortController: AbortController | null = null;
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient) { } 
 
+  videoFileExtensions = [
+    "mp4", "mov", "avi", "wmv", "webm", "flv", "mkv", "m4v", "mpg", "mpeg", "3gp", "3g2", "asf", "rm",
+    "rmvb", "swf", "vob", "ts", "mts", "m2ts", "mxf", "ogv", "divx", "xvid", "dv", "drc", "f4v", "f4p",
+    "f4a", "f4b", "mjp", "mjpg", "ogm", "nut", "bik", "roq", "viv", "vp6", "vp7"
+  ];
+
+  audioFileExtensions = [
+    "mp3", "wav", "ogg", "flac", "aac", "aiff", "alac", "amr", "ape", "au", "dss", "gsm", "m4a", "m4b",
+    "m4p", "mid", "midi", "mpa", "mpc", "oga", "opus", "ra", "sln", "tta", "voc", "vox", "wma", "wv",
+    "kar", "sid", "spx", "txw", "asx", "cda", "mod", "it", "s3m", "xm", "uax"
+  ];
+
+  imageFileExtensions = [
+    "jpg", "jpeg", "png", "gif", "bmp", "tiff", "svg", "webp", "heif", "heic", "ico", "psd", "raw",
+    "cr2", "nef", "orf", "sr2", "arw", "dng", "rw2", "pef", "raf", "3fr", "ari", "bay", "cap", "dcr",
+    "drf", "eip", "erf", "fff", "iiq", "k25", "kdc", "mdc", "mos", "mrw", "nrw", "obm", "ptx", "r3d",
+    "rwl", "srf", "srw", "x3f", "avif", "jxr", "hdp", "wdp", "cur", "jp2", "jpx", "j2k", "jpf", "ras",
+    "emf", "wmf", "dib"
+  ];
+
+  romFileExtensions = [
+    "sgx", "vb", "ws", "wsc", "gba", "gbc", "gb", "gen", "md", "smd", "32x", "sms", "gg", "nes", "fds",
+    "sfc", "smc", "snes", "nds", "n64", "z64", "v64", "gcm", "iso", "cdi", "chd", "cue", "ccd", "mdf",
+    "pbp", "bin", "img", "dsk", "adf", "st", "ipf", "d64", "t64", "tap", "prg", "crt", "g64", "nib",
+    "d81", "d82", "atr", "xfd", "cas", "sap", "tzx", "pzx", "zx", "fig", "rvz", "gcm", "ciso"
+  ];
+
+  n64FileExtensions = ["z64", "n64", "v64"];
+  ps1FileExtensions = ["bin", "cue", "iso", "chd", "pbp"];
+  genesisFileExtensions: string[] = ["smd", "gen", "smc", "32x", "gg", "sms", "md"];
+  segaFileExtensions: string[] = ["smd", "gen", "smc", "32x", "gg", "sms", "md"];
+  nesFileExtensions: string[] = ["nes", "fds"];
+  gbaFileExtensions: string[] = ['gba'];
+  ndsFileExtensions: string[] = ['nds'];
+  pspFileExtensions: string[] = ['psp', 'iso', 'cso', 'pbp'];
+  snesFileExtensions: string[] = ['snes', 'sfc', 'smc', 'fig', 'swc', 'bs', 'st'];
+  saturnFileExtensions: string[] = ['cue', 'chd', 'iso', 'bin'];
+  gamecubeFileExtensions: string[] = ['rvz', 'gcm', 'iso', 'ciso'];
+  ambiguousRomExtensions: string[] = ['zip', '7z', 'bin', 'cue', 'iso', 'chd', 'img', 'ccd', 'mdf', 'mds', 'nrg', 'gdi', 'cdi', 'pdp']; 
+ 
   // System-specific title keywords to help disambiguate ambiguous file extensions
   private n64TitleKeywords: string[] = [
     'ocarina of time', 'majora', 'majoras mask', 'goldeneye', 'super mario 64', 'mario 64', 'banjo kazooie', 'conker', 'paper mario', 'donkey kong 64', 'perfect dark'
@@ -65,45 +105,6 @@ export class FileService {
     'shenmue', 'sonic adventure', 'crazy taxi', 'jet set radio', 'powerstone'
   ];
 
-  videoFileExtensions = [
-    "mp4", "mov", "avi", "wmv", "webm", "flv", "mkv", "m4v", "mpg", "mpeg", "3gp", "3g2", "asf", "rm",
-    "rmvb", "swf", "vob", "ts", "mts", "m2ts", "mxf", "ogv", "divx", "xvid", "dv", "drc", "f4v", "f4p",
-    "f4a", "f4b", "mjp", "mjpg", "ogm", "nut", "bik", "roq", "viv", "vp6", "vp7"
-  ];
-
-  audioFileExtensions = [
-    "mp3", "wav", "ogg", "flac", "aac", "aiff", "alac", "amr", "ape", "au", "dss", "gsm", "m4a", "m4b",
-    "m4p", "mid", "midi", "mpa", "mpc", "oga", "opus", "ra", "sln", "tta", "voc", "vox", "wma", "wv",
-    "kar", "sid", "spx", "txw", "asx", "cda", "mod", "it", "s3m", "xm", "uax"
-  ];
-
-  imageFileExtensions = [
-    "jpg", "jpeg", "png", "gif", "bmp", "tiff", "svg", "webp", "heif", "heic", "ico", "psd", "raw",
-    "cr2", "nef", "orf", "sr2", "arw", "dng", "rw2", "pef", "raf", "3fr", "ari", "bay", "cap", "dcr",
-    "drf", "eip", "erf", "fff", "iiq", "k25", "kdc", "mdc", "mos", "mrw", "nrw", "obm", "ptx", "r3d",
-    "rwl", "srf", "srw", "x3f", "avif", "jxr", "hdp", "wdp", "cur", "jp2", "jpx", "j2k", "jpf", "ras",
-    "emf", "wmf", "dib"
-  ];
-
-  romFileExtensions = [
-    "sgx", "vb", "ws", "wsc", "gba", "gbc", "gb", "gen", "md", "smd", "32x", "sms", "gg", "nes", "fds",
-    "sfc", "smc", "snes", "nds", "n64", "z64", "v64", "gcm", "iso", "cdi", "chd", "cue", "ccd", "mdf",
-    "pbp", "bin", "img", "dsk", "adf", "st", "ipf", "d64", "t64", "tap", "prg", "crt", "g64", "nib",
-    "d81", "d82", "atr", "xfd", "cas", "sap", "tzx", "pzx", "zx", "fig"
-  ];
-
-  n64FileExtensions = ["z64", "n64", "v64"];
-  ps1FileExtensions = ["bin", "cue", "iso", "chd", "pbp"];
-  genesisFileExtensions: string[] = ["smd", "gen", "smc", "32x", "gg", "sms", "md"];
-  segaFileExtensions: string[] = ["smd", "gen", "smc", "32x", "gg", "sms", "md"];
-  nesFileExtensions: string[] = ["nes", "fds"];
-  gbaFileExtensions: string[] = ['gba'];
-  ndsFileExtensions: string[] = ['nds'];
-  pspFileExtensions: string[] = ['psp', 'iso', 'cso', 'pbp'];
-  snesFileExtensions: string[] = ['snes', 'sfc', 'smc', 'fig', 'swc', 'bs', 'st'];
-  saturnFileExtensions: string[] = ['cue', 'chd', 'iso', 'bin'];
-  ambiguousRomExtensions: string[] = ['zip', '7z', 'bin', 'cue', 'iso', 'chd', 'img', 'ccd', 'mdf', 'mds', 'nrg', 'gdi', 'cdi', 'pdp']; 
- 
   getRomFileExtensions(): string[] {
     const all = [
       this.romFileExtensions,
@@ -117,6 +118,7 @@ export class FileService {
       this.pspFileExtensions,
       this.snesFileExtensions,
       this.saturnFileExtensions,
+      this.gamecubeFileExtensions,
       this.ambiguousRomExtensions
     ];
     return Array.from(new Set(all.flat()));
@@ -168,6 +170,11 @@ export class FileService {
   /** Return PlayStation 1 extensions (delegates to explicit array) */
   getPs1FileExtensions(): string[] {
     return Array.from(this.ps1FileExtensions);
+  }
+
+  /** Return Gamecube extensions (delegates to explicit array) */
+  getGamecubeFileExtensions(): string[] {
+    return Array.from(this.gamecubeFileExtensions);
   }
 
   /** Return Ambiguous rom extensions (delegates to explicit array) */

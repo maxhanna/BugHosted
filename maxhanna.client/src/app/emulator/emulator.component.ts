@@ -2886,6 +2886,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const exPS1 = fs.getPs1FileExtensions();       // ['bin','cue','iso','chd','pbp']
     const exSAT = fs.getSaturnFileExtensions();    // ['cue','chd','iso','bin']
     const exGEN = fs.getGenesisFileExtensions();   // ['smd','gen','32x','gg','sms','md']
+    const exGAMECUBE = fs.getGamecubeFileExtensions(); // ['iso','gcm','ciso','gdi','chd']
 
     // Extra SNES formats commonly seen with libretro (Snes9x)
     const exSNESExtra = ['swc', 'bs', 'st']; // confirmed in libretro Snes9x docs [1](https://docs.libretro.com/library/snes9x/)
@@ -2931,7 +2932,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   //    { core: 'mupen64plus_next', label: 'Nintendo 64 (Mupen64Plus)', exts: exN64, maybeExts: exAmbig, hints: [/\bN64\b/i] },
       { core: 'desmume2015', label: 'Nintendo DS (DeSmuME)', exts: exNDS, maybeExts: exAmbig, hints: [/\bNDS\b|\bDS\b/i] },
       { core: 'melonds', label: 'Nintendo DS (melonDS)', exts: exNDS, maybeExts: exAmbig, hints: [/\bNDS\b|\bDS\b/i] },
-      { core: 'dolphin', label: 'GameCube / Wii (Dolphin)', exts: [], maybeExts: exAmbig, hints: [/\bGAMECUBE\b|\bDOLPHIN\b|\bGC\b|\bWII\b/i] },
+      { core: 'dolphin', label: 'GameCube / Wii (Dolphin)', exts: exGAMECUBE, maybeExts: exAmbig, hints: [/\bGAMECUBE\b|\bDOLPHIN\b|\bGC\b|\bWII\b/i] },
       { core: 'mgba', label: 'Game Boy Advance', exts: exGBx, maybeExts: [], hints: [/\bGBA\b/i] },
       { core: 'mgba', label: 'Game Boy / Game Boy Color', exts: exGBx, maybeExts: [], hints: [/\bGBC\b|\bGB\b/i] },
       { core: 'fceumm', label: 'NES / Famicom', exts: exNES, maybeExts: [], hints: [/\bNES\b|\bFAMICOM\b/i] },
