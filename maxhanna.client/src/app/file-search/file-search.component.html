@@ -132,6 +132,11 @@
                     (click)="getFavouritedBy(file); $event.stopPropagation()">
                     ❤️{{file.favouriteCount}}
                   </div>
+                  <div *ngIf="!file.isFolder && file.notesCount"
+                    class="fileOptionsAction fileOptionsChatBubble coloredBgButton"
+                    (click)="showFileNotes(file); $event.stopPropagation()">
+                    📝{{file.notesCount}}
+                  </div>
                   <div *ngIf="displayRatings && !file.isFolder && file.ratingCount"
                     class="fileOptionsAction fileOptionsChatBubble coloredBgButton"
                     (click)="showOptionsPanel(file); $event.stopPropagation()">
