@@ -1744,7 +1744,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
  
   async onSystemFilterClick(key: string) {
-    this.goToFirstPage();
     this.startLoading();
     try {
       const systemKey = this.fileService.getSystemCoreFromKey(key);
