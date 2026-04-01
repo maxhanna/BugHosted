@@ -1738,7 +1738,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   getSupportedRomSystems(): string[] {
     const candidates = Object.keys(this.romSystemExtensions);
-    if (!this.allowedFileTypes || this.allowedFileTypes.length === 0) return candidates;
+    if (!this.allowedFileTypes || this.allowedFileTypes.length === 0) {
+      return candidates;
+    }
     const lowerAllowed = this.allowedFileTypes.map(s => s.toLowerCase());
     return candidates.filter(k => this.romSystemExtensions[k].some(ext => lowerAllowed.includes(ext)));
   }
