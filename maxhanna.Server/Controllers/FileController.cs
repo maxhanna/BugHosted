@@ -199,7 +199,7 @@ namespace maxhanna.Server.Controllers
                 {favouritesCondition}
                 {fileIdCondition}
             ";
-          Console.WriteLine($"Count SQL: {countCommandSql}");
+          //Console.WriteLine($"Count SQL: {countCommandSql}");
           var countCmd = new MySqlCommand(countCommandSql, connection);
 
           countCmd.Parameters.AddWithValue("@folderPath", directory);
@@ -292,7 +292,7 @@ namespace maxhanna.Server.Controllers
             {orderBy}
 
             LIMIT @pageSize OFFSET @offset;";
-          Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + sqlCommand);
+          //Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + sqlCommand);
           var command = new MySqlCommand(sqlCommand, connection);
 
           foreach (var param in extraParameters)
