@@ -190,7 +190,8 @@ namespace maxhanna.Server.Controllers
               LEFT JOIN users u ON f.user_id = u.id
               {(includeRomMetadata || (actualCore?.Count > 0) ? @" 
               LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
-              LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}              WHERE 1=1 
+              LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}              
+              WHERE 1=1 
                 {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
                 AND (
                   f.is_public = 1
@@ -1424,21 +1425,11 @@ namespace maxhanna.Server.Controllers
       ";
       if (includeRomMetadata || actualCore)
       {
-        selectFields += @"
-          , rigdb.igdb_game_id        AS romIgdbGameId
-          , rigdb.igdb_name           AS romIgdbName
-          , rigdb.summary             AS romSummary
-          , rigdb.first_release_date  AS romFirstReleaseDateUnix
-          , rigdb.total_rating        AS romTotalRating
-          , rigdb.total_rating_count  AS romTotalRatingCount
-          , rigdb.cover_url           AS romCoverUrl
-          , rigdb.screenshots_json    AS romScreenshotsJson
-          , rigdb.artworks_json       AS romArtworksJson
-          , rigdb.videos_json         AS romVideosJson 
-          , rigdb.platforms_json      AS romPlatformsJson
-          , rigdb.genres_json         AS romGenresJson
-          , rigdb.reset_votes         AS romResetVotes
-          , rso.system_core           AS romActualSystem
+        selectFields += @" 
+          , rigdb.igdb_name         
+          , rigdb.summary               
+          , rigdb.platforms_json      
+          , rigdb.genres_json          
         ";
       }
       where += $@"
