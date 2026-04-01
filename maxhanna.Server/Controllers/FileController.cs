@@ -188,8 +188,9 @@ namespace maxhanna.Server.Controllers
               SELECT COUNT(*)
               FROM maxhanna.file_uploads f
               LEFT JOIN users u ON f.user_id = u.id
-              {(actualCore?.Count > 0 ? " LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
-              WHERE 1=1 
+              {(includeRomMetadata || (actualCore?.Count > 0) ? @" 
+              LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
+              LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}              WHERE 1=1 
                 {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
                 AND (
                   f.is_public = 1
