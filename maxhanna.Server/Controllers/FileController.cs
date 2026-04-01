@@ -1420,9 +1420,7 @@ namespace maxhanna.Server.Controllers
         return (where, parameters);
 
       parameters.Add(new MySqlParameter("@search", search.ToLower()));
-      string selectFields = @"
-        f.id, f.file_name, f.description, f.given_file_name, u.username 
-      ";
+      string selectFields = @"f.id, f.file_name, f.description, f.given_file_name, u.username";
       if (includeRomMetadata || actualCore)
       {
         selectFields += @" 
