@@ -39,14 +39,14 @@ namespace maxhanna.Server.Controllers
     private static readonly HashSet<string> GeneralFileTypes =
         new(StringComparer.OrdinalIgnoreCase)
     {
-        "zip","7z","rar","tar","gz","txt","xml","json","nfo", "pdf", 
+        "zip","7z","rar","tar","gz","txt","xml","json","nfo", "pdf",
         "jpg","jpeg","png","gif","bmp","webp","tiff", "doc","docx","xls","xlsx","ppt","pptx",
         "mp4","mkv","avi","mov","wmv","flv","mp3","ogg","wav","flac","aac",
         "iso", "cue", "chd", "bin", "img", "dsk", "adf", "st", "ipf", "d64",
          "t64", "tap", "prg", "crt", "g64", "nib",
-        "d81", "d82", "atr", "xfd", "cas", "sap", "tzx", "pzx", "zx", "fig", "rvz", 
+        "d81", "d82", "atr", "xfd", "cas", "sap", "tzx", "pzx", "zx", "fig", "rvz",
         "gcm", "ciso"
-        
+
     };
     private static readonly HashSet<string> AcceptedFileTypes =
       new(RomExtensions.Concat(GeneralFileTypes), StringComparer.OrdinalIgnoreCase);
@@ -63,7 +63,7 @@ namespace maxhanna.Server.Controllers
 , "mednafen_psx_hw"
 , "pcsx_rearmed"
 , "duckstation"
-, "melonds" 
+, "melonds"
 , "nds"
 , "psp"
 , "ppsspp"
@@ -91,8 +91,8 @@ namespace maxhanna.Server.Controllers
 , "beetle_saturn"
 , "kronos_saturn"
 , "segaSaturn"
-, "sega_saturn" 
-, "mame2003_plus"  
+, "sega_saturn"
+, "mame2003_plus"
 , "fbneo"
 , "desmume", "desmume2015"
 , "mednafen_vb"
@@ -165,11 +165,11 @@ namespace maxhanna.Server.Controllers
         bool isRomSearch = !(actualCore?.Count > 0) || includeRomMetadata;
         string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
         string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
-        string hiddenCondition = ""; 
+        string hiddenCondition = "";
         string favouritesCondition = showFavouritesOnly
           ? " AND f.id IN (SELECT file_id FROM file_favourites WHERE user_id = @userId) "
-          : ""; 
-        string orderBy = GetOrderBy(search, sortOption, isRomSearch); 
+          : "";
+        string orderBy = GetOrderBy(search, sortOption, isRomSearch);
         int offset = (page - 1) * pageSize;
         //Console.WriteLine($"DEBUG GetDirectory: combinedTypeCoreCondition: {combinedTypeCoreCondition}, showHidden: {showHidden}, showFavouritesOnly: {showFavouritesOnly}, sortOption: {sortOption}, includeRomMetadata: {includeRomMetadata}, fileId: {(fileId.HasValue ? fileId.Value.ToString() : "null")}");
 
@@ -178,9 +178,12 @@ namespace maxhanna.Server.Controllers
           connection.Open();
           hiddenCondition = await GetHiddenCondition(user, fileId, showHidden, hiddenCondition, connection);
           (string searchCondition, List<MySqlParameter> baseSearchParams) =
-              await GetWhereCondition(search, user, fileId, nsfwAllowed, forceSameDirectory, directory, connection);
+              await GetWhereCondition(
+                search, user, fileId, nsfwAllowed, forceSameDirectory,
+                directory, includeRomMetadata, actualCore?.Count > 0, connection
+              );
           var countParams = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
-          
+
           var countCmd = new MySqlCommand($@"
               SELECT COUNT(*)
               FROM maxhanna.file_uploads f
@@ -392,7 +395,7 @@ namespace maxhanna.Server.Controllers
           }
 
           await PopulateFileEntryNotesAsync(fileEntries, rawNotesByFileId, connection);
- 
+
           List<int> fileIds;
           List<int> commentIds = new List<int>();
           List<string> fileIdsParameters;
@@ -935,7 +938,7 @@ namespace maxhanna.Server.Controllers
           }
         }
       }
-    } 
+    }
 
     private static void GetFileReactions(List<FileEntry> fileEntries, MySqlConnection connection, List<int> fileIds, List<int> commentIds, List<string> fileIdsParameters, List<string> commentIdsParameters)
     {
@@ -1347,7 +1350,7 @@ namespace maxhanna.Server.Controllers
     private static string NormalizePollToken(string raw)
     {
       if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
-      var cleaned = raw.Trim(); 
+      var cleaned = raw.Trim();
       cleaned = Regex.Replace(cleaned, @"^Option\s+\d+\s*:\s*", string.Empty, RegexOptions.IgnoreCase);
       cleaned = Regex.Replace(cleaned, @"^Option\s*:\s*", string.Empty, RegexOptions.IgnoreCase);
       cleaned = Regex.Replace(cleaned, @"^\d+\s*([).:-])\s*", string.Empty); // numeric bullet variants
@@ -1379,7 +1382,7 @@ namespace maxhanna.Server.Controllers
       return nsfwEnabled;
     }
 
-    private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user, int? fileId = null, bool? precomputedNsfw = null, bool? forceSameDirectory = null, string? directory = null, MySqlConnection? existingConnection = null)
+    private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user, int? fileId = null, bool? precomputedNsfw = null, bool? forceSameDirectory = null, string? directory = null, bool includeRomMetadata = false, bool actualCore = false, MySqlConnection? existingConnection = null)
     {
       string where = "";
       var parameters = new List<MySqlParameter>();
@@ -1413,18 +1416,39 @@ namespace maxhanna.Server.Controllers
 
       if (string.IsNullOrWhiteSpace(search))
         return (where, parameters);
- 
-      parameters.Add(new MySqlParameter("@search", search.ToLower())); 
-      where += @"
+
+      parameters.Add(new MySqlParameter("@search", search.ToLower()));
+      string selectFields = @"
+        f.id, f.file_name, f.description, f.given_file_name, u.username 
+      ";
+      if (includeRomMetadata || actualCore)
+      {
+        selectFields += @"
+          , rigdb.igdb_game_id        AS romIgdbGameId
+          , rigdb.igdb_name           AS romIgdbName
+          , rigdb.summary             AS romSummary
+          , rigdb.first_release_date  AS romFirstReleaseDateUnix
+          , rigdb.total_rating        AS romTotalRating
+          , rigdb.total_rating_count  AS romTotalRatingCount
+          , rigdb.cover_url           AS romCoverUrl
+          , rigdb.screenshots_json    AS romScreenshotsJson
+          , rigdb.artworks_json       AS romArtworksJson
+          , rigdb.videos_json         AS romVideosJson 
+          , rigdb.platforms_json      AS romPlatformsJson
+          , rigdb.genres_json         AS romGenresJson
+          , rigdb.reset_votes         AS romResetVotes
+          , rso.system_core           AS romActualSystem
+        ";
+      }
+      where += $@"
         AND (
-          MATCH(f.file_name, f.description, f.given_file_name, u.username)
-            AGAINST (@search IN NATURAL LANGUAGE MODE)
+          MATCH({selectFields}) AGAINST (@search IN NATURAL LANGUAGE MODE)
           OR f.id IN (
             SELECT ft.file_id FROM maxhanna.file_topics ft
             JOIN maxhanna.topics t ON ft.topic_id = t.id
             WHERE MATCH(t.topic) AGAINST (@search IN NATURAL LANGUAGE MODE)
         )";
-      
+
       string s = search.ToLower();
       if (s.Contains("sega"))
         where += " AND f.file_name LIKE '%.md'";
