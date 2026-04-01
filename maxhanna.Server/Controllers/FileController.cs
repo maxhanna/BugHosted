@@ -180,8 +180,7 @@ namespace maxhanna.Server.Controllers
           (string searchCondition, List<MySqlParameter> baseSearchParams) =
               await GetWhereCondition(search, user, fileId, nsfwAllowed, forceSameDirectory, directory, connection);
           var countParams = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
-
-          var countCmd = new MySqlCommand($@"
+          string countCommandSql = $@"
               SELECT COUNT(*)
               FROM maxhanna.file_uploads f
               LEFT JOIN users u ON f.user_id = u.id        
@@ -199,7 +198,9 @@ namespace maxhanna.Server.Controllers
                 {hiddenCondition}
                 {favouritesCondition}
                 {fileIdCondition}
-            ", connection);
+            ";
+          Console.WriteLine($"Count SQL: {countCommandSql}");
+          var countCmd = new MySqlCommand(countCommandSql, connection);
 
           countCmd.Parameters.AddWithValue("@folderPath", directory);
           countCmd.Parameters.AddWithValue("@userId", user?.Id ?? 0);
@@ -220,8 +221,7 @@ namespace maxhanna.Server.Controllers
             pageSize = 1;
           }
           var extraParameters = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
-
-          var command = new MySqlCommand($@" 
+          string sqlCommand = $@" 
             SELECT
               f.id AS fileId,
               f.file_name,
@@ -291,8 +291,9 @@ namespace maxhanna.Server.Controllers
               {fileIdCondition} 
             {orderBy}
 
-            LIMIT @pageSize OFFSET @offset;"
-          , connection);
+            LIMIT @pageSize OFFSET @offset;";
+          Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + sqlCommand);
+          var command = new MySqlCommand(sqlCommand, connection);
 
           foreach (var param in extraParameters)
           {
@@ -306,7 +307,6 @@ namespace maxhanna.Server.Controllers
           {
             command.Parameters.AddWithValue("@fileId", fileId.Value);
           }
-          Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
           var rawNotesByFileId = new Dictionary<int, List<(int UserId, string? Note)>>();
           using (var reader = command.ExecuteReader())
           {
