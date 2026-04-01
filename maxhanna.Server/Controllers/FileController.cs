@@ -178,19 +178,13 @@ namespace maxhanna.Server.Controllers
           connection.Open();
           hiddenCondition = await GetHiddenCondition(user, fileId, showHidden, hiddenCondition, connection);
           (string searchCondition, List<MySqlParameter> baseSearchParams) =
-              await GetWhereCondition(
-                search, user, fileId, nsfwAllowed, forceSameDirectory,
-                directory, includeRomMetadata, actualCore?.Count > 0, connection
-              );
+              await GetWhereCondition(search, user, fileId, nsfwAllowed, forceSameDirectory, directory, connection);
           var countParams = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
 
           var countCmd = new MySqlCommand($@"
               SELECT COUNT(*)
               FROM maxhanna.file_uploads f
-              LEFT JOIN users u ON f.user_id = u.id
-              {(includeRomMetadata || (actualCore?.Count > 0) ? @" 
-              LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
-              LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}              
+              LEFT JOIN users u ON f.user_id = u.id        
               WHERE 1=1 
                 {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
                 AND (
@@ -1384,7 +1378,7 @@ namespace maxhanna.Server.Controllers
       return nsfwEnabled;
     }
 
-    private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user, int? fileId = null, bool? precomputedNsfw = null, bool? forceSameDirectory = null, string? directory = null, bool includeRomMetadata = false, bool actualCore = false, MySqlConnection? existingConnection = null)
+    private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user, int? fileId = null, bool? precomputedNsfw = null, bool? forceSameDirectory = null, string? directory = null, MySqlConnection? existingConnection = null)
     {
       string where = "";
       var parameters = new List<MySqlParameter>();
@@ -1420,19 +1414,11 @@ namespace maxhanna.Server.Controllers
         return (where, parameters);
 
       parameters.Add(new MySqlParameter("@search", search.ToLower()));
-      string selectFields = @"f.id, f.file_name, f.description, f.given_file_name, u.username";
-      if (includeRomMetadata || actualCore)
-      {
-        selectFields += @" 
-          , rigdb.igdb_name
-          , rigdb.summary
-          , rigdb.platforms_json
-          , rigdb.genres_json
-        ";
-      }
+ 
       where += $@"
         AND (
-          MATCH({selectFields}) AGAINST (@search IN NATURAL LANGUAGE MODE)
+          MATCH(f.id, f.file_name, f.description, f.given_file_name, u.username) 
+          AGAINST (@search IN NATURAL LANGUAGE MODE)
           OR f.id IN (
             SELECT ft.file_id FROM maxhanna.file_topics ft
             JOIN maxhanna.topics t ON ft.topic_id = t.id
