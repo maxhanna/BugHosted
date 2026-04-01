@@ -537,8 +537,7 @@ namespace maxhanna.Server.Controllers
       }
       if (!string.IsNullOrWhiteSpace(search))
       {
-        orderBy = @"ORDER BY MATCH(f.file_name, f.description, f.given_file_name) 
-        AGAINST(@search IN NATURAL LANGUAGE MODE) DESC, date DESC";
+        orderBy = @"ORDER BY f.given_file_name DESC, f.file_name DESC, f.description DESC, date DESC";
       }
       else
       {
@@ -1417,7 +1416,7 @@ namespace maxhanna.Server.Controllers
  
       where += $@"
         AND (
-          MATCH(f.id, f.file_name, f.description, f.given_file_name, u.username) 
+          MATCH(f.file_name, f.description, f.given_file_name) 
           AGAINST (@search IN NATURAL LANGUAGE MODE)
           OR f.id IN (
             SELECT ft.file_id FROM maxhanna.file_topics ft
