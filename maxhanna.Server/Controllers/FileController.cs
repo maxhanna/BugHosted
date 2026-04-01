@@ -312,7 +312,7 @@ namespace maxhanna.Server.Controllers
           {
             command.Parameters.AddWithValue("@fileId", fileId.Value);
           }
-          //Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
+          Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
           var rawNotesByFileId = new Dictionary<int, List<(int UserId, string? Note)>>();
           using (var reader = command.ExecuteReader())
           {
@@ -1424,10 +1424,10 @@ namespace maxhanna.Server.Controllers
       if (includeRomMetadata || actualCore)
       {
         selectFields += @" 
-          , rigdb.igdb_name         
-          , rigdb.summary               
-          , rigdb.platforms_json      
-          , rigdb.genres_json          
+          , rigdb.igdb_name
+          , rigdb.summary
+          , rigdb.platforms_json
+          , rigdb.genres_json
         ";
       }
       where += $@"
@@ -1437,6 +1437,7 @@ namespace maxhanna.Server.Controllers
             SELECT ft.file_id FROM maxhanna.file_topics ft
             JOIN maxhanna.topics t ON ft.topic_id = t.id
             WHERE MATCH(t.topic) AGAINST (@search IN NATURAL LANGUAGE MODE)
+          )
         )";
 
       string s = search.ToLower();
