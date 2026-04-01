@@ -1742,7 +1742,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     const lowerAllowed = this.allowedFileTypes.map(s => s.toLowerCase());
     return candidates.filter(k => this.romSystemExtensions[k].some(ext => lowerAllowed.includes(ext)));
   }
-
  
   async onSystemFilterClick(key: string) {
     this.goToFirstPage();
@@ -1759,15 +1758,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       } else {
         this.activeRomSystems.push(key);
       }
-      // if (!this.activeRomSystems || this.activeRomSystems.length === 0) {
-      //   this.fileTypeFilter = '';
-      //   this.onFiletypeFilterChange(true);
-      //   return;
-      // }
-
-      // const exts = Array.from(new Set(this.activeRomSystems.flatMap(k => this.romSystemExtensions[k] ?? [k])));
-      // this.fileTypeFilter = exts.join(',');
-      // this.onFiletypeFilterChange(true);
       this.stopLoading();
     }
   }
@@ -1851,13 +1841,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.getDirectory();
   }
   clearPopupSearch() {
-    try {
-      if (this.popupSearch && this.popupSearch.nativeElement) {
-        this.popupSearch.nativeElement.value = '';
-      }
-    } catch { }
+    if (this.popupSearch && this.popupSearch.nativeElement) {
+      this.popupSearch.nativeElement.value = '';
+    }
     this.searchTerms = '';
-    try { this.changeSearchTermsFromPopup(); } catch { }
+    
+    this.changeSearchTermsFromPopup();
   }
 
   clearFileTypeFilter() {
