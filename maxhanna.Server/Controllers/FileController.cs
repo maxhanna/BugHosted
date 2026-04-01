@@ -26,14 +26,31 @@ namespace maxhanna.Server.Controllers
     private readonly string _connectionString;
     private readonly string _baseTarget = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/";
     private readonly string _logo = "https://www.bughosted.com/assets/logo.jpg";
-    private readonly HashSet<string> romExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
-        "sgx", "vb", "ws", "wsc", "gba", "gbc", "gb",
-        "gen", "md", "smd", "32x", "sms", "gg",
-        "nes", "fds", "sfc", "smc", "snes", "nds",
-        "z64", "n64", "v64", "bin", "zip"
+    private static readonly HashSet<string> RomExtensions =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "32x", "adf", "atr", "bin", "cas", "ccd", "cdi", "chd", "ciso", "crt",
+        "cue", "d64", "d81", "d82", "dsk", "fds", "fig", "gba", "gb", "gbc",
+        "gcm", "gen", "gg", "g64", "img", "ipf", "iso", "md", "mdf", "n64",
+        "nds", "nes", "nib", "pbp", "prg", "pzx", "rvz", "sap", "sfc", "sgx",
+        "sms", "smc", "smd", "snes", "st", "tap", "t64", "tzx", "vb", "v64",
+        "ws", "wsc", "xfd", "z64", "zip", "zx"
     };
-
-    private readonly HashSet<string> cores = new HashSet<string> {
+    private static readonly HashSet<string> GeneralFileTypes =
+        new(StringComparer.OrdinalIgnoreCase)
+    {
+        "zip","7z","rar","tar","gz","txt","xml","json","nfo", "pdf", 
+        "jpg","jpeg","png","gif","bmp","webp","tiff", "doc","docx","xls","xlsx","ppt","pptx",
+        "mp4","mkv","avi","mov","wmv","flv","mp3","ogg","wav","flac","aac",
+        "iso", "cue", "chd", "bin", "img", "dsk", "adf", "st", "ipf", "d64",
+         "t64", "tap", "prg", "crt", "g64", "nib",
+        "d81", "d82", "atr", "xfd", "cas", "sap", "tzx", "pzx", "zx", "fig", "rvz", 
+        "gcm", "ciso"
+        
+    };
+    private static readonly HashSet<string> AcceptedFileTypes =
+      new(RomExtensions.Concat(GeneralFileTypes), StringComparer.OrdinalIgnoreCase);
+    private static readonly HashSet<string> Cores = new HashSet<string> {
  "fceumm"
 , "gambatte"
 , "mgba"
@@ -46,8 +63,7 @@ namespace maxhanna.Server.Controllers
 , "mednafen_psx_hw"
 , "pcsx_rearmed"
 , "duckstation"
-, "melonds"
-, "melonDS"
+, "melonds" 
 , "nds"
 , "psp"
 , "ppsspp"
@@ -75,10 +91,8 @@ namespace maxhanna.Server.Controllers
 , "beetle_saturn"
 , "kronos_saturn"
 , "segaSaturn"
-, "sega_saturn"
-, "fbneo"
-, "mame2003_plus"
-, "sega_saturn"
+, "sega_saturn" 
+, "mame2003_plus"  
 , "fbneo"
 , "desmume", "desmume2015"
 , "mednafen_vb"
@@ -91,6 +105,8 @@ namespace maxhanna.Server.Controllers
 , "vitaquake3"
 , "vice_x64"
 };
+    private static readonly SemaphoreSlim _sitemapLock = new(1, 1);
+    private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
 
     public FileController(Log log, IConfiguration config)
     {
@@ -141,131 +157,30 @@ namespace maxhanna.Server.Controllers
       try
       {
         List<FileEntry> fileEntries = new List<FileEntry>();
-        // Normalize fileType query values: callers may pass repeated fileType=params or a single comma-separated value.
-        var normalizedFileTypes = new List<string>();
-        if (fileType != null && fileType.Any())
-        {
-          foreach (var ft in fileType)
-          {
-            if (string.IsNullOrWhiteSpace(ft)) continue;
-            var parts = ft.Split(',', StringSplitOptions.RemoveEmptyEntries);
-            foreach (var p in parts)
-            {
-              var v = p.Trim();
-              if (!string.IsNullOrEmpty(v)) normalizedFileTypes.Add(v);
-            }
-          }
-        }
-
-        var normalizedActualCores = new List<string>();
-        if (actualCore != null && actualCore.Any())
-        {
-          foreach (var asys in actualCore)
-          {
-            if (string.IsNullOrWhiteSpace(asys)) continue;
-            var parts = asys.Split(',', StringSplitOptions.RemoveEmptyEntries);
-            foreach (var p in parts)
-            {
-              var v = p.Trim();
-              if (!string.IsNullOrEmpty(v)) normalizedActualCores.Add(v);
-            }
-          }
-        }
-
-        string combinedTypeCoreCondition = BuildFileTypeAndCoreCondition(normalizedFileTypes, normalizedActualCores, cores);
-
-        //Console.WriteLine($"DEBUG GetDirectory: combinedTypeCoreCondition: {combinedTypeCoreCondition}, showHidden: {showHidden}, showFavouritesOnly: {showFavouritesOnly}, sortOption: {sortOption}, includeRomMetadata: {includeRomMetadata}, fileId: {(fileId.HasValue ? fileId.Value.ToString() : "null")}");
-
+        List<string> normalizedFileTypes = GetNormalizedTypes(fileType, AcceptedFileTypes);
+        List<string> normalizedActualCores = GetNormalizedTypes(actualCore, Cores);
+        string combinedTypeCoreCondition = BuildFileTypeAndCoreCondition(normalizedFileTypes, normalizedActualCores, Cores);
+        bool nsfwAllowed = await GetNsfwForUser(user);
         string fileIdCondition = fileId.HasValue ? " AND f.id = @fileId" : "";
         bool isRomSearch = !(actualCore?.Count > 0) || includeRomMetadata;
         string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
         string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
-        // Hidden condition is pre-evaluated below after connection.Open() to avoid per-row subqueries
-        string hiddenCondition = ""; // will be set after connection opens
-
-
+        string hiddenCondition = ""; 
         string favouritesCondition = showFavouritesOnly
           ? " AND f.id IN (SELECT file_id FROM file_favourites WHERE user_id = @userId) "
-          : "";
-        string orderBy = "";
-        switch (sortOption)
-        {
-          case "Latest":
-            orderBy = "ORDER BY date DESC";
-            break;
-          case "Oldest":
-            orderBy = "ORDER BY date ASC";
-            break;
-          case "Random":
-            orderBy = "ORDER BY RAND()";
-            break;
-          case "Most Views":
-            orderBy = "ORDER BY access_count DESC";
-            break;
-          case "Filesize ASC":
-            orderBy = "ORDER BY file_size ASC";
-            break;
-          case "Filesize DESC":
-            orderBy = "ORDER BY file_size DESC";
-            break;
-          case "Last Updated ASC":
-            orderBy = "ORDER BY f.last_updated ASC";
-            break;
-          case "Last Updated DESC":
-            orderBy = "ORDER BY f.last_updated DESC";
-            break;
-          case "Last Access":
-            orderBy = "ORDER BY f.last_access DESC, date DESC";
-            break;
-          case "Most Comments":
-            orderBy = "ORDER BY comment_count DESC";
-            break;
-          case "A-Z":
-            orderBy = "ORDER BY given_file_name ASC, file_name ASC";
-            break;
-          case "Z-A":
-            orderBy = "ORDER BY given_file_name DESC, file_name DESC";
-            break;
-
-        }
+          : ""; 
+        string orderBy = GetOrderBy(search, sortOption, isRomSearch); 
         int offset = (page - 1) * pageSize;
+        //Console.WriteLine($"DEBUG GetDirectory: combinedTypeCoreCondition: {combinedTypeCoreCondition}, showHidden: {showHidden}, showFavouritesOnly: {showFavouritesOnly}, sortOption: {sortOption}, includeRomMetadata: {includeRomMetadata}, fileId: {(fileId.HasValue ? fileId.Value.ToString() : "null")}");
 
         using (var connection = new MySqlConnection(_connectionString))
         {
           connection.Open();
-
-          // ── Pre-compute user display settings ONCE (avoids extra DB round-trips) ──
-          bool nsfwAllowed = await GetNsfwForUser(user);
-
-          // Pre-evaluate hidden condition: single scalar check instead of per-row OR subqueries
-          if (!fileId.HasValue && !showHidden)
-          {
-            bool userWantsHidden = false;
-            if ((user?.Id ?? 0) > 0)
-            {
-              using var settingsCmd = new MySqlCommand(
-                "SELECT show_hidden_files FROM maxhanna.user_settings WHERE user_id = @uid LIMIT 1", connection);
-              settingsCmd.Parameters.AddWithValue("@uid", user!.Id);
-              var settingsResult = await settingsCmd.ExecuteScalarAsync();
-              if (settingsResult != null && settingsResult != DBNull.Value && Convert.ToInt32(settingsResult) == 1)
-              {
-                userWantsHidden = true;
-              }
-            }
-            if (!userWantsHidden)
-            {
-              hiddenCondition = " AND NOT EXISTS (SELECT 1 FROM maxhanna.hidden_files hf WHERE hf.user_id = @userId AND hf.file_id = f.id) ";
-            }
-          }
-
-          // ── Build search/filter WHERE clause ONCE, reuse for both count & main queries ──
+          hiddenCondition = await GetHiddenCondition(user, fileId, showHidden, hiddenCondition, connection);
           (string searchCondition, List<MySqlParameter> baseSearchParams) =
               await GetWhereCondition(search, user, fileId, nsfwAllowed, forceSameDirectory, directory, connection);
-
-          //get the total count
           var countParams = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
-          string countSearchCond = searchCondition;
-
+          
           var countCmd = new MySqlCommand($@"
               SELECT COUNT(*)
               FROM maxhanna.file_uploads f
@@ -278,7 +193,7 @@ namespace maxhanna.Server.Controllers
                   OR f.user_id = @userId
                   OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON))
                 )
-                {countSearchCond}
+                {searchCondition}
                 {combinedTypeCoreCondition}
                 {visibilityCondition}
                 {ownershipCondition}
@@ -287,17 +202,12 @@ namespace maxhanna.Server.Controllers
                 {fileIdCondition}
             ", connection);
 
-          // Required parameters
           countCmd.Parameters.AddWithValue("@folderPath", directory);
           countCmd.Parameters.AddWithValue("@userId", user?.Id ?? 0);
-
-
-          // Add search parameters (e.g. @FullTextSearch)
           foreach (var p in countParams)
           {
             countCmd.Parameters.Add(p);
           }
-          // fileId if applicable
           if (fileId.HasValue)
           {
             countCmd.Parameters.AddWithValue("@fileId", fileId.Value);
@@ -310,28 +220,6 @@ namespace maxhanna.Server.Controllers
             offset = 0;
             pageSize = 1;
           }
-
-
-          // When searching, prefer ordering by relevance (MATCH...AGAINST) so nearest matches appear first
-          if (!string.IsNullOrWhiteSpace(search))
-          {
-            orderBy = "ORDER BY MATCH(f.file_name, f.description, f.given_file_name) AGAINST(@FullTextSearch IN NATURAL LANGUAGE MODE) DESC, date DESC";
-          }
-          else
-          {
-            // Only apply the ROM-specific default ordering when no explicit sort option was provided
-            // (prevents overriding a user's chosen sortOption).
-            if (string.IsNullOrWhiteSpace(orderBy) && isRomSearch)
-            {
-              orderBy = "ORDER BY f.last_access DESC";
-            }
-            else if (string.IsNullOrWhiteSpace(orderBy))
-            {
-              orderBy = "ORDER BY date DESC";
-            }
-            // otherwise keep the orderBy chosen from the sortOption switch above
-          }
-          // Reuse pre-computed search condition (clone parameters for this command)
           var extraParameters = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
 
           var command = new MySqlCommand($@" 
@@ -419,10 +307,6 @@ namespace maxhanna.Server.Controllers
           {
             command.Parameters.AddWithValue("@fileId", fileId.Value);
           }
-          if (!string.IsNullOrEmpty(search))
-          {
-            command.Parameters.AddWithValue("@search", "%" + search + "%");
-          }
           //Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
           var rawNotesByFileId = new Dictionary<int, List<(int UserId, string? Note)>>();
           using (var reader = command.ExecuteReader())
@@ -508,16 +392,11 @@ namespace maxhanna.Server.Controllers
           }
 
           await PopulateFileEntryNotesAsync(fileEntries, rawNotesByFileId, connection);
-
-          // Rest of the method remains the same...
-          var fileIds = fileEntries.Select(f => f.Id).ToList();
-          var commentIds = new List<int>();
-          var fileIdsParameters = new List<string>();
-          for (int i = 0; i < fileIds.Count; i++)
-          {
-            fileIdsParameters.Add($"@fileId{i}");
-          }
-
+ 
+          List<int> fileIds;
+          List<int> commentIds = new List<int>();
+          List<string> fileIdsParameters;
+          GetIdsFromResults(fileEntries, out fileIds, out fileIdsParameters);
           GetFileComments(fileEntries, connection, fileIds, commentIds, fileIdsParameters);
 
           // Attach polls to file entry comments (mirrors SocialController poll attachment)
@@ -549,6 +428,132 @@ namespace maxhanna.Server.Controllers
         _ = _log.Db($"error:{ex}", null, "FILE", true);
         return null;
       }
+    }
+
+    private static void GetIdsFromResults(List<FileEntry> fileEntries, out List<int> fileIds, out List<string> fileIdsParameters)
+    {
+      fileIds = fileEntries.Select(f => f.Id).ToList();
+      fileIdsParameters = new List<string>();
+      for (int i = 0; i < fileIds.Count; i++)
+      {
+        fileIdsParameters.Add($"@fileId{i}");
+      }
+    }
+
+    private static async Task<string> GetHiddenCondition(User? user, int? fileId, bool showHidden, string hiddenCondition, MySqlConnection connection)
+    {
+      if (!fileId.HasValue && !showHidden)
+      {
+        bool userWantsHidden = false;
+        if ((user?.Id ?? 0) > 0)
+        {
+          using var settingsCmd = new MySqlCommand(
+            "SELECT show_hidden_files FROM maxhanna.user_settings WHERE user_id = @uid LIMIT 1", connection);
+          settingsCmd.Parameters.AddWithValue("@uid", user!.Id);
+          var settingsResult = await settingsCmd.ExecuteScalarAsync();
+          if (settingsResult != null && settingsResult != DBNull.Value && Convert.ToInt32(settingsResult) == 1)
+          {
+            userWantsHidden = true;
+          }
+        }
+        if (!userWantsHidden)
+        {
+          hiddenCondition = " AND NOT EXISTS (SELECT 1 FROM maxhanna.hidden_files hf WHERE hf.user_id = @userId AND hf.file_id = f.id) ";
+        }
+      }
+
+      return hiddenCondition;
+    }
+
+    private static List<string> GetNormalizedTypes(
+        List<string>? fileType,
+        IReadOnlySet<string> allowedTypes)
+    {
+      var normalized = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+      if (fileType == null) return normalized.ToList();
+
+      foreach (var ft in fileType)
+      {
+        if (string.IsNullOrWhiteSpace(ft)) continue;
+
+        var parts = ft.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var p in parts)
+        {
+          var ext = p.Trim()
+                     .TrimStart('.')
+                     .ToLowerInvariant();
+
+          if (allowedTypes.Contains(ext))
+          {
+            normalized.Add(ext);
+          }
+        }
+      }
+
+      return normalized.ToList();
+    }
+
+    private static string GetOrderBy(string? search, string sortOption, bool isRomSearch)
+    {
+      string orderBy = "";
+      switch (sortOption)
+      {
+        case "Latest":
+          orderBy = "ORDER BY date DESC";
+          break;
+        case "Oldest":
+          orderBy = "ORDER BY date ASC";
+          break;
+        case "Random":
+          orderBy = "ORDER BY RAND()";
+          break;
+        case "Most Views":
+          orderBy = "ORDER BY access_count DESC";
+          break;
+        case "Filesize ASC":
+          orderBy = "ORDER BY file_size ASC";
+          break;
+        case "Filesize DESC":
+          orderBy = "ORDER BY file_size DESC";
+          break;
+        case "Last Updated ASC":
+          orderBy = "ORDER BY f.last_updated ASC";
+          break;
+        case "Last Updated DESC":
+          orderBy = "ORDER BY f.last_updated DESC";
+          break;
+        case "Last Access":
+          orderBy = "ORDER BY f.last_access DESC, date DESC";
+          break;
+        case "Most Comments":
+          orderBy = "ORDER BY comment_count DESC";
+          break;
+        case "A-Z":
+          orderBy = "ORDER BY given_file_name ASC, file_name ASC";
+          break;
+        case "Z-A":
+          orderBy = "ORDER BY given_file_name DESC, file_name DESC";
+          break;
+      }
+      if (!string.IsNullOrWhiteSpace(search))
+      {
+        orderBy = @"ORDER BY MATCH(f.file_name, f.description, f.given_file_name) 
+        AGAINST(@search IN NATURAL LANGUAGE MODE) DESC, date DESC";
+      }
+      else
+      {
+        if (string.IsNullOrWhiteSpace(orderBy) && isRomSearch)
+        {
+          orderBy = "ORDER BY f.last_access DESC";
+        }
+        else if (string.IsNullOrWhiteSpace(orderBy))
+        {
+          orderBy = "ORDER BY date DESC";
+        }
+      }
+
+      return orderBy;
     }
 
     [HttpPost("/File/GetFavouritedBy", Name = "GetFavouritedBy")]
@@ -930,8 +935,7 @@ namespace maxhanna.Server.Controllers
           }
         }
       }
-    }
-
+    } 
 
     private static void GetFileReactions(List<FileEntry> fileEntries, MySqlConnection connection, List<int> fileIds, List<int> commentIds, List<string> fileIdsParameters, List<string> commentIdsParameters)
     {
@@ -1316,7 +1320,6 @@ namespace maxhanna.Server.Controllers
       catch { return options; }
     }
 
-    // Fallback: derive a question when [Poll] block lacks an explicit Question: line.
     private string DeriveQuestionFallback(string text)
     {
       if (string.IsNullOrEmpty(text) || !text.Contains("[Poll]") || !text.Contains("[/Poll]")) return string.Empty;
@@ -1341,15 +1344,10 @@ namespace maxhanna.Server.Controllers
       return string.Empty;
     }
 
-    // Normalize poll option / vote strings (remove leading labels like 'Option 1:' or numeric bullets)
     private static string NormalizePollToken(string raw)
     {
       if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
-      var cleaned = raw.Trim();
-      // Patterns:
-      // Option 1: Text
-      // Option: Text
-      // 1) Text / 1. Text / 1 - Text
+      var cleaned = raw.Trim(); 
       cleaned = Regex.Replace(cleaned, @"^Option\s+\d+\s*:\s*", string.Empty, RegexOptions.IgnoreCase);
       cleaned = Regex.Replace(cleaned, @"^Option\s*:\s*", string.Empty, RegexOptions.IgnoreCase);
       cleaned = Regex.Replace(cleaned, @"^\d+\s*([).:-])\s*", string.Empty); // numeric bullet variants
@@ -1381,20 +1379,17 @@ namespace maxhanna.Server.Controllers
       return nsfwEnabled;
     }
 
-
     private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user, int? fileId = null, bool? precomputedNsfw = null, bool? forceSameDirectory = null, string? directory = null, MySqlConnection? existingConnection = null)
     {
       string where = "";
       var parameters = new List<MySqlParameter>();
 
-      // Force Same Directory
       if (forceSameDirectory == true && !string.IsNullOrEmpty(directory))
       {
         where += " AND f.folder_path = @Directory";
         parameters.Add(new MySqlParameter("@Directory", directory));
       }
 
-      // NSFW FILTER
       bool showNsfw = precomputedNsfw ?? await GetNsfwForUser(user);
       if (!fileId.HasValue && !showNsfw)
       {
@@ -1406,9 +1401,6 @@ namespace maxhanna.Server.Controllers
             )";
       }
 
-      // ------------------------------------------------------
-      // USER BLOCK FILTER
-      // ------------------------------------------------------
       if (user != null)
       {
         where += $@"
@@ -1419,90 +1411,20 @@ namespace maxhanna.Server.Controllers
             )";
       }
 
-      // ------------------------------------------------------
-      // NO SEARCH — return basic filters only
-      // ------------------------------------------------------
       if (string.IsNullOrWhiteSpace(search))
         return (where, parameters);
-
-      // ------------------------------------------------------
-      // DETERMINE IF MATCH() SHOULD BE USED
-      // ------------------------------------------------------
-      bool hasFulltextHits = false;
-
-      try
-      {
-        // Reuse existing connection if available to avoid connection-open overhead
-        bool disposeConn = false;
-        MySqlConnection conn;
-        if (existingConnection != null && existingConnection.State == System.Data.ConnectionState.Open)
-        {
-          conn = existingConnection;
-        }
-        else
-        {
-          conn = new MySqlConnection(_connectionString);
-          await conn.OpenAsync();
-          disposeConn = true;
-        }
-        try
-        {
-          // Use EXISTS + LIMIT 1 instead of COUNT(*) — stops at first match
-          using var test = new MySqlCommand(@"
-                SELECT EXISTS(
-                    SELECT 1 FROM maxhanna.file_uploads
-                    WHERE MATCH(file_name, description, given_file_name)
-                          AGAINST(@FT IN NATURAL LANGUAGE MODE)
-                    LIMIT 1
-                )
-            ", conn);
-
-          test.Parameters.AddWithValue("@FT", search);
-
-          var result = await test.ExecuteScalarAsync();
-          hasFulltextHits = Convert.ToInt64(result ?? 0) > 0;
-        }
-        finally
-        {
-          if (disposeConn) conn.Dispose();
-        }
-      }
-      catch
-      {
-        hasFulltextHits = false;
-      }
-
-      // Bind FullTextSearch parameter (used by idQuery + main SELECT)
-      parameters.Add(new MySqlParameter("@FullTextSearch", search.ToLower()));
-
-      // ------------------------------------------------------
-      // BUILD SEARCH CLAUSE
-      // ------------------------------------------------------
-      if (hasFulltextHits)
-      {
-        where += @"
-            AND MATCH(f.file_name, f.description, f.given_file_name)
-                AGAINST (@FullTextSearch IN NATURAL LANGUAGE MODE)";
-      }
-      else
-      {
-        where += @"
-            AND (
-                LOWER(f.file_name) LIKE CONCAT('%', @FullTextSearch, '%')
-                OR LOWER(f.given_file_name) LIKE CONCAT('%', @FullTextSearch, '%')
-                OR LOWER(f.description) LIKE CONCAT('%', @FullTextSearch, '%')
-                OR LOWER(u.username) LIKE CONCAT('%', @FullTextSearch, '%')
-                OR f.id IN (
-                    SELECT ft.file_id FROM maxhanna.file_topics ft
-                    JOIN maxhanna.topics t ON ft.topic_id = t.id
-                    WHERE LOWER(t.topic) LIKE CONCAT('%', @FullTextSearch, '%')
-                )
-            )";
-      }
-
-      // ------------------------------------------------------
-      // ROM SPECIAL-CASE SEARCHES
-      // ------------------------------------------------------
+ 
+      parameters.Add(new MySqlParameter("@search", search.ToLower())); 
+      where += @"
+        AND (
+          MATCH(f.file_name, f.description, f.given_file_name, u.username)
+            AGAINST (@search IN NATURAL LANGUAGE MODE)
+          OR f.id IN (
+            SELECT ft.file_id FROM maxhanna.file_topics ft
+            JOIN maxhanna.topics t ON ft.topic_id = t.id
+            WHERE MATCH(t.topic) AGAINST (@search IN NATURAL LANGUAGE MODE)
+        )";
+      
       string s = search.ToLower();
       if (s.Contains("sega"))
         where += " AND f.file_name LIKE '%.md'";
@@ -3759,10 +3681,6 @@ namespace maxhanna.Server.Controllers
 
       return (width, height, duration);
     }
-
-    private static readonly SemaphoreSlim _sitemapLock = new(1, 1);
-    private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
-
     private async Task AppendToSitemapAsync(FileEntry fileEntry)
     {
       string fileUrl = IsVideoFileFromExtensionString(fileEntry.FileType)
@@ -3961,7 +3879,7 @@ namespace maxhanna.Server.Controllers
       if (normalizedActualCores.Any())
       {
         var sanitized = normalizedActualCores.Select(
-          asys => cores.Contains(asys) ? "'" + (asys ?? string.Empty).ToLower().Replace("'", "''") + "'" : ""
+          asys => "'" + (asys ?? string.Empty).ToLower().Replace("'", "''") + "'"
         ).Where(s => !string.IsNullOrEmpty(s)).ToArray();
         if (sanitized.Length > 0)
         {
@@ -3969,18 +3887,6 @@ namespace maxhanna.Server.Controllers
           actualSystemCondition = $" AND LOWER(rso.system_core) IN ({replaced}) ";
         }
       }
-
-      // If both are present, join with OR inside parentheses
-      // if (!string.IsNullOrWhiteSpace(fileTypeCondition) && !string.IsNullOrWhiteSpace(actualSystemCondition))
-      // {
-      //   // Remove leading ANDs for inner conditions
-      //   var ft = fileTypeCondition.Trim();
-      //   var ac = actualSystemCondition.Trim();
-      //   if (ft.StartsWith("AND ")) ft = ft.Substring(4);
-      //   if (ac.StartsWith("AND ")) ac = ac.Substring(4);
-      //   return $"AND ( {ft} OR {ac} ) ";
-      // }
-      // Otherwise, just return whichever is present
       return fileTypeCondition + actualSystemCondition;
     }
     private void MoveDirectory(string sourceDirectory, string destinationDirectory)
@@ -4031,20 +3937,6 @@ namespace maxhanna.Server.Controllers
       {
         return true;
       }
-    }
-
-    private bool DetermineIfRomSearch(List<string>? fileType)
-    {
-      if (fileType == null || fileType.Count == 0)
-      {
-        return false;
-      }
-
-      List<string> fileTypeList = (fileType.Count == 1 && fileType[0] != null && fileType[0].Contains(","))
-          ? fileType[0].Split(',').Select(s => s.Trim()).ToList()
-          : fileType;
-
-      return fileTypeList.Any(ext => romExtensions.Contains(ext));
     }
 
     private string GetContentType(string fileExtension)

@@ -38,10 +38,12 @@ export class FileService {
   ];
 
   romFileExtensions = [
-    "sgx", "vb", "ws", "wsc", "gba", "gbc", "gb", "gen", "md", "smd", "32x", "sms", "gg", "nes", "fds",
-    "sfc", "smc", "snes", "nds", "n64", "z64", "v64", "gcm", "iso", "cdi", "chd", "cue", "ccd", "mdf",
-    "pbp", "bin", "img", "dsk", "adf", "st", "ipf", "d64", "t64", "tap", "prg", "crt", "g64", "nib",
-    "d81", "d82", "atr", "xfd", "cas", "sap", "tzx", "pzx", "zx", "fig", "rvz", "gcm", "ciso"
+    "32x", "adf", "atr", "bin", "cas", "ccd", "cdi", "chd", "ciso", "crt",
+    "cue", "d64", "d81", "d82", "dsk", "fds", "fig", "gba", "gb", "gbc",
+    "gcm", "gen", "gg", "g64", "img", "ipf", "iso", "md", "mdf", "n64",
+    "nds", "nes", "nib", "pbp", "prg", "pzx", "rvz", "sap", "sfc", "sgx",
+    "sms", "smc", "smd", "snes", "st", "tap", "t64", "tzx", "vb", "v64",
+    "ws", "wsc", "xfd", "z64", "zip", "zx"
   ];
 
   n64FileExtensions = ["z64", "n64", "v64"];
