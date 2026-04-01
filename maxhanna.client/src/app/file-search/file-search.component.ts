@@ -1845,7 +1845,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.popupSearch.nativeElement.value = '';
     }
     this.searchTerms = '';
-    
+    this.actualCoreFilter = [];
+    this.activeRomSystems = [];
     this.changeSearchTermsFromPopup();
   }
 
