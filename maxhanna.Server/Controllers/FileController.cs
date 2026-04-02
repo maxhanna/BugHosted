@@ -34,7 +34,7 @@ namespace maxhanna.Server.Controllers
         "gcm", "gen", "gg", "g64", "img", "ipf", "iso", "md", "mdf", "n64",
         "nds", "nes", "nib", "pbp", "prg", "pzx", "rvz", "sap", "sfc", "sgx",
         "sms", "smc", "smd", "snes", "st", "tap", "t64", "tzx", "vb", "v64",
-        "ws", "wsc", "xfd", "z64", "zip", "zx"
+        "ws", "wsc", "xfd", "z64", "zip", "zx", "ndd"
     };
     private static readonly HashSet<string> GeneralFileTypes =
         new(StringComparer.OrdinalIgnoreCase)
