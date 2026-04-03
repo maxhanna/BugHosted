@@ -56,7 +56,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   systemCandidates: Array<{ label: string; core?: Core }> = [];
   selectedSystemCore?: Core | null = null;
   displayAsTable = true;
-private _bootingFromGamepad = false; 
+private _bootingFromGamepad = false;
+  private _gamepadUsedForSelection = false;
   private gamepadRouter = new UiGamepadRouter();
   private _lastCanvasBufW = 0;
   private _lastCanvasBufH = 0;
@@ -201,6 +202,7 @@ private _bootingFromGamepad = false;
     this.presetRomName = file.fileName;
     this.selectedROMFile = file;
 
+    this._gamepadUsedForSelection = this._bootingFromGamepad;
     this.gamepadRouter.disable();
 
     // Always build candidate list for this file. If there are multiple real
@@ -404,11 +406,6 @@ private _bootingFromGamepad = false;
       }
 
       try { this.onEmulatorReadyForSizing(); } catch { console.warn('[EMU] onEmulatorReadyForSizing failed'); }
-
-      // Re-announce connected gamepads so EmulatorJS detects them.
-      // The UiGamepadRouter may have already consumed the original
-      // gamepadconnected events before EmulatorJS registered its listeners.
-      this.reEmitGamepadConnected();
     };
 
     // Ensure menu is closed when the emulator starts
@@ -422,6 +419,12 @@ private _bootingFromGamepad = false;
     }
     this.installRuntimeTrackers();
     this.hideEJSMenu();
+
+    // If the user selected the ROM with a gamepad, intercept addEventListener
+    // so we can replay gamepadconnected to EmulatorJS once it registers.
+    if (this._gamepadUsedForSelection) {
+      this.installGamepadReplay();
+    }
 
     // 8) Inject loader.js (it will initialize EmulatorJS)
     if (!window.__ejsLoaderInjected) {
@@ -3332,16 +3335,45 @@ private onUiAction = async (action: UiAction) => {
     window.dispatchEvent(new Event('resize'));
   }
 
-  /** Re-dispatch gamepadconnected for every pad the browser already knows about. */
-  private reEmitGamepadConnected(): void {
+  /**
+   * Intercept window.addEventListener so that when EmulatorJS registers its
+   * 'gamepadconnected' handler we immediately call it with every gamepad the
+   * browser already knows about.  This is necessary because the browser fires
+   * that event only once per connection; if UiGamepadRouter already triggered
+   * it, EmulatorJS will never see it on its own.
+   */
+  private installGamepadReplay(): void {
+    const origAddEventListener = window.addEventListener.bind(window);
+    const padsSnapshot: Gamepad[] = [];
     try {
-      const pads = navigator.getGamepads?.();
-      if (!pads) return;
-      for (const pad of pads) {
-        if (!pad) continue;
-        window.dispatchEvent(new GamepadEvent('gamepadconnected', { gamepad: pad }));
+      const raw = navigator.getGamepads?.();
+      if (raw) {
+        for (const p of raw) { if (p) padsSnapshot.push(p); }
       }
     } catch { }
+
+    if (padsSnapshot.length === 0) return; // nothing to replay
+
+    (window as any).addEventListener = function (type: string, listener: any, options?: any) {
+      origAddEventListener(type, listener, options);
+
+      if (type === 'gamepadconnected' && typeof listener === 'function') {
+        // Call the handler directly for each already-connected pad.
+        // Using setTimeout so EJS finishes its own init before we fire.
+        setTimeout(() => {
+          for (const pad of padsSnapshot) {
+            try {
+              listener(new GamepadEvent('gamepadconnected', { gamepad: pad }));
+            } catch { }
+          }
+        }, 0);
+      }
+    };
+
+    // Restore the original after a generous window so all EJS listeners register
+    setTimeout(() => {
+      (window as any).addEventListener = origAddEventListener;
+    }, 15000);
   }
 
   private canUseThreads(core: Core, system: System): boolean {
