@@ -66,15 +66,15 @@
   text-align: center;
   padding-top: 15px;
   box-shadow: 2px 2px 13px 1px var(--component-background-color);
-  margin-bottom: 15px; 
+  margin-bottom: 15px;
   display: flex;
   flex-direction: column;
   align-items: center;
   align-content: stretch;
   justify-content: center;
-} 
+}
 
-.emuMenuButton, 
+.emuMenuButton,
 :host ::ng-deep .emuMenuButtonContainer .uploadButton {
   width: 75%;
   max-width: 300px;
@@ -110,7 +110,7 @@
   margin: 0 auto;
   display: block;
 }
- 
+
 #game canvas {
   width: 100% !important;
   height: 100% !important;
@@ -118,7 +118,7 @@
   max-height: 272px !important;
   image-rendering: pixelated;
 }
- 
+
 @supports (height: 100dvh) {
   #game {
     height: calc(100dvh - 60px);
@@ -145,17 +145,18 @@
 .ejs_cheat_heading {
   color: var(--main-font-color) !important;
 }
+
 .ejs_cheat_parent {
   background-color: var(--component-background-color) !important;
   color: var(--main-font-color) !important;
 }
+
 .ejs_button_button {
   border: var(--main-border) !important;
 }
-@media only screen and (max-width : 667px) {
-  .menuPanel {
-    z-index: 1000 !important;
-  }
+
+.menuPanel {
+  z-index: 1000 !important;
 }
 
 .checkbox-indicator {
@@ -169,7 +170,7 @@
 
 .checkbox-indicator.checked {
   background: var(--main-highlight-color);
-} 
+}
 
 .loadingContainerStatus {
   background-color: var(--main-highlight-color-quarter-opacity);
@@ -197,7 +198,7 @@
 }
 
 .saveStateButtons {
-  display: flex;  
+  display: flex;
   justify-content: space-around;
   width: 100%;
 }

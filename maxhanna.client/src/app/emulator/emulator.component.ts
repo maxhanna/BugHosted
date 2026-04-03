@@ -404,6 +404,11 @@ private _bootingFromGamepad = false;
       }
 
       try { this.onEmulatorReadyForSizing(); } catch { console.warn('[EMU] onEmulatorReadyForSizing failed'); }
+
+      // Re-announce connected gamepads so EmulatorJS detects them.
+      // The UiGamepadRouter may have already consumed the original
+      // gamepadconnected events before EmulatorJS registered its listeners.
+      this.reEmitGamepadConnected();
     };
 
     // Ensure menu is closed when the emulator starts
@@ -3325,6 +3330,18 @@ private onUiAction = async (action: UiAction) => {
   private forceCanvasRelayout(): void {
     console.log('%c[EMU] Forcing canvas relayout ✔', 'color:#4af');
     window.dispatchEvent(new Event('resize'));
+  }
+
+  /** Re-dispatch gamepadconnected for every pad the browser already knows about. */
+  private reEmitGamepadConnected(): void {
+    try {
+      const pads = navigator.getGamepads?.();
+      if (!pads) return;
+      for (const pad of pads) {
+        if (!pad) continue;
+        window.dispatchEvent(new GamepadEvent('gamepadconnected', { gamepad: pad }));
+      }
+    } catch { }
   }
 
   private canUseThreads(core: Core, system: System): boolean {
