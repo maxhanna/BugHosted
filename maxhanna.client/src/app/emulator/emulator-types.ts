@@ -339,9 +339,8 @@ export class UiGamepadRouter {
 
 
   enable() {
-    if (this.running) return;
-
-    // IMPORTANT: only start polling if a gamepad is actually present
+    if (this.running) return; 
+    
     const pads = navigator.getGamepads();
     const hasPad = Array.from(pads).some(p => p && p.connected);
 
@@ -350,8 +349,7 @@ export class UiGamepadRouter {
     this.uiEnabled = true;
     this.running = true;
     this.loop();
-  }
-
+  } 
 
   disable() {
     this.running = false;
