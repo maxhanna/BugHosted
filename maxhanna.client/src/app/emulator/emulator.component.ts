@@ -559,7 +559,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
       //Nintendo 64
       case 'parallel_n64':
-        return '/assets/emulatorjs/data/cores/PARALLEL64.zip';
+        return '/assets/emulatorjs/data/cores/64DD_IPL.bin';
       case 'mupen64plus_next':
         return '/assets/emulatorjs/data/cores/MUPEN64PLUSNEXT.zip';
 
