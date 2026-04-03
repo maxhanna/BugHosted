@@ -65,7 +65,7 @@ export type System =
   | 'atari_2600' | 'atari_5200' | 'atari_7800' | 'atari_lynx' | 'atari_jaguar' | 'atari'
   | 'c64' | 'c128' | 'amiga' | 'pet' | 'plus4' | 'vic20'
   | 'arcade';
-  
+
 export type Core =
   | 'fceumm'
   | 'gambatte'
@@ -337,16 +337,21 @@ export class UiGamepadRouter {
     this.onInput = handler;
   }
 
+
   enable() {
     if (this.running) return;
 
+    // IMPORTANT: only start polling if a gamepad is actually present
+    const pads = navigator.getGamepads();
+    const hasPad = Array.from(pads).some(p => p && p.connected);
+
+    if (!hasPad) return;
+
     this.uiEnabled = true;
-    window.addEventListener(
-      'gamepadconnected',
-      this.startPolling,
-      { once: true }
-    );
+    this.running = true;
+    this.loop();
   }
+
 
   disable() {
     this.running = false;
@@ -354,11 +359,6 @@ export class UiGamepadRouter {
     this.onInput = undefined;
     this.lastButtons.clear();
   }
-
-  private startPolling = () => {
-    this.running = true;
-    this.loop();
-  };
 
   private loop = () => {
     if (!this.running || !this.uiEnabled) return;
@@ -389,14 +389,13 @@ export class UiGamepadRouter {
       case 13: return 'down';
       case 14: return 'left';
       case 15: return 'right';
-      case 0:  return 'confirm';
-      case 1:  return 'cancel';
-      case 9:  return 'menu';
+      case 0: return 'confirm';
+      case 1: return 'cancel';
+      case 9: return 'menu';
       default: return 'noop';
     }
   }
-}
-
+} 
 
 export type UiAction =
   | 'up' | 'down' | 'left' | 'right'
