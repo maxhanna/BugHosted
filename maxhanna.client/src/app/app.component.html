@@ -41,7 +41,7 @@
   </div>
 </router-outlet>
 <div class="overlay" *ngIf="isShowingOverlay" (click)="closeOverlay()"></div>
-<div class="popupPanel" *ngIf="isShowingYoutubePopup">
+<div class="popupPanel youtubeIframePopup" *ngIf="isShowingYoutubePopup">
   <iframe id="youtubeIframe"></iframe>
   <div style="margin-top: 10px; text-align: center;">
     <button id="closeOverlay" (click)="closeYoutubePopup()">❌ Close</button>
