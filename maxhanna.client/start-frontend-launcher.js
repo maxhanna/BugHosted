@@ -23,6 +23,18 @@ function writeLog(...parts) {
   }
 }
 
+function writeDebugFileToDesktop(errorOutput) {
+  try {
+    const desktopDir = path.join(require('os').homedir(), 'Desktop');
+    const debugPath = path.join(desktopDir, 'debug.txt');
+    fs.writeFileSync(debugPath, errorOutput, { encoding: 'utf8' });
+  } catch (e) {
+    const now = new Date();
+    const localTime = now.toLocaleTimeString();
+    console.log(`[LOG] ${localTime} ${e.message}`); // Also log to console 
+  }
+}
+
 // Log startup info
 writeLog('=== Launcher Started ===');
 writeLog('Frontend path:', frontendPath);
@@ -50,7 +62,11 @@ function findIndexRecursive(dir) {
 }
 
 if (!fs.existsSync(prodServerPath)) {
-  console.error(`ERROR: prod-server.js not found at ${prodServerPath}`);
+  const errorMsg = `ERROR: prod-server.js not found at ${prodServerPath}`;
+  console.error(errorMsg);
+  try {
+    writeDebugFileToDesktop(errorMsg);
+  } catch (e) {}
   process.exit(1);
 }
 
@@ -264,11 +280,19 @@ async function runBuildIfNeeded() {
       // Require the server file directly. It will start listening immediately.
       require(prodServerPath);
     } catch (err) {
-      writeLog('Failed to require/start prod server in-process:', err && err.stack ? err.stack : err);
+      const errorMsg = 'Failed to require/start prod server in-process: ' + (err && err.stack ? err.stack : err);
+      writeLog(errorMsg);
+      try {
+        writeDebugFileToDesktop(errorMsg);
+      } catch (e) {}
       process.exit(1);
     }
   } catch (err) {
-    writeLog('Error preparing frontend:', err && err.stack ? err.stack : err);
+    const errorMsg = 'Error preparing frontend: ' + (err && err.stack ? err.stack : err);
+    writeLog(errorMsg);
+    try {
+      writeDebugFileToDesktop(errorMsg);
+    } catch (e) {}
     process.exit(1);
   }
 })();
