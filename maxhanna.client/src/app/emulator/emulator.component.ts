@@ -56,6 +56,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   systemCandidates: Array<{ label: string; core?: Core }> = [];
   selectedSystemCore?: Core | null = null;
   displayAsTable = true;
+private _bootingFromGamepad = false; 
   private gamepadRouter = new UiGamepadRouter();
   private _lastCanvasBufW = 0;
   private _lastCanvasBufH = 0;
@@ -2869,29 +2870,85 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   toggleDisplayAsTable(display: boolean): void {
     this.displayAsTable = display;
   }
+  
+private sleep(ms: number) {
+  return new Promise<void>(resolve => setTimeout(resolve, ms));
+}
+
+private nextFrame() {
+  return new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+}
+
+private async waitForGamepadsNeutral(stableMs = 120, timeoutMs = 2000): Promise<void> {
+  const start = performance.now();
+  let neutralSince = 0;
+
+  while (performance.now() - start < timeoutMs) {
+    const pads = Array.from(navigator.getGamepads?.() ?? []);
+    const busy = pads.some(p =>
+      p &&
+      (
+        p.buttons.some(b => b.pressed || b.value > 0.2) ||
+        p.axes.some(a => Math.abs(a) > 0.25)
+      )
+    );
+
+    if (!busy) {
+      if (!neutralSince) neutralSince = performance.now();
+      if (performance.now() - neutralSince >= stableMs) return;
+    } else {
+      neutralSince = 0;
+    }
+
+    await this.sleep(16);
+  }
+}
+
   /** For Gamepad Selection */
   private enterFileBrowserMode() {
     this.gamepadRouter.setHandler(this.onUiAction);
     this.gamepadRouter.enable();
   }
   /** For Gamepad Selection */
-  private onUiAction = (action: UiAction) => {
-    switch (action) {
-      case 'up':
-        this.selectPrev();
-        break;
+  
+private onUiAction = async (action: UiAction) => {
+  switch (action) {
+    case 'up':
+      this.selectPrev();
+      break;
 
-      case 'down':
-        this.selectNext();
-        break;
+    case 'down':
+      this.selectNext();
+      break;
 
-      case 'confirm':
-        // FULL gamepad handoff
+    case 'confirm':
+      if (this._bootingFromGamepad) return;
+      this._bootingFromGamepad = true;
+
+      try {
+        // Full handoff
         this.gamepadRouter.disable();
+
+        // Let the DOM/input settle
+        await this.nextFrame();
+        await this.waitForGamepadsNeutral();
+        await this.nextFrame();
+        await this.nextFrame();
+
+        // Keep the page focused before EJS starts polling
+        window.focus();
+
+        // Launch
         this.launchSelectedRom();
-        break;
-    }
-  };
+      } finally {
+        this._bootingFromGamepad = false;
+      }
+      break;
+
+    case 'cancel':
+      break;
+  }
+}; 
   /** For Gamepad Selection */
   private selectPrev() {
     this.fileSearchComponent?.scrollToPrevious();

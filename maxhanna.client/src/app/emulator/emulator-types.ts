@@ -337,19 +337,12 @@ export class UiGamepadRouter {
     this.onInput = handler;
   }
 
-
   enable() {
-    if (this.running) return; 
-    
-    const pads = navigator.getGamepads();
-    const hasPad = Array.from(pads).some(p => p && p.connected);
-
-    if (!hasPad) return;
-
+    if (this.running) return;
     this.uiEnabled = true;
     this.running = true;
     this.loop();
-  } 
+  }
 
   disable() {
     this.running = false;
@@ -361,14 +354,30 @@ export class UiGamepadRouter {
   private loop = () => {
     if (!this.running || !this.uiEnabled) return;
 
-    const pads = navigator.getGamepads();
+    const pads = navigator.getGamepads?.() ?? [];
     for (const pad of pads) {
       if (!pad) continue;
 
       const prev = this.lastButtons.get(pad.index) ?? [];
+
       pad.buttons.forEach((b, i) => {
-        if (b.pressed && !prev[i]) {
-          this.onInput?.(this.mapButton(i));
+        const wasPressed = !!prev[i];
+        const isPressed = b.pressed;
+
+        // Emit navigation on press
+        if (!wasPressed && isPressed) {
+          const action = this.mapButtonPress(i);
+          if (action !== 'noop') {
+            this.onInput?.(action);
+          }
+        }
+
+        // Emit confirm/cancel/menu on release
+        if (wasPressed && !isPressed) {
+          const action = this.mapButtonRelease(i);
+          if (action !== 'noop') {
+            this.onInput?.(action);
+          }
         }
       });
 
@@ -381,19 +390,26 @@ export class UiGamepadRouter {
     requestAnimationFrame(this.loop);
   };
 
-  private mapButton(index: number): UiAction {
+  private mapButtonPress(index: number): UiAction {
     switch (index) {
       case 12: return 'up';
       case 13: return 'down';
       case 14: return 'left';
       case 15: return 'right';
+      default: return 'noop';
+    }
+  }
+
+  private mapButtonRelease(index: number): UiAction {
+    switch (index) {
       case 0: return 'confirm';
       case 1: return 'cancel';
       case 9: return 'menu';
       default: return 'noop';
     }
   }
-} 
+}
+
 
 export type UiAction =
   | 'up' | 'down' | 'left' | 'right'
