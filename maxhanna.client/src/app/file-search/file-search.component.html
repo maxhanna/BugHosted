@@ -213,7 +213,7 @@
       class="inlineMetaPanel">
       <div class="romMetaPanelInline">
         <button class="closePopupBtn" title="Close" (click)="closeOptionsPanel()">×</button>
-        <div class="romMetaHeader">
+        <div class="romMetaHeader romPanelHeaderTitle">
           <span
             [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata?.actualSystem) || '🎮'"></span>
           <strong>{{ optionsFile.romMetadata?.igdbName }}</strong>
