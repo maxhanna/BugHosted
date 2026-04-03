@@ -200,7 +200,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.presetRomName = file.fileName;
     this.selectedROMFile = file;
 
-    this.gamepadRouter.mute();
+    this.gamepadRouter.handoffToEmulator();
 
     // Always build candidate list for this file. If there are multiple real
     // candidates (beyond the 'Auto-detect' entry) prompt the user to choose.

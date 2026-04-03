@@ -332,21 +332,26 @@ export class UiGamepadRouter {
   private running = false;
   private lastButtons = new Map<number, boolean[]>();
   private onInput?: (action: UiAction) => void;
+  
+  enable() {
+    if (this.running) return; 
+    window.addEventListener('gamepadconnected', this.startPolling, { once: true });
+  }
 
-  enable(onInput: (action: UiAction) => void) {
-    this.onInput = onInput;
+  private startPolling = () => {
+    this.running = true;
     this.uiEnabled = true;
+    this.loop();
+  }; 
 
-    if (!this.running) {
-      this.running = true;
-      this.loop();
-    }
-  }
-
-  /** Soft mute: UI stops responding, gamepad stays warm */
-  mute() {
+  /** Soft mute: UI stops responding, gamepad stays warm */ 
+  handoffToEmulator() {
     this.uiEnabled = false;
+    this.running = false;          // ✅ STOP polling
+    this.lastButtons.clear();      // ✅ drop ownership
+    this.onInput = undefined;
   }
+
 
   /** Full shutdown – ONLY when leaving page */
   disable() {
