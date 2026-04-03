@@ -128,13 +128,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   ngOnDestroy(): void {
     this.status = 'Destroying emulator...';
-
-    try {
-    } catch { console.error('Error removing resize listeners'); }
-
     this._destroyed = true;
     this._ejsReady = false;
-    this.clearAutosave();
+    this.clearAutosave(); 
+    this.gamepadRouter.disable();
 
     if (this.parentRef) {
       this.parentRef.preventShowSecurityPopup = false;
@@ -204,7 +201,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.presetRomName = file.fileName;
     this.selectedROMFile = file;
 
-    this.gamepadRouter.disable();
+    this.gamepadRouter.mute();
     this.uiState = 'emulator-running';
 
     // Always build candidate list for this file. If there are multiple real

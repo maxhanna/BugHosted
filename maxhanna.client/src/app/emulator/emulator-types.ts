@@ -334,44 +334,71 @@ declare global {
 }
 
 export class UiGamepadRouter {
-  private active = false;
+  private uiEnabled = false;
+  private running = false;
   private lastButtons = new Map<number, boolean[]>();
-  private rafId: number | null = null;
+  private onInput?: (action: UiAction) => void;
 
   enable(onInput: (action: UiAction) => void) {
-    if (this.active) return;
-    this.active = true;
+    this.onInput = onInput;
+    this.uiEnabled = true;
 
-    const loop = () => {
-      if (!this.active) return;
-
-      const pads = navigator.getGamepads();
-      for (const pad of pads) {
-        if (!pad) continue;
-
-        const prev = this.lastButtons.get(pad.index) ?? [];
-        pad.buttons.forEach((b, i) => {
-          if (b.pressed && !prev[i]) {
-            onInput(this.mapButton(i));
-          }
-        });
-        this.lastButtons.set(
-          pad.index,
-          pad.buttons.map(b => b.pressed)
-        );
-      }
-      this.rafId = requestAnimationFrame(loop);
-    };
-
-    loop();
+    if (!this.running) {
+      this.running = true;
+      this.loop();
+    }
   }
 
+  /** Soft mute: UI stops responding, gamepad stays warm */
+  mute() {
+    this.uiEnabled = false;
+  }
+
+  /** Full shutdown – ONLY when leaving page */
   disable() {
-    this.active = false;
+    this.uiEnabled = false;
+    this.running = false;
+    this.onInput = undefined;
     this.lastButtons.clear();
-    if (this.rafId) cancelAnimationFrame(this.rafId);
-    this.rafId = null;
   }
+
+  /** Call when returning from emulator → UI */
+  resync() {
+    const pads = navigator.getGamepads();
+    for (const pad of pads) {
+      if (!pad) continue;
+      this.lastButtons.set(
+        pad.index,
+        pad.buttons.map(b => b.pressed)
+      );
+    }
+  }
+
+  private loop = () => {
+    if (!this.running || !this.uiEnabled) return;
+
+    const pads = navigator.getGamepads();
+    for (const pad of pads) {
+      if (!pad) continue;
+
+      const prev = this.lastButtons.get(pad.index) ?? [];
+      pad.buttons.forEach((b, i) => {
+        if (
+          b.pressed &&
+          !prev[i]
+        ) {
+          this.onInput?.(this.mapButton(i));
+        }
+      });
+
+      this.lastButtons.set(
+        pad.index,
+        pad.buttons.map(b => b.pressed)
+      );
+    }
+
+    requestAnimationFrame(this.loop);
+  };
 
   private mapButton(index: number): UiAction {
     switch (index) {
@@ -379,13 +406,13 @@ export class UiGamepadRouter {
       case 13: return 'down';
       case 14: return 'left';
       case 15: return 'right';
-      case 0:  return 'confirm'; // A
-      case 1:  return 'cancel';  // B
-      case 9:  return 'menu';    // Start
+      case 0:  return 'confirm';
+      case 1:  return 'cancel';
+      case 9:  return 'menu';
       default: return 'noop';
     }
   }
-}
+} 
 
 export type UiAction =
   | 'up' | 'down' | 'left' | 'right'
