@@ -139,7 +139,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (this.parentRef) {
       this.parentRef.preventShowSecurityPopup = false;
     }
-    this.filebro
+    
     this.remove_me('EmulatorComponent');
   }
 
