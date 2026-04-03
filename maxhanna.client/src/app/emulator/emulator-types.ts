@@ -8,12 +8,6 @@ export type CoreDescriptor = {
   hints?: RegExp[];
 };
 
-export type EmuUiState =
-  | 'file-browser'
-  | 'system-picker'
-  | 'emulator-running'
-  | 'paused-menu';
-
 export type VPadItem =
   | {
     type: 'button';

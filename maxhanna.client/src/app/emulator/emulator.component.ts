@@ -9,7 +9,7 @@ import { AppComponent } from '../app.component';
 import {
   VPadItem, System, BuildOpts, SystemCandidate, CoreDescriptor,
   MIN_STATE_SIZE, FAQ_ITEMS, GENESIS_6BUTTON, GENESIS_FORCE_THREE,
-  PSP_DEFAULT_OPTIONS, Core, EmuUiState, UiGamepadRouter, UiAction
+  PSP_DEFAULT_OPTIONS, Core, UiGamepadRouter, UiAction
 } from './emulator-types';
 
 @Component({
@@ -56,8 +56,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   systemCandidates: Array<{ label: string; core?: Core }> = [];
   selectedSystemCore?: Core | null = null;
   displayAsTable = true;
-  uiState?: EmuUiState;
-  gamepadRouter = new UiGamepadRouter();
+  private gamepadRouter = new UiGamepadRouter();
   private _lastCanvasBufW = 0;
   private _lastCanvasBufH = 0;
   private autosaveInterval: any;
@@ -202,7 +201,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.selectedROMFile = file;
 
     this.gamepadRouter.mute();
-    this.uiState = 'emulator-running';
 
     // Always build candidate list for this file. If there are multiple real
     // candidates (beyond the 'Auto-detect' entry) prompt the user to choose.
@@ -2873,7 +2871,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
   /** For Gamepad Selection */
   private enterFileBrowserMode() {
-    this.uiState = 'file-browser';
     this.gamepadRouter.enable(action => this.onUiAction(action));
   }
   /** For Gamepad Selection */

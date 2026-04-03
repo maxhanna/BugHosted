@@ -170,9 +170,9 @@
 <!-- Save Progress Confirmation Panel -->
 <div class="popupPanel menuPanel" *ngIf="isSaveConfirmPanelOpen">
   <div class="popupPanelTitle">Save Progress?</div>
-  <div style="padding:8px;">
+  <div class="saveStateMessageDiv">
     <p>{{ saveConfirmMessage || 'Do you want to save your progress before continuing?' }}</p>
-    <div style="display:flex; gap:8px; margin-top:12px; justify-content:center;">
+    <div class="saveStateButtons">
       <button (click)="handleSaveConfirm('save')" class="enhancedButton">Save</button>
       <button (click)="handleSaveConfirm('dontSave')" 
         class="enhancedButton"
