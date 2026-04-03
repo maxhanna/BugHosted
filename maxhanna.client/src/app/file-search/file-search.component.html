@@ -872,7 +872,7 @@
 <!-- Image preview popup -->
 <div class="popupPanel imagePreviewPopup" *ngIf="isShowingImagePreview">
   <div class="popupPanelTitle">Preview</div>
-  <div style="padding:12px; text-align:center; max-height:70vh; overflow:auto;">
+  <div class="imagePreviewContainer">
     <img [src]="imagePreviewUrl" class="imagePreviewLarge" loading="lazy" />
   </div>
   <button id="closeOverlay" (click)="closeImagePreview()" class="closeButton">Close</button>
