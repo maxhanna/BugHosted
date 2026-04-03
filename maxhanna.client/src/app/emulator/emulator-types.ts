@@ -8,6 +8,12 @@ export type CoreDescriptor = {
   hints?: RegExp[];
 };
 
+export type EmuUiState =
+  | 'file-browser'
+  | 'system-picker'
+  | 'emulator-running'
+  | 'paused-menu';
+
 export type VPadItem =
   | {
     type: 'button';
@@ -326,3 +332,62 @@ declare global {
     EJS_ready?: (api: any) => void;
   }
 }
+
+export class UiGamepadRouter {
+  private active = false;
+  private lastButtons = new Map<number, boolean[]>();
+  private rafId: number | null = null;
+
+  enable(onInput: (action: UiAction) => void) {
+    if (this.active) return;
+    this.active = true;
+
+    const loop = () => {
+      if (!this.active) return;
+
+      const pads = navigator.getGamepads();
+      for (const pad of pads) {
+        if (!pad) continue;
+
+        const prev = this.lastButtons.get(pad.index) ?? [];
+        pad.buttons.forEach((b, i) => {
+          if (b.pressed && !prev[i]) {
+            onInput(this.mapButton(i));
+          }
+        });
+        this.lastButtons.set(
+          pad.index,
+          pad.buttons.map(b => b.pressed)
+        );
+      }
+      this.rafId = requestAnimationFrame(loop);
+    };
+
+    loop();
+  }
+
+  disable() {
+    this.active = false;
+    this.lastButtons.clear();
+    if (this.rafId) cancelAnimationFrame(this.rafId);
+    this.rafId = null;
+  }
+
+  private mapButton(index: number): UiAction {
+    switch (index) {
+      case 12: return 'up';
+      case 13: return 'down';
+      case 14: return 'left';
+      case 15: return 'right';
+      case 0:  return 'confirm'; // A
+      case 1:  return 'cancel';  // B
+      case 9:  return 'menu';    // Start
+      default: return 'noop';
+    }
+  }
+}
+
+export type UiAction =
+  | 'up' | 'down' | 'left' | 'right'
+  | 'confirm' | 'cancel' | 'menu'
+  | 'noop';

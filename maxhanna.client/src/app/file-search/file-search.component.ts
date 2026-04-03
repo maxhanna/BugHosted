@@ -124,6 +124,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   notesFile: FileEntry | undefined;
   isFirstLoad = true;
   pageLocked = false;
+
+  private controllerIndex: number = -1;
   private _hoverOverlayEl: HTMLElement | null = null;
   private _hoverOverlayHost: HTMLElement | null = null;
   private _componentMainPrevPosition: string | null = null;
@@ -155,7 +157,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     private route: ActivatedRoute,
     private changeDetectorRef: ChangeDetectorRef,
     private sanitizer: DomSanitizer) {
-    super(); 
+    super();
     this.windowScrollHandler = this.debounce(this.onWindowScroll.bind(this), 200);
     this.containerScrollHandler = this.debounce(this.onContainerScroll.bind(this), 200);
   }
@@ -447,6 +449,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     // console.log('[FileSearch] getDirectory called', { fileArg: file, fileIdArg: fileId, append, isLoading: this.isLoading, currentDirectory: this.currentDirectory });
     this.startLoading();
     this.pageLocked = true;
+    this.resetControllerHover();
     let fileTypes: string[] = [];
     const filterArr = this.fileTypeFilter.split(',').map(t => t.trim().toLowerCase()).filter(t => t);
     if (this.allowedFileTypes && this.allowedFileTypes.length > 0) {
@@ -1366,32 +1369,31 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       }
     }
   }
+
   @HostListener('window:keydown', ['$event'])
   handleKeyboardEvent(event: KeyboardEvent): void {
-    try {
-      const tgt = event?.target as HTMLElement | null;
+    const tgt = event.target as HTMLElement;
+    if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA')) return;
 
-      // If editing an inline filename input, ignore (legacy specific check)
-      if (tgt && tgt.id && tgt.id.includes('editFileName')) return;
-
-      // If focus is on an input, textarea, or a contenteditable element, don't handle j/k here
-      if (tgt) {
-        const tag = (tgt.tagName || '').toUpperCase();
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || tgt.isContentEditable) return;
-
-        // Also allow nested inputs inside custom components like <app-text-input>
-        const editableAncestor = tgt.closest('input, textarea, [contenteditable="true"], app-text-input');
-        if (editableAncestor) return;
-      }
-
-      if (event.key === 'k' || event.key === 'K') {
+    switch (event.key) {
+      case 'ArrowDown':
+      case 'j':
+      case 'J':
         this.scrollToNext();
-      } else if (event.key === 'j' || event.key === 'J') {
+        event.preventDefault();
+        break;
+
+      case 'ArrowUp':
+      case 'k':
+      case 'K':
         this.scrollToPrevious();
-      }
-    } catch (e) {
-      // swallow any unexpected errors to avoid breaking global key handling
-      console.error('Keyboard handler error', e);
+        event.preventDefault();
+        break;
+
+      case 'Enter':
+        this.activateHoveredFile();
+        event.preventDefault();
+        break;
     }
   }
   scrollToTop() {
@@ -1439,47 +1441,73 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       }
     }, 100);
   }
-  scrollToNext(): void {
-    let allComps = document.getElementsByClassName("fileNameDiv");
-    let tgtComp = undefined;
-    let tgtCompIndex = 0;
-    for (let x = 0; x < allComps.length; x++) {
-      if (this.isElementInViewport(allComps[x] as HTMLElement)) {
-        tgtComp = allComps[x];
-        tgtCompIndex = x;
-      }
-    }
-    const nextIndex = tgtCompIndex + 1;
 
-    if (nextIndex < allComps.length) {
-      allComps[nextIndex]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  scrollToNext(): void {
+    const els = this.getFileElements();
+    if (!els.length) return;
+
+    if (this.controllerIndex < els.length - 1) {
+      this.controllerIndex++;
     } else {
-      const lmrDivs = document.getElementsByClassName("loadMoreResultsDiv");
-      if (lmrDivs) {
-        const lmrDivElement = lmrDivs[0];
-        if (lmrDivElement) {
-          lmrDivElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }
+      this.controllerIndex = els.length - 1;
     }
+
+    this.updateControllerHover();
   }
+
+
 
   scrollToPrevious(): void {
-    let allComps = document.getElementsByClassName("fileNameDiv");
-    let tgtCompIndex = 0;
-    let tgtComp = undefined;
-    for (let x = 0; x < allComps.length; x++) {
-      if (this.isElementInViewport(allComps[x] as HTMLElement)) {
-        tgtComp = allComps[x];
-        tgtCompIndex = x;
-      }
-    }
-    const prevIndex = tgtCompIndex - 2;
+    const els = this.getFileElements();
+    if (!els.length) return;
 
-    if (prevIndex >= 0) {
-      allComps[prevIndex]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (this.controllerIndex > 0) {
+      this.controllerIndex--;
+    } else {
+      this.controllerIndex = 0;
     }
+
+    this.updateControllerHover();
   }
+
+  activateHoveredFile(): void {
+    const els = this.getFileElements();
+    if (this.controllerIndex < 0 || this.controllerIndex >= els.length) return;
+
+    const el = els[this.controllerIndex];
+
+    // Prefer clicking the name span (avoids icons/options)
+    const clickTarget =
+      el.querySelector('.fileFolderNameSpan') ||
+      el.querySelector('#' + el.id.replace('Div', 'Name')) ||
+      el;
+
+    (clickTarget as HTMLElement)?.click();
+  }
+
+
+  private getFileElements(): HTMLElement[] {
+    return Array.from(
+      document.getElementsByClassName('fileNameDiv')
+    ) as HTMLElement[];
+  }
+
+  private updateControllerHover(): void {
+    const els = this.getFileElements();
+    els.forEach(el => el.classList.remove('controller-hover'));
+
+    if (this.controllerIndex < 0 || this.controllerIndex >= els.length) return;
+
+    const el = els[this.controllerIndex];
+    el.classList.add('controller-hover');
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  private resetControllerHover(): void {
+    this.controllerIndex = 0;
+    setTimeout(() => this.updateControllerHover(), 30);
+  }
+
   getTotalCommentCount(commentList?: FileComment[]): number {
     if (!commentList || commentList.length === 0) return 0;
     let count = 0;
@@ -1744,7 +1772,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     const lowerAllowed = this.allowedFileTypes.map(s => s.toLowerCase());
     return candidates.filter(k => this.romSystemExtensions[k].some(ext => lowerAllowed.includes(ext)));
   }
- 
+
   async onSystemFilterClick(key: string) {
     this.startLoading();
     try {
@@ -1940,45 +1968,45 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     // If a DB-persisted core override exists, map it directly to an icon
     if (actualSystem) {
       const coreIconMap: { [core: string]: string } = {
-        'pcsx_rearmed': base+'ps1icon.png',
-        'mednafen_psx_hw': base+'ps1icon.png',
-        'duckstation': base+'ps1icon.png',
-        'mednafen_psx': base+'ps1icon.png',
+        'pcsx_rearmed': base + 'ps1icon.png',
+        'mednafen_psx_hw': base + 'ps1icon.png',
+        'duckstation': base + 'ps1icon.png',
+        'mednafen_psx': base + 'ps1icon.png',
         'ppsspp': base + 'pspicon.png',
         'yabause': base + 'saturnicon.png',
         'beetle_saturn': base + 'saturnicon.png',
         'kronos_saturn': base + 'saturnicon.png',
-        'genesis_plus_gx': base+'segaicon.png',
-        'dreamcast': base+'dreamcasticon.png',
-        'naomi': base+'dreamcasticon.png',
-        'flycast': base+'dreamcasticon.png',
-        'picodrive': base+'segaicon.png',
+        'genesis_plus_gx': base + 'segaicon.png',
+        'dreamcast': base + 'dreamcasticon.png',
+        'naomi': base + 'dreamcasticon.png',
+        'flycast': base + 'dreamcasticon.png',
+        'picodrive': base + 'segaicon.png',
         'opera': base + 'ps1icon.png',
         'mupen64plus_next': base + 'n64icon.png',
         'parallel_n64': base + 'n64icon.png',
-        'melonds': base+'ndsicon.png',
-        'mgba': base+'gbaicon.png',
-        'gambatte': base+'gbicon.png',
-        'fceumm': base+'nesicon.png',
-        'snes9x': base+'snesicon.png',
-        'mednafen_vb': base+'nesicon.png',
-        'mame2003_plus': base+'atariicon.png',
-        'fbneo': base+'atariicon.png',
-        'stella2014': base+'atariicon.png',
-        'prosystem': base+'atariicon.png',
-        'handy': base+'atariicon.png',
-        'virtualjaguar': base+'atariicon.png',
-        'saturn': base+'saturnicon.png',
-        'gamecube': base+'gcicon.png',
-        'dolphin': base+'gcicon.png',
-        'n64': base+'n64icon.png',
-        'ps1': base+'ps1icon.png',
-        'gba': base+'gbaicon.png',
-        'nds': base+'ndsicon.png',
-        'nes': base+'nesicon.png',
-        'snes': base+'snesicon.png',
-        'genesis': base+'segaicon.png',
-        'psp': base+'pspicon.png'
+        'melonds': base + 'ndsicon.png',
+        'mgba': base + 'gbaicon.png',
+        'gambatte': base + 'gbicon.png',
+        'fceumm': base + 'nesicon.png',
+        'snes9x': base + 'snesicon.png',
+        'mednafen_vb': base + 'nesicon.png',
+        'mame2003_plus': base + 'atariicon.png',
+        'fbneo': base + 'atariicon.png',
+        'stella2014': base + 'atariicon.png',
+        'prosystem': base + 'atariicon.png',
+        'handy': base + 'atariicon.png',
+        'virtualjaguar': base + 'atariicon.png',
+        'saturn': base + 'saturnicon.png',
+        'gamecube': base + 'gcicon.png',
+        'dolphin': base + 'gcicon.png',
+        'n64': base + 'n64icon.png',
+        'ps1': base + 'ps1icon.png',
+        'gba': base + 'gbaicon.png',
+        'nds': base + 'ndsicon.png',
+        'nes': base + 'nesicon.png',
+        'snes': base + 'snesicon.png',
+        'genesis': base + 'segaicon.png',
+        'psp': base + 'pspicon.png'
       };
       const mapped = coreIconMap[actualSystem];
       if (mapped) return mapped;
@@ -1986,41 +2014,41 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (!extension) return undefined;
 
     const iconMap: { [key: string]: string } = {
-      'n64': base+'n64icon.png',
-      'z64': base+'n64icon.png',
-      'v64': base+'n64icon.png',
-      'a78': base+'atariicon.png',
-      '2600': base+'atariicon.png',
-      '5200': base+'atariicon.png',
-      '7800': base+'atariicon.png',
-      'lynx': base+'atariicon.png',
-      'jag': base+'atariicon.png',
-      'smd': base+'segaicon.png',
-      'gen': base+'segaicon.png',
-      '32x': base+'segaicon.png',
-      'gg': base+'segaicon.png',
-      'sms': base+'segaicon.png',
-      'md': base+'segaicon.png',
-      'snes': base+'snesicon.png',
-      'fig': base+'snesicon.png',
-      'smc': base+'snesicon.png',
-      'sfc': base+'snesicon.png',
-      'nds': base+'ndsicon.png',
-      'nes': base+'nesicon.png',
-      'ps1': base+'ps1icon.png',
-      'psp': base+'pspicon.png',
-      'pbp': base+'pspicon.png',
+      'n64': base + 'n64icon.png',
+      'z64': base + 'n64icon.png',
+      'v64': base + 'n64icon.png',
+      'a78': base + 'atariicon.png',
+      '2600': base + 'atariicon.png',
+      '5200': base + 'atariicon.png',
+      '7800': base + 'atariicon.png',
+      'lynx': base + 'atariicon.png',
+      'jag': base + 'atariicon.png',
+      'smd': base + 'segaicon.png',
+      'gen': base + 'segaicon.png',
+      '32x': base + 'segaicon.png',
+      'gg': base + 'segaicon.png',
+      'sms': base + 'segaicon.png',
+      'md': base + 'segaicon.png',
+      'snes': base + 'snesicon.png',
+      'fig': base + 'snesicon.png',
+      'smc': base + 'snesicon.png',
+      'sfc': base + 'snesicon.png',
+      'nds': base + 'ndsicon.png',
+      'nes': base + 'nesicon.png',
+      'ps1': base + 'ps1icon.png',
+      'psp': base + 'pspicon.png',
+      'pbp': base + 'pspicon.png',
       'psx': base + 'ps1icon.png',
-      'playstation': base + 'ps1icon.png', 
-      'saturn': base+'saturnicon.png',
-      'dreamcast': base+'dreamcasticon.png',
-      'genesis': base+'segaicon.png',
-      'gamecube': base+'gcicon.png',
-      'gc': base+'gcicon.png',
-      'sega': base+'segaicon.png',
-      'gb': base+'gbicon.png',
-      'gbc': base+'gbicon.png',
-      'gba': base+'gbaicon.png'
+      'playstation': base + 'ps1icon.png',
+      'saturn': base + 'saturnicon.png',
+      'dreamcast': base + 'dreamcasticon.png',
+      'genesis': base + 'segaicon.png',
+      'gamecube': base + 'gcicon.png',
+      'gc': base + 'gcicon.png',
+      'sega': base + 'segaicon.png',
+      'gb': base + 'gbicon.png',
+      'gbc': base + 'gbicon.png',
+      'gba': base + 'gbaicon.png'
     };
 
     if (iconMap[extension.toLowerCase()]) {
@@ -2110,7 +2138,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
 
     const fileName = file.fileName ?? '';
-    const ext = (this.fileService.getFileExtension(fileName) || '').toLowerCase(); 
+    const ext = (this.fileService.getFileExtension(fileName) || '').toLowerCase();
 
     // Emoji fallback mapping for common types
     const fallback: { [key: string]: string } = {
@@ -2176,7 +2204,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (thumbs.length < 2 && aw.length) thumbs.push(aw[0]);
 
     return thumbs.slice(0, 2);
-  } 
+  }
 
   handleFileHoverEnter(ev: Event, file: FileEntry) {
     try {

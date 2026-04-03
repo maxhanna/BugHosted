@@ -9,7 +9,7 @@ import { AppComponent } from '../app.component';
 import {
   VPadItem, System, BuildOpts, SystemCandidate, CoreDescriptor,
   MIN_STATE_SIZE, FAQ_ITEMS, GENESIS_6BUTTON, GENESIS_FORCE_THREE,
-  PSP_DEFAULT_OPTIONS, Core
+  PSP_DEFAULT_OPTIONS, Core, EmuUiState, UiGamepadRouter, UiAction
 } from './emulator-types';
 
 @Component({
@@ -56,6 +56,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   systemCandidates: Array<{ label: string; core?: Core }> = [];
   selectedSystemCore?: Core | null = null;
   displayAsTable = true;
+  uiState?: EmuUiState;
+  gamepadRouter = new UiGamepadRouter();
   private _lastCanvasBufW = 0;
   private _lastCanvasBufH = 0;
   private autosaveInterval: any;
@@ -113,14 +115,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   async ngAfterViewInit() {
     this.status = 'Ready - Select a ROM';
     this.cdr.detectChanges();
-    // If a preset ROM was provided via query/window, auto-load it now
+
     if (this.presetRomName && this.presetRomId) {
-      try {
-        if (this.presetForcedCore) this._forcedCore = this.presetForcedCore;
-        await this.loadRomThroughService(this.presetRomName, this.presetRomId, this.presetForcedCore);
-      } catch (e) {
-        console.error('Failed to auto-load preset ROM', e);
+      if (this.presetForcedCore) {
+        this._forcedCore = this.presetForcedCore;
       }
+      await this.loadRomThroughService(this.presetRomName, this.presetRomId, this.presetForcedCore);
+    } else {
+      this.enterFileBrowserMode();
     }
   }
 
@@ -137,6 +139,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (this.parentRef) {
       this.parentRef.preventShowSecurityPopup = false;
     }
+    this.filebro
     this.remove_me('EmulatorComponent');
   }
 
@@ -201,6 +204,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.presetRomName = file.fileName;
     this.selectedROMFile = file;
 
+    this.gamepadRouter.disable();
+    this.uiState = 'emulator-running';
+
     // Always build candidate list for this file. If there are multiple real
     // candidates (beyond the 'Auto-detect' entry) prompt the user to choose.
     this.systemCandidates = this.getSystemCandidatesForFile(file.fileName);
@@ -237,7 +243,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         this._forcedCore = preferred;
       }
     }
-    
+
     if (!this.selectedSystemCore && this.fileService.getAmbiguousRomExtensions().includes(ext)) {
       this._pendingFileToLoad = { fileName: file.fileName, fileId: file.id, directory: file.directory };
       this.isSystemSelectPanelOpen = true;
@@ -248,8 +254,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
     this.presetForcedCore = this.selectedSystemCore;
     if (this.selectedSystemCore && this.selectedROMFile.id && !this.selectedROMFile.romMetadata?.actualSystem) {
-      this.romService.setSystemOverride(this.selectedROMFile.id, this.selectedSystemCore).catch(() => { 
-        console.error('Failed to persist system override'); 
+      this.romService.setSystemOverride(this.selectedROMFile.id, this.selectedSystemCore).catch(() => {
+        console.error('Failed to persist system override');
       });
     }
 
@@ -433,8 +439,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
               await this.probeForSaveApi();
               this.tryBindSaveFromUI();
               this.scanAndTagVpadControls();
-              
-              await this.applySaveStateIfAvailable(saveStateBlob); 
+
+              await this.applySaveStateIfAvailable(saveStateBlob);
               this.lockGameHostHeight();
             });
           });
@@ -577,7 +583,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       case 'flycast':
       case 'dreamcast':
         return '/assets/emulatorjs/data/cores/NAOMI.zip';
-       // return '/assets/emulatorjs/data/cores/FLYCAST.zip';
+      // return '/assets/emulatorjs/data/cores/FLYCAST.zip';
 
       // Dreamcast (Naomi)
       case 'naomi':
@@ -718,7 +724,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const componentBackgroundColor = (rootStyle.getPropertyValue('--component-background-color') || '#3a3a3a').trim();
     const fileExt = this.fileService.getFileExtension(this.romName ?? '');
     let systemIcon: string | undefined = this.fileSearchComponent?.getSystemIconUrl(fileExt, core) ?? undefined;
- 
+
     const w = window as any;
     w.EJS_defaultOptionsForce = false;  // force defaults every run  (docs: config system)
     w.EJS_directKeyboardInput = true;   // deliver raw key events to the core
@@ -743,7 +749,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (this.onMobile() && (core === 'melonds' || core === 'nds' || core === 'desmume' || core === 'desmume2015')) {
       this.applyNDSCoreSettingsForMobile(w);
     }
-    const isDPADCentric = (system && (['nes', 'snes', 'gb', 'gbc', 'gba', 'genesis', 'saturn', 'sega_cd', '3do', 'nds'] as string[]).includes(system)) 
+    const isDPADCentric = (system && (['nes', 'snes', 'gb', 'gbc', 'gba', 'genesis', 'saturn', 'sega_cd', '3do', 'nds'] as string[]).includes(system))
       || core === 'yabause' || core === 'beetle_saturn' || core === 'kronos_saturn';
     const isLeftAndRightJoystickInverted = (system && ['n64'].includes(system));
     const rightStickValues = {
@@ -1184,9 +1190,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       let error = undefined;
       try {
         const res = await this.romService.saveEmulatorJSState(
-          this.romName!, 
-          this.parentRef!.user!.id!, 
-          this.selectedSystemCore ?? undefined, 
+          this.romName!,
+          this.parentRef!.user!.id!,
+          this.selectedSystemCore ?? undefined,
           u8,
           (loaded, total) => {
             this.displayRomUploadOrDownloadProgress(total, loaded, true);
@@ -2198,9 +2204,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     return forPS ? [
       // PlayStation: △ (triangle), ○ (circle), × (cross), □ (square)
       { type: 'button', id: 'btnTriangle', text: '△', location: 'right', left: -15, top: -20, input_value: 9, bold: true },
-      { type: 'button', id: 'btnCircle',   text: '○', location: 'right', left: 50, top: 20, input_value: 1, bold: true },
-      { type: 'button', id: 'btnCross',    text: '×', location: 'right', left: 10, top: 80, input_value: 0, bold: true },
-      { type: 'button', id: 'btnSquare',   text: '□', location: 'right', left: -50, top: 30, input_value: 8, bold: true },
+      { type: 'button', id: 'btnCircle', text: '○', location: 'right', left: 50, top: 20, input_value: 1, bold: true },
+      { type: 'button', id: 'btnCross', text: '×', location: 'right', left: 10, top: 80, input_value: 0, bold: true },
+      { type: 'button', id: 'btnSquare', text: '□', location: 'right', left: -50, top: 30, input_value: 8, bold: true },
     ] : [
       // Default: SNES/GBA style
       { type: 'button', id: 'btnX', text: 'X', location: 'right', left: -50, top: 30, input_value: 9, bold: true },
@@ -2445,7 +2451,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }
     // this.bindResizeBuffer();
   }
- 
+
 
   private slugifyName(name: string): string {
     return (name || '')
@@ -2658,7 +2664,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async finishFileUploading(files?: FileEntry[] | null): Promise<void> {
-    console.log('Finished uploading file, refreshing directory in file search component');      
+    console.log('Finished uploading file, refreshing directory in file search component');
     this.fileSearchComponent?.placeNewFilesOnTop(files ?? null);
   }
 
@@ -2810,7 +2816,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     w.EJS_disableDatabases = true;
     w.EJS_backgroundImage = '';
     w.EJS_backgroundBlur = false;
-  } 
+  }
 
   async applyPSPPerformanceTweak() {
     const core = (window as any).EJS_core;
@@ -2865,17 +2871,46 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     //console.log('%c[PSP] Post-boot tweaks applied ✔', 'color:#4f4');
   }
 
-  toggleDisplayAsTable(display: boolean):void {
+  enterFileBrowserMode() {
+    this.uiState = 'file-browser';
+    this.gamepadRouter.enable(action => this.onUiAction(action));
+  }
+
+  onUiAction(action: UiAction) {
+    switch (action) {
+      case 'up':
+        this.selectPrev();
+        break;
+      case 'down':
+        this.selectNext();
+        break;
+      case 'confirm':
+        this.launchSelectedRom();
+        break;
+      case 'cancel':
+        //this.goBack();
+        break;
+    }
+  }
+
+  selectPrev() {
+    this.fileSearchComponent?.scrollToPrevious();
+  }
+  selectNext() {
+    this.fileSearchComponent?.scrollToNext();
+  }
+  launchSelectedRom() {
+    this.fileSearchComponent?.activateHoveredFile();
+  }
+
+  toggleDisplayAsTable(display: boolean): void {
     this.displayAsTable = display;
   }
 
   /** Build the registry using FileService, once. */
   private buildCoreRegistry(fs: FileService): CoreDescriptor[] {
-    // Helpers to union arrays with dedupe
     const uniq = <T>(arr: T[]) => Array.from(new Set(arr));
     const plus = (a: string[], b: string[]) => uniq([...a, ...b]);
-
-    // Pull canonical lists from FileService
     const exNES = fs.getNesFileExtensions();       // ['nes','fds']
     const exSNES = fs.getSnesFileExtensions();      // ['snes','sfc','smc','fig']  (+ we'll add a few)
     const exGBA = fs.getGbaFileExtensions();       // ['gba']
@@ -2886,27 +2921,20 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     const exPS1 = fs.getPs1FileExtensions();       // ['bin','cue','iso','chd','pbp']
     const exSAT = fs.getSaturnFileExtensions();    // ['cue','chd','iso','bin']
     const exGEN = fs.getGenesisFileExtensions();   // ['smd','gen','32x','gg','sms','md']
-    const exGAMECUBE = fs.getGamecubeFileExtensions(); // ['iso','gcm','ciso','gdi','chd']
-
-    // Extra SNES formats commonly seen with libretro (Snes9x)
-    const exSNESExtra = ['swc', 'bs', 'st']; // confirmed in libretro Snes9x docs [1](https://docs.libretro.com/library/snes9x/)
-
+    const exGAMECUBE = fs.getGamecubeFileExtensions(); // ['iso','gcm','ciso','gdi','chd'] 
+    const exSNESExtra = ['swc', 'bs', 'st'];
     // Arcade
     const exArc = ['zip'];          // MAME2003+, FBNeo
-    const exArcMaybe = ['7z'];      // often used in FBNeo/MAME sets
-
+    const exArcMaybe = ['7z'];      // often used in FBNeo/MAME sets 
     // Multi-system disc formats to be treated as ambiguous
     const exAmbig = uniq([
       ...exPS1, ...exPSP, ...exSAT,
       ...fs.getAmbiguousRomExtensions()
     ]);
-
     // Dreamcast (Flycast, experimental): common formats
     const exDC = ['cdi', 'gdi', 'chd', 'cue', 'bin', 'elf', 'zip', '7z']; // libretro flycast supports these; WASM core required [5](https://docs.libretro.com/library/flycast/)
-
     // 3DO (Opera): typical images
     const ex3DO = ['iso', 'chd', 'cue']; // Opera libretro core supports these in common setups
-
     // Quake III (vitaQuake 3) – loads .pk3
     const exQ3 = ['pk3']; // from vitaquake3 *.info (supported_extensions="pk3") [2](https://sources.debian.org/src/libretro-core-info/1.14.0-1/vitaquake3_libretro.info/)
 
@@ -2921,15 +2949,15 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       { core: 'genesis_plus_gx', label: 'Sega CD / Mega‑CD', exts: [], maybeExts: exAmbig, hints: [/\bSEGA\s?CD\b|\bMEGA\s?CD\b/i] },
       { core: 'picodrive', label: 'Sega 32X', exts: ['32x'], maybeExts: exAmbig, hints: [/\b32X\b/i] },
       { core: 'yabause', label: 'Sega Saturn', exts: [], maybeExts: exAmbig, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
-     // { core: 'beetle_saturn', label: 'Sega Saturn (Beetle)', exts: [], maybeExts: exAmbig, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
-     // { core: 'kronos_saturn', label: 'Sega Saturn (Kronos)', exts: [], maybeExts: exAmbig, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
+      // { core: 'beetle_saturn', label: 'Sega Saturn (Beetle)', exts: [], maybeExts: exAmbig, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
+      // { core: 'kronos_saturn', label: 'Sega Saturn (Kronos)', exts: [], maybeExts: exAmbig, hints: [/\bSATURN\b/i, /\bT-\d{4}/i, /\bMK-\d{4}/i] },
 
       // --- 3DO ---
       { core: 'opera', label: '3DO', exts: [], maybeExts: ex3DO, hints: [/\b3DO\b/i] },
 
       // --- Nintendo ---
       { core: 'parallel_n64', label: 'Nintendo 64 (parallel_n64)', exts: exN64, maybeExts: exAmbig, hints: [/\bN64\b/i] },
-  //    { core: 'mupen64plus_next', label: 'Nintendo 64 (Mupen64Plus)', exts: exN64, maybeExts: exAmbig, hints: [/\bN64\b/i] },
+      //    { core: 'mupen64plus_next', label: 'Nintendo 64 (Mupen64Plus)', exts: exN64, maybeExts: exAmbig, hints: [/\bN64\b/i] },
       { core: 'desmume2015', label: 'Nintendo DS (DeSmuME)', exts: exNDS, maybeExts: exAmbig, hints: [/\bNDS\b|\bDS\b/i] },
       { core: 'melonds', label: 'Nintendo DS (melonDS)', exts: exNDS, maybeExts: exAmbig, hints: [/\bNDS\b|\bDS\b/i] },
       { core: 'dolphin', label: 'GameCube / Wii (Dolphin)', exts: exGAMECUBE, maybeExts: exAmbig, hints: [/\bGAMECUBE\b|\bDOLPHIN\b|\bGC\b|\bWII\b/i] },
@@ -2961,12 +2989,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       { core: 'vitaquake3', label: 'Quake III Arena (vitaQuake 3)', exts: exQ3, maybeExts: [], hints: [/pak0\.pk3/i] }, // loads *.pk3 [2](https://sources.debian.org/src/libretro-core-info/1.14.0-1/vitaquake3_libretro.info/)
     ];
   }
-
-  private isAmbiguousFile(fileName: string): boolean {
-    const ext = this.normExt(fileName, n => this.fileService.getFileExtension(n));
-    return this.fileService.getAmbiguousRomExtensions().includes(ext);
-  }
-
 
   private getSystemCandidatesForFile(fileName: string): SystemCandidate[] {
     const ext = this.normExt(fileName, n => this.fileService.getFileExtension(n));

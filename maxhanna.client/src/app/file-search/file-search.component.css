@@ -684,4 +684,14 @@
   word-break: break-word;
   max-height: 100px;
   overflow: auto;
+} 
+
+.fileNameDiv.controller-hover {
+  outline: 2px solid #4af;
+  background: rgba(80, 160, 255, 0.12);
+  border-radius: 6px;
+}
+
+.fileNameDiv.controller-hover .fileFolderNameSpan {
+  font-weight: 600;
 }
