@@ -134,6 +134,10 @@
     </div>
   </div>
 
+  <div *ngIf="!romName && !onMobile()" class="menuControllerNotice">
+    For your convenience, you can also select/load ROMs using your controller!
+  </div>
+
   <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
 </div>
 
