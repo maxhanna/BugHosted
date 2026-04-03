@@ -401,6 +401,20 @@ private _bootingFromGamepad = false;
         }
 
         this.ensureSaveStatePolyfill();
+
+        // If the user selected the ROM with a gamepad, the GamepadHandler inside
+        // EmulatorJS detected the pad during construction — before gamepadLabels
+        // existed — so the 'connected' handler silently returned.  Clear the
+        // internal gamepads array so GamepadHandler re-detects on its next poll
+        // cycle, at which point the UI is ready to auto-assign it.
+        if (this._gamepadUsedForSelection) {
+          try {
+            const emu = window.EJS_emulator;
+            if (emu?.gamepad?.gamepads) {
+              emu.gamepad.gamepads = [];
+            }
+          } catch { /* best-effort */ }
+        }
       } catch {
         console.warn('[EMU] EJS_ready callback failed');
       }
@@ -419,12 +433,6 @@ private _bootingFromGamepad = false;
     }
     this.installRuntimeTrackers();
     this.hideEJSMenu();
-
-    // If the user selected the ROM with a gamepad, intercept addEventListener
-    // so we can replay gamepadconnected to EmulatorJS once it registers.
-    if (this._gamepadUsedForSelection) {
-      this.installGamepadReplay();
-    }
 
     // 8) Inject loader.js (it will initialize EmulatorJS)
     if (!window.__ejsLoaderInjected) {
@@ -3333,47 +3341,6 @@ private onUiAction = async (action: UiAction) => {
   private forceCanvasRelayout(): void {
     console.log('%c[EMU] Forcing canvas relayout ✔', 'color:#4af');
     window.dispatchEvent(new Event('resize'));
-  }
-
-  /**
-   * Intercept window.addEventListener so that when EmulatorJS registers its
-   * 'gamepadconnected' handler we immediately call it with every gamepad the
-   * browser already knows about.  This is necessary because the browser fires
-   * that event only once per connection; if UiGamepadRouter already triggered
-   * it, EmulatorJS will never see it on its own.
-   */
-  private installGamepadReplay(): void {
-    const origAddEventListener = window.addEventListener.bind(window);
-    const padsSnapshot: Gamepad[] = [];
-    try {
-      const raw = navigator.getGamepads?.();
-      if (raw) {
-        for (const p of raw) { if (p) padsSnapshot.push(p); }
-      }
-    } catch { }
-
-    if (padsSnapshot.length === 0) return; // nothing to replay
-
-    (window as any).addEventListener = function (type: string, listener: any, options?: any) {
-      origAddEventListener(type, listener, options);
-
-      if (type === 'gamepadconnected' && typeof listener === 'function') {
-        // Call the handler directly for each already-connected pad.
-        // Using setTimeout so EJS finishes its own init before we fire.
-        setTimeout(() => {
-          for (const pad of padsSnapshot) {
-            try {
-              listener(new GamepadEvent('gamepadconnected', { gamepad: pad }));
-            } catch { }
-          }
-        }, 0);
-      }
-    };
-
-    // Restore the original after a generous window so all EJS listeners register
-    setTimeout(() => {
-      (window as any).addEventListener = origAddEventListener;
-    }, 15000);
   }
 
   private canUseThreads(core: Core, system: System): boolean {
