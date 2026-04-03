@@ -2869,14 +2869,18 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       }
     } catch { }
     //console.log('%c[PSP] Post-boot tweaks applied ✔', 'color:#4f4');
-  }
+  } 
 
-  enterFileBrowserMode() {
+  toggleDisplayAsTable(display: boolean): void {
+    this.displayAsTable = display;
+  }
+  /** For Gamepad Selection */
+  private enterFileBrowserMode() {
     this.uiState = 'file-browser';
     this.gamepadRouter.enable(action => this.onUiAction(action));
   }
-
-  onUiAction(action: UiAction) {
+  /** For Gamepad Selection */
+  private onUiAction(action: UiAction) {
     switch (action) {
       case 'up':
         this.selectPrev();
@@ -2892,19 +2896,17 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         break;
     }
   }
-
-  selectPrev() {
+  /** For Gamepad Selection */
+  private selectPrev() {
     this.fileSearchComponent?.scrollToPrevious();
   }
-  selectNext() {
+  /** For Gamepad Selection */
+  private selectNext() {
     this.fileSearchComponent?.scrollToNext();
   }
-  launchSelectedRom() {
+  /** For Gamepad Selection */
+  private launchSelectedRom() {
     this.fileSearchComponent?.activateHoveredFile();
-  }
-
-  toggleDisplayAsTable(display: boolean): void {
-    this.displayAsTable = display;
   }
 
   /** Build the registry using FileService, once. */
