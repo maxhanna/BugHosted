@@ -24,7 +24,9 @@
             {{ onMobile() ? 'Prev' : 'Previous' }}
         </button>
         <select (change)="goToTradePageSelected($event)">
-            <option *ngFor="let page of getTradePagesArray()" [value]="page" [selected]="page === currentTradePage">
+            <option *ngFor="let page of getTradePagesArray()" 
+                [value]="page" 
+                [selected]="page === currentTradePage">
                 {{ page }}
             </option>
         </select>

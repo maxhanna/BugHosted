@@ -47,6 +47,8 @@ public class Log
     {
       sb.AppendLine("  AND comment LIKE CONCAT('%', @Keywords, '%')");
     }
+    sb.AppendLine("ORDER BY id DESC");
+    sb.AppendLine("LIMIT @Limit OFFSET @Offset");
     try
     {
       await using var conn = new MySqlConnection(_config.GetConnectionString("maxhanna"));
