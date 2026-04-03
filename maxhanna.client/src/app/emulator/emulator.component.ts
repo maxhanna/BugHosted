@@ -129,13 +129,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.status = 'Destroying emulator...';
     this._destroyed = true;
     this._ejsReady = false;
-    this.clearAutosave(); 
+    this.clearAutosave();
     this.gamepadRouter.disable();
 
     if (this.parentRef) {
       this.parentRef.preventShowSecurityPopup = false;
     }
-    
+
     this.remove_me('EmulatorComponent');
   }
 
@@ -200,7 +200,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.presetRomName = file.fileName;
     this.selectedROMFile = file;
 
-    this.gamepadRouter.handoffToEmulator();
+    this.gamepadRouter.disable();
 
     // Always build candidate list for this file. If there are multiple real
     // candidates (beyond the 'Auto-detect' entry) prompt the user to choose.
@@ -2864,32 +2864,34 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       }
     } catch { }
     //console.log('%c[PSP] Post-boot tweaks applied ✔', 'color:#4f4');
-  } 
+  }
 
   toggleDisplayAsTable(display: boolean): void {
     this.displayAsTable = display;
   }
   /** For Gamepad Selection */
   private enterFileBrowserMode() {
-    this.gamepadRouter.enable(action => this.onUiAction(action));
+    this.gamepadRouter.setHandler(this.onUiAction);
+    this.gamepadRouter.enable();
   }
   /** For Gamepad Selection */
-  private onUiAction(action: UiAction) {
+  private onUiAction = (action: UiAction) => {
     switch (action) {
       case 'up':
         this.selectPrev();
         break;
+
       case 'down':
         this.selectNext();
         break;
+
       case 'confirm':
+        // FULL gamepad handoff
+        this.gamepadRouter.disable();
         this.launchSelectedRom();
         break;
-      case 'cancel':
-        //this.goBack();
-        break;
     }
-  }
+  };
   /** For Gamepad Selection */
   private selectPrev() {
     this.fileSearchComponent?.scrollToPrevious();

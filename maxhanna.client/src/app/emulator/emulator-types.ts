@@ -328,50 +328,37 @@ declare global {
 }
 
 export class UiGamepadRouter {
-  private uiEnabled = false;
   private running = false;
+  private uiEnabled = false;
   private lastButtons = new Map<number, boolean[]>();
   private onInput?: (action: UiAction) => void;
-  
+
+  setHandler(handler?: (action: UiAction) => void) {
+    this.onInput = handler;
+  }
+
   enable() {
-    if (this.running) return; 
-    window.addEventListener('gamepadconnected', this.startPolling, { once: true });
-  }
+    if (this.running) return;
 
-  private startPolling = () => {
-    this.running = true;
     this.uiEnabled = true;
-    this.loop();
-  }; 
-
-  /** Soft mute: UI stops responding, gamepad stays warm */ 
-  handoffToEmulator() {
-    this.uiEnabled = false;
-    this.running = false;          // ✅ STOP polling
-    this.lastButtons.clear();      // ✅ drop ownership
-    this.onInput = undefined;
+    window.addEventListener(
+      'gamepadconnected',
+      this.startPolling,
+      { once: true }
+    );
   }
 
-
-  /** Full shutdown – ONLY when leaving page */
   disable() {
-    this.uiEnabled = false;
     this.running = false;
+    this.uiEnabled = false;
     this.onInput = undefined;
     this.lastButtons.clear();
   }
 
-  /** Call when returning from emulator → UI */
-  resync() {
-    const pads = navigator.getGamepads();
-    for (const pad of pads) {
-      if (!pad) continue;
-      this.lastButtons.set(
-        pad.index,
-        pad.buttons.map(b => b.pressed)
-      );
-    }
-  }
+  private startPolling = () => {
+    this.running = true;
+    this.loop();
+  };
 
   private loop = () => {
     if (!this.running || !this.uiEnabled) return;
@@ -382,10 +369,7 @@ export class UiGamepadRouter {
 
       const prev = this.lastButtons.get(pad.index) ?? [];
       pad.buttons.forEach((b, i) => {
-        if (
-          b.pressed &&
-          !prev[i]
-        ) {
+        if (b.pressed && !prev[i]) {
           this.onInput?.(this.mapButton(i));
         }
       });
@@ -411,7 +395,8 @@ export class UiGamepadRouter {
       default: return 'noop';
     }
   }
-} 
+}
+
 
 export type UiAction =
   | 'up' | 'down' | 'left' | 'right'
