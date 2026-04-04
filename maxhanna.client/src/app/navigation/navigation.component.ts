@@ -1096,7 +1096,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       if (this.navbar) {
         this.navbar.nativeElement.classList.remove('collapsed');
         this.navbarCollapsed = false;
-        this._gamepadPollActive = true;
+        this._startGamepadPolling();
         if (this.toggleNavButton && this.toggleNavButton.nativeElement.style.display == "block") {
           this.toggleMenu();
         }
@@ -1228,6 +1228,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
   
   private _startGamepadPolling() {
+    // Cancel any previous polling loop
+    if (this._gamepadPollingInterval) {
+      cancelAnimationFrame(this._gamepadPollingInterval);
+      this._gamepadPollingInterval = undefined;
+    }
     const poll = () => {
       if (!this._gamepadPollActive) return;
       console.log('Polling gamepads...');
