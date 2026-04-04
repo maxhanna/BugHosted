@@ -354,6 +354,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   
   async updateVolumeDisplayData(res: any) {
     if (!res || res.length === 0) return;
+    this.startLoading();
     let cadToUsdRate = 1;
     if (this.cadToUsdPrice === 0) {
       cadToUsdRate = await this.coinValueService.getCurrencyConversionRate("CAD", "USD") ?? 1;
@@ -368,6 +369,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
 
     // Only update if we have newer data
     if (this.volumeDisplayData && this.volumeDisplayData.timestamp >= newTimestamp) {
+      this.stopLoading();
       return;
     }
 
@@ -440,6 +442,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       warnings, // Now contains both USDC and BTC warnings
       dominanceDescription: this.getDominanceDescription(currentRatio)
     };
+    this.stopLoading();
   }
 
   private getDominanceDescription(ratio: number): string {
