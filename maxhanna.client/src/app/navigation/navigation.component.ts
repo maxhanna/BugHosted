@@ -239,6 +239,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
     if (!this._gamepadPollActive) {
       this._gamepadPollActive = true;
+      this._startGamepadPolling();
     }
 
     // Schedule recurring tasks using scheduler that accounts for elapsed pause time
@@ -631,9 +632,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
     const userId = this._parent?.user?.id;
 
     if (!isCHSelected || !nav || !userId) {
-      if (!isCHSelected) { console.error("No CryptoHub selected in nav."); }
+      //if (!isCHSelected) { console.error("No CryptoHub selected in nav."); }
       if (!nav) { console.error("No nav to modify."); }
-      if (!userId) { console.error("No user logged in."); }
+      //if (!userId) { console.error("No user logged in."); }
       return;
     }
 
@@ -1096,6 +1097,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       if (this.navbar) {
         this.navbar.nativeElement.classList.remove('collapsed');
         this.navbarCollapsed = false;
+        this._gamepadPollActive = true;
         this._startGamepadPolling();
         if (this.toggleNavButton && this.toggleNavButton.nativeElement.style.display == "block") {
           this.toggleMenu();
@@ -1227,8 +1229,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     return num.toFixed(0);
   }
   
-  private _startGamepadPolling() {
-    // Cancel any previous polling loop
+  private _startGamepadPolling() { 
     if (this._gamepadPollingInterval) {
       cancelAnimationFrame(this._gamepadPollingInterval);
       this._gamepadPollingInterval = undefined;
