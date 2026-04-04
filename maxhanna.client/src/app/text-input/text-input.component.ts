@@ -372,6 +372,8 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       ids = ids ?? {};
       ids.storyId = this.storyId;
     }
+    // Track all users notified in this call
+    const notifiedUserIds = new Set<number>();
     if (parent && user) {
       const mentionedUsers = (this.type == "Social" || this.type == "Comment") ? await parent.getUsersByUsernames(results.originalContent) || [] : [];
       const mentionedUserIds = (mentionedUsers || []).map(x => x.id).filter((id): id is number => typeof id === 'number' && id > 0);
@@ -382,7 +384,8 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       const storyIdFromResults = (results && (results as any).results) ? ((results as any).results.StoryId ?? (results as any).results.storyId) : undefined;
       const storyIdToUse = this.storyId ?? ids?.storyId ?? storyIdFromResults ?? (isStory ? this.commentParent?.id : undefined);
 
-      if (this.profileUser?.id && this.profileUser.id != user.id && !mentionedSet.has(this.profileUser.id)) {
+      // Profile user notification
+      if (this.profileUser?.id && this.profileUser.id != user.id && !mentionedSet.has(this.profileUser.id) && !notifiedUserIds.has(this.profileUser.id)) {
         const notificationData: any = {
           fromUserId: user.id,
           toUserIds: [this.profileUser.id],
@@ -390,12 +393,15 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
           userProfileId: ids?.userProfileId ?? this.profileUser.id
         };
         this.notificationService.createNotifications(notificationData);
+        notifiedUserIds.add(this.profileUser.id);
       }
-      if (this.type == "Social" || this.type == "Comment") {
-        if (mentionedUsers && mentionedUsers.length > 0) {
+      // Mentioned users notification
+      if ((this.type == "Social" || this.type == "Comment") && mentionedUsers && mentionedUsers.length > 0) {
+        const uniqueMentioned = mentionedUserIds.filter(id => !notifiedUserIds.has(id));
+        if (uniqueMentioned.length > 0) {
           const notificationData: any = {
             fromUserId: user.id,
-            toUserIds: mentionedUserIds,
+            toUserIds: uniqueMentioned,
             message: "You were mentioned by " + (user?.username ?? 'Anonymous') + "!",
             userProfileId: ids?.userProfileId ?? undefined,
             storyId: storyIdToUse,
@@ -403,6 +409,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
             commentId: ids?.commentId ?? results.results?.commentId ?? (isComment ? this.commentParent?.id : undefined),
           };
           this.notificationService.createNotifications(notificationData);
+          uniqueMentioned.forEach(id => notifiedUserIds.add(id));
         }
         let notificationMessage = results.results;
         if (results.results.message) {
@@ -410,9 +417,10 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         }
         parent.showNotification(notificationMessage);
       }
+      // Replying to user notification
       if (this.type == "Comment") {
         const fromUserId = user?.id ?? 0;
-        const toUserIds = [replyingToUser?.id ?? 0].filter(id => id != fromUserId);
+        const toUserIds = [replyingToUser?.id ?? 0].filter(id => id != fromUserId && !notifiedUserIds.has(id));
         if (replyingToUser?.id && toUserIds.length > 0) {
           const filteredToUserIds = toUserIds.filter(id => !mentionedSet.has(id));
           if (filteredToUserIds.length > 0) {
@@ -427,8 +435,10 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
               userProfileId: ids?.userProfileId ?? this.profileUser?.id,
             };
             this.notificationService.createNotifications(notificationData);
+            filteredToUserIds.forEach(id => notifiedUserIds.add(id));
           }
         }
+        // Thread participants notification
         if (isComment) { // send it to everyone else involved in the thread except the user who made the comment, the replyingToUser, and any mentioned users
           try {
             const threadRoot = this.commentParent as FileComment | undefined;
@@ -448,6 +458,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
             if (posterId) participantIds.delete(posterId);
             if (replyingToUser?.id) participantIds.delete(replyingToUser.id);
             for (const m of mentionedSet) participantIds.delete(m);
+            for (const n of notifiedUserIds) participantIds.delete(n);
 
             const notifyIds = Array.from(participantIds).filter(id => typeof id === 'number' && id > 0);
             if (notifyIds.length > 0) {
@@ -462,19 +473,25 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
                 userProfileId: ids?.userProfileId ?? this.profileUser?.id,
               };
               this.notificationService.createNotifications(threadNotification);
+              notifyIds.forEach(id => notifiedUserIds.add(id));
             }
           } catch (e) {
             console.warn('Failed to notify thread participants:', e);
           }
         }
       }
+      // Chat notification
       if (this.type == "Chat") {
-        this.notificationService.createNotifications({
-          fromUserId: user?.id ?? 0,
-          toUserIds: this.currentChatUsers!.filter(x => x.id != (user?.id ?? 0)).map(x => x.id ?? 0),
-          message: 'New chat message from ' + (user?.username ?? 'Anonymous') + '!',
-          chatId: this.chatId
-        });
+        const chatUserIds = this.currentChatUsers!.filter(x => x.id != (user?.id ?? 0)).map(x => x.id ?? 0).filter(id => !notifiedUserIds.has(id));
+        if (chatUserIds.length > 0) {
+          this.notificationService.createNotifications({
+            fromUserId: user?.id ?? 0,
+            toUserIds: chatUserIds,
+            message: 'New chat message from ' + (user?.username ?? 'Anonymous') + '!',
+            chatId: this.chatId
+          });
+          chatUserIds.forEach(id => notifiedUserIds.add(id));
+        }
       }
     }
   }
