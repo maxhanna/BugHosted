@@ -124,6 +124,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   notesFile: FileEntry | undefined;
   isFirstLoad = true;
   pageLocked = false;
+  appending = false;
 
   private controllerIndex: number = -1;
   private _hoverOverlayEl: HTMLElement | null = null;
@@ -500,6 +501,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       ).then(res => {
         const noData = !res;
         if (res && append && this.directory && this.directory.data) {
+          this.startAppendingMode();
           // Normalize and derive thumbnails for newly-appended items before merging
           const newItems = (res.data || []).filter((d: FileEntry) =>
             !this.directory?.data?.some((existingData) => existingData.id === d.id)
@@ -727,6 +729,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   async appendNextPage() {
     if (this.pageLocked) { return; }
     if (this.currentPage < this.totalPages) {
+      // Infinite scroll: do NOT scroll to top when appending next page
       console.log("Appending next page...");
       this.currentPage++;
       await this.getDirectory(undefined, undefined, true);
@@ -1395,6 +1398,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
   scrollToTop() {
+    if (this.appending) {
+      return;
+    }
     setTimeout(() => {
       const selectors = [
         '.directoryDisplayDiv',
@@ -2352,6 +2358,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.isShowingImagePreview = false;
     this.imagePreviewUrl = null;
     this.parentRef?.closeOverlay();
+  }
+  private startAppendingMode() {
+    this.appending = true;
+    setTimeout(() => {
+      this.appending = false;
+    }, 1000);
   }
 }
 
