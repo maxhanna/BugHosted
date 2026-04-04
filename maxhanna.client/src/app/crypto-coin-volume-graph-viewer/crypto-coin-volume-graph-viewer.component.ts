@@ -26,7 +26,6 @@ export class CryptoCoinVolumeGraphViewerComponent extends ChildComponent impleme
   async getVolumeData() {
     const hours = 6;
     await this.tradeService.getTradeVolumeForGraph(new Date(), hours).then(res => { 
-      // Map backend fields to expected frontend fields
       this.volumeData = res.map((item: any) => ({
         timestamp: item.timestamp,
         volume: item.volume_coin ?? item.volume ?? 0,
