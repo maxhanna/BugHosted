@@ -13,9 +13,9 @@
 	- Each entry must be concise, factual, and focused on actionable insights for future tasks within that skill domain.
 
 +4. **AI-HISTORY.md as Overarching Guide**
-	- Use /skills/ai-history.md for general, cross-domain best practices and meta-guidance that apply to all skills and workflows.
-	- Only add broadly applicable insights to /skills/ai-history.md.
-	- If /skills/ai-history.md exceeds 15,000 tokens, summarize and trim to retain only the most important, recent insights.
+	- Use /skills/AI-HISTORY.md for general, cross-domain best practices and meta-guidance that apply to all skills and workflows.
+	- Only add broadly applicable insights to /skills/AI-HISTORY.md.
+	- If /skills/AI-HISTORY.md exceeds 15,000 tokens, summarize and trim to retain only the most important, recent insights.
 
 5. **Skill File Summarization**
 	- If any skill file exceeds 15,000 tokens, summarize and rewrite it to retain only the most up-to-date, concise, and actionable information.
