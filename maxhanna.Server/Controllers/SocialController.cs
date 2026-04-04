@@ -177,10 +177,10 @@ namespace maxhanna.Server.Controllers
         whereClause.Append("AND s.profile_user_id = @profile ");
         parameters.Add("@profile", request.ProfileUserId.Value);
       }
-      if (request.ProfileUserId == null || request.ProfileUserId == 0)
-      {
-        whereClause.Append("AND s.profile_user_id IS NULL ");
-      }
+      // if (request.ProfileUserId == null || request.ProfileUserId == 0)
+      // {
+      //   whereClause.Append("AND s.profile_user_id IS NULL ");
+      // }
       if (!showHiddenStories)
       {
         whereClause.Append(@" AND hs.story_id IS NULL ");
