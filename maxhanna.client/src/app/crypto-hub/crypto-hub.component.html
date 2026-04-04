@@ -68,7 +68,7 @@
         [latestCurrencyPriceRespectToCAD]="latestCurrencyPriceRespectToCAD"></app-crypto-coin-graph-viewer>
     </div>
     <div class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
-      <app-crypto-coin-volume-graph-viewer></app-crypto-coin-volume-graph-viewer>
+      <app-crypto-coin-volume-graph-viewer (volumeDataFetched)="onMainVolumeFetched($event)"></app-crypto-coin-volume-graph-viewer>
     </div>
     <div class="sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'" *ngIf="volumeDisplayData">
       <div class="sectionName gradientBackground" style="padding:10px;">Volume Comparison</div>

@@ -382,10 +382,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     const stdDev = validRatios.length > 0 ? Math.sqrt(validRatios.reduce((a: any, r: any) => a + Math.pow(r - avgRatio, 2), 0) / validRatios.length) : 0;
 
     // Current ratio and log calculations
-    const currentRatio = btcInUSDC > 0 ? latestUSDC / btcInUSDC : 0;
-    const logBTC = Math.log10(btcInUSDC + 1);
-    const logUSDC = Math.log10(latestUSDC + 1);
-    const totalLog = logBTC + logUSDC;
+    const currentRatio = btcInUSDC > 0 ? latestUSDC / btcInUSDC : 0; 
 
     // Determine warning levels for both USDC and BTC dominance independently
     const warnings = {
@@ -1858,15 +1855,14 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     // Clear cache when period changes
     this.exchangeRateCache.clear();
     const targetCurrency = this.selectedCurrency ?? "USD";
-    const selectedCurrency = this.selectedFiatConversionName;
-    // Get data just once
+
     //console.log("Fetching exchange rates for graph with period:", periodSelected, "hours:", hours, "selectedCurrency:", selectedCurrency, "targetCurrency:", targetCurrency);
     const exchangeRates = await this.coinValueService.getAllExchangeRateValuesForGraph(new Date(), hours, targetCurrency);
     const formattedRates = (exchangeRates ?? []).map(rate => {
       const formattedRate = Number(rate.rate.toFixed(2));
       return { ...rate, rate: formattedRate };
     });
-    console.log(formattedRates);
+    //console.log(formattedRates);
     this.allHistoricalExchangeRateDataForGraph = formattedRates;
     this.stopLoading();
   }
@@ -2289,7 +2285,9 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       this.macdGraphData = [];
     }
   }
-
+  onMainVolumeFetched(volumeData: any[]) {
+    this.updateVolumeDisplayData(volumeData);
+  }
   onSmallLogClick() {
     if (!this.showingTradeLogs) {
       this.showTradeLogs();

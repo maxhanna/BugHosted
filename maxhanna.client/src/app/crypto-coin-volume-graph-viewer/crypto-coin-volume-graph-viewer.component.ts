@@ -3,6 +3,8 @@ import { ChildComponent } from '../child.component';
 import { TradeService } from '../../services/trade.service';
 import { AppComponent } from '../app.component';
 
+import { Output, EventEmitter } from '@angular/core';
+
 @Component({
   selector: 'app-crypto-coin-volume-graph-viewer',
   standalone: false,
@@ -13,6 +15,7 @@ export class CryptoCoinVolumeGraphViewerComponent extends ChildComponent impleme
   constructor(private tradeService: TradeService){ super(); }
 
   @Input() inputtedParentRef!: AppComponent;
+  @Output() volumeDataFetched = new EventEmitter<any[]>();
   
   volumeData?: any[] = undefined;
 
@@ -29,6 +32,7 @@ export class CryptoCoinVolumeGraphViewerComponent extends ChildComponent impleme
         valueCAD: item.volume,
         valueUSDC: item.volumeUSDC
       }));
+      this.volumeDataFetched.emit(this.volumeData);
     });
   }
   async changeTimePeriodEventOnVolumeGraph(periodSelected: string) {
@@ -41,6 +45,7 @@ export class CryptoCoinVolumeGraphViewerComponent extends ChildComponent impleme
           valueCAD: item.volume,
           valueUSDC: item.volumeUSDC
         }));
+        this.volumeDataFetched.emit(this.volumeData);
       }
     });
     this.stopLoading();
