@@ -421,7 +421,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   }
 
   ngAfterViewInit() {
-    this.router.events.subscribe((event: Event) => {
+    this.router.events.subscribe((event: any) => {
       if (event instanceof NavigationEnd) {
         console.log("NavigationEnd:", this.router.url);
         if (this.router.url.includes('Memes')) {
