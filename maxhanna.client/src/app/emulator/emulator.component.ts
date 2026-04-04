@@ -73,6 +73,7 @@ private _bootingFromGamepad = false;
   private CORE_REGISTRY: CoreDescriptor[] = [];
   private _saveFn?: () => Promise<void>;
   private _lastSaveTime: number = 0;
+  private _lastRomLoadTime: number = 0;
   private _saveInProgress: boolean = false;
   private _inFlightSavePromise?: Promise<boolean>;
   private _exiting = false;
@@ -154,6 +155,13 @@ private _bootingFromGamepad = false;
     // If we've saved recently (within 10s), skip asking the user again.
     const now = Date.now();
     if (!this._saveInProgress && now - this._lastSaveTime < 10000) {
+      if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
+        this.fullReloadToEmulator();
+      } else {
+        return this.navigateHome();
+      }
+    }
+    if (this._lastRomLoadTime && (now - this._lastRomLoadTime < 20000)) {
       if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
         this.fullReloadToEmulator();
       } else {
@@ -305,6 +313,7 @@ private _bootingFromGamepad = false;
     this.gameLoadDate = new Date();
     this.isSearchVisible = false;
     this.status = "Loading Rom - " + this.fileService.getFileWithoutExtension(fileName);
+    this._lastRomLoadTime = new Date().getTime();
     this.cdr.detectChanges();
 
     // 1) Fetch ROM via your existing API
