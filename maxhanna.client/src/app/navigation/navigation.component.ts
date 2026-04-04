@@ -187,7 +187,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (this.notificationsServerDown) return; // when server down for notifications, skip fetching
     if (this._parent.notificationsActive || this.preventFetchNotifs) return;
     if (!this._parent || !this._parent.user || this._parent.user.id == 0) return;
-    console.log("fetch notifications");
+    console.log("fetch notifications"); 
     this._parent.notificationsActive = true;
 
     const tasks: Promise<unknown>[] = [
@@ -231,6 +231,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
       this._parent.notificationsPausedAt = null;
     }
 
+    if (!this._gamepadPollActive) {
+      this._gamepadPollActive = true;
+    }
+
     // Schedule recurring tasks using scheduler that accounts for elapsed pause time
     this.scheduleRecurring('notificationInfo', () => { if (this._parent.notificationsActive) this.getNotificationInfo(); }, this.time20Secs);
     this.scheduleRecurring('weatherInfo', () => { if (this._parent.notificationsActive) this.getCurrentWeatherInfo(); }, this.time20Mins);
@@ -260,7 +264,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       setTimeout(() => {
         this.preventFetchNotifs = false;
       }, 5000);
-
+      this._gamepadPollActive = false;
       // clear any active timers/timeouts/intervals
       this.clearAllNotificationTimers();
     } catch (error) {
