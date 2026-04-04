@@ -63,8 +63,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private time20Secs = 20 * 1000;
   private time60Secs = 60 * 1000;
   private time20Mins = 20 * 60 * 1000;
-  private time60Mins = 60 * 60 * 1000;
-  // --- Gamepad polling for Emulator launch ---
+  private time60Mins = 60 * 60 * 1000; 
   private _gamepadPollActive = false;
   private _gamepadLastButtonStates: boolean[][] = [];
   private _gamepadPollingInterval?: any;
