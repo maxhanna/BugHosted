@@ -163,42 +163,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
     // Stop gamepad polling
     this._gamepadPollActive = false;
-  }
-
-  private _startGamepadPolling() {
-    const poll = () => {
-      if (!this._gamepadPollActive) return;
-      const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
-      for (let i = 0; i < gamepads.length; i++) {
-        const gp = gamepads[i];
-        if (!gp) continue;
-        if (!this._gamepadLastButtonStates[i]) {
-          this._gamepadLastButtonStates[i] = gp.buttons.map(b => b.pressed);
-        }
-        for (let b = 0; b < gp.buttons.length; b++) {
-          const wasPressed = this._gamepadLastButtonStates[i][b];
-          const isPressed = gp.buttons[b].pressed;
-          if (!wasPressed && isPressed) {
-            // Button just pressed
-            if (!this.navbarCollapsed) {
-              // Only launch if nav is showing
-              this._parent.createComponent('Emulator');
-              // Prevent spamming: stop polling for 2s
-              this._gamepadPollActive = false;
-              setTimeout(() => {
-                this._gamepadPollActive = true;
-                this._startGamepadPolling();
-              }, 2000);
-              return;
-            }
-          }
-          this._gamepadLastButtonStates[i][b] = isPressed;
-        }
-      }
-      this._gamepadPollingInterval = requestAnimationFrame(poll);
-    };
-    this._gamepadPollingInterval = requestAnimationFrame(poll);
-  }
+  } 
 
   clearNotifications() {
     const itemsToClear = [
@@ -1245,6 +1210,42 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (num >= million) return format(num / million, 'M');
     if (num >= thousand) return format(num / thousand, 'K');
     return num.toFixed(0);
+  }
+  
+  private _startGamepadPolling() {
+    const poll = () => {
+      if (!this._gamepadPollActive) return;
+      console.log('Polling gamepads...');
+      const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+      for (let i = 0; i < gamepads.length; i++) {
+        const gp = gamepads[i];
+        if (!gp) continue;
+        if (!this._gamepadLastButtonStates[i]) {
+          this._gamepadLastButtonStates[i] = gp.buttons.map(b => b.pressed);
+        }
+        for (let b = 0; b < gp.buttons.length; b++) {
+          const wasPressed = this._gamepadLastButtonStates[i][b];
+          const isPressed = gp.buttons[b].pressed;
+          if (!wasPressed && isPressed) {
+            // Button just pressed
+            if (!this.navbarCollapsed) {
+              // Only launch if nav is showing
+              this._parent.createComponent('Emulator');
+              // Prevent spamming: stop polling for 2s
+              this._gamepadPollActive = false;
+              setTimeout(() => {
+                this._gamepadPollActive = true;
+                this._startGamepadPolling();
+              }, 2000);
+              return;
+            }
+          }
+          this._gamepadLastButtonStates[i][b] = isPressed;
+        }
+      }
+      this._gamepadPollingInterval = requestAnimationFrame(poll);
+    };
+    this._gamepadPollingInterval = requestAnimationFrame(poll);
   }
   descriptionsExist(item: string) {
     return this._parent.navigationItemDescriptions.some((x: MenuItem) => x.title == item);
