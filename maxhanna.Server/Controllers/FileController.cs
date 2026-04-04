@@ -39,14 +39,48 @@ namespace maxhanna.Server.Controllers
     private static readonly HashSet<string> GeneralFileTypes =
         new(StringComparer.OrdinalIgnoreCase)
     {
-        "zip","7z","rar","tar","gz","txt","xml","json","nfo", "pdf",
-        "jpg","jpeg","png","gif","bmp","webp","tiff", "doc","docx","xls","xlsx","ppt","pptx",
-        "mp4","mkv","avi","mov","wmv","flv","mp3","ogg","wav","flac","aac",
-        "iso", "cue", "chd", "bin", "img", "dsk", "adf", "st", "ipf", "d64",
-         "t64", "tap", "prg", "crt", "g64", "nib",
-        "d81", "d82", "atr", "xfd", "cas", "sap", "tzx", "pzx", "zx", "fig", "rvz",
-        "gcm", "ciso"
+    // Archives & general
+    "zip","7z","rar","tar","gz",
 
+    // Text / data
+    "txt","xml","json","nfo","pdf",
+
+    // Office documents
+    "doc","docx","xls","xlsx","ppt","pptx",
+
+    // ======================
+    // Images
+    // ======================
+    "jpg","jpeg","png","gif","bmp","tiff","svg","webp","heif","heic","ico",
+    "psd","raw","cr2","nef","orf","sr2","arw","dng","rw2","pef","raf","3fr",
+    "ari","bay","cap","dcr","drf","eip","erf","fff","iiq","k25","kdc","mdc",
+    "mos","mrw","nrw","obm","ptx","r3d","rwl","srf","srw","x3f","avif","jxr",
+    "hdp","wdp","cur","jp2","jpx","j2k","jpf","ras","emf","wmf","dib",
+
+    // ======================
+    // Video
+    // ======================
+    "mp4","mov","avi","wmv","webm","flv","mkv","m4v","mpg","mpeg","3gp","3g2",
+    "asf","rm","rmvb","swf","vob","ts","mts","m2ts","mxf","ogv","divx","xvid",
+    "dv","drc","f4v","f4p","f4a","f4b","mjp","mjpg","ogm","nut","bik","roq",
+    "viv","vp6","vp7",
+
+    // ======================
+    // Audio
+    // ======================
+    "mp3","wav","ogg","flac","aac","aiff","alac","amr","ape","au","dss","gsm",
+    "m4a","m4b","m4p","mid","midi","mpa","mpc","oga","opus","ra","sln","tta",
+    "voc","vox","wma","wv","kar","sid","spx","txw","asx","cda","mod","it",
+    "s3m","xm","uax",
+
+    // ======================
+    // ROMs / Disk images
+    // ======================
+    "32x","adf","atr","bin","cas","ccd","cdi","chd","ciso","crt","cue","d64",
+    "d81","d82","dsk","fds","fig","gba","gb","gbc","gcm","gen","gg","g64",
+    "img","ipf","iso","md","mdf","n64","nds","nes","nib","pbp","prg","pzx",
+    "rvz","sap","sfc","sgx","sms","smc","smd","snes","st","tap","t64","tzx",
+    "vb","v64","ws","wsc","xfd","z64","zx","ndd"
     };
     private static readonly HashSet<string> AcceptedFileTypes =
       new(RomExtensions.Concat(GeneralFileTypes), StringComparer.OrdinalIgnoreCase);
@@ -1416,7 +1450,7 @@ namespace maxhanna.Server.Controllers
         return (where, parameters);
 
       parameters.Add(new MySqlParameter("@search", search.ToLower()));
- 
+
       where += $@"
         AND (
           MATCH(f.file_name, f.description, f.given_file_name) 

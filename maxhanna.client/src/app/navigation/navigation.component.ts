@@ -64,6 +64,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private time60Secs = 60 * 1000;
   private time20Mins = 20 * 60 * 1000;
   private time60Mins = 60 * 60 * 1000;
+  // --- Gamepad polling for Emulator launch ---
+  private _gamepadPollActive = false;
+  private _gamepadLastButtonStates: boolean[][] = [];
+  private _gamepadPollingInterval?: any;
 
   tradeNotifsCount = 0;
   navbarReady = false;
@@ -145,12 +149,55 @@ export class NavigationComponent implements OnInit, OnDestroy {
       this.getNotifications();
       this.displayAppSelectionHelp();
     }, 100)
+
+    // Gamepad polling setup
+    this._gamepadLastButtonStates = [];
+    this._gamepadPollActive = true;
+    this._startGamepadPolling();
   }
 
   ngOnDestroy() {
     console.log("destroying navbar, stopping notifications");
     this.showAppSelectionHelp = false;
     this.stopNotifications();
+
+    // Stop gamepad polling
+    this._gamepadPollActive = false;
+  }
+
+  private _startGamepadPolling() {
+    const poll = () => {
+      if (!this._gamepadPollActive) return;
+      const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+      for (let i = 0; i < gamepads.length; i++) {
+        const gp = gamepads[i];
+        if (!gp) continue;
+        if (!this._gamepadLastButtonStates[i]) {
+          this._gamepadLastButtonStates[i] = gp.buttons.map(b => b.pressed);
+        }
+        for (let b = 0; b < gp.buttons.length; b++) {
+          const wasPressed = this._gamepadLastButtonStates[i][b];
+          const isPressed = gp.buttons[b].pressed;
+          if (!wasPressed && isPressed) {
+            // Button just pressed
+            if (!this.navbarCollapsed) {
+              // Only launch if nav is showing
+              this._parent.createComponent('Emulator');
+              // Prevent spamming: stop polling for 2s
+              this._gamepadPollActive = false;
+              setTimeout(() => {
+                this._gamepadPollActive = true;
+                this._startGamepadPolling();
+              }, 2000);
+              return;
+            }
+          }
+          this._gamepadLastButtonStates[i][b] = isPressed;
+        }
+      }
+      this._gamepadPollingInterval = requestAnimationFrame(poll);
+    };
+    this._gamepadPollingInterval = requestAnimationFrame(poll);
   }
 
   clearNotifications() {
@@ -1065,12 +1112,14 @@ export class NavigationComponent implements OnInit, OnDestroy {
       this.navbarCollapsed = true;
     }
     this.stopNotifications();
+    this._gamepadPollActive = false;
   }
 
   maximizeNav() {
     if (this.navbar) {
       this.navbar.nativeElement.classList.remove('collapsed');
       this.navbarCollapsed = false;
+      this._gamepadPollActive = true;
       if (this.toggleNavButton && this.toggleNavButton.nativeElement.style.display == "block") {
         this.toggleMenu();
       }
