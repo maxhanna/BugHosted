@@ -63,53 +63,54 @@
   </div>
 
   <div *ngIf="!isFaqOpen" class="emuMenuButtonContainer">
-    <button (click)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();" [disabled]="isLoading"
-      class="emuMenuButton">
-      Autosave:{{" "}}{{ autosave ? 'On' : 'Off' }}
-      <span class="checkbox-indicator" [class.checked]="autosave" aria-hidden="true" style="margin-left: 5px;"></span>
-    </button>
-    <button *ngIf="!romName" (click)="toggleLoadWithoutSave()" class="emuMenuButton" [disabled]="isLoading">
-      Save States:{{" "}}{{loadWithoutSave ? 'Do not load' : 'Load with ROMs' }}
-      <span class="checkbox-indicator" [class.checked]="!loadWithoutSave" aria-hidden="true"
-        style="margin-left: 5px;"></span>
-    </button>
-    <button *ngIf="onMobile() && !romName" (click)="useJoystick = !useJoystick" class="emuMenuButton"
-      [disabled]="isLoading">
-      Joystick:{{" "}}{{useJoystick ? 'Enabled' : 'Disabled'}}
-      <span class="checkbox-indicator" [class.checked]="useJoystick" aria-hidden="true"
-        style="margin-left: 5px;"></span>
-    </button>
-    <button *ngIf="romName" (click)="toggleFullScreen()" class="emuMenuButton" [disabled]="isLoading">
-      Enter Fullscreen
-    </button>
-    <button *ngIf="romName" (click)="stopEmulator()" class="emuMenuButton" [disabled]="isLoading">
-      Stop Emulator & Return to ROM Selection
-    </button>
-    <button (click)="isFaqOpen = !isFaqOpen" class="emuMenuButton" [disabled]="isLoading">
-      {{isFaqOpen ? 'Hide FAQ' : 'FAQ'}}
-    </button>
-    <button *ngIf="romName" (click)="resetGame()" class="emuMenuButton" [disabled]="isLoading">
-      Reset Game
-    </button>
-    <button *ngIf="!onMobile() && romName" (click)="remapControls()" class="emuMenuButton" [disabled]="isLoading">
-      Remap Controls
-    </button>
-    <button *ngIf="romName" (click)="callEjsSave()" class="emuMenuButton" [disabled]="isLoading">
-      Manual Save
-    </button>
-    <app-file-upload class="emuMenuButton" *ngIf="!romName" 
-      [currentDirectory]="'Roms'" 
-      [user]="parentRef?.user!"
-      [inputtedParentRef]="parentRef" 
-      [uploadButtonText]="'Upload Rom(s)'" 
-      [maxSelectedFiles]="100"
-      [allowedFileTypes]="getAllowedRomFileTypesString()" 
-      [displayOptionsAndTopicsButtons]="false"
-      [disableFileCompression]="true" 
-      (userUploadEvent)="isFileUploaderExpanded = true;"
-      (userCancelEvent)="isFileUploaderExpanded = false;" 
-      (userUploadFinishedEvent)="finishFileUploading($event)">
-    </app-file-upload>
+    <div class="emuMenuButtonGrid">
+      <button (click)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();" [disabled]="isLoading" class="emuMenuButton squareButton" title="Autosave">
+        💾<div class="emuMenuButtonLabel">Autosave</div>
+        <span class="checkbox-indicator" [class.checked]="autosave" aria-hidden="true" style="margin-left: 5px;"></span>
+      </button>
+      <button *ngIf="!romName" (click)="toggleLoadWithoutSave()" class="emuMenuButton squareButton" [disabled]="isLoading" title="Save States">
+        🗄️<div class="emuMenuButtonLabel">Save</div>
+        <span class="checkbox-indicator" [class.checked]="!loadWithoutSave" aria-hidden="true" style="margin-left: 5px;"></span>
+      </button>
+      <button *ngIf="onMobile() && !romName" (click)="useJoystick = !useJoystick" class="emuMenuButton squareButton" [disabled]="isLoading" title="Joystick">
+        🎮<div class="emuMenuButtonLabel">Joystick</div>
+        <span class="checkbox-indicator" [class.checked]="useJoystick" aria-hidden="true" style="margin-left: 5px;"></span>
+      </button>
+      <button *ngIf="romName" (click)="toggleFullScreen()" class="emuMenuButton squareButton" [disabled]="isLoading" title="Fullscreen">
+        ⛶<div class="emuMenuButtonLabel">Fullscreen</div>
+      </button>
+      <button *ngIf="romName" (click)="stopEmulator()" class="emuMenuButton squareButton" [disabled]="isLoading" title="Stop & Return">
+        ⏹️<div class="emuMenuButtonLabel">Stop</div>
+      </button>
+      <button (click)="isFaqOpen = !isFaqOpen" class="emuMenuButton squareButton" [disabled]="isLoading" title="FAQ">
+        ❓<div class="emuMenuButtonLabel">FAQ</div>
+      </button>
+      <button *ngIf="romName" (click)="resetGame()" class="emuMenuButton squareButton" [disabled]="isLoading" title="Reset Game">
+        ♻️<div class="emuMenuButtonLabel">Reset</div>
+      </button>
+      <button *ngIf="!onMobile() && romName" (click)="remapControls()" class="emuMenuButton squareButton" [disabled]="isLoading" title="Remap Controls">
+        🎛️<div class="emuMenuButtonLabel">Remap</div>
+      </button>
+      <button *ngIf="romName" (click)="callEjsSave()" class="emuMenuButton squareButton" [disabled]="isLoading" title="Manual Save">
+        💽<div class="emuMenuButtonLabel">Save</div>
+      </button>
+      <div *ngIf="!romName" class="emuMenuButton squareButton emuMenuUploadButton">
+        <app-file-upload 
+          [currentDirectory]="'Roms'" 
+          [user]="parentRef?.user!"
+          [inputtedParentRef]="parentRef" 
+          [uploadButtonText]="'⬆️'" 
+          [maxSelectedFiles]="100"
+          [allowedFileTypes]="getAllowedRomFileTypesString()" 
+          [displayOptionsAndTopicsButtons]="false"
+          [disableFileCompression]="true" 
+          (userUploadEvent)="isFileUploaderExpanded = true;"
+          (userCancelEvent)="isFileUploaderExpanded = false;" 
+          (userUploadFinishedEvent)="finishFileUploading($event)">
+        </app-file-upload>
+        <div class="emuMenuButtonLabel">Upload</div>
+      </div>
+    </div>
   </div>
 
   <!-- FAQ Panel: when open, hide the rest of the menu -->
