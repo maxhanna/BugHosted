@@ -26,7 +26,6 @@ import { SocialService } from '../../services/social.service';
 import { CrawlerService } from '../../services/crawler.service';
 import { NewsService } from '../../services/news.service';
 import { UserTheme } from '../../services/datacontracts/chat/chat-theme';
-import { c } from '@angular/core/event_dispatcher.d-pVP0-wST';
 
 @Component({
   selector: 'app-navigation',
@@ -605,7 +604,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['weatherInfo'] < this.time20Mins) {
       return;
     }
-    if (!this._parent.user?.id || !this._parent.userSelectedNavigationItems.find(x => x.title == "Weather")) { return; }
+    if (!this._parent.user?.id 
+        || !this._parent.userSelectedNavigationItems.find(x => x.title == "Weather")) 
+    { 
+      return; 
+    }
     this.isLoadingWeather = true;
     try {
       const res = await this.weatherService.getWeather(this._parent.user.id);
@@ -633,7 +636,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
     if (!isCHSelected || !nav || !userId) {
       //if (!isCHSelected) { console.error("No CryptoHub selected in nav."); }
-      if (!nav) { console.error("No nav to modify."); }
+      //if (!nav) { console.error("No nav to modify."); }
       //if (!userId) { console.error("No user logged in."); }
       return;
     }
@@ -684,30 +687,31 @@ export class NavigationComponent implements OnInit, OnDestroy {
       clearInterval(this.enderInterval);
       return;
     }
-    this.isLoadingEnder = true;
-    try {
-      const res: any = await this.enderService.getActivePlayers(2);
-      this.enderActivePlayers = res?.count ?? null;
-    } catch (e) {
-      this.enderActivePlayers = null;
-    }
-
-    try {
-      const userId = this._parent.user?.id ?? 0;
-      if (userId) {
-        const rankRes: any = await this.enderService.getUserRank(userId);
-        if (rankRes && rankRes.hasHero) {
-          this.enderUserRank = { rank: rankRes.rank ?? null, score: rankRes.score ?? null, totalPlayers: rankRes.totalPlayers ?? null };
-        } else {
-          this.enderUserRank = { rank: null, score: null, totalPlayers: rankRes?.totalPlayers ?? null };
-        }
-      }
-    } catch (e) {
-      this.enderUserRank = null;
-    }
+    this.isLoadingEnder = true; 
     if (this._parent?.navigationItems) {
       const enderNav = this._parent.navigationItems.find(x => x.title === 'Ender');
       if (enderNav) {
+        try {
+          const res: any = await this.enderService.getActivePlayers(2);
+          this.enderActivePlayers = res?.count ?? null;
+        } catch (e) {
+          this.enderActivePlayers = null;
+          console.error('Error fetching Ender player data:', e);
+        } 
+        try {
+          const userId = this._parent.user?.id ?? 0;
+          if (userId) {
+            const rankRes: any = await this.enderService.getUserRank(userId);
+            if (rankRes && rankRes.hasHero) {
+              this.enderUserRank = { rank: rankRes.rank ?? null, score: rankRes.score ?? null, totalPlayers: rankRes.totalPlayers ?? null };
+            } else {
+              this.enderUserRank = { rank: null, score: null, totalPlayers: rankRes?.totalPlayers ?? null };
+            }
+          }
+        } catch (e) {
+          this.enderUserRank = null;
+          console.error('Error fetching Ender user rank:', e);
+        }
         const parts: string[] = [];
         if (this.enderActivePlayers != null) parts.push(this.enderActivePlayers.toString());
         if (this.enderUserRank?.rank != null) parts.push(`#${this.enderUserRank.rank}`);
@@ -727,29 +731,31 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['nexus'] < this.time60Secs) {
       return;
     }
-    this.isLoadingNexus = true;
-    try {
-      const res: any = await this.nexusService.getActivePlayers(2);
-      this.nexusActivePlayers = res?.count ?? null;
-    } catch (e) {
-      this.nexusActivePlayers = null;
-    }
-    try {
-      const userId = this._parent.user?.id ?? 0;
-      if (userId) {
-        const rankRes: any = await this.nexusService.getUserRank(userId);
-        if (rankRes && rankRes.hasBase) {
-          this.nexusUserRank = { rank: rankRes.rank ?? null, baseCount: rankRes.baseCount ?? null, totalPlayers: rankRes.totalPlayers ?? null };
-        } else {
-          this.nexusUserRank = { rank: null, baseCount: null, totalPlayers: rankRes?.totalPlayers ?? null };
-        }
-      }
-    } catch (e) {
-      this.nexusUserRank = null;
-    }
+    this.isLoadingNexus = true; 
     if (this._parent?.navigationItems) {
       const nexusNav = this._parent.navigationItems.find(x => x.title === 'Bug-Wars');
       if (nexusNav) {
+        try {
+          const res: any = await this.nexusService.getActivePlayers(2);
+          this.nexusActivePlayers = res?.count ?? null;
+        } catch (e) {
+          this.nexusActivePlayers = null;
+          console.error('Error fetching Nexus player data:', e);
+        }
+        try {
+          const userId = this._parent.user?.id ?? 0;
+          if (userId) {
+            const rankRes: any = await this.nexusService.getUserRank(userId);
+            if (rankRes && rankRes.hasBase) {
+              this.nexusUserRank = { rank: rankRes.rank ?? null, baseCount: rankRes.baseCount ?? null, totalPlayers: rankRes.totalPlayers ?? null };
+            } else {
+              this.nexusUserRank = { rank: null, baseCount: null, totalPlayers: rankRes?.totalPlayers ?? null };
+            }
+          }
+        } catch (e) {
+          this.nexusUserRank = null;
+          console.error('Error fetching Nexus user rank:', e);
+        }
         const parts: string[] = [];
         if (this.nexusActivePlayers != null) parts.push(this.nexusActivePlayers.toString());
         if (this.nexusUserRank?.rank != null) parts.push(`#${this.nexusUserRank.rank}`);
@@ -769,31 +775,31 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['bones'] < this.time60Secs) {
       return;
     }
-    this.isLoadingBones = true;
-    try {
-      const res: any = await this.bonesService.getActivePlayers(2);
-      this.bonesActivePlayers = res?.count ?? null;
-    } catch (e) {
-      this.bonesActivePlayers = null;
-    }
-
-    try {
-      const userId = this._parent.user?.id ?? 0;
-      if (userId) {
-        const rankRes: any = await this.bonesService.getUserRank(userId);
-        if (rankRes && rankRes.hasHero) {
-          this.bonesUserRank = { rank: rankRes.rank ?? null, level: rankRes.level ?? null, totalPlayers: rankRes.totalPlayers ?? null };
-        } else {
-          this.bonesUserRank = { rank: null, level: null, totalPlayers: rankRes?.totalPlayers ?? null };
-        }
-      }
-    } catch (e) {
-      this.bonesUserRank = null;
-    }
-
+    this.isLoadingBones = true; 
     if (this._parent?.navigationItems) {
       const bonesNav = this._parent.navigationItems.find(x => x.title === 'Bones');
       if (bonesNav) {
+        try {
+          const res: any = await this.bonesService.getActivePlayers(2);
+          this.bonesActivePlayers = res?.count ?? null;
+        } catch (e) {
+          this.bonesActivePlayers = null;
+          console.error('Error fetching Bones player data:', e);
+        } 
+        try {
+          const userId = this._parent.user?.id ?? 0;
+          if (userId) {
+            const rankRes: any = await this.bonesService.getUserRank(userId);
+            if (rankRes && rankRes.hasHero) {
+              this.bonesUserRank = { rank: rankRes.rank ?? null, level: rankRes.level ?? null, totalPlayers: rankRes.totalPlayers ?? null };
+            } else {
+              this.bonesUserRank = { rank: null, level: null, totalPlayers: rankRes?.totalPlayers ?? null };
+            }
+          }
+        } catch (e) {
+          this.bonesUserRank = null;
+          console.error('Error fetching Bones user rank:', e);
+        }
         const parts: string[] = [];
         if (this.bonesActivePlayers != null) parts.push(this.bonesActivePlayers.toString());
         if (this.bonesUserRank?.rank != null) parts.push(`#${this.bonesUserRank.rank}`);
@@ -813,29 +819,31 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['meta'] < this.time60Secs) {
       return;
     }
-    this.isLoadingMeta = true;
-    try {
-      const res: any = await this.metaService.getActivePlayers(2);
-      this.metaActivePlayers = res?.count ?? null;
-    } catch (e) {
-      this.metaActivePlayers = null;
-    }
-    try {
-      const userId = this._parent.user?.id ?? 0;
-      if (userId) {
-        const rankRes: any = await this.metaService.getUserRank(userId);
-        if (rankRes && rankRes.hasBot) {
-          this.metaUserRank = { rank: rankRes.rank ?? null, level: rankRes.level ?? null, totalPlayers: rankRes.totalPlayers ?? null };
-        } else {
-          this.metaUserRank = { rank: null, level: null, totalPlayers: rankRes?.totalPlayers ?? null };
-        }
-      }
-    } catch (e) {
-      this.metaUserRank = null;
-    }
+    this.isLoadingMeta = true; 
     if (this._parent?.navigationItems) {
       const metaNav = this._parent.navigationItems.find(x => x.title === 'Meta-Bots');
       if (metaNav) {
+        try {
+          const res: any = await this.metaService.getActivePlayers(2);
+          this.metaActivePlayers = res?.count ?? null;
+        } catch (e) {
+          this.metaActivePlayers = null;
+          console.error('Error fetching Meta-Bots player data:', e);
+        }
+        try {
+          const userId = this._parent.user?.id ?? 0;
+          if (userId) {
+            const rankRes: any = await this.metaService.getUserRank(userId);
+            if (rankRes && rankRes.hasBot) {
+              this.metaUserRank = { rank: rankRes.rank ?? null, level: rankRes.level ?? null, totalPlayers: rankRes.totalPlayers ?? null };
+            } else {
+              this.metaUserRank = { rank: null, level: null, totalPlayers: rankRes?.totalPlayers ?? null };
+            }
+          }
+        } catch (e) {
+          this.metaUserRank = null;
+          console.error('Error fetching Meta-Bots user rank:', e);
+        }
         const parts: string[] = [];
         if (this.metaActivePlayers != null) parts.push(this.metaActivePlayers.toString());
         if (this.metaUserRank?.rank != null) parts.push(`#${this.metaUserRank.rank}`);
@@ -852,16 +860,17 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['music'] < this.time60Mins) {
       return;
     }
-    this.isLoadingMusic = true;
-    try {
-      const res: any = await this.todoService.getTodoCount(this._parent?.user?.id ?? 0, 'Music');
-      this.musicTodoCount = res?.count ?? 0;
-    } catch {
-      this.musicTodoCount = null;
-    }
+    this.isLoadingMusic = true; 
     if (this._parent?.navigationItems) {
       const musicNav = this._parent.navigationItems.find(x => x.title === 'Music');
       if (musicNav) {
+        try {
+          const res: any = await this.todoService.getTodoCount(this._parent?.user?.id ?? 0, 'Music');
+          this.musicTodoCount = res?.count ?? 0;
+        } catch (error) {
+          this.musicTodoCount = null;
+          console.error('Error fetching music todo count:', error);
+        }
         musicNav.content = this.musicTodoCount && this.musicTodoCount > 0 ? this.shortenCount(this.musicTodoCount) : '';
       }
     }
@@ -876,16 +885,17 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['todo'] < this.time60Mins) {
       return;
     }
-    this.isLoadingTodo = true;
-    try {
-      const res: any = await this.todoService.getTodoCount(this._parent.user.id, 'Todo');
-      this.todoCount = res?.count ?? 0;
-    } catch {
-      this.todoCount = null;
-    }
+    this.isLoadingTodo = true; 
     if (this._parent?.navigationItems) {
       const todoNav = this._parent.navigationItems.find(x => x.title === 'Todo');
       if (todoNav) {
+        try {
+          const res: any = await this.todoService.getTodoCount(this._parent.user.id, 'Todo');
+          this.todoCount = res?.count ?? 0;
+        } catch (error) {
+          this.todoCount = null;
+          console.error('Error fetching todo count:', error);
+        }
         todoNav.content = this.todoCount && this.todoCount > 0 ? this.shortenCount(this.todoCount) : '';
       }
     }
@@ -902,25 +912,31 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['array'] < this.time60Secs) {
       return;
     }
-    this.isLoadingArray = true;
-    try {
-      const res: any = await this.arrayService.getActivePlayers(2);
-      this.arrayActivePlayers = res?.count ?? null;
-    } catch { this.arrayActivePlayers = null; }
-    try {
-      const userId = this._parent.user?.id ?? 0;
-      if (userId) {
-        const rankRes: any = await this.arrayService.getUserRank(userId);
-        if (rankRes && rankRes.hasHero) {
-          this.arrayUserRank = { rank: rankRes.rank ?? null, level: rankRes.level ?? null, totalPlayers: rankRes.totalPlayers ?? null };
-        } else {
-          this.arrayUserRank = { rank: null, level: null, totalPlayers: rankRes?.totalPlayers ?? null };
-        }
-      }
-    } catch { this.arrayUserRank = null; }
+    this.isLoadingArray = true; 
     if (this._parent?.navigationItems) {
       const arrayNav = this._parent.navigationItems.find(x => x.title === 'Array');
       if (arrayNav) {
+        try {
+          const res: any = await this.arrayService.getActivePlayers(2);
+          this.arrayActivePlayers = res?.count ?? null;
+        } catch (error) { 
+          this.arrayActivePlayers = null; 
+          console.error('Error fetching array player data:', error);
+        }
+        try {
+          const userId = this._parent.user?.id ?? 0;
+          if (userId) {
+            const rankRes: any = await this.arrayService.getUserRank(userId);
+            if (rankRes && rankRes.hasHero) {
+              this.arrayUserRank = { rank: rankRes.rank ?? null, level: rankRes.level ?? null, totalPlayers: rankRes.totalPlayers ?? null };
+            } else {
+              this.arrayUserRank = { rank: null, level: null, totalPlayers: rankRes?.totalPlayers ?? null };
+            }
+          }
+        } catch (error) { 
+          this.arrayUserRank = null; 
+          console.error('Error fetching array user rank:', error);
+        }
         const parts: string[] = [];
         if (this.arrayActivePlayers != null) parts.push(this.arrayActivePlayers.toString());
         if (this.arrayUserRank?.rank != null) parts.push(`#${this.arrayUserRank.rank}`);
@@ -937,14 +953,17 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['emulator'] < this.time60Secs) {
       return;
     }
-    this.isLoadingEmulator = true;
-    try {
-      const res: any = await this.romService.getActivePlayers(2);
-      this.emulatorActivePlayers = res?.count ?? null;
-    } catch { this.emulatorActivePlayers = null; }
+    this.isLoadingEmulator = true; 
     if (this._parent?.navigationItems) {
       const emuNav = this._parent.navigationItems.find(x => x.title === 'Emulator');
       if (emuNav) {
+        try {
+          const res: any = await this.romService.getActivePlayers(2);
+          this.emulatorActivePlayers = res?.count ?? null;
+        } catch (error) { 
+          this.emulatorActivePlayers = null; 
+          console.error('Error fetching emulator player data:', error);
+        }
         emuNav.content = this.emulatorActivePlayers != null ? this.emulatorActivePlayers.toString() : '';
       }
     }
@@ -958,14 +977,17 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['social'] < this.time60Mins) {
       return;
     }
-    this.isLoadingSocial = true;
-    try {
-      const res: any = await this.socialService.getTotalPosts();
-      this.socialTotalPosts = res?.count ?? null;
-    } catch { this.socialTotalPosts = null; }
+    this.isLoadingSocial = true; 
     if (this._parent?.navigationItems) {
       const socialNav = this._parent.navigationItems.find(x => x.title === 'Social');
       if (socialNav) {
+        try {
+          const res: any = await this.socialService.getTotalPosts();
+          this.socialTotalPosts = res?.count ?? null;
+        } catch (error) { 
+          this.socialTotalPosts = null; 
+          console.error('Error fetching social post data:', error);
+        }
         socialNav.content = this.socialTotalPosts != null ? this.socialTotalPosts.toString() : '';
       }
     }
@@ -979,15 +1001,18 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['crawler'] < this.time60Mins) {
       return;
     }
-    this.isLoadingCrawler = true;
-    try {
-      const res: any = await this.crawlerService.indexCount();
-      const parsed = parseInt(res, 10);
-      this.crawlerIndexCount = !isNaN(parsed) ? parsed : null;
-    } catch { this.crawlerIndexCount = null; }
+    this.isLoadingCrawler = true; 
     if (this._parent?.navigationItems) {
       const crawlerNav = this._parent.navigationItems.find(x => x.title === 'Crawler');
       if (crawlerNav) {
+        try {
+          const res: any = await this.crawlerService.indexCount();
+          const parsed = parseInt(res, 10);
+          this.crawlerIndexCount = !isNaN(parsed) ? parsed : null;
+        } catch (error) { 
+          this.crawlerIndexCount = null; 
+          console.error('Error fetching crawler index count:', error);
+        }
         crawlerNav.content = this.crawlerIndexCount != null ? this.crawlerIndexCount.toString() : '';
       }
     }
@@ -1003,19 +1028,21 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     this.isLoadingArt = true;
     if (!this.artTotalSubmissions) {
-      try {
-        const res: any = await this.fileService.getNumberOfArt();
-        this.artTotalSubmissions = res ?? 0;
-      } catch {
-        this.artTotalSubmissions = null;
-      }
+      if (this._parent?.navigationItems) {
+        const artNav = this._parent.navigationItems.find(x => x.title === 'Art');
+        if (artNav) {
+          try {
+            const res: any = await this.fileService.getNumberOfArt();
+            this.artTotalSubmissions = res ?? 0;
+          } catch (error) {
+            this.artTotalSubmissions = null;
+            console.error('Error fetching art submission data:', error);
+          }
+          artNav.content = this.artTotalSubmissions != null ? this.artTotalSubmissions.toString() : '';
+        }
+      } 
     }
-    if (this._parent?.navigationItems) {
-      const artNav = this._parent.navigationItems.find(x => x.title === 'Art');
-      if (artNav) {
-        artNav.content = this.artTotalSubmissions != null ? this.artTotalSubmissions.toString() : '';
-      }
-    }
+   
     this.isLoadingArt = false;
     this.updateLastRunTimestamp('art');
   }
@@ -1026,7 +1053,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['wordler'] < this.time60Mins) {
       return;
     }
-    if (!this._parent.user?.id || !this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("wordler"))) { return; }
+    if (!this._parent.user?.id 
+        || !this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("wordler"))) 
+    {
+      return; 
+    }
     this.isLoadingWordlerStreak = true;
     try {
       const res = await this.wordlerService.getTodaysDayStreak(this._parent.user.id);
@@ -1198,13 +1229,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['newsCount'] < this.time60Mins) {
       return;
     }
-    if (!this._parent || !this._parent.user || this.navbarCollapsed) return;
+    if (!this._parent || this.navbarCollapsed) return;
     this.isLoadingNews = true;
     try {
-      const count = await this.newsService.getNewsCount();
       if (this._parent?.navigationItems) {
         const newsNav = this._parent.navigationItems.find(x => x.title === 'News');
         if (newsNav) {
+          const count = await this.newsService.getNewsCount();
           newsNav.content = count && count > 0 ? this.shortenCount(count) : '';
         }
       }
