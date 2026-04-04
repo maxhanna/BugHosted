@@ -706,3 +706,7 @@
 .fileNameDiv.controller-hover .fileFolderNameSpan {
   font-weight: 600;
 }
+
+.emulatorPopupPanel {
+  z-index: 5000;
+}

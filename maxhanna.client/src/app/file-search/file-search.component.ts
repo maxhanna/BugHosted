@@ -1,4 +1,6 @@
-﻿
+﻿  // --- System Override Popup State ---
+  // --- System Override Popup State ---
+
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { FileService } from '../../services/file.service';
@@ -27,6 +29,51 @@ import { Core } from '../emulator/emulator-types';
   standalone: false
 })
 export class FileSearchComponent extends ChildComponent implements OnInit, AfterViewInit, OnDestroy {
+      // --- System Override Popup State ---
+    // --- System Override Popup State ---
+    public isSystemSelectPanelOpen: boolean = false;
+    public systemCandidates: Array<{ label: string; core?: string }> = [];
+    public selectedSystemCore: string | null = null;
+
+    // Open the system override popup for the current optionsFile
+    public openSystemOverridePanel(): void {
+      if (!this.optionsFile || !this.optionsFile.fileName) return;
+      this.systemCandidates = this.fileService.buildCoreRegistry();
+      this.selectedSystemCore = null;
+      this.isSystemSelectPanelOpen = true;
+      (this.inputtedParentRef ?? this.parentRef)?.showOverlay();
+    }
+
+    // Handle system selection change
+    public onSystemSelectChange(ev: Event): void {
+      const val = (ev.target as HTMLSelectElement).value;
+      this.selectedSystemCore = val || null;
+    }
+
+    // Confirm the system selection and persist override
+    public async confirmSystemSelection(): Promise<void> {
+      if (!this.optionsFile || !this.selectedSystemCore) return;
+      try {
+        await this.romService.setSystemOverride(this.optionsFile.id, this.selectedSystemCore);
+        if (this.optionsFile.romMetadata) {
+          (this.optionsFile.romMetadata as any).actualSystem = this.selectedSystemCore;
+        }
+        this.notifyUser('System override set.');
+        this.isSystemSelectPanelOpen = false;
+        (this.inputtedParentRef ?? this.parentRef)?.closeOverlay();
+        this.closeOptionsPanel();
+        // Optionally reload directory or update UI
+        await this.getDirectory();
+      } catch (e) {
+        this.notifyUser('Failed to set system override.');
+      }
+    }
+
+    // Cancel system selection
+    public cancelSystemSelection(): void {
+      this.isSystemSelectPanelOpen = false;
+      (this.inputtedParentRef ?? this.parentRef)?.closeOverlay();
+    }
   defaultCurrentPage = 1;
   @Input() currentDirectory = '';
   @Input() clearAfterSelectFile = false;

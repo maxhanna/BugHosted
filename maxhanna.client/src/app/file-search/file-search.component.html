@@ -374,6 +374,9 @@
         [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata?.actualSystem)">
       </span>
     </button>
+    <button (click)="openSystemOverridePanel()" [disabled]="isLoading" *ngIf="shouldShowRomMetadata() && optionsFile && !optionsFile.romMetadata?.actualSystem && (optionsFile.user?.id === parentRef?.user?.id)">
+      🎮 Set System Override
+    </button> 
     <app-share-button *ngIf="optionsFile.visibility?.toLowerCase() !== 'private'" [link]="shareLink"
       [isExternalLink]="isInRomDirectory"></app-share-button>
     <app-share-button *ngIf="optionsFile.visibility?.toLowerCase() === 'private'" [isExternalLink]="false"
@@ -922,4 +925,18 @@
   <button class="closeButton" id="closeOverlay" style="margin-top:10px;" (click)="closeShareUserList()">
     Close
   </button>
+</div>
+ <!-- System selection for ambiguous files (system override) -->
+<div class="popupPanel emulatorPopupPanel" *ngIf="isSystemSelectPanelOpen">
+  <div class="popupPanelTitle">Select System For {{ optionsFile?.fileName }}</div>
+  <div style="padding:8px;">
+    <div style="margin-bottom:8px;">Please choose the intended system:</div>
+    <select [value]="selectedSystemCore" (change)="onSystemSelectChange($event)">
+      <option *ngFor="let opt of systemCandidates" [value]="opt.core">{{opt.label}}</option>
+    </select>
+    <div style="margin-top:12px; display:flex; gap:8px;">
+      <button (click)="confirmSystemSelection()">Continue</button>
+      <button (click)="cancelSystemSelection()" class="closeButton" id="closeOverlay">Cancel</button>
+    </div>
+  </div>
 </div>
