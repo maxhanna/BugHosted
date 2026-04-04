@@ -45,6 +45,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   xdgToCadPrice = 0;
   xrpToCadPrice = 0;
   ethToCadPrice = 0;
+  cadToUsdPrice = 0;
   selectedCoinToCadPrice = 0;
   isMenuPanelOpen = false;
   isWalletPanelOpen = false;
@@ -353,10 +354,15 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   
   async updateVolumeDisplayData(res: any) {
     if (!res || res.length === 0) return;
-
-    const usdRate = await this.coinValueService.getCurrencyConversionRate("CAD", "USD") ?? 1;
+    let cadToUsdRate = 1;
+    if (this.cadToUsdPrice === 0) {
+      cadToUsdRate = await this.coinValueService.getCurrencyConversionRate("CAD", "USD") ?? 1;
+      this.cadToUsdPrice = cadToUsdRate;
+    } else {
+      cadToUsdRate = this.cadToUsdPrice;
+    }
     // Calculate BTC price first
-    const btcPrice = (this.btcToCadPrice ?? 1) * usdRate;
+    const btcPrice = (this.btcToCadPrice ?? 1) * cadToUsdRate;
     const latestData = res[res.length - 1];
     const newTimestamp = new Date(latestData.timestamp);
 
