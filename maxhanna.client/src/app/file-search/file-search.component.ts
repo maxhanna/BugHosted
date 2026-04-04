@@ -285,10 +285,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   private updateDisplayRomMetadataDesktop() {
     if (!this.displayRomMetadataDesktop || !this.displayRomMetadata) {
-      console.log('Not displaying ROM metadata on desktop: displayRomMetadataDesktop or showRomMetadata is false');
       return;
     }
-
     try {
       this.displayRomMetadataDesktop = !this.onMobile() && (window?.innerWidth ?? 0) >= 1000;
     } catch (e) {

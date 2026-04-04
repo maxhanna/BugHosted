@@ -462,7 +462,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     const commentAdded = event.content.comment as FileComment;
     commentAdded.id = parseInt(event.results.split(" ")[0]);
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
-    commentAdded.commentText = this.encryptionService.decryptContent(commentAdded.commentText ?? "", user?.id + "");
+    commentAdded.commentText = this.encryptionService.decryptContent(commentAdded.commentText ?? "", (user?.id ?? 0) + "");
     commentAdded.decrypted = true;
     if (!parentComment) {
       this.commentAddedEvent.emit(commentAdded);

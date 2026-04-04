@@ -85,9 +85,12 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   private _lastPostTime: number = 0;
 
   ngOnInit() {
-    if (this.inputtedParentRef?.user?.id && this.type == "Social") {
-      this.topicService.getFavTopics(this.inputtedParentRef.user).then(res => this.favTopics = res);
-      this.topicService.getIgnoredTopics(this.inputtedParentRef.user).then(res => this.ignoredTopics = res);
+    if (this.inputtedParentRef) {
+      this.parentRef = this.inputtedParentRef;
+    }
+    if (this.parentRef?.user?.id && this.type == "Social") {
+      this.topicService.getFavTopics(this.parentRef.user).then(res => this.favTopics = res);
+      this.topicService.getIgnoredTopics(this.parentRef.user).then(res => this.ignoredTopics = res);
     }
     this.topicService.getTopStoryTopics().then(res => {
       if (res) {
@@ -98,7 +101,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
 
   // Update existing content (comment, story, chat)
   async update() {
-    const parent = this.inputtedParentRef ?? this.parentRef;
+    const parent = this.parentRef;
     const user = parent?.user ?? new User(0, "Anonymous");
     const sessionToken = await parent?.getSessionToken();
     const updatedText = this.textarea.value?.trim() || '';
@@ -239,14 +242,14 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     const text = this.textarea.value?.trim() || '';
     this.attachedFiles = this.mediaSelector?.selectedFiles ?? [];
     this.attachedTopics = this.topicSelector?.attachedTopics ?? this.attachedTopics;
+    this.highlightTopicsButton = false;
 
     if (this.type === 'Social' && !this.profileUser && (!this.attachedTopics || this.attachedTopics.length === 0)) {
-      const parent = this.inputtedParentRef ?? this.parentRef;
-      parent?.showNotification?.('Please select at least one topic before posting to the feed.');
+      this.parentRef?.showNotification('Please select at least one topic before posting to the feed.');
       this.highlightTopicsButton = true;
       this.isTopicsPanelOpen = true;
       this._isPosting = false;
-      parent?.showOverlay();
+      this.parentRef?.showOverlay();
       return;
     }
 
@@ -258,7 +261,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
 
     this.startLoading();
     try {
-      const parent = this.inputtedParentRef ?? this.parentRef;
+      const parent = this.parentRef;
       const user = parent?.user ?? new User(0, "Anonymous");
       parent?.updateLastSeen();
       const sessionToken = await parent?.getSessionToken();
@@ -362,7 +365,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     return element!;
   }
   async createNotifications(results: { results: any, originalContent: string }, ids?: { userProfileId?: number, storyId?: number, fileId?: number, commentId?: number }) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
+    const parent = this.parentRef;
     const user = parent?.user;
     // if component has an explicit storyId, prefer and propagate it into ids so downstream code sees it
     if (this.storyId !== undefined) {
@@ -484,17 +487,13 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     this.mediaSelector.removeAllFiles();
     this.topicSelector?.removeAllTopics();
   }
-  showTopicsPanel() {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    this.isTopicsPanelOpen = true;
-    if (parent) {
-      parent.showOverlay();
-    }
+  showTopicsPanel() { 
+    this.isTopicsPanelOpen = true; 
+    this.parentRef?.showOverlay(); 
   }
   closeTopicsPanel() {
-    this.isTopicsPanelOpen = false;
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.closeOverlay();
+    this.isTopicsPanelOpen = false; 
+    this.parentRef?.closeOverlay();
   }
   getOptionsCount() {
     let count = 0;
@@ -505,27 +504,24 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   showPostOptionsPanel() {
     if (this.isPostOptionsPanelOpen) {
       this.closePostOptionsPanel();
-      const parent = this.inputtedParentRef ?? this.parentRef;
+      const parent = this.parentRef;
       parent?.closeOverlay();
       return;
     }
-    this.isPostOptionsPanelOpen = true;
-
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.showOverlay();
+    this.isPostOptionsPanelOpen = true; 
+    this.parentRef?.showOverlay();
   }
   closePostOptionsPanel() {
     this.isPostOptionsPanelOpen = false;
-    const parent = this.inputtedParentRef ?? this.parentRef;
+    const parent = this.parentRef;
     parent?.closeOverlay();
   }
   removeIgnoredTopic(topic: Topic) {
-    console.log(topic);
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent?.user?.id) {
-      this.topicService.removeIgnoredTopic(parent.user.id, [topic.id]).then(res => {
+    console.log(topic); 
+    if (this.parentRef?.user?.id) {
+      this.topicService.removeIgnoredTopic(this.parentRef.user.id, [topic.id]).then(res => {
         if (res) {
-          parent.showNotification(res.message);
+          this.parentRef?.showNotification(res.message);
           if (res.success) {
             this.ignoredTopics = res.remainingIgnoredTopics;
           }
@@ -534,12 +530,11 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     }
   }
 
-  addFavouriteTopic() {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent?.user?.id) {
-      this.topicService.addFavTopic(parent.user.id, this.attachedTopics).then(res => {
+  addFavouriteTopic() { 
+    if (this.parentRef?.user?.id) {
+      this.topicService.addFavTopic(this.parentRef.user.id, this.attachedTopics).then(res => {
         if (res) {
-          parent.showNotification(res.message);
+          this.parentRef?.showNotification(res.message);
           if (res.success) {
             this.favTopics = res.allFavoriteTopics;
           }
@@ -562,11 +557,10 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     );
   }
   removeFavTopic(topic: Topic) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent?.user?.id) {
-      this.topicService.removeFavTopic(parent.user.id, [topic.id]).then(res => {
+    if (this.parentRef?.user?.id) {
+      this.topicService.removeFavTopic(this.parentRef.user.id, [topic.id]).then(res => {
         if (res) {
-          parent.showNotification(res.message);
+          this.parentRef?.showNotification(res.message);
           if (res.success) {
             this.favTopics = res.remainingFavoriteTopics;
           }
@@ -575,11 +569,10 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     }
   }
   ignoreTopic(topic: Topic) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent?.user?.id) {
-      this.topicService.addIgnoredTopic(parent.user.id, topic).then(res => {
-        if (res) {
-          parent.showNotification(res.message);
+    if (this.parentRef?.user?.id) {
+      this.topicService.addIgnoredTopic(this.parentRef.user.id, topic).then(res => {
+        if (res && this.parentRef) {
+          this.parentRef.showNotification(res.message);
           if (res.success) {
             this.ignoredTopics = res.allIgnoredTopics;
             this.closePostOptionsPanel();
@@ -615,12 +608,11 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   }
 
   private async createStory(files?: FileEntry[]): Promise<{ story: Story, originalContent: string }> {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    const location = await parent?.getLocation();
-    const originalContent = parent?.replaceEmojisInMessage(this.textarea.value?.trim() || '') ?? '';
+    const location = await this.parentRef?.getLocation();
+    const originalContent = this.parentRef?.replaceEmojisInMessage(this.textarea.value?.trim() || '') ?? '';
     const storyObj: any = {
       id: 0,
-      user: parent!.user!,
+      user: this.parentRef?.user!,
       storyText: this.encryptContent(originalContent),
       fileId: null,
       date: new Date(),
@@ -641,18 +633,17 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   }
 
   private async createComment(files?: FileEntry[]): Promise<{ comment: FileComment, originalContent: string }> {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    const commentsWithEmoji = parent?.replaceEmojisInMessage(this.textarea.value?.trim() || '') || '';
+    const commentsWithEmoji = this.parentRef?.replaceEmojisInMessage(this.textarea.value?.trim() || '') || '';
     const { isStory, isFile, isComment } = this.getParentType();
 
     console.log("Creating comment for:", this.commentParent);
     console.log("Is Story:", isStory, "Is File:", isFile, "Is Comment:", isComment);
 
     const currentDate = new Date();
-    const location = await parent?.getLocation();
+    const location = await this.parentRef?.getLocation();
     const tmpComment = new FileComment();
 
-    tmpComment.user = parent?.user ?? new User(0, "Anonymous");
+    tmpComment.user = this.parentRef?.user ?? new User(0, "Anonymous");
     tmpComment.commentText = this.encryptContent(commentsWithEmoji);
     tmpComment.date = currentDate;
     tmpComment.fileId = this.fileId ?? (isFile ? this.commentParent?.id : undefined);
@@ -667,9 +658,8 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   }
 
   private async createChatMessage(files?: FileEntry[]): Promise<{ msg: string, chatUsersIdsArray: number[], originalContent: string }> {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    const user = parent?.user;
-    const originalContent = parent?.replaceEmojisInMessage(this.textarea.value?.trim() || '') ?? '';
+    const user = this.parentRef?.user;
+    const originalContent = this.parentRef?.replaceEmojisInMessage(this.textarea.value?.trim() || '') ?? '';
     const msg = this.encryptContent(originalContent);
     let chatUsersIds = new Set(this.currentChatUsers!.map(u => u.id ?? 0));
     if (user?.id) {
@@ -681,13 +671,12 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
 
 
   encryptContent(msg: string) {
-    try {
-      const parent = this.inputtedParentRef ?? this.parentRef;
+    try { 
       let id: number | undefined = undefined;
       if (this.type == "Chat") {
         id = this.chatId;
       } else {
-        id = parent?.user?.id ?? 0;
+        id = this.parentRef?.user?.id ?? 0;
       }
 
       if (id === undefined || id === null) {
@@ -802,13 +791,11 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   }
   showHelp() {
     this.closePostOptionsPanel();
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    setTimeout(() => { this.showHelpPopup = true; parent?.showOverlay(); }, 50);
+    setTimeout(() => { this.showHelpPopup = true; this.parentRef?.showOverlay(); }, 50);
   }
   closeHelp() {
     this.showHelpPopup = false;
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.closeOverlay();
+    this.parentRef?.closeOverlay();
   }
   getButtonHighlightState(): boolean {
     return this.type == "Social"
