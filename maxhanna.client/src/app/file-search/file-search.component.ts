@@ -2345,8 +2345,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       }
     }, 500);
   }
-
-  // Open the system override popup for the current optionsFile
+ 
   openSystemOverridePanel(): void {
     if (!this.optionsFile || !this.optionsFile.fileName) return;
     this.systemCandidates = this.fileService.buildCoreRegistry();
@@ -2358,14 +2357,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.parentRef?.showOverlay();
     }, 10);
   }
-
-  // Handle system selection change
+ 
   onSystemSelectChange(ev: Event): void {
     const val = (ev.target as HTMLSelectElement).value;
     this.selectedSystemCore = val || null;
   }
-
-  // Confirm the system selection and persist override
+ 
   async confirmSystemSelection(): Promise<void> {
     if (!this.systemSelectFile || !this.selectedSystemCore) return;
     try {
@@ -2381,8 +2378,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.notifyUser('Failed to set system override.');
     }
   }
-
-  // Cancel system selection
+ 
   cancelSystemSelection(): void {
     this.isSystemSelectPanelOpen = false;
     this.systemSelectFile = undefined;
