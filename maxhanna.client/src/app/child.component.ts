@@ -17,6 +17,7 @@ export class ChildComponent {
   // @Input() previousComponent?: string | undefined;
 
   remove_me(componentTitle: string) {
+    console.log("removing component: " + componentTitle);
     this.isLoading = false;
     if (this.parentRef && this.unique_key) {
       this.parentRef.removeComponent(this.unique_key);

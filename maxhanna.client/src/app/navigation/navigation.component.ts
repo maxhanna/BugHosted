@@ -1085,16 +1085,19 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   maximizeNav() {
-    if (this.navbar) {
-      this.navbar.nativeElement.classList.remove('collapsed');
-      this.navbarCollapsed = false;
-      this._gamepadPollActive = true;
-      if (this.toggleNavButton && this.toggleNavButton.nativeElement.style.display == "block") {
-        this.toggleMenu();
+    console.log('Maximizing nav and restarting notifications if needed');
+    setTimeout(() => {
+      if (this.navbar) {
+        this.navbar.nativeElement.classList.remove('collapsed');
+        this.navbarCollapsed = false;
+        this._gamepadPollActive = true;
+        if (this.toggleNavButton && this.toggleNavButton.nativeElement.style.display == "block") {
+          this.toggleMenu();
+        }
+        this._parent.currentComponent = '';
       }
-      this._parent.currentComponent = '';
-    }
-    this.debouncedRestartNotifications();
+      this.debouncedRestartNotifications();
+    }, 10);
   }
 
   updateLastRunTimestamp(key: string) {
