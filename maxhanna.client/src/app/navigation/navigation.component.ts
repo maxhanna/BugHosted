@@ -1284,8 +1284,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
       this._gamepadPollingInterval = undefined;
     }
     const poll = () => {
-      if (!this._gamepadPollActive) return;
-      console.log('Polling gamepads...');
+      if (!this._gamepadPollActive) {
+        return;
+      }
       const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
       for (let i = 0; i < gamepads.length; i++) {
         const gp = gamepads[i];
@@ -1296,10 +1297,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
         for (let b = 0; b < gp.buttons.length; b++) {
           const wasPressed = this._gamepadLastButtonStates[i][b];
           const isPressed = gp.buttons[b].pressed;
-          if (!wasPressed && isPressed) {
-            // Button just pressed
-            if (!this.navbarCollapsed) {
-              // Only launch if nav is showing
+          if (!wasPressed && isPressed) { 
+            if (!this.navbarCollapsed) { 
               this._parent.createComponent('Emulator');
               // Prevent spamming: stop polling for 2s
               this._gamepadPollActive = false;
