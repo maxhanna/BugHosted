@@ -278,7 +278,7 @@ namespace maxhanna.Server.Controllers
 				{whereClause}  
     			{orderByClause} 
 				LIMIT @pageSize OFFSET @offset;";
-      Console.WriteLine("sql: " + sql);
+      //Console.WriteLine("sql: " + sql);
       var storyResponse = new StoryResponse();
       var storyDictionary = new Dictionary<int, Story>();
 
