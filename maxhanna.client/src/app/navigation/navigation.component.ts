@@ -163,6 +163,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
     // Stop gamepad polling
     this._gamepadPollActive = false;
+    cancelAnimationFrame(this._gamepadPollingInterval);
   } 
 
   clearNotifications() {
