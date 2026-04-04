@@ -1,3 +1,29 @@
+## AI Copilot Skill & Lessons Learned Flow
+
+1. **Skill Detection & Loading**
+	- On every user prompt, scan for keywords (e.g., "validate", "format", "angular", "c#") and check the file context (e.g., editing a .cs file).
+	- Immediately load all relevant skill files from the /skills directory before taking any action or generating a response.
+	- If multiple skills apply, load all relevant skill files and combine their guidance.
+
+2. **Task Execution**
+	- Follow the best practices and rules from the loaded skill file(s) while performing the requested task.
+
+3. **Lessons Learned Logging**
+	- After completing the task, write a "lessons learned" entry in each relevant skill file (e.g., /skills/validation/ai-skill.md for validation tasks).
+	- Each entry must be concise, factual, and focused on actionable insights for future tasks within that skill domain.
+
++4. **AI-HISTORY.md as Overarching Guide**
+	- Use /skills/ai-history.md for general, cross-domain best practices and meta-guidance that apply to all skills and workflows.
+	- Only add broadly applicable insights to /skills/ai-history.md.
+	- If /skills/ai-history.md exceeds 15,000 tokens, summarize and trim to retain only the most important, recent insights.
+
+5. **Skill File Summarization**
+	- If any skill file exceeds 15,000 tokens, summarize and rewrite it to retain only the most up-to-date, concise, and actionable information.
+
+6. **Continuous Improvement**
+	- At the start of each new task, review AI-HISTORY.md for general guidance and load the relevant skill files for specific best practices.
+	- Apply both general and domain-specific lessons to avoid repeating mistakes and to improve performance over time.
+ 
 # Copilot Instructions (read before handling requests)
 
 These are project-specific guidelines that must be followed for every change.
@@ -5,32 +31,23 @@ These are project-specific guidelines that must be followed for every change.
 ## Project environment
 - Angular version: 19.x (see maxhanna.client/package.json dependencies)
 
-## Template & binding rules
-- IMPORTANT: this Angular version does NOT support `ngClass`. Do NOT use `ngClass` in templates; prefer string-based `[class]` or explicit boolean class bindings (e.g. `[class.foo]="cond"`). Always remember this.
-- Do NOT use `ngClass` in templates; prefer string-based `[class]` or explicit class concatenation.
-- Do NOT use `[ngModel]`; use explicit input value bindings such as `[value]` and `(input)` handlers.
-- Use explicit boolean attribute bindings where necessary (e.g. `[disabled]="..."`).
 
-## Coding style rules
-- Never use single-line `if` / `else` statements. Always use block form with curly braces:
-  - Wrong: if (x) doThing();
-  - Correct: if (x) { doThing(); }
-- Always include curly braces for all control-flow statements (`if`, `else`, `for`, `while`, `switch` case blocks where applicable).
+## Skills Guidance
+For detailed rules and best practices, see the appropriate skill file in the /skills directory:
+- Frontend Angular: /skills/frontend-angular/ai-skill.md
+- Backend C#: /skills/backend-csharp/ai-skill.md
+- Formatting: /skills/formatting/ai-skill.md
+- Validation: /skills/validation/ai-skill.md
 
-## Angular considerations
-- Prefer explicit getters in components for computed template values (e.g., class strings, titles). Keep templates simple.
-- Avoid template expressions that call heavy functions repeatedly; cache values in component properties/getters.
 
-## Template formatting
-- Keep `[class]` expressions readable; prefer a component getter that returns a single spaced class string.
+## Lessons Learned Logging (AI-HISTORY.md)
+- At the end of every response, the assistant must include a "lessons learned" section written to AI-HISTORY.md in the root of this repo.
+- This section should record what worked, what failed, and why things were done a certain way, focusing on actionable insights for future tasks.
+- The assistant should read AI-HISTORY.md at the start of every new task to avoid repeating mistakes and to build on past successes.
+- The "lessons learned" section must be concise, factual, and focused on practical improvements.
+- The assistant is encouraged to reflect on its own performance and identify areas for improvement in the "lessons learned" section.
+- When AI-HISTORY.md or any sub-skill file exceeds 15,000 tokens, the assistant should summarize key insights and remove older entries to keep the file manageable and focused on recent learnings.
 
-## Accessibility & UX
-- When adding interactive controls, include a `title` attribute for tooltips and a visible label when practical.
-
-## Safety & tests
-- Run `npm run build` (or `ng build`) locally after substantial changes and fix template/TypeScript errors before committing.
-
-## When in doubt
 - Ask the user for clarification rather than making assumptions that change UI behavior.
 
 ---
@@ -47,91 +64,8 @@ Keep this file up to date when project conventions change.
 - If a change would break compilation, do not apply it and notify the user.
 - Document any non-trivial changes or refactors in commit messages or comments as appropriate.
 
-## Angular Specifics
- - Do NOT assign values or call multiple expressions directly in HTML event handlers (e.g., `(input)="fileSearchComponent.searchTerms = $event.target.value; fileSearchComponent.getDirectory();"`).
-	 Instead, create a function in the TypeScript file and call it from the template (e.g., `(input)="onSearchInput($event)"`).
-- Use standalone components and modules where possible.
-- Prefer reactive forms over template-driven forms for complex input handling.
-- Use `[value]` and `(input)` for input elements.
-- Use `[class]` for dynamic class binding.
-- Follow Angular style guide for file and folder structure.
-- Use HttpClient for all HTTP requests.
-- Avoid use of `any` type; prefer explicit interfaces and types.
-- Use Observables and RxJS for asynchronous operations.
 
-## Backend C# Specifics
-- Ensure all controller actions validate input and return appropriate status codes.
-- Use async/await for all database and IO operations.
-- Validate all user input before processing.
-- Document API endpoints with comments.
- - Place simple DTOs and helper classes used by controller endpoints under the controller's `DataContracts` folder as separate class files (e.g., `Controllers/DataContracts/YourDto.cs`). Do not declare endpoint helper classes inline inside controller files.
-
-## Editing Style for Adding Methods
-- When adding new methods to an existing class, append them at the end of the class body (just before the final closing brace) rather than inserting them at the top of the class. This preserves the original logical ordering and minimizes merge conflicts.
-- If adding multiple related helper methods, group them together near other helpers (still placed at the end) and add a short comment header describing their purpose.
-- For TypeScript/Angular components follow the same approach: append new component methods/properties to the end of the class in the TypeScript file.
-
-## Variable & Function Placement Convention
-- Place loose component properties/variables (e.g., flags like `showTableView`, configuration constants, and public properties used by the template) near the top of the class, alongside other field declarations.
-- Place newly added functions and helper methods at the bottom of the class (still inside the class body), after existing methods and getters. This keeps the declaration area (fields) separate from behavior (methods) and reduces churn in the file header.
-
-## Error Handling
-- After every edit, check for compile and lint errors.
-- If errors are found, fix them before proceeding with further changes.
-- If unable to fix, notify the user and halt further edits.
-
-## Commit/Change Documentation
-- Summarize the purpose of each change in a comment or commit message.
-- For multi-file changes, list affected files and a brief description of the change.
 
 ---
 This file should be referenced by the agent before making any code edits in this workspace. When component general behavior or purpose changes, update README.md Component Overview section.
 
-## Project peculiarities & guidance for Copilot-style agents
-
-- Backend is .NET C# + MySQL and many controllers use manual, parameterized SQL with explicit transactions; prefer `async/await` and keep the transaction in the same method when editing controller flows.
-- Many database columns can be NULL. Avoid calling `reader.GetString(...)` or similar directly without checking `IsDBNull` (or use a small helper like `SafeGetString`). Prefer ordinals, `IsDBNull`, or Convert.ToString for nullable columns.
- - Many database columns can be NULL. Avoid calling `reader.GetString(...)` or similar directly without checking `IsDBNull`.
-	 Prefer the explicit `IsDBNull` pattern for nullable ints where callers expect a nullable result, for example:
-	 `int? killerId = rdr.IsDBNull(rdr.GetOrdinal("killer_id")) ? (int?)null : rdr.GetInt32("killer_id");`
-	 This pattern is preferred over a generic `SafeGetInt32` helper when the calling code expects a nullable int or wants explicit null semantics.
-- Controllers use raw SQL in strings and helper methods under `Controllers/` and `Controllers/DataContracts/` for DTOs — add new DTOs under `DataContracts/` per the existing pattern.
-- When replacing expensive in-memory loops that join DB-backed sets (e.g., hero vs wall collision), prefer moving the work into a single parameterized SQL query (CTE or grouped subquery) to let the DB optimize joins and use indexes.
-- Client is Angular (TypeScript).  
-- Avoid broad refactors in a single patch. Make small, focused edits (one logical change per patch) and run build/tests after each change.
-- After server-side edits, run `dotnet build` in `maxhanna.Server` and fix compile errors before proceeding. After client-side edits, run the client build (or at least `tsc`) if possible to catch type errors.
-- Style: preserve existing indentation, method ordering (append helper methods at the end of classes), and use the same exception logging pattern (`_log.Db(...)`) when adding new server-side error handling.
-- Tests & verification: for non-trivial server changes, prefer a tiny integration smoke check (exercise endpoint) and collect error traces if the change hits production errors.
-
-Keep this section minimal and update it when new repo conventions appear.
-
-## Control-flow & formatting rules
-
-- Never write `if true` as a single-line condition. Always use a braced form when the condition is literally true, written exactly as `if { true }` including the brackets.
-- Always format `if` statements and `for` loops as multi-line blocks with braces and line breaks, even for single-line bodies. Example:
-
-	if (condition)
-	{
-		// body
-	}
-
-	for (let i = 0; i < n; i++)
-	{
-		// body
-	}
-
-- When writing SQL blocks, prefer multi-line, verbatim string blocks (see SQL string style below) and avoid packing SQL into single-line statements.
-
-
-## SQL string style (required)
-
-- When generating or editing C# code that contains SQL, always use C# verbatim multiline string syntax with @"..." for the SQL block. Do not use concatenated strings or string interpolation for SQL content. Example:
-
-	@"SELECT id, name
-		FROM maxhanna.bones_hero
-		WHERE map = @Map
-		ORDER BY coordsY ASC;"
-
-- Prettify SQL inside the @"" block: align keywords, break long clauses to multiple lines, and keep parameters (e.g., @Map, @HeroId) intact. This improves readability and makes diffs cleaner.
-
-- When executing the SQL, continue to use parameterized commands (e.g., `cmd.Parameters.AddWithValue("@Map", map);`) and do not inline values into the SQL text.
