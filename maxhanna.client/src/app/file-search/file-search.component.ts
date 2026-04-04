@@ -454,7 +454,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     // console.log('[FileSearch] getDirectory called', { fileArg: file, fileIdArg: fileId, append, isLoading: this.isLoading, currentDirectory: this.currentDirectory });
     this.startLoading();
     this.pageLocked = true;
-    this.resetControllerHover();
+    this.resetControllerHover(true);
     let fileTypes: string[] = [];
     const filterArr = this.fileTypeFilter.split(',').map(t => t.trim().toLowerCase()).filter(t => t);
     if (this.allowedFileTypes && this.allowedFileTypes.length > 0) {
@@ -1502,7 +1502,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     ) as HTMLElement[];
   }
 
-  private updateControllerHover(): void {
+  private updateControllerHover(noScroll?: boolean): void {
     const els = this.getFileElements();
     els.forEach(el => el.classList.remove('controller-hover'));
 
@@ -1510,12 +1510,16 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
     const el = els[this.controllerIndex];
     el.classList.add('controller-hover');
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (noScroll) {
+      return;
+    } else {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
+    }
   }
 
-  private resetControllerHover(): void {
+  private resetControllerHover(noScroll?: boolean): void {
     this.controllerIndex = 0;
-    setTimeout(() => this.updateControllerHover(), 30);
+    setTimeout(() => this.updateControllerHover(noScroll), 30);
   }
 
   getTotalCommentCount(commentList?: FileComment[]): number {
