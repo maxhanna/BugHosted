@@ -26,6 +26,7 @@ import { SocialService } from '../../services/social.service';
 import { CrawlerService } from '../../services/crawler.service';
 import { NewsService } from '../../services/news.service';
 import { UserTheme } from '../../services/datacontracts/chat/chat-theme';
+import { c } from '@angular/core/event_dispatcher.d-pVP0-wST';
 
 @Component({
   selector: 'app-navigation',
@@ -184,9 +185,14 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getNotifications() {
-    if (this.notificationsServerDown) return; // when server down for notifications, skip fetching
-    if (this._parent.notificationsActive || this.preventFetchNotifs) return;
-    if (!this._parent || !this._parent.user || this._parent.user.id == 0) return;
+    if (this.notificationsServerDown || this.preventFetchNotifs) {
+      console.warn('Skipping notification fetch because server is down or fetch is currently prevented');
+      return; // when server down for notifications, skip fetching
+    }
+    if (!this._parent) {
+      console.warn('Skipping notification fetch because user is not logged in');
+      return;
+    }
     console.log("fetch notifications"); 
     this._parent.notificationsActive = true;
 
@@ -1095,6 +1101,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
           this.toggleMenu();
         }
         this._parent.currentComponent = '';
+      } else {
+        console.error('Navbar element not found when trying to maximize nav');
       }
       this.debouncedRestartNotifications();
     }, 10);
