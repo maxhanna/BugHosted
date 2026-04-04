@@ -1,5 +1,5 @@
 import { AfterViewInit, ChangeDetectorRef, Component, ComponentRef, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
-import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterEvent, RouterOutlet } from '@angular/router';
 import { Location } from '@angular/common';
 import { CalendarComponent } from './calendar/calendar.component';
 import { FavouritesComponent } from './favourites/favourites.component';
@@ -421,7 +421,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   }
 
   ngAfterViewInit() {
-    this.router.events.subscribe((event: any) => {
+    this.router.events.subscribe((event: RouterEvent) => {
       if (event instanceof NavigationEnd) {
         console.log("NavigationEnd:", this.router.url);
         if (this.router.url.includes('Memes')) {
