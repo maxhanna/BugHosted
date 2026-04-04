@@ -772,7 +772,8 @@ private _bootingFromGamepad = false;
     }
     const isDPADCentric = (system && (['nes', 'snes', 'gb', 'gbc', 'gba', 'genesis', 'saturn', 'sega_cd', '3do', 'nds'] as string[]).includes(system))
       || core === 'yabause' || core === 'beetle_saturn' || core === 'kronos_saturn';
-    const isLeftAndRightJoystickInverted = (system && ['n64'].includes(system));
+    const isN64Selected = (system && ['n64'].includes(system));
+    const isLeftAndRightJoystickInverted = isN64Selected;
     const rightStickValues = {
       "UP":
         isDPADCentric
@@ -852,8 +853,8 @@ private _bootingFromGamepad = false;
       19: { value: '', value2: rightStickValues["UP"] },
       20: { value: '', value2: 'DPAD_RIGHT' },
       21: { value: '', value2: 'DPAD_LEFT' },
-      22: { value: '', value2: 'DPAD_DOWN' },
-      23: { value: '', value2: 'DPAD_UP' },
+      22: { value: '', value2: isN64Selected ? 'DPAD_DOWN' : 'DPAD_UP' },
+      23: { value: '', value2: isN64Selected ? 'DPAD_UP' : 'DPAD_DOWN' },
       24: {}, 25: {}, 26: {}, 27: {}, 28: {}, 29: {},
     } as Record<number, unknown>;
     w.EJS_defaultControls = {
@@ -880,8 +881,8 @@ private _bootingFromGamepad = false;
         19: { value: 't', value2: rightStickValues["UP"] },
         20: { value: 'l', value2: 'DPAD_RIGHT' },
         21: { value: 'j', value2: 'DPAD_LEFT' },
-        22: { value: 'k', value2: 'DPAD_DOWN' },
-        23: { value: 'i', value2: 'DPAD_UP' },
+        22: { value: 'k', value2: isN64Selected ? 'DPAD_DOWN' : 'DPAD_UP' },
+        23: { value: 'i', value2: isN64Selected ? 'DPAD_UP' : 'DPAD_DOWN' },
         24: { value: '1' }, 25: { value: '2' }, 26: { value: '3' },
         27: {}, 28: {}, 29: {},
       },
