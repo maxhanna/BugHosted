@@ -1469,7 +1469,7 @@ namespace maxhanna.Server.Controllers
               int storyId = (int)cmd.LastInsertedId;
               if (request.userId != null)
               {
-                await NotifyFollowers(request.userId, request.story.ProfileUserId, storyId);
+                await NotifyFollowers(request.userId, request.story.ProfileUserId, storyId, conn);
               }
               // Insert attached files into story_files table
               if (request.story.StoryFiles != null && request.story.StoryFiles.Count > 0)
@@ -1930,90 +1930,97 @@ namespace maxhanna.Server.Controllers
       }
       return "Deleted metadata";
     }
-    private async Task<bool> NotifyFollowers(int? userId, int? userProfileId, int storyId)
+    private async Task<bool> NotifyFollowers(int? userId, int? userProfileId, int storyId, MySqlConnection conn)
     {
       if (userId == null || userId == 0) return false;
 
       try
       {
-        using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+        // Fetch username for userId
+        string? username = null;
+        using (var userCmd = new MySqlCommand("SELECT username FROM users WHERE id = @userId LIMIT 1", conn))
         {
-          await conn.OpenAsync();
-
-          // Get all followers (friends + pending requests)
-          string sql = @"
-						-- Users who are friends with the poster
-						SELECT friend_id AS follower_id FROM friends WHERE user_id = @userId
-						UNION
-						-- Users who have pending friend requests from the poster
-						-- SELECT receiver_id AS follower_id FROM friend_requests 
-						-- WHERE sender_id = @userId AND (status = 'pending' OR status = 'deleted') 
-						-- UNION
-						-- Users who the poster has pending friend requests from
-						SELECT sender_id AS follower_id FROM friend_requests 
-						WHERE receiver_id = @userId AND (status = 'pending' OR status = 'deleted') ";
-
-          var followerIds = new List<int>();
-
-          using (var cmd = new MySqlCommand(sql, conn))
+          userCmd.Parameters.AddWithValue("@userId", userId);
+          using (var rdr = await userCmd.ExecuteReaderAsync())
           {
-            cmd.Parameters.AddWithValue("@userId", userId);
-
-            using (var rdr = await cmd.ExecuteReaderAsync())
+            if (await rdr.ReadAsync())
             {
-              while (await rdr.ReadAsync())
-              {
-                followerIds.Add(rdr.GetInt32("follower_id"));
-              }
+              username = rdr.IsDBNull("username") ? null : rdr.GetString("username");
             }
           }
-
-          // Filter out followers who have blocked notifications
-          var validFollowerIds = new List<int>();
-          foreach (var followerId in followerIds)
-          {
-            if (await CanUserNotifyAsync(userId.Value, followerId))
-            {
-              validFollowerIds.Add(followerId);
-            }
-            else
-            {
-              _ = _log.Db($"Skipping story notification to {followerId} - notifications blocked", userId.Value, "SOCIAL");
-            }
-          }
-
-          // Insert notifications for each valid follower
-          if (validFollowerIds.Count > 0)
-          {
-            string notificationText = "New post.";
-            string insertSql = $@"
-							INSERT INTO notifications 
-							(user_id, from_user_id{(userProfileId != null ? ", user_profile_id" : "")}, story_id, text, date, is_read) 
-							VALUES (@userId, @fromUserId{(userProfileId != null ? ", @userProfileId" : "")}, @storyId, @text, UTC_TIMESTAMP(), 0)";
-
-            foreach (var followerId in validFollowerIds)
-            {
-              using (var insertCmd = new MySqlCommand(insertSql, conn))
-              {
-                insertCmd.Parameters.AddWithValue("@userId", followerId);
-                insertCmd.Parameters.AddWithValue("@fromUserId", userId);
-                if (userProfileId != null)
-                {
-                  insertCmd.Parameters.AddWithValue("@userProfileId", userProfileId);
-                }
-                insertCmd.Parameters.AddWithValue("@storyId", storyId);
-                insertCmd.Parameters.AddWithValue("@text", notificationText);
-
-                await insertCmd.ExecuteNonQueryAsync();
-              }
-            }
-
-            // Send push notifications
-            await SendStoryPushNotifications(userId.Value, validFollowerIds, storyId, notificationText);
-          }
-
-          return true;
         }
+        if (string.IsNullOrEmpty(username))
+        {
+          username = $"UserId: {userId}";
+        }
+
+        // Get all followers (friends + pending requests)
+        string sql = @"
+            SELECT friend_id AS follower_id FROM friends WHERE user_id = @userId
+            UNION
+            SELECT sender_id AS follower_id FROM friend_requests 
+            WHERE receiver_id = @userId AND (status = 'pending' OR status = 'deleted') ";
+
+        var followerIds = new List<int>();
+
+        using (var cmd = new MySqlCommand(sql, conn))
+        {
+          cmd.Parameters.AddWithValue("@userId", userId);
+
+          using (var rdr = await cmd.ExecuteReaderAsync())
+          {
+            while (await rdr.ReadAsync())
+            {
+              followerIds.Add(rdr.GetInt32("follower_id"));
+            }
+          }
+        }
+
+        // Filter out followers who have blocked notifications
+        var validFollowerIds = new List<int>();
+        foreach (var followerId in followerIds)
+        {
+          if (await CanUserNotifyAsync(userId.Value, followerId))
+          {
+            validFollowerIds.Add(followerId);
+          }
+          else
+          {
+            _ = _log.Db($"Skipping story notification to {followerId} - notifications blocked", userId.Value, "SOCIAL");
+          }
+        }
+
+        // Insert notifications for each valid follower
+        if (validFollowerIds.Count > 0)
+        {
+          string notificationText = $"New post from {username}.";
+          string insertSql = $@"
+              INSERT INTO notifications 
+              (user_id, from_user_id{(userProfileId != null ? ", user_profile_id" : "")}, story_id, text, date, is_read) 
+              VALUES (@userId, @fromUserId{(userProfileId != null ? ", @userProfileId" : "")}, @storyId, @text, UTC_TIMESTAMP(), 0)";
+
+          foreach (var followerId in validFollowerIds)
+          {
+            using (var insertCmd = new MySqlCommand(insertSql, conn))
+            {
+              insertCmd.Parameters.AddWithValue("@userId", followerId);
+              insertCmd.Parameters.AddWithValue("@fromUserId", userId);
+              if (userProfileId != null)
+              {
+                insertCmd.Parameters.AddWithValue("@userProfileId", userProfileId);
+              }
+              insertCmd.Parameters.AddWithValue("@storyId", storyId);
+              insertCmd.Parameters.AddWithValue("@text", notificationText);
+
+              await insertCmd.ExecuteNonQueryAsync();
+            }
+          }
+
+          // Send push notifications
+          await SendStoryPushNotifications(userId.Value, validFollowerIds, storyId, notificationText, username);
+        }
+
+        return true;
       }
       catch (Exception ex)
       {
@@ -2022,7 +2029,7 @@ namespace maxhanna.Server.Controllers
       }
     }
 
-    private async Task SendStoryPushNotifications(int fromUserId, List<int> followerIds, int storyId, string message)
+    private async Task SendStoryPushNotifications(int fromUserId, List<int> followerIds, int storyId, string message, string username)
     {
       foreach (var followerId in followerIds)
       {
@@ -2032,7 +2039,7 @@ namespace maxhanna.Server.Controllers
           {
             Notification = new FirebaseAdmin.Messaging.Notification()
             {
-              Title = $"New Story Post From UserId: {fromUserId}",
+              Title = $"New Story Post from {username}",
               Body = message,
               ImageUrl = "https://www.bughosted.com/assets/logo.jpg"
             },
