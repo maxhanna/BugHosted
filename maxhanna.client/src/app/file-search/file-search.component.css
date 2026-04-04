@@ -618,8 +618,7 @@
 }
 
 .imagePreviewContainer {
-  text-align:center;
-  max-height:70vh;
+  text-align:center; 
   overflow:auto;
 }
 /* Large preview image styling */
