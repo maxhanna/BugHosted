@@ -359,12 +359,12 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
     if (this._parent?.navigationItems) {
       const notificationNavItem = this._parent.navigationItems.find(x => x.title === "Notifications");
-      if (notificationNavItem) {
+      if (this.hasUserSelectedNavItem("Notifications") && notificationNavItem) {
         notificationNavItem.content = this.numberOfNotifications.toString();
       }
       if (notifs == 0) {
         const chatNavItem = this._parent?.navigationItems?.find(x => x.title === "Chat");
-        if (chatNavItem) {
+        if (chatNavItem && this.hasUserSelectedNavItem("Chat")) {
           chatNavItem.content = '';
         }
       } else {
@@ -535,7 +535,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['calendarInfo'] < this.time20Mins) {
       return;
     }
-    if (!this.user || !this._parent.userSelectedNavigationItems.some(x => x.title === "Calendar")) return;
+    if (!this.user || !this.hasUserSelectedNavItem("Calendar")) return;
 
     try {
       this.isLoadingCalendar = true;
@@ -546,8 +546,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const res = await this.calendarService.getCalendarEntries(this.user.id, startDate, new Date(today.getTime() + 86400000));
 
       const notificationCount = res?.filter((entry: CalendarEntry) => entry.date && this.isRelevantEvent(entry, today)).length ?? 0;
-
-      this._parent.navigationItems.find(x => x.title === "Calendar")!.content = notificationCount ? notificationCount.toString() : '';
+      const calNavItem = this._parent.navigationItems.find(x => x.title === "Calendar");
+      if (calNavItem) {
+        calNavItem.content = notificationCount ? notificationCount.toString() : '';
+      }
     } catch (error) {
       console.error('Error fetching calendar data:', error);
     } finally {
@@ -604,19 +606,23 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['weatherInfo'] < this.time20Mins) {
       return;
     }
-    if (!this._parent.user?.id 
-        || !this._parent.userSelectedNavigationItems.find(x => x.title == "Weather")) 
-    { 
+    if (!this._parent.user?.id || !this.hasUserSelectedNavItem("Weather")) { 
       return; 
     }
     this.isLoadingWeather = true;
     try {
       const res = await this.weatherService.getWeather(this._parent.user.id);
       if (res?.current.condition.icon && res?.current.condition.icon.includes('weatherapi')) {
-        this._parent.navigationItems.filter(x => x.title == "Weather")[0].content = res?.current.temp_c.toString() + "°C";
-        this._parent.navigationItems.filter(x => x.title == "Weather")[0].icon = res.current.condition.icon;
+        const weatherNavItem = this._parent.navigationItems.find(x => x.title === "Weather");
+        if (weatherNavItem) {
+          weatherNavItem.content = res?.current.temp_c.toString() + "°C";
+          weatherNavItem.icon = res.current.condition.icon;
+        }
       } else {
-        this._parent.navigationItems.filter(x => x.title == "Weather")[0].content = "?";
+        const weatherNavItem = this._parent.navigationItems.find(x => x.title === "Weather");
+        if (weatherNavItem) {
+          weatherNavItem.content = "?";
+        }
       }
     } catch (error) {
       console.error('Error fetching weather data:', error);
@@ -631,33 +637,38 @@ export class NavigationComponent implements OnInit, OnDestroy {
       return;
     }
     const nav = this._parent.navigationItems.find(x => x.title === "Crypto-Hub");
-    const isCHSelected = this._parent.userSelectedNavigationItems.find(x => x.title === "Crypto-Hub") ? true : false;
+    const isCHSelected = this.hasUserSelectedNavItem("Crypto-Hub");
     const userId = this._parent?.user?.id;
 
-    if (!isCHSelected || !nav || !userId) {
-      //if (!isCHSelected) { console.error("No CryptoHub selected in nav."); }
-      //if (!nav) { console.error("No nav to modify."); }
-      //if (!userId) { console.error("No user logged in."); }
+    if (!isCHSelected || !nav || !userId) { 
       return;
     }
 
+    this.isLoadingCryptoHub = true;
+    let tmpLocalProfitability = 0;
+    let latestCurrencyPriceRespectToCAD = 1;
+
     try {
-      let tmpLocalProfitability = 0;
-      this.isLoadingCryptoHub = true;
       const res1 = await this.miningService.getMiningRigInfo(userId) as Array<MiningRig>;
       res1?.forEach(x => {
         tmpLocalProfitability += x.localProfitability!;
       });
-
+    } catch (error) {
+      console.error('Error fetching mining data:', error);
+    }
+    try {
       await this.coinValueService.isBTCRising().then(res => {
         this.isBTCRising = (Boolean)(res);
       });
       const userCurrency = await this.coinValueService.getUserCurrency(userId) ?? "CAD";
-      let latestCurrencyPriceRespectToCAD = 1;
       const ceRes = await this.coinValueService.getLatestCurrencyValuesByName(userCurrency) as ExchangeRate;
       if (ceRes) {
         latestCurrencyPriceRespectToCAD = ceRes.rate;
-      }
+      } 
+    } catch (error) {
+      console.error('Error fetching Crypto Hub data:', error); 
+    }
+    try {
       const result = await this.coinValueService.getLatestCoinValuesByName("Bitcoin");
       if (result) {
         const btcToCADRate = result.valueCAD * latestCurrencyPriceRespectToCAD;
@@ -673,9 +684,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
       this.isLoadingCryptoHub = false;
       this.updateLastRunTimestamp('cryptoHub');
     } catch (error) {
-      console.error('Error fetching Crypto Hub data:', error);
-      this.isLoadingCryptoHub = false;
+      console.error('Error fetching Bitcoin price:', error);
+      this.updateLastRunTimestamp('cryptoHub');
     }
+    this.isLoadingCryptoHub = false;
   }
 
   private async getEnderPlayerInfo() {
@@ -690,7 +702,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingEnder = true; 
     if (this._parent?.navigationItems) {
       const enderNav = this._parent.navigationItems.find(x => x.title === 'Ender');
-      if (enderNav) {
+      if (enderNav && this.hasUserSelectedNavItem('Ender')) {
         try {
           const res: any = await this.enderService.getActivePlayers(2);
           this.enderActivePlayers = res?.count ?? null;
@@ -734,7 +746,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingNexus = true; 
     if (this._parent?.navigationItems) {
       const nexusNav = this._parent.navigationItems.find(x => x.title === 'Bug-Wars');
-      if (nexusNav) {
+      if (nexusNav && this.hasUserSelectedNavItem('Bug-Wars')) {
         try {
           const res: any = await this.nexusService.getActivePlayers(2);
           this.nexusActivePlayers = res?.count ?? null;
@@ -778,7 +790,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingBones = true; 
     if (this._parent?.navigationItems) {
       const bonesNav = this._parent.navigationItems.find(x => x.title === 'Bones');
-      if (bonesNav) {
+      if (bonesNav && this.hasUserSelectedNavItem('Bones')) {
         try {
           const res: any = await this.bonesService.getActivePlayers(2);
           this.bonesActivePlayers = res?.count ?? null;
@@ -822,7 +834,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingMeta = true; 
     if (this._parent?.navigationItems) {
       const metaNav = this._parent.navigationItems.find(x => x.title === 'Meta-Bots');
-      if (metaNav) {
+      if (metaNav && this.hasUserSelectedNavItem('Meta-Bots')) {
         try {
           const res: any = await this.metaService.getActivePlayers(2);
           this.metaActivePlayers = res?.count ?? null;
@@ -863,7 +875,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingMusic = true; 
     if (this._parent?.navigationItems) {
       const musicNav = this._parent.navigationItems.find(x => x.title === 'Music');
-      if (musicNav) {
+      if (musicNav && this.hasUserSelectedNavItem('Music')) {
         try {
           const res: any = await this.todoService.getTodoCount(this._parent?.user?.id ?? 0, 'Music');
           this.musicTodoCount = res?.count ?? 0;
@@ -888,7 +900,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingTodo = true; 
     if (this._parent?.navigationItems) {
       const todoNav = this._parent.navigationItems.find(x => x.title === 'Todo');
-      if (todoNav) {
+      if (todoNav && this.hasUserSelectedNavItem('Todo')) {
         try {
           const res: any = await this.todoService.getTodoCount(this._parent.user.id, 'Todo');
           this.todoCount = res?.count ?? 0;
@@ -915,7 +927,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingArray = true; 
     if (this._parent?.navigationItems) {
       const arrayNav = this._parent.navigationItems.find(x => x.title === 'Array');
-      if (arrayNav) {
+      if (arrayNav && this.hasUserSelectedNavItem('Array')) {
         try {
           const res: any = await this.arrayService.getActivePlayers(2);
           this.arrayActivePlayers = res?.count ?? null;
@@ -956,7 +968,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingEmulator = true; 
     if (this._parent?.navigationItems) {
       const emuNav = this._parent.navigationItems.find(x => x.title === 'Emulator');
-      if (emuNav) {
+      if (emuNav && this.hasUserSelectedNavItem('Emulator')) {
         try {
           const res: any = await this.romService.getActivePlayers(2);
           this.emulatorActivePlayers = res?.count ?? null;
@@ -980,7 +992,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingSocial = true; 
     if (this._parent?.navigationItems) {
       const socialNav = this._parent.navigationItems.find(x => x.title === 'Social');
-      if (socialNav) {
+      if (socialNav && this.hasUserSelectedNavItem('Social')) {
         try {
           const res: any = await this.socialService.getTotalPosts();
           this.socialTotalPosts = res?.count ?? null;
@@ -1004,7 +1016,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingCrawler = true; 
     if (this._parent?.navigationItems) {
       const crawlerNav = this._parent.navigationItems.find(x => x.title === 'Crawler');
-      if (crawlerNav) {
+      if (crawlerNav && this.hasUserSelectedNavItem('Crawler')) {
         try {
           const res: any = await this.crawlerService.indexCount();
           const parsed = parseInt(res, 10);
@@ -1030,7 +1042,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!this.artTotalSubmissions) {
       if (this._parent?.navigationItems) {
         const artNav = this._parent.navigationItems.find(x => x.title === 'Art');
-        if (artNav) {
+        if (artNav && this.hasUserSelectedNavItem('Art')) {
           try {
             const res: any = await this.fileService.getNumberOfArt();
             this.artTotalSubmissions = res ?? 0;
@@ -1053,16 +1065,17 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['wordler'] < this.time60Mins) {
       return;
     }
-    if (!this._parent.user?.id 
-        || !this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("wordler"))) 
-    {
+    if (!this._parent.user?.id || !this.hasUserSelectedNavItem("Wordler")) {
       return; 
     }
     this.isLoadingWordlerStreak = true;
     try {
       const res = await this.wordlerService.getTodaysDayStreak(this._parent.user.id);
       if (res && res != "0") {
-        this._parent.navigationItems.find(x => x.title == "Wordler")!.content = res;
+        const wordlerNav = this._parent.navigationItems.find(x => x.title == "Wordler");
+        if (wordlerNav) {
+          wordlerNav.content = res;
+        }
       }
     } catch (error) {
       console.error('Error fetching Wordler streak data:', error);
@@ -1229,12 +1242,14 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['newsCount'] < this.time60Mins) {
       return;
     }
-    if (!this._parent || this.navbarCollapsed) return;
+    if (!this._parent || this.navbarCollapsed) {
+      return;
+    }
     this.isLoadingNews = true;
     try {
       if (this._parent?.navigationItems) {
         const newsNav = this._parent.navigationItems.find(x => x.title === 'News');
-        if (newsNav) {
+        if (newsNav && this.hasUserSelectedNavItem('News')) {
           const count = await this.newsService.getNewsCount();
           newsNav.content = count && count > 0 ? this.shortenCount(count) : '';
         }
@@ -1260,7 +1275,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
     return num.toFixed(0);
   }
   
-  private _startGamepadPolling() { 
+  private _startGamepadPolling() {
+    if (!this.hasUserSelectedNavItem('Emulator')) {
+      return;
+    }
     if (this._gamepadPollingInterval) {
       cancelAnimationFrame(this._gamepadPollingInterval);
       this._gamepadPollingInterval = undefined;
@@ -1323,7 +1341,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingNews = false;
     this.notificationsServerDown = false;
   }
-
+  hasUserSelectedNavItem(title: string): boolean {
+    return this._parent.userSelectedNavigationItems.some(x => x.title == title);
+  }
   hexWithAlpha(hex: string, alpha: number): string {
     // Clamp and convert alpha to 0–255
     const a = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
