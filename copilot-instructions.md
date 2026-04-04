@@ -9,7 +9,7 @@
 	- Follow the best practices and rules from the loaded skill file(s) while performing the requested task.
 
 3. **Lessons Learned Logging**
-	- After completing the task, write a "lessons learned" entry in each relevant skill file (e.g., /skills/validation/ai-skill.md for validation tasks).
+	- After completing the task, write a "lessons learned" entry in each relevant skill file (e.g., /skills/validation/skill.md for validation tasks).
 	- Each entry must be concise, factual, and focused on actionable insights for future tasks within that skill domain.
 
 +4. **AI-HISTORY.md as Overarching Guide**
@@ -34,10 +34,10 @@ These are project-specific guidelines that must be followed for every change.
 
 ## Skills Guidance
 For detailed rules and best practices, see the appropriate skill file in the /skills directory:
-- Frontend Angular: /skills/frontend-angular/ai-skill.md
-- Backend C#: /skills/backend-csharp/ai-skill.md
-- Formatting: /skills/formatting/ai-skill.md
-- Validation: /skills/validation/ai-skill.md
+- Frontend Angular: /skills/frontend-angular/skill.md
+- Backend C#: /skills/backend-csharp/skill.md
+- Formatting: /skills/formatting/skill.md
+- Validation: /skills/validation/skill.md
 
 
 ## Lessons Learned Logging (AI-HISTORY.md)
