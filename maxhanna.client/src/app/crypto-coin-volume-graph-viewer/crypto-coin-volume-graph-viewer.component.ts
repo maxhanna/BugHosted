@@ -26,11 +26,11 @@ export class CryptoCoinVolumeGraphViewerComponent extends ChildComponent impleme
   async getVolumeData() {
     const hours = 6;
     await this.tradeService.getTradeVolumeForGraph(new Date(), hours).then(res => { 
-      // Prepare data for the graph - normalized to percentages
+      // Map backend fields to expected frontend fields
       this.volumeData = res.map((item: any) => ({
         timestamp: item.timestamp,
-        valueCAD: item.volume,
-        valueUSDC: item.volumeUSDC
+        volume: item.volume_coin ?? item.volume ?? 0,
+        volumeUSDC: item.volume_usdc ?? item.volumeUSDC ?? 0
       }));
       this.volumeDataFetched.emit(this.volumeData);
     });
@@ -42,8 +42,8 @@ export class CryptoCoinVolumeGraphViewerComponent extends ChildComponent impleme
       if (res) {
         this.volumeData = res.map((item: any) => ({
           timestamp: item.timestamp,
-          valueCAD: item.volume,
-          valueUSDC: item.volumeUSDC
+          volume: item.volume_coin ?? item.volume ?? 0,
+          volumeUSDC: item.volume_usdc ?? item.volumeUSDC ?? 0
         }));
         this.volumeDataFetched.emit(this.volumeData);
       }

@@ -374,14 +374,14 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }
 
     // Get latest volumes
-    const latestBTC = latestData.volume;
-    const latestUSDC = latestData.volumeUSDC;
+    const latestBTC = latestData.volume ?? latestData.volume_coin ?? 0;
+    const latestUSDC = latestData.volumeUSDC ?? latestData.volume_usdc ?? 0;
     const btcInUSDC = latestBTC * btcPrice;
 
     // Calculate historical ratios (now that btcPrice is available)
     const historicalRatios = res.map((item: any) => {
-      const itemBtcValue = item.volumeBTC * btcPrice;
-      return itemBtcValue > 0 ? item.volumeUSDC / itemBtcValue : 0;
+      const itemBtcValue = (item.volume ?? item.volume_coin ?? 0) * btcPrice;
+      return itemBtcValue > 0 ? (item.volumeUSDC ?? item.volume_usdc ?? 0) / itemBtcValue : 0;
     });
 
     // Filter and calculate stats
