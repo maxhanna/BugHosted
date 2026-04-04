@@ -29,51 +29,6 @@ import { Core } from '../emulator/emulator-types';
   standalone: false
 })
 export class FileSearchComponent extends ChildComponent implements OnInit, AfterViewInit, OnDestroy {
-      // --- System Override Popup State ---
-    // --- System Override Popup State ---
-    public isSystemSelectPanelOpen: boolean = false;
-    public systemCandidates: Array<{ label: string; core?: string }> = [];
-    public selectedSystemCore: string | null = null;
-
-    // Open the system override popup for the current optionsFile
-    public openSystemOverridePanel(): void {
-      if (!this.optionsFile || !this.optionsFile.fileName) return;
-      this.systemCandidates = this.fileService.buildCoreRegistry();
-      this.selectedSystemCore = null;
-      this.isSystemSelectPanelOpen = true;
-      (this.inputtedParentRef ?? this.parentRef)?.showOverlay();
-    }
-
-    // Handle system selection change
-    public onSystemSelectChange(ev: Event): void {
-      const val = (ev.target as HTMLSelectElement).value;
-      this.selectedSystemCore = val || null;
-    }
-
-    // Confirm the system selection and persist override
-    public async confirmSystemSelection(): Promise<void> {
-      if (!this.optionsFile || !this.selectedSystemCore) return;
-      try {
-        await this.romService.setSystemOverride(this.optionsFile.id, this.selectedSystemCore);
-        if (this.optionsFile.romMetadata) {
-          (this.optionsFile.romMetadata as any).actualSystem = this.selectedSystemCore;
-        }
-        this.notifyUser('System override set.');
-        this.isSystemSelectPanelOpen = false;
-        (this.inputtedParentRef ?? this.parentRef)?.closeOverlay();
-        this.closeOptionsPanel();
-        // Optionally reload directory or update UI
-        await this.getDirectory();
-      } catch (e) {
-        this.notifyUser('Failed to set system override.');
-      }
-    }
-
-    // Cancel system selection
-    public cancelSystemSelection(): void {
-      this.isSystemSelectPanelOpen = false;
-      (this.inputtedParentRef ?? this.parentRef)?.closeOverlay();
-    }
   defaultCurrentPage = 1;
   @Input() currentDirectory = '';
   @Input() clearAfterSelectFile = false;
@@ -169,6 +124,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   isShowingFileNotes = false;
   fileNotes: FileNote[] = [];
   notesFile: FileEntry | undefined;
+  isSystemSelectPanelOpen: boolean = false;
+  systemCandidates: Array<{ label: string; core?: string }> = [];
+  selectedSystemCore: string | null = null; 
   isFirstLoad = true;
   pageLocked = false;
   appending = false;
@@ -2386,6 +2344,46 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       }
     }, 500);
   }
+
+    // Open the system override popup for the current optionsFile
+    openSystemOverridePanel(): void {
+      if (!this.optionsFile || !this.optionsFile.fileName) return;
+      this.systemCandidates = this.fileService.buildCoreRegistry();
+      this.selectedSystemCore = null;
+      this.closeOptionsPanel(); 
+      setTimeout(() => {
+        this.isSystemSelectPanelOpen = true;
+        this.parentRef?.showOverlay();
+      }, 10);
+    }
+
+    // Handle system selection change
+    onSystemSelectChange(ev: Event): void {
+      const val = (ev.target as HTMLSelectElement).value;
+      this.selectedSystemCore = val || null;
+    }
+
+    // Confirm the system selection and persist override
+    async confirmSystemSelection(): Promise<void> {
+      if (!this.optionsFile || !this.selectedSystemCore) return;
+      try {
+        await this.romService.setSystemOverride(this.optionsFile.id, this.selectedSystemCore);
+        if (this.optionsFile.romMetadata) {
+          (this.optionsFile.romMetadata as any).actualSystem = this.selectedSystemCore;
+        }
+        this.notifyUser('System override set.');
+        this.isSystemSelectPanelOpen = false; 
+        this.parentRef?.closeOverlay();
+      } catch (e) {
+        this.notifyUser('Failed to set system override.');
+      }
+    }
+
+    // Cancel system selection
+    cancelSystemSelection(): void {
+      this.isSystemSelectPanelOpen = false;
+      this.parentRef?.closeOverlay();
+    }
 
   openImagePreview(url?: string, ev?: Event) {
     if (ev) ev.preventDefault();
