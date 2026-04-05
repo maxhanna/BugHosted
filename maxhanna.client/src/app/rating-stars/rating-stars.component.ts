@@ -91,6 +91,7 @@ export class RatingStarsComponent {
   }
 
   async rateFile(file: FileEntry | MetaData, star: number) {
+    console.log('rateFile called with file:', file, 'star:', star);
     const user = this.currentUser;
     try {
       await this.ratingsService.submitRating(user, star, file.id);
