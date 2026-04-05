@@ -19,43 +19,6 @@ import { FileAccessLog } from '../../services/datacontracts/file/file-access-log
   standalone: false
 })
 export class MediaViewerComponent extends ChildComponent implements OnInit, OnDestroy, OnChanges {
-  constructor(private fileService: FileService, private todoService: TodoService) {
-    super();
-    if (this.file) {
-      this.selectedFile = this.file;
-    }
-  }
-  fileViewers?: FileAccessLog[] | undefined;
-  fileFavouriters?: User[] | undefined;
-  selectedFileExtension?: string = undefined;
-  selectedFileSrc?: string = undefined;
-  selectedFile?: FileEntry;
-  fileType = '';
-  showThumbnail = false;
-  showComments = true;
-  showCommentLoadingOverlay = false;
-  selectedFileName = '';
-  abortFileRequestController: AbortController | null = null;
-  fS = '/';
-  isFullscreenMode = false;
-  isShowingMediaInformation = false;
-  isShowingFileViewers = false;
-  isShowingFileFavouriters = false;
-  isEditingFileName = false;
-  editingTopics: number[] = [];
-  isVideoBuffering = false;
-  isMediaInformationToggled = false;
-  private hasTriedInitialCachedLoad = false;
-
-  @ViewChild('mediaContainer', { static: false }) mediaContainer?: ElementRef;
-  @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay?: ElementRef;
-  @ViewChild('fullscreenImage', { static: false }) fullscreenImage?: ElementRef;
-  @ViewChild('fullscreenVideo', { static: false }) fullscreenVideo?: ElementRef;
-  @ViewChild('fullscreenAudio', { static: false }) fullscreenAudio?: ElementRef;
-  @ViewChild('editFileNameInput', { static: false }) editFileNameInput?: ElementRef;
-  @ViewChild('mediaRoot', { static: true }) mediaRoot?: ElementRef<HTMLElement>;
-  @ViewChild(TopicsComponent) topicComponent!: TopicsComponent;
-
   @Input() debug = false;
   @Input() displayExpander: boolean = true;
   @Input() displayExtraInfo: boolean = true;
@@ -82,6 +45,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() isLoadedFromURL = false;
   @Input() showMediaInformation = false;
   @Input() commentId?: number;
+
   @Output() emittedNotification = new EventEmitter<string>();
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>();
   @Output() expandClickedEvent = new EventEmitter<FileEntry>();
@@ -89,9 +53,47 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Output() mediaEndedEvent = new EventEmitter<void>();
   @Output() finishedLoadingEvent = new EventEmitter<void>();
 
+  @ViewChild('mediaContainer', { static: false }) mediaContainer?: ElementRef;
+  @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay?: ElementRef;
+  @ViewChild('fullscreenImage', { static: false }) fullscreenImage?: ElementRef;
+  @ViewChild('fullscreenVideo', { static: false }) fullscreenVideo?: ElementRef;
+  @ViewChild('fullscreenAudio', { static: false }) fullscreenAudio?: ElementRef;
+  @ViewChild('editFileNameInput', { static: false }) editFileNameInput?: ElementRef;
+  @ViewChild('mediaRoot', { static: true }) mediaRoot?: ElementRef<HTMLElement>;
+  @ViewChild(TopicsComponent) topicComponent!: TopicsComponent;
+
+  // Other properties
+  constructor(private fileService: FileService, private todoService: TodoService) {
+    super();
+  }
+  fileViewers?: FileAccessLog[] | undefined;
+  fileFavouriters?: User[] | undefined;
+  selectedFileExtension?: string = undefined;
+  selectedFileSrc?: string = undefined;
+  selectedFile?: FileEntry;
+  fileType = '';
+  showThumbnail = false;
+  showComments = true;
+  showCommentLoadingOverlay = false;
+  selectedFileName = '';
+  abortFileRequestController: AbortController | null = null;
+  fS = '/';
+  isFullscreenMode = false;
+  isShowingMediaInformation = false;
+  isShowingFileViewers = false;
+  isShowingFileFavouriters = false;
+  isEditingFileName = false;
+  editingTopics: number[] = [];
+  isVideoBuffering = false;
+  isMediaInformationToggled = false;
+  private hasTriedInitialCachedLoad = false;
+
   async ngOnInit() {
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
+    }
+    if (this.file) {
+      this.selectedFile = this.file;
     }
     this.debugLog('ngOnInit start', { isLoadedFromURL: this.isLoadedFromURL, autoload: this.autoload, fileId: this.fileId, hasFileObj: !!this.file, fileSrc: this.fileSrc });
     if (this.isLoadedFromURL) {
@@ -171,16 +173,13 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.isLoading = false;
       return;
     }
-
-    const parentRef = this.parentRef;
-
     if (this.fileId) {
       // Preserve existing file data if available, otherwise create minimal entry
       if (!this.selectedFile || this.selectedFile.id !== this.fileId) {
         this.selectedFile = this.file ?? { id: this.fileId } as FileEntry;
       }
 
-      if (parentRef && parentRef.pictureSrcs[this.fileId] && parentRef.pictureSrcs[this.fileId].value) {
+      if (this.parentRef && this.parentRef.pictureSrcs[this.fileId] && this.parentRef.pictureSrcs[this.fileId].value) {
         this.debugLog('fetchFileSrc found cached parentRef pictureSrcs entry (indexed)');
         this.setFileSrcByParentRefValue(this.fileId);
         this.isLoading = false;
@@ -198,7 +197,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       // Set selectedFile BEFORE calling setFileSrcById so it has the full file data
       this.selectedFile = fileObject;
 
-      if (parentRef?.pictureSrcs[fileId]?.value) {
+      if (this.parentRef?.pictureSrcs[fileId]?.value) {
         this.debugLog('fetchFileSrc found cached parentRef pictureSrcs entry (object style)');
         this.setFileSrcByParentRefValue(fileId);
         this.isLoading = false;
@@ -685,7 +684,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       : baseName.substring(0, firstPartLength) + '...' + baseName.slice(-lastPartLength);
 
     return truncatedBaseName + extension;
-  } 
+  }
   showMediaInformationButtonClicked() {
     this.isShowingMediaInformation = !this.isShowingMediaInformation;
     this.isMediaInformationToggled = this.isShowingMediaInformation;
@@ -701,7 +700,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (this.isShowingMediaInformation) {
       parent?.closeOverlay();
     }
-    setTimeout(() => { 
+    setTimeout(() => {
       this.isShowingMediaInformation = false;
       this.isMediaInformationToggled = this.isShowingMediaInformation;
     }, 50);
