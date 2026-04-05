@@ -139,7 +139,7 @@
                   </div>
                   <div *ngIf="displayRatings && !file.isFolder && file.ratingCount"
                     class="fileOptionsAction fileOptionsChatBubble coloredBgButton"
-                    (click)="starsComponent.openRatingsPanel(file); $event.stopPropagation()"> 
+                    (click)="starsComponent.openRatingsPanel(file); $event.preventDefault(); $event.stopPropagation()"> 
                     <app-rating-stars
                       #starsComponent
                       [rating]="{ value: file.averageRating ?? 0, user: currentUser }" 

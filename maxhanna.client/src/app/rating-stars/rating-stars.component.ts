@@ -89,8 +89,7 @@ export class RatingStarsComponent {
   }  
   
   async rateFile(file: FileEntry | MetaData, star: number) {
-    const user = this.currentUser; 
-    this.inputtedParentRef?.startLoading();
+    const user = this.currentUser;  
     try {
       await this.ratingsService.submitRating(user, star, file.id);
       // If this is the ratings panel file, recalculate average from ratings array
@@ -129,7 +128,6 @@ export class RatingStarsComponent {
     } catch (ex) {
       console.error(ex);
       this.inputtedParentRef?.showNotification('Failed to submit rating.');
-    }
-    this.inputtedParentRef?.stopLoading();
+    } 
   }
 }

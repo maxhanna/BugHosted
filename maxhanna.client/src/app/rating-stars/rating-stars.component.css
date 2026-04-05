@@ -3,3 +3,13 @@
   font-size: 1.2em;
   transition: color 0.2s;
 }
+
+.ratingsListContainer {
+  width: 100%;
+  max-height: 50vh;
+  overflow: auto;
+  display:flex; 
+  align-items:center; 
+  justify-content: space-between; 
+  margin-bottom:4px;
+}

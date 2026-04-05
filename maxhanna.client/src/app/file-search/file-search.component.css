@@ -709,13 +709,3 @@
 .emulatorPopupPanel {
   z-index: 5000;
 }
-
-.ratingsListContainer {
-  width: 100%;
-  max-height: 50vh;
-  overflow: auto;
-  display:flex; 
-  align-items:center; 
-  justify-content: space-between; 
-  margin-bottom:4px;
-}
