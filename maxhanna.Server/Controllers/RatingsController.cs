@@ -129,9 +129,10 @@ namespace maxhanna.Server.Controllers
                        COALESCE(u.id, 0) as user_id,
                        COALESCE(u.username, 'anonymous') as username,
                        u.pass, u.created, u.last_seen,
-                       u.displayPictureFileId, u.profileBackgroundPictureFileId
+                       udp.file_id as display_file_id
                 FROM ratings r
                 LEFT JOIN users u ON r.user_id = u.id
+                LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
                 WHERE r.user_id = @UserId
                 ORDER BY r.timestamp DESC
                 LIMIT 50
@@ -142,23 +143,14 @@ namespace maxhanna.Server.Controllers
             while (await reader.ReadAsync())
             {
                 FileEntry? displayPic = null;
-                if (!reader.IsDBNull(reader.GetOrdinal("displayPictureFileId"))) {
-                    displayPic = new FileEntry {
-                        Id = reader.GetInt32(reader.GetOrdinal("displayPictureFileId")),
-                        // Optionally add FileName/Directory if joined in future
-                    };
+                if (!reader.IsDBNull(reader.GetOrdinal("display_file_id"))) {
+                    displayPic = new FileEntry(Convert.ToInt32(reader["display_file_id"]));
                 }
-                FileEntry? profileBackgroundPicture = null;
-                if (!reader.IsDBNull(reader.GetOrdinal("profileBackgroundPictureFileId"))) {
-                    profileBackgroundPicture = new FileEntry {
-                        Id = reader.GetInt32(reader.GetOrdinal("profileBackgroundPictureFileId")),
-                    };
-                }
+                // If you have a background picture table, join and fetch as needed (not shown in UserController sample)
                 var user = new maxhanna.Server.Controllers.DataContracts.Users.User {
                     Id = reader.GetInt32(reader.GetOrdinal("user_id")),
                     Username = reader.GetString(reader.GetOrdinal("username")),
                     DisplayPictureFile = displayPic,
-                    ProfileBackgroundPictureFile = profileBackgroundPicture,
                     LastSeen = reader.IsDBNull(reader.GetOrdinal("last_seen")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("last_seen"))
                 };
                 var rating = new Rating
@@ -187,9 +179,10 @@ namespace maxhanna.Server.Controllers
                        COALESCE(u.id, 0) as user_id,
                        COALESCE(u.username, 'anonymous') as username,
                        u.pass, u.created, u.last_seen,
-                       u.displayPictureFileId, u.profileBackgroundPictureFileId
+                       udp.file_id as display_file_id
                 FROM ratings r
                 LEFT JOIN users u ON r.user_id = u.id
+                LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
                 WHERE r.file_id = @FileId
                 ORDER BY r.timestamp DESC
                 LIMIT 50
@@ -200,22 +193,13 @@ namespace maxhanna.Server.Controllers
             while (await reader.ReadAsync())
             {
                 FileEntry? displayPic = null;
-                if (!reader.IsDBNull(reader.GetOrdinal("displayPictureFileId"))) {
-                    displayPic = new FileEntry {
-                        Id = reader.GetInt32(reader.GetOrdinal("displayPictureFileId")),
-                    };
-                }
-                FileEntry? profileBackgroundPicture = null;
-                if (!reader.IsDBNull(reader.GetOrdinal("profileBackgroundPictureFileId"))) {
-                    profileBackgroundPicture = new FileEntry {
-                        Id = reader.GetInt32(reader.GetOrdinal("profileBackgroundPictureFileId")),
-                    };
+                if (!reader.IsDBNull(reader.GetOrdinal("display_file_id"))) {
+                    displayPic = new FileEntry(Convert.ToInt32(reader["display_file_id"]));
                 }
                 var user = new maxhanna.Server.Controllers.DataContracts.Users.User {
                     Id = reader.GetInt32(reader.GetOrdinal("user_id")),
                     Username = reader.GetString(reader.GetOrdinal("username")),
                     DisplayPictureFile = displayPic,
-                    ProfileBackgroundPictureFile = profileBackgroundPicture,
                     LastSeen = reader.IsDBNull(reader.GetOrdinal("last_seen")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("last_seen"))
                 };
                 var rating = new Rating
@@ -244,9 +228,10 @@ namespace maxhanna.Server.Controllers
                        COALESCE(u.id, 0) as user_id,
                        COALESCE(u.username, 'anonymous') as username,
                        u.pass, u.created, u.last_seen,
-                       u.displayPictureFileId, u.profileBackgroundPictureFileId
+                       udp.file_id as display_file_id
                 FROM ratings r
                 LEFT JOIN users u ON r.user_id = u.id
+                LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
                 WHERE r.search_id = @SearchId
                 ORDER BY r.timestamp DESC
                 LIMIT 50
@@ -257,22 +242,13 @@ namespace maxhanna.Server.Controllers
             while (await reader.ReadAsync())
             {
                 FileEntry? displayPic = null;
-                if (!reader.IsDBNull(reader.GetOrdinal("displayPictureFileId"))) {
-                    displayPic = new FileEntry {
-                        Id = reader.GetInt32(reader.GetOrdinal("displayPictureFileId")),
-                    };
-                }
-                FileEntry? profileBackgroundPicture = null;
-                if (!reader.IsDBNull(reader.GetOrdinal("profileBackgroundPictureFileId"))) {
-                    profileBackgroundPicture = new FileEntry {
-                        Id = reader.GetInt32(reader.GetOrdinal("profileBackgroundPictureFileId")),
-                    };
+                if (!reader.IsDBNull(reader.GetOrdinal("display_file_id"))) {
+                    displayPic = new FileEntry(Convert.ToInt32(reader["display_file_id"]));
                 }
                 var user = new maxhanna.Server.Controllers.DataContracts.Users.User {
                     Id = reader.GetInt32(reader.GetOrdinal("user_id")),
                     Username = reader.GetString(reader.GetOrdinal("username")),
                     DisplayPictureFile = displayPic,
-                    ProfileBackgroundPictureFile = profileBackgroundPicture,
                     LastSeen = reader.IsDBNull(reader.GetOrdinal("last_seen")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("last_seen"))
                 };
                 var rating = new Rating
