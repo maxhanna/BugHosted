@@ -397,7 +397,7 @@
     <app-share-button *ngIf="optionsFile.visibility?.toLowerCase() !== 'private'" [link]="shareLink"
       [isExternalLink]="isInRomDirectory"></app-share-button>
     <app-share-button *ngIf="optionsFile.visibility?.toLowerCase() === 'private'" [isExternalLink]="false"
-      [text]="'↗️Share with Users'" [callback]="shareFileInitiate(optionsFile)"></app-share-button>
+      [text]="'↗️Share with Users'" [callback]="() => shareFileInitiate(optionsFile)"></app-share-button>
     <button title="Download File" (click)="download(optionsFile, true);" [disabled]="isLoading"
       *ngIf="!optionsFile.isFolder">
       📥Download
@@ -885,7 +885,7 @@
       <option value="Public">Public</option>
       <option value="Private">Private</option>
     </select>
-    <button (click)="closeVisibilityDropdown()">Cancel</button>
+    <button id="closeOverlay" class="closeButton" (click)="closeVisibilityDropdown()">Cancel</button>
   </div>
 </div>
 
