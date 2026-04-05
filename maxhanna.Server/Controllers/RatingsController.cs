@@ -128,7 +128,7 @@ namespace maxhanna.Server.Controllers
                 SELECT r.id, r.rating, r.timestamp, r.file_id, r.search_id,
                        COALESCE(u.id, 0) as user_id,
                        COALESCE(u.username, 'anonymous') as username,
-                       u.pass, u.created, u.lastSeen,
+                       u.pass, u.created, u.last_seen,
                        u.displayPictureFileId, u.profileBackgroundPictureFileId
                 FROM ratings r
                 LEFT JOIN users u ON r.user_id = u.id
@@ -158,7 +158,8 @@ namespace maxhanna.Server.Controllers
                     Id = reader.GetInt32(reader.GetOrdinal("user_id")),
                     Username = reader.GetString(reader.GetOrdinal("username")),
                     DisplayPictureFile = displayPic,
-                    ProfileBackgroundPictureFile = profileBackgroundPicture
+                    ProfileBackgroundPictureFile = profileBackgroundPicture,
+                    LastSeen = reader.IsDBNull(reader.GetOrdinal("last_seen")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("last_seen"))
                 };
                 var rating = new Rating
                 {
@@ -185,7 +186,7 @@ namespace maxhanna.Server.Controllers
                 SELECT r.id, r.rating, r.timestamp, r.file_id, r.search_id,
                        COALESCE(u.id, 0) as user_id,
                        COALESCE(u.username, 'anonymous') as username,
-                       u.pass, u.created, u.lastSeen,
+                       u.pass, u.created, u.last_seen,
                        u.displayPictureFileId, u.profileBackgroundPictureFileId
                 FROM ratings r
                 LEFT JOIN users u ON r.user_id = u.id
@@ -214,7 +215,8 @@ namespace maxhanna.Server.Controllers
                     Id = reader.GetInt32(reader.GetOrdinal("user_id")),
                     Username = reader.GetString(reader.GetOrdinal("username")),
                     DisplayPictureFile = displayPic,
-                    ProfileBackgroundPictureFile = profileBackgroundPicture
+                    ProfileBackgroundPictureFile = profileBackgroundPicture,
+                    LastSeen = reader.IsDBNull(reader.GetOrdinal("last_seen")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("last_seen"))
                 };
                 var rating = new Rating
                 {
@@ -241,7 +243,7 @@ namespace maxhanna.Server.Controllers
                 SELECT r.id, r.rating, r.timestamp, r.file_id, r.search_id,
                        COALESCE(u.id, 0) as user_id,
                        COALESCE(u.username, 'anonymous') as username,
-                       u.pass, u.created, u.lastSeen,
+                       u.pass, u.created, u.last_seen,
                        u.displayPictureFileId, u.profileBackgroundPictureFileId
                 FROM ratings r
                 LEFT JOIN users u ON r.user_id = u.id
@@ -270,7 +272,8 @@ namespace maxhanna.Server.Controllers
                     Id = reader.GetInt32(reader.GetOrdinal("user_id")),
                     Username = reader.GetString(reader.GetOrdinal("username")),
                     DisplayPictureFile = displayPic,
-                    ProfileBackgroundPictureFile = profileBackgroundPicture
+                    ProfileBackgroundPictureFile = profileBackgroundPicture,
+                    LastSeen = reader.IsDBNull(reader.GetOrdinal("last_seen")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("last_seen"))
                 };
                 var rating = new Rating
                 {
