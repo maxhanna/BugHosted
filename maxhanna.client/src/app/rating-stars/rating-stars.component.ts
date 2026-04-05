@@ -64,21 +64,18 @@ export class RatingStarsComponent {
     this.inputtedParentRef.closeOverlay();
     setTimeout(async () => {
       this.ratingFile = file;
-      this.isRatingsPanelOpen = true;
-      const parent = this.inputtedParentRef;
-      if (parent) {
-        parent.showOverlay();
-      }
+      this.isRatingsPanelOpen = true;  
+      this.inputtedParentRef.showOverlay();
+      
       if (file && file.id && !file.ratings) {
         try {
           const ratings = this.componentType === 'file'
             ? await this.ratingsService.getRatingsByFile(file.id) as Rating[] | undefined
             : await this.ratingsService.getRatingsBySearch(file.id) as Rating[] | undefined;
           this.ratingFile.ratings = Array.isArray(ratings) ? ratings : [];
-        } catch (e) {
-          if (parent) {
-            parent.showNotification('Failed to fetch ratings.');
-          }
+        } catch (e) { 
+          this.inputtedParentRef.showNotification('Failed to fetch ratings.'); 
+          console.error('Error fetching ratings:', e);
         }
       }
     }, 100);

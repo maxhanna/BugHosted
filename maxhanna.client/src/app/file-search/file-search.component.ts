@@ -125,8 +125,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   selectedSystemCore: string | null = null;
   isFirstLoad = true;
   pageLocked = false;
-  appending = false;
-  shareLocked = false;
+  appending = false; 
 
   private controllerIndex: number = -1;
   private _hoverOverlayEl: HTMLElement | null = null;
@@ -1060,11 +1059,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.shareUserListDiv.nativeElement.classList.toggle("open");
     this.closeOptionsPanel();
   }
-  shareFileInitiate(file: FileEntry) {
-    if (this.shareLocked) {
-      this.closeShareUserList(false);
-      return; 
-    }
+  shareFileInitiate(file: FileEntry) { 
     this.selectedSharedFile = file;
     this.closeOptionsPanel();
     setTimeout(() => { 
@@ -1094,11 +1089,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       console.log('Options panel already open, closing it instead of opening a new one.');
       return;
     } 
-    this.optionsFile = file;
-    this.shareLocked = true;
-    setTimeout(() => {
-      this.shareLocked = false;
-    }, 1500); 
+    this.optionsFile = file; 
     this.isOptionsPanelOpen = true;
     this.parentRef?.showOverlay();
   }
