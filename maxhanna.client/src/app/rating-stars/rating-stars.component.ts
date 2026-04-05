@@ -15,6 +15,7 @@ export class RatingStarsComponent {
   @Output() rated = new EventEmitter<number>();
 
   stars = [1, 2, 3, 4, 5];
+  hoveredIndex: number | null = null;
 
   get isCurrentUser() {
     return this.currentUser?.id === this.rating?.user?.id;
@@ -24,5 +25,15 @@ export class RatingStarsComponent {
     if (!this.readOnly && this.isCurrentUser) {
       this.rated.emit(star);
     }
+  }
+
+  onStarMouseEnter(index: number) {
+    if (!this.readOnly && this.isCurrentUser) {
+      this.hoveredIndex = index;
+    }
+  }
+
+  onStarMouseLeave() {
+    this.hoveredIndex = null;
   }
 }

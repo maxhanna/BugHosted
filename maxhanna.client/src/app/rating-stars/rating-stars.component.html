@@ -1,6 +1,10 @@
-<span *ngFor="let star of stars" class="cursorPointer"
+<span *ngFor="let star of stars; let i = index"
+      class="cursorPointer"
+      [class]="hoveredIndex !== null && i <= hoveredIndex && !readOnly && isCurrentUser ? 'cursorPointer glowing' : 'cursorPointer'"
       [style.color]="star <= rating.value ? 'gold' : '#555'"
       (click)="onRate(star)"
+      (mouseenter)="onStarMouseEnter(i)"
+      (mouseleave)="onStarMouseLeave()"
       [title]="isCurrentUser
         ? ('Set your rating to ' + star + ' star' + (star > 1 ? 's' : ''))
         : ('Rated ' + star + ' star' + (star > 1 ? 's' : ''))">

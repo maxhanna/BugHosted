@@ -1,11 +1,10 @@
 # Skill File Summarization
 If this skill file exceeds 15,000 tokens, summarize and rewrite it to retain only the most up-to-date, concise, and actionable information, just like AI-HISTORY.md.
+# Meta-rule: Before generating Angular template code, always check and follow the first 5 rules in this file. This ensures critical binding rules (like avoiding ngClass) are never missed.
+
 # Frontend Angular Skills
 
 ## Template & Binding Rules
-- Do NOT use `ngClass`. Use string-based `[class]` or explicit boolean class bindings (e.g. `[class.foo]="cond"`).
-- Do NOT use `[ngModel]`; use `[value]` and `(input)` handlers.
-- Use explicit boolean attribute bindings (e.g. `[disabled]`).
 
 ## Angular Considerations
 - Prefer explicit getters in components for computed template values.
