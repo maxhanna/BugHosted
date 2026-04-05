@@ -93,8 +93,9 @@ export class RatingStarsComponent {
   async rateFile(file: FileEntry | MetaData, star: number) {
     console.log('rateFile called with file:', file, 'star:', star);
     const user = this.currentUser;
+    const isFileRating = file instanceof FileEntry;
     try {
-      await this.ratingsService.submitRating(user, star, file.id);
+      await this.ratingsService.submitRating(user, star, isFileRating ? file.id : undefined, !isFileRating ? file.id : undefined);
       // If this is the ratings panel file, recalculate average from ratings array
       if (this.ratingFile && file.id === this.ratingFile.id && Array.isArray(this.ratingFile.ratings)) {
         // Find or update the user's rating in the array
