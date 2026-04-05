@@ -5,7 +5,7 @@
 }
 
 .ratingsListContainer {
-  width: 100%;
+  width: calc(100% - 20px);
   /* max-height: 50vh; */
   /* overflow-y: auto; */
   display:flex; 
