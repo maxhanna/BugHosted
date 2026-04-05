@@ -298,7 +298,7 @@
 </div>
 
 <!-- File Options Popup -->
-<div class="popupPanel" *ngIf="isOptionsPanelOpen && optionsFile">
+<div [class.popupPanel]="isOptionsPanelOpen && optionsFile" *ngIf="(isOptionsPanelOpen && optionsFile) || isRatingPanelOpen">
   <div class="popupPanelTitle">
     File Options
   </div>
@@ -518,8 +518,8 @@
           [rating]="{ value: optionsFile.averageRating ?? 0, user: currentUser }"
           [inputtedParentRef]="parentRef"
           [ratingFile]="optionsFile"
-          (panelOpened)="closeOptionsPanel(false)"
-          (panelClosed)="clearOptionFile()">
+          (panelOpened)="isRatingPanelOpen = true;"
+          (panelClosed)="closeOptionsPanel(); isRatingPanelOpen = false;">
         </app-rating-stars>
       </div>
     </div>

@@ -124,6 +124,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   systemCandidates: Array<{ label: string; core?: string }> = [];
   selectedSystemCore: string | null = null;
   isFirstLoad = true;
+  isRatingPanelOpen = false;
   pageLocked = false;
   appending = false; 
 
@@ -1099,11 +1100,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.optionsFile = undefined;
     }  
     this.parentRef?.closeOverlay(); 
-  }
-
-  clearOptionFile() {
-    this.optionsFile = undefined;
-  }
+  } 
 
   // Clear persisted system override for a file and update UI
   async clearSystemOverride(file?: FileEntry) {
