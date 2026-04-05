@@ -33,11 +33,10 @@ export class RatingStarsComponent {
   }
 
   get ratingsTitle(): string {
-    return this.ratingFile instanceof FileEntry
-      ? (this.ratingFile.givenFileName ?? this.ratingFile.fileName ?? "")
-      : this.ratingFile instanceof MetaData
-        ? this.ratingFile.title ?? ""
-        : "";
+    if (!this.ratingFile) return "";
+    return this.componentType === 'file'
+      ? ((this.ratingFile as FileEntry).givenFileName ?? (this.ratingFile as FileEntry).fileName ?? "")
+      : (this.ratingFile as MetaData).title ?? (this.ratingFile as MetaData).url ?? "";
   }
 
   onRate(star: number) {
