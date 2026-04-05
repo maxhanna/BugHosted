@@ -11,7 +11,6 @@ import { TodoService } from '../../services/todo.service';
 import { TopicsComponent } from '../topics/topics.component';
 import { FileAccessLog } from '../../services/datacontracts/file/file-access-log';
 
-
 @Component({
   selector: 'app-media-viewer',
   templateUrl: './media-viewer.component.html',

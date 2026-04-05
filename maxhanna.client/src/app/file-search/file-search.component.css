@@ -323,7 +323,7 @@
   height: 30px;
   display: flex;
   justify-content: space-between;
-  width: 100%;
+  width: calc(100% - 20px);
   flex-direction: row-reverse;
   border-bottom: 1px dotted var(--main-font-color);
 }
