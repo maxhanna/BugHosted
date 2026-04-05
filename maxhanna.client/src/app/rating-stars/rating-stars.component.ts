@@ -111,7 +111,9 @@ export class RatingStarsComponent {
   }
 
   async rateFile(star: number) {
-    if (!this.ratingFile) {
+    const fileId = this.ratingFile?.id ?? this.tmpFileId;
+    const ratings = this.ratingFile?.ratings ?? this.tmpRatings;
+    if (!fileId) {
       console.error('No rating file available to rate.');
       return;
     }
@@ -121,15 +123,16 @@ export class RatingStarsComponent {
       await this.ratingsService.submitRating(
         user, 
         star, 
-        this.componentType === 'file' ? this.ratingFile?.id : undefined, 
-        this.componentType != 'file' ? this.ratingFile?.id : undefined
+        this.componentType === 'file' ? fileId : undefined, 
+        this.componentType != 'file' ? fileId : undefined
       );
       // If this is the ratings panel file, recalculate average from ratings array
-      if (this.ratingFile && this.ratingFile.id === this.ratingFile.id && Array.isArray(this.ratingFile.ratings)) {
+      if (fileId && Array.isArray(ratings)) 
+      {
         // Find or update the user's rating in the array
         const userId = user.id;
         let found = false;
-        for (const r of this.ratingFile.ratings) {
+        for (const r of ratings) {
           if (r.user?.id === userId) {
             r.value = star;
             found = true;
@@ -137,24 +140,33 @@ export class RatingStarsComponent {
           }
         }
         if (!found) {
-          this.ratingFile?.ratings.push({ user, value: star });
+          ratings.push({ user, value: star });
         }
         // Remove duplicate ratings by the same user (shouldn't happen, but just in case)
         const uniqueRatings = new Map();
-        for (const r of this.ratingFile?.ratings ?? []) {
+        for (const r of ratings ?? []) {
           if (r.user?.id) uniqueRatings.set(r.user.id, r);
         }
         const ratingsArr = Array.from(uniqueRatings.values());
-        this.ratingFile.ratingCount = ratingsArr.length;
-        this.ratingFile.averageRating = ratingsArr.length
-          ? ratingsArr.reduce((sum, r) => sum + (r.value ?? 0), 0) / ratingsArr.length
-          : star;
-      } else {
+        if (this.ratingFile) {
+          this.ratingFile.ratingCount = ratingsArr.length;
+          this.ratingFile.averageRating = ratingsArr.length
+            ? ratingsArr.reduce((sum, r) => sum + (r.value ?? 0), 0) / ratingsArr.length
+            : star;
+        } else {
+          console.warn('No rating file available to update average rating, skipping average calculation.', fileId, ratingsArr);
+        }
+      } 
+      else {
         // Fallback: just increment as before
-        this.ratingFile.averageRating = this.ratingFile.ratingCount
-          ? ((this.ratingFile.averageRating ?? 0) * this.ratingFile.ratingCount + star) / (this.ratingFile.ratingCount + 1)
-          : star;
-        this.ratingFile.ratingCount = (this.ratingFile.ratingCount ?? 0) + 1;
+        if (this.ratingFile) {
+          this.ratingFile.averageRating = this.ratingFile.ratingCount
+            ? ((this.ratingFile.averageRating ?? 0) * this.ratingFile.ratingCount + star) / (this.ratingFile.ratingCount + 1)
+            : star;
+          this.ratingFile.ratingCount = (this.ratingFile.ratingCount ?? 0) + 1;
+        } else {
+          console.warn('No rating file available to update average rating, skipping average calculation.', fileId);
+        }
       }
       this.inputtedParentRef?.showNotification(`Rated ${star} star${star > 1 ? 's' : ''}!`);
     } catch (ex) {
