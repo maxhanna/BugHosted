@@ -759,6 +759,11 @@ fieldset {
   color: var(--main-link-color);
 }
 
+.linkFontColor:hover,
+.linkColor:hover {
+  color: var(--secondary-font-color);
+} 
+
 .linkTextDecoration {
   text-decoration: underline;
   text-decoration-color: var(--main-link-color);
