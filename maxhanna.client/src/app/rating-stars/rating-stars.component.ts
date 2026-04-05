@@ -155,7 +155,7 @@ export class RatingStarsComponent implements OnInit {
             ? ratingsArr.reduce((sum, r) => sum + (r.value ?? 0), 0) / ratingsArr.length
             : star;
         } else {
-          console.warn('No rating file available to update average rating, skipping average calculation.', fileId, ratingsArr);
+          console.warn('No rating file available to update average rating, skipping average calculation.', this.tmpFileId, ratingsArr);
         }
       } 
       else {
@@ -166,7 +166,7 @@ export class RatingStarsComponent implements OnInit {
             : star;
           this.ratingFile.ratingCount = (this.ratingFile.ratingCount ?? 0) + 1;
         } else {
-          console.warn('No rating file available to update average rating, skipping average calculation.', fileId);
+          console.warn('No rating file available to update average rating, skipping average calculation.', this.tmpFileId);
         }
       }
       this.inputtedParentRef?.showNotification(`Rated ${star} star${star > 1 ? 's' : ''}!`);
