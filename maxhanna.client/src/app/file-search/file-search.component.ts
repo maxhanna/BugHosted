@@ -13,8 +13,7 @@ import { UserService } from '../../services/user.service';
 import { FileComment } from '../../services/datacontracts/file/file-comment';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
-import { RomService } from '../../services/rom.service';
-import { Rating, RatingsService } from '../../services/ratings.service';
+import { RomService } from '../../services/rom.service'; 
 import { FileAccessLog } from '../../services/datacontracts/file/file-access-log';
 import { FileNote } from '../../services/datacontracts/file/file-note';
 import { Core } from '../emulator/emulator-types';
@@ -121,8 +120,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   isShowingFileNotes = false;
   fileNotes: FileNote[] = [];
   notesFile: FileEntry | undefined;
-  isRatingsPanelOpen: boolean = false;
-  ratingsPanelFile: FileEntry | undefined;
   isSystemSelectPanelOpen: boolean = false;
   systemCandidates: Array<{ label: string; core?: string }> = [];
   selectedSystemCore: string | null = null;
@@ -148,7 +145,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @ViewChildren('nsfwCheckmark') nsfwCheckmark!: ElementRef<HTMLInputElement>;
   @ViewChildren('visibilitySelect') visibilitySelect!: ElementRef<HTMLInputElement>;
   @ViewChildren('optionsFileVisibilitySelect') optionsFileVisibilitySelect!: ElementRef<HTMLInputElement>;
-
   @ViewChild(MediaViewerComponent) mediaViewerComponent!: MediaViewerComponent;
   @ViewChild('directoryDisplayDiv') directoryDisplayDivRef?: ElementRef<HTMLDivElement>;
 
@@ -157,8 +153,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     public fileService: FileService,
     private userService: UserService,
     private todoService: TodoService,
-    private romService: RomService,
-    private ratingsService: RatingsService,
+    private romService: RomService, 
     private route: ActivatedRoute,
     private changeDetectorRef: ChangeDetectorRef,
     private sanitizer: DomSanitizer) {
@@ -1915,60 +1910,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
 
-  rateFileEvent(file: FileEntry, event: any) {
-    event.stopPropagation();
-    this.rateFile(file, +event);
-  }
-
   get currentUser(): User {
     return this.parentRef?.user ?? new User(0, "Anonymous");
   }
-
-  async rateFile(file: FileEntry, star: number) {
-    const user = this.currentUser;
-    this.startLoading();
-    try {
-      await this.ratingsService.submitRating(user, star, file.id);
-      // If this is the ratings panel file, recalculate average from ratings array
-      if (this.ratingsPanelFile && file.id === this.ratingsPanelFile.id && Array.isArray(this.ratingsPanelFile.ratings)) {
-        // Find or update the user's rating in the array
-        const userId = user.id;
-        let found = false;
-        for (const r of this.ratingsPanelFile.ratings) {
-          if (r.user?.id === userId) {
-            r.value = star;
-            found = true;
-            break;
-          }
-        }
-        if (!found) {
-          this.ratingsPanelFile.ratings.push({ user, value: star });
-        }
-        // Remove duplicate ratings by the same user (shouldn't happen, but just in case)
-        const uniqueRatings = new Map();
-        for (const r of this.ratingsPanelFile.ratings) {
-          if (r.user?.id) uniqueRatings.set(r.user.id, r);
-        }
-        const ratingsArr = Array.from(uniqueRatings.values());
-        file.ratingCount = ratingsArr.length;
-        file.averageRating = ratingsArr.length
-          ? ratingsArr.reduce((sum, r) => sum + (r.value ?? 0), 0) / ratingsArr.length
-          : star;
-      } else {
-        // Fallback: just increment as before
-        file.averageRating = file.ratingCount
-          ? ((file.averageRating ?? 0) * file.ratingCount + star) / (file.ratingCount + 1)
-          : star;
-        file.ratingCount = (file.ratingCount ?? 0) + 1;
-      }
-      this.notifyUser(`Rated ${star} star${star > 1 ? 's' : ''}!`);
-    } catch (ex) {
-      console.error(ex);
-      this.notifyUser('Failed to submit rating.');
-    }
-    this.stopLoading();
-  }
-
+ 
   getSystemLabel(key: string): { label: string, title: string } {
     switch (key) {
       case 'n64':
@@ -2419,39 +2364,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.systemSelectFile = undefined;
     this.parentRef?.closeOverlay();
   }
-
-  /**
-     * Opens the ratings panel for a given file and fetches ratings.
-     * @param file The file entry to show ratings for.
-     */
-  async openRatingsPanel(file: FileEntry): Promise<void> {
-    this.ratingsPanelFile = file;
-    this.isRatingsPanelOpen = true;
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent) {
-      parent.showOverlay();
-    }
-    if (file && file.id && !file.ratings) {
-      try {
-        const ratings = await this.ratingsService.getRatingsByFile(file.id) as Rating[] | undefined;
-        this.ratingsPanelFile.ratings = Array.isArray(ratings) ? ratings : [];
-      } catch (e) {
-        if (parent) {
-          parent.showNotification('Failed to fetch ratings.');
-        }
-      }
-    }
-  }
-
-  closeRatingsPanel(): void {
-    this.isRatingsPanelOpen = false;
-    this.ratingsPanelFile = undefined;
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent) {
-      parent.closeOverlay();
-    }
-  }
-
+ 
   openImagePreview(url?: string, ev?: Event) {
     if (ev) ev.preventDefault();
     if (!url) return;

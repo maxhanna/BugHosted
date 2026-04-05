@@ -1,19 +1,22 @@
-<span *ngFor="let star of stars; let i = index"
-      class="cursorPointer"
-      [class]="hoveredIndex !== null && i <= hoveredIndex && !readOnly && isCurrentUser ? 'cursorPointer glowing' : 'cursorPointer'"
-      [style.color]="star <= rating.value ? 'gold' : '#555'"
-      (click)="onRate(star)"
-      (mouseenter)="onStarMouseEnter(i)"
-      (mouseleave)="onStarMouseLeave()"
-      [title]="readOnly
-        ? ('Rated ' + rating.value + ' star' + (rating.value > 1 ? 's' : ''))
-        : (isCurrentUser
-            ? ('Set your rating to ' + star + ' star' + (star > 1 ? 's' : ''))
-            : ('Rated ' + star + ' star' + (star > 1 ? 's' : '')))">
-  &#9733;
+<span *ngIf="!showRatingValueOnly">
+  <span *ngFor="let star of stars; let i = index"
+    class="cursorPointer"
+    [class]="hoveredIndex !== null && i <= hoveredIndex && !readOnly && isCurrentUser ? 'cursorPointer glowing' : 'cursorPointer'"
+    [style.color]="star <= rating.value ? 'gold' : '#555'"
+    (click)="onRate(star)"
+    (mouseenter)="onStarMouseEnter(i)"
+    (mouseleave)="onStarMouseLeave()"
+    [title]="readOnly
+      ? ('Rated ' + rating.value + ' star' + (rating.value > 1 ? 's' : ''))
+      : (isCurrentUser
+          ? ('Set your rating to ' + star + ' star' + (star > 1 ? 's' : ''))
+          : ('Rated ' + star + ' star' + (star > 1 ? 's' : '')))">
+    &#9733;
+  </span>
 </span>
+<span *ngIf="showRatingValueOnly" (click)="openRatingsPanel(ratingFile)">⭐{{rating.value | number:'1.1-1'}}</span>
 
-<span *ngIf="ratingFile && ratingFile.ratingCount"
+<span *ngIf="ratingFile && ratingFile.ratingCount && !showRatingValueOnly"
   class="cursorPointer"
   (click)="openRatingsPanel(ratingFile)"
 >
