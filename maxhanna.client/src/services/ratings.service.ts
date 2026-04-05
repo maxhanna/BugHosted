@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 
+import { User } from './datacontracts/user/user';
 export interface Rating {
   id?: number;
-  user_id?: number;
+  user?: User;
   rating: number;
   timestamp?: string;
   file_id?: number;
@@ -47,13 +48,13 @@ export class RatingsService {
       return (error as Error).message;
     }
   }
-  async submitRating(userId: number, rating: number, fileId?: number, searchId?: number): Promise<any> {
+  async submitRating(user: User, rating: number, fileId?: number, searchId?: number): Promise<any> {
     try {
       const res = await fetch('/ratings/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          UserId: userId,
+          User: user,
           RatingValue: rating,
           FileId: fileId ?? null,
           SearchId: searchId ?? null

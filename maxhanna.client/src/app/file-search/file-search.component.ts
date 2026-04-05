@@ -1928,7 +1928,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     const user = parent?.user ?? this.user;
     if (!user?.id) return alert('You must be logged in to rate files.');
     try {
-      await this.ratingsService.submitRating(user.id, star, file.id);
+      await this.ratingsService.submitRating(user, star, file.id);
       file.averageRating = file.ratingCount
         ? ((file.averageRating ?? 0) * file.ratingCount + star) / (file.ratingCount + 1)
         : star;

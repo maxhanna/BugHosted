@@ -424,10 +424,10 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   async rateSearchResult(metadata: MetaData, star: number) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const userId = parent?.user?.id;
-    if (!userId) return alert('You must be logged in to rate.');
+    if (!parent?.user) return alert('You must be logged in to rate.');
     if (!metadata.id) return alert('Cannot rate this result.');
     try {
-      await this.ratingsService.submitRating(userId, star, undefined, metadata.id);
+      await this.ratingsService.submitRating(parent.user, star, undefined, metadata.id);
       metadata.averageRating = metadata.ratingCount
         ? ((metadata.averageRating ?? 0) * metadata.ratingCount + star) / (metadata.ratingCount + 1)
         : star;

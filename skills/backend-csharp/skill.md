@@ -1,3 +1,11 @@
+# User and FileEntry Construction (2026-04-05)
+- When constructing a user object from the database, never include the password field in the returned object.
+- The most important fields for a user object are: id, username, displayPictureFile, and profileBackgroundPictureFile.
+- displayPictureFile and profileBackgroundPictureFile must be constructed as FileEntry objects (not just IDs), even if only the ID is available. If more file info is available (e.g., file name, directory), include it in the FileEntry.
+- For anonymous users, use id = 0 and username = "Anonymous"; displayPictureFile and profileBackgroundPictureFile should be null.
+- Always use the same construction logic for user objects in all controllers (e.g., RatingsController, UserController) to ensure consistency for frontend consumers.
+- When joining user and file tables in SQL, prefer a single query that retrieves all needed fields for constructing the user and FileEntry objects in one shot.
+- Never expose sensitive fields (like password) in any API response.
 # Skill File Summarization
 If this skill file exceeds 15,000 tokens, summarize and rewrite it to retain only the most up-to-date, concise, and actionable information, just like AI-HISTORY.md.
 # Backend C# Skills

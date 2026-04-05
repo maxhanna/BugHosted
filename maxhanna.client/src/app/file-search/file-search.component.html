@@ -955,10 +955,7 @@
         <app-user-tag [user]="r.user" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"
           [displayHoverPicture]="true"></app-user-tag>
         <span style="margin-left:auto; font-size:0.9em;">{{ r.rating }} ★</span>
-      </div>
-      <div class="noteDiv" *ngIf="r.comment">
-        {{ r.comment }}
-      </div>
+      </div> 
     </div>
   </div>
   <button id="closeOverlay" (click)="closeRatingsPanel()" class="closeButton" style="margin-top:8px;">Close</button>
