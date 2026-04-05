@@ -49,6 +49,10 @@ export class RatingsService {
     }
   }
   async submitRating(user: User, value: number, fileId?: number, searchId?: number): Promise<any> {
+    if (!fileId && !searchId) {
+      console.error('submitRating called without fileId or searchId');
+      return null;
+    }
     try {
       const res = await fetch('/ratings/add', {
         method: 'POST',
