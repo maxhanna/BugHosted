@@ -126,6 +126,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   isFirstLoad = true;
   pageLocked = false;
   appending = false;
+  shareLocked = false;
 
   private controllerIndex: number = -1;
   private _hoverOverlayEl: HTMLElement | null = null;
@@ -1060,6 +1061,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.closeOptionsPanel();
   }
   shareFileInitiate(file: FileEntry) {
+    if (this.shareLocked) { return; }
     this.selectedSharedFile = file;
     this.closeOptionsPanel();
     setTimeout(() => {
@@ -1085,6 +1087,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
     const parent = this.inputtedParentRef ?? this.parentRef;
     this.optionsFile = file;
+    this.shareLocked = true;
+    setTimeout(() => {
+      this.shareLocked = false;
+    }, 500);
     // If we're rendering the metadata inline on desktop, don't show the global overlay.
     if (parent) {
       this.isOptionsPanelOpen = true;
