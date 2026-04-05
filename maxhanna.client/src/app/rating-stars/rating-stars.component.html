@@ -25,15 +25,15 @@
 </span>
 
 <!-- Ratings Popup Panel -->
-<div class="popupPanel ratingPopupPanel" *ngIf="isRatingsPanelOpen && tmpRatingFile">
+<div class="popupPanel ratingPopupPanel" *ngIf="isRatingsPanelOpen && tmpRatings">
   <div class="popupPanelTitle" [title]="'Ratings for ' + ratingsTitle">
     ⭐ {{ ratingsTitle }}
   </div>
   <div style="max-height:50vh; width: calc(100% - 50px); overflow:auto; width:100%;">
-    <div *ngIf="tmpRatingFile.ratings?.length === 0" style="padding:12px; text-align:center; opacity:0.7;">
+    <div *ngIf="tmpRatings?.length === 0" style="padding:12px; text-align:center; opacity:0.7;">
       No ratings yet.
     </div>
-    <div *ngFor="let r of tmpRatingFile.ratings" class="optionsStatsDiv"
+    <div *ngFor="let r of tmpRatings" class="optionsStatsDiv"
       style="margin-bottom:8px; border-bottom:1px solid var(--main-border-color);">
       <div class="ratingsListContainer">
         <span style="width: unset !important; height: unset !important;">
