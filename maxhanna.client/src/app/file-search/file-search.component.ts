@@ -1708,7 +1708,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     fileType = fileType.replace(".", "");
     return this.fileService.videoFileExtensions.includes(fileType) || this.fileService.audioFileExtensions.includes(fileType);
   }
-  async addFileToMusicPlaylist(fileEntry: FileEntry) {
+  async addFileToMusicPlaylist(fileEntry?: FileEntry) {
     if (!this.currentUser.id || !fileEntry || !fileEntry.id) {
       return alert("Error: Cannot add file to music playlist without logging in or a valid file entry.");
     }
