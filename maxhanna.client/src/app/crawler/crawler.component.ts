@@ -4,7 +4,7 @@ import { CrawlerService } from '../../services/crawler.service';
 import { FavouriteService } from '../../services/favourite.service';
 import { MetaData } from '../../services/datacontracts/social/story';
 import { CrawlerSearchResponse } from '../../services/datacontracts/crawler';
-import { DomSanitizer, Meta, SafeHtml } from '@angular/platform-browser';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { AppComponent } from '../app.component';
 import { User } from '../../services/datacontracts/user/user';
 import { RatingsService } from '../../services/ratings.service';

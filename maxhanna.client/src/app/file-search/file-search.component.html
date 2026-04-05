@@ -506,8 +506,10 @@
       <div class="optionsStatsHeader">Rating:</div>
       <div class="optionsStatsDescription">
         <app-rating-stars
-          [rating]="{ value: optionsFile.averageRating ?? 0, user: parentRef?.user }"
-          [readOnly]="true">
+          [rating]="{ value: optionsFile.averageRating ?? 0, user: currentUser }"
+          [readOnly]="true"
+          [inputtedParentRef]="parentRef"
+          [ratingFile]="optionsFile">
         </app-rating-stars>
         <span *ngIf="optionsFile.ratingCount" (click)="openRatingsPanel(optionsFile)">{{optionsFile.averageRating | number:'1.1-1'}}
           (<span class="linkFontColor cursorPointer linkTextDecoration">{{optionsFile.ratingCount}}</span>)</span>
@@ -973,7 +975,7 @@
         <span style="margin-left:auto; font-size:0.9em;">
           <app-rating-stars
             [rating]="r"
-            [currentUser]="currentUser"
+            [inputtedParentRef]="parentRef"
             (rated)="rateFileEvent(ratingsPanelFile, $event)">
           </app-rating-stars>
         </span>

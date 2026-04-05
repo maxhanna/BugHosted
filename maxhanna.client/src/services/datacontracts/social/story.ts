@@ -1,3 +1,4 @@
+import { Rating } from "../../ratings.service";
 import { FileComment } from "../file/file-comment";
 import { FileEntry } from "../file/file-entry";
 import { Reaction } from "../reactions/reaction";
@@ -41,4 +42,5 @@ export class MetaData {
   isUserFavourite?: boolean;
   averageRating?: number;
   ratingCount?: number;
+  ratings?: Rating[] | undefined;
 }

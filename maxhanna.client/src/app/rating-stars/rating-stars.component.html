@@ -12,3 +12,44 @@
             : ('Rated ' + star + ' star' + (star > 1 ? 's' : '')))">
   &#9733;
 </span>
+
+<span *ngIf="ratingFile"
+  class="cursorPointer"
+  (click)="openRatingsPanel(ratingFile)"
+>
+  <span class="linkFontColor linkTextDecoration">{{rating.value | number:'1.1-1'}}</span> 
+  (<span class="linkFontColor linkTextDecoration">{{ratingFile.ratingCount}}</span>)
+</span>
+
+<!-- Ratings Popup Panel -->
+<div class="popupPanel" *ngIf="isRatingsPanelOpen && ratingFile">
+  <div class="popupPanelTitle">
+    ⭐ Ratings for {{ ratingFile.givenFileName ?? ratingFile.fileName }}
+  </div>
+  <div style="max-height:50vh; width:100%;">
+    <div *ngIf="ratingFile.ratings?.length === 0" style="padding:12px; text-align:center; opacity:0.7;">
+      No ratings yet.
+    </div>
+    <div *ngFor="let r of ratingFile.ratings" class="optionsStatsDiv"
+      style="margin-bottom:8px; border-bottom:1px solid var(--main-border-color);">
+      <div class="ratingsListContainer">
+        <span>
+          <app-user-tag [user]="r.user" 
+            [inputtedParentRef]="inputtedParentRef" 
+            [displayMiniTag]="true"
+            [displayHoverPicture]="true">
+          </app-user-tag>
+        </span>
+        <span style="margin-left:auto; font-size:0.9em;">
+          <span *ngFor="let star of stars; let i = index"
+            class="cursorPointer"
+            [style.color]="star <= r.value ? 'gold' : '#555'"  
+          >
+            &#9733;
+          </span>
+        </span>
+      </div>
+    </div>
+  </div>
+  <button id="closeOverlay" (click)="closeRatingsPanel()" class="closeButton" style="margin-top:8px;">Close</button>
+</div>

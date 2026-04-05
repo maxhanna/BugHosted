@@ -77,7 +77,8 @@
             <div class="descriptionDiv authorClass">
               <app-rating-stars
                 [rating]="{ value: metadata.averageRating ?? 0, user: currentUser }" 
-                [currentUser]="currentUser"
+                [inputtedParentRef]="parentRef"
+                [ratingFile]="metadata"
                 (rate)="rateSearchResult(metadata, $event)">
               </app-rating-stars>
               <span *ngIf="metadata.ratingCount">
