@@ -142,6 +142,7 @@
   <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
 </div>
 
+<!-- Login Prompt Panel -->
 <div class="popupPanel menuPanel" *ngIf="isShowingLoginPanel">
   <app-user [loginOnly]="true" [inputtedParentRef]="parentRef" [canClose]="false"
     (closeUserComponentEvent)="closeLoginPanel($event)"
@@ -161,9 +162,13 @@
     <select [value]="selectedSystemCore" (change)="onSystemSelectChange($event)">
       <option *ngFor="let opt of systemCandidates" [value]="opt.core">{{opt.label}}</option>
     </select>
-    <div style="margin-top:12px; display:flex; gap:8px;">
-      <button (click)="confirmSystemSelection()">Continue</button>
-      <button (click)="cancelSystemSelection()" class="closeButton" id="closeOverlay">Cancel</button>
+    <div class="emuMenuButtonGrid" style="margin-top:12px;">
+      <button (click)="confirmSystemSelection()" class="enhancedButton squareButton" title="Continue">
+        ▶️<div class="emuMenuButtonLabel">Continue</div>
+      </button>
+      <button (click)="cancelSystemSelection()" class="closeButton enhancedButton squareButton" id="closeOverlay" title="Cancel">
+        ❌<div class="emuMenuButtonLabel">Cancel</div>
+      </button>
     </div>
   </div>
 </div>
@@ -173,15 +178,17 @@
   <div class="popupPanelTitle">Save Progress?</div>
   <div class="saveStateMessageDiv">
     <p>{{ saveConfirmMessage || 'Do you want to save your progress before continuing?' }}</p>
-    <div class="saveStateButtons">
-      <button (click)="handleSaveConfirm('save')" class="enhancedButton">Save</button>
+    <div class="saveStateButtons emuMenuButtonGrid">
+      <button (click)="handleSaveConfirm('save')" class="enhancedButton squareButton" title="Save">
+        💾<div class="emuMenuButtonLabel">Save</div>
+      </button>
       <button (click)="handleSaveConfirm('dontSave')" 
-        class="enhancedButton"
-        *ngIf="saveConfirmType === 'saveAndExit' || saveConfirmType === 'saveAndReset'">
-        Don't Save
-      </button> 
-      <button (click)="handleSaveConfirm('cancel')" class="closeButton enhancedButton" id="closeOverlay">
-        Cancel
+        class="enhancedButton squareButton"
+        *ngIf="saveConfirmType === 'saveAndExit' || saveConfirmType === 'saveAndReset'" title="Don't Save">
+        🚫<div class="emuMenuButtonLabel">Don't Save</div>
+      </button>
+      <button (click)="handleSaveConfirm('cancel')" class="closeButton enhancedButton squareButton" id="closeOverlay" title="Cancel">
+        ❌<div class="emuMenuButtonLabel">Cancel</div>
       </button>
     </div>
   </div>
@@ -197,9 +204,13 @@
         (change)="skipLoadingSave = skipLoadingSaveCheckbox.checked" />
       <span>Re-load {{ skipLoadingSave ? 'without' : 'with' }} saved state.</span>
     </label>
-    <div style="display:flex; gap:8px; margin-top:12px;">
-      <button (click)="performReset()" class="enhancedButton">Confirm Reset</button>
-      <button class="closeButton enhancedButton" id="closeOverlay" (click)="cancelReset()">Cancel</button>
+    <div class="emuMenuButtonGrid" style="margin-top:12px;">
+      <button (click)="performReset()" class="enhancedButton squareButton" title="Confirm Reset">
+        ♻️<div class="emuMenuButtonLabel">Reset</div>
+      </button>
+      <button class="closeButton enhancedButton squareButton" id="closeOverlay" (click)="cancelReset()" title="Cancel">
+        ❌<div class="emuMenuButtonLabel">Cancel</div>
+      </button>
     </div>
   </div>
 </div>
