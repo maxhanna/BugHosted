@@ -764,6 +764,12 @@ fieldset {
   color: var(--secondary-font-color);
 } 
 
+.linkFontColor:active,
+.linkColor:active {
+  color: var(--main-font-color);
+  text-decoration: underline;
+} 
+
 .linkTextDecoration {
   text-decoration: underline;
   text-decoration-color: var(--main-link-color);
