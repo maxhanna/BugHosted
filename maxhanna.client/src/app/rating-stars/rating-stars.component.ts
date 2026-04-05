@@ -112,10 +112,9 @@ export class RatingStarsComponent implements OnInit {
     }, 50)
   }
 
-  async rateFile(star: number) {
-    const fileId = this.ratingFile?.id ?? this.tmpFileId;
+  async rateFile(star: number) { 
     const ratings = this.ratingFile?.ratings ?? this.tmpRatings;
-    if (!fileId) {
+    if (!this.tmpFileId) {
       console.error('No rating file available to rate.');
       return;
     }
@@ -125,11 +124,11 @@ export class RatingStarsComponent implements OnInit {
       await this.ratingsService.submitRating(
         user, 
         star, 
-        this.componentType === 'file' ? fileId : undefined, 
-        this.componentType != 'file' ? fileId : undefined
+        this.componentType === 'file' ? this.tmpFileId : undefined, 
+        this.componentType != 'file' ? this.tmpFileId : undefined
       );
       // If this is the ratings panel file, recalculate average from ratings array
-      if (fileId && Array.isArray(ratings)) 
+      if (this.tmpFileId && Array.isArray(ratings)) 
       {
         // Find or update the user's rating in the array
         const userId = user.id;
