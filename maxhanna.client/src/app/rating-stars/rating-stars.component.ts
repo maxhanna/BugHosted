@@ -61,9 +61,9 @@ export class RatingStarsComponent {
     this.hoveredIndex = null;
   } 
 
-  async openRatingsPanel(file?: FileEntry | MetaData): Promise<void> {
-    console.log('openRatingsPanel called with file:', file, 'current ratingFile:', this.ratingFile, 'isRatingsPanelOpen:', this.isRatingsPanelOpen);
-    if (!file || this.isRatingsPanelOpen) {
+  async openRatingsPanel(): Promise<void> {
+    console.log('openRatingsPanel called with current ratingFile:', this.ratingFile, 'isRatingsPanelOpen:', this.isRatingsPanelOpen);
+    if (!this.ratingFile || this.isRatingsPanelOpen) {
       console.warn('No file provided or ratings panel already open, not opening a new panel.');
       return;
     }
@@ -71,22 +71,25 @@ export class RatingStarsComponent {
       console.error('No parent reference provided for RatingStarsComponent');
       return;
     }
+    this.panelOpened.emit();
 
-    setTimeout(async () => {
-      this.ratingFile = file;
-      this.isRatingsPanelOpen = true;
-      this.panelOpened.emit();
+    setTimeout(async () => { 
+      const file = this.ratingFile;
+      const fileId = file?.id ?? 0;
       this.inputtedParentRef?.showOverlay();
-      if (file && file.id && !file.ratings) {
+      this.isRatingsPanelOpen = true;
+      if (fileId && file && (!file.ratings || (file.ratings && file.ratings.length === 0))) {
         try {
           const ratings = this.componentType === 'file'
-            ? await this.ratingsService.getRatingsByFile(file.id) as Rating[] | undefined
-            : await this.ratingsService.getRatingsBySearch(file.id) as Rating[] | undefined;
-          this.ratingFile.ratings = Array.isArray(ratings) ? ratings : [];
+            ? await this.ratingsService.getRatingsByFile(fileId) as Rating[] | undefined
+            : await this.ratingsService.getRatingsBySearch(fileId) as Rating[] | undefined; 
+          file.ratings = Array.isArray(ratings) ? ratings : []; 
         } catch (e) {
           this.inputtedParentRef?.showNotification('Failed to fetch ratings.');
           console.error('Error fetching ratings:', e);
         }
+      } else {
+        console.log('Ratings already loaded for this file, skipping fetch.');
       }
     }, 100);
   }
