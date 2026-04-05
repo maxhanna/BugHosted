@@ -272,14 +272,12 @@
   margin-top: 15px;
 }
 
+.fileOptionsActionWrapper {
+  align-items: flex-start;
+}
+
 .fileOptionsActionWrapper,
 .fileOptionsAction {
-  align-items: flex-start;
-} 
-
-.fileOptionsAction,
-.fileOptionsActionWrapper ::ng-deep * button,
-.fileOptionsActionWrapper ::ng-deep span:not(.reactionsDisplaySpan span) {
   cursor: pointer;
   display: flex;
   justify-content: center;
@@ -289,7 +287,9 @@
   align-items: center;
 }
 
-.fileOptionsAction {
+.fileOptionsAction,
+.fileOptionsActionWrapper ::ng-deep * button,
+.fileOptionsActionWrapper ::ng-deep span:not(.reactionsDisplaySpan span) {
   width: 25px;
   height: 25px;
   display: flex;
@@ -618,11 +618,12 @@
 }
 
 .imagePreviewContainer {
-  text-align:center; 
-  overflow:auto;
+  text-align: center;
+  overflow: auto;
 }
+
 /* Large preview image styling */
-.imagePreviewLarge { 
+.imagePreviewLarge {
   max-height: 70vh;
   max-height: 70dvh;
   width: 100%;

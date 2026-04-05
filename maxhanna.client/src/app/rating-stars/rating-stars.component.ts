@@ -40,9 +40,9 @@ export class RatingStarsComponent {
   }
 
   isUserRating(r: Rating): boolean {
-    return r?.user?.id === this.currentUser.id;
+    return r.user?.id === this.currentUser.id;
   }
-
+  
   onRate(star: number) {
     console.log('onRate called with star:', star, 'current rating:', this.rating);
     if (!this.readOnly && this.ratingFile && this.isCurrentUser) {
