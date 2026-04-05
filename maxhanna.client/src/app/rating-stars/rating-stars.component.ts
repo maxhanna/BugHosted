@@ -59,12 +59,10 @@ export class RatingStarsComponent {
 
   onStarMouseLeave() {
     this.hoveredIndex = null;
-  }
-  /**
-     * Opens the ratings panel for a given file and fetches ratings.
-     * @param file The file entry to show ratings for.
-     */
+  } 
+
   async openRatingsPanel(file?: FileEntry | MetaData): Promise<void> {
+    console.log('openRatingsPanel called with file:', file, 'current ratingFile:', this.ratingFile, 'isRatingsPanelOpen:', this.isRatingsPanelOpen);
     if (!file || this.isRatingsPanelOpen) return;
     setTimeout(async () => {
       this.ratingFile = file;
