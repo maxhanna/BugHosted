@@ -40,7 +40,7 @@ namespace maxhanna.Server.Controllers
                     if (existingObj != null && existingObj != DBNull.Value)
                     {
                         var existingRating = Convert.ToInt32(existingObj);
-                        if (existingRating == rating.RatingValue)
+                        if (existingRating == rating.Value)
                         {
                             // Same rating posted twice — treat as delete (toggle off)
                             const string deleteSql = @"DELETE FROM ratings WHERE user_id = @UserId AND file_id = @FileId";
@@ -56,7 +56,7 @@ namespace maxhanna.Server.Controllers
                             using var upd = new MySqlCommand(updateSql, conn);
                             upd.Parameters.AddWithValue("@UserId", userId);
                             upd.Parameters.AddWithValue("@FileId", rating.FileId.Value);
-                            upd.Parameters.AddWithValue("@Rating", rating.RatingValue);
+                            upd.Parameters.AddWithValue("@Rating", rating.Value);
                             var rows = await upd.ExecuteNonQueryAsync();
                             if (rows > 0) return Ok(new { success = true, replaced = true });
                         }
@@ -75,7 +75,7 @@ namespace maxhanna.Server.Controllers
                     if (existingObj2 != null && existingObj2 != DBNull.Value)
                     {
                         var existingRating2 = Convert.ToInt32(existingObj2);
-                        if (existingRating2 == rating.RatingValue)
+                        if (existingRating2 == rating.Value)
                         {
                             // Same rating posted twice — delete
                             const string deleteSearchSql = @"DELETE FROM ratings WHERE user_id = @UserId AND search_id = @SearchId";
@@ -91,7 +91,7 @@ namespace maxhanna.Server.Controllers
                             using var upd2 = new MySqlCommand(updateSearchSql, conn);
                             upd2.Parameters.AddWithValue("@UserId", userId);
                             upd2.Parameters.AddWithValue("@SearchId", rating.SearchId.Value);
-                            upd2.Parameters.AddWithValue("@Rating", rating.RatingValue);
+                            upd2.Parameters.AddWithValue("@Rating", rating.Value);
                             var rows2 = await upd2.ExecuteNonQueryAsync();
                             if (rows2 > 0) return Ok(new { success = true, replaced = true });
                         }
@@ -103,7 +103,7 @@ namespace maxhanna.Server.Controllers
                 string sql = @"INSERT INTO ratings (user_id, rating, file_id, search_id, timestamp) VALUES (@UserId, @Rating, @FileId, @SearchId, UTC_TIMESTAMP())";
                 using var cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@UserId", insertUserId);
-                cmd.Parameters.AddWithValue("@Rating", rating.RatingValue);
+                cmd.Parameters.AddWithValue("@Rating", rating.Value);
                 cmd.Parameters.AddWithValue("@FileId", rating.FileId ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@SearchId", rating.SearchId ?? (object)DBNull.Value);
 
@@ -161,7 +161,7 @@ namespace maxhanna.Server.Controllers
                 var rating = new Rating
                 {
                     Id = reader.GetInt32(reader.GetOrdinal("id")),
-                    RatingValue = reader.GetInt32(reader.GetOrdinal("rating")),
+                    Value = reader.GetInt32(reader.GetOrdinal("rating")),
                     Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp")),
                     FileId = reader.IsDBNull(reader.GetOrdinal("file_id")) ? null : reader.GetInt32(reader.GetOrdinal("file_id")),
                     SearchId = reader.IsDBNull(reader.GetOrdinal("search_id")) ? null : reader.GetInt32(reader.GetOrdinal("search_id")),
@@ -216,7 +216,7 @@ namespace maxhanna.Server.Controllers
                 var rating = new Rating
                 {
                     Id = reader.GetInt32(reader.GetOrdinal("id")),
-                    RatingValue = reader.GetInt32(reader.GetOrdinal("rating")),
+                    Value = reader.GetInt32(reader.GetOrdinal("rating")),
                     Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp")),
                     FileId = reader.IsDBNull(reader.GetOrdinal("file_id")) ? null : reader.GetInt32(reader.GetOrdinal("file_id")),
                     SearchId = reader.IsDBNull(reader.GetOrdinal("search_id")) ? null : reader.GetInt32(reader.GetOrdinal("search_id")),
@@ -271,7 +271,7 @@ namespace maxhanna.Server.Controllers
                 var rating = new Rating
                 {
                     Id = reader.GetInt32(reader.GetOrdinal("id")),
-                    RatingValue = reader.GetInt32(reader.GetOrdinal("rating")),
+                    Value = reader.GetInt32(reader.GetOrdinal("rating")),
                     Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp")),
                     FileId = reader.IsDBNull(reader.GetOrdinal("file_id")) ? null : reader.GetInt32(reader.GetOrdinal("file_id")),
                     SearchId = reader.IsDBNull(reader.GetOrdinal("search_id")) ? null : reader.GetInt32(reader.GetOrdinal("search_id")),

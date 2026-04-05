@@ -14,7 +14,7 @@ import { FileComment } from '../../services/datacontracts/file/file-comment';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
 import { RomService } from '../../services/rom.service';
-import { RatingsService } from '../../services/ratings.service';
+import { Rating, RatingsService } from '../../services/ratings.service';
 import { FileAccessLog } from '../../services/datacontracts/file/file-access-log';
 import { FileNote } from '../../services/datacontracts/file/file-note';
 import { Core } from '../emulator/emulator-types';
@@ -2401,7 +2401,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       } 
       if (file && file.id && !file.ratings) {
         try {
-          const ratings = await this.ratingsService.getRatingsByFile(file.id);
+          const ratings = await this.ratingsService.getRatingsByFile(file.id) as Rating[] | undefined;
           this.ratingsPanelFile.ratings = Array.isArray(ratings) ? ratings : []; 
         } catch (e) { 
           if (parent) {

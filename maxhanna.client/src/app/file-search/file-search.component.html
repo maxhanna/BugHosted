@@ -951,7 +951,7 @@
     </div>
     <div *ngFor="let r of ratingsPanelFile.ratings" class="optionsStatsDiv"
       style="margin-bottom:8px; border-bottom:1px solid var(--main-border-color);">
-      <div style="display:flex; align-items:center; justify-content: space-between; margin-bottom:4px;">
+      <div class="ratingsListContainer">
         <span>
           <app-user-tag [user]="r.user" 
             [inputtedParentRef]="parentRef ?? inputtedParentRef" 
@@ -961,7 +961,7 @@
         </span>
         <span style="margin-left:auto; font-size:0.9em;">
           <span *ngFor="let star of [1,2,3,4,5]" class="cursorPointer"
-            [style.color]="star <= r.rating ? 'gold' : '#555'"
+            [style.color]="star <= r.value ? 'gold' : '#555'"
             (click)="(parentRef?.user?.id === r.user?.id) ? rateFile(ratingsPanelFile, star) : null"
             [title]="(parentRef?.user?.id === r.user?.id)
               ? ('Set your rating to ' + star + ' star' + (star > 1 ? 's' : '')) 

@@ -4,7 +4,7 @@ import { User } from './datacontracts/user/user';
 export interface Rating {
   id?: number;
   user?: User;
-  rating: number;
+  value: number;
   timestamp?: string;
   file_id?: number;
   search_id?: number;
@@ -48,14 +48,14 @@ export class RatingsService {
       return (error as Error).message;
     }
   }
-  async submitRating(user: User, rating: number, fileId?: number, searchId?: number): Promise<any> {
+  async submitRating(user: User, value: number, fileId?: number, searchId?: number): Promise<any> {
     try {
       const res = await fetch('/ratings/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           User: user,
-          RatingValue: rating,
+          Value: value,
           FileId: fileId ?? null,
           SearchId: searchId ?? null
         })
