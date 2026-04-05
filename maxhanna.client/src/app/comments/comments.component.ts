@@ -73,12 +73,12 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     private textToSpeechService: TextToSpeechService,
     private currencyFlagPipe: CurrencyFlagPipe) {
     super();
-    if (!this.inputtedParentRef && this.parentRef) {
-      this.inputtedParentRef = this.parentRef;
-    }
   }
 
-  ngOnInit() {
+  ngOnInit() { 
+    if (this.inputtedParentRef) {
+      this.parentRef = this.inputtedParentRef;
+    }
     this.clearSubCommentsToggled();
     if (this.depth == 0) {
       this.decryptCommentsRecursively(this.commentList);
@@ -259,11 +259,6 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     } catch { }
   }
 
-  override viewProfile(user: User) {
-    this.parentRef = this.inputtedParentRef;
-    super.viewProfile(user);
-  }
-
   async deleteComment(comment: FileComment) {
     if (!confirm("Are you sure?")) { return };
 
@@ -273,20 +268,20 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     this.showCommentLoadingOverlay = false;
     this.closeOptionsPanel();
   }
-
-  async deleteCommentAsync(comment: FileComment) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    const user = parent?.user;
-    if (!user?.id || !parent) { return alert("You must be logged in to delete a comment!"); }
-    parent.updateLastSeen();
-    const res = await this.commentService.deleteComment(user.id, comment.id);
+  get currentUser(): User {
+    return this.parentRef?.user ?? new User(0, "Anonymous");
+  }
+  async deleteCommentAsync(comment: FileComment) { 
+    if (!this.currentUser?.id) { return alert("You must be logged in to delete a comment!"); }
+    this.parentRef?.updateLastSeen();
+    const res = await this.commentService.deleteComment(this.currentUser.id, comment.id);
     if (res) {
       this.commentList = this.commentList.filter(x => x.id != comment.id);
       const tgtSubcomment = document.getElementById('subComment' + comment.id);
       if (tgtSubcomment) {
         tgtSubcomment.remove();
       }
-      parent.showNotification(res);
+      this.parentRef?.showNotification(res);
       this.commentRemovedEvent.emit(comment as FileComment);
     }
   }
@@ -316,12 +311,12 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     let message = (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).value.trim();
     message = this.encryptionService.encryptContent(message, comment.user.id + "");
     this.editingComments = this.editingComments.filter(x => x != comment.id);
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    if (message && parent?.user) {
-      parent.updateLastSeen();
-      this.commentService.editComment(parent.user.id ?? 0, comment.id, message).then(res => {
+    
+    if (message && this.parentRef?.user) {
+      this.parentRef.updateLastSeen();
+      this.commentService.editComment(this.parentRef.user.id ?? 0, comment.id, message).then(res => {
         if (res) {
-          parent.showNotification(res);
+          this.parentRef?.showNotification(res);
         }
       });
       comment.commentText = this.encryptionService.decryptContent(message, comment.user.id + "");
@@ -332,15 +327,14 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
 
   // Handler for contentUpdated emitted by app-text-input when editing
   async onCommentUpdated(event: { results: any, content: any, originalContent: string }, comment: FileComment) {
-    try {
-      const parent = this.inputtedParentRef ?? this.parentRef;
-      if (!parent?.user?.id) return alert('You must be logged in to edit comments');
+    try { 
+      if (!this.currentUser?.id) return alert('You must be logged in to edit comments');
       // encrypt content is already handled in text-input; event.content.commentText is plaintext
       const encrypted = this.encryptionService.encryptContent(event.originalContent || event.content.commentText, comment.user.id + "");
-      const res = await this.commentService.editComment(parent.user.id ?? 0, comment.id, encrypted);
+      const res = await this.commentService.editComment(this.currentUser.id ?? 0, comment.id, encrypted);
       if (res) {
         comment.commentText = this.encryptionService.decryptContent(encrypted, comment.user.id + "");
-        parent.showNotification(res);
+        this.parentRef?.showNotification(res);
       }
       // remove from editing mode
       this.editingComments = this.editingComments.filter(x => x != comment.id);
@@ -349,9 +343,8 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     }
   }
 
-  getTextForDOM(text: string, component_id: any) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    if (!parent) return "Error fetching parent component.";
+  getTextForDOM(text: string, component_id: any) { 
+    if (!this.parentRef) return "Error fetching parent component.";
 
     let componentIdStr: string;
     if (component_id === null || component_id === undefined || component_id === '') {
@@ -364,7 +357,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       componentIdStr = String(component_id);
     }
 
-    return parent.getTextForDOM(text, componentIdStr);
+    return this.parentRef?.getTextForDOM(text, componentIdStr);
   }
 
   createClickableUrls(text?: string, commentId?: number): SafeHtml {
@@ -378,18 +371,14 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       return;
     }
     this.isOptionsPanelOpen = true;
-    this.optionsComment = comment;
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.showOverlay();
+    this.optionsComment = comment; 
+    this.parentRef?.showOverlay();
   }
 
   closeOptionsPanel() {
     this.isOptionsPanelOpen = false;
-    this.optionsComment = undefined;
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent) {
-      parent.closeOverlay();
-    }
+    this.optionsComment = undefined; 
+    this.parentRef?.closeOverlay(); 
   }
 
   showSubComments(commentId: number) {
@@ -411,9 +400,8 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     this.commentHeaderClickedEvent.emit(this.showComments);
   }
 
-  quote(comment: FileComment) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.closeOverlay();
+  quote(comment: FileComment) { 
+    this.parentRef?.closeOverlay();
     const commentText = comment.commentText?.trim();
     const message = `[Quoting {${comment.user.username}|${comment.user.id}|${comment.date}}: ${commentText}] \n`;
     this.setQuoteMessage(message);
@@ -461,7 +449,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   commentPosted(event: { results: any, content: any, originalContent: string }, parentComment?: FileComment) {
     const commentAdded = event.content.comment as FileComment;
     commentAdded.id = parseInt(event.results.split(" ")[0]);
-    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    const user = this.currentUser;
     commentAdded.commentText = this.encryptionService.decryptContent(commentAdded.commentText ?? "", (user?.id ?? 0) + "");
     commentAdded.decrypted = true;
     if (!parentComment) {
@@ -495,10 +483,9 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
 
   updateCommentPollsInDOM() {
     const polls = this.collectAllCommentPolls();
-    if (!polls.length) return;
-    const currentUser = this.inputtedParentRef?.user ?? this.parentRef?.user;
-    const currentUserId = currentUser?.id ?? 0;
-    const currentUserName = currentUser?.username?.toLowerCase() ?? '';
+    if (!polls.length) return; 
+    const currentUserId = this.currentUser?.id ?? 0;
+    const currentUserName = this.currentUser?.username?.toLowerCase() ?? '';
     const grouped = new Map<string, Poll[]>();
 
     for (const p of polls) {
@@ -677,14 +664,14 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   }
   async copyAllText(comment: FileComment) {
     this.closeOptionsPanel();
-    const parent = this.inputtedParentRef ?? this.parentRef;
+    
     try {
       const text = comment.commentText;
       await navigator.clipboard.writeText(text ?? "");
-      parent?.showNotification("Text copied to Clipboard!");
+      this.parentRef?.showNotification("Text copied to Clipboard!");
     } catch (err) {
       console.error('Failed to copy text: ', err);
-      parent?.showNotification('Failed to copy text. Please select and copy manually.');
+      this.parentRef?.showNotification('Failed to copy text. Please select and copy manually.');
     }
   }
   private decryptCommentsRecursively(comments: FileComment[]): void {
@@ -712,7 +699,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   }
 
   formatCommentMetadata(comment: any): string {
-    if (!comment || !this.inputtedParentRef) return "";
+    if (!comment || !this.parentRef) return "";
 
     const parts: string[] = [];
 
@@ -734,7 +721,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
 
     // Convert UTC → local
     if (comment.date) {
-      parts.push(this.inputtedParentRef.convertUtcToLocalTime(comment.date));
+      parts.push(this.parentRef.convertUtcToLocalTime(comment.date));
     }
 
     // Comment ID

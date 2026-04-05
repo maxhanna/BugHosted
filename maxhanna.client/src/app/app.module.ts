@@ -101,6 +101,7 @@ import { NewUsersComponent } from './new-users/new-users.component';
 import { CurrentlyPlayingComponent } from './currently-playing/currently-playing.component';
 import { EmulatorComponent } from './emulator/emulator.component';
 import { TitleBarComponent } from './title-bar/title-bar.component';
+import { RatingStarsComponent } from './rating-stars/rating-stars.component';
 
 @NgModule({
   declarations: [
@@ -187,6 +188,7 @@ import { TitleBarComponent } from './title-bar/title-bar.component';
     NewUsersComponent,
     CurrentlyPlayingComponent,
     TitleBarComponent,
+    RatingStarsComponent,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,

@@ -1,0 +1,8 @@
+<span *ngFor="let star of stars" class="cursorPointer"
+      [style.color]="star <= rating.value ? 'gold' : '#555'"
+      (click)="onRate(star)"
+      [title]="isCurrentUser
+        ? ('Set your rating to ' + star + ' star' + (star > 1 ? 's' : ''))
+        : ('Rated ' + star + ' star' + (star > 1 ? 's' : ''))">
+  &#9733;
+</span>

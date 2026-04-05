@@ -118,7 +118,7 @@
                   </span>
                 </span>
                 <div class="fileExtras fileOptionsActionWrapper">
-                  <app-reaction *ngIf="displayReactions && !file.isFolder" [user]="user"
+                  <app-reaction *ngIf="displayReactions && !file.isFolder" [user]="currentUser"
                     [inputtedParentRef]="inputtedParentRef ?? parentRef" [currentReactions]="file.reactions"
                     [component]="file" [fileId]="file.id" (click)="$event.stopPropagation()">
                   </app-reaction>
@@ -158,15 +158,25 @@
                    (
                     (!autoload && viewMediaFile && openedFiles.includes(file.id)) || autoload || ((fileId ?? 0) == file.id)
                    )" class="mediaViewDiv" (click)="selectFileNoPropagation($event, file);">
-                <app-media-viewer #mediaViewerComponent [user]="user" [file]="file" [autoplay]="true"
-                  [blockExpand]="fileSearchMode ? true : false" [showCommentSection]="true"
+                <app-media-viewer #mediaViewerComponent 
+                  [file]="file"
+                  [autoplay]="true"
+                  [blockExpand]="fileSearchMode ? true : false" 
+                  [showCommentSection]="true"
                   [showCommentSectionOnLoad]="fileId ? true:false || showCommentsInOpenedFiles.includes(file.id)"
-                  [showCommentSectionHeader]="fileSearchMode ? false : displayComments" [showTopics]="showTopics"
-                  [inputtedParentRef]="inputtedParentRef" [canScroll]="fileId ? true : false" [displayExpander]="false"
-                  [displayExtraInfo]="false" [commentId]="commentId" [fileId]="file.id" [displayLoading]="true"
+                  [showCommentSectionHeader]="fileSearchMode ? false : displayComments"
+                  [showTopics]="showTopics"
+                  [inputtedParentRef]="parentRef"
+                  [canScroll]="fileId ? true : false" 
+                  [displayExpander]="false"
+                  [displayExtraInfo]="false" 
+                  [commentId]="commentId" 
+                  [fileId]="file.id" 
+                  [displayLoading]="true"
                   (emittedNotification)="emittedNotification($event)"
                   (commentHeaderClickedEvent)="addOrRemoveIdFromOpenedComments(file.id, $event)"
-                  (expandClickedEvent)="expandClickedEvent.emit($event)" (topicClickedEvent)="fileTopicClicked($event)"
+                  (expandClickedEvent)="expandClickedEvent.emit($event)" 
+                  (topicClickedEvent)="fileTopicClicked($event)"
                   class="mediaViewer">
                 </app-media-viewer>
               </div>
@@ -495,9 +505,10 @@
     <div *ngIf="displayRatings" class="optionsStatsDiv">
       <div class="optionsStatsHeader">Rating:</div>
       <div class="optionsStatsDescription">
-        <span *ngFor="let star of [1,2,3,4,5]" class="cursorPointer"
-          [style.color]="star <= (optionsFile.averageRating ?? 0) ? 'gold' : '#555'"
-          (click)="rateFile(optionsFile, star)" title="Rate {{star}} star{{star > 1 ? 's' : ''}}">&#9733;</span>
+        <app-rating-stars
+          [rating]="{ value: optionsFile.averageRating ?? 0, user: parentRef?.user }"
+          [readOnly]="true">
+        </app-rating-stars>
         <span *ngIf="optionsFile.ratingCount">{{optionsFile.averageRating | number:'1.1-1'}}
           ({{optionsFile.ratingCount}})</span>
       </div>
@@ -905,7 +916,7 @@
       </div>
     </div>
   </div>
-  <div *ngIf="user" style="width:100%; margin-top:12px;">
+  <div *ngIf="currentUser" style="width:100%; margin-top:12px;">
     <textarea #noteInput placeholder="Write a note..." rows="3"
       style="width:100%; box-sizing:border-box; resize:vertical;"></textarea>
     <button (click)="addNote(noteInput)" [disabled]="isLoading" style="margin-top:6px;">
@@ -919,7 +930,7 @@
   <div class="popupPanelTitle">Share File?</div>
   <div style="margin-bottom: 10px">{{selectedSharedFile?.givenFileName ?? selectedSharedFile?.fileName ?? ''}}</div>
   <div class="shareUserList">
-    <app-user-list (userClickEvent)="shareFile($event);" [user]="user!"
+    <app-user-list (userClickEvent)="shareFile($event);" [user]="currentUser!"
       [inputtedParentRef]="inputtedParentRef ?? parentRef"></app-user-list>
   </div>
   <button class="closeButton" id="closeOverlay" style="margin-top:10px;" (click)="closeShareUserList()">
@@ -960,15 +971,11 @@
           </app-user-tag>
         </span>
         <span style="margin-left:auto; font-size:0.9em;">
-          <span *ngFor="let star of [1,2,3,4,5]" class="cursorPointer"
-            [style.color]="star <= r.value ? 'gold' : '#555'"
-            (click)="(parentRef?.user?.id === r.user?.id) ? rateFile(ratingsPanelFile, star) : null"
-            [title]="(parentRef?.user?.id === r.user?.id)
-              ? ('Set your rating to ' + star + ' star' + (star > 1 ? 's' : '')) 
-              : ('Rated ' + star + ' star' + (star > 1 ? 's' : ''))"
-            >
-            &#9733;
-          </span>
+          <app-rating-stars
+            [rating]="r"
+            [currentUser]="currentUser"
+            (rated)="rateFileEvent(ratingsPanelFile, $event)">
+          </app-rating-stars>
         </span>
       </div>
     </div>

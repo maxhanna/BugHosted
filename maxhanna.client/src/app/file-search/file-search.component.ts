@@ -30,7 +30,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() currentDirectory = '';
   @Input() clearAfterSelectFile = false;
   @Input() allowedFileTypes: string[] = [];
-  @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
   @Input() displayPrivatePublicOption: boolean = true;
   @Input() maxResults: number = 50;
@@ -172,7 +171,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
     }
-    const user = this.parentRef?.user;
+    const user = this.currentUser;
     if (user?.id) {
       this.userService.getUserSettings(user.id).then(res => {
         if (res) {
@@ -427,8 +426,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }, 1000);
   }
   async delete(file: FileEntry) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    const user = parent?.user ?? this.user;
+    const user = this.currentUser;
 
     if (confirm(`Delete : ${file.fileName} ?`)) {
       this.startLoading();
@@ -491,7 +489,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.currentDirectory,
         this.filter.visibility,
         this.filter.ownership,
-        this.user,
+        this.currentUser,
         this.currentPage,
         this.maxResults,
         this.searchTerms,
@@ -760,7 +758,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     const isChecked = (event.target as HTMLInputElement).checked;
     this.showHiddenFiles = isChecked;
     this.filter.hidden = this.showHiddenFiles ? 'all' : 'unhidden';
-    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    const user = this.currentUser;
     if (user?.id) {
       this.userService.updateShowHiddenFiles(user.id, isChecked).then(res => {
         if (res && res.toLowerCase().includes('successfully')) {
@@ -774,7 +772,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   toggleShowHiddenFilesButton() {
     this.showHiddenFiles = !this.showHiddenFiles;
     this.filter.hidden = this.showHiddenFiles ? 'all' : 'unhidden';
-    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    const user = this.currentUser;
     if (user?.id) {
       this.userService.updateShowHiddenFiles(user.id, this.showHiddenFiles).then(res => {
         if (res && res.toLowerCase().includes('successfully')) {
@@ -786,7 +784,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   toggleNSFW() {
-    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    const user = this.currentUser;
     if (!user?.id) {
       alert('You must be logged in to view NSFW content.');
       this.isDisplayingNSFW = false;
@@ -814,7 +812,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
   async editFile(fileId: number, text: string) {
-    if (!this.user) { return alert("You must be logged in to use this feature!"); }
+    if (!this.currentUser.id) { return alert("You must be logged in to use this feature!"); }
 
     if (!text || text.trim() == '') {
       this.isEditing = this.isEditing.filter(x => x != fileId);
@@ -822,8 +820,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
-      if (this.user) {
-        const res = await this.fileService.updateFileData(this.user.id ?? 0, { FileId: fileId, GivenFileName: text, Description: '', LastUpdatedBy: this.user || this.inputtedParentRef?.user || new User(0, "Anonymous") });
+      if (this.currentUser) {
+        const res = await this.fileService.updateFileData(this.currentUser.id ?? 0, { FileId: fileId, GivenFileName: text, Description: '', LastUpdatedBy: this.currentUser });
         if (res) {
           this.notifyUser(res);
           this.isEditing = this.isEditing.filter(x => x != fileId);
@@ -872,7 +870,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   getCanEdit(userid: number) {
-    return userid == this.parentRef?.user?.id;
+    return userid == this.currentUser?.id;
   }
   async download(file: FileEntry, force: boolean, forceOpenMedia?: boolean) {
     if ((this.isMediaFile(file.fileName ?? "") && !force) || forceOpenMedia) {
@@ -972,7 +970,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       const destinationFolder = specDir ?? (currDir + this.destinationFilename);
       this.startLoading();
       try {
-        const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+        const user = this.currentUser;
         const userId = user?.id ?? 0;
         const draggedEntry = this.directory?.data?.find(x => x.fileName === this.draggedFilename);
         const fileIdToSend = draggedEntry?.id ?? undefined;
@@ -1059,8 +1057,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   shareFile(user?: User) {
     if (!user?.id) return;
-    if (this.selectedSharedFile && this.user) {
-      this.fileService.shareFile(this.user?.id ?? 0, user.id, this.selectedSharedFile!.id);
+    if (this.selectedSharedFile && this.currentUser.id) {
+      this.fileService.shareFile(this.currentUser.id, user.id, this.selectedSharedFile!.id);
     }
     this.selectedSharedFile = undefined;
     this.shareUserListDiv.nativeElement.classList.toggle("open");
@@ -1141,8 +1139,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
   async addToFavourites(optionsFile: FileEntry) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    const user = parent?.user ?? this.user;
+    const user = this.currentUser;
     if (!user || !user.id) return alert('You must be logged in to favourite files.');
     this.startLoading();
     try {
@@ -1193,7 +1190,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
   shouldShowEditButton(optionsFile: any): boolean {
-    if (!optionsFile?.user?.id || !this.user?.id || this.currentDirectory === 'Users/') {
+    if (!optionsFile?.user?.id || !this.currentUser?.id || this.currentDirectory === 'Users/') {
       return false;
     }
 
@@ -1203,7 +1200,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       'Array', 'Nexus', 'BugHosted', 'Metabots'
     ];
 
-    return optionsFile.user.id === this.user.id &&
+    return optionsFile.user.id === this.currentUser.id &&
       !(this.currentDirectory === '' && restrictedFileNames.includes(optionsFile.fileName));
   }
   addOrRemoveIdFromOpenedComments(fileId: number, isOpen?: boolean) {
@@ -1275,7 +1272,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.closeSearchPanel();
     await this.getDirectory();
     try {
-      const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+      const user = this.currentUser;
       if (topic && topic.trim() !== '') {
         await this.fileService.recordSearch(topic, 'file', user?.id);
       }
@@ -1308,7 +1305,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   }
   async removeTopicFromFile(topic: Topic, file: FileEntry) {
-    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    const user = this.currentUser;
     if (user) {
       file.topics = file.topics?.filter(x => x.id != topic.id);
       await this.fileService.editTopics(user, file, file.topics ?? []);
@@ -1322,7 +1319,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
   async editFileTopicInDB(topics: Topic[], file: FileEntry) {
-    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    const user = this.currentUser;
     if (user) {
       await this.fileService.editTopics(user, file, topics);
       this.editingTopics = this.editingTopics.filter(x => x != file.id);
@@ -1512,7 +1509,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (noScroll) {
       return;
     } else {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }
 
@@ -1552,7 +1549,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       await this.getDirectory();
       // record search as user typed and executed
       try {
-        const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+        const user = this.currentUser;
         if (this.searchTerms && this.searchTerms.trim() !== '') {
           await this.fileService.recordSearch(this.searchTerms, 'file', user?.id);
         }
@@ -1642,15 +1639,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   async addNote(textarea: HTMLTextAreaElement) {
-    if (!this.user || !this.notesFile) return;
+    if (!this.currentUser.id || !this.notesFile) return;
     const noteText = textarea.value.trim();
     if (!noteText) return;
     this.startLoading();
-    const res = await this.fileService.addFileNote(this.user.id ?? 0, this.notesFile.id, noteText);
+    const res = await this.fileService.addFileNote(this.currentUser.id, this.notesFile.id, noteText);
     if (res) {
       this.notifyUser(res);
-      const existingIndex = this.fileNotes.findIndex(n => n.user?.id === this.user?.id);
-      const nextNote = new FileNote(this.user, noteText);
+      const existingIndex = this.fileNotes.findIndex(n => n.user?.id === this.currentUser.id);
+      const nextNote = new FileNote(this.currentUser, noteText);
       if (existingIndex >= 0) {
         this.fileNotes[existingIndex] = nextNote;
       } else {
@@ -1676,9 +1673,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   async deleteNote(targetUserId: number) {
-    if (!this.user || !this.notesFile) return;
+    if (!this.currentUser.id || !this.notesFile) return;
     this.startLoading();
-    const res = await this.fileService.deleteFileNote(this.user.id ?? 0, this.notesFile.id, targetUserId);
+    const res = await this.fileService.deleteFileNote(this.currentUser.id, this.notesFile.id, targetUserId);
     if (res) {
       this.notifyUser(res);
       this.fileNotes = this.fileNotes.filter(n => n.user?.id !== targetUserId);
@@ -1700,9 +1697,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   canDeleteNote(note: FileNote): boolean {
-    if (!this.user) return false;
+    if (!this.currentUser.id) return false;
     // Users can delete their own notes, admin (id=1) can delete any
-    return note.user?.id === this.user.id || this.user.id === 1;
+    return note.user?.id === this.currentUser.id || this.currentUser.id === 1;
   }
 
   isVideoFile(fileEntry: FileEntry) {
@@ -1711,9 +1708,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     return this.fileService.videoFileExtensions.includes(fileType) || this.fileService.audioFileExtensions.includes(fileType);
   }
   async addFileToMusicPlaylist(fileEntry: FileEntry) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    const user = parent?.user;
-    if (!user?.id || !fileEntry || !fileEntry.id) {
+    if (!this.currentUser.id || !fileEntry || !fileEntry.id) {
       return alert("Error: Cannot add file to music playlist without logging in or a valid file entry.");
     }
 
@@ -1722,9 +1717,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     tmpTodo.todo = (fileEntry.givenFileName ?? fileEntry.fileName ?? `Video ID:${fileEntry.id}`).trim();
     tmpTodo.fileId = fileEntry.id;
     tmpTodo.date = new Date();
-    const resTodo = await this.todoService.createTodo(user.id, tmpTodo);
+    const resTodo = await this.todoService.createTodo(this.currentUser.id, tmpTodo);
     if (resTodo) {
-      parent?.showNotification(`Added ${tmpTodo.todo} to music playlist.`);
+      this.parentRef?.showNotification(`Added ${tmpTodo.todo} to music playlist.`);
     }
   }
 
@@ -1920,9 +1915,17 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
 
+  rateFileEvent(file: FileEntry, event: any) {
+    event.stopPropagation();
+    this.rateFile(file, +event);
+  }
+
+  get currentUser(): User {
+    return this.parentRef?.user ?? new User(0, "Anonymous");
+  }
+
   async rateFile(file: FileEntry, star: number) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    const user = parent?.user ?? this.user ?? new User(0, "Anonymous");
+    const user = this.currentUser;
     this.startLoading();
     try {
       await this.ratingsService.submitRating(user, star, file.id);
@@ -2377,7 +2380,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       }
     }, 500);
   }
- 
+
   openSystemOverridePanel(): void {
     if (!this.optionsFile || !this.optionsFile.fileName) return;
     this.systemCandidates = this.fileService.buildCoreRegistry();
@@ -2389,12 +2392,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.parentRef?.showOverlay();
     }, 10);
   }
- 
+
   onSystemSelectChange(ev: Event): void {
     const val = (ev.target as HTMLSelectElement).value;
     this.selectedSystemCore = val || null;
   }
- 
+
   async confirmSystemSelection(): Promise<void> {
     if (!this.systemSelectFile || !this.selectedSystemCore) return;
     try {
@@ -2410,44 +2413,44 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.notifyUser('Failed to set system override.');
     }
   }
- 
+
   cancelSystemSelection(): void {
     this.isSystemSelectPanelOpen = false;
     this.systemSelectFile = undefined;
     this.parentRef?.closeOverlay();
-  } 
-  
+  }
+
   /**
      * Opens the ratings panel for a given file and fetches ratings.
      * @param file The file entry to show ratings for.
      */
-    async openRatingsPanel(file: FileEntry): Promise<void> {
-      this.ratingsPanelFile = file;
-      this.isRatingsPanelOpen = true;
-      const parent = this.inputtedParentRef ?? this.parentRef;
-      if (parent) {
-        parent.showOverlay();
-      } 
-      if (file && file.id && !file.ratings) {
-        try {
-          const ratings = await this.ratingsService.getRatingsByFile(file.id) as Rating[] | undefined;
-          this.ratingsPanelFile.ratings = Array.isArray(ratings) ? ratings : []; 
-        } catch (e) { 
-          if (parent) {
-            parent.showNotification('Failed to fetch ratings.');
-          }
+  async openRatingsPanel(file: FileEntry): Promise<void> {
+    this.ratingsPanelFile = file;
+    this.isRatingsPanelOpen = true;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      parent.showOverlay();
+    }
+    if (file && file.id && !file.ratings) {
+      try {
+        const ratings = await this.ratingsService.getRatingsByFile(file.id) as Rating[] | undefined;
+        this.ratingsPanelFile.ratings = Array.isArray(ratings) ? ratings : [];
+      } catch (e) {
+        if (parent) {
+          parent.showNotification('Failed to fetch ratings.');
         }
       }
     }
- 
-    closeRatingsPanel(): void {
-      this.isRatingsPanelOpen = false;
-      this.ratingsPanelFile = undefined;
-      const parent = this.inputtedParentRef ?? this.parentRef;
-      if (parent) {
-        parent.closeOverlay();
-      }
+  }
+
+  closeRatingsPanel(): void {
+    this.isRatingsPanelOpen = false;
+    this.ratingsPanelFile = undefined;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      parent.closeOverlay();
     }
+  }
 
   openImagePreview(url?: string, ev?: Event) {
     if (ev) ev.preventDefault();

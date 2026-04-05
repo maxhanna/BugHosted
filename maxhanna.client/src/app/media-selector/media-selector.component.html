@@ -29,17 +29,17 @@
               <div><button (click)="removeFile(file)" style="width:100%">Remove</button></div>
               <div>{{file.fileName}}</div>
             </div>
-            <app-media-viewer [user]="user"
-                              [inputtedParentRef]="inputtedParentRef"
-                              [currentDirectory]="file.directory"
-                              [file]="file"
-                              [showCommentSection]="false"
-                              [showTopics]="false"
-                              [displayExtraInfo]="false"
-                              [displayExpander]="false"
-                              [autoplay]="true" 
-                              [displayLoading]="true"
-                              (expandClickedEvent)="removeFile(file)">
+            <app-media-viewer 
+              [inputtedParentRef]="inputtedParentRef"
+              [currentDirectory]="file.directory"
+              [file]="file"
+              [showCommentSection]="false"
+              [showTopics]="false"
+              [displayExtraInfo]="false"
+              [displayExpander]="false"
+              [autoplay]="true" 
+              [displayLoading]="true"
+              (expandClickedEvent)="removeFile(file)">
             </app-media-viewer>
             
           </div> 
@@ -51,7 +51,6 @@
 
       <div *ngIf="displaySearch && !maxFilesReached" class="fileSearchDiv">
         <app-file-search #fileSearchComponent
-          [user]="user"
           [inputtedParentRef]="inputtedParentRef"
           [currentDirectory]="currentDirectory"
           [clearAfterSelectFile]="true"

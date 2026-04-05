@@ -16,7 +16,7 @@
 
   <div class="profileBackgroundContainer" *ngIf="user?.profileBackgroundPictureFile">
     <app-media-viewer [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"
-      [showTopics]="false" [inputtedParentRef]="inputtedParentRef ?? parentRef"
+      [showTopics]="false" [inputtedParentRef]="parentRef"
       [file]="user?.profileBackgroundPictureFile">
     </app-media-viewer>
   </div>
@@ -28,9 +28,9 @@
           *ngIf="!loginOnly && (user && parentRef && user.displayPictureFile) && (user?.displayPictureFile ?? this.parentRef?.user?.displayPictureFile)">
           <app-media-viewer #displayPictureViewer (click)="openDisplayPicturePanel()" [displayExpander]="false"
             [displayExtraInfo]="false" [showTopics]="false" [showCommentSection]="false"
-            [inputtedParentRef]="inputtedParentRef ?? parentRef" [file]="user.displayPictureFile"
+            [inputtedParentRef]="parentRef" [file]="user.displayPictureFile"
             [blockExpand]="user && user.id == parentRef.user?.id" [currentDirectory]="user.displayPictureFile.directory"
-            [user]="user">
+          >
           </app-media-viewer>
           <div [class]="'profileHeaderInfo blackFontColor linkHighlights' + (onMobile() ? ' smallFont' : '')"
             [title]="user.username">{{user.username}}</div>
@@ -136,7 +136,7 @@
               (click)="showTrophies()">
               <app-media-viewer [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"
                 [showTopics]="false" [blockExpand]="true" [file]="trophies[0].file"
-                [inputtedParentRef]="inputtedParentRef ?? parentRef">
+                [inputtedParentRef]="parentRef">
               </app-media-viewer>
             </div>
             <div class="profileLink" (click)="openAboutPanel()" *ngIf="user && user.id != parentRef?.user?.id"
@@ -559,7 +559,7 @@
           <span class="cursorPointerUnderlined">Trophies ({{trophies?.length ?? 0}})</span>
         </label>
         <div *ngIf="isTrophyExpanded">
-          <app-user-trophies [inputtedParentRef]="inputtedParentRef ?? parentRef" [trophies]="trophies">
+          <app-user-trophies [inputtedParentRef]="parentRef" [trophies]="trophies">
           </app-user-trophies>
         </div>
       </div>
@@ -571,7 +571,7 @@
         <span class="cursorPointerUnderlined">Music ({{songPlaylist.length}})</span>
       </label>
       <div *ngIf="isMusicContainerExpanded">
-        <app-music *ngIf="isMusicContainerExpanded" [user]="user" [inputtedParentRef]="inputtedParentRef ?? parentRef"
+        <app-music *ngIf="isMusicContainerExpanded" [user]="user" [inputtedParentRef]="parentRef"
           [smallPlayer]="true" (gotPlaylistEvent)="gotPlaylistEvent($event)">
         </app-music>
       </div>
@@ -721,7 +721,7 @@
       <span *ngIf="parentRef?.user?.profileBackgroundPictureFile">
         <app-media-viewer #backgroundPictureViewer [displayExpander]="false" [displayExtraInfo]="false"
           [showTopics]="false" [showCommentSection]="false" [file]="parentRef?.user?.profileBackgroundPictureFile"
-          [user]="parentRef?.user" [inputtedParentRef]="parentRef">
+          [inputtedParentRef]="parentRef">
         </app-media-viewer>
       </span>
       <span *ngIf="!parentRef?.user?.profileBackgroundPictureFile" class="smallFont cursorPointerUnderlined"

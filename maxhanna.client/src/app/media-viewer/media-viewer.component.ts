@@ -78,7 +78,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() fileSrc?: string;
   @Input() title?: string;
   @Input() currentDirectory?: string = '';
-  @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
   @Input() isLoadedFromURL = false;
   @Input() showMediaInformation = false;
@@ -445,12 +444,12 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
     this.startLoading();
     const res = await this.fileService.updateFileData(
-      this.user?.id ?? this.parentRef?.user?.id ?? 0,
+      (this.currentUser.id ?? 0),
       {
         FileId: file.id,
         GivenFileName: fileName,
         Description: '',
-        LastUpdatedBy: this.user || this.parentRef?.user || new User(0, "Anonymous")
+        LastUpdatedBy: this.currentUser
       }
     );
     if (res) {
@@ -466,6 +465,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       file.topics = file.topics?.filter(x => x.id != topic.id);
       await this.fileService.editTopics(user, file, file.topics ?? []);
     }
+  }
+  get currentUser(): User {
+    return this.parentRef?.user ?? new User(0, "Anonymous");
   }
   editFileTopic(file: FileEntry) {
     if (this.editingTopics.includes(file.id)) {

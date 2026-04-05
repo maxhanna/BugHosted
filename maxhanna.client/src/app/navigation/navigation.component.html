@@ -69,7 +69,7 @@
           <ng-container *ngIf="user && _parent && user?.displayPictureFile?.id">
             <a class="navLink" (click)="goTo(item.title, $event)" [title]="item.title">
               <app-media-viewer [file]="user.displayPictureFile" [inputtedParentRef]="_parent"
-                [displayExtraInfo]="false" [showCommentSection]="false" [user]="_parent.user" [autoplay]="true"
+                [displayExtraInfo]="false" [showCommentSection]="false" [autoplay]="true"
                 [title]="item.title" [displayExpander]="false" [blockExpand]="true">
               </app-media-viewer>
             </a>

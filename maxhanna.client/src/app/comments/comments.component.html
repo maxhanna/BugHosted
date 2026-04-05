@@ -37,7 +37,7 @@
     <div class="commentContentAndAvatarContainerDiv" [attr.data-timestamp]="comment.date" (click)="toggleClosed(comment, $event)">
       <div class="commentAvatarAndDate">
         <div class="commentAvatar usernameProfileLink">
-          <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"
+          <app-user-tag [user]="comment.user" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
             [displayHoverPicture]="true"></app-user-tag>
         </div>
         <div class="commentDate" [title]="(comment.date?.toString() ?? '').replace('T',' ')">
@@ -57,8 +57,8 @@
             [fileId]="comment.fileId"
             [storyId]="comment.storyId" 
             [userProfileId]="userProfile?.id" 
-            [user]="inputtedParentRef?.user"
-            [inputtedParentRef]="inputtedParentRef" 
+            [user]="parentRef?.user"
+            [inputtedParentRef]="parentRef" 
             [currentReactions]="comment.reactions">
           </app-reaction>
         </div>
@@ -85,10 +85,9 @@
           class="commentTextDiv" [style.display]="editingComments.includes(comment.id) ? 'none': 'block'"></div>
           <div *ngFor="let file of comment.commentFiles" class="commentMediaFile">
           <app-media-viewer 
-            [file]="file" 
-            [user]="comment.user" 
+            [file]="file"  
             [currentDirectory]="file.directory"
-            [inputtedParentRef]="inputtedParentRef" 
+            [inputtedParentRef]="parentRef" 
             [displayExtraInfo]="false" 
             [autoplay]="false" 
             [autoload]="true"
@@ -102,7 +101,7 @@
           <div class="borderPaddedComment" *ngIf="editingComments.includes(comment.id) && !replyingToCommentId">
             <app-text-input 
               style="width:100%"
-              [inputtedParentRef]="inputtedParentRef"
+              [inputtedParentRef]="parentRef"
               [type]="'Comment'" 
               [commentId]="comment.id"
               [initialContent]="comment.commentText ?? ''" 
@@ -117,7 +116,7 @@
           <div class="commentInputArea borderPaddedComment" *ngIf="replyingToCommentId == comment.id">
             <app-text-input 
               style="width:100%"
-              [inputtedParentRef]="inputtedParentRef"
+              [inputtedParentRef]="parentRef"
               [type]="'Comment'" 
               [commentParent]="comment"
               [quoteMessage]="quoteMessage" 
@@ -136,7 +135,7 @@
           class="subcomments-container">
 
           <div *ngFor="let subComment of comment.comments" class="subComment" [id]="'subComment' + subComment.id">
-            <app-comments [inputtedParentRef]="inputtedParentRef ?? parentRef" [type]="'Comment'"
+            <app-comments [inputtedParentRef]="parentRef" [type]="'Comment'"
               [showCommentsHeader]="false" [storyId]="storyId" [fileId]="fileId" [comment_id]="subComment.id"
               [automaticallyShowSubComments]="true" [commentList]="[subComment]" [depth]="depth + 1"
               [quoteMessage]="quoteMessage" [replyingToCommentId]="replyingToCommentId"
@@ -161,7 +160,7 @@
   </div>
   <div *ngIf="!depth && !showCommentLoadingOverlay && !editingComments.length && !replyingToCommentId"
     class="addCommentInputDiv">
-    <app-text-input [inputtedParentRef]="inputtedParentRef" [type]="'Comment'" [commentParent]="component"
+    <app-text-input [inputtedParentRef]="parentRef" [type]="'Comment'" [commentParent]="component"
       [quoteMessage]="quoteMessage" [profileUser]="userProfile" [storyId]="storyId" [fileId]="fileId"
       (contentPosted)="commentPosted($event)"></app-text-input>
   </div>
@@ -176,9 +175,9 @@
   </div>
   <div class="commentOptionsPanelButtons">
     <button (click)="deleteComment(optionsComment)" title="Delete Comment"
-      *ngIf="inputtedParentRef?.user?.id == optionsComment.user.id && optionsComment.id">❌ Delete</button>
+      *ngIf="parentRef?.user?.id == optionsComment.user.id && optionsComment.id">❌ Delete</button>
     <button (click)="editComment(optionsComment)" title="Edit Comment"
-      *ngIf="inputtedParentRef?.user?.id == optionsComment.user.id && optionsComment.id">
+      *ngIf="parentRef?.user?.id == optionsComment.user.id && optionsComment.id">
       <span class="commentEditSpans commentCancelEdit"
         [style.display]="editingComments.includes(optionsComment.id) ? 'block' : 'none'"
         [id]="'commentEditButtonSpan' + optionsComment.id">❌</span>
