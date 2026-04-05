@@ -513,8 +513,7 @@
       <div class="optionsStatsHeader">Rating:</div>
       <div class="optionsStatsDescription">
         <app-rating-stars
-          [rating]="{ value: optionsFile.averageRating ?? 0, user: currentUser }"
-          [readOnly]="true"
+          [rating]="{ value: optionsFile.averageRating ?? 0, user: currentUser }" 
           [inputtedParentRef]="parentRef"
           [ratingFile]="optionsFile">
         </app-rating-stars>
