@@ -64,7 +64,6 @@ export class RatingStarsComponent {
   } 
 
   async openRatingsPanel(): Promise<void> {
-    this.tmpRatings = this.ratingFile?.ratings;
     this.tmpFileId = this.ratingFile?.id;
     console.log('openRatingsPanel called with current ratingFile:', this.ratingFile, 'isRatingsPanelOpen:', this.isRatingsPanelOpen);
     if (!this.ratingFile || !this.tmpFileId || this.isRatingsPanelOpen) {
