@@ -64,6 +64,11 @@ export class RatingStarsComponent {
   async openRatingsPanel(file?: FileEntry | MetaData): Promise<void> {
     console.log('openRatingsPanel called with file:', file, 'current ratingFile:', this.ratingFile, 'isRatingsPanelOpen:', this.isRatingsPanelOpen);
     if (!file || this.isRatingsPanelOpen) return;
+    if (!this.inputtedParentRef) {
+      console.error('No parent reference provided for RatingStarsComponent');
+      return;
+    }
+
     setTimeout(async () => {
       this.ratingFile = file;
       this.isRatingsPanelOpen = true;
