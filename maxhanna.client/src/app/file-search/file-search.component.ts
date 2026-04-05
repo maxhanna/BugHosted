@@ -1163,7 +1163,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.stopLoading();
   }
 
-  async getFavouritedBy(file: FileEntry) {
+  async getFavouritedBy(file?: FileEntry) {
+    if (!file || !file.id) return;
     if (this.isShowingFileFavouriters) {
       this.closeFileFavouriters();
       return;
@@ -1307,7 +1308,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       await this.fileService.editTopics(user, file, file.topics ?? []);
     }
   }
-  editFileTopic(file: FileEntry) {
+  editFileTopic(file?: FileEntry) {
+    if (!file) return;
     if (this.editingTopics.includes(file.id)) {
       this.editingTopics = this.editingTopics.filter(x => x != file.id);
     } else {
@@ -1323,7 +1325,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       //this.getDirectory();
     }
   }
-  getDirectoryName(file: FileEntry): string {
+  getDirectoryName(file?: FileEntry): string {
+    if (!file) return '.';
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
       return parent?.getDirectoryName(file);
@@ -1573,7 +1576,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.closeSearchPanel();
     }, 50);
   }
-  getFileViewers(fileId: number) {
+  getFileViewers(fileId?: number) {
+    if (!fileId) return;
     if (this.isShowingFileViewers) {
       this.closeFileViewers();
       return;
@@ -1603,7 +1607,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     parent?.closeOverlay();
   }
 
-  async showFileNotes(file: FileEntry) {
+  async showFileNotes(file?: FileEntry) {
+    if (!file || !file.id) return;
     if (this.isShowingFileNotes) {
       this.closeFileNotes();
       return;

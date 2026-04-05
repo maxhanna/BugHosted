@@ -234,55 +234,55 @@
         <button class="closePopupBtn" title="Close" (click)="closeOptionsPanel()">×</button>
         <div class="romMetaHeader romPanelHeaderTitle">
           <span
-            [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata?.actualSystem) || '🎮'"></span>
-          <strong>{{ optionsFile.romMetadata?.igdbName }}</strong>
+            [innerHTML]="getSystemEmoji('file.' + (optionsFile?.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile?.romMetadata?.actualSystem) || '🎮'"></span>
+          <strong>{{ optionsFile?.romMetadata?.igdbName }}</strong>
         </div>
 
-        <div *ngIf="optionsFile.romMetadata?.totalRatingCount" class="romMetaLine">
+        <div *ngIf="optionsFile?.romMetadata?.totalRatingCount" class="romMetaLine">
           <strong>Rating:</strong>
-          {{ optionsFile.romMetadata?.totalRating | number:'1.1-1' }} ({{ optionsFile.romMetadata?.totalRatingCount }})
+          {{ optionsFile?.romMetadata?.totalRating | number:'1.1-1' }} ({{ optionsFile?.romMetadata?.totalRatingCount }})
         </div>
 
         <div class="romMetaSection"
-          *ngIf="safeJsonArray(optionsFile.romMetadata?.screenshotsJson).length || safeJsonArray(optionsFile.romMetadata?.artworksJson).length">
+          *ngIf="safeJsonArray(optionsFile?.romMetadata?.screenshotsJson).length || safeJsonArray(optionsFile?.romMetadata?.artworksJson).length">
           <div class="romMetaSectionTitle">Screenshots / Art</div>
           <div class="romMetaGrid">
-            <img *ngFor="let img of safeJsonArray(optionsFile.romMetadata?.screenshotsJson).slice(0, 12)"
+            <img *ngFor="let img of safeJsonArray(optionsFile?.romMetadata?.screenshotsJson).slice(0, 12)"
               class="romMetaImg" [src]="img" loading="lazy" (error)="hideBrokenImg($event)"
               (click)="openImagePreview(img, $event)" />
 
-            <img *ngFor="let img of safeJsonArray(optionsFile.romMetadata?.artworksJson).slice(0, 8)" class="romMetaImg"
+            <img *ngFor="let img of safeJsonArray(optionsFile?.romMetadata?.artworksJson).slice(0, 8)" class="romMetaImg"
               [src]="img" loading="lazy" (error)="hideBrokenImg($event)" (click)="openImagePreview(img, $event)" />
           </div>
         </div>
 
-        <div *ngIf="optionsFile.romMetadata?.coverUrl" class="romMetaSection">
+        <div *ngIf="optionsFile?.romMetadata?.coverUrl" class="romMetaSection">
           <div class="romMetaSectionTitle">Cover</div>
-          <img class="romMetaCover" [src]="optionsFile.romMetadata?.coverUrl" loading="lazy"
-            (error)="hideBrokenImg($event)" (click)="openImagePreview(optionsFile.romMetadata?.coverUrl, $event)" />
+          <img class="romMetaCover" [src]="optionsFile?.romMetadata?.coverUrl" loading="lazy"
+            (error)="hideBrokenImg($event)" (click)="openImagePreview(optionsFile?.romMetadata?.coverUrl, $event)" />
         </div>
 
-        <div *ngIf="safeJsonArray(optionsFile.romMetadata?.videosJson).length" class="romMetaSection">
+        <div *ngIf="safeJsonArray(optionsFile?.romMetadata?.videosJson).length" class="romMetaSection">
           <div class="romMetaSectionTitle">Videos</div>
           <div class="romMetaLinks">
             <a [href]="v" target="_blank" (click)="onVideoLinkClick(v, $event)"
-              *ngFor="let v of safeJsonArray(optionsFile.romMetadata?.videosJson).slice(0, 6)">▶️ {{ v }}</a>
+              *ngFor="let v of safeJsonArray(optionsFile?.romMetadata?.videosJson).slice(0, 6)">▶️ {{ v }}</a>
           </div>
         </div>
 
-        <div *ngIf="optionsFile.romMetadata?.summary" class="romMetaSummary">
-          {{ optionsFile.romMetadata?.summary }}
+        <div *ngIf="optionsFile?.romMetadata?.summary" class="romMetaSummary">
+          {{ optionsFile?.romMetadata?.summary }}
         </div>
 
-        <div *ngIf="(optionsFile.romMetadata?.platforms?.length) || (optionsFile.romMetadata?.genres?.length)"
+        <div *ngIf="(optionsFile?.romMetadata?.platforms?.length) || (optionsFile?.romMetadata?.genres?.length)"
           class="romMetaLine">
           <strong>Platforms:</strong>
-          <span *ngFor="let p of optionsFile.romMetadata?.platforms; let i = index">{{p}}{{i <
-              (optionsFile.romMetadata?.platforms?.length ?? 0) - 1 ? ', ' : '' }}</span>
-              <br *ngIf="optionsFile.romMetadata?.genres?.length" />
-              <strong *ngIf="optionsFile.romMetadata?.genres?.length">Genres:</strong>
-              <span *ngFor="let g of optionsFile.romMetadata?.genres; let i = index">{{g}}{{i <
-                  (optionsFile.romMetadata?.genres?.length ?? 0) - 1 ? ', ' : '' }}</span>
+          <span *ngFor="let p of optionsFile?.romMetadata?.platforms; let i = index">{{p}}{{i <
+              (optionsFile?.romMetadata?.platforms?.length ?? 0) - 1 ? ', ' : '' }}</span>
+              <br *ngIf="optionsFile?.romMetadata?.genres?.length" />
+              <strong *ngIf="optionsFile?.romMetadata?.genres?.length">Genres:</strong>
+              <span *ngFor="let g of optionsFile?.romMetadata?.genres; let i = index">{{g}}{{i <
+                  (optionsFile?.romMetadata?.genres?.length ?? 0) - 1 ? ', ' : '' }}</span>
         </div>
 
         <div *ngIf="optionsFile?.romMetadata?.firstReleaseDateUnix as d" class="romMetaLine">
@@ -303,65 +303,65 @@
     File Options
   </div>
 
-  <div *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.igdbName && !optionsFile.isFolder"
+  <div *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.igdbName && !optionsFile?.isFolder"
     class="romMetaPanel">
 
     <div class="romMetaHeader" (click)="showMetadataInOptionsPanel = !showMetadataInOptionsPanel">
       <span
-        [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata?.actualSystem) || '🎮'"></span>
-      {{" "}}<strong>{{ optionsFile.romMetadata?.igdbName }}</strong>
+        [innerHTML]="getSystemEmoji('file.' + (optionsFile?.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile?.romMetadata?.actualSystem) || '🎮'"></span>
+      {{" "}}<strong>{{ optionsFile?.romMetadata?.igdbName }}</strong>
     </div>
 
     <div *ngIf="showMetadataInOptionsPanel">
-      <div *ngIf="optionsFile.romMetadata?.totalRatingCount" class="romMetaLine">
+      <div *ngIf="optionsFile?.romMetadata?.totalRatingCount" class="romMetaLine">
         <strong>Rating:</strong>
-        {{ optionsFile.romMetadata?.totalRating | number:'1.1-1' }}
-        ({{ optionsFile.romMetadata?.totalRatingCount }})
+        {{ optionsFile?.romMetadata?.totalRating | number:'1.1-1' }}
+        ({{ optionsFile?.romMetadata?.totalRatingCount }})
       </div>
 
 
       <div class="romMetaSection"
-        *ngIf="safeJsonArray(optionsFile.romMetadata?.screenshotsJson).length || safeJsonArray(optionsFile.romMetadata?.artworksJson).length">
+        *ngIf="safeJsonArray(optionsFile?.romMetadata?.screenshotsJson).length || safeJsonArray(optionsFile?.romMetadata?.artworksJson).length">
         <div class="romMetaSectionTitle">Screenshots / Art</div>
         <div class="romMetaGrid">
-          <img *ngFor="let img of safeJsonArray(optionsFile.romMetadata?.screenshotsJson).slice(0, 12)"
+          <img *ngFor="let img of safeJsonArray(optionsFile?.romMetadata?.screenshotsJson).slice(0, 12)"
             class="romMetaImg" [src]="img" loading="lazy" (error)="hideBrokenImg($event)"
             (click)="openImagePreview(img, $event)" />
 
-          <img *ngFor="let img of safeJsonArray(optionsFile.romMetadata?.artworksJson).slice(0, 8)" class="romMetaImg"
+          <img *ngFor="let img of safeJsonArray(optionsFile?.romMetadata?.artworksJson).slice(0, 8)" class="romMetaImg"
             [src]="img" loading="lazy" (error)="hideBrokenImg($event)" (click)="openImagePreview(img, $event)" />
         </div>
       </div>
 
-      <div *ngIf="optionsFile.romMetadata?.coverUrl" class="romMetaSection">
+      <div *ngIf="optionsFile?.romMetadata?.coverUrl" class="romMetaSection">
         <div class="romMetaSectionTitle">Cover</div>
-        <img class="romMetaCover" [src]="optionsFile.romMetadata?.coverUrl" loading="lazy"
-          (error)="hideBrokenImg($event)" (click)="openImagePreview(optionsFile.romMetadata?.coverUrl, $event)" />
+        <img class="romMetaCover" [src]="optionsFile?.romMetadata?.coverUrl" loading="lazy"
+          (error)="hideBrokenImg($event)" (click)="openImagePreview(optionsFile?.romMetadata?.coverUrl, $event)" />
       </div>
 
-      <div *ngIf="safeJsonArray(optionsFile.romMetadata?.videosJson).length" class="romMetaSection">
+      <div *ngIf="safeJsonArray(optionsFile?.romMetadata?.videosJson).length" class="romMetaSection">
         <div class="romMetaSectionTitle">Videos</div>
         <div class="romMetaLinks">
           <a [href]="v" target="_blank" (click)="onVideoLinkClick(v, $event)"
-            *ngFor="let v of safeJsonArray(optionsFile.romMetadata?.videosJson).slice(0, 6)">
+            *ngFor="let v of safeJsonArray(optionsFile?.romMetadata?.videosJson).slice(0, 6)">
             ▶️ {{ v }}
           </a>
         </div>
       </div>
 
-      <div *ngIf="optionsFile.romMetadata?.summary" class="romMetaSummary">
-        {{ optionsFile.romMetadata?.summary }}
+      <div *ngIf="optionsFile?.romMetadata?.summary" class="romMetaSummary">
+        {{ optionsFile?.romMetadata?.summary }}
       </div>
 
-      <div *ngIf="(optionsFile.romMetadata?.platforms?.length) || (optionsFile.romMetadata?.genres?.length)"
+      <div *ngIf="(optionsFile?.romMetadata?.platforms?.length) || (optionsFile?.romMetadata?.genres?.length)"
         class="romMetaLine">
         <strong>Platforms:</strong>
-        <span *ngFor="let p of optionsFile.romMetadata?.platforms; let i = index">{{p}}{{i <
-            (optionsFile.romMetadata?.platforms?.length ?? 0) - 1 ? ', ' : '' }}</span>
-            <br *ngIf="optionsFile.romMetadata?.genres?.length" />
-            <strong *ngIf="optionsFile.romMetadata?.genres?.length">Genres:</strong>
-            <span *ngFor="let g of optionsFile.romMetadata?.genres; let i = index">{{g}}{{i <
-                (optionsFile.romMetadata?.genres?.length ?? 0) - 1 ? ', ' : '' }}</span>
+        <span *ngFor="let p of optionsFile?.romMetadata?.platforms; let i = index">{{p}}{{i <
+            (optionsFile?.romMetadata?.platforms?.length ?? 0) - 1 ? ', ' : '' }}</span>
+            <br *ngIf="optionsFile?.romMetadata?.genres?.length" />
+            <strong *ngIf="optionsFile?.romMetadata?.genres?.length">Genres:</strong>
+            <span *ngFor="let g of optionsFile?.romMetadata?.genres; let i = index">{{g}}{{i <
+                (optionsFile?.romMetadata?.genres?.length ?? 0) - 1 ? ', ' : '' }}</span>
       </div>
 
       <div *ngIf="optionsFile?.romMetadata?.firstReleaseDateUnix as d" class="romMetaLine">
@@ -372,65 +372,65 @@
           style="margin-left:8px">
           ↻ Reset
         </button>
-        <span *ngIf="optionsFile.romMetadata?.resetVotes !== undefined" style="margin-left:8px">Votes: {{
-          optionsFile.romMetadata?.resetVotes }}</span>
+        <span *ngIf="optionsFile?.romMetadata?.resetVotes !== undefined" style="margin-left:8px">Votes: {{
+          optionsFile?.romMetadata?.resetVotes }}</span>
       </span>
     </div>
   </div>
 
   <div class="popupPanelActions">
-    <button title="Edit File Name" (click)="startEditingFileName(optionsFile.id);" [disabled]="isLoading"
+    <button title="Edit File Name" (click)="startEditingFileName(optionsFile?.id);" [disabled]="isLoading"
       *ngIf="shouldShowEditButton(optionsFile)">
       ✏️Edit File Name
     </button>
-    <button [title]="'Clear System Override ('+optionsFile.romMetadata?.actualSystem+')'"
+    <button [title]="'Clear System Override ('+optionsFile?.romMetadata?.actualSystem+')'"
       (click)="clearSystemOverride(optionsFile)" [disabled]="isLoading" *ngIf="shouldShowRomMetadata() 
         && optionsFile
-        && optionsFile.romMetadata?.actualSystem 
-        && (optionsFile.user?.id === parentRef?.user?.id)">
+        && optionsFile?.romMetadata?.actualSystem 
+        && (optionsFile?.user?.id === parentRef?.user?.id)">
       🧹 Clear System Override
       <span *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.actualSystem" class="system-override-icon"
-        [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata?.actualSystem)">
+        [innerHTML]="getSystemEmoji('file.' + (optionsFile?.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile?.romMetadata?.actualSystem)">
       </span>
     </button>
-    <button (click)="openSystemOverridePanel()" [disabled]="isLoading" *ngIf="shouldShowRomMetadata() && optionsFile && !optionsFile.romMetadata?.actualSystem && (optionsFile.user?.id === parentRef?.user?.id)">
+    <button (click)="openSystemOverridePanel()" [disabled]="isLoading" *ngIf="shouldShowRomMetadata() && optionsFile && !optionsFile?.romMetadata?.actualSystem && (optionsFile?.user?.id === parentRef?.user?.id)">
       🎮 Set System Override
     </button> 
-    <app-share-button *ngIf="optionsFile.visibility?.toLowerCase() !== 'private'" [link]="shareLink"
+    <app-share-button *ngIf="optionsFile?.visibility?.toLowerCase() !== 'private'" [link]="shareLink"
       [isExternalLink]="isInRomDirectory"></app-share-button>
-    <app-share-button *ngIf="optionsFile.visibility?.toLowerCase() === 'private'" [isExternalLink]="false"
+    <app-share-button *ngIf="optionsFile?.visibility?.toLowerCase() === 'private'" [isExternalLink]="false"
       [text]="'↗️Share with Users'" [callback]="shareFileCallback"></app-share-button>
     <button title="Download File" (click)="download(optionsFile, true);" [disabled]="isLoading"
-      *ngIf="!optionsFile.isFolder">
+      *ngIf="!optionsFile?.isFolder">
       📥Download
-      {{" "}}({{ (optionsFile.fileSize ?? 0) | fileSize }})
-      {{" "}}<span class="xxSmallFont">{{optionsFile.accessCount}}</span>
+      {{" "}}({{ (optionsFile?.fileSize ?? 0) | fileSize }})
+      {{" "}}<span class="xxSmallFont">{{optionsFile?.accessCount}}</span>
     </button>
     <button title="Delete File" (click)="delete(optionsFile);" [disabled]="isLoading"
       *ngIf="shouldShowEditButton(optionsFile) || (parentRef?.user?.id == 1 || inputtedParentRef?.user?.id == 1)">
       ❌Delete
     </button>
     <button title="Hide File" (click)="hide(optionsFile);" *ngIf="userIsLoggedIn()" [disabled]="isLoading">
-      🙈{{optionsFile.isHidden ? "Un":""}}Hide
+      🙈{{optionsFile?.isHidden ? "Un":""}}Hide
     </button>
     <button (click)="addToFavourites(optionsFile)" *ngIf="userIsLoggedIn()" [disabled]="isLoading"
-      [title]="optionsFile.isFavourited ? ('Remove from favourites') : ('Add ' + (optionsFile.givenFileName ?? optionsFile.fileName) + ' to favourites')">
-      <span *ngIf="!optionsFile.isFavourited">❤️ Add To Favourites</span>
-      <span *ngIf="optionsFile.isFavourited">🧡 Remove From Favourites</span>
+      [title]="optionsFile?.isFavourited ? ('Remove from favourites') : ('Add ' + (optionsFile?.givenFileName ?? optionsFile?.fileName) + ' to favourites')">
+      <span *ngIf="!optionsFile?.isFavourited">❤️ Add To Favourites</span>
+      <span *ngIf="optionsFile?.isFavourited">🧡 Remove From Favourites</span>
     </button>
     <button *ngIf="isVideoFile(optionsFile) && userIsLoggedIn()" [disabled]="isLoading"
       (click)="addFileToMusicPlaylist(optionsFile)"
-      title="Add '{{optionsFile.givenFileName ?? optionsFile.fileName}}' to music playlist.">
+      title="Add '{{optionsFile?.givenFileName ?? optionsFile?.fileName}}' to music playlist.">
       ➕ Add To Music Playlist
     </button>
     <button (click)="showFileNotes(optionsFile)" [disabled]="isLoading" title="View and manage notes for this file">
-      📝 {{ optionsFile.notesCount ? `(${optionsFile.notesCount})` : '' }} View Notes
+      📝 {{ optionsFile?.notesCount ? `(${optionsFile?.notesCount})` : '' }} View Notes
     </button>
   </div>
 
-  <div *ngIf="optionsFile && optionsFile.id && editingTopics.includes(optionsFile.id)">
+  <div *ngIf="optionsFile && optionsFile?.id && editingTopics.includes(optionsFile.id)">
     <app-topics #topicComponent [isDropdown]="true" [user]="inputtedParentRef?.user ?? parentRef?.user"
-      [parent]="inputtedParentRef ?? parentRef" [attachedTopics]="optionsFile.topics"
+      [parent]="inputtedParentRef ?? parentRef" [attachedTopics]="optionsFile?.topics"
       (topicAdded)="editFileTopicInDB($event, optionsFile)">
     </app-topics>
   </div>
@@ -439,83 +439,83 @@
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">Id:</div>
       <div class="optionsStatsDescription">
-        {{optionsFile.id}}
+        {{optionsFile?.id}}
       </div>
     </div>
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">
-        {{optionsFile.isFolder ? 'Folder' : 'File'}} Name:
+        {{optionsFile?.isFolder ? 'Folder' : 'File'}} Name:
       </div>
       <div class="optionsStatsDescription">
-        {{optionsFile.fileName}}
+        {{optionsFile?.fileName}}
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="optionsFile.givenFileName">
+    <div class="optionsStatsDiv" *ngIf="optionsFile?.givenFileName">
       <div class="optionsStatsHeader">
         Given File Name:
       </div>
       <div class="optionsStatsDescription">
-        {{optionsFile.givenFileName}}
+        {{optionsFile?.givenFileName}}
       </div>
     </div>
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">
         Topics
         <span
-          *ngIf="optionsFile.user?.id == inputtedParentRef?.user?.id || optionsFile.user?.id == parentRef?.user?.id || parentRef?.user?.id == 1|| inputtedParentRef?.user?.id == 1"
+          *ngIf="optionsFile?.user?.id == inputtedParentRef?.user?.id || optionsFile?.user?.id == parentRef?.user?.id || parentRef?.user?.id == 1|| inputtedParentRef?.user?.id == 1"
           (click)="editFileTopic(optionsFile)" class="cursorPointer" title="Edit File Topics">✏️</span>:
       </div>
       <div class="optionsStatsDescription">
-        <span *ngFor="let topic of optionsFile.topics" class="matchingTopic" (click)="fileTopicClicked([topic])">
+        <span *ngFor="let topic of optionsFile?.topics" class="matchingTopic" (click)="fileTopicClicked([topic])">
           {{topic.topicText}}
           <span title="Remove Topic From File"
-            *ngIf="optionsFile && optionsFile.id && editingTopics.includes(optionsFile.id)"
+            *ngIf="optionsFile && optionsFile?.id && editingTopics.includes(optionsFile.id)"
             (click)="removeTopicFromFile(topic, optionsFile); $event.stopPropagation()">
             ❌
           </span>
         </span>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="optionsFile.fileType || optionsFile.isFolder">
+    <div class="optionsStatsDiv" *ngIf="optionsFile?.fileType || optionsFile?.isFolder">
       <div class="optionsStatsHeader">
         Type:
       </div>
       <div class="optionsStatsDescription">
-        {{optionsFile.fileType?.toUpperCase()}}
+        {{optionsFile?.fileType?.toUpperCase()}}
         <span
-          [innerHTML]="(getDirectoryName(optionsFile) === 'Roms/' && optionsFile.fileType) ? getSystemEmoji('file.' + optionsFile.fileType, undefined, optionsFile.romMetadata?.actualSystem) : ''"></span>
-        {{optionsFile.isFolder ? 'Folder' : ''}}
+          [innerHTML]="(getDirectoryName(optionsFile) === 'Roms/' && optionsFile?.fileType) ? getSystemEmoji('file.' + optionsFile?.fileType, undefined, optionsFile?.romMetadata?.actualSystem) : ''"></span>
+        {{optionsFile?.isFolder ? 'Folder' : ''}}
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="optionsFile.romMetadata?.actualSystem">
+    <div class="optionsStatsDiv" *ngIf="optionsFile?.romMetadata?.actualSystem">
       <div class="optionsStatsHeader">Overridden System:</div>
       <div class="optionsStatsDescription">
         <span class="system-override-icon"
-          [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:20px;height:20px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata?.actualSystem)">
+          [innerHTML]="getSystemEmoji('file.' + (optionsFile?.fileType ?? 'bin'), 'width:20px;height:20px;vertical-align:middle;margin-right:8px', optionsFile?.romMetadata?.actualSystem)">
         </span>
-        {{ fileService.getSystemFromBios(optionsFile.romMetadata?.actualSystem) }}
+        {{ fileService.getSystemFromBios(optionsFile?.romMetadata?.actualSystem) }}
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="optionsFile.accessCount !== undefined">
+    <div class="optionsStatsDiv" *ngIf="optionsFile?.accessCount !== undefined">
       <div class="optionsStatsHeader">
         Views:
       </div>
       <div class="optionsStatsDescription cursorPointerUnderlined linkFontColor"
-        (click)="getFileViewers(optionsFile.id)">
-        {{optionsFile.accessCount}}
+        (click)="getFileViewers(optionsFile?.id)">
+        {{optionsFile?.accessCount}}
       </div>
     </div>
     <div *ngIf="optionsFile?.favouriteCount !== undefined" class="optionsStatsDiv">
       <div class="optionsStatsHeader">Favourites:</div>
       <div class="optionsStatsDescription cursorPointerUnderlined linkFontColor" (click)="getFavouritedBy(optionsFile)">
-        {{optionsFile.favouriteCount}}
+        {{optionsFile?.favouriteCount}}
       </div>
     </div>
     <div *ngIf="displayRatings" class="optionsStatsDiv">
       <div class="optionsStatsHeader">Rating:</div>
       <div class="optionsStatsDescription">
         <app-rating-stars
-          [rating]="{ value: optionsFile.averageRating ?? 0, user: currentUser }"
+          [rating]="{ value: optionsFile?.averageRating ?? 0, user: currentUser }"
           [inputtedParentRef]="parentRef"
           [ratingFile]="optionsFile"
           (panelOpened)="isRatingPanelOpen = true;"
@@ -523,23 +523,23 @@
         </app-rating-stars>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="optionsFile.fileSize !== undefined">
+    <div class="optionsStatsDiv" *ngIf="optionsFile?.fileSize !== undefined">
       <div class="optionsStatsHeader">
         Filesize:
       </div>
       <div class="optionsStatsDescription">
-        {{optionsFile.fileSize | fileSize}}
+        {{optionsFile?.fileSize ?? 0 | fileSize}}
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="optionsFile.width">
+    <div class="optionsStatsDiv" *ngIf="optionsFile?.width">
       <div class="optionsStatsHeader">
         Size (width/height):
       </div>
       <div class="optionsStatsDescription">
-        {{optionsFile.width}}x{{optionsFile.height}} px
+        {{optionsFile?.width}}x{{optionsFile?.height}} px
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="optionsFile.directory">
+    <div class="optionsStatsDiv" *ngIf="optionsFile?.directory">
       <div class="optionsStatsHeader">
         Directory:
       </div>
@@ -547,41 +547,41 @@
         {{getDirectoryName(optionsFile)}}
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="optionsFile.directory && !optionsFile.isFolder">
+    <div class="optionsStatsDiv" *ngIf="optionsFile?.directory && !optionsFile?.isFolder">
       <div class="optionsStatsHeader">
         Direct Link:
       </div>
       <div class="optionsStatsDescription">
-        <a href="https://bughosted.com/assets/Uploads/{{getDirectoryName(optionsFile) != '.' ? getDirectoryName(optionsFile) : ''}}{{optionsFile.fileName}}"
+        <a href="https://bughosted.com/assets/Uploads/{{getDirectoryName(optionsFile) != '.' ? getDirectoryName(optionsFile) : ''}}{{optionsFile?.fileName}}"
           target="_blank">
           https://bughosted.com/assets/Uploads/{{getDirectoryName(optionsFile) != '.' ? getDirectoryName(optionsFile) :
-          ''}}{{optionsFile.fileName}}
+          ''}}{{optionsFile?.fileName}}
         </a>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="optionsFile.visibility">
+    <div class="optionsStatsDiv" *ngIf="optionsFile?.visibility">
       <div class="optionsStatsHeader">
         Visibility:
       </div>
       <div class="optionsStatsDescription">
         <span>
-          <select [value]="optionsFile.visibility" #optionsFileVisibilitySelect
-            *ngIf="optionsFile.user?.id == parentRef?.user?.id || optionsFile.user?.id == inputtedParentRef?.user?.id"
+          <select [value]="optionsFile?.visibility" #optionsFileVisibilitySelect
+            *ngIf="optionsFile?.user?.id == parentRef?.user?.id || optionsFile?.user?.id == inputtedParentRef?.user?.id"
             (change)="onVisibilitySelect(optionsFile)">
-            <option value="Public" [selected]="optionsFile.visibility == 'Public'">
+            <option value="Public" [selected]="optionsFile?.visibility == 'Public'">
               Public{{getVisibilityIcon('Public')}}</option>
-            <option value="Private" [selected]="optionsFile.visibility == 'Private'">
+            <option value="Private" [selected]="optionsFile?.visibility == 'Private'">
               Private{{getVisibilityIcon('Private')}}</option>
           </select>
           <span
-            *ngIf="optionsFile.user?.id != parentRef?.user?.id && optionsFile.user?.id != inputtedParentRef?.user?.id">
-            {{optionsFile.visibility}}{{getVisibilityIcon(optionsFile.visibility)}}
+            *ngIf="optionsFile?.user?.id != parentRef?.user?.id && optionsFile?.user?.id != inputtedParentRef?.user?.id">
+            {{optionsFile?.visibility}}{{getVisibilityIcon(optionsFile?.visibility)}}
           </span>
-          <span *ngIf="optionsFile.visibility == 'Private'" class="private" title="This is a private file.">🔒</span>
+          <span *ngIf="optionsFile?.visibility == 'Private'" class="private" title="This is a private file.">🔒</span>
         </span>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="optionsFile.sharedWith">
+    <div class="optionsStatsDiv" *ngIf="optionsFile?.sharedWith">
       <div class="optionsStatsHeader">
         Shared With:
       </div>
@@ -592,64 +592,64 @@
               [displayMiniTag]="true"></app-user-tag>
           </span>
         </ng-container>
-        <span *ngIf="optionsFileSharedWithIds.length == 0">{{optionsFile.sharedWith}}</span>
+        <span *ngIf="optionsFileSharedWithIds.length == 0">{{optionsFile?.sharedWith}}</span>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="optionsFile.lastAccess">
+    <div class="optionsStatsDiv" *ngIf="optionsFile?.lastAccess">
       <div class="optionsStatsHeader">
         Last Access:
       </div>
       <div class="optionsStatsDescription">
-        <div>{{optionsFile.lastAccess | date: 'y/MM/d HH:mm'}}</div>
-        <div class="xSmallFont linkFontColor">({{daysSinceDate(optionsFile.lastAccess)}})</div>
+        <div>{{optionsFile?.lastAccess | date: 'y/MM/d HH:mm'}}</div>
+        <div class="xSmallFont linkFontColor">({{daysSinceDate(optionsFile?.lastAccess)}})</div>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="optionsFile.date">
+    <div class="optionsStatsDiv" *ngIf="optionsFile?.date">
       <div class="optionsStatsHeader">
         Created:
       </div>
       <div class="optionsStatsDescription">
-        <div>{{optionsFile.date | date: 'y/MM/d HH:mm'}}</div>
-        <div class="xSmallFont linkFontColor">({{daysSinceDate(optionsFile.date, 'minute')}})</div>
+        <div>{{optionsFile?.date | date: 'y/MM/d HH:mm'}}</div>
+        <div class="xSmallFont linkFontColor">({{daysSinceDate(optionsFile?.date, 'minute')}})</div>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="optionsFile.user">
+    <div class="optionsStatsDiv" *ngIf="optionsFile?.user">
       <div class="optionsStatsHeader">
         Created By:
       </div>
       <div class="optionsStatsDescription">
-        <app-user-tag [user]="optionsFile.user" [inputtedParentRef]="parentRef ?? inputtedParentRef"
+        <app-user-tag [user]="optionsFile?.user" [inputtedParentRef]="parentRef ?? inputtedParentRef"
           [displayMiniTag]="true" [displayHoverPicture]="true"></app-user-tag>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="optionsFile.lastUpdatedBy && optionsFile.lastUpdated !== optionsFile.date">
+    <div class="optionsStatsDiv" *ngIf="optionsFile?.lastUpdatedBy && optionsFile?.lastUpdated !== optionsFile?.date">
       <div class="optionsStatsHeader">
         Updated:
       </div>
       <div class="optionsStatsDescription">
-        <div>{{optionsFile.lastUpdated | date: 'y/MM/d HH:mm'}}</div>
-        <div class="xSmallFont linkFontColor">({{daysSinceDate(optionsFile.lastUpdated, 'minute')}})</div>
+        <div>{{optionsFile?.lastUpdated | date: 'y/MM/d HH:mm'}}</div>
+        <div class="xSmallFont linkFontColor">({{daysSinceDate(optionsFile?.lastUpdated, 'minute')}})</div>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="optionsFile.lastUpdatedBy">
+    <div class="optionsStatsDiv" *ngIf="optionsFile?.lastUpdatedBy">
       <div class="optionsStatsHeader">
         Updated By:
       </div>
       <div class="optionsStatsDescription">
-        <app-user-tag [user]="optionsFile.lastUpdatedBy" [inputtedParentRef]="parentRef ?? inputtedParentRef"
+        <app-user-tag [user]="optionsFile?.lastUpdatedBy" [inputtedParentRef]="parentRef ?? inputtedParentRef"
           [displayMiniTag]="true" [displayHoverPicture]="true"></app-user-tag>
       </div>
     </div>
     <div class="optionsStatsDiv"
-      *ngIf="shouldShowRomMetadata() && !optionsFile?.romMetadata?.igdbName && !optionsFile.isFolder">
+      *ngIf="shouldShowRomMetadata() && !optionsFile?.romMetadata?.igdbName && !optionsFile?.isFolder">
       <div class="optionsStatsHeader">Reset ROM Metadata?</div>
       <div class="optionsStatsDescription">
         <button title="Request metadata reset" [disabled]="isLoading" (click)="incrementResetVoteForOptionsFile()"
           style="margin-left:8px">
           ↻ Reset
         </button>
-        <span *ngIf="optionsFile.romMetadata?.resetVotes !== undefined" style="margin-left:8px">Votes: {{
-          optionsFile.romMetadata?.resetVotes }}</span>
+        <span *ngIf="optionsFile?.romMetadata?.resetVotes !== undefined" style="margin-left:8px">Votes: {{
+          optionsFile?.romMetadata?.resetVotes }}</span>
       </div>
     </div>
   </div>
