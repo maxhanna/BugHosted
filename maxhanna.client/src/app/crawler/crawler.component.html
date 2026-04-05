@@ -39,7 +39,7 @@
           *ngIf="onlySearch" title="Add without searching">＋</button>
       </div>
       <div *ngIf="!hasSearched && !onlySearch" class="siteHelperTip smallFont">Tip: use <span
-          (click)="fillSiteExample()" class="cursorPointerUnderlined linkFontColor">"site:domain.com keywords"</span> to
+          (click)="fillSiteExample()" class="cursorPointer linkFontColor linkTextDecoration">"site:domain.com keywords"</span> to
         restrict results to a single domain.</div>
     </div>
 
@@ -54,7 +54,7 @@
         <div *ngFor="let metadata of group.links; let i = index"
           [class]="(group.showSubdomains || i === 0) ? 'groupLinkWrapperDiv' : ''">
           <div class="groupLinkDataWrapperDiv" *ngIf="group.showSubdomains || i === 0">
-            <div *ngIf="metadata.title" class="descriptionDiv titleClass cursorPointerUnderlined">
+            <div *ngIf="metadata.title" class="descriptionDiv titleClass cursorPointer linkTextDecoration">
               <a *ngIf="metadata.url" 
                 class="pageTitleLink"
                 (click)="visitExternalLink(metadata.url)"
@@ -92,7 +92,7 @@
               {{ metadata.httpStatus }} {{ getHttpStatusMeaning(metadata.httpStatus) }}
             </div>
             <div *ngIf="metadata.favouriteCount" (click)="openFavouritedByPanel(metadata.url)"
-              class="descriptionDiv keywordsClass cursorPointerUnderlined linkColor"
+              class="descriptionDiv keywordsClass cursorPointer linkTextDecoration linkColor"
               [title]="'Favourited by ' + metadata.favouriteCount + ' users'">
               ❤️ Favourited by {{metadata.favouriteCount}} User{{metadata.favouriteCount > 1 ? 's' : ''}}.
             </div>
@@ -117,9 +117,9 @@
       </div>
     </div>
     <div *ngIf="searchMetadata?.length == 0 && !error && !isLoading" class="smallFont nbDiv">
-      <div *ngIf="!onlySearch" (click)="seeNew()" class="cursorPointerUnderlined">See the latest indexes.</div>
+      <div *ngIf="!onlySearch" (click)="seeNew()" class="cursorPointer linkTextDecoration">See the latest indexes.</div>
       <div *ngIf="onlySearch" class="siteHelperTip smallFont xxSmallFont" style="margin: 20px 20px;">Tip: use <span
-          (click)="fillSiteExample()" class="cursorPointerUnderlined linkFontColor">"site:domain.com keywords"</span> to
+          (click)="fillSiteExample()" class="cursorPointer linkFontColor linkTextDecoration">"site:domain.com keywords"</span> to
         restrict results to a single domain.</div>
     </div>
   </div>
@@ -139,7 +139,7 @@
     </select>
   </div>
   <div *ngIf="!onlySearch" class="siteHelperTip smallFont" style="margin: 12px 20px;">Tip: use <span
-      (click)="fillSiteExample()" class="cursorPointerUnderlined linkFontColor">"site:domain.com keywords"</span> to
+      (click)="fillSiteExample()" class="cursorPointer linkFontColor linkTextDecoration">"site:domain.com keywords"</span> to
     restrict results to a single domain.</div>
   <div class="popupPanelTitle">Database Nerd Stats:</div>
   <div *ngIf="isLoading" class="optionsStatsWrapperDiv">
