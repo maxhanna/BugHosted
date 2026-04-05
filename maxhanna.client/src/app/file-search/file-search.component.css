@@ -276,8 +276,9 @@
   align-items: flex-start;
 }
 
-.fileOptionsActionWrapper,
-.fileOptionsAction {
+
+.fileOptionsActionWrapper > .fileOptionsAction,
+.fileOptionsActionWrapper > .fileOptionsAction {
   cursor: pointer;
   display: flex;
   justify-content: center;
@@ -287,9 +288,7 @@
   align-items: center;
 }
 
-.fileOptionsAction,
-.fileOptionsActionWrapper ::ng-deep * button,
-.fileOptionsActionWrapper ::ng-deep span:not(.reactionsDisplaySpan span) {
+.fileOptionsAction {
   width: 25px;
   height: 25px;
   display: flex;
