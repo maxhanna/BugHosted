@@ -2581,23 +2581,26 @@ private _bootingFromGamepad = false;
 
 
   remapControls(): void {
-    this.tmpShowEjsMenu();
+    this.closeMenuPanel();
     setTimeout(() => {
-      const buttons = document.querySelectorAll<HTMLButtonElement>('button.ejs_menu_button');
-      for (const btn of Array.from(buttons)) {
-        const label =
-          btn.querySelector('.ejs_menu_text')?.textContent?.trim()
-          ?? btn.textContent?.trim()
-          ?? '';
+      this.tmpShowEjsMenu();
+      setTimeout(() => {
+        const buttons = document.querySelectorAll<HTMLButtonElement>('button.ejs_menu_button');
+        for (const btn of Array.from(buttons)) {
+          const label =
+            btn.querySelector('.ejs_menu_text')?.textContent?.trim()
+            ?? btn.textContent?.trim()
+            ?? '';
 
-        if (label.includes('Control Settings')) {
-          btn.click();
-          return;
+          if (label.includes('Control Settings')) {
+            btn.click();
+            return;
+          }
         }
-      }
 
-      console.warn('Control Settings button not found in menu; cannot remap controls.');
-    }, 1000);
+        console.warn('Control Settings button not found in menu; cannot remap controls.');
+      }, 1000);
+    }, 50);
   }
 
   countZeros(u8: Uint8Array, start: number, end?: number): number {
