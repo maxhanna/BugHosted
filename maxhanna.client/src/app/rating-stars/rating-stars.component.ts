@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 import { User } from '../../services/datacontracts/user/user';
 import { Rating, RatingsService } from '../../services/ratings.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
@@ -10,7 +10,7 @@ import { MetaData } from '../../services/datacontracts/social/story';
   styleUrls: ['./rating-stars.component.css'],
   standalone: false,
 })
-export class RatingStarsComponent {
+export class RatingStarsComponent implements OnInit {
   constructor(private ratingsService: RatingsService) { }
   @Input() rating!: Rating;
   @Input() inputtedParentRef: any;
@@ -26,6 +26,10 @@ export class RatingStarsComponent {
   isRatingsPanelOpen = false;
   tmpRatings?: Rating[] | undefined;
   tmpFileId?: number;
+
+  ngOnInit() {
+    this.tmpFileId = this.ratingFile?.id;
+  }
 
   get isCurrentUser() {
     return this.currentUser.id === this.rating?.user?.id;
@@ -64,7 +68,6 @@ export class RatingStarsComponent {
   } 
 
   async openRatingsPanel(): Promise<void> {
-    this.tmpFileId = this.ratingFile?.id;
     console.log('openRatingsPanel called with current ratingFile:', this.ratingFile, 'isRatingsPanelOpen:', this.isRatingsPanelOpen);
     if (!this.tmpFileId || this.isRatingsPanelOpen) {
       console.warn('No file provided or ratings panel already open, not opening a new panel.');
