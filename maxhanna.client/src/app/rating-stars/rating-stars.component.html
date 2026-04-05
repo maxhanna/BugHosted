@@ -36,10 +36,9 @@
     <div *ngFor="let r of tmpRatingFile.ratings" class="optionsStatsDiv"
       style="margin-bottom:8px; border-bottom:1px solid var(--main-border-color);">
       <div class="ratingsListContainer">
-        <span style="width: unset !important;">
+        <span style="width: unset !important; height: unset !important;">
           <app-user-tag [user]="r.user" 
-            [inputtedParentRef]="inputtedParentRef" 
-            [displayMiniTag]="true"
+            [inputtedParentRef]="inputtedParentRef"
             [displayHoverPicture]="true">
           </app-user-tag>
         </span>
