@@ -5,8 +5,8 @@
 .topLinks {
   align-content: center;
   text-align: center;
-  max-height: CALC(100vh - 201px);
-  max-height: CALC(100dvh - 201px);
+  max-height: CALC(100vh - 185px);
+  max-height: CALC(100dvh - 185px);
   overflow: auto;
   border: var(--main-border);
   margin: 10px;
@@ -16,17 +16,33 @@
 
 @media only screen and (max-width : 330px) {
   .topLinks {
-    max-height: CALC(100vh - 400px);
-    max-height: CALC(100dvh - 400px);
+    max-height: CALC(100vh - 340px);
+    max-height: CALC(100dvh - 340px);
+  }
+} 
+
+@media only screen and (min-width: 330px) and (max-width : 345px) {
+  .topLinks {
+    max-height: CALC(100vh - 300px);
+    max-height: CALC(100dvh - 300px);
   }
 }
 
-@media only screen and (min-width: 330px) and (max-width : 610px) {
+@media only screen and (min-width: 345px) and (max-width : 445px) {
   .topLinks {
-    max-height: CALC(100vh - 330px);
-    max-height: CALC(100dvh - 330px);
+    max-height: CALC(100vh - 270px);
+    max-height: CALC(100dvh - 270px);
   }
 }
+
+@media only screen and (min-width: 445px) and (max-width : 815px) {
+  .topLinks {
+    max-height: CALC(100vh - 230px);
+    max-height: CALC(100dvh - 230px);
+  }
+} 
+
+ 
 
 .favouritesTitle {
   text-align: center;
