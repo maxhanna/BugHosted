@@ -66,15 +66,15 @@
     <div class="emuMenuButtonGrid">
       <button (click)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();" [disabled]="isLoading" class="emuMenuButton squareButton" title="Autosave">
         💾<div class="emuMenuButtonLabel">Autosave</div>
-        <span class="checkbox-indicator" [class.checked]="autosave" aria-hidden="true" style="margin-left: 5px;"></span>
+        <span class="checkbox-indicator" [class.checked]="autosave" aria-hidden="true"></span>
       </button>
       <button *ngIf="!romName" (click)="toggleLoadWithoutSave()" class="emuMenuButton squareButton" [disabled]="isLoading" title="Save States">
         🗄️<div class="emuMenuButtonLabel">Save</div>
-        <span class="checkbox-indicator" [class.checked]="!loadWithoutSave" aria-hidden="true" style="margin-left: 5px;"></span>
+        <span class="checkbox-indicator" [class.checked]="!loadWithoutSave" aria-hidden="true"></span>
       </button>
       <button *ngIf="onMobile() && !romName" (click)="useJoystick = !useJoystick" class="emuMenuButton squareButton" [disabled]="isLoading" title="Joystick">
         🎮<div class="emuMenuButtonLabel">Joystick</div>
-        <span class="checkbox-indicator" [class.checked]="useJoystick" aria-hidden="true" style="margin-left: 5px;"></span>
+        <span class="checkbox-indicator" [class.checked]="useJoystick" aria-hidden="true"></span>
       </button>
       <button *ngIf="romName" (click)="toggleFullScreen()" class="emuMenuButton squareButton" [disabled]="isLoading" title="Fullscreen">
         ⛶<div class="emuMenuButtonLabel">Fullscreen</div>
