@@ -5,8 +5,10 @@
       (click)="onRate(star)"
       (mouseenter)="onStarMouseEnter(i)"
       (mouseleave)="onStarMouseLeave()"
-      [title]="isCurrentUser
-        ? ('Set your rating to ' + star + ' star' + (star > 1 ? 's' : ''))
-        : ('Rated ' + star + ' star' + (star > 1 ? 's' : ''))">
+      [title]="readOnly
+        ? ('Rated ' + rating.value + ' star' + (rating.value > 1 ? 's' : ''))
+        : (isCurrentUser
+            ? ('Set your rating to ' + star + ' star' + (star > 1 ? 's' : ''))
+            : ('Rated ' + star + ' star' + (star > 1 ? 's' : '')))">
   &#9733;
 </span>

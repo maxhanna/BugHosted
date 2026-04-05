@@ -759,6 +759,21 @@ fieldset {
   color: var(--main-link-color);
 }
 
+.linkTextDecoration {
+  text-decoration: underline;
+  text-decoration-color: var(--main-link-color);
+}
+
+.linkTextDecoration:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--secondary-font-color);
+}
+
+.linkTextDecoration:active {
+  text-decoration: underline;
+  text-decoration-color: var(--main-font-color);
+}
+
 .blackFontColor {
   color: black;
 }
