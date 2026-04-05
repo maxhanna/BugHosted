@@ -1101,6 +1101,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.parentRef?.closeOverlay(); 
   }
 
+  clearOptionFile() {
+    this.optionsFile = undefined;
+  }
+
   // Clear persisted system override for a file and update UI
   async clearSystemOverride(file?: FileEntry) {
     if (!file || !file.id) { return; }

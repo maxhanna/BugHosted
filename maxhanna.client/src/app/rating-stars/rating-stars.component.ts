@@ -20,6 +20,7 @@ export class RatingStarsComponent implements OnInit {
   @Input() componentType: 'file' | 'search' = 'file';
   @Output() rated = new EventEmitter<number>();
   @Output() panelOpened = new EventEmitter<void>();
+  @Output() panelClosed = new EventEmitter<void>();
 
   stars = [1, 2, 3, 4, 5];
   hoveredIndex: number | null = null;
@@ -91,6 +92,7 @@ export class RatingStarsComponent implements OnInit {
             this.ratingFile.ratings = Array.isArray(ratings) ? ratings : [];
           }
           this.tmpRatings = Array.isArray(ratings) ? ratings : []; 
+          console.log('Fetched ratings for file:', this.ratingFile, 'ratings:', this.tmpRatings);
         } catch (e) {
           this.inputtedParentRef?.showNotification('Failed to fetch ratings.');
           console.error('Error fetching ratings:', e);
@@ -108,7 +110,8 @@ export class RatingStarsComponent implements OnInit {
       const parent = this.inputtedParentRef;
       if (parent) {
         parent.closeOverlay(false);
-      }
+      } 
+      this.panelClosed.emit();
     }, 50)
   }
 
