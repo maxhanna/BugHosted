@@ -30,6 +30,14 @@ export class RatingStarsComponent {
     return this.inputtedParentRef?.user ?? new User(0, "Anonymous");
   }
 
+  get ratingsTitle(): string {
+    return this.ratingFile instanceof FileEntry 
+      ? (this.ratingFile.givenFileName ?? this.ratingFile.fileName ?? "")
+      : this.ratingFile instanceof MetaData 
+        ? this.ratingFile.title ?? "" 
+        : "";
+  }
+
   onRate(star: number) {
     if (!this.readOnly && this.isCurrentUser) {
       this.rated.emit(star);
@@ -71,7 +79,7 @@ export class RatingStarsComponent {
 
   closeRatingsPanel(): void {
     this.isRatingsPanelOpen = false;
-    this.ratingFile = undefined;
+    //this.ratingFile = undefined;
     const parent = this.inputtedParentRef;
     if (parent) {
       parent.closeOverlay();
