@@ -13,7 +13,7 @@ export class ShareButtonComponent {
   @Input() text = "📋Share";
   @Input() isExternalLink = false;
   @Input() inputtedParentRef?: AppComponent;
-  @Input() callback?: any;
+  @Input() callback?: (() => void);
   @Output() linkCopiedEvent = new EventEmitter<void>();
 
   copyLink() { 

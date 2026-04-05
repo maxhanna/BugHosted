@@ -70,7 +70,9 @@ export class RatingStarsComponent {
     }
     if (file && file.id && !file.ratings) {
       try {
-        const ratings = await this.ratingsService.getRatingsByFile(file.id) as Rating[] | undefined;
+        const ratings = this.componentType === 'file'
+          ? await this.ratingsService.getRatingsByFile(file.id) as Rating[] | undefined
+          : await this.ratingsService.getRatingsBySearch(file.id) as Rating[] | undefined;
         this.ratingFile.ratings = Array.isArray(ratings) ? ratings : [];
       } catch (e) {
         if (parent) {

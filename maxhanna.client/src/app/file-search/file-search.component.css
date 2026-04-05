@@ -272,13 +272,14 @@
   margin-top: 15px;
 }
 
-.fileOptionsActionWrapper {
+.fileOptionsActionWrapper,
+.fileOptionsAction {
   align-items: flex-start;
-}
+} 
 
-
-.fileOptionsActionWrapper > .fileOptionsAction,
-.fileOptionsActionWrapper > .fileOptionsAction {
+.fileOptionsAction,
+.fileOptionsActionWrapper ::ng-deep * button,
+.fileOptionsActionWrapper ::ng-deep span:not(.reactionsDisplaySpan span) {
   cursor: pointer;
   display: flex;
   justify-content: center;

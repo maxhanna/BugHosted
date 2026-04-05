@@ -1072,6 +1072,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.showShareUserList = true;
     }, 100);
   }
+ 
+  shareFileCallback = () => {
+    if (this.optionsFile) {
+      this.shareFileInitiate(this.optionsFile);
+    }
+  }
   closeShareUserList(toggleOverlay = true) {
     this.showShareUserList = false;
     this.selectedSharedFile = undefined; 
