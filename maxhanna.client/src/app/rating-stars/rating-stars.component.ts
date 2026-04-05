@@ -61,24 +61,27 @@ export class RatingStarsComponent {
      */
   async openRatingsPanel(file?: FileEntry | MetaData): Promise<void> {
     if (!file || this.isRatingsPanelOpen) return;
-    this.ratingFile = file;
-    this.isRatingsPanelOpen = true;
-    const parent = this.inputtedParentRef;
-    if (parent) {
-      parent.showOverlay();
-    }
-    if (file && file.id && !file.ratings) {
-      try {
-        const ratings = this.componentType === 'file'
-          ? await this.ratingsService.getRatingsByFile(file.id) as Rating[] | undefined
-          : await this.ratingsService.getRatingsBySearch(file.id) as Rating[] | undefined;
-        this.ratingFile.ratings = Array.isArray(ratings) ? ratings : [];
-      } catch (e) {
-        if (parent) {
-          parent.showNotification('Failed to fetch ratings.');
+    this.inputtedParentRef.closeOverlay();
+    setTimeout(async () => {
+      this.ratingFile = file;
+      this.isRatingsPanelOpen = true;
+      const parent = this.inputtedParentRef;
+      if (parent) {
+        parent.showOverlay();
+      }
+      if (file && file.id && !file.ratings) {
+        try {
+          const ratings = this.componentType === 'file'
+            ? await this.ratingsService.getRatingsByFile(file.id) as Rating[] | undefined
+            : await this.ratingsService.getRatingsBySearch(file.id) as Rating[] | undefined;
+          this.ratingFile.ratings = Array.isArray(ratings) ? ratings : [];
+        } catch (e) {
+          if (parent) {
+            parent.showNotification('Failed to fetch ratings.');
+          }
         }
       }
-    }
+    }, 100);
   }
 
   closeRatingsPanel(): void {
