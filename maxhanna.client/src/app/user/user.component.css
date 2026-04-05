@@ -296,7 +296,9 @@
   justify-content: center;
   text-shadow: 1px 1px var(--main-link-color);
 }
-
+.profileLink:hover {
+  box-shadow: 1px 1px var(--main-highlight-color);
+}
 @supports (background: rgb(from red r g b)) {
   .profileLink {
     background: rgb(from var(--main-highlight-color) r g b / 25%);

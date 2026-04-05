@@ -55,7 +55,7 @@
           <div class="seperatedUserHeader blackFontColor linkHighlights"
             *ngIf="weatherLocation?.city || user?.about?.currency">
             <div class="xxSmallFont" title="Location">Location: </div>
-            <div>{{weatherLocation?.city}} {{ (weatherLocation?.country ?? user?.about?.currency ?? '') | currencyFlag
+            <div class="smallFont">{{weatherLocation?.city}} {{ (weatherLocation?.country ?? user?.about?.currency ?? '') | currencyFlag
               }}</div>
           </div>
           <div class="seperatedUserHeader blackFontColor linkHighlights">
@@ -68,7 +68,7 @@
             <div class="xxSmallFont" title="Last Seen">Last Seen: </div>
             <div>
               <span *ngIf="user && user.lastSeen && isUserOnline(user.lastSeen | timeSince:'minute':true)"
-                class="cursorPointer" [title]="user.lastSeen | timeSince:'minute':true">
+                class="cursorPointer smallFont" [title]="user.lastSeen | timeSince:'minute':true">
                 <span class="onlineButton" title="Online"></span> Online
               </span>
               <span *ngIf="user && user.lastSeen && !isUserOnline(user.lastSeen | timeSince:'minute':true)"
