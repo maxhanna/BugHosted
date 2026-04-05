@@ -1064,17 +1064,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (this.shareLocked) { return; }
     this.selectedSharedFile = file;
     this.closeOptionsPanel();
-    setTimeout(() => {
-      const parent = this.inputtedParentRef ?? this.parentRef;
-      parent?.showOverlay();
+    setTimeout(() => { 
+      this.parentRef?.showOverlay();
       this.showShareUserList = true;
     }, 100);
   }
   closeShareUserList() {
     this.showShareUserList = false;
-    this.selectedSharedFile = undefined;
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.closeOverlay();
+    this.selectedSharedFile = undefined; 
+    this.parentRef?.closeOverlay();
   }
   emittedNotification(event: string) {
     this.notifyUser(event);
@@ -1084,28 +1082,21 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.closeOptionsPanel();
       console.log('Options panel already open, closing it instead of opening a new one.');
       return;
-    }
-    const parent = this.inputtedParentRef ?? this.parentRef;
+    } 
     this.optionsFile = file;
     this.shareLocked = true;
     setTimeout(() => {
       this.shareLocked = false;
-    }, 500);
-    // If we're rendering the metadata inline on desktop, don't show the global overlay.
-    if (parent) {
-      this.isOptionsPanelOpen = true;
-      parent.showOverlay();
-    }
+    }, 500); 
+    this.isOptionsPanelOpen = true;
+    this.parentRef?.showOverlay();
   }
   closeOptionsPanel(resetFile = true) {
     this.isOptionsPanelOpen = false;
     if (resetFile) {
       this.optionsFile = undefined;
-    }
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent) {
-      parent.closeOverlay();
-    }
+    }  
+    this.parentRef?.closeOverlay(); 
   }
 
   // Clear persisted system override for a file and update UI
