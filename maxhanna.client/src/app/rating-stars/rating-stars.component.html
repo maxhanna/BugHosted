@@ -25,7 +25,7 @@
 </span>
 
 <!-- Ratings Popup Panel -->
-<div class="popupPanel" *ngIf="isRatingsPanelOpen && ratingFile">
+<div class="popupPanel ratingPopupPanel" *ngIf="isRatingsPanelOpen && ratingFile">
   <div class="popupPanelTitle">
     ⭐ Ratings for {{ ratingsTitle }}
   </div>
@@ -46,7 +46,10 @@
         <span style="margin-left:auto; font-size:0.9em;">
           <span *ngFor="let star of stars; let i = index"
             class="cursorPointer"
-            [style.color]="star <= r.value ? 'gold' : '#555'"  
+            [style.color]="star <= r.value ? 'gold' : '#555'"
+            [title]="isUserRating(r) ? 'Click to change your rating' : 'Rated ' + r.value + ' star' + (r.value > 1 ? 's' : '')"
+            (click)="isUserRating(r) ? rateFile(ratingFile, star) : null"
+            [style.cursor]="isUserRating(r) ? 'pointer' : 'default'"
           >
             &#9733;
           </span>

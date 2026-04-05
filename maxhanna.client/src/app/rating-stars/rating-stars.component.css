@@ -13,3 +13,7 @@
   justify-content: space-between; 
   margin-bottom:4px;
 }
+
+.ratingPopupPanel {
+  min-width: 300px;
+}

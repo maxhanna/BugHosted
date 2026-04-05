@@ -39,6 +39,10 @@ export class RatingStarsComponent {
       : (this.ratingFile as MetaData).title ?? (this.ratingFile as MetaData).url ?? "";
   }
 
+  isUserRating(r: Rating): boolean {
+    return r?.user?.id === this.currentUser.id;
+  }
+
   onRate(star: number) {
     console.log('onRate called with star:', star, 'current rating:', this.rating);
     if (!this.readOnly && this.ratingFile && this.isCurrentUser) {
