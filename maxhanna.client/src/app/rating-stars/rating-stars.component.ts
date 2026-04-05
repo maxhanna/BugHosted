@@ -32,10 +32,10 @@ export class RatingStarsComponent {
   }
 
   get ratingsTitle(): string {
-    return this.ratingFile instanceof FileEntry 
+    return this.ratingFile instanceof FileEntry
       ? (this.ratingFile.givenFileName ?? this.ratingFile.fileName ?? "")
-      : this.ratingFile instanceof MetaData 
-        ? this.ratingFile.title ?? "" 
+      : this.ratingFile instanceof MetaData
+        ? this.ratingFile.title ?? ""
         : "";
   }
 
@@ -80,16 +80,18 @@ export class RatingStarsComponent {
   }
 
   closeRatingsPanel(): void {
-    this.isRatingsPanelOpen = false;
-    //this.ratingFile = undefined;
-    const parent = this.inputtedParentRef;
-    if (parent) {
-      parent.closeOverlay();
-    }
-  }  
-  
+    setTimeout(() => {
+      this.isRatingsPanelOpen = false;
+      //this.ratingFile = undefined;
+      const parent = this.inputtedParentRef;
+      if (parent) {
+        parent.closeOverlay();
+      }
+    }, 50)
+  }
+
   async rateFile(file: FileEntry | MetaData, star: number) {
-    const user = this.currentUser;  
+    const user = this.currentUser;
     try {
       await this.ratingsService.submitRating(user, star, file.id);
       // If this is the ratings panel file, recalculate average from ratings array
@@ -128,6 +130,6 @@ export class RatingStarsComponent {
     } catch (ex) {
       console.error(ex);
       this.inputtedParentRef?.showNotification('Failed to submit rating.');
-    } 
+    }
   }
 }
