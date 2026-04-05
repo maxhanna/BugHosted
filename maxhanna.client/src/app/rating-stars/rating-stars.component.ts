@@ -25,6 +25,7 @@ export class RatingStarsComponent {
   hoveredIndex: number | null = null;
   isRatingsPanelOpen = false;
   tmpRatings?: Rating[] | undefined;
+  tmpFileId?: number;
 
   get isCurrentUser() {
     return this.currentUser.id === this.rating?.user?.id;
@@ -64,8 +65,9 @@ export class RatingStarsComponent {
 
   async openRatingsPanel(): Promise<void> {
     this.tmpRatings = this.ratingFile?.ratings;
+    this.tmpFileId = this.ratingFile?.id;
     console.log('openRatingsPanel called with current ratingFile:', this.ratingFile, 'isRatingsPanelOpen:', this.isRatingsPanelOpen);
-    if (!this.ratingFile || this.isRatingsPanelOpen) {
+    if (!this.ratingFile || !this.tmpFileId || this.isRatingsPanelOpen) {
       console.warn('No file provided or ratings panel already open, not opening a new panel.');
       return;
     }
@@ -76,15 +78,13 @@ export class RatingStarsComponent {
     this.panelOpened.emit();
 
     setTimeout(async () => { 
-      const file = this.ratingFile;
-      const fileId = file?.id ?? 0;
       this.inputtedParentRef?.showOverlay();
       this.isRatingsPanelOpen = true;
-      if (fileId && !this.tmpRatings) {
+      if (this.tmpFileId && !this.tmpRatings) {
         try {
           const ratings = this.componentType === 'file'
-            ? await this.ratingsService.getRatingsByFile(fileId) as Rating[] | undefined
-            : await this.ratingsService.getRatingsBySearch(fileId) as Rating[] | undefined;
+            ? await this.ratingsService.getRatingsByFile(this.tmpFileId) as Rating[] | undefined
+            : await this.ratingsService.getRatingsBySearch(this.tmpFileId) as Rating[] | undefined;
           if (this.ratingFile) {
             this.ratingFile.ratings = Array.isArray(ratings) ? ratings : [];
           }
