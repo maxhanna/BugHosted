@@ -163,10 +163,10 @@
     </select>
     <div class="emuMenuButtonGrid" style="margin-top:12px;">
       <button (click)="confirmSystemSelection()" class="enhancedButton squareButton" title="Continue">
-        ▶️<div class="emuMenuButtonLabel">Continue</div>
+        ▶️<div class="emuMenuButtonLabel inlineButton">Continue</div>
       </button>
       <button (click)="cancelSystemSelection()" class="closeButton enhancedButton squareButton" id="closeOverlay" title="Cancel">
-        ❌<div class="emuMenuButtonLabel">Cancel</div>
+        ❌<div class="emuMenuButtonLabel inlineButton">Cancel</div>
       </button>
     </div>
   </div>
@@ -179,15 +179,15 @@
     <p>{{ saveConfirmMessage || 'Do you want to save your progress before continuing?' }}</p>
     <div class="saveStateButtons emuMenuButtonGrid">
       <button (click)="handleSaveConfirm('save')" class="enhancedButton squareButton" title="Save">
-        💾<div class="emuMenuButtonLabel">Save</div>
+        💾<div class="emuMenuButtonLabel inlineButton">Save</div>
       </button>
       <button (click)="handleSaveConfirm('dontSave')" 
         class="enhancedButton squareButton"
         *ngIf="saveConfirmType === 'saveAndExit' || saveConfirmType === 'saveAndReset'" title="Don't Save">
-        🚫<div class="emuMenuButtonLabel">Don't Save</div>
+        🚫<div class="emuMenuButtonLabel inlineButton">Don't Save</div>
       </button>
       <button (click)="handleSaveConfirm('cancel')" class="closeButton enhancedButton squareButton" id="closeOverlay" title="Cancel">
-        ❌<div class="emuMenuButtonLabel">Cancel</div>
+        ❌<div class="emuMenuButtonLabel inlineButton">Cancel</div>
       </button>
     </div>
   </div>
@@ -205,10 +205,10 @@
     </label>
     <div class="emuMenuButtonGrid" style="margin-top:12px;">
       <button (click)="performReset()" class="enhancedButton squareButton" title="Confirm Reset">
-        ♻️<div class="emuMenuButtonLabel">Reset</div>
+        ♻️<div class="emuMenuButtonLabel inlineButton">Reset</div>
       </button>
       <button class="closeButton enhancedButton squareButton" id="closeOverlay" (click)="cancelReset()" title="Cancel">
-        ❌<div class="emuMenuButtonLabel">Cancel</div>
+        ❌<div class="emuMenuButtonLabel inlineButton">Cancel</div>
       </button>
     </div>
   </div>
