@@ -79,12 +79,12 @@
                 [rating]="{ value: metadata.averageRating ?? 0, user: currentUser }" 
                 [inputtedParentRef]="parentRef"
                 [ratingFile]="metadata"
-                (rate)="rateSearchResult(metadata, $event)">
+                (rated)="rateSearchResult(metadata, $event)">
               </app-rating-stars>
-              <span *ngIf="metadata.ratingCount">
+              <!-- <span *ngIf="metadata.ratingCount">
                 {{metadata.averageRating | number:'1.1-1'}} ({{metadata.ratingCount}} rating{{metadata.ratingCount > 1 ?
                 's' : ''}})
-              </span>
+              </span> -->
             </div>
             <div *ngIf="metadata.description && !onlySearch" class="descriptionDiv descriptClass"
               [innerHTML]="getSanitizedDescription(metadata.description)"></div>
