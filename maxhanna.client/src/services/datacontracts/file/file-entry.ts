@@ -5,6 +5,7 @@ import { FileComment } from "./file-comment";
 
 import { RomMetadata } from "./rom-metadata";
 import { FileNote } from "./file-note";
+import { Rating } from "../../ratings.service";
 
 export class FileEntry {
   id: number;
@@ -31,7 +32,7 @@ export class FileEntry {
   isFavourited?: boolean;
   averageRating?: number;
   ratingCount?: number;
-  // Indicates the upload attempt resulted in an existing server-side file match
+  ratings?: Rating[];
   isDuplicate?: boolean;
   isHidden?: boolean;
   notes?: Array<FileNote>;

@@ -11,7 +11,7 @@ export interface Rating {
 
 @Injectable({ providedIn: 'root' })
 export class RatingsService {
-  async getRatingsByFile(fileId: number) {
+  async getRatingsByFile(fileId: number): Promise<Rating[] | undefined> {
     try {
       const response = await fetch('/ratings/getbyfile', {
         method: 'POST',
@@ -25,7 +25,8 @@ export class RatingsService {
       }
       return await response.json();
     } catch (error) {
-      return (error as Error).message;
+      console.error('Failed to fetch ratings by file', error);
+      return undefined;
     }
   }
 

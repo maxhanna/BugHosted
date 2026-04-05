@@ -40,3 +40,7 @@ If this skill file exceeds 15,000 tokens, summarize and rewrite it to retain onl
 ## Commit/Change Documentation
 - Summarize the purpose of each change in a comment or commit message.
 - For multi-file changes, list affected files and a brief description of the change.
+
+# Placement Consistency
+- Place new loose variables (e.g., state flags, data holders) with other loose variables, not among @Input/@Output or Angular decorators.
+- Place new methods at the bottom of the class, after all existing methods, to maintain logical order and readability.

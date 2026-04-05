@@ -125,6 +125,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   isShowingFileNotes = false;
   fileNotes: FileNote[] = [];
   notesFile: FileEntry | undefined;
+  isRatingsPanelOpen: boolean = false;
+  ratingsPanelFile: FileEntry | undefined;
   isSystemSelectPanelOpen: boolean = false;
   systemCandidates: Array<{ label: string; core?: string }> = [];
   selectedSystemCore: string | null = null;
@@ -2387,7 +2389,39 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.isSystemSelectPanelOpen = false;
     this.systemSelectFile = undefined;
     this.parentRef?.closeOverlay();
-  }
+  } 
+  
+  /**
+     * Opens the ratings panel for a given file and fetches ratings.
+     * @param file The file entry to show ratings for.
+     */
+    async openRatingsPanel(file: FileEntry): Promise<void> {
+      this.ratingsPanelFile = file;
+      this.isRatingsPanelOpen = true;
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      if (parent) {
+        parent.showOverlay();
+      } 
+      if (file && file.id && !file.ratings) {
+        try {
+          const ratings = await this.ratingsService.getRatingsByFile(file.id);
+          this.ratingsPanelFile.ratings = Array.isArray(ratings) ? ratings : []; 
+        } catch (e) { 
+          if (parent) {
+            parent.showNotification('Failed to fetch ratings.');
+          }
+        }
+      }
+    }
+ 
+    closeRatingsPanel(): void {
+      this.isRatingsPanelOpen = false;
+      this.ratingsPanelFile = undefined;
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      if (parent) {
+        parent.closeOverlay();
+      }
+    }
 
   openImagePreview(url?: string, ev?: Event) {
     if (ev) ev.preventDefault();
