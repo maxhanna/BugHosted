@@ -24,6 +24,7 @@ export class RatingStarsComponent {
   stars = [1, 2, 3, 4, 5];
   hoveredIndex: number | null = null;
   isRatingsPanelOpen = false;
+  tmpRatingFile?: FileEntry | MetaData | undefined;
 
   get isCurrentUser() {
     return this.currentUser.id === this.rating?.user?.id;
@@ -62,6 +63,7 @@ export class RatingStarsComponent {
   } 
 
   async openRatingsPanel(): Promise<void> {
+    this.tmpRatingFile = this.ratingFile;
     console.log('openRatingsPanel called with current ratingFile:', this.ratingFile, 'isRatingsPanelOpen:', this.isRatingsPanelOpen);
     if (!this.ratingFile || this.isRatingsPanelOpen) {
       console.warn('No file provided or ratings panel already open, not opening a new panel.');
@@ -74,7 +76,7 @@ export class RatingStarsComponent {
     this.panelOpened.emit();
 
     setTimeout(async () => { 
-      const file = this.ratingFile;
+      const file = this.tmpRatingFile;
       const fileId = file?.id ?? 0;
       this.inputtedParentRef?.showOverlay();
       this.isRatingsPanelOpen = true;
