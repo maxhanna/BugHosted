@@ -634,6 +634,7 @@ fieldset {
   padding-left: 45px;
   padding-right: 45px;
   margin-bottom: 10px;
+  white-space: break-spaces;
 }
 
 .popupPanelTitle {

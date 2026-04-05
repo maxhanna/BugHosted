@@ -7,7 +7,7 @@
 .ratingsListContainer {
   width: 100%;
   max-height: 50vh;
-  overflow: auto;
+  overflow-y: auto;
   display:flex; 
   align-items:center; 
   justify-content: space-between; 
@@ -15,5 +15,8 @@
 }
 
 .ratingPopupPanel {
-  min-width: 300px;
+  min-width: 300px; 
+}
+.ratingPopupPanel > .popupPanelTitle:first-of-type {
+  max-width: calc(100% - 90px); 
 }
