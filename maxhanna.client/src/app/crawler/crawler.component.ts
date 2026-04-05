@@ -425,6 +425,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     return this.parentRef?.user ?? new User(0, "Anonymous");
   }
   async rateSearchResult(metadata: MetaData, star: any) {
+    console.log('rateSearchResult called with metadata:', metadata, 'star:', star);
     if (!metadata.id) return alert('Cannot rate this result.');
     const val = +star;
     try {

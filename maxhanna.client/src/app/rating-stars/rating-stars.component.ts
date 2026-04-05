@@ -23,7 +23,7 @@ export class RatingStarsComponent {
   isRatingsPanelOpen = false;
 
   get isCurrentUser() {
-    return this.currentUser?.id === this.rating?.user?.id;
+    return this.currentUser.id === this.rating?.user?.id;
   }
 
   get currentUser() {
@@ -39,6 +39,7 @@ export class RatingStarsComponent {
   }
 
   onRate(star: number) {
+    console.log('onRate called with star:', star, 'current rating:', this.rating);
     if (!this.readOnly && this.isCurrentUser) {
       this.rated.emit(star);
     }
