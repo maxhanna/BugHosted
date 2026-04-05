@@ -54,49 +54,49 @@
           </div>
           <div class="seperatedUserHeader blackFontColor linkHighlights"
             *ngIf="weatherLocation?.city || user?.about?.currency">
-            <div class="xxSmallFont" title="Location">Location: </div>
-            <div class="smallFont">{{weatherLocation?.city}} {{ (weatherLocation?.country ?? user?.about?.currency ?? '') | currencyFlag
+            <div class="smallFont" title="Location">Location: </div>
+            <div class="">{{weatherLocation?.city}} {{ (weatherLocation?.country ?? user?.about?.currency ?? '') | currencyFlag
               }}</div>
           </div>
           <div class="seperatedUserHeader blackFontColor linkHighlights">
-            <div class="xxSmallFont" title="Joined">Joined: </div>
-            <div [title]="(user && user.created ? (user.created | date: 'y/MM/d') : 'Unknown')" class="smallFont">
+            <div class="smallFont" title="Joined">Joined: </div>
+            <div [title]="(user && user.created ? (user.created | date: 'y/MM/d') : 'Unknown')" class="">
               {{user && user.created ? getUtcTimeSince(user.created, 'day') : '0 days'}}
             </div>
           </div>
           <div class="seperatedUserHeader blackFontColor linkHighlights">
-            <div class="xxSmallFont" title="Last Seen">Last Seen: </div>
+            <div class="smallFont" title="Last Seen">Last Seen: </div>
             <div>
               <span *ngIf="user && user.lastSeen && isUserOnline(user.lastSeen | timeSince:'minute':true)"
-                class="cursorPointer smallFont" [title]="user.lastSeen | timeSince:'minute':true">
+                class="cursorPointer " [title]="user.lastSeen | timeSince:'minute':true">
                 <span class="onlineButton" title="Online"></span> Online
               </span>
               <span *ngIf="user && user.lastSeen && !isUserOnline(user.lastSeen | timeSince:'minute':true)"
-                class="smallFont" [title]="user.lastSeen">
+                class="" [title]="user.lastSeen">
                 {{ user.lastSeen | timeSince:'minute':true }}
               </span>
               <span *ngIf="!user?.lastSeen">
-                Unknown <span class="xxSmallFont">(0 days)</span>
+                Unknown <span class="smallFont">(0 days)</span>
               </span>
             </div>
           </div>
           <!-- Relationship row: show friend/following status under Last Seen -->
           <div class="seperatedUserHeader blackFontColor linkHighlights"
             *ngIf="user && parentRef?.user?.id != null && user.id != parentRef?.user?.id">
-            <div class="xxSmallFont" title="Relationship">Relationship: </div>
+            <div class="smallFont" title="Relationship">Relationship: </div>
             <div>
-              <span *ngIf="friendsIncludeMe()" class="smallFont">Friend</span>
-              <span *ngIf="!friendsIncludeMe() && isFollowingUser()" class="smallFont">Following</span>
-              <span *ngIf="!friendsIncludeMe() && !isFollowingUser() && isBeingFollowedByUser" class="smallFont">Follows
+              <span *ngIf="friendsIncludeMe()" class="">Friend</span>
+              <span *ngIf="!friendsIncludeMe() && isFollowingUser()" class="">Following</span>
+              <span *ngIf="!friendsIncludeMe() && !isFollowingUser() && isBeingFollowedByUser" class="">Follows
                 you</span>
-              <span *ngIf="!friendsIncludeMe() && !isFollowingUser() && !isBeingFollowedByUser" class="smallFont">No
+              <span *ngIf="!friendsIncludeMe() && !isFollowingUser() && !isBeingFollowedByUser" class="">No
                 relationship</span>
             </div>
           </div>
           <div class="seperatedUserHeader blackFontColor linkHighlights"
             *ngIf="(userLoginStreakCurrent || userLoginStreakLongest) && !loginOnly">
-            <div class="xxSmallFont" title="Login Streak">Streak: </div>
-            <div class="smallFont loginStreakWrapper">
+            <div class="smallFont" title="Login Streak">Streak: </div>
+            <div class=" loginStreakWrapper">
               <div *ngIf="userLoginStreakCurrent">Current: {{userLoginStreakCurrent}} day{{userLoginStreakCurrent > 1 ?
                 's' : ''}}</div>
               <div *ngIf="userLoginStreakLongest">Best: {{userLoginStreakLongest}} day{{userLoginStreakLongest > 1 ?
