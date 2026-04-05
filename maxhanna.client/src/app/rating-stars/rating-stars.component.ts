@@ -66,7 +66,7 @@ export class RatingStarsComponent {
   async openRatingsPanel(): Promise<void> {
     this.tmpFileId = this.ratingFile?.id;
     console.log('openRatingsPanel called with current ratingFile:', this.ratingFile, 'isRatingsPanelOpen:', this.isRatingsPanelOpen);
-    if (!this.ratingFile || !this.tmpFileId || this.isRatingsPanelOpen) {
+    if (!this.tmpFileId || this.isRatingsPanelOpen) {
       console.warn('No file provided or ratings panel already open, not opening a new panel.');
       return;
     }
