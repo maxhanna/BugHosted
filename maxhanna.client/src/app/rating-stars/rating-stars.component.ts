@@ -47,7 +47,7 @@ export class RatingStarsComponent {
   onRate(star: number) {
     console.log('onRate called with star:', star, 'current rating:', this.rating);
     if (!this.readOnly && this.ratingFile && this.isCurrentUser) {
-      this.rateFile(this.ratingFile, star);
+      this.rateFile(star);
     }
   }
 
