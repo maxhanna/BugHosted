@@ -141,7 +141,7 @@
                     [class.fileOptionsAction]="!starsComponent.isRatingsPanelOpen"
                     [class.fileOptionsChatBubble]="!starsComponent.isRatingsPanelOpen"
                     [class.coloredBgButton]="!starsComponent.isRatingsPanelOpen" 
-                    (click)="starsComponent.isRatingsPanelOpen ? $event.preventDefault() : starsComponent.openRatingsPanel(file);"> 
+                    (click)="starsComponent.isRatingsPanelOpen ? $event.preventDefault() : starsComponent.openRatingsPanel();"> 
                     <app-rating-stars
                       #starsComponent
                       [rating]="{ value: file.averageRating ?? 0, user: currentUser }" 
