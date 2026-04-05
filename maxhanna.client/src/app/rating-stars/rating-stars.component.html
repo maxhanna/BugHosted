@@ -48,7 +48,7 @@
             class="cursorPointer"
             [style.color]="star <= r.value ? 'gold' : '#555'"
             [title]="isUserRating(r) ? 'Click to change your rating' : 'Rated ' + r.value + ' star' + (r.value > 1 ? 's' : '')"
-            (click)="isUserRating(r) ? rateFile(ratingFile, star) : null"
+            (click)="isUserRating(r) ? rateFile(star) : null"
             [style.cursor]="isUserRating(r) ? 'pointer' : 'default'"
           >
             &#9733;

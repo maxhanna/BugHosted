@@ -94,18 +94,22 @@ export class RatingStarsComponent {
     }, 50)
   }
 
-  async rateFile(file: FileEntry | MetaData, star: number) {
-    console.log('rateFile called with file:', file, 'star:', star);
+  async rateFile(star: number) {
+    if (!this.ratingFile) {
+      console.error('No rating file available to rate.');
+      return;
+    }
+    console.log('rateFile called with file:', this.ratingFile, 'star:', star);
     const user = this.currentUser;
     try {
       await this.ratingsService.submitRating(
         user, 
         star, 
-        this.componentType === 'file' ? file.id : undefined, 
-        this.componentType != 'file' ? file.id : undefined
+        this.componentType === 'file' ? this.ratingFile?.id : undefined, 
+        this.componentType != 'file' ? this.ratingFile?.id : undefined
       );
       // If this is the ratings panel file, recalculate average from ratings array
-      if (this.ratingFile && file.id === this.ratingFile.id && Array.isArray(this.ratingFile.ratings)) {
+      if (this.ratingFile && this.ratingFile.id === this.ratingFile.id && Array.isArray(this.ratingFile.ratings)) {
         // Find or update the user's rating in the array
         const userId = user.id;
         let found = false;
@@ -125,16 +129,16 @@ export class RatingStarsComponent {
           if (r.user?.id) uniqueRatings.set(r.user.id, r);
         }
         const ratingsArr = Array.from(uniqueRatings.values());
-        file.ratingCount = ratingsArr.length;
-        file.averageRating = ratingsArr.length
+        this.ratingFile.ratingCount = ratingsArr.length;
+        this.ratingFile.averageRating = ratingsArr.length
           ? ratingsArr.reduce((sum, r) => sum + (r.value ?? 0), 0) / ratingsArr.length
           : star;
       } else {
         // Fallback: just increment as before
-        file.averageRating = file.ratingCount
-          ? ((file.averageRating ?? 0) * file.ratingCount + star) / (file.ratingCount + 1)
+        this.ratingFile.averageRating = this.ratingFile.ratingCount
+          ? ((this.ratingFile.averageRating ?? 0) * this.ratingFile.ratingCount + star) / (this.ratingFile.ratingCount + 1)
           : star;
-        file.ratingCount = (file.ratingCount ?? 0) + 1;
+        this.ratingFile.ratingCount = (this.ratingFile.ratingCount ?? 0) + 1;
       }
       this.inputtedParentRef?.showNotification(`Rated ${star} star${star > 1 ? 's' : ''}!`);
     } catch (ex) {
