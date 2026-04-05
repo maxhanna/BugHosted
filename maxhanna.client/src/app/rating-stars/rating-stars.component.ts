@@ -17,6 +17,7 @@ export class RatingStarsComponent {
   @Input() readOnly = false;
   @Input() ratingFile?: FileEntry | MetaData;
   @Input() showRatingValueOnly = false;
+  @Input() componentType: 'file' | 'search' = 'file';
   @Output() rated = new EventEmitter<number>();
 
   stars = [1, 2, 3, 4, 5];
@@ -85,7 +86,7 @@ export class RatingStarsComponent {
       //this.ratingFile = undefined;
       const parent = this.inputtedParentRef;
       if (parent) {
-        parent.closeOverlay();
+        parent.closeOverlay(false);
       }
     }, 50)
   }
@@ -93,9 +94,13 @@ export class RatingStarsComponent {
   async rateFile(file: FileEntry | MetaData, star: number) {
     console.log('rateFile called with file:', file, 'star:', star);
     const user = this.currentUser;
-    const isFileRating = file instanceof FileEntry;
     try {
-      await this.ratingsService.submitRating(user, star, isFileRating ? file.id : undefined, !isFileRating ? file.id : undefined);
+      await this.ratingsService.submitRating(
+        user, 
+        star, 
+        this.componentType === 'file' ? file.id : undefined, 
+        this.componentType != 'file' ? file.id : undefined
+      );
       // If this is the ratings panel file, recalculate average from ratings array
       if (this.ratingFile && file.id === this.ratingFile.id && Array.isArray(this.ratingFile.ratings)) {
         // Find or update the user's rating in the array

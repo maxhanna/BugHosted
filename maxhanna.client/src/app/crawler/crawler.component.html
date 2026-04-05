@@ -78,6 +78,7 @@
               <app-rating-stars
                 [rating]="{ value: metadata.averageRating ?? 0, user: currentUser }" 
                 [inputtedParentRef]="parentRef"
+                [componentType]="'search'"
                 [ratingFile]="metadata">
               </app-rating-stars>
             </div>

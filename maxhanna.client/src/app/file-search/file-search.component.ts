@@ -1061,7 +1061,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.closeOptionsPanel();
   }
   shareFileInitiate(file: FileEntry) {
-    if (this.shareLocked) { return; }
+    if (this.shareLocked) {
+      this.closeShareUserList(false);
+      return; 
+    }
     this.selectedSharedFile = file;
     this.closeOptionsPanel();
     setTimeout(() => { 
@@ -1069,10 +1072,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.showShareUserList = true;
     }, 100);
   }
-  closeShareUserList() {
+  closeShareUserList(toggleOverlay = true) {
     this.showShareUserList = false;
     this.selectedSharedFile = undefined; 
-    this.parentRef?.closeOverlay();
+    if (toggleOverlay) {
+      this.parentRef?.closeOverlay();
+    }
   }
   emittedNotification(event: string) {
     this.notifyUser(event);
@@ -1087,7 +1092,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.shareLocked = true;
     setTimeout(() => {
       this.shareLocked = false;
-    }, 500); 
+    }, 1500); 
     this.isOptionsPanelOpen = true;
     this.parentRef?.showOverlay();
   }
