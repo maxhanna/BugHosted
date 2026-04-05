@@ -1080,6 +1080,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   showOptionsPanel(file: FileEntry) {
     if (this.isOptionsPanelOpen) {
       this.closeOptionsPanel();
+      console.log('Options panel already open, closing it instead of opening a new one.');
       return;
     }
     const parent = this.inputtedParentRef ?? this.parentRef;
