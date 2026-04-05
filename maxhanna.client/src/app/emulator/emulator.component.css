@@ -108,16 +108,20 @@
 
 .emuMenuButton:hover,
 .enhancedButton:hover,
-:host ::ng-deep .emuMenuButtonContainer button:hover {
-  background-color: var(--main-font-color);
-  color: var(--component-background-color);
-  box-shadow: 1px 1px 5px 1px var(--main-font-color);
+:host ::ng-deep .emuMenuButtonContainer button:hover { 
+  color: var(--main-link-color);
+  box-shadow: 1px 1px 5px 1px var(--main-link-color);
 }
 
 .emuMenuButton:active,
 .enhancedButton:active,
 :host ::ng-deep .emuMenuButtonContainer button:active {
   animation: glow 1.5s infinite alternate;
+  opacity: 95%;
+}
+
+.emuMenuButtonLabel {
+  font-size: x-small;
 }
 
 #game {
