@@ -79,20 +79,20 @@
       <button *ngIf="romName" (click)="toggleFullScreen()" class="emuMenuButton squareButton" [disabled]="isLoading" title="Toggle Fullscreen Mode">
         ⛶<div class="emuMenuButtonLabel">Fullscreen</div>
       </button>
+      <button *ngIf="!onMobile() && romName" (click)="remapControls()" class="emuMenuButton squareButton" [disabled]="isLoading" title="Remap Controls">
+        🎛️<div class="emuMenuButtonLabel">Remap</div>
+      </button>
       <button *ngIf="romName" (click)="stopEmulator()" class="emuMenuButton squareButton" [disabled]="isLoading" title="Stop & Return to ROM Selection">
         ⏹️<div class="emuMenuButtonLabel">Stop</div>
-      </button>
-      <button (click)="isFaqOpen = !isFaqOpen" class="emuMenuButton squareButton" [disabled]="isLoading" title="Show FAQ">
-        ❓<div class="emuMenuButtonLabel">FAQ</div>
       </button>
       <button *ngIf="romName" (click)="resetGame()" class="emuMenuButton squareButton" [disabled]="isLoading" title="Reset Game">
         ♻️<div class="emuMenuButtonLabel">Reset</div>
       </button>
-      <button *ngIf="!onMobile() && romName" (click)="remapControls()" class="emuMenuButton squareButton" [disabled]="isLoading" title="Remap Controls">
-        🎛️<div class="emuMenuButtonLabel">Remap</div>
-      </button>
       <button *ngIf="romName" (click)="callEjsSave()" class="emuMenuButton squareButton" [disabled]="isLoading" title="Manually Save the Game">
         💽<div class="emuMenuButtonLabel">Save</div>
+      </button>
+      <button (click)="isFaqOpen = !isFaqOpen" class="emuMenuButton squareButton" [disabled]="isLoading" title="Show FAQ">
+        ❓<div class="emuMenuButtonLabel">FAQ</div>
       </button>
       <div *ngIf="!romName" class="emuMenuButton squareButton emuMenuUploadButton">
         <app-file-upload 
