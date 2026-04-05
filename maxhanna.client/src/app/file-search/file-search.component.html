@@ -945,17 +945,32 @@
   <div class="popupPanelTitle">
     ⭐ Ratings for {{ ratingsPanelFile.givenFileName ?? ratingsPanelFile.fileName }}
   </div>
-  <div style="max-height:50vh; overflow:auto; width:100%;">
+  <div style="max-height:50vh; width:100%;">
     <div *ngIf="ratingsPanelFile.ratings?.length === 0" style="padding:12px; text-align:center; opacity:0.7;">
       No ratings yet.
     </div>
     <div *ngFor="let r of ratingsPanelFile.ratings" class="optionsStatsDiv"
-      style="margin-bottom:8px; padding:8px; border-bottom:1px solid rgba(255,255,255,0.1);">
-      <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-        <app-user-tag [user]="r.user" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"
-          [displayHoverPicture]="true"></app-user-tag>
-        <span style="margin-left:auto; font-size:0.9em;">{{ r.rating }} ★</span>
-      </div> 
+      style="margin-bottom:8px; border-bottom:1px solid var(--main-border-color);">
+      <div style="display:flex; align-items:center; justify-content: space-between; margin-bottom:4px;">
+        <span>
+          <app-user-tag [user]="r.user" 
+            [inputtedParentRef]="parentRef ?? inputtedParentRef" 
+            [displayMiniTag]="true"
+            [displayHoverPicture]="true">
+          </app-user-tag>
+        </span>
+        <span style="margin-left:auto; font-size:0.9em;">
+          <span *ngFor="let star of [1,2,3,4,5]" class="cursorPointer"
+            [style.color]="star <= r.rating ? 'gold' : '#555'"
+            (click)="(parentRef?.user?.id === r.user?.id) ? rateFile(ratingsPanelFile, star) : null"
+            [title]="(parentRef?.user?.id === r.user?.id)
+              ? ('Set your rating to ' + star + ' star' + (star > 1 ? 's' : '')) 
+              : ('Rated ' + star + ' star' + (star > 1 ? 's' : ''))"
+            >
+            &#9733;
+          </span>
+        </span>
+      </div>
     </div>
   </div>
   <button id="closeOverlay" (click)="closeRatingsPanel()" class="closeButton" style="margin-top:8px;">Close</button>
