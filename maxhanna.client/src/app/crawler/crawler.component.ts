@@ -47,6 +47,9 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   @Output() closeSearchEvent = new EventEmitter<void>();
   constructor(private sanitizer: DomSanitizer, private crawlerService: CrawlerService, private favouriteService: FavouriteService, private ratingsService: RatingsService) { super(); }
   ngOnInit() {
+    if (this.inputtedParentRef) {
+      this.parentRef = this.inputtedParentRef;
+    }
     this.crawlerService.indexCount().then(res => { if (res) { this.indexCount = parseInt(res); } });
 
     if (!this.onlySearch) {

@@ -68,7 +68,7 @@ export class RatingStarsComponent {
       this.ratingFile = file;
       this.isRatingsPanelOpen = true;
       this.panelOpened.emit();
-      this.inputtedParentRef.showOverlay();
+      this.inputtedParentRef?.showOverlay();
       if (file && file.id && !file.ratings) {
         try {
           const ratings = this.componentType === 'file'
@@ -76,7 +76,7 @@ export class RatingStarsComponent {
             : await this.ratingsService.getRatingsBySearch(file.id) as Rating[] | undefined;
           this.ratingFile.ratings = Array.isArray(ratings) ? ratings : [];
         } catch (e) {
-          this.inputtedParentRef.showNotification('Failed to fetch ratings.');
+          this.inputtedParentRef?.showNotification('Failed to fetch ratings.');
           console.error('Error fetching ratings:', e);
         }
       }
