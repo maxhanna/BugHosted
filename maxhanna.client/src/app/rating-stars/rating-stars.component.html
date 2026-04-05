@@ -1,3 +1,4 @@
+<span *ngIf="showRatingValueOnly" (click)="openRatingsPanel(ratingFile)">⭐{{rating.value | number:'1.1-1'}}</span>
 <span *ngIf="!showRatingValueOnly">
   <span *ngFor="let star of stars; let i = index"
     class="cursorPointer"
@@ -14,7 +15,6 @@
     &#9733;
   </span>
 </span>
-<span *ngIf="showRatingValueOnly" (click)="openRatingsPanel(ratingFile)">⭐{{rating.value | number:'1.1-1'}}</span>
 
 <span *ngIf="ratingFile && ratingFile.ratingCount && !showRatingValueOnly"
   class="cursorPointer"

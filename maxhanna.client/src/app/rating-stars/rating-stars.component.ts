@@ -19,6 +19,7 @@ export class RatingStarsComponent {
   @Input() showRatingValueOnly = false;
   @Input() componentType: 'file' | 'search' = 'file';
   @Output() rated = new EventEmitter<number>();
+  @Output() panelOpened = new EventEmitter<void>();
 
   stars = [1, 2, 3, 4, 5];
   hoveredIndex: number | null = null;
@@ -65,20 +66,19 @@ export class RatingStarsComponent {
      */
   async openRatingsPanel(file?: FileEntry | MetaData): Promise<void> {
     if (!file || this.isRatingsPanelOpen) return;
-    this.inputtedParentRef.closeOverlay();
     setTimeout(async () => {
       this.ratingFile = file;
-      this.isRatingsPanelOpen = true;  
+      this.isRatingsPanelOpen = true;
+      this.panelOpened.emit();
       this.inputtedParentRef.showOverlay();
-      
       if (file && file.id && !file.ratings) {
         try {
           const ratings = this.componentType === 'file'
             ? await this.ratingsService.getRatingsByFile(file.id) as Rating[] | undefined
             : await this.ratingsService.getRatingsBySearch(file.id) as Rating[] | undefined;
           this.ratingFile.ratings = Array.isArray(ratings) ? ratings : [];
-        } catch (e) { 
-          this.inputtedParentRef.showNotification('Failed to fetch ratings.'); 
+        } catch (e) {
+          this.inputtedParentRef.showNotification('Failed to fetch ratings.');
           console.error('Error fetching ratings:', e);
         }
       }

@@ -517,7 +517,8 @@
         <app-rating-stars
           [rating]="{ value: optionsFile.averageRating ?? 0, user: currentUser }"
           [inputtedParentRef]="parentRef"
-          [ratingFile]="optionsFile">
+          [ratingFile]="optionsFile"
+          (panelOpened)="closeOptionsPanel()">
         </app-rating-stars>
       </div>
     </div>
