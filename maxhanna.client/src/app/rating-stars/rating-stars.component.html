@@ -13,7 +13,7 @@
   &#9733;
 </span>
 
-<span *ngIf="ratingFile"
+<span *ngIf="ratingFile && ratingFile.ratingCount"
   class="cursorPointer"
   (click)="openRatingsPanel(ratingFile)"
 >
