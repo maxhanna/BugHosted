@@ -60,7 +60,7 @@ export class RatingStarsComponent {
      * @param file The file entry to show ratings for.
      */
   async openRatingsPanel(file?: FileEntry | MetaData): Promise<void> {
-    if (!file) return;
+    if (!file || this.isRatingsPanelOpen) return;
     this.ratingFile = file;
     this.isRatingsPanelOpen = true;
     const parent = this.inputtedParentRef;
