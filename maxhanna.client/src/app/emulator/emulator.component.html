@@ -99,7 +99,7 @@
           [currentDirectory]="'Roms'" 
           [user]="parentRef?.user!"
           [inputtedParentRef]="parentRef" 
-          [uploadButtonText]="'⬆️'" 
+          [uploadButtonText]="'⬆️ Upload ROMs'" 
           [maxSelectedFiles]="100"
           [allowedFileTypes]="getAllowedRomFileTypesString()" 
           [displayOptionsAndTopicsButtons]="false"
@@ -107,8 +107,7 @@
           (userUploadEvent)="isFileUploaderExpanded = true;"
           (userCancelEvent)="isFileUploaderExpanded = false;" 
           (userUploadFinishedEvent)="finishFileUploading($event)">
-        </app-file-upload>
-        <div class="emuMenuButtonLabel">Upload</div>
+        </app-file-upload> 
       </div>
     </div>
   </div>
