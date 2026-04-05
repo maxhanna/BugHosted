@@ -75,10 +75,11 @@
               </button>
             </div>
             <div class="descriptionDiv authorClass">
-              <span *ngFor="let star of [1,2,3,4,5]" class="cursorPointer"
-                [style.color]="star <= (metadata.averageRating ?? 0) ? 'gold' : '#555'"
-                (click)="rateSearchResult(metadata, star)"
-                title="Rate {{star}} star{{star > 1 ? 's' : ''}}">&#9733;</span>
+              <app-rating-stars
+                [rating]="{ value: metadata.averageRating ?? 0, user: currentUser }" 
+                [currentUser]="currentUser"
+                (rate)="rateSearchResult(metadata, $event)">
+              </app-rating-stars>
               <span *ngIf="metadata.ratingCount">
                 {{metadata.averageRating | number:'1.1-1'}} ({{metadata.ratingCount}} rating{{metadata.ratingCount > 1 ?
                 's' : ''}})

@@ -84,9 +84,9 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
 
   fillSiteExample() {
     try {
-      this.urlInput.nativeElement.value = 'site:www.example.com keywords';
-      this.onUrlInput();
-      this.urlInput.nativeElement.focus();
+      this.keywordsInput.nativeElement.value = 'site:www.example.com keywords';
+      this.onKeywordsInput();
+      this.keywordsInput.nativeElement.focus();
     } catch (e) {
       console.error('Could not fill site example', e);
     }
@@ -421,21 +421,22 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       console.error('Failed to toggle favourite', err);
     }
   }
-  async rateSearchResult(metadata: MetaData, star: number) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    const userId = parent?.user?.id;
-    if (!parent?.user) return alert('You must be logged in to rate.');
+  get currentUser() {
+    return this.parentRef?.user ?? new User(0, "Anonymous");
+  }
+  async rateSearchResult(metadata: MetaData, star: any) {
     if (!metadata.id) return alert('Cannot rate this result.');
+    const val = +star;
     try {
-      await this.ratingsService.submitRating(parent.user, star, undefined, metadata.id);
+      await this.ratingsService.submitRating(this.currentUser, val, undefined, metadata.id);
       metadata.averageRating = metadata.ratingCount
-        ? ((metadata.averageRating ?? 0) * metadata.ratingCount + star) / (metadata.ratingCount + 1)
-        : star;
+        ? ((metadata.averageRating ?? 0) * metadata.ratingCount + val) / (metadata.ratingCount + 1)
+        : val;
       metadata.ratingCount = (metadata.ratingCount ?? 0) + 1;
-      parent?.showNotification(`Rated ${star} star${star > 1 ? 's' : ''}!`);
+      this.parentRef?.showNotification(`Rated ${val} star${val > 1 ? 's' : ''}!`);
     } catch (ex) {
       console.error(ex);
-      parent?.showNotification('Failed to submit rating.');
+      this.parentRef?.showNotification('Failed to submit rating.');
     }
   }
 
