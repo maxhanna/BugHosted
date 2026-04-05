@@ -109,7 +109,7 @@
 .emuMenuButton:hover,
 .enhancedButton:hover,
 :host ::ng-deep .emuMenuButtonContainer button:hover { 
-  color: var(--main-link-color);
+  text-shadow: 1px 1px 2px var(--main-link-color);
   box-shadow: 1px 1px 5px 1px var(--main-link-color);
 }
 
@@ -120,7 +120,8 @@
   opacity: 95%;
 }
 
-.emuMenuButtonLabel {
+.emuMenuButtonLabel,
+:host ::ng-deep .emuMenuButtonContainer .uploadButton {
   font-size: x-small;
 }
 
