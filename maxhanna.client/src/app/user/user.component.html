@@ -55,12 +55,12 @@
           <div class="seperatedUserHeader blackFontColor linkHighlights"
             *ngIf="weatherLocation?.city || user?.about?.currency">
             <div class="smallFont" title="Location">Location: </div>
-            <div class="">{{weatherLocation?.city}} {{ (weatherLocation?.country ?? user?.about?.currency ?? '') | currencyFlag
+            <div>{{weatherLocation?.city}} {{ (weatherLocation?.country ?? user?.about?.currency ?? '') | currencyFlag
               }}</div>
           </div>
           <div class="seperatedUserHeader blackFontColor linkHighlights">
             <div class="smallFont" title="Joined">Joined: </div>
-            <div [title]="(user && user.created ? (user.created | date: 'y/MM/d') : 'Unknown')" class="">
+            <div [title]="(user && user.created ? (user.created | date: 'y/MM/d') : 'Unknown')">
               {{user && user.created ? getUtcTimeSince(user.created, 'day') : '0 days'}}
             </div>
           </div>
@@ -72,7 +72,7 @@
                 <span class="onlineButton" title="Online"></span> Online
               </span>
               <span *ngIf="user && user.lastSeen && !isUserOnline(user.lastSeen | timeSince:'minute':true)"
-                class="" [title]="user.lastSeen">
+                [title]="user.lastSeen">
                 {{ user.lastSeen | timeSince:'minute':true }}
               </span>
               <span *ngIf="!user?.lastSeen">
@@ -85,11 +85,11 @@
             *ngIf="user && parentRef?.user?.id != null && user.id != parentRef?.user?.id">
             <div class="smallFont" title="Relationship">Relationship: </div>
             <div>
-              <span *ngIf="friendsIncludeMe()" class="">Friend</span>
-              <span *ngIf="!friendsIncludeMe() && isFollowingUser()" class="">Following</span>
-              <span *ngIf="!friendsIncludeMe() && !isFollowingUser() && isBeingFollowedByUser" class="">Follows
+              <span *ngIf="friendsIncludeMe()">Friend</span>
+              <span *ngIf="!friendsIncludeMe() && isFollowingUser()">Following</span>
+              <span *ngIf="!friendsIncludeMe() && !isFollowingUser() && isBeingFollowedByUser">Follows
                 you</span>
-              <span *ngIf="!friendsIncludeMe() && !isFollowingUser() && !isBeingFollowedByUser" class="">No
+              <span *ngIf="!friendsIncludeMe() && !isFollowingUser() && !isBeingFollowedByUser">No
                 relationship</span>
             </div>
           </div>
