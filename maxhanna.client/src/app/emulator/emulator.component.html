@@ -157,8 +157,11 @@
 <app-prompt
   [type]="'messageOnly'"
   [emoji]="'⚠️'"
-  [message]="'Please wait for the current save operation to finish before exiting.'"
+  [message]="savePromptMessage"
   [visible]="isSavePromptVisible"
+  [showSpecialAction]="true"
+  [specialActionButtonLabel]="specialActionButtonLabel"
+  [specialActionCallback]="specialActionCallback"
   (close)="isSavePromptVisible = false">
 </app-prompt>
 

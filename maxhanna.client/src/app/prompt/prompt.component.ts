@@ -12,5 +12,8 @@ export class PromptComponent {
   @Input() emoji: string = '';
   @Input() parentRef: any;
   @Input() visible: boolean = false;
+  @Input() showSpecialAction: boolean = false;
+  @Input() specialActionCallback: (() => void) | null = null;
+  @Input() specialActionButtonLabel: string = 'Done';
   @Output() close = new EventEmitter<any>();
 }

@@ -146,8 +146,8 @@ private _bootingFromGamepad = false;
 
   async safeExit(): Promise<void> {
     if (this.isSaveButtonLoading) {
-      this.isSavePromptVisible = true;
-      return;
+        this.isSavePromptVisible = true;
+        return;
     }
     this.clearAutosave();
     if (!this.romName || !this.parentRef?.user?.id) {
@@ -2665,6 +2665,24 @@ private _bootingFromGamepad = false;
     return this._lastSaveTime && this._lastSaveTime > 0 ? new Date(this._lastSaveTime) : null;
   }
 
+  get savePromptMessage(): string { 
+    return `Please wait for the current save operation to finish before exiting.\n${this.status}`;
+  } 
+
+  get specialActionButtonLabel(): string {
+    // If status contains a percent, show 'Exit Anyway' with emoji; else just 'Exit'
+    const match = /([0-9]{1,3})%/.exec(this.status);
+    if (match && parseInt(match[1], 10) < 100) {
+      return '🚪 Exit Anyway';
+    }
+    return '🚪 Exit';
+  }
+
+  specialActionCallback = () => {
+    // User wants to exit even though download/save is in progress
+    this.isSavePromptVisible = false;
+    this.navigateHome();
+  };
   private displayRomUploadOrDownloadProgress(total: number, loaded: number, saving?: boolean, fileName?: string): void {
     const pct = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : undefined;
     const loadedMb = (loaded / 1024 / 1024);

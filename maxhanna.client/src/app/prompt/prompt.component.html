@@ -12,6 +12,9 @@
     </span>
   </div>
   <div style="margin-top: 15px; width:100%; text-align: center;">
+    <button *ngIf="showSpecialAction" id="specialActionButton" (click)="specialActionCallback && specialActionCallback()" class="specialActionButton" [attr.title]="specialActionButtonLabel">
+      {{ specialActionButtonLabel }}
+    </button>
     <button id="closeOverlay" (click)="close.emit($event)" class="closeButton">Close</button>
   </div>
 </div>
