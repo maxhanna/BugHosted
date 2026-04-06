@@ -11,7 +11,7 @@
       <span>{{ message }}</span>
     </span>
   </div>
-  <div style="margin-top: 15px; width:100%; text-align: center;">
+  <div class="promptButtonContainer">
     <button *ngIf="showSpecialAction" id="specialActionButton" (click)="specialActionCallback && specialActionCallback()" class="specialActionButton" [attr.title]="specialActionButtonLabel">
       {{ specialActionButtonLabel }}
     </button>
