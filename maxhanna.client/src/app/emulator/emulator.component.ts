@@ -27,6 +27,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   @Input() skipSaveFileRequested = false;
   @Input() inputtedParentRef?: AppComponent;
 
+  isSaveButtonLoading = false;
   isSaveConfirmPanelOpen = false;
   saveConfirmType: 'saveAndExit' | 'saveAndReset' | 'save' | undefined;
   saveConfirmMessage?: string;
@@ -1117,7 +1118,8 @@ private _bootingFromGamepad = false;
   async callEjsSave(): Promise<boolean> {
     console.debug('[EMU DEBUG] callEjsSave called');
     this.tempHideEjsMenu(5000);
-    this.startLoading();
+    this.isSaveButtonLoading = true;
+    this.cdr.detectChanges();
     try {
       const w = window as any;
 
@@ -1168,7 +1170,8 @@ private _bootingFromGamepad = false;
       this.parentRef?.showNotification('Error during save; please try again later.');
       return false;
     } finally {
-      this.stopLoading();
+      this.isSaveButtonLoading = false;
+      this.cdr.detectChanges();
     }
   }
 

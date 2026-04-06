@@ -64,34 +64,38 @@
 
   <div *ngIf="!isFaqOpen" class="emuMenuButtonContainer">
     <div class="emuMenuButtonGrid">
-      <button (click)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();" [disabled]="isLoading" class="emuMenuButton squareButton" title="Autosave">
+      <button (click)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();" class="emuMenuButton squareButton" title="Autosave">
         💾<div class="emuMenuButtonLabel">Autosave</div>
         <span class="checkbox-indicator" [class.checked]="autosave" aria-hidden="true"></span>
       </button>
-      <button *ngIf="!romName" (click)="toggleLoadWithoutSave()" class="emuMenuButton squareButton" [disabled]="isLoading" [title]="'Loads the game with ' + (loadWithoutSave ? 'Save States' : 'No Save States')">
+      <button *ngIf="!romName" (click)="toggleLoadWithoutSave()" class="emuMenuButton squareButton" [title]="'Loads the game with ' + (loadWithoutSave ? 'Save States' : 'No Save States')">
         🗄️<div class="emuMenuButtonLabel">Save States</div>
         <span class="checkbox-indicator" [class.checked]="!loadWithoutSave" aria-hidden="true"></span>
       </button>
-      <button *ngIf="onMobile() && !romName" (click)="useJoystick = !useJoystick" class="emuMenuButton squareButton" [disabled]="isLoading" [title]="(useJoystick ? '' : 'Do Not ') + 'Use Joystick Instead of DPAD'">
+      <button *ngIf="onMobile() && !romName" (click)="useJoystick = !useJoystick" class="emuMenuButton squareButton" [title]="(useJoystick ? '' : 'Do Not ') + 'Use Joystick Instead of DPAD'">
         🎮<div class="emuMenuButtonLabel">Joystick</div>
         <span class="checkbox-indicator" [class.checked]="useJoystick" aria-hidden="true"></span>
       </button>
-      <button *ngIf="romName" (click)="toggleFullScreen()" class="emuMenuButton squareButton" [disabled]="isLoading" title="Toggle Fullscreen Mode">
+      <button *ngIf="romName" (click)="toggleFullScreen()" class="emuMenuButton squareButton" title="Toggle Fullscreen Mode">
         ⛶<div class="emuMenuButtonLabel">Fullscreen</div>
       </button>
-      <button *ngIf="!onMobile() && romName" (click)="remapControls()" class="emuMenuButton squareButton" [disabled]="isLoading" title="Remap Controls">
+      <button *ngIf="!onMobile() && romName" (click)="remapControls()" class="emuMenuButton squareButton" title="Remap Controls">
         🎛️<div class="emuMenuButtonLabel">Remap</div>
       </button>
-      <button *ngIf="romName" (click)="stopEmulator()" class="emuMenuButton squareButton" [disabled]="isLoading" title="Stop & Return to ROM Selection">
+      <button *ngIf="romName" (click)="stopEmulator()" class="emuMenuButton squareButton" title="Stop & Return to ROM Selection">
         ⏹️<div class="emuMenuButtonLabel">Stop</div>
       </button>
-      <button *ngIf="romName" (click)="resetGame()" class="emuMenuButton squareButton" [disabled]="isLoading" title="Reset Game">
+      <button *ngIf="romName" (click)="resetGame()" class="emuMenuButton squareButton" title="Reset Game">
         ♻️<div class="emuMenuButtonLabel">Reset</div>
       </button>
-      <button *ngIf="romName" (click)="callEjsSave()" class="emuMenuButton squareButton" [disabled]="isLoading" title="Manually Save the Game">
-        💽<div class="emuMenuButtonLabel">Save</div>
+      <button *ngIf="romName" (click)="callEjsSave()" class="emuMenuButton squareButton" [disabled]="isLoading || isSaveButtonLoading" title="Manually Save the Game">
+        <ng-container *ngIf="isSaveButtonLoading; else saveIcon">
+          <app-loading-spinner [emoji]="'💽'" [fontSize]="'1.2em'"></app-loading-spinner>
+        </ng-container>
+        <ng-template #saveIcon>💽</ng-template>
+        <div class="emuMenuButtonLabel">Save</div>
       </button>
-      <button (click)="isFaqOpen = !isFaqOpen" class="emuMenuButton squareButton" [disabled]="isLoading" title="Show FAQ">
+      <button (click)="isFaqOpen = !isFaqOpen" class="emuMenuButton squareButton" title="Show FAQ">
         ❓<div class="emuMenuButtonLabel">FAQ</div>
       </button>
       <div *ngIf="!romName" class="emuMenuButton squareButton emuMenuUploadButton">
