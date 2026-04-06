@@ -319,6 +319,20 @@
         ({{ optionsFile?.romMetadata?.totalRatingCount }})
       </div>
 
+      <div *ngIf="optionsFile?.romMetadata?.totalRatingCount" style="margin-bottom:8px;">
+        <strong>Internal Ratings</strong><br />
+        <app-rating-stars
+          [rating]="{ value: optionsFile?.averageRating ?? 0, user: currentUser }"
+          [inputtedParentRef]="parentRef"
+          [ratingFile]="optionsFile"
+          [showRatingValueOnly]="false"
+          [readOnly]="false"
+          [componentType]="'file'"
+          (panelOpened)="isRatingPanelOpen = true;"
+          (panelClosed)="isRatingPanelOpen = false;"
+        ></app-rating-stars>
+      </div>
+
 
       <div class="romMetaSection"
         *ngIf="safeJsonArray(optionsFile?.romMetadata?.screenshotsJson).length || safeJsonArray(optionsFile?.romMetadata?.artworksJson).length">
