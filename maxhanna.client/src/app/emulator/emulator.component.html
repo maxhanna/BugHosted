@@ -90,9 +90,9 @@
       </button>
       <button *ngIf="romName" (click)="callEjsSave()" class="emuMenuButton squareButton" [disabled]="isLoading || isSaveButtonLoading" title="Manually Save the Game">
         <ng-container *ngIf="isSaveButtonLoading; else saveIcon">
-          <app-loading-spinner [emoji]="'💽'" [fontSize]="'1.2em'"></app-loading-spinner>
+          <app-loading-spinner [emoji]="'💿'" [fontSize]="'1.2em'"></app-loading-spinner>
         </ng-container>
-        <ng-template #saveIcon>💽</ng-template>
+        <ng-template #saveIcon>💿</ng-template>
         <div class="emuMenuButtonLabel">Save</div>
       </button>
       <button (click)="isFaqOpen = !isFaqOpen" class="emuMenuButton squareButton" title="Show FAQ">
