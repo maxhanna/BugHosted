@@ -144,6 +144,12 @@ private _bootingFromGamepad = false;
   }
 
   async safeExit(): Promise<void> {
+    if (this.isSaveButtonLoading) {
+      alert('Please wait for the current save operation to finish before exiting.');
+      this.showMenuPanel();
+      return;
+    }
+
     this.clearAutosave();
     if (!this.romName || !this.parentRef?.user?.id) {
       if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
