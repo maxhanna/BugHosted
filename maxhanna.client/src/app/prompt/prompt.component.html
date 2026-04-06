@@ -4,11 +4,11 @@
       (closeUserComponentEvent)="close.emit($event)"
       [loginReasonMessage]="message">
     </app-user>
-    <div style="margin-top: 15px; width:100%; text-align: center;">
-      <button id="closeOverlay" (click)="close.emit($event)" class="closeButton">Close</button>
-    </div>
   </div>
   <div *ngIf="type !== 'login' && message !== ''">
     <span style="padding: 20px; text-align: center; display: block;">{{ message }}</span>
+  </div>
+  <div style="margin-top: 15px; width:100%; text-align: center;">
+    <button id="closeOverlay" (click)="close.emit($event)" class="closeButton">Close</button>
   </div>
 </div>
