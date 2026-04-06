@@ -1,18 +1,23 @@
 <span *ngIf="showRatingValueOnly" (click)="openRatingsPanel()">⭐{{rating.value | number:'1.1-1'}}</span>
 <span *ngIf="!showRatingValueOnly">
-  <span *ngFor="let star of stars; let i = index" 
-    [class]="(hoveredIndex !== null && i <= hoveredIndex && !readOnly && isCurrentUser) ? 'cursorPointer glowing' : 'cursorPointer'"
-    [style.color]="star <= rating.value ? 'gold' : '#555'"
-    (click)="onRate(star)"
-    (mouseenter)="onStarMouseEnter(i)"
-    (mouseleave)="onStarMouseLeave()"
-    [title]="readOnly
-      ? ('Rated ' + rating.value + ' star' + (rating.value > 1 ? 's' : ''))
-      : (isCurrentUser
-          ? ('Set your rating to ' + star + ' star' + (star > 1 ? 's' : ''))
-          : ('Rated ' + star + ' star' + (star > 1 ? 's' : '')))">
-    &#9733;
-  </span>
+  <ng-container *ngIf="isRatingLoading">
+    <app-loading-spinner fontSize="small" label="Saving" emoji="⭐"></app-loading-spinner>
+  </ng-container>
+  <ng-container *ngIf="!isRatingLoading">
+    <span *ngFor="let star of stars; let i = index" 
+      [class]="(hoveredIndex !== null && i <= hoveredIndex && !readOnly && isCurrentUser) ? 'cursorPointer glowing' : 'cursorPointer'"
+      [style.color]="star <= rating.value ? 'gold' : '#555'"
+      (click)="!isRatingLoading && onRate(star)"
+      (mouseenter)="onStarMouseEnter(i)"
+      (mouseleave)="onStarMouseLeave()"
+      [title]="readOnly
+        ? ('Rated ' + rating.value + ' star' + (rating.value > 1 ? 's' : ''))
+        : (isCurrentUser
+            ? ('Set your rating to ' + star + ' star' + (star > 1 ? 's' : ''))
+            : ('Rated ' + star + ' star' + (star > 1 ? 's' : '')))">
+      &#9733;
+    </span>
+  </ng-container>
 </span>
 
 <span *ngIf="ratingFile && ratingFile.ratingCount && !showRatingValueOnly"
@@ -24,11 +29,14 @@
 </span>
 
 <!-- Ratings Popup Panel -->
-<div class="popupPanel ratingPopupPanel" *ngIf="isRatingsPanelOpen && tmpRatings">
+<div class="popupPanel ratingPopupPanel" *ngIf="isRatingsPanelOpen">
   <div class="popupPanelTitle" [title]="'Ratings for ' + ratingsTitle">
     ⭐ {{ ratingsTitle }}
   </div>
-  <div style="max-height:50vh; width: calc(100% - 50px); overflow:auto; width:100%;">
+  <div *ngIf="isPanelOpeningLoading" style="padding:32px; text-align:center;">
+    <app-loading-spinner fontSize="large" label="Loading ratings..." emoji="⭐"></app-loading-spinner>
+  </div>
+  <div *ngIf="!isPanelOpeningLoading" style="max-height:50vh; width: calc(100% - 50px); overflow:auto; width:100%;">
     <div *ngIf="tmpRatings?.length === 0" style="padding:12px; text-align:center; opacity:0.7;">
       No ratings yet.
     </div>

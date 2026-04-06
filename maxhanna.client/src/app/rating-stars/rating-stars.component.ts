@@ -27,6 +27,8 @@ export class RatingStarsComponent implements OnInit {
   isRatingsPanelOpen = false;
   tmpRatings?: Rating[] | undefined;
   tmpFileId?: number;
+  isRatingLoading = false;
+  isPanelOpeningLoading = false;
 
   ngOnInit() {
     this.tmpFileId = this.ratingFile?.id;
@@ -80,6 +82,7 @@ export class RatingStarsComponent implements OnInit {
     }
     this.panelOpened.emit();
 
+    this.isPanelOpeningLoading = true;
     setTimeout(async () => { 
       this.inputtedParentRef?.showOverlay();
       this.isRatingsPanelOpen = true;
@@ -100,6 +103,7 @@ export class RatingStarsComponent implements OnInit {
       } else {
         console.log('Ratings already loaded for this file, skipping fetch.');
       }
+      this.isPanelOpeningLoading = false;
     }, 100);
   }
 
@@ -117,12 +121,13 @@ export class RatingStarsComponent implements OnInit {
 
   async rateFile(star: number) { 
     const ratings = this.ratingFile?.ratings ?? this.tmpRatings;
-    if (!this.tmpFileId) {
+    if (!this.tmpFileId) { 
       console.error('No rating file available to rate.');
       return;
     }
     console.log('rateFile called with file:', this.ratingFile, 'star:', star);
     const user = this.currentUser;
+    this.isRatingLoading = true;
     try {
       await this.ratingsService.submitRating(
         user, 
@@ -176,6 +181,8 @@ export class RatingStarsComponent implements OnInit {
     } catch (ex) {
       console.error(ex);
       this.inputtedParentRef?.showNotification('Failed to submit rating.');
+    } finally {
+      this.isRatingLoading = false;
     }
   }
 }
