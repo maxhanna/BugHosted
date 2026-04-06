@@ -27,9 +27,9 @@
     <button *ngIf="initialContent == undefined" (click)="post()" title="Post" [disabled]="_isPosting">🗨️Post</button>
     <button *ngIf="initialContent != undefined" (click)="update()" title="Update" [disabled]="_isPosting">✅</button>
     <button *ngIf="initialContent != undefined" (click)="cancelEdit.emit()" title="Cancel" [disabled]="_isPosting">❌</button>
-    <app-media-selector *ngIf="inputtedParentRef" #mediaSelector [selectedFiles]="attachedFiles" [maxSelectedFiles]="30"
-        [currentDirectory]="inputtedParentRef.user?.username ? 'Users/' + inputtedParentRef!.user!.username! : 'Users/Anonymous'"
-        [user]="inputtedParentRef.user" [inputtedParentRef]="inputtedParentRef"
+    <app-media-selector *ngIf="parentRef" #mediaSelector [selectedFiles]="attachedFiles" [maxSelectedFiles]="30"
+        [currentDirectory]="parentRef.user?.username ? 'Users/' + parentRef!.user!.username! : 'Users/Anonymous'"
+        [user]="parentRef.user" [inputtedParentRef]="parentRef"
         [uploadButtonText]="initialContent != undefined ? '' : ((!showPostInput && (!onMobile() || (mediaSelector && !mediaSelector.selectedFiles.length)) && (!onMobile() || !attachedTopics.length)) ? 'Upload' : onMobile() ? '' : 'Upload')"
         (selectFileEvent)="selectFile($event)"></app-media-selector>
     <button (click)="showPostOptionsPanel()" *ngIf="showPostInput">
@@ -75,7 +75,8 @@
     <div class="mobileOptionsTitle" style="margin-top: 20px;">Text
         Formatting</div>
     <div class="mobilePostButtonOptions">
-        <app-text-formatting-toolbar style="display:flex; height: 25px;" [inputtedParentRef]="inputtedParentRef"
+        <app-text-formatting-toolbar style="display:flex; height: 25px;" 
+            [inputtedParentRef]="parentRef"
             [parent]="textarea" (isExpandingEmojiPanel)="onExpandingEmojiPanel($event)"
             (isExpandingComponentPanel)="onExpandingComponentPanel($event)"
             (isExpandingCrawlerPanel)="onExpandingCrawlerPanel($event)"></app-text-formatting-toolbar>
@@ -99,7 +100,7 @@
 <div class="popupPanel" *ngIf="isTopicsPanelOpen">
     <div class="popupPanelTitle">Topics 🗂️</div>
     <div style="margin-bottom:15px;">
-        <app-topics #topicSelector [isDropdown]="true" [user]="inputtedParentRef?.user" [parent]="inputtedParentRef"
+        <app-topics #topicSelector [isDropdown]="true" [user]="parentRef?.user" [parent]="parentRef"
             [attachedTopics]="attachedTopics" (topicAdded)="onTopicAdded($event)"
             (topicClicked)="onTopicClicked($event)">
         </app-topics>
@@ -217,7 +218,7 @@
         <div style="text-align: center;">
             For further assistance, contact:{{" "}}
             <div style="display: inline-block">
-                <app-user-tag [userId]="1" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"
+                <app-user-tag [userId]="1" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
                     [displayHoverPicture]="true">
                 </app-user-tag>
             </div>

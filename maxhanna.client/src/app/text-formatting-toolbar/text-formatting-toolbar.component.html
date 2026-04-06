@@ -74,7 +74,7 @@
 <!-- Crawler popup for inserting links -->
 <div class="popupPanel crawlerPanel" *ngIf="isCrawlerOpen">
     <div class="popupPanelTitle">Select or add a link</div>
-    <app-crawler [onlySearch]="true" [inputtedParentRef]="inputtedParentRef"
+    <app-crawler [onlySearch]="true" [inputtedParentRef]="parentRef"
         (urlSelectedEvent)="crawlerUrlSelected($event)" (closeSearchEvent)="closeCrawler()"></app-crawler>
     <button id="closeOverlay" class="closeButton" (click)="closeCrawler()">Close</button>
 </div>
