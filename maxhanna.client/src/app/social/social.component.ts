@@ -28,7 +28,6 @@ import { CurrencyFlagPipe } from '../currency-flag.pipe';
   providers: [CurrencyFlagPipe]
 })
 export class SocialComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
-    isLoading = false;
   fileMetadata: any;
   youtubeMetadata: any;
   storyResponse?: StoryResponse;

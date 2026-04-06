@@ -76,9 +76,9 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   topTopics?: TopicRank[] | null = [];
   ignoredTopics?: Topic[] | null = [];
   favTopics?: Topic[] | null = [];
-  showHelpPopup = false;
-  highlightTopicsButton = false;
-  isPostLoading = false;
+  showHelpPopup: boolean = false;
+  highlightTopicsButton: boolean = false;
+  isPostLoading: boolean = false;
 
   // Prevent duplicate posts: simple debounce and in-flight guard
   _isPosting: boolean = false;
