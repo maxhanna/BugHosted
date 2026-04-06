@@ -146,16 +146,20 @@
 </div>
 
 <!-- Login Prompt Panel -->
-<div class="popupPanel menuPanel" *ngIf="isShowingLoginPanel">
-  <app-user [loginOnly]="true" [inputtedParentRef]="parentRef" [canClose]="false"
-    (closeUserComponentEvent)="closeLoginPanel($event)"
-    [loginReasonMessage]="'You must log-in to save your progress on the server.'">
-  </app-user>
+<app-prompt
+  [type]="'login'"
+  [message]="'You must log-in to save your progress on the server.'"
+  [parentRef]="parentRef"
+  [visible]="isShowingLoginPanel"
+  (close)="closeLoginPanel($event)">
+</app-prompt>
 
-  <div style="margin-top: 15px; width:100%; text-align: center;">
-    <button id="closeOverlay" (click)="closeLoginPanel($event)" class="closeButton">Close</button>
-  </div>
-</div>
+<app-prompt
+  [type]="'messageOnly'"
+  [message]="'Please wait for the current save operation to finish before exiting.'"
+  [visible]="isSavePromptVisible"
+  (close)="isSavePromptVisible = false">
+</app-prompt>
 
 <!-- System selection for ambiguous image files (iso/bin/cue/chd) -->
 <div class="popupPanel menuPanel" *ngIf="isSystemSelectPanelOpen">

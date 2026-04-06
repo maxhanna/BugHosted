@@ -27,6 +27,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   @Input() skipSaveFileRequested = false;
   @Input() inputtedParentRef?: AppComponent;
 
+  isSavePromptVisible = false;
   isSaveButtonLoading = false;
   isSaveConfirmPanelOpen = false;
   saveConfirmType: 'saveAndExit' | 'saveAndReset' | 'save' | undefined;
@@ -145,11 +146,9 @@ private _bootingFromGamepad = false;
 
   async safeExit(): Promise<void> {
     if (this.isSaveButtonLoading) {
-      alert('Please wait for the current save operation to finish before exiting.');
-      this.showMenuPanel();
+      this.isSavePromptVisible = true;
       return;
     }
-
     this.clearAutosave();
     if (!this.romName || !this.parentRef?.user?.id) {
       if (this.stopEmuSaving || this.isExitingAndReturningToEmulator) {
