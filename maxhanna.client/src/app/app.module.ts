@@ -1,3 +1,4 @@
+import { AppLoadingSpinnerComponent } from './app-loading-spinner/app-loading-spinner.component';
 import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { NgModule } from '@angular/core';
@@ -191,13 +192,15 @@ import { RatingStarsComponent } from './rating-stars/rating-stars.component';
     RatingStarsComponent,
   ],
   bootstrap: [AppComponent],
-  imports: [BrowserModule,
+  imports: [
+    BrowserModule,
     CommonModule,
     AppMenuItemComponent,
     LineGraphComponent,
     TimeFormatPipe,
     TimeSincePipe,
     FileSizePipe,
+    AppLoadingSpinnerComponent,
     AppRoutingModule,
     CryptoFearAndGreedComponent,
     CurrencySymbolPipe,
