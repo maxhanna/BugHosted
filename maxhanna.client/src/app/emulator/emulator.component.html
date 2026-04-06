@@ -82,10 +82,10 @@
       <button *ngIf="!onMobile() && romName" (click)="remapControls()" class="emuMenuButton squareButton" title="Remap Controls">
         🎛️<div class="emuMenuButtonLabel">Remap</div>
       </button>
-      <button *ngIf="romName" (click)="stopEmulator()" class="emuMenuButton squareButton" title="Stop & Return to ROM Selection">
+      <button *ngIf="romName" (click)="stopEmulator()" class="emuMenuButton squareButton" title="Stop & Return to ROM Selection" [disabled]="isSaveButtonLoading">
         ⏹️<div class="emuMenuButtonLabel">Stop</div>
       </button>
-      <button *ngIf="romName" (click)="resetGame()" class="emuMenuButton squareButton" title="Reset Game">
+      <button *ngIf="romName" (click)="resetGame()" class="emuMenuButton squareButton" title="Reset Game" [disabled]="isSaveButtonLoading">
         ♻️<div class="emuMenuButtonLabel">Reset</div>
       </button>
       <button *ngIf="romName" (click)="callEjsSave()" class="emuMenuButton squareButton" [disabled]="isLoading || isSaveButtonLoading" title="Manually Save the Game">
