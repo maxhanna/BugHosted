@@ -58,8 +58,8 @@ export class RatingStarsComponent implements OnInit {
     }
   }
 
-  onStarMouseEnter(index: number) {
-    if (!this.readOnly && this.isCurrentUser) {
+  onStarMouseEnter(index: number, r?: Rating) {
+    if (!this.readOnly && (this.isCurrentUser || (r && this.isUserRating(r)))) {
       this.hoveredIndex = index;
     }
   }

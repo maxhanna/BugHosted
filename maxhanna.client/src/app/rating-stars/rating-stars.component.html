@@ -1,8 +1,7 @@
 <span *ngIf="showRatingValueOnly" (click)="openRatingsPanel()">⭐{{rating.value | number:'1.1-1'}}</span>
 <span *ngIf="!showRatingValueOnly">
-  <span *ngFor="let star of stars; let i = index"
-    class="cursorPointer"
-    [class]="hoveredIndex !== null && i <= hoveredIndex && !readOnly && isCurrentUser ? 'cursorPointer glowing' : 'cursorPointer'"
+  <span *ngFor="let star of stars; let i = index" 
+    [class]="(hoveredIndex !== null && i <= hoveredIndex && !readOnly && isCurrentUser) ? 'cursorPointer glowing' : 'cursorPointer'"
     [style.color]="star <= rating.value ? 'gold' : '#555'"
     (click)="onRate(star)"
     (mouseenter)="onStarMouseEnter(i)"
@@ -43,12 +42,14 @@
           </app-user-tag>
         </span>
         <span style="margin-left:auto; font-size:0.9em;">
-          <span *ngFor="let star of stars; let i = index"
-            class="cursorPointer"
+          <span *ngFor="let star of stars; let i = index" 
+            [class]="(hoveredIndex !== null && i <= hoveredIndex && !readOnly && isUserRating(r)) ? 'cursorPointer glowing' : 'cursorPointer'"
             [style.color]="star <= r.value ? 'gold' : '#555'"
             [title]="isUserRating(r) ? 'Click to change your rating' : 'Rated ' + r.value + ' star' + (r.value > 1 ? 's' : '')"
             (click)="isUserRating(r) ? rateFile(star) : null"
             [style.cursor]="isUserRating(r) ? 'pointer' : 'default'"
+            (mouseenter)="onStarMouseEnter(i, r)"
+            (mouseleave)="onStarMouseLeave()"
           >
             &#9733;
           </span>
