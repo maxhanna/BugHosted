@@ -117,13 +117,20 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   activeRomSystems: string[] = [];
   loadingSearch = false;
   showMetadataInOptionsPanel = true;
+  isHidingFile = false;
+  isDeletingFile = false;
+  isDownloadingFile = false;
+  isClearingSystemOverride = false;
+  isSettingSystemOverride = false;
   isShowingFileNotes = false;
   fileNotes: FileNote[] = [];
   notesFile: FileEntry | undefined;
   isSystemSelectPanelOpen: boolean = false;
   systemCandidates: Array<{ label: string; core?: string }> = [];
   selectedSystemCore: string | null = null;
-  isFirstLoad = true;
+  isFirstLoad = true;  
+  isAddingToFavourites = false;
+  isAddingToMusicPlaylist = false; 
   isRatingPanelOpen = false;
   pageLocked = false;
   appending = false; 
@@ -1142,6 +1149,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
     const user = this.currentUser;
     if (!user || !user.id) return alert('You must be logged in to favourite files.');
+    this.isAddingToFavourites = true;
     this.startLoading();
     try {
       const res: any = await this.fileService.toggleFavourite(user.id, optionsFile.id);
@@ -1164,8 +1172,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       }
     } catch (ex) {
       console.error(ex);
+    } finally {
+      this.isAddingToFavourites = false;
+      this.stopLoading();
     }
-    this.stopLoading();
   }
 
   async getFavouritedBy(file?: FileEntry) {
@@ -1350,18 +1360,23 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   async hide(file?: FileEntry) {
     if (!file || !file.id) return;
+    this.isHidingFile = true;
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
     let hidden = true;
-    if (parent && user && user.id) {
-      await this.fileService.hideFile(file.id, user.id).then(res => {
-        parent.showNotification(res);
-        if (res.toLowerCase().includes("unhidden")) {
-          hidden = false;
-        }
-      });
+    try {
+      if (parent && user && user.id) {
+        await this.fileService.hideFile(file.id, user.id).then(res => {
+          parent.showNotification(res);
+          if (res.toLowerCase().includes("unhidden")) {
+            hidden = false;
+          }
+        });
+      }
+      file.isHidden = hidden;
+    } finally {
+      this.isHidingFile = false;
     }
-    file.isHidden = hidden;
   }
   private replacePageTitleAndDescription() {
     if (this.directory && this.directory.data && this.directory.data.length > 0) {
@@ -1720,15 +1735,19 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (!this.currentUser.id || !fileEntry || !fileEntry.id) {
       return alert("Error: Cannot add file to music playlist without logging in or a valid file entry.");
     }
-
-    let tmpTodo = new Todo();
-    tmpTodo.type = "music";
-    tmpTodo.todo = (fileEntry.givenFileName ?? fileEntry.fileName ?? `Video ID:${fileEntry.id}`).trim();
-    tmpTodo.fileId = fileEntry.id;
-    tmpTodo.date = new Date();
-    const resTodo = await this.todoService.createTodo(this.currentUser.id, tmpTodo);
-    if (resTodo) {
-      this.parentRef?.showNotification(`Added ${tmpTodo.todo} to music playlist.`);
+    this.isAddingToMusicPlaylist = true;
+    try {
+      let tmpTodo = new Todo();
+      tmpTodo.type = "music";
+      tmpTodo.todo = (fileEntry.givenFileName ?? fileEntry.fileName ?? `Video ID:${fileEntry.id}`).trim();
+      tmpTodo.fileId = fileEntry.id;
+      tmpTodo.date = new Date();
+      const resTodo = await this.todoService.createTodo(this.currentUser.id, tmpTodo);
+      if (resTodo) {
+        this.parentRef?.showNotification(`Added ${tmpTodo.todo} to music playlist.`);
+      }
+    } finally {
+      this.isAddingToMusicPlaylist = false;
     }
   }
 

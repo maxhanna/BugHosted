@@ -43,10 +43,12 @@
           </ng-container>
         </span>
       </span>
-      <span class="currentDirectorySpan" *ngIf="isLoading">Loading Data...</span>
+      <span class="currentDirectorySpan" *ngIf="isLoading">
+        <app-loading-spinner fontSize="small" label="Loading directory"></app-loading-spinner>
+      </span>
     </div>
     <div *ngIf="!displayTotal && isLoading && !search?.nativeElement?.value" class="currentDirectorySpan">
-      Loading Data...
+      <app-loading-spinner fontSize="small" label="Loading directory"></app-loading-spinner>
     </div>
     <div [class.smallFont]="onMobile()">
       Total: {{ directory ? directory.totalCount : 0 }}
@@ -393,49 +395,91 @@
   </div>
 
   <div class="popupPanelActions">
-    <button title="Edit File Name" (click)="startEditingFileName(optionsFile?.id);" [disabled]="isLoading"
+    <button title="Edit File Name" 
+      (click)="startEditingFileName(optionsFile?.id);" 
+      [disabled]="isLoading"
       *ngIf="shouldShowEditButton(optionsFile)">
       ✏️Edit File Name
     </button>
     <button [title]="'Clear System Override ('+optionsFile.romMetadata?.actualSystem+')'"
-      (click)="clearSystemOverride(optionsFile)" [disabled]="isLoading" *ngIf="shouldShowRomMetadata() 
+      (click)="clearSystemOverride(optionsFile)" 
+      [disabled]="isClearingSystemOverride" 
+      *ngIf="shouldShowRomMetadata() 
         && optionsFile
         && optionsFile?.romMetadata?.actualSystem 
         && (optionsFile?.user?.id === parentRef?.user?.id)">
-      🧹 Clear System Override
-      <span *ngIf="shouldShowRomMetadata() && optionsFile && optionsFile.romMetadata && optionsFile.romMetadata.actualSystem" class="system-override-icon"
-        [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata.actualSystem)">
-      </span>
+      <ng-container *ngIf="isClearingSystemOverride">
+        <app-loading-spinner fontSize="small" label="Saving" emoji="🧹"></app-loading-spinner>
+      </ng-container>
+      <ng-container *ngIf="!isClearingSystemOverride">
+        🧹 Clear System Override
+        <span *ngIf="shouldShowRomMetadata() && optionsFile && optionsFile.romMetadata && optionsFile.romMetadata.actualSystem" class="system-override-icon"
+          [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata.actualSystem)">
+        </span>
+      </ng-container>
     </button>
-    <button (click)="openSystemOverridePanel()" [disabled]="isLoading" *ngIf="shouldShowRomMetadata() && optionsFile && !optionsFile?.romMetadata?.actualSystem && (optionsFile?.user?.id === parentRef?.user?.id)">
-      🎮 Set System Override
+    <button (click)="openSystemOverridePanel()" 
+      *ngIf="shouldShowRomMetadata() && optionsFile && !optionsFile?.romMetadata?.actualSystem && (optionsFile?.user?.id === parentRef?.user?.id)"
+      [disabled]="isLoading || isSettingSystemOverride"> 
+      <ng-container *ngIf="isSettingSystemOverride">
+        <app-loading-spinner fontSize="small" label="Saving" emoji="🎮"></app-loading-spinner>
+      </ng-container>
+      <ng-container *ngIf="!isSettingSystemOverride">
+        🎮 Set System Override
+      </ng-container>
     </button> 
     <app-share-button *ngIf="optionsFile?.visibility?.toLowerCase() !== 'private'" [link]="shareLink"
       [isExternalLink]="isInRomDirectory"></app-share-button>
     <app-share-button *ngIf="optionsFile?.visibility?.toLowerCase() === 'private'" [isExternalLink]="false"
       [text]="'↗️Share with Users'" [callback]="shareFileCallback"></app-share-button>
-    <button title="Download File" (click)="download(optionsFile, true);" [disabled]="isLoading"
+    <button title="Download File" (click)="download(optionsFile, true);" 
+      [disabled]="isLoading || isDownloadingFile"
       *ngIf="!optionsFile?.isFolder">
-      📥Download
-      {{" "}}({{ (optionsFile?.fileSize ?? 0) | fileSize }})
-      {{" "}}<span class="xxSmallFont">{{optionsFile?.accessCount}}</span>
+      <ng-container *ngIf="isDownloadingFile">
+        <app-loading-spinner fontSize="small" label="Saving" emoji="📥"></app-loading-spinner>
+      </ng-container>
+      <ng-container *ngIf="!isDownloadingFile">
+        📥Download
+        {{" "}}({{ (optionsFile?.fileSize ?? 0) | fileSize }})
+        {{" "}}<span class="xxSmallFont">{{optionsFile?.accessCount}}</span>
+      </ng-container>
     </button>
-    <button title="Delete File" (click)="delete(optionsFile);" [disabled]="isLoading"
+    <button title="Delete File" (click)="delete(optionsFile);" [disabled]="isLoading || isDeletingFile"
       *ngIf="shouldShowEditButton(optionsFile) || (parentRef?.user?.id == 1 || inputtedParentRef?.user?.id == 1)">
-      ❌Delete
+      <ng-container *ngIf="isDeletingFile">
+        <app-loading-spinner fontSize="small" label="Saving" emoji="❌"></app-loading-spinner>
+      </ng-container>
+      <ng-container *ngIf="!isDeletingFile">
+        ❌Delete
+      </ng-container>
     </button>
-    <button title="Hide File" (click)="hide(optionsFile);" *ngIf="userIsLoggedIn()" [disabled]="isLoading">
-      🙈{{optionsFile?.isHidden ? "Un":""}}Hide
+    <button title="Hide File" (click)="hide(optionsFile);" *ngIf="userIsLoggedIn()" [disabled]="isLoading || isHidingFile">
+      <ng-container *ngIf="isHidingFile">
+        <app-loading-spinner fontSize="small" label="Saving" emoji="🙈"></app-loading-spinner>
+      </ng-container>
+      <ng-container *ngIf="!isHidingFile">
+        🙈{{optionsFile?.isHidden ? "Un":""}}Hide
+      </ng-container>
     </button>
-    <button (click)="addToFavourites(optionsFile)" *ngIf="userIsLoggedIn()" [disabled]="isLoading"
+    <button (click)="addToFavourites(optionsFile)" *ngIf="userIsLoggedIn()" [disabled]="isLoading || isAddingToFavourites"
       [title]="optionsFile?.isFavourited ? ('Remove from favourites') : ('Add ' + (optionsFile?.givenFileName ?? optionsFile?.fileName) + ' to favourites')">
-      <span *ngIf="!optionsFile?.isFavourited">❤️ Add To Favourites</span>
-      <span *ngIf="optionsFile?.isFavourited">🧡 Remove From Favourites</span>
+      <ng-container *ngIf="isAddingToFavourites">
+        <app-loading-spinner fontSize="small" label="Saving" emoji="❤️"></app-loading-spinner>
+      </ng-container>
+      <ng-container *ngIf="!isAddingToFavourites">
+        <span *ngIf="!optionsFile?.isFavourited">❤️ Add To Favourites</span>
+        <span *ngIf="optionsFile?.isFavourited">🧡 Remove From Favourites</span>
+      </ng-container>
     </button>
-    <button *ngIf="isVideoFile(optionsFile) && userIsLoggedIn()" [disabled]="isLoading"
+    <button *ngIf="isVideoFile(optionsFile) && userIsLoggedIn()" [disabled]="isLoading || isAddingToMusicPlaylist"
       (click)="addFileToMusicPlaylist(optionsFile)"
       title="Add '{{optionsFile?.givenFileName ?? optionsFile?.fileName}}' to music playlist.">
-      ➕ Add To Music Playlist
+      <ng-container *ngIf="isAddingToMusicPlaylist">
+        <app-loading-spinner fontSize="small" label="Saving" emoji="🎵"></app-loading-spinner>
+      </ng-container>
+      <ng-container *ngIf="!isAddingToMusicPlaylist">
+        ➕ Add To Music Playlist
+      </ng-container>
     </button>
     <button (click)="showFileNotes(optionsFile)" [disabled]="isLoading" title="View and manage notes for this file">
       📝 {{ optionsFile?.notesCount ? `(${optionsFile?.notesCount})` : '' }} View Notes
