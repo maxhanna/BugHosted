@@ -1,3 +1,22 @@
-.popupPanel.menuPanel {
-  /* Reuse existing styles or add prompt-specific tweaks here if needed */
+.popupPanel {
+  z-index: 6000;
 }
+.prompt-emoji {
+  font-size: 2.2em;
+  margin-right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2em;
+  height: 2.2em;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.10));
+}
+.prompt-message-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  text-align: center;
+} 

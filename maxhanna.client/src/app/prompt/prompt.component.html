@@ -6,7 +6,10 @@
     </app-user>
   </div>
   <div *ngIf="type !== 'login' && message !== ''">
-    <span style="padding: 20px; text-align: center; display: block;">{{ message }}</span>
+    <span class="prompt-message-row">
+      <span *ngIf="emoji" class="prompt-emoji">{{ emoji }}</span>
+      <span>{{ message }}</span>
+    </span>
   </div>
   <div style="margin-top: 15px; width:100%; text-align: center;">
     <button id="closeOverlay" (click)="close.emit($event)" class="closeButton">Close</button>

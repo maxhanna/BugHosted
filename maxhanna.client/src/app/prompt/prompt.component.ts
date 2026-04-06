@@ -9,6 +9,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 export class PromptComponent {
   @Input() type: 'login' | 'messageOnly' = 'login';
   @Input() message: string = '';
+  @Input() emoji: string = '';
   @Input() parentRef: any;
   @Input() visible: boolean = false;
   @Output() close = new EventEmitter<any>();
