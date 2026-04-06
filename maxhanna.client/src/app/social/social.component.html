@@ -422,10 +422,15 @@
     </div>
     <div class="mainTableDiv emptyPage"
       *ngIf="storyResponse && storyResponse.stories && storyResponse.stories.length == 0">
-      {{ isLoading ? "Loading..." : "It's quiet here..." }}
+      <ng-container *ngIf="isLoading">
+        <app-loading-spinner fontSize="small" label="Loading..." emoji="💬"></app-loading-spinner>
+      </ng-container>
+      <ng-container *ngIf="!isLoading">
+        It's quiet here...
+      </ng-container>
     </div>
     <div class="mainTableDiv emptyPage" *ngIf="!storyResponse && isLoading">
-      Loading...
+      <app-loading-spinner fontSize="large" label="Loading..." emoji="💬"></app-loading-spinner>
     </div>
   </div>
 </div>

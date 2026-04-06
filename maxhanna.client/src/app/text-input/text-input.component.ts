@@ -1,3 +1,4 @@
+  isPostLoading: boolean = false;
 import { Component, ElementRef, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { AppComponent } from '../app.component';
@@ -78,6 +79,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   favTopics?: Topic[] | null = [];
   showHelpPopup = false;
   highlightTopicsButton = false;
+  isPostLoading = false;
 
   // Prevent duplicate posts: simple debounce and in-flight guard
   _isPosting: boolean = false;
@@ -224,14 +226,17 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   }
 
   async post() {
+    this.isPostLoading = true;
     // Debounce / guard: ignore if a post is already in progress or last post was very recent
     const now = Date.now();
     if (this._isPosting) {
       console.warn('Post already in progress; ignoring duplicate call');
+      this.isPostLoading = false;
       return;
     }
     if (now - this._lastPostTime < this._postDebounceMs) {
       console.warn('Post ignored due to debounce window');
+      this.isPostLoading = false;
       return;
     }
     // mark as posting and record time
@@ -249,6 +254,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       this.highlightTopicsButton = true;
       this.isTopicsPanelOpen = true;
       this._isPosting = false;
+      this.isPostLoading = false;
       this.parentRef?.showOverlay();
       return;
     }
@@ -256,6 +262,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     if (!text && (!this.attachedFiles || this.attachedFiles.length === 0)) {
       alert("Message contents are empty!");
       this._isPosting = false;
+      this.isPostLoading = false;
       return;
     }
 
@@ -341,9 +348,8 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       this.parentRef?.showNotification("An unexpected error occurred.");
     } finally {
       this.stopLoading();
-      // clear posting guard
       this._isPosting = false;
-
+      this.isPostLoading = false;
       setTimeout(() => {
         this.textarea.focus();
       }, 50);

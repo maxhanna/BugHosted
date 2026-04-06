@@ -28,6 +28,7 @@ import { CurrencyFlagPipe } from '../currency-flag.pipe';
   providers: [CurrencyFlagPipe]
 })
 export class SocialComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
+    isLoading = false;
   fileMetadata: any;
   youtubeMetadata: any;
   storyResponse?: StoryResponse;
@@ -111,13 +112,14 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   async ngOnInit() {
-    this.startLoading();
+    this.isLoading = true;
     if (this.parent) {
       this.parentRef = this.parent;
     }
     if (this.storyId) {
       this.openedStoryComments.push(this.storyId);
     }
+    this.isLoading = false;
 
     const user = this.parentRef?.user;
     if (user && user.id) {
