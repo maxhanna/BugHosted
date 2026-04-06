@@ -421,7 +421,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       }
     }, 1000);
   }
-  async delete(file: FileEntry) {
+  async delete(file?: FileEntry) {
+    if (!file || !file.id) return;
     const user = this.currentUser;
 
     if (confirm(`Delete : ${file.fileName} ?`)) {
@@ -840,7 +841,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       }
     }, 500);
   }
-  async startEditingFileName(fileId: number) {
+  async startEditingFileName(fileId?: number) {
+    if (!fileId) return;
     const parent = document.getElementById("fileIdDiv" + fileId)!;
     const text = parent.getElementsByTagName("input")[0].value!;
     this.closeOptionsPanel();
@@ -868,7 +870,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   getCanEdit(userid: number) {
     return userid == this.currentUser?.id;
   }
-  async download(file: FileEntry, force: boolean, forceOpenMedia?: boolean) {
+  async download(file?: FileEntry, force?: boolean, forceOpenMedia?: boolean) {
+    if (!file || !file.id) return;
     if ((this.isMediaFile(file.fileName ?? "") && !force) || forceOpenMedia) {
       this.viewMediaFile = true;
       if (this.openedFiles.includes(file.id)) {
@@ -1134,7 +1137,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.stopLoading();
     }
   }
-  async addToFavourites(optionsFile: FileEntry) {
+  async addToFavourites(optionsFile?: FileEntry) {
+    if (!optionsFile || !optionsFile.id) return;
+
     const user = this.currentUser;
     if (!user || !user.id) return alert('You must be logged in to favourite files.');
     this.startLoading();
@@ -1333,7 +1338,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     } else return '.';
   }
 
-  toggleFileVisibility(file: FileEntry) {
+  toggleFileVisibility(file?: FileEntry) {
+    if (!file || !file.id) return;
     const parent = this.inputtedParentRef ?? this.parentRef;
     file.visibility = file.visibility == "Private" ? "Public" : "Private";
     const user = parent?.user ?? new User(0, "Anonymous");
@@ -1342,7 +1348,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     });
   }
 
-  async hide(file: FileEntry) {
+  async hide(file?: FileEntry) {
+    if (!file || !file.id) return;
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
     let hidden = true;
@@ -1703,7 +1710,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     return note.user?.id === this.currentUser.id || this.currentUser.id === 1;
   }
 
-  isVideoFile(fileEntry: FileEntry) {
+  isVideoFile(fileEntry?: FileEntry) {
+    if (!fileEntry) return false;
     let fileType = fileEntry.fileType ?? this.fileService.getFileExtension(fileEntry.fileName ?? '');
     fileType = fileType.replace(".", "");
     return this.fileService.videoFileExtensions.includes(fileType) || this.fileService.audioFileExtensions.includes(fileType);

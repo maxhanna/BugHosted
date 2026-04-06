@@ -383,14 +383,14 @@
       *ngIf="shouldShowEditButton(optionsFile)">
       ✏️Edit File Name
     </button>
-    <button [title]="'Clear System Override ('+optionsFile?.romMetadata?.actualSystem+')'"
+    <button [title]="'Clear System Override ('+optionsFile.romMetadata?.actualSystem+')'"
       (click)="clearSystemOverride(optionsFile)" [disabled]="isLoading" *ngIf="shouldShowRomMetadata() 
         && optionsFile
         && optionsFile?.romMetadata?.actualSystem 
         && (optionsFile?.user?.id === parentRef?.user?.id)">
       🧹 Clear System Override
-      <span *ngIf="shouldShowRomMetadata() && optionsFile?.romMetadata?.actualSystem" class="system-override-icon"
-        [innerHTML]="getSystemEmoji('file.' + (optionsFile?.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile?.romMetadata?.actualSystem)">
+      <span *ngIf="shouldShowRomMetadata() && optionsFile && optionsFile.romMetadata && optionsFile.romMetadata.actualSystem" class="system-override-icon"
+        [innerHTML]="getSystemEmoji('file.' + (optionsFile.fileType ?? 'bin'), 'width:24px;height:24px;vertical-align:middle;margin-right:8px', optionsFile.romMetadata.actualSystem)">
       </span>
     </button>
     <button (click)="openSystemOverridePanel()" [disabled]="isLoading" *ngIf="shouldShowRomMetadata() && optionsFile && !optionsFile?.romMetadata?.actualSystem && (optionsFile?.user?.id === parentRef?.user?.id)">
@@ -430,7 +430,7 @@
 
   <div *ngIf="optionsFile && optionsFile?.id && editingTopics.includes(optionsFile.id)">
     <app-topics #topicComponent [isDropdown]="true" [user]="inputtedParentRef?.user ?? parentRef?.user"
-      [parent]="inputtedParentRef ?? parentRef" [attachedTopics]="optionsFile?.topics"
+      [parent]="inputtedParentRef ?? parentRef" [attachedTopics]="optionsFile.topics"
       (topicAdded)="editFileTopicInDB($event, optionsFile)">
     </app-topics>
   </div>
