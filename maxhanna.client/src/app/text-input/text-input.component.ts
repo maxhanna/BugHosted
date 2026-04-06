@@ -1,4 +1,3 @@
-  isPostLoading: boolean = false;
 import { Component, ElementRef, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { AppComponent } from '../app.component';
