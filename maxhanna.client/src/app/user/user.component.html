@@ -430,27 +430,45 @@
               </div>
             </div>
 
-            <div class="optionsStatsDiv" *ngIf="topEmulationGameName">
+            <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
                 <app-menu-item [type]="'Emulation'" [parentRef]="parentRef"
                   [label]="'Top game played:'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription cursorPointerUnderlined linkColor"
                 (click)="toggleEmulationBreakdown()">
-                <span class="clickableLink" title="Click to view all games">
-                  {{ topEmulationGameName.replace('.sav', '') }}
-                </span>
-                <span *ngIf="topEmulationGamePlays">• Plays: {{ topEmulationGamePlays }}</span>
+                <ng-container *ngIf="isLoadingTopGamePlayed">
+                  <span class="smallFont spinning-emoji" title="Loading">
+                    <span role="img" aria-label="hourglass">⏳</span>
+                  </span>
+                </div> 
+                </ng-container>
+                <ng-container *ngIf="!isLoadingTopGamePlayed && topEmulationGameName">
+                  <span class="clickableLink" title="Click to view all games">
+                    {{ topEmulationGameName.replace('.sav', '') }}
+                  </span>
+                  <span *ngIf="topEmulationGamePlays">• Plays: {{ topEmulationGamePlays }}</span>
+                </ng-container>
+                <ng-container *ngIf="!isLoadingTopGamePlayed && !topEmulationGameName">
+                  <span class="smallFont">—</span>
+                </ng-container>
               </div>
-
-              <!-- Breakdown list (shows per-game total hours) - moved to popup panel -->
             </div>
 
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
                 <app-menu-item [type]="'Emulation'" [parentRef]="parentRef" [label]="'ROMs uploaded:'"></app-menu-item>
               </div>
-              <div class="optionsStatsDescription">{{numberOfRomsUploaded ?? '—'}} roms</div>
+              <div class="optionsStatsDescription">
+                <ng-container *ngIf="isLoadingRomsUploaded">
+                  <span class="smallFont spinning-emoji" title="Loading">
+                    <span role="img" aria-label="hourglass">⏳</span>
+                  </span>
+                </ng-container>
+                <ng-container *ngIf="!isLoadingRomsUploaded">
+                  {{numberOfRomsUploaded ?? '—'}} roms
+                </ng-container>
+              </div>
             </div>
 
             <div class="optionsStatsDiv" *ngIf="metaBotLevelsSum > 0">

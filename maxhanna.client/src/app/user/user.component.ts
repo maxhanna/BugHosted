@@ -1,3 +1,6 @@
+  // Loading states for about panel stats
+  // Must be inside the class
+
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { UserService } from '../../services/user.service';
@@ -74,6 +77,8 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   showingFollowingList = false;
   showingFollowersList = false;
   showingFriendsList = true;
+  isLoadingTopGamePlayed = false;
+  isLoadingRomsUploaded = false;
   friends: User[] = [];
   friendRequests: FriendRequest[] = [];
   friendRequestsSent: FriendRequest[] = [];
@@ -266,6 +271,8 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     if (!user || !user.id) return;
 
     try {
+      this.isLoadingTopGamePlayed = true;
+      this.isLoadingRomsUploaded = true;
       this.numberOfMastermindGames = await this.mastermindService.getNumberOfGames(user.id);
 
       this.numberOfFilesUploaded = await this.fileService.getNumberOfFiles(user.id);
@@ -293,6 +300,11 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
           this.topEmulationGamePlays = stats.topGamePlays ?? null;
           this.numberOfRomsUploaded = stats.romCount ?? 0;
         }
+        this.isLoadingTopGamePlayed = false;
+        this.isLoadingRomsUploaded = false;
+      }).catch(() => {
+        this.isLoadingTopGamePlayed = false;
+        this.isLoadingRomsUploaded = false;
       });
 
       // Breakdown will be fetched on demand when user clicks the top-game area
@@ -300,7 +312,10 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       if ((this.numberOfMemesUploaded === undefined || this.numberOfMemesUploaded === null)) {
         this.numberOfMemesUploaded = 0;
       }
-    } catch (e) { }
+    } catch (e) {
+      this.isLoadingTopGamePlayed = false;
+      this.isLoadingRomsUploaded = false;
+    }
   }
 
   // Toggle the emulation breakdown list; fetch from server on first open
