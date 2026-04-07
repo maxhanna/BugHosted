@@ -59,7 +59,12 @@
       <div class="fileUploadLineDiv"> 
         <div class="progressContainer">
           <div class="progressBar" [style.width.%]="uploadProgress[file.name] || 0">
-            <span class="fileName">{{file.name}}</span>
+            <span class="fileName" 
+              [class.warnText]="uploadedFileList[i]?.isDuplicate"
+              [class.redText]="!uploadedFileList[i]?.isDuplicate && uploadErrors[file.name]"
+              [style.marginLeft.px]="!uploadProgress[file.name] ? 15 : 0">
+              {{file.name}}
+            </span>
           </div>
         </div>
         <span class="progressText">

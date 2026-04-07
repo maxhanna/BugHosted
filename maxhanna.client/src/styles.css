@@ -515,6 +515,10 @@ fieldset {
   color: red;
 }
 
+.warnText {
+  color: orange;
+}
+
 .greyText {
   color: grey;
 }

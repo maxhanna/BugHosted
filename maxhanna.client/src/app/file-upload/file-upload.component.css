@@ -201,6 +201,8 @@ button:disabled {
   text-overflow: ellipsis;
   white-space: nowrap;
   padding-left: 4px;
+  font-size: small;
+  vertical-align: text-top; 
 }
 
 .progressText {
