@@ -1,6 +1,6 @@
 .componentMain { 
-  max-height: CALC(100vh - 60px);
-  max-height: CALC(100dvh - 60px);
+  max-height: CALC(100vh - 55px);
+  max-height: CALC(100dvh - 55px);
   overflow: auto;
 }
 
