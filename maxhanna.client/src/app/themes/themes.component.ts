@@ -80,31 +80,44 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
 
   ngOnInit() {
     if (this.parentRef?.user?.id) {
-      this.userService.getTheme(this.parentRef.user.id).then(res => {
-        if (res) {
-          this.userSelectedTheme = res;
-          this.originalThemeId = this.userSelectedTheme?.id ?? 0;
-          this.themeNameInput.nativeElement.value = (this.userSelectedTheme?.name ? this.userSelectedTheme.name : "Default");
+      try {
+        this.userService.getTheme(this.parentRef.user.id).then(res => {
+          if (res) {
+            this.userSelectedTheme = res;
+            this.originalThemeId = this.userSelectedTheme?.id ?? 0;
+            this.themeNameInput.nativeElement.value = (this.userSelectedTheme?.name ? this.userSelectedTheme.name : "Default");
 
-          this.replenishBackroundImageSelection(res, true);
-        }
-      });
+            this.replenishBackroundImageSelection(res, true);
+          }
+        });
+      } catch (error) {
+        console.error('Error fetching user theme:', error);
+      }
 
-      this.userService.getAllThemes().then(res => {
-        if (res) {
-          this.allThemes = res;
-        } else {
-          this.allThemes = [];
-        }
-      });
 
-      this.userService.getAllUserThemes(this.parentRef.user.id).then(res => {
-        if (res) {
-          this.myThemes = res;
-        } else {
-          this.myThemes = [];
-        }
-      });
+      try {
+        this.userService.getAllThemes().then(res => {
+          if (res) {
+            this.allThemes = res;
+          } else {
+            this.allThemes = [];
+          }
+        });
+      } catch (error) {
+        console.error('Error fetching all themes:', error);
+      }
+
+      try {
+        this.userService.getAllUserThemes(this.parentRef.user.id).then(res => {
+          if (res) {
+            this.myThemes = res;
+          } else {
+            this.myThemes = [];
+          }
+        });
+      } catch (error) {
+        console.error('Error fetching user themes:', error);
+      }
     }
   }
 
@@ -138,11 +151,11 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     } else {
       document.documentElement.style.removeProperty(variable);
     }
-      if (!this.blockWarnThemeChange) {
-        this.warnUserToSave = true;
-        // once the theme is edited, hide the original creator info
-        this.selectedThemeCreator = undefined;
-      }
+    if (!this.blockWarnThemeChange) {
+      this.warnUserToSave = true;
+      // once the theme is edited, hide the original creator info
+      this.selectedThemeCreator = undefined;
+    }
   }
 
   getComputedStyleValue(variable: string) {
@@ -357,28 +370,35 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   onThemeChange(event: any): void {
-    const selectedId = event.target.value;
+    // Defensive: ensure selectedId is a number
+    let selectedId = event.target.value;
+    if (typeof selectedId === 'string') {
+      selectedId = parseInt(selectedId, 10);
+    }
     this.changeThemeById(selectedId);
   }
 
   changeThemeById(selectedId: number) {
     this.blockWarnThemeChange = true;
     let type: "mine" | "other" = "mine";
-    let selectedTheme = this.myThemes?.find(theme => theme.id == selectedId);
+
+    let selectedTheme = (this.myThemes ?? []).find(theme => theme.id == selectedId);
     if (!selectedTheme) {
       type = "other";
-      selectedTheme = this.allThemes?.find(theme => theme.id == selectedId);
+      selectedTheme = (this.allThemes ?? []).find(theme => theme.id == selectedId);
     }
     this.userSelectedTheme = selectedTheme;
     this.selectedThemeCreator = undefined;
-    this.mediaSelector.removeAllFiles();
+    if (this.mediaSelector) {
+      this.mediaSelector.removeAllFiles();
+    }
 
     if (!selectedTheme) {
       console.log("Selected theme not found, restoring defaults.");
       this.restoreDefaultSettings(false);
       this.selectedThemeCreator = undefined;
       return;
-    };
+    }
 
     if (type === "mine" && document.getElementById("allThemesDropdown")) {
       (document.getElementById("allThemesDropdown") as HTMLSelectElement).selectedIndex = 0;
@@ -395,13 +415,17 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
           } else {
             this.allThemes = [];
           }
-        }); 
+        });
       } catch (error) {
         console.error('Error during theme search:', error);
-      } 
+      }
     }
-    this.themeSearchInput.nativeElement.value = '';
-    this.themeNameInput.nativeElement.value = selectedTheme.name ?? '';
+    if (this.themeSearchInput?.nativeElement) {
+      this.themeSearchInput.nativeElement.value = '';
+    }
+    if (this.themeNameInput?.nativeElement) {
+      this.themeNameInput.nativeElement.value = selectedTheme.name ?? '';
+    }
     this.isSearching = false;
 
     // Apply all theme properties
@@ -434,7 +458,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
         });
       } catch (error) {
         console.error('Error fetching background image:', error);
-      } 
+      }
     } else {
       this.updateCSS('--main-background-image-url', undefined, '');
       this.attachedFiles = [];
@@ -459,7 +483,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
           });
         } catch (error) {
           console.error('Error fetching theme creator:', error);
-        } 
+        }
       }
     }, 50); // timeout to make sure this is done after updateCSS. 
   }
