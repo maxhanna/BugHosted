@@ -12,10 +12,11 @@
   <div class="themeSelectorDivWrapper">
     <div class="themeSelectorDiv">
       <label>Background Image:</label>
-      <app-media-selector #mediaSelector
-                          [inputtedParentRef]="parentRef"
-                          [maxSelectedFiles]="1"
-                          (selectFileEvent)="selectFile($event)">
+      <app-media-selector 
+        #mediaSelector
+        [inputtedParentRef]="parentRef"
+        [maxSelectedFiles]="1"
+        (selectFileEvent)="selectFile($event)">
       </app-media-selector>
     </div>
     <div class="themeSelectorDiv">
