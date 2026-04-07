@@ -16,7 +16,7 @@ import { TodoService } from '../../services/todo.service';
 import { RomService } from '../../services/rom.service'; 
 import { FileAccessLog } from '../../services/datacontracts/file/file-access-log';
 import { FileNote } from '../../services/datacontracts/file/file-note';
-import { Core } from '../emulator/emulator-types';
+import { Core, CoreDescriptor } from '../emulator/emulator-types';
 
 @Component({
   selector: 'app-file-search',
@@ -2361,7 +2361,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   openSystemOverridePanel(): void {
     if (!this.optionsFile || !this.optionsFile.fileName) return;
-    this.systemCandidates = this.fileService.buildCoreRegistry();
+    const candidates: CoreDescriptor[] = this.fileService.buildCoreRegistry();
+    const ext = this.fileService.getFileExtension(this.optionsFile.fileName).toLowerCase();
+    this.systemCandidates = this.sortCandidatesByExt(ext, candidates);
     this.selectedSystemCore = null;
     this.systemSelectFile = this.optionsFile;
     this.closeOptionsPanel();
@@ -2369,6 +2371,29 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.isSystemSelectPanelOpen = true;
       this.parentRef?.showOverlay();
     }, 10);
+  }
+
+  /**
+   * Sorts system/core candidates by most likely for a given extension.
+   */
+  private sortCandidatesByExt(ext: string, list: CoreDescriptor[]): CoreDescriptor[] {
+    const orderByExt: Record<string, string[]> = {
+      iso: ['psp', 'pcsx_rearmed', 'mednafen_psx_hw', 'yabause', 'genesis_plus_gx', 'opera'],
+      cue: ['mednafen_psx_hw', 'pcsx_rearmed', 'genesis_plus_gx', 'yabause', 'mednafen_pce', 'mednafen_pcfx'],
+      chd: ['pcsx_rearmed', 'mednafen_psx_hw', 'yabause', 'genesis_plus_gx', 'opera'],
+      bin: ['genesis_plus_gx', 'pcsx_rearmed', 'mednafen_psx_hw', 'yabause', 'mednafen_pce'],
+      sms: ['snes9x', 'smsplus', 'genesis_plus_gx'],
+      smc: ['snes9x', 'smsplus', 'genesis_plus_gx'],
+    };
+
+    const preferred = orderByExt[ext] ?? [];
+    const rank = (core?: string) => {
+      if (!core) return -1; // Auto stays first
+      const i = preferred.indexOf(core);
+      return i === -1 ? 999 : i;
+    };
+
+    return [...list].sort((a, b) => rank(a.core) - rank(b.core));
   }
 
   onSystemSelectChange(ev: Event): void {
