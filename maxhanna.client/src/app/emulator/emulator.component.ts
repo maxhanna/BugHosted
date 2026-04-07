@@ -2680,7 +2680,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   get savePromptMessage(): string { 
-    return `Please wait for the current save operation to finish before exiting.\n${this.status}`;
+    if (this.isSaveButtonLoading) {
+      return `Please wait for the current save operation to finish before exiting.` + '\n' + this.status;
+    }
+    return 'It is now safe to exit. Save complete!';
   } 
 
   get specialActionButtonLabel(): string {
