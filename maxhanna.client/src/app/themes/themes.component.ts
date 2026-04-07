@@ -460,6 +460,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
       try {
         await this.fileService.getFileEntryById(selectedTheme.backgroundImage.id, requesterId).then(res => {
           if (res) {
+            this.blockWarnThemeChange = true;
             this.selectBackgroundImage(res);
             const directLink = `https://bughosted.com/assets/Uploads/${(this.getDirectoryName(res) != '.' ? this.getDirectoryName(res) : '')}${res.fileName}`;
             this.updateCSS('--main-background-image-url', undefined, directLink);
