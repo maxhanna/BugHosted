@@ -75,7 +75,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
 
   constructor(private userService: UserService, private fileService: FileService) {
     super();
-    setTimeout(() => { this.blockWarnThemeChange = false; }, 150);
+    setTimeout(() => { this.blockWarnThemeChange = false; }, 1000);
   }
 
   ngOnInit() {
@@ -145,7 +145,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   // Update CSS variables dynamically
-  updateCSS(variable: string, event?: Event, variableValue?: any) {
+  updateCSS(variable: string, event?: Event, variableValue?: any, blockSavePrompt?: boolean) {
     if (!event && !variableValue) return;
 
     const target = event?.target as HTMLInputElement;
@@ -164,7 +164,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     } else {
       document.documentElement.style.removeProperty(variable);
     }
-    if (!this.blockWarnThemeChange) {
+    if (!this.blockWarnThemeChange && !blockSavePrompt) {
       this.warnUserToSave = true;
       console.log("Theme edited, warnUserToSave set to true"); 
     }
@@ -291,7 +291,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     this.parentRef?.closeOverlay();
   }
 
-  selectFile(files?: FileEntry[]) {
+  selectFile(files?: FileEntry[], blockSavePrompt: boolean = false) {
     this.attachedFiles = files;
     const fileId = this.attachedFiles && this.attachedFiles[0] ? this.attachedFiles[0].id : null;
     if (fileId) {
@@ -299,14 +299,14 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
       this.fileService.getFileEntryById(fileId, requesterId).then(res => {
         if (res) {
           const directLink = `https://bughosted.com/assets/Uploads/${(this.getDirectoryName(res) != '.' ? this.getDirectoryName(res) : '')}${res.fileName}`;
-          this.updateCSS('--main-background-image-url', undefined, directLink);
+          this.updateCSS('--main-background-image-url', undefined, directLink, blockSavePrompt);
           setTimeout(() => {
             document.body.style.backgroundImage = `url(${directLink})`;
           }, 10);
         }
       });
     } else {
-      this.updateCSS('--main-background-image-url', undefined, fileId);
+      this.updateCSS('--main-background-image-url', undefined, fileId, blockSavePrompt);
       setTimeout(() => {
         document.body.style.backgroundImage = ``;
       }, 10);
@@ -550,14 +550,9 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     }, 500);
   }
 
-  private replenishBackroundImageSelection(res: UserTheme, blockSavePrompt = false) {
+  private async replenishBackroundImageSelection(res: UserTheme, blockSavePrompt = false) {
     if (res.backgroundImage) {
-      const requesterId = this.parentRef?.user?.id;
-      this.fileService.getFileEntryById(res.backgroundImage.id, requesterId).then(feRes => {
-        if (feRes) {
-          this.selectBackgroundImage(feRes, blockSavePrompt);
-        }
-      });
+      this.selectFile([res.backgroundImage], blockSavePrompt);
     }
   }
 
