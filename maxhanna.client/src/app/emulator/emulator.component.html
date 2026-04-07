@@ -118,6 +118,9 @@
         <ng-template #saveIcon>💿</ng-template>
         <div class="emuMenuButtonLabel">Save</div>
       </button>
+      <button *ngIf="romName" class="emuMenuButton squareButton" title="Share Latest Save File" (click)="onShareSaveClick()">
+        🤝<div class="emuMenuButtonLabel">Share Save</div>
+      </button>
       <button (click)="isFaqOpen = !isFaqOpen" class="emuMenuButton squareButton" title="Show FAQ">
         ❓<div class="emuMenuButtonLabel">FAQ</div>
       </button>
@@ -168,11 +171,20 @@
   <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
 </div>
 
+<!-- Share Save Prompt Panel -->
+<app-prompt
+  [type]="'share'"
+  [inputtedParentRef]="parentRef"
+  [visible]="isSharePromptVisible"
+  (userSelected)="onUserSelectedForShare($event)"
+  (close)="isSharePromptVisible = false">
+</app-prompt>
+
 <!-- Login Prompt Panel -->
 <app-prompt
   [type]="'login'"
   [message]="'You must log-in to save your progress on the server.'"
-  [parentRef]="parentRef"
+  [inputtedParentRef]="parentRef"
   [visible]="isShowingLoginPanel"
   (close)="closeLoginPanel($event)">
 </app-prompt>

@@ -7,13 +7,14 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
   standalone: false,
 })
 export class PromptComponent {
-  @Input() type: 'login' | 'messageOnly' = 'login';
+  @Input() type: 'login' | 'messageOnly' | 'share' = 'login';
   @Input() message: string = '';
   @Input() emoji: string = '';
-  @Input() parentRef: any;
+  @Input() inputtedParentRef: any;
   @Input() visible: boolean = false;
   @Input() showSpecialAction: boolean = false;
   @Input() specialActionCallback: (() => void) | null = null;
   @Input() specialActionButtonLabel: string = 'Done';
   @Output() close = new EventEmitter<any>();
+  @Output() userSelected = new EventEmitter<any>();
 }

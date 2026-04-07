@@ -107,7 +107,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.CORE_REGISTRY = this.buildCoreRegistry(this.fileService);
   }
 
-
   ngOnInit(): void {
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
@@ -2833,6 +2832,23 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.saveConfirmCallback = undefined;
       console.error('Save confirm callback is not a function or is undefined');
     }
+  }
+  
+  isSharePromptVisible = false;
+
+  onShareSaveClick(): void {
+    // Close the menu popup panel
+    this.isMenuPanelOpen = false;
+    setTimeout(() => {
+      this.isSharePromptVisible = true;
+    }, 250);
+  }
+
+  onUserSelectedForShare(user: any): void {
+    // Handle the selected user for sharing the save file
+    this.isSharePromptVisible = false;
+    // TODO: Implement actual share logic here
+    console.log('User selected for share:', user);
   }
 
   cancelSystemSelection() {
