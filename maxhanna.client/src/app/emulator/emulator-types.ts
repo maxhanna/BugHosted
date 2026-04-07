@@ -223,6 +223,11 @@ export const FAQ_ITEMS: { question: string; answerHtml: string; expanded: boolea
     question: 'How can I auto-load a preset ROM via URL?',
     answerHtml: `You can pass query parameters when navigating to /Emulator: use <strong>?rom=FILE_NAME&amp;romId=ID</strong>. The component checks for these and will attempt to load them automatically if provided.`,
     expanded: false
+  },
+  {
+    question: 'Can I load ROMs from zip files?',
+    answerHtml: `Currently, loading ROMs directly from .zip files is not supported. Please extract your ROM files before uploading or selecting them. Support for zip files may be added in the future.`,
+    expanded: false
   }
 ];
 
