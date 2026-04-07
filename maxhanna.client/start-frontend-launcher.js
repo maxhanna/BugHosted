@@ -117,6 +117,7 @@ async function runBuildIfNeeded() {
     writeLog('[Build] Starting build...');
 
     let buildStdout = '';
+    let buildStderr = '';
     const child = spawn(buildCmd, buildArgs, {
       cwd: frontendPath,
       stdio: ['ignore', 'pipe', 'pipe'],
