@@ -30,8 +30,8 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   attachedFiles?: FileEntry[];
   userSelectedTheme?: UserTheme;
   selectedThemeCreator?: User;
-  allThemes?: UserTheme[];
-  myThemes?: UserTheme[];
+  allThemes: UserTheme[] = [];
+  myThemes: UserTheme[] = [];
   showDeleteConfirm: boolean = false;
   isSearching = false
   originalThemeId = 0;
