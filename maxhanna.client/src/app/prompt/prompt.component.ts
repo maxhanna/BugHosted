@@ -20,7 +20,10 @@ export class PromptComponent {
   @Output() close = new EventEmitter<any>();
   @Output() selectedUsersChange = new EventEmitter<User[]>(); 
 
-  onUserSelected(user: User): void {
+  onUserSelected(user?: User): void {
+    if (!user) {
+      return;
+    }
     this.selectedShareUsers.push(user);
     // Build the selected users string
     const userNames = this.selectedShareUsers.map(u => u.username || 'user').join(', ');
