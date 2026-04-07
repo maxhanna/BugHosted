@@ -88,6 +88,19 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
             this.themeNameInput.nativeElement.value = (this.userSelectedTheme?.name ? this.userSelectedTheme.name : "Default");
 
             this.replenishBackroundImageSelection(res, true);
+
+            const creatorUserId = this.userSelectedTheme?.userId;
+            if (creatorUserId) {
+              try {
+                this.userService.getUserById(creatorUserId).then(u => {
+                  if (u && !this.warnUserToSave) {
+                    this.selectedThemeCreator = u ?? undefined;
+                  }
+                });
+              } catch (error) {
+                console.error('Error fetching theme creator:', error);
+              }
+            }
           }
         });
       } catch (error) {
@@ -153,8 +166,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     }
     if (!this.blockWarnThemeChange) {
       this.warnUserToSave = true;
-      // once the theme is edited, hide the original creator info
-      this.selectedThemeCreator = undefined;
+      console.log("Theme edited, warnUserToSave set to true"); 
     }
   }
 

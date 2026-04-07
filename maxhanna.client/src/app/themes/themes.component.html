@@ -5,8 +5,8 @@
   </app-title-bar>
 
   <div *ngIf="selectedThemeCreator" class="theme-creator">
-    Created by:
-      <app-user-tag [user]="selectedThemeCreator" [inputtedParentRef]="parentRef"></app-user-tag>
+    <div>{{warnUserToSave ? 'Originally ' : ''}}Created by:</div>
+    <app-user-tag [user]="selectedThemeCreator" [inputtedParentRef]="parentRef"></app-user-tag>
   </div>
 
   <div class="themeSelectorDivWrapper">
