@@ -678,15 +678,12 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     this.isSecurityQuestionsToggled = !this.isSecurityQuestionsToggled;
     if (!this.isSecurityQuestionsToggled) return;
 
-    // If we already have a frontend copy, use it and avoid reloading.
-    if (this.cachedSecurityQuestions && this.cachedSecurityQuestions.length > 0) {
-      // Wait for DOM to render inputs
-      setTimeout(() => { this.populateSecurityQuestionInputs(this.cachedSecurityQuestions); }, 0);
-      return;
-    }
-
-    // Wait for DOM to render the inputs and then load from server once
+    // Always wait for DOM to render inputs before populating
     setTimeout(async () => {
+      if (this.cachedSecurityQuestions && this.cachedSecurityQuestions.length > 0) {
+        this.populateSecurityQuestionInputs(this.cachedSecurityQuestions);
+        return;
+      }
       const id = this.inputtedParentRef?.user?.id ?? this.parentRef?.user?.id;
       if (!id) return;
       try {
