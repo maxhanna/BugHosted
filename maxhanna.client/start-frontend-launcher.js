@@ -27,11 +27,22 @@ function writeDebugFileToDesktop(errorOutput) {
   try {
     const desktopDir = path.join(require('os').homedir(), 'Desktop');
     const debugPath = path.join(desktopDir, 'debug.txt');
-    fs.writeFileSync(debugPath, errorOutput, { encoding: 'utf8' });
+    let msg = errorOutput;
+    if (typeof msg !== 'string') {
+      try {
+        msg = JSON.stringify(msg, null, 2);
+      } catch { msg = String(errorOutput); }
+    }
+    // Append if file exists, else write
+    if (fs.existsSync(debugPath)) {
+      fs.appendFileSync(debugPath, `\n${msg}\n`, { encoding: 'utf8' });
+    } else {
+      fs.writeFileSync(debugPath, msg, { encoding: 'utf8' });
+    }
   } catch (e) {
     const now = new Date();
     const localTime = now.toLocaleTimeString();
-    console.log(`[LOG] ${localTime} ${e.message}`); // Also log to console 
+    console.log(`[LOG] ${localTime} Failed to write debug file: ${e.message}`); // Also log to console 
   }
 }
 
@@ -66,7 +77,9 @@ if (!fs.existsSync(prodServerPath)) {
   console.error(errorMsg);
   try {
     writeDebugFileToDesktop(errorMsg);
-  } catch (e) {}
+  } catch (e) {
+    writeLog('Failed to write debug file:', e && e.message ? e.message : e);
+  }
   process.exit(1);
 }
 
@@ -284,7 +297,9 @@ async function runBuildIfNeeded() {
       writeLog(errorMsg);
       try {
         writeDebugFileToDesktop(errorMsg);
-      } catch (e) {}
+      } catch (e) {
+        writeLog('Failed to write debug file:', e && e.message ? e.message : e);
+      }
       process.exit(1);
     }
   } catch (err) {
@@ -292,7 +307,9 @@ async function runBuildIfNeeded() {
     writeLog(errorMsg);
     try {
       writeDebugFileToDesktop(errorMsg);
-    } catch (e) {}
+    } catch (e) {
+      writeLog('Failed to write debug file:', e && e.message ? e.message : e);
+    }
     process.exit(1);
   }
 })();

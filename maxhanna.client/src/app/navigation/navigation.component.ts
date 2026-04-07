@@ -1343,8 +1343,12 @@ export class NavigationComponent implements OnInit, OnDestroy {
   hasUserSelectedNavItem(title: string): boolean {
     return this._parent.userSelectedNavigationItems.some(x => x.title == title);
   }
-  hexWithAlpha(hex: string, alpha: number): string {
-    // Clamp and convert alpha to 0–255
+  hexWithAlpha(hex?: string | undefined | null, alpha?: number): string | null {
+    if (!hex || !alpha) return null;
+    if (hex && hex.length > 7) {
+      console.warn(`Expected hex in #RRGGBB format, got ${hex}`);
+      return hex;
+    }
     const a = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
     const aa = a.toString(16).padStart(2, '0');
     // Normalize to #RRGGBB first
@@ -1352,5 +1356,5 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (h.length === 3) h = h.split('').map(c => c + c).join('');
     if (h.length !== 6) throw new Error(`Invalid hex color: ${hex}`);
     return `#${h}${aa}`;
-  } 
+  }
 }

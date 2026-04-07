@@ -563,17 +563,6 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   hexWithAlpha(hex?: string | undefined | null, alpha?: number): string | null {
-    if (!hex || !alpha) return null;
-    if (hex.length > 7) {
-      console.warn(`Expected hex in #RRGGBB format, got ${hex}`);
-      return hex;
-    }
-    const a = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
-    const aa = a.toString(16).padStart(2, '0');
-    // Normalize to #RRGGBB first
-    let h = hex.replace('#', '').trim();
-    if (h.length === 3) h = h.split('').map(c => c + c).join('');
-    if (h.length !== 6) throw new Error(`Invalid hex color: ${hex}`);
-    return `#${h}${aa}`;
+    return this.parentRef?.navigationComponent?.hexWithAlpha(hex, alpha) ?? null;
   }
 }
