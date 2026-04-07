@@ -78,16 +78,20 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     setTimeout(() => { this.blockWarnThemeChange = false; }, 1000);
   }
 
-  ngOnInit() {
+  async ngOnInit() {
     if (this.parentRef?.user?.id) {
       try {
-        this.userService.getTheme(this.parentRef.user.id).then(res => {
+        await this.userService.getTheme(this.parentRef.user.id).then(res => {
           if (res) {
             this.userSelectedTheme = res;
             this.originalThemeId = this.userSelectedTheme?.id ?? 0;
             this.themeNameInput.nativeElement.value = (this.userSelectedTheme?.name ? this.userSelectedTheme.name : "Default");
 
-            this.replenishBackroundImageSelection(res, true);
+            try {
+              this.replenishBackroundImageSelection(res, true); 
+            } catch (error) {
+              console.error('Error applying background image:', error);
+            }
 
             const creatorUserId = this.userSelectedTheme?.userId;
             if (creatorUserId) {
@@ -441,18 +445,18 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     this.isSearching = false;
 
     // Apply all theme properties
-    this.updateCSS('--main-bg-color', undefined, selectedTheme.backgroundColor);
-    this.updateCSS('--component-background-color', undefined, selectedTheme.componentBackgroundColor);
-    this.updateCSS('--secondary-component-background-color', undefined, selectedTheme.secondaryComponentBackgroundColor);
-    this.updateCSS('--main-font-color', undefined, selectedTheme.fontColor);
-    this.updateCSS('--secondary-font-color', undefined, selectedTheme.secondaryFontColor);
-    this.updateCSS('--third-font-color', undefined, selectedTheme.thirdFontColor);
-    this.updateCSS('--main-highlight-color', undefined, selectedTheme.mainHighlightColor);
+    this.updateCSS('--main-bg-color', undefined, selectedTheme.backgroundColor, true);
+    this.updateCSS('--component-background-color', undefined, selectedTheme.componentBackgroundColor, true);
+    this.updateCSS('--secondary-component-background-color', undefined, selectedTheme.secondaryComponentBackgroundColor, true);
+    this.updateCSS('--main-font-color', undefined, selectedTheme.fontColor, true);
+    this.updateCSS('--secondary-font-color', undefined, selectedTheme.secondaryFontColor, true);
+    this.updateCSS('--third-font-color', undefined, selectedTheme.thirdFontColor, true);
+    this.updateCSS('--main-highlight-color', undefined, selectedTheme.mainHighlightColor, true);
     const eightDigit = this.hexWithAlpha(selectedTheme.mainHighlightColorQuarterOpacity, 0.87);
-    this.updateCSS('--main-highlight-color-quarter-opacity', undefined, eightDigit);
-    this.updateCSS('--main-link-color', undefined, selectedTheme.linkColor);
-    this.updateCSS('--main-font-size', undefined, `${selectedTheme.fontSize}px`);
-    this.updateCSS('--main-font-family', undefined, selectedTheme.fontFamily);
+    this.updateCSS('--main-highlight-color-quarter-opacity', undefined, eightDigit, true);
+    this.updateCSS('--main-link-color', undefined, selectedTheme.linkColor, true);
+    this.updateCSS('--main-font-size', undefined, `${selectedTheme.fontSize}px`, true);
+    this.updateCSS('--main-font-family', undefined, selectedTheme.fontFamily, true);
 
     // Handle background image
     if (selectedTheme.backgroundImage) {
@@ -461,9 +465,9 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
         await this.fileService.getFileEntryById(selectedTheme.backgroundImage.id, requesterId).then(res => {
           if (res) {
             this.blockWarnThemeChange = true;
-            this.selectBackgroundImage(res);
+            this.selectBackgroundImage(res, true);
             const directLink = `https://bughosted.com/assets/Uploads/${(this.getDirectoryName(res) != '.' ? this.getDirectoryName(res) : '')}${res.fileName}`;
-            this.updateCSS('--main-background-image-url', undefined, directLink);
+            this.updateCSS('--main-background-image-url', undefined, directLink, true);
             setTimeout(() => {
               document.body.style.backgroundImage = `url(${directLink})`;
             }, 10);
@@ -473,7 +477,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
         console.error('Error fetching background image:', error);
       }
     } else {
-      this.updateCSS('--main-background-image-url', undefined, '');
+      this.updateCSS('--main-background-image-url', undefined, '', true);
       this.attachedFiles = [];
       this.mediaSelector.selectedFiles = [];
       setTimeout(() => {
