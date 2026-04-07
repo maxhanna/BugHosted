@@ -6,7 +6,13 @@
     </app-user>
   </div>
   <div *ngIf="type === 'share'">
-    <app-user-list [inputtedParentRef]="inputtedParentRef" [searchOnly]="true" [sharingSearch]="true" (userClickEvent)="userSelected.emit($event)"></app-user-list>
+    <app-user-list [inputtedParentRef]="inputtedParentRef" [searchOnly]="true" [sharingSearch]="true" (userClickEvent)="onUserSelected($event)"></app-user-list>
+    <div class="selected-users-list" *ngIf="selectedShareUsers.length > 0" style="margin-top: 10px;">
+      <label>Selected users:</label>
+      <div class="selected-users-tags" style="display: flex; flex-wrap: wrap; gap: 6px;">
+        <app-user-tag *ngFor="let user of selectedShareUsers" [user]="user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
+      </div>
+    </div>
   </div>
   <div *ngIf="type !== 'login' && message !== ''">
     <span class="prompt-message-row">
