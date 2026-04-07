@@ -50,6 +50,7 @@
     </div>
 
     <div [class]="notificationContainerClass"
+      style="width: 100%"
       *ngIf="notifications && notifications.length > 0">
       <div class="pagination-controls" *ngIf="notifications && notifications.length > itemsPerPage">
         <div class="items-per-page-selector">
