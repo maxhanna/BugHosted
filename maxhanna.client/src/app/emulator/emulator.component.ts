@@ -38,6 +38,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   isFullScreen = false;
   romName?: string;
   selectedROMFile?: FileEntry;
+  showGamepadDetails = false; // Controls visibility of gamepad details panel
   system?: System;
   isFileUploaderExpanded = false;
   isFaqOpen = false;
@@ -92,6 +93,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     'mupen64plus_next', 'parallel_n64', 'nds', 'melonDS', 'melonds', 'desmume', 'desmume2015',
     'psp', 'ppsspp', 'dolphin', 'flycast', 'naomi'
   ]);
+  
+  // Returns true if menu content should be shown (default: always true, customize as needed)
+  shouldShowMenuContent(): boolean {
+    return true;
+  }
   constructor(
     private romService: RomService,
     private fileService: FileService,
