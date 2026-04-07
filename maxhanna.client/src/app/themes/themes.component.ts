@@ -109,13 +109,13 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
 
       try {
         this.userService.getAllUserThemes(this.parentRef.user.id).then(res => {
-          if (res) {
-            this.myThemes = res;
-          } else {
-            this.myThemes = [];
-          }
+          this.myThemes = Array.isArray(res) ? res : [];
+        }).catch(err => {
+          this.myThemes = [];
+          console.error('Error fetching user themes (promise rejection):', err);
         });
       } catch (error) {
+        this.myThemes = [];
         console.error('Error fetching user themes:', error);
       }
     }
