@@ -387,6 +387,7 @@ export class UiGamepadRouter {
       );
     }
 
+    GamepadInfoStore.updateFromPads(pads);
     requestAnimationFrame(this.loop);
   };
 
@@ -415,3 +416,28 @@ export type UiAction =
   | 'up' | 'down' | 'left' | 'right'
   | 'confirm' | 'cancel' | 'menu'
   | 'noop';
+
+export const GamepadInfoStore = {
+  ids: [] as string[],
+  names: [] as string[],
+  updateFromPads(pads: (Gamepad | null | undefined)[]) {
+    let changed = false;
+    let idx = 0;
+    for (const pad of pads) {
+      if (pad && pad.connected) {
+        const id = pad.id;
+        const name = pad.id || pad.mapping || `Gamepad ${pad.index}`;
+        if (this.ids[idx] !== id) changed = true;
+        if (this.names[idx] !== name) changed = true;
+        this.ids[idx] = id;
+        this.names[idx] = name;
+        idx++;
+      }
+    }
+    // Truncate if fewer pads than before
+    if (this.ids.length !== idx) changed = true;
+    if (this.names.length !== idx) changed = true;
+    this.ids.length = idx;
+    this.names.length = idx; 
+  }
+};

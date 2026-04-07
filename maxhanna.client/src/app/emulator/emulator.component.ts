@@ -1,4 +1,3 @@
-
 import { AfterViewInit, ChangeDetectorRef, Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
@@ -9,7 +8,8 @@ import { AppComponent } from '../app.component';
 import {
   VPadItem, System, BuildOpts, SystemCandidate, CoreDescriptor,
   MIN_STATE_SIZE, FAQ_ITEMS, GENESIS_6BUTTON, GENESIS_FORCE_THREE,
-  PSP_DEFAULT_OPTIONS, Core, UiGamepadRouter, UiAction
+  PSP_DEFAULT_OPTIONS, Core, UiGamepadRouter, UiAction,
+  GamepadInfoStore
 } from './emulator-types';
 
 @Component({
@@ -58,7 +58,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   systemCandidates: Array<{ label: string; core?: Core }> = [];
   selectedSystemCore?: Core | null = null;
   displayAsTable = true;
-private _bootingFromGamepad = false;
+  connectedGamepads =  GamepadInfoStore;
+  private _bootingFromGamepad = false;
   private _gamepadUsedForSelection = false;
   private gamepadRouter = new UiGamepadRouter();
   private _lastCanvasBufW = 0;

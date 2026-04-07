@@ -60,6 +60,16 @@
     <br>
     <small *ngIf="lastSaveTime && romName" class="thirdFontColor">Last save: {{ lastSaveTime | timeSince:'minute' }}</small>
     <small *ngIf="!lastSaveTime && romName" class="thirdFontColor">Last save: none</small>
+    <!-- Show connected gamepads if no ROM is loaded -->
+    <div *ngIf="!romName && !onMobile() && connectedGamepads.names.length > 0" style="margin-top:10px;">
+      <span class="secondaryFontColor">🎮 Connected Gamepads:</span>
+      <ul style="margin:0; padding-left:18px;">
+        <li *ngFor="let name of connectedGamepads.names">🎮 {{ name }}</li>
+      </ul>
+    </div>
+    <div *ngIf="!romName && !onMobile() && connectedGamepads.names.length === 0" style="margin-top:10px;">
+      <span class="thirdFontColor xxSmallFont">🚫 No gamepads detected</span>
+    </div>
   </div>
 
   <div *ngIf="!isFaqOpen" class="emuMenuButtonContainer">
