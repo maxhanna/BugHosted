@@ -216,6 +216,7 @@
         </div>
       </div>
     </div>
+
     <!-- LOCATION -->
     <div (click)="isWeatherLocationToggled = !isWeatherLocationToggled; getWeatherLocation()"
       *ngIf="!showOnlyAccountSection && !showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlySelectableMenuItems"
@@ -223,7 +224,7 @@
       <div class="sectionHeaderLabel popupPanelTitle">
         <div>
           <span class="helperSpanTitle" title="Default is to automatically update your weather based on your IP address,
-but you can also set your own City for a more precise location."></span>
+  but you can also set your own City for a more precise location."></span>
         </div>
         <div class="settingsSectionHeaderTitle">Location</div>
       </div>
@@ -284,200 +285,196 @@ but you can also set your own City for a more precise location."></span>
           No blocked users.
         </div>
       </div>
+    </div>
 
-      <!-- MENU ICONS -->
-      <div (click)="showOnlySelectableMenuItems ? '' : getMenuIcons()" class="sectionHeaderDiv"
-        *ngIf="!showOnlyAccountSection && !showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation">
-        <div *ngIf="!showOnlySelectableMenuItems || isMenuIconsToggled" class="sectionHeaderLabel popupPanelTitle">
-          <div>
-            <span class="helperSpanTitle" title="Add / Remove icons from your menu."></span>
-          </div>
-          <div colspan="2" class="settingsSectionHeaderTitle">App Selection</div>
+    <!-- MENU ICONS -->
+    <div (click)="showOnlySelectableMenuItems ? '' : getMenuIcons()" class="sectionHeaderDiv"
+      *ngIf="!showOnlyAccountSection && !showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation">
+      <div *ngIf="!showOnlySelectableMenuItems || isMenuIconsToggled" class="sectionHeaderLabel popupPanelTitle">
+        <div>
+          <span class="helperSpanTitle" title="Add / Remove icons from your menu."></span>
         </div>
+        <div colspan="2" class="settingsSectionHeaderTitle">App Selection</div>
       </div>
-      <div *ngIf="showOnlySelectableMenuItems || isMenuIconsToggled" class="sectionDescriptionDiv">
-        <div class="menuIconTable menuIconTableContainer" *ngIf="selectableIcons">
-          <div *ngFor="let icon of selectableIcons" class="selectableIconMenuSection">
-            <div
-              [class]="'selectableMenuIconTitles' + (icon.title === expandedIconTitle ? ' selectableMenuIconTitlesExpanded' : '') "
-              (click)="toggleIconDescription(icon.title)">
-              <span class="cursorPointer">
-                {{ icon.title == 'Weather' ? '☀️' : icon.icon }}<span class="appTitle">{{ icon.title }}</span>
-              </span>
-              <label class="switch" (click)="selectMenuIcon(icon.title); $event.stopPropagation();">
-                <input type="checkbox" [checked]="menuIconsIncludes(icon.title)" />
-                <span class="slider round"></span>
-              </label>
-            </div>
-            <div class="selectableMenuIconDescriptions" *ngIf="icon.title === expandedIconTitle">
-              <div [id]="icon.title + 'tddiv'">
-                <div [id]="icon.title + 'tddivdiv'" (click)="menuInformationZoom(icon.title + 'td')"
-                  [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'"
-                  [innerHTML]="parentRef?.getMenuItemDescription(icon.title)">
-                </div>
+    </div>
+    <div *ngIf="showOnlySelectableMenuItems || isMenuIconsToggled" class="sectionDescriptionDiv">
+      <div class="menuIconTable menuIconTableContainer" *ngIf="selectableIcons">
+        <div *ngFor="let icon of selectableIcons" class="selectableIconMenuSection">
+          <div
+            [class]="'selectableMenuIconTitles' + (icon.title === expandedIconTitle ? ' selectableMenuIconTitlesExpanded' : '') "
+            (click)="toggleIconDescription(icon.title)">
+            <span class="cursorPointer">
+              {{ icon.title == 'Weather' ? '☀️' : icon.icon }}<span class="appTitle">{{ icon.title }}</span>
+            </span>
+            <label class="switch" (click)="selectMenuIcon(icon.title); $event.stopPropagation();">
+              <input type="checkbox" [checked]="menuIconsIncludes(icon.title)" />
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <div class="selectableMenuIconDescriptions" *ngIf="icon.title === expandedIconTitle">
+            <div [id]="icon.title + 'tddiv'">
+              <div [id]="icon.title + 'tddivdiv'" (click)="menuInformationZoom(icon.title + 'td')"
+                [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'"
+                [innerHTML]="parentRef?.getMenuItemDescription(icon.title)">
               </div>
             </div>
           </div>
         </div>
       </div>
+    </div>
 
 
-      <div
-        (click)="(showOnlyApiKeys ? '' : (isApiKeysToggled = !isApiKeysToggled)); getNicehashApiKeys(); getKrakenApiKeys()"
-        *ngIf="(showOnlyApiKeys || (!showOnlyAccountSection && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user))"
-        class="sectionHeaderDiv">
+    <div
+      (click)="(showOnlyApiKeys ? '' : (isApiKeysToggled = !isApiKeysToggled)); getNicehashApiKeys(); getKrakenApiKeys()"
+      *ngIf="(showOnlyApiKeys || (!showOnlyAccountSection && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user))"
+      class="sectionHeaderDiv">
 
-        <div class="sectionHeaderLabel popupPanelTitle">
-          <div>
-            <span class="helperSpanTitle"
-              title="Configure your NiceHash and Kraken API keys here to enable crypto mining and trading support."></span>
-          </div>
-          <div class="settingsSectionHeaderTitle">Crypto API Keys</div>
+      <div class="sectionHeaderLabel popupPanelTitle">
+        <div>
+          <span class="helperSpanTitle"
+            title="Configure your NiceHash and Kraken API keys here to enable crypto mining and trading support."></span>
         </div>
-
-        <div style="text-align:right;">
-          <button (click)="updateNHAPIKeys(); updateKrakenAPIKeys(); $event.stopPropagation()"
-            title="Update both NiceHash and Kraken settings" [disabled]="!isApiKeysToggled"
-            *ngIf="isApiKeysToggled || showOnlyApiKeys">💾Save</button>
-        </div>
+        <div class="settingsSectionHeaderTitle">Crypto API Keys</div>
       </div>
 
-      <div *ngIf="isApiKeysToggled || showOnlyApiKeys" class="sectionDescriptionDiv">
-
-        <!-- NICEHASH KEYS -->
-        <div class="sectionSubHeader smaller">NiceHash API Keys</div>
-        <div class="apiKeyInputWrapper sectionDescriptionSection">
-          <div>OrgId<span *ngIf="hasNhApiKeys"
-              title="Key is saved. For security purposes, we cannot show the saved API key."
-              class="cursorPointer onlineButton"></span>:</div>
-          <div><input type="text" placeholder="Org Id {{hasNhApiKeys ? '(Overwriting)' : ''}}" #orgId /></div>
-        </div>
-        <div class="apiKeyInputWrapper sectionDescriptionSection">
-          <div>ApiKey<span *ngIf="hasNhApiKeys"
-              title="Key is saved. For security purposes, we cannot show the saved API key."
-              class="cursorPointer onlineButton"></span>:</div>
-          <div><input type="text" placeholder="API Key {{hasNhApiKeys ? '(Overwriting)' : ''}}" #apiKey /></div>
-        </div>
-        <div class="apiKeyInputWrapper sectionDescriptionSection">
-          <div>ApiSecret<span *ngIf="hasNhApiKeys"
-              title="Key is saved. For security purposes, we cannot show the saved API key."
-              class="cursorPointer onlineButton"></span>:</div>
-          <div><input type="text" placeholder="API Secret {{hasNhApiKeys ? '(Overwriting)' : ''}}" #apiSecret /></div>
-        </div>
-        <div class="apiKeyInputWrapper sectionDescriptionSection">
-          <div>Delete Nicehash Keys:</div>
-          <div><button (click)="deleteNicehashApiKeys()">Delete</button></div>
-        </div>
-
-        <!-- KRAKEN KEYS -->
-        <div class="sectionSubHeader smaller">Kraken API Keys</div>
-        <div class="apiKeyInputWrapper sectionDescriptionSection">
-          <div>
-            Api Key<span *ngIf="hasKrakenKeys"
-              title="Key is saved. For security purposes, we cannot show the saved API key."
-              class="cursorPointer onlineButton"></span>:
-          </div>
-          <div><input type="text" placeholder="API Key {{hasKrakenKeys ? '(Overwriting)' : ''}}" #krakenApiKey /></div>
-        </div>
-        <div class="apiKeyInputWrapper sectionDescriptionSection">
-          <div>
-            Private Key<span *ngIf="hasKrakenKeys"
-              title="Key is saved. For security purposes, we cannot show the saved API key."
-              class="cursorPointer onlineButton"></span>:
-          </div>
-          <div><input type="text" placeholder="Private Key {{hasKrakenKeys ? '(Overwriting)' : ''}}"
-              #krakenPrivateKey />
-          </div>
-        </div>
-        <div class="apiKeyInputWrapper sectionDescriptionSection">
-          <div>Information:</div>
-          <div><button (click)="showKrakenHelpPanel()">Help</button></div>
-        </div>
-        <div class="apiKeyInputWrapper sectionDescriptionSection">
-          <div>Delete Kraken Keys:</div>
-          <div><button (click)="deleteKrakenApiKeys()">Delete</button></div>
-        </div>
-
-      </div>
-
-
-      <!--BTC Wallet Addresses-->
-      <div (click)="isBTCWalletAddressesToggled = !isBTCWalletAddressesToggled; getBTCWalletAddresses()"
-        *ngIf="!showOnlyAccountSection && !showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user"
-        class="sectionHeaderDiv">
-        <div class="sectionHeaderLabel popupPanelTitle">
-          <div><span class="helperSpanTitle" title="Keep track of your BTC Wallet address here."></span></div>
-          <div class="settingsSectionHeaderTitle">BTC Wallet Addresses</div>
-        </div>
-        <div style="text-align:right;">
-          <button (click)="updateBTCWalletAddresses(); $event.stopPropagation()" title="Update BTC Wallet Addresses"
-            [disabled]="!isBTCWalletAddressesToggled" *ngIf="isBTCWalletAddressesToggled">💾Save</button>
-          <button (click)="addBTCWalletAddress(); $event.stopPropagation()" title="Add BTC Wallet Address"
-            [disabled]="!isBTCWalletAddressesToggled"
-            *ngIf="isBTCWalletAddressesToggled && btcWalletAddresses && btcWalletAddresses.length > 0">➕</button>
-        </div>
-      </div>
-      <div *ngIf="isBTCWalletAddressesToggled" class="sectionDescriptionDiv">
-        <div *ngFor="let address of btcWalletAddresses; let i = index" class="sectionDescriptionSection">
-          <div>BTC Wallet Address:</div>
-          <div><input type="text" class="btcWalletInput" placeholder="BTC Wallet Address" [value]="address" /><button
-              *ngIf="address" (click)="deleteBTCWalletAddress(address)">🗑️</button></div>
-        </div>
-        <div *ngIf="btcWalletAddresses?.length === 0 || showAddBTCWalletAddressInput" class="sectionDescriptionSection">
-          <div>BTC Wallet Address:</div>
-          <div><input type="text" class="btcWalletInput" placeholder="BTC Wallet Address" /></div>
-        </div>
-      </div>
-
-      <!--Delete Account-->
-      <div (click)="isDeleteAccountToggled = !isDeleteAccountToggled"
-        *ngIf="!showOnlyAccountSection && !showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user"
-        class="sectionHeaderDiv">
-        <div class="sectionHeaderLabel popupPanelTitle">
-          <div><span class="helperSpanTitle" title="Delete your account"></span></div>
-          <div class="settingsSectionHeaderTitle">Delete Your Account?</div>
-        </div>
-        <div style="text-align:right;">
-          <button (click)="deleteUser()" title="ARE YOU SURE you want to DELETE YOUR ACCOUNT?"
-            [disabled]="!isDeleteAccountToggled" class="cursorPointer" *ngIf="isDeleteAccountToggled">🗑️</button>
-        </div>
-      </div>
-      <div style="text-align:center; margin: 5px;">
-        <button (click)="closeThisComponent()">Close</button>
+      <div style="text-align:right;">
+        <button (click)="updateNHAPIKeys(); updateKrakenAPIKeys(); $event.stopPropagation()"
+          title="Update both NiceHash and Kraken settings" [disabled]="!isApiKeysToggled"
+          *ngIf="isApiKeysToggled || showOnlyApiKeys">💾Save</button>
       </div>
     </div>
-  </div>
+    <div *ngIf="isApiKeysToggled || showOnlyApiKeys" class="sectionDescriptionDiv">
+      <!-- NICEHASH KEYS -->
+      <div class="sectionSubHeader smaller">NiceHash API Keys</div>
+      <div class="apiKeyInputWrapper sectionDescriptionSection">
+        <div>OrgId<span *ngIf="hasNhApiKeys"
+            title="Key is saved. For security purposes, we cannot show the saved API key."
+            class="cursorPointer onlineButton"></span>:</div>
+        <div><input type="text" placeholder="Org Id {{hasNhApiKeys ? '(Overwriting)' : ''}}" #orgId /></div>
+      </div>
+      <div class="apiKeyInputWrapper sectionDescriptionSection">
+        <div>ApiKey<span *ngIf="hasNhApiKeys"
+            title="Key is saved. For security purposes, we cannot show the saved API key."
+            class="cursorPointer onlineButton"></span>:</div>
+        <div><input type="text" placeholder="API Key {{hasNhApiKeys ? '(Overwriting)' : ''}}" #apiKey /></div>
+      </div>
+      <div class="apiKeyInputWrapper sectionDescriptionSection">
+        <div>ApiSecret<span *ngIf="hasNhApiKeys"
+            title="Key is saved. For security purposes, we cannot show the saved API key."
+            class="cursorPointer onlineButton"></span>:</div>
+        <div><input type="text" placeholder="API Secret {{hasNhApiKeys ? '(Overwriting)' : ''}}" #apiSecret /></div>
+      </div>
+      <div class="apiKeyInputWrapper sectionDescriptionSection">
+        <div>Delete Nicehash Keys:</div>
+        <div><button (click)="deleteNicehashApiKeys()">Delete</button></div>
+      </div>
 
-
-
-  <!-- Menu Popup -->
-  <div class="popupPanel" *ngIf="isKrakenHelpPanelShowing">
-    <div class="popupPanelTitle popupPanelContent" style="margin-bottom:15px;">
-      🦑How to get Kraken API keys?
+      <!-- KRAKEN KEYS -->
+      <div class="sectionSubHeader smaller">Kraken API Keys</div>
+      <div class="apiKeyInputWrapper sectionDescriptionSection">
+        <div>
+          Api Key<span *ngIf="hasKrakenKeys"
+            title="Key is saved. For security purposes, we cannot show the saved API key."
+            class="cursorPointer onlineButton"></span>:
+        </div>
+        <div><input type="text" placeholder="API Key {{hasKrakenKeys ? '(Overwriting)' : ''}}" #krakenApiKey /></div>
+      </div>
+      <div class="apiKeyInputWrapper sectionDescriptionSection">
+        <div>
+          Private Key<span *ngIf="hasKrakenKeys"
+            title="Key is saved. For security purposes, we cannot show the saved API key."
+            class="cursorPointer onlineButton"></span>:
+        </div>
+        <div><input type="text" placeholder="Private Key {{hasKrakenKeys ? '(Overwriting)' : ''}}" #krakenPrivateKey />
+        </div>
+      </div>
+      <div class="apiKeyInputWrapper sectionDescriptionSection">
+        <div>Information:</div>
+        <div><button (click)="showKrakenHelpPanel()">Help</button></div>
+      </div>
+      <div class="apiKeyInputWrapper sectionDescriptionSection">
+        <div>Delete Kraken Keys:</div>
+        <div><button (click)="deleteKrakenApiKeys()">Delete</button></div>
+      </div>
     </div>
-    <ol>
-      <li>First, sign up on Kraken: <a href="https://krakenpro.onelink.me/9f1e/he08evy5" target="_blank">Kraken Sign
-          Up</a>.</li>
-      <li>Go to your Kraken Pro API settings page: <a href="https://pro.kraken.com/app/settings/api"
-          target="_blank">https://pro.kraken.com/app/settings/api</a></li>
-      <li>Click on "Create API Key" button. Enable these options:
-        <br>Under "Orders and trades":
-        <ul>
-          <li>Query open orders & trades</li>
-          <li>Query closed orders & trades</li>
-          <li>Create & modify orders</li>
-        </ul>
-        <br>Under "Funds permissions":
-        <ul>
-          <li>Query</li>
-        </ul>
-        <br>Enabling only these options offers the maximum security for your account. No withdrawals possible while
-        still
-        allowing the bot to trade on your behalf.
-      </li>
-      <li>Once you name your key and save it, you will be shown your API Key and Private key, copy and paste those into
-        the inputs on this settings page.</li>
-    </ol>
 
-    <button id="closeOverlay" (click)="closeKrakenHelpPanel()">Close</button>
+    <!--BTC Wallet Addresses-->
+    <div (click)="isBTCWalletAddressesToggled = !isBTCWalletAddressesToggled; getBTCWalletAddresses()"
+      *ngIf="!showOnlyAccountSection && !showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user"
+      class="sectionHeaderDiv">
+      <div class="sectionHeaderLabel popupPanelTitle">
+        <div><span class="helperSpanTitle" title="Keep track of your BTC Wallet address here."></span></div>
+        <div class="settingsSectionHeaderTitle">BTC Wallet Addresses</div>
+      </div>
+      <div style="text-align:right;">
+        <button (click)="updateBTCWalletAddresses(); $event.stopPropagation()" title="Update BTC Wallet Addresses"
+          [disabled]="!isBTCWalletAddressesToggled" *ngIf="isBTCWalletAddressesToggled">💾Save</button>
+        <button (click)="addBTCWalletAddress(); $event.stopPropagation()" title="Add BTC Wallet Address"
+          [disabled]="!isBTCWalletAddressesToggled"
+          *ngIf="isBTCWalletAddressesToggled && btcWalletAddresses && btcWalletAddresses.length > 0">➕</button>
+      </div>
+    </div>
+    <div *ngIf="isBTCWalletAddressesToggled" class="sectionDescriptionDiv">
+      <div *ngFor="let address of btcWalletAddresses; let i = index" class="sectionDescriptionSection">
+        <div>BTC Wallet Address:</div>
+        <div><input type="text" class="btcWalletInput" placeholder="BTC Wallet Address" [value]="address" /><button
+            *ngIf="address" (click)="deleteBTCWalletAddress(address)">🗑️</button></div>
+      </div>
+      <div *ngIf="btcWalletAddresses?.length === 0 || showAddBTCWalletAddressInput" class="sectionDescriptionSection">
+        <div>BTC Wallet Address:</div>
+        <div><input type="text" class="btcWalletInput" placeholder="BTC Wallet Address" /></div>
+      </div>
+    </div>
+
+    <!--Delete Account-->
+    <div (click)="isDeleteAccountToggled = !isDeleteAccountToggled"
+      *ngIf="!showOnlyAccountSection && !showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user"
+      class="sectionHeaderDiv">
+      <div class="sectionHeaderLabel popupPanelTitle">
+        <div><span class="helperSpanTitle" title="Delete your account"></span></div>
+        <div class="settingsSectionHeaderTitle">Delete Your Account?</div>
+      </div>
+      <div style="text-align:right;">
+        <button (click)="deleteUser()" title="ARE YOU SURE you want to DELETE YOUR ACCOUNT?"
+          [disabled]="!isDeleteAccountToggled" class="cursorPointer" *ngIf="isDeleteAccountToggled">🗑️</button>
+      </div>
+    </div>
+    <div style="text-align:center; margin: 5px;">
+      <button (click)="closeThisComponent()">Close</button>
+    </div>
   </div>
+</div>
+
+
+
+<!-- Menu Popup -->
+<div class="popupPanel" *ngIf="isKrakenHelpPanelShowing">
+  <div class="popupPanelTitle popupPanelContent" style="margin-bottom:15px;">
+    🦑How to get Kraken API keys?
+  </div>
+  <ol>
+    <li>First, sign up on Kraken: <a href="https://krakenpro.onelink.me/9f1e/he08evy5" target="_blank">Kraken Sign
+        Up</a>.</li>
+    <li>Go to your Kraken Pro API settings page: <a href="https://pro.kraken.com/app/settings/api"
+        target="_blank">https://pro.kraken.com/app/settings/api</a></li>
+    <li>Click on "Create API Key" button. Enable these options:
+      <br>Under "Orders and trades":
+      <ul>
+        <li>Query open orders & trades</li>
+        <li>Query closed orders & trades</li>
+        <li>Create & modify orders</li>
+      </ul>
+      <br>Under "Funds permissions":
+      <ul>
+        <li>Query</li>
+      </ul>
+      <br>Enabling only these options offers the maximum security for your account. No withdrawals possible while
+      still
+      allowing the bot to trade on your behalf.
+    </li>
+    <li>Once you name your key and save it, you will be shown your API Key and Private key, copy and paste those into
+      the inputs on this settings page.</li>
+  </ol>
+
+  <button id="closeOverlay" (click)="closeKrakenHelpPanel()">Close</button>
+</div>

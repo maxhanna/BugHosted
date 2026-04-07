@@ -138,17 +138,16 @@ export class NavigationComponent implements OnInit, OnDestroy {
   async ngOnInit() {
     this.navbarReady = true;
     if (this._parent?.user?.id) {
-      this.getThemeInfo().catch(() => { });
+      this.getThemeInfo().catch(() => { 
+        console.warn('Failed to fetch/apply user theme, applying default theme');
+        this.applyDefaultTheme();
+      });
       this.isThemeApplied = true;
     } else {
       this.applyDefaultTheme();
-    }
-    setTimeout(() => {
-      if (this._parent.notificationsActive) return;
-      this.getNotifications();
-      this.displayAppSelectionHelp();
-    }, 100)
-
+    } 
+    this.getNotifications();
+    this.displayAppSelectionHelp();  
     // Gamepad polling setup
     this._gamepadLastButtonStates = [];
     this._gamepadPollActive = true;

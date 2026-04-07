@@ -384,10 +384,10 @@
       <div *ngIf="optionsFile?.romMetadata?.firstReleaseDateUnix as d" class="romMetaLine">
         <strong>Release:</strong> {{ unixSecondsToDate(d) | date:'y/MM/d' }}
       </div>
-      <span class="xSmallFont">
+      <span class="xSmallFont" *ngIf="optionsFile?.user?.id === currentUser.id">
         <button title="Request metadata reset" [disabled]="isLoading" (click)="incrementResetVoteForOptionsFile()"
           style="margin-left:8px">
-          ↻ Reset
+          ↻ Reset MetaData
         </button>
         <span *ngIf="optionsFile?.romMetadata?.resetVotes !== undefined" style="margin-left:8px">Votes: {{
           optionsFile?.romMetadata?.resetVotes }}</span>
@@ -700,12 +700,15 @@
       </div>
     </div>
     <div class="optionsStatsDiv"
-      *ngIf="shouldShowRomMetadata() && !optionsFile?.romMetadata?.igdbName && !optionsFile?.isFolder">
+      *ngIf="shouldShowRomMetadata() 
+        && optionsFile?.user?.id === currentUser.id
+        && !optionsFile?.romMetadata?.igdbName 
+        && !optionsFile?.isFolder">
       <div class="optionsStatsHeader">Reset ROM Metadata?</div>
       <div class="optionsStatsDescription">
         <button title="Request metadata reset" [disabled]="isLoading" (click)="incrementResetVoteForOptionsFile()"
           style="margin-left:8px">
-          ↻ Reset
+          ↻ Reset MetaData
         </button>
         <span *ngIf="optionsFile?.romMetadata?.resetVotes !== undefined" style="margin-left:8px">Votes: {{
           optionsFile?.romMetadata?.resetVotes }}</span>
