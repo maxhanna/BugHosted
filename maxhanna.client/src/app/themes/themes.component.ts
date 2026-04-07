@@ -81,14 +81,14 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   async ngOnInit() {
     if (this.parentRef?.user?.id) {
       try {
-        await this.userService.getTheme(this.parentRef.user.id).then(res => {
+        await this.userService.getTheme(this.parentRef.user.id).then(async res => {
           if (res) {
             this.userSelectedTheme = res;
             this.originalThemeId = this.userSelectedTheme?.id ?? 0;
             this.themeNameInput.nativeElement.value = (this.userSelectedTheme?.name ? this.userSelectedTheme.name : "Default");
 
             try {
-              this.replenishBackroundImageSelection(res, true); 
+              await this.replenishBackroundImageSelection(res, true); 
             } catch (error) {
               console.error('Error applying background image:', error);
             }
