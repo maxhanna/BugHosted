@@ -60,7 +60,7 @@
     <br>
     <small *ngIf="lastSaveTime && romName" class="thirdFontColor">Last save: {{ lastSaveTime | timeSince:'minute' }}</small>
     <small *ngIf="!lastSaveTime && romName" class="thirdFontColor">Last save: none</small>
-    <!-- Show expandable connected gamepads if no ROM is loaded -->
+
     <div *ngIf="!romName && !onMobile() && !isFaqOpen" style="margin-top:14px;">
       <a href="#" (click)="$event.preventDefault(); showGamepadDetails = !showGamepadDetails"
          style="cursor:pointer; text-decoration:underline; font-weight:600; color:var(--main-highlight-color); font-size:1.08em;">
