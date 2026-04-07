@@ -84,31 +84,41 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
   async ngOnInit() {
     this.startLoading();
-    
-    if (this.selectedUser) { 
+
+    if (this.selectedUser) {
       await this.openChat([this.selectedUser]);
     } else if (this.chatId) {
-      const res = await this.chatService.getChatUsersByChatId(this.chatId);
-      if (res) {
-        this.selectedUsers = res;
-        await this.openChat(this.selectedUsers);
+      try {
+        const res = await this.chatService.getChatUsersByChatId(this.chatId);
+        if (res) {
+          this.selectedUsers = res;
+          await this.openChat(this.selectedUsers);
+        }
+      } catch (err) {
+        console.error('Error fetching chat users by chatId:', err);
       }
     }
 
     if (this.parentRef?.user) {
-      const res = await this.userService.getUserSettings(this.parentRef.user.id ?? 0) as UserSettings | null;
-      if (res) {
-        this.notificationsEnabled = res.notificationsEnabled;
-        if (this.notificationsEnabled == undefined || this.notificationsEnabled) {
-          await this.requestNotificationPermission();
+      try {
+        const res = await this.userService.getUserSettings(this.parentRef.user.id ?? 0) as UserSettings | null;
+        if (res) {
+          this.notificationsEnabled = res.notificationsEnabled;
+          if (this.notificationsEnabled == undefined || this.notificationsEnabled) {
+            await this.requestNotificationPermission();
+          }
         }
-      } 
+      } catch (err) {
+        console.error('Error fetching user settings:', err);
+      }
     }
-    
+
     this.userService.getAllThemes().then(themeRes => {
-      if (themeRes) { 
+      if (themeRes) {
         this.userThemes = themeRes;
       }
+    }).catch(err => {
+      console.error('Error fetching all themes:', err);
     });
 
     this.stopLoading();
@@ -242,7 +252,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (linkColor) container.style.setProperty('--main-link-color', linkColor);
     if (fontFamily) container.style.setProperty('--main-font-family', fontFamily);
     if (fontSize) container.style.setProperty('--main-font-size', (typeof fontSize === 'number' ? `${fontSize}px` : fontSize));
-  
+
     this.stopLoading();
   }
 
@@ -381,14 +391,14 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
                   res.messages[0].id,
                   user.id,
                   encryptedContent
-                ); 
+                );
                 if (editRes) {
                   this.parentRef?.showNotification(`First message encrypted successfully.`);
                   // Refresh message history to reflect the edited message
                   await this.getMessageHistory(this.pageNumber, this.pageSize);
                 } else {
                   this.parentRef?.showNotification(`Failed to encrypt first message.`);
-                } 
+                }
               }
               // Clear firstMessageDetails after processing
               this.firstMessageDetails = null;
@@ -412,7 +422,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
               }
             }
           }
-          
+
           this.isInitialLoad = true;
         }, 1000);
       }
@@ -1129,8 +1139,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   private encodePath(path: string): string {
     // Encode each segment separately to keep slashes intact
     return path.split('/').map(s => encodeURIComponent(s)).join('/');
-  }  
-  
+  }
+
   onMiniTagToggle(event: Event): void {
     const input = event.target as HTMLInputElement;
     this.showMiniTag = input.checked;

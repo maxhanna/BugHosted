@@ -679,7 +679,7 @@ export class UserService {
 
       return await response.json();
     } catch (error) { 
-      return null;
+      throw error;
     }
   }
   async getAllThemes(search?: string): Promise<UserTheme[] | null> {
@@ -693,7 +693,7 @@ export class UserService {
       });
       return await response.json();
     } catch (error) {
-      return null;
+      throw error;
     }
   }
   async getAllUserThemes(userId: number): Promise<UserTheme[] | null> {
@@ -707,7 +707,7 @@ export class UserService {
       });
       return await response.json();
     } catch (error) {
-      return null;
+      throw error;
     }
   }
   

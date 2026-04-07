@@ -501,25 +501,37 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
       if (search) {
-        this.userService.getAllThemes(search).then((res: (UserTheme[] | null)) => {
-          if (res) {
-            this.allThemes = res;
-          } else {
-            this.parentRef?.showNotification("No themes found.");
-            this.allThemes = [];
-          }
-        });
+        try {
+          this.userService.getAllThemes(search).then((res: (UserTheme[] | null)) => {
+            if (res) {
+              this.allThemes = res;
+            } else {
+              this.parentRef?.showNotification("No themes found.");
+              this.allThemes = [];
+            }
+          });
+        } catch (error) {
+          console.error('Error during theme search:', error);
+          this.allThemes = [];
+        }
+
         this.isSearching = true;
       }
       else {
-        this.userService.getAllThemes('').then(res => {
-          if (res) {
-            this.allThemes = res;
-          } else {
-            this.parentRef?.showNotification("No theme found.");
-            this.allThemes = [];
-          }
-        });
+        try {
+          this.userService.getAllThemes('').then(res => {
+            if (res) {
+              this.allThemes = res;
+            } else {
+              this.parentRef?.showNotification("No theme found.");
+              this.allThemes = [];
+            }
+          });
+        } catch (error) {
+          console.error('Error fetching all themes:', error);
+          this.allThemes = [];
+        }
+
         this.isSearching = false;
       }
     }, 500);
@@ -552,6 +564,10 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
 
   hexWithAlpha(hex?: string | undefined | null, alpha?: number): string | null {
     if (!hex || !alpha) return null;
+    if (hex.length > 7) {
+      console.warn(`Expected hex in #RRGGBB format, got ${hex}`);
+      return hex;
+    }
     const a = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
     const aa = a.toString(16).padStart(2, '0');
     // Normalize to #RRGGBB first

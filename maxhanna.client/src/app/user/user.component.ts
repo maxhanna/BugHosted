@@ -1,5 +1,5 @@
-  // Loading states for about panel stats
-  // Must be inside the class
+// Loading states for about panel stats
+// Must be inside the class
 
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
@@ -124,7 +124,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   filter = {
     hidden: this.showHiddenFiles ? 'yes' : 'no',
   };
-  latestSocialStoryId?: number = undefined; 
+  latestSocialStoryId?: number = undefined;
   latestMeme?: FileEntry = undefined;
   changedTheme = false;
   private originalBackgroundColor: string | null = null;
@@ -202,7 +202,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
         const lidRes = await this.socialService.getLatestStoryId();
         if (lidRes) {
           this.latestSocialStoryId = parseInt(lidRes);
-        } 
+        }
         const lmRes = await this.fileService.getLatestMeme();
         if (lmRes) {
           this.latestMeme = lmRes as FileEntry;
@@ -415,10 +415,14 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
 
     // Then apply new theme if conditions are met
     if (this.user?.id != this.parentRef?.user?.id && this.user?.id !== undefined) {
-      const theme = await this.userService.getTheme(this.user?.id);
-      if (theme) {
-        this.parentRef?.navigationComponent?.getThemeInfo(this.user.id ?? 0);
-        this.changedTheme = true;
+      try {
+        const theme = await this.userService.getTheme(this.user?.id);
+        if (theme) {
+          this.parentRef?.navigationComponent?.getThemeInfo(this.user.id ?? 0);
+          this.changedTheme = true;
+        }
+      } catch (e) {
+        console.log("Failed to apply user theme:", e);
       }
     }
 
@@ -906,20 +910,20 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     }
     try {
       const tmpUser = await this.parentRef?.login(tmpUserName, this.loginPassword.nativeElement.value, fromUserCreation) as User;
-      if (tmpUser && tmpUser.username) { 
+      if (tmpUser && tmpUser.username) {
         this.resetNavigationAppSelectionHelp();
         if (this.loginOnly) {
           this.closeUserComponentEvent.emit(tmpUser);
         } else {
-           this.parentRef?.navigationComponent?.getNotifications().then(() => {
+          this.parentRef?.navigationComponent?.getNotifications().then(() => {
             this.parentRef?.navigationComponent?.stopNotifications();
-           });
+          });
         }
         this.latestSocialStoryId = undefined;
         success = true;
       } else {
         this.parentRef?.showNotification("Access denied");
-      } 
+      }
     } catch (e) {
       this.parentRef?.showNotification("Login error: " + e);
     } finally {

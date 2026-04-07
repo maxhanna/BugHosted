@@ -102,37 +102,35 @@ async function runBuildIfNeeded() {
   
   return new Promise((resolve, reject) => {
     writeLog('[Build] Starting build...');
-    
-    const child = spawn(buildCmd, buildArgs, { 
+
+    let buildStdout = '';
+    const child = spawn(buildCmd, buildArgs, {
       cwd: frontendPath,
-      stdio: ['ignore', 'pipe', 'pipe'],  // Capture output so we can detect completion
+      stdio: ['ignore', 'pipe', 'pipe'],
       shell: isWin,
-      timeout: maxMs 
+      timeout: maxMs
     });
 
     let buildCompleted = false;
     let hasResolved = false;
     let killRequested = false;
-     
-    // Capture stdout to detect completion messages
+
     child.stdout?.on('data', (data) => {
       const str = data.toString();
-      process.stdout.write(str);  // Echo to console
+      buildStdout += str;
+      process.stdout.write(str);
       writeLog('[Build stdout]', str);
-      
-      // Detect successful build completion
+
       if (str.includes('Output location:') && !buildCompleted) {
         buildCompleted = true;
         writeLog('[Build] Build complete detected (Output location printed)');
 
-        // Configurable kill and retry timings
         const killDelayMs = parseInt(process.env.FRONTEND_BUILD_KILL_DELAY_MS || '5000', 10);
         const flushTimeoutMs = parseInt(process.env.FRONTEND_BUILD_FLUSH_TIMEOUT_MS || '60000', 10);
         const checkIntervalMs = parseInt(process.env.FRONTEND_BUILD_CHECK_INTERVAL_MS || '1000', 10);
 
         writeLog(`[Build] Will attempt to detect index.html for up to ${flushTimeoutMs}ms, killing build after ${killDelayMs}ms`);
 
-        // Try to kill the build process shortly after detection to allow it to exit
         setTimeout(() => {
           writeLog('[Build] Attempting to kill build process...');
           try {
@@ -147,7 +145,6 @@ async function runBuildIfNeeded() {
           }
         }, killDelayMs);
 
-        // Retry loop: check for the generated index.html until timeout
         const start = Date.now();
         const retryHandle = setInterval(() => {
           try {
@@ -162,7 +159,6 @@ async function runBuildIfNeeded() {
               return;
             }
 
-            // Optional debug: list dist contents occasionally (every 5s)
             const elapsed = Date.now() - start;
             if (elapsed % 5000 < checkIntervalMs) {
               try {
@@ -176,7 +172,7 @@ async function runBuildIfNeeded() {
               } catch (e) {
                 writeLog('[Build] Error listing dist during retry:', e && e.message ? e.message : e);
               }
-            } else { 
+            } else {
               writeLog('[Build] Time Elapsed:', elapsed, 'ms');
             }
 
@@ -197,6 +193,7 @@ async function runBuildIfNeeded() {
 
     child.stderr?.on('data', (data) => {
       const str = data.toString();
+      buildStderr += str;
       process.stderr.write(str);
       writeLog('[Build stderr]', str);
     });
@@ -206,6 +203,7 @@ async function runBuildIfNeeded() {
       try { child.kill('SIGKILL'); } catch (e) {}
       if (!hasResolved) {
         hasResolved = true;
+        writeLog('[Build] Build timed out. Captured stdout:', buildStdout);
         reject(new Error('Build timeout'));
       }
     }, maxMs);
@@ -213,6 +211,7 @@ async function runBuildIfNeeded() {
     child.on('error', (err) => {
       clearTimeout(timeoutHandle);
       writeLog('[Build] Process error:', err && err.message ? err.message : err);
+      writeLog('[Build] Captured stderr:', buildStderr);
       if (!hasResolved) {
         hasResolved = true;
         reject(err);
@@ -235,6 +234,7 @@ async function runBuildIfNeeded() {
       // (code will be null when killed by signal, which is expected and OK)
       if (!hasResolved && code !== 0 && code !== null) {
         hasResolved = true;
+        writeLog('[Build] Build failed. Captured stderr:', buildStderr);
         reject(new Error(`Build failed with exit code ${code}`));
       }
     });
