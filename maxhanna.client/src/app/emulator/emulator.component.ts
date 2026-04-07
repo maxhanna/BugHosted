@@ -1328,7 +1328,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         'smd', 'gen', 'bin', '32x', 'gg', 'sms', 'md',
         'cue', 'iso', 'chd', 'pbp',
         'pce', 'ngp', 'ngc', 'ws', 'wsc', 'lnx',
-        'col', 'a26', 'a7
+        'col', 'a26', 'a78', 'jag',
         'adf', 'd64', 'exe', 'com', 'bat',
         'zip', '7z',
         'wad', 'ccd'
