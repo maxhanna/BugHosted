@@ -1,7 +1,6 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
-import { Theme } from '../../services/datacontracts/user/theme';
 import { UserService } from '../../services/user.service';
 import { FileService } from '../../services/file.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
@@ -359,14 +358,15 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
 
   onThemeChange(event: any): void {
     const selectedId = event.target.value;
-    this.changeThemeById(selectedId, event.target.id);
+    this.changeThemeById(selectedId);
   }
 
-  changeThemeById(selectedId: number, targetId?: string) {
-    // prevent programmatic updates from marking the theme as edited
+  changeThemeById(selectedId: number) {
     this.blockWarnThemeChange = true;
+    let type: "mine" | "other" = "mine";
     let selectedTheme = this.myThemes?.find(theme => theme.id == selectedId);
     if (!selectedTheme) {
+      type = "other";
       selectedTheme = this.allThemes?.find(theme => theme.id == selectedId);
     }
     this.userSelectedTheme = selectedTheme;
@@ -374,27 +374,31 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     this.mediaSelector.removeAllFiles();
 
     if (!selectedTheme) {
+      console.log("Selected theme not found, restoring defaults.");
       this.restoreDefaultSettings(false);
       this.selectedThemeCreator = undefined;
-      return
+      return;
     };
 
-    if (targetId == "myThemesDropdown" && document.getElementById("allThemesDropdown")) {
+    if (type === "mine" && document.getElementById("allThemesDropdown")) {
       (document.getElementById("allThemesDropdown") as HTMLSelectElement).selectedIndex = 0;
-    } else if (targetId == "allThemesDropdown" && document.getElementById("myThemesDropdown")) {
+    } else if (type === "other" && document.getElementById("myThemesDropdown")) {
       (document.getElementById("myThemesDropdown") as HTMLSelectElement).selectedIndex = 0;
     }
 
     const search = this.themeSearchInput.nativeElement.value;
     if (search) {
-      this.userService.getAllThemes().then(res => {
-        if (res) {
-          this.allThemes = res;
-        } else {
-          this.allThemes = [];
-        }
-      });
-
+      try {
+        this.userService.getAllThemes().then(res => {
+          if (res) {
+            this.allThemes = res;
+          } else {
+            this.allThemes = [];
+          }
+        }); 
+      } catch (error) {
+        console.error('Error during theme search:', error);
+      } 
     }
     this.themeSearchInput.nativeElement.value = '';
     this.themeNameInput.nativeElement.value = selectedTheme.name ?? '';
@@ -417,16 +421,20 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     // Handle background image
     if (selectedTheme.backgroundImage) {
       const requesterId = this.parentRef?.user?.id;
-      this.fileService.getFileEntryById(selectedTheme.backgroundImage.id, requesterId).then(res => {
-        if (res) {
-          this.selectBackgroundImage(res);
-          const directLink = `https://bughosted.com/assets/Uploads/${(this.getDirectoryName(res) != '.' ? this.getDirectoryName(res) : '')}${res.fileName}`;
-          this.updateCSS('--main-background-image-url', undefined, directLink);
-          setTimeout(() => {
-            document.body.style.backgroundImage = `url(${directLink})`;
-          }, 10);
-        }
-      });
+      try {
+        this.fileService.getFileEntryById(selectedTheme.backgroundImage.id, requesterId).then(res => {
+          if (res) {
+            this.selectBackgroundImage(res);
+            const directLink = `https://bughosted.com/assets/Uploads/${(this.getDirectoryName(res) != '.' ? this.getDirectoryName(res) : '')}${res.fileName}`;
+            this.updateCSS('--main-background-image-url', undefined, directLink);
+            setTimeout(() => {
+              document.body.style.backgroundImage = `url(${directLink})`;
+            }, 10);
+          }
+        });
+      } catch (error) {
+        console.error('Error fetching background image:', error);
+      } 
     } else {
       this.updateCSS('--main-background-image-url', undefined, '');
       this.attachedFiles = [];
@@ -435,7 +443,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
         document.body.style.backgroundImage = ``;
       }, 10);
     }
-    setTimeout(() => {
+    setTimeout(async () => {
       // selection is not an edit yet
       this.blockWarnThemeChange = false;
       this.warnUserToSave = false;
@@ -443,11 +451,15 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
       // show creator for themes that have an associated user and are not edited
       const creatorUserId = this.userSelectedTheme?.userId;
       if (creatorUserId) {
-        this.userService.getUserById(creatorUserId).then(u => {
-          if (u && !this.warnUserToSave) {
-            this.selectedThemeCreator = u ?? undefined;
-          }
-        });
+        try {
+          this.userService.getUserById(creatorUserId).then(u => {
+            if (u && !this.warnUserToSave) {
+              this.selectedThemeCreator = u ?? undefined;
+            }
+          });
+        } catch (error) {
+          console.error('Error fetching theme creator:', error);
+        } 
       }
     }, 50); // timeout to make sure this is done after updateCSS. 
   }
