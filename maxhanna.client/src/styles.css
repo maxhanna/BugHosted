@@ -986,7 +986,8 @@ fieldset {
 }
 
 .coloredBgButton {
-  background: linear-gradient(to bottom, var(--main-highlight-color), transparent);
+  /* background: linear-gradient(to bottom, var(--main-highlight-color), transparent); */
+  background: transparent;
   color: var(--main-link-color);
   border: 0;
   transition: transform 0.1s ease;
