@@ -1,9 +1,9 @@
 .removeFileButton {
-    border-radius: 4px;
-    box-shadow: 0 1px 2px black;
-    border: 1px solid transparent;
-    background-color: var(--button-background-color, white);
-    transition: all .2s ease-in-out;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px black;
+  border: 1px solid transparent;
+  background-color: var(--button-background-color, white);
+  transition: all .2s ease-in-out;
 }
 
 .removeFileButton:hover {
@@ -202,7 +202,7 @@ button:disabled {
   white-space: nowrap;
   padding-left: 4px;
   font-size: small;
-  vertical-align: text-top; 
+  vertical-align: text-top;
 }
 
 .progressText {
