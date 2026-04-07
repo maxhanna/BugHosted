@@ -1,11 +1,11 @@
-.componentMain { 
+.componentMain {
   min-width: 320px;
   max-height: CALC(100vh - 60px);
   max-height: CALC(100dvh - 60px);
 }
 
 @media only screen and (min-width: 0px) and (max-width: 700px) {
-  .componentMain { 
+  .componentMain {
     min-width: 98vw;
   }
 }
@@ -29,7 +29,7 @@
   text-decoration: underline;
   text-decoration-color: var(--main-link-color);
 }
-  
+
 .updateTable {
   width: 100%;
 }
@@ -62,7 +62,7 @@ td {
 .settingsDiv {
   overflow: auto;
 }
- 
+
 
 .menuInfoDiv {
   height: 15px;
@@ -87,7 +87,7 @@ td {
   width: 30px;
   height: 15px;
 }
- 
+
 .appTitle {
   font-family: Courier New, Arial;
   font-weight: bolder;
@@ -96,6 +96,7 @@ td {
 }
 
 .sectionHeaderDiv {
+  padding: 10px;
   display: flex;
   flex-direction: row;
   justify-content: space-between;
@@ -115,22 +116,16 @@ td {
 }
 
 .sectionDescriptionDiv {
-  display: flex;
-  align-content: center;
-  justify-content: center;
-  align-items: center;
-  flex-direction: row;
-  flex-wrap: wrap;
-  border: 1px solid var(--main-border-color);;
+  border: 1px solid var(--main-border-color);
 }
 
 .sectionDescriptionSection {
+  color: var(--third-font-color);
+  padding: 5px;
   display: flex;
   justify-content: space-between;
   align-content: space-around;
   align-items: center;
-  width: 100%;
-  margin: 10px;
   border-bottom: 1px solid var(--main-border-color);
 }
 
@@ -145,16 +140,18 @@ td {
 .selectableIconMenuSection {
   border-top: var(--main-border);
 }
+
 .selectableMenuIconDescriptions {
   padding: 20px;
-  color: var(--third-font-color); 
+  color: var(--third-font-color);
 }
 
 .selectableMenuIconTitlesExpanded {
   background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
 }
 
-.selectableMenuIconDescriptions, .selectableMenuIconTitles {
+.selectableMenuIconDescriptions,
+.selectableMenuIconTitles {
   transition: all 0.4s ease;
 }
 
@@ -210,6 +207,18 @@ td {
 .settingsSectionHeaderTitle {
   cursor: pointer;
 }
-.sectionSubHeader { 
+
+.sectionSubHeader {
   margin-top: 5px;
+  font-weight: bold;
+  text-align: center;
+  border-bottom: var(--main-border);
+  padding: 15px;
+  color: var(--secondary-font-color);
+}
+
+.securityWrapper {
+  margin-top: 8px;
+  flex-direction: column;
+  width: 100%;
 }
