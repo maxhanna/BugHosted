@@ -2632,6 +2632,7 @@ namespace maxhanna.Server.Controllers
         const string sql = @"
           SELECT 
             ut.id,
+            ut.user_id,
             ut.background_image,
             ut.background_color,
             ut.component_background_color,
@@ -2671,6 +2672,7 @@ namespace maxhanna.Server.Controllers
         if (await reader.ReadAsync(ct).ConfigureAwait(false))
         {
           int ordId = reader.GetOrdinal("id");
+          int ordUserId = reader.GetOrdinal("user_id");
           int ordBgImg = reader.GetOrdinal("background_image");
           int ordBgColor = reader.GetOrdinal("background_color");
           int ordCompBgColor = reader.GetOrdinal("component_background_color");
@@ -2716,6 +2718,7 @@ namespace maxhanna.Server.Controllers
           var theme = new UserTheme
           {
             Id = reader.GetInt32(ordId),
+            UserId = reader.IsDBNull(ordUserId) ? 0 : reader.GetInt32(ordUserId),
             BackgroundImage = tmpBackgroundImage,
             BackgroundColor = reader.IsDBNull(ordBgColor) ? null : reader.GetString(ordBgColor),
             ComponentBackgroundColor = reader.IsDBNull(ordCompBgColor) ? null : reader.GetString(ordCompBgColor),
