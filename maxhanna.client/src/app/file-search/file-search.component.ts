@@ -1773,6 +1773,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
 
+  get isDirectoryEmpty(): boolean {
+    return !this.directory || !this.directory.data || this.directory.data.length === 0;
+  }
+
   private get romSystemExtensions(): { [key: string]: string[] } {
     return {
       'n64': (this.fileService.n64FileExtensions && this.fileService.n64FileExtensions.length) ? this.fileService.n64FileExtensions : ['n64', 'z64', 'v64'],

@@ -3,7 +3,8 @@
     (click)="openSearchPanel();" title="Search for Files"></span>
 </div>
 
-<div #fileContainer [id]="!fileSearchMode ? 'fileContainer' : ''">
+<div #fileContainer [id]="!fileSearchMode ? 'fileContainer' : ''" 
+  [style.overflow]="isDirectoryEmpty ? 'hidden' : null">
   <div class="directoryTotalPageControls">
     <!-- Page Controls -->
     <div class="topPageControls">
@@ -1019,4 +1020,3 @@
     </div>
   </div>
 </div>
- 
