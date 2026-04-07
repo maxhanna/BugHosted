@@ -488,8 +488,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       if (!sortToUse && /\broms?\b/.test(cur)) {
         sortToUse = 'Last Access';
         this.sortOption = sortToUse;
-      }
-
+      } 
 
       await this.fileService.getDirectory(
         this.currentDirectory,
