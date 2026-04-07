@@ -55,7 +55,7 @@
       Total: {{ directory ? directory.totalCount : 0 }}
     </div>
   </div>
-  <div *ngIf="!isLoading && directory && directory.totalCount == 0">
+  <div *ngIf="!isLoading && isDirectoryEmpty">
     Empty.
   </div>
   <!-- Main Data -->
