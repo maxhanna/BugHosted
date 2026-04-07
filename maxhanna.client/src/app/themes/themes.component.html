@@ -113,9 +113,9 @@
   <div class="themeButtons">
     <div class="theme-list">
       <div class="theme-section-title">Top Themes / Search</div>
-      <select (change)="onThemeChange($event)" [disabled]="allThemes?.length === 0" id="allThemesDropdown">
+      <select (change)="onThemeChange($event)" [disabled]="allThemes.length === 0" id="allThemesDropdown">
         <option selected>
-          {{ (isSearching || themeSearchInput.value)? (allThemes?.length === 0 ? 'No search matches' : 'Searched Themes') : 'Top Themes' }}
+          {{ (isSearching || themeSearchInput.value) ? (allThemes.length === 0 ? 'No search matches' : 'Searched Themes') : 'Top Themes' }}
         </option>
         <option *ngFor="let theme of allThemes" [value]="theme.id">{{ theme.name }}</option>
       </select>
