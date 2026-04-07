@@ -390,7 +390,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     this.changeThemeById(selectedId);
   }
 
-  changeThemeById(selectedId: number) {
+  async changeThemeById(selectedId: number) {
     this.blockWarnThemeChange = true;
     let type: "mine" | "other" = "mine";
 
@@ -458,7 +458,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     if (selectedTheme.backgroundImage) {
       const requesterId = this.parentRef?.user?.id;
       try {
-        this.fileService.getFileEntryById(selectedTheme.backgroundImage.id, requesterId).then(res => {
+        await this.fileService.getFileEntryById(selectedTheme.backgroundImage.id, requesterId).then(res => {
           if (res) {
             this.selectBackgroundImage(res);
             const directLink = `https://bughosted.com/assets/Uploads/${(this.getDirectoryName(res) != '.' ? this.getDirectoryName(res) : '')}${res.fileName}`;
