@@ -2931,7 +2931,7 @@ private _bootingFromGamepad = false;
   toggleDisplayAsTable(display: boolean): void {
     this.displayAsTable = display;
   }
-  
+   
 private sleep(ms: number) {
   return new Promise<void>(resolve => setTimeout(resolve, ms));
 }
@@ -3079,7 +3079,7 @@ private onUiAction = async (action: UiAction) => {
       }
     }
 
-    return this.sortCandidatesByExt(ext, candidates);
+    return this.fileService.sortCandidatesByExt(ext, candidates);
   }
 
 
@@ -3166,27 +3166,6 @@ private onUiAction = async (action: UiAction) => {
   private normCore(core?: string | null): string {
     return String(core || '').toLowerCase().trim();
   }
-
-  private sortCandidatesByExt(ext: string, list: SystemCandidate[]): SystemCandidate[] {
-    const orderByExt: Record<string, string[]> = {
-      iso: ['psp', 'pcsx_rearmed', 'mednafen_psx_hw', 'yabause', 'genesis_plus_gx', 'opera'],
-      cue: ['mednafen_psx_hw', 'pcsx_rearmed', 'genesis_plus_gx', 'yabause', 'mednafen_pce', 'mednafen_pcfx'],
-      chd: ['pcsx_rearmed', 'mednafen_psx_hw', 'yabause', 'genesis_plus_gx', 'opera'],
-      bin: ['genesis_plus_gx', 'pcsx_rearmed', 'mednafen_psx_hw', 'yabause', 'mednafen_pce'],
-      sms: ['snes9x', 'smsplus', 'genesis_plus_gx'],
-      smc: ['snes9x', 'smsplus', 'genesis_plus_gx'],
-    };
-
-    const preferred = orderByExt[ext] ?? [];
-    const rank = (core?: string) => {
-      if (!core) return -1; // Auto stays first
-      const i = preferred.indexOf(core);
-      return i === -1 ? 999 : i;
-    };
-
-    return [...list].sort((a, b) => rank(a.core) - rank(b.core));
-  }
-
 
   private tempHideEjsMenu(durationMs: number = 5000): void {
     try {

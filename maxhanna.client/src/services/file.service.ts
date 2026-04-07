@@ -6,7 +6,7 @@ import { FileEntry } from './datacontracts/file/file-entry';
 import { Topic } from './datacontracts/topics/topic';
 import { FileAccessLog } from './datacontracts/file/file-access-log';
 import { FileNote } from './datacontracts/file/file-note';
-import { Core, CoreDescriptor, System } from '../app/emulator/emulator-types';
+import { Core, CoreDescriptor, System, SystemCandidate } from '../app/emulator/emulator-types';
 import { DirectoryResults } from './datacontracts/file/directory-results';
 
 @Injectable({
@@ -1026,6 +1026,30 @@ export class FileService {
       return null;
     }
   } 
+  
+  /**
+   * Sorts system/core candidates by most likely for a given extension.
+   */
+  sortCandidatesByExt(ext: string, list: CoreDescriptor[] | SystemCandidate[]): CoreDescriptor[] | SystemCandidate[] {
+    const orderByExt: Record<string, string[]> = {
+      iso: ['psp', 'pcsx_rearmed', 'mednafen_psx_hw', 'yabause', 'genesis_plus_gx', 'opera'],
+      cue: ['mednafen_psx_hw', 'pcsx_rearmed', 'genesis_plus_gx', 'yabause', 'mednafen_pce', 'mednafen_pcfx'],
+      chd: ['pcsx_rearmed', 'mednafen_psx_hw', 'yabause', 'genesis_plus_gx', 'opera'],
+      bin: ['genesis_plus_gx', 'pcsx_rearmed', 'mednafen_psx_hw', 'yabause', 'mednafen_pce'],
+      sms: ['snes9x', 'smsplus', 'genesis_plus_gx'],
+      smc: ['snes9x', 'smsplus', 'genesis_plus_gx'],
+    };
+
+    const preferred = orderByExt[ext] ?? [];
+    const rank = (core?: string) => {
+      if (!core) return -1; // Auto stays first
+      const i = preferred.indexOf(core);
+      return i === -1 ? 999 : i;
+    };
+
+    return [...list].sort((a, b) => rank(a.core) - rank(b.core));
+  }
+
  
   buildCoreRegistry(): CoreDescriptor[] {
     const uniq = <T>(arr: T[]) => Array.from(new Set(arr));
