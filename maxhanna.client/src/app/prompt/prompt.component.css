@@ -31,3 +31,32 @@
   justify-self: space-around;
   gap: 10px;
 }
+/* Responsive styles for mobile */
+@media (max-width: 600px) {
+  .prompt-message-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 10px 0;
+    font-size: 1.1em;
+    text-align: left;
+    word-break: break-word;
+  }
+  .prompt-emoji {
+    font-size: 1.7em;
+    width: 1.7em;
+    height: 1.7em;
+    margin-right: 8px;
+  }
+  .promptButtonContainer {
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .closeButton, .specialActionButton {
+    width: 100%;
+    font-size: 1em;
+    padding: 10px 0;
+  }
+}
