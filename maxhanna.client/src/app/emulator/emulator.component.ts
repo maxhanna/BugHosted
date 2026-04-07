@@ -1328,7 +1328,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         'smd', 'gen', 'bin', '32x', 'gg', 'sms', 'md',
         'cue', 'iso', 'chd', 'pbp',
         'pce', 'ngp', 'ngc', 'ws', 'wsc', 'lnx',
-        'col', 'a26', 'a78', 'jag',
+        'col', 'a26', 'a7
         'adf', 'd64', 'exe', 'com', 'bat',
         'zip', '7z',
         'wad', 'ccd'
@@ -2988,19 +2988,15 @@ private onUiAction = async (action: UiAction) => {
       this._bootingFromGamepad = true;
 
       try {
-        // Full handoff
         this.gamepadRouter.disable();
 
-        // Let the DOM/input settle
         await this.nextFrame();
         await this.waitForGamepadsNeutral();
         await this.nextFrame();
         await this.nextFrame();
 
-        // Keep the page focused before EJS starts polling
         window.focus();
 
-        // Launch
         this.launchSelectedRom();
       } finally {
         this._bootingFromGamepad = false;
@@ -3008,6 +3004,12 @@ private onUiAction = async (action: UiAction) => {
       break;
 
     case 'cancel':
+      break;
+    case 'prevPage':
+      this.fileSearchComponent?.previousPage();
+      break;
+    case 'nextPage':
+      this.fileSearchComponent?.nextPage();
       break;
   }
 }; 

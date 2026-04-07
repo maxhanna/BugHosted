@@ -49,30 +49,43 @@
 
 <!-- Menu Popup -->
 <div [class]="'popupPanel menuPanel' + (isFileUploaderExpanded ? ' uploaderPopupPanel' : '')" *ngIf="isMenuPanelOpen">
-  <div class="popupPanelTitle" style="margin-bottom:15px;" *ngIf="!isFaqOpen">
+  <div class="popupPanelTitle" style="margin-bottom:15px;" *ngIf="!isFaqOpen && !showGamepadDetails">
     Emulator Menu
   </div>
 
-  <div style="margin-bottom: 15px;" *ngIf="!isFaqOpen">
+  <div style="margin-bottom: 15px;" *ngIf="shouldShowMenuContent()">
     <span class="secondaryFontColor">Status: {{ status }}</span>
     <br>
     <span *ngIf="romName">Playing: {{ getRomName() }}</span>
     <br>
     <small *ngIf="lastSaveTime && romName" class="thirdFontColor">Last save: {{ lastSaveTime | timeSince:'minute' }}</small>
     <small *ngIf="!lastSaveTime && romName" class="thirdFontColor">Last save: none</small>
-    <!-- Show connected gamepads if no ROM is loaded -->
-    <div *ngIf="!romName && !onMobile() && connectedGamepads.names.length > 0" style="margin-top:10px;">
-      <span class="secondaryFontColor">🎮 Connected Gamepads:</span>
-      <ul style="margin:0; padding-left:18px;">
-        <li *ngFor="let name of connectedGamepads.names">🎮 {{ name }}</li>
-      </ul>
-    </div>
-    <div *ngIf="!romName && !onMobile() && connectedGamepads.names.length === 0" style="margin-top:10px;">
-      <span class="thirdFontColor xxSmallFont">🚫 No gamepads detected</span>
+    <!-- Show expandable connected gamepads if no ROM is loaded -->
+    <div *ngIf="!romName && !onMobile() && !isFaqOpen" style="margin-top:14px;">
+      <a href="#" (click)="$event.preventDefault(); showGamepadDetails = !showGamepadDetails"
+         style="cursor:pointer; text-decoration:underline; font-weight:600; color:var(--main-highlight-color); font-size:1.08em;">
+        <span style="display:inline-flex; align-items:center; gap:6px;">
+          <span [style.transform]="showGamepadDetails ? 'rotate(90deg)' : 'rotate(0deg)'" style="transition:transform 0.2s; font-size:1.1em;">▶️</span>
+          Gamepads detected: <b>{{ connectedGamepads.names.length }}</b>
+        </span>
+      </a>
+      <div *ngIf="showGamepadDetails" style="background:rgba(0,0,0,0.08); border-radius:8px; margin-top:8px; padding:12px 16px 10px 16px; box-shadow:0 2px 8px 0 rgba(0,0,0,0.07); min-width:220px;">
+        <ng-container *ngIf="connectedGamepads.names.length > 0; else noGamepads">
+          <span class="secondaryFontColor" style="font-size:1.08em; font-weight:500;">🎮 Connected Gamepads:</span>
+          <ol style="margin:8px 0 0 0; padding-left:22px; font-size:1.04em;">
+            <li *ngFor="let name of connectedGamepads.names" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+              <span style="font-size:1.1em;">🎮</span> <span>{{ name }}</span>
+            </li>
+          </ol>
+        </ng-container>
+        <ng-template #noGamepads>
+          <span class="thirdFontColor xxSmallFont" style="display:inline-block; margin-top:6px;">🚫 No gamepads detected</span>
+        </ng-template>
+      </div>
     </div>
   </div>
 
-  <div *ngIf="!isFaqOpen" class="emuMenuButtonContainer">
+  <div *ngIf="shouldShowMenuContent()" class="emuMenuButtonContainer">
     <div class="emuMenuButtonGrid">
       <button (click)="autosave = !autosave; autosave ? setupAutosave() : clearAutosave();" class="emuMenuButton squareButton" title="Autosave">
         💾<div class="emuMenuButtonLabel">Autosave</div>
@@ -148,7 +161,7 @@
     </div>
   </div>
 
-  <div *ngIf="!romName && !onMobile()" class="menuControllerNotice">
+  <div *ngIf="!romName && !onMobile() && shouldShowMenuContent()" class="menuControllerNotice">
     <b>NB:</b> For your convenience, you can choose ROMs using your controller!
   </div>
 

@@ -402,6 +402,12 @@ export class UiGamepadRouter {
       case 13: return 'down';
       case 14: return 'left';
       case 15: return 'right';
+      case 4:  // L1
+      case 6:  // L2
+        return 'prevPage';
+      case 5:  // R1
+      case 7:  // R2
+        return 'nextPage';
       default: return 'noop';
     }
   }
@@ -420,6 +426,7 @@ export class UiGamepadRouter {
 export type UiAction =
   | 'up' | 'down' | 'left' | 'right'
   | 'confirm' | 'cancel' | 'menu'
+  | 'prevPage' | 'nextPage'
   | 'noop';
 
 export const GamepadInfoStore = {
