@@ -157,7 +157,7 @@
                   <div *ngIf="displayFileActions" (click)="showOptionsPanel(file); $event.stopPropagation();"
                     class="fileOptionsAction fileOptionsCogIcon coloredBgButton"
                     [title]="'Show Options for \'' + (file.givenFileName && file.givenFileName != '' ? file.givenFileName : getFileWithoutExtension(file.fileName ?? '')) + '\' file.'">
-                    ⚙️
+                    ...
                   </div>
                   <div class="typeTd fileOptionsAction"
                     (click)="(file.user?.id == parentRef?.user?.id ? openVisibilityDropdown(file) : selectFile(file)); $event.stopPropagation();"
