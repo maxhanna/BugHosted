@@ -1,5 +1,4 @@
-using FirebaseAdmin.Messaging;
-using maxhanna.Server.Controllers.DataContracts.Files;
+using maxhanna.Server.Controllers.DataContracts.Files; 
 using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Weather;
 using Microsoft.AspNetCore.Mvc;
@@ -3498,40 +3497,4 @@ namespace maxhanna.Server.Controllers
   }
 
 
-}
-public class IpApiResponse
-{
-  public string? Query { get; set; }  // This is the IP
-  public string? City { get; set; }
-  public string? Country { get; set; }
-}
-
-public class SaveSecurityQuestionsRequest
-{
-  public int UserId { get; set; }
-  public QuestionAnswer[]? Questions { get; set; }
-}
-
-public class QuestionAnswer
-{
-  public string? Question { get; set; }
-  public string? Answer { get; set; }
-}
-
-public class VerifySecurityQuestionsRequest
-{
-  public int UserId { get; set; }
-  public AnswerEntry[]? Answers { get; set; }
-}
-
-public class AnswerEntry
-{
-  public int Index { get; set; }
-  public string? Answer { get; set; }
-}
-
-public class GetSecurityQuestionsRequest
-{
-  public int UserId { get; set; }
-  public string? Username { get; set; }
 }
