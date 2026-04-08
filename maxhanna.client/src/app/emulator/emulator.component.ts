@@ -39,7 +39,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   isFullScreen = false;
   romName?: string;
   selectedROMFile?: FileEntry;
-  showGamepadDetails = false; // Controls visibility of gamepad details panel
+  showGamepadDetails = false; 
   system?: System;
   isFileUploaderExpanded = false;
   isFaqOpen = false;
@@ -95,11 +95,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     'mupen64plus_next', 'parallel_n64', 'nds', 'melonDS', 'melonds', 'desmume', 'desmume2015',
     'psp', 'ppsspp', 'dolphin', 'flycast', 'naomi'
   ]);
-  
-  // Returns true if menu content should be shown (default: always true, customize as needed)
-  shouldShowMenuContent(): boolean {
-    return true;
-  }
+
   constructor(
     private romService: RomService,
     private fileService: FileService,
@@ -2341,8 +2337,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (c.includes('c64') || c.includes('commodore')) return 'c64';
     return 'nes';
   }
+  
+  shouldShowMenuContent(): boolean {
+    return !this.isFaqOpen && !this.showGamepadDetails;
+  }
 
-  buildTouchLayout(
+  private buildTouchLayout(
     system: System,
     opts: BuildOpts & { segaShowLR?: boolean; genesisSix?: boolean } // ⟵ add genesisSix
   ): VPadItem[] {
