@@ -11,7 +11,7 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class WeatherForecastController : ControllerBase
 	{
-		private static string apiKey = "ed8780abdcd9416eaa6220743242504";
+		private readonly string apiKey;
 		private static string urlRoot = "https://api.weatherapi.com/v1/forecast.json";
 
 		private readonly Log _log;
@@ -21,6 +21,7 @@ namespace maxhanna.Server.Controllers
 		{
 			_log = log;
 			_config = config;
+			apiKey = _config.GetValue<string>("Weather:ApiKey") ?? string.Empty;
 		}
 
 		[HttpPost("", Name = "GetWeatherForecast")]

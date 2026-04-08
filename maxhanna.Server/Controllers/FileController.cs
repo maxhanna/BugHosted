@@ -3,7 +3,7 @@ using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Topics;
 using maxhanna.Server.Controllers.DataContracts.Users;
-using maxhanna.Server.Controllers.DataContracts.Social; // Polls
+using maxhanna.Server.Controllers.DataContracts.Social;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
@@ -4216,18 +4216,3 @@ namespace maxhanna.Server.Controllers
   }
 }
 
-public class FileAccessLog
-{
-  public int FileId { get; set; }
-  public DateTime? LastAccess { get; set; }
-  public int? AccessCount { get; set; }
-  public User User { get; set; }
-
-  public FileAccessLog(int FileId, DateTime? LastAccess, int? AccessCount, User User)
-  {
-    this.FileId = FileId;
-    this.LastAccess = LastAccess;
-    this.AccessCount = AccessCount;
-    this.User = User;
-  }
-}
