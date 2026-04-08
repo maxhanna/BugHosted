@@ -612,6 +612,36 @@ namespace maxhanna.Server.Controllers
         return StatusCode(500, "Internal error");
       }
     }
+
+    [HttpGet("/Rom/WasSharedWithUser/{userId}/{romId}", Name = "Rom_WasSharedWithUser")]
+    public async Task<IActionResult> WasSharedWithUser(int userId, int romId)
+    {
+      // TODO: Replace with actual DB check for sharing
+      // For now, always return false and empty sharers
+      // Example return: { shared: true/false, sharerIds: [1,2,3] }
+      await Task.CompletedTask;
+      return Ok(new { shared = false, sharerIds = new int[0] });
+    }
+    public class ShareRomRequest
+    {
+      public int UserId { get; set; } // The user sharing the ROM
+      public List<int> SharedWithUserIds { get; set; } = new List<int>(); // The users to share with
+      public int? RomId { get; set; } // Optionally, the ROM/file being shared
+    }
+
+    [HttpPost("/Rom/Share", Name = "Rom_Share")]
+    public async Task<IActionResult> ShareRom([FromBody] ShareRomRequest request)
+    {
+      if (request == null || request.UserId <= 0 || request.SharedWithUserIds == null || request.SharedWithUserIds.Count == 0)
+      {
+        return BadRequest("Invalid request: must provide UserId and at least one SharedWithUserId.");
+      }
+
+      // TODO: Implement actual sharing logic (e.g., DB insert, permission update, notification, etc.)
+      // For now, just return success
+      await Task.CompletedTask;
+      return Ok($"ROM shared by user {request.UserId} with users: {string.Join(", ", request.SharedWithUserIds)}");
+    }
   }
 }
 public class GetEmulatorJSSaveStateRequest

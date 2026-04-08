@@ -200,6 +200,20 @@
   (close)="isSavePromptVisible = false">
 </app-prompt>
 
+<!-- Shared ROM Selection Panel -->
+<div class="popupPanel menuPanel" *ngIf="isSharedRomPromptVisible">
+  <div class="popupPanelTitle">This ROM was shared with you</div>
+  <div style="margin-bottom:12px;">Select a user to load their save state:</div>
+  <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:18px;">
+    <ng-container *ngFor="let sharer of sharedWithUserDetails">
+      <app-user-tag [user]="sharer" [inputtedParentRef]="parentRef" [displayMiniTag]="true" (click)="onSelectSharer(sharer)"></app-user-tag>
+    </ng-container>
+  </div>
+  <div style="margin-top:8px; text-align:right;">
+    <button class="closeButton enhancedButton squareButton" (click)="onDeclineSharedRomPrompt()">Cancel</button>
+  </div>
+</div>
+
 <!-- System selection for ambiguous image files (iso/bin/cue/chd) -->
 <div class="popupPanel menuPanel" *ngIf="isSystemSelectPanelOpen">
   <div class="popupPanelTitle">Select System For {{ selectedROMFile?.fileName }}</div>

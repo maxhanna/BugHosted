@@ -11,6 +11,7 @@ import {
   PSP_DEFAULT_OPTIONS, Core, UiGamepadRouter, UiAction,
   GamepadInfoStore
 } from './emulator-types';
+import { User } from '../../services/datacontracts/user/user';
 
 @Component({
   selector: 'app-emulator',
@@ -60,6 +61,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   selectedSystemCore?: Core | null = null;
   displayAsTable = true;
   connectedGamepads =  GamepadInfoStore;
+  private selectedSharer?: User;
   private _bootingFromGamepad = false;
   private _gamepadUsedForSelection = false;
   private gamepadRouter = new UiGamepadRouter();
@@ -287,11 +289,45 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.cdr.detectChanges();
     }
   }
+ // Called from the shared ROM prompt (app-prompt) when user accepts
+  onAcceptSharedRomPrompt() {
+    this.isSharedRomPromptVisible = false;
+    if (this._pendingRomLoadParams) {
+      // Proceed to load the ROM as normal (with save)
+      this.loadRomThroughService(
+        this._pendingRomLoadParams.fileName,
+        this._pendingRomLoadParams.fileId,
+        this._pendingRomLoadParams.forcedCore
+      );
+      this._pendingRomLoadParams = null;
+    }
+  }
 
+  // Called from the shared ROM prompt (app-prompt) when user declines
+  onDeclineSharedRomPrompt() {
+    this.isSharedRomPromptVisible = false;
+    if (this._pendingRomLoadParams) {
+      // Proceed to load the ROM, but skip loading the save file
+      this.loadWithoutSave = true;
+      this.loadRomThroughService(
+        this._pendingRomLoadParams.fileName,
+        this._pendingRomLoadParams.fileId,
+        this._pendingRomLoadParams.forcedCore
+      );
+      this._pendingRomLoadParams = null;
+      setTimeout(() => { this.loadWithoutSave = false; }, 1000); // Reset after load
+    }
+  }
   onSystemSelectChange(ev: Event) {
     const val = (ev.target as HTMLSelectElement).value as Core;
     this.selectedSystemCore = val || null;
   }
+
+  private sharedWithUserInfo: { shared: boolean; sharerIds: number[] } | null = null;
+  isSharedRomPromptVisible = false;
+  sharedRomPromptMessage = '';
+  sharedWithUserDetails: any[] = [];
+  private _pendingRomLoadParams: { fileName: string; fileId?: number; forcedCore?: Core | null | undefined } | null = null;
 
   private async loadRomThroughService(fileName: string, fileId?: number, forcedCore?: Core | null | undefined) {
     // Use the instance-level forced core as a fallback
@@ -328,7 +364,32 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this._lastRomLoadTime = new Date().getTime();
     this.cdr.detectChanges();
 
-    // 1) Fetch ROM via your existing API
+
+    // 1) Check if this ROM was shared with this user
+    this.sharedWithUserInfo = null;
+    if (this.parentRef?.user?.id && fileId) {
+      this.sharedWithUserInfo = await (this.romService as any).wasRomSharedWithUser(this.parentRef.user.id, fileId);
+      if (this.sharedWithUserInfo?.shared && this.sharedWithUserInfo.sharerIds.length > 0) {
+        // Fetch user details for all sharers
+        this.stopLoading();
+        this.sharedWithUserDetails = await this.fetchSharerDetails(this.sharedWithUserInfo.sharerIds);
+        this.isSharedRomPromptVisible = true;
+        this._pendingRomLoadParams = { fileName, fileId, forcedCore };
+        return;
+      }
+      // For now, just proceed to load the ROM as normal
+      if (this._pendingRomLoadParams) {
+        this.loadRomThroughService(
+          this._pendingRomLoadParams.fileName,
+          this._pendingRomLoadParams.fileId,
+          this._pendingRomLoadParams.forcedCore
+        );
+        this._pendingRomLoadParams = null;
+      }  
+    }
+ 
+
+    // 2) Fetch ROM via your existing API
     const romBlobOrArray = await this.romService.getRomFile(
       fileName, this.parentRef?.user?.id, fileId,
       (loaded, total) => {
@@ -2844,9 +2905,25 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     }, 250);
   }
 
-  onUserSelectedForShare(user: any): void {
-    // TODO: Implement actual share logic here
-    console.log('User selected for share:', user);
+  async onUserSelectedForShare(user: any): Promise<void> {
+    // Share the current ROM with the selected user
+    const sharerId = this.parentRef?.user?.id;
+    const romId = this.presetRomId ?? this.selectedROMFile?.id;
+    if (!sharerId || !user?.id || !romId) {
+      console.warn('Missing sharerId, user.id, or romId for sharing');
+      return;
+    }
+    try {
+      const result = await this.romService.shareRom(sharerId, [user.id], romId);
+      if (result?.ok) {
+        this.setTmpStatus('ROM shared successfully!');
+      } else {
+        this.setTmpStatus('Failed to share ROM.');
+      }
+    } catch (e) {
+      this.setTmpStatus('Error sharing ROM.');
+      console.error('Error sharing ROM:', e);
+    }
   }
 
   cancelSystemSelection() {
@@ -3320,5 +3397,37 @@ private onUiAction = async (action: UiAction) => {
       return true;
     }
     return false;
+  }
+  // Fetch user details for all sharers (by user IDs)
+  async fetchSharerDetails(userIds: number[]): Promise<any[]> {
+    if (!userIds || !userIds.length) return [];
+    try {
+      // You may have a userService, but if not, fetch directly:
+      const res = await fetch('/api/user/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds })
+      });
+      if (!res.ok) return [];
+      return await res.json();
+    } catch (e) {
+      console.error('Failed to fetch sharer details', e);
+      return [];
+    }
+  } 
+  // Called when user selects a sharer from the popupPanel
+  onSelectSharer(sharer: any) {
+    this.selectedSharer = sharer;
+    this.isSharedRomPromptVisible = false;
+    // You may want to store the selected sharer for use in loading the save state
+    // For now, just proceed to load the ROM as normal
+    if (this._pendingRomLoadParams) {
+      this.loadRomThroughService(
+        this._pendingRomLoadParams.fileName,
+        this._pendingRomLoadParams.fileId,
+        this._pendingRomLoadParams.forcedCore
+      );
+      this._pendingRomLoadParams = null;
+    }
   }
 }

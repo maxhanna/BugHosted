@@ -63,10 +63,6 @@ export class RomService {
     } catch (error) {
       return null;
     }
-  } 
-
-  getFileExtension(file: string) {
-    return file.lastIndexOf('.') !== -1 ? file.split('.').pop() : null;
   }
 
   // Returns aggregate emulation stats for a user: { totalSeconds, topGameName, topGamePlays }
@@ -360,6 +356,42 @@ export class RomService {
 
       // Convert to tight ArrayBuffer only at the end
       return new Blob([this.toArrayBuffer(u8)], { type: 'application/octet-stream' });
+    } catch {
+      return null;
+    }
+  }
+  
+  /**
+   * Share a ROM with other users.
+   * @param userId The user sharing the ROM
+   * @param sharedWithUserIds The users to share with
+   * @param romId (Optional) The ROM/file being shared
+   */
+  async shareRom(userId: number, sharedWithUserIds: number[], romId?: number): Promise<{ ok: boolean; message?: string } | null> {
+    try {
+      const res = await fetch('/rom/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, sharedWithUserIds, romId })
+      });
+      if (!res.ok) return null;
+      const data = await res.json().catch(() => null);
+      return typeof data === 'object' ? data : { ok: true, message: await res.text() };
+    } catch {
+      return null;
+    }
+  }
+   /**
+   * Check if a ROM was shared with a user by any other user.
+   * @param userId The user to check for
+   * @param romId The ROM/file to check
+   * @returns {Promise<{ shared: boolean; sharerIds: number[] } | null>}
+   */
+  async wasRomSharedWithUser(userId: number, romId: number): Promise<{ shared: boolean; sharerIds: number[] } | null> {
+    try {
+      const res = await fetch(`/rom/wassharedwithuser/${userId}/${romId}`);
+      if (!res.ok) return null;
+      return await res.json();
     } catch {
       return null;
     }
