@@ -176,7 +176,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
     const user = this.currentUser;
     if (user?.id) {
-      this.userService.getUserSettings(user.id).then(res => {
+      await this.userService.getUserSettings(user.id).then(res => {
         if (res) {
           this.isDisplayingNSFW = res.nsfwEnabled ?? false;
           if (res.showHiddenFiles !== undefined) {
