@@ -1,9 +1,3 @@
-@media only screen and (min-width : 600px) {
-  .storyOptionsPopup .optionsStatsWrapperDiv button {
-    font-size: var(--main-font-size);
-  }
-}
-
 .componentMain { 
   display: flex;
   flex-direction: column;

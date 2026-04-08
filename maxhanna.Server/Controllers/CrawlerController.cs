@@ -237,37 +237,36 @@ namespace maxhanna.Server.Controllers
           return StatusCode(pd.Status.Value, pd);
         }
       }
-    }
+    } 
 
-
-private void BuildUnionSql(
-    CrawlerRequest request,
-    bool searchAll,
-    bool siteOnly,
-    string? siteDomain,
-    string? siteKeywords,
-    out string resultsSql,
-    out string countSql)
-{
-  if (searchAll)
-  {
-    resultsSql = @"
+    private void BuildUnionSql(
+        CrawlerRequest request,
+        bool searchAll,
+        bool siteOnly,
+        string? siteDomain,
+        string? siteKeywords,
+        out string resultsSql,
+        out string countSql)
+    {
+      if (searchAll)
+      {
+        resultsSql = @"
       SELECT id, url, title, description, author, keywords, image_url, response_code
       FROM search_results
       WHERE failed = 0 OR (failed = 1 AND response_code IS NOT NULL)
       ORDER BY found_date DESC
       LIMIT @pageSize OFFSET @offset;";
 
-    countSql = @"
+        countSql = @"
       SELECT COUNT(*)
       FROM search_results
       WHERE failed = 0 OR (failed = 1 AND response_code IS NOT NULL);";
-    return;
-  }
+        return;
+      }
 
-  if (request.ExactMatch.GetValueOrDefault())
-  {
-    resultsSql = @"
+      if (request.ExactMatch.GetValueOrDefault())
+      {
+        resultsSql = @"
       SELECT id, url, title, description, author, keywords, image_url, response_code
       FROM search_results
       WHERE url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
@@ -275,20 +274,20 @@ private void BuildUnionSql(
       ORDER BY id DESC
       LIMIT @pageSize OFFSET @offset;";
 
-    countSql = @"
+        countSql = @"
       SELECT COUNT(*)
       FROM search_results
       WHERE url IN (@httpsUrl, @httpsUrlWithSlash, @httpUrl, @httpUrlWithSlash)
         AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL));";
-    return;
-  }
+        return;
+      }
 
-  // site:domain
-  if (siteOnly && !string.IsNullOrEmpty(siteDomain))
-  {
-    bool withFt = !string.IsNullOrWhiteSpace(siteKeywords);
+      // site:domain
+      if (siteOnly && !string.IsNullOrEmpty(siteDomain))
+      {
+        bool withFt = !string.IsNullOrWhiteSpace(siteKeywords);
 
-    resultsSql = $@"
+        resultsSql = $@"
       SELECT id, url, title, description, author, keywords, image_url, response_code
       FROM (
           -- 0) domain matches (prefix/equality)
@@ -338,7 +337,7 @@ private void BuildUnionSql(
       ORDER BY u.`rnk` ASC, u.`ft_score` DESC, u.id DESC
       LIMIT @pageSize OFFSET @offset;";
 
-    countSql = $@"
+        countSql = $@"
       SELECT COUNT(DISTINCT id) AS total
       FROM (
           SELECT sr.id
@@ -379,11 +378,11 @@ private void BuildUnionSql(
                   AGAINST (@siteBoolean IN BOOLEAN MODE)
             AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))" : string.Empty)}
       ) AS c;";
-    return;
-  }
+        return;
+      }
 
-  // Generic (non-site): exact equals, domain prefix, FT (includes URL), and compact URL branch
-  resultsSql = @"
+      // Generic (non-site): exact equals, domain prefix, FT (includes URL), and compact URL branch
+      resultsSql = @"
     SELECT id, url, title, description, author, keywords, image_url, response_code
     FROM (  
         SELECT sr.id, sr.url, sr.title, sr.description, sr.author, sr.keywords, sr.image_url, sr.response_code,
@@ -399,7 +398,7 @@ private void BuildUnionSql(
     ORDER BY u.`rnk` ASC, u.`ft_score` DESC, u.id DESC
     LIMIT @pageSize OFFSET @offset;";
 
-  countSql = @"
+      countSql = @"
     SELECT COUNT(DISTINCT id) AS total
     FROM ( 
 
@@ -411,7 +410,7 @@ private void BuildUnionSql(
           AND (sr.failed = 0 OR (sr.failed = 1 AND sr.response_code IS NOT NULL))
  
     ) AS c;";
-}
+    }
 
 
 
@@ -1153,9 +1152,8 @@ private void BuildUnionSql(
                          .Replace(")", "")
                          .Replace("*", "");
       return cleaned;
-    }
-
-
+    } 
+    
     // Heuristic: treat input as keyword if it doesn’t look like a URL/domain.
     private static bool IsKeywordQuery(string? input)
     {
