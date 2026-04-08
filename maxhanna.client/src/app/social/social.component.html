@@ -373,7 +373,7 @@
                 </app-media-viewer>
               </div>
             </div>
-            <div class="reactionTopicsAndExpanderDiv reactionTopics">
+            <div class="reactionTopicsAndExpanderDiv reactionTopics" *ngIf="story.storyTopics && story.storyTopics.length > 0 && isExpanded('storyTextContainer'+story.id)">
               <span *ngIf="story.storyTopics && story.storyTopics.length > 0">
                 <span *ngFor="let topic of story.storyTopics" class="matchingTopic" (click)="topicClicked([topic])">
                   {{topic.topicText}}
@@ -395,7 +395,7 @@
               </div>
             </div>
           </div>
-          <div>
+          <div *ngIf="isExpanded('storyTextContainer'+story.id)">
             <app-comments *ngIf="story" [inputtedParentRef]="parentRef" [type]="'Social'"
               [showComments]="openedStoryComments.includes(story?.id ?? 0)" [showCommentsHeader]="true"
               [component_id]="story.id!" [component]="story" [userProfile]="user" [commentList]="story!.storyComments!"
