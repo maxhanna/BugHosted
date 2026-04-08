@@ -1,4 +1,3 @@
-// user.service.ts
 import { Injectable } from '@angular/core';
 import { MenuItem } from './datacontracts/user/menu-item';
 import { User } from './datacontracts/user/user';
@@ -811,6 +810,34 @@ export class UserService {
       body: JSON.stringify(token),
     });
     return response;
+  }
+  /**
+   * Update one or more user settings generically. Only supported settings will be accepted by the backend.
+   * @param userId The user ID
+   * @param settings Array of settings to update: { settingName, value }
+   */
+  async updateUserSettings(userId: number, settings: Array<{ settingName: string, value: boolean | string }>) {
+    // settings: [{ settingName: 'show_favourites_only', value: true }, ...]
+    try {
+      const payload = {
+        UserId: userId,
+        Settings: settings.map(s => ({
+          SettingName: s.settingName,
+          BoolValue: typeof s.value === 'boolean' ? s.value : undefined,
+          StringValue: typeof s.value === 'string' ? s.value : undefined
+        }))
+      };
+      const response = await fetch('/user/updateusersettings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      return await response.text();
+    } catch (error) {
+      return 'Error';
+    }
   }
   async sendPasswordResetEmail(username: string) {
     try {

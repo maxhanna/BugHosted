@@ -8,6 +8,7 @@ export class UserSettings {
   lastCharacterName?: string;
   lastCharacterColor?: string;
   showHiddenFiles?: boolean;
+  showFavouritesOnly?: boolean;
   muteSounds?: boolean;
   muteMusicEnder?: boolean;
   muteSfxEnder?: boolean;

@@ -12,6 +12,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Users
 		public string? LastCharacterName { get; set; }
 		public string? LastCharacterColor { get; set; }
 		public bool ShowHiddenFiles { get; set; } // show hidden files setting
+		public bool ShowFavouritesOnly { get; set; } // show only favourites setting
 		public bool MuteSounds { get; set; } // mute all game sounds (including background music)
 
 		public bool AllowEnderInactivityNotifications { get; set; } = true; 

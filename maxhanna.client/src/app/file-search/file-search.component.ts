@@ -183,6 +183,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
             this.showHiddenFiles = res.showHiddenFiles;
             this.filter.hidden = this.showHiddenFiles ? 'all' : 'unhidden';
           }
+          if (res.showFavouritesOnly !== undefined) {
+            this.showFavouritesOnly = res.showFavouritesOnly;
+          }
         }
       });
     }
@@ -765,7 +768,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.filter.hidden = this.showHiddenFiles ? 'all' : 'unhidden';
     const user = this.currentUser;
     if (user?.id) {
-      this.userService.updateShowHiddenFiles(user.id, isChecked).then(res => {
+      this.userService.updateUserSettings(user.id, [
+        { settingName: 'show_hidden_files', value: isChecked }
+      ]).then(res => {
         if (res && res.toLowerCase().includes('successfully')) {
           this.parentRef?.showNotification(res);
         }
@@ -1852,6 +1857,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   showFavouritesToggled() {
     this.showFavouritesOnly = !this.showFavouritesOnly;
+    // Persist the setting to backend
+    const user = this.currentUser;
+    if (user && user.id) {
+      this.userService.updateUserSettings(user.id, [
+        { settingName: 'show_favourites_only', value: this.showFavouritesOnly }
+      ]).catch(() => {}); // Optionally handle error
+    }
     this.goToFirstPage();
     setTimeout(() => {
       this.debounceSearch();

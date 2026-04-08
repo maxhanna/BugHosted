@@ -243,7 +243,7 @@ namespace maxhanna.Server.Controllers
         LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
         LEFT JOIN maxhanna.user_about ua ON ua.user_id = u.id
         WHERE 1=1";
- 
+
         // Skip block checks if userId is null/0
         if (request?.UserId > 0)
         {
@@ -835,7 +835,8 @@ namespace maxhanna.Server.Controllers
 
           string? DecryptQuestion(byte[] data)
           {
-            if (data == null || data.Length == 0) {
+            if (data == null || data.Length == 0)
+            {
               return null;
             }
             if (string.IsNullOrWhiteSpace(qKeyBase64)) return Encoding.UTF8.GetString(data);
@@ -1565,7 +1566,7 @@ namespace maxhanna.Server.Controllers
             city = data?.City,
             country = data?.Country
           };
-          _ = _log.Db($"Logged IP : {result.ip}, City: {result.city}, Country: {result.country}", null, "USER", true); 
+          _ = _log.Db($"Logged IP : {result.ip}, City: {result.city}, Country: {result.country}", null, "USER", true);
           return Ok(result);
         }
         catch (Exception ex)
@@ -2032,24 +2033,25 @@ namespace maxhanna.Server.Controllers
           await conn.OpenAsync();
 
           string selectSql = @"
-						SELECT 
-							nsfw_enabled, 
-							ghost_read, 
-							compactness, 
-							show_posts_from, 
-							notifications_enabled, 
-							last_character_name, 
-							last_character_color, 
-							show_hidden_files, 
-							mute_sounds,
-							IFNULL(mute_music_ender,0) AS mute_music_ender, 
-							IFNULL(mute_sfx_ender,0) AS mute_sfx_ender,
-							IFNULL(mute_music_emulator,0) AS mute_music_emulator, 
-							IFNULL(mute_music_bones,0) AS mute_music_bones, 
-							IFNULL(mute_sfx_bones,0) AS mute_sfx_bones, 
-							IFNULL(allow_ender_inactivity_notifications,0) AS allow_ender_inactivity_notifications
-						FROM maxhanna.user_settings 
-						WHERE user_id = @userId;";
+                SELECT 
+                  nsfw_enabled, 
+                  ghost_read, 
+                  compactness, 
+                  show_posts_from, 
+                  notifications_enabled, 
+                  last_character_name, 
+                  last_character_color, 
+                  show_hidden_files, 
+                  show_favourites_only,
+                  mute_sounds,
+                  IFNULL(mute_music_ender,0) AS mute_music_ender, 
+                  IFNULL(mute_sfx_ender,0) AS mute_sfx_ender,
+                  IFNULL(mute_music_emulator,0) AS mute_music_emulator, 
+                  IFNULL(mute_music_bones,0) AS mute_music_bones, 
+                  IFNULL(mute_sfx_bones,0) AS mute_sfx_bones, 
+                  IFNULL(allow_ender_inactivity_notifications,0) AS allow_ender_inactivity_notifications
+                FROM maxhanna.user_settings 
+                WHERE user_id = @userId;";
 
           MySqlCommand selectCmd = new MySqlCommand(selectSql, conn);
           selectCmd.Parameters.AddWithValue("@userId", userId);
@@ -2071,6 +2073,7 @@ namespace maxhanna.Server.Controllers
               userSettings.LastCharacterName = reader.IsDBNull(reader.GetOrdinal("last_character_name")) ? null : reader.GetString("last_character_name");
               userSettings.LastCharacterColor = reader.IsDBNull(reader.GetOrdinal("last_character_color")) ? null : reader.GetString("last_character_color");
               userSettings.ShowHiddenFiles = !reader.IsDBNull(reader.GetOrdinal("show_hidden_files")) && reader.GetInt32("show_hidden_files") == 1;
+              userSettings.ShowFavouritesOnly = !reader.IsDBNull(reader.GetOrdinal("show_favourites_only")) && reader.GetInt32("show_favourites_only") == 1;
               userSettings.MuteSounds = !reader.IsDBNull(reader.GetOrdinal("mute_sounds")) && reader.GetInt32("mute_sounds") == 1;
               userSettings.MuteMusicEnder = !reader.IsDBNull(reader.GetOrdinal("mute_music_ender")) && reader.GetInt32("mute_music_ender") == 1;
               userSettings.MuteSfxEnder = !reader.IsDBNull(reader.GetOrdinal("mute_sfx_ender")) && reader.GetInt32("mute_sfx_ender") == 1;
@@ -2087,6 +2090,7 @@ namespace maxhanna.Server.Controllers
               userSettings.Compactness = "no";
               userSettings.ShowPostsFrom = "all";
               userSettings.ShowHiddenFiles = false;
+              userSettings.ShowFavouritesOnly = false;
               userSettings.MuteSounds = false;
             }
           }
@@ -2097,6 +2101,93 @@ namespace maxhanna.Server.Controllers
         {
           _ = _log.Db("An error occurred while fetching user settings. " + ex.Message, userId, "USER", true);
           return StatusCode(500, "An error occurred while fetching user settings.");
+        }
+        finally
+        {
+          conn.Close();
+        }
+      }
+    }
+
+    public class UpdateUserSettingItem
+    {
+      public string SettingName { get; set; } = string.Empty;
+      public string? StringValue { get; set; }
+      public bool? BoolValue { get; set; }
+    }
+
+    public class UpdateUserSettingsRequest
+    {
+      public int UserId { get; set; }
+      public List<UpdateUserSettingItem> Settings { get; set; } = new();
+    }
+
+    [HttpPost("/User/UpdateUserSettings", Name = "UpdateUserSettings")]
+    public async Task<IActionResult> UpdateUserSettings([FromBody] UpdateUserSettingsRequest request)
+    {
+      string[] supportedSettings = new[] {
+        "nsfw_enabled",
+        "ghost_read",
+        "compactness",
+        "show_posts_from",
+        "notifications_enabled",
+        "last_character_name",
+        "last_character_color",
+        "show_hidden_files",
+        "show_favourites_only",
+        "mute_sounds",
+        "mute_music_ender",
+        "mute_sfx_ender",
+        "mute_music_emulator",
+        "mute_music_bones",
+        "mute_sfx_bones",
+        "allow_ender_inactivity_notifications"
+      };
+      if (request == null || request.UserId == 0 || request.Settings == null || request.Settings.Count == 0)
+      {
+        return BadRequest("Invalid request.");
+      }
+
+      // Filter to only valid settings
+      var validSettings = request.Settings
+        .Where(s => !string.IsNullOrEmpty(s.SettingName) && supportedSettings.Contains(s.SettingName) && (s.BoolValue.HasValue || !string.IsNullOrEmpty(s.StringValue)))
+        .ToList();
+
+      if (validSettings.Count == 0)
+      {
+        return BadRequest("No valid settings to update.");
+      }
+
+      using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+      {
+        try
+        {
+          await conn.OpenAsync();
+          // Build dynamic SQL for all settings
+          var columns = string.Join(", ", validSettings.Select(s => s.SettingName));
+          var values = string.Join(", ", validSettings.Select((s, i) => $"@val{i}"));
+          var updates = string.Join(", ", validSettings.Select(s => $"{s.SettingName} = VALUES({s.SettingName})"));
+          string updateSql = $@"
+            INSERT INTO maxhanna.user_settings (user_id, {columns})
+            VALUES (@userId, {values})
+            ON DUPLICATE KEY UPDATE {updates};";
+          MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
+          updateCmd.Parameters.AddWithValue("@userId", request.UserId);
+          for (int i = 0; i < validSettings.Count; i++)
+          {
+            var s = validSettings[i];
+            if (s.BoolValue.HasValue)
+              updateCmd.Parameters.AddWithValue($"@val{i}", s.BoolValue.Value ? 1 : 0);
+            else
+              updateCmd.Parameters.AddWithValue($"@val{i}", s.StringValue ?? "");
+          }
+          await updateCmd.ExecuteNonQueryAsync();
+          return Ok($"Successfully updated {validSettings.Count} setting(s).");
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db($"An error occurred while processing the update user settings POST request. " + ex.Message, request.UserId, "USER", true);
+          return StatusCode(500, $"An error occurred while processing the update user settings request.");
         }
         finally
         {
@@ -2757,8 +2848,8 @@ namespace maxhanna.Server.Controllers
         {
           await conn.OpenAsync();
 
-             // SQL query to get the top 20 themes, ordered by popularity
-             string sql = @"
+          // SQL query to get the top 20 themes, ordered by popularity
+          string sql = @"
               SELECT ut.id, ut.user_id, ut.background_image, ut.background_color, ut.component_background_color, 
                 ut.secondary_component_background_color, ut.font_color, ut.secondary_font_color, ut.third_font_color, 
                 ut.main_highlight_color, ut.main_highlight_color_quarter_opacity, ut.link_color, ut.font_size, ut.font_family, 
@@ -2874,8 +2965,8 @@ namespace maxhanna.Server.Controllers
         {
           await conn.OpenAsync();
 
-             // SQL query to get the top 20 themes, searching by name (using LIKE)
-             string sql = @"
+          // SQL query to get the top 20 themes, searching by name (using LIKE)
+          string sql = @"
               SELECT ut.id, ut.user_id, ut.background_image, ut.background_color, ut.component_background_color, ut.secondary_component_background_color, 
                 ut.font_color, ut.secondary_font_color, ut.third_font_color, ut.main_highlight_color, ut.main_highlight_color_quarter_opacity, 
                 ut.link_color, ut.font_size, ut.font_family, ut.name,
@@ -3406,7 +3497,7 @@ namespace maxhanna.Server.Controllers
     }
   }
 
-  
+
 }
 public class IpApiResponse
 {
