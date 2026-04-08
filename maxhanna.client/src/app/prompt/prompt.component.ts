@@ -24,17 +24,7 @@ export class PromptComponent {
     if (!user) {
       return;
     }
-    this.selectedShareUsers.push(user);
-    // Build the selected users string
-    const userNames = this.selectedShareUsers.map(u => u.username || 'user').join(', ');
-    // Preserve the original message and append selected users
-    let baseMessage = this.message;
-    // Remove any previous 'Selected users:' suffix if present
-    const suffixIndex = baseMessage.indexOf('Selected users:');
-    if (suffixIndex !== -1) {
-      baseMessage = baseMessage.substring(0, suffixIndex).trim();
-    }
-    this.message = `${baseMessage}  Selected users: [${userNames}]`;
+    this.selectedShareUsers.push(user); 
     // Do not close immediately; just update message 
     this.selectedUsersChange.emit(this.selectedShareUsers);
   }

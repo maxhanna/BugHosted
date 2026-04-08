@@ -2845,8 +2845,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   onUserSelectedForShare(user: any): void {
-    // Handle the selected user for sharing the save file
-    this.isSharePromptVisible = false;
     // TODO: Implement actual share logic here
     console.log('User selected for share:', user);
   }

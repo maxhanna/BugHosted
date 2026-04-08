@@ -1,5 +1,6 @@
 .popupPanel {
-  z-index: 60000;
+  z-index: 60000;   
+  padding-top: 55px;
 }
 
 .prompt-emoji {
