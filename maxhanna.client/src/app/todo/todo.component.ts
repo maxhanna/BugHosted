@@ -53,6 +53,68 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     super();
   }
 
+  async ngOnInit() {
+    this.startLoading();
+    await this.getTodoInfo();
+    if (this.parentRef?.user?.id) {
+      await this.todoService.getColumnsForUser(this.parentRef.user.id).then(res => {
+        if (res) {
+          this.userColumns = res;
+
+          // Filter userColumns to get only columns where is_added is true
+          const userColumnNames = this.userColumns
+            .filter((col: any) => col.is_added === true) // Only include columns where is_added is true
+            .map((col: any) => col.column_name); // Extract column names
+
+          // Update todoTypes based on user columns
+          this.todoTypes = userColumnNames;
+        }
+      });
+
+      await this.todoService.getSharedColumns(this.parentRef.user.id).then(res => {
+        if (res) {
+          // Normalize server response keys (handle PascalCase from server or camelCase)
+          this.sharedColumns = (res as any[]).map((r: any) => ({
+            ownerId: r.ownerId ?? r.OwnerId,
+            columnName: r.columnName ?? r.ColumnName,
+            sharedWith: r.sharedWith ?? r.SharedWith ?? '',
+            ownerName: r.ownerName ?? r.OwnerName ?? '',
+            shareDirection: r.shareDirection ?? r.ShareDirection ?? '',
+            ownerColumnId: r.ownerColumnId ?? r.OwnerColumnId ?? r.OwnerColumnId
+          }));
+        }
+      });
+    } 
+    this.stopLoading();
+  }
+  ngOnDestroy() {
+    this.stopSharedPolling();
+  }
+
+  private startSharedPolling() {
+    this.stopSharedPolling();
+    const type = this.selectedType?.nativeElement.value || this.todoTypes[0];
+    const isShared = this.getIsShared(type);
+    if (isShared) {
+      this.resyncCountdown = Math.floor(this.sharedPollIntervalMs / 1000);
+      this.sharedPollTimer = setInterval(async () => {
+        if (!this.parentRef?.user?.id) return;
+        await this.getTodoInfo();
+      }, this.sharedPollIntervalMs);
+      this.ensureResyncTicking();
+    } else {
+      this.resyncCountdown = 0;
+    }
+  }
+
+  private getIsShared(type: string) {
+    return this.sharedColumns.some(sc => {
+      const colName = sc.columnName ?? sc.column_name ?? sc.ColumnName;
+      const sharedWith = sc.sharedWith ?? sc.SharedWith ?? sc.shared_with ?? '';
+      return colName === type && sharedWith && sharedWith.toString().trim() !== '';
+    });
+  }
+
   async openManageInline(item: any) {
     if (!item || !item.ownerColumnId) return;
     // toggle close if already open
@@ -85,69 +147,6 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     } catch (err) {
       console.error('Failed to remove shared user', err);
     }
-  }
-  async ngOnInit() {
-    this.startLoading();
-    await this.getTodoInfo();
-    if (this.parentRef?.user?.id) {
-      await this.todoService.getColumnsForUser(this.parentRef.user.id).then(res => {
-        if (res) {
-          this.userColumns = res;
-
-          // Filter userColumns to get only columns where is_added is true
-          const userColumnNames = this.userColumns
-            .filter((col: any) => col.is_added === true) // Only include columns where is_added is true
-            .map((col: any) => col.column_name); // Extract column names
-
-          // Update todoTypes based on user columns
-          this.todoTypes = userColumnNames;
-        }
-      });
-
-      await this.todoService.getSharedColumns(this.parentRef.user.id).then(res => {
-        if (res) {
-          // Normalize server response keys (handle PascalCase from server or camelCase)
-          this.sharedColumns = (res as any[]).map((r: any) => ({
-            ownerId: r.ownerId ?? r.OwnerId,
-            columnName: r.columnName ?? r.ColumnName,
-            sharedWith: r.sharedWith ?? r.SharedWith ?? '',
-            ownerName: r.ownerName ?? r.OwnerName ?? '',
-            shareDirection: r.shareDirection ?? r.ShareDirection ?? '',
-            ownerColumnId: r.ownerColumnId ?? r.OwnerColumnId ?? r.OwnerColumnId
-          }));
-        }
-      });
-    }
-
-    this.clearInputs();
-    this.stopLoading();
-  }
-  ngOnDestroy() {
-    this.stopSharedPolling();
-  }
-
-  private startSharedPolling() {
-    this.stopSharedPolling();
-    const type = this.selectedType?.nativeElement.value || this.todoTypes[0];
-    const isShared = this.getIsShared(type);
-    if (isShared) {
-      this.resyncCountdown = Math.floor(this.sharedPollIntervalMs / 1000);
-      this.sharedPollTimer = setInterval(async () => {
-        if (!this.parentRef?.user?.id) return;
-        await this.getTodoInfo();
-      }, this.sharedPollIntervalMs);
-      this.ensureResyncTicking();
-    } else {
-      this.resyncCountdown = 0;
-    }
-  }
-
-  private getIsShared(type: string) {
-    return this.sharedColumns.some(sc => {
-      const colName = sc.columnName ?? sc.column_name ?? sc.ColumnName;
-      const sharedWith = sc.sharedWith ?? sc.SharedWith ?? sc.shared_with ?? '';
-      return colName === type && sharedWith && sharedWith.toString().trim() !== '';
-    });
   }
 
   private stopSharedPolling() {
