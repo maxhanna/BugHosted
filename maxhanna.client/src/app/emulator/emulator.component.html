@@ -53,12 +53,12 @@
     Emulator Menu
   </div>
 
-  <div style="margin-bottom: 15px;" *ngIf="shouldShowMenuContent()">
-    <span class="secondaryFontColor">Status: {{ status }}</span> 
-    <div *ngIf="romName">
+  <div style="margin-bottom: 15px;" *ngIf="shouldShowMenuContent() || showGamepadDetails">
+    <span class="secondaryFontColor" *ngIf="!showGamepadDetails">Status: {{ status }}</span> 
+    <div *ngIf="romName && !showGamepadDetails">
       <span>Playing: {{ getRomName() }}</span>
     </div>
-    <div *ngIf="romName">
+    <div *ngIf="romName && !showGamepadDetails">
       <small *ngIf="lastSaveTime" class="thirdFontColor">Last save: {{ lastSaveTime | timeSince:'minute' }}</small>
       <small *ngIf="!lastSaveTime" class="thirdFontColor">Last save: none</small> 
     </div>
