@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Net;
-using System.Data;
-
+using maxhanna.Server.Controllers.DataContracts;
 namespace maxhanna.Server.Controllers
 {
   [ApiController]
@@ -622,12 +621,6 @@ namespace maxhanna.Server.Controllers
       await Task.CompletedTask;
       return Ok(new { shared = false, sharerIds = new int[0] });
     }
-    public class ShareRomRequest
-    {
-      public int UserId { get; set; } // The user sharing the ROM
-      public List<int> SharedWithUserIds { get; set; } = new List<int>(); // The users to share with
-      public int? RomId { get; set; } // Optionally, the ROM/file being shared
-    }
 
     [HttpPost("/Rom/Share", Name = "Rom_Share")]
     public async Task<IActionResult> ShareRom([FromBody] ShareRomRequest request)
@@ -643,22 +636,4 @@ namespace maxhanna.Server.Controllers
       return Ok($"ROM shared by user {request.UserId} with users: {string.Join(", ", request.SharedWithUserIds)}");
     }
   }
-}
-public class GetEmulatorJSSaveStateRequest
-{
-  public int UserId { get; set; }
-  public string RomName { get; set; } = string.Empty;
-  public string? Core { get; set; } = string.Empty;
-}
-
-public class GetRomFileRequest
-{
-  public int? UserId { get; set; }
-  public int? FileId { get; set; }
-}
-
-public class SetSystemOverrideRequest
-{
-  public int FileId { get; set; }
-  public string SystemCore { get; set; } = string.Empty;
 }
