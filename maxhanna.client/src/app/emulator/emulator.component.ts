@@ -3078,33 +3078,33 @@ private onUiAction = async (action: UiAction) => {
     case 'up':
       this.selectPrev();
       break;
-
     case 'down':
       this.selectNext();
       break;
-
+    case 'left':
+      this.fileSearchComponent?.previousPage();
+      break;
+    case 'right':
+      this.fileSearchComponent?.nextPage();
+      break;
     case 'confirm':
       if (this._bootingFromGamepad) return;
       this._bootingFromGamepad = true;
-
       try {
         this.gamepadRouter.disable();
-
         await this.nextFrame();
         await this.waitForGamepadsNeutral();
         await this.nextFrame();
         await this.nextFrame();
-
         window.focus();
-
         this.launchSelectedRom();
       } finally {
         this._bootingFromGamepad = false;
       }
       break;
-
     case 'cancel':
       break;
+    // Optionally keep these for legacy support
     case 'prevPage':
       this.fileSearchComponent?.previousPage();
       break;
@@ -3112,7 +3112,7 @@ private onUiAction = async (action: UiAction) => {
       this.fileSearchComponent?.nextPage();
       break;
   }
-}; 
+};
   /** For Gamepad Selection */
   private selectPrev() {
     this.fileSearchComponent?.scrollToPrevious();
