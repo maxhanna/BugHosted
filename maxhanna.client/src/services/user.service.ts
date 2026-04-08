@@ -811,14 +811,20 @@ export class UserService {
     });
     return response;
   }
+  
   /**
    * Update one or more user settings generically. Only supported settings will be accepted by the backend.
    * @param userId The user ID
    * @param settings Array of settings to update: { settingName, value }
    */
-  async updateUserSettings(userId: number, settings: Array<{ settingName: string, value: boolean | string }>) {
-    // settings: [{ settingName: 'show_favourites_only', value: true }, ...]
-    try {
+  /**
+   * Supported user setting names for updateUserSettings.
+   */ 
+  async updateUserSettings(
+    userId: number,
+    settings: Array<{ settingName: UserSettingName; value: boolean | string }>
+  ) { 
+    try { 
       const payload = {
         UserId: userId,
         Settings: settings.map(s => ({
@@ -852,3 +858,20 @@ export class UserService {
     }
   }
 }
+  export type UserSettingName =
+    | "nsfw_enabled"
+    | "ghost_read"
+    | "compactness"
+    | "show_posts_from"
+    | "notifications_enabled"
+    | "last_character_name"
+    | "last_character_color"
+    | "show_hidden_files"
+    | "show_favourites_only"
+    | "mute_sounds"
+    | "mute_music_ender"
+    | "mute_sfx_ender"
+    | "mute_music_emulator"
+    | "mute_music_bones"
+    | "mute_sfx_bones"
+    | "allow_ender_inactivity_notifications";

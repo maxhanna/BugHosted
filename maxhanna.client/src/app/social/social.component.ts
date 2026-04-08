@@ -1062,7 +1062,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (!user || !user.id) return alert("You must be logged in to view NSFW content.");
     const isChecked = (event.target as HTMLInputElement).checked;
     this.isDisplayingNSFW = isChecked;
-    this.userService.updateNSFW(user.id, isChecked).then(res => {
+    this.userService.updateUserSettings(user.id, [
+      { settingName: 'nsfw_enabled', value: isChecked }
+    ]).then(res => {
       if (res) {
         parent.showNotification(res);
         this.searchStories();
@@ -1077,7 +1079,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const user = parent?.user;
     if (!user || !user.id) return alert("You must be logged in to view NSFW content.");
 
-    this.userService.updateNSFW(user.id, this.isDisplayingNSFW).then(res => {
+    this.userService.updateUserSettings(user.id, [
+      { settingName: 'nsfw_enabled', value: this.isDisplayingNSFW }
+    ]).then(res => {
       if (res) {
         parent.showNotification(res);
         this.searchStories();
