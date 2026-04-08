@@ -54,12 +54,14 @@
   </div>
 
   <div style="margin-bottom: 15px;" *ngIf="shouldShowMenuContent()">
-    <span class="secondaryFontColor">Status: {{ status }}</span>
-    <br>
-    <span *ngIf="romName">Playing: {{ getRomName() }}</span>
-    <br>
-    <small *ngIf="lastSaveTime && romName" class="thirdFontColor">Last save: {{ lastSaveTime | timeSince:'minute' }}</small>
-    <small *ngIf="!lastSaveTime && romName" class="thirdFontColor">Last save: none</small>
+    <span class="secondaryFontColor">Status: {{ status }}</span> 
+    <div *ngIf="romName">
+      <span>Playing: {{ getRomName() }}</span>
+    </div>
+    <div *ngIf="romName">
+      <small *ngIf="lastSaveTime" class="thirdFontColor">Last save: {{ lastSaveTime | timeSince:'minute' }}</small>
+      <small *ngIf="!lastSaveTime" class="thirdFontColor">Last save: none</small> 
+    </div>
     <div *ngIf="!romName && !onMobile() && !isFaqOpen" style="margin-top:14px;">
       <a href="#" (click)="$event.preventDefault(); showGamepadDetails = !showGamepadDetails"
         [style.color]="connectedGamepads.names.length > 0 ? 'var(--main-link-color)' : 'var(--main-highlight-color)'"
