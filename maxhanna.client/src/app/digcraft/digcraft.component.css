@@ -262,6 +262,31 @@
   box-shadow: 0 4px 12px rgba(0,0,0,0.6);
 }
 
+/* Center chat stack (under crosshair) */
+.center-chat {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 22px);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 36;
+}
+.center-chat-msg {
+  background: rgba(0,0,0,0.85);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  max-width: min(70vw, 480px);
+  white-space: pre-wrap;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+}
+
 /* Coordinates display */
 .coords {
   position: absolute;
@@ -330,6 +355,58 @@
   display: grid;
   grid-template-columns: repeat(9, 1fr);
   gap: 3px;
+}
+.armor-panel {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+.armor-slot {
+  width: 60px;
+  height: 72px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid #444;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+}
+.armor-label {
+  font-size: 11px;
+  color: #ccc;
+  margin-bottom: 4px;
+  text-transform: capitalize;
+}
+.armor-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.armor-empty {
+  color: #777;
+  font-size: 18px;
+}
+.equip-btn {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 28px;
+  height: 20px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.06);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 200;
 }
 .inv-slot {
   aspect-ratio: 1;

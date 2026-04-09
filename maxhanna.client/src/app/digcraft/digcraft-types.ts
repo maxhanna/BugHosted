@@ -221,6 +221,7 @@ export interface DCJoinResponse {
     username: string;
   };
   inventory: { slot: number; itemId: number; quantity: number }[];
+  equipment?: { helmet: number; chest: number; legs: number; boots: number };
   world: DCWorld;
 }
 

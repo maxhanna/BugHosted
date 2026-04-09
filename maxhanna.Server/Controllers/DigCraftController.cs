@@ -107,12 +107,31 @@ namespace maxhanna.Server.Controllers
                             Quantity = r.GetInt32("quantity")
                         });
                     }
+                } 
+
+                var equipment = new { helmet = 0, chest = 0, legs = 0, boots = 0 };
+                using (var eCmd = new MySqlCommand(@"
+                    SELECT helmet, chest, legs, boots FROM maxhanna.digcraft_equipment WHERE player_id=@pid", conn))
+                {
+                    eCmd.Parameters.AddWithValue("@pid", player?.Id ?? 0);
+                    using var r = await eCmd.ExecuteReaderAsync();
+                    if (await r.ReadAsync())
+                    {
+                        equipment = new
+                        {
+                            helmet = r.IsDBNull(r.GetOrdinal("helmet")) ? 0 : r.GetInt32("helmet"),
+                            chest = r.IsDBNull(r.GetOrdinal("chest")) ? 0 : r.GetInt32("chest"),
+                            legs = r.IsDBNull(r.GetOrdinal("legs")) ? 0 : r.GetInt32("legs"),
+                            boots = r.IsDBNull(r.GetOrdinal("boots")) ? 0 : r.GetInt32("boots")
+                        };
+                    }
                 }
 
                 return Ok(new
                 {
                     player,
                     inventory,
+                    equipment,
                     world = new { id = req.WorldId, seed, spawnX, spawnY, spawnZ }
                 });
             }
@@ -382,6 +401,22 @@ namespace maxhanna.Server.Controllers
                     await iCmd.ExecuteNonQueryAsync();
                 }
                 await tx.CommitAsync();
+
+                // Persist equipment if provided
+                if (req.Equipment != null)
+                { 
+                    const string upsertEq = @"
+                        INSERT INTO maxhanna.digcraft_equipment (player_id, helmet, chest, legs, boots)
+                        VALUES (@pid, @helmet, @chest, @legs, @boots)
+                        ON DUPLICATE KEY UPDATE helmet=VALUES(helmet), chest=VALUES(chest), legs=VALUES(legs), boots=VALUES(boots);";
+                    using var eqCmd = new MySqlCommand(upsertEq, conn);
+                    eqCmd.Parameters.AddWithValue("@pid", playerId);
+                    eqCmd.Parameters.AddWithValue("@helmet", req.Equipment.Helmet);
+                    eqCmd.Parameters.AddWithValue("@chest", req.Equipment.Chest);
+                    eqCmd.Parameters.AddWithValue("@legs", req.Equipment.Legs);
+                    eqCmd.Parameters.AddWithValue("@boots", req.Equipment.Boots);
+                    await eqCmd.ExecuteNonQueryAsync();
+                }
 
                 return Ok(new { ok = true });
             }

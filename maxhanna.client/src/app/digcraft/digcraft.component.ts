@@ -78,6 +78,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private chatMessages: { userId: number; text: string; expiresAt: number; createdAt?: string }[] = [];
   // cached bubble positions in pixels
   chatPositions: { [userId: number]: { left: number; top: number } } = {};
+  // center-screen chat messages (stacked under crosshair)
+  private centerChatMessages: { userId: number; text: string; expiresAt: number; createdAt?: string }[] = [];
 
   // Touch state
   private touchMoveId: number | null = null;
@@ -141,6 +143,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (slot.slot >= 0 && slot.slot < 36) {
         this.inventory[slot.slot] = { itemId: slot.itemId, quantity: slot.quantity };
       }
+    }
+
+    // Load equipped armor if provided
+    if ((res as any).equipment) {
+      const eq = (res as any).equipment;
+      this.equippedArmor.helmet = eq.helmet ?? 0;
+      this.equippedArmor.chest = eq.chest ?? 0;
+      this.equippedArmor.legs = eq.legs ?? 0;
+      this.equippedArmor.boots = eq.boots ?? 0;
     }
 
     this.joined = true;
@@ -456,7 +467,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
     // Add local bubble immediately
     const now = Date.now();
-    this.chatMessages.push({ userId, text: text.trim(), expiresAt: now + 8000, createdAt: new Date().toISOString() });
+    const createdNow = new Date().toISOString();
+    this.chatMessages.push({ userId, text: text.trim(), expiresAt: now + 8000, createdAt: createdNow });
+    // Also show centered chat stack for 10s
+    this.centerChatMessages.push({ userId, text: text.trim(), expiresAt: now + 10000, createdAt: createdNow });
   }
 
   private async pollChats(): Promise<void> {
@@ -469,13 +483,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         if (!exists) {
           const created = new Date(c.createdAt).getTime();
           this.chatMessages.push({ userId: c.userId, text: c.message, expiresAt: created + 8000, createdAt: c.createdAt });
+          // also add to center stack for 10s
+          this.centerChatMessages.push({ userId: c.userId, text: c.message, expiresAt: created + 10000, createdAt: c.createdAt });
         }
       }
       // prune expired
       this.chatMessages = this.chatMessages.filter(m => m.expiresAt > now);
+      // prune center stack expired (non-destructive for short-lived list)
+      this.centerChatMessages = this.centerChatMessages.filter(m => m.expiresAt > now);
     } catch (err) {
       console.error('DigCraft: pollChats failed', err);
     }
+  }
+
+  // Expose center messages for template (stacked under crosshair)
+  get activeCenterChatMessages() {
+    const now = Date.now();
+    return this.centerChatMessages.filter(m => m.expiresAt > now);
   }
 
   private updateChatPositions(): void {
@@ -866,7 +890,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const slots = this.inventory
       .map((s, i) => ({ slot: i, itemId: s.itemId, quantity: s.quantity }))
       .filter(s => s.quantity > 0);
-    this.digcraftService.saveInventory(userId, this.worldId, slots);
+    const equipment = { helmet: this.equippedArmor.helmet, chest: this.equippedArmor.chest, legs: this.equippedArmor.legs, boots: this.equippedArmor.boots };
+    this.digcraftService.saveInventory(userId, this.worldId, slots, equipment);
   }
 
   getItemName(id: number): string {
@@ -966,5 +991,65 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const x = (this.touchMoveX || 0) * maxPx;
     const y = -(this.touchMoveY || 0) * maxPx; // invert Y for visual coordinates
     return `translate(-50%,-50%) translate(${x}px, ${y}px)`;
+  }
+
+  // Armor equipment (client-only slots)
+  typeArmorSlots: Array<'helmet' | 'chest' | 'legs' | 'boots'> = ['helmet','chest','legs','boots'];
+  equippedArmor: Record<'helmet' | 'chest' | 'legs' | 'boots', number> = { helmet: 0, chest: 0, legs: 0, boots: 0 };
+
+  private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | null {
+    switch (itemId) {
+      case ItemId.LEATHER_HELMET: case ItemId.IRON_HELMET: case ItemId.DIAMOND_HELMET:
+        return 'helmet';
+      case ItemId.LEATHER_CHEST: case ItemId.IRON_CHEST: case ItemId.DIAMOND_CHEST:
+        return 'chest';
+      case ItemId.LEATHER_LEGS: case ItemId.IRON_LEGS: case ItemId.DIAMOND_LEGS:
+        return 'legs';
+      case ItemId.LEATHER_BOOTS: case ItemId.IRON_BOOTS: case ItemId.DIAMOND_BOOTS:
+        return 'boots';
+      default:
+        return null;
+    }
+  }
+
+  isArmorItem(itemId: number): boolean {
+    return this.getArmorType(itemId) !== null;
+  }
+
+  equipItem(slotIndex: number): void {
+    const slot = this.inventory[slotIndex];
+    if (!slot || slot.quantity <= 0) return;
+    const armorSlot = this.getArmorType(slot.itemId);
+    if (!armorSlot) return;
+
+    const itemId = slot.itemId;
+    const prevEquipped = this.equippedArmor[armorSlot];
+
+    // Remove one from inventory
+    slot.quantity--;
+    if (slot.quantity <= 0) { slot.itemId = 0; slot.quantity = 0; }
+
+    // If something was equipped, try to return it to inventory. If it doesn't fit, revert.
+    if (prevEquipped && prevEquipped > 0) {
+      const ok = this.addToInventory(prevEquipped, 1);
+      if (!ok) {
+        // revert inventory change
+        if (slot.itemId === 0) slot.itemId = itemId;
+        slot.quantity++;
+        return;
+      }
+    }
+
+    // Equip new item
+    this.equippedArmor[armorSlot] = itemId;
+    this.scheduleInventorySave();
+  }
+
+  unequipArmor(slotType: 'helmet' | 'chest' | 'legs' | 'boots'): void {
+    const itemId = this.equippedArmor[slotType];
+    if (!itemId || itemId === 0) return;
+    const ok = this.addToInventory(itemId, 1);
+    if (ok) this.equippedArmor[slotType] = 0;
+    if (ok) this.scheduleInventorySave();
   }
 }

@@ -38,8 +38,8 @@ export class DigcraftService {
     await this.post('/digcraft/placeblock', { userId, worldId, chunkX, chunkZ, localX, localY, localZ, blockId });
   }
 
-  async saveInventory(userId: number, worldId: number, slots: { slot: number; itemId: number; quantity: number }[]): Promise<void> {
-    await this.post('/digcraft/saveinventory', { userId, worldId, slots });
+  async saveInventory(userId: number, worldId: number, slots: { slot: number; itemId: number; quantity: number }[], equipment?: { helmet?: number; chest?: number; legs?: number; boots?: number }): Promise<void> {
+    await this.post('/digcraft/saveinventory', { userId, worldId, slots, equipment });
   }
 
   private async post<T>(url: string, body: unknown): Promise<T | null> {

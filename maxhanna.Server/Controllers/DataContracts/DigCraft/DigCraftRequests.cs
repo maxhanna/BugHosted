@@ -66,6 +66,20 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public int WorldId { get; set; } = 1;
         [JsonPropertyName("slots")]
         public List<DigCraftInventorySlot> Slots { get; set; } = new();
+        [JsonPropertyName("equipment")]
+        public DigCraftEquipment? Equipment { get; set; }
+    }
+
+    public class DigCraftEquipment
+    {
+        [JsonPropertyName("helmet")]
+        public int Helmet { get; set; } = 0;
+        [JsonPropertyName("chest")]
+        public int Chest { get; set; } = 0;
+        [JsonPropertyName("legs")]
+        public int Legs { get; set; } = 0;
+        [JsonPropertyName("boots")]
+        public int Boots { get; set; } = 0;
     }
 
     public class CraftItemRequest
