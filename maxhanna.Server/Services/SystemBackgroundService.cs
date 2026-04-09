@@ -66,31 +66,13 @@ namespace maxhanna.Server.Services
 
       _tenSecondTimer = new Timer(async _ => await Run10SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
       _halfMinuteTimer = new Timer(async _ => await Run30SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
-      _minuteTimer = new Timer(async _ => await RunOneMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
+      //_minuteTimer = new Timer(async _ => await RunOneMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
       _fiveMinuteTimer = new Timer(async _ => await RunFiveMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
       _hourlyTimer = new Timer(async _ => await RunHourlyTasks(), null, Timeout.Infinite, Timeout.Infinite);
       _threeHourTimer = new Timer(async _ => await RunThreeHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
       _sixHourTimer = new Timer(async _ => await RunSixHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
       _dailyTimer = new Timer(async _ => await RunDailyTasks(), null, Timeout.Infinite, Timeout.Infinite);
-    }
-
-    // Centralized DB-safe execution helper to prevent unhandled exceptions
-    private async Task RunSafeDbOperationAsync(string tag, Func<CancellationToken, Task> op, CancellationToken ct = default)
-    {
-      try
-      {
-        ct.ThrowIfCancellationRequested();
-        await op(ct);
-      }
-      catch (OperationCanceledException)
-      {
-        _ = _log.Db($"{tag} cancelled.", null, "SYSTEM", true);
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"{tag} failed: {ex.Message}", null, "SYSTEM", true);
-      }
-    }
+    } 
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -102,14 +84,14 @@ namespace maxhanna.Server.Services
       {
         // Do initial smoke tests but catch/log errors so a single failing
         // maintenance task doesn't bring down the whole host on startup.
-        try
-        {
-          await RunSmokeTests();
-        }
-        catch (Exception ex)
-        {
-          _ = _log.Db("Error running smoke tests: " + ex.Message, null, "SYSTEM", true);
-        }
+        // try
+        // {
+        //   await RunSmokeTests();
+        // }
+        // catch (Exception ex)
+        // {
+        //   _ = _log.Db("Error running smoke tests: " + ex.Message, null, "SYSTEM", true);
+        // }
         _initialDelayApplied = true;
         // Wait 5 minutes before scheduling timers for the first run.
         try
@@ -148,11 +130,11 @@ namespace maxhanna.Server.Services
       }
     }
 
-    private async Task RunSmokeTests()
-    {
-      Console.WriteLine("Running initial smoke tests...");
-      //await RunDailyTasks();
-    }
+    // private async Task RunSmokeTests()
+    // {
+    //   Console.WriteLine("Running initial smoke tests...");
+    //   //await RunDailyTasks();
+    // }
     private async Task Run10SecondTasks()
     {
       await MakeCryptoTrade();
@@ -162,10 +144,10 @@ namespace maxhanna.Server.Services
       await SpawnEncounterMetabots();
       await FetchWebsiteMetadata();
     }
-    private async Task RunOneMinuteTasks()
-    {
-      //await _aiController.AnalyzeAndRenameFile(); 
-    }
+    // private async Task RunOneMinuteTasks()
+    // {
+    //   //await _aiController.AnalyzeAndRenameFile(); 
+    // }
     private async Task RunFiveMinuteTasks()
     {
       await _aiController.AnalyzeAndRenameFile();

@@ -191,7 +191,6 @@
   box-shadow: 0 4px 10px rgba(0,0,0,0.6);
   transition: transform 0.04s linear;
   pointer-events: none; /* let the wrapper receive touch events */
-}
   transform: translate(-50%, -50%);
   border-radius: 50%;
   background: rgba(255,255,255,0.18);
