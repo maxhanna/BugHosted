@@ -1,5 +1,5 @@
-.popupPanel {
-  z-index: 60000;   
+.menuPanel {
+  z-index: 9999999999999999999999999999999999999999999999999999999;   
   padding-top: 55px;
 }
 

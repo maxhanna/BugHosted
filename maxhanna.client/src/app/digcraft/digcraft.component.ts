@@ -540,7 +540,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private onMouseMove(e: MouseEvent): void {
     if (!this.pointerLocked) return;
     const sens = 0.002;
-    this.yaw += e.movementX * sens;
+    // Invert mouse X so moving the mouse right turns right
+    this.yaw -= e.movementX * sens;
     // Invert mouse Y so moving the mouse up looks up
     this.pitch -= e.movementY * sens;
     this.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this.pitch));
