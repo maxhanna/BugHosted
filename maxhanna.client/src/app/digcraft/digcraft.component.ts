@@ -650,7 +650,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const dy = t.clientY - this.touchLookStartY;
         this.touchLookStartX = t.clientX;
         this.touchLookStartY = t.clientY;
-        this.yaw += dx * 0.005;
+        // Match touch drag direction: dragging finger right should look right
+        this.yaw -= dx * 0.005;
         // Invert touch look Y to match mouse
         this.pitch -= dy * 0.005;
         this.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this.pitch));
