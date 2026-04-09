@@ -14,7 +14,7 @@
     <canvas #gameCanvas class="game-canvas" [class.hidden]="!joined"></canvas>
 
     <!-- Chat open button (transparent) -->
-    <button class="chat-open-btn" (click)="showChatPrompt = true" title="Open chat">💬</button>
+    <button class="chat-open-btn" (touchstart)="showChatPrompt = true" title="Open chat">💬</button>
 
     <!-- Chat prompt (reuses global prompt component) -->
     <app-prompt *ngIf="true" [type]="'textInput'" [visible]="showChatPrompt" [placeholder]="'Enter chat message'" (submit)="onChatSubmit($event)" (close)="showChatPrompt = false"></app-prompt>
