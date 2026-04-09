@@ -89,13 +89,14 @@
   <!-- Inventory overlay -->
   <div class="overlay" *ngIf="showInventory" (click)="showInventory = false">
     <div class="inventory-panel" (click)="$event.stopPropagation()">
+      <button class="panel-close" (pointerdown)="showInventory = false">✖</button>
       <h3>Inventory</h3>
       <div class="inv-grid">
         <div *ngFor="let slot of inventory; let i = index"
              class="inv-slot"
              [class.hotbar-inv]="i < 9"
              [class.selected]="i === selectedSlot"
-             (click)="selectHotbarSlot(i)">
+             (pointerdown)="selectHotbarSlot(i)">
           <div class="item-icon"
                *ngIf="slot.quantity > 0"
                [style.background]="getItemColor(slot.itemId)">
@@ -110,11 +111,12 @@
   <!-- Crafting overlay -->
   <div class="overlay" *ngIf="showCrafting" (click)="showCrafting = false">
     <div class="crafting-panel" (click)="$event.stopPropagation()">
+      <button class="panel-close" (pointerdown)="showCrafting = false">✖</button>
       <h3>Crafting</h3>
       <div class="recipe-list" *ngIf="availableRecipes.length > 0">
         <div *ngFor="let recipe of availableRecipes"
              class="recipe-card"
-             (click)="craft(recipe)">
+             (pointerdown)="craft(recipe)">
           <div class="recipe-result">
             <div class="item-icon" [style.background]="getItemColor(recipe.result.itemId)"></div>
             <span>{{recipe.name}} x{{recipe.result.quantity}}</span>

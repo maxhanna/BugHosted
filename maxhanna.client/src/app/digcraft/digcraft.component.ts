@@ -713,7 +713,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // ═══════════════════════════════════════
   // Input — Touch
   // ═══════════════════════════════════════
-  private onTouchStart(e: TouchEvent): void {
+  private onTouchStart(e: TouchEvent): void { 
+    if (this.showInventory || this.showCrafting || this.showChatPrompt) return;
     e.preventDefault();
     const canvas = this.canvasRef?.nativeElement;
     if (!canvas) return;
@@ -749,6 +750,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private onTouchMove(e: TouchEvent): void {
+    if (this.showInventory || this.showCrafting || this.showChatPrompt) return;
     e.preventDefault();
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
@@ -929,7 +931,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     try {
       const players = await this.digcraftService.getPlayers(this.worldId);
       this.otherPlayers = players;
-      console.debug('DigCraft: polled players', players);
+      //console.debug('DigCraft: polled players', players);
     } catch (err) {
       console.error('DigCraft: pollPlayers error', err);
       this.otherPlayers = [];

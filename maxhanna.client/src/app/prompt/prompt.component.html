@@ -1,4 +1,4 @@
-<div class="popupPanel menuPanel" *ngIf="visible">
+<div class="popupPanel menuPanel" *ngIf="visible" (pointerdown)="$event.stopPropagation()" (touchstart)="$event.stopPropagation()">
   <div *ngIf="type === 'login'">
     <app-user [loginOnly]="true" [inputtedParentRef]="inputtedParentRef" [canClose]="false"
       (closeUserComponentEvent)="close.emit($event)"
@@ -21,13 +21,13 @@
     </span>
   </div>
   <div class="promptButtonContainer">
-    <button *ngIf="showSpecialAction" id="specialActionButton" (click)="specialActionCallback && specialActionCallback()" class="specialActionButton" [attr.title]="specialActionButtonLabel">
+    <button *ngIf="showSpecialAction" id="specialActionButton" (click)="$event.stopPropagation(); specialActionCallback && specialActionCallback()" class="specialActionButton" [attr.title]="specialActionButtonLabel">
       {{ specialActionButtonLabel }}
     </button>
-    <button *ngIf="type === 'textInput'" (click)="submit.emit(textValue); close.emit();" class="specialActionButton">Send</button>
-    <button id="closeOverlay" (click)="close.emit($event)" class="closeButton">Close</button>
+    <button *ngIf="type === 'textInput'" (click)="$event.stopPropagation(); submit.emit(textValue); close.emit();" class="specialActionButton">Send</button>
+    <button id="closeOverlay" (click)="$event.stopPropagation(); close.emit($event)" class="closeButton">Close</button>
   </div>
   <div *ngIf="type === 'textInput'" style="margin-top:10px; display:flex; gap:6px; align-items:center;">
-    <input [(ngModel)]="textValue" [placeholder]="placeholder" style="flex:1; padding:8px; border-radius:6px; border:1px solid #666; background:#111; color:#fff;" />
+    <input [value]="textValue" (input)="textValue = $any($event.target).value" [placeholder]="placeholder" (click)="$event.stopPropagation()" (touchstart)="$event.stopPropagation()" style="flex:1; padding:8px; border-radius:6px; border:1px solid #666; background:#111; color:#fff;" />
   </div>
 </div>

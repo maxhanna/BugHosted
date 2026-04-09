@@ -179,7 +179,7 @@
 .joystick {
   position: absolute;
   /* raise joystick above the bottom HUD controls to avoid overlap */
-  bottom: 100px;
+  bottom: 170px;
   left: 18px;
   width: 96px;
   height: 96px;
@@ -299,6 +299,25 @@
   max-height: 80vh;
   overflow-y: auto;
   color: #eee;
+  position: relative;
+}
+
+.panel-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: rgba(0,0,0,0.4);
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  z-index: 120;
+  font-size: 14px;
 }
 .inventory-panel h3, .crafting-panel h3 {
   margin: 0 0 12px;
