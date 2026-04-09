@@ -1175,22 +1175,34 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     const escapedKeys = Object.keys(this.emojiMap).map(key => key.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'));
     const emojiRegex = new RegExp(escapedKeys.join("|"), "g");
 
-    // Split the message into parts that are URLs and parts that are not
-    const parts = msg.split(urlRegex);
+    // Mask component tokens (e.g., ||component:DigCraft||) so emojis inside them are not replaced.
+    const componentRegex = /\|\|component:([\w-]+)\|\|/g;
+    const placeholders: string[] = [];
+    const placeholderPrefix = '__COMPONENT_PLACEHOLDER_';
+    const masked = msg.replace(componentRegex, (m) => {
+      const idx = placeholders.length;
+      placeholders.push(m);
+      return `${placeholderPrefix}${idx}__`;
+    });
 
-    // Process each part
+    // Split the masked message into parts that are URLs and parts that are not
+    const parts = masked.split(urlRegex);
+
+    // Process each part (skip URLs)
     const processedParts = parts.map(part => {
       if (urlRegex.test(part)) {
-        // If the part is a URL, return it unmodified
         return part;
       } else {
-        // If the part is not a URL, perform emoji replacement
         return part.replace(emojiRegex, match => this.emojiMap[match]);
       }
     });
 
-    // Reassemble the message from the processed parts
-    return processedParts.join('');
+    // Reassemble and unmask component tokens
+    let result = processedParts.join('');
+    for (let i = 0; i < placeholders.length; i++) {
+      result = result.split(`${placeholderPrefix}${i}__`).join(placeholders[i]);
+    }
+    return result;
   }
 
 

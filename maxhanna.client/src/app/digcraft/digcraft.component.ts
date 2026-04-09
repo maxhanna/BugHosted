@@ -958,6 +958,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     document.addEventListener('pointerup', this.boundSlotPointerUp);
   }
 
+  closeLoginPanel() {
+    this.isShowingLoginPanel = false;
+    this.parentRef?.closeOverlay();
+  }
+
   private onSlotPointerMove(e: PointerEvent): void {
     if (this.slotPointerId !== e.pointerId) return;
     const dx = e.clientX - this.slotPointerStartX;
