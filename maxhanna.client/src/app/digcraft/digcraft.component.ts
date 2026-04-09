@@ -774,7 +774,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private async pollPlayers(): Promise<void> {
-    this.otherPlayers = await this.digcraftService.getPlayers(this.worldId);
+    try {
+      const players = await this.digcraftService.getPlayers(this.worldId);
+      this.otherPlayers = players;
+      console.debug('DigCraft: polled players', players);
+    } catch (err) {
+      console.error('DigCraft: pollPlayers error', err);
+      this.otherPlayers = [];
+    }
   }
 
   // ═══════════════════════════════════════
