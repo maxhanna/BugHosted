@@ -168,6 +168,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.equippedArmor.chest = eq.chest ?? 0;
       this.equippedArmor.legs = eq.legs ?? 0;
       this.equippedArmor.boots = eq.boots ?? 0;
+      // Load weapon if server provided it (optional)
+      this.equippedWeapon = (eq as any).weapon ?? 0;
     }
 
     this.joined = true;
@@ -318,6 +320,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Normalize
     const len = Math.sqrt(mx * mx + mz * mz);
     if (len > 0) { mx /= len; mz /= len; }
+    // enable small bob when player is moving
+    this.isWeaponBobbing = len > 0.01;
 
     // Camera-relative using forward/right vectors (keeps movement aligned with raycast)
     const sinY = Math.sin(this.yaw);
@@ -763,7 +767,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const slots = this.inventory
       .map((s, i) => ({ slot: i, itemId: s.itemId, quantity: s.quantity }))
       .filter(s => s.quantity > 0);
-    const equipment = { helmet: this.equippedArmor.helmet, chest: this.equippedArmor.chest, legs: this.equippedArmor.legs, boots: this.equippedArmor.boots };
+    const equipment = { helmet: this.equippedArmor.helmet, chest: this.equippedArmor.chest, legs: this.equippedArmor.legs, boots: this.equippedArmor.boots, weapon: this.equippedWeapon };
     this.digcraftService.saveInventory(userId, this.worldId, slots, equipment);
   }
 
@@ -876,6 +880,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   typeArmorSlots: Array<'helmet' | 'chest' | 'legs' | 'boots'> = ['helmet', 'chest', 'legs', 'boots'];
   equippedArmor: Record<'helmet' | 'chest' | 'legs' | 'boots', number> = { helmet: 0, chest: 0, legs: 0, boots: 0 };
 
+  // Weapon equipment (client-only)
+  equippedWeapon: number = 0;
+  // whether the local player's first-person weapon should bob (movement)
+  isWeaponBobbing: boolean = false;
+
   // Inventory drag/drop state
   dragging = false;
   dragGhostX = 0;
@@ -909,6 +918,44 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     return this.getArmorType(itemId) !== null;
   }
 
+  // Weapon helpers
+  isWeaponItem(itemId: number): boolean {
+    return this.isSwordItem(itemId) || this.isPickaxeItem(itemId) || this.isAxeItem(itemId);
+  }
+
+  isSwordItem(itemId: number): boolean {
+    switch (itemId) {
+      case ItemId.WOODEN_SWORD: case ItemId.STONE_SWORD: case ItemId.IRON_SWORD: case ItemId.DIAMOND_SWORD:
+        return true;
+      default: return false;
+    }
+  }
+
+  isPickaxeItem(itemId: number): boolean {
+    switch (itemId) {
+      case ItemId.WOODEN_PICKAXE: case ItemId.STONE_PICKAXE: case ItemId.IRON_PICKAXE: case ItemId.DIAMOND_PICKAXE:
+        return true;
+      default: return false;
+    }
+  }
+
+  isAxeItem(itemId: number): boolean {
+    switch (itemId) {
+      case ItemId.WOODEN_AXE: case ItemId.STONE_AXE: case ItemId.IRON_AXE:
+        return true;
+      default: return false;
+    }
+  }
+
+  weaponTypeClass(): string {
+    const id = this.equippedWeapon;
+    if (!id) return '';
+    if (this.isSwordItem(id)) return 'sword';
+    if (this.isPickaxeItem(id)) return 'pickaxe';
+    if (this.isAxeItem(id)) return 'axe';
+    return '';
+  }
+
   equipItem(slotIndex: number): void {
     const slot = this.inventory[slotIndex];
     if (!slot || slot.quantity <= 0) return;
@@ -936,6 +983,41 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     // Equip new item
     this.equippedArmor[armorSlot] = itemId;
     this.scheduleInventorySave();
+  }
+
+  equipWeapon(slotIndex: number): void {
+    const slot = this.inventory[slotIndex];
+    if (!slot || slot.quantity <= 0) return;
+    if (!this.isWeaponItem(slot.itemId)) return;
+
+    const itemId = slot.itemId;
+    const prevEquipped = this.equippedWeapon;
+
+    // Remove one from inventory
+    slot.quantity--;
+    if (slot.quantity <= 0) { slot.itemId = 0; slot.quantity = 0; }
+
+    // If something was equipped, try to return it to inventory. If it doesn't fit, revert.
+    if (prevEquipped && prevEquipped > 0) {
+      const ok = this.addToInventory(prevEquipped, 1);
+      if (!ok) {
+        // revert inventory change
+        if (slot.itemId === 0) slot.itemId = itemId;
+        slot.quantity++;
+        return;
+      }
+    }
+
+    this.equippedWeapon = itemId;
+    this.scheduleInventorySave();
+  }
+
+  unequipWeapon(): void {
+    const itemId = this.equippedWeapon;
+    if (!itemId || itemId === 0) return;
+    const ok = this.addToInventory(itemId, 1);
+    if (ok) this.equippedWeapon = 0;
+    if (ok) this.scheduleInventorySave();
   }
 
   unequipArmor(slotType: 'helmet' | 'chest' | 'legs' | 'boots'): void {

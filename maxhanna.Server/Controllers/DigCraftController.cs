@@ -109,9 +109,9 @@ namespace maxhanna.Server.Controllers
                     }
                 } 
 
-                var equipment = new { helmet = 0, chest = 0, legs = 0, boots = 0 };
+                var equipment = new { helmet = 0, chest = 0, legs = 0, boots = 0, weapon = 0 };
                 using (var eCmd = new MySqlCommand(@"
-                    SELECT helmet, chest, legs, boots FROM maxhanna.digcraft_equipment WHERE player_id=@pid", conn))
+                    SELECT helmet, chest, legs, boots, weapon FROM maxhanna.digcraft_equipment WHERE player_id=@pid", conn))
                 {
                     eCmd.Parameters.AddWithValue("@pid", player?.Id ?? 0);
                     using var r = await eCmd.ExecuteReaderAsync();
@@ -122,7 +122,8 @@ namespace maxhanna.Server.Controllers
                             helmet = r.IsDBNull(r.GetOrdinal("helmet")) ? 0 : r.GetInt32("helmet"),
                             chest = r.IsDBNull(r.GetOrdinal("chest")) ? 0 : r.GetInt32("chest"),
                             legs = r.IsDBNull(r.GetOrdinal("legs")) ? 0 : r.GetInt32("legs"),
-                            boots = r.IsDBNull(r.GetOrdinal("boots")) ? 0 : r.GetInt32("boots")
+                            boots = r.IsDBNull(r.GetOrdinal("boots")) ? 0 : r.GetInt32("boots"),
+                            weapon = r.IsDBNull(r.GetOrdinal("weapon")) ? 0 : r.GetInt32("weapon")
                         };
                     }
                 }
@@ -203,8 +204,9 @@ namespace maxhanna.Server.Controllers
                 // Return players seen within cutoff
                 var cutoff = DateTime.UtcNow.AddSeconds(-120);
                 using var cmd = new MySqlCommand(@"
-                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, u.username
+                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, u.username, IFNULL(e.weapon, 0) AS weapon
                     FROM maxhanna.digcraft_players p
+                    LEFT JOIN maxhanna.digcraft_equipment e ON e.player_id = p.id
                     JOIN maxhanna.users u ON u.id = p.user_id
                     WHERE p.world_id=@wid AND p.last_seen >= @cutoff", conn);
                 cmd.Parameters.AddWithValue("@wid", req.WorldId);
@@ -223,7 +225,8 @@ namespace maxhanna.Server.Controllers
                         yaw = r.GetFloat("yaw"),
                         pitch = r.GetFloat("pitch"),
                         health = r.GetInt32("health"),
-                        username = r.IsDBNull(r.GetOrdinal("username")) ? "Anon" : r.GetString("username")
+                        username = r.IsDBNull(r.GetOrdinal("username")) ? "Anon" : r.GetString("username"),
+                        weapon = r.IsDBNull(r.GetOrdinal("weapon")) ? 0 : r.GetInt32("weapon")
                     });
                 }
                 return Ok(players);
@@ -246,8 +249,9 @@ namespace maxhanna.Server.Controllers
 
                 var cutoff = DateTime.UtcNow.AddSeconds(-120);
                 using var cmd = new MySqlCommand(@"
-                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, u.username
+                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, u.username, IFNULL(e.weapon, 0) AS weapon
                     FROM maxhanna.digcraft_players p
+                    LEFT JOIN maxhanna.digcraft_equipment e ON e.player_id = p.id
                     JOIN maxhanna.users u ON u.id = p.user_id
                     WHERE p.world_id=@wid AND p.last_seen >= @cutoff", conn);
                 cmd.Parameters.AddWithValue("@wid", worldId);
@@ -266,7 +270,8 @@ namespace maxhanna.Server.Controllers
                         yaw = r.GetFloat("yaw"),
                         pitch = r.GetFloat("pitch"),
                         health = r.GetInt32("health"),
-                        username = r.IsDBNull(r.GetOrdinal("username")) ? "Anon" : r.GetString("username")
+                        username = r.IsDBNull(r.GetOrdinal("username")) ? "Anon" : r.GetString("username"),
+                        weapon = r.IsDBNull(r.GetOrdinal("weapon")) ? 0 : r.GetInt32("weapon")
                     });
                 }
                 return Ok(players);
@@ -467,15 +472,16 @@ namespace maxhanna.Server.Controllers
                 if (req.Equipment != null)
                 { 
                     const string upsertEq = @"
-                        INSERT INTO maxhanna.digcraft_equipment (player_id, helmet, chest, legs, boots)
-                        VALUES (@pid, @helmet, @chest, @legs, @boots)
-                        ON DUPLICATE KEY UPDATE helmet=VALUES(helmet), chest=VALUES(chest), legs=VALUES(legs), boots=VALUES(boots);";
+                        INSERT INTO maxhanna.digcraft_equipment (player_id, helmet, chest, legs, boots, weapon)
+                        VALUES (@pid, @helmet, @chest, @legs, @boots, @weapon)
+                        ON DUPLICATE KEY UPDATE helmet=VALUES(helmet), chest=VALUES(chest), legs=VALUES(legs), boots=VALUES(boots), weapon=VALUES(weapon);";
                     using var eqCmd = new MySqlCommand(upsertEq, conn);
                     eqCmd.Parameters.AddWithValue("@pid", playerId);
                     eqCmd.Parameters.AddWithValue("@helmet", req.Equipment.Helmet);
                     eqCmd.Parameters.AddWithValue("@chest", req.Equipment.Chest);
                     eqCmd.Parameters.AddWithValue("@legs", req.Equipment.Legs);
                     eqCmd.Parameters.AddWithValue("@boots", req.Equipment.Boots);
+                    eqCmd.Parameters.AddWithValue("@weapon", req.Equipment.Weapon);
                     await eqCmd.ExecuteNonQueryAsync();
                 }
 

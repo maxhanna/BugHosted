@@ -375,6 +375,7 @@
   position: relative;
   cursor: pointer;
 }
+.weapon-slot { cursor: pointer; }
 .armor-label {
   font-size: 11px;
   color: #ccc;
@@ -461,6 +462,58 @@
   border-radius: 4px;
   border: 1px solid rgba(255,255,255,0.06);
   box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+}
+
+/* First-person weapon overlay */
+.first-person-weapon {
+  position: absolute;
+  bottom: 18%;
+  right: 18%;
+  width: 160px;
+  height: 160px;
+  pointer-events: none;
+  z-index: 120;
+  transform: translateZ(0);
+}
+.fp-sword { position: relative; width: 160px; height: 160px; transform: rotate(-12deg); }
+.fp-sword .blade { position: absolute; left: 70px; top: 8px; width: 14px; height: 108px; border-radius: 2px; box-shadow: 0 4px 8px rgba(0,0,0,0.6); }
+.fp-sword .guard { position: absolute; left: 62px; top: 98px; width: 36px; height: 8px; background: #333; border-radius: 2px; }
+.fp-sword .handle { position: absolute; left: 70px; top: 106px; width: 12px; height: 40px; background: #6b4a2a; border-radius: 2px; box-shadow: inset 0 -2px 0 rgba(0,0,0,0.2); }
+
+/* pickaxe: wider head */
+.fp-sword.pickaxe .blade { height: 44px; top: 26px; left: 36px; width: 88px; border-radius: 2px; }
+.fp-sword.pickaxe .guard { display: none; }
+.fp-sword.pickaxe .handle { left: 86px; top: 66px; width: 10px; height: 64px; }
+
+/* axe: short blade to the side */
+.fp-sword.axe .blade { height: 54px; top: 28px; left: 40px; width: 76px; border-radius: 2px; }
+.fp-sword.axe .guard { display: none; }
+.fp-sword.axe .handle { left: 78px; top: 70px; width: 12px; height: 54px; }
+
+/* First-person weapon bobbing animations */
+.first-person-weapon .fp-sword {
+  /* start paused subtle bob */
+  animation: fp-bob-slow 3s infinite ease-in-out;
+  animation-play-state: paused;
+}
+.first-person-weapon.bobbing .fp-sword {
+  animation-name: fp-bob-fast;
+  animation-duration: 0.6s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-play-state: running;
+}
+
+@keyframes fp-bob-slow {
+  0% { transform: rotate(-12deg) translateY(0); }
+  50% { transform: rotate(-10deg) translateY(-4px); }
+  100% { transform: rotate(-12deg) translateY(0); }
+}
+
+@keyframes fp-bob-fast {
+  0% { transform: rotate(-12deg) translateY(0); }
+  50% { transform: rotate(-6deg) translateY(-10px); }
+  100% { transform: rotate(-12deg) translateY(0); }
 }
 
 /* Recipe list */

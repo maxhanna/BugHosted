@@ -23,6 +23,15 @@
     <!-- Crosshair -->
     <div class="crosshair" *ngIf="joined && !showInventory && !showCrafting">+</div>
 
+    <!-- First-person weapon overlay (simple stylised model) -->
+    <div class="first-person-weapon" [class.bobbing]="isWeaponBobbing" *ngIf="equippedWeapon && joined && !showInventory && !showCrafting">
+      <div class="fp-sword" [ngClass]="weaponTypeClass()">
+        <div class="blade" [style.background]="getItemColor(equippedWeapon)"></div>
+        <div class="guard"></div>
+        <div class="handle"></div>
+      </div>
+    </div>
+
     <!-- Centered chat stack under crosshair -->
     <div class="center-chat" *ngIf="joined">
       <div *ngFor="let m of activeCenterChatMessages" class="center-chat-msg">{{m.text}}</div>
@@ -99,6 +108,11 @@
               [style.background]="getItemColor(equippedArmor[a])" [title]="getItemName(equippedArmor[a])"></div>
             <div *ngIf="!equippedArmor[a] || equippedArmor[a] === 0" class="armor-empty">—</div>
           </div>
+            <div class="armor-slot weapon-slot" (pointerdown)="unequipWeapon()">
+              <div class="armor-label">Weapon</div>
+              <div *ngIf="equippedWeapon && equippedWeapon > 0" class="armor-icon" [style.background]="getItemColor(equippedWeapon)" [title]="getItemName(equippedWeapon)"></div>
+              <div *ngIf="!equippedWeapon || equippedWeapon === 0" class="armor-empty">—</div>
+            </div>
         </div>
 
         <div class="inv-grid">
@@ -108,6 +122,7 @@
             </div>
             <button *ngIf="isArmorItem(slot.itemId) && slot.quantity > 0" class="equip-btn"
               (pointerdown)="equipItem(i); $event.stopPropagation()" title="Equip">🛡️</button>
+              <button *ngIf="isWeaponItem(slot.itemId) && slot.quantity > 0" class="equip-btn" (pointerdown)="equipWeapon(i); $event.stopPropagation()" title="Equip">⚔️</button>
             <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>
             <div class="item-tooltip" *ngIf="slot.quantity > 0">{{getItemName(slot.itemId)}}</div>
           </div>

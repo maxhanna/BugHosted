@@ -4,7 +4,7 @@
  */
 import {
   BlockId, BLOCK_COLORS, BlockColor, CHUNK_SIZE, WORLD_HEIGHT,
-  RENDER_DISTANCE, DCPlayer
+  RENDER_DISTANCE, DCPlayer, ITEM_COLORS
 } from './digcraft-types';
 import { Chunk } from './digcraft-world';
 
@@ -14,10 +14,11 @@ const VS = `
   attribute vec3 aColor;
   attribute float aBrightness;
   uniform mat4 uMVP;
+  uniform vec3 uTint;
   varying vec3 vColor;
   varying float vFog;
   void main() {
-    vColor = aColor * aBrightness;
+    vColor = aColor * aBrightness * uTint;
     gl_Position = uMVP * vec4(aPos, 1.0);
     vFog = clamp(gl_Position.z / 120.0, 0.0, 1.0);
   }
@@ -58,9 +59,13 @@ export class DigCraftRenderer {
   program: WebGLProgram;
   uMVP: WebGLUniformLocation;
   uFogColor: WebGLUniformLocation;
+  uTint: WebGLUniformLocation;
   meshes: Map<string, ChunkMesh> = new Map();
   width = 0;
   height = 0;
+
+  // Track last player positions to determine movement for bobbing
+  private lastPlayerStates: Map<number, { x: number; y: number; z: number; t: number }> = new Map();
 
   // Sky / fog colour
   private skyR = 0.53;
@@ -90,7 +95,9 @@ export class DigCraftRenderer {
 
     this.uMVP = gl.getUniformLocation(this.program, 'uMVP')!;
     this.uFogColor = gl.getUniformLocation(this.program, 'uFogColor')!;
+    this.uTint = gl.getUniformLocation(this.program, 'uTint')!;
     gl.uniform3f(this.uFogColor, this.skyR, this.skyG, this.skyB);
+    gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
   }
 
   resize(w: number, h: number): void {
@@ -236,10 +243,21 @@ export class DigCraftRenderer {
     }
     gl.bindVertexArray(null);
 
-    // Render other players as coloured pillars
+    const now = performance.now() / 1000;
+    // Render other players as coloured pillars and their weapons
     for (const p of players) {
       if (p.userId === myUserId) continue;
-      this.drawPlayerPillar(p, mvp);
+      // compute movement speed for bobbing
+      const prev = this.lastPlayerStates.get(p.userId);
+      let speed = 0;
+      if (prev) {
+        const dt = Math.max(0.001, now - prev.t);
+        const dx = p.posX - prev.x;
+        const dz = p.posZ - prev.z;
+        speed = Math.sqrt(dx * dx + dz * dz) / dt;
+      }
+      this.lastPlayerStates.set(p.userId, { x: p.posX, y: p.posY, z: p.posZ, t: now });
+      this.drawPlayerPillar(p, mvp, now, speed);
     }
   }
 
@@ -357,19 +375,154 @@ export class DigCraftRenderer {
     this.playerIndexCount = idx.length;
   }
 
-  private drawPlayerPillar(p: DCPlayer, baseMVP: Float32Array): void {
+  private weaponVAO: WebGLVertexArrayObject | null = null;
+  private weaponVBO: WebGLBuffer | null = null;
+  private weaponIBO: WebGLBuffer | null = null;
+  private weaponIndexCount = 0;
+
+  private drawPlayerPillar(p: DCPlayer, baseMVP: Float32Array, now?: number, speed?: number): void {
     this.ensurePlayerMesh();
     const gl = this.gl;
     // Translate model so feet sit at player's ground position (client stores camera/eye Y)
     const eyeHeight = 1.6;
     const t = translationMatrix(p.posX, p.posY - eyeHeight, p.posZ);
     const mvp = multiplyMat4(baseMVP, t);
+    // draw player body
+    gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
     gl.uniformMatrix4fv(this.uMVP, false, mvp);
     gl.bindVertexArray(this.playerVAO);
     gl.drawElements(gl.TRIANGLES, this.playerIndexCount, gl.UNSIGNED_INT, 0);
     gl.bindVertexArray(null);
-    // Restore
-    gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
+
+    // draw weapon if present
+    const weaponId = (p as any).weapon ?? 0;
+    if (weaponId && weaponId > 0) {
+      this.ensureWeaponMesh();
+      // compute bob offset
+      const time = now ?? performance.now() / 1000;
+      const sp = speed ?? 0;
+      const walkFactor = Math.min(1, sp / 4);
+      const bob = Math.sin(time * (2 + walkFactor * 6) + p.userId) * (0.02 + walkFactor * 0.06);
+
+      // local hand offset (right hand)
+      const legH = 0.5;
+      const torsoH = 0.8;
+      const handY = legH + torsoH - 0.15 + bob;
+      const handX = 0.36; // to the right of torso
+      const handZ = 0.14; // slightly forward
+
+      // world transform: T(player) * R(yaw) * T(handLocal)
+      const P = translationMatrix(p.posX, p.posY - eyeHeight, p.posZ);
+      const R = rotationYMatrix(p.yaw);
+      const H = translationMatrix(handX, handY, handZ);
+      const world = multiplyMat4(P, multiplyMat4(R, H));
+      const finalMVP = multiplyMat4(baseMVP, world);
+
+      // set tint color from ITEM_COLORS (hex) if available
+      const hex = ITEM_COLORS[weaponId] ?? '#CCCCCC';
+      const col = hexToRGB(hex);
+      gl.uniform3f(this.uTint, col[0], col[1], col[2]);
+      gl.uniformMatrix4fv(this.uMVP, false, finalMVP);
+      gl.bindVertexArray(this.weaponVAO);
+      gl.drawElements(gl.TRIANGLES, this.weaponIndexCount, gl.UNSIGNED_INT, 0);
+      gl.bindVertexArray(null);
+
+      // restore tint
+      gl.uniform3f(this.uTint, 1.0, 1.0, 1.0);
+      gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
+    } else {
+      // restore MVP when no weapon drawn
+      gl.uniformMatrix4fv(this.uMVP, false, baseMVP);
+    }
+  }
+
+  private ensureWeaponMesh(): void {
+    if (this.weaponVAO) return;
+    const gl = this.gl;
+    const verts: number[] = [];
+    const idx: number[] = [];
+    let vc = 0;
+
+    const pushVert = (x: number, y: number, z: number, r: number, g: number, b: number, br: number) => {
+      verts.push(x, y, z, r, g, b, br);
+    };
+
+    const addBox = (minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number, color: [number, number, number], bright: number) => {
+      // top
+      pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright);
+      pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright);
+      pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright);
+      pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright);
+      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+      vc += 4;
+      // bottom
+      pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.6);
+      pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.6);
+      pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.6);
+      pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.6);
+      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+      vc += 4;
+      // south
+      pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.9);
+      pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright * 0.9);
+      pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright * 0.9);
+      pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.9);
+      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+      vc += 4;
+      // north
+      pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.9);
+      pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright * 0.9);
+      pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright * 0.9);
+      pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.9);
+      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+      vc += 4;
+      // east
+      pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.8);
+      pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright * 0.8);
+      pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright * 0.8);
+      pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.8);
+      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+      vc += 4;
+      // west
+      pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.8);
+      pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright * 0.8);
+      pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright * 0.8);
+      pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.8);
+      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+      vc += 4;
+    };
+
+    // Build a simple weapon: handle + blade (unit white colours, tinted by uniform)
+    // Blade (thin rectangular plate) oriented along +X
+    addBox(0.0, -0.06, -0.02, 0.5, 0.06, 0.02, [1, 1, 1], 1.0);
+    // Handle
+    addBox(-0.08, -0.04, -0.03, 0.04, 0.04, 0.03, [1, 1, 1], 0.9);
+
+    const vao = gl.createVertexArray()!;
+    gl.bindVertexArray(vao);
+    const vbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+    const bpe = Float32Array.BYTES_PER_ELEMENT;
+    const stride = 7 * bpe;
+    const aPos = gl.getAttribLocation(this.program, 'aPos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0);
+    const aColor = gl.getAttribLocation(this.program, 'aColor');
+    gl.enableVertexAttribArray(aColor);
+    gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 3 * bpe);
+    const aBright = gl.getAttribLocation(this.program, 'aBrightness');
+    gl.enableVertexAttribArray(aBright);
+    gl.vertexAttribPointer(aBright, 1, gl.FLOAT, false, stride, 6 * bpe);
+    const ibo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(idx), gl.STATIC_DRAW);
+    gl.bindVertexArray(null);
+
+    this.weaponVAO = vao;
+    this.weaponVBO = vbo;
+    this.weaponIBO = ibo;
+    this.weaponIndexCount = idx.length;
   }
 
   /** Build a highlight wireframe cube for the targeted block */
@@ -495,6 +648,34 @@ function translationMatrix(x: number, y: number, z: number): Float32Array {
     0, 0, 1, 0,
     x, y, z, 1,
   ]);
+}
+
+function rotationYMatrix(theta: number): Float32Array {
+  const c = Math.cos(theta), s = Math.sin(theta);
+  return new Float32Array([
+    c, 0, -s, 0,
+    0, 1, 0, 0,
+    s, 0, c, 0,
+    0, 0, 0, 1,
+  ]);
+}
+
+function hexToRGB(hex: string): [number, number, number] {
+  // expect formats like '#RRGGBB' or '#RGB'
+  if (!hex || hex[0] !== '#') return [1, 1, 1];
+  if (hex.length === 4) {
+    const r = parseInt(hex[1] + hex[1], 16);
+    const g = parseInt(hex[2] + hex[2], 16);
+    const b = parseInt(hex[3] + hex[3], 16);
+    return [r / 255, g / 255, b / 255];
+  }
+  if (hex.length === 7) {
+    const r = parseInt(hex.substring(1, 3), 16);
+    const g = parseInt(hex.substring(3, 5), 16);
+    const b = parseInt(hex.substring(5, 7), 16);
+    return [r / 255, g / 255, b / 255];
+  }
+  return [1, 1, 1];
 }
 
 /** getFrustumMVP for highlight and player drawing */

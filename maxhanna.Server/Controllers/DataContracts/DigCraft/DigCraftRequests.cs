@@ -80,6 +80,8 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public int Legs { get; set; } = 0;
         [JsonPropertyName("boots")]
         public int Boots { get; set; } = 0;
+        [JsonPropertyName("weapon")]
+        public int Weapon { get; set; } = 0;
     }
 
     public class CraftItemRequest
