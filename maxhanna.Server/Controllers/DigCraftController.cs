@@ -155,7 +155,7 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        /// <summary>Get online players in the world (seen within last 30s).</summary>
+        /// <summary>Get online players in the world (seen within last 120s).</summary>
         [HttpGet("Players/{worldId}")]
         public async Task<IActionResult> GetPlayers(int worldId)
         {
@@ -164,7 +164,7 @@ namespace maxhanna.Server.Controllers
                 await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
-                var cutoff = DateTime.UtcNow.AddSeconds(-30);
+                var cutoff = DateTime.UtcNow.AddSeconds(-120);
                 using var cmd = new MySqlCommand(@"
                     SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, u.username
                     FROM maxhanna.digcraft_players p

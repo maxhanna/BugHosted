@@ -68,6 +68,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private syncInterval: ReturnType<typeof setInterval> | undefined;
   private playerPollInterval: ReturnType<typeof setInterval> | undefined;
   private inventorySaveTimeout: ReturnType<typeof setTimeout> | undefined;
+  private chunkPollInterval: ReturnType<typeof setInterval> | undefined;
+  private pollingChunks = false;
 
   // Touch state
   private touchMoveId: number | null = null;
@@ -214,6 +216,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.syncInterval = setInterval(() => this.syncPosition(), 2000);
     // Poll other players every 3s
     this.playerPollInterval = setInterval(() => this.pollPlayers(), 3000);
+    // Poll server for chunk changes periodically so remote block placements appear
+    this.chunkPollInterval = setInterval(() => this.pollChunkChanges().catch(err => console.error('DigCraft: pollChunkChanges error', err)), 1000);
   }
 
   private cleanup(): void {
@@ -233,6 +237,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     document.removeEventListener('touchend', this.boundTouchEnd);
     if (this.syncInterval) clearInterval(this.syncInterval);
     if (this.playerPollInterval) clearInterval(this.playerPollInterval);
+    if (this.chunkPollInterval) clearInterval(this.chunkPollInterval);
     if (this.inventorySaveTimeout) clearTimeout(this.inventorySaveTimeout);
     if (this.renderer) this.renderer.dispose();
     if (document.pointerLockElement) document.exitPointerLock();
@@ -463,6 +468,33 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const chunk = this.chunks.get(`${cx},${cz}`);
     if (!chunk) return;
     this.renderer.buildChunkMesh(chunk, (wx, wy, wz) => this.getWorldBlock(wx, wy, wz));
+  }
+
+  /** Poll chunks within render distance for server-side changes and apply them. */
+  private async pollChunkChanges(): Promise<void> {
+    if (this.pollingChunks) return;
+    this.pollingChunks = true;
+    try {
+      const ccx = Math.floor(this.camX / CHUNK_SIZE);
+      const ccz = Math.floor(this.camZ / CHUNK_SIZE);
+      const promises: Promise<void>[] = [];
+      for (let dx = -RENDER_DISTANCE; dx <= RENDER_DISTANCE; dx++) {
+        for (let dz = -RENDER_DISTANCE; dz <= RENDER_DISTANCE; dz++) {
+          const cx = ccx + dx;
+          const cz = ccz + dz;
+          const key = `${cx},${cz}`;
+          const chunk = this.chunks.get(key);
+          if (chunk) {
+            promises.push(this.fetchChunkChanges(cx, cz, chunk));
+          }
+        }
+      }
+      await Promise.allSettled(promises);
+    } catch (err) {
+      console.error('DigCraft: pollChunkChanges error', err);
+    } finally {
+      this.pollingChunks = false;
+    }
   }
 
   getWorldBlock(wx: number, wy: number, wz: number): number {
