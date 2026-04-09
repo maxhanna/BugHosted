@@ -75,13 +75,7 @@
           (pointerdown)="showInventory = !showInventory; showCrafting = false">🎒</button>
         <button class="touch-btn craft-btn"
           (pointerdown)="showCrafting = !showCrafting; showInventory = false; updateAvailableRecipes()">🔨</button>
-      </div>
-
-      <!-- Click to lock pointer hint -->
-      <!-- <div class="pointer-hint" *ngIf="joined && !showInventory && !showCrafting"
-         (click)="requestPointerLock()">
-      Click to play
-    </div> -->
+      </div> 
     </div>
 
     <!-- Coordinates display (bottom-right) -->
@@ -154,5 +148,5 @@
 </div>
 
 <app-prompt [type]="'login'" [message]="'You must log-in to save play DigCraft⛏️.'" [inputtedParentRef]="parentRef"
-  [visible]="isShowingLoginPanel" (close)="closeLoginPanel($event)">
+  [visible]="isShowingLoginPanel" (close)="closeLoginPanel()">
 </app-prompt>
