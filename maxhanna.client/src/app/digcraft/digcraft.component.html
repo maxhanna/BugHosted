@@ -33,7 +33,7 @@
       <div *ngFor="let slot of inventory.slice(0, 9); let i = index"
            class="hotbar-slot"
            [class.selected]="i === selectedSlot"
-           (click)="selectHotbarSlot(i)">
+           (pointerdown)="selectHotbarSlot(i)">
         <div class="item-icon"
              *ngIf="slot.quantity > 0"
              [style.background]="getItemColor(slot.itemId)">
@@ -60,10 +60,10 @@
     </div>
 
     <!-- Click to lock pointer hint -->
-    <div class="pointer-hint" *ngIf="joined && !showInventory && !showCrafting"
+    <!-- <div class="pointer-hint" *ngIf="joined && !showInventory && !showCrafting"
          (click)="requestPointerLock()">
       Click to play
-    </div>
+    </div> -->
   </div>
 
   <!-- Inventory overlay -->
