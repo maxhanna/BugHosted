@@ -160,19 +160,22 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const lx = spawnX - cx * CHUNK_SIZE;
     const lz = spawnZ - cz * CHUNK_SIZE;
 
+    // Small upward offset to reduce spawning inside nearby blocks
+    const spawnRaise = 0.5; // blocks
+
     // Scan downward from the top to find the highest solid block
     for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
       const block = chunk.getBlock(lx, y, lz);
       if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.LEAVES) {
-        // Place player's eyes 1.6 blocks above the surface
-        this.camY = y + 1 + 1.6;
+        // Place player's eyes 1.6 blocks above the surface plus a small raise
+        this.camY = y + 1 + 1.6 + spawnRaise;
         this.velY = 0;
         this.onGround = true;
         return;
       }
     }
-    // Fallback — place on bedrock
-    this.camY = 2 + 1.6;
+    // Fallback — place on bedrock (with same raise)
+    this.camY = 2 + 1.6 + spawnRaise;
     this.velY = 0;
     this.onGround = true;
   }
