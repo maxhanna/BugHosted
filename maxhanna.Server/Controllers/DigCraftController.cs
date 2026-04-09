@@ -174,6 +174,67 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        /// <summary>Update the caller's position and return online players in one request.</summary>
+        [HttpPost("SyncPlayers")]
+        public async Task<IActionResult> SyncPlayers([FromBody] UpdatePositionRequest req)
+        {
+            if (req.UserId <= 0) return BadRequest("Invalid userId");
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                // Update caller position and last_seen
+                using (var uCmd = new MySqlCommand(@"
+                    UPDATE maxhanna.digcraft_players
+                    SET pos_x=@px, pos_y=@py, pos_z=@pz, yaw=@yaw, pitch=@pitch, last_seen=UTC_TIMESTAMP()
+                    WHERE user_id=@uid AND world_id=@wid", conn))
+                {
+                    uCmd.Parameters.AddWithValue("@px", req.PosX);
+                    uCmd.Parameters.AddWithValue("@py", req.PosY);
+                    uCmd.Parameters.AddWithValue("@pz", req.PosZ);
+                    uCmd.Parameters.AddWithValue("@yaw", req.Yaw);
+                    uCmd.Parameters.AddWithValue("@pitch", req.Pitch);
+                    uCmd.Parameters.AddWithValue("@uid", req.UserId);
+                    uCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                    await uCmd.ExecuteNonQueryAsync();
+                }
+
+                // Return players seen within cutoff
+                var cutoff = DateTime.UtcNow.AddSeconds(-120);
+                using var cmd = new MySqlCommand(@"
+                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.health, u.username
+                    FROM maxhanna.digcraft_players p
+                    JOIN maxhanna.users u ON u.id = p.user_id
+                    WHERE p.world_id=@wid AND p.last_seen >= @cutoff", conn);
+                cmd.Parameters.AddWithValue("@wid", req.WorldId);
+                cmd.Parameters.AddWithValue("@cutoff", cutoff);
+
+                var players = new List<object>();
+                using var r = await cmd.ExecuteReaderAsync();
+                while (await r.ReadAsync())
+                {
+                    players.Add(new
+                    {
+                        userId = r.GetInt32("user_id"),
+                        posX = r.GetFloat("pos_x"),
+                        posY = r.GetFloat("pos_y"),
+                        posZ = r.GetFloat("pos_z"),
+                        yaw = r.GetFloat("yaw"),
+                        pitch = r.GetFloat("pitch"),
+                        health = r.GetInt32("health"),
+                        username = r.IsDBNull(r.GetOrdinal("username")) ? "Anon" : r.GetString("username")
+                    });
+                }
+                return Ok(players);
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DigCraft SyncPlayers error: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
         /// <summary>Get online players in the world (seen within last 120s).</summary>
         [HttpGet("Players/{worldId}")]
         public async Task<IActionResult> GetPlayers(int worldId)

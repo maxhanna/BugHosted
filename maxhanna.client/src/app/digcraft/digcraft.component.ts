@@ -65,15 +65,23 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private lastTime = 0;
   private keys: Set<string> = new Set();
   private pointerLocked = false;
-  private syncInterval: ReturnType<typeof setInterval> | undefined;
-  private playerPollInterval: ReturnType<typeof setInterval> | undefined;
+
+  // adaptive timeouts for polling players and chats (use setTimeout so we can vary frequency)
+  private playerPollInterval: ReturnType<typeof setTimeout> | undefined;
   private inventorySaveTimeout: ReturnType<typeof setTimeout> | undefined;
   private chunkPollInterval: ReturnType<typeof setInterval> | undefined;
   private pollingChunks = false;
   // index used to round-robin poll loaded chunks to avoid flooding the server
   private chunkPollIndex = 0;
-  private chatPollInterval: ReturnType<typeof setInterval> | undefined;
+  private chatPollInterval: ReturnType<typeof setTimeout> | undefined;
+
+  // Poll frequency settings (ms)
+  private PLAYER_POLL_FAST_MS = 1000;
+  private PLAYER_POLL_SLOW_MS = 5000;
+  private CHAT_POLL_FAST_MS = 1000;
+  private CHAT_POLL_SLOW_MS = 5000;
   showChatPrompt = false;
+  isShowingLoginPanel = false;
   // active chat messages (client-side)
   private chatMessages: { userId: number; text: string; expiresAt: number; createdAt?: string }[] = [];
   // cached bubble positions in pixels
@@ -108,7 +116,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.inventory = new Array(36).fill(null).map(() => ({ itemId: 0, quantity: 0 }));
   }
 
-  ngOnInit(): void { }
+  ngOnInit(): void { 
+    if (!this.parentRef?.user?.id) { 
+      this.isShowingLoginPanel = true;
+      this.parentRef?.showOverlay();
+    }
+  }
 
   ngAfterViewInit(): void {
     this.joinWorld();
@@ -231,14 +244,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.lastTime = performance.now();
     this.gameLoop(this.lastTime);
 
-    // Sync position to server every 2s
-    this.syncInterval = setInterval(() => this.syncPosition(), 1000);
-    // Poll other players every 3s
-    this.playerPollInterval = setInterval(() => this.pollPlayers(), 1000);
+    // Player sync + pollPlayers runs in a single adaptive loop
+    // Start adaptive polling loops for players and chat (each will schedule its next run)
+    this.pollPlayers().catch(err => console.error('DigCraft: pollPlayers error', err));
+    this.pollChats().catch(err => console.error('DigCraft: pollChats error', err));
     // Poll server for chunk changes periodically so remote block placements appear
     this.chunkPollInterval = setInterval(() => this.pollChunkChanges().catch(err => console.error('DigCraft: pollChunkChanges error', err)), 1000);
-    // Poll server for chat messages
-    this.chatPollInterval = setInterval(() => this.pollChats().catch(err => console.error('DigCraft: pollChats error', err)), 1000);
   }
 
   private cleanup(): void {
@@ -256,10 +267,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     document.removeEventListener('touchstart', this.boundTouchStart);
     document.removeEventListener('touchmove', this.boundTouchMove);
     document.removeEventListener('touchend', this.boundTouchEnd);
-    if (this.syncInterval) clearInterval(this.syncInterval);
-    if (this.playerPollInterval) clearInterval(this.playerPollInterval);
+    if (this.playerPollInterval) clearTimeout(this.playerPollInterval);
     if (this.chunkPollInterval) clearInterval(this.chunkPollInterval);
-    if (this.chatPollInterval) clearInterval(this.chatPollInterval);
+    if (this.chatPollInterval) clearTimeout(this.chatPollInterval);
     if (this.inventorySaveTimeout) clearTimeout(this.inventorySaveTimeout);
     if (this.renderer) this.renderer.dispose();
     if (document.pointerLockElement) document.exitPointerLock();
@@ -491,8 +501,17 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.chatMessages = this.chatMessages.filter(m => m.expiresAt > now);
       // prune center stack expired (non-destructive for short-lived list)
       this.centerChatMessages = this.centerChatMessages.filter(m => m.expiresAt > now);
+
+      // schedule next chat poll depending on whether there are other players
+      const myId = this.parentRef?.user?.id ?? 0;
+      const hasOtherPlayers = (this.otherPlayers && this.otherPlayers.some(p => p.userId !== myId));
+      const nextDelay = hasOtherPlayers ? this.CHAT_POLL_FAST_MS : this.CHAT_POLL_SLOW_MS;
+      if (this.chatPollInterval) clearTimeout(this.chatPollInterval);
+      this.chatPollInterval = setTimeout(() => this.pollChats().catch(err => console.error('DigCraft: pollChats error', err)), nextDelay);
     } catch (err) {
       console.error('DigCraft: pollChats failed', err);
+      if (this.chatPollInterval) clearTimeout(this.chatPollInterval);
+      this.chatPollInterval = setTimeout(() => this.pollChats().catch(err => console.error('DigCraft: pollChats error', err)), this.CHAT_POLL_SLOW_MS);
     }
   }
 
@@ -737,7 +756,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // ═══════════════════════════════════════
   // Input — Touch
   // ═══════════════════════════════════════
-  private onTouchStart(e: TouchEvent): void { 
+  private onTouchStart(e: TouchEvent): void {
     if (this.showInventory || this.showCrafting || this.showChatPrompt) return;
     e.preventDefault();
     const canvas = this.canvasRef?.nativeElement;
@@ -946,20 +965,29 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // ═══════════════════════════════════════
   // Multiplayer sync
   // ═══════════════════════════════════════
-  private async syncPosition(): Promise<void> {
-    const userId = this.parentRef?.user?.id;
-    if (!userId) return;
-    await this.digcraftService.updatePosition(userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch);
-  }
+
 
   private async pollPlayers(): Promise<void> {
     try {
-      const players = await this.digcraftService.getPlayers(this.worldId);
-      this.otherPlayers = players;
+      const userId = this.parentRef?.user?.id;
+      let players = [] as DCPlayer[];
+      if (!userId) {
+        return
+      } 
+
+      this.otherPlayers = await this.digcraftService.syncPlayers(userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch);;
       //console.debug('DigCraft: polled players', players);
+      // consider other players only (exclude self) when deciding polling rate
+      const myId = this.parentRef?.user?.id ?? 0;
+      const hasOtherPlayers = players && players.some(p => p.userId !== myId);
+      const nextDelay = hasOtherPlayers ? this.PLAYER_POLL_FAST_MS : this.PLAYER_POLL_SLOW_MS;
+      if (this.playerPollInterval) clearTimeout(this.playerPollInterval);
+      this.playerPollInterval = setTimeout(() => this.pollPlayers().catch(err => console.error('DigCraft: pollPlayers error', err)), nextDelay);
     } catch (err) {
       console.error('DigCraft: pollPlayers error', err);
       this.otherPlayers = [];
+      if (this.playerPollInterval) clearTimeout(this.playerPollInterval);
+      this.playerPollInterval = setTimeout(() => this.pollPlayers().catch(err => console.error('DigCraft: pollPlayers error', err)), this.PLAYER_POLL_SLOW_MS);
     }
   }
 
@@ -983,7 +1011,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   requestPointerLock(): void {
     this.canvasRef?.nativeElement?.requestPointerLock();
-  } 
+  }
 
   // Compute knob transform for joystick visual based on touchMoveX/Y (-1..1)
   getJoystickKnobTransform(): string {
@@ -994,7 +1022,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   // Armor equipment (client-only slots)
-  typeArmorSlots: Array<'helmet' | 'chest' | 'legs' | 'boots'> = ['helmet','chest','legs','boots'];
+  typeArmorSlots: Array<'helmet' | 'chest' | 'legs' | 'boots'> = ['helmet', 'chest', 'legs', 'boots'];
   equippedArmor: Record<'helmet' | 'chest' | 'legs' | 'boots', number> = { helmet: 0, chest: 0, legs: 0, boots: 0 };
 
   private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | null {

@@ -14,6 +14,11 @@ export class DigcraftService {
     await this.post('/digcraft/updateposition', { userId, worldId, posX, posY, posZ, yaw, pitch });
   }
 
+  async syncPlayers(userId: number, worldId: number, posX: number, posY: number, posZ: number, yaw: number, pitch: number): Promise<DCPlayer[]> {
+    const res = await this.post<DCPlayer[]>('/digcraft/syncplayers', { userId, worldId, posX, posY, posZ, yaw, pitch });
+    return res ?? [];
+  }
+
   async getPlayers(worldId: number): Promise<DCPlayer[]> {
     const res = await fetch(`/digcraft/players/${worldId}`);
     if (!res.ok) return [];

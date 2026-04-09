@@ -151,3 +151,7 @@
   </div>
 </div>
 </div>
+
+<app-prompt [type]="'login'" [message]="'You must log-in to save play DigCraft⛏️.'"
+  [inputtedParentRef]="parentRef" [visible]="isShowingLoginPanel" (close)="closeLoginPanel($event)">
+</app-prompt>
