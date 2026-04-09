@@ -17,7 +17,7 @@
     <button class="chat-open-btn" (touchstart)="showChatPrompt = true" (pointerdown)="showChatPrompt = true" title="Open chat">💬</button>
 
     <!-- Chat prompt (reuses global prompt component) -->
-    <app-prompt *ngIf="true" [type]="'textInput'" [visible]="showChatPrompt" [placeholder]="'Enter chat message'" (submit)="onChatSubmit($event)" (close)="showChatPrompt = false"></app-prompt>
+    <app-prompt #chatPrompt *ngIf="true" [type]="'textInput'" [visible]="showChatPrompt" [placeholder]="'Enter chat message'" (submit)="onChatSubmit($event)" (close)="showChatPrompt = false"></app-prompt>
 
   <!-- Crosshair -->
   <div class="crosshair" *ngIf="joined && !showInventory && !showCrafting">+</div>

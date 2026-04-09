@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ViewChild, ElementRef } from '@angular/core';
 import { User } from '../../services/datacontracts/user/user';
 
 @Component({
@@ -22,6 +22,21 @@ export class PromptComponent {
   @Output() submit = new EventEmitter<string>();
   @Output() selectedUsersChange = new EventEmitter<User[]>(); 
   textValue: string = '';
+
+  @ViewChild('textInput') textInput?: ElementRef<HTMLInputElement>;
+
+  // Called by hosts to focus the text input when the prompt becomes visible
+  focusInput(): void {
+    setTimeout(() => {
+      try { this.textInput?.nativeElement.focus(); } catch (e) {}
+    }, 0);
+  }
+
+  submitAndClose(): void {
+    this.submit.emit(this.textValue);
+    this.close.emit();
+    this.textValue = '';
+  }
 
   onUserSelected(user?: User): void {
     if (!user) {

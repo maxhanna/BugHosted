@@ -28,6 +28,6 @@
     <button id="closeOverlay" (click)="$event.stopPropagation(); close.emit($event)" class="closeButton">Close</button>
   </div>
   <div *ngIf="type === 'textInput'" style="margin-top:10px; display:flex; gap:6px; align-items:center;">
-    <input [value]="textValue" (input)="textValue = $any($event.target).value" [placeholder]="placeholder" (click)="$event.stopPropagation()" (touchstart)="$event.stopPropagation()" style="flex:1; padding:8px; border-radius:6px; border:1px solid #666; background:#111; color:#fff;" />
+    <input #textInput [value]="textValue" (input)="textValue = $any($event.target).value" [placeholder]="placeholder" (click)="$event.stopPropagation()" (touchstart)="$event.stopPropagation()" (keydown.enter)="$event.preventDefault(); $event.stopPropagation(); submitAndClose()" style="flex:1; padding:8px; border-radius:6px; border:1px solid #666; background:#111; color:#fff;" />
   </div>
 </div>

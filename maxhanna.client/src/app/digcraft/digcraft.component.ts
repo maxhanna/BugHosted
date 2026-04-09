@@ -10,6 +10,8 @@ import {
 } from './digcraft-types';
 import { Chunk, generateChunk, applyChanges } from './digcraft-world';
 import { DigCraftRenderer, buildMVP } from './digcraft-renderer';
+import { onKeyDown, onKeyUp, onMouseMove, onMouseDown, onPointerLockChange, onTouchStart, onTouchMove, onTouchEnd, getJoystickKnobTransform, requestPointerLock } from './digcraft-input';
+import { PromptComponent } from '../prompt/prompt.component';
 
 @Component({
   selector: 'app-digcraft',
@@ -20,6 +22,7 @@ import { DigCraftRenderer, buildMVP } from './digcraft-renderer';
 export class DigCraftComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('gameCanvas', { static: false }) canvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('joystick', { static: false }) joystickRef?: ElementRef<HTMLDivElement>;
+  @ViewChild('chatPrompt', { static: false }) chatPrompt?: PromptComponent;
 
   Math = Math;
 
@@ -100,16 +103,16 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private touchMoveY = 0;
   private touchStartedOnJoystick = false;
 
-  // Bound handlers for cleanup
-  private boundKeyDown = (e: KeyboardEvent): void => this.onKeyDown(e);
-  private boundKeyUp = (e: KeyboardEvent): void => this.onKeyUp(e);
-  private boundMouseMove = (e: MouseEvent): void => this.onMouseMove(e);
-  private boundMouseDown = (e: MouseEvent): void => this.onMouseDown(e);
+  // Bound handlers for cleanup (delegates moved to digcraft-input.ts)
+  private boundKeyDown = (e: KeyboardEvent): void => onKeyDown(this, e);
+  private boundKeyUp = (e: KeyboardEvent): void => onKeyUp(this, e);
+  private boundMouseMove = (e: MouseEvent): void => onMouseMove(this, e);
+  private boundMouseDown = (e: MouseEvent): void => onMouseDown(this, e);
   private boundContextMenu = (e: Event): void => e.preventDefault();
-  private boundPointerLockChange = (): void => this.onPointerLockChange();
-  private boundTouchStart = (e: TouchEvent): void => this.onTouchStart(e);
-  private boundTouchMove = (e: TouchEvent): void => this.onTouchMove(e);
-  private boundTouchEnd = (e: TouchEvent): void => this.onTouchEnd(e);
+  private boundPointerLockChange = (): void => onPointerLockChange(this);
+  private boundTouchStart = (e: TouchEvent): void => onTouchStart(this, e);
+  private boundTouchMove = (e: TouchEvent): void => onTouchMove(this, e);
+  private boundTouchEnd = (e: TouchEvent): void => onTouchEnd(this, e);
 
   constructor(private digcraftService: DigcraftService) {
     super();
@@ -680,159 +683,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
-  // ═══════════════════════════════════════
-  // Input — Keyboard
-  // ═══════════════════════════════════════
-  private onKeyDown(e: KeyboardEvent): void {
-    // If chat prompt is open, don't handle game hotkeys (allow typing in prompt).
-    // Allow Escape to close the prompt.
-    if (this.showChatPrompt) {
-      if (e.code === 'Escape') {
-        this.showChatPrompt = false;
-      }
-      return;
-    }
-
-    this.keys.add(e.code);
-
-    if (e.code === 'Space' && this.onGround && !this.showInventory && !this.showCrafting) {
-      this.velY = 7;
-      this.onGround = false;
-    }
-    if (e.code === 'KeyE') {
-      this.showInventory = !this.showInventory;
-      this.showCrafting = false;
-      if (this.showInventory && this.pointerLocked) document.exitPointerLock();
-    }
-    if (e.code === 'KeyC') {
-      this.showCrafting = !this.showCrafting;
-      this.showInventory = false;
-      if (this.showCrafting) {
-        this.updateAvailableRecipes();
-        if (this.pointerLocked) document.exitPointerLock();
-      }
-    }
-    if (e.code === 'Escape') {
-      this.showInventory = false;
-      this.showCrafting = false;
-    }
-    // Hotbar 1-9
-    if (e.code.startsWith('Digit')) {
-      const n = parseInt(e.code.replace('Digit', ''), 10);
-      if (n >= 1 && n <= 9) this.selectedSlot = n - 1;
-    }
-  }
-
-  private onKeyUp(e: KeyboardEvent): void {
-    this.keys.delete(e.code);
-  }
-
-  // ═══════════════════════════════════════
-  // Input — Mouse
-  // ═══════════════════════════════════════
-  private onMouseMove(e: MouseEvent): void {
-    if (!this.pointerLocked) return;
-    const sens = 0.002;
-    // Invert mouse X so moving the mouse right turns right
-    this.yaw -= e.movementX * sens;
-    // Invert mouse Y so moving the mouse up looks up
-    this.pitch -= e.movementY * sens;
-    this.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this.pitch));
-  }
-
-  private onMouseDown(e: MouseEvent): void {
-    if (!this.pointerLocked) {
-      this.canvasRef?.nativeElement?.requestPointerLock();
-      return;
-    }
-    if (e.button === 0) this.breakBlock();
-    if (e.button === 2) this.placeBlock();
-  }
-
-  private onPointerLockChange(): void {
-    this.pointerLocked = document.pointerLockElement === this.canvasRef?.nativeElement;
-  }
-
-  // ═══════════════════════════════════════
-  // Input — Touch
-  // ═══════════════════════════════════════
-  private onTouchStart(e: TouchEvent): void {
-    if (this.showInventory || this.showCrafting || this.showChatPrompt) return;
-    e.preventDefault();
-    const canvas = this.canvasRef?.nativeElement;
-    if (!canvas) return;
-    const w = canvas.clientWidth;
-    // If a joystick element exists, prefer touches inside its bounding rect.
-    const h = canvas.clientHeight;
-    const joystickRect = this.joystickRef?.nativeElement?.getBoundingClientRect();
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      const t = e.changedTouches[i];
-      if (joystickRect && t.clientX >= joystickRect.left && t.clientX <= joystickRect.right && t.clientY >= joystickRect.top && t.clientY <= joystickRect.bottom && this.touchMoveId === null) {
-        // Touch started on joystick — initialize start at joystick center so small drags register
-        this.touchMoveId = t.identifier;
-        this.touchStartX = joystickRect.left + joystickRect.width / 2;
-        this.touchStartY = joystickRect.top + joystickRect.height / 2;
-        this.touchMoveX = 0;
-        this.touchMoveY = 0;
-        this.touchStartedOnJoystick = true;
-      } else if (t.clientX < w / 2 && t.clientY > h / 2 && this.touchMoveId === null) {
-        // Fallback: bottom-left quadrant = joystick
-        this.touchMoveId = t.identifier;
-        this.touchStartX = t.clientX;
-        this.touchStartY = t.clientY;
-        this.touchMoveX = 0;
-        this.touchMoveY = 0;
-        this.touchStartedOnJoystick = true;
-      } else if (this.touchLookId === null) {
-        // Otherwise use touch to look around
-        this.touchLookId = t.identifier;
-        this.touchLookStartX = t.clientX;
-        this.touchLookStartY = t.clientY;
-      }
-    }
-  }
-
-  private onTouchMove(e: TouchEvent): void {
-    if (this.showInventory || this.showCrafting || this.showChatPrompt) return;
-    e.preventDefault();
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      const t = e.changedTouches[i];
-      if (t.identifier === this.touchMoveId) {
-        const dx = t.clientX - this.touchStartX;
-        const dy = t.clientY - this.touchStartY;
-        const deadzone = this.touchStartedOnJoystick ? 8 : 15;
-        this.touchMoveX = Math.abs(dx) > deadzone ? Math.sign(dx) * Math.min(Math.abs(dx) / 60, 1) : 0;
-        // Invert Y so dragging up moves forward
-        this.touchMoveY = Math.abs(dy) > deadzone ? -Math.sign(dy) * Math.min(Math.abs(dy) / 60, 1) : 0;
-      }
-      if (t.identifier === this.touchLookId) {
-        const dx = t.clientX - this.touchLookStartX;
-        const dy = t.clientY - this.touchLookStartY;
-        this.touchLookStartX = t.clientX;
-        this.touchLookStartY = t.clientY;
-        // Match touch drag direction: dragging finger right should look right
-        this.yaw -= dx * 0.005;
-        // Invert touch look Y to match mouse
-        this.pitch -= dy * 0.005;
-        this.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this.pitch));
-      }
-    }
-  }
-
-  private onTouchEnd(e: TouchEvent): void {
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      const t = e.changedTouches[i];
-      if (t.identifier === this.touchMoveId) {
-        this.touchMoveId = null;
-        this.touchMoveX = 0;
-        this.touchMoveY = 0;
-        this.touchStartedOnJoystick = false;
-      }
-      if (t.identifier === this.touchLookId) {
-        this.touchLookId = null;
-      }
-    }
-  }
+  // Input handlers moved to `digcraft-input.ts` (onKeyDown/onKeyUp/onMouseMove/onMouseDown/onPointerLockChange/onTouchStart/onTouchMove/onTouchEnd)
 
   // ═══════════════════════════════════════
   // Block Interaction
@@ -1010,15 +861,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   requestPointerLock(): void {
-    this.canvasRef?.nativeElement?.requestPointerLock();
+    return requestPointerLock(this);
   }
 
-  // Compute knob transform for joystick visual based on touchMoveX/Y (-1..1)
+  // Joystick knob transform delegates to shared handler
   getJoystickKnobTransform(): string {
-    const maxPx = 28; // max distance knob moves from center
-    const x = (this.touchMoveX || 0) * maxPx;
-    const y = -(this.touchMoveY || 0) * maxPx; // invert Y for visual coordinates
-    return `translate(-50%,-50%) translate(${x}px, ${y}px)`;
+    return getJoystickKnobTransform(this);
   }
 
   // Armor equipment (client-only slots)
