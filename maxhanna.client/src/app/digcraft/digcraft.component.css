@@ -257,8 +257,8 @@
 /* Coordinates display */
 .coords {
   position: absolute;
-  right: 12px;
-  bottom: 12px;
+  left: 12px;
+  top: 12px;
   background: rgba(0,0,0,0.5);
   color: #fff;
   padding: 8px 10px;
