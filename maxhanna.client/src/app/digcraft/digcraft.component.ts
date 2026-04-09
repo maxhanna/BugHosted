@@ -641,6 +641,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Input — Keyboard
   // ═══════════════════════════════════════
   private onKeyDown(e: KeyboardEvent): void {
+    // If chat prompt is open, don't handle game hotkeys (allow typing in prompt).
+    // Allow Escape to close the prompt.
+    if (this.showChatPrompt) {
+      if (e.code === 'Escape') {
+        this.showChatPrompt = false;
+      }
+      return;
+    }
+
     this.keys.add(e.code);
 
     if (e.code === 'Space' && this.onGround && !this.showInventory && !this.showCrafting) {
