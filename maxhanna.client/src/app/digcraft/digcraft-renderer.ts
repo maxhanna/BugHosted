@@ -76,6 +76,7 @@ export class DigCraftRenderer {
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
+    gl.frontFace(gl.CW);
     gl.clearColor(this.skyR, this.skyG, this.skyB, 1);
 
     // Compile shaders

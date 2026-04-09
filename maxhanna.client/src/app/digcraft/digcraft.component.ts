@@ -303,8 +303,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.onGround = false;
     } else {
       if (dy < 0) {
-        // Snap to ground
-        this.camY = Math.floor(this.camY - eyeH) + eyeH + playerH;
+        // Snap feet to top of the solid block we collided with
+        this.camY = Math.floor(ny - eyeH) + 1 + eyeH;
         this.onGround = true;
       }
       this.velY = 0;
