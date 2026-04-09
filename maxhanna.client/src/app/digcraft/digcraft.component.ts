@@ -270,6 +270,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     document.removeEventListener('touchstart', this.boundTouchStart);
     document.removeEventListener('touchmove', this.boundTouchMove);
     document.removeEventListener('touchend', this.boundTouchEnd);
+    // remove pointer drag handlers
+    document.removeEventListener('pointermove', this.boundSlotPointerMove as any);
+    document.removeEventListener('pointerup', this.boundSlotPointerUp as any);
     if (this.playerPollInterval) clearTimeout(this.playerPollInterval);
     if (this.chunkPollInterval) clearInterval(this.chunkPollInterval);
     if (this.chatPollInterval) clearTimeout(this.chatPollInterval);
@@ -873,6 +876,20 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   typeArmorSlots: Array<'helmet' | 'chest' | 'legs' | 'boots'> = ['helmet', 'chest', 'legs', 'boots'];
   equippedArmor: Record<'helmet' | 'chest' | 'legs' | 'boots', number> = { helmet: 0, chest: 0, legs: 0, boots: 0 };
 
+  // Inventory drag/drop state
+  dragging = false;
+  dragGhostX = 0;
+  dragGhostY = 0;
+  dragGhostItemId = 0;
+  private slotPointerDownIndex: number | null = null;
+  private slotPointerId: number | null = null;
+  private slotPointerStartX = 0;
+  private slotPointerStartY = 0;
+  private boundSlotPointerMove = (e: PointerEvent) => this.onSlotPointerMove(e);
+  private boundSlotPointerUp = (e: PointerEvent) => this.onSlotPointerUp(e);
+  private draggingIndex: number | null = null;
+  private dragTargetIndex: number | null = null;
+
   private getArmorType(itemId: number): 'helmet' | 'chest' | 'legs' | 'boots' | null {
     switch (itemId) {
       case ItemId.LEATHER_HELMET: case ItemId.IRON_HELMET: case ItemId.DIAMOND_HELMET:
@@ -927,5 +944,78 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const ok = this.addToInventory(itemId, 1);
     if (ok) this.equippedArmor[slotType] = 0;
     if (ok) this.scheduleInventorySave();
+  }
+
+  // Pointer-based drag handlers for inventory reordering
+  onSlotPointerDown(index: number, e: PointerEvent): void {
+    e.stopPropagation();
+    this.slotPointerDownIndex = index;
+    this.slotPointerId = e.pointerId;
+    this.slotPointerStartX = e.clientX;
+    this.slotPointerStartY = e.clientY;
+    try { (e.target as Element).setPointerCapture(e.pointerId); } catch (err) {}
+    document.addEventListener('pointermove', this.boundSlotPointerMove);
+    document.addEventListener('pointerup', this.boundSlotPointerUp);
+  }
+
+  private onSlotPointerMove(e: PointerEvent): void {
+    if (this.slotPointerId !== e.pointerId) return;
+    const dx = e.clientX - this.slotPointerStartX;
+    const dy = e.clientY - this.slotPointerStartY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const START_THRESHOLD = 6; // pixels
+    if (!this.dragging && dist > START_THRESHOLD && this.slotPointerDownIndex !== null) {
+      // start dragging
+      this.dragging = true;
+      this.draggingIndex = this.slotPointerDownIndex;
+      this.dragGhostItemId = this.inventory[this.draggingIndex!]?.itemId ?? 0;
+      this.dragGhostX = e.clientX;
+      this.dragGhostY = e.clientY;
+    }
+    if (this.dragging) {
+      this.dragGhostX = e.clientX;
+      this.dragGhostY = e.clientY;
+      // find element under pointer and locate data-index
+      const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+      let node = el;
+      let found: number | null = null;
+      while (node) {
+        if (node.hasAttribute && node.hasAttribute('data-index')) {
+          const v = node.getAttribute('data-index');
+          if (v !== null) found = parseInt(v, 10);
+          break;
+        }
+        node = node.parentElement as HTMLElement | null;
+      }
+      this.dragTargetIndex = found;
+    }
+  }
+
+  private onSlotPointerUp(e: PointerEvent): void {
+    if (this.slotPointerId !== e.pointerId) return;
+    document.removeEventListener('pointermove', this.boundSlotPointerMove);
+    document.removeEventListener('pointerup', this.boundSlotPointerUp);
+    try { (e.target as Element).releasePointerCapture(e.pointerId); } catch (err) {}
+
+    if (this.dragging) {
+      if (this.draggingIndex !== null && this.dragTargetIndex !== null && this.draggingIndex !== this.dragTargetIndex) {
+        // swap items
+        const a = this.inventory[this.draggingIndex];
+        this.inventory[this.draggingIndex] = this.inventory[this.dragTargetIndex];
+        this.inventory[this.dragTargetIndex] = a;
+        this.scheduleInventorySave();
+      }
+      // clear drag state
+      this.dragging = false;
+      this.draggingIndex = null;
+      this.dragTargetIndex = null;
+      this.dragGhostItemId = 0;
+    } else {
+      // treat as click
+      if (this.slotPointerDownIndex !== null) this.selectHotbarSlot(this.slotPointerDownIndex);
+    }
+
+    this.slotPointerDownIndex = null;
+    this.slotPointerId = null;
   }
 }

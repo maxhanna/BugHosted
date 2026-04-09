@@ -1,7 +1,5 @@
 <div class="componentMain" #componentMain>
-  <app-title-bar
-    [title]="'DigCraft'"
-    (closeClicked)="remove_me('DigCraftComponent');">
+  <app-title-bar [title]="'DigCraft'" (closeClicked)="remove_me('DigCraftComponent');">
   </app-title-bar>
 
   <div class="digcraft-container">
@@ -14,144 +12,147 @@
     <canvas #gameCanvas class="game-canvas" [class.hidden]="!joined"></canvas>
 
     <!-- Chat open button (transparent) -->
-    <button class="chat-open-btn" (touchstart)="showChatPrompt = true" (pointerdown)="showChatPrompt = true" title="Open chat">💬</button>
+    <button class="chat-open-btn" (touchstart)="showChatPrompt = true" (pointerdown)="showChatPrompt = true"
+      title="Open chat">💬</button>
 
     <!-- Chat prompt (reuses global prompt component) -->
-    <app-prompt #chatPrompt *ngIf="true" [type]="'textInput'" [visible]="showChatPrompt" [placeholder]="'Enter chat message'" (submit)="onChatSubmit($event)" (close)="showChatPrompt = false"></app-prompt>
+    <app-prompt #chatPrompt *ngIf="true" [type]="'textInput'" [visible]="showChatPrompt"
+      [placeholder]="'Enter chat message'" (submit)="onChatSubmit($event)"
+      (close)="showChatPrompt = false"></app-prompt>
 
-  <!-- Crosshair -->
-  <div class="crosshair" *ngIf="joined && !showInventory && !showCrafting">+</div>
+    <!-- Crosshair -->
+    <div class="crosshair" *ngIf="joined && !showInventory && !showCrafting">+</div>
 
-  <!-- Centered chat stack under crosshair -->
-  <div class="center-chat" *ngIf="joined">
-    <div *ngFor="let m of activeCenterChatMessages" class="center-chat-msg">{{m.text}}</div>
-  </div>
-
-  <!-- HUD -->
-  <div class="hud" *ngIf="joined">
-    <!-- Health & Hunger -->
-    <div class="status-bar">
-      <div class="health-bar">
-        <span *ngFor="let h of [].constructor(Math.ceil(health / 2))" class="heart">&#10084;</span>
-      </div>
-      <div class="hunger-bar">
-        <span *ngFor="let h of [].constructor(Math.ceil(hunger / 2))" class="food">&#127830;</span>
-      </div>
+    <!-- Centered chat stack under crosshair -->
+    <div class="center-chat" *ngIf="joined">
+      <div *ngFor="let m of activeCenterChatMessages" class="center-chat-msg">{{m.text}}</div>
     </div>
 
-    <!-- Hotbar -->
-    <div class="hotbar">
-      <div *ngFor="let slot of inventory.slice(0, 9); let i = index"
-           class="hotbar-slot"
-           [class.selected]="i === selectedSlot"
-           (pointerdown)="selectHotbarSlot(i)">
-        <div class="item-icon"
-             *ngIf="slot.quantity > 0"
-             [style.background]="getItemColor(slot.itemId)">
+    <!-- HUD -->
+    <div class="hud" *ngIf="joined">
+      <!-- Health & Hunger -->
+      <div class="status-bar">
+        <div class="health-bar">
+          <span *ngFor="let h of [].constructor(Math.ceil(health / 2))" class="heart">&#10084;</span>
         </div>
-        <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>
-        <span class="slot-num">{{i + 1}}</span>
+        <div class="hunger-bar">
+          <span *ngFor="let h of [].constructor(Math.ceil(hunger / 2))" class="food">&#127830;</span>
+        </div>
       </div>
-    </div>
 
-    <!-- Joystick (visible on mobile) -->
-    <div class="joystick" #joystick *ngIf="onMobile()">
-      <div class="joystick-base"></div>
-      <div class="joystick-knob-wrap" [style.transform]="getJoystickKnobTransform()"></div>
-      <div class="joystick-knob" [style.transform]="getJoystickKnobTransform()"></div>
-    </div>
-
-    <!-- Chat bubbles overlay -->
-    <div class="chat-bubbles">
-      <div *ngFor="let m of activeChatMessages" class="chat-bubble" [style.left.px]="chatPositions[m.userId]?.left" [style.top.px]="chatPositions[m.userId]?.top">
-        {{m.text}}
+      <!-- Hotbar -->
+      <div class="hotbar">
+        <div *ngFor="let slot of inventory.slice(0, 9); let i = index" class="hotbar-slot"
+          [class.selected]="i === selectedSlot" (pointerdown)="selectHotbarSlot(i)">
+          <div class="item-icon" *ngIf="slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
+          </div>
+          <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>
+          <span class="slot-num">{{i + 1}}</span>
+        </div>
       </div>
-    </div>
 
-    <!-- Touch controls -->
-    <div class="touch-controls">
-      <button class="touch-btn break-btn" (touchstart)="onTouchBreak()" (pointerdown)="onTouchBreak()">⛏</button>
-      <button class="touch-btn place-btn" (touchstart)="onTouchPlace()" (pointerdown)="onTouchPlace()">🧱</button>
-      <button class="touch-btn jump-btn" (touchstart)="onTouchJump()" (pointerdown)="onTouchJump()">⬆</button>
-      <button class="touch-btn inv-btn" (pointerdown)="showInventory = !showInventory; showCrafting = false">🎒</button>
-      <button class="touch-btn craft-btn" (pointerdown)="showCrafting = !showCrafting; showInventory = false; updateAvailableRecipes()">🔨</button>
-    </div>
+      <!-- Joystick (visible on mobile) -->
+      <div class="joystick" #joystick *ngIf="onMobile()">
+        <div class="joystick-base"></div>
+        <div class="joystick-knob-wrap" [style.transform]="getJoystickKnobTransform()"></div>
+        <div class="joystick-knob" [style.transform]="getJoystickKnobTransform()"></div>
+      </div>
 
-    <!-- Click to lock pointer hint -->
-    <!-- <div class="pointer-hint" *ngIf="joined && !showInventory && !showCrafting"
+      <!-- Chat bubbles overlay -->
+      <div class="chat-bubbles">
+        <div *ngFor="let m of activeChatMessages" class="chat-bubble" [style.left.px]="chatPositions[m.userId]?.left"
+          [style.top.px]="chatPositions[m.userId]?.top">
+          {{m.text}}
+        </div>
+      </div>
+
+      <!-- Touch controls -->
+      <div class="touch-controls">
+        <button class="touch-btn break-btn" (touchstart)="onTouchBreak()" (pointerdown)="onTouchBreak()">⛏</button>
+        <button class="touch-btn place-btn" (touchstart)="onTouchPlace()" (pointerdown)="onTouchPlace()">🧱</button>
+        <button class="touch-btn jump-btn" (touchstart)="onTouchJump()" (pointerdown)="onTouchJump()">⬆</button>
+        <button class="touch-btn inv-btn"
+          (pointerdown)="showInventory = !showInventory; showCrafting = false">🎒</button>
+        <button class="touch-btn craft-btn"
+          (pointerdown)="showCrafting = !showCrafting; showInventory = false; updateAvailableRecipes()">🔨</button>
+      </div>
+
+      <!-- Click to lock pointer hint -->
+      <!-- <div class="pointer-hint" *ngIf="joined && !showInventory && !showCrafting"
          (click)="requestPointerLock()">
       Click to play
     </div> -->
-  </div>
-  
-  <!-- Coordinates display (bottom-right) -->
-  <div class="coords" *ngIf="joined">
-    <div>X: {{ camX | number:'1.2-2' }} ({{ Math.floor(camX) }})</div>
-    <div>Y: {{ camY | number:'1.2-2' }} ({{ Math.floor(camY) }})</div>
-    <div>Z: {{ camZ | number:'1.2-2' }} ({{ Math.floor(camZ) }})</div>
-  </div>
+    </div>
 
-  <!-- Inventory overlay -->
-  <div class="overlay" *ngIf="showInventory" (click)="showInventory = false">
-    <div class="inventory-panel" (click)="$event.stopPropagation()">
-      <button class="panel-close" (pointerdown)="showInventory = false">✖</button>
-      <h3>Inventory</h3>
+    <!-- Coordinates display (bottom-right) -->
+    <div class="coords" *ngIf="joined">
+      <div>X: {{ camX | number:'1.2-2' }} ({{ Math.floor(camX) }})</div>
+      <div>Y: {{ camY | number:'1.2-2' }} ({{ Math.floor(camY) }})</div>
+      <div>Z: {{ camZ | number:'1.2-2' }} ({{ Math.floor(camZ) }})</div>
+    </div>
 
-      <!-- Armor placeholders -->
-      <div class="armor-panel">
-        <div class="armor-slot" *ngFor="let a of typeArmorSlots" (pointerdown)="unequipArmor(a)">
-          <div class="armor-label">{{ a | titlecase }}</div>
-          <div *ngIf="equippedArmor[a] && equippedArmor[a] > 0" class="armor-icon" [style.background]="getItemColor(equippedArmor[a])" [title]="getItemName(equippedArmor[a])"></div>
-          <div *ngIf="!equippedArmor[a] || equippedArmor[a] === 0" class="armor-empty">—</div>
+    <!-- Inventory overlay -->
+    <div class="overlay" *ngIf="showInventory" (click)="showInventory = false">
+      <div class="inventory-panel" (click)="$event.stopPropagation()">
+        <button class="panel-close" (pointerdown)="showInventory = false">✖</button>
+        <h3>Inventory</h3>
+
+        <!-- Armor placeholders -->
+        <div class="armor-panel">
+          <div class="armor-slot" *ngFor="let a of typeArmorSlots" (pointerdown)="unequipArmor(a)">
+            <div class="armor-label">{{ a | titlecase }}</div>
+            <div *ngIf="equippedArmor[a] && equippedArmor[a] > 0" class="armor-icon"
+              [style.background]="getItemColor(equippedArmor[a])" [title]="getItemName(equippedArmor[a])"></div>
+            <div *ngIf="!equippedArmor[a] || equippedArmor[a] === 0" class="armor-empty">—</div>
+          </div>
+        </div>
+
+        <div class="inv-grid">
+          <div *ngFor="let slot of inventory; let i = index" class="inv-slot" [class.hotbar-inv]="i < 9"
+            [class.selected]="i === selectedSlot" [attr.data-index]="i" (pointerdown)="onSlotPointerDown(i, $event)">
+            <div class="item-icon" *ngIf="slot.quantity > 0" [style.background]="getItemColor(slot.itemId)">
+            </div>
+            <button *ngIf="isArmorItem(slot.itemId) && slot.quantity > 0" class="equip-btn"
+              (pointerdown)="equipItem(i); $event.stopPropagation()" title="Equip">🛡️</button>
+            <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>
+            <div class="item-tooltip" *ngIf="slot.quantity > 0">{{getItemName(slot.itemId)}}</div>
+          </div>
         </div>
       </div>
+    </div>
 
-      <div class="inv-grid">
-        <div *ngFor="let slot of inventory; let i = index"
-             class="inv-slot"
-             [class.hotbar-inv]="i < 9"
-             [class.selected]="i === selectedSlot"
-             (pointerdown)="selectHotbarSlot(i)">
-          <div class="item-icon"
-               *ngIf="slot.quantity > 0"
-               [style.background]="getItemColor(slot.itemId)">
+    <!-- Drag ghost shown while reordering inventory -->
+    <div class="drag-ghost" *ngIf="dragging" [style.left.px]="dragGhostX" [style.top.px]="dragGhostY">
+      <div class="item-icon" *ngIf="dragGhostItemId && dragGhostItemId > 0"
+        [style.background]="getItemColor(dragGhostItemId)"></div>
+    </div>
+
+    <!-- Crafting overlay -->
+    <div class="overlay" *ngIf="showCrafting" (click)="showCrafting = false">
+      <div class="crafting-panel" (click)="$event.stopPropagation()">
+        <button class="panel-close" (pointerdown)="showCrafting = false">✖</button>
+        <h3>Crafting</h3>
+        <div class="recipe-list" *ngIf="availableRecipes.length > 0">
+          <div *ngFor="let recipe of availableRecipes" class="recipe-card" (pointerdown)="craft(recipe)">
+            <div class="recipe-result">
+              <div class="item-icon" [style.background]="getItemColor(recipe.result.itemId)"></div>
+              <span>{{recipe.name}} x{{recipe.result.quantity}}</span>
+            </div>
+            <div class="recipe-ingredients">
+              <span *ngFor="let ing of recipe.ingredients" class="ingredient">
+                {{getItemName(ing.itemId)}} x{{ing.quantity}}
+              </span>
+            </div>
           </div>
-          <button *ngIf="isArmorItem(slot.itemId) && slot.quantity > 0" class="equip-btn" (pointerdown)="equipItem(i); $event.stopPropagation()" title="Equip">🛡️</button>
-          <span class="item-qty" *ngIf="slot.quantity > 1">{{slot.quantity}}</span>
-          <div class="item-tooltip" *ngIf="slot.quantity > 0">{{getItemName(slot.itemId)}}</div>
+        </div>
+        <div *ngIf="availableRecipes.length === 0" class="no-recipes">
+          No recipes available. Gather more materials!
         </div>
       </div>
     </div>
   </div>
-
-  <!-- Crafting overlay -->
-  <div class="overlay" *ngIf="showCrafting" (click)="showCrafting = false">
-    <div class="crafting-panel" (click)="$event.stopPropagation()">
-      <button class="panel-close" (pointerdown)="showCrafting = false">✖</button>
-      <h3>Crafting</h3>
-      <div class="recipe-list" *ngIf="availableRecipes.length > 0">
-        <div *ngFor="let recipe of availableRecipes"
-             class="recipe-card"
-             (pointerdown)="craft(recipe)">
-          <div class="recipe-result">
-            <div class="item-icon" [style.background]="getItemColor(recipe.result.itemId)"></div>
-            <span>{{recipe.name}} x{{recipe.result.quantity}}</span>
-          </div>
-          <div class="recipe-ingredients">
-            <span *ngFor="let ing of recipe.ingredients" class="ingredient">
-              {{getItemName(ing.itemId)}} x{{ing.quantity}}
-            </span>
-          </div>
-        </div>
-      </div>
-      <div *ngIf="availableRecipes.length === 0" class="no-recipes">
-        No recipes available. Gather more materials!
-      </div>
-    </div>
-  </div>
-</div>
 </div>
 
-<app-prompt [type]="'login'" [message]="'You must log-in to save play DigCraft⛏️.'"
-  [inputtedParentRef]="parentRef" [visible]="isShowingLoginPanel" (close)="closeLoginPanel($event)">
+<app-prompt [type]="'login'" [message]="'You must log-in to save play DigCraft⛏️.'" [inputtedParentRef]="parentRef"
+  [visible]="isShowingLoginPanel" (close)="closeLoginPanel($event)">
 </app-prompt>
