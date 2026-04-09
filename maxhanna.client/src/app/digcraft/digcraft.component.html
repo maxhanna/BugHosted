@@ -43,6 +43,13 @@
       </div>
     </div>
 
+    <!-- Joystick (visible on mobile) -->
+    <div class="joystick" *ngIf="onMobile()">
+      <div class="joystick-base"></div>
+      <div class="joystick-knob-wrap" [style.transform]="getJoystickKnobTransform()"></div>
+      <div class="joystick-knob" [style.transform]="getJoystickKnobTransform()"></div>
+    </div>
+
     <!-- Touch controls -->
     <div class="touch-controls">
       <button class="touch-btn break-btn" (touchstart)="onTouchBreak()">⛏</button>

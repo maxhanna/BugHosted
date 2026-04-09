@@ -251,9 +251,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const speed = 5.5;
     let mx = 0, mz = 0;
 
-    // Keyboard movement
-    if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) mz -= 1;
-    if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) mz += 1;
+    // Keyboard movement (W = forward, S = back; A = left, D = right)
+    if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) mz += 1;
+    if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) mz -= 1;
     if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) mx -= 1;
     if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) mx += 1;
 
@@ -267,11 +267,15 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const len = Math.sqrt(mx * mx + mz * mz);
     if (len > 0) { mx /= len; mz /= len; }
 
-    // Camera-relative
+    // Camera-relative using forward/right vectors (keeps movement aligned with raycast)
     const sinY = Math.sin(this.yaw);
     const cosY = Math.cos(this.yaw);
-    const dx = (mx * cosY - mz * sinY) * speed * dt;
-    const dz = (mx * sinY + mz * cosY) * speed * dt;
+    const fx = -sinY; // forward.x
+    const fz = -cosY; // forward.z
+    const rx = cosY;  // right.x
+    const rz = -sinY; // right.z
+    const dx = (fx * mz + rx * mx) * speed * dt;
+    const dz = (fz * mz + rz * mx) * speed * dt;
 
     // Gravity
     this.velY -= 20 * dt;
@@ -531,7 +535,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!this.pointerLocked) return;
     const sens = 0.002;
     this.yaw += e.movementX * sens;
-    this.pitch += e.movementY * sens;
+    // Invert mouse Y so moving the mouse up looks up
+    this.pitch -= e.movementY * sens;
     this.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this.pitch));
   }
 
@@ -556,18 +561,19 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const canvas = this.canvasRef?.nativeElement;
     if (!canvas) return;
     const w = canvas.clientWidth;
-
+    // Restrict joystick to bottom-left quadrant. Any other touch becomes a look control.
+    const h = canvas.clientHeight;
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
-      if (t.clientX < w / 2 && this.touchMoveId === null) {
-        // Left side = movement joystick
+      if (t.clientX < w / 2 && t.clientY > h / 2 && this.touchMoveId === null) {
+        // Bottom-left = movement joystick
         this.touchMoveId = t.identifier;
         this.touchStartX = t.clientX;
         this.touchStartY = t.clientY;
         this.touchMoveX = 0;
         this.touchMoveY = 0;
-      } else if (t.clientX >= w / 2 && this.touchLookId === null) {
-        // Right side = look
+      } else if (this.touchLookId === null) {
+        // Otherwise use touch to look around
         this.touchLookId = t.identifier;
         this.touchLookStartX = t.clientX;
         this.touchLookStartY = t.clientY;
@@ -584,7 +590,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         const dy = t.clientY - this.touchStartY;
         const deadzone = 15;
         this.touchMoveX = Math.abs(dx) > deadzone ? Math.sign(dx) * Math.min(Math.abs(dx) / 60, 1) : 0;
-        this.touchMoveY = Math.abs(dy) > deadzone ? Math.sign(dy) * Math.min(Math.abs(dy) / 60, 1) : 0;
+        // Invert Y so dragging up moves forward
+        this.touchMoveY = Math.abs(dy) > deadzone ? -Math.sign(dy) * Math.min(Math.abs(dy) / 60, 1) : 0;
       }
       if (t.identifier === this.touchLookId) {
         const dx = t.clientX - this.touchLookStartX;
@@ -592,7 +599,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.touchLookStartX = t.clientX;
         this.touchLookStartY = t.clientY;
         this.yaw += dx * 0.005;
-        this.pitch += dy * 0.005;
+        // Invert touch look Y to match mouse
+        this.pitch -= dy * 0.005;
         this.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this.pitch));
       }
     }
@@ -772,5 +780,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   requestPointerLock(): void {
     this.canvasRef?.nativeElement?.requestPointerLock();
+  } 
+
+  // Compute knob transform for joystick visual based on touchMoveX/Y (-1..1)
+  getJoystickKnobTransform(): string {
+    const maxPx = 28; // max distance knob moves from center
+    const x = (this.touchMoveX || 0) * maxPx;
+    const y = -(this.touchMoveY || 0) * maxPx; // invert Y for visual coordinates
+    return `translate(-50%,-50%) translate(${x}px, ${y}px)`;
   }
 }
