@@ -134,8 +134,45 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.joined = true;
     this.loading = false;
 
+    // Find a safe spawn height on the actual terrain
+    this.findSafeSpawnHeight();
+
     // Wait for canvas to render
     setTimeout(() => this.initGame(), 50);
+  }
+
+  /** Generate the spawn chunk and place the player on top of the surface. */
+  private findSafeSpawnHeight(): void {
+    const spawnX = Math.floor(this.camX);
+    const spawnZ = Math.floor(this.camZ);
+    const cx = Math.floor(spawnX / CHUNK_SIZE);
+    const cz = Math.floor(spawnZ / CHUNK_SIZE);
+    const key = `${cx},${cz}`;
+
+    // Ensure the spawn chunk exists
+    if (!this.chunks.has(key)) {
+      const chunk = generateChunk(this.seed, cx, cz);
+      this.chunks.set(key, chunk);
+    }
+    const chunk = this.chunks.get(key)!;
+    const lx = spawnX - cx * CHUNK_SIZE;
+    const lz = spawnZ - cz * CHUNK_SIZE;
+
+    // Scan downward from the top to find the highest solid block
+    for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
+      const block = chunk.getBlock(lx, y, lz);
+      if (block !== BlockId.AIR && block !== BlockId.WATER && block !== BlockId.LEAVES) {
+        // Place player's eyes 1.6 blocks above the surface
+        this.camY = y + 1 + 1.6;
+        this.velY = 0;
+        this.onGround = true;
+        return;
+      }
+    }
+    // Fallback — place on bedrock
+    this.camY = 2 + 1.6;
+    this.velY = 0;
+    this.onGround = true;
   }
 
   private initGame(): void {

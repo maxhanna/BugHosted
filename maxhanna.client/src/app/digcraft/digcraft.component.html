@@ -1,11 +1,17 @@
-<div class="digcraft-container">
-  <!-- Loading -->
-  <div *ngIf="loading" class="loading-screen">
-    <span>Loading DigCraft…</span>
-  </div>
+<div class="componentMain" #componentMain>
+  <app-title-bar
+    [title]="'DigCraft'"
+    (closeClicked)="remove_me('DigCraftComponent');">
+  </app-title-bar>
 
-  <!-- Canvas -->
-  <canvas #gameCanvas class="game-canvas" [class.hidden]="!joined"></canvas>
+  <div class="digcraft-container">
+    <!-- Loading -->
+    <div *ngIf="loading" class="loading-screen">
+      <span>Loading DigCraft…</span>
+    </div>
+
+    <!-- Canvas -->
+    <canvas #gameCanvas class="game-canvas" [class.hidden]="!joined"></canvas>
 
   <!-- Crosshair -->
   <div class="crosshair" *ngIf="joined && !showInventory && !showCrafting">+</div>
@@ -98,4 +104,5 @@
       </div>
     </div>
   </div>
+</div>
 </div>
