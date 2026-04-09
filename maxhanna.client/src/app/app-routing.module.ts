@@ -36,6 +36,7 @@ const routes: Routes = [
   { path: 'Top', component: AppComponent },
   { path: 'Ender', component: AppComponent },
   { path: 'Bones', component: AppComponent },
+  { path: 'DigCraft', component: AppComponent },
   { path: 'Mastermind', component: AppComponent },
   { path: 'ResetPassword/:token/:username', component: AppComponent },
 ];

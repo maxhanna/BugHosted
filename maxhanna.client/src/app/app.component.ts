@@ -41,6 +41,7 @@ import { MastermindComponent } from './mastermind/mastermind.component';
 import { ArtComponent } from './art/art.component';
 import { EnderComponent } from './ender/ender.component';
 import { BonesComponent } from './bones/bones.component';
+import { DigCraftComponent } from './digcraft/digcraft.component';
 import { EmulatorComponent } from './emulator/emulator.component';
 import { YoutubeVideo } from '../services/datacontracts/youtube';
 
@@ -66,6 +67,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     'EmulatorComponent',
     'NexusComponent',
     'BonesComponent',
+    'DigCraftComponent',
     'MetaComponent',
     'UpdateUserSettingsComponent',
     'MediaViewerComponent',
@@ -135,6 +137,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🔍", title: "Favourites", content: undefined },
     { ownership: 0, icon: "👽", title: "Ender", content: undefined },
     { ownership: 0, icon: "💀", title: "Bones", content: undefined },
+    { ownership: 0, icon: "⛏️", title: "DigCraft", content: undefined },
     { ownership: 0, icon: "💯", title: "Top100", content: undefined },
     { ownership: 0, icon: "🎨", title: "Theme", content: undefined },
     { ownership: 0, icon: "🧐", title: "HostAi", content: undefined },
@@ -298,6 +301,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     },
     {
       ownership: 0,
+      title: 'DigCraft',
+      content: `A 3D multiplayer block-building game. Mine, craft, and build!`
+    },
+    {
+      ownership: 0,
       title: 'Array',
       content: `The Array transports users down a seemingly infinite array.
   The further you go down the array, the more experience you gain.
@@ -377,6 +385,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Top100": TopComponent,
     "Ender": EnderComponent,
     "Bones": BonesComponent,
+    "DigCraft": DigCraftComponent,
     "Notifications": NotificationsComponent,
     "UpdateUserSettings": UpdateUserSettingsComponent
   };
@@ -527,6 +536,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         else if (this.router.url.toLowerCase().includes('bones')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Bones');
+        }
+        else if (this.router.url.toLowerCase().includes('digcraft')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('DigCraft');
         }
         else if (this.router.url.toLowerCase().includes('mastermind')) {
           this.checkAndClearRouterOutlet();

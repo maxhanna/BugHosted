@@ -96,6 +96,7 @@ import { WordlerHighScoresComponent } from './wordler-high-scores/wordler-high-s
 import { CryptoNewsArticlesComponent } from './crypto-news-articles/crypto-news-articles.component';
 import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
 import { BonesComponent } from './bones/bones.component';
+import { DigCraftComponent } from './digcraft/digcraft.component';
 import { DailyMusicComponent } from './daily-music/daily-music.component';
 import { ProfileWidgetsComponent } from './profile-widgets/profile-widgets.component';
 import { BonesHighScoresComponent } from './bones-high-scores/bones-high-scores.component';
@@ -150,6 +151,7 @@ import { RatingStarsComponent } from './rating-stars/rating-stars.component';
     MetaComponent,
     BonesComponent,
     BonesHighScoresComponent,
+    DigCraftComponent,
     ClickableUrlsPipe,
     CurrencyFlagPipe,
     CurrencyShortenPipe,

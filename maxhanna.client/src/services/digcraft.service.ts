@@ -1,0 +1,49 @@
+import { Injectable } from '@angular/core';
+import { DCJoinResponse, DCBlockChange, DCPlayer, InvSlot } from '../app/digcraft/digcraft-types';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class DigcraftService {
+
+  async joinWorld(userId: number, worldId: number): Promise<DCJoinResponse | null> {
+    return this.post<DCJoinResponse>('/digcraft/join', { userId, worldId });
+  }
+
+  async updatePosition(userId: number, worldId: number, posX: number, posY: number, posZ: number, yaw: number, pitch: number): Promise<void> {
+    await this.post('/digcraft/updateposition', { userId, worldId, posX, posY, posZ, yaw, pitch });
+  }
+
+  async getPlayers(worldId: number): Promise<DCPlayer[]> {
+    const res = await fetch(`/digcraft/players/${worldId}`);
+    if (!res.ok) return [];
+    return res.json() as Promise<DCPlayer[]>;
+  }
+
+  async getChunkChanges(worldId: number, chunkX: number, chunkZ: number): Promise<DCBlockChange[]> {
+    return (await this.post<DCBlockChange[]>('/digcraft/getchunkchanges', { worldId, chunkX, chunkZ })) ?? [];
+  }
+
+  async placeBlock(userId: number, worldId: number, chunkX: number, chunkZ: number, localX: number, localY: number, localZ: number, blockId: number): Promise<void> {
+    await this.post('/digcraft/placeblock', { userId, worldId, chunkX, chunkZ, localX, localY, localZ, blockId });
+  }
+
+  async saveInventory(userId: number, worldId: number, slots: { slot: number; itemId: number; quantity: number }[]): Promise<void> {
+    await this.post('/digcraft/saveinventory', { userId, worldId, slots });
+  }
+
+  private async post<T>(url: string, body: unknown): Promise<T | null> {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) return null;
+      const text = await res.text();
+      return text ? JSON.parse(text) as T : null;
+    } catch {
+      return null;
+    }
+  }
+}
