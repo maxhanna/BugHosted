@@ -170,20 +170,13 @@
 /* On-screen joystick */
 .joystick {
   position: absolute;
-  bottom: 18px;
+  /* raise joystick above the bottom HUD controls to avoid overlap */
+  bottom: 100px;
   left: 18px;
   width: 96px;
   height: 96px;
-  z-index: 20;
-  pointer-events: none; /* let touches pass through to the canvas handlers */
-}
-.joystick-base {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: rgba(0,0,0,0.35);
-  border: 2px solid rgba(255,255,255,0.08);
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.6);
+  z-index: 30;
+  pointer-events: auto;
 }
 .joystick-knob {
   position: absolute;
@@ -191,6 +184,14 @@
   top: 50%;
   width: 44px;
   height: 44px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(255,255,255,0.18);
+  border: 2px solid rgba(255,255,255,0.6);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+  transition: transform 0.04s linear;
+  pointer-events: none; /* let the wrapper receive touch events */
+}
   transform: translate(-50%, -50%);
   border-radius: 50%;
   background: rgba(255,255,255,0.18);

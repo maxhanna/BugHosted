@@ -19,6 +19,7 @@ import { DigCraftRenderer, buildMVP } from './digcraft-renderer';
 })
 export class DigCraftComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('gameCanvas', { static: false }) canvasRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('joystick', { static: false }) joystickRef?: ElementRef<HTMLDivElement>;
 
   Math = Math;
 
@@ -77,6 +78,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private touchLookStartY = 0;
   private touchMoveX = 0;
   private touchMoveY = 0;
+  private touchStartedOnJoystick = false;
 
   // Bound handlers for cleanup
   private boundKeyDown = (e: KeyboardEvent): void => this.onKeyDown(e);
@@ -194,9 +196,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     canvas.addEventListener('mousedown', this.boundMouseDown);
     canvas.addEventListener('contextmenu', this.boundContextMenu);
     document.addEventListener('pointerlockchange', this.boundPointerLockChange);
-    canvas.addEventListener('touchstart', this.boundTouchStart, { passive: false });
-    canvas.addEventListener('touchmove', this.boundTouchMove, { passive: false });
-    canvas.addEventListener('touchend', this.boundTouchEnd);
+    // Use document-level touch handlers so an overlay joystick (pointer-events: auto)
+    // doesn't prevent the handlers from receiving events. Handlers will decide
+    // if a touch is a joystick touch via bounding-rect checks.
+    document.addEventListener('touchstart', this.boundTouchStart, { passive: false });
+    document.addEventListener('touchmove', this.boundTouchMove, { passive: false });
+    document.addEventListener('touchend', this.boundTouchEnd);
 
     // Start game loop
     this.lastTime = performance.now();
@@ -218,10 +223,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (canvas) {
       canvas.removeEventListener('mousedown', this.boundMouseDown);
       canvas.removeEventListener('contextmenu', this.boundContextMenu);
-      canvas.removeEventListener('touchstart', this.boundTouchStart);
-      canvas.removeEventListener('touchmove', this.boundTouchMove);
-      canvas.removeEventListener('touchend', this.boundTouchEnd);
     }
+    // remove document touch handlers
+    document.removeEventListener('touchstart', this.boundTouchStart);
+    document.removeEventListener('touchmove', this.boundTouchMove);
+    document.removeEventListener('touchend', this.boundTouchEnd);
     if (this.syncInterval) clearInterval(this.syncInterval);
     if (this.playerPollInterval) clearInterval(this.playerPollInterval);
     if (this.inventorySaveTimeout) clearTimeout(this.inventorySaveTimeout);
@@ -561,17 +567,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const canvas = this.canvasRef?.nativeElement;
     if (!canvas) return;
     const w = canvas.clientWidth;
-    // Restrict joystick to bottom-left quadrant. Any other touch becomes a look control.
+    // If a joystick element exists, prefer touches inside its bounding rect.
     const h = canvas.clientHeight;
+    const joystickRect = this.joystickRef?.nativeElement?.getBoundingClientRect();
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
-      if (t.clientX < w / 2 && t.clientY > h / 2 && this.touchMoveId === null) {
-        // Bottom-left = movement joystick
+      if (joystickRect && t.clientX >= joystickRect.left && t.clientX <= joystickRect.right && t.clientY >= joystickRect.top && t.clientY <= joystickRect.bottom && this.touchMoveId === null) {
+        // Touch started on joystick — initialize start at joystick center so small drags register
+        this.touchMoveId = t.identifier;
+        this.touchStartX = joystickRect.left + joystickRect.width / 2;
+        this.touchStartY = joystickRect.top + joystickRect.height / 2;
+        this.touchMoveX = 0;
+        this.touchMoveY = 0;
+        this.touchStartedOnJoystick = true;
+      } else if (t.clientX < w / 2 && t.clientY > h / 2 && this.touchMoveId === null) {
+        // Fallback: bottom-left quadrant = joystick
         this.touchMoveId = t.identifier;
         this.touchStartX = t.clientX;
         this.touchStartY = t.clientY;
         this.touchMoveX = 0;
         this.touchMoveY = 0;
+        this.touchStartedOnJoystick = true;
       } else if (this.touchLookId === null) {
         // Otherwise use touch to look around
         this.touchLookId = t.identifier;
@@ -588,7 +604,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (t.identifier === this.touchMoveId) {
         const dx = t.clientX - this.touchStartX;
         const dy = t.clientY - this.touchStartY;
-        const deadzone = 15;
+        const deadzone = this.touchStartedOnJoystick ? 8 : 15;
         this.touchMoveX = Math.abs(dx) > deadzone ? Math.sign(dx) * Math.min(Math.abs(dx) / 60, 1) : 0;
         // Invert Y so dragging up moves forward
         this.touchMoveY = Math.abs(dy) > deadzone ? -Math.sign(dy) * Math.min(Math.abs(dy) / 60, 1) : 0;
@@ -613,6 +629,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.touchMoveId = null;
         this.touchMoveX = 0;
         this.touchMoveY = 0;
+        this.touchStartedOnJoystick = false;
       }
       if (t.identifier === this.touchLookId) {
         this.touchLookId = null;
