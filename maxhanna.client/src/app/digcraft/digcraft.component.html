@@ -14,7 +14,7 @@
     <canvas #gameCanvas class="game-canvas" [class.hidden]="!joined"></canvas>
 
     <!-- Chat open button (transparent) -->
-    <button class="chat-open-btn" (touchstart)="showChatPrompt = true" title="Open chat">💬</button>
+    <button class="chat-open-btn" (touchstart)="showChatPrompt = true" (pointerdown)="showChatPrompt = true" title="Open chat">💬</button>
 
     <!-- Chat prompt (reuses global prompt component) -->
     <app-prompt *ngIf="true" [type]="'textInput'" [visible]="showChatPrompt" [placeholder]="'Enter chat message'" (submit)="onChatSubmit($event)" (close)="showChatPrompt = false"></app-prompt>
@@ -65,11 +65,11 @@
 
     <!-- Touch controls -->
     <div class="touch-controls">
-      <button class="touch-btn break-btn" (touchstart)="onTouchBreak()">⛏</button>
-      <button class="touch-btn place-btn" (touchstart)="onTouchPlace()">🧱</button>
-      <button class="touch-btn jump-btn" (touchstart)="onTouchJump()">⬆</button>
-      <button class="touch-btn inv-btn" (click)="showInventory = !showInventory; showCrafting = false">🎒</button>
-      <button class="touch-btn craft-btn" (click)="showCrafting = !showCrafting; showInventory = false; updateAvailableRecipes()">🔨</button>
+      <button class="touch-btn break-btn" (touchstart)="onTouchBreak()" (pointerdown)="onTouchBreak()">⛏</button>
+      <button class="touch-btn place-btn" (touchstart)="onTouchPlace()" (pointerdown)="onTouchPlace()">🧱</button>
+      <button class="touch-btn jump-btn" (touchstart)="onTouchJump()" (pointerdown)="onTouchJump()">⬆</button>
+      <button class="touch-btn inv-btn" (pointerdown)="showInventory = !showInventory; showCrafting = false">🎒</button>
+      <button class="touch-btn craft-btn" (pointerdown)="showCrafting = !showCrafting; showInventory = false; updateAvailableRecipes()">🔨</button>
     </div>
 
     <!-- Click to lock pointer hint -->

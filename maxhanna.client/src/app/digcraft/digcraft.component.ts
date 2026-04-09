@@ -221,9 +221,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.gameLoop(this.lastTime);
 
     // Sync position to server every 2s
-    this.syncInterval = setInterval(() => this.syncPosition(), 2000);
+    this.syncInterval = setInterval(() => this.syncPosition(), 1000);
     // Poll other players every 3s
-    this.playerPollInterval = setInterval(() => this.pollPlayers(), 3000);
+    this.playerPollInterval = setInterval(() => this.pollPlayers(), 1000);
     // Poll server for chunk changes periodically so remote block placements appear
     this.chunkPollInterval = setInterval(() => this.pollChunkChanges().catch(err => console.error('DigCraft: pollChunkChanges error', err)), 1000);
     // Poll server for chat messages
