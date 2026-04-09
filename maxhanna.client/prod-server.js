@@ -374,7 +374,7 @@ if (config.enableRateLimit) {
   // General rate limiter - less strict for static assets
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10000,
+    max: 100000,
     message: 'Too many requests from this IP, please try again later.',
     standardHeaders: true,
     legacyHeaders: false,
@@ -385,6 +385,7 @@ if (config.enableRateLimit) {
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 500, // Increased from 200 to 500 for API calls
+    message: 'Too many API requests from this IP, please try again later.',
     standardHeaders: true,
     legacyHeaders: false,
   });
