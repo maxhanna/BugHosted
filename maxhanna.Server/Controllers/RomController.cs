@@ -615,25 +615,240 @@ namespace maxhanna.Server.Controllers
     [HttpGet("/Rom/WasSharedWithUser/{userId}/{romId}", Name = "Rom_WasSharedWithUser")]
     public async Task<IActionResult> WasSharedWithUser(int userId, int romId)
     {
-      // TODO: Replace with actual DB check for sharing
-      // For now, always return false and empty sharers
-      // Example return: { shared: true/false, sharerIds: [1,2,3] }
-      await Task.CompletedTask;
-      return Ok(new { shared = false, sharerIds = new int[0] });
+      if (userId <= 0 || romId <= 0)
+        return BadRequest("Invalid userId or romId");
+
+      try
+      {
+        await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        const string sql = @"
+          SELECT id, sharer_user_id, rom_file_name
+          FROM maxhanna.rom_share_requests
+          WHERE target_user_id = @TargetUserId AND rom_file_id = @RomFileId
+          ORDER BY created_at DESC;";
+
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@TargetUserId", userId);
+        cmd.Parameters.AddWithValue("@RomFileId", romId);
+
+        var sharerIds = new List<int>();
+        using (var reader = await cmd.ExecuteReaderAsync())
+        {
+          while (await reader.ReadAsync())
+          {
+            sharerIds.Add(reader.GetInt32(reader.GetOrdinal("sharer_user_id")));
+          }
+        }
+
+        return Ok(new { shared = sharerIds.Count > 0, sharerIds });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("WasSharedWithUser error: " + ex.Message, userId, "ROM", true);
+        return StatusCode(500, "Internal error");
+      }
     }
 
     [HttpPost("/Rom/Share", Name = "Rom_Share")]
     public async Task<IActionResult> ShareRom([FromBody] ShareRomRequest request)
     {
       if (request == null || request.UserId <= 0 || request.SharedWithUserIds == null || request.SharedWithUserIds.Count == 0)
-      {
         return BadRequest("Invalid request: must provide UserId and at least one SharedWithUserId.");
-      }
+      if (!request.RomId.HasValue || request.RomId <= 0)
+        return BadRequest("RomId is required.");
 
-      // TODO: Implement actual sharing logic (e.g., DB insert, permission update, notification, etc.)
-      // For now, just return success
-      await Task.CompletedTask;
-      return Ok($"ROM shared by user {request.UserId} with users: {string.Join(", ", request.SharedWithUserIds)}");
+      try
+      {
+        await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        // Look up the ROM file name from file_uploads
+        string? romFileName = null;
+        using (var lookupCmd = new MySqlCommand("SELECT file_name FROM maxhanna.file_uploads WHERE id = @FileId LIMIT 1", conn))
+        {
+          lookupCmd.Parameters.AddWithValue("@FileId", request.RomId.Value);
+          var nameObj = await lookupCmd.ExecuteScalarAsync();
+          if (nameObj != null && nameObj != DBNull.Value)
+            romFileName = nameObj.ToString();
+        }
+
+        if (string.IsNullOrWhiteSpace(romFileName))
+          return BadRequest("ROM file not found.");
+
+        int inserted = 0;
+        foreach (var targetUserId in request.SharedWithUserIds)
+        {
+          if (targetUserId <= 0 || targetUserId == request.UserId) continue;
+
+          const string sql = @"
+            INSERT INTO maxhanna.rom_share_requests
+              (sharer_user_id, target_user_id, rom_file_id, rom_file_name, created_at)
+            VALUES
+              (@SharerUserId, @TargetUserId, @RomFileId, @RomFileName, UTC_TIMESTAMP())
+            ON DUPLICATE KEY UPDATE
+              rom_file_name = VALUES(rom_file_name),
+              created_at    = UTC_TIMESTAMP();";
+
+          using var cmd = new MySqlCommand(sql, conn);
+          cmd.Parameters.AddWithValue("@SharerUserId", request.UserId);
+          cmd.Parameters.AddWithValue("@TargetUserId", targetUserId);
+          cmd.Parameters.AddWithValue("@RomFileId", request.RomId.Value);
+          cmd.Parameters.AddWithValue("@RomFileName", romFileName);
+          await cmd.ExecuteNonQueryAsync();
+          inserted++;
+        }
+
+        return Ok(new { ok = true, sharedWith = inserted });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("ShareRom error: " + ex.Message, request.UserId, "ROM", true);
+        return StatusCode(500, "Internal error");
+      }
+    }
+
+    /// <summary>
+    /// Deletes a share request — called when the recipient declines.
+    /// </summary>
+    [HttpPost("/Rom/DeleteShareRequest", Name = "Rom_DeleteShareRequest")]
+    public async Task<IActionResult> DeleteShareRequest([FromBody] DeleteShareRequestPayload payload)
+    {
+      if (payload.TargetUserId <= 0 || payload.RomFileId <= 0 || payload.SharerUserId <= 0)
+        return BadRequest("Invalid parameters");
+
+      try
+      {
+        await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        const string sql = @"
+          DELETE FROM maxhanna.rom_share_requests
+          WHERE sharer_user_id = @SharerUserId
+            AND target_user_id = @TargetUserId
+            AND rom_file_id    = @RomFileId;";
+
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@SharerUserId", payload.SharerUserId);
+        cmd.Parameters.AddWithValue("@TargetUserId", payload.TargetUserId);
+        cmd.Parameters.AddWithValue("@RomFileId", payload.RomFileId);
+        await cmd.ExecuteNonQueryAsync();
+
+        return Ok(new { ok = true });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("DeleteShareRequest error: " + ex.Message, payload.TargetUserId, "ROM", true);
+        return StatusCode(500, "Internal error");
+      }
+    }
+
+    /// <summary>
+    /// Returns the save state of a sharer for a specific ROM, so the recipient can load it.
+    /// </summary>
+    [HttpPost("/Rom/GetSharedSaveState", Name = "Rom_GetSharedSaveState")]
+    public async Task<IActionResult> GetSharedSaveState([FromBody] GetSharedSaveStateRequest req, CancellationToken ct = default)
+    {
+      if (req.SharerUserId <= 0 || req.TargetUserId <= 0 || string.IsNullOrWhiteSpace(req.RomName))
+        return BadRequest("Invalid parameters");
+
+      try
+      {
+        await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync(ct);
+
+        // Verify that a share request actually exists
+        const string verifySql = @"
+          SELECT COUNT(*) FROM maxhanna.rom_share_requests
+          WHERE sharer_user_id = @SharerUserId
+            AND target_user_id = @TargetUserId
+            AND rom_file_name  = @RomName;";
+
+        await using var verifyCmd = new MySqlCommand(verifySql, conn);
+        verifyCmd.Parameters.AddWithValue("@SharerUserId", req.SharerUserId);
+        verifyCmd.Parameters.AddWithValue("@TargetUserId", req.TargetUserId);
+        verifyCmd.Parameters.AddWithValue("@RomName", req.RomName);
+        var count = Convert.ToInt32(await verifyCmd.ExecuteScalarAsync(ct));
+        if (count == 0)
+          return NotFound("No share request found");
+
+        // Fetch the sharer's save state
+        string sql = "SELECT state_data FROM emulatorjs_save_states WHERE user_id=@UserId AND rom_name=@RomName";
+        if (!string.IsNullOrWhiteSpace(req.Core))
+          sql += " AND core=@Core";
+        sql += ";";
+
+        await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 120 };
+        cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = req.SharerUserId;
+        cmd.Parameters.Add("@RomName", MySqlDbType.VarChar).Value = req.RomName;
+        if (!string.IsNullOrWhiteSpace(req.Core))
+          cmd.Parameters.Add("@Core", MySqlDbType.VarChar).Value = req.Core;
+
+        var result = await cmd.ExecuteScalarAsync(ct);
+        if (result != null && result != DBNull.Value)
+        {
+          var bytes = (byte[])result;
+          return File(bytes, "application/octet-stream", "savestate.state");
+        }
+
+        return NotFound("Sharer has no save state for this ROM");
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("GetSharedSaveState error: " + ex.Message, req.TargetUserId, "ROM", true);
+        return StatusCode(500, "Internal error");
+      }
+    }
+
+    /// <summary>
+    /// Returns all pending share requests for a user (checked when they open the emulator).
+    /// </summary>
+    [HttpGet("/Rom/GetPendingShares/{userId}", Name = "Rom_GetPendingShares")]
+    public async Task<IActionResult> GetPendingShares(int userId)
+    {
+      if (userId <= 0) return BadRequest("Invalid userId");
+
+      try
+      {
+        await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+        await conn.OpenAsync();
+
+        const string sql = @"
+          SELECT r.id, r.sharer_user_id, r.rom_file_id, r.rom_file_name, r.created_at,
+                 u.username AS sharer_username
+          FROM maxhanna.rom_share_requests r
+          JOIN maxhanna.users u ON u.id = r.sharer_user_id
+          WHERE r.target_user_id = @UserId
+          ORDER BY r.created_at DESC;";
+
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@UserId", userId);
+
+        var shares = new List<object>();
+        using (var reader = await cmd.ExecuteReaderAsync())
+        {
+          while (await reader.ReadAsync())
+          {
+            shares.Add(new
+            {
+              id = reader.GetInt32("id"),
+              sharerUserId = reader.GetInt32("sharer_user_id"),
+              sharerUsername = reader.GetString("sharer_username"),
+              romFileId = reader.GetInt32("rom_file_id"),
+              romFileName = reader.GetString("rom_file_name"),
+              createdAt = reader.GetDateTime("created_at")
+            });
+          }
+        }
+
+        return Ok(shares);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("GetPendingShares error: " + ex.Message, userId, "ROM", true);
+        return StatusCode(500, "Internal error");
+      }
     }
   }
 }

@@ -178,7 +178,8 @@
   [type]="'share'"
   [inputtedParentRef]="parentRef"
   [visible]="isSharePromptVisible"
-  (userSelected)="onUserSelectedForShare($event)"
+  [selectedShareUsers]="shareUsersSelected"
+  (selectedUsersChange)="onShareUsersChanged($event)"
   (close)="isSharePromptVisible = false">
 </app-prompt>
 
@@ -202,17 +203,22 @@
   (close)="isSavePromptVisible = false">
 </app-prompt>
 
-<!-- Shared ROM Selection Panel -->
-<div class="popupPanel menuPanel" *ngIf="isSharedRomPromptVisible">
-  <div class="popupPanelTitle">This ROM was shared with you</div>
-  <div style="margin-bottom:12px;">Select a user to load their save state:</div>
-  <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:18px;">
-    <ng-container *ngFor="let sharer of sharedWithUserDetails">
-      <app-user-tag [user]="sharer" [inputtedParentRef]="parentRef" [displayMiniTag]="true" (click)="onSelectSharer(sharer)"></app-user-tag>
-    </ng-container>
+<!-- Pending Shared ROM Panel -->
+<div class="popupPanel menuPanel" *ngIf="isSharedRomPromptVisible && pendingShares.length > 0">
+  <div class="popupPanelTitle">Shared Saves Available</div>
+  <div style="margin-bottom:12px;">Someone shared their game progress with you! Select one to load:</div>
+  <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:18px;">
+    <div *ngFor="let share of pendingShares" class="enhancedButton squareButton" style="cursor:pointer; padding:10px 14px; display:flex; align-items:center; gap:10px;"
+      (click)="onAcceptPendingShare(share)">
+      <span style="font-size:1.2em;">🎮</span>
+      <span>
+        <strong>{{ share.sharerUsername }}</strong> shared
+        <em>{{ share.romFileName }}</em>
+      </span>
+    </div>
   </div>
   <div style="margin-top:8px; text-align:right;">
-    <button class="closeButton enhancedButton squareButton" (click)="onDeclineSharedRomPrompt()">Cancel</button>
+    <button class="closeButton enhancedButton squareButton" id="closeOverlay" (click)="onDeclinePendingShares()">Dismiss All</button>
   </div>
 </div>
 

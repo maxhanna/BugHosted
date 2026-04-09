@@ -396,4 +396,51 @@ export class RomService {
       return null;
     }
   }
+
+  async deleteShareRequest(sharerUserId: number, targetUserId: number, romFileId: number): Promise<{ ok: boolean } | null> {
+    try {
+      const res = await fetch('/rom/deletesharerequest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sharerUserId, targetUserId, romFileId })
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  async getSharedSaveState(sharerUserId: number, targetUserId: number, romName: string, core?: Core): Promise<Blob | null> {
+    try {
+      const res = await fetch('/rom/getsharedsavestate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sharerUserId, targetUserId, romName, core })
+      });
+      if (!res.ok) return null;
+      return await res.blob();
+    } catch {
+      return null;
+    }
+  }
+
+  async getPendingShares(userId: number): Promise<PendingShare[] | null> {
+    try {
+      const res = await fetch(`/rom/getpendingshares/${userId}`);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+}
+
+export interface PendingShare {
+  id: number;
+  sharerUserId: number;
+  sharerUsername: string;
+  romFileId: number;
+  romFileName: string;
+  createdAt: string;
 }
