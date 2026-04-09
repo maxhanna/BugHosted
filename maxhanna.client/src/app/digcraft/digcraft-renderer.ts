@@ -252,37 +252,90 @@ export class DigCraftRenderer {
   private ensurePlayerMesh(): void {
     if (this.playerVAO) return;
     const gl = this.gl;
-    // Unit cube vertices with colour (skin-ish)
-    const hw = 0.3, hh = 0.9;
     const verts: number[] = [];
     const idx: number[] = [];
     let vc = 0;
-    const addFace = (v: number[][], bright: number): void => {
-      for (const vt of v) {
-        verts.push(vt[0], vt[1], vt[2], 0.8, 0.6, 0.4, bright);
-      }
+
+    const pushVert = (x: number, y: number, z: number, r: number, g: number, b: number, br: number) => {
+      verts.push(x, y, z, r, g, b, br);
+    };
+
+    const addBox = (minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number, color: [number, number, number], bright: number) => {
+      // top
+      pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright);
+      pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright);
+      pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright);
+      pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright);
+      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+      vc += 4;
+      // bottom
+      pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.6);
+      pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.6);
+      pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.6);
+      pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.6);
+      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+      vc += 4;
+      // south
+      pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.9);
+      pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright * 0.9);
+      pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright * 0.9);
+      pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.9);
+      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+      vc += 4;
+      // north
+      pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.9);
+      pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright * 0.9);
+      pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright * 0.9);
+      pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.9);
+      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+      vc += 4;
+      // east
+      pushVert(maxX, minY, maxZ, color[0], color[1], color[2], bright * 0.8);
+      pushVert(maxX, maxY, maxZ, color[0], color[1], color[2], bright * 0.8);
+      pushVert(maxX, maxY, minZ, color[0], color[1], color[2], bright * 0.8);
+      pushVert(maxX, minY, minZ, color[0], color[1], color[2], bright * 0.8);
+      idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
+      vc += 4;
+      // west
+      pushVert(minX, minY, minZ, color[0], color[1], color[2], bright * 0.8);
+      pushVert(minX, maxY, minZ, color[0], color[1], color[2], bright * 0.8);
+      pushVert(minX, maxY, maxZ, color[0], color[1], color[2], bright * 0.8);
+      pushVert(minX, minY, maxZ, color[0], color[1], color[2], bright * 0.8);
       idx.push(vc, vc + 1, vc + 2, vc, vc + 2, vc + 3);
       vc += 4;
     };
-    // top
-    addFace([[-hw, hh * 2, -hw], [hw, hh * 2, -hw], [hw, hh * 2, hw], [-hw, hh * 2, hw]], 1.0);
-    // bottom
-    addFace([[-hw, 0, hw], [hw, 0, hw], [hw, 0, -hw], [-hw, 0, -hw]], 0.5);
-    // south
-    addFace([[-hw, 0, hw], [-hw, hh * 2, hw], [hw, hh * 2, hw], [hw, 0, hw]], 0.8);
-    // north
-    addFace([[hw, 0, -hw], [hw, hh * 2, -hw], [-hw, hh * 2, -hw], [-hw, 0, -hw]], 0.8);
-    // east
-    addFace([[hw, 0, hw], [hw, hh * 2, hw], [hw, hh * 2, -hw], [hw, 0, -hw]], 0.7);
-    // west
-    addFace([[-hw, 0, -hw], [-hw, hh * 2, -hw], [-hw, hh * 2, hw], [-hw, 0, hw]], 0.7);
+
+    // Build a simple multi-part model: legs, torso, arms, head
+    const height = 1.8;
+    const headH = 0.5;
+    const torsoH = 0.8;
+    const legH = height - headH - torsoH; // 0.5
+    const torsoHalf = 0.28;
+    const torsoZHalf = 0.15;
+    const headHalf = 0.22;
+    const headZHalf = 0.22;
+    const legHalf = 0.11;
+    const legZHalf = 0.09;
+    const armHalf = 0.08;
+    const armZHalf = 0.08;
+
+    // legs (left, right)
+    addBox(-0.12, 0, -legZHalf, -0.02, legH, legZHalf, [0.12, 0.12, 0.4], 0.7);
+    addBox(0.02, 0, -legZHalf, 0.12, legH, legZHalf, [0.12, 0.12, 0.4], 0.7);
+    // torso
+    addBox(-torsoHalf, legH, -torsoZHalf, torsoHalf, legH + torsoH, torsoZHalf, [0.18, 0.45, 0.85], 0.95);
+    // arms
+    addBox(-torsoHalf - armHalf, legH + 0.1, -armZHalf, -torsoHalf + armHalf, legH + torsoH - 0.1, armZHalf, [0.18, 0.45, 0.85], 0.9);
+    addBox(torsoHalf - armHalf, legH + 0.1, -armZHalf, torsoHalf + armHalf, legH + torsoH - 0.1, armZHalf, [0.18, 0.45, 0.85], 0.9);
+    // head (skin)
+    addBox(-headHalf, legH + torsoH, -headZHalf, headHalf, legH + torsoH + headH, headZHalf, [0.9, 0.75, 0.6], 1.0);
 
     const vao = gl.createVertexArray()!;
     gl.bindVertexArray(vao);
     const vbo = gl.createBuffer()!;
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
-    const bpe = 4;
+    const bpe = Float32Array.BYTES_PER_ELEMENT;
     const stride = 7 * bpe;
     const aPos = gl.getAttribLocation(this.program, 'aPos');
     gl.enableVertexAttribArray(aPos);
@@ -307,8 +360,9 @@ export class DigCraftRenderer {
   private drawPlayerPillar(p: DCPlayer, baseMVP: Float32Array): void {
     this.ensurePlayerMesh();
     const gl = this.gl;
-    // Translate baseMVP by player pos
-    const t = translationMatrix(p.posX, p.posY, p.posZ);
+    // Translate model so feet sit at player's ground position (client stores camera/eye Y)
+    const eyeHeight = 1.6;
+    const t = translationMatrix(p.posX, p.posY - eyeHeight, p.posZ);
     const mvp = multiplyMat4(baseMVP, t);
     gl.uniformMatrix4fv(this.uMVP, false, mvp);
     gl.bindVertexArray(this.playerVAO);
