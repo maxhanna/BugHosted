@@ -70,6 +70,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private inventorySaveTimeout: ReturnType<typeof setTimeout> | undefined;
   private chunkPollInterval: ReturnType<typeof setInterval> | undefined;
   private pollingChunks = false;
+  // index used to round-robin poll loaded chunks to avoid flooding the server
+  private chunkPollIndex = 0;
   private chatPollInterval: ReturnType<typeof setInterval> | undefined;
   showChatPrompt = false;
   // active chat messages (client-side)
@@ -572,20 +574,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.pollingChunks) return;
     this.pollingChunks = true;
     try {
-      const ccx = Math.floor(this.camX / CHUNK_SIZE);
-      const ccz = Math.floor(this.camZ / CHUNK_SIZE);
+      const keys = Array.from(this.chunks.keys());
+      if (keys.length === 0) return;
+
+      // Limit the number of chunk requests per poll to avoid flooding the server.
+      // We use a round-robin index so all loaded chunks are covered over time.
+      const MAX_PER_POLL = 6; // tune this value as needed (requests per second)
+      const toFetch = Math.min(MAX_PER_POLL, keys.length);
       const promises: Promise<void>[] = [];
-      for (let dx = -RENDER_DISTANCE; dx <= RENDER_DISTANCE; dx++) {
-        for (let dz = -RENDER_DISTANCE; dz <= RENDER_DISTANCE; dz++) {
-          const cx = ccx + dx;
-          const cz = ccz + dz;
-          const key = `${cx},${cz}`;
-          const chunk = this.chunks.get(key);
-          if (chunk) {
-            promises.push(this.fetchChunkChanges(cx, cz, chunk));
-          }
-        }
+      for (let i = 0; i < toFetch; i++) {
+        const idx = (this.chunkPollIndex + i) % keys.length;
+        const key = keys[idx];
+        const parts = key.split(',');
+        const cx = parseInt(parts[0], 10);
+        const cz = parseInt(parts[1], 10);
+        const chunk = this.chunks.get(key);
+        if (chunk) promises.push(this.fetchChunkChanges(cx, cz, chunk));
       }
+
+      // advance round-robin index
+      this.chunkPollIndex = (this.chunkPollIndex + toFetch) % keys.length;
+
       await Promise.allSettled(promises);
     } catch (err) {
       console.error('DigCraft: pollChunkChanges error', err);
