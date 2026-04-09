@@ -70,6 +70,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private inventorySaveTimeout: ReturnType<typeof setTimeout> | undefined;
   private chunkPollInterval: ReturnType<typeof setInterval> | undefined;
   private pollingChunks = false;
+  private chatPollInterval: ReturnType<typeof setInterval> | undefined;
+  showChatPrompt = false;
+  // active chat messages (client-side)
+  private chatMessages: { userId: number; text: string; expiresAt: number; createdAt?: string }[] = [];
+  // cached bubble positions in pixels
+  chatPositions: { [userId: number]: { left: number; top: number } } = {};
 
   // Touch state
   private touchMoveId: number | null = null;
@@ -218,6 +224,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     this.playerPollInterval = setInterval(() => this.pollPlayers(), 3000);
     // Poll server for chunk changes periodically so remote block placements appear
     this.chunkPollInterval = setInterval(() => this.pollChunkChanges().catch(err => console.error('DigCraft: pollChunkChanges error', err)), 1000);
+    // Poll server for chat messages
+    this.chatPollInterval = setInterval(() => this.pollChats().catch(err => console.error('DigCraft: pollChats error', err)), 1000);
   }
 
   private cleanup(): void {
@@ -238,6 +246,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (this.syncInterval) clearInterval(this.syncInterval);
     if (this.playerPollInterval) clearInterval(this.playerPollInterval);
     if (this.chunkPollInterval) clearInterval(this.chunkPollInterval);
+    if (this.chatPollInterval) clearInterval(this.chatPollInterval);
     if (this.inventorySaveTimeout) clearTimeout(this.inventorySaveTimeout);
     if (this.renderer) this.renderer.dispose();
     if (document.pointerLockElement) document.exitPointerLock();
@@ -418,12 +427,100 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const userId = this.parentRef?.user?.id ?? 0;
     this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.otherPlayers, userId);
 
+    // Update chat bubble positions after rendering
+    this.updateChatPositions();
+
     // Draw block highlight
     if (this.targetBlock) {
       const aspect = (canvas?.width ?? 800) / (canvas?.height ?? 600);
       const mvp = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, aspect);
       this.renderer.drawHighlight(this.targetBlock.wx, this.targetBlock.wy, this.targetBlock.wz, mvp);
     }
+  }
+
+  // ═══════════════════════════════════════
+  // Chat handling
+  // ═══════════════════════════════════════
+  async onChatSubmit(text: string): Promise<void> {
+    this.showChatPrompt = false;
+    if (!text || text.trim().length === 0) return;
+    const userId = this.parentRef?.user?.id;
+    if (!userId) return;
+    // Post to server
+    try {
+      await this.digcraftService.postChat(userId, this.worldId, text.trim());
+    } catch (err) {
+      console.error('DigCraft: postChat error', err);
+    }
+    // Add local bubble immediately
+    const now = Date.now();
+    this.chatMessages.push({ userId, text: text.trim(), expiresAt: now + 8000, createdAt: new Date().toISOString() });
+  }
+
+  private async pollChats(): Promise<void> {
+    try {
+      const chats = await this.digcraftService.getChats(this.worldId);
+      const now = Date.now();
+      for (const c of chats) {
+        // dedupe by matching userId + createdAt
+        const exists = this.chatMessages.some(m => m.userId === c.userId && m.createdAt === c.createdAt);
+        if (!exists) {
+          const created = new Date(c.createdAt).getTime();
+          this.chatMessages.push({ userId: c.userId, text: c.message, expiresAt: created + 8000, createdAt: c.createdAt });
+        }
+      }
+      // prune expired
+      this.chatMessages = this.chatMessages.filter(m => m.expiresAt > now);
+    } catch (err) {
+      console.error('DigCraft: pollChats failed', err);
+    }
+  }
+
+  private updateChatPositions(): void {
+    const canvas = this.canvasRef?.nativeElement;
+    if (!canvas) return;
+    const aspect = canvas.width / canvas.height;
+    const mvp = buildMVP(this.camX, this.camY, this.camZ, this.yaw, this.pitch, aspect);
+    const now = Date.now();
+    const active = this.chatMessages.filter(m => m.expiresAt > now);
+    this.chatPositions = {};
+    for (const m of active) {
+      // find player position
+      let px = this.camX, py = this.camY, pz = this.camZ;
+      if (m.userId === (this.parentRef?.user?.id ?? 0)) {
+        px = this.camX; py = this.camY - 1.6; pz = this.camZ; // position at feet height
+      } else {
+        const p = this.otherPlayers.find(x => x.userId === m.userId);
+        if (!p) continue;
+        px = p.posX; py = p.posY; pz = p.posZ;
+      }
+      // lift above head
+      const worldY = py + 1.9; // approx top of head
+      const clip = this.transformVec4(mvp, [px, worldY, pz, 1]);
+      if (clip[3] === 0) continue;
+      const ndcX = clip[0] / clip[3];
+      const ndcY = clip[1] / clip[3];
+      // only show if in front of camera
+      if (clip[2] / clip[3] > 1) continue;
+      const screenX = (ndcX * 0.5 + 0.5) * canvas.width;
+      const screenY = (1 - (ndcY * 0.5 + 0.5)) * canvas.height;
+      this.chatPositions[m.userId] = { left: Math.round(screenX), top: Math.round(screenY) };
+    }
+  }
+
+  private transformVec4(m: Float32Array, v: number[]): number[] {
+    // column-major multiplication: result = m * v
+    const r = [0, 0, 0, 0];
+    for (let i = 0; i < 4; i++) {
+      r[i] = m[i] * v[0] + m[4 + i] * v[1] + m[8 + i] * v[2] + m[12 + i] * v[3];
+    }
+    return r;
+  }
+
+  // Expose active messages for template
+  get activeChatMessages() {
+    const now = Date.now();
+    return this.chatMessages.filter(m => m.expiresAt > now);
   }
 
   // ═══════════════════════════════════════

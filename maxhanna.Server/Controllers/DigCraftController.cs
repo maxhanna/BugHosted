@@ -273,6 +273,72 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        /// <summary>Post a chat message to the world.</summary>
+        [HttpPost("Chat")]
+        public async Task<IActionResult> PostChat([FromBody] DataContracts.DigCraft.ChatRequest req)
+        {
+            if (req.UserId <= 0 || string.IsNullOrWhiteSpace(req.Message)) return BadRequest("Invalid chat request");
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync(); 
+                using var cmd = new MySqlCommand(@"
+                    INSERT INTO maxhanna.digcraft_chat_messages (world_id, user_id, message, created_at)
+                    VALUES (@wid, @uid, @msg, UTC_TIMESTAMP());", conn);
+                cmd.Parameters.AddWithValue("@wid", req.WorldId);
+                cmd.Parameters.AddWithValue("@uid", req.UserId);
+                cmd.Parameters.AddWithValue("@msg", req.Message);
+                await cmd.ExecuteNonQueryAsync();
+
+                return Ok(new { ok = true });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DigCraft PostChat error: " + ex.Message, req.UserId, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
+        /// <summary>Get recent chat messages for the world.</summary>
+        [HttpGet("Chats/{worldId}")]
+        public async Task<IActionResult> GetChats(int worldId)
+        {
+            try
+            {
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                var cutoff = DateTime.UtcNow.AddSeconds(-30);
+                using var cmd = new MySqlCommand(@"
+                    SELECT c.user_id, c.message, c.created_at, u.username
+                    FROM maxhanna.digcraft_chat_messages c
+                    JOIN maxhanna.users u ON u.id = c.user_id
+                    WHERE c.world_id=@wid AND c.created_at >= @cutoff
+                    ORDER BY c.created_at ASC", conn);
+                cmd.Parameters.AddWithValue("@wid", worldId);
+                cmd.Parameters.AddWithValue("@cutoff", cutoff);
+
+                var messages = new List<object>();
+                using var r = await cmd.ExecuteReaderAsync();
+                while (await r.ReadAsync())
+                {
+                    messages.Add(new
+                    {
+                        userId = r.GetInt32("user_id"),
+                        message = r.GetString("message"),
+                        createdAt = r.GetDateTime("created_at"),
+                        username = r.IsDBNull(r.GetOrdinal("username")) ? "Anon" : r.GetString("username")
+                    });
+                }
+                return Ok(messages);
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DigCraft GetChats error: " + ex.Message, null, "DIGCRAFT", true);
+                return StatusCode(500, "Internal error");
+            }
+        }
+
         /// <summary>Save inventory.</summary>
         [HttpPost("SaveInventory")]
         public async Task<IActionResult> SaveInventory([FromBody] SaveInventoryRequest req)

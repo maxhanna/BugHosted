@@ -77,4 +77,14 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         [JsonPropertyName("recipeId")]
         public int RecipeId { get; set; }
     }
+
+    public class ChatRequest
+    {
+        [JsonPropertyName("userId")]
+        public int UserId { get; set; }
+        [JsonPropertyName("worldId")]
+        public int WorldId { get; set; } = 1;
+        [JsonPropertyName("message")]
+        public string Message { get; set; } = string.Empty;
+    }
 }

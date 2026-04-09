@@ -1,6 +1,7 @@
 import { AppLoadingSpinnerComponent } from './app-loading-spinner/app-loading-spinner.component';
 import { PromptComponent } from './prompt/prompt.component';
 import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
+import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
@@ -199,6 +200,7 @@ import { RatingStarsComponent } from './rating-stars/rating-stars.component';
   imports: [
     BrowserModule,
     CommonModule,
+    FormsModule,
     AppMenuItemComponent,
     LineGraphComponent,
     TimeFormatPipe,

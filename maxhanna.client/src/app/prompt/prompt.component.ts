@@ -11,6 +11,7 @@ export class PromptComponent {
   @Input() type: 'login' | 'messageOnly' | 'share' = 'login';
   @Input() message: string = '';
   @Input() emoji: string = '';
+  @Input() placeholder: string = 'Enter chat message';
   @Input() inputtedParentRef: any;
   @Input() visible: boolean = false;
   @Input() selectedShareUsers: User[] = [];
@@ -18,7 +19,9 @@ export class PromptComponent {
   @Input() specialActionCallback: (() => void) | null = null;
   @Input() specialActionButtonLabel: string = 'Done';
   @Output() close = new EventEmitter<any>();
+  @Output() submit = new EventEmitter<string>();
   @Output() selectedUsersChange = new EventEmitter<User[]>(); 
+  textValue: string = '';
 
   onUserSelected(user?: User): void {
     if (!user) {

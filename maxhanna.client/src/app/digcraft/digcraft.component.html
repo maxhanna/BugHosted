@@ -13,6 +13,12 @@
     <!-- Canvas -->
     <canvas #gameCanvas class="game-canvas" [class.hidden]="!joined"></canvas>
 
+    <!-- Chat open button (transparent) -->
+    <button class="chat-open-btn" (click)="showChatPrompt = true" title="Open chat">💬</button>
+
+    <!-- Chat prompt (reuses global prompt component) -->
+    <app-prompt *ngIf="true" [type]="'textInput'" [visible]="showChatPrompt" [placeholder]="'Enter chat message'" (submit)="onChatSubmit($event)" (close)="showChatPrompt = false"></app-prompt>
+
   <!-- Crosshair -->
   <div class="crosshair" *ngIf="joined && !showInventory && !showCrafting">+</div>
 
@@ -50,6 +56,13 @@
       <div class="joystick-knob" [style.transform]="getJoystickKnobTransform()"></div>
     </div>
 
+    <!-- Chat bubbles overlay -->
+    <div class="chat-bubbles">
+      <div *ngFor="let m of activeChatMessages" class="chat-bubble" [style.left.px]="chatPositions[m.userId]?.left" [style.top.px]="chatPositions[m.userId]?.top">
+        {{m.text}}
+      </div>
+    </div>
+
     <!-- Touch controls -->
     <div class="touch-controls">
       <button class="touch-btn break-btn" (touchstart)="onTouchBreak()">⛏</button>
@@ -64,6 +77,13 @@
          (click)="requestPointerLock()">
       Click to play
     </div> -->
+  </div>
+  
+  <!-- Coordinates display (bottom-right) -->
+  <div class="coords" *ngIf="joined">
+    <div>X: {{ camX | number:'1.2-2' }} ({{ Math.floor(camX) }})</div>
+    <div>Y: {{ camY | number:'1.2-2' }} ({{ Math.floor(camY) }})</div>
+    <div>Z: {{ camZ | number:'1.2-2' }} ({{ Math.floor(camZ) }})</div>
   </div>
 
   <!-- Inventory overlay -->

@@ -24,6 +24,10 @@
     <button *ngIf="showSpecialAction" id="specialActionButton" (click)="specialActionCallback && specialActionCallback()" class="specialActionButton" [attr.title]="specialActionButtonLabel">
       {{ specialActionButtonLabel }}
     </button>
+    <button *ngIf="type === 'textInput'" (click)="submit.emit(textValue); close.emit();" class="specialActionButton">Send</button>
     <button id="closeOverlay" (click)="close.emit($event)" class="closeButton">Close</button>
+  </div>
+  <div *ngIf="type === 'textInput'" style="margin-top:10px; display:flex; gap:6px; align-items:center;">
+    <input [(ngModel)]="textValue" [placeholder]="placeholder" style="flex:1; padding:8px; border-radius:6px; border:1px solid #666; background:#111; color:#fff;" />
   </div>
 </div>

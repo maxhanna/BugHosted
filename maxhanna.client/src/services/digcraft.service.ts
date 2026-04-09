@@ -20,6 +20,16 @@ export class DigcraftService {
     return res.json() as Promise<DCPlayer[]>;
   }
 
+  async postChat(userId: number, worldId: number, message: string): Promise<void> {
+    await this.post('/digcraft/chat', { userId, worldId, message });
+  }
+
+  async getChats(worldId: number): Promise<{ userId: number; message: string; createdAt: string; username: string }[]> {
+    const res = await fetch(`/digcraft/chats/${worldId}`);
+    if (!res.ok) return [];
+    return res.json() as Promise<{ userId: number; message: string; createdAt: string; username: string }[]>;
+  }
+
   async getChunkChanges(worldId: number, chunkX: number, chunkZ: number): Promise<DCBlockChange[]> {
     return (await this.post<DCBlockChange[]>('/digcraft/getchunkchanges', { worldId, chunkX, chunkZ })) ?? [];
   }
