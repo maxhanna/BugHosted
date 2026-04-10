@@ -83,7 +83,7 @@ export class DigCraftRenderer {
   private skyB = 0.92;
 
   constructor(canvas: HTMLCanvasElement) {
-    const gl = canvas.getContext('webgl2', { antialias: false, alpha: false })!;
+    const gl = canvas.getContext('webgl2', { antialias: false, alpha: true })!;
     if (!gl) throw new Error('WebGL2 not supported');
     this.gl = gl;
     this.resize(canvas.width, canvas.height);
@@ -92,7 +92,10 @@ export class DigCraftRenderer {
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
     gl.frontFace(gl.CW);
-    gl.clearColor(this.skyR, this.skyG, this.skyB, 1);
+    // Use a transparent canvas so an HTML/CSS or 2D canvas behind the WebGL
+    // canvas can draw the sky (stars/sun/moon) and be properly occluded by
+    // opaque world geometry rendered in WebGL.
+    gl.clearColor(this.skyR, this.skyG, this.skyB, 0);
 
     // Compile shaders
     const vs = this.compileShader(gl.VERTEX_SHADER, VS);

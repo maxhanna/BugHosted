@@ -83,6 +83,14 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Starfield cache for night sky
   private stars: { x: number; y: number; r: number; baseA: number; phase: number; spd: number }[] = [];
 
+  // Player interpolation snapshots and smoothed array for rendering
+  private playerSnapshots: Map<number, Array<{ posX: number; posY: number; posZ: number; yaw: number; pitch: number; health: number; username?: string; weapon?: number; t: number }>> = new Map();
+  private smoothedPlayers: DCPlayer[] = [];
+  // render behind server time to allow interpolation (ms)
+  private interpDelayMs = 300;
+  // max extrapolation allowed beyond last snapshot (ms)
+  private maxExtrapolateMs = 400;
+
   // adaptive timeouts for polling players and chats (use setTimeout so we can vary frequency)
   private playerPollInterval: ReturnType<typeof setTimeout> | undefined;
   private inventorySaveTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -504,7 +512,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
 
     const userId = this.parentRef?.user?.id ?? 0;
-    this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.otherPlayers, userId);
+    const renderPlayers = this.smoothedPlayers.length ? this.smoothedPlayers : this.otherPlayers;
+    this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, renderPlayers, userId);
 
     // Update sun/moon position based on a 10-minute toggle cycle.
     try {
@@ -531,6 +540,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Update stars canvas (night sky)
     try { this.updateStarCanvas(); } catch (e) { /* ignore star draw errors */ }
+
+    // Compute smoothed/extrapolated player positions for rendering and UI
+    try { this.computeSmoothedPlayers(); } catch (e) { /* ignore smoothing errors */ }
 
     // Update chat bubble positions after rendering
     this.updateChatPositions();
@@ -648,7 +660,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       if (m.userId === (this.parentRef?.user?.id ?? 0)) {
         px = this.camX; py = this.camY - 1.6; pz = this.camZ; // position at feet height
       } else {
-        const p = this.otherPlayers.find(x => x.userId === m.userId);
+        const p = this.getSmoothedPlayerById(m.userId);
         if (!p) continue;
         px = p.posX; py = p.posY; pz = p.posZ;
       }
@@ -665,10 +677,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.chatPositions[m.userId] = { left: Math.round(screenX), top: Math.round(screenY) };
     }
 
-    // compute name tag positions for players (anchored under their feet)
+    // compute name tag positions for players (anchored under their feet) using smoothed positions
     this.namePositions = {};
     const myId = this.parentRef?.user?.id ?? 0;
-    const players = this.otherPlayers || [];
+    const players = this.smoothedPlayers.length ? this.smoothedPlayers : (this.otherPlayers || []);
     for (const p of players) {
       if (p.userId === myId) continue; // don't show own name tag
       const px = p.posX;
@@ -713,19 +725,61 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
     const ctx = starEl.getContext('2d');
     if (!ctx) return;
-    // If it's day, fade out and clear
+
+    // Draw sky background (day / night) into the 2D canvas which sits behind
+    // the transparent WebGL canvas. World geometry drawn in WebGL will occlude
+    // whatever we draw here automatically.
+    ctx.clearRect(0, 0, w, h);
+
     if (this.celestialIsDay) {
-      starEl.style.opacity = '0';
-      ctx.clearRect(0, 0, w, h);
+      // Day gradient
+      const g = ctx.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, '#a8d9ff');
+      g.addColorStop(1, '#dff3ff');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+
+      // Sun (soft radial glow)
+      const sx = this.celestialX;
+      const sy = this.celestialY;
+      const sr = Math.max(8, this.celestialSize);
+      const sg = ctx.createRadialGradient(sx, sy, Math.max(2, sr * 0.08), sx, sy, sr);
+      sg.addColorStop(0, 'rgba(255,255,220,1)');
+      sg.addColorStop(0.25, 'rgba(255,220,120,0.9)');
+      sg.addColorStop(1, 'rgba(255,180,40,0.0)');
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = sg;
+      ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+
+      // No stars during day
       return;
     }
-    // Show and draw stars
-    starEl.style.opacity = '1';
+
+    // Night gradient
+    const ng = ctx.createLinearGradient(0, 0, 0, h);
+    ng.addColorStop(0, '#051026');
+    ng.addColorStop(1, '#040718');
+    ctx.fillStyle = ng;
+    ctx.fillRect(0, 0, w, h);
+
+    // Moon (soft radial)
+    const mx = this.celestialX;
+    const my = this.celestialY;
+    const mr = Math.max(6, Math.round(this.celestialSize * 0.85));
+    const mg = ctx.createRadialGradient(mx, my, Math.max(2, mr * 0.08), mx, my, mr);
+    mg.addColorStop(0, 'rgba(255,255,255,0.98)');
+    mg.addColorStop(0.4, 'rgba(230,230,230,0.6)');
+    mg.addColorStop(1, 'rgba(200,200,200,0.0)');
+    ctx.fillStyle = mg;
+    ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
+
+    // Generate stars once for this canvas size
     if (this.stars.length === 0) {
       const count = Math.max(60, Math.min(800, Math.floor((w * h) / 6000)));
       for (let i = 0; i < count; i++) {
         const x = Math.random() * w;
-        const y = Math.random() * (h * 0.55); // upper sky portion
+        const y = Math.random() * (h * 0.5); // upper sky portion only
         const r = Math.random() * 1.8 + 0.4;
         const baseA = 0.25 + Math.random() * 0.75;
         const phase = Math.random() * Math.PI * 2;
@@ -733,7 +787,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         this.stars.push({ x, y, r, baseA, phase, spd });
       }
     }
-    ctx.clearRect(0, 0, w, h);
+
+    // Draw twinkling stars
     const t = performance.now() / 1000;
     for (const s of this.stars) {
       const a = s.baseA + Math.sin(t * s.spd + s.phase) * (0.35 * s.baseA);
@@ -741,8 +796,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       // subtle glow for larger stars
       if (s.r > 1.2) {
         ctx.beginPath();
-        ctx.fillStyle = `rgba(255,255,255,${alpha * 0.45})`;
-        ctx.arc(s.x, s.y, s.r * 2.2, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${alpha * 0.35})`;
+        ctx.arc(s.x, s.y, s.r * 2.0, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.beginPath();
@@ -750,6 +805,88 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
       ctx.fill();
     }
+  }
+
+  /** Update the snapshot buffers with the latest server positions. */
+  private updatePlayerSnapshots(players: DCPlayer[]): void {
+    const now = Date.now();
+    const present = new Set<number>();
+    for (const p of players) {
+      present.add(p.userId);
+      const snaps = this.playerSnapshots.get(p.userId) || [];
+      snaps.push({ posX: p.posX, posY: p.posY, posZ: p.posZ, yaw: p.yaw ?? 0, pitch: p.pitch ?? 0, health: p.health ?? 0, username: p.username, weapon: p.weapon, t: now });
+      // limit history
+      while (snaps.length > 6) snaps.shift();
+      this.playerSnapshots.set(p.userId, snaps);
+    }
+    // prune old snapshots for players that disappeared
+    for (const id of Array.from(this.playerSnapshots.keys())) {
+      if (!present.has(id)) {
+        const snaps = this.playerSnapshots.get(id);
+        if (!snaps || snaps.length === 0) { this.playerSnapshots.delete(id); continue; }
+        const last = snaps[snaps.length - 1];
+        if (Date.now() - last.t > 8000) this.playerSnapshots.delete(id);
+      }
+    }
+  }
+
+  /** Compute smoothed/extrapolated player list used for rendering and UI. */
+  private computeSmoothedPlayers(): void {
+    const renderTime = Date.now() - this.interpDelayMs;
+    const list: DCPlayer[] = [];
+    const myId = this.parentRef?.user?.id ?? 0;
+    for (const [userId, snaps] of this.playerSnapshots) {
+      if (userId === myId) continue; // skip local player
+      if (!snaps || snaps.length === 0) continue;
+      // ensure sorted by time
+      const s = snaps.slice().sort((a, b) => a.t - b.t);
+      let outX = s[0].posX, outY = s[0].posY, outZ = s[0].posZ;
+      let outYaw = s[0].yaw, outPitch = s[0].pitch, outHealth = s[0].health;
+      if (s.length === 1) {
+        // single snapshot
+        outX = s[0].posX; outY = s[0].posY; outZ = s[0].posZ; outYaw = s[0].yaw; outPitch = s[0].pitch; outHealth = s[0].health;
+      } else {
+        // find interval
+        let i = 0;
+        while (i < s.length - 1 && s[i + 1].t < renderTime) i++;
+        if (i < s.length - 1 && s[i].t <= renderTime && renderTime <= s[i + 1].t) {
+          const a = s[i], b = s[i + 1];
+          const dt = (b.t - a.t) || 1;
+          const alpha = Math.max(0, Math.min(1, (renderTime - a.t) / dt));
+          outX = a.posX + (b.posX - a.posX) * alpha;
+          outY = a.posY + (b.posY - a.posY) * alpha;
+          outZ = a.posZ + (b.posZ - a.posZ) * alpha;
+          outYaw = a.yaw + (b.yaw - a.yaw) * alpha;
+          outPitch = a.pitch + (b.pitch - a.pitch) * alpha;
+          outHealth = Math.round(a.health + (b.health - a.health) * alpha);
+        } else {
+          // renderTime is after last snapshot -> extrapolate using last velocity
+          const last = s[s.length - 1];
+          const prev = s.length >= 2 ? s[s.length - 2] : last;
+          if (last.t === prev.t) {
+            outX = last.posX; outY = last.posY; outZ = last.posZ; outYaw = last.yaw; outPitch = last.pitch; outHealth = last.health;
+          } else {
+            const dt = last.t - prev.t;
+            const vx = (last.posX - prev.posX) / dt;
+            const vy = (last.posY - prev.posY) / dt;
+            const vz = (last.posZ - prev.posZ) / dt;
+            const dtEx = Math.min(renderTime - last.t, this.maxExtrapolateMs);
+            outX = last.posX + vx * dtEx;
+            outY = last.posY + vy * dtEx;
+            outZ = last.posZ + vz * dtEx;
+            outYaw = last.yaw; outPitch = last.pitch; outHealth = last.health;
+          }
+        }
+      }
+      const username = (s[s.length - 1].username) ?? `User${userId}`;
+      const weapon = s[s.length - 1].weapon;
+      list.push({ userId, posX: outX, posY: outY, posZ: outZ, yaw: outYaw, pitch: outPitch, health: outHealth, username, weapon });
+    }
+    this.smoothedPlayers = list;
+  }
+
+  private getSmoothedPlayerById(userId: number): DCPlayer | undefined {
+    return this.smoothedPlayers.find(p => p.userId === userId) || this.otherPlayers.find(p => p.userId === userId);
   }
 
   // Expose active messages for template
@@ -1013,6 +1150,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
         return
       } 
       players = await this.digcraftService.syncPlayers(userId, this.worldId, this.camX, this.camY, this.camZ, this.yaw, this.pitch);
+      // record server snapshot for interpolation, keep raw server list as well
+      try { this.updatePlayerSnapshots(players); } catch (e) { /* ignore snapshot errors */ }
       this.otherPlayers = players;
 
       // update local health from server if present
@@ -1369,7 +1508,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const hitRadius = 0.9;
     let best: DCPlayer | null = null;
     let bestPerp = Number.POSITIVE_INFINITY;
-    for (const p of this.otherPlayers) {
+    const candidates = this.smoothedPlayers.length ? this.smoothedPlayers : this.otherPlayers;
+    for (const p of candidates) {
       if (!p || p.userId === myId) continue;
       const dx = p.posX - this.camX;
       const dy = p.posY - this.camY;

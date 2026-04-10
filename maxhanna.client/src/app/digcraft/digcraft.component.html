@@ -10,12 +10,8 @@
 
     <!-- Canvas -->
     <canvas #gameCanvas class="game-canvas" [class.hidden]="!joined"></canvas>
-    <!-- Star canvas (night-time stars, twinkle) -->
+    <!-- Star canvas (night-time stars, twinkle) - draws sky, sun/moon and stars behind the WebGL canvas -->
     <canvas #starCanvas class="star-canvas"></canvas>
-    <!-- Sun / Moon overlay (moves across sky; toggles every 10 minutes) -->
-    <div class="celestial" [class.sun]="celestialIsDay" [class.moon]="!celestialIsDay"
-      [style.left.px]="celestialX" [style.top.px]="celestialY"
-      [style.width.px]="celestialSize" [style.height.px]="celestialSize"></div>
     <!-- Damage flash overlay (shown briefly on taking damage) -->
     <div class="damage-flash" [class.show]="isDamageFlash"></div>
 
