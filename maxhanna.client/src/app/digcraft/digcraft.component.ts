@@ -22,6 +22,7 @@ import { UserService } from '../../services/user.service';
 })
 export class DigCraftComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('gameCanvas', { static: false }) canvasRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('starCanvas', { static: false }) starCanvasRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild('joystick', { static: false }) joystickRef?: ElementRef<HTMLDivElement>;
   @ViewChild('chatPrompt', { static: false }) chatPrompt?: PromptComponent;
 
@@ -54,6 +55,12 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private damageFlashTimeout: any = null;
   hunger = 20;
 
+  // Celestial (sun/moon) overlay state
+  celestialX = 0;
+  celestialY = 0;
+  celestialSize = 72;
+  celestialIsDay = true;
+
   // Multiplayer
   otherPlayers: DCPlayer[] = [];
 
@@ -72,6 +79,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private lastTime = 0;
   private keys: Set<string> = new Set();
   private pointerLocked = false;
+
+  // Starfield cache for night sky
+  private stars: { x: number; y: number; r: number; baseA: number; phase: number; spd: number }[] = [];
 
   // adaptive timeouts for polling players and chats (use setTimeout so we can vary frequency)
   private playerPollInterval: ReturnType<typeof setTimeout> | undefined;
@@ -496,6 +506,32 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     const userId = this.parentRef?.user?.id ?? 0;
     this.renderer.render(this.camX, this.camY, this.camZ, this.yaw, this.pitch, this.otherPlayers, userId);
 
+    // Update sun/moon position based on a 10-minute toggle cycle.
+    try {
+      if (canvas) {
+        const cw = canvas.clientWidth || (canvas.width || 800);
+        const ch = canvas.clientHeight || (canvas.height || 600);
+        const segmentMs = 10 * 60 * 1000; // 10 minutes
+        const now = Date.now();
+        const idx = Math.floor(now / segmentMs) % 2; // alternate every segment
+        this.celestialIsDay = idx === 0;
+        const phaseProgress = (now % segmentMs) / segmentMs; // 0..1 through the segment
+        const leftMargin = 0.06 * cw;
+        const rightMargin = 0.94 * cw;
+        const x = leftMargin + phaseProgress * (rightMargin - leftMargin);
+        const arcAmp = ch * 0.34;
+        const topBase = ch * 0.14;
+        const arc = Math.sin(phaseProgress * Math.PI); // 0->1->0
+        const y = topBase + (1 - arc) * arcAmp;
+        this.celestialX = Math.round(x);
+        this.celestialY = Math.round(y);
+        this.celestialSize = Math.round(this.celestialIsDay ? Math.min(140, ch * 0.12) : Math.min(96, ch * 0.09));
+      }
+    } catch (e) { /* keep rendering even if overlay calc fails */ }
+
+    // Update stars canvas (night sky)
+    try { this.updateStarCanvas(); } catch (e) { /* ignore star draw errors */ }
+
     // Update chat bubble positions after rendering
     this.updateChatPositions();
 
@@ -658,6 +694,62 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       r[i] = m[i] * v[0] + m[4 + i] * v[1] + m[8 + i] * v[2] + m[12 + i] * v[3];
     }
     return r;
+  }
+
+  /** Draw a twinkling starfield to the star canvas during night. */
+  private updateStarCanvas(): void {
+    const starEl = this.starCanvasRef?.nativeElement;
+    const gameEl = this.canvasRef?.nativeElement;
+    if (!starEl || !gameEl) return;
+    const w = gameEl.width || gameEl.clientWidth || 800;
+    const h = gameEl.height || gameEl.clientHeight || 600;
+    if (starEl.width !== w || starEl.height !== h) {
+      starEl.width = w;
+      starEl.height = h;
+      // match CSS size to canvas client size if available
+      if (gameEl.clientWidth) starEl.style.width = `${gameEl.clientWidth}px`;
+      if (gameEl.clientHeight) starEl.style.height = `${gameEl.clientHeight}px`;
+      this.stars = [];
+    }
+    const ctx = starEl.getContext('2d');
+    if (!ctx) return;
+    // If it's day, fade out and clear
+    if (this.celestialIsDay) {
+      starEl.style.opacity = '0';
+      ctx.clearRect(0, 0, w, h);
+      return;
+    }
+    // Show and draw stars
+    starEl.style.opacity = '1';
+    if (this.stars.length === 0) {
+      const count = Math.max(60, Math.min(800, Math.floor((w * h) / 6000)));
+      for (let i = 0; i < count; i++) {
+        const x = Math.random() * w;
+        const y = Math.random() * (h * 0.55); // upper sky portion
+        const r = Math.random() * 1.8 + 0.4;
+        const baseA = 0.25 + Math.random() * 0.75;
+        const phase = Math.random() * Math.PI * 2;
+        const spd = 0.4 + Math.random() * 1.6;
+        this.stars.push({ x, y, r, baseA, phase, spd });
+      }
+    }
+    ctx.clearRect(0, 0, w, h);
+    const t = performance.now() / 1000;
+    for (const s of this.stars) {
+      const a = s.baseA + Math.sin(t * s.spd + s.phase) * (0.35 * s.baseA);
+      const alpha = Math.max(0, Math.min(1, a));
+      // subtle glow for larger stars
+      if (s.r > 1.2) {
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(255,255,255,${alpha * 0.45})`;
+        ctx.arc(s.x, s.y, s.r * 2.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   // Expose active messages for template

@@ -617,6 +617,50 @@
 }
 
 
+/* Celestial (sun / moon) */
+.celestial {
+  position: absolute;
+  pointer-events: none;
+  z-index: 5;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+}
+.celestial.sun {
+  background: radial-gradient(circle at 30% 30%, #fff9d6 0%, #ffe082 25%, #ffb300 60%, #ff9800 100%);
+  box-shadow: 0 10px 40px rgba(255, 170, 40, 0.22), inset 0 -6px 18px rgba(255,255,255,0.08);
+  filter: drop-shadow(0 8px 22px rgba(255,160,0,0.18));
+}
+.celestial.moon {
+  background: radial-gradient(circle at 30% 30%, #ffffff 0%, #e6e6e6 30%, #cfcfcf 60%, #bfbfbf 100%);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.18), inset 0 -4px 8px rgba(255,255,255,0.06);
+  opacity: 0.95;
+}
+
+/* Star canvas */
+.star-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+  opacity: 0;
+  transition: opacity 900ms ease-in-out;
+}
+
+/* gentle celestial glow animation */
+.celestial {
+  animation-name: celestial-glow;
+  animation-duration: 5s;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+@keyframes celestial-glow {
+  0% { transform: translate(-50%, -50%) scale(1); filter: drop-shadow(0 10px 24px rgba(255,160,60,0.12)); }
+  50% { transform: translate(-50%, -50%) scale(1.03); filter: drop-shadow(0 12px 30px rgba(255,160,60,0.18)); }
+  100% { transform: translate(-50%, -50%) scale(1); filter: drop-shadow(0 10px 24px rgba(255,160,60,0.12)); }
+}
+.celestial.moon { animation-duration: 8s; }
+
+
 /* Recipe list */
 .recipe-list {
   display: flex;
