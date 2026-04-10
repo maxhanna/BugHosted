@@ -182,7 +182,10 @@
         <h3>You Died</h3>
         <p style="text-align:center">You have been killed. Respawning will remove all items from your inventory.</p>
         <div style="display:flex;gap:12px;justify-content:center;margin-top:12px">
-          <button class="respawn-btn" (pointerdown)="confirmRespawn()">Respawn</button>
+          <button class="respawn-btn" (pointerdown)="confirmRespawn()" [disabled]="isRespawning" [attr.aria-busy]="isRespawning">
+            <ng-container *ngIf="!isRespawning">Respawn</ng-container>
+            <ng-container *ngIf="isRespawning"><app-loading-spinner></app-loading-spinner><span style="margin-left:8px">Respawning…</span></ng-container>
+          </button>
         </div>
       </div>
     </div>

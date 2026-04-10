@@ -45,8 +45,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // Inventory: 36 slots (0-8 = hotbar)
   inventory: InvSlot[] = [];
   selectedSlot = 0;
-  showInventory = false;
-  showCrafting = false;
+  private _showInventory = false;
+  public get showInventory(): boolean { return this._showInventory; }
+  public set showInventory(v: boolean) { this._showInventory = v; this.onMenuStateChanged(); }
+
+  private _showCrafting = false;
+  public get showCrafting(): boolean { return this._showCrafting; }
+  public set showCrafting(v: boolean) { this._showCrafting = v; this.onMenuStateChanged(); }
   availableRecipes: CraftRecipe[] = [];
 
   // Health / hunger
@@ -112,12 +117,24 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private PLAYER_POLL_SLOW_MS = 5000;
   private CHAT_POLL_FAST_MS = 1000;
   private CHAT_POLL_SLOW_MS = 5000;
-  showChatPrompt = false;
-  isShowingLoginPanel = false;
-  showColorPrompt = false;
+  private _showChatPrompt = false;
+  public get showChatPrompt(): boolean { return this._showChatPrompt; }
+  public set showChatPrompt(v: boolean) { this._showChatPrompt = v; this.onMenuStateChanged(); }
+
+  private _isShowingLoginPanel = false;
+  public get isShowingLoginPanel(): boolean { return this._isShowingLoginPanel; }
+  public set isShowingLoginPanel(v: boolean) { this._isShowingLoginPanel = v; this.onMenuStateChanged(); }
+
+  private _showColorPrompt = false;
+  public get showColorPrompt(): boolean { return this._showColorPrompt; }
+  public set showColorPrompt(v: boolean) { this._showColorPrompt = v; this.onMenuStateChanged(); }
   playerColor: string = '#cccccc';
   // Respawn prompt shown when local player reaches 0 health
-  showRespawnPrompt = false;
+  private _showRespawnPrompt = false;
+  public get showRespawnPrompt(): boolean { return this._showRespawnPrompt; }
+  public set showRespawnPrompt(v: boolean) { this._showRespawnPrompt = v; this.onMenuStateChanged(); }
+  // Respawn in-progress flag (disables respawn button while awaiting server)
+  isRespawning = false;
   // active chat messages (client-side)
   private chatMessages: { userId: number; username?: string; text: string; expiresAt: number; createdAt?: string }[] = [];
   // cached bubble positions in pixels
@@ -142,13 +159,22 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   private touchStartedOnJoystick = false;
 
   // Menu popup state
-  isMenuPanelOpen = false;
+  private _isMenuPanelOpen = false;
+  public get isMenuPanelOpen(): boolean { return this._isMenuPanelOpen; }
+  public set isMenuPanelOpen(v: boolean) { this._isMenuPanelOpen = v; this.onMenuStateChanged(); }
 
   // Bound handlers for cleanup (delegates moved to digcraft-input.ts)
   private boundKeyDown = (e: KeyboardEvent): void => onKeyDown(this, e);
   private boundKeyUp = (e: KeyboardEvent): void => onKeyUp(this, e);
   private boundMouseMove = (e: MouseEvent): void => onMouseMove(this, e);
-  private boundMouseDown = (e: MouseEvent): void => onMouseDown(this, e);
+  private boundMouseDown = (e: MouseEvent): void => {
+    // If any UI/menu is open, ignore canvas mouse down so overlays can receive clicks
+    if (this.isAnyMenuOpen()) {
+      try { e.preventDefault(); e.stopPropagation(); } catch (err) {}
+      return;
+    }
+    onMouseDown(this, e);
+  };
   private boundContextMenu = (e: Event): void => e.preventDefault();
   private boundPointerLockChange = (): void => onPointerLockChange(this);
   private boundTouchStart = (e: TouchEvent): void => onTouchStart(this, e);
@@ -962,6 +988,27 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
 
+  // Menu/input helpers
+  private isAnyMenuOpen(): boolean {
+    return this._showInventory || this._showCrafting || this._showPlayersPanel || this._showRespawnPrompt || this._showChatPrompt || this._showColorPrompt || this._isMenuPanelOpen || this._isShowingLoginPanel;
+  }
+
+  private onMenuStateChanged(): void {
+    const canvas = this.canvasRef?.nativeElement;
+    const anyOpen = this.isAnyMenuOpen();
+    if (anyOpen) {
+      try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) {}
+      if (canvas) {
+        try { canvas.style.pointerEvents = 'none'; } catch (e) {}
+        try { (canvas as any).blur(); } catch (e) {}
+      }
+    } else {
+      if (canvas) {
+        try { canvas.style.pointerEvents = ''; } catch (e) {}
+      }
+    }
+  }
+
   // Safe accessors used by template bindings to avoid reading properties of undefined
   public getChatLeft(userId: number): number | null {
     const pos = this.chatPositions[userId];
@@ -1300,7 +1347,8 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
   async confirmRespawn(): Promise<void> {
     const userId = this.parentRef?.user?.id ?? 0;
-    if (!userId) return;
+    if (!userId || this.isRespawning) return;
+    this.isRespawning = true;
     try {
       const res = await this.digcraftService.respawn(userId, this.worldId);
       if (res && res.player) {
@@ -1324,6 +1372,7 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     } catch (err) {
       console.error('DigCraft: respawn failed', err);
     } finally {
+      this.isRespawning = false;
       this.showRespawnPrompt = false;
       try { this.cd.detectChanges(); } catch (e) {}
     }
@@ -1379,7 +1428,9 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
   // timestamp when the current swing started (ms)
   swingStartTime: number = 0;
   // whether the players popup panel is visible
-  showPlayersPanel: boolean = false;
+  private _showPlayersPanel: boolean = false;
+  public get showPlayersPanel(): boolean { return this._showPlayersPanel; }
+  public set showPlayersPanel(v: boolean) { this._showPlayersPanel = v; this.onMenuStateChanged(); }
 
   // Inventory drag/drop state
   dragging = false;

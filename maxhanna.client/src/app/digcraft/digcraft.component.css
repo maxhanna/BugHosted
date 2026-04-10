@@ -467,6 +467,12 @@
   cursor: pointer;
   box-shadow: 0 6px 18px rgba(0,0,0,0.4);
 }
+.respawn-btn[disabled] {
+  opacity: 0.6;
+  cursor: default;
+  box-shadow: none;
+  pointer-events: none;
+}
 .inv-slot {
   aspect-ratio: 1;
   background: rgba(0,0,0,0.4);
